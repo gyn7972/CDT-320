@@ -1,0 +1,214 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Runtime.Serialization;
+using System.Runtime.Serialization.Json;
+
+namespace QMC.CDT320.Alarms
+{
+    /// <summary>알람 카테고리 — 알람 분류 + UI 색상 + SECS Severity 매핑.</summary>
+    [DataContract]
+    public enum AlarmCategory
+    {
+        [EnumMember] Motion,
+        [EnumMember] IO,
+        [EnumMember] Vision,
+        [EnumMember] Communication,
+        [EnumMember] Material,
+        [EnumMember] Safety,
+        [EnumMember] System,
+        [EnumMember] User,
+    }
+
+    /// <summary>알람 마스터 항목 — 코드/제목/원인/조치 (Stage 23 — ko/en 다국어).</summary>
+    [DataContract]
+    public class AlarmDefinition
+    {
+        [DataMember] public string         Code        { get; set; } = "";
+        [DataMember] public AlarmCategory  Category    { get; set; } = AlarmCategory.System;
+        [DataMember] public AlarmSeverity  DefaultSeverity { get; set; } = AlarmSeverity.Warning;
+        // Korean (default)
+        [DataMember] public string         Title       { get; set; } = "";
+        [DataMember] public string         Cause       { get; set; } = "";
+        [DataMember] public string         Action      { get; set; } = "";
+        // English (Stage 23 — Lang.Current=="en" 시 사용. 비어 있으면 Korean fallback)
+        [DataMember] public string         TitleEn     { get; set; } = "";
+        [DataMember] public string         CauseEn     { get; set; } = "";
+        [DataMember] public string         ActionEn    { get; set; } = "";
+        // CDT-310 매뉴얼 호환 (Stage 60) — ASE 매뉴얼 검수용 메타데이터.
+        // 비어 있으면 매뉴얼 매핑 정보 없음 (CDT-320 자체 코드).
+        [DataMember] public string         ManualName    { get; set; } = "";  // 예: "InterlockDetected"
+        [DataMember] public string         ManualLocator { get; set; } = "";  // 예: "DieTransfer/WaferLifter/Plate"
+
+        public string GetTitle(string lang)
+            => (lang == "en" && !string.IsNullOrEmpty(TitleEn)) ? TitleEn : Title;
+        public string GetCause(string lang)
+            => (lang == "en" && !string.IsNullOrEmpty(CauseEn)) ? CauseEn : Cause;
+        public string GetAction(string lang)
+            => (lang == "en" && !string.IsNullOrEmpty(ActionEn)) ? ActionEn : Action;
+
+        public override string ToString()
+            => $"[{Code}] {Title} ({Category}/{DefaultSeverity})";
+    }
+
+    /// <summary>
+    /// 알람 마스터 테이블 — 코드 → 정의 매핑.
+    /// JSON: Config/alarm_master.json
+    /// </summary>
+    public static class AlarmMaster
+    {
+        public static string Dir   => Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config");
+        public static string Path_ => System.IO.Path.Combine(Dir, "alarm_master.json");
+
+        private static Dictionary<string, AlarmDefinition> _byCode = new Dictionary<string, AlarmDefinition>(StringComparer.OrdinalIgnoreCase);
+
+        static AlarmMaster()
+        {
+            try { Directory.CreateDirectory(Dir); } catch { }
+            Load();
+        }
+
+        public static IReadOnlyDictionary<string, AlarmDefinition> ByCode => _byCode;
+
+        public static AlarmDefinition Get(string code)
+        {
+            if (string.IsNullOrEmpty(code)) return null;
+            _byCode.TryGetValue(code, out var d);
+            return d;
+        }
+
+        public static IEnumerable<AlarmDefinition> ByCategory(AlarmCategory cat)
+            => _byCode.Values.Where(d => d.Category == cat);
+
+        public static int Count => _byCode.Count;
+
+        public static void Load()
+        {
+            try
+            {
+                if (!File.Exists(Path_))
+                {
+                    var defaults = CreateDefaults();
+                    _byCode = defaults.ToDictionary(d => d.Code, d => d, StringComparer.OrdinalIgnoreCase);
+                    Save();
+                    return;
+                }
+                using (var fs = File.OpenRead(Path_))
+                {
+                    var ser = new DataContractJsonSerializer(typeof(List<AlarmDefinition>));
+                    var list = (List<AlarmDefinition>)ser.ReadObject(fs);
+                    if (list != null && list.Count > 0)
+                        _byCode = list.ToDictionary(d => d.Code, d => d, StringComparer.OrdinalIgnoreCase);
+                }
+            }
+            catch
+            {
+                _byCode = CreateDefaults().ToDictionary(d => d.Code, d => d, StringComparer.OrdinalIgnoreCase);
+            }
+        }
+
+        public static void Save()
+        {
+            try
+            {
+                var list = _byCode.Values.OrderBy(d => d.Code).ToList();
+                using (var fs = File.Create(Path_))
+                {
+                    var ser = new DataContractJsonSerializer(typeof(List<AlarmDefinition>));
+                    ser.WriteObject(fs, list);
+                }
+            }
+            catch { }
+        }
+
+        public static List<AlarmDefinition> CreateDefaults()
+        {
+            return new List<AlarmDefinition>
+            {
+                // ── Motion (모션) ──
+                new AlarmDefinition { Code="HOME-FAIL",  Category=AlarmCategory.Motion, DefaultSeverity=AlarmSeverity.Error,
+                    Title="HOME 검색 실패", Cause="원점 센서 신호 미인식 / 축 알람", Action="알람 리셋 후 수동 HOME 시도",
+                    TitleEn="Home search failed", CauseEn="Origin sensor not detected / axis alarm", ActionEn="Reset alarm and retry HOME manually",
+                    ManualName="FailedReferencePositionFind", ManualLocator="DieTransfer/WaferTransfer/Stage" },
+                new AlarmDefinition { Code="MOVE-TIMEOUT", Category=AlarmCategory.Motion, DefaultSeverity=AlarmSeverity.Error,
+                    Title="모션 타임아웃", Cause="목표 위치 미도달", Action="물리 간섭 확인, 서보 게인 조정",
+                    ManualName="PositionMismatchedInMotionDone", ManualLocator="모든 Axis" },
+                new AlarmDefinition { Code="SERVO-OFF", Category=AlarmCategory.Motion, DefaultSeverity=AlarmSeverity.Warning,
+                    Title="서보 OFF", Cause="EMG 또는 알람 트리거", Action="원인 해소 후 ServoOn 재시도" },
+                new AlarmDefinition { Code="LIMIT-HIT", Category=AlarmCategory.Motion, DefaultSeverity=AlarmSeverity.Error,
+                    Title="리미트 센서 도달", Cause="기계 한계 또는 좌표 오류", Action="역방향 조그 후 좌표 재설정",
+                    ManualName="PositivePositionExceed", ManualLocator="모든 Axis" },
+                new AlarmDefinition { Code="INTERLOCK", Category=AlarmCategory.Safety, DefaultSeverity=AlarmSeverity.Warning,
+                    Title="인터록 차단", Cause="다른 축의 위치/상태가 이동을 차단", Action="History → Alarm 에서 차단 사유 확인 후 안전 위치로 이동",
+                    TitleEn="Interlock blocked", CauseEn="Other axis position/state blocks the move", ActionEn="Check History/Alarm for reason, move to safe position",
+                    ManualName="InterlockDetected", ManualLocator="모든 Interlock" },
+
+                // ── Vision (비전) ──
+                new AlarmDefinition { Code="VISION-CONN", Category=AlarmCategory.Vision, DefaultSeverity=AlarmSeverity.Warning,
+                    Title="Vision 연결 변경", Cause="Vision PC 연결/해제", Action="자동 재연결 대기 또는 수동 connect" },
+                new AlarmDefinition { Code="VisionMatchFail", Category=AlarmCategory.Vision, DefaultSeverity=AlarmSeverity.Warning,
+                    Title="Vision 매칭 실패", Cause="조명, 패턴 학습 부족, ROI 어긋남", Action="ROI 재설정 + 재학습, 조명 조정",
+                    TitleEn="Vision match failed", CauseEn="Lighting / pattern training / ROI mismatch", ActionEn="Reset ROI, re-train, adjust lighting",
+                    ManualName="OutOfTolerance", ManualLocator="DieTransfer/.../MachineVision/Services" },
+                new AlarmDefinition { Code="EXPOSE-TIMEOUT", Category=AlarmCategory.Vision, DefaultSeverity=AlarmSeverity.Error,
+                    Title="EPD 미수신", Cause="Vision 그랩 미완료", Action="Vision PC 상태 확인, 카메라 케이블/네트워크 점검",
+                    ManualName="ResultTimeOut", ManualLocator="DieTransfer/.../MachineVision/Services" },
+
+                // ── Material / Inspection ──
+                new AlarmDefinition { Code="PickFail", Category=AlarmCategory.Material, DefaultSeverity=AlarmSeverity.Warning,
+                    Title="Pick 실패", Cause="진공 부족, 콜렛 손상, 다이 미확인", Action="콜렛 청소, 진공 압력 확인, Pick Retry 재시도",
+                    TitleEn="Pick failed", CauseEn="Vacuum low / collet damaged / die not detected", ActionEn="Clean collet, check vacuum, run Pick Retry",
+                    ManualName="MaterialDoesNotExistAfterReceive", ManualLocator="DieTransfer/PickAndPlaceDieTransfer/Tool/PickerN" },
+                new AlarmDefinition { Code="BottomInspFail", Category=AlarmCategory.Material, DefaultSeverity=AlarmSeverity.Warning,
+                    Title="Bottom 검사 실패", Cause="다이 표면 결함 또는 임계값 초과", Action="레시피 임계값 조정 또는 다이 NG 처리",
+                    ManualName="FailedInspection", ManualLocator="DieTransfer/PickAndPlaceDieTransfer/BottomInspectionVision" },
+                new AlarmDefinition { Code="PlacementFail", Category=AlarmCategory.Material, DefaultSeverity=AlarmSeverity.Warning,
+                    Title="Placement 실패", Cause="Bin Vision 측정 NG", Action="배치 위치/각도 재조정" },
+
+                // ── Communication ──
+                new AlarmDefinition { Code="SECS-DISCONN", Category=AlarmCategory.Communication, DefaultSeverity=AlarmSeverity.Warning,
+                    Title="SECS Host 연결 끊김", Cause="네트워크 또는 Host 측 종료", Action="자동 재연결 대기" },
+                new AlarmDefinition { Code="SIM-DISCONN", Category=AlarmCategory.Communication, DefaultSeverity=AlarmSeverity.Warning,
+                    Title="시뮬레이터 연결 끊김", Cause="시뮬레이터 종료 또는 TCP 오류", Action="시뮬레이터 재기동" },
+
+                // ── IO / Safety ──
+                // Stage 60 — `EMG-PRESSED` 였으나 실호출(MachineController.cs:510)이 `E-STOP` 이므로 통일.
+                new AlarmDefinition { Code="E-STOP", Category=AlarmCategory.Safety, DefaultSeverity=AlarmSeverity.Critical,
+                    Title="비상 정지", Cause="E-Stop 버튼 또는 Door 센서", Action="안전 확인 후 비상 정지 해제 + Reset",
+                    TitleEn="Emergency Stop", CauseEn="E-Stop button or door sensor", ActionEn="Confirm safety, release E-Stop and Reset",
+                    ManualName="InterlockDetected", ManualLocator="모든 Interlock" },
+                new AlarmDefinition { Code="VAC-LOW", Category=AlarmCategory.IO, DefaultSeverity=AlarmSeverity.Warning,
+                    Title="진공 부족", Cause="진공 펌프 또는 라인 누설", Action="진공 게이지 확인, 호스 점검" },
+                new AlarmDefinition { Code="CDA-LOW", Category=AlarmCategory.IO, DefaultSeverity=AlarmSeverity.Error,
+                    Title="공압 부족", Cause="레귤레이터 또는 라인 누설", Action="공압 게이지 확인" },
+                new AlarmDefinition { Code="IONIZER", Category=AlarmCategory.IO, DefaultSeverity=AlarmSeverity.Warning,
+                    Title="이오나이저 알람", Cause="이오나이저 동작 이상 또는 전극 청소 필요", Action="전극 청소 후 reset" },
+
+                // ── System ──
+                new AlarmDefinition { Code="CYCLE-EX", Category=AlarmCategory.System, DefaultSeverity=AlarmSeverity.Error,
+                    Title="사이클 예외", Cause="MachineController 내부 예외", Action="EventLog 확인 후 재기동" },
+
+                // ── InputStage (Stage B 추가 2026-04-30) ──
+                new AlarmDefinition { Code="IS-FEEDER", Category=AlarmCategory.Material, DefaultSeverity=AlarmSeverity.Warning,
+                    Title="입력 피더 안전 위치 미확인", Cause="피더가 안전 위치 미도달", Action="피더 위치 확인 후 수동 후퇴" },
+                new AlarmDefinition { Code="IS-EXPZ", Category=AlarmCategory.Motion, DefaultSeverity=AlarmSeverity.Error,
+                    Title="ExpanderZ 알람", Cause="ExpanderZ 축 알람 발생", Action="알람 리셋 후 수동 HOME" },
+                new AlarmDefinition { Code="IS-BARCODE", Category=AlarmCategory.Material, DefaultSeverity=AlarmSeverity.Warning,
+                    Title="바코드 읽기 실패", Cause="바코드 리더 통신 또는 라벨 인식 실패", Action="라벨 청소, 시리얼 케이블 확인" },
+                new AlarmDefinition { Code="IS-MAP", Category=AlarmCategory.Material, DefaultSeverity=AlarmSeverity.Warning,
+                    Title="웨이퍼 맵 파싱 실패", Cause="맵 파일 미존재 또는 형식 오류", Action="맵 파일 위치/형식 확인" },
+                new AlarmDefinition { Code="IS-ALIGN", Category=AlarmCategory.Vision, DefaultSeverity=AlarmSeverity.Warning,
+                    Title="비전 얼라인 실패", Cause="얼라인 비전 매칭/수렴 실패", Action="조명/패턴 학습 재조정" },
+                new AlarmDefinition { Code="IS-MOVE", Category=AlarmCategory.Motion, DefaultSeverity=AlarmSeverity.Error,
+                    Title="InputStage 이동 실패", Cause="이동 후 축 알람", Action="알람 리셋, 인터락 확인" },
+
+                // ── OutputStage (Stage B 추가 2026-04-30) ──
+                new AlarmDefinition { Code="OS-AVOID", Category=AlarmCategory.Safety, DefaultSeverity=AlarmSeverity.Error,
+                    Title="OutputStage 회피 실패", Cause="반대 스테이지 Z 회피 미달성", Action="인터락 확인, StageZ 수동 하강",
+                    ManualName="InterlockDetected", ManualLocator="DieTransfer/BinTransfer/DiePost/UpDownCylinder/*Interlock" },
+                new AlarmDefinition { Code="OS-WORKZ", Category=AlarmCategory.Motion, DefaultSeverity=AlarmSeverity.Error,
+                    Title="OutputStage WorkZ 이동 실패", Cause="StageZ 작업 위치 이동 후 알람", Action="알람 리셋, 인터락 확인" },
+                new AlarmDefinition { Code="OS-MOVEY", Category=AlarmCategory.Motion, DefaultSeverity=AlarmSeverity.Error,
+                    Title="OutputStage Y 이동 실패", Cause="StageY 이동 후 알람", Action="알람 리셋, 인터락 확인" },
+                new AlarmDefinition { Code="OS-PLACEDONE", Category=AlarmCategory.Material, Def
