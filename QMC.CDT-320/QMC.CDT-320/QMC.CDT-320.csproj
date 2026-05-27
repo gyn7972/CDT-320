@@ -1,0 +1,425 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{B278A117-2589-45CF-BA23-B891B33CA2EA}</ProjectGuid>
+    <OutputType>WinExe</OutputType>
+    <RootNamespace>QMC.CDT_320</RootNamespace>
+    <AssemblyName>QMC.CDT-320</AssemblyName>
+    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Deployment" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Net.Http" />
+    <Reference Include="System.Runtime.Serialization" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Equipment / Core -->
+    <Compile Include="Equipment\AppSettings.cs" />
+    <Compile Include="Equipment\CDT320Machine.cs" />
+    <Compile Include="Equipment\CycleMode.cs" />
+    <Compile Include="Equipment\InputLoaderUnit.cs" />
+    <Compile Include="Equipment\InputStageUnit.cs" />
+    <Compile Include="Equipment\IStageInterfaces.cs" />
+    <Compile Include="Equipment\MachineController.cs" />
+    <Compile Include="Equipment\OutputStageUnit.cs" />
+    <Compile Include="Equipment\OutputUnloaderUnit.cs" />
+    <Compile Include="Equipment\SimComponents.cs" />
+    <Compile Include="Equipment\SimulatorBridge.cs" />
+    <Compile Include="Equipment\Sim\SimCassetteDriver.cs" />
+    <Compile Include="Equipment\Sim\OutputUnloaderAdapter.cs" />
+    <Compile Include="Equipment\Sim\WaferLoaderAdapter.cs" />
+    <Compile Include="Ui\Pages\Recipe\ModuleSubsetPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Equipment\Vision\BarcodeSerialAdapter.cs" />
+    <Compile Include="Equipment\OperationPanelUnit.cs" />
+    <Compile Include="Equipment\ResourceSensorsUnit.cs" />
+    <Compile Include="Equipment\SlotMapper.cs" />
+    <Compile Include="Equipment\IonizerUnit.cs" />
+    <Compile Include="Equipment\PostPnpTransferUnit.cs" />
+    <Compile Include="Equipment\Plate.cs" />
+    <Compile Include="Ui\Pages\WorkInfo\OperationPanelStatusPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\WorkInfo\PlateStatusPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\Recipe\PickupSubsetPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\Recipe\OutputSubsetPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Equipment\TransferPickerUnit.cs" />
+    <Compile Include="Equipment\UnitData.cs" />
+    <!-- Equipment / Alarms -->
+    <Compile Include="Equipment\Alarms\AlarmManager.cs" />
+    <Compile Include="Equipment\Alarms\AlarmRecord.cs" />
+    <Compile Include="Equipment\Alarms\AlarmSeverity.cs" />
+    <Compile Include="Equipment\Alarms\AlarmMaster.cs" />
+    <!-- Equipment / Logging -->
+    <Compile Include="Equipment\Logging\EventLogger.cs" />
+    <!-- Equipment / Recipes -->
+    <Compile Include="Equipment\Recipes\RecipeStore.cs" />
+    <!-- Equipment / Materials (310 이식) -->
+    <Compile Include="Equipment\Materials\Die.cs" />
+    <Compile Include="Equipment\Materials\DieTapeFrame.cs" />
+    <Compile Include="Equipment\Materials\MaterialStorage.cs" />
+    <Compile Include="Equipment\Materials\MaterialSpecs.cs" />
+    <!-- Equipment / Vision (310 이식 — 좌표/캘리브레이션) -->
+    <Compile Include="Equipment\Vision\CoordinateMap.cs" />
+    <Compile Include="Equipment\Vision\AlignmentSolver.cs" />
+    <!-- Equipment / Secs (310 이식 + Stage 3 HSMS) -->
+    <Compile Include="Equipment\Secs\SecsHost.cs" />
+    <Compile Include="Equipment\Secs\HsmsConnection.cs" />
+    <Compile Include="Equipment\Secs\SecsMessage.cs" />
+    <Compile Include="Equipment\Secs\SecsItem.cs" />
+    <!-- Equipment / Remote (Stage 3) -->
+    <Compile Include="Equipment\Remote\RemoteViewer.cs" />
+    <!-- Equipment / Sensors (Stage 3) -->
+    <Compile Include="Equipment\Sensors\IonizerSensor.cs" />
+    <!-- Equipment / Bin (Stage 3 — Reject) -->
+    <Compile Include="Equipment\Bin\SubPortMaterialRejector.cs" />
+    <!-- Equipment / Lots (Stage 3) -->
+    <Compile Include="Equipment\Lots\Lot.cs" />
+    <Compile Include="Equipment\Lots\LotStorage.cs" />
+    <!-- Equipment / Interlocks (Stage 3 — 5 + Stage 8 — 5 추가, 총 15) -->
+    <Compile Include="Equipment\Interlocks\ExtendedInterlocks.cs" />
+    <Compile Include="Equipment\Interlocks\ExtendedInterlocks2.cs" />
+    <Compile Include="Equipment\Interlocks\ExtendedInterlocks3.cs" />
+    <!-- Equipment / Bin (310 이식) -->
+    <Compile Include="Equipment\Bin\BinCodeMap.cs" />
+    <!-- Equipment / DieMaps (310 이식) -->
+    <Compile Include="Equipment\DieMaps\DieMap.cs" />
+    <Compile Include="Equipment\DieMaps\DieMapGenerator.cs" />
+    <Compile Include="Equipment\DieMaps\PickupSequenceGenerator.cs" />
+    <Compile Include="Equipment\DieMaps\DieMapSaver.cs" />
+    <!-- Equipment / Jobs (310 이식) -->
+    <Compile Include="Equipment\Jobs\JobOrder.cs" />
+    <Compile Include="Equipment\Jobs\JobQueue.cs" />
+    <!-- Equipment / Interlocks (310 이식) -->
+    <Compile Include="Equipment\Interlocks\MotionInterlock.cs" />
+    <Compile Include="Equipment\Interlocks\StandardInterlocks.cs" />
+    <!-- Ui / Controls (310 이식) -->
+    <Compile Include="Ui\Controls\DieMapView.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <!-- Stage 4 신규 — Dialogs + WorkInfo ActiveLot -->
+    <Compile Include="Ui\Dialogs\RemoteViewerDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\WorkInfo\ActiveLotPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <!-- Ui / Pages / Material (310 이식) -->
+    <Compile Include="Ui\Pages\Material\MaterialBinPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\Material\DieMapPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <!-- Ui / Pages / Recipe / Subset (Stage 1 — 310 이식) -->
+    <Compile Include="Ui\Pages\Recipe\SubsetPageBase.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\Recipe\DieSubsetPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\Recipe\TapeFrameSubsetPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\Recipe\LoadTapeFrameSubsetPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\Recipe\UnloadTapeFrameSubsetPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <!-- Equipment / Ajin -->
+    <Compile Include="Equipment\Ajin\AjinAxis.cs" />
+    <Compile Include="Equipment\Ajin\AjinConfig.cs" />
+    <Compile Include="Equipment\Ajin\AjinCylinder.cs" />
+    <Compile Include="Equipment\Ajin\AjinDigitalInput.cs" />
+    <Compile Include="Equipment\Ajin\AjinDigitalOutput.cs" />
+    <Compile Include="Equipment\Ajin\AjinFactory.cs" />
+    <Compile Include="Equipment\Ajin\AjinSystem.cs" />
+    <Compile Include="Equipment\Ajin\Axl.cs" />
+    <Compile Include="Equipment\Ajin\AxtReturn.cs" />
+    <!-- Equipment / Vision (Vision 프로세스 통신) -->
+    <Compile Include="Equipment\Vision\VisionAdapters.cs" />
+    <Compile Include="Equipment\Vision\VisionHub.cs" />
+    <Compile Include="Equipment\Vision\VisionTcpClient.cs" />
+    <!-- UI / Theme + Localization + Security -->
+    <Compile Include="Ui\UiTheme.cs" />
+    <Compile Include="Ui\Localization\Lang.cs" />
+    <Compile Include="Ui\Security\AccessControl.cs" />
+    <Compile Include="Ui\Security\UserLevel.cs" />
+    <Compile Include="Ui\Security\UserSession.cs" />
+    <!-- UI / Controls -->
+    <Compile Include="Ui\Controls\ActionButton.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Ui\Controls\AlarmBanner.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Ui\Controls\BottomMenuButton.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Ui\Controls\IndicatorDot.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Ui\Controls\SidebarButton.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Ui\Controls\VerticalLabel.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Ui\Controls\LiveLotMapView.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <!-- UI / Dialogs -->
+    <Compile Include="Ui\Dialogs\BoardScanDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\CstStatusDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\LoginDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\ModeDialogs.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\ModeOverlayDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\SystemSelfTestDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <!-- UI / Tabs -->
+    <Compile Include="Ui\Tabs\TabBase.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Tabs\TabBase.Designer.cs">
+      <DependentUpon>TabBase.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Tabs\WorkTab.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Tabs\WorkTab.Designer.cs">
+      <DependentUpon>WorkTab.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Tabs\WorkInfoTab.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Tabs\WorkInfoTab.Designer.cs">
+      <DependentUpon>WorkInfoTab.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Tabs\HistoryTab.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Tabs\HistoryTab.Designer.cs">
+      <DependentUpon>HistoryTab.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Tabs\RecipeTab.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Tabs\RecipeTab.Designer.cs">
+      <DependentUpon>RecipeTab.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Tabs\SettingsTab.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Tabs\SettingsTab.Designer.cs">
+      <DependentUpon>SettingsTab.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Tabs\UserTab.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Tabs\UserTab.Designer.cs">
+      <DependentUpon>UserTab.cs</DependentUpon>
+    </Compile>
+    <!-- UI / Util -->
+    <Compile Include="Ui\Util\UiClickAuditor.cs" />
+    <!-- UI / Pages 공용 -->
+    <Compile Include="Ui\Pages\PageBase.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\PlaceholderPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\InfoRows.cs" />
+    <!-- UI / Pages / Work -->
+    <Compile Include="Ui\Pages\Work\WorkMainPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\Work\MapTransferPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\Work\VisionAlignPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <!-- UI / Pages / WorkInfo -->
+    <Compile Include="Ui\Pages\WorkInfo\HeadPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\WorkInfo\InputCassettePage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\WorkInfo\InputFeederPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\WorkInfo\InputStagePage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\WorkInfo\LogicDetailPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\WorkInfo\OutputPages.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <!-- UI / Pages / History -->
+    <Compile Include="Ui\Pages\History\EventLogPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\History\FilterPages.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\History\MessageEditPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\History\AlarmHistoryPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <!-- UI / Pages / Recipe -->
+    <Compile Include="Ui\Pages\Recipe\CassetteRecipePage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\Recipe\FeederRecipePage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\Recipe\ForceControlPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\Recipe\HeadRecipePage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\Recipe\MapCreatePage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\Recipe\ProjectPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\Recipe\RecipeLayoutHelpers.cs" />
+    <Compile Include="Ui\Pages\Recipe\StageRecipePage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\Recipe\VisionRecipePage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <!-- UI / Pages / Settings -->
+    <Compile Include="Ui\Pages\Settings\DevicePages.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\Settings\GeneralPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\Settings\IoListPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\Settings\MotionPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\Settings\SimulatorLinkPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\Settings\VisionLinkPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\Settings\AlarmMasterPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\Settings\PositionTeachingPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\Settings\AxisSetupPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\Settings\CameraSetupPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\Settings\LightControllerPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <!-- Form1 + Program -->
+    <Compile Include="Form1.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Form1.Designer.cs">
+      <DependentUpon>Form1.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Program.cs" />
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <EmbeddedResource Include="Properties\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+      <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <Compile Include="Properties\Resources.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
+    <None Include="Properties\Settings.settings">
+      <Generator>SettingsSingleFileGenerator</Generator>
+      <LastGenOutput>Settings.Designer.cs</LastGenOutput>
+    </None>
+    <Compile Include="Properties\Settings.Designer.cs">
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Settings.settings</DependentUpon>
+      <DesignTimeSharedInput>True</DesignTimeSharedInput>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="App.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\QMC.Common\QMC.Common.csproj">
+      <Project>{1E539F7D-24C0-4FC8-B818-FDED38A809C7}</Project>
+      <Name>QMC.Common</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>
