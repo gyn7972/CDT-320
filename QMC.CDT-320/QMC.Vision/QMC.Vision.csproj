@@ -99,6 +99,7 @@
     <Compile Include="Modules\BottomSideInspectionModule.cs" />
 
     <Compile Include="Comm\VisionTcpServer.cs" />
+    <Compile Include="Tools\CameraConnectTest.cs" />
     <Compile Include="Config\VisionConfig.cs" />
     <Compile Include="Config\AlgorithmCameraMap.cs" />
     <Compile Include="Config\AlgorithmCameraBinder.cs" />
