@@ -62,6 +62,9 @@
     <Compile Include="Equipment\Sim\SimCassetteDriver.cs" />
     <Compile Include="Equipment\Sim\OutputUnloaderAdapter.cs" />
     <Compile Include="Equipment\Sim\WaferLoaderAdapter.cs" />
+    <Compile Include="Ui\Pages\Recipe\CassetteRecipePage.Designer.cs">
+      <DependentUpon>CassetteRecipePage.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Pages\Recipe\ModuleSubsetPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
