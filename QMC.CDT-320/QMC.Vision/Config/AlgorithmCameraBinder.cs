@@ -1,4 +1,5 @@
 using System;
+using System.Text;
 using QMC.Vision.Core;
 
 namespace QMC.Vision.Config
@@ -10,26 +11,46 @@ namespace QMC.Vision.Config
     public static class AlgorithmCameraBinder
     {
         /// <summary>매핑 → 카메라 생성 + 파라미터 적용 + Open.
-        /// 실패해도 호출자가 처리할 수 있도록 예외는 삼키지 않음(필요 시 try/catch 하라).</summary>
-        public static ICamera CreateAndApply(AlgorithmCameraMapping m)
+        /// Open/Apply 단계 실패는 호출자가 처리할 수 있도록 throw 하지 않음.
+        /// <paramref name="openError"/> / <paramref name="applyError"/> 가 채워지면 알람 발생 권장.</summary>
+        public static ICamera CreateAndApply(AlgorithmCameraMapping m,
+                                             out string openError, out string applyError)
         {
+            openError = null;
+            applyError = null;
             if (m == null) throw new ArgumentNullException(nameof(m));
             var cam = CameraFactory.CreateById(m.CameraId);
-            try { cam.Open(); } catch { /* SDK 미설치/장치 없음 — Sim fallback 이미 적용됨 */ }
-            try { ApplyParameters(cam, m); } catch { }
+            try { cam.Open(); } catch (Exception ex) { openError = ex.Message; }
+            TryApplyParameters(cam, m, out applyError);
             return cam;
         }
 
-        /// <summary>이미 생성된 카메라에 파라미터만 갱신.</summary>
-        public static void ApplyParameters(ICamera cam, AlgorithmCameraMapping m)
+        /// <summary>오버로드 — error out 변수 받지 않는 호출자용 (편의).</summary>
+        public static ICamera CreateAndApply(AlgorithmCameraMapping m)
+            => CreateAndApply(m, out _, out _);
+
+        /// <summary>이미 생성된 카메라에 파라미터만 갱신 (오류 메시지 반환).</summary>
+        public static bool TryApplyParameters(ICamera cam, AlgorithmCameraMapping m, out string error)
         {
-            if (cam == null || m == null) return;
-            try { cam.ExposureUs           = m.ExposureUs; } catch { }
-            try { cam.Gain                 = m.Gain;       } catch { }
-            try { cam.AcquisitionFrameRate = m.FrameRate;  } catch { }
-            try { cam.TriggerMode          = ParseTrigger(m.TriggerMode); } catch { }
-            try { cam.PixelFormat          = ParsePixel(m.PixelFormat);   } catch { }
+            error = null;
+            if (cam == null || m == null) { error = "camera or mapping is null"; return false; }
+            var sb = new StringBuilder();
+            try { cam.ExposureUs           = m.ExposureUs; } catch (Exception ex) { sb.Append("Exposure:" + ex.Message + "; "); }
+            try { cam.Gain                 = m.Gain;       } catch (Exception ex) { sb.Append("Gain:"     + ex.Message + "; "); }
+            try { cam.AcquisitionFrameRate = m.FrameRate;  } catch (Exception ex) { sb.Append("FPS:"      + ex.Message + "; "); }
+            try { cam.TriggerMode          = ParseTrigger(m.TriggerMode); } catch (Exception ex) { sb.Append("Trigger:" + ex.Message + "; "); }
+            try { cam.PixelFormat          = ParsePixel(m.PixelFormat);   } catch (Exception ex) { sb.Append("Pixel:"   + ex.Message + "; "); }
+            if (!m.IsRoiFull)
+            {
+                try { cam.Roi = m.ToRectangle(); } catch (Exception ex) { sb.Append("ROI:" + ex.Message + "; "); }
+            }
+            if (sb.Length > 0) { error = sb.ToString().TrimEnd(' ', ';'); return false; }
+            return true;
         }
+
+        /// <summary>레거시 시그니처 — 오류 무시.</summary>
+        public static void ApplyParameters(ICamera cam, AlgorithmCameraMapping m)
+            => TryApplyParameters(cam, m, out _);
 
         public static CameraTriggerMode ParseTrigger(string s)
         {

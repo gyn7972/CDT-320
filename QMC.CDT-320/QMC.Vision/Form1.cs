@@ -1,5 +1,6 @@
 using System;
 using System.Windows.Forms;
+using QMC.Common.Alarms;
 using QMC.Vision.Comm;
 using QMC.Vision.Config;
 using QMC.Vision.Core;
@@ -97,13 +98,40 @@ namespace QMC.Vision
         private static ICamera CreateCameraForAlgorithm(AlgorithmCameraMap map, string algorithm, string fallbackId)
         {
             var m = map?.Get(algorithm);
+            bool wasMissing = false;
             if (m == null)
             {
+                wasMissing = true;
                 m = new AlgorithmCameraMapping { Algorithm = algorithm, CameraId = fallbackId };
                 AlgorithmCameraMapStore.Current.Items.Add(m);
             }
-            if (string.IsNullOrEmpty(m.CameraId)) m.CameraId = fallbackId;
-            return AlgorithmCameraBinder.CreateAndApply(m);
+            if (string.IsNullOrEmpty(m.CameraId))
+            {
+                wasMissing = true;
+                m.CameraId = fallbackId;
+            }
+
+            if (wasMissing)
+            {
+                AlarmManager.Raise(AlarmSeverity.Warning, "VISION-MAPMISS",
+                    "Vision/" + algorithm,
+                    $"매핑 누락 — fallback '{fallbackId}' 사용");
+            }
+
+            var cam = AlgorithmCameraBinder.CreateAndApply(m, out var openErr, out var applyErr);
+            if (!string.IsNullOrEmpty(openErr))
+            {
+                AlarmManager.Raise(AlarmSeverity.Error, "VISION-CAMOPEN",
+                    "Vision/" + algorithm,
+                    $"Camera.Open 실패 [{m.CameraId}]: {openErr}");
+            }
+            if (!string.IsNullOrEmpty(applyErr))
+            {
+                AlarmManager.Raise(AlarmSeverity.Warning, "VISION-PARAMFAIL",
+                    "Vision/" + algorithm,
+                    $"파라미터 적용 실패: {applyErr}");
+            }
+            return cam;
         }
 
         private static void ApplyDelayFromMap(VisionModule mod, AlgorithmCameraMap map, string algorithm)
@@ -112,28 +140,58 @@ namespace QMC.Vision
             if (mod != null && m != null) mod.DelayBeforeGrabMs = m.DelayBeforeGrabMs;
         }
 
-        /// <summary>SettingsPage 의 "실행 모듈에 적용" 에서 호출 — 카메라 교체 또는 파라미터 갱신.</summary>
-        public void RebindAlgorithmCamera(string algorithm, AlgorithmCameraMapping mapping)
+        /// <summary>SettingsPage 의 "실행 모듈에 적용" 에서 호출 — 카메라 교체 또는 파라미터 갱신.
+        /// 오류 메시지를 out 으로 반환 (SettingsPage 가 status label 에 표시).</summary>
+        public bool RebindAlgorithmCamera(string algorithm, AlgorithmCameraMapping mapping, out string error)
         {
-            if (mapping == null) return;
+            error = null;
+            if (mapping == null) { error = "mapping is null"; return false; }
             VisionModule mod = ResolveModule(algorithm);
-            if (mod == null) return;
+            if (mod == null) { error = "unknown algorithm: " + algorithm; return false; }
 
             mod.DelayBeforeGrabMs = mapping.DelayBeforeGrabMs;
 
             // 카메라 ID 가 같으면 파라미터만 갱신, 다르면 카메라 교체
             if (string.Equals(mod.Camera?.Info?.Id, mapping.CameraId, StringComparison.OrdinalIgnoreCase))
             {
-                AlgorithmCameraBinder.ApplyParameters(mod.Camera, mapping);
-                return;
+                if (!AlgorithmCameraBinder.TryApplyParameters(mod.Camera, mapping, out var applyErr))
+                {
+                    error = applyErr;
+                    AlarmManager.Raise(AlarmSeverity.Warning, "VISION-PARAMFAIL",
+                        "Vision/" + algorithm, "파라미터 적용 실패: " + applyErr);
+                    return false;
+                }
+                return true;
             }
 
-            // 카메라 교체: 기존 닫고 새로 Open. TCP 서버는 모듈을 가리키므로 영향 없음.
+            // 카메라 교체: 새 카메라 생성 + Open + Apply. 실패 시 old 유지 (롤백).
+            var newCam = AlgorithmCameraBinder.CreateAndApply(mapping, out var openErr, out var newApplyErr);
+            if (!string.IsNullOrEmpty(openErr))
+            {
+                error = openErr;
+                AlarmManager.Raise(AlarmSeverity.Error, "VISION-CAMOPEN",
+                    "Vision/" + algorithm, $"신규 카메라 Open 실패 [{mapping.CameraId}]: {openErr}");
+                try { newCam?.Dispose(); } catch { }
+                return false;
+            }
+            // 신규 카메라 OK — 교체
             var oldCam = mod.Camera;
-            var newCam = AlgorithmCameraBinder.CreateAndApply(mapping);
             mod.SetCamera(newCam);
             try { oldCam?.Dispose(); } catch { }
+            if (!string.IsNullOrEmpty(newApplyErr))
+            {
+                // open 은 성공했지만 일부 파라미터 적용 실패 — warning
+                error = newApplyErr;
+                AlarmManager.Raise(AlarmSeverity.Warning, "VISION-PARAMFAIL",
+                    "Vision/" + algorithm, "신규 카메라 파라미터 적용 실패: " + newApplyErr);
+                return false;
+            }
+            return true;
         }
+
+        /// <summary>레거시 시그니처 — error 무시.</summary>
+        public void RebindAlgorithmCamera(string algorithm, AlgorithmCameraMapping mapping)
+            => RebindAlgorithmCamera(algorithm, mapping, out _);
 
         private VisionModule ResolveModule(string algorithm)
         {

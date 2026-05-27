@@ -17,8 +17,9 @@ namespace QMC.Vision.Ui.Pages
         private ComboBox _cbCameraId;
         private Button   _btnDiscover;
         private NumericUpDown _numExposure, _numGain, _numFps, _numDelay;
+        private NumericUpDown _numRoiX, _numRoiY, _numRoiW, _numRoiH;
         private ComboBox _cbTrigger, _cbPixel;
-        private Button   _btnSave, _btnApply, _btnTestGrab;
+        private Button   _btnSave, _btnApply, _btnTestGrab, _btnReset, _btnCancel;
         private Label    _lblStatus;
         private PictureBox _picPreview;
 
@@ -103,17 +104,41 @@ namespace QMC.Vision.Ui.Pages
             _numDelay = MakeNum(x2, y, 0, 60_000, 0, 10); body.Controls.Add(_numDelay);
             _numDelay.ValueChanged += (s, e) => OnFieldChanged();
 
+            // Stage 62 — ROI 4 필드 (0 = full sensor)
+            y += dy;
+            body.Controls.Add(L("ROI (0=full sensor)", x1, y));
+            body.Controls.Add(new Label { Location = new Point(x2,        y + 2), AutoSize = true, Text = "OffsetX",  Font = UiTheme.ButtonFont });
+            _numRoiX = MakeNum(x2 + 60,  y, 0, 8000, 0, 1); _numRoiX.Width = 80; body.Controls.Add(_numRoiX);
+            body.Controls.Add(new Label { Location = new Point(x2 + 145,  y + 2), AutoSize = true, Text = "OffsetY", Font = UiTheme.ButtonFont });
+            _numRoiY = MakeNum(x2 + 205, y, 0, 8000, 0, 1); _numRoiY.Width = 80; body.Controls.Add(_numRoiY);
+            body.Controls.Add(new Label { Location = new Point(x2 + 290,  y + 2), AutoSize = true, Text = "W",        Font = UiTheme.ButtonFont });
+            _numRoiW = MakeNum(x2 + 310, y, 0, 8000, 0, 1); _numRoiW.Width = 80; body.Controls.Add(_numRoiW);
+            body.Controls.Add(new Label { Location = new Point(x2 + 395,  y + 2), AutoSize = true, Text = "H",        Font = UiTheme.ButtonFont });
+            _numRoiH = MakeNum(x2 + 415, y, 0, 8000, 0, 1); _numRoiH.Width = 80; body.Controls.Add(_numRoiH);
+            _numRoiX.ValueChanged += (s, e) => OnFieldChanged();
+            _numRoiY.ValueChanged += (s, e) => OnFieldChanged();
+            _numRoiW.ValueChanged += (s, e) => OnFieldChanged();
+            _numRoiH.ValueChanged += (s, e) => OnFieldChanged();
+
             // 액션
             y += dy + 12;
-            _btnSave = new Button { Location = new Point(x1, y), Size = new Size(140, 32), Text = "저장", FlatStyle = FlatStyle.Flat, Font = UiTheme.ButtonFont, BackColor = UiTheme.Accent, ForeColor = Color.White };
+            _btnSave = new Button { Location = new Point(x1, y), Size = new Size(110, 32), Text = "저장", FlatStyle = FlatStyle.Flat, Font = UiTheme.ButtonFont, BackColor = UiTheme.Accent, ForeColor = Color.White };
             _btnSave.Click += (s, e) => SaveAll();
             body.Controls.Add(_btnSave);
 
-            _btnApply = new Button { Location = new Point(x1 + 150, y), Size = new Size(180, 32), Text = "실행 모듈에 적용", FlatStyle = FlatStyle.Flat, Font = UiTheme.ButtonFont, BackColor = Color.White };
+            _btnCancel = new Button { Location = new Point(x1 + 120, y), Size = new Size(90, 32), Text = "취소", FlatStyle = FlatStyle.Flat, Font = UiTheme.ButtonFont, BackColor = Color.White };
+            _btnCancel.Click += (s, e) => CancelChanges();
+            body.Controls.Add(_btnCancel);
+
+            _btnReset = new Button { Location = new Point(x1 + 220, y), Size = new Size(120, 32), Text = "기본값 복원", FlatStyle = FlatStyle.Flat, Font = UiTheme.ButtonFont, BackColor = Color.White };
+            _btnReset.Click += (s, e) => ResetToDefaults();
+            body.Controls.Add(_btnReset);
+
+            _btnApply = new Button { Location = new Point(x1 + 350, y), Size = new Size(160, 32), Text = "실행 모듈에 적용", FlatStyle = FlatStyle.Flat, Font = UiTheme.ButtonFont, BackColor = Color.White };
             _btnApply.Click += (s, e) => ApplyToRunningModule();
             body.Controls.Add(_btnApply);
 
-            _btnTestGrab = new Button { Location = new Point(x1 + 340, y), Size = new Size(140, 32), Text = "테스트 그랩", FlatStyle = FlatStyle.Flat, Font = UiTheme.ButtonFont, BackColor = Color.White };
+            _btnTestGrab = new Button { Location = new Point(x1 + 520, y), Size = new Size(120, 32), Text = "테스트 그랩", FlatStyle = FlatStyle.Flat, Font = UiTheme.ButtonFont, BackColor = Color.White };
             _btnTestGrab.Click += (s, e) => TestGrab();
             body.Controls.Add(_btnTestGrab);
 
@@ -163,6 +188,10 @@ namespace QMC.Vision.Ui.Pages
                 _cbTrigger  .SelectedItem = m.TriggerMode ?? "Software"; if (_cbTrigger.SelectedIndex < 0) _cbTrigger.SelectedIndex = (int)CameraTriggerMode.Software;
                 _cbPixel    .SelectedItem = m.PixelFormat ?? "Mono8";    if (_cbPixel.SelectedIndex   < 0) _cbPixel.SelectedIndex   = (int)CameraPixelFormat.Mono8;
                 _numDelay   .Value = Clamp((decimal)m.DelayBeforeGrabMs, _numDelay.Minimum, _numDelay.Maximum);
+                _numRoiX    .Value = Clamp(m.RoiOffsetX, _numRoiX.Minimum, _numRoiX.Maximum);
+                _numRoiY    .Value = Clamp(m.RoiOffsetY, _numRoiY.Minimum, _numRoiY.Maximum);
+                _numRoiW    .Value = Clamp(m.RoiWidth,   _numRoiW.Minimum, _numRoiW.Maximum);
+                _numRoiH    .Value = Clamp(m.RoiHeight,  _numRoiH.Minimum, _numRoiH.Maximum);
             }
             finally { _suspendBinding = false; }
         }
@@ -182,6 +211,27 @@ namespace QMC.Vision.Ui.Pages
             m.TriggerMode       = (string)_cbTrigger.SelectedItem ?? "Software";
             m.PixelFormat       = (string)_cbPixel.SelectedItem   ?? "Mono8";
             m.DelayBeforeGrabMs = (int)_numDelay.Value;
+            m.RoiOffsetX        = (int)_numRoiX.Value;
+            m.RoiOffsetY        = (int)_numRoiY.Value;
+            m.RoiWidth          = (int)_numRoiW.Value;
+            m.RoiHeight         = (int)_numRoiH.Value;
+        }
+
+        /// <summary>Validation — 빈 CameraId 거부, ROI 부분 입력 (W/H 한쪽만 0) 경고.</summary>
+        private bool Validate(out string error)
+        {
+            error = null;
+            var m = CurrentMapping();
+            if (m == null) { error = "no mapping"; return false; }
+            if (string.IsNullOrWhiteSpace(m.CameraId)) { error = "CameraId 비어 있음"; return false; }
+            if (m.ExposureUs <= 0) { error = "Exposure 가 0 이하"; return false; }
+            // ROI 부분 입력 경고 (둘 다 0 = full, 둘 다 양수 = OK, 그 외 = 모호)
+            if ((m.RoiWidth > 0) != (m.RoiHeight > 0))
+            {
+                error = "ROI Width / Height 는 둘 다 0(full) 또는 둘 다 양수여야 함";
+                return false;
+            }
+            return true;
         }
 
         private void DiscoverCameras()
@@ -210,22 +260,58 @@ namespace QMC.Vision.Ui.Pages
         private void SaveAll()
         {
             OnFieldChanged();
+            if (!Validate(out var err)) { _lblStatus.Text = "저장 거부 — " + err; _lblStatus.ForeColor = Color.Firebrick; return; }
             AlgorithmCameraMapStore.Save();
+            _lblStatus.ForeColor = Color.DarkSlateGray;
             _lblStatus.Text = "저장 완료 — " + AlgorithmCameraMapStore.Path_;
+        }
+
+        private void CancelChanges()
+        {
+            AlgorithmCameraMapStore.Load();
+            BindFields();
+            _lblStatus.ForeColor = Color.DarkSlateGray;
+            _lblStatus.Text = "취소됨 — 디스크 값으로 되돌림";
+        }
+
+        private void ResetToDefaults()
+        {
+            if (string.IsNullOrEmpty(_algorithm)) return;
+            var dialog = MessageBox.Show(
+                $"[{VisionAlgorithm.Label(_algorithm)}] 항목을 기본값으로 되돌립니다.\n저장하지 않으면 디스크에는 반영되지 않습니다. 계속할까요?",
+                "기본값 복원", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+            if (dialog != DialogResult.Yes) return;
+
+            // 항목 1개만 제거 후 EnsureDefaults 호출 (해당 알고리즘만 다시 채워짐)
+            var map = AlgorithmCameraMapStore.Current;
+            map.Items.RemoveAll(it => string.Equals(it.Algorithm, _algorithm, StringComparison.OrdinalIgnoreCase));
+            AlgorithmCameraMapStore.EnsureDefaults(map);
+            BindFields();
+            _lblStatus.ForeColor = Color.DarkSlateGray;
+            _lblStatus.Text = "기본값 복원 — 저장 필요";
         }
 
         private void ApplyToRunningModule()
         {
             OnFieldChanged();
+            if (!Validate(out var verr)) { _lblStatus.Text = "적용 거부 — " + verr; _lblStatus.ForeColor = Color.Firebrick; return; }
             var m = CurrentMapping();
             var form = this.FindForm() as Form1;
             if (form == null || m == null) { _lblStatus.Text = "메인 폼을 찾을 수 없음"; return; }
             try
             {
-                form.RebindAlgorithmCamera(_algorithm, m);
-                _lblStatus.Text = $"[{VisionAlgorithm.Label(_algorithm)}] 실행 모듈에 적용됨";
+                if (form.RebindAlgorithmCamera(_algorithm, m, out var rebindErr))
+                {
+                    _lblStatus.ForeColor = Color.DarkSlateGray;
+                    _lblStatus.Text = $"[{VisionAlgorithm.Label(_algorithm)}] 실행 모듈에 적용됨";
+                }
+                else
+                {
+                    _lblStatus.ForeColor = Color.Firebrick;
+                    _lblStatus.Text = "적용 실패: " + rebindErr;
+                }
             }
-            catch (Exception ex) { _lblStatus.Text = "적용 실패: " + ex.Message; }
+            catch (Exception ex) { _lblStatus.Text = "적용 실패: " + ex.Message; _lblStatus.ForeColor = Color.Firebrick; }
         }
 
         private void TestGrab()

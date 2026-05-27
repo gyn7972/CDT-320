@@ -53,6 +53,16 @@ namespace QMC.Vision.Config
         [DataMember] public string PixelFormat       { get; set; } = "Mono8";
         [DataMember] public int    DelayBeforeGrabMs { get; set; } = 0;
 
+        // Stage 62 — ROI (AOI). 0 = full sensor (Width 또는 Height 가 0 이하이면 미적용).
+        [DataMember] public int RoiOffsetX { get; set; } = 0;
+        [DataMember] public int RoiOffsetY { get; set; } = 0;
+        [DataMember] public int RoiWidth   { get; set; } = 0;
+        [DataMember] public int RoiHeight  { get; set; } = 0;
+
+        public bool IsRoiFull => RoiWidth <= 0 || RoiHeight <= 0;
+        public System.Drawing.Rectangle ToRectangle()
+            => new System.Drawing.Rectangle(RoiOffsetX, RoiOffsetY, RoiWidth, RoiHeight);
+
         public AlgorithmCameraMapping Clone()
         {
             return new AlgorithmCameraMapping
@@ -60,7 +70,9 @@ namespace QMC.Vision.Config
                 Algorithm = Algorithm, CameraId = CameraId,
                 ExposureUs = ExposureUs, Gain = Gain, FrameRate = FrameRate,
                 TriggerMode = TriggerMode, PixelFormat = PixelFormat,
-                DelayBeforeGrabMs = DelayBeforeGrabMs
+                DelayBeforeGrabMs = DelayBeforeGrabMs,
+                RoiOffsetX = RoiOffsetX, RoiOffsetY = RoiOffsetY,
+                RoiWidth = RoiWidth, RoiHeight = RoiHeight
             };
         }
     }
