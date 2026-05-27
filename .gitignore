@@ -1,0 +1,36 @@
+# Build outputs
+**/bin/
+**/obj/
+**/Debug/
+**/Release/
+**/*.user
+**/*.suo
+
+# IDE
+.vs/
+.idea/
+*.swp
+*.swo
+
+# Claude / agent state
+.claude/
+
+# Backup/temp
+*.bak
+*.bak.*
+*~
+*.tmp
+
+# Code review snapshots (auto-generated)
+1code-review_run_*.md
+
+# Sensitive
+*.local.*
+secrets.*
+
+# Logs
+Log/
+*.log
+
+# Recipes runtime state
+*.last_project
