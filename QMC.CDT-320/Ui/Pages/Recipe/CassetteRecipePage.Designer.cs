@@ -1,4 +1,4 @@
-namespace QMC.CDT_320.Ui.Pages.Recipe
+Ôªønamespace QMC.CDT_320.Ui.Pages.Recipe
 {
     partial class CassetteRecipePage
     {
@@ -182,7 +182,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // 
             this.lblHeader.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(64)))), ((int)(((byte)(64)))));
             this.lblHeader.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblHeader.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F, System.Drawing.FontStyle.Bold);
+            this.lblHeader.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F, System.Drawing.FontStyle.Bold);
             this.lblHeader.ForeColor = System.Drawing.Color.White;
             this.lblHeader.Location = new System.Drawing.Point(0, 0);
             this.lblHeader.Margin = new System.Windows.Forms.Padding(0);
@@ -261,7 +261,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // 
             this.lblActionTitle.BackColor = System.Drawing.Color.Orange;
             this.lblActionTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblActionTitle.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 9F, System.Drawing.FontStyle.Bold);
+            this.lblActionTitle.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 9F, System.Drawing.FontStyle.Bold);
             this.lblActionTitle.ForeColor = System.Drawing.Color.Black;
             this.lblActionTitle.Location = new System.Drawing.Point(0, 0);
             this.lblActionTitle.Margin = new System.Windows.Forms.Padding(0);
@@ -269,7 +269,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblActionTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
             this.lblActionTitle.Size = new System.Drawing.Size(232, 26);
             this.lblActionTitle.TabIndex = 0;
-            this.lblActionTitle.Text = "µø¿€";
+            this.lblActionTitle.Text = "ÎèôÏûë";
             this.lblActionTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // btnLoadingMove
@@ -277,14 +277,14 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.btnLoadingMove.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnLoadingMove.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnLoadingMove.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnLoadingMove.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 12F, System.Drawing.FontStyle.Bold);
+            this.btnLoadingMove.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 12F, System.Drawing.FontStyle.Bold);
             this.btnLoadingMove.ForeColor = System.Drawing.Color.White;
             this.btnLoadingMove.Location = new System.Drawing.Point(8, 30);
             this.btnLoadingMove.Margin = new System.Windows.Forms.Padding(8, 4, 8, 4);
             this.btnLoadingMove.Name = "btnLoadingMove";
             this.btnLoadingMove.Size = new System.Drawing.Size(216, 44);
             this.btnLoadingMove.TabIndex = 1;
-            this.btnLoadingMove.Text = "LOADING ¿ßƒ° ¿Ãµø";
+            this.btnLoadingMove.Text = "LOADING ÏúÑÏπò Ïù¥Îèô";
             this.btnLoadingMove.Click += new System.EventHandler(this.btnLoadingMove_Click);
             // 
             // btnUnloadingMove
@@ -292,14 +292,14 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.btnUnloadingMove.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnUnloadingMove.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnUnloadingMove.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnUnloadingMove.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 12F, System.Drawing.FontStyle.Bold);
+            this.btnUnloadingMove.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 12F, System.Drawing.FontStyle.Bold);
             this.btnUnloadingMove.ForeColor = System.Drawing.Color.White;
             this.btnUnloadingMove.Location = new System.Drawing.Point(8, 82);
             this.btnUnloadingMove.Margin = new System.Windows.Forms.Padding(8, 4, 8, 4);
             this.btnUnloadingMove.Name = "btnUnloadingMove";
             this.btnUnloadingMove.Size = new System.Drawing.Size(216, 44);
             this.btnUnloadingMove.TabIndex = 2;
-            this.btnUnloadingMove.Text = "UNLOADING ¿ßƒ° ¿Ãµø";
+            this.btnUnloadingMove.Text = "UNLOADING ÏúÑÏπò Ïù¥Îèô";
             this.btnUnloadingMove.Click += new System.EventHandler(this.btnUnloadingMove_Click);
             // 
             // btnReadyMove
@@ -307,14 +307,14 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.btnReadyMove.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnReadyMove.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnReadyMove.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnReadyMove.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 12F, System.Drawing.FontStyle.Bold);
+            this.btnReadyMove.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 12F, System.Drawing.FontStyle.Bold);
             this.btnReadyMove.ForeColor = System.Drawing.Color.White;
             this.btnReadyMove.Location = new System.Drawing.Point(8, 134);
             this.btnReadyMove.Margin = new System.Windows.Forms.Padding(8, 4, 8, 4);
             this.btnReadyMove.Name = "btnReadyMove";
             this.btnReadyMove.Size = new System.Drawing.Size(216, 44);
             this.btnReadyMove.TabIndex = 3;
-            this.btnReadyMove.Text = "¡ÿ∫Ò ¿ßƒ° ¿Ãµø";
+            this.btnReadyMove.Text = "Ï§ÄÎπÑ ÏúÑÏπò Ïù¥Îèô";
             this.btnReadyMove.Click += new System.EventHandler(this.btnReadyMove_Click);
             // 
             // btnSlotLoadingMove
@@ -322,14 +322,14 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.btnSlotLoadingMove.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnSlotLoadingMove.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnSlotLoadingMove.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnSlotLoadingMove.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 12F, System.Drawing.FontStyle.Bold);
+            this.btnSlotLoadingMove.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 12F, System.Drawing.FontStyle.Bold);
             this.btnSlotLoadingMove.ForeColor = System.Drawing.Color.White;
             this.btnSlotLoadingMove.Location = new System.Drawing.Point(8, 198);
             this.btnSlotLoadingMove.Margin = new System.Windows.Forms.Padding(8, 4, 8, 4);
             this.btnSlotLoadingMove.Name = "btnSlotLoadingMove";
             this.btnSlotLoadingMove.Size = new System.Drawing.Size(216, 44);
             this.btnSlotLoadingMove.TabIndex = 4;
-            this.btnSlotLoadingMove.Text = "SLOT ¿ßƒ° ¿Ãµø (LOADING)";
+            this.btnSlotLoadingMove.Text = "SLOT ÏúÑÏπò Ïù¥Îèô (LOADING)";
             this.btnSlotLoadingMove.Click += new System.EventHandler(this.btnSlotLoadingMove_Click);
             // 
             // btnSlotUnloadingMove
@@ -337,14 +337,14 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.btnSlotUnloadingMove.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnSlotUnloadingMove.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnSlotUnloadingMove.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnSlotUnloadingMove.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 12F, System.Drawing.FontStyle.Bold);
+            this.btnSlotUnloadingMove.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 12F, System.Drawing.FontStyle.Bold);
             this.btnSlotUnloadingMove.ForeColor = System.Drawing.Color.White;
             this.btnSlotUnloadingMove.Location = new System.Drawing.Point(8, 250);
             this.btnSlotUnloadingMove.Margin = new System.Windows.Forms.Padding(8, 4, 8, 4);
             this.btnSlotUnloadingMove.Name = "btnSlotUnloadingMove";
             this.btnSlotUnloadingMove.Size = new System.Drawing.Size(216, 76);
             this.btnSlotUnloadingMove.TabIndex = 5;
-            this.btnSlotUnloadingMove.Text = "SLOT ¿ßƒ° ¿Ãµø (UNLOADING)";
+            this.btnSlotUnloadingMove.Text = "SLOT ÏúÑÏπò Ïù¥Îèô (UNLOADING)";
             this.btnSlotUnloadingMove.Click += new System.EventHandler(this.btnSlotUnloadingMove_Click);
             // 
             // ioSection
@@ -375,7 +375,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // 
             this.lblIoTitle.BackColor = System.Drawing.Color.Orange;
             this.lblIoTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblIoTitle.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 9F, System.Drawing.FontStyle.Bold);
+            this.lblIoTitle.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 9F, System.Drawing.FontStyle.Bold);
             this.lblIoTitle.ForeColor = System.Drawing.Color.Black;
             this.lblIoTitle.Location = new System.Drawing.Point(0, 0);
             this.lblIoTitle.Margin = new System.Windows.Forms.Padding(0);
@@ -383,7 +383,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblIoTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
             this.lblIoTitle.Size = new System.Drawing.Size(232, 26);
             this.lblIoTitle.TabIndex = 0;
-            this.lblIoTitle.Text = "Ω«∏∞¥ı & I/O";
+            this.lblIoTitle.Text = "Ïã§Î¶∞Îçî & I/O";
             this.lblIoTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // ioSensor1Row
@@ -420,14 +420,14 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblSensor1.BackColor = System.Drawing.Color.Gainsboro;
             this.lblSensor1.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblSensor1.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblSensor1.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 9F);
+            this.lblSensor1.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 9F);
             this.lblSensor1.Location = new System.Drawing.Point(26, 1);
             this.lblSensor1.Margin = new System.Windows.Forms.Padding(2, 1, 2, 1);
             this.lblSensor1.Name = "lblSensor1";
             this.lblSensor1.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
             this.lblSensor1.Size = new System.Drawing.Size(204, 26);
             this.lblSensor1.TabIndex = 1;
-            this.lblSensor1.Text = "CASSETTE ∞®¡ˆ SENSOR 1";
+            this.lblSensor1.Text = "CASSETTE Í∞êÏßÄ SENSOR 1";
             this.lblSensor1.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // ioSensor2Row
@@ -464,14 +464,14 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblSensor2.BackColor = System.Drawing.Color.Gainsboro;
             this.lblSensor2.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblSensor2.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblSensor2.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 9F);
+            this.lblSensor2.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 9F);
             this.lblSensor2.Location = new System.Drawing.Point(26, 1);
             this.lblSensor2.Margin = new System.Windows.Forms.Padding(2, 1, 2, 1);
             this.lblSensor2.Name = "lblSensor2";
             this.lblSensor2.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
             this.lblSensor2.Size = new System.Drawing.Size(204, 26);
             this.lblSensor2.TabIndex = 1;
-            this.lblSensor2.Text = "CASSETTE ∞®¡ˆ SENSOR 2";
+            this.lblSensor2.Text = "CASSETTE Í∞êÏßÄ SENSOR 2";
             this.lblSensor2.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // ioProtrusionRow
@@ -508,14 +508,14 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblProtrusion.BackColor = System.Drawing.Color.Gainsboro;
             this.lblProtrusion.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblProtrusion.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblProtrusion.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 9F);
+            this.lblProtrusion.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 9F);
             this.lblProtrusion.Location = new System.Drawing.Point(26, 1);
             this.lblProtrusion.Margin = new System.Windows.Forms.Padding(2, 1, 2, 1);
             this.lblProtrusion.Name = "lblProtrusion";
             this.lblProtrusion.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
             this.lblProtrusion.Size = new System.Drawing.Size(204, 26);
             this.lblProtrusion.TabIndex = 1;
-            this.lblProtrusion.Text = "µπ√‚ ∞®¡ˆ SENSOR";
+            this.lblProtrusion.Text = "ÎèåÏ∂ú Í∞êÏßÄ SENSOR";
             this.lblProtrusion.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // ioMappingRow
@@ -552,14 +552,14 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblMapping.BackColor = System.Drawing.Color.Gainsboro;
             this.lblMapping.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblMapping.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblMapping.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 9F);
+            this.lblMapping.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 9F);
             this.lblMapping.Location = new System.Drawing.Point(26, 1);
             this.lblMapping.Margin = new System.Windows.Forms.Padding(2, 1, 2, 1);
             this.lblMapping.Name = "lblMapping";
             this.lblMapping.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
             this.lblMapping.Size = new System.Drawing.Size(204, 26);
             this.lblMapping.TabIndex = 1;
-            this.lblMapping.Text = "∏ «Œºæº≠";
+            this.lblMapping.Text = "ÎßµÌïëÏÑºÏÑú";
             this.lblMapping.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // panelCenter
@@ -587,7 +587,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // 
             this.lblOptTitle.BackColor = System.Drawing.Color.Orange;
             this.lblOptTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblOptTitle.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 9F, System.Drawing.FontStyle.Bold);
+            this.lblOptTitle.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 9F, System.Drawing.FontStyle.Bold);
             this.lblOptTitle.ForeColor = System.Drawing.Color.Black;
             this.lblOptTitle.Location = new System.Drawing.Point(0, 0);
             this.lblOptTitle.Margin = new System.Windows.Forms.Padding(0);
@@ -595,7 +595,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblOptTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
             this.lblOptTitle.Size = new System.Drawing.Size(482, 26);
             this.lblOptTitle.TabIndex = 0;
-            this.lblOptTitle.Text = "ø…º«";
+            this.lblOptTitle.Text = "ÏòµÏÖò";
             this.lblOptTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // optionRows
@@ -641,7 +641,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblOptLoadingZKey.BackColor = System.Drawing.Color.Gainsboro;
             this.lblOptLoadingZKey.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblOptLoadingZKey.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblOptLoadingZKey.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 9F);
+            this.lblOptLoadingZKey.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 9F);
             this.lblOptLoadingZKey.Location = new System.Drawing.Point(2, 2);
             this.lblOptLoadingZKey.Margin = new System.Windows.Forms.Padding(2);
             this.lblOptLoadingZKey.Name = "lblOptLoadingZKey";
@@ -656,7 +656,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblOptLoadingZVal.BackColor = System.Drawing.Color.White;
             this.lblOptLoadingZVal.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblOptLoadingZVal.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblOptLoadingZVal.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 9F);
+            this.lblOptLoadingZVal.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 9F);
             this.lblOptLoadingZVal.Location = new System.Drawing.Point(222, 2);
             this.lblOptLoadingZVal.Margin = new System.Windows.Forms.Padding(2);
             this.lblOptLoadingZVal.Name = "lblOptLoadingZVal";
@@ -671,7 +671,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblOptUnloadingZKey.BackColor = System.Drawing.Color.Gainsboro;
             this.lblOptUnloadingZKey.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblOptUnloadingZKey.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblOptUnloadingZKey.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 9F);
+            this.lblOptUnloadingZKey.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 9F);
             this.lblOptUnloadingZKey.Location = new System.Drawing.Point(2, 34);
             this.lblOptUnloadingZKey.Margin = new System.Windows.Forms.Padding(2);
             this.lblOptUnloadingZKey.Name = "lblOptUnloadingZKey";
@@ -686,7 +686,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblOptUnloadingZVal.BackColor = System.Drawing.Color.White;
             this.lblOptUnloadingZVal.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblOptUnloadingZVal.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblOptUnloadingZVal.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 9F);
+            this.lblOptUnloadingZVal.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 9F);
             this.lblOptUnloadingZVal.Location = new System.Drawing.Point(222, 34);
             this.lblOptUnloadingZVal.Margin = new System.Windows.Forms.Padding(2);
             this.lblOptUnloadingZVal.Name = "lblOptUnloadingZVal";
@@ -701,7 +701,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblOptReadyPosKey.BackColor = System.Drawing.Color.Gainsboro;
             this.lblOptReadyPosKey.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblOptReadyPosKey.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblOptReadyPosKey.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 9F);
+            this.lblOptReadyPosKey.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 9F);
             this.lblOptReadyPosKey.Location = new System.Drawing.Point(2, 66);
             this.lblOptReadyPosKey.Margin = new System.Windows.Forms.Padding(2);
             this.lblOptReadyPosKey.Name = "lblOptReadyPosKey";
@@ -716,7 +716,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblOptReadyPosVal.BackColor = System.Drawing.Color.White;
             this.lblOptReadyPosVal.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblOptReadyPosVal.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblOptReadyPosVal.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 9F);
+            this.lblOptReadyPosVal.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 9F);
             this.lblOptReadyPosVal.Location = new System.Drawing.Point(222, 66);
             this.lblOptReadyPosVal.Margin = new System.Windows.Forms.Padding(2);
             this.lblOptReadyPosVal.Name = "lblOptReadyPosVal";
@@ -731,7 +731,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblOptMappingZKey.BackColor = System.Drawing.Color.Gainsboro;
             this.lblOptMappingZKey.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblOptMappingZKey.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblOptMappingZKey.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 9F);
+            this.lblOptMappingZKey.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 9F);
             this.lblOptMappingZKey.Location = new System.Drawing.Point(2, 98);
             this.lblOptMappingZKey.Margin = new System.Windows.Forms.Padding(2);
             this.lblOptMappingZKey.Name = "lblOptMappingZKey";
@@ -746,7 +746,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblOptMappingZVal.BackColor = System.Drawing.Color.White;
             this.lblOptMappingZVal.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblOptMappingZVal.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblOptMappingZVal.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 9F);
+            this.lblOptMappingZVal.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 9F);
             this.lblOptMappingZVal.Location = new System.Drawing.Point(222, 98);
             this.lblOptMappingZVal.Margin = new System.Windows.Forms.Padding(2);
             this.lblOptMappingZVal.Name = "lblOptMappingZVal";
@@ -761,7 +761,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblOptSlotPitchKey.BackColor = System.Drawing.Color.Gainsboro;
             this.lblOptSlotPitchKey.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblOptSlotPitchKey.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblOptSlotPitchKey.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 9F);
+            this.lblOptSlotPitchKey.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 9F);
             this.lblOptSlotPitchKey.Location = new System.Drawing.Point(2, 130);
             this.lblOptSlotPitchKey.Margin = new System.Windows.Forms.Padding(2);
             this.lblOptSlotPitchKey.Name = "lblOptSlotPitchKey";
@@ -776,7 +776,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblOptSlotPitchVal.BackColor = System.Drawing.Color.White;
             this.lblOptSlotPitchVal.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblOptSlotPitchVal.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblOptSlotPitchVal.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 9F);
+            this.lblOptSlotPitchVal.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 9F);
             this.lblOptSlotPitchVal.Location = new System.Drawing.Point(222, 130);
             this.lblOptSlotPitchVal.Margin = new System.Windows.Forms.Padding(2);
             this.lblOptSlotPitchVal.Name = "lblOptSlotPitchVal";
@@ -791,14 +791,14 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblOptCassetteGapKey.BackColor = System.Drawing.Color.Gainsboro;
             this.lblOptCassetteGapKey.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblOptCassetteGapKey.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblOptCassetteGapKey.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 9F);
+            this.lblOptCassetteGapKey.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 9F);
             this.lblOptCassetteGapKey.Location = new System.Drawing.Point(2, 162);
             this.lblOptCassetteGapKey.Margin = new System.Windows.Forms.Padding(2);
             this.lblOptCassetteGapKey.Name = "lblOptCassetteGapKey";
             this.lblOptCassetteGapKey.Padding = new System.Windows.Forms.Padding(6, 0, 6, 0);
             this.lblOptCassetteGapKey.Size = new System.Drawing.Size(216, 28);
             this.lblOptCassetteGapKey.TabIndex = 10;
-            this.lblOptCassetteGapKey.Text = "ƒ´ºº∆Æ ∞£∞›";
+            this.lblOptCassetteGapKey.Text = "Ïπ¥ÏÑ∏Ìä∏ Í∞ÑÍ≤©";
             this.lblOptCassetteGapKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // lblOptCassetteGapVal
@@ -806,7 +806,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblOptCassetteGapVal.BackColor = System.Drawing.Color.White;
             this.lblOptCassetteGapVal.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblOptCassetteGapVal.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblOptCassetteGapVal.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 9F);
+            this.lblOptCassetteGapVal.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 9F);
             this.lblOptCassetteGapVal.Location = new System.Drawing.Point(222, 162);
             this.lblOptCassetteGapVal.Margin = new System.Windows.Forms.Padding(2);
             this.lblOptCassetteGapVal.Name = "lblOptCassetteGapVal";
@@ -821,14 +821,14 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblOptInchKey.BackColor = System.Drawing.Color.Gainsboro;
             this.lblOptInchKey.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblOptInchKey.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblOptInchKey.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 9F);
+            this.lblOptInchKey.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 9F);
             this.lblOptInchKey.Location = new System.Drawing.Point(2, 194);
             this.lblOptInchKey.Margin = new System.Windows.Forms.Padding(2);
             this.lblOptInchKey.Name = "lblOptInchKey";
             this.lblOptInchKey.Padding = new System.Windows.Forms.Padding(6, 0, 6, 0);
             this.lblOptInchKey.Size = new System.Drawing.Size(216, 28);
             this.lblOptInchKey.TabIndex = 12;
-            this.lblOptInchKey.Text = "8¿Œƒ° or 12¿Œƒ°";
+            this.lblOptInchKey.Text = "8Ïù∏Ïπò or 12Ïù∏Ïπò";
             this.lblOptInchKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // lblOptInchVal
@@ -836,14 +836,14 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblOptInchVal.BackColor = System.Drawing.Color.White;
             this.lblOptInchVal.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblOptInchVal.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblOptInchVal.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 9F);
+            this.lblOptInchVal.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 9F);
             this.lblOptInchVal.Location = new System.Drawing.Point(222, 194);
             this.lblOptInchVal.Margin = new System.Windows.Forms.Padding(2);
             this.lblOptInchVal.Name = "lblOptInchVal";
             this.lblOptInchVal.Padding = new System.Windows.Forms.Padding(6, 0, 6, 0);
             this.lblOptInchVal.Size = new System.Drawing.Size(258, 28);
             this.lblOptInchVal.TabIndex = 13;
-            this.lblOptInchVal.Text = "12¿Œƒ°";
+            this.lblOptInchVal.Text = "12Ïù∏Ïπò";
             this.lblOptInchVal.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // lblOptStageKey
@@ -851,14 +851,14 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblOptStageKey.BackColor = System.Drawing.Color.Gainsboro;
             this.lblOptStageKey.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblOptStageKey.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblOptStageKey.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 9F);
+            this.lblOptStageKey.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 9F);
             this.lblOptStageKey.Location = new System.Drawing.Point(2, 226);
             this.lblOptStageKey.Margin = new System.Windows.Forms.Padding(2);
             this.lblOptStageKey.Name = "lblOptStageKey";
             this.lblOptStageKey.Padding = new System.Windows.Forms.Padding(6, 0, 6, 0);
             this.lblOptStageKey.Size = new System.Drawing.Size(216, 28);
             this.lblOptStageKey.TabIndex = 14;
-            this.lblOptStageKey.Text = "ƒ´ºº∆Æ 2¥‹ »∞º∫»≠";
+            this.lblOptStageKey.Text = "Ïπ¥ÏÑ∏Ìä∏ 2Îã® ÌôúÏÑ±Ìôî";
             this.lblOptStageKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // lblOptStageVal
@@ -866,21 +866,21 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblOptStageVal.BackColor = System.Drawing.Color.White;
             this.lblOptStageVal.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblOptStageVal.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblOptStageVal.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 9F);
+            this.lblOptStageVal.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 9F);
             this.lblOptStageVal.Location = new System.Drawing.Point(222, 226);
             this.lblOptStageVal.Margin = new System.Windows.Forms.Padding(2);
             this.lblOptStageVal.Name = "lblOptStageVal";
             this.lblOptStageVal.Padding = new System.Windows.Forms.Padding(6, 0, 6, 0);
             this.lblOptStageVal.Size = new System.Drawing.Size(258, 28);
             this.lblOptStageVal.TabIndex = 15;
-            this.lblOptStageVal.Text = "1¥‹";
+            this.lblOptStageVal.Text = "1Îã®";
             this.lblOptStageVal.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // lblWaitTitle
             // 
             this.lblWaitTitle.BackColor = System.Drawing.Color.Orange;
             this.lblWaitTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblWaitTitle.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 9F, System.Drawing.FontStyle.Bold);
+            this.lblWaitTitle.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 9F, System.Drawing.FontStyle.Bold);
             this.lblWaitTitle.ForeColor = System.Drawing.Color.Black;
             this.lblWaitTitle.Location = new System.Drawing.Point(0, 282);
             this.lblWaitTitle.Margin = new System.Windows.Forms.Padding(0);
@@ -888,7 +888,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblWaitTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
             this.lblWaitTitle.Size = new System.Drawing.Size(482, 26);
             this.lblWaitTitle.TabIndex = 2;
-            this.lblWaitTitle.Text = "¥Î±‚Ω√∞£";
+            this.lblWaitTitle.Text = "ÎåÄÍ∏∞ÏãúÍ∞Ñ";
             this.lblWaitTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // waitRows
@@ -913,14 +913,14 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblWaitKey.BackColor = System.Drawing.Color.Gainsboro;
             this.lblWaitKey.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblWaitKey.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblWaitKey.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 9F);
+            this.lblWaitKey.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 9F);
             this.lblWaitKey.Location = new System.Drawing.Point(2, 2);
             this.lblWaitKey.Margin = new System.Windows.Forms.Padding(2);
             this.lblWaitKey.Name = "lblWaitKey";
             this.lblWaitKey.Padding = new System.Windows.Forms.Padding(6, 0, 6, 0);
             this.lblWaitKey.Size = new System.Drawing.Size(216, 28);
             this.lblWaitKey.TabIndex = 0;
-            this.lblWaitKey.Text = "¿Ãµø »ƒ ¥Î±‚Ω√∞£";
+            this.lblWaitKey.Text = "Ïù¥Îèô ÌõÑ ÎåÄÍ∏∞ÏãúÍ∞Ñ";
             this.lblWaitKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // lblWaitVal
@@ -928,7 +928,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblWaitVal.BackColor = System.Drawing.Color.White;
             this.lblWaitVal.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblWaitVal.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblWaitVal.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 9F);
+            this.lblWaitVal.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 9F);
             this.lblWaitVal.Location = new System.Drawing.Point(222, 2);
             this.lblWaitVal.Margin = new System.Windows.Forms.Padding(2);
             this.lblWaitVal.Name = "lblWaitVal";
@@ -981,7 +981,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // 
             this.lblJogTitle.BackColor = System.Drawing.Color.Orange;
             this.lblJogTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblJogTitle.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 9F, System.Drawing.FontStyle.Bold);
+            this.lblJogTitle.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 9F, System.Drawing.FontStyle.Bold);
             this.lblJogTitle.ForeColor = System.Drawing.Color.Black;
             this.lblJogTitle.Location = new System.Drawing.Point(0, 0);
             this.lblJogTitle.Margin = new System.Windows.Forms.Padding(0);
@@ -989,7 +989,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblJogTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
             this.lblJogTitle.Size = new System.Drawing.Size(174, 26);
             this.lblJogTitle.TabIndex = 0;
-            this.lblJogTitle.Text = "¡∂±◊ øÓ¿¸";
+            this.lblJogTitle.Text = "Ï°∞Í∑∏ Ïö¥Ï†Ñ";
             this.lblJogTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // lblAxisName
@@ -997,7 +997,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblAxisName.BackColor = System.Drawing.Color.Gainsboro;
             this.lblAxisName.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblAxisName.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblAxisName.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 9F, System.Drawing.FontStyle.Bold);
+            this.lblAxisName.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 9F, System.Drawing.FontStyle.Bold);
             this.lblAxisName.Location = new System.Drawing.Point(8, 30);
             this.lblAxisName.Margin = new System.Windows.Forms.Padding(8, 4, 8, 4);
             this.lblAxisName.Name = "lblAxisName";
@@ -1010,7 +1010,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // 
             this.btnJogPlus.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnJogPlus.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnJogPlus.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F);
+            this.btnJogPlus.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F);
             this.btnJogPlus.Location = new System.Drawing.Point(8, 62);
             this.btnJogPlus.Margin = new System.Windows.Forms.Padding(8, 4, 8, 4);
             this.btnJogPlus.Name = "btnJogPlus";
@@ -1024,7 +1024,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // 
             this.btnJogStop.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnJogStop.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnJogStop.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F);
+            this.btnJogStop.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F);
             this.btnJogStop.Location = new System.Drawing.Point(8, 126);
             this.btnJogStop.Margin = new System.Windows.Forms.Padding(8, 4, 8, 4);
             this.btnJogStop.Name = "btnJogStop";
@@ -1038,7 +1038,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // 
             this.btnJogMinus.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnJogMinus.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnJogMinus.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F);
+            this.btnJogMinus.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F);
             this.btnJogMinus.Location = new System.Drawing.Point(8, 178);
             this.btnJogMinus.Margin = new System.Windows.Forms.Padding(8, 4, 8, 4);
             this.btnJogMinus.Name = "btnJogMinus";
@@ -1078,7 +1078,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblSpeedTitle.BackColor = System.Drawing.Color.Orange;
             this.speedSection.SetColumnSpan(this.lblSpeedTitle, 2);
             this.lblSpeedTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblSpeedTitle.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 9F, System.Drawing.FontStyle.Bold);
+            this.lblSpeedTitle.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 9F, System.Drawing.FontStyle.Bold);
             this.lblSpeedTitle.ForeColor = System.Drawing.Color.Black;
             this.lblSpeedTitle.Location = new System.Drawing.Point(0, 0);
             this.lblSpeedTitle.Margin = new System.Windows.Forms.Padding(0);
@@ -1086,7 +1086,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblSpeedTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
             this.lblSpeedTitle.Size = new System.Drawing.Size(91, 26);
             this.lblSpeedTitle.TabIndex = 0;
-            this.lblSpeedTitle.Text = "º”µµ";
+            this.lblSpeedTitle.Text = "ÏÜçÎèÑ";
             this.lblSpeedTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // trkSpeed
@@ -1105,7 +1105,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // 
             // lblSpeedHigh
             // 
-            this.lblSpeedHigh.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 9F, System.Drawing.FontStyle.Bold);
+            this.lblSpeedHigh.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 9F, System.Drawing.FontStyle.Bold);
             this.lblSpeedHigh.Location = new System.Drawing.Point(51, 26);
             this.lblSpeedHigh.Margin = new System.Windows.Forms.Padding(0);
             this.lblSpeedHigh.Name = "lblSpeedHigh";
@@ -1116,7 +1116,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // 
             // lblSpeedMid
             // 
-            this.lblSpeedMid.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 9F, System.Drawing.FontStyle.Bold);
+            this.lblSpeedMid.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 9F, System.Drawing.FontStyle.Bold);
             this.lblSpeedMid.Location = new System.Drawing.Point(51, 295);
             this.lblSpeedMid.Margin = new System.Windows.Forms.Padding(0);
             this.lblSpeedMid.Name = "lblSpeedMid";
@@ -1127,7 +1127,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // 
             // lblSpeedLow
             // 
-            this.lblSpeedLow.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 9F, System.Drawing.FontStyle.Bold);
+            this.lblSpeedLow.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 9F, System.Drawing.FontStyle.Bold);
             this.lblSpeedLow.Location = new System.Drawing.Point(51, 573);
             this.lblSpeedLow.Margin = new System.Windows.Forms.Padding(0);
             this.lblSpeedLow.Name = "lblSpeedLow";
@@ -1197,7 +1197,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             label.Dock = System.Windows.Forms.DockStyle.Fill;
             label.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
             label.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            label.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 9F);
+            label.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 9F);
             label.Padding = new System.Windows.Forms.Padding(6, 0, 6, 0);
             if (isKey)
             {

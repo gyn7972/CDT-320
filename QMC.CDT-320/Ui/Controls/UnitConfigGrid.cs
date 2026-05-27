@@ -1,4 +1,4 @@
-using System;
+ï»¿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
@@ -14,10 +14,10 @@ using QMC.CDT_320.Ui.Localization;
 namespace QMC.CDT_320.Ui.Controls
 {
     /// <summary>
-    /// Recipe°¡ ¾Æ´Ñ Unit Config Ç×¸ñÀ» Ç¥½Ã/ÆíÁıÇÏ´Â ¿ìÃø Grid.
-    /// - object¸¦ BindConfig(cfg)·Î ¹Ş¾Æ ReflectionÀ¸·Î Public ¼Ó¼º(Browsable=true)À» Ç¥½Ã
-    /// - Apply: UI °ª ¡æ object ¹İ¿µ ÈÄ JSON ÀúÀå
-    /// - Reload: JSON¿¡¼­ ´Ù½Ã ÀĞ¾î object °»½Å ÈÄ UI Àç±¸¼º
+    /// Recipeê°€ ì•„ë‹Œ Unit Config í•­ëª©ì„ í‘œì‹œ/í¸ì§‘í•˜ëŠ” ìš°ì¸¡ Grid.
+    /// - objectë¥¼ BindConfig(cfg)ë¡œ ë°›ì•„ Reflectionìœ¼ë¡œ Public ì†ì„±(Browsable=true)ì„ í‘œì‹œ
+    /// - Apply: UI ê°’ â†’ object ë°˜ì˜ í›„ JSON ì €ì¥
+    /// - Reload: JSONì—ì„œ ë‹¤ì‹œ ì½ì–´ object ê°±ì‹  í›„ UI ì¬êµ¬ì„±
     /// </summary>
     public partial class UnitConfigGrid : UserControl
     {
@@ -27,7 +27,7 @@ namespace QMC.CDT_320.Ui.Controls
         public event EventHandler ConfigApplied;
         public event EventHandler ConfigReloaded;
 
-        /// <summary>Á¦¸ñ(Çì´õ ¶óº§¿¡ Ç¥½Ã)</summary>
+        /// <summary>ì œëª©(í—¤ë” ë¼ë²¨ì— í‘œì‹œ)</summary>
         public string Title
         {
             get => lblTitle.Text;
@@ -41,8 +41,8 @@ namespace QMC.CDT_320.Ui.Controls
         }
 
         /// <summary>
-        /// Ç¥½ÃÇÒ Config °´Ã¼¿Í (¼±ÅÃ)JSON ÀúÀå °æ·Î¸¦ ¹ÙÀÎµù.
-        /// savePath°¡ nullÀÌ¸é ÀúÀå ½Ã ÆÄÀÏ I/O´Â °Ç³Ê¶Ù°í ¸Ş¸ğ¸® °´Ã¼¸¸ °»½Å.
+        /// í‘œì‹œí•  Config ê°ì²´ì™€ (ì„ íƒ)JSON ì €ì¥ ê²½ë¡œë¥¼ ë°”ì¸ë”©.
+        /// savePathê°€ nullì´ë©´ ì €ì¥ ì‹œ íŒŒì¼ I/OëŠ” ê±´ë„ˆë›°ê³  ë©”ëª¨ë¦¬ ê°ì²´ë§Œ ê°±ì‹ .
         /// </summary>
         public void BindConfig(object config, string savePath = null)
         {
@@ -82,7 +82,7 @@ namespace QMC.CDT_320.Ui.Controls
                     var br = p.GetCustomAttributes(true).OfType<BrowsableAttribute>().FirstOrDefault();
                     return br == null || br.Browsable;
                 })
-                // ´Ü¼ø °ª Å¸ÀÔ + string + enum ¸¸ Ç¥½Ã
+                // ë‹¨ìˆœ ê°’ íƒ€ì… + string + enum ë§Œ í‘œì‹œ
                 .Where(p => IsSupportedType(p.PropertyType))
                 .OrderBy(p =>
                 {
@@ -124,12 +124,12 @@ namespace QMC.CDT_320.Ui.Controls
                 string cat = GetCategory(p);
                 if (!string.Equals(cat, lastCategory, StringComparison.Ordinal))
                 {
-                    int catIdx = grid.Rows.Add($"¦¡¦¡ {cat} ¦¡¦¡", string.Empty);
+                    int catIdx = grid.Rows.Add($"â”€â”€ {cat} â”€â”€", string.Empty);
                     var catRow = grid.Rows[catIdx];
                     catRow.ReadOnly = true;
                     catRow.DefaultCellStyle.BackColor = Color.Gainsboro;
                     catRow.DefaultCellStyle.Font = new Font(grid.Font, FontStyle.Bold);
-                    catRow.Tag = null; // Çì´õ´Â PropertyInfo ¾øÀ½
+                    catRow.Tag = null; // ì¹´í…Œê³ ë¦¬ í–‰ì€ PropertyInfo ì—†ìŒ
                     lastCategory = cat;
                 }
 
@@ -160,12 +160,12 @@ namespace QMC.CDT_320.Ui.Controls
 
                 SaveJson();
                 ConfigApplied?.Invoke(this, EventArgs.Empty);
-                MessageBox.Show("Config ÀúÀå ¿Ï·á", "Unit Config",
+                MessageBox.Show("Config ì €ì¥ ì™„ë£Œ", "Unit Config",
                     MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
-                MessageBox.Show("ÀúÀå ½ÇÆĞ: " + ex.Message, "Unit Config",
+                MessageBox.Show("ì €ì¥ ì‹¤íŒ¨: " + ex.Message, "Unit Config",
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
@@ -182,7 +182,7 @@ namespace QMC.CDT_320.Ui.Controls
             }
             catch (Exception ex)
             {
-                MessageBox.Show("·Îµå ½ÇÆĞ: " + ex.Message, "Unit Config",
+                MessageBox.Show("ë¡œë“œ ì‹¤íŒ¨: " + ex.Message, "Unit Config",
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
@@ -243,8 +243,8 @@ namespace QMC.CDT_320.Ui.Controls
             }
             if (loaded == null) return;
 
-            // DataContractJsonSerializer´Â »õ ÀÎ½ºÅÏ½º¸¦ »ı¼ºÇÏ¹Ç·Î,
-            // ±âÁ¸ _config ÂüÁ¶¸¦ À¯ÁöÇÏ±â À§ÇØ public read/write ¼Ó¼ºÀ» º¹»çÇÑ´Ù.
+            // DataContractJsonSerializerëŠ” ìƒˆ ì¸ìŠ¤í„´ìŠ¤ë¥¼ ìƒì„±í•˜ë¯€ë¡œ,
+            // ê¸°ì¡´ _config ì°¸ì¡°ë¥¼ ìœ ì§€í•˜ê¸° ìœ„í•´ public read/write ì†ì„±ë§Œ ë³µì‚¬í•œë‹¤.
             foreach (var p in type.GetProperties(BindingFlags.Public | BindingFlags.Instance)
                                   .Where(p => p.CanRead && p.CanWrite))
             {
