@@ -51,15 +51,16 @@ foreach ($s in $stages) {
 
 # ── 핵심 코드 산출물 검증 (verify_stage*.pl 의 핵심 grep 로직 일부 PowerShell 재현) ──
 
-# Stage 60 — AlarmMaster 매뉴얼 호환
-$alarmFile = Join-Path $Root "QMC.CDT-320\Equipment\Alarms\AlarmMaster.cs"
+# Stage 60 — AlarmMaster 매뉴얼 호환 (Stage 62: 위치 QMC.Common\Alarms\AlarmMaster.cs)
+$alarmFile = Join-Path $Root "QMC.Common\Alarms\AlarmMaster.cs"
 Add-Row "STAGE60" "AlarmMaster ManualName 필드" (Test-Greps $alarmFile @('public string\s+ManualName')) $alarmFile
 Add-Row "STAGE60" "AlarmMaster ManualLocator 필드" (Test-Greps $alarmFile @('public string\s+ManualLocator')) $alarmFile
 Add-Row "STAGE60" "E-STOP 등록" (Test-Greps $alarmFile @('Code="E-STOP"')) $alarmFile
 $emgCount = (Select-String -Path $alarmFile -Pattern '^\s*new AlarmDefinition.*Code="EMG-PRESSED"' -EA SilentlyContinue).Count
 Add-Row "STAGE60" "EMG-PRESSED 정의 제거 (주석 제외)" ($emgCount -eq 0) "주석 라인 제외 0건 기대"
+# Stage 62: 3 추가 (48 -> 51) — VISION-MAPMISS/PARAMFAIL/CAMOPEN
 $codeCount = (Select-String -Path $alarmFile -Pattern 'Code="[A-Z][A-Z0-9-]+"').Count
-Add-Row "STAGE60" "AlarmMaster 등록 = 48" ($codeCount -eq 48) "actual=$codeCount"
+Add-Row "STAGE62" "AlarmMaster 등록 = 51 (Stage 60: 48 + Stage 62: 3)" ($codeCount -eq 51) "actual=$codeCount"
 
 # Stage 60 cycle 4 — OS-12 LIMIT-HIT (AjinAxis)
 $ajinFile = Join-Path $Root "QMC.CDT-320\Equipment\Ajin\AjinAxis.cs"
