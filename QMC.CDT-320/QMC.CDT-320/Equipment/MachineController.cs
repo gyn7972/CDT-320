@@ -4,7 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using QMC.Common;
 using QMC.Common.Motion;
-using QMC.CDT320.Alarms;
+using QMC.Common.Alarms;
 using QMC.CDT320.Bin;
 using QMC.CDT320.Interlocks;
 using QMC.CDT320.Jobs;

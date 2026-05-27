@@ -1,5 +1,5 @@
 using System;
-using QMC.CDT320.Alarms;
+using QMC.Common.Alarms;
 using QMC.CDT320.Logging;
 
 namespace QMC.CDT320.Ajin

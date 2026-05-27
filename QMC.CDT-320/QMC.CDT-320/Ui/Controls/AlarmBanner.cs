@@ -2,7 +2,7 @@ using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Windows.Forms;
-using QMC.CDT320.Alarms;
+using QMC.Common.Alarms;
 
 namespace QMC.CDT_320.Ui.Controls
 {

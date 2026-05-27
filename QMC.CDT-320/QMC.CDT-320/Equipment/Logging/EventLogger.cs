@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
-using QMC.CDT320.Alarms;
+using QMC.Common.Alarms;
 
 namespace QMC.CDT320.Logging
 {

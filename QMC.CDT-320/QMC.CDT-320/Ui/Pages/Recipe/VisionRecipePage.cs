@@ -3,6 +3,7 @@ using System.Drawing;
 using System.Windows.Forms;
 using QMC.CDT_320.Ui.Controls;
 
+using Alarms = QMC.Common.Alarms;
 namespace QMC.CDT_320.Ui.Pages.Recipe
 {
     /// <summary>
@@ -112,8 +113,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     }
                     catch (Exception ex)
                     {
-                        QMC.CDT320.Alarms.AlarmManager.Raise(
-                            QMC.CDT320.Alarms.AlarmSeverity.Warning,
+                        QMC.Common.Alarms.AlarmManager.Raise(
+                            QMC.Common.Alarms.AlarmSeverity.Warning,
                             "VisionMatchFail", "VisionRecipePage",
                             actionName + " 예외: " + ex.GetType().Name + ": " + ex.Message);
                     }

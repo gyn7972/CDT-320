@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 using QMC.Common;
 using QMC.Common.Motion;
 using QMC.CDT320.Ajin;
-using QMC.CDT320.Alarms;
+using QMC.Common.Alarms;
 
 namespace QMC.CDT320
 {

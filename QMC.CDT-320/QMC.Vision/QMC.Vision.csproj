@@ -172,5 +172,12 @@
       <SubType>Form</SubType>
     </Compile>
   </ItemGroup>
+  <ItemGroup>
+    <!-- Stage 62 — QMC.Common 의 Alarms 공용 사용 -->
+    <ProjectReference Include="..\QMC.Common\QMC.Common.csproj">
+      <Project>{1E539F7D-24C0-4FC8-B818-FDED38A809C7}</Project>
+      <Name>QMC.Common</Name>
+    </ProjectReference>
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
-using QMC.CDT320.Alarms;
+using QMC.Common.Alarms;
 using QMC.CDT_320.Ui;
 
 namespace QMC.CDT_320.Ui.Pages.Settings

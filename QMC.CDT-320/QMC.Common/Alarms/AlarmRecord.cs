@@ -1,8 +1,8 @@
 using System;
 
-namespace QMC.CDT320.Alarms
+namespace QMC.Common.Alarms
 {
-    /// <summary>1건의 알람 레코드 (불변).</summary>
+    /// <summary>1건의 알람 레코드 (불변 필드 + Cleared 만 setter).</summary>
     public class AlarmRecord
     {
         public int           Id          { get; }

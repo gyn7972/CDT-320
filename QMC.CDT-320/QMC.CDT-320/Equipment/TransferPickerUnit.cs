@@ -6,6 +6,7 @@ using QMC.Common.IO;
 using QMC.Common.Motion;
 using QMC.CDT320.Ajin;
 
+using Alarms = QMC.Common.Alarms;
 namespace QMC.CDT320
 {
     // ==========================================================================
@@ -612,8 +613,8 @@ namespace QMC.CDT320
                         "[ALARM] '" + Name + "' -> InspectBottom: Expose End 수신 실패 " +
                         "(Picker" + pickerNo + ").");
                     // OS-12 (Stage 60 cycle 4) — EXPOSE-TIMEOUT Raise
-                    QMC.CDT320.Alarms.AlarmManager.Raise(
-                        QMC.CDT320.Alarms.AlarmSeverity.Error,
+                    QMC.Common.Alarms.AlarmManager.Raise(
+                        QMC.Common.Alarms.AlarmSeverity.Error,
                         "EXPOSE-TIMEOUT", Name,
                         "Bottom Vision Expose End 수신 실패 (Picker" + pickerNo +
                         ", timeout=" + Config.VisionExposeTimeoutMs + "ms)");
@@ -1035,8 +1036,8 @@ namespace QMC.CDT320
                     Console.WriteLine(
                         "[ALARM] '" + Name + "' -> Bottom Expose End 실패 (Picker" +
                         pNo + ").");
-                    QMC.CDT320.Alarms.AlarmManager.Raise(
-                        QMC.CDT320.Alarms.AlarmSeverity.Error,
+                    QMC.Common.Alarms.AlarmManager.Raise(
+                        QMC.Common.Alarms.AlarmSeverity.Error,
                         "EXPOSE-TIMEOUT", Name,
                         "Bottom Vision Expose End 수신 실패 (Picker" + pNo + ")");
                     return null;

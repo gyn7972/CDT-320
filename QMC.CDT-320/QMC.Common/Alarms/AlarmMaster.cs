@@ -5,7 +5,7 @@ using System.Linq;
 using System.Runtime.Serialization;
 using System.Runtime.Serialization.Json;
 
-namespace QMC.CDT320.Alarms
+namespace QMC.Common.Alarms
 {
     /// <summary>알람 카테고리 — 알람 분류 + UI 색상 + SECS Severity 매핑.</summary>
     [DataContract]
@@ -21,7 +21,7 @@ namespace QMC.CDT320.Alarms
         [EnumMember] User,
     }
 
-    /// <summary>알람 마스터 항목 — 코드/제목/원인/조치 (Stage 23 — ko/en 다국어).</summary>
+    /// <summary>알람 마스터 항목 — 코드/제목/원인/조치 (ko/en 다국어).</summary>
     [DataContract]
     public class AlarmDefinition
     {
@@ -32,14 +32,14 @@ namespace QMC.CDT320.Alarms
         [DataMember] public string         Title       { get; set; } = "";
         [DataMember] public string         Cause       { get; set; } = "";
         [DataMember] public string         Action      { get; set; } = "";
-        // English (Stage 23 — Lang.Current=="en" 시 사용. 비어 있으면 Korean fallback)
+        // English (Lang.Current=="en" 시 사용. 비어 있으면 Korean fallback)
         [DataMember] public string         TitleEn     { get; set; } = "";
         [DataMember] public string         CauseEn     { get; set; } = "";
         [DataMember] public string         ActionEn    { get; set; } = "";
         // CDT-310 매뉴얼 호환 (Stage 60) — ASE 매뉴얼 검수용 메타데이터.
         // 비어 있으면 매뉴얼 매핑 정보 없음 (CDT-320 자체 코드).
-        [DataMember] public string         ManualName    { get; set; } = "";  // 예: "InterlockDetected"
-        [DataMember] public string         ManualLocator { get; set; } = "";  // 예: "DieTransfer/WaferLifter/Plate"
+        [DataMember] public string         ManualName    { get; set; } = "";
+        [DataMember] public string         ManualLocator { get; set; } = "";
 
         public string GetTitle(string lang)
             => (lang == "en" && !string.IsNullOrEmpty(TitleEn)) ? TitleEn : Title;
@@ -125,6 +125,7 @@ namespace QMC.CDT320.Alarms
         public static List<AlarmDefinition> CreateDefaults()
         {
             // Stage 60 — verified 2026-05-04
+            // Stage 62 — added VISION-MAPMISS / VISION-PARAMFAIL / VISION-CAMOPEN at the end of Vision section
             return new List<AlarmDefinition>
             {
                 // ── Motion (모션) ──
@@ -155,6 +156,16 @@ namespace QMC.CDT320.Alarms
                 new AlarmDefinition { Code="EXPOSE-TIMEOUT", Category=AlarmCategory.Vision, DefaultSeverity=AlarmSeverity.Error,
                     Title="EPD 미수신", Cause="Vision 그랩 미완료", Action="Vision PC 상태 확인, 카메라 케이블/네트워크 점검",
                     ManualName="ResultTimeOut", ManualLocator="DieTransfer/.../MachineVision/Services" },
+                // Stage 62 — Vision 알고리즘별 카메라 설정 알람 (신규 3 개)
+                new AlarmDefinition { Code="VISION-MAPMISS", Category=AlarmCategory.Vision, DefaultSeverity=AlarmSeverity.Warning,
+                    Title="알고리즘 카메라 매핑 누락", Cause="algorithm_camera.json 에 해당 알고리즘 항목 없음 또는 CameraId 비어 있음", Action="설정 페이지에서 카메라 ID 지정 후 저장",
+                    TitleEn="Algorithm camera mapping missing", CauseEn="No mapping entry for algorithm or CameraId empty", ActionEn="Set camera ID via Settings page and save" },
+                new AlarmDefinition { Code="VISION-PARAMFAIL", Category=AlarmCategory.Vision, DefaultSeverity=AlarmSeverity.Warning,
+                    Title="카메라 파라미터 적용 실패", Cause="Exposure/Gain/Trigger/ROI 설정 중 예외", Action="EventLog 확인, 카메라 SDK/드라이버 점검",
+                    TitleEn="Camera parameter apply failed", CauseEn="Exception while setting Exposure/Gain/Trigger/ROI", ActionEn="Check EventLog, verify camera SDK/driver" },
+                new AlarmDefinition { Code="VISION-CAMOPEN", Category=AlarmCategory.Vision, DefaultSeverity=AlarmSeverity.Error,
+                    Title="카메라 Open 실패", Cause="GigE 미연결 / SDK 미설치 / IP 불일치", Action="IP·케이블·SDK 확인 (Sim fallback 시 무시 가능)",
+                    TitleEn="Camera open failed", CauseEn="GigE not connected / SDK missing / IP mismatch", ActionEn="Check IP/cable/SDK (ignorable when Sim fallback)" },
 
                 // ── Material / Inspection ──
                 new AlarmDefinition { Code="PickFail", Category=AlarmCategory.Material, DefaultSeverity=AlarmSeverity.Warning,
@@ -174,7 +185,6 @@ namespace QMC.CDT320.Alarms
                     Title="시뮬레이터 연결 끊김", Cause="시뮬레이터 종료 또는 TCP 오류", Action="시뮬레이터 재기동" },
 
                 // ── IO / Safety ──
-                // Stage 60 — `EMG-PRESSED` 였으나 실호출(MachineController.cs:510)이 `E-STOP` 이므로 통일.
                 new AlarmDefinition { Code="E-STOP", Category=AlarmCategory.Safety, DefaultSeverity=AlarmSeverity.Critical,
                     Title="비상 정지", Cause="E-Stop 버튼 또는 Door 센서", Action="안전 확인 후 비상 정지 해제 + Reset",
                     TitleEn="Emergency Stop", CauseEn="E-Stop button or door sensor", ActionEn="Confirm safety, release E-Stop and Reset",
@@ -190,7 +200,7 @@ namespace QMC.CDT320.Alarms
                 new AlarmDefinition { Code="CYCLE-EX", Category=AlarmCategory.System, DefaultSeverity=AlarmSeverity.Error,
                     Title="사이클 예외", Cause="MachineController 내부 예외", Action="EventLog 확인 후 재기동" },
 
-                // ── InputStage (Stage B 추가 2026-04-30) ──
+                // ── InputStage ──
                 new AlarmDefinition { Code="IS-FEEDER", Category=AlarmCategory.Material, DefaultSeverity=AlarmSeverity.Warning,
                     Title="입력 피더 안전 위치 미확인", Cause="피더가 안전 위치 미도달", Action="피더 위치 확인 후 수동 후퇴" },
                 new AlarmDefinition { Code="IS-EXPZ", Category=AlarmCategory.Motion, DefaultSeverity=AlarmSeverity.Error,
@@ -204,7 +214,7 @@ namespace QMC.CDT320.Alarms
                 new AlarmDefinition { Code="IS-MOVE", Category=AlarmCategory.Motion, DefaultSeverity=AlarmSeverity.Error,
                     Title="InputStage 이동 실패", Cause="이동 후 축 알람", Action="알람 리셋, 인터락 확인" },
 
-                // ── OutputStage (Stage B 추가 2026-04-30) ──
+                // ── OutputStage ──
                 new AlarmDefinition { Code="OS-AVOID", Category=AlarmCategory.Safety, DefaultSeverity=AlarmSeverity.Error,
                     Title="OutputStage 회피 실패", Cause="반대 스테이지 Z 회피 미달성", Action="인터락 확인, StageZ 수동 하강",
                     ManualName="InterlockDetected", ManualLocator="DieTransfer/BinTransfer/DiePost/UpDownCylinder/*Interlock" },
@@ -217,7 +227,7 @@ namespace QMC.CDT320.Alarms
                 new AlarmDefinition { Code="OS-BINCAM", Category=AlarmCategory.Motion, DefaultSeverity=AlarmSeverity.Error,
                     Title="BinCamera X 이동 실패", Cause="BinCameraX 이동 후 알람", Action="알람 리셋, 인터락 확인" },
 
-                // ── OutputUnloader (Stage B 추가 2026-04-30) ──
+                // ── OutputUnloader ──
                 new AlarmDefinition { Code="OUT-FULL-GOOD", Category=AlarmCategory.Material, DefaultSeverity=AlarmSeverity.Error,
                     Title="Good 카세트 가득", Cause="Good1/Good2 모두 25슬롯 가득", Action="카세트 교체" },
                 new AlarmDefinition { Code="OUT-FULL-NG", Category=AlarmCategory.Material, DefaultSeverity=AlarmSeverity.Error,
@@ -228,23 +238,17 @@ namespace QMC.CDT320.Alarms
                     Title="웨이퍼 저장 예외", Cause="StoreFullWafer 내부 예외", Action="EventLog 확인",
                     ManualName="ProtrusionDetected", ManualLocator="DieTransfer/BinLifter/*Plate" },
 
-                // ── Stage 60 (2026-05-04) — ALARM_AUDIT.md P1 — 미등록 호출 코드 15개 신규 등록 ──
-
-                // AXL (AjinSystem.cs / AjinAxis.cs)
+                // ── Stage 60 — 미등록 호출 코드 신규 등록 ──
                 new AlarmDefinition { Code="AXL-OPEN", Category=AlarmCategory.System, DefaultSeverity=AlarmSeverity.Critical,
                     Title="AXL 보드 오픈 실패", Cause="AXL DLL 로드 후 보드 초기화 실패", Action="보드 전원 / PCI 슬롯 확인 후 재기동",
                     TitleEn="AXL board open failed", CauseEn="AXL DLL loaded but board init failed", ActionEn="Check board power / PCI slot, restart" },
                 new AlarmDefinition { Code="AXL-DLL", Category=AlarmCategory.System, DefaultSeverity=AlarmSeverity.Critical,
                     Title="AXL DLL 로드 실패", Cause="AXL.dll 미존재 또는 버전 불일치", Action="AJINEXTEK 드라이버 재설치",
                     TitleEn="AXL DLL load failed", CauseEn="AXL.dll missing or version mismatch", ActionEn="Reinstall AJINEXTEK driver" },
-
-                // Vision exception
                 new AlarmDefinition { Code="ALIGN-EX", Category=AlarmCategory.Vision, DefaultSeverity=AlarmSeverity.Error,
                     Title="얼라인 예외", Cause="VisionAlign 시퀀스 내부 예외", Action="EventLog 확인 후 비전 PC 상태 점검",
                     TitleEn="Align exception", CauseEn="Internal exception in vision-align sequence", ActionEn="Check EventLog and Vision PC state",
                     ManualName="OutOfTolerance", ManualLocator="DieTransfer/WaferTransfer/WaferVision/MachineVision/Services/Aligner" },
-
-                // LOT (Cassette/Feeder lifecycle)
                 new AlarmDefinition { Code="LOT-NOCASS", Category=AlarmCategory.Material, DefaultSeverity=AlarmSeverity.Warning,
                     Title="카세트 미감지", Cause="로드포트 카세트 안착 센서 OFF", Action="카세트 안착 후 재시도",
                     TitleEn="Cassette not detected", CauseEn="Load-port cassette sensor OFF", ActionEn="Place cassette and retry",
@@ -265,8 +269,6 @@ namespace QMC.CDT320.Alarms
                     Title="피더 후퇴 실패", Cause="RetractFeeder 단계 알람 (클램프/FeederY/상승)", Action="피더 수동 복귀 후 재시도",
                     TitleEn="Feeder retract failed", CauseEn="Alarm in RetractFeeder step (clamp/FeederY/up)", ActionEn="Manually return feeder and retry",
                     ManualName="CannotMove", ManualLocator="DieTransfer/WaferFeeder/Arm" },
-
-                // InputStage extra
                 new AlarmDefinition { Code="IS-LOAD", Category=AlarmCategory.Material, DefaultSeverity=AlarmSeverity.Warning,
                     Title="InputStage 로드 실패", Cause="LoadAndPrepareWafer 단계 실패", Action="피더 위치 / 익스팬더 / 바코드 확인",
                     TitleEn="InputStage load failed", CauseEn="LoadAndPrepareWafer step failed", ActionEn="Check feeder/expander/barcode",
@@ -274,8 +276,6 @@ namespace QMC.CDT320.Alarms
                 new AlarmDefinition { Code="IS-EXCEPTION", Category=AlarmCategory.System, DefaultSeverity=AlarmSeverity.Error,
                     Title="InputStage 사이클 예외", Cause="MachineController.LoadInputStage 내부 예외", Action="EventLog 확인 후 재기동",
                     TitleEn="InputStage cycle exception", CauseEn="Internal exception in LoadInputStage", ActionEn="Check EventLog and restart" },
-
-                // OutputStage extra
                 new AlarmDefinition { Code="OS-RECEIVE", Category=AlarmCategory.Material, DefaultSeverity=AlarmSeverity.Warning,
                     Title="OutputStage 수신 실패", Cause="ReceiveDie 단계 실패 (Avoid/WorkZ/MoveY)", Action="OutputStage 수동 회피 후 재시도",
                     TitleEn="OutputStage receive failed", CauseEn="ReceiveDie step failed (Avoid/WorkZ/MoveY)", ActionEn="Manually avoid OutputStage and retry",
@@ -290,8 +290,6 @@ namespace QMC.CDT320.Alarms
                 new AlarmDefinition { Code="OS-BININSP-EX", Category=AlarmCategory.System, DefaultSeverity=AlarmSeverity.Error,
                     Title="Bin 검사 예외", Cause="InspectBinPosition 내부 예외", Action="EventLog 확인 후 재기동",
                     TitleEn="Bin inspection exception", CauseEn="Internal exception in InspectBinPosition", ActionEn="Check EventLog and restart" },
-
-                // TransferPicker
                 new AlarmDefinition { Code="TPU-PLACE", Category=AlarmCategory.Motion, DefaultSeverity=AlarmSeverity.Warning,
                     Title="TPU Place 실패", Cause="TPU PlaceDies 단계 실패 (Place 위치 또는 배출)", Action="픽커 콜렛 / 진공 점검 후 재시도",
                     TitleEn="TPU Place failed", CauseEn="TPU PlaceDies step failed (Place pos or discharge)", ActionEn="Check picker collet/vacuum and retry",

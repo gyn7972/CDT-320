@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using QMC.CDT320.Materials;
 using QMC.CDT320.Recipes;
 
+using Alarms = QMC.Common.Alarms;
 namespace QMC.CDT320.Secs
 {
     /// <summary>
@@ -51,10 +52,10 @@ namespace QMC.CDT320.Secs
             Port = port;
             RegisterStandardCommands();
             // Stage 7 — AlarmManager 이벤트 자동 구독 → S5F1 broadcast
-            try { QMC.CDT320.Alarms.AlarmManager.AlarmRaised += OnAlarmRaised; } catch { }
+            try { QMC.Common.Alarms.AlarmManager.AlarmRaised += OnAlarmRaised; } catch { }
         }
 
-        private void OnAlarmRaised(QMC.CDT320.Alarms.AlarmRecord rec)
+        private void OnAlarmRaised(QMC.Common.Alarms.AlarmRecord rec)
         {
             try
             {

@@ -6,6 +6,7 @@ using QMC.CDT_320.Ui.Localization;
 using QMC.CDT_320.Ui.Security;
 using QMC.CDT_320.Ui.Tabs;
 
+using Alarms = QMC.Common.Alarms;
 namespace QMC.CDT_320
 {
     /// <summary>하단 메인 탭 식별자.</summary>
@@ -63,6 +64,9 @@ namespace QMC.CDT_320
             // 설정 로드 + 언어 복원
             var cfg = AppSettingsStore.Load();
             if (!string.IsNullOrEmpty(cfg.Language)) Lang.SetLanguage(cfg.Language);
+
+            // Stage 62 — Alarm 시스템을 QMC.Common 으로 이동. Lang 의존성을 콜백으로 주입.
+            QMC.Common.Alarms.AlarmManager.LanguageProvider = () => Lang.Current ?? "ko";
 
             // AJINEXTEK AXL (실보드) 컨피그 로드 + 라이브러리 열기
             QMC.CDT320.Ajin.AjinConfigStore.Load();

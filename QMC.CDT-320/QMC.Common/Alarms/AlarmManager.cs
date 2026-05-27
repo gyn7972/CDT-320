@@ -2,16 +2,18 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace QMC.CDT320.Alarms
+namespace QMC.Common.Alarms
 {
     /// <summary>
-    /// 프로세스 전역 알람 관리자.
+    /// 프로세스 전역 알람 관리자 (Handler + Vision 양쪽에서 동일 클래스 사용).
     /// <list type="bullet">
     ///   <item><description>Raise(...) 로 알람 발생, Clear(id) / ClearAll() 로 해제</description></item>
     ///   <item><description>Active: 해제되지 않은 알람 리스트</description></item>
     ///   <item><description>History: 전체 레코드 (해제된 것 포함)</description></item>
     ///   <item><description>AlarmRaised / AlarmCleared 이벤트 발행 — UI 배너가 구독</description></item>
     /// </list>
+    /// <para>Language 의존성은 <see cref="LanguageProvider"/> 콜백으로 추상화 — 호스트(Handler)가
+    /// 부팅 시 <c>AlarmManager.LanguageProvider = () =&gt; Lang.Current</c> 설정.</para>
     /// </summary>
     public static class AlarmManager
     {
@@ -21,6 +23,9 @@ namespace QMC.CDT320.Alarms
 
         public static event Action<AlarmRecord> AlarmRaised;
         public static event Action<AlarmRecord> AlarmCleared;
+
+        /// <summary>현재 언어 코드("ko" / "en") 반환 콜백. 호스트가 설정. 기본 "ko".</summary>
+        public static Func<string> LanguageProvider { get; set; } = () => "ko";
 
         public static IReadOnlyList<AlarmRecord> Active
         {
@@ -56,15 +61,14 @@ namespace QMC.CDT320.Alarms
 
         public static AlarmRecord Raise(AlarmSeverity sev, string code, string source, string message)
         {
-            // Stage 19 — AlarmMaster lookup: message 가 비어있으면 정의된 Title 사용
-            // Stage 23 — Lang.Current (ko/en) 적용
+            // AlarmMaster lookup: message 가 비어있으면 정의된 Title 사용
             if (string.IsNullOrEmpty(message))
             {
                 var def = AlarmMaster.Get(code);
                 if (def != null)
                 {
                     string lang = "ko";
-                    try { lang = QMC.CDT_320.Ui.Localization.Lang.Current ?? "ko"; } catch { }
+                    try { lang = LanguageProvider?.Invoke() ?? "ko"; } catch { }
                     message = def.GetTitle(lang);
                 }
             }

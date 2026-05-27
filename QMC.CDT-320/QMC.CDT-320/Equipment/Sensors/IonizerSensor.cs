@@ -1,7 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using QMC.CDT320.Alarms;
+using QMC.Common.Alarms;
 using QMC.Common.IO;
 
 namespace QMC.CDT320.Sensors

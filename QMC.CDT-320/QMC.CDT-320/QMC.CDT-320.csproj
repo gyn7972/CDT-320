@@ -86,11 +86,7 @@
     </Compile>
     <Compile Include="Equipment\TransferPickerUnit.cs" />
     <Compile Include="Equipment\UnitData.cs" />
-    <!-- Equipment / Alarms -->
-    <Compile Include="Equipment\Alarms\AlarmManager.cs" />
-    <Compile Include="Equipment\Alarms\AlarmRecord.cs" />
-    <Compile Include="Equipment\Alarms\AlarmSeverity.cs" />
-    <Compile Include="Equipment\Alarms\AlarmMaster.cs" />
+    <!-- Stage 62 — Alarm classes moved to QMC.Common\Alarms\ (shared with QMC.Vision) -->
     <!-- Equipment / Logging -->
     <Compile Include="Equipment\Logging\EventLogger.cs" />
     <!-- Equipment / Recipes -->
