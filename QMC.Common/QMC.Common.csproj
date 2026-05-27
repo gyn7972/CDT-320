@@ -33,6 +33,7 @@
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Runtime.Serialization" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
@@ -41,20 +42,45 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="AjinE\AXA.cs" />
+    <Compile Include="AjinE\AXD.cs" />
+    <Compile Include="AjinE\AXDEV.cs" />
+    <Compile Include="AjinE\AXHD.cs" />
+    <Compile Include="AjinE\AXHS.cs" />
+    <Compile Include="AjinE\AXL.cs" />
+    <Compile Include="AjinE\AXM.cs" />
     <Compile Include="BaseComponent.cs" />
     <Compile Include="BaseEquipmentNode.cs" />
     <Compile Include="BaseUnit.cs" />
     <Compile Include="Interfaces\IEquipmentData.cs" />
+    <Compile Include="AjinE\IODefine.cs" />
+    <Compile Include="IO\AjinCylinder.cs" />
+    <Compile Include="IO\AjinDigitalInput.cs" />
+    <Compile Include="IO\AjinDigitalOutput.cs" />
     <Compile Include="IO\BaseCylinder.cs" />
     <Compile Include="IO\BaseDigitalInput.cs" />
     <Compile Include="IO\BaseDigitalOutput.cs" />
     <Compile Include="IO\IoData.cs" />
     <Compile Include="Machine.cs" />
+    <Compile Include="AjinE\MotionDefine.cs" />
+    <Compile Include="Motion\AjinAxis.cs" />
+    <Compile Include="Motion\AjinMotionSystem.cs" />
     <Compile Include="Motion\AxisData.cs" />
     <Compile Include="Motion\AxisSpeedTable.cs" />
     <Compile Include="Motion\BaseAxis.cs" />
+    <Compile Include="Motion\MotionAxisManager.cs" />
+    <Compile Include="Motion\MotionAxisStore.cs" />
     <Compile Include="Motion\MotionEnums.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="AjinE\Library\Axl.dll" />
+    <Content Include="AjinE\Library\AxlEncoderLib.dll" />
+    <Content Include="AjinE\Library\AxtWaferScanLib.dll" />
+    <Content Include="AjinE\Library\EzbasicAxl.dll" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

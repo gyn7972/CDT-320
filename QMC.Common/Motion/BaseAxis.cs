@@ -5,119 +5,119 @@ using System.Threading.Tasks;
 namespace QMC.Common.Motion
 {
     /// <summary>
-    /// ��� ��� ���� �߻� ���̽� Ŭ����.<br/>
+    /// 占쏙옙占?占쏙옙占?占쏙옙占쏙옙 占쌩삼옙 占쏙옙占싱쏙옙 클占쏙옙占쏙옙.<br/>
     /// <list type="bullet">
-    ///   <item><description>�ùķ��̼� ���� ���� ? ���� �ϵ���� ���̵� UI/������ ���� ����.</description></item>
-    ///   <item><description>��� ����̵� �޼���� <c>virtual</c> ? �Ǻ��� Ŭ������ override�Ͽ� API ����.</description></item>
-    ///   <item><description><see cref="BaseComponent{TSetup,TConfig,TRecipe}"/> ��� ? ���� Ʈ���� Leaf ���� ����.</description></item>
+    ///   <item><description>占시뮬뤄옙占싱쇽옙 占쏙옙占쏙옙 占쏙옙占쏙옙 ? 占쏙옙占쏙옙 占싹듸옙占쏙옙占?占쏙옙占싱듸옙 UI/占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙 占쏙옙占쏙옙.</description></item>
+    ///   <item><description>占쏙옙占?占쏙옙占쏘·占싱듸옙 占쌨쇽옙占쏙옙占?<c>virtual</c> ? 占실븝옙占쏙옙 클占쏙옙占쏙옙占쏙옙 override占싹울옙 API 占쏙옙占쏙옙.</description></item>
+    ///   <item><description><see cref="BaseComponent{TSetup,TConfig,TRecipe}"/> 占쏙옙占?? 占쏙옙占쏙옙 트占쏙옙占쏙옙 Leaf 占쏙옙占쏙옙 占쏙옙占쏙옙.</description></item>
     /// </list>
     /// </summary>
     public abstract class BaseAxis
         : BaseComponent<AxisSetup, AxisConfig, AxisRecipe>
     {
-        // ��������������������������������������������������������������������������������������������������������������������������������������������
-        //  ���� ���� �ʵ�
-        // ��������������������������������������������������������������������������������������������������������������������������������������������
+        // 占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙
+        //  占쏙옙占쏙옙 占쏙옙占쏙옙 占십듸옙
+        // 占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙
 
-        /// <summary>��׶��� ���� ������Ʈ �½�ũ ��� ��ū �ҽ�.</summary>
+        /// <summary>占쏙옙溜占쏙옙占?占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙트 占승쏙옙크 占쏙옙占?占쏙옙큰 占쌀쏙옙.</summary>
         private readonly CancellationTokenSource _cts = new CancellationTokenSource();
 
-        /// <summary>�ùķ��̼� �̵� ��ǥ ��ġ (CommandPosition ���纻).</summary>
+        /// <summary>占시뮬뤄옙占싱쇽옙 占싱듸옙 占쏙옙표 占쏙옙치 (CommandPosition 占쏙옙占썹본).</summary>
         private double _simTargetPosition;
 
-        /// <summary>Override�� ��ǥ ��ġ. NaN�̸� ����.</summary>
+        /// <summary>Override占쏙옙 占쏙옙표 占쏙옙치. NaN占싱몌옙 占쏙옙占쏙옙.</summary>
         private double _overrideTargetPosition = double.NaN;
 
-        /// <summary>Override�� �ӵ�. NaN�̸� ����.</summary>
+        /// <summary>Override占쏙옙 占쌈듸옙. NaN占싱몌옙 占쏙옙占쏙옙.</summary>
         private double _overrideVelocity = double.NaN;
 
-        // ��������������������������������������������������������������������������������������������������������������������������������������������
-        //  ���� ������Ƽ (protected set ? ���� Ŭ�������� ���� ���� ����)
-        // ��������������������������������������������������������������������������������������������������������������������������������������������
+        // 占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙
+        //  占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙티 (protected set ? 占쏙옙占쏙옙 클占쏙옙占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙 占쏙옙占쏙옙 占쏙옙占쏙옙)
+        // 占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙
 
-        /// <summary>�ǵ��(���ڴ�) ��� ���� ���� ��ġ.</summary>
+        /// <summary>占실듸옙占?占쏙옙占쌘댐옙) 占쏙옙占?占쏙옙占쏙옙 占쏙옙占쏙옙 占쏙옙치.</summary>
         public double ActualPosition    { get; protected set; }
 
-        /// <summary>�̵� �������� ������ ��ǥ ��ġ.</summary>
+        /// <summary>占싱듸옙 占쏙옙占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙 占쏙옙표 占쏙옙치.</summary>
         public double CommandPosition   { get; protected set; }
 
-        /// <summary>���� �̵� �ӵ�.</summary>
+        /// <summary>占쏙옙占쏙옙 占싱듸옙 占쌈듸옙.</summary>
         public double CurrentVelocity   { get; protected set; }
 
-        /// <summary>���� ON ���� ����.</summary>
+        /// <summary>占쏙옙占쏙옙 ON 占쏙옙占쏙옙 占쏙옙占쏙옙.</summary>
         public bool IsServoOn           { get; protected set; }
 
-        /// <summary>�̵� �� ����.</summary>
+        /// <summary>占싱듸옙 占쏙옙 占쏙옙占쏙옙.</summary>
         public bool IsMoving            { get; protected set; }
 
-        /// <summary>In-Position(INP) ��ȣ ? ��ǥ ��ġ ���� �� ����ȭ �Ϸ�.</summary>
+        /// <summary>In-Position(INP) 占쏙옙호 ? 占쏙옙표 占쏙옙치 占쏙옙占쏙옙 占쏙옙 占쏙옙占쏙옙화 占싹뤄옙.</summary>
         public bool IsInPosition        { get; protected set; }
 
-        /// <summary>�˶� �߻� ����.</summary>
+        /// <summary>占싯띰옙 占쌩삼옙 占쏙옙占쏙옙.</summary>
         public bool IsAlarm             { get; protected set; }
 
-        /// <summary>���� ���� �Ϸ� ����.</summary>
+        /// <summary>占쏙옙占쏙옙 占쏙옙占쏙옙 占싹뤄옙 占쏙옙占쏙옙.</summary>
         public bool IsHomeDone          { get; protected set; }
 
-        /// <summary>�˶� �ڵ�.</summary>
+        /// <summary>占싯띰옙 占쌘듸옙.</summary>
         public uint AlarmCode           { get; protected set; }
 
-        /// <summary>�÷��� ���� �ϵ���� ���� ���� ��ȣ.</summary>
+        /// <summary>占시뤄옙占쏙옙 占쏙옙占쏙옙 占싹듸옙占쏙옙占?占쏙옙占쏙옙 占쏙옙占쏙옙 占쏙옙호.</summary>
         public bool Sensor_PEL          { get; protected set; }
 
-        /// <summary>���̳ʽ� ���� �ϵ���� ���� ���� ��ȣ.</summary>
+        /// <summary>占쏙옙占싱너쏙옙 占쏙옙占쏙옙 占싹듸옙占쏙옙占?占쏙옙占쏙옙 占쏙옙占쏙옙 占쏙옙호.</summary>
         public bool Sensor_MEL          { get; protected set; }
 
-        /// <summary>���� ���� ��ȣ.</summary>
+        /// <summary>占쏙옙占쏙옙 占쏙옙占쏙옙 占쏙옙호.</summary>
         public bool Sensor_ORG          { get; protected set; }
 
-        /// <summary>���� ���� ���.</summary>
+        /// <summary>占쏙옙占쏙옙 占쏙옙占쏙옙 占쏙옙占?</summary>
         protected MotionMode _currentMode;
 
-        /// <summary>Jog �̵� ���� (+1 �Ǵ� -1, 0�̸� ����).</summary>
+        /// <summary>Jog 占싱듸옙 占쏙옙占쏙옙 (+1 占실댐옙 -1, 0占싱몌옙 占쏙옙占쏙옙).</summary>
         protected int _jogDirection;
 
-        // ──────────────────────────────────────────────
-        //  상태 변경 이벤트 (외부 관찰자용: UI / Simulator Bridge 등)
-        // ──────────────────────────────────────────────
+        // ??????????????????????????????????????????????
+        //  ?곹깭 蹂寃??대깽??(?몃? 愿李곗옄?? UI / Simulator Bridge ??
+        // ??????????????????????????????????????????????
 
-        /// <summary>ActualPosition 이 변경될 때마다 발행.</summary>
+        /// <summary>ActualPosition ??蹂寃쎈맆 ?뚮쭏??諛쒗뻾.</summary>
         public event System.Action<BaseAxis, double> ActualPositionChanged;
 
-        /// <summary>이동 시작 시점에 1회 발행 (IsMoving false→true).</summary>
+        /// <summary>?대룞 ?쒖옉 ?쒖젏??1??諛쒗뻾 (IsMoving false?뭪rue).</summary>
         public event System.Action<BaseAxis> MoveStarted;
 
-        /// <summary>이동 완료 시점에 1회 발행 (IsMoving true→false, 정상 완료).</summary>
+        /// <summary>?대룞 ?꾨즺 ?쒖젏??1??諛쒗뻾 (IsMoving true?뭚alse, ?뺤긽 ?꾨즺).</summary>
         public event System.Action<BaseAxis> MoveCompleted;
 
-        /// <summary>_lastBroadcastPosition: ActualPositionChanged 이벤트 중복 방지용 캐시.</summary>
+        /// <summary>_lastBroadcastPosition: ActualPositionChanged ?대깽??以묐났 諛⑹???罹먯떆.</summary>
         private double _lastBroadcastPosition = double.NaN;
 
-        // ��������������������������������������������������������������������������������������������������������������������������������������������
-        //  ������
-        // ��������������������������������������������������������������������������������������������������������������������������������������������
+        // 占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙
+        //  占쏙옙占쏙옙占쏙옙
+        // 占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙
 
         /// <summary>
-        /// <see cref="BaseAxis"/>�� �ʱ�ȭ�ϰ� ��׶��� ���� ������Ʈ �½�ũ�� �����Ѵ�.
+        /// <see cref="BaseAxis"/>占쏙옙 占십깍옙화占싹곤옙 占쏙옙溜占쏙옙占?占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙트 占승쏙옙크占쏙옙 占쏙옙占쏙옙占싼댐옙.
         /// </summary>
-        /// <param name="name">�� �̸� (��: "Z_Axis_Motor")</param>
+        /// <param name="name">占쏙옙 占싱몌옙 (占쏙옙: "Z_Axis_Motor")</param>
         protected BaseAxis(string name) : base(name)
         {
             StartStatusUpdateTask();
         }
 
-        // ��������������������������������������������������������������������������������������������������������������������������������������������
-        //  ��1. �⺻ ���� �޼���
-        // ��������������������������������������������������������������������������������������������������������������������������������������������
+        // 占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙
+        //  占쏙옙1. 占썩본 占쏙옙占쏙옙 占쌨쇽옙占쏙옙
+        // 占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙
 
-        /// <summary>������ Ȱ��ȭ(ON)�Ѵ�.</summary>
+        /// <summary>占쏙옙占쏙옙占쏙옙 활占쏙옙화(ON)占싼댐옙.</summary>
         public virtual void ServoOn()
         {
             if (IsAlarm) return;
             IsServoOn = true;
         }
 
-        /// <summary>������ ��Ȱ��ȭ(OFF)�Ѵ�.</summary>
+        /// <summary>占쏙옙占쏙옙占쏙옙 占쏙옙활占쏙옙화(OFF)占싼댐옙.</summary>
         public virtual void ServoOff()
         {
             Stop();
@@ -125,8 +125,8 @@ namespace QMC.Common.Motion
         }
 
         /// <summary>
-        /// ���� ������ �����Ѵ�.
-        /// ���� ���� ���� �̵��� ����ϰ� IsMoving�� false�� �����Ѵ�.
+        /// 占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙占싼댐옙.
+        /// 占쏙옙占쏙옙 占쏙옙占쏙옙 占쏙옙占쏙옙 占싱듸옙占쏙옙 占쏙옙占쏙옙構占?IsMoving占쏙옙 false占쏙옙 占쏙옙占쏙옙占싼댐옙.
         /// </summary>
         public virtual void Stop()
         {
@@ -138,8 +138,8 @@ namespace QMC.Common.Motion
         }
 
         /// <summary>
-        /// ��� ����(Emergency Stop)�� �����Ѵ�.
-        /// ��� �����ϸ� AlarmCode 1�� �����Ѵ�.
+        /// 占쏙옙占?占쏙옙占쏙옙(Emergency Stop)占쏙옙 占쏙옙占쏙옙占싼댐옙.
+        /// 占쏙옙占?占쏙옙占쏙옙占싹몌옙 AlarmCode 1占쏙옙 占쏙옙占쏙옙占싼댐옙.
         /// </summary>
         public virtual void EStop()
         {
@@ -148,7 +148,7 @@ namespace QMC.Common.Motion
             AlarmCode = 1;
         }
 
-        /// <summary>�˶��� �����Ѵ�. �ϵ���� �˶� ������ ���ŵ� �� ȣ���ؾ� �Ѵ�.</summary>
+        /// <summary>占싯띰옙占쏙옙 占쏙옙占쏙옙占싼댐옙. 占싹듸옙占쏙옙占?占싯띰옙 占쏙옙占쏙옙占쏙옙 占쏙옙占신듸옙 占쏙옙 호占쏙옙占쌔억옙 占싼댐옙.</summary>
         public virtual void ResetAlarm()
         {
             IsAlarm   = false;
@@ -156,10 +156,10 @@ namespace QMC.Common.Motion
         }
 
         /// <summary>
-        /// ���� ��ġ(ActualPosition, CommandPosition)�� ������ ������ ������ �����Ѵ�.
-        /// �ַ� ���� ���� �� ��ǥ ������ ����Ѵ�.
+        /// 占쏙옙占쏙옙 占쏙옙치(ActualPosition, CommandPosition)占쏙옙 占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙占싼댐옙.
+        /// 占쌍뤄옙 占쏙옙占쏙옙 占쏙옙占쏙옙 占쏙옙 占쏙옙표 占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙磯占?
         /// </summary>
-        /// <param name="newPosition">���� ������ ��ġ ��</param>
+        /// <param name="newPosition">占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙 占쏙옙치 占쏙옙</param>
         public virtual void SetPosition(double newPosition)
         {
             ActualPosition  = newPosition;
@@ -168,11 +168,11 @@ namespace QMC.Common.Motion
         }
 
         /// <summary>
-        /// ���� Recipe�� �ӵ��������� �Ķ���͸� �����Ѵ�.
+        /// 占쏙옙占쏙옙 Recipe占쏙옙 占쌈듸옙占쏙옙占쏙옙占쏙옙占쏙옙 占식띰옙占쏙옙拷占?占쏙옙占쏙옙占싼댐옙.
         /// </summary>
-        /// <param name="velocity">�̵� �ӵ� [����/s]</param>
-        /// <param name="acc">���ӵ� [����/s��]</param>
-        /// <param name="dec">���ӵ� [����/s��]</param>
+        /// <param name="velocity">占싱듸옙 占쌈듸옙 [占쏙옙占쏙옙/s]</param>
+        /// <param name="acc">占쏙옙占쌈듸옙 [占쏙옙占쏙옙/s占쏙옙]</param>
+        /// <param name="dec">占쏙옙占쌈듸옙 [占쏙옙占쏙옙/s占쏙옙]</param>
         public virtual void SetMotionProfile(double velocity, double acc, double dec)
         {
             Recipe.DefaultVelocity = velocity;
@@ -180,16 +180,16 @@ namespace QMC.Common.Motion
             Recipe.Deceleration    = dec;
         }
 
-        // ��������������������������������������������������������������������������������������������������������������������������������������������
-        //  ��2. �̵� �޼���
-        // ��������������������������������������������������������������������������������������������������������������������������������������������
+        // 占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙
+        //  占쏙옙2. 占싱듸옙 占쌨쇽옙占쏙옙
+        // 占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙
 
         /// <summary>
-        /// ���� ��ǥ�� �񵿱� �̵��Ѵ�.
-        /// �̵� �Ϸ�(InPosition) �Ǵ� �˶� �߻� �ñ��� ����Ѵ�.
+        /// 占쏙옙占쏙옙 占쏙옙표占쏙옙 占쏟동깍옙 占싱듸옙占싼댐옙.
+        /// 占싱듸옙 占싹뤄옙(InPosition) 占실댐옙 占싯띰옙 占쌩삼옙 占시깍옙占쏙옙 占쏙옙占쏙옙磯占?
         /// </summary>
-        /// <param name="targetPos">��ǥ ���� ��ġ</param>
-        /// <param name="velocity">�̵� �ӵ� (0 �����̸� Recipe.DefaultVelocity ���)</param>
+        /// <param name="targetPos">占쏙옙표 占쏙옙占쏙옙 占쏙옙치</param>
+        /// <param name="velocity">占싱듸옙 占쌈듸옙 (0 占쏙옙占쏙옙占싱몌옙 Recipe.DefaultVelocity 占쏙옙占?</param>
         public virtual async Task MoveAbsoluteAsync(double targetPos, double velocity = 0)
         {
             if (!IsServoOn || IsAlarm) return;
@@ -207,13 +207,13 @@ namespace QMC.Common.Motion
             await WaitUntilMoveDone(_cts.Token);
         }
 
-        // ──────────────────────────────────────────────
-        //  이벤트 발행 헬퍼
-        // ──────────────────────────────────────────────
+        // ??????????????????????????????????????????????
+        //  ?대깽??諛쒗뻾 ?ы띁
+        // ??????????????????????????????????????????????
 
         protected void RaisePositionChanged()
         {
-            // 이벤트 구독자가 없거나 위치가 동일하면 스킵
+            // ?대깽??援щ룆?먭? ?녾굅???꾩튂媛 ?숈씪?섎㈃ ?ㅽ궢
             var h = ActualPositionChanged;
             if (h == null) return;
             if (!double.IsNaN(_lastBroadcastPosition) && _lastBroadcastPosition == ActualPosition) return;
@@ -236,10 +236,10 @@ namespace QMC.Common.Motion
         }
 
         /// <summary>
-        /// ���� ��ġ���� ��� �Ÿ���ŭ �񵿱� �̵��Ѵ�.
+        /// 占쏙옙占쏙옙 占쏙옙치占쏙옙占쏙옙 占쏙옙占?占신몌옙占쏙옙큼 占쏟동깍옙 占싱듸옙占싼댐옙.
         /// </summary>
-        /// <param name="distance">�̵� �Ÿ� (�����̸� ���̳ʽ� ����)</param>
-        /// <param name="velocity">�̵� �ӵ� (0 �����̸� Recipe.DefaultVelocity ���)</param>
+        /// <param name="distance">占싱듸옙 占신몌옙 (占쏙옙占쏙옙占싱몌옙 占쏙옙占싱너쏙옙 占쏙옙占쏙옙)</param>
+        /// <param name="velocity">占싱듸옙 占쌈듸옙 (0 占쏙옙占쏙옙占싱몌옙 Recipe.DefaultVelocity 占쏙옙占?</param>
         public virtual async Task MoveRelativeAsync(double distance, double velocity = 0)
         {
             double targetPos = ActualPosition + distance;
@@ -247,8 +247,8 @@ namespace QMC.Common.Motion
         }
 
         /// <summary>
-        /// ���� ���� �������� �񵿱�� �����Ѵ�.<br/>
-        /// �ùķ��̼�: ���̳ʽ� ���� ������ �̵� �� HomeOffset�� �����Ͽ� ��ǥ�� �����Ѵ�.
+        /// 占쏙옙占쏙옙 占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙占쏙옙 占쏟동깍옙占?占쏙옙占쏙옙占싼댐옙.<br/>
+        /// 占시뮬뤄옙占싱쇽옙: 占쏙옙占싱너쏙옙 占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙 占싱듸옙 占쏙옙 HomeOffset占쏙옙 占쏙옙占쏙옙占싹울옙 占쏙옙표占쏙옙 占쏙옙占쏙옙占싼댐옙.
         /// </summary>
         public virtual async Task HomeSearchAsync()
         {
@@ -257,8 +257,8 @@ namespace QMC.Common.Motion
             _currentMode = MotionMode.Homing;
             IsHomeDone   = false;
 
-            // ���� �ùķ��̼�: SoftLimitMinus ��ġ�� �̵��Ͽ� ���� ���� ��� ����������
-            double homeTarget  = Setup.SoftLimitMinus + 1.0; // ���� ���� ����
+            // 占쏙옙占쏙옙 占시뮬뤄옙占싱쇽옙: SoftLimitMinus 占쏙옙치占쏙옙 占싱듸옙占싹울옙 占쏙옙占쏙옙 占쏙옙占쏙옙 占쏙옙占?占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙
+            double homeTarget  = Setup.SoftLimitMinus + 1.0; // 占쏙옙占쏙옙 占쏙옙占쏙옙 占쏙옙占쏙옙
             CommandPosition    = homeTarget;
             _simTargetPosition = homeTarget;
             CurrentVelocity    = Recipe.HomeVelocity;
@@ -269,7 +269,7 @@ namespace QMC.Common.Motion
 
             if (IsAlarm) return;
 
-            // ���� ���� ������ ���� (��ǥ �纸��) ������������������������������������������������������������
+            // 占쏙옙占쏙옙 占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙 (占쏙옙표 占썹보占쏙옙) 占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙
             SetPosition(Setup.HomeOffset);
             Sensor_ORG   = true;
             IsHomeDone   = true;
@@ -277,10 +277,10 @@ namespace QMC.Common.Motion
         }
 
         /// <summary>
-        /// IsMoving�� false�� �ǰ� IsInPosition�� true�� �� ������,
-        /// �Ǵ� IsAlarm�� �߻��� ������ 10ms �������� ����Ѵ�.
+        /// IsMoving占쏙옙 false占쏙옙 占실곤옙 IsInPosition占쏙옙 true占쏙옙 占쏙옙 占쏙옙占쏙옙占쏙옙,
+        /// 占실댐옙 IsAlarm占쏙옙 占쌩삼옙占쏙옙 占쏙옙占쏙옙占쏙옙 10ms 占쏙옙占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙磯占?
         /// </summary>
-        /// <param name="ct">��� ��ū</param>
+        /// <param name="ct">占쏙옙占?占쏙옙큰</param>
         protected async Task WaitUntilMoveDone(CancellationToken ct)
         {
             while (!ct.IsCancellationRequested)
@@ -288,20 +288,20 @@ namespace QMC.Common.Motion
                 if (IsAlarm)               break;
                 if (!IsMoving && IsInPosition) break;
 
-                await Task.Delay(10, ct).ContinueWith(_ => { }); // ��� ���� ����
+                await Task.Delay(10, ct).ContinueWith(_ => { }); // 占쏙옙占?占쏙옙占쏙옙 占쏙옙占쏙옙
             }
         }
 
-        // ��������������������������������������������������������������������������������������������������������������������������������������������
-        //  ��3. Jog �� Override ����
-        // ��������������������������������������������������������������������������������������������������������������������������������������������
+        // 占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙
+        //  占쏙옙3. Jog 占쏙옙 Override 占쏙옙占쏙옙
+        // 占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙
 
         /// <summary>
-        /// JogSpeedType�� ���� ������ �ӵ� ���� ��ȯ�ϴ� ���� ��ƿ��Ƽ.
+        /// JogSpeedType占쏙옙 占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙 占쌈듸옙 占쏙옙占쏙옙 占쏙옙환占싹댐옙 占쏙옙占쏙옙 占쏙옙틸占쏙옙티.
         /// </summary>
-        /// <param name="speedType">�ӵ� �ܰ�</param>
-        /// <param name="customVel">Custom ���� �� ����� �ӵ� ��</param>
-        /// <returns>������ Jog �ӵ�</returns>
+        /// <param name="speedType">占쌈듸옙 占쌤곤옙</param>
+        /// <param name="customVel">Custom 占쏙옙占쏙옙 占쏙옙 占쏙옙占쏙옙占?占쌈듸옙 占쏙옙</param>
+        /// <returns>占쏙옙占쏙옙占쏙옙 Jog 占쌈듸옙</returns>
         protected double GetJogVelocity(JogSpeedType speedType, double customVel)
         {
             switch (speedType)
@@ -318,12 +318,12 @@ namespace QMC.Common.Motion
         }
 
         /// <summary>
-        /// Jog ��ư�� ������ �ִ� ���� �������� �̵��Ѵ�.
-        /// �ùķ��̼� ������ _jogDirection�� CurrentVelocity�� ������� �� ƽ ��ġ�� �����Ѵ�.
+        /// Jog 占쏙옙튼占쏙옙 占쏙옙占쏙옙占쏙옙 占쌍댐옙 占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙占쏙옙 占싱듸옙占싼댐옙.
+        /// 占시뮬뤄옙占싱쇽옙 占쏙옙占쏙옙占쏙옙 _jogDirection占쏙옙 CurrentVelocity占쏙옙 占쏙옙占쏙옙占쏙옙占?占쏙옙 틱 占쏙옙치占쏙옙 占쏙옙占쏙옙占싼댐옙.
         /// </summary>
-        /// <param name="direction">+1 (�÷��� ����) �Ǵ� -1 (���̳ʽ� ����)</param>
-        /// <param name="speedType">�ӵ� �ܰ�</param>
-        /// <param name="customVel">Custom ���� �� �ӵ� �� (�⺻��: 0)</param>
+        /// <param name="direction">+1 (占시뤄옙占쏙옙 占쏙옙占쏙옙) 占실댐옙 -1 (占쏙옙占싱너쏙옙 占쏙옙占쏙옙)</param>
+        /// <param name="speedType">占쌈듸옙 占쌤곤옙</param>
+        /// <param name="customVel">Custom 占쏙옙占쏙옙 占쏙옙 占쌈듸옙 占쏙옙 (占썩본占쏙옙: 0)</param>
         public virtual void MoveJogContinuous(int direction, JogSpeedType speedType,
                                               double customVel = 0)
         {
@@ -335,18 +335,18 @@ namespace QMC.Common.Motion
             IsInPosition    = false;
             _currentMode    = MotionMode.Jog;
 
-            // CommandPosition�� ���� ���� ������ ���� ? �ùķ����Ͱ� �� ƽ ����
+            // CommandPosition占쏙옙 占쏙옙占쏙옙 占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙 ? 占시뮬뤄옙占쏙옙占싶곤옙 占쏙옙 틱 占쏙옙占쏙옙
             CommandPosition    = direction > 0 ? Setup.SoftLimitPlus : Setup.SoftLimitMinus;
             _simTargetPosition = CommandPosition;
         }
 
         /// <summary>
-        /// Ŭ�� 1ȸ�� stepDistance��ŭ ��� �̵��ϴ� Step Jog�� �񵿱�� �����Ѵ�.
+        /// 클占쏙옙 1회占쏙옙 stepDistance占쏙옙큼 占쏙옙占?占싱듸옙占싹댐옙 Step Jog占쏙옙 占쏟동깍옙占?占쏙옙占쏙옙占싼댐옙.
         /// </summary>
-        /// <param name="direction">+1 (�÷��� ����) �Ǵ� -1 (���̳ʽ� ����)</param>
-        /// <param name="speedType">�ӵ� �ܰ�</param>
-        /// <param name="stepDistance">1ȸ �̵� �Ÿ� (��� ���밪)</param>
-        /// <param name="customVel">Custom ���� �� �ӵ� �� (�⺻��: 0)</param>
+        /// <param name="direction">+1 (占시뤄옙占쏙옙 占쏙옙占쏙옙) 占실댐옙 -1 (占쏙옙占싱너쏙옙 占쏙옙占쏙옙)</param>
+        /// <param name="speedType">占쌈듸옙 占쌤곤옙</param>
+        /// <param name="stepDistance">1회 占싱듸옙 占신몌옙 (占쏙옙占?占쏙옙占쎈값)</param>
+        /// <param name="customVel">Custom 占쏙옙占쏙옙 占쏙옙 占쌈듸옙 占쏙옙 (占썩본占쏙옙: 0)</param>
         public virtual async Task MoveJogStepAsync(int direction, JogSpeedType speedType,
                                                    double stepDistance, double customVel = 0)
         {
@@ -355,7 +355,7 @@ namespace QMC.Common.Motion
         }
 
         /// <summary>
-        /// Jog �̵��� �����Ѵ�. <see cref="Stop"/>�� ���������� �ǹ̸� ���������� ǥ���Ѵ�.
+        /// Jog 占싱듸옙占쏙옙 占쏙옙占쏙옙占싼댐옙. <see cref="Stop"/>占쏙옙 占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙 占실미몌옙 占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙 표占쏙옙占싼댐옙.
         /// </summary>
         public virtual void StopJog()
         {
@@ -363,9 +363,9 @@ namespace QMC.Common.Motion
         }
 
         /// <summary>
-        /// �̵� �� ��ǥ �ӵ��� �ǽð����� ����(Override)�Ѵ�.
+        /// 占싱듸옙 占쏙옙 占쏙옙표 占쌈듸옙占쏙옙 占실시곤옙占쏙옙占쏙옙 占쏙옙占쏙옙(Override)占싼댐옙.
         /// </summary>
-        /// <param name="newVelocity">������ �� �ӵ�</param>
+        /// <param name="newVelocity">占쏙옙占쏙옙占쏙옙 占쏙옙 占쌈듸옙</param>
         public virtual void OverrideVelocity(double newVelocity)
         {
             if (newVelocity <= 0) return;
@@ -374,9 +374,9 @@ namespace QMC.Common.Motion
         }
 
         /// <summary>
-        /// �̵� �� ��ǥ ��ġ�� �ǽð����� ����(Override)�Ѵ�.
+        /// 占싱듸옙 占쏙옙 占쏙옙표 占쏙옙치占쏙옙 占실시곤옙占쏙옙占쏙옙 占쏙옙占쏙옙(Override)占싼댐옙.
         /// </summary>
-        /// <param name="newTargetPosition">������ �� ��ǥ ��ġ</param>
+        /// <param name="newTargetPosition">占쏙옙占쏙옙占쏙옙 占쏙옙 占쏙옙표 占쏙옙치</param>
         public virtual void OverridePosition(double newTargetPosition)
         {
             _overrideTargetPosition = newTargetPosition;
@@ -384,13 +384,13 @@ namespace QMC.Common.Motion
             _simTargetPosition      = newTargetPosition;
         }
 
-        // ��������������������������������������������������������������������������������������������������������������������������������������������
-        //  ��4. ��׶��� ���� ������Ʈ ����
-        // ��������������������������������������������������������������������������������������������������������������������������������������������
+        // 占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙
+        //  占쏙옙4. 占쏙옙溜占쏙옙占?占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙트 占쏙옙占쏙옙
+        // 占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙
 
         /// <summary>
-        /// 10ms �ֱ�� <see cref="UpdateStatus"/>�� ȣ���ϴ� ��׶��� �½�ũ�� �����Ѵ�.
-        /// �½�ũ�� ��ü �Ҹ� �� <see cref="Dispose"/>�� ���� ��ҵȴ�.
+        /// 10ms 占쌍깍옙占?<see cref="UpdateStatus"/>占쏙옙 호占쏙옙占싹댐옙 占쏙옙溜占쏙옙占?占승쏙옙크占쏙옙 占쏙옙占쏙옙占싼댐옙.
+        /// 占승쏙옙크占쏙옙 占쏙옙체 占쌀몌옙 占쏙옙 <see cref="Dispose"/>占쏙옙 占쏙옙占쏙옙 占쏙옙撚홱占?
         /// </summary>
         private void StartStatusUpdateTask()
         {
@@ -411,7 +411,7 @@ namespace QMC.Common.Motion
                     }
                     catch (Exception)
                     {
-                        // ���� ������Ʈ �� ���ܴ� ������ �ߴܽ�Ű�� �ʴ´�.
+                        // 占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙트 占쏙옙 占쏙옙占쌤댐옙 占쏙옙占쏙옙占쏙옙 占쌩단쏙옙키占쏙옙 占십는댐옙.
                         await Task.Delay(10, token).ContinueWith(_ => { });
                     }
                 }
@@ -419,11 +419,11 @@ namespace QMC.Common.Motion
         }
 
         /// <summary>
-        /// 10ms �ֱ�� ȣ��Ǵ� ���� ���� �޼���.<br/>
+        /// 10ms 占쌍깍옙占?호占쏙옙풔占?占쏙옙占쏙옙 占쏙옙占쏙옙 占쌨쇽옙占쏙옙.<br/>
         /// <list type="bullet">
-        ///   <item><description>�ùķ��̼� ���(<see cref="AxisConfig.IsSimulationMode"/> = true):
-        ///     <see cref="SimulateMotion"/>�� ȣ���Ͽ� ���� ��ġ�� ����Ѵ�.</description></item>
-        ///   <item><description>�Ǻ��� ���: override�Ͽ� ���� API�� ���¸� �д´�.</description></item>
+        ///   <item><description>占시뮬뤄옙占싱쇽옙 占쏙옙占?<see cref="AxisConfig.IsSimulationMode"/> = true):
+        ///     <see cref="SimulateMotion"/>占쏙옙 호占쏙옙占싹울옙 占쏙옙占쏙옙 占쏙옙치占쏙옙 占쏙옙占쏙옙磯占?</description></item>
+        ///   <item><description>占실븝옙占쏙옙 占쏙옙占? override占싹울옙 占쏙옙占쏙옙 API占쏙옙 占쏙옙占승몌옙 占싻는댐옙.</description></item>
         /// </list>
         /// </summary>
         public virtual void UpdateStatus()
@@ -432,26 +432,26 @@ namespace QMC.Common.Motion
             {
                 SimulateMotion();
             }
-            // else: �Ǻ��� ��� ? ���� Ŭ�������� override�Ͽ� ����
+            // else: 占실븝옙占쏙옙 占쏙옙占?? 占쏙옙占쏙옙 클占쏙옙占쏙옙占쏙옙占쏙옙 override占싹울옙 占쏙옙占쏙옙
         }
 
-        // ��������������������������������������������������������������������������������������������������������������������������������������������
-        //  ��5. �ùķ��̼� ����
-        // ��������������������������������������������������������������������������������������������������������������������������������������������
+        // 占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙
+        //  占쏙옙5. 占시뮬뤄옙占싱쇽옙 占쏙옙占쏙옙
+        // 占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙
 
         /// <summary>
-        /// 10ms ������ ���� ��� �ùķ��̼� ����.<br/>
+        /// 10ms 占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙 占쏙옙占?占시뮬뤄옙占싱쇽옙 占쏙옙占쏙옙.<br/>
         /// <list type="bullet">
-        ///   <item><description>CurrentVelocity ������� �� ƽ �̵� �Ÿ��� ����Ѵ�.</description></item>
-        ///   <item><description>��ǥ ��ġ ���� �� �̵� �Ϸ� ó���� �Ѵ�.</description></item>
-        ///   <item><description>����Ʈ ���� �ʰ� �� �˶��� �߻���Ű�� �����Ѵ�.</description></item>
+        ///   <item><description>CurrentVelocity 占쏙옙占쏙옙占쏙옙占?占쏙옙 틱 占싱듸옙 占신몌옙占쏙옙 占쏙옙占쏙옙磯占?</description></item>
+        ///   <item><description>占쏙옙표 占쏙옙치 占쏙옙占쏙옙 占쏙옙 占싱듸옙 占싹뤄옙 처占쏙옙占쏙옙 占싼댐옙.</description></item>
+        ///   <item><description>占쏙옙占쏙옙트 占쏙옙占쏙옙 占십곤옙 占쏙옙 占싯띰옙占쏙옙 占쌩삼옙占쏙옙키占쏙옙 占쏙옙占쏙옙占싼댐옙.</description></item>
         /// </list>
         /// </summary>
         protected virtual void SimulateMotion()
         {
             if (!IsMoving) return;
 
-            // Override �� �ݿ�
+            // Override 占쏙옙 占쌥울옙
             if (!double.IsNaN(_overrideVelocity))
             {
                 CurrentVelocity     = _overrideVelocity;
@@ -464,7 +464,7 @@ namespace QMC.Common.Motion
                 _overrideTargetPosition   = double.NaN;
             }
 
-            // 10ms ���� �̵� �Ÿ� ��� (����: [����/s] * 0.01s)
+            // 10ms 占쏙옙占쏙옙 占싱듸옙 占신몌옙 占쏙옙占?(占쏙옙占쏙옙: [占쏙옙占쏙옙/s] * 0.01s)
             const double tickSeconds = 0.01;
             double step = CurrentVelocity * tickSeconds;
 
@@ -472,16 +472,16 @@ namespace QMC.Common.Motion
 
             if (_currentMode == MotionMode.Jog)
             {
-                // Jog: ���⿡ ���� step�� �̵�, ���Կ� �����ϸ� ����
+                // Jog: 占쏙옙占썩에 占쏙옙占쏙옙 step占쏙옙 占싱듸옙, 占쏙옙占쌉울옙 占쏙옙占쏙옙占싹몌옙 占쏙옙占쏙옙
                 ActualPosition += _jogDirection * step;
                 RaisePositionChanged();
             }
             else
             {
-                // ���롤��� �̵�: ��ǥ�� ���� step�� ����
+                // 占쏙옙占쎈·占쏙옙占?占싱듸옙: 占쏙옙표占쏙옙 占쏙옙占쏙옙 step占쏙옙 占쏙옙占쏙옙
                 if (Math.Abs(remaining) <= step)
                 {
-                    // ��ǥ ����
+                    // 占쏙옙표 占쏙옙占쏙옙
                     ActualPosition  = _simTargetPosition;
                     CommandPosition = _simTargetPosition;
                     IsMoving        = false;
@@ -497,15 +497,15 @@ namespace QMC.Common.Motion
                 RaisePositionChanged();
             }
 
-            // ���� ����Ʈ ���� ���� ��������������������������������������������������������������������������������������
-            if (ActualPosition >= Setup.SoftLimitPlus)
+            // 占쏙옙占쏙옙 占쏙옙占쏙옙트 占쏙옙占쏙옙 占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙
+            if (Setup.SoftLimitEnabled && ActualPosition >= Setup.SoftLimitPlus)
             {
                 ActualPosition = Setup.SoftLimitPlus;
                 TriggerSoftLimitAlarm(alarmCode: 10);
                 return;
             }
 
-            if (ActualPosition <= Setup.SoftLimitMinus)
+            if (Setup.SoftLimitEnabled && ActualPosition <= Setup.SoftLimitMinus)
             {
                 ActualPosition = Setup.SoftLimitMinus;
                 TriggerSoftLimitAlarm(alarmCode: 11);
@@ -514,9 +514,9 @@ namespace QMC.Common.Motion
         }
 
         /// <summary>
-        /// ����Ʈ ���� ���� �� �˶��� �߻���Ű�� ��� �����Ѵ�.
+        /// 占쏙옙占쏙옙트 占쏙옙占쏙옙 占쏙옙占쏙옙 占쏙옙 占싯띰옙占쏙옙 占쌩삼옙占쏙옙키占쏙옙 占쏙옙占?占쏙옙占쏙옙占싼댐옙.
         /// </summary>
-        /// <param name="alarmCode">������ �˶� �ڵ� (10: PEL, 11: MEL)</param>
+        /// <param name="alarmCode">占쏙옙占쏙옙占쏙옙 占싯띰옙 占쌘듸옙 (10: PEL, 11: MEL)</param>
         private void TriggerSoftLimitAlarm(uint alarmCode)
         {
             IsMoving        = false;
@@ -528,12 +528,12 @@ namespace QMC.Common.Motion
             _jogDirection   = 0;
         }
 
-        // ��������������������������������������������������������������������������������������������������������������������������������������������
-        //  ��6. IDisposable ? ��׶��� �½�ũ ����
-        // ��������������������������������������������������������������������������������������������������������������������������������������������
+        // 占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙
+        //  占쏙옙6. IDisposable ? 占쏙옙溜占쏙옙占?占승쏙옙크 占쏙옙占쏙옙
+        // 占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙
 
         /// <summary>
-        /// ��׶��� ���� ������Ʈ �½�ũ�� ����ϰ� ���ҽ��� �����Ѵ�.
+        /// 占쏙옙溜占쏙옙占?占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙트 占승쏙옙크占쏙옙 占쏙옙占쏙옙構占?占쏙옙占쌀쏙옙占쏙옙 占쏙옙占쏙옙占싼댐옙.
         /// </summary>
         public void Dispose()
         {

@@ -84,7 +84,7 @@ namespace QMC.Common.IO
         /// <summary>IsOn 상태가 실제로 변경될 때 발행.</summary>
         public event System.Action<BaseDigitalOutput, bool> StateChanged;
 
-        private void RaiseStateChanged(bool state)
+        protected void RaiseStateChanged(bool state)
         {
             var h = StateChanged;
             if (h == null) return;
