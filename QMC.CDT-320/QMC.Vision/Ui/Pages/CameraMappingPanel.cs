@@ -106,15 +106,16 @@ namespace QMC.Vision.Ui.Pages
             _numDelay.ValueChanged += (s, e) => OnFieldChanged();
 
             // Stage 62 — ROI 4 필드 (0 = full sensor)
+            // UI audit fix: AutoSize 라벨이 NumericUpDown 영역 침범 → 모든 라벨 폭 고정.
             y += dy;
             body.Controls.Add(L("ROI (0=full sensor)", x1, y));
-            body.Controls.Add(new Label { Location = new Point(x2,        y + 2), AutoSize = true, Text = "OffsetX",  Font = UiTheme.ButtonFont });
+            body.Controls.Add(new Label { Location = new Point(x2,        y + 2), AutoSize = false, Size = new Size(56, 22), Text = "OffsetX", Font = UiTheme.ButtonFont });
             _numRoiX = MakeNum(x2 + 60,  y, 0, 8000, 0, 1); _numRoiX.Width = 80; body.Controls.Add(_numRoiX);
-            body.Controls.Add(new Label { Location = new Point(x2 + 145,  y + 2), AutoSize = true, Text = "OffsetY", Font = UiTheme.ButtonFont });
+            body.Controls.Add(new Label { Location = new Point(x2 + 145,  y + 2), AutoSize = false, Size = new Size(56, 22), Text = "OffsetY", Font = UiTheme.ButtonFont });
             _numRoiY = MakeNum(x2 + 205, y, 0, 8000, 0, 1); _numRoiY.Width = 80; body.Controls.Add(_numRoiY);
-            body.Controls.Add(new Label { Location = new Point(x2 + 290,  y + 2), AutoSize = true, Text = "W",        Font = UiTheme.ButtonFont });
+            body.Controls.Add(new Label { Location = new Point(x2 + 290,  y + 2), AutoSize = false, Size = new Size(16, 22), Text = "W",       Font = UiTheme.ButtonFont });
             _numRoiW = MakeNum(x2 + 310, y, 0, 8000, 0, 1); _numRoiW.Width = 80; body.Controls.Add(_numRoiW);
-            body.Controls.Add(new Label { Location = new Point(x2 + 395,  y + 2), AutoSize = true, Text = "H",        Font = UiTheme.ButtonFont });
+            body.Controls.Add(new Label { Location = new Point(x2 + 395,  y + 2), AutoSize = false, Size = new Size(16, 22), Text = "H",       Font = UiTheme.ButtonFont });
             _numRoiH = MakeNum(x2 + 415, y, 0, 8000, 0, 1); _numRoiH.Width = 80; body.Controls.Add(_numRoiH);
             _numRoiX.ValueChanged += (s, e) => OnFieldChanged();
             _numRoiY.ValueChanged += (s, e) => OnFieldChanged();

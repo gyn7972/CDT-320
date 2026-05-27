@@ -73,9 +73,11 @@ namespace QMC.Vision.Ui.Pages
                 Text = "Cognex VisionPro diagnostics",
                 Font = UiTheme.SectionFont
             };
+            // Stage 62 UI audit fix: height 70 -> 46 (라벨이 버튼 y=78 침범 방지).
+            // Cognex 진단 메시지는 보통 2~3줄; 5줄 메시지(로드 실패) 시 일부 잘림은 허용.
             var cgxLabel = new Label
             {
-                Location = new Point(16, 30), Size = new Size(530, 70),
+                Location = new Point(16, 30), Size = new Size(530, 46),
                 Font = UiTheme.ValueFont, ForeColor = Color.DarkSlateGray, Text = ProbeCognex()
             };
             var btnCgxRefresh = new Button
