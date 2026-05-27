@@ -2,6 +2,7 @@ using System;
 using System.Windows.Forms;
 using QMC.Common.Alarms;
 using QMC.Vision.Comm;
+using QMC.Common.Recipes;
 using QMC.Vision.Config;
 using QMC.Vision.Core;
 using QMC.Vision.Modules;
@@ -95,7 +96,7 @@ namespace QMC.Vision
             ShowTab(Tab.Operation);
         }
 
-        private static ICamera CreateCameraForAlgorithm(AlgorithmCameraMap map, string algorithm, string fallbackId)
+        private static ICamera CreateCameraForAlgorithm(AlgorithmCameraSubset map, string algorithm, string fallbackId)
         {
             var m = map?.Get(algorithm);
             bool wasMissing = false;
@@ -134,7 +135,7 @@ namespace QMC.Vision
             return cam;
         }
 
-        private static void ApplyDelayFromMap(VisionModule mod, AlgorithmCameraMap map, string algorithm)
+        private static void ApplyDelayFromMap(VisionModule mod, AlgorithmCameraSubset map, string algorithm)
         {
             var m = map?.Get(algorithm);
             if (mod != null && m != null) mod.DelayBeforeGrabMs = m.DelayBeforeGrabMs;

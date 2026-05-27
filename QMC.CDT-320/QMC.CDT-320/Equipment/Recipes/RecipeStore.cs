@@ -4,6 +4,7 @@ using System.IO;
 using System.Runtime.Serialization;
 using System.Runtime.Serialization.Json;
 using System.Text;
+using QMC.Common.Recipes;   // Stage 62 — AlgorithmCameraSubset
 
 namespace QMC.CDT320.Recipes
 {
@@ -250,6 +251,8 @@ namespace QMC.CDT320.Recipes
         [DataMember] public OutputSubset          Output        { get; set; } = new OutputSubset();
         // Stage 61 — Pickup Sequence Subset (시작 코너 + 방향 + 지그재그/직선)
         [DataMember] public PickupSubset          Pickup        { get; set; } = new PickupSubset();
+        // Stage 62 — Vision 알고리즘별 카메라 매핑 (Project 별로 분리됨)
+        [DataMember] public AlgorithmCameraSubset VisionCameras { get; set; } = new AlgorithmCameraSubset();
     }
 
     // ─── Stage 61 — Pickup Sequence 옵션 enums ──────────────────────

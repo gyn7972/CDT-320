@@ -33,6 +33,7 @@
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Drawing" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
@@ -51,6 +52,7 @@
     <Compile Include="Alarms\AlarmRecord.cs" />
     <Compile Include="Alarms\AlarmMaster.cs" />
     <Compile Include="Alarms\AlarmManager.cs" />
+    <Compile Include="Recipes\AlgorithmCameraSubset.cs" />
     <Compile Include="Interfaces\IEquipmentData.cs" />
     <Compile Include="IO\BaseCylinder.cs" />
     <Compile Include="IO\BaseDigitalInput.cs" />

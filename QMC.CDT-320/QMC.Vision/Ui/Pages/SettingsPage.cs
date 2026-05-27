@@ -2,6 +2,7 @@ using System;
 using System.ComponentModel;
 using System.Drawing;
 using System.Windows.Forms;
+using QMC.Common.Recipes;
 using QMC.Vision.Config;
 using QMC.Vision.Ui.Editors;
 

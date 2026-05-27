@@ -2,6 +2,7 @@ using System;
 using System.Text;
 using QMC.Vision.Core;
 
+using QMC.Common.Recipes;
 namespace QMC.Vision.Config
 {
     /// <summary>
