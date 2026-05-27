@@ -154,15 +154,15 @@ namespace QMC.Vision
 
             int btnY = (UiTheme.BottomBarHeight - 70) / 2;
 
-            // 좌측 4개 — Anchor Left
+            // 좌측 4개 — Anchor Left (절대 좌표 유지)
             this.btnOperation     = new BottomMenuButton { Location = new Point(60,   btnY), IconText = "▶", Label = "운영",       Anchor = AnchorStyles.Top | AnchorStyles.Left };
             this.btnConfiguration = new BottomMenuButton { Location = new Point(180,  btnY), IconText = "C", Label = "환경설정",   Anchor = AnchorStyles.Top | AnchorStyles.Left };
             this.btnMaintenance   = new BottomMenuButton { Location = new Point(300,  btnY), IconText = "M", Label = "정비",       Anchor = AnchorStyles.Top | AnchorStyles.Left };
             this.btnRecipe        = new BottomMenuButton { Location = new Point(420,  btnY), IconText = "R", Label = "레시피",     Anchor = AnchorStyles.Top | AnchorStyles.Left };
-            // 우측 3개 — Anchor Right (Exit 가 최우측)
-            this.btnDataLog       = new BottomMenuButton { Location = new Point(1440, btnY), IconText = "L", Label = "데이터로그", Anchor = AnchorStyles.Top | AnchorStyles.Right };
-            this.btnSettings      = new BottomMenuButton { Location = new Point(1560, btnY), IconText = "S", Label = "설정",       Anchor = AnchorStyles.Top | AnchorStyles.Right };
-            this.btnExit          = new BottomMenuButton { Location = new Point(1680, btnY), IconText = "X", Label = "종료",       Anchor = AnchorStyles.Top | AnchorStyles.Right };
+            // 우측 3개 — Anchor 미사용 (Designer 시점의 폭이 부정확 → LayoutBottomBar 가 런타임 배치)
+            this.btnDataLog       = new BottomMenuButton { Location = new Point(0, btnY), IconText = "L", Label = "데이터로그", Anchor = AnchorStyles.Top | AnchorStyles.Left };
+            this.btnSettings      = new BottomMenuButton { Location = new Point(0, btnY), IconText = "S", Label = "설정",       Anchor = AnchorStyles.Top | AnchorStyles.Left };
+            this.btnExit          = new BottomMenuButton { Location = new Point(0, btnY), IconText = "X", Label = "종료",       Anchor = AnchorStyles.Top | AnchorStyles.Left };
 
             this.btnOperation    .Click += (s, e) => ShowTab(Tab.Operation);
             this.btnConfiguration.Click += (s, e) => ShowTab(Tab.Configuration);
@@ -195,6 +195,12 @@ namespace QMC.Vision
             // 헤더 시간 박스를 폼 너비에 맞춰 중앙 정렬 (Resize 핸들러)
             this.Resize += (s, e) => CenterTimeBox();
             this.pnlHeader.Resize += (s, e) => CenterTimeBox();
+
+            // ─── 하단바 우측 버튼 묶음 — 패널 실제 너비 기준 런타임 배치 ───
+            // 디자이너에서 Anchor=Top|Right 로는 패널이 폼에 붙기 전 너비(기본 200)가 기록돼
+            // Maximized 시 화면 오른쪽 바깥으로 밀려남. → SizeChanged 마다 우측 끝부터 역순 배치.
+            this.pnlBottomBar.SizeChanged += (s, e) => LayoutBottomBar();
+            this.Shown += (s, e) => LayoutBottomBar();
         }
 
         private void CenterTimeBox()
@@ -203,6 +209,24 @@ namespace QMC.Vision
             int x = (pnlHeader.Width - pnlTimeBox.Width) / 2;
             if (x < 0) x = 0;
             pnlTimeBox.Location = new Point(x, pnlTimeBox.Location.Y);
+        }
+
+        /// <summary>하단바 우측 버튼 (데이터로그/설정/종료) 을 패널 실제 너비 기준으로 배치.
+        /// pnlBottomBar.SizeChanged + Form.Shown 양쪽에서 호출.</summary>
+        private void LayoutBottomBar()
+        {
+            if (pnlBottomBar == null || btnExit == null || btnSettings == null || btnDataLog == null) return;
+            int w      = pnlBottomBar.ClientSize.Width;
+            int btnW   = btnExit.Width  > 0 ? btnExit.Width  : 110;
+            int gap    = 10;
+            int margin = 20;
+            int y      = (UiTheme.BottomBarHeight - (btnExit.Height > 0 ? btnExit.Height : 70)) / 2;
+
+            // 우측 끝부터 역순: 종료 → 설정 → 데이터로그
+            int x = w - margin - btnW;
+            btnExit     .Location = new Point(x, y); x -= (btnW + gap);
+            btnSettings .Location = new Point(x, y); x -= (btnW + gap);
+            btnDataLog  .Location = new Point(x, y);
         }
     }
 }
