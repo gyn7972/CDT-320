@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Drawing;
@@ -113,7 +113,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
 
         private static void SetState(DataGridViewRow row, bool on)
         {
-            row.Cells["STATE"].Value = on ? "ON" : "OFF";
+            var stateCell = row.Cells[row.Cells.Count - 1];
+            stateCell.Value = on ? "ON" : "OFF";
             row.DefaultCellStyle.BackColor = on ? Color.FromArgb(230, 255, 230) : Color.White;
         }
 
