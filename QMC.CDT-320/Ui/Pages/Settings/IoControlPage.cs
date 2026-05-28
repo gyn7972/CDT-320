@@ -6,6 +6,7 @@ using System.Reflection;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using QMC.CDT320;
+using QMC.CDT320.Ajin;
 using QMC.CDT320.Logging;
 using QMC.Common.IO;
 
@@ -86,7 +87,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             foreach (var item in collector.Outputs)
             {
                 var row = doGrid.Rows[doGrid.Rows.Add(item.Name, item.Module, item.Bit, "")];
-                row.Tag = item.Port;
+                row.Tag = item;
             }
 
             lblStatus.Text = "Loaded DI " + collector.Inputs.Count + " / DO " + collector.Outputs.Count + ".";
@@ -104,10 +105,10 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             }
             foreach (DataGridViewRow row in doGrid.Rows)
             {
-                var port = row.Tag as BaseDigitalOutput;
-                if (port == null) continue;
-                try { port.UpdateStatus(); } catch { }
-                SetState(row, port.IsOn);
+                var item = row.Tag as OutputTarget;
+                if (item == null) continue;
+                try { item.UpdateStatus(); } catch { }
+                SetState(row, item.IsOn);
             }
         }
 
@@ -118,29 +119,29 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             row.DefaultCellStyle.BackColor = on ? Color.FromArgb(230, 255, 230) : Color.White;
         }
 
-        private BaseDigitalOutput SelectedOutput()
+        private OutputTarget SelectedOutput()
         {
             if (doGrid.CurrentRow == null) return null;
-            return doGrid.CurrentRow.Tag as BaseDigitalOutput;
+            return doGrid.CurrentRow.Tag as OutputTarget;
         }
 
         private void WriteSelected(bool on)
         {
-            var port = SelectedOutput();
-            if (port == null) return;
-            port.Write(on);
-            EventLogger.Write(EventKind.Event, "QMC", "IO-DO", port.Name + "=" + (on ? "ON" : "OFF"));
+            var output = SelectedOutput();
+            if (output == null) return;
+            output.Write(on);
+            EventLogger.Write(EventKind.Event, "QMC", "IO-DO", output.Name + "=" + (on ? "ON" : "OFF"));
             RefreshRows();
         }
 
         private async Task PulseSelectedAsync(int ms)
         {
-            var port = SelectedOutput();
-            if (port == null) return;
-            port.Write(true);
-            EventLogger.Write(EventKind.Event, "QMC", "IO-DO", port.Name + "=PULSE " + ms + "ms");
+            var output = SelectedOutput();
+            if (output == null) return;
+            output.Write(true);
+            EventLogger.Write(EventKind.Event, "QMC", "IO-DO", output.Name + "=PULSE " + ms + "ms");
             await Task.Delay(ms).ContinueWith(_ => { });
-            port.Write(false);
+            output.Write(false);
             RefreshRows();
         }
 
@@ -152,18 +153,53 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             public T Port;
         }
 
+        private class OutputTarget
+        {
+            public string Name;
+            public int Module;
+            public int Bit;
+            public bool Nc;
+            public BaseDigitalOutput Port;
+
+            public bool IsOn
+            {
+                get { return Port != null && Port.IsOn; }
+            }
+
+            public void Write(bool on)
+            {
+                EnsureRealPort();
+                if (Port != null) Port.Write(on);
+            }
+
+            public void UpdateStatus()
+            {
+                EnsureRealPort();
+                if (Port != null) Port.UpdateStatus();
+            }
+
+            private void EnsureRealPort()
+            {
+                if (Port is AjinDigitalOutput) return;
+                if (!AjinSystem.IsOpen) return;
+                Port = new AjinDigitalOutput(Name, Module, Bit, Nc);
+            }
+        }
+
         private class IoCollector
         {
             public readonly List<IoItem<BaseDigitalInput>> Inputs = new List<IoItem<BaseDigitalInput>>();
-            public readonly List<IoItem<BaseDigitalOutput>> Outputs = new List<IoItem<BaseDigitalOutput>>();
+            public readonly List<OutputTarget> Outputs = new List<OutputTarget>();
 
             private readonly HashSet<object> _visited = new HashSet<object>();
             private readonly HashSet<BaseDigitalInput> _seenInputs = new HashSet<BaseDigitalInput>();
             private readonly HashSet<BaseDigitalOutput> _seenOutputs = new HashSet<BaseDigitalOutput>();
+            private readonly HashSet<string> _seenOutputNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             public void Scan(object root)
             {
                 Visit(root, "", 0);
+                AddConfiguredOutputs();
                 Inputs.Sort((a, b) => string.Compare(a.Name, b.Name, StringComparison.Ordinal));
                 Outputs.Sort((a, b) => string.Compare(a.Name, b.Name, StringComparison.Ordinal));
             }
@@ -237,13 +273,46 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             private void AddOutput(BaseDigitalOutput port, string path)
             {
                 if (!_seenOutputs.Add(port)) return;
-                Outputs.Add(new IoItem<BaseDigitalOutput>
+                var name = DisplayName(path, port.Name);
+                DioMap map = null;
+                if (AjinConfigStore.Current != null &&
+                    AjinConfigStore.Current.DigitalOutputs != null)
                 {
-                    Name = DisplayName(path, port.Name),
-                    Module = port.Setup.ModuleNo,
-                    Bit = port.Setup.BitNo,
+                    AjinConfigStore.Current.DigitalOutputs.TryGetValue(port.Name, out map);
+                }
+
+                Outputs.Add(new OutputTarget
+                {
+                    Name = name,
+                    Module = map != null ? map.Module : port.Setup.ModuleNo,
+                    Bit = map != null ? map.Bit : port.Setup.BitNo,
+                    Nc = map != null ? map.Nc : port.Setup.IsNormallyClosed,
                     Port = port
                 });
+                _seenOutputNames.Add(port.Name);
+            }
+
+            private void AddConfiguredOutputs()
+            {
+                var cfg = AjinConfigStore.Current;
+                if (cfg == null || cfg.DigitalOutputs == null) return;
+
+                foreach (var kv in cfg.DigitalOutputs)
+                {
+                    if (kv.Value == null) continue;
+                    if (_seenOutputNames.Contains(kv.Key)) continue;
+                    Outputs.Add(new OutputTarget
+                    {
+                        Name = kv.Key,
+                        Module = kv.Value.Module,
+                        Bit = kv.Value.Bit,
+                        Nc = kv.Value.Nc,
+                        Port = AjinSystem.IsOpen
+                            ? (BaseDigitalOutput)new AjinDigitalOutput(kv.Key, kv.Value.Module, kv.Value.Bit, kv.Value.Nc)
+                            : null
+                    });
+                    _seenOutputNames.Add(kv.Key);
+                }
             }
 
             private static string DisplayName(string path, string name)
