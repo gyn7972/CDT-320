@@ -38,3 +38,21 @@ Log/
 # Vision camera SDK DLLs (do not track binaries)
 QMC.CDT-320/QMC.Vision/lib/
 **/MvCameraControl*.dll
+
+# Stage 63+ — large/external/vendor artifacts (do not track)
+Model/
+QMC.DieTransfers-master/
+QMC.DieTransfers.Visions-master/
+CDT-300 UI Image/
+CDT320Simulator/
+HikGrabTest/
+HikGrabTestQmc/
+_review/
+*.zip
+*.docx
+*.doc
+*.xlsx
+*.pptx
+NUL
+demo_*.png
+test_writeback.txt
