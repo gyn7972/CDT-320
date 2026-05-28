@@ -99,8 +99,8 @@
     <Compile Include="Modules\WaferVisionModule.cs" />
     <Compile Include="Modules\BinVisionModule.cs" />
     <Compile Include="Modules\BottomInspectionModule.cs" />
-    <Compile Include="Modules\TopSideInspectionModule.cs" />
-    <Compile Include="Modules\BottomSideInspectionModule.cs" />
+    <Compile Include="Modules\FrontSideInspectionModule.cs" />
+    <Compile Include="Modules\RearSideInspectionModule.cs" />
 
     <Compile Include="Comm\VisionTcpServer.cs" />
     <Compile Include="Tools\UiOverlapAuditor.cs" />

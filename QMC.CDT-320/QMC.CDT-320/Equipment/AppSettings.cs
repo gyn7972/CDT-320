@@ -29,12 +29,23 @@ namespace QMC.CDT320
         [DataMember] public int    VisionBinPort        { get; set; } = 5103;
         /// <summary>Stage 43 — 매뉴얼 추가: MainCommunicator (5104).</summary>
         [DataMember] public int    VisionMainPort       { get; set; } = 5104;
-        /// <summary>Stage 43 — 매뉴얼 추가: TopSide Inspection Vision (5105).</summary>
-        [DataMember] public int    VisionTopSidePort    { get; set; } = 5105;
-        /// <summary>Stage 43 — 매뉴얼 추가: BottomSide Inspection Vision (5106).</summary>
-        [DataMember] public int    VisionBottomSidePort { get; set; } = 5106;
+        /// <summary>Stage 43 — 매뉴얼 추가: FrontSide Inspection Vision (5105). (Stage 63: TopSide → FrontSide)</summary>
+        [DataMember] public int    VisionFrontSidePort  { get; set; } = 5105;
+        /// <summary>Stage 43 — 매뉴얼 추가: RearSide Inspection Vision (5106). (Stage 63: BottomSide → RearSide)</summary>
+        [DataMember] public int    VisionRearSidePort   { get; set; } = 5106;
         /// <summary>앱 시작 시 자동 연결 시도 여부.</summary>
         [DataMember] public bool   VisionAutoConnect    { get; set; } = true;
+
+        // Stage 63 — 구버전 키 마이그레이션 (OnDeserialized 가 새 프로퍼티로 이전 후 0 으로 비움)
+        [DataMember(Name = "VisionTopSidePort",    EmitDefaultValue = false)] public int LegacyVisionTopSidePort    { get; set; }
+        [DataMember(Name = "VisionBottomSidePort", EmitDefaultValue = false)] public int LegacyVisionBottomSidePort { get; set; }
+
+        [OnDeserialized]
+        internal void OnDeserialized(StreamingContext ctx)
+        {
+            if (LegacyVisionTopSidePort != 0)    { VisionFrontSidePort = LegacyVisionTopSidePort;    LegacyVisionTopSidePort = 0; }
+            if (LegacyVisionBottomSidePort != 0) { VisionRearSidePort  = LegacyVisionBottomSidePort; LegacyVisionBottomSidePort = 0; }
+        }
 
         // ── Barcode link (CDT-310 매뉴얼 사양 — Serial Port 4/6) ──
         /// <summary>Stage 43 — Wafer Barcode 시리얼 포트 번호.</summary>
@@ -75,6 +86,8 @@ namespace QMC.CDT320
                 }
             }
             catch { Current = new AppSettings(); }
+            // Stage 63 — OnDeserialized 가 구 포트 키(VisionTopSidePort 등)를 새 프로퍼티로 옮겼을 수 있음 → 정규화 재저장.
+            Save();
             return Current;
         }
 

@@ -94,6 +94,31 @@ Add-Row "SIM" "AjinFactory Sim 자동 분기 (UseRealBoard=false default)" (Test
 $pageBaseFile = Join-Path $Root "QMC.CDT-320\Ui\Pages\PageBase.cs"
 Add-Row "STAGE60" "PageBase AutoScroll = true" (Test-Greps $pageBaseFile @('AutoScroll\s*=\s*true')) $pageBaseFile
 
+# Stage 63 — TopSide/BottomSide → FrontSide/RearSide 리네임
+# 활성 코드에 옛 식별자 잔존 0건 검사 (Legacy DataMember / 마이그레이션 비교문자열 / 주석은 허용).
+$srcFiles = Get-ChildItem -Path (Join-Path $Root "QMC.CDT-320"),(Join-Path $Root "QMC.Vision"),(Join-Path $Root "QMC.Common") -Recurse -Include *.cs -EA SilentlyContinue |
+    Where-Object { $_.FullName -notmatch '\\(bin|obj)\\' }
+$badLines = @()
+foreach ($sf in $srcFiles) {
+    $ln = 0
+    foreach ($line in (Get-Content $sf.FullName -EA SilentlyContinue)) {
+        $ln++
+        if ($line -match 'TopSide|BottomSide') {
+            # 허용: Legacy 프로퍼티, 마이그레이션 비교 리터럴, 주석(// 또는 ///), DataMember(Name=
+            if ($line -match 'Legacy|Migrate|"TopSide"|"BottomSide"|"Sim/TopSide"|"Sim/BottomSide"|Name\s*=\s*"(Top|Bottom)Side|^\s*///|^\s*//|리네임|마이그레이션') { continue }
+            $badLines += ("{0}:{1}: {2}" -f $sf.Name, $ln, $line.Trim())
+        }
+    }
+}
+Add-Row "STAGE63" "활성 코드 TopSide/BottomSide 잔존 0 (Legacy/주석 제외)" ($badLines.Count -eq 0) ("violations=" + $badLines.Count)
+
+# Stage 63 — 핵심 리네임 산출물 확인
+$subset63 = Join-Path $Root "QMC.Common\Recipes\AlgorithmCameraSubset.cs"
+Add-Row "STAGE63" "VisionAlgorithm FrontSide/RearSide + 마이그레이션" (Test-Greps $subset63 @('FrontSide\s*=\s*"FrontSide"', 'RearSide\s*=\s*"RearSide"', 'MigrateLegacyAlgorithmNames')) $subset63
+$frontMod = Join-Path $Root "QMC.Vision\Modules\FrontSideInspectionModule.cs"
+$rearMod  = Join-Path $Root "QMC.Vision\Modules\RearSideInspectionModule.cs"
+Add-Row "STAGE63" "FrontSide/RearSideInspectionModule.cs 존재" ((Test-Path $frontMod) -and (Test-Path $rearMod)) "modules"
+
 # ── 출력 ──
 $bar = "=" * 110
 Write-Output $bar

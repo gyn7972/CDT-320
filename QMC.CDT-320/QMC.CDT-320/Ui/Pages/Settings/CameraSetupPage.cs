@@ -12,7 +12,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
 {
     /// <summary>
     /// Stage 59 — Camera Setup 페이지.
-    /// CDT-310/300 비전 사양: Wafer / Bottom Inspection / Bin / Main / TopSide / BottomSide 6채널.
+    /// CDT-310/300 비전 사양: Wafer / Bottom Inspection / Bin / Main / FrontSide / RearSide 6채널.
     /// 각 채널의 IP/Port/Role/Exposure/ROI 설정 + JSON 저장.
     /// </summary>
     public class CameraSetupPage : PageBase
@@ -134,8 +134,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 new CameraRow { Index=1, Channel="BottomInspection",Role="DiePresence",     Host="127.0.0.1", Port=5101, ExposureMs=300, LightLevel=0.7, Trigger="Software" },
                 new CameraRow { Index=2, Channel="Bin",             Role="PlacementInspector",Host="127.0.0.1", Port=5103, ExposureMs=300, LightLevel=0.5, Trigger="Software" },
                 new CameraRow { Index=3, Channel="Main",            Role="MainComm",        Host="127.0.0.1", Port=5104, ExposureMs=0,   LightLevel=0.0, Trigger="None" },
-                new CameraRow { Index=4, Channel="TopSide",         Role="TopSide4Side",    Host="127.0.0.1", Port=5105, ExposureMs=300, LightLevel=0.8, Trigger="Software" },
-                new CameraRow { Index=5, Channel="BottomSide",      Role="BottomSide4Side", Host="127.0.0.1", Port=5106, ExposureMs=300, LightLevel=0.8, Trigger="Software" },
+                new CameraRow { Index=4, Channel="FrontSide",         Role="FrontSide4Side",    Host="127.0.0.1", Port=5105, ExposureMs=300, LightLevel=0.8, Trigger="Software" },
+                new CameraRow { Index=5, Channel="RearSide",      Role="RearSide4Side", Host="127.0.0.1", Port=5106, ExposureMs=300, LightLevel=0.8, Trigger="Software" },
             };
         }
 
@@ -252,8 +252,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                         case "BottomInspection":cfg.VisionInspectionPort = it.Port; break;
                         case "Bin":             cfg.VisionBinPort        = it.Port; break;
                         case "Main":            cfg.VisionMainPort       = it.Port; break;
-                        case "TopSide":         cfg.VisionTopSidePort    = it.Port; break;
-                        case "BottomSide":      cfg.VisionBottomSidePort = it.Port; break;
+                        case "FrontSide":         cfg.VisionFrontSidePort    = it.Port; break;
+                        case "RearSide":      cfg.VisionRearSidePort = it.Port; break;
                     }
                 }
                 QMC.CDT320.AppSettingsStore.Save();

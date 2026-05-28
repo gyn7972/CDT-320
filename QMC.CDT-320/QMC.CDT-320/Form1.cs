@@ -74,13 +74,13 @@ namespace QMC.CDT_320
             if (cfg.UseAjin) QMC.CDT320.Ajin.AjinSystem.Open(cfg.AjinIrqNo);
 
             // QMC.Vision TCP 자동 연결 (비동기, 연결 실패해도 앱은 계속)
-            // Stage 43 — 6 채널: Wafer/Inspection/Bin + Main/TopSide/BottomSide
+            // Stage 43 — 6 채널: Wafer/Inspection/Bin + Main/FrontSide/RearSide
             if (cfg.VisionAutoConnect)
             {
                 _ = QMC.CDT320.VisionComm.VisionHub.ConnectAllAsync(
                     cfg.VisionHost,
                     cfg.VisionWaferPort, cfg.VisionInspectionPort, cfg.VisionBinPort,
-                    cfg.VisionMainPort,  cfg.VisionTopSidePort,    cfg.VisionBottomSidePort);
+                    cfg.VisionMainPort,  cfg.VisionFrontSidePort,    cfg.VisionRearSidePort);
             }
             QMC.CDT320.VisionComm.VisionHub.ConnectionChanged += OnVisionHubChanged;
 

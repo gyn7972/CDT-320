@@ -9,9 +9,9 @@ row("BUILD","QMC.CDT-320.exe", -e "$ROOT/QMC.CDT-320/bin/Debug/QMC.CDT-320.exe"?
 # Stage 43 — VisionHub 6 channels (5100/5101/5103/5104/5105/5106) + BarcodeSerialAdapter
 my $vh = "$ROOT/QMC.CDT-320/Equipment/Vision/VisionHub.cs";
 my $r1 = greps($vh, qr/Main\s*\{\s*get/) &&
-         greps($vh, qr/TopSide\s*\{\s*get/) &&
-         greps($vh, qr/BottomSide\s*\{\s*get/);
-row("STAGE43","VisionHub — 3 new channels (Main 5104 / TopSide 5105 / BottomSide 5106)",
+         greps($vh, qr/FrontSide\s*\{\s*get/) &&
+         greps($vh, qr/RearSide\s*\{\s*get/);
+row("STAGE43","VisionHub — 3 new channels (Main 5104 / FrontSide 5105 / RearSide 5106)",
     $r1?"PASS":"FAIL", $vh);
 
 my $bsa = "$ROOT/QMC.CDT-320/Equipment/Vision/BarcodeSerialAdapter.cs";

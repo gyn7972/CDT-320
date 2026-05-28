@@ -243,16 +243,27 @@ namespace QMC.CDT320.Recipes
         [DataMember] public LoadTapeFrameSubset   LoadFrame     { get; set; } = new LoadTapeFrameSubset();
         [DataMember] public UnloadTapeFrameSubset UnloadFrame   { get; set; } = new UnloadTapeFrameSubset();
         [DataMember] public ModuleSubset          Module        { get; set; } = new ModuleSubset();
-        // Stage 51 — Vision Inspection Subsets (Top/Bottom/Side)
+        // Stage 51 — Vision Inspection Subsets (Stage 63: TopSide/BottomSide → FrontSide/RearSide)
         [DataMember] public InspectionSubset      BottomInsp    { get; set; } = new InspectionSubset();
-        [DataMember] public InspectionSubset      TopSideInsp   { get; set; } = new InspectionSubset();
-        [DataMember] public InspectionSubset      BottomSideInsp { get; set; } = new InspectionSubset();
+        [DataMember] public InspectionSubset      FrontSideInsp { get; set; } = new InspectionSubset();
+        [DataMember] public InspectionSubset      RearSideInsp  { get; set; } = new InspectionSubset();
         // Stage 54 — Output Subset (NG/Good Plate 사양)
         [DataMember] public OutputSubset          Output        { get; set; } = new OutputSubset();
         // Stage 61 — Pickup Sequence Subset (시작 코너 + 방향 + 지그재그/직선)
         [DataMember] public PickupSubset          Pickup        { get; set; } = new PickupSubset();
         // Stage 62 — Vision 알고리즘별 카메라 매핑 (Project 별로 분리됨)
         [DataMember] public AlgorithmCameraSubset VisionCameras { get; set; } = new AlgorithmCameraSubset();
+
+        // Stage 63 — 구버전 키 마이그레이션 (TopSideInsp/BottomSideInsp → FrontSideInsp/RearSideInsp)
+        [DataMember(Name = "TopSideInsp",    EmitDefaultValue = false)] public InspectionSubset LegacyTopSideInsp    { get; set; }
+        [DataMember(Name = "BottomSideInsp", EmitDefaultValue = false)] public InspectionSubset LegacyBottomSideInsp { get; set; }
+
+        [OnDeserialized]
+        internal void OnDeserialized(StreamingContext ctx)
+        {
+            if (LegacyTopSideInsp    != null) { FrontSideInsp = LegacyTopSideInsp;    LegacyTopSideInsp    = null; }
+            if (LegacyBottomSideInsp != null) { RearSideInsp  = LegacyBottomSideInsp; LegacyBottomSideInsp = null; }
+        }
     }
 
     // ─── Stage 61 — Pickup Sequence 옵션 enums ──────────────────────

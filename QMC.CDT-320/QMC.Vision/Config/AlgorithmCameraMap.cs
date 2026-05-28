@@ -40,7 +40,11 @@ namespace QMC.Vision.Config
             }
             catch { Current = new AlgorithmCameraSubset(); }
             if (Current == null) Current = new AlgorithmCameraSubset();
+            // Stage 63 — 구버전 알고리즘 이름(TopSide/BottomSide) 자동 마이그레이션 + 누락 보강.
+            // 역직렬화 성공/실패와 무관하게 항상 정규화 저장 → 디스크가 항상 최신 스키마로 유지.
+            Current.MigrateLegacyAlgorithmNames();
             EnsureDefaults(Current);
+            Save();
             return Current;
         }
 

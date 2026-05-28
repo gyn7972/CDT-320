@@ -6,7 +6,7 @@ namespace QMC.CDT320.VisionComm
 {
     /// <summary>
     /// 프로세스 전역 Vision 연결 허브. CDT-310 매뉴얼 사양 — 6 모듈:
-    /// Wafer (5100) / Inspection (5101) / Bin (5103) / Main (5104) / TopSide (5105) / BottomSide (5106)
+    /// Wafer (5100) / Inspection (5101) / Bin (5103) / Main (5104) / FrontSide (5105) / RearSide (5106)
     /// </summary>
     public static class VisionHub
     {
@@ -15,8 +15,8 @@ namespace QMC.CDT320.VisionComm
         public static VisionTcpClient Bin         { get; private set; }
         // Stage 43 — 매뉴얼 호환 추가 채널
         public static VisionTcpClient Main        { get; private set; }
-        public static VisionTcpClient TopSide     { get; private set; }
-        public static VisionTcpClient BottomSide  { get; private set; }
+        public static VisionTcpClient FrontSide     { get; private set; }
+        public static VisionTcpClient RearSide  { get; private set; }
 
         public static event Action ConnectionChanged;
 
@@ -30,12 +30,12 @@ namespace QMC.CDT320.VisionComm
             (Inspection?.IsConnected ?? false) ||
             (Bin?.IsConnected        ?? false) ||
             (Main?.IsConnected       ?? false) ||
-            (TopSide?.IsConnected    ?? false) ||
-            (BottomSide?.IsConnected ?? false);
+            (FrontSide?.IsConnected    ?? false) ||
+            (RearSide?.IsConnected ?? false);
 
         public static async Task<bool> ConnectAllAsync(
             string host, int waferPort = 5100, int inspectionPort = 5101, int binPort = 5103,
-            int mainPort = 5104, int topSidePort = 5105, int bottomSidePort = 5106)
+            int mainPort = 5104, int frontSidePort = 5105, int rearSidePort = 5106)
         {
             DisconnectAll();
 
@@ -43,8 +43,8 @@ namespace QMC.CDT320.VisionComm
             Inspection = New("BottomInspection", host, inspectionPort);
             Bin        = New("BinVision",        host, binPort);
             Main       = New("MainComm",         host, mainPort);
-            TopSide    = New("TopSideVision",    host, topSidePort);
-            BottomSide = New("BottomSideVision", host, bottomSidePort);
+            FrontSide    = New("FrontSideVision",    host, frontSidePort);
+            RearSide = New("RearSideVision", host, rearSidePort);
 
             // 핵심 3개만 await — 나머지 3개는 best-effort (선택 연결)
             var rs = await Task.WhenAll(
@@ -56,8 +56,8 @@ namespace QMC.CDT320.VisionComm
             _ = Task.Run(async () =>
             {
                 try { await Main.ConnectAsync();       } catch { }
-                try { await TopSide.ConnectAsync();    } catch { }
-                try { await BottomSide.ConnectAsync(); } catch { }
+                try { await FrontSide.ConnectAsync();    } catch { }
+                try { await RearSide.ConnectAsync(); } catch { }
                 RaiseChanged();
             });
 
@@ -74,9 +74,9 @@ namespace QMC.CDT320.VisionComm
             try { Inspection?.Dispose(); } catch { }
             try { Bin?.Dispose();        } catch { }
             try { Main?.Dispose();       } catch { }
-            try { TopSide?.Dispose();    } catch { }
-            try { BottomSide?.Dispose(); } catch { }
-            Wafer = Inspection = Bin = Main = TopSide = BottomSide = null;
+            try { FrontSide?.Dispose();    } catch { }
+            try { RearSide?.Dispose(); } catch { }
+            Wafer = Inspection = Bin = Main = FrontSide = RearSide = null;
             RaiseChanged();
         }
 

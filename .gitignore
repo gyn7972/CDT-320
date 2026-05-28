@@ -34,3 +34,7 @@ Log/
 
 # Recipes runtime state
 *.last_project
+
+# Vision camera SDK DLLs (do not track binaries)
+QMC.CDT-320/QMC.Vision/lib/
+**/MvCameraControl*.dll

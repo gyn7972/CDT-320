@@ -21,11 +21,11 @@ namespace QMC.Vision
         internal WaferVisionModule        WaferMod      { get; private set; }
         internal BinVisionModule          BinMod        { get; private set; }
         internal BottomInspectionModule   BottomMod     { get; private set; }
-        internal TopSideInspectionModule    TopSideMod    { get; private set; }
-        internal BottomSideInspectionModule BottomSideMod { get; private set; }
+        internal FrontSideInspectionModule    FrontSideMod    { get; private set; }
+        internal RearSideInspectionModule RearSideMod { get; private set; }
 
         private VisionTcpServer _svrWafer, _svrBin, _svrBottom;
-        private VisionTcpServer _svrTopSide, _svrBottomSide;
+        private VisionTcpServer _svrFrontSide, _svrRearSide;
 
         private OperationPage     _pgOperation;
         private ConfigurationPage _pgConfig;
@@ -50,32 +50,32 @@ namespace QMC.Vision
             var camWafer      = CreateCameraForAlgorithm(map, VisionAlgorithm.Wafer,            "Sim/Wafer");
             var camBin        = CreateCameraForAlgorithm(map, VisionAlgorithm.Bin,              "Sim/Bin");
             var camBottom     = CreateCameraForAlgorithm(map, VisionAlgorithm.BottomInspection, "Sim/BottomInsp");
-            var camTopSide    = CreateCameraForAlgorithm(map, VisionAlgorithm.TopSide,          "Sim/TopSide");
-            var camBottomSide = CreateCameraForAlgorithm(map, VisionAlgorithm.BottomSide,       "Sim/BottomSide");
+            var camFrontSide    = CreateCameraForAlgorithm(map, VisionAlgorithm.FrontSide,          "Sim/FrontSide");
+            var camRearSide = CreateCameraForAlgorithm(map, VisionAlgorithm.RearSide,       "Sim/RearSide");
 
             WaferMod      = new WaferVisionModule       (camWafer,      Backend);
             BinMod        = new BinVisionModule         (camBin,        Backend);
             BottomMod     = new BottomInspectionModule  (camBottom,     Backend);
-            TopSideMod    = new TopSideInspectionModule   (camTopSide,    Backend);
-            BottomSideMod = new BottomSideInspectionModule(camBottomSide, Backend);
+            FrontSideMod    = new FrontSideInspectionModule   (camFrontSide,    Backend);
+            RearSideMod = new RearSideInspectionModule(camRearSide, Backend);
 
             ApplyDelayFromMap(WaferMod,      map, VisionAlgorithm.Wafer);
             ApplyDelayFromMap(BinMod,        map, VisionAlgorithm.Bin);
             ApplyDelayFromMap(BottomMod,     map, VisionAlgorithm.BottomInspection);
-            ApplyDelayFromMap(TopSideMod,    map, VisionAlgorithm.TopSide);
-            ApplyDelayFromMap(BottomSideMod, map, VisionAlgorithm.BottomSide);
+            ApplyDelayFromMap(FrontSideMod,    map, VisionAlgorithm.FrontSide);
+            ApplyDelayFromMap(RearSideMod, map, VisionAlgorithm.RearSide);
 
             // ── TCP 서버 ──
             _svrWafer      = new VisionTcpServer(WaferMod,      cfg.WaferVisionPort);
             _svrBin        = new VisionTcpServer(BinMod,        cfg.BinVisionPort);
             _svrBottom     = new VisionTcpServer(BottomMod,     cfg.InspectionVisionPort);
-            _svrTopSide    = new VisionTcpServer(TopSideMod,    cfg.TopSideInspectionPort);
-            _svrBottomSide = new VisionTcpServer(BottomSideMod, cfg.BottomSideInspectionPort);
+            _svrFrontSide    = new VisionTcpServer(FrontSideMod,    cfg.FrontSideInspectionPort);
+            _svrRearSide = new VisionTcpServer(RearSideMod, cfg.RearSideInspectionPort);
             try { _svrWafer     .Start(); } catch { }
             try { _svrBin       .Start(); } catch { }
             try { _svrBottom    .Start(); } catch { }
-            try { _svrTopSide   .Start(); } catch { }
-            try { _svrBottomSide.Start(); } catch { }
+            try { _svrFrontSide   .Start(); } catch { }
+            try { _svrRearSide.Start(); } catch { }
 
             // ── 6 탭 UserControl ──
             _pgOperation = new OperationPage     { Dock = DockStyle.Fill, Visible = false };
@@ -201,8 +201,8 @@ namespace QMC.Vision
                 case VisionAlgorithm.Wafer:            return WaferMod;
                 case VisionAlgorithm.Bin:              return BinMod;
                 case VisionAlgorithm.BottomInspection: return BottomMod;
-                case VisionAlgorithm.TopSide:          return TopSideMod;
-                case VisionAlgorithm.BottomSide:       return BottomSideMod;
+                case VisionAlgorithm.FrontSide:          return FrontSideMod;
+                case VisionAlgorithm.RearSide:       return RearSideMod;
                 default:                               return null;
             }
         }
@@ -232,8 +232,8 @@ namespace QMC.Vision
             try { _svrWafer?.Dispose(); }      catch { }
             try { _svrBin?.Dispose(); }        catch { }
             try { _svrBottom?.Dispose(); }     catch { }
-            try { _svrTopSide?.Dispose(); }    catch { }
-            try { _svrBottomSide?.Dispose(); } catch { }
+            try { _svrFrontSide?.Dispose(); }    catch { }
+            try { _svrRearSide?.Dispose(); } catch { }
             try { Backend?.Dispose(); }        catch { }
             base.OnFormClosing(e);
         }

@@ -292,7 +292,7 @@ namespace QMC.Vision.Ui.Pages
                     if (!string.IsNullOrEmpty(info.Id) && seen.Add(info.Id))
                         _cbCameraId.Items.Add(new DeviceListItem(info));
 
-                foreach (var fb in new[] { "Sim/Wafer", "Sim/Bin", "Sim/BottomInsp", "Sim/TopSide", "Sim/BottomSide", "Sim/0" })
+                foreach (var fb in new[] { "Sim/Wafer", "Sim/Bin", "Sim/BottomInsp", "Sim/FrontSide", "Sim/RearSide", "Sim/0" })
                     if (seen.Add(fb)) _cbCameraId.Items.Add(fb);
 
                 var m = CurrentMapping();

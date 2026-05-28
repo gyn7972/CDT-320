@@ -11,7 +11,7 @@ namespace QMC.Vision.Ui.Pages
     /// <summary>
     /// 설정 페이지 — 좌측 사이드바(2 그룹) + 우측 디테일.
     /// <list type="bullet">
-    ///   <item>카메라 매핑: 5 비전 모듈 (Wafer/Bin/BottomInsp/TopSide/BottomSide) ↔ 카메라 ID/파라미터</item>
+    ///   <item>카메라 매핑: 5 비전 모듈 (Wafer/Bin/BottomInsp/FrontSide/RearSide) ↔ 카메라 ID/파라미터</item>
     ///   <item>검사 알고리즘: 5 InspectionParameters (BottomInsp/SideInsp/DieGap/Distortion/VisionScale)</item>
     /// </list>
     /// </summary>

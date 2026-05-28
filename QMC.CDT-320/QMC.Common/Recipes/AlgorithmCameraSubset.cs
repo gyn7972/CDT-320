@@ -14,11 +14,11 @@ namespace QMC.Common.Recipes
         public const string Wafer            = "Wafer";
         public const string Bin              = "Bin";
         public const string BottomInspection = "BottomInspection";
-        public const string TopSide          = "TopSide";
-        public const string BottomSide       = "BottomSide";
+        public const string FrontSide        = "FrontSide";
+        public const string RearSide         = "RearSide";
 
         public static readonly string[] All =
-            { Wafer, Bin, BottomInspection, TopSide, BottomSide };
+            { Wafer, Bin, BottomInspection, FrontSide, RearSide };
 
         /// <summary>UI 표시용 한글 라벨.</summary>
         public static string Label(string name)
@@ -28,8 +28,8 @@ namespace QMC.Common.Recipes
                 case Wafer:            return "웨이퍼 비전";
                 case Bin:              return "빈 비전";
                 case BottomInspection: return "바텀 검사";
-                case TopSide:          return "상면 검사";
-                case BottomSide:       return "하면 검사";
+                case FrontSide:        return "앞쪽 측면 검사";
+                case RearSide:         return "뒤쪽 측면 검사";
                 default:               return name;
             }
         }
@@ -88,6 +88,38 @@ namespace QMC.Common.Recipes
         public AlgorithmCameraMapping Get(string algorithm)
             => Items?.FirstOrDefault(m => string.Equals(m.Algorithm, algorithm, StringComparison.OrdinalIgnoreCase));
 
+        /// <summary>
+        /// 구버전 알고리즘 이름 자동 마이그레이션.
+        /// TopSide → FrontSide, BottomSide → RearSide (Algorithm + Sim CameraId 값).
+        /// 변경이 발생하면 true 반환 (호출자가 즉시 Save 하도록).
+        /// </summary>
+        public bool MigrateLegacyAlgorithmNames()
+        {
+            if (Items == null) return false;
+            bool changed = false;
+            foreach (var m in Items)
+            {
+                if (string.Equals(m.Algorithm, "TopSide", StringComparison.OrdinalIgnoreCase))
+                {
+                    m.Algorithm = VisionAlgorithm.FrontSide; changed = true;
+                }
+                else if (string.Equals(m.Algorithm, "BottomSide", StringComparison.OrdinalIgnoreCase))
+                {
+                    m.Algorithm = VisionAlgorithm.RearSide; changed = true;
+                }
+                // Sim fallback CameraId 만 변환 — 실 IP/실값은 건드리지 않음.
+                if (m.CameraId == "Sim/TopSide")    { m.CameraId = "Sim/FrontSide"; changed = true; }
+                if (m.CameraId == "Sim/BottomSide") { m.CameraId = "Sim/RearSide";  changed = true; }
+            }
+            // Migrate 후 동일 algorithm 이 중복되면 첫 항목만 유지.
+            if (changed)
+            {
+                var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                Items = Items.Where(m => seen.Add(m.Algorithm)).ToList();
+            }
+            return changed;
+        }
+
         /// <summary>5 알고리즘 항목이 빠짐없이 존재하도록 보장 — 누락 항목은 Sim/* 로 채움.</summary>
         public void EnsureDefaults()
         {
@@ -102,8 +134,8 @@ namespace QMC.Common.Recipes
                     case VisionAlgorithm.Wafer:            fallback = "Sim/Wafer";       break;
                     case VisionAlgorithm.Bin:              fallback = "Sim/Bin";         break;
                     case VisionAlgorithm.BottomInspection: fallback = "Sim/BottomInsp";  break;
-                    case VisionAlgorithm.TopSide:          fallback = "Sim/TopSide";     break;
-                    case VisionAlgorithm.BottomSide:       fallback = "Sim/BottomSide";  break;
+                    case VisionAlgorithm.FrontSide:        fallback = "Sim/FrontSide";   break;
+                    case VisionAlgorithm.RearSide:         fallback = "Sim/RearSide";    break;
                     default:                               fallback = "Sim/0";           break;
                 }
                 Items.Add(new AlgorithmCameraMapping { Algorithm = alg, CameraId = fallback });

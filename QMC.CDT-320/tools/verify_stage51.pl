@@ -6,16 +6,16 @@ sub greps { my ($f,$p)=@_; return 0 unless -e $f; open my $fh,'<',$f or return 0
 
 row("BUILD","QMC.CDT-320.exe", -e "$ROOT/QMC.CDT-320/bin/Debug/QMC.CDT-320.exe"?"PASS":"FAIL","");
 
-# Stage 51 — Inspection Subset (Bottom + TopSide + BottomSide)
+# Stage 51 — Inspection Subset (Bottom + FrontSide + RearSide)
 my $rs = "$ROOT/QMC.CDT-320/Equipment/Recipes/RecipeStore.cs";
 my $r1 = greps($rs, qr/class\s+InspectionSubset/);
 row("STAGE51","RecipeStore — InspectionSubset class",
     $r1?"PASS":"FAIL", $rs);
 
 my $r2 = greps($rs, qr/BottomInsp/) &&
-         greps($rs, qr/TopSideInsp/) &&
-         greps($rs, qr/BottomSideInsp/);
-row("STAGE51","RecipeProject — BottomInsp + TopSideInsp + BottomSideInsp",
+         greps($rs, qr/FrontSideInsp/) &&
+         greps($rs, qr/RearSideInsp/);
+row("STAGE51","RecipeProject — BottomInsp + FrontSideInsp + RearSideInsp",
     $r2?"PASS":"FAIL", $rs);
 
 my $bar="="x110;

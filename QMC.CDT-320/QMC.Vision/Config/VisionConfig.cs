@@ -19,9 +19,20 @@ namespace QMC.Vision.Config
         [DataMember] public int InspectionVisionPort        { get; set; } = 5101;
         [DataMember] public int BinVisionPort               { get; set; } = 5103;
         [DataMember] public int MainCommunicatorPort        { get; set; } = 5104;
-        // Stage 44 — 매뉴얼 호환 추가 채널
-        [DataMember] public int TopSideInspectionPort       { get; set; } = 5105;
-        [DataMember] public int BottomSideInspectionPort    { get; set; } = 5106;
+        // Stage 44 — 매뉴얼 호환 추가 채널 (Stage 63: TopSide/BottomSide → FrontSide/RearSide)
+        [DataMember] public int FrontSideInspectionPort     { get; set; } = 5105;
+        [DataMember] public int RearSideInspectionPort      { get; set; } = 5106;
+
+        // Stage 63 — 구버전 키 마이그레이션 (값 있으면 OnDeserialized 가 새 프로퍼티로 이전 후 0 으로 비움 → 다음 Save 시 사라짐)
+        [DataMember(Name = "TopSideInspectionPort",    EmitDefaultValue = false)] public int LegacyTopSideInspectionPort    { get; set; }
+        [DataMember(Name = "BottomSideInspectionPort", EmitDefaultValue = false)] public int LegacyBottomSideInspectionPort { get; set; }
+
+        [OnDeserialized]
+        internal void OnDeserialized(StreamingContext ctx)
+        {
+            if (LegacyTopSideInspectionPort != 0)    { FrontSideInspectionPort = LegacyTopSideInspectionPort;    LegacyTopSideInspectionPort = 0; }
+            if (LegacyBottomSideInspectionPort != 0) { RearSideInspectionPort  = LegacyBottomSideInspectionPort; LegacyBottomSideInspectionPort = 0; }
+        }
 
         [DataMember] public string ImageLogPath             { get; set; } = @".\Log\Image";
         [DataMember] public bool   ImageLogEnable           { get; set; } = false;
@@ -77,6 +88,8 @@ namespace QMC.Vision.Config
                 }
             }
             catch { Current = new VisionSettings(); }
+            // Stage 63 — OnDeserialized 가 구 포트 키를 새 프로퍼티로 옮겼을 수 있음 → 정규화 재저장.
+            Save();
             return Current;
         }
 
