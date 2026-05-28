@@ -194,13 +194,13 @@ namespace QMC.CDT320.Ajin
             EnsureDefaultAxes(c);
 
             void DO(string n, int mod, int bit) => c.DigitalOutputs[n] = new DioMap { Module = mod, Bit = bit };
-            DO("StartLamp", 0, 0);
-            DO("StopLamp", 0, 1);
-            DO("ResetLamp", 0, 2);
-            DO("TlRed", 0, 3);
-            DO("TlYellow", 0, 4);
-            DO("TlGreen", 0, 5);
-            DO("Buzzer", 0, 6);
+            DO("StartLamp", 4, 0);
+            DO("StopLamp", 4, 1);
+            DO("ResetLamp", 4, 2);
+            DO("TlRed", 4, 3);
+            DO("TlYellow", 4, 4);
+            DO("TlGreen", 4, 5);
+            DO("Buzzer", 4, 6);
             DO("WaferFeederUp", 0, 16);
             DO("WaferFeederDown", 0, 17);
             DO("NgBinGuideUp", 0, 26);
