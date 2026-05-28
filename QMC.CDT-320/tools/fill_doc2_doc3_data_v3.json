@@ -108,7 +108,7 @@
         "file": "ppt/slides/slide6.xml",
         "cols": 4,
         "rows": [
-          ["43", "VisionHub 6채널 (5104/5105/5106) + Barcode Serial",   "VisionHub.Main/TopSide/BottomSide + BarcodeSerialAdapter (Wafer/Bin)",  "4/4"],
+          ["43", "VisionHub 6채널 (5104/5105/5106) + Barcode Serial",   "VisionHub.Main/FrontSide/RearSide + BarcodeSerialAdapter (Wafer/Bin)",  "4/4"],
           ["44", "Eject Pin Z + Side Vision Y (axis 8/19/20)",          "InputStageUnit.EjectPinZ + TpuArmUnit.SideVisionY + SimulatorBridge",   "4/4"],
           ["45", "Operation Panel (Tower Lamp + Buzzer)",               "OperationPanelUnit (TlRed/Yellow/Green + Buzzer + CDT320Machine 통합)", "4/4"],
           ["46", "Resource Sensors + Slot Mapper",                      "ResourceSensorsUnit (CDA×2 + Vacuum×4) + SlotMapper.cs + Registry",     "4/4"],
@@ -122,8 +122,8 @@
         "rows": [
           ["49", "NG/Good Plate",                                       "Plate.cs + PlateRegistry.GoodPlate / NgPlate (static)",                  "3/3"],
           ["50", "Bin Barcode Reader (NullBarcodeReader 어댑터)",       "CDT320Machine.NullBarcodeReader / BinBarcodeReader + BarcodeSerial",     "4/4"],
-          ["51", "Inspection Subset (Bottom + TopSide + BottomSide)",   "RecipeStore.InspectionSubset (BottomInsp/TopSideInsp/BottomSideInsp)",  "3/3"],
-          ["52", "TopSide / BottomSide Inspection 모듈 (Vision PC)",    "QMC.Vision/Modules + VisionConfig 5105/5106 포트 + Form1 wiring",       "4/4"],
+          ["51", "Inspection Subset (Bottom + TopSide + BottomSide)",   "RecipeStore.InspectionSubset (BottomInsp/FrontSideInsp/RearSideInsp)",  "3/3"],
+          ["52", "FrontSide / RearSide Inspection 모듈 (Vision PC)",    "QMC.Vision/Modules + VisionConfig 5105/5106 포트 + Form1 wiring",       "4/4"],
           ["53", "Eject + Side 사이클 통합",                              "DoOneDieAsync EjectPinZ + SideVisionY axis call",                       "3/3"],
           ["54", "Recipe Output Subset (DiesPerWafer 등)",                "RecipeStore.OutputSubset + GoodPlate/NgPlate MaxSlots + DiesPerWafer", "4/4"]
         ]

@@ -108,7 +108,7 @@
         "file": "ppt/slides/slide6.xml",
         "cols": 4,
         "rows": [
-          ["43", "매뉴얼 비전 + 바코드 통합 (5104~5106 + Serial 4/6)", "VisionHub.Main/TopSide/BottomSide + BarcodeSerialAdapter",  "(확인 필요)"],
+          ["43", "매뉴얼 비전 + 바코드 통합 (5104~5106 + Serial 4/6)", "VisionHub.Main/FrontSide/RearSide + BarcodeSerialAdapter",  "(확인 필요)"],
           ["44", "Eject Pin Z + Side Vision Y (axis 8/19/20)",      "InputStageUnit.EjectPinZ + TpuArmUnit.SideVisionY (L/R)",   "(확인 필요)"],
           ["45", "Operation Panel (Tower Lamp + Buzzer + EMG)",     "OperationPanelUnit (DI 7 + DO 7) — Y003~Y006 Lamp/Buzzer", "(확인 필요)"],
           ["46", "Resource Sensors + Slot Mapper",                  "ResourceSensorsUnit (CDA×2 + Vacuum×4) + SlotMapper",      "(확인 필요)"],
@@ -122,8 +122,8 @@
         "rows": [
           ["49", "NG/Good Plate",                                    "Plate.cs + PlateRegistry.NgPlate / GoodPlate",                "(확인 필요)"],
           ["50", "Bin Barcode Reader",                               "NullBarcodeReader + BarcodeSerialAdapter (Stage 43 연결)",    "(확인 필요)"],
-          ["51", "Inspection Subset (Bottom + Top/BottomSide)",      "RecipeProject.BottomInsp/TopSideInsp/BottomSideInsp",          "(확인 필요)"],
-          ["52", "TopSide / BottomSide Inspection 모듈 (Vision PC)", "QMC.Vision/Modules + VisionConfig 5105/5106 포트",             "(확인 필요)"],
+          ["51", "Inspection Subset (Bottom + Front/RearSide)",      "RecipeProject.BottomInsp/FrontSideInsp/RearSideInsp",          "(확인 필요)"],
+          ["52", "FrontSide / RearSide Inspection 모듈 (Vision PC)", "QMC.Vision/Modules + VisionConfig 5105/5106 포트",             "(확인 필요)"],
           ["53", "Eject + Side 사이클 통합",                          "DoOneDie EJECT axis 8 + SideVisionY axis 19",                 "(확인 필요)"],
           ["54", "Recipe Output Subset",                             "RecipeStore.OutputSubset (DiesPerWafer 등)",                   "(확인 필요)"]
         ]

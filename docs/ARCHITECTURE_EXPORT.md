@@ -126,7 +126,7 @@ CDT320Simulator (독립)      ◄── TCP 통신 (포트 7001) ──► QMC.C
 | Backends/Sim | Sim 백엔드 | `SimBackend`, `SimPatternFinder`, `SimInspector` |
 | Backends/OpenCv | OpenCV 백엔드 | `OpenCvBackend`, `OpenCvPatternFinder`, `OpenCvInspector` |
 | Backends/Cognex | Cognex 백엔드 (동적 로드) | `CognexBackend`, `CognexPatternFinder`, `CognexInspector`, `CognexCaliper`, `CognexHistogram`, `CognexColorMatch` |
-| Modules | 비전 모듈 | `WaferVisionModule`, `BinVisionModule`, `BottomInspectionModule`, `TopSideInspectionModule`, `BottomSideInspectionModule` |
+| Modules | 비전 모듈 | `WaferVisionModule`, `BinVisionModule`, `BottomInspectionModule`, `FrontSideInspectionModule`, `RearSideInspectionModule` |
 | Comm | TCP | `VisionTcpServer` |
 | Config | 설정 | `VisionConfig` |
 | Ui/Pages | 8 화면 | `OperationPage`, `ConfigurationPage`, `MaintenancePage`, `RecipePage`, `DataLogPage`, `FinderPage`, `InspectorPage`, `SpcChartPage` |
@@ -458,7 +458,7 @@ CDT320Simulator (독립)      ◄── TCP 통신 (포트 7001) ──► QMC.C
 | LoadFrame / UnloadFrame | LoadTapeFrameSubset / UnloadTapeFrameSubset | (§6.4) | 로드/언로드 옵션 |
 | Module | ModuleSubset | (§6.5) | 모듈 동작 |
 | Output | OutputSubset | (§6.6) | 출력 사양 |
-| BottomInsp / TopSideInsp / BottomSideInsp | InspectionSubset | (§6.7) | 비전 검사 (3종) |
+| BottomInsp / FrontSideInsp / RearSideInsp | InspectionSubset | (§6.7) | 비전 검사 (3종) |
 
 ### 6.2 DieSubset
 
@@ -513,7 +513,7 @@ CDT320Simulator (독립)      ◄── TCP 통신 (포트 7001) ──► QMC.C
 | AlarmOnFull | bool | true | |
 | DefaultGoodCassette | string | `"Good1"` | |
 
-### 6.7 InspectionSubset (Bottom/TopSide/BottomSide 공용)
+### 6.7 InspectionSubset (Bottom/FrontSide/RearSide 공용)
 
 | 이름 | 타입 | 기본값 | 설명 |
 |---|---|---|---|
