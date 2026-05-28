@@ -61,9 +61,33 @@ namespace QMC.Common.Recipes
         public System.Drawing.Rectangle ToRectangle()
             => new System.Drawing.Rectangle(RoiOffsetX, RoiOffsetY, RoiWidth, RoiHeight);
 
+        // Stage 64 — 검사별 카메라 파라미터 오버라이드 (빈 리스트/null = 검사별 분기 없음, 알고리즘 기본값만 사용).
+        [DataMember(EmitDefaultValue = false)]
+        public List<InspectionCameraOverride> Inspections { get; set; }
+
+        /// <summary>주어진 검사의 override 를 찾거나 새로 만들어 반환 (Inspections 에 추가됨).</summary>
+        public InspectionCameraOverride GetOrCreateOverride(string inspectionId)
+        {
+            if (Inspections == null) Inspections = new List<InspectionCameraOverride>();
+            var ov = Inspections.FirstOrDefault(o => string.Equals(o.InspectionId, inspectionId, StringComparison.OrdinalIgnoreCase));
+            if (ov == null)
+            {
+                ov = new InspectionCameraOverride { InspectionId = inspectionId };
+                Inspections.Add(ov);
+            }
+            return ov;
+        }
+
+        /// <summary>검사에 대한 효과적 카메라 파라미터 — override 가 있으면 덮어쓴 사본, 없으면 알고리즘 기본값 사본.</summary>
+        public AlgorithmCameraMapping EffectiveFor(string inspectionId)
+        {
+            var ov = Inspections?.FirstOrDefault(o => string.Equals(o.InspectionId, inspectionId, StringComparison.OrdinalIgnoreCase));
+            return (ov == null || ov.IsEmpty()) ? Clone() : ov.ApplyOver(this);
+        }
+
         public AlgorithmCameraMapping Clone()
         {
-            return new AlgorithmCameraMapping
+            var c = new AlgorithmCameraMapping
             {
                 Algorithm = Algorithm, CameraId = CameraId,
                 ExposureUs = ExposureUs, Gain = Gain, FrameRate = FrameRate,
@@ -72,6 +96,144 @@ namespace QMC.Common.Recipes
                 RoiOffsetX = RoiOffsetX, RoiOffsetY = RoiOffsetY,
                 RoiWidth = RoiWidth, RoiHeight = RoiHeight
             };
+            if (Inspections != null)
+            {
+                c.Inspections = new List<InspectionCameraOverride>();
+                foreach (var o in Inspections) c.Inspections.Add(o.Clone());
+            }
+            return c;
+        }
+    }
+
+    /// <summary>
+    /// Stage 64 — 검사 1개의 카메라 파라미터 선택적 오버라이드.
+    /// null 필드 = 알고리즘 기본값 상속. 채워진 필드만 JSON 에 직렬화 (EmitDefaultValue=false).
+    /// ROI 는 4 필드 묶음 — X/Y/W/H 가 모두 채워졌을 때만 오버라이드 적용.
+    /// </summary>
+    [DataContract]
+    public class InspectionCameraOverride
+    {
+        [DataMember] public string InspectionId { get; set; } = "";
+
+        [DataMember(EmitDefaultValue = false)] public double? ExposureUs        { get; set; }
+        [DataMember(EmitDefaultValue = false)] public double? Gain              { get; set; }
+        [DataMember(EmitDefaultValue = false)] public double? FrameRate         { get; set; }
+        [DataMember(EmitDefaultValue = false)] public string  TriggerMode       { get; set; }
+        [DataMember(EmitDefaultValue = false)] public string  PixelFormat       { get; set; }
+        [DataMember(EmitDefaultValue = false)] public int?    DelayBeforeGrabMs { get; set; }
+        [DataMember(EmitDefaultValue = false)] public int?    RoiOffsetX        { get; set; }
+        [DataMember(EmitDefaultValue = false)] public int?    RoiOffsetY        { get; set; }
+        [DataMember(EmitDefaultValue = false)] public int?    RoiWidth          { get; set; }
+        [DataMember(EmitDefaultValue = false)] public int?    RoiHeight         { get; set; }
+
+        /// <summary>ROI 4 필드가 모두 채워졌는지 (묶음 오버라이드 판정).</summary>
+        public bool HasRoiOverride
+            => RoiOffsetX.HasValue && RoiOffsetY.HasValue && RoiWidth.HasValue && RoiHeight.HasValue;
+
+        /// <summary>InspectionId 외 모든 값이 null/공백 → 상속만 (직렬화 시 제거 대상).</summary>
+        public bool IsEmpty()
+            => !ExposureUs.HasValue && !Gain.HasValue && !FrameRate.HasValue
+               && string.IsNullOrEmpty(TriggerMode) && string.IsNullOrEmpty(PixelFormat)
+               && !DelayBeforeGrabMs.HasValue
+               && !RoiOffsetX.HasValue && !RoiOffsetY.HasValue && !RoiWidth.HasValue && !RoiHeight.HasValue;
+
+        public InspectionCameraOverride Clone()
+            => new InspectionCameraOverride
+            {
+                InspectionId = InspectionId,
+                ExposureUs = ExposureUs, Gain = Gain, FrameRate = FrameRate,
+                TriggerMode = TriggerMode, PixelFormat = PixelFormat,
+                DelayBeforeGrabMs = DelayBeforeGrabMs,
+                RoiOffsetX = RoiOffsetX, RoiOffsetY = RoiOffsetY,
+                RoiWidth = RoiWidth, RoiHeight = RoiHeight
+            };
+
+        /// <summary>base 위에 채워진 필드만 덮어쓴 효과적 매핑 생성 (null 은 base 유지).</summary>
+        public AlgorithmCameraMapping ApplyOver(AlgorithmCameraMapping baseDefaults)
+        {
+            var eff = baseDefaults.Clone();
+            eff.Inspections = null;   // 효과적 매핑에는 검사 목록 불필요
+            if (ExposureUs.HasValue)        eff.ExposureUs        = ExposureUs.Value;
+            if (Gain.HasValue)              eff.Gain              = Gain.Value;
+            if (FrameRate.HasValue)         eff.FrameRate         = FrameRate.Value;
+            if (!string.IsNullOrEmpty(TriggerMode)) eff.TriggerMode = TriggerMode;
+            if (!string.IsNullOrEmpty(PixelFormat)) eff.PixelFormat = PixelFormat;
+            if (DelayBeforeGrabMs.HasValue) eff.DelayBeforeGrabMs = DelayBeforeGrabMs.Value;
+            if (HasRoiOverride)
+            {
+                eff.RoiOffsetX = RoiOffsetX.Value; eff.RoiOffsetY = RoiOffsetY.Value;
+                eff.RoiWidth   = RoiWidth.Value;   eff.RoiHeight  = RoiHeight.Value;
+            }
+            return eff;
+        }
+    }
+
+    /// <summary>Stage 64 — 검사 ID → 한글 라벨 (알고리즘 스코프).</summary>
+    public static class InspectionLabel
+    {
+        // (Algorithm, InspectionId) → 한글 라벨. 중복 InspectionId 는 알고리즘으로 구분.
+        private static readonly Dictionary<string, string> _map =
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            // Wafer (7)
+            { "Wafer|EjectPinFinder",            "이젝트 핀" },
+            { "Wafer|ReticleFinder",             "레티클" },
+            { "Wafer|AlignDieFinder",            "얼라인 다이" },
+            { "Wafer|FirstReferenceFinder",      "첫째 기준" },
+            { "Wafer|SecondReferenceFinder",     "둘째 기준" },
+            { "Wafer|DieFinder",                 "다이" },
+            { "Wafer|ScaleFinder",               "스케일" },
+            // Bin (4)
+            { "Bin|ReticleFinder",               "레티클" },
+            { "Bin|DieFinder",                   "다이" },
+            { "Bin|PlacementInspector",          "안착 검사" },
+            { "Bin|ScaleFinder",                 "스케일" },
+            // BottomInspection (7)
+            { "BottomInspection|ReticleFinder",         "레티클" },
+            { "BottomInspection|ColletFinder",          "콜렛" },
+            { "BottomInspection|DieFinder",             "다이" },
+            { "BottomInspection|SurfaceInspector",      "표면" },
+            { "BottomInspection|FocusFinder",           "포커스" },
+            { "BottomInspection|ScaleFinder",           "스케일" },
+            { "BottomInspection|DistortionCompensation","왜곡 보정" },
+            // FrontSide (4) — 앞쪽 측면
+            { "FrontSide|DieEdgeFinder",         "다이 에지" },
+            { "FrontSide|TopSurfaceInspector",   "앞쪽 면" },
+            { "FrontSide|TopChippingInspector",  "앞쪽 칩핑" },
+            { "FrontSide|FocusFinder",           "포커스" },
+            // RearSide (4) — 뒤쪽 측면
+            { "RearSide|DieEdgeFinder",          "다이 에지" },
+            { "RearSide|BottomSurfaceInspector", "뒤쪽 면" },
+            { "RearSide|BottomChippingInspector","뒤쪽 칩핑" },
+            { "RearSide|FocusFinder",            "포커스" },
+        };
+
+        public static string Get(string algorithm, string inspectionId)
+        {
+            if (_map.TryGetValue(algorithm + "|" + inspectionId, out var label)) return label;
+            return inspectionId;   // 미등록 시 ID 그대로
+        }
+
+        /// <summary>알고리즘별 검사 ID 목록 (모듈 등록 순서와 동일). UI TreeView 자식 노드 생성용.</summary>
+        public static string[] InspectionsOf(string algorithm)
+        {
+            switch (algorithm)
+            {
+                case VisionAlgorithm.Wafer:
+                    return new[] { "EjectPinFinder", "ReticleFinder", "AlignDieFinder",
+                                   "FirstReferenceFinder", "SecondReferenceFinder", "DieFinder", "ScaleFinder" };
+                case VisionAlgorithm.Bin:
+                    return new[] { "ReticleFinder", "DieFinder", "PlacementInspector", "ScaleFinder" };
+                case VisionAlgorithm.BottomInspection:
+                    return new[] { "ReticleFinder", "ColletFinder", "DieFinder", "SurfaceInspector",
+                                   "FocusFinder", "ScaleFinder", "DistortionCompensation" };
+                case VisionAlgorithm.FrontSide:
+                    return new[] { "DieEdgeFinder", "TopSurfaceInspector", "TopChippingInspector", "FocusFinder" };
+                case VisionAlgorithm.RearSide:
+                    return new[] { "DieEdgeFinder", "BottomSurfaceInspector", "BottomChippingInspector", "FocusFinder" };
+                default:
+                    return new string[0];
+            }
         }
     }
 

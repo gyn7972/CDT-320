@@ -142,6 +142,9 @@
     <Compile Include="Ui\Pages\CameraMappingPanel.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="Ui\Pages\InspectionOverridePanel.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
     <Compile Include="Ui\Pages\FinderPage.cs">
       <SubType>UserControl</SubType>
     </Compile>

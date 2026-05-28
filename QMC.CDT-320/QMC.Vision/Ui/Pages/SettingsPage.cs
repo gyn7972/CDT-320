@@ -20,8 +20,9 @@ namespace QMC.Vision.Ui.Pages
         private TreeView _tree;
         private Panel    _detailHost;
 
-        private CameraMappingPanel    _camPanel;
-        private UserControl           _currentEditor;   // 검사 알고리즘 편집기 캐시 비활성
+        private CameraMappingPanel      _camPanel;
+        private InspectionOverridePanel _inspPanel;       // Stage 64 — 검사별 카메라 오버라이드
+        private UserControl             _currentEditor;   // 검사 알고리즘 편집기 캐시 비활성
 
         public SettingsPage()
         {
@@ -81,6 +82,10 @@ namespace QMC.Vision.Ui.Pages
 
             _camPanel = new CameraMappingPanel { Dock = DockStyle.Fill, Visible = false };
             _detailHost.Controls.Add(_camPanel);
+
+            _inspPanel = new InspectionOverridePanel { Dock = DockStyle.Fill, Visible = false };
+            _inspPanel.OverrideChanged += (alg, insp) => RefreshInspectionNode(alg, insp);
+            _detailHost.Controls.Add(_inspPanel);
         }
 
         private void LoadAlgorithms()
@@ -91,7 +96,12 @@ namespace QMC.Vision.Ui.Pages
             var camRoot = _tree.Nodes.Add("camera-root", "■ 카메라 매핑");
             camRoot.NodeFont = UiTheme.SectionFont;
             foreach (var alg in VisionAlgorithm.All)
-                camRoot.Nodes.Add("cam:" + alg, VisionAlgorithm.Label(alg));
+            {
+                var algNode = camRoot.Nodes.Add("cam:" + alg, VisionAlgorithm.Label(alg));
+                // Stage 64 — 알고리즘 아래 검사 자식 노드 (cam:<alg>:<inspectionId>)
+                foreach (var insp in InspectionLabel.InspectionsOf(alg))
+                    algNode.Nodes.Add("cam:" + alg + ":" + insp, InspNodeText(alg, insp));
+            }
 
             var inspRoot = _tree.Nodes.Add("insp-root", "■ 검사 알고리즘");
             inspRoot.NodeFont = UiTheme.SectionFont;
@@ -101,6 +111,25 @@ namespace QMC.Vision.Ui.Pages
             camRoot.Expand();
             inspRoot.Expand();
             _tree.SelectedNode = camRoot.Nodes[0];
+        }
+
+        /// <summary>검사 노드 라벨 — override 존재 시 " ●" 접미사.</summary>
+        private static string InspNodeText(string alg, string insp)
+        {
+            string label = InspectionLabel.Get(alg, insp);
+            var bm = AlgorithmCameraMapStore.Current?.Get(alg);
+            bool hasOv = bm?.Inspections != null &&
+                         bm.Inspections.Exists(o =>
+                             string.Equals(o.InspectionId, insp, StringComparison.OrdinalIgnoreCase) && !o.IsEmpty());
+            return hasOv ? label + "  ●" : label;
+        }
+
+        /// <summary>override 변경 후 해당 검사 노드의 ● 표시 갱신.</summary>
+        private void RefreshInspectionNode(string alg, string insp)
+        {
+            var found = _tree.Nodes.Find("cam:" + alg + ":" + insp, true);
+            if (found != null && found.Length > 0)
+                found[0].Text = InspNodeText(alg, insp);
         }
 
         private static readonly System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<string, string>> InspectionTools
@@ -120,8 +149,12 @@ namespace QMC.Vision.Ui.Pages
 
             if (key.StartsWith("cam:"))
             {
-                var alg = key.Substring("cam:".Length);
-                ShowCameraMapping(alg);
+                var rest = key.Substring("cam:".Length);   // "<alg>" 또는 "<alg>:<inspectionId>"
+                int idx = rest.IndexOf(':');
+                if (idx < 0)
+                    ShowCameraMapping(rest);
+                else
+                    ShowInspectionOverride(rest.Substring(0, idx), rest.Substring(idx + 1));
             }
             else if (key.StartsWith("insp:"))
             {
@@ -135,6 +168,12 @@ namespace QMC.Vision.Ui.Pages
         {
             SwapEditor(_camPanel);
             _camPanel.SelectAlgorithm(algorithm);
+        }
+
+        private void ShowInspectionOverride(string algorithm, string inspectionId)
+        {
+            SwapEditor(_inspPanel);
+            _inspPanel.SelectInspection(algorithm, inspectionId);
         }
 
         private void ShowInspectionEditor(string tool)
@@ -161,8 +200,10 @@ namespace QMC.Vision.Ui.Pages
             next.Visible = true;
             next.BringToFront();
 
-            // 기존 inspection 편집기 메모리 정리 (새 인스턴스로 교체)
-            if (_currentEditor != null && _currentEditor != next && _currentEditor != _camPanel)
+            // 기존 inspection 편집기 메모리 정리 (새 인스턴스로 교체).
+            // _camPanel / _inspPanel 은 영구 패널이므로 dispose 대상에서 제외.
+            if (_currentEditor != null && _currentEditor != next
+                && _currentEditor != _camPanel && _currentEditor != _inspPanel)
             {
                 try { _detailHost.Controls.Remove(_currentEditor); _currentEditor.Dispose(); } catch { }
             }
