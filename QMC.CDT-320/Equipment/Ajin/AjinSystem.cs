@@ -1,7 +1,8 @@
-using System;
 using QMC.CDT320.Alarms;
 using QMC.CDT320.Logging;
 using QMC.Common.Motion.Ajin;
+using System;
+using System.IO;
 
 namespace QMC.CDT320.Ajin
 {
@@ -23,6 +24,8 @@ namespace QMC.CDT320.Ajin
 
             try
             {
+
+
                 int r = AXL.Open(irqNo);
                 if (r != 0)
                 {
@@ -31,6 +34,23 @@ namespace QMC.CDT320.Ajin
                     EventLogger.Write(EventKind.Alarm, "SYS", "AXL-OPEN", LastError);
                     AlarmManager.Raise(AlarmSeverity.Critical, "AXL-OPEN", "AjinSystem", LastError);
                     return false;
+                }
+
+                string motPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Motor","CDT-320.mot");
+                if (!string.IsNullOrEmpty(motPath) && File.Exists(motPath))
+                {
+                    r = (int)AXM.AxmMotLoadParaAll(motPath);
+                    if (r != 0)
+                    {
+                        IsOpen = false;
+                        // 파라미터 로드 실패해도 AXL은 열려 있으므로, 필요 시 Close
+                        AXL.Close();
+                        return false;
+                    }
+                    else
+                    {
+                        IsOpen = true;
+                    }
                 }
 
                 int n = 0;
