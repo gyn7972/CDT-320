@@ -20,6 +20,7 @@ namespace QMC.CDT_320.Ui.Tabs
 
             AddSidebarButton("set.general",     op, () => new GeneralPage());
             AddSidebarButton("set.motion",      mt, () => new MotionPage());
+            AddSidebarButton("set.ioControl",   mt, () => new IoControlPage());
             AddSidebarButton("set.digital",     mt, () => new IoListPage("set.digital",
                 new[] { "INDEX", "SYMBOL", "BOARD", "BIT", "DESCRIPTION", "STATE" }, Seed.Digital()));
             AddSidebarButton("set.digitalLink", mt, () => new IoListPage("set.digitalLink",

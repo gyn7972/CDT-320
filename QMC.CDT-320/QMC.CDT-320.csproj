@@ -517,6 +517,12 @@
     <Compile Include="Ui\Pages\Settings\IoListPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="Ui\Pages\Settings\IoControlPage.Designer.cs">
+      <DependentUpon>IoControlPage.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Pages\Settings\IoControlPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
     <Compile Include="Ui\Pages\Settings\MotionPage.Designer.cs">
       <DependentUpon>MotionPage.cs</DependentUpon>
     </Compile>
