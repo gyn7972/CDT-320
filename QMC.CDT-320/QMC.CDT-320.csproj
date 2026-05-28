@@ -95,6 +95,9 @@
     <Compile Include="Ui\Pages\Recipe\ModuleSubsetPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="Ui\Pages\Recipe\ModuleSubsetPage.Designer.cs">
+      <DependentUpon>ModuleSubsetPage.cs</DependentUpon>
+    </Compile>
     <Compile Include="Equipment\Vision\BarcodeSerialAdapter.cs" />
     <Compile Include="Equipment\OperationPanelUnit.cs" />
     <Compile Include="Equipment\ResourceSensorsUnit.cs" />
@@ -120,8 +123,14 @@
     <Compile Include="Ui\Pages\Recipe\PickupSubsetPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="Ui\Pages\Recipe\PickupSubsetPage.Designer.cs">
+      <DependentUpon>PickupSubsetPage.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Pages\Recipe\OutputSubsetPage.cs">
       <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\Recipe\OutputSubsetPage.Designer.cs">
+      <DependentUpon>OutputSubsetPage.cs</DependentUpon>
     </Compile>
     <Compile Include="Equipment\TransferPickerUnit.cs" />
     <Compile Include="Equipment\UnitData.cs" />
@@ -195,20 +204,32 @@
       <SubType>UserControl</SubType>
     </Compile>
     <!-- Ui / Pages / Recipe / Subset (Stage 1 ??310 ?�식) -->
-    <Compile Include="Ui\Pages\Recipe\SubsetPageBase.cs">
+    <Compile Include="Ui\Pages\Recipe\Helper\SubsetPageBase.cs">
       <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="Ui\Pages\Recipe\DieSubsetPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="Ui\Pages\Recipe\DieSubsetPage.Designer.cs">
+      <DependentUpon>DieSubsetPage.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Pages\Recipe\TapeFrameSubsetPage.cs">
       <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\Recipe\TapeFrameSubsetPage.Designer.cs">
+      <DependentUpon>TapeFrameSubsetPage.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Pages\Recipe\LoadTapeFrameSubsetPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="Ui\Pages\Recipe\LoadTapeFrameSubsetPage.Designer.cs">
+      <DependentUpon>LoadTapeFrameSubsetPage.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Pages\Recipe\UnloadTapeFrameSubsetPage.cs">
       <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\Recipe\UnloadTapeFrameSubsetPage.Designer.cs">
+      <DependentUpon>UnloadTapeFrameSubsetPage.cs</DependentUpon>
     </Compile>
     <!-- Equipment / Ajin -->
     <Compile Include="Equipment\Ajin\AjinAxis.cs" />
@@ -464,7 +485,7 @@
     <Compile Include="Ui\Pages\Recipe\ProjectPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="Ui\Pages\Recipe\RecipeLayoutHelpers.cs" />
+    <Compile Include="Ui\Pages\Recipe\Helper\RecipeLayoutHelpers.cs" />
     <Compile Include="Ui\Pages\Recipe\StageRecipePage.Designer.cs">
       <DependentUpon>StageRecipePage.cs</DependentUpon>
     </Compile>
@@ -590,6 +611,18 @@
     <EmbeddedResource Include="Ui\Pages\Recipe\LoadTapeFrameSubsetPage.resx">
       <DependentUpon>LoadTapeFrameSubsetPage.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\Recipe\ModuleSubsetPage.resx">
+      <DependentUpon>ModuleSubsetPage.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\Recipe\OutputSubsetPage.resx">
+      <DependentUpon>OutputSubsetPage.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\Recipe\PickupSubsetPage.resx">
+      <DependentUpon>PickupSubsetPage.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\Recipe\ProjectPage.resx">
+      <DependentUpon>ProjectPage.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\Recipe\TapeFrameSubsetPage.resx">
       <DependentUpon>TapeFrameSubsetPage.cs</DependentUpon>
     </EmbeddedResource>
@@ -613,6 +646,12 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\Settings\VisionLinkPage.resx">
       <DependentUpon>VisionLinkPage.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\WorkInfo\InputCassettePage.resx">
+      <DependentUpon>InputCassettePage.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\WorkInfo\OperationPanelStatusPage.resx">
+      <DependentUpon>OperationPanelStatusPage.cs</DependentUpon>
     </EmbeddedResource>
     <None Include="Properties\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>

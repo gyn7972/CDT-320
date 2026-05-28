@@ -2,12 +2,15 @@ using QMC.CDT_320.Ui.Localization;
 
 namespace QMC.CDT_320.Ui.Pages.Recipe
 {
-    public partial class HeadRecipePage : PageBase
+    public partial class HeadRecipePage : QMC.CDT_320.Ui.Pages.PageBase
     {
-        private readonly string _titleI18n;
+        private string _titleI18n;
 
-        public HeadRecipePage() : this("recipe.frontHead")
+        public HeadRecipePage()
         {
+            _titleI18n = "recipe.frontHead";
+            InitializeComponent();
+            ApplyTitle();
         }
 
         public HeadRecipePage(string titleI18n)

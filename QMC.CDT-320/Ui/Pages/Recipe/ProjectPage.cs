@@ -7,7 +7,7 @@ using QMC.CDT320.Recipes;
 
 namespace QMC.CDT_320.Ui.Pages.Recipe
 {
-    public partial class ProjectPage : PageBase
+    public partial class ProjectPage : QMC.CDT_320.Ui.Pages.PageBase
     {
         private RecipeProject _current;
 

@@ -422,9 +422,9 @@ namespace QMC.CDT_320.Ui.Pages.Material
         private DataGridViewTextBoxColumn NgCode;
         private DataGridViewTextBoxColumn Bin;
         private DataGridViewTextBoxColumn BinUpper;
-        private DataGridViewTextBoxColumn ColorColumn;
         private DataGridViewTextBoxColumn Color;
     }
 }
+
 
 

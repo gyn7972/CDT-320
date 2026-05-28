@@ -1,11 +1,11 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace QMC.CDT_320.Ui.Pages.WorkInfo
 {
-    public partial class InputCassettePage : PageBase
+    public partial class InputCassettePage : QMC.CDT_320.Ui.Pages.PageBase
     {
         private const int SLOT_COUNT_UI = 16;
         private System.Windows.Forms.Timer _refreshTimer;
@@ -13,12 +13,48 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         public InputCassettePage()
         {
             InitializeComponent();
+            BuildSlotRows();   // ← 누락된 초기화
             WireEvents();
 
             _refreshTimer = new System.Windows.Forms.Timer { Interval = 200 };
             _refreshTimer.Tick += (s, e) => RefreshFromMachine();
             HandleCreated += (s, e) => _refreshTimer.Start();
             HandleDestroyed += (s, e) => _refreshTimer.Stop();
+        }
+
+        private void BuildSlotRows()
+        {
+            _slotLeds = new Label[SLOT_COUNT_UI];
+            _slotIndexLbls = new Label[SLOT_COUNT_UI];
+            _slotNameLbls = new Label[SLOT_COUNT_UI];
+
+            lifterLayout.SuspendLayout();
+            for (int i = 0; i < SLOT_COUNT_UI; i++)
+            {
+                _slotIndexLbls[i] = new Label
+                {
+                    Dock = DockStyle.Fill,
+                    Text = (i + 1).ToString(),
+                    TextAlign = ContentAlignment.MiddleCenter
+                };
+                _slotLeds[i] = new Label
+                {
+                    Dock = DockStyle.Fill,
+                    BackColor = Color.LightGray,
+                    BorderStyle = BorderStyle.FixedSingle
+                };
+                _slotNameLbls[i] = new Label
+                {
+                    Dock = DockStyle.Fill,
+                    Text = $"SLOT {i + 1}",
+                    TextAlign = ContentAlignment.MiddleLeft
+                };
+
+                lifterLayout.Controls.Add(_slotIndexLbls[i], 0, i);
+                lifterLayout.Controls.Add(_slotLeds[i],      1, i);
+                lifterLayout.Controls.Add(_slotNameLbls[i],  2, i);
+            }
+            lifterLayout.ResumeLayout();
         }
 
         private void WireEvents()
@@ -135,3 +171,4 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         }
     }
 }
+

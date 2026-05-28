@@ -1,4 +1,4 @@
-namespace QMC.CDT_320.Ui.Pages.Recipe
+﻿namespace QMC.CDT_320.Ui.Pages.Recipe
 {
     partial class FeederRecipePage
     {
@@ -511,20 +511,114 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblUpDownWaitValue.Text = "50 ms";
             // 
             // pair label styling
-            // 
-            this.lblHomePositionKey.BackColor = this.lblCassettePositionKey.BackColor = this.lblStagePositionKey.BackColor = this.lblUpSensorKey.BackColor = this.lblDownSensorKey.BackColor = this.lblClampTimeKey.BackColor = this.lblFeederSpeedKey.BackColor = this.lblMoveAfterWaitKey.BackColor = this.lblUpDownWaitKey.BackColor = System.Drawing.Color.FromArgb(208, 208, 208);
-            this.lblHomePositionValue.BackColor = this.lblCassettePositionValue.BackColor = this.lblStagePositionValue.BackColor = this.lblUpSensorValue.BackColor = this.lblDownSensorValue.BackColor = this.lblClampTimeValue.BackColor = this.lblFeederSpeedValue.BackColor = this.lblMoveAfterWaitValue.BackColor = this.lblUpDownWaitValue.BackColor = System.Drawing.Color.White;
-            this.lblHomePositionKey.BorderStyle = this.lblCassettePositionKey.BorderStyle = this.lblStagePositionKey.BorderStyle = this.lblUpSensorKey.BorderStyle = this.lblDownSensorKey.BorderStyle = this.lblClampTimeKey.BorderStyle = this.lblFeederSpeedKey.BorderStyle = this.lblMoveAfterWaitKey.BorderStyle = this.lblUpDownWaitKey.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.lblHomePositionValue.BorderStyle = this.lblCassettePositionValue.BorderStyle = this.lblStagePositionValue.BorderStyle = this.lblUpSensorValue.BorderStyle = this.lblDownSensorValue.BorderStyle = this.lblClampTimeValue.BorderStyle = this.lblFeederSpeedValue.BorderStyle = this.lblMoveAfterWaitValue.BorderStyle = this.lblUpDownWaitValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.lblHomePositionKey.Dock = this.lblCassettePositionKey.Dock = this.lblStagePositionKey.Dock = this.lblUpSensorKey.Dock = this.lblDownSensorKey.Dock = this.lblClampTimeKey.Dock = this.lblFeederSpeedKey.Dock = this.lblMoveAfterWaitKey.Dock = this.lblUpDownWaitKey.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblHomePositionValue.Dock = this.lblCassettePositionValue.Dock = this.lblStagePositionValue.Dock = this.lblUpSensorValue.Dock = this.lblDownSensorValue.Dock = this.lblClampTimeValue.Dock = this.lblFeederSpeedValue.Dock = this.lblMoveAfterWaitValue.Dock = this.lblUpDownWaitValue.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblHomePositionKey.Font = this.lblCassettePositionKey.Font = this.lblStagePositionKey.Font = this.lblUpSensorKey.Font = this.lblDownSensorKey.Font = this.lblClampTimeKey.Font = this.lblFeederSpeedKey.Font = this.lblMoveAfterWaitKey.Font = this.lblUpDownWaitKey.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.lblHomePositionValue.Font = this.lblCassettePositionValue.Font = this.lblStagePositionValue.Font = this.lblUpSensorValue.Font = this.lblDownSensorValue.Font = this.lblClampTimeValue.Font = this.lblFeederSpeedValue.Font = this.lblMoveAfterWaitValue.Font = this.lblUpDownWaitValue.Font = new System.Drawing.Font("Consolas", 9.5F, System.Drawing.FontStyle.Bold);
-            this.lblHomePositionKey.Padding = this.lblCassettePositionKey.Padding = this.lblStagePositionKey.Padding = this.lblUpSensorKey.Padding = this.lblDownSensorKey.Padding = this.lblClampTimeKey.Padding = this.lblFeederSpeedKey.Padding = this.lblMoveAfterWaitKey.Padding = this.lblUpDownWaitKey.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblHomePositionValue.Padding = this.lblCassettePositionValue.Padding = this.lblStagePositionValue.Padding = this.lblUpSensorValue.Padding = this.lblDownSensorValue.Padding = this.lblClampTimeValue.Padding = this.lblFeederSpeedValue.Padding = this.lblMoveAfterWaitValue.Padding = this.lblUpDownWaitValue.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
-            this.lblHomePositionKey.TextAlign = this.lblCassettePositionKey.TextAlign = this.lblStagePositionKey.TextAlign = this.lblUpSensorKey.TextAlign = this.lblDownSensorKey.TextAlign = this.lblClampTimeKey.TextAlign = this.lblFeederSpeedKey.TextAlign = this.lblMoveAfterWaitKey.TextAlign = this.lblUpDownWaitKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            this.lblHomePositionValue.TextAlign = this.lblCassettePositionValue.TextAlign = this.lblStagePositionValue.TextAlign = this.lblUpSensorValue.TextAlign = this.lblDownSensorValue.TextAlign = this.lblClampTimeValue.TextAlign = this.lblFeederSpeedValue.TextAlign = this.lblMoveAfterWaitValue.TextAlign = this.lblUpDownWaitValue.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            // 
+            this.lblHomePositionKey.BackColor = System.Drawing.Color.FromArgb(208, 208, 208);
+            this.lblHomePositionKey.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.lblHomePositionKey.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblHomePositionKey.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.lblHomePositionKey.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
+            this.lblHomePositionKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblCassettePositionKey.BackColor = System.Drawing.Color.FromArgb(208, 208, 208);
+            this.lblCassettePositionKey.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.lblCassettePositionKey.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblCassettePositionKey.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.lblCassettePositionKey.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
+            this.lblCassettePositionKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblStagePositionKey.BackColor = System.Drawing.Color.FromArgb(208, 208, 208);
+            this.lblStagePositionKey.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.lblStagePositionKey.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblStagePositionKey.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.lblStagePositionKey.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
+            this.lblStagePositionKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblUpSensorKey.BackColor = System.Drawing.Color.FromArgb(208, 208, 208);
+            this.lblUpSensorKey.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.lblUpSensorKey.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblUpSensorKey.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.lblUpSensorKey.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
+            this.lblUpSensorKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblDownSensorKey.BackColor = System.Drawing.Color.FromArgb(208, 208, 208);
+            this.lblDownSensorKey.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.lblDownSensorKey.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblDownSensorKey.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.lblDownSensorKey.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
+            this.lblDownSensorKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblClampTimeKey.BackColor = System.Drawing.Color.FromArgb(208, 208, 208);
+            this.lblClampTimeKey.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.lblClampTimeKey.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblClampTimeKey.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.lblClampTimeKey.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
+            this.lblClampTimeKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblFeederSpeedKey.BackColor = System.Drawing.Color.FromArgb(208, 208, 208);
+            this.lblFeederSpeedKey.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.lblFeederSpeedKey.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblFeederSpeedKey.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.lblFeederSpeedKey.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
+            this.lblFeederSpeedKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblMoveAfterWaitKey.BackColor = System.Drawing.Color.FromArgb(208, 208, 208);
+            this.lblMoveAfterWaitKey.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.lblMoveAfterWaitKey.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblMoveAfterWaitKey.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.lblMoveAfterWaitKey.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
+            this.lblMoveAfterWaitKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblUpDownWaitKey.BackColor = System.Drawing.Color.FromArgb(208, 208, 208);
+            this.lblUpDownWaitKey.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.lblUpDownWaitKey.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblUpDownWaitKey.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.lblUpDownWaitKey.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
+            this.lblUpDownWaitKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblHomePositionValue.BackColor = System.Drawing.Color.White;
+            this.lblHomePositionValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.lblHomePositionValue.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblHomePositionValue.Font = new System.Drawing.Font("Consolas", 9.5F, System.Drawing.FontStyle.Bold);
+            this.lblHomePositionValue.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
+            this.lblHomePositionValue.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+            this.lblCassettePositionValue.BackColor = System.Drawing.Color.White;
+            this.lblCassettePositionValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.lblCassettePositionValue.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblCassettePositionValue.Font = new System.Drawing.Font("Consolas", 9.5F, System.Drawing.FontStyle.Bold);
+            this.lblCassettePositionValue.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
+            this.lblCassettePositionValue.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+            this.lblStagePositionValue.BackColor = System.Drawing.Color.White;
+            this.lblStagePositionValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.lblStagePositionValue.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblStagePositionValue.Font = new System.Drawing.Font("Consolas", 9.5F, System.Drawing.FontStyle.Bold);
+            this.lblStagePositionValue.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
+            this.lblStagePositionValue.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+            this.lblUpSensorValue.BackColor = System.Drawing.Color.White;
+            this.lblUpSensorValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.lblUpSensorValue.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblUpSensorValue.Font = new System.Drawing.Font("Consolas", 9.5F, System.Drawing.FontStyle.Bold);
+            this.lblUpSensorValue.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
+            this.lblUpSensorValue.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+            this.lblDownSensorValue.BackColor = System.Drawing.Color.White;
+            this.lblDownSensorValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.lblDownSensorValue.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblDownSensorValue.Font = new System.Drawing.Font("Consolas", 9.5F, System.Drawing.FontStyle.Bold);
+            this.lblDownSensorValue.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
+            this.lblDownSensorValue.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+            this.lblClampTimeValue.BackColor = System.Drawing.Color.White;
+            this.lblClampTimeValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.lblClampTimeValue.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblClampTimeValue.Font = new System.Drawing.Font("Consolas", 9.5F, System.Drawing.FontStyle.Bold);
+            this.lblClampTimeValue.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
+            this.lblClampTimeValue.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+            this.lblFeederSpeedValue.BackColor = System.Drawing.Color.White;
+            this.lblFeederSpeedValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.lblFeederSpeedValue.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblFeederSpeedValue.Font = new System.Drawing.Font("Consolas", 9.5F, System.Drawing.FontStyle.Bold);
+            this.lblFeederSpeedValue.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
+            this.lblFeederSpeedValue.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+            this.lblMoveAfterWaitValue.BackColor = System.Drawing.Color.White;
+            this.lblMoveAfterWaitValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.lblMoveAfterWaitValue.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblMoveAfterWaitValue.Font = new System.Drawing.Font("Consolas", 9.5F, System.Drawing.FontStyle.Bold);
+            this.lblMoveAfterWaitValue.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
+            this.lblMoveAfterWaitValue.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+            this.lblUpDownWaitValue.BackColor = System.Drawing.Color.White;
+            this.lblUpDownWaitValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.lblUpDownWaitValue.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblUpDownWaitValue.Font = new System.Drawing.Font("Consolas", 9.5F, System.Drawing.FontStyle.Bold);
+            this.lblUpDownWaitValue.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
+            this.lblUpDownWaitValue.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
             // jogLayout
             // 
             this.jogLayout.ColumnCount = 3;
@@ -639,3 +733,4 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         }
     }
 }
+

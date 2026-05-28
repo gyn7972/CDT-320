@@ -1,9 +1,9 @@
-using System.Drawing;
+﻿using System.Drawing;
 using System.Windows.Forms;
 
 namespace QMC.CDT_320.Ui.Pages.WorkInfo
 {
-    public partial class OutputCassettePage : PageBase
+    public partial class OutputCassettePage : QMC.CDT_320.Ui.Pages.PageBase
     {
         private Timer _timer;
 
@@ -60,3 +60,4 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         }
     }
 }
+

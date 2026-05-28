@@ -1,9 +1,9 @@
-using System;
+﻿using System;
 using System.Windows.Forms;
 
 namespace QMC.CDT_320.Ui.Pages.WorkInfo
 {
-    public partial class OperationPanelStatusPage : PageBase
+    public partial class OperationPanelStatusPage : QMC.CDT_320.Ui.Pages.PageBase
     {
         private System.Windows.Forms.Timer _timer;
 
@@ -66,3 +66,4 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         }
     }
 }
+

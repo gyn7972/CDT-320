@@ -1,11 +1,11 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace QMC.CDT_320.Ui.Pages.WorkInfo
 {
-    public partial class InputFeederPage : PageBase
+    public partial class InputFeederPage : QMC.CDT_320.Ui.Pages.PageBase
     {
         private System.Windows.Forms.Timer _timer;
 
@@ -96,3 +96,4 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         }
     }
 }
+

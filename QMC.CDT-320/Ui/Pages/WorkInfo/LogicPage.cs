@@ -1,6 +1,6 @@
-namespace QMC.CDT_320.Ui.Pages.WorkInfo
+﻿namespace QMC.CDT_320.Ui.Pages.WorkInfo
 {
-    public partial class LogicPage : PageBase
+    public partial class LogicPage : QMC.CDT_320.Ui.Pages.PageBase
     {
         public LogicPage()
         {
@@ -9,3 +9,4 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         }
     }
 }
+

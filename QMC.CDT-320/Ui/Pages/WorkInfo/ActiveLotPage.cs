@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
@@ -7,7 +7,7 @@ using QMC.CDT320.Lots;
 
 namespace QMC.CDT_320.Ui.Pages.WorkInfo
 {
-    public partial class ActiveLotPage : PageBase
+    public partial class ActiveLotPage : QMC.CDT_320.Ui.Pages.PageBase
     {
         private System.Windows.Forms.Timer _refresh;
 
@@ -115,3 +115,4 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         }
     }
 }
+

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.Windows.Forms;
 using QMC.CDT320;
@@ -17,6 +17,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         protected RecipeProject _project;
         protected Panel         _editorPanel;
         protected Label         _lblProject;
+        private bool            _editorBuilt;
 
         public SubsetPageBase()
             : this("recipe.subset")
@@ -29,6 +30,21 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             //   기존 두 개의 Dock=Top 컨트롤 분리 시 z-order 따라 editor 가 헤더에 가려지는 문제 해결.
             BuildEditorContainer();      // ① Dock=Fill (먼저 추가 — 빈 영역 채우기 후 헤더 가 위에서 잘라냄)
             BuildHeaderContainer(i18nKey); // ② Dock=Top H=66 (SectionHeader 30 + TopBar 36)
+        }
+
+        protected override void OnCreateControl()
+        {
+            base.OnCreateControl();
+            EnsureEditorBuilt();
+        }
+
+        private void EnsureEditorBuilt()
+        {
+            if (_editorBuilt) return;
+            _editorBuilt = true;
+
+            BuildEditor(_editorPanel);
+
             if (!IsDesignerMode())
             {
                 LoadCurrentProject();
@@ -110,7 +126,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 AutoScroll = true
             };
             Controls.Add(_editorPanel);
-            BuildEditor(_editorPanel);
         }
 
         private void LoadCurrentProject()

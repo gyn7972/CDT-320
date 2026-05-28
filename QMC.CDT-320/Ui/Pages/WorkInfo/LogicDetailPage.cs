@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
@@ -6,7 +6,7 @@ using QMC.CDT320;
 
 namespace QMC.CDT_320.Ui.Pages.WorkInfo
 {
-    public partial class LogicDetailPage : PageBase
+    public partial class LogicDetailPage : QMC.CDT_320.Ui.Pages.PageBase
     {
         private static readonly string[] UnitNames =
         {
@@ -217,3 +217,4 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         }
     }
 }
+

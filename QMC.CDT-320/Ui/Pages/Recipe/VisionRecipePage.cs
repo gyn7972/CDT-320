@@ -9,12 +9,16 @@ using QMC.CDT_320.Ui.Security;
 
 namespace QMC.CDT_320.Ui.Pages.Recipe
 {
-    public partial class VisionRecipePage : PageBase
+    public partial class VisionRecipePage : QMC.CDT_320.Ui.Pages.PageBase
     {
-        private readonly string _titleI18n;
+        private string _titleI18n;
 
-        public VisionRecipePage() : this("recipe.inputVision")
+        public VisionRecipePage()
         {
+            _titleI18n = "recipe.inputVision";
+            InitializeComponent();
+            ApplyTitle();
+            WireEvents();
         }
 
         public VisionRecipePage(string titleI18n)

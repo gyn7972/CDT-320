@@ -1,14 +1,11 @@
 using System.Drawing;
 using System.Windows.Forms;
 using QMC.CDT_320.Ui.Controls;
-using QMC.CDT_320.Ui.Localization;
 
 namespace QMC.CDT_320.Ui.Pages.WorkInfo
 {
     partial class OutputCassettePage
     {
-        private const int SlotsPerCassette = 25;
-
         private TableLayoutPanel rootLayout;
         private Label lblHeader;
         private TableLayoutPanel contentLayout;
@@ -22,9 +19,13 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private TableLayoutPanel good2Layout;
         private FlowLayoutPanel actionPanel;
         private Label lblElevatorPos;
+        private Label lblElevatorTitle;
         private Label[] ngLeds;
         private Label[] good1Leds;
         private Label[] good2Leds;
+        private Label[] ngIndexLabels;
+        private Label[] good1IndexLabels;
+        private Label[] good2IndexLabels;
         private ActionButton btnMap;
         private ActionButton btnLoad;
         private ActionButton btnUnload;
@@ -44,12 +45,176 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.good2Layout = new TableLayoutPanel();
             this.actionPanel = new FlowLayoutPanel();
             this.lblElevatorPos = new Label();
-            this.ngLeds = new Label[SlotsPerCassette];
-            this.good1Leds = new Label[SlotsPerCassette];
-            this.good2Leds = new Label[SlotsPerCassette];
+            this.lblElevatorTitle = new Label();
             this.btnMap = new ActionButton();
             this.btnLoad = new ActionButton();
             this.btnUnload = new ActionButton();
+            this.ngLeds = new Label[25];
+            this.ngLeds[0] = new Label();
+            this.ngLeds[1] = new Label();
+            this.ngLeds[2] = new Label();
+            this.ngLeds[3] = new Label();
+            this.ngLeds[4] = new Label();
+            this.ngLeds[5] = new Label();
+            this.ngLeds[6] = new Label();
+            this.ngLeds[7] = new Label();
+            this.ngLeds[8] = new Label();
+            this.ngLeds[9] = new Label();
+            this.ngLeds[10] = new Label();
+            this.ngLeds[11] = new Label();
+            this.ngLeds[12] = new Label();
+            this.ngLeds[13] = new Label();
+            this.ngLeds[14] = new Label();
+            this.ngLeds[15] = new Label();
+            this.ngLeds[16] = new Label();
+            this.ngLeds[17] = new Label();
+            this.ngLeds[18] = new Label();
+            this.ngLeds[19] = new Label();
+            this.ngLeds[20] = new Label();
+            this.ngLeds[21] = new Label();
+            this.ngLeds[22] = new Label();
+            this.ngLeds[23] = new Label();
+            this.ngLeds[24] = new Label();
+            this.good1Leds = new Label[25];
+            this.good1Leds[0] = new Label();
+            this.good1Leds[1] = new Label();
+            this.good1Leds[2] = new Label();
+            this.good1Leds[3] = new Label();
+            this.good1Leds[4] = new Label();
+            this.good1Leds[5] = new Label();
+            this.good1Leds[6] = new Label();
+            this.good1Leds[7] = new Label();
+            this.good1Leds[8] = new Label();
+            this.good1Leds[9] = new Label();
+            this.good1Leds[10] = new Label();
+            this.good1Leds[11] = new Label();
+            this.good1Leds[12] = new Label();
+            this.good1Leds[13] = new Label();
+            this.good1Leds[14] = new Label();
+            this.good1Leds[15] = new Label();
+            this.good1Leds[16] = new Label();
+            this.good1Leds[17] = new Label();
+            this.good1Leds[18] = new Label();
+            this.good1Leds[19] = new Label();
+            this.good1Leds[20] = new Label();
+            this.good1Leds[21] = new Label();
+            this.good1Leds[22] = new Label();
+            this.good1Leds[23] = new Label();
+            this.good1Leds[24] = new Label();
+            this.good2Leds = new Label[25];
+            this.good2Leds[0] = new Label();
+            this.good2Leds[1] = new Label();
+            this.good2Leds[2] = new Label();
+            this.good2Leds[3] = new Label();
+            this.good2Leds[4] = new Label();
+            this.good2Leds[5] = new Label();
+            this.good2Leds[6] = new Label();
+            this.good2Leds[7] = new Label();
+            this.good2Leds[8] = new Label();
+            this.good2Leds[9] = new Label();
+            this.good2Leds[10] = new Label();
+            this.good2Leds[11] = new Label();
+            this.good2Leds[12] = new Label();
+            this.good2Leds[13] = new Label();
+            this.good2Leds[14] = new Label();
+            this.good2Leds[15] = new Label();
+            this.good2Leds[16] = new Label();
+            this.good2Leds[17] = new Label();
+            this.good2Leds[18] = new Label();
+            this.good2Leds[19] = new Label();
+            this.good2Leds[20] = new Label();
+            this.good2Leds[21] = new Label();
+            this.good2Leds[22] = new Label();
+            this.good2Leds[23] = new Label();
+            this.good2Leds[24] = new Label();
+            this.ngIndexLabels = new Label[25];
+            this.ngIndexLabels[0] = new Label();
+            this.ngIndexLabels[1] = new Label();
+            this.ngIndexLabels[2] = new Label();
+            this.ngIndexLabels[3] = new Label();
+            this.ngIndexLabels[4] = new Label();
+            this.ngIndexLabels[5] = new Label();
+            this.ngIndexLabels[6] = new Label();
+            this.ngIndexLabels[7] = new Label();
+            this.ngIndexLabels[8] = new Label();
+            this.ngIndexLabels[9] = new Label();
+            this.ngIndexLabels[10] = new Label();
+            this.ngIndexLabels[11] = new Label();
+            this.ngIndexLabels[12] = new Label();
+            this.ngIndexLabels[13] = new Label();
+            this.ngIndexLabels[14] = new Label();
+            this.ngIndexLabels[15] = new Label();
+            this.ngIndexLabels[16] = new Label();
+            this.ngIndexLabels[17] = new Label();
+            this.ngIndexLabels[18] = new Label();
+            this.ngIndexLabels[19] = new Label();
+            this.ngIndexLabels[20] = new Label();
+            this.ngIndexLabels[21] = new Label();
+            this.ngIndexLabels[22] = new Label();
+            this.ngIndexLabels[23] = new Label();
+            this.ngIndexLabels[24] = new Label();
+            this.good1IndexLabels = new Label[25];
+            this.good1IndexLabels[0] = new Label();
+            this.good1IndexLabels[1] = new Label();
+            this.good1IndexLabels[2] = new Label();
+            this.good1IndexLabels[3] = new Label();
+            this.good1IndexLabels[4] = new Label();
+            this.good1IndexLabels[5] = new Label();
+            this.good1IndexLabels[6] = new Label();
+            this.good1IndexLabels[7] = new Label();
+            this.good1IndexLabels[8] = new Label();
+            this.good1IndexLabels[9] = new Label();
+            this.good1IndexLabels[10] = new Label();
+            this.good1IndexLabels[11] = new Label();
+            this.good1IndexLabels[12] = new Label();
+            this.good1IndexLabels[13] = new Label();
+            this.good1IndexLabels[14] = new Label();
+            this.good1IndexLabels[15] = new Label();
+            this.good1IndexLabels[16] = new Label();
+            this.good1IndexLabels[17] = new Label();
+            this.good1IndexLabels[18] = new Label();
+            this.good1IndexLabels[19] = new Label();
+            this.good1IndexLabels[20] = new Label();
+            this.good1IndexLabels[21] = new Label();
+            this.good1IndexLabels[22] = new Label();
+            this.good1IndexLabels[23] = new Label();
+            this.good1IndexLabels[24] = new Label();
+            this.good2IndexLabels = new Label[25];
+            this.good2IndexLabels[0] = new Label();
+            this.good2IndexLabels[1] = new Label();
+            this.good2IndexLabels[2] = new Label();
+            this.good2IndexLabels[3] = new Label();
+            this.good2IndexLabels[4] = new Label();
+            this.good2IndexLabels[5] = new Label();
+            this.good2IndexLabels[6] = new Label();
+            this.good2IndexLabels[7] = new Label();
+            this.good2IndexLabels[8] = new Label();
+            this.good2IndexLabels[9] = new Label();
+            this.good2IndexLabels[10] = new Label();
+            this.good2IndexLabels[11] = new Label();
+            this.good2IndexLabels[12] = new Label();
+            this.good2IndexLabels[13] = new Label();
+            this.good2IndexLabels[14] = new Label();
+            this.good2IndexLabels[15] = new Label();
+            this.good2IndexLabels[16] = new Label();
+            this.good2IndexLabels[17] = new Label();
+            this.good2IndexLabels[18] = new Label();
+            this.good2IndexLabels[19] = new Label();
+            this.good2IndexLabels[20] = new Label();
+            this.good2IndexLabels[21] = new Label();
+            this.good2IndexLabels[22] = new Label();
+            this.good2IndexLabels[23] = new Label();
+            this.good2IndexLabels[24] = new Label();
+            this.rootLayout.SuspendLayout();
+            this.contentLayout.SuspendLayout();
+            this.grpElevator.SuspendLayout();
+            this.grpNgCassette.SuspendLayout();
+            this.grpGood1Cassette.SuspendLayout();
+            this.grpGood2Cassette.SuspendLayout();
+            this.elevatorLayout.SuspendLayout();
+            this.ngLayout.SuspendLayout();
+            this.good1Layout.SuspendLayout();
+            this.good2Layout.SuspendLayout();
             this.SuspendLayout();
 
             this.rootLayout.ColumnCount = 1;
@@ -69,7 +234,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblHeader.ForeColor = UiTheme.StatusBarFg;
             this.lblHeader.Padding = new Padding(10, 0, 0, 0);
             this.lblHeader.Tag = "i18n:wi.outputCassette";
-            this.lblHeader.Text = Lang.T("wi.outputCassette");
+            this.lblHeader.Text = "OUTPUT CASSETTE";
             this.lblHeader.TextAlign = ContentAlignment.MiddleLeft;
 
             this.contentLayout.ColumnCount = 3;
@@ -87,34 +252,1006 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.contentLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
             this.contentLayout.SetColumnSpan(this.grpElevator, 3);
 
-            ConfigureGroup(this.grpElevator, "ELEVATOR Z", this.elevatorLayout);
-            ConfigureGroup(this.grpNgCassette, "NG CASSETTE", this.ngLayout);
-            ConfigureGroup(this.grpGood1Cassette, "GOOD1 CASSETTE", this.good1Layout);
-            ConfigureGroup(this.grpGood2Cassette, "GOOD2 CASSETTE", this.good2Layout);
+            this.grpElevator.BackColor = UiTheme.OptionPanelBg;
+            this.grpElevator.Controls.Add(this.elevatorLayout);
+            this.grpElevator.Dock = DockStyle.Fill;
+            this.grpElevator.Font = UiTheme.SectionFont;
+            this.grpElevator.Margin = new Padding(4);
+            this.grpElevator.Text = "ELEVATOR Z";
+
+            this.grpNgCassette.BackColor = UiTheme.OptionPanelBg;
+            this.grpNgCassette.Controls.Add(this.ngLayout);
+            this.grpNgCassette.Dock = DockStyle.Fill;
+            this.grpNgCassette.Font = UiTheme.SectionFont;
+            this.grpNgCassette.Margin = new Padding(4);
+            this.grpNgCassette.Text = "NG CASSETTE";
+
+            this.grpGood1Cassette.BackColor = UiTheme.OptionPanelBg;
+            this.grpGood1Cassette.Controls.Add(this.good1Layout);
+            this.grpGood1Cassette.Dock = DockStyle.Fill;
+            this.grpGood1Cassette.Font = UiTheme.SectionFont;
+            this.grpGood1Cassette.Margin = new Padding(4);
+            this.grpGood1Cassette.Text = "GOOD1 CASSETTE";
+
+            this.grpGood2Cassette.BackColor = UiTheme.OptionPanelBg;
+            this.grpGood2Cassette.Controls.Add(this.good2Layout);
+            this.grpGood2Cassette.Dock = DockStyle.Fill;
+            this.grpGood2Cassette.Font = UiTheme.SectionFont;
+            this.grpGood2Cassette.Margin = new Padding(4);
+            this.grpGood2Cassette.Text = "GOOD2 CASSETTE";
 
             this.elevatorLayout.ColumnCount = 2;
             this.elevatorLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 180F));
             this.elevatorLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 220F));
+            this.elevatorLayout.Controls.Add(this.lblElevatorTitle, 0, 0);
+            this.elevatorLayout.Controls.Add(this.lblElevatorPos, 1, 0);
             this.elevatorLayout.Dock = DockStyle.Top;
             this.elevatorLayout.Height = 48;
             this.elevatorLayout.Padding = new Padding(12, 8, 12, 8);
             this.elevatorLayout.RowCount = 1;
             this.elevatorLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 32F));
-            this.elevatorLayout.Controls.Add(BuildKeyLabel("ELEVATOR Z"), 0, 0);
-            ConfigureValueLabel(this.lblElevatorPos, "0.000 mm");
-            this.elevatorLayout.Controls.Add(this.lblElevatorPos, 1, 0);
 
-            ConfigureCassetteLayout(this.ngLayout, this.ngLeds);
-            ConfigureCassetteLayout(this.good1Layout, this.good1Leds);
-            ConfigureCassetteLayout(this.good2Layout, this.good2Leds);
+            this.lblElevatorTitle.BackColor = Color.FromArgb(0xD0, 0xD0, 0xD0);
+            this.lblElevatorTitle.BorderStyle = BorderStyle.FixedSingle;
+            this.lblElevatorTitle.Dock = DockStyle.Fill;
+            this.lblElevatorTitle.Font = UiTheme.ButtonFont;
+            this.lblElevatorTitle.Padding = new Padding(8, 0, 0, 0);
+            this.lblElevatorTitle.Text = "ELEVATOR Z";
+            this.lblElevatorTitle.TextAlign = ContentAlignment.MiddleLeft;
+
+            this.lblElevatorPos.BackColor = Color.White;
+            this.lblElevatorPos.BorderStyle = BorderStyle.FixedSingle;
+            this.lblElevatorPos.Dock = DockStyle.Fill;
+            this.lblElevatorPos.Font = UiTheme.ValueFont;
+            this.lblElevatorPos.Padding = new Padding(0, 0, 8, 0);
+            this.lblElevatorPos.Text = "0.000 mm";
+            this.lblElevatorPos.TextAlign = ContentAlignment.MiddleRight;
+
+            this.ngLayout.ColumnCount = 2;
+            this.ngLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 48F));
+            this.ngLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            this.ngLayout.Dock = DockStyle.Fill;
+            this.ngLayout.Padding = new Padding(12, 18, 12, 12);
+            this.ngLayout.RowCount = 25;
+            this.ngLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.ngLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.ngLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.ngLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.ngLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.ngLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.ngLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.ngLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.ngLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.ngLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.ngLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.ngLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.ngLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.ngLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.ngLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.ngLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.ngLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.ngLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.ngLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.ngLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.ngLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.ngLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.ngLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.ngLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.ngLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+
+            this.ngIndexLabels[0].Dock = DockStyle.Fill;
+            this.ngIndexLabels[0].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.ngIndexLabels[0].Text = "01";
+            this.ngIndexLabels[0].TextAlign = ContentAlignment.MiddleCenter;
+            this.ngLeds[0].BackColor = Color.LightGray;
+            this.ngLeds[0].BorderStyle = BorderStyle.FixedSingle;
+            this.ngLeds[0].Dock = DockStyle.Fill;
+            this.ngLeds[0].Margin = new Padding(2);
+            this.ngLayout.Controls.Add(this.ngIndexLabels[0], 0, 0);
+            this.ngLayout.Controls.Add(this.ngLeds[0], 1, 0);
+
+            this.ngIndexLabels[1].Dock = DockStyle.Fill;
+            this.ngIndexLabels[1].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.ngIndexLabels[1].Text = "02";
+            this.ngIndexLabels[1].TextAlign = ContentAlignment.MiddleCenter;
+            this.ngLeds[1].BackColor = Color.LightGray;
+            this.ngLeds[1].BorderStyle = BorderStyle.FixedSingle;
+            this.ngLeds[1].Dock = DockStyle.Fill;
+            this.ngLeds[1].Margin = new Padding(2);
+            this.ngLayout.Controls.Add(this.ngIndexLabels[1], 0, 1);
+            this.ngLayout.Controls.Add(this.ngLeds[1], 1, 1);
+
+            this.ngIndexLabels[2].Dock = DockStyle.Fill;
+            this.ngIndexLabels[2].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.ngIndexLabels[2].Text = "03";
+            this.ngIndexLabels[2].TextAlign = ContentAlignment.MiddleCenter;
+            this.ngLeds[2].BackColor = Color.LightGray;
+            this.ngLeds[2].BorderStyle = BorderStyle.FixedSingle;
+            this.ngLeds[2].Dock = DockStyle.Fill;
+            this.ngLeds[2].Margin = new Padding(2);
+            this.ngLayout.Controls.Add(this.ngIndexLabels[2], 0, 2);
+            this.ngLayout.Controls.Add(this.ngLeds[2], 1, 2);
+
+            this.ngIndexLabels[3].Dock = DockStyle.Fill;
+            this.ngIndexLabels[3].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.ngIndexLabels[3].Text = "04";
+            this.ngIndexLabels[3].TextAlign = ContentAlignment.MiddleCenter;
+            this.ngLeds[3].BackColor = Color.LightGray;
+            this.ngLeds[3].BorderStyle = BorderStyle.FixedSingle;
+            this.ngLeds[3].Dock = DockStyle.Fill;
+            this.ngLeds[3].Margin = new Padding(2);
+            this.ngLayout.Controls.Add(this.ngIndexLabels[3], 0, 3);
+            this.ngLayout.Controls.Add(this.ngLeds[3], 1, 3);
+
+            this.ngIndexLabels[4].Dock = DockStyle.Fill;
+            this.ngIndexLabels[4].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.ngIndexLabels[4].Text = "05";
+            this.ngIndexLabels[4].TextAlign = ContentAlignment.MiddleCenter;
+            this.ngLeds[4].BackColor = Color.LightGray;
+            this.ngLeds[4].BorderStyle = BorderStyle.FixedSingle;
+            this.ngLeds[4].Dock = DockStyle.Fill;
+            this.ngLeds[4].Margin = new Padding(2);
+            this.ngLayout.Controls.Add(this.ngIndexLabels[4], 0, 4);
+            this.ngLayout.Controls.Add(this.ngLeds[4], 1, 4);
+
+            this.ngIndexLabels[5].Dock = DockStyle.Fill;
+            this.ngIndexLabels[5].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.ngIndexLabels[5].Text = "06";
+            this.ngIndexLabels[5].TextAlign = ContentAlignment.MiddleCenter;
+            this.ngLeds[5].BackColor = Color.LightGray;
+            this.ngLeds[5].BorderStyle = BorderStyle.FixedSingle;
+            this.ngLeds[5].Dock = DockStyle.Fill;
+            this.ngLeds[5].Margin = new Padding(2);
+            this.ngLayout.Controls.Add(this.ngIndexLabels[5], 0, 5);
+            this.ngLayout.Controls.Add(this.ngLeds[5], 1, 5);
+
+            this.ngIndexLabels[6].Dock = DockStyle.Fill;
+            this.ngIndexLabels[6].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.ngIndexLabels[6].Text = "07";
+            this.ngIndexLabels[6].TextAlign = ContentAlignment.MiddleCenter;
+            this.ngLeds[6].BackColor = Color.LightGray;
+            this.ngLeds[6].BorderStyle = BorderStyle.FixedSingle;
+            this.ngLeds[6].Dock = DockStyle.Fill;
+            this.ngLeds[6].Margin = new Padding(2);
+            this.ngLayout.Controls.Add(this.ngIndexLabels[6], 0, 6);
+            this.ngLayout.Controls.Add(this.ngLeds[6], 1, 6);
+
+            this.ngIndexLabels[7].Dock = DockStyle.Fill;
+            this.ngIndexLabels[7].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.ngIndexLabels[7].Text = "08";
+            this.ngIndexLabels[7].TextAlign = ContentAlignment.MiddleCenter;
+            this.ngLeds[7].BackColor = Color.LightGray;
+            this.ngLeds[7].BorderStyle = BorderStyle.FixedSingle;
+            this.ngLeds[7].Dock = DockStyle.Fill;
+            this.ngLeds[7].Margin = new Padding(2);
+            this.ngLayout.Controls.Add(this.ngIndexLabels[7], 0, 7);
+            this.ngLayout.Controls.Add(this.ngLeds[7], 1, 7);
+
+            this.ngIndexLabels[8].Dock = DockStyle.Fill;
+            this.ngIndexLabels[8].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.ngIndexLabels[8].Text = "09";
+            this.ngIndexLabels[8].TextAlign = ContentAlignment.MiddleCenter;
+            this.ngLeds[8].BackColor = Color.LightGray;
+            this.ngLeds[8].BorderStyle = BorderStyle.FixedSingle;
+            this.ngLeds[8].Dock = DockStyle.Fill;
+            this.ngLeds[8].Margin = new Padding(2);
+            this.ngLayout.Controls.Add(this.ngIndexLabels[8], 0, 8);
+            this.ngLayout.Controls.Add(this.ngLeds[8], 1, 8);
+
+            this.ngIndexLabels[9].Dock = DockStyle.Fill;
+            this.ngIndexLabels[9].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.ngIndexLabels[9].Text = "10";
+            this.ngIndexLabels[9].TextAlign = ContentAlignment.MiddleCenter;
+            this.ngLeds[9].BackColor = Color.LightGray;
+            this.ngLeds[9].BorderStyle = BorderStyle.FixedSingle;
+            this.ngLeds[9].Dock = DockStyle.Fill;
+            this.ngLeds[9].Margin = new Padding(2);
+            this.ngLayout.Controls.Add(this.ngIndexLabels[9], 0, 9);
+            this.ngLayout.Controls.Add(this.ngLeds[9], 1, 9);
+
+            this.ngIndexLabels[10].Dock = DockStyle.Fill;
+            this.ngIndexLabels[10].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.ngIndexLabels[10].Text = "11";
+            this.ngIndexLabels[10].TextAlign = ContentAlignment.MiddleCenter;
+            this.ngLeds[10].BackColor = Color.LightGray;
+            this.ngLeds[10].BorderStyle = BorderStyle.FixedSingle;
+            this.ngLeds[10].Dock = DockStyle.Fill;
+            this.ngLeds[10].Margin = new Padding(2);
+            this.ngLayout.Controls.Add(this.ngIndexLabels[10], 0, 10);
+            this.ngLayout.Controls.Add(this.ngLeds[10], 1, 10);
+
+            this.ngIndexLabels[11].Dock = DockStyle.Fill;
+            this.ngIndexLabels[11].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.ngIndexLabels[11].Text = "12";
+            this.ngIndexLabels[11].TextAlign = ContentAlignment.MiddleCenter;
+            this.ngLeds[11].BackColor = Color.LightGray;
+            this.ngLeds[11].BorderStyle = BorderStyle.FixedSingle;
+            this.ngLeds[11].Dock = DockStyle.Fill;
+            this.ngLeds[11].Margin = new Padding(2);
+            this.ngLayout.Controls.Add(this.ngIndexLabels[11], 0, 11);
+            this.ngLayout.Controls.Add(this.ngLeds[11], 1, 11);
+
+            this.ngIndexLabels[12].Dock = DockStyle.Fill;
+            this.ngIndexLabels[12].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.ngIndexLabels[12].Text = "13";
+            this.ngIndexLabels[12].TextAlign = ContentAlignment.MiddleCenter;
+            this.ngLeds[12].BackColor = Color.LightGray;
+            this.ngLeds[12].BorderStyle = BorderStyle.FixedSingle;
+            this.ngLeds[12].Dock = DockStyle.Fill;
+            this.ngLeds[12].Margin = new Padding(2);
+            this.ngLayout.Controls.Add(this.ngIndexLabels[12], 0, 12);
+            this.ngLayout.Controls.Add(this.ngLeds[12], 1, 12);
+
+            this.ngIndexLabels[13].Dock = DockStyle.Fill;
+            this.ngIndexLabels[13].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.ngIndexLabels[13].Text = "14";
+            this.ngIndexLabels[13].TextAlign = ContentAlignment.MiddleCenter;
+            this.ngLeds[13].BackColor = Color.LightGray;
+            this.ngLeds[13].BorderStyle = BorderStyle.FixedSingle;
+            this.ngLeds[13].Dock = DockStyle.Fill;
+            this.ngLeds[13].Margin = new Padding(2);
+            this.ngLayout.Controls.Add(this.ngIndexLabels[13], 0, 13);
+            this.ngLayout.Controls.Add(this.ngLeds[13], 1, 13);
+
+            this.ngIndexLabels[14].Dock = DockStyle.Fill;
+            this.ngIndexLabels[14].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.ngIndexLabels[14].Text = "15";
+            this.ngIndexLabels[14].TextAlign = ContentAlignment.MiddleCenter;
+            this.ngLeds[14].BackColor = Color.LightGray;
+            this.ngLeds[14].BorderStyle = BorderStyle.FixedSingle;
+            this.ngLeds[14].Dock = DockStyle.Fill;
+            this.ngLeds[14].Margin = new Padding(2);
+            this.ngLayout.Controls.Add(this.ngIndexLabels[14], 0, 14);
+            this.ngLayout.Controls.Add(this.ngLeds[14], 1, 14);
+
+            this.ngIndexLabels[15].Dock = DockStyle.Fill;
+            this.ngIndexLabels[15].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.ngIndexLabels[15].Text = "16";
+            this.ngIndexLabels[15].TextAlign = ContentAlignment.MiddleCenter;
+            this.ngLeds[15].BackColor = Color.LightGray;
+            this.ngLeds[15].BorderStyle = BorderStyle.FixedSingle;
+            this.ngLeds[15].Dock = DockStyle.Fill;
+            this.ngLeds[15].Margin = new Padding(2);
+            this.ngLayout.Controls.Add(this.ngIndexLabels[15], 0, 15);
+            this.ngLayout.Controls.Add(this.ngLeds[15], 1, 15);
+
+            this.ngIndexLabels[16].Dock = DockStyle.Fill;
+            this.ngIndexLabels[16].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.ngIndexLabels[16].Text = "17";
+            this.ngIndexLabels[16].TextAlign = ContentAlignment.MiddleCenter;
+            this.ngLeds[16].BackColor = Color.LightGray;
+            this.ngLeds[16].BorderStyle = BorderStyle.FixedSingle;
+            this.ngLeds[16].Dock = DockStyle.Fill;
+            this.ngLeds[16].Margin = new Padding(2);
+            this.ngLayout.Controls.Add(this.ngIndexLabels[16], 0, 16);
+            this.ngLayout.Controls.Add(this.ngLeds[16], 1, 16);
+
+            this.ngIndexLabels[17].Dock = DockStyle.Fill;
+            this.ngIndexLabels[17].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.ngIndexLabels[17].Text = "18";
+            this.ngIndexLabels[17].TextAlign = ContentAlignment.MiddleCenter;
+            this.ngLeds[17].BackColor = Color.LightGray;
+            this.ngLeds[17].BorderStyle = BorderStyle.FixedSingle;
+            this.ngLeds[17].Dock = DockStyle.Fill;
+            this.ngLeds[17].Margin = new Padding(2);
+            this.ngLayout.Controls.Add(this.ngIndexLabels[17], 0, 17);
+            this.ngLayout.Controls.Add(this.ngLeds[17], 1, 17);
+
+            this.ngIndexLabels[18].Dock = DockStyle.Fill;
+            this.ngIndexLabels[18].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.ngIndexLabels[18].Text = "19";
+            this.ngIndexLabels[18].TextAlign = ContentAlignment.MiddleCenter;
+            this.ngLeds[18].BackColor = Color.LightGray;
+            this.ngLeds[18].BorderStyle = BorderStyle.FixedSingle;
+            this.ngLeds[18].Dock = DockStyle.Fill;
+            this.ngLeds[18].Margin = new Padding(2);
+            this.ngLayout.Controls.Add(this.ngIndexLabels[18], 0, 18);
+            this.ngLayout.Controls.Add(this.ngLeds[18], 1, 18);
+
+            this.ngIndexLabels[19].Dock = DockStyle.Fill;
+            this.ngIndexLabels[19].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.ngIndexLabels[19].Text = "20";
+            this.ngIndexLabels[19].TextAlign = ContentAlignment.MiddleCenter;
+            this.ngLeds[19].BackColor = Color.LightGray;
+            this.ngLeds[19].BorderStyle = BorderStyle.FixedSingle;
+            this.ngLeds[19].Dock = DockStyle.Fill;
+            this.ngLeds[19].Margin = new Padding(2);
+            this.ngLayout.Controls.Add(this.ngIndexLabels[19], 0, 19);
+            this.ngLayout.Controls.Add(this.ngLeds[19], 1, 19);
+
+            this.ngIndexLabels[20].Dock = DockStyle.Fill;
+            this.ngIndexLabels[20].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.ngIndexLabels[20].Text = "21";
+            this.ngIndexLabels[20].TextAlign = ContentAlignment.MiddleCenter;
+            this.ngLeds[20].BackColor = Color.LightGray;
+            this.ngLeds[20].BorderStyle = BorderStyle.FixedSingle;
+            this.ngLeds[20].Dock = DockStyle.Fill;
+            this.ngLeds[20].Margin = new Padding(2);
+            this.ngLayout.Controls.Add(this.ngIndexLabels[20], 0, 20);
+            this.ngLayout.Controls.Add(this.ngLeds[20], 1, 20);
+
+            this.ngIndexLabels[21].Dock = DockStyle.Fill;
+            this.ngIndexLabels[21].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.ngIndexLabels[21].Text = "22";
+            this.ngIndexLabels[21].TextAlign = ContentAlignment.MiddleCenter;
+            this.ngLeds[21].BackColor = Color.LightGray;
+            this.ngLeds[21].BorderStyle = BorderStyle.FixedSingle;
+            this.ngLeds[21].Dock = DockStyle.Fill;
+            this.ngLeds[21].Margin = new Padding(2);
+            this.ngLayout.Controls.Add(this.ngIndexLabels[21], 0, 21);
+            this.ngLayout.Controls.Add(this.ngLeds[21], 1, 21);
+
+            this.ngIndexLabels[22].Dock = DockStyle.Fill;
+            this.ngIndexLabels[22].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.ngIndexLabels[22].Text = "23";
+            this.ngIndexLabels[22].TextAlign = ContentAlignment.MiddleCenter;
+            this.ngLeds[22].BackColor = Color.LightGray;
+            this.ngLeds[22].BorderStyle = BorderStyle.FixedSingle;
+            this.ngLeds[22].Dock = DockStyle.Fill;
+            this.ngLeds[22].Margin = new Padding(2);
+            this.ngLayout.Controls.Add(this.ngIndexLabels[22], 0, 22);
+            this.ngLayout.Controls.Add(this.ngLeds[22], 1, 22);
+
+            this.ngIndexLabels[23].Dock = DockStyle.Fill;
+            this.ngIndexLabels[23].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.ngIndexLabels[23].Text = "24";
+            this.ngIndexLabels[23].TextAlign = ContentAlignment.MiddleCenter;
+            this.ngLeds[23].BackColor = Color.LightGray;
+            this.ngLeds[23].BorderStyle = BorderStyle.FixedSingle;
+            this.ngLeds[23].Dock = DockStyle.Fill;
+            this.ngLeds[23].Margin = new Padding(2);
+            this.ngLayout.Controls.Add(this.ngIndexLabels[23], 0, 23);
+            this.ngLayout.Controls.Add(this.ngLeds[23], 1, 23);
+
+            this.ngIndexLabels[24].Dock = DockStyle.Fill;
+            this.ngIndexLabels[24].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.ngIndexLabels[24].Text = "25";
+            this.ngIndexLabels[24].TextAlign = ContentAlignment.MiddleCenter;
+            this.ngLeds[24].BackColor = Color.LightGray;
+            this.ngLeds[24].BorderStyle = BorderStyle.FixedSingle;
+            this.ngLeds[24].Dock = DockStyle.Fill;
+            this.ngLeds[24].Margin = new Padding(2);
+            this.ngLayout.Controls.Add(this.ngIndexLabels[24], 0, 24);
+            this.ngLayout.Controls.Add(this.ngLeds[24], 1, 24);
+
+            this.good1Layout.ColumnCount = 2;
+            this.good1Layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 48F));
+            this.good1Layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            this.good1Layout.Dock = DockStyle.Fill;
+            this.good1Layout.Padding = new Padding(12, 18, 12, 12);
+            this.good1Layout.RowCount = 25;
+            this.good1Layout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.good1Layout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.good1Layout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.good1Layout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.good1Layout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.good1Layout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.good1Layout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.good1Layout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.good1Layout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.good1Layout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.good1Layout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.good1Layout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.good1Layout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.good1Layout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.good1Layout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.good1Layout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.good1Layout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.good1Layout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.good1Layout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.good1Layout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.good1Layout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.good1Layout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.good1Layout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.good1Layout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.good1Layout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+
+            this.good1IndexLabels[0].Dock = DockStyle.Fill;
+            this.good1IndexLabels[0].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.good1IndexLabels[0].Text = "01";
+            this.good1IndexLabels[0].TextAlign = ContentAlignment.MiddleCenter;
+            this.good1Leds[0].BackColor = Color.LightGray;
+            this.good1Leds[0].BorderStyle = BorderStyle.FixedSingle;
+            this.good1Leds[0].Dock = DockStyle.Fill;
+            this.good1Leds[0].Margin = new Padding(2);
+            this.good1Layout.Controls.Add(this.good1IndexLabels[0], 0, 0);
+            this.good1Layout.Controls.Add(this.good1Leds[0], 1, 0);
+
+            this.good1IndexLabels[1].Dock = DockStyle.Fill;
+            this.good1IndexLabels[1].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.good1IndexLabels[1].Text = "02";
+            this.good1IndexLabels[1].TextAlign = ContentAlignment.MiddleCenter;
+            this.good1Leds[1].BackColor = Color.LightGray;
+            this.good1Leds[1].BorderStyle = BorderStyle.FixedSingle;
+            this.good1Leds[1].Dock = DockStyle.Fill;
+            this.good1Leds[1].Margin = new Padding(2);
+            this.good1Layout.Controls.Add(this.good1IndexLabels[1], 0, 1);
+            this.good1Layout.Controls.Add(this.good1Leds[1], 1, 1);
+
+            this.good1IndexLabels[2].Dock = DockStyle.Fill;
+            this.good1IndexLabels[2].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.good1IndexLabels[2].Text = "03";
+            this.good1IndexLabels[2].TextAlign = ContentAlignment.MiddleCenter;
+            this.good1Leds[2].BackColor = Color.LightGray;
+            this.good1Leds[2].BorderStyle = BorderStyle.FixedSingle;
+            this.good1Leds[2].Dock = DockStyle.Fill;
+            this.good1Leds[2].Margin = new Padding(2);
+            this.good1Layout.Controls.Add(this.good1IndexLabels[2], 0, 2);
+            this.good1Layout.Controls.Add(this.good1Leds[2], 1, 2);
+
+            this.good1IndexLabels[3].Dock = DockStyle.Fill;
+            this.good1IndexLabels[3].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.good1IndexLabels[3].Text = "04";
+            this.good1IndexLabels[3].TextAlign = ContentAlignment.MiddleCenter;
+            this.good1Leds[3].BackColor = Color.LightGray;
+            this.good1Leds[3].BorderStyle = BorderStyle.FixedSingle;
+            this.good1Leds[3].Dock = DockStyle.Fill;
+            this.good1Leds[3].Margin = new Padding(2);
+            this.good1Layout.Controls.Add(this.good1IndexLabels[3], 0, 3);
+            this.good1Layout.Controls.Add(this.good1Leds[3], 1, 3);
+
+            this.good1IndexLabels[4].Dock = DockStyle.Fill;
+            this.good1IndexLabels[4].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.good1IndexLabels[4].Text = "05";
+            this.good1IndexLabels[4].TextAlign = ContentAlignment.MiddleCenter;
+            this.good1Leds[4].BackColor = Color.LightGray;
+            this.good1Leds[4].BorderStyle = BorderStyle.FixedSingle;
+            this.good1Leds[4].Dock = DockStyle.Fill;
+            this.good1Leds[4].Margin = new Padding(2);
+            this.good1Layout.Controls.Add(this.good1IndexLabels[4], 0, 4);
+            this.good1Layout.Controls.Add(this.good1Leds[4], 1, 4);
+
+            this.good1IndexLabels[5].Dock = DockStyle.Fill;
+            this.good1IndexLabels[5].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.good1IndexLabels[5].Text = "06";
+            this.good1IndexLabels[5].TextAlign = ContentAlignment.MiddleCenter;
+            this.good1Leds[5].BackColor = Color.LightGray;
+            this.good1Leds[5].BorderStyle = BorderStyle.FixedSingle;
+            this.good1Leds[5].Dock = DockStyle.Fill;
+            this.good1Leds[5].Margin = new Padding(2);
+            this.good1Layout.Controls.Add(this.good1IndexLabels[5], 0, 5);
+            this.good1Layout.Controls.Add(this.good1Leds[5], 1, 5);
+
+            this.good1IndexLabels[6].Dock = DockStyle.Fill;
+            this.good1IndexLabels[6].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.good1IndexLabels[6].Text = "07";
+            this.good1IndexLabels[6].TextAlign = ContentAlignment.MiddleCenter;
+            this.good1Leds[6].BackColor = Color.LightGray;
+            this.good1Leds[6].BorderStyle = BorderStyle.FixedSingle;
+            this.good1Leds[6].Dock = DockStyle.Fill;
+            this.good1Leds[6].Margin = new Padding(2);
+            this.good1Layout.Controls.Add(this.good1IndexLabels[6], 0, 6);
+            this.good1Layout.Controls.Add(this.good1Leds[6], 1, 6);
+
+            this.good1IndexLabels[7].Dock = DockStyle.Fill;
+            this.good1IndexLabels[7].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.good1IndexLabels[7].Text = "08";
+            this.good1IndexLabels[7].TextAlign = ContentAlignment.MiddleCenter;
+            this.good1Leds[7].BackColor = Color.LightGray;
+            this.good1Leds[7].BorderStyle = BorderStyle.FixedSingle;
+            this.good1Leds[7].Dock = DockStyle.Fill;
+            this.good1Leds[7].Margin = new Padding(2);
+            this.good1Layout.Controls.Add(this.good1IndexLabels[7], 0, 7);
+            this.good1Layout.Controls.Add(this.good1Leds[7], 1, 7);
+
+            this.good1IndexLabels[8].Dock = DockStyle.Fill;
+            this.good1IndexLabels[8].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.good1IndexLabels[8].Text = "09";
+            this.good1IndexLabels[8].TextAlign = ContentAlignment.MiddleCenter;
+            this.good1Leds[8].BackColor = Color.LightGray;
+            this.good1Leds[8].BorderStyle = BorderStyle.FixedSingle;
+            this.good1Leds[8].Dock = DockStyle.Fill;
+            this.good1Leds[8].Margin = new Padding(2);
+            this.good1Layout.Controls.Add(this.good1IndexLabels[8], 0, 8);
+            this.good1Layout.Controls.Add(this.good1Leds[8], 1, 8);
+
+            this.good1IndexLabels[9].Dock = DockStyle.Fill;
+            this.good1IndexLabels[9].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.good1IndexLabels[9].Text = "10";
+            this.good1IndexLabels[9].TextAlign = ContentAlignment.MiddleCenter;
+            this.good1Leds[9].BackColor = Color.LightGray;
+            this.good1Leds[9].BorderStyle = BorderStyle.FixedSingle;
+            this.good1Leds[9].Dock = DockStyle.Fill;
+            this.good1Leds[9].Margin = new Padding(2);
+            this.good1Layout.Controls.Add(this.good1IndexLabels[9], 0, 9);
+            this.good1Layout.Controls.Add(this.good1Leds[9], 1, 9);
+
+            this.good1IndexLabels[10].Dock = DockStyle.Fill;
+            this.good1IndexLabels[10].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.good1IndexLabels[10].Text = "11";
+            this.good1IndexLabels[10].TextAlign = ContentAlignment.MiddleCenter;
+            this.good1Leds[10].BackColor = Color.LightGray;
+            this.good1Leds[10].BorderStyle = BorderStyle.FixedSingle;
+            this.good1Leds[10].Dock = DockStyle.Fill;
+            this.good1Leds[10].Margin = new Padding(2);
+            this.good1Layout.Controls.Add(this.good1IndexLabels[10], 0, 10);
+            this.good1Layout.Controls.Add(this.good1Leds[10], 1, 10);
+
+            this.good1IndexLabels[11].Dock = DockStyle.Fill;
+            this.good1IndexLabels[11].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.good1IndexLabels[11].Text = "12";
+            this.good1IndexLabels[11].TextAlign = ContentAlignment.MiddleCenter;
+            this.good1Leds[11].BackColor = Color.LightGray;
+            this.good1Leds[11].BorderStyle = BorderStyle.FixedSingle;
+            this.good1Leds[11].Dock = DockStyle.Fill;
+            this.good1Leds[11].Margin = new Padding(2);
+            this.good1Layout.Controls.Add(this.good1IndexLabels[11], 0, 11);
+            this.good1Layout.Controls.Add(this.good1Leds[11], 1, 11);
+
+            this.good1IndexLabels[12].Dock = DockStyle.Fill;
+            this.good1IndexLabels[12].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.good1IndexLabels[12].Text = "13";
+            this.good1IndexLabels[12].TextAlign = ContentAlignment.MiddleCenter;
+            this.good1Leds[12].BackColor = Color.LightGray;
+            this.good1Leds[12].BorderStyle = BorderStyle.FixedSingle;
+            this.good1Leds[12].Dock = DockStyle.Fill;
+            this.good1Leds[12].Margin = new Padding(2);
+            this.good1Layout.Controls.Add(this.good1IndexLabels[12], 0, 12);
+            this.good1Layout.Controls.Add(this.good1Leds[12], 1, 12);
+
+            this.good1IndexLabels[13].Dock = DockStyle.Fill;
+            this.good1IndexLabels[13].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.good1IndexLabels[13].Text = "14";
+            this.good1IndexLabels[13].TextAlign = ContentAlignment.MiddleCenter;
+            this.good1Leds[13].BackColor = Color.LightGray;
+            this.good1Leds[13].BorderStyle = BorderStyle.FixedSingle;
+            this.good1Leds[13].Dock = DockStyle.Fill;
+            this.good1Leds[13].Margin = new Padding(2);
+            this.good1Layout.Controls.Add(this.good1IndexLabels[13], 0, 13);
+            this.good1Layout.Controls.Add(this.good1Leds[13], 1, 13);
+
+            this.good1IndexLabels[14].Dock = DockStyle.Fill;
+            this.good1IndexLabels[14].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.good1IndexLabels[14].Text = "15";
+            this.good1IndexLabels[14].TextAlign = ContentAlignment.MiddleCenter;
+            this.good1Leds[14].BackColor = Color.LightGray;
+            this.good1Leds[14].BorderStyle = BorderStyle.FixedSingle;
+            this.good1Leds[14].Dock = DockStyle.Fill;
+            this.good1Leds[14].Margin = new Padding(2);
+            this.good1Layout.Controls.Add(this.good1IndexLabels[14], 0, 14);
+            this.good1Layout.Controls.Add(this.good1Leds[14], 1, 14);
+
+            this.good1IndexLabels[15].Dock = DockStyle.Fill;
+            this.good1IndexLabels[15].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.good1IndexLabels[15].Text = "16";
+            this.good1IndexLabels[15].TextAlign = ContentAlignment.MiddleCenter;
+            this.good1Leds[15].BackColor = Color.LightGray;
+            this.good1Leds[15].BorderStyle = BorderStyle.FixedSingle;
+            this.good1Leds[15].Dock = DockStyle.Fill;
+            this.good1Leds[15].Margin = new Padding(2);
+            this.good1Layout.Controls.Add(this.good1IndexLabels[15], 0, 15);
+            this.good1Layout.Controls.Add(this.good1Leds[15], 1, 15);
+
+            this.good1IndexLabels[16].Dock = DockStyle.Fill;
+            this.good1IndexLabels[16].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.good1IndexLabels[16].Text = "17";
+            this.good1IndexLabels[16].TextAlign = ContentAlignment.MiddleCenter;
+            this.good1Leds[16].BackColor = Color.LightGray;
+            this.good1Leds[16].BorderStyle = BorderStyle.FixedSingle;
+            this.good1Leds[16].Dock = DockStyle.Fill;
+            this.good1Leds[16].Margin = new Padding(2);
+            this.good1Layout.Controls.Add(this.good1IndexLabels[16], 0, 16);
+            this.good1Layout.Controls.Add(this.good1Leds[16], 1, 16);
+
+            this.good1IndexLabels[17].Dock = DockStyle.Fill;
+            this.good1IndexLabels[17].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.good1IndexLabels[17].Text = "18";
+            this.good1IndexLabels[17].TextAlign = ContentAlignment.MiddleCenter;
+            this.good1Leds[17].BackColor = Color.LightGray;
+            this.good1Leds[17].BorderStyle = BorderStyle.FixedSingle;
+            this.good1Leds[17].Dock = DockStyle.Fill;
+            this.good1Leds[17].Margin = new Padding(2);
+            this.good1Layout.Controls.Add(this.good1IndexLabels[17], 0, 17);
+            this.good1Layout.Controls.Add(this.good1Leds[17], 1, 17);
+
+            this.good1IndexLabels[18].Dock = DockStyle.Fill;
+            this.good1IndexLabels[18].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.good1IndexLabels[18].Text = "19";
+            this.good1IndexLabels[18].TextAlign = ContentAlignment.MiddleCenter;
+            this.good1Leds[18].BackColor = Color.LightGray;
+            this.good1Leds[18].BorderStyle = BorderStyle.FixedSingle;
+            this.good1Leds[18].Dock = DockStyle.Fill;
+            this.good1Leds[18].Margin = new Padding(2);
+            this.good1Layout.Controls.Add(this.good1IndexLabels[18], 0, 18);
+            this.good1Layout.Controls.Add(this.good1Leds[18], 1, 18);
+
+            this.good1IndexLabels[19].Dock = DockStyle.Fill;
+            this.good1IndexLabels[19].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.good1IndexLabels[19].Text = "20";
+            this.good1IndexLabels[19].TextAlign = ContentAlignment.MiddleCenter;
+            this.good1Leds[19].BackColor = Color.LightGray;
+            this.good1Leds[19].BorderStyle = BorderStyle.FixedSingle;
+            this.good1Leds[19].Dock = DockStyle.Fill;
+            this.good1Leds[19].Margin = new Padding(2);
+            this.good1Layout.Controls.Add(this.good1IndexLabels[19], 0, 19);
+            this.good1Layout.Controls.Add(this.good1Leds[19], 1, 19);
+
+            this.good1IndexLabels[20].Dock = DockStyle.Fill;
+            this.good1IndexLabels[20].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.good1IndexLabels[20].Text = "21";
+            this.good1IndexLabels[20].TextAlign = ContentAlignment.MiddleCenter;
+            this.good1Leds[20].BackColor = Color.LightGray;
+            this.good1Leds[20].BorderStyle = BorderStyle.FixedSingle;
+            this.good1Leds[20].Dock = DockStyle.Fill;
+            this.good1Leds[20].Margin = new Padding(2);
+            this.good1Layout.Controls.Add(this.good1IndexLabels[20], 0, 20);
+            this.good1Layout.Controls.Add(this.good1Leds[20], 1, 20);
+
+            this.good1IndexLabels[21].Dock = DockStyle.Fill;
+            this.good1IndexLabels[21].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.good1IndexLabels[21].Text = "22";
+            this.good1IndexLabels[21].TextAlign = ContentAlignment.MiddleCenter;
+            this.good1Leds[21].BackColor = Color.LightGray;
+            this.good1Leds[21].BorderStyle = BorderStyle.FixedSingle;
+            this.good1Leds[21].Dock = DockStyle.Fill;
+            this.good1Leds[21].Margin = new Padding(2);
+            this.good1Layout.Controls.Add(this.good1IndexLabels[21], 0, 21);
+            this.good1Layout.Controls.Add(this.good1Leds[21], 1, 21);
+
+            this.good1IndexLabels[22].Dock = DockStyle.Fill;
+            this.good1IndexLabels[22].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.good1IndexLabels[22].Text = "23";
+            this.good1IndexLabels[22].TextAlign = ContentAlignment.MiddleCenter;
+            this.good1Leds[22].BackColor = Color.LightGray;
+            this.good1Leds[22].BorderStyle = BorderStyle.FixedSingle;
+            this.good1Leds[22].Dock = DockStyle.Fill;
+            this.good1Leds[22].Margin = new Padding(2);
+            this.good1Layout.Controls.Add(this.good1IndexLabels[22], 0, 22);
+            this.good1Layout.Controls.Add(this.good1Leds[22], 1, 22);
+
+            this.good1IndexLabels[23].Dock = DockStyle.Fill;
+            this.good1IndexLabels[23].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.good1IndexLabels[23].Text = "24";
+            this.good1IndexLabels[23].TextAlign = ContentAlignment.MiddleCenter;
+            this.good1Leds[23].BackColor = Color.LightGray;
+            this.good1Leds[23].BorderStyle = BorderStyle.FixedSingle;
+            this.good1Leds[23].Dock = DockStyle.Fill;
+            this.good1Leds[23].Margin = new Padding(2);
+            this.good1Layout.Controls.Add(this.good1IndexLabels[23], 0, 23);
+            this.good1Layout.Controls.Add(this.good1Leds[23], 1, 23);
+
+            this.good1IndexLabels[24].Dock = DockStyle.Fill;
+            this.good1IndexLabels[24].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.good1IndexLabels[24].Text = "25";
+            this.good1IndexLabels[24].TextAlign = ContentAlignment.MiddleCenter;
+            this.good1Leds[24].BackColor = Color.LightGray;
+            this.good1Leds[24].BorderStyle = BorderStyle.FixedSingle;
+            this.good1Leds[24].Dock = DockStyle.Fill;
+            this.good1Leds[24].Margin = new Padding(2);
+            this.good1Layout.Controls.Add(this.good1IndexLabels[24], 0, 24);
+            this.good1Layout.Controls.Add(this.good1Leds[24], 1, 24);
+
+            this.good2Layout.ColumnCount = 2;
+            this.good2Layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 48F));
+            this.good2Layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            this.good2Layout.Dock = DockStyle.Fill;
+            this.good2Layout.Padding = new Padding(12, 18, 12, 12);
+            this.good2Layout.RowCount = 25;
+            this.good2Layout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.good2Layout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.good2Layout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.good2Layout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.good2Layout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.good2Layout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.good2Layout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.good2Layout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.good2Layout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.good2Layout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.good2Layout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.good2Layout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.good2Layout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.good2Layout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.good2Layout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.good2Layout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.good2Layout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.good2Layout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.good2Layout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.good2Layout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.good2Layout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.good2Layout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.good2Layout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.good2Layout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+            this.good2Layout.RowStyles.Add(new RowStyle(SizeType.Percent, 4F));
+
+            this.good2IndexLabels[0].Dock = DockStyle.Fill;
+            this.good2IndexLabels[0].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.good2IndexLabels[0].Text = "01";
+            this.good2IndexLabels[0].TextAlign = ContentAlignment.MiddleCenter;
+            this.good2Leds[0].BackColor = Color.LightGray;
+            this.good2Leds[0].BorderStyle = BorderStyle.FixedSingle;
+            this.good2Leds[0].Dock = DockStyle.Fill;
+            this.good2Leds[0].Margin = new Padding(2);
+            this.good2Layout.Controls.Add(this.good2IndexLabels[0], 0, 0);
+            this.good2Layout.Controls.Add(this.good2Leds[0], 1, 0);
+
+            this.good2IndexLabels[1].Dock = DockStyle.Fill;
+            this.good2IndexLabels[1].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.good2IndexLabels[1].Text = "02";
+            this.good2IndexLabels[1].TextAlign = ContentAlignment.MiddleCenter;
+            this.good2Leds[1].BackColor = Color.LightGray;
+            this.good2Leds[1].BorderStyle = BorderStyle.FixedSingle;
+            this.good2Leds[1].Dock = DockStyle.Fill;
+            this.good2Leds[1].Margin = new Padding(2);
+            this.good2Layout.Controls.Add(this.good2IndexLabels[1], 0, 1);
+            this.good2Layout.Controls.Add(this.good2Leds[1], 1, 1);
+
+            this.good2IndexLabels[2].Dock = DockStyle.Fill;
+            this.good2IndexLabels[2].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.good2IndexLabels[2].Text = "03";
+            this.good2IndexLabels[2].TextAlign = ContentAlignment.MiddleCenter;
+            this.good2Leds[2].BackColor = Color.LightGray;
+            this.good2Leds[2].BorderStyle = BorderStyle.FixedSingle;
+            this.good2Leds[2].Dock = DockStyle.Fill;
+            this.good2Leds[2].Margin = new Padding(2);
+            this.good2Layout.Controls.Add(this.good2IndexLabels[2], 0, 2);
+            this.good2Layout.Controls.Add(this.good2Leds[2], 1, 2);
+
+            this.good2IndexLabels[3].Dock = DockStyle.Fill;
+            this.good2IndexLabels[3].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.good2IndexLabels[3].Text = "04";
+            this.good2IndexLabels[3].TextAlign = ContentAlignment.MiddleCenter;
+            this.good2Leds[3].BackColor = Color.LightGray;
+            this.good2Leds[3].BorderStyle = BorderStyle.FixedSingle;
+            this.good2Leds[3].Dock = DockStyle.Fill;
+            this.good2Leds[3].Margin = new Padding(2);
+            this.good2Layout.Controls.Add(this.good2IndexLabels[3], 0, 3);
+            this.good2Layout.Controls.Add(this.good2Leds[3], 1, 3);
+
+            this.good2IndexLabels[4].Dock = DockStyle.Fill;
+            this.good2IndexLabels[4].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.good2IndexLabels[4].Text = "05";
+            this.good2IndexLabels[4].TextAlign = ContentAlignment.MiddleCenter;
+            this.good2Leds[4].BackColor = Color.LightGray;
+            this.good2Leds[4].BorderStyle = BorderStyle.FixedSingle;
+            this.good2Leds[4].Dock = DockStyle.Fill;
+            this.good2Leds[4].Margin = new Padding(2);
+            this.good2Layout.Controls.Add(this.good2IndexLabels[4], 0, 4);
+            this.good2Layout.Controls.Add(this.good2Leds[4], 1, 4);
+
+            this.good2IndexLabels[5].Dock = DockStyle.Fill;
+            this.good2IndexLabels[5].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.good2IndexLabels[5].Text = "06";
+            this.good2IndexLabels[5].TextAlign = ContentAlignment.MiddleCenter;
+            this.good2Leds[5].BackColor = Color.LightGray;
+            this.good2Leds[5].BorderStyle = BorderStyle.FixedSingle;
+            this.good2Leds[5].Dock = DockStyle.Fill;
+            this.good2Leds[5].Margin = new Padding(2);
+            this.good2Layout.Controls.Add(this.good2IndexLabels[5], 0, 5);
+            this.good2Layout.Controls.Add(this.good2Leds[5], 1, 5);
+
+            this.good2IndexLabels[6].Dock = DockStyle.Fill;
+            this.good2IndexLabels[6].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.good2IndexLabels[6].Text = "07";
+            this.good2IndexLabels[6].TextAlign = ContentAlignment.MiddleCenter;
+            this.good2Leds[6].BackColor = Color.LightGray;
+            this.good2Leds[6].BorderStyle = BorderStyle.FixedSingle;
+            this.good2Leds[6].Dock = DockStyle.Fill;
+            this.good2Leds[6].Margin = new Padding(2);
+            this.good2Layout.Controls.Add(this.good2IndexLabels[6], 0, 6);
+            this.good2Layout.Controls.Add(this.good2Leds[6], 1, 6);
+
+            this.good2IndexLabels[7].Dock = DockStyle.Fill;
+            this.good2IndexLabels[7].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.good2IndexLabels[7].Text = "08";
+            this.good2IndexLabels[7].TextAlign = ContentAlignment.MiddleCenter;
+            this.good2Leds[7].BackColor = Color.LightGray;
+            this.good2Leds[7].BorderStyle = BorderStyle.FixedSingle;
+            this.good2Leds[7].Dock = DockStyle.Fill;
+            this.good2Leds[7].Margin = new Padding(2);
+            this.good2Layout.Controls.Add(this.good2IndexLabels[7], 0, 7);
+            this.good2Layout.Controls.Add(this.good2Leds[7], 1, 7);
+
+            this.good2IndexLabels[8].Dock = DockStyle.Fill;
+            this.good2IndexLabels[8].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.good2IndexLabels[8].Text = "09";
+            this.good2IndexLabels[8].TextAlign = ContentAlignment.MiddleCenter;
+            this.good2Leds[8].BackColor = Color.LightGray;
+            this.good2Leds[8].BorderStyle = BorderStyle.FixedSingle;
+            this.good2Leds[8].Dock = DockStyle.Fill;
+            this.good2Leds[8].Margin = new Padding(2);
+            this.good2Layout.Controls.Add(this.good2IndexLabels[8], 0, 8);
+            this.good2Layout.Controls.Add(this.good2Leds[8], 1, 8);
+
+            this.good2IndexLabels[9].Dock = DockStyle.Fill;
+            this.good2IndexLabels[9].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.good2IndexLabels[9].Text = "10";
+            this.good2IndexLabels[9].TextAlign = ContentAlignment.MiddleCenter;
+            this.good2Leds[9].BackColor = Color.LightGray;
+            this.good2Leds[9].BorderStyle = BorderStyle.FixedSingle;
+            this.good2Leds[9].Dock = DockStyle.Fill;
+            this.good2Leds[9].Margin = new Padding(2);
+            this.good2Layout.Controls.Add(this.good2IndexLabels[9], 0, 9);
+            this.good2Layout.Controls.Add(this.good2Leds[9], 1, 9);
+
+            this.good2IndexLabels[10].Dock = DockStyle.Fill;
+            this.good2IndexLabels[10].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.good2IndexLabels[10].Text = "11";
+            this.good2IndexLabels[10].TextAlign = ContentAlignment.MiddleCenter;
+            this.good2Leds[10].BackColor = Color.LightGray;
+            this.good2Leds[10].BorderStyle = BorderStyle.FixedSingle;
+            this.good2Leds[10].Dock = DockStyle.Fill;
+            this.good2Leds[10].Margin = new Padding(2);
+            this.good2Layout.Controls.Add(this.good2IndexLabels[10], 0, 10);
+            this.good2Layout.Controls.Add(this.good2Leds[10], 1, 10);
+
+            this.good2IndexLabels[11].Dock = DockStyle.Fill;
+            this.good2IndexLabels[11].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.good2IndexLabels[11].Text = "12";
+            this.good2IndexLabels[11].TextAlign = ContentAlignment.MiddleCenter;
+            this.good2Leds[11].BackColor = Color.LightGray;
+            this.good2Leds[11].BorderStyle = BorderStyle.FixedSingle;
+            this.good2Leds[11].Dock = DockStyle.Fill;
+            this.good2Leds[11].Margin = new Padding(2);
+            this.good2Layout.Controls.Add(this.good2IndexLabels[11], 0, 11);
+            this.good2Layout.Controls.Add(this.good2Leds[11], 1, 11);
+
+            this.good2IndexLabels[12].Dock = DockStyle.Fill;
+            this.good2IndexLabels[12].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.good2IndexLabels[12].Text = "13";
+            this.good2IndexLabels[12].TextAlign = ContentAlignment.MiddleCenter;
+            this.good2Leds[12].BackColor = Color.LightGray;
+            this.good2Leds[12].BorderStyle = BorderStyle.FixedSingle;
+            this.good2Leds[12].Dock = DockStyle.Fill;
+            this.good2Leds[12].Margin = new Padding(2);
+            this.good2Layout.Controls.Add(this.good2IndexLabels[12], 0, 12);
+            this.good2Layout.Controls.Add(this.good2Leds[12], 1, 12);
+
+            this.good2IndexLabels[13].Dock = DockStyle.Fill;
+            this.good2IndexLabels[13].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.good2IndexLabels[13].Text = "14";
+            this.good2IndexLabels[13].TextAlign = ContentAlignment.MiddleCenter;
+            this.good2Leds[13].BackColor = Color.LightGray;
+            this.good2Leds[13].BorderStyle = BorderStyle.FixedSingle;
+            this.good2Leds[13].Dock = DockStyle.Fill;
+            this.good2Leds[13].Margin = new Padding(2);
+            this.good2Layout.Controls.Add(this.good2IndexLabels[13], 0, 13);
+            this.good2Layout.Controls.Add(this.good2Leds[13], 1, 13);
+
+            this.good2IndexLabels[14].Dock = DockStyle.Fill;
+            this.good2IndexLabels[14].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.good2IndexLabels[14].Text = "15";
+            this.good2IndexLabels[14].TextAlign = ContentAlignment.MiddleCenter;
+            this.good2Leds[14].BackColor = Color.LightGray;
+            this.good2Leds[14].BorderStyle = BorderStyle.FixedSingle;
+            this.good2Leds[14].Dock = DockStyle.Fill;
+            this.good2Leds[14].Margin = new Padding(2);
+            this.good2Layout.Controls.Add(this.good2IndexLabels[14], 0, 14);
+            this.good2Layout.Controls.Add(this.good2Leds[14], 1, 14);
+
+            this.good2IndexLabels[15].Dock = DockStyle.Fill;
+            this.good2IndexLabels[15].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.good2IndexLabels[15].Text = "16";
+            this.good2IndexLabels[15].TextAlign = ContentAlignment.MiddleCenter;
+            this.good2Leds[15].BackColor = Color.LightGray;
+            this.good2Leds[15].BorderStyle = BorderStyle.FixedSingle;
+            this.good2Leds[15].Dock = DockStyle.Fill;
+            this.good2Leds[15].Margin = new Padding(2);
+            this.good2Layout.Controls.Add(this.good2IndexLabels[15], 0, 15);
+            this.good2Layout.Controls.Add(this.good2Leds[15], 1, 15);
+
+            this.good2IndexLabels[16].Dock = DockStyle.Fill;
+            this.good2IndexLabels[16].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.good2IndexLabels[16].Text = "17";
+            this.good2IndexLabels[16].TextAlign = ContentAlignment.MiddleCenter;
+            this.good2Leds[16].BackColor = Color.LightGray;
+            this.good2Leds[16].BorderStyle = BorderStyle.FixedSingle;
+            this.good2Leds[16].Dock = DockStyle.Fill;
+            this.good2Leds[16].Margin = new Padding(2);
+            this.good2Layout.Controls.Add(this.good2IndexLabels[16], 0, 16);
+            this.good2Layout.Controls.Add(this.good2Leds[16], 1, 16);
+
+            this.good2IndexLabels[17].Dock = DockStyle.Fill;
+            this.good2IndexLabels[17].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.good2IndexLabels[17].Text = "18";
+            this.good2IndexLabels[17].TextAlign = ContentAlignment.MiddleCenter;
+            this.good2Leds[17].BackColor = Color.LightGray;
+            this.good2Leds[17].BorderStyle = BorderStyle.FixedSingle;
+            this.good2Leds[17].Dock = DockStyle.Fill;
+            this.good2Leds[17].Margin = new Padding(2);
+            this.good2Layout.Controls.Add(this.good2IndexLabels[17], 0, 17);
+            this.good2Layout.Controls.Add(this.good2Leds[17], 1, 17);
+
+            this.good2IndexLabels[18].Dock = DockStyle.Fill;
+            this.good2IndexLabels[18].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.good2IndexLabels[18].Text = "19";
+            this.good2IndexLabels[18].TextAlign = ContentAlignment.MiddleCenter;
+            this.good2Leds[18].BackColor = Color.LightGray;
+            this.good2Leds[18].BorderStyle = BorderStyle.FixedSingle;
+            this.good2Leds[18].Dock = DockStyle.Fill;
+            this.good2Leds[18].Margin = new Padding(2);
+            this.good2Layout.Controls.Add(this.good2IndexLabels[18], 0, 18);
+            this.good2Layout.Controls.Add(this.good2Leds[18], 1, 18);
+
+            this.good2IndexLabels[19].Dock = DockStyle.Fill;
+            this.good2IndexLabels[19].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.good2IndexLabels[19].Text = "20";
+            this.good2IndexLabels[19].TextAlign = ContentAlignment.MiddleCenter;
+            this.good2Leds[19].BackColor = Color.LightGray;
+            this.good2Leds[19].BorderStyle = BorderStyle.FixedSingle;
+            this.good2Leds[19].Dock = DockStyle.Fill;
+            this.good2Leds[19].Margin = new Padding(2);
+            this.good2Layout.Controls.Add(this.good2IndexLabels[19], 0, 19);
+            this.good2Layout.Controls.Add(this.good2Leds[19], 1, 19);
+
+            this.good2IndexLabels[20].Dock = DockStyle.Fill;
+            this.good2IndexLabels[20].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.good2IndexLabels[20].Text = "21";
+            this.good2IndexLabels[20].TextAlign = ContentAlignment.MiddleCenter;
+            this.good2Leds[20].BackColor = Color.LightGray;
+            this.good2Leds[20].BorderStyle = BorderStyle.FixedSingle;
+            this.good2Leds[20].Dock = DockStyle.Fill;
+            this.good2Leds[20].Margin = new Padding(2);
+            this.good2Layout.Controls.Add(this.good2IndexLabels[20], 0, 20);
+            this.good2Layout.Controls.Add(this.good2Leds[20], 1, 20);
+
+            this.good2IndexLabels[21].Dock = DockStyle.Fill;
+            this.good2IndexLabels[21].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.good2IndexLabels[21].Text = "22";
+            this.good2IndexLabels[21].TextAlign = ContentAlignment.MiddleCenter;
+            this.good2Leds[21].BackColor = Color.LightGray;
+            this.good2Leds[21].BorderStyle = BorderStyle.FixedSingle;
+            this.good2Leds[21].Dock = DockStyle.Fill;
+            this.good2Leds[21].Margin = new Padding(2);
+            this.good2Layout.Controls.Add(this.good2IndexLabels[21], 0, 21);
+            this.good2Layout.Controls.Add(this.good2Leds[21], 1, 21);
+
+            this.good2IndexLabels[22].Dock = DockStyle.Fill;
+            this.good2IndexLabels[22].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.good2IndexLabels[22].Text = "23";
+            this.good2IndexLabels[22].TextAlign = ContentAlignment.MiddleCenter;
+            this.good2Leds[22].BackColor = Color.LightGray;
+            this.good2Leds[22].BorderStyle = BorderStyle.FixedSingle;
+            this.good2Leds[22].Dock = DockStyle.Fill;
+            this.good2Leds[22].Margin = new Padding(2);
+            this.good2Layout.Controls.Add(this.good2IndexLabels[22], 0, 22);
+            this.good2Layout.Controls.Add(this.good2Leds[22], 1, 22);
+
+            this.good2IndexLabels[23].Dock = DockStyle.Fill;
+            this.good2IndexLabels[23].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.good2IndexLabels[23].Text = "24";
+            this.good2IndexLabels[23].TextAlign = ContentAlignment.MiddleCenter;
+            this.good2Leds[23].BackColor = Color.LightGray;
+            this.good2Leds[23].BorderStyle = BorderStyle.FixedSingle;
+            this.good2Leds[23].Dock = DockStyle.Fill;
+            this.good2Leds[23].Margin = new Padding(2);
+            this.good2Layout.Controls.Add(this.good2IndexLabels[23], 0, 23);
+            this.good2Layout.Controls.Add(this.good2Leds[23], 1, 23);
+
+            this.good2IndexLabels[24].Dock = DockStyle.Fill;
+            this.good2IndexLabels[24].Font = new Font("Consolas", 8F, FontStyle.Bold);
+            this.good2IndexLabels[24].Text = "25";
+            this.good2IndexLabels[24].TextAlign = ContentAlignment.MiddleCenter;
+            this.good2Leds[24].BackColor = Color.LightGray;
+            this.good2Leds[24].BorderStyle = BorderStyle.FixedSingle;
+            this.good2Leds[24].Dock = DockStyle.Fill;
+            this.good2Leds[24].Margin = new Padding(2);
+            this.good2Layout.Controls.Add(this.good2IndexLabels[24], 0, 24);
+            this.good2Layout.Controls.Add(this.good2Leds[24], 1, 24);
 
             this.actionPanel.BackColor = UiTheme.MainBg;
             this.actionPanel.Dock = DockStyle.Fill;
             this.actionPanel.FlowDirection = FlowDirection.LeftToRight;
             this.actionPanel.Padding = new Padding(12);
-            ConfigureActionButton(this.btnMap, "MAP CASSETTES", null, 180);
-            ConfigureActionButton(this.btnLoad, Lang.T("wi.liftWaferLoading"), "i18n:wi.liftWaferLoading", 180);
-            ConfigureActionButton(this.btnUnload, Lang.T("wi.liftWaferUnloading"), "i18n:wi.liftWaferUnloading", 180);
+            this.btnMap.Font = UiTheme.ButtonFont;
+            this.btnMap.Height = 42;
+            this.btnMap.Margin = new Padding(6);
+            this.btnMap.Text = "MAP CASSETTES";
+            this.btnMap.Width = 180;
+
+            this.btnLoad.Font = UiTheme.ButtonFont;
+            this.btnLoad.Height = 42;
+            this.btnLoad.Margin = new Padding(6);
+            this.btnLoad.Tag = "i18n:wi.liftWaferLoading";
+            this.btnLoad.Text = "LOADING";
+            this.btnLoad.Width = 180;
+
+            this.btnUnload.Font = UiTheme.ButtonFont;
+            this.btnUnload.Height = 42;
+            this.btnUnload.Margin = new Padding(6);
+            this.btnUnload.Tag = "i18n:wi.liftWaferUnloading";
+            this.btnUnload.Text = "UNLOADING";
+            this.btnUnload.Width = 180;
+
             this.actionPanel.Controls.Add(this.btnMap);
             this.actionPanel.Controls.Add(this.btnLoad);
             this.actionPanel.Controls.Add(this.btnUnload);
@@ -122,80 +1259,17 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.Controls.Add(this.rootLayout);
             this.Name = "OutputCassettePage";
             this.Size = new Size(1400, 900);
+            this.good2Layout.ResumeLayout(false);
+            this.good1Layout.ResumeLayout(false);
+            this.ngLayout.ResumeLayout(false);
+            this.elevatorLayout.ResumeLayout(false);
+            this.grpGood2Cassette.ResumeLayout(false);
+            this.grpGood1Cassette.ResumeLayout(false);
+            this.grpNgCassette.ResumeLayout(false);
+            this.grpElevator.ResumeLayout(false);
+            this.contentLayout.ResumeLayout(false);
+            this.rootLayout.ResumeLayout(false);
             this.ResumeLayout(false);
-        }
-
-        private static void ConfigureGroup(GroupBox group, string title, Control child)
-        {
-            group.BackColor = UiTheme.OptionPanelBg;
-            group.Controls.Add(child);
-            group.Dock = DockStyle.Fill;
-            group.Font = UiTheme.SectionFont;
-            group.Margin = new Padding(4);
-            group.Text = title;
-        }
-
-        private static void ConfigureCassetteLayout(TableLayoutPanel layout, Label[] leds)
-        {
-            layout.ColumnCount = 2;
-            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 48F));
-            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            layout.Dock = DockStyle.Fill;
-            layout.Padding = new Padding(12, 18, 12, 12);
-            layout.RowCount = SlotsPerCassette;
-            for (int i = 0; i < SlotsPerCassette; i++)
-            {
-                layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F / SlotsPerCassette));
-                layout.Controls.Add(new Label
-                {
-                    Dock = DockStyle.Fill,
-                    Font = new Font("Consolas", 8F, FontStyle.Bold),
-                    Text = (i + 1).ToString("D2"),
-                    TextAlign = ContentAlignment.MiddleCenter
-                }, 0, i);
-
-                var led = new Label
-                {
-                    BackColor = Color.LightGray,
-                    BorderStyle = BorderStyle.FixedSingle,
-                    Dock = DockStyle.Fill,
-                    Margin = new Padding(2)
-                };
-                layout.Controls.Add(led, 1, i);
-                leds[i] = led;
-            }
-        }
-
-        private static Label BuildKeyLabel(string text) => new Label
-        {
-            BackColor = Color.FromArgb(0xD0, 0xD0, 0xD0),
-            BorderStyle = BorderStyle.FixedSingle,
-            Dock = DockStyle.Fill,
-            Font = UiTheme.ButtonFont,
-            Padding = new Padding(8, 0, 0, 0),
-            Text = text,
-            TextAlign = ContentAlignment.MiddleLeft
-        };
-
-        private static void ConfigureValueLabel(Label label, string text)
-        {
-            label.BackColor = Color.White;
-            label.BorderStyle = BorderStyle.FixedSingle;
-            label.Dock = DockStyle.Fill;
-            label.Font = UiTheme.ValueFont;
-            label.Padding = new Padding(0, 0, 8, 0);
-            label.Text = text;
-            label.TextAlign = ContentAlignment.MiddleRight;
-        }
-
-        private static void ConfigureActionButton(ActionButton button, string text, string tag, int width)
-        {
-            button.Font = UiTheme.ButtonFont;
-            button.Height = 42;
-            button.Margin = new Padding(6);
-            button.Tag = tag;
-            button.Text = text;
-            button.Width = width;
         }
     }
 }

@@ -1,6 +1,6 @@
-namespace QMC.CDT_320.Ui.Pages.WorkInfo
+﻿namespace QMC.CDT_320.Ui.Pages.WorkInfo
 {
-    public partial class InputStagePage : PageBase
+    public partial class InputStagePage : QMC.CDT_320.Ui.Pages.PageBase
     {
         public InputStagePage()
         {
@@ -8,3 +8,4 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         }
     }
 }
+
