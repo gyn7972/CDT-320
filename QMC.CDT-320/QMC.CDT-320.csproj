@@ -68,8 +68,26 @@
     <Compile Include="Ui\Controls\UnitConfigGrid.Designer.cs">
       <DependentUpon>UnitConfigGrid.cs</DependentUpon>
     </Compile>
+    <Compile Include="Ui\Pages\History\AlarmHistoryPage.Designer.cs">
+      <DependentUpon>AlarmHistoryPage.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Pages\History\EventLogPage.Designer.cs">
+      <DependentUpon>EventLogPage.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Pages\History\FilterPages.Designer.cs">
+      <DependentUpon>FilterPages.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Pages\Material\DieMapPage.Designer.cs">
+      <DependentUpon>DieMapPage.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Pages\Material\MaterialBinPage.Designer.cs">
+      <DependentUpon>MaterialBinPage.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Pages\Recipe\CassetteRecipePage.Designer.cs">
       <DependentUpon>CassetteRecipePage.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Pages\Recipe\FeederRecipePage.Designer.cs">
+      <DependentUpon>FeederRecipePage.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Pages\Recipe\FeederRecipePage.cs">
       <SubType>UserControl</SubType>
@@ -87,8 +105,14 @@
     <Compile Include="Ui\Pages\Settings\AxisSetupPage.Designer.cs">
       <DependentUpon>AxisSetupPage.cs</DependentUpon>
     </Compile>
+    <Compile Include="Ui\Pages\WorkInfo\ActiveLotPage.Designer.cs">
+      <DependentUpon>ActiveLotPage.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Pages\WorkInfo\OperationPanelStatusPage.cs">
       <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\WorkInfo\OperationPanelStatusPage.Designer.cs">
+      <DependentUpon>OperationPanelStatusPage.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Pages\WorkInfo\PlateStatusPage.cs">
       <SubType>UserControl</SubType>
@@ -157,6 +181,9 @@
     <Compile Include="Ui\Dialogs\RemoteViewerDialog.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="Ui\Dialogs\RemoteViewerDialog.Designer.cs">
+      <DependentUpon>RemoteViewerDialog.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Pages\WorkInfo\ActiveLotPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
@@ -195,6 +222,9 @@
     <Compile Include="Equipment\Vision\VisionAdapters.cs" />
     <Compile Include="Equipment\Vision\VisionHub.cs" />
     <Compile Include="Equipment\Vision\VisionTcpClient.cs" />
+    <Compile Include="Ui\Pages\WorkInfo\PlateStatusPage.Designer.cs">
+      <DependentUpon>PlateStatusPage.cs</DependentUpon>
+    </Compile>
     <!-- UI / Theme + Localization + Security -->
     <Compile Include="Ui\UiTheme.cs" />
     <Compile Include="Ui\Localization\Lang.cs" />
@@ -227,20 +257,38 @@
     <Compile Include="Ui\Dialogs\BoardScanDialog.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="Ui\Dialogs\BoardScanDialog.Designer.cs">
+      <DependentUpon>BoardScanDialog.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Dialogs\CstStatusDialog.cs">
       <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\CstStatusDialog.Designer.cs">
+      <DependentUpon>CstStatusDialog.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Dialogs\LoginDialog.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="Ui\Dialogs\LoginDialog.Designer.cs">
+      <DependentUpon>LoginDialog.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Dialogs\ModeDialogs.cs">
       <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\ModeDialogs.Designer.cs">
+      <DependentUpon>ModeDialogs.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Dialogs\ModeOverlayDialog.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="Ui\Dialogs\ModeOverlayDialog.Designer.cs">
+      <DependentUpon>ModeOverlayDialog.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Dialogs\SystemSelfTestDialog.cs">
       <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\SystemSelfTestDialog.Designer.cs">
+      <DependentUpon>SystemSelfTestDialog.cs</DependentUpon>
     </Compile>
     <!-- UI / Tabs -->
     <Compile Include="Ui\Tabs\TabBase.cs">
@@ -291,37 +339,85 @@
     <Compile Include="Ui\Pages\PageBase.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="Ui\Pages\PlaceholderPage.Designer.cs">
+      <DependentUpon>PlaceholderPage.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Pages\PlaceholderPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="Ui\Pages\InfoRows.cs" />
     <!-- UI / Pages / Work -->
+    <Compile Include="Ui\Pages\Work\WorkMainPage.Designer.cs">
+      <DependentUpon>WorkMainPage.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Pages\Work\WorkMainPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="Ui\Pages\Work\MapTransferPage.Designer.cs">
+      <DependentUpon>MapTransferPage.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Pages\Work\MapTransferPage.cs">
       <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\Work\VisionAlignPage.Designer.cs">
+      <DependentUpon>VisionAlignPage.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Pages\Work\VisionAlignPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
     <!-- UI / Pages / WorkInfo -->
+    <Compile Include="Ui\Pages\WorkInfo\HeadPage.Designer.cs">
+      <DependentUpon>HeadPage.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Pages\WorkInfo\HeadPage.cs">
       <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\WorkInfo\InputCassettePage.Designer.cs">
+      <DependentUpon>InputCassettePage.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Pages\WorkInfo\InputCassettePage.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="Ui\Pages\WorkInfo\InputFeederPage.Designer.cs">
+      <DependentUpon>InputFeederPage.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Pages\WorkInfo\InputFeederPage.cs">
       <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\WorkInfo\InputStagePage.Designer.cs">
+      <DependentUpon>InputStagePage.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Pages\WorkInfo\InputStagePage.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="Ui\Pages\WorkInfo\LogicDetailPage.Designer.cs">
+      <DependentUpon>LogicDetailPage.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Pages\WorkInfo\LogicDetailPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="Ui\Pages\WorkInfo\OutputPages.cs">
+    <Compile Include="Ui\Pages\WorkInfo\LogicPage.Designer.cs">
+      <DependentUpon>LogicPage.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Pages\WorkInfo\LogicPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\WorkInfo\OutputCassettePage.Designer.cs">
+      <DependentUpon>OutputCassettePage.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Pages\WorkInfo\OutputCassettePage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\WorkInfo\OutputFeederPage.Designer.cs">
+      <DependentUpon>OutputFeederPage.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Pages\WorkInfo\OutputFeederPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\WorkInfo\OutputStagePage.Designer.cs">
+      <DependentUpon>OutputStagePage.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Pages\WorkInfo\OutputStagePage.cs">
       <SubType>UserControl</SubType>
     </Compile>
     <!-- UI / Pages / History -->
@@ -330,6 +426,9 @@
     </Compile>
     <Compile Include="Ui\Pages\History\FilterPages.cs">
       <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\History\MessageEditPage.Designer.cs">
+      <DependentUpon>MessageEditPage.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Pages\History\MessageEditPage.cs">
       <SubType>UserControl</SubType>
@@ -341,46 +440,88 @@
     <Compile Include="Ui\Pages\Recipe\CassetteRecipePage.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="Ui\Pages\Recipe\ForceControlPage.Designer.cs">
+      <DependentUpon>ForceControlPage.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Pages\Recipe\ForceControlPage.cs">
       <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\Recipe\HeadRecipePage.Designer.cs">
+      <DependentUpon>HeadRecipePage.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Pages\Recipe\HeadRecipePage.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="Ui\Pages\Recipe\MapCreatePage.Designer.cs">
+      <DependentUpon>MapCreatePage.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Pages\Recipe\MapCreatePage.cs">
       <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\Recipe\ProjectPage.Designer.cs">
+      <DependentUpon>ProjectPage.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Pages\Recipe\ProjectPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="Ui\Pages\Recipe\RecipeLayoutHelpers.cs" />
+    <Compile Include="Ui\Pages\Recipe\StageRecipePage.Designer.cs">
+      <DependentUpon>StageRecipePage.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Pages\Recipe\StageRecipePage.cs">
       <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\Recipe\VisionRecipePage.Designer.cs">
+      <DependentUpon>VisionRecipePage.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Pages\Recipe\VisionRecipePage.cs">
       <SubType>UserControl</SubType>
     </Compile>
     <!-- UI / Pages / Settings -->
+    <Compile Include="Ui\Pages\Settings\DevicePages.Designer.cs">
+      <DependentUpon>DevicePages.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Pages\Settings\DevicePages.cs">
       <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\Settings\GeneralPage.Designer.cs">
+      <DependentUpon>GeneralPage.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Pages\Settings\GeneralPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="Ui\Pages\Settings\IoListPage.Designer.cs">
+      <DependentUpon>IoListPage.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Pages\Settings\IoListPage.cs">
       <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\Settings\MotionPage.Designer.cs">
+      <DependentUpon>MotionPage.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Pages\Settings\MotionPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="Ui\Pages\Settings\SimulatorLinkPage.Designer.cs">
+      <DependentUpon>SimulatorLinkPage.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Pages\Settings\SimulatorLinkPage.cs">
       <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\Settings\VisionLinkPage.Designer.cs">
+      <DependentUpon>VisionLinkPage.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Pages\Settings\VisionLinkPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="Ui\Pages\Settings\AlarmMasterPage.Designer.cs">
+      <DependentUpon>AlarmMasterPage.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Pages\Settings\AlarmMasterPage.cs">
       <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\Settings\PositionTeachingPage.Designer.cs">
+      <DependentUpon>PositionTeachingPage.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Pages\Settings\PositionTeachingPage.cs">
       <SubType>UserControl</SubType>
@@ -388,8 +529,14 @@
     <Compile Include="Ui\Pages\Settings\AxisSetupPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="Ui\Pages\Settings\CameraSetupPage.Designer.cs">
+      <DependentUpon>CameraSetupPage.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Pages\Settings\CameraSetupPage.cs">
       <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\Settings\LightControllerPage.Designer.cs">
+      <DependentUpon>LightControllerPage.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Pages\Settings\LightControllerPage.cs">
       <SubType>UserControl</SubType>
@@ -412,12 +559,60 @@
       <AutoGen>True</AutoGen>
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
+    <EmbeddedResource Include="Ui\Dialogs\LoginDialog.resx">
+      <DependentUpon>LoginDialog.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Dialogs\RemoteViewerDialog.resx">
+      <DependentUpon>RemoteViewerDialog.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\History\AlarmHistoryPage.resx">
+      <DependentUpon>AlarmHistoryPage.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\History\EventLogPage.resx">
+      <DependentUpon>EventLogPage.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\History\FilterPages.resx">
+      <DependentUpon>FilterPages.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\Material\DieMapPage.resx">
+      <DependentUpon>DieMapPage.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\Material\MaterialBinPage.resx">
+      <DependentUpon>MaterialBinPage.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\Recipe\CassetteRecipePage.resx">
       <DependentUpon>CassetteRecipePage.cs</DependentUpon>
       <SubType>Designer</SubType>
     </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\Recipe\DieSubsetPage.resx">
+      <DependentUpon>DieSubsetPage.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\Recipe\LoadTapeFrameSubsetPage.resx">
+      <DependentUpon>LoadTapeFrameSubsetPage.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\Recipe\TapeFrameSubsetPage.resx">
+      <DependentUpon>TapeFrameSubsetPage.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\Recipe\UnloadTapeFrameSubsetPage.resx">
+      <DependentUpon>UnloadTapeFrameSubsetPage.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\Settings\AlarmMasterPage.resx">
+      <DependentUpon>AlarmMasterPage.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\Settings\AxisSetupPage.resx">
       <DependentUpon>AxisSetupPage.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\Settings\GeneralPage.resx">
+      <DependentUpon>GeneralPage.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\Settings\PositionTeachingPage.resx">
+      <DependentUpon>PositionTeachingPage.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\Settings\SimulatorLinkPage.resx">
+      <DependentUpon>SimulatorLinkPage.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\Settings\VisionLinkPage.resx">
+      <DependentUpon>VisionLinkPage.cs</DependentUpon>
     </EmbeddedResource>
     <None Include="Properties\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>

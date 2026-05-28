@@ -3,84 +3,60 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
 using QMC.CDT320;
-using QMC.CDT_320.Ui.Localization;
 
 namespace QMC.CDT_320.Ui.Pages.WorkInfo
 {
-    /// <summary>
-    /// 작업정보 - LOGIC 상세. TabControl 2탭:
-    /// 1) LOGIC : 6 unit 의 (state, step, description, last update) 실시간 그리드
-    /// 2) TIMECHART : 사이클 진행에 따른 unit 활성 구간을 가로 막대로 누적
-    /// Stage 58 — 하드코딩된 sample row 제거. MachineController.Status + LotStorage.ActiveLot
-    /// + 각 Unit 의 Name 으로부터 데이터를 1초마다 읽어와 표시.
-    /// </summary>
-    public class LogicDetailPage : PageBase
+    public partial class LogicDetailPage : PageBase
     {
-        // 6 Unit 표시 순서
         private static readonly string[] UnitNames =
         {
-            "InputLoader", "InputStage", "TransferPicker(Front)", "TransferPicker(Rear)",
-            "OutputStage", "OutputUnloader"
+            "InputLoader",
+            "InputStage",
+            "TransferPicker(Front)",
+            "TransferPicker(Rear)",
+            "OutputStage",
+            "OutputUnloader"
         };
 
-        private DataGridView _grid;
-        private Panel _chartHost;
-        private System.Windows.Forms.Timer _refresh;
-
-        // 시간차트 누적 — 각 unit 별로 (시작 ms, 길이 ms) 막대 리스트
         private readonly List<List<TimeBar>> _bars = new List<List<TimeBar>>();
-        private DateTime _chartStart = DateTime.Now;
-        private int _lastDoneSnapshot = 0;
+        private readonly DateTime _chartStart = DateTime.Now;
+        private Timer _refresh;
+        private int _lastDoneSnapshot;
 
-        private struct TimeBar { public int StartMs; public int LenMs; public Color Color; }
+        private struct TimeBar
+        {
+            public int StartMs;
+            public int LenMs;
+            public Color Color;
+        }
 
         public LogicDetailPage()
         {
-            Controls.Add(CreateSectionHeader("wi.logic"));
-
-            var tabs = new TabControl { Dock = DockStyle.Fill, Font = UiTheme.ButtonFont };
-            var tpLogic = new TabPage { Text = Lang.T("wi.logicLogic"),     Tag = "i18n:wi.logicLogic" };
-            var tpChart = new TabPage { Text = Lang.T("wi.logicTimechart"), Tag = "i18n:wi.logicTimechart" };
-
-            // LOGIC 탭: 모듈별 현재 상태 그리드
-            _grid = new DataGridView
-            {
-                Dock = DockStyle.Fill, ReadOnly = true, AllowUserToAddRows = false,
-                RowHeadersVisible = false, AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
-                BackgroundColor = Color.White, Font = new Font("맑은 고딕", 9F),
-                EnableHeadersVisualStyles = false,
-                ColumnHeadersDefaultCellStyle =
-                {
-                    BackColor = Color.FromArgb(0x50,0x50,0x50), ForeColor = Color.White,
-                    Alignment = DataGridViewContentAlignment.MiddleCenter,
-                    Font = new Font("맑은 고딕", 9F, FontStyle.Bold)
-                },
-                RowTemplate = { Height = 26 }
-            };
-            foreach (var c in new[] { "INDEX", "MODULE", "STATE", "STEP", "DESCRIPTION", "DURATION(ms)" })
-                _grid.Columns.Add(c, c);
-            for (int i = 0; i < UnitNames.Length; i++)
-                _grid.Rows.Add((i + 1).ToString(), UnitNames[i], "IDLE", "-", "(no data)", "0");
-            tpLogic.Controls.Add(_grid);
-
-            // TIMECHART 탭
-            _chartHost = new Panel { Dock = DockStyle.Fill, BackColor = Color.White };
-            for (int i = 0; i < UnitNames.Length; i++) _bars.Add(new List<TimeBar>());
-            _chartHost.Paint += OnPaintChart;
-            tpChart.Controls.Add(_chartHost);
-
-            tabs.TabPages.Add(tpLogic);
-            tabs.TabPages.Add(tpChart);
-            Controls.Add(tabs);
-            Controls.SetChildIndex(tabs, 0);
+            InitializeComponent();
+            InitializeRows();
+            WireEvents();
 
             if (!IsDesignerMode())
             {
-                _refresh = new System.Windows.Forms.Timer { Interval = 1000 };
+                _refresh = new Timer { Interval = 1000 };
                 _refresh.Tick += (s, e) => RefreshAll();
                 _refresh.Start();
                 RefreshAll();
             }
+        }
+
+        private void InitializeRows()
+        {
+            for (int i = 0; i < UnitNames.Length; i++)
+            {
+                _bars.Add(new List<TimeBar>());
+                _grid.Rows.Add((i + 1).ToString(), UnitNames[i], "IDLE", "-", "(no data)", "0");
+            }
+        }
+
+        private void WireEvents()
+        {
+            _chartHost.Paint += OnPaintChart;
         }
 
         private void RefreshAll()
@@ -89,76 +65,76 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             {
                 var host = (FindForm() ?? ParentForm) as Form1;
                 var ctrl = host?.Controller;
-                MachineStatus ms = ctrl?.Status ?? MachineStatus.Idle;
-
-                // unit 별 STATE/STEP/DESC 결정 — Cycling 중이면 진행 단계에 따라 다른 값
+                MachineStatus status = ctrl?.Status ?? MachineStatus.Idle;
                 int done = ctrl?.CycleDone ?? 0;
                 int total = ctrl?.CycleTotal ?? 0;
-                bool cycling = ms == MachineStatus.Cycling;
+                bool cycling = status == MachineStatus.Cycling;
 
-                // STATE 추정
-                string[] states = new string[UnitNames.Length];
-                string[] steps  = new string[UnitNames.Length];
-                string[] descs  = new string[UnitNames.Length];
+                var states = new string[UnitNames.Length];
+                var steps = new string[UnitNames.Length];
+                var descriptions = new string[UnitNames.Length];
                 for (int i = 0; i < UnitNames.Length; i++)
                 {
                     if (!cycling)
                     {
-                        states[i] = ms.ToString().ToUpper();
+                        states[i] = status.ToString().ToUpper();
                         steps[i] = "-";
-                        descs[i] = ms == MachineStatus.Initializing ? "Homing..." : "대기 중";
+                        descriptions[i] = status == MachineStatus.Initializing ? "Homing..." : "Waiting";
                     }
                     else
                     {
-                        // 6 unit 파이프라인 중에서 현재 활성 추정 — done % 6 위치를 ACTIVE
                         int active = done % UnitNames.Length;
-                        states[i] = (i == active) ? "ACTIVE" : "READY";
-                        steps[i]  = (i == active) ? StepName(i) : "-";
-                        descs[i]  = (i == active)
-                            ? string.Format("die {0}/{1} 처리 중", done + 1, Math.Max(total, 1))
-                            : "다음 다이 대기";
+                        states[i] = i == active ? "ACTIVE" : "READY";
+                        steps[i] = i == active ? StepName(i) : "-";
+                        descriptions[i] = i == active
+                            ? string.Format("die {0}/{1} processing", done + 1, Math.Max(total, 1))
+                            : "Waiting for next cycle";
                     }
                 }
-
-                long[] durations = new long[UnitNames.Length];
-                for (int i = 0; i < UnitNames.Length; i++)
-                    durations[i] = (states[i] == "ACTIVE") ? (long)((DateTime.Now - _chartStart).TotalMilliseconds % 5000) : 0;
 
                 for (int i = 0; i < UnitNames.Length && i < _grid.Rows.Count; i++)
                 {
+                    long duration = states[i] == "ACTIVE"
+                        ? (long)((DateTime.Now - _chartStart).TotalMilliseconds % 5000)
+                        : 0;
+
                     var row = _grid.Rows[i];
                     row.Cells[2].Value = states[i];
                     row.Cells[3].Value = steps[i];
-                    row.Cells[4].Value = descs[i];
-                    row.Cells[5].Value = durations[i].ToString();
-                    Color back = states[i] == "ACTIVE" ? Color.FromArgb(0xCC, 0xF2, 0xDD)
-                              : (states[i] == "ALARM" ? Color.FromArgb(0xFF, 0xCC, 0xCC) : Color.White);
-                    row.DefaultCellStyle.BackColor = back;
+                    row.Cells[4].Value = descriptions[i];
+                    row.Cells[5].Value = duration.ToString();
+                    row.DefaultCellStyle.BackColor = states[i] == "ACTIVE"
+                        ? Color.FromArgb(0xCC, 0xF2, 0xDD)
+                        : states[i] == "ALARM" ? Color.FromArgb(0xFF, 0xCC, 0xCC) : Color.White;
                 }
 
-                // 차트: 매 다이 done 증가 시 6 unit 에 한 칸씩 막대 추가
                 if (done > _lastDoneSnapshot)
                 {
-                    int dt = done - _lastDoneSnapshot;
+                    int delta = done - _lastDoneSnapshot;
                     int now = (int)((DateTime.Now - _chartStart).TotalMilliseconds);
-                    for (int k = 0; k < dt; k++)
+                    for (int k = 0; k < delta; k++)
                     {
                         int t = now + k * 30;
-                        for (int u = 0; u < UnitNames.Length; u++)
+                        for (int unit = 0; unit < UnitNames.Length; unit++)
                         {
-                            int width = 200 + (u * 50);
-                            _bars[u].Add(new TimeBar { StartMs = t + u * width / 6, LenMs = width / 2, Color = ColorForUnit(u) });
+                            int width = 200 + unit * 50;
+                            _bars[unit].Add(new TimeBar
+                            {
+                                StartMs = t + unit * width / 6,
+                                LenMs = width / 2,
+                                Color = ColorForUnit(unit)
+                            });
                         }
                     }
+
                     _lastDoneSnapshot = done;
-                    _chartHost.Invalidate();
                 }
-                else
-                {
-                    _chartHost.Invalidate();
-                }
+
+                _chartHost.Invalidate();
             }
-            catch { }
+            catch
+            {
+            }
         }
 
         private static string StepName(int unitIndex)
@@ -171,62 +147,72 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 case 3: return "INSPECT";
                 case 4: return "PLACE";
                 case 5: return "STORE";
+                default: return "-";
             }
-            return "-";
         }
 
-        private static Color ColorForUnit(int u)
+        private static Color ColorForUnit(int unitIndex)
         {
-            Color[] cs =
+            Color[] colors =
             {
-                Color.FromArgb(0x58, 0xD9, 0xA8), // Loader   green
-                Color.FromArgb(0x58, 0xC0, 0xD9), // Stage    cyan
-                Color.FromArgb(0xD9, 0xA8, 0x58), // Front    orange
-                Color.FromArgb(0xD9, 0x58, 0xA8), // Rear     pink
-                Color.FromArgb(0x58, 0x88, 0xD9), // OutStage blue
-                Color.FromArgb(0x88, 0x58, 0xD9), // Unloader violet
+                Color.FromArgb(0x58, 0xD9, 0xA8),
+                Color.FromArgb(0x58, 0xC0, 0xD9),
+                Color.FromArgb(0xD9, 0xA8, 0x58),
+                Color.FromArgb(0xD9, 0x58, 0xA8),
+                Color.FromArgb(0x58, 0x88, 0xD9),
+                Color.FromArgb(0x88, 0x58, 0xD9),
             };
-            return cs[u % cs.Length];
+            return colors[unitIndex % colors.Length];
         }
 
-        private void OnPaintChart(object s, PaintEventArgs e)
+        private void OnPaintChart(object sender, PaintEventArgs e)
         {
-            int w = _chartHost.Width, h = _chartHost.Height;
-            var g = e.Graphics;
-            // grid
-            using (var gray = new Pen(Color.LightGray)) for (int y = 0; y < h; y += 40) g.DrawLine(gray, 0, y, w, y);
-            using (var gray = new Pen(Color.LightGray)) for (int x = 0; x < w; x += 80) g.DrawLine(gray, x, 0, x, h);
+            int width = _chartHost.Width;
+            int height = _chartHost.Height;
+            var graphics = e.Graphics;
 
-            // 가로축: 0..현재경과ms 를 wrap 하여 화면 너비에 매핑
-            int totalMs = (int)((DateTime.Now - _chartStart).TotalMilliseconds);
-            if (totalMs < 1000) totalMs = 1000;
-            int axisMs = Math.Max(20000, totalMs); // 최소 20초 윈도우
-            for (int u = 0; u < _bars.Count; u++)
+            using (var gridPen = new Pen(Color.LightGray))
             {
-                int yRow = 20 + u * 40;
-                using (var br = new SolidBrush(ColorForUnit(u)))
+                for (int y = 0; y < height; y += 40) graphics.DrawLine(gridPen, 0, y, width, y);
+                for (int x = 0; x < width; x += 80) graphics.DrawLine(gridPen, x, 0, x, height);
+            }
+
+            int totalMs = (int)((DateTime.Now - _chartStart).TotalMilliseconds);
+            int axisMs = Math.Max(20000, Math.Max(1000, totalMs));
+            for (int unit = 0; unit < _bars.Count; unit++)
+            {
+                int yRow = 20 + unit * 40;
+                using (var brush = new SolidBrush(ColorForUnit(unit)))
                 {
-                    foreach (var b in _bars[u])
+                    foreach (var bar in _bars[unit])
                     {
-                        int x = (int)(b.StartMs / (double)axisMs * w);
-                        int bw = Math.Max(2, (int)(b.LenMs / (double)axisMs * w));
-                        if (x > w) x = x % w;
-                        g.FillRectangle(br, x, yRow, bw, 20);
+                        int x = (int)(bar.StartMs / (double)axisMs * width);
+                        int barWidth = Math.Max(2, (int)(bar.LenMs / (double)axisMs * width));
+                        if (x > width) x %= Math.Max(width, 1);
+                        graphics.FillRectangle(brush, x, yRow, barWidth, 20);
                     }
                 }
             }
-            using (var f = new Font("맑은 고딕", 9F))
+
+            using (var font = new Font("Segoe UI", 9F))
             {
                 for (int i = 0; i < UnitNames.Length; i++)
-                    g.DrawString(UnitNames[i], f, Brushes.Black, 4, 20 + i * 40);
-                using (var br = new SolidBrush(Color.DimGray))
-                    g.DrawString("axis = " + (axisMs / 1000) + "s", f, br, w - 100, h - 18);
+                    graphics.DrawString(UnitNames[i], font, Brushes.Black, 4, 20 + i * 40);
+
+                using (var brush = new SolidBrush(Color.DimGray))
+                    graphics.DrawString("axis = " + (axisMs / 1000) + "s", font, brush, width - 100, height - 18);
             }
         }
 
         protected override void OnHandleDestroyed(EventArgs e)
         {
-            try { _refresh?.Stop(); _refresh?.Dispose(); } catch { }
+            try
+            {
+                _refresh?.Stop();
+                _refresh?.Dispose();
+            }
+            catch { }
+
             base.OnHandleDestroyed(e);
         }
     }

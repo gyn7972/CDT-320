@@ -12,11 +12,16 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
     /// 현재 프로젝트(AppSettings.LastProject) 를 자동 로드/저장.
     /// 서브클래스는 BuildEditor() 에서 입력 컨트롤 생성 + LoadFromRecipe() / SaveToRecipe() 구현.
     /// </summary>
-    public abstract class SubsetPageBase : PageBase
+    public class SubsetPageBase : PageBase
     {
         protected RecipeProject _project;
         protected Panel         _editorPanel;
         protected Label         _lblProject;
+
+        public SubsetPageBase()
+            : this("recipe.subset")
+        {
+        }
 
         protected SubsetPageBase(string i18nKey)
         {
@@ -159,9 +164,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private void SafeSaveToRecipe()   {       SaveToRecipe();              }
 
         // ── 서브클래스 구현 ──
-        protected abstract void BuildEditor(Panel container);
-        protected abstract void LoadFromRecipe();
-        protected abstract void SaveToRecipe();
+        protected virtual void BuildEditor(Panel container) { }
+        protected virtual void LoadFromRecipe() { }
+        protected virtual void SaveToRecipe() { }
 
         // ── 편의 ──
         protected Label MakeLabel(string text, int x, int y, int w = 200, int h = 26)

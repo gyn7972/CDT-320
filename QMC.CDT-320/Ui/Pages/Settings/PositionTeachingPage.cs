@@ -17,7 +17,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
     /// 각 Unit 의 핵심 시퀀스 위치(절대 좌표)를 그리드에서 편집·티칭·저장.
     /// 메뉴얼(CDT-310/CDT-300) + 코드의 Setup 클래스 기준으로 항목을 시드한다.
     /// </summary>
-    public class PositionTeachingPage : PageBase
+    public partial class PositionTeachingPage : PageBase
     {
         // ── 위치 항목 메타 ─────────────────────────────────────────────
         public class TeachItem
@@ -31,14 +31,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             public string Desc  { get; set; }   // 한 줄 설명
         }
 
-        private DataGridView _grid;
         private List<TeachItem> _items;
 
-        // ── Stage 61 — Jog 패널 컴포넌트 ──
-        private Panel    _jogPanel;
-        private Label    _jogAxisLabel, _jogPosLabel;
-        private TextBox  _jogSpeedBox, _jogStepBox;
-        private Panel    _jogButtonArea;
         private System.Windows.Forms.Timer _jogPosTimer;
         private QMC.Common.Motion.BaseAxis _jogCurrentAxis;
 
@@ -48,203 +42,39 @@ namespace QMC.CDT_320.Ui.Pages.Settings
 
         public PositionTeachingPage()
         {
-            Controls.Add(CreateSectionHeader("set.teach"));
-
-            BuildHeader();
-            BuildGrid();
-            BuildJogPanel();
-            BuildActions();
+            InitializeComponent();
+            WireRuntimeEvents();
 
             _items = LoadOrSeed();
             FillGrid();
         }
 
-        // ──────────────────────────────────────
-        //  UI 구성
-        // ──────────────────────────────────────
-        private void BuildHeader()
+        private void WireRuntimeEvents()
         {
-            Controls.Add(new Label
-            {
-                Location = new Point(8, 36), Size = new Size(1400, 26),
-                Text = "POSITION TEACHING (시퀀스 위치 티칭)",
-                BackColor = UiTheme.StatusBarBg, ForeColor = Color.White,
-                Font = UiTheme.SectionFont, TextAlign = ContentAlignment.MiddleLeft,
-                Padding = new Padding(10, 0, 0, 0)
-            });
-        }
-
-        private void BuildGrid()
-        {
-            _grid = new DataGridView
-            {
-                Location = new Point(8, 66), Size = new Size(1100, 800),
-                ReadOnly = false,
-                AllowUserToAddRows = false,
-                AllowUserToDeleteRows = false,
-                RowHeadersVisible = false,
-                MultiSelect = false,
-                SelectionMode = DataGridViewSelectionMode.FullRowSelect,
-                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
-                BackgroundColor = Color.White,
-                Font = new Font("맑은 고딕", 9F),
-                EnableHeadersVisualStyles = false,
-                ColumnHeadersDefaultCellStyle =
-                {
-                    BackColor = Color.FromArgb(0x50, 0x50, 0x50),
-                    ForeColor = Color.White,
-                    Alignment = DataGridViewContentAlignment.MiddleCenter,
-                    Font = new Font("맑은 고딕", 9F, FontStyle.Bold)
-                },
-                RowTemplate = { Height = 24 }
-            };
-            _grid.Columns.Add("GROUP", "MODULE");
-            _grid.Columns.Add("KEY",   "KEY");
-            _grid.Columns.Add("NAME",  "NAME");
-            _grid.Columns.Add("AXIS",  "AXIS (#No)");
-            var col = new DataGridViewTextBoxColumn { Name = "VALUE", HeaderText = "VALUE", DefaultCellStyle = { Alignment = DataGridViewContentAlignment.MiddleRight, Font = new Font("Consolas", 10F, FontStyle.Bold) } };
-            _grid.Columns.Add(col);
-            _grid.Columns.Add("UNIT",  "UNIT");
-            _grid.Columns.Add("DESC",  "DESCRIPTION");
-
-            _grid.Columns["GROUP"].ReadOnly = true;
-            _grid.Columns["KEY"]  .ReadOnly = true;
-            _grid.Columns["NAME"] .ReadOnly = true;
-            _grid.Columns["AXIS"] .ReadOnly = true;
-            _grid.Columns["UNIT"] .ReadOnly = true;
-            _grid.Columns["DESC"] .ReadOnly = true;
-
             _grid.CellEndEdit += OnCellEdit;
             _grid.SelectionChanged += (s, e) => OnGridSelectionChanged();
-            Controls.Add(_grid);
-        }
 
-        // ──────────────────────────────────────
-        //  Stage 61 — Jog 패널 (그리드 오른쪽)
-        //  속도 / 스텝 입력 + 축 방향에 맞는 +/- 버튼.
-        //    X 축: 좌우 버튼 (− ← →+)
-        //    Y/Z 축: 상하 버튼 (+ 위, − 아래)
-        //    T 축: 회전 버튼 (CCW / CW)
-        // ──────────────────────────────────────
-        private void BuildJogPanel()
-        {
-            _jogPanel = new Panel
+            btnStepMul10.Click += (s, e) => MultiplyStep(10.0);
+            btnStepDiv10.Click += (s, e) => MultiplyStep(0.1);
+            btnStep5.Click += (s, e) => { _jogStepBox.Text = "5"; };
+            btnStep1.Click += (s, e) => { _jogStepBox.Text = "1"; };
+            btnStep01.Click += (s, e) => { _jogStepBox.Text = "0.1"; };
+            btnStep001.Click += (s, e) => { _jogStepBox.Text = "0.01"; };
+            btnStep0001.Click += (s, e) => { _jogStepBox.Text = "0.001"; };
+
+            btnTeach.Click += (s, e) => TeachFromCurrentPos();
+            btnGoto.Click += (s, e) => MoveToTaught();
+            btnApply.Click += (s, e) => ApplyToSetup();
+            btnSave.Click += (s, e) => DoSave();
+            btnReload.Click += (s, e) => { _items = LoadOrSeed(); FillGrid(); };
+            btnReset.Click += (s, e) =>
             {
-                Location = new Point(1116, 66), Size = new Size(290, 800),
-                BackColor = Color.FromArgb(0xF2, 0xF5, 0xFA),
-                BorderStyle = BorderStyle.FixedSingle
+                if (MessageBox.Show("기본값으로 초기화하시겠습니까?", "Reset",
+                                     MessageBoxButtons.OKCancel) != DialogResult.OK) return;
+                _items = SeedDefault();
+                FillGrid();
             };
 
-            var header = new Label
-            {
-                Location = new Point(0, 0), Size = new Size(290, 28),
-                Text = "AXIS JOG",
-                BackColor = UiTheme.StatusBarBg, ForeColor = Color.White,
-                Font = UiTheme.SectionFont, TextAlign = ContentAlignment.MiddleCenter
-            };
-            _jogPanel.Controls.Add(header);
-
-            _jogAxisLabel = new Label
-            {
-                Location = new Point(8, 36), Size = new Size(274, 22),
-                Text = "Axis: (선택된 행 없음)",
-                Font = new Font("맑은 고딕", 9F, FontStyle.Bold)
-            };
-            _jogPanel.Controls.Add(_jogAxisLabel);
-
-            _jogPosLabel = new Label
-            {
-                Location = new Point(8, 60), Size = new Size(274, 22),
-                Text = "Actual Pos: -",
-                Font = new Font("Consolas", 10F)
-            };
-            _jogPanel.Controls.Add(_jogPosLabel);
-
-            _jogPanel.Controls.Add(new Label
-            {
-                Location = new Point(8, 92), Size = new Size(80, 22),
-                Text = "Speed:", Font = new Font("맑은 고딕", 9F)
-            });
-            _jogSpeedBox = new TextBox
-            {
-                Location = new Point(90, 90), Size = new Size(100, 22),
-                Text = "100", Font = new Font("Consolas", 10F),
-                TextAlign = HorizontalAlignment.Right
-            };
-            _jogPanel.Controls.Add(_jogSpeedBox);
-            _jogPanel.Controls.Add(new Label
-            {
-                Location = new Point(194, 92), Size = new Size(60, 22),
-                Text = "mm/s", Font = new Font("맑은 고딕", 8.5F),
-                ForeColor = Color.DimGray
-            });
-
-            _jogPanel.Controls.Add(new Label
-            {
-                Location = new Point(8, 122), Size = new Size(80, 22),
-                Text = "Step:", Font = new Font("맑은 고딕", 9F)
-            });
-            _jogStepBox = new TextBox
-            {
-                Location = new Point(90, 120), Size = new Size(80, 22),
-                Text = "1.0", Font = new Font("Consolas", 10F),
-                TextAlign = HorizontalAlignment.Right
-            };
-            _jogPanel.Controls.Add(_jogStepBox);
-
-            // ×10 / ÷10 버튼 (Step 텍스트박스 우측)
-            var btnMul10 = new Button {
-                Location = new Point(174, 119), Size = new Size(40, 25),
-                Text = "×10", Font = new Font("맑은 고딕", 8F, FontStyle.Bold),
-                BackColor = Color.FromArgb(0xE2, 0xEB, 0xF8), FlatStyle = FlatStyle.Flat
-            };
-            btnMul10.Click += (s, e) => MultiplyStep(10.0);
-            _jogPanel.Controls.Add(btnMul10);
-
-            var btnDiv10 = new Button {
-                Location = new Point(218, 119), Size = new Size(40, 25),
-                Text = "÷10", Font = new Font("맑은 고딕", 8F, FontStyle.Bold),
-                BackColor = Color.FromArgb(0xE2, 0xEB, 0xF8), FlatStyle = FlatStyle.Flat
-            };
-            btnDiv10.Click += (s, e) => MultiplyStep(0.1);
-            _jogPanel.Controls.Add(btnDiv10);
-
-            // Step 프리셋 버튼 — 5 / 1 / 0.1 / 0.01 / 0.001
-            string[] presets = new[] { "5", "1", "0.1", "0.01", "0.001" };
-            int x = 8;
-            int btnW = 53;
-            for (int i = 0; i < presets.Length; i++)
-            {
-                var p = presets[i];
-                var b = new Button {
-                    Location = new Point(x, 150), Size = new Size(btnW, 26),
-                    Text = p, Font = new Font("맑은 고딕", 8.5F, FontStyle.Bold),
-                    BackColor = Color.FromArgb(0xEC, 0xF3, 0xFA), FlatStyle = FlatStyle.Flat,
-                    Margin = new Padding(2)
-                };
-                b.Click += (s, e) => { _jogStepBox.Text = p; };
-                _jogPanel.Controls.Add(b);
-                x += btnW + 2;
-            }
-
-            _jogButtonArea = new Panel
-            {
-                Location = new Point(8, 188), Size = new Size(274, 260),
-                BackColor = Color.White, BorderStyle = BorderStyle.FixedSingle
-            };
-            _jogPanel.Controls.Add(_jogButtonArea);
-
-            var hint = new Label
-            {
-                Location = new Point(8, 456), Size = new Size(274, 60),
-                Text = "그리드 행 클릭 → 해당 축 자동 전환.\nServo OFF 상태면 자동 ON 후 이동.",
-                Font = new Font("맑은 고딕", 8F), ForeColor = Color.DimGray
-            };
-            _jogPanel.Controls.Add(hint);
-
-            Controls.Add(_jogPanel);
-
-            // 200ms 주기로 현재 축 위치 갱신
             _jogPosTimer = new System.Windows.Forms.Timer { Interval = 200 };
             _jogPosTimer.Tick += (s, e) => RefreshJogPos();
             _jogPosTimer.Start();
@@ -361,47 +191,6 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             _jogPosLabel.Text = _jogCurrentAxis == null
                 ? "Actual Pos: -"
                 : "Actual Pos: " + _jogCurrentAxis.ActualPosition.ToString("F3");
-        }
-
-        private void BuildActions()
-        {
-            var actions = new FlowLayoutPanel
-            {
-                Dock = DockStyle.Bottom, Height = 60, Padding = new Padding(8),
-                BackColor = UiTheme.OptionPanelBg, FlowDirection = FlowDirection.LeftToRight
-            };
-
-            var btnTeach = new Controls.ActionButton { Text = "TEACH (현재축위치 적용)", Size = new Size(220, 44), Margin = new Padding(4) };
-            btnTeach.Click += (s, e) => TeachFromCurrentPos();
-            actions.Controls.Add(btnTeach);
-
-            var btnGoto = new Controls.ActionButton { Text = "MOVE TO (이 위치로 이동)", Size = new Size(220, 44), Margin = new Padding(4) };
-            btnGoto.Click += (s, e) => MoveToTaught();
-            actions.Controls.Add(btnGoto);
-
-            var btnApply = new Controls.ActionButton { Text = "APPLY (Setup 반영)", Size = new Size(180, 44), Margin = new Padding(4) };
-            btnApply.Click += (s, e) => ApplyToSetup();
-            actions.Controls.Add(btnApply);
-
-            var btnSave = new Controls.ActionButton { Text = "SAVE", Size = new Size(120, 44), Margin = new Padding(4) };
-            btnSave.Click += (s, e) => DoSave();
-            actions.Controls.Add(btnSave);
-
-            var btnReload = new Controls.ActionButton { Text = "RELOAD", Size = new Size(120, 44), Margin = new Padding(4) };
-            btnReload.Click += (s, e) => { _items = LoadOrSeed(); FillGrid(); };
-            actions.Controls.Add(btnReload);
-
-            var btnReset = new Controls.ActionButton { Text = "RESET DEFAULT", Size = new Size(160, 44), Margin = new Padding(4) };
-            btnReset.Click += (s, e) =>
-            {
-                if (MessageBox.Show("기본값으로 초기화하시겠습니까?", "Reset",
-                                     MessageBoxButtons.OKCancel) != DialogResult.OK) return;
-                _items = SeedDefault();
-                FillGrid();
-            };
-            actions.Controls.Add(btnReset);
-
-            Controls.Add(actions);
         }
 
         // ──────────────────────────────────────

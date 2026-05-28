@@ -10,6 +10,23 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private TextBox        _tbName;
         private NumericUpDown  _nW, _nH, _nT;
         private NumericUpDown  _nWLow, _nWUp, _nHLow, _nHUp;
+
+        private void InitializeComponent()
+        {
+            this.SuspendLayout();
+            // 
+            // _lblProject
+            // 
+            this._lblProject.Size = new System.Drawing.Size(0, 36);
+            // 
+            // DieSubsetPage
+            // 
+            this.Name = "DieSubsetPage";
+            this.Controls.SetChildIndex(this._editorPanel, 0);
+            this.ResumeLayout(false);
+
+        }
+
         private NumericUpDown  _nChipDepth, _nChipLen, _nForeign;
 
         public DieSubsetPage() : base("recipe.dieSubset") { }

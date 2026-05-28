@@ -11,6 +11,22 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private NumericUpDown _nGridX, _nGridY, _nPitchX, _nPitchY, _nDiameter;
         private ComboBox      _cbRotate;
 
+        private void InitializeComponent()
+        {
+            this.SuspendLayout();
+            // 
+            // _lblProject
+            // 
+            this._lblProject.Size = new System.Drawing.Size(0, 36);
+            // 
+            // TapeFrameSubsetPage
+            // 
+            this.Name = "TapeFrameSubsetPage";
+            this.Controls.SetChildIndex(this._editorPanel, 0);
+            this.ResumeLayout(false);
+
+        }
+
         public TapeFrameSubsetPage() : base("recipe.tapeFrameSubset") { }
 
         protected override void BuildEditor(Panel c)

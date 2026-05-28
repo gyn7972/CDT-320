@@ -31,6 +31,22 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             _nLower.Value = (decimal)u.GapLowerLimit;
         }
 
+        private void InitializeComponent()
+        {
+            this.SuspendLayout();
+            // 
+            // _lblProject
+            // 
+            this._lblProject.Size = new System.Drawing.Size(0, 36);
+            // 
+            // UnloadTapeFrameSubsetPage
+            // 
+            this.Name = "UnloadTapeFrameSubsetPage";
+            this.Controls.SetChildIndex(this._editorPanel, 0);
+            this.ResumeLayout(false);
+
+        }
+
         protected override void SaveToRecipe()
         {
             var u = _project.UnloadFrame ?? (_project.UnloadFrame = new UnloadTapeFrameSubset());

@@ -120,9 +120,16 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             }
             return L;
         }
+
+        public static List<AxisRow> LoadConfiguredRows()
+        {
+            return LoadOrSeed();
+        }
+
         // Persistence ──────────────────────────────────────────────
         private static List<AxisRow> LoadOrSeed()
         {
+            List<AxisRow> rows = null;
             try
             {
                 if (File.Exists(SavePath))
@@ -130,11 +137,17 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                     {
                         var ser = new DataContractJsonSerializer(typeof(AxisStore));
                         var s = (AxisStore)ser.ReadObject(fs);
-                        if (s?.Items != null && s.Items.Count > 0) return MergeWithDefaults(s.Items);
+                        if (s?.Items != null && s.Items.Count > 0)
+                            rows = MergeWithDefaults(s.Items);
                     }
             }
             catch { }
-            return SeedDefault();
+
+            if (rows == null)
+                rows = SeedDefault();
+
+            ApplyAjinConfigMappings(rows);
+            return rows;
         }
 
         private static List<AxisRow> MergeWithDefaults(List<AxisRow> saved)
@@ -160,6 +173,36 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             return result;
         }
 
+        private static void ApplyAjinConfigMappings(List<AxisRow> rows)
+        {
+            if (rows == null) return;
+
+            try
+            {
+                var cfg = AjinConfigStore.Load();
+                if (cfg?.Axes == null || cfg.Axes.Count == 0) return;
+
+                foreach (var row in rows)
+                {
+                    string configKey = AjinAxisDefaults.ResolveName(row.ConfigKey);
+                    AxisMap map = null;
+
+                    if (!string.IsNullOrEmpty(configKey))
+                        cfg.Axes.TryGetValue(configKey, out map);
+
+                    if (map == null && !string.IsNullOrEmpty(row.Name))
+                        cfg.Axes.TryGetValue(AjinAxisDefaults.ResolveName(row.Name), out map);
+
+                    if (map == null) continue;
+
+                    row.No = map.Axis;
+                    row.BoardNo = map.BoardNo;
+                    row.ChannelNo = map.ChannelNo;
+                }
+            }
+            catch { }
+        }
+
         private void DoSave()
         {
             try
@@ -170,6 +213,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                     var ser = new DataContractJsonSerializer(typeof(AxisStore));
                     ser.WriteObject(fs, new AxisStore { Items = _items });
                 }
+                SaveAjinMappings();
                 MessageBox.Show("저장 완료.\n" + SavePath);
             }
             catch (Exception ex) { MessageBox.Show("실패: " + ex.Message); }
@@ -262,23 +306,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             // Stage 61 — Board/Channel 값을 AjinConfig 에도 반영 (ConfigKey 기준)
             try
             {
-                var cfg = QMC.CDT320.Ajin.AjinConfigStore.Current;
-                foreach (var it in _items)
-                {
-                    string configKey = AjinAxisDefaults.ResolveName(it.ConfigKey);
-                    if (string.IsNullOrEmpty(configKey)) continue;
-                    if (!cfg.Axes.TryGetValue(configKey, out var am))
-                    {
-                        am = new QMC.CDT320.Ajin.AxisMap();
-                        cfg.Axes[configKey] = am;
-                    }
-                    am.Axis = it.No;
-                    am.BoardNo = it.BoardNo;
-                    am.ChannelNo = it.ChannelNo;
-                    cfgApplied++;
-                }
-                QMC.CDT320.Ajin.AjinConfigStore.Save();
-                QMC.CDT320.Ajin.AjinFactory.ReloadConfiguredAxes();
+                cfgApplied = SaveAjinMappings();
+                AjinFactory.ReloadConfiguredAxes();
             }
             catch (Exception ex)
             {
@@ -286,6 +315,33 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             }
 
             MessageBox.Show($"Soft Limit/Velocity 적용 축: {axisApplied}\nAjinConfig (Board/Ch) 반영: {cfgApplied}");
+        }
+
+        private int SaveAjinMappings()
+        {
+            var cfg = AjinConfigStore.Current ?? AjinConfigStore.Load();
+            int count = 0;
+
+            foreach (var it in _items)
+            {
+                string configKey = AjinAxisDefaults.ResolveName(it.ConfigKey);
+                if (string.IsNullOrEmpty(configKey)) continue;
+
+                AxisMap am;
+                if (!cfg.Axes.TryGetValue(configKey, out am))
+                {
+                    am = new AxisMap();
+                    cfg.Axes[configKey] = am;
+                }
+
+                am.Axis = it.No;
+                am.BoardNo = it.BoardNo;
+                am.ChannelNo = it.ChannelNo;
+                count++;
+            }
+
+            AjinConfigStore.Save();
+            return count;
         }
 
         private static IEnumerable<QMC.Common.Motion.BaseAxis> EnumerateAxes(QMC.CDT320.CDT320_Machine m)

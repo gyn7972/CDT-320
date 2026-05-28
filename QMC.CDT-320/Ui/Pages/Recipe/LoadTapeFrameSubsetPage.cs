@@ -32,6 +32,22 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             _nAlignPts.Value = l.AlignmentPoints;
         }
 
+        private void InitializeComponent()
+        {
+            this.SuspendLayout();
+            // 
+            // _lblProject
+            // 
+            this._lblProject.Size = new System.Drawing.Size(0, 36);
+            // 
+            // LoadTapeFrameSubsetPage
+            // 
+            this.Name = "LoadTapeFrameSubsetPage";
+            this.Controls.SetChildIndex(this._editorPanel, 0);
+            this.ResumeLayout(false);
+
+        }
+
         protected override void SaveToRecipe()
         {
             var l = _project.LoadFrame ?? (_project.LoadFrame = new LoadTapeFrameSubset());
