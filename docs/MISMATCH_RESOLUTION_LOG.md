@@ -168,3 +168,10 @@
 | M-63-1 | 전 코드베이스 (Common/Vision/Handler) | 검사 이름 의미 불일치 — Top/Bottom 은 수직면을 암시하나 실제는 다이 앞/뒤 측면 카메라 검사 | TopSide/BottomSide → FrontSide/RearSide 로 전수 리네임. 라벨 "상면/하면 검사" → "앞쪽/뒤쪽 측면 검사" |
 | M-63-2 | 설정 파일 (algorithm_camera.json / vision.json / settings.json / Recipe) | 구버전 키 잔존 시 로드 깨짐 | 자동 마이그레이션: AlgorithmCameraSubset.MigrateLegacyAlgorithmNames + [DataMember(Name=old)] Legacy 프로퍼티 + OnDeserialized. Load 가 정규화 재저장 → 구 키 1회 로드 후 소멸 |
 | M-63-3 | inspector 내부 id (TopSurfaceInspector 등) | 모듈은 FrontSide 인데 내부 id 는 Top* | 백엔드 호환 위해 inspector 내부 id 는 의도적 유지 (외부 노출 X). RESULT 보고서에 명시 |
+
+## STAGE 64 — 검사별 카메라 오버라이드 SPEC (2026-05-28)
+
+| ID | 위치 | 내용 | 처리 |
+|---|---|---|---|
+| M-64-1 | Ui\Editors\ 5종 ParameterEditor vs 본 Stage | 레이어 혼동 주의 — 편집기 5종은 **알고리즘 파라미터**(Threshold/Template), 본 Stage 는 **카메라 파라미터의 검사별 오버라이드**. 서로 다른 레이어 | SPEC §12 에 구분 명시. 본 Stage 는 편집기 5종 미변경 |
+| M-64-2 | 중복 InspectionId (ReticleFinder/DieFinder/ScaleFinder/FocusFinder/DieEdgeFinder) | 여러 알고리즘이 동일 검사 ID 보유 | override 는 (Algorithm, InspectionId) 조합으로 유일 — Inspections 가 AlgorithmCameraMapping 내부라 알고리즘 스코프에서 충돌 없음 (SPEC §2.2) |
