@@ -5,6 +5,7 @@ using System.Drawing.Imaging;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading;
+using MvCamCtrl.NET;
 using QMC.Vision.Core;
 
 namespace QMC.Vision.Cameras.Hik
@@ -12,23 +13,21 @@ namespace QMC.Vision.Cameras.Hik
     /// <summary>
     /// HIKVISION GigE 카메라 구현.
     /// <see cref="HikMvsDll"/> 로 SDK 를 동적 로드하고, 리플렉션으로 MyCamera API 호출.
-    /// SDK 미설치 시 Open() 에서 즉시 false 상태가 되고, <see cref="SimCamera"/> 로 대체하면 됨.
+    /// SDK 미설치 시 Open() 에서 즉시 false 상태가 되고, SimCamera 로 대체하면 됨.
     /// <para>
-    /// 주요 MVS API:
-    ///   MV_CC_CreateHandle / MV_CC_OpenDevice / MV_CC_CloseDevice / MV_CC_DestroyHandle
-    ///   MV_CC_StartGrabbing / MV_CC_StopGrabbing / MV_CC_GetOneFrameTimeout
-    ///   MV_CC_SetIntValue / MV_CC_SetFloatValue / MV_CC_SetEnumValue
-    ///   MV_CC_RegisterImageCallBackEx (콜백)
+    /// MVS 4.x SDK 는 메서드명에 _NET 접미사, nested 타입은 MyCamera+ 안에 위치한다.
+    /// 구 버전 호환을 위해 후보 이름들을 fallback 시퀀스로 시도한다.
     /// </para>
     /// </summary>
     public class HikGigECamera : CameraBase
     {
         private object  _camera;           // MyCamera 인스턴스
-        private IntPtr  _handle;
         private Thread  _liveThread;
         private volatile bool _liveRun;
         private byte[]  _frameBuf;
         private int     _frameBufSize;
+        private object  _frameCallbackDelegate;       // 콜백 보유용 GC 방지
+        private MyCamera.cbEventdelegateEx _eventCb;  // ExposureEnd 등 HW 이벤트 콜백 (GC 방지)
 
         public HikGigECamera(CameraInfo info) : base(info)
         {
@@ -46,38 +45,68 @@ namespace QMC.Vision.Cameras.Hik
             if (!HikMvsDll.IsLoaded)
                 throw new InvalidOperationException(HikMvsDll.GetInstallHint());
 
-            // MyCamera camera = new MyCamera();
             _camera = Activator.CreateInstance(HikMvsDll.MyCameraType);
 
-            // deviceInfo 조립: Info.IpAddress 로 MV_GIGE_DEVICE_INFO 를 만들거나,
-            // 편의상 전체 enum 후 IP 일치하는 것 선택.
             var devInfo = FindDeviceInfoByIp(Info.IpAddress);
             if (devInfo == null)
                 throw new InvalidOperationException("Device not found: " + Info.IpAddress);
 
-            // ret = camera.MV_CC_CreateHandle(ref devInfo);
-            int r = (int)Invoke("MV_CC_CreateHandle", new[] { devInfo });
-            EnsureSuccess(r, "MV_CC_CreateHandle");
+            // CreateDevice_NET(ref MV_CC_DEVICE_INFO) — 4.x; 구 버전: CreateHandle(ref MV_CC_DEVICE_INFO)
+            int r = InvokeFirst(new[] { "MV_CC_CreateDevice_NET", "MV_CC_CreateHandle" }, new[] { devInfo });
+            EnsureSuccess(r, "MV_CC_CreateDevice");
 
-            // ret = camera.MV_CC_OpenDevice(MV_ACCESS_Exclusive=1, 0);
-            r = (int)Invoke("MV_CC_OpenDevice", new object[] { (uint)1, (ushort)0 });
+            // OpenDevice_NET() — 인자 없는 오버로드 우선
+            r = InvokeFirst(new[] { "MV_CC_OpenDevice_NET", "MV_CC_OpenDevice" }, Array.Empty<object>());
+            if (r != 0)
+            {
+                // 인자 있는 시그니처로 재시도 (Exclusive=1, Key=0)
+                r = InvokeFirst(new[] { "MV_CC_OpenDevice_NET", "MV_CC_OpenDevice" }, new object[] { (uint)1, (ushort)0 });
+            }
             EnsureSuccess(r, "MV_CC_OpenDevice");
 
-            // 기본 파라미터 적용
+            // GigE 패킷 크기 최적화
+            TryOptimizePacketSize();
+
             ApplyInitialParameters();
+
+            // ExposureEnd HW 이벤트 등록 (강타입 — ref MV_EVENT_OUT_INFO delegate)
+            TryEnableExposureEndEvent();
 
             IsOpen = true;
             RaiseConnectionChanged(CameraConnectionEvent.Opened);
+        }
+
+        /// <summary>EventSelector=ExposureEnd → EventNotification=On → RegisterEventCallBackEx.
+        /// 카메라/모드 미지원 시 조용히 무시 (ExposureEnded 이벤트가 발화되지 않을 뿐).</summary>
+        private void TryEnableExposureEndEvent()
+        {
+            var cam = _camera as MyCamera;
+            if (cam == null) return;
+            try
+            {
+                cam.MV_CC_SetEnumValueByString_NET("EventSelector", "ExposureEnd");
+                cam.MV_CC_SetEnumValueByString_NET("EventNotification", "On");
+                _eventCb = new MyCamera.cbEventdelegateEx(OnHwEvent);
+                cam.MV_CC_RegisterEventCallBackEx_NET("ExposureEnd", _eventCb, IntPtr.Zero);
+            }
+            catch { /* 미지원 카메라 — fallback 은 VisionModule 의 프레임완료 EPD */ }
+        }
+
+        private void OnHwEvent(ref MyCamera.MV_EVENT_OUT_INFO info, IntPtr user)
+        {
+            // 노출 종료 — 전송 완료(GetOneFrame) 전에 도착. 즉시 ExposureEnded 발화.
+            RaiseExposureEnded();
         }
 
         public override void Close()
         {
             StopLive();
             if (!IsOpen) return;
-            try { Invoke("MV_CC_CloseDevice", null); } catch { }
-            try { Invoke("MV_CC_DestroyHandle", null); } catch { }
+            try { InvokeFirst(new[] { "MV_CC_CloseDevice_NET", "MV_CC_CloseDevice" }, Array.Empty<object>()); } catch { }
+            try { InvokeFirst(new[] { "MV_CC_DestroyDevice_NET", "MV_CC_DestroyHandle" }, Array.Empty<object>()); } catch { }
             IsOpen = false;
             _camera = null;
+            _eventCb = null;
             RaiseConnectionChanged(CameraConnectionEvent.Closed);
         }
 
@@ -89,38 +118,53 @@ namespace QMC.Vision.Cameras.Hik
         {
             if (!IsOpen) return GrabResult.Fail("camera not open", Info.Id);
 
-            // 1장 Start-Grab → GetOneFrameTimeout → Stop 간결 구현
             EnsureFrameBuffer();
-
-            int r = (int)Invoke("MV_CC_StartGrabbing", null);
+            int r = InvokeFirst(new[] { "MV_CC_StartGrabbing_NET", "MV_CC_StartGrabbing" }, Array.Empty<object>());
             if (r != 0) return GrabResult.Fail("MV_CC_StartGrabbing 0x" + r.ToString("X"), Info.Id);
 
-            // MV_FRAME_OUT_INFO_EX
-            var frameInfoType = HikMvsDll.Assembly.GetType("MvCamCtrl.NET.CameraParams+MV_FRAME_OUT_INFO_EX");
-            var frameInfoInst = frameInfoType != null ? Activator.CreateInstance(frameInfoType) : null;
-            var pBuf = Marshal.UnsafeAddrOfPinnedArrayElement(_frameBuf, 0);
-            var args = new object[] { pBuf, (uint)_frameBuf.Length, frameInfoInst, timeoutMs };
+            try
+            {
+                // Software trigger 모드면 트리거 1발 발사
+                if (TriggerMode == CameraTriggerMode.Software)
+                    TriggerSoftware();
 
-            r = (int)Invoke("MV_CC_GetOneFrameTimeout", args);
-            try { Invoke("MV_CC_StopGrabbing", null); } catch { }
+                var frameInfo = CreateFrameInfoEx();
+                GCHandle gch = GCHandle.Alloc(_frameBuf, GCHandleType.Pinned);
+                try
+                {
+                    var args = new object[] { gch.AddrOfPinnedObject(), (uint)_frameBuf.Length, frameInfo, timeoutMs };
+                    r = InvokeFirst(new[] { "MV_CC_GetOneFrameTimeout_NET", "MV_CC_GetOneFrameTimeout" }, args);
+                    if (r != 0) return GrabResult.Fail("MV_CC_GetOneFrameTimeout 0x" + r.ToString("X"), Info.Id);
 
-            if (r != 0) return GrabResult.Fail("MV_CC_GetOneFrameTimeout 0x" + r.ToString("X"), Info.Id);
-
-            var bmp = BufferToBitmap(_frameBuf, args[2]);
-            return new GrabResult(bmp, 0, Info.Id);
+                    var bmp = BufferToBitmap(_frameBuf, args[2]);
+                    return new GrabResult(bmp, 0, Info.Id);
+                }
+                finally { gch.Free(); }
+            }
+            finally
+            {
+                try { InvokeFirst(new[] { "MV_CC_StopGrabbing_NET", "MV_CC_StopGrabbing" }, Array.Empty<object>()); } catch { }
+            }
         }
 
         public override void StartLive()
         {
             if (!IsOpen || IsGrabbing) return;
             EnsureFrameBuffer();
-            int r = (int)Invoke("MV_CC_StartGrabbing", null);
+
+            // 콜백 등록 시도 (실패하면 polling 으로 fallback)
+            bool callbackRegistered = TryRegisterFrameCallback();
+
+            int r = InvokeFirst(new[] { "MV_CC_StartGrabbing_NET", "MV_CC_StartGrabbing" }, Array.Empty<object>());
             if (r != 0) throw new Exception("MV_CC_StartGrabbing fail 0x" + r.ToString("X"));
 
             IsGrabbing = true;
-            _liveRun = true;
-            _liveThread = new Thread(LiveLoop) { IsBackground = true };
-            _liveThread.Start();
+            if (!callbackRegistered)
+            {
+                _liveRun = true;
+                _liveThread = new Thread(LiveLoop) { IsBackground = true };
+                _liveThread.Start();
+            }
         }
 
         public override void StopLive()
@@ -128,18 +172,22 @@ namespace QMC.Vision.Cameras.Hik
             _liveRun = false;
             try { _liveThread?.Join(1000); } catch { }
             _liveThread = null;
-            try { Invoke("MV_CC_StopGrabbing", null); } catch { }
+            try { InvokeFirst(new[] { "MV_CC_StopGrabbing_NET", "MV_CC_StopGrabbing" }, Array.Empty<object>()); } catch { }
             IsGrabbing = false;
+            _frameCallbackDelegate = null;
         }
 
         public override void TriggerSoftware()
         {
             if (!IsOpen) return;
-            Invoke("MV_CC_SetCommandValue", new object[] { "TriggerSoftware" });
+            // 4.x: MV_CC_TriggerSoftwareExecute_NET(); 구 버전: MV_CC_SetCommandValue("TriggerSoftware")
+            int r = InvokeFirst(new[] { "MV_CC_TriggerSoftwareExecute_NET" }, Array.Empty<object>());
+            if (r != 0)
+                InvokeFirst(new[] { "MV_CC_SetCommandValue_NET", "MV_CC_SetCommandValue" }, new object[] { "TriggerSoftware" });
         }
 
         // ──────────────────────────────────────────
-        //  Parameter hooks (MyCamera.MV_CC_Set* 호출)
+        //  Parameter hooks
         // ──────────────────────────────────────────
 
         protected override void OnExposureChanged(double us)
@@ -185,15 +233,17 @@ namespace QMC.Vision.Cameras.Hik
 
         public override string GetRawParameter(string key)
         {
-            // GenICam 노드값 조회 — 간단히 Float/Int/Enum 순차 시도
             try
             {
-                var floatT = HikMvsDll.Assembly.GetType("MvCamCtrl.NET.CameraParams+MVCC_FLOATVALUE");
-                var inst   = Activator.CreateInstance(floatT);
-                int r      = (int)Invoke("MV_CC_GetFloatValue", new object[] { key, inst });
+                var floatT = HikMvsDll.Assembly.GetType("MvCamCtrl.NET.MyCamera+MVCC_FLOATVALUE")
+                          ?? HikMvsDll.Assembly.GetType("MvCamCtrl.NET.CameraParams+MVCC_FLOATVALUE");
+                if (floatT == null) return null;
+                var inst = Activator.CreateInstance(floatT);
+                var args = new object[] { key, inst };
+                int r = InvokeFirst(new[] { "MV_CC_GetFloatValue_NET", "MV_CC_GetFloatValue" }, args);
                 if (r == 0)
                 {
-                    var fv = floatT.GetField("fCurValue").GetValue(inst);
+                    var fv = floatT.GetField("fCurValue").GetValue(args[1]);
                     return fv.ToString();
                 }
             }
@@ -215,34 +265,26 @@ namespace QMC.Vision.Cameras.Hik
         public static List<CameraInfo> Enumerate()
         {
             var result = new List<CameraInfo>();
-            if (!HikMvsDll.IsLoaded) return result;
+            if (!HikMvsDll.IsLoaded || HikMvsDll.DeviceInfoListType == null) return result;
             try
             {
                 var camType = HikMvsDll.MyCameraType;
                 var listT   = HikMvsDll.DeviceInfoListType;
                 var listObj = Activator.CreateInstance(listT);
 
-                // int ret = MyCamera.MV_CC_EnumDevices(MV_GIGE_DEVICE, ref listObj);
-                var mi = camType.GetMethod("MV_CC_EnumDevices",
-                    BindingFlags.Public | BindingFlags.Static,
-                    null, new[] { typeof(uint), listT.MakeByRefType() }, null);
-                if (mi == null)
-                {
-                    // 일부 버전: EnumDevicesEx2
-                    mi = camType.GetMethod("MV_CC_EnumDevicesEx2",
-                        BindingFlags.Public | BindingFlags.Static);
-                }
+                var mi = FindStatic(camType, new[] { "MV_CC_EnumDevices_NET", "MV_CC_EnumDevices" },
+                                    new[] { typeof(uint), listT.MakeByRefType() });
+                if (mi == null) return result;
+
                 var args = new object[] { (uint)0x00000001, listObj }; // MV_GIGE_DEVICE=1
                 mi.Invoke(null, args);
                 listObj = args[1];
 
-                int n = (int)listT.GetField("nDeviceNum").GetValue(listObj);
-                var devs = (Array)listT.GetField("pDeviceInfo").GetValue(listObj);
+                int n = (int)(uint)listT.GetField("nDeviceNum").GetValue(listObj);
+                var devs = listT.GetField("pDeviceInfo").GetValue(listObj);
                 for (int i = 0; i < n; i++)
                 {
-                    var dev = devs.GetValue(i);
-                    if (dev == null) continue;
-                    var info = ExtractCameraInfo(dev);
+                    var info = ExtractCameraInfo(GetDeviceAt(devs, i));
                     if (info != null) result.Add(info);
                 }
             }
@@ -250,21 +292,56 @@ namespace QMC.Vision.Cameras.Hik
             return result;
         }
 
+        /// <summary>
+        /// pDeviceInfo[i] 에서 MV_CC_DEVICE_INFO struct 얻기.
+        /// 4.x: IntPtr[] → Marshal.PtrToStructure; 구 버전: struct[] → 직접 사용.
+        /// </summary>
+        private static object GetDeviceAt(object devsField, int i)
+        {
+            if (devsField is IntPtr[] ptrs)
+            {
+                if (ptrs[i] == IntPtr.Zero) return null;
+                return Marshal.PtrToStructure(ptrs[i], HikMvsDll.DeviceInfoType);
+            }
+            if (devsField is Array arr) return arr.GetValue(i);
+            return null;
+        }
+
         private static CameraInfo ExtractCameraInfo(object devInfoObj)
         {
-            // MV_CC_DEVICE_INFO.SpecialInfo.stGigEInfo (chModelName, chSerialNumber, nCurrentIp...)
+            if (devInfoObj == null) return null;
             try
             {
                 var specialInfo = devInfoObj.GetType().GetField("SpecialInfo").GetValue(devInfoObj);
-                var gigeInfo    = specialInfo.GetType().GetField("stGigEInfo").GetValue(specialInfo);
+                var gigeRaw     = specialInfo.GetType().GetField("stGigEInfo").GetValue(specialInfo);
+
+                // 4.x SDK: stGigEInfo 는 byte[] (직렬화된 MV_GIGE_DEVICE_INFO)
+                object gigeInfo = gigeRaw;
+                if (gigeRaw is byte[] bytes)
+                {
+                    var gigeT = HikMvsDll.Assembly.GetType("MvCamCtrl.NET.MyCamera+MV_GIGE_DEVICE_INFO")
+                             ?? HikMvsDll.Assembly.GetType("MvCamCtrl.NET.CameraParams+MV_GIGE_DEVICE_INFO");
+                    if (gigeT == null) return null;
+                    int size = Marshal.SizeOf(gigeT);
+                    IntPtr p = Marshal.AllocHGlobal(size);
+                    try
+                    {
+                        Marshal.Copy(bytes, 0, p, Math.Min(bytes.Length, size));
+                        gigeInfo = Marshal.PtrToStructure(p, gigeT);
+                    }
+                    finally { Marshal.FreeHGlobal(p); }
+                }
+
                 string model    = GetStrField(gigeInfo, "chModelName");
                 string serial   = GetStrField(gigeInfo, "chSerialNumber");
+                string userName = GetStrField(gigeInfo, "chUserDefinedName");
                 uint   ip       = (uint)gigeInfo.GetType().GetField("nCurrentIp").GetValue(gigeInfo);
                 string ipStr    = $"{(ip >> 24) & 0xFF}.{(ip >> 16) & 0xFF}.{(ip >> 8) & 0xFF}.{ip & 0xFF}";
                 return new CameraInfo
                 {
                     Id = ipStr, Model = model, Vendor = "HIKVISION",
                     SerialNumber = serial, IpAddress = ipStr,
+                    UserDefinedName = userName ?? "",
                     Transport = CameraTransport.GigE
                 };
             }
@@ -275,27 +352,29 @@ namespace QMC.Vision.Cameras.Hik
         //  Helpers
         // ──────────────────────────────────────────
 
+        /// <summary>EnumDevices 다시 호출해서 IP 매칭되는 raw device 정보를 찾음.</summary>
         private object FindDeviceInfoByIp(string ipAddress)
         {
-            if (!HikMvsDll.IsLoaded) return null;
+            if (!HikMvsDll.IsLoaded || HikMvsDll.DeviceInfoListType == null) return null;
             try
             {
                 var camType = HikMvsDll.MyCameraType;
                 var listT   = HikMvsDll.DeviceInfoListType;
                 var listObj = Activator.CreateInstance(listT);
 
-                var mi = camType.GetMethod("MV_CC_EnumDevices",
-                    BindingFlags.Public | BindingFlags.Static,
-                    null, new[] { typeof(uint), listT.MakeByRefType() }, null);
+                var mi = FindStatic(camType, new[] { "MV_CC_EnumDevices_NET", "MV_CC_EnumDevices" },
+                                    new[] { typeof(uint), listT.MakeByRefType() });
+                if (mi == null) return null;
+
                 var args = new object[] { (uint)0x00000001, listObj };
                 mi.Invoke(null, args);
                 listObj = args[1];
 
-                int n = (int)listT.GetField("nDeviceNum").GetValue(listObj);
-                var devs = (Array)listT.GetField("pDeviceInfo").GetValue(listObj);
+                int n = (int)(uint)listT.GetField("nDeviceNum").GetValue(listObj);
+                var devs = listT.GetField("pDeviceInfo").GetValue(listObj);
                 for (int i = 0; i < n; i++)
                 {
-                    var dev = devs.GetValue(i);
+                    var dev = GetDeviceAt(devs, i);
                     var info = ExtractCameraInfo(dev);
                     if (info != null && info.IpAddress == ipAddress) return dev;
                 }
@@ -312,27 +391,87 @@ namespace QMC.Vision.Cameras.Hik
             OnPixelFormatChanged(PixelFormat);
         }
 
+        private void TryOptimizePacketSize()
+        {
+            try
+            {
+                int pkt = (int)InvokeRaw(new[] { "MV_CC_GetOptimalPacketSize_NET", "MV_CC_GetOptimalPacketSize" }, Array.Empty<object>());
+                if (pkt > 0)
+                    InvokeFirst(new[] { "MV_GIGE_SetGevSCPSPacketSize_NET", "MV_GIGE_SetGevSCPSPacketSize" }, new object[] { (uint)pkt });
+            }
+            catch { }
+        }
+
+        /// <summary>4.x SDK 의 RegisterImageCallBackEx_NET 시도. 성공 시 true.</summary>
+        private bool TryRegisterFrameCallback()
+        {
+            try
+            {
+                var delT = HikMvsDll.MyCameraType.GetNestedType("cbOutputExdelegate")
+                        ?? HikMvsDll.Assembly.GetType("MvCamCtrl.NET.cbOutputExdelegate");
+                if (delT == null) return false;
+
+                var thisRef = this;
+                MethodInfo onFrameMi = typeof(HikGigECamera).GetMethod(
+                    nameof(OnFrameCallback), BindingFlags.NonPublic | BindingFlags.Instance);
+                var del = Delegate.CreateDelegate(delT, thisRef, onFrameMi);
+                _frameCallbackDelegate = del;
+
+                int r = InvokeFirst(new[] { "MV_CC_RegisterImageCallBackEx_NET", "MV_CC_RegisterImageCallBackEx" },
+                                    new object[] { del, IntPtr.Zero });
+                return r == 0;
+            }
+            catch { return false; }
+        }
+
+        private void OnFrameCallback(IntPtr pData, object pFrameInfo, IntPtr pUser)
+        {
+            try
+            {
+                var w = (ushort)pFrameInfo.GetType().GetField("nWidth").GetValue(pFrameInfo);
+                var h = (ushort)pFrameInfo.GetType().GetField("nHeight").GetValue(pFrameInfo);
+                var lenField = pFrameInfo.GetType().GetField("nFrameLen");
+                int len = lenField != null ? (int)(uint)lenField.GetValue(pFrameInfo) : (w * h);
+                if (len <= 0) return;
+
+                var buf = new byte[len];
+                Marshal.Copy(pData, buf, 0, len);
+                var bmp = BufferToBitmap(buf, pFrameInfo);
+                if (bmp != null) RaiseFrame(new GrabResult(bmp, 0, Info.Id));
+            }
+            catch { }
+        }
+
         private void LiveLoop()
         {
             EnsureFrameBuffer();
-            var frameInfoType = HikMvsDll.Assembly.GetType("MvCamCtrl.NET.CameraParams+MV_FRAME_OUT_INFO_EX");
-            var frameInfoInst = frameInfoType != null ? Activator.CreateInstance(frameInfoType) : null;
-
             while (_liveRun && IsOpen)
             {
                 try
                 {
-                    var pBuf = Marshal.UnsafeAddrOfPinnedArrayElement(_frameBuf, 0);
-                    var args = new object[] { pBuf, (uint)_frameBuf.Length, frameInfoInst, 500 };
-                    int r = (int)Invoke("MV_CC_GetOneFrameTimeout", args);
-                    if (r == 0)
+                    var frameInfo = CreateFrameInfoEx();
+                    GCHandle gch = GCHandle.Alloc(_frameBuf, GCHandleType.Pinned);
+                    try
                     {
-                        var bmp = BufferToBitmap(_frameBuf, args[2]);
-                        RaiseFrame(new GrabResult(bmp, 0, Info.Id));
+                        var args = new object[] { gch.AddrOfPinnedObject(), (uint)_frameBuf.Length, frameInfo, 500 };
+                        int r = InvokeFirst(new[] { "MV_CC_GetOneFrameTimeout_NET", "MV_CC_GetOneFrameTimeout" }, args);
+                        if (r == 0)
+                        {
+                            var bmp = BufferToBitmap(_frameBuf, args[2]);
+                            if (bmp != null) RaiseFrame(new GrabResult(bmp, 0, Info.Id));
+                        }
                     }
+                    finally { gch.Free(); }
                 }
-                catch { /* 타임아웃 무시 */ }
+                catch { /* timeout 무시 */ }
             }
+        }
+
+        private object CreateFrameInfoEx()
+        {
+            var t = HikMvsDll.Assembly.GetType("MvCamCtrl.NET.MyCamera+MV_FRAME_OUT_INFO_EX")
+                 ?? HikMvsDll.Assembly.GetType("MvCamCtrl.NET.CameraParams+MV_FRAME_OUT_INFO_EX");
+            return t != null ? Activator.CreateInstance(t) : null;
         }
 
         private Bitmap BufferToBitmap(byte[] buf, object frameInfoObj)
@@ -343,45 +482,128 @@ namespace QMC.Vision.Cameras.Hik
                 int h = (ushort)frameInfoObj.GetType().GetField("nHeight").GetValue(frameInfoObj);
                 if (w <= 0 || h <= 0) return null;
 
-                var bmp = new Bitmap(w, h, System.Drawing.Imaging.PixelFormat.Format8bppIndexed);
-                // 그레이스케일 팔레트
-                var pal = bmp.Palette;
-                for (int i = 0; i < 256; i++) pal.Entries[i] = Color.FromArgb(i, i, i);
-                bmp.Palette = pal;
-
-                var rect = new Rectangle(0, 0, w, h);
-                var data = bmp.LockBits(rect, ImageLockMode.WriteOnly, System.Drawing.Imaging.PixelFormat.Format8bppIndexed);
-                try
+                uint pixType = 0;
+                var pixField = frameInfoObj.GetType().GetField("enPixelType");
+                if (pixField != null)
                 {
-                    int copyLen = Math.Min(buf.Length, data.Stride * h);
-                    Marshal.Copy(buf, 0, data.Scan0, copyLen);
+                    var v = pixField.GetValue(frameInfoObj);
+                    pixType = Convert.ToUInt32(v);
                 }
-                finally { bmp.UnlockBits(data); }
-                return bmp;
+
+                // Mono8 = 0x01080001 / RGB8_Packed = 0x02180014 / BGR8_Packed = 0x02180015
+                if (pixType == 0x02180014) return BuildRgb24(buf, w, h, swapRb: false);
+                if (pixType == 0x02180015) return BuildRgb24(buf, w, h, swapRb: true);
+                return BuildMono8(buf, w, h);
             }
             catch { return null; }
         }
 
+        private static Bitmap BuildMono8(byte[] buf, int w, int h)
+        {
+            var bmp = new Bitmap(w, h, System.Drawing.Imaging.PixelFormat.Format8bppIndexed);
+            var pal = bmp.Palette;
+            for (int i = 0; i < 256; i++) pal.Entries[i] = Color.FromArgb(i, i, i);
+            bmp.Palette = pal;
+
+            var rect = new Rectangle(0, 0, w, h);
+            var data = bmp.LockBits(rect, ImageLockMode.WriteOnly, System.Drawing.Imaging.PixelFormat.Format8bppIndexed);
+            try
+            {
+                int stride = data.Stride;
+                if (stride == w)
+                {
+                    int copyLen = Math.Min(buf.Length, stride * h);
+                    Marshal.Copy(buf, 0, data.Scan0, copyLen);
+                }
+                else
+                {
+                    for (int y = 0; y < h; y++)
+                    {
+                        int off = y * w;
+                        if (off + w > buf.Length) break;
+                        Marshal.Copy(buf, off, IntPtr.Add(data.Scan0, y * stride), w);
+                    }
+                }
+            }
+            finally { bmp.UnlockBits(data); }
+            return bmp;
+        }
+
+        private static Bitmap BuildRgb24(byte[] buf, int w, int h, bool swapRb)
+        {
+            var bmp = new Bitmap(w, h, System.Drawing.Imaging.PixelFormat.Format24bppRgb);
+            var rect = new Rectangle(0, 0, w, h);
+            var data = bmp.LockBits(rect, ImageLockMode.WriteOnly, System.Drawing.Imaging.PixelFormat.Format24bppRgb);
+            try
+            {
+                int stride = data.Stride;
+                var row = new byte[stride];
+                for (int y = 0; y < h; y++)
+                {
+                    int srcOff = y * w * 3;
+                    if (srcOff + w * 3 > buf.Length) break;
+                    for (int x = 0; x < w; x++)
+                    {
+                        int s = srcOff + x * 3;
+                        int d = x * 3;
+                        if (swapRb) { row[d + 0] = buf[s + 0]; row[d + 1] = buf[s + 1]; row[d + 2] = buf[s + 2]; }
+                        else        { row[d + 0] = buf[s + 2]; row[d + 1] = buf[s + 1]; row[d + 2] = buf[s + 0]; }
+                    }
+                    Marshal.Copy(row, 0, IntPtr.Add(data.Scan0, y * stride), stride);
+                }
+            }
+            finally { bmp.UnlockBits(data); }
+            return bmp;
+        }
+
         private void EnsureFrameBuffer()
         {
-            int need = 5120 * 5120 * 3; // 최대 가정
+            int need = 5120 * 5120 * 3;
             if (_frameBuf != null && _frameBufSize >= need) return;
             _frameBuf = new byte[need];
             _frameBufSize = need;
         }
 
-        private object Invoke(string method, object[] args)
+        // ─── Method dispatch ───────────────────────
+
+        /// <summary>여러 후보 이름 중 첫 번째 매치 메서드 호출. 반환 int.</summary>
+        private int InvokeFirst(string[] names, object[] args)
         {
-            if (_camera == null) throw new InvalidOperationException("camera not initialized");
-            var mi = HikMvsDll.MyCameraType.GetMethod(method);
-            if (mi == null) throw new MissingMethodException(HikMvsDll.MyCameraType.Name, method);
-            return mi.Invoke(_camera, args ?? Array.Empty<object>());
+            object ret = InvokeRaw(names, args);
+            return ret == null ? -1 : Convert.ToInt32(ret);
         }
 
-        private void TrySetFloat   (string key, float v)   { try { Invoke("MV_CC_SetFloatValue", new object[] { key, v }); } catch { } }
-        private void TrySetInt     (string key, int v)      { try { Invoke("MV_CC_SetIntValue",   new object[] { key, (long)v }); } catch { } }
-        private void TrySetEnum    (string key, uint v)     { try { Invoke("MV_CC_SetEnumValue",  new object[] { key, v }); } catch { } }
-        private void TrySetEnumByName(string key, string v) { try { Invoke("MV_CC_SetEnumValueByString", new object[] { key, v }); } catch { } }
+        private object InvokeRaw(string[] names, object[] args)
+        {
+            if (_camera == null) throw new InvalidOperationException("camera not initialized");
+            var argTypes = new Type[args?.Length ?? 0];
+            for (int i = 0; i < argTypes.Length; i++) argTypes[i] = args[i]?.GetType() ?? typeof(object);
+
+            foreach (var name in names)
+            {
+                MethodInfo mi = null;
+                try { mi = HikMvsDll.MyCameraType.GetMethod(name, BindingFlags.Public | BindingFlags.Instance, null, argTypes, null); } catch { }
+                if (mi == null) mi = HikMvsDll.MyCameraType.GetMethod(name, BindingFlags.Public | BindingFlags.Instance);
+                if (mi == null) continue;
+                return mi.Invoke(_camera, args ?? Array.Empty<object>());
+            }
+            return null;
+        }
+
+        private static MethodInfo FindStatic(Type t, string[] names, Type[] paramTypes)
+        {
+            foreach (var n in names)
+            {
+                var mi = t.GetMethod(n, BindingFlags.Public | BindingFlags.Static, null, paramTypes, null);
+                if (mi != null) return mi;
+            }
+            return null;
+        }
+
+        private void TrySetFloat   (string key, float v)   { try { InvokeFirst(new[] { "MV_CC_SetFloatValue_NET", "MV_CC_SetFloatValue" }, new object[] { key, v }); } catch { } }
+        private void TrySetInt     (string key, int v)     { try { InvokeFirst(new[] { "MV_CC_SetIntValue_NET",   "MV_CC_SetIntValue"   }, new object[] { key, (uint)v }); } catch { } }
+        private void TrySetEnum    (string key, uint v)    { try { InvokeFirst(new[] { "MV_CC_SetEnumValue_NET",  "MV_CC_SetEnumValue"  }, new object[] { key, v }); } catch { } }
+        private void TrySetEnumByName(string key, string v){ try { InvokeFirst(new[] { "MV_CC_SetEnumValueByString_NET", "MV_CC_SetEnumValueByString" }, new object[] { key, v }); } catch { } }
 
         private void EnsureSuccess(int r, string op)
         {
@@ -394,7 +616,8 @@ namespace QMC.Vision.Cameras.Hik
             {
                 var f = obj.GetType().GetField(name);
                 var v = f?.GetValue(obj);
-                if (v is byte[] b) return System.Text.Encoding.ASCII.GetString(b).TrimEnd('\0');
+                if (v is byte[] b) return System.Text.Encoding.ASCII.GetString(b).TrimEnd('\0').Trim();
+                if (v is string s) return s.TrimEnd('\0').Trim();
                 return v?.ToString();
             }
             catch { return ""; }

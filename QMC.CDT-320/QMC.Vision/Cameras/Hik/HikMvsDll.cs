@@ -1,5 +1,4 @@
 using System;
-using System.IO;
 using System.Reflection;
 
 namespace QMC.Vision.Cameras.Hik
@@ -34,38 +33,34 @@ namespace QMC.Vision.Cameras.Hik
         /// <summary>디바이스 개별 정보 (MV_CC_DEVICE_INFO).</summary>
         public static Type DeviceInfoType     { get; private set; }
 
-        private static readonly string[] Candidates =
-        {
-            "MvCameraControl.Net.dll",
-            "MvCameraControl.dll"
-        };
-
         static HikMvsDll() { TryLoad(); }
 
         public static void TryLoad()
         {
             if (IsLoaded) return;
-            foreach (var name in Candidates)
+            // 강타입 reference (MvCameraControl.Net.dll 은 출력 폴더에 항상 동반 배포).
+            // LoadFrom 컨텍스트 불일치로 인한 캐스팅 실패를 막기 위해 typeof 로 타입을 얻는다.
+            // native MvCameraControl.dll 미설치 시에도 어셈블리 로드는 성공하고,
+            // 실제 호출(Enum/Open) 시점에만 SDK 오류가 반환된다(→ Sim fallback).
+            try
             {
-                var path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, name);
-                if (!File.Exists(path)) continue;
-                try
-                {
-                    Assembly = Assembly.LoadFrom(path);
-                    MyCameraType        = Assembly.GetType("MvCamCtrl.NET.MyCamera") ?? Assembly.GetType("MVSDK_Net.MyCamera");
-                    DeviceInfoListType  = Assembly.GetType("MvCamCtrl.NET.CameraParams+MV_CC_DEVICE_INFO_LIST") ?? Assembly.GetType("MvCamCtrl.NET.MV_CC_DEVICE_INFO_LIST");
-                    DeviceInfoType      = Assembly.GetType("MvCamCtrl.NET.CameraParams+MV_CC_DEVICE_INFO") ?? Assembly.GetType("MvCamCtrl.NET.MV_CC_DEVICE_INFO");
-                    Version  = "HIK MVS " + (Assembly.GetName().Version?.ToString() ?? "(unknown)");
-                    IsLoaded = MyCameraType != null;
-                    if (!IsLoaded) LoadError = "MyCamera type not found in assembly";
-                    return;
-                }
-                catch (Exception ex)
-                {
-                    LoadError = ex.Message;
-                }
+                MyCameraType = typeof(MvCamCtrl.NET.MyCamera);
+                Assembly     = MyCameraType.Assembly;
+                DeviceInfoListType  = Assembly.GetType("MvCamCtrl.NET.MyCamera+MV_CC_DEVICE_INFO_LIST")
+                                   ?? Assembly.GetType("MvCamCtrl.NET.CameraParams+MV_CC_DEVICE_INFO_LIST")
+                                   ?? Assembly.GetType("MvCamCtrl.NET.MV_CC_DEVICE_INFO_LIST");
+                DeviceInfoType      = Assembly.GetType("MvCamCtrl.NET.MyCamera+MV_CC_DEVICE_INFO")
+                                   ?? Assembly.GetType("MvCamCtrl.NET.CameraParams+MV_CC_DEVICE_INFO")
+                                   ?? Assembly.GetType("MvCamCtrl.NET.MV_CC_DEVICE_INFO");
+                Version  = "HIK MVS " + (Assembly.GetName().Version?.ToString() ?? "(unknown)");
+                IsLoaded = MyCameraType != null;
+                if (!IsLoaded) LoadError = "MyCamera type not found in assembly";
             }
-            LoadError = "MvCameraControl.Net.dll not found in exe folder";
+            catch (Exception ex)
+            {
+                IsLoaded = false;
+                LoadError = ex.Message;
+            }
         }
 
         /// <summary>SDK 로드 실패 시 호출자에게 안내 문자열 제공.</summary>

@@ -194,7 +194,7 @@ namespace QMC.Vision
         public void RebindAlgorithmCamera(string algorithm, AlgorithmCameraMapping mapping)
             => RebindAlgorithmCamera(algorithm, mapping, out _);
 
-        private VisionModule ResolveModule(string algorithm)
+        internal VisionModule ResolveModule(string algorithm)
         {
             switch (algorithm)
             {

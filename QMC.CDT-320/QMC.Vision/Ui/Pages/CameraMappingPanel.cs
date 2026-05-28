@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
+using System.Threading;
 using System.Windows.Forms;
 using QMC.Common.Recipes;
 using QMC.Vision.Config;
@@ -16,21 +18,36 @@ namespace QMC.Vision.Ui.Pages
     {
         private Label    _lblAlgorithm;
         private ComboBox _cbCameraId;
+        // _btnDiscover 는 BuildLayout 에서 할당; UpdateConnectButtons 에서 disable 위해 field 화
         private Button   _btnDiscover;
         private NumericUpDown _numExposure, _numGain, _numFps, _numDelay;
         private NumericUpDown _numRoiX, _numRoiY, _numRoiW, _numRoiH;
         private ComboBox _cbTrigger, _cbPixel;
         private Button   _btnSave, _btnApply, _btnTestGrab, _btnReset, _btnCancel;
+        private Button   _btnConnect, _btnLiveStart, _btnLiveStop;
         private Label    _lblStatus;
         private PictureBox _picPreview;
+        private Panel    _body;
 
         private string _algorithm;
         private bool   _suspendBinding;
 
+        // ── 연결 상태 ──
+        // _activeCamOwned = true  →  단독 인스턴스 (운영 모듈과 무관). Disconnect 시 dispose.
+        // _activeCamOwned = false →  운영 모듈(Form1) 카메라 borrow. Disconnect 시 이벤트 detach 만.
+        private ICamera _activeCam;
+        private bool    _activeCamOwned;
+        private bool    _isLive;
+        private DateTime _fpsT0 = DateTime.Now;
+        private int      _fpsCount;
+        private SynchronizationContext _uiCtx;
+
         public CameraMappingPanel()
         {
             if (LicenseManager.UsageMode == LicenseUsageMode.Designtime) return;
+            _uiCtx = SynchronizationContext.Current ?? new WindowsFormsSynchronizationContext();
             BuildLayout();
+            Disposed += (s, e) => Disconnect();
         }
 
         public void SelectAlgorithm(string algorithm)
@@ -38,6 +55,17 @@ namespace QMC.Vision.Ui.Pages
             _algorithm = algorithm;
             _lblAlgorithm.Text = "카메라 매핑 — " + VisionAlgorithm.Label(algorithm) + "  (" + algorithm + ")";
             BindFields();
+            ResetScrollAsync();
+        }
+
+        /// <summary>Container 의 ActiveControl 변경 영향이 끝난 뒤 scroll position 을 원점으로 강제 복귀.</summary>
+        private void ResetScrollAsync()
+        {
+            if (_body == null) return;
+            BeginInvoke((Action)(() =>
+            {
+                try { _body.AutoScrollPosition = Point.Empty; } catch { }
+            }));
         }
 
         private void BuildLayout()
@@ -53,10 +81,11 @@ namespace QMC.Vision.Ui.Pages
             };
             Controls.Add(_lblAlgorithm);
 
-            var body = new Panel { Dock = DockStyle.Fill, BackColor = UiTheme.MainBg, AutoScroll = true, Padding = new Padding(10) };
-            Controls.Add(body);
+            _body = new Panel { Dock = DockStyle.Fill, BackColor = UiTheme.MainBg, AutoScroll = false, Padding = new Padding(10, 12, 10, 10) };
+            Controls.Add(_body);
+            var body = _body;
 
-            int x1 = 20, x2 = 180, y = 10, dy = 36;
+            int x1 = 20, x2 = 180, y = 30, dy = 36;
 
             body.Controls.Add(L("카메라 ID", x1, y));
             _cbCameraId = new ComboBox { Location = new Point(x2, y - 2), Size = new Size(360, 26), Font = UiTheme.ValueFont };
@@ -144,11 +173,27 @@ namespace QMC.Vision.Ui.Pages
             _btnTestGrab.Click += (s, e) => TestGrab();
             body.Controls.Add(_btnTestGrab);
 
+            // ── 새 행: Connect / Live ──
+            y += 40;
+            _btnConnect = new Button { Location = new Point(x1, y), Size = new Size(110, 32), Text = "Connect", FlatStyle = FlatStyle.Flat, Font = UiTheme.ButtonFont, BackColor = UiTheme.Accent, ForeColor = Color.White };
+            _btnConnect.Click += (s, e) => ToggleConnect();
+            body.Controls.Add(_btnConnect);
+
+            _btnLiveStart = new Button { Location = new Point(x1 + 120, y), Size = new Size(110, 32), Text = "Live Start", FlatStyle = FlatStyle.Flat, Font = UiTheme.ButtonFont, BackColor = Color.White };
+            _btnLiveStart.Click += (s, e) => LiveStart();
+            body.Controls.Add(_btnLiveStart);
+
+            _btnLiveStop = new Button { Location = new Point(x1 + 240, y), Size = new Size(110, 32), Text = "Live Stop", FlatStyle = FlatStyle.Flat, Font = UiTheme.ButtonFont, BackColor = Color.White };
+            _btnLiveStop.Click += (s, e) => LiveStop();
+            body.Controls.Add(_btnLiveStop);
+
             _lblStatus = new Label { Location = new Point(x1, y + 40), Size = new Size(900, 24), Text = "", Font = UiTheme.ValueFont, ForeColor = Color.DarkSlateGray };
             body.Controls.Add(_lblStatus);
 
-            _picPreview = new PictureBox { Location = new Point(x1, y + 70), Size = new Size(640, 480), BorderStyle = BorderStyle.FixedSingle, BackColor = Color.Black, SizeMode = PictureBoxSizeMode.Zoom };
+            _picPreview = new PictureBox { Location = new Point(x1, y + 70), Size = new Size(640, 360), BorderStyle = BorderStyle.FixedSingle, BackColor = Color.Black, SizeMode = PictureBoxSizeMode.Zoom };
             body.Controls.Add(_picPreview);
+
+            UpdateConnectButtons();
         }
 
         private static Label L(string text, int x, int y)
@@ -181,9 +226,7 @@ namespace QMC.Vision.Ui.Pages
             _suspendBinding = true;
             try
             {
-                if (!_cbCameraId.Items.Contains(m.CameraId)) _cbCameraId.Items.Add(m.CameraId);
-                _cbCameraId.SelectedItem = m.CameraId;
-                _cbCameraId.Text         = m.CameraId;
+                SetSelectedById(_cbCameraId, m.CameraId);
                 _numExposure.Value = Clamp((decimal)m.ExposureUs, _numExposure.Minimum, _numExposure.Maximum);
                 _numGain    .Value = Clamp((decimal)m.Gain,       _numGain.Minimum,     _numGain.Maximum);
                 _numFps     .Value = Clamp((decimal)m.FrameRate,  _numFps.Minimum,      _numFps.Maximum);
@@ -206,7 +249,7 @@ namespace QMC.Vision.Ui.Pages
             if (_suspendBinding) return;
             var m = CurrentMapping();
             if (m == null) return;
-            m.CameraId          = (_cbCameraId.SelectedItem as string) ?? _cbCameraId.Text;
+            m.CameraId          = ItemToId(_cbCameraId.SelectedItem) ?? _cbCameraId.Text;
             m.ExposureUs        = (double)_numExposure.Value;
             m.Gain              = (double)_numGain.Value;
             m.FrameRate         = (double)_numFps.Value;
@@ -242,18 +285,19 @@ namespace QMC.Vision.Ui.Pages
             {
                 _lblStatus.Text = "카메라 검색 중..."; _lblStatus.Refresh();
                 var list = CameraFactory.EnumerateAll();
+                var prevId = ItemToId(_cbCameraId.SelectedItem) ?? _cbCameraId.Text;
                 _cbCameraId.Items.Clear();
+                var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 foreach (var info in list)
-                    if (!_cbCameraId.Items.Contains(info.Id)) _cbCameraId.Items.Add(info.Id);
-                foreach (var fallback in new[] { "Sim/Wafer", "Sim/Bin", "Sim/BottomInsp", "Sim/TopSide", "Sim/BottomSide", "Sim/0" })
-                    if (!_cbCameraId.Items.Contains(fallback)) _cbCameraId.Items.Add(fallback);
+                    if (!string.IsNullOrEmpty(info.Id) && seen.Add(info.Id))
+                        _cbCameraId.Items.Add(new DeviceListItem(info));
+
+                foreach (var fb in new[] { "Sim/Wafer", "Sim/Bin", "Sim/BottomInsp", "Sim/TopSide", "Sim/BottomSide", "Sim/0" })
+                    if (seen.Add(fb)) _cbCameraId.Items.Add(fb);
 
                 var m = CurrentMapping();
-                if (m != null && !string.IsNullOrEmpty(m.CameraId))
-                {
-                    if (!_cbCameraId.Items.Contains(m.CameraId)) _cbCameraId.Items.Add(m.CameraId);
-                    _cbCameraId.SelectedItem = m.CameraId;
-                }
+                var target = (m != null && !string.IsNullOrEmpty(m.CameraId)) ? m.CameraId : prevId;
+                SetSelectedById(_cbCameraId, target);
                 _lblStatus.Text = $"검색 완료 — {list.Count} 대 발견";
             }
             catch (Exception ex) { _lblStatus.Text = "검색 실패: " + ex.Message; }
@@ -321,24 +365,257 @@ namespace QMC.Vision.Ui.Pages
             OnFieldChanged();
             var m = CurrentMapping();
             if (m == null) return;
+            if (_isLive)
+            {
+                _lblStatus.Text = "Live 중에는 단발 그랩 불가. Live Stop 후 시도하세요.";
+                _lblStatus.ForeColor = Color.Firebrick;
+                return;
+            }
             _lblStatus.Text = "테스트 그랩 중..."; _lblStatus.Refresh();
-            ICamera cam = null;
+
+            ICamera cam = _activeCam;
+            bool ownCam = false;
             try
             {
-                cam = AlgorithmCameraBinder.CreateAndApply(m);
+                if (cam == null)
+                {
+                    cam = AlgorithmCameraBinder.CreateAndApply(m);
+                    ownCam = true;
+                }
+                cam.TriggerMode = CameraTriggerMode.Software;
                 using (var g = cam.Grab(3000))
                 {
                     if (g.IsSuccess && g.Image != null)
                     {
                         _picPreview.Image?.Dispose();
                         _picPreview.Image = new Bitmap(g.Image);
+                        _lblStatus.ForeColor = Color.DarkSlateGray;
                         _lblStatus.Text = $"그랩 OK — {g.Width}x{g.Height}  Exposure={m.ExposureUs}μs  Gain={m.Gain}dB";
                     }
-                    else _lblStatus.Text = "그랩 실패: " + (g.ErrorMessage ?? "-");
+                    else { _lblStatus.Text = "그랩 실패: " + (g.ErrorMessage ?? "-"); _lblStatus.ForeColor = Color.Firebrick; }
                 }
             }
-            catch (Exception ex) { _lblStatus.Text = "예외: " + ex.Message; }
-            finally { try { cam?.Dispose(); } catch { } }
+            catch (Exception ex) { _lblStatus.Text = "예외: " + ex.Message; _lblStatus.ForeColor = Color.Firebrick; }
+            finally { if (ownCam) { try { cam?.Dispose(); } catch { } } }
+        }
+
+        // ──────────────────────────────────────────
+        //  Connect / Disconnect / Live  (HikGrabTestQmc 와 동일 패턴)
+        // ──────────────────────────────────────────
+
+        private void ToggleConnect()
+        {
+            if (_activeCam != null) Disconnect();
+            else                    Connect();
+            UpdateConnectButtons();
+        }
+
+        private void Connect()
+        {
+            OnFieldChanged();
+            if (!Validate(out var err)) { _lblStatus.Text = "연결 거부 — " + err; _lblStatus.ForeColor = Color.Firebrick; return; }
+            var m = CurrentMapping();
+            try
+            {
+                // 1차 시도: 운영 모듈(Form1)이 이미 같은 카메라를 보유 중이면 그 인스턴스 borrow.
+                //          매핑이 변경됐으면 RebindAlgorithmCamera 로 swap 후 borrow.
+                //          이는 HIK GigE 의 동시 exclusive 점유 충돌(MV_CC_OpenDevice failed)을 회피한다.
+                var form = FindForm() as Form1;
+                var mod  = form?.ResolveModule(_algorithm);
+                if (mod != null)
+                {
+                    bool sameId = string.Equals(mod.Camera?.Info?.Id, m.CameraId, StringComparison.OrdinalIgnoreCase);
+                    if (!sameId || mod.Camera == null || !mod.Camera.IsOpen)
+                    {
+                        // 매핑 변경되었거나 운영 카메라가 닫혀있음 → Rebind (Form1 이 swap + open)
+                        if (!form.RebindAlgorithmCamera(_algorithm, m, out var rebindErr))
+                        {
+                            _lblStatus.ForeColor = Color.Firebrick;
+                            _lblStatus.Text = "운영 모듈 Rebind 실패: " + rebindErr;
+                            return;
+                        }
+                    }
+                    var borrowed = mod.Camera;
+                    if (borrowed == null || !borrowed.IsOpen)
+                    {
+                        _lblStatus.ForeColor = Color.Firebrick;
+                        _lblStatus.Text = "운영 모듈 카메라가 열려있지 않음 (CameraId=" + m.CameraId + ")";
+                        return;
+                    }
+                    borrowed.FrameReceived     += Cam_FrameReceived;
+                    borrowed.ConnectionChanged += Cam_ConnectionChanged;
+                    _activeCam      = borrowed;
+                    _activeCamOwned = false;
+                    _lblStatus.ForeColor = Color.DarkSlateGray;
+                    _lblStatus.Text = $"Connected (운영 모듈 공유) — {m.CameraId}";
+                    return;
+                }
+
+                // Fallback: 메인 폼(Form1) 을 찾을 수 없는 단독 모드 → 새 인스턴스 직접 open.
+                var cam = AlgorithmCameraBinder.CreateAndApply(m, out var openErr, out var applyErr);
+                if (cam == null || !cam.IsOpen)
+                {
+                    _lblStatus.ForeColor = Color.Firebrick;
+                    _lblStatus.Text = "Open 실패: " + (openErr ?? "(unknown)");
+                    try { cam?.Dispose(); } catch { }
+                    return;
+                }
+                cam.FrameReceived     += Cam_FrameReceived;
+                cam.ConnectionChanged += Cam_ConnectionChanged;
+                _activeCam      = cam;
+                _activeCamOwned = true;
+                _lblStatus.ForeColor = Color.DarkSlateGray;
+                _lblStatus.Text = string.IsNullOrEmpty(applyErr)
+                    ? $"Connected — {m.CameraId}"
+                    : $"Connected (Apply warn: {applyErr})";
+            }
+            catch (Exception ex)
+            {
+                _lblStatus.Text = "Connect error: " + ex.Message;
+                _lblStatus.ForeColor = Color.Firebrick;
+                if (_activeCamOwned) { try { _activeCam?.Dispose(); } catch { } }
+                _activeCam = null;
+                _activeCamOwned = false;
+            }
+        }
+
+        private void Disconnect()
+        {
+            if (_activeCam == null) return;
+            try { if (_isLive) _activeCam.StopLive(); } catch { }
+            _isLive = false;
+            try { _activeCam.FrameReceived     -= Cam_FrameReceived; } catch { }
+            try { _activeCam.ConnectionChanged -= Cam_ConnectionChanged; } catch { }
+            if (_activeCamOwned)
+            {
+                // 단독 모드 — 우리가 만든 인스턴스이므로 close/dispose
+                try { _activeCam.Close();   } catch { }
+                try { _activeCam.Dispose(); } catch { }
+            }
+            // borrow 모드는 close/dispose 안 함 (운영 모듈이 계속 사용)
+            _activeCam = null;
+            _activeCamOwned = false;
+            if (_lblStatus != null) { _lblStatus.ForeColor = Color.DarkSlateGray; _lblStatus.Text = "Disconnected"; }
+        }
+
+        private void LiveStart()
+        {
+            if (_activeCam == null || _isLive) return;
+            try
+            {
+                _fpsT0 = DateTime.Now; _fpsCount = 0;
+                _activeCam.TriggerMode = CameraTriggerMode.Continuous;
+                _activeCam.StartLive();
+                _isLive = true;
+                _lblStatus.ForeColor = Color.DarkSlateGray;
+                _lblStatus.Text = "Live started";
+            }
+            catch (Exception ex) { _lblStatus.Text = "Live start error: " + ex.Message; _lblStatus.ForeColor = Color.Firebrick; }
+            UpdateConnectButtons();
+        }
+
+        private void LiveStop()
+        {
+            if (_activeCam == null || !_isLive) return;
+            try
+            {
+                _activeCam.StopLive();
+                _isLive = false;
+                _lblStatus.ForeColor = Color.DarkSlateGray;
+                _lblStatus.Text = "Live stopped";
+            }
+            catch (Exception ex) { _lblStatus.Text = "Live stop error: " + ex.Message; _lblStatus.ForeColor = Color.Firebrick; }
+            UpdateConnectButtons();
+        }
+
+        private void Cam_FrameReceived(GrabResult r)
+        {
+            if (r == null || !r.IsSuccess || r.Image == null) return;
+            var bmp = (Bitmap)r.Image.Clone();
+            _uiCtx.Post(_ => ShowLiveFrame(bmp), null);
+        }
+
+        private void ShowLiveFrame(Bitmap bmp)
+        {
+            if (_picPreview == null) { bmp.Dispose(); return; }
+            var old = _picPreview.Image;
+            _picPreview.Image = bmp;
+            old?.Dispose();
+            _fpsCount++;
+            var dt = (DateTime.Now - _fpsT0).TotalSeconds;
+            if (dt >= 1.0)
+            {
+                _lblStatus.Text = $"Live  {_fpsCount / dt:F1} FPS  ({bmp.Width}x{bmp.Height})";
+                _fpsCount = 0; _fpsT0 = DateTime.Now;
+            }
+        }
+
+        private void Cam_ConnectionChanged(CameraConnectionEvent ev)
+        {
+            _uiCtx.Post(_ =>
+            {
+                if (_lblStatus != null) _lblStatus.Text = "[evt] " + ev;
+                UpdateConnectButtons();
+            }, null);
+        }
+
+        private void UpdateConnectButtons()
+        {
+            if (_btnConnect == null) return;
+            bool connected = _activeCam != null;
+            bool live = _isLive;
+            _btnConnect.Text = connected ? "Disconnect" : "Connect";
+            _btnConnect.BackColor = connected ? Color.IndianRed : UiTheme.Accent;
+            _btnLiveStart.Enabled = connected && !live;
+            _btnLiveStop.Enabled  = connected && live;
+            _btnTestGrab.Enabled  = !live;
+            // 연결 중엔 카메라/매핑 변경 잠금
+            _cbCameraId.Enabled  = !connected;
+            if (_btnDiscover != null) _btnDiscover.Enabled = !connected;
+            _btnApply.Enabled    = !connected;
+        }
+
+        // ──────────────────────────────────────────
+        //  ComboBox 아이템 wrapper / helpers
+        // ──────────────────────────────────────────
+
+        /// <summary>"UserDefinedName [Model] IP" 표시용 wrapper. 매핑 저장값은 Info.Id (IP) 그대로.</summary>
+        private class DeviceListItem
+        {
+            public CameraInfo Info { get; }
+            public DeviceListItem(CameraInfo info) { Info = info; }
+            public string Id => Info?.Id;
+            public override string ToString()
+            {
+                if (Info == null) return "";
+                if (Info.Transport == CameraTransport.Sim) return Info.Id;
+                var uid = string.IsNullOrWhiteSpace(Info.UserDefinedName) ? "(no UserID)" : Info.UserDefinedName;
+                return $"{uid}   [{Info.Model}]   {Info.IpAddress}";
+            }
+        }
+
+        private static string ItemToId(object item)
+        {
+            if (item is DeviceListItem d) return d.Id;
+            return item as string;
+        }
+
+        private static bool ItemMatches(object item, string id)
+        {
+            var s = ItemToId(item);
+            return s != null && s.Equals(id, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static void SetSelectedById(ComboBox cb, string id)
+        {
+            if (string.IsNullOrEmpty(id)) { cb.SelectedIndex = -1; cb.Text = ""; return; }
+            for (int i = 0; i < cb.Items.Count; i++)
+            {
+                if (ItemMatches(cb.Items[i], id)) { cb.SelectedIndex = i; cb.Text = cb.Items[i].ToString(); return; }
+            }
+            cb.Items.Add(id);
+            cb.SelectedIndex = cb.Items.Count - 1;
+            cb.Text = id;
         }
     }
 }

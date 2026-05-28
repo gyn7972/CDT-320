@@ -23,7 +23,9 @@ namespace QMC.Vision.Modules
         public void SetCamera(ICamera newCamera)
         {
             if (newCamera == null) throw new ArgumentNullException(nameof(newCamera));
+            if (Camera != null) Camera.ExposureEnded -= OnCameraExposureEnded;
             Camera = newCamera;
+            Camera.ExposureEnded += OnCameraExposureEnded;
         }
 
         public Dictionary<string, IPatternFinder> Finders    { get; } = new Dictionary<string, IPatternFinder>();
@@ -37,11 +39,22 @@ namespace QMC.Vision.Modules
         /// <summary>실패 시 (ARM 비동기 이벤트 발화). args=(ModuleName, reason).</summary>
         public event Action<string, string> Alarmed;
 
+        /// <summary>현재 Grab 사이클에서 카메라 HW ExposureEnd 로 이미 EPD 를 쐈는지 여부.</summary>
+        private volatile bool _exposureEndFired;
+
         protected VisionModule(string name, ICamera camera, IVisionBackend backend)
         {
             Name    = name;
             Camera  = camera  ?? throw new ArgumentNullException(nameof(camera));
             Backend = backend ?? throw new ArgumentNullException(nameof(backend));
+            Camera.ExposureEnded += OnCameraExposureEnded;
+        }
+
+        /// <summary>카메라 HW 노출 종료 이벤트 → 즉시 EPD 발화 (전송 완료를 기다리지 않음).</summary>
+        private void OnCameraExposureEnded()
+        {
+            _exposureEndFired = true;
+            try { ExposureDone?.Invoke(Name); } catch { }
         }
 
         protected IPatternFinder AddFinder(string id)
@@ -63,9 +76,15 @@ namespace QMC.Vision.Modules
         {
             if (!Camera.IsOpen) try { Camera.Open(); } catch { }
             if (DelayBeforeGrabMs > 0) System.Threading.Thread.Sleep(DelayBeforeGrabMs);
+            _exposureEndFired = false;
             var g = Camera.Grab(timeoutMs);
-            if (g.IsSuccess) try { ExposureDone?.Invoke(Name); } catch { }
-            else             try { Alarmed?.Invoke(Name, g.ErrorMessage); } catch { }
+            if (g.IsSuccess)
+            {
+                // HW ExposureEnd 가 이미 EPD 를 쐈으면(노출 종료 시점) 중복 발화하지 않는다.
+                // 미지원 카메라(Sim 등)는 여기서 fallback 으로 발화 → 전송 완료 시점 EPD.
+                if (!_exposureEndFired) try { ExposureDone?.Invoke(Name); } catch { }
+            }
+            else try { Alarmed?.Invoke(Name, g.ErrorMessage); } catch { }
             return g;
         }
 
