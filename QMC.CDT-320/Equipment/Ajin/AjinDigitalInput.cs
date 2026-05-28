@@ -1,4 +1,5 @@
 using QMC.Common.IO;
+using QMC.Common.Motion.Ajin;
 
 namespace QMC.CDT320.Ajin
 {
@@ -22,10 +23,10 @@ namespace QMC.CDT320.Ajin
             if (Config.IsSimulationMode) return;
             if (!AjinSystem.IsOpen)      return;
 
-            int raw = 0;
-            if (!AxtReturn.IsSuccess(Axl.AxdiReadInportBit(Setup.ModuleNo, Setup.BitNo, ref raw))) return;
+            bool raw = false;
+            if (AXD.Read(Setup.ModuleNo, Setup.BitNo, ref raw) != 0) return;
 
-            bool signal = raw != 0;
+            bool signal = raw;
             bool logical = Setup.IsNormallyClosed ? !signal : signal;
             if (IsOn != logical)
             {

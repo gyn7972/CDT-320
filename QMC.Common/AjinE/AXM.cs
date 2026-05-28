@@ -204,6 +204,19 @@ namespace QMC.Common.Motion.Ajin
         // 모든축에 대한 모든 파라메타를 축별로 저장한다. .mot파일로 저장한다.
         [DllImport(LibraryFileName)]
         private static extern uint AxmMotSaveParaAll(string szFilePath);
+        public static int LoadParameters(string filePath)
+        {
+            int ret = 0;
+            if ((ret = AXL.CheckErrorCode("AXM.AxmMotLoadParaAll", AXM.AxmMotLoadParaAll(filePath))) != 0) return ret;
+            return ret;
+        }
+
+        public static int SaveParameters(string filePath)
+        {
+            int ret = 0;
+            if ((ret = AXL.CheckErrorCode("AXM.AxmMotSaveParaAll", AXM.AxmMotSaveParaAll(filePath))) != 0) return ret;
+            return ret;
+        }
 
         // 파라메타 28 - 31번까지 사용자가 프로그램내에서  이 함수를 이용해 설정 한다
         [DllImport(LibraryFileName)]

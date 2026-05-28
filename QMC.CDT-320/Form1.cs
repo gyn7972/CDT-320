@@ -1,5 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Windows.Forms;
+using QMC.Common;
+using QMC.Common.Motion;
 using QMC.CDT320;
 using QMC.CDT_320.Ui;
 using QMC.CDT_320.Ui.Localization;
@@ -24,6 +27,7 @@ namespace QMC.CDT_320
         internal CDT320_Machine    Machine        { get; private set; }
         internal SimulatorBridge   Bridge         { get; private set; }
         internal MachineController Controller     { get; private set; }
+        internal MotionMonitorService MotionMonitor { get; private set; }
 
         /// <summary>Stage 61 — 상단 상태바 Project Name 갱신.
         /// ProjectPage 의 load/save 또는 SubsetPage 의 save 후 호출.</summary>
@@ -67,7 +71,10 @@ namespace QMC.CDT_320
             // AJINEXTEK AXL (실보드) 컨피그 로드 + 라이브러리 열기
             QMC.CDT320.Ajin.AjinConfigStore.Load();
             QMC.CDT320.Ajin.AjinFactory.UseRealBoard = cfg.UseAjin;
-            if (cfg.UseAjin) QMC.CDT320.Ajin.AjinSystem.Open(cfg.AjinIrqNo);
+            if (cfg.UseAjin) 
+                QMC.CDT320.Ajin.AjinSystem.Open(cfg.AjinIrqNo);
+
+            QMC.CDT320.Ajin.AjinFactory.RegisterConfiguredAxes();
 
             // QMC.Vision TCP 자동 연결 (비동기, 연결 실패해도 앱은 계속)
             // Stage 43 — 6 채널: Wafer/Inspection/Bin + Main/TopSide/BottomSide
@@ -84,6 +91,8 @@ namespace QMC.CDT_320
             Machine    = new CDT320_Machine();
             Bridge     = new SimulatorBridge(Machine);
             Controller = new MachineController(Machine);
+            MotionMonitor = new MotionMonitorService();
+            MotionMonitor.Start(EnumerateAxes(Machine), cfg.UseAjin ? 50 : 100);
 
             // Stage 41 — SecsHost 인스턴스화 (옵션, 5000 포트)
             try
@@ -396,6 +405,36 @@ namespace QMC.CDT_320
             lblTimeValue.Text = DateTime.Now.ToString("yyyy-MM-dd  HH:mm:ss");
         }
 
+        private static IEnumerable<BaseAxis> EnumerateAxes(CDT320_Machine machine)
+        {
+            if (machine == null) yield break;
+            foreach (var unit in machine.Units)
+                foreach (var axis in EnumerateAxes(unit))
+                    yield return axis;
+        }
+
+        private static IEnumerable<BaseAxis> EnumerateAxes(BaseEquipmentNode node)
+        {
+            if (node == null) yield break;
+
+            var axis = node as BaseAxis;
+            if (axis != null)
+            {
+                yield return axis;
+                yield break;
+            }
+
+            var prop = node.GetType().GetProperty("Components");
+            if (prop == null) yield break;
+
+            var components = prop.GetValue(node) as System.Collections.IEnumerable;
+            if (components == null) yield break;
+
+            foreach (BaseEquipmentNode child in components)
+                foreach (var childAxis in EnumerateAxes(child))
+                    yield return childAxis;
+        }
+
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
             try
@@ -404,6 +443,7 @@ namespace QMC.CDT_320
                 AppSettingsStore.Save();
             }
             catch { }
+            try { MotionMonitor?.Dispose(); } catch { }
             try { Bridge?.Dispose(); } catch { }
             try { QMC.CDT320.VisionComm.VisionHub.DisconnectAll(); } catch { }
             try { QMC.CDT320.Ajin.AjinSystem.Close(); } catch { }

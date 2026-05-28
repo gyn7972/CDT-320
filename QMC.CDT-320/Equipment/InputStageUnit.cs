@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
 using QMC.Common;
@@ -95,13 +95,13 @@ namespace QMC.CDT320
     /// </summary>
     public class InputStageRecipe : IRecipeData
     {
-        /// <summary>일반 이동 속도 [mm/s]. xlsx WAFER STAGE_Y = 500 mm/s 반영.</summary>
+        /// <summary>일반 이동 속도 [mm/s]. xlsx WaferStageY = 500 mm/s 반영.</summary>
         public double MoveVelocity          { get; set; } = 500.0;
 
         /// <summary>얼라인 이동 속도 [mm/s]. 미세 이동이라 30→100 정도.</summary>
         public double AlignVelocity         { get; set; } = 100.0;
 
-        /// <summary>NeedleZ 이젝트 이동 속도 [mm/s]. xlsx NEEDLE_Z = 100 mm/s.</summary>
+        /// <summary>NeedleZ 이젝트 이동 속도 [mm/s]. xlsx NeedleZ = 100 mm/s.</summary>
         public double NeedleVelocity        { get; set; } = 100.0;
 
         /// <summary>NeedleVacuum 흡착 안정화 대기 [ms].</summary>

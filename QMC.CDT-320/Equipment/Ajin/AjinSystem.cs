@@ -1,6 +1,7 @@
 using System;
 using QMC.CDT320.Alarms;
 using QMC.CDT320.Logging;
+using QMC.Common.Motion.Ajin;
 
 namespace QMC.CDT320.Ajin
 {
@@ -17,13 +18,15 @@ namespace QMC.CDT320.Ajin
 
         public static bool Open(int irqNo = 7)
         {
-            if (IsOpen) return true;
+            if (IsOpen) 
+                return true;
+
             try
             {
-                uint r = Axl.AxlOpen(irqNo);
-                if (!AxtReturn.IsSuccess(r))
+                int r = AXL.Open(irqNo);
+                if (r != 0)
                 {
-                    LastErrorCode = (int)r;
+                    LastErrorCode = r;
                     LastError     = "AxlOpen failed 0x" + r.ToString("X4");
                     EventLogger.Write(EventKind.Alarm, "SYS", "AXL-OPEN", LastError);
                     AlarmManager.Raise(AlarmSeverity.Critical, "AXL-OPEN", "AjinSystem", LastError);
@@ -31,9 +34,12 @@ namespace QMC.CDT320.Ajin
                 }
 
                 int n = 0;
-                if (AxtReturn.IsSuccess(Axl.AxmInfoGetAxisCount(ref n))) AxisCount = n;
+                if (AXM.GetAxisCount(out n) == 0) 
+                    AxisCount = n;
+
                 n = 0;
-                if (AxtReturn.IsSuccess(Axl.AxdInfoGetModuleCount(ref n))) DioModuleCount = n;
+                if (AXD.GetModuleCount(out n) == 0) 
+                    DioModuleCount = n;
 
                 IsOpen = true;
                 EventLogger.Write(EventKind.Event, "SYS", "AXL-OPEN",
@@ -59,7 +65,7 @@ namespace QMC.CDT320.Ajin
         public static void Close()
         {
             if (!IsOpen) return;
-            try { Axl.AxlClose(); } catch { }
+            try { AXL.Close(); } catch { }
             IsOpen = false;
             EventLogger.Write(EventKind.Event, "SYS", "AXL-CLOSE", "AXL closed");
         }

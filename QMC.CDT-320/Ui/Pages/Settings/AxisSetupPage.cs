@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
@@ -6,6 +6,7 @@ using System.Linq;
 using System.Runtime.Serialization;
 using System.Runtime.Serialization.Json;
 using System.Windows.Forms;
+using QMC.CDT320.Ajin;
 using QMC.CDT_320.Ui.Localization;
 
 namespace QMC.CDT_320.Ui.Pages.Settings
@@ -98,71 +99,28 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         public static List<AxisRow> SeedDefault()
         {
             var L = new List<AxisRow>();
-            void Add(int no, string mod, string nm, string cfgKey, int board, int ch,
-                     double stroke, bool brk, string unit = "mm",
-                     double vel = 100.0, string homedir = "NEG")
-                => L.Add(new AxisRow
+            foreach (var axis in AjinAxisDefaults.All)
+            {
+                L.Add(new AxisRow
                 {
-                    No = no,
-                    Module = mod,
-                    Name = nm,
-                    ConfigKey = cfgKey,
-                    BoardNo = board,
-                    ChannelNo = ch,
-                    Stroke = stroke,
-                    Brake = brk,
-                    Unit = unit,
-                    DefaultVel = vel,
-                    HomeDir = homedir,
+                    No = axis.Axis,
+                    Module = axis.Module,
+                    Name = axis.AxisName,
+                    ConfigKey = axis.AxisName,
+                    BoardNo = axis.BoardNo,
+                    ChannelNo = axis.ChannelNo,
+                    Stroke = axis.Stroke,
+                    Brake = axis.Brake,
+                    Unit = axis.Unit,
+                    DefaultVel = axis.DefaultVel,
+                    HomeDir = axis.HomeDir,
                     SoftLimitNeg = 0,
-                    SoftLimitPos = stroke
+                    SoftLimitPos = axis.Stroke
                 });
-
-            // ── Board 0 (slot 9~F) ───────────────────────────────────────
-            Add(0, "InputLoader", "WAFER LIFTER_Z", "ElevatorZ_Input", 0, 9, 200, true);
-            Add(1, "InputLoader", "WAFER FEEDER_Y", "FeederY_Input", 0, 10, 300, false);
-            Add(2, "InputStage", "WAFER STAGE_Y", "StageY", 0, 11, 400, false);
-            Add(3, "InputStage", "WAFER STAGE_T", "StageT", 0, 12, 360, false, "deg", vel: 30, homedir: "POS");
-            Add(4, "InputStage", "WAFER EXPANDING_Z", "ExpanderZ", 0, 13, 100, false);
-            Add(5, "InputStage", "ALIGN VISION_X", "CameraX", 0, 14, 300, false);
-            Add(6, "InputStage", "NEEDLE_X", "NeedleBlockX", 0, 15, 200, false);
-            // ── Board 1 (slot 0~F) ───────────────────────────────────────
-            Add(7, "InputStage", "NEEDLE_Z", "NeedleZ", 1, 0, 100, true);
-            Add(8, "InputStage", "EJECT PIN_Z", "EjectPinZ", 1, 1, 50, false, vel: 50);
-            Add(9, "FrontPicker", "FRONT PICKER_X", "LeftArm_ArmX", 1, 2, 1500, false, vel: 800);
-            Add(10, "FrontPicker", "FRONT PICKER_Y", "LeftArm_ArmY", 1, 3, 750, false);
-            Add(11, "FrontPicker", "FRONT PICKER_T0", "LeftArm_Picker1_T", 1, 4, 360, false, "deg");
-            Add(12, "FrontPicker", "FRONT PICKER_Z0", "LeftArm_Picker1_Z", 1, 5, 50, false, vel: 200);
-            Add(13, "FrontPicker", "FRONT PICKER_T1", "LeftArm_Picker2_T", 1, 6, 360, false, "deg");
-            Add(14, "FrontPicker", "FRONT PICKER_Z1", "LeftArm_Picker2_Z", 1, 7, 50, false, vel: 200);
-            Add(15, "FrontPicker", "FRONT PICKER_T2", "LeftArm_Picker3_T", 1, 8, 360, false, "deg");
-            Add(16, "FrontPicker", "FRONT PICKER_Z2", "LeftArm_Picker3_Z", 1, 9, 50, false, vel: 200);
-            Add(17, "FrontPicker", "FRONT PICKER_T3", "LeftArm_Picker4_T", 1, 10, 360, false, "deg");
-            Add(18, "FrontPicker", "FRONT PICKER_Z3", "LeftArm_Picker4_Z", 1, 11, 50, false, vel: 200);
-            Add(19, "FrontPicker", "FRONT SIDE VISION_Y0", "LeftArm_SideVisionY", 1, 12, 200, false);
-            Add(20, "RearPicker", "REAR SIDE VISION_Y0", "RightArm_SideVisionY", 1, 13, 200, false);
-            Add(21, "RearPicker", "REAR PICKER_X", "RightArm_ArmX", 1, 14, 1500, false, vel: 800);
-            Add(22, "RearPicker", "REAR PICKER_Y", "RightArm_ArmY", 1, 15, 750, false);
-            // ── Board 2 (slot 0~E) ───────────────────────────────────────
-            Add(23, "RearPicker", "REAR PICKER_T0", "RightArm_Picker1_T", 2, 0, 360, false, "deg");
-            Add(24, "RearPicker", "REAR PICKER_Z0", "RightArm_Picker1_Z", 2, 1, 50, false, vel: 200);
-            Add(25, "RearPicker", "REAR PICKER_T1", "RightArm_Picker2_T", 2, 2, 360, false, "deg");
-            Add(26, "RearPicker", "REAR PICKER_Z1", "RightArm_Picker2_Z", 2, 3, 50, false, vel: 200);
-            Add(27, "RearPicker", "REAR PICKER_T2", "RightArm_Picker3_T", 2, 4, 360, false, "deg");
-            Add(28, "RearPicker", "REAR PICKER_Z2", "RightArm_Picker3_Z", 2, 5, 50, false, vel: 200);
-            Add(29, "RearPicker", "REAR PICKER_T3", "RightArm_Picker4_T", 2, 6, 360, false, "deg");
-            Add(30, "RearPicker", "REAR PICKER_Z3", "RightArm_Picker4_Z", 2, 7, 50, false, vel: 200);
-            Add(31, "OutputStage", "NG BIN_Y", "NgStage_StageY", 2, 8, 500, false);
-            Add(32, "OutputStage", "NG BIN_Z", "NgStage_StageZ", 2, 9, 100, false);
-            Add(33, "OutputStage", "GOOD BIN_Y", "GoodStage_StageY", 2, 10, 500, false);
-            Add(34, "OutputStage", "INSPECTION VISION_X", "BinCameraX", 2, 11, 300, false);
-            Add(35, "OutputUnloader", "BIN FEEDER_Y", "FeederY_Output", 2, 12, 300, false);
-            Add(36, "OutputUnloader", "BIN LIFTER_Z", "ElevatorZ_Output", 2, 13, 200, true);
-            Add(37, "InputStage", "ALIGN VISION_Z", "CameraZ", 2, 14, 100, true, vel: 50);
+            }
             return L;
         }
-
-        // ── Persistence ──────────────────────────────────────────────
+        // Persistence ──────────────────────────────────────────────
         private static List<AxisRow> LoadOrSeed()
         {
             try
@@ -172,11 +130,34 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                     {
                         var ser = new DataContractJsonSerializer(typeof(AxisStore));
                         var s = (AxisStore)ser.ReadObject(fs);
-                        if (s?.Items != null && s.Items.Count > 0) return s.Items;
+                        if (s?.Items != null && s.Items.Count > 0) return MergeWithDefaults(s.Items);
                     }
             }
             catch { }
             return SeedDefault();
+        }
+
+        private static List<AxisRow> MergeWithDefaults(List<AxisRow> saved)
+        {
+            var result = SeedDefault();
+            foreach (var row in result)
+            {
+                var savedRow = saved.FirstOrDefault(x =>
+                    string.Equals(AjinAxisDefaults.ResolveName(x.ConfigKey), row.ConfigKey, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(AjinAxisDefaults.ResolveName(x.Name), row.ConfigKey, StringComparison.OrdinalIgnoreCase));
+                if (savedRow == null) continue;
+
+                row.BoardNo = savedRow.BoardNo;
+                row.ChannelNo = savedRow.ChannelNo;
+                row.Stroke = savedRow.Stroke;
+                row.Brake = savedRow.Brake;
+                row.SoftLimitNeg = savedRow.SoftLimitNeg;
+                row.SoftLimitPos = savedRow.SoftLimitPos;
+                row.DefaultVel = savedRow.DefaultVel;
+                row.HomeDir = savedRow.HomeDir;
+                row.Unit = savedRow.Unit;
+            }
+            return result;
         }
 
         private void DoSave()
@@ -260,15 +241,17 @@ namespace QMC.CDT_320.Ui.Pages.Settings
 
             foreach (var ax in EnumerateAxes(host.Machine))
             {
-                var match = _items.FirstOrDefault(x => string.Equals(x.Name, ax.Name, StringComparison.OrdinalIgnoreCase));
+                string axisName = AjinAxisDefaults.ResolveName(ax.Name);
+                var match = _items.FirstOrDefault(x =>
+                    string.Equals(x.ConfigKey, axisName, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(x.Name, axisName, StringComparison.OrdinalIgnoreCase));
                 if (match == null) continue;
                 try
                 {
                     ax.Setup.SoftLimitMinus = match.SoftLimitNeg;
                     ax.Setup.SoftLimitPlus = match.SoftLimitPos;
+                    ax.Recipe.DefaultVelocity = match.DefaultVel;
                     var setupType = ax.Setup.GetType();
-                    var velProp = setupType.GetProperty("DefaultVelocity") ?? setupType.GetProperty("Velocity");
-                    if (velProp != null && velProp.CanWrite) velProp.SetValue(ax.Setup, match.DefaultVel);
                     var strokeProp = setupType.GetProperty("Stroke");
                     if (strokeProp != null && strokeProp.CanWrite) strokeProp.SetValue(ax.Setup, match.Stroke);
                     axisApplied++;
@@ -282,11 +265,12 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 var cfg = QMC.CDT320.Ajin.AjinConfigStore.Current;
                 foreach (var it in _items)
                 {
-                    if (string.IsNullOrEmpty(it.ConfigKey)) continue;
-                    if (!cfg.Axes.TryGetValue(it.ConfigKey, out var am))
+                    string configKey = AjinAxisDefaults.ResolveName(it.ConfigKey);
+                    if (string.IsNullOrEmpty(configKey)) continue;
+                    if (!cfg.Axes.TryGetValue(configKey, out var am))
                     {
                         am = new QMC.CDT320.Ajin.AxisMap();
-                        cfg.Axes[it.ConfigKey] = am;
+                        cfg.Axes[configKey] = am;
                     }
                     am.Axis = it.No;
                     am.BoardNo = it.BoardNo;
@@ -294,6 +278,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                     cfgApplied++;
                 }
                 QMC.CDT320.Ajin.AjinConfigStore.Save();
+                QMC.CDT320.Ajin.AjinFactory.ReloadConfiguredAxes();
             }
             catch (Exception ex)
             {
@@ -314,17 +299,5 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             if (prop != null && prop.GetValue(node) is System.Collections.IEnumerable comps)
                 foreach (QMC.Common.BaseEquipmentNode c in comps) foreach (var a in Rec(c)) yield return a;
         }
-
-        //private void InitializeComponent()
-        //{
-        //    this.SuspendLayout();
-        //    // 
-        //    // AxisSetupPage
-        //    // 
-        //    this.Name = "AxisSetupPage";
-        //    this.Size = new System.Drawing.Size(460, 395);
-        //    this.ResumeLayout(false);
-
-        //}
     }
 }

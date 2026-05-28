@@ -1,4 +1,5 @@
 using QMC.Common.IO;
+using QMC.Common.Motion.Ajin;
 
 namespace QMC.CDT320.Ajin
 {
@@ -23,8 +24,8 @@ namespace QMC.CDT320.Ajin
             base.Write(state);
             if (!AjinSystem.IsOpen) return;
 
-            int physical = Setup.IsNormallyClosed ? (state ? 0 : 1) : (state ? 1 : 0);
-            Axl.AxdoWriteOutportBit(Setup.ModuleNo, Setup.BitNo, physical);
+            bool physical = Setup.IsNormallyClosed ? !state : state;
+            AXD.Write(Setup.ModuleNo, Setup.BitNo, physical);
         }
 
         public override void UpdateStatus()
@@ -32,10 +33,10 @@ namespace QMC.CDT320.Ajin
             if (Config.IsSimulationMode) return;
             if (!AjinSystem.IsOpen)      return;
 
-            int raw = 0;
-            if (!AxtReturn.IsSuccess(Axl.AxdoReadOutportBit(Setup.ModuleNo, Setup.BitNo, ref raw))) return;
+            bool raw = false;
+            if (AXD.ReadOutput(Setup.ModuleNo, Setup.BitNo, ref raw) != 0) return;
 
-            bool logical = Setup.IsNormallyClosed ? raw == 0 : raw != 0;
+            bool logical = Setup.IsNormallyClosed ? !raw : raw;
             // 외부에서 직접 보드 토글했거나 하드웨어 피드백이 다를 수 있어 동기화
             if (IsOn != logical) IsOn = logical;
         }

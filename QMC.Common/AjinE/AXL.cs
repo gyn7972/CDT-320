@@ -16,7 +16,7 @@ using System.Text;
 
 namespace QMC.Common.Motion.Ajin
 {
-    internal static class AXL
+    public static class AXL
     {
         #region Define
         public const string LibraryFileName = "AXL.dll";

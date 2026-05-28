@@ -1,5 +1,8 @@
 using QMC.Common.IO;
 using QMC.Common.Motion;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace QMC.CDT320.Ajin
 {
@@ -15,8 +18,49 @@ namespace QMC.CDT320.Ajin
     {
         public static bool UseRealBoard { get; set; } = false;
 
+        public static MotionAxisManager AxisManager { get; } = new MotionAxisManager();
+
         private static bool Ready => UseRealBoard && AjinSystem.IsOpen;
         private static AjinConfig Cfg => AjinConfigStore.Current;
+        private static readonly object AxisGate = new object();
+        private static bool _configuredAxesRegistered;
+
+        static AjinFactory()
+        {
+            AxisManager.AxisFactory = CreateManagedAxis;
+        }
+
+        public static void RegisterConfiguredAxes()
+        {
+            lock (AxisGate)
+            {
+                if (_configuredAxesRegistered) 
+                    return;
+
+                _configuredAxesRegistered = true;
+
+                if (Cfg == null || Cfg.Axes == null) 
+                    return;
+
+                foreach (var item in Cfg.Axes.OrderBy(x => x.Value != null ? x.Value.Axis : int.MaxValue))
+                {
+                    if (item.Value == null) continue;
+                    if (!string.Equals(item.Key, ResolveAxisKey(item.Key), StringComparison.OrdinalIgnoreCase))
+                        continue;
+                    AxisManager.Upsert(CreateDefinition(item.Key, item.Value));
+                }
+            }
+        }
+
+        public static void ReloadConfiguredAxes()
+        {
+            lock (AxisGate)
+            {
+                _configuredAxesRegistered = false;
+            }
+
+            RegisterConfiguredAxes();
+        }
 
         // ──────────────────────────────────────
         //  Axis
@@ -25,13 +69,132 @@ namespace QMC.CDT320.Ajin
         /// <summary>컨피그에서 이름으로 조회해 축 생성. 명시 axisNo 를 주면 컨피그 무시.</summary>
         public static BaseAxis CreateAxis(string name, int? axisNo = null)
         {
-            if (Ready)
+            RegisterConfiguredAxes();
+
+            string axisKey = ResolveAxisKey(name);
+            if (!axisNo.HasValue)
             {
-                int? no = axisNo;
-                if (!no.HasValue && Cfg.Axes.TryGetValue(name, out var m)) no = m.Axis;
-                if (no.HasValue) return new AjinAxis(name, no.Value);
+                BaseAxis registered = AxisManager.Get(axisKey);
+                if (registered != null) return registered;
             }
-            return new SimAxis(name);
+
+            AxisMap map = null;
+            if (!axisNo.HasValue && Cfg != null && Cfg.Axes != null)
+                Cfg.Axes.TryGetValue(axisKey, out map);
+
+            if (map == null)
+                map = new AxisMap { Axis = axisNo.HasValue ? axisNo.Value : -1 };
+
+            MotionAxisDefinition definition = CreateDefinition(axisKey, map);
+            definition.Config.IsSimulationMode = !Ready || map.Axis < 0;
+            return AxisManager.Upsert(definition);
+        }
+
+        private static BaseAxis CreateManagedAxis(MotionAxisDefinition definition)
+        {
+            int axisNo = definition != null && definition.Setup != null ? definition.Setup.AxisNo : -1;
+            bool useRealAxis = Ready && axisNo >= 0;
+
+            BaseAxis axis = useRealAxis
+                ? (BaseAxis)new AjinAxis(definition.Name, axisNo)
+                : new SimAxis(definition.Name);
+
+            ApplyDefinition(axis, definition);
+            return axis;
+        }
+
+        private static void ApplyDefinition(BaseAxis axis, MotionAxisDefinition definition)
+        {
+            if (axis == null || definition == null) return;
+
+            if (definition.Setup != null)
+            {
+                axis.Setup.UnitName = definition.Setup.UnitName;
+                axis.Setup.DisplayName = definition.Setup.DisplayName;
+                axis.Setup.BoardNo = definition.Setup.BoardNo;
+                axis.Setup.AxisNo = definition.Setup.AxisNo;
+                axis.Setup.PulsesPerUnit = definition.Setup.PulsesPerUnit;
+                axis.Setup.AxisScale = definition.Setup.AxisScale;
+                axis.Setup.Unit = definition.Setup.Unit;
+                axis.Setup.IsEnabled = definition.Setup.IsEnabled;
+                axis.Setup.SoftLimitPlus = definition.Setup.SoftLimitPlus;
+                axis.Setup.SoftLimitMinus = definition.Setup.SoftLimitMinus;
+                axis.Setup.SoftLimitEnabled = definition.Setup.SoftLimitEnabled;
+                axis.Setup.HomeOffset = definition.Setup.HomeOffset;
+                axis.Setup.HomeDirection = definition.Setup.HomeDirection;
+                axis.Setup.HomeSignal = definition.Setup.HomeSignal;
+                axis.Setup.HomeTimeoutMs = definition.Setup.HomeTimeoutMs;
+                axis.Setup.MoveTimeoutMs = definition.Setup.MoveTimeoutMs;
+            }
+
+            if (definition.Config != null)
+                axis.Config.IsSimulationMode = definition.Config.IsSimulationMode;
+
+            if (definition.Recipe != null)
+            {
+                axis.Recipe.DefaultVelocity = definition.Recipe.DefaultVelocity;
+                axis.Recipe.Acceleration = definition.Recipe.Acceleration;
+                axis.Recipe.Deceleration = definition.Recipe.Deceleration;
+                axis.Recipe.HomeFirstVelocity = definition.Recipe.HomeFirstVelocity;
+                axis.Recipe.HomeSecondVelocity = definition.Recipe.HomeSecondVelocity;
+                axis.Recipe.HomeThirdVelocity = definition.Recipe.HomeThirdVelocity;
+                axis.Recipe.HomeLastVelocity = definition.Recipe.HomeLastVelocity;
+                axis.Recipe.HomeVelocity = definition.Recipe.HomeVelocity;
+                axis.Recipe.JogCoarseVelocity = definition.Recipe.JogCoarseVelocity;
+                axis.Recipe.JogFineVelocity = definition.Recipe.JogFineVelocity;
+                axis.Recipe.JogAcceleration = definition.Recipe.JogAcceleration;
+                axis.Recipe.JogDeceleration = definition.Recipe.JogDeceleration;
+            }
+        }
+
+        private static string ResolveAxisKey(string name)
+        {
+            return AjinAxisDefaults.ResolveName(name);
+        }
+
+        private static MotionAxisDefinition CreateDefinition(string key, AxisMap map)
+        {
+            int axisNo = map != null ? map.Axis : -1;
+            int boardNo = map != null ? map.BoardNo : 0;
+            AxisDefault axisDefault = FindDefault(key);
+            var recipe = AxisSpeedTable.BuildRecipe(axisNo);
+            if (axisDefault != null)
+                recipe.DefaultVelocity = axisDefault.DefaultVel;
+
+            return new MotionAxisDefinition
+            {
+                Name = key ?? string.Empty,
+                Setup = new AxisSetup
+                {
+                    UnitName = axisDefault != null ? axisDefault.Module : DeriveUnitName(key),
+                    DisplayName = axisDefault != null ? axisDefault.AxisName : key ?? string.Empty,
+                    AxisNo = axisNo,
+                    BoardNo = boardNo,
+                    Unit = axisDefault != null ? axisDefault.Unit : "mm",
+                    IsEnabled = true
+                },
+                Config = new AxisConfig
+                {
+                    IsSimulationMode = !Ready || axisNo < 0
+                },
+                Recipe = recipe
+            };
+        }
+
+        private static AxisDefault FindDefault(string key)
+        {
+            string resolved = AjinAxisDefaults.ResolveName(key);
+            foreach (AxisDefault axis in AjinAxisDefaults.All)
+                if (string.Equals(axis.AxisName, resolved, StringComparison.OrdinalIgnoreCase))
+                    return axis;
+            return null;
+        }
+
+        private static string DeriveUnitName(string key)
+        {
+            if (string.IsNullOrWhiteSpace(key)) return string.Empty;
+            int idx = key.IndexOf('_');
+            return idx > 0 ? key.Substring(0, idx) : "CDT-320";
         }
 
         // ──────────────────────────────────────

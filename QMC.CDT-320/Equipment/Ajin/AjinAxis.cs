@@ -1,55 +1,58 @@
 using System.Threading.Tasks;
 using QMC.Common.Motion;
+using QMC.Common.Motion.Ajin;
 
 namespace QMC.CDT320.Ajin
 {
-    /// <summary>
-    /// AJINEXTEK AXL 보드 기반 실축.
-    /// BaseAxis 의 virtual 메서드를 override 하여 실제 AXM 함수를 호출.
-    /// </summary>
     public class AjinAxis : BaseAxis
     {
-        /// <summary>AXL 라이브러리의 축 번호 (0-based).</summary>
+        private readonly object _sync = new object();
+
         public int AxisNo { get; }
+
+        protected override bool UseInternalStatusUpdate
+        {
+            get { return false; }
+        }
 
         public AjinAxis(string name, int axisNo) : base(name)
         {
             AxisNo = axisNo;
-            Config.IsSimulationMode = false;    // 실보드 모드
+            Config.IsSimulationMode = false;
         }
-
-        // ──────────────────────────────────────────
-        //  서보 ON/OFF / 알람 리셋
-        // ──────────────────────────────────────────
 
         public override void ServoOn()
         {
-            if (!AjinSystem.IsOpen) return;
-            if (IsAlarm) return;
-            uint r = Axl.AxmSignalServoOn(AxisNo, AxtServo.ON);
-            if (AxtReturn.IsSuccess(r)) IsServoOn = true;
+            if (!AjinSystem.IsOpen || IsAlarm) return;
+            int ret;
+            lock (_sync)
+                ret = AXM.SetAmpEnabled(AxisNo, true);
+            if (ret == 0)
+                IsServoOn = true;
         }
 
         public override void ServoOff()
         {
             Stop();
             if (!AjinSystem.IsOpen) return;
-            Axl.AxmSignalServoOn(AxisNo, AxtServo.OFF);
+            lock (_sync)
+                AXM.SetAmpEnabled(AxisNo, false);
             IsServoOn = false;
         }
 
         public override void ResetAlarm()
         {
-            if (!AjinSystem.IsOpen) { base.ResetAlarm(); return; }
-            Axl.AxmSignalServoAlarmReset(AxisNo, 1);
-            // 실제 상태는 다음 UpdateStatus() 주기에서 읽힘
+            if (!AjinSystem.IsOpen)
+            {
+                base.ResetAlarm();
+                return;
+            }
+
+            lock (_sync)
+                AXM.AlarmReset(AxisNo, true);
             IsAlarm = false;
             AlarmCode = 0;
         }
-
-        // ──────────────────────────────────────────
-        //  이동
-        // ──────────────────────────────────────────
 
         public override async Task MoveAbsoluteAsync(double targetPos, double velocity = 0)
         {
@@ -58,15 +61,21 @@ namespace QMC.CDT320.Ajin
             double vel = velocity > 0 ? velocity : Recipe.DefaultVelocity;
             CommandPosition = targetPos;
             CurrentVelocity = vel;
-            IsMoving        = true;
-            IsInPosition    = false;
+            IsMoving = true;
+            IsInPosition = false;
 
-            // 실 이동 명령
-            Axl.AxmMoveStartPos(AxisNo, targetPos, vel, Recipe.Acceleration, Recipe.Deceleration);
+            int ret;
+            lock (_sync)
+                ret = AXM.MovePosition(AxisNo, targetPos, vel, Recipe.Acceleration, Recipe.Deceleration);
+            if (ret != 0)
+            {
+                IsMoving = false;
+                IsAlarm = true;
+                AlarmCode = (uint)ret;
+                return;
+            }
 
             RaiseMoveStarted();
-
-            // UpdateStatus() 가 IsMoving, IsInPosition, IsAlarm 을 갱신하는 동안 대기
             await WaitUntilMoveDone();
         }
 
@@ -74,34 +83,48 @@ namespace QMC.CDT320.Ajin
         {
             base.Stop();
             if (!AjinSystem.IsOpen) return;
-            Axl.AxmMoveStop(AxisNo, Recipe.Deceleration);
+            lock (_sync)
+                AXM.Stop(AxisNo, Recipe.Deceleration);
         }
 
         public override void EStop()
         {
             base.EStop();
             if (!AjinSystem.IsOpen) return;
-            Axl.AxmMoveEStop(AxisNo);
+            lock (_sync)
+                AXM.StopEmergency(AxisNo);
         }
 
         public override async Task HomeSearchAsync()
         {
             if (!IsServoOn || IsAlarm || !AjinSystem.IsOpen) return;
-            IsHomeDone   = false;
-            IsMoving     = true;
+
+            IsHomeDone = false;
+            IsMoving = true;
             IsInPosition = false;
 
-            Axl.AxmHomeSetStart(AxisNo);
+            int ret;
+            lock (_sync)
+                ret = AXM.SetHomeStart(AxisNo);
+            if (ret != 0)
+            {
+                IsMoving = false;
+                IsAlarm = true;
+                AlarmCode = (uint)ret;
+                return;
+            }
+
             RaiseMoveStarted();
 
-            // 홈 완료까지 상태 폴링 (UpdateStatus 가 AxmHomeGetResult 읽음)
             int guard = 0;
             while (!IsHomeDone && !IsAlarm)
             {
+                UpdateStatus();
                 await Task.Delay(20).ContinueWith(_ => { });
-                if (++guard > 3000) break; // 60초 타임아웃
+                if (++guard > 3000) break;
             }
-            IsMoving     = false;
+
+            IsMoving = false;
             IsInPosition = IsHomeDone;
             if (IsHomeDone) RaiseMoveCompleted();
         }
@@ -110,99 +133,145 @@ namespace QMC.CDT320.Ajin
         {
             base.SetPosition(newPosition);
             if (!AjinSystem.IsOpen) return;
-            Axl.AxmStatusSetCmdPos(AxisNo, newPosition);
-            Axl.AxmStatusSetActPos(AxisNo, newPosition);
+            lock (_sync)
+            {
+                AXM.SetCommandPosition(AxisNo, newPosition);
+                AXM.SetActualPosition(AxisNo, newPosition);
+            }
         }
 
         public override void MoveJogContinuous(int direction, JogSpeedType speedType, double customVel = 0)
         {
             if (!IsServoOn || IsAlarm || !AjinSystem.IsOpen) return;
+
             double vel = GetJogVelocity(speedType, customVel);
             CurrentVelocity = vel;
-            IsMoving        = true;
-            IsInPosition    = false;
-            Axl.AxmMoveVel(AxisNo, direction * vel, Recipe.Acceleration, Recipe.Deceleration);
+            IsMoving = true;
+            IsInPosition = false;
+
+            lock (_sync)
+                AXM.MoveVelocity(AxisNo, direction * vel, Recipe.Acceleration, Recipe.Deceleration);
             RaiseMoveStarted();
         }
 
         public override void StopJog()
         {
-            if (!AjinSystem.IsOpen) { base.StopJog(); return; }
-            Axl.AxmMoveStop(AxisNo, Recipe.Deceleration);
+            if (!AjinSystem.IsOpen)
+            {
+                base.StopJog();
+                return;
+            }
+
+            lock (_sync)
+                AXM.Stop(AxisNo, Recipe.Deceleration);
             base.StopJog();
         }
 
-        // ──────────────────────────────────────────
-        //  10ms 폴링 — 실보드에서 상태 읽어 BaseAxis 필드 갱신
-        // ──────────────────────────────────────────
-
         public override void UpdateStatus()
         {
-            if (Config.IsSimulationMode) { base.UpdateStatus(); return; }
-            if (!AjinSystem.IsOpen)        return;
+            if (Config.IsSimulationMode)
+            {
+                base.UpdateStatus();
+                return;
+            }
+            if (!AjinSystem.IsOpen) return;
 
-            // 위치
-            double cmd = 0, act = 0;
-            Axl.AxmStatusGetCmdPos(AxisNo, ref cmd);
-            Axl.AxmStatusGetActPos(AxisNo, ref act);
+            double cmd = 0;
+            double act = 0;
+            bool mot = false;
+            bool inp = false;
+            bool fault = false;
+            bool pel = false;
+            bool mel = false;
+            bool org = false;
+            bool svOn = false;
+            var homeResult = AXT_MOTION_HOME_RESULT.HOME_SEARCHING;
+            int homeRet;
+            int servoRet;
+
+            lock (_sync)
+            {
+                AXM.GetCommandPosition(AxisNo, ref cmd);
+                AXM.GetActualPosition(AxisNo, ref act);
+                AXM.GetInMotion(AxisNo, ref mot);
+                AXM.GetInPositionValue(AxisNo, ref inp);
+                AXM.GetAmpFaultValue(AxisNo, ref fault);
+                homeRet = AXM.GetHomeResult(AxisNo, ref homeResult);
+                AXM.GetPositiveLimitValue(AxisNo, ref pel);
+                AXM.GetNegativeLimitValue(AxisNo, ref mel);
+                AXM.GetHomeSensorValue(AxisNo, ref org);
+                servoRet = AXM.GetAmpEnabled(AxisNo, ref svOn);
+            }
+
+            ApplyReadStatus(cmd, act, mot, inp, fault, homeRet, homeResult, pel, mel, org, servoRet, svOn);
+        }
+
+        private void ApplyReadStatus(
+            double cmd,
+            double act,
+            bool mot,
+            bool inp,
+            bool fault,
+            int homeRet,
+            AXT_MOTION_HOME_RESULT homeResult,
+            bool pel,
+            bool mel,
+            bool org,
+            int servoRet,
+            bool svOn)
+        {
             CommandPosition = cmd;
+
             double prev = ActualPosition;
             ActualPosition = act;
-            if (prev != act) RaisePositionChanged();
+            if (prev != act)
+                RaisePositionChanged();
 
-            // 이동/인포지션
-            int mot = 0, inp = 0;
-            Axl.AxmStatusReadInMotion(AxisNo, ref mot);
-            Axl.AxmStatusReadInPos   (AxisNo, ref inp);
             bool wasMoving = IsMoving;
-            IsMoving     = mot != 0;
-            IsInPosition = inp != 0;
+            IsMoving = mot;
+            IsInPosition = inp;
             if (wasMoving && !IsMoving && IsInPosition)
                 RaiseMoveCompleted();
 
-            // 알람
-            int alr = 0;
-            Axl.AxmStatusReadAlarm(AxisNo, ref alr);
             bool wasAlarm = IsAlarm;
-            IsAlarm = alr != 0;
+            IsAlarm = fault;
             if (IsAlarm)
             {
-                uint code = 0;
-                Axl.AxmStatusReadAlarmCode(AxisNo, ref code);
-                AlarmCode = code;
+                AlarmCode = AlarmCode == 0 ? 1u : AlarmCode;
                 if (!wasAlarm)
+                {
                     Alarms.AlarmManager.Raise(
                         Alarms.AlarmSeverity.Error,
-                        "AX-" + AxisNo, Name, "Servo alarm 0x" + code.ToString("X4"));
+                        "AX-" + AxisNo,
+                        Name,
+                        "Servo alarm 0x" + AlarmCode.ToString("X4"));
+                }
+            }
+            else
+            {
+                AlarmCode = 0;
             }
 
-            // 홈 완료
-            int hr = 0;
-            if (AxtReturn.IsSuccess(Axl.AxmHomeGetResult(AxisNo, ref hr)))
-                IsHomeDone = hr == 1; // AXT_RT_SUCCESS == HOMESEARCH_DONE; 사용 환경에 따라 수정
+            if (homeRet == 0)
+                IsHomeDone = homeResult == AXT_MOTION_HOME_RESULT.HOME_SUCCESS;
 
-            // 센서
-            int pel = 0, mel = 0, org = 0;
-            Axl.AxmSignalReadLimit      (AxisNo, ref pel, ref mel);
-            Axl.AxmSignalReadOriginLevel(AxisNo, ref org);
-            // OS-12 (Stage 60 cycle 4) — Limit switch 변화 감지 시 LIMIT-HIT Raise
-            bool wasPel = Sensor_PEL, wasMel = Sensor_MEL;
-            Sensor_PEL = pel != 0;
-            Sensor_MEL = mel != 0;
-            Sensor_ORG = org != 0;
+            bool wasPel = Sensor_PEL;
+            bool wasMel = Sensor_MEL;
+            Sensor_PEL = pel;
+            Sensor_MEL = mel;
+            Sensor_ORG = org;
             if ((Sensor_PEL && !wasPel) || (Sensor_MEL && !wasMel))
             {
                 string side = Sensor_PEL ? "PEL(+)" : "MEL(-)";
                 Alarms.AlarmManager.Raise(
                     Alarms.AlarmSeverity.Error,
-                    "LIMIT-HIT", Name,
-                    "Limit 센서 도달 [" + side + "] AxisNo=" + AxisNo);
+                    "LIMIT-HIT",
+                    Name,
+                    "Limit sensor reached [" + side + "] AxisNo=" + AxisNo);
             }
 
-            // Servo-on 상태 동기화
-            int svOn = 0;
-            if (AxtReturn.IsSuccess(Axl.AxmSignalIsServoOn(AxisNo, ref svOn)))
-                IsServoOn = svOn != 0;
+            if (servoRet == 0)
+                IsServoOn = svOn;
         }
 
         private async Task WaitUntilMoveDone()
@@ -210,8 +279,9 @@ namespace QMC.CDT320.Ajin
             int guard = 0;
             while (IsMoving && !IsAlarm)
             {
+                UpdateStatus();
                 await Task.Delay(10).ContinueWith(_ => { });
-                if (++guard > 6000) break; // 60초 타임아웃
+                if (++guard > 6000) break;
             }
         }
     }

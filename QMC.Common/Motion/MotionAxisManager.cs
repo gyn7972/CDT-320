@@ -18,6 +18,9 @@ namespace QMC.Common.Motion
         private readonly List<string> _order = new List<string>();
         private string _currentKey;
 
+        /// <summary>장비 프로젝트에서 실제 축 인스턴스를 생성하기 위한 팩토리.</summary>
+        public Func<MotionAxisDefinition, BaseAxis> AxisFactory { get; set; }
+
         /// <summary>축이 등록될 때 발생한다.</summary>
         public event Action<BaseAxis> AxisAdded;
 
@@ -83,6 +86,8 @@ namespace QMC.Common.Motion
         {
             if (definition == null) throw new ArgumentNullException(nameof(definition));
             if (definition.Setup != null && !definition.Setup.IsEnabled) return null;
+            if (AxisFactory == null)
+                throw new InvalidOperationException("AxisFactory is not configured.");
 
             string name = definition.Name;
             if (string.IsNullOrWhiteSpace(name) && definition.Setup != null)
@@ -90,7 +95,8 @@ namespace QMC.Common.Motion
             if (string.IsNullOrWhiteSpace(name))
                 throw new ArgumentException("축 이름이 비어 있습니다.");
 
-            AjinAxis axis = new AjinAxis(name, definition.Setup, definition.Config, definition.Recipe);
+            BaseAxis axis = AxisFactory(definition);
+            if (axis == null) return null;
             Register(axis);
             return axis;
         }

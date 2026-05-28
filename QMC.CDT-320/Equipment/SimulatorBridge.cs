@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -126,18 +126,16 @@ namespace QMC.CDT320
             var m = _machine;
 
             // Input side (0~7)
-            _axisMap[m.InputLoader.ElevatorZ]    = 0;   // WAFER LIFTER_Z
-            _axisMap[m.InputLoader.FeederY]      = 1;   // WAFER FEEDER_Y
-            _axisMap[m.InputStage.StageY]        = 2;   // WAFER STAGE_Y
-            _axisMap[m.InputStage.StageT]        = 3;   // WAFER STAGE_T
-            _axisMap[m.InputStage.ExpanderZ]     = 4;   // WAFER EXPANDING_Z
-            _axisMap[m.InputStage.CameraX]       = 5;   // ALIGN VISION_X
-            _axisMap[m.InputStage.NeedleBlockX]  = 6;   // NEEDLE_X
-            _axisMap[m.InputStage.NeedleZ]       = 7;   // NEEDLE_Z
+            _axisMap[m.InputLoader.ElevatorZ]    = 0;   // WaferLifterZ
+            _axisMap[m.InputLoader.FeederY]      = 1;   // WaferFeederY
+            _axisMap[m.InputStage.StageY]        = 2;   // WaferStageY
+            _axisMap[m.InputStage.StageT]        = 3;   // WaferStageT
+            _axisMap[m.InputStage.ExpanderZ]     = 4;   // WaferExpandingZ
+            _axisMap[m.InputStage.CameraX]       = 5;   // WaferVisionX
+            _axisMap[m.InputStage.NeedleBlockX]  = 6;   // NeedleX
+            _axisMap[m.InputStage.NeedleZ]       = 7;   // NeedleZ
             // Stage 44 — EjectPinZ 매핑 추가 (이전 미대응)
-            _axisMap[m.InputStage.EjectPinZ]     = 8;   // EJECT PIN_Z
-            // Stage 61 — Wafer Vision Camera Z (focus)
-            _axisMap[m.InputStage.CameraZ]       = 37;  // ALIGN VISION_Z
+            _axisMap[m.InputStage.EjectPinZ]     = 8;   // EjectPinZ
 
             // FRONT PICKER (LeftArm): 9, 10, 11~18
             var left = m.TransferPicker.LeftArm;
@@ -160,17 +158,16 @@ namespace QMC.CDT320
             }
 
             // Stage 44 — Side Vision Y 매핑 (이전 미대응)
-            _axisMap[left.SideVisionY]  = 19;   // FRONT SIDE VISION_Y0
+            _axisMap[left.SideVisionY]  = 19;   // FrontSideVisionY0
             _axisMap[right.SideVisionY] = 20;   // REAR  SIDE VISION_Y0
 
             // Output side (31~36)
-            _axisMap[m.OutputStage.NgStage.StageY]   = 31;   // NG BIN_Y
-            _axisMap[m.OutputStage.NgStage.StageZ]   = 32;   // NG BIN_Z
-            _axisMap[m.OutputStage.GoodStage.StageY] = 33;   // GOOD BIN_Y
-            // GoodStage.StageZ - 사양서 축 번호 누락, 시뮬 미매핑
-            _axisMap[m.OutputStage.BinCameraX]       = 34;   // INSPECTION VISION_X
-            _axisMap[m.OutputUnloader.FeederY]       = 35;   // BIN FEEDER_Y
-            _axisMap[m.OutputUnloader.ElevatorZ]     = 36;   // BIN LIFTER_Z
+            _axisMap[m.OutputStage.GoodStage.StageY] = 31;   // BinGoodY
+            _axisMap[m.OutputStage.GoodStage.StageZ] = 32;   // BinGoodZ
+            _axisMap[m.OutputStage.NgStage.StageY]   = 33;   // BinNgY
+            _axisMap[m.OutputStage.BinCameraX]       = 34;   // BinVisionX
+            _axisMap[m.OutputUnloader.FeederY]       = 35;   // BinFeederY
+            _axisMap[m.OutputUnloader.ElevatorZ]     = 36;   // BinLifterZ
 
             // ─── DO 매핑 ──────────────────────────────
             _doMap[m.InputStage.NeedleVacuum] = "Y046";

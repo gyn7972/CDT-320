@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using QMC.Common;
@@ -154,7 +154,7 @@ namespace QMC.CDT320
     /// <summary>픽커 공정별 작업 파라미터.</summary>
     public class PickerRecipe : IRecipeData
     {
-        /// <summary>PickerZ 이동 속도 [mm/s]. xlsx FRONT PICKER_Z = 1000 mm/s 반영.</summary>
+        /// <summary>PickerZ 이동 속도 [mm/s]. xlsx FrontPickerZ = 1000 mm/s 반영.</summary>
         public double ZVelocity     { get; set; } = 1000.0;
 
         /// <summary>PickerT 회전 속도 [deg/s]. xlsx 36000 은 비현실 — 실용값 1000 적용.</summary>
@@ -254,10 +254,10 @@ namespace QMC.CDT320
     /// <summary>TpuArm 공정별 작업 파라미터.</summary>
     public class TpuArmRecipe : IRecipeData
     {
-        /// <summary>ArmX 이동 속도 [mm/s]. xlsx FRONT PICKER_X = 2000 mm/s 반영.</summary>
+        /// <summary>ArmX 이동 속도 [mm/s]. xlsx FrontPickerX = 2000 mm/s 반영.</summary>
         public double ArmXVelocity { get; set; } = 2000.0;
 
-        /// <summary>ArmY 이동 속도 [mm/s]. xlsx FRONT PICKER_Y = 500 mm/s 반영.</summary>
+        /// <summary>ArmY 이동 속도 [mm/s]. xlsx FrontPickerY = 500 mm/s 반영.</summary>
         public double ArmYVelocity { get; set; } = 500.0;
     }
 

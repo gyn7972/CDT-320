@@ -33,20 +33,21 @@
 
         private void InitializeComponent()
         {
+            System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle1 = new System.Windows.Forms.DataGridViewCellStyle();
             this.lblSubHeader = new System.Windows.Forms.Label();
             this.grid = new System.Windows.Forms.DataGridView();
-            this.colNo = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.colModule = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.colName = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.colBoard = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.colCh = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.colUnit = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.colStroke = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.colBrake = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.colSln = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.colSlp = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.colVel = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.colHomeDir = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.NO = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.MODULE = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.NAME = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.BOARD = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.CH = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.UNIT = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.STROKE = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.BRAKE = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.SLN = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.SLP = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.VEL = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.HOMEDIR = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.actionsPanel = new System.Windows.Forms.FlowLayoutPanel();
             this.btnSave = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnReload = new QMC.CDT_320.Ui.Controls.ActionButton();
@@ -75,98 +76,115 @@
             this.grid.AllowUserToDeleteRows = false;
             this.grid.AutoSizeColumnsMode = System.Windows.Forms.DataGridViewAutoSizeColumnsMode.Fill;
             this.grid.BackgroundColor = System.Drawing.Color.White;
-            this.grid.ColumnHeadersDefaultCellStyle.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
-            this.grid.ColumnHeadersDefaultCellStyle.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(80)))), ((int)(((byte)(80)))), ((int)(((byte)(80)))));
-            this.grid.ColumnHeadersDefaultCellStyle.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.grid.ColumnHeadersDefaultCellStyle.ForeColor = System.Drawing.Color.White;
+            dataGridViewCellStyle1.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
+            dataGridViewCellStyle1.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(80)))), ((int)(((byte)(80)))), ((int)(((byte)(80)))));
+            dataGridViewCellStyle1.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            dataGridViewCellStyle1.ForeColor = System.Drawing.Color.White;
+            dataGridViewCellStyle1.SelectionBackColor = System.Drawing.SystemColors.Highlight;
+            dataGridViewCellStyle1.SelectionForeColor = System.Drawing.SystemColors.HighlightText;
+            dataGridViewCellStyle1.WrapMode = System.Windows.Forms.DataGridViewTriState.True;
+            this.grid.ColumnHeadersDefaultCellStyle = dataGridViewCellStyle1;
+            this.grid.ColumnHeadersHeight = 29;
             this.grid.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
-                this.colNo,
-                this.colModule,
-                this.colName,
-                this.colBoard,
-                this.colCh,
-                this.colUnit,
-                this.colStroke,
-                this.colBrake,
-                this.colSln,
-                this.colSlp,
-                this.colVel,
-                this.colHomeDir});
+            this.NO,
+            this.MODULE,
+            this.NAME,
+            this.BOARD,
+            this.CH,
+            this.UNIT,
+            this.STROKE,
+            this.BRAKE,
+            this.SLN,
+            this.SLP,
+            this.VEL,
+            this.HOMEDIR});
             this.grid.EnableHeadersVisualStyles = false;
             this.grid.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.grid.Location = new System.Drawing.Point(8, 66);
             this.grid.MultiSelect = false;
             this.grid.Name = "grid";
             this.grid.RowHeadersVisible = false;
-            this.grid.RowTemplate.Height = 22;
+            this.grid.RowHeadersWidth = 51;
             this.grid.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
             this.grid.Size = new System.Drawing.Size(1400, 800);
             this.grid.TabIndex = 1;
             this.grid.CellEndEdit += new System.Windows.Forms.DataGridViewCellEventHandler(this.OnCellEdit);
             // 
-            // colNo
+            // NO
             // 
-            this.colNo.HeaderText = "NO";
-            this.colNo.Name = "NO";
-            this.colNo.ReadOnly = true;
+            this.NO.HeaderText = "NO";
+            this.NO.MinimumWidth = 6;
+            this.NO.Name = "NO";
+            this.NO.ReadOnly = true;
             // 
-            // colModule
+            // MODULE
             // 
-            this.colModule.HeaderText = "MODULE";
-            this.colModule.Name = "MODULE";
-            this.colModule.ReadOnly = true;
+            this.MODULE.HeaderText = "MODULE";
+            this.MODULE.MinimumWidth = 6;
+            this.MODULE.Name = "MODULE";
+            this.MODULE.ReadOnly = true;
             // 
-            // colName
+            // NAME
             // 
-            this.colName.HeaderText = "AXIS NAME";
-            this.colName.Name = "NAME";
-            this.colName.ReadOnly = true;
+            this.NAME.HeaderText = "AXIS NAME";
+            this.NAME.MinimumWidth = 6;
+            this.NAME.Name = "NAME";
+            this.NAME.ReadOnly = true;
             // 
-            // colBoard
+            // BOARD
             // 
-            this.colBoard.HeaderText = "BOARD#";
-            this.colBoard.Name = "BOARD";
+            this.BOARD.HeaderText = "BOARD#";
+            this.BOARD.MinimumWidth = 6;
+            this.BOARD.Name = "BOARD";
             // 
-            // colCh
+            // CH
             // 
-            this.colCh.HeaderText = "CH (slot)";
-            this.colCh.Name = "CH";
+            this.CH.HeaderText = "CH (slot)";
+            this.CH.MinimumWidth = 6;
+            this.CH.Name = "CH";
             // 
-            // colUnit
+            // UNIT
             // 
-            this.colUnit.HeaderText = "UNIT";
-            this.colUnit.Name = "UNIT";
-            this.colUnit.ReadOnly = true;
+            this.UNIT.HeaderText = "UNIT";
+            this.UNIT.MinimumWidth = 6;
+            this.UNIT.Name = "UNIT";
+            this.UNIT.ReadOnly = true;
             // 
-            // colStroke
+            // STROKE
             // 
-            this.colStroke.HeaderText = "STROKE";
-            this.colStroke.Name = "STROKE";
+            this.STROKE.HeaderText = "STROKE";
+            this.STROKE.MinimumWidth = 6;
+            this.STROKE.Name = "STROKE";
             // 
-            // colBrake
+            // BRAKE
             // 
-            this.colBrake.HeaderText = "BRAKE";
-            this.colBrake.Name = "BRAKE";
+            this.BRAKE.HeaderText = "BRAKE";
+            this.BRAKE.MinimumWidth = 6;
+            this.BRAKE.Name = "BRAKE";
             // 
-            // colSln
+            // SLN
             // 
-            this.colSln.HeaderText = "SOFT LIMIT(-)";
-            this.colSln.Name = "SLN";
+            this.SLN.HeaderText = "SOFT LIMIT(-)";
+            this.SLN.MinimumWidth = 6;
+            this.SLN.Name = "SLN";
             // 
-            // colSlp
+            // SLP
             // 
-            this.colSlp.HeaderText = "SOFT LIMIT(+)";
-            this.colSlp.Name = "SLP";
+            this.SLP.HeaderText = "SOFT LIMIT(+)";
+            this.SLP.MinimumWidth = 6;
+            this.SLP.Name = "SLP";
             // 
-            // colVel
+            // VEL
             // 
-            this.colVel.HeaderText = "DEFAULT VEL";
-            this.colVel.Name = "VEL";
+            this.VEL.HeaderText = "DEFAULT VEL";
+            this.VEL.MinimumWidth = 6;
+            this.VEL.Name = "VEL";
             // 
-            // colHomeDir
+            // HOMEDIR
             // 
-            this.colHomeDir.HeaderText = "HOME DIR";
-            this.colHomeDir.Name = "HOMEDIR";
+            this.HOMEDIR.HeaderText = "HOME DIR";
+            this.HOMEDIR.MinimumWidth = 6;
+            this.HOMEDIR.Name = "HOMEDIR";
             // 
             // actionsPanel
             // 
@@ -176,7 +194,6 @@
             this.actionsPanel.Controls.Add(this.btnReset);
             this.actionsPanel.Controls.Add(this.btnApply);
             this.actionsPanel.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.actionsPanel.FlowDirection = System.Windows.Forms.FlowDirection.LeftToRight;
             this.actionsPanel.Location = new System.Drawing.Point(0, 920);
             this.actionsPanel.Name = "actionsPanel";
             this.actionsPanel.Padding = new System.Windows.Forms.Padding(8);
@@ -189,7 +206,7 @@
             this.btnSave.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnSave.Font = new System.Drawing.Font("맑은 고딕", 12F, System.Drawing.FontStyle.Bold);
             this.btnSave.ForeColor = System.Drawing.Color.White;
-            this.btnSave.Location = new System.Drawing.Point(4, 4);
+            this.btnSave.Location = new System.Drawing.Point(12, 12);
             this.btnSave.Margin = new System.Windows.Forms.Padding(4);
             this.btnSave.Name = "btnSave";
             this.btnSave.Size = new System.Drawing.Size(120, 44);
@@ -203,7 +220,7 @@
             this.btnReload.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnReload.Font = new System.Drawing.Font("맑은 고딕", 12F, System.Drawing.FontStyle.Bold);
             this.btnReload.ForeColor = System.Drawing.Color.White;
-            this.btnReload.Location = new System.Drawing.Point(132, 4);
+            this.btnReload.Location = new System.Drawing.Point(140, 12);
             this.btnReload.Margin = new System.Windows.Forms.Padding(4);
             this.btnReload.Name = "btnReload";
             this.btnReload.Size = new System.Drawing.Size(120, 44);
@@ -217,7 +234,7 @@
             this.btnReset.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnReset.Font = new System.Drawing.Font("맑은 고딕", 12F, System.Drawing.FontStyle.Bold);
             this.btnReset.ForeColor = System.Drawing.Color.White;
-            this.btnReset.Location = new System.Drawing.Point(260, 4);
+            this.btnReset.Location = new System.Drawing.Point(268, 12);
             this.btnReset.Margin = new System.Windows.Forms.Padding(4);
             this.btnReset.Name = "btnReset";
             this.btnReset.Size = new System.Drawing.Size(160, 44);
@@ -231,10 +248,10 @@
             this.btnApply.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnApply.Font = new System.Drawing.Font("맑은 고딕", 12F, System.Drawing.FontStyle.Bold);
             this.btnApply.ForeColor = System.Drawing.Color.White;
-            this.btnApply.Location = new System.Drawing.Point(428, 4);
+            this.btnApply.Location = new System.Drawing.Point(436, 12);
             this.btnApply.Margin = new System.Windows.Forms.Padding(4);
             this.btnApply.Name = "btnApply";
-            this.btnApply.Size = new System.Drawing.Size(220, 44);
+            this.btnApply.Size = new System.Drawing.Size(248, 44);
             this.btnApply.TabIndex = 3;
             this.btnApply.Text = "APPLY (Soft Limit 반영)";
             this.btnApply.Click += new System.EventHandler(this.OnApplyClick);
@@ -251,6 +268,20 @@
             ((System.ComponentModel.ISupportInitialize)(this.grid)).EndInit();
             this.actionsPanel.ResumeLayout(false);
             this.ResumeLayout(false);
+
         }
+
+        private System.Windows.Forms.DataGridViewTextBoxColumn NO;
+        private System.Windows.Forms.DataGridViewTextBoxColumn MODULE;
+        private System.Windows.Forms.DataGridViewTextBoxColumn NAME;
+        private System.Windows.Forms.DataGridViewTextBoxColumn BOARD;
+        private System.Windows.Forms.DataGridViewTextBoxColumn CH;
+        private System.Windows.Forms.DataGridViewTextBoxColumn UNIT;
+        private System.Windows.Forms.DataGridViewTextBoxColumn STROKE;
+        private System.Windows.Forms.DataGridViewTextBoxColumn BRAKE;
+        private System.Windows.Forms.DataGridViewTextBoxColumn SLN;
+        private System.Windows.Forms.DataGridViewTextBoxColumn SLP;
+        private System.Windows.Forms.DataGridViewTextBoxColumn VEL;
+        private System.Windows.Forms.DataGridViewTextBoxColumn HOMEDIR;
     }
 }
