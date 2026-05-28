@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Runtime.Serialization;
 using System.Runtime.Serialization.Json;
+using System.Security.Claims;
 
 namespace QMC.CDT320.Ajin
 {
@@ -194,27 +195,54 @@ namespace QMC.CDT320.Ajin
             EnsureDefaultAxes(c);
 
             void DO(string n, int mod, int bit) => c.DigitalOutputs[n] = new DioMap { Module = mod, Bit = bit };
-            DO("StartLamp", 4, 0);
-            DO("StopLamp", 4, 1);
-            DO("ResetLamp", 4, 2);
-            DO("TlRed", 4, 3);
-            DO("TlYellow", 4, 4);
-            DO("TlGreen", 4, 5);
-            DO("Buzzer", 4, 6);
-            DO("WaferFeederUp", 0, 16);
-            DO("WaferFeederDown", 0, 17);
-            DO("NgBinGuideUp", 0, 26);
-            DO("NgBinGuideDown", 0, 27);
-            DO("GoodBinGuideUp", 1, 0);
-            DO("GoodBinGuideDown", 1, 1);
-            DO("BottomVisionBlow", 1, 12);
-            DO("NeedleVacuum", 1, 14);
+            DO("StartLamp", 3, 0);
+            DO("StopLamp", 3, 1);
+            DO("ResetLamp", 3, 2);
+            DO("TlRed", 3, 3);
+            DO("TlYellow", 3, 4);
+            DO("TlGreen", 3, 5);
+            DO("Buzzer", 3, 6);
+            DO("IonizerOn", 3, 15);
+            DO("WaferFeederUp", 3, 16);
+            DO("WaferFeederDown", 3, 17);
+            DO("WaferFeederClamp", 3, 18);
+            DO("WaferFeederUnclamp", 3, 19);
+            DO("ReticleUp", 3, 20);
+            DO("ReticleDown", 3, 21);
+            DO("ReticleFrontSideFw", 3, 22);
+            DO("ReticleFrontSideBw", 3, 23);
+            DO("ReticleRearSideFw", 3, 24);
+            DO("ReticleRearSideBw", 3, 25);
+            DO("NgBinGuideUp", 3, 26);
+            DO("NgBinGuideDown", 3, 27);
+            DO("NgBinClampUp", 3, 28);
+            DO("NgBinClampDown", 3, 29);
+            DO("NgBinClamp", 3, 30);
+            DO("NgBinUnclamp", 3, 31);
+
+            DO("GoodBinGuideUp", 4, 0);
+            DO("GoodBinGuideDown", 4, 1);
+
+            DO("GoodBinClampUp", 4, 2);
+            DO("GoodBinClampDown", 4, 3);
+            DO("GoodBinClamp", 4, 4);
+            DO("GoodBinUnclamp", 4, 5);
+            DO("BinFeederUp", 4, 6);
+            DO("BinFeederDown", 4, 7);
+            DO("BinFeederClamp", 4, 8);
+            DO("BinFeederUnclamp", 4, 9);
+            DO("NgBinCassetteLock", 4, 10);
+            DO("NgBinCassetteUnlock", 4, 11);
+            DO("BottomVisionBlow", 4, 12);
+            DO("BottomVisionBlowOff", 4, 13);
+            DO("NeedleVacuum", 4, 14);
+            DO("NeedleBlow", 4, 15);
             for (int i = 0; i < 4; i++)
             {
-                DO("LeftArm_Picker" + (i + 1) + "_Vacuum", 1, 16 + i);
-                DO("LeftArm_Picker" + (i + 1) + "_Blow", 1, 24 + i);
-                DO("RightArm_Picker" + (i + 1) + "_Vacuum", 2, 0 + i);
-                DO("RightArm_Picker" + (i + 1) + "_Blow", 2, 8 + i);
+                DO("FrontPicker" + (i + 1) + "_Vacuum", 4, 16 + i);
+                DO("FrontPicker" + (i + 1) + "_Blow", 4, 24 + i);
+                DO("RearPicker" + (i + 1) + "_Vacuum", 5, 0 + i);
+                DO("RearPicker" + (i + 1) + "_Blow", 5, 8 + i);
             }
 
             void DI(string n, int mod, int bit, bool nc = false) =>
