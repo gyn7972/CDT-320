@@ -9,6 +9,7 @@ using QMC.CDT320;
 using QMC.CDT320.Ajin;
 using QMC.CDT320.Logging;
 using QMC.Common.IO;
+using QMC.Common.Motion.Ajin;
 
 namespace QMC.CDT_320.Ui.Pages.Settings
 {
@@ -129,7 +130,12 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         {
             var output = SelectedOutput();
             if (output == null) return;
-            output.Write(on);
+            string error;
+            if (!output.Write(on, out error))
+            {
+                ShowIoError(error);
+                return;
+            }
             EventLogger.Write(EventKind.Event, "QMC", "IO-DO", output.Name + "=" + (on ? "ON" : "OFF"));
             RefreshRows();
         }
@@ -138,11 +144,28 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         {
             var output = SelectedOutput();
             if (output == null) return;
-            output.Write(true);
+            string error;
+            if (!output.Write(true, out error))
+            {
+                ShowIoError(error);
+                return;
+            }
             EventLogger.Write(EventKind.Event, "QMC", "IO-DO", output.Name + "=PULSE " + ms + "ms");
             await Task.Delay(ms).ContinueWith(_ => { });
-            output.Write(false);
+            if (!output.Write(false, out error))
+            {
+                ShowIoError(error);
+                return;
+            }
             RefreshRows();
+        }
+
+        private void ShowIoError(string message)
+        {
+            if (string.IsNullOrEmpty(message)) message = "I/O write failed.";
+            lblStatus.Text = message;
+            EventLogger.Write(EventKind.Alarm, "QMC", "IO-DO", message);
+            MessageBox.Show(this, message, "I/O Control", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
 
         private class IoItem<T>
@@ -166,10 +189,19 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 get { return Port != null && Port.IsOn; }
             }
 
-            public void Write(bool on)
+            public bool Write(bool on, out string error)
             {
+                error = ValidateWriteTarget();
+                if (error != null) return false;
                 EnsureRealPort();
-                if (Port != null) Port.Write(on);
+                if (Port == null)
+                {
+                    error = Name + " output port is not ready.";
+                    return false;
+                }
+
+                Port.Write(on);
+                return true;
             }
 
             public void UpdateStatus()
@@ -183,6 +215,32 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 if (Port is AjinDigitalOutput) return;
                 if (!AjinSystem.IsOpen) return;
                 Port = new AjinDigitalOutput(Name, Module, Bit, Nc);
+            }
+
+            private string ValidateWriteTarget()
+            {
+                if (!AjinSystem.IsOpen)
+                    return "Ajin board is not open. Cannot write DO to the real board.";
+
+                int moduleCount;
+                int ret = AXD.GetModuleCount(out moduleCount);
+                if (ret != 0)
+                    return Name + " DO module count check failed. AlarmCode=" + ret;
+
+                if (Module < 0 || Module >= moduleCount)
+                    return Name + " DO module is invalid. Module=" + Module + ", ModuleCount=" + moduleCount + ".";
+
+                int outputCount;
+                ret = AXD.GetOutputCount(Module, out outputCount);
+                if (ret != 0)
+                    return Name + " DO output count check failed. Module=" + Module + ", AlarmCode=" + ret;
+
+                if (Bit < 0 || Bit >= outputCount)
+                    return Name + " DO bit offset is invalid. Module=" + Module + ", Bit=" + Bit +
+                           ", OutputCount=" + outputCount +
+                           ". Use the bit offset inside the module, not the global Y number. Example: Y046 on 32-point modules is Module=1, Bit=14.";
+
+                return null;
             }
         }
 

@@ -631,6 +631,20 @@ namespace QMC.Common.Motion.Ajin
             if ((ret = AXL.CheckErrorCode("AXD.AxdInfoGetModuleCount", AXD.AxdInfoGetModuleCount(ref count))) != 0) return ret;
             return ret;
         }
+        public static int GetInputCount(int module, out int count)
+        {
+            int ret = 0;
+            count = 0;
+            if ((ret = AXL.CheckErrorCode("AXD.AxdInfoGetInputCount", AXD.AxdInfoGetInputCount(module, ref count))) != 0) return ret;
+            return ret;
+        }
+        public static int GetOutputCount(int module, out int count)
+        {
+            int ret = 0;
+            count = 0;
+            if ((ret = AXL.CheckErrorCode("AXD.AxdInfoGetOutputCount", AXD.AxdInfoGetOutputCount(module, ref count))) != 0) return ret;
+            return ret;
+        }
         public static int GetModuleInformation(int module, ref int node, ref int moduleId, ref AXT_MODULE moduleType)
         {
             int ret = 0;
