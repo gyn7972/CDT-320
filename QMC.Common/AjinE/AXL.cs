@@ -104,10 +104,12 @@ namespace QMC.Common.Motion.Ajin
                 if (AXL.IsOpened() == false)
                 {
                     //if ((ret = AXL.CheckErrorCode("AXL.AxlOpen", AXL.AxlOpen(irqNo))) != 0) return ret;
-                    if ((ret = AXL.CheckErrorCode("AXL.AxlOpen", AXL.AxlOpenNoReset((uint)irqNo))) != 0) return ret;
+                    if ((ret = AXL.CheckErrorCode("AXL.AxlOpen", AXL.AxlOpenNoReset((uint)irqNo))) != 0) 
+                        return ret;
                 }
                 // 전체 라이브러리에서 interrupt 사용을 설정한다.
-                if ((ret = AXL.InterruptEnable()) != 0) return ret;
+                if ((ret = AXL.InterruptEnable()) != 0) 
+                    return ret;
             }
 
             return ret;
