@@ -127,7 +127,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this.diGrid.BackgroundColor = System.Drawing.Color.White;
             dataGridViewCellStyle1.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
             dataGridViewCellStyle1.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(80)))), ((int)(((byte)(80)))), ((int)(((byte)(80)))));
-            dataGridViewCellStyle1.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            dataGridViewCellStyle1.Font = new System.Drawing.Font("맑은 고딕", 9F);
             dataGridViewCellStyle1.ForeColor = System.Drawing.Color.White;
             dataGridViewCellStyle1.SelectionBackColor = System.Drawing.SystemColors.Highlight;
             dataGridViewCellStyle1.SelectionForeColor = System.Drawing.SystemColors.HighlightText;
@@ -151,7 +151,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this.diGrid.RowHeadersWidth = 51;
             this.diGrid.RowTemplate.Height = 26;
             this.diGrid.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
-            this.diGrid.Size = new System.Drawing.Size(690, 760);
+            this.diGrid.Size = new System.Drawing.Size(690, 685);
             this.diGrid.TabIndex = 4;
             // 
             // diNo
@@ -206,7 +206,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this.doGrid.BackgroundColor = System.Drawing.Color.White;
             dataGridViewCellStyle2.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
             dataGridViewCellStyle2.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(80)))), ((int)(((byte)(80)))), ((int)(((byte)(80)))));
-            dataGridViewCellStyle2.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            dataGridViewCellStyle2.Font = new System.Drawing.Font("맑은 고딕", 9F);
             dataGridViewCellStyle2.ForeColor = System.Drawing.Color.White;
             dataGridViewCellStyle2.SelectionBackColor = System.Drawing.SystemColors.Highlight;
             dataGridViewCellStyle2.SelectionForeColor = System.Drawing.SystemColors.HighlightText;
@@ -230,7 +230,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this.doGrid.RowHeadersWidth = 51;
             this.doGrid.RowTemplate.Height = 26;
             this.doGrid.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
-            this.doGrid.Size = new System.Drawing.Size(690, 760);
+            this.doGrid.Size = new System.Drawing.Size(690, 685);
             this.doGrid.TabIndex = 5;
             // 
             // doNo
@@ -285,7 +285,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this.actionsPanel.Controls.Add(this.btnDoOff);
             this.actionsPanel.Controls.Add(this.btnPulse);
             this.actionsPanel.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.actionsPanel.Location = new System.Drawing.Point(0, 920);
+            this.actionsPanel.Location = new System.Drawing.Point(0, 790);
             this.actionsPanel.Name = "actionsPanel";
             this.actionsPanel.Padding = new System.Windows.Forms.Padding(8);
             this.actionsPanel.Size = new System.Drawing.Size(1416, 60);
@@ -345,7 +345,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             // 
             // IoControlPage
             // 
-            this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
+            this.AutoScaleDimensions = new System.Drawing.SizeF(9F, 20F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.Controls.Add(this.actionsPanel);
             this.Controls.Add(this.doGrid);
@@ -356,11 +356,12 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this.Controls.Add(this.lblHeader);
             this.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.Name = "IoControlPage";
-            this.Size = new System.Drawing.Size(1416, 980);
+            this.Size = new System.Drawing.Size(1416, 850);
             ((System.ComponentModel.ISupportInitialize)(this.diGrid)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.doGrid)).EndInit();
             this.actionsPanel.ResumeLayout(false);
             this.ResumeLayout(false);
+
         }
     }
 }

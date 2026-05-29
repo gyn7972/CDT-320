@@ -5,76 +5,76 @@ using System.Threading.Tasks;
 namespace QMC.Common.Motion
 {
     /// <summary>
-    /// 占쏙옙占?占쏙옙占?占쏙옙占쏙옙 占쌩삼옙 占쏙옙占싱쏙옙 클占쏙옙占쏙옙.<br/>
+    /// 모든 축(Axis) 구현체의 공통 추상 베이스 클래스.<br/>
     /// <list type="bullet">
-    ///   <item><description>占시뮬뤄옙占싱쇽옙 占쏙옙占쏙옙 占쏙옙占쏙옙 ? 占쏙옙占쏙옙 占싹듸옙占쏙옙占?占쏙옙占싱듸옙 UI/占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙 占쏙옙占쏙옙.</description></item>
-    ///   <item><description>占쏙옙占?占쏙옙占쏘·占싱듸옙 占쌨쇽옙占쏙옙占?<c>virtual</c> ? 占실븝옙占쏙옙 클占쏙옙占쏙옙占쏙옙 override占싹울옙 API 占쏙옙占쏙옙.</description></item>
-    ///   <item><description><see cref="BaseComponent{TSetup,TConfig,TRecipe}"/> 占쏙옙占?? 占쏙옙占쏙옙 트占쏙옙占쏙옙 Leaf 占쏙옙占쏙옙 占쏙옙占쏙옙.</description></item>
+    ///   <item><description>시뮬레이션 모드 지원 - 실제 하드웨어 없이도 UI/로직 검증 가능.</description></item>
+    ///   <item><description>상태·이동 메서드는 <c>virtual</c> - 실제 구현 클래스에서 override하여 API 확장.</description></item>
+    ///   <item><description><see cref="BaseComponent{TSetup,TConfig,TRecipe}"/> 기반 - 장비 트리의 Leaf 노드 역할.</description></item>
     /// </list>
     /// </summary>
     public abstract class BaseAxis
         : BaseComponent<AxisSetup, AxisConfig, AxisRecipe>
     {
-        // 占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙
-        //  占쏙옙占쏙옙 占쏙옙占쏙옙 占십듸옙
-        // 占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙
+        // ─────────────────────────────────────────────
+        //  내부 상태 필드
+        // ─────────────────────────────────────────────
 
-        /// <summary>占쏙옙溜占쏙옙占?占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙트 占승쏙옙크 占쏙옙占?占쏙옙큰 占쌀쏙옙.</summary>
+        /// <summary>백그라운드 상태 업데이트 태스크 취소 토큰 소스.</summary>
         private readonly CancellationTokenSource _cts = new CancellationTokenSource();
 
-        /// <summary>占시뮬뤄옙占싱쇽옙 占싱듸옙 占쏙옙표 占쏙옙치 (CommandPosition 占쏙옙占썹본).</summary>
+        /// <summary>시뮬레이션용 내부 목표 위치 (CommandPosition의 사본).</summary>
         private double _simTargetPosition;
 
-        /// <summary>Override占쏙옙 占쏙옙표 占쏙옙치. NaN占싱몌옙 占쏙옙占쏙옙.</summary>
+        /// <summary>Override된 목표 위치. NaN이면 없음.</summary>
         private double _overrideTargetPosition = double.NaN;
 
-        /// <summary>Override占쏙옙 占쌈듸옙. NaN占싱몌옙 占쏙옙占쏙옙.</summary>
+        /// <summary>Override된 속도. NaN이면 없음.</summary>
         private double _overrideVelocity = double.NaN;
 
-        // 占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙
-        //  占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙티 (protected set ? 占쏙옙占쏙옙 클占쏙옙占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙 占쏙옙占쏙옙 占쏙옙占쏙옙)
-        // 占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙
+        // ─────────────────────────────────────────────
+        //  상태 프로퍼티 (protected set - 파생 클래스에서만 변경 가능)
+        // ─────────────────────────────────────────────
 
-        /// <summary>占실듸옙占?占쏙옙占쌘댐옙) 占쏙옙占?占쏙옙占쏙옙 占쏙옙占쏙옙 占쏙옙치.</summary>
+        /// <summary>현재(실측) 축의 실제 물리 위치.</summary>
         public double ActualPosition    { get; protected set; }
 
-        /// <summary>占싱듸옙 占쏙옙占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙 占쏙옙표 占쏙옙치.</summary>
+        /// <summary>이동 명령으로 지정된 목표 위치.</summary>
         public double CommandPosition   { get; protected set; }
 
-        /// <summary>占쏙옙占쏙옙 占싱듸옙 占쌈듸옙.</summary>
+        /// <summary>현재 이동 속도.</summary>
         public double CurrentVelocity   { get; protected set; }
 
-        /// <summary>占쏙옙占쏙옙 ON 占쏙옙占쏙옙 占쏙옙占쏙옙.</summary>
+        /// <summary>서보 ON 상태 여부.</summary>
         public bool IsServoOn           { get; protected set; }
 
-        /// <summary>占싱듸옙 占쏙옙 占쏙옙占쏙옙.</summary>
+        /// <summary>이동 중 여부.</summary>
         public bool IsMoving            { get; protected set; }
 
-        /// <summary>In-Position(INP) 占쏙옙호 ? 占쏙옙표 占쏙옙치 占쏙옙占쏙옙 占쏙옙 占쏙옙占쏙옙화 占싹뤄옙.</summary>
+        /// <summary>In-Position(INP) 신호 - 목표 위치 도달 후 안정화 완료.</summary>
         public bool IsInPosition        { get; protected set; }
 
-        /// <summary>占싯띰옙 占쌩삼옙 占쏙옙占쏙옙.</summary>
+        /// <summary>알람 발생 여부.</summary>
         public bool IsAlarm             { get; protected set; }
 
-        /// <summary>占쏙옙占쏙옙 占쏙옙占쏙옙 占싹뤄옙 占쏙옙占쏙옙.</summary>
+        /// <summary>원점 복귀 완료 여부.</summary>
         public bool IsHomeDone          { get; protected set; }
 
-        /// <summary>占싯띰옙 占쌘듸옙.</summary>
+        /// <summary>알람 코드.</summary>
         public uint AlarmCode           { get; protected set; }
 
-        /// <summary>占시뤄옙占쏙옙 占쏙옙占쏙옙 占싹듸옙占쏙옙占?占쏙옙占쏙옙 占쏙옙占쏙옙 占쏙옙호.</summary>
+        /// <summary>양(+) 방향 하드웨어 리미트 센서 신호.</summary>
         public bool Sensor_PEL          { get; protected set; }
 
-        /// <summary>占쏙옙占싱너쏙옙 占쏙옙占쏙옙 占싹듸옙占쏙옙占?占쏙옙占쏙옙 占쏙옙占쏙옙 占쏙옙호.</summary>
+        /// <summary>음(-) 방향 하드웨어 리미트 센서 신호.</summary>
         public bool Sensor_MEL          { get; protected set; }
 
-        /// <summary>占쏙옙占쏙옙 占쏙옙占쏙옙 占쏙옙호.</summary>
+        /// <summary>원점 센서 신호.</summary>
         public bool Sensor_ORG          { get; protected set; }
 
-        /// <summary>占쏙옙占쏙옙 占쏙옙占쏙옙 占쏙옙占?</summary>
+        /// <summary>현재 모션 모드.</summary>
         protected MotionMode _currentMode;
 
-        /// <summary>Jog 占싱듸옙 占쏙옙占쏙옙 (+1 占실댐옙 -1, 0占싱몌옙 占쏙옙占쏙옙).</summary>
+        /// <summary>Jog 이동 방향 (+1 또는 -1, 0이면 정지).</summary>
         protected int _jogDirection;
 
         protected virtual bool UseInternalStatusUpdate
@@ -82,48 +82,48 @@ namespace QMC.Common.Motion
             get { return true; }
         }
 
-        // ??????????????????????????????????????????????
-        //  ?곹깭 蹂寃??대깽??(?몃? 愿李곗옄?? UI / Simulator Bridge ??
-        // ??????????????????????????????????????????????
+        // ─────────────────────────────────────────────
+        //  상태 변경 이벤트 (외부 관찰자: UI / Simulator Bridge 등)
+        // ─────────────────────────────────────────────
 
-        /// <summary>ActualPosition ??蹂寃쎈맆 ?뚮쭏??諛쒗뻾.</summary>
+        /// <summary>ActualPosition이 변경될 때마다 발생.</summary>
         public event System.Action<BaseAxis, double> ActualPositionChanged;
 
-        /// <summary>?대룞 ?쒖옉 ?쒖젏??1??諛쒗뻾 (IsMoving false?뭪rue).</summary>
+        /// <summary>이동 시작 시점에 1회 발생 (IsMoving false→true).</summary>
         public event System.Action<BaseAxis> MoveStarted;
 
-        /// <summary>?대룞 ?꾨즺 ?쒖젏??1??諛쒗뻾 (IsMoving true?뭚alse, ?뺤긽 ?꾨즺).</summary>
+        /// <summary>이동 완료 시점에 1회 발생 (IsMoving true→false, 정상 완료).</summary>
         public event System.Action<BaseAxis> MoveCompleted;
 
-        /// <summary>_lastBroadcastPosition: ActualPositionChanged ?대깽??以묐났 諛⑹???罹먯떆.</summary>
+        /// <summary>_lastBroadcastPosition: ActualPositionChanged 이벤트 중복 방지용 캐시.</summary>
         private double _lastBroadcastPosition = double.NaN;
 
-        // 占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙
-        //  占쏙옙占쏙옙占쏙옙
-        // 占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙
+        // ─────────────────────────────────────────────
+        //  생성자
+        // ─────────────────────────────────────────────
 
         /// <summary>
-        /// <see cref="BaseAxis"/>占쏙옙 占십깍옙화占싹곤옙 占쏙옙溜占쏙옙占?占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙트 占승쏙옙크占쏙옙 占쏙옙占쏙옙占싼댐옙.
+        /// <see cref="BaseAxis"/>를 초기화하고 백그라운드 상태 업데이트 태스크를 시작합니다.
         /// </summary>
-        /// <param name="name">占쏙옙 占싱몌옙 (占쏙옙: "Z_Axis_Motor")</param>
+        /// <param name="name">축 이름 (예: "Z_Axis_Motor")</param>
         protected BaseAxis(string name) : base(name)
         {
             if (UseInternalStatusUpdate)
                 StartStatusUpdateTask();
         }
 
-        // 占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙
-        //  占쏙옙1. 占썩본 占쏙옙占쏙옙 占쌨쇽옙占쏙옙
-        // 占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙
+        // ─────────────────────────────────────────────
+        //  §1. 기본 제어 메서드
+        // ─────────────────────────────────────────────
 
-        /// <summary>占쏙옙占쏙옙占쏙옙 활占쏙옙화(ON)占싼댐옙.</summary>
+        /// <summary>서보를 활성화(ON)합니다.</summary>
         public virtual void ServoOn()
         {
             if (IsAlarm) return;
             IsServoOn = true;
         }
 
-        /// <summary>占쏙옙占쏙옙占쏙옙 占쏙옙활占쏙옙화(OFF)占싼댐옙.</summary>
+        /// <summary>서보를 비활성화(OFF)합니다.</summary>
         public virtual void ServoOff()
         {
             Stop();
@@ -131,8 +131,8 @@ namespace QMC.Common.Motion
         }
 
         /// <summary>
-        /// 占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙占싼댐옙.
-        /// 占쏙옙占쏙옙 占쏙옙占쏙옙 占쏙옙占쏙옙 占싱듸옙占쏙옙 占쏙옙占쏙옙構占?IsMoving占쏙옙 false占쏙옙 占쏙옙占쏙옙占싼댐옙.
+        /// 현재 모션을 정지합니다.
+        /// 모션 모드와 현재 이동을 초기화하고 IsMoving을 false로 설정합니다.
         /// </summary>
         public virtual void Stop()
         {
@@ -144,8 +144,8 @@ namespace QMC.Common.Motion
         }
 
         /// <summary>
-        /// 占쏙옙占?占쏙옙占쏙옙(Emergency Stop)占쏙옙 占쏙옙占쏙옙占싼댐옙.
-        /// 占쏙옙占?占쏙옙占쏙옙占싹몌옙 AlarmCode 1占쏙옙 占쏙옙占쏙옙占싼댐옙.
+        /// 비상 정지(Emergency Stop)를 실행합니다.
+        /// 즉시 정지하며 AlarmCode 1을 설정합니다.
         /// </summary>
         public virtual void EStop()
         {
@@ -154,7 +154,7 @@ namespace QMC.Common.Motion
             AlarmCode = 1;
         }
 
-        /// <summary>占싯띰옙占쏙옙 占쏙옙占쏙옙占싼댐옙. 占싹듸옙占쏙옙占?占싯띰옙 占쏙옙占쏙옙占쏙옙 占쏙옙占신듸옙 占쏙옙 호占쏙옙占쌔억옙 占싼댐옙.</summary>
+        /// <summary>알람을 해제합니다. 하드웨어 알람 원인이 제거된 뒤 호출해야 합니다.</summary>
         public virtual void ResetAlarm()
         {
             IsAlarm   = false;
@@ -162,10 +162,10 @@ namespace QMC.Common.Motion
         }
 
         /// <summary>
-        /// 占쏙옙占쏙옙 占쏙옙치(ActualPosition, CommandPosition)占쏙옙 占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙占싼댐옙.
-        /// 占쌍뤄옙 占쏙옙占쏙옙 占쏙옙占쏙옙 占쏙옙 占쏙옙표 占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙磯占?
+        /// 현재 위치(ActualPosition, CommandPosition)를 지정된 값으로 강제 설정합니다.
+        /// 원점 보정 또는 좌표계 재설정 시 사용됩니다.
         /// </summary>
-        /// <param name="newPosition">占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙 占쏙옙치 占쏙옙</param>
+        /// <param name="newPosition">새로 설정할 위치 값</param>
         public virtual void SetPosition(double newPosition)
         {
             ActualPosition  = newPosition;
@@ -174,11 +174,11 @@ namespace QMC.Common.Motion
         }
 
         /// <summary>
-        /// 占쏙옙占쏙옙 Recipe占쏙옙 占쌈듸옙占쏙옙占쏙옙占쏙옙占쏙옙 占식띰옙占쏙옙拷占?占쏙옙占쏙옙占싼댐옙.
+        /// 현재 Recipe의 속도/가감속 프로파일을 일괄 설정합니다.
         /// </summary>
-        /// <param name="velocity">占싱듸옙 占쌈듸옙 [占쏙옙占쏙옙/s]</param>
-        /// <param name="acc">占쏙옙占쌈듸옙 [占쏙옙占쏙옙/s占쏙옙]</param>
-        /// <param name="dec">占쏙옙占쌈듸옙 [占쏙옙占쏙옙/s占쏙옙]</param>
+        /// <param name="velocity">이동 속도 [단위/s]</param>
+        /// <param name="acc">가속도 [단위/s²]</param>
+        /// <param name="dec">감속도 [단위/s²]</param>
         public virtual void SetMotionProfile(double velocity, double acc, double dec)
         {
             Recipe.DefaultVelocity = velocity;
@@ -186,16 +186,16 @@ namespace QMC.Common.Motion
             Recipe.Deceleration    = dec;
         }
 
-        // 占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙
-        //  占쏙옙2. 占싱듸옙 占쌨쇽옙占쏙옙
-        // 占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙
+        // ─────────────────────────────────────────────
+        //  §2. 이동 메서드
+        // ─────────────────────────────────────────────
 
         /// <summary>
-        /// 占쏙옙占쏙옙 占쏙옙표占쏙옙 占쏟동깍옙 占싱듸옙占싼댐옙.
-        /// 占싱듸옙 占싹뤄옙(InPosition) 占실댐옙 占싯띰옙 占쌩삼옙 占시깍옙占쏙옙 占쏙옙占쏙옙磯占?
+        /// 절대 좌표로 비동기 이동합니다.
+        /// 이동 완료(InPosition) 또는 알람 발생 시점까지 대기합니다.
         /// </summary>
-        /// <param name="targetPos">占쏙옙표 占쏙옙占쏙옙 占쏙옙치</param>
-        /// <param name="velocity">占싱듸옙 占쌈듸옙 (0 占쏙옙占쏙옙占싱몌옙 Recipe.DefaultVelocity 占쏙옙占?</param>
+        /// <param name="targetPos">목표 절대 위치</param>
+        /// <param name="velocity">이동 속도 (0 이하이면 Recipe.DefaultVelocity 사용)</param>
         public virtual async Task MoveAbsoluteAsync(double targetPos, double velocity = 0)
         {
             if (!IsServoOn || IsAlarm) return;
@@ -213,13 +213,13 @@ namespace QMC.Common.Motion
             await WaitUntilMoveDone(_cts.Token);
         }
 
-        // ??????????????????????????????????????????????
-        //  ?대깽??諛쒗뻾 ?ы띁
-        // ??????????????????????????????????????????????
+        // ─────────────────────────────────────────────
+        //  이벤트 발행 헬퍼
+        // ─────────────────────────────────────────────
 
         protected void RaisePositionChanged()
         {
-            // ?대깽??援щ룆?먭? ?녾굅???꾩튂媛 ?숈씪?섎㈃ ?ㅽ궢
+            // 이벤트 구독자가 없거나 위치가 동일하면 스킵
             var h = ActualPositionChanged;
             if (h == null) return;
             if (!double.IsNaN(_lastBroadcastPosition) && _lastBroadcastPosition == ActualPosition) return;
@@ -242,10 +242,10 @@ namespace QMC.Common.Motion
         }
 
         /// <summary>
-        /// 占쏙옙占쏙옙 占쏙옙치占쏙옙占쏙옙 占쏙옙占?占신몌옙占쏙옙큼 占쏟동깍옙 占싱듸옙占싼댐옙.
+        /// 현재 위치에서 상대 거리만큼 비동기 이동합니다.
         /// </summary>
-        /// <param name="distance">占싱듸옙 占신몌옙 (占쏙옙占쏙옙占싱몌옙 占쏙옙占싱너쏙옙 占쏙옙占쏙옙)</param>
-        /// <param name="velocity">占싱듸옙 占쌈듸옙 (0 占쏙옙占쏙옙占싱몌옙 Recipe.DefaultVelocity 占쏙옙占?</param>
+        /// <param name="distance">이동 거리 (음수이면 반대 방향 이동)</param>
+        /// <param name="velocity">이동 속도 (0 이하이면 Recipe.DefaultVelocity 사용)</param>
         public virtual async Task MoveRelativeAsync(double distance, double velocity = 0)
         {
             double targetPos = ActualPosition + distance;
@@ -253,8 +253,8 @@ namespace QMC.Common.Motion
         }
 
         /// <summary>
-        /// 占쏙옙占쏙옙 占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙占쏙옙 占쏟동깍옙占?占쏙옙占쏙옙占싼댐옙.<br/>
-        /// 占시뮬뤄옙占싱쇽옙: 占쏙옙占싱너쏙옙 占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙 占싱듸옙 占쏙옙 HomeOffset占쏙옙 占쏙옙占쏙옙占싹울옙 占쏙옙표占쏙옙 占쏙옙占쏙옙占싼댐옙.
+        /// 원점 복귀 시퀀스를 비동기로 실행합니다.<br/>
+        /// 시뮬레이션: 음(-) 방향으로 가상 이동 후 HomeOffset을 적용하여 좌표를 설정합니다.
         /// </summary>
         public virtual async Task HomeSearchAsync()
         {
@@ -263,8 +263,8 @@ namespace QMC.Common.Motion
             _currentMode = MotionMode.Homing;
             IsHomeDone   = false;
 
-            // 占쏙옙占쏙옙 占시뮬뤄옙占싱쇽옙: SoftLimitMinus 占쏙옙치占쏙옙 占싱듸옙占싹울옙 占쏙옙占쏙옙 占쏙옙占쏙옙 占쏙옙占?占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙
-            double homeTarget  = Setup.SoftLimitMinus + 1.0; // 占쏙옙占쏙옙 占쏙옙占쏙옙 占쏙옙占쏙옙
+            // 간단 시뮬레이션: SoftLimitMinus 근처로 이동하여 원점 센서 도달 가정
+            double homeTarget  = Setup.SoftLimitMinus + 1.0; // 약간 여유 두기
             CommandPosition    = homeTarget;
             _simTargetPosition = homeTarget;
             CurrentVelocity    = Recipe.HomeVelocity;
@@ -275,7 +275,7 @@ namespace QMC.Common.Motion
 
             if (IsAlarm) return;
 
-            // 占쏙옙占쏙옙 占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙 (占쏙옙표 占썹보占쏙옙) 占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙
+            // 원점 검출 후 오프셋 적용 (좌표 보정)
             SetPosition(Setup.HomeOffset);
             Sensor_ORG   = true;
             IsHomeDone   = true;
@@ -283,10 +283,10 @@ namespace QMC.Common.Motion
         }
 
         /// <summary>
-        /// IsMoving占쏙옙 false占쏙옙 占실곤옙 IsInPosition占쏙옙 true占쏙옙 占쏙옙 占쏙옙占쏙옙占쏙옙,
-        /// 占실댐옙 IsAlarm占쏙옙 占쌩삼옙占쏙옙 占쏙옙占쏙옙占쏙옙 10ms 占쏙옙占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙磯占?
+        /// IsMoving이 false가 되고 IsInPosition이 true가 될 때까지,
+        /// 또는 IsAlarm이 발생할 때까지 10ms 주기로 폴링합니다.
         /// </summary>
-        /// <param name="ct">占쏙옙占?占쏙옙큰</param>
+        /// <param name="ct">취소 토큰</param>
         protected async Task WaitUntilMoveDone(CancellationToken ct)
         {
             while (!ct.IsCancellationRequested)
@@ -294,20 +294,20 @@ namespace QMC.Common.Motion
                 if (IsAlarm)               break;
                 if (!IsMoving && IsInPosition) break;
 
-                await Task.Delay(10, ct).ContinueWith(_ => { }); // 占쏙옙占?占쏙옙占쏙옙 占쏙옙占쏙옙
+                await Task.Delay(10, ct).ContinueWith(_ => { }); // 취소 예외 무시
             }
         }
 
-        // 占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙
-        //  占쏙옙3. Jog 占쏙옙 Override 占쏙옙占쏙옙
-        // 占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙
+        // ─────────────────────────────────────────────
+        //  §3. Jog 및 Override 제어
+        // ─────────────────────────────────────────────
 
         /// <summary>
-        /// JogSpeedType占쏙옙 占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙 占쌈듸옙 占쏙옙占쏙옙 占쏙옙환占싹댐옙 占쏙옙占쏙옙 占쏙옙틸占쏙옙티.
+        /// JogSpeedType에 따라 실제 적용할 속도 값을 변환하는 내부 유틸리티.
         /// </summary>
-        /// <param name="speedType">占쌈듸옙 占쌤곤옙</param>
-        /// <param name="customVel">Custom 占쏙옙占쏙옙 占쏙옙 占쏙옙占쏙옙占?占쌈듸옙 占쏙옙</param>
-        /// <returns>占쏙옙占쏙옙占쏙옙 Jog 占쌈듸옙</returns>
+        /// <param name="speedType">속도 종류</param>
+        /// <param name="customVel">Custom 모드일 때 사용할 속도 값</param>
+        /// <returns>적용할 Jog 속도</returns>
         protected double GetJogVelocity(JogSpeedType speedType, double customVel)
         {
             switch (speedType)
@@ -324,16 +324,17 @@ namespace QMC.Common.Motion
         }
 
         /// <summary>
-        /// Jog 占쏙옙튼占쏙옙 占쏙옙占쏙옙占쏙옙 占쌍댐옙 占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙占쏙옙 占싱듸옙占싼댐옙.
-        /// 占시뮬뤄옙占싱쇽옙 占쏙옙占쏙옙占쏙옙 _jogDirection占쏙옙 CurrentVelocity占쏙옙 占쏙옙占쏙옙占쏙옙占?占쏙옙 틱 占쏙옙치占쏙옙 占쏙옙占쏙옙占싼댐옙.
+        /// Jog 버튼을 누르고 있는 동안 연속적으로 이동합니다.
+        /// 시뮬레이션 모드는 _jogDirection과 CurrentVelocity를 기반으로 매 틱 위치를 갱신합니다.
         /// </summary>
-        /// <param name="direction">+1 (占시뤄옙占쏙옙 占쏙옙占쏙옙) 占실댐옙 -1 (占쏙옙占싱너쏙옙 占쏙옙占쏙옙)</param>
-        /// <param name="speedType">占쌈듸옙 占쌤곤옙</param>
-        /// <param name="customVel">Custom 占쏙옙占쏙옙 占쏙옙 占쌈듸옙 占쏙옙 (占썩본占쏙옙: 0)</param>
+        /// <param name="direction">+1 (양(+) 방향) 또는 -1 (음(-) 방향)</param>
+        /// <param name="speedType">속도 종류</param>
+        /// <param name="customVel">Custom 모드일 때 속도 값 (기본값: 0)</param>
         public virtual void MoveJogContinuous(int direction, JogSpeedType speedType,
                                               double customVel = 0)
         {
-            if (!IsServoOn || IsAlarm) return;
+            if (!IsServoOn || IsAlarm) 
+                return;
 
             _jogDirection   = direction;
             CurrentVelocity = GetJogVelocity(speedType, customVel);
@@ -341,18 +342,18 @@ namespace QMC.Common.Motion
             IsInPosition    = false;
             _currentMode    = MotionMode.Jog;
 
-            // CommandPosition占쏙옙 占쏙옙占쏙옙 占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙 ? 占시뮬뤄옙占쏙옙占싶곤옙 占쏙옙 틱 占쏙옙占쏙옙
+            // CommandPosition은 소프트 리미트 끝으로 설정 - 시뮬레이터가 매 틱 갱신
             CommandPosition    = direction > 0 ? Setup.SoftLimitPlus : Setup.SoftLimitMinus;
             _simTargetPosition = CommandPosition;
         }
 
         /// <summary>
-        /// 클占쏙옙 1회占쏙옙 stepDistance占쏙옙큼 占쏙옙占?占싱듸옙占싹댐옙 Step Jog占쏙옙 占쏟동깍옙占?占쏙옙占쏙옙占싼댐옙.
+        /// 클릭 1회에 stepDistance만큼 한 번 이동하는 Step Jog를 비동기로 실행합니다.
         /// </summary>
-        /// <param name="direction">+1 (占시뤄옙占쏙옙 占쏙옙占쏙옙) 占실댐옙 -1 (占쏙옙占싱너쏙옙 占쏙옙占쏙옙)</param>
-        /// <param name="speedType">占쌈듸옙 占쌤곤옙</param>
-        /// <param name="stepDistance">1회 占싱듸옙 占신몌옙 (占쏙옙占?占쏙옙占쎈값)</param>
-        /// <param name="customVel">Custom 占쏙옙占쏙옙 占쏙옙 占쌈듸옙 占쏙옙 (占썩본占쏙옙: 0)</param>
+        /// <param name="direction">+1 (양(+) 방향) 또는 -1 (음(-) 방향)</param>
+        /// <param name="speedType">속도 종류</param>
+        /// <param name="stepDistance">1회 이동 거리 (항상 절댓값으로 처리)</param>
+        /// <param name="customVel">Custom 모드일 때 속도 값 (기본값: 0)</param>
         public virtual async Task MoveJogStepAsync(int direction, JogSpeedType speedType,
                                                    double stepDistance, double customVel = 0)
         {
@@ -361,7 +362,7 @@ namespace QMC.Common.Motion
         }
 
         /// <summary>
-        /// Jog 占싱듸옙占쏙옙 占쏙옙占쏙옙占싼댐옙. <see cref="Stop"/>占쏙옙 占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙 占실미몌옙 占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙 표占쏙옙占싼댐옙.
+        /// Jog 이동을 정지합니다. <see cref="Stop"/>과 동일하지만 의미를 명확히 표현합니다.
         /// </summary>
         public virtual void StopJog()
         {
@@ -369,9 +370,9 @@ namespace QMC.Common.Motion
         }
 
         /// <summary>
-        /// 占싱듸옙 占쏙옙 占쏙옙표 占쌈듸옙占쏙옙 占실시곤옙占쏙옙占쏙옙 占쏙옙占쏙옙(Override)占싼댐옙.
+        /// 이동 중 목표 속도를 실시간으로 변경(Override)합니다.
         /// </summary>
-        /// <param name="newVelocity">占쏙옙占쏙옙占쏙옙 占쏙옙 占쌈듸옙</param>
+        /// <param name="newVelocity">변경할 새 속도</param>
         public virtual void OverrideVelocity(double newVelocity)
         {
             if (newVelocity <= 0) return;
@@ -380,9 +381,9 @@ namespace QMC.Common.Motion
         }
 
         /// <summary>
-        /// 占싱듸옙 占쏙옙 占쏙옙표 占쏙옙치占쏙옙 占실시곤옙占쏙옙占쏙옙 占쏙옙占쏙옙(Override)占싼댐옙.
+        /// 이동 중 목표 위치를 실시간으로 변경(Override)합니다.
         /// </summary>
-        /// <param name="newTargetPosition">占쏙옙占쏙옙占쏙옙 占쏙옙 占쏙옙표 占쏙옙치</param>
+        /// <param name="newTargetPosition">변경할 새 목표 위치</param>
         public virtual void OverridePosition(double newTargetPosition)
         {
             _overrideTargetPosition = newTargetPosition;
@@ -390,13 +391,13 @@ namespace QMC.Common.Motion
             _simTargetPosition      = newTargetPosition;
         }
 
-        // 占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙
-        //  占쏙옙4. 占쏙옙溜占쏙옙占?占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙트 占쏙옙占쏙옙
-        // 占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙
+        // ─────────────────────────────────────────────
+        //  §4. 백그라운드 상태 업데이트
+        // ─────────────────────────────────────────────
 
         /// <summary>
-        /// 10ms 占쌍깍옙占?<see cref="UpdateStatus"/>占쏙옙 호占쏙옙占싹댐옙 占쏙옙溜占쏙옙占?占승쏙옙크占쏙옙 占쏙옙占쏙옙占싼댐옙.
-        /// 占승쏙옙크占쏙옙 占쏙옙체 占쌀몌옙 占쏙옙 <see cref="Dispose"/>占쏙옙 占쏙옙占쏙옙 占쏙옙撚홱占?
+        /// 10ms 주기로 <see cref="UpdateStatus"/>를 호출하는 백그라운드 태스크를 시작합니다.
+        /// 태스크는 객체 폐기 시 <see cref="Dispose"/>를 통해 종료됩니다.
         /// </summary>
         private void StartStatusUpdateTask()
         {
@@ -417,7 +418,7 @@ namespace QMC.Common.Motion
                     }
                     catch (Exception)
                     {
-                        // 占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙트 占쏙옙 占쏙옙占쌤댐옙 占쏙옙占쏙옙占쏙옙 占쌩단쏙옙키占쏙옙 占십는댐옙.
+                        // 상태 업데이트 중 예외는 루프를 중단시키지 않는다.
                         await Task.Delay(10, token).ContinueWith(_ => { });
                     }
                 }
@@ -425,11 +426,11 @@ namespace QMC.Common.Motion
         }
 
         /// <summary>
-        /// 10ms 占쌍깍옙占?호占쏙옙풔占?占쏙옙占쏙옙 占쏙옙占쏙옙 占쌨쇽옙占쏙옙.<br/>
+        /// 10ms 주기로 호출되는 상태 갱신 메서드.<br/>
         /// <list type="bullet">
-        ///   <item><description>占시뮬뤄옙占싱쇽옙 占쏙옙占?<see cref="AxisConfig.IsSimulationMode"/> = true):
-        ///     <see cref="SimulateMotion"/>占쏙옙 호占쏙옙占싹울옙 占쏙옙占쏙옙 占쏙옙치占쏙옙 占쏙옙占쏙옙磯占?</description></item>
-        ///   <item><description>占실븝옙占쏙옙 占쏙옙占? override占싹울옙 占쏙옙占쏙옙 API占쏙옙 占쏙옙占승몌옙 占싻는댐옙.</description></item>
+        ///   <item><description>시뮬레이션 모드(<see cref="AxisConfig.IsSimulationMode"/> = true):
+        ///     <see cref="SimulateMotion"/>을 호출하여 가상 위치를 갱신합니다.</description></item>
+        ///   <item><description>실제 모드: override하여 실제 API를 폴링해 갱신.</description></item>
         /// </list>
         /// </summary>
         public virtual void UpdateStatus()
@@ -438,26 +439,26 @@ namespace QMC.Common.Motion
             {
                 SimulateMotion();
             }
-            // else: 占실븝옙占쏙옙 占쏙옙占?? 占쏙옙占쏙옙 클占쏙옙占쏙옙占쏙옙占쏙옙 override占싹울옙 占쏙옙占쏙옙
+            // else: 실제 모드 - 파생 클래스에서 override하여 구현
         }
 
-        // 占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙
-        //  占쏙옙5. 占시뮬뤄옙占싱쇽옙 占쏙옙占쏙옙
-        // 占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙
+        // ─────────────────────────────────────────────
+        //  §5. 시뮬레이션 로직
+        // ─────────────────────────────────────────────
 
         /// <summary>
-        /// 10ms 占쏙옙占쏙옙占쏙옙 占쏙옙占쏙옙 占쏙옙占?占시뮬뤄옙占싱쇽옙 占쏙옙占쏙옙.<br/>
+        /// 10ms 단위로 호출되는 시뮬레이션 로직.<br/>
         /// <list type="bullet">
-        ///   <item><description>CurrentVelocity 占쏙옙占쏙옙占쏙옙占?占쏙옙 틱 占싱듸옙 占신몌옙占쏙옙 占쏙옙占쏙옙磯占?</description></item>
-        ///   <item><description>占쏙옙표 占쏙옙치 占쏙옙占쏙옙 占쏙옙 占싱듸옙 占싹뤄옙 처占쏙옙占쏙옙 占싼댐옙.</description></item>
-        ///   <item><description>占쏙옙占쏙옙트 占쏙옙占쏙옙 占십곤옙 占쏙옙 占싯띰옙占쏙옙 占쌩삼옙占쏙옙키占쏙옙 占쏙옙占쏙옙占싼댐옙.</description></item>
+        ///   <item><description>CurrentVelocity 기반으로 매 틱 이동 거리를 갱신합니다.</description></item>
+        ///   <item><description>목표 위치 도달 시 이동 완료 처리를 합니다.</description></item>
+        ///   <item><description>소프트 리미트 도달 시 알람을 발생시키고 정지합니다.</description></item>
         /// </list>
         /// </summary>
         protected virtual void SimulateMotion()
         {
             if (!IsMoving) return;
 
-            // Override 占쏙옙 占쌥울옙
+            // Override 값 반영
             if (!double.IsNaN(_overrideVelocity))
             {
                 CurrentVelocity     = _overrideVelocity;
@@ -470,7 +471,7 @@ namespace QMC.Common.Motion
                 _overrideTargetPosition   = double.NaN;
             }
 
-            // 10ms 占쏙옙占쏙옙 占싱듸옙 占신몌옙 占쏙옙占?(占쏙옙占쏙옙: [占쏙옙占쏙옙/s] * 0.01s)
+            // 10ms 동안 이동 거리 계산 (단위: [단위/s] * 0.01s)
             const double tickSeconds = 0.01;
             double step = CurrentVelocity * tickSeconds;
 
@@ -478,16 +479,16 @@ namespace QMC.Common.Motion
 
             if (_currentMode == MotionMode.Jog)
             {
-                // Jog: 占쏙옙占썩에 占쏙옙占쏙옙 step占쏙옙 占싱듸옙, 占쏙옙占쌉울옙 占쏙옙占쏙옙占싹몌옙 占쏙옙占쏙옙
+                // Jog: 방향에 따라 step씩 이동, 목표 도달 개념 없음
                 ActualPosition += _jogDirection * step;
                 RaisePositionChanged();
             }
             else
             {
-                // 占쏙옙占쎈·占쏙옙占?占싱듸옙: 占쏙옙표占쏙옙 占쏙옙占쏙옙 step占쏙옙 占쏙옙占쏙옙
+                // 절대/상대 이동: 목표를 향해 step만큼 접근
                 if (Math.Abs(remaining) <= step)
                 {
-                    // 占쏙옙표 占쏙옙占쏙옙
+                    // 목표 도달
                     ActualPosition  = _simTargetPosition;
                     CommandPosition = _simTargetPosition;
                     IsMoving        = false;
@@ -503,7 +504,7 @@ namespace QMC.Common.Motion
                 RaisePositionChanged();
             }
 
-            // 占쏙옙占쏙옙 占쏙옙占쏙옙트 占쏙옙占쏙옙 占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙
+            // 소프트 리미트 검사
             if (Setup.SoftLimitEnabled && ActualPosition >= Setup.SoftLimitPlus)
             {
                 ActualPosition = Setup.SoftLimitPlus;
@@ -520,9 +521,9 @@ namespace QMC.Common.Motion
         }
 
         /// <summary>
-        /// 占쏙옙占쏙옙트 占쏙옙占쏙옙 占쏙옙占쏙옙 占쏙옙 占싯띰옙占쏙옙 占쌩삼옙占쏙옙키占쏙옙 占쏙옙占?占쏙옙占쏙옙占싼댐옙.
+        /// 소프트 리미트 도달 시 알람을 발생시키고 모션을 정지합니다.
         /// </summary>
-        /// <param name="alarmCode">占쏙옙占쏙옙占쏙옙 占싯띰옙 占쌘듸옙 (10: PEL, 11: MEL)</param>
+        /// <param name="alarmCode">설정할 알람 코드 (10: PEL, 11: MEL)</param>
         private void TriggerSoftLimitAlarm(uint alarmCode)
         {
             IsMoving        = false;
@@ -534,12 +535,12 @@ namespace QMC.Common.Motion
             _jogDirection   = 0;
         }
 
-        // 占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙
-        //  占쏙옙6. IDisposable ? 占쏙옙溜占쏙옙占?占승쏙옙크 占쏙옙占쏙옙
-        // 占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙占쏙옙
+        // ─────────────────────────────────────────────
+        //  §6. IDisposable - 백그라운드 태스크 정리
+        // ─────────────────────────────────────────────
 
         /// <summary>
-        /// 占쏙옙溜占쏙옙占?占쏙옙占쏙옙 占쏙옙占쏙옙占쏙옙트 占승쏙옙크占쏙옙 占쏙옙占쏙옙構占?占쏙옙占쌀쏙옙占쏙옙 占쏙옙占쏙옙占싼댐옙.
+        /// 백그라운드 상태 업데이트 태스크를 취소하고 리소스를 해제합니다.
         /// </summary>
         public void Dispose()
         {

@@ -50,6 +50,8 @@ namespace QMC.CDT_320
         private BottomMenuButton btnTabWorkInfo;
         private BottomMenuButton btnTabHistory;
         private BottomMenuButton btnTabRecipe;
+        private BottomMenuButton btnAxisJog;
+        private BottomMenuButton btnAxisPosition;
         private BottomMenuButton btnTabSettings;
         private BottomMenuButton btnTabUser;
         private BottomMenuButton btnTabExit;
@@ -338,6 +340,8 @@ namespace QMC.CDT_320
             this.btnTabWorkInfo  = new BottomMenuButton { Location = new Point(180,  btnY), IconText = "i",  Label = "작업 정보",  Anchor = AnchorStyles.Top | AnchorStyles.Left };
             this.btnTabHistory   = new BottomMenuButton { Location = new Point(300,  btnY), IconText = "H",  Label = "이력",       Anchor = AnchorStyles.Top | AnchorStyles.Left };
             this.btnTabRecipe    = new BottomMenuButton { Location = new Point(420,  btnY), IconText = "R",  Label = "레시피",     Anchor = AnchorStyles.Top | AnchorStyles.Left };
+            this.btnAxisJog      = new BottomMenuButton { Location = new Point(820,  btnY), IconText = "J",  Label = "JOG",        Anchor = AnchorStyles.Top };
+            this.btnAxisPosition = new BottomMenuButton { Location = new Point(940,  btnY), IconText = "P",  Label = "POSITION",   Anchor = AnchorStyles.Top };
             // 우측 3개 — Anchor.Top|Right (해상도 변경에도 우측 정렬 유지)
             this.btnTabSettings  = new BottomMenuButton { Location = new Point(1440, btnY), IconText = "S",  Label = "설정",       Anchor = AnchorStyles.Top | AnchorStyles.Right };
             this.btnTabUser      = new BottomMenuButton { Location = new Point(1560, btnY), IconText = "U",  Label = "사용자",     Anchor = AnchorStyles.Top | AnchorStyles.Right };
@@ -347,6 +351,8 @@ namespace QMC.CDT_320
             this.btnTabWorkInfo .Click += (s, e) => this.ShowTab(MainTab.WorkInfo);
             this.btnTabHistory  .Click += (s, e) => this.ShowTab(MainTab.History);
             this.btnTabRecipe   .Click += (s, e) => this.ShowTab(MainTab.Recipe);
+            this.btnAxisJog     .Click += (s, e) => this.ShowOrRestoreJogPopup(this);
+            this.btnAxisPosition.Click += (s, e) => this.ShowOrRestoreAxisPositionPopup(this);
             this.btnTabSettings .Click += (s, e) => this.ShowTab(MainTab.Settings);
             this.btnTabUser     .Click += (s, e) => this.ShowTab(MainTab.User);
             this.btnTabExit     .Click += (s, e) => this.Close();
@@ -355,6 +361,8 @@ namespace QMC.CDT_320
             this.pnlBottomBar.Controls.Add(this.btnTabWorkInfo);
             this.pnlBottomBar.Controls.Add(this.btnTabHistory);
             this.pnlBottomBar.Controls.Add(this.btnTabRecipe);
+            this.pnlBottomBar.Controls.Add(this.btnAxisJog);
+            this.pnlBottomBar.Controls.Add(this.btnAxisPosition);
             this.pnlBottomBar.Controls.Add(this.btnTabSettings);
             this.pnlBottomBar.Controls.Add(this.btnTabUser);
             this.pnlBottomBar.Controls.Add(this.btnTabExit);

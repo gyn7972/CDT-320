@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Windows.Forms;
 using QMC.Common;
 using QMC.Common.IO;
@@ -9,6 +10,7 @@ using QMC.CDT320.Ajin;
 using QMC.CDT_320.Ui;
 using QMC.CDT_320.Ui.Localization;
 using QMC.CDT_320.Ui.Security;
+using QMC.CDT_320.Ui.Dialogs;
 using QMC.CDT_320.Ui.Tabs;
 
 namespace QMC.CDT_320
@@ -57,6 +59,8 @@ namespace QMC.CDT_320
         private RecipeTab   _recipeTab;
         private SettingsTab _settingsTab;
         private UserTab     _userTab;
+        private AxisJogPopup _jogPopup;
+        private AxisPositionPopup _axisPositionPopup;
 
         private MainTab _currentTab = MainTab.Work;
 
@@ -95,7 +99,7 @@ namespace QMC.CDT_320
             Bridge     = new SimulatorBridge(Machine);
             Controller = new MachineController(Machine);
             MotionMonitor = new MotionMonitorService();
-            MotionMonitor.Start(EnumerateAxes(Machine), cfg.UseAjin ? 50 : 100);
+            MotionMonitor.Start(AjinAxisRegistry.GetOrderedAxes(), cfg.UseAjin ? 50 : 100);
             IoScan = new AjinIoScanService();
             IoScan.Start(EnumerateAjinInputs(Machine), EnumerateAjinOutputs(Machine), cfg.UseAjin ? 10 : 100, () => AjinSystem.IsOpen);
 
@@ -410,6 +414,72 @@ namespace QMC.CDT_320
             lblTimeValue.Text = DateTime.Now.ToString("yyyy-MM-dd  HH:mm:ss");
         }
 
+        private void ShowOrRestoreJogPopup(IWin32Window owner)
+        {
+            if (_jogPopup == null || _jogPopup.IsDisposed)
+            {
+                _jogPopup = new AxisJogPopup(CurrentAxes())
+                {
+                    StartPosition = FormStartPosition.CenterScreen,
+                    ShowInTaskbar = true,
+                    Owner = null
+                };
+                _jogPopup.Load += (s, e) => TaskbarHelper.SetAppId(_jogPopup.Handle, "CDT320.JogPanel");
+                _jogPopup.FormClosed += (s, e) => { _jogPopup = null; };
+                _jogPopup.FormClosing += (s, ev) =>
+                {
+                    if (ev.CloseReason == CloseReason.UserClosing)
+                    {
+                        ev.Cancel = true;
+                        _jogPopup.Hide();
+                    }
+                };
+            }
+
+            ShowPopup(_jogPopup);
+        }
+
+        private void ShowOrRestoreAxisPositionPopup(IWin32Window owner)
+        {
+            if (_axisPositionPopup == null || _axisPositionPopup.IsDisposed)
+            {
+                _axisPositionPopup = new AxisPositionPopup(CurrentAxes(), MotionMonitor)
+                {
+                    StartPosition = FormStartPosition.CenterScreen,
+                    ShowInTaskbar = true,
+                    Owner = null
+                };
+                _axisPositionPopup.Load += (s, e) => TaskbarHelper.SetAppId(_axisPositionPopup.Handle, "CDT320.AxisPosition");
+                _axisPositionPopup.FormClosed += (s, e) => { _axisPositionPopup = null; };
+                _axisPositionPopup.FormClosing += (s, ev) =>
+                {
+                    if (ev.CloseReason == CloseReason.UserClosing)
+                    {
+                        ev.Cancel = true;
+                        _axisPositionPopup.Hide();
+                    }
+                };
+            }
+
+            ShowPopup(_axisPositionPopup);
+        }
+
+        private static void ShowPopup(Form popup)
+        {
+            if (popup == null) return;
+            if (!popup.Visible) popup.Show();
+            if (popup.WindowState == FormWindowState.Minimized)
+                popup.WindowState = FormWindowState.Normal;
+            popup.BringToFront();
+            popup.TopMost = true;
+            popup.Activate();
+        }
+
+        private List<BaseAxis> CurrentAxes()
+        {
+            return AjinAxisRegistry.GetOrderedAxes();
+        }
+
         private static IEnumerable<BaseAxis> EnumerateAxes(CDT320_Machine machine)
         {
             if (machine == null) yield break;
@@ -530,6 +600,8 @@ namespace QMC.CDT_320
             catch { }
             try { MotionMonitor?.Dispose(); } catch { }
             try { IoScan?.Dispose(); } catch { }
+            try { if (_jogPopup != null && !_jogPopup.IsDisposed) _jogPopup.Dispose(); } catch { }
+            try { if (_axisPositionPopup != null && !_axisPositionPopup.IsDisposed) _axisPositionPopup.Dispose(); } catch { }
             try { Bridge?.Dispose(); } catch { }
             try { QMC.CDT320.VisionComm.VisionHub.DisconnectAll(); } catch { }
             try { QMC.CDT320.Ajin.AjinSystem.Close(); } catch { }

@@ -178,12 +178,13 @@ namespace QMC.Common.IO
                 }
 
                 var cycle = new List<AjinIoSnapshot>(inputs.Count + outputs.Count);
-                if (isOpen == null || isOpen())
+                bool hardwareOpen = isOpen == null || isOpen();
+                if (hardwareOpen || HasSimulationPorts(inputs, outputs))
                 {
                     for (int i = 0; i < inputs.Count; i++)
                     {
                         if (token.IsCancellationRequested) break;
-                        AjinIoSnapshot snapshot = ReadInput(inputs[i]);
+                        AjinIoSnapshot snapshot = ReadInput(inputs[i], hardwareOpen);
                         cycle.Add(snapshot);
                         RaiseIoStatusUpdated(snapshot);
                     }
@@ -191,7 +192,7 @@ namespace QMC.Common.IO
                     for (int i = 0; i < outputs.Count; i++)
                     {
                         if (token.IsCancellationRequested) break;
-                        AjinIoSnapshot snapshot = ReadOutput(outputs[i]);
+                        AjinIoSnapshot snapshot = ReadOutput(outputs[i], hardwareOpen);
                         cycle.Add(snapshot);
                         RaiseIoStatusUpdated(snapshot);
                     }
@@ -204,9 +205,12 @@ namespace QMC.Common.IO
             }
         }
 
-        private AjinIoSnapshot ReadInput(BaseDigitalInput input)
+        private AjinIoSnapshot ReadInput(BaseDigitalInput input, bool hardwareOpen)
         {
             if (input == null) return BuildSnapshot(string.Empty, 0, 0, false, false, false, -1);
+
+            if (input.Config.IsSimulationMode || !hardwareOpen)
+                return UpdateCached(input.Name, input.Setup.ModuleNo, input.Setup.BitNo, false, input.IsOn, input.Setup.IsNormallyClosed, 0);
 
             bool raw = false;
             int ret;
@@ -220,9 +224,12 @@ namespace QMC.Common.IO
             return UpdateCached(input.Name, input.Setup.ModuleNo, input.Setup.BitNo, false, logical, input.Setup.IsNormallyClosed, ret);
         }
 
-        private AjinIoSnapshot ReadOutput(BaseDigitalOutput output)
+        private AjinIoSnapshot ReadOutput(BaseDigitalOutput output, bool hardwareOpen)
         {
             if (output == null) return BuildSnapshot(string.Empty, 0, 0, true, false, false, -1);
+
+            if (output.Config.IsSimulationMode || !hardwareOpen)
+                return UpdateCached(output.Name, output.Setup.ModuleNo, output.Setup.BitNo, true, output.IsOn, output.Setup.IsNormallyClosed, 0);
 
             bool raw = false;
             int ret;
@@ -265,6 +272,29 @@ namespace QMC.Common.IO
         private static string MakeKey(int module, int bit, bool isOutput)
         {
             return (isOutput ? "O:" : "I:") + module + ":" + bit;
+        }
+
+        private static bool HasSimulationPorts(IReadOnlyList<BaseDigitalInput> inputs, IReadOnlyList<BaseDigitalOutput> outputs)
+        {
+            if (inputs != null)
+            {
+                for (int i = 0; i < inputs.Count; i++)
+                {
+                    if (inputs[i] != null && inputs[i].Config.IsSimulationMode)
+                        return true;
+                }
+            }
+
+            if (outputs != null)
+            {
+                for (int i = 0; i < outputs.Count; i++)
+                {
+                    if (outputs[i] != null && outputs[i].Config.IsSimulationMode)
+                        return true;
+                }
+            }
+
+            return false;
         }
 
         private void RaiseIoStatusUpdated(AjinIoSnapshot snapshot)

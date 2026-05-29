@@ -72,20 +72,15 @@
     <Compile Include="Equipment\AppSettings.cs" />
     <Compile Include="Equipment\CDT320Machine.cs" />
     <Compile Include="Equipment\CycleMode.cs" />
-    <Compile Include="Equipment\InputLoaderUnit.cs" />
-    <Compile Include="Equipment\InputStageUnit.cs" />
+    <Compile Include="Equipment\Unit\InputLoaderUnit.cs" />
+    <Compile Include="Equipment\Unit\OutputStageUnit.cs" />
+    <Compile Include="Equipment\Unit\OutputUnloaderUnit.cs" />
+    <Compile Include="Equipment\Unit\WaferTransferTypes.cs" />
+    <Compile Include="Equipment\Unit\WaferCassetteUnit.cs" />
+    <Compile Include="Equipment\Unit\WaferFeederUnit.cs" />
+    <Compile Include="Equipment\Unit\InputStageUnit.cs" />
     <Compile Include="Equipment\IStageInterfaces.cs" />
     <Compile Include="Equipment\MachineController.cs" />
-    <Compile Include="Equipment\OutputStageUnit.cs" />
-    <Compile Include="Equipment\OutputUnloaderUnit.cs" />
-    <Compile Include="Equipment\Sequencing\AutoSequenceCoordinator.cs" />
-    <Compile Include="Equipment\Sequencing\InputLoaderSequence.cs" />
-    <Compile Include="Equipment\Sequencing\ISequence.cs" />
-    <Compile Include="Equipment\Sequencing\ISequenceContext.cs" />
-    <Compile Include="Equipment\Sequencing\MachineSequenceContext.cs" />
-    <Compile Include="Equipment\Sequencing\SequenceBase.cs" />
-    <Compile Include="Equipment\Sequencing\SequenceRunMode.cs" />
-    <Compile Include="Equipment\Sequencing\SequenceSignalBus.cs" />
     <Compile Include="Equipment\SimComponents.cs" />
     <Compile Include="Equipment\SimulatorBridge.cs" />
     <Compile Include="Equipment\Sim\SimCassetteDriver.cs" />
@@ -128,11 +123,11 @@
       <DependentUpon>ModuleSubsetPage.cs</DependentUpon>
     </Compile>
     <Compile Include="Equipment\Vision\BarcodeSerialAdapter.cs" />
-    <Compile Include="Equipment\OperationPanelUnit.cs" />
-    <Compile Include="Equipment\ResourceSensorsUnit.cs" />
+    <Compile Include="Equipment\Unit\OperationPanelUnit.cs" />
+    <Compile Include="Equipment\Unit\ResourceSensorsUnit.cs" />
     <Compile Include="Equipment\SlotMapper.cs" />
-    <Compile Include="Equipment\IonizerUnit.cs" />
-    <Compile Include="Equipment\PostPnpTransferUnit.cs" />
+    <Compile Include="Equipment\Unit\IonizerUnit.cs" />
+    <Compile Include="Equipment\Unit\PostPnpTransferUnit.cs" />
     <Compile Include="Equipment\Plate.cs" />
     <Compile Include="Ui\Pages\Settings\AxisSetupPage.Designer.cs">
       <DependentUpon>AxisSetupPage.cs</DependentUpon>
@@ -161,7 +156,7 @@
     <Compile Include="Ui\Pages\Recipe\OutputSubsetPage.Designer.cs">
       <DependentUpon>OutputSubsetPage.cs</DependentUpon>
     </Compile>
-    <Compile Include="Equipment\TransferPickerUnit.cs" />
+    <Compile Include="Equipment\Unit\TransferPickerUnit.cs" />
     <Compile Include="Equipment\UnitData.cs" />
     <!-- Equipment / Alarms -->
     <Compile Include="Equipment\Alarms\AlarmManager.cs" />
@@ -262,6 +257,7 @@
     </Compile>
     <!-- Equipment / Ajin -->
     <Compile Include="Equipment\Ajin\AjinAxis.cs" />
+    <Compile Include="Equipment\Ajin\AjinAxisRegistry.cs" />
     <Compile Include="Equipment\Ajin\AjinConfig.cs" />
     <Compile Include="Equipment\Ajin\AjinCylinder.cs" />
     <Compile Include="Equipment\Ajin\AjinDigitalInput.cs" />
@@ -311,6 +307,19 @@
     <Compile Include="Ui\Dialogs\BoardScanDialog.Designer.cs">
       <DependentUpon>BoardScanDialog.cs</DependentUpon>
     </Compile>
+    <Compile Include="Ui\Dialogs\AxisJogPopup.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\AxisJogPopup.Designer.cs">
+      <DependentUpon>AxisJogPopup.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Dialogs\AxisPositionPopup.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\AxisPositionPopup.Designer.cs">
+      <DependentUpon>AxisPositionPopup.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Dialogs\TaskbarHelper.cs" />
     <Compile Include="Ui\Dialogs\CstStatusDialog.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -616,6 +625,12 @@
       <AutoGen>True</AutoGen>
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
+    <EmbeddedResource Include="Ui\Dialogs\AxisJogPopup.resx">
+      <DependentUpon>AxisJogPopup.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Dialogs\AxisPositionPopup.resx">
+      <DependentUpon>AxisPositionPopup.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Ui\Dialogs\LoginDialog.resx">
       <DependentUpon>LoginDialog.cs</DependentUpon>
     </EmbeddedResource>
@@ -673,6 +688,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\Settings\GeneralPage.resx">
       <DependentUpon>GeneralPage.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\Settings\IoControlPage.resx">
+      <DependentUpon>IoControlPage.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\Settings\PositionTeachingPage.resx">
       <DependentUpon>PositionTeachingPage.cs</DependentUpon>
