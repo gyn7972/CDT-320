@@ -182,3 +182,13 @@
 |---|---|---|---|
 | M-65-1 | QMC.Vision UI | MaintenancePage ↔ RecipePage 중복 | Maintenance 페이지를 Recipe 로 개명(파일/클래스/헤더), 기존 placeholder RecipePage 삭제, Tab.Maintenance/btnMaintenance 제거. 하단바 좌측 4→3 (운영/환경설정/레시피) |
 | M-65-2 | RecipePage.PopulateTree | 트리에 3 모듈만 노출 (FrontSide/RearSide 누락) | 5 모듈 전부 등록 — Wafer 7 / Bin 4 / Bottom 7 / FrontSide 4 / RearSide 4 = 26 검사 노드 |
+
+## STAGE 66 — LFine 조명 컨트롤러 SPEC (2026-05-29)
+
+| ID | 위치 | 내용 | 처리 |
+|---|---|---|---|
+| M-66-1 | LightControl/Optics/LFine/LFinePSDigitalIlluminator.cs | LFinePSDigitalIlluminatorCommunicator 파일 부재 (LFine 폴더에 없음; LS/Leesos만 존재) | PS 변종 본 Stage 범위 외로 확정 |
+| M-66-2 | 매뉴얼(2) vs io_set.lightSource.json(COM1/2/3) vs LFineConfig(단일) | 컨트롤러 개수 불일치 | 확인 필요 #5 — 단수/List 결정 후 Config 확정 |
+| M-66-3 | IlluminatorPanel.cs(4채널 더미) vs io_set.json(8채널) | 채널 수 불일치 | 채널 가변화 (구현 Stage) |
+| M-66-4 | LightControl 코드 = Part/IlluminatorConfig/ListParam/SerialComm 레거시 의존 | 직접 포팅 불가 | 현 CDT-320 패턴으로 신규 작성 (프로토콜만 차용) |
+| M-66-5 | io_set.json 채널 6/7 = "TOP/BOTTOM SIDE VISION" | Stage 63 FrontSide/RearSide 리네임과 라벨 불일치 | 라벨 정합 검토 (구현 Stage) |
