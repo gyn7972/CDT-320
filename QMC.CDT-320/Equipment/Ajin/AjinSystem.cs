@@ -46,10 +46,12 @@ namespace QMC.CDT320.Ajin
                         LastError = "AxmMotLoadParaAll failed. Code=" + r + " (" + DescribeAxlError(r) + "), Path=" + motPath;
                         EventLogger.Write(EventKind.Alarm, "SYS", "AXM-MOT-LOAD", LastError);
                         AlarmManager.Raise(AlarmSeverity.Critical, "AXM-MOT-LOAD", "AjinSystem", LastError);
-                        IsOpen = false;
+                        
+                        //Test할때는 우선 넘어가자. I/O만 확인하는걸로.
+                        //IsOpen = false;
                         // 파라미터 로드 실패해도 AXL은 열려 있으므로, 필요 시 Close
-                        AXL.Close();
-                        return false;
+                        //AXL.Close();
+                        //return false;
                     }
                     else
                     {
