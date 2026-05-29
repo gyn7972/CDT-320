@@ -19,7 +19,7 @@ namespace QMC.Common.Motion
     /// 전원 OFF 후에도 유지되어야 하는 축 번호, 단위, 리밋, 홈 방향 같은 값을 둔다.
     /// <list type="bullet">
     ///   <item><description>장비 구성이나 배선에 가까운 값은 Setup 에 둔다.</description></item>
-    ///   <item><description>운전 속도처럼 공정마다 바뀔 수 있는 값은 <see cref="AxisRecipe"/> 에 둔다.</description></item>
+    ///   <item><description>운전 속도처럼 공정마다 바뀔 수 있는 값은 <see cref="AxisConfig"/> 에 둔다.</description></item>
     /// </list>
     /// </summary>
     public class AxisSetup : ISetupData
@@ -71,26 +71,12 @@ namespace QMC.Common.Motion
 
         /// <summary>일반 이동 제한 시간 [ms].</summary>
         public int MoveTimeoutMs { get; set; } = 60000;
-    }
-
-    /// <summary>
-    /// 축의 고정 사양/보드 신호 설정값.<br/>
-    /// 모터, 드라이버, 보드 설정처럼 장비 모델에 묶이는 값을 둔다.
-    /// </summary>
-    public class AxisConfig : IConfigData
-    {
-        /// <summary>
-        /// true 이면 실제 보드 호출 없이 시뮬레이션 엔진으로 동작한다.<br/>
-        /// false 여도 보드가 열려 있지 않거나 축 번호가 유효하지 않으면 자동으로 true 로 폴백한다.
-        /// </summary>
-        public bool IsSimulationMode { get; set; } = true;
 
         /// <summary>펄스 출력 방식.</summary>
         public PulseOutput PulseOutput { get; set; } = PulseOutput.TwoPulse_High_CCW_CW;
 
         /// <summary>엔코더 입력 방식.</summary>
         public EncoderInput EncoderInput { get; set; } = EncoderInput.Reverse_SQR4;
-
         /// <summary>위치 피드백 입력 소스.</summary>
         public InputSource InputSource { get; set; } = InputSource.Encoder;
 
@@ -126,25 +112,27 @@ namespace QMC.Common.Motion
 
         /// <summary>감속 Jerk 비율 [%].</summary>
         public int DecJerkPercent { get; set; } = 50;
-
-        /// <summary>인포지션 허용 오차 [Unit].</summary>
-        public double InPositionTolerance { get; set; } = 0.01;
     }
 
     /// <summary>
-    /// 축의 공정별 운전 파라미터.<br/>
-    /// 속도, 가속도, 감속도처럼 레시피나 공정 조건에 따라 바뀔 수 있는 값을 둔다.
+    /// 축의 고정 사양/보드 신호 설정값.<br/>
+    /// 모터, 드라이버, 보드 설정처럼 장비 모델에 묶이는 값을 둔다.
     /// </summary>
-    public class AxisRecipe : IRecipeData
+    public class AxisConfig : IConfigData
     {
+        /// <summary>
+        /// true 이면 실제 보드 호출 없이 시뮬레이션 엔진으로 동작한다.<br/>
+        /// false 여도 보드가 열려 있지 않거나 축 번호가 유효하지 않으면 자동으로 true 로 폴백한다.
+        /// </summary>
+        public bool IsSimulationMode { get; set; } = true;
         /// <summary>일반 이동 기본 속도 [Unit/s].</summary>
-        public double DefaultVelocity { get; set; } = 1000.0;
+        public double DefaultVelocity { get; set; } = 100.0;
 
         /// <summary>일반 이동 가속도 [Unit/s^2].</summary>
-        public double Acceleration { get; set; } = 10000.0;
+        public double Acceleration { get; set; } = 1000.0;
 
         /// <summary>일반 이동 감속도 [Unit/s^2].</summary>
-        public double Deceleration { get; set; } = 10000.0;
+        public double Deceleration { get; set; } = 1000.0;
 
         /// <summary>원점 복귀 1차 속도 [Unit/s].</summary>
         public double HomeFirstVelocity { get; set; } = 50.0;
@@ -153,10 +141,10 @@ namespace QMC.Common.Motion
         public double HomeSecondVelocity { get; set; } = 20.0;
 
         /// <summary>원점 복귀 3차 속도 [Unit/s].</summary>
-        public double HomeThirdVelocity { get; set; } = 10.0;
+        public double HomeThirdVelocity { get; set; } = 5.0;
 
         /// <summary>원점 복귀 마지막 접근 속도 [Unit/s].</summary>
-        public double HomeLastVelocity { get; set; } = 5.0;
+        public double HomeLastVelocity { get; set; } = 1.0;
 
         /// <summary>원점 복귀 대표 속도 [Unit/s]. 기존 코드 호환용.</summary>
         public double HomeVelocity { get; set; } = 200.0;
@@ -168,9 +156,20 @@ namespace QMC.Common.Motion
         public double JogFineVelocity { get; set; } = 5.0;
 
         /// <summary>Jog 가속도 [Unit/s^2].</summary>
-        public double JogAcceleration { get; set; } = 1000.0;
+        public double JogAcceleration { get; set; } = 100.0;
 
         /// <summary>Jog 감속도 [Unit/s^2].</summary>
-        public double JogDeceleration { get; set; } = 1000.0;
+        public double JogDeceleration { get; set; } = 100.0;
+        /// <summary>인포지션 허용 오차 [Unit].</summary>
+        public double InPositionTolerance { get; set; } = 0.01;
+    }
+
+    /// <summary>
+    /// 축의 공정별 운전 파라미터.<br/>
+    /// 속도, 가속도, 감속도처럼 레시피나 공정 조건에 따라 바뀔 수 있는 값을 둔다.
+    /// </summary>
+    public class AxisRecipe : IRecipeData
+    {
+        
     }
 }

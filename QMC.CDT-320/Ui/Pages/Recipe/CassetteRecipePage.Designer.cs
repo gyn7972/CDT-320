@@ -4,73 +4,70 @@
     {
         private System.ComponentModel.IContainer components = null;
 
-        private System.Windows.Forms.TableLayoutPanel mainLayout;
-        private System.Windows.Forms.Label lblHeader;
-        private System.Windows.Forms.TableLayoutPanel contentLayout;
+        protected System.Windows.Forms.TableLayoutPanel mainLayout;
+        protected System.Windows.Forms.Label lblHeader;
+        protected System.Windows.Forms.TableLayoutPanel contentLayout;
 
-        private System.Windows.Forms.TableLayoutPanel panelLeft;
-        private System.Windows.Forms.TableLayoutPanel actionSection;
-        private System.Windows.Forms.Label lblActionTitle;
-        private QMC.CDT_320.Ui.Controls.ActionButton btnLoadingMove;
-        private QMC.CDT_320.Ui.Controls.ActionButton btnUnloadingMove;
-        private QMC.CDT_320.Ui.Controls.ActionButton btnReadyMove;
-        private QMC.CDT_320.Ui.Controls.ActionButton btnSlotLoadingMove;
-        private QMC.CDT_320.Ui.Controls.ActionButton btnSlotUnloadingMove;
-        private System.Windows.Forms.TableLayoutPanel ioSection;
-        private System.Windows.Forms.Label lblIoTitle;
-        private System.Windows.Forms.TableLayoutPanel ioSensor1Row;
-        private QMC.CDT_320.Ui.Controls.IndicatorDot dotSensor1;
-        private System.Windows.Forms.Label lblSensor1;
-        private System.Windows.Forms.TableLayoutPanel ioSensor2Row;
-        private QMC.CDT_320.Ui.Controls.IndicatorDot dotSensor2;
-        private System.Windows.Forms.Label lblSensor2;
-        private System.Windows.Forms.TableLayoutPanel ioProtrusionRow;
-        private QMC.CDT_320.Ui.Controls.IndicatorDot dotProtrusion;
-        private System.Windows.Forms.Label lblProtrusion;
-        private System.Windows.Forms.TableLayoutPanel ioMappingRow;
-        private QMC.CDT_320.Ui.Controls.IndicatorDot dotMapping;
-        private System.Windows.Forms.Label lblMapping;
+        protected System.Windows.Forms.TableLayoutPanel panelLeft;
+        protected System.Windows.Forms.TableLayoutPanel actionSection;
+        protected System.Windows.Forms.Label lblActionTitle;
+        protected QMC.CDT_320.Ui.Controls.ActionButton btnLoadingMove;
+        protected QMC.CDT_320.Ui.Controls.ActionButton btnUnloadingMove;
+        protected QMC.CDT_320.Ui.Controls.ActionButton btnReadyMove;
+        protected QMC.CDT_320.Ui.Controls.ActionButton btnSlotLoadingMove;
+        protected QMC.CDT_320.Ui.Controls.ActionButton btnSlotUnloadingMove;
+        protected System.Windows.Forms.TableLayoutPanel ioSection;
+        protected System.Windows.Forms.Label lblIoTitle;
+        protected System.Windows.Forms.TableLayoutPanel ioSensor1Row;
+        protected QMC.CDT_320.Ui.Controls.IndicatorDot dotSensor1;
+        protected System.Windows.Forms.Label lblSensor1;
+        protected System.Windows.Forms.TableLayoutPanel ioSensor2Row;
+        protected QMC.CDT_320.Ui.Controls.IndicatorDot dotSensor2;
+        protected System.Windows.Forms.Label lblSensor2;
+        protected System.Windows.Forms.TableLayoutPanel ioProtrusionRow;
+        protected QMC.CDT_320.Ui.Controls.IndicatorDot dotProtrusion;
+        protected System.Windows.Forms.Label lblProtrusion;
+        protected System.Windows.Forms.TableLayoutPanel ioMappingRow;
+        protected QMC.CDT_320.Ui.Controls.IndicatorDot dotMapping;
+        protected System.Windows.Forms.Label lblMapping;
 
-        private System.Windows.Forms.TableLayoutPanel panelCenter;
-        private System.Windows.Forms.Label lblOptTitle;
-        private System.Windows.Forms.TableLayoutPanel optionRows;
-        private System.Windows.Forms.Label lblOptLoadingZKey;
-        private System.Windows.Forms.Label lblOptLoadingZVal;
-        private System.Windows.Forms.Label lblOptUnloadingZKey;
-        private System.Windows.Forms.Label lblOptUnloadingZVal;
-        private System.Windows.Forms.Label lblOptReadyPosKey;
-        private System.Windows.Forms.Label lblOptReadyPosVal;
-        private System.Windows.Forms.Label lblOptMappingZKey;
-        private System.Windows.Forms.Label lblOptMappingZVal;
-        private System.Windows.Forms.Label lblOptSlotPitchKey;
-        private System.Windows.Forms.Label lblOptSlotPitchVal;
-        private System.Windows.Forms.Label lblOptCassetteGapKey;
-        private System.Windows.Forms.Label lblOptCassetteGapVal;
-        private System.Windows.Forms.Label lblOptInchKey;
-        private System.Windows.Forms.Label lblOptInchVal;
-        private System.Windows.Forms.Label lblOptStageKey;
-        private System.Windows.Forms.Label lblOptStageVal;
-        private System.Windows.Forms.Label lblWaitTitle;
-        private System.Windows.Forms.TableLayoutPanel waitRows;
-        private System.Windows.Forms.Label lblWaitKey;
-        private System.Windows.Forms.Label lblWaitVal;
+        protected System.Windows.Forms.TableLayoutPanel panelCenter;
+        protected System.Windows.Forms.Label lblOptTitle;
+        protected System.Windows.Forms.TableLayoutPanel optionRows;
+        protected System.Windows.Forms.Label lblOptLoadingZKey;
+        protected System.Windows.Forms.Label lblOptLoadingZVal;
+        protected System.Windows.Forms.Label lblOptUnloadingZKey;
+        protected System.Windows.Forms.Label lblOptUnloadingZVal;
+        protected System.Windows.Forms.Label lblOptReadyPosKey;
+        protected System.Windows.Forms.Label lblOptReadyPosVal;
+        protected System.Windows.Forms.Label lblOptMappingZKey;
+        protected System.Windows.Forms.Label lblOptMappingZVal;
+        protected System.Windows.Forms.Label lblOptSlotPitchKey;
+        protected System.Windows.Forms.Label lblOptSlotPitchVal;
+        protected System.Windows.Forms.Label lblOptCassetteGapKey;
+        protected System.Windows.Forms.Label lblOptCassetteGapVal;
+        protected System.Windows.Forms.Label lblOptInchKey;
+        protected System.Windows.Forms.Label lblOptInchVal;
+        protected System.Windows.Forms.Label lblOptStageKey;
+        protected System.Windows.Forms.Label lblOptStageVal;
+        protected System.Windows.Forms.Label lblWaitTitle;
+        protected System.Windows.Forms.TableLayoutPanel waitRows;
+        protected System.Windows.Forms.Label lblWaitKey;
+        protected System.Windows.Forms.Label lblWaitVal;
 
-        private System.Windows.Forms.TableLayoutPanel panelRight;
-        private System.Windows.Forms.TableLayoutPanel jogSection;
-        private System.Windows.Forms.Label lblJogTitle;
-        private System.Windows.Forms.Label lblAxisName;
-        private System.Windows.Forms.Button btnJogPlus;
-        private System.Windows.Forms.Button btnJogStop;
-        private System.Windows.Forms.Button btnJogMinus;
-        private System.Windows.Forms.TableLayoutPanel speedSection;
-        private System.Windows.Forms.Label lblSpeedTitle;
-        private System.Windows.Forms.Label lblSpeedHigh;
-        private System.Windows.Forms.TrackBar trkSpeed;
-        private System.Windows.Forms.Label lblSpeedMid;
-        private System.Windows.Forms.Label lblSpeedLow;
-        private System.Windows.Forms.Label lblSpeedValue;
+        protected System.Windows.Forms.TableLayoutPanel panelRight;
+        protected System.Windows.Forms.TableLayoutPanel jogSection;
+        protected QMC.CDT_320.Ui.Controls.JogMoveOptionsControl jogMoveOptionsControl;
+        protected QMC.CDT_320.Ui.Controls.AxisJogLineControl axisJogLineControl;
+        protected System.Windows.Forms.TableLayoutPanel speedSection;
+        protected System.Windows.Forms.Label lblSpeedTitle;
+        protected System.Windows.Forms.Label lblSpeedHigh;
+        protected System.Windows.Forms.TrackBar trkSpeed;
+        protected System.Windows.Forms.Label lblSpeedMid;
+        protected System.Windows.Forms.Label lblSpeedLow;
+        protected System.Windows.Forms.Label lblSpeedValue;
 
-        private QMC.CDT_320.Ui.Controls.UnitConfigGrid unitConfigGrid;
+        protected QMC.CDT_320.Ui.Controls.UnitConfigGrid unitConfigGrid;
 
         protected override void Dispose(bool disposing)
         {
@@ -131,19 +128,16 @@
             this.lblWaitVal = new System.Windows.Forms.Label();
             this.panelRight = new System.Windows.Forms.TableLayoutPanel();
             this.jogSection = new System.Windows.Forms.TableLayoutPanel();
-            this.lblJogTitle = new System.Windows.Forms.Label();
-            this.lblAxisName = new System.Windows.Forms.Label();
-            this.btnJogPlus = new System.Windows.Forms.Button();
-            this.btnJogStop = new System.Windows.Forms.Button();
-            this.btnJogMinus = new System.Windows.Forms.Button();
+            this.jogMoveOptionsControl = new QMC.CDT_320.Ui.Controls.JogMoveOptionsControl();
+            this.axisJogLineControl = new QMC.CDT_320.Ui.Controls.AxisJogLineControl();
+            this.unitConfigGrid = new QMC.CDT_320.Ui.Controls.UnitConfigGrid();
             this.speedSection = new System.Windows.Forms.TableLayoutPanel();
             this.lblSpeedTitle = new System.Windows.Forms.Label();
-            this.trkSpeed = new System.Windows.Forms.TrackBar();
             this.lblSpeedHigh = new System.Windows.Forms.Label();
             this.lblSpeedMid = new System.Windows.Forms.Label();
             this.lblSpeedLow = new System.Windows.Forms.Label();
             this.lblSpeedValue = new System.Windows.Forms.Label();
-            this.unitConfigGrid = new QMC.CDT_320.Ui.Controls.UnitConfigGrid();
+            this.trkSpeed = new System.Windows.Forms.TrackBar();
             this.mainLayout.SuspendLayout();
             this.contentLayout.SuspendLayout();
             this.panelLeft.SuspendLayout();
@@ -168,20 +162,18 @@
             this.mainLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.mainLayout.Controls.Add(this.lblHeader, 0, 0);
             this.mainLayout.Controls.Add(this.contentLayout, 0, 1);
-            this.mainLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.mainLayout.Location = new System.Drawing.Point(0, 0);
             this.mainLayout.Margin = new System.Windows.Forms.Padding(0);
             this.mainLayout.Name = "mainLayout";
             this.mainLayout.RowCount = 2;
             this.mainLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
             this.mainLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.mainLayout.Size = new System.Drawing.Size(1360, 920);
+            this.mainLayout.Size = new System.Drawing.Size(1500, 900);
             this.mainLayout.TabIndex = 0;
             // 
             // lblHeader
             // 
             this.lblHeader.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(64)))), ((int)(((byte)(64)))));
-            this.lblHeader.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblHeader.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
             this.lblHeader.ForeColor = System.Drawing.Color.White;
             this.lblHeader.Location = new System.Drawing.Point(0, 0);
@@ -198,20 +190,19 @@
             this.contentLayout.ColumnCount = 4;
             this.contentLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 240F));
             this.contentLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 490F));
-            this.contentLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 266F));
+            this.contentLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 410F));
             this.contentLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.contentLayout.Controls.Add(this.panelLeft, 0, 0);
             this.contentLayout.Controls.Add(this.panelCenter, 1, 0);
             this.contentLayout.Controls.Add(this.panelRight, 2, 0);
             this.contentLayout.Controls.Add(this.unitConfigGrid, 3, 0);
-            this.contentLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.contentLayout.Location = new System.Drawing.Point(0, 30);
             this.contentLayout.Margin = new System.Windows.Forms.Padding(0);
             this.contentLayout.Name = "contentLayout";
             this.contentLayout.Padding = new System.Windows.Forms.Padding(8, 6, 8, 8);
             this.contentLayout.RowCount = 1;
             this.contentLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.contentLayout.Size = new System.Drawing.Size(1360, 890);
+            this.contentLayout.Size = new System.Drawing.Size(1500, 846);
             this.contentLayout.TabIndex = 1;
             // 
             // panelLeft
@@ -228,7 +219,7 @@
             this.panelLeft.RowCount = 2;
             this.panelLeft.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 330F));
             this.panelLeft.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.panelLeft.Size = new System.Drawing.Size(232, 876);
+            this.panelLeft.Size = new System.Drawing.Size(232, 832);
             this.panelLeft.TabIndex = 0;
             // 
             // actionSection
@@ -368,7 +359,7 @@
             this.ioSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 28F));
             this.ioSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 28F));
             this.ioSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.ioSection.Size = new System.Drawing.Size(232, 546);
+            this.ioSection.Size = new System.Drawing.Size(232, 502);
             this.ioSection.TabIndex = 1;
             // 
             // lblIoTitle
@@ -580,7 +571,7 @@
             this.panelCenter.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 26F));
             this.panelCenter.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
             this.panelCenter.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.panelCenter.Size = new System.Drawing.Size(482, 876);
+            this.panelCenter.Size = new System.Drawing.Size(482, 832);
             this.panelCenter.TabIndex = 1;
             // 
             // lblOptTitle
@@ -941,17 +932,19 @@
             // panelRight
             // 
             this.panelRight.BackColor = System.Drawing.Color.WhiteSmoke;
-            this.panelRight.ColumnCount = 2;
+            this.panelRight.ColumnCount = 3;
             this.panelRight.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.panelRight.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 92F));
+            this.panelRight.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 96F));
+            this.panelRight.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 54F));
             this.panelRight.Controls.Add(this.jogSection, 0, 0);
-            this.panelRight.Controls.Add(this.speedSection, 1, 0);
+            this.panelRight.Controls.Add(this.axisJogLineControl, 1, 0);
+            this.panelRight.Controls.Add(this.speedSection, 2, 0);
             this.panelRight.Location = new System.Drawing.Point(738, 6);
             this.panelRight.Margin = new System.Windows.Forms.Padding(0);
             this.panelRight.Name = "panelRight";
             this.panelRight.RowCount = 1;
             this.panelRight.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.panelRight.Size = new System.Drawing.Size(266, 876);
+            this.panelRight.Size = new System.Drawing.Size(410, 832);
             this.panelRight.TabIndex = 2;
             // 
             // jogSection
@@ -959,94 +952,47 @@
             this.jogSection.BackColor = System.Drawing.Color.WhiteSmoke;
             this.jogSection.ColumnCount = 1;
             this.jogSection.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.jogSection.Controls.Add(this.lblJogTitle, 0, 0);
-            this.jogSection.Controls.Add(this.lblAxisName, 0, 1);
-            this.jogSection.Controls.Add(this.btnJogPlus, 0, 2);
-            this.jogSection.Controls.Add(this.btnJogStop, 0, 3);
-            this.jogSection.Controls.Add(this.btnJogMinus, 0, 4);
+            this.jogSection.Controls.Add(this.jogMoveOptionsControl, 0, 0);
             this.jogSection.Location = new System.Drawing.Point(0, 0);
             this.jogSection.Margin = new System.Windows.Forms.Padding(0);
             this.jogSection.Name = "jogSection";
-            this.jogSection.RowCount = 6;
-            this.jogSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 26F));
-            this.jogSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
-            this.jogSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 64F));
-            this.jogSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 52F));
-            this.jogSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 64F));
+            this.jogSection.RowCount = 1;
             this.jogSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.jogSection.Size = new System.Drawing.Size(174, 876);
+            this.jogSection.Size = new System.Drawing.Size(260, 832);
             this.jogSection.TabIndex = 0;
             // 
-            // lblJogTitle
+            // jogMoveOptionsControl
             // 
-            this.lblJogTitle.BackColor = System.Drawing.Color.Orange;
-            this.lblJogTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblJogTitle.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.lblJogTitle.ForeColor = System.Drawing.Color.Black;
-            this.lblJogTitle.Location = new System.Drawing.Point(0, 0);
-            this.lblJogTitle.Margin = new System.Windows.Forms.Padding(0);
-            this.lblJogTitle.Name = "lblJogTitle";
-            this.lblJogTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
-            this.lblJogTitle.Size = new System.Drawing.Size(174, 26);
-            this.lblJogTitle.TabIndex = 0;
-            this.lblJogTitle.Text = "조그 운전";
-            this.lblJogTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.jogMoveOptionsControl.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
+            this.jogMoveOptionsControl.Dock = System.Windows.Forms.DockStyle.Top;
+            this.jogMoveOptionsControl.Location = new System.Drawing.Point(0, 0);
+            this.jogMoveOptionsControl.Margin = new System.Windows.Forms.Padding(0);
+            this.jogMoveOptionsControl.Name = "jogMoveOptionsControl";
+            this.jogMoveOptionsControl.Size = new System.Drawing.Size(260, 200);
+            this.jogMoveOptionsControl.TabIndex = 0;
             // 
-            // lblAxisName
+            // axisJogLineControl
             // 
-            this.lblAxisName.BackColor = System.Drawing.Color.Gainsboro;
-            this.lblAxisName.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.lblAxisName.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblAxisName.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.lblAxisName.Location = new System.Drawing.Point(8, 30);
-            this.lblAxisName.Margin = new System.Windows.Forms.Padding(8, 4, 8, 4);
-            this.lblAxisName.Name = "lblAxisName";
-            this.lblAxisName.Size = new System.Drawing.Size(158, 24);
-            this.lblAxisName.TabIndex = 1;
-            this.lblAxisName.Text = "AXIS Z";
-            this.lblAxisName.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            this.axisJogLineControl.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
+            this.axisJogLineControl.Dock = System.Windows.Forms.DockStyle.Top;
+            this.axisJogLineControl.Location = new System.Drawing.Point(260, 0);
+            this.axisJogLineControl.Margin = new System.Windows.Forms.Padding(0);
+            this.axisJogLineControl.MoveOptions = null;
+            this.axisJogLineControl.Name = "axisJogLineControl";
+            this.axisJogLineControl.Size = new System.Drawing.Size(96, 300);
+            this.axisJogLineControl.SpeedProvider = null;
+            this.axisJogLineControl.TabIndex = 1;
             // 
-            // btnJogPlus
+            // unitConfigGrid
             // 
-            this.btnJogPlus.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnJogPlus.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnJogPlus.Font = new System.Drawing.Font("맑은 고딕", 11F);
-            this.btnJogPlus.Location = new System.Drawing.Point(8, 62);
-            this.btnJogPlus.Margin = new System.Windows.Forms.Padding(8, 4, 8, 4);
-            this.btnJogPlus.Name = "btnJogPlus";
-            this.btnJogPlus.Size = new System.Drawing.Size(158, 56);
-            this.btnJogPlus.TabIndex = 2;
-            this.btnJogPlus.Text = "JOG +";
-            this.btnJogPlus.UseVisualStyleBackColor = true;
-            this.btnJogPlus.Click += new System.EventHandler(this.btnJogPlus_Click);
-            // 
-            // btnJogStop
-            // 
-            this.btnJogStop.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnJogStop.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnJogStop.Font = new System.Drawing.Font("맑은 고딕", 11F);
-            this.btnJogStop.Location = new System.Drawing.Point(8, 126);
-            this.btnJogStop.Margin = new System.Windows.Forms.Padding(8, 4, 8, 4);
-            this.btnJogStop.Name = "btnJogStop";
-            this.btnJogStop.Size = new System.Drawing.Size(158, 44);
-            this.btnJogStop.TabIndex = 3;
-            this.btnJogStop.Text = "STOP";
-            this.btnJogStop.UseVisualStyleBackColor = true;
-            this.btnJogStop.Click += new System.EventHandler(this.btnJogStop_Click);
-            // 
-            // btnJogMinus
-            // 
-            this.btnJogMinus.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnJogMinus.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnJogMinus.Font = new System.Drawing.Font("맑은 고딕", 11F);
-            this.btnJogMinus.Location = new System.Drawing.Point(8, 178);
-            this.btnJogMinus.Margin = new System.Windows.Forms.Padding(8, 4, 8, 4);
-            this.btnJogMinus.Name = "btnJogMinus";
-            this.btnJogMinus.Size = new System.Drawing.Size(158, 56);
-            this.btnJogMinus.TabIndex = 4;
-            this.btnJogMinus.Text = "JOG -";
-            this.btnJogMinus.UseVisualStyleBackColor = true;
-            this.btnJogMinus.Click += new System.EventHandler(this.btnJogMinus_Click);
+            this.unitConfigGrid.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
+            this.unitConfigGrid.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.unitConfigGrid.Location = new System.Drawing.Point(1156, 6);
+            this.unitConfigGrid.Margin = new System.Windows.Forms.Padding(8, 0, 0, 0);
+            this.unitConfigGrid.Name = "unitConfigGrid";
+            this.unitConfigGrid.Size = new System.Drawing.Size(336, 832);
+            this.unitConfigGrid.TabIndex = 3;
+            this.unitConfigGrid.Title = "UNIT CONFIG";
             // 
             // speedSection
             // 
@@ -1060,7 +1006,7 @@
             this.speedSection.Controls.Add(this.lblSpeedLow, 1, 3);
             this.speedSection.Controls.Add(this.lblSpeedValue, 0, 4);
             this.speedSection.Controls.Add(this.trkSpeed, 0, 1);
-            this.speedSection.Location = new System.Drawing.Point(174, 0);
+            this.speedSection.Location = new System.Drawing.Point(356, 0);
             this.speedSection.Margin = new System.Windows.Forms.Padding(0);
             this.speedSection.Name = "speedSection";
             this.speedSection.RowCount = 5;
@@ -1070,7 +1016,7 @@
             this.speedSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 33F));
             this.speedSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
             this.speedSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 20F));
-            this.speedSection.Size = new System.Drawing.Size(91, 876);
+            this.speedSection.Size = new System.Drawing.Size(54, 832);
             this.speedSection.TabIndex = 1;
             // 
             // lblSpeedTitle
@@ -1084,32 +1030,18 @@
             this.lblSpeedTitle.Margin = new System.Windows.Forms.Padding(0);
             this.lblSpeedTitle.Name = "lblSpeedTitle";
             this.lblSpeedTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
-            this.lblSpeedTitle.Size = new System.Drawing.Size(91, 26);
+            this.lblSpeedTitle.Size = new System.Drawing.Size(54, 26);
             this.lblSpeedTitle.TabIndex = 0;
             this.lblSpeedTitle.Text = "속도";
             this.lblSpeedTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
-            // trkSpeed
-            // 
-            this.trkSpeed.Location = new System.Drawing.Point(8, 30);
-            this.trkSpeed.Margin = new System.Windows.Forms.Padding(8, 4, 8, 4);
-            this.trkSpeed.Maximum = 100;
-            this.trkSpeed.Name = "trkSpeed";
-            this.trkSpeed.Orientation = System.Windows.Forms.Orientation.Vertical;
-            this.speedSection.SetRowSpan(this.trkSpeed, 3);
-            this.trkSpeed.Size = new System.Drawing.Size(35, 808);
-            this.trkSpeed.TabIndex = 1;
-            this.trkSpeed.TickFrequency = 10;
-            this.trkSpeed.Value = 50;
-            this.trkSpeed.ValueChanged += new System.EventHandler(this.trkSpeed_ValueChanged);
-            // 
             // lblSpeedHigh
             // 
             this.lblSpeedHigh.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.lblSpeedHigh.Location = new System.Drawing.Point(51, 26);
+            this.lblSpeedHigh.Location = new System.Drawing.Point(13, 26);
             this.lblSpeedHigh.Margin = new System.Windows.Forms.Padding(0);
             this.lblSpeedHigh.Name = "lblSpeedHigh";
-            this.lblSpeedHigh.Size = new System.Drawing.Size(40, 269);
+            this.lblSpeedHigh.Size = new System.Drawing.Size(40, 255);
             this.lblSpeedHigh.TabIndex = 2;
             this.lblSpeedHigh.Text = "H";
             this.lblSpeedHigh.TextAlign = System.Drawing.ContentAlignment.TopCenter;
@@ -1117,10 +1049,10 @@
             // lblSpeedMid
             // 
             this.lblSpeedMid.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.lblSpeedMid.Location = new System.Drawing.Point(51, 295);
+            this.lblSpeedMid.Location = new System.Drawing.Point(13, 281);
             this.lblSpeedMid.Margin = new System.Windows.Forms.Padding(0);
             this.lblSpeedMid.Name = "lblSpeedMid";
-            this.lblSpeedMid.Size = new System.Drawing.Size(40, 278);
+            this.lblSpeedMid.Size = new System.Drawing.Size(40, 263);
             this.lblSpeedMid.TabIndex = 3;
             this.lblSpeedMid.Text = "M";
             this.lblSpeedMid.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
@@ -1128,10 +1060,10 @@
             // lblSpeedLow
             // 
             this.lblSpeedLow.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.lblSpeedLow.Location = new System.Drawing.Point(51, 573);
+            this.lblSpeedLow.Location = new System.Drawing.Point(13, 544);
             this.lblSpeedLow.Margin = new System.Windows.Forms.Padding(0);
             this.lblSpeedLow.Name = "lblSpeedLow";
-            this.lblSpeedLow.Size = new System.Drawing.Size(40, 269);
+            this.lblSpeedLow.Size = new System.Drawing.Size(40, 255);
             this.lblSpeedLow.TabIndex = 4;
             this.lblSpeedLow.Text = "L";
             this.lblSpeedLow.TextAlign = System.Drawing.ContentAlignment.BottomCenter;
@@ -1143,24 +1075,27 @@
             this.speedSection.SetColumnSpan(this.lblSpeedValue, 2);
             this.lblSpeedValue.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblSpeedValue.Font = new System.Drawing.Font("Consolas", 10F);
-            this.lblSpeedValue.Location = new System.Drawing.Point(2, 844);
+            this.lblSpeedValue.Location = new System.Drawing.Point(2, 801);
             this.lblSpeedValue.Margin = new System.Windows.Forms.Padding(2);
             this.lblSpeedValue.Name = "lblSpeedValue";
-            this.lblSpeedValue.Size = new System.Drawing.Size(87, 30);
+            this.lblSpeedValue.Size = new System.Drawing.Size(49, 29);
             this.lblSpeedValue.TabIndex = 5;
             this.lblSpeedValue.Text = "50 %";
             this.lblSpeedValue.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
-            // unitConfigGrid
+            // trkSpeed
             // 
-            this.unitConfigGrid.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
-            this.unitConfigGrid.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.unitConfigGrid.Location = new System.Drawing.Point(1012, 6);
-            this.unitConfigGrid.Margin = new System.Windows.Forms.Padding(8, 0, 0, 0);
-            this.unitConfigGrid.Name = "unitConfigGrid";
-            this.unitConfigGrid.Size = new System.Drawing.Size(340, 876);
-            this.unitConfigGrid.TabIndex = 3;
-            this.unitConfigGrid.Title = "UNIT CONFIG";
+            this.trkSpeed.Location = new System.Drawing.Point(8, 30);
+            this.trkSpeed.Margin = new System.Windows.Forms.Padding(8, 4, 8, 4);
+            this.trkSpeed.Maximum = 100;
+            this.trkSpeed.Name = "trkSpeed";
+            this.trkSpeed.Orientation = System.Windows.Forms.Orientation.Vertical;
+            this.speedSection.SetRowSpan(this.trkSpeed, 3);
+            this.trkSpeed.Size = new System.Drawing.Size(1, 765);
+            this.trkSpeed.TabIndex = 1;
+            this.trkSpeed.TickFrequency = 10;
+            this.trkSpeed.Value = 50;
+            this.trkSpeed.ValueChanged += new System.EventHandler(this.trkSpeed_ValueChanged);
             // 
             // CassetteRecipePage
             // 
@@ -1168,7 +1103,7 @@
             this.BackColor = System.Drawing.Color.White;
             this.Controls.Add(this.mainLayout);
             this.Name = "CassetteRecipePage";
-            this.Size = new System.Drawing.Size(1360, 920);
+            this.Size = new System.Drawing.Size(1500, 900);
             this.mainLayout.ResumeLayout(false);
             this.contentLayout.ResumeLayout(false);
             this.panelLeft.ResumeLayout(false);
@@ -1214,3 +1149,4 @@
         }
     }
 }
+

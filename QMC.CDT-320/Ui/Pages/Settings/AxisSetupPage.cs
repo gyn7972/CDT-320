@@ -294,7 +294,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 {
                     ax.Setup.SoftLimitMinus = match.SoftLimitNeg;
                     ax.Setup.SoftLimitPlus = match.SoftLimitPos;
-                    ax.Recipe.DefaultVelocity = match.DefaultVel;
+                    ax.Config.DefaultVelocity = match.DefaultVel;
                     var setupType = ax.Setup.GetType();
                     var strokeProp = setupType.GetProperty("Stroke");
                     if (strokeProp != null && strokeProp.CanWrite) strokeProp.SetValue(ax.Setup, match.Stroke);

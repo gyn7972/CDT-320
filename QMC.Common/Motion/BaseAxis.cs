@@ -174,16 +174,16 @@ namespace QMC.Common.Motion
         }
 
         /// <summary>
-        /// 현재 Recipe의 속도/가감속 프로파일을 일괄 설정합니다.
+        /// 현재 Config 속도/가감속 프로파일을 일괄 설정합니다.
         /// </summary>
         /// <param name="velocity">이동 속도 [단위/s]</param>
         /// <param name="acc">가속도 [단위/s²]</param>
         /// <param name="dec">감속도 [단위/s²]</param>
         public virtual void SetMotionProfile(double velocity, double acc, double dec)
         {
-            Recipe.DefaultVelocity = velocity;
-            Recipe.Acceleration    = acc;
-            Recipe.Deceleration    = dec;
+            Config.DefaultVelocity = velocity;
+            Config.Acceleration    = acc;
+            Config.Deceleration    = dec;
         }
 
         // ─────────────────────────────────────────────
@@ -200,7 +200,7 @@ namespace QMC.Common.Motion
         {
             if (!IsServoOn || IsAlarm) return;
 
-            double vel         = velocity > 0 ? velocity : Recipe.DefaultVelocity;
+            double vel         = velocity > 0 ? velocity : Config.DefaultVelocity;
             CommandPosition    = targetPos;
             _simTargetPosition = targetPos;
             CurrentVelocity    = vel;
@@ -267,7 +267,7 @@ namespace QMC.Common.Motion
             double homeTarget  = Setup.SoftLimitMinus + 1.0; // 약간 여유 두기
             CommandPosition    = homeTarget;
             _simTargetPosition = homeTarget;
-            CurrentVelocity    = Recipe.HomeVelocity;
+            CurrentVelocity    = Config.HomeVelocity;
             IsMoving           = true;
             IsInPosition       = false;
 
@@ -313,13 +313,13 @@ namespace QMC.Common.Motion
             switch (speedType)
             {
                 case JogSpeedType.Coarse:
-                    return Recipe.JogCoarseVelocity;
+                    return Config.JogCoarseVelocity;
                 case JogSpeedType.Fine:
-                    return Recipe.JogFineVelocity;
+                    return Config.JogFineVelocity;
                 case JogSpeedType.Custom:
-                    return customVel > 0 ? customVel : Recipe.JogFineVelocity;
+                    return customVel > 0 ? customVel : Config.JogFineVelocity;
                 default:
-                    return Recipe.JogFineVelocity;
+                    return Config.JogFineVelocity;
             }
         }
 

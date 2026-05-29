@@ -272,7 +272,6 @@ namespace QMC.CDT_320.Ui.Dialogs
             // 
             // nudStep
             // 
-            this.nudStep.DecimalPlaces = 3;
             this.nudStep.Dock = System.Windows.Forms.DockStyle.Left;
             this.nudStep.Increment = new decimal(new int[] {
             1,
@@ -281,20 +280,20 @@ namespace QMC.CDT_320.Ui.Dialogs
             196608});
             this.nudStep.Location = new System.Drawing.Point(11, 46);
             this.nudStep.Maximum = new decimal(new int[] {
-            100000,
+            900000,
             0,
             0,
             0});
             this.nudStep.Minimum = new decimal(new int[] {
-            1,
+            900000,
             0,
             0,
-            196608});
+            -2147483648});
             this.nudStep.Name = "nudStep";
             this.nudStep.Size = new System.Drawing.Size(120, 27);
             this.nudStep.TabIndex = 1;
             this.nudStep.Value = new decimal(new int[] {
-            1,
+            1000,
             0,
             0,
             0});
@@ -320,7 +319,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.btnStep1.Name = "btnStep1";
             this.btnStep1.Size = new System.Drawing.Size(65, 30);
             this.btnStep1.TabIndex = 0;
-            this.btnStep1.Text = "1";
+            this.btnStep1.Text = "1000";
             // 
             // btnStep01
             // 
@@ -329,7 +328,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.btnStep01.Name = "btnStep01";
             this.btnStep01.Size = new System.Drawing.Size(65, 30);
             this.btnStep01.TabIndex = 1;
-            this.btnStep01.Text = "0.1";
+            this.btnStep01.Text = "100";
             // 
             // btnStep001
             // 
@@ -338,7 +337,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.btnStep001.Name = "btnStep001";
             this.btnStep001.Size = new System.Drawing.Size(65, 30);
             this.btnStep001.TabIndex = 2;
-            this.btnStep001.Text = "0.01";
+            this.btnStep001.Text = "10";
             // 
             // btnStep0001
             // 
@@ -347,7 +346,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.btnStep0001.Name = "btnStep0001";
             this.btnStep0001.Size = new System.Drawing.Size(65, 30);
             this.btnStep0001.TabIndex = 3;
-            this.btnStep0001.Text = "0.001";
+            this.btnStep0001.Text = "1um";
             // 
             // btnStepZero
             // 
@@ -356,7 +355,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.btnStepZero.Name = "btnStepZero";
             this.btnStepZero.Size = new System.Drawing.Size(65, 30);
             this.btnStepZero.TabIndex = 4;
-            this.btnStepZero.Text = "0\'";
+            this.btnStepZero.Text = "0\'um";
             // 
             // jogLayout
             // 

@@ -8,7 +8,7 @@ using QMC.Common.Motion;
 
 namespace QMC.CDT320
 {
-    public class WaferFeederSetup : ISetupData
+    public class InputFeederSetup : ISetupData
     {
         public double AvoidPosition { get; set; } = 0.0;
         public double ExchangePositionY { get; set; } = 150.0;
@@ -21,19 +21,19 @@ namespace QMC.CDT320
         public double InPositionTolerance { get; set; } = 0.05;
     }
 
-    public class WaferFeederConfig : IConfigData
+    public class InputFeederConfig : IConfigData
     {
         public bool IsSimulationMode { get; set; } = true;
     }
 
-    public class WaferFeederRecipe : IRecipeData
+    public class InputFeederRecipe : IRecipeData
     {
         public double MoveVelocity { get; set; } = 50.0;
         public int FeederMoveTimeoutMs { get; set; } = 5000;
         public int CylinderTimeoutMs { get; set; } = 1000;
     }
 
-    public class WaferFeederUnit : BaseUnit<WaferFeederSetup, WaferFeederConfig, WaferFeederRecipe>
+    public class InputFeederUnit : BaseUnit<InputFeederSetup, InputFeederConfig, InputFeederRecipe>
     {
         private readonly Dictionary<string, double> positionSnapshots = new Dictionary<string, double>();
 
@@ -55,7 +55,7 @@ namespace QMC.CDT320
         public BaseDigitalOutput WaferFeederClampOut { get { return FeederClampCyl.OutFwd; } }
         public BaseDigitalOutput WaferFeederUnclampOut { get { return FeederClampCyl.OutBwd; } }
 
-        public WaferFeederUnit() : base("WaferFeederUnit")
+        public InputFeederUnit() : base("WaferFeederUnit")
         {
             FeederY = AjinFactory.CreateAxis("FeederY");
             WaferFeederUpSensor = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.WaferFeederUp);

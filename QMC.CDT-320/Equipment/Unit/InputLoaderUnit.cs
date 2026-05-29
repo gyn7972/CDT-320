@@ -29,8 +29,8 @@ namespace QMC.CDT320
 
     public class InputLoaderUnit : BaseUnit<InputLoaderSetup, InputLoaderConfig, InputLoaderRecipe>
     {
-        public WaferCassetteUnit WaferCassette { get; private set; }
-        public WaferFeederUnit WaferFeeder { get; private set; }
+        public InputCassetteUnit WaferCassette { get; private set; }
+        public InputFeederUnit WaferFeeder { get; private set; }
 
         public BaseAxis WaferLifterZ { get { return WaferCassette.WaferLifterZ; } }
         public BaseAxis FeederY { get { return WaferFeeder.FeederY; } }
@@ -47,8 +47,8 @@ namespace QMC.CDT320
 
         public InputLoaderUnit() : base("InputLoaderUnit")
         {
-            WaferCassette = new WaferCassetteUnit();
-            WaferFeeder = new WaferFeederUnit();
+            WaferCassette = new InputCassetteUnit();
+            WaferFeeder = new InputFeederUnit();
 
             Components.Add(WaferCassette);
             Components.Add(WaferFeeder);
@@ -80,13 +80,14 @@ namespace QMC.CDT320
 
         private void SyncChildSettings()
         {
-            WaferCassette.Setup.FirstSlotPosition = Setup.FirstSlotPosition;
-            WaferCassette.Setup.SlotPitch = Setup.CassetteSlotPitch;
-            WaferCassette.Setup.SlotCount = Setup.CassetteSlotCount;
-            WaferCassette.Config.IsSimulationMode = Config.IsSimulationMode;
-            WaferCassette.Recipe.ScanVelocity = Recipe.ScanVelocity;
-            WaferCassette.Recipe.ScanSettleTimeMs = Recipe.ScanSettleTimeMs;
-            WaferCassette.Recipe.ElevatorMoveTimeoutMs = Recipe.ElevatorMoveTimeoutMs;
+            WaferCassette.Recipe.FirstSlotPosition = Setup.FirstSlotPosition;
+            WaferCassette.Config.SlotPitch = Setup.CassetteSlotPitch;
+            WaferCassette.Config.SlotCount = Setup.CassetteSlotCount;
+            WaferCassette.Config.bDryRun = Config.IsSimulationMode;
+            WaferCassette.Config.ScanVelocity = Recipe.ScanVelocity;
+            WaferCassette.Config.ScanSettleTimeMs = Recipe.ScanSettleTimeMs;
+            WaferCassette.Config.ElevatorMoveTimeoutMs = Recipe.ElevatorMoveTimeoutMs;
+            WaferCassette.EnsureSlotPositionBuffer();
 
             WaferFeeder.Setup.ExchangePositionY = Setup.ExchangePositionY;
             WaferFeeder.Config.IsSimulationMode = Config.IsSimulationMode;

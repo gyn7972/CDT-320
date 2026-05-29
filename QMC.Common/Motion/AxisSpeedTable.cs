@@ -68,11 +68,11 @@ namespace QMC.Common.Motion
                                 HomeVelocity = 200, JogCoarse = 50, JogFine = 5 };
         }
 
-        /// <summary>축 번호로 AxisRecipe 인스턴스 생성. BaseAxis 초기화에서 사용 가능.</summary>
-        public static AxisRecipe BuildRecipe(int axisNo)
+        /// <summary>축 번호로 AxisConfig 인스턴스 생성. BaseAxis 초기화에서 사용 가능.</summary>
+        public static AxisConfig BuildConfig(int axisNo)
         {
             var p = Get(axisNo);
-            return new AxisRecipe
+            return new AxisConfig
             {
                 DefaultVelocity   = p.DefaultVelocity,
                 Acceleration      = p.Acceleration,

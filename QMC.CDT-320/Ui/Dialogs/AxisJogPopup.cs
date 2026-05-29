@@ -81,11 +81,11 @@ namespace QMC.CDT_320.Ui.Dialogs
             btnStop.Click += (s, e) => StopJog();
             btnPrevIndex.Click += async (s, e) => await StepJogAsync(-1);
             btnNextIndex.Click += async (s, e) => await StepJogAsync(1);
-            btnStep1.Click += (s, e) => SetStep(1M);
-            btnStep01.Click += (s, e) => SetStep(0.1M);
-            btnStep001.Click += (s, e) => SetStep(0.01M);
-            btnStep0001.Click += (s, e) => SetStep(0.001M);
-            btnStepZero.Click += (s, e) => SetStep(0.001M);
+            btnStep1.Click += (s, e) => SetStep(1000u);
+            btnStep01.Click += (s, e) => SetStep(100u);
+            btnStep001.Click += (s, e) => SetStep(10u);
+            btnStep0001.Click += (s, e) => SetStep(1u);
+            btnStepZero.Click += (s, e) => SetStep(0u);
         }
 
         private void ApplyMoveModeUi()
@@ -184,10 +184,28 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         private async Task StepJogAsync(int direction)
         {
-            var axis = SelectedAxis;
-            if (axis == null) return;
-            if (!axis.IsServoOn) axis.ServoOn();
-            await axis.MoveJogStepAsync(direction, SpeedType(), (double)nudStep.Value);
+            try
+            {
+                var axis = SelectedAxis;
+                if (axis == null)
+                    return;
+
+                if (!axis.IsServoOn)
+                    axis.ServoOn();
+
+                double stepUm = (double)nudStep.Value;
+                double stepMm = stepUm / 1000.0;
+
+                await axis.MoveJogStepAsync(direction, SpeedType(), stepMm);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, ex.Message, "JOG STEP", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+            finally
+            {
+                UpdatePositionOnce();
+            }
         }
 
         private void StopJog()
@@ -206,8 +224,8 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             var axis = SelectedAxis;
             lblPosition.Text = axis == null
-                ? "000.000"
-                : axis.ActualPosition.ToString("0.000", CultureInfo.InvariantCulture) + " mm";
+                ? "000"
+                : (axis.ActualPosition * 1000.0).ToString("0", CultureInfo.InvariantCulture) + " um";
         }
 
         private void SetStep(decimal value)

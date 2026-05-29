@@ -129,22 +129,24 @@ namespace QMC.CDT320.Ajin
             }
 
             if (definition.Config != null)
+            {
                 axis.Config.IsSimulationMode = definition.Config.IsSimulationMode;
+                axis.Config.DefaultVelocity = definition.Config.DefaultVelocity;
+                axis.Config.Acceleration = definition.Config.Acceleration;
+                axis.Config.Deceleration = definition.Config.Deceleration;
+                axis.Config.HomeFirstVelocity = definition.Config.HomeFirstVelocity;
+                axis.Config.HomeSecondVelocity = definition.Config.HomeSecondVelocity;
+                axis.Config.HomeThirdVelocity = definition.Config.HomeThirdVelocity;
+                axis.Config.HomeLastVelocity = definition.Config.HomeLastVelocity;
+                axis.Config.HomeVelocity = definition.Config.HomeVelocity;
+                axis.Config.JogCoarseVelocity = definition.Config.JogCoarseVelocity;
+                axis.Config.JogFineVelocity = definition.Config.JogFineVelocity;
+                axis.Config.JogAcceleration = definition.Config.JogAcceleration;
+                axis.Config.JogDeceleration = definition.Config.JogDeceleration;
+            }
 
             if (definition.Recipe != null)
             {
-                axis.Recipe.DefaultVelocity = definition.Recipe.DefaultVelocity;
-                axis.Recipe.Acceleration = definition.Recipe.Acceleration;
-                axis.Recipe.Deceleration = definition.Recipe.Deceleration;
-                axis.Recipe.HomeFirstVelocity = definition.Recipe.HomeFirstVelocity;
-                axis.Recipe.HomeSecondVelocity = definition.Recipe.HomeSecondVelocity;
-                axis.Recipe.HomeThirdVelocity = definition.Recipe.HomeThirdVelocity;
-                axis.Recipe.HomeLastVelocity = definition.Recipe.HomeLastVelocity;
-                axis.Recipe.HomeVelocity = definition.Recipe.HomeVelocity;
-                axis.Recipe.JogCoarseVelocity = definition.Recipe.JogCoarseVelocity;
-                axis.Recipe.JogFineVelocity = definition.Recipe.JogFineVelocity;
-                axis.Recipe.JogAcceleration = definition.Recipe.JogAcceleration;
-                axis.Recipe.JogDeceleration = definition.Recipe.JogDeceleration;
             }
         }
 
@@ -158,9 +160,11 @@ namespace QMC.CDT320.Ajin
             int axisNo = map != null ? map.Axis : -1;
             int boardNo = map != null ? map.BoardNo : 0;
             AxisDefault axisDefault = FindDefault(key);
-            var recipe = AxisSpeedTable.BuildRecipe(axisNo);
+            var config = AxisSpeedTable.BuildConfig(axisNo);
             if (axisDefault != null)
-                recipe.DefaultVelocity = axisDefault.DefaultVel;
+                config.DefaultVelocity = axisDefault.DefaultVel;
+
+            config.IsSimulationMode = !Ready || axisNo < 0;
 
             return new MotionAxisDefinition
             {
@@ -174,11 +178,7 @@ namespace QMC.CDT320.Ajin
                     Unit = axisDefault != null ? axisDefault.Unit : "mm",
                     IsEnabled = true
                 },
-                Config = new AxisConfig
-                {
-                    IsSimulationMode = !Ready || axisNo < 0
-                },
-                Recipe = recipe
+                Config = config
             };
         }
 

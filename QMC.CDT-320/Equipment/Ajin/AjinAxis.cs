@@ -58,7 +58,7 @@ namespace QMC.CDT320.Ajin
         {
             if (!IsServoOn || IsAlarm || !AjinSystem.IsOpen) return;
 
-            double vel = velocity > 0 ? velocity : Recipe.DefaultVelocity;
+            double vel = velocity > 0 ? velocity : Config.DefaultVelocity;
             CommandPosition = targetPos;
             CurrentVelocity = vel;
             IsMoving = true;
@@ -66,7 +66,7 @@ namespace QMC.CDT320.Ajin
 
             int ret;
             lock (_sync)
-                ret = AXM.MovePosition(AxisNo, targetPos, vel, Recipe.Acceleration, Recipe.Deceleration);
+                ret = AXM.MovePosition(AxisNo, targetPos, vel, Config.Acceleration, Config.Deceleration);
             if (ret != 0)
             {
                 IsMoving = false;
@@ -84,7 +84,7 @@ namespace QMC.CDT320.Ajin
             base.Stop();
             if (!AjinSystem.IsOpen) return;
             lock (_sync)
-                AXM.Stop(AxisNo, Recipe.Deceleration);
+                AXM.Stop(AxisNo, Config.Deceleration);
         }
 
         public override void EStop()
@@ -150,7 +150,7 @@ namespace QMC.CDT320.Ajin
             IsInPosition = false;
 
             lock (_sync)
-                AXM.MoveVelocity(AxisNo, direction * vel, Recipe.Acceleration, Recipe.Deceleration);
+                AXM.MoveVelocity(AxisNo, direction * vel, Config.Acceleration, Config.Deceleration);
             RaiseMoveStarted();
         }
 
@@ -163,7 +163,7 @@ namespace QMC.CDT320.Ajin
             }
 
             lock (_sync)
-                AXM.Stop(AxisNo, Recipe.Deceleration);
+                AXM.Stop(AxisNo, Config.Deceleration);
             base.StopJog();
         }
 
