@@ -18,32 +18,33 @@ namespace QMC.CDT_320.Ui.Tabs
             const UserLevel en = UserLevel.Engineer;
             const UserLevel mt = UserLevel.Maintenance;
 
-            AddSidebarButton("set.general",     op, () => new GeneralPage());
-            AddSidebarButton("set.motion",      mt, () => new MotionPage());
-            AddSidebarButton("set.ioControl",   mt, () => new IoControlPage());
-            AddSidebarButton("set.digital",     mt, () => new IoListPage("set.digital",
+            // ── 주 메뉴 (디자이너 버튼 등록) ──
+            RegisterSidebarButton(BtnGeneral,     "set.general",   op, () => new GeneralPage());
+            RegisterSidebarButton(BtnMotion,      "set.motion",    mt, () => new MotionPage());
+            RegisterSidebarButton(BtnIoControl,   "set.ioControl", mt, () => new IoControlPage());
+            RegisterSidebarButton(BtnDigital,     "set.digital",   mt, () => new IoListPage("set.digital",
                 new[] { "INDEX", "SYMBOL", "BOARD", "BIT", "DESCRIPTION", "STATE" }, Seed.Digital()));
-            AddSidebarButton("set.digitalLink", mt, () => new IoListPage("set.digitalLink",
+            RegisterSidebarButton(BtnDigitalLink, "set.digitalLink", mt, () => new IoListPage("set.digitalLink",
                 new[] { "INDEX", "SOURCE", "TARGET", "DESCRIPTION" }, Seed.Link()));
-            AddSidebarButton("set.cylinder",    mt, () => new IoListPage("set.cylinder",
+            RegisterSidebarButton(BtnCylinder,    "set.cylinder",  mt, () => new IoListPage("set.cylinder",
                 new[] { "INDEX", "NAME", "FWD DO", "BWD DO", "FWD DI", "BWD DI", "STATE" }, Seed.Cylinder()));
-            AddSidebarButton("set.lamp",        en, () => new IoListPage("set.lamp",
+            RegisterSidebarButton(BtnLamp,        "set.lamp",      en, () => new IoListPage("set.lamp",
                 new[] { "INDEX", "NAME", "DO", "STATE" }, Seed.Lamp()));
-            AddSidebarButton("set.switch",      en, () => new IoListPage("set.switch",
+            RegisterSidebarButton(BtnSwitch,      "set.switch",    en, () => new IoListPage("set.switch",
                 new[] { "INDEX", "NAME", "DI", "STATE" }, Seed.Switch()));
-            AddSidebarButton("set.lightSource", en, () => new IoListPage("set.lightSource",
+            RegisterSidebarButton(BtnLightSource, "set.lightSource", en, () => new IoListPage("set.lightSource",
                 new[] { "INDEX", "NAME", "PORT", "LEVEL" }, Seed.Light()));
 
-            AddSidebarButton("set.barcode",      en, () => new BarcodeReaderPage(), toBottomArea: true);
-            AddSidebarButton("set.zoomLens",     en, () => new ZoomLensPage(),       toBottomArea: true);
-            AddSidebarButton("set.heightSensor", en, () => new HeightSensorPage(),   toBottomArea: true);
-            AddSidebarButton("set.simulator",    en, () => new SimulatorLinkPage(),  toBottomArea: true);
-            AddSidebarButton("set.visionLink",   en, () => new VisionLinkPage(),     toBottomArea: true);
+            // ── 보조 메뉴 ──
+            RegisterSidebarButton(BtnBarcode,      "set.barcode",      en, () => new BarcodeReaderPage());
+            RegisterSidebarButton(BtnZoomLens,     "set.zoomLens",     en, () => new ZoomLensPage());
+            RegisterSidebarButton(BtnHeightSensor, "set.heightSensor", en, () => new HeightSensorPage());
+            RegisterSidebarButton(BtnSimulator,    "set.simulator",    en, () => new SimulatorLinkPage());
+            RegisterSidebarButton(BtnVisionLink,   "set.visionLink",   en, () => new VisionLinkPage());
 
             // Self-Test 다이얼로그 버튼 — 페이지가 아닌 즉시 팝업
-            var btnSelf = AddSidebarButton("set.selfTest", en,
-                () => new PlaceholderPage("set.selfTest"), toBottomArea: true);
-            btnSelf.Click += (s, e) =>
+            RegisterSidebarButton(BtnSelfTest, "set.selfTest", en, () => new PlaceholderPage("set.selfTest"));
+            BtnSelfTest.Click += (s, e) =>
             {
                 var host = FindForm() as Form1;
                 using (var dlg = new Dialogs.SystemSelfTestDialog(host))
@@ -51,18 +52,18 @@ namespace QMC.CDT_320.Ui.Tabs
             };
 
             // Stage 19 — Alarm Master 페이지
-            AddSidebarButton("settings.alarmMaster", en, () => new AlarmMasterPage(), toBottomArea: true);
+            RegisterSidebarButton(BtnAlarmMaster, "settings.alarmMaster", en, () => new AlarmMasterPage());
 
             // Stage 59 — Position Teaching 페이지 (시퀀스 위치 티칭)
-            AddSidebarButton("set.teach",       en, () => new PositionTeachingPage(),  toBottomArea: true);
-            AddSidebarButton("set.axisSetup",   en, () => new AxisSetupPage(),         toBottomArea: true);
-            AddSidebarButton("set.cameraSetup", en, () => new CameraSetupPage(),       toBottomArea: true);
-            AddSidebarButton("set.lightSetup",  en, () => new LightControllerPage(),   toBottomArea: true);
+            RegisterSidebarButton(BtnTeach,       "set.teach",       en, () => new PositionTeachingPage());
+            RegisterSidebarButton(BtnAxisSetup,   "set.axisSetup",   en, () => new AxisSetupPage());
+            RegisterSidebarButton(BtnCameraSetup, "set.cameraSetup", en, () => new CameraSetupPage());
+            RegisterSidebarButton(BtnLightSetup,  "set.lightSetup",  en, () => new LightControllerPage());
 
             // Stage 4 — Remote Viewer 다이얼로그
-            var btnRemote = AddSidebarButton("settings.remoteViewer", mt,
-                () => new PlaceholderPage("settings.remoteViewer"), toBottomArea: true);
-            btnRemote.Click += (s, e) =>
+            RegisterSidebarButton(BtnRemoteViewer, "settings.remoteViewer", mt,
+                () => new PlaceholderPage("settings.remoteViewer"));
+            BtnRemoteViewer.Click += (s, e) =>
             {
                 var host = FindForm() as Form1;
                 using (var dlg = new Dialogs.RemoteViewerDialog(host))
