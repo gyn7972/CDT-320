@@ -22,6 +22,7 @@
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
+    <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <PlatformTarget>AnyCPU</PlatformTarget>
@@ -34,7 +35,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
     <DebugSymbols>true</DebugSymbols>
-    <OutputPath>..\..\CDT-320\</OutputPath>
+    <OutputPath>..\..\..\..\..\..\CDT-320\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <DebugType>full</DebugType>
     <PlatformTarget>x64</PlatformTarget>
@@ -78,8 +79,8 @@
     <Compile Include="Equipment\Unit\InputStageUnit.cs" />
     <Compile Include="Equipment\IStageInterfaces.cs" />
     <Compile Include="Equipment\MachineController.cs" />
-    <Compile Include="Equipment\Unit\OutputStageUnit.cs" />
-    <Compile Include="Equipment\Unit\OutputUnloaderUnit.cs" />
+    <Compile Include="Equipment\OutputStageUnit.cs" />
+    <Compile Include="Equipment\OutputUnloaderUnit.cs" />
     <Compile Include="Equipment\SimComponents.cs" />
     <Compile Include="Equipment\SimulatorBridge.cs" />
     <Compile Include="Equipment\Sim\SimCassetteDriver.cs" />
