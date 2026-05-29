@@ -29,7 +29,6 @@ namespace QMC.Vision
         private Panel pnlBottomBar;
         private BottomMenuButton btnOperation;
         private BottomMenuButton btnConfiguration;
-        private BottomMenuButton btnMaintenance;
         private BottomMenuButton btnRecipe;
         private BottomMenuButton btnDataLog;
         private BottomMenuButton btnSettings;
@@ -154,11 +153,10 @@ namespace QMC.Vision
 
             int btnY = (UiTheme.BottomBarHeight - 70) / 2;
 
-            // 좌측 4개 — Anchor Left (절대 좌표 유지)
+            // 좌측 3개 — Anchor Left (Stage 65: 정비 제거 → 운영/환경설정/레시피)
             this.btnOperation     = new BottomMenuButton { Location = new Point(60,   btnY), IconText = "▶", Label = "운영",       Anchor = AnchorStyles.Top | AnchorStyles.Left };
             this.btnConfiguration = new BottomMenuButton { Location = new Point(180,  btnY), IconText = "C", Label = "환경설정",   Anchor = AnchorStyles.Top | AnchorStyles.Left };
-            this.btnMaintenance   = new BottomMenuButton { Location = new Point(300,  btnY), IconText = "M", Label = "정비",       Anchor = AnchorStyles.Top | AnchorStyles.Left };
-            this.btnRecipe        = new BottomMenuButton { Location = new Point(420,  btnY), IconText = "R", Label = "레시피",     Anchor = AnchorStyles.Top | AnchorStyles.Left };
+            this.btnRecipe        = new BottomMenuButton { Location = new Point(300,  btnY), IconText = "R", Label = "레시피",     Anchor = AnchorStyles.Top | AnchorStyles.Left };
             // 우측 3개 — Anchor 미사용 (Designer 시점의 폭이 부정확 → LayoutBottomBar 가 런타임 배치)
             this.btnDataLog       = new BottomMenuButton { Location = new Point(0, btnY), IconText = "L", Label = "데이터로그", Anchor = AnchorStyles.Top | AnchorStyles.Left };
             this.btnSettings      = new BottomMenuButton { Location = new Point(0, btnY), IconText = "S", Label = "설정",       Anchor = AnchorStyles.Top | AnchorStyles.Left };
@@ -166,7 +164,6 @@ namespace QMC.Vision
 
             this.btnOperation    .Click += (s, e) => ShowTab(Tab.Operation);
             this.btnConfiguration.Click += (s, e) => ShowTab(Tab.Configuration);
-            this.btnMaintenance  .Click += (s, e) => ShowTab(Tab.Maintenance);
             this.btnRecipe       .Click += (s, e) => ShowTab(Tab.Recipe);
             this.btnDataLog      .Click += (s, e) => ShowTab(Tab.DataLog);
             this.btnSettings     .Click += (s, e) => ShowTab(Tab.Settings);
@@ -174,7 +171,6 @@ namespace QMC.Vision
 
             this.pnlBottomBar.Controls.Add(this.btnOperation);
             this.pnlBottomBar.Controls.Add(this.btnConfiguration);
-            this.pnlBottomBar.Controls.Add(this.btnMaintenance);
             this.pnlBottomBar.Controls.Add(this.btnRecipe);
             this.pnlBottomBar.Controls.Add(this.btnDataLog);
             this.pnlBottomBar.Controls.Add(this.btnSettings);

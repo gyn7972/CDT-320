@@ -13,7 +13,7 @@ using QMC.Vision.Ui.Pages;
 namespace QMC.Vision
 {
     /// <summary>하단 탭 식별자 — Handler 와 동일 구성: 4 좌측 + 3 우측 (Settings 추가).</summary>
-    public enum Tab { Operation, Configuration, Maintenance, Recipe, DataLog, Settings }
+    public enum Tab { Operation, Configuration, Recipe, DataLog, Settings }
 
     public partial class Form1 : Form
     {
@@ -33,7 +33,6 @@ namespace QMC.Vision
 
         private OperationPage     _pgOperation;
         private ConfigurationPage _pgConfig;
-        private MaintenancePage   _pgMaint;
         private RecipePage        _pgRecipe;
         private DataLogPage       _pgDataLog;
         private SettingsPage      _pgSettings;
@@ -91,16 +90,14 @@ namespace QMC.Vision
                 _viewRearSide  = MakeViewer("RearSide",  cfg.RearSideViewerPort,   RearSideMod,  cfg);
             }
 
-            // ── 6 탭 UserControl ──
+            // ── 5 탭 UserControl (Stage 65: Maintenance 통합 → Recipe) ──
             _pgOperation = new OperationPage     { Dock = DockStyle.Fill, Visible = false };
             _pgConfig    = new ConfigurationPage { Dock = DockStyle.Fill, Visible = false };
-            _pgMaint     = new MaintenancePage   { Dock = DockStyle.Fill, Visible = false };
             _pgRecipe    = new RecipePage        { Dock = DockStyle.Fill, Visible = false };
             _pgDataLog   = new DataLogPage       { Dock = DockStyle.Fill, Visible = false };
             _pgSettings  = new SettingsPage      { Dock = DockStyle.Fill, Visible = false };
             pnlContent.Controls.Add(_pgOperation);
             pnlContent.Controls.Add(_pgConfig);
-            pnlContent.Controls.Add(_pgMaint);
             pnlContent.Controls.Add(_pgRecipe);
             pnlContent.Controls.Add(_pgDataLog);
             pnlContent.Controls.Add(_pgSettings);
@@ -252,14 +249,12 @@ namespace QMC.Vision
         {
             _pgOperation.Visible = t == Tab.Operation;
             _pgConfig   .Visible = t == Tab.Configuration;
-            _pgMaint    .Visible = t == Tab.Maintenance;
             _pgRecipe   .Visible = t == Tab.Recipe;
             _pgDataLog  .Visible = t == Tab.DataLog;
             _pgSettings .Visible = t == Tab.Settings;
 
             btnOperation    .Selected = t == Tab.Operation;
             btnConfiguration.Selected = t == Tab.Configuration;
-            btnMaintenance  .Selected = t == Tab.Maintenance;
             btnRecipe       .Selected = t == Tab.Recipe;
             btnDataLog      .Selected = t == Tab.DataLog;
             btnSettings     .Selected = t == Tab.Settings;

@@ -175,3 +175,10 @@
 |---|---|---|---|
 | M-64-1 | Ui\Editors\ 5종 ParameterEditor vs 본 Stage | 레이어 혼동 주의 — 편집기 5종은 **알고리즘 파라미터**(Threshold/Template), 본 Stage 는 **카메라 파라미터의 검사별 오버라이드**. 서로 다른 레이어 | SPEC §12 에 구분 명시. 본 Stage 는 편집기 5종 미변경 |
 | M-64-2 | 중복 InspectionId (ReticleFinder/DieFinder/ScaleFinder/FocusFinder/DieEdgeFinder) | 여러 알고리즘이 동일 검사 ID 보유 | override 는 (Algorithm, InspectionId) 조합으로 유일 — Inspections 가 AlgorithmCameraMapping 내부라 알고리즘 스코프에서 충돌 없음 (SPEC §2.2) |
+
+## STAGE 65 — Maintenance → Recipe 통합 (2026-05-29)
+
+| ID | 위치 | 내용 | 처리 |
+|---|---|---|---|
+| M-65-1 | QMC.Vision UI | MaintenancePage ↔ RecipePage 중복 | Maintenance 페이지를 Recipe 로 개명(파일/클래스/헤더), 기존 placeholder RecipePage 삭제, Tab.Maintenance/btnMaintenance 제거. 하단바 좌측 4→3 (운영/환경설정/레시피) |
+| M-65-2 | RecipePage.PopulateTree | 트리에 3 모듈만 노출 (FrontSide/RearSide 누락) | 5 모듈 전부 등록 — Wafer 7 / Bin 4 / Bottom 7 / FrontSide 4 / RearSide 4 = 26 검사 노드 |

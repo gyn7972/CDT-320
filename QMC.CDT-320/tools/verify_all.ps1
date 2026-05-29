@@ -119,6 +119,14 @@ $frontMod = Join-Path $Root "QMC.Vision\Modules\FrontSideInspectionModule.cs"
 $rearMod  = Join-Path $Root "QMC.Vision\Modules\RearSideInspectionModule.cs"
 Add-Row "STAGE63" "FrontSide/RearSideInspectionModule.cs 존재" ((Test-Path $frontMod) -and (Test-Path $rearMod)) "modules"
 
+# Stage 65 — Maintenance → Recipe 통합
+$recipe65 = Join-Path $Root "QMC.Vision\Ui\Pages\RecipePage.cs"
+$maintGone = -not (Test-Path (Join-Path $Root "QMC.Vision\Ui\Pages\MaintenancePage.cs"))
+Add-Row "STAGE65" "MaintenancePage.cs 제거 + RecipePage 단일화" ($maintGone -and (Test-Greps $recipe65 @('class RecipePage'))) "merged"
+Add-Row "STAGE65" "RecipePage 트리 5 모듈 등록" (Test-Greps $recipe65 @('host.WaferMod','host.BinMod','host.BottomMod','host.FrontSideMod','host.RearSideMod')) $recipe65
+$vform65 = Join-Path $Root "QMC.Vision\Form1.cs"
+Add-Row "STAGE65" "Form1 Tab.Maintenance/_pgMaint 제거" (-not (Test-Greps $vform65 @('Tab\.Maintenance|_pgMaint'))) $vform65
+
 # ── 출력 ──
 $bar = "=" * 110
 Write-Output $bar
