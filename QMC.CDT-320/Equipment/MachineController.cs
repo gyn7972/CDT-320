@@ -51,6 +51,21 @@ namespace QMC.CDT320
         private MachineStatus _status = MachineStatus.Idle;
         private CancellationTokenSource _cycleCts;
 
+        // Sequencing — 병렬 시퀀스 운영 (Auto/Manual/Step). StartAsync 가 Coordinator 로 위임.
+        private QMC.CDT320.Sequencing.AutoSequenceCoordinator _coordinator;
+        private QMC.CDT320.Sequencing.MachineSequenceContext   _seqContext;
+        private Task _coordinatorTask;
+        private CancellationTokenSource _autoCts;
+
+        /// <summary>하드웨어 트리 루트 (시퀀스 계층에서 접근).</summary>
+        public CDT320_Machine Machine => _machine;
+
+        /// <summary>현재 Main 시퀀스(Coordinator). 미시작 시 null.</summary>
+        public QMC.CDT320.Sequencing.AutoSequenceCoordinator Coordinator => _coordinator;
+
+        /// <summary>시퀀스 계층용 로그 브리지 (private Log 노출).</summary>
+        internal void LogPublic(string msg) => Log(msg);
+
         public event Action<MachineStatus> StatusChanged;
         public event Action<string>        LogMessage;
         public event Action<int, int>      CycleProgress;  // (done, total)
@@ -916,19 +931,108 @@ namespace QMC.CDT320
             SetStatus(MachineStatus.Ready);
         }
 
-        /// <summary>시작: 서보 ON + 운전 준비 상태로 전환 (개별 모션은 수동 메뉴에서).</summary>
+        /// <summary>시작: 서보 ON + 전체 자동 시퀀스(Auto) 구동.
+        /// 내부적으로 <see cref="StartSequenceAsync"/> 로 위임.</summary>
         public Task StartAsync()
         {
             foreach (var ax in EnumerateAxes()) ax.ServoOn();
-            Log("[START] 운전 준비.");
+            Log("[START] 운전 준비 — Auto 시퀀스 구동.");
             SetStatus(MachineStatus.Running);
-            return Task.CompletedTask;
+            return StartSequenceAsync(QMC.CDT320.Sequencing.SequenceRunOptions.FullAuto());
         }
 
-        /// <summary>정지: 현재 동작 중인 축 정지 + 서보 상태는 유지.
+        /// <summary>지정 유닛만 Manual 모드로 구동 (작업자 step 진행).</summary>
+        public Task StartManualAsync(QMC.CDT320.Sequencing.SequenceUnitKind units)
+            => StartSequenceAsync(new QMC.CDT320.Sequencing.SequenceRunOptions
+            {
+                Units = units,
+                Mode  = QMC.CDT320.Sequencing.SequenceRunMode.Manual
+            });
+
+        /// <summary>단일 유닛만 구동 (Main 시퀀스에서 특정 한 개 유닛 테스트/수동 운전).</summary>
+        public Task StartSingleUnitAsync(
+            QMC.CDT320.Sequencing.SequenceUnitKind unit,
+            QMC.CDT320.Sequencing.SequenceRunMode mode = QMC.CDT320.Sequencing.SequenceRunMode.Auto)
+            => StartSequenceAsync(QMC.CDT320.Sequencing.SequenceRunOptions.Single(unit, mode));
+
+        /// <summary>Manual 모드 유닛에 한 step 진행 허용.</summary>
+        public void ManualStep(QMC.CDT320.Sequencing.SequenceUnitKind unit)
+            => _coordinator?.StepUnit(unit);
+
+        /// <summary>옵션 기반 시퀀스 구동. 기존 Coordinator 가 있으면 먼저 정지.</summary>
+        public async Task StartSequenceAsync(QMC.CDT320.Sequencing.SequenceRunOptions options)
+        {
+            options = options ?? QMC.CDT320.Sequencing.SequenceRunOptions.FullAuto();
+
+            // 진행 중 시퀀스가 있으면 정지 후 재시작
+            if (_coordinatorTask != null && !_coordinatorTask.IsCompleted)
+            {
+                Log("[SEQ] 기존 시퀀스 정지 후 재시작");
+                await StopSequenceAsync().ConfigureAwait(false);
+            }
+
+            foreach (var ax in EnumerateAxes()) ax.ServoOn();
+
+            var bus = new QMC.CDT320.Sequencing.SequenceSignalBus();
+            _seqContext  = new QMC.CDT320.Sequencing.MachineSequenceContext(this, bus);
+            _coordinator = new QMC.CDT320.Sequencing.AutoSequenceCoordinator(_seqContext);
+
+            // 유닛 시퀀스 팩토리 등록 (옵션 Units 플래그에 따라 spawn)
+            _coordinator.Register(QMC.CDT320.Sequencing.SequenceUnitKind.InputLoader,
+                () => new QMC.CDT320.Sequencing.InputLoaderSequence(_seqContext));
+            // TODO: InputStage / TpuLeft / TpuRight / OutputStage / OutputUnloader 시퀀스 추가 예정
+
+            _coordinator.Configure(options);
+
+            _autoCts = new CancellationTokenSource();
+            SetStatus(MachineStatus.Cycling);
+            Log($"[SEQ] 시퀀스 시작 (units={options.Units}, mode={options.Mode})");
+
+            var ctx = _autoCts.Token;
+            _coordinatorTask = Task.Run(async () =>
+            {
+                try
+                {
+                    await _coordinator.RunAsync(ctx).ConfigureAwait(false);
+                    SetStatus(MachineStatus.Ready);
+                    Log("[SEQ] 시퀀스 완료.");
+                }
+                catch (OperationCanceledException)
+                {
+                    SetStatus(MachineStatus.Stopped);
+                    Log("[SEQ] 시퀀스 중단.");
+                }
+                catch (Exception ex)
+                {
+                    AlarmManager.Raise(AlarmSeverity.Error, "SEQ-EX", "MachineController", ex.Message);
+                    SetStatus(MachineStatus.Alarm);
+                    Log("[SEQ ERROR] " + ex.Message);
+                }
+            }, ctx);
+
+            await Task.CompletedTask;
+        }
+
+        /// <summary>진행 중인 시퀀스를 정지하고 완료될 때까지 대기.</summary>
+        public async Task StopSequenceAsync()
+        {
+            try { _coordinator?.AbortChildren(); } catch { }
+            try { _autoCts?.Cancel(); } catch { }
+            if (_coordinatorTask != null)
+            {
+                try { await _coordinatorTask.ConfigureAwait(false); } catch { }
+            }
+            _coordinatorTask = null;
+        }
+
+        /// <summary>정지: 진행 중 시퀀스 취소 + 모든 축 정지 + 서보 상태 유지.
         /// 진행 중 LOT 이 있으면 미진행 다이를 Skipped 카운트로 기록하고 LOT JSON 저장.</summary>
         public Task StopAsync()
         {
+            // 0) 진행 중 시퀀스 취소 (fire-and-forget — 정리는 Coordinator Task 가 수행)
+            try { _coordinator?.AbortChildren(); } catch { }
+            try { _autoCts?.Cancel(); } catch { }
+
             // 1) 모든 축 정지 (서보는 유지)
             foreach (var ax in EnumerateAxes()) ax.Stop();
 

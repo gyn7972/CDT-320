@@ -77,6 +77,14 @@
     <Compile Include="Equipment\MachineController.cs" />
     <Compile Include="Equipment\OutputStageUnit.cs" />
     <Compile Include="Equipment\OutputUnloaderUnit.cs" />
+    <Compile Include="Equipment\Sequencing\AutoSequenceCoordinator.cs" />
+    <Compile Include="Equipment\Sequencing\InputLoaderSequence.cs" />
+    <Compile Include="Equipment\Sequencing\ISequence.cs" />
+    <Compile Include="Equipment\Sequencing\ISequenceContext.cs" />
+    <Compile Include="Equipment\Sequencing\MachineSequenceContext.cs" />
+    <Compile Include="Equipment\Sequencing\SequenceBase.cs" />
+    <Compile Include="Equipment\Sequencing\SequenceRunMode.cs" />
+    <Compile Include="Equipment\Sequencing\SequenceSignalBus.cs" />
     <Compile Include="Equipment\SimComponents.cs" />
     <Compile Include="Equipment\SimulatorBridge.cs" />
     <Compile Include="Equipment\Sim\SimCassetteDriver.cs" />
