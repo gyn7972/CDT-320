@@ -128,7 +128,6 @@
     <Compile Include="Ui\Pages\ConfigurationPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="Ui\Pages\MaintenancePage.cs" />
     <Compile Include="Ui\Pages\RecipePage.cs">
       <SubType>UserControl</SubType>
     </Compile>
