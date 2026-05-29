@@ -38,6 +38,7 @@ namespace QMC.Vision.Cameras.Hik
         public static void TryLoad()
         {
             if (IsLoaded) return;
+            EnsureGenTLSearchPath();
             // 강타입 reference (MvCameraControl.Net.dll 은 출력 폴더에 항상 동반 배포).
             // LoadFrom 컨텍스트 불일치로 인한 캐스팅 실패를 막기 위해 typeof 로 타입을 얻는다.
             // native MvCameraControl.dll 미설치 시에도 어셈블리 로드는 성공하고,
@@ -61,6 +62,26 @@ namespace QMC.Vision.Cameras.Hik
                 IsLoaded = false;
                 LoadError = ex.Message;
             }
+        }
+
+        /// <summary>
+        /// GenTL producer(.cti) 검색 경로(GENICAM_GENTL64/32_PATH) 맨 앞에 exe 폴더를 추가.
+        /// <para>프레임그래버/GenTL("OtherDevice") 카메라는 이 producer 로 발견되는데, x64 전환 후
+        /// producer 와 그 의존 DLL 이 exe 폴더에 co-locate 되어야 로드된다(post-build 가 *.dll/*.cti 복사).
+        /// 미설정 시 GenTL enum 이 0x8000000C(MV_E_LOAD_LIBRARY) → 카메라 미검출.</para>
+        /// </summary>
+        private static void EnsureGenTLSearchPath()
+        {
+            try
+            {
+                string baseDir = AppDomain.CurrentDomain.BaseDirectory?.TrimEnd('\\');
+                if (string.IsNullOrEmpty(baseDir)) return;
+                string varName = Environment.Is64BitProcess ? "GENICAM_GENTL64_PATH" : "GENICAM_GENTL32_PATH";
+                string cur = Environment.GetEnvironmentVariable(varName) ?? "";
+                if (cur.StartsWith(baseDir, StringComparison.OrdinalIgnoreCase)) return; // 이미 맨 앞
+                Environment.SetEnvironmentVariable(varName, baseDir + ";" + cur);
+            }
+            catch { }
         }
 
         /// <summary>SDK 로드 실패 시 호출자에게 안내 문자열 제공.</summary>

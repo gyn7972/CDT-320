@@ -1,4 +1,5 @@
 using System;
+using System.Drawing;
 using System.Windows.Forms;
 using QMC.Common.Alarms;
 using QMC.Vision.Comm;
@@ -26,6 +27,9 @@ namespace QMC.Vision
 
         private VisionTcpServer _svrWafer, _svrBin, _svrBottom;
         private VisionTcpServer _svrFrontSide, _svrRearSide;
+
+        // 원격 뷰어 (그랩 영상 송출) — 모듈별 5채널
+        private GrabStreamServer _viewWafer, _viewBin, _viewBottom, _viewFrontSide, _viewRearSide;
 
         private OperationPage     _pgOperation;
         private ConfigurationPage _pgConfig;
@@ -76,6 +80,16 @@ namespace QMC.Vision
             try { _svrBottom    .Start(); } catch { }
             try { _svrFrontSide   .Start(); } catch { }
             try { _svrRearSide.Start(); } catch { }
+
+            // ── 원격 뷰어 서버 (모듈별 그랩 영상 송출) ──
+            if (cfg.RemoteViewerEnable)
+            {
+                _viewWafer     = MakeViewer("Wafer",     cfg.WaferViewerPort,      WaferMod,     cfg);
+                _viewBottom    = MakeViewer("Bottom",    cfg.InspectionViewerPort, BottomMod,    cfg);
+                _viewBin       = MakeViewer("Bin",       cfg.BinViewerPort,        BinMod,       cfg);
+                _viewFrontSide = MakeViewer("FrontSide", cfg.FrontSideViewerPort,  FrontSideMod, cfg);
+                _viewRearSide  = MakeViewer("RearSide",  cfg.RearSideViewerPort,   RearSideMod,  cfg);
+            }
 
             // ── 6 탭 UserControl ──
             _pgOperation = new OperationPage     { Dock = DockStyle.Fill, Visible = false };
@@ -139,6 +153,33 @@ namespace QMC.Vision
         {
             var m = map?.Get(algorithm);
             if (mod != null && m != null) mod.DelayBeforeGrabMs = m.DelayBeforeGrabMs;
+        }
+
+        /// <summary>모듈별 원격 뷰어 서버 생성+Start. 소스(GrabImage/ScreenRegion)에 따라 프레임 provider 선택.</summary>
+        private GrabStreamServer MakeViewer(string name, int port, VisionModule mod, VisionSettings cfg)
+        {
+            Func<Bitmap> provider;
+            if (string.Equals(cfg.RemoteViewerSource, "ScreenRegion", StringComparison.OrdinalIgnoreCase))
+            {
+                var rect = new Rectangle(cfg.RemoteViewerScreenX, cfg.RemoteViewerScreenY,
+                                         cfg.RemoteViewerScreenW, cfg.RemoteViewerScreenH);
+                provider = () => GrabStreamServer.CaptureScreenRegion(rect);
+            }
+            else
+            {
+                // GrabImage: 새 그랩(테스트 그랩/실제 운행/라이브)이 들어왔을 때만 프레임 제공. 변화 없으면 null → 송출 안 함.
+                long lastSeq = -1;
+                provider = () =>
+                {
+                    long s = mod.ViewerFrameSeq;
+                    if (s == lastSeq) return null;
+                    lastSeq = s;
+                    return mod.AcquireViewerFrame();
+                };
+            }
+            var srv = new GrabStreamServer(name, port, provider, cfg.RemoteViewerFps, cfg.RemoteViewerQuality);
+            try { srv.Start(); } catch { }
+            return srv;
         }
 
         /// <summary>SettingsPage 의 "실행 모듈에 적용" 에서 호출 — 카메라 교체 또는 파라미터 갱신.
@@ -229,6 +270,11 @@ namespace QMC.Vision
 
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
+            try { _viewWafer?.Dispose(); }     catch { }
+            try { _viewBin?.Dispose(); }       catch { }
+            try { _viewBottom?.Dispose(); }    catch { }
+            try { _viewFrontSide?.Dispose(); } catch { }
+            try { _viewRearSide?.Dispose(); }  catch { }
             try { _svrWafer?.Dispose(); }      catch { }
             try { _svrBin?.Dispose(); }        catch { }
             try { _svrBottom?.Dispose(); }     catch { }

@@ -26,7 +26,6 @@ namespace QMC.Vision.Ui.Pages
                 Font = UiTheme.SectionFont, TextAlign = ContentAlignment.MiddleLeft,
                 Padding = new Padding(10, 0, 0, 0)
             };
-            Controls.Add(hdr);
 
             // Tool 바: SPC 차트 / 파라미터 에디터 진입 버튼
             var bar = new Panel { Dock = DockStyle.Top, Height = 40, BackColor = Color.WhiteSmoke };
@@ -47,7 +46,6 @@ namespace QMC.Vision.Ui.Pages
             };
             btnParams.Click += (s, e) => ShowParameterEditors();
             bar.Controls.Add(btnParams);
-            Controls.Add(bar);
 
             // ⚠ 다단계 Dock=Fill 안정성 보장 위해 TableLayoutPanel 사용:
             //     Column 0 (Absolute 280px) = TreeView, Column 1 (Percent 100%) = 콘텐트
@@ -74,7 +72,26 @@ namespace QMC.Vision.Ui.Pages
             _content = new Panel { Dock = DockStyle.Fill, BackColor = UiTheme.MainBg };
             table.Controls.Add(_content, 1, 0);
 
-            Controls.Add(table);
+            // 헤더/툴바/콘텐트를 루트 TableLayoutPanel(3행: 30 / 40 / 100%)로 배치.
+            // Dock=Top + Dock=Fill 형제 혼용 시 z-order 에 따라 Fill 이 Top 영역을 덮어
+            // TreeView 상단(Wafer vision)이 헤더에 가려지는 문제가 있어, 겹침이 원천 차단되는 TLP 로 구성.
+            // 해상도가 바뀌어도 행 비율로 유동 배치됨.
+            var root = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3,
+                BackColor = UiTheme.MainBg, Margin = Padding.Empty, Padding = Padding.Empty
+            };
+            root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 30f));
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 40f));
+            root.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+            hdr.Dock   = DockStyle.Fill;
+            bar.Dock   = DockStyle.Fill;
+            table.Dock = DockStyle.Fill;
+            root.Controls.Add(hdr,   0, 0);
+            root.Controls.Add(bar,   0, 1);
+            root.Controls.Add(table, 0, 2);
+            Controls.Add(root);
 
             _tree.AfterSelect += (s, e) =>
             {

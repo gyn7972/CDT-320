@@ -23,9 +23,10 @@ namespace QMC.Vision.Modules
         public void SetCamera(ICamera newCamera)
         {
             if (newCamera == null) throw new ArgumentNullException(nameof(newCamera));
-            if (Camera != null) Camera.ExposureEnded -= OnCameraExposureEnded;
+            if (Camera != null) { Camera.ExposureEnded -= OnCameraExposureEnded; Camera.FrameReceived -= OnCameraFrameReceived; }
             Camera = newCamera;
             Camera.ExposureEnded += OnCameraExposureEnded;
+            Camera.FrameReceived += OnCameraFrameReceived;
         }
 
         public Dictionary<string, IPatternFinder> Finders    { get; } = new Dictionary<string, IPatternFinder>();
@@ -42,12 +43,18 @@ namespace QMC.Vision.Modules
         /// <summary>현재 Grab 사이클에서 카메라 HW ExposureEnd 로 이미 EPD 를 쐈는지 여부.</summary>
         private volatile bool _exposureEndFired;
 
+        // ── 원격 뷰어용 frame tap (실제 그랩/라이브 프레임만 수동적으로 보관) ──
+        private readonly object _tapLock = new object();
+        private Bitmap _lastFrame;                       // clone 소유
+        private long   _frameSeq;                        // TapFrame 마다 증가 (뷰어 새 프레임 판단용)
+
         protected VisionModule(string name, ICamera camera, IVisionBackend backend)
         {
             Name    = name;
             Camera  = camera  ?? throw new ArgumentNullException(nameof(camera));
             Backend = backend ?? throw new ArgumentNullException(nameof(backend));
             Camera.ExposureEnded += OnCameraExposureEnded;
+            Camera.FrameReceived += OnCameraFrameReceived;
         }
 
         /// <summary>카메라 HW 노출 종료 이벤트 → 즉시 EPD 발화 (전송 완료를 기다리지 않음).</summary>
@@ -56,6 +63,37 @@ namespace QMC.Vision.Modules
             _exposureEndFired = true;
             try { ExposureDone?.Invoke(Name); } catch { }
         }
+
+        /// <summary>라이브 프레임 수신 → 뷰어용으로 tap.</summary>
+        private void OnCameraFrameReceived(GrabResult r)
+        {
+            if (r != null && r.IsSuccess && r.Image != null) TapFrame(r.Image);
+        }
+
+        /// <summary>최신 프레임을 clone 하여 보관 (이전 프레임 Dispose).</summary>
+        private void TapFrame(Bitmap src)
+        {
+            Bitmap clone;
+            try { clone = (Bitmap)src.Clone(); } catch { return; }
+            lock (_tapLock)
+            {
+                _lastFrame?.Dispose();
+                _lastFrame = clone;
+                _frameSeq++;
+            }
+        }
+
+        /// <summary>원격 뷰어용 프레임 1장(clone, 호출자가 Dispose). 실제 그랩/라이브로 tap 된 최신 프레임만 반환.
+        /// 자체 그랩은 하지 않는다 — 테스트 그랩/실제 운행/라이브가 없으면 null.</summary>
+        public Bitmap AcquireViewerFrame()
+        {
+            lock (_tapLock)
+                if (_lastFrame != null) try { return (Bitmap)_lastFrame.Clone(); } catch { }
+            return null;
+        }
+
+        /// <summary>tap 시퀀스 — TapFrame(실제 그랩/라이브) 마다 증가. 뷰어 서버가 "새 프레임" 판단에 사용.</summary>
+        public long ViewerFrameSeq { get { lock (_tapLock) return _frameSeq; } }
 
         protected IPatternFinder AddFinder(string id)
         {
@@ -80,6 +118,7 @@ namespace QMC.Vision.Modules
             var g = Camera.Grab(timeoutMs);
             if (g.IsSuccess)
             {
+                if (g.Image != null) TapFrame(g.Image);   // 원격 뷰어용 tap
                 // HW ExposureEnd 가 이미 EPD 를 쐈으면(노출 종료 시점) 중복 발화하지 않는다.
                 // 미지원 카메라(Sim 등)는 여기서 fallback 으로 발화 → 전송 완료 시점 EPD.
                 if (!_exposureEndFired) try { ExposureDone?.Invoke(Name); } catch { }
@@ -210,7 +249,9 @@ namespace QMC.Vision.Modules
 
         public void Dispose()
         {
+            try { if (Camera != null) Camera.FrameReceived -= OnCameraFrameReceived; } catch { }
             try { Camera?.Dispose(); } catch { }
+            lock (_tapLock) { _lastFrame?.Dispose(); _lastFrame = null; }
         }
     }
 }

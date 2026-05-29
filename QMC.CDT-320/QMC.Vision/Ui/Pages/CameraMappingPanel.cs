@@ -23,6 +23,10 @@ namespace QMC.Vision.Ui.Pages
         private NumericUpDown _numExposure, _numGain, _numFps, _numDelay;
         private NumericUpDown _numRoiX, _numRoiY, _numRoiW, _numRoiH;
         private ComboBox _cbTrigger, _cbPixel;
+        // MIL(Matrox) DCF — "Mil/..." 선택 + "DCF 직접 지정" 체크 시에만 표시 (전역 VisionSettings 저장)
+        private CheckBox _chkMilDcf;
+        private TextBox  _txtMilDcf;
+        private Label    _lblMil;
         private Button   _btnSave, _btnApply, _btnTestGrab, _btnReset, _btnCancel;
         private Button   _btnConnect, _btnLiveStart, _btnLiveStop;
         private Label    _lblStatus;
@@ -81,16 +85,17 @@ namespace QMC.Vision.Ui.Pages
             };
             Controls.Add(_lblAlgorithm);
 
-            _body = new Panel { Dock = DockStyle.Fill, BackColor = UiTheme.MainBg, AutoScroll = false, Padding = new Padding(10, 12, 10, 10) };
+            // AutoScroll: 해상도가 작아져 콘텐트(특히 하단 프리뷰 PictureBox)가 패널 높이를 넘으면 스크롤로 접근 가능하게.
+            _body = new Panel { Dock = DockStyle.Fill, BackColor = UiTheme.MainBg, AutoScroll = true, Padding = new Padding(10, 12, 10, 10) };
             Controls.Add(_body);
             var body = _body;
 
             int x1 = 20, x2 = 180, y = 30, dy = 36;
 
             body.Controls.Add(L("카메라 ID", x1, y));
-            _cbCameraId = new ComboBox { Location = new Point(x2, y - 2), Size = new Size(360, 26), Font = UiTheme.ValueFont };
+            // DropDownList: 직접 타이핑 차단 — [카메라 검색] 으로 발견된 항목에서만 선택 가능.
+            _cbCameraId = new ComboBox { Location = new Point(x2, y - 2), Size = new Size(360, 26), Font = UiTheme.ValueFont, DropDownStyle = ComboBoxStyle.DropDownList };
             _cbCameraId.SelectedIndexChanged += (s, e) => OnFieldChanged();
-            _cbCameraId.TextChanged          += (s, e) => OnFieldChanged();
             body.Controls.Add(_cbCameraId);
             _btnDiscover = new Button
             {
@@ -150,6 +155,23 @@ namespace QMC.Vision.Ui.Pages
             _numRoiY.ValueChanged += (s, e) => OnFieldChanged();
             _numRoiW.ValueChanged += (s, e) => OnFieldChanged();
             _numRoiH.ValueChanged += (s, e) => OnFieldChanged();
+
+            // ── MIL(Matrox) DCF: "Mil/..." 카메라 선택 시 체크박스 노출, 체크하면 경로칸 표시(기본 숨김) ──
+            // CXP/GenICam 은 DCF 불필요(M_DEFAULT 자동). CameraLink 등 포맷 지정이 필요할 때만 사용.
+            y += dy;
+            _chkMilDcf = new CheckBox
+            {
+                Location = new Point(x1, y + 2), Size = new Size(220, 22),
+                Text = "MIL DCF 직접 지정", Font = UiTheme.ButtonFont, Visible = false
+            };
+            _chkMilDcf.CheckedChanged += (s, e) => { UpdateMilDcfVisibility(); OnMilFieldChanged(); };
+            body.Controls.Add(_chkMilDcf);
+
+            y += dy;
+            _lblMil = L("MIL DCF 경로", x1, y); _lblMil.Visible = false; body.Controls.Add(_lblMil);
+            _txtMilDcf = new TextBox { Location = new Point(x2, y - 2), Size = new Size(360, 26), Font = UiTheme.ValueFont, Visible = false };
+            _txtMilDcf.TextChanged += (s, e) => OnMilFieldChanged();
+            body.Controls.Add(_txtMilDcf);
 
             // 액션
             y += dy + 12;
@@ -237,8 +259,41 @@ namespace QMC.Vision.Ui.Pages
                 _numRoiY    .Value = Clamp(m.RoiOffsetY, _numRoiY.Minimum, _numRoiY.Maximum);
                 _numRoiW    .Value = Clamp(m.RoiWidth,   _numRoiW.Minimum, _numRoiW.Maximum);
                 _numRoiH    .Value = Clamp(m.RoiHeight,  _numRoiH.Minimum, _numRoiH.Maximum);
+
+                var cfg = VisionConfigStore.Current;
+                if (_txtMilDcf != null) _txtMilDcf.Text = cfg?.MilDcfPath ?? "";
+                // 저장된 DCF 가 있으면 체크박스를 자동 ON (그래야 경로칸이 보임)
+                if (_chkMilDcf != null) _chkMilDcf.Checked = !string.IsNullOrEmpty(cfg?.MilDcfPath);
             }
             finally { _suspendBinding = false; }
+            UpdateMilVisibility();
+        }
+
+        /// <summary>"Mil/..." 카메라가 선택됐을 때만 "DCF 직접 지정" 체크박스를 노출.</summary>
+        private void UpdateMilVisibility()
+        {
+            string id = ItemToId(_cbCameraId?.SelectedItem) ?? _cbCameraId?.Text;
+            bool isMil = !string.IsNullOrEmpty(id) && id.StartsWith("Mil/", StringComparison.OrdinalIgnoreCase);
+            if (_chkMilDcf != null) _chkMilDcf.Visible = isMil;
+            UpdateMilDcfVisibility();
+        }
+
+        /// <summary>DCF 경로칸은 MIL 카메라 선택 + "DCF 직접 지정" 체크 시에만 표시(기본 숨김).</summary>
+        private void UpdateMilDcfVisibility()
+        {
+            bool show = _chkMilDcf != null && _chkMilDcf.Visible && _chkMilDcf.Checked;
+            if (_lblMil    != null) _lblMil.Visible    = show;
+            if (_txtMilDcf != null) _txtMilDcf.Visible = show;
+        }
+
+        /// <summary>MIL DCF 는 전역 VisionSettings 에 보관 (per-algorithm 아님). 체크 해제 시 비움 → enumerate 가 M_DEFAULT 사용.</summary>
+        private void OnMilFieldChanged()
+        {
+            if (_suspendBinding) return;
+            var cfg = VisionConfigStore.Current;
+            if (cfg == null) return;
+            bool useDcf = _chkMilDcf != null && _chkMilDcf.Checked;
+            cfg.MilDcfPath = useDcf ? (_txtMilDcf?.Text ?? "") : "";
         }
 
         private static decimal Clamp(decimal v, decimal min, decimal max)
@@ -260,6 +315,7 @@ namespace QMC.Vision.Ui.Pages
             m.RoiOffsetY        = (int)_numRoiY.Value;
             m.RoiWidth          = (int)_numRoiW.Value;
             m.RoiHeight         = (int)_numRoiH.Value;
+            UpdateMilVisibility();
         }
 
         /// <summary>Validation — 빈 CameraId 거부, ROI 부분 입력 (W/H 한쪽만 0) 경고.</summary>
@@ -308,6 +364,8 @@ namespace QMC.Vision.Ui.Pages
             OnFieldChanged();
             if (!Validate(out var err)) { _lblStatus.Text = "저장 거부 — " + err; _lblStatus.ForeColor = Color.Firebrick; return; }
             AlgorithmCameraMapStore.Save();
+            OnMilFieldChanged();
+            VisionConfigStore.Save();   // MIL DCF/System 등 전역 설정 영속
             _lblStatus.ForeColor = Color.DarkSlateGray;
             _lblStatus.Text = "저장 완료 — " + AlgorithmCameraMapStore.Path_;
         }
