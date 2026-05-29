@@ -56,3 +56,6 @@ _review/
 NUL
 demo_*.png
 test_writeback.txt
+
+# Office lock temp files
+~$*
