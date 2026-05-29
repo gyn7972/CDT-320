@@ -42,6 +42,10 @@ namespace QMC.CDT320.Ajin
                     r = (int)AXM.AxmMotLoadParaAll(motPath);
                     if (r != 0)
                     {
+                        LastErrorCode = r;
+                        LastError = "AxmMotLoadParaAll failed. Code=" + r + " (" + DescribeAxlError(r) + "), Path=" + motPath;
+                        EventLogger.Write(EventKind.Alarm, "SYS", "AXM-MOT-LOAD", LastError);
+                        AlarmManager.Raise(AlarmSeverity.Critical, "AXM-MOT-LOAD", "AjinSystem", LastError);
                         IsOpen = false;
                         // 파라미터 로드 실패해도 AXL은 열려 있으므로, 필요 시 Close
                         AXL.Close();
@@ -88,6 +92,20 @@ namespace QMC.CDT320.Ajin
             try { AXL.Close(); } catch { }
             IsOpen = false;
             EventLogger.Write(EventKind.Event, "SYS", "AXL-CLOSE", "AXL closed");
+        }
+
+        private static string DescribeAxlError(int code)
+        {
+            switch (code)
+            {
+                case 1152: return "AXT_RT_NETWORK_ERROR";
+                case 1153: return "AXT_RT_NETWORK_LOCK_MISMATCH";
+                case 4051: return "AXT_RT_MOTION_NOT_MODULE";
+                case 4053: return "AXT_RT_MOTION_NOT_INITIAL_AXIS_NO";
+                case 4055: return "AXT_RT_MOTION_NOT_PARA_READ";
+                case 4111: return "AXT_RT_MOTION_INVALID_FILE_LOAD";
+                default: return "AXL/AXM error";
+            }
         }
     }
 }
