@@ -90,18 +90,18 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private async Task LifterInitAsync(Form1 host)
         {
             var loader = host.Machine.InputLoader;
-            loader.ElevatorZ.ResetAlarm();
-            loader.ElevatorZ.ServoOn();
+            loader.WaferLifterZ.ResetAlarm();
+            loader.WaferLifterZ.ServoOn();
             loader.FeederY.ResetAlarm();
             loader.FeederY.ServoOn();
-            await loader.ElevatorZ.HomeSearchAsync();
+            await loader.WaferLifterZ.HomeSearchAsync();
             await loader.FeederY.HomeSearchAsync();
         }
 
         private Task LifterReadyAsync(Form1 host)
         {
             var loader = host.Machine.InputLoader;
-            loader.ElevatorZ.ServoOn();
+            loader.WaferLifterZ.ServoOn();
             loader.FeederY.ServoOn();
             return Task.CompletedTask;
         }
@@ -128,7 +128,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
             var loader = host.Machine.InputLoader;
             double pitch = 6.0;
-            _ = loader.ElevatorZ.MoveRelativeAsync(delta * pitch, 20.0);
+            _ = loader.WaferLifterZ.MoveRelativeAsync(delta * pitch, 20.0);
         }
 
         private void RefreshFromMachine()
@@ -141,7 +141,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
             if (_lifterPosLabel != null)
             {
-                _lifterPosLabel.Text = loader.ElevatorZ.ActualPosition.ToString("F3") + " mm";
+                _lifterPosLabel.Text = loader.WaferLifterZ.ActualPosition.ToString("F3") + " mm";
             }
 
             var map = loader.WaferMap;

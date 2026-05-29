@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Runtime.Serialization;
 using System.Runtime.Serialization.Json;
-using System.Security.Claims;
 
 namespace QMC.CDT320.Ajin
 {
@@ -18,6 +17,8 @@ namespace QMC.CDT320.Ajin
     [DataContract]
     public class DioMap
     {
+        [DataMember] public int No { get; set; }
+        [DataMember] public string Address { get; set; }
         [DataMember] public int Module { get; set; }
         [DataMember] public int Bit { get; set; }
         [DataMember] public bool Nc { get; set; }
@@ -61,7 +62,7 @@ namespace QMC.CDT320.Ajin
     {
         public static readonly AxisDefault[] All =
         {
-            ADD( 0, "WaferLifterZ",      "WaferCassette",    0, 0,  200, true,  "mm",  100, "NEG", "ElevatorZ_Input", "ElevatorZ"),
+            ADD( 0, "WaferLifterZ",      "WaferCassette",    0, 0,  200, true,  "mm",  100, "NEG","ElevatorZ"),
             ADD( 1, "WaferFeederY",      "WaferFeeder",    0, 0,  300, false, "mm",  100, "NEG", "FeederY_Input", "FeederY"),
             ADD( 2, "WaferStageY",       "WaferStage",     0, 0,  400, false, "mm",  100, "NEG", "StageY"),
             ADD( 3, "WaferStageT",       "WaferStage",     0, 0,  360, false, "deg",  30, "POS", "StageT"),
@@ -172,6 +173,10 @@ namespace QMC.CDT320.Ajin
             }
 
             EnsureDefaultAxes(Current);
+            AjinIoCatalog.ApplyDefaults(Current, false);
+            AjinIoCatalog.ApplyRequiredCorrections(Current);
+            RemoveUnregisteredIo(Current);
+            Save();
             return Current;
         }
 
@@ -193,102 +198,7 @@ namespace QMC.CDT320.Ajin
         {
             var c = new AjinConfig();
             EnsureDefaultAxes(c);
-
-            void DO(string n, int mod, int bit) => c.DigitalOutputs[n] = new DioMap { Module = mod, Bit = bit };
-            DO("StartLamp", 3, 0);
-            DO("StopLamp", 3, 1);
-            DO("ResetLamp", 3, 2);
-            DO("TlRed", 3, 3);
-            DO("TlYellow", 3, 4);
-            DO("TlGreen", 3, 5);
-            DO("Buzzer", 3, 6);
-            DO("IonizerOn", 3, 15);
-            DO("WaferFeederUp", 3, 16);
-            DO("WaferFeederDown", 3, 17);
-            DO("WaferFeederClamp", 3, 18);
-            DO("WaferFeederUnclamp", 3, 19);
-            DO("ReticleUp", 3, 20);
-            DO("ReticleDown", 3, 21);
-            DO("ReticleFrontSideFw", 3, 22);
-            DO("ReticleFrontSideBw", 3, 23);
-            DO("ReticleRearSideFw", 3, 24);
-            DO("ReticleRearSideBw", 3, 25);
-            DO("NgBinGuideUp", 3, 26);
-            DO("NgBinGuideDown", 3, 27);
-            DO("NgBinClampUp", 3, 28);
-            DO("NgBinClampDown", 3, 29);
-            DO("NgBinClamp", 3, 30);
-            DO("NgBinUnclamp", 3, 31);
-
-            DO("GoodBinGuideUp", 4, 0);
-            DO("GoodBinGuideDown", 4, 1);
-
-            DO("GoodBinClampUp", 4, 2);
-            DO("GoodBinClampDown", 4, 3);
-            DO("GoodBinClamp", 4, 4);
-            DO("GoodBinUnclamp", 4, 5);
-            DO("BinFeederUp", 4, 6);
-            DO("BinFeederDown", 4, 7);
-            DO("BinFeederClamp", 4, 8);
-            DO("BinFeederUnclamp", 4, 9);
-            DO("NgBinCassetteLock", 4, 10);
-            DO("NgBinCassetteUnlock", 4, 11);
-            DO("BottomVisionBlow", 4, 12);
-            DO("BottomVisionBlowOff", 4, 13);
-            DO("NeedleVacuum", 4, 14);
-            DO("NeedleBlow", 4, 15);
-            for (int i = 0; i < 4; i++)
-            {
-                DO("FrontPicker" + (i + 1) + "_Vacuum", 4, 16 + i);
-                DO("FrontPicker" + (i + 1) + "_Blow", 4, 24 + i);
-                DO("RearPicker" + (i + 1) + "_Vacuum", 5, 0 + i);
-                DO("RearPicker" + (i + 1) + "_Blow", 5, 8 + i);
-            }
-
-            void DI(string n, int mod, int bit, bool nc = false) =>
-                c.DigitalInputs[n] = new DioMap { Module = mod, Bit = bit, Nc = nc };
-            DI("StartButton", 0, 0);
-            DI("StopButton", 0, 1);
-            DI("ResetButton", 0, 2);
-            DI("Emg", 0, 3);
-            DI("MainCda1Check", 0, 7);
-            DI("MainCda2Check", 0, 8);
-            DI("MainVacuum1Check", 0, 9);
-            DI("MainVacuum2Check", 0, 10);
-            DI("WaferFeederUpChk", 0, 28);
-            DI("WaferFeederDownChk", 0, 29);
-            DI("NgBinGuideUpChk", 1, 31);
-            DI("NgBinGuideDownChk", 2, 0);
-            DI("GoodBinGuideUpChk", 2, 4);
-            DI("GoodBinGuideDownChk", 2, 5);
-            for (int i = 0; i < 4; i++)
-            {
-                DI("LeftArm_Picker" + (i + 1) + "_Flow", 1, 13 + i);
-                DI("RightArm_Picker" + (i + 1) + "_Flow", 1, 23 + i);
-            }
-
-            c.Cylinders["FeederUpDownCyl"] = new CylMap
-            {
-                OutFwd = new DioMap { Module = 0, Bit = 16 },
-                OutBwd = new DioMap { Module = 0, Bit = 17 },
-                InFwd = new DioMap { Module = 0, Bit = 28 },
-                InBwd = new DioMap { Module = 0, Bit = 29 }
-            };
-            c.Cylinders["NgBinGuideCyl"] = new CylMap
-            {
-                OutFwd = new DioMap { Module = 0, Bit = 26 },
-                OutBwd = new DioMap { Module = 0, Bit = 27 },
-                InFwd = new DioMap { Module = 1, Bit = 31 },
-                InBwd = new DioMap { Module = 2, Bit = 0 }
-            };
-            c.Cylinders["GoodBinGuideCyl"] = new CylMap
-            {
-                OutFwd = new DioMap { Module = 1, Bit = 0 },
-                OutBwd = new DioMap { Module = 1, Bit = 1 },
-                InFwd = new DioMap { Module = 2, Bit = 4 },
-                InBwd = new DioMap { Module = 2, Bit = 5 }
-            };
-
+            AjinIoCatalog.ApplyDefaults(c, true);
             return c;
         }
 
@@ -324,6 +234,28 @@ namespace QMC.CDT320.Ajin
                     ChannelNo = source != null ? source.ChannelNo : axis.ChannelNo
                 };
             }
+        }
+
+        private static void RemoveUnregisteredIo(AjinConfig c)
+        {
+            if (c == null) return;
+            Normalize(c);
+
+            Prune(c.DigitalInputs, name => AjinIoCatalog.FindInput(name) != null);
+            Prune(c.DigitalOutputs, name => AjinIoCatalog.FindOutput(name) != null);
+            Prune(c.Cylinders, name => AjinIoCatalog.FindCylinder(name) != null);
+        }
+
+        private static void Prune<T>(Dictionary<string, T> target, Predicate<string> keep)
+        {
+            if (target == null || keep == null) return;
+            var remove = new List<string>();
+            foreach (var key in target.Keys)
+            {
+                if (!keep(key)) remove.Add(key);
+            }
+            for (int i = 0; i < remove.Count; i++)
+                target.Remove(remove[i]);
         }
     }
 }

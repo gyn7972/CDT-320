@@ -304,7 +304,7 @@ namespace QMC.CDT320
             NeedleBlockX.Setup.SoftLimitPlus = 250.0;
 
             // ── Digital Output ─────────────────────────────────────────────
-            NeedleVacuum = AjinFactory.CreateDigitalOutput("NeedleVacuum");
+            NeedleVacuum = AjinFactory.CreateDigitalOutput(AjinIoCatalog.Outputs.NeedleVacuum);
 
             // ── Composite 트리 등록 ────────────────────────────────────────
             Components.Add(StageY);

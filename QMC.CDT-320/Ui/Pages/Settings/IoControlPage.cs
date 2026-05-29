@@ -82,12 +82,12 @@ namespace QMC.CDT_320.Ui.Pages.Settings
 
             foreach (var item in collector.Inputs)
             {
-                var row = diGrid.Rows[diGrid.Rows.Add(item.Name, item.Module, item.Bit, "")];
+                var row = diGrid.Rows[diGrid.Rows.Add(item.No, item.Address, item.Name, item.Module, item.Bit, "")];
                 row.Tag = item.Port;
             }
             foreach (var item in collector.Outputs)
             {
-                var row = doGrid.Rows[doGrid.Rows.Add(item.Name, item.Module, item.Bit, "")];
+                var row = doGrid.Rows[doGrid.Rows.Add(item.No, item.Address, item.Name, item.Module, item.Bit, "")];
                 row.Tag = item;
             }
 
@@ -170,6 +170,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
 
         private class IoItem<T>
         {
+            public int No;
+            public string Address;
             public string Name;
             public int Module;
             public int Bit;
@@ -178,6 +180,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
 
         private class OutputTarget
         {
+            public int No;
+            public string Address;
             public string Name;
             public int Module;
             public int Bit;
@@ -238,7 +242,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 if (Bit < 0 || Bit >= outputCount)
                     return Name + " DO bit offset is invalid. Module=" + Module + ", Bit=" + Bit +
                            ", OutputCount=" + outputCount +
-                           ". Use the bit offset inside the module, not the global Y number. Example: Y046 on 32-point modules is Module=1, Bit=14.";
+                           ". Use the bit offset inside the AXL DIO module, not the global Y number. Check the module number with AxdInfoGetOutputCount/board scan.";
 
                 return null;
             }
@@ -252,14 +256,18 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             private readonly HashSet<object> _visited = new HashSet<object>();
             private readonly HashSet<BaseDigitalInput> _seenInputs = new HashSet<BaseDigitalInput>();
             private readonly HashSet<BaseDigitalOutput> _seenOutputs = new HashSet<BaseDigitalOutput>();
+            private readonly HashSet<string> _seenInputNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            private readonly HashSet<string> _seenInputAddresses = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             private readonly HashSet<string> _seenOutputNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            private readonly HashSet<string> _seenOutputAddresses = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             public void Scan(object root)
             {
                 Visit(root, "", 0);
+                AddConfiguredInputs();
                 AddConfiguredOutputs();
-                Inputs.Sort((a, b) => string.Compare(a.Name, b.Name, StringComparison.Ordinal));
-                Outputs.Sort((a, b) => string.Compare(a.Name, b.Name, StringComparison.Ordinal));
+                Inputs.Sort(CompareInput);
+                Outputs.Sort(CompareOutput);
             }
 
             private void Visit(object obj, string path, int depth)
@@ -319,35 +327,92 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             private void AddInput(BaseDigitalInput port, string path)
             {
                 if (!_seenInputs.Add(port)) return;
+                DioDefault catalog = AjinIoCatalog.FindInput(port.Name);
+                if (catalog == null && port is AjinDigitalInput)
+                    catalog = AjinIoCatalog.FindInput(port.Setup.ModuleNo, port.Setup.BitNo);
+                if (catalog == null) return;
+
+                DioMap map = null;
+                if (AjinConfigStore.Current != null &&
+                    AjinConfigStore.Current.DigitalInputs != null)
+                {
+                    AjinConfigStore.Current.DigitalInputs.TryGetValue(catalog.Name, out map);
+                }
+
+                int module = map != null ? map.Module : port.Setup.ModuleNo;
+                int bit = map != null ? map.Bit : port.Setup.BitNo;
+                if (IsConfiguredInput(port, map) && !_seenInputAddresses.Add(AddressKey(module, bit))) return;
+
                 Inputs.Add(new IoItem<BaseDigitalInput>
                 {
-                    Name = DisplayName(path, port.Name),
-                    Module = port.Setup.ModuleNo,
-                    Bit = port.Setup.BitNo,
+                    No = catalog.No,
+                    Address = catalog.Address,
+                    Name = catalog.Name,
+                    Module = module,
+                    Bit = bit,
                     Port = port
                 });
+                _seenInputNames.Add(catalog.Name);
             }
 
             private void AddOutput(BaseDigitalOutput port, string path)
             {
                 if (!_seenOutputs.Add(port)) return;
-                var name = DisplayName(path, port.Name);
+                DioDefault catalog = AjinIoCatalog.FindOutput(port.Name);
+                if (catalog == null && port is AjinDigitalOutput)
+                    catalog = AjinIoCatalog.FindOutput(port.Setup.ModuleNo, port.Setup.BitNo);
+                if (catalog == null) return;
+
                 DioMap map = null;
                 if (AjinConfigStore.Current != null &&
                     AjinConfigStore.Current.DigitalOutputs != null)
                 {
-                    AjinConfigStore.Current.DigitalOutputs.TryGetValue(port.Name, out map);
+                    AjinConfigStore.Current.DigitalOutputs.TryGetValue(catalog.Name, out map);
                 }
+
+                int module = map != null ? map.Module : port.Setup.ModuleNo;
+                int bit = map != null ? map.Bit : port.Setup.BitNo;
+                if (IsConfiguredOutput(port, map) && !_seenOutputAddresses.Add(AddressKey(module, bit))) return;
 
                 Outputs.Add(new OutputTarget
                 {
-                    Name = name,
-                    Module = map != null ? map.Module : port.Setup.ModuleNo,
-                    Bit = map != null ? map.Bit : port.Setup.BitNo,
+                    No = catalog.No,
+                    Address = catalog.Address,
+                    Name = catalog.Name,
+                    Module = module,
+                    Bit = bit,
                     Nc = map != null ? map.Nc : port.Setup.IsNormallyClosed,
                     Port = port
                 });
-                _seenOutputNames.Add(port.Name);
+                _seenOutputNames.Add(catalog.Name);
+            }
+
+            private void AddConfiguredInputs()
+            {
+                var cfg = AjinConfigStore.Current;
+                if (cfg == null || cfg.DigitalInputs == null) return;
+
+                foreach (var catalog in AjinIoCatalog.DigitalInputs)
+                {
+                    DioMap map;
+                    if (!cfg.DigitalInputs.TryGetValue(catalog.Name, out map) || map == null)
+                        map = new DioMap { No = catalog.No, Address = catalog.Address, Module = catalog.Module, Bit = catalog.Bit, Nc = catalog.Nc };
+
+                    if (_seenInputNames.Contains(catalog.Name)) continue;
+                    if (!_seenInputAddresses.Add(AddressKey(map.Module, map.Bit))) continue;
+                    Inputs.Add(new IoItem<BaseDigitalInput>
+                    {
+                        No = catalog.No,
+                        Address = catalog.Address,
+                        Name = catalog.Name,
+                        Module = map.Module,
+                        Bit = map.Bit,
+                        Port = AjinSystem.IsOpen
+                            ? (BaseDigitalInput)new AjinDigitalInput(catalog.Name, map.Module, map.Bit, map.Nc)
+                            : null
+                    });
+                    _seenInputNames.Add(catalog.Name);
+                }
             }
 
             private void AddConfiguredOutputs()
@@ -355,28 +420,65 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 var cfg = AjinConfigStore.Current;
                 if (cfg == null || cfg.DigitalOutputs == null) return;
 
-                foreach (var kv in cfg.DigitalOutputs)
+                foreach (var catalog in AjinIoCatalog.DigitalOutputs)
                 {
-                    if (kv.Value == null) continue;
-                    if (_seenOutputNames.Contains(kv.Key)) continue;
+                    DioMap map;
+                    if (!cfg.DigitalOutputs.TryGetValue(catalog.Name, out map) || map == null)
+                        map = new DioMap { No = catalog.No, Address = catalog.Address, Module = catalog.Module, Bit = catalog.Bit, Nc = catalog.Nc };
+
+                    if (_seenOutputNames.Contains(catalog.Name)) continue;
+                    if (!_seenOutputAddresses.Add(AddressKey(map.Module, map.Bit))) continue;
                     Outputs.Add(new OutputTarget
                     {
-                        Name = kv.Key,
-                        Module = kv.Value.Module,
-                        Bit = kv.Value.Bit,
-                        Nc = kv.Value.Nc,
+                        No = catalog.No,
+                        Address = catalog.Address,
+                        Name = catalog.Name,
+                        Module = map.Module,
+                        Bit = map.Bit,
+                        Nc = map.Nc,
                         Port = AjinSystem.IsOpen
-                            ? (BaseDigitalOutput)new AjinDigitalOutput(kv.Key, kv.Value.Module, kv.Value.Bit, kv.Value.Nc)
+                            ? (BaseDigitalOutput)new AjinDigitalOutput(catalog.Name, map.Module, map.Bit, map.Nc)
                             : null
                     });
-                    _seenOutputNames.Add(kv.Key);
+                    _seenOutputNames.Add(catalog.Name);
                 }
             }
 
-            private static string DisplayName(string path, string name)
+            private static int CompareInput(IoItem<BaseDigitalInput> a, IoItem<BaseDigitalInput> b)
             {
-                if (string.IsNullOrEmpty(path)) return name;
-                return path + " (" + name + ")";
+                return CompareIo(a.No, a.Address, a.Name, b.No, b.Address, b.Name);
+            }
+
+            private static int CompareOutput(OutputTarget a, OutputTarget b)
+            {
+                return CompareIo(a.No, a.Address, a.Name, b.No, b.Address, b.Name);
+            }
+
+            private static int CompareIo(int noA, string addressA, string nameA, int noB, string addressB, string nameB)
+            {
+                if (noA > 0 && noB > 0)
+                    return noA.CompareTo(noB);
+                if (noA > 0) return -1;
+                if (noB > 0) return 1;
+
+                int addressCompare = string.Compare(addressA, addressB, StringComparison.OrdinalIgnoreCase);
+                if (addressCompare != 0) return addressCompare;
+                return string.Compare(nameA, nameB, StringComparison.OrdinalIgnoreCase);
+            }
+
+            private static bool IsConfiguredOutput(BaseDigitalOutput port, DioMap map)
+            {
+                return map != null || port is AjinDigitalOutput;
+            }
+
+            private static bool IsConfiguredInput(BaseDigitalInput port, DioMap map)
+            {
+                return map != null || port is AjinDigitalInput;
+            }
+
+            private static string AddressKey(int module, int bit)
+            {
+                return module.ToString() + ":" + bit.ToString();
             }
 
             private static string Join(string prefix, string name)

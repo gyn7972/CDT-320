@@ -78,7 +78,7 @@ namespace QMC.CDT320.Sim
         private void HookInput()
         {
             // ElevatorZ 이동 완료 → WaferDetectSensor 갱신
-            _input.ElevatorZ.MoveCompleted += _ => UpdateInputDetectFromPosition();
+            _input.WaferLifterZ.MoveCompleted += _ => UpdateInputDetectFromPosition();
 
             // FeederClampCyl InFwd ON ↔ WaferClampedSensor 동기화
             _input.FeederClampCyl.InFwd.StateChanged += (sensor, on) =>
@@ -89,7 +89,7 @@ namespace QMC.CDT320.Sim
 
         private void UpdateInputDetectFromPosition()
         {
-            double pos   = _input.ElevatorZ.ActualPosition;
+            double pos   = _input.WaferLifterZ.ActualPosition;
             double first = _input.Setup.FirstSlotPosition;
             int slot = (int)Math.Round((pos - first) / InputSlotPitchMm);
             bool has = (slot >= 0 && slot < InputSlotsHasWafer.Length) && InputSlotsHasWafer[slot];
@@ -101,7 +101,7 @@ namespace QMC.CDT320.Sim
         private void HookOutput()
         {
             // ElevatorZ 이동 완료 → 카세트별 슬롯 위치 환산 후 WaferDetectSensor 갱신
-            _output.ElevatorZ.MoveCompleted += _ => UpdateOutputDetectFromPosition();
+            _output.BinElevatorZ.MoveCompleted += _ => UpdateOutputDetectFromPosition();
 
             // FeederClampCyl InFwd ↔ WaferClampedSensor
             _output.FeederClampCyl.InFwd.StateChanged += (s, on) =>
@@ -112,7 +112,7 @@ namespace QMC.CDT320.Sim
 
         private void UpdateOutputDetectFromPosition()
         {
-            double pos = _output.ElevatorZ.ActualPosition;
+            double pos = _output.BinElevatorZ.ActualPosition;
             double pitch = _output.Setup.SlotPitchZ;
 
             // NG 카세트

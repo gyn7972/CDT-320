@@ -324,14 +324,39 @@ namespace QMC.CDT320
         /// <see cref="PickerComponent"/>를 초기화한다.
         /// </summary>
         /// <param name="pickerNo">피커 번호 (1~4). 이름 접두사에 사용된다.</param>
-        public PickerComponent(int pickerNo) : base("Picker" + pickerNo)
+        public PickerComponent(int pickerNo) : this(null, pickerNo)
         {
-            string prefix = "Picker" + pickerNo + "_";
+        }
+
+        public PickerComponent(string armName, int pickerNo) : base(BuildName(armName, pickerNo))
+        {
+            string prefix = Name + "_";
 
             PickerZ   = AjinFactory.CreateAxis(prefix + "Z");
             PickerT   = AjinFactory.CreateAxis(prefix + "T");
-            VacuumOut = AjinFactory.CreateDigitalOutput(prefix + "Vacuum");
-            BlowOut   = AjinFactory.CreateDigitalOutput(prefix + "Blow");
+            VacuumOut = AjinFactory.CreateDigitalOutput(PickerVacuum(armName, pickerNo));
+            BlowOut   = AjinFactory.CreateDigitalOutput(PickerBlow(armName, pickerNo));
+        }
+
+        private static string BuildName(string armName, int pickerNo)
+        {
+            if (string.IsNullOrWhiteSpace(armName))
+                return "Picker" + pickerNo;
+            return armName + "_Picker" + pickerNo;
+        }
+
+        private static DioDefault PickerVacuum(string armName, int pickerNo)
+        {
+            if (string.Equals(armName, "RightArm", StringComparison.OrdinalIgnoreCase))
+                return AjinIoCatalog.RearPickerVacuum(pickerNo);
+            return AjinIoCatalog.FrontPickerVacuum(pickerNo);
+        }
+
+        private static DioDefault PickerBlow(string armName, int pickerNo)
+        {
+            if (string.Equals(armName, "RightArm", StringComparison.OrdinalIgnoreCase))
+                return AjinIoCatalog.RearPickerBlow(pickerNo);
+            return AjinIoCatalog.FrontPickerBlow(pickerNo);
         }
 
         // ----------------------------------------------------------------------
@@ -525,7 +550,7 @@ namespace QMC.CDT320
             Pickers = new PickerComponent[4];
             for (int i = 0; i < 4; i++)
             {
-                Pickers[i] = new PickerComponent(i + 1);
+                Pickers[i] = new PickerComponent(armName, i + 1);
                 // Stage 29 — Picker Z/T SoftLimit 확장
                 Pickers[i].PickerZ.Setup.SoftLimitPlus  = 100.0;
                 Pickers[i].PickerT.Setup.SoftLimitPlus  = 360.0;

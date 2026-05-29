@@ -126,7 +126,7 @@ namespace QMC.CDT320
             var m = _machine;
 
             // Input side (0~7)
-            _axisMap[m.InputLoader.ElevatorZ]    = 0;   // WaferLifterZ
+            _axisMap[m.InputLoader.WaferLifterZ]    = 0;   // WaferLifterZ
             _axisMap[m.InputLoader.FeederY]      = 1;   // WaferFeederY
             _axisMap[m.InputStage.StageY]        = 2;   // WaferStageY
             _axisMap[m.InputStage.StageT]        = 3;   // WaferStageT
@@ -167,7 +167,7 @@ namespace QMC.CDT320
             _axisMap[m.OutputStage.NgStage.StageY]   = 33;   // BinNgY
             _axisMap[m.OutputStage.BinCameraX]       = 34;   // BinVisionX
             _axisMap[m.OutputUnloader.FeederY]       = 35;   // BinFeederY
-            _axisMap[m.OutputUnloader.ElevatorZ]     = 36;   // BinLifterZ
+            _axisMap[m.OutputUnloader.BinElevatorZ]     = 36;   // BinLifterZ
 
             // ─── DO 매핑 ──────────────────────────────
             _doMap[m.InputStage.NeedleVacuum] = "Y046";

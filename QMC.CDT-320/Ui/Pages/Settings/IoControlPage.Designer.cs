@@ -10,10 +10,14 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         private System.Windows.Forms.Label lblDoTitle;
         private System.Windows.Forms.DataGridView diGrid;
         private System.Windows.Forms.DataGridView doGrid;
+        private System.Windows.Forms.DataGridViewTextBoxColumn diNo;
+        private System.Windows.Forms.DataGridViewTextBoxColumn diAddress;
         private System.Windows.Forms.DataGridViewTextBoxColumn diName;
         private System.Windows.Forms.DataGridViewTextBoxColumn diModule;
         private System.Windows.Forms.DataGridViewTextBoxColumn diBit;
         private System.Windows.Forms.DataGridViewTextBoxColumn diState;
+        private System.Windows.Forms.DataGridViewTextBoxColumn doNo;
+        private System.Windows.Forms.DataGridViewTextBoxColumn doAddress;
         private System.Windows.Forms.DataGridViewTextBoxColumn doName;
         private System.Windows.Forms.DataGridViewTextBoxColumn doModule;
         private System.Windows.Forms.DataGridViewTextBoxColumn doBit;
@@ -40,11 +44,15 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this.lblDiTitle = new System.Windows.Forms.Label();
             this.lblDoTitle = new System.Windows.Forms.Label();
             this.diGrid = new System.Windows.Forms.DataGridView();
+            this.diNo = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.diAddress = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.diName = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.diModule = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.diBit = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.diState = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.doGrid = new System.Windows.Forms.DataGridView();
+            this.doNo = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.doAddress = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.doName = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.doModule = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.doBit = new System.Windows.Forms.DataGridViewTextBoxColumn();
@@ -127,6 +135,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this.diGrid.ColumnHeadersDefaultCellStyle = dataGridViewCellStyle1;
             this.diGrid.ColumnHeadersHeight = 29;
             this.diGrid.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
+            this.diNo,
+            this.diAddress,
             this.diName,
             this.diModule,
             this.diBit,
@@ -143,6 +153,22 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this.diGrid.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
             this.diGrid.Size = new System.Drawing.Size(690, 760);
             this.diGrid.TabIndex = 4;
+            // 
+            // diNo
+            // 
+            this.diNo.FillWeight = 45F;
+            this.diNo.HeaderText = "NO";
+            this.diNo.MinimumWidth = 6;
+            this.diNo.Name = "diNo";
+            this.diNo.ReadOnly = true;
+            // 
+            // diAddress
+            // 
+            this.diAddress.FillWeight = 70F;
+            this.diAddress.HeaderText = "ADDR";
+            this.diAddress.MinimumWidth = 6;
+            this.diAddress.Name = "diAddress";
+            this.diAddress.ReadOnly = true;
             // 
             // diName
             // 
@@ -188,6 +214,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this.doGrid.ColumnHeadersDefaultCellStyle = dataGridViewCellStyle2;
             this.doGrid.ColumnHeadersHeight = 29;
             this.doGrid.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
+            this.doNo,
+            this.doAddress,
             this.doName,
             this.doModule,
             this.doBit,
@@ -204,6 +232,22 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this.doGrid.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
             this.doGrid.Size = new System.Drawing.Size(690, 760);
             this.doGrid.TabIndex = 5;
+            // 
+            // doNo
+            // 
+            this.doNo.FillWeight = 45F;
+            this.doNo.HeaderText = "NO";
+            this.doNo.MinimumWidth = 6;
+            this.doNo.Name = "doNo";
+            this.doNo.ReadOnly = true;
+            // 
+            // doAddress
+            // 
+            this.doAddress.FillWeight = 70F;
+            this.doAddress.HeaderText = "ADDR";
+            this.doAddress.MinimumWidth = 6;
+            this.doAddress.Name = "doAddress";
+            this.doAddress.ReadOnly = true;
             // 
             // doName
             // 

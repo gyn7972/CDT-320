@@ -18,12 +18,12 @@ namespace QMC.CDT320
 
         public ResourceSensorsUnit()
         {
-            MainCda1Check    = AjinFactory.CreateDigitalInput("MainCda1Check");
-            MainCda2Check    = AjinFactory.CreateDigitalInput("MainCda2Check");
-            MainVacuum1Check = AjinFactory.CreateDigitalInput("MainVacuum1Check");
-            MainVacuum2Check = AjinFactory.CreateDigitalInput("MainVacuum2Check");
-            MainVacuum3Check = AjinFactory.CreateDigitalInput("MainVacuum3Check");
-            MainVacuum4Check = AjinFactory.CreateDigitalInput("MainVacuum4Check");
+            MainCda1Check    = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.MainCDA1Check);
+            MainCda2Check    = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.MainCDA2Check);
+            MainVacuum1Check = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.MainVacuum1Check);
+            MainVacuum2Check = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.MainVacuum2Check);
+            MainVacuum3Check = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.MainVacuum3Check);
+            MainVacuum4Check = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.MainVacuum4Check);
         }
 
         /// <summary>모든 CDA 라인 정상 (양쪽 모두 ON).</summary>

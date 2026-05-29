@@ -201,7 +201,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             var L = new List<TeachItem>();
 
             // ── InputLoader ────────────────────────────────────────────
-            L.Add(new TeachItem { Group="InputLoader", Key="FirstSlotPosition",   Name="첫 슬롯 Z 위치",        Axis="#00 WaferLifterZ", Value=10.0,  Unit="mm",  Desc="카세트 슬롯 0번 ElevatorZ 절대 위치" });
+            L.Add(new TeachItem { Group="InputLoader", Key="FirstSlotPosition",   Name="첫 슬롯 Z 위치",        Axis="#00 WaferLifterZ", Value=10.0,  Unit="mm",  Desc= "카세트 슬롯 0번 WaferLifterZ 절대 위치" });
             L.Add(new TeachItem { Group="InputLoader", Key="ExchangePositionY",   Name="교환 Y 위치",            Axis="#01 WaferFeederY", Value=150.0, Unit="mm",  Desc="피더가 InputStage 입구로 전진하는 Y" });
 
             // ── InputStage ─────────────────────────────────────────────

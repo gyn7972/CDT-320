@@ -19,8 +19,8 @@ namespace QMC.CDT320
         public PostPnpTransferUnit()
         {
             PnpZ      = AjinFactory.CreateAxis("PostPnp_Z");
-            PnpVacuum = AjinFactory.CreateDigitalOutput("PostPnp_Vacuum");
-            PnpPickOk = AjinFactory.CreateDigitalInput("PostPnp_PickOk");
+            PnpVacuum = AjinFactory.CreateDigitalOutput(AjinIoCatalog.Outputs.PostPnpVacuum);
+            PnpPickOk = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.PostPnpPickOk);
         }
 
         /// <summary>최종 픽업 — Z 하강 + 진공 + 안착 확인.</summary>

@@ -64,10 +64,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             var unloader = host.Machine.OutputUnloader;
             unloader.FeederY.ResetAlarm();
             unloader.FeederY.ServoOn();
-            unloader.ElevatorZ.ResetAlarm();
-            unloader.ElevatorZ.ServoOn();
+            unloader.BinElevatorZ.ResetAlarm();
+            unloader.BinElevatorZ.ServoOn();
             await unloader.FeederY.HomeSearchAsync();
-            await unloader.ElevatorZ.HomeSearchAsync();
+            await unloader.BinElevatorZ.HomeSearchAsync();
         }
 
         private void RefreshData()
@@ -77,7 +77,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
             var unloader = host.Machine.OutputUnloader;
             lblFeederPos.Text = unloader.FeederY.ActualPosition.ToString("F3") + " mm";
-            lblElevatorPos.Text = unloader.ElevatorZ.ActualPosition.ToString("F3") + " mm";
+            lblElevatorPos.Text = unloader.BinElevatorZ.ActualPosition.ToString("F3") + " mm";
             lblClamp.Text = unloader.FeederClampCyl.IsFwd ? "CLAMPED" : (unloader.FeederClampCyl.IsBwd ? "OPEN" : "...");
             lblUpDown.Text = unloader.FeederUpDownCyl.IsFwd ? "DOWN" : (unloader.FeederUpDownCyl.IsBwd ? "UP" : "...");
             dotNg.IsOn = unloader.ExistSensor_NG.IsOn;

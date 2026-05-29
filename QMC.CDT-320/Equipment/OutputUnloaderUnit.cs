@@ -169,7 +169,7 @@ namespace QMC.CDT320
         /// NG / Good1 / Good2 3개 카세트 전체 높이를 커버한다.
         /// Z 이동 중에는 항상 <see cref="ProtrusionSensor"/>를 동시 감시해야 한다.
         /// </summary>
-        public BaseAxis ElevatorZ { get; private set; }
+        public BaseAxis BinElevatorZ { get; private set; }
 
         /// <summary>
         /// 피더 Y축.<br/>
@@ -253,7 +253,7 @@ namespace QMC.CDT320
         public OutputUnloaderUnit() : base("OutputUnloaderUnit")
         {
             // ── Motion Axes ─────────────────────────────────────────────────
-            ElevatorZ = AjinFactory.CreateAxis("OutputUnloader_ElevatorZ");
+            BinElevatorZ = AjinFactory.CreateAxis("WaferLifterZ");
             FeederY   = AjinFactory.CreateAxis("OutputUnloader_FeederY");
 
             // Stage 27 fix — Default SoftLimitPlus = 200mm 이지만
@@ -261,22 +261,22 @@ namespace QMC.CDT320
             //   ElevatorZ 는 Good2 카세트 마지막 슬롯 = 160 + 24*6 = 304mm 까지 이동
             //   따라서 안전 마진 포함 확장 (실보드 운영시 컨피그로 재정의 가능).
             FeederY  .Setup.SoftLimitPlus = 350.0;
-            ElevatorZ.Setup.SoftLimitPlus = 400.0;
+            BinElevatorZ.Setup.SoftLimitPlus = 400.0;
 
             // ── Sensors (DI) ─────────────────────────────────────────────────
-            ExistSensor_NG    = AjinFactory.CreateDigitalInput("OutputUnloader_ExistSensor_NG");
-            ExistSensor_Good1 = AjinFactory.CreateDigitalInput("OutputUnloader_ExistSensor_Good1");
-            ExistSensor_Good2 = AjinFactory.CreateDigitalInput("OutputUnloader_ExistSensor_Good2");
-            ProtrusionSensor  = AjinFactory.CreateDigitalInput("OutputUnloader_ProtrusionSensor");
-            WaferDetectSensor = AjinFactory.CreateDigitalInput("OutputUnloader_WaferDetectSensor");
-            WaferClampedSensor = AjinFactory.CreateDigitalInput("OutputUnloader_WaferClampedSensor");
+            ExistSensor_NG    = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.NgBin8CassetteCheck0);
+            ExistSensor_Good1 = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.GoodBin8CassetteCheck0);
+            ExistSensor_Good2 = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.GoodBin8CassetteCheck1);
+            ProtrusionSensor  = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.BinRingJUTCheck);
+            WaferDetectSensor = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.BinMapping);
+            WaferClampedSensor = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.BinFeederUnclamp);
 
             // ── Cylinders ────────────────────────────────────────────────────
-            FeederUpDownCyl = AjinFactory.CreateCylinder("OutputUnloader_FeederUpDownCyl");
-            FeederClampCyl  = AjinFactory.CreateCylinder("OutputUnloader_FeederClampCyl");
+            FeederUpDownCyl = AjinFactory.CreateCylinder(AjinIoCatalog.CylinderRefs.BinFeederUpDownCyl);
+            FeederClampCyl  = AjinFactory.CreateCylinder(AjinIoCatalog.CylinderRefs.BinFeederClampCyl);
 
             // ── Composite 트리 등록 ──────────────────────────────────────────
-            Components.Add(ElevatorZ);
+            Components.Add(BinElevatorZ);
             Components.Add(FeederY);
             Components.Add(ExistSensor_NG);
             Components.Add(ExistSensor_Good1);
@@ -385,7 +385,7 @@ namespace QMC.CDT320
             // ── 이동 전 선제 돌출 확인 ────────────────────────────────────────
             if (ProtrusionSensor.IsOn)
             {
-                ElevatorZ.EStop();
+                BinElevatorZ.EStop();
                 string preMsg =
                     "[ALARM] '" + Name + "' -> ElevatorMove: 이동 전 돌출 감지! E-Stop 실행.";
                 Console.WriteLine(preMsg);
@@ -395,7 +395,7 @@ namespace QMC.CDT320
             using (var cts = new CancellationTokenSource())
             {
                 // 이동 Task
-                Task moveTask = ElevatorZ.MoveAbsoluteAsync(targetPositionZ, velocity);
+                Task moveTask = BinElevatorZ.MoveAbsoluteAsync(targetPositionZ, velocity);
 
                 // 돌출 감시 Task: 10ms 주기로 ProtrusionSensor를 폴링하다가
                 // ON이 감지되면 즉시 true를 반환한다.
@@ -425,7 +425,7 @@ namespace QMC.CDT320
                 else
                 {
                     // ── 이상: 돌출 감지가 먼저 → 즉시 E-Stop ─────────────────
-                    ElevatorZ.EStop();
+                    BinElevatorZ.EStop();
                     cts.Cancel();
                     await moveTask.ContinueWith(_ => { }); // 이동 Task 정리 대기
 
@@ -437,17 +437,17 @@ namespace QMC.CDT320
             }
 
             // ── 이동 완료 후 축 알람 확인 ────────────────────────────────────
-            if (ElevatorZ.IsAlarm)
+            if (BinElevatorZ.IsAlarm)
             {
                 string alarmMsg =
-                    "[ALARM] '" + Name + "' -> ElevatorMove: ElevatorZ 이동 실패 (축 알람).";
+                    "[ALARM] '" + Name + "' -> ElevatorMove: BinLifterZ 이동 실패 (축 알람).";
                 Console.WriteLine(alarmMsg);
                 throw new InvalidOperationException(alarmMsg);
             }
 
             Console.WriteLine(
-                "[INFO]  '" + Name + "' -> ElevatorZ 이동 완료: " +
-                ElevatorZ.ActualPosition.ToString("F3") + "mm");
+                "[INFO]  '" + Name + "' -> BinLifterZ 이동 완료: " +
+                BinElevatorZ.ActualPosition.ToString("F3") + "mm");
         }
 
         // ======================================================================
@@ -763,7 +763,7 @@ namespace QMC.CDT320
 
             Console.WriteLine(
                 "[INFO]  '" + Name + "' -> StoreFullWafer: 웨이퍼 픽업 완료. " +
-                "ElevatorZ → [" + target + "] Slot[" + slotIndex + "] 이동 중...");
+                "BinLifterZ → [" + target + "] Slot[" + slotIndex + "] 이동 중...");
 
             // ── Step 2-2. ElevatorZ → 타겟 슬롯 위치 (돌출 감시 포함) ─────────
             double slotZ = GetSlotPositionZ(target, slotIndex);
@@ -835,7 +835,7 @@ namespace QMC.CDT320
             double slotZ = GetSlotPositionZ(source, slotIndex);
 
             Console.WriteLine(
-                "[INFO]  '" + Name + "' -> SupplyEmptyWafer: ElevatorZ → [" +
+                "[INFO]  '" + Name + "' -> SupplyEmptyWafer: BinLifterZ → [" +
                 source + "] Slot[" + slotIndex + "] 이동 중...");
 
             try

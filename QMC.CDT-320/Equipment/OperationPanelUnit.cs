@@ -35,24 +35,24 @@ namespace QMC.CDT320
         public OperationPanelUnit()
         {
             // DI
-            StartButton = AjinFactory.CreateDigitalInput("StartButton");
-            StopButton  = AjinFactory.CreateDigitalInput("StopButton");
-            ResetButton = AjinFactory.CreateDigitalInput("ResetButton");
-            EmgFront    = AjinFactory.CreateDigitalInput("EmgFront");
-            EmgLeft     = AjinFactory.CreateDigitalInput("EmgLeft");
-            EmgRear     = AjinFactory.CreateDigitalInput("EmgRear");
-            OpEmgOn     = AjinFactory.CreateDigitalInput("OpEmgOn");
+            StartButton = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.StartButton);
+            StopButton  = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.StopButton);
+            ResetButton = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.ResetButton);
+            EmgFront    = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.ElecEmgOn);
+            EmgLeft     = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.RightEmgOn);
+            EmgRear     = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.RearEmgOn);
+            OpEmgOn     = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.OpEmgOn);
 
             // DO
-            StartLamp = AjinFactory.CreateDigitalOutput("StartLamp");
-            StopLamp  = AjinFactory.CreateDigitalOutput("StopLamp");
-            ResetLamp = AjinFactory.CreateDigitalOutput("ResetLamp");
+            StartLamp = AjinFactory.CreateDigitalOutput(AjinIoCatalog.Outputs.StartLamp);
+            StopLamp  = AjinFactory.CreateDigitalOutput(AjinIoCatalog.Outputs.StopLamp);
+            ResetLamp = AjinFactory.CreateDigitalOutput(AjinIoCatalog.Outputs.ResetLamp);
 
-            TlRed     = AjinFactory.CreateDigitalOutput("TlRed");
-            TlYellow  = AjinFactory.CreateDigitalOutput("TlYellow");
-            TlGreen   = AjinFactory.CreateDigitalOutput("TlGreen");
+            TlRed     = AjinFactory.CreateDigitalOutput(AjinIoCatalog.Outputs.TlRed);
+            TlYellow  = AjinFactory.CreateDigitalOutput(AjinIoCatalog.Outputs.TlYellow);
+            TlGreen   = AjinFactory.CreateDigitalOutput(AjinIoCatalog.Outputs.TlGreen);
 
-            Buzzer    = AjinFactory.CreateDigitalOutput("Buzzer");
+            Buzzer    = AjinFactory.CreateDigitalOutput(AjinIoCatalog.Outputs.Buzzer);
         }
 
         // ─── 헬퍼 메서드 ─────────────────────────────────────────────

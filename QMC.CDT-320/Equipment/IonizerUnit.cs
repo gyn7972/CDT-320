@@ -14,8 +14,8 @@ namespace QMC.CDT320
 
         public IonizerUnit()
         {
-            IonizerOk = AjinFactory.CreateDigitalInput("IonizerOk");
-            IonizerOn = AjinFactory.CreateDigitalOutput("IonizerOn");
+            IonizerOk = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.WaferLifterIonizerAlarm);
+            IonizerOn = AjinFactory.CreateDigitalOutput(AjinIoCatalog.Outputs.IonizerOn);
         }
 
         public void TurnOn()  { IonizerOn.On();  }

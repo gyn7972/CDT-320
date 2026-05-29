@@ -78,7 +78,7 @@ namespace QMC.CDT320
         /// 카세트 엘리베이터 Z축.<br/>
         /// 카세트를 상하로 이동시켜 목표 슬롯을 피더 높이에 정렬한다.
         /// </summary>
-        public BaseAxis ElevatorZ { get; private set; }
+        public BaseAxis WaferLifterZ { get; private set; }
 
         /// <summary>
         /// 웨이퍼 피더 Y축.<br/>
@@ -143,21 +143,21 @@ namespace QMC.CDT320
         public InputLoaderUnit() : base("InputLoaderUnit")
         {
             // ── Motion Axes ────────────────────────────────────────────────
-            ElevatorZ = AjinFactory.CreateAxis("ElevatorZ");
+            WaferLifterZ = AjinFactory.CreateAxis("WaferLifterZ");
             FeederY   = AjinFactory.CreateAxis("FeederY");
 
             // ── Sensors (DI) ───────────────────────────────────────────────
-            CassetteExistSensor = AjinFactory.CreateDigitalInput("CassetteExistSensor");
-            ProtrusionSensor    = AjinFactory.CreateDigitalInput("ProtrusionSensor");
-            WaferDetectSensor   = AjinFactory.CreateDigitalInput("WaferDetectSensor");
-            WaferClampedSensor  = AjinFactory.CreateDigitalInput("WaferClampedSensor");
+            CassetteExistSensor = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.Wafer8CassetteCheck0);
+            ProtrusionSensor    = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.WaferRingJUTCheck);
+            WaferDetectSensor   = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.WaferMapping);
+            WaferClampedSensor  = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.WaferFeederUpClamp);
 
             // ── Cylinders ──────────────────────────────────────────────────
-            FeederUpDownCyl = AjinFactory.CreateCylinder("FeederUpDownCyl");
-            FeederClampCyl  = AjinFactory.CreateCylinder("FeederClampCyl");
+            FeederUpDownCyl = AjinFactory.CreateCylinder(AjinIoCatalog.CylinderRefs.WaferFeederUpDownCyl);
+            FeederClampCyl  = AjinFactory.CreateCylinder(AjinIoCatalog.CylinderRefs.WaferFeederClampCyl);
 
             // ── Composite 트리 등록 ────────────────────────────────────────
-            Components.Add(ElevatorZ);
+            Components.Add(WaferLifterZ);
             Components.Add(FeederY);
             Components.Add(CassetteExistSensor);
             Components.Add(ProtrusionSensor);
@@ -176,7 +176,7 @@ namespace QMC.CDT320
         /// <summary>
         /// 카세트 전체 슬롯을 스캔하여 웨이퍼 맵을 생성한다.<br/>
         /// 인터락: <see cref="CassetteExistSensor"/>가 OFF이면 즉시 false 반환.<br/>
-        /// 동작: <see cref="ElevatorZ"/>를 첫 슬롯 위치부터 <paramref name="slotPitch"/>씩
+        /// 동작: <see cref="WaferLifterZ"/>를 첫 슬롯 위치부터 <paramref name="slotPitch"/>씩
         /// 상승시키며 <see cref="WaferDetectSensor"/> 상태를 읽어 맵 배열을 채운다.
         /// </summary>
         /// <param name="maxSlots">카세트 최대 슬롯 수</param>
@@ -196,11 +196,11 @@ namespace QMC.CDT320
             var map = new List<bool>();
 
             // ── 첫 슬롯 위치로 이동 ───────────────────────────────────────
-            await ElevatorZ.MoveAbsoluteAsync(Setup.FirstSlotPosition, Recipe.ScanVelocity);
+            await WaferLifterZ.MoveAbsoluteAsync(Setup.FirstSlotPosition, Recipe.ScanVelocity);
 
-            if (ElevatorZ.IsAlarm)
+            if (WaferLifterZ.IsAlarm)
             {
-                Console.WriteLine($"[ALARM] '{Name}' ? ScanCassette: ElevatorZ 이동 실패 (슬롯 0).");
+                Console.WriteLine($"[ALARM] '{Name}' ? ScanCassette: WaferLifterZ 이동 실패 (슬롯 0).");
                 return false;
             }
 
@@ -210,11 +210,11 @@ namespace QMC.CDT320
                 // 첫 슬롯은 이미 위치해 있으므로, 두 번째 슬롯부터 상대 이동
                 if (i > 0)
                 {
-                    await ElevatorZ.MoveRelativeAsync(slotPitch, Recipe.ScanVelocity);
+                    await WaferLifterZ.MoveRelativeAsync(slotPitch, Recipe.ScanVelocity);
 
-                    if (ElevatorZ.IsAlarm)
+                    if (WaferLifterZ.IsAlarm)
                     {
-                        Console.WriteLine($"[ALARM] '{Name}' ? ScanCassette: ElevatorZ 이동 실패 (슬롯 {i}).");
+                        Console.WriteLine($"[ALARM] '{Name}' ? ScanCassette: WaferLifterZ 이동 실패 (슬롯 {i}).");
                         return false;
                     }
                 }
@@ -251,7 +251,7 @@ namespace QMC.CDT320
             // ── 이동 전 돌출 인터락 확인 ──────────────────────────────────
             if (ProtrusionSensor.IsOn)
             {
-                ElevatorZ.EStop();
+                WaferLifterZ.EStop();
                 string msg = $"[ALARM] '{Name}' ? MoveToTargetSlot: 이동 전 돌출 센서 감지! EStop 실행.";
                 Console.WriteLine(msg);
                 throw new InvalidOperationException(msg);
@@ -261,7 +261,7 @@ namespace QMC.CDT320
             using (var cts = new CancellationTokenSource())
             {
                 // 이동 태스크
-                Task moveTask = ElevatorZ.MoveAbsoluteAsync(targetPosition);
+                Task moveTask = WaferLifterZ.MoveAbsoluteAsync(targetPosition);
 
                 // 돌출 센서 감시 태스크: 10ms 주기로 폴링
                 Task<bool> watchTask = Task.Run(async () =>
@@ -287,7 +287,7 @@ namespace QMC.CDT320
                 else
                 {
                     // 돌출 감지가 먼저 → 즉시 비상 정지
-                    ElevatorZ.EStop();
+                    WaferLifterZ.EStop();
                     cts.Cancel();
                     await moveTask.ContinueWith(_ => { }); // 이동 태스크 정리 대기
 
@@ -298,15 +298,15 @@ namespace QMC.CDT320
             }
 
             // ── 이동 후 축 알람 확인 ──────────────────────────────────────
-            if (ElevatorZ.IsAlarm)
+            if (WaferLifterZ.IsAlarm)
             {
-                string msg = $"[ALARM] '{Name}' ? MoveToTargetSlot: ElevatorZ 이동 실패 (알람 발생).";
+                string msg = $"[ALARM] '{Name}' ? MoveToTargetSlot: WaferLifterZ 이동 실패 (알람 발생).";
                 Console.WriteLine(msg);
                 throw new InvalidOperationException(msg);
             }
 
             Console.WriteLine(
-                $"[INFO]  '{Name}' ? 슬롯 위치 이동 완료: {ElevatorZ.ActualPosition:F3}mm");
+                $"[INFO]  '{Name}' ? 슬롯 위치 이동 완료: {WaferLifterZ.ActualPosition:F3}mm");
         }
 
         /// <summary>

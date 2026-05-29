@@ -201,26 +201,54 @@ namespace QMC.CDT320.Ajin
         //  Digital IO
         // ──────────────────────────────────────
 
+        [Obsolete("Use AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.xxx). I/O must be registered only in AjinIoCatalog.", true)]
         public static BaseDigitalInput CreateDigitalInput(string name, int? module = null, int? bit = null, bool nc = false)
         {
+            DioDefault catalog = AjinIoCatalog.FindInput(name);
+            if (catalog == null)
+                return new SimDigitalInput(name);
+
+            return CreateDigitalInput(catalog);
+        }
+
+        public static BaseDigitalInput CreateDigitalInput(DioDefault catalog)
+        {
+            if (catalog == null)
+                return new SimDigitalInput("UnregisteredInput");
+
+            string name = catalog.Name;
             if (Ready)
             {
-                if (module.HasValue && bit.HasValue)
-                    return new AjinDigitalInput(name, module.Value, bit.Value, nc);
-                if (Cfg.DigitalInputs.TryGetValue(name, out var m))
+                DioMap m;
+                if (Cfg.DigitalInputs.TryGetValue(name, out m))
                     return new AjinDigitalInput(name, m.Module, m.Bit, m.Nc);
+                return new AjinDigitalInput(name, catalog.Module, catalog.Bit, catalog.Nc);
             }
             return new SimDigitalInput(name);
         }
 
+        [Obsolete("Use AjinFactory.CreateDigitalOutput(AjinIoCatalog.Outputs.xxx). I/O must be registered only in AjinIoCatalog.", true)]
         public static BaseDigitalOutput CreateDigitalOutput(string name, int? module = null, int? bit = null, bool nc = false)
         {
+            DioDefault catalog = AjinIoCatalog.FindOutput(name);
+            if (catalog == null)
+                return new SimDigitalOutput(name);
+
+            return CreateDigitalOutput(catalog);
+        }
+
+        public static BaseDigitalOutput CreateDigitalOutput(DioDefault catalog)
+        {
+            if (catalog == null)
+                return new SimDigitalOutput("UnregisteredOutput");
+
+            string name = catalog.Name;
             if (Ready)
             {
-                if (module.HasValue && bit.HasValue)
-                    return new AjinDigitalOutput(name, module.Value, bit.Value, nc);
-                if (Cfg.DigitalOutputs.TryGetValue(name, out var m))
+                DioMap m;
+                if (Cfg.DigitalOutputs.TryGetValue(name, out m))
                     return new AjinDigitalOutput(name, m.Module, m.Bit, m.Nc);
+                return new AjinDigitalOutput(name, catalog.Module, catalog.Bit, catalog.Nc);
             }
             return new SimDigitalOutput(name);
         }
@@ -233,11 +261,26 @@ namespace QMC.CDT320.Ajin
         /// Cylinder — 컨피그의 cylinders 항목 우선. 없으면 <c>{name}_OutFwd/OutBwd/InFwd/InBwd</c>
         /// 를 DIO 맵에서 조회. 그래도 없으면 Sim.
         /// </summary>
+        [Obsolete("Use AjinFactory.CreateCylinder(AjinIoCatalog.CylinderRefs.xxx). I/O must be registered only in AjinIoCatalog.", true)]
         public static BaseCylinder CreateCylinder(string name, bool singleSolenoid = false)
         {
+            CylinderDefault catalog = AjinIoCatalog.FindCylinder(name);
+            if (catalog == null)
+                return new SimCylinder(name);
+
+            return CreateCylinder(catalog, singleSolenoid);
+        }
+
+        public static BaseCylinder CreateCylinder(CylinderDefault catalog, bool singleSolenoid = false)
+        {
+            if (catalog == null)
+                return new SimCylinder("UnregisteredCylinder");
+
+            string name = catalog.Name;
             if (Ready)
             {
-                if (Cfg.Cylinders.TryGetValue(name, out var cy))
+                CylMap cy;
+                if (Cfg.Cylinders.TryGetValue(name, out cy))
                 {
                     return new AjinCylinder(name,
                         (cy.OutFwd.Module, cy.OutFwd.Bit),
@@ -246,16 +289,13 @@ namespace QMC.CDT320.Ajin
                         (cy.InBwd .Module, cy.InBwd .Bit),
                         cy.SingleSolenoid || singleSolenoid);
                 }
-                if (TryFindDio(name + "_OutFwd", out var oF) &&
-                    TryFindDio(name + "_OutBwd", out var oB) &&
-                    TryFindDio(name + "_InFwd",  out var iF) &&
-                    TryFindDio(name + "_InBwd",  out var iB))
-                {
-                    return new AjinCylinder(name,
-                        (oF.Module, oF.Bit), (oB.Module, oB.Bit),
-                        (iF.Module, iF.Bit), (iB.Module, iB.Bit),
-                        singleSolenoid);
-                }
+
+                return new AjinCylinder(name,
+                    (catalog.OutFwd.Module, catalog.OutFwd.Bit),
+                    (catalog.OutBwd.Module, catalog.OutBwd.Bit),
+                    (catalog.InFwd.Module, catalog.InFwd.Bit),
+                    (catalog.InBwd.Module, catalog.InBwd.Bit),
+                    catalog.SingleSolenoid || singleSolenoid);
             }
             return new SimCylinder(name);
         }
