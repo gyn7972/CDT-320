@@ -1,3 +1,4 @@
+using System;
 using System.Threading.Tasks;
 using QMC.Common.Motion;
 using QMC.Common.Motion.Ajin;
@@ -56,27 +57,77 @@ namespace QMC.CDT320.Ajin
 
         public override async Task MoveAbsoluteAsync(double targetPos, double velocity = 0)
         {
-            if (!IsServoOn || IsAlarm || !AjinSystem.IsOpen) return;
+            try
+            {
+                if (!IsServoOn || IsAlarm || !AjinSystem.IsOpen)
+                    return;
 
-            double vel = velocity > 0 ? velocity : Config.DefaultVelocity;
-            CommandPosition = targetPos;
-            CurrentVelocity = vel;
-            IsMoving = true;
-            IsInPosition = false;
+                UpdateStatus();
 
-            int ret;
-            lock (_sync)
-                ret = AXM.MovePosition(AxisNo, targetPos, vel, Config.Acceleration, Config.Deceleration);
-            if (ret != 0)
+                double vel = velocity > 0 ? velocity : Config.DefaultVelocity;
+                CommandPosition = targetPos;
+                CurrentVelocity = vel;
+                IsMoving = true;
+                IsInPosition = false;
+
+                int ret;
+                lock (_sync)
+                    ret = AXM.MovePosition(AxisNo, targetPos, vel, Config.Acceleration, Config.Deceleration);
+                if (ret != 0)
+                {
+                    IsMoving = false;
+                    IsAlarm = true;
+                    AlarmCode = (uint)ret;
+                    return;
+                }
+
+                RaiseMoveStarted();
+                await WaitUntilMoveDone();
+            }
+            catch (Exception ex)
             {
                 IsMoving = false;
                 IsAlarm = true;
-                AlarmCode = (uint)ret;
-                return;
+                Alarms.AlarmManager.Raise(
+                    Alarms.AlarmSeverity.Error,
+                    "AX-MOVE-ABS",
+                    Name,
+                    ex.Message);
             }
+            finally
+            {
+                UpdateStatus();
+            }
+        }
 
-            RaiseMoveStarted();
-            await WaitUntilMoveDone();
+        public override async Task MoveRelativeAsync(double distance, double velocity = 0)
+        {
+            try
+            {
+                if (!AjinSystem.IsOpen)
+                {
+                    await base.MoveRelativeAsync(distance, velocity);
+                    return;
+                }
+
+                UpdateStatus();
+                double targetPos = ActualPosition + distance;
+                await MoveAbsoluteAsync(targetPos, velocity);
+            }
+            catch (Exception ex)
+            {
+                IsMoving = false;
+                IsAlarm = true;
+                Alarms.AlarmManager.Raise(
+                    Alarms.AlarmSeverity.Error,
+                    "AX-MOVE-REL",
+                    Name,
+                    ex.Message);
+            }
+            finally
+            {
+                UpdateStatus();
+            }
         }
 
         public override void Stop()
@@ -142,16 +193,78 @@ namespace QMC.CDT320.Ajin
 
         public override void MoveJogContinuous(int direction, JogSpeedType speedType, double customVel = 0)
         {
-            if (!IsServoOn || IsAlarm || !AjinSystem.IsOpen) return;
+            try
+            {
+                if (!IsServoOn || IsAlarm || !AjinSystem.IsOpen)
+                    return;
 
-            double vel = GetJogVelocity(speedType, customVel);
-            CurrentVelocity = vel;
-            IsMoving = true;
-            IsInPosition = false;
+                UpdateStatus();
 
-            lock (_sync)
-                AXM.MoveVelocity(AxisNo, direction * vel, Config.Acceleration, Config.Deceleration);
-            RaiseMoveStarted();
+                int jogDirection = direction < 0 ? -1 : 1;
+                double vel = GetJogVelocity(speedType, customVel);
+                double signedVel = jogDirection * Math.Abs(vel);
+                CurrentVelocity = signedVel;
+                IsMoving = true;
+                IsInPosition = false;
+
+                int ret;
+                lock (_sync)
+                    ret = AXM.MoveVelocity(AxisNo, signedVel, Config.Acceleration, Config.Deceleration);
+                if (ret != 0)
+                {
+                    IsMoving = false;
+                    IsAlarm = true;
+                    AlarmCode = (uint)ret;
+                    return;
+                }
+
+                RaiseMoveStarted();
+            }
+            catch (Exception ex)
+            {
+                IsMoving = false;
+                IsAlarm = true;
+                Alarms.AlarmManager.Raise(
+                    Alarms.AlarmSeverity.Error,
+                    "AX-JOG",
+                    Name,
+                    ex.Message);
+            }
+            finally
+            {
+                UpdateStatus();
+            }
+        }
+
+        public override async Task MoveJogStepAsync(int direction, JogSpeedType speedType,
+                                                   double stepDistance, double customVel = 0)
+        {
+            try
+            {
+                if (!IsServoOn || IsAlarm)
+                    return;
+
+                int jogDirection = direction < 0 ? -1 : 1;
+                double vel = GetJogVelocity(speedType, customVel);
+                double distance = jogDirection * Math.Abs(stepDistance);
+
+                UpdateStatus();
+                await MoveRelativeAsync(distance, vel);
+            }
+            catch (Exception ex)
+            {
+                IsMoving = false;
+                IsAlarm = true;
+                Alarms.AlarmManager.Raise(
+                    Alarms.AlarmSeverity.Error,
+                    "AX-JOG-STEP",
+                    Name,
+                    ex.Message);
+            }
+            finally
+            {
+                UpdateStatus();
+            }
         }
 
         public override void StopJog()
@@ -165,6 +278,7 @@ namespace QMC.CDT320.Ajin
             lock (_sync)
                 AXM.Stop(AxisNo, Config.Deceleration);
             base.StopJog();
+            UpdateStatus();
         }
 
         public override void UpdateStatus()
@@ -277,12 +391,24 @@ namespace QMC.CDT320.Ajin
         private async Task WaitUntilMoveDone()
         {
             int guard = 0;
-            while (IsMoving && !IsAlarm)
+            bool detectedMotion = false;
+            while (!IsAlarm)
             {
                 UpdateStatus();
+                if (IsMoving)
+                    detectedMotion = true;
+
+                if (detectedMotion && !IsMoving && IsInPosition)
+                    break;
+
+                if (!detectedMotion && guard > 20 && IsInPosition)
+                    break;
+
                 await Task.Delay(10).ContinueWith(_ => { });
                 if (++guard > 6000) break;
             }
+
+            UpdateStatus();
         }
     }
 }
