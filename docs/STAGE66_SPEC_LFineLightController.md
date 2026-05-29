@@ -13,19 +13,21 @@
 ### 목표
 LFine 디지털 조명 컨트롤러를 **시리얼(RS-232C)** 로 제어하는 **Vision 측 관리 클래스** 신설. Sim/실장비 동시 지원(BaseAxis 패턴), 비동기, 알람 통합.
 
-### 범위 (In Scope)
+### 범위 (In Scope) — 구현 Stage(67) 기준, **클래스 골격만** (#7 확정)
 - 클래스 골격: `ILightController` + `LFineLightController`(실장비) + `SimLightController` + `LightControllerFactory`
-- 시리얼 프로토콜 인코딩/디코딩 (`LFineProtocol`)
-- Config 모델 (`LFineLightConfig` / `LFineChannel`, JSON 영속화)
-- 알람 통합 (신규 LIGHT-* 코드)
-- UI 결선 (`IlluminatorPanel` 라이브 적용) — **확인 필요 #7 에 따라 범위 조정**
+- 시리얼 프로토콜 인코딩 (`LFineProtocol`) — 송신 전용(무응답, #4)
+- Config 모델 (`LFineLightConfig` / `LFineChannel`, JSON 영속화) — **2 컨트롤러 List** (#5)
+- 알람 통합 (신규 LIGHT-* 코드) — **Vision 로컬 raise** (#6)
 
 ### 범위 외 (Out of Scope)
-- **PS 변종** (`LFinePSDigitalIlluminator`) — 전용 Communicator 파일 부재 (M-66-1)
-- 검사별 조명 override (Stage 62/64 검사별 카메라 오버라이드와 동일 형태로 확장) — 별도 Stage
+- **UI 결선** (`IlluminatorPanel` 라이브 적용) — **클래스 골격만 결정(#7)** 이라 별도 Stage 로 분리
+- **PS 변종** (`LFinePSDigitalIlluminator`) — 무시 확정 (#1, M-66-1)
+- **응답 파싱** — 무응답 유지(#4)
+- **Handler 알람 배너 전파** — Vision 로컬만(#6); TCP 전파는 별도 Stage
+- 검사별 조명 override (Stage 62/64 형태 확장) — 별도 Stage
 - 하드웨어 실결선/실장비 검증 — 구현 Stage (모니터 2번 검증 규칙 적용)
 - 위치: `QMC.Vision\Optics\` (Vision 전용, 사용자 컨펌됨)
-- 본 Stage 는 **SPEC + CHECKLIST 까지만** — 코드 변경 없음
+- 본 Stage(66) 는 **SPEC + CHECKLIST 까지만** — 코드 변경 없음
 
 ---
 
@@ -225,14 +227,14 @@ public class LFineChannel
 
 ---
 
-## 13. 확인 필요 항목 (사용자 컨펌 요청)
-1. **PS 변종 범위** — `LFinePSDigitalIlluminatorCommunicator` 파일이 다른 backup 에 있는가? 없으면 LFineDigital(Strobe)만 대상 (현재 부재 확정).
-2. ~~Stx 값~~ — **0x02 확정** (코드 확인). 추가 확인 불요.
-3. **On/Off 명령 포맷** — Power=0 OFF 로 처리할지, 별도 명령이 있는지 (공급자 문서).
-4. **응답 포맷** — 무응답(fire-and-forget) 유지할지, `R{echo}`/`RERR` 매칭을 구현할지.
-5. **컨트롤러 개수** — 단일 / 매뉴얼 2개 / io_set 3포트 중? Config 단수 vs `List` 확정.
-6. ~~AlarmManager 직접 호출~~ — **가능 확정** (Stage 62 에서 Alarm을 QMC.Common 으로 이동, Vision 이 이미 호출 중).
-7. **UI 결선 범위** — 본 Stage(SPEC 다음 구현)가 IlluminatorPanel 라이브 결선까지 포함인지, 클래스 골격만인지.
+## 13. 확인 필요 항목 — **전부 확정됨 (2026-05-29 사용자 컨펌)**
+1. **PS 변종** → **무시** (범위 외 확정). LFineDigital(Strobe)만 대상.
+2. **Stx/Etx** → **0x02 / 0x03 확정** (코드 확인).
+3. **On/Off 명령** → **OFF = Power 0 전송**. 별도 On/Off 명령 없음. `SetOnOffAsync(ch,false)` = `SetPowerAsync(ch,0)`; `true` = 직전 저장 power 복원.
+4. **응답 포맷** → **무응답 유지** (fire-and-forget). `TryParseResponse` 미구현 (`Receive` 미사용).
+5. **컨트롤러 개수** → **2개**. Config = `List<LFineLightConfig>` 2개 (매뉴얼 Illuminator communicator 1·2). ⚠ io_set.json 의 COM1/2/3 8채널을 2 컨트롤러로 재매핑 필요 (구현 Stage, M-66-2).
+6. **AlarmManager 직접 호출** → **가능 확정** + **Vision 로컬 알람만** (Handler 배너 전파 안 함; 전파는 별도 Stage). 별개 프로세스라 Vision 자체 AlarmManager 에만 raise.
+7. **UI 결선 범위** → **클래스 골격만**. IlluminatorPanel 라이브 결선은 본 구현 Stage 범위 **외** (별도 Stage).
 
 ---
 

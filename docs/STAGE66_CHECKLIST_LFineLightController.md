@@ -3,28 +3,27 @@
 - **연계 SPEC**: `docs/STAGE66_SPEC_LFineLightController.md`
 - **작성일**: 2026-05-29
 - **상태**: SPEC + CHECKLIST 작성 단계 (구현 미진입 — 사용자 컨펌 대기)
-- **사전 조건**: SPEC §13 확인 필요 항목 1·3·4·5·7 해소 (#2·#6 은 코드로 해소됨)
+- **사전 조건**: SPEC §13 **전 항목 확정됨** (2026-05-29). 1=PS무시 / 2=Stx0x02·Etx0x03 / 3=OFF는Power0 / 4=무응답 / 5=컨트롤러2개(List) / 6=Vision로컬알람 / 7=클래스골격만(UI결선 제외)
 
-> ⚠ 표시 = SPEC §13 옵션 결정 의존. 위치: `QMC.Vision\Optics\`.
+> 위치: `QMC.Vision\Optics\`. UI 결선(F)은 #7 확정으로 **범위 외**.
 
 ## A. 인터페이스 / Sim
 - [ ] `Optics\ILightController.cs` — 6 멤버 (Connect/Disconnect/SetPower/SetStrobeTime/SetOnOff/GetPower/CheckPowerOn) + IsConnected/PortName/ChannelCount
 - [ ] `Optics\Sim\SimLightController.cs` — 캐시 + 로그, IsConnected=true, 0ms
 - [ ] `Optics\LightControllerFactory.cs` — `Create(LFineLightConfig, bool useSim)`
 
-## B. Config
+## B. Config (컨트롤러 2개 확정 — #5)
 - [ ] `Optics\LFine\LFineLightConfig.cs` — `LFineLightConfig` + `LFineChannel` DataContract (SPEC §5)
-- [ ] Load/Save 도우미 — `Config\lfine_light.json` ⚠ (#5: io_set.lightSource.json 통합 여부)
-- [ ] 구버전 호환 — io_set.lightSource.json(8채널/3포트) 마이그레이션 필요 시 가드
-- [ ] 다중 컨트롤러 ⚠ (#5) — 단수 vs `List<LFineLightConfig>` 확정 후 반영
+- [ ] **`List<LFineLightConfig>` 2개** (매뉴얼 Illuminator communicator 1·2) Load/Save — `Config\lfine_light.json`
+- [ ] io_set.lightSource.json(8채널/COM1·2·3) → **2 컨트롤러로 재매핑** (어느 채널이 컨트롤러 1/2 인지 구현 시 확정, M-66-2)
 
 ## C. Protocol (LFineProtocol — 정적)
 - [ ] `Optics\LFine\LFineProtocol.cs`
 - [ ] `BuildPowerCommand(ch, power)` → `"{ch}P{power:000}R"` (코드 확인 포맷)
 - [ ] `BuildStrobeTimeCommand(ch, us)` → `"{ch}T{us:000}R"`
-- [ ] `BuildOnOffCommand(ch, on)` ⚠ (#3: Power=0 OFF vs 별도 명령)
-- [ ] `WrapFrame(payload)` → `Stx(0x02) + payload + Etx(0x03)`
-- [ ] `TryParseResponse(bytes)` ⚠ (#4: 무응답 유지 시 no-op)
+- [ ] On/Off → **별도 명령 없음** (#3): `SetOnOffAsync(ch,false)`=`SetPowerAsync(ch,0)`, `true`=직전 저장 power 복원
+- [ ] `WrapFrame(payload)` → `Stx(0x02) + payload + Etx(0x03)` (#2 확정)
+- [ ] **응답 파싱 미구현** (#4 무응답) — `Receive`/`TryParseResponse` 생략
 - [ ] 단위 시험 — Send 문자열 byte 비교 (예 `1P200R` → 02 31 50 32 30 30 52 03)
 
 ## D. LFineLightController (실장비)
@@ -39,13 +38,8 @@
 - [ ] `QMC.Common\Alarms\AlarmMaster.cs` Vision 블록 끝에 6 LIGHT-* 코드 등록 (ko/en)
 - [ ] 호출 지점 라이브 검증 (Open/Timeout/NAK/Invalid/Tx/Range)
 
-## F. UI 결선 ⚠ (#7)
-- [ ] `IlluminatorPanel` 채널 수 가변 (Config.ChannelCount 기반)
-- [ ] 슬라이더 ValueChanged → 디바운스 → `SetPowerAsync`
-- [ ] On/Off 버튼 → `SetOnOffAsync`
-- [ ] 현재값/저장값 라벨 + Set/Save 버튼 (매뉴얼 동일)
-- [ ] 상태 라벨 (Connected / Sim / Open 실패)
-- [ ] Handler `LightControllerPage` Save→Reconnect 결선은 **보고만** (범위 외)
+## F. UI 결선 — **범위 외 (#7 클래스 골격만)** → 별도 Stage
+- IlluminatorPanel 채널 가변 / 슬라이더 라이브 적용 / On·Off 버튼 / 상태 라벨 / Handler LightControllerPage 결선 — 전부 후속 Stage 로 분리
 
 ## G. Sim 검증
 - [ ] Sim 모드 16채널 임의 시퀀스 → 알람 0 / 캐시값 일치
