@@ -247,8 +247,13 @@ namespace QMC.CDT320.Ajin
                 int jogDirection = direction < 0 ? -1 : 1;
                 double vel = GetJogVelocity(speedType, customVel);
                 double distance = jogDirection * Math.Abs(stepDistance);
+                if (distance == 0)
+                    return;
 
                 UpdateStatus();
+                if (IsMoving)
+                    return;
+
                 await MoveRelativeAsync(distance, vel);
             }
             catch (Exception ex)
