@@ -106,6 +106,7 @@
     <Compile Include="Comm\VisionTcpServer.cs" />
     <Compile Include="Comm\GrabStreamServer.cs" />
     <Compile Include="Tools\UiOverlapAuditor.cs" />
+    <Compile Include="Tools\CameraConnectTest.cs" />
     <Compile Include="Config\VisionConfig.cs" />
     <Compile Include="Config\AlgorithmCameraMap.cs" />
     <Compile Include="Config\AlgorithmCameraBinder.cs" />

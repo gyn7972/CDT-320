@@ -13,7 +13,7 @@ namespace QMC.Vision
         [STAThread]
         static int Main(string[] args)
         {
-            // ── 헤드리스 CLI 분기 (Single Instance Mutex 우회) ──
+            // ── 헤드리스 CLI 분기 (Single Instance Mutex 우회 — GUI 와 동시 실행 가능) ──
             if (args != null && args.Length > 0)
             {
                 for (int i = 0; i < args.Length; i++)
@@ -27,6 +27,28 @@ namespace QMC.Vision
                             return UiOverlapAuditor.Run();
                         }
                         catch (Exception ex) { Console.Error.WriteLine("FATAL: " + ex); return 99; }
+                    }
+                    if (string.Equals(args[i], "--cam-test", StringComparison.OrdinalIgnoreCase))
+                    {
+                        // --save <dir> 옵션 추출
+                        string saveDir = null;
+                        for (int j = 0; j < args.Length - 1; j++)
+                        {
+                            if (string.Equals(args[j], "--save", StringComparison.OrdinalIgnoreCase))
+                            {
+                                saveDir = args[j + 1];
+                                break;
+                            }
+                        }
+                        try
+                        {
+                            return CameraConnectTest.Run(saveDir);
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.Error.WriteLine("FATAL: " + ex);
+                            return 99;
+                        }
                     }
                 }
             }
