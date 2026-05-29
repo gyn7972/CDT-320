@@ -198,7 +198,8 @@ namespace QMC.Common.Motion
         /// <param name="velocity">이동 속도 (0 이하이면 Recipe.DefaultVelocity 사용)</param>
         public virtual async Task MoveAbsoluteAsync(double targetPos, double velocity = 0)
         {
-            if (!IsServoOn || IsAlarm) return;
+            if (!IsServoOn || IsAlarm) 
+                return;
 
             double vel         = velocity > 0 ? velocity : Config.DefaultVelocity;
             CommandPosition    = targetPos;
@@ -209,7 +210,6 @@ namespace QMC.Common.Motion
             _currentMode       = MotionMode.Absolute;
 
             RaiseMoveStarted();
-
             await WaitUntilMoveDone(_cts.Token);
         }
 
@@ -230,7 +230,8 @@ namespace QMC.Common.Motion
         protected void RaiseMoveStarted()
         {
             var h = MoveStarted;
-            if (h == null) return;
+            if (h == null) 
+                return;
             try { h(this); } catch { }
         }
 
@@ -291,8 +292,11 @@ namespace QMC.Common.Motion
         {
             while (!ct.IsCancellationRequested)
             {
-                if (IsAlarm)               break;
-                if (!IsMoving && IsInPosition) break;
+                if (IsAlarm)               
+                    break;
+
+                if (!IsMoving && IsInPosition) 
+                    break;
 
                 await Task.Delay(10, ct).ContinueWith(_ => { }); // 취소 예외 무시
             }

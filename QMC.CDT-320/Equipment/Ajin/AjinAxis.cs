@@ -1,7 +1,8 @@
+﻿using QMC.Common.Motion;
+using QMC.Common.Motion.Ajin;
 using System;
 using System.Threading.Tasks;
-using QMC.Common.Motion;
-using QMC.Common.Motion.Ajin;
+using static QMC.CDT_320.Ui.Pages.Settings.AxisSetupPage;
 
 namespace QMC.CDT320.Ajin
 {
@@ -72,7 +73,10 @@ namespace QMC.CDT320.Ajin
 
                 int ret;
                 lock (_sync)
+                {
+                    AXM.SetAbsRelMode(AxisNo, true);
                     ret = AXM.MovePosition(AxisNo, targetPos, vel, Config.Acceleration, Config.Deceleration);
+                }
                 if (ret != 0)
                 {
                     IsMoving = false;
@@ -293,7 +297,8 @@ namespace QMC.CDT320.Ajin
                 base.UpdateStatus();
                 return;
             }
-            if (!AjinSystem.IsOpen) return;
+            if (!AjinSystem.IsOpen) 
+                return;
 
             double cmd = 0;
             double act = 0;
@@ -410,7 +415,8 @@ namespace QMC.CDT320.Ajin
                     break;
 
                 await Task.Delay(10).ContinueWith(_ => { });
-                if (++guard > 6000) break;
+                if (++guard > 6000) 
+                    break;
             }
 
             UpdateStatus();
