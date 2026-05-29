@@ -222,10 +222,23 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         private void UpdatePositionOnce()
         {
-            var axis = SelectedAxis;
-            lblPosition.Text = axis == null
-                ? "000"
-                : (axis.ActualPosition * 1000.0).ToString("0", CultureInfo.InvariantCulture) + " um";
+            try
+            {
+                var axis = SelectedAxis;
+                if (axis != null)
+                    axis.UpdateStatus();
+
+                lblPosition.Text = axis == null
+                    ? "000"
+                    : (axis.ActualPosition * 1000.0).ToString("0", CultureInfo.InvariantCulture) + " um";
+            }
+            catch
+            {
+                lblPosition.Text = "ERR";
+            }
+            finally
+            {
+            }
         }
 
         private void SetStep(decimal value)
