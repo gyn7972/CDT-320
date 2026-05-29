@@ -27,17 +27,17 @@ namespace QMC.CDT_320.Ui.Tabs
             RegisterSidebarButton(BtnMotion,      "set.motion",    mt, () => new MotionPage());
             RegisterSidebarButton(BtnIoControl,   "set.ioControl", mt, () => new IoControlPage());
             RegisterSidebarButton(BtnDigital,     "set.digital",   mt, () => new IoListPage("set.digital",
-                new[] { "INDEX", "SYMBOL", "BOARD", "BIT", "DESCRIPTION", "STATE" }, Seed.Digital()));
+                new[] { "INDEX", "SYMBOL", "BOARD", "BIT", "DESCRIPTION", "STATE" }, CatalogRows.Digital));
             RegisterSidebarButton(BtnDigitalLink, "set.digitalLink", mt, () => new IoListPage("set.digitalLink",
-                new[] { "INDEX", "SOURCE", "TARGET", "DESCRIPTION" }, Seed.Link()));
+                new[] { "INDEX", "SOURCE", "TARGET", "DESCRIPTION" }, CatalogRows.Link));
             RegisterSidebarButton(BtnCylinder,    "set.cylinder",  mt, () => new IoListPage("set.cylinder",
-                new[] { "INDEX", "NAME", "FWD DO", "BWD DO", "FWD DI", "BWD DI", "STATE" }, Seed.Cylinder()));
+                new[] { "INDEX", "NAME", "FWD DO", "BWD DO", "FWD DI", "BWD DI", "STATE" }, CatalogRows.Cylinder));
             RegisterSidebarButton(BtnLamp,        "set.lamp",      en, () => new IoListPage("set.lamp",
-                new[] { "INDEX", "NAME", "DO", "STATE" }, Seed.Lamp()));
+                new[] { "INDEX", "NAME", "DO", "STATE" }, CatalogRows.Lamp));
             RegisterSidebarButton(BtnSwitch,      "set.switch",    en, () => new IoListPage("set.switch",
-                new[] { "INDEX", "NAME", "DI", "STATE" }, Seed.Switch()));
+                new[] { "INDEX", "NAME", "DI", "STATE" }, CatalogRows.Switch));
             RegisterSidebarButton(BtnLightSource, "set.lightSource", en, () => new IoListPage("set.lightSource",
-                new[] { "INDEX", "NAME", "PORT", "LEVEL" }, Seed.Light()));
+                new[] { "INDEX", "NAME", "PORT", "LEVEL" }, CatalogRows.Light));
 
             // ?? 蹂댁“ 硫붾돱 ??
             RegisterSidebarButton(BtnBarcode,      "set.barcode",      en, () => new BarcodeReaderPage());
@@ -124,7 +124,9 @@ namespace QMC.CDT_320.Ui.Tabs
                 var rows = new List<string[]>();
                 foreach (var item in AjinIoCatalog.DigitalOutputs)
                 {
-                    if (!IsLamp(item.Name)) continue;
+                    if (!IsLamp(item.Name)) 
+                        continue;
+
                     rows.Add(new[] { item.No.ToString(), item.Name, item.Address, State(item, true) });
                 }
                 return rows.ToArray();
