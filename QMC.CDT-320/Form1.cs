@@ -2,8 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Windows.Forms;
 using QMC.Common;
+using QMC.Common.IO;
 using QMC.Common.Motion;
 using QMC.CDT320;
+using QMC.CDT320.Ajin;
 using QMC.CDT_320.Ui;
 using QMC.CDT_320.Ui.Localization;
 using QMC.CDT_320.Ui.Security;
@@ -28,6 +30,7 @@ namespace QMC.CDT_320
         internal SimulatorBridge   Bridge         { get; private set; }
         internal MachineController Controller     { get; private set; }
         internal MotionMonitorService MotionMonitor { get; private set; }
+        internal AjinIoScanService IoScan { get; private set; }
 
         /// <summary>Stage 61 — 상단 상태바 Project Name 갱신.
         /// ProjectPage 의 load/save 또는 SubsetPage 의 save 후 호출.</summary>
@@ -93,6 +96,8 @@ namespace QMC.CDT_320
             Controller = new MachineController(Machine);
             MotionMonitor = new MotionMonitorService();
             MotionMonitor.Start(EnumerateAxes(Machine), cfg.UseAjin ? 50 : 100);
+            IoScan = new AjinIoScanService();
+            IoScan.Start(EnumerateAjinInputs(Machine), EnumerateAjinOutputs(Machine), cfg.UseAjin ? 10 : 100, () => AjinSystem.IsOpen);
 
             // Stage 41 — SecsHost 인스턴스화 (옵션, 5000 포트)
             try
@@ -413,6 +418,22 @@ namespace QMC.CDT_320
                     yield return axis;
         }
 
+        private static IEnumerable<AjinDigitalInput> EnumerateAjinInputs(CDT320_Machine machine)
+        {
+            if (machine == null) yield break;
+            foreach (var unit in machine.Units)
+                foreach (var input in EnumerateAjinInputs(unit))
+                    yield return input;
+        }
+
+        private static IEnumerable<AjinDigitalOutput> EnumerateAjinOutputs(CDT320_Machine machine)
+        {
+            if (machine == null) yield break;
+            foreach (var unit in machine.Units)
+                foreach (var output in EnumerateAjinOutputs(unit))
+                    yield return output;
+        }
+
         private static IEnumerable<BaseAxis> EnumerateAxes(BaseEquipmentNode node)
         {
             if (node == null) yield break;
@@ -435,6 +456,70 @@ namespace QMC.CDT_320
                     yield return childAxis;
         }
 
+        private static IEnumerable<AjinDigitalInput> EnumerateAjinInputs(BaseEquipmentNode node)
+        {
+            if (node == null) yield break;
+
+            var input = node as AjinDigitalInput;
+            if (input != null)
+            {
+                yield return input;
+                yield break;
+            }
+
+            var cylinder = node as BaseCylinder;
+            if (cylinder != null)
+            {
+                var inFwd = cylinder.InFwd as AjinDigitalInput;
+                var inBwd = cylinder.InBwd as AjinDigitalInput;
+                if (inFwd != null) yield return inFwd;
+                if (inBwd != null) yield return inBwd;
+                yield break;
+            }
+
+            var prop = node.GetType().GetProperty("Components");
+            if (prop == null) yield break;
+
+            var components = prop.GetValue(node) as System.Collections.IEnumerable;
+            if (components == null) yield break;
+
+            foreach (BaseEquipmentNode child in components)
+                foreach (var childInput in EnumerateAjinInputs(child))
+                    yield return childInput;
+        }
+
+        private static IEnumerable<AjinDigitalOutput> EnumerateAjinOutputs(BaseEquipmentNode node)
+        {
+            if (node == null) yield break;
+
+            var output = node as AjinDigitalOutput;
+            if (output != null)
+            {
+                yield return output;
+                yield break;
+            }
+
+            var cylinder = node as BaseCylinder;
+            if (cylinder != null)
+            {
+                var outFwd = cylinder.OutFwd as AjinDigitalOutput;
+                var outBwd = cylinder.OutBwd as AjinDigitalOutput;
+                if (outFwd != null) yield return outFwd;
+                if (outBwd != null) yield return outBwd;
+                yield break;
+            }
+
+            var prop = node.GetType().GetProperty("Components");
+            if (prop == null) yield break;
+
+            var components = prop.GetValue(node) as System.Collections.IEnumerable;
+            if (components == null) yield break;
+
+            foreach (BaseEquipmentNode child in components)
+                foreach (var childOutput in EnumerateAjinOutputs(child))
+                    yield return childOutput;
+        }
+
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
             try
@@ -444,6 +529,7 @@ namespace QMC.CDT_320
             }
             catch { }
             try { MotionMonitor?.Dispose(); } catch { }
+            try { IoScan?.Dispose(); } catch { }
             try { Bridge?.Dispose(); } catch { }
             try { QMC.CDT320.VisionComm.VisionHub.DisconnectAll(); } catch { }
             try { QMC.CDT320.Ajin.AjinSystem.Close(); } catch { }

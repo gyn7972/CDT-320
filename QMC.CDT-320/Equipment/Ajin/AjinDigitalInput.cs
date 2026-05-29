@@ -9,6 +9,11 @@ namespace QMC.CDT320.Ajin
     /// </summary>
     public class AjinDigitalInput : BaseDigitalInput
     {
+        protected override bool UseInternalStatusUpdate
+        {
+            get { return false; }
+        }
+
         public AjinDigitalInput(string name, int moduleNo, int bitNo, bool normallyClosed = false)
             : base(name)
         {
@@ -22,17 +27,18 @@ namespace QMC.CDT320.Ajin
         {
             if (Config.IsSimulationMode) return;
             if (!AjinSystem.IsOpen)      return;
+            AjinIoScanService service = AjinIoScanService.Current;
+            if (service != null && service.TryApplyLatest(this)) return;
 
             bool raw = false;
-            if (AXD.Read(Setup.ModuleNo, Setup.BitNo, ref raw) != 0) return;
+            int ret;
+            lock (AjinIoScanService.AxdSyncRoot)
+                ret = AXD.Read(Setup.ModuleNo, Setup.BitNo, ref raw);
+            if (ret != 0) return;
 
             bool signal = raw;
             bool logical = Setup.IsNormallyClosed ? !signal : signal;
-            if (IsOn != logical)
-            {
-                IsOn = logical;
-                RaiseStateChanged(logical);
-            }
+            ApplyScannedState(logical);
         }
 
         // SimulateInput 은 실보드 모드에서 무시되므로 base 그대로.

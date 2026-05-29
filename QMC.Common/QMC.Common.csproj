@@ -73,6 +73,7 @@
     <Compile Include="Interfaces\IEquipmentData.cs" />
     <Compile Include="AjinE\IODefine.cs" />
     <Compile Include="IO\BaseCylinder.cs" />
+    <Compile Include="IO\AjinIoScanService.cs" />
     <Compile Include="IO\BaseDigitalInput.cs" />
     <Compile Include="IO\BaseDigitalOutput.cs" />
     <Compile Include="IO\IoData.cs" />
