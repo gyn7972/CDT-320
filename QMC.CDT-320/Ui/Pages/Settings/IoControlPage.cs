@@ -61,6 +61,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             btnDoOn.Click += (s, e) => WriteSelected(true);
             btnDoOff.Click += (s, e) => WriteSelected(false);
             btnPulse.Click += async (s, e) => await PulseSelectedAsync(200);
+            doGrid.CellClick += DoGrid_CellClick;
         }
 
         private void EnsureLoaded()
@@ -92,6 +93,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             }
 
             lblStatus.Text = "Loaded DI " + collector.Inputs.Count + " / DO " + collector.Outputs.Count + ".";
+            if (!AjinFactory.IsRealBoardReady)
+                lblStatus.Text += " SIM";
             RefreshRows();
         }
 
@@ -130,6 +133,12 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         {
             var output = SelectedOutput();
             if (output == null) return;
+            WriteOutput(output, on);
+        }
+
+        private void WriteOutput(OutputTarget output, bool on)
+        {
+            if (output == null) return;
             string error;
             if (!output.Write(on, out error))
             {
@@ -138,6 +147,24 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             }
             EventLogger.Write(EventKind.Event, "QMC", "IO-DO", output.Name + "=" + (on ? "ON" : "OFF"));
             RefreshRows();
+        }
+
+        private void DoGrid_CellClick(object sender, DataGridViewCellEventArgs e)
+        {
+            if (e.RowIndex < 0 || e.ColumnIndex < 0) return;
+            if (e.ColumnIndex != doGrid.Columns.Count - 1) return;
+
+            var row = doGrid.Rows[e.RowIndex];
+            var output = row.Tag as OutputTarget;
+            if (output == null) return;
+
+            bool next = !output.IsOn;
+            string message = output.Name + " output을 " + (next ? "ON" : "OFF") + " 하시겠습니까?";
+            var result = MessageBox.Show(this, message, "I/O Control",
+                MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+            if (result != DialogResult.Yes) return;
+
+            WriteOutput(output, next);
         }
 
         private async Task PulseSelectedAsync(int ms)
@@ -195,9 +222,9 @@ namespace QMC.CDT_320.Ui.Pages.Settings
 
             public bool Write(bool on, out string error)
             {
+                EnsureRealPort();
                 error = ValidateWriteTarget();
                 if (error != null) return false;
-                EnsureRealPort();
                 if (Port == null)
                 {
                     error = Name + " output port is not ready.";
@@ -217,14 +244,14 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             private void EnsureRealPort()
             {
                 if (Port is AjinDigitalOutput) return;
-                if (!AjinSystem.IsOpen) return;
+                if (!AjinFactory.IsRealBoardReady) return;
                 Port = new AjinDigitalOutput(Name, Module, Bit, Nc);
             }
 
             private string ValidateWriteTarget()
             {
-                if (!AjinSystem.IsOpen)
-                    return "Ajin board is not open. Cannot write DO to the real board.";
+                if (!AjinFactory.IsRealBoardReady)
+                    return null;
 
                 int moduleCount;
                 int ret = AXD.GetModuleCount(out moduleCount);
@@ -390,12 +417,12 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             private void AddConfiguredInputs()
             {
                 var cfg = AjinConfigStore.Current;
-                if (cfg == null || cfg.DigitalInputs == null) return;
 
                 foreach (var catalog in AjinIoCatalog.DigitalInputs)
                 {
                     DioMap map;
-                    if (!cfg.DigitalInputs.TryGetValue(catalog.Name, out map) || map == null)
+                    if (cfg == null || cfg.DigitalInputs == null ||
+                        !cfg.DigitalInputs.TryGetValue(catalog.Name, out map) || map == null)
                         map = new DioMap { No = catalog.No, Address = catalog.Address, Module = catalog.Module, Bit = catalog.Bit, Nc = catalog.Nc };
 
                     if (_seenInputNames.Contains(catalog.Name)) continue;
@@ -407,9 +434,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                         Name = catalog.Name,
                         Module = map.Module,
                         Bit = map.Bit,
-                        Port = AjinSystem.IsOpen
-                            ? (BaseDigitalInput)new AjinDigitalInput(catalog.Name, map.Module, map.Bit, map.Nc)
-                            : null
+                        Port = AjinFactory.CreateDigitalInput(catalog)
                     });
                     _seenInputNames.Add(catalog.Name);
                 }
@@ -418,12 +443,12 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             private void AddConfiguredOutputs()
             {
                 var cfg = AjinConfigStore.Current;
-                if (cfg == null || cfg.DigitalOutputs == null) return;
 
                 foreach (var catalog in AjinIoCatalog.DigitalOutputs)
                 {
                     DioMap map;
-                    if (!cfg.DigitalOutputs.TryGetValue(catalog.Name, out map) || map == null)
+                    if (cfg == null || cfg.DigitalOutputs == null ||
+                        !cfg.DigitalOutputs.TryGetValue(catalog.Name, out map) || map == null)
                         map = new DioMap { No = catalog.No, Address = catalog.Address, Module = catalog.Module, Bit = catalog.Bit, Nc = catalog.Nc };
 
                     if (_seenOutputNames.Contains(catalog.Name)) continue;
@@ -436,9 +461,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                         Module = map.Module,
                         Bit = map.Bit,
                         Nc = map.Nc,
-                        Port = AjinSystem.IsOpen
-                            ? (BaseDigitalOutput)new AjinDigitalOutput(catalog.Name, map.Module, map.Bit, map.Nc)
-                            : null
+                        Port = AjinFactory.CreateDigitalOutput(catalog)
                     });
                     _seenOutputNames.Add(catalog.Name);
                 }

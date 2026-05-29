@@ -21,6 +21,7 @@ namespace QMC.CDT320.Ajin
         public static MotionAxisManager AxisManager { get; } = new MotionAxisManager();
 
         private static bool Ready => UseRealBoard && AjinSystem.IsOpen;
+        public static bool IsRealBoardReady => Ready;
         private static AjinConfig Cfg => AjinConfigStore.Current;
         private static readonly object AxisGate = new object();
         private static bool _configuredAxesRegistered;
@@ -214,17 +215,16 @@ namespace QMC.CDT320.Ajin
         public static BaseDigitalInput CreateDigitalInput(DioDefault catalog)
         {
             if (catalog == null)
-                return new SimDigitalInput("UnregisteredInput");
+                return ConfigureSimInput(new SimDigitalInput("UnregisteredInput"), 0, 0, false);
 
             string name = catalog.Name;
+            DioMap m = ResolveInputMap(catalog);
             if (Ready)
             {
-                DioMap m;
-                if (Cfg.DigitalInputs.TryGetValue(name, out m))
-                    return new AjinDigitalInput(name, m.Module, m.Bit, m.Nc);
-                return new AjinDigitalInput(name, catalog.Module, catalog.Bit, catalog.Nc);
+                return new AjinDigitalInput(name, m.Module, m.Bit, m.Nc);
             }
-            return new SimDigitalInput(name);
+
+            return ConfigureSimInput(new SimDigitalInput(name), m.Module, m.Bit, m.Nc);
         }
 
         [Obsolete("Use AjinFactory.CreateDigitalOutput(AjinIoCatalog.Outputs.xxx). I/O must be registered only in AjinIoCatalog.", true)]
@@ -240,17 +240,54 @@ namespace QMC.CDT320.Ajin
         public static BaseDigitalOutput CreateDigitalOutput(DioDefault catalog)
         {
             if (catalog == null)
-                return new SimDigitalOutput("UnregisteredOutput");
+                return ConfigureSimOutput(new SimDigitalOutput("UnregisteredOutput"), 0, 0, false);
 
             string name = catalog.Name;
+            DioMap m = ResolveOutputMap(catalog);
             if (Ready)
             {
-                DioMap m;
-                if (Cfg.DigitalOutputs.TryGetValue(name, out m))
-                    return new AjinDigitalOutput(name, m.Module, m.Bit, m.Nc);
-                return new AjinDigitalOutput(name, catalog.Module, catalog.Bit, catalog.Nc);
+                return new AjinDigitalOutput(name, m.Module, m.Bit, m.Nc);
             }
-            return new SimDigitalOutput(name);
+
+            return ConfigureSimOutput(new SimDigitalOutput(name), m.Module, m.Bit, m.Nc);
+        }
+
+        private static DioMap ResolveInputMap(DioDefault catalog)
+        {
+            DioMap m;
+            if (Cfg != null && Cfg.DigitalInputs != null &&
+                Cfg.DigitalInputs.TryGetValue(catalog.Name, out m) && m != null)
+                return m;
+
+            return new DioMap { No = catalog.No, Address = catalog.Address, Module = catalog.Module, Bit = catalog.Bit, Nc = catalog.Nc };
+        }
+
+        private static DioMap ResolveOutputMap(DioDefault catalog)
+        {
+            DioMap m;
+            if (Cfg != null && Cfg.DigitalOutputs != null &&
+                Cfg.DigitalOutputs.TryGetValue(catalog.Name, out m) && m != null)
+                return m;
+
+            return new DioMap { No = catalog.No, Address = catalog.Address, Module = catalog.Module, Bit = catalog.Bit, Nc = catalog.Nc };
+        }
+
+        private static BaseDigitalInput ConfigureSimInput(BaseDigitalInput port, int module, int bit, bool nc)
+        {
+            port.Setup.ModuleNo = module;
+            port.Setup.BitNo = bit;
+            port.Setup.IsNormallyClosed = nc;
+            port.Config.IsSimulationMode = true;
+            return port;
+        }
+
+        private static BaseDigitalOutput ConfigureSimOutput(BaseDigitalOutput port, int module, int bit, bool nc)
+        {
+            port.Setup.ModuleNo = module;
+            port.Setup.BitNo = bit;
+            port.Setup.IsNormallyClosed = nc;
+            port.Config.IsSimulationMode = true;
+            return port;
         }
 
         // ──────────────────────────────────────

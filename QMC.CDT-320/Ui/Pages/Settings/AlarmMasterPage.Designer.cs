@@ -123,7 +123,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this._tbFilter.Font = new System.Drawing.Font("Segoe UI", 9F);
             this._tbFilter.Location = new System.Drawing.Point(67, 3);
             this._tbFilter.Name = "_tbFilter";
-            this._tbFilter.Size = new System.Drawing.Size(294, 23);
+            this._tbFilter.Size = new System.Drawing.Size(294, 27);
             this._tbFilter.TabIndex = 1;
             // 
             // lblCategory
@@ -144,7 +144,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this._cbCategory.Font = new System.Drawing.Font("Segoe UI", 9F);
             this._cbCategory.Location = new System.Drawing.Point(447, 3);
             this._cbCategory.Name = "_cbCategory";
-            this._cbCategory.Size = new System.Drawing.Size(164, 23);
+            this._cbCategory.Size = new System.Drawing.Size(164, 28);
             this._cbCategory.TabIndex = 3;
             // 
             // _lblCount

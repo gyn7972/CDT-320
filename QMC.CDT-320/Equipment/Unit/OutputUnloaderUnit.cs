@@ -253,7 +253,7 @@ namespace QMC.CDT320
         public OutputUnloaderUnit() : base("OutputUnloaderUnit")
         {
             // ── Motion Axes ─────────────────────────────────────────────────
-            BinElevatorZ = AjinFactory.CreateAxis("WaferLifterZ");
+            BinElevatorZ = AjinFactory.CreateAxis("BinLifterZ");
             FeederY   = AjinFactory.CreateAxis("OutputUnloader_FeederY");
 
             // Stage 27 fix — Default SoftLimitPlus = 200mm 이지만

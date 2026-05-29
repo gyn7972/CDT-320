@@ -230,9 +230,16 @@ namespace QMC.CDT320.Ajin
             public static readonly DioDefault MainVacuum4Check = FindInput("MainVacuum4Check");
             public static readonly DioDefault WaferLifterIonizerAlarm = FindInput("WaferLifterIonizerAlarm");
             public static readonly DioDefault Wafer8CassetteCheck0 = FindInput("Wafer8CassetteCheck0");
+            public static readonly DioDefault Wafer8CassetteCheck1 = FindInput("Wafer8CassetteCheck1");
+            public static readonly DioDefault Wafer12CassetteCheck0 = FindInput("Wafer12CassetteCheck0");
+            public static readonly DioDefault Wafer12CassetteCheck1 = FindInput("Wafer12CassetteCheck1");
             public static readonly DioDefault WaferRingJUTCheck = FindInput("WaferRingJUTCheck");
             public static readonly DioDefault WaferMapping = FindInput("WaferMapping");
+            public static readonly DioDefault WaferFeederUp = FindInput("WaferFeederUp");
+            public static readonly DioDefault WaferFeederDown = FindInput("WaferFeederDown");
             public static readonly DioDefault WaferFeederUpClamp = FindInput("WaferFeederUpClamp");
+            public static readonly DioDefault WaferFeederRingCheck = FindInput("WaferFeederRingCheck");
+            public static readonly DioDefault WaferFeederOverloadCheck = FindInput("WaferFeederOverloadCheck");
             public static readonly DioDefault NgBin8CassetteCheck0 = FindInput("NgBin8CassetteCheck0");
             public static readonly DioDefault GoodBin8CassetteCheck0 = FindInput("GoodBin8CassetteCheck0");
             public static readonly DioDefault GoodBin8CassetteCheck1 = FindInput("GoodBin8CassetteCheck1");
@@ -252,6 +259,10 @@ namespace QMC.CDT320.Ajin
             public static readonly DioDefault TlGreen = FindOutput("TlGreen");
             public static readonly DioDefault Buzzer = FindOutput("Buzzer");
             public static readonly DioDefault IonizerOn = FindOutput("IonizerOn");
+            public static readonly DioDefault WaferFeederUp = FindOutput("WaferFeederUp");
+            public static readonly DioDefault WaferFeederDown = FindOutput("WaferFeederDown");
+            public static readonly DioDefault WaferFeederClamp = FindOutput("WaferFeederClamp");
+            public static readonly DioDefault WaferFeederUnclamp = FindOutput("WaferFeederUnclamp");
             public static readonly DioDefault NeedleVacuum = FindOutput("NeedleVacuum");
             public static readonly DioDefault PostPnpVacuum = null;
         }

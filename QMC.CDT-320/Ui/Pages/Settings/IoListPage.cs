@@ -1,39 +1,40 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Runtime.Serialization;
-using System.Runtime.Serialization.Json;
 using System.Windows.Forms;
 using QMC.CDT_320.Ui.Localization;
+using QMC.CDT320.Ajin;
+using QMC.Common.IO;
 
 namespace QMC.CDT_320.Ui.Pages.Settings
 {
-    /// <summary>Common editable IO list page.</summary>
+    /// <summary>Catalog-driven I/O list page.</summary>
     public partial class IoListPage : PageBase
     {
-        [DataContract]
-        public class IoTable
-        {
-            [DataMember] public string[] Columns { get; set; }
-            [DataMember] public List<string[]> Rows { get; set; } = new List<string[]>();
-        }
-
         private readonly string _i18nKey;
         private readonly string[] _columns;
-
-        private string SavePath =>
-            Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "io_" + Sanitize(_i18nKey) + ".json");
+        private readonly Func<string[][]> _rowProvider;
+        private int _stateColumnIndex = -1;
+        private AjinIoScanService _subscribedService;
 
         public IoListPage(string i18nKey, string[] columns, string[][] seedRows)
+            : this(i18nKey, columns, () => seedRows)
+        {
+        }
+
+        public IoListPage(string i18nKey, string[] columns, Func<string[][]> rowProvider)
         {
             _i18nKey = i18nKey;
             _columns = columns;
+            _rowProvider = rowProvider ?? (() => new string[0][]);
 
             InitializeComponent();
             ApplyRuntimeUi();
             WireEvents();
             BuildColumns();
-            LoadRows(seedRows);
+            LoadRows();
+
+            HandleCreated += (s, e) => SubscribeIoScan();
+            HandleDestroyed += (s, e) => UnsubscribeIoScan();
         }
 
         private void ApplyRuntimeUi()
@@ -44,7 +45,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             lblHeader.ForeColor = UiTheme.StatusBarFg;
             lblHeader.Font = UiTheme.SectionFont;
 
-            lblSubHeader.Text = Lang.T(_i18nKey) + " LIST - editable / save to Config";
+            lblSubHeader.Text = Lang.T(_i18nKey) + " LIST - AjinIoCatalog";
             lblSubHeader.Tag = "i18n:" + _i18nKey;
             lblSubHeader.BackColor = UiTheme.StatusBarBg;
             lblSubHeader.ForeColor = System.Drawing.Color.White;
@@ -53,9 +54,10 @@ namespace QMC.CDT_320.Ui.Pages.Settings
 
         private void WireEvents()
         {
-            btnSave.Click += (s, e) => DoSave();
-            btnReload.Click += (s, e) => ReloadFromDisk();
-            btnAddRow.Click += (s, e) => AddBlankRow();
+            btnSave.Visible = false;
+            btnReload.Text = "REFRESH";
+            btnReload.Click += (s, e) => LoadRows();
+            btnAddRow.Visible = false;
         }
 
         private void BuildColumns()
@@ -63,93 +65,128 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             _grid.Columns.Clear();
             foreach (var column in _columns)
                 _grid.Columns.Add(column, column);
+            _stateColumnIndex = Array.FindIndex(_columns, c => string.Equals(c, "STATE", StringComparison.OrdinalIgnoreCase));
+            _grid.AllowUserToAddRows = false;
+            _grid.AllowUserToDeleteRows = false;
+            _grid.ReadOnly = true;
         }
 
-        private void LoadRows(string[][] seedRows)
+        private void LoadRows()
         {
             _grid.Rows.Clear();
-            var loaded = LoadFromDisk();
-            if (loaded != null && loaded.Rows.Count > 0)
+            var rows = _rowProvider();
+            if (rows == null) return;
+            foreach (var row in rows)
+                _grid.Rows.Add(row);
+        }
+
+        private void SubscribeIoScan()
+        {
+            UnsubscribeIoScan();
+            if (_stateColumnIndex < 0) return;
+
+            _subscribedService = AjinIoScanService.Current;
+            if (_subscribedService != null)
+                _subscribedService.IoStatusUpdated += OnIoStatusUpdated;
+        }
+
+        private void UnsubscribeIoScan()
+        {
+            if (_subscribedService != null)
+                _subscribedService.IoStatusUpdated -= OnIoStatusUpdated;
+            _subscribedService = null;
+        }
+
+        private void OnIoStatusUpdated(AjinIoSnapshot snapshot)
+        {
+            if (snapshot == null || IsDisposed || _stateColumnIndex < 0) return;
+
+            if (InvokeRequired)
             {
-                foreach (var row in loaded.Rows)
-                    _grid.Rows.Add(row);
+                try { BeginInvoke(new Action<AjinIoSnapshot>(OnIoStatusUpdated), snapshot); } catch { }
                 return;
             }
 
-            if (seedRows == null) return;
-            foreach (var row in seedRows)
-                _grid.Rows.Add(row);
+            UpdateStateCells(snapshot);
         }
 
-        private void ReloadFromDisk()
+        private void UpdateStateCells(AjinIoSnapshot snapshot)
         {
-            var loaded = LoadFromDisk();
-            if (loaded == null) return;
-            _grid.Rows.Clear();
-            foreach (var row in loaded.Rows)
-                _grid.Rows.Add(row);
-        }
-
-        private void AddBlankRow()
-        {
-            var blank = new string[_columns.Length];
-            for (int i = 0; i < blank.Length; i++)
-                blank[i] = string.Empty;
-            _grid.Rows.Add(blank);
-        }
-
-        private static string Sanitize(string value)
-        {
-            foreach (var c in Path.GetInvalidFileNameChars())
-                value = value.Replace(c, '_');
-            return value;
-        }
-
-        private IoTable LoadFromDisk()
-        {
-            try
+            if (string.Equals(_i18nKey, "set.cylinder", StringComparison.OrdinalIgnoreCase))
             {
-                if (!File.Exists(SavePath)) return null;
-                using (var fs = File.OpenRead(SavePath))
-                {
-                    var ser = new DataContractJsonSerializer(typeof(IoTable));
-                    return (IoTable)ser.ReadObject(fs);
-                }
+                UpdateCylinderRows(snapshot);
+                return;
             }
-            catch
+
+            string address = snapshot.IsOutput
+                ? AjinIoCatalog.OutputAddress(snapshot.Module, snapshot.Bit)
+                : AjinIoCatalog.InputAddress(snapshot.Module, snapshot.Bit);
+            string state = snapshot.IsOn ? "ON" : "OFF";
+
+            foreach (DataGridViewRow row in _grid.Rows)
             {
-                return null;
+                if (row.IsNewRow) continue;
+                if (!RowMatches(row, snapshot.Name, address)) continue;
+                var cell = row.Cells[_stateColumnIndex];
+                if (!string.Equals(Convert.ToString(cell.Value), state, StringComparison.OrdinalIgnoreCase))
+                    cell.Value = state;
             }
         }
 
-        private void DoSave()
+        private void UpdateCylinderRows(AjinIoSnapshot snapshot)
         {
-            try
-            {
-                var rows = new List<string[]>();
-                foreach (DataGridViewRow gridRow in _grid.Rows)
-                {
-                    if (gridRow.IsNewRow) continue;
-                    var row = new string[_columns.Length];
-                    for (int i = 0; i < _columns.Length; i++)
-                        row[i] = gridRow.Cells[i].Value?.ToString() ?? string.Empty;
-                    rows.Add(row);
-                }
+            if (snapshot.IsOutput) return;
 
-                var table = new IoTable { Columns = _columns, Rows = rows };
-                Directory.CreateDirectory(Path.GetDirectoryName(SavePath));
-                using (var fs = File.Create(SavePath))
-                {
-                    var ser = new DataContractJsonSerializer(typeof(IoTable));
-                    ser.WriteObject(fs, table);
-                }
-
-                MessageBox.Show("Save complete.\n" + SavePath);
-            }
-            catch (Exception ex)
+            foreach (DataGridViewRow row in _grid.Rows)
             {
-                MessageBox.Show("Save failed: " + ex.Message);
+                if (row.IsNewRow || row.Cells.Count < 2) continue;
+                string name = Convert.ToString(row.Cells[1].Value);
+                var cyl = AjinIoCatalog.FindCylinder(name);
+                if (cyl == null) continue;
+                if (!SamePoint(snapshot, cyl.InFwd) && !SamePoint(snapshot, cyl.InBwd)) continue;
+
+                string state = CylinderState(cyl);
+                var cell = row.Cells[_stateColumnIndex];
+                if (!string.Equals(Convert.ToString(cell.Value), state, StringComparison.OrdinalIgnoreCase))
+                    cell.Value = state;
             }
+        }
+
+        private static bool RowMatches(DataGridViewRow row, string name, string address)
+        {
+            for (int i = 0; i < row.Cells.Count; i++)
+            {
+                string value = Convert.ToString(row.Cells[i].Value);
+                if (string.Equals(value, name, StringComparison.OrdinalIgnoreCase)) return true;
+                if (string.Equals(value, address, StringComparison.OrdinalIgnoreCase)) return true;
+                if (!string.IsNullOrEmpty(value) &&
+                    value.IndexOf(address + " ", StringComparison.OrdinalIgnoreCase) >= 0)
+                    return true;
+            }
+            return false;
+        }
+
+        private static bool SamePoint(AjinIoSnapshot snapshot, DioDefault item)
+        {
+            return item != null && snapshot.Module == item.Module && snapshot.Bit == item.Bit;
+        }
+
+        private static string CylinderState(CylinderDefault item)
+        {
+            bool fwd = IsOn(item.InFwd);
+            bool bwd = IsOn(item.InBwd);
+            if (fwd && !bwd) return "FWD";
+            if (!fwd && bwd) return "BWD";
+            if (fwd && bwd) return "BOTH";
+            return "OFF";
+        }
+
+        private static bool IsOn(DioDefault item)
+        {
+            var service = AjinIoScanService.Current;
+            if (service == null || item == null) return false;
+            var snapshot = service.GetLatest(item.Module, item.Bit, false);
+            return snapshot != null && snapshot.ErrorCode == 0 && snapshot.IsOn;
         }
     }
 }

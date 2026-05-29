@@ -137,18 +137,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
 
         private Dictionary<string, BaseAxis> BuildActualAxisMap()
         {
-            var result = new Dictionary<string, BaseAxis>(StringComparer.OrdinalIgnoreCase);
-            if (Host?.Machine == null)
-                return result;
-
-            foreach (BaseAxis axis in EnumerateAxes(Host.Machine))
-            {
-                string key = AjinAxisDefaults.ResolveName(axis.Name);
-                if (!string.IsNullOrEmpty(key) && !result.ContainsKey(key))
-                    result.Add(key, axis);
-            }
-
-            return result;
+            return AjinAxisRegistry.GetAxisMapByName();
         }
 
         private void DetachAxes()

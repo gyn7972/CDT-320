@@ -24,7 +24,9 @@ namespace QMC.Common.Motion
             get
             {
                 lock (_gate)
+                {
                     return _cts != null && !_cts.IsCancellationRequested;
+                }
             }
         }
 
