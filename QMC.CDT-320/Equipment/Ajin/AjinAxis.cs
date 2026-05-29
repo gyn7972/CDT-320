@@ -1,4 +1,4 @@
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 using QMC.Common.Motion;
 using QMC.Common.Motion.Ajin;
 
@@ -174,7 +174,8 @@ namespace QMC.CDT320.Ajin
                 base.UpdateStatus();
                 return;
             }
-            if (!AjinSystem.IsOpen) return;
+            if (!AjinSystem.IsOpen) 
+                return;
 
             double cmd = 0;
             double act = 0;
@@ -279,9 +280,10 @@ namespace QMC.CDT320.Ajin
             int guard = 0;
             while (IsMoving && !IsAlarm)
             {
-                UpdateStatus();
+                //UpdateStatus(); // 안하는게 맞는데.
                 await Task.Delay(10).ContinueWith(_ => { });
-                if (++guard > 6000) break;
+                if (++guard > 6000) 
+                    break;
             }
         }
     }
