@@ -1,7 +1,8 @@
-﻿using System;
-using System.Threading.Tasks;
-using QMC.Common.Motion;
+﻿using QMC.Common.Motion;
 using QMC.Common.Motion.Ajin;
+using System;
+using System.Threading.Tasks;
+using static QMC.CDT_320.Ui.Pages.Settings.AxisSetupPage;
 
 namespace QMC.CDT320.Ajin
 {
@@ -72,7 +73,10 @@ namespace QMC.CDT320.Ajin
 
                 int ret;
                 lock (_sync)
+                {
+                    AXM.SetAbsRelMode(AxisNo, true);
                     ret = AXM.MovePosition(AxisNo, targetPos, vel, Config.Acceleration, Config.Deceleration);
+                }
                 if (ret != 0)
                 {
                     IsMoving = false;
