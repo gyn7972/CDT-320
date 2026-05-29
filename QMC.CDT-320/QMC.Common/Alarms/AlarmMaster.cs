@@ -167,6 +167,26 @@ namespace QMC.Common.Alarms
                     Title="카메라 Open 실패", Cause="GigE 미연결 / SDK 미설치 / IP 불일치", Action="IP·케이블·SDK 확인 (Sim fallback 시 무시 가능)",
                     TitleEn="Camera open failed", CauseEn="GigE not connected / SDK missing / IP mismatch", ActionEn="Check IP/cable/SDK (ignorable when Sim fallback)" },
 
+                // Stage 67 — LFine 조명 컨트롤러 알람 (신규 6 개, Vision 로컬 raise)
+                new AlarmDefinition { Code="LIGHT-OPEN-FAIL", Category=AlarmCategory.Vision, DefaultSeverity=AlarmSeverity.Error,
+                    Title="조명 컨트롤러 시리얼 Open 실패", Cause="COM 포트 미발견 / 충돌 / 점유", Action="케이블·COM 포트 번호 확인",
+                    TitleEn="Light controller serial open failed", CauseEn="COM port missing / conflict / in use", ActionEn="Check cable and COM port number" },
+                new AlarmDefinition { Code="LIGHT-TIMEOUT", Category=AlarmCategory.Vision, DefaultSeverity=AlarmSeverity.Warning,
+                    Title="조명 컨트롤러 응답 타임아웃", Cause="컨트롤러 무응답", Action="전원·케이블·포트 확인",
+                    TitleEn="Light controller reply timeout", CauseEn="Controller not responding", ActionEn="Check power/cable/port" },
+                new AlarmDefinition { Code="LIGHT-NAK", Category=AlarmCategory.Vision, DefaultSeverity=AlarmSeverity.Warning,
+                    Title="조명 컨트롤러 NAK(RERR) 응답", Cause="잘못된 명령 형식", Action="명령 포맷·펌웨어 확인",
+                    TitleEn="Light controller NAK (RERR)", CauseEn="Invalid command format", ActionEn="Check command format/firmware" },
+                new AlarmDefinition { Code="LIGHT-INVALID-RESP", Category=AlarmCategory.Vision, DefaultSeverity=AlarmSeverity.Warning,
+                    Title="조명 컨트롤러 응답 포맷 오류", Cause="프로토콜 불일치", Action="펌웨어 버전 확인",
+                    TitleEn="Light controller invalid response", CauseEn="Protocol mismatch", ActionEn="Check firmware version" },
+                new AlarmDefinition { Code="LIGHT-TX-FAIL", Category=AlarmCategory.Vision, DefaultSeverity=AlarmSeverity.Warning,
+                    Title="조명 컨트롤러 송신 실패", Cause="시리얼 쓰기 예외 / 포트 미개방", Action="포트 상태 확인",
+                    TitleEn="Light controller send failed", CauseEn="Serial write exception / port not open", ActionEn="Check port state" },
+                new AlarmDefinition { Code="LIGHT-PWR-RANGE", Category=AlarmCategory.Vision, DefaultSeverity=AlarmSeverity.Warning,
+                    Title="조명 Power/Time 범위 초과", Cause="MaxPower/MaxOnTime 초과 입력", Action="입력값 점검",
+                    TitleEn="Light power/time out of range", CauseEn="Input exceeds MaxPower/MaxOnTime", ActionEn="Check input value" },
+
                 // ── Material / Inspection ──
                 new AlarmDefinition { Code="PickFail", Category=AlarmCategory.Material, DefaultSeverity=AlarmSeverity.Warning,
                     Title="Pick 실패", Cause="진공 부족, 콜렛 손상, 다이 미확인", Action="콜렛 청소, 진공 압력 확인, Pick Retry 재시도",

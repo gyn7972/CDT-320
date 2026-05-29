@@ -58,9 +58,9 @@ Add-Row "STAGE60" "AlarmMaster ManualLocator 필드" (Test-Greps $alarmFile @('p
 Add-Row "STAGE60" "E-STOP 등록" (Test-Greps $alarmFile @('Code="E-STOP"')) $alarmFile
 $emgCount = (Select-String -Path $alarmFile -Pattern '^\s*new AlarmDefinition.*Code="EMG-PRESSED"' -EA SilentlyContinue).Count
 Add-Row "STAGE60" "EMG-PRESSED 정의 제거 (주석 제외)" ($emgCount -eq 0) "주석 라인 제외 0건 기대"
-# Stage 62: 3 추가 (48 -> 51) — VISION-MAPMISS/PARAMFAIL/CAMOPEN
+# Stage 62: +3 (VISION-*), Stage 67: +6 (LIGHT-*) → 48+3+6 = 57
 $codeCount = (Select-String -Path $alarmFile -Pattern 'Code="[A-Z][A-Z0-9-]+"').Count
-Add-Row "STAGE62" "AlarmMaster 등록 = 51 (Stage 60: 48 + Stage 62: 3)" ($codeCount -eq 51) "actual=$codeCount"
+Add-Row "STAGE67" "AlarmMaster 등록 = 57 (48 + Stage62:3 + Stage67:6)" ($codeCount -eq 57) "actual=$codeCount"
 
 # Stage 60 cycle 4 — OS-12 LIMIT-HIT (AjinAxis)
 $ajinFile = Join-Path $Root "QMC.CDT-320\Equipment\Ajin\AjinAxis.cs"
@@ -126,6 +126,13 @@ Add-Row "STAGE65" "MaintenancePage.cs 제거 + RecipePage 단일화" ($maintGone
 Add-Row "STAGE65" "RecipePage 트리 5 모듈 등록" (Test-Greps $recipe65 @('host.WaferMod','host.BinMod','host.BottomMod','host.FrontSideMod','host.RearSideMod')) $recipe65
 $vform65 = Join-Path $Root "QMC.Vision\Form1.cs"
 Add-Row "STAGE65" "Form1 Tab.Maintenance/_pgMaint 제거" (-not (Test-Greps $vform65 @('Tab\.Maintenance|_pgMaint'))) $vform65
+
+# Stage 67 — LFine 조명 컨트롤러
+$lfctrl = Join-Path $Root "QMC.Vision\Optics\LFine\LFineLightController.cs"
+$lifc   = Join-Path $Root "QMC.Vision\Optics\ILightController.cs"
+$lproto = Join-Path $Root "QMC.Vision\Optics\LFine\LFineProtocol.cs"
+Add-Row "STAGE67" "ILightController + LFineLightController + Protocol 존재" ((Test-Path $lifc) -and (Test-Path $lfctrl) -and (Test-Greps $lproto @('Stx = 0x02','BuildPowerCommand'))) "optics"
+Add-Row "STAGE67" "AlarmMaster 6 LIGHT-* 코드" (Test-Greps $alarmFile @('LIGHT-OPEN-FAIL','LIGHT-TIMEOUT','LIGHT-PWR-RANGE')) $alarmFile
 
 # ── 출력 ──
 $bar = "=" * 110

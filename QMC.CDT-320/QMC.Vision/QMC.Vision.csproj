@@ -38,6 +38,7 @@
     <Reference Include="System.Core" />
     <Reference Include="System.Drawing" />
     <Reference Include="System.Runtime.Serialization" />
+    <Reference Include="System.IO.Ports" />
     <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Windows.Forms.DataVisualization" />
     <Reference Include="System.Xml" />
@@ -110,6 +111,12 @@
     <Compile Include="Config\VisionConfig.cs" />
     <Compile Include="Config\AlgorithmCameraMap.cs" />
     <Compile Include="Config\AlgorithmCameraBinder.cs" />
+    <Compile Include="Optics\ILightController.cs" />
+    <Compile Include="Optics\LightControllerFactory.cs" />
+    <Compile Include="Optics\Sim\SimLightController.cs" />
+    <Compile Include="Optics\LFine\LFineLightConfig.cs" />
+    <Compile Include="Optics\LFine\LFineProtocol.cs" />
+    <Compile Include="Optics\LFine\LFineLightController.cs" />
     <Compile Include="Ui\UiTheme.cs" />
     <Compile Include="Ui\Controls\BottomMenuButton.cs">
       <SubType>Component</SubType>

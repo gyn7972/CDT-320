@@ -192,3 +192,10 @@
 | M-66-3 | IlluminatorPanel.cs(4채널 더미) vs io_set.json(8채널) | 채널 수 불일치 | 채널 가변화 (구현 Stage) |
 | M-66-4 | LightControl 코드 = Part/IlluminatorConfig/ListParam/SerialComm 레거시 의존 | 직접 포팅 불가 | 현 CDT-320 패턴으로 신규 작성 (프로토콜만 차용) |
 | M-66-5 | io_set.json 채널 6/7 = "TOP/BOTTOM SIDE VISION" | Stage 63 FrontSide/RearSide 리네임과 라벨 불일치 | 라벨 정합 검토 (구현 Stage) |
+
+## STAGE 67 — LFine 조명 컨트롤러 구현 (2026-05-29)
+
+| ID | 위치 | 내용 | 처리 |
+|---|---|---|---|
+| M-67-1 | io_set.lightSource.json(8채널/COM1·2·3) → 컨트롤러 2개 | #5 컨트롤러 2개 확정에 따라 8채널을 COM1 4 + COM2 4 로 분배 | LFineLightSetup.CreateDefault 기본값. 실 결선 시 포트/채널 조정 필요 |
+| M-67-2 | io_set 채널 6/7 "TOP/BOTTOM SIDE VISION" | Stage 63 리네임 정합 | 기본값에서 "FRONT SIDE VISION"/"REAR SIDE VISION" 으로 반영 |
