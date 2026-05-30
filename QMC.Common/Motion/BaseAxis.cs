@@ -127,7 +127,7 @@ namespace QMC.Common.Motion
         public virtual void ServoOff()
         {
             Stop();
-            IsServoOn = false;
+            IsServoOn = false; 
         }
 
         /// <summary>
