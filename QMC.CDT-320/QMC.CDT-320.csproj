@@ -73,11 +73,13 @@
     <Compile Include="Equipment\CDT320Machine.cs" />
     <Compile Include="Equipment\CycleMode.cs" />
     <Compile Include="Equipment\Unit\InputLoaderUnit.cs" />
+    <Compile Include="Equipment\Unit\BinCassetteUnit.cs" />
+    <Compile Include="Equipment\Unit\BinFeederUnit.cs" />
     <Compile Include="Equipment\Unit\OutputStageUnit.cs" />
     <Compile Include="Equipment\Unit\OutputUnloaderUnit.cs" />
     <Compile Include="Equipment\Unit\WaferTransferTypes.cs" />
-    <Compile Include="Equipment\Unit\WaferCassetteUnit.cs" />
-    <Compile Include="Equipment\Unit\WaferFeederUnit.cs" />
+    <Compile Include="Equipment\Unit\InputCassetteUnit.cs" />
+    <Compile Include="Equipment\Unit\InputFeederUnit.cs" />
     <Compile Include="Equipment\Unit\InputStageUnit.cs" />
     <Compile Include="Equipment\IStageInterfaces.cs" />
     <Compile Include="Equipment\MachineController.cs" />
@@ -91,6 +93,30 @@
     </Compile>
     <Compile Include="Ui\Controls\UnitConfigGrid.Designer.cs">
       <DependentUpon>UnitConfigGrid.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Controls\AxisJogControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Controls\AxisJogControl.Designer.cs">
+      <DependentUpon>AxisJogControl.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Controls\JogMoveOptionsControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Controls\JogMoveOptionsControl.Designer.cs">
+      <DependentUpon>JogMoveOptionsControl.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Controls\AxisJogPadControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Controls\AxisJogPadControl.Designer.cs">
+      <DependentUpon>AxisJogPadControl.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Controls\AxisJogLineControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Controls\AxisJogLineControl.Designer.cs">
+      <DependentUpon>AxisJogLineControl.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Pages\History\AlarmHistoryPage.Designer.cs">
       <DependentUpon>AlarmHistoryPage.cs</DependentUpon>
@@ -109,6 +135,18 @@
     </Compile>
     <Compile Include="Ui\Pages\Recipe\CassetteRecipePage.Designer.cs">
       <DependentUpon>CassetteRecipePage.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Pages\Recipe\InputCassetteRecipePage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\Recipe\InputCassetteRecipePage.Designer.cs">
+      <DependentUpon>InputCassetteRecipePage.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Pages\Recipe\OutputCassetteRecipePage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\Recipe\OutputCassetteRecipePage.Designer.cs">
+      <DependentUpon>OutputCassetteRecipePage.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Pages\Recipe\FeederRecipePage.Designer.cs">
       <DependentUpon>FeederRecipePage.cs</DependentUpon>
@@ -158,6 +196,15 @@
     </Compile>
     <Compile Include="Equipment\Unit\TransferPickerUnit.cs" />
     <Compile Include="Equipment\UnitData.cs" />
+    <!-- Sequencing -->
+    <Compile Include="Sequencing\SequenceUnitKind.cs" />
+    <Compile Include="Sequencing\SequenceRunMode.cs" />
+    <Compile Include="Sequencing\SequenceRunOptions.cs" />
+    <Compile Include="Sequencing\SequenceSignalBus.cs" />
+    <Compile Include="Sequencing\MachineSequenceContext.cs" />
+    <Compile Include="Sequencing\UnitSequenceBase.cs" />
+    <Compile Include="Sequencing\AutoSequenceCoordinator.cs" />
+    <Compile Include="Sequencing\InputLoaderSequence.cs" />
     <!-- Equipment / Alarms -->
     <Compile Include="Equipment\Alarms\AlarmManager.cs" />
     <Compile Include="Equipment\Alarms\AlarmRecord.cs" />
@@ -625,6 +672,9 @@
       <AutoGen>True</AutoGen>
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
+    <EmbeddedResource Include="Ui\Controls\AxisJogControl.resx">
+      <DependentUpon>AxisJogControl.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Ui\Dialogs\AxisJogPopup.resx">
       <DependentUpon>AxisJogPopup.cs</DependentUpon>
     </EmbeddedResource>
@@ -659,11 +709,17 @@
     <EmbeddedResource Include="Ui\Pages\Recipe\DieSubsetPage.resx">
       <DependentUpon>DieSubsetPage.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\Recipe\InputCassetteRecipePage.resx">
+      <DependentUpon>InputCassetteRecipePage.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\Recipe\LoadTapeFrameSubsetPage.resx">
       <DependentUpon>LoadTapeFrameSubsetPage.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\Recipe\ModuleSubsetPage.resx">
       <DependentUpon>ModuleSubsetPage.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\Recipe\OutputCassetteRecipePage.resx">
+      <DependentUpon>OutputCassetteRecipePage.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\Recipe\OutputSubsetPage.resx">
       <DependentUpon>OutputSubsetPage.cs</DependentUpon>
@@ -673,6 +729,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\Recipe\ProjectPage.resx">
       <DependentUpon>ProjectPage.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\Recipe\StageRecipePage.resx">
+      <DependentUpon>StageRecipePage.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\Recipe\TapeFrameSubsetPage.resx">
       <DependentUpon>TapeFrameSubsetPage.cs</DependentUpon>

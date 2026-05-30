@@ -170,23 +170,39 @@ namespace QMC.CDT320
     {
         /// <summary>Input Cassette에서 웨이퍼를 공급하는 로더 유닛.</summary>
         public InputLoaderUnit      InputLoader      { get; }
-        public WaferCassetteUnit    WaferCassette    { get { return InputLoader.WaferCassette; } }
-        public WaferFeederUnit      WaferFeeder      { get { return InputLoader.WaferFeeder; } }
+        public InputCassetteUnit    WaferCassette    { get { return InputLoader.WaferCassette; } }
+        public InputFeederUnit      WaferFeeder      { get { return InputLoader.WaferFeeder; } }
 
         /// <summary>웨이퍼를 고정하고 다이 위치를 관리하는 Input Stage 유닛.</summary>
         public InputStageUnit       InputStage       { get; }
+        /// <summary>엑셀 WaferStage Sheet 기준 축/I/O/티칭 Unit입니다.</summary>
+        //public WaferStageUnit       WaferStage       { get; }
 
         /// <summary>다이를 이송·검사·분류 동작을 수행하는 다축 이동 유닛.</summary>
         public TransferPickerUnit   TransferPicker   { get; }
+        /// <summary>엑셀 PickerFront Sheet 기준 축/I/O/티칭 Unit입니다.</summary>
+        //public PickerFrontUnit      PickerFront      { get; }
+        /// <summary>엑셀 PickerRear Sheet 기준 축/I/O/티칭 Unit입니다.</summary>
+        //public PickerRearUnit       PickerRear       { get; }
 
         /// <summary>5면 촬상 후 결과 판정 유닛.</summary>
         public VisionInspectionUnit VisionInspection { get; }
+        /// <summary>엑셀 Vision Sheet 기준 축/I/O/티칭 Unit입니다.</summary>
+        //public VisionUnit           Vision           { get; }
 
         /// <summary>양불 분류 적재 Output Stage 유닛.</summary>
         public OutputStageUnit      OutputStage      { get; }
+        /// <summary>엑셀 BinStage Sheet 기준 축/I/O/티칭 Unit입니다.</summary>
+        //public BinStageUnit         BinStage         { get; }
 
         /// <summary>완성된 웨이퍼를 Output Cassette로 이송하는 언로더 유닛.</summary>
         public OutputUnloaderUnit   OutputUnloader   { get; }
+
+        /// <summary>Output Bin 카세트 리프터와 매핑 센서를 담당하는 유닛입니다.</summary>
+        public BinCassetteUnit      BinCassette      { get; }
+
+        /// <summary>Output Bin Feeder Y축과 클램프 실린더를 담당하는 유닛입니다.</summary>
+        public BinFeederUnit        BinFeeder        { get; }
 
         /// <summary>Stage 45 — 운전 패널 (버튼 + 램프 + 신호탑 + 부저).</summary>
         public OperationPanelUnit   OpPanel          { get; }
@@ -226,8 +242,14 @@ namespace QMC.CDT320
             // TransferPickerUnit - Bottom/Side Vision 실 Adapter
             TransferPicker   = new TransferPickerUnit(new VisionComm.TpuVisionAdapter());
             VisionInspection = new VisionInspectionUnit();
+            //WaferStage = new WaferStageUnit();
+            //PickerFront = new PickerFrontUnit();
+            //PickerRear = new PickerRearUnit();
+            //Vision = new VisionUnit();
 
             // OutputUnloaderUnit - 3개 카세트(NG·Good1·Good2) 교체 시퀀스 담당
+            BinCassette = new BinCassetteUnit();
+            BinFeeder = new BinFeederUnit();
             OutputUnloader = new OutputUnloaderUnit();
 
             // Stage 45 — Operation Panel + Tower Lamp + Buzzer 신규
@@ -251,12 +273,20 @@ namespace QMC.CDT320
             OutputStage = new OutputStageUnit(
                 tpu:      new NullTpuUnit(),
                 unloader: new QMC.CDT320.Sim.OutputUnloaderAdapter(OutputUnloader));
+            //BinStage = new BinStageUnit();
 
             Units.Add(InputLoader);
             Units.Add(InputStage);
+            //Units.Add(WaferStage);
             Units.Add(TransferPicker);
+            //Units.Add(PickerFront);
+            //Units.Add(PickerRear);
             Units.Add(VisionInspection);
+            //Units.Add(Vision);
             Units.Add(OutputStage);
+            //Units.Add(BinStage);
+            Units.Add(BinCassette);
+            Units.Add(BinFeeder);
             Units.Add(OutputUnloader);
         }
     }

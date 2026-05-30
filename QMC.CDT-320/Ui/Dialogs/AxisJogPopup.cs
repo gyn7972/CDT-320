@@ -13,6 +13,7 @@ namespace QMC.CDT_320.Ui.Dialogs
     {
         private readonly List<BaseAxis> _axes;
         private readonly Timer _posTimer = new Timer();
+        private bool _isStepJogging;
 
         public AxisJogPopup(IEnumerable<BaseAxis> axes)
         {
@@ -81,11 +82,11 @@ namespace QMC.CDT_320.Ui.Dialogs
             btnStop.Click += (s, e) => StopJog();
             btnPrevIndex.Click += async (s, e) => await StepJogAsync(-1);
             btnNextIndex.Click += async (s, e) => await StepJogAsync(1);
-            btnStep1.Click += (s, e) => SetStep(1M);
-            btnStep01.Click += (s, e) => SetStep(0.1M);
-            btnStep001.Click += (s, e) => SetStep(0.01M);
-            btnStep0001.Click += (s, e) => SetStep(0.001M);
-            btnStepZero.Click += (s, e) => SetStep(0.001M);
+            btnStep1.Click += (s, e) => SetStep(1000u);
+            btnStep01.Click += (s, e) => SetStep(100u);
+            btnStep001.Click += (s, e) => SetStep(10u);
+            btnStep0001.Click += (s, e) => SetStep(1u);
+            btnStepZero.Click += (s, e) => SetStep(0u);
         }
 
         private void ApplyMoveModeUi()
@@ -172,29 +173,98 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         private void StartContinuousJog(int direction)
         {
-            var axis = SelectedAxis;
-            if (axis == null) 
-                return;
+            try
+            {
+                var axis = SelectedAxis;
+                if (axis == null)
+                    return;
 
-            if (!axis.IsServoOn) 
-                axis.ServoOn();
+                if (!axis.IsServoOn)
+                    axis.ServoOn();
 
-            axis.MoveJogContinuous(direction, SpeedType());
+                axis.MoveJogContinuous(direction, SpeedType());
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, ex.Message, "JOG", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+            finally
+            {
+                UpdatePositionOnce();
+            }
         }
 
         private async Task StepJogAsync(int direction)
         {
-            var axis = SelectedAxis;
-            if (axis == null) return;
-            if (!axis.IsServoOn) axis.ServoOn();
-            await axis.MoveJogStepAsync(direction, SpeedType(), (double)nudStep.Value);
+            try
+            {
+                if (_isStepJogging)
+                    return;
+
+                var axis = SelectedAxis;
+                if (axis == null)
+                    return;
+
+                if (!axis.IsServoOn)
+                    axis.ServoOn();
+
+                axis.UpdateStatus();
+                if (axis.IsMoving)
+                    return;
+
+                double stepUm = (double)nudStep.Value;
+                if (stepUm <= 0)
+                    return;
+
+                double stepMm = stepUm / 1000.0;
+
+                _isStepJogging = true;
+                SetJogButtonsEnabled(false);
+                await axis.MoveJogStepAsync(direction, SpeedType(), stepMm);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, ex.Message, "JOG STEP", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+            finally
+            {
+                _isStepJogging = false;
+                UpdateJogEnableByAxis();
+                UpdatePositionOnce();
+            }
         }
 
         private void StopJog()
         {
-            var axis = SelectedAxis;
-            if (axis != null)
-                axis.StopJog();
+            try
+            {
+                var axis = SelectedAxis;
+                if (axis != null)
+                    axis.StopJog();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, ex.Message, "JOG STOP", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+            finally
+            {
+                UpdatePositionOnce();
+            }
+        }
+
+        private void SetJogButtonsEnabled(bool enabled)
+        {
+            try
+            {
+                foreach (var btn in new[] { btnXMinus, btnXPlus, btnYMinus, btnYPlus, btnZMinus, btnZPlus, btnTMinus, btnTPlus, btnPrevIndex, btnNextIndex })
+                    btn.Enabled = enabled && btn.Enabled;
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
         }
 
         private JogSpeedType SpeedType()
@@ -204,10 +274,23 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         private void UpdatePositionOnce()
         {
-            var axis = SelectedAxis;
-            lblPosition.Text = axis == null
-                ? "000.000"
-                : axis.ActualPosition.ToString("0.000", CultureInfo.InvariantCulture) + " mm";
+            try
+            {
+                var axis = SelectedAxis;
+                if (axis != null)
+                    axis.UpdateStatus();
+
+                lblPosition.Text = axis == null
+                    ? "000"
+                    : (axis.ActualPosition * 1000.0).ToString("0", CultureInfo.InvariantCulture) + " um";
+            }
+            catch
+            {
+                lblPosition.Text = "ERR";
+            }
+            finally
+            {
+            }
         }
 
         private void SetStep(decimal value)

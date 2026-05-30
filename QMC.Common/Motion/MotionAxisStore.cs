@@ -190,10 +190,10 @@ namespace QMC.Common.Motion
                 definition.Setup.PulsesPerUnit = 1000.0;
             if (definition.Setup.AxisScale <= 0)
                 definition.Setup.AxisScale = 1000;
-            if (definition.Config.AccJerkPercent < 0 || definition.Config.AccJerkPercent > 100)
-                definition.Config.AccJerkPercent = 50;
-            if (definition.Config.DecJerkPercent < 0 || definition.Config.DecJerkPercent > 100)
-                definition.Config.DecJerkPercent = 50;
+            if (definition.Setup.AccJerkPercent < 0 || definition.Setup.AccJerkPercent > 100)
+                definition.Setup.AccJerkPercent = 50;
+            if (definition.Setup.DecJerkPercent < 0 || definition.Setup.DecJerkPercent > 100)
+                definition.Setup.DecJerkPercent = 50;
             if (definition.Config.InPositionTolerance < 0)
                 definition.Config.InPositionTolerance = 0;
         }
@@ -251,26 +251,6 @@ namespace QMC.Common.Motion
         {
             if (source == null || target == null) return;
             target.IsSimulationMode = source.IsSimulationMode;
-            target.PulseOutput = source.PulseOutput;
-            target.EncoderInput = source.EncoderInput;
-            target.InputSource = source.InputSource;
-            target.ServoOnLevel = source.ServoOnLevel;
-            target.AlarmLevel = source.AlarmLevel;
-            target.AlarmResetLevel = source.AlarmResetLevel;
-            target.EmergencyLevel = source.EmergencyLevel;
-            target.StopMode = source.StopMode;
-            target.InPosition = source.InPosition;
-            target.PositiveLimitLevel = source.PositiveLimitLevel;
-            target.NegativeLimitLevel = source.NegativeLimitLevel;
-            target.ProfileMode = source.ProfileMode;
-            target.AccJerkPercent = source.AccJerkPercent;
-            target.DecJerkPercent = source.DecJerkPercent;
-            target.InPositionTolerance = source.InPositionTolerance;
-        }
-
-        public static void Copy(AxisRecipe source, AxisRecipe target)
-        {
-            if (source == null || target == null) return;
             target.DefaultVelocity = source.DefaultVelocity;
             target.Acceleration = source.Acceleration;
             target.Deceleration = source.Deceleration;
@@ -283,6 +263,13 @@ namespace QMC.Common.Motion
             target.JogFineVelocity = source.JogFineVelocity;
             target.JogAcceleration = source.JogAcceleration;
             target.JogDeceleration = source.JogDeceleration;
+            target.InPositionTolerance = source.InPositionTolerance;
+        }
+
+        public static void Copy(AxisRecipe source, AxisRecipe target)
+        {
+            if (source == null || target == null) 
+                return;
         }
     }
 }

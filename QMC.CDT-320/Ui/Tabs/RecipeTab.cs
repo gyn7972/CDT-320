@@ -18,13 +18,13 @@ namespace QMC.CDT_320.Ui.Tabs
             const UserLevel en = UserLevel.Engineer;
 
             AddSidebarButton("recipe.project",        en, () => new ProjectPage());
-            AddSidebarButton("recipe.inputCassette",  en, () => new CassetteRecipePage("recipe.inputCassette"));
+            AddSidebarButton("recipe.inputCassette",  en, () => new InputCassetteRecipePage());
             AddSidebarButton("recipe.inputFeeder",    en, () => new FeederRecipePage("recipe.inputFeeder"));
             AddSidebarButton("recipe.inputStage",     en, () => new StageRecipePage("recipe.inputStage"));
             AddSidebarButton("recipe.frontHead",      en, () => new HeadRecipePage("recipe.frontHead"));
             AddSidebarButton("recipe.rearHead",       en, () => new HeadRecipePage("recipe.rearHead"));
             AddSidebarButton("recipe.outputFeeder",   en, () => new FeederRecipePage("recipe.outputFeeder"));
-            AddSidebarButton("recipe.outputCassette", en, () => new CassetteRecipePage("recipe.outputCassette"));
+            AddSidebarButton("recipe.outputCassette", en, () => new OutputCassetteRecipePage());
             AddSidebarButton("recipe.outputStage",    en, () => new StageRecipePage("recipe.outputStage"));
             AddSidebarSpacer();
             AddSidebarButton("recipe.inputVision",    en, () => new VisionRecipePage("recipe.inputVision"));

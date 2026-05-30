@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Runtime.Serialization;
 using System.Threading;
@@ -10,9 +10,49 @@ using QMC.Common.Motion;
 
 namespace QMC.CDT320
 {
+    public class InputCassetteSetup : ISetupData
     [DataContract]
     public class WaferCassetteSetup : ISetupData
     {
+        public bool IsSimulationMode { get; set; } = true;
+        public double InPositionTolerance { get; set; } = 0.05;
+    }
+
+    public class InputCassetteConfig : IConfigData
+    {
+        public bool bDryRun { get; set; } = true;
+        public double LoadingPositionOffset { get; set; } = 0.0;
+        public double UnloadingPositionOffset { get; set; } = 0.0;
+        public double SlotPitch { get; set; } = 5.0;
+        public int SlotCount { get; set; } = 25;
+        public double ScanVelocity { get; set; } = 20.0;
+        public int ScanSettleTimeMs { get; set; } = 100;
+        public int ElevatorMoveTimeoutMs { get; set; } = 10000;
+        public int InchSelect { get; set; } = 0; // 0: 8Inch, 1: 12Inch
+        public int SelectedCassetteLevel { get; set; } = 0; // 0: 1단, 1: 2단
+
+    }
+
+    public class InputCassetteRecipe : IRecipeData
+    {
+        public double AvoidPosition { get; set; } = 0.0;    //ReadyPosition.
+        public double LoaingPosition { get; set; } = 150.0;
+        public double UnloadingPosition { get; set; } = 150.0;
+        public double FirstSlotPosition { get; set; } = 10.0;
+        public double MappingStartPosition { get; set; } = 5.0;
+        public double MappingEndPosition { get; set; } = 130.0;
+
+        /// <summary>Mapping ???뺤젙??Slot蹂?Z ?꾩튂?낅땲?? 媛믪씠 ?놁쑝硫?double.NaN?쇰줈 ?좎??⑸땲??</summary>
+        public double[] SlotPosition { get; private set; } = Array.Empty<double>();
+
+        /// <summary>Config.SlotCount??留욎떠 SlotPosition 踰꾪띁瑜??ъ깮?깊빀?덈떎.</summary>
+        public void ResizeSlotPositions(int slotCount)
+        {
+            int count = Math.Max(0, slotCount);
+            SlotPosition = new double[count];
+            for (int i = 0; i < SlotPosition.Length; i++)
+                SlotPosition[i] = double.NaN;
+        }
         [DataMember] public double AvoidPosition { get; set; }
         [DataMember] public double FirstSlotPosition { get; set; }
         [DataMember] public double MappingStartPosition { get; set; }
@@ -38,6 +78,13 @@ namespace QMC.CDT320
         }
     }
 
+        /// <summary>SlotPosition 踰꾪띁媛 吏??SlotCount? 媛숈?吏 蹂댁옣?⑸땲??</summary>
+        public void EnsureSlotPositionBuffer(int slotCount)
+        {
+            int count = Math.Max(0, slotCount);
+            if (SlotPosition == null || SlotPosition.Length != count)
+                ResizeSlotPositions(count);
+        }
     [DataContract]
     public class WaferCassetteConfig : IConfigData
     {
@@ -54,6 +101,15 @@ namespace QMC.CDT320
         }
     }
 
+        /// <summary>吏??Slot??Mapping ?꾩튂瑜?媛깆떊?⑸땲??</summary>
+        public void UpdateSlotPosition(int slotIndex, double position)
+        {
+            if (SlotPosition == null || slotIndex < 0 || slotIndex >= SlotPosition.Length)
+                throw new ArgumentOutOfRangeException("slotIndex");
+
+            SlotPosition[slotIndex] = position;
+        }
+    }
     [DataContract]
     public class WaferCassetteRecipe : IRecipeData
     {
@@ -74,7 +130,7 @@ namespace QMC.CDT320
         }
     }
 
-    public class WaferCassetteUnit : BaseUnit<WaferCassetteSetup, WaferCassetteConfig, WaferCassetteRecipe>
+    public class InputCassetteUnit : BaseUnit<InputCassetteSetup, InputCassetteConfig, InputCassetteRecipe>
     {
         private readonly Dictionary<int, WaferSlotState> slotStates = new Dictionary<int, WaferSlotState>();
 
@@ -93,7 +149,7 @@ namespace QMC.CDT320
 
         public IReadOnlyList<bool> WaferMap { get; private set; }
 
-        public WaferCassetteUnit() : base("WaferCassetteUnit")
+        public InputCassetteUnit() : base("WaferCassetteUnit")
         {
             WaferLifterZ = AjinFactory.CreateAxis("WaferLifterZ");
             Wafer8CassetteCheck0 = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.Wafer8CassetteCheck0);
@@ -112,11 +168,39 @@ namespace QMC.CDT320
             Components.Add(WaferMappingSensor);
 
             WaferMap = new List<bool>().AsReadOnly();
+            EnsureSlotPositionBuffer();
         }
 
         public async Task MoveWaferLifterZ(double targetPos, bool bFine = false)
         {
-            await MoveWithProtrusionWatch(targetPos, bFine ? Recipe.ScanVelocity * 0.5 : Recipe.ScanVelocity);
+            try
+            {
+                await MoveWithProtrusionWatch(targetPos, bFine ? Config.ScanVelocity * 0.5 : Config.ScanVelocity);
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        /// <summary>지정한 조그 속도 모드로 Wafer Lifter Z축을 절대 위치로 이동합니다.</summary>
+        public async Task MoveWaferLifterZ(double targetPos, JogSpeedType speedType, double customSpeed = 0)
+        {
+            try
+            {
+                double velocity = ResolveJogVelocity(speedType, customSpeed);
+                await MoveWithProtrusionWatch(targetPos, velocity);
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
         }
 
         public Task MoveWaferLifterZToTeachingPosition(string positionName, bool bFine = false)
@@ -126,7 +210,7 @@ namespace QMC.CDT320
 
         public Task MoveToWaferCassetteAvoidPosition(bool bFine = false)
         {
-            return MoveWaferLifterZ(Setup.AvoidPosition, bFine);
+            return MoveWaferLifterZ(Recipe.AvoidPosition, bFine);
         }
 
         public Task MoveToWaferCassetteSlotPosition(int slotIndex, bool bFine = false)
@@ -136,12 +220,12 @@ namespace QMC.CDT320
 
         public Task MoveToWaferCassetteMappingStartPosition(bool bFine = false)
         {
-            return MoveWaferLifterZ(Setup.MappingStartPosition, bFine);
+            return MoveWaferLifterZ(Recipe.MappingStartPosition, bFine);
         }
 
         public Task MoveToWaferCassetteMappingEndPosition(bool bFine = false)
         {
-            return MoveWaferLifterZ(Setup.MappingEndPosition, bFine);
+            return MoveWaferLifterZ(Recipe.MappingEndPosition, bFine);
         }
 
         public bool IsWaferLifterZInPosition(double targetPos, double tolerance)
@@ -162,7 +246,7 @@ namespace QMC.CDT320
 
         public bool IsWaferLifterZInAvoidPosition()
         {
-            return IsWaferLifterZInPosition(Setup.AvoidPosition, Setup.InPositionTolerance);
+            return IsWaferLifterZInPosition(Recipe.AvoidPosition, Setup.InPositionTolerance);
         }
 
         public bool IsWaferLifterZInSlotPosition(int slotIndex)
@@ -177,34 +261,39 @@ namespace QMC.CDT320
 
         public void TeachWaferLifterZAvoidPosition()
         {
-            Setup.AvoidPosition = WaferLifterZ.ActualPosition;
+            Recipe.AvoidPosition = WaferLifterZ.ActualPosition;
         }
 
         public void TeachWaferLifterZMappingStartPosition()
         {
-            Setup.MappingStartPosition = WaferLifterZ.ActualPosition;
+            Recipe.MappingStartPosition = WaferLifterZ.ActualPosition;
         }
 
         public void TeachWaferLifterZMappingEndPosition()
         {
-            Setup.MappingEndPosition = WaferLifterZ.ActualPosition;
+            Recipe.MappingEndPosition = WaferLifterZ.ActualPosition;
         }
 
         public double CalculateWaferCassetteSlotTargetPosition(int slotIndex)
         {
             ValidateSlotIndex(slotIndex);
-            return Setup.FirstSlotPosition + (Setup.SlotPitch * slotIndex);
+            EnsureSlotPositionBuffer();
+            double mappedPosition = Recipe.SlotPosition[slotIndex];
+            if (!double.IsNaN(mappedPosition))
+                return mappedPosition;
+
+            return CalculateNominalSlotPosition(slotIndex);
         }
 
         public bool ValidateWaferLifterZTeachingComplete()
         {
-            return Setup.SlotCount > 0 && Setup.SlotPitch > 0.0 && Setup.MappingEndPosition != Setup.MappingStartPosition;
+            return Config.SlotCount > 0 && Config.SlotPitch > 0.0 && Recipe.MappingEndPosition != Recipe.MappingStartPosition;
         }
 
         public async Task<bool> MoveToTeachingPositionAndVerify(string positionName, bool bFine = false)
         {
             await MoveWaferLifterZToTeachingPosition(positionName, bFine);
-            return await WaitWaferLifterZInPosition(positionName, Recipe.ElevatorMoveTimeoutMs);
+            return await WaitWaferLifterZInPosition(positionName, Config.ElevatorMoveTimeoutMs);
         }
 
         public bool IsWaferCassetteExist(int nSize)
@@ -262,7 +351,33 @@ namespace QMC.CDT320
 
         public void ManualMoveWaferLifterZJog(int direction, double speed)
         {
-            WaferLifterZ.MoveJogContinuous(direction, JogSpeedType.Custom, speed);
+            try
+            {
+                WaferLifterZ.MoveJogContinuous(direction, JogSpeedType.Custom, speed);
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        /// <summary>지정한 속도 모드로 Wafer Lifter Z축을 연속 조그 이동합니다.</summary>
+        public void ManualMoveWaferLifterZJog(int direction, JogSpeedType speedType, double customSpeed = 0)
+        {
+            try
+            {
+                WaferLifterZ.MoveJogContinuous(direction, speedType, customSpeed);
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
         }
 
         public void ManualStopWaferLifterZ()
@@ -296,7 +411,7 @@ namespace QMC.CDT320
                 return false;
 
             BeginWaferMapping();
-            bool result = await ScanCassetteAsync(Setup.SlotCount, Setup.SlotPitch);
+            bool result = await ScanCassetteAsync(Config.SlotCount, Config.SlotPitch);
             EndWaferMapping();
             return result;
         }
@@ -355,8 +470,8 @@ namespace QMC.CDT320
 
         public WaferCassetteMaterial GetWaferMaterialCassette()
         {
-            var material = new WaferCassetteMaterial(Setup.SlotCount);
-            for (int i = 0; i < Setup.SlotCount; i++)
+            var material = new WaferCassetteMaterial(Config.SlotCount);
+            for (int i = 0; i < Config.SlotCount; i++)
             {
                 WaferSlotState state;
                 if (!slotStates.TryGetValue(i, out state))
@@ -373,7 +488,7 @@ namespace QMC.CDT320
 
         public int FindNextProcessWaferSlot()
         {
-            for (int i = 0; i < Setup.SlotCount; i++)
+            for (int i = 0; i < Config.SlotCount; i++)
             {
                 WaferSlotState state;
                 if (slotStates.TryGetValue(i, out state) &&
@@ -394,6 +509,7 @@ namespace QMC.CDT320
         {
             slotStates.Clear();
             WaferMap = new List<bool>().AsReadOnly();
+            Recipe.ResizeSlotPositions(Config.SlotCount);
         }
 
         public void EndWaferMapping()
@@ -441,14 +557,15 @@ namespace QMC.CDT320
 
             for (int i = 0; i < maxSlots; i++)
             {
-                await MoveWaferLifterZ(Setup.FirstSlotPosition + (i * slotPitch));
+                await MoveWaferLifterZ(CalculateNominalSlotPosition(i));
                 if (WaferLifterZ.IsAlarm)
                 {
                     Console.WriteLine("[ALARM] '" + Name + "' ScanCassette: WaferLifterZ move failed at slot " + i + ".");
                     return false;
                 }
 
-                await Task.Delay(Recipe.ScanSettleTimeMs).ContinueWith(_ => { });
+                await Task.Delay(Config.ScanSettleTimeMs).ContinueWith(_ => { });
+                UpdateSlotPosition(i, WaferLifterZ.ActualPosition);
                 map.Add(WaferMappingSensor.IsOn);
             }
 
@@ -502,21 +619,43 @@ namespace QMC.CDT320
                 throw new InvalidOperationException("'" + Name + "' Move: WaferLifterZ alarm.");
         }
 
+        private double ResolveJogVelocity(JogSpeedType speedType, double customSpeed)
+        {
+            try
+            {
+                if (speedType == JogSpeedType.Coarse)
+                    return WaferLifterZ.Config.JogCoarseVelocity;
+                if (speedType == JogSpeedType.Fine)
+                    return WaferLifterZ.Config.JogFineVelocity;
+                if (customSpeed > 0)
+                    return customSpeed;
+
+                return WaferLifterZ.Config.JogFineVelocity;
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
         private double GetTeachingPosition(string positionName)
         {
-            if (string.Equals(positionName, "Avoid", StringComparison.OrdinalIgnoreCase)) return Setup.AvoidPosition;
-            if (string.Equals(positionName, "MappingStart", StringComparison.OrdinalIgnoreCase)) return Setup.MappingStartPosition;
-            if (string.Equals(positionName, "MappingEnd", StringComparison.OrdinalIgnoreCase)) return Setup.MappingEndPosition;
-            if (string.Equals(positionName, "FirstSlot", StringComparison.OrdinalIgnoreCase)) return Setup.FirstSlotPosition;
+            if (string.Equals(positionName, "Avoid", StringComparison.OrdinalIgnoreCase)) return Recipe.AvoidPosition;
+            if (string.Equals(positionName, "MappingStart", StringComparison.OrdinalIgnoreCase)) return Recipe.MappingStartPosition;
+            if (string.Equals(positionName, "MappingEnd", StringComparison.OrdinalIgnoreCase)) return Recipe.MappingEndPosition;
+            if (string.Equals(positionName, "FirstSlot", StringComparison.OrdinalIgnoreCase)) return Recipe.FirstSlotPosition;
             throw new ArgumentException("Unknown WaferLifterZ teaching position: " + positionName, "positionName");
         }
 
         private void SetTeachingPosition(string positionName, double position)
         {
-            if (string.Equals(positionName, "Avoid", StringComparison.OrdinalIgnoreCase)) Setup.AvoidPosition = position;
-            else if (string.Equals(positionName, "MappingStart", StringComparison.OrdinalIgnoreCase)) Setup.MappingStartPosition = position;
-            else if (string.Equals(positionName, "MappingEnd", StringComparison.OrdinalIgnoreCase)) Setup.MappingEndPosition = position;
-            else if (string.Equals(positionName, "FirstSlot", StringComparison.OrdinalIgnoreCase)) Setup.FirstSlotPosition = position;
+            if (string.Equals(positionName, "Avoid", StringComparison.OrdinalIgnoreCase)) Recipe.AvoidPosition = position;
+            else if (string.Equals(positionName, "MappingStart", StringComparison.OrdinalIgnoreCase)) Recipe.MappingStartPosition = position;
+            else if (string.Equals(positionName, "MappingEnd", StringComparison.OrdinalIgnoreCase)) Recipe.MappingEndPosition = position;
+            else if (string.Equals(positionName, "FirstSlot", StringComparison.OrdinalIgnoreCase)) Recipe.FirstSlotPosition = position;
             else throw new ArgumentException("Unknown WaferLifterZ teaching position: " + positionName, "positionName");
         }
 
@@ -528,8 +667,35 @@ namespace QMC.CDT320
 
         private void ValidateSlotIndex(int slotIndex)
         {
-            if (slotIndex < 0 || slotIndex >= Setup.SlotCount)
+            if (slotIndex < 0 || slotIndex >= Config.SlotCount)
                 throw new ArgumentOutOfRangeException("slotIndex", "Slot index is out of cassette range.");
+        }
+
+        /// <summary>Config.SlotCount??留욎떠 Recipe.SlotPosition 踰꾪띁瑜?蹂댁옣?⑸땲??</summary>
+        public void EnsureSlotPositionBuffer()
+        {
+            Recipe.EnsureSlotPositionBuffer(Config.SlotCount);
+        }
+
+        /// <summary>Mapping ??SlotPosition 踰꾪띁瑜?珥덇린?뷀빀?덈떎.</summary>
+        public void ResetSlotPositionsForMapping()
+        {
+            Recipe.ResizeSlotPositions(Config.SlotCount);
+        }
+
+        /// <summary>吏??Slot??Mapping ?꾩튂瑜?媛깆떊?⑸땲??</summary>
+        public void UpdateSlotPosition(int slotIndex, double position)
+        {
+            ValidateSlotIndex(slotIndex);
+            EnsureSlotPositionBuffer();
+            Recipe.UpdateSlotPosition(slotIndex, position);
+        }
+
+        /// <summary>Mapping 寃곌낵媛 ?놁쓣 ???ъ슜??紐낅ぉ Slot ?꾩튂瑜?怨꾩궛?⑸땲??</summary>
+        public double CalculateNominalSlotPosition(int slotIndex)
+        {
+            ValidateSlotIndex(slotIndex);
+            return Recipe.FirstSlotPosition + Config.LoadingPositionOffset + (Config.SlotPitch * slotIndex);
         }
 
         private static async Task<bool> WaitUntilAsync(Func<bool> condition, int timeoutMs)

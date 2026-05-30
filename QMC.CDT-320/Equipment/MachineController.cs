@@ -50,10 +50,17 @@ namespace QMC.CDT320
         private readonly CDT320_Machine _machine;
         private MachineStatus _status = MachineStatus.Idle;
         private CancellationTokenSource _cycleCts;
+        private CancellationTokenSource _autoCts;
+        private Task _coordinatorTask;
+        private QMC.CDT320.Sequencing.MachineSequenceContext _seqContext;
+        private QMC.CDT320.Sequencing.AutoSequenceCoordinator _coordinator;
 
         public event Action<MachineStatus> StatusChanged;
         public event Action<string>        LogMessage;
         public event Action<int, int>      CycleProgress;  // (done, total)
+
+        /// <summary>CDT-320 하드웨어 유닛 트리입니다.</summary>
+        public CDT320_Machine Machine => _machine;
 
         public MachineStatus Status => _status;
         public int CycleTotal  { get; private set; }
@@ -959,6 +966,98 @@ namespace QMC.CDT320
         /// <summary>CYCLE RUN: 자동 사이클 시작. 다이맵 모드(UseDieMapMode=true)일 때는
         /// Input 다이맵의 IsTarget=true 다이를 모두 처리. totalDies&lt;=0 또는 다이맵 모드일 때는
         /// EnsureDieMaps 의 활성 다이 수가 자동 적용됨.</summary>
+        /// <summary>지정한 옵션으로 병렬 시퀀스 Coordinator를 시작합니다.</summary>
+        public async Task StartSequenceAsync(QMC.CDT320.Sequencing.SequenceRunOptions options)
+        {
+            if (_coordinatorTask != null && !_coordinatorTask.IsCompleted)
+                await StopSequenceAsync();
+
+            if (options == null)
+                options = QMC.CDT320.Sequencing.SequenceRunOptions.FullAuto();
+
+            // Stage 01 — 시퀀스 실행 컨텍스트와 Coordinator를 새 실행 단위로 구성한다.
+            _autoCts = new CancellationTokenSource();
+            var bus = new QMC.CDT320.Sequencing.SequenceSignalBus();
+            _seqContext = new QMC.CDT320.Sequencing.MachineSequenceContext(this, bus);
+            _coordinator = new QMC.CDT320.Sequencing.AutoSequenceCoordinator(_seqContext);
+
+            _coordinator.Register(
+                QMC.CDT320.Sequencing.SequenceUnitKind.InputLoader,
+                () => new QMC.CDT320.Sequencing.InputLoaderSequence(_seqContext));
+
+            _coordinator.Configure(options);
+            Log("[SEQ] StartSequenceAsync units=" + options.Units + ", mode=" + options.Mode);
+
+            _coordinatorTask = Task.Run(async () =>
+            {
+                await _coordinator.RunAsync(_autoCts.Token).ConfigureAwait(false);
+            });
+        }
+
+        /// <summary>실행 중인 병렬 시퀀스를 중단하고 Coordinator 종료를 대기합니다.</summary>
+        public async Task StopSequenceAsync()
+        {
+            var coordinator = _coordinator;
+            var cts = _autoCts;
+            var task = _coordinatorTask;
+
+            if (coordinator != null)
+                coordinator.AbortChildren();
+            if (cts != null && !cts.IsCancellationRequested)
+                cts.Cancel();
+
+            if (task != null)
+            {
+                try
+                {
+                    await task.ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
+                    Log("[SEQ] StopSequenceAsync canceled");
+                }
+            }
+
+            _coordinatorTask = null;
+            _coordinator = null;
+            _seqContext = null;
+            if (_autoCts != null)
+            {
+                _autoCts.Dispose();
+                _autoCts = null;
+            }
+        }
+
+        /// <summary>지정한 유닛들을 Manual 모드로 시작합니다.</summary>
+        public Task StartManualAsync(QMC.CDT320.Sequencing.SequenceUnitKind units)
+        {
+            return StartSequenceAsync(new QMC.CDT320.Sequencing.SequenceRunOptions
+            {
+                Units = units,
+                Mode = QMC.CDT320.Sequencing.SequenceRunMode.Manual
+            });
+        }
+
+        /// <summary>지정한 단일 유닛을 지정 실행 모드로 시작합니다.</summary>
+        public Task StartSingleUnitAsync(
+            QMC.CDT320.Sequencing.SequenceUnitKind unit,
+            QMC.CDT320.Sequencing.SequenceRunMode mode)
+        {
+            return StartSequenceAsync(QMC.CDT320.Sequencing.SequenceRunOptions.Single(unit, mode));
+        }
+
+        /// <summary>Manual 또는 Step 모드에서 지정 유닛을 1단계 진행시킵니다.</summary>
+        public void ManualStep(QMC.CDT320.Sequencing.SequenceUnitKind unit)
+        {
+            if (_coordinator == null)
+            {
+                Log("[SEQ] ManualStep ignored: coordinator 없음");
+                return;
+            }
+
+            _coordinator.StepUnit(unit);
+        }
+
         public async Task CycleRunAsync(int totalDies = -1)
         {
             if (_status == MachineStatus.Cycling) { Log("[CYCLE] 이미 실행 중"); return; }
@@ -1753,6 +1852,12 @@ namespace QMC.CDT320
         {
             var h = LogMessage;
             if (h != null) try { h(msg); } catch { }
+        }
+
+        /// <summary>외부 시퀀스 계층에서 장비 로그를 기록하기 위한 공개 로그 브리지입니다.</summary>
+        public void LogPublic(string msg)
+        {
+            Log(msg);
         }
 
         private void RaiseProgress()
