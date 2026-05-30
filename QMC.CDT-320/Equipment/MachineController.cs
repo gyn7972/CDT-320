@@ -1383,14 +1383,14 @@ namespace QMC.CDT320
                     int seqIdx = dieBase + i;
                     if (seqIdx < 0 || seqIdx >= seqLen) break;
                     var e = _inputPickupSequence[seqIdx];
-                    dies[i].GridX = e.GridX;
-                    dies[i].GridY = e.GridY;
+                    dies[i].WaferIndexX = e.GridX;
+                    dies[i].WaferIndeY = e.GridY;
                     dies[i].X     = e.X;
                     dies[i].Y     = e.Y;
                 }
                 // InputStage 이동은 대표 다이 (첫 picker) 기준
-                row = dies[0].GridY;
-                col = dies[0].GridX;
+                row = dies[0].WaferIndeY;
+                col = dies[0].WaferIndexX;
             }
             else
             {
