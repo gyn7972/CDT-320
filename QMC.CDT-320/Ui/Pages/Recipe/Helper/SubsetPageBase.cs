@@ -141,6 +141,17 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             if (string.IsNullOrEmpty(name)) { _project = null; _lblProject.Text = "(no project)"; return; }
             _project = RecipeStore.Load(name);
             _lblProject.Text = _project != null ? "Project: " + _project.FileName : "(load failed: " + name + ")";
+            try
+            {
+                var host = FindForm() as Form1;
+                host?.LoadMachineRecipe(_project != null ? _project.FileName : name);
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
 
             // 누락된 subset 자동 보충
             if (_project != null)
@@ -161,6 +172,17 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             {
                 SafeSaveToRecipe();
                 RecipeStore.Save(_project);
+                try
+                {
+                    var host = FindForm() as Form1;
+                    host?.SaveMachineRecipe(_project.FileName);
+                }
+                catch
+                {
+                }
+                finally
+                {
+                }
                 // Stage 61 — 마지막 프로젝트 마커 + 상태바 갱신
                 RecipeStore.SaveLastProjectName(_project.FileName);
                 try

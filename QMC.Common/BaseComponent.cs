@@ -1,6 +1,5 @@
 using System;
-using System;
-using QMC.Common.Persistence;
+using QMC.Common.Data.Store;
 
 namespace QMC.Common
 {
@@ -61,28 +60,66 @@ namespace QMC.Common
         /// <summary>Leaf: 자신의 Setup / Config 저장.</summary>
         public override bool SaveSettings()
         {
-            bool ok = EquipmentDataStore.Save(Setup,  StorageKey, "Setup");
-            ok &= EquipmentDataStore.Save(Config, StorageKey, "Config");
-            return ok;
+            try
+            {
+                bool ok = UnitDataStore.SaveSetup(Setup, StorageKey);
+                ok &= UnitDataStore.SaveConfig(Config, StorageKey);
+                return ok;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
         }
 
         /// <summary>Leaf: 자신의 Setup / Config 로드.</summary>
         public override void LoadSettings()
         {
-            Setup  = EquipmentDataStore.Load<TSetup>(StorageKey,  "Setup");
-            Config = EquipmentDataStore.Load<TConfig>(StorageKey, "Config");
+            try
+            {
+                Setup = UnitDataStore.LoadSetup(StorageKey, Setup);
+                Config = UnitDataStore.LoadConfig(StorageKey, Config);
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
         }
 
         /// <summary>Leaf: 레시피 이름별 Recipe 저장.</summary>
         public override bool SaveRecipe(string recipeName)
         {
-            return UnitRecipeStore.Save(Recipe, recipeName, StorageKey);
+            try
+            {
+                return UnitDataStore.SaveRecipe(Recipe, recipeName, StorageKey);
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
         }
 
         /// <summary>Leaf: 레시피 이름별 Recipe 로드.</summary>
         public override void LoadRecipe(string recipeName)
         {
-            Recipe = UnitRecipeStore.Load<TRecipe>(recipeName, StorageKey);
+            try
+            {
+                Recipe = UnitDataStore.LoadRecipe(recipeName, StorageKey, Recipe);
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
         }
     }
 }

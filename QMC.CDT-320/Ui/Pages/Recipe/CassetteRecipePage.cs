@@ -317,6 +317,26 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
         }
 
+        private async Task RunSafeAsync(Func<Task<int>> action, string actionName)
+        {
+            try
+            {
+                Cursor = Cursors.WaitCursor;
+                int result = await action();
+                if (result != 0)
+                    MessageBox.Show(this, actionName + " failed", "Cassette", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, ex.Message, actionName, MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                Cursor = Cursors.Default;
+                RefreshView();
+            }
+        }
+
         private void AttachTeachMenu(Label label, string positionName)
         {
             var menu = new ContextMenuStrip();

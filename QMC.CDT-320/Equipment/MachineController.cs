@@ -241,7 +241,7 @@ namespace QMC.CDT320
             if (loader.WaferMap == null || loader.WaferMap.Count == 0)
             {
                 Log("[LOTPORT] WaferMap empty → scan cassette");
-                bool scanned = await loader.ScanCassetteAsync(16, 6.0);
+                bool scanned = (await loader.ScanCassetteAsync(16, 6.0)) == 0;
                 if (!scanned)
                 {
                     AlarmManager.Raise(AlarmSeverity.Warning, "LOT-SCAN",
@@ -265,11 +265,14 @@ namespace QMC.CDT320
 
             // 이동 + 교환 위치 전진
             double slotPitch = 6.0;
-            double targetZ = loader.Setup.FirstSlotPosition + next * slotPitch;
+            //double targetZ = loader.Setup.FirstSlotPosition + next * slotPitch;
+            double targetZ = loader.WaferCassette.Recipe.FirstSlotPosition + next * slotPitch;
             Log($"[LOTPORT] Move to slot {next} (Z={targetZ:F2}mm)");
             try
             {
-                await loader.MoveToTargetSlotAsync(targetZ);
+                int moveResult = await loader.MoveToTargetSlotAsync(targetZ);
+                if (moveResult != 0)
+                    return false;
             }
             catch (Exception ex)
             {
@@ -558,7 +561,7 @@ namespace QMC.CDT320
                     loader.Name, "Input 카세트가 감지되지 않습니다.");
                 return false;
             }
-            bool ok = await loader.ScanCassetteAsync(16, 6.0);
+            bool ok = (await loader.ScanCassetteAsync(16, 6.0)) == 0;
             if (ok)
             {
                 CurrentInputSlot = -1;  // 매핑 후 슬롯 재탐색 위해 리셋

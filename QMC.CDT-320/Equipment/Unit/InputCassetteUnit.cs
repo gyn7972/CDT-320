@@ -69,7 +69,7 @@ namespace QMC.CDT320
         [DataMember] public double MappingEndPosition { get; set; }
 
         /// <summary>Mapping ???뺤젙??Slot蹂?Z ?꾩튂?낅땲?? 媛믪씠 ?놁쑝硫?double.NaN?쇰줈 ?좎??⑸땲??</summary>
-        public double[] SlotPosition { get; private set; }
+        [DataMember] public double[] SlotPosition { get; private set; }
 
         /// <summary>Config.SlotCount??留욎떠 SlotPosition 踰꾪띁瑜??ъ깮?깊빀?덈떎.</summary>
         public void ResizeSlotPositions(int slotCount)
@@ -129,7 +129,7 @@ namespace QMC.CDT320
 
         public IReadOnlyList<bool> WaferMap { get; private set; }
 
-        public InputCassetteUnit() : base("WaferCassetteUnit")
+        public InputCassetteUnit() : base("InputCassetteUnit")
         {
             WaferLifterZ = AjinFactory.CreateAxis("WaferLifterZ");
             Wafer8CassetteCheck0 = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.Wafer8CassetteCheck0);
@@ -151,11 +151,12 @@ namespace QMC.CDT320
             EnsureSlotPositionBuffer();
         }
 
-        public async Task MoveWaferLifterZ(double targetPos, bool bFine = false)
+        public async Task<int> MoveWaferLifterZ(double targetPos, bool bFine = false)
         {
             try
             {
                 await MoveWithProtrusionWatch(targetPos, bFine ? Config.ScanVelocity * 0.5 : Config.ScanVelocity);
+                return 0;
             }
             catch
             {
@@ -167,12 +168,13 @@ namespace QMC.CDT320
         }
 
         /// <summary>지정한 조그 속도 모드로 Wafer Lifter Z축을 절대 위치로 이동합니다.</summary>
-        public async Task MoveWaferLifterZ(double targetPos, JogSpeedType speedType, double customSpeed = 0)
+        public async Task<int> MoveWaferLifterZ(double targetPos, JogSpeedType speedType, double customSpeed = 0)
         {
             try
             {
                 double velocity = ResolveJogVelocity(speedType, customSpeed);
                 await MoveWithProtrusionWatch(targetPos, velocity);
+                return 0;
             }
             catch
             {
@@ -183,29 +185,79 @@ namespace QMC.CDT320
             }
         }
 
-        public Task MoveWaferLifterZToTeachingPosition(string positionName, bool bFine = false)
+        public async Task<int> MoveWaferLifterZToTeachingPosition(string positionName, bool bFine = false)
         {
-            return MoveWaferLifterZ(GetTeachingPosition(positionName), bFine);
+            try
+            {
+                return await MoveWaferLifterZ(GetTeachingPosition(positionName), bFine);
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
         }
 
-        public Task MoveToWaferCassetteAvoidPosition(bool bFine = false)
+        public async Task<int> MoveToWaferCassetteAvoidPosition(bool bFine = false)
         {
-            return MoveWaferLifterZ(Recipe.AvoidPosition, bFine);
+            try
+            {
+                return await MoveWaferLifterZ(Recipe.AvoidPosition, bFine);
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
         }
 
-        public Task MoveToWaferCassetteSlotPosition(int slotIndex, bool bFine = false)
+        public async Task<int> MoveToWaferCassetteSlotPosition(int slotIndex, bool bFine = false)
         {
-            return MoveWaferLifterZ(CalculateWaferCassetteSlotTargetPosition(slotIndex), bFine);
+            try
+            {
+                return await MoveWaferLifterZ(CalculateWaferCassetteSlotTargetPosition(slotIndex), bFine);
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
         }
 
-        public Task MoveToWaferCassetteMappingStartPosition(bool bFine = false)
+        public async Task<int> MoveToWaferCassetteMappingStartPosition(bool bFine = false)
         {
-            return MoveWaferLifterZ(Recipe.MappingStartPosition, bFine);
+            try
+            {
+                return await MoveWaferLifterZ(Recipe.MappingStartPosition, bFine);
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
         }
 
-        public Task MoveToWaferCassetteMappingEndPosition(bool bFine = false)
+        public async Task<int> MoveToWaferCassetteMappingEndPosition(bool bFine = false)
         {
-            return MoveWaferLifterZ(Recipe.MappingEndPosition, bFine);
+            try
+            {
+                return await MoveWaferLifterZ(Recipe.MappingEndPosition, bFine);
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
         }
 
         public bool IsWaferLifterZInPosition(double targetPos, double tolerance)
@@ -213,15 +265,35 @@ namespace QMC.CDT320
             return Math.Abs(WaferLifterZ.ActualPosition - targetPos) <= tolerance;
         }
 
-        public async Task<bool> WaitWaferLifterZMoveDone(int timeoutMs)
+        public async Task<int> WaitWaferLifterZMoveDone(int timeoutMs)
         {
-            return await WaitUntilAsync(() => !WaferLifterZ.IsMoving && WaferLifterZ.IsInPosition && !WaferLifterZ.IsAlarm, timeoutMs);
+            try
+            {
+                return await WaitUntilAsync(() => !WaferLifterZ.IsMoving && WaferLifterZ.IsInPosition && !WaferLifterZ.IsAlarm, timeoutMs);
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
         }
 
-        public async Task<bool> WaitWaferLifterZInPosition(string positionName, int timeoutMs)
+        public async Task<int> WaitWaferLifterZInPosition(string positionName, int timeoutMs)
         {
-            double target = GetTeachingPosition(positionName);
-            return await WaitUntilAsync(() => IsWaferLifterZInPosition(target, Setup.InPositionTolerance), timeoutMs);
+            try
+            {
+                double target = GetTeachingPosition(positionName);
+                return await WaitUntilAsync(() => IsWaferLifterZInPosition(target, Setup.InPositionTolerance), timeoutMs);
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
         }
 
         public bool IsWaferLifterZInAvoidPosition()
@@ -270,10 +342,23 @@ namespace QMC.CDT320
             return Config.SlotCount > 0 && Config.SlotPitch > 0.0 && Recipe.MappingEndPosition != Recipe.MappingStartPosition;
         }
 
-        public async Task<bool> MoveToTeachingPositionAndVerify(string positionName, bool bFine = false)
+        public async Task<int> MoveToTeachingPositionAndVerify(string positionName, bool bFine = false)
         {
-            await MoveWaferLifterZToTeachingPosition(positionName, bFine);
-            return await WaitWaferLifterZInPosition(positionName, Config.ElevatorMoveTimeoutMs);
+            try
+            {
+                int moveResult = await MoveWaferLifterZToTeachingPosition(positionName, bFine);
+                if (moveResult != 0)
+                    return moveResult;
+
+                return await WaitWaferLifterZInPosition(positionName, Config.ElevatorMoveTimeoutMs);
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
         }
 
         public bool IsWaferCassetteExist(int nSize)
@@ -304,14 +389,34 @@ namespace QMC.CDT320
             return WaferMappingSensor.IsOn;
         }
 
-        public async Task<bool> WaitWaferJutClear(int timeoutMs)
+        public async Task<int> WaitWaferJutClear(int timeoutMs)
         {
-            return await WaferRingJutCheck.WaitUntilStateAsync(false, timeoutMs);
+            try
+            {
+                return await WaferRingJutCheck.WaitUntilStateAsync(false, timeoutMs) ? 0 : -1;
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
         }
 
-        public async Task<bool> WaitWaferMappingSensor(bool expected, int timeoutMs)
+        public async Task<int> WaitWaferMappingSensor(bool expected, int timeoutMs)
         {
-            return await WaferMappingSensor.WaitUntilStateAsync(expected, timeoutMs);
+            try
+            {
+                return await WaferMappingSensor.WaitUntilStateAsync(expected, timeoutMs) ? 0 : -1;
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
         }
 
         public WaferCassetteSensorState GetWaferCassetteSensorState(int recipeSize)
@@ -329,11 +434,13 @@ namespace QMC.CDT320
             };
         }
 
-        public void ManualMoveWaferLifterZJog(int direction, double speed)
+        public async Task<int> ManualMoveWaferLifterZJog(int direction, double speed)
         {
             try
             {
                 WaferLifterZ.MoveJogContinuous(direction, JogSpeedType.Custom, speed);
+                await Task.CompletedTask;
+                return 0;
             }
             catch
             {
@@ -345,11 +452,13 @@ namespace QMC.CDT320
         }
 
         /// <summary>지정한 속도 모드로 Wafer Lifter Z축을 연속 조그 이동합니다.</summary>
-        public void ManualMoveWaferLifterZJog(int direction, JogSpeedType speedType, double customSpeed = 0)
+        public async Task<int> ManualMoveWaferLifterZJog(int direction, JogSpeedType speedType, double customSpeed = 0)
         {
             try
             {
                 WaferLifterZ.MoveJogContinuous(direction, speedType, customSpeed);
+                await Task.CompletedTask;
+                return 0;
             }
             catch
             {
@@ -360,73 +469,174 @@ namespace QMC.CDT320
             }
         }
 
-        public void ManualStopWaferLifterZ()
+        public async Task<int> ManualStopWaferLifterZ()
         {
-            WaferLifterZ.StopJog();
-        }
-
-        public Task ManualMoveToWaferCassetteAvoidPosition(bool bFine = false)
-        {
-            return MoveToWaferCassetteAvoidPosition(bFine);
-        }
-
-        public Task ManualMoveToWaferCassetteSlotPosition(int slotIndex, bool bFine = false)
-        {
-            return MoveToWaferCassetteSlotPosition(slotIndex, bFine);
-        }
-
-        public Task ManualMoveToWaferCassetteMappingStartPosition(bool bFine = false)
-        {
-            return MoveToWaferCassetteMappingStartPosition(bFine);
-        }
-
-        public Task ManualMoveToWaferCassetteMappingEndPosition(bool bFine = false)
-        {
-            return MoveToWaferCassetteMappingEndPosition(bFine);
-        }
-
-        public async Task<bool> WaferScan(int timeoutMs = 0, bool bFine = false)
-        {
-            if (!CheckWaferCassetteMappingReady())
-                return false;
-
-            BeginWaferMapping();
-            bool result = await ScanCassetteAsync(Config.SlotCount, Config.SlotPitch);
-            EndWaferMapping();
-            return result;
-        }
-
-        public async Task<bool> MoveToNextWaferSlot(bool bFine = false)
-        {
-            int slot = FindNextProcessWaferSlot();
-            if (slot < 0)
-                return false;
-
-            await MoveToWaferCassetteSlotPosition(slot, bFine);
-            return !WaferLifterZ.IsAlarm;
-        }
-
-        public async Task<bool> PrepareWaferCassetteForFeederLoad(int slotIndex, int timeoutMs, bool bFine = false)
-        {
-            if (!CheckWaferCassetteMoveReady())
-                return false;
-
-            await MoveToWaferCassetteSlotPosition(slotIndex, bFine);
-            return await WaitWaferLifterZMoveDone(timeoutMs);
-        }
-
-        public async Task<bool> RecoverWaferCassetteToSafeState(int timeoutMs, bool moveAvoid = true)
-        {
-            if (!await WaitWaferJutClear(timeoutMs))
-                return false;
-
-            if (moveAvoid)
+            try
             {
-                await MoveToWaferCassetteAvoidPosition();
+                WaferLifterZ.StopJog();
+                await Task.CompletedTask;
+                return 0;
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        public async Task<int> ManualMoveToWaferCassetteAvoidPosition(bool bFine = false)
+        {
+            try
+            {
+                return await MoveToWaferCassetteAvoidPosition(bFine);
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        public async Task<int> ManualMoveToWaferCassetteSlotPosition(int slotIndex, bool bFine = false)
+        {
+            try
+            {
+                return await MoveToWaferCassetteSlotPosition(slotIndex, bFine);
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        public async Task<int> ManualMoveToWaferCassetteMappingStartPosition(bool bFine = false)
+        {
+            try
+            {
+                return await MoveToWaferCassetteMappingStartPosition(bFine);
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        public async Task<int> ManualMoveToWaferCassetteMappingEndPosition(bool bFine = false)
+        {
+            try
+            {
+                return await MoveToWaferCassetteMappingEndPosition(bFine);
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        public async Task<int> WaferScan(int timeoutMs = 0, bool bFine = false)
+        {
+            try
+            {
+                if (!CheckWaferCassetteMappingReady())
+                    return -1;
+
+                BeginWaferMapping();
+                int result = await ScanCassetteAsync(Config.SlotCount, Config.SlotPitch);
+                EndWaferMapping();
+                return result;
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        public async Task<int> MoveToNextWaferSlot(bool bFine = false)
+        {
+            try
+            {
+                int slot = FindNextProcessWaferSlot();
+                if (slot < 0)
+                    return -1;
+
+                int result = await MoveToWaferCassetteSlotPosition(slot, bFine);
+                if (result != 0)
+                    return result;
+
+                return !WaferLifterZ.IsAlarm ? 0 : -1;
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        public async Task<int> PrepareWaferCassetteForFeederLoad(int slotIndex, int timeoutMs, bool bFine = false)
+        {
+            try
+            {
+                if (!CheckWaferCassetteMoveReady())
+                    return -1;
+
+                int result = await MoveToWaferCassetteSlotPosition(slotIndex, bFine);
+                if (result != 0)
+                    return result;
+
                 return await WaitWaferLifterZMoveDone(timeoutMs);
             }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
 
-            return true;
+        public async Task<int> RecoverWaferCassetteToSafeState(int timeoutMs, bool moveAvoid = true)
+        {
+            try
+            {
+                if (await WaitWaferJutClear(timeoutMs) != 0)
+                    return -1;
+
+                if (moveAvoid)
+                {
+                    int moveResult = await MoveToWaferCassetteAvoidPosition();
+                    if (moveResult != 0)
+                        return moveResult;
+
+                    return await WaitWaferLifterZMoveDone(timeoutMs);
+                }
+
+                return 0;
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
         }
 
         public bool CheckWaferCassetteMoveReady()
@@ -499,10 +709,22 @@ namespace QMC.CDT320
                 UpdateWaferCassetteSlotState(i, map[i] ? SlotPresence.Exist : SlotPresence.Empty, ProcessState.Ready);
         }
 
-        public void StopWaferCassetteMotion(string reason)
+        public async Task<int> StopWaferCassetteMotion(string reason)
         {
-            WaferLifterZ.Stop();
-            Console.WriteLine("[STOP] '" + Name + "' " + reason);
+            try
+            {
+                WaferLifterZ.Stop();
+                Console.WriteLine("[STOP] '" + Name + "' " + reason);
+                await Task.CompletedTask;
+                return 0;
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
         }
 
         public string BuildWaferCassetteAlarmMessage(WaferCassetteAlarmCode code)
@@ -519,84 +741,116 @@ namespace QMC.CDT320
             }
         }
 
-        public async Task<bool> ScanCassetteAsync(int maxSlots, double slotPitch)
+        public async Task<int> ScanCassetteAsync(int maxSlots, double slotPitch)
         {
-            if (!IsAnyCassetteSensorOn())
+            try
             {
-                Console.WriteLine("[ALARM] '" + Name + "' ScanCassette: cassette not detected.");
-                return false;
-            }
-
-            var map = new List<bool>();
-            await MoveToWaferCassetteMappingStartPosition();
-            if (WaferLifterZ.IsAlarm)
-            {
-                Console.WriteLine("[ALARM] '" + Name + "' ScanCassette: WaferLifterZ move failed at mapping start.");
-                return false;
-            }
-
-            for (int i = 0; i < maxSlots; i++)
-            {
-                await MoveWaferLifterZ(CalculateNominalSlotPosition(i));
-                if (WaferLifterZ.IsAlarm)
+                if (!IsAnyCassetteSensorOn())
                 {
-                    Console.WriteLine("[ALARM] '" + Name + "' ScanCassette: WaferLifterZ move failed at slot " + i + ".");
-                    return false;
+                    Console.WriteLine("[ALARM] '" + Name + "' ScanCassette: cassette not detected.");
+                    return -1;
                 }
 
-                await Task.Delay(Config.ScanSettleTimeMs).ContinueWith(_ => { });
-                UpdateSlotPosition(i, WaferLifterZ.ActualPosition);
-                map.Add(WaferMappingSensor.IsOn);
-            }
-
-            WaferMap = map.AsReadOnly();
-            return true;
-        }
-
-        public Task MoveToTargetSlotAsync(double targetPosition)
-        {
-            return MoveWaferLifterZ(targetPosition);
-        }
-
-        private async Task MoveWithProtrusionWatch(double targetPosition, double velocity)
-        {
-            if (IsWaferProtrusionDetected())
-            {
-                WaferLifterZ.EStop();
-                throw new InvalidOperationException("'" + Name + "' Move: protrusion sensor is ON.");
-            }
-
-            using (var cts = new CancellationTokenSource())
-            {
-                Task moveTask = WaferLifterZ.MoveAbsoluteAsync(targetPosition, velocity);
-                Task<bool> watchTask = Task.Run(async () =>
+                var map = new List<bool>();
+                int startResult = await MoveToWaferCassetteMappingStartPosition();
+                if (startResult != 0 || WaferLifterZ.IsAlarm)
                 {
-                    while (!cts.Token.IsCancellationRequested)
+                    Console.WriteLine("[ALARM] '" + Name + "' ScanCassette: WaferLifterZ move failed at mapping start.");
+                    return startResult != 0 ? startResult : -1;
+                }
+
+                for (int i = 0; i < maxSlots; i++)
+                {
+                    int moveResult = await MoveWaferLifterZ(CalculateNominalSlotPosition(i));
+                    if (moveResult != 0 || WaferLifterZ.IsAlarm)
                     {
-                        if (IsWaferProtrusionDetected())
-                            return true;
-                        await Task.Delay(10, cts.Token).ContinueWith(_ => { });
+                        Console.WriteLine("[ALARM] '" + Name + "' ScanCassette: WaferLifterZ move failed at slot " + i + ".");
+                        return moveResult != 0 ? moveResult : -1;
                     }
-                    return false;
-                }, cts.Token);
 
-                Task first = await Task.WhenAny(moveTask, watchTask);
-                if (first == moveTask)
-                {
-                    cts.Cancel();
-                    await watchTask.ContinueWith(_ => { });
+                    await Task.Delay(Config.ScanSettleTimeMs).ContinueWith(_ => { });
+                    UpdateSlotPosition(i, WaferLifterZ.ActualPosition);
+                    map.Add(WaferMappingSensor.IsOn);
                 }
-                else
+
+                WaferMap = map.AsReadOnly();
+                return 0;
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        public async Task<int> MoveToTargetSlotAsync(double targetPosition)
+        {
+            try
+            {
+                return await MoveWaferLifterZ(targetPosition);
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> MoveWithProtrusionWatch(double targetPosition, double velocity)
+        {
+            try
+            {
+                if (IsWaferProtrusionDetected())
                 {
                     WaferLifterZ.EStop();
-                    cts.Cancel();
-                    await moveTask.ContinueWith(_ => { });
-                    throw new InvalidOperationException("'" + Name + "' Move: protrusion detected while moving.");
+                    throw new InvalidOperationException("'" + Name + "' Move: protrusion sensor is ON.");
                 }
-            }
 
-            if (WaferLifterZ.IsAlarm)
-                throw new InvalidOperationException("'" + Name + "' Move: WaferLifterZ alarm.");
+                using (var cts = new CancellationTokenSource())
+                {
+                    Task moveTask = WaferLifterZ.MoveAbsoluteAsync(targetPosition, velocity);
+                    Task<bool> watchTask = Task.Run(async () =>
+                    {
+                        while (!cts.Token.IsCancellationRequested)
+                        {
+                            if (IsWaferProtrusionDetected())
+                                return true;
+                            await Task.Delay(10, cts.Token).ContinueWith(_ => { });
+                        }
+                        return false;
+                    }, cts.Token);
+
+                    Task first = await Task.WhenAny(moveTask, watchTask);
+                    if (first == moveTask)
+                    {
+                        cts.Cancel();
+                        await watchTask.ContinueWith(_ => { });
+                    }
+                    else
+                    {
+                        WaferLifterZ.EStop();
+                        cts.Cancel();
+                        await moveTask.ContinueWith(_ => { });
+                        throw new InvalidOperationException("'" + Name + "' Move: protrusion detected while moving.");
+                    }
+                }
+
+                if (WaferLifterZ.IsAlarm)
+                    throw new InvalidOperationException("'" + Name + "' Move: WaferLifterZ alarm.");
+
+                return 0;
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
         }
 
         private double ResolveJogVelocity(JogSpeedType speedType, double customSpeed)
@@ -678,18 +932,29 @@ namespace QMC.CDT320
             return Recipe.FirstSlotPosition + Config.LoadingPositionOffset + (Config.SlotPitch * slotIndex);
         }
 
-        private static async Task<bool> WaitUntilAsync(Func<bool> condition, int timeoutMs)
+        private static async Task<int> WaitUntilAsync(Func<bool> condition, int timeoutMs)
         {
-            int elapsed = 0;
-            while (timeoutMs <= 0 || elapsed < timeoutMs)
+            try
             {
-                if (condition())
-                    return true;
+                int elapsed = 0;
+                while (timeoutMs <= 0 || elapsed < timeoutMs)
+                {
+                    if (condition())
+                        return 0;
 
-                await Task.Delay(10).ContinueWith(_ => { });
-                elapsed += 10;
+                    await Task.Delay(10).ContinueWith(_ => { });
+                    elapsed += 10;
+                }
+
+                return condition() ? 0 : -1;
             }
-            return condition();
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
         }
     }
 }

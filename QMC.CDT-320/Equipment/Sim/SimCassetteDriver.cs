@@ -90,7 +90,8 @@ namespace QMC.CDT320.Sim
         private void UpdateInputDetectFromPosition()
         {
             double pos   = _input.WaferLifterZ.ActualPosition;
-            double first = _input.Setup.FirstSlotPosition;
+            //double first = _input.Setup.FirstSlotPosition;
+            double first = _input.WaferCassette.Recipe.FirstSlotPosition;
             int slot = (int)Math.Round((pos - first) / InputSlotPitchMm);
             bool has = (slot >= 0 && slot < InputSlotsHasWafer.Length) && InputSlotsHasWafer[slot];
             _input.WaferDetectSensor.SimulateInput(has);
