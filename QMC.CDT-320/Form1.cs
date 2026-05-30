@@ -33,6 +33,7 @@ namespace QMC.CDT_320
         internal MachineController Controller     { get; private set; }
         internal MotionMonitorService MotionMonitor { get; private set; }
         internal AjinIoScanService IoScan { get; private set; }
+        internal string CurrentRecipeName { get; private set; }
 
         /// <summary>Stage 61 — 상단 상태바 Project Name 갱신.
         /// ProjectPage 의 load/save 또는 SubsetPage 의 save 후 호출.</summary>
@@ -41,6 +42,7 @@ namespace QMC.CDT_320
             try
             {
                 if (string.IsNullOrEmpty(fileName)) fileName = "-";
+                CurrentRecipeName = NormalizeRecipeName(fileName);
                 if (lblProjectValue.InvokeRequired)
                     lblProjectValue.Invoke((Action)(() => lblProjectValue.Text = fileName));
                 else
@@ -48,6 +50,127 @@ namespace QMC.CDT_320
             }
             catch { }
         }
+
+        internal void LoadMachineSettings()
+        {
+            try
+            {
+                Machine?.LoadSettings();
+            }
+            catch (Exception ex)
+            {
+                QMC.CDT320.Logging.EventLogger.Write(
+                    QMC.CDT320.Logging.EventKind.Alarm,
+                    "NONE",
+                    "DATA-LOAD",
+                    "Machine settings load failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        internal void SaveMachineSettings()
+        {
+            try
+            {
+                if (Machine != null && !Machine.SaveSettings())
+                {
+                    QMC.CDT320.Logging.EventLogger.Write(
+                        QMC.CDT320.Logging.EventKind.Alarm,
+                        UserSession.Name,
+                        "DATA-SAVE",
+                        "Machine settings save returned false.");
+                }
+            }
+            catch (Exception ex)
+            {
+                QMC.CDT320.Logging.EventLogger.Write(
+                    QMC.CDT320.Logging.EventKind.Alarm,
+                    UserSession.Name,
+                    "DATA-SAVE",
+                    "Machine settings save failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        internal void LoadMachineRecipe(string recipeName)
+        {
+            try
+            {
+                if (Machine == null || string.IsNullOrWhiteSpace(recipeName))
+                    return;
+
+                CurrentRecipeName = NormalizeRecipeName(recipeName);
+                Machine.LoadRecipe(recipeName);
+            }
+            catch (Exception ex)
+            {
+                QMC.CDT320.Logging.EventLogger.Write(
+                    QMC.CDT320.Logging.EventKind.Alarm,
+                    UserSession.Name,
+                    "DATA-LOAD",
+                    "Machine recipe load failed: " + recipeName + " / " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        internal void SaveMachineRecipe(string recipeName)
+        {
+            try
+            {
+                if (Machine == null || string.IsNullOrWhiteSpace(recipeName))
+                    return;
+
+                CurrentRecipeName = NormalizeRecipeName(recipeName);
+                if (!Machine.SaveRecipe(recipeName))
+                {
+                    QMC.CDT320.Logging.EventLogger.Write(
+                        QMC.CDT320.Logging.EventKind.Alarm,
+                        UserSession.Name,
+                        "DATA-SAVE",
+                        "Machine recipe save returned false: " + recipeName);
+                }
+            }
+            catch (Exception ex)
+            {
+                QMC.CDT320.Logging.EventLogger.Write(
+                    QMC.CDT320.Logging.EventKind.Alarm,
+                    UserSession.Name,
+                    "DATA-SAVE",
+                    "Machine recipe save failed: " + recipeName + " / " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private static string NormalizeRecipeName(string recipeName)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(recipeName))
+                    return string.Empty;
+
+                recipeName = recipeName.Trim();
+                if (recipeName.EndsWith(".Project", StringComparison.OrdinalIgnoreCase))
+                    recipeName = recipeName.Substring(0, recipeName.Length - ".Project".Length);
+
+                return recipeName;
+            }
+            catch
+            {
+                return string.Empty;
+            }
+            finally
+            {
+            }
+        }
+
         /// <summary>Stage 26 — 시뮬 카세트 센서 드라이버 (sim 모드 전용).</summary>
         internal QMC.CDT320.Sim.SimCassetteDriver CassetteDriver { get; private set; }
         /// <summary>Stage 41 — SECS/HSMS Host (사이클 메시지 송신용).</summary>
@@ -96,6 +219,7 @@ namespace QMC.CDT_320
 
             // 설비 + 브릿지 + 컨트롤러
             Machine    = new CDT320_Machine();
+            LoadMachineSettings();
             Bridge     = new SimulatorBridge(Machine);
             Controller = new MachineController(Machine);
             MotionMonitor = new MotionMonitorService();
@@ -198,6 +322,7 @@ namespace QMC.CDT_320
                 var last = QMC.CDT320.Recipes.RecipeStore.LoadLastOrDefault();
                 if (last != null)
                 {
+                    LoadMachineRecipe(last.FileName);
                     Controller.ApplyRecipeMode(last);
                     // Stage 61 — 상단 상태바 Project Name 갱신
                     RefreshProjectName(last.FileName);
@@ -598,6 +723,7 @@ namespace QMC.CDT_320
                 AppSettingsStore.Save();
             }
             catch { }
+            SaveMachineSettings();
             try { MotionMonitor?.Dispose(); } catch { }
             try { IoScan?.Dispose(); } catch { }
             try { if (_jogPopup != null && !_jogPopup.IsDisposed) _jogPopup.Dispose(); } catch { }

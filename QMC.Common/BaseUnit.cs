@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using QMC.Common.Persistence;
+using QMC.Common.Data.Store;
 
 namespace QMC.Common
 {
@@ -69,13 +69,23 @@ namespace QMC.Common
         /// </summary>
         public override bool SaveSettings()
         {
-            bool ok = EquipmentDataStore.Save(Setup,  StorageKey, "Setup");
-            ok &= EquipmentDataStore.Save(Config, StorageKey, "Config");
+            try
+            {
+                bool ok = UnitDataStore.SaveSetup(Setup, StorageKey);
+                ok &= UnitDataStore.SaveConfig(Config, StorageKey);
 
-            foreach (BaseEquipmentNode component in Components)
-                ok &= component.SaveSettings();
+                foreach (BaseEquipmentNode component in Components)
+                    ok &= component.SaveSettings();
 
-            return ok;
+                return ok;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
         }
 
         /// <summary>
@@ -83,11 +93,20 @@ namespace QMC.Common
         /// </summary>
         public override void LoadSettings()
         {
-            Setup  = EquipmentDataStore.Load<TSetup>(StorageKey,  "Setup");
-            Config = EquipmentDataStore.Load<TConfig>(StorageKey, "Config");
+            try
+            {
+                Setup = UnitDataStore.LoadSetup(StorageKey, Setup);
+                Config = UnitDataStore.LoadConfig(StorageKey, Config);
 
-            foreach (BaseEquipmentNode component in Components)
-                component.LoadSettings();
+                foreach (BaseEquipmentNode component in Components)
+                    component.LoadSettings();
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
         }
 
         /// <summary>
@@ -95,12 +114,22 @@ namespace QMC.Common
         /// </summary>
         public override bool SaveRecipe(string recipeName)
         {
-            bool ok = UnitRecipeStore.Save(Recipe, recipeName, StorageKey);
+            try
+            {
+                bool ok = UnitDataStore.SaveRecipe(Recipe, recipeName, StorageKey);
 
-            foreach (BaseEquipmentNode component in Components)
-                ok &= component.SaveRecipe(recipeName);
+                foreach (BaseEquipmentNode component in Components)
+                    ok &= component.SaveRecipe(recipeName);
 
-            return ok;
+                return ok;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
         }
 
         /// <summary>
@@ -108,10 +137,19 @@ namespace QMC.Common
         /// </summary>
         public override void LoadRecipe(string recipeName)
         {
-            Recipe = UnitRecipeStore.Load<TRecipe>(recipeName, StorageKey);
+            try
+            {
+                Recipe = UnitDataStore.LoadRecipe(recipeName, StorageKey, Recipe);
 
-            foreach (BaseEquipmentNode component in Components)
-                component.LoadRecipe(recipeName);
+                foreach (BaseEquipmentNode component in Components)
+                    component.LoadRecipe(recipeName);
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
         }
     }
 }

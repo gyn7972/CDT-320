@@ -435,8 +435,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
 
                     switch (it.Group + "." + it.Key)
                     {
-                        case "InputLoader.FirstSlotPosition":   m.InputLoader.Setup.FirstSlotPosition  = it.Value; applied++; break;
-                        case "InputLoader.ExchangePositionY":   m.InputLoader.Setup.ExchangePositionY  = it.Value; applied++; break;
+                        //case "InputLoader.FirstSlotPosition":   m.InputLoader.Setup.FirstSlotPosition  = it.Value; applied++; break;
+                        //case "InputLoader.ExchangePositionY":   m.InputLoader.Setup.ExchangePositionY  = it.Value; applied++; break;
 
                         case "InputStage.ExpanderDownPosition": m.InputStage.Setup.ExpanderDownPosition = it.Value; applied++; break;
                         case "InputStage.ExpanderUpPosition":   m.InputStage.Setup.ExpanderUpPosition   = it.Value; applied++; break;

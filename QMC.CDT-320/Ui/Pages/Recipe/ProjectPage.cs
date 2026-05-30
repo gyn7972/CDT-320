@@ -2,6 +2,7 @@ using System;
 using System.ComponentModel;
 using System.Drawing;
 using System.Windows.Forms;
+using QMC.Common.Data.Store;
 using QMC.CDT320.Logging;
 using QMC.CDT320.Recipes;
 
@@ -72,6 +73,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             try
             {
                 var host = FindForm() as Form1;
+                host?.LoadMachineRecipe(project.FileName);
                 host?.RefreshProjectName(project.FileName);
                 host?.Controller?.ApplyRecipeMode(project);
             }
@@ -94,6 +96,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             if (MessageBox.Show("Delete project?\n" + fileName, "DELETE", MessageBoxButtons.YesNo) != DialogResult.Yes) return;
 
             RecipeStore.Delete(fileName);
+            RecipeDataStore.DeleteRecipe(fileName);
             EventLogger.Write(EventKind.Event, Security.UserSession.Name, "RECIPE-DEL", "Project deleted: " + fileName);
             ReloadList();
         }
@@ -106,6 +109,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
             project.FileName = name.Trim();
             RecipeStore.Save(project);
+            SaveMachineRecipe(project.FileName);
             EventLogger.Write(EventKind.Event, Security.UserSession.Name, "RECIPE-SAVEAS", "Project saved: " + project.FileName);
             ReloadList();
             listProjects.SelectedItem = project.FileName + ".Project";
@@ -121,6 +125,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
 
             RecipeStore.Save(project);
+            SaveMachineRecipe(project.FileName);
             EventLogger.Write(EventKind.Event, Security.UserSession.Name, "RECIPE-SAVE", "Project saved: " + project.FileName);
             ReloadList();
             MessageBox.Show("Saved: " + project.FileName);
@@ -157,6 +162,21 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             project.ColletLotNum = tbColletL.Text;
             project.XmlPath = tbXml.Text;
             return project;
+        }
+
+        private void SaveMachineRecipe(string recipeName)
+        {
+            try
+            {
+                var host = FindForm() as Form1;
+                host?.SaveMachineRecipe(recipeName);
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
         }
     }
 

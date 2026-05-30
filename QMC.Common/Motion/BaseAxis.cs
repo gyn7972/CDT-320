@@ -196,21 +196,37 @@ namespace QMC.Common.Motion
         /// </summary>
         /// <param name="targetPos">목표 절대 위치</param>
         /// <param name="velocity">이동 속도 (0 이하이면 Recipe.DefaultVelocity 사용)</param>
-        public virtual async Task MoveAbsoluteAsync(double targetPos, double velocity = 0)
+        /// <returns>0 = 성공, 그 외 = 오류 코드</returns>
+        public virtual async Task<int> MoveAbsoluteAsync(double targetPos, double velocity = 0)
         {
-            if (!IsServoOn || IsAlarm) 
-                return;
+            try
+            {
+                if (!IsServoOn || IsAlarm)
+                    return -2;
 
-            double vel         = velocity > 0 ? velocity : Config.DefaultVelocity;
-            CommandPosition    = targetPos;
-            _simTargetPosition = targetPos;
-            CurrentVelocity    = vel;
-            IsMoving           = true;
-            IsInPosition       = false;
-            _currentMode       = MotionMode.Absolute;
+                double vel = velocity > 0 ? velocity : Config.DefaultVelocity;
+                CommandPosition = targetPos;
+                _simTargetPosition = targetPos;
+                CurrentVelocity = vel;
+                IsMoving = true;
+                IsInPosition = false;
+                _currentMode = MotionMode.Absolute;
 
-            RaiseMoveStarted();
-            await WaitUntilMoveDone(_cts.Token);
+                RaiseMoveStarted();
+                await WaitUntilMoveDone(_cts.Token);
+
+                return IsAlarm ? (int)AlarmCode : 0;
+            }
+            catch (Exception)
+            {
+                IsAlarm = true;
+                if (AlarmCode == 0) AlarmCode = 1;
+                return -1;
+            }
+            finally
+            {
+                // 상태 갱신은 파생 클래스의 UpdateStatus에 위임
+            }
         }
 
         // ─────────────────────────────────────────────
@@ -247,40 +263,68 @@ namespace QMC.Common.Motion
         /// </summary>
         /// <param name="distance">이동 거리 (음수이면 반대 방향 이동)</param>
         /// <param name="velocity">이동 속도 (0 이하이면 Recipe.DefaultVelocity 사용)</param>
-        public virtual async Task MoveRelativeAsync(double distance, double velocity = 0)
+        /// <returns>0 = 성공, 그 외 = 오류 코드</returns>
+        public virtual async Task<int> MoveRelativeAsync(double distance, double velocity = 0)
         {
-            double targetPos = ActualPosition + distance;
-            await MoveAbsoluteAsync(targetPos, velocity);
+            try
+            {
+                double targetPos = ActualPosition + distance;
+                return await MoveAbsoluteAsync(targetPos, velocity);
+            }
+            catch (Exception)
+            {
+                IsAlarm = true;
+                if (AlarmCode == 0) AlarmCode = 1;
+                return -1;
+            }
+            finally
+            {
+            }
         }
 
         /// <summary>
         /// 원점 복귀 시퀀스를 비동기로 실행합니다.<br/>
         /// 시뮬레이션: 음(-) 방향으로 가상 이동 후 HomeOffset을 적용하여 좌표를 설정합니다.
         /// </summary>
-        public virtual async Task HomeSearchAsync()
+        /// <returns>0 = 성공, 그 외 = 오류 코드</returns>
+        public virtual async Task<int> HomeSearchAsync()
         {
-            if (!IsServoOn || IsAlarm) return;
+            try
+            {
+                if (!IsServoOn || IsAlarm)
+                    return -2;
 
-            _currentMode = MotionMode.Homing;
-            IsHomeDone   = false;
+                _currentMode = MotionMode.Homing;
+                IsHomeDone = false;
 
-            // 간단 시뮬레이션: SoftLimitMinus 근처로 이동하여 원점 센서 도달 가정
-            double homeTarget  = Setup.SoftLimitMinus + 1.0; // 약간 여유 두기
-            CommandPosition    = homeTarget;
-            _simTargetPosition = homeTarget;
-            CurrentVelocity    = Config.HomeVelocity;
-            IsMoving           = true;
-            IsInPosition       = false;
+                // 간단 시뮬레이션: SoftLimitMinus 근처로 이동하여 원점 센서 도달 가정
+                double homeTarget = Setup.SoftLimitMinus + 1.0;
+                CommandPosition = homeTarget;
+                _simTargetPosition = homeTarget;
+                CurrentVelocity = Config.HomeVelocity;
+                IsMoving = true;
+                IsInPosition = false;
 
-            await WaitUntilMoveDone(_cts.Token);
+                await WaitUntilMoveDone(_cts.Token);
 
-            if (IsAlarm) return;
+                if (IsAlarm) return (int)AlarmCode;
 
-            // 원점 검출 후 오프셋 적용 (좌표 보정)
-            SetPosition(Setup.HomeOffset);
-            Sensor_ORG   = true;
-            IsHomeDone   = true;
-            _currentMode = MotionMode.None;
+                // 원점 검출 후 오프셋 적용 (좌표 보정)
+                SetPosition(Setup.HomeOffset);
+                Sensor_ORG = true;
+                IsHomeDone = true;
+                _currentMode = MotionMode.None;
+                return 0;
+            }
+            catch (Exception)
+            {
+                IsAlarm = true;
+                if (AlarmCode == 0) AlarmCode = 1;
+                return -1;
+            }
+            finally
+            {
+            }
         }
 
         /// <summary>
@@ -358,11 +402,24 @@ namespace QMC.Common.Motion
         /// <param name="speedType">속도 종류</param>
         /// <param name="stepDistance">1회 이동 거리 (항상 절댓값으로 처리)</param>
         /// <param name="customVel">Custom 모드일 때 속도 값 (기본값: 0)</param>
-        public virtual async Task MoveJogStepAsync(int direction, JogSpeedType speedType,
-                                                   double stepDistance, double customVel = 0)
+        /// <returns>0 = 성공, 그 외 = 오류 코드</returns>
+        public virtual async Task<int> MoveJogStepAsync(int direction, JogSpeedType speedType,
+                                                        double stepDistance, double customVel = 0)
         {
-            double vel = GetJogVelocity(speedType, customVel);
-            await MoveRelativeAsync(direction * Math.Abs(stepDistance), vel);
+            try
+            {
+                double vel = GetJogVelocity(speedType, customVel);
+                return await MoveRelativeAsync(direction * Math.Abs(stepDistance), vel);
+            }
+            catch (Exception)
+            {
+                IsAlarm = true;
+                if (AlarmCode == 0) AlarmCode = 1;
+                return -1;
+            }
+            finally
+            {
+            }
         }
 
         /// <summary>
