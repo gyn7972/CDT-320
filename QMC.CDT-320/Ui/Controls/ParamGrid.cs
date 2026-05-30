@@ -34,7 +34,7 @@ namespace QMC.CDT_320.Ui.Controls
         private int _pairsPerRow = 1;
         private int _nameWidth = 130;
         private int _rowHeight = 22;
-        private string _placeholder = "—";
+        private string _placeholder = "?";
 
         // ?????????????????????????????????????????????
         //  ?? ??
@@ -65,7 +65,7 @@ namespace QMC.CDT_320.Ui.Controls
         public string Placeholder
         {
             get { return _placeholder; }
-            set { _placeholder = value ?? "—"; }
+            set { _placeholder = value ?? "?"; }
         }
 
         /// <summary>?? ?? ??.</summary>
