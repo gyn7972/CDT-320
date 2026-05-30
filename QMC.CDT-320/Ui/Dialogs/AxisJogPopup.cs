@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -186,7 +186,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this, ex.Message, "JOG", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "JOG", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
             finally
             {
@@ -224,7 +224,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this, ex.Message, "JOG STEP", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "JOG STEP", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
             finally
             {
@@ -244,7 +244,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this, ex.Message, "JOG STOP", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "JOG STOP", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
             finally
             {
@@ -347,3 +347,4 @@ namespace QMC.CDT_320.Ui.Dialogs
         }
     }
 }
+

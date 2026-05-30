@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.Windows.Forms;
 using QMC.CDT320.Remote;
@@ -46,7 +46,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this, "Start fail: " + ex.Message, "Remote Viewer");
+                QMC.Common.MessageDialog.Show(this, "Start fail: " + ex.Message, "Remote Viewer");
             }
         }
 
@@ -84,3 +84,4 @@ namespace QMC.CDT_320.Ui.Dialogs
         }
     }
 }
+

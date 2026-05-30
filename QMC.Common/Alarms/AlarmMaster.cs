@@ -5,7 +5,7 @@ using System.Linq;
 using System.Runtime.Serialization;
 using System.Runtime.Serialization.Json;
 
-namespace QMC.CDT320.Alarms
+namespace QMC.Common.Alarms
 {
     /// <summary>알람 카테고리 — 알람 분류 + UI 색상 + SECS Severity 매핑.</summary>
     [DataContract]
@@ -124,6 +124,7 @@ namespace QMC.CDT320.Alarms
 
         public static List<AlarmDefinition> CreateDefaults()
         {
+            // Stage 60 — verified 2026-05-04
             return new List<AlarmDefinition>
             {
                 // ── Motion (모션) ──
@@ -211,4 +212,91 @@ namespace QMC.CDT320.Alarms
                     Title="OutputStage WorkZ 이동 실패", Cause="StageZ 작업 위치 이동 후 알람", Action="알람 리셋, 인터락 확인" },
                 new AlarmDefinition { Code="OS-MOVEY", Category=AlarmCategory.Motion, DefaultSeverity=AlarmSeverity.Error,
                     Title="OutputStage Y 이동 실패", Cause="StageY 이동 후 알람", Action="알람 리셋, 인터락 확인" },
-                new AlarmDefinition { Code="OS-PLACEDONE", Category=AlarmCategory.Material, Def
+                new AlarmDefinition { Code="OS-PLACEDONE", Category=AlarmCategory.Material, DefaultSeverity=AlarmSeverity.Warning,
+                    Title="TPU Place 완료 대기 타임아웃", Cause="TPU 측 Place 완료 신호 미수신", Action="TPU 상태 확인, 타임아웃 늘리기" },
+                new AlarmDefinition { Code="OS-BINCAM", Category=AlarmCategory.Motion, DefaultSeverity=AlarmSeverity.Error,
+                    Title="BinCamera X 이동 실패", Cause="BinCameraX 이동 후 알람", Action="알람 리셋, 인터락 확인" },
+
+                // ── OutputUnloader (Stage B 추가 2026-04-30) ──
+                new AlarmDefinition { Code="OUT-FULL-GOOD", Category=AlarmCategory.Material, DefaultSeverity=AlarmSeverity.Error,
+                    Title="Good 카세트 가득", Cause="Good1/Good2 모두 25슬롯 가득", Action="카세트 교체" },
+                new AlarmDefinition { Code="OUT-FULL-NG", Category=AlarmCategory.Material, DefaultSeverity=AlarmSeverity.Error,
+                    Title="NG 카세트 가득", Cause="NG 카세트 25슬롯 가득", Action="카세트 교체" },
+                new AlarmDefinition { Code="OUT-STORE", Category=AlarmCategory.Material, DefaultSeverity=AlarmSeverity.Error,
+                    Title="웨이퍼 저장 실패", Cause="StoreFullWafer 실패", Action="인터락/축 확인, 수동 복귀" },
+                new AlarmDefinition { Code="OUT-STORE-EX", Category=AlarmCategory.System, DefaultSeverity=AlarmSeverity.Error,
+                    Title="웨이퍼 저장 예외", Cause="StoreFullWafer 내부 예외", Action="EventLog 확인",
+                    ManualName="ProtrusionDetected", ManualLocator="DieTransfer/BinLifter/*Plate" },
+
+                // ── Stage 60 (2026-05-04) — ALARM_AUDIT.md P1 — 미등록 호출 코드 15개 신규 등록 ──
+
+                // AXL (AjinSystem.cs / AjinAxis.cs)
+                new AlarmDefinition { Code="AXL-OPEN", Category=AlarmCategory.System, DefaultSeverity=AlarmSeverity.Critical,
+                    Title="AXL 보드 오픈 실패", Cause="AXL DLL 로드 후 보드 초기화 실패", Action="보드 전원 / PCI 슬롯 확인 후 재기동",
+                    TitleEn="AXL board open failed", CauseEn="AXL DLL loaded but board init failed", ActionEn="Check board power / PCI slot, restart" },
+                new AlarmDefinition { Code="AXL-DLL", Category=AlarmCategory.System, DefaultSeverity=AlarmSeverity.Critical,
+                    Title="AXL DLL 로드 실패", Cause="AXL.dll 미존재 또는 버전 불일치", Action="AJINEXTEK 드라이버 재설치",
+                    TitleEn="AXL DLL load failed", CauseEn="AXL.dll missing or version mismatch", ActionEn="Reinstall AJINEXTEK driver" },
+
+                // Vision exception
+                new AlarmDefinition { Code="ALIGN-EX", Category=AlarmCategory.Vision, DefaultSeverity=AlarmSeverity.Error,
+                    Title="얼라인 예외", Cause="VisionAlign 시퀀스 내부 예외", Action="EventLog 확인 후 비전 PC 상태 점검",
+                    TitleEn="Align exception", CauseEn="Internal exception in vision-align sequence", ActionEn="Check EventLog and Vision PC state",
+                    ManualName="OutOfTolerance", ManualLocator="DieTransfer/WaferTransfer/WaferVision/MachineVision/Services/Aligner" },
+
+                // LOT (Cassette/Feeder lifecycle)
+                new AlarmDefinition { Code="LOT-NOCASS", Category=AlarmCategory.Material, DefaultSeverity=AlarmSeverity.Warning,
+                    Title="카세트 미감지", Cause="로드포트 카세트 안착 센서 OFF", Action="카세트 안착 후 재시도",
+                    TitleEn="Cassette not detected", CauseEn="Load-port cassette sensor OFF", ActionEn="Place cassette and retry",
+                    ManualName="MaterialDoesNotExist", ManualLocator="DieTransfer/WaferLifter" },
+                new AlarmDefinition { Code="LOT-SCAN", Category=AlarmCategory.Motion, DefaultSeverity=AlarmSeverity.Warning,
+                    Title="카세트 스캔 실패", Cause="ElevatorZ 이동 실패 (스캔 도중)", Action="알람 클리어 후 수동 HOME, 재스캔",
+                    TitleEn="Cassette scan failed", CauseEn="ElevatorZ move failure during scan", ActionEn="Clear alarm, manual HOME, rescan",
+                    ManualName="InvalidScanData", ManualLocator="DieTransfer/WaferLifter/SlotMapper" },
+                new AlarmDefinition { Code="LOT-MOVE", Category=AlarmCategory.Motion, DefaultSeverity=AlarmSeverity.Error,
+                    Title="카세트 슬롯 이동 실패", Cause="ElevatorZ 알람 또는 Protrusion 감지", Action="육안 확인 — 돌출 웨이퍼 제거",
+                    TitleEn="Cassette slot move failed", CauseEn="ElevatorZ alarm or protrusion detected", ActionEn="Visual check — remove protruding wafer",
+                    ManualName="CannotMove", ManualLocator="DieTransfer/WaferLifter (Interlock)" },
+                new AlarmDefinition { Code="LOT-EX", Category=AlarmCategory.Material, DefaultSeverity=AlarmSeverity.Error,
+                    Title="카세트 교환 위치 이동 실패", Cause="피더 클램프 미파지 또는 FeederY 알람", Action="피더 홈 복귀 후 재시도",
+                    TitleEn="Cassette exchange move failed", CauseEn="Feeder clamp not gripped or FeederY alarm", ActionEn="Return feeder to home and retry",
+                    ManualName="CannotMove", ManualLocator="DieTransfer/WaferFeeder/Arm" },
+                new AlarmDefinition { Code="LOT-RET", Category=AlarmCategory.Motion, DefaultSeverity=AlarmSeverity.Error,
+                    Title="피더 후퇴 실패", Cause="RetractFeeder 단계 알람 (클램프/FeederY/상승)", Action="피더 수동 복귀 후 재시도",
+                    TitleEn="Feeder retract failed", CauseEn="Alarm in RetractFeeder step (clamp/FeederY/up)", ActionEn="Manually return feeder and retry",
+                    ManualName="CannotMove", ManualLocator="DieTransfer/WaferFeeder/Arm" },
+
+                // InputStage extra
+                new AlarmDefinition { Code="IS-LOAD", Category=AlarmCategory.Material, DefaultSeverity=AlarmSeverity.Warning,
+                    Title="InputStage 로드 실패", Cause="LoadAndPrepareWafer 단계 실패", Action="피더 위치 / 익스팬더 / 바코드 확인",
+                    TitleEn="InputStage load failed", CauseEn="LoadAndPrepareWafer step failed", ActionEn="Check feeder/expander/barcode",
+                    ManualName="MaterialDoesNotExistAfterReceive", ManualLocator="DieTransfer/WaferTransfer/Stage" },
+                new AlarmDefinition { Code="IS-EXCEPTION", Category=AlarmCategory.System, DefaultSeverity=AlarmSeverity.Error,
+                    Title="InputStage 사이클 예외", Cause="MachineController.LoadInputStage 내부 예외", Action="EventLog 확인 후 재기동",
+                    TitleEn="InputStage cycle exception", CauseEn="Internal exception in LoadInputStage", ActionEn="Check EventLog and restart" },
+
+                // OutputStage extra
+                new AlarmDefinition { Code="OS-RECEIVE", Category=AlarmCategory.Material, DefaultSeverity=AlarmSeverity.Warning,
+                    Title="OutputStage 수신 실패", Cause="ReceiveDie 단계 실패 (Avoid/WorkZ/MoveY)", Action="OutputStage 수동 회피 후 재시도",
+                    TitleEn="OutputStage receive failed", CauseEn="ReceiveDie step failed (Avoid/WorkZ/MoveY)", ActionEn="Manually avoid OutputStage and retry",
+                    ManualName="MaterialDoesExistAfterInitialize", ManualLocator="DieTransfer/BinTransfer/GoodStage/Plate" },
+                new AlarmDefinition { Code="OS-EXCEPTION", Category=AlarmCategory.System, DefaultSeverity=AlarmSeverity.Error,
+                    Title="OutputStage 사이클 예외", Cause="MachineController.ReceiveDieAtOutputStage 내부 예외", Action="EventLog 확인 후 재기동",
+                    TitleEn="OutputStage cycle exception", CauseEn="Internal exception in ReceiveDieAtOutputStage", ActionEn="Check EventLog and restart" },
+                new AlarmDefinition { Code="OS-BININSP", Category=AlarmCategory.Vision, DefaultSeverity=AlarmSeverity.Warning,
+                    Title="Bin 검사 실패", Cause="BinCamera 안착 검사 NG", Action="배치 위치 재조정, 비전 ROI 확인",
+                    TitleEn="Bin inspection failed", CauseEn="BinCamera placement inspection NG", ActionEn="Re-adjust placement, check vision ROI",
+                    ManualName="FailedInspection", ManualLocator="DieTransfer/BinTransfer/BinVision/MachineVision/Services/PlacementInspector" },
+                new AlarmDefinition { Code="OS-BININSP-EX", Category=AlarmCategory.System, DefaultSeverity=AlarmSeverity.Error,
+                    Title="Bin 검사 예외", Cause="InspectBinPosition 내부 예외", Action="EventLog 확인 후 재기동",
+                    TitleEn="Bin inspection exception", CauseEn="Internal exception in InspectBinPosition", ActionEn="Check EventLog and restart" },
+
+                // TransferPicker
+                new AlarmDefinition { Code="TPU-PLACE", Category=AlarmCategory.Motion, DefaultSeverity=AlarmSeverity.Warning,
+                    Title="TPU Place 실패", Cause="TPU PlaceDies 단계 실패 (Place 위치 또는 배출)", Action="픽커 콜렛 / 진공 점검 후 재시도",
+                    TitleEn="TPU Place failed", CauseEn="TPU PlaceDies step failed (Place pos or discharge)", ActionEn="Check picker collet/vacuum and retry",
+                    ManualName="CannotMove", ManualLocator="DieTransfer/PickAndPlaceDieTransfer/Tool/PickerN" },
+            };
+        }
+    }
+}

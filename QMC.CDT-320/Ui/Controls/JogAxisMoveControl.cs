@@ -1,4 +1,4 @@
-using QMC.CDT320.Logging;
+﻿using QMC.Common.Logging;
 using QMC.Common.Motion;
 using System;
 using System.Collections.Generic;
@@ -230,7 +230,7 @@ namespace QMC.CDT_320.Ui.Controls
             {
                 string message = "Jog axis bind failed: " + ex.Message;
                 EventLogger.Write(EventKind.Alarm, "UI", "JOG-AXIS", message);
-                MessageBox.Show(this, message, "Jog Axis", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, message, "Jog Axis", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -697,7 +697,7 @@ namespace QMC.CDT_320.Ui.Controls
             {
                 string message = title + ": " + ex.Message;
                 EventLogger.Write(EventKind.Alarm, "UI", "JOG-AXIS", message);
-                MessageBox.Show(this, message, "Jog Axis", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, message, "Jog Axis", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             catch
             {
@@ -708,3 +708,5 @@ namespace QMC.CDT_320.Ui.Controls
         }
     }
 }
+
+

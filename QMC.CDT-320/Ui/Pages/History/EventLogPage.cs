@@ -1,6 +1,6 @@
-using System;
+﻿using System;
 using System.Drawing;
-using QMC.CDT320.Logging;
+using QMC.Common.Logging;
 
 namespace QMC.CDT_320.Ui.Pages.History
 {
@@ -71,3 +71,4 @@ namespace QMC.CDT_320.Ui.Pages.History
         }
     }
 }
+

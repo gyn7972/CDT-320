@@ -23,7 +23,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
         private void ResetPlates()
         {
-            if (MessageBox.Show(
+            if (QMC.Common.MessageDialog.Show(
                 "Plate loaded data will be reset. Continue?",
                 "Plate Reset",
                 MessageBoxButtons.YesNo,
@@ -63,4 +63,5 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         }
     }
 }
+
 

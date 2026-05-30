@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Windows.Forms;
 using QMC.CDT320.Lots;
 using QMC.CDT320.Recipes;
@@ -34,15 +34,15 @@ namespace QMC.CDT_320.Ui.Pages.Work
             {
                 try
                 {
-                    QMC.CDT320.Logging.EventLogger.Write(
-                        QMC.CDT320.Logging.EventKind.Event,
+                    QMC.Common.Logging.EventLogger.Write(
+                        QMC.Common.Logging.EventKind.Event,
                         QMC.CDT_320.Ui.Security.UserSession.Name,
                         "CCS-CHECK",
                         "CCS check button clicked.");
                 }
                 catch { }
 
-                MessageBox.Show(
+                QMC.Common.MessageDialog.Show(
                     "CCS check page will be connected in the next work step.",
                     btnCcs.Text,
                     MessageBoxButtons.OK,
@@ -175,3 +175,5 @@ namespace QMC.CDT_320.Ui.Pages.Work
         }
     }
 }
+
+

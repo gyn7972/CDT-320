@@ -1,4 +1,4 @@
-using QMC.CDT_320.Ui.Controls;
+﻿using QMC.CDT_320.Ui.Controls;
 using QMC.CDT_320.Ui.Localization;
 using QMC.CDT320;
 using QMC.CDT320.Ajin;
@@ -13,15 +13,15 @@ using System.Windows.Forms;
 namespace QMC.CDT_320.Ui.Pages.Recipe
 {
     /// <summary>
-    /// 레시피 - INPUT/OUTPUT CASSETTE 공용 화면.
-    /// 좌측 동작 버튼, 중앙 옵션/대기시간, 실린더 I/O, 우측 조그/속도 영역을 표시한다.
+    /// ?덉떆??- INPUT/OUTPUT CASSETTE 怨듭슜 ?붾㈃.
+    /// 醫뚯륫 ?숈옉 踰꾪듉, 以묒븰 ?듭뀡/?湲곗떆媛? ?ㅻ┛??I/O, ?곗륫 議곌렇/?띾룄 ?곸뿭???쒖떆?쒕떎.
     /// </summary>
     public partial class CassetteRecipePage : QMC.CDT_320.Ui.Pages.PageBase
     {
         private string _titleI18n = "INPUT/OUTPUT CASSETTE";
         private bool _isOutputCassette;
         private InputCassetteUnit _waferCassette;
-        private BinCassetteUnit _binCassette;
+        private OutCassetteUnit _binCassette;
         private BaseAxis _activeAxis;
         private readonly Timer _refreshTimer = new Timer();
         private BaseDigitalOutput _ngBinLockOut;
@@ -131,10 +131,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             _refreshTimer.Interval = 250;
             _refreshTimer.Tick += (s, e) => RefreshView();
 
-            btnLoadingMove.Text = "AVOID 이동";
-            btnUnloadingMove.Text = _isOutputCassette ? "NG 1번 슬롯 이동" : "1번 슬롯 이동";
-            btnReadyMove.Text = _isOutputCassette ? "GOOD1 1번 슬롯 이동" : "MAPPING START 이동";
-            btnSlotLoadingMove.Text = _isOutputCassette ? "GOOD2 1번 슬롯 이동" : "MAPPING END 이동";
+            btnLoadingMove.Text = "AVOID ?대룞";
+            btnUnloadingMove.Text = _isOutputCassette ? "NG 1踰??щ’ ?대룞" : "1踰??щ’ ?대룞";
+            btnReadyMove.Text = _isOutputCassette ? "GOOD1 1踰??щ’ ?대룞" : "MAPPING START ?대룞";
+            btnSlotLoadingMove.Text = _isOutputCassette ? "GOOD2 1踰??щ’ ?대룞" : "MAPPING END ?대룞";
             btnSlotUnloadingMove.Text = "SCAN";
 
             lblSensor1.Text = _isOutputCassette ? "GOOD CASSETTE" : "8 INCH CASSETTE";
@@ -294,11 +294,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 Cursor = Cursors.WaitCursor;
                 bool ok = await action();
                 if (!ok)
-                    MessageBox.Show(this, actionName + " 실패", "Cassette", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, actionName + " ?ㅽ뙣", "Cassette", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this, ex.Message, actionName, MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, ex.Message, actionName, MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -314,11 +314,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 Cursor = Cursors.WaitCursor;
                 int result = await action();
                 if (result != 0)
-                    MessageBox.Show(this, actionName + " failed", "Cassette", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, actionName + " failed", "Cassette", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this, ex.Message, actionName, MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, ex.Message, actionName, MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -330,14 +330,14 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private void AttachTeachMenu(Label label, string positionName)
         {
             var menu = new ContextMenuStrip();
-            menu.Items.Add("해당 위치로 이동", null, async (s, e) =>
+            menu.Items.Add("?대떦 ?꾩튂濡??대룞", null, async (s, e) =>
             {
                 if (_isOutputCassette)
                     await MoveBinTo(positionName);
                 else
                     await MoveWaferTo(positionName);
             });
-            menu.Items.Add("현재 위치 티칭", null, (s, e) =>
+            menu.Items.Add("?꾩옱 ?꾩튂 ?곗묶", null, (s, e) =>
             {
                 TeachPosition(positionName);
                 RefreshView();
@@ -364,7 +364,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
             else
             {
-                menu.Items.Add("Input Cassette I/O는 DI 확인 전용입니다.", null, (s, e) => { });
+                menu.Items.Add("Input Cassette I/O??DI ?뺤씤 ?꾩슜?낅땲??", null, (s, e) => { });
             }
 
             ioSection.ContextMenuStrip = menu;
@@ -421,7 +421,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             catch (Exception ex)
             {
                 //log.Write(ex);
-                MessageBox.Show(this, ex.Message, "Jog", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Jog", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
@@ -513,3 +513,4 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         }
     }
 }
+

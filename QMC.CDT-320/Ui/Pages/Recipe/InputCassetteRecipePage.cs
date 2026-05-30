@@ -1,7 +1,7 @@
 ﻿﻿using QMC.CDT_320.Ui.Localization;
 using QMC.CDT_320.Ui.Controls;
 using QMC.CDT320;
-using QMC.CDT320.Logging;
+using QMC.Common.Logging;
 using QMC.Common.Motion;
 using System;
 using System.ComponentModel;
@@ -29,7 +29,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message, "Input Cassette", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(ex.Message, "Input Cassette", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -53,7 +53,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this, ex.Message, "Input Cassette Load", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette Load", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -99,7 +99,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this, ex.Message, "Input Cassette Configure", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette Configure", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -148,7 +148,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this, ex.Message, "Input Cassette Resolve", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette Resolve", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -194,7 +194,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this, ex.Message, "Input Cassette Enable", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette Enable", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -206,11 +206,28 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             try
             {
                 if (_InputCassetteUnit == null) return;
+
+                DialogResult result = QMC.Common.MessageDialog.Show(
+                    this,
+                    "이동하시겠습니까?",
+                    "Input Cassette Move",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Question);
+                if (result != DialogResult.Yes)
+                {
+                    QMC.Common.Logging.EventLogger.Write(
+                        QMC.Common.Logging.EventKind.Event,
+                        "UI",
+                        "INPUT-CASSETTE",
+                        "btnLoadingMove_Click canceled.");
+                    return;
+                }
+
                 await MoveToTarget("LOADING Z", _InputCassetteUnit.Recipe.LoaingPosition);
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this, ex.Message, "Input Cassette Move", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette Move", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -222,11 +239,26 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             try
             {
                 if (_InputCassetteUnit == null) return;
+                DialogResult result = QMC.Common.MessageDialog.Show(
+                    this,
+                    "이동하시겠습니까?",
+                    "Input Cassette Move",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Question);
+                if (result != DialogResult.Yes)
+                {
+                    QMC.Common.Logging.EventLogger.Write(
+                        QMC.Common.Logging.EventKind.Event,
+                        "UI",
+                        "INPUT-CASSETTE",
+                        "btnUnloadingMove_Click canceled.");
+                    return;
+                }
                 await MoveToTarget("UNLOADING Z", _InputCassetteUnit.Recipe.UnloadingPosition);
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this, ex.Message, "Input Cassette Move", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette Move", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -238,11 +270,26 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             try
             {
                 if (_InputCassetteUnit == null) return;
+                DialogResult result = QMC.Common.MessageDialog.Show(
+                    this,
+                    "이동하시겠습니까?",
+                    "Input Cassette Move",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Question);
+                if (result != DialogResult.Yes)
+                {
+                    QMC.Common.Logging.EventLogger.Write(
+                        QMC.Common.Logging.EventKind.Event,
+                        "UI",
+                        "INPUT-CASSETTE",
+                        "btnReadyMove_Click canceled.");
+                    return;
+                }
                 await MoveToTarget("READY POSITION", _InputCassetteUnit.Recipe.AvoidPosition);
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this, ex.Message, "Input Cassette Move", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette Move", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -253,11 +300,27 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         {
             try
             {
+                DialogResult result = QMC.Common.MessageDialog.Show(
+                    this,
+                    "이동하시겠습니까?",
+                    "Input Cassette Move",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Question);
+                if (result != DialogResult.Yes)
+                {
+                    QMC.Common.Logging.EventLogger.Write(
+                        QMC.Common.Logging.EventKind.Event,
+                        "UI",
+                        "INPUT-CASSETTE",
+                        "btnSlotLoadingMove_Click canceled.");
+                    return;
+                }
+
                 await MoveSlotWithOffset(_InputCassetteUnit != null ? _InputCassetteUnit.Config.LoadingPositionOffset : 0.0, "Input cassette slot loading move");
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this, ex.Message, "Input Cassette Slot Move", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette Slot Move", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -268,11 +331,27 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         {
             try
             {
+                DialogResult result = QMC.Common.MessageDialog.Show(
+                    this,
+                    "이동하시겠습니까?",
+                    "Input Cassette Move",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Question);
+                if (result != DialogResult.Yes)
+                {
+                    QMC.Common.Logging.EventLogger.Write(
+                        QMC.Common.Logging.EventKind.Event,
+                        "UI",
+                        "INPUT-CASSETTE",
+                        "btnSlotUnloadingMove_Click canceled.");
+                    return;
+                }
+
                 await MoveSlotWithOffset(_InputCassetteUnit != null ? _InputCassetteUnit.Config.UnloadingPositionOffset : 0.0, "Input cassette slot unloading move");
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this, ex.Message, "Input Cassette Slot Move", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette Slot Move", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -283,11 +362,27 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         {
             try
             {
+                DialogResult result = QMC.Common.MessageDialog.Show(
+                    this,
+                    "이동하시겠습니까?",
+                    "Input Cassette Move",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Question);
+                if (result != DialogResult.Yes)
+                {
+                    QMC.Common.Logging.EventLogger.Write(
+                        QMC.Common.Logging.EventKind.Event,
+                        "UI",
+                        "INPUT-CASSETTE",
+                        "btnSlotUnloadingMove_Click canceled.");
+                    return;
+                }
+
                 await MoveSlotWithOffset(_InputCassetteUnit != null ? _InputCassetteUnit.Config.UnloadingPositionOffset : 0.0, "Input cassette slot unloading move");
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this, ex.Message, "Input Cassette Slot Move", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette Slot Move", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -311,7 +406,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this, ex.Message, actionName, MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, ex.Message, actionName, MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -335,7 +430,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this, ex.Message, actionName, MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, ex.Message, actionName, MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -349,11 +444,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 Cursor = Cursors.WaitCursor;
                 int result = await action();
                 if (result != 0)
-                    MessageBox.Show(this, actionName + " 실패", "Input Cassette", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, actionName + " 실패", "Input Cassette", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this, ex.Message, actionName, MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, ex.Message, actionName, MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -375,7 +470,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this, ex.Message, "Input Cassette Teach Menu", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette Teach Menu", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -409,7 +504,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             catch (Exception ex)
             {
                 EventLogger.Write(EventKind.Alarm, "UI", "INPUT-CASSETTE", "BindParameterGridMenus failed: " + ex.Message);
-                MessageBox.Show(this, ex.Message, "Input Cassette Grid Menu", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette Grid Menu", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -442,7 +537,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             catch (Exception ex)
             {
                 EventLogger.Write(EventKind.Alarm, "UI", "INPUT-CASSETTE", "GetSelectedTeachingPositionName failed: " + ex.Message);
-                MessageBox.Show(this, ex.Message, "Input Cassette Grid Menu", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette Grid Menu", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return string.Empty;
             }
             finally
@@ -468,7 +563,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this, ex.Message, "Input Cassette Teach Menu", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette Teach Menu", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -496,7 +591,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this, ex.Message, "Input Cassette Move", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette Move", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -524,7 +619,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this, ex.Message, "Input Cassette Teach", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette Teach", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -579,7 +674,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             catch (Exception ex)
             {
                 EventLogger.Write(EventKind.Alarm, "UI", "INPUT-CASSETTE", "BindParameterGrids failed: " + ex.Message);
-                MessageBox.Show(this, ex.Message, "Input Cassette Parameters", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette Parameters", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -604,7 +699,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             catch (Exception ex)
             {
                 EventLogger.Write(EventKind.Alarm, "UI", "INPUT-CASSETTE", "BindIoPanel failed: " + ex.Message);
-                MessageBox.Show(this, ex.Message, "Input Cassette I/O", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette I/O", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -674,7 +769,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             catch (Exception ex)
             {
                 EventLogger.Write(EventKind.Alarm, "UI", "INPUT-CASSETTE", "BindJogPanel failed: " + ex.Message);
-                MessageBox.Show(this, ex.Message, "Input Cassette Jog", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette Jog", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -691,7 +786,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             catch (Exception ex)
             {
                 EventLogger.Write(EventKind.Alarm, "UI", "INPUT-CASSETTE", "Parameter save failed: " + ex.Message);
-                MessageBox.Show(this, ex.Message, "Input Cassette Parameter Save", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette Parameter Save", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -727,7 +822,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this, ex.Message, "Input Cassette Edit Binding", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette Edit Binding", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -755,7 +850,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     }
                     catch (Exception ex)
                     {
-                        MessageBox.Show(this, ex.Message, name, MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        QMC.Common.MessageDialog.Show(this, ex.Message, name, MessageBoxButtons.OK, MessageBoxIcon.Error);
                     }
                     finally
                     {
@@ -764,7 +859,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this, ex.Message, "Input Cassette Editor", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette Editor", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -792,7 +887,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     }
                     catch (Exception ex)
                     {
-                        MessageBox.Show(this, ex.Message, name, MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        QMC.Common.MessageDialog.Show(this, ex.Message, name, MessageBoxButtons.OK, MessageBoxIcon.Error);
                     }
                     finally
                     {
@@ -801,7 +896,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this, ex.Message, "Input Cassette Editor", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette Editor", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -830,7 +925,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     }
                     catch (Exception ex)
                     {
-                        MessageBox.Show(this, ex.Message, name, MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        QMC.Common.MessageDialog.Show(this, ex.Message, name, MessageBoxButtons.OK, MessageBoxIcon.Error);
                     }
                     finally
                     {
@@ -839,7 +934,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this, ex.Message, "Input Cassette Editor", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette Editor", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -868,7 +963,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     }
                     catch (Exception ex)
                     {
-                        MessageBox.Show(this, ex.Message, name, MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        QMC.Common.MessageDialog.Show(this, ex.Message, name, MessageBoxButtons.OK, MessageBoxIcon.Error);
                     }
                     finally
                     {
@@ -877,7 +972,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this, ex.Message, "Input Cassette Editor", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette Editor", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -895,7 +990,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this, ex.Message, "Input Cassette Save", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette Save", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -1163,7 +1258,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this, ex.Message, "Input Cassette Theme", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette Theme", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -1194,3 +1289,5 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
        
     }
 }
+
+

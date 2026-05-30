@@ -1,5 +1,5 @@
-using QMC.CDT320.Alarms;
-using QMC.CDT320.Logging;
+﻿using QMC.Common.Alarms;
+using QMC.Common.Logging;
 using QMC.Common.Motion.Ajin;
 using System;
 using System.IO;
@@ -7,7 +7,7 @@ using System.IO;
 namespace QMC.CDT320.Ajin
 {
     /// <summary>
-    /// AXL 라이브러리 전역 수명주기 관리. 앱 시작 시 Open, 종료 시 Close.
+    /// AXL ?쇱씠釉뚮윭由??꾩뿭 ?섎챸二쇨린 愿由? ???쒖옉 ??Open, 醫낅즺 ??Close.
     /// </summary>
     public static class AjinSystem
     {
@@ -47,9 +47,9 @@ namespace QMC.CDT320.Ajin
                         EventLogger.Write(EventKind.Alarm, "SYS", "AXM-MOT-LOAD", LastError);
                         AlarmManager.Raise(AlarmSeverity.Critical, "AXM-MOT-LOAD", "AjinSystem", LastError);
                         
-                        //Test할때는 우선 넘어가자. I/O만 확인하는걸로.
+                        //Test?좊븣???곗꽑 ?섏뼱媛?? I/O留??뺤씤?섎뒗嫄몃줈.
                         //IsOpen = false;
-                        // 파라미터 로드 실패해도 AXL은 열려 있으므로, 필요 시 Close
+                        // ?뚮씪誘명꽣 濡쒕뱶 ?ㅽ뙣?대룄 AXL? ?대젮 ?덉쑝誘濡? ?꾩슂 ??Close
                         //AXL.Close();
                         //return false;
                     }
@@ -111,3 +111,4 @@ namespace QMC.CDT320.Ajin
         }
     }
 }
+

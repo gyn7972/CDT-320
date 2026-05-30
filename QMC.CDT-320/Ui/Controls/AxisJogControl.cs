@@ -1,4 +1,4 @@
-using QMC.Common.Motion;
+﻿using QMC.Common.Motion;
 using System;
 using System.ComponentModel;
 using System.Drawing;
@@ -7,7 +7,7 @@ using System.Windows.Forms;
 
 namespace QMC.CDT_320.Ui.Controls
 {
-    /// <summary>연결된 X/Y/Z/T 축을 선택하고 방향 패드로 조그 운전하는 공용 컨트롤입니다.</summary>
+    /// <summary>?곌껐??X/Y/Z/T 異뺤쓣 ?좏깮?섍퀬 諛⑺뼢 ?⑤뱶濡?議곌렇 ?댁쟾?섎뒗 怨듭슜 而⑦듃濡ㅼ엯?덈떎.</summary>
     public partial class AxisJogControl : UserControl
     {
         private BaseAxis _axisX;
@@ -16,16 +16,16 @@ namespace QMC.CDT_320.Ui.Controls
         private BaseAxis _axisT;
         private bool _updatingAxisSelector;
 
-        /// <summary>현재 조그 속도를 반환하는 공급자입니다.</summary>
+        /// <summary>?꾩옱 議곌렇 ?띾룄瑜?諛섑솚?섎뒗 怨듦툒?먯엯?덈떎.</summary>
         [Browsable(false)]
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public Func<double> SpeedProvider { get; set; }
 
-        /// <summary>이전 인덱스 버튼을 눌렀을 때 발생합니다.</summary>
+        /// <summary>?댁쟾 ?몃뜳??踰꾪듉???뚮?????諛쒖깮?⑸땲??</summary>
 
-        /// <summary>다음 인덱스 버튼을 눌렀을 때 발생합니다.</summary>
+        /// <summary>?ㅼ쓬 ?몃뜳??踰꾪듉???뚮?????諛쒖깮?⑸땲??</summary>
 
-        /// <summary>AxisJogControl을 생성합니다.</summary>
+        /// <summary>AxisJogControl???앹꽦?⑸땲??</summary>
         public AxisJogControl()
         {
             InitializeComponent();
@@ -33,7 +33,7 @@ namespace QMC.CDT_320.Ui.Controls
             UpdateAxisBindings();
         }
 
-        /// <summary>X/Y/Z/T 축을 바인딩하고 연결된 축만 조그 버튼을 활성화합니다.</summary>
+        /// <summary>X/Y/Z/T 異뺤쓣 諛붿씤?⑺븯怨??곌껐??異뺣쭔 議곌렇 踰꾪듉???쒖꽦?뷀빀?덈떎.</summary>
         public void BindAxes(BaseAxis x, BaseAxis y, BaseAxis z, BaseAxis t)
         {
             _axisX = x;
@@ -43,7 +43,7 @@ namespace QMC.CDT_320.Ui.Controls
             UpdateAxisBindings();
         }
 
-        /// <summary>현재 선택된 축의 조그를 정지합니다.</summary>
+        /// <summary>?꾩옱 ?좏깮??異뺤쓽 議곌렇瑜??뺤??⑸땲??</summary>
         public void StopJog()
         {
             StopAxis(_axisX);
@@ -131,7 +131,7 @@ namespace QMC.CDT_320.Ui.Controls
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this, ex.Message, "Jog", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Jog", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
@@ -146,7 +146,7 @@ namespace QMC.CDT_320.Ui.Controls
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this, ex.Message, "Jog", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Jog", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
@@ -274,3 +274,4 @@ namespace QMC.CDT_320.Ui.Controls
         }
     }
 }
+

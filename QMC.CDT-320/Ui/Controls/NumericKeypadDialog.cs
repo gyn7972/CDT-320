@@ -1,7 +1,7 @@
-using System;
+﻿using System;
 using System.Globalization;
 using System.Windows.Forms;
-using QMC.CDT320.Logging;
+using QMC.Common.Logging;
 
 namespace QMC.CDT_320.Ui.Controls
 {
@@ -154,7 +154,7 @@ namespace QMC.CDT_320.Ui.Controls
                 if (!double.TryParse(txtValue.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out value) &&
                     !double.TryParse(txtValue.Text, NumberStyles.Float, CultureInfo.CurrentCulture, out value))
                 {
-                    MessageBox.Show(this, "Number value is invalid.", "Numeric Input", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, "Number value is invalid.", "Numeric Input", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     txtValue.Focus();
                     txtValue.SelectAll();
                     return;
@@ -206,3 +206,5 @@ namespace QMC.CDT_320.Ui.Controls
         }
     }
 }
+
+

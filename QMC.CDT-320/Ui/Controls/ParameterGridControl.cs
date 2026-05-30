@@ -1,9 +1,9 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Globalization;
 using System.Windows.Forms;
-using QMC.CDT320.Logging;
+using QMC.Common.Logging;
 
 namespace QMC.CDT_320.Ui.Controls
 {
@@ -65,7 +65,7 @@ namespace QMC.CDT_320.Ui.Controls
             {
                 string message = "Parameter grid set failed: " + Name + Environment.NewLine + ex.Message;
                 EventLogger.Write(EventKind.Alarm, "UI", "PARAM-GRID", message);
-                MessageBox.Show(this, message, "Parameter Grid", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, message, "Parameter Grid", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -92,7 +92,7 @@ namespace QMC.CDT_320.Ui.Controls
             {
                 string message = "Parameter grid refresh failed: " + Name + Environment.NewLine + ex.Message;
                 EventLogger.Write(EventKind.Alarm, "UI", "PARAM-GRID", message);
-                MessageBox.Show(this, message, "Parameter Grid", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, message, "Parameter Grid", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -151,7 +151,7 @@ namespace QMC.CDT_320.Ui.Controls
                 string name = item != null ? item.DisplayName : string.Empty;
                 string message = "Parameter row add failed: " + name + Environment.NewLine + ex.Message;
                 EventLogger.Write(EventKind.Alarm, "UI", "PARAM-GRID", message);
-                MessageBox.Show(this, message, "Parameter Grid", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, message, "Parameter Grid", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -411,7 +411,7 @@ namespace QMC.CDT_320.Ui.Controls
             catch (Exception ex)
             {
                 EventLogger.Write(EventKind.Alarm, "UI", "PARAM-GRID", "CommitValue failed: " + ex.Message);
-                MessageBox.Show(this, ex.Message, "Parameter", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Parameter", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 RefreshValues();
             }
             finally
@@ -436,7 +436,7 @@ namespace QMC.CDT_320.Ui.Controls
             catch (Exception ex)
             {
                 EventLogger.Write(EventKind.Alarm, "UI", "PARAM-GRID", "Commit failed: " + ex.Message);
-                MessageBox.Show(this, ex.Message, "Parameter", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Parameter", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 RefreshValues();
             }
             finally
@@ -475,8 +475,8 @@ namespace QMC.CDT_320.Ui.Controls
                     current = Convert.ToBoolean(item.Getter());
 
                 bool next = !current;
-                string message = item.DisplayName + " 값을 " + (next ? "True" : "False") + "(으)로 변경하시겠습니까?";
-                DialogResult result = MessageBox.Show(this, message, "Parameter Change", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                string message = item.DisplayName + " 媛믪쓣 " + (next ? "True" : "False") + "(??濡?蹂寃쏀븯?쒓쿋?듬땲源?";
+                DialogResult result = QMC.Common.MessageDialog.Show(this, message, "Parameter Change", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
                 if (result != DialogResult.Yes)
                     return;
 
@@ -515,7 +515,7 @@ namespace QMC.CDT_320.Ui.Controls
             catch (Exception ex)
             {
                 EventLogger.Write(EventKind.Alarm, "UI", "PARAM-GRID", "Numeric editor failed: " + ex.Message);
-                MessageBox.Show(this, ex.Message, "Parameter", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Parameter", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 RefreshValues();
             }
             finally
@@ -709,3 +709,5 @@ namespace QMC.CDT_320.Ui.Controls
         }
     }
 }
+
+

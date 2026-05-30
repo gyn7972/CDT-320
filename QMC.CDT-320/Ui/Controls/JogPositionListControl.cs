@@ -1,4 +1,4 @@
-using QMC.CDT320.Logging;
+﻿using QMC.Common.Logging;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -49,7 +49,7 @@ namespace QMC.CDT_320.Ui.Controls
             {
                 string message = "Jog position bind failed: " + ex.Message;
                 EventLogger.Write(EventKind.Alarm, "UI", "JOG-POS", message);
-                MessageBox.Show(this, message, "Jog Position", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, message, "Jog Position", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -118,3 +118,5 @@ namespace QMC.CDT_320.Ui.Controls
         }
     }
 }
+
+

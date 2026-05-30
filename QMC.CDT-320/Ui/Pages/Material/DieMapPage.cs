@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
@@ -95,7 +95,7 @@ namespace QMC.CDT_320.Ui.Pages.Material
                 var loaded = DieMapGenerator.Load(dlg.FileName);
                 if (loaded == null)
                 {
-                    MessageBox.Show("Load failed.");
+                    QMC.Common.MessageDialog.Show("Load failed.");
                     return;
                 }
 
@@ -118,18 +118,18 @@ namespace QMC.CDT_320.Ui.Pages.Material
         {
             if (_map == null)
             {
-                MessageBox.Show("No map. Click GENERATE first.");
+                QMC.Common.MessageDialog.Show("No map. Click GENERATE first.");
                 return;
             }
 
             try
             {
                 string path = DieMapGenerator.SaveToOutput(_map, lotId: "manual");
-                MessageBox.Show("Saved:\n" + path, "DieMap", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                QMC.Common.MessageDialog.Show("Saved:\n" + path, "DieMap", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Save failed: " + ex.Message);
+                QMC.Common.MessageDialog.Show("Save failed: " + ex.Message);
             }
         }
 
@@ -154,3 +154,4 @@ namespace QMC.CDT_320.Ui.Pages.Material
         }
     }
 }
+

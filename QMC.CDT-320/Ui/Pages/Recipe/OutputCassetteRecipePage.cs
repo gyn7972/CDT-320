@@ -1,4 +1,4 @@
-using QMC.CDT_320.Ui.Controls;
+﻿using QMC.CDT_320.Ui.Controls;
 using QMC.CDT_320.Ui.Localization;
 using QMC.CDT320;
 using QMC.CDT320.Ajin;
@@ -12,15 +12,15 @@ using System.Windows.Forms;
 
 namespace QMC.CDT_320.Ui.Pages.Recipe
 {
-    /// <summary>Output Cassette 레시피에서 BinCassetteUnit을 조작하는 독립 화면입니다.</summary>
+    /// <summary>Output Cassette ?덉떆?쇱뿉??BinCassetteUnit??議곗옉?섎뒗 ?낅┰ ?붾㈃?낅땲??</summary>
     public partial class OutputCassetteRecipePage : QMC.CDT_320.Ui.Pages.PageBase
     {
-        private BinCassetteUnit _binCassette;
+        private OutCassetteUnit _binCassette;
         private BaseDigitalOutput _ngBinLockOut;
         private BaseDigitalOutput _ngBinUnlockOut;
         private readonly Timer _refreshTimer = new Timer();
 
-        /// <summary>OutputCassetteRecipePage를 생성합니다.</summary>
+        /// <summary>OutputCassetteRecipePage瑜??앹꽦?⑸땲??</summary>
         public OutputCassetteRecipePage()
         {
             InitializeComponent();
@@ -138,11 +138,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 Cursor = Cursors.WaitCursor;
                 bool ok = await action();
                 if (!ok)
-                    MessageBox.Show(this, actionName + " 실패", "Output Cassette", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, actionName + " ?ㅽ뙣", "Output Cassette", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this, ex.Message, actionName, MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, ex.Message, actionName, MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -154,8 +154,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private void AttachTeachMenu(Label label, string positionName)
         {
             var menu = new ContextMenuStrip();
-            menu.Items.Add("해당 위치로 이동", null, async (s, e) => await MoveTo(positionName));
-            menu.Items.Add("현재 위치 티칭", null, (s, e) =>
+            menu.Items.Add("?대떦 ?꾩튂濡??대룞", null, async (s, e) => await MoveTo(positionName));
+            menu.Items.Add("?꾩옱 ?꾩튂 ?곗묶", null, (s, e) =>
             {
                 TeachPosition(positionName);
                 RefreshView();
@@ -294,3 +294,4 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         }
     }
 }
+

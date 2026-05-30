@@ -167,7 +167,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
         private void DoSave()
         {
-            if (_project == null) { MessageBox.Show("No project loaded."); return; }
+            if (_project == null) { QMC.Common.MessageDialog.Show("No project loaded."); return; }
             try
             {
                 SafeSaveToRecipe();
@@ -191,10 +191,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     host?.RefreshProjectName(_project.FileName);
                 }
                 catch { }
-                MessageBox.Show($"Saved to {_project.FileName}.Project", "Recipe",
+                QMC.Common.MessageDialog.Show($"Saved to {_project.FileName}.Project", "Recipe",
                                 MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
-            catch (Exception ex) { MessageBox.Show("Save failed: " + ex.Message); }
+            catch (Exception ex) { QMC.Common.MessageDialog.Show("Save failed: " + ex.Message); }
         }
 
         private void SafeLoadFromRecipe() { try { LoadFromRecipe(); } catch { } }
@@ -252,3 +252,4 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             };
     }
 }
+

@@ -355,7 +355,7 @@ namespace QMC.CDT_320
             this.btnAxisPosition.Click += (s, e) => this.ShowOrRestoreAxisPositionPopup(this);
             this.btnTabSettings .Click += (s, e) => this.ShowTab(MainTab.Settings);
             this.btnTabUser     .Click += (s, e) => this.ShowTab(MainTab.User);
-            this.btnTabExit     .Click += (s, e) => this.Close();
+            this.btnTabExit     .Click += (s, e) => this.RequestApplicationExit();
 
             this.pnlBottomBar.Controls.Add(this.btnTabWork);
             this.pnlBottomBar.Controls.Add(this.btnTabWorkInfo);

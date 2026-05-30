@@ -1,14 +1,14 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Windows.Forms;
-using QMC.CDT320.Alarms;
+using QMC.Common.Alarms;
 
 namespace QMC.CDT_320.Ui.Controls
 {
     /// <summary>
-    /// 활성 알람이 있을 때만 표시되는 빨간/오렌지 슬림 배너.
-    /// 최신 알람 메시지 + [CLEAR] 버튼.
+    /// ?쒖꽦 ?뚮엺???덉쓣 ?뚮쭔 ?쒖떆?섎뒗 鍮④컙/?ㅻ젋吏 ?щ┝ 諛곕꼫.
+    /// 理쒖떊 ?뚮엺 硫붿떆吏 + [CLEAR] 踰꾪듉.
     /// </summary>
     public class AlarmBanner : Panel
     {
@@ -28,7 +28,7 @@ namespace QMC.CDT_320.Ui.Controls
             _icon = new Label
             {
                 Dock = DockStyle.Left, Width = 40,
-                Text = "⚠", ForeColor = Color.White,
+                Text = "!", ForeColor = Color.White,
                 BackColor = Color.Transparent,
                 Font = new Font("Segoe UI Symbol", 18F, FontStyle.Bold),
                 TextAlign = ContentAlignment.MiddleCenter
@@ -37,7 +37,7 @@ namespace QMC.CDT_320.Ui.Controls
             {
                 Dock = DockStyle.Fill, Text = "",
                 ForeColor = Color.White, BackColor = Color.Transparent,
-                Font = new Font("맑은 고딕", 11F, FontStyle.Bold),
+                Font = new Font("留묒? 怨좊뵓", 11F, FontStyle.Bold),
                 TextAlign = ContentAlignment.MiddleLeft,
                 Padding = new Padding(6, 0, 0, 0)
             };
@@ -48,7 +48,7 @@ namespace QMC.CDT_320.Ui.Controls
                 FlatStyle = FlatStyle.Flat,
                 BackColor = Color.FromArgb(0x7A, 0x1F, 0x1A),
                 ForeColor = Color.White,
-                Font = new Font("맑은 고딕", 9F, FontStyle.Bold)
+                Font = new Font("留묒? 怨좊뵓", 9F, FontStyle.Bold)
             };
             _btnClear.FlatAppearance.BorderColor = Color.White;
             _btnClear.FlatAppearance.BorderSize  = 1;
@@ -95,7 +95,7 @@ namespace QMC.CDT_320.Ui.Controls
                 return;
             }
 
-            // 색상
+            // ?됱긽
             switch (sev.Value)
             {
                 case AlarmSeverity.Warning:  BackColor = Color.FromArgb(0xD9, 0x77, 0x06); _btnClear.BackColor = Color.FromArgb(0x99, 0x54, 0x04); break;
@@ -107,7 +107,7 @@ namespace QMC.CDT_320.Ui.Controls
             if (active.Count > 0)
             {
                 var top = active[active.Count - 1];
-                _msg.Text = $"[{top.Severity}] {top.Code} · {top.Source} · {top.Message}"
+                _msg.Text = $"[{top.Severity}] {top.Code} 쨌 {top.Source} 쨌 {top.Message}"
                             + (active.Count > 1 ? $"   (+ {active.Count - 1} more)" : "");
             }
 
@@ -124,3 +124,4 @@ namespace QMC.CDT_320.Ui.Controls
         }
     }
 }
+

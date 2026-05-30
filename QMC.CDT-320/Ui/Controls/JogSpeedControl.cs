@@ -1,4 +1,4 @@
-using QMC.CDT320.Logging;
+﻿using QMC.Common.Logging;
 using QMC.Common.Motion;
 using System;
 using System.Drawing;
@@ -218,3 +218,4 @@ namespace QMC.CDT_320.Ui.Controls
         }
     }
 }
+

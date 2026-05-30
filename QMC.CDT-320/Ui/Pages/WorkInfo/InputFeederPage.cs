@@ -42,7 +42,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Feeder error: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show("Feeder error: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
 
             RefreshFromMachine();
@@ -59,7 +59,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Feeder error: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show("Feeder error: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
 
             RefreshFromMachine();
@@ -96,4 +96,5 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         }
     }
 }
+
 

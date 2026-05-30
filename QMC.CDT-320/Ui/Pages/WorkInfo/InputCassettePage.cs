@@ -81,7 +81,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             }
             catch (Exception ex)
             {
-                MessageBox.Show("LotPort error:\n" + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show("LotPort error:\n" + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
 
             RefreshFromMachine();
@@ -171,4 +171,5 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         }
     }
 }
+
 

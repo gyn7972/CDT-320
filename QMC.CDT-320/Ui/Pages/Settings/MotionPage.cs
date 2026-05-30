@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -275,7 +275,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         {
             if (!AjinSystem.IsOpen)
             {
-                MessageBox.Show("AXL library is not open. Enable UseAjin in Settings > GENERAL and restart.");
+                QMC.Common.MessageDialog.Show("AXL library is not open. Enable UseAjin in Settings > GENERAL and restart.");
                 return;
             }
 
@@ -286,12 +286,12 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 if (r == 0)
                 {
                     ApplyParametersFromBoard();
-                    QMC.CDT320.Logging.EventLogger.Write(QMC.CDT320.Logging.EventKind.Event, "QMC", "PARA-LOAD", dlg.FileName);
-                    MessageBox.Show("Parameter load complete.");
+                    QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "QMC", "PARA-LOAD", dlg.FileName);
+                    QMC.Common.MessageDialog.Show("Parameter load complete.");
                 }
                 else
                 {
-                    MessageBox.Show("Parameter load failed. 0x" + r.ToString("X4"));
+                    QMC.Common.MessageDialog.Show("Parameter load failed. 0x" + r.ToString("X4"));
                 }
             }
         }
@@ -300,7 +300,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         {
             if (!AjinSystem.IsOpen)
             {
-                MessageBox.Show("AXL library is not open.");
+                QMC.Common.MessageDialog.Show("AXL library is not open.");
                 return;
             }
 
@@ -310,12 +310,12 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 int r = QMC.Common.Motion.Ajin.AXM.SaveParameters(dlg.FileName);
                 if (r == 0)
                 {
-                    QMC.CDT320.Logging.EventLogger.Write(QMC.CDT320.Logging.EventKind.Event, "QMC", "PARA-SAVE", dlg.FileName);
-                    MessageBox.Show("Parameter save complete.");
+                    QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "QMC", "PARA-SAVE", dlg.FileName);
+                    QMC.Common.MessageDialog.Show("Parameter save complete.");
                 }
                 else
                 {
-                    MessageBox.Show("Parameter save failed. 0x" + r.ToString("X4"));
+                    QMC.Common.MessageDialog.Show("Parameter save failed. 0x" + r.ToString("X4"));
                 }
             }
         }
@@ -364,3 +364,5 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         }
     }
 }
+
+

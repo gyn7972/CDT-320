@@ -1,4 +1,4 @@
-using QMC.Common.Motion;
+﻿using QMC.Common.Motion;
 using System;
 using System.ComponentModel;
 using System.Threading.Tasks;
@@ -6,13 +6,13 @@ using System.Windows.Forms;
 
 namespace QMC.CDT_320.Ui.Controls
 {
-    /// <summary>단일 축을 +/STOP/- 버튼으로 조그 운전하는 공용 컨트롤입니다.</summary>
+    /// <summary>?⑥씪 異뺤쓣 +/STOP/- 踰꾪듉?쇰줈 議곌렇 ?댁쟾?섎뒗 怨듭슜 而⑦듃濡ㅼ엯?덈떎.</summary>
     public partial class AxisJogLineControl : UserControl
     {
         private BaseAxis _axis;
         private string _axisCaption = "AXIS\r\nNAME";
 
-        /// <summary>디자이너와 화면에 표시할 축 이름입니다.</summary>
+        /// <summary>?붿옄?대꼫? ?붾㈃???쒖떆??異??대쫫?낅땲??</summary>
         public string AxisCaption
         {
             get { return _axisCaption; }
@@ -23,17 +23,17 @@ namespace QMC.CDT_320.Ui.Controls
             }
         }
 
-        /// <summary>조그 이동 옵션 컨트롤입니다.</summary>
+        /// <summary>議곌렇 ?대룞 ?듭뀡 而⑦듃濡ㅼ엯?덈떎.</summary>
         [Browsable(false)]
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public JogMoveOptionsControl MoveOptions { get; set; }
 
-        /// <summary>사용자 지정 속도 공급자입니다.</summary>
+        /// <summary>?ъ슜??吏???띾룄 怨듦툒?먯엯?덈떎.</summary>
         [Browsable(false)]
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public Func<double> SpeedProvider { get; set; }
 
-        /// <summary>AxisJogLineControl을 생성합니다.</summary>
+        /// <summary>AxisJogLineControl???앹꽦?⑸땲??</summary>
         public AxisJogLineControl()
         {
             InitializeComponent();
@@ -41,7 +41,7 @@ namespace QMC.CDT_320.Ui.Controls
             UpdateEnabledState();
         }
 
-        /// <summary>조그 대상 축을 바인딩합니다.</summary>
+        /// <summary>議곌렇 ???異뺤쓣 諛붿씤?⑺빀?덈떎.</summary>
         public void BindAxis(string axisName, BaseAxis axis)
         {
             _axis = axis;
@@ -49,7 +49,7 @@ namespace QMC.CDT_320.Ui.Controls
             UpdateEnabledState();
         }
 
-        /// <summary>현재 축의 조그 이동을 정지합니다.</summary>
+        /// <summary>?꾩옱 異뺤쓽 議곌렇 ?대룞???뺤??⑸땲??</summary>
         public void StopJog()
         {
             try { _axis?.StopJog(); } catch { }
@@ -99,7 +99,7 @@ namespace QMC.CDT_320.Ui.Controls
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this, ex.Message, "Jog", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Jog", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
@@ -114,7 +114,7 @@ namespace QMC.CDT_320.Ui.Controls
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this, ex.Message, "Jog", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Jog", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
@@ -153,3 +153,4 @@ namespace QMC.CDT_320.Ui.Controls
         }
     }
 }
+

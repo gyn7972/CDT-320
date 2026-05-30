@@ -1,11 +1,11 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using QMC.Common.Motion;
-using QMC.CDT320.Logging;
+using QMC.Common.Logging;
 
 namespace QMC.CDT_320.Ui.Dialogs
 {
@@ -104,3 +104,4 @@ namespace QMC.CDT_320.Ui.Dialogs
         }
     }
 }
+

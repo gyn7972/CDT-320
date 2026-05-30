@@ -1,8 +1,8 @@
-using System;
+﻿using System;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using QMC.CDT320.Alarms;
-using QMC.CDT320.Logging;
+using QMC.Common.Alarms;
+using QMC.Common.Logging;
 using QMC.CDT320.VisionComm;
 using QMC.CDT_320.Ui.Controls;
 using QMC.CDT_320.Ui.Localization;
@@ -56,7 +56,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             {
                 AlarmManager.Raise(AlarmSeverity.Warning, "VisionActionBindFail", "VisionRecipePage",
                     "Bind action command exception: " + ex.GetType().Name + ": " + ex.Message);
-                MessageBox.Show(ex.Message, "Vision Action", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(ex.Message, "Vision Action", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -99,13 +99,13 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                         if (wafer != null && wafer.IsConnected)
                         {
                             bool ok = await wafer.ExposeAsync(0, 3000);
-                            MessageBox.Show("GRAB " + (ok ? "OK" : "FAIL"), "Vision GRAB",
+                            QMC.Common.MessageDialog.Show("GRAB " + (ok ? "OK" : "FAIL"), "Vision GRAB",
                                 MessageBoxButtons.OK, ok ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
                             return ok ? 0 : -1;
                         }
                         else
                         {
-                            MessageBox.Show("Wafer Vision is not connected. (TCP 5100)", "GRAB",
+                            QMC.Common.MessageDialog.Show("Wafer Vision is not connected. (TCP 5100)", "GRAB",
                                 MessageBoxButtons.OK, MessageBoxIcon.Warning);
                             return -1;
                         }
@@ -120,25 +120,25 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                                   ", y=" + result.Y.ToString("F2") +
                                   ", angle=" + result.AngleDeg.ToString("F2") +
                                   ", score=" + result.Score.ToString("F2");
-                            MessageBox.Show(msg, "Vision MATCH",
+                            QMC.Common.MessageDialog.Show(msg, "Vision MATCH",
                                 MessageBoxButtons.OK,
                                 result != null ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
                             return result != null ? 0 : -1;
                         }
                         else
                         {
-                            MessageBox.Show("Wafer Vision is not connected. (TCP 5100)", "MATCH",
+                            QMC.Common.MessageDialog.Show("Wafer Vision is not connected. (TCP 5100)", "MATCH",
                                 MessageBoxButtons.OK, MessageBoxIcon.Warning);
                             return -1;
                         }
 
                     case "FAST SHUTTER":
-                        MessageBox.Show("FAST SHUTTER will call the Vision PC exposure API in a later stage.",
+                        QMC.Common.MessageDialog.Show("FAST SHUTTER will call the Vision PC exposure API in a later stage.",
                             "FAST SHUTTER", MessageBoxButtons.OK, MessageBoxIcon.Information);
                         return 0;
 
                     default:
-                        MessageBox.Show(actionName + " will be implemented in the next stage.",
+                        QMC.Common.MessageDialog.Show(actionName + " will be implemented in the next stage.",
                             "Vision Action", MessageBoxButtons.OK, MessageBoxIcon.Information);
                         return 0;
                 }
@@ -155,3 +155,5 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         }
     }
 }
+
+

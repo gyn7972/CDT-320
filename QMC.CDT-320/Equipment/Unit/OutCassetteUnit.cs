@@ -10,7 +10,7 @@ using QMC.Common.Motion;
 namespace QMC.CDT320
 {
     /// <summary>Bin 카세트 리프터와 매핑에 필요한 기구 설정값입니다.</summary>
-    public class BinCassetteSetup : ISetupData
+    public class OutCassetteSetup : ISetupData
     {
         /// <summary>BinLifterZ 대기 위치입니다.</summary>
         public double AvoidPosition { get; set; } = 0.0;
@@ -41,14 +41,14 @@ namespace QMC.CDT320
     }
 
     /// <summary>Bin 카세트 고정 사양 설정입니다.</summary>
-    public class BinCassetteConfig : IConfigData
+    public class OutCassetteConfig : IConfigData
     {
         /// <summary>시뮬레이션 모드 사용 여부입니다.</summary>
         public bool IsSimulationMode { get; set; } = true;
     }
 
     /// <summary>Bin 카세트 동작 레시피입니다.</summary>
-    public class BinCassetteRecipe : IRecipeData
+    public class OutCassetteRecipe : IRecipeData
     {
         /// <summary>매핑 시 BinLifterZ 이동 속도입니다.</summary>
         public double ScanVelocity { get; set; } = 20.0;
@@ -64,7 +64,7 @@ namespace QMC.CDT320
     }
 
     /// <summary>NG, Good1, Good2 Bin 카세트 리프터와 매핑 센서를 관리하는 유닛입니다.</summary>
-    public class BinCassetteUnit : BaseUnit<BinCassetteSetup, BinCassetteConfig, BinCassetteRecipe>
+    public class OutCassetteUnit : BaseUnit<OutCassetteSetup, OutCassetteConfig, OutCassetteRecipe>
     {
         private readonly Dictionary<TargetCassette, bool[]> _slotMap =
             new Dictionary<TargetCassette, bool[]>();
@@ -121,7 +121,7 @@ namespace QMC.CDT320
         public IReadOnlyDictionary<TargetCassette, bool[]> SlotMap { get { return _slotMap; } }
 
         /// <summary>BinCassetteUnit을 생성하고 축과 센서를 등록합니다.</summary>
-        public BinCassetteUnit() : base("BinCassetteUnit")
+        public OutCassetteUnit() : base("BinCassetteUnit")
         {
             BinLifterZ = AjinFactory.CreateAxis("BinLifterZ");
             BinLifterZ.Setup.SoftLimitPlus = 400.0;

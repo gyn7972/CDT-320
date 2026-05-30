@@ -1,4 +1,4 @@
-using System.Windows.Forms;
+﻿using System.Windows.Forms;
 using QMC.CDT_320.Ui.Localization;
 using QMC.CDT_320.Ui.Security;
 
@@ -72,9 +72,10 @@ namespace QMC.CDT_320.Ui.Dialogs
                 return;
             }
 
-            MessageBox.Show(this, "Login failed.", Lang.T("dlg.login"));
+            QMC.Common.MessageDialog.Show(this, "Login failed.", Lang.T("dlg.login"));
             tbPassword.Clear();
             tbPassword.Focus();
         }
     }
 }
+

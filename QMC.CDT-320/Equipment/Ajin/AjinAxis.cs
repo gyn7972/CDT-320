@@ -1,5 +1,6 @@
 ﻿using QMC.Common.Motion;
 using QMC.Common;
+using QMC.Common.Alarms;
 using QMC.Common.Motion.Ajin;
 using System;
 using System.Threading.Tasks;
@@ -82,8 +83,8 @@ namespace QMC.CDT320.Ajin
                     IsMoving = false;
                     IsAlarm = true;
                     AlarmCode = (uint)ret;
-                    Alarms.AlarmManager.Raise(
-                        Alarms.AlarmSeverity.Error,
+                    AlarmManager.Raise(
+                        AlarmSeverity.Error,
                         "AX-MOVE-ABS",
                         Name,
                         "AXM.MovePosition failed. ret=0x" + ret.ToString("X4"));
@@ -98,8 +99,8 @@ namespace QMC.CDT320.Ajin
             {
                 IsMoving = false;
                 IsAlarm = true;
-                Alarms.AlarmManager.Raise(
-                    Alarms.AlarmSeverity.Error,
+                AlarmManager.Raise(
+                    AlarmSeverity.Error,
                     "AX-MOVE-ABS",
                     Name,
                     ex.Message);
@@ -126,8 +127,8 @@ namespace QMC.CDT320.Ajin
             {
                 IsMoving = false;
                 IsAlarm = true;
-                Alarms.AlarmManager.Raise(
-                    Alarms.AlarmSeverity.Error,
+                AlarmManager.Raise(
+                    AlarmSeverity.Error,
                     "AX-MOVE-REL",
                     Name,
                     ex.Message);
@@ -174,8 +175,8 @@ namespace QMC.CDT320.Ajin
                     IsMoving = false;
                     IsAlarm = true;
                     AlarmCode = (uint)ret;
-                    Alarms.AlarmManager.Raise(
-                        Alarms.AlarmSeverity.Error,
+                    AlarmManager.Raise(
+                        AlarmSeverity.Error,
                         "AX-HOME",
                         Name,
                         "AXM.SetHomeStart failed. ret=0x" + ret.ToString("X4"));
@@ -192,8 +193,8 @@ namespace QMC.CDT320.Ajin
                     if (++guard > 3000)
                     {
                         IsMoving = false;
-                        Alarms.AlarmManager.Raise(
-                            Alarms.AlarmSeverity.Error,
+                        AlarmManager.Raise(
+                            AlarmSeverity.Error,
                             "AX-HOME",
                             Name,
                             "Home search timeout. AxisNo=" + AxisNo);
@@ -214,8 +215,8 @@ namespace QMC.CDT320.Ajin
             {
                 IsMoving = false;
                 IsAlarm = true;
-                Alarms.AlarmManager.Raise(
-                    Alarms.AlarmSeverity.Error,
+                AlarmManager.Raise(
+                    AlarmSeverity.Error,
                     "AX-HOME",
                     Name,
                     ex.Message);
@@ -271,8 +272,8 @@ namespace QMC.CDT320.Ajin
             {
                 IsMoving = false;
                 IsAlarm = true;
-                Alarms.AlarmManager.Raise(
-                    Alarms.AlarmSeverity.Error,
+                AlarmManager.Raise(
+                    AlarmSeverity.Error,
                     "AX-JOG",
                     Name,
                     ex.Message);
@@ -307,8 +308,8 @@ namespace QMC.CDT320.Ajin
             {
                 IsMoving = false;
                 IsAlarm = true;
-                Alarms.AlarmManager.Raise(
-                    Alarms.AlarmSeverity.Error,
+                AlarmManager.Raise(
+                    AlarmSeverity.Error,
                     "AX-JOG-STEP",
                     Name,
                     ex.Message);
@@ -466,8 +467,8 @@ namespace QMC.CDT320.Ajin
                 AlarmCode = AlarmCode == 0 ? 1u : AlarmCode;
                 if (!wasAlarm)
                 {
-                    Alarms.AlarmManager.Raise(
-                        Alarms.AlarmSeverity.Error,
+                    AlarmManager.Raise(
+                        AlarmSeverity.Error,
                         "AX-" + AxisNo,
                         Name,
                         "Servo alarm 0x" + AlarmCode.ToString("X4"));
@@ -489,8 +490,8 @@ namespace QMC.CDT320.Ajin
             if ((Sensor_PEL && !wasPel) || (Sensor_MEL && !wasMel))
             {
                 string side = Sensor_PEL ? "PEL(+)" : "MEL(-)";
-                Alarms.AlarmManager.Raise(
-                    Alarms.AlarmSeverity.Error,
+                AlarmManager.Raise(
+                    AlarmSeverity.Error,
                     "LIMIT-HIT",
                     Name,
                     "Limit sensor reached [" + side + "] AxisNo=" + AxisNo);
@@ -585,8 +586,8 @@ namespace QMC.CDT320.Ajin
             }
             catch (Exception ex)
             {
-                Alarms.AlarmManager.Raise(
-                    Alarms.AlarmSeverity.Warning,
+                AlarmManager.Raise(
+                    AlarmSeverity.Warning,
                     "AX-READ-LIVE",
                     Name,
                     "ReadLiveStatus failed: " + ex.Message);
@@ -675,8 +676,8 @@ namespace QMC.CDT320.Ajin
             }
             catch (Exception ex)
             {
-                Alarms.AlarmManager.Raise(
-                    Alarms.AlarmSeverity.Warning,
+                AlarmManager.Raise(
+                    AlarmSeverity.Warning,
                     "AX-READ-SETUP",
                     Name,
                     "ReadSetupFromBoard failed: " + ex.Message);
@@ -703,8 +704,8 @@ namespace QMC.CDT320.Ajin
                 await Task.Delay(10).ContinueWith(_ => { });
                 if (++guard > 6000)
                 {
-                    Alarms.AlarmManager.Raise(
-                        Alarms.AlarmSeverity.Error,
+                    AlarmManager.Raise(
+                        AlarmSeverity.Error,
                         "AX-MOVE-WAIT",
                         Name,
                         "Move wait timeout. AxisNo=" + AxisNo);
@@ -718,3 +719,4 @@ namespace QMC.CDT320.Ajin
         }
     }
 }
+

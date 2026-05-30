@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
@@ -121,9 +121,9 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                     ser.WriteObject(fs, new LightStore { Items = _items });
                 }
                 int sent = SendToControllers();
-                MessageBox.Show($"Save complete.\n{SavePath}\n\nLight command sent: {sent}/{_items.Count}");
+                QMC.Common.MessageDialog.Show($"Save complete.\n{SavePath}\n\nLight command sent: {sent}/{_items.Count}");
             }
-            catch (Exception ex) { MessageBox.Show("Save failed: " + ex.Message); }
+            catch (Exception ex) { QMC.Common.MessageDialog.Show("Save failed: " + ex.Message); }
         }
 
         private int SendToControllers()
@@ -194,3 +194,4 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         }
     }
 }
+

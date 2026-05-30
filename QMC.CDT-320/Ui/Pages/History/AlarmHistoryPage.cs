@@ -1,8 +1,8 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
-using QMC.CDT320.Alarms;
+using QMC.Common.Alarms;
 
 namespace QMC.CDT_320.Ui.Pages.History
 {
@@ -105,3 +105,4 @@ namespace QMC.CDT_320.Ui.Pages.History
         }
     }
 }
+

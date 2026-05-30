@@ -1,8 +1,8 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
-using QMC.CDT320.Alarms;
+using QMC.Common.Alarms;
 using QMC.CDT_320.Ui.Localization;
 
 namespace QMC.CDT_320.Ui.Pages.Settings
@@ -40,7 +40,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             btnSave.Click += (s, e) =>
             {
                 AlarmMaster.Save();
-                MessageBox.Show("Saved: " + AlarmMaster.Path_, "AlarmMaster", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                QMC.Common.MessageDialog.Show("Saved: " + AlarmMaster.Path_, "AlarmMaster", MessageBoxButtons.OK, MessageBoxIcon.Information);
             };
             _grid.CellEndEdit += (s, e) => CommitRow(e.RowIndex);
         }
@@ -101,3 +101,5 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         }
     }
 }
+
+

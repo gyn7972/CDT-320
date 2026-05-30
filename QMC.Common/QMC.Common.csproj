@@ -51,7 +51,9 @@
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Drawing" />
     <Reference Include="System.Runtime.Serialization" />
+    <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
@@ -67,6 +69,10 @@
     <Compile Include="AjinE\AXHS.cs" />
     <Compile Include="AjinE\AXL.cs" />
     <Compile Include="AjinE\AXM.cs" />
+    <Compile Include="Alarms\AlarmManager.cs" />
+    <Compile Include="Alarms\AlarmMaster.cs" />
+    <Compile Include="Alarms\AlarmRecord.cs" />
+    <Compile Include="Alarms\AlarmSeverity.cs" />
     <Compile Include="BaseComponent.cs" />
     <Compile Include="BaseEquipmentNode.cs" />
     <Compile Include="BaseUnit.cs" />
@@ -83,8 +89,41 @@
     <Compile Include="IO\BaseDigitalInput.cs" />
     <Compile Include="IO\BaseDigitalOutput.cs" />
     <Compile Include="IO\IoData.cs" />
+    <Compile Include="Logging\ConsoleLogger.cs" />
+    <Compile Include="Logging\EventKind.cs" />
+    <Compile Include="Logging\EventLogger.cs" />
+    <Compile Include="Logging\EventRow.cs" />
+    <Compile Include="Logging\ILogger.cs" />
+    <Compile Include="Logging\Log.cs" />
+    <Compile Include="Logging\LogInfo.cs" />
+    <Compile Include="Logging\LogManager.cs" />
     <Compile Include="Machine.cs" />
     <Compile Include="AjinE\MotionDefine.cs" />
+    <Compile Include="MessageBox\MessageBoxOk.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="MessageBox\MessageBoxOk.Designer.cs">
+      <DependentUpon>MessageBoxOk.cs</DependentUpon>
+    </Compile>
+    <Compile Include="MessageBox\MessageDialog.cs" />
+    <Compile Include="MessageBox\MessageBoxRetrySkip.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="MessageBox\MessageBoxRetrySkip.Designer.cs">
+      <DependentUpon>MessageBoxRetrySkip.cs</DependentUpon>
+    </Compile>
+    <Compile Include="MessageBox\MessageBoxYesNo.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="MessageBox\MessageBoxYesNo.Designer.cs">
+      <DependentUpon>MessageBoxYesNo.cs</DependentUpon>
+    </Compile>
+    <Compile Include="MessageBox\MessageBoxYesNoRetry.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="MessageBox\MessageBoxYesNoRetry.Designer.cs">
+      <DependentUpon>MessageBoxYesNoRetry.cs</DependentUpon>
+    </Compile>
     <Compile Include="Motion\AxisData.cs" />
     <Compile Include="Motion\AxisLiveStatus.cs" />
     <Compile Include="Motion\AxisStatusSnapshot.cs" />
@@ -107,6 +146,20 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="MessageBox\MessageBoxOk.resx">
+      <DependentUpon>MessageBoxOk.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="MessageBox\MessageBoxRetrySkip.resx">
+      <DependentUpon>MessageBoxRetrySkip.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="MessageBox\MessageBoxYesNo.resx">
+      <DependentUpon>MessageBoxYesNo.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="MessageBox\MessageBoxYesNoRetry.resx">
+      <DependentUpon>MessageBoxYesNoRetry.cs</DependentUpon>
+    </EmbeddedResource>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

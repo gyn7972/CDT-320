@@ -1,11 +1,11 @@
-using System;
+﻿using System;
 using System.Threading.Tasks;
-using QMC.CDT320.Logging;
+using QMC.Common.Logging;
 
 namespace QMC.CDT320.VisionComm
 {
     /// <summary>
-    /// 프로세스 전역 Vision 연결 허브. CDT-310 매뉴얼 사양 — 6 모듈:
+    /// ?꾨줈?몄뒪 ?꾩뿭 Vision ?곌껐 ?덈툕. CDT-310 留ㅻ돱???ъ뼇 ??6 紐⑤뱢:
     /// Wafer (5100) / Inspection (5101) / Bin (5103) / Main (5104) / TopSide (5105) / BottomSide (5106)
     /// </summary>
     public static class VisionHub
@@ -13,7 +13,7 @@ namespace QMC.CDT320.VisionComm
         public static VisionTcpClient Wafer       { get; private set; }
         public static VisionTcpClient Inspection  { get; private set; }
         public static VisionTcpClient Bin         { get; private set; }
-        // Stage 43 — 매뉴얼 호환 추가 채널
+        // Stage 43 ??留ㅻ돱???명솚 異붽? 梨꾨꼸
         public static VisionTcpClient Main        { get; private set; }
         public static VisionTcpClient TopSide     { get; private set; }
         public static VisionTcpClient BottomSide  { get; private set; }
@@ -46,13 +46,13 @@ namespace QMC.CDT320.VisionComm
             TopSide    = New("TopSideVision",    host, topSidePort);
             BottomSide = New("BottomSideVision", host, bottomSidePort);
 
-            // 핵심 3개만 await — 나머지 3개는 best-effort (선택 연결)
+            // ?듭떖 3媛쒕쭔 await ???섎㉧吏 3媛쒕뒗 best-effort (?좏깮 ?곌껐)
             var rs = await Task.WhenAll(
                 Wafer     .ConnectAsync(),
                 Inspection.ConnectAsync(),
                 Bin       .ConnectAsync());
 
-            // Stage 43 — Main/Side 는 별도 fire-and-forget (실패해도 핵심 통신 영향 X)
+            // Stage 43 ??Main/Side ??蹂꾨룄 fire-and-forget (?ㅽ뙣?대룄 ?듭떖 ?듭떊 ?곹뼢 X)
             _ = Task.Run(async () =>
             {
                 try { await Main.ConnectAsync();       } catch { }
@@ -94,3 +94,4 @@ namespace QMC.CDT320.VisionComm
         }
     }
 }
+

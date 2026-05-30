@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
@@ -113,9 +113,9 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                     var ser = new DataContractJsonSerializer(typeof(CameraStore));
                     ser.WriteObject(fs, new CameraStore { Items = _items });
                 }
-                MessageBox.Show("Save complete.\n" + SavePath);
+                QMC.Common.MessageDialog.Show("Save complete.\n" + SavePath);
             }
-            catch (Exception ex) { MessageBox.Show("Save failed: " + ex.Message); }
+            catch (Exception ex) { QMC.Common.MessageDialog.Show("Save failed: " + ex.Message); }
         }
 
         private void FillGrid()
@@ -179,7 +179,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 if (ok) success++;
             }
 
-            MessageBox.Show($"TCP connection test: {success}/{_items.Count}", "Test Connection",
+            QMC.Common.MessageDialog.Show($"TCP connection test: {success}/{_items.Count}", "Test Connection",
                 MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
@@ -201,9 +201,10 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                     }
                 }
                 QMC.CDT320.AppSettingsStore.Save();
-                MessageBox.Show("AppSettings apply complete. Restart may be required.");
+                QMC.Common.MessageDialog.Show("AppSettings apply complete. Restart may be required.");
             }
-            catch (Exception ex) { MessageBox.Show("Apply failed: " + ex.Message); }
+            catch (Exception ex) { QMC.Common.MessageDialog.Show("Apply failed: " + ex.Message); }
         }
     }
 }
+

@@ -1,4 +1,4 @@
-using System;
+ï»¿using System;
 using System.Drawing;
 using System.Windows.Forms;
 using QMC.CDT320.Ajin;
@@ -66,7 +66,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             {
                 if (tabStatus == null) return;
 
-                // 3 ?? × 3 ?? ???? (CONFIG.tab ? ??)
+                // 3 ?? ?3 ?? ???? (CONFIG.tab ? ??)
                 var layout = new TableLayoutPanel
                 {
                     Dock = DockStyle.Fill,
@@ -91,8 +91,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             }
             catch (Exception ex)
             {
-                QMC.CDT320.Alarms.AlarmManager.Raise(
-                    QMC.CDT320.Alarms.AlarmSeverity.Warning,
+                QMC.Common.Alarms.AlarmManager.Raise(
+                    QMC.Common.Alarms.AlarmSeverity.Warning,
                     "UI-MOTION-STS",
                     "MotionPage",
                     "InitializeStatusPanels failed: " + ex.Message);
@@ -172,8 +172,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             }
             catch (Exception ex)
             {
-                QMC.CDT320.Alarms.AlarmManager.Raise(
-                    QMC.CDT320.Alarms.AlarmSeverity.Warning,
+                QMC.Common.Alarms.AlarmManager.Raise(
+                    QMC.Common.Alarms.AlarmSeverity.Warning,
                     "UI-MOTION-STS",
                     "MotionPage",
                     "RefreshStatusForSelected failed: " + ex.Message);
@@ -207,3 +207,4 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         }
     }
 }
+

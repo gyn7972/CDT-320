@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using QMC.CDT320;
 using QMC.CDT320.Ajin;
-using QMC.CDT320.Logging;
+using QMC.Common.Logging;
 using QMC.Common.IO;
 using QMC.Common.Motion.Ajin;
 
@@ -160,7 +160,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
 
             bool next = !output.IsOn;
             string message = output.Name + " output을 " + (next ? "ON" : "OFF") + " 하시겠습니까?";
-            var result = MessageBox.Show(this, message, "I/O Control",
+            var result = QMC.Common.MessageDialog.Show(this, message, "I/O Control",
                 MessageBoxButtons.YesNo, MessageBoxIcon.Question);
             if (result != DialogResult.Yes) return;
 
@@ -192,7 +192,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             if (string.IsNullOrEmpty(message)) message = "I/O write failed.";
             lblStatus.Text = message;
             EventLogger.Write(EventKind.Alarm, "QMC", "IO-DO", message);
-            MessageBox.Show(this, message, "I/O Control", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            QMC.Common.MessageDialog.Show(this, message, "I/O Control", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
 
         private class IoItem<T>
@@ -529,3 +529,5 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         }
     }
 }
+
+

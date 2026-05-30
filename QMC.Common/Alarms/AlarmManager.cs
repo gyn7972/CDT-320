@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace QMC.CDT320.Alarms
+namespace QMC.Common.Alarms
 {
     /// <summary>
     /// 프로세스 전역 알람 관리자.
@@ -21,6 +21,7 @@ namespace QMC.CDT320.Alarms
 
         public static event Action<AlarmRecord> AlarmRaised;
         public static event Action<AlarmRecord> AlarmCleared;
+        public static Func<string> LanguageProvider { get; set; }
 
         public static IReadOnlyList<AlarmRecord> Active
         {
@@ -63,8 +64,7 @@ namespace QMC.CDT320.Alarms
                 var def = AlarmMaster.Get(code);
                 if (def != null)
                 {
-                    string lang = "ko";
-                    try { lang = QMC.CDT_320.Ui.Localization.Lang.Current ?? "ko"; } catch { }
+                    string lang = GetLanguage();
                     message = def.GetTitle(lang);
                 }
             }
@@ -76,6 +76,7 @@ namespace QMC.CDT320.Alarms
                 rec = new AlarmRecord(_seq, sev, code, source, message);
                 _all.Add(rec);
             }
+            try { QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Alarm, "QMC", rec.Code, "[" + rec.Severity + "] " + rec.Source + " - " + rec.Message); } catch { }
             try { AlarmRaised?.Invoke(rec); } catch { }
             return rec;
         }
@@ -89,6 +90,7 @@ namespace QMC.CDT320.Alarms
                 if (rec == null || !rec.IsActive) return;
                 rec.Cleared = DateTime.Now;
             }
+            try { QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "QMC", rec.Code, "[CLEARED] " + rec.Source + " - " + rec.Message); } catch { }
             try { AlarmCleared?.Invoke(rec); } catch { }
         }
 
@@ -102,7 +104,10 @@ namespace QMC.CDT320.Alarms
                 foreach (var a in cleared) a.Cleared = DateTime.Now;
             }
             foreach (var a in cleared)
+            {
+                try { QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "QMC", a.Code, "[CLEARED] " + a.Source + " - " + a.Message); } catch { }
                 try { AlarmCleared?.Invoke(a); } catch { }
+            }
         }
 
         /// <summary>테스트/개발 — 모든 기록 삭제.</summary>
@@ -112,6 +117,24 @@ namespace QMC.CDT320.Alarms
             {
                 _all.Clear();
                 _seq = 0;
+            }
+        }
+
+        private static string GetLanguage()
+        {
+            try
+            {
+                if (LanguageProvider != null)
+                    return LanguageProvider() ?? "ko";
+
+                return "ko";
+            }
+            catch
+            {
+                return "ko";
+            }
+            finally
+            {
             }
         }
     }

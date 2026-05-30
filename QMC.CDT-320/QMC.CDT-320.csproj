@@ -73,7 +73,7 @@
     <Compile Include="Equipment\CDT320Machine.cs" />
     <Compile Include="Equipment\CycleMode.cs" />
     <Compile Include="Equipment\Unit\InputLoaderUnit.cs" />
-    <Compile Include="Equipment\Unit\BinCassetteUnit.cs" />
+    <Compile Include="Equipment\Unit\OutCassetteUnit.cs" />
     <Compile Include="Equipment\Unit\BinFeederUnit.cs" />
     <Compile Include="Equipment\Unit\OutputStageUnit.cs" />
     <Compile Include="Equipment\Unit\OutputUnloaderUnit.cs" />
@@ -252,12 +252,7 @@
     <Compile Include="Sequencing\AutoSequenceCoordinator.cs" />
     <Compile Include="Sequencing\InputLoaderSequence.cs" />
     <!-- Equipment / Alarms -->
-    <Compile Include="Equipment\Alarms\AlarmManager.cs" />
-    <Compile Include="Equipment\Alarms\AlarmRecord.cs" />
-    <Compile Include="Equipment\Alarms\AlarmSeverity.cs" />
-    <Compile Include="Equipment\Alarms\AlarmMaster.cs" />
     <!-- Equipment / Logging -->
-    <Compile Include="Equipment\Logging\EventLogger.cs" />
     <!-- Equipment / Recipes -->
     <Compile Include="Equipment\Recipes\RecipeStore.cs" />
     <!-- Equipment / Materials (310 ?�식) -->

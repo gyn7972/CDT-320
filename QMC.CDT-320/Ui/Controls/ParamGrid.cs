@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
@@ -178,8 +178,8 @@ namespace QMC.CDT_320.Ui.Controls
             }
             catch (Exception ex)
             {
-                QMC.CDT320.Alarms.AlarmManager.Raise(
-                    QMC.CDT320.Alarms.AlarmSeverity.Warning,
+                QMC.Common.Alarms.AlarmManager.Raise(
+                    QMC.Common.Alarms.AlarmSeverity.Warning,
                     "UI-PARAMGRID",
                     Name,
                     "DefineItems failed: " + ex.Message);
@@ -211,8 +211,8 @@ namespace QMC.CDT_320.Ui.Controls
             }
             catch (Exception ex)
             {
-                QMC.CDT320.Alarms.AlarmManager.Raise(
-                    QMC.CDT320.Alarms.AlarmSeverity.Warning,
+                QMC.Common.Alarms.AlarmManager.Raise(
+                    QMC.Common.Alarms.AlarmSeverity.Warning,
                     "UI-PARAMGRID",
                     Name,
                     "SetValue failed [" + name + "]: " + ex.Message);
@@ -234,8 +234,8 @@ namespace QMC.CDT_320.Ui.Controls
             }
             catch (Exception ex)
             {
-                QMC.CDT320.Alarms.AlarmManager.Raise(
-                    QMC.CDT320.Alarms.AlarmSeverity.Warning,
+                QMC.Common.Alarms.AlarmManager.Raise(
+                    QMC.Common.Alarms.AlarmSeverity.Warning,
                     "UI-PARAMGRID",
                     Name,
                     "SetValues failed: " + ex.Message);
@@ -262,8 +262,8 @@ namespace QMC.CDT_320.Ui.Controls
             }
             catch (Exception ex)
             {
-                QMC.CDT320.Alarms.AlarmManager.Raise(
-                    QMC.CDT320.Alarms.AlarmSeverity.Warning,
+                QMC.Common.Alarms.AlarmManager.Raise(
+                    QMC.Common.Alarms.AlarmSeverity.Warning,
                     "UI-PARAMGRID",
                     Name,
                     "ClearValues failed: " + ex.Message);
@@ -309,8 +309,8 @@ namespace QMC.CDT_320.Ui.Controls
             }
             catch (Exception ex)
             {
-                QMC.CDT320.Alarms.AlarmManager.Raise(
-                    QMC.CDT320.Alarms.AlarmSeverity.Warning,
+                QMC.Common.Alarms.AlarmManager.Raise(
+                    QMC.Common.Alarms.AlarmSeverity.Warning,
                     "UI-PARAMGRID",
                     Name,
                     "SetEditable failed [" + name + "]: " + ex.Message);
@@ -353,8 +353,8 @@ namespace QMC.CDT_320.Ui.Controls
             }
             catch (Exception ex)
             {
-                QMC.CDT320.Alarms.AlarmManager.Raise(
-                    QMC.CDT320.Alarms.AlarmSeverity.Warning,
+                QMC.Common.Alarms.AlarmManager.Raise(
+                    QMC.Common.Alarms.AlarmSeverity.Warning,
                     "UI-PARAMGRID",
                     Name,
                     "OnValueLabelClick failed: " + ex.Message);
@@ -365,3 +365,4 @@ namespace QMC.CDT_320.Ui.Controls
         }
     }
 }
+

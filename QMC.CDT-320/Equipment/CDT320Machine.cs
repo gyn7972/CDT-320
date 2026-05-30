@@ -199,7 +199,7 @@ namespace QMC.CDT320
         public OutputUnloaderUnit   OutputUnloader   { get; }
 
         /// <summary>Output Bin 카세트 리프터와 매핑 센서를 담당하는 유닛입니다.</summary>
-        public BinCassetteUnit      BinCassette      { get; }
+        public OutCassetteUnit      BinCassette      { get; }
 
         /// <summary>Output Bin Feeder Y축과 클램프 실린더를 담당하는 유닛입니다.</summary>
         public BinFeederUnit        BinFeeder        { get; }
@@ -248,7 +248,7 @@ namespace QMC.CDT320
             //Vision = new VisionUnit();
 
             // OutputUnloaderUnit - 3개 카세트(NG·Good1·Good2) 교체 시퀀스 담당
-            BinCassette = new BinCassetteUnit();
+            BinCassette = new OutCassetteUnit();
             BinFeeder = new BinFeederUnit();
             OutputUnloader = new OutputUnloaderUnit();
 

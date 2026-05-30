@@ -1,4 +1,4 @@
-using System;
+ï»¿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Windows.Forms;
@@ -12,7 +12,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
 {
     /// <summary>
     /// MotionPage ? CONFIG ?. <see cref="AxisSetup"/> / <see cref="AxisConfig"/> ?
-    /// ?? ??? ??? ???? ?? ? ???/Enum ?????? ??·????.
+    /// ?? ??? ??? ???? ?? ? ???/Enum ?????? ??????.
     /// ???? ?? ??? ?? STATUS ?(<see cref="MotionPage"/>.Status partial)?? ??.
     /// </summary>
     public partial class MotionPage
@@ -133,8 +133,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             }
             catch (Exception ex)
             {
-                QMC.CDT320.Alarms.AlarmManager.Raise(
-                    QMC.CDT320.Alarms.AlarmSeverity.Warning,
+                QMC.Common.Alarms.AlarmManager.Raise(
+                    QMC.Common.Alarms.AlarmSeverity.Warning,
                     "UI-MOTION-CFG",
                     "MotionPage",
                     "InitializeConfigPanels failed: " + ex.Message);
@@ -213,8 +213,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             }
             catch (Exception ex)
             {
-                QMC.CDT320.Alarms.AlarmManager.Raise(
-                    QMC.CDT320.Alarms.AlarmSeverity.Warning,
+                QMC.Common.Alarms.AlarmManager.Raise(
+                    QMC.Common.Alarms.AlarmSeverity.Warning,
                     "UI-MOTION-CFG",
                     "MotionPage",
                     "RefreshConfigForSelected failed: " + ex.Message);
@@ -239,8 +239,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             }
             catch (Exception ex)
             {
-                QMC.CDT320.Alarms.AlarmManager.Raise(
-                    QMC.CDT320.Alarms.AlarmSeverity.Warning,
+                QMC.Common.Alarms.AlarmManager.Raise(
+                    QMC.Common.Alarms.AlarmSeverity.Warning,
                     "UI-MOTION-CFG",
                     "MotionPage",
                     "RefreshConfigDynamic failed: " + ex.Message);
@@ -265,8 +265,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             }
             catch (Exception ex)
             {
-                QMC.CDT320.Alarms.AlarmManager.Raise(
-                    QMC.CDT320.Alarms.AlarmSeverity.Warning,
+                QMC.Common.Alarms.AlarmManager.Raise(
+                    QMC.Common.Alarms.AlarmSeverity.Warning,
                     "UI-MOTION-CFG",
                     "MotionPage",
                     "ClearAllConfig failed: " + ex.Message);
@@ -307,15 +307,15 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 AjinFactory.AxisManager.Save(MotionAxisStore.DefaultPath);
                 RefreshConfigForSelected();
 
-                QMC.CDT320.Logging.EventLogger.Write(
-                    QMC.CDT320.Logging.EventKind.Event,
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Event,
                     "QMC", "CFG-EDIT",
                     axis.Name + " " + name);
             }
             catch (Exception ex)
             {
-                QMC.CDT320.Alarms.AlarmManager.Raise(
-                    QMC.CDT320.Alarms.AlarmSeverity.Warning,
+                QMC.Common.Alarms.AlarmManager.Raise(
+                    QMC.Common.Alarms.AlarmSeverity.Warning,
                     "UI-MOTION-CFG",
                     "MotionPage",
                     "OnConfigItemClicked failed [" + name + "]: " + ex.Message);
@@ -454,3 +454,4 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         }
     }
 }
+

@@ -69,7 +69,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             btnReload.Click += (s, e) => { _items = LoadOrSeed(); FillGrid(); };
             btnReset.Click += (s, e) =>
             {
-                if (MessageBox.Show("기본값으로 초기화하시겠습니까?", "Reset",
+                if (QMC.Common.MessageDialog.Show("기본값으로 초기화하시겠습니까?", "Reset",
                                      MessageBoxButtons.OKCancel) != DialogResult.OK) return;
                 _items = SeedDefault();
                 FillGrid();
@@ -180,7 +180,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Jog 실패: " + ex.Message, "Jog",
+                QMC.Common.MessageDialog.Show("Jog 실패: " + ex.Message, "Jog",
                                 MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
@@ -328,12 +328,12 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                     var ser = new DataContractJsonSerializer(typeof(TeachStore));
                     ser.WriteObject(fs, new TeachStore { Items = _items });
                 }
-                MessageBox.Show("티칭 데이터 저장 완료.\n" + SavePath, "Position Teaching",
+                QMC.Common.MessageDialog.Show("티칭 데이터 저장 완료.\n" + SavePath, "Position Teaching",
                                  MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
-                MessageBox.Show("저장 실패: " + ex.Message);
+                QMC.Common.MessageDialog.Show("저장 실패: " + ex.Message);
             }
         }
 
@@ -369,7 +369,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             }
             else
             {
-                MessageBox.Show("숫자만 입력 가능합니다.");
+                QMC.Common.MessageDialog.Show("숫자만 입력 가능합니다.");
                 _grid.Rows[e.RowIndex].Cells["VALUE"].Value = _items[e.RowIndex].Value.ToString("F3");
             }
         }
@@ -390,9 +390,9 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             var it = CurrentItem();
             if (it == null) return;
             var host = FindForm() as Form1;
-            if (host?.Machine == null) { MessageBox.Show("Machine 미초기화"); return; }
+            if (host?.Machine == null) { QMC.Common.MessageDialog.Show("Machine 미초기화"); return; }
             double pos = ResolveAxisActualPos(host.Machine, it.Axis);
-            if (double.IsNaN(pos)) { MessageBox.Show("축을 식별하지 못했습니다: " + it.Axis); return; }
+            if (double.IsNaN(pos)) { QMC.Common.MessageDialog.Show("축을 식별하지 못했습니다: " + it.Axis); return; }
             it.Value = pos;
             _grid.Rows[_grid.CurrentRow.Index].Cells["VALUE"].Value = pos.ToString("F3");
         }
@@ -403,22 +403,22 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             var it = CurrentItem();
             if (it == null) return;
             var host = FindForm() as Form1;
-            if (host?.Machine == null) { MessageBox.Show("Machine 미초기화"); return; }
+            if (host?.Machine == null) { QMC.Common.MessageDialog.Show("Machine 미초기화"); return; }
             var ax = ResolveAxis(host.Machine, it.Axis);
-            if (ax == null) { MessageBox.Show("축을 찾지 못했습니다: " + it.Axis); return; }
+            if (ax == null) { QMC.Common.MessageDialog.Show("축을 찾지 못했습니다: " + it.Axis); return; }
             try
             {
                 if (!ax.IsServoOn) ax.ServoOn();
                 await ax.MoveAbsoluteAsync(it.Value, 50.0);
             }
-            catch (Exception ex) { MessageBox.Show("이동 실패: " + ex.Message); }
+            catch (Exception ex) { QMC.Common.MessageDialog.Show("이동 실패: " + ex.Message); }
         }
 
         /// <summary>티칭 데이터를 각 Unit 의 Setup 객체에 반영 (런타임 적용).</summary>
         private void ApplyToSetup()
         {
             var host = FindForm() as Form1;
-            if (host?.Machine == null) { MessageBox.Show("Machine 미초기화"); return; }
+            if (host?.Machine == null) { QMC.Common.MessageDialog.Show("Machine 미초기화"); return; }
             var m = host.Machine;
             int applied = 0;
 
@@ -515,8 +515,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
 
                         default:
                             // 매핑 미지원 항목 — JSON 저장은 되지만 Setup 미반영. 디버그용 로그.
-                            QMC.CDT320.Logging.EventLogger.Write(
-                                QMC.CDT320.Logging.EventKind.Event,
+                            QMC.Common.Logging.EventLogger.Write(
+                                QMC.Common.Logging.EventKind.Event,
                                 QMC.CDT_320.Ui.Security.UserSession.Name,
                                 "TEACH-NOAPPLY",
                                 $"{it.Group}.{it.Key} = {it.Value} (Setup property 미정의 — JSON 만 저장)");
@@ -527,8 +527,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 {
                     try
                     {
-                        QMC.CDT320.Logging.EventLogger.Write(
-                            QMC.CDT320.Logging.EventKind.Event,
+                        QMC.Common.Logging.EventLogger.Write(
+                            QMC.Common.Logging.EventKind.Event,
                             QMC.CDT_320.Ui.Security.UserSession.Name,
                             "TEACH-EX",
                             $"{it.Group}.{it.Key}: {ex.GetType().Name}: {ex.Message}");
@@ -536,7 +536,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                     catch { }
                 }
             }
-            MessageBox.Show($"Setup 반영 완료: {applied} 항목\n\n" +
+            QMC.Common.MessageDialog.Show($"Setup 반영 완료: {applied} 항목\n\n" +
                             "(미반영 항목은 JSON 에만 저장됨 — EventLog TEACH-NOAPPLY 참조)",
                             "Apply", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
@@ -630,3 +630,5 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         }
     }
 }
+
+

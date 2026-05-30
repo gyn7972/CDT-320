@@ -1,9 +1,9 @@
-using System;
+﻿using System;
 using System.ComponentModel;
 using System.Drawing;
 using System.Windows.Forms;
 using QMC.Common.Data.Store;
-using QMC.CDT320.Logging;
+using QMC.Common.Logging;
 using QMC.CDT320.Recipes;
 
 namespace QMC.CDT_320.Ui.Pages.Recipe
@@ -87,13 +87,13 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             if (listProjects.SelectedItem is string fileName)
                 LoadProject(fileName);
             else
-                MessageBox.Show("Select a project.");
+                QMC.Common.MessageDialog.Show("Select a project.");
         }
 
         private void OnDelete()
         {
             if (!(listProjects.SelectedItem is string fileName)) return;
-            if (MessageBox.Show("Delete project?\n" + fileName, "DELETE", MessageBoxButtons.YesNo) != DialogResult.Yes) return;
+            if (QMC.Common.MessageDialog.Show("Delete project?\n" + fileName, "DELETE", MessageBoxButtons.YesNo) != DialogResult.Yes) return;
 
             RecipeStore.Delete(fileName);
             RecipeDataStore.DeleteRecipe(fileName);
@@ -120,7 +120,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             var project = CollectFromUi();
             if (string.IsNullOrWhiteSpace(project.FileName))
             {
-                MessageBox.Show("File name is empty.");
+                QMC.Common.MessageDialog.Show("File name is empty.");
                 return;
             }
 
@@ -128,7 +128,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             SaveMachineRecipe(project.FileName);
             EventLogger.Write(EventKind.Event, Security.UserSession.Name, "RECIPE-SAVE", "Project saved: " + project.FileName);
             ReloadList();
-            MessageBox.Show("Saved: " + project.FileName);
+            QMC.Common.MessageDialog.Show("Saved: " + project.FileName);
         }
 
         private void OnOpenFolder()
@@ -210,3 +210,5 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         }
     }
 }
+
+

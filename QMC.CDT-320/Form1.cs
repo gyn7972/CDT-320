@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows.Forms;
@@ -15,7 +15,7 @@ using QMC.CDT_320.Ui.Tabs;
 
 namespace QMC.CDT_320
 {
-    /// <summary>하단 메인 탭 식별자.</summary>
+    /// <summary>?섎떒 硫붿씤 ???앸퀎??</summary>
     public enum MainTab
     {
         Work      = 0,
@@ -35,8 +35,8 @@ namespace QMC.CDT_320
         internal AjinIoScanService IoScan { get; private set; }
         internal string CurrentRecipeName { get; private set; }
 
-        /// <summary>Stage 61 — 상단 상태바 Project Name 갱신.
-        /// ProjectPage 의 load/save 또는 SubsetPage 의 save 후 호출.</summary>
+        /// <summary>Stage 61 ???곷떒 ?곹깭諛?Project Name 媛깆떊.
+        /// ProjectPage ??load/save ?먮뒗 SubsetPage ??save ???몄텧.</summary>
         public void RefreshProjectName(string fileName)
         {
             try
@@ -59,8 +59,8 @@ namespace QMC.CDT_320
             }
             catch (Exception ex)
             {
-                QMC.CDT320.Logging.EventLogger.Write(
-                    QMC.CDT320.Logging.EventKind.Alarm,
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Alarm,
                     "NONE",
                     "DATA-LOAD",
                     "Machine settings load failed: " + ex.Message);
@@ -76,8 +76,8 @@ namespace QMC.CDT_320
             {
                 if (Machine != null && !Machine.SaveSettings())
                 {
-                    QMC.CDT320.Logging.EventLogger.Write(
-                        QMC.CDT320.Logging.EventKind.Alarm,
+                    QMC.Common.Logging.EventLogger.Write(
+                        QMC.Common.Logging.EventKind.Alarm,
                         UserSession.Name,
                         "DATA-SAVE",
                         "Machine settings save returned false.");
@@ -85,8 +85,8 @@ namespace QMC.CDT_320
             }
             catch (Exception ex)
             {
-                QMC.CDT320.Logging.EventLogger.Write(
-                    QMC.CDT320.Logging.EventKind.Alarm,
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Alarm,
                     UserSession.Name,
                     "DATA-SAVE",
                     "Machine settings save failed: " + ex.Message);
@@ -108,8 +108,8 @@ namespace QMC.CDT_320
             }
             catch (Exception ex)
             {
-                QMC.CDT320.Logging.EventLogger.Write(
-                    QMC.CDT320.Logging.EventKind.Alarm,
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Alarm,
                     UserSession.Name,
                     "DATA-LOAD",
                     "Machine recipe load failed: " + recipeName + " / " + ex.Message);
@@ -129,8 +129,8 @@ namespace QMC.CDT_320
                 CurrentRecipeName = NormalizeRecipeName(recipeName);
                 if (!Machine.SaveRecipe(recipeName))
                 {
-                    QMC.CDT320.Logging.EventLogger.Write(
-                        QMC.CDT320.Logging.EventKind.Alarm,
+                    QMC.Common.Logging.EventLogger.Write(
+                        QMC.Common.Logging.EventKind.Alarm,
                         UserSession.Name,
                         "DATA-SAVE",
                         "Machine recipe save returned false: " + recipeName);
@@ -138,8 +138,8 @@ namespace QMC.CDT_320
             }
             catch (Exception ex)
             {
-                QMC.CDT320.Logging.EventLogger.Write(
-                    QMC.CDT320.Logging.EventKind.Alarm,
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Alarm,
                     UserSession.Name,
                     "DATA-SAVE",
                     "Machine recipe save failed: " + recipeName + " / " + ex.Message);
@@ -171,9 +171,9 @@ namespace QMC.CDT_320
             }
         }
 
-        /// <summary>Stage 26 — 시뮬 카세트 센서 드라이버 (sim 모드 전용).</summary>
+        /// <summary>Stage 26 ???쒕? 移댁꽭???쇱꽌 ?쒕씪?대쾭 (sim 紐⑤뱶 ?꾩슜).</summary>
         internal QMC.CDT320.Sim.SimCassetteDriver CassetteDriver { get; private set; }
-        /// <summary>Stage 41 — SECS/HSMS Host (사이클 메시지 송신용).</summary>
+        /// <summary>Stage 41 ??SECS/HSMS Host (?ъ씠??硫붿떆吏 ?≪떊??.</summary>
         internal QMC.CDT320.Secs.SecsHost SecsHost { get; private set; }
 
         private WorkTab     _workTab;
@@ -194,11 +194,12 @@ namespace QMC.CDT_320
 
         private void Form1_Load(object sender, EventArgs e)
         {
-            // 설정 로드 + 언어 복원
+            // ?ㅼ젙 濡쒕뱶 + ?몄뼱 蹂듭썝
             var cfg = AppSettingsStore.Load();
             if (!string.IsNullOrEmpty(cfg.Language)) Lang.SetLanguage(cfg.Language);
+            QMC.Common.Alarms.AlarmManager.LanguageProvider = () => Lang.Current ?? "ko";
 
-            // AJINEXTEK AXL (실보드) 컨피그 로드 + 라이브러리 열기
+            // AJINEXTEK AXL (?ㅻ낫?? 而⑦뵾洹?濡쒕뱶 + ?쇱씠釉뚮윭由??닿린
             QMC.CDT320.Ajin.AjinConfigStore.Load();
             QMC.CDT320.Ajin.AjinFactory.UseRealBoard = cfg.UseAjin;
             if (cfg.UseAjin) 
@@ -206,8 +207,8 @@ namespace QMC.CDT_320
 
             QMC.CDT320.Ajin.AjinFactory.RegisterConfiguredAxes();
 
-            // QMC.Vision TCP 자동 연결 (비동기, 연결 실패해도 앱은 계속)
-            // Stage 43 — 6 채널: Wafer/Inspection/Bin + Main/TopSide/BottomSide
+            // QMC.Vision TCP ?먮룞 ?곌껐 (鍮꾨룞湲? ?곌껐 ?ㅽ뙣?대룄 ?깆? 怨꾩냽)
+            // Stage 43 ??6 梨꾨꼸: Wafer/Inspection/Bin + Main/TopSide/BottomSide
             if (cfg.VisionAutoConnect)
             {
                 _ = QMC.CDT320.VisionComm.VisionHub.ConnectAllAsync(
@@ -217,7 +218,7 @@ namespace QMC.CDT_320
             }
             QMC.CDT320.VisionComm.VisionHub.ConnectionChanged += OnVisionHubChanged;
 
-            // 설비 + 브릿지 + 컨트롤러
+            // ?ㅻ퉬 + 釉뚮┸吏 + 而⑦듃濡ㅻ윭
             Machine    = new CDT320_Machine();
             LoadMachineSettings();
             Bridge     = new SimulatorBridge(Machine);
@@ -227,26 +228,26 @@ namespace QMC.CDT_320
             IoScan = new AjinIoScanService();
             IoScan.Start(EnumerateAjinInputs(Machine), EnumerateAjinOutputs(Machine), cfg.UseAjin ? 10 : 100, () => AjinSystem.IsOpen);
 
-            // Stage 41 — SecsHost 인스턴스화 (옵션, 5000 포트)
+            // Stage 41 ??SecsHost ?몄뒪?댁뒪??(?듭뀡, 5000 ?ы듃)
             try
             {
                 SecsHost = new QMC.CDT320.Secs.SecsHost(5000);
                 Controller.SecsHost = SecsHost;
             }
-            catch { /* SECS 미지원 환경에서 안전 무시 */ }
+            catch { /* SECS 誘몄????섍꼍?먯꽌 ?덉쟾 臾댁떆 */ }
 
-            // Stage 26 — 시뮬 모드일 때만 카세트 시뮬 드라이버 활성
+            // Stage 26 ???쒕? 紐⑤뱶???뚮쭔 移댁꽭???쒕? ?쒕씪?대쾭 ?쒖꽦
             if (!cfg.UseAjin)
             {
                 CassetteDriver = new QMC.CDT320.Sim.SimCassetteDriver(Machine.InputLoader, Machine.OutputUnloader);
             }
             Controller.StatusChanged += OnMachineStatusChanged;
-            Controller.LogMessage    += s => QMC.CDT320.Logging.EventLogger.Write(QMC.CDT320.Logging.EventKind.Event, UserSession.Name, "CTRL", s);
-            // Stage 33 — auto-cycle 모드에서는 Controller 로그도 Console 로 출력 (가시성)
+            Controller.LogMessage    += s => QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, UserSession.Name, "CTRL", s);
+            // Stage 33 ??auto-cycle 紐⑤뱶?먯꽌??Controller 濡쒓렇??Console 濡?異쒕젰 (媛?쒖꽦)
             if (Program.AutoCycleCount > 0)
                 Controller.LogMessage += s => Console.WriteLine("[CTRL] " + s);
 
-            // 탭 UserControl 생성 — 파라미터 없는 생성자 + AttachHost 로 Host 주입
+            // ??UserControl ?앹꽦 ???뚮씪誘명꽣 ?녿뒗 ?앹꽦??+ AttachHost 濡?Host 二쇱엯
             _workTab     = new WorkTab     { Dock = DockStyle.Fill, Visible = false };
             _workInfoTab = new WorkInfoTab { Dock = DockStyle.Fill, Visible = false };
             _historyTab  = new HistoryTab  { Dock = DockStyle.Fill, Visible = false };
@@ -268,7 +269,7 @@ namespace QMC.CDT_320
             pnlContent.Controls.Add(_settingsTab);
             pnlContent.Controls.Add(_userTab);
 
-            // 하단 네비 버튼에 i18n 태그 부여
+            // Bottom navigation i18n tags.
             btnTabWork    .Tag = "i18n:tab.work";
             btnTabWorkInfo.Tag = "i18n:tab.workInfo";
             btnTabHistory .Tag = "i18n:tab.history";
@@ -277,7 +278,7 @@ namespace QMC.CDT_320
             btnTabUser    .Tag = "i18n:tab.user";
             btnTabExit    .Tag = "i18n:tab.exit";
 
-            // 상태바 텍스트에 i18n 태그 부여
+            // Status bar i18n tags.
             lblMapMode        .Tag = "i18n:status.mapEmpty";
             lblProjectCaption .Tag = "i18n:status.project";
             lblBarcodeCaption .Tag = "i18n:status.barcode";
@@ -286,37 +287,37 @@ namespace QMC.CDT_320
             lblPick           .Tag = "i18n:status.pick";
             lblReference      .Tag = "i18n:status.reference";
 
-            // 헤더
+            // ?ㅻ뜑
             lblTitle          .Tag = "i18n:app.title";
             lblUserCaption    .Tag = "i18n:header.user";
             lblTimeCaption    .Tag = "i18n:header.time";
 
-            // 언어/사용자 변경 이벤트 구독
+            // ?몄뼱/?ъ슜??蹂寃??대깽??援щ룆
             Lang.LanguageChanged    += OnLocalizationChanged;
             UserSession.UserChanged += OnUserChanged;
 
-            // 초기 적용
+            // 珥덇린 ?곸슜
             OnLocalizationChanged();
 
-            // Stage 60 — DEBUG 빌드 시 admin 자동 로그인 (사용자 보고: "오른쪽 버튼 클릭 안됨" → 권한 부족 원인 해결)
-            // RELEASE 빌드는 LoginDialog 통한 정상 로그인 유지.
+            // Stage 60 ??DEBUG 鍮뚮뱶 ??admin ?먮룞 濡쒓렇??(?ъ슜??蹂닿퀬: "?ㅻⅨ履?踰꾪듉 ?대┃ ?덈맖" ??沅뚰븳 遺議??먯씤 ?닿껐)
+            // RELEASE 鍮뚮뱶??LoginDialog ?듯븳 ?뺤긽 濡쒓렇???좎?.
 #if DEBUG
             QMC.CDT_320.Ui.Security.UserSession.ForceSet(
                 "admin", QMC.CDT_320.Ui.Security.UserLevel.Admin);
-            // Stage 60 — DEBUG 빌드 시 시뮬레이터 자동 연결 시도 (포트 7001, fire-and-forget)
-            // 시뮬레이터 미실행이면 연결 실패해도 핸들러는 정상 동작 (Sim 모드 자동 분기로 사이클 OK).
+            // Stage 60 ??DEBUG 鍮뚮뱶 ???쒕??덉씠???먮룞 ?곌껐 ?쒕룄 (?ы듃 7001, fire-and-forget)
+            // ?쒕??덉씠??誘몄떎?됱씠硫??곌껐 ?ㅽ뙣?대룄 ?몃뱾?щ뒗 ?뺤긽 ?숈옉 (Sim 紐⑤뱶 ?먮룞 遺꾧린濡??ъ씠??OK).
             BeginInvoke(new Action(async () =>
             {
                 try
                 {
                     await Bridge.ConnectAsync("127.0.0.1", 7001);
                 }
-                catch { /* 시뮬레이터 미실행 — 무시 */ }
+                catch { /* ?쒕??덉씠??誘몄떎????臾댁떆 */ }
             }));
 #endif
             OnUserChanged();
 
-            // 마지막 레시피 자동 로드 — 재시작 시 직전 사용한 프로젝트 그대로 사용
+            // 留덉?留??덉떆???먮룞 濡쒕뱶 ???ъ떆????吏곸쟾 ?ъ슜???꾨줈?앺듃 洹몃?濡??ъ슜
             try
             {
                 var last = QMC.CDT320.Recipes.RecipeStore.LoadLastOrDefault();
@@ -324,25 +325,25 @@ namespace QMC.CDT_320
                 {
                     LoadMachineRecipe(last.FileName);
                     Controller.ApplyRecipeMode(last);
-                    // Stage 61 — 상단 상태바 Project Name 갱신
+                    // Stage 61 ???곷떒 ?곹깭諛?Project Name 媛깆떊
                     RefreshProjectName(last.FileName);
-                    QMC.CDT320.Logging.EventLogger.Write(
-                        QMC.CDT320.Logging.EventKind.Event,
+                    QMC.Common.Logging.EventLogger.Write(
+                        QMC.Common.Logging.EventKind.Event,
                         "NONE",
                         "RECIPE-LOAD",
                         "Project loaded: " + last.FileName + ".Project (auto on startup)");
                 }
             }
-            catch { /* 레시피 파일 없거나 손상 — 무시 */ }
+            catch { /* ?덉떆???뚯씪 ?녾굅???먯긽 ??臾댁떆 */ }
 
-            // 시계 시작
+            // ?쒓퀎 ?쒖옉
             timerClock.Start();
             UpdateClock();
 
-            // 기본 탭
+            // Default page.
             ShowTab(MainTab.Work);
 
-            // Stage 59 — --start-page 옵션 처리. Stage 60 — 모든 탭에서 키 검색.
+            // Stage 59 ??--start-page ?듭뀡 泥섎━. Stage 60 ??紐⑤뱺 ??뿉????寃??
             if (!string.IsNullOrEmpty(Program.StartPage))
             {
                 BeginInvoke(new Action(() =>
@@ -364,14 +365,14 @@ namespace QMC.CDT_320
                             return;
                         }
                     }
-                    // fallback: 키 매칭 안 되면 설정 탭만 띄움
+                    // fallback: ??留ㅼ묶 ???섎㈃ ?ㅼ젙 ??쭔 ?꾩?
                     ShowTab(MainTab.Settings);
                 }));
             }
 
-            // Stage 60 — --audit-all 옵션: 모든 탭의 모든 페이지를 한번씩 로드하여
-            // UiClickAuditor 통계를 EventLog 에 남긴다. 사용자 보고 "클릭 안되는 버튼들" 발굴용.
-            // Stage 60 R12 — --click-test-all 추가: audit-all 후 모든 페이지의 모든 버튼 PerformClick 호출.
+            // Stage 60 ??--audit-all ?듭뀡: 紐⑤뱺 ??쓽 紐⑤뱺 ?섏씠吏瑜??쒕쾲??濡쒕뱶?섏뿬
+            // UiClickAuditor ?듦퀎瑜?EventLog ???④릿?? ?ъ슜??蹂닿퀬 "?대┃ ?덈릺??踰꾪듉?? 諛쒓뎬??
+            // Stage 60 R12 ??--click-test-all 異붽?: audit-all ??紐⑤뱺 ?섏씠吏??紐⑤뱺 踰꾪듉 PerformClick ?몄텧.
             if (Program.AuditAll)
             {
                 BeginInvoke(new Action(() =>
@@ -395,7 +396,7 @@ namespace QMC.CDT_320
 
                     if (Program.ClickTestAll)
                     {
-                        // 모든 페이지가 캐시된 후, 각 페이지의 모든 button PerformClick.
+                        // 紐⑤뱺 ?섏씠吏媛 罹먯떆???? 媛??섏씠吏??紐⑤뱺 button PerformClick.
                         int tt = 0, ss = 0, ff = 0;
                         foreach (var p in pairs)
                         {
@@ -409,8 +410,8 @@ namespace QMC.CDT_320
                         }
                         try
                         {
-                            QMC.CDT320.Logging.EventLogger.Write(
-                                QMC.CDT320.Logging.EventKind.Event,
+                            QMC.Common.Logging.EventLogger.Write(
+                                QMC.Common.Logging.EventKind.Event,
                                 QMC.CDT_320.Ui.Security.UserSession.Name,
                                 "UI-CLICK-TEST-SUMMARY",
                                 "tried=" + tt + " success=" + ss + " failed=" + ff);
@@ -422,7 +423,7 @@ namespace QMC.CDT_320
                 }));
             }
 
-            // Stage 24 — auto-cycle 모드 (명령행 --auto-cycle N) / Stage 58 — --auto-init / --keep-open
+            // Stage 24 ??auto-cycle 紐⑤뱶 (紐낅졊??--auto-cycle N) / Stage 58 ??--auto-init / --keep-open
             if (Program.AutoCycleCount > 0 || Program.AutoInitOnly)
             {
                 int n = Program.AutoCycleCount;
@@ -432,7 +433,7 @@ namespace QMC.CDT_320
                 {
                     await System.Threading.Tasks.Task.Delay(8000);
                     try { await Controller.InitAsync(); } catch { }
-                    if (initOnly) return; // GUI 유지 — 사용자가 CYCLE RUN 직접 클릭
+                    if (initOnly) return; // GUI ?좎? ???ъ슜?먭? CYCLE RUN 吏곸젒 ?대┃
                     await System.Threading.Tasks.Task.Delay(2000);
                     try { await Controller.CycleRunAsync(n); } catch { }
                     await System.Threading.Tasks.Task.Delay(Program.AutoCycleEndDelayMs);
@@ -445,7 +446,7 @@ namespace QMC.CDT_320
         }
 
         /// <summary>
-        /// 탭 전환. 하단 버튼에서 호출.
+        /// ???꾪솚. ?섎떒 踰꾪듉?먯꽌 ?몄텧.
         /// </summary>
         public void ShowTab(MainTab tab)
         {
@@ -465,7 +466,7 @@ namespace QMC.CDT_320
             btnTabSettings.Selected = tab == MainTab.Settings;
             btnTabUser    .Selected = tab == MainTab.User;
 
-            // 선택된 탭에 포커스를 주고, 권한/번역 재적용
+            // Apply focus, permission, and localization to the selected tab.
             Control active = null;
             switch (tab)
             {
@@ -483,10 +484,56 @@ namespace QMC.CDT_320
             }
         }
 
+        private void RequestApplicationExit()
+        {
+            try
+            {
+                using (var dialog = new MessageBoxYesNo())
+                {
+                    DialogResult result = dialog.ShowDialog(
+                        "종료",
+                        "프로그램을 종료하시겠습니까?",
+                        this,
+                        new[] { "예", "아니오" });
+
+                    if (result == DialogResult.Yes)
+                    {
+                        Log.Write("Main", UserSession.Name, "RequestApplicationExit", "Application exit requested by user. - Ok");
+                        QMC.Common.Logging.EventLogger.Write(
+                            QMC.Common.Logging.EventKind.Event,
+                            UserSession.Name,
+                            "APP-EXIT",
+                            "Application exit requested.");
+                        Close();
+                    }
+                    else
+                    {
+                        Log.Write("Main", UserSession.Name, "RequestApplicationExit", "Application exit requested by user. - canceled");
+                        QMC.Common.Logging.EventLogger.Write(
+                            QMC.Common.Logging.EventKind.Event,
+                            UserSession.Name,
+                            "APP-EXIT",
+                            "Application exit canceled.");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Alarm,
+                    UserSession.Name,
+                    "APP-EXIT",
+                    "Exit confirmation failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
         private void OnLocalizationChanged()
         {
             Lang.Apply(this);
-            // 상태 라벨 오른쪽 "NONE" 은 세션 변경 시에도 갱신되므로 OnUserChanged 에 있음
+            // ?곹깭 ?쇰꺼 ?ㅻⅨ履?"NONE" ? ?몄뀡 蹂寃??쒖뿉??媛깆떊?섎?濡?OnUserChanged ???덉쓬
         }
 
         private void OnUserChanged()
@@ -494,7 +541,7 @@ namespace QMC.CDT_320
             lblUserValue.Text = UserSession.Name + " (" + UserSession.Level + ")";
             RefreshStateBig();
 
-            // 권한 재적용
+            // Apply permission state.
             AccessControl.Apply(this);
         }
 
@@ -507,8 +554,8 @@ namespace QMC.CDT_320
         private void OnVisionHubChanged()
         {
             if (InvokeRequired) { BeginInvoke(new Action(OnVisionHubChanged)); return; }
-            // 상태바 중앙 영역에 Vision 상태 표시 (프로젝트 이름 우측)
-            var h = QMC.CDT320.VisionComm.VisionHub.AllConnected ? "●" : "○";
+            // ?곹깭諛?以묒븰 ?곸뿭??Vision ?곹깭 ?쒖떆 (?꾨줈?앺듃 ?대쫫 ?곗륫)
+            var h = QMC.CDT320.VisionComm.VisionHub.AllConnected ? "O" : "X";
             lblBarcodeValue.Text = "VIS " + h;
             lblBarcodeValue.ForeColor = QMC.CDT320.VisionComm.VisionHub.AllConnected
                                             ? System.Drawing.Color.LightGreen
@@ -737,3 +784,4 @@ namespace QMC.CDT_320
         }
     }
 }
+

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
@@ -11,7 +11,7 @@ using QMC.CDT320.Bin;
 using QMC.CDT320.DieMaps;
 using QMC.CDT320.Interlocks;
 using QMC.CDT320.Jobs;
-using QMC.CDT320.Logging;
+using QMC.Common.Logging;
 using QMC.CDT320.Materials;
 using QMC.CDT320.VisionComm;
 
@@ -219,3 +219,4 @@ namespace QMC.CDT_320.Ui.Dialogs
         }
     }
 }
+

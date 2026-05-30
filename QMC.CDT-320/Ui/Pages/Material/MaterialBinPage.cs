@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -28,7 +28,7 @@ namespace QMC.CDT_320.Ui.Pages.Material
 
         private void ResetDefaults()
         {
-            if (MessageBox.Show("Restore default bin mapping?", "Reset", MessageBoxButtons.OKCancel) != DialogResult.OK)
+            if (QMC.Common.MessageDialog.Show("Restore default bin mapping?", "Reset", MessageBoxButtons.OKCancel) != DialogResult.OK)
             {
                 return;
             }
@@ -140,12 +140,13 @@ namespace QMC.CDT_320.Ui.Pages.Material
             {
                 CommitGridsToData();
                 BinCodeMap.Save();
-                MessageBox.Show("Saved: Config/bin_codes.json", "BinCode", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                QMC.Common.MessageDialog.Show("Saved: Config/bin_codes.json", "BinCode", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Save failed: " + ex.Message);
+                QMC.Common.MessageDialog.Show("Save failed: " + ex.Message);
             }
         }
     }
 }
+

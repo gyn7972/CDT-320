@@ -88,7 +88,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
 
         private void OnResetClick(object sender, EventArgs e)
         {
-            if (MessageBox.Show("기본값으로 초기화?", "Reset", MessageBoxButtons.OKCancel) != DialogResult.OK) return;
+            if (QMC.Common.MessageDialog.Show("기본값으로 초기화?", "Reset", MessageBoxButtons.OKCancel) != DialogResult.OK) return;
             _items = SeedDefault();
             FillGrid();
         }
@@ -214,9 +214,9 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                     ser.WriteObject(fs, new AxisStore { Items = _items });
                 }
                 SaveAjinMappings();
-                MessageBox.Show("저장 완료.\n" + SavePath);
+                QMC.Common.MessageDialog.Show("저장 완료.\n" + SavePath);
             }
-            catch (Exception ex) { MessageBox.Show("실패: " + ex.Message); }
+            catch (Exception ex) { QMC.Common.MessageDialog.Show("실패: " + ex.Message); }
         }
 
         // ── Grid ─────────────────────────────────────────────────────
@@ -278,7 +278,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         private void ApplyToAxes()
         {
             var host = FindForm() as Form1;
-            if (host?.Machine == null) { MessageBox.Show("Machine 미초기화"); return; }
+            if (host?.Machine == null) { QMC.Common.MessageDialog.Show("Machine 미초기화"); return; }
 
             int axisApplied = 0;
             int cfgApplied = 0;
@@ -311,10 +311,10 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             }
             catch (Exception ex)
             {
-                MessageBox.Show("AjinConfig 반영 실패: " + ex.Message);
+                QMC.Common.MessageDialog.Show("AjinConfig 반영 실패: " + ex.Message);
             }
 
-            MessageBox.Show($"Soft Limit/Velocity 적용 축: {axisApplied}\nAjinConfig (Board/Ch) 반영: {cfgApplied}");
+            QMC.Common.MessageDialog.Show($"Soft Limit/Velocity 적용 축: {axisApplied}\nAjinConfig (Board/Ch) 반영: {cfgApplied}");
         }
 
         private int SaveAjinMappings()
@@ -357,3 +357,4 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         }
     }
 }
+

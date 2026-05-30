@@ -41,8 +41,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             }
             catch (Exception ex)
             {
-                QMC.CDT320.Alarms.AlarmManager.Raise(
-                    QMC.CDT320.Alarms.AlarmSeverity.Warning,
+                QMC.Common.Alarms.AlarmManager.Raise(
+                    QMC.Common.Alarms.AlarmSeverity.Warning,
                     "UI-MOTION-SPD",
                     "MotionPage",
                     "InitializeSpeedTab failed: " + ex.Message);
@@ -76,15 +76,15 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 LoadSpeedRows();
                 RefreshConfigForSelected();
 
-                QMC.CDT320.Logging.EventLogger.Write(
-                    QMC.CDT320.Logging.EventKind.Event,
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Event,
                     "QMC", "PARA-LOAD-APPLY",
                     "axes=" + updated);
             }
             catch (Exception ex)
             {
-                QMC.CDT320.Alarms.AlarmManager.Raise(
-                    QMC.CDT320.Alarms.AlarmSeverity.Warning,
+                QMC.Common.Alarms.AlarmManager.Raise(
+                    QMC.Common.Alarms.AlarmSeverity.Warning,
                     "UI-MOTION-SPD",
                     "MotionPage",
                     "ApplyParametersFromBoard failed: " + ex.Message);
@@ -121,8 +121,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             }
             catch (Exception ex)
             {
-                QMC.CDT320.Alarms.AlarmManager.Raise(
-                    QMC.CDT320.Alarms.AlarmSeverity.Warning,
+                QMC.Common.Alarms.AlarmManager.Raise(
+                    QMC.Common.Alarms.AlarmSeverity.Warning,
                     "UI-MOTION-SPD",
                     "MotionPage",
                     "OnSpeedCellDoubleClick failed: " + ex.Message);
@@ -171,8 +171,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             }
             catch (Exception ex)
             {
-                QMC.CDT320.Alarms.AlarmManager.Raise(
-                    QMC.CDT320.Alarms.AlarmSeverity.Warning,
+                QMC.Common.Alarms.AlarmManager.Raise(
+                    QMC.Common.Alarms.AlarmSeverity.Warning,
                     "UI-MOTION-SPD",
                     "MotionPage",
                     "LoadSpeedRows failed: " + ex.Message);
@@ -216,8 +216,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             }
             catch (Exception ex)
             {
-                QMC.CDT320.Alarms.AlarmManager.Raise(
-                    QMC.CDT320.Alarms.AlarmSeverity.Warning,
+                QMC.Common.Alarms.AlarmManager.Raise(
+                    QMC.Common.Alarms.AlarmSeverity.Warning,
                     "UI-MOTION-SPD",
                     "MotionPage",
                     "OnSpeedHeaderDoubleClick failed: " + ex.Message);
@@ -261,21 +261,21 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 QMC.CDT320.Ajin.AjinFactory.AxisManager.Save(MotionAxisStore.DefaultPath);
                 _speedDirty = false;
 
-                QMC.CDT320.Logging.EventLogger.Write(
-                    QMC.CDT320.Logging.EventKind.Event,
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Event,
                     "QMC", "SPEED-SAVE",
                     "axes=" + applied);
 
-                MessageBox.Show("Saved speed parameters for " + applied + " axes.");
+                QMC.Common.MessageDialog.Show("Saved speed parameters for " + applied + " axes.");
             }
             catch (Exception ex)
             {
-                QMC.CDT320.Alarms.AlarmManager.Raise(
-                    QMC.CDT320.Alarms.AlarmSeverity.Error,
+                QMC.Common.Alarms.AlarmManager.Raise(
+                    QMC.Common.Alarms.AlarmSeverity.Error,
                     "UI-MOTION-SPD",
                     "MotionPage",
                     "SaveSpeedRows failed: " + ex.Message);
-                MessageBox.Show("Save failed: " + ex.Message);
+                QMC.Common.MessageDialog.Show("Save failed: " + ex.Message);
             }
             finally
             {
@@ -304,3 +304,5 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         }
     }
 }
+
+

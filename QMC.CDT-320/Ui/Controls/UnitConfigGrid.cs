@@ -160,12 +160,12 @@ namespace QMC.CDT_320.Ui.Controls
 
                 SaveJson();
                 ConfigApplied?.Invoke(this, EventArgs.Empty);
-                MessageBox.Show("Config 저장 완료", "Unit Config",
+                QMC.Common.MessageDialog.Show("Config 저장 완료", "Unit Config",
                     MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
-                MessageBox.Show("저장 실패: " + ex.Message, "Unit Config",
+                QMC.Common.MessageDialog.Show("저장 실패: " + ex.Message, "Unit Config",
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
@@ -182,7 +182,7 @@ namespace QMC.CDT_320.Ui.Controls
             }
             catch (Exception ex)
             {
-                MessageBox.Show("로드 실패: " + ex.Message, "Unit Config",
+                QMC.Common.MessageDialog.Show("로드 실패: " + ex.Message, "Unit Config",
                     MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }

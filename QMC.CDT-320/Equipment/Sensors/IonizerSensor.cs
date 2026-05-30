@@ -1,20 +1,20 @@
-using System;
+﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
-using QMC.CDT320.Alarms;
+using QMC.Common.Alarms;
 using QMC.Common.IO;
 
 namespace QMC.CDT320.Sensors
 {
     /// <summary>
-    /// 정전기 제거 이오나이저 알람 입력 감시 (310 의 IonizerAlarmDetectSensor 단순화).
-    /// 지정된 DigitalInput 이 OFF (또는 ON, polarity 따라) 가 되면 AlarmManager 에 경고 발생.
+    /// ?뺤쟾湲??쒓굅 ?댁삤?섏씠? ?뚮엺 ?낅젰 媛먯떆 (310 ??IonizerAlarmDetectSensor ?⑥닚??.
+    /// 吏?뺣맂 DigitalInput ??OFF (?먮뒗 ON, polarity ?곕씪) 媛 ?섎㈃ AlarmManager ??寃쎄퀬 諛쒖깮.
     /// </summary>
     public class IonizerSensor : IDisposable
     {
         public string Name             { get; }
         public BaseDigitalInput Input  { get; }
-        /// <summary>true=알람 신호가 HIGH 일 때 트리거, false=LOW 일 때.</summary>
+        /// <summary>true=?뚮엺 ?좏샇媛 HIGH ?????몃━嫄? false=LOW ????</summary>
         public bool   ActiveHigh       { get; set; } = false;
         public int    PollIntervalMs   { get; set; } = 100;
 
@@ -49,7 +49,7 @@ namespace QMC.CDT320.Sensors
                         AlarmManager.Raise(AlarmSeverity.Warning, "IONIZER",
                             Name, "Ionizer alarm signal active");
                     }
-                    // 클리어 시점은 알람 누적을 막기 위해 별도 송출 안함 (AlarmManager 자체에서 dedupe)
+                    // ?대━???쒖젏? ?뚮엺 ?꾩쟻??留됯린 ?꾪빐 蹂꾨룄 ?≪텧 ?덊븿 (AlarmManager ?먯껜?먯꽌 dedupe)
                     _lastTriggered = triggered;
                 }
                 catch { }
@@ -60,3 +60,4 @@ namespace QMC.CDT320.Sensors
         public void Dispose() => Stop();
     }
 }
+

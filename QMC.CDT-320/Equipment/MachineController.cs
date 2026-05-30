@@ -1,10 +1,10 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using QMC.Common;
 using QMC.Common.Motion;
-using QMC.CDT320.Alarms;
+using QMC.Common.Alarms;
 using QMC.CDT320.Bin;
 using QMC.CDT320.Interlocks;
 using QMC.CDT320.Jobs;
@@ -13,36 +13,36 @@ using QMC.CDT320.Materials;
 
 namespace QMC.CDT320
 {
-    /// <summary>장비 운전 상태.</summary>
+    /// <summary>?λ퉬 ?댁쟾 ?곹깭.</summary>
     public enum MachineStatus
     {
-        /// <summary>대기.</summary>
+        /// <summary>?湲?</summary>
         Idle,
 
-        /// <summary>초기화(Home) 진행 중.</summary>
+        /// <summary>珥덇린??Home) 吏꾪뻾 以?</summary>
         Initializing,
 
-        /// <summary>초기화 완료, 운전 준비 완료.</summary>
+        /// <summary>珥덇린???꾨즺, ?댁쟾 以鍮??꾨즺.</summary>
         Ready,
 
-        /// <summary>수동 운전(시작) 중 — 개별 모션만 수행.</summary>
+        /// <summary>?섎룞 ?댁쟾(?쒖옉) 以???媛쒕퀎 紐⑥뀡留??섑뻾.</summary>
         Running,
 
-        /// <summary>자동 CYCLE 진행 중.</summary>
+        /// <summary>?먮룞 CYCLE 吏꾪뻾 以?</summary>
         Cycling,
 
-        /// <summary>정지 완료.</summary>
+        /// <summary>?뺤? ?꾨즺.</summary>
         Stopped,
 
-        /// <summary>알람 발생.</summary>
+        /// <summary>?뚮엺 諛쒖깮.</summary>
         Alarm
     }
 
     /// <summary>
-    /// 작업 탭의 초기화/시작/정지/CYCLE RUN/STOP 버튼을 실제 장비 동작으로 연결하는 컨트롤러.
+    /// ?묒뾽 ??쓽 珥덇린???쒖옉/?뺤?/CYCLE RUN/STOP 踰꾪듉???ㅼ젣 ?λ퉬 ?숈옉?쇰줈 ?곌껐?섎뒗 而⑦듃濡ㅻ윭.
     /// <para>
-    /// CDT-320은 Input(Loader/Stage) → FRONT/REAR Picker(TransferPicker의 Left/Right Arm) → Output 파이프라인.
-    /// 각 액션은 CDT320_Machine 트리를 순회하며 실제 Axis/DO/DI를 조작.
+    /// CDT-320? Input(Loader/Stage) ??FRONT/REAR Picker(TransferPicker??Left/Right Arm) ??Output ?뚯씠?꾨씪??
+    /// 媛??≪뀡? CDT320_Machine ?몃━瑜??쒗쉶?섎ŉ ?ㅼ젣 Axis/DO/DI瑜?議곗옉.
     /// </para>
     /// </summary>
     public class MachineController
@@ -59,7 +59,7 @@ namespace QMC.CDT320
         public event Action<string>        LogMessage;
         public event Action<int, int>      CycleProgress;  // (done, total)
 
-        /// <summary>CDT-320 하드웨어 유닛 트리입니다.</summary>
+        /// <summary>CDT-320 ?섎뱶?⑥뼱 ?좊떅 ?몃━?낅땲??</summary>
         public CDT320_Machine Machine => _machine;
 
         public MachineStatus Status => _status;
@@ -68,42 +68,42 @@ namespace QMC.CDT320
         public int GoodCount   { get; private set; }
         public int NgCount     { get; private set; }
 
-        // ──────────────────────────────────────────
-        //  Wafer 다이맵 — Input(원형 300mm) / Output(사각 트레이)
-        //  사이클 시작 시 EnsureDieMaps 로 한 번 생성, 이후 캐싱.
-        // ──────────────────────────────────────────
-        /// <summary>웨이퍼 직경 [mm].</summary>
+        // ??????????????????????????????????????????
+        //  Wafer ?ㅼ씠留???Input(?먰삎 300mm) / Output(?ш컖 ?몃젅??
+        //  ?ъ씠???쒖옉 ??EnsureDieMaps 濡???踰??앹꽦, ?댄썑 罹먯떛.
+        // ??????????????????????????????????????????
+        /// <summary>?⑥씠??吏곴꼍 [mm].</summary>
         public double WaferDiameterMm { get; set; } = 300.0;
-        /// <summary>다이 X 사이즈 [mm].</summary>
+        /// <summary>?ㅼ씠 X ?ъ씠利?[mm].</summary>
         public double DieSizeXMm { get; set; } = 8.12;
-        /// <summary>다이 Y 사이즈 [mm].</summary>
+        /// <summary>?ㅼ씠 Y ?ъ씠利?[mm].</summary>
         public double DieSizeYMm { get; set; } = 6.12;
-        /// <summary>Input 다이맵 칩 간격 [mm] (웨이퍼 픽업 측).</summary>
+        /// <summary>Input ?ㅼ씠留?移?媛꾧꺽 [mm] (?⑥씠???쎌뾽 痢?.</summary>
         public double InputGapMm  { get; set; } = 0.05;
-        /// <summary>Output 다이맵 칩 간격 [mm] (BIN 트레이 측).</summary>
+        /// <summary>Output ?ㅼ씠留?移?媛꾧꺽 [mm] (BIN ?몃젅??痢?.</summary>
         public double OutputGapMm { get; set; } = 0.30;
 
         private QMC.CDT320.DieMaps.DieMap _inputDieMap;
         private QMC.CDT320.DieMaps.DieMap _outputDieMap;
-        /// <summary>Input 다이맵 (원형 300mm). null 이면 EnsureDieMaps() 호출 필요.</summary>
+        /// <summary>Input ?ㅼ씠留?(?먰삎 300mm). null ?대㈃ EnsureDieMaps() ?몄텧 ?꾩슂.</summary>
         public QMC.CDT320.DieMaps.DieMap InputDieMap  => _inputDieMap;
-        /// <summary>Output 다이맵 (사각 트레이). null 이면 EnsureDieMaps() 호출 필요.</summary>
+        /// <summary>Output ?ㅼ씠留?(?ш컖 ?몃젅??. null ?대㈃ EnsureDieMaps() ?몄텧 ?꾩슂.</summary>
         public QMC.CDT320.DieMaps.DieMap OutputDieMap => _outputDieMap;
-        /// <summary>true 면 사이클이 InputDieMap.IsTarget=true 다이 좌표를 사용.</summary>
+        /// <summary>true 硫??ъ씠?댁씠 InputDieMap.IsTarget=true ?ㅼ씠 醫뚰몴瑜??ъ슜.</summary>
         public bool UseDieMapMode { get; set; } = true;
 
-        // Stage 61 — Pickup sequence options + cached sequence
-        /// <summary>웨이퍼 다이 픽업 순서 옵션 (Recipe.Pickup 에서 set).</summary>
+        // Stage 61 ??Pickup sequence options + cached sequence
+        /// <summary>?⑥씠???ㅼ씠 ?쎌뾽 ?쒖꽌 ?듭뀡 (Recipe.Pickup ?먯꽌 set).</summary>
         public QMC.CDT320.Recipes.PickupSubset PickupOptions { get; set; } =
             new QMC.CDT320.Recipes.PickupSubset();
 
-        /// <summary>옵션 기반 정렬된 픽업 시퀀스 (활성 다이만, 순서대로). EnsureDieMaps 또는 RebuildPickupSequence 호출 시 갱신.</summary>
+        /// <summary>?듭뀡 湲곕컲 ?뺣젹???쎌뾽 ?쒗??(?쒖꽦 ?ㅼ씠留? ?쒖꽌?濡?. EnsureDieMaps ?먮뒗 RebuildPickupSequence ?몄텧 ??媛깆떊.</summary>
         private List<QMC.CDT320.DieMaps.DieMapEntry> _inputPickupSequence
             = new List<QMC.CDT320.DieMaps.DieMapEntry>();
 
-        // Stage 61 — Pipelined wafer capture state
-        //   다음 사이클의 wafer vision 촬영을 현 사이클 Inspect/Place 와 병렬로 실행.
-        //   완료 시 CameraZ 가 안전 위치까지 상승해 있어야 ArmY 가 픽업 영역 진입 가능.
+        // Stage 61 ??Pipelined wafer capture state
+        //   ?ㅼ쓬 ?ъ씠?댁쓽 wafer vision 珥ъ쁺?????ъ씠??Inspect/Place ? 蹂묐젹濡??ㅽ뻾.
+        //   ?꾨즺 ??CameraZ 媛 ?덉쟾 ?꾩튂源뚯? ?곸듅???덉뼱??ArmY 媛 ?쎌뾽 ?곸뿭 吏꾩엯 媛??
         private Task<(double X, double Y)[]> _pendingCaptureTask;
         private int _pendingCaptureCycleIdx = -1;
         private int _pendingCapturePickers  = 0;
@@ -111,7 +111,7 @@ namespace QMC.CDT320
         public IReadOnlyList<QMC.CDT320.DieMaps.DieMapEntry> InputPickupSequence
             => _inputPickupSequence;
 
-        /// <summary>PickupOptions 또는 _inputDieMap 변경 후 호출. 시퀀스 재생성.</summary>
+        /// <summary>PickupOptions ?먮뒗 _inputDieMap 蹂寃????몄텧. ?쒗???ъ깮??</summary>
         public void RebuildPickupSequence()
         {
             if (_inputDieMap == null) { _inputPickupSequence.Clear(); return; }
@@ -119,10 +119,10 @@ namespace QMC.CDT320
                 _inputDieMap, PickupOptions);
             Log("[PICKSEQ] " + PickupOptions.StartCorner + " / " +
                 PickupOptions.Direction + " / " + PickupOptions.Pattern +
-                " → 활성 다이 " + _inputPickupSequence.Count + "개 순서 결정");
+                " ???쒖꽦 ?ㅼ씠 " + _inputPickupSequence.Count + "媛??쒖꽌 寃곗젙");
         }
 
-        /// <summary>Input/Output 다이맵을 (없으면) 생성. 이미 있으면 재사용.</summary>
+        /// <summary>Input/Output ?ㅼ씠留듭쓣 (?놁쑝硫? ?앹꽦. ?대? ?덉쑝硫??ъ궗??</summary>
         public void EnsureDieMaps()
         {
             if (_inputDieMap == null)
@@ -132,80 +132,80 @@ namespace QMC.CDT320
                     frameObjId: "INPUT");
                 int active = 0;
                 foreach (var e in _inputDieMap.Entries) if (e.IsTarget) active++;
-                Log("[DIEMAP] Input wafer " + WaferDiameterMm + "mm · die " +
-                    DieSizeXMm + "x" + DieSizeYMm + " · gap " + InputGapMm +
-                    " → grid " + _inputDieMap.GridX + "x" + _inputDieMap.GridY +
-                    " · active=" + active);
-                // UI 시각화 위해 LotStorage 에 등록
+                Log("[DIEMAP] Input wafer " + WaferDiameterMm + "mm 쨌 die " +
+                    DieSizeXMm + "x" + DieSizeYMm + " 쨌 gap " + InputGapMm +
+                    " ??grid " + _inputDieMap.GridX + "x" + _inputDieMap.GridY +
+                    " 쨌 active=" + active);
+                // UI ?쒓컖???꾪빐 LotStorage ???깅줉
                 QMC.CDT320.Lots.LotStorage.ActiveInputDieMap = _inputDieMap;
             }
             if (_outputDieMap == null)
             {
-                // Output 사각 트레이 — Input 활성 다이 수 이상 수용
+                // Output ?ш컖 ?몃젅????Input ?쒖꽦 ?ㅼ씠 ???댁긽 ?섏슜
                 int active = 0;
                 foreach (var e in _inputDieMap.Entries) if (e.IsTarget) active++;
-                // 정사각 격자 root(N) 올림
+                // ?뺤궗媛?寃⑹옄 root(N) ?щ┝
                 int side = (int)System.Math.Ceiling(System.Math.Sqrt(active));
                 _outputDieMap = QMC.CDT320.DieMaps.DieMapGenerator.GenerateRect(
                     side, side, DieSizeXMm, DieSizeYMm, OutputGapMm, OutputGapMm,
                     frameObjId: "OUTPUT");
                 Log("[DIEMAP] Output tray die " + DieSizeXMm + "x" + DieSizeYMm +
-                    " · gap " + OutputGapMm + " → grid " + side + "x" + side +
-                    " · slots=" + (side * side));
+                    " 쨌 gap " + OutputGapMm + " ??grid " + side + "x" + side +
+                    " 쨌 slots=" + (side * side));
             }
 
-            // WafersPerOutputBatch <= 0 이면 OutputDieMap 슬롯 수에 자동 맞춤
+            // WafersPerOutputBatch <= 0 ?대㈃ OutputDieMap ?щ’ ?섏뿉 ?먮룞 留욎땄
             if (WafersPerOutputBatch <= 0 && _outputDieMap != null)
             {
                 WafersPerOutputBatch = _outputDieMap.Entries.Count;
-                Log("[DIEMAP] WafersPerOutputBatch 자동 설정 = " + WafersPerOutputBatch + " (Output 슬롯 수)");
+                Log("[DIEMAP] WafersPerOutputBatch ?먮룞 ?ㅼ젙 = " + WafersPerOutputBatch + " (Output ?щ’ ??");
             }
 
-            // Stage 61 — 픽업 시퀀스 생성 (옵션 적용)
+            // Stage 61 ???쎌뾽 ?쒗???앹꽦 (?듭뀡 ?곸슜)
             RebuildPickupSequence();
         }
 
-        // ──────────────────────────────────────────
-        //  Stage 58 — 운영 통계 (Work Info / Work Time)
-        //  : WorkMainPage / OperationPanelStatusPage 에서 폴링.
-        //  internal setter — Cycle 실행 중에 누적, Init 시 리셋.
-        // ──────────────────────────────────────────
-        /// <summary>PICK 실패 누적 수 (재시도 후에도 실패로 카운트되는 경우).</summary>
+        // ??????????????????????????????????????????
+        //  Stage 58 ???댁쁺 ?듦퀎 (Work Info / Work Time)
+        //  : WorkMainPage / OperationPanelStatusPage ?먯꽌 ?대쭅.
+        //  internal setter ??Cycle ?ㅽ뻾 以묒뿉 ?꾩쟻, Init ??由ъ뀑.
+        // ??????????????????????????????????????????
+        /// <summary>PICK ?ㅽ뙣 ?꾩쟻 ??(?ъ떆???꾩뿉???ㅽ뙣濡?移댁슫?몃릺??寃쎌슦).</summary>
         public int PickFailCount   { get; internal set; }
-        /// <summary>PLACE 실패 누적 수 (Output 슬롯 placement vision NG).</summary>
+        /// <summary>PLACE ?ㅽ뙣 ?꾩쟻 ??(Output ?щ’ placement vision NG).</summary>
         public int PlaceFailCount  { get; internal set; }
-        /// <summary>FRONT (LEFT ARM) Collet 사용 횟수 — Pick 1회당 +1.</summary>
+        /// <summary>FRONT (LEFT ARM) Collet ?ъ슜 ?잛닔 ??Pick 1?뚮떦 +1.</summary>
         public int Collet1UseCount { get; internal set; }
-        /// <summary>REAR (RIGHT ARM) Collet 사용 횟수.</summary>
+        /// <summary>REAR (RIGHT ARM) Collet ?ъ슜 ?잛닔.</summary>
         public int Collet2UseCount { get; internal set; }
-        /// <summary>EjectPin/Needle 사용 횟수 (다이 1개당 1회).</summary>
+        /// <summary>EjectPin/Needle ?ъ슜 ?잛닔 (?ㅼ씠 1媛쒕떦 1??.</summary>
         public int NeedleUseCount  { get; internal set; }
-        /// <summary>알람 누적 발생 수.</summary>
+        /// <summary>?뚮엺 ?꾩쟻 諛쒖깮 ??</summary>
         public int ErrorCount      { get; internal set; }
-        /// <summary>정상 다운(STOP/ECMG 외 IDLE) 누적 시간.</summary>
+        /// <summary>?뺤긽 ?ㅼ슫(STOP/ECMG ??IDLE) ?꾩쟻 ?쒓컙.</summary>
         public TimeSpan NormalDownTime { get; internal set; } = TimeSpan.Zero;
-        /// <summary>알람/에러로 인한 다운 누적 시간.</summary>
+        /// <summary>?뚮엺/?먮윭濡??명븳 ?ㅼ슫 ?꾩쟻 ?쒓컙.</summary>
         public TimeSpan ErrorDownTime  { get; internal set; } = TimeSpan.Zero;
-        /// <summary>알람 발생 후 복구까지 걸린 누적 시간.</summary>
+        /// <summary>?뚮엺 諛쒖깮 ??蹂듦뎄源뚯? 嫄몃┛ ?꾩쟻 ?쒓컙.</summary>
         public TimeSpan RecoveryTime   { get; internal set; } = TimeSpan.Zero;
         /// <summary>Mean Time Between Failure (rolling).</summary>
         public TimeSpan Mtbf           { get; internal set; } = TimeSpan.Zero;
         /// <summary>Mean Time To Recovery (rolling).</summary>
         public TimeSpan Mttr           { get; internal set; } = TimeSpan.Zero;
 
-        // ──────────────────────────────────────────
-        //  로트포트 (Input Cassette) 진행 상태
-        // ──────────────────────────────────────────
+        // ??????????????????????????????????????????
+        //  濡쒗듃?ы듃 (Input Cassette) 吏꾪뻾 ?곹깭
+        // ??????????????????????????????????????????
 
-        /// <summary>현재 InputLoader 가 처리 중인 슬롯 인덱스 (0-base). -1 = 미장착/언로드 상태.</summary>
+        /// <summary>?꾩옱 InputLoader 媛 泥섎━ 以묒씤 ?щ’ ?몃뜳??(0-base). -1 = 誘몄옣李??몃줈???곹깭.</summary>
         public int  CurrentInputSlot { get; private set; } = -1;
-        /// <summary>현재 슬롯의 웨이퍼가 InputStage 교환 위치까지 이송되었는지 여부.</summary>
+        /// <summary>?꾩옱 ?щ’???⑥씠?쇨? InputStage 援먰솚 ?꾩튂源뚯? ?댁넚?섏뿀?붿? ?щ?.</summary>
         public bool InputWaferAtExchange { get; private set; } = false;
-        /// <summary>로트포트 시퀀스 진행 시점에 발행 (UI 갱신용).</summary>
+        /// <summary>濡쒗듃?ы듃 ?쒗??吏꾪뻾 ?쒖젏??諛쒗뻾 (UI 媛깆떊??.</summary>
         public event Action LotPortStateChanged;
 
-        /// <summary>InitAsync 후 카세트 자동 매핑 여부 (기본 false — INIT 은 모터 초기화만).
-        /// 카세트 스캔은 작업정보/Output 페이지의 매핑 버튼으로 별도 수행.</summary>
+        /// <summary>InitAsync ??移댁꽭???먮룞 留ㅽ븨 ?щ? (湲곕낯 false ??INIT ? 紐⑦꽣 珥덇린?붾쭔).
+        /// 移댁꽭???ㅼ틪? ?묒뾽?뺣낫/Output ?섏씠吏??留ㅽ븨 踰꾪듉?쇰줈 蹂꾨룄 ?섑뻾.</summary>
         public bool AutoScanCassetteOnInit { get; set; } = false;
 
         public MachineController(CDT320_Machine machine)
@@ -213,45 +213,45 @@ namespace QMC.CDT320
             _machine = machine ?? throw new ArgumentNullException(nameof(machine));
         }
 
-        // ──────────────────────────────────────────
-        //  로트포트 시퀀스 헬퍼
-        // ──────────────────────────────────────────
+        // ??????????????????????????????????????????
+        //  濡쒗듃?ы듃 ?쒗???ы띁
+        // ??????????????????????????????????????????
 
         /// <summary>
-        /// InputLoader 의 다음 웨이퍼를 InputStage 교환 위치까지 자동 진행.<br/>
-        /// 1) WaferMap 이 비어 있으면 ScanCassetteAsync 로 매핑<br/>
-        /// 2) <see cref="CurrentInputSlot"/> 다음의 웨이퍼 보유 슬롯으로 ElevatorZ 이동<br/>
-        /// 3) MoveToExchangePositionAsync 호출 (피더 하강 → 클램프 → Y 전진)
+        /// InputLoader ???ㅼ쓬 ?⑥씠?쇰? InputStage 援먰솚 ?꾩튂源뚯? ?먮룞 吏꾪뻾.<br/>
+        /// 1) WaferMap ??鍮꾩뼱 ?덉쑝硫?ScanCassetteAsync 濡?留ㅽ븨<br/>
+        /// 2) <see cref="CurrentInputSlot"/> ?ㅼ쓬???⑥씠??蹂댁쑀 ?щ’?쇰줈 ElevatorZ ?대룞<br/>
+        /// 3) MoveToExchangePositionAsync ?몄텧 (?쇰뜑 ?섍컯 ???대옩????Y ?꾩쭊)
         /// </summary>
-        /// <returns>다음 웨이퍼 이송 성공 시 true. 카세트 비었거나 인터락 차단 시 false.</returns>
+        /// <returns>?ㅼ쓬 ?⑥씠???댁넚 ?깃났 ??true. 移댁꽭??鍮꾩뿀嫄곕굹 ?명꽣??李⑤떒 ??false.</returns>
         public async Task<bool> LoadNextWaferAsync()
         {
             var loader = _machine.InputLoader;
 
-            // 카세트 안착 확인
+            // 移댁꽭???덉갑 ?뺤씤
             if (!loader.CassetteExistSensor.IsOn)
             {
                 AlarmManager.Raise(AlarmSeverity.Warning, "LOT-NOCASS",
-                    loader.Name, "Input 카세트가 감지되지 않습니다.");
-                Log("[LOTPORT] InputCassette absent — load skipped");
+                    loader.Name, "Input 移댁꽭?멸? 媛먯??섏? ?딆뒿?덈떎.");
+                Log("[LOTPORT] InputCassette absent ??load skipped");
                 return false;
             }
 
-            // 매핑 미수행 시 스캔
+            // 留ㅽ븨 誘몄닔?????ㅼ틪
             if (loader.WaferMap == null || loader.WaferMap.Count == 0)
             {
-                Log("[LOTPORT] WaferMap empty → scan cassette");
+                Log("[LOTPORT] WaferMap empty ??scan cassette");
                 bool scanned = (await loader.ScanCassetteAsync(16, 6.0)) == 0;
                 if (!scanned)
                 {
                     AlarmManager.Raise(AlarmSeverity.Warning, "LOT-SCAN",
-                        loader.Name, "카세트 스캔 실패.");
+                        loader.Name, "移댁꽭???ㅼ틪 ?ㅽ뙣.");
                     return false;
                 }
                 RaiseLotPortChanged();
             }
 
-            // 다음 웨이퍼 슬롯 탐색
+            // ?ㅼ쓬 ?⑥씠???щ’ ?먯깋
             int next = -1;
             for (int s = CurrentInputSlot + 1; s < loader.WaferMap.Count; s++)
             {
@@ -263,7 +263,7 @@ namespace QMC.CDT320
                 return false;
             }
 
-            // 이동 + 교환 위치 전진
+            // ?대룞 + 援먰솚 ?꾩튂 ?꾩쭊
             double slotPitch = 6.0;
             //double targetZ = loader.Setup.FirstSlotPosition + next * slotPitch;
             double targetZ = loader.InputCassette.Recipe.FirstSlotPosition + next * slotPitch;
@@ -277,7 +277,7 @@ namespace QMC.CDT320
             catch (Exception ex)
             {
                 AlarmManager.Raise(AlarmSeverity.Error, "LOT-MOVE",
-                    loader.Name, "슬롯 이동 실패: " + ex.Message);
+                    loader.Name, "?щ’ ?대룞 ?ㅽ뙣: " + ex.Message);
                 Log("[LOTPORT ERROR] " + ex.Message);
                 return false;
             }
@@ -286,17 +286,17 @@ namespace QMC.CDT320
             if (!ex2)
             {
                 AlarmManager.Raise(AlarmSeverity.Error, "LOT-EX",
-                    loader.Name, "교환 위치 이송 실패.");
+                    loader.Name, "援먰솚 ?꾩튂 ?댁넚 ?ㅽ뙣.");
                 return false;
             }
 
             CurrentInputSlot     = next;
             InputWaferAtExchange = true;
             RaiseLotPortChanged();
-            Log($"[LOTPORT] LoadNextWafer OK — slot={next}");
+            Log($"[LOTPORT] LoadNextWafer OK ??slot={next}");
 
-            // Stage 34 — Sim 모드: 소비된 슬롯을 false 로 마킹 (UI LED 정확도)
-            //   Form1.CassetteDriver 는 internal 이지만, 동일 어셈블리이므로 reflection 없이 접근 가능
+            // Stage 34 ??Sim 紐⑤뱶: ?뚮퉬???щ’??false 濡?留덊궧 (UI LED ?뺥솗??
+            //   Form1.CassetteDriver ??internal ?댁?留? ?숈씪 ?댁뀍釉붾━?대?濡?reflection ?놁씠 ?묎렐 媛??
             try
             {
                 var hostType = Type.GetType("QMC.CDT_320.Form1, QMC.CDT-320");
@@ -319,46 +319,46 @@ namespace QMC.CDT320
             }
             catch { /* best-effort */ }
 
-            // Stage 28 — 산업 흐름 반영 InputStage handoff 시퀀스:
-            //   1. (이미 완료) 피더가 ExchangePosition(150mm) 으로 전진 — 웨이퍼 InputStage 입구
-            //   2. InputStage.LoadAndPrepareWaferAsync — ExpanderZ 클램프, Wafer 받음
-            //      WaferLoaderAdapter 는 피더 ≥140mm 이므로 Safe 판정
-            //   3. (별도 호출) RetractFeeder — 피더 홈 복귀
-            //   4. InputStage.VisionAlignAndSetupOriginAsync — 정렬 + Origin 확정
+            // Stage 28 ???곗뾽 ?먮쫫 諛섏쁺 InputStage handoff ?쒗??
+            //   1. (?대? ?꾨즺) ?쇰뜑媛 ExchangePosition(150mm) ?쇰줈 ?꾩쭊 ???⑥씠??InputStage ?낃뎄
+            //   2. InputStage.LoadAndPrepareWaferAsync ??ExpanderZ ?대옩?? Wafer 諛쏆쓬
+            //      WaferLoaderAdapter ???쇰뜑 ??40mm ?대?濡?Safe ?먯젙
+            //   3. (蹂꾨룄 ?몄텧) RetractFeeder ???쇰뜑 ??蹂듦?
+            //   4. InputStage.VisionAlignAndSetupOriginAsync ???뺣젹 + Origin ?뺤젙
             try
             {
-                Log("[LOTPORT] InputStage handoff (LoadAndPrepare) 시작...");
+                Log("[LOTPORT] InputStage handoff (LoadAndPrepare) ?쒖옉...");
                 bool handoff = await _machine.InputStage.LoadAndPrepareWaferAsync();
                 Log("[LOTPORT] InputStage handoff " + (handoff ? "OK" : "WARN"));
 
-                // Stage 58 — 문서 정합: InputStage 시퀀스 실패 시 AlarmManager.Raise 보강.
-                // (이전: Console.WriteLine 만 — UI 알람 배너/히스토리에 미반영)
+                // Stage 58 ??臾몄꽌 ?뺥빀: InputStage ?쒗???ㅽ뙣 ??AlarmManager.Raise 蹂닿컯.
+                // (?댁쟾: Console.WriteLine 留???UI ?뚮엺 諛곕꼫/?덉뒪?좊━??誘몃컲??
                 if (!handoff)
                 {
                     AlarmManager.Raise(AlarmSeverity.Warning, "IS-LOAD",
                         _machine.InputStage.Name,
-                        "LoadAndPrepareWafer 실패 (피더 안전위치/ExpanderZ/바코드/맵 중 하나).");
+                        "LoadAndPrepareWafer ?ㅽ뙣 (?쇰뜑 ?덉쟾?꾩튂/ExpanderZ/諛붿퐫??留?以??섎굹).");
                     ErrorCount++;
                 }
 
                 if (handoff)
                 {
-                    // 피더 후퇴 (웨이퍼는 이미 InputStage 가 잡고 있음)
-                    Log("[LOTPORT] 피더 후퇴 (InputStage 단독 작업으로 전환)...");
+                    // ?쇰뜑 ?꾪눜 (?⑥씠?쇰뒗 ?대? InputStage 媛 ?↔퀬 ?덉쓬)
+                    Log("[LOTPORT] ?쇰뜑 ?꾪눜 (InputStage ?⑤룆 ?묒뾽?쇰줈 ?꾪솚)...");
                     await loader.RetractFeederAsync();
                     InputWaferAtExchange = false;
                     RaiseLotPortChanged();
 
-                    // VisionAlign + Origin 확정
-                    Log("[INPUTSTAGE] VisionAlign 시작...");
+                    // VisionAlign + Origin ?뺤젙
+                    Log("[INPUTSTAGE] VisionAlign ?쒖옉...");
                     bool aligned = await _machine.InputStage.VisionAlignAndSetupOriginAsync();
-                    Log("[INPUTSTAGE] VisionAlign " + (aligned ? "OK" : "WARN (sim 한계)"));
+                    Log("[INPUTSTAGE] VisionAlign " + (aligned ? "OK" : "WARN (sim ?쒓퀎)"));
 
                     if (!aligned)
                     {
                         AlarmManager.Raise(AlarmSeverity.Warning, "IS-ALIGN",
                             _machine.InputStage.Name,
-                            "VisionAlignAndSetupOrigin 실패 (Vision 통신 또는 StageT 알람).");
+                            "VisionAlignAndSetupOrigin ?ㅽ뙣 (Vision ?듭떊 ?먮뒗 StageT ?뚮엺).");
                         ErrorCount++;
                     }
                 }
@@ -374,17 +374,17 @@ namespace QMC.CDT320
             return true;
         }
 
-        // ──────────────────────────────────────────
-        //  Stage 28 — InputStage 사이클 통합 헬퍼
-        // ──────────────────────────────────────────
+        // ??????????????????????????????????????????
+        //  Stage 28 ??InputStage ?ъ씠???듯빀 ?ы띁
+        // ??????????????????????????????????????????
 
-        /// <summary>다이 1개 픽업을 위해 StageY/CameraX 를 이동.</summary>
+        /// <summary>?ㅼ씠 1媛??쎌뾽???꾪빐 StageY/CameraX 瑜??대룞.</summary>
         public async Task<bool> MoveInputStageToDieAsync(int row, int col)
         {
             try
             {
                 var stage = _machine.InputStage;
-                // Stage 28 — Origin + Pitch 가 확정되었으면 정확히 이동, 아니면 추정값
+                // Stage 28 ??Origin + Pitch 媛 ?뺤젙?섏뿀?쇰㈃ ?뺥솗???대룞, ?꾨땲硫?異붿젙媛?
                 double targetX = stage.OriginX + col * (stage.PitchX > 0 ? stage.PitchX : 0.15);
                 double targetY = stage.OriginY + row * (stage.PitchY > 0 ? stage.PitchY : 0.15);
                 bool xOk = await MoveAxisAsync(stage.CameraX, targetX, 100.0);
@@ -403,12 +403,12 @@ namespace QMC.CDT320
             }
         }
 
-        /// <summary>InputStage 의 웨이퍼 언로드 시퀀스 (사이클 종료 시).</summary>
+        /// <summary>InputStage ???⑥씠???몃줈???쒗??(?ъ씠??醫낅즺 ??.</summary>
         public async Task<bool> UnloadInputStageWaferAsync()
         {
             try
             {
-                Log("[INPUTSTAGE] UnloadWafer 시작...");
+                Log("[INPUTSTAGE] UnloadWafer ?쒖옉...");
                 bool ok = await _machine.InputStage.UnloadWaferAsync();
                 Log("[INPUTSTAGE] UnloadWafer " + (ok ? "OK" : "WARN"));
                 return ok;
@@ -421,22 +421,22 @@ namespace QMC.CDT320
         }
 
         /// <summary>
-        /// 현재 InputStage 교환 위치의 피더를 후퇴시켜 빈 카세트 슬롯에 복귀.<br/>
-        /// 사이클 종료 또는 다음 슬롯 진행 전 호출.
+        /// ?꾩옱 InputStage 援먰솚 ?꾩튂???쇰뜑瑜??꾪눜?쒖폒 鍮?移댁꽭???щ’??蹂듦?.<br/>
+        /// ?ъ씠??醫낅즺 ?먮뒗 ?ㅼ쓬 ?щ’ 吏꾪뻾 ???몄텧.
         /// </summary>
         public async Task<bool> RetractCurrentWaferAsync()
         {
             var loader = _machine.InputLoader;
             if (!InputWaferAtExchange)
             {
-                Log("[LOTPORT] Retract skipped — feeder not at exchange position");
+                Log("[LOTPORT] Retract skipped ??feeder not at exchange position");
                 return true;
             }
             bool ok = await loader.RetractFeederAsync();
             if (!ok)
             {
                 AlarmManager.Raise(AlarmSeverity.Error, "LOT-RET",
-                    loader.Name, "피더 후퇴 실패.");
+                    loader.Name, "?쇰뜑 ?꾪눜 ?ㅽ뙣.");
                 return false;
             }
             InputWaferAtExchange = false;
@@ -445,23 +445,23 @@ namespace QMC.CDT320
             return true;
         }
 
-        // ──────────────────────────────────────────
-        //  Stage 27 — OutputUnloader Feeder 시퀀스
-        // ──────────────────────────────────────────
+        // ??????????????????????????????????????????
+        //  Stage 27 ??OutputUnloader Feeder ?쒗??
+        // ??????????????????????????????????????????
 
-        /// <summary>현재 Output 카세트별 다음 적재 슬롯 인덱스 (0-base).</summary>
+        /// <summary>?꾩옱 Output 移댁꽭?몃퀎 ?ㅼ쓬 ?곸옱 ?щ’ ?몃뜳??(0-base).</summary>
         public int OutputSlotNg    { get; private set; } = 0;
         public int OutputSlotGood1 { get; private set; } = 0;
         public int OutputSlotGood2 { get; private set; } = 0;
-        /// <summary>몇 다이당 OutputUnloader.StoreFullWafer 호출 (배치 크기).
-        /// 0 = EnsureDieMaps 에서 OutputDieMap 슬롯 수로 자동 설정.</summary>
+        /// <summary>紐??ㅼ씠??OutputUnloader.StoreFullWafer ?몄텧 (諛곗튂 ?ш린).
+        /// 0 = EnsureDieMaps ?먯꽌 OutputDieMap ?щ’ ?섎줈 ?먮룞 ?ㅼ젙.</summary>
         public int WafersPerOutputBatch { get; set; } = 0;
 
-        /// <summary>Place 완료된 웨이퍼를 Output Cassette 의 적절한 슬롯에 적재.</summary>
+        /// <summary>Place ?꾨즺???⑥씠?쇰? Output Cassette ???곸젅???щ’???곸옱.</summary>
         public async Task<bool> StoreCompletedWaferAsync(bool isGood)
         {
             var unloader = _machine.OutputUnloader;
-            // 카세트 선정: Good → Good1 우선, 가득 차면 Good2; NG → Ng
+            // 移댁꽭???좎젙: Good ??Good1 ?곗꽑, 媛??李⑤㈃ Good2; NG ??Ng
             QMC.CDT320.TargetCassette target;
             int slot;
             if (isGood)
@@ -470,10 +470,10 @@ namespace QMC.CDT320
                 else if (OutputSlotGood2 < 25) { target = QMC.CDT320.TargetCassette.Good2; slot = OutputSlotGood2++; }
                 else
                 {
-                    // Stage 27 fix — 카세트 가득 = 사이클 자동 정지
+                    // Stage 27 fix ??移댁꽭??媛??= ?ъ씠???먮룞 ?뺤?
                     AlarmManager.Raise(AlarmSeverity.Error, "OUT-FULL-GOOD",
-                        unloader.Name, "Good 카세트 모두 가득 — 사이클 자동 정지.");
-                    Log("[FEEDER] Good cassette full → CycleStop");
+                        unloader.Name, "Good 移댁꽭??紐⑤몢 媛?????ъ씠???먮룞 ?뺤?.");
+                    Log("[FEEDER] Good cassette full ??CycleStop");
                     _cycleCts?.Cancel();
                     return false;
                 }
@@ -483,27 +483,27 @@ namespace QMC.CDT320
                 if (OutputSlotNg < 25) { target = QMC.CDT320.TargetCassette.Ng; slot = OutputSlotNg++; }
                 else
                 {
-                    // Stage 27 fix — NG 카세트 가득 = 사이클 자동 정지
+                    // Stage 27 fix ??NG 移댁꽭??媛??= ?ъ씠???먮룞 ?뺤?
                     AlarmManager.Raise(AlarmSeverity.Error, "OUT-FULL-NG",
-                        unloader.Name, "NG 카세트 가득 — 사이클 자동 정지.");
-                    Log("[FEEDER] NG cassette full → CycleStop");
+                        unloader.Name, "NG 移댁꽭??媛?????ъ씠???먮룞 ?뺤?.");
+                    Log("[FEEDER] NG cassette full ??CycleStop");
                     _cycleCts?.Cancel();
                     return false;
                 }
             }
-            Log($"[FEEDER] StoreFullWafer → {target} Slot[{slot}]");
+            Log($"[FEEDER] StoreFullWafer ??{target} Slot[{slot}]");
             try
             {
                 bool ok = await unloader.StoreFullWaferAsync(target, slot);
                 if (!ok)
                 {
                     AlarmManager.Raise(AlarmSeverity.Error, "OUT-STORE",
-                        unloader.Name, "StoreFullWafer 실패.");
+                        unloader.Name, "StoreFullWafer ?ㅽ뙣.");
                     return false;
                 }
-                Log($"[FEEDER] OK — {target} Slot[{slot}] 적재 완료");
+                Log($"[FEEDER] OK ??{target} Slot[{slot}] ?곸옱 ?꾨즺");
 
-                // Stage 37 — SimCassetteDriver Output 슬롯 업데이트 (UI LED 동기화)
+                // Stage 37 ??SimCassetteDriver Output ?щ’ ?낅뜲?댄듃 (UI LED ?숆린??
                 try
                 {
                     var hostInstances = System.Windows.Forms.Application.OpenForms;
@@ -532,14 +532,14 @@ namespace QMC.CDT320
             }
         }
 
-        /// <summary>Output 3 카세트 슬롯 매핑 (UI 버튼용).</summary>
+        /// <summary>Output 3 移댁꽭???щ’ 留ㅽ븨 (UI 踰꾪듉??.</summary>
         public async Task<bool> ScanOutputCassettesAsync()
         {
             var unloader = _machine.OutputUnloader;
             try
             {
                 bool ok = await unloader.ScanAllCassettesAsync();
-                if (ok) Log("[FEEDER] Output 3 카세트 스캔 완료");
+                if (ok) Log("[FEEDER] Output 3 移댁꽭???ㅼ틪 ?꾨즺");
                 return ok;
             }
             catch (Exception ex)
@@ -549,23 +549,23 @@ namespace QMC.CDT320
             }
         }
 
-        // ──────────────────────────────────────────
+        // ??????????????????????????????????????????
 
-        /// <summary>InputLoader 의 카세트 슬롯 매핑만 수행 (UI 버튼용).</summary>
+        /// <summary>InputLoader ??移댁꽭???щ’ 留ㅽ븨留??섑뻾 (UI 踰꾪듉??.</summary>
         public async Task<bool> ScanInputCassetteAsync()
         {
             var loader = _machine.InputLoader;
             if (!loader.CassetteExistSensor.IsOn)
             {
                 AlarmManager.Raise(AlarmSeverity.Warning, "LOT-NOCASS",
-                    loader.Name, "Input 카세트가 감지되지 않습니다.");
+                    loader.Name, "Input 移댁꽭?멸? 媛먯??섏? ?딆뒿?덈떎.");
                 return false;
             }
             bool ok = (await loader.ScanCassetteAsync(16, 6.0)) == 0;
             if (ok)
             {
-                CurrentInputSlot = -1;  // 매핑 후 슬롯 재탐색 위해 리셋
-                // Stage 46 — SlotMapperRegistry 갱신
+                CurrentInputSlot = -1;  // 留ㅽ븨 ???щ’ ?ы깘???꾪빐 由ъ뀑
+                // Stage 46 ??SlotMapperRegistry 媛깆떊
                 try
                 {
                     var arr = new bool[loader.WaferMap.Count];
@@ -584,20 +584,20 @@ namespace QMC.CDT320
             if (h != null) try { h(); } catch { }
         }
 
-        // ──────────────────────────────────────────
-        //  Stage 32 — 설비 수준 라이프사이클
-        // ──────────────────────────────────────────
+        // ??????????????????????????????????????????
+        //  Stage 32 ???ㅻ퉬 ?섏? ?쇱씠?꾩궗?댄겢
+        // ??????????????????????????????????????????
 
-        /// <summary>설비 정상 종료 시퀀스. 사이클 정지 + 축 Stop + Lot 정리.</summary>
+        /// <summary>?ㅻ퉬 ?뺤긽 醫낅즺 ?쒗?? ?ъ씠???뺤? + 異?Stop + Lot ?뺣━.</summary>
         public async Task ShutdownAsync()
         {
-            Log("[SHUTDOWN] 설비 정상 종료 시퀀스 시작...");
+            Log("[SHUTDOWN] ?ㅻ퉬 ?뺤긽 醫낅즺 ?쒗???쒖옉...");
             try
             {
                 _cycleCts?.Cancel();
                 await Task.Delay(500);
                 foreach (var ax in EnumerateAxes()) ax.Stop();
-                // Shutdown 정책: 모든 축 Servo OFF (사용자 요구 — 프로그램 종료 시 허용된 자동 OFF)
+                // Shutdown ?뺤콉: 紐⑤뱺 異?Servo OFF (?ъ슜???붽뎄 ???꾨줈洹몃옩 醫낅즺 ???덉슜???먮룞 OFF)
                 foreach (var ax in EnumerateAxes())
                 {
                     try { ax.ServoOff(); } catch { }
@@ -605,7 +605,7 @@ namespace QMC.CDT320
                 LotStorage.CloseLot(aborted: true);
                 AppSettingsStore.Save();
                 SetStatus(MachineStatus.Stopped);
-                Log("[SHUTDOWN] 설비 종료 완료.");
+                Log("[SHUTDOWN] ?ㅻ퉬 醫낅즺 ?꾨즺.");
             }
             catch (Exception ex)
             {
@@ -613,11 +613,11 @@ namespace QMC.CDT320
             }
         }
 
-        /// <summary>RESET ALARM — 모든 축 알람 리셋 + AlarmManager 활성 알람 해제.
-        /// 안전 확인 후 호출. 알람 상태일 때만 의미 있음.</summary>
+        /// <summary>RESET ALARM ??紐⑤뱺 異??뚮엺 由ъ뀑 + AlarmManager ?쒖꽦 ?뚮엺 ?댁젣.
+        /// ?덉쟾 ?뺤씤 ???몄텧. ?뚮엺 ?곹깭???뚮쭔 ?섎? ?덉쓬.</summary>
         public Task ResetAlarmAsync()
         {
-            Log("[RESET-ALARM] 알람 해제 시퀀스 시작...");
+            Log("[RESET-ALARM] ?뚮엺 ?댁젣 ?쒗???쒖옉...");
             int axisCount = 0, axisFail = 0;
             try
             {
@@ -628,13 +628,13 @@ namespace QMC.CDT320
                 }
                 int activeBefore = AlarmManager.Active != null ? AlarmManager.Active.Count : 0;
                 AlarmManager.ClearAll();
-                Log("[RESET-ALARM] 완료 (축=" + axisCount + ", 실패=" + axisFail +
-                    ", 활성알람=" + activeBefore + " 해제)");
+                Log("[RESET-ALARM] ?꾨즺 (異?" + axisCount + ", ?ㅽ뙣=" + axisFail +
+                    ", ?쒖꽦?뚮엺=" + activeBefore + " ?댁젣)");
 
-                // 알람 상태였으면 Idle 로 (운영 재개 위해 INIT 필요)
+                // ?뚮엺 ?곹깭??쇰㈃ Idle 濡?(?댁쁺 ?ш컻 ?꾪빐 INIT ?꾩슂)
                 if (_status == MachineStatus.Alarm) SetStatus(MachineStatus.Idle);
 
-                // Tower Lamp OFF (알람 해제)
+                // Tower Lamp OFF (?뚮엺 ?댁젣)
                 try { _machine.OpPanel?.TowerLampOff(); } catch { }
             }
             catch (Exception ex)
@@ -644,11 +644,11 @@ namespace QMC.CDT320
             return Task.CompletedTask;
         }
 
-        /// <summary>비상 정지 — 모든 축 EStop + 알람 발생.
-        /// R4 — TowerLamp 제어 결과를 명시적으로 로그 (silent catch 제거).</summary>
+        /// <summary>鍮꾩긽 ?뺤? ??紐⑤뱺 異?EStop + ?뚮엺 諛쒖깮.
+        /// R4 ??TowerLamp ?쒖뼱 寃곌낵瑜?紐낆떆?곸쑝濡?濡쒓렇 (silent catch ?쒓굅).</summary>
         public Task EmergencyStopAsync()
         {
-            Log("[E-STOP] 비상 정지 시퀀스 시작...");
+            Log("[E-STOP] 鍮꾩긽 ?뺤? ?쒗???쒖옉...");
             try
             {
                 _cycleCts?.Cancel();
@@ -656,18 +656,18 @@ namespace QMC.CDT320
                 foreach (var ax in EnumerateAxes())
                 {
                     try { ax.EStop(); axTotal++; }
-                    catch (Exception axEx) { axFail++; Log("[E-STOP] 축 EStop 실패: " + axEx.Message); }
+                    catch (Exception axEx) { axFail++; Log("[E-STOP] 異?EStop ?ㅽ뙣: " + axEx.Message); }
                 }
-                // E-STOP 정책: 모든 축 Servo OFF (사용자 요구 — 비상정지 시 허용된 자동 OFF)
+                // E-STOP ?뺤콉: 紐⑤뱺 異?Servo OFF (?ъ슜???붽뎄 ??鍮꾩긽?뺤? ???덉슜???먮룞 OFF)
                 foreach (var ax in EnumerateAxes())
                 {
                     try { ax.ServoOff(); } catch { }
                 }
                 AlarmManager.Raise(AlarmSeverity.Error, "E-STOP", "Machine",
-                    "사용자/안전회로 비상 정지");
+                    "?ъ슜???덉쟾?뚮줈 鍮꾩긽 ?뺤?");
                 SetStatus(MachineStatus.Alarm);
 
-                // Stage 45 — Tower Lamp 알람 (빨강 + 부저). 명시적 결과 기록.
+                // Stage 45 ??Tower Lamp ?뚮엺 (鍮④컯 + 遺?). 紐낆떆??寃곌낵 湲곕줉.
                 if (_machine.OpPanel != null)
                 {
                     try
@@ -677,16 +677,16 @@ namespace QMC.CDT320
                     }
                     catch (Exception lampEx)
                     {
-                        Log("[E-STOP] TowerLamp 제어 실패: " + lampEx.Message);
+                        Log("[E-STOP] TowerLamp ?쒖뼱 ?ㅽ뙣: " + lampEx.Message);
                         AlarmManager.Raise(AlarmSeverity.Warning, "TOWER-FAIL", "OpPanel", lampEx.Message);
                     }
                 }
                 else
                 {
-                    Log("[E-STOP] OpPanel 미연결 — TowerLamp 제어 생략");
+                    Log("[E-STOP] OpPanel 誘몄뿰寃???TowerLamp ?쒖뼱 ?앸왂");
                 }
-                Log("[E-STOP] 비상 정지 완료 (축=" + axTotal + ", 실패=" + axFail +
-                    "). 안전 확인 후 RESET ALARM + INIT 필요.");
+                Log("[E-STOP] 鍮꾩긽 ?뺤? ?꾨즺 (異?" + axTotal + ", ?ㅽ뙣=" + axFail +
+                    "). ?덉쟾 ?뺤씤 ??RESET ALARM + INIT ?꾩슂.");
             }
             catch (Exception ex)
             {
@@ -695,30 +695,30 @@ namespace QMC.CDT320
             return Task.CompletedTask;
         }
 
-        // ──────────────────────────────────────────
-        //  운영 모드 (DryRun / StepRun) — Stage 13
-        // ──────────────────────────────────────────
+        // ??????????????????????????????????????????
+        //  ?댁쁺 紐⑤뱶 (DryRun / StepRun) ??Stage 13
+        // ??????????????????????????????????????????
 
-        /// <summary>true 면 모션 없이 진행만 (Recipe.DryRun 영향).</summary>
+        /// <summary>true 硫?紐⑥뀡 ?놁씠 吏꾪뻾留?(Recipe.DryRun ?곹뼢).</summary>
         public bool DryRun { get; set; } = false;
-        /// <summary>true 면 다이 1개마다 사용자 확인 (Recipe.StepRun 영향). CycleMode.Step 와 동일.</summary>
+        /// <summary>true 硫??ㅼ씠 1媛쒕쭏???ъ슜???뺤씤 (Recipe.StepRun ?곹뼢). CycleMode.Step ? ?숈씪.</summary>
         public bool StepRun
         {
             get => CycleMode == CycleMode.Step;
             set => CycleMode = value ? CycleMode.Step : CycleMode.Auto;
         }
-        /// <summary>R3 — 사이클 운영 모드 (Auto/Manual/Step).</summary>
+        /// <summary>R3 ???ъ씠???댁쁺 紐⑤뱶 (Auto/Manual/Step).</summary>
         public CycleMode CycleMode { get; set; } = CycleMode.Auto;
-        /// <summary>StepRun 진행 신호 — 사용자 GUI 가 콜백으로 다음 다이 허용/차단.</summary>
+        /// <summary>StepRun 吏꾪뻾 ?좏샇 ???ъ슜??GUI 媛 肄쒕갚?쇰줈 ?ㅼ쓬 ?ㅼ씠 ?덉슜/李⑤떒.</summary>
         public event Func<int, bool> StepRunGate;
 
-        /// <summary>현재 활성 RecipeProject 의 DryRun/StepRun 적용.</summary>
+        /// <summary>?꾩옱 ?쒖꽦 RecipeProject ??DryRun/StepRun ?곸슜.</summary>
         public void ApplyRecipeMode(QMC.CDT320.Recipes.RecipeProject p)
         {
             if (p == null) return;
             DryRun  = p.DryRun;
             StepRun = p.StepRun;
-            // Stage 33 — Recipe 의 ModuleSubset 파라미터를 Controller 옵션에 반영
+            // Stage 33 ??Recipe ??ModuleSubset ?뚮씪誘명꽣瑜?Controller ?듭뀡??諛섏쁺
             if (p.Module != null)
             {
                 if (p.Module.ColletCleanEnable && p.Module.ColletCleanInterval > 0)
@@ -726,20 +726,20 @@ namespace QMC.CDT320
                 else if (!p.Module.ColletCleanEnable)
                     DiesPerColletClean = 0;
             }
-            // Stage 54 — Recipe.Output 파라미터 적용
+            // Stage 54 ??Recipe.Output ?뚮씪誘명꽣 ?곸슜
             if (p.Output != null)
             {
                 if (p.Output.DiesPerWafer > 0)
                     DiesPerWafer = p.Output.DiesPerWafer;
                 if (p.Output.WafersPerOutputBatch > 0)
                     WafersPerOutputBatch = p.Output.WafersPerOutputBatch;
-                // Stage 58 — Plate MaxSlots 갱신
+                // Stage 58 ??Plate MaxSlots 媛깆떊
                 if (p.Output.GoodPlateMaxSlots > 0)
                     PlateRegistry.GoodPlate.MaxSlots = p.Output.GoodPlateMaxSlots;
                 if (p.Output.NgPlateMaxSlots > 0)
                     PlateRegistry.NgPlate.MaxSlots = p.Output.NgPlateMaxSlots;
             }
-            // Stage 61 — Recipe.Pickup (StartCorner/Direction/Pattern) 적용
+            // Stage 61 ??Recipe.Pickup (StartCorner/Direction/Pattern) ?곸슜
             if (p.Pickup != null)
             {
                 PickupOptions = p.Pickup;
@@ -749,13 +749,13 @@ namespace QMC.CDT320
             Log($"[MODE] DryRun={DryRun}  StepRun={StepRun}  EbrMode={p.EbrMode}  ColletEvery={DiesPerColletClean}  DiesPerWafer={DiesPerWafer}");
         }
 
-        // ──────────────────────────────────────────
-        //  중앙화 모션 (Interlock 검증 후 실제 이동)
-        // ──────────────────────────────────────────
+        // ??????????????????????????????????????????
+        //  以묒븰??紐⑥뀡 (Interlock 寃利????ㅼ젣 ?대룞)
+        // ??????????????????????????????????????????
 
         /// <summary>
-        /// 인터록 검증 후 절대 위치 이동. 차단되면 false 반환 + 알람.
-        /// 310 의 MotionInterlock.OnVerifyToMove 와 동등.
+        /// ?명꽣濡?寃利????덈? ?꾩튂 ?대룞. 李⑤떒?섎㈃ false 諛섑솚 + ?뚮엺.
+        /// 310 ??MotionInterlock.OnVerifyToMove ? ?숇벑.
         /// </summary>
         public async Task<bool> MoveAxisAsync(BaseAxis axis, double position, double velocity = 800.0)
         {
@@ -763,29 +763,29 @@ namespace QMC.CDT320
             if (!InterlockRegistry.VerifyMove(axis.Name, position, out string reason))
             {
                 AlarmManager.Raise(AlarmSeverity.Warning, "INTERLOCK", axis.Name,
-                    $"Move blocked: target={position:F1} — {reason}");
-                Log($"[INTERLOCK] {axis.Name} → {position:F1} blocked: {reason}");
+                    $"Move blocked: target={position:F1} ??{reason}");
+                Log($"[INTERLOCK] {axis.Name} ??{position:F1} blocked: {reason}");
                 return false;
             }
             if (DryRun)
             {
-                Log($"[DRYRUN] skip move {axis.Name} → {position:F1} (vel={velocity:F0})");
+                Log($"[DRYRUN] skip move {axis.Name} ??{position:F1} (vel={velocity:F0})");
                 return true;
             }
             await axis.MoveAbsoluteAsync(position, velocity);
             return true;
         }
 
-        // ──────────────────────────────────────────
-        //  Wafer Alignment (3 점 비전 매칭 → CoordinateMap)
-        // ──────────────────────────────────────────
+        // ??????????????????????????????????????????
+        //  Wafer Alignment (3 ??鍮꾩쟾 留ㅼ묶 ??CoordinateMap)
+        // ??????????????????????????????????????????
 
         /// <summary>
-        /// 3 점 비전 정렬 — TopLeft / TopRight / BottomLeft 기준점에서 비전 매칭하여
-        /// CoordinateMap 갱신 (310 의 DieTapeFrameAlignmentJob 단순화).
+        /// 3 ??鍮꾩쟾 ?뺣젹 ??TopLeft / TopRight / BottomLeft 湲곗??먯뿉??鍮꾩쟾 留ㅼ묶?섏뿬
+        /// CoordinateMap 媛깆떊 (310 ??DieTapeFrameAlignmentJob ?⑥닚??.
         /// </summary>
-        /// <param name="motorPts">각 기준점의 모터 좌표 [(mx,my) ×3].</param>
-        /// <param name="finder">매칭에 사용할 Finder 이름 (기본 ReticleFinder).</param>
+        /// <param name="motorPts">媛?湲곗??먯쓽 紐⑦꽣 醫뚰몴 [(mx,my) 횞3].</param>
+        /// <param name="finder">留ㅼ묶???ъ슜??Finder ?대쫫 (湲곕낯 ReticleFinder).</param>
         public async Task<bool> AlignWaferAsync(
             (double mx, double my)[] motorPts,
             string finder = "ReticleFinder")
@@ -801,8 +801,8 @@ namespace QMC.CDT320
             {
                 for (int i = 0; i < 3; i++)
                 {
-                    Log($"[ALIGN] point {i+1}/3 — move motor → ({motorPts[i].mx:F2}, {motorPts[i].my:F2})");
-                    // 실제 모션은 운영 환경에서 추가; 시뮬에서는 매칭 호출만
+                    Log($"[ALIGN] point {i+1}/3 ??move motor ??({motorPts[i].mx:F2}, {motorPts[i].my:F2})");
+                    // ?ㅼ젣 紐⑥뀡? ?댁쁺 ?섍꼍?먯꽌 異붽?; ?쒕??먯꽌??留ㅼ묶 ?몄텧留?
                     var m = await VisionComm.VisionHub.Wafer.MatchAsync(finder, i, 1500);
                     if (!m.Success)
                     {
@@ -820,7 +820,7 @@ namespace QMC.CDT320
                 }
                 VisionComm.CoordinateMapStore.Save(coord);
                 var (sx, sy, rot) = VisionComm.AlignmentSolver.ExtractRotationScale(coord);
-                Log($"[ALIGN] OK — scaleX={sx:F4} scaleY={sy:F4} rot={rot:F3}deg  ({coord})");
+                Log($"[ALIGN] OK ??scaleX={sx:F4} scaleY={sy:F4} rot={rot:F3}deg  ({coord})");
                 return true;
             }
             catch (Exception ex)
@@ -831,11 +831,11 @@ namespace QMC.CDT320
             }
         }
 
-        // ──────────────────────────────────────────
-        //  공용 버튼 액션
-        // ──────────────────────────────────────────
+        // ??????????????????????????????????????????
+        //  怨듭슜 踰꾪듉 ?≪뀡
+        // ??????????????????????????????????????????
 
-        /// <summary>초기화: 모든 축 서보 ON + HOME + 카운터 초기화.</summary>
+        /// <summary>珥덇린?? 紐⑤뱺 異??쒕낫 ON + HOME + 移댁슫??珥덇린??</summary>
         public async Task InitAsync()
         {
             if (_status == MachineStatus.Initializing || _status == MachineStatus.Cycling) return;
@@ -848,22 +848,22 @@ namespace QMC.CDT320
                 ax.ServoOn();
             }
 
-            // 간단 시뮬: 순차적으로 HomeSearch. 각 Unit의 주요 축부터.
+            // 媛꾨떒 ?쒕?: ?쒖감?곸쑝濡?HomeSearch. 媛?Unit??二쇱슂 異뺣???
             var axes = new List<BaseAxis>(EnumerateAxes());
             foreach (var ax in axes)
             {
                 try { await ax.HomeSearchAsync(); }
                 catch (Exception ex)
                 {
-                    AlarmManager.Raise(AlarmSeverity.Error, "HOME-" + ax.Name, ax.Name, "HOME 실패: " + ex.Message);
-                    Log("[ALARM] " + ax.Name + " HOME 실패: " + ex.Message);
+                    AlarmManager.Raise(AlarmSeverity.Error, "HOME-" + ax.Name, ax.Name, "HOME ?ㅽ뙣: " + ex.Message);
+                    Log("[ALARM] " + ax.Name + " HOME ?ㅽ뙣: " + ex.Message);
                     SetStatus(MachineStatus.Alarm);
                     return;
                 }
                 if (ax.IsAlarm)
                 {
-                    AlarmManager.Raise(AlarmSeverity.Error, "HOME-" + ax.Name, ax.Name, "HOME 후 알람 코드 " + ax.AlarmCode);
-                    Log("[ALARM] " + ax.Name + " HOME 알람 (code=" + ax.AlarmCode + ")");
+                    AlarmManager.Raise(AlarmSeverity.Error, "HOME-" + ax.Name, ax.Name, "HOME ???뚮엺 肄붾뱶 " + ax.AlarmCode);
+                    Log("[ALARM] " + ax.Name + " HOME ?뚮엺 (code=" + ax.AlarmCode + ")");
                     SetStatus(MachineStatus.Alarm);
                     return;
                 }
@@ -871,105 +871,105 @@ namespace QMC.CDT320
 
             CycleDone = 0; CycleTotal = 0; GoodCount = 0; NgCount = 0;
 
-            // Stage 46 — Resource Sensors 사전 검사 (CDA / Vacuum 라인 정상 여부)
+            // Stage 46 ??Resource Sensors ?ъ쟾 寃??(CDA / Vacuum ?쇱씤 ?뺤긽 ?щ?)
             try
             {
                 if (_machine.Resources != null && !_machine.Resources.AllOk)
                 {
-                    Log("[INIT] Resource 경고 — CDA 또는 Vacuum 라인 비정상 (sim 모드에서는 OK 가정)");
+                    Log("[INIT] Resource 寃쎄퀬 ??CDA ?먮뒗 Vacuum ?쇱씤 鍮꾩젙??(sim 紐⑤뱶?먯꽌??OK 媛??");
                 }
             }
             catch { }
 
-            // Stage 26 — Init 후 로트포트 자동 매핑 (옵션)
+            // Stage 26 ??Init ??濡쒗듃?ы듃 ?먮룞 留ㅽ븨 (?듭뀡)
             if (AutoScanCassetteOnInit)
             {
                 try
                 {
-                    Log("[INIT] InputCassette 자동 매핑 시작...");
+                    Log("[INIT] InputCassette ?먮룞 留ㅽ븨 ?쒖옉...");
                     bool mapped = await ScanInputCassetteAsync();
                     if (mapped)
                     {
                         int n = 0;
                         foreach (var b in _machine.InputLoader.WaferMap) if (b) n++;
-                        Log($"[INIT] WaferMap OK ({n}장 감지)");
+                        Log($"[INIT] WaferMap OK ({n}??媛먯?)");
                     }
                     else
                     {
-                        Log("[INIT] WaferMap 미수행 — 카세트 미감지 또는 스캔 실패");
+                        Log("[INIT] WaferMap 誘몄닔????移댁꽭??誘멸컧吏 ?먮뒗 ?ㅼ틪 ?ㅽ뙣");
                     }
                 }
                 catch (Exception ex)
                 {
-                    Log("[INIT] WaferMap 예외: " + ex.Message);
+                    Log("[INIT] WaferMap ?덉쇅: " + ex.Message);
                 }
 
-                // Stage 27 fix — Output 카세트 3개도 자동 스캔
-                //   _slotMap 을 25 슬롯으로 사이즈 초기화하여 StoreFullWafer 의
-                //   slotMap[target][slotIndex] = true 가 정상 기록되도록 함.
+                // Stage 27 fix ??Output 移댁꽭??3媛쒕룄 ?먮룞 ?ㅼ틪
+                //   _slotMap ??25 ?щ’?쇰줈 ?ъ씠利?珥덇린?뷀븯??StoreFullWafer ??
+                //   slotMap[target][slotIndex] = true 媛 ?뺤긽 湲곕줉?섎룄濡???
                 try
                 {
-                    Log("[INIT] OutputCassette 자동 매핑 시작...");
+                    Log("[INIT] OutputCassette ?먮룞 留ㅽ븨 ?쒖옉...");
                     bool oOk = await ScanOutputCassettesAsync();
-                    Log("[INIT] OutputCassette 매핑 " + (oOk ? "OK" : "FAILED"));
+                    Log("[INIT] OutputCassette 留ㅽ븨 " + (oOk ? "OK" : "FAILED"));
                 }
                 catch (Exception ex)
                 {
-                    Log("[INIT] OutputCassette 예외: " + ex.Message);
+                    Log("[INIT] OutputCassette ?덉쇅: " + ex.Message);
                 }
             }
 
-            // R3 — Input/Output 다이맵 생성 (이미 있으면 skip)
-            try { EnsureDieMaps(); } catch (Exception dmEx) { Log("[INIT] DieMap 생성 경고: " + dmEx.Message); }
+            // R3 ??Input/Output ?ㅼ씠留??앹꽦 (?대? ?덉쑝硫?skip)
+            try { EnsureDieMaps(); } catch (Exception dmEx) { Log("[INIT] DieMap ?앹꽦 寃쎄퀬: " + dmEx.Message); }
 
-            Log("[INIT] 초기화 완료. Ready.");
+            Log("[INIT] 珥덇린???꾨즺. Ready.");
             SetStatus(MachineStatus.Ready);
         }
 
-        /// <summary>시작: 서보 ON + 운전 준비 상태로 전환 (개별 모션은 수동 메뉴에서).</summary>
+        /// <summary>?쒖옉: ?쒕낫 ON + ?댁쟾 以鍮??곹깭濡??꾪솚 (媛쒕퀎 紐⑥뀡? ?섎룞 硫붾돱?먯꽌).</summary>
         public Task StartAsync()
         {
             foreach (var ax in EnumerateAxes()) ax.ServoOn();
-            Log("[START] 운전 준비.");
+            Log("[START] ?댁쟾 以鍮?");
             SetStatus(MachineStatus.Running);
             return Task.CompletedTask;
         }
 
-        /// <summary>정지: 현재 동작 중인 축 정지 + 서보 상태는 유지.
-        /// 진행 중 LOT 이 있으면 미진행 다이를 Skipped 카운트로 기록하고 LOT JSON 저장.</summary>
+        /// <summary>?뺤?: ?꾩옱 ?숈옉 以묒씤 異??뺤? + ?쒕낫 ?곹깭???좎?.
+        /// 吏꾪뻾 以?LOT ???덉쑝硫?誘몄쭊???ㅼ씠瑜?Skipped 移댁슫?몃줈 湲곕줉?섍퀬 LOT JSON ???</summary>
         public Task StopAsync()
         {
-            // 1) 모든 축 정지 (서보는 유지)
+            // 1) 紐⑤뱺 異??뺤? (?쒕낫???좎?)
             foreach (var ax in EnumerateAxes()) ax.Stop();
 
-            // 2) 사이클이 진행 중이라면 cancel — 실제 LOT 마무리는 CycleRunAsync 의
-            //    catch (OperationCanceledException) 에서 SkippedCount 와 함께 처리됨
+            // 2) ?ъ씠?댁씠 吏꾪뻾 以묒씠?쇰㈃ cancel ???ㅼ젣 LOT 留덈Т由щ뒗 CycleRunAsync ??
+            //    catch (OperationCanceledException) ?먯꽌 SkippedCount ? ?④퍡 泥섎━??
             bool wasCycling = (_status == MachineStatus.Cycling);
             _cycleCts?.Cancel();
 
-            // 3) 진행 상태 로그 강화 + LOT 마무리 (CloseLot)
+            // 3) 吏꾪뻾 ?곹깭 濡쒓렇 媛뺥솕 + LOT 留덈Т由?(CloseLot)
             var lot = QMC.CDT320.Lots.LotStorage.ActiveLot;
             if (wasCycling && lot != null)
             {
                 int skipped = System.Math.Max(0, CycleTotal - CycleDone);
                 lot.SkippedCount = skipped;
-                Log("[STOP] LOT=" + lot.LotID + " 마무리 중 (done=" + CycleDone + "/" + CycleTotal +
+                Log("[STOP] LOT=" + lot.LotID + " 留덈Т由?以?(done=" + CycleDone + "/" + CycleTotal +
                     ", good=" + GoodCount + ", ng=" + NgCount + ", skipped=" + skipped + ")");
                 try { QMC.CDT320.Lots.LotStorage.CloseLot(aborted: true); } catch { }
                 try { _machine.OpPanel?.TowerLampOff(); } catch { }
             }
             else
             {
-                Log("[STOP] 정지.");
+                Log("[STOP] ?뺤?.");
             }
             SetStatus(MachineStatus.Stopped);
             return Task.CompletedTask;
         }
 
-        /// <summary>CYCLE RUN: 자동 사이클 시작. 다이맵 모드(UseDieMapMode=true)일 때는
-        /// Input 다이맵의 IsTarget=true 다이를 모두 처리. totalDies&lt;=0 또는 다이맵 모드일 때는
-        /// EnsureDieMaps 의 활성 다이 수가 자동 적용됨.</summary>
-        /// <summary>지정한 옵션으로 병렬 시퀀스 Coordinator를 시작합니다.</summary>
+        /// <summary>CYCLE RUN: ?먮룞 ?ъ씠???쒖옉. ?ㅼ씠留?紐⑤뱶(UseDieMapMode=true)???뚮뒗
+        /// Input ?ㅼ씠留듭쓽 IsTarget=true ?ㅼ씠瑜?紐⑤몢 泥섎━. totalDies&lt;=0 ?먮뒗 ?ㅼ씠留?紐⑤뱶???뚮뒗
+        /// EnsureDieMaps ???쒖꽦 ?ㅼ씠 ?섍? ?먮룞 ?곸슜??</summary>
+        /// <summary>吏?뺥븳 ?듭뀡?쇰줈 蹂묐젹 ?쒗??Coordinator瑜??쒖옉?⑸땲??</summary>
         public async Task StartSequenceAsync(QMC.CDT320.Sequencing.SequenceRunOptions options)
         {
             if (_coordinatorTask != null && !_coordinatorTask.IsCompleted)
@@ -978,7 +978,7 @@ namespace QMC.CDT320
             if (options == null)
                 options = QMC.CDT320.Sequencing.SequenceRunOptions.FullAuto();
 
-            // Stage 01 — 시퀀스 실행 컨텍스트와 Coordinator를 새 실행 단위로 구성한다.
+            // Stage 01 ???쒗???ㅽ뻾 而⑦뀓?ㅽ듃? Coordinator瑜????ㅽ뻾 ?⑥쐞濡?援ъ꽦?쒕떎.
             _autoCts = new CancellationTokenSource();
             var bus = new QMC.CDT320.Sequencing.SequenceSignalBus();
             _seqContext = new QMC.CDT320.Sequencing.MachineSequenceContext(this, bus);
@@ -997,7 +997,7 @@ namespace QMC.CDT320
             });
         }
 
-        /// <summary>실행 중인 병렬 시퀀스를 중단하고 Coordinator 종료를 대기합니다.</summary>
+        /// <summary>?ㅽ뻾 以묒씤 蹂묐젹 ?쒗?ㅻ? 以묐떒?섍퀬 Coordinator 醫낅즺瑜??湲고빀?덈떎.</summary>
         public async Task StopSequenceAsync()
         {
             var coordinator = _coordinator;
@@ -1031,7 +1031,7 @@ namespace QMC.CDT320
             }
         }
 
-        /// <summary>지정한 유닛들을 Manual 모드로 시작합니다.</summary>
+        /// <summary>吏?뺥븳 ?좊떅?ㅼ쓣 Manual 紐⑤뱶濡??쒖옉?⑸땲??</summary>
         public Task StartManualAsync(QMC.CDT320.Sequencing.SequenceUnitKind units)
         {
             return StartSequenceAsync(new QMC.CDT320.Sequencing.SequenceRunOptions
@@ -1041,7 +1041,7 @@ namespace QMC.CDT320
             });
         }
 
-        /// <summary>지정한 단일 유닛을 지정 실행 모드로 시작합니다.</summary>
+        /// <summary>吏?뺥븳 ?⑥씪 ?좊떅??吏???ㅽ뻾 紐⑤뱶濡??쒖옉?⑸땲??</summary>
         public Task StartSingleUnitAsync(
             QMC.CDT320.Sequencing.SequenceUnitKind unit,
             QMC.CDT320.Sequencing.SequenceRunMode mode)
@@ -1049,12 +1049,12 @@ namespace QMC.CDT320
             return StartSequenceAsync(QMC.CDT320.Sequencing.SequenceRunOptions.Single(unit, mode));
         }
 
-        /// <summary>Manual 또는 Step 모드에서 지정 유닛을 1단계 진행시킵니다.</summary>
+        /// <summary>Manual ?먮뒗 Step 紐⑤뱶?먯꽌 吏???좊떅??1?④퀎 吏꾪뻾?쒗궢?덈떎.</summary>
         public void ManualStep(QMC.CDT320.Sequencing.SequenceUnitKind unit)
         {
             if (_coordinator == null)
             {
-                Log("[SEQ] ManualStep ignored: coordinator 없음");
+                Log("[SEQ] ManualStep ignored: coordinator ?놁쓬");
                 return;
             }
 
@@ -1063,29 +1063,29 @@ namespace QMC.CDT320
 
         public async Task CycleRunAsync(int totalDies = -1)
         {
-            if (_status == MachineStatus.Cycling) { Log("[CYCLE] 이미 실행 중"); return; }
-            // Ready/Running 외에도 Stopped 에서 재시작 허용 (CYCLE STOP 후 재개)
+            if (_status == MachineStatus.Cycling) { Log("[CYCLE] already running"); return; }
+            // Ready/Running ?몄뿉??Stopped ?먯꽌 ?ъ떆???덉슜 (CYCLE STOP ???ш컻)
             if (_status != MachineStatus.Ready &&
                 _status != MachineStatus.Running &&
                 _status != MachineStatus.Stopped)
             {
-                Log("[CYCLE] 실행 전 초기화 필요 (status=" + _status + ")");
+                Log("[CYCLE] ?ㅽ뻾 ??珥덇린???꾩슂 (status=" + _status + ")");
                 return;
             }
             if (_status == MachineStatus.Stopped)
             {
-                Log("[CYCLE] Stopped 상태에서 재개");
-                // CYCLE STOP / STOP 은 Servo OFF 시키지 않음 — Servo 재시작 불필요
+                Log("[CYCLE] Stopped ?곹깭?먯꽌 ?ш컻");
+                // CYCLE STOP / STOP ? Servo OFF ?쒗궎吏 ?딆쓬 ??Servo ?ъ떆??遺덊븘??
             }
 
-            // R3 — 다이맵 모드: Input 다이맵의 활성 다이 수를 totalDies 로 사용
+            // R3 ???ㅼ씠留?紐⑤뱶: Input ?ㅼ씠留듭쓽 ?쒖꽦 ?ㅼ씠 ?섎? totalDies 濡??ъ슜
             try { EnsureDieMaps(); } catch { }
             if (UseDieMapMode && _inputDieMap != null)
             {
                 int active = 0;
                 foreach (var e in _inputDieMap.Entries) if (e.IsTarget) active++;
                 if (totalDies <= 0 || totalDies > active) totalDies = active;
-                Log("[CYCLE] DieMap 모드 — Input wafer 활성 다이 " + active + " 중 " + totalDies + "개 처리");
+                Log("[CYCLE] DieMap 紐⑤뱶 ??Input wafer ?쒖꽦 ?ㅼ씠 " + active + " 以?" + totalDies + "媛?泥섎━");
             }
             else if (totalDies <= 0)
             {
@@ -1093,59 +1093,59 @@ namespace QMC.CDT320
             }
             _cycleCts = new CancellationTokenSource();
             CycleTotal = totalDies; CycleDone = 0; GoodCount = 0; NgCount = 0;
-            // Lot 자동 시작
+            // Lot ?먮룞 ?쒖옉
             string lotId = "LOT-" + DateTime.Now.ToString("yyyyMMdd-HHmmss");
             LotStorage.OpenLot(lotId, "default", totalDies);
             SetStatus(MachineStatus.Cycling);
-            Log("[CYCLE] 시작 (total=" + totalDies + ", lot=" + lotId + ")");
+            Log("[CYCLE] ?쒖옉 (total=" + totalDies + ", lot=" + lotId + ")");
 
-            // Stage 41 — SECS/HSMS 사이클 시작 이벤트
+            // Stage 41 ??SECS/HSMS ?ъ씠???쒖옉 ?대깽??
             try { SecsHost?.RaiseEvent("CycleStart", lotId, totalDies.ToString()); } catch { }
 
-            // Stage 45 — Tower Lamp 녹색 (운전 중)
+            // Stage 45 ??Tower Lamp ?뱀깋 (?댁쟾 以?
             try { _machine.OpPanel?.TowerLampRunning(); } catch { }
 
             try
             {
-                // 사이클 시작 — 첫 웨이퍼 로트포트 진입
+                // ?ъ씠???쒖옉 ??泥??⑥씠??濡쒗듃?ы듃 吏꾩엯
                 bool loaded = await LoadNextWaferAsync();
                 if (!loaded)
                 {
-                    Log("[CYCLE] 로트포트 첫 웨이퍼 로드 실패 — 사이클 진행 (텔레포트 모드)");
+                    Log("[CYCLE] 濡쒗듃?ы듃 泥??⑥씠??濡쒕뱶 ?ㅽ뙣 ???ъ씠??吏꾪뻾 (?붾젅?ы듃 紐⑤뱶)");
                 }
 
-                // 한 사이클 = PickersPerCycle 개 다이 동시 처리 (4 picker 동시)
+                // ???ъ씠??= PickersPerCycle 媛??ㅼ씠 ?숈떆 泥섎━ (4 picker ?숈떆)
                 int pickers = System.Math.Min(System.Math.Max(PickersPerCycle, 1), 4);
                 int totalCycles = (totalDies + pickers - 1) / pickers;
-                Log("[CYCLE] " + totalCycles + " cycles × " + pickers + " pickers = " + totalDies + " dies");
+                Log("[CYCLE] " + totalCycles + " cycles 횞 " + pickers + " pickers = " + totalDies + " dies");
 
                 for (int cyc = 0; cyc < totalCycles; cyc++)
                 {
                     if (_cycleCts.Token.IsCancellationRequested) break;
                     int dieBase = cyc * pickers;
                     int diesInCycle = System.Math.Min(pickers, totalDies - dieBase);
-                    await DoOneDieAsync(cyc, totalCycles, _cycleCts.Token);  // 사이클 인덱스 + total 전달
+                    await DoOneDieAsync(cyc, totalCycles, _cycleCts.Token);  // ?ъ씠???몃뜳??+ total ?꾨떖
                     CycleDone = System.Math.Min(totalDies, (cyc + 1) * pickers);
                     RaiseProgress();
-                    // R3 — Manual 모드: 1 사이클 처리 후 자동 정지
+                    // R3 ??Manual 紐⑤뱶: 1 ?ъ씠??泥섎━ ???먮룞 ?뺤?
                     if (CycleMode == CycleMode.Manual)
                     {
-                        Log("[CYCLE] Manual 모드 — 1 사이클 처리 후 정지 (done=" + CycleDone + ")");
+                        Log("[CYCLE] Manual 紐⑤뱶 ??1 ?ъ씠??泥섎━ ???뺤? (done=" + CycleDone + ")");
                         break;
                     }
                 }
 
-                // 사이클 종료 — 피더 후퇴
+                // ?ъ씠??醫낅즺 ???쇰뜑 ?꾪눜
                 await RetractCurrentWaferAsync();
 
-                // Stage 28 — InputStage 웨이퍼 언로드
+                // Stage 28 ??InputStage ?⑥씠???몃줈??
                 await UnloadInputStageWaferAsync();
 
-                Log("[CYCLE] 완료 (good=" + GoodCount + ", ng=" + NgCount + ")");
+                Log("[CYCLE] ?꾨즺 (good=" + GoodCount + ", ng=" + NgCount + ")");
                 LotStorage.CloseLot(aborted: false);
-                // Stage 45 — Tower Lamp OFF (사이클 정상 완료)
+                // Stage 45 ??Tower Lamp OFF (?ъ씠???뺤긽 ?꾨즺)
                 try { _machine.OpPanel?.TowerLampOff(); } catch { }
-                // Stage 41 — SECS/HSMS 사이클 완료 이벤트 (Yield 포함)
+                // Stage 41 ??SECS/HSMS ?ъ씠???꾨즺 ?대깽??(Yield ?ы븿)
                 try
                 {
                     double yield = totalDies > 0 ? (double)GoodCount / totalDies * 100 : 0;
@@ -1157,14 +1157,14 @@ namespace QMC.CDT320
             }
             catch (OperationCanceledException)
             {
-                // Skipped 카운트 = 시작 시 totalDies - 실제 처리된 ProcessedDies
+                // Skipped 移댁슫??= ?쒖옉 ??totalDies - ?ㅼ젣 泥섎━??ProcessedDies
                 int skipped = System.Math.Max(0, totalDies - CycleDone);
                 if (LotStorage.ActiveLot != null)
                 {
                     LotStorage.ActiveLot.SkippedCount = skipped;
                 }
-                Log("[CYCLE] 중단 (good=" + GoodCount + ", ng=" + NgCount + ", skipped=" + skipped + ")");
-                // Tower Lamp OFF (사이클 중단)
+                Log("[CYCLE] 以묐떒 (good=" + GoodCount + ", ng=" + NgCount + ", skipped=" + skipped + ")");
+                // Tower Lamp OFF (?ъ씠??以묐떒)
                 try { _machine.OpPanel?.TowerLampOff(); } catch { }
                 LotStorage.CloseLot(aborted: true);
                 SetStatus(MachineStatus.Stopped);
@@ -1178,45 +1178,45 @@ namespace QMC.CDT320
             }
         }
 
-        /// <summary>CYCLE STOP: 현재 사이클만 중단. 개별 축 정지 없음.</summary>
+        /// <summary>CYCLE STOP: ?꾩옱 ?ъ씠?대쭔 以묐떒. 媛쒕퀎 異??뺤? ?놁쓬.</summary>
         public Task CycleStopAsync()
         {
             if (_cycleCts != null)
             {
                 _cycleCts.Cancel();
-                Log("[CYCLE STOP] 요청됨");
+                Log("[CYCLE STOP] requested");
             }
             return Task.CompletedTask;
         }
 
-        // ──────────────────────────────────────────
-        //  사이클 1회 분 동작 (간단 시뮬)
-        // ──────────────────────────────────────────
+        // ??????????????????????????????????????????
+        //  ?ъ씠??1??遺??숈옉 (媛꾨떒 ?쒕?)
+        // ??????????????????????????????????????????
 
-        /// <summary>한 웨이퍼당 가공할 다이 수. 1400 = 300mm 웨이퍼 한 장 처리 후 다음 슬롯.</summary>
+        /// <summary>???⑥씠?쇰떦 媛怨듯븷 ?ㅼ씠 ?? 1400 = 300mm ?⑥씠??????泥섎━ ???ㅼ쓬 ?щ’.</summary>
         public int DiesPerWafer { get; set; } = 1400;
 
-        /// <summary>Stage 33 — 매 N 다이마다 Collet Cleaning 시퀀스 (0이면 비활성).</summary>
+        /// <summary>Stage 33 ??留?N ?ㅼ씠留덈떎 Collet Cleaning ?쒗??(0?대㈃ 鍮꾪솢??.</summary>
         public int DiesPerColletClean { get; set; } = 200;
 
-        /// <summary>Stage 39 — 한 번에 동시 픽업할 picker 수 (1~4). 4 picker 동시 처리.</summary>
+        /// <summary>Stage 39 ????踰덉뿉 ?숈떆 ?쎌뾽??picker ??(1~4). 4 picker ?숈떆 泥섎━.</summary>
         public int PickersPerCycle { get; set; } = 4;
 
-        /// <summary>Stage 40 — Dual Arm 모드: 짝수 다이는 LeftArm, 홀수 다이는 RightArm 으로 교대.</summary>
+        /// <summary>Stage 40 ??Dual Arm 紐⑤뱶: 吏앹닔 ?ㅼ씠??LeftArm, ????ㅼ씠??RightArm ?쇰줈 援먮?.</summary>
         public bool DualArmMode { get; set; } = false;
 
-        /// <summary>Stage 41 — SecsHost 참조 (사이클 이벤트 송신용).</summary>
+        /// <summary>Stage 41 ??SecsHost 李몄“ (?ъ씠???대깽???≪떊??.</summary>
         public QMC.CDT320.Secs.SecsHost SecsHost { get; set; }
 
         /// <summary>
-        /// 한 사이클 = PickersPerCycle (default 4) 개 다이 동시 처리.
-        /// 인자 cycleIdx 는 사이클 번호 (0..totalCycles-1). 실제 다이 번호는 cycleIdx*pickers ~ cycleIdx*pickers+pickers-1.
+        /// ???ъ씠??= PickersPerCycle (default 4) 媛??ㅼ씠 ?숈떆 泥섎━.
+        /// ?몄옄 cycleIdx ???ъ씠??踰덊샇 (0..totalCycles-1). ?ㅼ젣 ?ㅼ씠 踰덊샇??cycleIdx*pickers ~ cycleIdx*pickers+pickers-1.
         /// </summary>
-        // ──────────────────────────────────────────
-        //  Stage 61 — 파이프라인 wafer 비전 촬영 헬퍼
-        //  cycleIdx 의 4 다이를 카메라로 촬영, 마지막에 CameraZ 안전 위치 상승.
-        //  ArmY 가 픽업 영역 외부에 있을 때 (= 다른 사이클의 Inspect/Place 진행 중) 호출.
-        // ──────────────────────────────────────────
+        // ??????????????????????????????????????????
+        //  Stage 61 ???뚯씠?꾨씪??wafer 鍮꾩쟾 珥ъ쁺 ?ы띁
+        //  cycleIdx ??4 ?ㅼ씠瑜?移대찓?쇰줈 珥ъ쁺, 留덉?留됱뿉 CameraZ ?덉쟾 ?꾩튂 ?곸듅.
+        //  ArmY 媛 ?쎌뾽 ?곸뿭 ?몃????덉쓣 ??(= ?ㅻⅨ ?ъ씠?댁쓽 Inspect/Place 吏꾪뻾 以? ?몄텧.
+        // ??????????????????????????????????????????
         private async Task<(double X, double Y)[]> CaptureWaferForCycleAsync(
             int cycleIdx, int pickers, CancellationToken ct)
         {
@@ -1226,7 +1226,7 @@ namespace QMC.CDT320
 
             try { stage.CameraX?.ServoOn(); stage.CameraZ?.ServoOn(); stage.StageY?.ServoOn(); } catch { }
 
-            // 1) CameraZ → 포커스 위치 (다이 표면)
+            // 1) CameraZ ???ъ빱???꾩튂 (?ㅼ씠 ?쒕㈃)
             try
             {
                 await stage.CameraZ.MoveAbsoluteAsync(
@@ -1238,7 +1238,7 @@ namespace QMC.CDT320
                       && VisionComm.VisionHub.Wafer.IsConnected;
             int seqLen = _inputPickupSequence?.Count ?? 0;
 
-            Log($"[CAPTURE] Cycle {cycleIdx + 1} — {pickers} die 촬영 시작 (dieBase={dieBase})");
+            Log($"[CAPTURE] Cycle {cycleIdx + 1} ??{pickers} die 珥ъ쁺 ?쒖옉 (dieBase={dieBase})");
 
             for (int p = 0; p < pickers; p++)
             {
@@ -1246,13 +1246,13 @@ namespace QMC.CDT320
                 int seqIdx = dieBase + p;
                 if (seqIdx < 0 || seqIdx >= seqLen)
                 {
-                    Log($"[CAPTURE p{p}] seqIdx {seqIdx} out of range (seqLen={seqLen}) — skip");
+                    Log($"[CAPTURE p{p}] seqIdx {seqIdx} out of range (seqLen={seqLen}) ??skip");
                     offsets[p] = (0, 0);
                     continue;
                 }
                 var d = _inputPickupSequence[seqIdx];
 
-                // 카메라 X / 웨이퍼 Stage Y 동시 이동 (각 die 의 X,Y 에 정렬)
+                // 移대찓??X / ?⑥씠??Stage Y ?숈떆 ?대룞 (媛?die ??X,Y ???뺣젹)
                 //   CameraX  = CameraOriginX + WaferAlignOffsetX + die.X
                 //   StageY   = StageYTeachPosition + WaferAlignOffsetY + die.Y
                 double camXTarget = stage.Setup.CameraOriginX
@@ -1271,12 +1271,12 @@ namespace QMC.CDT320
                 catch (Exception ex) { Log($"[CAPTURE-XY p{p}] ex: " + ex.Message); }
 
                 Log($"[CAPTURE p{p}] Die seq#{seqIdx} grid({d.GridX},{d.GridY}) " +
-                    $"wafer({d.X:F2},{d.Y:F2}) → CamX={camXTarget:F2}, StageY={stageYTarget:F2}");
+                    $"wafer({d.X:F2},{d.Y:F2}) ??CamX={camXTarget:F2}, StageY={stageYTarget:F2}");
 
                 if (!wafer)
                 {
                     offsets[p] = (0, 0);
-                    // wafer 미연결이어도 simulator 플래시는 송신 (시각 확인용)
+                    // wafer 誘몄뿰寃곗씠?대룄 simulator ?뚮옒?쒕뒗 ?≪떊 (?쒓컖 ?뺤씤??
                     SimulatorBridge.Instance?.CameraExposeFlash("WAFER");
                     await Task.Delay(200, ct).ContinueWith(_ => { });
                     continue;
@@ -1296,7 +1296,7 @@ namespace QMC.CDT320
                     else
                     {
                         offsets[p] = (0, 0);
-                        Log($"[CAPTURE p{p}] NG match (score={m.Score:F2}) — offset 0");
+                        Log($"[CAPTURE p{p}] NG match (score={m.Score:F2}) ??offset 0");
                     }
                 }
                 catch (Exception ex)
@@ -1305,11 +1305,11 @@ namespace QMC.CDT320
                     Log($"[CAPTURE p{p}] vision ex: " + ex.Message);
                 }
 
-                // 다음 다이로 가기 전 150ms 대기 — 플래시가 시각적으로 4번 구분되도록
+                // ?ㅼ쓬 ?ㅼ씠濡?媛湲???150ms ?湲????뚮옒?쒓? ?쒓컖?곸쑝濡?4踰?援щ텇?섎룄濡?
                 await Task.Delay(150, ct).ContinueWith(_ => { });
             }
 
-            // 2) CameraZ → 안전 위치 (이 위치까지 상승해야 ArmY 가 진입 가능)
+            // 2) CameraZ ???덉쟾 ?꾩튂 (???꾩튂源뚯? ?곸듅?댁빞 ArmY 媛 吏꾩엯 媛??
             try
             {
                 await stage.CameraZ.MoveAbsoluteAsync(
@@ -1317,7 +1317,7 @@ namespace QMC.CDT320
             }
             catch (Exception ex) { Log("[CAPTURE-Z] safe retract ex: " + ex.Message); }
 
-            Log($"[CAPTURE] Cycle {cycleIdx + 1} 촬영 완료 — CameraZ 안전 위치 도달");
+            Log($"[CAPTURE] Cycle {cycleIdx + 1} 珥ъ쁺 ?꾨즺 ??CameraZ ?덉쟾 ?꾩튂 ?꾨떖");
             return offsets;
         }
 
@@ -1325,9 +1325,9 @@ namespace QMC.CDT320
         {
             int pickers = System.Math.Min(System.Math.Max(PickersPerCycle, 1), 4);
             int dieBase = cycleIdx * pickers;
-            int index = dieBase;   // 기존 코드 호환 (첫 다이 번호)
+            int index = dieBase;   // 湲곗〈 肄붾뱶 ?명솚 (泥??ㅼ씠 踰덊샇)
 
-            // StepRun 게이트 — 사용자 콜백 false 면 사이클 종료
+            // StepRun 寃뚯씠?????ъ슜??肄쒕갚 false 硫??ъ씠??醫낅즺
             if (StepRun && StepRunGate != null)
             {
                 Log($"[STEPRUN] waiting for user gate (cycle {cycleIdx + 1})...");
@@ -1335,25 +1335,25 @@ namespace QMC.CDT320
                 try { proceed = StepRunGate.Invoke(cycleIdx); } catch { }
                 if (!proceed)
                 {
-                    Log($"[STEPRUN] user denied — stopping cycle");
+                    Log($"[STEPRUN] user denied ??stopping cycle");
                     throw new OperationCanceledException("StepRun gate denied");
                 }
             }
 
-            // Stage 26 — 매 DiesPerWafer 마다 다음 카세트 슬롯 진행
-            //   cycleIdx == 0 은 CycleRunAsync 에서 LoadNextWaferAsync 이미 호출했으므로 스킵
+            // Stage 26 ??留?DiesPerWafer 留덈떎 ?ㅼ쓬 移댁꽭???щ’ 吏꾪뻾
+            //   cycleIdx == 0 ? CycleRunAsync ?먯꽌 LoadNextWaferAsync ?대? ?몄텧?덉쑝誘濡??ㅽ궢
             if (dieBase > 0 && DiesPerWafer > 0 && dieBase % DiesPerWafer == 0 && InputWaferAtExchange)
             {
-                Log($"[LOTPORT] {DiesPerWafer} 다이 완료 — 다음 슬롯으로 진행");
+                Log($"[LOTPORT] {DiesPerWafer} ?ㅼ씠 ?꾨즺 ???ㅼ쓬 ?щ’?쇰줈 吏꾪뻾");
                 await RetractCurrentWaferAsync();
                 bool nextOk = await LoadNextWaferAsync();
                 if (!nextOk)
                 {
-                    Log("[LOTPORT] 다음 웨이퍼 없음 — 사이클은 텔레포트로 계속");
+                    Log("[LOTPORT] ?ㅼ쓬 ?⑥씠???놁쓬 ???ъ씠?댁? ?붾젅?ы듃濡?怨꾩냽");
                 }
             }
 
-            // ── 4 다이 객체 생성 + 머터리얼 등록 + JobOrder ──
+            // ?? 4 ?ㅼ씠 媛앹껜 ?앹꽦 + 癒명꽣由ъ뼹 ?깅줉 + JobOrder ??
             var dies = new Die[pickers];
             var pickJobs = new JobOrder[pickers];
             for (int p = 0; p < pickers; p++)
@@ -1364,16 +1364,16 @@ namespace QMC.CDT320
                 JobQueue.Enqueue(pickJobs[p]);
                 JobQueue.MarkRunning(pickJobs[p]);
             }
-            // 대표 1개 (로그/통계 용)
+            // ???1媛?(濡쒓렇/?듦퀎 ??
             var die = dies[0];
             var pickJob = pickJobs[0];
 
-            // Stage 28/61 — DieMap 모드 + 픽업 시퀀스 옵션 적용
-            //   PickupSequenceGenerator 가 만든 정렬된 시퀀스에서 dieBase ~ dieBase+pickers-1 슬라이스
+            // Stage 28/61 ??DieMap 紐⑤뱶 + ?쎌뾽 ?쒗???듭뀡 ?곸슜
+            //   PickupSequenceGenerator 媛 留뚮뱺 ?뺣젹???쒗?ㅼ뿉??dieBase ~ dieBase+pickers-1 ?щ씪?댁뒪
             int row, col;
             if (UseDieMapMode && _inputDieMap != null)
             {
-                // 시퀀스가 비어 있으면 (옵션 변경 후 RebuildPickupSequence 미호출 등) 재생성
+                // ?쒗?ㅺ? 鍮꾩뼱 ?덉쑝硫?(?듭뀡 蹂寃???RebuildPickupSequence 誘명샇異??? ?ъ깮??
                 if (_inputPickupSequence == null || _inputPickupSequence.Count == 0)
                     RebuildPickupSequence();
 
@@ -1388,7 +1388,7 @@ namespace QMC.CDT320
                     dies[i].X     = e.X;
                     dies[i].Y     = e.Y;
                 }
-                // InputStage 이동은 대표 다이 (첫 picker) 기준
+                // InputStage ?대룞? ????ㅼ씠 (泥?picker) 湲곗?
                 row = dies[0].WaferIndeY;
                 col = dies[0].WaferIndexX;
             }
@@ -1400,25 +1400,25 @@ namespace QMC.CDT320
             }
             await MoveInputStageToDieAsync(row, col);
 
-            // Stage 40 — Dual Arm 모드: 짝수 idx 는 LeftArm, 홀수 idx 는 RightArm
+            // Stage 40 ??Dual Arm 紐⑤뱶: 吏앹닔 idx ??LeftArm, ???idx ??RightArm
             var front = (DualArmMode && (index % 2 == 1))
                         ? _machine.TransferPicker.RightArm
                         : _machine.TransferPicker.LeftArm;
 
             front.ArmX.ServoOn();
             front.ArmY.ServoOn();
-            // 4 picker 모두 ServoOn (PickerZ + PickerT)
+            // 4 picker 紐⑤몢 ServoOn (PickerZ + PickerT)
             for (int p = 0; p < pickers; p++)
             {
                 front.Pickers[p].PickerZ.ServoOn();
                 front.Pickers[p].PickerT.ServoOn();
             }
 
-            // Stage 58 — 운영 통계: Front collet + Needle 4 picker 사용
+            // Stage 58 ???댁쁺 ?듦퀎: Front collet + Needle 4 picker ?ъ슜
             Collet1UseCount += pickers;
             NeedleUseCount  += pickers;
 
-            // 변수 선언 + Servo ON
+            // 蹂???좎뼵 + Servo ON
             bool[] pickupOk = new bool[pickers];
             bool[] inspPass = new bool[pickers];
             var dieOffsets    = new (double X, double Y)[pickers];
@@ -1433,11 +1433,11 @@ namespace QMC.CDT320
             stage.CameraX?.ServoOn();
             stage.CameraZ?.ServoOn();
 
-            // ── Stage 61 — 파이프라인 wafer 비전 결과 수신 ──────────────────
-            //   1) ArmY → AvoidPosition (wafer 영역 외부 대기)
-            //   2) Pending capture 있으면 await — 없으면 동기 캡처
-            //   3) await 끝 시점 = 촬영 완료 + CameraZ 안전 위치 도달
-            //   4) ArmY → PickupPosition + ArmX → ArmInputPositionX 동시 진입
+            // ?? Stage 61 ???뚯씠?꾨씪??wafer 鍮꾩쟾 寃곌낵 ?섏떊 ??????????????????
+            //   1) ArmY ??AvoidPosition (wafer ?곸뿭 ?몃? ?湲?
+            //   2) Pending capture ?덉쑝硫?await ???놁쑝硫??숆린 罹≪쿂
+            //   3) await ???쒖젏 = 珥ъ쁺 ?꾨즺 + CameraZ ?덉쟾 ?꾩튂 ?꾨떖
+            //   4) ArmY ??PickupPosition + ArmX ??ArmInputPositionX ?숈떆 吏꾩엯
             try
             {
                 await front.ArmY.MoveAbsoluteAsync(
@@ -1448,14 +1448,14 @@ namespace QMC.CDT320
             (double X, double Y)[] capturedOffsets;
             if (_pendingCaptureTask != null && _pendingCaptureCycleIdx == cycleIdx)
             {
-                Log($"[PIPELINE] Cycle {cycleIdx + 1} — 사전 wafer capture 대기 중...");
+                Log($"[PIPELINE] Cycle {cycleIdx + 1} ???ъ쟾 wafer capture ?湲?以?..");
                 capturedOffsets = await _pendingCaptureTask;
                 _pendingCaptureTask = null;
                 _pendingCaptureCycleIdx = -1;
             }
             else
             {
-                Log($"[PIPELINE] Cycle {cycleIdx + 1} — 동기 wafer capture (첫 사이클 또는 desync)");
+                Log($"[PIPELINE] Cycle {cycleIdx + 1} ???숆린 wafer capture (泥??ъ씠???먮뒗 desync)");
                 capturedOffsets = await CaptureWaferForCycleAsync(cycleIdx, pickers, ct);
             }
 
@@ -1466,7 +1466,7 @@ namespace QMC.CDT320
                 dieOffsets[p].Y += visionOffsets[p].Y;
             }
 
-            // 8) ArmY → Pickup + ArmX → ArmInputPositionX (CameraZ 가 안전 위치에 있는 시점)
+            // 8) ArmY ??Pickup + ArmX ??ArmInputPositionX (CameraZ 媛 ?덉쟾 ?꾩튂???덈뒗 ?쒖젏)
             double pickX = front.Setup?.ArmInputPositionX ?? 300.0;
             try
             {
@@ -1485,7 +1485,7 @@ namespace QMC.CDT320
             }
             ct.ThrowIfCancellationRequested();
 
-            // ── B. PICK 루프 (picker 0→3 순차) ────────────────────────────────
+            // ?? B. PICK 猷⑦봽 (picker 0?? ?쒖감) ????????????????????????????????
             for (int p = 0; p < pickers; p++)
             {
                 if (!inspPass[p]) { pickupOk[p] = false; continue; }  // vision NG picker skip
@@ -1495,7 +1495,7 @@ namespace QMC.CDT320
                 var vo     = visionOffsets[p];
                 try
                 {
-                    // ① 3축 동시 이동
+                    // ??3異??숈떆 ?대룞
                     double armXTarget =
                         front.Setup.ArmInputPositionX
                         + p * front.Setup.PickerPitchX
@@ -1519,7 +1519,7 @@ namespace QMC.CDT320
                         stage.NeedleBlockX.MoveAbsoluteAsync(needleXTarget, stage.Recipe.MoveVelocity)
                     );
 
-                    // ② Picker Z↓ (PickupPosition) / Needle Cap Vacuum ON / Picker Vacuum ON 동시
+                    // ??Picker Z??(PickupPosition) / Needle Cap Vacuum ON / Picker Vacuum ON ?숈떆
                     var pickerZTask = picker.PickerZ.MoveAbsoluteAsync(
                         picker.Setup.PickupPosition, picker.Recipe.ZVelocity);
                     stage.NeedleVacuum?.On();
@@ -1527,7 +1527,7 @@ namespace QMC.CDT320
                     await pickerZTask;
                     await Task.Delay(picker.Recipe.VacuumSettleMs, ct);
 
-                    // ③ Needle Up / Picker Up (+PickLiftPosition) 동시
+                    // ??Needle Up / Picker Up (+PickLiftPosition) ?숈떆
                     double needleUpPos = stage.Setup.NeedleDownPosition + picker.Recipe.PickLiftPosition;
                     double pickerUpPos = picker.Setup.PickupPosition    + picker.Recipe.PickLiftPosition;
                     await Task.WhenAll(
@@ -1535,10 +1535,10 @@ namespace QMC.CDT320
                         picker.PickerZ.MoveAbsoluteAsync(pickerUpPos, picker.Recipe.ZVelocity)
                     );
 
-                    // ④ PickLiftWaitMs 대기
+                    // ??PickLiftWaitMs ?湲?
                     await Task.Delay(picker.Recipe.PickLiftWaitMs, ct);
 
-                    // ⑤ Picker Wait (WaitPosition) / Needle Down (NeedleDownPosition) 동시
+                    // ??Picker Wait (WaitPosition) / Needle Down (NeedleDownPosition) ?숈떆
                     await Task.WhenAll(
                         picker.PickerZ.MoveAbsoluteAsync(picker.Setup.WaitPosition, picker.Recipe.ZVelocity),
                         ej.MoveAbsoluteAsync(stage.Setup.NeedleDownPosition, stage.Recipe.NeedleVelocity)
@@ -1552,7 +1552,7 @@ namespace QMC.CDT320
                     pickupOk[p] = false;
                 }
             }
-            // Needle Cap Vacuum 은 picker 들이 다이를 잡은 후에도 필요 — 사이클 끝에 OFF
+            // Needle Cap Vacuum ? picker ?ㅼ씠 ?ㅼ씠瑜??≪? ?꾩뿉???꾩슂 ???ъ씠???앹뿉 OFF
             int okPick = 0; foreach (var ok in pickupOk) if (ok) okPick++;
             Log($"[TPU] Pickup {okPick}/{pickers} ok (cycle {cycleIdx + 1})");
             if (okPick == 0)
@@ -1565,15 +1565,15 @@ namespace QMC.CDT320
                 return;
             }
 
-            // PICK 후 — Pickup 실패한 picker 만 inspPass[p] = false 반영
+            // PICK ????Pickup ?ㅽ뙣??picker 留?inspPass[p] = false 諛섏쁺
             for (int p = 0; p < pickers; p++)
                 if (!pickupOk[p]) inspPass[p] = false;
 
-            // ── Stage 61 — ArmY 는 Place 끝날 때까지 Pickup 위치 유지 ──
-            //   (Place 후에 명시적으로 Avoid 로 이동 — 이전의 "PICK 후 Avoid" 제거)
-            //   wafer capture 는 ArmX 가 InspectionX 로 이동하는 동안 안전하게 wafer 영역 접근 가능.
+            // ?? Stage 61 ??ArmY ??Place ?앸궇 ?뚭퉴吏 Pickup ?꾩튂 ?좎? ??
+            //   (Place ?꾩뿉 紐낆떆?곸쑝濡?Avoid 濡??대룞 ???댁쟾??"PICK ??Avoid" ?쒓굅)
+            //   wafer capture ??ArmX 媛 InspectionX 濡??대룞?섎뒗 ?숈븞 ?덉쟾?섍쾶 wafer ?곸뿭 ?묎렐 媛??
 
-            // 다음 사이클이 존재하면 wafer capture 시작 (non-await — Inspect/Place 와 병렬)
+            // ?ㅼ쓬 ?ъ씠?댁씠 議댁옱?섎㈃ wafer capture ?쒖옉 (non-await ??Inspect/Place ? 蹂묐젹)
             int nextCycleIdx = cycleIdx + 1;
             if (nextCycleIdx < totalCycles)
             {
@@ -1581,14 +1581,14 @@ namespace QMC.CDT320
                 _pendingCaptureCycleIdx = nextCycleIdx;
                 _pendingCapturePickers  = npickers;
                 _pendingCaptureTask = CaptureWaferForCycleAsync(nextCycleIdx, npickers, ct);
-                Log($"[PIPELINE] Cycle {nextCycleIdx + 1} wafer capture 백그라운드 시작");
+                Log($"[PIPELINE] Cycle {nextCycleIdx + 1} wafer capture 諛깃렇?쇱슫???쒖옉");
             }
 
-            // 14~18) Bottom+Side 병렬 파이프라인 (단일 ArmX 파이프라인 내 동시 촬영)
-            //   - 좌표 모델: picker N abs X = ArmX - N*PickerPitchX (Side1X = SideVision1X = 850)
+            // 14~18) Bottom+Side 蹂묐젹 ?뚯씠?꾨씪??(?⑥씪 ArmX ?뚯씠?꾨씪?????숈떆 珥ъ쁺)
+            //   - 醫뚰몴 紐⑤뜽: picker N abs X = ArmX - N*PickerPitchX (Side1X = SideVision1X = 850)
             //   - Step 0~3 = Bottom Expose Picker 0~3 (ArmX = ArmInspectionPositionX + i*pitch)
-            //   - Step 2~5 = Side sub-sequence Picker 0~3 (ArmX 동일 위치에서 picker[idx-2] 가 Side X 정렬)
-            //   - 각 picker Z↓ 는 Bottom 직전, Z↑ 는 Side 끝에서 발생.
+            //   - Step 2~5 = Side sub-sequence Picker 0~3 (ArmX ?숈씪 ?꾩튂?먯꽌 picker[idx-2] 媛 Side X ?뺣젹)
+            //   - 媛?picker Z????Bottom 吏곸쟾, Z????Side ?앹뿉??諛쒖깮.
             BottomVisionOffset[] bottomResults = null;
             SideVisionResult[]   sideResults   = null;
             bool visionConnected = VisionComm.VisionHub.Inspection != null
@@ -1599,14 +1599,14 @@ namespace QMC.CDT320
                 {
                     if (front.SideVisionY != null) front.SideVisionY.ServoOn();
 
-                    Log("[VISION] Bottom+Side 병렬 파이프라인 시작 (4 picker)...");
+                    Log("[VISION] Bottom+Side 蹂묐젹 ?뚯씠?꾨씪???쒖옉 (4 picker)...");
                     var both = await front.InspectBottomAndSideAsync(DieSizeXMm, DieSizeYMm);
                     if (both != null)
                     {
                         bottomResults = both.Item1;
                         sideResults   = both.Item2;
 
-                        // Bottom 결과 → picker offset / inspPass 반영
+                        // Bottom 寃곌낵 ??picker offset / inspPass 諛섏쁺
                         if (bottomResults != null)
                         {
                             for (int p = 0; p < pickers && p < bottomResults.Length; p++)
@@ -1621,7 +1621,7 @@ namespace QMC.CDT320
                             Log($"[VISION] Bottom {okCnt}/{pickers} ok");
                         }
 
-                        // Side 결과 → inspPass 반영
+                        // Side 寃곌낵 ??inspPass 諛섏쁺
                         if (sideResults != null)
                         {
                             for (int p = 0; p < pickers && p < sideResults.Length; p++)
@@ -1637,12 +1637,12 @@ namespace QMC.CDT320
                 }
                 else
                 {
-                    Log("[VISION] Inspection 미연결 — Bottom/Side 검사 sim 패스");
+                    Log("[VISION] Inspection 誘몄뿰寃???Bottom/Side 寃??sim ?⑥뒪");
                 }
             }
             catch (Exception ex) { Log("[VISION] Bottom+Side ex: " + ex.Message); }
 
-            // 19) PLACE 위치 이동 — ArmX 동시에 4 picker Z 도 대기 위치 (Side 검사 후 들어 올림)
+            // 19) PLACE ?꾩튂 ?대룞 ??ArmX ?숈떆??4 picker Z ???湲??꾩튂 (Side 寃?????ㅼ뼱 ?щ┝)
             double placeArmX = front.Setup?.ArmOutputPositionX ?? 1200.0;
             try
             {
@@ -1658,7 +1658,7 @@ namespace QMC.CDT320
             catch (Exception ex) { Log("[PLACE] 19) move ex: " + ex.Message); }
             ct.ThrowIfCancellationRequested();
 
-            // ── PlaceOnePickerAsync : picker p 를 지정 stage (Good/Ng) 에 Place ──
+            // ?? PlaceOnePickerAsync : picker p 瑜?吏??stage (Good/Ng) ??Place ??
             async Task PlaceOnePickerAsync(int p, StageModule outStage)
             {
                 var picker = front.Pickers[p];
@@ -1667,7 +1667,7 @@ namespace QMC.CDT320
                 double offY = bo?.OffsetY ?? 0.0;
                 double offT = bo?.OffsetT ?? 0.0;
 
-                // ① ArmX (PlaceX + Bottom OffsetX) / Stage Y (HomeY + Bottom OffsetY) / PickerT (Bottom OffsetT) 동시
+                // ??ArmX (PlaceX + Bottom OffsetX) / Stage Y (HomeY + Bottom OffsetY) / PickerT (Bottom OffsetT) ?숈떆
                 await Task.WhenAll(
                     front.ArmX.MoveAbsoluteAsync(placeArmX + offX,
                                                  front.Recipe?.ArmXVelocity ?? 2000.0),
@@ -1676,26 +1676,26 @@ namespace QMC.CDT320
                     picker.PickerT.MoveAbsoluteAsync(offT, picker.Recipe.ThetaVelocity)
                 );
 
-                // ② Picker Z 다운 (PlacePosition)
+                // ??Picker Z ?ㅼ슫 (PlacePosition)
                 await picker.PickerZ.MoveAbsoluteAsync(picker.Setup.PlacePosition,
                                                        picker.Recipe.ZVelocity);
 
-                // ③ Vacuum Off + Blow On
+                // ??Vacuum Off + Blow On
                 picker.VacuumOff();
                 picker.BlowOn();
 
-                // ④ Place Delay (Recipe)
+                // ??Place Delay (Recipe)
                 await Task.Delay(picker.Recipe.PlaceDelayMs, ct);
 
-                // ⑤ Blow Off
+                // ??Blow Off
                 picker.BlowOff();
 
-                // ⑥ Picker Up (WaitPosition)
+                // ??Picker Up (WaitPosition)
                 await picker.PickerZ.MoveAbsoluteAsync(picker.Setup.WaitPosition,
                                                        picker.Recipe.ZVelocity);
             }
 
-            // 20) Good 다이 먼저 Place (GoodStage)
+            // 20) Good ?ㅼ씠 癒쇱? Place (GoodStage)
             int goodPlaced = 0, ngPlaced = 0;
             for (int p = 0; p < pickers; p++)
             {
@@ -1712,14 +1712,14 @@ namespace QMC.CDT320
                 }
             }
 
-            // 21) NG 다이 Place — Stage Z 위치 전환 후 NgStage 에 Place
+            // 21) NG ?ㅼ씠 Place ??Stage Z ?꾩튂 ?꾪솚 ??NgStage ??Place
             bool hasNg = false;
             for (int p = 0; p < pickers; p++) if (!inspPass[p]) { hasNg = true; break; }
             if (hasNg)
             {
                 try
                 {
-                    // GoodStage Z 충돌 회피로 하강, NgStage Z 작업 위치로 상승
+                    // GoodStage Z 異⑸룎 ?뚰뵾濡??섍컯, NgStage Z ?묒뾽 ?꾩튂濡??곸듅
                     await Task.WhenAll(
                         _machine.OutputStage.GoodStage.StageZ.MoveAbsoluteAsync(
                             _machine.OutputStage.GoodStage.Setup.AvoidPositionZ,
@@ -1729,7 +1729,7 @@ namespace QMC.CDT320
                             _machine.OutputStage.NgStage.Recipe?.ZVelocity ?? 100.0)
                     );
                 }
-                catch (Exception ex) { Log("[PLACE] Bin 전환 ex: " + ex.Message); }
+                catch (Exception ex) { Log("[PLACE] Bin ?꾪솚 ex: " + ex.Message); }
 
                 for (int p = 0; p < pickers; p++)
                 {
@@ -1746,18 +1746,18 @@ namespace QMC.CDT320
                     }
                 }
             }
-            Log($"[TPU] Place — Good={goodPlaced} Ng={ngPlaced} (cycle {cycleIdx + 1})");
+            Log($"[TPU] Place ??Good={goodPlaced} Ng={ngPlaced} (cycle {cycleIdx + 1})");
 
-            // ── Stage 61 — Place 종료 후 ArmY → AvoidPosition 회피 (다음 사이클 capture 안전 영역) ──
+            // ?? Stage 61 ??Place 醫낅즺 ??ArmY ??AvoidPosition ?뚰뵾 (?ㅼ쓬 ?ъ씠??capture ?덉쟾 ?곸뿭) ??
             try
             {
                 await front.ArmY.MoveAbsoluteAsync(
                     front.Setup.ArmYAvoidPosition, front.Recipe.ArmYVelocity);
-                Log($"[ARM-Y] Cycle {cycleIdx + 1} Place 완료 → Avoid 위치 복귀");
+                Log($"[ARM-Y] Cycle {cycleIdx + 1} Place ?꾨즺 ??Avoid ?꾩튂 蹂듦?");
             }
             catch (Exception ex) { Log("[ARM-Y avoid after PLACE] ex: " + ex.Message); }
 
-            // 결과 반영 → 4 다이 각각 inspPass[p] 기반으로 Good/NG 분리 기록
+            // 寃곌낵 諛섏쁺 ??4 ?ㅼ씠 媛곴컖 inspPass[p] 湲곕컲?쇰줈 Good/NG 遺꾨━ 湲곕줉
             int goodInCycle = 0, ngInCycle = 0;
             for (int p = 0; p < pickers; p++)
             {
@@ -1783,23 +1783,23 @@ namespace QMC.CDT320
                 LotStorage.ActiveLot?.RecordDie(d.BinCode, inspPass[p]);
             }
 
-            // Stage 27 — 매 WafersPerOutputBatch 다이마다 Output 카세트 적재
-            //   다이 베이스 + pickers 가 WafersPerOutputBatch 경계 넘으면 트리거
+            // Stage 27 ??留?WafersPerOutputBatch ?ㅼ씠留덈떎 Output 移댁꽭???곸옱
+            //   ?ㅼ씠 踰좎씠??+ pickers 媛 WafersPerOutputBatch 寃쎄퀎 ?섏쑝硫??몃━嫄?
             int diesProcessedTotal = dieBase + pickers;
             if (WafersPerOutputBatch > 0 &&
                 (diesProcessedTotal / WafersPerOutputBatch) > (dieBase / WafersPerOutputBatch))
             {
-                Log($"[FEEDER] {WafersPerOutputBatch} 다이 완료 — Output 적재");
-                // 사이클의 다수 결과로 wafer 적재 분류 (Good 우세 = Good)
+                Log($"[FEEDER] {WafersPerOutputBatch} ?ㅼ씠 ?꾨즺 ??Output ?곸옱");
+                // ?ъ씠?댁쓽 ?ㅼ닔 寃곌낵濡?wafer ?곸옱 遺꾨쪟 (Good ?곗꽭 = Good)
                 bool anyGood = false; foreach (var ip in inspPass) if (ip) { anyGood = true; break; }
                 await StoreCompletedWaferAsync(anyGood);
             }
 
-            // Stage 33 — 매 DiesPerColletClean 다이마다 Collet Cleaning
+            // Stage 33 ??留?DiesPerColletClean ?ㅼ씠留덈떎 Collet Cleaning
             if (DiesPerColletClean > 0 &&
                 (diesProcessedTotal / DiesPerColletClean) > (dieBase / DiesPerColletClean))
             {
-                Log($"[COLLET] {DiesPerColletClean} 다이 완료 — Collet Cleaning 시작");
+                Log($"[COLLET] {DiesPerColletClean} ?ㅼ씠 ?꾨즺 ??Collet Cleaning ?쒖옉");
                 try
                 {
                     bool clOk = await _machine.OutputStage.PerformColletCleaningAsync();
@@ -1807,20 +1807,20 @@ namespace QMC.CDT320
                 }
                 catch (Exception ex) { Log("[COLLET] exception: " + ex.Message); }
             }
-            // Reject 분리 — 각 다이별 검사
+            // Reject 遺꾨━ ??媛??ㅼ씠蹂?寃??
             for (int p = 0; p < pickers; p++)
             {
                 if (SubPortMaterialRejector.ShouldReject(dies[p], out double rxX, out double rxY))
                 {
-                    Log($"[DIE {dieBase + p + 1}] reject → ({rxX:F1},{rxY:F1})  bin={dies[p].BinCode}");
+                    Log($"[DIE {dieBase + p + 1}] reject ??({rxX:F1},{rxY:F1})  bin={dies[p].BinCode}");
                 }
             }
             Log($"[CYCLE {cycleIdx + 1}] dies {dieBase + 1}~{dieBase + pickers}/{CycleTotal} good={goodInCycle} ng={ngInCycle}");
         }
 
-        // ──────────────────────────────────────────
-        //  트리 순회
-        // ──────────────────────────────────────────
+        // ??????????????????????????????????????????
+        //  ?몃━ ?쒗쉶
+        // ??????????????????????????????????????????
 
         private IEnumerable<BaseAxis> EnumerateAxes()
         {
@@ -1839,9 +1839,9 @@ namespace QMC.CDT320
                         yield return a;
         }
 
-        // ──────────────────────────────────────────
-        //  상태/로그
-        // ──────────────────────────────────────────
+        // ??????????????????????????????????????????
+        //  ?곹깭/濡쒓렇
+        // ??????????????????????????????????????????
 
         private void SetStatus(MachineStatus s)
         {
@@ -1857,7 +1857,7 @@ namespace QMC.CDT320
             if (h != null) try { h(msg); } catch { }
         }
 
-        /// <summary>외부 시퀀스 계층에서 장비 로그를 기록하기 위한 공개 로그 브리지입니다.</summary>
+        /// <summary>?몃? ?쒗??怨꾩링?먯꽌 ?λ퉬 濡쒓렇瑜?湲곕줉?섍린 ?꾪븳 怨듦컻 濡쒓렇 釉뚮━吏?낅땲??</summary>
         public void LogPublic(string msg)
         {
             Log(msg);
@@ -1870,3 +1870,4 @@ namespace QMC.CDT320
         }
     }
 }
+

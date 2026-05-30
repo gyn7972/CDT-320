@@ -1,4 +1,4 @@
-namespace QMC.CDT320.Alarms
+namespace QMC.Common.Alarms
 {
     /// <summary>알람 심각도.</summary>
     public enum AlarmSeverity

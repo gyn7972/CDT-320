@@ -1,6 +1,6 @@
 using System;
 
-namespace QMC.CDT320.Alarms
+namespace QMC.Common.Alarms
 {
     /// <summary>1건의 알람 레코드 (불변).</summary>
     public class AlarmRecord

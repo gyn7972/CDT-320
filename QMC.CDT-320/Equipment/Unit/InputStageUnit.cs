@@ -5,7 +5,7 @@ using QMC.Common;
 using QMC.Common.IO;
 using QMC.Common.Motion;
 using QMC.CDT320.Ajin;
-using QMC.CDT320.Alarms;
+using QMC.Common.Alarms;
 
 namespace QMC.CDT320
 {
@@ -1006,3 +1006,4 @@ namespace QMC.CDT320
         }
     }
 }
+
