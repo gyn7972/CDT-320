@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using QMC.Common.Persistence;
 
 namespace QMC.Common
 {
@@ -61,6 +62,56 @@ namespace QMC.Common
             // Composite Pattern: 자식 노드들에게 Save()를 위임
             foreach (BaseEquipmentNode component in Components)
                 component.Save();
+        }
+
+        /// <summary>
+        /// Composite: 자신의 Setup / Config 를 저장한 뒤 모든 자식 Component로 위임.
+        /// </summary>
+        public override bool SaveSettings()
+        {
+            bool ok = EquipmentDataStore.Save(Setup,  StorageKey, "Setup");
+            ok &= EquipmentDataStore.Save(Config, StorageKey, "Config");
+
+            foreach (BaseEquipmentNode component in Components)
+                ok &= component.SaveSettings();
+
+            return ok;
+        }
+
+        /// <summary>
+        /// Composite: 자신의 Setup / Config 를 로드한 뒤 모든 자식 Component로 위임.
+        /// </summary>
+        public override void LoadSettings()
+        {
+            Setup  = EquipmentDataStore.Load<TSetup>(StorageKey,  "Setup");
+            Config = EquipmentDataStore.Load<TConfig>(StorageKey, "Config");
+
+            foreach (BaseEquipmentNode component in Components)
+                component.LoadSettings();
+        }
+
+        /// <summary>
+        /// Composite: 레시피 이름별 Recipe 를 저장한 뒤 모든 자식 Component로 위임.
+        /// </summary>
+        public override bool SaveRecipe(string recipeName)
+        {
+            bool ok = UnitRecipeStore.Save(Recipe, recipeName, StorageKey);
+
+            foreach (BaseEquipmentNode component in Components)
+                ok &= component.SaveRecipe(recipeName);
+
+            return ok;
+        }
+
+        /// <summary>
+        /// Composite: 레시피 이름별 Recipe 를 로드한 뒤 모든 자식 Component로 위임.
+        /// </summary>
+        public override void LoadRecipe(string recipeName)
+        {
+            Recipe = UnitRecipeStore.Load<TRecipe>(recipeName, StorageKey);
+
+            foreach (BaseEquipmentNode component in Components)
+                component.LoadRecipe(recipeName);
         }
     }
 }

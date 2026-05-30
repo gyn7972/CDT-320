@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using QMC.CDT320.Ajin;
@@ -9,27 +10,68 @@ using QMC.Common.Motion;
 
 namespace QMC.CDT320
 {
+    [DataContract]
     public class WaferCassetteSetup : ISetupData
     {
-        public double AvoidPosition { get; set; } = 0.0;
-        public double FirstSlotPosition { get; set; } = 10.0;
-        public double MappingStartPosition { get; set; } = 5.0;
-        public double MappingEndPosition { get; set; } = 130.0;
-        public double SlotPitch { get; set; } = 5.0;
-        public int SlotCount { get; set; } = 25;
-        public double InPositionTolerance { get; set; } = 0.05;
+        [DataMember] public double AvoidPosition { get; set; }
+        [DataMember] public double FirstSlotPosition { get; set; }
+        [DataMember] public double MappingStartPosition { get; set; }
+        [DataMember] public double MappingEndPosition { get; set; }
+        [DataMember] public double SlotPitch { get; set; }
+        [DataMember] public int SlotCount { get; set; }
+        [DataMember] public double InPositionTolerance { get; set; }
+
+        public WaferCassetteSetup() { SetDefaults(); }
+
+        [OnDeserializing]
+        private void OnDeserializing(StreamingContext ctx) { SetDefaults(); }
+
+        private void SetDefaults()
+        {
+            AvoidPosition = 0.0;
+            FirstSlotPosition = 10.0;
+            MappingStartPosition = 5.0;
+            MappingEndPosition = 130.0;
+            SlotPitch = 5.0;
+            SlotCount = 25;
+            InPositionTolerance = 0.05;
+        }
     }
 
+    [DataContract]
     public class WaferCassetteConfig : IConfigData
     {
-        public bool IsSimulationMode { get; set; } = true;
+        [DataMember] public bool IsSimulationMode { get; set; }
+
+        public WaferCassetteConfig() { SetDefaults(); }
+
+        [OnDeserializing]
+        private void OnDeserializing(StreamingContext ctx) { SetDefaults(); }
+
+        private void SetDefaults()
+        {
+            IsSimulationMode = true;
+        }
     }
 
+    [DataContract]
     public class WaferCassetteRecipe : IRecipeData
     {
-        public double ScanVelocity { get; set; } = 20.0;
-        public int ScanSettleTimeMs { get; set; } = 100;
-        public int ElevatorMoveTimeoutMs { get; set; } = 10000;
+        [DataMember] public double ScanVelocity { get; set; }
+        [DataMember] public int ScanSettleTimeMs { get; set; }
+        [DataMember] public int ElevatorMoveTimeoutMs { get; set; }
+
+        public WaferCassetteRecipe() { SetDefaults(); }
+
+        [OnDeserializing]
+        private void OnDeserializing(StreamingContext ctx) { SetDefaults(); }
+
+        private void SetDefaults()
+        {
+            ScanVelocity = 20.0;
+            ScanSettleTimeMs = 100;
+            ElevatorMoveTimeoutMs = 10000;
+        }
     }
 
     public class WaferCassetteUnit : BaseUnit<WaferCassetteSetup, WaferCassetteConfig, WaferCassetteRecipe>

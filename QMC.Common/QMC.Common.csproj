@@ -87,6 +87,9 @@
     <Compile Include="Motion\MotionAxisManager.cs" />
     <Compile Include="Motion\MotionAxisStore.cs" />
     <Compile Include="Motion\MotionEnums.cs" />
+    <Compile Include="Persistence\EquipmentDataStore.cs" />
+    <Compile Include="Persistence\StoragePathUtil.cs" />
+    <Compile Include="Persistence\UnitRecipeStore.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>

@@ -1,10 +1,11 @@
 using System;
+using System;
+using QMC.Common.Persistence;
 
 namespace QMC.Common
 {
     /// <summary>
     /// 계층 구조의 최하위 Leaf 노드 ? 하위 자식을 가지지 않는 단위 컴포넌트.
-    /// 제네릭 제약조건(new())으로 생성자에서 데이터 인스턴스를 자동 할당한다.
     /// </summary>
     /// <typeparam name="TSetup">ISetupData를 구현한 컴포넌트 전용 Setup 타입</typeparam>
     /// <typeparam name="TConfig">IConfigData를 구현한 컴포넌트 전용 Config 타입</typeparam>
@@ -55,6 +56,33 @@ namespace QMC.Common
         public override void Save()
         {
             Console.WriteLine($"[Component] '{Name}' ? Setup / Config / Recipe 저장 완료");
+        }
+
+        /// <summary>Leaf: 자신의 Setup / Config 저장.</summary>
+        public override bool SaveSettings()
+        {
+            bool ok = EquipmentDataStore.Save(Setup,  StorageKey, "Setup");
+            ok &= EquipmentDataStore.Save(Config, StorageKey, "Config");
+            return ok;
+        }
+
+        /// <summary>Leaf: 자신의 Setup / Config 로드.</summary>
+        public override void LoadSettings()
+        {
+            Setup  = EquipmentDataStore.Load<TSetup>(StorageKey,  "Setup");
+            Config = EquipmentDataStore.Load<TConfig>(StorageKey, "Config");
+        }
+
+        /// <summary>Leaf: 레시피 이름별 Recipe 저장.</summary>
+        public override bool SaveRecipe(string recipeName)
+        {
+            return UnitRecipeStore.Save(Recipe, recipeName, StorageKey);
+        }
+
+        /// <summary>Leaf: 레시피 이름별 Recipe 로드.</summary>
+        public override void LoadRecipe(string recipeName)
+        {
+            Recipe = UnitRecipeStore.Load<TRecipe>(recipeName, StorageKey);
         }
     }
 }
