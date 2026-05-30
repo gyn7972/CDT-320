@@ -31,8 +31,11 @@ namespace QMC.CDT320.Materials
         [DataMember] public string Uid { get; set; } = Guid.NewGuid().ToString("N").Substring(0, 12);
 
         /// <summary>웨이퍼 격자 인덱스 (0 ~ Grid-1).</summary>
-        [DataMember] public int    GridX  { get; set; }
-        [DataMember] public int    GridY  { get; set; }
+        [DataMember] public int    WaferIndexX  { get; set; }
+        [DataMember] public int    WaferIndeY  { get; set; }
+
+        [DataMember] public int BinIndexX { get; set; }
+        [DataMember] public int BinIndexY { get; set; }
 
         /// <summary>모터 좌표(mm) — 비전 정렬 후 산출.</summary>
         [DataMember] public double X { get; set; }
@@ -63,6 +66,6 @@ namespace QMC.CDT320.Materials
         }
 
         public override string ToString()
-            => $"Die[{Uid}] grid=({GridX},{GridY}) pos=({X:F2},{Y:F2}) result={Result} bin={BinCode} ng=[{string.Join(",", NGCodes)}]";
+            => $"Die[{Uid}] grid=({WaferIndexX},{WaferIndeY}) pos=({X:F2},{Y:F2}) result={Result} bin={BinCode} ng=[{string.Join(",", NGCodes)}]";
     }
 }

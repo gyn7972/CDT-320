@@ -88,6 +88,11 @@
     <Compile Include="Equipment\Sim\SimCassetteDriver.cs" />
     <Compile Include="Equipment\Sim\OutputUnloaderAdapter.cs" />
     <Compile Include="Equipment\Sim\WaferLoaderAdapter.cs" />
+    <Compile Include="Equipment\Vision\BinInspectionResult.cs" />
+    <Compile Include="Equipment\Vision\BottomInspectionResult.cs" />
+    <Compile Include="Equipment\Vision\InspectionResultInfoBase.cs" />
+    <Compile Include="Equipment\Vision\SideInspectionResult.cs" />
+    <Compile Include="Equipment\Vision\WaferVisionInspectionResult.cs" />
     <Compile Include="Ui\Controls\UnitConfigGrid.cs">
       <SubType>UserControl</SubType>
     </Compile>

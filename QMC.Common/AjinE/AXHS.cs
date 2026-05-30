@@ -379,6 +379,26 @@ namespace QMC.Common.Motion.Ajin
         TRUE
     }
 
+
+    public enum AXT_NETWORK_STATUS : uint
+    {
+        NET_STATUS_DISCONNECTED = 1,
+        NET_STATUS_LOCK_MISMATCH = 5,
+        NET_STATUS_CONNECTED = 6
+    }
+
+    public struct MOTION_INFO
+    {
+        public double dCmdPos;      // Command 위치[0x01]
+        public double dActPos;      // Encoder 위치[0x02]
+        public uint uMechSig;       // Mechanical Signal[0x04]
+        public uint uDrvStat;       // Driver Status[0x08]
+        public uint uInput;         // Universal Signal Input[0x10]
+        public uint uOutput;        // Universal Signal Output[0x10]
+        public uint uMask;          // 읽기 설정 Mask Ex) 0x1F, 모든정보 읽기
+    }
+
+
     public enum AXT_LOG_LEVEL : uint
     {
         LEVEL_NONE,

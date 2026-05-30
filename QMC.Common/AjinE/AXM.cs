@@ -507,6 +507,22 @@ namespace QMC.Common.Motion.Ajin
         [DllImport(LibraryFileName)]
         private static extern uint AxmStatusReadMotion(int nAxisNo, ref uint upStatus);
 
+
+
+        // 지정 축의 모션 상태(Cmd, Act, Driver Status, Mechanical Signal, Universal Signal)를 한번에 확인 할 수 있다.
+        // MOTION_INFO 구조체의 uMask 설정으로 모션 상태 정보를 지정한다.
+        // uMask : 모션 상태 표시(6bit) - ex) uMask = 0x1F 설정 시 모든 상태를 표시함.
+        // 사용자가 설정한 Level(In/Out)은 반영되지 않음.
+        //    [0]        |    Command Position Read
+        //    [1]        |    Actual Position Read
+        //    [2]        |    Mechanical Signal Read
+        //    [3]        |    Driver Status Read
+        //    [4]        |    Universal Signal Input Read
+        //               |    Universal Signal Output Read
+        [DllImport("LibraryFileName")] 
+        public static extern uint AxmStatusReadMotionInfo(int nAxisNo, ref MOTION_INFO MI);
+
+
         // EndStatus 레지스터를 확인
         [DllImport(LibraryFileName)]
         private static extern uint AxmStatusReadStop(int nAxisNo, ref uint upStatus);
@@ -543,6 +559,8 @@ namespace QMC.Common.Motion.Ajin
         // 지정 축의 Torque 를 반환한다.
         [DllImport(LibraryFileName)]
         private static extern uint AxmStatusReadTorque(int nAxisNo, ref double dpTorque);
+
+
 
         #endregion
 
@@ -1809,6 +1827,12 @@ namespace QMC.Common.Motion.Ajin
             uint value = 0;
             if ((ret = AXL.CheckErrorCode("AXM.AxmStatusReadMotion", AXM.AxmStatusReadMotion(axis, ref value))) != 0) return ret;
             status = (AXT_MOTION_QIDRIVE_STATUS)value;
+            return ret;
+        }
+        public static int GetMotionInfo(int axis, ref MOTION_INFO info)
+        {
+            int ret = 0;
+            if ((ret = AXL.CheckErrorCode("AXM.AxmStatusReadMotionInfo", AXM.AxmStatusReadMotionInfo(axis, ref info))) != 0) return ret;
             return ret;
         }
 
