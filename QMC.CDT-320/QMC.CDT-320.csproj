@@ -88,6 +88,15 @@
     <Compile Include="Equipment\Sim\SimCassetteDriver.cs" />
     <Compile Include="Equipment\Sim\OutputUnloaderAdapter.cs" />
     <Compile Include="Equipment\Sim\WaferLoaderAdapter.cs" />
+    <Compile Include="Ui\Controls\EnumPickerDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Controls\ParamGrid.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Controls\ParamGrid.Designer.cs">
+      <DependentUpon>ParamGrid.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Controls\UnitConfigGrid.cs">
       <SubType>UserControl</SubType>
     </Compile>
@@ -183,6 +192,15 @@
     <Compile Include="Equipment\Plate.cs" />
     <Compile Include="Ui\Pages\Settings\AxisSetupPage.Designer.cs">
       <DependentUpon>AxisSetupPage.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Pages\Settings\MotionPage.Config.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\Settings\MotionPage.Speed.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\Settings\MotionPage.Status.cs">
+      <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="Ui\Pages\WorkInfo\ActiveLotPage.Designer.cs">
       <DependentUpon>ActiveLotPage.cs</DependentUpon>

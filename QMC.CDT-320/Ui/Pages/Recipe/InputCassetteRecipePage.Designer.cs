@@ -322,7 +322,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.actionLayout.Controls.Add(this.btnSlotLoadingMove, 0, 3);
             this.actionLayout.Controls.Add(this.btnSlotUnloadingMove, 0, 4);
             this.actionLayout.Dock = System.Windows.Forms.DockStyle.Top;
-            this.actionLayout.Location = new System.Drawing.Point(3, 26);
+            this.actionLayout.Location = new System.Drawing.Point(3, 21);
             this.actionLayout.Name = "actionLayout";
             this.actionLayout.Padding = new System.Windows.Forms.Padding(12, 18, 12, 0);
             this.actionLayout.RowCount = 6;
@@ -439,7 +439,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.ioLayout.Controls.Add(this.lblMapping, 1, 3);
             this.ioLayout.Controls.Add(this.lblMappingBody, 1, 4);
             this.ioLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.ioLayout.Location = new System.Drawing.Point(3, 26);
+            this.ioLayout.Location = new System.Drawing.Point(3, 21);
             this.ioLayout.Name = "ioLayout";
             this.ioLayout.Padding = new System.Windows.Forms.Padding(12, 22, 12, 12);
             this.ioLayout.RowCount = 6;
@@ -449,7 +449,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.ioLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
             this.ioLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 230F));
             this.ioLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.ioLayout.Size = new System.Drawing.Size(208, 409);
+            this.ioLayout.Size = new System.Drawing.Size(208, 414);
             this.ioLayout.TabIndex = 0;
             // 
             // dot8Inch
@@ -579,10 +579,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // 
             this.optionParameterGrid.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(246)))), ((int)(((byte)(248)))));
             this.optionParameterGrid.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.optionParameterGrid.Location = new System.Drawing.Point(3, 26);
+            this.optionParameterGrid.Location = new System.Drawing.Point(3, 21);
             this.optionParameterGrid.Margin = new System.Windows.Forms.Padding(0);
             this.optionParameterGrid.Name = "optionParameterGrid";
-            this.optionParameterGrid.Size = new System.Drawing.Size(826, 575);
+            this.optionParameterGrid.Size = new System.Drawing.Size(826, 580);
             this.optionParameterGrid.TabIndex = 0;
             // 
             // grpWait
@@ -603,10 +603,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // 
             this.waitParameterGrid.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(246)))), ((int)(((byte)(248)))));
             this.waitParameterGrid.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.waitParameterGrid.Location = new System.Drawing.Point(3, 26);
+            this.waitParameterGrid.Location = new System.Drawing.Point(3, 21);
             this.waitParameterGrid.Margin = new System.Windows.Forms.Padding(0);
             this.waitParameterGrid.Name = "waitParameterGrid";
-            this.waitParameterGrid.Size = new System.Drawing.Size(826, 229);
+            this.waitParameterGrid.Size = new System.Drawing.Size(826, 234);
             this.waitParameterGrid.TabIndex = 0;
             // 
             // rightLayout
@@ -646,7 +646,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.jogContainer.Controls.Add(this.grpJogMode, 0, 1);
             this.jogContainer.Controls.Add(this.jogPadPanel, 0, 2);
             this.jogContainer.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.jogContainer.Location = new System.Drawing.Point(3, 26);
+            this.jogContainer.Location = new System.Drawing.Point(3, 21);
             this.jogContainer.Name = "jogContainer";
             this.jogContainer.Padding = new System.Windows.Forms.Padding(3);
             this.jogContainer.RowCount = 4;
@@ -654,7 +654,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.jogContainer.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 150F));
             this.jogContainer.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 284F));
             this.jogContainer.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.jogContainer.Size = new System.Drawing.Size(434, 540);
+            this.jogContainer.Size = new System.Drawing.Size(434, 545);
             this.jogContainer.TabIndex = 0;
             // 
             // grpJogMove
@@ -682,14 +682,14 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.jogMoveLayout.Controls.Add(this.rdoCoarse, 2, 1);
             this.jogMoveLayout.Controls.Add(this.rdoCurrent, 3, 1);
             this.jogMoveLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.jogMoveLayout.Location = new System.Drawing.Point(3, 26);
+            this.jogMoveLayout.Location = new System.Drawing.Point(3, 21);
             this.jogMoveLayout.Margin = new System.Windows.Forms.Padding(1);
             this.jogMoveLayout.Name = "jogMoveLayout";
             this.jogMoveLayout.RowCount = 3;
             this.jogMoveLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
             this.jogMoveLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 38F));
             this.jogMoveLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
-            this.jogMoveLayout.Size = new System.Drawing.Size(422, 55);
+            this.jogMoveLayout.Size = new System.Drawing.Size(422, 60);
             this.jogMoveLayout.TabIndex = 0;
             // 
             // rdoFine
@@ -697,7 +697,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.rdoFine.AutoSize = true;
             this.rdoFine.Checked = true;
             this.rdoFine.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.rdoFine.Location = new System.Drawing.Point(25, 8);
+            this.rdoFine.Location = new System.Drawing.Point(25, 11);
             this.rdoFine.Margin = new System.Windows.Forms.Padding(3, 0, 3, 0);
             this.rdoFine.Name = "rdoFine";
             this.rdoFine.Size = new System.Drawing.Size(109, 38);
@@ -710,7 +710,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // 
             this.rdoCoarse.AutoSize = true;
             this.rdoCoarse.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.rdoCoarse.Location = new System.Drawing.Point(140, 8);
+            this.rdoCoarse.Location = new System.Drawing.Point(140, 11);
             this.rdoCoarse.Margin = new System.Windows.Forms.Padding(3, 0, 3, 0);
             this.rdoCoarse.Name = "rdoCoarse";
             this.rdoCoarse.Size = new System.Drawing.Size(140, 38);
@@ -722,7 +722,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // 
             this.rdoCurrent.AutoSize = true;
             this.rdoCurrent.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.rdoCurrent.Location = new System.Drawing.Point(286, 8);
+            this.rdoCurrent.Location = new System.Drawing.Point(286, 11);
             this.rdoCurrent.Margin = new System.Windows.Forms.Padding(3, 0, 3, 0);
             this.rdoCurrent.Name = "rdoCurrent";
             this.rdoCurrent.Size = new System.Drawing.Size(133, 38);
@@ -764,7 +764,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.jogModeLayout.Controls.Add(this.btnStep0001, 4, 2);
             this.jogModeLayout.Controls.Add(this.btnStepZero, 5, 2);
             this.jogModeLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.jogModeLayout.Location = new System.Drawing.Point(3, 26);
+            this.jogModeLayout.Location = new System.Drawing.Point(3, 21);
             this.jogModeLayout.Margin = new System.Windows.Forms.Padding(0);
             this.jogModeLayout.Name = "jogModeLayout";
             this.jogModeLayout.RowCount = 4;
@@ -772,7 +772,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.jogModeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
             this.jogModeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 36F));
             this.jogModeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.jogModeLayout.Size = new System.Drawing.Size(422, 113);
+            this.jogModeLayout.Size = new System.Drawing.Size(422, 118);
             this.jogModeLayout.TabIndex = 0;
             // 
             // rdoContinuous
@@ -815,7 +815,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             0,
             0});
             this.numStepDistance.Name = "numStepDistance";
-            this.numStepDistance.Size = new System.Drawing.Size(145, 30);
+            this.numStepDistance.Size = new System.Drawing.Size(145, 25);
             this.numStepDistance.TabIndex = 2;
             this.numStepDistance.Value = new decimal(new int[] {
             1000,
@@ -1024,13 +1024,13 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.speedLayout.Controls.Add(this.speedTrackLayout, 0, 0);
             this.speedLayout.Controls.Add(this.lblSpeedValue, 0, 1);
             this.speedLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.speedLayout.Location = new System.Drawing.Point(3, 26);
+            this.speedLayout.Location = new System.Drawing.Point(3, 21);
             this.speedLayout.Name = "speedLayout";
             this.speedLayout.Padding = new System.Windows.Forms.Padding(3);
             this.speedLayout.RowCount = 2;
             this.speedLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 118F));
             this.speedLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
-            this.speedLayout.Size = new System.Drawing.Size(434, 248);
+            this.speedLayout.Size = new System.Drawing.Size(434, 253);
             this.speedLayout.TabIndex = 0;
             // 
             // speedTrackLayout
@@ -1061,9 +1061,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.trkSpeed.TickFrequency = 10;
             this.trkSpeed.Value = 58;
             this.trkSpeed.ValueChanged += new System.EventHandler(this.trkSpeed_ValueChanged);
-            //
+            // 
             // lblSpeedValue
-            //
+            // 
             this.lblSpeedValue.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(205)))), ((int)(((byte)(205)))), ((int)(((byte)(205)))));
             this.lblSpeedValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblSpeedValue.Dock = System.Windows.Forms.DockStyle.Top;
@@ -1074,9 +1074,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblSpeedValue.TabIndex = 1;
             this.lblSpeedValue.Text = "58%";
             this.lblSpeedValue.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            //
+            // 
             // optionRows
-            //
+            // 
             this.optionRows.ColumnCount = 2;
             this.optionRows.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 290F));
             this.optionRows.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
@@ -1497,9 +1497,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblWaitScanSettleVal.TabIndex = 1;
             this.lblWaitScanSettleVal.Text = "100 ms";
             this.lblWaitScanSettleVal.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // lblWaitMoveTimeoutKey
-            //
+            // 
             this.lblWaitMoveTimeoutKey.Dock = System.Windows.Forms.DockStyle.Top;
             this.lblWaitMoveTimeoutKey.Location = new System.Drawing.Point(13, 50);
             this.lblWaitMoveTimeoutKey.Name = "lblWaitMoveTimeoutKey";
@@ -1507,9 +1507,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblWaitMoveTimeoutKey.TabIndex = 2;
             this.lblWaitMoveTimeoutKey.Text = "MOVE TIMEOUT";
             this.lblWaitMoveTimeoutKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // lblWaitMoveTimeoutVal
-            //
+            // 
             this.lblWaitMoveTimeoutVal.Dock = System.Windows.Forms.DockStyle.Top;
             this.lblWaitMoveTimeoutVal.Location = new System.Drawing.Point(303, 50);
             this.lblWaitMoveTimeoutVal.Name = "lblWaitMoveTimeoutVal";

@@ -86,6 +86,7 @@
     <Compile Include="Machine.cs" />
     <Compile Include="AjinE\MotionDefine.cs" />
     <Compile Include="Motion\AxisData.cs" />
+    <Compile Include="Motion\AxisLiveStatus.cs" />
     <Compile Include="Motion\AxisStatusSnapshot.cs" />
     <Compile Include="Motion\AxisSpeedTable.cs" />
     <Compile Include="Motion\BaseAxis.cs" />

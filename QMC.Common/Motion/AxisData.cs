@@ -128,6 +128,9 @@ namespace QMC.Common.Motion
         /// <summary>일반 이동 기본 속도 [Unit/s].</summary>
         public double DefaultVelocity { get; set; } = 100.0;
 
+        /// <summary>축의 최대 허용 속도 [Unit/s].</summary>
+        public double MaxVelocity { get; set; } = 0.0;
+
         /// <summary>일반 이동 가속도 [Unit/s^2].</summary>
         public double Acceleration { get; set; } = 1000.0;
 
@@ -145,9 +148,22 @@ namespace QMC.Common.Motion
 
         /// <summary>원점 복귀 마지막 접근 속도 [Unit/s].</summary>
         public double HomeLastVelocity { get; set; } = 1.0;
+        public double HomeIndexSearchVelocity { get; set; } = 5;
 
         /// <summary>원점 복귀 대표 속도 [Unit/s]. 기존 코드 호환용.</summary>
         public double HomeVelocity { get; set; } = 200.0;
+
+        /// <summary>원점 복귀 1차 가속도 [Unit/s^2].</summary>
+        public double HomeFirstAcceleration { get; set; } = 1000.0;
+
+        /// <summary>원점 복귀 1차 감속도 [Unit/s^2].</summary>
+        public double HomeFirstDeceleration { get; set; } = 1000.0;
+
+        /// <summary>원점 복귀 2차 가속도 [Unit/s^2].</summary>
+        public double HomeSecondAcceleration { get; set; } = 500.0;
+
+        /// <summary>원점 복귀 2차 감속도 [Unit/s^2].</summary>
+        public double HomeSecondDeceleration { get; set; } = 500.0;
 
         /// <summary>Jog 빠른 속도 [Unit/s].</summary>
         public double JogCoarseVelocity { get; set; } = 50.0;

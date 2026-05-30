@@ -62,7 +62,7 @@ namespace QMC.CDT320.Ajin
     {
         public static readonly AxisDefault[] All =
         {
-            ADD( 0, "WaferLifterZ",      "WaferCassette",    0, 0,  200, true,  "mm",  100, "NEG","ElevatorZ"),
+            ADD( 0, "WaferLifterZ",      "IndexCassette",    0, 0,  200, true,  "mm",  100, "NEG","ElevatorZ"),
             ADD( 1, "WaferFeederY",      "WaferFeeder",    0, 0,  300, false, "mm",  100, "NEG", "FeederY_Input", "FeederY"),
             ADD( 2, "WaferStageY",       "WaferStage",     0, 0,  400, false, "mm",  100, "NEG", "StageY"),
             ADD( 3, "WaferStageT",       "WaferStage",     0, 0,  360, false, "deg",  30, "POS", "StageT"),

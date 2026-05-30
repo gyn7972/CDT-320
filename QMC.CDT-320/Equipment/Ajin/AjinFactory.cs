@@ -50,7 +50,83 @@ namespace QMC.CDT320.Ajin
                         continue;
                     AxisManager.Upsert(CreateDefinition(item.Key, item.Value));
                 }
+
+                // motion_axes.json 에 저장된 사용자 편집 값(Setup/Config)을 등록된 축에 덮어쓴다.
+                // 축 이름이 T0/T1/Z0/Z1/Y0/Y1 처럼 숫자 suffix 가 붙은 경우에도
+                // ResolveName 으로 정규화해 기존 키와 일치시킨다.
+                ApplyPersistedAxisValues();
             }
+        }
+
+        private static void ApplyPersistedAxisValues()
+        {
+            try
+            {
+                MotionAxisStore store = MotionAxisStore.LoadOrCreate(MotionAxisStore.DefaultPath);
+                if (store == null || store.Items == null || store.Items.Count == 0) return;
+
+                foreach (BaseAxis axis in AxisManager.GetAll())
+                {
+                    if (axis == null) continue;
+                    string axisKey = ResolveAxisKey(axis.Name);
+
+                    MotionAxisDefinition saved = null;
+                    for (int i = 0; i < store.Items.Count; i++)
+                    {
+                        MotionAxisDefinition item = store.Items[i];
+                        if (item == null) continue;
+                        string itemKey = ResolveAxisKey(item.Name);
+                        if (string.Equals(itemKey, axisKey, StringComparison.OrdinalIgnoreCase))
+                        {
+                            saved = item;
+                            break;
+                        }
+                    }
+                    if (saved == null) continue;
+
+                    // 보드/채널/축번호/유닛명 같은 식별 정보는 AjinConfigStore 가 우선이므로
+                    // motion_axes.json 의 동일 필드는 무시하고, 사용자 편집 값만 덮어쓴다.
+                    if (saved.Setup != null && axis.Setup != null)
+                    {
+                        AxisSetup s = axis.Setup;
+                        AxisSetup src = saved.Setup;
+                        s.PulsesPerUnit = src.PulsesPerUnit > 0 ? src.PulsesPerUnit : s.PulsesPerUnit;
+                        s.AxisScale = src.AxisScale > 0 ? src.AxisScale : s.AxisScale;
+                        s.SoftLimitPlus = src.SoftLimitPlus;
+                        s.SoftLimitMinus = src.SoftLimitMinus;
+                        s.SoftLimitEnabled = src.SoftLimitEnabled;
+                        s.HomeOffset = src.HomeOffset;
+                        s.HomeDirection = src.HomeDirection;
+                        s.HomeSignal = src.HomeSignal;
+                        s.HomeTimeoutMs = src.HomeTimeoutMs;
+                        s.MoveTimeoutMs = src.MoveTimeoutMs;
+                    }
+                    if (saved.Config != null && axis.Config != null)
+                    {
+                        AxisConfig c = axis.Config;
+                        AxisConfig src = saved.Config;
+                        if (src.DefaultVelocity > 0) c.DefaultVelocity = src.DefaultVelocity;
+                        if (src.MaxVelocity > 0) c.MaxVelocity = src.MaxVelocity;
+                        if (src.Acceleration > 0) c.Acceleration = src.Acceleration;
+                        if (src.Deceleration > 0) c.Deceleration = src.Deceleration;
+                        if (src.HomeFirstVelocity > 0) c.HomeFirstVelocity = src.HomeFirstVelocity;
+                        if (src.HomeSecondVelocity > 0) c.HomeSecondVelocity = src.HomeSecondVelocity;
+                        if (src.HomeThirdVelocity > 0) c.HomeThirdVelocity = src.HomeThirdVelocity;
+                        if (src.HomeLastVelocity > 0) c.HomeLastVelocity = src.HomeLastVelocity;
+                        if (src.HomeVelocity > 0) c.HomeVelocity = src.HomeVelocity;
+                        if (src.HomeFirstAcceleration > 0) c.HomeFirstAcceleration = src.HomeFirstAcceleration;
+                        if (src.HomeFirstDeceleration > 0) c.HomeFirstDeceleration = src.HomeFirstDeceleration;
+                        if (src.HomeSecondAcceleration > 0) c.HomeSecondAcceleration = src.HomeSecondAcceleration;
+                        if (src.HomeSecondDeceleration > 0) c.HomeSecondDeceleration = src.HomeSecondDeceleration;
+                        if (src.JogCoarseVelocity > 0) c.JogCoarseVelocity = src.JogCoarseVelocity;
+                        if (src.JogFineVelocity > 0) c.JogFineVelocity = src.JogFineVelocity;
+                        if (src.JogAcceleration > 0) c.JogAcceleration = src.JogAcceleration;
+                        if (src.JogDeceleration > 0) c.JogDeceleration = src.JogDeceleration;
+                        if (src.InPositionTolerance >= 0) c.InPositionTolerance = src.InPositionTolerance;
+                    }
+                }
+            }
+            catch { }
         }
 
         public static void ReloadConfiguredAxes()
@@ -132,6 +208,7 @@ namespace QMC.CDT320.Ajin
             {
                 axis.Config.IsSimulationMode = definition.Config.IsSimulationMode;
                 axis.Config.DefaultVelocity = definition.Config.DefaultVelocity;
+                axis.Config.MaxVelocity = definition.Config.MaxVelocity;
                 axis.Config.Acceleration = definition.Config.Acceleration;
                 axis.Config.Deceleration = definition.Config.Deceleration;
                 axis.Config.HomeFirstVelocity = definition.Config.HomeFirstVelocity;
@@ -139,6 +216,10 @@ namespace QMC.CDT320.Ajin
                 axis.Config.HomeThirdVelocity = definition.Config.HomeThirdVelocity;
                 axis.Config.HomeLastVelocity = definition.Config.HomeLastVelocity;
                 axis.Config.HomeVelocity = definition.Config.HomeVelocity;
+                axis.Config.HomeFirstAcceleration = definition.Config.HomeFirstAcceleration;
+                axis.Config.HomeFirstDeceleration = definition.Config.HomeFirstDeceleration;
+                axis.Config.HomeSecondAcceleration = definition.Config.HomeSecondAcceleration;
+                axis.Config.HomeSecondDeceleration = definition.Config.HomeSecondDeceleration;
                 axis.Config.JogCoarseVelocity = definition.Config.JogCoarseVelocity;
                 axis.Config.JogFineVelocity = definition.Config.JogFineVelocity;
                 axis.Config.JogAcceleration = definition.Config.JogAcceleration;

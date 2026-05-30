@@ -252,6 +252,7 @@ namespace QMC.Common.Motion
             if (source == null || target == null) return;
             target.IsSimulationMode = source.IsSimulationMode;
             target.DefaultVelocity = source.DefaultVelocity;
+            target.MaxVelocity = source.MaxVelocity;
             target.Acceleration = source.Acceleration;
             target.Deceleration = source.Deceleration;
             target.HomeFirstVelocity = source.HomeFirstVelocity;
@@ -259,6 +260,10 @@ namespace QMC.Common.Motion
             target.HomeThirdVelocity = source.HomeThirdVelocity;
             target.HomeLastVelocity = source.HomeLastVelocity;
             target.HomeVelocity = source.HomeVelocity;
+            target.HomeFirstAcceleration = source.HomeFirstAcceleration;
+            target.HomeFirstDeceleration = source.HomeFirstDeceleration;
+            target.HomeSecondAcceleration = source.HomeSecondAcceleration;
+            target.HomeSecondDeceleration = source.HomeSecondDeceleration;
             target.JogCoarseVelocity = source.JogCoarseVelocity;
             target.JogFineVelocity = source.JogFineVelocity;
             target.JogAcceleration = source.JogAcceleration;

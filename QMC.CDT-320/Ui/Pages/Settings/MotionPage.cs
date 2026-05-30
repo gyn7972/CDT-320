@@ -31,11 +31,16 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             InitializeComponent();
             ApplyRuntimeUi();
             WireActions();
+            InitializeConfigPanels();
+            InitializeSpeedTab();
+            InitializeStatusPanels();
 
             Load += (s, e) =>
             {
                 LoadAxisRows();
                 StartRefresh();
+                RefreshConfigForSelected();
+                LoadSpeedRows();
             };
 
             Disposed += (s, e) =>
@@ -65,6 +70,14 @@ namespace QMC.CDT_320.Ui.Pages.Settings
 
             actionsPanel.BackColor = UiTheme.OptionPanelBg;
             configTabs.SelectedTab = tabConfig;
+
+            grid.AllowUserToResizeColumns = true;
+            grid.AllowUserToResizeRows = false;
+            foreach (DataGridViewColumn col in grid.Columns)
+            {
+                col.SortMode = DataGridViewColumnSortMode.NotSortable;
+                col.Resizable = DataGridViewTriState.True;
+            }
         }
 
         private void WireActions()
@@ -185,6 +198,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
 
                 ApplySnapshotToGrid(row, snapshot);
             }
+
+            RefreshConfigDynamic();
         }
 
         private static void ApplyAxisToGrid(DataGridViewRow row, BaseAxis axis)
@@ -270,6 +285,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 int r = QMC.Common.Motion.Ajin.AXM.LoadParameters(dlg.FileName);
                 if (r == 0)
                 {
+                    ApplyParametersFromBoard();
                     QMC.CDT320.Logging.EventLogger.Write(QMC.CDT320.Logging.EventKind.Event, "QMC", "PARA-LOAD", dlg.FileName);
                     MessageBox.Show("Parameter load complete.");
                 }

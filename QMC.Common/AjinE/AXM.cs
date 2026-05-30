@@ -1857,6 +1857,25 @@ namespace QMC.Common.Motion.Ajin
             return ret;
         }
 
+        public static int GetHomeVelocity(int axis, ref double firstSearchVelocity, ref double secondSearchVelocity, ref double lastVelocity, ref double indexSearchVelocity, ref double firstSearchAcc, ref double secondSearchAcc)
+        {
+            int ret = 0;
+            if ((ret = AXL.CheckErrorCode("AXM.AxmHomeGetVel", AXM.AxmHomeGetVel(axis, ref firstSearchVelocity, ref secondSearchVelocity, ref lastVelocity, ref indexSearchVelocity, ref firstSearchAcc, ref secondSearchAcc))) != 0) return ret;
+            return ret;
+        }
+
+        public static int GetHomeMethod(int axis, ref HomeDirection direction, ref HomeSignal signal, ref HomeZPhase zphase, ref double homeClearTime, ref double escapeDistance)
+        {
+            int ret = 0;
+            int nHmDir = 0;
+            uint uHomeSignal = 0, uZphase = 0;
+            if ((ret = AXL.CheckErrorCode("AXM.AxmHomeGetMethod", AXM.AxmHomeGetMethod(axis, ref nHmDir, ref uHomeSignal, ref uZphase, ref homeClearTime, ref escapeDistance))) != 0) return ret;
+            direction = (HomeDirection)nHmDir;
+            signal = (HomeSignal)uHomeSignal;
+            zphase = (HomeZPhase)uZphase;
+            return ret;
+        }
+
         public static int SetHomeStart(int axis)
         {
             int ret = 0;

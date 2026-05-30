@@ -1,4 +1,6 @@
 ﻿using QMC.Common.Motion;
+using QMC.Common;
+using QMC.Common.Motion;
 using QMC.Common.Motion.Ajin;
 using System;
 using System.Threading.Tasks;
@@ -440,6 +442,190 @@ namespace QMC.CDT320.Ajin
 
             if (servoRet == 0)
                 IsServoOn = svOn;
+        }
+
+        /// <summary>
+        /// 보드에서 모니터링 전용 라이브 값을 한 번에 읽어 <see cref="AxisLiveStatus"/> 로 반환한다.<br/>
+        /// 시뮬레이션이거나 보드가 닫혀 있으면 <c>null</c>.
+        /// </summary>
+        public AxisLiveStatus ReadLiveStatus()
+        {
+            if (Config.IsSimulationMode || !AjinSystem.IsOpen) return null;
+
+            var s = new AxisLiveStatus();
+            try
+            {
+                lock (_sync)
+                {
+                    AXM.MotorOutputMethod outMethod = 0;
+                    AXM.EncoderInputMethod encMethod = 0;
+                    ActiveLevel zLvl = 0, srvLvl = 0;
+                    double maxVel = 0, unit = 0;
+                    int pulse = 0;
+                    AXM.GetOutputMethod(AxisNo, ref outMethod);
+                    AXM.GetEncoderMethod(AxisNo, ref encMethod);
+                    AXM.GetZPhaseLevel(AxisNo, ref zLvl);
+                    AXM.GetAmpEnableLevel(AxisNo, ref srvLvl);
+                    AXM.GetMaxVelocity(AxisNo, ref maxVel);
+                    AXM.GetMoveUnitPerPulse(AxisNo, ref unit, ref pulse);
+                    s.OutputMethod = outMethod;
+                    s.EncoderMethod = encMethod;
+                    s.ZPhaseLevel = zLvl;
+                    s.ServoOnLevel = srvLvl;
+                    s.MaxVelocity = maxVel;
+                    s.MoveUnit = unit;
+                    s.PulsePerUnit = pulse;
+
+                    bool inpEnable = false, inpValue = false;
+                    ActiveLevel inpLvl = 0;
+                    AXM.GetInPositionEnable(AxisNo, ref inpEnable);
+                    AXM.GetInPositionLevel(AxisNo, ref inpLvl);
+                    AXM.GetInPositionValue(AxisNo, ref inpValue);
+                    s.InPositionEnabled = inpEnable;
+                    s.InPositionLevel = inpLvl;
+                    s.InPositionValue = inpValue;
+
+                    MotorEventAction posAct = 0, negAct = 0;
+                    ActiveLevel posLvl = 0, negLvl = 0;
+                    bool posVal = false, negVal = false;
+                    double swPos = 0, swNeg = 0;
+                    AXM.GetPositiveLimitAction(AxisNo, ref posAct);
+                    AXM.GetPositiveLimitLevel(AxisNo, ref posLvl);
+                    AXM.GetPositiveLimitValue(AxisNo, ref posVal);
+                    AXM.GetNegativeLimitAction(AxisNo, ref negAct);
+                    AXM.GetNegativeLimitLevel(AxisNo, ref negLvl);
+                    AXM.GetNegativeLimitValue(AxisNo, ref negVal);
+                    AXM.GetPositivePosition(AxisNo, ref swPos);
+                    AXM.GetNegativePosition(AxisNo, ref swNeg);
+                    s.PositiveLimitAction = posAct;
+                    s.PositiveLimitLevel = posLvl;
+                    s.PositiveLimitValue = posVal;
+                    s.NegativeLimitAction = negAct;
+                    s.NegativeLimitLevel = negLvl;
+                    s.NegativeLimitValue = negVal;
+                    s.SoftLimitPositive = swPos;
+                    s.SoftLimitNegative = swNeg;
+
+                    ActiveLevel ampFaultLvl = 0, ampResetLvl = 0, homeLvl = 0;
+                    bool ampFaultVal = false, homeVal = false;
+                    AXM.GetAmpFaultLevel(AxisNo, ref ampFaultLvl);
+                    AXM.GetAmpFaultValue(AxisNo, ref ampFaultVal);
+                    AXM.GetAmpResetLevel(AxisNo, ref ampResetLvl);
+                    AXM.GetHomeSensorLevel(AxisNo, ref homeLvl);
+                    AXM.GetHomeSensorValue(AxisNo, ref homeVal);
+                    s.AmpFaultLevel = ampFaultLvl;
+                    s.AmpFaultValue = ampFaultVal;
+                    s.AmpResetLevel = ampResetLvl;
+                    s.HomeSensorLevel = homeLvl;
+                    s.HomeSensorValue = homeVal;
+                }
+
+                s.IsAlarm = IsAlarm;
+                s.AlarmCode = AlarmCode;
+                s.ActualPosition = ActualPosition;
+                s.CommandPosition = CommandPosition;
+                s.PositionError = CommandPosition - ActualPosition;
+                return s;
+            }
+            catch (Exception ex)
+            {
+                Alarms.AlarmManager.Raise(
+                    Alarms.AlarmSeverity.Warning,
+                    "AX-READ-LIVE",
+                    Name,
+                    "ReadLiveStatus failed: " + ex.Message);
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// 보드에서 setup/config 에 매핑되는 파라미터를 읽어 현재 축의
+        /// <see cref="AxisSetup"/> 및 <see cref="AxisConfig"/> 에 덮어쓴다.<br/>
+        /// .mot 파일 LoadParameters 후 보드 → 모델 동기화 용도.
+        /// </summary>
+        /// <returns>적용 성공 여부.</returns>
+        public bool ReadSetupFromBoard()
+        {
+            if (Config.IsSimulationMode || !AjinSystem.IsOpen) return false;
+
+            try
+            {
+                AxisConfig c = Config;
+                AxisSetup setup = Setup;
+
+                lock (_sync)
+                {
+                    // Home velocities / accelerations
+                    double v1 = 0, v2 = 0, vLast = 0, vIndex = 0, a1 = 0, a2 = 0;
+                    if (AXM.GetHomeVelocity(AxisNo, ref v1, ref v2, ref vLast, ref vIndex, ref a1, ref a2) == 0)
+                    {
+                        c.HomeFirstVelocity = v1;
+                        c.HomeSecondVelocity = v2;
+                        c.HomeThirdVelocity = vLast;
+                        c.HomeLastVelocity = vLast;
+                        c.HomeIndexSearchVelocity = vIndex;
+                        c.HomeFirstAcceleration = a1;
+                        c.HomeSecondAcceleration = a2;
+                        c.HomeVelocity = v1;
+                    }
+
+                    // Home method
+                    HomeDirection hDir = HomeDirection.Ccw;
+                    HomeSignal hSig = HomeSignal.HomeSensor;
+                    HomeZPhase hZ = 0;
+                    double hClr = 0, hOff = 0;
+                    if (AXM.GetHomeMethod(AxisNo, ref hDir, ref hSig, ref hZ, ref hClr, ref hOff) == 0 && setup != null)
+                    {
+                        setup.HomeDirection = hDir;
+                        setup.HomeSignal = hSig;
+                        setup.HomeOffset = hOff;
+                    }
+
+                    // Max velocity
+                    double maxVel = 0;
+                    if (AXM.GetMaxVelocity(AxisNo, ref maxVel) == 0 && maxVel > 0)
+                        c.MaxVelocity = maxVel;
+
+                    // Unit / pulse
+                    double unit = 0; int pulse = 0;
+                    if (AXM.GetMoveUnitPerPulse(AxisNo, ref unit, ref pulse) == 0 && pulse > 0 && setup != null)
+                        setup.PulsesPerUnit = pulse / (unit > 0 ? unit : 1.0);
+
+                    // Signal levels
+                    if (setup != null)
+                    {
+                        ActiveLevel srvLvl = 0, ampFault = 0, ampReset = 0, posLvl = 0, negLvl = 0;
+                        AXM.GetAmpEnableLevel(AxisNo, ref srvLvl);
+                        AXM.GetAmpFaultLevel(AxisNo, ref ampFault);
+                        AXM.GetAmpResetLevel(AxisNo, ref ampReset);
+                        AXM.GetPositiveLimitLevel(AxisNo, ref posLvl);
+                        AXM.GetNegativeLimitLevel(AxisNo, ref negLvl);
+                        setup.ServoOnLevel = srvLvl;
+                        setup.AlarmLevel = ampFault;
+                        setup.AlarmResetLevel = ampReset;
+                        setup.PositiveLimitLevel = posLvl;
+                        setup.NegativeLimitLevel = negLvl;
+
+                        // Soft limits
+                        double swPos = 0, swNeg = 0;
+                        if (AXM.GetPositivePosition(AxisNo, ref swPos) == 0)
+                            setup.SoftLimitPlus = swPos;
+                        if (AXM.GetNegativePosition(AxisNo, ref swNeg) == 0)
+                            setup.SoftLimitMinus = swNeg;
+                    }
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Alarms.AlarmManager.Raise(
+                    Alarms.AlarmSeverity.Warning,
+                    "AX-READ-SETUP",
+                    Name,
+                    "ReadSetupFromBoard failed: " + ex.Message);
+                return false;
+            }
         }
 
         private async Task<int> WaitUntilMoveDone()

@@ -21,13 +21,18 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         private System.Windows.Forms.GroupBox grpEmergency;
         private System.Windows.Forms.GroupBox grpAlarm;
         private System.Windows.Forms.GroupBox grpPositionClear;
-        private System.Windows.Forms.Label lblConfigBody;
-        private System.Windows.Forms.Label lblInpositionBody;
-        private System.Windows.Forms.Label lblHomeBody;
-        private System.Windows.Forms.Label lblLimitBody;
-        private System.Windows.Forms.Label lblEmergencyBody;
-        private System.Windows.Forms.Label lblAlarmBody;
-        private System.Windows.Forms.Label lblPositionClearBody;
+        private QMC.CDT_320.Ui.Controls.ParamGrid pgConfig;
+        private QMC.CDT_320.Ui.Controls.ParamGrid pgInposition;
+        private QMC.CDT_320.Ui.Controls.ParamGrid pgHome;
+        private QMC.CDT_320.Ui.Controls.ParamGrid pgLimit;
+        private QMC.CDT_320.Ui.Controls.ParamGrid pgEmergency;
+        private QMC.CDT_320.Ui.Controls.ParamGrid pgAlarm;
+        private QMC.CDT_320.Ui.Controls.ParamGrid pgPositionClear;
+        private System.Windows.Forms.TableLayoutPanel speedLayout;
+        private System.Windows.Forms.DataGridView speedGrid;
+        private System.Windows.Forms.FlowLayoutPanel speedButtons;
+        private QMC.CDT_320.Ui.Controls.ActionButton btnSpeedReload;
+        private QMC.CDT_320.Ui.Controls.ActionButton btnSpeedSave;
         private System.Windows.Forms.TableLayoutPanel actionsPanel;
         private QMC.CDT_320.Ui.Controls.ActionButton btnEnable;
         private QMC.CDT_320.Ui.Controls.ActionButton btnDisable;
@@ -68,13 +73,18 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this.grpEmergency = new System.Windows.Forms.GroupBox();
             this.grpAlarm = new System.Windows.Forms.GroupBox();
             this.grpPositionClear = new System.Windows.Forms.GroupBox();
-            this.lblConfigBody = new System.Windows.Forms.Label();
-            this.lblInpositionBody = new System.Windows.Forms.Label();
-            this.lblHomeBody = new System.Windows.Forms.Label();
-            this.lblLimitBody = new System.Windows.Forms.Label();
-            this.lblEmergencyBody = new System.Windows.Forms.Label();
-            this.lblAlarmBody = new System.Windows.Forms.Label();
-            this.lblPositionClearBody = new System.Windows.Forms.Label();
+            this.pgConfig = new QMC.CDT_320.Ui.Controls.ParamGrid();
+            this.pgInposition = new QMC.CDT_320.Ui.Controls.ParamGrid();
+            this.pgHome = new QMC.CDT_320.Ui.Controls.ParamGrid();
+            this.pgLimit = new QMC.CDT_320.Ui.Controls.ParamGrid();
+            this.pgEmergency = new QMC.CDT_320.Ui.Controls.ParamGrid();
+            this.pgAlarm = new QMC.CDT_320.Ui.Controls.ParamGrid();
+            this.pgPositionClear = new QMC.CDT_320.Ui.Controls.ParamGrid();
+            this.speedLayout = new System.Windows.Forms.TableLayoutPanel();
+            this.speedGrid = new System.Windows.Forms.DataGridView();
+            this.speedButtons = new System.Windows.Forms.FlowLayoutPanel();
+            this.btnSpeedReload = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.btnSpeedSave = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.actionsPanel = new System.Windows.Forms.TableLayoutPanel();
             this.btnEnable = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnDisable = new QMC.CDT_320.Ui.Controls.ActionButton();
@@ -92,6 +102,10 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this.configTabs.SuspendLayout();
             this.tabConfig.SuspendLayout();
             this.configLayout.SuspendLayout();
+            this.tabSpeed.SuspendLayout();
+            this.speedLayout.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.speedGrid)).BeginInit();
+            this.speedButtons.SuspendLayout();
             this.actionsPanel.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -254,12 +268,100 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             // tabSpeed
             // 
             this.tabSpeed.BackColor = System.Drawing.Color.WhiteSmoke;
+            this.tabSpeed.Controls.Add(this.speedLayout);
             this.tabSpeed.Location = new System.Drawing.Point(36, 4);
             this.tabSpeed.Name = "tabSpeed";
-            this.tabSpeed.Padding = new System.Windows.Forms.Padding(3);
+            this.tabSpeed.Padding = new System.Windows.Forms.Padding(8);
             this.tabSpeed.Size = new System.Drawing.Size(1360, 498);
             this.tabSpeed.TabIndex = 2;
             this.tabSpeed.Text = "SPEED";
+            // 
+            // speedLayout
+            // 
+            this.speedLayout.ColumnCount = 1;
+            this.speedLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.speedLayout.Controls.Add(this.speedGrid, 0, 0);
+            this.speedLayout.Controls.Add(this.speedButtons, 0, 1);
+            this.speedLayout.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.speedLayout.Location = new System.Drawing.Point(8, 8);
+            this.speedLayout.Name = "speedLayout";
+            this.speedLayout.RowCount = 2;
+            this.speedLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.speedLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 50F));
+            this.speedLayout.Size = new System.Drawing.Size(1344, 482);
+            this.speedLayout.TabIndex = 0;
+            // 
+            // speedGrid
+            // 
+            this.speedGrid.AllowUserToAddRows = false;
+            this.speedGrid.AllowUserToDeleteRows = false;
+            this.speedGrid.AutoSizeColumnsMode = System.Windows.Forms.DataGridViewAutoSizeColumnsMode.Fill;
+            this.speedGrid.BackgroundColor = System.Drawing.Color.White;
+            this.speedGrid.ColumnHeadersDefaultCellStyle = gridHeaderStyle;
+            this.speedGrid.ColumnHeadersHeight = 29;
+            this.speedGrid.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.speedGrid.EnableHeadersVisualStyles = false;
+            this.speedGrid.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.speedGrid.Location = new System.Drawing.Point(0, 0);
+            this.speedGrid.Margin = new System.Windows.Forms.Padding(0, 0, 0, 6);
+            this.speedGrid.MultiSelect = false;
+            this.speedGrid.Name = "speedGrid";
+            this.speedGrid.RowHeadersVisible = false;
+            this.speedGrid.RowHeadersWidth = 51;
+            this.speedGrid.RowTemplate.Height = 26;
+            this.speedGrid.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.CellSelect;
+            this.speedGrid.Size = new System.Drawing.Size(1344, 426);
+            this.speedGrid.TabIndex = 0;
+            this.speedGrid.Columns.Add("AXIS", "AXIS");
+            this.speedGrid.Columns.Add("DEFAULT_VEL", "DEFAULT VEL");
+            this.speedGrid.Columns.Add("ACCEL", "ACCEL");
+            this.speedGrid.Columns.Add("DECEL", "DECEL");
+            this.speedGrid.Columns.Add("HOME_VEL_1", "HOME VEL 1");
+            this.speedGrid.Columns.Add("HOME_VEL_2", "HOME VEL 2");
+            this.speedGrid.Columns.Add("HOME_VEL_3", "HOME VEL 3");
+            this.speedGrid.Columns.Add("HOME_VEL_4", "HOME VEL 4");
+            this.speedGrid.Columns.Add("HOME_ACC_1", "HOME ACC 1");
+            this.speedGrid.Columns.Add("HOME_DEC_1", "HOME DEC 1");
+            this.speedGrid.Columns.Add("HOME_ACC_2", "HOME ACC 2");
+            this.speedGrid.Columns.Add("HOME_DEC_2", "HOME DEC 2");
+            this.speedGrid.Columns.Add("JOG_COARSE", "JOG COARSE");
+            this.speedGrid.Columns.Add("JOG_FINE", "JOG FINE");
+            this.speedGrid.Columns.Add("JOG_ACC", "JOG ACC");
+            this.speedGrid.Columns.Add("JOG_DEC", "JOG DEC");
+            this.speedGrid.Columns.Add("INPOS_TOL", "IN-POS TOL");
+            this.speedGrid.Columns[0].ReadOnly = true;
+            // 
+            // speedButtons
+            // 
+            this.speedButtons.Controls.Add(this.btnSpeedReload);
+            this.speedButtons.Controls.Add(this.btnSpeedSave);
+            this.speedButtons.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.speedButtons.FlowDirection = System.Windows.Forms.FlowDirection.RightToLeft;
+            this.speedButtons.Location = new System.Drawing.Point(0, 432);
+            this.speedButtons.Margin = new System.Windows.Forms.Padding(0);
+            this.speedButtons.Name = "speedButtons";
+            this.speedButtons.Size = new System.Drawing.Size(1344, 50);
+            this.speedButtons.TabIndex = 1;
+            // 
+            // btnSpeedSave
+            // 
+            this.btnSpeedSave.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnSpeedSave.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.btnSpeedSave.Margin = new System.Windows.Forms.Padding(6, 6, 0, 6);
+            this.btnSpeedSave.Name = "btnSpeedSave";
+            this.btnSpeedSave.Size = new System.Drawing.Size(120, 38);
+            this.btnSpeedSave.TabIndex = 0;
+            this.btnSpeedSave.Text = "SAVE";
+            // 
+            // btnSpeedReload
+            // 
+            this.btnSpeedReload.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnSpeedReload.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.btnSpeedReload.Margin = new System.Windows.Forms.Padding(6, 6, 0, 6);
+            this.btnSpeedReload.Name = "btnSpeedReload";
+            this.btnSpeedReload.Size = new System.Drawing.Size(120, 38);
+            this.btnSpeedReload.TabIndex = 1;
+            this.btnSpeedReload.Text = "RELOAD";
             // 
             // configLayout
             // 
@@ -286,7 +388,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             // 
             // grpConfig
             // 
-            this.grpConfig.Controls.Add(this.lblConfigBody);
+            this.grpConfig.Controls.Add(this.pgConfig);
             this.grpConfig.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpConfig.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
             this.grpConfig.Location = new System.Drawing.Point(3, 3);
@@ -296,21 +398,19 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this.grpConfig.TabStop = false;
             this.grpConfig.Text = "CONFIG";
             // 
-            // lblConfigBody
+            // pgConfig
             // 
-            this.lblConfigBody.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblConfigBody.Font = new System.Drawing.Font("Consolas", 9F);
-            this.lblConfigBody.Location = new System.Drawing.Point(3, 19);
-            this.lblConfigBody.Name = "lblConfigBody";
-            this.lblConfigBody.Padding = new System.Windows.Forms.Padding(8);
-            this.lblConfigBody.Size = new System.Drawing.Size(436, 188);
-            this.lblConfigBody.TabIndex = 0;
-            this.lblConfigBody.Text = "OUTPUT MODE    PULSE-HIGH/CW/CCW\r\nINPUT MODE     OBVERSE SQR4\r\nINPUT SOURCE   EN" +
-    "CODER\r\nZ PHASE LEVEL   HIGH\r\nSERVO LEVEL     HIGH\r\nMAX VELOCITY    3,000,000";
+            this.pgConfig.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.pgConfig.Location = new System.Drawing.Point(3, 19);
+            this.pgConfig.Name = "pgConfig";
+            this.pgConfig.NameWidth = 140;
+            this.pgConfig.Padding = new System.Windows.Forms.Padding(6);
+            this.pgConfig.Size = new System.Drawing.Size(436, 188);
+            this.pgConfig.TabIndex = 0;
             // 
             // grpInposition
             // 
-            this.grpInposition.Controls.Add(this.lblInpositionBody);
+            this.grpInposition.Controls.Add(this.pgInposition);
             this.grpInposition.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpInposition.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
             this.grpInposition.Location = new System.Drawing.Point(451, 3);
@@ -320,20 +420,19 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this.grpInposition.TabStop = false;
             this.grpInposition.Text = "INPOSITION";
             // 
-            // lblInpositionBody
+            // pgInposition
             // 
-            this.lblInpositionBody.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblInpositionBody.Font = new System.Drawing.Font("Consolas", 9F);
-            this.lblInpositionBody.Location = new System.Drawing.Point(3, 19);
-            this.lblInpositionBody.Name = "lblInpositionBody";
-            this.lblInpositionBody.Padding = new System.Windows.Forms.Padding(8);
-            this.lblInpositionBody.Size = new System.Drawing.Size(436, 188);
-            this.lblInpositionBody.TabIndex = 0;
-            this.lblInpositionBody.Text = "LEVEL           ACTIVE HIGH\r\nSOFTWARE        DISABLE\r\nSOFTWARE LENGTH 10 pulse";
+            this.pgInposition.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.pgInposition.Location = new System.Drawing.Point(3, 19);
+            this.pgInposition.Name = "pgInposition";
+            this.pgInposition.NameWidth = 140;
+            this.pgInposition.Padding = new System.Windows.Forms.Padding(6);
+            this.pgInposition.Size = new System.Drawing.Size(436, 188);
+            this.pgInposition.TabIndex = 0;
             // 
             // grpLimit
             // 
-            this.grpLimit.Controls.Add(this.lblLimitBody);
+            this.grpLimit.Controls.Add(this.pgLimit);
             this.grpLimit.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpLimit.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
             this.grpLimit.Location = new System.Drawing.Point(899, 3);
@@ -343,21 +442,19 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this.grpLimit.TabStop = false;
             this.grpLimit.Text = "LIMIT";
             // 
-            // lblLimitBody
+            // pgLimit
             // 
-            this.lblLimitBody.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblLimitBody.Font = new System.Drawing.Font("Consolas", 9F);
-            this.lblLimitBody.Location = new System.Drawing.Point(3, 19);
-            this.lblLimitBody.Name = "lblLimitBody";
-            this.lblLimitBody.Padding = new System.Windows.Forms.Padding(8);
-            this.lblLimitBody.Size = new System.Drawing.Size(436, 188);
-            this.lblLimitBody.TabIndex = 0;
-            this.lblLimitBody.Text = "STOP MODE       EMERGENCY\r\nNEG LEVEL       ACTIVE LOW\r\nPOS LEVEL       ACTIVE LOW" +
-    "\r\nSOFTWARE        DISABLE\r\nSW NEGATIVE     0 pulse\r\nSW POSITIVE     1,000,000 pulse";
+            this.pgLimit.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.pgLimit.Location = new System.Drawing.Point(3, 19);
+            this.pgLimit.Name = "pgLimit";
+            this.pgLimit.NameWidth = 140;
+            this.pgLimit.Padding = new System.Windows.Forms.Padding(6);
+            this.pgLimit.Size = new System.Drawing.Size(436, 188);
+            this.pgLimit.TabIndex = 0;
             // 
             // grpEmergency
             // 
-            this.grpEmergency.Controls.Add(this.lblEmergencyBody);
+            this.grpEmergency.Controls.Add(this.pgEmergency);
             this.grpEmergency.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpEmergency.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
             this.grpEmergency.Location = new System.Drawing.Point(3, 219);
@@ -367,20 +464,19 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this.grpEmergency.TabStop = false;
             this.grpEmergency.Text = "EMERGENCY SIGNAL";
             // 
-            // lblEmergencyBody
+            // pgEmergency
             // 
-            this.lblEmergencyBody.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblEmergencyBody.Font = new System.Drawing.Font("Consolas", 9F);
-            this.lblEmergencyBody.Location = new System.Drawing.Point(3, 19);
-            this.lblEmergencyBody.Name = "lblEmergencyBody";
-            this.lblEmergencyBody.Padding = new System.Windows.Forms.Padding(8);
-            this.lblEmergencyBody.Size = new System.Drawing.Size(436, 104);
-            this.lblEmergencyBody.TabIndex = 0;
-            this.lblEmergencyBody.Text = "LEVEL           DISABLE\r\nSTOP MODE       EMERGENCY";
+            this.pgEmergency.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.pgEmergency.Location = new System.Drawing.Point(3, 19);
+            this.pgEmergency.Name = "pgEmergency";
+            this.pgEmergency.NameWidth = 140;
+            this.pgEmergency.Padding = new System.Windows.Forms.Padding(6);
+            this.pgEmergency.Size = new System.Drawing.Size(436, 104);
+            this.pgEmergency.TabIndex = 0;
             // 
             // grpHome
             // 
-            this.grpHome.Controls.Add(this.lblHomeBody);
+            this.grpHome.Controls.Add(this.pgHome);
             this.grpHome.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpHome.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
             this.grpHome.Location = new System.Drawing.Point(451, 219);
@@ -390,20 +486,19 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this.grpHome.TabStop = false;
             this.grpHome.Text = "HOME";
             // 
-            // lblHomeBody
+            // pgHome
             // 
-            this.lblHomeBody.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblHomeBody.Font = new System.Drawing.Font("Consolas", 9F);
-            this.lblHomeBody.Location = new System.Drawing.Point(3, 19);
-            this.lblHomeBody.Name = "lblHomeBody";
-            this.lblHomeBody.Padding = new System.Windows.Forms.Padding(8);
-            this.lblHomeBody.Size = new System.Drawing.Size(436, 104);
-            this.lblHomeBody.TabIndex = 0;
-            this.lblHomeBody.Text = "SIGNAL          LOW\r\nMODE            NEGATIVE LIMIT";
+            this.pgHome.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.pgHome.Location = new System.Drawing.Point(3, 19);
+            this.pgHome.Name = "pgHome";
+            this.pgHome.NameWidth = 140;
+            this.pgHome.Padding = new System.Windows.Forms.Padding(6);
+            this.pgHome.Size = new System.Drawing.Size(436, 104);
+            this.pgHome.TabIndex = 0;
             // 
             // grpAlarm
             // 
-            this.grpAlarm.Controls.Add(this.lblAlarmBody);
+            this.grpAlarm.Controls.Add(this.pgAlarm);
             this.grpAlarm.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpAlarm.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
             this.grpAlarm.Location = new System.Drawing.Point(899, 219);
@@ -413,20 +508,19 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this.grpAlarm.TabStop = false;
             this.grpAlarm.Text = "ALARM";
             // 
-            // lblAlarmBody
+            // pgAlarm
             // 
-            this.lblAlarmBody.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblAlarmBody.Font = new System.Drawing.Font("Consolas", 9F);
-            this.lblAlarmBody.Location = new System.Drawing.Point(3, 19);
-            this.lblAlarmBody.Name = "lblAlarmBody";
-            this.lblAlarmBody.Padding = new System.Windows.Forms.Padding(8);
-            this.lblAlarmBody.Size = new System.Drawing.Size(436, 104);
-            this.lblAlarmBody.TabIndex = 0;
-            this.lblAlarmBody.Text = "RESET SIGNAL    HIGH\r\nLEVEL           ACTIVE LOW";
+            this.pgAlarm.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.pgAlarm.Location = new System.Drawing.Point(3, 19);
+            this.pgAlarm.Name = "pgAlarm";
+            this.pgAlarm.NameWidth = 140;
+            this.pgAlarm.Padding = new System.Windows.Forms.Padding(6);
+            this.pgAlarm.Size = new System.Drawing.Size(436, 104);
+            this.pgAlarm.TabIndex = 0;
             // 
             // grpPositionClear
             // 
-            this.grpPositionClear.Controls.Add(this.lblPositionClearBody);
+            this.grpPositionClear.Controls.Add(this.pgPositionClear);
             this.grpPositionClear.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpPositionClear.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
             this.grpPositionClear.Location = new System.Drawing.Point(3, 351);
@@ -436,16 +530,15 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this.grpPositionClear.TabStop = false;
             this.grpPositionClear.Text = "POSITION CLEAR";
             // 
-            // lblPositionClearBody
+            // pgPositionClear
             // 
-            this.lblPositionClearBody.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblPositionClearBody.Font = new System.Drawing.Font("Consolas", 9F);
-            this.lblPositionClearBody.Location = new System.Drawing.Point(3, 19);
-            this.lblPositionClearBody.Name = "lblPositionClearBody";
-            this.lblPositionClearBody.Padding = new System.Windows.Forms.Padding(8);
-            this.lblPositionClearBody.Size = new System.Drawing.Size(436, 106);
-            this.lblPositionClearBody.TabIndex = 0;
-            this.lblPositionClearBody.Text = "ENABLED         FALSE\r\nPULSE           10,000 pulse";
+            this.pgPositionClear.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.pgPositionClear.Location = new System.Drawing.Point(3, 19);
+            this.pgPositionClear.Name = "pgPositionClear";
+            this.pgPositionClear.NameWidth = 140;
+            this.pgPositionClear.Padding = new System.Windows.Forms.Padding(6);
+            this.pgPositionClear.Size = new System.Drawing.Size(436, 106);
+            this.pgPositionClear.TabIndex = 0;
             // 
             // actionsPanel
             // 
@@ -614,6 +707,10 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this.configTabs.ResumeLayout(false);
             this.tabConfig.ResumeLayout(false);
             this.configLayout.ResumeLayout(false);
+            this.tabSpeed.ResumeLayout(false);
+            this.speedLayout.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)(this.speedGrid)).EndInit();
+            this.speedButtons.ResumeLayout(false);
             this.actionsPanel.ResumeLayout(false);
             this.ResumeLayout(false);
         }

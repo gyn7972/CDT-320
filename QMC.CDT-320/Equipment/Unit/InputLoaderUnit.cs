@@ -20,41 +20,41 @@ namespace QMC.CDT320
 
     public class InputLoaderUnit : BaseUnit<InputLoaderSetup, InputLoaderConfig, InputLoaderRecipe>
     {
-        public InputCassetteUnit WaferCassette { get; private set; }
+        public InputCassetteUnit IndexCassette { get; private set; }
         public InputFeederUnit WaferFeeder { get; private set; }
 
-        public BaseAxis WaferLifterZ { get { return WaferCassette.WaferLifterZ; } }
+        public BaseAxis WaferLifterZ { get { return IndexCassette.WaferLifterZ; } }
         public BaseAxis FeederY { get { return WaferFeeder.FeederY; } }
 
-        public BaseDigitalInput CassetteExistSensor { get { return WaferCassette.CassetteExistSensor; } }
-        public BaseDigitalInput ProtrusionSensor { get { return WaferCassette.ProtrusionSensor; } }
-        public BaseDigitalInput WaferDetectSensor { get { return WaferCassette.WaferDetectSensor; } }
+        public BaseDigitalInput CassetteExistSensor { get { return IndexCassette.CassetteExistSensor; } }
+        public BaseDigitalInput ProtrusionSensor { get { return IndexCassette.ProtrusionSensor; } }
+        public BaseDigitalInput WaferDetectSensor { get { return IndexCassette.WaferDetectSensor; } }
         public BaseDigitalInput WaferClampedSensor { get { return WaferFeeder.WaferClampedSensor; } }
 
         public BaseCylinder FeederUpDownCyl { get { return WaferFeeder.FeederUpDownCyl; } }
         public BaseCylinder FeederClampCyl { get { return WaferFeeder.FeederClampCyl; } }
 
-        public IReadOnlyList<bool> WaferMap { get { return WaferCassette.WaferMap; } }
+        public IReadOnlyList<bool> WaferMap { get { return IndexCassette.WaferMap; } }
 
         public InputLoaderUnit() : base("InputLoaderUnit")
         {
-            WaferCassette = new InputCassetteUnit();
+            IndexCassette = new InputCassetteUnit();
             WaferFeeder = new InputFeederUnit();
 
-            Components.Add(WaferCassette);
+            Components.Add(IndexCassette);
             Components.Add(WaferFeeder);
         }
 
         public Task<int> ScanCassetteAsync(int maxSlots, double slotPitch)
         {
             SyncChildSettings();
-            return WaferCassette.ScanCassetteAsync(maxSlots, slotPitch);
+            return IndexCassette.ScanCassetteAsync(maxSlots, slotPitch);
         }
 
         public Task<int> MoveToTargetSlotAsync(double targetPosition)
         {
             SyncChildSettings();
-            return WaferCassette.MoveToTargetSlotAsync(targetPosition);
+            return IndexCassette.MoveToTargetSlotAsync(targetPosition);
         }
 
         public Task<bool> MoveToExchangePositionAsync()

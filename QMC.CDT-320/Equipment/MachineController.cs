@@ -266,7 +266,7 @@ namespace QMC.CDT320
             // 이동 + 교환 위치 전진
             double slotPitch = 6.0;
             //double targetZ = loader.Setup.FirstSlotPosition + next * slotPitch;
-            double targetZ = loader.WaferCassette.Recipe.FirstSlotPosition + next * slotPitch;
+            double targetZ = loader.IndexCassette.Recipe.FirstSlotPosition + next * slotPitch;
             Log($"[LOTPORT] Move to slot {next} (Z={targetZ:F2}mm)");
             try
             {

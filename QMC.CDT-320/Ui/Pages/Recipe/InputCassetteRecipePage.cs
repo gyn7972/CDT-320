@@ -147,7 +147,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             try
             {
                 var machine = FindMachine();
-                _waferCassette = machine != null && machine.InputLoader != null ? machine.InputLoader.WaferCassette : null;
+                _waferCassette = machine != null && machine.InputLoader != null ? machine.InputLoader.IndexCassette : null;
 
                 if (_waferCassette != null)
                     _waferCassette.EnsureSlotPositionBuffer();

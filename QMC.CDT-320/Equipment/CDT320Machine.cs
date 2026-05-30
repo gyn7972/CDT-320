@@ -170,7 +170,7 @@ namespace QMC.CDT320
     {
         /// <summary>Input Cassette에서 웨이퍼를 공급하는 로더 유닛.</summary>
         public InputLoaderUnit      InputLoader      { get; }
-        public InputCassetteUnit    WaferCassette    { get { return InputLoader.WaferCassette; } }
+        public InputCassetteUnit    IndexCassetteUnit    { get { return InputLoader.IndexCassette; } }
         public InputFeederUnit      WaferFeeder      { get { return InputLoader.WaferFeeder; } }
 
         /// <summary>웨이퍼를 고정하고 다이 위치를 관리하는 Input Stage 유닛.</summary>
