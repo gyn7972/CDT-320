@@ -1,13 +1,8 @@
 ﻿using QMC.Common.Motion;
 using QMC.Common;
-using QMC.Common.Motion;
 using QMC.Common.Motion.Ajin;
 using System;
-using System.Collections.Generic;
-using System.Security.Claims;
 using System.Threading.Tasks;
-using static QMC.CDT_320.Ui.Pages.Settings.AxisSetupPage;
-using static QMC.CDT320.Ajin.AjinIoCatalog;
 
 namespace QMC.CDT320.Ajin
 {

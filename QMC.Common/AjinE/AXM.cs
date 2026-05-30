@@ -519,8 +519,8 @@ namespace QMC.Common.Motion.Ajin
         //    [3]        |    Driver Status Read
         //    [4]        |    Universal Signal Input Read
         //               |    Universal Signal Output Read
-        [DllImport("LibraryFileName")] 
-        public static extern uint AxmStatusReadMotionInfo(int nAxisNo, ref MOTION_INFO MI);
+        [DllImport(LibraryFileName)]
+        private static extern uint AxmStatusReadMotionInfo(int nAxisNo, ref MOTION_INFO MI);
 
 
         // EndStatus 레지스터를 확인

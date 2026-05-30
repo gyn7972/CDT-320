@@ -139,7 +139,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             try
             {
                 var machine = FindMachine();
-                _InputCassetteUnit = machine != null && machine.InputLoader != null ? machine.InputLoader.WaferCassette : null;
+                _InputCassetteUnit = machine != null && machine.InputLoader != null ? machine.InputLoader.InputCassette : null;
 
                 if (_InputCassetteUnit != null)
                     _InputCassetteUnit.EnsureSlotPositionBuffer();
