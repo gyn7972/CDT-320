@@ -61,15 +61,15 @@ namespace QMC.CDT320
     [DataContract]
     public class InputCassetteRecipe : IRecipeData
     {
-        [DataMember] public double AvoidPosition { get; set; } = 0.0;    //ReadyPosition.
-        [DataMember] public double LoaingPosition { get; set; } = 150.0;
-        [DataMember] public double UnloadingPosition { get; set; } = 150.0;
-        [DataMember] public double FirstSlotPosition { get; set; } = 10.0;
-        [DataMember] public double MappingStartPosition { get; set; } = 5.0;
-        [DataMember] public double MappingEndPosition { get; set; } = 130.0;
+        [DataMember] public double AvoidPosition { get; set; }  //ReadyPosition.
+        [DataMember] public double LoaingPosition { get; set; }
+        [DataMember] public double UnloadingPosition { get; set; }
+        [DataMember] public double FirstSlotPosition { get; set; }
+        [DataMember] public double MappingStartPosition { get; set; }
+        [DataMember] public double MappingEndPosition { get; set; }
 
         /// <summary>Mapping ???뺤젙??Slot蹂?Z ?꾩튂?낅땲?? 媛믪씠 ?놁쑝硫?double.NaN?쇰줈 ?좎??⑸땲??</summary>
-        public double[] SlotPosition { get; private set; } = Array.Empty<double>();
+        public double[] SlotPosition { get; private set; }
 
         /// <summary>Config.SlotCount??留욎떠 SlotPosition 踰꾪띁瑜??ъ깮?깊빀?덈떎.</summary>
         public void ResizeSlotPositions(int slotCount)
