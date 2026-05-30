@@ -1,5 +1,4 @@
 using System;
-using System;
 using QMC.Common.Persistence;
 
 namespace QMC.Common

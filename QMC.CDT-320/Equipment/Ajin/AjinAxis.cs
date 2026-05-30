@@ -56,12 +56,12 @@ namespace QMC.CDT320.Ajin
             AlarmCode = 0;
         }
 
-        public override async Task MoveAbsoluteAsync(double targetPos, double velocity = 0)
+        public override async Task<int> MoveAbsoluteAsync(double targetPos, double velocity = 0)
         {
             try
             {
                 if (!IsServoOn || IsAlarm || !AjinSystem.IsOpen)
-                    return;
+                    return -2;
 
                 UpdateStatus();
 
@@ -82,11 +82,17 @@ namespace QMC.CDT320.Ajin
                     IsMoving = false;
                     IsAlarm = true;
                     AlarmCode = (uint)ret;
-                    return;
+                    Alarms.AlarmManager.Raise(
+                        Alarms.AlarmSeverity.Error,
+                        "AX-MOVE-ABS",
+                        Name,
+                        "AXM.MovePosition failed. ret=0x" + ret.ToString("X4"));
+                    return ret;
                 }
 
                 RaiseMoveStarted();
-                await WaitUntilMoveDone();
+                int waitRet = await WaitUntilMoveDone();
+                return IsAlarm ? (int)AlarmCode : waitRet;
             }
             catch (Exception ex)
             {
@@ -97,6 +103,7 @@ namespace QMC.CDT320.Ajin
                     "AX-MOVE-ABS",
                     Name,
                     ex.Message);
+                return -1;
             }
             finally
             {
@@ -104,19 +111,16 @@ namespace QMC.CDT320.Ajin
             }
         }
 
-        public override async Task MoveRelativeAsync(double distance, double velocity = 0)
+        public override async Task<int> MoveRelativeAsync(double distance, double velocity = 0)
         {
             try
             {
                 if (!AjinSystem.IsOpen)
-                {
-                    await base.MoveRelativeAsync(distance, velocity);
-                    return;
-                }
+                    return await base.MoveRelativeAsync(distance, velocity);
 
                 UpdateStatus();
                 double targetPos = ActualPosition + distance;
-                await MoveAbsoluteAsync(targetPos, velocity);
+                return await MoveAbsoluteAsync(targetPos, velocity);
             }
             catch (Exception ex)
             {
@@ -127,6 +131,7 @@ namespace QMC.CDT320.Ajin
                     "AX-MOVE-REL",
                     Name,
                     ex.Message);
+                return -1;
             }
             finally
             {
@@ -150,38 +155,76 @@ namespace QMC.CDT320.Ajin
                 AXM.StopEmergency(AxisNo);
         }
 
-        public override async Task HomeSearchAsync()
+        public override async Task<int> HomeSearchAsync()
         {
-            if (!IsServoOn || IsAlarm || !AjinSystem.IsOpen) return;
+            try
+            {
+                if (!IsServoOn || IsAlarm || !AjinSystem.IsOpen)
+                    return -2;
 
-            IsHomeDone = false;
-            IsMoving = true;
-            IsInPosition = false;
+                IsHomeDone = false;
+                IsMoving = true;
+                IsInPosition = false;
 
-            int ret;
-            lock (_sync)
-                ret = AXM.SetHomeStart(AxisNo);
-            if (ret != 0)
+                int ret;
+                lock (_sync)
+                    ret = AXM.SetHomeStart(AxisNo);
+                if (ret != 0)
+                {
+                    IsMoving = false;
+                    IsAlarm = true;
+                    AlarmCode = (uint)ret;
+                    Alarms.AlarmManager.Raise(
+                        Alarms.AlarmSeverity.Error,
+                        "AX-HOME",
+                        Name,
+                        "AXM.SetHomeStart failed. ret=0x" + ret.ToString("X4"));
+                    return ret;
+                }
+
+                RaiseMoveStarted();
+
+                int guard = 0;
+                while (!IsHomeDone && !IsAlarm)
+                {
+                    UpdateStatus();
+                    await Task.Delay(20).ContinueWith(_ => { });
+                    if (++guard > 3000)
+                    {
+                        IsMoving = false;
+                        Alarms.AlarmManager.Raise(
+                            Alarms.AlarmSeverity.Error,
+                            "AX-HOME",
+                            Name,
+                            "Home search timeout. AxisNo=" + AxisNo);
+                        return -3;
+                    }
+                }
+
+                IsMoving = false;
+                IsInPosition = IsHomeDone;
+                if (IsHomeDone)
+                {
+                    RaiseMoveCompleted();
+                    return 0;
+                }
+                return IsAlarm ? (int)AlarmCode : -1;
+            }
+            catch (Exception ex)
             {
                 IsMoving = false;
                 IsAlarm = true;
-                AlarmCode = (uint)ret;
-                return;
+                Alarms.AlarmManager.Raise(
+                    Alarms.AlarmSeverity.Error,
+                    "AX-HOME",
+                    Name,
+                    ex.Message);
+                return -1;
             }
-
-            RaiseMoveStarted();
-
-            int guard = 0;
-            while (!IsHomeDone && !IsAlarm)
+            finally
             {
                 UpdateStatus();
-                await Task.Delay(20).ContinueWith(_ => { });
-                if (++guard > 3000) break;
             }
-
-            IsMoving = false;
-            IsInPosition = IsHomeDone;
-            if (IsHomeDone) RaiseMoveCompleted();
         }
 
         public override void SetPosition(double newPosition)
@@ -240,25 +283,25 @@ namespace QMC.CDT320.Ajin
             }
         }
 
-        public override async Task MoveJogStepAsync(int direction, JogSpeedType speedType,
-                                                   double stepDistance, double customVel = 0)
+        public override async Task<int> MoveJogStepAsync(int direction, JogSpeedType speedType,
+                                                         double stepDistance, double customVel = 0)
         {
             try
             {
                 if (!IsServoOn || IsAlarm)
-                    return;
+                    return -2;
 
                 int jogDirection = direction < 0 ? -1 : 1;
                 double vel = GetJogVelocity(speedType, customVel);
                 double distance = jogDirection * Math.Abs(stepDistance);
                 if (distance == 0)
-                    return;
+                    return 0;
 
                 UpdateStatus();
                 if (IsMoving)
-                    return;
+                    return -2;
 
-                await MoveRelativeAsync(distance, vel);
+                return await MoveRelativeAsync(distance, vel);
             }
             catch (Exception ex)
             {
@@ -269,6 +312,7 @@ namespace QMC.CDT320.Ajin
                     "AX-JOG-STEP",
                     Name,
                     ex.Message);
+                return -1;
             }
             finally
             {
@@ -398,7 +442,7 @@ namespace QMC.CDT320.Ajin
                 IsServoOn = svOn;
         }
 
-        private async Task WaitUntilMoveDone()
+        private async Task<int> WaitUntilMoveDone()
         {
             int guard = 0;
             bool detectedMotion = false;
@@ -415,11 +459,20 @@ namespace QMC.CDT320.Ajin
                     break;
 
                 await Task.Delay(10).ContinueWith(_ => { });
-                if (++guard > 6000) 
-                    break;
+                if (++guard > 6000)
+                {
+                    Alarms.AlarmManager.Raise(
+                        Alarms.AlarmSeverity.Error,
+                        "AX-MOVE-WAIT",
+                        Name,
+                        "Move wait timeout. AxisNo=" + AxisNo);
+                    UpdateStatus();
+                    return -3;
+                }
             }
 
             UpdateStatus();
+            return IsAlarm ? (int)AlarmCode : 0;
         }
     }
 }
