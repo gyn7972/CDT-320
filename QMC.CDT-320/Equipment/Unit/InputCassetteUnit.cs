@@ -10,37 +10,63 @@ using QMC.Common.Motion;
 
 namespace QMC.CDT320
 {
-    public class InputCassetteSetup : ISetupData
     [DataContract]
-    public class WaferCassetteSetup : ISetupData
+    public class InputCassetteSetup : ISetupData
     {
-        public bool IsSimulationMode { get; set; } = true;
-        public double InPositionTolerance { get; set; } = 0.05;
+        [DataMember] public bool IsSimulationMode { get; set; }
+        [DataMember] public double InPositionTolerance { get; set; }
+
+        [OnDeserializing]
+        private void OnDeserializing(StreamingContext ctx) { SetDefaults(); }
+
+        private void SetDefaults()
+        {
+            IsSimulationMode = false;
+            InPositionTolerance = 0.05;
+        }
     }
 
+    [DataContract]
     public class InputCassetteConfig : IConfigData
     {
-        public bool bDryRun { get; set; } = true;
-        public double LoadingPositionOffset { get; set; } = 0.0;
-        public double UnloadingPositionOffset { get; set; } = 0.0;
-        public double SlotPitch { get; set; } = 5.0;
-        public int SlotCount { get; set; } = 25;
-        public double ScanVelocity { get; set; } = 20.0;
-        public int ScanSettleTimeMs { get; set; } = 100;
-        public int ElevatorMoveTimeoutMs { get; set; } = 10000;
-        public int InchSelect { get; set; } = 0; // 0: 8Inch, 1: 12Inch
-        public int SelectedCassetteLevel { get; set; } = 0; // 0: 1단, 1: 2단
+        [DataMember]public bool bDryRun { get; set; }
+        [DataMember]public double LoadingPositionOffset { get; set; }
+        [DataMember]public double UnloadingPositionOffset { get; set; }
+        [DataMember]public double SlotPitch { get; set; }
+        [DataMember]public int SlotCount { get; set; }
+        [DataMember]public double ScanVelocity { get; set; }
+        [DataMember]public int ScanSettleTimeMs { get; set; }
+        [DataMember]public int ElevatorMoveTimeoutMs { get; set; }
+        [DataMember]public int InchSelect { get; set; } // 0: 8Inch, 1: 12Inch
+        [DataMember] public int SelectedCassetteLevel { get; set; } // 0: 1단, 1: 2단
 
+        [OnDeserializing]
+        private void OnDeserializing(StreamingContext ctx) { SetDefaults(); }
+
+        private void SetDefaults()
+        {
+            bDryRun = false;
+            LoadingPositionOffset = 0.00;
+            UnloadingPositionOffset = 0.00;
+            SlotPitch = 5.00;
+            SlotCount = 25;
+            ScanVelocity = 20.0;
+            ScanSettleTimeMs = 100;
+            ElevatorMoveTimeoutMs = 10000;
+            InchSelect = 0;
+            SelectedCassetteLevel = 0;
+        }
     }
-
+    
+    [DataContract]
     public class InputCassetteRecipe : IRecipeData
     {
-        public double AvoidPosition { get; set; } = 0.0;    //ReadyPosition.
-        public double LoaingPosition { get; set; } = 150.0;
-        public double UnloadingPosition { get; set; } = 150.0;
-        public double FirstSlotPosition { get; set; } = 10.0;
-        public double MappingStartPosition { get; set; } = 5.0;
-        public double MappingEndPosition { get; set; } = 130.0;
+        [DataMember] public double AvoidPosition { get; set; } = 0.0;    //ReadyPosition.
+        [DataMember] public double LoaingPosition { get; set; } = 150.0;
+        [DataMember] public double UnloadingPosition { get; set; } = 150.0;
+        [DataMember] public double FirstSlotPosition { get; set; } = 10.0;
+        [DataMember] public double MappingStartPosition { get; set; } = 5.0;
+        [DataMember] public double MappingEndPosition { get; set; } = 130.0;
 
         /// <summary>Mapping ???뺤젙??Slot蹂?Z ?꾩튂?낅땲?? 媛믪씠 ?놁쑝硫?double.NaN?쇰줈 ?좎??⑸땲??</summary>
         public double[] SlotPosition { get; private set; } = Array.Empty<double>();
@@ -53,31 +79,6 @@ namespace QMC.CDT320
             for (int i = 0; i < SlotPosition.Length; i++)
                 SlotPosition[i] = double.NaN;
         }
-        [DataMember] public double AvoidPosition { get; set; }
-        [DataMember] public double FirstSlotPosition { get; set; }
-        [DataMember] public double MappingStartPosition { get; set; }
-        [DataMember] public double MappingEndPosition { get; set; }
-        [DataMember] public double SlotPitch { get; set; }
-        [DataMember] public int SlotCount { get; set; }
-        [DataMember] public double InPositionTolerance { get; set; }
-
-        public WaferCassetteSetup() { SetDefaults(); }
-
-        [OnDeserializing]
-        private void OnDeserializing(StreamingContext ctx) { SetDefaults(); }
-
-        private void SetDefaults()
-        {
-            AvoidPosition = 0.0;
-            FirstSlotPosition = 10.0;
-            MappingStartPosition = 5.0;
-            MappingEndPosition = 130.0;
-            SlotPitch = 5.0;
-            SlotCount = 25;
-            InPositionTolerance = 0.05;
-        }
-    }
-
         /// <summary>SlotPosition 踰꾪띁媛 吏??SlotCount? 媛숈?吏 蹂댁옣?⑸땲??</summary>
         public void EnsureSlotPositionBuffer(int slotCount)
         {
@@ -85,22 +86,6 @@ namespace QMC.CDT320
             if (SlotPosition == null || SlotPosition.Length != count)
                 ResizeSlotPositions(count);
         }
-    [DataContract]
-    public class WaferCassetteConfig : IConfigData
-    {
-        [DataMember] public bool IsSimulationMode { get; set; }
-
-        public WaferCassetteConfig() { SetDefaults(); }
-
-        [OnDeserializing]
-        private void OnDeserializing(StreamingContext ctx) { SetDefaults(); }
-
-        private void SetDefaults()
-        {
-            IsSimulationMode = true;
-        }
-    }
-
         /// <summary>吏??Slot??Mapping ?꾩튂瑜?媛깆떊?⑸땲??</summary>
         public void UpdateSlotPosition(int slotIndex, double position)
         {
@@ -109,24 +94,19 @@ namespace QMC.CDT320
 
             SlotPosition[slotIndex] = position;
         }
-    }
-    [DataContract]
-    public class WaferCassetteRecipe : IRecipeData
-    {
-        [DataMember] public double ScanVelocity { get; set; }
-        [DataMember] public int ScanSettleTimeMs { get; set; }
-        [DataMember] public int ElevatorMoveTimeoutMs { get; set; }
-
-        public WaferCassetteRecipe() { SetDefaults(); }
 
         [OnDeserializing]
         private void OnDeserializing(StreamingContext ctx) { SetDefaults(); }
 
         private void SetDefaults()
         {
-            ScanVelocity = 20.0;
-            ScanSettleTimeMs = 100;
-            ElevatorMoveTimeoutMs = 10000;
+            AvoidPosition = 0.0;
+            LoaingPosition = 150.0;
+            UnloadingPosition = 150.0;
+            FirstSlotPosition = 10.0;
+            MappingStartPosition = 5.0;
+            MappingEndPosition = 130.0;
+            SlotPosition = Array.Empty<double>();
         }
     }
 
