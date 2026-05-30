@@ -1,4 +1,4 @@
-namespace QMC.CDT_320.Ui.Pages.Recipe
+﻿namespace QMC.CDT_320.Ui.Pages.Recipe
 {
     partial class VisionRecipePage
     {
@@ -32,7 +32,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private System.Windows.Forms.RadioButton rdoIndex2;
         private System.Windows.Forms.RadioButton rdoIndex4;
         private System.Windows.Forms.RadioButton rdoIndex8;
-        private System.Windows.Forms.TableLayoutPanel actionLayout;
+        private QMC.CDT_320.Ui.Controls.ActionCommandPanelControl actionCommandPanel;
         private System.Windows.Forms.TableLayoutPanel scaleLayout;
         private System.Windows.Forms.TableLayoutPanel scaleXPair;
         private System.Windows.Forms.TableLayoutPanel scaleYPair;
@@ -51,13 +51,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private System.Windows.Forms.TrackBar trkSpeed;
         private System.Windows.Forms.TableLayoutPanel speedLayout;
         private System.Windows.Forms.Label lblSpeedValue;
-        private QMC.CDT_320.Ui.Controls.ActionButton btnGrab;
-        private QMC.CDT_320.Ui.Controls.ActionButton btnMatch;
-        private QMC.CDT_320.Ui.Controls.ActionButton btnFastShutter;
-        private QMC.CDT_320.Ui.Controls.ActionButton btnSmallRoi;
-        private QMC.CDT_320.Ui.Controls.ActionButton btnMatchMove;
-        private QMC.CDT_320.Ui.Controls.ActionButton btnImageSave;
-        private QMC.CDT_320.Ui.Controls.ActionButton btnThetaMatchMove;
         private QMC.CDT_320.Ui.Controls.ActionButton btnJogYPlus;
         private QMC.CDT_320.Ui.Controls.ActionButton btnJogXMinus;
         private QMC.CDT_320.Ui.Controls.ActionButton btnJogStop;
@@ -104,7 +97,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.rdoIndex2 = new System.Windows.Forms.RadioButton();
             this.rdoIndex4 = new System.Windows.Forms.RadioButton();
             this.rdoIndex8 = new System.Windows.Forms.RadioButton();
-            this.actionLayout = new System.Windows.Forms.TableLayoutPanel();
+            this.actionCommandPanel = new QMC.CDT_320.Ui.Controls.ActionCommandPanelControl();
             this.scaleLayout = new System.Windows.Forms.TableLayoutPanel();
             this.scaleXPair = new System.Windows.Forms.TableLayoutPanel();
             this.scaleYPair = new System.Windows.Forms.TableLayoutPanel();
@@ -123,13 +116,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.speedLayout = new System.Windows.Forms.TableLayoutPanel();
             this.trkSpeed = new System.Windows.Forms.TrackBar();
             this.lblSpeedValue = new System.Windows.Forms.Label();
-            this.btnGrab = new QMC.CDT_320.Ui.Controls.ActionButton();
-            this.btnMatch = new QMC.CDT_320.Ui.Controls.ActionButton();
-            this.btnFastShutter = new QMC.CDT_320.Ui.Controls.ActionButton();
-            this.btnSmallRoi = new QMC.CDT_320.Ui.Controls.ActionButton();
-            this.btnMatchMove = new QMC.CDT_320.Ui.Controls.ActionButton();
-            this.btnImageSave = new QMC.CDT_320.Ui.Controls.ActionButton();
-            this.btnThetaMatchMove = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnJogYPlus = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnJogXMinus = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnJogStop = new QMC.CDT_320.Ui.Controls.ActionButton();
@@ -154,7 +140,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.roiLayout.SuspendLayout();
             this.roiOptionLayout.SuspendLayout();
             this.thumbPanel.SuspendLayout();
-            this.actionLayout.SuspendLayout();
             this.scaleLayout.SuspendLayout();
             this.scaleXPair.SuspendLayout();
             this.scaleYPair.SuspendLayout();
@@ -263,7 +248,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.grpRoi.Margin = new System.Windows.Forms.Padding(4);
             this.grpRoi.Text = "ROI SETTING";
             this.grpAction.BackColor = System.Drawing.Color.FromArgb(245, 245, 245);
-            this.grpAction.Controls.Add(this.actionLayout);
+            this.grpAction.Controls.Add(this.actionCommandPanel);
             this.grpAction.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpAction.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.grpAction.Margin = new System.Windows.Forms.Padding(4);
@@ -397,33 +382,16 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblThumb.Text = "1# Match Image";
             this.lblThumb.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
-            // actionLayout
-            // 
-            this.actionLayout.ColumnCount = 3;
-            this.actionLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 33.33F));
-            this.actionLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 33.34F));
-            this.actionLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 33.33F));
-            this.actionLayout.Controls.Add(this.btnGrab, 0, 0);
-            this.actionLayout.Controls.Add(this.btnMatch, 1, 0);
-            this.actionLayout.Controls.Add(this.btnFastShutter, 2, 0);
-            this.actionLayout.Controls.Add(this.btnSmallRoi, 0, 1);
-            this.actionLayout.Controls.Add(this.btnMatchMove, 1, 1);
-            this.actionLayout.Controls.Add(this.btnImageSave, 2, 1);
-            this.actionLayout.Controls.Add(this.btnThetaMatchMove, 0, 2);
-            this.actionLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.actionLayout.Padding = new System.Windows.Forms.Padding(8, 18, 8, 8);
-            this.actionLayout.RowCount = 3;
-            this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 33.33F));
-            this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 33.34F));
-            this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 33.33F));
-            this.btnGrab.Text = "GRAB";
-            this.btnMatch.Text = "MATCH";
-            this.btnFastShutter.Text = "FAST SHUTTER";
-            this.btnSmallRoi.Text = "SMALL ROI";
-            this.btnMatchMove.Text = "MATCH MOVE";
-            this.btnImageSave.Text = "IMAGE SAVE";
-            this.btnThetaMatchMove.Text = "THETA MATCH MOVE";
-            // 
+            // actionCommandPanel
+            //
+            this.actionCommandPanel.BackColor = System.Drawing.Color.FromArgb(245, 245, 245);
+            this.actionCommandPanel.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.actionCommandPanel.Location = new System.Drawing.Point(3, 26);
+            this.actionCommandPanel.Margin = new System.Windows.Forms.Padding(0);
+            this.actionCommandPanel.Name = "actionCommandPanel";
+            this.actionCommandPanel.Size = new System.Drawing.Size(486, 147);
+            this.actionCommandPanel.TabIndex = 0;
+            //
             // scaleLayout
             // 
             this.scaleLayout.ColumnCount = 3;
@@ -581,41 +549,19 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblScaleYValue.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
             this.lblPitchValue.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
             this.lblScaleValue.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            this.btnGrab.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnMatch.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnFastShutter.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnSmallRoi.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnMatchMove.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnImageSave.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnThetaMatchMove.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnJogYPlus.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnJogXMinus.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnJogStop.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnJogXPlus.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnJogYMinus.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnJogTMinus.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnJogTPlus.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnGrab.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.btnMatch.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.btnFastShutter.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.btnSmallRoi.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.btnMatchMove.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.btnImageSave.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.btnThetaMatchMove.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.btnJogYPlus.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnJogTPlus.Dock = System.Windows.Forms.DockStyle.Fill;            this.btnJogYPlus.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnJogXMinus.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnJogStop.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnJogXPlus.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnJogYMinus.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnJogTMinus.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnJogTPlus.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.btnGrab.Margin = new System.Windows.Forms.Padding(4);
-            this.btnMatch.Margin = new System.Windows.Forms.Padding(4);
-            this.btnFastShutter.Margin = new System.Windows.Forms.Padding(4);
-            this.btnSmallRoi.Margin = new System.Windows.Forms.Padding(4);
-            this.btnMatchMove.Margin = new System.Windows.Forms.Padding(4);
-            this.btnImageSave.Margin = new System.Windows.Forms.Padding(4);
-            this.btnThetaMatchMove.Margin = new System.Windows.Forms.Padding(4);
             this.btnJogYPlus.Margin = new System.Windows.Forms.Padding(4);
             this.btnJogXMinus.Margin = new System.Windows.Forms.Padding(4);
             this.btnJogStop.Margin = new System.Windows.Forms.Padding(4);
@@ -648,7 +594,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.roiOptionLayout.ResumeLayout(false);
             this.roiOptionLayout.PerformLayout();
             this.thumbPanel.ResumeLayout(false);
-            this.actionLayout.ResumeLayout(false);
             this.scaleLayout.ResumeLayout(false);
             this.scaleXPair.ResumeLayout(false);
             this.scaleYPair.ResumeLayout(false);

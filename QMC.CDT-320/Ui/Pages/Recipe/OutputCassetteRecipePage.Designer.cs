@@ -49,8 +49,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private System.Windows.Forms.Label lblWaitVal;
         private System.Windows.Forms.TableLayoutPanel panelRight;
         private System.Windows.Forms.TableLayoutPanel jogSection;
-        private QMC.CDT_320.Ui.Controls.JogMoveOptionsControl jogMoveOptionsControl;
-        private QMC.CDT_320.Ui.Controls.AxisJogLineControl axisJogLineControl;
         private System.Windows.Forms.TableLayoutPanel speedSection;
         private System.Windows.Forms.Label lblSpeedTitle;
         private System.Windows.Forms.Label lblSpeedHigh;
@@ -114,8 +112,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblWaitVal = new System.Windows.Forms.Label();
             this.panelRight = new System.Windows.Forms.TableLayoutPanel();
             this.jogSection = new System.Windows.Forms.TableLayoutPanel();
-            this.jogMoveOptionsControl = new QMC.CDT_320.Ui.Controls.JogMoveOptionsControl();
-            this.axisJogLineControl = new QMC.CDT_320.Ui.Controls.AxisJogLineControl();
             this.speedSection = new System.Windows.Forms.TableLayoutPanel();
             this.lblSpeedTitle = new System.Windows.Forms.Label();
             this.lblSpeedHigh = new System.Windows.Forms.Label();
@@ -690,43 +686,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.panelRight.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.panelRight.Size = new System.Drawing.Size(402, 856);
             this.panelRight.TabIndex = 2;
-            // 
-            // jogSection
-            // 
-            this.jogSection.ColumnCount = 2;
-            this.jogSection.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.jogSection.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 96F));
-            this.jogSection.Controls.Add(this.jogMoveOptionsControl, 0, 0);
-            this.jogSection.Controls.Add(this.axisJogLineControl, 1, 0);
-            this.jogSection.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.jogSection.Location = new System.Drawing.Point(0, 0);
-            this.jogSection.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
-            this.jogSection.Name = "jogSection";
-            this.jogSection.RowCount = 1;
-            this.jogSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.jogSection.Size = new System.Drawing.Size(402, 322);
-            this.jogSection.TabIndex = 0;
-            // 
-            // jogMoveOptionsControl
-            // 
-            this.jogMoveOptionsControl.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
-            this.jogMoveOptionsControl.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.jogMoveOptionsControl.Location = new System.Drawing.Point(0, 0);
-            this.jogMoveOptionsControl.Margin = new System.Windows.Forms.Padding(0, 0, 8, 0);
-            this.jogMoveOptionsControl.Name = "jogMoveOptionsControl";
-            this.jogMoveOptionsControl.Size = new System.Drawing.Size(298, 322);
-            this.jogMoveOptionsControl.TabIndex = 0;
-            // 
-            // axisJogLineControl
-            // 
-            this.axisJogLineControl.AxisCaption = "AXIS\r\nNAME";
-            this.axisJogLineControl.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
-            this.axisJogLineControl.Dock = System.Windows.Forms.DockStyle.Top;
-            this.axisJogLineControl.Location = new System.Drawing.Point(306, 0);
-            this.axisJogLineControl.Margin = new System.Windows.Forms.Padding(0);
-            this.axisJogLineControl.Name = "axisJogLineControl";
-            this.axisJogLineControl.Size = new System.Drawing.Size(96, 218);
-            this.axisJogLineControl.TabIndex = 1;
+            
             // 
             // speedSection
             // 
