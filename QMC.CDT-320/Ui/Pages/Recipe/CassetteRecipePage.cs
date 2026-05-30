@@ -141,8 +141,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             lblSensor2.Text = _isOutputCassette ? "NG CASSETTE" : "12 INCH CASSETTE";
             lblProtrusion.Text = _isOutputCassette ? "BIN PROTRUSION" : "WAFER PROTRUSION";
             lblMapping.Text = _isOutputCassette ? "BIN MAPPING" : "WAFER MAPPING";
-            axisJogLineControl.MoveOptions = jogMoveOptionsControl;
-            axisJogLineControl.SpeedProvider = JogSpeed;
 
             AttachTeachMenu(lblOptLoadingZVal, "Avoid");
             AttachTeachMenu(lblOptUnloadingZVal, _isOutputCassette ? "NgFirstSlot" : "FirstSlot");
@@ -184,13 +182,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
         private void BindJogAxes()
         {
-            if (axisJogLineControl == null)
-                return;
-
-            if (_isOutputCassette)
-                axisJogLineControl.BindAxis("BIN\r\nLIFTER Z", _binCassette != null ? _binCassette.BinLifterZ : null);
-            else
-                axisJogLineControl.BindAxis("WAFER\r\nLIFTER Z", _waferCassette != null ? _waferCassette.WaferLifterZ : null);
+            
         }
 
         private CDT320_Machine FindMachine()
@@ -210,8 +202,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             foreach (var button in new Control[] { btnLoadingMove, btnUnloadingMove, btnReadyMove, btnSlotLoadingMove, btnSlotUnloadingMove })
                 button.Enabled = enabled;
 
-            jogMoveOptionsControl.Enabled = enabled;
-            axisJogLineControl.Enabled = enabled;
         }
 
         private void RefreshView()

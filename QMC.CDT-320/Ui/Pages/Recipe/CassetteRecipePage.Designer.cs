@@ -57,8 +57,6 @@
 
         protected System.Windows.Forms.TableLayoutPanel panelRight;
         protected System.Windows.Forms.TableLayoutPanel jogSection;
-        protected QMC.CDT_320.Ui.Controls.JogMoveOptionsControl jogMoveOptionsControl;
-        protected QMC.CDT_320.Ui.Controls.AxisJogLineControl axisJogLineControl;
         protected System.Windows.Forms.TableLayoutPanel speedSection;
         protected System.Windows.Forms.Label lblSpeedTitle;
         protected System.Windows.Forms.Label lblSpeedHigh;
@@ -128,8 +126,6 @@
             this.lblWaitVal = new System.Windows.Forms.Label();
             this.panelRight = new System.Windows.Forms.TableLayoutPanel();
             this.jogSection = new System.Windows.Forms.TableLayoutPanel();
-            this.jogMoveOptionsControl = new QMC.CDT_320.Ui.Controls.JogMoveOptionsControl();
-            this.axisJogLineControl = new QMC.CDT_320.Ui.Controls.AxisJogLineControl();
             this.unitConfigGrid = new QMC.CDT_320.Ui.Controls.UnitConfigGrid();
             this.speedSection = new System.Windows.Forms.TableLayoutPanel();
             this.lblSpeedTitle = new System.Windows.Forms.Label();
@@ -937,7 +933,6 @@
             this.panelRight.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 96F));
             this.panelRight.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 54F));
             this.panelRight.Controls.Add(this.jogSection, 0, 0);
-            this.panelRight.Controls.Add(this.axisJogLineControl, 1, 0);
             this.panelRight.Controls.Add(this.speedSection, 2, 0);
             this.panelRight.Location = new System.Drawing.Point(738, 6);
             this.panelRight.Margin = new System.Windows.Forms.Padding(0);
@@ -946,42 +941,8 @@
             this.panelRight.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.panelRight.Size = new System.Drawing.Size(410, 832);
             this.panelRight.TabIndex = 2;
-            // 
-            // jogSection
-            // 
-            this.jogSection.BackColor = System.Drawing.Color.WhiteSmoke;
-            this.jogSection.ColumnCount = 1;
-            this.jogSection.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.jogSection.Controls.Add(this.jogMoveOptionsControl, 0, 0);
-            this.jogSection.Location = new System.Drawing.Point(0, 0);
-            this.jogSection.Margin = new System.Windows.Forms.Padding(0);
-            this.jogSection.Name = "jogSection";
-            this.jogSection.RowCount = 1;
-            this.jogSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.jogSection.Size = new System.Drawing.Size(260, 832);
-            this.jogSection.TabIndex = 0;
-            // 
-            // jogMoveOptionsControl
-            // 
-            this.jogMoveOptionsControl.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
-            this.jogMoveOptionsControl.Dock = System.Windows.Forms.DockStyle.Top;
-            this.jogMoveOptionsControl.Location = new System.Drawing.Point(0, 0);
-            this.jogMoveOptionsControl.Margin = new System.Windows.Forms.Padding(0);
-            this.jogMoveOptionsControl.Name = "jogMoveOptionsControl";
-            this.jogMoveOptionsControl.Size = new System.Drawing.Size(260, 200);
-            this.jogMoveOptionsControl.TabIndex = 0;
-            // 
-            // axisJogLineControl
-            // 
-            this.axisJogLineControl.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
-            this.axisJogLineControl.Dock = System.Windows.Forms.DockStyle.Top;
-            this.axisJogLineControl.Location = new System.Drawing.Point(260, 0);
-            this.axisJogLineControl.Margin = new System.Windows.Forms.Padding(0);
-            this.axisJogLineControl.MoveOptions = null;
-            this.axisJogLineControl.Name = "axisJogLineControl";
-            this.axisJogLineControl.Size = new System.Drawing.Size(96, 300);
-            this.axisJogLineControl.SpeedProvider = null;
-            this.axisJogLineControl.TabIndex = 1;
+            
+           
             // 
             // unitConfigGrid
             // 

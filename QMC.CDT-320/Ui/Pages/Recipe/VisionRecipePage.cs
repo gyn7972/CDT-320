@@ -4,6 +4,7 @@ using System.Windows.Forms;
 using QMC.CDT320.Alarms;
 using QMC.CDT320.Logging;
 using QMC.CDT320.VisionComm;
+using QMC.CDT_320.Ui.Controls;
 using QMC.CDT_320.Ui.Localization;
 using QMC.CDT_320.Ui.Security;
 
@@ -18,7 +19,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             _titleI18n = "recipe.inputVision";
             InitializeComponent();
             ApplyTitle();
-            WireEvents();
+            BindActionCommands();
         }
 
         public VisionRecipePage(string titleI18n)
@@ -26,7 +27,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             _titleI18n = titleI18n;
             InitializeComponent();
             ApplyTitle();
-            WireEvents();
+            BindActionCommands();
         }
 
         private void ApplyTitle()
@@ -36,18 +37,55 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             grpCamera.Text = Lang.T(_titleI18n);
         }
 
-        private void WireEvents()
+        private void BindActionCommands()
         {
-            btnGrab.Click += async (s, e) => await ExecuteVisionActionAsync("GRAB");
-            btnMatch.Click += async (s, e) => await ExecuteVisionActionAsync("MATCH");
-            btnFastShutter.Click += async (s, e) => await ExecuteVisionActionAsync("FAST SHUTTER");
-            btnSmallRoi.Click += async (s, e) => await ExecuteVisionActionAsync("SMALL ROI");
-            btnMatchMove.Click += async (s, e) => await ExecuteVisionActionAsync("MATCH MOVE");
-            btnImageSave.Click += async (s, e) => await ExecuteVisionActionAsync("IMAGE SAVE");
-            btnThetaMatchMove.Click += async (s, e) => await ExecuteVisionActionAsync("THETA MATCH MOVE");
+            try
+            {
+                actionCommandPanel.SetItems(new[]
+                {
+                    CreateAction("GRAB", "GRAB", 0, 0),
+                    CreateAction("MATCH", "MATCH", 0, 1),
+                    CreateAction("FAST_SHUTTER", "FAST SHUTTER", 0, 2),
+                    CreateAction("SMALL_ROI", "SMALL ROI", 1, 0),
+                    CreateAction("MATCH_MOVE", "MATCH MOVE", 1, 1),
+                    CreateAction("IMAGE_SAVE", "IMAGE SAVE", 1, 2),
+                    CreateAction("THETA_MATCH_MOVE", "THETA MATCH MOVE", 2, 0)
+                }, 3, 3);
+            }
+            catch (Exception ex)
+            {
+                AlarmManager.Raise(AlarmSeverity.Warning, "VisionActionBindFail", "VisionRecipePage",
+                    "Bind action command exception: " + ex.GetType().Name + ": " + ex.Message);
+                MessageBox.Show(ex.Message, "Vision Action", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
         }
 
-        private async Task ExecuteVisionActionAsync(string actionName)
+        private ActionCommandItem CreateAction(string key, string text, int row, int column)
+        {
+            try
+            {
+                return new ActionCommandItem
+                {
+                    Key = key,
+                    Text = text,
+                    Row = row,
+                    Column = column,
+                    ExecuteAsync = async () => await ExecuteVisionActionAsync(text)
+                };
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> ExecuteVisionActionAsync(string actionName)
         {
             try
             {
@@ -63,13 +101,14 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                             bool ok = await wafer.ExposeAsync(0, 3000);
                             MessageBox.Show("GRAB " + (ok ? "OK" : "FAIL"), "Vision GRAB",
                                 MessageBoxButtons.OK, ok ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
+                            return ok ? 0 : -1;
                         }
                         else
                         {
                             MessageBox.Show("Wafer Vision is not connected. (TCP 5100)", "GRAB",
                                 MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                            return -1;
                         }
-                        break;
 
                     case "MATCH":
                         if (wafer != null && wafer.IsConnected)
@@ -84,29 +123,34 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                             MessageBox.Show(msg, "Vision MATCH",
                                 MessageBoxButtons.OK,
                                 result != null ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
+                            return result != null ? 0 : -1;
                         }
                         else
                         {
                             MessageBox.Show("Wafer Vision is not connected. (TCP 5100)", "MATCH",
                                 MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                            return -1;
                         }
-                        break;
 
                     case "FAST SHUTTER":
                         MessageBox.Show("FAST SHUTTER will call the Vision PC exposure API in a later stage.",
                             "FAST SHUTTER", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                        break;
+                        return 0;
 
                     default:
                         MessageBox.Show(actionName + " will be implemented in the next stage.",
                             "Vision Action", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                        break;
+                        return 0;
                 }
             }
             catch (Exception ex)
             {
                 AlarmManager.Raise(AlarmSeverity.Warning, "VisionMatchFail", "VisionRecipePage",
                     actionName + " exception: " + ex.GetType().Name + ": " + ex.Message);
+                return -1;
+            }
+            finally
+            {
             }
         }
     }

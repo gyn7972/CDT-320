@@ -88,6 +88,11 @@
     <Compile Include="Equipment\Sim\SimCassetteDriver.cs" />
     <Compile Include="Equipment\Sim\OutputUnloaderAdapter.cs" />
     <Compile Include="Equipment\Sim\WaferLoaderAdapter.cs" />
+    <Compile Include="Equipment\Vision\BinInspectionResult.cs" />
+    <Compile Include="Equipment\Vision\BottomInspectionResult.cs" />
+    <Compile Include="Equipment\Vision\InspectionResultInfoBase.cs" />
+    <Compile Include="Equipment\Vision\SideInspectionResult.cs" />
+    <Compile Include="Equipment\Vision\WaferVisionInspectionResult.cs" />
     <Compile Include="Ui\Controls\EnumPickerDialog.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -103,29 +108,38 @@
     <Compile Include="Ui\Controls\UnitConfigGrid.Designer.cs">
       <DependentUpon>UnitConfigGrid.cs</DependentUpon>
     </Compile>
-    <Compile Include="Ui\Controls\AxisJogControl.cs">
+    <Compile Include="Ui\Controls\ActionCommandItem.cs" />
+    <Compile Include="Ui\Controls\ActionCommandPanelControl.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="Ui\Controls\AxisJogControl.Designer.cs">
-      <DependentUpon>AxisJogControl.cs</DependentUpon>
+    <Compile Include="Ui\Controls\ActionCommandPanelControl.Designer.cs">
+      <DependentUpon>ActionCommandPanelControl.cs</DependentUpon>
     </Compile>
-    <Compile Include="Ui\Controls\JogMoveOptionsControl.cs">
+    <Compile Include="Ui\Controls\JogAxisItem.cs" />
+    <Compile Include="Ui\Controls\JogAxisMoveControl.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="Ui\Controls\JogMoveOptionsControl.Designer.cs">
-      <DependentUpon>JogMoveOptionsControl.cs</DependentUpon>
+    <Compile Include="Ui\Controls\JogAxisMoveControl.Designer.cs">
+      <DependentUpon>JogAxisMoveControl.cs</DependentUpon>
     </Compile>
-    <Compile Include="Ui\Controls\AxisJogPadControl.cs">
+    <Compile Include="Ui\Controls\JogPositionListControl.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="Ui\Controls\AxisJogPadControl.Designer.cs">
-      <DependentUpon>AxisJogPadControl.cs</DependentUpon>
+    <Compile Include="Ui\Controls\JogPositionListControl.Designer.cs">
+      <DependentUpon>JogPositionListControl.cs</DependentUpon>
     </Compile>
-    <Compile Include="Ui\Controls\AxisJogLineControl.cs">
+    <Compile Include="Ui\Controls\JogSpeedControl.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="Ui\Controls\AxisJogLineControl.Designer.cs">
-      <DependentUpon>AxisJogLineControl.cs</DependentUpon>
+    <Compile Include="Ui\Controls\JogSpeedControl.Designer.cs">
+      <DependentUpon>JogSpeedControl.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Controls\IoCylinderItem.cs" />
+    <Compile Include="Ui\Controls\IoCylinderPanelControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Controls\IoCylinderPanelControl.Designer.cs">
+      <DependentUpon>IoCylinderPanelControl.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Controls\NumericKeypadDialog.cs">
       <SubType>Form</SubType>
@@ -704,8 +718,8 @@
       <AutoGen>True</AutoGen>
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
-    <EmbeddedResource Include="Ui\Controls\AxisJogControl.resx">
-      <DependentUpon>AxisJogControl.cs</DependentUpon>
+    <EmbeddedResource Include="Ui\Controls\JogAxisMoveControl.resx">
+      <DependentUpon>JogAxisMoveControl.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Dialogs\AxisJogPopup.resx">
       <DependentUpon>AxisJogPopup.cs</DependentUpon>

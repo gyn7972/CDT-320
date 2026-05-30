@@ -52,8 +52,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             _refreshTimer.Interval = 250;
             _refreshTimer.Tick += (s, e) => RefreshView();
 
-            axisJogLineControl.MoveOptions = jogMoveOptionsControl;
-            axisJogLineControl.SpeedProvider = JogSpeed;
 
             AttachTeachMenu(lblOptAvoidVal, "Avoid");
             AttachTeachMenu(lblOptNgSlotVal, "NgFirstSlot");
@@ -72,8 +70,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
             if (_binCassette != null)
             {
-                //unitConfigGrid.BindConfig(_binCassette.Setup, null);
-                axisJogLineControl.BindAxis("BIN\r\nLIFTER Z", _binCassette.BinLifterZ);
             }
 
             SetEnabledState(_binCassette != null);
@@ -98,8 +94,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             btnGood1SlotMove.Enabled = enabled;
             btnGood2SlotMove.Enabled = enabled;
             btnScan.Enabled = enabled;
-            jogMoveOptionsControl.Enabled = enabled;
-            axisJogLineControl.Enabled = enabled;
         }
 
         private async void btnAvoidMove_Click(object sender, EventArgs e)
@@ -135,8 +129,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
         private async Task MoveTo(string positionName)
         {
-            if (_binCassette == null) return;
-            await RunSafeAsync(() => _binCassette.MoveToTeachingPositionAndVerify(positionName, jogMoveOptionsControl.SpeedType == JogSpeedType.Fine), "Bin cassette move " + positionName);
         }
 
         private async Task RunSafeAsync(Func<Task<bool>> action, string actionName)

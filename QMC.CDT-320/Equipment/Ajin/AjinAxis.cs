@@ -3,8 +3,11 @@ using QMC.Common;
 using QMC.Common.Motion;
 using QMC.Common.Motion.Ajin;
 using System;
+using System.Collections.Generic;
+using System.Security.Claims;
 using System.Threading.Tasks;
 using static QMC.CDT_320.Ui.Pages.Settings.AxisSetupPage;
+using static QMC.CDT320.Ajin.AjinIoCatalog;
 
 namespace QMC.CDT320.Ajin
 {
@@ -359,18 +362,76 @@ namespace QMC.CDT320.Ajin
             int homeRet;
             int servoRet;
 
+            MOTION_INFO info = new MOTION_INFO();
+
+
+
+            //외부 센서 및 모터 관련 신호 상태값: AXT_MOTION_QIMECHANICAL_SIGNAL_DEF 
+            //    - [00001h]Bit 0, +Limit 급정지 신호 현재 상태 
+            //    - [00002h] Bit 1, -Limit 급정지 신호 현재 상태 
+            //    - [00004h]Bit 2, +limit 감속정지 현재 상태
+            //    - [00008h]Bit 3, -limit 감속정지 현재 상태
+            //    - [00010h]Bit 4, Alarm 신호 신호 현재 상태
+            //    - [00020h]Bit 5, InPos 신호 현재 상태
+            //    - [00040h]Bit 6, 비상 정지 신호(ESTOP) 현재 상태
+            //    - [00080h]Bit 7, 원점 신호 헌재 상태
+            //    - [00100h]Bit 8, Z 상 입력 신호 현재 상태
+            //    - [00200h]Bit 9, ECUP 터미널 신호 상태
+            //    - [00400h]Bit 10, ECDN 터미널 신호 상태
+            //    - [00800h]Bit 11, EXPP 터미널 신호 상태
+            //    - [01000h]Bit 12, EXMP 터미널 신호 상태
+            //    - [02000h]Bit 13, SQSTR1 터미널 신호 상태
+            //    - [04000h]Bit 14, SQSTR2 터미널 신호 상태
+            //    - [08000h]Bit 15, SQSTP1 터미널 신호 상태
+            //    - [10000h]Bit 16, SQSTP2 터미널 신호 상태
+            //    - [20000h]Bit 17, MODE 터미널 신호 상태
+            const uint PlustLimitMask = 0x00001;
+            const uint MinusLimitMask = 0x00002;
+            const uint PlustDecelStopMask = 0x00004;
+            const uint MinusDecelStopMask = 0x00008;
+            const uint AlarmMask = 0x00010;
+            const uint InPositionMask = 0x00020;
+            const uint EstopMask = 0x00040;
+            const uint OriginMask = 0x00080;
+            const uint ZPhaseMask = 0x00100;
+            const uint EcupMask = 0x00200;
+            const uint EcdnMask = 0x00400;
+            const uint ExppMask = 0x00800;
+            const uint ExmpMask = 0x01000;
+            const uint Sqstr1Mask = 0x02000;
+            const uint Sqstr2Mask = 0x04000;
+            const uint Sqstp1Mask = 0x08000;
+            const uint Sqstp2Mask = 0x10000;
+            const uint ModeMask = 0x20000;
+
+
+
             lock (_sync)
             {
-                AXM.GetCommandPosition(AxisNo, ref cmd);
-                AXM.GetActualPosition(AxisNo, ref act);
-                AXM.GetInMotion(AxisNo, ref mot);
-                AXM.GetInPositionValue(AxisNo, ref inp);
-                AXM.GetAmpFaultValue(AxisNo, ref fault);
-                homeRet = AXM.GetHomeResult(AxisNo, ref homeResult);
-                AXM.GetPositiveLimitValue(AxisNo, ref pel);
-                AXM.GetNegativeLimitValue(AxisNo, ref mel);
-                AXM.GetHomeSensorValue(AxisNo, ref org);
+                info.uMask = 0x1F;
+                AXM.GetMotionInfo(AxisNo, ref info);
+                cmd = info.dCmdPos;
+                act = info.dActPos;
+                mot = (info.uMechSig & 0x1) != 0;
+                inp = (info.uMechSig & InPositionMask) != 0;
+                fault = (info.uMechSig & AlarmMask) != 0;
+                pel = (info.uMechSig & PlustLimitMask) != 0;
+                mel = (info.uMechSig & MinusLimitMask) != 0;
+                org = (info.uMechSig & OriginMask) != 0;
                 servoRet = AXM.GetAmpEnabled(AxisNo, ref svOn);
+                homeRet = AXM.GetHomeResult(AxisNo, ref homeResult);
+                // Todo : 구부장 아래 내용  AXM.GetMotionInfo(AxisNo, ref info); 이것으로 대체 되는 것들은 삭제 했음.
+                // 주석 확인 했으면 아래 주석 삭제 할것.
+
+                //AXM.GetCommandPosition(AxisNo, ref cmd);
+                //AXM.GetActualPosition(AxisNo, ref act);
+                //AXM.GetInMotion(AxisNo, ref mot);
+                //AXM.GetInPositionValue(AxisNo, ref inp);
+                //AXM.GetAmpFaultValue(AxisNo, ref fault);
+                //AXM.GetPositiveLimitValue(AxisNo, ref pel);
+                //AXM.GetNegativeLimitValue(AxisNo, ref mel);
+                //AXM.GetHomeSensorValue(AxisNo, ref org);
+
             }
 
             ApplyReadStatus(cmd, act, mot, inp, fault, homeRet, homeResult, pel, mel, org, servoRet, svOn);
