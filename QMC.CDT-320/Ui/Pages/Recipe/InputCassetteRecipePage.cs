@@ -1,5 +1,7 @@
 using QMC.CDT_320.Ui.Localization;
+using QMC.CDT_320.Ui.Controls;
 using QMC.CDT320;
+using QMC.CDT320.Logging;
 using QMC.Common.Motion;
 using System;
 using System.ComponentModel;
@@ -47,6 +49,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (LicenseManager.UsageMode == LicenseUsageMode.Designtime) return;
 
                 ResolveUnit();
+                BindParameterGrids();
                 RefreshView();
                 _refreshTimer.Start();
             }
@@ -89,8 +92,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 rdoCoarse.Checked = false;
                 rdoCurrent.Checked = false;
 
-                BindEditableLabels();
-                BindTeachingMenus();
+                optionParameterGrid.ParameterValueChanged += ParameterGrid_ParameterValueChanged;
+                waitParameterGrid.ParameterValueChanged += ParameterGrid_ParameterValueChanged;
+                BindParameterGridMenus();
 
                 grpIo.ContextMenuStrip = new ContextMenuStrip();
                 grpIo.ContextMenuStrip.Items.Add("Input cassette DI 상태를 다시 읽습니다.", null, IoRefresh_Click);
@@ -630,6 +634,74 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
         }
 
+        private void BindParameterGridMenus()
+        {
+            try
+            {
+                var menu = new ContextMenuStrip();
+                menu.Items.Add("Move To Position", null, async (s, e) =>
+                {
+                    string positionName = GetSelectedTeachingPositionName();
+                    if (!string.IsNullOrWhiteSpace(positionName))
+                        await MoveByPositionName(positionName);
+                });
+                menu.Items.Add("Teach Current Position", null, (s, e) =>
+                {
+                    string positionName = GetSelectedTeachingPositionName();
+                    if (string.IsNullOrWhiteSpace(positionName))
+                        return;
+
+                    TeachPosition(positionName);
+                    SaveCurrentRecipeData();
+                    RefreshView();
+                });
+
+                optionParameterGrid.ContextMenuStrip = menu;
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "INPUT-CASSETTE", "BindParameterGridMenus failed: " + ex.Message);
+                MessageBox.Show(this, ex.Message, "Input Cassette Grid Menu", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
+        }
+
+        private string GetSelectedTeachingPositionName()
+        {
+            try
+            {
+                var item = optionParameterGrid.SelectedItem;
+                if (item == null)
+                    return string.Empty;
+
+                if (string.Equals(item.Key, "LOADING Z", StringComparison.OrdinalIgnoreCase))
+                    return "Loading";
+                if (string.Equals(item.Key, "UNLOADING Z", StringComparison.OrdinalIgnoreCase))
+                    return "Unloading";
+                if (string.Equals(item.Key, "READY POSITION", StringComparison.OrdinalIgnoreCase))
+                    return "Avoid";
+                if (string.Equals(item.Key, "FIRST SLOT", StringComparison.OrdinalIgnoreCase))
+                    return "FirstSlot";
+                if (string.Equals(item.Key, "MAPPING START Z", StringComparison.OrdinalIgnoreCase))
+                    return "MappingStart";
+                if (string.Equals(item.Key, "MAPPING END Z", StringComparison.OrdinalIgnoreCase))
+                    return "MappingEnd";
+
+                return string.Empty;
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "INPUT-CASSETTE", "GetSelectedTeachingPositionName failed: " + ex.Message);
+                MessageBox.Show(this, ex.Message, "Input Cassette Grid Menu", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return string.Empty;
+            }
+            finally
+            {
+            }
+        }
+
         private void AttachTeachMenu(Label label, string positionName)
         {
             try
@@ -705,6 +777,80 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             catch (Exception ex)
             {
                 MessageBox.Show(this, ex.Message, "Input Cassette Teach", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
+        }
+
+        private void BindParameterGrids()
+        {
+            try
+            {
+                if (_waferCassette == null)
+                    return;
+
+                optionParameterGrid.SetItems(new[]
+                {
+                    ParameterGridItem.Micron("LOADING Z", ParameterGridScope.Recipe, () => _waferCassette.Recipe.LoaingPosition, v => _waferCassette.Recipe.LoaingPosition = v),
+                    ParameterGridItem.Micron("UNLOADING Z", ParameterGridScope.Recipe, () => _waferCassette.Recipe.UnloadingPosition, v => _waferCassette.Recipe.UnloadingPosition = v),
+                    ParameterGridItem.Micron("READY POSITION", ParameterGridScope.Recipe, () => _waferCassette.Recipe.AvoidPosition, v => _waferCassette.Recipe.AvoidPosition = v),
+                    ParameterGridItem.Micron("FIRST SLOT", ParameterGridScope.Recipe, () => _waferCassette.Recipe.FirstSlotPosition, v => _waferCassette.Recipe.FirstSlotPosition = v),
+                    ParameterGridItem.Micron("MAPPING START Z", ParameterGridScope.Recipe, () => _waferCassette.Recipe.MappingStartPosition, v => _waferCassette.Recipe.MappingStartPosition = v),
+                    ParameterGridItem.Micron("MAPPING END Z", ParameterGridScope.Recipe, () => _waferCassette.Recipe.MappingEndPosition, v => _waferCassette.Recipe.MappingEndPosition = v),
+                    ParameterGridItem.Micron("LOADING OFFSET", ParameterGridScope.Config, () => _waferCassette.Config.LoadingPositionOffset, v => _waferCassette.Config.LoadingPositionOffset = v),
+                    ParameterGridItem.Micron("UNLOADING OFFSET", ParameterGridScope.Config, () => _waferCassette.Config.UnloadingPositionOffset, v => _waferCassette.Config.UnloadingPositionOffset = v),
+                    ParameterGridItem.Micron("SLOT PITCH", ParameterGridScope.Config, () => _waferCassette.Config.SlotPitch, v => _waferCassette.Config.SlotPitch = Math.Max(0.0, v)),
+                    ParameterGridItem.Int("SLOT COUNT", string.Empty, ParameterGridScope.Config, () => _waferCassette.Config.SlotCount, v =>
+                    {
+                        _waferCassette.Config.SlotCount = Math.Max(0, v);
+                        _waferCassette.EnsureSlotPositionBuffer();
+                    }),
+                    ParameterGridItem.Double("SCAN/JOG VELOCITY", "mm/s", ParameterGridScope.Config, () => _waferCassette.Config.ScanVelocity, v => _waferCassette.Config.ScanVelocity = Math.Max(0.1, v)),
+                    ParameterGridItem.Micron("IN POSITION TOL.", ParameterGridScope.Setup, () => _waferCassette.Setup.InPositionTolerance, v => _waferCassette.Setup.InPositionTolerance = Math.Max(0.0, v)),
+                    ParameterGridItem.Selection("INCH SELECT", string.Empty, ParameterGridScope.Config, () => _waferCassette.Config.InchSelect, v => _waferCassette.Config.InchSelect = Convert.ToInt32(v), new[]
+                    {
+                        new ParameterGridOption("0", 0),
+                        new ParameterGridOption("8", 8),
+                        new ParameterGridOption("12", 12)
+                    }),
+                    ParameterGridItem.Selection("CASSETTE LEVEL", string.Empty, ParameterGridScope.Config, () => _waferCassette.Config.SelectedCassetteLevel, v => _waferCassette.Config.SelectedCassetteLevel = Convert.ToInt32(v), new[]
+                    {
+                        new ParameterGridOption("0", 0),
+                        new ParameterGridOption("1", 1),
+                        new ParameterGridOption("2", 2)
+                    }),
+                    ParameterGridItem.Bool("SIMULATION MODE", ParameterGridScope.Setup, () => _waferCassette.Setup.IsSimulationMode, v => _waferCassette.Setup.IsSimulationMode = v),
+                    ParameterGridItem.Bool("DRY RUN", ParameterGridScope.Config, () => _waferCassette.Config.bDryRun, v => _waferCassette.Config.bDryRun = v)
+                });
+
+                waitParameterGrid.SetItems(new[]
+                {
+                    ParameterGridItem.Int("SCAN SETTLE TIME", "ms", ParameterGridScope.Config, () => _waferCassette.Config.ScanSettleTimeMs, v => _waferCassette.Config.ScanSettleTimeMs = Math.Max(0, v)),
+                    ParameterGridItem.Int("MOVE TIMEOUT", "ms", ParameterGridScope.Config, () => _waferCassette.Config.ElevatorMoveTimeoutMs, v => _waferCassette.Config.ElevatorMoveTimeoutMs = Math.Max(0, v))
+                });
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "INPUT-CASSETTE", "BindParameterGrids failed: " + ex.Message);
+                MessageBox.Show(this, ex.Message, "Input Cassette Parameters", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
+        }
+
+        private void ParameterGrid_ParameterValueChanged(object sender, ParameterGridChangedEventArgs e)
+        {
+            try
+            {
+                SaveEditedData(e != null && e.Scope == ParameterGridScope.Recipe);
+                RefreshView();
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "INPUT-CASSETTE", "Parameter save failed: " + ex.Message);
+                MessageBox.Show(this, ex.Message, "Input Cassette Parameter Save", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -998,6 +1144,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 lblActualPositionVal.Text = FormatUm(_waferCassette.WaferLifterZ.ActualPosition);
                 lblWaitScanSettleVal.Text = _waferCassette.Config.ScanSettleTimeMs.ToString(CultureInfo.InvariantCulture) + " ms";
                 lblWaitMoveTimeoutVal.Text = _waferCassette.Config.ElevatorMoveTimeoutMs.ToString(CultureInfo.InvariantCulture) + " ms";
+                optionParameterGrid.RefreshValues();
+                waitParameterGrid.RefreshValues();
 
                 dot8Inch.IsOn = _waferCassette.IsWaferCassetteExist(8);
                 dot12Inch.IsOn = _waferCassette.IsWaferCassetteExist(12);

@@ -118,6 +118,20 @@
     <Compile Include="Ui\Controls\AxisJogLineControl.Designer.cs">
       <DependentUpon>AxisJogLineControl.cs</DependentUpon>
     </Compile>
+    <Compile Include="Ui\Controls\NumericKeypadDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Controls\NumericKeypadDialog.Designer.cs">
+      <DependentUpon>NumericKeypadDialog.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Controls\ParameterGridChangedEventArgs.cs" />
+    <Compile Include="Ui\Controls\ParameterGridControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Controls\ParameterGridControl.Designer.cs">
+      <DependentUpon>ParameterGridControl.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Controls\ParameterGridItem.cs" />
     <Compile Include="Ui\Pages\History\AlarmHistoryPage.Designer.cs">
       <DependentUpon>AlarmHistoryPage.cs</DependentUpon>
     </Compile>
