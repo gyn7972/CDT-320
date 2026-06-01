@@ -143,6 +143,19 @@ Add-Row "STAGE69" "AlarmMaster 3 신규 (WIRING-MISS/MAP-INVALID/OUT-OF-POOL)" (
 $acsF = Join-Path $Root "QMC.Common\Recipes\AlgorithmCameraSubset.cs"
 Add-Row "STAGE69" "AlgorithmCameraMapping.InspectionLights (옵션 A)" (Test-Greps $acsF @('List<InspectionLightOverride>\s+InspectionLights')) $acsF
 
+# Stage 70 — Light Panel fixups
+$finderF = Join-Path $Root "QMC.Vision\Ui\Pages\FinderPage.cs"
+$inspF   = Join-Path $Root "QMC.Vision\Ui\Pages\InspectorPage.cs"
+Add-Row "STAGE70" "FinderPage/InspectorPage = InspectionLightPanel (IlluminatorPanel 미사용)" `
+    ((Test-Greps $finderF @('new InspectionLightPanel')) -and (-not (Test-Greps $finderF @('new IlluminatorPanel'))) `
+     -and (Test-Greps $inspF @('new InspectionLightPanel')) -and (-not (Test-Greps $inspF @('new IlluminatorPanel')))) "finder/inspector"
+$setupF = Join-Path $Root "QMC.Common\Recipes\InspectionLightSubset.cs"
+Add-Row "STAGE70" "InspectionLightSetting.Page (Recipe 측)" (Test-Greps $setupF @('int Page')) $setupF
+$lspF = Join-Path $Root "QMC.Vision\Ui\Pages\LightSystemSetupPage.cs"
+Add-Row "STAGE70" "Setup: 컨트롤러 삭제 + ChannelCount 동기 + Controller 콤보" (Test-Greps $lspF @('DeleteController','SyncChannelCountFromLabels','RefreshControllerCombo')) $lspF
+$acsP = Join-Path $Root "QMC.Common\Recipes\AlgorithmCameraSubset.cs"
+Add-Row "STAGE70" "Wiring.Page → Setting.Page 마이그레이션" (Test-Greps $acsP @('MigrateWiringPageToSettings')) $acsP
+
 # ── 출력 ──
 $bar = "=" * 110
 Write-Output $bar

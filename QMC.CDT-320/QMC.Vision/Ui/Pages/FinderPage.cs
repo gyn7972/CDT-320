@@ -52,8 +52,10 @@ namespace QMC.Vision.Ui.Pages
             _cam = new CameraView { Location = new Point(6, 34), Size = new Size(700, 520) };
             Controls.Add(_cam);
 
-            var illum = new IlluminatorPanel { Location = new Point(6, 560), Size = new Size(340, 180) };
-            var jog   = new JogBox           { Location = new Point(356,560), Size = new Size(260, 260) };
+            // Stage 70 E — 더미 IlluminatorPanel → 검사별 InspectionLightPanel.
+            var illum = new InspectionLightPanel(_module?.AlgorithmKey ?? "", _finder?.Id ?? "")
+            { Location = new Point(6, 560), Size = new Size(340, 220) };
+            var jog   = new JogBox { Location = new Point(356,560), Size = new Size(260, 260) };
             Controls.Add(illum);
             Controls.Add(jog);
 

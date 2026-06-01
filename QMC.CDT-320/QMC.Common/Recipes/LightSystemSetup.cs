@@ -112,7 +112,10 @@ namespace QMC.Common.Recipes
         [DataMember] public string    Algorithm      { get; set; } = "";
         [DataMember] public string    ControllerPort { get; set; }            // null/빈 = 조명 미사용
         [DataMember] public List<int> Channels       { get; set; } = new List<int>();
-        [DataMember] public int       Page           { get; set; } = 0;
+
+        // Stage 70 — Page 는 Recipe(InspectionLightSetting) 로 이동. 구버전 키만 로드용으로 보존(읽기 후 0).
+        // EmitDefaultValue=false 라 0 이면 Save 시 사라짐 → 다음 저장부터 새 스키마.
+        [DataMember(Name = "Page", EmitDefaultValue = false)] public int LegacyPage { get; set; } = 0;
     }
 
     /// <summary>조명 시스템 Setup 영속화 — Config\light_system.json.</summary>

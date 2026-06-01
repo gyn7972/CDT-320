@@ -61,6 +61,13 @@ namespace QMC.Vision
                     lightSetup = migrated;
                 }
             }
+            // Stage 70 — 구버전 Wiring.Page → 검사 Setting.Page 마이그레이션 (1회).
+            if (map.MigrateWiringPageToSettings(lightSetup))
+            {
+                AlgorithmCameraMapStore.Save();              // 검사 Setting.Page 기록
+                QMC.Common.Recipes.LightSystemSetupStore.Save(); // Wiring.LegacyPage(0) 제거 — 새 스키마로 재저장
+            }
+
             bool lightUseSim = cfg.Provider == VisionProvider.Sim;
             QMC.Vision.Comm.LightHub.Initialize(lightSetup, lightUseSim);
 

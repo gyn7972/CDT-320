@@ -31,6 +31,14 @@ namespace QMC.Vision.Ui.Pages
             BuildLayout();
         }
 
+        /// <summary>Stage 70 E — FinderPage/InspectorPage 가 생성 즉시 검사 컨텍스트 주입.</summary>
+        public InspectionLightPanel(string algorithm, string inspectionId)
+        {
+            if (LicenseManager.UsageMode == LicenseUsageMode.Designtime) return;
+            BuildLayout();
+            SelectInspection(algorithm, inspectionId);
+        }
+
         public void SelectInspection(string algorithm, string inspectionId)
         {
             _algorithm = algorithm;
@@ -78,6 +86,9 @@ namespace QMC.Vision.Ui.Pages
             _grid.Columns.Add(new DataGridViewCheckBoxColumn { Name = "On",      HeaderText = "On" });
             _grid.Columns.Add(new DataGridViewTextBoxColumn  { Name = "Strobe",  HeaderText = "Strobe(us)" });
             _grid.Columns.Add(new DataGridViewTextBoxColumn  { Name = "Stab",    HeaderText = "안정화(ms)" });
+            // Stage 70 D-3 — Page 컬럼 (콤보, 0~PageCount-1)
+            _grid.Columns.Add(new DataGridViewComboBoxColumn { Name = "Page", HeaderText = "Page" });
+            _grid.DataError += (s, e) => { e.ThrowException = false; };
             Controls.Add(_grid);
             Controls.SetChildIndex(_grid, 0);
         }
@@ -92,25 +103,37 @@ namespace QMC.Vision.Ui.Pages
             var pool = w?.Channels ?? new System.Collections.Generic.List<int>();
             bool wired = w != null && !string.IsNullOrEmpty(w.ControllerPort) && pool.Count > 0;
 
-            // 결선 헤더
+            // 결선 헤더 (Stage 70 D — Page 정보 제거; Page 는 Recipe 측 컬럼)
             if (w == null || string.IsNullOrEmpty(w.ControllerPort))
                 _lblWiring.Text = "결선 없음 — [설정 > 조명 시스템]에서 이 알고리즘에 컨트롤러/채널을 배정하세요.";
             else if (pool.Count == 0)
-                _lblWiring.Text = $"결선: {w.ControllerPort} / Page {w.Page} / 사용 채널 풀 비어 있음 (조명 미사용)";
+                _lblWiring.Text = $"결선: {w.ControllerPort} / 사용 채널 풀 비어 있음 (조명 미사용)";
             else
-                _lblWiring.Text = $"소속 알고리즘: {VisionAlgorithm.Label(_algorithm)}   결선: {w.ControllerPort} / Page {w.Page} / 풀: [{string.Join(",", pool)}]";
+                _lblWiring.Text = $"소속 알고리즘: {VisionAlgorithm.Label(_algorithm)}   결선: {w.ControllerPort} / 풀: [{string.Join(",", pool)}]";
 
             // 채널 콤보 = 풀만
             var chCol = (DataGridViewComboBoxColumn)_grid.Columns["Channel"];
             chCol.Items.Clear();
             foreach (var ch in pool) chCol.Items.Add(ch);
 
+            // Page 콤보 = 0 ~ PageCount-1 (컨트롤러 능력). 미등록 시 0만.
+            var pgCol = (DataGridViewComboBoxColumn)_grid.Columns["Page"];
+            pgCol.Items.Clear();
+            int pageCount = 1;
+            if (w != null && !string.IsNullOrEmpty(w.ControllerPort))
+            {
+                var ctrlEntry = LightSystemSetupStore.Current?.GetController(w.ControllerPort);
+                if (ctrlEntry != null && ctrlEntry.PageCount > 0) pageCount = ctrlEntry.PageCount;
+            }
+            for (int p = 0; p < pageCount; p++) pgCol.Items.Add(p);
+            pgCol.ReadOnly = pageCount <= 1;
+
             _grid.Rows.Clear();
             var ov = AlgorithmCameraMapStore.Current?.Get(_algorithm)?.GetLightOverride(_inspectionId);
             if (ov?.Settings != null)
                 foreach (var s in ov.Settings)
                     if (pool.Contains(s.Channel))   // 풀 밖 설정은 표시 안 함
-                        _grid.Rows.Add(s.Channel, s.Level, s.On, s.StrobeTimeUs, s.StabilizeDelayMs);
+                        _grid.Rows.Add(s.Channel, s.Level, s.On, s.StrobeTimeUs, s.StabilizeDelayMs, s.Page);
 
             _grid.Enabled = wired;
             _btnApply.Enabled = _btnSave.Enabled = wired;
@@ -134,7 +157,8 @@ namespace QMC.Vision.Ui.Pages
                     Level = IntOf(r, "Level", 0),
                     On = BoolOf(r, "On"),
                     StrobeTimeUs = IntOf(r, "Strobe", 0),
-                    StabilizeDelayMs = IntOf(r, "Stab", 0)
+                    StabilizeDelayMs = IntOf(r, "Stab", 0),
+                    Page = IntOf(r, "Page", 0)
                 });
             }
             return ov;
@@ -170,19 +194,23 @@ namespace QMC.Vision.Ui.Pages
             var ov = Collect(out _);
             try
             {
-                if (ctrl.ChannelCount >= 0) ctrl.SwitchPageAsync(w.Page);
                 int applied = 0;
-                foreach (var s in ov.Settings)
+                // Stage 70 D-3 — Page 별로 그룹핑하여 페이지 전환 회수 최소화.
+                foreach (var grp in ov.Settings.GroupBy(s => s.Page).OrderBy(g => g.Key))
                 {
-                    if (!w.Channels.Contains(s.Channel))
+                    ctrl.SwitchPageAsync(grp.Key);
+                    foreach (var s in grp)
                     {
-                        AlarmManager.Raise(AlarmSeverity.Warning, "LIGHT-CHANNEL-OUT-OF-POOL", "Light/" + _algorithm, $"ch{s.Channel} not in pool");
-                        continue;
+                        if (!w.Channels.Contains(s.Channel))
+                        {
+                            AlarmManager.Raise(AlarmSeverity.Warning, "LIGHT-CHANNEL-OUT-OF-POOL", "Light/" + _algorithm, $"ch{s.Channel} not in pool");
+                            continue;
+                        }
+                        ctrl.SetPowerAsync(s.Channel, s.Level);
+                        ctrl.SetOnOffAsync(s.Channel, s.On);
+                        if (s.StrobeTimeUs > 0) ctrl.SetStrobeTimeAsync(s.Channel, s.StrobeTimeUs);
+                        applied++;
                     }
-                    ctrl.SetPowerAsync(s.Channel, s.Level);
-                    ctrl.SetOnOffAsync(s.Channel, s.On);
-                    if (s.StrobeTimeUs > 0) ctrl.SetStrobeTimeAsync(s.Channel, s.StrobeTimeUs);
-                    applied++;
                 }
                 SetStatus($"적용 완료 — {applied}채널 ({w.ControllerPort})", false);
             }

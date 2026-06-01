@@ -16,12 +16,14 @@ namespace QMC.Common.Recipes
         [DataMember] public int  StrobeTimeUs     { get; set; } = 0;
         // Stage 68 #4 — 그랩 안정화 지연(ms). 0 = 대기 없음. 다음 런타임 Stage 가 사용. UI 디바운스와 무관.
         [DataMember] public int  StabilizeDelayMs { get; set; } = 0;
+        // Stage 70 — 페이지 선택 (Recipe 측으로 이동). 0 ~ controller.PageCount-1. PageCount==1 이면 0 고정.
+        [DataMember(EmitDefaultValue = false)] public int Page { get; set; } = 0;
 
         public InspectionLightSetting Clone()
             => new InspectionLightSetting
             {
                 Channel = Channel, Level = Level, On = On,
-                StrobeTimeUs = StrobeTimeUs, StabilizeDelayMs = StabilizeDelayMs
+                StrobeTimeUs = StrobeTimeUs, StabilizeDelayMs = StabilizeDelayMs, Page = Page
             };
     }
 

@@ -8,6 +8,8 @@ namespace QMC.Vision.Modules
     /// </summary>
     public class WaferVisionModule : VisionModule
     {
+        public override string AlgorithmKey => QMC.Common.Recipes.VisionAlgorithm.Wafer;
+
         public IPatternFinder EjectPin        { get; }
         public IPatternFinder Reticle         { get; }
         public IPatternFinder AlignDie        { get; }

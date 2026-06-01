@@ -7,6 +7,8 @@ namespace QMC.Vision.Modules
     /// </summary>
     public class BottomInspectionModule : VisionModule
     {
+        public override string AlgorithmKey => QMC.Common.Recipes.VisionAlgorithm.BottomInspection;
+
         public IPatternFinder Reticle          { get; }
         public IPatternFinder Collet           { get; }
         public IPatternFinder Die              { get; }

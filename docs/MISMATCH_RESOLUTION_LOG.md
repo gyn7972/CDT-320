@@ -216,3 +216,10 @@
 |---|---|---|---|
 | M-69-1 | io_set(3포트) vs 결정(2 컨트롤러) | 자동 마이그레이션은 io_set 실 포트(3개) 충실 반영 | 사용자가 Setup 결선 표 + 포트 일괄 변경/컨트롤러 삭제로 2개로 통합. M-68-4 후속 |
 | M-69-2 | LFineLightController.SwitchPageAsync | Stage 67 Config 에 페이지 명령 포맷 미정의 | 현재 no-op(true). 실 페이지 모델 컨트롤러 도입 시 명령 추가 (Stage 68 #3) |
+
+## STAGE 70 — Light Panel 5건 fixup (2026-05-29)
+
+| ID | 위치 | 내용 | 처리 |
+|---|---|---|---|
+| M-70-1 | LightSystemSetup / InspectionLightSubset | Wiring.Page(Setup) → Setting.Page(Recipe) 이동 | AlgorithmLightWiring.Page → LegacyPage(읽기전용) + AlgorithmCameraSubset.MigrateWiringPageToSettings 자동 1회. 소비 후 LegacyPage=0 → 재저장 시 구 키 소멸 |
+| M-70-2 | FinderPage:55 / InspectorPage:53 | 더미 IlluminatorPanel(4채널) 사용 | InspectionLightPanel(algorithmKey, inspectionId) 로 교체. VisionModule.AlgorithmKey 추가 (5 모듈 override) |

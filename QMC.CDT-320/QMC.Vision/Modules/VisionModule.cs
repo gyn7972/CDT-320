@@ -18,6 +18,9 @@ namespace QMC.Vision.Modules
         public ICamera         Camera  { get; private set; }
         public IVisionBackend  Backend { get; }
 
+        /// <summary>Stage 70 — VisionAlgorithm 상수 키 (조명/카메라 결선 조회용). 5 모듈이 override.</summary>
+        public virtual string  AlgorithmKey => "";
+
         /// <summary>설정 페이지에서 알고리즘에 매핑된 카메라가 변경됐을 때 런타임 교체.
         /// 기존 카메라 Dispose 는 호출자가 책임진다 (이 메서드는 참조만 바꿈).</summary>
         public void SetCamera(ICamera newCamera)

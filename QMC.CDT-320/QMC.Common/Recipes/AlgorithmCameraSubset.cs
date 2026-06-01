@@ -337,5 +337,30 @@ namespace QMC.Common.Recipes
                 foreach (var it in Items) c.Items.Add(it.Clone());
             return c;
         }
+
+        /// <summary>
+        /// Stage 70 — 구버전 AlgorithmLightWiring.Page → InspectionLightSetting.Page 마이그레이션.
+        /// setup 의 각 알고리즘 결선에 LegacyPage(!=0) 가 있으면, 그 알고리즘 검사들의 모든
+        /// Setting.Page 가 0 인 것에 한해 그 값으로 채움(덮어쓰기 아님). 변경 발생 시 true.
+        /// </summary>
+        public bool MigrateWiringPageToSettings(LightSystemSetup setup)
+        {
+            if (setup?.AlgorithmWirings == null || Items == null) return false;
+            bool changed = false;
+            foreach (var w in setup.AlgorithmWirings)
+            {
+                if (w.LegacyPage == 0) continue;
+                var alg = Items.FirstOrDefault(m => string.Equals(m.Algorithm, w.Algorithm, StringComparison.OrdinalIgnoreCase));
+                if (alg?.InspectionLights != null)
+                    foreach (var ov in alg.InspectionLights)
+                        if (ov.Settings != null)
+                            foreach (var s in ov.Settings)
+                                if (s.Page == 0) { s.Page = w.LegacyPage; changed = true; }
+                // 소비 후 0 으로 비움 → 다음 Save 에서 light_system.json 의 구 Page 키 소멸.
+                w.LegacyPage = 0;
+                changed = true;
+            }
+            return changed;
+        }
     }
 }

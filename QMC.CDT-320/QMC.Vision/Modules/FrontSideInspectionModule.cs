@@ -9,6 +9,8 @@ namespace QMC.Vision.Modules
     /// </summary>
     public class FrontSideInspectionModule : VisionModule
     {
+        public override string AlgorithmKey => QMC.Common.Recipes.VisionAlgorithm.FrontSide;
+
         public IPatternFinder DieEdge        { get; }
         public IInspector     Surface        { get; }
         public IInspector     Chipping       { get; }
