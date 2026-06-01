@@ -47,13 +47,16 @@ namespace QMC.Vision.Ui.Pages
             };
             Controls.Add(title);
 
-            _cam = new CameraView { Location = new Point(6, 34), Size = new Size(700, 520) };
+            _cam = new CameraView { Location = new Point(6, 34), Size = new Size(700, 500) };
             Controls.Add(_cam);
 
             // Stage 70 E — 더미 IlluminatorPanel → 검사별 InspectionLightPanel.
+            // Stage 72 — 겹침/잘림 해소: 카메라 높이 500 으로 소폭 축소 → 밴드 y544 상향.
+            //   illum x:6~446 / jog x:456~716 (10px 간격, 우측 컨트롤 x720~ 과 분리)
+            //   illum,jog 하단 824 ≤ Recipe 콘텐츠 높이(≈832) — JogBox 280 컴팩트화로 내부 버튼도 안 잘림.
             var illum = new InspectionLightPanel(_module?.AlgorithmKey ?? "", _inspector?.Id ?? "")
-            { Location = new Point(6, 560), Size = new Size(340, 220) };
-            var jog   = new JogBox { Location = new Point(356,560), Size = new Size(260, 260) };
+            { Location = new Point(6, 544), Size = new Size(440, 280) };
+            var jog   = new JogBox { Location = new Point(456, 544), Size = new Size(260, 280) };
             Controls.Add(illum);
             Controls.Add(jog);
 
