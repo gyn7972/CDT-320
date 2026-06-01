@@ -30,7 +30,7 @@
 - **`LightHub` 신설** — VisionHub 패턴(`Dictionary<PortName, ILightController>`). `Form1.Load` 가 Setup.Controllers 순회하여 포트별 `LightControllerFactory.Create` → Hub 등록.
 - 라우팅: 호출자가 알고리즘 결선의 `ControllerPort` 로 `LightHub.Get(port)`.
 - **결선 룰**: 1 검사 = 1 컨트롤러 (알고리즘 단위 결선이라 자동 보장).
-- 채널 풀 (사용자 예시): BottomInspection → COM1 [3,4,5,6], FrontSide → COM1 [1], RearSide → COM1 [2]. Wafer/Bin/COM2 배정은 확인 필요 #1.
+- **채널 풀 = 전부 사용자 설정 (#1 확정)**: 코드에 예시 풀을 하드코딩하지 않음. 기본값은 **빈 풀**(조명 미사용)으로 시작하고, Setup 페이지 §4.1 "알고리즘 결선 표"에서 사용자가 컨트롤러·채널을 직접 체크해 배정. 마이그레이션 휴리스틱(§7)은 "초기 제안값"일 뿐 사용자가 표에서 수정 가능.
 
 ---
 
@@ -117,10 +117,13 @@ public class AlgorithmLightWiring
 [DataContract]
 public class InspectionLightSetting
 {
-    [DataMember] public int  Channel      { get; set; }   // 소속 알고리즘 Wiring.Channels 풀 내 값
-    [DataMember] public int  Level        { get; set; }   // 0~MaxPower
-    [DataMember] public bool On           { get; set; } = true;
-    [DataMember] public int  StrobeTimeUs { get; set; } = 0;
+    [DataMember] public int  Channel         { get; set; }   // 소속 알고리즘 Wiring.Channels 풀 내 값
+    [DataMember] public int  Level           { get; set; }   // 0~MaxPower
+    [DataMember] public bool On              { get; set; } = true;
+    [DataMember] public int  StrobeTimeUs    { get; set; } = 0;
+    // Stage 68 #4 확정 — 그랩 안정화 지연(이번 Stage 는 모델만, 다음 런타임 Stage 가 사용).
+    // 조명 적용 후 빛 안정 대기(ms). 0 = 대기 없음. UI 라이브 프리뷰 디바운스(50ms)와는 별개.
+    [DataMember] public int  StabilizeDelayMs { get; set; } = 0;
 }
 
 [DataContract]
@@ -162,7 +165,8 @@ public List<InspectionLightOverride> InspectionLights { get; set; }   // null = 
 - **포트 일괄 변경 버튼** (확인 필요 #8) — 옛 PortName→새 PortName 으로 LightControllerEntry + 모든 AlgorithmWiring.ControllerPort 원자적 동시 갱신.
 
 ### 4.2 검사별 조명 패널 (`InspectionLightPanel`) — Recipe
-- 진입: Stage 64 검사 노드(`cam:<alg>:<inspId>`) 우측 디테일. 카메라 오버라이드 패널과 **배치 = 확인 필요 #6** (탭/좌우분할/아래 섹션).
+- 진입: Stage 64 검사 노드(`cam:<alg>:<inspId>`) 우측 디테일. 카메라 오버라이드 패널과 **탭 분리 (#6 확정)**.
+- **구조**: 검사 노드 선택 시 우측 디테일에 `TabControl` 2 탭 — **[카메라]**(기존 `InspectionOverridePanel`) + **[조명]**(신규 `InspectionLightPanel`). SettingsPage 가 검사 노드 라우팅 시 카메라 패널 단독 대신 TabControl 을 호스팅하고 두 패널을 각 탭에 배치. 각 탭 full-width.
 - **결선 헤더(읽기 전용)**: `검사 / 소속 알고리즘 / 결선: COM1 Page0 풀:[3,4,5,6]`. 결선 미설정 → 경고 + Setup 이동 링크. 풀 비면 패널 비활성.
 - **값 편집 표(풀 내 채널만)**:
 
@@ -171,8 +175,9 @@ public List<InspectionLightOverride> InspectionLights { get; set; }   // null = 
   | 3 (BOTTOM VISION) ▼ | 180 | ✓ | 0 |
 
   - Controller/Page 컬럼 없음(결선 추론). 행 추가는 풀 잔여 채널 있을 때만.
+  - `StabilizeDelayMs` 컬럼 추가(검사별 안정화 지연, 기본 0 — 런타임 Stage 용).
   - 버튼: **Apply**(LightHub 라이브) / **Save**(영속화) / **Reset**(행 제거) / **Cancel**(리로드) / **On/Off All**.
-  - 슬라이더 ValueChanged → 디바운스(확인 필요 #4, 기본 50ms) → 라이브.
+  - 슬라이더 ValueChanged → **UI 디바운스 50ms (#4 확정)** → 라이브. (안정화 지연과 무관 — UI 명령 폭주 방지용)
 
 ---
 
@@ -257,17 +262,16 @@ Apply (수동, LightHub):
 
 ---
 
-## 12. 확인 필요 항목 (사용자 컨펌 요청)
-> **결정됨**: 컨트롤러 FK=`PortName`. `Id` 필드 없음. Setup 내 PortName 유일성 강제. 컨트롤러 개수 = **2** (Stage 66 #5).
-
-1. **채널 풀 배정** — Wafer/Bin 은 어느 컨트롤러·채널? COM2 사용 알고리즘은? (BottomInspection=COM1[3,4,5,6] / FrontSide=COM1[1] / RearSide=COM1[2] 는 예시 확정)
-2. **저장 통합** — 옵션 A(algorithm_camera.json 합침, 추천) vs B(algorithm_light.json 분리)?
-3. **PageCount** — LFine 실제 모델이 페이지 기능 있는지? 없으면 PageCount=1 고정 + SwitchPageAsync no-op.
-4. **Live preview 디바운스** — 50ms 기본 OK?
-5. **마이그레이션 자동 매핑 정책** — 휴리스틱 추정 + 모호 항목(RING/ALIGN) 미할당 후 사용자 검토 — OK?
-6. **InspectionLightPanel 배치** — (a)좌우분할 (b)탭 (c)카메라 패널 아래 섹션?
-7. **백업 파일명** — `.bak.YYYYMMDD` OK?
-8. **포트 일괄 변경 도구** — Setup 페이지에 포함? (추천: 포함)
+## 12. 확인 필요 항목 — **전부 확정 (2026-05-29 사용자 컨펌)**
+- 컨트롤러 FK=`PortName`, `Id` 없음, Setup 내 유일. 컨트롤러 개수 = **2** (Stage 66 #5).
+1. **채널 풀 배정** → **전부 사용자 UI 설정**. 코드에 예시 풀 하드코딩 금지. 기본 빈 풀, Setup 결선 표에서 사용자가 배정 (§1.1/§4.1).
+2. **저장 통합** → **옵션 A** (`AlgorithmCameraMapping.InspectionLights`, algorithm_camera.json 통합).
+3. **PageCount** → 컨트롤러별 설정값. 실 모델 미확인 시 **기본 1 + SwitchPageAsync no-op**. PageCount>1 모델이면 페이지 전환 사용.
+4. **디바운스/지연** → **UI 라이브 프리뷰 디바운스 50ms** + **`StabilizeDelayMs` 필드 지금 모델에 추가**(기본 0, 다음 런타임 Stage 사용).
+5. **마이그레이션 자동 매핑** → 휴리스틱 추정 + 모호 항목 미할당 후 사용자 검토 (초기 제안값, 표에서 수정 가능).
+6. **InspectionLightPanel 배치** → **탭 분리** — 검사 노드 우측에 [카메라][조명] TabControl (§4.2).
+7. **백업 파일명** → `.bak.YYYYMMDD`.
+8. **포트 일괄 변경 도구** → **포함** (Setup 페이지, §4.1).
 
 ---
 

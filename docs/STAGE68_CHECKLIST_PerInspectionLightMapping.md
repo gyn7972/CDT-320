@@ -3,16 +3,18 @@
 - **연계 SPEC**: `docs/STAGE68_SPEC_PerInspectionLightMapping.md`
 - **작성일**: 2026-05-29
 - **상태**: SPEC + CHECKLIST 작성 단계 (구현 미진입 — 사용자 컨펌 대기)
-- **사전 조건**: SPEC §12 확인 필요 #1~#8 해소. 의존: Stage 67(LFine) + Stage 64(검사 트리).
+- **사전 조건**: SPEC §12 **전 항목 확정됨** (2026-05-29). 의존: Stage 67(LFine) + Stage 64(검사 트리).
+- 확정 요약: 1=채널풀 사용자UI설정(예시 하드코딩 금지) / 2=옵션A(통합) / 3=PageCount 기본1+no-op / 4=UI디바운스50ms+StabilizeDelayMs 필드 추가 / 5=휴리스틱+검토 / 6=탭분리 / 7=.bak.YYYYMMDD / 8=포트일괄변경 포함
 
-> ⚠ = SPEC §12 옵션 결정 의존. 구현 = Stage 69.
+> 구현 = Stage 69.
 
 ## A. 데이터 모델 (QMC.Common)
 - [ ] `LightControllerEntry` / `LightChannelLabel` / `LightSystemSetup` 추가 — **PortName 자연키(Id 없음)**
 - [ ] `AlgorithmLightWiring` 추가 — 알고리즘 ↔ (ControllerPort, Channels[], Page)
 - [ ] Setup Save 검증 — PortName 중복 거부 + 모든 AlgorithmWiring.ControllerPort 가 Controllers 에 존재
-- [ ] `InspectionLightSetting` / `InspectionLightOverride` 추가 — Recipe 측 (Channel, Level, On, StrobeTimeUs) 만
-- [ ] `AlgorithmCameraMapping.InspectionLights` 추가 ⚠ (#2 옵션 A) — `EmitDefaultValue=false`, null=미사용
+- [ ] `InspectionLightSetting` / `InspectionLightOverride` 추가 — Recipe 측 (Channel, Level, On, StrobeTimeUs, **StabilizeDelayMs**) (#4)
+- [ ] `AlgorithmCameraMapping.InspectionLights` 추가 (#2 옵션 A 확정) — `EmitDefaultValue=false`, null=미사용
+- [ ] AlgorithmLightWiring 기본값 = **빈 풀** (#1 — 예시 하드코딩 금지, 사용자 UI 설정)
 - [ ] `LightSystemSetupStore` (Load/Save, `Config\light_system.json`) + 구버전 호환(없으면 빈 리스트)
 
 ## B. LightHub (QMC.Vision)
@@ -34,13 +36,13 @@
 - [ ] **포트 일괄 변경 버튼** ⚠ (#8) — 옛→새 PortName 원자적 동시 갱신 (Entry + 모든 Wiring)
 - [ ] Validation: Port 중복 / ChannelCount>0 / 채널 겹침 경고(비차단)
 
-## E. UI — InspectionLightPanel
+## E. UI — InspectionLightPanel (#6 탭 분리 확정)
 - [ ] `Ui\Pages\InspectionLightPanel.cs` — 결선 헤더(읽기전용) + 값 편집 표
-- [ ] 검사 노드(`cam:<alg>:<insp>`) 우측 디테일 결합 ⚠ (#6 배치: 탭/좌우/아래)
+- [ ] 검사 노드(`cam:<alg>:<insp>`) 우측에 **TabControl 2탭 [카메라][조명]** — SettingsPage 가 InspectionOverridePanel + InspectionLightPanel 을 각 탭에 호스팅
 - [ ] Channel 콤보 = **풀(AlgorithmLightWiring.Channels) 내 채널만** 노출
-- [ ] 행 추가/삭제 (풀 잔여 시만) + On/Off All
+- [ ] 행 추가/삭제 (풀 잔여 시만) + On/Off All + StabilizeDelayMs 컬럼
 - [ ] Save / Apply / Reset / Cancel
-- [ ] 슬라이더 디바운스 ⚠ (#4, 50ms) → `LightHub.Get(port).SetPowerAsync` 라이브
+- [ ] 슬라이더 **UI 디바운스 50ms (#4)** → `LightHub.Get(port).SetPowerAsync` 라이브
 - [ ] 결선 미설정/풀 빈 경우 비활성 + 안내
 
 ## F. 알람
