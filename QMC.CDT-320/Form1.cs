@@ -285,6 +285,23 @@ namespace QMC.CDT_320
             Bridge     = new SimulatorBridge(Machine);
             BeginSimulatorAutoConnect(cfg);
             Controller = new MachineController(Machine);
+            alarmBanner.ClearRequested += async (s, args) =>
+            {
+                try
+                {
+                    if (Controller != null)
+                        await Controller.ResetAlarmAsync();
+                    else
+                        QMC.Common.Alarms.AlarmManager.ClearAll();
+                }
+                catch
+                {
+                    QMC.Common.Alarms.AlarmManager.ClearAll();
+                }
+                finally
+                {
+                }
+            };
             MotionMonitor = new MotionMonitorService();
             MotionMonitor.Start(CurrentAxes(), cfg.UseAjin ? 50 : 100);
             IoScan = new AjinIoScanService();

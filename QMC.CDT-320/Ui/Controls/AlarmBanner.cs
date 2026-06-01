@@ -18,6 +18,8 @@ namespace QMC.CDT_320.Ui.Controls
         private Timer _blinkTimer;
         private bool  _blinkOn;
 
+        public event EventHandler ClearRequested;
+
         public AlarmBanner()
         {
             Height = 36;
@@ -52,7 +54,7 @@ namespace QMC.CDT_320.Ui.Controls
             };
             _btnClear.FlatAppearance.BorderColor = Color.White;
             _btnClear.FlatAppearance.BorderSize  = 1;
-            _btnClear.Click += (s, e) => AlarmManager.ClearAll();
+            _btnClear.Click += OnClearClicked;
 
             Controls.Add(_msg);
             Controls.Add(_btnClear);
@@ -82,6 +84,25 @@ namespace QMC.CDT_320.Ui.Controls
         }
 
         private void OnAlarmChanged(AlarmRecord rec) => Refresh();
+
+        private void OnClearClicked(object sender, EventArgs e)
+        {
+            try
+            {
+                var handler = ClearRequested;
+                if (handler != null)
+                    handler(this, EventArgs.Empty);
+                else
+                    AlarmManager.ClearAll();
+            }
+            catch
+            {
+                AlarmManager.ClearAll();
+            }
+            finally
+            {
+            }
+        }
 
         public new void Refresh()
         {

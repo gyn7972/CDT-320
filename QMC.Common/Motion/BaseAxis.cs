@@ -1,6 +1,8 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using QMC.Common.Alarms;
+using QMC.Common.Logging;
 
 namespace QMC.Common.Motion
 {
@@ -587,6 +589,10 @@ namespace QMC.Common.Motion
         /// <param name="alarmCode">설정할 알람 코드 (10: PEL, 11: MEL)</param>
         private void TriggerSoftLimitAlarm(uint alarmCode)
         {
+            bool shouldRaiseAlarm = !IsAlarm || AlarmCode != alarmCode;
+            string side = alarmCode == 10 ? "positive" : "negative";
+            double limit = alarmCode == 10 ? Setup.SoftLimitPlus : Setup.SoftLimitMinus;
+
             IsMoving        = false;
             IsInPosition    = false;
             CurrentVelocity = 0.0;
@@ -594,6 +600,30 @@ namespace QMC.Common.Motion
             AlarmCode       = alarmCode;
             _currentMode    = MotionMode.None;
             _jogDirection   = 0;
+
+            if (!shouldRaiseAlarm)
+                return;
+
+            string message = "Soft limit reached (" + side + "). Position=" +
+                ActualPosition.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) +
+                ", Limit=" +
+                limit.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+
+            try
+            {
+                AlarmManager.Raise(
+                    AlarmSeverity.Error,
+                    alarmCode == 10 ? "AX-SOFT-LIMIT-P" : "AX-SOFT-LIMIT-N",
+                    Name,
+                    message);
+            }
+            catch
+            {
+            }
+            finally
+            {
+                try { EventLogger.Write(EventKind.Alarm, "MOTION", "AX-SOFT-LIMIT", Name + " - " + message); } catch { }
+            }
         }
 
         // ─────────────────────────────────────────────

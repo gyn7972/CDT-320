@@ -7,6 +7,7 @@ using QMC.CDT320;
 using QMC.CDT320.Ajin;
 using QMC.CDT_320.Ui.Localization;
 using QMC.Common;
+using QMC.Common.Alarms;
 using QMC.Common.Motion;
 
 namespace QMC.CDT_320.Ui.Pages.Settings
@@ -103,7 +104,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             btnDisable.Click += (s, e) => RunSelectedAxis(ax => ax.ServoOff());
             btnHome.Click += async (s, e) => await RunSelectedAxisAsync(ax => ax.HomeSearchAsync());
             btnAllStop.Click += (s, e) => RunAllAxes(ax => ax.Stop());
-            btnAlarmClear.Click += (s, e) => RunAllAxes(ax => ax.ResetAlarm());
+            btnAlarmClear.Click += (s, e) => ClearAllAxisAlarms();
             btnAllServoOff.Click += (s, e) => RunAllAxes(ax => ax.ServoOff());
             btnServoOn.Click += (s, e) => RunSelectedAxis(ax => ax.ServoOn());
             btnServoOff.Click += (s, e) => RunSelectedAxis(ax => ax.ServoOff());
@@ -322,6 +323,26 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         {
             foreach (BaseAxis axis in _rows.Select(x => x.Axis).Where(x => x != null))
                 operation(axis);
+        }
+
+        private void ClearAllAxisAlarms()
+        {
+            try
+            {
+                RunAllAxes(ax => ax.ResetAlarm());
+                AlarmManager.ClearAll();
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Alarms.AlarmManager.Raise(
+                    QMC.Common.Alarms.AlarmSeverity.Error,
+                    "AX-ALARM-CLEAR",
+                    "MotionPage",
+                    ex.Message);
+            }
+            finally
+            {
+            }
         }
 
         private BaseAxis SelectedAxis()

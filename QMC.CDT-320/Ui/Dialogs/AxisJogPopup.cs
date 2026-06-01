@@ -1,11 +1,13 @@
-﻿using System;
+﻿using QMC.CDT_320.Ui.Controls;
+using QMC.Common.Logging;
+using QMC.Common.Motion;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using QMC.Common.Motion;
 
 namespace QMC.CDT_320.Ui.Dialogs
 {
@@ -13,359 +15,335 @@ namespace QMC.CDT_320.Ui.Dialogs
     {
         private readonly List<BaseAxis> _axes;
         private readonly Timer _posTimer = new Timer();
-        private bool _isStepJogging;
-        private string _lastStepUnit = string.Empty;
+        private JogAxisItem _selectedItem;
 
         public AxisJogPopup(IEnumerable<BaseAxis> axes)
         {
-            _axes = SortAxes(axes).ToList();
+            try
+            {
+                _axes = SortAxes(axes).ToList();
 
-            InitializeComponent();
-            BindAxes();
-            WireEvents();
+                InitializeComponent();
+                BindAxes();
+                WireEvents();
+                BindSelectedAxis();
 
-            rdoFine.Checked = true;
-            rdoStep.Checked = true;
-            nudStep.DecimalPlaces = 3;
-            ApplyMoveModeUi();
-            UpdateStepPresetUi();
-            UpdateJogEnableByAxis();
-            UpdatePositionOnce();
-
-            _posTimer.Interval = 200;
-            _posTimer.Tick += (s, e) => UpdatePositionOnce();
-            Load += (s, e) => _posTimer.Start();
-            FormClosed += (s, e) => _posTimer.Stop();
+                _posTimer.Interval = 200;
+                _posTimer.Tick += (s, e) => RefreshPosition();
+                Load += (s, e) => _posTimer.Start();
+                FormClosed += async (s, e) => await StopJogAsync(true);
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "JOG-POPUP", "Axis jog popup initialize failed: " + ex.Message);
+                throw;
+            }
+            finally
+            {
+            }
         }
 
         private BaseAxis SelectedAxis
         {
             get
             {
-                var item = selectAxisList.SelectedItem as AxisListItem;
-                return item != null ? item.Axis : null;
+                try
+                {
+                    AxisListItem item = selectAxisList.SelectedItem as AxisListItem;
+                    return item != null ? item.Axis : null;
+                }
+                catch
+                {
+                    return null;
+                }
+                finally
+                {
+                }
             }
         }
 
         private static IEnumerable<BaseAxis> SortAxes(IEnumerable<BaseAxis> axes)
         {
-            return (axes ?? Enumerable.Empty<BaseAxis>())
-                .Where(a => a != null)
-                .OrderBy(a => a.Setup != null && a.Setup.AxisNo >= 0 ? a.Setup.AxisNo : int.MaxValue)
-                .ThenBy(a => a.Name, StringComparer.OrdinalIgnoreCase);
+            try
+            {
+                return (axes ?? Enumerable.Empty<BaseAxis>())
+                    .Where(a => a != null)
+                    .OrderBy(a => a.Setup != null && a.Setup.AxisNo >= 0 ? a.Setup.AxisNo : int.MaxValue)
+                    .ThenBy(a => a.Name, StringComparer.OrdinalIgnoreCase);
+            }
+            catch
+            {
+                return Enumerable.Empty<BaseAxis>();
+            }
+            finally
+            {
+            }
         }
 
         private void BindAxes()
         {
-            selectAxisList.Items.Clear();
-            foreach (var axis in _axes)
-                selectAxisList.Items.Add(new AxisListItem(axis));
-            if (selectAxisList.Items.Count > 0)
-                selectAxisList.SelectedIndex = 0;
-        }
-
-        private void WireEvents()
-        {
-            selectAxisList.SelectedIndexChanged += (s, e) =>
-            {
-                UpdateStepPresetUi();
-                UpdateJogEnableByAxis();
-                UpdatePositionOnce();
-            };
-
-            rdoStep.CheckedChanged += (s, e) => ApplyMoveModeUi();
-            rdoContinuous.CheckedChanged += (s, e) => ApplyMoveModeUi();
-
-            foreach (var btn in new[] { btnXMinus, btnXPlus, btnYMinus, btnYPlus, btnZMinus, btnZPlus, btnTMinus, btnTPlus })
-            {
-                btn.MouseDown += JogButton_MouseDown;
-                btn.MouseUp += JogButton_MouseUp;
-                btn.MouseLeave += JogButton_MouseLeave;
-            }
-
-            btnStop.Click += (s, e) => StopJog();
-            btnPrevIndex.Click += async (s, e) => await StepJogAsync(-1);
-            btnNextIndex.Click += async (s, e) => await StepJogAsync(1);
-            btnStep1.Click += (s, e) => SetStep(GetStepPreset(0));
-            btnStep01.Click += (s, e) => SetStep(GetStepPreset(1));
-            btnStep001.Click += (s, e) => SetStep(GetStepPreset(2));
-            btnStep0001.Click += (s, e) => SetStep(GetStepPreset(3));
-            btnStepZero.Click += (s, e) => SetStep(0m);
-        }
-
-        private void ApplyMoveModeUi()
-        {
-            bool step = rdoStep.Checked;
-            nudStep.Enabled = step;
-            btnStep1.Enabled = step;
-            btnStep01.Enabled = step;
-            btnStep001.Enabled = step;
-            btnStep0001.Enabled = step;
-            btnStepZero.Enabled = step;
-        }
-
-        private void UpdateJogEnableByAxis()
-        {
-            var axis = SelectedAxis;
-            string text = AxisText(axis);
-            bool isIndex = text.IndexOf("INDEX", StringComparison.OrdinalIgnoreCase) >= 0;
-
-            if (axis == null)
-            {
-                SetAllJogButtons(false);
-                return;
-            }
-
-            if (isIndex)
-            {
-                btnXMinus.Enabled = btnXPlus.Enabled = false;
-                btnYMinus.Enabled = btnYPlus.Enabled = false;
-                btnZMinus.Enabled = btnZPlus.Enabled = false;
-                btnTMinus.Enabled = btnTPlus.Enabled = false;
-                btnPrevIndex.Enabled = btnNextIndex.Enabled = true;
-                btnStop.Enabled = true;
-                return;
-            }
-
-            bool x = HasAxisLetter(text, "X");
-            bool y = HasAxisLetter(text, "Y");
-            bool z = HasAxisLetter(text, "Z");
-            bool t = HasAxisLetter(text, "T");
-
-            btnXMinus.Enabled = btnXPlus.Enabled = x;
-            btnYMinus.Enabled = btnYPlus.Enabled = y;
-            btnZMinus.Enabled = btnZPlus.Enabled = z;
-            btnTMinus.Enabled = btnTPlus.Enabled = t;
-            btnPrevIndex.Enabled = btnNextIndex.Enabled = false;
-            btnStop.Enabled = true;
-        }
-
-        private void SetAllJogButtons(bool enabled)
-        {
-            foreach (var btn in new[] { btnXMinus, btnXPlus, btnYMinus, btnYPlus, btnZMinus, btnZPlus, btnTMinus, btnTPlus, btnStop, btnPrevIndex, btnNextIndex })
-                btn.Enabled = enabled;
-        }
-
-        private async void JogButton_MouseDown(object sender, MouseEventArgs e)
-        {
-            if (e.Button != MouseButtons.Left) 
-                return;
-
-            var btn = sender as Button;
-            if (btn == null || !btn.Enabled) 
-                return;
-
-            int direction = btn.Text.IndexOf("-", StringComparison.Ordinal) >= 0 ? -1 : 1;
-            
-            if (rdoContinuous.Checked)
-                StartContinuousJog(direction);
-            else
-                await StepJogAsync(direction);
-        }
-
-        private void JogButton_MouseUp(object sender, MouseEventArgs e)
-        {
-            if (rdoContinuous.Checked)
-                StopJog();
-        }
-
-        private void JogButton_MouseLeave(object sender, EventArgs e)
-        {
-            if (rdoContinuous.Checked)
-                StopJog();
-        }
-
-        private void StartContinuousJog(int direction)
-        {
             try
             {
-                var axis = SelectedAxis;
-                if (axis == null)
-                    return;
+                selectAxisList.Items.Clear();
+                foreach (BaseAxis axis in _axes)
+                    selectAxisList.Items.Add(new AxisListItem(axis));
 
-                if (!axis.IsServoOn)
-                    axis.ServoOn();
-
-                axis.MoveJogContinuous(direction, SpeedType());
+                if (selectAxisList.Items.Count > 0)
+                    selectAxisList.SelectedIndex = 0;
             }
             catch (Exception ex)
             {
+                EventLogger.Write(EventKind.Alarm, "UI", "JOG-POPUP", "Axis list bind failed: " + ex.Message);
                 QMC.Common.MessageDialog.Show(this, ex.Message, "JOG", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
             finally
             {
-                UpdatePositionOnce();
             }
         }
 
-        private async Task StepJogAsync(int direction)
+        private void WireEvents()
         {
             try
             {
-                if (_isStepJogging)
-                    return;
+                selectAxisList.SelectedIndexChanged += async (s, e) =>
+                {
+                    await StopJogAsync(true);
+                    BindSelectedAxis();
+                };
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "JOG-POPUP", "Axis jog event bind failed: " + ex.Message);
+                throw;
+            }
+            finally
+            {
+            }
+        }
 
-                var axis = SelectedAxis;
+        private void BindSelectedAxis()
+        {
+            try
+            {
+                BaseAxis axis = SelectedAxis;
                 if (axis == null)
+                {
+                    _selectedItem = null;
+                    jogPositionListControl.SetItems(null);
+                    jogAxisMoveControl.SetItems(null);
                     return;
+                }
 
-                if (!axis.IsServoOn)
+                _selectedItem = CreateJogAxisItem(axis);
+                jogPositionListControl.SetItems(new[] { _selectedItem });
+                jogAxisMoveControl.SetItems(new[] { _selectedItem });
+                RefreshPosition();
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "JOG-POPUP", "Selected axis bind failed: " + ex.Message);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "JOG", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+            finally
+            {
+            }
+        }
+
+        private JogAxisItem CreateJogAxisItem(BaseAxis axis)
+        {
+            try
+            {
+                string plusText;
+                string minusText;
+                ResolveJogButtonText(axis, out plusText, out minusText);
+
+                JogAxisItem item = JogAxisItem.Single(DisplayNameWithNo(axis), axis, AxisUnitConverter.DisplayUnitFor(axis), 1.0, plusText, minusText);
+                item.StepMoveAsync = ExecuteStepAsync;
+                item.ContinuousMoveAsync = ExecuteContinuousAsync;
+                item.StopAsync = StopItemAsync;
+                return item;
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> ExecuteStepAsync(JogAxisItem item, int direction, JogSpeedType speedType, double customSpeed, double axisStepDistance)
+        {
+            try
+            {
+                if (item == null || item.Axis == null)
+                    return -1;
+
+                EnsureServoOn(item.Axis);
+                item.Axis.UpdateStatus();
+                if (item.Axis.IsMoving)
+                    return -2;
+
+                int result = await item.Axis.MoveJogStepAsync(direction, speedType, axisStepDistance, customSpeed);
+                EventLogger.Write(EventKind.Event, "UI", "JOG-POPUP", item.AxisName + " step jog result=" + result);
+                return result;
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "JOG-POPUP", "Step jog failed: " + ex.Message);
+                throw;
+            }
+            finally
+            {
+                RefreshPosition();
+            }
+        }
+
+        private async Task<int> ExecuteContinuousAsync(JogAxisItem item, int direction, JogSpeedType speedType, double customSpeed)
+        {
+            try
+            {
+                if (item == null || item.Axis == null)
+                    return -1;
+
+                EnsureServoOn(item.Axis);
+                item.Axis.MoveJogContinuous(direction, speedType, customSpeed);
+                EventLogger.Write(EventKind.Event, "UI", "JOG-POPUP", item.AxisName + " continuous jog start.");
+                await Task.CompletedTask;
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "JOG-POPUP", "Continuous jog failed: " + ex.Message);
+                throw;
+            }
+            finally
+            {
+                RefreshPosition();
+            }
+        }
+
+        private async Task<int> StopItemAsync(JogAxisItem item)
+        {
+            try
+            {
+                if (item == null || item.Axis == null)
+                    return -1;
+
+                item.Axis.StopJog();
+                EventLogger.Write(EventKind.Event, "UI", "JOG-POPUP", item.AxisName + " jog stop.");
+                await Task.CompletedTask;
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "JOG-POPUP", "Jog stop failed: " + ex.Message);
+                throw;
+            }
+            finally
+            {
+                RefreshPosition();
+            }
+        }
+
+        private async Task<int> StopJogAsync(bool force)
+        {
+            try
+            {
+                return await jogAxisMoveControl.StopAllAsync(force);
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Warning, "UI", "JOG-POPUP", "Stop all jog failed: " + ex.Message);
+                return -1;
+            }
+            finally
+            {
+                RefreshPosition();
+            }
+        }
+
+        private static void EnsureServoOn(BaseAxis axis)
+        {
+            try
+            {
+                if (axis != null && !axis.IsServoOn)
                     axis.ServoOn();
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
 
-                axis.UpdateStatus();
-                if (axis.IsMoving)
-                    return;
+        private void RefreshPosition()
+        {
+            try
+            {
+                if (_selectedItem != null && _selectedItem.Axis != null)
+                    _selectedItem.Axis.UpdateStatus();
 
-                double stepDisplay = (double)nudStep.Value;
-                if (stepDisplay <= 0)
-                    return;
-
-                double stepNative = AxisUnitConverter.FromDisplay(stepDisplay, axis);
-
-                _isStepJogging = true;
-                SetJogButtonsEnabled(false);
-                await axis.MoveJogStepAsync(direction, SpeedType(), stepNative);
+                jogPositionListControl.RefreshState();
             }
             catch (Exception ex)
             {
-                QMC.Common.MessageDialog.Show(this, ex.Message, "JOG STEP", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            }
-            finally
-            {
-                _isStepJogging = false;
-                UpdateJogEnableByAxis();
-                UpdatePositionOnce();
-            }
-        }
-
-        private void StopJog()
-        {
-            try
-            {
-                var axis = SelectedAxis;
-                if (axis != null)
-                    axis.StopJog();
-            }
-            catch (Exception ex)
-            {
-                QMC.Common.MessageDialog.Show(this, ex.Message, "JOG STOP", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            }
-            finally
-            {
-                UpdatePositionOnce();
-            }
-        }
-
-        private void SetJogButtonsEnabled(bool enabled)
-        {
-            try
-            {
-                foreach (var btn in new[] { btnXMinus, btnXPlus, btnYMinus, btnYPlus, btnZMinus, btnZPlus, btnTMinus, btnTPlus, btnPrevIndex, btnNextIndex })
-                    btn.Enabled = enabled && btn.Enabled;
-            }
-            catch
-            {
+                EventLogger.Write(EventKind.Warning, "UI", "JOG-POPUP", "Jog position refresh failed: " + ex.Message);
             }
             finally
             {
             }
         }
 
-        private JogSpeedType SpeedType()
-        {
-            return rdoCoarse.Checked ? JogSpeedType.Coarse : JogSpeedType.Fine;
-        }
-
-        private void UpdatePositionOnce()
+        private static void ResolveJogButtonText(BaseAxis axis, out string plusText, out string minusText)
         {
             try
             {
-                UpdateStepPresetUi();
-
-                var axis = SelectedAxis;
-                if (axis != null)
-                    axis.UpdateStatus();
-
-                if (axis == null)
+                string text = AxisText(axis);
+                if (text.IndexOf("INDEX", StringComparison.OrdinalIgnoreCase) >= 0)
                 {
-                    lblPosition.Text = "000";
+                    plusText = "Next";
+                    minusText = "Prev";
                     return;
                 }
 
-                string unit = AxisUnitConverter.DisplayUnitFor(axis);
-                double displayPos = AxisUnitConverter.ToDisplay(axis.ActualPosition, axis);
-                string format = AxisUnitConverter.Normalize(unit) == AxisUnitConverter.Micrometer ? "0" : "0.###";
-                lblPosition.Text = displayPos.ToString(format, CultureInfo.InvariantCulture) + " " + unit;
-            }
-            catch
-            {
-                lblPosition.Text = "ERR";
-            }
-            finally
-            {
-            }
-        }
-
-        private void SetStep(decimal value)
-        {
-            nudStep.Value = value;
-        }
-
-        private decimal GetStepPreset(int index)
-        {
-            try
-            {
-                var axis = SelectedAxis;
-                string unit = axis == null ? AxisUnitConverter.Millimeter : AxisUnitConverter.DisplayUnitFor(axis);
-                decimal[] values = AxisUnitConverter.Normalize(unit) == AxisUnitConverter.Micrometer
-                    ? new[] { 1000m, 100m, 10m, 1m }
-                    : new[] { 1m, 0.1m, 0.01m, 0.001m };
-                return values[Math.Max(0, Math.Min(index, values.Length - 1))];
-            }
-            catch
-            {
-                return 1m;
-            }
-            finally
-            {
-            }
-        }
-
-        private void UpdateStepPresetUi()
-        {
-            try
-            {
-                var axis = SelectedAxis;
-                string unit = axis == null ? AxisUnitConverter.Millimeter : AxisUnitConverter.DisplayUnitFor(axis);
-                if (!string.Equals(_lastStepUnit, unit, StringComparison.OrdinalIgnoreCase))
+                if (HasAxisLetter(text, "X"))
                 {
-                    _lastStepUnit = unit;
-                    SetStep(GetStepPreset(0));
+                    plusText = "X+";
+                    minusText = "X-";
+                    return;
                 }
 
-                btnStep1.Text = FormatStepPreset(GetStepPreset(0), unit);
-                btnStep01.Text = FormatStepPreset(GetStepPreset(1), unit);
-                btnStep001.Text = FormatStepPreset(GetStepPreset(2), unit);
-                btnStep0001.Text = FormatStepPreset(GetStepPreset(3), unit);
-                btnStepZero.Text = FormatStepPreset(0m, unit);
-            }
-            catch
-            {
-            }
-            finally
-            {
-            }
-        }
+                if (HasAxisLetter(text, "Y"))
+                {
+                    plusText = "Y+";
+                    minusText = "Y-";
+                    return;
+                }
 
-        private static string FormatStepPreset(decimal value, string unit)
-        {
-            try
-            {
-                return value.ToString("0.###", CultureInfo.InvariantCulture) + unit;
+                if (HasAxisLetter(text, "Z"))
+                {
+                    plusText = "Z+";
+                    minusText = "Z-";
+                    return;
+                }
+
+                if (HasAxisLetter(text, "T"))
+                {
+                    plusText = "T+";
+                    minusText = "T-";
+                    return;
+                }
+
+                plusText = "+";
+                minusText = "-";
             }
             catch
             {
-                return value.ToString(CultureInfo.InvariantCulture);
+                plusText = "+";
+                minusText = "-";
             }
             finally
             {
@@ -374,51 +352,118 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         private static bool HasAxisLetter(string name, string letter)
         {
-            if (string.IsNullOrWhiteSpace(name)) return false;
-            string s = name.ToUpperInvariant();
-            string l = letter.ToUpperInvariant();
+            try
+            {
+                if (string.IsNullOrWhiteSpace(name))
+                    return false;
 
-            if (Regex.IsMatch(s, Regex.Escape(l) + @"[0-9]*$"))
-                return true;
+                string s = name.ToUpperInvariant();
+                string l = letter.ToUpperInvariant();
 
-            return Regex.IsMatch(s, @"(^|[^A-Z0-9])" + Regex.Escape(l) + @"[0-9]*([^A-Z0-9]|$)");
+                if (Regex.IsMatch(s, Regex.Escape(l) + @"[0-9]*$"))
+                    return true;
+
+                return Regex.IsMatch(s, @"(^|[^A-Z0-9])" + Regex.Escape(l) + @"[0-9]*([^A-Z0-9]|$)");
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
         }
 
         private static string AxisText(BaseAxis axis)
         {
-            if (axis == null) return string.Empty;
-            string display = axis.Setup != null ? axis.Setup.DisplayName : string.Empty;
-            return (axis.Name + " " + display).Trim();
+            try
+            {
+                if (axis == null)
+                    return string.Empty;
+
+                string display = axis.Setup != null ? axis.Setup.DisplayName : string.Empty;
+                return (axis.Name + " " + display).Trim();
+            }
+            catch
+            {
+                return string.Empty;
+            }
+            finally
+            {
+            }
+        }
+
+        private static string DisplayNameWithNo(BaseAxis axis)
+        {
+            try
+            {
+                int axisNo = axis != null && axis.Setup != null ? axis.Setup.AxisNo : -1;
+                string display = axis != null && axis.Setup != null && !string.IsNullOrWhiteSpace(axis.Setup.DisplayName)
+                    ? axis.Setup.DisplayName
+                    : axis != null ? axis.Name : "AXIS";
+
+                return (axisNo >= 0 ? axisNo.ToString("00", CultureInfo.InvariantCulture) + " - " : string.Empty) + display;
+            }
+            catch
+            {
+                return "AXIS";
+            }
+            finally
+            {
+            }
         }
 
         protected override void Dispose(bool disposing)
         {
-            if (disposing)
+            try
             {
-                _posTimer.Dispose();
-                if (components != null) components.Dispose();
+                if (disposing)
+                {
+                    _posTimer.Dispose();
+                    if (components != null)
+                        components.Dispose();
+                }
             }
-            base.Dispose(disposing);
+            finally
+            {
+                base.Dispose(disposing);
+            }
         }
 
         private sealed class AxisListItem
         {
             public AxisListItem(BaseAxis axis)
             {
-                Axis = axis;
+                try
+                {
+                    Axis = axis;
+                }
+                finally
+                {
+                }
             }
 
             public BaseAxis Axis { get; private set; }
 
             public override string ToString()
             {
-                int axisNo = Axis.Setup != null ? Axis.Setup.AxisNo : -1;
-                string display = Axis.Setup != null && !string.IsNullOrWhiteSpace(Axis.Setup.DisplayName)
-                    ? Axis.Setup.DisplayName
-                    : Axis.Name;
-                return axisNo.ToString("00", CultureInfo.InvariantCulture) + " - " + display;
+                try
+                {
+                    int axisNo = Axis != null && Axis.Setup != null ? Axis.Setup.AxisNo : -1;
+                    string display = Axis != null && Axis.Setup != null && !string.IsNullOrWhiteSpace(Axis.Setup.DisplayName)
+                        ? Axis.Setup.DisplayName
+                        : Axis != null ? Axis.Name : string.Empty;
+
+                    return axisNo.ToString("00", CultureInfo.InvariantCulture) + " - " + display;
+                }
+                catch
+                {
+                    return "--";
+                }
+                finally
+                {
+                }
             }
         }
     }
 }
-

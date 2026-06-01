@@ -10,6 +10,7 @@ namespace QMC.CDT320.Ajin
     public class AjinAxis : BaseAxis
     {
         private readonly object _sync = new object();
+        private int _motionDirection;
 
         public int AxisNo { get; }
 
@@ -69,6 +70,8 @@ namespace QMC.CDT320.Ajin
 
         public override void ResetAlarm()
         {
+            _motionDirection = 0;
+
             if (UseSimulation || !AjinSystem.IsOpen)
             {
                 base.ResetAlarm();
@@ -92,12 +95,16 @@ namespace QMC.CDT320.Ajin
                     return -2;
 
                 UpdateStatus();
+                int limitCheck = CheckSoftLimitTarget(targetPos);
+                if (limitCheck != 0)
+                    return limitCheck;
 
                 double vel = velocity > 0 ? velocity : Config.DefaultVelocity;
                 CommandPosition = targetPos;
                 CurrentVelocity = vel;
                 IsMoving = true;
                 IsInPosition = false;
+                _motionDirection = targetPos > ActualPosition ? 1 : targetPos < ActualPosition ? -1 : 0;
 
                 int ret;
                 lock (_sync)
@@ -110,6 +117,7 @@ namespace QMC.CDT320.Ajin
                     IsMoving = false;
                     IsAlarm = true;
                     AlarmCode = (uint)ret;
+                    _motionDirection = 0;
                     AlarmManager.Raise(
                         AlarmSeverity.Error,
                         "AX-MOVE-ABS",
@@ -120,12 +128,15 @@ namespace QMC.CDT320.Ajin
 
                 RaiseMoveStarted();
                 int waitRet = await WaitUntilMoveDone();
+                if (waitRet == 0 && !IsAlarm)
+                    _motionDirection = 0;
                 return IsAlarm ? (int)AlarmCode : waitRet;
             }
             catch (Exception ex)
             {
                 IsMoving = false;
                 IsAlarm = true;
+                _motionDirection = 0;
                 AlarmManager.Raise(
                     AlarmSeverity.Error,
                     "AX-MOVE-ABS",
@@ -169,6 +180,8 @@ namespace QMC.CDT320.Ajin
 
         public override void Stop()
         {
+            _motionDirection = 0;
+
             if (UseSimulation)
             {
                 base.Stop();
@@ -183,6 +196,8 @@ namespace QMC.CDT320.Ajin
 
         public override void EStop()
         {
+            _motionDirection = 0;
+
             if (UseSimulation)
             {
                 base.EStop();
@@ -308,6 +323,7 @@ namespace QMC.CDT320.Ajin
                 CurrentVelocity = signedVel;
                 IsMoving = true;
                 IsInPosition = false;
+                _motionDirection = jogDirection;
 
                 int ret;
                 lock (_sync)
@@ -317,6 +333,12 @@ namespace QMC.CDT320.Ajin
                     IsMoving = false;
                     IsAlarm = true;
                     AlarmCode = (uint)ret;
+                    _motionDirection = 0;
+                    AlarmManager.Raise(
+                        AlarmSeverity.Error,
+                        "AX-JOG",
+                        Name,
+                        "AXM.MoveVelocity failed. ret=0x" + ret.ToString("X4"));
                     return;
                 }
 
@@ -326,6 +348,7 @@ namespace QMC.CDT320.Ajin
             {
                 IsMoving = false;
                 IsAlarm = true;
+                _motionDirection = 0;
                 AlarmManager.Raise(
                     AlarmSeverity.Error,
                     "AX-JOG",
@@ -380,6 +403,8 @@ namespace QMC.CDT320.Ajin
 
         public override void StopJog()
         {
+            _motionDirection = 0;
+
             if (UseSimulation || !AjinSystem.IsOpen)
             {
                 base.StopJog();
@@ -515,20 +540,36 @@ namespace QMC.CDT320.Ajin
             IsMoving = mot;
             IsInPosition = inp;
             if (wasMoving && !IsMoving && IsInPosition)
+            {
+                _motionDirection = 0;
                 RaiseMoveCompleted();
+            }
 
             bool wasAlarm = IsAlarm;
-            IsAlarm = fault;
+            bool softLimitPositive = Setup != null && Setup.SoftLimitEnabled &&
+                ActualPosition >= Setup.SoftLimitPlus && _motionDirection > 0;
+            bool softLimitNegative = Setup != null && Setup.SoftLimitEnabled &&
+                ActualPosition <= Setup.SoftLimitMinus && _motionDirection < 0;
+            bool hardLimitPositive = pel && _motionDirection > 0;
+            bool hardLimitNegative = mel && _motionDirection < 0;
+
+            IsAlarm = fault || softLimitPositive || softLimitNegative || hardLimitPositive || hardLimitNegative;
             if (IsAlarm)
             {
-                AlarmCode = AlarmCode == 0 ? 1u : AlarmCode;
+                if (fault)
+                    AlarmCode = AlarmCode == 0 ? 1u : AlarmCode;
+                else if (softLimitPositive)
+                    AlarmCode = 10;
+                else if (softLimitNegative)
+                    AlarmCode = 11;
+                else if (hardLimitPositive)
+                    AlarmCode = 20;
+                else if (hardLimitNegative)
+                    AlarmCode = 21;
+
                 if (!wasAlarm)
                 {
-                    AlarmManager.Raise(
-                        AlarmSeverity.Error,
-                        "AX-" + AxisNo,
-                        Name,
-                        "Servo alarm 0x" + AlarmCode.ToString("X4"));
+                    RaiseAxisAlarmForCurrentStatus(fault, softLimitPositive, softLimitNegative, hardLimitPositive, hardLimitNegative);
                 }
             }
             else
@@ -556,6 +597,122 @@ namespace QMC.CDT320.Ajin
 
             if (servoRet == 0)
                 IsServoOn = svOn;
+        }
+
+        private int CheckSoftLimitTarget(double targetPos)
+        {
+            try
+            {
+                if (Setup == null || !Setup.SoftLimitEnabled)
+                    return 0;
+
+                if (targetPos > Setup.SoftLimitPlus)
+                {
+                    RaiseSoftLimitAlarm(10, "positive", targetPos, Setup.SoftLimitPlus);
+                    return 10;
+                }
+
+                if (targetPos < Setup.SoftLimitMinus)
+                {
+                    RaiseSoftLimitAlarm(11, "negative", targetPos, Setup.SoftLimitMinus);
+                    return 11;
+                }
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                AlarmManager.Raise(AlarmSeverity.Error, "AX-SOFT-LIMIT-CHECK", Name, ex.Message);
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        private void RaiseSoftLimitAlarm(uint alarmCode, string side, double position, double limit)
+        {
+            try
+            {
+                IsMoving = false;
+                IsInPosition = false;
+                IsAlarm = true;
+                AlarmCode = alarmCode;
+                _motionDirection = 0;
+
+                string message = "Soft limit reached (" + side + "). Position=" +
+                    position.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) +
+                    ", Limit=" +
+                    limit.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) +
+                    ", AxisNo=" + AxisNo;
+
+                AlarmManager.Raise(
+                    AlarmSeverity.Error,
+                    alarmCode == 10 ? "AX-SOFT-LIMIT-P" : "AX-SOFT-LIMIT-N",
+                    Name,
+                    message);
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        private void RaiseAxisAlarmForCurrentStatus(
+            bool fault,
+            bool softLimitPositive,
+            bool softLimitNegative,
+            bool hardLimitPositive,
+            bool hardLimitNegative)
+        {
+            try
+            {
+                if (fault)
+                {
+                    AlarmManager.Raise(
+                        AlarmSeverity.Error,
+                        "AX-" + AxisNo,
+                        Name,
+                        "Servo alarm 0x" + AlarmCode.ToString("X4"));
+                    return;
+                }
+
+                if (softLimitPositive || softLimitNegative)
+                {
+                    string side = softLimitPositive ? "positive" : "negative";
+                    double limit = softLimitPositive ? Setup.SoftLimitPlus : Setup.SoftLimitMinus;
+                    string message = "Soft limit reached (" + side + "). Position=" +
+                        ActualPosition.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) +
+                        ", Limit=" +
+                        limit.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) +
+                        ", AxisNo=" + AxisNo;
+
+                    AlarmManager.Raise(
+                        AlarmSeverity.Error,
+                        softLimitPositive ? "AX-SOFT-LIMIT-P" : "AX-SOFT-LIMIT-N",
+                        Name,
+                        message);
+                    return;
+                }
+
+                if (hardLimitPositive || hardLimitNegative)
+                {
+                    string side = hardLimitPositive ? "PEL(+)" : "MEL(-)";
+                    AlarmManager.Raise(
+                        AlarmSeverity.Error,
+                        "LIMIT-HIT",
+                        Name,
+                        "Limit sensor reached [" + side + "] AxisNo=" + AxisNo);
+                }
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
         }
 
         /// <summary>
