@@ -667,25 +667,33 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             }
         }
 
-        private async Task RunSafeAsync(Func<Form1, Task> action, string actionName)
+        private async Task MapAsync(Form1 host)
         {
             try
             {
-                var host = FindHostForm();
-                if (host == null || host.Controller == null) return;
-                Cursor = Cursors.WaitCursor;
-                await action(host);
-                EventLogger.Write(EventKind.Event, "UI", actionName, "completed.");
+                var ctx = new QMC.CDT320.Sequencing.MachineSequenceContext(
+                    host.Controller,
+                    new QMC.CDT320.Sequencing.SequenceSignalBus());
+                var sequence = new QMC.CDT320.Sequencing.InputLoaderSequence(ctx);
+                await sequence.ExecuteMappingAsync(System.Threading.CancellationToken.None);
             }
-            catch (Exception ex)
+            catch
             {
-                AlarmManager.Raise(AlarmSeverity.Error, actionName, Name, ex.Message);
                 throw;
             }
             finally
             {
-                Cursor = Cursors.Default;
             }
+        }
+
+        private async Task LoadAsync(Form1 host)
+        {
+            await host.Controller.LoadNextWaferAsync();
+        }
+
+        private async Task UnloadAsync(Form1 host)
+        {
+            await host.Controller.RetractCurrentWaferAsync();
         }
 
         private bool ConfirmAction(string message)

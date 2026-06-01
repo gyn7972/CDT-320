@@ -551,31 +551,20 @@ namespace QMC.CDT320
 
         // ??????????????????????????????????????????
 
-        /// <summary>InputLoader ??移댁꽭???щ’ 留ㅽ븨留??섑뻾 (UI 踰꾪듉??.</summary>
-        public async Task<bool> ScanInputCassetteAsync()
+        public void ApplyInputCassetteMappingCompleted()
         {
-            var loader = _machine.InputLoader;
-            if (!loader.CassetteExistSensor.IsOn)
+            try
             {
-                AlarmManager.Raise(AlarmSeverity.Warning, "LOT-NOCASS",
-                    loader.Name, "Input 移댁꽭?멸? 媛먯??섏? ?딆뒿?덈떎.");
-                return false;
-            }
-            bool ok = (await loader.ScanCassetteAsync(16, 6.0)) == 0;
-            if (ok)
-            {
-                CurrentInputSlot = -1;  // 留ㅽ븨 ???щ’ ?ы깘???꾪빐 由ъ뀑
-                // Stage 46 ??SlotMapperRegistry 媛깆떊
-                try
-                {
-                    var arr = new bool[loader.WaferMap.Count];
-                    for (int i = 0; i < arr.Length; i++) arr[i] = loader.WaferMap[i];
-                    SlotMapperRegistry.Update("InputCassette", arr);
-                }
-                catch { }
+                CurrentInputSlot = -1;
                 RaiseLotPortChanged();
             }
-            return ok;
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
         }
 
         private void RaiseLotPortChanged()
@@ -887,7 +876,11 @@ namespace QMC.CDT320
                 try
                 {
                     Log("[INIT] InputCassette ?먮룞 留ㅽ븨 ?쒖옉...");
-                    bool mapped = await ScanInputCassetteAsync();
+                    var ctx = new QMC.CDT320.Sequencing.MachineSequenceContext(
+                        this,
+                        new QMC.CDT320.Sequencing.SequenceSignalBus());
+                    var sequence = new QMC.CDT320.Sequencing.InputLoaderSequence(ctx);
+                    bool mapped = await sequence.ExecuteMappingAsync(CancellationToken.None);
                     if (mapped)
                     {
                         int n = 0;

@@ -1,5 +1,6 @@
 ﻿using System.Threading;
 using System.Threading.Tasks;
+using QMC.CDT320.Bin;
 using QMC.Common.Alarms;
 
 namespace QMC.CDT320.Sequencing
@@ -23,6 +24,106 @@ namespace QMC.CDT320.Sequencing
         protected override async Task ExecuteStepAsync(CancellationToken ct)
         {
             await ExecuteLoadOnceAsync(ct).ConfigureAwait(false);
+        }
+
+        public async Task<bool> ExecuteMappingAsync(CancellationToken ct, bool bFine = false)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                var loader = Context.Machine.InputLoader;
+                if (loader == null || loader.InputCassette == null)
+                {
+                    AlarmManager.Raise(
+                        AlarmSeverity.Error,
+                        "SEQ-INMAP-UNIT",
+                        "InputLoaderSequence",
+                        "InputLoader 또는 InputCassette Unit을 찾을 수 없습니다.");
+                    Context.LogPublic("[UNIT-INPUT-LOADER] InputCassette mapping failed: unit missing");
+                    return false;
+                }
+
+                if (!loader.CassetteExistSensor.IsOn)
+                {
+                    AlarmManager.Raise(
+                        AlarmSeverity.Warning,
+                        "LOT-NOCASS",
+                        loader.Name,
+                        "Input 카세트가 감지되지 않았습니다.");
+                    Context.LogPublic("[UNIT-INPUT-LOADER] InputCassette mapping skipped: cassette missing");
+                    return false;
+                }
+
+                if (!loader.InputCassette.CheckWaferCassetteMappingReady())
+                {
+                    AlarmManager.Raise(
+                        AlarmSeverity.Warning,
+                        "SEQ-INMAP-READY",
+                        loader.Name,
+                        "Input 카세트 매핑 준비 상태가 아닙니다.");
+                    Context.LogPublic("[UNIT-INPUT-LOADER] InputCassette mapping failed: not ready");
+                    return false;
+                }
+
+                Context.LogPublic("[UNIT-INPUT-LOADER] InputCassette mapping start");
+                int result = await loader.InputCassette.WaferScan(
+                    loader.InputCassette.Config.ElevatorMoveTimeoutMs,
+                    bFine).ConfigureAwait(false);
+                ct.ThrowIfCancellationRequested();
+
+                if (result != 0)
+                {
+                    AlarmManager.Raise(
+                        AlarmSeverity.Warning,
+                        "SEQ-INMAP",
+                        loader.Name,
+                        "Input 카세트 매핑에 실패했습니다. result=" + result);
+                    Context.LogPublic("[UNIT-INPUT-LOADER] InputCassette mapping failed. result=" + result);
+                    return false;
+                }
+
+                try
+                {
+                    var arr = new bool[loader.WaferMap.Count];
+                    for (int i = 0; i < arr.Length; i++)
+                        arr[i] = loader.WaferMap[i];
+
+                    SlotMapperRegistry.Update("InputCassette", arr);
+                }
+                catch (System.Exception ex)
+                {
+                    AlarmManager.Raise(
+                        AlarmSeverity.Warning,
+                        "SEQ-INMAP-REG",
+                        loader.Name,
+                        "Input 카세트 매핑 결과 등록 실패: " + ex.Message);
+                    Context.LogPublic("[UNIT-INPUT-LOADER] InputCassette mapping registry update failed: " + ex.Message);
+                    return false;
+                }
+
+                Context.Controller.ApplyInputCassetteMappingCompleted();
+                Context.LogPublic("[UNIT-INPUT-LOADER] InputCassette mapping complete");
+                return true;
+            }
+            catch (System.OperationCanceledException)
+            {
+                Context.LogPublic("[UNIT-INPUT-LOADER] InputCassette mapping canceled");
+                throw;
+            }
+            catch (System.Exception ex)
+            {
+                AlarmManager.Raise(
+                    AlarmSeverity.Error,
+                    "SEQ-INMAP-EX",
+                    "InputLoaderSequence",
+                    ex.Message);
+                Context.LogPublic("[UNIT-INPUT-LOADER] InputCassette mapping exception: " + ex.Message);
+                return false;
+            }
+            finally
+            {
+            }
         }
 
         private async Task ExecuteLoadOnceAsync(CancellationToken ct)

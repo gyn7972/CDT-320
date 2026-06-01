@@ -24,6 +24,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             try
             {
                 InitializeComponent();
+                if (LicenseManager.UsageMode == LicenseUsageMode.Designtime)
+                    return;
+
                 ApplyRecipeTheme();
                 ConfigureRuntimeBehavior();
             }
@@ -209,7 +212,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
                 DialogResult result = QMC.Common.MessageDialog.Show(
                     this,
-                    "이동하시겠습니까?",
+                    "Loading Move를 진행하시겠습니까?",
                     "Input Cassette Move",
                     MessageBoxButtons.YesNo,
                     MessageBoxIcon.Question);
@@ -364,8 +367,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             {
                 DialogResult result = QMC.Common.MessageDialog.Show(
                     this,
-                    "이동하시겠습니까?",
-                    "Input Cassette Move",
+                    "Input Cassette Mapping을 진행하시겠습니까?",
+                    "Input Cassette Mapping",
                     MessageBoxButtons.YesNo,
                     MessageBoxIcon.Question);
                 if (result != DialogResult.Yes)
@@ -374,19 +377,32 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                         QMC.Common.Logging.EventKind.Event,
                         "UI",
                         "INPUT-CASSETTE",
-                        "btnSlotUnloadingMove_Click canceled.");
+                        "btnMapping_Click canceled.");
                     return;
                 }
 
-                await MoveSlotWithOffset(_InputCassetteUnit != null ? _InputCassetteUnit.Config.UnloadingPositionOffset : 0.0, "Input cassette slot unloading move");
+                var host = FindHostForm();
+                if (host == null || host.Controller == null)
+                {
+                    QMC.Common.MessageDialog.Show(this, "Machine Controller를 찾을 수 없습니다.", "Input Cassette Mapping", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                var ctx = new QMC.CDT320.Sequencing.MachineSequenceContext(
+                    host.Controller,
+                    new QMC.CDT320.Sequencing.SequenceSignalBus());
+                var sequence = new QMC.CDT320.Sequencing.InputLoaderSequence(ctx);
+                bool ok = await sequence.ExecuteMappingAsync(System.Threading.CancellationToken.None, IsFineMove());
+                if (!ok)
+                    QMC.Common.MessageDialog.Show(this, "Input Cassette Mapping 실패", "Input Cassette Mapping", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
             catch (Exception ex)
             {
-                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette Slot Move", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette Mapping", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
-
+                RefreshView();
             }
         }
 
