@@ -108,7 +108,21 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
         private async Task MapAsync(Form1 host)
         {
-            await host.Controller.ScanInputCassetteAsync();
+            try
+            {
+                var ctx = new QMC.CDT320.Sequencing.MachineSequenceContext(
+                    host.Controller,
+                    new QMC.CDT320.Sequencing.SequenceSignalBus());
+                var sequence = new QMC.CDT320.Sequencing.InputLoaderSequence(ctx);
+                await sequence.ExecuteMappingAsync(System.Threading.CancellationToken.None);
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
         }
 
         private async Task LoadAsync(Form1 host)
