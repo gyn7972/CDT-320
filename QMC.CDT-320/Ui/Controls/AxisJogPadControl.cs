@@ -7,24 +7,24 @@ using System.Windows.Forms;
 
 namespace QMC.CDT_320.Ui.Controls
 {
-    /// <summary>X/Y/T 異뺤쓣 諛⑺뼢 ?⑤뱶濡?議곌렇 ?댁쟾?섎뒗 怨듭슜 而⑦듃濡ㅼ엯?덈떎.</summary>
+    /// <summary>구현 설명 주석입니다.</summary>
     public partial class AxisJogPadControl : UserControl
     {
         private BaseAxis _axisX;
         private BaseAxis _axisY;
         private BaseAxis _axisT;
 
-        /// <summary>議곌렇 ?대룞 ?듭뀡 而⑦듃濡ㅼ엯?덈떎.</summary>
+        /// <summary>구현 설명 주석입니다.</summary>
         [Browsable(false)]
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public JogMoveOptionsControl MoveOptions { get; set; }
 
-        /// <summary>?ъ슜??吏???띾룄 怨듦툒?먯엯?덈떎.</summary>
+        /// <summary>구현 설명 주석입니다.</summary>
         [Browsable(false)]
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public Func<double> SpeedProvider { get; set; }
 
-        /// <summary>AxisJogPadControl???앹꽦?⑸땲??</summary>
+        /// <summary>구현 설명 주석입니다.</summary>
         public AxisJogPadControl()
         {
             InitializeComponent();
@@ -32,7 +32,7 @@ namespace QMC.CDT_320.Ui.Controls
             UpdateEnabledState();
         }
 
-        /// <summary>X/Y/T 異뺤쓣 諛붿씤?⑺븯怨??곌껐??諛⑺뼢 踰꾪듉留??쒖꽦?뷀빀?덈떎.</summary>
+        /// <summary>구현 설명 주석입니다.</summary>
         public void BindAxes(BaseAxis x, BaseAxis y, BaseAxis t)
         {
             _axisX = x;
@@ -41,7 +41,7 @@ namespace QMC.CDT_320.Ui.Controls
             UpdateEnabledState();
         }
 
-        /// <summary>諛붿씤?⑸맂 紐⑤뱺 異뺤쓽 議곌렇 ?대룞???뺤??⑸땲??</summary>
+        /// <summary>구현 설명 주석입니다.</summary>
         public void StopJog()
         {
             StopAxis(_axisX);
@@ -111,7 +111,7 @@ namespace QMC.CDT_320.Ui.Controls
 
             try
             {
-                await axis.MoveJogStepAsync(direction, SpeedType, StepDistance, GetSpeed());
+                await axis.MoveJogStepAsync(direction, SpeedType, AxisUnitConverter.FromDisplay(StepDistance, axis), GetSpeed());
             }
             catch (Exception ex)
             {

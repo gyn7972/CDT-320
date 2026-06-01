@@ -2,6 +2,7 @@
 using System.Drawing;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using QMC.Common.Motion;
 
 namespace QMC.CDT_320.Ui.Pages.WorkInfo
 {
@@ -155,7 +156,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
             if (_lifterPosLabel != null)
             {
-                _lifterPosLabel.Text = loader.WaferLifterZ.ActualPosition.ToString("F3") + " mm";
+                _lifterPosLabel.Text = AxisUnitConverter.FormatDisplay(loader.WaferLifterZ.ActualPosition, loader.WaferLifterZ, "0.###", true);
             }
 
             var map = loader.WaferMap;

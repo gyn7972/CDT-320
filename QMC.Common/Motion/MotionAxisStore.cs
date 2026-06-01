@@ -1,9 +1,10 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Runtime.Serialization;
 using System.Runtime.Serialization.Json;
 using System.Text;
+using QMC.Common.Data.Store;
 
 namespace QMC.Common.Motion
 {
@@ -128,8 +129,7 @@ namespace QMC.Common.Motion
 
             using (FileStream fs = File.Create(filePath))
             {
-                DataContractJsonSerializer ser = new DataContractJsonSerializer(typeof(MotionAxisStore));
-                ser.WriteObject(fs, this);
+                JsonPrettySerializer.WriteObject(fs, typeof(MotionAxisStore), this);
             }
         }
 
@@ -188,6 +188,7 @@ namespace QMC.Common.Motion
                 definition.Setup.DisplayName = definition.Name;
             if (definition.Setup.PulsesPerUnit <= 0)
                 definition.Setup.PulsesPerUnit = 1000.0;
+            definition.Setup.Unit = AxisUnitConverter.Normalize(definition.Setup.Unit);
             if (definition.Setup.AxisScale <= 0)
                 definition.Setup.AxisScale = 1000;
             if (definition.Setup.AccJerkPercent < 0 || definition.Setup.AccJerkPercent > 100)
@@ -245,6 +246,8 @@ namespace QMC.Common.Motion
             target.HomeSignal = source.HomeSignal;
             target.HomeTimeoutMs = source.HomeTimeoutMs;
             target.MoveTimeoutMs = source.MoveTimeoutMs;
+            target.Stroke = source.Stroke;
+            target.Brake = source.Brake;
         }
 
         public static void Copy(AxisConfig source, AxisConfig target)

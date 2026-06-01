@@ -6,6 +6,7 @@ using System.Runtime.Serialization;
 using System.Runtime.Serialization.Json;
 using System.Windows.Forms;
 using QMC.CDT_320.Ui.Localization;
+using QMC.Common.Data.Store;
 
 namespace QMC.CDT_320.Ui.Pages.Settings
 {
@@ -110,8 +111,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 Directory.CreateDirectory(Path.GetDirectoryName(SavePath));
                 using (var fs = File.Create(SavePath))
                 {
-                    var ser = new DataContractJsonSerializer(typeof(CameraStore));
-                    ser.WriteObject(fs, new CameraStore { Items = _items });
+                    JsonPrettySerializer.WriteObject(fs, typeof(CameraStore), new CameraStore { Items = _items });
                 }
                 QMC.Common.MessageDialog.Show("Save complete.\n" + SavePath);
             }

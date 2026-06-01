@@ -13,13 +13,12 @@ namespace QMC.CDT_320.Ui.Pages.Settings
 {
     /// <summary>
     /// Settings - Motion.
-    /// The grid is built from AxisSetupPage data first, then live machine axes are matched by axis name.
+    /// The grid is built from Ajin mapping registrations and Motion AxisData.
     /// </summary>
     public partial class MotionPage : PageBase
     {
         private sealed class MotionAxisRow
         {
-            public AxisSetupPage.AxisRow Setup { get; set; }
             public BaseAxis Axis { get; set; }
         }
 
@@ -97,60 +96,78 @@ namespace QMC.CDT_320.Ui.Pages.Settings
 
         private void LoadAxisRows()
         {
-            DetachAxes();
-            _rows.Clear();
-            grid.Rows.Clear();
-
-            Dictionary<string, BaseAxis> actualAxes = BuildActualAxisMap();
-            List<AxisSetupPage.AxisRow> setupRows = AxisSetupPage.LoadConfiguredRows()
-                .OrderBy(x => x.No)
-                .ThenBy(x => x.Name)
-                .ToList();
-
-            int index = 0;
-            foreach (AxisSetupPage.AxisRow setup in setupRows)
+            try
             {
-                string axisName = AjinAxisDefaults.ResolveName(setup.ConfigKey);
-                if (string.IsNullOrEmpty(axisName))
-                    axisName = AjinAxisDefaults.ResolveName(setup.Name);
+                DetachAxes();
+                _rows.Clear();
+                grid.Rows.Clear();
 
-                BaseAxis axis = null;
-                if (!string.IsNullOrEmpty(axisName))
-                    actualAxes.TryGetValue(axisName, out axis);
+                List<BaseAxis> axes = AjinAxisRegistry.GetOrderedAxes(Host?.Machine)
+                    .Where(x => x != null)
+                    .OrderBy(x => x.Setup != null ? x.Setup.AxisNo : int.MaxValue)
+                    .ThenBy(x => x.Name)
+                    .ToList();
 
-                _rows.Add(new MotionAxisRow { Setup = setup, Axis = axis });
-
-                grid.Rows.Add(
-                    ++index,
-                    setup.Module,
-                    setup.Name,
-                    setup.No.ToString(),
-                    setup.BoardNo.ToString(),
-                    setup.ChannelNo.ToString("X"),
-                    axis != null ? StateText(axis) : "NO AXIS",
-                    axis != null && axis.IsServoOn ? "ON" : "OFF",
-                    axis != null ? axis.CommandPosition.ToString("F1") : "0.0",
-                    axis != null ? axis.ActualPosition.ToString("F1") : "0.0",
-                    axis != null ? axis.CurrentVelocity.ToString("F1") : "0.0",
-                    axis != null && axis.IsInPosition ? "ON" : "OFF",
-                    axis != null && axis.IsInPosition ? "ON" : "OFF",
-                    axis != null && axis.IsHomeDone ? "ON" : "OFF",
-                    axis != null && axis.IsAlarm ? "ON" : "OFF",
-                    axis != null && axis.Sensor_PEL ? "ON" : "OFF",
-                    axis != null && axis.Sensor_MEL ? "ON" : "OFF",
-                    axis != null && axis.Sensor_ORG ? "ON" : "OFF");
-
-                if (axis != null)
+                int index = 0;
+                foreach (BaseAxis axis in axes)
                 {
+                    AxisSetup setup = axis.Setup;
+                    AxisMap map = FindAxisMap(axis.Name);
+
+                    grid.Rows.Add(
+                        ++index,
+                        setup != null ? setup.UnitName : string.Empty,
+                        setup != null && !string.IsNullOrWhiteSpace(setup.DisplayName) ? setup.DisplayName : axis.Name,
+                        setup != null ? setup.AxisNo.ToString() : string.Empty,
+                        setup != null ? setup.BoardNo.ToString() : string.Empty,
+                        map != null ? map.ChannelNo.ToString("X") : string.Empty,
+                        StateText(axis),
+                        axis.IsServoOn ? "ON" : "OFF",
+                        FormatAxisValue(axis.CommandPosition, axis, "0.###"),
+                        FormatAxisValue(axis.ActualPosition, axis, "0.###"),
+                        FormatAxisValue(axis.CurrentVelocity, axis, "0.###"),
+                        axis.IsInPosition ? "ON" : "OFF",
+                        axis.IsInPosition ? "ON" : "OFF",
+                        axis.IsHomeDone ? "ON" : "OFF",
+                        axis.IsAlarm ? "ON" : "OFF",
+                        axis.Sensor_PEL ? "ON" : "OFF",
+                        axis.Sensor_MEL ? "ON" : "OFF",
+                        axis.Sensor_ORG ? "ON" : "OFF");
+
+                    _rows.Add(new MotionAxisRow { Axis = axis });
                     axis.ActualPositionChanged += OnAxisPos;
                     axis.MoveCompleted += OnAxisDone;
                 }
             }
+            catch (Exception ex)
+            {
+                QMC.Common.Alarms.AlarmManager.Raise(
+                    QMC.Common.Alarms.AlarmSeverity.Warning,
+                    "UI-MOTION",
+                    "MotionPage",
+                    "LoadAxisRows failed: " + ex.Message);
+            }
+            finally
+            {
+            }
         }
 
-        private Dictionary<string, BaseAxis> BuildActualAxisMap()
+        private static AxisMap FindAxisMap(string axisName)
         {
-            return AjinAxisRegistry.GetAxisMapByName();
+            try
+            {
+                AjinConfig cfg = AjinConfigStore.Current ?? AjinConfigStore.Load();
+                if (cfg?.Axes == null) return null;
+                AxisMap map;
+                return cfg.Axes.TryGetValue(AjinAxisDefaults.ResolveName(axisName), out map) ? map : null;
+            }
+            catch
+            {
+                return null;
+            }
+            finally
+            {
+            }
         }
 
         private void DetachAxes()
@@ -207,9 +224,9 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             row.Cells["NO"].Value = axis.Setup.AxisNo.ToString();
             row.Cells["STATUS"].Value = StateText(axis);
             row.Cells["SERVO"].Value = axis.IsServoOn ? "ON" : "OFF";
-            row.Cells["COMMAND_POSITION"].Value = axis.CommandPosition.ToString("F1");
-            row.Cells["ACTUAL_POSITION"].Value = axis.ActualPosition.ToString("F1");
-            row.Cells["VELOCITY"].Value = axis.CurrentVelocity.ToString("F1");
+            row.Cells["COMMAND_POSITION"].Value = FormatAxisValue(axis.CommandPosition, axis, "0.###");
+            row.Cells["ACTUAL_POSITION"].Value = FormatAxisValue(axis.ActualPosition, axis, "0.###");
+            row.Cells["VELOCITY"].Value = FormatAxisValue(axis.CurrentVelocity, axis, "0.###");
             row.Cells["DONE"].Value = axis.IsInPosition ? "ON" : "OFF";
             row.Cells["INP_DONE"].Value = axis.IsInPosition ? "ON" : "OFF";
             row.Cells["HOME_END"].Value = axis.IsHomeDone ? "ON" : "OFF";
@@ -225,9 +242,9 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             row.Cells["NO"].Value = snapshot.AxisNo.ToString();
             row.Cells["STATUS"].Value = StateText(snapshot);
             row.Cells["SERVO"].Value = snapshot.IsServoOn ? "ON" : "OFF";
-            row.Cells["COMMAND_POSITION"].Value = snapshot.CommandPosition.ToString("F1");
-            row.Cells["ACTUAL_POSITION"].Value = snapshot.ActualPosition.ToString("F1");
-            row.Cells["VELOCITY"].Value = snapshot.CurrentVelocity.ToString("F1");
+            row.Cells["COMMAND_POSITION"].Value = FormatAxisValue(snapshot.CommandPosition, snapshot.Unit, "0.###");
+            row.Cells["ACTUAL_POSITION"].Value = FormatAxisValue(snapshot.ActualPosition, snapshot.Unit, "0.###");
+            row.Cells["VELOCITY"].Value = FormatAxisValue(snapshot.CurrentVelocity, snapshot.Unit, "0.###");
             row.Cells["DONE"].Value = snapshot.IsInPosition ? "ON" : "OFF";
             row.Cells["INP_DONE"].Value = snapshot.IsInPosition ? "ON" : "OFF";
             row.Cells["HOME_END"].Value = snapshot.IsHomeDone ? "ON" : "OFF";
@@ -243,6 +260,37 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             BaseAxis axis = SelectedAxis();
             if (axis == null) return;
             operation(axis);
+        }
+
+        private static string FormatAxisValue(double nativeValue, BaseAxis axis, string format)
+        {
+            try
+            {
+                return FormatAxisValue(nativeValue, AxisUnitConverter.DisplayUnitFor(axis), format);
+            }
+            catch
+            {
+                return nativeValue.ToString(format, System.Globalization.CultureInfo.InvariantCulture);
+            }
+            finally
+            {
+            }
+        }
+
+        private static string FormatAxisValue(double nativeValue, string displayUnit, string format)
+        {
+            try
+            {
+                double displayValue = AxisUnitConverter.ToDisplay(nativeValue, displayUnit);
+                return displayValue.ToString(format, System.Globalization.CultureInfo.InvariantCulture);
+            }
+            catch
+            {
+                return nativeValue.ToString(format, System.Globalization.CultureInfo.InvariantCulture);
+            }
+            finally
+            {
+            }
         }
 
         private async System.Threading.Tasks.Task RunSelectedAxisAsync(Func<BaseAxis, System.Threading.Tasks.Task> operation)

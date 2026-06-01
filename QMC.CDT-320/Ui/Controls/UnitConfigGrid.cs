@@ -9,6 +9,7 @@ using System.Text;
 using System.Windows.Forms;
 using System.Runtime.Serialization;
 using System.Runtime.Serialization.Json;
+using QMC.Common.Data.Store;
 using QMC.CDT_320.Ui.Localization;
 
 namespace QMC.CDT_320.Ui.Controls
@@ -219,14 +220,8 @@ namespace QMC.CDT_320.Ui.Controls
             if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
                 Directory.CreateDirectory(dir);
 
-            var serializer = new DataContractJsonSerializer(_config.GetType(), CreateJsonSettings());
-
-            using (var ms = new MemoryStream())
-            {
-                serializer.WriteObject(ms, _config);
-                var json = Encoding.UTF8.GetString(ms.ToArray());
-                File.WriteAllText(_savePath, json, Encoding.UTF8);
-            }
+            using (var fs = File.Create(_savePath))
+                JsonPrettySerializer.WriteObject(fs, _config.GetType(), _config, CreateJsonSettings());
         }
 
         private void LoadJson()

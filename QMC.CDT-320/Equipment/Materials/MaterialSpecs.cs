@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.Serialization;
 using System.Runtime.Serialization.Json;
+using QMC.Common.Data.Store;
 
 namespace QMC.CDT320.Materials
 {
@@ -96,8 +97,7 @@ namespace QMC.CDT320.Materials
             {
                 using (var fs = File.Create(Path_))
                 {
-                    var ser = new DataContractJsonSerializer(typeof(MaterialSpecsData));
-                    ser.WriteObject(fs, _data);
+                    JsonPrettySerializer.WriteObject(fs, typeof(MaterialSpecsData), _data);
                 }
             }
             catch { }

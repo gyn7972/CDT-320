@@ -222,7 +222,7 @@ namespace QMC.CDT_320.Ui.Controls
                 if (items != null)
                     _items.AddRange(items);
 
-                lblStepUnit.Text = _items.Count > 0 ? _items[0].Unit : string.Empty;
+                lblStepUnit.Text = _items.Count > 0 ? _items[0].DisplayUnit : string.Empty;
                 BuildAxisButtons();
                 UpdateAxisButtonAreaSize();
             }
@@ -518,8 +518,7 @@ namespace QMC.CDT_320.Ui.Controls
 
                 if (rdoStep.Checked)
                 {
-                    double scale = item.DisplayScale <= 0 ? 1.0 : item.DisplayScale;
-                    double axisStep = Convert.ToDouble(numStepDistance.Value, CultureInfo.InvariantCulture) / scale;
+                    double axisStep = item.FromDisplayDistance(Convert.ToDouble(numStepDistance.Value, CultureInfo.InvariantCulture));
                     int stepResult = await item.ExecuteStepAsync(direction, GetJogSpeedType(), CurrentJogSpeed(item), axisStep);
                     if (stepResult != 0)
                         throw new InvalidOperationException("Jog step returned " + stepResult);

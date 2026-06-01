@@ -171,22 +171,22 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                     pgConfig.SetValue("INPUT MODE", setup.EncoderInput.ToString());
                     pgConfig.SetValue("INPUT SOURCE", setup.InputSource.ToString());
                     pgConfig.SetValue("SERVO LEVEL", setup.ServoOnLevel.ToString().ToUpperInvariant());
-                    pgConfig.SetValue("PULSES/UNIT", setup.PulsesPerUnit.ToString("0.###", CultureInfo.InvariantCulture));
+                    pgConfig.SetValue("PULSES/UNIT", FormatPulsesPerDisplayUnit(setup.PulsesPerUnit, axis));
                 }
                 if (cfg != null)
-                    pgConfig.SetValue("MAX VELOCITY", cfg.MaxVelocity.ToString("0.###", CultureInfo.InvariantCulture));
+                    pgConfig.SetValue("MAX VELOCITY", FormatAxisValue(cfg.MaxVelocity, axis, "0.###"));
 
                 if (setup != null)
                     pgInposition.SetValue("INPOSITION", setup.InPosition.ToString().ToUpperInvariant());
                 if (cfg != null)
-                    pgInposition.SetValue("TOLERANCE", cfg.InPositionTolerance.ToString("0.####", CultureInfo.InvariantCulture));
+                    pgInposition.SetValue("TOLERANCE", FormatAxisValue(cfg.InPositionTolerance, axis, "0.####"));
 
                 if (setup != null)
                 {
                     pgLimit.SetValue("POS LEVEL", setup.PositiveLimitLevel.ToString().ToUpperInvariant());
                     pgLimit.SetValue("NEG LEVEL", setup.NegativeLimitLevel.ToString().ToUpperInvariant());
-                    pgLimit.SetValue("SW POSITIVE", setup.SoftLimitPlus.ToString("0.###", CultureInfo.InvariantCulture));
-                    pgLimit.SetValue("SW NEGATIVE", setup.SoftLimitMinus.ToString("0.###", CultureInfo.InvariantCulture));
+                    pgLimit.SetValue("SW POSITIVE", FormatAxisValue(setup.SoftLimitPlus, axis, "0.###"));
+                    pgLimit.SetValue("SW NEGATIVE", FormatAxisValue(setup.SoftLimitMinus, axis, "0.###"));
                     pgLimit.SetValue("SW ENABLED", setup.SoftLimitEnabled ? "ON" : "OFF");
 
                     pgEmergency.SetValue("ALARM LEVEL", setup.AlarmLevel.ToString().ToUpperInvariant());
@@ -195,7 +195,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
 
                     pgHome.SetValue("DIRECTION", setup.HomeDirection.ToString());
                     pgHome.SetValue("SIGNAL", setup.HomeSignal.ToString());
-                    pgHome.SetValue("OFFSET", setup.HomeOffset.ToString("0.###", CultureInfo.InvariantCulture));
+                    pgHome.SetValue("OFFSET", FormatAxisValue(setup.HomeOffset, axis, "0.###"));
                     pgHome.SetValue("TIMEOUT(ms)", setup.HomeTimeoutMs.ToString(CultureInfo.InvariantCulture));
 
                     pgAlarm.SetValue("RESET LEVEL", setup.AlarmResetLevel.ToString().ToUpperInvariant());
@@ -345,21 +345,21 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 case "INPUT MODE":    return s.EncoderInput.ToString();
                 case "INPUT SOURCE":  return s.InputSource.ToString();
                 case "SERVO LEVEL":   return s.ServoOnLevel.ToString();
-                case "MAX VELOCITY":  return c.MaxVelocity.ToString("0.###", CultureInfo.InvariantCulture);
-                case "PULSES/UNIT":   return s.PulsesPerUnit.ToString("0.###", CultureInfo.InvariantCulture);
+                case "MAX VELOCITY":  return FormatAxisValue(c.MaxVelocity, axis, "0.###");
+                case "PULSES/UNIT":   return FormatPulsesPerDisplayUnit(s.PulsesPerUnit, axis);
                 case "INPOSITION":    return s.InPosition.ToString();
-                case "TOLERANCE":     return c.InPositionTolerance.ToString("0.####", CultureInfo.InvariantCulture);
+                case "TOLERANCE":     return FormatAxisValue(c.InPositionTolerance, axis, "0.####");
                 case "POS LEVEL":     return s.PositiveLimitLevel.ToString();
                 case "NEG LEVEL":     return s.NegativeLimitLevel.ToString();
-                case "SW POSITIVE":   return s.SoftLimitPlus.ToString("0.###", CultureInfo.InvariantCulture);
-                case "SW NEGATIVE":   return s.SoftLimitMinus.ToString("0.###", CultureInfo.InvariantCulture);
+                case "SW POSITIVE":   return FormatAxisValue(s.SoftLimitPlus, axis, "0.###");
+                case "SW NEGATIVE":   return FormatAxisValue(s.SoftLimitMinus, axis, "0.###");
                 case "SW ENABLED":    return s.SoftLimitEnabled ? "ON" : "OFF";
                 case "ALARM LEVEL":   return s.AlarmLevel.ToString();
                 case "EMG LEVEL":     return s.EmergencyLevel.ToString();
                 case "STOP MODE":     return s.StopMode.ToString();
                 case "DIRECTION":     return s.HomeDirection.ToString();
                 case "SIGNAL":        return s.HomeSignal.ToString();
-                case "OFFSET":        return s.HomeOffset.ToString("0.###", CultureInfo.InvariantCulture);
+                case "OFFSET":        return FormatAxisValue(s.HomeOffset, axis, "0.###");
                 case "TIMEOUT(ms)":   return s.HomeTimeoutMs.ToString(CultureInfo.InvariantCulture);
                 case "RESET LEVEL":   return s.AlarmResetLevel.ToString();
                 case "PROFILE":       return s.ProfileMode.ToString();
@@ -402,25 +402,25 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             switch (name)
             {
                 case "MAX VELOCITY":
-                    if (TryParseDouble(text, out var maxVel)) c.MaxVelocity = maxVel;
+                    if (TryParseDouble(text, out var maxVel)) c.MaxVelocity = AxisUnitConverter.FromDisplay(maxVel, axis);
                     break;
                 case "PULSES/UNIT":
-                    if (TryParseDouble(text, out var ppu)) s.PulsesPerUnit = ppu;
+                    if (TryParseDouble(text, out var ppu)) s.PulsesPerUnit = FromDisplayPulsesPerUnit(ppu, axis);
                     break;
                 case "TOLERANCE":
-                    if (TryParseDouble(text, out var tol)) c.InPositionTolerance = tol;
+                    if (TryParseDouble(text, out var tol)) c.InPositionTolerance = AxisUnitConverter.FromDisplay(tol, axis);
                     break;
                 case "SW POSITIVE":
-                    if (TryParseDouble(text, out var swP)) s.SoftLimitPlus = swP;
+                    if (TryParseDouble(text, out var swP)) s.SoftLimitPlus = AxisUnitConverter.FromDisplay(swP, axis);
                     break;
                 case "SW NEGATIVE":
-                    if (TryParseDouble(text, out var swN)) s.SoftLimitMinus = swN;
+                    if (TryParseDouble(text, out var swN)) s.SoftLimitMinus = AxisUnitConverter.FromDisplay(swN, axis);
                     break;
                 case "SW ENABLED":
                     s.SoftLimitEnabled = ParseOnOff(text, s.SoftLimitEnabled);
                     break;
                 case "OFFSET":
-                    if (TryParseDouble(text, out var off)) s.HomeOffset = off;
+                    if (TryParseDouble(text, out var off)) s.HomeOffset = AxisUnitConverter.FromDisplay(off, axis);
                     break;
                 case "TIMEOUT(ms)":
                     if (int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var to)) s.HomeTimeoutMs = to;
@@ -438,6 +438,43 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         {
             if (double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out value)) return true;
             return double.TryParse(text, NumberStyles.Float, CultureInfo.CurrentCulture, out value);
+        }
+
+        private static string FormatPulsesPerDisplayUnit(double nativePulsesPerUnit, BaseAxis axis)
+        {
+            try
+            {
+                string unit = AxisUnitConverter.DisplayUnitFor(axis);
+                double value = nativePulsesPerUnit;
+                if (AxisUnitConverter.Normalize(unit) == AxisUnitConverter.Micrometer)
+                    value = nativePulsesPerUnit / 1000.0;
+                return value.ToString("0.###", CultureInfo.InvariantCulture);
+            }
+            catch
+            {
+                return nativePulsesPerUnit.ToString("0.###", CultureInfo.InvariantCulture);
+            }
+            finally
+            {
+            }
+        }
+
+        private static double FromDisplayPulsesPerUnit(double displayPulsesPerUnit, BaseAxis axis)
+        {
+            try
+            {
+                string unit = AxisUnitConverter.DisplayUnitFor(axis);
+                if (AxisUnitConverter.Normalize(unit) == AxisUnitConverter.Micrometer)
+                    return displayPulsesPerUnit * 1000.0;
+                return displayPulsesPerUnit;
+            }
+            catch
+            {
+                return displayPulsesPerUnit;
+            }
+            finally
+            {
+            }
         }
 
         private static bool ParseOnOff(string text, bool fallback)

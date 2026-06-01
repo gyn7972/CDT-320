@@ -6,13 +6,13 @@ using System.Windows.Forms;
 
 namespace QMC.CDT_320.Ui.Controls
 {
-    /// <summary>?⑥씪 異뺤쓣 +/STOP/- 踰꾪듉?쇰줈 議곌렇 ?댁쟾?섎뒗 怨듭슜 而⑦듃濡ㅼ엯?덈떎.</summary>
+    /// <summary>구현 설명 주석입니다.</summary>
     public partial class AxisJogLineControl : UserControl
     {
         private BaseAxis _axis;
         private string _axisCaption = "AXIS\r\nNAME";
 
-        /// <summary>?붿옄?대꼫? ?붾㈃???쒖떆??異??대쫫?낅땲??</summary>
+        /// <summary>구현 설명 주석입니다.</summary>
         public string AxisCaption
         {
             get { return _axisCaption; }
@@ -23,17 +23,17 @@ namespace QMC.CDT_320.Ui.Controls
             }
         }
 
-        /// <summary>議곌렇 ?대룞 ?듭뀡 而⑦듃濡ㅼ엯?덈떎.</summary>
+        /// <summary>구현 설명 주석입니다.</summary>
         [Browsable(false)]
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public JogMoveOptionsControl MoveOptions { get; set; }
 
-        /// <summary>?ъ슜??吏???띾룄 怨듦툒?먯엯?덈떎.</summary>
+        /// <summary>구현 설명 주석입니다.</summary>
         [Browsable(false)]
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public Func<double> SpeedProvider { get; set; }
 
-        /// <summary>AxisJogLineControl???앹꽦?⑸땲??</summary>
+        /// <summary>구현 설명 주석입니다.</summary>
         public AxisJogLineControl()
         {
             InitializeComponent();
@@ -41,7 +41,7 @@ namespace QMC.CDT_320.Ui.Controls
             UpdateEnabledState();
         }
 
-        /// <summary>議곌렇 ???異뺤쓣 諛붿씤?⑺빀?덈떎.</summary>
+        /// <summary>구현 설명 주석입니다.</summary>
         public void BindAxis(string axisName, BaseAxis axis)
         {
             _axis = axis;
@@ -49,7 +49,7 @@ namespace QMC.CDT_320.Ui.Controls
             UpdateEnabledState();
         }
 
-        /// <summary>?꾩옱 異뺤쓽 議곌렇 ?대룞???뺤??⑸땲??</summary>
+        /// <summary>구현 설명 주석입니다.</summary>
         public void StopJog()
         {
             try { _axis?.StopJog(); } catch { }
@@ -110,7 +110,7 @@ namespace QMC.CDT_320.Ui.Controls
 
             try
             {
-                await _axis.MoveJogStepAsync(direction, SpeedType, StepDistance, GetSpeed());
+                await _axis.MoveJogStepAsync(direction, SpeedType, AxisUnitConverter.FromDisplay(StepDistance, _axis), GetSpeed());
             }
             catch (Exception ex)
             {

@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Runtime.Serialization;
 using System.Runtime.Serialization.Json;
+using QMC.Common.Data.Store;
 
 namespace QMC.CDT320
 {
@@ -84,8 +85,7 @@ namespace QMC.CDT320
             {
                 using (var fs = File.Create(Path_))
                 {
-                    var ser = new DataContractJsonSerializer(typeof(AppSettings));
-                    ser.WriteObject(fs, Current);
+                    JsonPrettySerializer.WriteObject(fs, typeof(AppSettings), Current);
                 }
             }
             catch { }

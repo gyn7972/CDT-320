@@ -11,34 +11,35 @@ using System.Threading;
 using System.Threading.Tasks;
 using QMC.CDT320.Materials;
 using QMC.CDT320.Recipes;
+using QMC.Common.Data.Store;
 
 namespace QMC.CDT320.Secs
 {
     /// <summary>
-    /// SECS/GEM Host ?듭떊 踰좎씠????310 ??DieTransferGemService ?⑥닚??
-    /// 蹂??쇱슫?쒕뒗 <b>怨④꺽</b> 留???Stream/Function ?붿뒪?⑥튂 + RemoteCommand 4醫?+ EventReport ?≪떊 + ZipRecipe.
-    /// ?ㅼ젣 HSMS ?곌껐? 蹂꾨룄 ?쇱슫???대쾲 ?쇱슫?쒕뒗 line-delimited TCP ?쒕? 媛??.
+    ///
+    ///
+    ///
     /// </summary>
     public class SecsHost : IDisposable
     {
         public event Action<string> Log;
 
-        // ?? ?ㅼ젙 ??
+        // 설정
         public int Port { get; }
         public bool IsRunning { get; private set; }
 
-        /// <summary>true 硫?HsmsConnection (4-byte length prefix + SecsMessage) ?ъ슜. false 硫?line-protocol.</summary>
+        /// <summary>구현 설명 주석입니다.</summary>
         public bool UseHsms { get; set; } = false;
-        /// <summary>HSMS 紐⑤뱶???뚯쓽 ?쒖꽦 ?곌껐.</summary>
+        /// <summary>구현 설명 주석입니다.</summary>
         public HsmsConnection HsmsActive { get; private set; }
 
-        // ?? RemoteCommand ?몃뱾??(?깅줉?? ??
+        // 구현 보조 주석입니다.
         private readonly Dictionary<string, Func<string[], int>> _remoteCommands
             = new Dictionary<string, Func<string[], int>>(StringComparer.OrdinalIgnoreCase);
 
         public IReadOnlyDictionary<string, Func<string[], int>> RemoteCommands => _remoteCommands;
 
-        // ?? ?대깽??由ы룷??????
+        // 구현 보조 주석입니다.
         private readonly ConcurrentQueue<string> _eventQueue = new ConcurrentQueue<string>();
 
         // ?? TCP ??
@@ -50,7 +51,7 @@ namespace QMC.CDT320.Secs
         {
             Port = port;
             RegisterStandardCommands();
-            // Stage 7 ??AlarmManager ?대깽???먮룞 援щ룆 ??S5F1 broadcast
+            // 구현 보조 주석입니다.
             try { QMC.Common.Alarms.AlarmManager.AlarmRaised += OnAlarmRaised; } catch { }
         }
 
@@ -66,7 +67,7 @@ namespace QMC.CDT320.Secs
         }
 
         // ?????????????????????????????????????????
-        //  K2: RemoteCommand (?몄뒪?????λ퉬)
+        // 구현 보조 주석입니다.
         // ?????????????????????????????????????????
         private void RegisterStandardCommands()
         {
@@ -119,7 +120,7 @@ namespace QMC.CDT320.Secs
         }
 
         // ?????????????????????????????????????????
-        //  K3: EventReport (?λ퉬 ???몄뒪??
+        // 구현 보조 주석입니다.
         // ?????????????????????????????????????????
         public void RaiseEvent(string eventName, params string[] data)
         {
@@ -139,7 +140,7 @@ namespace QMC.CDT320.Secs
             => RaiseEvent("JobOrderStateChanged", uid, type, state);
 
         // ?????????????????????????????????????????
-        //  K4: Recipe ZIP 吏곷젹??(310 ZipRecipeBodySecsItemConverter ?숇벑)
+        // 구현 보조 주석입니다.
         // ?????????????????????????????????????????
         public static string SerializeZipBase64(RecipeProject recipe)
         {
@@ -148,8 +149,7 @@ namespace QMC.CDT320.Secs
             {
                 using (var zip = new GZipStream(ms, CompressionMode.Compress, leaveOpen: true))
                 {
-                    var ser = new DataContractJsonSerializer(typeof(RecipeProject));
-                    ser.WriteObject(zip, recipe);
+                    JsonPrettySerializer.WriteObject(zip, typeof(RecipeProject), recipe);
                 }
                 return Convert.ToBase64String(ms.ToArray());
             }
@@ -172,7 +172,7 @@ namespace QMC.CDT320.Secs
         }
 
         // ?????????????????????????????????????????
-        //  TCP ?쒕쾭 (line-delimited ?쒕? 紐⑤뱶)
+        // 구현 보조 주석입니다.
         // ?????????????????????????????????????????
         public void Start()
         {
@@ -189,11 +189,11 @@ namespace QMC.CDT320.Secs
             catch (Exception ex) { LogMsg("[SECS] start failed: " + ex.Message); }
         }
 
-        /// <summary>?묒냽??host ? HSMS ?몃뱶?곗씠????SecsMessage ??泥섎━.</summary>
+        /// <summary>구현 설명 주석입니다.</summary>
         private void HandleHsmsClient(TcpClient client)
         {
-            // HsmsConnection ? host 痢≪뿉??ConnectAsync ?섏?留? ?곕━媛 server ?쇱꽌
-            // ?대? ?곌껐??socket ??NetworkStream ?쇰줈 諛붾줈 wrapping.
+            // 구현 보조 주석입니다.
+            // 구현 보조 주석입니다.
             try
             {
                 var stream = client.GetStream();
@@ -245,8 +245,8 @@ namespace QMC.CDT320.Secs
                 return;
             }
 
-            // S2F41 (Host 紐낅졊 ??RemoteCommand ?붿뒪?⑥튂). ??SECS ??list ?붿퐫???꾩슂.
-            // ?곕━ ?⑥닚 踰꾩쟾: TextPayload 媛 "RC|<cmd>|arg1|..." ?뺤떇
+            // 구현 보조 주석입니다.
+            // 구현 보조 주석입니다.
             if (msg.Stream == 2 && msg.Function == 41 && msg.ReplyExpected)
             {
                 string text = msg.TextPayload ?? "";
@@ -363,7 +363,7 @@ namespace QMC.CDT320.Secs
         private void ProcessLine(NetworkStream stream, string line)
         {
             LogMsg($"[SECS] RX: {line}");
-            // ?쇱씤 ?뺤떇 ???쒕? 紐⑤뱶:  RC|<command>|<arg1>|<arg2>|...
+            // 구현 보조 주석입니다.
             //               or       RECIPE_PUT|<base64-zip>
             //               or       PING
             try

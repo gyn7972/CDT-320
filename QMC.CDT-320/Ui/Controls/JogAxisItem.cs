@@ -17,6 +17,26 @@ namespace QMC.CDT_320.Ui.Controls
         public Func<JogAxisItem, int, JogSpeedType, double, Task<int>> ContinuousMoveAsync { get; set; }
         public Func<JogAxisItem, Task<int>> StopAsync { get; set; }
 
+        public string DisplayUnit
+        {
+            get
+            {
+                try
+                {
+                    if (Axis != null)
+                        return AxisUnitConverter.DisplayUnitFor(Axis);
+                    return string.IsNullOrWhiteSpace(Unit) ? AxisUnitConverter.Millimeter : AxisUnitConverter.Normalize(Unit);
+                }
+                catch
+                {
+                    return AxisUnitConverter.Millimeter;
+                }
+                finally
+                {
+                }
+            }
+        }
+
         public JogAxisItem()
         {
             try
@@ -71,6 +91,44 @@ namespace QMC.CDT_320.Ui.Controls
             catch
             {
                 return 0.0;
+            }
+            finally
+            {
+            }
+        }
+
+        public double GetDisplayPosition()
+        {
+            try
+            {
+                if (Axis != null)
+                    return AxisUnitConverter.ToDisplay(GetActualPosition(), Axis);
+
+                double scale = DisplayScale <= 0 ? 1.0 : DisplayScale;
+                return GetActualPosition() * scale;
+            }
+            catch
+            {
+                return 0.0;
+            }
+            finally
+            {
+            }
+        }
+
+        public double FromDisplayDistance(double displayDistance)
+        {
+            try
+            {
+                if (Axis != null)
+                    return AxisUnitConverter.FromDisplay(displayDistance, Axis);
+
+                double scale = DisplayScale <= 0 ? 1.0 : DisplayScale;
+                return displayDistance / scale;
+            }
+            catch
+            {
+                return displayDistance;
             }
             finally
             {

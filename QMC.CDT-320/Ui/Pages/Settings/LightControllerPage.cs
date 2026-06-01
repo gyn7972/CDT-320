@@ -7,6 +7,7 @@ using System.Runtime.Serialization;
 using System.Runtime.Serialization.Json;
 using System.Windows.Forms;
 using QMC.CDT_320.Ui.Localization;
+using QMC.Common.Data.Store;
 
 namespace QMC.CDT_320.Ui.Pages.Settings
 {
@@ -117,8 +118,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 Directory.CreateDirectory(Path.GetDirectoryName(SavePath));
                 using (var fs = File.Create(SavePath))
                 {
-                    var ser = new DataContractJsonSerializer(typeof(LightStore));
-                    ser.WriteObject(fs, new LightStore { Items = _items });
+                    JsonPrettySerializer.WriteObject(fs, typeof(LightStore), new LightStore { Items = _items });
                 }
                 int sent = SendToControllers();
                 QMC.Common.MessageDialog.Show($"Save complete.\n{SavePath}\n\nLight command sent: {sent}/{_items.Count}");

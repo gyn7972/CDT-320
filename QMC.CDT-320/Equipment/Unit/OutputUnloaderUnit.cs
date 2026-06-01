@@ -447,7 +447,7 @@ namespace QMC.CDT320
 
             Console.WriteLine(
                 "[INFO]  '" + Name + "' -> BinLifterZ 이동 완료: " +
-                BinElevatorZ.ActualPosition.ToString("F3") + "mm");
+                AxisUnitConverter.FormatDisplay(BinElevatorZ.ActualPosition, BinElevatorZ, "0.###", true));
         }
 
         // ======================================================================
@@ -472,7 +472,7 @@ namespace QMC.CDT320
             // Step 1: FeederY 전진
             Console.WriteLine(
                 "[INFO]  '" + Name + "' -> Pickup: FeederY 전진 → " +
-                targetPositionY.ToString("F1") + "mm");
+                AxisUnitConverter.FormatDisplay(targetPositionY, FeederY, "0.#", true));
 
             await FeederY.MoveAbsoluteAsync(targetPositionY, Recipe.FeederVelocity);
             if (FeederY.IsAlarm)
@@ -549,7 +549,7 @@ namespace QMC.CDT320
             // Step 1: FeederY 전진
             Console.WriteLine(
                 "[INFO]  '" + Name + "' -> Place: FeederY 전진 → " +
-                targetPositionY.ToString("F1") + "mm");
+                AxisUnitConverter.FormatDisplay(targetPositionY, FeederY, "0.#", true));
 
             await FeederY.MoveAbsoluteAsync(targetPositionY, Recipe.FeederVelocity);
             if (FeederY.IsAlarm)

@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Runtime.Serialization;
 using System.Runtime.Serialization.Json;
+using QMC.Vision.Core;
 
 namespace QMC.Vision.Core.Inspectors
 {
@@ -30,8 +31,7 @@ namespace QMC.Vision.Core.Inspectors
                 if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
                 using (var fs = File.Create(path))
                 {
-                    var ser = new DataContractJsonSerializer(GetType());
-                    ser.WriteObject(fs, this);
+                    JsonPrettySerializer.WriteObject(fs, GetType(), this);
                 }
             }
             catch { }

@@ -79,6 +79,7 @@
     <Compile Include="Data\Store\DataStoreResult.cs" />
     <Compile Include="Data\Store\EquipmentDataStore.cs" />
     <Compile Include="Data\Store\JsonDataStore.cs" />
+    <Compile Include="Data\Store\JsonPrettySerializer.cs" />
     <Compile Include="Data\Store\RecipeDataStore.cs" />
     <Compile Include="Data\Store\StorageName.cs" />
     <Compile Include="Data\Store\UnitDataStore.cs" />

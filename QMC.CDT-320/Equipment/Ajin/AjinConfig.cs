@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Runtime.Serialization;
 using System.Runtime.Serialization.Json;
+using System.Text;
+using System.Xml;
 
 namespace QMC.CDT320.Ajin
 {
@@ -119,6 +121,35 @@ namespace QMC.CDT320.Ajin
             return name;
         }
 
+        public static bool IsThetaAxis(string name)
+        {
+            try
+            {
+                string resolved = ResolveName(name);
+                for (int i = 0; i < All.Length; i++)
+                {
+                    AxisDefault axis = All[i];
+                    if (string.Equals(axis.AxisName, resolved, StringComparison.OrdinalIgnoreCase))
+                        return string.Equals(axis.Unit, "deg", StringComparison.OrdinalIgnoreCase);
+                }
+
+                if (string.IsNullOrWhiteSpace(resolved)) return false;
+                string text = resolved.Trim();
+                return text.EndsWith("_T", StringComparison.OrdinalIgnoreCase) ||
+                       text.EndsWith("T", StringComparison.OrdinalIgnoreCase) ||
+                       (text.Length >= 2 &&
+                        char.ToUpperInvariant(text[text.Length - 2]) == 'T' &&
+                        char.IsDigit(text[text.Length - 1]));
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
         private static AxisDefault ADD(int axis, string axisName, string module, int boardNo, int channelNo,
                                      double stroke, bool brake, string unit, double defaultVel,
                                      string homeDir, params string[] legacyKeys)
@@ -162,8 +193,7 @@ namespace QMC.CDT320.Ajin
             {
                 using (var fs = File.OpenRead(Path_))
                 {
-                    var ser = new DataContractJsonSerializer(typeof(AjinConfig));
-                    Current = (AjinConfig)ser.ReadObject(fs);
+                    Current = ReadConfig(fs);
                     Normalize(Current);
                 }
             }
@@ -172,11 +202,6 @@ namespace QMC.CDT320.Ajin
                 Current = Default();
             }
 
-            EnsureDefaultAxes(Current);
-            AjinIoCatalog.ApplyDefaults(Current, false);
-            AjinIoCatalog.ApplyRequiredCorrections(Current);
-            RemoveUnregisteredIo(Current);
-            Save();
             return Current;
         }
 
@@ -184,14 +209,24 @@ namespace QMC.CDT320.Ajin
         {
             try
             {
+                if (Current == null)
+                    Current = Default();
+
                 Normalize(Current);
                 using (var fs = File.Create(Path_))
                 {
-                    var ser = new DataContractJsonSerializer(typeof(AjinConfig));
-                    ser.WriteObject(fs, Current);
+                    var ser = new DataContractJsonSerializer(typeof(AjinConfig), CreateSettings(true));
+                    using (XmlDictionaryWriter writer = JsonReaderWriterFactory.CreateJsonWriter(fs, Encoding.UTF8, true, true, "  "))
+                    {
+                        ser.WriteObject(writer, Current);
+                        writer.Flush();
+                    }
                 }
             }
             catch { }
+            finally
+            {
+            }
         }
 
         private static AjinConfig Default()
@@ -204,10 +239,95 @@ namespace QMC.CDT320.Ajin
 
         private static void Normalize(AjinConfig c)
         {
-            if (c.Axes == null) c.Axes = new Dictionary<string, AxisMap>();
-            if (c.DigitalInputs == null) c.DigitalInputs = new Dictionary<string, DioMap>();
-            if (c.DigitalOutputs == null) c.DigitalOutputs = new Dictionary<string, DioMap>();
-            if (c.Cylinders == null) c.Cylinders = new Dictionary<string, CylMap>();
+            try
+            {
+                if (c == null) return;
+
+                if (c.Axes == null) c.Axes = new Dictionary<string, AxisMap>();
+                if (c.DigitalInputs == null) c.DigitalInputs = new Dictionary<string, DioMap>();
+                if (c.DigitalOutputs == null) c.DigitalOutputs = new Dictionary<string, DioMap>();
+                if (c.Cylinders == null) c.Cylinders = new Dictionary<string, CylMap>();
+
+                NormalizeAxisKeys(c);
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        private static void NormalizeAxisKeys(AjinConfig c)
+        {
+            if (c == null || c.Axes == null) return;
+
+            var axes = new Dictionary<string, AxisMap>(StringComparer.OrdinalIgnoreCase);
+            foreach (var item in c.Axes)
+            {
+                AxisMap map = item.Value;
+                if (map == null) continue;
+
+                string key = AjinAxisDefaults.ResolveName(item.Key);
+                if (string.IsNullOrWhiteSpace(key)) continue;
+
+                AxisMap existing;
+                bool exactKey = string.Equals(item.Key, key, StringComparison.OrdinalIgnoreCase);
+                if (!axes.TryGetValue(key, out existing) || exactKey)
+                    axes[key] = map;
+            }
+
+            c.Axes = axes;
+        }
+
+        private static AjinConfig ReadConfig(Stream stream)
+        {
+            try
+            {
+                if (stream == null) return new AjinConfig();
+
+                try
+                {
+                    var simple = new DataContractJsonSerializer(typeof(AjinConfig), CreateSettings(true));
+                    AjinConfig config = simple.ReadObject(stream) as AjinConfig;
+                    return config ?? new AjinConfig();
+                }
+                catch
+                {
+                    if (stream.CanSeek)
+                        stream.Position = 0;
+
+                    var legacy = new DataContractJsonSerializer(typeof(AjinConfig), CreateSettings(false));
+                    AjinConfig config = legacy.ReadObject(stream) as AjinConfig;
+                    return config ?? new AjinConfig();
+                }
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        private static DataContractJsonSerializerSettings CreateSettings(bool simpleDictionary)
+        {
+            try
+            {
+                return new DataContractJsonSerializerSettings
+                {
+                    UseSimpleDictionaryFormat = simpleDictionary,
+                    EmitTypeInformation = EmitTypeInformation.Never
+                };
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
         }
 
         private static void EnsureDefaultAxes(AjinConfig c)

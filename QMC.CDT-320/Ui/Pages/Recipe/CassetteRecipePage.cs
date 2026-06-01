@@ -13,8 +13,8 @@ using System.Windows.Forms;
 namespace QMC.CDT_320.Ui.Pages.Recipe
 {
     /// <summary>
-    /// ?덉떆??- INPUT/OUTPUT CASSETTE 怨듭슜 ?붾㈃.
-    /// 醫뚯륫 ?숈옉 踰꾪듉, 以묒븰 ?듭뀡/?湲곗떆媛? ?ㅻ┛??I/O, ?곗륫 議곌렇/?띾룄 ?곸뿭???쒖떆?쒕떎.
+    ///
+    ///
     /// </summary>
     public partial class CassetteRecipePage : QMC.CDT_320.Ui.Pages.PageBase
     {
@@ -131,10 +131,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             _refreshTimer.Interval = 250;
             _refreshTimer.Tick += (s, e) => RefreshView();
 
-            btnLoadingMove.Text = "AVOID ?대룞";
-            btnUnloadingMove.Text = _isOutputCassette ? "NG 1踰??щ’ ?대룞" : "1踰??щ’ ?대룞";
-            btnReadyMove.Text = _isOutputCassette ? "GOOD1 1踰??щ’ ?대룞" : "MAPPING START ?대룞";
-            btnSlotLoadingMove.Text = _isOutputCassette ? "GOOD2 1踰??щ’ ?대룞" : "MAPPING END ?대룞";
+            btnLoadingMove.Text = "AVOID 이동";
+            btnUnloadingMove.Text = _isOutputCassette ? "NG 1번 슬롯 이동" : "1번 슬롯 이동";
+            btnReadyMove.Text = _isOutputCassette ? "GOOD1 1번 슬롯 이동" : "MAPPING START 이동";
+            btnSlotLoadingMove.Text = _isOutputCassette ? "GOOD2 1번 슬롯 이동" : "MAPPING END 이동";
             btnSlotUnloadingMove.Text = "SCAN";
 
             lblSensor1.Text = _isOutputCassette ? "GOOD CASSETTE" : "8 INCH CASSETTE";
@@ -227,13 +227,13 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             lblOptStageKey.Text = "Axis State";
             lblWaitKey.Text = "Move Timeout";
 
-            lblOptLoadingZVal.Text = FormatMm(_waferCassette.Recipe.AvoidPosition);
-            lblOptUnloadingZVal.Text = FormatMm(_waferCassette.Recipe.FirstSlotPosition);
-            lblOptReadyPosVal.Text = FormatMm(_waferCassette.Recipe.MappingStartPosition);
-            lblOptMappingZVal.Text = FormatMm(_waferCassette.Recipe.MappingEndPosition);
-            lblOptSlotPitchVal.Text = FormatMm(_waferCassette.Config.SlotPitch);
+            lblOptLoadingZVal.Text = FormatAxis(_waferCassette.Recipe.AvoidPosition, _waferCassette.WaferLifterZ);
+            lblOptUnloadingZVal.Text = FormatAxis(_waferCassette.Recipe.FirstSlotPosition, _waferCassette.WaferLifterZ);
+            lblOptReadyPosVal.Text = FormatAxis(_waferCassette.Recipe.MappingStartPosition, _waferCassette.WaferLifterZ);
+            lblOptMappingZVal.Text = FormatAxis(_waferCassette.Recipe.MappingEndPosition, _waferCassette.WaferLifterZ);
+            lblOptSlotPitchVal.Text = FormatAxis(_waferCassette.Config.SlotPitch, _waferCassette.WaferLifterZ);
             lblOptCassetteGapVal.Text = _waferCassette.Config.SlotCount.ToString();
-            lblOptInchVal.Text = FormatMm(_waferCassette.WaferLifterZ.ActualPosition);
+            lblOptInchVal.Text = FormatAxis(_waferCassette.WaferLifterZ.ActualPosition, _waferCassette.WaferLifterZ);
             lblOptStageVal.Text = AxisState(_waferCassette.WaferLifterZ);
             lblWaitVal.Text = _waferCassette.Config.ElevatorMoveTimeoutMs + " ms";
 
@@ -258,13 +258,13 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             lblOptStageKey.Text = "Axis State";
             lblWaitKey.Text = "Move Timeout";
 
-            lblOptLoadingZVal.Text = FormatMm(_binCassette.Setup.AvoidPosition);
-            lblOptUnloadingZVal.Text = FormatMm(_binCassette.Setup.NgFirstSlotPosition);
-            lblOptReadyPosVal.Text = FormatMm(_binCassette.Setup.Good1FirstSlotPosition);
-            lblOptMappingZVal.Text = FormatMm(_binCassette.Setup.Good2FirstSlotPosition);
-            lblOptSlotPitchVal.Text = FormatMm(_binCassette.Setup.SlotPitch);
+            lblOptLoadingZVal.Text = FormatAxis(_binCassette.Setup.AvoidPosition, _binCassette.BinLifterZ);
+            lblOptUnloadingZVal.Text = FormatAxis(_binCassette.Setup.NgFirstSlotPosition, _binCassette.BinLifterZ);
+            lblOptReadyPosVal.Text = FormatAxis(_binCassette.Setup.Good1FirstSlotPosition, _binCassette.BinLifterZ);
+            lblOptMappingZVal.Text = FormatAxis(_binCassette.Setup.Good2FirstSlotPosition, _binCassette.BinLifterZ);
+            lblOptSlotPitchVal.Text = FormatAxis(_binCassette.Setup.SlotPitch, _binCassette.BinLifterZ);
             lblOptCassetteGapVal.Text = _binCassette.Setup.SlotCount.ToString();
-            lblOptInchVal.Text = FormatMm(_binCassette.BinLifterZ.ActualPosition);
+            lblOptInchVal.Text = FormatAxis(_binCassette.BinLifterZ.ActualPosition, _binCassette.BinLifterZ);
             lblOptStageVal.Text = AxisState(_binCassette.BinLifterZ);
             lblWaitVal.Text = _binCassette.Recipe.ElevatorMoveTimeoutMs + " ms";
 
@@ -330,14 +330,14 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private void AttachTeachMenu(Label label, string positionName)
         {
             var menu = new ContextMenuStrip();
-            menu.Items.Add("?대떦 ?꾩튂濡??대룞", null, async (s, e) =>
+            menu.Items.Add("해당 위치로 이동", null, async (s, e) =>
             {
                 if (_isOutputCassette)
                     await MoveBinTo(positionName);
                 else
                     await MoveWaferTo(positionName);
             });
-            menu.Items.Add("?꾩옱 ?꾩튂 ?곗묶", null, (s, e) =>
+            menu.Items.Add("현재 위치 저장", null, (s, e) =>
             {
                 TeachPosition(positionName);
                 RefreshView();
@@ -364,7 +364,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
             else
             {
-                menu.Items.Add("Input Cassette I/O??DI ?뺤씤 ?꾩슜?낅땲??", null, (s, e) => { });
+                menu.Items.Add("Input Cassette I/O는 DI 확인 전용입니다.", null, (s, e) => { });
             }
 
             ioSection.ContextMenuStrip = menu;
@@ -435,9 +435,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             return Math.Max(1.0, trkSpeed.Value);
         }
 
-        private static string FormatMm(double value)
+        private static string FormatAxis(double value, BaseAxis axis)
         {
-            return value.ToString("F3") + " mm";
+            return AxisUnitConverter.FormatDisplay(value, axis, "0.###", true);
         }
 
         private static string AxisState(BaseAxis axis)

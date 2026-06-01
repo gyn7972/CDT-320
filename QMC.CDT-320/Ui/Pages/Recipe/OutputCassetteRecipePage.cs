@@ -12,7 +12,7 @@ using System.Windows.Forms;
 
 namespace QMC.CDT_320.Ui.Pages.Recipe
 {
-    /// <summary>Output Cassette ?덉떆?쇱뿉??BinCassetteUnit??議곗옉?섎뒗 ?낅┰ ?붾㈃?낅땲??</summary>
+    /// <summary>구현 설명 주석입니다.</summary>
     public partial class OutputCassetteRecipePage : QMC.CDT_320.Ui.Pages.PageBase
     {
         private OutCassetteUnit _binCassette;
@@ -20,7 +20,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private BaseDigitalOutput _ngBinUnlockOut;
         private readonly Timer _refreshTimer = new Timer();
 
-        /// <summary>OutputCassetteRecipePage瑜??앹꽦?⑸땲??</summary>
+        /// <summary>구현 설명 주석입니다.</summary>
         public OutputCassetteRecipePage()
         {
             InitializeComponent();
@@ -154,8 +154,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private void AttachTeachMenu(Label label, string positionName)
         {
             var menu = new ContextMenuStrip();
-            menu.Items.Add("?대떦 ?꾩튂濡??대룞", null, async (s, e) => await MoveTo(positionName));
-            menu.Items.Add("?꾩옱 ?꾩튂 ?곗묶", null, (s, e) =>
+            menu.Items.Add("해당 위치로 이동", null, async (s, e) => await MoveTo(positionName));
+            menu.Items.Add("현재 위치 저장", null, (s, e) =>
             {
                 TeachPosition(positionName);
                 RefreshView();
@@ -199,13 +199,13 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             if (_binCassette == null)
                 return;
 
-            lblOptAvoidVal.Text = FormatMm(_binCassette.Setup.AvoidPosition);
-            lblOptNgSlotVal.Text = FormatMm(_binCassette.Setup.NgFirstSlotPosition);
-            lblOptGood1SlotVal.Text = FormatMm(_binCassette.Setup.Good1FirstSlotPosition);
-            lblOptGood2SlotVal.Text = FormatMm(_binCassette.Setup.Good2FirstSlotPosition);
-            lblOptSlotPitchVal.Text = FormatMm(_binCassette.Setup.SlotPitch);
+            lblOptAvoidVal.Text = FormatAxis(_binCassette.Setup.AvoidPosition, _binCassette.BinLifterZ);
+            lblOptNgSlotVal.Text = FormatAxis(_binCassette.Setup.NgFirstSlotPosition, _binCassette.BinLifterZ);
+            lblOptGood1SlotVal.Text = FormatAxis(_binCassette.Setup.Good1FirstSlotPosition, _binCassette.BinLifterZ);
+            lblOptGood2SlotVal.Text = FormatAxis(_binCassette.Setup.Good2FirstSlotPosition, _binCassette.BinLifterZ);
+            lblOptSlotPitchVal.Text = FormatAxis(_binCassette.Setup.SlotPitch, _binCassette.BinLifterZ);
             lblOptSlotCountVal.Text = _binCassette.Setup.SlotCount.ToString();
-            lblOptActualVal.Text = FormatMm(_binCassette.BinLifterZ.ActualPosition);
+            lblOptActualVal.Text = FormatAxis(_binCassette.BinLifterZ.ActualPosition, _binCassette.BinLifterZ);
             lblOptAxisStateVal.Text = AxisState(_binCassette.BinLifterZ);
             lblWaitVal.Text = _binCassette.Recipe.ElevatorMoveTimeoutMs + " ms";
 
@@ -221,9 +221,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             return Math.Max(1.0, trkSpeed.Value);
         }
 
-        private static string FormatMm(double value)
+        private static string FormatAxis(double value, BaseAxis axis)
         {
-            return value.ToString("F3") + " mm";
+            return AxisUnitConverter.FormatDisplay(value, axis, "0.###", true);
         }
 
         private static string AxisState(BaseAxis axis)

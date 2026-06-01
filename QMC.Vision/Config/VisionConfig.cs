@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Runtime.Serialization;
 using System.Runtime.Serialization.Json;
+using QMC.Vision.Core;
 
 namespace QMC.Vision.Config
 {
@@ -86,8 +87,7 @@ namespace QMC.Vision.Config
             {
                 using (var fs = File.Create(Path_))
                 {
-                    var ser = new DataContractJsonSerializer(typeof(VisionSettings));
-                    ser.WriteObject(fs, Current);
+                    JsonPrettySerializer.WriteObject(fs, typeof(VisionSettings), Current);
                 }
             }
             catch { }
