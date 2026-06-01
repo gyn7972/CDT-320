@@ -22,6 +22,11 @@
         private void InitializeComponent()
         {
             System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle1 = new System.Windows.Forms.DataGridViewCellStyle();
+            System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle2 = new System.Windows.Forms.DataGridViewCellStyle();
+            System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle3 = new System.Windows.Forms.DataGridViewCellStyle();
+            System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle4 = new System.Windows.Forms.DataGridViewCellStyle();
+            System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle5 = new System.Windows.Forms.DataGridViewCellStyle();
+            System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle6 = new System.Windows.Forms.DataGridViewCellStyle();
             this.lblSubHeader = new System.Windows.Forms.Label();
             this.grid = new System.Windows.Forms.DataGridView();
             this.NO = new System.Windows.Forms.DataGridViewTextBoxColumn();
@@ -60,7 +65,6 @@
             // 
             this.grid.AllowUserToAddRows = false;
             this.grid.AllowUserToDeleteRows = false;
-            this.grid.AllowUserToResizeColumns = true;
             this.grid.AllowUserToResizeRows = false;
             this.grid.AutoSizeColumnsMode = System.Windows.Forms.DataGridViewAutoSizeColumnsMode.Fill;
             this.grid.BackgroundColor = System.Drawing.Color.White;
@@ -84,8 +88,8 @@
             this.SIM,
             this.SLN,
             this.SLP});
-            this.grid.EnableHeadersVisualStyles = false;
             this.grid.EditMode = System.Windows.Forms.DataGridViewEditMode.EditProgrammatically;
+            this.grid.EnableHeadersVisualStyles = false;
             this.grid.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.grid.Location = new System.Drawing.Point(8, 37);
             this.grid.MultiSelect = false;
@@ -95,7 +99,7 @@
             this.grid.RowHeadersWidth = 51;
             this.grid.RowTemplate.Resizable = System.Windows.Forms.DataGridViewTriState.False;
             this.grid.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.CellSelect;
-            this.grid.Size = new System.Drawing.Size(1400, 785);
+            this.grid.Size = new System.Drawing.Size(1397, 700);
             this.grid.TabIndex = 1;
             this.grid.CellClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.OnGridCellClick);
             this.grid.CellDoubleClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.OnCellDoubleClick);
@@ -128,18 +132,22 @@
             // 
             // BOARD
             // 
-            this.BOARD.DefaultCellStyle.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleRight;
+            dataGridViewCellStyle2.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleRight;
+            this.BOARD.DefaultCellStyle = dataGridViewCellStyle2;
             this.BOARD.HeaderText = "BOARD#";
             this.BOARD.MinimumWidth = 6;
             this.BOARD.Name = "BOARD";
+            this.BOARD.ReadOnly = true;
             this.BOARD.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             // 
             // CH
             // 
-            this.CH.DefaultCellStyle.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleRight;
+            dataGridViewCellStyle3.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleRight;
+            this.CH.DefaultCellStyle = dataGridViewCellStyle3;
             this.CH.HeaderText = "CH (slot)";
             this.CH.MinimumWidth = 6;
             this.CH.Name = "CH";
+            this.CH.ReadOnly = true;
             this.CH.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             // 
             // UNIT
@@ -153,14 +161,16 @@
             "deg"});
             this.UNIT.MinimumWidth = 6;
             this.UNIT.Name = "UNIT";
-            this.UNIT.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            this.UNIT.ReadOnly = true;
             // 
             // STROKE
             // 
-            this.STROKE.DefaultCellStyle.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleRight;
+            dataGridViewCellStyle4.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleRight;
+            this.STROKE.DefaultCellStyle = dataGridViewCellStyle4;
             this.STROKE.HeaderText = "STROKE";
             this.STROKE.MinimumWidth = 6;
             this.STROKE.Name = "STROKE";
+            this.STROKE.ReadOnly = true;
             this.STROKE.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             // 
             // SIM
@@ -169,24 +179,27 @@
             this.SIM.HeaderText = "SIM";
             this.SIM.MinimumWidth = 6;
             this.SIM.Name = "SIM";
-            this.SIM.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            this.SIM.ReadOnly = true;
             this.SIM.Text = "";
-            this.SIM.UseColumnTextForButtonValue = false;
             // 
             // SLN
             // 
-            this.SLN.DefaultCellStyle.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleRight;
+            dataGridViewCellStyle5.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleRight;
+            this.SLN.DefaultCellStyle = dataGridViewCellStyle5;
             this.SLN.HeaderText = "SOFT LIMIT(-)";
             this.SLN.MinimumWidth = 6;
             this.SLN.Name = "SLN";
+            this.SLN.ReadOnly = true;
             this.SLN.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             // 
             // SLP
             // 
-            this.SLP.DefaultCellStyle.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleRight;
+            dataGridViewCellStyle6.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleRight;
+            this.SLP.DefaultCellStyle = dataGridViewCellStyle6;
             this.SLP.HeaderText = "SOFT LIMIT(+)";
             this.SLP.MinimumWidth = 6;
             this.SLP.Name = "SLP";
+            this.SLP.ReadOnly = true;
             this.SLP.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             // 
             // actionsPanel
@@ -197,10 +210,10 @@
             this.actionsPanel.Controls.Add(this.btnReset);
             this.actionsPanel.Controls.Add(this.btnApply);
             this.actionsPanel.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.actionsPanel.Location = new System.Drawing.Point(0, 840);
+            this.actionsPanel.Location = new System.Drawing.Point(0, 740);
             this.actionsPanel.Name = "actionsPanel";
             this.actionsPanel.Padding = new System.Windows.Forms.Padding(8);
-            this.actionsPanel.Size = new System.Drawing.Size(1416, 60);
+            this.actionsPanel.Size = new System.Drawing.Size(1410, 60);
             this.actionsPanel.TabIndex = 2;
             // 
             // btnSave
@@ -267,7 +280,7 @@
             this.Controls.Add(this.grid);
             this.Controls.Add(this.actionsPanel);
             this.Name = "AxisSetupPage";
-            this.Size = new System.Drawing.Size(1416, 900);
+            this.Size = new System.Drawing.Size(1410, 800);
             ((System.ComponentModel.ISupportInitialize)(this.grid)).EndInit();
             this.actionsPanel.ResumeLayout(false);
             this.ResumeLayout(false);
