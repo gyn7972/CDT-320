@@ -36,5 +36,10 @@ namespace QMC.Vision.Optics
 
         /// <summary>Stage 69 — 페이지 전환 (LFine 페이지 모델). PageCount==1 이면 no-op(true).</summary>
         Task<bool> SwitchPageAsync(int page);
+
+        /// <summary>Stage 75 — 응답 1프레임 수신 (적용 후 검증/디버그용).
+        /// LFine 은 시리얼에서 Stx..Etx 프레임을 읽어 payload 문자열 반환(무응답/타임아웃이면 null).
+        /// Sim 은 합성 ACK 반환. <paramref name="timeoutMs"/>=0 이면 컨트롤러 기본 timeout 사용.</summary>
+        Task<string> ReceiveResponseAsync(int timeoutMs = 0);
     }
 }

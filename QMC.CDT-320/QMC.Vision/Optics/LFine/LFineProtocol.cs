@@ -54,6 +54,18 @@ namespace QMC.Vision.Optics.LFine
             return frame;
         }
 
+        /// <summary>수신 프레임 → payload 문자열. 선행 Stx(0x40)·후행 Etx(0x0D/0x0A)를 벗겨 ASCII 로 디코딩.
+        /// (레퍼런스 ReceiveFrame(out data, arrStx, arrEtx) + BytesConverter.ToString 대칭.)</summary>
+        public static string UnwrapFrame(byte[] raw)
+        {
+            if (raw == null || raw.Length == 0) return "";
+            int start = 0, end = raw.Length;
+            if (raw[start] == Stx) start++;                                  // 선행 '@' 제거
+            while (end > start && (raw[end - 1] == Etx2 || raw[end - 1] == Etx1)) end--;  // 후행 \r \n 제거
+            int len = end - start;
+            return len > 0 ? Encoding.ASCII.GetString(raw, start, len) : "";
+        }
+
         /// <summary>단일 채널 on-time 프레임 (SC 명령 단축).</summary>
         public static byte[] ChannelOnTimeFrame(int page, int channel, int time)
             => WrapFrame(BuildChannelOnTimeCommand(page, channel, time));

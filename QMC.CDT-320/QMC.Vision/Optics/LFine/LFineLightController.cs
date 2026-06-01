@@ -115,6 +115,38 @@ namespace QMC.Vision.Optics.LFine
             return Task.FromResult(true);
         }
 
+        /// <summary>Stage 75 — 시리얼에서 응답 1프레임 수신 (적용 후 검증용). 무응답/타임아웃이면 null.
+        /// 백그라운드 스레드에서 동기 읽기 수행 (UI 비차단).</summary>
+        public Task<string> ReceiveResponseAsync(int timeoutMs = 0)
+        {
+            int eff = timeoutMs > 0 ? timeoutMs : (_cfg.TimeoutMs > 0 ? _cfg.TimeoutMs : 1000);
+            return Task.Run(() => ReadResponseFrame(eff));
+        }
+
+        /// <summary>Etx2(0x0A) 또는 per-byte 타임아웃까지 읽어 LFineProtocol.UnwrapFrame 으로 디코딩.</summary>
+        private string ReadResponseFrame(int timeoutMs)
+        {
+            if (_port == null || !_port.IsOpen) return null;
+            int saved = _port.ReadTimeout;
+            var buf = new System.Collections.Generic.List<byte>();
+            try
+            {
+                _port.ReadTimeout = timeoutMs;
+                while (true)
+                {
+                    int b;
+                    try { b = _port.ReadByte(); }
+                    catch (TimeoutException) { break; }   // 더 이상 데이터 없음 → 종료
+                    if (b < 0) break;
+                    buf.Add((byte)b);
+                    if (b == LFineProtocol.Etx2) break;   // 프레임 끝(0x0A)
+                }
+            }
+            catch { /* 수신 오류는 검증용이므로 조용히 무시 (null 반환) */ }
+            finally { try { _port.ReadTimeout = saved; } catch { } }
+            return buf.Count == 0 ? null : LFineProtocol.UnwrapFrame(buf.ToArray());
+        }
+
         /// <summary>프레임 송신 — lock 으로 직렬화. 송신 실패 시 LIGHT-TX-FAIL.</summary>
         private bool SendFrame(byte[] frame)
         {

@@ -12,6 +12,7 @@ namespace QMC.Vision.Optics.Sim
         private readonly int[] _power;      // 1-기반 → 인덱스 0 미사용
         private readonly int[] _strobeUs;
         private readonly int[] _lastOnPower; // On/Off 복원용
+        private int _lastPage;               // 마지막 SwitchPage (합성 응답용)
 
         public bool   IsConnected  { get; private set; }
         public string PortName     => "Sim";
@@ -64,7 +65,15 @@ namespace QMC.Vision.Optics.Sim
         public Task<bool> CheckPowerOnAsync(int channel)
             => Task.FromResult(IsConnected && IsValid(channel));
 
-        public Task<bool> SwitchPageAsync(int page) { Emit($"SwitchPage page={page}"); return Task.FromResult(true); }
+        public Task<bool> SwitchPageAsync(int page) { _lastPage = page; Emit($"SwitchPage page={page}"); return Task.FromResult(true); }
+
+        /// <summary>Stage 75 — 합성 응답. 실장비 receive 대체 — 현재 페이지에서 점등(power&gt;0) 채널 수를 echo.</summary>
+        public Task<string> ReceiveResponseAsync(int timeoutMs = 0)
+        {
+            int on = 0;
+            for (int ch = 1; ch <= ChannelCount; ch++) if (_power[ch] > 0) on++;
+            return Task.FromResult($"SIM:ACK p{_lastPage} on={on}");
+        }
 
         private bool IsValid(int channel) => channel >= 1 && channel <= ChannelCount;
         private void Emit(string msg) { try { Log?.Invoke("[SimLight] " + msg); } catch { } }

@@ -212,7 +212,7 @@ namespace QMC.Vision.Ui.Pages
             SetStatus($"저장 완료 — 점등 {on}채널", false);
         }
 
-        private void Apply()
+        private async void Apply()
         {
             var w = Wiring();
             if (w == null || string.IsNullOrEmpty(w.ControllerPort))
@@ -233,7 +233,7 @@ namespace QMC.Vision.Ui.Pages
                 // Page 별로 그룹핑하여 페이지 전환 회수 최소화.
                 foreach (var grp in ov.Settings.GroupBy(s => s.Page).OrderBy(g => g.Key))
                 {
-                    ctrl.SwitchPageAsync(grp.Key);
+                    await ctrl.SwitchPageAsync(grp.Key);
                     foreach (var s in grp)
                     {
                         if (!w.Channels.Contains(s.Channel))
@@ -241,13 +241,20 @@ namespace QMC.Vision.Ui.Pages
                             AlarmManager.Raise(AlarmSeverity.Warning, "LIGHT-CHANNEL-OUT-OF-POOL", "Light/" + _algorithm, $"ch{s.Channel} not in pool");
                             continue;
                         }
-                        ctrl.SetPowerAsync(s.Channel, s.Level);
-                        ctrl.SetOnOffAsync(s.Channel, s.On);
-                        if (s.StrobeTimeUs > 0) ctrl.SetStrobeTimeAsync(s.Channel, s.StrobeTimeUs);
+                        await ctrl.SetPowerAsync(s.Channel, s.Level);
+                        await ctrl.SetOnOffAsync(s.Channel, s.On);
+                        if (s.StrobeTimeUs > 0) await ctrl.SetStrobeTimeAsync(s.Channel, s.StrobeTimeUs);
                         if (s.Level > 0) applied++;
                     }
                 }
-                SetStatus($"적용 완료 — 점등 {applied}채널 ({w.ControllerPort})", false);
+
+                // Stage 75 — 적용 후 응답 수신(검증용). 무응답/타임아웃이면 표시만.
+                string resp = null;
+                try { resp = await ctrl.ReceiveResponseAsync(); } catch { }
+                string verify = string.IsNullOrEmpty(resp)
+                    ? "수신 응답 없음 (무응답 프로토콜이거나 타임아웃)"
+                    : $"수신 응답 [{resp}]";
+                SetStatus($"적용 완료 — 점등 {applied}채널 ({w.ControllerPort}) | {verify}", false);
             }
             catch (Exception ex) { SetStatus("적용 예외: " + ex.Message, true); }
         }
