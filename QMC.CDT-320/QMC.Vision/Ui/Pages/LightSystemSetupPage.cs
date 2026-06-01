@@ -2,6 +2,7 @@ using System;
 using System.ComponentModel;
 using System.Drawing;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using QMC.Common.Recipes;
 
@@ -54,7 +55,10 @@ namespace QMC.Vision.Ui.Pages
             var btnDelCtrl = MakeBtn("컨트롤러 삭제", 340, Color.White, Color.Black); btnDelCtrl.Width = 120; btnDelCtrl.Click += (s, e) => DeleteController();
             var btnMigrate = MakeBtn("io_set 가져오기", 470, Color.White, Color.Black); btnMigrate.Width = 130; btnMigrate.Click += (s, e) => Migrate();
             var btnRename  = MakeBtn("포트 일괄 변경", 610, Color.White, Color.Black); btnRename.Width = 130; btnRename.Click += (s, e) => RenamePort();
-            bar.Controls.AddRange(new Control[] { btnSave, btnReload, btnAddCtrl, btnDelCtrl, btnMigrate, btnRename });
+            // Stage 73 — 실장비 조명 연결/해제 (비전 Sim 이어도 실제 시리얼 점등 테스트용)
+            var btnConnect = MakeBtn("조명 연결", 750, Color.FromArgb(0x2E, 0x7D, 0x32), Color.White); btnConnect.Width = 110; btnConnect.Click += (s, e) => ConnectLights();
+            var btnDisc    = MakeBtn("조명 해제", 870, Color.White, Color.Black); btnDisc.Width = 110; btnDisc.Click += (s, e) => DisconnectLights();
+            bar.Controls.AddRange(new Control[] { btnSave, btnReload, btnAddCtrl, btnDelCtrl, btnMigrate, btnRename, btnConnect, btnDisc });
             Controls.Add(bar);
 
             _lblStatus = new Label { Dock = DockStyle.Bottom, Height = 24, Font = UiTheme.ValueFont, ForeColor = Color.DarkSlateGray, Padding = new Padding(8, 2, 0, 0) };
@@ -444,6 +448,44 @@ namespace QMC.Vision.Ui.Pages
             if (!setup.RenamePort(oldPort, newPort)) { SetStatus("포트 변경 실패 (대상 포트 중복?)", true); return; }
             BindAll(setup);
             SetStatus($"포트 변경: {oldPort} → {newPort} (결선 동시 갱신, 저장 필요)", false);
+        }
+
+        // ── Stage 73 — 실장비 조명 연결/해제 ──
+        /// <summary>현재 인벤토리(grid)로 실장비 컨트롤러를 재초기화하고 시리얼 포트를 Open.
+        /// 비전 백엔드가 Sim 이어도 실제 LFine 조명에 시리얼이 나간다. 이후 검사 노드의 '실행 적용'으로 점등 확인.</summary>
+        private async void ConnectLights()
+        {
+            try
+            {
+                var setup = CollectFromUi();   // 미저장 인벤토리 편집도 반영 (포트/Baud 등)
+                if (setup.Controllers == null || setup.Controllers.Count == 0)
+                { SetStatus("컨트롤러가 없습니다 — 인벤토리에 추가 후 다시 시도", true); return; }
+
+                // 실장비(useSim=false) 로 LightHub 재구성 후 포트 Open
+                QMC.Vision.Comm.LightHub.Initialize(setup, false);
+                SetStatus("조명 연결 중… (시리얼 Open)", false);
+                var res = await QMC.Vision.Comm.LightHub.ConnectAllAsync();
+
+                int ok = res.Count(kv => kv.Value);
+                var fails = res.Where(kv => !kv.Value).Select(kv => kv.Key).ToList();
+                if (fails.Count == 0)
+                    SetStatus($"조명 연결 완료 — {ok}포트 Open. 검사 노드의 '실행 적용'으로 실제 점등 테스트하세요.", false);
+                else
+                    SetStatus($"조명 연결 — {ok}포트 OK / 실패 [{string.Join(",", fails)}] (포트/케이블 확인, LIGHT-OPEN-FAIL 알람 참조)", true);
+            }
+            catch (Exception ex) { SetStatus("조명 연결 예외: " + ex.Message, true); }
+        }
+
+        /// <summary>시리얼 Close 후 Sim 컨트롤러로 복귀(안전 상태). 실제 점등 중단.</summary>
+        private async void DisconnectLights()
+        {
+            try
+            {
+                await QMC.Vision.Comm.LightHub.DisconnectAllAsync();
+                QMC.Vision.Comm.LightHub.Initialize(LightSystemSetupStore.Current, true);   // Sim 복귀
+                SetStatus("조명 해제 — 시리얼 Close, Sim 컨트롤러로 복귀", false);
+            }
+            catch (Exception ex) { SetStatus("조명 해제 예외: " + ex.Message, true); }
         }
 
         // ── helpers ──

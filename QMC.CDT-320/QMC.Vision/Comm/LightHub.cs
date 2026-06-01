@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using QMC.Common.Recipes;
 using QMC.Vision.Optics;
 using QMC.Vision.Optics.LFine;
@@ -37,6 +38,30 @@ namespace QMC.Vision.Comm
                 ILightController ctrl = LightControllerFactory.Create(cfg, useSim);
                 _byPort[entry.PortName] = ctrl;
                 Emit($"register {entry.PortName} ({ctrl.GetType().Name})");
+            }
+        }
+
+        /// <summary>Stage 73 — 등록된 모든 컨트롤러의 시리얼 Open. port → 성공여부 맵 반환.
+        /// (Sim 컨트롤러는 항상 true. 실장비는 LIGHT-OPEN-FAIL 알람 후 false 가능.)</summary>
+        public static async Task<Dictionary<string, bool>> ConnectAllAsync()
+        {
+            var result = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+            foreach (var kv in _byPort)
+            {
+                bool ok;
+                try { ok = await kv.Value.ConnectAsync().ConfigureAwait(false); } catch { ok = false; }
+                result[kv.Key] = ok;
+                Emit($"connect {kv.Key} => {ok}");
+            }
+            return result;
+        }
+
+        /// <summary>Stage 73 — 등록된 모든 컨트롤러의 시리얼 Close.</summary>
+        public static async Task DisconnectAllAsync()
+        {
+            foreach (var c in _byPort.Values)
+            {
+                try { await c.DisconnectAsync().ConfigureAwait(false); } catch { }
             }
         }
 

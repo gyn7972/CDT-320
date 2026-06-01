@@ -14,6 +14,11 @@ namespace QMC.Vision.Config
         [DataMember] public VisionProvider Provider         { get; set; } = VisionProvider.Sim;
         [DataMember] public string         Language         { get; set; } = "ko";
 
+        // Stage 73 — 조명 컨트롤러 Sim 여부. 비전 백엔드(Provider)와 독립.
+        // true(기본,안전) = 기동 시 SimLightController. 실제 점등 테스트는 조명 Setup 페이지의
+        // '조명 연결' 버튼으로 실장비 재초기화 + 시리얼 Open. (Cognex 키 없이 Provider=Sim 이어도 조명은 실제 가능)
+        [DataMember] public bool           LightUseSim      { get; set; } = true;
+
         // 모듈별 TCP 포트 (CDT-310 매뉴얼 기준 기본값)
         [DataMember] public int WaferVisionPort             { get; set; } = 5100;
         [DataMember] public int InspectionVisionPort        { get; set; } = 5101;
@@ -32,6 +37,7 @@ namespace QMC.Vision.Config
         [OnDeserializing]
         internal void OnDeserializing(StreamingContext ctx)
         {
+            LightUseSim          = true;   // Stage 73 — 구 config 에 키 없으면 기본 true (안전)
             RemoteViewerEnable   = true;
             RemoteViewerSource   = "GrabImage";
             RemoteViewerFps      = 10;

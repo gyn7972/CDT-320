@@ -68,7 +68,9 @@ namespace QMC.Vision
                 QMC.Common.Recipes.LightSystemSetupStore.Save(); // Wiring.LegacyPage(0) 제거 — 새 스키마로 재저장
             }
 
-            bool lightUseSim = cfg.Provider == VisionProvider.Sim;
+            // Stage 73 — 조명 Sim 여부를 비전 Provider 와 분리(독립 config). 기본 true=안전(Sim).
+            //   실제 점등 테스트는 [설정>조명 시스템]의 '조명 연결' 버튼으로 실장비 재초기화+시리얼 Open.
+            bool lightUseSim = cfg.LightUseSim;
             QMC.Vision.Comm.LightHub.Initialize(lightSetup, lightUseSim);
 
             Backend = VisionFactory.Global;
