@@ -80,7 +80,7 @@ namespace QMC.CDT_320
             //  Form
             // ──────────────────────────────────────
             this.AutoScaleMode  = AutoScaleMode.None;
-            this.ClientSize     = new Size(1920, 1080);
+            this.ClientSize     = new Size(UiTheme.DesignWidth, UiTheme.DesignHeight);
             this.StartPosition  = FormStartPosition.CenterScreen;
             this.FormBorderStyle= FormBorderStyle.Sizable;
             this.WindowState    = FormWindowState.Maximized;
@@ -96,7 +96,7 @@ namespace QMC.CDT_320
             this.pnlHeader = new Panel
             {
                 Location  = new Point(0, 0),
-                Size      = new Size(1920, UiTheme.HeaderHeight),
+                Size      = new Size(UiTheme.DesignWidth, UiTheme.HeaderHeight),
                 BackColor = UiTheme.HeaderBg,
                 Anchor    = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
             };
@@ -235,7 +235,7 @@ namespace QMC.CDT_320
             this.pnlStatusBar = new Panel
             {
                 Location  = new Point(0, UiTheme.HeaderHeight),
-                Size      = new Size(1920, UiTheme.StatusBarHeight),
+                Size      = new Size(UiTheme.DesignWidth, UiTheme.StatusBarHeight),
                 BackColor = UiTheme.StatusBarBg,
                 Anchor    = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
             };
@@ -284,7 +284,7 @@ namespace QMC.CDT_320
             //  좌/우 MENU 세로 라벨
             // ──────────────────────────────────────
             int contentTop    = UiTheme.HeaderHeight + UiTheme.StatusBarHeight;
-            int contentBottom = 1080 - UiTheme.BottomBarHeight;
+            int contentBottom = UiTheme.DesignHeight - UiTheme.BottomBarHeight;
             int contentH      = contentBottom - contentTop;
 
             this.lblMenuLeft = new VerticalLabel
@@ -299,7 +299,7 @@ namespace QMC.CDT_320
             };
             this.lblMenuRight = new VerticalLabel
             {
-                Location  = new Point(1920 - UiTheme.MenuLabelWidth, contentTop),
+                Location  = new Point(UiTheme.DesignWidth - UiTheme.MenuLabelWidth, contentTop),
                 Size      = new Size(UiTheme.MenuLabelWidth, contentH),
                 Text      = "MENU",
                 Font      = UiTheme.MenuLabelFont,
@@ -314,7 +314,7 @@ namespace QMC.CDT_320
             this.pnlContent = new Panel
             {
                 Location  = new Point(UiTheme.MenuLabelWidth, contentTop),
-                Size      = new Size(1920 - UiTheme.MenuLabelWidth * 2, contentH),
+                Size      = new Size(UiTheme.ShellContentWidth, contentH),
                 BackColor = UiTheme.MainBg,
                 Anchor    = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right
             };
@@ -328,8 +328,8 @@ namespace QMC.CDT_320
             // ──────────────────────────────────────
             this.pnlBottomBar = new Panel
             {
-                Location  = new Point(0, 1080 - UiTheme.BottomBarHeight),
-                Size      = new Size(1920, UiTheme.BottomBarHeight),
+                Location  = new Point(0, UiTheme.DesignHeight - UiTheme.BottomBarHeight),
+                Size      = new Size(UiTheme.DesignWidth, UiTheme.BottomBarHeight),
                 BackColor = UiTheme.BottomBarBg,
                 Anchor    = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right
             };

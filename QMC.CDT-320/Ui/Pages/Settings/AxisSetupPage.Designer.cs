@@ -56,7 +56,7 @@
             this.lblSubHeader.Location = new System.Drawing.Point(8, 7);
             this.lblSubHeader.Name = "lblSubHeader";
             this.lblSubHeader.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
-            this.lblSubHeader.Size = new System.Drawing.Size(1400, 26);
+            this.lblSubHeader.Size = new System.Drawing.Size(1662, 26);
             this.lblSubHeader.TabIndex = 0;
             this.lblSubHeader.Text = "AXIS SETUP — Simulation / Unit / Stroke / Soft Limit (37 axes)";
             this.lblSubHeader.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -66,6 +66,9 @@
             this.grid.AllowUserToAddRows = false;
             this.grid.AllowUserToDeleteRows = false;
             this.grid.AllowUserToResizeRows = false;
+            this.grid.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
             this.grid.AutoSizeColumnsMode = System.Windows.Forms.DataGridViewAutoSizeColumnsMode.Fill;
             this.grid.BackgroundColor = System.Drawing.Color.White;
             dataGridViewCellStyle1.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
@@ -99,7 +102,7 @@
             this.grid.RowHeadersWidth = 51;
             this.grid.RowTemplate.Resizable = System.Windows.Forms.DataGridViewTriState.False;
             this.grid.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.CellSelect;
-            this.grid.Size = new System.Drawing.Size(1397, 700);
+            this.grid.Size = new System.Drawing.Size(1662, 796);
             this.grid.TabIndex = 1;
             this.grid.CellClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.OnGridCellClick);
             this.grid.CellDoubleClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.OnCellDoubleClick);
@@ -210,10 +213,10 @@
             this.actionsPanel.Controls.Add(this.btnReset);
             this.actionsPanel.Controls.Add(this.btnApply);
             this.actionsPanel.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.actionsPanel.Location = new System.Drawing.Point(0, 740);
+            this.actionsPanel.Location = new System.Drawing.Point(0, 840);
             this.actionsPanel.Name = "actionsPanel";
             this.actionsPanel.Padding = new System.Windows.Forms.Padding(8);
-            this.actionsPanel.Size = new System.Drawing.Size(1410, 60);
+            this.actionsPanel.Size = new System.Drawing.Size(1678, 60);
             this.actionsPanel.TabIndex = 2;
             // 
             // btnSave
@@ -280,7 +283,7 @@
             this.Controls.Add(this.grid);
             this.Controls.Add(this.actionsPanel);
             this.Name = "AxisSetupPage";
-            this.Size = new System.Drawing.Size(1410, 800);
+            this.Size = new System.Drawing.Size(1678, 900);
             ((System.ComponentModel.ISupportInitialize)(this.grid)).EndInit();
             this.actionsPanel.ResumeLayout(false);
             this.ResumeLayout(false);

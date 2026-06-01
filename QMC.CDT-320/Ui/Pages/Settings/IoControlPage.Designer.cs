@@ -356,7 +356,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this.Controls.Add(this.lblHeader);
             this.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.Name = "IoControlPage";
-            this.Size = new System.Drawing.Size(1416, 850);
+            this.Size = new System.Drawing.Size(1678, 900);
             ((System.ComponentModel.ISupportInitialize)(this.diGrid)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.doGrid)).EndInit();
             this.actionsPanel.ResumeLayout(false);

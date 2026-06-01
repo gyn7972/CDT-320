@@ -1,4 +1,4 @@
-namespace QMC.CDT_320.Ui.Pages.Recipe
+﻿namespace QMC.CDT_320.Ui.Pages.Recipe
 {
     partial class OutputCassetteRecipePage
     {
@@ -777,7 +777,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
             this.Controls.Add(this.mainLayout);
             this.Name = "OutputCassetteRecipePage";
-            this.Size = new System.Drawing.Size(1500, 900);
+            this.Size = new System.Drawing.Size(1678, 900);
             this.mainLayout.ResumeLayout(false);
             this.contentLayout.ResumeLayout(false);
             this.panelLeft.ResumeLayout(false);
@@ -796,3 +796,4 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         }
     }
 }
+

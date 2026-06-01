@@ -1069,7 +1069,7 @@
             this.BackColor = System.Drawing.Color.White;
             this.Controls.Add(this.mainLayout);
             this.Name = "CassetteRecipePage";
-            this.Size = new System.Drawing.Size(1500, 900);
+            this.Size = new System.Drawing.Size(1678, 900);
             this.mainLayout.ResumeLayout(false);
             this.contentLayout.ResumeLayout(false);
             this.panelLeft.ResumeLayout(false);
@@ -1114,4 +1114,5 @@
         }
     }
 }
+
 

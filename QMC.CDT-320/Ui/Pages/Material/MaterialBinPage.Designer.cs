@@ -1,4 +1,4 @@
-using System.Drawing;
+Ôªøusing System.Drawing;
 using System.Windows.Forms;
 using QMC.CDT_320.Ui.Localization;
 
@@ -90,7 +90,7 @@ namespace QMC.CDT_320.Ui.Pages.Material
             // 
             this.lblHeader.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(217)))), ((int)(((byte)(119)))), ((int)(((byte)(6)))));
             this.lblHeader.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblHeader.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F, System.Drawing.FontStyle.Bold);
+            this.lblHeader.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F, System.Drawing.FontStyle.Bold);
             this.lblHeader.ForeColor = System.Drawing.Color.White;
             this.lblHeader.Location = new System.Drawing.Point(3, 0);
             this.lblHeader.Name = "lblHeader";
@@ -98,14 +98,14 @@ namespace QMC.CDT_320.Ui.Pages.Material
             this.lblHeader.Size = new System.Drawing.Size(1394, 30);
             this.lblHeader.TabIndex = 0;
             this.lblHeader.Tag = "i18n:material.bin";
-            this.lblHeader.Text = "∫Û ƒ⁄µÂ ∏≈«Œ";
+            this.lblHeader.Text = "Îπà ÏΩîÎìú Îß§Ìïë";
             this.lblHeader.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // lblSummary
             // 
             this.lblSummary.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(217)))), ((int)(((byte)(119)))), ((int)(((byte)(6)))));
             this.lblSummary.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblSummary.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F, System.Drawing.FontStyle.Bold);
+            this.lblSummary.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F, System.Drawing.FontStyle.Bold);
             this.lblSummary.ForeColor = System.Drawing.Color.White;
             this.lblSummary.Location = new System.Drawing.Point(3, 30);
             this.lblSummary.Name = "lblSummary";
@@ -136,7 +136,7 @@ namespace QMC.CDT_320.Ui.Pages.Material
             this.grpCodes.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
             this.grpCodes.Controls.Add(this.codeLayout);
             this.grpCodes.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.grpCodes.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F, System.Drawing.FontStyle.Bold);
+            this.grpCodes.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F, System.Drawing.FontStyle.Bold);
             this.grpCodes.Location = new System.Drawing.Point(13, 13);
             this.grpCodes.Name = "grpCodes";
             this.grpCodes.Size = new System.Drawing.Size(818, 802);
@@ -213,7 +213,7 @@ namespace QMC.CDT_320.Ui.Pages.Material
             this.grpColors.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
             this.grpColors.Controls.Add(this.colorLayout);
             this.grpColors.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.grpColors.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F, System.Drawing.FontStyle.Bold);
+            this.grpColors.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F, System.Drawing.FontStyle.Bold);
             this.grpColors.Location = new System.Drawing.Point(3, 3);
             this.grpColors.Name = "grpColors";
             this.grpColors.Size = new System.Drawing.Size(538, 555);
@@ -275,7 +275,7 @@ namespace QMC.CDT_320.Ui.Pages.Material
             this.grpTest.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
             this.grpTest.Controls.Add(this.testLayout);
             this.grpTest.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.grpTest.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F, System.Drawing.FontStyle.Bold);
+            this.grpTest.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F, System.Drawing.FontStyle.Bold);
             this.grpTest.Location = new System.Drawing.Point(3, 564);
             this.grpTest.Name = "grpTest";
             this.grpTest.Size = new System.Drawing.Size(538, 235);
@@ -308,7 +308,7 @@ namespace QMC.CDT_320.Ui.Pages.Material
             // lblTestNg
             // 
             this.lblTestNg.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblTestNg.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F);
+            this.lblTestNg.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F);
             this.lblTestNg.Location = new System.Drawing.Point(13, 14);
             this.lblTestNg.Name = "lblTestNg";
             this.lblTestNg.Size = new System.Drawing.Size(114, 34);
@@ -331,7 +331,7 @@ namespace QMC.CDT_320.Ui.Pages.Material
             this._btnTest.BackColor = System.Drawing.Color.White;
             this._btnTest.Dock = System.Windows.Forms.DockStyle.Fill;
             this._btnTest.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this._btnTest.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F);
+            this._btnTest.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F);
             this._btnTest.Location = new System.Drawing.Point(415, 17);
             this._btnTest.Name = "_btnTest";
             this._btnTest.Size = new System.Drawing.Size(104, 28);
@@ -375,7 +375,7 @@ namespace QMC.CDT_320.Ui.Pages.Material
             this._btnReset.BackColor = System.Drawing.Color.LightYellow;
             this._btnReset.Dock = System.Windows.Forms.DockStyle.Fill;
             this._btnReset.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this._btnReset.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F);
+            this._btnReset.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F);
             this._btnReset.Location = new System.Drawing.Point(3, 3);
             this._btnReset.Name = "_btnReset";
             this._btnReset.Size = new System.Drawing.Size(176, 98);
@@ -388,7 +388,7 @@ namespace QMC.CDT_320.Ui.Pages.Material
             this._btnSave.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(232)))), ((int)(((byte)(93)))), ((int)(((byte)(26)))));
             this._btnSave.Dock = System.Windows.Forms.DockStyle.Fill;
             this._btnSave.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this._btnSave.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F);
+            this._btnSave.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F);
             this._btnSave.ForeColor = System.Drawing.Color.White;
             this._btnSave.Location = new System.Drawing.Point(185, 3);
             this._btnSave.Name = "_btnSave";
@@ -401,7 +401,7 @@ namespace QMC.CDT_320.Ui.Pages.Material
             // 
             this.Controls.Add(this.rootLayout);
             this.Name = "MaterialBinPage";
-            this.Size = new System.Drawing.Size(1400, 900);
+            this.Size = new System.Drawing.Size(1678, 900);
             this.rootLayout.ResumeLayout(false);
             this.contentLayout.ResumeLayout(false);
             this.grpCodes.ResumeLayout(false);
@@ -425,6 +425,7 @@ namespace QMC.CDT_320.Ui.Pages.Material
         private DataGridViewTextBoxColumn Color;
     }
 }
+
 
 
 

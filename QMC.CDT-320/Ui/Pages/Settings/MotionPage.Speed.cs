@@ -112,7 +112,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 {
                     if (dlg.ShowDialog(FindForm()) != DialogResult.OK) return;
 
-                    string newText = dlg.ValueText ?? string.Empty;
+                    string newText = NormalizeSpeedInputText(dlg.ValueText, e.ColumnIndex);
                     if (string.Equals(newText, current, StringComparison.Ordinal)) return;
 
                     cell.Value = newText;
@@ -162,7 +162,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                         FormatAxisValue(c.JogFineVelocity, row.Axis, "0.###"),
                         FormatAxisValue(c.JogAcceleration, row.Axis, "0.###"),
                         FormatAxisValue(c.JogDeceleration, row.Axis, "0.###"),
-                        FormatAxisValue(c.InPositionTolerance, row.Axis, "0.####"));
+                        FormatAxisValue(c.InPositionTolerance, row.Axis, "0.######"));
 
                     speedGrid.Rows[idx].Tag = row.Axis;
                 }
@@ -207,11 +207,19 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 {
                     if (dlg.ShowDialog(FindForm()) != DialogResult.OK) return;
 
-                    string newText = dlg.ValueText ?? string.Empty;
+                    string newText = NormalizeSpeedInputText(dlg.ValueText, e.ColumnIndex);
+                    int changed = 0;
                     foreach (DataGridViewRow row in speedGrid.Rows)
-                        row.Cells[e.ColumnIndex].Value = newText;
+                    {
+                        BaseAxis axis = row.Tag as BaseAxis;
+                        if (IsDegreeAxis(axis))
+                            continue;
 
-                    _speedDirty = true;
+                        row.Cells[e.ColumnIndex].Value = newText;
+                        changed++;
+                    }
+
+                    _speedDirty = _speedDirty || changed > 0;
                 }
             }
             catch (Exception ex)
@@ -313,6 +321,48 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             catch
             {
                 return fallback;
+            }
+            finally
+            {
+            }
+        }
+
+        private string NormalizeSpeedInputText(string text, int columnIndex)
+        {
+            try
+            {
+                string valueText = text ?? string.Empty;
+                double value;
+                if (!double.TryParse(valueText, NumberStyles.Float, CultureInfo.InvariantCulture, out value) &&
+                    !double.TryParse(valueText, NumberStyles.Float, CultureInfo.CurrentCulture, out value))
+                    return valueText;
+
+                DataGridViewColumn col = columnIndex >= 0 && columnIndex < speedGrid.Columns.Count
+                    ? speedGrid.Columns[columnIndex]
+                    : null;
+
+                string format = col != null && col.Name == "INPOS_TOL" ? "0.######" : "0.###";
+                return value.ToString(format, CultureInfo.InvariantCulture);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Warning, "QMC", "SPEED-NUMERIC", "Speed input normalize failed: " + ex.Message);
+                return text ?? string.Empty;
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool IsDegreeAxis(BaseAxis axis)
+        {
+            try
+            {
+                return AxisUnitConverter.IsDegree(AxisUnitConverter.DisplayUnitFor(axis));
+            }
+            catch
+            {
+                return false;
             }
             finally
             {

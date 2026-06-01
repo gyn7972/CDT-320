@@ -1,4 +1,4 @@
-namespace QMC.CDT_320.Ui.Dialogs
+﻿namespace QMC.CDT_320.Ui.Dialogs
 {
     partial class AxisJogPopup
     {
@@ -91,16 +91,16 @@ namespace QMC.CDT_320.Ui.Dialogs
             // rootLayout
             // 
             this.rootLayout.ColumnCount = 2;
-            this.rootLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 257F));
+            this.rootLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 190F));
             this.rootLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.rootLayout.Controls.Add(this.leftLayout, 0, 0);
             this.rootLayout.Controls.Add(this.rightLayout, 1, 0);
             this.rootLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.rootLayout.Location = new System.Drawing.Point(0, 0);
             this.rootLayout.Name = "rootLayout";
-            this.rootLayout.Padding = new System.Windows.Forms.Padding(8);
+            this.rootLayout.Padding = new System.Windows.Forms.Padding(6);
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 20F));
-            this.rootLayout.Size = new System.Drawing.Size(662, 543);
+            this.rootLayout.Size = new System.Drawing.Size(500, 430);
             this.rootLayout.TabIndex = 0;
             // 
             // leftLayout
@@ -110,23 +110,23 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.leftLayout.Controls.Add(this.lblPosition, 0, 0);
             this.leftLayout.Controls.Add(this.grpSelectAxis, 0, 1);
             this.leftLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.leftLayout.Location = new System.Drawing.Point(11, 11);
+            this.leftLayout.Location = new System.Drawing.Point(9, 9);
             this.leftLayout.Name = "leftLayout";
             this.leftLayout.RowCount = 2;
-            this.leftLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 59F));
+            this.leftLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 50F));
             this.leftLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.leftLayout.Size = new System.Drawing.Size(251, 521);
+            this.leftLayout.Size = new System.Drawing.Size(184, 412);
             this.leftLayout.TabIndex = 0;
             // 
             // lblPosition
             // 
             this.lblPosition.BackColor = System.Drawing.Color.Black;
             this.lblPosition.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblPosition.Font = new System.Drawing.Font("Consolas", 20F, System.Drawing.FontStyle.Bold);
+            this.lblPosition.Font = new System.Drawing.Font("Consolas", 16F, System.Drawing.FontStyle.Bold);
             this.lblPosition.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(0)))), ((int)(((byte)(230)))), ((int)(((byte)(80)))));
             this.lblPosition.Location = new System.Drawing.Point(3, 0);
             this.lblPosition.Name = "lblPosition";
-            this.lblPosition.Size = new System.Drawing.Size(245, 59);
+            this.lblPosition.Size = new System.Drawing.Size(178, 50);
             this.lblPosition.TabIndex = 0;
             this.lblPosition.Text = "000.000";
             this.lblPosition.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
@@ -135,9 +135,9 @@ namespace QMC.CDT_320.Ui.Dialogs
             // 
             this.grpSelectAxis.Controls.Add(this.selectAxisList);
             this.grpSelectAxis.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.grpSelectAxis.Location = new System.Drawing.Point(3, 62);
+            this.grpSelectAxis.Location = new System.Drawing.Point(3, 53);
             this.grpSelectAxis.Name = "grpSelectAxis";
-            this.grpSelectAxis.Size = new System.Drawing.Size(245, 456);
+            this.grpSelectAxis.Size = new System.Drawing.Size(178, 356);
             this.grpSelectAxis.TabIndex = 1;
             this.grpSelectAxis.TabStop = false;
             this.grpSelectAxis.Text = "Select Axis";
@@ -147,13 +147,13 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.selectAxisList.BackColor = System.Drawing.Color.Black;
             this.selectAxisList.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.selectAxisList.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.selectAxisList.Font = new System.Drawing.Font("Consolas", 10F, System.Drawing.FontStyle.Bold);
+            this.selectAxisList.Font = new System.Drawing.Font("Consolas", 9F, System.Drawing.FontStyle.Bold);
             this.selectAxisList.ForeColor = System.Drawing.Color.Lime;
             this.selectAxisList.IntegralHeight = false;
-            this.selectAxisList.ItemHeight = 20;
+            this.selectAxisList.ItemHeight = 18;
             this.selectAxisList.Location = new System.Drawing.Point(3, 23);
             this.selectAxisList.Name = "selectAxisList";
-            this.selectAxisList.Size = new System.Drawing.Size(239, 430);
+            this.selectAxisList.Size = new System.Drawing.Size(172, 330);
             this.selectAxisList.TabIndex = 0;
             // 
             // rightLayout
@@ -164,13 +164,13 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.rightLayout.Controls.Add(this.grpMoveMode, 0, 1);
             this.rightLayout.Controls.Add(this.jogLayout, 0, 2);
             this.rightLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.rightLayout.Location = new System.Drawing.Point(268, 11);
+            this.rightLayout.Location = new System.Drawing.Point(199, 9);
             this.rightLayout.Name = "rightLayout";
             this.rightLayout.RowCount = 3;
-            this.rightLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 90F));
-            this.rightLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 155F));
+            this.rightLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 70F));
+            this.rightLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 126F));
             this.rightLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.rightLayout.Size = new System.Drawing.Size(383, 521);
+            this.rightLayout.Size = new System.Drawing.Size(292, 412);
             this.rightLayout.TabIndex = 1;
             // 
             // grpMove
@@ -179,7 +179,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.grpMove.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpMove.Location = new System.Drawing.Point(3, 3);
             this.grpMove.Name = "grpMove";
-            this.grpMove.Size = new System.Drawing.Size(377, 84);
+            this.grpMove.Size = new System.Drawing.Size(286, 64);
             this.grpMove.TabIndex = 0;
             this.grpMove.TabStop = false;
             this.grpMove.Text = "Move";
@@ -191,14 +191,14 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.speedLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.speedLayout.Location = new System.Drawing.Point(3, 23);
             this.speedLayout.Name = "speedLayout";
-            this.speedLayout.Padding = new System.Windows.Forms.Padding(12, 16, 0, 0);
-            this.speedLayout.Size = new System.Drawing.Size(371, 58);
+            this.speedLayout.Padding = new System.Windows.Forms.Padding(8, 8, 0, 0);
+            this.speedLayout.Size = new System.Drawing.Size(280, 38);
             this.speedLayout.TabIndex = 0;
             // 
             // rdoFine
             // 
             this.rdoFine.AutoSize = true;
-            this.rdoFine.Location = new System.Drawing.Point(15, 19);
+            this.rdoFine.Location = new System.Drawing.Point(11, 11);
             this.rdoFine.Name = "rdoFine";
             this.rdoFine.Size = new System.Drawing.Size(57, 24);
             this.rdoFine.TabIndex = 0;
@@ -207,7 +207,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             // rdoCoarse
             // 
             this.rdoCoarse.AutoSize = true;
-            this.rdoCoarse.Location = new System.Drawing.Point(78, 19);
+            this.rdoCoarse.Location = new System.Drawing.Point(74, 11);
             this.rdoCoarse.Name = "rdoCoarse";
             this.rdoCoarse.Size = new System.Drawing.Size(75, 24);
             this.rdoCoarse.TabIndex = 1;
@@ -217,9 +217,9 @@ namespace QMC.CDT_320.Ui.Dialogs
             // 
             this.grpMoveMode.Controls.Add(this.modeLayout);
             this.grpMoveMode.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.grpMoveMode.Location = new System.Drawing.Point(3, 93);
+            this.grpMoveMode.Location = new System.Drawing.Point(3, 73);
             this.grpMoveMode.Name = "grpMoveMode";
-            this.grpMoveMode.Size = new System.Drawing.Size(377, 149);
+            this.grpMoveMode.Size = new System.Drawing.Size(286, 120);
             this.grpMoveMode.TabIndex = 1;
             this.grpMoveMode.TabStop = false;
             this.grpMoveMode.Text = "Move Mode";
@@ -234,12 +234,12 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.modeLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.modeLayout.Location = new System.Drawing.Point(3, 23);
             this.modeLayout.Name = "modeLayout";
-            this.modeLayout.Padding = new System.Windows.Forms.Padding(8, 4, 8, 6);
+            this.modeLayout.Padding = new System.Windows.Forms.Padding(6, 3, 6, 5);
             this.modeLayout.RowCount = 3;
-            this.modeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 39F));
-            this.modeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 35F));
+            this.modeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
+            this.modeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
             this.modeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.modeLayout.Size = new System.Drawing.Size(371, 123);
+            this.modeLayout.Size = new System.Drawing.Size(280, 94);
             this.modeLayout.TabIndex = 0;
             // 
             // moveModeRadioLayout
@@ -247,9 +247,9 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.moveModeRadioLayout.Controls.Add(this.rdoContinuous);
             this.moveModeRadioLayout.Controls.Add(this.rdoStep);
             this.moveModeRadioLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.moveModeRadioLayout.Location = new System.Drawing.Point(11, 7);
+            this.moveModeRadioLayout.Location = new System.Drawing.Point(9, 6);
             this.moveModeRadioLayout.Name = "moveModeRadioLayout";
-            this.moveModeRadioLayout.Size = new System.Drawing.Size(349, 33);
+            this.moveModeRadioLayout.Size = new System.Drawing.Size(262, 24);
             this.moveModeRadioLayout.TabIndex = 0;
             // 
             // rdoContinuous
@@ -278,7 +278,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             0,
             0,
             196608});
-            this.nudStep.Location = new System.Drawing.Point(11, 46);
+            this.nudStep.Location = new System.Drawing.Point(9, 36);
             this.nudStep.Maximum = new decimal(new int[] {
             900000,
             0,
@@ -290,7 +290,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             0,
             -2147483648});
             this.nudStep.Name = "nudStep";
-            this.nudStep.Size = new System.Drawing.Size(120, 27);
+            this.nudStep.Size = new System.Drawing.Size(110, 27);
             this.nudStep.TabIndex = 1;
             this.nudStep.Value = new decimal(new int[] {
             1000,
@@ -306,9 +306,9 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.stepPresetLayout.Controls.Add(this.btnStep0001);
             this.stepPresetLayout.Controls.Add(this.btnStepZero);
             this.stepPresetLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.stepPresetLayout.Location = new System.Drawing.Point(11, 81);
+            this.stepPresetLayout.Location = new System.Drawing.Point(9, 66);
             this.stepPresetLayout.Name = "stepPresetLayout";
-            this.stepPresetLayout.Size = new System.Drawing.Size(349, 33);
+            this.stepPresetLayout.Size = new System.Drawing.Size(262, 20);
             this.stepPresetLayout.TabIndex = 2;
             this.stepPresetLayout.WrapContents = false;
             // 
@@ -317,43 +317,43 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.btnStep1.Location = new System.Drawing.Point(2, 2);
             this.btnStep1.Margin = new System.Windows.Forms.Padding(2);
             this.btnStep1.Name = "btnStep1";
-            this.btnStep1.Size = new System.Drawing.Size(65, 30);
+            this.btnStep1.Size = new System.Drawing.Size(48, 24);
             this.btnStep1.TabIndex = 0;
             this.btnStep1.Text = "1000";
             // 
             // btnStep01
             // 
-            this.btnStep01.Location = new System.Drawing.Point(71, 2);
+            this.btnStep01.Location = new System.Drawing.Point(54, 2);
             this.btnStep01.Margin = new System.Windows.Forms.Padding(2);
             this.btnStep01.Name = "btnStep01";
-            this.btnStep01.Size = new System.Drawing.Size(65, 30);
+            this.btnStep01.Size = new System.Drawing.Size(48, 24);
             this.btnStep01.TabIndex = 1;
             this.btnStep01.Text = "100";
             // 
             // btnStep001
             // 
-            this.btnStep001.Location = new System.Drawing.Point(140, 2);
+            this.btnStep001.Location = new System.Drawing.Point(106, 2);
             this.btnStep001.Margin = new System.Windows.Forms.Padding(2);
             this.btnStep001.Name = "btnStep001";
-            this.btnStep001.Size = new System.Drawing.Size(65, 30);
+            this.btnStep001.Size = new System.Drawing.Size(48, 24);
             this.btnStep001.TabIndex = 2;
             this.btnStep001.Text = "10";
             // 
             // btnStep0001
             // 
-            this.btnStep0001.Location = new System.Drawing.Point(209, 2);
+            this.btnStep0001.Location = new System.Drawing.Point(158, 2);
             this.btnStep0001.Margin = new System.Windows.Forms.Padding(2);
             this.btnStep0001.Name = "btnStep0001";
-            this.btnStep0001.Size = new System.Drawing.Size(65, 30);
+            this.btnStep0001.Size = new System.Drawing.Size(48, 24);
             this.btnStep0001.TabIndex = 3;
             this.btnStep0001.Text = "1um";
             // 
             // btnStepZero
             // 
-            this.btnStepZero.Location = new System.Drawing.Point(278, 2);
+            this.btnStepZero.Location = new System.Drawing.Point(210, 2);
             this.btnStepZero.Margin = new System.Windows.Forms.Padding(2);
             this.btnStepZero.Name = "btnStepZero";
-            this.btnStepZero.Size = new System.Drawing.Size(65, 30);
+            this.btnStepZero.Size = new System.Drawing.Size(48, 24);
             this.btnStepZero.TabIndex = 4;
             this.btnStepZero.Text = "0\'um";
             // 
@@ -376,24 +376,24 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.jogLayout.Controls.Add(this.btnYMinus, 1, 2);
             this.jogLayout.Controls.Add(this.btnNextIndex, 2, 2);
             this.jogLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.jogLayout.Location = new System.Drawing.Point(3, 248);
+            this.jogLayout.Location = new System.Drawing.Point(3, 199);
             this.jogLayout.Name = "jogLayout";
-            this.jogLayout.Padding = new System.Windows.Forms.Padding(4);
+            this.jogLayout.Padding = new System.Windows.Forms.Padding(3);
             this.jogLayout.RowCount = 3;
             this.jogLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 33.333F));
             this.jogLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 33.333F));
             this.jogLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 33.333F));
-            this.jogLayout.Size = new System.Drawing.Size(377, 270);
+            this.jogLayout.Size = new System.Drawing.Size(286, 210);
             this.jogLayout.TabIndex = 2;
             // 
             // btnTMinus
             // 
             this.btnTMinus.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnTMinus.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
-            this.btnTMinus.Location = new System.Drawing.Point(8, 8);
+            this.btnTMinus.Location = new System.Drawing.Point(7, 7);
             this.btnTMinus.Margin = new System.Windows.Forms.Padding(4);
             this.btnTMinus.Name = "btnTMinus";
-            this.btnTMinus.Size = new System.Drawing.Size(84, 79);
+            this.btnTMinus.Size = new System.Drawing.Size(62, 60);
             this.btnTMinus.TabIndex = 0;
             this.btnTMinus.Text = "T-";
             this.btnTMinus.UseVisualStyleBackColor = true;
@@ -402,10 +402,10 @@ namespace QMC.CDT_320.Ui.Dialogs
             // 
             this.btnYPlus.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnYPlus.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
-            this.btnYPlus.Location = new System.Drawing.Point(100, 8);
+            this.btnYPlus.Location = new System.Drawing.Point(77, 7);
             this.btnYPlus.Margin = new System.Windows.Forms.Padding(4);
             this.btnYPlus.Name = "btnYPlus";
-            this.btnYPlus.Size = new System.Drawing.Size(84, 79);
+            this.btnYPlus.Size = new System.Drawing.Size(62, 60);
             this.btnYPlus.TabIndex = 1;
             this.btnYPlus.Text = "Y+";
             this.btnYPlus.UseVisualStyleBackColor = true;
@@ -414,10 +414,10 @@ namespace QMC.CDT_320.Ui.Dialogs
             // 
             this.btnTPlus.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnTPlus.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
-            this.btnTPlus.Location = new System.Drawing.Point(192, 8);
+            this.btnTPlus.Location = new System.Drawing.Point(147, 7);
             this.btnTPlus.Margin = new System.Windows.Forms.Padding(4);
             this.btnTPlus.Name = "btnTPlus";
-            this.btnTPlus.Size = new System.Drawing.Size(84, 79);
+            this.btnTPlus.Size = new System.Drawing.Size(62, 60);
             this.btnTPlus.TabIndex = 2;
             this.btnTPlus.Text = "T+";
             this.btnTPlus.UseVisualStyleBackColor = true;
@@ -426,10 +426,10 @@ namespace QMC.CDT_320.Ui.Dialogs
             // 
             this.btnZPlus.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnZPlus.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
-            this.btnZPlus.Location = new System.Drawing.Point(284, 8);
+            this.btnZPlus.Location = new System.Drawing.Point(217, 7);
             this.btnZPlus.Margin = new System.Windows.Forms.Padding(4);
             this.btnZPlus.Name = "btnZPlus";
-            this.btnZPlus.Size = new System.Drawing.Size(85, 79);
+            this.btnZPlus.Size = new System.Drawing.Size(62, 60);
             this.btnZPlus.TabIndex = 3;
             this.btnZPlus.Text = "Z+";
             this.btnZPlus.UseVisualStyleBackColor = true;
@@ -438,10 +438,10 @@ namespace QMC.CDT_320.Ui.Dialogs
             // 
             this.btnXMinus.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnXMinus.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
-            this.btnXMinus.Location = new System.Drawing.Point(8, 95);
+            this.btnXMinus.Location = new System.Drawing.Point(7, 75);
             this.btnXMinus.Margin = new System.Windows.Forms.Padding(4);
             this.btnXMinus.Name = "btnXMinus";
-            this.btnXMinus.Size = new System.Drawing.Size(84, 79);
+            this.btnXMinus.Size = new System.Drawing.Size(62, 60);
             this.btnXMinus.TabIndex = 4;
             this.btnXMinus.Text = "X-";
             this.btnXMinus.UseVisualStyleBackColor = true;
@@ -450,10 +450,10 @@ namespace QMC.CDT_320.Ui.Dialogs
             // 
             this.btnStop.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnStop.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
-            this.btnStop.Location = new System.Drawing.Point(100, 95);
+            this.btnStop.Location = new System.Drawing.Point(77, 75);
             this.btnStop.Margin = new System.Windows.Forms.Padding(4);
             this.btnStop.Name = "btnStop";
-            this.btnStop.Size = new System.Drawing.Size(84, 79);
+            this.btnStop.Size = new System.Drawing.Size(62, 60);
             this.btnStop.TabIndex = 5;
             this.btnStop.Text = "STOP";
             this.btnStop.UseVisualStyleBackColor = true;
@@ -462,10 +462,10 @@ namespace QMC.CDT_320.Ui.Dialogs
             // 
             this.btnXPlus.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnXPlus.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
-            this.btnXPlus.Location = new System.Drawing.Point(192, 95);
+            this.btnXPlus.Location = new System.Drawing.Point(147, 75);
             this.btnXPlus.Margin = new System.Windows.Forms.Padding(4);
             this.btnXPlus.Name = "btnXPlus";
-            this.btnXPlus.Size = new System.Drawing.Size(84, 79);
+            this.btnXPlus.Size = new System.Drawing.Size(62, 60);
             this.btnXPlus.TabIndex = 6;
             this.btnXPlus.Text = "X+";
             this.btnXPlus.UseVisualStyleBackColor = true;
@@ -474,10 +474,10 @@ namespace QMC.CDT_320.Ui.Dialogs
             // 
             this.btnZMinus.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnZMinus.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
-            this.btnZMinus.Location = new System.Drawing.Point(284, 95);
+            this.btnZMinus.Location = new System.Drawing.Point(217, 75);
             this.btnZMinus.Margin = new System.Windows.Forms.Padding(4);
             this.btnZMinus.Name = "btnZMinus";
-            this.btnZMinus.Size = new System.Drawing.Size(85, 79);
+            this.btnZMinus.Size = new System.Drawing.Size(62, 60);
             this.btnZMinus.TabIndex = 7;
             this.btnZMinus.Text = "Z-";
             this.btnZMinus.UseVisualStyleBackColor = true;
@@ -486,10 +486,10 @@ namespace QMC.CDT_320.Ui.Dialogs
             // 
             this.btnPrevIndex.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnPrevIndex.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
-            this.btnPrevIndex.Location = new System.Drawing.Point(8, 182);
+            this.btnPrevIndex.Location = new System.Drawing.Point(7, 143);
             this.btnPrevIndex.Margin = new System.Windows.Forms.Padding(4);
             this.btnPrevIndex.Name = "btnPrevIndex";
-            this.btnPrevIndex.Size = new System.Drawing.Size(84, 80);
+            this.btnPrevIndex.Size = new System.Drawing.Size(62, 60);
             this.btnPrevIndex.TabIndex = 8;
             this.btnPrevIndex.Text = "Prev\r\nIndex";
             this.btnPrevIndex.UseVisualStyleBackColor = true;
@@ -498,10 +498,10 @@ namespace QMC.CDT_320.Ui.Dialogs
             // 
             this.btnYMinus.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnYMinus.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
-            this.btnYMinus.Location = new System.Drawing.Point(100, 182);
+            this.btnYMinus.Location = new System.Drawing.Point(77, 143);
             this.btnYMinus.Margin = new System.Windows.Forms.Padding(4);
             this.btnYMinus.Name = "btnYMinus";
-            this.btnYMinus.Size = new System.Drawing.Size(84, 80);
+            this.btnYMinus.Size = new System.Drawing.Size(62, 60);
             this.btnYMinus.TabIndex = 9;
             this.btnYMinus.Text = "Y-";
             this.btnYMinus.UseVisualStyleBackColor = true;
@@ -511,10 +511,10 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.jogLayout.SetColumnSpan(this.btnNextIndex, 2);
             this.btnNextIndex.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnNextIndex.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
-            this.btnNextIndex.Location = new System.Drawing.Point(192, 182);
+            this.btnNextIndex.Location = new System.Drawing.Point(147, 143);
             this.btnNextIndex.Margin = new System.Windows.Forms.Padding(4);
             this.btnNextIndex.Name = "btnNextIndex";
-            this.btnNextIndex.Size = new System.Drawing.Size(177, 80);
+            this.btnNextIndex.Size = new System.Drawing.Size(132, 60);
             this.btnNextIndex.TabIndex = 10;
             this.btnNextIndex.Text = "Next\r\nIndex";
             this.btnNextIndex.UseVisualStyleBackColor = true;
@@ -522,10 +522,10 @@ namespace QMC.CDT_320.Ui.Dialogs
             // AxisJogPopup
             // 
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
-            this.ClientSize = new System.Drawing.Size(662, 543);
+            this.ClientSize = new System.Drawing.Size(500, 430);
             this.Controls.Add(this.rootLayout);
             this.Font = new System.Drawing.Font("Segoe UI", 9F);
-            this.MinimumSize = new System.Drawing.Size(560, 430);
+            this.MinimumSize = new System.Drawing.Size(480, 400);
             this.Name = "AxisJogPopup";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "JogPanel";

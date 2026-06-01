@@ -1,4 +1,4 @@
-namespace QMC.CDT_320.Ui.Pages.Settings
+Ôªønamespace QMC.CDT_320.Ui.Pages.Settings
 {
     partial class PositionTeachingPage
     {
@@ -530,7 +530,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this.btnTeach.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnTeach.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnTeach.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnTeach.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 12F, System.Drawing.FontStyle.Bold);
+            this.btnTeach.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 12F, System.Drawing.FontStyle.Bold);
             this.btnTeach.ForeColor = System.Drawing.Color.White;
             this.btnTeach.Location = new System.Drawing.Point(8, 8);
             this.btnTeach.Margin = new System.Windows.Forms.Padding(4);
@@ -544,7 +544,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this.btnGoto.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnGoto.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnGoto.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnGoto.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 12F, System.Drawing.FontStyle.Bold);
+            this.btnGoto.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 12F, System.Drawing.FontStyle.Bold);
             this.btnGoto.ForeColor = System.Drawing.Color.White;
             this.btnGoto.Location = new System.Drawing.Point(228, 8);
             this.btnGoto.Margin = new System.Windows.Forms.Padding(4);
@@ -558,7 +558,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this.btnApply.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnApply.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnApply.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnApply.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 12F, System.Drawing.FontStyle.Bold);
+            this.btnApply.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 12F, System.Drawing.FontStyle.Bold);
             this.btnApply.ForeColor = System.Drawing.Color.White;
             this.btnApply.Location = new System.Drawing.Point(448, 8);
             this.btnApply.Margin = new System.Windows.Forms.Padding(4);
@@ -572,7 +572,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this.btnSave.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnSave.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnSave.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnSave.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 12F, System.Drawing.FontStyle.Bold);
+            this.btnSave.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 12F, System.Drawing.FontStyle.Bold);
             this.btnSave.ForeColor = System.Drawing.Color.White;
             this.btnSave.Location = new System.Drawing.Point(628, 8);
             this.btnSave.Margin = new System.Windows.Forms.Padding(4);
@@ -586,7 +586,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this.btnReload.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnReload.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnReload.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnReload.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 12F, System.Drawing.FontStyle.Bold);
+            this.btnReload.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 12F, System.Drawing.FontStyle.Bold);
             this.btnReload.ForeColor = System.Drawing.Color.White;
             this.btnReload.Location = new System.Drawing.Point(748, 8);
             this.btnReload.Margin = new System.Windows.Forms.Padding(4);
@@ -600,7 +600,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this.btnReset.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnReset.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnReset.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnReset.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 12F, System.Drawing.FontStyle.Bold);
+            this.btnReset.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 12F, System.Drawing.FontStyle.Bold);
             this.btnReset.ForeColor = System.Drawing.Color.White;
             this.btnReset.Location = new System.Drawing.Point(868, 8);
             this.btnReset.Margin = new System.Windows.Forms.Padding(4);
@@ -615,7 +615,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(191)))), ((int)(((byte)(191)))), ((int)(((byte)(191)))));
             this.Controls.Add(this.mainLayout);
             this.Name = "PositionTeachingPage";
-            this.Size = new System.Drawing.Size(1416, 940);
+            this.Size = new System.Drawing.Size(1678, 900);
             this.mainLayout.ResumeLayout(false);
             this.contentLayout.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this._grid)).EndInit();
@@ -636,3 +636,4 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         private System.Windows.Forms.DataGridViewTextBoxColumn dataGridViewTextBoxColumn7;
     }
 }
+

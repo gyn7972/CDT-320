@@ -1,10 +1,10 @@
-using QMC.CDT_320.Ui.Controls;
+ï»¿using QMC.CDT_320.Ui.Controls;
 
 namespace QMC.CDT_320.Ui.Tabs
 {
     partial class SettingsTab
     {
-        // ¦¡¦¡ ÁÖ ¸Þ´º ¹öÆ° ¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡
+        // â”€â”€ ì£¼ ë©”ë‰´ ë²„íŠ¼ â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         internal SidebarButton BtnGeneral;
         internal SidebarButton BtnMotion;
         internal SidebarButton BtnIoControl;
@@ -15,10 +15,10 @@ namespace QMC.CDT_320.Ui.Tabs
         internal SidebarButton BtnSwitch;
         internal SidebarButton BtnLightSource;
 
-        // ¦¡¦¡ º¸Á¶ ¸Þ´º ±×·ì ±¸ºÐ¼± ¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡
+        // â”€â”€ ë³´ì¡° ë©”ë‰´ ê·¸ë£¹ êµ¬ë¶„ì„  â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         internal System.Windows.Forms.Panel PnlSecondarySeparator;
 
-        // ¦¡¦¡ º¸Á¶ ¸Þ´º ¹öÆ° ¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡¦¡
+        // â”€â”€ ë³´ì¡° ë©”ë‰´ ë²„íŠ¼ â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         internal SidebarButton BtnBarcode;
         internal SidebarButton BtnZoomLens;
         internal SidebarButton BtnHeightSensor;
@@ -62,63 +62,63 @@ namespace QMC.CDT_320.Ui.Tabs
             // 
             this.BtnGeneral.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
             this.BtnGeneral.Name = "BtnGeneral";
-            this.BtnGeneral.Size = new System.Drawing.Size(252, 46);
+            this.BtnGeneral.Size = new System.Drawing.Size(202, 46);
             this.BtnGeneral.Text = "General";
             // 
             // BtnMotion
             // 
             this.BtnMotion.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
             this.BtnMotion.Name = "BtnMotion";
-            this.BtnMotion.Size = new System.Drawing.Size(252, 46);
+            this.BtnMotion.Size = new System.Drawing.Size(202, 46);
             this.BtnMotion.Text = "Motion";
             // 
             // BtnIoControl
             // 
             this.BtnIoControl.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
             this.BtnIoControl.Name = "BtnIoControl";
-            this.BtnIoControl.Size = new System.Drawing.Size(252, 46);
+            this.BtnIoControl.Size = new System.Drawing.Size(202, 46);
             this.BtnIoControl.Text = "I/O Control";
             // 
             // BtnDigital
             // 
             this.BtnDigital.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
             this.BtnDigital.Name = "BtnDigital";
-            this.BtnDigital.Size = new System.Drawing.Size(252, 46);
+            this.BtnDigital.Size = new System.Drawing.Size(202, 46);
             this.BtnDigital.Text = "Digital";
             // 
             // BtnDigitalLink
             // 
             this.BtnDigitalLink.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
             this.BtnDigitalLink.Name = "BtnDigitalLink";
-            this.BtnDigitalLink.Size = new System.Drawing.Size(252, 46);
+            this.BtnDigitalLink.Size = new System.Drawing.Size(202, 46);
             this.BtnDigitalLink.Text = "Digital Link";
             // 
             // BtnCylinder
             // 
             this.BtnCylinder.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
             this.BtnCylinder.Name = "BtnCylinder";
-            this.BtnCylinder.Size = new System.Drawing.Size(252, 46);
+            this.BtnCylinder.Size = new System.Drawing.Size(202, 46);
             this.BtnCylinder.Text = "Cylinder";
             // 
             // BtnLamp
             // 
             this.BtnLamp.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
             this.BtnLamp.Name = "BtnLamp";
-            this.BtnLamp.Size = new System.Drawing.Size(252, 46);
+            this.BtnLamp.Size = new System.Drawing.Size(202, 46);
             this.BtnLamp.Text = "Lamp";
             // 
             // BtnSwitch
             // 
             this.BtnSwitch.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
             this.BtnSwitch.Name = "BtnSwitch";
-            this.BtnSwitch.Size = new System.Drawing.Size(252, 46);
+            this.BtnSwitch.Size = new System.Drawing.Size(202, 46);
             this.BtnSwitch.Text = "Switch";
             // 
             // BtnLightSource
             // 
             this.BtnLightSource.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
             this.BtnLightSource.Name = "BtnLightSource";
-            this.BtnLightSource.Size = new System.Drawing.Size(252, 46);
+            this.BtnLightSource.Size = new System.Drawing.Size(202, 46);
             this.BtnLightSource.Text = "Light Source";
             // 
             // PnlSecondarySeparator
@@ -126,90 +126,90 @@ namespace QMC.CDT_320.Ui.Tabs
             this.PnlSecondarySeparator.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(51)))), ((int)(((byte)(51)))), ((int)(((byte)(51)))));
             this.PnlSecondarySeparator.Margin = new System.Windows.Forms.Padding(0, 6, 0, 6);
             this.PnlSecondarySeparator.Name = "PnlSecondarySeparator";
-            this.PnlSecondarySeparator.Size = new System.Drawing.Size(252, 2);
+            this.PnlSecondarySeparator.Size = new System.Drawing.Size(202, 2);
             // 
             // BtnBarcode
             // 
             this.BtnBarcode.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
             this.BtnBarcode.Name = "BtnBarcode";
-            this.BtnBarcode.Size = new System.Drawing.Size(252, 46);
+            this.BtnBarcode.Size = new System.Drawing.Size(202, 46);
             this.BtnBarcode.Text = "Barcode Reader";
             // 
             // BtnZoomLens
             // 
             this.BtnZoomLens.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
             this.BtnZoomLens.Name = "BtnZoomLens";
-            this.BtnZoomLens.Size = new System.Drawing.Size(252, 46);
+            this.BtnZoomLens.Size = new System.Drawing.Size(202, 46);
             this.BtnZoomLens.Text = "Zoom Lens";
             // 
             // BtnHeightSensor
             // 
             this.BtnHeightSensor.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
             this.BtnHeightSensor.Name = "BtnHeightSensor";
-            this.BtnHeightSensor.Size = new System.Drawing.Size(252, 46);
+            this.BtnHeightSensor.Size = new System.Drawing.Size(202, 46);
             this.BtnHeightSensor.Text = "Height Sensor";
             // 
             // BtnSimulator
             // 
             this.BtnSimulator.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
             this.BtnSimulator.Name = "BtnSimulator";
-            this.BtnSimulator.Size = new System.Drawing.Size(252, 46);
+            this.BtnSimulator.Size = new System.Drawing.Size(202, 46);
             this.BtnSimulator.Text = "Simulator Link";
             // 
             // BtnVisionLink
             // 
             this.BtnVisionLink.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
             this.BtnVisionLink.Name = "BtnVisionLink";
-            this.BtnVisionLink.Size = new System.Drawing.Size(252, 46);
+            this.BtnVisionLink.Size = new System.Drawing.Size(202, 46);
             this.BtnVisionLink.Text = "Vision Link";
             // 
             // BtnSelfTest
             // 
             this.BtnSelfTest.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
             this.BtnSelfTest.Name = "BtnSelfTest";
-            this.BtnSelfTest.Size = new System.Drawing.Size(252, 46);
+            this.BtnSelfTest.Size = new System.Drawing.Size(202, 46);
             this.BtnSelfTest.Text = "Self-Test";
             // 
             // BtnAlarmMaster
             // 
             this.BtnAlarmMaster.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
             this.BtnAlarmMaster.Name = "BtnAlarmMaster";
-            this.BtnAlarmMaster.Size = new System.Drawing.Size(252, 46);
+            this.BtnAlarmMaster.Size = new System.Drawing.Size(202, 46);
             this.BtnAlarmMaster.Text = "Alarm Master";
             // 
             // BtnTeach
             // 
             this.BtnTeach.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
             this.BtnTeach.Name = "BtnTeach";
-            this.BtnTeach.Size = new System.Drawing.Size(252, 46);
+            this.BtnTeach.Size = new System.Drawing.Size(202, 46);
             this.BtnTeach.Text = "Position Teach";
             // 
             // BtnAxisSetup
             // 
             this.BtnAxisSetup.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
             this.BtnAxisSetup.Name = "BtnAxisSetup";
-            this.BtnAxisSetup.Size = new System.Drawing.Size(252, 46);
+            this.BtnAxisSetup.Size = new System.Drawing.Size(202, 46);
             this.BtnAxisSetup.Text = "Axis Setup";
             // 
             // BtnCameraSetup
             // 
             this.BtnCameraSetup.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
             this.BtnCameraSetup.Name = "BtnCameraSetup";
-            this.BtnCameraSetup.Size = new System.Drawing.Size(252, 46);
+            this.BtnCameraSetup.Size = new System.Drawing.Size(202, 46);
             this.BtnCameraSetup.Text = "Camera Setup";
             // 
             // BtnLightSetup
             // 
             this.BtnLightSetup.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
             this.BtnLightSetup.Name = "BtnLightSetup";
-            this.BtnLightSetup.Size = new System.Drawing.Size(252, 46);
+            this.BtnLightSetup.Size = new System.Drawing.Size(202, 46);
             this.BtnLightSetup.Text = "Light Setup";
             // 
             // BtnRemoteViewer
             // 
             this.BtnRemoteViewer.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
             this.BtnRemoteViewer.Name = "BtnRemoteViewer";
-            this.BtnRemoteViewer.Size = new System.Drawing.Size(252, 46);
+            this.BtnRemoteViewer.Size = new System.Drawing.Size(202, 46);
             this.BtnRemoteViewer.Text = "Remote Viewer";
             // 
             // PnlSidebarButtons
@@ -244,3 +244,4 @@ namespace QMC.CDT_320.Ui.Tabs
         }
     }
 }
+

@@ -1,4 +1,4 @@
-using System.Drawing;
+﻿using System.Drawing;
 using System.Windows.Forms;
 
 namespace QMC.CDT_320.Ui.Pages.WorkInfo
@@ -707,7 +707,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
             this.Controls.Add(this.rootLayout);
             this.Name = "PlateStatusPage";
-            this.Size = new Size(1400, 900);
+            this.Size = new Size(1678, 900);
             this.goodSlotLayout.ResumeLayout(false);
             this.ngSlotLayout.ResumeLayout(false);
             this.goodLayout.ResumeLayout(false);
@@ -720,3 +720,4 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         }
     }
 }
+

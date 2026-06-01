@@ -1,4 +1,4 @@
-namespace QMC.CDT_320.Ui.Pages.History
+﻿namespace QMC.CDT_320.Ui.Pages.History
 {
     partial class MessageEditPage
     {
@@ -116,7 +116,7 @@ namespace QMC.CDT_320.Ui.Pages.History
             this.BackColor = System.Drawing.Color.White;
             this.Controls.Add(this.rootLayout);
             this.Name = "MessageEditPage";
-            this.Size = new System.Drawing.Size(1416, 980);
+            this.Size = new System.Drawing.Size(1678, 900);
             this.rootLayout.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.grid)).EndInit();
             this.actionLayout.ResumeLayout(false);
@@ -124,3 +124,4 @@ namespace QMC.CDT_320.Ui.Pages.History
         }
     }
 }
+

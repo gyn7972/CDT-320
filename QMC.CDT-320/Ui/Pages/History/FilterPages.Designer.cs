@@ -1,4 +1,4 @@
-using System.Drawing;
+Ôªøusing System.Drawing;
 using System.Windows.Forms;
 
 namespace QMC.CDT_320.Ui.Pages.History
@@ -70,7 +70,7 @@ namespace QMC.CDT_320.Ui.Pages.History
             // 
             this.lblHeader.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(217)))), ((int)(((byte)(119)))), ((int)(((byte)(6)))));
             this.lblHeader.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblHeader.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F, System.Drawing.FontStyle.Bold);
+            this.lblHeader.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F, System.Drawing.FontStyle.Bold);
             this.lblHeader.ForeColor = System.Drawing.Color.White;
             this.lblHeader.Location = new System.Drawing.Point(3, 0);
             this.lblHeader.Name = "lblHeader";
@@ -119,7 +119,7 @@ namespace QMC.CDT_320.Ui.Pages.History
             // lblStartDate
             // 
             this.lblStartDate.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblStartDate.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F);
+            this.lblStartDate.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F);
             this.lblStartDate.Location = new System.Drawing.Point(11, 8);
             this.lblStartDate.Name = "lblStartDate";
             this.lblStartDate.Size = new System.Drawing.Size(52, 28);
@@ -140,7 +140,7 @@ namespace QMC.CDT_320.Ui.Pages.History
             // lblRange
             // 
             this.lblRange.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblRange.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F);
+            this.lblRange.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F);
             this.lblRange.Location = new System.Drawing.Point(233, 8);
             this.lblRange.Name = "lblRange";
             this.lblRange.Size = new System.Drawing.Size(22, 28);
@@ -161,7 +161,7 @@ namespace QMC.CDT_320.Ui.Pages.History
             // lblCode
             // 
             this.lblCode.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblCode.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F);
+            this.lblCode.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F);
             this.lblCode.Location = new System.Drawing.Point(425, 8);
             this.lblCode.Name = "lblCode";
             this.lblCode.Size = new System.Drawing.Size(38, 28);
@@ -181,7 +181,7 @@ namespace QMC.CDT_320.Ui.Pages.History
             // lblUser
             // 
             this.lblUser.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblUser.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F);
+            this.lblUser.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F);
             this.lblUser.Location = new System.Drawing.Point(579, 8);
             this.lblUser.Name = "lblUser";
             this.lblUser.Size = new System.Drawing.Size(48, 28);
@@ -202,7 +202,7 @@ namespace QMC.CDT_320.Ui.Pages.History
             // 
             this.btnSearch.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnSearch.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnSearch.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F);
+            this.btnSearch.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F);
             this.btnSearch.Location = new System.Drawing.Point(783, 11);
             this.btnSearch.Name = "btnSearch";
             this.btnSearch.Size = new System.Drawing.Size(98, 22);
@@ -213,7 +213,7 @@ namespace QMC.CDT_320.Ui.Pages.History
             // 
             this.btnCsv.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnCsv.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnCsv.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F);
+            this.btnCsv.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F);
             this.btnCsv.Location = new System.Drawing.Point(887, 11);
             this.btnCsv.Name = "btnCsv";
             this.btnCsv.Size = new System.Drawing.Size(98, 22);
@@ -224,7 +224,7 @@ namespace QMC.CDT_320.Ui.Pages.History
             // 
             this.btnAll.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnAll.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnAll.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F);
+            this.btnAll.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F);
             this.btnAll.Location = new System.Drawing.Point(991, 11);
             this.btnAll.Name = "btnAll";
             this.btnAll.Size = new System.Drawing.Size(98, 22);
@@ -304,7 +304,7 @@ namespace QMC.CDT_320.Ui.Pages.History
             // 
             this.Controls.Add(this.rootLayout);
             this.Name = "FilterGridPage";
-            this.Size = new System.Drawing.Size(1400, 900);
+            this.Size = new System.Drawing.Size(1678, 900);
             this.rootLayout.ResumeLayout(false);
             this.filterLayout.ResumeLayout(false);
             this.filterLayout.PerformLayout();
@@ -320,3 +320,4 @@ namespace QMC.CDT_320.Ui.Pages.History
         private DataGridViewTextBoxColumn dataGridViewTextBoxColumn5;
     }
 }
+
