@@ -1,0 +1,210 @@
+﻿using System;
+using System.Collections.Generic;
+using System.IO.Ports;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace QMC.Common.Vision.Optics.Leesos
+{
+    
+    [Serializable]
+    public class DigitalIlluminatorConfig : IlluminatorConfig
+    {
+        public string PortName
+        {
+            set;
+            get;
+        }
+        public int BaudRate
+        {
+            set;
+            get;
+        }
+        public int DataBits
+        {
+            set;
+            get;
+        }
+        public StopBits StopBits
+        {
+            set;
+            get;
+        }
+        public Parity Parity
+        {
+            set;
+            get;
+        }
+        public Handshake Handshake
+        {
+            set;
+            get;
+        }
+        public int TimeOut { get; set; }
+        public DigitalIlluminatorConfig()
+        {
+            PortName = "COM1";
+            BaudRate = 9600;
+            DataBits = 8;
+            StopBits = StopBits.One;
+            Parity = Parity.None;
+            Handshake = Handshake.None;
+            TimeOut = 1000;
+        }
+        #region ListParam        
+        public override ListParam ToListParam()
+        {
+            ListParam list = new ListParam();
+            ParamGroup ParamGroup = new ParamGroup();
+            ParamGroup.Name = this.GetType().Name;
+            {
+                Param param = new Param();
+                param.SetParam(nameof(PortName), Param.DisplayTypeKey.Text, PortName, Param.ValueTypeKey.String, ParamGroup.Name);
+
+                list.AddParam(param);
+            }
+
+            {
+                Param param = new Param();
+                param.SetParam(nameof(BaudRate), Param.DisplayTypeKey.Text, BaudRate, Param.ValueTypeKey.Int, ParamGroup.Name);
+
+                list.AddParam(param);
+            }
+
+            {
+                Param param = new Param();
+                param.SetParam(nameof(DataBits), Param.DisplayTypeKey.Text, DataBits, Param.ValueTypeKey.Int, ParamGroup.Name);
+
+
+                list.AddParam(param);
+            }
+            {
+                Param param = new Param();
+                param.SetParam(nameof(StopBits), Param.DisplayTypeKey.Combobox, StopBits, Param.ValueTypeKey.Int, ParamGroup.Name);
+
+                param.SelectValues.Clear();
+                foreach (Enum e in Enum.GetValues(typeof(StopBits)))
+                {
+                    param.SelectValues.Add(e.ToString());
+                }
+
+                list.AddParam(param);
+            }
+            {
+                Param param = new Param();
+                param.SetParam(nameof(Parity), Param.DisplayTypeKey.Combobox, Parity, Param.ValueTypeKey.Int, ParamGroup.Name);
+
+                param.SelectValues.Clear();
+                foreach (Enum e in Enum.GetValues(typeof(Parity)))
+                {
+                    param.SelectValues.Add(e.ToString());
+                }
+
+
+                list.AddParam(param);
+            }
+            {
+                Param param = new Param();
+                param.SetParam(nameof(Handshake), Param.DisplayTypeKey.Combobox, Handshake, Param.ValueTypeKey.Int, ParamGroup.Name);
+
+                param.SelectValues.Clear();
+                foreach (Enum e in Enum.GetValues(typeof(Handshake)))
+                {
+                    param.SelectValues.Add(e.ToString());
+                }
+
+
+                list.AddParam(param);
+            }
+            {
+                Param param = new Param();
+                param.SetParam(nameof(TimeOut), Param.DisplayTypeKey.Text, TimeOut, Param.ValueTypeKey.Int, ParamGroup.Name);
+
+                list.AddParam(param);
+            }
+
+            return list;
+        }
+        public override void SetParam(ListParam listParam)
+        {
+            ParamGroup group = listParam.GetGroup();
+            if (group != null)
+            {
+                Param param = null;
+                param = group.GetParam((int)ParamIlluminatorKey.PortName);
+                if (param != null)
+                {
+                    string value = string.Empty;
+                    if (param.GetStringValue(ref value))
+                    {
+                        PortName = value;
+                    }
+                }
+                param = group.GetParam((int)ParamIlluminatorKey.BaudRate);
+                if (param != null)
+                {
+                    int value = 0;
+                    if (param.GetIntValue(ref value))
+                    {
+                        BaudRate = value;
+                    }
+                }
+                param = group.GetParam((int)ParamIlluminatorKey.DataBits);
+                if (param != null)
+                {
+                    int value = 0;
+                    if (param.GetIntValue(ref value))
+                    {
+                        DataBits = value;
+                    }
+                }
+                param = group.GetParam((int)ParamIlluminatorKey.StopBits);
+                if (param != null)
+                {
+                    int value = 0;
+                    if (param.GetIntValue(ref value))
+                    {
+                        StopBits = (StopBits)value;
+                    }
+                }
+
+                param = group.GetParam((int)ParamIlluminatorKey.Parity);
+                if (param != null)
+                {
+                    int value = 0;
+                    if (param.GetIntValue(ref value))
+                    {
+                        Parity = (Parity)value;
+                    }
+                }
+
+                param = group.GetParam((int)ParamIlluminatorKey.Handshake);
+                if (param != null)
+                {
+                    int value = 0;
+                    if (param.GetIntValue(ref value))
+                    {
+                        Handshake = (Handshake)value;
+                    }
+                }
+
+                param = group.GetParam((int)ParamIlluminatorKey.TimeOut);
+                if (param != null)
+                {
+                    int value = 0;
+                    if (param.GetIntValue(ref value))
+                    {
+                        TimeOut = value;
+                    }
+                }
+            }
+        }
+
+        public override List<object> GetPositions()
+        {
+            return null;
+        }
+        #endregion
+    }
+}

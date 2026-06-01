@@ -21,6 +21,13 @@ namespace QMC.Vision.Ui.Pages
         private Label _lblStatus;
         private bool  _suspendSync;         // 프로그램적 바인딩 중 동기 이벤트 억제 (Stage 70 B)
 
+        // Stage 71 — 채널 라벨 단일 진실원. 포트별 라벨을 캐시로 보관하고 grid 편집을 즉시 write-through.
+        // (기존 버그: CollectFromUi 가 grid 가 아닌 store 라벨을 복사 → Name 편집/Ch수 변경이 사라짐)
+        private readonly System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<LightChannelLabel>> _labelCache
+            = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<LightChannelLabel>>(StringComparer.OrdinalIgnoreCase);
+        private string _boundPort;          // 현재 _gridLabel 에 바인딩된 포트 (flush 대상)
+        private string _editingOldPort;     // PortName 편집 시작 시점의 이전 값 (캐시 키 이전용)
+
         public LightSystemSetupPage()
         {
             if (LicenseManager.UsageMode == LicenseUsageMode.Designtime) return;
@@ -80,6 +87,12 @@ namespace QMC.Vision.Ui.Pages
             // Stage 70 C — PortName 편집 시 결선 콤보 items 동기
             // Stage 70 B 방향2 — ChannelCount 셀 편집 시 라벨 행 증감
             _gridCtrl.CellEndEdit += GridCtrl_CellEndEdit;
+            // Stage 71 — PortName 편집 시작값 캡처 (라벨 캐시 키 이전용)
+            _gridCtrl.CellBeginEdit += (s, e) =>
+            {
+                if (e.RowIndex >= 0 && _gridCtrl.Columns[e.ColumnIndex].Name == "PortName")
+                    _editingOldPort = _gridCtrl.Rows[e.RowIndex].Cells[0].Value?.ToString();
+            };
             left.Controls.Add(_gridCtrl, 0, 1);
             left.Controls.Add(SectionLabel("선택 컨트롤러의 채널 라벨 (행 수 = ChannelCount)"), 0, 2);
             _gridLabel = MakeGrid();
@@ -90,6 +103,8 @@ namespace QMC.Vision.Ui.Pages
             // Stage 70 B 방향1 — 라벨 행 추가/삭제 시 ChannelCount 동기
             _gridLabel.UserAddedRow   += (s, e) => SyncChannelCountFromLabels();
             _gridLabel.RowsRemoved    += (s, e) => SyncChannelCountFromLabels();
+            // Stage 71 — 라벨 Name/Color 편집을 즉시 캐시에 write-through (선택 변경에도 보존)
+            _gridLabel.CellEndEdit    += (s, e) => { if (!_suspendSync) FlushLabelsToCache(); };
             left.Controls.Add(_gridLabel, 0, 3);
             split.Controls.Add(left, 0, 0);
 
@@ -129,9 +144,17 @@ namespace QMC.Vision.Ui.Pages
 
         private void BindAllCore(LightSystemSetup setup)
         {
+            // Stage 71 — 라벨 캐시를 로드된 setup 으로 재시드 (포트별 라벨 복제본 보관)
+            _labelCache.Clear();
+            _boundPort = null;
+
             _gridCtrl.Rows.Clear();
             foreach (var c in setup.Controllers)
+            {
                 _gridCtrl.Rows.Add(c.PortName, c.Name, c.BaudRate, c.ChannelCount, c.PageCount, c.MaxPower);
+                if (!string.IsNullOrEmpty(c.PortName))
+                    _labelCache[c.PortName] = CloneLabels(c.ChannelLabels);
+            }
 
             RefreshControllerCombo();   // Stage 70 C — 콤보 items = 현재 PortName 들
 
@@ -162,17 +185,76 @@ namespace QMC.Vision.Ui.Pages
 
         private void BindLabelsForSelectedController()
         {
-            bool prev = _suspendSync; _suspendSync = true;
+            bool prev = _suspendSync;
+            // 다른 포트로 넘어가기 전에 현재 grid 편집을 캐시로 flush (프로그램적 바인딩 중이 아닐 때만)
+            if (!prev) FlushLabelsToCache();
+            _suspendSync = true;
             try
             {
                 _gridLabel.Rows.Clear();
                 var port = SelectedControllerPort();
-                if (port == null) return;
-                var c = LightSystemSetupStore.Current.GetController(port);
-                if (c?.ChannelLabels == null) return;
-                foreach (var l in c.ChannelLabels) _gridLabel.Rows.Add(l.Channel, l.Name, l.Color);
+                _boundPort = port;
+                if (string.IsNullOrEmpty(port)) return;
+                // 캐시(단일 진실원)에서 읽고 ChannelCount 에 맞춰 행 수 reconcile
+                var labels = GetOrSeedLabels(port);
+                foreach (var l in labels) _gridLabel.Rows.Add(l.Channel, l.Name, l.Color);
             }
             finally { _suspendSync = prev; }
+        }
+
+        /// <summary>Stage 71 — _gridLabel 의 현재 행을 _boundPort 의 캐시 라벨로 저장 (Channel 1..N 재부여).</summary>
+        private void FlushLabelsToCache()
+        {
+            if (string.IsNullOrEmpty(_boundPort)) return;
+            var list = new System.Collections.Generic.List<LightChannelLabel>();
+            int ch = 1;
+            foreach (DataGridViewRow r in _gridLabel.Rows)
+            {
+                if (r.IsNewRow) continue;
+                string color = Str(r, 2);
+                list.Add(new LightChannelLabel { Channel = ch++, Name = Str(r, 1), Color = string.IsNullOrEmpty(color) ? "White" : color });
+            }
+            _labelCache[_boundPort] = list;
+        }
+
+        /// <summary>Stage 71 — 캐시에서 포트 라벨을 가져오되 컨트롤러 행의 ChannelCount 에 맞춰 reconcile.</summary>
+        private System.Collections.Generic.List<LightChannelLabel> GetOrSeedLabels(string port)
+        {
+            _labelCache.TryGetValue(port, out var list);
+            list = ReconcileLabels(list, ChannelCountForPort(port));
+            _labelCache[port] = list;
+            return list;
+        }
+
+        /// <summary>리스트를 길이 n 으로 맞춤 (부족분 빈 라벨 추가 / 초과분 제거), Channel 1..n 재부여.</summary>
+        private static System.Collections.Generic.List<LightChannelLabel> ReconcileLabels(System.Collections.Generic.List<LightChannelLabel> src, int n)
+        {
+            var list = CloneLabels(src);
+            if (n < 0) n = 0;
+            while (list.Count < n) list.Add(new LightChannelLabel { Channel = list.Count + 1, Name = "", Color = "White" });
+            while (list.Count > n && list.Count > 0) list.RemoveAt(list.Count - 1);
+            for (int i = 0; i < list.Count; i++) list[i].Channel = i + 1;
+            return list;
+        }
+
+        private static System.Collections.Generic.List<LightChannelLabel> CloneLabels(System.Collections.Generic.List<LightChannelLabel> src)
+        {
+            var list = new System.Collections.Generic.List<LightChannelLabel>();
+            if (src != null)
+                foreach (var l in src) list.Add(new LightChannelLabel { Channel = l.Channel, Name = l.Name, Color = string.IsNullOrEmpty(l.Color) ? "White" : l.Color });
+            return list;
+        }
+
+        /// <summary>_gridCtrl 에서 해당 포트 행의 ChannelCount 값 (없으면 8).</summary>
+        private int ChannelCountForPort(string port)
+        {
+            foreach (DataGridViewRow r in _gridCtrl.Rows)
+            {
+                if (r.IsNewRow) continue;
+                if (string.Equals(r.Cells[0].Value?.ToString(), port, StringComparison.OrdinalIgnoreCase))
+                    return IntOf(r, 3, 8);
+            }
+            return 8;
         }
 
         // ── Stage 70 A — 컨트롤러 삭제 ──
@@ -194,6 +276,9 @@ namespace QMC.Vision.Ui.Pages
                 foreach (var r in refRows) { r.Cells["ControllerPort"].Value = ""; r.Cells["ChannelsCsv"].Value = ""; }
             }
             _gridCtrl.Rows.Remove(_gridCtrl.CurrentRow);
+            // Stage 71 — 캐시 엔트리 제거 (다음 BindLabels 가 stale flush 하지 않도록 _boundPort 도 해제)
+            if (!string.IsNullOrEmpty(port)) _labelCache.Remove(port);
+            if (string.Equals(_boundPort, port, StringComparison.OrdinalIgnoreCase)) _boundPort = null;
             RefreshControllerCombo();
             BindLabelsForSelectedController();
             int left = _gridCtrl.Rows.Cast<DataGridViewRow>().Count(r => !r.IsNewRow);
@@ -211,6 +296,7 @@ namespace QMC.Vision.Ui.Pages
             int ch = 1;
             foreach (DataGridViewRow r in _gridLabel.Rows) { if (r.IsNewRow) continue; r.Cells["Channel"].Value = ch++; }
             ctrlRow.Cells["ChannelCount"].Value = n;
+            FlushLabelsToCache();   // Stage 71 — 라벨 행 추가/삭제를 캐시에 반영
             TrimWiringPool(ctrlRow.Cells[0].Value?.ToString(), n);
         }
 
@@ -223,6 +309,16 @@ namespace QMC.Vision.Ui.Pages
 
             if (colName == "PortName")
             {
+                // Stage 71 — 라벨 캐시 키를 이전 포트명 → 새 포트명으로 이전 (라벨 보존)
+                string newPort = row.Cells[0].Value?.ToString();
+                if (!string.IsNullOrEmpty(_editingOldPort) && !string.Equals(_editingOldPort, newPort, StringComparison.OrdinalIgnoreCase)
+                    && _labelCache.TryGetValue(_editingOldPort, out var lbls))
+                {
+                    _labelCache.Remove(_editingOldPort);
+                    if (!string.IsNullOrEmpty(newPort)) _labelCache[newPort] = lbls;
+                }
+                if (string.Equals(_boundPort, _editingOldPort, StringComparison.OrdinalIgnoreCase)) _boundPort = newPort;
+                _editingOldPort = null;
                 RefreshControllerCombo();
                 return;
             }
@@ -231,6 +327,7 @@ namespace QMC.Vision.Ui.Pages
                 if (!int.TryParse(row.Cells["ChannelCount"].Value?.ToString(), out int k) || k < 0) return;
                 // 선택 컨트롤러가 이 행이어야 라벨 그리드가 일치 — 현재 행 선택 강제
                 if (_gridCtrl.CurrentRow != row) { _gridCtrl.CurrentCell = row.Cells[0]; BindLabelsForSelectedController(); }
+                _boundPort = row.Cells[0].Value?.ToString();
                 _suspendSync = true;
                 try
                 {
@@ -240,6 +337,7 @@ namespace QMC.Vision.Ui.Pages
                     int ch = 1; foreach (DataGridViewRow r in _gridLabel.Rows) { if (r.IsNewRow) continue; r.Cells["Channel"].Value = ch++; }
                 }
                 finally { _suspendSync = false; }
+                FlushLabelsToCache();   // Stage 71 — 증감된 라벨 행을 선택 포트 캐시에 영속
                 TrimWiringPool(row.Cells[0].Value?.ToString(), k);
             }
         }
@@ -270,20 +368,24 @@ namespace QMC.Vision.Ui.Pages
         /// <summary>UI → LightSystemSetup 객체 수집.</summary>
         private LightSystemSetup CollectFromUi()
         {
+            // Stage 71 — 현재 grid 의 라벨 편집을 캐시에 flush 한 뒤 캐시를 라벨 진실원으로 사용
+            FlushLabelsToCache();
             var setup = new LightSystemSetup();
             foreach (DataGridViewRow r in _gridCtrl.Rows)
             {
                 if (r.IsNewRow) continue;
                 string port = Str(r, 0);
                 if (string.IsNullOrEmpty(port)) continue;
-                // 기존 채널 라벨 보존 (현재 store 에서)
-                var existing = LightSystemSetupStore.Current.GetController(port);
+                int chCount = IntOf(r, 3, 8);
+                // 채널 라벨: 캐시(단일 진실원) → ChannelCount 로 reconcile (캐시 미스 시 store fallback)
+                _labelCache.TryGetValue(port, out var cached);
+                if (cached == null) cached = LightSystemSetupStore.Current.GetController(port)?.ChannelLabels;
                 setup.Controllers.Add(new LightControllerEntry
                 {
                     PortName = port, Name = Str(r, 1),
-                    BaudRate = IntOf(r, 2, 9600), ChannelCount = IntOf(r, 3, 8),
+                    BaudRate = IntOf(r, 2, 9600), ChannelCount = chCount,
                     PageCount = IntOf(r, 4, 1), MaxPower = IntOf(r, 5, 240),
-                    ChannelLabels = existing?.ChannelLabels ?? new System.Collections.Generic.List<LightChannelLabel>()
+                    ChannelLabels = ReconcileLabels(cached, chCount)
                 });
             }
             setup.EnsureWirings();

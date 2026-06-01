@@ -1,0 +1,45 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.8.34601.278
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "QMC.Core", "QMC.Core\QMC.Core.csproj", "{EBE42682-881B-4AEA-A2C2-FDDF7D464A6F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "QMC.Hmi", "QMC.Hmi\QMC.Hmi.csproj", "{8E3A4534-8540-4555-AB64-CCCD8EBF9C82}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Common Library", "Common Library", "{C8D5274F-AC00-46C7-1F8D-E88E81087A52}"
+	ProjectSection(SolutionItems) = preProject
+		QMC.Core\Library\Newtonsoft.Json.dll = QMC.Core\Library\Newtonsoft.Json.dll
+		QMC.Core\Library\SentiCore.Data.dll = QMC.Core\Library\SentiCore.Data.dll
+		Common Library\SentiCore.dll = Common Library\SentiCore.dll
+		Common Library\SentiCore.Products.dll = Common Library\SentiCore.Products.dll
+		Common Library\SentiCore.Products.WinForms.dll = Common Library\SentiCore.Products.WinForms.dll
+		Common Library\SentiCore.WinForms.dll = Common Library\SentiCore.WinForms.dll
+		Common Library\SoftBricks.dll = Common Library\SoftBricks.dll
+		Common Library\SoftBricks.Hmi.dll = Common Library\SoftBricks.Hmi.dll
+		Common Library\SoftBricks.Secs.dll = Common Library\SoftBricks.Secs.dll
+		Common Library\SoftBricks.Visions.dll = Common Library\SoftBricks.Visions.dll
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{EBE42682-881B-4AEA-A2C2-FDDF7D464A6F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EBE42682-881B-4AEA-A2C2-FDDF7D464A6F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EBE42682-881B-4AEA-A2C2-FDDF7D464A6F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EBE42682-881B-4AEA-A2C2-FDDF7D464A6F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8E3A4534-8540-4555-AB64-CCCD8EBF9C82}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8E3A4534-8540-4555-AB64-CCCD8EBF9C82}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8E3A4534-8540-4555-AB64-CCCD8EBF9C82}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8E3A4534-8540-4555-AB64-CCCD8EBF9C82}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {9EB725CE-318A-41DF-99AC-73C6A25D03D9}
+	EndGlobalSection
+EndGlobal
