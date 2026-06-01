@@ -17,8 +17,9 @@ namespace QMC.Vision.Optics.LFine
         private readonly object _txLock = new object();
         private SerialPort _port;
 
-        private readonly int[] _power;       // 1-기반
-        private readonly int[] _lastOnPower; // On/Off 복원
+        private readonly int[] _power;       // 1-기반 — 채널별 on-time 캐시 (밝기 = strobe on-time)
+        private readonly int[] _lastOnPower; // On/Off 복원용 직전 on-time
+        private int _currentPage;            // 현재 페이지 (SC/SP 명령마다 포함; 레퍼런스에 별도 전환 명령 없음)
 
         public bool   IsConnected { get; private set; }
         public string PortName    => _cfg.PortName;
@@ -72,7 +73,8 @@ namespace QMC.Vision.Optics.LFine
                     "Light/" + _cfg.PortName, $"Power 범위 초과 ch={channel} power={power} (max={_cfg.MaxPower})");
                 return Task.FromResult(false);
             }
-            bool ok = SendFrame(LFineProtocol.PowerFrame(channel, power));
+            // 밝기 = strobe on-time. 단일 채널 명령(SC)으로 현재 페이지에 송신.
+            bool ok = SendFrame(LFineProtocol.ChannelOnTimeFrame(_currentPage, channel, power));
             if (ok) { _power[channel] = power; if (power > 0) _lastOnPower[channel] = power; }
             return Task.FromResult(ok);
         }
@@ -86,7 +88,9 @@ namespace QMC.Vision.Optics.LFine
                     "Light/" + _cfg.PortName, $"StrobeTime 범위 초과 ch={channel} us={onTimeUs} (max={_cfg.MaxOnTimeUs})");
                 return Task.FromResult(false);
             }
-            bool ok = SendFrame(LFineProtocol.StrobeTimeFrame(channel, onTimeUs));
+            // LFine PS 디지털: strobe on-time 이 곧 밝기 — 단일 채널 명령(SC) 으로 현재 페이지에 송신.
+            bool ok = SendFrame(LFineProtocol.ChannelOnTimeFrame(_currentPage, channel, onTimeUs));
+            if (ok) { _power[channel] = onTimeUs; if (onTimeUs > 0) _lastOnPower[channel] = onTimeUs; }
             return Task.FromResult(ok);
         }
 
@@ -103,9 +107,13 @@ namespace QMC.Vision.Optics.LFine
         public Task<bool> CheckPowerOnAsync(int channel)
             => Task.FromResult(IsConnected && (_port != null && _port.IsOpen) && IsValid(channel));
 
-        /// <summary>페이지 전환 — Stage 67 LFineLightConfig 엔 페이지 명령 포맷 미정의이므로 현재 no-op.
-        /// 실 컨트롤러가 페이지 모델이면 별도 명령 추가 필요 (Stage 68 #3: 기본 PageCount=1 가정).</summary>
-        public Task<bool> SwitchPageAsync(int page) => Task.FromResult(true);
+        /// <summary>페이지 전환 — 레퍼런스 프로토콜엔 별도 전환 명령이 없고 page 는 SC/SP 명령마다 포함된다.
+        /// 따라서 현재 페이지 값만 보관하고, 이후 SetPower/SetStrobeTime 이 이 페이지로 송신한다.</summary>
+        public Task<bool> SwitchPageAsync(int page)
+        {
+            _currentPage = page < 0 ? 0 : page;
+            return Task.FromResult(true);
+        }
 
         /// <summary>프레임 송신 — lock 으로 직렬화. 송신 실패 시 LIGHT-TX-FAIL.</summary>
         private bool SendFrame(byte[] frame)

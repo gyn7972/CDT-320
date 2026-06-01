@@ -23,7 +23,7 @@ Add-Row "S67-B" "Store lfine_light.json" (Test-Greps $cfg @('lfine_light.json','
 
 # C. protocol
 $proto = Join-Path $Root "QMC.Vision\Optics\LFine\LFineProtocol.cs"
-Add-Row "S67-C" "Protocol Stx=0x02 Etx=0x03 + Build commands" (Test-Greps $proto @('Stx = 0x02','Etx = 0x03','BuildPowerCommand','BuildStrobeTimeCommand','WrapFrame')) $proto
+Add-Row "S67-C" "Protocol Stx=0x40 Etx=0x0D0A + SP/SC on-time commands" (Test-Greps $proto @('0x40','0x0D','0x0A','BuildChannelOnTimeCommand','BuildPageOnTimeCommand','WrapFrame')) $proto
 
 # D. real controller
 $ctrl = Join-Path $Root "QMC.Vision\Optics\LFine\LFineLightController.cs"

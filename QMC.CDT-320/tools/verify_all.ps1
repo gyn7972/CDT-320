@@ -131,7 +131,7 @@ Add-Row "STAGE65" "Form1 Tab.Maintenance/_pgMaint 제거" (-not (Test-Greps $vfo
 $lfctrl = Join-Path $Root "QMC.Vision\Optics\LFine\LFineLightController.cs"
 $lifc   = Join-Path $Root "QMC.Vision\Optics\ILightController.cs"
 $lproto = Join-Path $Root "QMC.Vision\Optics\LFine\LFineProtocol.cs"
-Add-Row "STAGE67" "ILightController + LFineLightController + Protocol 존재" ((Test-Path $lifc) -and (Test-Path $lfctrl) -and (Test-Greps $lproto @('Stx = 0x02','BuildPowerCommand'))) "optics"
+Add-Row "STAGE67" "ILightController + LFineLightController + Protocol 존재" ((Test-Path $lifc) -and (Test-Path $lfctrl) -and (Test-Greps $lproto @('0x40','BuildChannelOnTimeCommand'))) "optics"
 Add-Row "STAGE67" "AlarmMaster 6 LIGHT-* 코드" (Test-Greps $alarmFile @('LIGHT-OPEN-FAIL','LIGHT-TIMEOUT','LIGHT-PWR-RANGE')) $alarmFile
 
 # Stage 69 — 검사별 조명 매핑

@@ -11,7 +11,7 @@ namespace QMC.Vision.Optics.LFine
     public class LFineLightConfig
     {
         [DataMember] public string PortName     { get; set; } = "COM1";
-        [DataMember] public int    BaudRate     { get; set; } = 9600;
+        [DataMember] public int    BaudRate     { get; set; } = 115200;
         [DataMember] public int    DataBits     { get; set; } = 8;
         [DataMember] public string StopBits     { get; set; } = "One";    // System.IO.Ports.StopBits 이름
         [DataMember] public string Parity       { get; set; } = "None";
