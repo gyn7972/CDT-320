@@ -199,3 +199,13 @@
 |---|---|---|---|
 | M-67-1 | io_set.lightSource.json(8채널/COM1·2·3) → 컨트롤러 2개 | #5 컨트롤러 2개 확정에 따라 8채널을 COM1 4 + COM2 4 로 분배 | LFineLightSetup.CreateDefault 기본값. 실 결선 시 포트/채널 조정 필요 |
 | M-67-2 | io_set 채널 6/7 "TOP/BOTTOM SIDE VISION" | Stage 63 리네임 정합 | 기본값에서 "FRONT SIDE VISION"/"REAR SIDE VISION" 으로 반영 |
+
+## STAGE 68 — 검사별 조명 매핑 SPEC (2026-05-29)
+
+| ID | 위치 | 내용 | 처리 |
+|---|---|---|---|
+| M-68-1 | IlluminatorPanel.cs:29 | 4채널 더미 — ValueChanged 가 라벨 텍스트만, 하드웨어 명령 0 | 구현 Stage 69 에서 InspectionLightPanel 신설로 대체 |
+| M-68-2 | FinderPage:55 / InspectorPage:53 | IlluminatorPanel 에 검사 컨텍스트 미전달 | Stage 64 검사 노드 결합으로 컨텍스트 주입 (Stage 69) |
+| M-68-3 | LightControllerPage:180-198 | 시리얼 Write 1회만, 검사별 매핑/응답 없음, Vision 비결선 | LightHub + InspectionLightPanel 로 정식 결선 (Stage 69) |
+| M-68-4 | 매뉴얼(2) / io_set(3포트) / 본 결정(2 컨트롤러) | io_set 8채널 3포트를 2 컨트롤러로 재매핑 | LightSystemMigrator + 확인 필요 #1 채널 풀 배정 |
+| M-68-5 | Stage 67 ILightController | SwitchPageAsync 부재 | Page 축 사용 시 구현 Stage 에서 추가 (PageCount==1 이면 no-op) |
