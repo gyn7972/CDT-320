@@ -126,7 +126,6 @@
             this.lblWaitVal = new System.Windows.Forms.Label();
             this.panelRight = new System.Windows.Forms.TableLayoutPanel();
             this.jogSection = new System.Windows.Forms.TableLayoutPanel();
-            this.unitConfigGrid = new QMC.CDT_320.Ui.Controls.UnitConfigGrid();
             this.speedSection = new System.Windows.Forms.TableLayoutPanel();
             this.lblSpeedTitle = new System.Windows.Forms.Label();
             this.lblSpeedHigh = new System.Windows.Forms.Label();
@@ -134,6 +133,7 @@
             this.lblSpeedLow = new System.Windows.Forms.Label();
             this.lblSpeedValue = new System.Windows.Forms.Label();
             this.trkSpeed = new System.Windows.Forms.TrackBar();
+            this.unitConfigGrid = new QMC.CDT_320.Ui.Controls.UnitConfigGrid();
             this.mainLayout.SuspendLayout();
             this.contentLayout.SuspendLayout();
             this.panelLeft.SuspendLayout();
@@ -147,7 +147,6 @@
             this.optionRows.SuspendLayout();
             this.waitRows.SuspendLayout();
             this.panelRight.SuspendLayout();
-            this.jogSection.SuspendLayout();
             this.speedSection.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.trkSpeed)).BeginInit();
             this.SuspendLayout();
@@ -941,19 +940,14 @@
             this.panelRight.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.panelRight.Size = new System.Drawing.Size(410, 832);
             this.panelRight.TabIndex = 2;
-            
-           
             // 
-            // unitConfigGrid
+            // jogSection
             // 
-            this.unitConfigGrid.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
-            this.unitConfigGrid.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.unitConfigGrid.Location = new System.Drawing.Point(1156, 6);
-            this.unitConfigGrid.Margin = new System.Windows.Forms.Padding(8, 0, 0, 0);
-            this.unitConfigGrid.Name = "unitConfigGrid";
-            this.unitConfigGrid.Size = new System.Drawing.Size(336, 832);
-            this.unitConfigGrid.TabIndex = 3;
-            this.unitConfigGrid.Title = "UNIT CONFIG";
+            this.jogSection.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 20F));
+            this.jogSection.Location = new System.Drawing.Point(3, 3);
+            this.jogSection.Name = "jogSection";
+            this.jogSection.Size = new System.Drawing.Size(200, 100);
+            this.jogSection.TabIndex = 0;
             // 
             // speedSection
             // 
@@ -999,7 +993,7 @@
             // lblSpeedHigh
             // 
             this.lblSpeedHigh.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.lblSpeedHigh.Location = new System.Drawing.Point(13, 26);
+            this.lblSpeedHigh.Location = new System.Drawing.Point(14, 26);
             this.lblSpeedHigh.Margin = new System.Windows.Forms.Padding(0);
             this.lblSpeedHigh.Name = "lblSpeedHigh";
             this.lblSpeedHigh.Size = new System.Drawing.Size(40, 255);
@@ -1010,7 +1004,7 @@
             // lblSpeedMid
             // 
             this.lblSpeedMid.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.lblSpeedMid.Location = new System.Drawing.Point(13, 281);
+            this.lblSpeedMid.Location = new System.Drawing.Point(14, 281);
             this.lblSpeedMid.Margin = new System.Windows.Forms.Padding(0);
             this.lblSpeedMid.Name = "lblSpeedMid";
             this.lblSpeedMid.Size = new System.Drawing.Size(40, 263);
@@ -1021,7 +1015,7 @@
             // lblSpeedLow
             // 
             this.lblSpeedLow.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.lblSpeedLow.Location = new System.Drawing.Point(13, 544);
+            this.lblSpeedLow.Location = new System.Drawing.Point(14, 544);
             this.lblSpeedLow.Margin = new System.Windows.Forms.Padding(0);
             this.lblSpeedLow.Name = "lblSpeedLow";
             this.lblSpeedLow.Size = new System.Drawing.Size(40, 255);
@@ -1039,7 +1033,7 @@
             this.lblSpeedValue.Location = new System.Drawing.Point(2, 801);
             this.lblSpeedValue.Margin = new System.Windows.Forms.Padding(2);
             this.lblSpeedValue.Name = "lblSpeedValue";
-            this.lblSpeedValue.Size = new System.Drawing.Size(49, 29);
+            this.lblSpeedValue.Size = new System.Drawing.Size(50, 29);
             this.lblSpeedValue.TabIndex = 5;
             this.lblSpeedValue.Text = "50 %";
             this.lblSpeedValue.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
@@ -1057,6 +1051,17 @@
             this.trkSpeed.TickFrequency = 10;
             this.trkSpeed.Value = 50;
             this.trkSpeed.ValueChanged += new System.EventHandler(this.trkSpeed_ValueChanged);
+            // 
+            // unitConfigGrid
+            // 
+            this.unitConfigGrid.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
+            this.unitConfigGrid.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.unitConfigGrid.Location = new System.Drawing.Point(1156, 6);
+            this.unitConfigGrid.Margin = new System.Windows.Forms.Padding(8, 0, 0, 0);
+            this.unitConfigGrid.Name = "unitConfigGrid";
+            this.unitConfigGrid.Size = new System.Drawing.Size(336, 832);
+            this.unitConfigGrid.TabIndex = 3;
+            this.unitConfigGrid.Title = "UNIT CONFIG";
             // 
             // CassetteRecipePage
             // 
@@ -1078,7 +1083,6 @@
             this.optionRows.ResumeLayout(false);
             this.waitRows.ResumeLayout(false);
             this.panelRight.ResumeLayout(false);
-            this.jogSection.ResumeLayout(false);
             this.speedSection.ResumeLayout(false);
             this.speedSection.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.trkSpeed)).EndInit();
