@@ -58,9 +58,9 @@ Add-Row "STAGE60" "AlarmMaster ManualLocator 필드" (Test-Greps $alarmFile @('p
 Add-Row "STAGE60" "E-STOP 등록" (Test-Greps $alarmFile @('Code="E-STOP"')) $alarmFile
 $emgCount = (Select-String -Path $alarmFile -Pattern '^\s*new AlarmDefinition.*Code="EMG-PRESSED"' -EA SilentlyContinue).Count
 Add-Row "STAGE60" "EMG-PRESSED 정의 제거 (주석 제외)" ($emgCount -eq 0) "주석 라인 제외 0건 기대"
-# Stage 62: +3 (VISION-*), Stage 67: +6 (LIGHT-*) → 48+3+6 = 57
+# Stage 62:+3(VISION-*), 67:+6(LIGHT-*), 69:+3(LIGHT-WIRING/MAP/POOL) → 48+3+6+3 = 60
 $codeCount = (Select-String -Path $alarmFile -Pattern 'Code="[A-Z][A-Z0-9-]+"').Count
-Add-Row "STAGE67" "AlarmMaster 등록 = 57 (48 + Stage62:3 + Stage67:6)" ($codeCount -eq 57) "actual=$codeCount"
+Add-Row "STAGE69" "AlarmMaster 등록 = 60 (48 + 62:3 + 67:6 + 69:3)" ($codeCount -eq 60) "actual=$codeCount"
 
 # Stage 60 cycle 4 — OS-12 LIMIT-HIT (AjinAxis)
 $ajinFile = Join-Path $Root "QMC.CDT-320\Equipment\Ajin\AjinAxis.cs"
@@ -133,6 +133,15 @@ $lifc   = Join-Path $Root "QMC.Vision\Optics\ILightController.cs"
 $lproto = Join-Path $Root "QMC.Vision\Optics\LFine\LFineProtocol.cs"
 Add-Row "STAGE67" "ILightController + LFineLightController + Protocol 존재" ((Test-Path $lifc) -and (Test-Path $lfctrl) -and (Test-Greps $lproto @('Stx = 0x02','BuildPowerCommand'))) "optics"
 Add-Row "STAGE67" "AlarmMaster 6 LIGHT-* 코드" (Test-Greps $alarmFile @('LIGHT-OPEN-FAIL','LIGHT-TIMEOUT','LIGHT-PWR-RANGE')) $alarmFile
+
+# Stage 69 — 검사별 조명 매핑
+$lsetup = Join-Path $Root "QMC.Common\Recipes\LightSystemSetup.cs"
+$lhub   = Join-Path $Root "QMC.Vision\Comm\LightHub.cs"
+$lpanel = Join-Path $Root "QMC.Vision\Ui\Pages\InspectionLightPanel.cs"
+Add-Row "STAGE69" "LightSystemSetup + LightHub + InspectionLightPanel 존재" ((Test-Path $lsetup) -and (Test-Path $lhub) -and (Test-Path $lpanel)) "light-map"
+Add-Row "STAGE69" "AlarmMaster 3 신규 (WIRING-MISS/MAP-INVALID/OUT-OF-POOL)" (Test-Greps $alarmFile @('LIGHT-WIRING-MISS','LIGHT-MAP-INVALID','LIGHT-CHANNEL-OUT-OF-POOL')) $alarmFile
+$acsF = Join-Path $Root "QMC.Common\Recipes\AlgorithmCameraSubset.cs"
+Add-Row "STAGE69" "AlgorithmCameraMapping.InspectionLights (옵션 A)" (Test-Greps $acsF @('List<InspectionLightOverride>\s+InspectionLights')) $acsF
 
 # ── 출력 ──
 $bar = "=" * 110

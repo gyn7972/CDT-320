@@ -45,6 +45,25 @@ namespace QMC.Vision
             var cfg = VisionConfigStore.Load();
             var map = AlgorithmCameraMapStore.Load();   // 알고리즘-카메라 매핑 (없으면 defaults)
 
+            // Stage 69 — 조명 시스템 Setup 로드 + LightHub 초기화 (Sim 백엔드면 Sim 컨트롤러).
+            var lightSetup = QMC.Common.Recipes.LightSystemSetupStore.Load();
+            // 첫 기동 자동 마이그레이션: Setup 비어 있고 레거시 io_set 존재 시 1회 변환 + 백업.
+            if (lightSetup.Controllers == null || lightSetup.Controllers.Count == 0)
+            {
+                string ioSet = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "io_set.lightSource.json");
+                var migrated = QMC.Common.Recipes.LightSystemMigrator.MigrateFromLegacy(ioSet);
+                if (migrated != null)
+                {
+                    QMC.Common.Recipes.LightSystemMigrator.BackupLegacy(ioSet, DateTime.Now.ToString("yyyyMMdd"));
+                    migrated.EnsureWirings();
+                    QMC.Common.Recipes.LightSystemSetupStore.SetCurrent(migrated);
+                    QMC.Common.Recipes.LightSystemSetupStore.Save();
+                    lightSetup = migrated;
+                }
+            }
+            bool lightUseSim = cfg.Provider == VisionProvider.Sim;
+            QMC.Vision.Comm.LightHub.Initialize(lightSetup, lightUseSim);
+
             Backend = VisionFactory.Global;
             lblStatusL.Text = $"Backend: {Backend.Name}   |   {Backend.VersionInfo}";
             lblStatusR.Text = $"TCP: Wafer={cfg.WaferVisionPort}  Bin={cfg.BinVisionPort}  Bottom={cfg.InspectionVisionPort}";
@@ -275,6 +294,7 @@ namespace QMC.Vision
             try { _svrBottom?.Dispose(); }     catch { }
             try { _svrFrontSide?.Dispose(); }    catch { }
             try { _svrRearSide?.Dispose(); } catch { }
+            try { QMC.Vision.Comm.LightHub.DisposeAll(); } catch { }
             try { Backend?.Dispose(); }        catch { }
             base.OnFormClosing(e);
         }

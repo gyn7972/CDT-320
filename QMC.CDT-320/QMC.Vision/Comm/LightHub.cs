@@ -1,0 +1,61 @@
+using System;
+using System.Collections.Generic;
+using QMC.Common.Recipes;
+using QMC.Vision.Optics;
+using QMC.Vision.Optics.LFine;
+
+namespace QMC.Vision.Comm
+{
+    /// <summary>
+    /// Stage 69 — 프로세스 전역 조명 컨트롤러 허브 (VisionHub 패턴).
+    /// PortName → ILightController 매핑. Form1.Load 가 LightSystemSetup.Controllers 순회하여 등록.
+    /// 호출자는 알고리즘 결선의 ControllerPort 로 Get(port) 라우팅.
+    /// </summary>
+    public static class LightHub
+    {
+        private static readonly Dictionary<string, ILightController> _byPort
+            = new Dictionary<string, ILightController>(StringComparer.OrdinalIgnoreCase);
+
+        public static event Action<string> Log;
+
+        /// <summary>Setup 의 컨트롤러들을 인스턴스화하여 등록. useSim 시 전부 Sim.</summary>
+        public static void Initialize(LightSystemSetup setup, bool useSim)
+        {
+            DisposeAll();
+            if (setup?.Controllers == null) return;
+            foreach (var entry in setup.Controllers)
+            {
+                if (string.IsNullOrEmpty(entry.PortName)) continue;
+                var cfg = new LFineLightConfig
+                {
+                    PortName     = entry.PortName,
+                    BaudRate     = entry.BaudRate,
+                    MaxPower     = entry.MaxPower,
+                    MaxOnTimeUs  = entry.MaxOnTimeUs,
+                    ChannelCount = entry.ChannelCount
+                };
+                ILightController ctrl = LightControllerFactory.Create(cfg, useSim);
+                _byPort[entry.PortName] = ctrl;
+                Emit($"register {entry.PortName} ({ctrl.GetType().Name})");
+            }
+        }
+
+        /// <summary>포트로 컨트롤러 조회. 미등록 시 null.</summary>
+        public static ILightController Get(string portName)
+        {
+            if (string.IsNullOrEmpty(portName)) return null;
+            _byPort.TryGetValue(portName, out var c);
+            return c;
+        }
+
+        public static IReadOnlyCollection<string> Ports => _byPort.Keys;
+
+        public static void DisposeAll()
+        {
+            foreach (var c in _byPort.Values) { try { c.Dispose(); } catch { } }
+            _byPort.Clear();
+        }
+
+        private static void Emit(string msg) { try { Log?.Invoke("[LightHub] " + msg); } catch { } }
+    }
+}

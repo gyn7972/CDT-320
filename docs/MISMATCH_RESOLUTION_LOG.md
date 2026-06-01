@@ -209,3 +209,10 @@
 | M-68-3 | LightControllerPage:180-198 | 시리얼 Write 1회만, 검사별 매핑/응답 없음, Vision 비결선 | LightHub + InspectionLightPanel 로 정식 결선 (Stage 69) |
 | M-68-4 | 매뉴얼(2) / io_set(3포트) / 본 결정(2 컨트롤러) | io_set 8채널 3포트를 2 컨트롤러로 재매핑 | LightSystemMigrator + 확인 필요 #1 채널 풀 배정 |
 | M-68-5 | Stage 67 ILightController | SwitchPageAsync 부재 | Page 축 사용 시 구현 Stage 에서 추가 (PageCount==1 이면 no-op) |
+
+## STAGE 69 — 검사별 조명 매핑 구현 (2026-05-29)
+
+| ID | 위치 | 내용 | 처리 |
+|---|---|---|---|
+| M-69-1 | io_set(3포트) vs 결정(2 컨트롤러) | 자동 마이그레이션은 io_set 실 포트(3개) 충실 반영 | 사용자가 Setup 결선 표 + 포트 일괄 변경/컨트롤러 삭제로 2개로 통합. M-68-4 후속 |
+| M-69-2 | LFineLightController.SwitchPageAsync | Stage 67 Config 에 페이지 명령 포맷 미정의 | 현재 no-op(true). 실 페이지 모델 컨트롤러 도입 시 명령 추가 (Stage 68 #3) |

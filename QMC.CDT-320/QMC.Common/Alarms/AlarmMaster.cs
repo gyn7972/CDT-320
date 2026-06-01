@@ -187,6 +187,17 @@ namespace QMC.Common.Alarms
                     Title="조명 Power/Time 범위 초과", Cause="MaxPower/MaxOnTime 초과 입력", Action="입력값 점검",
                     TitleEn="Light power/time out of range", CauseEn="Input exceeds MaxPower/MaxOnTime", ActionEn="Check input value" },
 
+                // Stage 69 — 검사별 조명 매핑 알람 (신규 3 개)
+                new AlarmDefinition { Code="LIGHT-WIRING-MISS", Category=AlarmCategory.Vision, DefaultSeverity=AlarmSeverity.Warning,
+                    Title="조명 결선 누락", Cause="알고리즘의 조명 결선(AlgorithmLightWiring) 없음 또는 ControllerPort 빈값", Action="설정 > 조명 시스템 에서 컨트롤러/채널 배정",
+                    TitleEn="Light wiring missing", CauseEn="No AlgorithmLightWiring or empty ControllerPort", ActionEn="Assign controller/channels in Settings > Light System" },
+                new AlarmDefinition { Code="LIGHT-MAP-INVALID", Category=AlarmCategory.Vision, DefaultSeverity=AlarmSeverity.Warning,
+                    Title="조명 결선 포트 무효", Cause="Wiring.ControllerPort 가 LightHub 에 등록되지 않은 포트", Action="조명 시스템 Setup 과 실제 연결 포트 동기화",
+                    TitleEn="Light wiring port invalid", CauseEn="ControllerPort not registered in LightHub", ActionEn="Sync Light System setup with connected ports" },
+                new AlarmDefinition { Code="LIGHT-CHANNEL-OUT-OF-POOL", Category=AlarmCategory.Vision, DefaultSeverity=AlarmSeverity.Warning,
+                    Title="조명 채널 풀 밖", Cause="검사 조명 설정의 채널이 알고리즘 결선 풀 밖", Action="결선 표의 사용 채널 확인 후 수정",
+                    TitleEn="Light channel out of pool", CauseEn="Setting channel not in algorithm wiring pool", ActionEn="Check assigned channels in wiring table" },
+
                 // ── Material / Inspection ──
                 new AlarmDefinition { Code="PickFail", Category=AlarmCategory.Material, DefaultSeverity=AlarmSeverity.Warning,
                     Title="Pick 실패", Cause="진공 부족, 콜렛 손상, 다이 미확인", Action="콜렛 청소, 진공 압력 확인, Pick Retry 재시도",

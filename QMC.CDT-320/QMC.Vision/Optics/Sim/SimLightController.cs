@@ -64,6 +64,8 @@ namespace QMC.Vision.Optics.Sim
         public Task<bool> CheckPowerOnAsync(int channel)
             => Task.FromResult(IsConnected && IsValid(channel));
 
+        public Task<bool> SwitchPageAsync(int page) { Emit($"SwitchPage page={page}"); return Task.FromResult(true); }
+
         private bool IsValid(int channel) => channel >= 1 && channel <= ChannelCount;
         private void Emit(string msg) { try { Log?.Invoke("[SimLight] " + msg); } catch { } }
 

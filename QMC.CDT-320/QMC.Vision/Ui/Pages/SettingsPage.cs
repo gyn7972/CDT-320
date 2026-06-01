@@ -22,7 +22,10 @@ namespace QMC.Vision.Ui.Pages
 
         private CameraMappingPanel      _camPanel;
         private InspectionOverridePanel _inspPanel;       // Stage 64 — 검사별 카메라 오버라이드
-        private UserControl             _currentEditor;   // 검사 알고리즘 편집기 캐시 비활성
+        private InspectionLightPanel    _lightPanel;      // Stage 69 — 검사별 조명
+        private TabControl              _inspTabs;        // Stage 69 — [카메라][조명] 탭
+        private LightSystemSetupPage    _lightSetupPage;  // Stage 69 — 조명 시스템 Setup
+        private Control                 _currentEditor;   // 검사 알고리즘 편집기 캐시 비활성 (TabControl 포함 가능)
 
         public SettingsPage()
         {
@@ -83,9 +86,20 @@ namespace QMC.Vision.Ui.Pages
             _camPanel = new CameraMappingPanel { Dock = DockStyle.Fill, Visible = false };
             _detailHost.Controls.Add(_camPanel);
 
-            _inspPanel = new InspectionOverridePanel { Dock = DockStyle.Fill, Visible = false };
+            // Stage 69 — 검사 노드용 [카메라][조명] 탭 (검사 노드 선택 시만 Visible)
+            _inspPanel  = new InspectionOverridePanel { Dock = DockStyle.Fill };
             _inspPanel.OverrideChanged += (alg, insp) => RefreshInspectionNode(alg, insp);
-            _detailHost.Controls.Add(_inspPanel);
+            _lightPanel = new InspectionLightPanel { Dock = DockStyle.Fill };
+            _inspTabs = new TabControl { Dock = DockStyle.Fill, Visible = false };
+            var tabCam   = new TabPage("카메라"); tabCam.Controls.Add(_inspPanel);
+            var tabLight = new TabPage("조명");   tabLight.Controls.Add(_lightPanel);
+            _inspTabs.TabPages.Add(tabCam);
+            _inspTabs.TabPages.Add(tabLight);
+            _detailHost.Controls.Add(_inspTabs);
+
+            // Stage 69 — 조명 시스템 Setup 페이지
+            _lightSetupPage = new LightSystemSetupPage { Dock = DockStyle.Fill, Visible = false };
+            _detailHost.Controls.Add(_lightSetupPage);
         }
 
         private void LoadAlgorithms()
@@ -108,8 +122,14 @@ namespace QMC.Vision.Ui.Pages
             foreach (var t in InspectionTools)
                 inspRoot.Nodes.Add("insp:" + t.Key, t.Value);
 
+            // Stage 69 — 시스템 설정 그룹 + 조명 시스템 노드
+            var sysRoot = _tree.Nodes.Add("sys-root", "■ 시스템 설정");
+            sysRoot.NodeFont = UiTheme.SectionFont;
+            sysRoot.Nodes.Add("sys:light", "조명 시스템");
+
             camRoot.Expand();
             inspRoot.Expand();
+            sysRoot.Expand();
             _tree.SelectedNode = camRoot.Nodes[0];
         }
 
@@ -161,6 +181,10 @@ namespace QMC.Vision.Ui.Pages
                 var tool = key.Substring("insp:".Length);
                 ShowInspectionEditor(tool);
             }
+            else if (key == "sys:light")
+            {
+                ShowLightSystemSetup();
+            }
             // 루트 노드 선택 시 마지막 화면 유지
         }
 
@@ -172,8 +196,15 @@ namespace QMC.Vision.Ui.Pages
 
         private void ShowInspectionOverride(string algorithm, string inspectionId)
         {
-            SwapEditor(_inspPanel);
-            _inspPanel.SelectInspection(algorithm, inspectionId);
+            // Stage 69 — 검사 노드 = [카메라][조명] 탭. 두 패널에 같은 검사 컨텍스트 주입.
+            SwapEditor(_inspTabs);
+            _inspPanel .SelectInspection(algorithm, inspectionId);
+            _lightPanel.SelectInspection(algorithm, inspectionId);
+        }
+
+        private void ShowLightSystemSetup()
+        {
+            SwapEditor(_lightSetupPage);
         }
 
         private void ShowInspectionEditor(string tool)
@@ -192,7 +223,7 @@ namespace QMC.Vision.Ui.Pages
             SwapEditor(ed);
         }
 
-        private void SwapEditor(UserControl next)
+        private void SwapEditor(Control next)
         {
             foreach (Control c in _detailHost.Controls)
                 c.Visible = false;
@@ -201,9 +232,9 @@ namespace QMC.Vision.Ui.Pages
             next.BringToFront();
 
             // 기존 inspection 편집기 메모리 정리 (새 인스턴스로 교체).
-            // _camPanel / _inspPanel 은 영구 패널이므로 dispose 대상에서 제외.
+            // 영구 패널(_camPanel/_inspTabs/_lightSetupPage)은 dispose 대상에서 제외.
             if (_currentEditor != null && _currentEditor != next
-                && _currentEditor != _camPanel && _currentEditor != _inspPanel)
+                && _currentEditor != _camPanel && _currentEditor != _inspTabs && _currentEditor != _lightSetupPage)
             {
                 try { _detailHost.Controls.Remove(_currentEditor); _currentEditor.Dispose(); } catch { }
             }

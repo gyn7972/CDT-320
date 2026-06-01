@@ -65,6 +65,27 @@ namespace QMC.Common.Recipes
         [DataMember(EmitDefaultValue = false)]
         public List<InspectionCameraOverride> Inspections { get; set; }
 
+        // Stage 69 — 검사별 조명 매핑 (옵션 A: 카메라와 동일 파일 통합). null = 조명 미사용.
+        [DataMember(EmitDefaultValue = false)]
+        public List<InspectionLightOverride> InspectionLights { get; set; }
+
+        /// <summary>주어진 검사의 조명 override 를 찾거나 새로 만들어 반환.</summary>
+        public InspectionLightOverride GetOrCreateLightOverride(string inspectionId)
+        {
+            if (InspectionLights == null) InspectionLights = new List<InspectionLightOverride>();
+            var ov = InspectionLights.FirstOrDefault(o => string.Equals(o.InspectionId, inspectionId, StringComparison.OrdinalIgnoreCase));
+            if (ov == null)
+            {
+                ov = new InspectionLightOverride { InspectionId = inspectionId };
+                InspectionLights.Add(ov);
+            }
+            return ov;
+        }
+
+        /// <summary>주어진 검사의 조명 override (없으면 null).</summary>
+        public InspectionLightOverride GetLightOverride(string inspectionId)
+            => InspectionLights?.FirstOrDefault(o => string.Equals(o.InspectionId, inspectionId, StringComparison.OrdinalIgnoreCase));
+
         /// <summary>주어진 검사의 override 를 찾거나 새로 만들어 반환 (Inspections 에 추가됨).</summary>
         public InspectionCameraOverride GetOrCreateOverride(string inspectionId)
         {
@@ -100,6 +121,11 @@ namespace QMC.Common.Recipes
             {
                 c.Inspections = new List<InspectionCameraOverride>();
                 foreach (var o in Inspections) c.Inspections.Add(o.Clone());
+            }
+            if (InspectionLights != null)
+            {
+                c.InspectionLights = new List<InspectionLightOverride>();
+                foreach (var o in InspectionLights) c.InspectionLights.Add(o.Clone());
             }
             return c;
         }

@@ -117,6 +117,13 @@
     <Compile Include="Optics\LFine\LFineLightConfig.cs" />
     <Compile Include="Optics\LFine\LFineProtocol.cs" />
     <Compile Include="Optics\LFine\LFineLightController.cs" />
+    <Compile Include="Comm\LightHub.cs" />
+    <Compile Include="Ui\Pages\LightSystemSetupPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\InspectionLightPanel.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
     <Compile Include="Ui\UiTheme.cs" />
     <Compile Include="Ui\Controls\BottomMenuButton.cs">
       <SubType>Component</SubType>

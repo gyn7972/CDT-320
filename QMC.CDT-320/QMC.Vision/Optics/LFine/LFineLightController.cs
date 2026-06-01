@@ -103,6 +103,10 @@ namespace QMC.Vision.Optics.LFine
         public Task<bool> CheckPowerOnAsync(int channel)
             => Task.FromResult(IsConnected && (_port != null && _port.IsOpen) && IsValid(channel));
 
+        /// <summary>페이지 전환 — Stage 67 LFineLightConfig 엔 페이지 명령 포맷 미정의이므로 현재 no-op.
+        /// 실 컨트롤러가 페이지 모델이면 별도 명령 추가 필요 (Stage 68 #3: 기본 PageCount=1 가정).</summary>
+        public Task<bool> SwitchPageAsync(int page) => Task.FromResult(true);
+
         /// <summary>프레임 송신 — lock 으로 직렬화. 송신 실패 시 LIGHT-TX-FAIL.</summary>
         private bool SendFrame(byte[] frame)
         {

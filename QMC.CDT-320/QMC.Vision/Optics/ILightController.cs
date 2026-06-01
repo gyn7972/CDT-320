@@ -33,5 +33,8 @@ namespace QMC.Vision.Optics
         Task<int>  GetPowerAsync(int channel);
         /// <summary>컨트롤러 헬스 — 연결 + 채널 유효성. 무응답이라 IsConnected 기반 판정.</summary>
         Task<bool> CheckPowerOnAsync(int channel);
+
+        /// <summary>Stage 69 — 페이지 전환 (LFine 페이지 모델). PageCount==1 이면 no-op(true).</summary>
+        Task<bool> SwitchPageAsync(int page);
     }
 }
