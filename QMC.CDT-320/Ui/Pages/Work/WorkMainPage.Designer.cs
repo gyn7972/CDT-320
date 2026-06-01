@@ -1,4 +1,4 @@
-using System.Drawing;
+﻿using System.Drawing;
 using System.Windows.Forms;
 using QMC.CDT_320.Ui.Controls;
 using QMC.CDT_320.Ui.Localization;
@@ -713,8 +713,9 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
             this.Controls.Add(this.rootLayout);
             this.Name = "WorkMainPage";
-            this.Size = new Size(1400, 900);
+            this.Size = new Size(1678, 900);
             this.ResumeLayout(false);
         }
     }
 }
+

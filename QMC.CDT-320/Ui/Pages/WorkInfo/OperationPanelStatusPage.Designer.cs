@@ -1,4 +1,4 @@
-using System.Drawing;
+Ôªøusing System.Drawing;
 using System.Windows.Forms;
 using QMC.CDT_320.Ui.Controls;
 
@@ -148,7 +148,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             this.lblHeader.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(217)))), ((int)(((byte)(119)))), ((int)(((byte)(6)))));
             this.lblHeader.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblHeader.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F, System.Drawing.FontStyle.Bold);
+            this.lblHeader.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F, System.Drawing.FontStyle.Bold);
             this.lblHeader.ForeColor = System.Drawing.Color.White;
             this.lblHeader.Location = new System.Drawing.Point(3, 0);
             this.lblHeader.Name = "lblHeader";
@@ -185,7 +185,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.grpButtons.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
             this.grpButtons.Controls.Add(this.buttonLayout);
             this.grpButtons.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.grpButtons.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F, System.Drawing.FontStyle.Bold);
+            this.grpButtons.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F, System.Drawing.FontStyle.Bold);
             this.grpButtons.Location = new System.Drawing.Point(11, 11);
             this.grpButtons.Name = "grpButtons";
             this.grpButtons.Size = new System.Drawing.Size(453, 172);
@@ -368,7 +368,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.grpLamps.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
             this.grpLamps.Controls.Add(this.lampLayout);
             this.grpLamps.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.grpLamps.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F, System.Drawing.FontStyle.Bold);
+            this.grpLamps.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F, System.Drawing.FontStyle.Bold);
             this.grpLamps.Location = new System.Drawing.Point(470, 11);
             this.grpLamps.Name = "grpLamps";
             this.grpLamps.Size = new System.Drawing.Size(453, 172);
@@ -476,7 +476,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.grpResources.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
             this.grpResources.Controls.Add(this.resourceLayout);
             this.grpResources.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.grpResources.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F, System.Drawing.FontStyle.Bold);
+            this.grpResources.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F, System.Drawing.FontStyle.Bold);
             this.grpResources.Location = new System.Drawing.Point(929, 11);
             this.grpResources.Name = "grpResources";
             this.grpResources.Size = new System.Drawing.Size(454, 172);
@@ -659,7 +659,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.grpTower.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
             this.grpTower.Controls.Add(this.towerLayout);
             this.grpTower.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.grpTower.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F, System.Drawing.FontStyle.Bold);
+            this.grpTower.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F, System.Drawing.FontStyle.Bold);
             this.grpTower.Location = new System.Drawing.Point(470, 189);
             this.grpTower.Name = "grpTower";
             this.grpTower.Size = new System.Drawing.Size(453, 160);
@@ -792,7 +792,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.grpIonizer.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
             this.grpIonizer.Controls.Add(this.ionizerLayout);
             this.grpIonizer.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.grpIonizer.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F, System.Drawing.FontStyle.Bold);
+            this.grpIonizer.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F, System.Drawing.FontStyle.Bold);
             this.grpIonizer.Location = new System.Drawing.Point(929, 189);
             this.grpIonizer.Name = "grpIonizer";
             this.grpIonizer.Size = new System.Drawing.Size(454, 160);
@@ -849,7 +849,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             this.Controls.Add(this.rootLayout);
             this.Name = "OperationPanelStatusPage";
-            this.Size = new System.Drawing.Size(1400, 900);
+            this.Size = new System.Drawing.Size(1678, 900);
             this.rootLayout.ResumeLayout(false);
             this.contentLayout.ResumeLayout(false);
             this.grpButtons.ResumeLayout(false);
@@ -867,3 +867,4 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         }
     }
 }
+

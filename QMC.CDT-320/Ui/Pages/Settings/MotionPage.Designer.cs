@@ -130,7 +130,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 60F));
-            this.rootLayout.Size = new System.Drawing.Size(1416, 980);
+            this.rootLayout.Size = new System.Drawing.Size(1678, 900);
             this.rootLayout.TabIndex = 0;
             // 
             // lblPageHeader
@@ -701,7 +701,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this.BackColor = System.Drawing.Color.White;
             this.Controls.Add(this.rootLayout);
             this.Name = "MotionPage";
-            this.Size = new System.Drawing.Size(1416, 980);
+            this.Size = new System.Drawing.Size(1678, 900);
             this.rootLayout.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.grid)).EndInit();
             this.configTabs.ResumeLayout(false);

@@ -1,4 +1,4 @@
-namespace QMC.CDT_320.Ui.Pages.Recipe
+﻿namespace QMC.CDT_320.Ui.Pages.Recipe
 {
     partial class ForceControlPage
     {
@@ -208,7 +208,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // 
             this.Controls.Add(this.rootLayout);
             this.Name = "ForceControlPage";
-            this.Size = new System.Drawing.Size(1400, 900);
+            this.Size = new System.Drawing.Size(1678, 900);
             this.rootLayout.ResumeLayout(false);
             this.contentLayout.ResumeLayout(false);
             this.grpDo.ResumeLayout(false);
@@ -220,3 +220,5 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         }
     }
 }
+
+

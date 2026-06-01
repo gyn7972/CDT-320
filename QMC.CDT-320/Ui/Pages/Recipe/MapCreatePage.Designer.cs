@@ -1,4 +1,4 @@
-namespace QMC.CDT_320.Ui.Pages.Recipe
+﻿namespace QMC.CDT_320.Ui.Pages.Recipe
 {
     partial class MapCreatePage
     {
@@ -604,7 +604,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.BackColor = System.Drawing.Color.FromArgb(191, 191, 191);
             this.Controls.Add(this.mainLayout);
             this.Name = "MapCreatePage";
-            this.Size = new System.Drawing.Size(1400, 900);
+            this.Size = new System.Drawing.Size(1678, 900);
             this.mainLayout.ResumeLayout(false);
             this.contentLayout.ResumeLayout(false);
             this.mapSection.ResumeLayout(false);
@@ -617,3 +617,4 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         }
     }
 }
+

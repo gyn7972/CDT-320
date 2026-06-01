@@ -281,7 +281,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this.BackColor = System.Drawing.Color.White;
             this.Controls.Add(this.rootLayout);
             this.Name = "BarcodeReaderPage";
-            this.Size = new System.Drawing.Size(1416, 980);
+            this.Size = new System.Drawing.Size(1678, 900);
             this.rootLayout.ResumeLayout(false);
             this.optionLayout.ResumeLayout(false);
             this.ResumeLayout(false);
@@ -507,7 +507,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this.BackColor = System.Drawing.Color.White;
             this.Controls.Add(this.rootLayout);
             this.Name = "ZoomLensPage";
-            this.Size = new System.Drawing.Size(1416, 980);
+            this.Size = new System.Drawing.Size(1678, 900);
             this.grpSideVisionRear.ResumeLayout(false);
             this.grpSideVisionFront.ResumeLayout(false);
             this.grpBottomVision.ResumeLayout(false);
@@ -637,7 +637,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this.BackColor = System.Drawing.Color.White;
             this.Controls.Add(this.rootLayout);
             this.Name = "HeightSensorPage";
-            this.Size = new System.Drawing.Size(1416, 980);
+            this.Size = new System.Drawing.Size(1678, 900);
             this.grpSensor2.ResumeLayout(false);
             this.grpSensor1.ResumeLayout(false);
             this.sensorLayout.ResumeLayout(false);

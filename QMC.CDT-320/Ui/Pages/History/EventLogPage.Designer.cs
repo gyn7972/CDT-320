@@ -1,4 +1,4 @@
-using System;
+Ôªøusing System;
 using System.Drawing;
 using System.Windows.Forms;
 using QMC.CDT_320.Ui.Localization;
@@ -58,7 +58,7 @@ namespace QMC.CDT_320.Ui.Pages.History
             // 
             this.lblHeader.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(217)))), ((int)(((byte)(119)))), ((int)(((byte)(6)))));
             this.lblHeader.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblHeader.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F, System.Drawing.FontStyle.Bold);
+            this.lblHeader.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F, System.Drawing.FontStyle.Bold);
             this.lblHeader.ForeColor = System.Drawing.Color.White;
             this.lblHeader.Location = new System.Drawing.Point(3, 0);
             this.lblHeader.Name = "lblHeader";
@@ -66,7 +66,7 @@ namespace QMC.CDT_320.Ui.Pages.History
             this.lblHeader.Size = new System.Drawing.Size(1394, 30);
             this.lblHeader.TabIndex = 0;
             this.lblHeader.Tag = "i18n:hist.event";
-            this.lblHeader.Text = "¿Ã∫•∆Æ";
+            this.lblHeader.Text = "Ïù¥Î≤§Ìä∏";
             this.lblHeader.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // filterLayout
@@ -94,7 +94,7 @@ namespace QMC.CDT_320.Ui.Pages.History
             // lblDate
             // 
             this.lblDate.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblDate.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F);
+            this.lblDate.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F);
             this.lblDate.Location = new System.Drawing.Point(11, 6);
             this.lblDate.Name = "lblDate";
             this.lblDate.Size = new System.Drawing.Size(42, 26);
@@ -117,7 +117,7 @@ namespace QMC.CDT_320.Ui.Pages.History
             // 
             this.btnRefresh.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnRefresh.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnRefresh.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F);
+            this.btnRefresh.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F);
             this.btnRefresh.Location = new System.Drawing.Point(229, 9);
             this.btnRefresh.Name = "btnRefresh";
             this.btnRefresh.Size = new System.Drawing.Size(104, 20);
@@ -128,7 +128,7 @@ namespace QMC.CDT_320.Ui.Pages.History
             // 
             this.btnOpenFolder.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnOpenFolder.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnOpenFolder.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F);
+            this.btnOpenFolder.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F);
             this.btnOpenFolder.Location = new System.Drawing.Point(339, 9);
             this.btnOpenFolder.Name = "btnOpenFolder";
             this.btnOpenFolder.Size = new System.Drawing.Size(134, 20);
@@ -208,7 +208,7 @@ namespace QMC.CDT_320.Ui.Pages.History
             // 
             this.Controls.Add(this.rootLayout);
             this.Name = "EventLogPage";
-            this.Size = new System.Drawing.Size(1400, 900);
+            this.Size = new System.Drawing.Size(1678, 900);
             this.rootLayout.ResumeLayout(false);
             this.filterLayout.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this._grid)).EndInit();
@@ -223,3 +223,4 @@ namespace QMC.CDT_320.Ui.Pages.History
         private DataGridViewTextBoxColumn dataGridViewTextBoxColumn5;
     }
 }
+

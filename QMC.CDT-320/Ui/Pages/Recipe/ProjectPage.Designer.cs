@@ -1157,7 +1157,7 @@
             // 
             this.Controls.Add(this.rootLayout);
             this.Name = "ProjectPage";
-            this.Size = new System.Drawing.Size(1400, 900);
+            this.Size = new System.Drawing.Size(1678, 900);
             this.rootLayout.ResumeLayout(false);
             this.contentLayout.ResumeLayout(false);
             this.grpProjects.ResumeLayout(false);
@@ -1178,4 +1178,5 @@
         }
     }
 }
+
 

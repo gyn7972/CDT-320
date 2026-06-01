@@ -1,4 +1,4 @@
-namespace QMC.CDT_320.Ui.Pages.Work
+﻿namespace QMC.CDT_320.Ui.Pages.Work
 {
     partial class VisionAlignPage
     {
@@ -250,7 +250,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.BackColor = System.Drawing.Color.White;
             this.Controls.Add(this.rootLayout);
             this.Name = "VisionAlignPage";
-            this.Size = new System.Drawing.Size(1416, 980);
+            this.Size = new System.Drawing.Size(1678, 900);
             this.resultLayout.ResumeLayout(false);
             this.sideLayout.ResumeLayout(false);
             this.camPanel.ResumeLayout(false);
@@ -334,9 +334,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.BackColor = System.Drawing.Color.White;
             this.Controls.Add(this.rootLayout);
             this.Name = "WaferMapOpenPage";
-            this.Size = new System.Drawing.Size(1416, 980);
+            this.Size = new System.Drawing.Size(1678, 900);
             this.rootLayout.ResumeLayout(false);
             this.ResumeLayout(false);
         }
     }
 }
+

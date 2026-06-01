@@ -1,4 +1,4 @@
-namespace QMC.CDT_320.Ui.Pages.Recipe
+﻿namespace QMC.CDT_320.Ui.Pages.Recipe
 {
     partial class InputCassetteRecipePage
     {
@@ -1127,7 +1127,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // 
             this.Controls.Add(this.rootLayout);
             this.Name = "InputCassetteRecipePage";
-            this.Size = new System.Drawing.Size(1694, 980);
+            this.Size = new System.Drawing.Size(1678, 900);
             this.rootLayout.ResumeLayout(false);
             this.contentLayout.ResumeLayout(false);
             this.leftLayout.ResumeLayout(false);
@@ -1151,3 +1151,5 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private Controls.ActionButton btnMapping;
     }
 }
+
+

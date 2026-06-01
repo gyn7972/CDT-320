@@ -30,14 +30,14 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.colPosition,
             this.colUnit});
             this.listViewAxis.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.listViewAxis.Font = new System.Drawing.Font("Segoe UI", 11F, System.Drawing.FontStyle.Bold);
+            this.listViewAxis.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
             this.listViewAxis.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(0)))), ((int)(((byte)(220)))), ((int)(((byte)(130)))));
             this.listViewAxis.FullRowSelect = true;
             this.listViewAxis.HideSelection = false;
             this.listViewAxis.Location = new System.Drawing.Point(0, 0);
             this.listViewAxis.Name = "listViewAxis";
             this.listViewAxis.OwnerDraw = true;
-            this.listViewAxis.Size = new System.Drawing.Size(462, 760);
+            this.listViewAxis.Size = new System.Drawing.Size(390, 520);
             this.listViewAxis.SmallImageList = this.imageListAxisRows;
             this.listViewAxis.TabIndex = 0;
             this.listViewAxis.UseCompatibleStateImageBehavior = false;
@@ -47,38 +47,38 @@ namespace QMC.CDT_320.Ui.Dialogs
             // 
             this.colAxisNo.Text = "NO";
             this.colAxisNo.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
-            this.colAxisNo.Width = 56;
+            this.colAxisNo.Width = 44;
             // 
             // colAxisName
             // 
             this.colAxisName.Text = "Axis Name";
-            this.colAxisName.Width = 220;
+            this.colAxisName.Width = 178;
             // 
             // colPosition
             // 
             this.colPosition.Text = "Position";
             this.colPosition.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
-            this.colPosition.Width = 130;
+            this.colPosition.Width = 110;
             // 
             // colUnit
             // 
             this.colUnit.Text = "Unit";
             this.colUnit.TextAlign = System.Windows.Forms.HorizontalAlignment.Center;
-            this.colUnit.Width = 56;
+            this.colUnit.Width = 48;
             // 
             // imageListAxisRows
             // 
             this.imageListAxisRows.ColorDepth = System.Windows.Forms.ColorDepth.Depth8Bit;
-            this.imageListAxisRows.ImageSize = new System.Drawing.Size(1, 24);
+            this.imageListAxisRows.ImageSize = new System.Drawing.Size(1, 20);
             this.imageListAxisRows.TransparentColor = System.Drawing.Color.Transparent;
             // 
             // AxisPositionPopup
             // 
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
-            this.ClientSize = new System.Drawing.Size(462, 760);
+            this.ClientSize = new System.Drawing.Size(390, 520);
             this.Controls.Add(this.listViewAxis);
             this.Font = new System.Drawing.Font("Segoe UI", 9F);
-            this.MinimumSize = new System.Drawing.Size(420, 430);
+            this.MinimumSize = new System.Drawing.Size(360, 380);
             this.Name = "AxisPositionPopup";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "Axis Position Monitor";

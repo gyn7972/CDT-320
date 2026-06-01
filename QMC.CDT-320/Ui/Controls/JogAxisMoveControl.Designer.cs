@@ -41,9 +41,9 @@
             this.rootLayout = new System.Windows.Forms.TableLayoutPanel();
             this.grpSpeedMode = new System.Windows.Forms.GroupBox();
             this.speedModeLayout = new System.Windows.Forms.TableLayoutPanel();
+            this.rdoCoarse = new System.Windows.Forms.RadioButton();
             this.rdoFine = new System.Windows.Forms.RadioButton();
             this.rdoCurrent = new System.Windows.Forms.RadioButton();
-            this.rdoCoarse = new System.Windows.Forms.RadioButton();
             this.grpMoveMode = new System.Windows.Forms.GroupBox();
             this.moveModeLayout = new System.Windows.Forms.TableLayoutPanel();
             this.rdoContinuous = new System.Windows.Forms.RadioButton();
@@ -62,8 +62,8 @@
             this.speedModeLayout.SuspendLayout();
             this.grpMoveMode.SuspendLayout();
             this.moveModeLayout.SuspendLayout();
-            this.axisHost.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.numStepDistance)).BeginInit();
+            this.axisHost.SuspendLayout();
             this.SuspendLayout();
             // 
             // rootLayout
@@ -119,6 +119,23 @@
             this.speedModeLayout.Size = new System.Drawing.Size(197, 97);
             this.speedModeLayout.TabIndex = 0;
             // 
+            // rdoCoarse
+            // 
+            this.rdoCoarse.Appearance = System.Windows.Forms.Appearance.Button;
+            this.rdoCoarse.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.rdoCoarse.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.rdoCoarse.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(129)));
+            this.rdoCoarse.Location = new System.Drawing.Point(3, 51);
+            this.rdoCoarse.Margin = new System.Windows.Forms.Padding(3, 0, 3, 0);
+            this.rdoCoarse.MinimumSize = new System.Drawing.Size(68, 40);
+            this.rdoCoarse.Name = "rdoCoarse";
+            this.rdoCoarse.Size = new System.Drawing.Size(92, 46);
+            this.rdoCoarse.TabIndex = 1;
+            this.rdoCoarse.Text = "Coarse";
+            this.rdoCoarse.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            this.rdoCoarse.UseVisualStyleBackColor = false;
+            this.rdoCoarse.CheckedChanged += new System.EventHandler(this.ModeRadio_CheckedChanged);
+            // 
             // rdoFine
             // 
             this.rdoFine.Appearance = System.Windows.Forms.Appearance.Button;
@@ -155,23 +172,6 @@
             this.rdoCurrent.UseVisualStyleBackColor = false;
             this.rdoCurrent.CheckedChanged += new System.EventHandler(this.ModeRadio_CheckedChanged);
             // 
-            // rdoCoarse
-            // 
-            this.rdoCoarse.Appearance = System.Windows.Forms.Appearance.Button;
-            this.rdoCoarse.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.rdoCoarse.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.rdoCoarse.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(129)));
-            this.rdoCoarse.Location = new System.Drawing.Point(3, 51);
-            this.rdoCoarse.Margin = new System.Windows.Forms.Padding(3, 0, 3, 0);
-            this.rdoCoarse.MinimumSize = new System.Drawing.Size(68, 40);
-            this.rdoCoarse.Name = "rdoCoarse";
-            this.rdoCoarse.Size = new System.Drawing.Size(92, 46);
-            this.rdoCoarse.TabIndex = 1;
-            this.rdoCoarse.Text = "Coarse";
-            this.rdoCoarse.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            this.rdoCoarse.UseVisualStyleBackColor = false;
-            this.rdoCoarse.CheckedChanged += new System.EventHandler(this.ModeRadio_CheckedChanged);
-            // 
             // grpMoveMode
             // 
             this.grpMoveMode.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(207)))), ((int)(((byte)(211)))), ((int)(((byte)(216)))));
@@ -196,7 +196,7 @@
             this.moveModeLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 20F));
             this.moveModeLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 20F));
             this.moveModeLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 20F));
-            this.moveModeLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 12F));
+            this.moveModeLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 15F));
             this.moveModeLayout.Controls.Add(this.rdoContinuous, 1, 0);
             this.moveModeLayout.Controls.Add(this.rdoStep, 3, 0);
             this.moveModeLayout.Controls.Add(this.numStepDistance, 1, 1);
@@ -372,7 +372,7 @@
             this.axisHost.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
             this.axisHost.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 140F));
             this.axisHost.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
-            this.axisHost.Size = new System.Drawing.Size(529, 312);
+            this.axisHost.Size = new System.Drawing.Size(529, 156);
             this.axisHost.TabIndex = 2;
             // 
             // axisButtonLayout
@@ -380,7 +380,7 @@
             this.axisButtonLayout.ColumnCount = 1;
             this.axisButtonLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.axisButtonLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.axisButtonLayout.Location = new System.Drawing.Point(179, 86);
+            this.axisButtonLayout.Location = new System.Drawing.Point(179, 8);
             this.axisButtonLayout.Margin = new System.Windows.Forms.Padding(0);
             this.axisButtonLayout.Name = "axisButtonLayout";
             this.axisButtonLayout.RowCount = 1;
@@ -402,8 +402,8 @@
             this.speedModeLayout.ResumeLayout(false);
             this.grpMoveMode.ResumeLayout(false);
             this.moveModeLayout.ResumeLayout(false);
-            this.axisHost.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.numStepDistance)).EndInit();
+            this.axisHost.ResumeLayout(false);
             this.ResumeLayout(false);
 
         }

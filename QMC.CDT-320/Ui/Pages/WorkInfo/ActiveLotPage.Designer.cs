@@ -1,4 +1,4 @@
-using System.Drawing;
+﻿using System.Drawing;
 using System.Windows.Forms;
 using QMC.CDT_320.Ui.Localization;
 
@@ -244,8 +244,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
             this.Controls.Add(this.rootLayout);
             this.Name = "ActiveLotPage";
-            this.Size = new Size(1400, 900);
+            this.Size = new Size(1678, 900);
             this.ResumeLayout(false);
         }
     }
 }
+
