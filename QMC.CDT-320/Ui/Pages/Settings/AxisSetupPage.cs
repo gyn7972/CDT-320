@@ -483,7 +483,12 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 }
 
                 foreach (AxisRow it in _items)
+                {
+                    if (IsNumericColumn(col.Name) && IsDegreeRow(it))
+                        continue;
+
                     ApplyItemValue(it, col.Name, nextValue);
+                }
 
                 ApplyRowsToAxes();
                 FillGrid();
@@ -717,6 +722,24 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             if (value is bool b) return b;
             string txt = (Convert.ToString(value) ?? "").Trim().ToUpper();
             return txt == "TRUE" || txt == "ON" || txt == "1" || txt == "YES";
+        }
+
+        private static bool IsDegreeRow(AxisRow row)
+        {
+            try
+            {
+                if (row == null) return false;
+                if (AxisUnitConverter.IsDegree(row.Unit)) return true;
+                if (AjinAxisDefaults.IsThetaAxis(row.ConfigKey)) return true;
+                return AjinAxisDefaults.IsThetaAxis(row.Name);
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
         }
 
         private void OnGridDataError(object sender, DataGridViewDataErrorEventArgs e)

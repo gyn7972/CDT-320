@@ -69,9 +69,23 @@ namespace QMC.CDT_320.Ui.Controls
             try
             {
                 string current = txtValue.Text ?? string.Empty;
-                string selected = txtValue.SelectedText ?? string.Empty;
-                if (current.Replace(selected, string.Empty).Contains("."))
+                int start = txtValue.SelectionStart;
+                int length = txtValue.SelectionLength;
+                string remaining = current.Remove(start, length);
+                if (remaining.Contains("."))
                     return;
+
+                if (string.IsNullOrEmpty(remaining))
+                {
+                    ReplaceSelection("0.");
+                    return;
+                }
+
+                if (remaining == "-" && start >= 1)
+                {
+                    ReplaceSelection("0.");
+                    return;
+                }
 
                 ReplaceSelection(".");
             }
@@ -182,6 +196,55 @@ namespace QMC.CDT_320.Ui.Controls
             catch (Exception ex)
             {
                 EventLogger.Write(EventKind.Alarm, "UI", "NUMERIC-KEYPAD", "Cancel failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private void TripleZeroButton_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                ReplaceSelection("000");
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "NUMERIC-KEYPAD", "Triple zero failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private void IncrementButton_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                var button = sender as Button;
+                if (button == null)
+                    return;
+
+                double step;
+                if (!double.TryParse(Convert.ToString(button.Tag), NumberStyles.Float, CultureInfo.InvariantCulture, out step))
+                    return;
+
+                double current = 0.0;
+                string text = txtValue.Text ?? string.Empty;
+                if (!string.IsNullOrWhiteSpace(text) &&
+                    !double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out current) &&
+                    !double.TryParse(text, NumberStyles.Float, CultureInfo.CurrentCulture, out current))
+                {
+                    current = 0.0;
+                }
+
+                txtValue.Text = (current + step).ToString("0.######", CultureInfo.InvariantCulture);
+                txtValue.SelectionStart = txtValue.Text.Length;
+                txtValue.SelectionLength = 0;
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "NUMERIC-KEYPAD", "Increment failed: " + ex.Message);
             }
             finally
             {
