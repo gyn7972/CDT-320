@@ -266,13 +266,23 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                     applied++;
                 }
 
+                // 모델 변경 후 보드에도 동일 값을 기록한다 (모델 → 보드 동기화)
+                int boardWritten = 0;
+                foreach (DataGridViewRow row in speedGrid.Rows)
+                {
+                    AjinAxis ajin = row.Tag as AjinAxis;
+                    if (ajin == null) continue;
+                    if (ajin.WriteSetupToBoard())
+                        boardWritten++;
+                }
+
                 QMC.CDT320.Ajin.AjinFactory.AxisManager.Save(MotionAxisStore.DefaultPath);
                 _speedDirty = false;
 
                 QMC.Common.Logging.EventLogger.Write(
                     QMC.Common.Logging.EventKind.Event,
                     "QMC", "SPEED-SAVE",
-                    "axes=" + applied);
+                    "axes=" + applied + ", board=" + boardWritten);
 
                 QMC.Common.MessageDialog.Show("Saved speed parameters for " + applied + " axes.");
             }

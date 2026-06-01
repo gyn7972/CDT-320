@@ -858,6 +858,11 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 axis.Setup.SoftLimitPlus = row.SoftLimitPos;
 
                 axis.Config.IsSimulationMode = row.SimulationMode;
+
+                // 모델 → 보드 동기화: AjinAxis 인 경우 즉시 보드에 setup 을 기록한다.
+                QMC.CDT320.Ajin.AjinAxis ajin = axis as QMC.CDT320.Ajin.AjinAxis;
+                if (ajin != null)
+                    ajin.WriteSetupToBoard();
             }
             catch (Exception ex)
             {
