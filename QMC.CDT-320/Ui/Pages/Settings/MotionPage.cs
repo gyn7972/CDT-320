@@ -71,6 +71,13 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             actionsPanel.BackColor = UiTheme.OptionPanelBg;
             configTabs.SelectedTab = tabConfig;
 
+            // configLayout: 세로 스크롤만 허용하고 가로 스크롤은 표시하지 않는다.
+            // TableLayoutPanel은 Layout 시마다 스크롤 상태를 재계산하므로 이벤트에서 매번 강제로 끈다.
+            configLayout.AutoScroll = true;
+            configLayout.Layout += SuppressHorizontalScroll;
+            configLayout.Resize += SuppressHorizontalScroll;
+            SuppressHorizontalScroll(configLayout, null);
+
             grid.AllowUserToResizeColumns = true;
             grid.AllowUserToResizeRows = false;
             foreach (DataGridViewColumn col in grid.Columns)
@@ -78,6 +85,17 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 col.SortMode = DataGridViewColumnSortMode.NotSortable;
                 col.Resizable = DataGridViewTriState.True;
             }
+        }
+
+        private static void SuppressHorizontalScroll(object sender, EventArgs e)
+        {
+            var ctl = sender as ScrollableControl;
+            if (ctl == null) return;
+            // 가로 스크롤바를 강제로 숨김. 세로 스크롤은 AutoScroll이 자동으로 관리한다.
+            ctl.HorizontalScroll.Maximum = 0;
+            ctl.HorizontalScroll.Visible = false;
+            ctl.HorizontalScroll.Enabled = false;
+            ctl.AutoScroll = true;
         }
 
         private void WireActions()
