@@ -8,6 +8,8 @@
         private System.Windows.Forms.Label lblPosition;
         private System.Windows.Forms.GroupBox grpSelectAxis;
         private System.Windows.Forms.ListBox selectAxisList;
+        private QMC.CDT_320.Ui.Controls.JogPositionListControl jogPositionListControl;
+        private QMC.CDT_320.Ui.Controls.JogAxisMoveControl jogAxisMoveControl;
         private System.Windows.Forms.TableLayoutPanel rightLayout;
         private System.Windows.Forms.GroupBox grpMove;
         private System.Windows.Forms.FlowLayoutPanel speedLayout;
@@ -42,10 +44,12 @@
         {
             this.rootLayout = new System.Windows.Forms.TableLayoutPanel();
             this.leftLayout = new System.Windows.Forms.TableLayoutPanel();
-            this.lblPosition = new System.Windows.Forms.Label();
+            this.jogPositionListControl = new QMC.CDT_320.Ui.Controls.JogPositionListControl();
             this.grpSelectAxis = new System.Windows.Forms.GroupBox();
             this.selectAxisList = new System.Windows.Forms.ListBox();
             this.rightLayout = new System.Windows.Forms.TableLayoutPanel();
+            this.jogAxisMoveControl = new QMC.CDT_320.Ui.Controls.JogAxisMoveControl();
+            this.lblPosition = new System.Windows.Forms.Label();
             this.grpMove = new System.Windows.Forms.GroupBox();
             this.speedLayout = new System.Windows.Forms.FlowLayoutPanel();
             this.rdoFine = new System.Windows.Forms.RadioButton();
@@ -91,32 +95,98 @@
             // rootLayout
             // 
             this.rootLayout.ColumnCount = 2;
-            this.rootLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 190F));
+            this.rootLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 265F));
             this.rootLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.rootLayout.Controls.Add(this.leftLayout, 0, 0);
             this.rootLayout.Controls.Add(this.rightLayout, 1, 0);
             this.rootLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.rootLayout.Location = new System.Drawing.Point(0, 0);
+            this.rootLayout.Margin = new System.Windows.Forms.Padding(0);
             this.rootLayout.Name = "rootLayout";
             this.rootLayout.Padding = new System.Windows.Forms.Padding(6);
-            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 20F));
-            this.rootLayout.Size = new System.Drawing.Size(500, 430);
+            this.rootLayout.RowCount = 1;
+            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.rootLayout.Size = new System.Drawing.Size(746, 388);
             this.rootLayout.TabIndex = 0;
             // 
             // leftLayout
             // 
             this.leftLayout.ColumnCount = 1;
             this.leftLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.leftLayout.Controls.Add(this.lblPosition, 0, 0);
+            this.leftLayout.Controls.Add(this.jogPositionListControl, 0, 0);
             this.leftLayout.Controls.Add(this.grpSelectAxis, 0, 1);
             this.leftLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.leftLayout.Location = new System.Drawing.Point(9, 9);
             this.leftLayout.Name = "leftLayout";
             this.leftLayout.RowCount = 2;
-            this.leftLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 50F));
+            this.leftLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 52F));
             this.leftLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.leftLayout.Size = new System.Drawing.Size(184, 412);
+            this.leftLayout.Size = new System.Drawing.Size(259, 365);
             this.leftLayout.TabIndex = 0;
+            // 
+            // jogPositionListControl
+            // 
+            this.jogPositionListControl.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.jogPositionListControl.Location = new System.Drawing.Point(3, 3);
+            this.jogPositionListControl.Margin = new System.Windows.Forms.Padding(3, 3, 3, 4);
+            this.jogPositionListControl.Name = "jogPositionListControl";
+            this.jogPositionListControl.Size = new System.Drawing.Size(253, 45);
+            this.jogPositionListControl.TabIndex = 0;
+            // 
+            // grpSelectAxis
+            // 
+            this.grpSelectAxis.Controls.Add(this.selectAxisList);
+            this.grpSelectAxis.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.grpSelectAxis.Location = new System.Drawing.Point(3, 55);
+            this.grpSelectAxis.Name = "grpSelectAxis";
+            this.grpSelectAxis.Size = new System.Drawing.Size(253, 307);
+            this.grpSelectAxis.TabIndex = 1;
+            this.grpSelectAxis.TabStop = false;
+            this.grpSelectAxis.Text = "Select Axis";
+            // 
+            // selectAxisList
+            // 
+            this.selectAxisList.BackColor = System.Drawing.Color.Black;
+            this.selectAxisList.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.selectAxisList.Font = new System.Drawing.Font("Consolas", 10F, System.Drawing.FontStyle.Bold);
+            this.selectAxisList.ForeColor = System.Drawing.Color.Lime;
+            this.selectAxisList.IntegralHeight = false;
+            this.selectAxisList.ItemHeight = 20;
+            this.selectAxisList.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.selectAxisList.Location = new System.Drawing.Point(3, 23);
+            this.selectAxisList.Margin = new System.Windows.Forms.Padding(3);
+            this.selectAxisList.Name = "selectAxisList";
+            this.selectAxisList.Size = new System.Drawing.Size(247, 281);
+            this.selectAxisList.TabIndex = 0;
+            // 
+            // rightLayout
+            // 
+            this.rightLayout.ColumnCount = 1;
+            this.rightLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.rightLayout.Controls.Add(this.jogAxisMoveControl, 0, 0);
+            this.rightLayout.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.rightLayout.Location = new System.Drawing.Point(274, 9);
+            this.rightLayout.Name = "rightLayout";
+            this.rightLayout.RowCount = 1;
+            this.rightLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.rightLayout.Size = new System.Drawing.Size(463, 365);
+            this.rightLayout.TabIndex = 1;
+            // 
+            // jogAxisMoveControl
+            // 
+            this.jogAxisMoveControl.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(246)))), ((int)(((byte)(248)))));
+            this.jogAxisMoveControl.ButtonAreaMaxHeight = 150;
+            this.jogAxisMoveControl.ButtonAreaMaxWidth = 270;
+            this.jogAxisMoveControl.ButtonAreaMinHeight = 120;
+            this.jogAxisMoveControl.ButtonAreaMinWidth = 250;
+            this.jogAxisMoveControl.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.jogAxisMoveControl.Location = new System.Drawing.Point(0, 0);
+            this.jogAxisMoveControl.Margin = new System.Windows.Forms.Padding(0);
+            this.jogAxisMoveControl.Name = "jogAxisMoveControl";
+            this.jogAxisMoveControl.ShowCurrentSpeedMode = false;
+            this.jogAxisMoveControl.Size = new System.Drawing.Size(458, 365);
+            this.jogAxisMoveControl.SpeedControl = null;
+            this.jogAxisMoveControl.TabIndex = 1;
             // 
             // lblPosition
             // 
@@ -130,48 +200,6 @@
             this.lblPosition.TabIndex = 0;
             this.lblPosition.Text = "000.000";
             this.lblPosition.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            // 
-            // grpSelectAxis
-            // 
-            this.grpSelectAxis.Controls.Add(this.selectAxisList);
-            this.grpSelectAxis.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.grpSelectAxis.Location = new System.Drawing.Point(3, 53);
-            this.grpSelectAxis.Name = "grpSelectAxis";
-            this.grpSelectAxis.Size = new System.Drawing.Size(178, 356);
-            this.grpSelectAxis.TabIndex = 1;
-            this.grpSelectAxis.TabStop = false;
-            this.grpSelectAxis.Text = "Select Axis";
-            // 
-            // selectAxisList
-            // 
-            this.selectAxisList.BackColor = System.Drawing.Color.Black;
-            this.selectAxisList.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.selectAxisList.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.selectAxisList.Font = new System.Drawing.Font("Consolas", 9F, System.Drawing.FontStyle.Bold);
-            this.selectAxisList.ForeColor = System.Drawing.Color.Lime;
-            this.selectAxisList.IntegralHeight = false;
-            this.selectAxisList.ItemHeight = 18;
-            this.selectAxisList.Location = new System.Drawing.Point(3, 23);
-            this.selectAxisList.Name = "selectAxisList";
-            this.selectAxisList.Size = new System.Drawing.Size(172, 330);
-            this.selectAxisList.TabIndex = 0;
-            // 
-            // rightLayout
-            // 
-            this.rightLayout.ColumnCount = 1;
-            this.rightLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.rightLayout.Controls.Add(this.grpMove, 0, 0);
-            this.rightLayout.Controls.Add(this.grpMoveMode, 0, 1);
-            this.rightLayout.Controls.Add(this.jogLayout, 0, 2);
-            this.rightLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.rightLayout.Location = new System.Drawing.Point(199, 9);
-            this.rightLayout.Name = "rightLayout";
-            this.rightLayout.RowCount = 3;
-            this.rightLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 70F));
-            this.rightLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 126F));
-            this.rightLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.rightLayout.Size = new System.Drawing.Size(292, 412);
-            this.rightLayout.TabIndex = 1;
             // 
             // grpMove
             // 
@@ -189,10 +217,10 @@
             this.speedLayout.Controls.Add(this.rdoFine);
             this.speedLayout.Controls.Add(this.rdoCoarse);
             this.speedLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.speedLayout.Location = new System.Drawing.Point(3, 23);
+            this.speedLayout.Location = new System.Drawing.Point(3, 21);
             this.speedLayout.Name = "speedLayout";
             this.speedLayout.Padding = new System.Windows.Forms.Padding(8, 8, 0, 0);
-            this.speedLayout.Size = new System.Drawing.Size(280, 38);
+            this.speedLayout.Size = new System.Drawing.Size(280, 40);
             this.speedLayout.TabIndex = 0;
             // 
             // rdoFine
@@ -200,16 +228,16 @@
             this.rdoFine.AutoSize = true;
             this.rdoFine.Location = new System.Drawing.Point(11, 11);
             this.rdoFine.Name = "rdoFine";
-            this.rdoFine.Size = new System.Drawing.Size(57, 24);
+            this.rdoFine.Size = new System.Drawing.Size(55, 19);
             this.rdoFine.TabIndex = 0;
             this.rdoFine.Text = "Fine";
             // 
             // rdoCoarse
             // 
             this.rdoCoarse.AutoSize = true;
-            this.rdoCoarse.Location = new System.Drawing.Point(74, 11);
+            this.rdoCoarse.Location = new System.Drawing.Point(72, 11);
             this.rdoCoarse.Name = "rdoCoarse";
-            this.rdoCoarse.Size = new System.Drawing.Size(75, 24);
+            this.rdoCoarse.Size = new System.Drawing.Size(75, 19);
             this.rdoCoarse.TabIndex = 1;
             this.rdoCoarse.Text = "Coarse";
             // 
@@ -232,14 +260,14 @@
             this.modeLayout.Controls.Add(this.nudStep, 0, 1);
             this.modeLayout.Controls.Add(this.stepPresetLayout, 0, 2);
             this.modeLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.modeLayout.Location = new System.Drawing.Point(3, 23);
+            this.modeLayout.Location = new System.Drawing.Point(3, 21);
             this.modeLayout.Name = "modeLayout";
             this.modeLayout.Padding = new System.Windows.Forms.Padding(6, 3, 6, 5);
             this.modeLayout.RowCount = 3;
             this.modeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
             this.modeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
             this.modeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.modeLayout.Size = new System.Drawing.Size(280, 94);
+            this.modeLayout.Size = new System.Drawing.Size(280, 96);
             this.modeLayout.TabIndex = 0;
             // 
             // moveModeRadioLayout
@@ -257,16 +285,16 @@
             this.rdoContinuous.AutoSize = true;
             this.rdoContinuous.Location = new System.Drawing.Point(3, 3);
             this.rdoContinuous.Name = "rdoContinuous";
-            this.rdoContinuous.Size = new System.Drawing.Size(104, 24);
+            this.rdoContinuous.Size = new System.Drawing.Size(103, 19);
             this.rdoContinuous.TabIndex = 0;
             this.rdoContinuous.Text = "Continuous";
             // 
             // rdoStep
             // 
             this.rdoStep.AutoSize = true;
-            this.rdoStep.Location = new System.Drawing.Point(113, 3);
+            this.rdoStep.Location = new System.Drawing.Point(112, 3);
             this.rdoStep.Name = "rdoStep";
-            this.rdoStep.Size = new System.Drawing.Size(60, 24);
+            this.rdoStep.Size = new System.Drawing.Size(58, 19);
             this.rdoStep.TabIndex = 1;
             this.rdoStep.Text = "Step";
             // 
@@ -290,7 +318,7 @@
             0,
             -2147483648});
             this.nudStep.Name = "nudStep";
-            this.nudStep.Size = new System.Drawing.Size(110, 27);
+            this.nudStep.Size = new System.Drawing.Size(110, 25);
             this.nudStep.TabIndex = 1;
             this.nudStep.Value = new decimal(new int[] {
             1000,
@@ -308,7 +336,7 @@
             this.stepPresetLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.stepPresetLayout.Location = new System.Drawing.Point(9, 66);
             this.stepPresetLayout.Name = "stepPresetLayout";
-            this.stepPresetLayout.Size = new System.Drawing.Size(262, 20);
+            this.stepPresetLayout.Size = new System.Drawing.Size(262, 22);
             this.stepPresetLayout.TabIndex = 2;
             this.stepPresetLayout.WrapContents = false;
             // 
@@ -522,10 +550,10 @@
             // AxisJogPopup
             // 
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
-            this.ClientSize = new System.Drawing.Size(500, 430);
+            this.ClientSize = new System.Drawing.Size(750, 390);
             this.Controls.Add(this.rootLayout);
             this.Font = new System.Drawing.Font("Segoe UI", 9F);
-            this.MinimumSize = new System.Drawing.Size(480, 400);
+            this.MinimumSize = new System.Drawing.Size(560, 400);
             this.Name = "AxisJogPopup";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "JogPanel";

@@ -22,9 +22,44 @@ namespace QMC.CDT_320.Ui.Controls
         private int _buttonAreaMinHeight = 130;
         private int _buttonAreaMaxWidth = 170;
         private int _buttonAreaMinWidth = 160;
+        private bool _showCurrentSpeedMode = true;
         private bool _isJogging;
 
         public JogSpeedControl SpeedControl { get; set; }
+
+        public bool ShowCurrentSpeedMode
+        {
+            get
+            {
+                try
+                {
+                    return _showCurrentSpeedMode;
+                }
+                catch
+                {
+                    return true;
+                }
+                finally
+                {
+                }
+            }
+            set
+            {
+                try
+                {
+                    _showCurrentSpeedMode = value;
+                    ApplyCurrentSpeedModeVisibility();
+                    ApplyModeButtonStyles();
+                }
+                catch (Exception ex)
+                {
+                    EventLogger.Write(EventKind.Warning, "UI", "JOG-AXIS", "Current speed visibility set failed: " + ex.Message);
+                }
+                finally
+                {
+                }
+            }
+        }
 
         public int ButtonAreaMaxHeight
         {
@@ -46,7 +81,7 @@ namespace QMC.CDT_320.Ui.Controls
             {
                 try
                 {
-                    _buttonAreaMaxHeight = Math.Max(120, value);
+                    _buttonAreaMaxHeight = Math.Max(80, value);
                     UpdateAxisButtonAreaSize();
                 }
                 catch (Exception ex)
@@ -79,7 +114,7 @@ namespace QMC.CDT_320.Ui.Controls
             {
                 try
                 {
-                    _buttonAreaMinHeight = Math.Max(120, value);
+                    _buttonAreaMinHeight = Math.Max(80, value);
                     UpdateAxisButtonAreaSize();
                 }
                 catch (Exception ex)
@@ -112,7 +147,7 @@ namespace QMC.CDT_320.Ui.Controls
             {
                 try
                 {
-                    _buttonAreaMaxWidth = Math.Max(140, value);
+                    _buttonAreaMaxWidth = Math.Max(120, value);
                     UpdateAxisButtonAreaSize();
                 }
                 catch (Exception ex)
@@ -145,7 +180,7 @@ namespace QMC.CDT_320.Ui.Controls
             {
                 try
                 {
-                    _buttonAreaMinWidth = Math.Max(120, value);
+                    _buttonAreaMinWidth = Math.Max(100, value);
                     UpdateAxisButtonAreaSize();
                 }
                 catch (Exception ex)
@@ -164,6 +199,7 @@ namespace QMC.CDT_320.Ui.Controls
             {
                 InitializeComponent();
                 SizeChanged += JogAxisMoveControl_SizeChanged;
+                ApplyCurrentSpeedModeVisibility();
                 ApplyModeButtonStyles();
                 UpdateStepControlsEnabled();
                 UpdateAxisButtonAreaSize();
@@ -360,20 +396,13 @@ namespace QMC.CDT_320.Ui.Controls
                 Button stopButton = new Button();
                 Button minusButton = new Button();
 
-                layout.ColumnCount = 1;
-                layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
                 layout.Dock = DockStyle.Fill;
                 layout.Margin = new Padding(4);
-                layout.RowCount = 4;
-                layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 28F));
-                layout.RowStyles.Add(new RowStyle(SizeType.Percent, 34F));
-                layout.RowStyles.Add(new RowStyle(SizeType.Percent, 32F));
-                layout.RowStyles.Add(new RowStyle(SizeType.Percent, 34F));
 
                 axisLabel.BackColor = Color.White;
                 axisLabel.BorderStyle = BorderStyle.FixedSingle;
                 axisLabel.Dock = DockStyle.Fill;
-                axisLabel.Font = new Font("Malgun Gothic", 8.5F, FontStyle.Bold);
+                axisLabel.Font = new Font("Malgun Gothic", 8.0F, FontStyle.Bold);
                 axisLabel.Margin = new Padding(0, 0, 0, 4);
                 axisLabel.Text = item.AxisName;
                 axisLabel.TextAlign = ContentAlignment.MiddleCenter;
@@ -382,11 +411,91 @@ namespace QMC.CDT_320.Ui.Controls
                 ConfigureJogButton(stopButton, "STOP", item, 0);
                 ConfigureJogButton(minusButton, item.MinusText, item, -1);
 
+                if (IsHorizontalAxis(item))
+                    ConfigureHorizontalAxisLayout(layout, axisLabel, minusButton, stopButton, plusButton);
+                else
+                    ConfigureVerticalAxisLayout(layout, axisLabel, plusButton, stopButton, minusButton);
+
+                return layout;
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool IsHorizontalAxis(JogAxisItem item)
+        {
+            try
+            {
+                if (item == null)
+                    return false;
+
+                string plus = item.PlusText ?? string.Empty;
+                string minus = item.MinusText ?? string.Empty;
+                if (plus.IndexOf("Next", StringComparison.OrdinalIgnoreCase) >= 0 || minus.IndexOf("Prev", StringComparison.OrdinalIgnoreCase) >= 0)
+                    return true;
+
+                return plus.IndexOf("X", StringComparison.OrdinalIgnoreCase) >= 0
+                    || minus.IndexOf("X", StringComparison.OrdinalIgnoreCase) >= 0
+                    || plus.IndexOf("T", StringComparison.OrdinalIgnoreCase) >= 0
+                    || minus.IndexOf("T", StringComparison.OrdinalIgnoreCase) >= 0;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private static void ConfigureHorizontalAxisLayout(TableLayoutPanel layout, Label axisLabel, Button minusButton, Button stopButton, Button plusButton)
+        {
+            try
+            {
+                layout.ColumnCount = 3;
+                layout.RowCount = 2;
+                layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.333F));
+                layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.334F));
+                layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.333F));
+                layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 28F));
+                layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+
+                layout.SetColumnSpan(axisLabel, 3);
+                layout.Controls.Add(axisLabel, 0, 0);
+                layout.Controls.Add(minusButton, 0, 1);
+                layout.Controls.Add(stopButton, 1, 1);
+                layout.Controls.Add(plusButton, 2, 1);
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        private static void ConfigureVerticalAxisLayout(TableLayoutPanel layout, Label axisLabel, Button plusButton, Button stopButton, Button minusButton)
+        {
+            try
+            {
+                layout.ColumnCount = 1;
+                layout.RowCount = 4;
+                layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+                layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 28F));
+                layout.RowStyles.Add(new RowStyle(SizeType.Percent, 34F));
+                layout.RowStyles.Add(new RowStyle(SizeType.Percent, 32F));
+                layout.RowStyles.Add(new RowStyle(SizeType.Percent, 34F));
+
                 layout.Controls.Add(axisLabel, 0, 0);
                 layout.Controls.Add(plusButton, 0, 1);
                 layout.Controls.Add(stopButton, 0, 2);
                 layout.Controls.Add(minusButton, 0, 3);
-                return layout;
             }
             catch
             {
@@ -404,7 +513,7 @@ namespace QMC.CDT_320.Ui.Controls
                 button.BackColor = direction == 0 ? Color.FromArgb(208, 208, 208) : _normalButtonColor;
                 button.Dock = DockStyle.Fill;
                 button.FlatStyle = FlatStyle.Flat;
-                button.Font = new Font("Malgun Gothic", direction == 0 ? 9.5F : 12.5F, FontStyle.Bold);
+                button.Font = new Font("Malgun Gothic", direction == 0 ? 9.0F : 11.0F, FontStyle.Bold);
                 button.ForeColor = direction == 0 ? Color.Black : Color.White;
                 button.Margin = new Padding(3, 3, 3, 5);
                 button.Text = text;
@@ -547,7 +656,7 @@ namespace QMC.CDT_320.Ui.Controls
         {
             try
             {
-                if (rdoCurrent.Checked)
+                if (_showCurrentSpeedMode && rdoCurrent.Checked)
                     return JogSpeedType.Custom;
                 if (rdoCoarse.Checked)
                     return JogSpeedType.Coarse;
@@ -615,6 +724,9 @@ namespace QMC.CDT_320.Ui.Controls
             {
                 foreach (RadioButton radio in new[] { rdoFine, rdoCoarse, rdoCurrent, rdoContinuous, rdoStep })
                 {
+                    if (radio == rdoCurrent && !_showCurrentSpeedMode)
+                        continue;
+
                     radio.BackColor = radio.Checked ? _modeSelectedColor : _modeNormalColor;
                     radio.ForeColor = radio.Checked ? Color.White : Color.FromArgb(30, 35, 40);
                     radio.UseVisualStyleBackColor = false;
@@ -622,6 +734,24 @@ namespace QMC.CDT_320.Ui.Controls
                     radio.FlatAppearance.BorderSize = 1;
                     radio.Invalidate();
                 }
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        private void ApplyCurrentSpeedModeVisibility()
+        {
+            try
+            {
+                rdoCurrent.Visible = _showCurrentSpeedMode;
+                rdoCurrent.Enabled = _showCurrentSpeedMode;
+                if (!_showCurrentSpeedMode && rdoCurrent.Checked)
+                    rdoFine.Checked = true;
             }
             catch
             {

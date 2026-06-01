@@ -1,4 +1,4 @@
-namespace QMC.CDT_320.Ui.Dialogs
+﻿namespace QMC.CDT_320.Ui.Dialogs
 {
     partial class AxisPositionPopup
     {
@@ -37,7 +37,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.listViewAxis.Location = new System.Drawing.Point(0, 0);
             this.listViewAxis.Name = "listViewAxis";
             this.listViewAxis.OwnerDraw = true;
-            this.listViewAxis.Size = new System.Drawing.Size(390, 520);
+            this.listViewAxis.Size = new System.Drawing.Size(407, 523);
             this.listViewAxis.SmallImageList = this.imageListAxisRows;
             this.listViewAxis.TabIndex = 0;
             this.listViewAxis.UseCompatibleStateImageBehavior = false;
@@ -75,7 +75,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             // AxisPositionPopup
             // 
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
-            this.ClientSize = new System.Drawing.Size(390, 520);
+            this.ClientSize = new System.Drawing.Size(407, 523);
             this.Controls.Add(this.listViewAxis);
             this.Font = new System.Drawing.Font("Segoe UI", 9F);
             this.MinimumSize = new System.Drawing.Size(360, 380);
