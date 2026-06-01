@@ -13,6 +13,13 @@ namespace QMC.CDT320.Ajin
 
         public int AxisNo { get; }
 
+        // 보드 raw enum 값 캐시. ReadSetupFromBoard 시 채워지고,
+        // WriteSetupToBoard 시 모델 → AXL enum 매핑이 동일 카테고리이면 raw 를 그대로 재사용한다.
+        // 모델 enum 종류수 < AXL enum 종류수 인 항목들의 정보 손실을 라운드트립에서 방지한다.
+        private AXM.MotorOutputMethod? _rawPulseOutput;
+        private AXM.EncoderInputMethod? _rawEncoderInput;
+        private AXT_MOTION_PROFILE_MODE? _rawProfileMode;
+
         protected override bool UseInternalStatusUpdate
         {
             get { return false; }
@@ -719,6 +726,122 @@ namespace QMC.CDT320.Ajin
                             setup.SoftLimitPlus = swPos;
                         if (AXM.GetNegativePosition(AxisNo, ref swNeg) == 0)
                             setup.SoftLimitMinus = swNeg;
+
+                        // Soft limit Enable 플래그
+                        try
+                        {
+                            uint swUse = 0;
+                            if (AXM.GetSoftLimitEnable(AxisNo, ref swUse) == 0)
+                                setup.SoftLimitEnabled = swUse != 0;
+                        }
+                        catch (Exception ex)
+                        {
+                            AlarmManager.Raise(AlarmSeverity.Warning, "AX-READ-SETUP", Name,
+                                "SoftLimit enable read failed: " + ex.Message);
+                        }
+
+                        // Pulse out method (AXL 10 종류 → 프로젝트 PulseOutput 3 종류로 축약 매핑)
+                        try
+                        {
+                            AXM.MotorOutputMethod outMethod = AXM.MotorOutputMethod.OneHighLowHigh;
+                            if (AXM.GetOutputMethod(AxisNo, ref outMethod) == 0)
+                            {
+                                _rawPulseOutput = outMethod;
+                                setup.PulseOutput = MapPulseOutput(outMethod);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            AlarmManager.Raise(AlarmSeverity.Warning, "AX-READ-SETUP", Name,
+                                "PulseOutput read failed: " + ex.Message);
+                        }
+
+                        // Encoder input method (AXL 8 종류 → 프로젝트 EncoderInput 3 종류로 축약 매핑)
+                        try
+                        {
+                            AXM.EncoderInputMethod encMethod = AXM.EncoderInputMethod.ObverseUpDownMode;
+                            if (AXM.GetEncoderMethod(AxisNo, ref encMethod) == 0)
+                            {
+                                _rawEncoderInput = encMethod;
+                                setup.EncoderInput = MapEncoderInput(encMethod);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            AlarmManager.Raise(AlarmSeverity.Warning, "AX-READ-SETUP", Name,
+                                "EncoderInput read failed: " + ex.Message);
+                        }
+
+                        // Inposition level (Low/High만 매핑, Used/Unused는 보존)
+                        try
+                        {
+                            ActiveLevel inpLvl = ActiveLevel.Low;
+                            if (AXM.GetInPositionLevel(AxisNo, ref inpLvl) == 0)
+                                setup.InPosition = inpLvl == ActiveLevel.High ? InPosition.High : InPosition.Low;
+                        }
+                        catch (Exception ex)
+                        {
+                            AlarmManager.Raise(AlarmSeverity.Warning, "AX-READ-SETUP", Name,
+                                "InPosition level read failed: " + ex.Message);
+                        }
+
+                        // Stop mode (AXL: 0=EMG, 1=Slowdown) - 리밋 정지 모드 기준
+                        try
+                        {
+                            uint stopRaw = 0;
+                            if (AXM.GetLimitStopMode(AxisNo, ref stopRaw) == 0)
+                                setup.StopMode = stopRaw == 0 ? StopMode.Emergency : StopMode.DecelStop;
+                        }
+                        catch (Exception ex)
+                        {
+                            AlarmManager.Raise(AlarmSeverity.Warning, "AX-READ-SETUP", Name,
+                                "StopMode read failed: " + ex.Message);
+                        }
+
+                        // Emergency stop level
+                        try
+                        {
+                            uint estopMode = 0;
+                            ActiveLevel estopLvl = ActiveLevel.Low;
+                            if (AXM.GetSignalStop(AxisNo, ref estopMode, ref estopLvl) == 0)
+                                setup.EmergencyLevel = estopLvl;
+                        }
+                        catch (Exception ex)
+                        {
+                            AlarmManager.Raise(AlarmSeverity.Warning, "AX-READ-SETUP", Name,
+                                "EmergencyLevel read failed: " + ex.Message);
+                        }
+
+                        // Profile mode (AXL 0~4 → AxisProfileMode 2종류로 축약: Trapezoid/SCurve)
+                        try
+                        {
+                            uint profRaw = 0;
+                            if (AXM.GetProfileModeRaw(AxisNo, ref profRaw) == 0)
+                            {
+                                _rawProfileMode = (AXT_MOTION_PROFILE_MODE)profRaw;
+                                setup.ProfileMode = profRaw <= 1 ? AxisProfileMode.Trapezoid : AxisProfileMode.SCurve;
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            AlarmManager.Raise(AlarmSeverity.Warning, "AX-READ-SETUP", Name,
+                                "ProfileMode read failed: " + ex.Message);
+                        }
+
+                        // Acc/Dec Jerk %
+                        try
+                        {
+                            double accJerk = 0, decJerk = 0;
+                            if (AXM.GetAccelerationJerk(AxisNo, ref accJerk) == 0)
+                                setup.AccJerkPercent = (int)Math.Round(accJerk);
+                            if (AXM.GetDecelerationJerk(AxisNo, ref decJerk) == 0)
+                                setup.DecJerkPercent = (int)Math.Round(decJerk);
+                        }
+                        catch (Exception ex)
+                        {
+                            AlarmManager.Raise(AlarmSeverity.Warning, "AX-READ-SETUP", Name,
+                                "Jerk read failed: " + ex.Message);
+                        }
                     }
                 }
 
@@ -732,6 +855,224 @@ namespace QMC.CDT320.Ajin
                     Name,
                     "ReadSetupFromBoard failed: " + ex.Message);
                 return false;
+            }
+        }
+
+        /// <summary>
+        /// 현재 축의 <see cref="AxisSetup"/> / <see cref="AxisConfig"/> 값을 보드에 기록한다.<br/>
+        /// SaveSpeedRows / Apply 흐름에서 호출되어 모델 → 보드 방향 동기화를 보장한다.
+        /// 시뮬레이션 모드이거나 보드가 닫혀 있으면 아무 일도 하지 않고 false 를 반환한다.
+        /// </summary>
+        /// <returns>적용 성공 여부.</returns>
+        public bool WriteSetupToBoard()
+        {
+            if (Config == null || Config.IsSimulationMode || !AjinSystem.IsOpen) return false;
+
+            try
+            {
+                AxisConfig c = Config;
+                AxisSetup setup = Setup;
+
+                lock (_sync)
+                {
+                    // Move unit / pulse - 정수 캐스팅 시 손실되지 않도록 분모를 1 로 가정한다.
+                    if (setup != null && setup.PulsesPerUnit > 0)
+                    {
+                        try { AXM.SetMoveUnitPerPulse(AxisNo, 1, (int)System.Math.Round(setup.PulsesPerUnit)); }
+                        catch (Exception ex) { LogWriteWarn("MoveUnitPerPulse", ex); }
+                    }
+
+                    // Max velocity
+                    if (c.MaxVelocity > 0)
+                    {
+                        try { AXM.SetMaxVelocity(AxisNo, c.MaxVelocity); }
+                        catch (Exception ex) { LogWriteWarn("MaxVelocity", ex); }
+                    }
+
+                    // Home velocity / acceleration
+                    try
+                    {
+                        AXM.SetHomeVelocity(AxisNo,
+                            c.HomeFirstVelocity,
+                            c.HomeSecondVelocity,
+                            c.HomeLastVelocity,
+                            c.HomeIndexSearchVelocity,
+                            c.HomeFirstAcceleration,
+                            c.HomeSecondAcceleration);
+                    }
+                    catch (Exception ex) { LogWriteWarn("HomeVelocity", ex); }
+
+                    if (setup != null)
+                    {
+                        // Home method
+                        try
+                        {
+                            AXM.SetHomeMethod(AxisNo,
+                                setup.HomeDirection,
+                                setup.HomeSignal,
+                                HomeZPhase.None,
+                                0.0,
+                                setup.HomeOffset);
+                        }
+                        catch (Exception ex) { LogWriteWarn("HomeMethod", ex); }
+
+                        // Signal levels
+                        try { AXM.SetAmpEnableLevel(AxisNo, setup.ServoOnLevel); } catch (Exception ex) { LogWriteWarn("ServoOnLevel", ex); }
+                        try { AXM.SetAmpFaultLevel(AxisNo, setup.AlarmLevel); } catch (Exception ex) { LogWriteWarn("AlarmLevel", ex); }
+                        try { AXM.SetAmpResetLevel(AxisNo, setup.AlarmResetLevel); } catch (Exception ex) { LogWriteWarn("AlarmResetLevel", ex); }
+                        try { AXM.SetPositiveLimitLevel(AxisNo, setup.PositiveLimitLevel); } catch (Exception ex) { LogWriteWarn("PositiveLimitLevel", ex); }
+                        try { AXM.SetNegativeLimitLevel(AxisNo, setup.NegativeLimitLevel); } catch (Exception ex) { LogWriteWarn("NegativeLimitLevel", ex); }
+
+                        // Soft limits (Use + Pos/Neg 통합 적용)
+                        try { AXM.SetSoftLimits(AxisNo, setup.SoftLimitEnabled, setup.SoftLimitPlus, setup.SoftLimitMinus); }
+                        catch (Exception ex) { LogWriteWarn("SoftLimits", ex); }
+
+                        // Pulse out / Encoder input (모델 enum → AXL enum 매핑, 라운드트립 시 raw 보존)
+                        try
+                        {
+                            AXM.MotorOutputMethod outValue;
+                            if (_rawPulseOutput.HasValue && MapPulseOutput(_rawPulseOutput.Value) == setup.PulseOutput)
+                                outValue = _rawPulseOutput.Value;
+                            else
+                                outValue = MapPulseOutputToAxl(setup.PulseOutput);
+                            AXM.SetOutputMethod(AxisNo, outValue);
+                        }
+                        catch (Exception ex) { LogWriteWarn("PulseOutput", ex); }
+                        try
+                        {
+                            AXM.EncoderInputMethod encValue;
+                            if (_rawEncoderInput.HasValue && MapEncoderInput(_rawEncoderInput.Value) == setup.EncoderInput)
+                                encValue = _rawEncoderInput.Value;
+                            else
+                                encValue = MapEncoderInputToAxl(setup.EncoderInput);
+                            AXM.SetEncoderMethod(AxisNo, encValue);
+                        }
+                        catch (Exception ex) { LogWriteWarn("EncoderInput", ex); }
+
+                        // Inposition level (Low/High만 적용)
+                        try
+                        {
+                            if (setup.InPosition == InPosition.Low || setup.InPosition == InPosition.High)
+                                AXM.SetInPositionLevel(AxisNo, setup.InPosition);
+                        }
+                        catch (Exception ex) { LogWriteWarn("InPosition", ex); }
+
+                        // Limit stop mode (Emergency=0, DecelStop=1)
+                        try { AXM.SetLimitStopMode(AxisNo, setup.StopMode == StopMode.Emergency ? 0u : 1u); }
+                        catch (Exception ex) { LogWriteWarn("LimitStopMode", ex); }
+
+                        // Emergency stop signal level
+                        try
+                        {
+                            uint estopMode = setup.StopMode == StopMode.Emergency ? 0u : 1u;
+                            uint estopLvl = setup.EmergencyLevel == ActiveLevel.High ? 1u : 0u;
+                            AXM.SetSignalStop(AxisNo, estopMode, estopLvl);
+                        }
+                        catch (Exception ex) { LogWriteWarn("EmergencyLevel", ex); }
+
+                        // Profile mode (모델 2종 → AXL 5종 매핑, 라운드트립 시 raw 보존)
+                        try
+                        {
+                            AXT_MOTION_PROFILE_MODE prof;
+                            bool rawIsTrap = _rawProfileMode.HasValue && (uint)_rawProfileMode.Value <= 1;
+                            bool modelIsTrap = setup.ProfileMode == AxisProfileMode.Trapezoid;
+                            if (_rawProfileMode.HasValue && rawIsTrap == modelIsTrap)
+                                prof = _rawProfileMode.Value;
+                            else
+                                prof = modelIsTrap
+                                    ? AXT_MOTION_PROFILE_MODE.SYM_TRAPEZOIDE_MODE
+                                    : AXT_MOTION_PROFILE_MODE.SYM_S_CURVE_MODE;
+                            AXM.SetProfileMode(AxisNo, prof);
+                        }
+                        catch (Exception ex) { LogWriteWarn("ProfileMode", ex); }
+
+                        // Acc/Dec Jerk %
+                        try { AXM.SetAccelerationJerk(AxisNo, setup.AccJerkPercent); } catch (Exception ex) { LogWriteWarn("AccJerk", ex); }
+                        try { AXM.SetDecelerationJerk(AxisNo, setup.DecJerkPercent); } catch (Exception ex) { LogWriteWarn("DecJerk", ex); }
+                    }
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                AlarmManager.Raise(
+                    AlarmSeverity.Warning,
+                    "AX-WRITE-SETUP",
+                    Name,
+                    "WriteSetupToBoard failed: " + ex.Message);
+                return false;
+            }
+        }
+
+        private void LogWriteWarn(string field, Exception ex)
+        {
+            AlarmManager.Raise(AlarmSeverity.Warning, "AX-WRITE-SETUP", Name,
+                field + " write failed: " + ex.Message);
+        }
+
+        /// <summary>
+        /// 프로젝트 PulseOutput(3 종) → AXL MotorOutputMethod(8 종) 역매핑.
+        /// 모델은 정보가 적으므로 AXL 의 대표값을 선택한다.
+        /// </summary>
+        private static AXM.MotorOutputMethod MapPulseOutputToAxl(PulseOutput m)
+        {
+            switch (m)
+            {
+                case PulseOutput.TwoPulse_High_CCW_CW: return AXM.MotorOutputMethod.TwoCcwCwHigh;
+                case PulseOutput.TwoPulse_Low_CCW_CW: return AXM.MotorOutputMethod.TwoCcwCwLow;
+                default: return AXM.MotorOutputMethod.OneHighLowHigh; // AB_Phase 등은 1펄스 대표값
+            }
+        }
+
+        /// <summary>
+        /// 프로젝트 EncoderInput(3 종) → AXL EncoderInputMethod(8 종) 역매핑.
+        /// </summary>
+        private static AXM.EncoderInputMethod MapEncoderInputToAxl(EncoderInput m)
+        {
+            switch (m)
+            {
+                case EncoderInput.Normal: return AXM.EncoderInputMethod.ObverseSqr4Mode;
+                case EncoderInput.Reverse_SQR4: return AXM.EncoderInputMethod.ReverseSqr4Mode;
+                default: return AXM.EncoderInputMethod.ReverseUpDownMode;
+            }
+        }
+
+        /// <summary>
+        /// AXL 의 펄스 출력 방식(10 종류)을 프로젝트 PulseOutput(3 종류)으로 축약 매핑한다.
+        /// 1펄스(One*) 계열은 AB_Phase 가 가장 가깝고, TwoCwCcw* 계열은 보드 기본값 TwoPulse_High_CCW_CW 와 매칭.
+        /// </summary>
+        private static PulseOutput MapPulseOutput(AXM.MotorOutputMethod m)
+        {
+            switch (m)
+            {
+                case AXM.MotorOutputMethod.TwoCcwCwHigh:
+                case AXM.MotorOutputMethod.TwoCwCcwHigh:
+                    return PulseOutput.TwoPulse_High_CCW_CW;
+                case AXM.MotorOutputMethod.TwoCcwCwLow:
+                case AXM.MotorOutputMethod.TwoCwCcwLow:
+                    return PulseOutput.TwoPulse_Low_CCW_CW;
+                default:
+                    return PulseOutput.AB_Phase;
+            }
+        }
+
+        /// <summary>
+        /// AXL 의 엔코더 입력 방식(8 종류)을 프로젝트 EncoderInput(3 종류)으로 축약 매핑한다.
+        /// </summary>
+        private static EncoderInput MapEncoderInput(AXM.EncoderInputMethod m)
+        {
+            switch (m)
+            {
+                case AXM.EncoderInputMethod.ObverseUpDownMode:
+                case AXM.EncoderInputMethod.ObverseSqr1Mode:
+                case AXM.EncoderInputMethod.ObverseSqr2Mode:
+                case AXM.EncoderInputMethod.ObverseSqr4Mode:
+                    return EncoderInput.Normal;
+                case AXM.EncoderInputMethod.ReverseSqr4Mode:
+                    return EncoderInput.Reverse_SQR4;
+                default:
+                    return EncoderInput.Reverse;
             }
         }
 
