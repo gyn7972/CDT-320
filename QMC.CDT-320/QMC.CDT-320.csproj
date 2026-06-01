@@ -219,6 +219,12 @@
     <Compile Include="Ui\Pages\WorkInfo\ActiveLotPage.Designer.cs">
       <DependentUpon>ActiveLotPage.cs</DependentUpon>
     </Compile>
+    <Compile Include="Ui\Pages\WorkInfo\InputCassettePage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\WorkInfo\InputCassettePage.Designer.cs">
+      <DependentUpon>InputCassettePage.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Pages\WorkInfo\OperationPanelStatusPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
@@ -520,12 +526,6 @@
     <Compile Include="Ui\Pages\WorkInfo\HeadPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="Ui\Pages\WorkInfo\InputCassettePage.Designer.cs">
-      <DependentUpon>InputCassettePage.cs</DependentUpon>
-    </Compile>
-    <Compile Include="Ui\Pages\WorkInfo\InputCassettePage.cs">
-      <SubType>UserControl</SubType>
-    </Compile>
     <Compile Include="Ui\Pages\WorkInfo\InputFeederPage.Designer.cs">
       <DependentUpon>InputFeederPage.cs</DependentUpon>
     </Compile>
@@ -800,9 +800,6 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\Settings\VisionLinkPage.resx">
       <DependentUpon>VisionLinkPage.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Ui\Pages\WorkInfo\InputCassettePage.resx">
-      <DependentUpon>InputCassettePage.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\WorkInfo\OperationPanelStatusPage.resx">
       <DependentUpon>OperationPanelStatusPage.cs</DependentUpon>
