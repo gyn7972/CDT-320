@@ -147,22 +147,22 @@ namespace QMC.CDT_320.Ui.Pages.Settings
 
                     int idx = speedGrid.Rows.Add(
                         row.Axis.Name,
-                        c.DefaultVelocity.ToString("0.###", CultureInfo.InvariantCulture),
-                        c.Acceleration.ToString("0.###", CultureInfo.InvariantCulture),
-                        c.Deceleration.ToString("0.###", CultureInfo.InvariantCulture),
-                        c.HomeFirstVelocity.ToString("0.###", CultureInfo.InvariantCulture),
-                        c.HomeSecondVelocity.ToString("0.###", CultureInfo.InvariantCulture),
-                        c.HomeThirdVelocity.ToString("0.###", CultureInfo.InvariantCulture),
-                        c.HomeLastVelocity.ToString("0.###", CultureInfo.InvariantCulture),
-                        c.HomeFirstAcceleration.ToString("0.###", CultureInfo.InvariantCulture),
-                        c.HomeFirstDeceleration.ToString("0.###", CultureInfo.InvariantCulture),
-                        c.HomeSecondAcceleration.ToString("0.###", CultureInfo.InvariantCulture),
-                        c.HomeSecondDeceleration.ToString("0.###", CultureInfo.InvariantCulture),
-                        c.JogCoarseVelocity.ToString("0.###", CultureInfo.InvariantCulture),
-                        c.JogFineVelocity.ToString("0.###", CultureInfo.InvariantCulture),
-                        c.JogAcceleration.ToString("0.###", CultureInfo.InvariantCulture),
-                        c.JogDeceleration.ToString("0.###", CultureInfo.InvariantCulture),
-                        c.InPositionTolerance.ToString("0.####", CultureInfo.InvariantCulture));
+                        FormatAxisValue(c.DefaultVelocity, row.Axis, "0.###"),
+                        FormatAxisValue(c.Acceleration, row.Axis, "0.###"),
+                        FormatAxisValue(c.Deceleration, row.Axis, "0.###"),
+                        FormatAxisValue(c.HomeFirstVelocity, row.Axis, "0.###"),
+                        FormatAxisValue(c.HomeSecondVelocity, row.Axis, "0.###"),
+                        FormatAxisValue(c.HomeThirdVelocity, row.Axis, "0.###"),
+                        FormatAxisValue(c.HomeLastVelocity, row.Axis, "0.###"),
+                        FormatAxisValue(c.HomeFirstAcceleration, row.Axis, "0.###"),
+                        FormatAxisValue(c.HomeFirstDeceleration, row.Axis, "0.###"),
+                        FormatAxisValue(c.HomeSecondAcceleration, row.Axis, "0.###"),
+                        FormatAxisValue(c.HomeSecondDeceleration, row.Axis, "0.###"),
+                        FormatAxisValue(c.JogCoarseVelocity, row.Axis, "0.###"),
+                        FormatAxisValue(c.JogFineVelocity, row.Axis, "0.###"),
+                        FormatAxisValue(c.JogAcceleration, row.Axis, "0.###"),
+                        FormatAxisValue(c.JogDeceleration, row.Axis, "0.###"),
+                        FormatAxisValue(c.InPositionTolerance, row.Axis, "0.####"));
 
                     speedGrid.Rows[idx].Tag = row.Axis;
                 }
@@ -239,22 +239,22 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                     if (axis == null || axis.Config == null) continue;
 
                     AxisConfig c = axis.Config;
-                    c.DefaultVelocity = ReadCell(row, "DEFAULT_VEL", c.DefaultVelocity);
-                    c.Acceleration = ReadCell(row, "ACCEL", c.Acceleration);
-                    c.Deceleration = ReadCell(row, "DECEL", c.Deceleration);
-                    c.HomeFirstVelocity = ReadCell(row, "HOME_VEL_1", c.HomeFirstVelocity);
-                    c.HomeSecondVelocity = ReadCell(row, "HOME_VEL_2", c.HomeSecondVelocity);
-                    c.HomeThirdVelocity = ReadCell(row, "HOME_VEL_3", c.HomeThirdVelocity);
-                    c.HomeLastVelocity = ReadCell(row, "HOME_VEL_4", c.HomeLastVelocity);
-                    c.HomeFirstAcceleration = ReadCell(row, "HOME_ACC_1", c.HomeFirstAcceleration);
-                    c.HomeFirstDeceleration = ReadCell(row, "HOME_DEC_1", c.HomeFirstDeceleration);
-                    c.HomeSecondAcceleration = ReadCell(row, "HOME_ACC_2", c.HomeSecondAcceleration);
-                    c.HomeSecondDeceleration = ReadCell(row, "HOME_DEC_2", c.HomeSecondDeceleration);
-                    c.JogCoarseVelocity = ReadCell(row, "JOG_COARSE", c.JogCoarseVelocity);
-                    c.JogFineVelocity = ReadCell(row, "JOG_FINE", c.JogFineVelocity);
-                    c.JogAcceleration = ReadCell(row, "JOG_ACC", c.JogAcceleration);
-                    c.JogDeceleration = ReadCell(row, "JOG_DEC", c.JogDeceleration);
-                    c.InPositionTolerance = ReadCell(row, "INPOS_TOL", c.InPositionTolerance);
+                    c.DefaultVelocity = ReadDisplayCell(row, "DEFAULT_VEL", c.DefaultVelocity, axis);
+                    c.Acceleration = ReadDisplayCell(row, "ACCEL", c.Acceleration, axis);
+                    c.Deceleration = ReadDisplayCell(row, "DECEL", c.Deceleration, axis);
+                    c.HomeFirstVelocity = ReadDisplayCell(row, "HOME_VEL_1", c.HomeFirstVelocity, axis);
+                    c.HomeSecondVelocity = ReadDisplayCell(row, "HOME_VEL_2", c.HomeSecondVelocity, axis);
+                    c.HomeThirdVelocity = ReadDisplayCell(row, "HOME_VEL_3", c.HomeThirdVelocity, axis);
+                    c.HomeLastVelocity = ReadDisplayCell(row, "HOME_VEL_4", c.HomeLastVelocity, axis);
+                    c.HomeFirstAcceleration = ReadDisplayCell(row, "HOME_ACC_1", c.HomeFirstAcceleration, axis);
+                    c.HomeFirstDeceleration = ReadDisplayCell(row, "HOME_DEC_1", c.HomeFirstDeceleration, axis);
+                    c.HomeSecondAcceleration = ReadDisplayCell(row, "HOME_ACC_2", c.HomeSecondAcceleration, axis);
+                    c.HomeSecondDeceleration = ReadDisplayCell(row, "HOME_DEC_2", c.HomeSecondDeceleration, axis);
+                    c.JogCoarseVelocity = ReadDisplayCell(row, "JOG_COARSE", c.JogCoarseVelocity, axis);
+                    c.JogFineVelocity = ReadDisplayCell(row, "JOG_FINE", c.JogFineVelocity, axis);
+                    c.JogAcceleration = ReadDisplayCell(row, "JOG_ACC", c.JogAcceleration, axis);
+                    c.JogDeceleration = ReadDisplayCell(row, "JOG_DEC", c.JogDeceleration, axis);
+                    c.InPositionTolerance = ReadDisplayCell(row, "INPOS_TOL", c.InPositionTolerance, axis);
                     applied++;
                 }
 
@@ -300,6 +300,22 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             catch
             {
                 return fallback;
+            }
+        }
+
+        private static double ReadDisplayCell(DataGridViewRow row, string columnName, double fallback, BaseAxis axis)
+        {
+            try
+            {
+                double displayValue = ReadCell(row, columnName, AxisUnitConverter.ToDisplay(fallback, axis));
+                return AxisUnitConverter.FromDisplay(displayValue, axis);
+            }
+            catch
+            {
+                return fallback;
+            }
+            finally
+            {
             }
         }
     }

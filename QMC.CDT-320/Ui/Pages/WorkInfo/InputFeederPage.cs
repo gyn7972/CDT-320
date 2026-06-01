@@ -2,6 +2,7 @@
 using System.Drawing;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using QMC.Common.Motion;
 
 namespace QMC.CDT_320.Ui.Pages.WorkInfo
 {
@@ -79,7 +80,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             if (host?.Machine == null) return;
             var loader = host.Machine.InputLoader;
 
-            _lblFeederPos.Text = loader.FeederY.ActualPosition.ToString("F3") + " mm";
+            _lblFeederPos.Text = AxisUnitConverter.FormatDisplay(loader.FeederY.ActualPosition, loader.FeederY, "0.###", true);
             _lblClampState.Text = loader.FeederClampCyl.IsFwd ? "CLAMPED" : (loader.FeederClampCyl.IsBwd ? "OPEN" : "...");
             _lblClampState.ForeColor = loader.FeederClampCyl.IsFwd ? Color.LimeGreen : Color.Black;
             _lblUpDownState.Text = loader.FeederUpDownCyl.IsFwd ? "DOWN" : (loader.FeederUpDownCyl.IsBwd ? "UP" : "...");

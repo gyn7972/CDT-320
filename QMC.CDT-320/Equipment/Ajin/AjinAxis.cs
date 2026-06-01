@@ -18,6 +18,11 @@ namespace QMC.CDT320.Ajin
             get { return false; }
         }
 
+        private bool UseSimulation
+        {
+            get { return Config != null && Config.IsSimulationMode; }
+        }
+
         public AjinAxis(string name, int axisNo) : base(name)
         {
             AxisNo = axisNo;
@@ -26,6 +31,12 @@ namespace QMC.CDT320.Ajin
 
         public override void ServoOn()
         {
+            if (UseSimulation)
+            {
+                base.ServoOn();
+                return;
+            }
+
             if (!AjinSystem.IsOpen || IsAlarm) return;
             int ret;
             lock (_sync)
@@ -36,6 +47,12 @@ namespace QMC.CDT320.Ajin
 
         public override void ServoOff()
         {
+            if (UseSimulation)
+            {
+                base.ServoOff();
+                return;
+            }
+
             Stop();
             if (!AjinSystem.IsOpen) return;
             lock (_sync)
@@ -45,7 +62,7 @@ namespace QMC.CDT320.Ajin
 
         public override void ResetAlarm()
         {
-            if (!AjinSystem.IsOpen)
+            if (UseSimulation || !AjinSystem.IsOpen)
             {
                 base.ResetAlarm();
                 return;
@@ -61,6 +78,9 @@ namespace QMC.CDT320.Ajin
         {
             try
             {
+                if (UseSimulation)
+                    return await base.MoveAbsoluteAsync(targetPos, velocity);
+
                 if (!IsServoOn || IsAlarm || !AjinSystem.IsOpen)
                     return -2;
 
@@ -116,7 +136,7 @@ namespace QMC.CDT320.Ajin
         {
             try
             {
-                if (!AjinSystem.IsOpen)
+                if (UseSimulation || !AjinSystem.IsOpen)
                     return await base.MoveRelativeAsync(distance, velocity);
 
                 UpdateStatus();
@@ -142,6 +162,12 @@ namespace QMC.CDT320.Ajin
 
         public override void Stop()
         {
+            if (UseSimulation)
+            {
+                base.Stop();
+                return;
+            }
+
             base.Stop();
             if (!AjinSystem.IsOpen) return;
             lock (_sync)
@@ -150,6 +176,12 @@ namespace QMC.CDT320.Ajin
 
         public override void EStop()
         {
+            if (UseSimulation)
+            {
+                base.EStop();
+                return;
+            }
+
             base.EStop();
             if (!AjinSystem.IsOpen) return;
             lock (_sync)
@@ -160,6 +192,9 @@ namespace QMC.CDT320.Ajin
         {
             try
             {
+                if (UseSimulation)
+                    return await base.HomeSearchAsync();
+
                 if (!IsServoOn || IsAlarm || !AjinSystem.IsOpen)
                     return -2;
 
@@ -230,6 +265,12 @@ namespace QMC.CDT320.Ajin
 
         public override void SetPosition(double newPosition)
         {
+            if (UseSimulation)
+            {
+                base.SetPosition(newPosition);
+                return;
+            }
+
             base.SetPosition(newPosition);
             if (!AjinSystem.IsOpen) return;
             lock (_sync)
@@ -243,6 +284,12 @@ namespace QMC.CDT320.Ajin
         {
             try
             {
+                if (UseSimulation)
+                {
+                    base.MoveJogContinuous(direction, speedType, customVel);
+                    return;
+                }
+
                 if (!IsServoOn || IsAlarm || !AjinSystem.IsOpen)
                     return;
 
@@ -289,6 +336,9 @@ namespace QMC.CDT320.Ajin
         {
             try
             {
+                if (UseSimulation)
+                    return await base.MoveJogStepAsync(direction, speedType, stepDistance, customVel);
+
                 if (!IsServoOn || IsAlarm)
                     return -2;
 
@@ -323,7 +373,7 @@ namespace QMC.CDT320.Ajin
 
         public override void StopJog()
         {
-            if (!AjinSystem.IsOpen)
+            if (UseSimulation || !AjinSystem.IsOpen)
             {
                 base.StopJog();
                 return;

@@ -1,51 +1,41 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
-using System.IO;
+using System.Globalization;
 using System.Linq;
-using System.Runtime.Serialization;
-using System.Runtime.Serialization.Json;
 using System.Windows.Forms;
 using QMC.CDT320.Ajin;
+using QMC.CDT_320.Ui.Controls;
 using QMC.CDT_320.Ui.Localization;
+using QMC.Common;
+using QMC.Common.Motion;
 
 namespace QMC.CDT_320.Ui.Pages.Settings
 {
     /// <summary>
     /// Stage 59 — Axis Setup 페이지.
-    /// 메뉴얼(CDT-310/CDT-300)의 37개 축 정보를 그리드로 표시 + 편집 + 저장.
-    /// MotionMap.cs(Sim) / SimulatorBridge(실축 매핑) 와 동기화.
+    /// Ajin 매핑 파일에 등록된 축을 기준으로 AxisSetup / AxisConfig 데이터를 표시 + 편집 + 저장.
     /// </summary>
     public partial class AxisSetupPage : PageBase
     {
         public class AxisRow
         {
-            [DataMember] public int No { get; set; }
-            [DataMember] public string Name { get; set; }
-            [DataMember] public string Module { get; set; }
-            [DataMember] public double Stroke { get; set; }
-            [DataMember] public bool Brake { get; set; }
-            [DataMember] public double SoftLimitNeg { get; set; }
-            [DataMember] public double SoftLimitPos { get; set; }
-            [DataMember] public double DefaultVel { get; set; }
-            [DataMember] public string HomeDir { get; set; }   // POS/NEG
-            [DataMember] public string Unit { get; set; }   // mm/deg
-            // Stage 61 — AJINEXTEK 보드/채널 매핑 (IO LIST_R0 의 Master.Slot 기준)
-            [DataMember] public int BoardNo { get; set; }
-            [DataMember] public int ChannelNo { get; set; }
+            public int No { get; set; }
+            public string Name { get; set; }
+            public string Module { get; set; }
+            public double Stroke { get; set; }
+            public double SoftLimitNeg { get; set; }
+            public double SoftLimitPos { get; set; }
+            public string Unit { get; set; }   // mm/um/deg
+            public bool SimulationMode { get; set; } = true;
+            public int BoardNo { get; set; }
+            public int ChannelNo { get; set; }
             /// <summary>AjinConfig 매핑에 사용할 키 (PickerComponent 의 BaseAxis.Name 과 일치).</summary>
-            [DataMember] public string ConfigKey { get; set; }
-        }
-
-        [DataContract]
-        public class AxisStore
-        {
-            [DataMember] public List<AxisRow> Items { get; set; } = new List<AxisRow>();
+            public string ConfigKey { get; set; }
         }
 
         private List<AxisRow> _items;
-        private static readonly string SavePath =
-            Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "axis_setup.json");
+        private bool _gridLoading;
 
         public AxisSetupPage()
         {
@@ -89,7 +79,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         private void OnResetClick(object sender, EventArgs e)
         {
             if (QMC.Common.MessageDialog.Show("기본값으로 초기화?", "Reset", MessageBoxButtons.OKCancel) != DialogResult.OK) return;
-            _items = SeedDefault();
+            ResetRowsToDefaults(_items);
             FillGrid();
         }
 
@@ -99,24 +89,37 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         public static List<AxisRow> SeedDefault()
         {
             var L = new List<AxisRow>();
-            foreach (var axis in AjinAxisDefaults.All)
+            try
             {
-                L.Add(new AxisRow
+                AjinConfig cfg = AjinConfigStore.Load();
+                if (cfg?.Axes == null) return L;
+
+                foreach (var item in cfg.Axes.OrderBy(x => x.Value != null ? x.Value.Axis : int.MaxValue))
                 {
-                    No = axis.Axis,
-                    Module = axis.Module,
-                    Name = axis.AxisName,
-                    ConfigKey = axis.AxisName,
-                    BoardNo = axis.BoardNo,
-                    ChannelNo = axis.ChannelNo,
-                    Stroke = axis.Stroke,
-                    Brake = axis.Brake,
-                    Unit = axis.Unit,
-                    DefaultVel = axis.DefaultVel,
-                    HomeDir = axis.HomeDir,
-                    SoftLimitNeg = 0,
-                    SoftLimitPos = axis.Stroke
-                });
+                    AxisMap map = item.Value;
+                    if (map == null) continue;
+                    string key = AjinAxisDefaults.ResolveName(item.Key);
+                    AxisDefault axis = FindDefault(key);
+
+                    L.Add(new AxisRow
+                    {
+                        No = map.Axis,
+                        Module = axis != null ? axis.Module : string.Empty,
+                        Name = axis != null ? axis.AxisName : key,
+                        ConfigKey = key,
+                        BoardNo = map.BoardNo,
+                        ChannelNo = map.ChannelNo,
+                        Stroke = axis != null ? axis.Stroke : 0.0,
+                        SimulationMode = true,
+                        Unit = NormalizeUnitForAxis(key, axis != null ? axis.Unit : AxisUnitConverter.Millimeter),
+                        SoftLimitNeg = 0,
+                        SoftLimitPos = axis != null ? axis.Stroke : 200.0
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Warning, "QMC", "AXIS-SEED", "Axis setup seed failed: " + ex.Message);
             }
             return L;
         }
@@ -129,92 +132,127 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         // Persistence ──────────────────────────────────────────────
         private static List<AxisRow> LoadOrSeed()
         {
-            List<AxisRow> rows = null;
             try
             {
-                if (File.Exists(SavePath))
-                    using (var fs = File.OpenRead(SavePath))
-                    {
-                        var ser = new DataContractJsonSerializer(typeof(AxisStore));
-                        var s = (AxisStore)ser.ReadObject(fs);
-                        if (s?.Items != null && s.Items.Count > 0)
-                            rows = MergeWithDefaults(s.Items);
-                    }
+                AjinConfigStore.Load();
+                AjinFactory.ReloadConfiguredAxes();
+
+                BaseAxis[] axes = AjinFactory.AxisManager.GetAll();
+                if (axes == null || axes.Length == 0) return SeedDefault();
+
+                return axes
+                    .Where(x => x != null)
+                    .Select(ToAxisRow)
+                    .OrderBy(x => x.No)
+                    .ThenBy(x => x.Name)
+                    .ToList();
             }
-            catch { }
-
-            if (rows == null)
-                rows = SeedDefault();
-
-            ApplyAjinConfigMappings(rows);
-            return rows;
-        }
-
-        private static List<AxisRow> MergeWithDefaults(List<AxisRow> saved)
-        {
-            var result = SeedDefault();
-            foreach (var row in result)
+            catch (Exception ex)
             {
-                var savedRow = saved.FirstOrDefault(x =>
-                    string.Equals(AjinAxisDefaults.ResolveName(x.ConfigKey), row.ConfigKey, StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(AjinAxisDefaults.ResolveName(x.Name), row.ConfigKey, StringComparison.OrdinalIgnoreCase));
-                if (savedRow == null) continue;
-
-                row.BoardNo = savedRow.BoardNo;
-                row.ChannelNo = savedRow.ChannelNo;
-                row.Stroke = savedRow.Stroke;
-                row.Brake = savedRow.Brake;
-                row.SoftLimitNeg = savedRow.SoftLimitNeg;
-                row.SoftLimitPos = savedRow.SoftLimitPos;
-                row.DefaultVel = savedRow.DefaultVel;
-                row.HomeDir = savedRow.HomeDir;
-                row.Unit = savedRow.Unit;
+                QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Warning, "QMC", "AXIS-LOAD", "Axis setup load failed: " + ex.Message);
+                return SeedDefault();
             }
-            return result;
         }
 
-        private static void ApplyAjinConfigMappings(List<AxisRow> rows)
+        private static AxisRow ToAxisRow(BaseAxis axis)
         {
-            if (rows == null) return;
+            AxisSetup setup = axis.Setup ?? new AxisSetup();
+            AxisConfig config = axis.Config ?? new AxisConfig();
+            AxisMap map = FindAxisMap(axis.Name);
 
+            return new AxisRow
+            {
+                No = setup.AxisNo,
+                Module = setup.UnitName,
+                Name = string.IsNullOrWhiteSpace(setup.DisplayName) ? axis.Name : setup.DisplayName,
+                ConfigKey = AjinAxisDefaults.ResolveName(axis.Name),
+                BoardNo = setup.BoardNo,
+                ChannelNo = map != null ? map.ChannelNo : 0,
+                Stroke = setup.Stroke,
+                SimulationMode = config.IsSimulationMode,
+                Unit = NormalizeUnitForAxis(axis.Name, setup.Unit),
+                SoftLimitNeg = setup.SoftLimitMinus,
+                SoftLimitPos = setup.SoftLimitPlus
+            };
+        }
+
+        private static AxisMap FindAxisMap(string axisName)
+        {
             try
             {
-                var cfg = AjinConfigStore.Load();
-                if (cfg?.Axes == null || cfg.Axes.Count == 0) return;
+                AjinConfig cfg = AjinConfigStore.Current ?? AjinConfigStore.Load();
+                if (cfg?.Axes == null) return null;
+                string key = AjinAxisDefaults.ResolveName(axisName);
 
-                foreach (var row in rows)
+                AxisMap map;
+                if (!string.IsNullOrWhiteSpace(key) && cfg.Axes.TryGetValue(key, out map))
+                    return map;
+
+                return null;
+            }
+            catch
+            {
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
+        private static AxisDefault FindDefault(string axisName)
+        {
+            try
+            {
+                string key = AjinAxisDefaults.ResolveName(axisName);
+                foreach (AxisDefault axis in AjinAxisDefaults.All)
+                    if (string.Equals(axis.AxisName, key, StringComparison.OrdinalIgnoreCase))
+                        return axis;
+                return null;
+            }
+            catch
+            {
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
+        private static void ResetRowsToDefaults(IEnumerable<AxisRow> rows)
+        {
+            try
+            {
+                if (rows == null) return;
+                foreach (AxisRow row in rows)
                 {
-                    string configKey = AjinAxisDefaults.ResolveName(row.ConfigKey);
-                    AxisMap map = null;
+                    AxisDefault axis = FindDefault(row.ConfigKey);
+                    if (axis == null) continue;
 
-                    if (!string.IsNullOrEmpty(configKey))
-                        cfg.Axes.TryGetValue(configKey, out map);
-
-                    if (map == null && !string.IsNullOrEmpty(row.Name))
-                        cfg.Axes.TryGetValue(AjinAxisDefaults.ResolveName(row.Name), out map);
-
-                    if (map == null) continue;
-
-                    row.No = map.Axis;
-                    row.BoardNo = map.BoardNo;
-                    row.ChannelNo = map.ChannelNo;
+                    row.Module = axis.Module;
+                    row.Name = axis.AxisName;
+                    row.Stroke = axis.Stroke;
+                    row.Unit = NormalizeUnitForAxis(row.ConfigKey, axis.Unit);
+                    row.SoftLimitNeg = 0;
+                    row.SoftLimitPos = axis.Stroke;
+                    row.SimulationMode = true;
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Warning, "QMC", "AXIS-RESET", "Axis setup reset failed: " + ex.Message);
+            }
+            finally
+            {
+            }
         }
 
         private void DoSave()
         {
             try
             {
-                Directory.CreateDirectory(Path.GetDirectoryName(SavePath));
-                using (var fs = File.Create(SavePath))
-                {
-                    var ser = new DataContractJsonSerializer(typeof(AxisStore));
-                    ser.WriteObject(fs, new AxisStore { Items = _items });
-                }
-                SaveAjinMappings();
-                QMC.Common.MessageDialog.Show("저장 완료.\n" + SavePath);
+                int applied = ApplyRowsToAxes();
+                AjinFactory.AxisManager.Save(MotionAxisStore.DefaultPath);
+                QMC.Common.MessageDialog.Show("저장 완료.\n" + MotionAxisStore.DefaultPath + "\n적용 축: " + applied);
             }
             catch (Exception ex) { QMC.Common.MessageDialog.Show("실패: " + ex.Message); }
         }
@@ -222,126 +260,589 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         // ── Grid ─────────────────────────────────────────────────────
         private void FillGrid()
         {
-            grid.Rows.Clear();
-            string lastMod = null;
-            foreach (var it in _items)
-            {
-                int idx = grid.Rows.Add(
-                    "#" + it.No.ToString("00"), it.Module, it.Name,
-                    it.BoardNo.ToString(),
-                    it.ChannelNo.ToString("X"),     // hex (slot 0~F)
-                    it.Unit,
-                    it.Stroke.ToString("F1"), it.Brake ? "ON" : "OFF",
-                    it.SoftLimitNeg.ToString("F1"), it.SoftLimitPos.ToString("F1"),
-                    it.DefaultVel.ToString("F1"), it.HomeDir);
-                if (it.Module != lastMod)
-                {
-                    grid.Rows[idx].DefaultCellStyle.BackColor = Color.FromArgb(0xEC, 0xF0, 0xF6);
-                    grid.Rows[idx].DefaultCellStyle.Font = new Font("맑은 고딕", 9F, FontStyle.Bold);
-                    lastMod = it.Module;
-                }
-            }
-        }
-
-        private void OnCellEdit(object s, DataGridViewCellEventArgs e)
-        {
-            if (e.RowIndex < 0 || e.RowIndex >= _items.Count) return;
-            var it = _items[e.RowIndex];
-            string col = grid.Columns[e.ColumnIndex].Name;
-            string txt = (grid.Rows[e.RowIndex].Cells[col].Value as string) ?? "";
             try
             {
-                switch (col)
+                _gridLoading = true;
+                grid.Rows.Clear();
+                string lastMod = null;
+                foreach (var it in _items)
                 {
-                    case "STROKE": if (double.TryParse(txt, out var v1)) it.Stroke = v1; break;
-                    case "BRAKE": it.Brake = txt.Trim().ToUpper().StartsWith("ON"); break;
-                    case "SLN": if (double.TryParse(txt, out var v2)) it.SoftLimitNeg = v2; break;
-                    case "SLP": if (double.TryParse(txt, out var v3)) it.SoftLimitPos = v3; break;
-                    case "VEL": if (double.TryParse(txt, out var v4)) it.DefaultVel = v4; break;
-                    case "HOMEDIR": it.HomeDir = txt.Trim().ToUpper(); break;
-                    case "BOARD": if (int.TryParse(txt.Trim(), out var b1)) it.BoardNo = b1; break;
-                    case "CH":     // hex 또는 decimal 모두 허용
-                        if (int.TryParse(txt.Trim(),
-                                System.Globalization.NumberStyles.HexNumber,
-                                System.Globalization.CultureInfo.InvariantCulture, out var c1))
-                            it.ChannelNo = c1;
-                        else if (int.TryParse(txt.Trim(), out var c2))
-                            it.ChannelNo = c2;
-                        break;
+                    int idx = grid.Rows.Add();
+                    PopulateGridRow(grid.Rows[idx], it, it.Module != lastMod);
+                    if (it.Module != lastMod)
+                        lastMod = it.Module;
                 }
-                FillGrid();
-            }
-            catch { }
-        }
-
-        /// <summary>SoftLimit + Default Velocity + Board/Channel 값을 실 축 및 AjinConfig 에 반영 (Apply).</summary>
-        private void ApplyToAxes()
-        {
-            var host = FindForm() as Form1;
-            if (host?.Machine == null) { QMC.Common.MessageDialog.Show("Machine 미초기화"); return; }
-
-            int axisApplied = 0;
-            int cfgApplied = 0;
-
-            foreach (var ax in EnumerateAxes(host.Machine))
-            {
-                string axisName = AjinAxisDefaults.ResolveName(ax.Name);
-                var match = _items.FirstOrDefault(x =>
-                    string.Equals(x.ConfigKey, axisName, StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(x.Name, axisName, StringComparison.OrdinalIgnoreCase));
-                if (match == null) continue;
-                try
-                {
-                    ax.Setup.SoftLimitMinus = match.SoftLimitNeg;
-                    ax.Setup.SoftLimitPlus = match.SoftLimitPos;
-                    ax.Config.DefaultVelocity = match.DefaultVel;
-                    var setupType = ax.Setup.GetType();
-                    var strokeProp = setupType.GetProperty("Stroke");
-                    if (strokeProp != null && strokeProp.CanWrite) strokeProp.SetValue(ax.Setup, match.Stroke);
-                    axisApplied++;
-                }
-                catch { }
-            }
-
-            // Stage 61 — Board/Channel 값을 AjinConfig 에도 반영 (ConfigKey 기준)
-            try
-            {
-                cfgApplied = SaveAjinMappings();
-                AjinFactory.ReloadConfiguredAxes();
             }
             catch (Exception ex)
             {
-                QMC.Common.MessageDialog.Show("AjinConfig 반영 실패: " + ex.Message);
+                QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Warning, "QMC", "AXIS-GRID", "Axis setup grid refresh failed: " + ex.Message);
             }
-
-            QMC.Common.MessageDialog.Show($"Soft Limit/Velocity 적용 축: {axisApplied}\nAjinConfig (Board/Ch) 반영: {cfgApplied}");
+            finally
+            {
+                _gridLoading = false;
+            }
         }
 
-        private int SaveAjinMappings()
+        private void PopulateGridRow(DataGridViewRow row, AxisRow it, bool isModuleStart)
         {
-            var cfg = AjinConfigStore.Current ?? AjinConfigStore.Load();
-            int count = 0;
-
-            foreach (var it in _items)
+            try
             {
-                string configKey = AjinAxisDefaults.ResolveName(it.ConfigKey);
-                if (string.IsNullOrEmpty(configKey)) continue;
+                row.Cells["NO"].Value = "#" + it.No.ToString("00");
+                row.Cells["MODULE"].Value = it.Module;
+                row.Cells["NAME"].Value = it.Name;
+                row.Cells["BOARD"].Value = it.BoardNo.ToString();
+                row.Cells["CH"].Value = it.ChannelNo.ToString("X");
+                row.Cells["UNIT"].Value = it.Unit;
+                row.Cells["STROKE"].Value = AxisUnitConverter.Format(AxisUnitConverter.ToDisplay(it.Stroke, it.Unit), it.Unit);
+                row.Cells["SIM"].Value = it.SimulationMode ? "ON" : "OFF";
+                row.Cells["SLN"].Value = AxisUnitConverter.Format(AxisUnitConverter.ToDisplay(it.SoftLimitNeg, it.Unit), it.Unit);
+                row.Cells["SLP"].Value = AxisUnitConverter.Format(AxisUnitConverter.ToDisplay(it.SoftLimitPos, it.Unit), it.Unit);
 
-                AxisMap am;
-                if (!cfg.Axes.TryGetValue(configKey, out am))
+                row.DefaultCellStyle.BackColor = Color.White;
+                row.DefaultCellStyle.Font = grid.DefaultCellStyle.Font;
+                ApplySimCellStyle(row.Cells["SIM"], it.SimulationMode);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Warning, "QMC", "AXIS-GRID-ROW", "Axis setup row refresh failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private void ApplySimCellStyle(DataGridViewCell cell, bool isOn)
+        {
+            try
+            {
+                if (cell == null) return;
+                cell.Style.Alignment = DataGridViewContentAlignment.MiddleCenter;
+                cell.Style.Font = new Font("맑은 고딕", 9F, FontStyle.Bold);
+                cell.Style.ForeColor = isOn ? Color.FromArgb(0x10, 0x55, 0x2D) : Color.FromArgb(0x55, 0x55, 0x55);
+                cell.Style.BackColor = isOn ? Color.FromArgb(0xD8, 0xF3, 0xDC) : Color.FromArgb(0xF5, 0xF5, 0xF5);
+                cell.Style.SelectionForeColor = cell.Style.ForeColor;
+                cell.Style.SelectionBackColor = isOn ? Color.FromArgb(0xB7, 0xE4, 0xC7) : Color.FromArgb(0xE6, 0xE6, 0xE6);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Warning, "QMC", "AXIS-SIM-STYLE", "Axis setup sim style failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private void OnGridCellClick(object s, DataGridViewCellEventArgs e)
+        {
+            try
+            {
+                if (_gridLoading) return;
+                if (e.RowIndex < 0 || e.ColumnIndex < 0) return;
+                DataGridViewColumn col = grid.Columns[e.ColumnIndex];
+                if (col == null || col.Name != "SIM") return;
+
+                ToggleSimWithConfirm(e.RowIndex);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Warning, "QMC", "AXIS-SIM-CLICK", "Axis setup sim click failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private void OnCellDoubleClick(object s, DataGridViewCellEventArgs e)
+        {
+            try
+            {
+                if (_gridLoading) return;
+                if (e.RowIndex < 0 || e.ColumnIndex < 0) return;
+
+                DataGridViewColumn col = grid.Columns[e.ColumnIndex];
+                if (!IsEditableColumn(col.Name)) return;
+                if (col.Name == "SIM") return;
+
+                DataGridViewCell cell = grid.Rows[e.RowIndex].Cells[e.ColumnIndex];
+                object nextValue;
+
+                if (IsToggleColumn(col.Name))
                 {
-                    am = new AxisMap();
-                    cfg.Axes[configKey] = am;
+                    ToggleSimWithConfirm(e.RowIndex);
+                    return;
+                }
+                else if (IsEnumColumn(col.Name))
+                {
+                    string picked = ShowEnumDialog(col.HeaderText, GetEnumOptions(col.Name), Convert.ToString(cell.Value) ?? string.Empty);
+                    if (picked == null) return;
+                    nextValue = picked;
+                }
+                else if (IsNumericColumn(col.Name))
+                {
+                    string current = Convert.ToString(cell.Value) ?? string.Empty;
+                    string title = (grid.Rows[e.RowIndex].Cells["NAME"].Value?.ToString() ?? "AXIS") + " - " + col.HeaderText;
+                    using (var dlg = new NumericKeypadDialog(title, current, string.Empty))
+                    {
+                        if (dlg.ShowDialog(FindForm()) != DialogResult.OK) return;
+                        nextValue = dlg.ValueText ?? string.Empty;
+                    }
+                }
+                else
+                {
+                    return;
                 }
 
-                am.Axis = it.No;
-                am.BoardNo = it.BoardNo;
-                am.ChannelNo = it.ChannelNo;
-                count++;
-            }
+                if (string.Equals(Convert.ToString(nextValue), Convert.ToString(cell.Value), StringComparison.Ordinal))
+                    return;
 
-            AjinConfigStore.Save();
+                ApplyCellValue(e.RowIndex, col.Name, nextValue);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Warning, "QMC", "AXIS-CELL-EDIT", "Axis setup cell edit failed: " + ex.Message);
+                QMC.Common.Alarms.AlarmManager.Raise(
+                    QMC.Common.Alarms.AlarmSeverity.Warning,
+                    "UI-AXIS-SETUP",
+                    "AxisSetupPage",
+                    "Cell edit failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private void ToggleSimWithConfirm(int rowIndex)
+        {
+            try
+            {
+                if (rowIndex < 0 || rowIndex >= _items.Count) return;
+                AxisRow row = _items[rowIndex];
+                bool next = !row.SimulationMode;
+                string axisName = string.IsNullOrWhiteSpace(row.Name) ? row.ConfigKey : row.Name;
+                string message = axisName + " 축을 " + (next ? "SIM 모드로 변경할까요?" : "REAL 모드로 변경할까요?");
+                if (QMC.Common.MessageDialog.Show(message, "SIM MODE", MessageBoxButtons.OKCancel) != DialogResult.OK)
+                    return;
+
+                ApplyCellValue(rowIndex, "SIM", next);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Warning, "QMC", "AXIS-SIM-TOGGLE", "Axis setup sim toggle failed: " + ex.Message);
+                QMC.Common.Alarms.AlarmManager.Raise(
+                    QMC.Common.Alarms.AlarmSeverity.Warning,
+                    "UI-AXIS-SETUP",
+                    "AxisSetupPage",
+                    "SIM toggle failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private void OnColumnHeaderMouseDoubleClick(object s, DataGridViewCellMouseEventArgs e)
+        {
+            try
+            {
+                if (_gridLoading) return;
+                if (e.ColumnIndex < 0 || grid.Rows.Count == 0) return;
+
+                DataGridViewColumn col = grid.Columns[e.ColumnIndex];
+                if (!IsEditableColumn(col.Name)) return;
+
+                object nextValue;
+                object current = grid.Rows[0].Cells[e.ColumnIndex].Value;
+                string title = "ALL AXES - " + col.HeaderText;
+
+                if (IsToggleColumn(col.Name))
+                {
+                    string picked = ShowEnumDialog(title, new[] { "ON", "OFF" }, ToBool(current) ? "ON" : "OFF");
+                    if (picked == null) return;
+                    nextValue = string.Equals(picked, "ON", StringComparison.OrdinalIgnoreCase);
+                    string message = "전체 축을 " + ((bool)nextValue ? "SIM 모드로 변경할까요?" : "REAL 모드로 변경할까요?");
+                    if (QMC.Common.MessageDialog.Show(message, "SIM MODE", MessageBoxButtons.OKCancel) != DialogResult.OK)
+                        return;
+                }
+                else if (IsEnumColumn(col.Name))
+                {
+                    string picked = ShowEnumDialog(title, GetEnumOptions(col.Name), Convert.ToString(current) ?? string.Empty);
+                    if (picked == null) return;
+                    nextValue = picked;
+                }
+                else if (IsNumericColumn(col.Name))
+                {
+                    string currentText = Convert.ToString(current) ?? string.Empty;
+                    using (var dlg = new NumericKeypadDialog(title, currentText, string.Empty))
+                    {
+                        if (dlg.ShowDialog(FindForm()) != DialogResult.OK) return;
+                        nextValue = dlg.ValueText ?? string.Empty;
+                    }
+                }
+                else
+                {
+                    return;
+                }
+
+                foreach (AxisRow it in _items)
+                    ApplyItemValue(it, col.Name, nextValue);
+
+                ApplyRowsToAxes();
+                FillGrid();
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Warning, "QMC", "AXIS-HEADER-EDIT", "Axis setup header edit failed: " + ex.Message);
+                QMC.Common.Alarms.AlarmManager.Raise(
+                    QMC.Common.Alarms.AlarmSeverity.Warning,
+                    "UI-AXIS-SETUP",
+                    "AxisSetupPage",
+                    "Header edit failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private void ApplyCellValue(int rowIndex, string col, object value)
+        {
+            try
+            {
+                if (rowIndex < 0 || rowIndex >= _items.Count) return;
+                ApplyItemValue(_items[rowIndex], col, value);
+                ApplyRowToMatchingAxes(_items[rowIndex]);
+                if (rowIndex < grid.Rows.Count)
+                    PopulateGridRow(grid.Rows[rowIndex], _items[rowIndex], IsModuleStart(rowIndex));
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Warning, "QMC", "AXIS-CELL", "Axis setup cell apply failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool IsEditableColumn(string col)
+        {
+            try
+            {
+                return IsNumericColumn(col) || IsToggleColumn(col) || IsEnumColumn(col);
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool IsNumericColumn(string col)
+        {
+            try
+            {
+                return col == "STROKE" || col == "SLN" || col == "SLP";
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool IsToggleColumn(string col)
+        {
+            try
+            {
+                return col == "SIM";
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool IsEnumColumn(string col)
+        {
+            try
+            {
+                return col == "UNIT";
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private static string[] GetEnumOptions(string col)
+        {
+            try
+            {
+                if (col == "UNIT") return AxisUnitConverter.SupportedUnits;
+                return new string[0];
+            }
+            catch
+            {
+                return new string[0];
+            }
+            finally
+            {
+            }
+        }
+
+        private string ShowEnumDialog(string title, IEnumerable<string> options, string current)
+        {
+            try
+            {
+                using (var dlg = new EnumPickerDialog(title, options, current))
+                {
+                    if (dlg.ShowDialog(FindForm()) != DialogResult.OK) return null;
+                    return dlg.SelectedValue;
+                }
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Warning, "QMC", "AXIS-ENUM", "Axis setup enum picker failed: " + ex.Message);
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
+        private bool IsModuleStart(int rowIndex)
+        {
+            try
+            {
+                if (rowIndex <= 0) return true;
+                if (rowIndex >= _items.Count) return false;
+                return !string.Equals(_items[rowIndex - 1].Module, _items[rowIndex].Module, StringComparison.Ordinal);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Warning, "QMC", "AXIS-GRID-STYLE", "Axis setup row style failed: " + ex.Message);
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private static void ApplyItemValue(AxisRow it, string col, object value)
+        {
+            string txt = Convert.ToString(value) ?? "";
+            switch (col)
+            {
+                case "STROKE": if (TryReadDouble(txt, out var v1)) it.Stroke = AxisUnitConverter.FromDisplay(v1, it.Unit); break;
+                case "SIM": it.SimulationMode = ToBool(value); break;
+                case "SLN": if (TryReadDouble(txt, out var v2)) it.SoftLimitNeg = AxisUnitConverter.FromDisplay(v2, it.Unit); break;
+                case "SLP": if (TryReadDouble(txt, out var v3)) it.SoftLimitPos = AxisUnitConverter.FromDisplay(v3, it.Unit); break;
+                case "UNIT":
+                    ApplyUnitValue(it, txt);
+                    break;
+            }
+        }
+
+        private static void ApplyUnitValue(AxisRow row, string unit)
+        {
+            try
+            {
+                if (row == null) return;
+                if (AjinAxisDefaults.IsThetaAxis(row.ConfigKey) || AjinAxisDefaults.IsThetaAxis(row.Name))
+                {
+                    row.Unit = AxisUnitConverter.Degree;
+                    return;
+                }
+
+                string toUnit = AxisUnitConverter.Normalize(unit);
+                if (!AxisUnitConverter.IsSupported(toUnit)) return;
+                row.Unit = toUnit;
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Warning, "QMC", "AXIS-UNIT", "Axis unit apply failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private static string NormalizeUnitForAxis(string axisName, string unit)
+        {
+            try
+            {
+                if (AjinAxisDefaults.IsThetaAxis(axisName))
+                    return AxisUnitConverter.Degree;
+                return AxisUnitConverter.Normalize(unit);
+            }
+            catch
+            {
+                return AxisUnitConverter.Normalize(unit);
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool TryReadDouble(string text, out double value)
+        {
+            try
+            {
+                if (double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out value))
+                    return true;
+                if (double.TryParse(text, NumberStyles.Float, CultureInfo.CurrentCulture, out value))
+                    return true;
+                value = 0;
+                return false;
+            }
+            catch
+            {
+                value = 0;
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool ToBool(object value)
+        {
+            if (value is bool b) return b;
+            string txt = (Convert.ToString(value) ?? "").Trim().ToUpper();
+            return txt == "TRUE" || txt == "ON" || txt == "1" || txt == "YES";
+        }
+
+        private void OnGridDataError(object sender, DataGridViewDataErrorEventArgs e)
+        {
+            e.ThrowException = false;
+        }
+
+        /// <summary>AxisSetup / AxisConfig 값을 현재 등록된 축에 반영한다. Ajin 매핑 파일은 수정하지 않는다.</summary>
+        private void ApplyToAxes()
+        {
+            try
+            {
+                int axisApplied = ApplyRowsToAxes();
+                QMC.Common.MessageDialog.Show("Axis setup 적용 축: " + axisApplied);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Warning, "QMC", "AXIS-APPLY", "Axis setup apply failed: " + ex.Message);
+                QMC.Common.MessageDialog.Show("Axis setup 적용 실패: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private int ApplyRowsToAxes()
+        {
+            int count = 0;
+            try
+            {
+                BaseAxis[] axes = GetRuntimeAxes();
+                foreach (AxisRow row in _items)
+                {
+                    BaseAxis axis = axes.FirstOrDefault(x =>
+                        x != null &&
+                        string.Equals(AjinAxisDefaults.ResolveName(x.Name), AjinAxisDefaults.ResolveName(row.ConfigKey), StringComparison.OrdinalIgnoreCase));
+                    if (axis == null) continue;
+
+                    ApplyRowToAxis(row, axis);
+                    count++;
+                }
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Warning, "QMC", "AXIS-APPLY-ROWS", "Axis setup row apply failed: " + ex.Message);
+            }
+            finally
+            {
+            }
             return count;
+        }
+
+        private BaseAxis[] GetRuntimeAxes()
+        {
+            try
+            {
+                IEnumerable<BaseAxis> axes = AjinFactory.AxisManager.GetAll() ?? new BaseAxis[0];
+                var host = FindForm() as Form1;
+                if (host?.Machine != null)
+                    axes = axes.Concat(EnumerateAxes(host.Machine));
+
+                return axes
+                    .Where(x => x != null)
+                    .Distinct()
+                    .ToArray();
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Warning, "QMC", "AXIS-RUNTIME", "Axis runtime enumerate failed: " + ex.Message);
+                return AjinFactory.AxisManager.GetAll() ?? new BaseAxis[0];
+            }
+            finally
+            {
+            }
+        }
+
+        private int ApplyRowToMatchingAxes(AxisRow row)
+        {
+            int count = 0;
+            try
+            {
+                if (row == null) return 0;
+                BaseAxis[] axes = GetRuntimeAxes();
+                foreach (BaseAxis axis in axes)
+                {
+                    if (axis == null) continue;
+                    if (!string.Equals(AjinAxisDefaults.ResolveName(axis.Name), AjinAxisDefaults.ResolveName(row.ConfigKey), StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    ApplyRowToAxis(row, axis);
+                    count++;
+                }
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Warning, "QMC", "AXIS-APPLY-ROW-RUNTIME", "Axis setup row immediate apply failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+            return count;
+        }
+
+        private static void ApplyRowToAxis(AxisRow row, BaseAxis axis)
+        {
+            try
+            {
+                if (row == null || axis == null) return;
+                if (axis.Setup == null || axis.Config == null) return;
+
+                axis.Setup.UnitName = row.Module ?? string.Empty;
+                axis.Setup.DisplayName = row.Name ?? axis.Name;
+                axis.Setup.Unit = NormalizeUnitForAxis(row.ConfigKey, row.Unit);
+                axis.Setup.Stroke = row.Stroke;
+                axis.Setup.SoftLimitMinus = row.SoftLimitNeg;
+                axis.Setup.SoftLimitPlus = row.SoftLimitPos;
+
+                axis.Config.IsSimulationMode = row.SimulationMode;
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Warning, "QMC", "AXIS-APPLY-ROW", "Axis setup row apply failed: " + ex.Message);
+            }
+            finally
+            {
+            }
         }
 
         private static IEnumerable<QMC.Common.Motion.BaseAxis> EnumerateAxes(QMC.CDT320.CDT320_Machine m)

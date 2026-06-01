@@ -39,7 +39,7 @@ namespace QMC.CDT_320.Ui.Controls
 
                 foreach (JogAxisItem item in _items)
                 {
-                    int index = grid.Rows.Add(item.AxisName, "0 " + item.Unit);
+                    int index = grid.Rows.Add(item.AxisName, "0 " + item.DisplayUnit);
                     grid.Rows[index].Tag = item;
                 }
 
@@ -104,9 +104,8 @@ namespace QMC.CDT_320.Ui.Controls
         {
             try
             {
-                double scale = item.DisplayScale <= 0 ? 1.0 : item.DisplayScale;
-                double value = item.GetActualPosition() * scale;
-                return value.ToString("0.###", CultureInfo.InvariantCulture) + " " + item.Unit;
+                double value = item.GetDisplayPosition();
+                return value.ToString("0.###", CultureInfo.InvariantCulture) + " " + item.DisplayUnit;
             }
             catch
             {

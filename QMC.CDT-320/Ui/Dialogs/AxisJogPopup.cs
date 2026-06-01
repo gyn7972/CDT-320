@@ -14,6 +14,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         private readonly List<BaseAxis> _axes;
         private readonly Timer _posTimer = new Timer();
         private bool _isStepJogging;
+        private string _lastStepUnit = string.Empty;
 
         public AxisJogPopup(IEnumerable<BaseAxis> axes)
         {
@@ -25,7 +26,9 @@ namespace QMC.CDT_320.Ui.Dialogs
 
             rdoFine.Checked = true;
             rdoStep.Checked = true;
+            nudStep.DecimalPlaces = 3;
             ApplyMoveModeUi();
+            UpdateStepPresetUi();
             UpdateJogEnableByAxis();
             UpdatePositionOnce();
 
@@ -65,6 +68,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             selectAxisList.SelectedIndexChanged += (s, e) =>
             {
+                UpdateStepPresetUi();
                 UpdateJogEnableByAxis();
                 UpdatePositionOnce();
             };
@@ -82,11 +86,11 @@ namespace QMC.CDT_320.Ui.Dialogs
             btnStop.Click += (s, e) => StopJog();
             btnPrevIndex.Click += async (s, e) => await StepJogAsync(-1);
             btnNextIndex.Click += async (s, e) => await StepJogAsync(1);
-            btnStep1.Click += (s, e) => SetStep(1000u);
-            btnStep01.Click += (s, e) => SetStep(100u);
-            btnStep001.Click += (s, e) => SetStep(10u);
-            btnStep0001.Click += (s, e) => SetStep(1u);
-            btnStepZero.Click += (s, e) => SetStep(0u);
+            btnStep1.Click += (s, e) => SetStep(GetStepPreset(0));
+            btnStep01.Click += (s, e) => SetStep(GetStepPreset(1));
+            btnStep001.Click += (s, e) => SetStep(GetStepPreset(2));
+            btnStep0001.Click += (s, e) => SetStep(GetStepPreset(3));
+            btnStepZero.Click += (s, e) => SetStep(0m);
         }
 
         private void ApplyMoveModeUi()
@@ -212,15 +216,15 @@ namespace QMC.CDT_320.Ui.Dialogs
                 if (axis.IsMoving)
                     return;
 
-                double stepUm = (double)nudStep.Value;
-                if (stepUm <= 0)
+                double stepDisplay = (double)nudStep.Value;
+                if (stepDisplay <= 0)
                     return;
 
-                double stepMm = stepUm / 1000.0;
+                double stepNative = AxisUnitConverter.FromDisplay(stepDisplay, axis);
 
                 _isStepJogging = true;
                 SetJogButtonsEnabled(false);
-                await axis.MoveJogStepAsync(direction, SpeedType(), stepMm);
+                await axis.MoveJogStepAsync(direction, SpeedType(), stepNative);
             }
             catch (Exception ex)
             {
@@ -276,13 +280,22 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             try
             {
+                UpdateStepPresetUi();
+
                 var axis = SelectedAxis;
                 if (axis != null)
                     axis.UpdateStatus();
 
-                lblPosition.Text = axis == null
-                    ? "000"
-                    : (axis.ActualPosition * 1000.0).ToString("0", CultureInfo.InvariantCulture) + " um";
+                if (axis == null)
+                {
+                    lblPosition.Text = "000";
+                    return;
+                }
+
+                string unit = AxisUnitConverter.DisplayUnitFor(axis);
+                double displayPos = AxisUnitConverter.ToDisplay(axis.ActualPosition, axis);
+                string format = AxisUnitConverter.Normalize(unit) == AxisUnitConverter.Micrometer ? "0" : "0.###";
+                lblPosition.Text = displayPos.ToString(format, CultureInfo.InvariantCulture) + " " + unit;
             }
             catch
             {
@@ -296,6 +309,67 @@ namespace QMC.CDT_320.Ui.Dialogs
         private void SetStep(decimal value)
         {
             nudStep.Value = value;
+        }
+
+        private decimal GetStepPreset(int index)
+        {
+            try
+            {
+                var axis = SelectedAxis;
+                string unit = axis == null ? AxisUnitConverter.Millimeter : AxisUnitConverter.DisplayUnitFor(axis);
+                decimal[] values = AxisUnitConverter.Normalize(unit) == AxisUnitConverter.Micrometer
+                    ? new[] { 1000m, 100m, 10m, 1m }
+                    : new[] { 1m, 0.1m, 0.01m, 0.001m };
+                return values[Math.Max(0, Math.Min(index, values.Length - 1))];
+            }
+            catch
+            {
+                return 1m;
+            }
+            finally
+            {
+            }
+        }
+
+        private void UpdateStepPresetUi()
+        {
+            try
+            {
+                var axis = SelectedAxis;
+                string unit = axis == null ? AxisUnitConverter.Millimeter : AxisUnitConverter.DisplayUnitFor(axis);
+                if (!string.Equals(_lastStepUnit, unit, StringComparison.OrdinalIgnoreCase))
+                {
+                    _lastStepUnit = unit;
+                    SetStep(GetStepPreset(0));
+                }
+
+                btnStep1.Text = FormatStepPreset(GetStepPreset(0), unit);
+                btnStep01.Text = FormatStepPreset(GetStepPreset(1), unit);
+                btnStep001.Text = FormatStepPreset(GetStepPreset(2), unit);
+                btnStep0001.Text = FormatStepPreset(GetStepPreset(3), unit);
+                btnStepZero.Text = FormatStepPreset(0m, unit);
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        private static string FormatStepPreset(decimal value, string unit)
+        {
+            try
+            {
+                return value.ToString("0.###", CultureInfo.InvariantCulture) + unit;
+            }
+            catch
+            {
+                return value.ToString(CultureInfo.InvariantCulture);
+            }
+            finally
+            {
+            }
         }
 
         private static bool HasAxisLetter(string name, string letter)

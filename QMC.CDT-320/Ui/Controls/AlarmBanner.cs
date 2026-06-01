@@ -7,8 +7,8 @@ using QMC.Common.Alarms;
 namespace QMC.CDT_320.Ui.Controls
 {
     /// <summary>
-    /// ?쒖꽦 ?뚮엺???덉쓣 ?뚮쭔 ?쒖떆?섎뒗 鍮④컙/?ㅻ젋吏 ?щ┝ 諛곕꼫.
-    /// 理쒖떊 ?뚮엺 硫붿떆吏 + [CLEAR] 踰꾪듉.
+    ///
+    ///
     /// </summary>
     public class AlarmBanner : Panel
     {
@@ -37,7 +37,7 @@ namespace QMC.CDT_320.Ui.Controls
             {
                 Dock = DockStyle.Fill, Text = "",
                 ForeColor = Color.White, BackColor = Color.Transparent,
-                Font = new Font("留묒? 怨좊뵓", 11F, FontStyle.Bold),
+                Font = new Font("맑은 고딕", 11F, FontStyle.Bold),
                 TextAlign = ContentAlignment.MiddleLeft,
                 Padding = new Padding(6, 0, 0, 0)
             };
@@ -48,7 +48,7 @@ namespace QMC.CDT_320.Ui.Controls
                 FlatStyle = FlatStyle.Flat,
                 BackColor = Color.FromArgb(0x7A, 0x1F, 0x1A),
                 ForeColor = Color.White,
-                Font = new Font("留묒? 怨좊뵓", 9F, FontStyle.Bold)
+                Font = new Font("맑은 고딕", 9F, FontStyle.Bold)
             };
             _btnClear.FlatAppearance.BorderColor = Color.White;
             _btnClear.FlatAppearance.BorderSize  = 1;
@@ -95,7 +95,7 @@ namespace QMC.CDT_320.Ui.Controls
                 return;
             }
 
-            // ?됱긽
+            // 구현 보조 주석입니다.
             switch (sev.Value)
             {
                 case AlarmSeverity.Warning:  BackColor = Color.FromArgb(0xD9, 0x77, 0x06); _btnClear.BackColor = Color.FromArgb(0x99, 0x54, 0x04); break;

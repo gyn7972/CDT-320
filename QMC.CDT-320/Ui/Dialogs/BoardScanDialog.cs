@@ -83,8 +83,8 @@ namespace QMC.CDT_320.Ui.Dialogs
                 await Task.Delay(100, ct).ContinueWith(_ => { });
 
                 double end = ax.ActualPosition;
-                row.Cells[3].Value = "+/-0.5 mm";
-                row.Cells[5].Value = end.ToString("F2");
+                row.Cells[3].Value = "+/-" + AxisUnitConverter.FormatDisplay(0.5, ax, "0.###", true);
+                row.Cells[5].Value = AxisUnitConverter.FormatDisplay(end, ax, "0.##", true);
                 row.Cells[4].Value = ax.IsAlarm ? "ALARM" : "OK";
 
                 bool ok = !ax.IsAlarm && Math.Abs(end - start) < 0.2;

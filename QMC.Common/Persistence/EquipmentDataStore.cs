@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Runtime.Serialization.Json;
+using QMC.Common.Data.Store;
 
 namespace QMC.Common.Persistence
 {
@@ -56,8 +57,7 @@ namespace QMC.Common.Persistence
 
                 using (var fs = File.Create(tmp))
                 {
-                    var ser = new DataContractJsonSerializer(typeof(T));
-                    ser.WriteObject(fs, data);
+                    JsonPrettySerializer.WriteObject(fs, typeof(T), data);
                 }
 
                 if (File.Exists(path))

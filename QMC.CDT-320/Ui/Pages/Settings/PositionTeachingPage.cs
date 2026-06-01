@@ -9,6 +9,8 @@ using System.Text;
 using System.Windows.Forms;
 using QMC.CDT320;
 using QMC.CDT_320.Ui.Localization;
+using QMC.Common.Data.Store;
+using QMC.Common.Motion;
 
 namespace QMC.CDT_320.Ui.Pages.Settings
 {
@@ -56,11 +58,11 @@ namespace QMC.CDT_320.Ui.Pages.Settings
 
             btnStepMul10.Click += (s, e) => MultiplyStep(10.0);
             btnStepDiv10.Click += (s, e) => MultiplyStep(0.1);
-            btnStep5.Click += (s, e) => { _jogStepBox.Text = "5"; };
-            btnStep1.Click += (s, e) => { _jogStepBox.Text = "1"; };
-            btnStep01.Click += (s, e) => { _jogStepBox.Text = "0.1"; };
-            btnStep001.Click += (s, e) => { _jogStepBox.Text = "0.01"; };
-            btnStep0001.Click += (s, e) => { _jogStepBox.Text = "0.001"; };
+            btnStep5.Click += (s, e) => { _jogStepBox.Text = GetJogStepPreset(0); };
+            btnStep1.Click += (s, e) => { _jogStepBox.Text = GetJogStepPreset(1); };
+            btnStep01.Click += (s, e) => { _jogStepBox.Text = GetJogStepPreset(2); };
+            btnStep001.Click += (s, e) => { _jogStepBox.Text = GetJogStepPreset(3); };
+            btnStep0001.Click += (s, e) => { _jogStepBox.Text = GetJogStepPreset(4); };
 
             btnTeach.Click += (s, e) => TeachFromCurrentPos();
             btnGoto.Click += (s, e) => MoveToTaught();
@@ -91,12 +93,54 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         private void OnGridSelectionChanged()
         {
             var it = CurrentItem();
-            if (it == null) { _jogCurrentAxis = null; _jogAxisLabel.Text = "Axis: (없음)"; ClearJogButtons(); return; }
+            if (it == null) { _jogCurrentAxis = null; _jogAxisLabel.Text = "Axis: (없음)"; ClearJogButtons(); UpdateJogUnitUi(); return; }
             var host = FindForm() as Form1;
             if (host?.Machine == null) return;
             _jogCurrentAxis = ResolveAxis(host.Machine, it.Axis);
             _jogAxisLabel.Text = "Axis: " + it.Axis;
+            UpdateJogUnitUi();
             RebuildJogButtons(DetectAxisDir(it.Axis));
+        }
+
+        private void UpdateJogUnitUi()
+        {
+            try
+            {
+                string unit = _jogCurrentAxis == null ? AxisUnitConverter.Millimeter : AxisUnitConverter.DisplayUnitFor(_jogCurrentAxis);
+                lblSpeedUnit.Text = unit + "/s";
+                lblStep.Text = "Step (" + unit + ")";
+                btnStep5.Text = GetJogStepPreset(0);
+                btnStep1.Text = GetJogStepPreset(1);
+                btnStep01.Text = GetJogStepPreset(2);
+                btnStep001.Text = GetJogStepPreset(3);
+                btnStep0001.Text = GetJogStepPreset(4);
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        private string GetJogStepPreset(int index)
+        {
+            try
+            {
+                string unit = _jogCurrentAxis == null ? AxisUnitConverter.Millimeter : AxisUnitConverter.DisplayUnitFor(_jogCurrentAxis);
+                double[] presets = AxisUnitConverter.Normalize(unit) == AxisUnitConverter.Micrometer
+                    ? new[] { 5000.0, 1000.0, 100.0, 10.0, 1.0 }
+                    : new[] { 5.0, 1.0, 0.1, 0.01, 0.001 };
+                double value = presets[Math.Max(0, Math.Min(index, presets.Length - 1))];
+                return value.ToString("0.###");
+            }
+            catch
+            {
+                return "1";
+            }
+            finally
+            {
+            }
         }
 
         private void ClearJogButtons()
@@ -176,7 +220,9 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             try
             {
                 if (!_jogCurrentAxis.IsServoOn) _jogCurrentAxis.ServoOn();
-                await _jogCurrentAxis.MoveRelativeAsync(sign * step, speed);
+                double nativeStep = AxisUnitConverter.FromDisplay(step, _jogCurrentAxis);
+                double nativeSpeed = AxisUnitConverter.FromDisplay(speed, _jogCurrentAxis);
+                await _jogCurrentAxis.MoveRelativeAsync(sign * nativeStep, nativeSpeed);
             }
             catch (Exception ex)
             {
@@ -188,9 +234,10 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         private void RefreshJogPos()
         {
             if (_jogPosLabel == null) return;
+            UpdateJogUnitUi();
             _jogPosLabel.Text = _jogCurrentAxis == null
                 ? "Actual Pos: -"
-                : "Actual Pos: " + _jogCurrentAxis.ActualPosition.ToString("F3");
+                : "Actual Pos: " + AxisUnitConverter.FormatDisplay(_jogCurrentAxis.ActualPosition, _jogCurrentAxis, "0.###", true);
         }
 
         // ──────────────────────────────────────
@@ -325,8 +372,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 Directory.CreateDirectory(Path.GetDirectoryName(SavePath));
                 using (var fs = File.Create(SavePath))
                 {
-                    var ser = new DataContractJsonSerializer(typeof(TeachStore));
-                    ser.WriteObject(fs, new TeachStore { Items = _items });
+                    JsonPrettySerializer.WriteObject(fs, typeof(TeachStore), new TeachStore { Items = _items });
                 }
                 QMC.Common.MessageDialog.Show("티칭 데이터 저장 완료.\n" + SavePath, "Position Teaching",
                                  MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -347,7 +393,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             foreach (var it in _items)
             {
                 int idx = _grid.Rows.Add(it.Group, it.Key, it.Name, it.Axis,
-                                         it.Value.ToString("F3"), it.Unit, it.Desc);
+                                         FormatTeachValue(it), GetTeachDisplayUnit(it), it.Desc);
                 if (it.Group != lastGroup)
                 {
                     _grid.Rows[idx].DefaultCellStyle.BackColor = Color.FromArgb(0xEC, 0xF0, 0xF6);
@@ -364,13 +410,66 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             string txt = (_grid.Rows[e.RowIndex].Cells["VALUE"].Value as string) ?? "0";
             if (double.TryParse(txt, out double v))
             {
-                _items[e.RowIndex].Value = v;
-                _grid.Rows[e.RowIndex].Cells["VALUE"].Value = v.ToString("F3");
+                TeachItem item = _items[e.RowIndex];
+                BaseAxis axis = ResolveTeachAxis(item);
+                item.Value = axis == null ? v : AxisUnitConverter.FromDisplay(v, axis);
+                _grid.Rows[e.RowIndex].Cells["VALUE"].Value = FormatTeachValue(item);
+                _grid.Rows[e.RowIndex].Cells["UNIT"].Value = GetTeachDisplayUnit(item);
             }
             else
             {
                 QMC.Common.MessageDialog.Show("숫자만 입력 가능합니다.");
-                _grid.Rows[e.RowIndex].Cells["VALUE"].Value = _items[e.RowIndex].Value.ToString("F3");
+                _grid.Rows[e.RowIndex].Cells["VALUE"].Value = FormatTeachValue(_items[e.RowIndex]);
+            }
+        }
+
+        private BaseAxis ResolveTeachAxis(TeachItem item)
+        {
+            try
+            {
+                var host = FindForm() as Form1;
+                if (item == null || host?.Machine == null) return null;
+                return ResolveAxis(host.Machine, item.Axis);
+            }
+            catch
+            {
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
+        private string GetTeachDisplayUnit(TeachItem item)
+        {
+            try
+            {
+                BaseAxis axis = ResolveTeachAxis(item);
+                return axis == null ? item.Unit : AxisUnitConverter.DisplayUnitFor(axis);
+            }
+            catch
+            {
+                return item != null ? item.Unit : string.Empty;
+            }
+            finally
+            {
+            }
+        }
+
+        private string FormatTeachValue(TeachItem item)
+        {
+            try
+            {
+                BaseAxis axis = ResolveTeachAxis(item);
+                double value = axis == null ? item.Value : AxisUnitConverter.ToDisplay(item.Value, axis);
+                return value.ToString("F3");
+            }
+            catch
+            {
+                return item != null ? item.Value.ToString("F3") : "0.000";
+            }
+            finally
+            {
             }
         }
 
@@ -394,7 +493,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             double pos = ResolveAxisActualPos(host.Machine, it.Axis);
             if (double.IsNaN(pos)) { QMC.Common.MessageDialog.Show("축을 식별하지 못했습니다: " + it.Axis); return; }
             it.Value = pos;
-            _grid.Rows[_grid.CurrentRow.Index].Cells["VALUE"].Value = pos.ToString("F3");
+            _grid.Rows[_grid.CurrentRow.Index].Cells["VALUE"].Value = FormatTeachValue(it);
+            _grid.Rows[_grid.CurrentRow.Index].Cells["UNIT"].Value = GetTeachDisplayUnit(it);
         }
 
         /// <summary>현재 행의 위치값으로 해당 축을 이동.</summary>

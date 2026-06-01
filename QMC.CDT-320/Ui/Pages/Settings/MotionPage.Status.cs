@@ -8,9 +8,9 @@ using QMC.Common.Motion;
 namespace QMC.CDT_320.Ui.Pages.Settings
 {
     /// <summary>
-    /// MotionPage ? STATUS ?. ????? ??? ? ?? ???? ?? ??? ?? ????.
-    /// ?? ???? <see cref="AjinAxis.ReadLiveStatus"/> ? <see cref="AxisLiveStatus"/> ? ????.
-    /// ?? ??? ??? ??? ??.
+    /// MotionPage의 STATUS 탭. 선택 축의 보드 상태와 내부 축 상태를 표시한다.
+    /// 보드 상태는 <see cref="AjinAxis.ReadLiveStatus"/>와 <see cref="AxisLiveStatus"/>를 기준으로 한다.
+    /// 시뮬레이션 축은 내부 상태만 표시한다.
     /// </summary>
     public partial class MotionPage
     {
@@ -25,7 +25,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         private static readonly string[] STATUS_CFG =
         {
             "OUTPUT MODE", "INPUT MODE", "Z PHASE LEVEL", "SERVO LEVEL",
-            "MAX VELOCITY", "UNIT/PULSE",
+            "MAX VELOCITY", "UNIT/PULSE", "BRAKE TYPE",
         };
 
         private static readonly string[] STATUS_INP =
@@ -66,7 +66,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             {
                 if (tabStatus == null) return;
 
-                // 3 ?? ?3 ?? ???? (CONFIG.tab ? ??)
+                // 3열 x 3행 상태 패널 배치 (CONFIG 탭과 동일한 형식)
                 var layout = new TableLayoutPanel
                 {
                     Dock = DockStyle.Fill,
@@ -122,19 +122,28 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             return pg;
         }
 
-        /// <summary>STATUS ? ??/?? ?? ? ?? ??.</summary>
+        /// <summary>STATUS 탭 표시값을 선택 축 기준으로 갱신한다.</summary>
         private void RefreshStatusForSelected()
         {
             try
             {
-                if (pgStatusConfig == null) return; // ????
+                if (pgStatusConfig == null) return; // 미초기화
 
                 BaseAxis axis = SelectedAxis();
                 if (axis == null) { ClearStatus(); return; }
 
                 AjinAxis ajin = axis as AjinAxis;
                 AxisLiveStatus live = ajin != null ? ajin.ReadLiveStatus() : null;
-                if (live == null) { ClearStatus(); return; }
+                pgStatusConfig.SetValue("BRAKE TYPE", axis.Setup != null && axis.Setup.Brake ? "BRAKE" : "NONE");
+                if (live == null)
+                {
+                    pgStatusAlarm.SetValue("ALARM VALUE", axis.IsAlarm ? "ON" : "OFF", axis.IsAlarm);
+                    pgStatusAlarm.SetValue("ALARM CODE", "0x" + axis.AlarmCode.ToString("X4"), axis.IsAlarm);
+                    pgStatusPosition.SetValue("ACTUAL", FormatAxisValue(axis.ActualPosition, axis, "0.###"));
+                    pgStatusPosition.SetValue("COMMAND", FormatAxisValue(axis.CommandPosition, axis, "0.###"));
+                    pgStatusPosition.SetValue("ERROR", FormatAxisValue(axis.CommandPosition - axis.ActualPosition, axis, "0.###"));
+                    return;
+                }
 
                 pgStatusConfig.SetValue("OUTPUT MODE", live.OutputMethod.ToString());
                 pgStatusConfig.SetValue("INPUT MODE", live.EncoderMethod.ToString());
@@ -142,6 +151,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 pgStatusConfig.SetValue("SERVO LEVEL", live.ServoOnLevel.ToString().ToUpperInvariant());
                 pgStatusConfig.SetValue("MAX VELOCITY", live.MaxVelocity.ToString("N0"));
                 pgStatusConfig.SetValue("UNIT/PULSE", live.MoveUnit.ToString("0.###") + " / " + live.PulsePerUnit);
+                pgStatusConfig.SetValue("BRAKE TYPE", axis.Setup != null && axis.Setup.Brake ? "BRAKE" : "NONE");
 
                 pgStatusInposition.SetValue("ENABLE", live.InPositionEnabled ? "ENABLE" : "DISABLE");
                 pgStatusInposition.SetValue("LEVEL", live.InPositionLevel.ToString().ToUpperInvariant());
@@ -153,8 +163,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 pgStatusLimit.SetValue("NEG ACTION", live.NegativeLimitAction.ToString());
                 pgStatusLimit.SetValue("NEG LEVEL", live.NegativeLimitLevel.ToString().ToUpperInvariant());
                 pgStatusLimit.SetValue("NEG VALUE", live.NegativeLimitValue ? "ON" : "OFF", live.NegativeLimitValue);
-                pgStatusLimit.SetValue("SW POSITIVE", live.SoftLimitPositive.ToString("N0"));
-                pgStatusLimit.SetValue("SW NEGATIVE", live.SoftLimitNegative.ToString("N0"));
+                pgStatusLimit.SetValue("SW POSITIVE", FormatAxisValue(live.SoftLimitPositive, axis, "0.###"));
+                pgStatusLimit.SetValue("SW NEGATIVE", FormatAxisValue(live.SoftLimitNegative, axis, "0.###"));
 
                 pgStatusEmergency.SetValue("AMP FAULT LEVEL", live.AmpFaultLevel.ToString().ToUpperInvariant());
                 pgStatusEmergency.SetValue("AMP FAULT VALUE", live.AmpFaultValue ? "ON" : "OFF", live.AmpFaultValue);
@@ -166,9 +176,9 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 pgStatusAlarm.SetValue("ALARM VALUE", live.IsAlarm ? "ON" : "OFF", live.IsAlarm);
                 pgStatusAlarm.SetValue("ALARM CODE", "0x" + live.AlarmCode.ToString("X4"), live.IsAlarm);
 
-                pgStatusPosition.SetValue("ACTUAL", live.ActualPosition.ToString("F1"));
-                pgStatusPosition.SetValue("COMMAND", live.CommandPosition.ToString("F1"));
-                pgStatusPosition.SetValue("ERROR", live.PositionError.ToString("F1"));
+                pgStatusPosition.SetValue("ACTUAL", FormatAxisValue(live.ActualPosition, axis, "0.###"));
+                pgStatusPosition.SetValue("COMMAND", FormatAxisValue(live.CommandPosition, axis, "0.###"));
+                pgStatusPosition.SetValue("ERROR", FormatAxisValue(live.PositionError, axis, "0.###"));
             }
             catch (Exception ex)
             {
@@ -183,7 +193,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             }
         }
 
-        /// <summary>?? ????? ?? - ??? ? ???? ??? ??.</summary>
+        /// <summary>주기 갱신용 래퍼 - 타이머 루프에서 호출한다.</summary>
         private void RefreshStatusDynamic()
         {
             RefreshStatusForSelected();

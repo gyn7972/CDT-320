@@ -13,7 +13,6 @@ namespace QMC.CDT_320.Ui.Dialogs
         private const int DefaultTargetRows = 26;
 
         private readonly List<BaseAxis> _axes;
-        private readonly MotionMonitorService _monitor;
         private readonly List<AxisRow> _rows = new List<AxisRow>();
         private readonly Timer _timer = new Timer();
 
@@ -25,7 +24,6 @@ namespace QMC.CDT_320.Ui.Dialogs
         public AxisPositionPopup(IEnumerable<BaseAxis> axes, MotionMonitorService monitor)
         {
             _axes = SortAxes(axes).ToList();
-            _monitor = monitor;
 
             InitializeComponent();
             EnableDoubleBuffer(listViewAxis);
@@ -36,17 +34,12 @@ namespace QMC.CDT_320.Ui.Dialogs
             listViewAxis.DrawItem += ListViewAxis_DrawItem;
             listViewAxis.DrawSubItem += ListViewAxis_DrawSubItem;
 
-            if (_monitor != null)
-                _monitor.AxisStatusUpdated += OnAxisStatusUpdated;
-
             _timer.Interval = 200;
             _timer.Tick += (s, e) => RefreshPositions();
             Load += (s, e) => _timer.Start();
             FormClosed += (s, e) =>
             {
                 _timer.Stop();
-                if (_monitor != null)
-                    _monitor.AxisStatusUpdated -= OnAxisStatusUpdated;
             };
         }
 
@@ -70,6 +63,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 var item = new ListViewItem(axisNo >= 0 ? axisNo.ToString("00", CultureInfo.InvariantCulture) : "--");
                 item.SubItems.Add(DisplayName(axis));
                 item.SubItems.Add("----");
+                item.SubItems.Add(AxisUnitConverter.DisplayUnitFor(axis));
                 item.Tag = axis;
                 listViewAxis.Items.Add(item);
                 _rows.Add(new AxisRow(axis, item));
@@ -79,6 +73,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             {
                 var item = new ListViewItem("--");
                 item.SubItems.Add("(Empty)");
+                item.SubItems.Add("-");
                 item.SubItems.Add("-");
                 listViewAxis.Items.Add(item);
             }
@@ -108,16 +103,35 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             if (IsDisposed) return;
             foreach (var row in _rows)
-                ApplySnapshot(row.Item, AxisStatusSnapshot.FromAxis(row.Axis));
+            {
+                try
+                {
+                    row.Axis.UpdateStatus();
+                    ApplySnapshot(row.Item, AxisStatusSnapshot.FromAxis(row.Axis));
+                }
+                catch
+                {
+                }
+                finally
+                {
+                }
+            }
         }
 
         private static void ApplySnapshot(ListViewItem item, AxisStatusSnapshot s)
         {
             if (item == null || s == null) return;
-            string pos = s.ActualPosition.ToString("0.000", CultureInfo.InvariantCulture);
+            string unit = AxisUnitConverter.Normalize(s.Unit);
+            double displayValue = AxisUnitConverter.ToDisplay(s.ActualPosition, unit);
+            string pos = displayValue.ToString(unit == AxisUnitConverter.Micrometer ? "0" : "0.000", CultureInfo.InvariantCulture);
             if (item.SubItems.Count > 2 && item.SubItems[2].Text != pos)
                 item.SubItems[2].Text = pos;
-            item.BackColor = s.IsAlarm ? Color.FromArgb(80, 0, 0) : Color.Black;
+            if (item.SubItems.Count > 3 && item.SubItems[3].Text != unit)
+                item.SubItems[3].Text = unit;
+
+            Color backColor = s.IsAlarm ? Color.FromArgb(80, 0, 0) : Color.Black;
+            if (item.BackColor != backColor)
+                item.BackColor = backColor;
         }
 
         private static string DisplayName(BaseAxis axis)
@@ -149,6 +163,8 @@ namespace QMC.CDT_320.Ui.Dialogs
             TextFormatFlags flags = TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis;
             if (e.Header.TextAlign == HorizontalAlignment.Right)
                 flags |= TextFormatFlags.Right;
+            else if (e.Header.TextAlign == HorizontalAlignment.Center)
+                flags |= TextFormatFlags.HorizontalCenter;
             else
                 flags |= TextFormatFlags.Left;
 

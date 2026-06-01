@@ -6,18 +6,6 @@
 
         private System.Windows.Forms.Label lblSubHeader;
         private System.Windows.Forms.DataGridView grid;
-        private System.Windows.Forms.DataGridViewTextBoxColumn colNo;
-        private System.Windows.Forms.DataGridViewTextBoxColumn colModule;
-        private System.Windows.Forms.DataGridViewTextBoxColumn colName;
-        private System.Windows.Forms.DataGridViewTextBoxColumn colBoard;
-        private System.Windows.Forms.DataGridViewTextBoxColumn colCh;
-        private System.Windows.Forms.DataGridViewTextBoxColumn colUnit;
-        private System.Windows.Forms.DataGridViewTextBoxColumn colStroke;
-        private System.Windows.Forms.DataGridViewTextBoxColumn colBrake;
-        private System.Windows.Forms.DataGridViewTextBoxColumn colSln;
-        private System.Windows.Forms.DataGridViewTextBoxColumn colSlp;
-        private System.Windows.Forms.DataGridViewTextBoxColumn colVel;
-        private System.Windows.Forms.DataGridViewTextBoxColumn colHomeDir;
         private System.Windows.Forms.FlowLayoutPanel actionsPanel;
         private QMC.CDT_320.Ui.Controls.ActionButton btnSave;
         private QMC.CDT_320.Ui.Controls.ActionButton btnReload;
@@ -41,13 +29,11 @@
             this.NAME = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.BOARD = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.CH = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.UNIT = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.UNIT = new System.Windows.Forms.DataGridViewComboBoxColumn();
             this.STROKE = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.BRAKE = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.SIM = new System.Windows.Forms.DataGridViewButtonColumn();
             this.SLN = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.SLP = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.VEL = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.HOMEDIR = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.actionsPanel = new System.Windows.Forms.FlowLayoutPanel();
             this.btnSave = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnReload = new QMC.CDT_320.Ui.Controls.ActionButton();
@@ -62,23 +48,25 @@
             this.lblSubHeader.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(64)))), ((int)(((byte)(64)))));
             this.lblSubHeader.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
             this.lblSubHeader.ForeColor = System.Drawing.Color.White;
-            this.lblSubHeader.Location = new System.Drawing.Point(8, 36);
+            this.lblSubHeader.Location = new System.Drawing.Point(8, 7);
             this.lblSubHeader.Name = "lblSubHeader";
             this.lblSubHeader.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
             this.lblSubHeader.Size = new System.Drawing.Size(1400, 26);
             this.lblSubHeader.TabIndex = 0;
-            this.lblSubHeader.Text = "AXIS SETUP — Stroke / Soft Limit / Velocity / Brake / Home Direction (37 axes)";
+            this.lblSubHeader.Text = "AXIS SETUP — Simulation / Unit / Stroke / Soft Limit (37 axes)";
             this.lblSubHeader.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // grid
             // 
             this.grid.AllowUserToAddRows = false;
             this.grid.AllowUserToDeleteRows = false;
+            this.grid.AllowUserToResizeColumns = true;
+            this.grid.AllowUserToResizeRows = false;
             this.grid.AutoSizeColumnsMode = System.Windows.Forms.DataGridViewAutoSizeColumnsMode.Fill;
             this.grid.BackgroundColor = System.Drawing.Color.White;
             dataGridViewCellStyle1.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
             dataGridViewCellStyle1.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(80)))), ((int)(((byte)(80)))), ((int)(((byte)(80)))));
-            dataGridViewCellStyle1.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            dataGridViewCellStyle1.Font = new System.Drawing.Font("맑은 고딕", 9F);
             dataGridViewCellStyle1.ForeColor = System.Drawing.Color.White;
             dataGridViewCellStyle1.SelectionBackColor = System.Drawing.SystemColors.Highlight;
             dataGridViewCellStyle1.SelectionForeColor = System.Drawing.SystemColors.HighlightText;
@@ -93,22 +81,26 @@
             this.CH,
             this.UNIT,
             this.STROKE,
-            this.BRAKE,
+            this.SIM,
             this.SLN,
-            this.SLP,
-            this.VEL,
-            this.HOMEDIR});
+            this.SLP});
             this.grid.EnableHeadersVisualStyles = false;
+            this.grid.EditMode = System.Windows.Forms.DataGridViewEditMode.EditProgrammatically;
             this.grid.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.grid.Location = new System.Drawing.Point(8, 66);
+            this.grid.Location = new System.Drawing.Point(8, 37);
             this.grid.MultiSelect = false;
             this.grid.Name = "grid";
+            this.grid.ReadOnly = true;
             this.grid.RowHeadersVisible = false;
             this.grid.RowHeadersWidth = 51;
-            this.grid.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
-            this.grid.Size = new System.Drawing.Size(1400, 800);
+            this.grid.RowTemplate.Resizable = System.Windows.Forms.DataGridViewTriState.False;
+            this.grid.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.CellSelect;
+            this.grid.Size = new System.Drawing.Size(1400, 785);
             this.grid.TabIndex = 1;
-            this.grid.CellEndEdit += new System.Windows.Forms.DataGridViewCellEventHandler(this.OnCellEdit);
+            this.grid.CellClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.OnGridCellClick);
+            this.grid.CellDoubleClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.OnCellDoubleClick);
+            this.grid.ColumnHeaderMouseDoubleClick += new System.Windows.Forms.DataGridViewCellMouseEventHandler(this.OnColumnHeaderMouseDoubleClick);
+            this.grid.DataError += new System.Windows.Forms.DataGridViewDataErrorEventHandler(this.OnGridDataError);
             // 
             // NO
             // 
@@ -116,6 +108,7 @@
             this.NO.MinimumWidth = 6;
             this.NO.Name = "NO";
             this.NO.ReadOnly = true;
+            this.NO.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             // 
             // MODULE
             // 
@@ -123,6 +116,7 @@
             this.MODULE.MinimumWidth = 6;
             this.MODULE.Name = "MODULE";
             this.MODULE.ReadOnly = true;
+            this.MODULE.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             // 
             // NAME
             // 
@@ -130,61 +124,70 @@
             this.NAME.MinimumWidth = 6;
             this.NAME.Name = "NAME";
             this.NAME.ReadOnly = true;
+            this.NAME.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             // 
             // BOARD
             // 
+            this.BOARD.DefaultCellStyle.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleRight;
             this.BOARD.HeaderText = "BOARD#";
             this.BOARD.MinimumWidth = 6;
             this.BOARD.Name = "BOARD";
+            this.BOARD.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             // 
             // CH
             // 
+            this.CH.DefaultCellStyle.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleRight;
             this.CH.HeaderText = "CH (slot)";
             this.CH.MinimumWidth = 6;
             this.CH.Name = "CH";
+            this.CH.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             // 
             // UNIT
             // 
+            this.UNIT.DisplayStyle = System.Windows.Forms.DataGridViewComboBoxDisplayStyle.ComboBox;
+            this.UNIT.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.UNIT.HeaderText = "UNIT";
+            this.UNIT.Items.AddRange(new object[] {
+            "mm",
+            "um",
+            "deg"});
             this.UNIT.MinimumWidth = 6;
             this.UNIT.Name = "UNIT";
-            this.UNIT.ReadOnly = true;
+            this.UNIT.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             // 
             // STROKE
             // 
+            this.STROKE.DefaultCellStyle.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleRight;
             this.STROKE.HeaderText = "STROKE";
             this.STROKE.MinimumWidth = 6;
             this.STROKE.Name = "STROKE";
+            this.STROKE.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             // 
-            // BRAKE
+            // SIM
             // 
-            this.BRAKE.HeaderText = "BRAKE";
-            this.BRAKE.MinimumWidth = 6;
-            this.BRAKE.Name = "BRAKE";
+            this.SIM.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.SIM.HeaderText = "SIM";
+            this.SIM.MinimumWidth = 6;
+            this.SIM.Name = "SIM";
+            this.SIM.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            this.SIM.Text = "";
+            this.SIM.UseColumnTextForButtonValue = false;
             // 
             // SLN
             // 
+            this.SLN.DefaultCellStyle.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleRight;
             this.SLN.HeaderText = "SOFT LIMIT(-)";
             this.SLN.MinimumWidth = 6;
             this.SLN.Name = "SLN";
+            this.SLN.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             // 
             // SLP
             // 
+            this.SLP.DefaultCellStyle.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleRight;
             this.SLP.HeaderText = "SOFT LIMIT(+)";
             this.SLP.MinimumWidth = 6;
             this.SLP.Name = "SLP";
-            // 
-            // VEL
-            // 
-            this.VEL.HeaderText = "DEFAULT VEL";
-            this.VEL.MinimumWidth = 6;
-            this.VEL.Name = "VEL";
-            // 
-            // HOMEDIR
-            // 
-            this.HOMEDIR.HeaderText = "HOME DIR";
-            this.HOMEDIR.MinimumWidth = 6;
-            this.HOMEDIR.Name = "HOMEDIR";
+            this.SLP.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             // 
             // actionsPanel
             // 
@@ -194,7 +197,7 @@
             this.actionsPanel.Controls.Add(this.btnReset);
             this.actionsPanel.Controls.Add(this.btnApply);
             this.actionsPanel.Dock = System.Windows.Forms.DockStyle.Bottom;
-            this.actionsPanel.Location = new System.Drawing.Point(0, 920);
+            this.actionsPanel.Location = new System.Drawing.Point(0, 840);
             this.actionsPanel.Name = "actionsPanel";
             this.actionsPanel.Padding = new System.Windows.Forms.Padding(8);
             this.actionsPanel.Size = new System.Drawing.Size(1416, 60);
@@ -264,7 +267,7 @@
             this.Controls.Add(this.grid);
             this.Controls.Add(this.actionsPanel);
             this.Name = "AxisSetupPage";
-            this.Size = new System.Drawing.Size(1416, 980);
+            this.Size = new System.Drawing.Size(1416, 900);
             ((System.ComponentModel.ISupportInitialize)(this.grid)).EndInit();
             this.actionsPanel.ResumeLayout(false);
             this.ResumeLayout(false);
@@ -276,12 +279,10 @@
         private System.Windows.Forms.DataGridViewTextBoxColumn NAME;
         private System.Windows.Forms.DataGridViewTextBoxColumn BOARD;
         private System.Windows.Forms.DataGridViewTextBoxColumn CH;
-        private System.Windows.Forms.DataGridViewTextBoxColumn UNIT;
+        private System.Windows.Forms.DataGridViewComboBoxColumn UNIT;
         private System.Windows.Forms.DataGridViewTextBoxColumn STROKE;
-        private System.Windows.Forms.DataGridViewTextBoxColumn BRAKE;
+        private System.Windows.Forms.DataGridViewButtonColumn SIM;
         private System.Windows.Forms.DataGridViewTextBoxColumn SLN;
         private System.Windows.Forms.DataGridViewTextBoxColumn SLP;
-        private System.Windows.Forms.DataGridViewTextBoxColumn VEL;
-        private System.Windows.Forms.DataGridViewTextBoxColumn HOMEDIR;
     }
 }

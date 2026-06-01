@@ -53,8 +53,7 @@ namespace QMC.Common.Data.Store
                 tempPath = path + ".tmp";
                 using (var fs = File.Create(tempPath))
                 {
-                    var serializer = new DataContractJsonSerializer(typeof(T), CreateSettings());
-                    serializer.WriteObject(fs, data);
+                    JsonPrettySerializer.WriteObject(fs, typeof(T), data, CreateSettings());
                 }
 
                 if (File.Exists(path))

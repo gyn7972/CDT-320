@@ -1,4 +1,4 @@
-using QMC.Common;
+﻿using QMC.Common;
 
 namespace QMC.Common.Motion
 {
@@ -12,6 +12,238 @@ namespace QMC.Common.Motion
 
         /// <summary>S-Curve 가감속 프로파일.</summary>
         SCurve = 1
+    }
+
+    /// <summary>
+    /// 축 위치/속도 단위 변환 헬퍼. 내부 저장값은 축의 현재 <see cref="AxisSetup.Unit"/> 기준 값이다.
+    /// </summary>
+    public static class AxisUnitConverter
+    {
+        public const string Millimeter = "mm";
+        public const string Micrometer = "um";
+        public const string Degree = "deg";
+
+        public static readonly string[] SupportedUnits = { Millimeter, Micrometer, Degree };
+
+        public static bool IsSupported(string unit)
+        {
+            try
+            {
+                return IsLength(unit) || IsDegree(unit);
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        public static bool IsLength(string unit)
+        {
+            try
+            {
+                string normalized = Normalize(unit);
+                return normalized == Millimeter || normalized == Micrometer;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        public static bool IsDegree(string unit)
+        {
+            try
+            {
+                return Normalize(unit) == Degree;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        public static string Normalize(string unit)
+        {
+            try
+            {
+                string text = (unit ?? string.Empty).Trim();
+                if (string.Equals(text, Micrometer, System.StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(text, "µm", System.StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(text, "μm", System.StringComparison.OrdinalIgnoreCase))
+                    return Micrometer;
+                if (string.Equals(text, Degree, System.StringComparison.OrdinalIgnoreCase))
+                    return Degree;
+                return Millimeter;
+            }
+            catch
+            {
+                return Millimeter;
+            }
+            finally
+            {
+            }
+        }
+
+        public static double ConvertValue(double value, string fromUnit, string toUnit)
+        {
+            try
+            {
+                string from = Normalize(fromUnit);
+                string to = Normalize(toUnit);
+                if (from == to) return value;
+                if (!IsLength(from) || !IsLength(to)) return value;
+                if (from == Millimeter && to == Micrometer) return value * 1000.0;
+                if (from == Micrometer && to == Millimeter) return value / 1000.0;
+                return value;
+            }
+            catch
+            {
+                return value;
+            }
+            finally
+            {
+            }
+        }
+
+        public static string NativeUnitFor(string displayUnit)
+        {
+            try
+            {
+                string normalized = Normalize(displayUnit);
+                return IsDegree(normalized) ? Degree : Millimeter;
+            }
+            catch
+            {
+                return Millimeter;
+            }
+            finally
+            {
+            }
+        }
+
+        public static string DisplayUnitFor(BaseAxis axis)
+        {
+            try
+            {
+                if (axis == null || axis.Setup == null)
+                    return Millimeter;
+                return Normalize(axis.Setup.Unit);
+            }
+            catch
+            {
+                return Millimeter;
+            }
+            finally
+            {
+            }
+        }
+
+        public static double ToDisplay(double nativeValue, string displayUnit)
+        {
+            try
+            {
+                string unit = Normalize(displayUnit);
+                return ConvertValue(nativeValue, NativeUnitFor(unit), unit);
+            }
+            catch
+            {
+                return nativeValue;
+            }
+            finally
+            {
+            }
+        }
+
+        public static double ToDisplay(double nativeValue, BaseAxis axis)
+        {
+            try
+            {
+                return ToDisplay(nativeValue, DisplayUnitFor(axis));
+            }
+            catch
+            {
+                return nativeValue;
+            }
+            finally
+            {
+            }
+        }
+
+        public static double FromDisplay(double displayValue, string displayUnit)
+        {
+            try
+            {
+                string unit = Normalize(displayUnit);
+                return ConvertValue(displayValue, unit, NativeUnitFor(unit));
+            }
+            catch
+            {
+                return displayValue;
+            }
+            finally
+            {
+            }
+        }
+
+        public static double FromDisplay(double displayValue, BaseAxis axis)
+        {
+            try
+            {
+                return FromDisplay(displayValue, DisplayUnitFor(axis));
+            }
+            catch
+            {
+                return displayValue;
+            }
+            finally
+            {
+            }
+        }
+
+        public static string Format(double value, string unit)
+        {
+            try
+            {
+                string normalized = Normalize(unit);
+                if (normalized == Micrometer)
+                    return value.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+                return value.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+            }
+            catch
+            {
+                return value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            }
+            finally
+            {
+            }
+        }
+
+        public static string FormatDisplay(double nativeValue, BaseAxis axis, string format, bool includeUnit)
+        {
+            try
+            {
+                string unit = DisplayUnitFor(axis);
+                double displayValue = ToDisplay(nativeValue, unit);
+                string text = displayValue.ToString(format, System.Globalization.CultureInfo.InvariantCulture);
+                return includeUnit ? text + " " + unit : text;
+            }
+            catch
+            {
+                return nativeValue.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            }
+            finally
+            {
+            }
+        }
     }
 
     /// <summary>
@@ -42,8 +274,8 @@ namespace QMC.Common.Motion
         /// <summary>보드 설정용 축 스케일.</summary>
         public int AxisScale { get; set; } = 1000;
 
-        /// <summary>축 위치 단위. 예: mm, deg, pulse.</summary>
-        public string Unit { get; set; } = "mm";
+        /// <summary>축 위치 단위. 예: mm, um, deg.</summary>
+        public string Unit { get; set; } = AxisUnitConverter.Millimeter;
 
         /// <summary>축 사용 여부. false 이면 매니저에서 생성하지 않을 수 있다.</summary>
         public bool IsEnabled { get; set; } = true;
@@ -112,6 +344,12 @@ namespace QMC.Common.Motion
 
         /// <summary>감속 Jerk 비율 [%].</summary>
         public int DecJerkPercent { get; set; } = 50;
+
+        /// <summary>축의 기구 Stroke [Unit].</summary>
+        public double Stroke { get; set; } = 0.0;
+
+        /// <summary>브레이크 장착 여부.</summary>
+        public bool Brake { get; set; } = false;
     }
 
     /// <summary>
@@ -154,19 +392,19 @@ namespace QMC.Common.Motion
         public double HomeVelocity { get; set; } = 200.0;
 
         /// <summary>원점 복귀 1차 가속도 [Unit/s^2].</summary>
-        public double HomeFirstAcceleration { get; set; } = 1000.0;
+        public double HomeFirstAcceleration { get; set; } = 500.0;
 
         /// <summary>원점 복귀 1차 감속도 [Unit/s^2].</summary>
-        public double HomeFirstDeceleration { get; set; } = 1000.0;
+        public double HomeFirstDeceleration { get; set; } = 500.0;
 
         /// <summary>원점 복귀 2차 가속도 [Unit/s^2].</summary>
-        public double HomeSecondAcceleration { get; set; } = 500.0;
+        public double HomeSecondAcceleration { get; set; } = 200.0;
 
         /// <summary>원점 복귀 2차 감속도 [Unit/s^2].</summary>
-        public double HomeSecondDeceleration { get; set; } = 500.0;
+        public double HomeSecondDeceleration { get; set; } = 200.0;
 
         /// <summary>Jog 빠른 속도 [Unit/s].</summary>
-        public double JogCoarseVelocity { get; set; } = 50.0;
+        public double JogCoarseVelocity { get; set; } = 10.0;
 
         /// <summary>Jog 미세 속도 [Unit/s].</summary>
         public double JogFineVelocity { get; set; } = 5.0;

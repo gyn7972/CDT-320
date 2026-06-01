@@ -1,5 +1,6 @@
 ﻿using System.Drawing;
 using System.Windows.Forms;
+using QMC.Common.Motion;
 
 namespace QMC.CDT_320.Ui.Pages.WorkInfo
 {
@@ -38,7 +39,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             if (host?.Machine == null) return;
 
             var unloader = host.Machine.OutputUnloader;
-            lblElevatorPos.Text = unloader.BinElevatorZ.ActualPosition.ToString("F3") + " mm";
+            lblElevatorPos.Text = AxisUnitConverter.FormatDisplay(unloader.BinElevatorZ.ActualPosition, unloader.BinElevatorZ, "0.###", true);
 
             var driverProp = host.GetType().GetProperty("CassetteDriver",
                 System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);

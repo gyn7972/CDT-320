@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.Serialization;
 using System.Runtime.Serialization.Json;
+using QMC.Common.Data.Store;
 
 namespace QMC.Common.Alarms
 {
@@ -115,8 +116,7 @@ namespace QMC.Common.Alarms
                 var list = _byCode.Values.OrderBy(d => d.Code).ToList();
                 using (var fs = File.Create(Path_))
                 {
-                    var ser = new DataContractJsonSerializer(typeof(List<AlarmDefinition>));
-                    ser.WriteObject(fs, list);
+                    JsonPrettySerializer.WriteObject(fs, typeof(List<AlarmDefinition>), list);
                 }
             }
             catch { }

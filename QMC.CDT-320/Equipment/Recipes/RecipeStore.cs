@@ -4,6 +4,7 @@ using System.IO;
 using System.Runtime.Serialization;
 using System.Runtime.Serialization.Json;
 using System.Text;
+using QMC.Common.Data.Store;
 
 namespace QMC.CDT320.Recipes
 {
@@ -146,8 +147,7 @@ namespace QMC.CDT320.Recipes
             {
                 using (var fs = File.Create(path))
                 {
-                    var ser = new DataContractJsonSerializer(typeof(RecipeProject));
-                    ser.WriteObject(fs, p);
+                    JsonPrettySerializer.WriteObject(fs, typeof(RecipeProject), p);
                 }
             }
             catch { }

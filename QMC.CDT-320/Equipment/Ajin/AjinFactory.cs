@@ -1,3 +1,4 @@
+using QMC.Common;
 using QMC.Common.IO;
 using QMC.Common.Motion;
 using System;
@@ -58,14 +59,14 @@ namespace QMC.CDT320.Ajin
             }
         }
 
-        private static void ApplyPersistedAxisValues()
+        public static void ApplyPersistedAxisValues(IEnumerable<BaseAxis> axes)
         {
             try
             {
                 MotionAxisStore store = MotionAxisStore.LoadOrCreate(MotionAxisStore.DefaultPath);
                 if (store == null || store.Items == null || store.Items.Count == 0) return;
 
-                foreach (BaseAxis axis in AxisManager.GetAll())
+                foreach (BaseAxis axis in axes ?? Enumerable.Empty<BaseAxis>())
                 {
                     if (axis == null) continue;
                     string axisKey = ResolveAxisKey(axis.Name);
@@ -92,6 +93,9 @@ namespace QMC.CDT320.Ajin
                         AxisSetup src = saved.Setup;
                         s.PulsesPerUnit = src.PulsesPerUnit > 0 ? src.PulsesPerUnit : s.PulsesPerUnit;
                         s.AxisScale = src.AxisScale > 0 ? src.AxisScale : s.AxisScale;
+                        s.Unit = AjinAxisDefaults.IsThetaAxis(axis.Name)
+                            ? AxisUnitConverter.Degree
+                            : AxisUnitConverter.Normalize(src.Unit);
                         s.SoftLimitPlus = src.SoftLimitPlus;
                         s.SoftLimitMinus = src.SoftLimitMinus;
                         s.SoftLimitEnabled = src.SoftLimitEnabled;
@@ -100,11 +104,14 @@ namespace QMC.CDT320.Ajin
                         s.HomeSignal = src.HomeSignal;
                         s.HomeTimeoutMs = src.HomeTimeoutMs;
                         s.MoveTimeoutMs = src.MoveTimeoutMs;
+                        s.Stroke = src.Stroke;
+                        s.Brake = src.Brake;
                     }
                     if (saved.Config != null && axis.Config != null)
                     {
                         AxisConfig c = axis.Config;
                         AxisConfig src = saved.Config;
+                        c.IsSimulationMode = (!Ready || axis is SimAxis) ? true : src.IsSimulationMode;
                         if (src.DefaultVelocity > 0) c.DefaultVelocity = src.DefaultVelocity;
                         if (src.MaxVelocity > 0) c.MaxVelocity = src.MaxVelocity;
                         if (src.Acceleration > 0) c.Acceleration = src.Acceleration;
@@ -129,11 +136,17 @@ namespace QMC.CDT320.Ajin
             catch { }
         }
 
+        private static void ApplyPersistedAxisValues()
+        {
+            ApplyPersistedAxisValues(AxisManager.GetAll());
+        }
+
         public static void ReloadConfiguredAxes()
         {
             lock (AxisGate)
             {
                 _configuredAxesRegistered = false;
+                AxisManager.Clear();
             }
 
             RegisterConfiguredAxes();
@@ -192,7 +205,9 @@ namespace QMC.CDT320.Ajin
                 axis.Setup.AxisNo = definition.Setup.AxisNo;
                 axis.Setup.PulsesPerUnit = definition.Setup.PulsesPerUnit;
                 axis.Setup.AxisScale = definition.Setup.AxisScale;
-                axis.Setup.Unit = definition.Setup.Unit;
+                axis.Setup.Unit = AjinAxisDefaults.IsThetaAxis(definition.Name)
+                    ? AxisUnitConverter.Degree
+                    : AxisUnitConverter.Normalize(definition.Setup.Unit);
                 axis.Setup.IsEnabled = definition.Setup.IsEnabled;
                 axis.Setup.SoftLimitPlus = definition.Setup.SoftLimitPlus;
                 axis.Setup.SoftLimitMinus = definition.Setup.SoftLimitMinus;
@@ -202,6 +217,8 @@ namespace QMC.CDT320.Ajin
                 axis.Setup.HomeSignal = definition.Setup.HomeSignal;
                 axis.Setup.HomeTimeoutMs = definition.Setup.HomeTimeoutMs;
                 axis.Setup.MoveTimeoutMs = definition.Setup.MoveTimeoutMs;
+                axis.Setup.Stroke = definition.Setup.Stroke;
+                axis.Setup.Brake = definition.Setup.Brake;
             }
 
             if (definition.Config != null)
@@ -256,8 +273,17 @@ namespace QMC.CDT320.Ajin
                     DisplayName = axisDefault != null ? axisDefault.AxisName : key ?? string.Empty,
                     AxisNo = axisNo,
                     BoardNo = boardNo,
-                    Unit = axisDefault != null ? axisDefault.Unit : "mm",
-                    IsEnabled = true
+                    Unit = AjinAxisDefaults.IsThetaAxis(key)
+                        ? AxisUnitConverter.Degree
+                        : axisDefault != null ? AxisUnitConverter.Normalize(axisDefault.Unit) : AxisUnitConverter.Millimeter,
+                    IsEnabled = true,
+                    Stroke = axisDefault != null ? axisDefault.Stroke : 0.0,
+                    Brake = axisDefault != null && axisDefault.Brake,
+                    SoftLimitMinus = 0,
+                    SoftLimitPlus = axisDefault != null ? axisDefault.Stroke : 200.0,
+                    HomeDirection = axisDefault != null && string.Equals(axisDefault.HomeDir, "POS", StringComparison.OrdinalIgnoreCase)
+                        ? HomeDirection.Cw
+                        : HomeDirection.Ccw
                 },
                 Config = config
             };

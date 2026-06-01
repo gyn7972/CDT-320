@@ -91,6 +91,7 @@
     <Compile Include="Core\MaterialTracker.cs" />
     <Compile Include="Core\ImageLogSaver.cs" />
     <Compile Include="Core\DataLogSaver.cs" />
+    <Compile Include="Core\JsonPrettySerializer.cs" />
     <Compile Include="Core\Inspectors\InspectionParameters.cs" />
     <Compile Include="Cameras\Sim\SimCamera.cs" />
     <Compile Include="Cameras\Hik\HikMvsDll.cs" />

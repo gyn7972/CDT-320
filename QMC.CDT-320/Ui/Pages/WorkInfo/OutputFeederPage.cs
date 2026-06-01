@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using QMC.Common.Motion;
 
 namespace QMC.CDT_320.Ui.Pages.WorkInfo
 {
@@ -76,8 +77,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             if (host?.Machine == null) return;
 
             var unloader = host.Machine.OutputUnloader;
-            lblFeederPos.Text = unloader.FeederY.ActualPosition.ToString("F3") + " mm";
-            lblElevatorPos.Text = unloader.BinElevatorZ.ActualPosition.ToString("F3") + " mm";
+            lblFeederPos.Text = AxisUnitConverter.FormatDisplay(unloader.FeederY.ActualPosition, unloader.FeederY, "0.###", true);
+            lblElevatorPos.Text = AxisUnitConverter.FormatDisplay(unloader.BinElevatorZ.ActualPosition, unloader.BinElevatorZ, "0.###", true);
             lblClamp.Text = unloader.FeederClampCyl.IsFwd ? "CLAMPED" : (unloader.FeederClampCyl.IsBwd ? "OPEN" : "...");
             lblUpDown.Text = unloader.FeederUpDownCyl.IsFwd ? "DOWN" : (unloader.FeederUpDownCyl.IsBwd ? "UP" : "...");
             dotNg.IsOn = unloader.ExistSensor_NG.IsOn;

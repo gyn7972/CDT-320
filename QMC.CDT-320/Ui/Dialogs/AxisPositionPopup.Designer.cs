@@ -7,6 +7,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         private System.Windows.Forms.ColumnHeader colAxisNo;
         private System.Windows.Forms.ColumnHeader colAxisName;
         private System.Windows.Forms.ColumnHeader colPosition;
+        private System.Windows.Forms.ColumnHeader colUnit;
         private System.Windows.Forms.ImageList imageListAxisRows;
 
         private void InitializeComponent()
@@ -16,6 +17,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.colAxisNo = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.colAxisName = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.colPosition = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
+            this.colUnit = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.imageListAxisRows = new System.Windows.Forms.ImageList(this.components);
             this.SuspendLayout();
             // 
@@ -25,7 +27,8 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.listViewAxis.Columns.AddRange(new System.Windows.Forms.ColumnHeader[] {
             this.colAxisNo,
             this.colAxisName,
-            this.colPosition});
+            this.colPosition,
+            this.colUnit});
             this.listViewAxis.Dock = System.Windows.Forms.DockStyle.Fill;
             this.listViewAxis.Font = new System.Drawing.Font("Segoe UI", 11F, System.Drawing.FontStyle.Bold);
             this.listViewAxis.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(0)))), ((int)(((byte)(220)))), ((int)(((byte)(130)))));
@@ -34,7 +37,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.listViewAxis.Location = new System.Drawing.Point(0, 0);
             this.listViewAxis.Name = "listViewAxis";
             this.listViewAxis.OwnerDraw = true;
-            this.listViewAxis.Size = new System.Drawing.Size(402, 760);
+            this.listViewAxis.Size = new System.Drawing.Size(462, 760);
             this.listViewAxis.SmallImageList = this.imageListAxisRows;
             this.listViewAxis.TabIndex = 0;
             this.listViewAxis.UseCompatibleStateImageBehavior = false;
@@ -49,13 +52,19 @@ namespace QMC.CDT_320.Ui.Dialogs
             // colAxisName
             // 
             this.colAxisName.Text = "Axis Name";
-            this.colAxisName.Width = 250;
+            this.colAxisName.Width = 220;
             // 
             // colPosition
             // 
-            this.colPosition.Text = "Pos. (mm)";
+            this.colPosition.Text = "Position";
             this.colPosition.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
             this.colPosition.Width = 130;
+            // 
+            // colUnit
+            // 
+            this.colUnit.Text = "Unit";
+            this.colUnit.TextAlign = System.Windows.Forms.HorizontalAlignment.Center;
+            this.colUnit.Width = 56;
             // 
             // imageListAxisRows
             // 
@@ -66,7 +75,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             // AxisPositionPopup
             // 
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
-            this.ClientSize = new System.Drawing.Size(402, 760);
+            this.ClientSize = new System.Drawing.Size(462, 760);
             this.Controls.Add(this.listViewAxis);
             this.Font = new System.Drawing.Font("Segoe UI", 9F);
             this.MinimumSize = new System.Drawing.Size(420, 430);
