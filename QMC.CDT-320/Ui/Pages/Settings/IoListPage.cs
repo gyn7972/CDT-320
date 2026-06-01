@@ -22,6 +22,11 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         private bool _loadingRows;
         private bool _pendingCylinderPanelUpdate;
 
+        // 스캔 스냅샷마다 그리드 전체를 훑지 않도록, 행을 주소/이름(또는 실린더 입력 모듈:비트)으로
+        // 미리 인덱싱해 둔다. 백그라운드 스레드에서도 안전하게 읽을 수 있도록 통째로 교체(원자적 참조 대입)한다.
+        private volatile Dictionary<string, List<DataGridViewRow>> _rowIndex =
+            new Dictionary<string, List<DataGridViewRow>>(StringComparer.OrdinalIgnoreCase);
+
         public IoListPage(string i18nKey, string[] columns, string[][] seedRows)
             : this(i18nKey, columns, () => seedRows)
         {
@@ -162,8 +167,16 @@ namespace QMC.CDT_320.Ui.Pages.Settings
 
         private void LoadRows()
         {
+            string previousName = null;
+            int previousColumn = -1;
             try
             {
+                // 현재 선택 중인 행/열을 기억해 두었다가 재로드 후 복원한다.
+                if (_grid.CurrentCell != null)
+                    previousColumn = _grid.CurrentCell.ColumnIndex;
+                if (_grid.CurrentRow != null && !_grid.CurrentRow.IsNewRow)
+                    previousName = IoName(_grid.CurrentRow);
+
                 _loadingRows = true;
                 _grid.Rows.Clear();
                 var rows = _rowProvider();
@@ -178,7 +191,44 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             finally
             {
                 _loadingRows = false;
+                RebuildRowIndex();
+                RestoreSelectedRow(previousName, previousColumn);
                 UpdateSelectedCylinderPanel();
+            }
+        }
+
+        private void RestoreSelectedRow(string name, int columnIndex)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(name) || _grid.Rows.Count == 0) return;
+
+                int targetRow = -1;
+                for (int i = 0; i < _grid.Rows.Count; i++)
+                {
+                    DataGridViewRow row = _grid.Rows[i];
+                    if (row.IsNewRow) continue;
+                    if (string.Equals(IoName(row), name, StringComparison.OrdinalIgnoreCase))
+                    {
+                        targetRow = i;
+                        break;
+                    }
+                }
+
+                if (targetRow < 0) return;
+
+                int targetCol = columnIndex;
+                if (targetCol < 0 || targetCol >= _grid.Columns.Count)
+                    targetCol = _grid.CurrentCell != null ? _grid.CurrentCell.ColumnIndex : 0;
+                if (targetCol < 0 || targetCol >= _grid.Columns.Count)
+                    targetCol = 0;
+
+                _grid.ClearSelection();
+                _grid.Rows[targetRow].Selected = true;
+                _grid.CurrentCell = _grid.Rows[targetRow].Cells[targetCol];
+            }
+            catch
+            {
             }
         }
 
@@ -427,7 +477,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 CylMap map;
                 if (!AjinConfigStore.Current.Cylinders.TryGetValue(name, out map))
                     return "READY";
-                return "STATE : " + CylinderState(map);
+                return "STATE : " + CylinderState(map, name);
             }
             catch
             {
@@ -869,6 +919,11 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         {
             if (snapshot == null || IsDisposed || _stateColumnIndex < 0) return;
 
+            // 스캔 루프는 모든 I/O 포인트마다(수십~수백 개) 매 주기 이 이벤트를 발생시킨다.
+            // 이 페이지와 무관한 스냅샷은 UI 스레드로 보내기 전에 백그라운드 스레드에서 즉시 버려야
+            // BeginInvoke 폭주로 인한 UI 멈춤을 막을 수 있다.
+            if (!IsRelevantSnapshot(snapshot)) return;
+
             if (InvokeRequired)
             {
                 try { BeginInvoke(new Action<AjinIoSnapshot>(OnIoStatusUpdated), snapshot); } catch { }
@@ -876,6 +931,25 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             }
 
             UpdateStateCells(snapshot);
+        }
+
+        private bool IsRelevantSnapshot(AjinIoSnapshot snapshot)
+        {
+            var index = _rowIndex;
+            if (index == null || index.Count == 0) return false;
+
+            if (string.Equals(_i18nKey, "set.cylinder", StringComparison.OrdinalIgnoreCase))
+            {
+                if (snapshot.IsOutput) return false;
+                return index.ContainsKey(PointKey(snapshot.Module, snapshot.Bit));
+            }
+
+            string address = snapshot.IsOutput
+                ? AjinIoCatalog.OutputAddress(snapshot.Module, snapshot.Bit)
+                : AjinIoCatalog.InputAddress(snapshot.Module, snapshot.Bit);
+
+            return (!string.IsNullOrEmpty(snapshot.Name) && index.ContainsKey(snapshot.Name))
+                || (!string.IsNullOrEmpty(address) && index.ContainsKey(address));
         }
 
         private void UpdateStateCells(AjinIoSnapshot snapshot)
@@ -891,10 +965,9 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 : AjinIoCatalog.InputAddress(snapshot.Module, snapshot.Bit);
             string state = snapshot.IsOn ? "ON" : "OFF";
 
-            foreach (DataGridViewRow row in _grid.Rows)
+            foreach (DataGridViewRow row in MatchingRows(snapshot.Name, address))
             {
                 if (row.IsNewRow) continue;
-                if (!RowMatches(row, snapshot.Name, address)) continue;
                 var cell = row.Cells[_stateColumnIndex];
                 if (!string.Equals(Convert.ToString(cell.Value), state, StringComparison.OrdinalIgnoreCase))
                     cell.Value = state;
@@ -905,7 +978,11 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         {
             if (snapshot.IsOutput) return;
 
-            foreach (DataGridViewRow row in _grid.Rows)
+            List<DataGridViewRow> rows;
+            if (!_rowIndex.TryGetValue(PointKey(snapshot.Module, snapshot.Bit), out rows) || rows == null)
+                return;
+
+            foreach (DataGridViewRow row in rows)
             {
                 if (row.IsNewRow || row.Cells.Count < 2) continue;
                 string name = IoName(row);
@@ -913,48 +990,150 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 if (cyl == null) continue;
                 CylMap map;
                 AjinConfigStore.Current.Cylinders.TryGetValue(name, out map);
-                if (!SamePoint(snapshot, map != null && map.UseFwdInput ? map.InFwd : null)
-                    && !SamePoint(snapshot, map != null && map.UseBwdInput ? map.InBwd : null))
-                    continue;
 
-                string state = CylinderState(map);
+                string state = CylinderState(map, name);
                 var cell = row.Cells[_stateColumnIndex];
                 if (!string.Equals(Convert.ToString(cell.Value), state, StringComparison.OrdinalIgnoreCase))
                     cell.Value = state;
             }
         }
 
-        private static bool RowMatches(DataGridViewRow row, string name, string address)
+        // 행 인덱스를 다시 만든다. 그리드가 비어 있거나 STATE 컬럼이 없으면 빈 인덱스를 둔다.
+        private void RebuildRowIndex()
         {
+            var index = new Dictionary<string, List<DataGridViewRow>>(StringComparer.OrdinalIgnoreCase);
+            try
+            {
+                if (_stateColumnIndex >= 0)
+                {
+                    bool cylinder = string.Equals(_i18nKey, "set.cylinder", StringComparison.OrdinalIgnoreCase);
+                    foreach (DataGridViewRow row in _grid.Rows)
+                    {
+                        if (row.IsNewRow) continue;
+                        if (cylinder)
+                            IndexCylinderRow(index, row);
+                        else
+                            IndexDioRow(index, row);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Warning, "QMC", "IO-INDEX", "Row index rebuild failed: " + ex.Message);
+            }
+            _rowIndex = index;
+        }
+
+        private void IndexDioRow(Dictionary<string, List<DataGridViewRow>> index, DataGridViewRow row)
+        {
+            // DIO 행은 어떤 셀이든 이름 또는 주소와 정확히 일치하면 매칭 대상이 되므로,
+            // 모든 셀 텍스트(및 "주소 이름" 형태의 첫 토큰)를 키로 등록해 둔다.
             for (int i = 0; i < row.Cells.Count; i++)
             {
                 string value = Convert.ToString(row.Cells[i].Value);
-                if (string.Equals(value, name, StringComparison.OrdinalIgnoreCase)) return true;
-                if (string.Equals(value, address, StringComparison.OrdinalIgnoreCase)) return true;
-                if (!string.IsNullOrEmpty(value) &&
-                    value.IndexOf(address + " ", StringComparison.OrdinalIgnoreCase) >= 0)
-                    return true;
+                if (string.IsNullOrEmpty(value)) continue;
+                AddIndex(index, value, row);
+
+                int space = value.IndexOf(' ');
+                if (space > 0)
+                    AddIndex(index, value.Substring(0, space), row);
             }
-            return false;
         }
 
-        private static bool SamePoint(AjinIoSnapshot snapshot, DioDefault item)
+        private void IndexCylinderRow(Dictionary<string, List<DataGridViewRow>> index, DataGridViewRow row)
         {
-            return item != null && snapshot.Module == item.Module && snapshot.Bit == item.Bit;
+            string name = IoName(row);
+            CylMap map;
+            if (!AjinConfigStore.Current.Cylinders.TryGetValue(name, out map) || map == null) return;
+
+            if (map.UseFwdInput && map.InFwd != null)
+                AddIndex(index, PointKey(map.InFwd.Module, map.InFwd.Bit), row);
+            if (map.UseBwdInput && map.InBwd != null)
+                AddIndex(index, PointKey(map.InBwd.Module, map.InBwd.Bit), row);
         }
 
-        private static bool SamePoint(AjinIoSnapshot snapshot, DioMap item)
+        private static void AddIndex(Dictionary<string, List<DataGridViewRow>> index, string key, DataGridViewRow row)
         {
-            return item != null && snapshot.Module == item.Module && snapshot.Bit == item.Bit;
+            if (string.IsNullOrEmpty(key)) return;
+            List<DataGridViewRow> list;
+            if (!index.TryGetValue(key, out list))
+            {
+                list = new List<DataGridViewRow>();
+                index[key] = list;
+            }
+            if (!list.Contains(row))
+                list.Add(row);
         }
 
-        private static string CylinderState(CylMap item)
+        private IEnumerable<DataGridViewRow> MatchingRows(string name, string address)
         {
-            bool fwd = item != null && item.UseFwdInput && IsOn(item.InFwd);
-            bool bwd = item != null && item.UseBwdInput && IsOn(item.InBwd);
-            if (fwd && !bwd) return "FWD";
-            if (!fwd && bwd) return "BWD";
-            if (fwd && bwd) return "BOTH";
+            var index = _rowIndex;
+            var seen = new HashSet<DataGridViewRow>();
+            var result = new List<DataGridViewRow>();
+            List<DataGridViewRow> rows;
+            if (!string.IsNullOrEmpty(name) && index.TryGetValue(name, out rows))
+                foreach (var row in rows) if (seen.Add(row)) result.Add(row);
+            if (!string.IsNullOrEmpty(address) && index.TryGetValue(address, out rows))
+                foreach (var row in rows) if (seen.Add(row)) result.Add(row);
+            return result;
+        }
+
+        private static string PointKey(int module, int bit)
+        {
+            return "P:" + module + ":" + bit;
+        }
+
+        private static string CylinderState(CylMap item, string cylinderName)
+        {
+            if (item == null) return "OFF";
+
+            bool hasFwd = item.UseFwdInput && item.InFwd != null;
+            bool hasBwd = item.UseBwdInput && item.InBwd != null;
+
+            // 둘 다 매핑이 없으면 상태 판단 불가.
+            if (!hasFwd && !hasBwd) return "OFF";
+
+            bool fwd;
+            bool bwd;
+            if (hasFwd && hasBwd)
+            {
+                fwd = IsOn(item.InFwd);
+                bwd = IsOn(item.InBwd);
+            }
+            else if (hasFwd)
+            {
+                // 후진 센서가 없으면 전진 센서의 역으로 후진 상태를 추정.
+                fwd = IsOn(item.InFwd);
+                bwd = !fwd;
+            }
+            else
+            {
+                // 전진 센서가 없으면 후진 센서의 역으로 전진 상태를 추정.
+                bwd = IsOn(item.InBwd);
+                fwd = !bwd;
+            }
+
+            string fwdLabel = "FWD";
+            string bwdLabel = "BWD";
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(cylinderName))
+                {
+                    CylinderItemSettings settings = CylinderSettingsStore.Get(cylinderName);
+                    if (settings != null)
+                    {
+                        if (!string.IsNullOrWhiteSpace(settings.FwdLabel)) fwdLabel = settings.FwdLabel.Trim();
+                        if (!string.IsNullOrWhiteSpace(settings.BwdLabel)) bwdLabel = settings.BwdLabel.Trim();
+                    }
+                }
+            }
+            catch
+            {
+            }
+
+            if (fwd && !bwd) return fwdLabel;
+            if (!fwd && bwd) return bwdLabel;
+            if (fwd && bwd) return fwdLabel + "/" + bwdLabel;
             return "OFF";
         }
 

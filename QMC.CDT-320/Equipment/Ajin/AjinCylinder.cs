@@ -1,4 +1,4 @@
-using QMC.Common.IO;
+﻿using QMC.Common.IO;
 
 namespace QMC.CDT320.Ajin
 {
@@ -53,6 +53,16 @@ namespace QMC.CDT320.Ajin
             DioMap outFwd, DioMap outBwd,
             DioMap inFwd, DioMap inBwd)
         {
+            // 옛 IO 인스턴스를 ScanService에서 먼저 등록 해제한다.
+            AjinIoScanService scan = AjinIoScanService.Current;
+            if (scan != null)
+            {
+                scan.UnregisterOutput(OutFwd as AjinDigitalOutput);
+                scan.UnregisterOutput(OutBwd as AjinDigitalOutput);
+                scan.UnregisterInput(InFwd as AjinDigitalInput);
+                scan.UnregisterInput(InBwd as AjinDigitalInput);
+            }
+
             // BaseCylinder 의 OutFwd/OutBwd/InFwd/InBwd 는 private set 이라
             // 리플렉션으로 교체. 한 번만 수행되므로 비용 무시.
             var t = typeof(BaseCylinder);
@@ -61,6 +71,15 @@ namespace QMC.CDT320.Ajin
             t.GetProperty("OutBwd", bf).SetValue(this, CreateOutput(name + "_OutBwd", outBwd));
             t.GetProperty("InFwd",  bf).SetValue(this, CreateInput(name + "_InFwd", inFwd));
             t.GetProperty("InBwd",  bf).SetValue(this, CreateInput(name + "_InBwd", inBwd));
+
+            // 새 IO 인스턴스를 ScanService에 등록하여 폴링 대상으로 편입한다.
+            if (scan != null)
+            {
+                scan.RegisterOutput(OutFwd as AjinDigitalOutput);
+                scan.RegisterOutput(OutBwd as AjinDigitalOutput);
+                scan.RegisterInput(InFwd as AjinDigitalInput);
+                scan.RegisterInput(InBwd as AjinDigitalInput);
+            }
         }
 
         public void Rebind(DioMap outFwd, DioMap outBwd, DioMap inFwd, DioMap inBwd)

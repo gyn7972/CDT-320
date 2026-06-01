@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -120,6 +120,74 @@ namespace QMC.Common.IO
                 var values = new AjinIoSnapshot[_latest.Count];
                 _latest.Values.CopyTo(values, 0);
                 return values;
+            }
+        }
+
+        /// <summary>
+        /// 스캔 대상 입력 인스턴스를 동적으로 등록한다.<br/>
+        /// 동일 인스턴스가 이미 등록되어 있으면 다시 추가하지 않는다.<br/>
+        /// 서로 다른 실린더가 동일 (Module,Bit)을 공유하는 경우(예: 클램프 + 클램프 리프트가 같은 업 센서 공유)도 허용된다 — 각각 독립 인스턴스로 갱신됨.
+        /// </summary>
+        public void RegisterInput(BaseDigitalInput input)
+        {
+            if (input == null) return;
+            lock (_gate)
+            {
+                for (int i = _inputs.Count - 1; i >= 0; i--)
+                {
+                    BaseDigitalInput existing = _inputs[i];
+                    if (existing == null) { _inputs.RemoveAt(i); continue; }
+                    if (ReferenceEquals(existing, input)) { _inputs.RemoveAt(i); continue; }
+                }
+                _inputs.Add(input);
+            }
+        }
+
+        /// <summary>지정한 입력 인스턴스를 스캔 대상에서 제거한다.</summary>
+        public void UnregisterInput(BaseDigitalInput input)
+        {
+            if (input == null) return;
+            lock (_gate)
+            {
+                for (int i = _inputs.Count - 1; i >= 0; i--)
+                {
+                    if (ReferenceEquals(_inputs[i], input))
+                        _inputs.RemoveAt(i);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 스캔 대상 출력 인스턴스를 동적으로 등록한다.<br/>
+        /// 동일 인스턴스가 이미 등록되어 있으면 다시 추가하지 않는다.<br/>
+        /// 서로 다른 실린더가 동일 (Module,Bit)을 공유하는 경우도 허용된다.
+        /// </summary>
+        public void RegisterOutput(BaseDigitalOutput output)
+        {
+            if (output == null) return;
+            lock (_gate)
+            {
+                for (int i = _outputs.Count - 1; i >= 0; i--)
+                {
+                    BaseDigitalOutput existing = _outputs[i];
+                    if (existing == null) { _outputs.RemoveAt(i); continue; }
+                    if (ReferenceEquals(existing, output)) { _outputs.RemoveAt(i); continue; }
+                }
+                _outputs.Add(output);
+            }
+        }
+
+        /// <summary>지정한 출력 인스턴스를 스캔 대상에서 제거한다.</summary>
+        public void UnregisterOutput(BaseDigitalOutput output)
+        {
+            if (output == null) return;
+            lock (_gate)
+            {
+                for (int i = _outputs.Count - 1; i >= 0; i--)
+                {
+                    if (ReferenceEquals(_outputs[i], output))
+                        _outputs.RemoveAt(i);
+                }
             }
         }
 
