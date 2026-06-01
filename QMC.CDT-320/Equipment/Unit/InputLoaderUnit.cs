@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Threading.Tasks;
 using QMC.Common;
 using QMC.Common.IO;
@@ -31,8 +31,8 @@ namespace QMC.CDT320
         public BaseDigitalInput WaferDetectSensor { get { return InputCassette.WaferDetectSensor; } }
         public BaseDigitalInput WaferClampedSensor { get { return WaferFeeder.WaferClampedSensor; } }
 
-        public BaseCylinder FeederUpDownCyl { get { return WaferFeeder.FeederUpDownCyl; } }
-        public BaseCylinder FeederClampCyl { get { return WaferFeeder.FeederClampCyl; } }
+        public BaseCylinder FeederUpDownCyl { get { return WaferFeeder.InputFeederLift; } }
+        public BaseCylinder FeederClampCyl { get { return WaferFeeder.InputFeederClamp; } }
 
         public IReadOnlyList<bool> WaferMap { get { return InputCassette.WaferMap; } }
 
@@ -57,13 +57,13 @@ namespace QMC.CDT320
             return InputCassette.MoveToTargetSlotAsync(targetPosition);
         }
 
-        public Task<bool> MoveToExchangePositionAsync()
+        public Task<int> MoveToExchangePositionAsync()
         {
             SyncChildSettings();
             return WaferFeeder.MoveToExchangePositionAsync();
         }
 
-        public Task<bool> RetractFeederAsync()
+        public Task<int> RetractFeederAsync()
         {
             SyncChildSettings();
             return WaferFeeder.RetractFeederAsync();

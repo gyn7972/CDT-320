@@ -97,6 +97,7 @@
             this.btnReadyMove = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnSlotLoadingMove = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnSlotUnloadingMove = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.btnMapping = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.grpIo = new System.Windows.Forms.GroupBox();
             this.ioCylinderPanel = new QMC.CDT_320.Ui.Controls.IoCylinderPanelControl();
             this.centerLayout = new System.Windows.Forms.TableLayoutPanel();
@@ -159,7 +160,6 @@
             this.lblWaitScanSettleVal = new System.Windows.Forms.Label();
             this.lblWaitMoveTimeoutKey = new System.Windows.Forms.Label();
             this.lblWaitMoveTimeoutVal = new System.Windows.Forms.Label();
-            this.btnMapping = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.rootLayout.SuspendLayout();
             this.contentLayout.SuspendLayout();
             this.leftLayout.SuspendLayout();
@@ -177,9 +177,9 @@
             this.optionRows.SuspendLayout();
             this.waitRows.SuspendLayout();
             this.SuspendLayout();
-            // 
+            //
             // rootLayout
-            // 
+            //
             this.rootLayout.ColumnCount = 1;
             this.rootLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.rootLayout.Controls.Add(this.lblHeader, 0, 0);
@@ -191,11 +191,11 @@
             this.rootLayout.RowCount = 2;
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.rootLayout.Size = new System.Drawing.Size(1694, 980);
+            this.rootLayout.Size = new System.Drawing.Size(1678, 900);
             this.rootLayout.TabIndex = 0;
-            // 
+            //
             // lblHeader
-            // 
+            //
             this.lblHeader.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(45)))), ((int)(((byte)(45)))));
             this.lblHeader.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblHeader.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
@@ -204,14 +204,14 @@
             this.lblHeader.Margin = new System.Windows.Forms.Padding(0);
             this.lblHeader.Name = "lblHeader";
             this.lblHeader.Padding = new System.Windows.Forms.Padding(18, 0, 0, 0);
-            this.lblHeader.Size = new System.Drawing.Size(1694, 30);
+            this.lblHeader.Size = new System.Drawing.Size(1678, 30);
             this.lblHeader.TabIndex = 0;
             this.lblHeader.Tag = "i18n:recipe.inputCassette";
             this.lblHeader.Text = "INPUT CASSETTE";
             this.lblHeader.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
+            //
             // contentLayout
-            // 
+            //
             this.contentLayout.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(216)))), ((int)(((byte)(219)))), ((int)(((byte)(222)))));
             this.contentLayout.ColumnCount = 3;
             this.contentLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 296F));
@@ -227,11 +227,11 @@
             this.contentLayout.Padding = new System.Windows.Forms.Padding(1);
             this.contentLayout.RowCount = 1;
             this.contentLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.contentLayout.Size = new System.Drawing.Size(1694, 950);
+            this.contentLayout.Size = new System.Drawing.Size(1678, 870);
             this.contentLayout.TabIndex = 1;
-            // 
+            //
             // leftLayout
-            // 
+            //
             this.leftLayout.ColumnCount = 1;
             this.leftLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.leftLayout.Controls.Add(this.grpActions, 0, 0);
@@ -243,11 +243,11 @@
             this.leftLayout.RowCount = 2;
             this.leftLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 610F));
             this.leftLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.leftLayout.Size = new System.Drawing.Size(290, 948);
+            this.leftLayout.Size = new System.Drawing.Size(290, 868);
             this.leftLayout.TabIndex = 0;
-            // 
+            //
             // grpActions
-            // 
+            //
             this.grpActions.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(245)))), ((int)(((byte)(245)))));
             this.grpActions.Controls.Add(this.actionLayout);
             this.grpActions.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -259,9 +259,9 @@
             this.grpActions.TabIndex = 0;
             this.grpActions.TabStop = false;
             this.grpActions.Text = "ACTION";
-            // 
+            //
             // actionLayout
-            // 
+            //
             this.actionLayout.ColumnCount = 1;
             this.actionLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.actionLayout.Controls.Add(this.btnLoadingMove, 0, 0);
@@ -288,9 +288,9 @@
             this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 8.333333F));
             this.actionLayout.Size = new System.Drawing.Size(284, 575);
             this.actionLayout.TabIndex = 0;
-            // 
+            //
             // btnLoadingMove
-            // 
+            //
             this.btnLoadingMove.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnLoadingMove.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnLoadingMove.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -303,9 +303,9 @@
             this.btnLoadingMove.TabIndex = 0;
             this.btnLoadingMove.Text = "LOADING MOVE";
             this.btnLoadingMove.Click += new System.EventHandler(this.btnLoadingMove_Click);
-            // 
+            //
             // btnUnloadingMove
-            // 
+            //
             this.btnUnloadingMove.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnUnloadingMove.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnUnloadingMove.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -318,9 +318,9 @@
             this.btnUnloadingMove.TabIndex = 1;
             this.btnUnloadingMove.Text = "UNLOADING MOVE";
             this.btnUnloadingMove.Click += new System.EventHandler(this.btnUnloadingMove_Click);
-            // 
+            //
             // btnReadyMove
-            // 
+            //
             this.btnReadyMove.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnReadyMove.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnReadyMove.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -333,9 +333,9 @@
             this.btnReadyMove.TabIndex = 2;
             this.btnReadyMove.Text = "READY MOVE";
             this.btnReadyMove.Click += new System.EventHandler(this.btnReadyMove_Click);
-            // 
+            //
             // btnSlotLoadingMove
-            // 
+            //
             this.btnSlotLoadingMove.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnSlotLoadingMove.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnSlotLoadingMove.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -348,9 +348,9 @@
             this.btnSlotLoadingMove.TabIndex = 3;
             this.btnSlotLoadingMove.Text = "SLOT MOVE (LOADING)";
             this.btnSlotLoadingMove.Click += new System.EventHandler(this.btnSlotLoadingMove_Click);
-            // 
+            //
             // btnSlotUnloadingMove
-            // 
+            //
             this.btnSlotUnloadingMove.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnSlotUnloadingMove.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnSlotUnloadingMove.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -363,9 +363,23 @@
             this.btnSlotUnloadingMove.TabIndex = 4;
             this.btnSlotUnloadingMove.Text = "SLOT MOVE (UNLOADING)";
             this.btnSlotUnloadingMove.Click += new System.EventHandler(this.btnSlotUnloadingMove_Click);
-            // 
+            //
+            // btnMapping
+            //
+            this.btnMapping.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnMapping.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnMapping.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnMapping.ForeColor = System.Drawing.Color.White;
+            this.btnMapping.Location = new System.Drawing.Point(12, 478);
+            this.btnMapping.Margin = new System.Windows.Forms.Padding(0, 0, 0, 10);
+            this.btnMapping.Name = "btnMapping";
+            this.btnMapping.Size = new System.Drawing.Size(260, 36);
+            this.btnMapping.TabIndex = 5;
+            this.btnMapping.Text = "Seq - Mapping";
+            this.btnMapping.Click += new System.EventHandler(this.btnMapping_Click);
+            //
             // grpIo
-            // 
+            //
             this.grpIo.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(245)))), ((int)(((byte)(245)))));
             this.grpIo.Controls.Add(this.ioCylinderPanel);
             this.grpIo.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -373,23 +387,23 @@
             this.grpIo.Location = new System.Drawing.Point(0, 610);
             this.grpIo.Margin = new System.Windows.Forms.Padding(0);
             this.grpIo.Name = "grpIo";
-            this.grpIo.Size = new System.Drawing.Size(290, 338);
+            this.grpIo.Size = new System.Drawing.Size(290, 258);
             this.grpIo.TabIndex = 1;
             this.grpIo.TabStop = false;
             this.grpIo.Text = "CYLINDER && I/O";
-            // 
+            //
             // ioCylinderPanel
-            // 
+            //
             this.ioCylinderPanel.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(205)))), ((int)(((byte)(205)))), ((int)(((byte)(205)))));
             this.ioCylinderPanel.Dock = System.Windows.Forms.DockStyle.Fill;
             this.ioCylinderPanel.Location = new System.Drawing.Point(3, 26);
             this.ioCylinderPanel.Margin = new System.Windows.Forms.Padding(0);
             this.ioCylinderPanel.Name = "ioCylinderPanel";
-            this.ioCylinderPanel.Size = new System.Drawing.Size(284, 309);
+            this.ioCylinderPanel.Size = new System.Drawing.Size(284, 229);
             this.ioCylinderPanel.TabIndex = 0;
-            // 
+            //
             // centerLayout
-            // 
+            //
             this.centerLayout.ColumnCount = 1;
             this.centerLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.centerLayout.Controls.Add(this.grpWait, 0, 1);
@@ -401,11 +415,11 @@
             this.centerLayout.RowCount = 2;
             this.centerLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 610F));
             this.centerLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.centerLayout.Size = new System.Drawing.Size(710, 948);
+            this.centerLayout.Size = new System.Drawing.Size(694, 868);
             this.centerLayout.TabIndex = 1;
-            // 
+            //
             // grpWait
-            // 
+            //
             this.grpWait.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(245)))), ((int)(((byte)(245)))));
             this.grpWait.Controls.Add(this.waitParameterGrid);
             this.grpWait.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -413,23 +427,23 @@
             this.grpWait.Location = new System.Drawing.Point(0, 610);
             this.grpWait.Margin = new System.Windows.Forms.Padding(0);
             this.grpWait.Name = "grpWait";
-            this.grpWait.Size = new System.Drawing.Size(710, 338);
+            this.grpWait.Size = new System.Drawing.Size(694, 258);
             this.grpWait.TabIndex = 1;
             this.grpWait.TabStop = false;
             this.grpWait.Text = "WAIT TIME";
-            // 
+            //
             // waitParameterGrid
-            // 
+            //
             this.waitParameterGrid.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(246)))), ((int)(((byte)(248)))));
             this.waitParameterGrid.Dock = System.Windows.Forms.DockStyle.Fill;
             this.waitParameterGrid.Location = new System.Drawing.Point(3, 26);
             this.waitParameterGrid.Margin = new System.Windows.Forms.Padding(0);
             this.waitParameterGrid.Name = "waitParameterGrid";
-            this.waitParameterGrid.Size = new System.Drawing.Size(704, 309);
+            this.waitParameterGrid.Size = new System.Drawing.Size(688, 229);
             this.waitParameterGrid.TabIndex = 0;
-            // 
+            //
             // grpOptions
-            // 
+            //
             this.grpOptions.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(245)))), ((int)(((byte)(245)))));
             this.grpOptions.Controls.Add(this.optionParameterGrid);
             this.grpOptions.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -437,39 +451,39 @@
             this.grpOptions.Location = new System.Drawing.Point(0, 0);
             this.grpOptions.Margin = new System.Windows.Forms.Padding(0, 0, 0, 6);
             this.grpOptions.Name = "grpOptions";
-            this.grpOptions.Size = new System.Drawing.Size(710, 604);
+            this.grpOptions.Size = new System.Drawing.Size(694, 604);
             this.grpOptions.TabIndex = 0;
             this.grpOptions.TabStop = false;
             this.grpOptions.Text = "OPTION";
-            // 
+            //
             // optionParameterGrid
-            // 
+            //
             this.optionParameterGrid.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(246)))), ((int)(((byte)(248)))));
             this.optionParameterGrid.Dock = System.Windows.Forms.DockStyle.Fill;
             this.optionParameterGrid.Location = new System.Drawing.Point(3, 26);
             this.optionParameterGrid.Margin = new System.Windows.Forms.Padding(0);
             this.optionParameterGrid.Name = "optionParameterGrid";
-            this.optionParameterGrid.Size = new System.Drawing.Size(704, 575);
+            this.optionParameterGrid.Size = new System.Drawing.Size(688, 575);
             this.optionParameterGrid.TabIndex = 0;
-            // 
+            //
             // rightLayout
-            // 
+            //
             this.rightLayout.ColumnCount = 2;
             this.rightLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.rightLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 120F));
             this.rightLayout.Controls.Add(this.grpJog, 0, 0);
             this.rightLayout.Controls.Add(this.grpSpeed, 1, 0);
             this.rightLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.rightLayout.Location = new System.Drawing.Point(1013, 1);
+            this.rightLayout.Location = new System.Drawing.Point(997, 1);
             this.rightLayout.Margin = new System.Windows.Forms.Padding(0);
             this.rightLayout.Name = "rightLayout";
             this.rightLayout.RowCount = 1;
             this.rightLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.rightLayout.Size = new System.Drawing.Size(680, 948);
+            this.rightLayout.Size = new System.Drawing.Size(680, 868);
             this.rightLayout.TabIndex = 2;
-            // 
+            //
             // grpJog
-            // 
+            //
             this.grpJog.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(245)))), ((int)(((byte)(245)))));
             this.grpJog.Controls.Add(this.jogCompositeLayout);
             this.grpJog.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -477,13 +491,13 @@
             this.grpJog.Location = new System.Drawing.Point(0, 0);
             this.grpJog.Margin = new System.Windows.Forms.Padding(0, 0, 6, 0);
             this.grpJog.Name = "grpJog";
-            this.grpJog.Size = new System.Drawing.Size(554, 948);
+            this.grpJog.Size = new System.Drawing.Size(554, 868);
             this.grpJog.TabIndex = 0;
             this.grpJog.TabStop = false;
             this.grpJog.Text = "JOG";
-            // 
+            //
             // jogCompositeLayout
-            // 
+            //
             this.jogCompositeLayout.ColumnCount = 1;
             this.jogCompositeLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.jogCompositeLayout.Controls.Add(this.jogPositionListControl, 0, 0);
@@ -495,34 +509,37 @@
             this.jogCompositeLayout.RowCount = 2;
             this.jogCompositeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 62F));
             this.jogCompositeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.jogCompositeLayout.Size = new System.Drawing.Size(548, 919);
+            this.jogCompositeLayout.Size = new System.Drawing.Size(548, 839);
             this.jogCompositeLayout.TabIndex = 0;
-            // 
+            //
             // jogPositionListControl
-            // 
+            //
             this.jogPositionListControl.Dock = System.Windows.Forms.DockStyle.Fill;
             this.jogPositionListControl.Location = new System.Drawing.Point(0, 0);
             this.jogPositionListControl.Margin = new System.Windows.Forms.Padding(0, 0, 0, 6);
             this.jogPositionListControl.Name = "jogPositionListControl";
             this.jogPositionListControl.Size = new System.Drawing.Size(548, 56);
             this.jogPositionListControl.TabIndex = 0;
-            // 
+            //
             // jogAxisMoveControl
-            // 
+            //
             this.jogAxisMoveControl.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(246)))), ((int)(((byte)(248)))));
-            this.jogAxisMoveControl.ButtonAreaMaxHeight = 260;
-            this.jogAxisMoveControl.ButtonAreaMaxWidth = 340;
-            this.jogAxisMoveControl.ButtonAreaMinHeight = 190;
-            this.jogAxisMoveControl.ButtonAreaMinWidth = 240;
+            this.jogAxisMoveControl.ButtonAreaMaxHeight = 164;
+            this.jogAxisMoveControl.ButtonAreaMaxWidth = 222;
+            this.jogAxisMoveControl.ButtonAreaMinHeight = 164;
+            this.jogAxisMoveControl.ButtonAreaMinWidth = 222;
+            this.jogAxisMoveControl.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.jogAxisMoveControl.LayoutMode = QMC.CDT_320.Ui.Controls.JogAxisMoveLayoutMode.AxisColumns;
             this.jogAxisMoveControl.Location = new System.Drawing.Point(0, 62);
             this.jogAxisMoveControl.Margin = new System.Windows.Forms.Padding(0);
             this.jogAxisMoveControl.Name = "jogAxisMoveControl";
+            this.jogAxisMoveControl.ShowCurrentSpeedMode = true;
             this.jogAxisMoveControl.Size = new System.Drawing.Size(548, 516);
             this.jogAxisMoveControl.SpeedControl = null;
             this.jogAxisMoveControl.TabIndex = 1;
-            // 
+            //
             // grpSpeed
-            // 
+            //
             this.grpSpeed.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(245)))), ((int)(((byte)(245)))));
             this.grpSpeed.Controls.Add(this.jogSpeedControl);
             this.grpSpeed.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -530,13 +547,13 @@
             this.grpSpeed.Location = new System.Drawing.Point(560, 0);
             this.grpSpeed.Margin = new System.Windows.Forms.Padding(0);
             this.grpSpeed.Name = "grpSpeed";
-            this.grpSpeed.Size = new System.Drawing.Size(120, 948);
+            this.grpSpeed.Size = new System.Drawing.Size(120, 868);
             this.grpSpeed.TabIndex = 1;
             this.grpSpeed.TabStop = false;
             this.grpSpeed.Text = "SPEED";
-            // 
+            //
             // jogSpeedControl
-            // 
+            //
             this.jogSpeedControl.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(246)))), ((int)(((byte)(248)))));
             this.jogSpeedControl.Location = new System.Drawing.Point(3, 26);
             this.jogSpeedControl.Margin = new System.Windows.Forms.Padding(0);
@@ -544,9 +561,9 @@
             this.jogSpeedControl.Size = new System.Drawing.Size(114, 578);
             this.jogSpeedControl.SpeedPercent = 50;
             this.jogSpeedControl.TabIndex = 0;
-            // 
+            //
             // ioLayout
-            // 
+            //
             this.ioLayout.ColumnCount = 2;
             this.ioLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 32F));
             this.ioLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
@@ -572,9 +589,9 @@
             this.ioLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.ioLayout.Size = new System.Drawing.Size(208, 414);
             this.ioLayout.TabIndex = 0;
-            // 
+            //
             // dot8Inch
-            // 
+            //
             this.dot8Inch.BackColor = System.Drawing.Color.Transparent;
             this.dot8Inch.Dock = System.Windows.Forms.DockStyle.Fill;
             this.dot8Inch.Location = new System.Drawing.Point(20, 30);
@@ -584,17 +601,17 @@
             this.dot8Inch.OnColor = System.Drawing.Color.LimeGreen;
             this.dot8Inch.Size = new System.Drawing.Size(16, 14);
             this.dot8Inch.TabIndex = 0;
-            // 
+            //
             // lbl8Inch
-            // 
+            //
             this.lbl8Inch.Location = new System.Drawing.Point(47, 22);
             this.lbl8Inch.Name = "lbl8Inch";
             this.lbl8Inch.Size = new System.Drawing.Size(100, 23);
             this.lbl8Inch.TabIndex = 1;
             this.lbl8Inch.Text = "8 INCH CASSETTE";
-            // 
+            //
             // dot12Inch
-            // 
+            //
             this.dot12Inch.BackColor = System.Drawing.Color.Transparent;
             this.dot12Inch.Dock = System.Windows.Forms.DockStyle.Fill;
             this.dot12Inch.Location = new System.Drawing.Point(20, 60);
@@ -604,17 +621,17 @@
             this.dot12Inch.OnColor = System.Drawing.Color.LimeGreen;
             this.dot12Inch.Size = new System.Drawing.Size(16, 14);
             this.dot12Inch.TabIndex = 2;
-            // 
+            //
             // lbl12Inch
-            // 
+            //
             this.lbl12Inch.Location = new System.Drawing.Point(47, 52);
             this.lbl12Inch.Name = "lbl12Inch";
             this.lbl12Inch.Size = new System.Drawing.Size(100, 23);
             this.lbl12Inch.TabIndex = 3;
             this.lbl12Inch.Text = "12 INCH CASSETTE";
-            // 
+            //
             // dotProtrusion
-            // 
+            //
             this.dotProtrusion.BackColor = System.Drawing.Color.Transparent;
             this.dotProtrusion.Dock = System.Windows.Forms.DockStyle.Fill;
             this.dotProtrusion.Location = new System.Drawing.Point(20, 90);
@@ -624,17 +641,17 @@
             this.dotProtrusion.OnColor = System.Drawing.Color.LimeGreen;
             this.dotProtrusion.Size = new System.Drawing.Size(16, 14);
             this.dotProtrusion.TabIndex = 4;
-            // 
+            //
             // lblProtrusion
-            // 
+            //
             this.lblProtrusion.Location = new System.Drawing.Point(47, 82);
             this.lblProtrusion.Name = "lblProtrusion";
             this.lblProtrusion.Size = new System.Drawing.Size(100, 23);
             this.lblProtrusion.TabIndex = 5;
             this.lblProtrusion.Text = "WAFER PROTRUSION";
-            // 
+            //
             // dotMapping
-            // 
+            //
             this.dotMapping.BackColor = System.Drawing.Color.Transparent;
             this.dotMapping.Dock = System.Windows.Forms.DockStyle.Fill;
             this.dotMapping.Location = new System.Drawing.Point(20, 120);
@@ -644,17 +661,17 @@
             this.dotMapping.OnColor = System.Drawing.Color.LimeGreen;
             this.dotMapping.Size = new System.Drawing.Size(16, 14);
             this.dotMapping.TabIndex = 6;
-            // 
+            //
             // lblMapping
-            // 
+            //
             this.lblMapping.Location = new System.Drawing.Point(47, 112);
             this.lblMapping.Name = "lblMapping";
             this.lblMapping.Size = new System.Drawing.Size(100, 23);
             this.lblMapping.TabIndex = 7;
             this.lblMapping.Text = "WAFER MAPPING";
-            // 
+            //
             // lblMappingBody
-            // 
+            //
             this.lblMappingBody.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(205)))), ((int)(((byte)(205)))), ((int)(((byte)(205)))));
             this.lblMappingBody.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblMappingBody.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -665,9 +682,9 @@
             this.lblMappingBody.Size = new System.Drawing.Size(152, 230);
             this.lblMappingBody.TabIndex = 8;
             this.lblMappingBody.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            // 
+            //
             // optionRows
-            // 
+            //
             this.optionRows.ColumnCount = 2;
             this.optionRows.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 290F));
             this.optionRows.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
@@ -728,9 +745,9 @@
             this.optionRows.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.optionRows.Size = new System.Drawing.Size(826, 540);
             this.optionRows.TabIndex = 0;
-            // 
+            //
             // lblRecipeLoadingKey
-            // 
+            //
             this.lblRecipeLoadingKey.Dock = System.Windows.Forms.DockStyle.Top;
             this.lblRecipeLoadingKey.Location = new System.Drawing.Point(13, 18);
             this.lblRecipeLoadingKey.Name = "lblRecipeLoadingKey";
@@ -738,9 +755,9 @@
             this.lblRecipeLoadingKey.TabIndex = 0;
             this.lblRecipeLoadingKey.Text = "LOADING Z";
             this.lblRecipeLoadingKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
+            //
             // lblRecipeLoadingVal
-            // 
+            //
             this.lblRecipeLoadingVal.Dock = System.Windows.Forms.DockStyle.Top;
             this.lblRecipeLoadingVal.Location = new System.Drawing.Point(303, 18);
             this.lblRecipeLoadingVal.Name = "lblRecipeLoadingVal";
@@ -748,9 +765,9 @@
             this.lblRecipeLoadingVal.TabIndex = 1;
             this.lblRecipeLoadingVal.Text = "150000 um";
             this.lblRecipeLoadingVal.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
+            //
             // lblRecipeUnloadingKey
-            // 
+            //
             this.lblRecipeUnloadingKey.Dock = System.Windows.Forms.DockStyle.Top;
             this.lblRecipeUnloadingKey.Location = new System.Drawing.Point(13, 50);
             this.lblRecipeUnloadingKey.Name = "lblRecipeUnloadingKey";
@@ -758,9 +775,9 @@
             this.lblRecipeUnloadingKey.TabIndex = 2;
             this.lblRecipeUnloadingKey.Text = "UNLOADING Z";
             this.lblRecipeUnloadingKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
+            //
             // lblRecipeUnloadingVal
-            // 
+            //
             this.lblRecipeUnloadingVal.Dock = System.Windows.Forms.DockStyle.Top;
             this.lblRecipeUnloadingVal.Location = new System.Drawing.Point(303, 50);
             this.lblRecipeUnloadingVal.Name = "lblRecipeUnloadingVal";
@@ -768,9 +785,9 @@
             this.lblRecipeUnloadingVal.TabIndex = 3;
             this.lblRecipeUnloadingVal.Text = "150000 um";
             this.lblRecipeUnloadingVal.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
+            //
             // lblRecipeAvoidKey
-            // 
+            //
             this.lblRecipeAvoidKey.Dock = System.Windows.Forms.DockStyle.Top;
             this.lblRecipeAvoidKey.Location = new System.Drawing.Point(13, 82);
             this.lblRecipeAvoidKey.Name = "lblRecipeAvoidKey";
@@ -778,9 +795,9 @@
             this.lblRecipeAvoidKey.TabIndex = 4;
             this.lblRecipeAvoidKey.Text = "READY POSITION";
             this.lblRecipeAvoidKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
+            //
             // lblRecipeAvoidVal
-            // 
+            //
             this.lblRecipeAvoidVal.Dock = System.Windows.Forms.DockStyle.Top;
             this.lblRecipeAvoidVal.Location = new System.Drawing.Point(303, 82);
             this.lblRecipeAvoidVal.Name = "lblRecipeAvoidVal";
@@ -788,9 +805,9 @@
             this.lblRecipeAvoidVal.TabIndex = 5;
             this.lblRecipeAvoidVal.Text = "0 um";
             this.lblRecipeAvoidVal.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
+            //
             // lblRecipeFirstSlotKey
-            // 
+            //
             this.lblRecipeFirstSlotKey.Dock = System.Windows.Forms.DockStyle.Top;
             this.lblRecipeFirstSlotKey.Location = new System.Drawing.Point(13, 114);
             this.lblRecipeFirstSlotKey.Name = "lblRecipeFirstSlotKey";
@@ -798,9 +815,9 @@
             this.lblRecipeFirstSlotKey.TabIndex = 6;
             this.lblRecipeFirstSlotKey.Text = "FIRST SLOT";
             this.lblRecipeFirstSlotKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
+            //
             // lblRecipeFirstSlotVal
-            // 
+            //
             this.lblRecipeFirstSlotVal.Dock = System.Windows.Forms.DockStyle.Top;
             this.lblRecipeFirstSlotVal.Location = new System.Drawing.Point(303, 114);
             this.lblRecipeFirstSlotVal.Name = "lblRecipeFirstSlotVal";
@@ -808,9 +825,9 @@
             this.lblRecipeFirstSlotVal.TabIndex = 7;
             this.lblRecipeFirstSlotVal.Text = "10000 um";
             this.lblRecipeFirstSlotVal.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
+            //
             // lblRecipeMappingStartKey
-            // 
+            //
             this.lblRecipeMappingStartKey.Dock = System.Windows.Forms.DockStyle.Top;
             this.lblRecipeMappingStartKey.Location = new System.Drawing.Point(13, 146);
             this.lblRecipeMappingStartKey.Name = "lblRecipeMappingStartKey";
@@ -818,9 +835,9 @@
             this.lblRecipeMappingStartKey.TabIndex = 8;
             this.lblRecipeMappingStartKey.Text = "MAPPING START Z";
             this.lblRecipeMappingStartKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
+            //
             // lblRecipeMappingStartVal
-            // 
+            //
             this.lblRecipeMappingStartVal.Dock = System.Windows.Forms.DockStyle.Top;
             this.lblRecipeMappingStartVal.Location = new System.Drawing.Point(303, 146);
             this.lblRecipeMappingStartVal.Name = "lblRecipeMappingStartVal";
@@ -828,9 +845,9 @@
             this.lblRecipeMappingStartVal.TabIndex = 9;
             this.lblRecipeMappingStartVal.Text = "5000 um";
             this.lblRecipeMappingStartVal.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
+            //
             // lblRecipeMappingEndKey
-            // 
+            //
             this.lblRecipeMappingEndKey.Dock = System.Windows.Forms.DockStyle.Top;
             this.lblRecipeMappingEndKey.Location = new System.Drawing.Point(13, 178);
             this.lblRecipeMappingEndKey.Name = "lblRecipeMappingEndKey";
@@ -838,9 +855,9 @@
             this.lblRecipeMappingEndKey.TabIndex = 10;
             this.lblRecipeMappingEndKey.Text = "MAPPING END Z";
             this.lblRecipeMappingEndKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
+            //
             // lblRecipeMappingEndVal
-            // 
+            //
             this.lblRecipeMappingEndVal.Dock = System.Windows.Forms.DockStyle.Top;
             this.lblRecipeMappingEndVal.Location = new System.Drawing.Point(303, 178);
             this.lblRecipeMappingEndVal.Name = "lblRecipeMappingEndVal";
@@ -848,9 +865,9 @@
             this.lblRecipeMappingEndVal.TabIndex = 11;
             this.lblRecipeMappingEndVal.Text = "130000 um";
             this.lblRecipeMappingEndVal.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
+            //
             // lblConfigLoadingOffsetKey
-            // 
+            //
             this.lblConfigLoadingOffsetKey.Dock = System.Windows.Forms.DockStyle.Top;
             this.lblConfigLoadingOffsetKey.Location = new System.Drawing.Point(13, 210);
             this.lblConfigLoadingOffsetKey.Name = "lblConfigLoadingOffsetKey";
@@ -858,9 +875,9 @@
             this.lblConfigLoadingOffsetKey.TabIndex = 12;
             this.lblConfigLoadingOffsetKey.Text = "LOADING OFFSET";
             this.lblConfigLoadingOffsetKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
+            //
             // lblConfigLoadingOffsetVal
-            // 
+            //
             this.lblConfigLoadingOffsetVal.Dock = System.Windows.Forms.DockStyle.Top;
             this.lblConfigLoadingOffsetVal.Location = new System.Drawing.Point(303, 210);
             this.lblConfigLoadingOffsetVal.Name = "lblConfigLoadingOffsetVal";
@@ -868,9 +885,9 @@
             this.lblConfigLoadingOffsetVal.TabIndex = 13;
             this.lblConfigLoadingOffsetVal.Text = "0 um";
             this.lblConfigLoadingOffsetVal.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
+            //
             // lblConfigUnloadingOffsetKey
-            // 
+            //
             this.lblConfigUnloadingOffsetKey.Dock = System.Windows.Forms.DockStyle.Top;
             this.lblConfigUnloadingOffsetKey.Location = new System.Drawing.Point(13, 242);
             this.lblConfigUnloadingOffsetKey.Name = "lblConfigUnloadingOffsetKey";
@@ -878,9 +895,9 @@
             this.lblConfigUnloadingOffsetKey.TabIndex = 14;
             this.lblConfigUnloadingOffsetKey.Text = "UNLOADING OFFSET";
             this.lblConfigUnloadingOffsetKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
+            //
             // lblConfigUnloadingOffsetVal
-            // 
+            //
             this.lblConfigUnloadingOffsetVal.Dock = System.Windows.Forms.DockStyle.Top;
             this.lblConfigUnloadingOffsetVal.Location = new System.Drawing.Point(303, 242);
             this.lblConfigUnloadingOffsetVal.Name = "lblConfigUnloadingOffsetVal";
@@ -888,9 +905,9 @@
             this.lblConfigUnloadingOffsetVal.TabIndex = 15;
             this.lblConfigUnloadingOffsetVal.Text = "0 um";
             this.lblConfigUnloadingOffsetVal.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
+            //
             // lblConfigSlotPitchKey
-            // 
+            //
             this.lblConfigSlotPitchKey.Dock = System.Windows.Forms.DockStyle.Top;
             this.lblConfigSlotPitchKey.Location = new System.Drawing.Point(13, 274);
             this.lblConfigSlotPitchKey.Name = "lblConfigSlotPitchKey";
@@ -898,9 +915,9 @@
             this.lblConfigSlotPitchKey.TabIndex = 16;
             this.lblConfigSlotPitchKey.Text = "SLOT PITCH";
             this.lblConfigSlotPitchKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
+            //
             // lblConfigSlotPitchVal
-            // 
+            //
             this.lblConfigSlotPitchVal.Dock = System.Windows.Forms.DockStyle.Top;
             this.lblConfigSlotPitchVal.Location = new System.Drawing.Point(303, 274);
             this.lblConfigSlotPitchVal.Name = "lblConfigSlotPitchVal";
@@ -908,9 +925,9 @@
             this.lblConfigSlotPitchVal.TabIndex = 17;
             this.lblConfigSlotPitchVal.Text = "5000 um";
             this.lblConfigSlotPitchVal.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
+            //
             // lblConfigSlotCountKey
-            // 
+            //
             this.lblConfigSlotCountKey.Dock = System.Windows.Forms.DockStyle.Top;
             this.lblConfigSlotCountKey.Location = new System.Drawing.Point(13, 306);
             this.lblConfigSlotCountKey.Name = "lblConfigSlotCountKey";
@@ -918,9 +935,9 @@
             this.lblConfigSlotCountKey.TabIndex = 18;
             this.lblConfigSlotCountKey.Text = "SLOT COUNT";
             this.lblConfigSlotCountKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
+            //
             // lblConfigSlotCountVal
-            // 
+            //
             this.lblConfigSlotCountVal.Dock = System.Windows.Forms.DockStyle.Top;
             this.lblConfigSlotCountVal.Location = new System.Drawing.Point(303, 306);
             this.lblConfigSlotCountVal.Name = "lblConfigSlotCountVal";
@@ -928,9 +945,9 @@
             this.lblConfigSlotCountVal.TabIndex = 19;
             this.lblConfigSlotCountVal.Text = "25";
             this.lblConfigSlotCountVal.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
+            //
             // lblConfigScanVelocityKey
-            // 
+            //
             this.lblConfigScanVelocityKey.Dock = System.Windows.Forms.DockStyle.Top;
             this.lblConfigScanVelocityKey.Location = new System.Drawing.Point(13, 338);
             this.lblConfigScanVelocityKey.Name = "lblConfigScanVelocityKey";
@@ -938,9 +955,9 @@
             this.lblConfigScanVelocityKey.TabIndex = 20;
             this.lblConfigScanVelocityKey.Text = "SCAN/JOG VELOCITY";
             this.lblConfigScanVelocityKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
+            //
             // lblConfigScanVelocityVal
-            // 
+            //
             this.lblConfigScanVelocityVal.Dock = System.Windows.Forms.DockStyle.Top;
             this.lblConfigScanVelocityVal.Location = new System.Drawing.Point(303, 338);
             this.lblConfigScanVelocityVal.Name = "lblConfigScanVelocityVal";
@@ -948,9 +965,9 @@
             this.lblConfigScanVelocityVal.TabIndex = 21;
             this.lblConfigScanVelocityVal.Text = "20 mm/s";
             this.lblConfigScanVelocityVal.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
+            //
             // lblSetupToleranceKey
-            // 
+            //
             this.lblSetupToleranceKey.Dock = System.Windows.Forms.DockStyle.Top;
             this.lblSetupToleranceKey.Location = new System.Drawing.Point(13, 370);
             this.lblSetupToleranceKey.Name = "lblSetupToleranceKey";
@@ -958,9 +975,9 @@
             this.lblSetupToleranceKey.TabIndex = 22;
             this.lblSetupToleranceKey.Text = "IN POSITION TOL.";
             this.lblSetupToleranceKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
+            //
             // lblSetupToleranceVal
-            // 
+            //
             this.lblSetupToleranceVal.Dock = System.Windows.Forms.DockStyle.Top;
             this.lblSetupToleranceVal.Location = new System.Drawing.Point(303, 370);
             this.lblSetupToleranceVal.Name = "lblSetupToleranceVal";
@@ -968,9 +985,9 @@
             this.lblSetupToleranceVal.TabIndex = 23;
             this.lblSetupToleranceVal.Text = "50 um";
             this.lblSetupToleranceVal.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
+            //
             // lblConfigInchKey
-            // 
+            //
             this.lblConfigInchKey.Dock = System.Windows.Forms.DockStyle.Top;
             this.lblConfigInchKey.Location = new System.Drawing.Point(13, 402);
             this.lblConfigInchKey.Name = "lblConfigInchKey";
@@ -978,9 +995,9 @@
             this.lblConfigInchKey.TabIndex = 24;
             this.lblConfigInchKey.Text = "INCH SELECT";
             this.lblConfigInchKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
+            //
             // lblConfigInchVal
-            // 
+            //
             this.lblConfigInchVal.Dock = System.Windows.Forms.DockStyle.Top;
             this.lblConfigInchVal.Location = new System.Drawing.Point(303, 402);
             this.lblConfigInchVal.Name = "lblConfigInchVal";
@@ -988,9 +1005,9 @@
             this.lblConfigInchVal.TabIndex = 25;
             this.lblConfigInchVal.Text = "1";
             this.lblConfigInchVal.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
+            //
             // lblConfigLevelKey
-            // 
+            //
             this.lblConfigLevelKey.Dock = System.Windows.Forms.DockStyle.Top;
             this.lblConfigLevelKey.Location = new System.Drawing.Point(13, 434);
             this.lblConfigLevelKey.Name = "lblConfigLevelKey";
@@ -998,9 +1015,9 @@
             this.lblConfigLevelKey.TabIndex = 26;
             this.lblConfigLevelKey.Text = "CASSETTE LEVEL";
             this.lblConfigLevelKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
+            //
             // lblConfigLevelVal
-            // 
+            //
             this.lblConfigLevelVal.Dock = System.Windows.Forms.DockStyle.Top;
             this.lblConfigLevelVal.Location = new System.Drawing.Point(303, 434);
             this.lblConfigLevelVal.Name = "lblConfigLevelVal";
@@ -1008,9 +1025,9 @@
             this.lblConfigLevelVal.TabIndex = 27;
             this.lblConfigLevelVal.Text = "2";
             this.lblConfigLevelVal.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
+            //
             // lblSetupSimulationKey
-            // 
+            //
             this.lblSetupSimulationKey.Dock = System.Windows.Forms.DockStyle.Top;
             this.lblSetupSimulationKey.Location = new System.Drawing.Point(13, 466);
             this.lblSetupSimulationKey.Name = "lblSetupSimulationKey";
@@ -1018,9 +1035,9 @@
             this.lblSetupSimulationKey.TabIndex = 28;
             this.lblSetupSimulationKey.Text = "SIMULATION MODE";
             this.lblSetupSimulationKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
+            //
             // lblSetupSimulationVal
-            // 
+            //
             this.lblSetupSimulationVal.Dock = System.Windows.Forms.DockStyle.Top;
             this.lblSetupSimulationVal.Location = new System.Drawing.Point(303, 466);
             this.lblSetupSimulationVal.Name = "lblSetupSimulationVal";
@@ -1028,9 +1045,9 @@
             this.lblSetupSimulationVal.TabIndex = 29;
             this.lblSetupSimulationVal.Text = "True";
             this.lblSetupSimulationVal.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
+            //
             // lblConfigDryRunKey
-            // 
+            //
             this.lblConfigDryRunKey.Dock = System.Windows.Forms.DockStyle.Top;
             this.lblConfigDryRunKey.Location = new System.Drawing.Point(13, 498);
             this.lblConfigDryRunKey.Name = "lblConfigDryRunKey";
@@ -1038,9 +1055,9 @@
             this.lblConfigDryRunKey.TabIndex = 30;
             this.lblConfigDryRunKey.Text = "DRY RUN";
             this.lblConfigDryRunKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
+            //
             // lblConfigDryRunVal
-            // 
+            //
             this.lblConfigDryRunVal.Dock = System.Windows.Forms.DockStyle.Top;
             this.lblConfigDryRunVal.Location = new System.Drawing.Point(303, 498);
             this.lblConfigDryRunVal.Name = "lblConfigDryRunVal";
@@ -1048,9 +1065,9 @@
             this.lblConfigDryRunVal.TabIndex = 31;
             this.lblConfigDryRunVal.Text = "True";
             this.lblConfigDryRunVal.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
+            //
             // waitRows
-            // 
+            //
             this.waitRows.ColumnCount = 2;
             this.waitRows.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 290F));
             this.waitRows.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
@@ -1068,9 +1085,9 @@
             this.waitRows.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.waitRows.Size = new System.Drawing.Size(826, 126);
             this.waitRows.TabIndex = 0;
-            // 
+            //
             // lblWaitScanSettleKey
-            // 
+            //
             this.lblWaitScanSettleKey.Dock = System.Windows.Forms.DockStyle.Top;
             this.lblWaitScanSettleKey.Location = new System.Drawing.Point(13, 18);
             this.lblWaitScanSettleKey.Name = "lblWaitScanSettleKey";
@@ -1078,9 +1095,9 @@
             this.lblWaitScanSettleKey.TabIndex = 0;
             this.lblWaitScanSettleKey.Text = "SCAN SETTLE TIME";
             this.lblWaitScanSettleKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
+            //
             // lblWaitScanSettleVal
-            // 
+            //
             this.lblWaitScanSettleVal.Dock = System.Windows.Forms.DockStyle.Top;
             this.lblWaitScanSettleVal.Location = new System.Drawing.Point(303, 18);
             this.lblWaitScanSettleVal.Name = "lblWaitScanSettleVal";
@@ -1088,9 +1105,9 @@
             this.lblWaitScanSettleVal.TabIndex = 1;
             this.lblWaitScanSettleVal.Text = "100 ms";
             this.lblWaitScanSettleVal.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
+            //
             // lblWaitMoveTimeoutKey
-            // 
+            //
             this.lblWaitMoveTimeoutKey.Dock = System.Windows.Forms.DockStyle.Top;
             this.lblWaitMoveTimeoutKey.Location = new System.Drawing.Point(13, 50);
             this.lblWaitMoveTimeoutKey.Name = "lblWaitMoveTimeoutKey";
@@ -1098,9 +1115,9 @@
             this.lblWaitMoveTimeoutKey.TabIndex = 2;
             this.lblWaitMoveTimeoutKey.Text = "MOVE TIMEOUT";
             this.lblWaitMoveTimeoutKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
+            //
             // lblWaitMoveTimeoutVal
-            // 
+            //
             this.lblWaitMoveTimeoutVal.Dock = System.Windows.Forms.DockStyle.Top;
             this.lblWaitMoveTimeoutVal.Location = new System.Drawing.Point(303, 50);
             this.lblWaitMoveTimeoutVal.Name = "lblWaitMoveTimeoutVal";
@@ -1108,23 +1125,9 @@
             this.lblWaitMoveTimeoutVal.TabIndex = 3;
             this.lblWaitMoveTimeoutVal.Text = "10000 ms";
             this.lblWaitMoveTimeoutVal.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // btnMapping
-            // 
-            this.btnMapping.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnMapping.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnMapping.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.btnMapping.ForeColor = System.Drawing.Color.White;
-            this.btnMapping.Location = new System.Drawing.Point(12, 478);
-            this.btnMapping.Margin = new System.Windows.Forms.Padding(0, 0, 0, 10);
-            this.btnMapping.Name = "btnMapping";
-            this.btnMapping.Size = new System.Drawing.Size(260, 36);
-            this.btnMapping.TabIndex = 5;
-            this.btnMapping.Text = "Seq - Mapping";
-            this.btnMapping.Click += new System.EventHandler(this.btnMapping_Click);
-            // 
+            //
             // InputCassetteRecipePage
-            // 
+            //
             this.Controls.Add(this.rootLayout);
             this.Name = "InputCassetteRecipePage";
             this.Size = new System.Drawing.Size(1678, 900);

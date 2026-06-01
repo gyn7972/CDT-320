@@ -729,7 +729,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (_InputCassetteUnit == null)
                     return;
 
-                JogAxisItem axisItem = JogAxisItem.Single("AXIS Z", _InputCassetteUnit.WaferLifterZ, "um", 1000.0, "Z+", "Z-");
+                JogAxisItem axisItem = JogAxisItem.Single("AXIS Z", _InputCassetteUnit.WaferLifterZ, "um", 1000.0, "Z+", "Z-").WithControlKind(JogAxisControlKind.Vertical);
                 axisItem.StepMoveAsync = async (item, direction, speedType, customSpeed, axisStepDistance) =>
                 {
                     try
@@ -779,6 +779,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 };
 
                 jogAxisMoveControl.SpeedControl = jogSpeedControl;
+                jogAxisMoveControl.LayoutMode = JogAxisMoveLayoutMode.AxisColumns;
+                jogAxisMoveControl.ShowCurrentSpeedMode = true;
+                jogAxisMoveControl.ButtonAreaMinHeight = 164;
+                jogAxisMoveControl.ButtonAreaMaxHeight = 164;
+                jogAxisMoveControl.ButtonAreaMinWidth = 222;
+                jogAxisMoveControl.ButtonAreaMaxWidth = 222;
                 jogAxisMoveControl.SetItems(new[] { axisItem });
                 jogPositionListControl.SetItems(new[] { axisItem });
             }

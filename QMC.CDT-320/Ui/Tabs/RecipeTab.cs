@@ -20,7 +20,7 @@ namespace QMC.CDT_320.Ui.Tabs
             AddSidebarButton("recipe.project",        en, () => new ProjectPage());
             AddSidebarButton("recipe.inputCassette",  en, () => new InputCassetteRecipePage());
             AddSidebarButton("recipe.inputFeeder",    en, () => new FeederRecipePage("recipe.inputFeeder"));
-            AddSidebarButton("recipe.inputStage",     en, () => new StageRecipePage("recipe.inputStage"));
+            AddSidebarButton("recipe.inputStage",     en, () => new InputStageRecipePage("recipe.inputStage"));
             AddSidebarButton("recipe.frontHead",      en, () => new HeadRecipePage("recipe.frontHead"));
             AddSidebarButton("recipe.rearHead",       en, () => new HeadRecipePage("recipe.rearHead"));
             AddSidebarButton("recipe.outputFeeder",   en, () => new FeederRecipePage("recipe.outputFeeder"));

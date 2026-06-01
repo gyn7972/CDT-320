@@ -4,6 +4,15 @@ using System.Threading.Tasks;
 
 namespace QMC.CDT_320.Ui.Controls
 {
+    public enum JogAxisControlKind
+    {
+        Auto,
+        Vertical,
+        Horizontal,
+        Cross,
+        CrossWithT
+    }
+
     public sealed class JogAxisItem
     {
         public string AxisName { get; set; }
@@ -16,6 +25,7 @@ namespace QMC.CDT_320.Ui.Controls
         public Func<JogAxisItem, int, JogSpeedType, double, double, Task<int>> StepMoveAsync { get; set; }
         public Func<JogAxisItem, int, JogSpeedType, double, Task<int>> ContinuousMoveAsync { get; set; }
         public Func<JogAxisItem, Task<int>> StopAsync { get; set; }
+        public JogAxisControlKind ControlKind { get; set; }
 
         public string DisplayUnit
         {
@@ -46,6 +56,7 @@ namespace QMC.CDT_320.Ui.Controls
                 MinusText = "-";
                 Unit = string.Empty;
                 DisplayScale = 1.0;
+                ControlKind = JogAxisControlKind.Auto;
             }
             catch
             {
@@ -67,8 +78,25 @@ namespace QMC.CDT_320.Ui.Controls
                     Unit = unit,
                     DisplayScale = displayScale <= 0 ? 1.0 : displayScale,
                     PlusText = plusText,
-                    MinusText = minusText
+                    MinusText = minusText,
+                    ControlKind = JogAxisControlKind.Auto
                 };
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        public JogAxisItem WithControlKind(JogAxisControlKind controlKind)
+        {
+            try
+            {
+                ControlKind = controlKind;
+                return this;
             }
             catch
             {
