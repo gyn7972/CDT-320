@@ -184,7 +184,7 @@ namespace QMC.CDT320.Ajin
             DI("GoodBinGuideUp", 2, 4),
             DI("GoodBinGuideDown", 2, 5),
             DI("GoodBinClampUp", 2, 6),
-            DI("GoodBinUnclamp", 2, 7),
+            DI("GoodBinClamp", 2, 7), //DI("GoodBinUnclamp", 2, 7), // 명칭 수정. Unclamp -> Clamp
             DI("GoodBinRing", 2, 8),
             DI("BinNFeederUp", 2, 9),
             DI("BinFeederDown", 2, 10),
