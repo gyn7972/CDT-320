@@ -1,6 +1,8 @@
 ﻿using QMC.Common.Logging;
+using QMC.Common.Motion;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Drawing;
 using System.Globalization;
 using System.Windows.Forms;
@@ -52,6 +54,7 @@ namespace QMC.CDT_320.Ui.Controls
             {
                 InitializeComponent();
                 ApplyGridStyle();
+                ApplyDesignTimeItems();
             }
             catch
             {
@@ -80,6 +83,34 @@ namespace QMC.CDT_320.Ui.Controls
                 string message = "Jog position bind failed: " + ex.Message;
                 EventLogger.Write(EventKind.Alarm, "UI", "JOG-POS", message);
                 QMC.Common.MessageDialog.Show(this, message, "Jog Position", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
+        }
+
+        private void ApplyDesignTimeItems()
+        {
+            try
+            {
+                if (LicenseManager.UsageMode != LicenseUsageMode.Designtime || _items.Count > 0)
+                    return;
+
+                SetItems(new[]
+                {
+                    JogAxisItem.Single("StageY", null, AxisUnitConverter.Micrometer, 1.0, "Y+", "Y-"),
+                    JogAxisItem.Single("StageT", null, AxisUnitConverter.Degree, 1.0, "T+", "T-"),
+                    JogAxisItem.Single("ExpanderZ", null, AxisUnitConverter.Micrometer, 1.0, "Z+", "Z-"),
+                    JogAxisItem.Single("CameraX", null, AxisUnitConverter.Micrometer, 1.0, "X+", "X-"),
+                    JogAxisItem.Single("NeedleX", null, AxisUnitConverter.Micrometer, 1.0, "X+", "X-"),
+                    JogAxisItem.Single("NeedleZ", null, AxisUnitConverter.Micrometer, 1.0, "Z+", "Z-"),
+                    JogAxisItem.Single("EjectPinZ", null, AxisUnitConverter.Micrometer, 1.0, "Z+", "Z-"),
+                    JogAxisItem.Single("CameraZ", null, AxisUnitConverter.Micrometer, 1.0, "Z+", "Z-")
+                });
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Warning, "UI", "JOG-POS", "Design items failed: " + ex.Message);
             }
             finally
             {

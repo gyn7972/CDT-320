@@ -147,9 +147,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
                 jogAxisMoveControl.SpeedControl = jogSpeedControl;
                 jogAxisMoveControl.LayoutMode = JogAxisMoveLayoutMode.Stage;
-                jogAxisMoveControl.ShowCurrentSpeedMode = false;
-                jogAxisMoveControl.ButtonAreaMinHeight = 90;
-                jogAxisMoveControl.ButtonAreaMaxHeight = 160;
+                jogAxisMoveControl.ShowCurrentSpeedMode = true;
+                jogAxisMoveControl.ButtonAreaMinHeight = 520;
+                jogAxisMoveControl.ButtonAreaMaxHeight = 620;
                 jogAxisMoveControl.ButtonAreaMinWidth = 300;
                 jogAxisMoveControl.ButtonAreaMaxWidth = 460;
 
@@ -379,14 +379,14 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
                 var items = new List<JogAxisItem>
                 {
-                    JogAxisItem.Single("StageY", _InputStageUnit.StageY, string.Empty, 1.0, "Y+", "Y-"),
-                    JogAxisItem.Single("StageT", _InputStageUnit.StageT, string.Empty, 1.0, "T+", "T-"),
-                    JogAxisItem.Single("ExpanderZ", _InputStageUnit.ExpanderZ, string.Empty, 1.0, "Z+", "Z-"),
-                    JogAxisItem.Single("CameraX", _InputStageUnit.CameraX, string.Empty, 1.0, "X+", "X-"),
-                    JogAxisItem.Single("NeedleX", _InputStageUnit.NeedleBlockX, string.Empty, 1.0, "X+", "X-"),
-                    JogAxisItem.Single("NeedleZ", _InputStageUnit.NeedleZ, string.Empty, 1.0, "Z+", "Z-"),
-                    JogAxisItem.Single("EjectPinZ", _InputStageUnit.EjectPinZ, string.Empty, 1.0, "Z+", "Z-"),
-                    JogAxisItem.Single("CameraZ", _InputStageUnit.CameraZ, string.Empty, 1.0, "Z+", "Z-")
+                    JogAxisItem.Single("StageY", _InputStageUnit.StageY, string.Empty, 1.0, "Y+", "Y-").WithControlKind(JogAxisControlKind.CrossWithT),
+                    JogAxisItem.Single("StageT", _InputStageUnit.StageT, string.Empty, 1.0, "T+", "T-").WithControlKind(JogAxisControlKind.CrossWithT),
+                    JogAxisItem.Single("ExpanderZ", _InputStageUnit.ExpanderZ, string.Empty, 1.0, "Z+", "Z-").WithControlKind(JogAxisControlKind.Vertical),
+                    JogAxisItem.Single("CameraX", _InputStageUnit.CameraX, string.Empty, 1.0, "X+", "X-").WithControlKind(JogAxisControlKind.CrossWithT),
+                    JogAxisItem.Single("NeedleX", _InputStageUnit.NeedleBlockX, string.Empty, 1.0, "X+", "X-").WithControlKind(JogAxisControlKind.Horizontal),
+                    JogAxisItem.Single("NeedleZ", _InputStageUnit.NeedleZ, string.Empty, 1.0, "Z+", "Z-").WithControlKind(JogAxisControlKind.Vertical),
+                    JogAxisItem.Single("EjectPinZ", _InputStageUnit.EjectPinZ, string.Empty, 1.0, "Z+", "Z-").WithControlKind(JogAxisControlKind.Vertical),
+                    JogAxisItem.Single("CameraZ", _InputStageUnit.CameraZ, string.Empty, 1.0, "Z+", "Z-").WithControlKind(JogAxisControlKind.Vertical)
                 };
 
                 jogPositionListControl.SetItems(items);
