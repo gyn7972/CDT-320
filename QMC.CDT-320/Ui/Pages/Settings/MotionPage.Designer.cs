@@ -1,4 +1,4 @@
-namespace QMC.CDT_320.Ui.Pages.Settings
+﻿namespace QMC.CDT_320.Ui.Pages.Settings
 {
     partial class MotionPage
     {
@@ -365,6 +365,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             // 
             // configLayout
             // 
+            this.configLayout.AutoScroll = true;
             this.configLayout.ColumnCount = 3;
             this.configLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 33.33333F));
             this.configLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 33.33333F));
@@ -380,9 +381,9 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this.configLayout.Location = new System.Drawing.Point(8, 8);
             this.configLayout.Name = "configLayout";
             this.configLayout.RowCount = 3;
-            this.configLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 45F));
-            this.configLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 27.5F));
-            this.configLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 27.5F));
+            this.configLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 190F));
+            this.configLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 140F));
+            this.configLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 130F));
             this.configLayout.Size = new System.Drawing.Size(1344, 482);
             this.configLayout.TabIndex = 0;
             // 
