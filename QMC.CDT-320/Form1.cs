@@ -194,7 +194,7 @@ namespace QMC.CDT_320
 
         private void Form1_Load(object sender, EventArgs e)
         {
-            // ?ㅼ젙 濡쒕뱶 + ?몄뼱 蹂듭썝
+            // ?ㅼ젙 濡쒕뱶 + ?몄뼱 蹂듭썝  
             var cfg = AppSettingsStore.Load();
             if (!string.IsNullOrEmpty(cfg.Language)) Lang.SetLanguage(cfg.Language);
             QMC.Common.Alarms.AlarmManager.LanguageProvider = () => Lang.Current ?? "ko";
