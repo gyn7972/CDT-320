@@ -9,7 +9,6 @@ namespace QMC.CDT_320.Ui.Tabs
         internal SidebarButton BtnMotion;
         internal SidebarButton BtnIoControl;
         internal SidebarButton BtnDigital;
-        internal SidebarButton BtnDigitalLink;
         internal SidebarButton BtnCylinder;
         internal SidebarButton BtnLamp;
         internal SidebarButton BtnSwitch;
@@ -38,7 +37,6 @@ namespace QMC.CDT_320.Ui.Tabs
             this.BtnMotion = new SidebarButton();
             this.BtnIoControl = new SidebarButton();
             this.BtnDigital = new SidebarButton();
-            this.BtnDigitalLink = new SidebarButton();
             this.BtnCylinder = new SidebarButton();
             this.BtnLamp = new SidebarButton();
             this.BtnSwitch = new SidebarButton();
@@ -85,14 +83,6 @@ namespace QMC.CDT_320.Ui.Tabs
             this.BtnDigital.Name = "BtnDigital";
             this.BtnDigital.Size = new System.Drawing.Size(202, 46);
             this.BtnDigital.Text = "Digital";
-            // 
-            // BtnDigitalLink
-            // 
-            this.BtnDigitalLink.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
-            this.BtnDigitalLink.Name = "BtnDigitalLink";
-            this.BtnDigitalLink.Size = new System.Drawing.Size(202, 46);
-            this.BtnDigitalLink.Text = "Digital Link";
-            // 
             // BtnCylinder
             // 
             this.BtnCylinder.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
@@ -218,7 +208,6 @@ namespace QMC.CDT_320.Ui.Tabs
             this.PnlSidebarButtons.Controls.Add(this.BtnMotion);
             this.PnlSidebarButtons.Controls.Add(this.BtnIoControl);
             this.PnlSidebarButtons.Controls.Add(this.BtnDigital);
-            this.PnlSidebarButtons.Controls.Add(this.BtnDigitalLink);
             this.PnlSidebarButtons.Controls.Add(this.BtnCylinder);
             this.PnlSidebarButtons.Controls.Add(this.BtnLamp);
             this.PnlSidebarButtons.Controls.Add(this.BtnSwitch);

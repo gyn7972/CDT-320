@@ -108,8 +108,8 @@ namespace QMC.CDT320
             BinFeederUnclampSensor = AjinFactory.CreateDigitalInput(AjinIoCatalog.FindInput("BinFeederUnclamp"));
             BinFeederRingCheckSensor = AjinFactory.CreateDigitalInput(AjinIoCatalog.FindInput("BinFeederRing"));
             BinFeederOverloadSensor = AjinFactory.CreateDigitalInput(AjinIoCatalog.FindInput("BinFeederOverload"));
-            FeederUpDownCyl = AjinFactory.CreateCylinder(AjinIoCatalog.CylinderRefs.BinFeederUpDownCyl);
-            FeederClampCyl = AjinFactory.CreateCylinder(AjinIoCatalog.CylinderRefs.BinFeederClampCyl);
+            FeederUpDownCyl = CylinderManager.Get(AjinIoCatalog.CylinderRefs.OutputFeederLift);
+            FeederClampCyl = CylinderManager.Get(AjinIoCatalog.CylinderRefs.OutputFeederClamp);
 
             Components.Add(FeederY);
             Components.Add(BinFeederUpSensor);

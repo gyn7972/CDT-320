@@ -33,6 +33,8 @@ namespace QMC.CDT320.Ajin
         [DataMember] public DioMap OutBwd { get; set; }
         [DataMember] public DioMap InFwd { get; set; }
         [DataMember] public DioMap InBwd { get; set; }
+        [DataMember] public bool UseFwdInput { get; set; } = true;
+        [DataMember] public bool UseBwdInput { get; set; } = true;
         [DataMember] public bool SingleSolenoid { get; set; }
     }
 
@@ -195,6 +197,9 @@ namespace QMC.CDT320.Ajin
                 {
                     Current = ReadConfig(fs);
                     Normalize(Current);
+                    EnsureDefaultAxes(Current);
+                    AjinIoCatalog.ApplyDefaults(Current, false);
+                    Save();
                 }
             }
             catch
@@ -249,6 +254,28 @@ namespace QMC.CDT320.Ajin
                 if (c.Cylinders == null) c.Cylinders = new Dictionary<string, CylMap>();
 
                 NormalizeAxisKeys(c);
+                AjinIoCatalog.ApplyDefaults(c, false);
+                NormalizeCylinderMaps(c);
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        private static void NormalizeCylinderMaps(AjinConfig c)
+        {
+            try
+            {
+                if (c == null || c.Cylinders == null) return;
+                foreach (var item in c.Cylinders.Values)
+                {
+                    if (item == null) continue;
+                    if (item.InFwd != null) item.UseFwdInput = true;
+                    if (item.InBwd != null) item.UseBwdInput = true;
+                }
             }
             catch
             {

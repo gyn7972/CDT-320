@@ -57,6 +57,7 @@ namespace QMC.CDT_320
             {
                 Machine?.LoadSettings();
                 ApplyMotionAxisDataToMachine();
+                QMC.CDT320.Ajin.CylinderManager.ApplySettings();
             }
             catch (Exception ex)
             {
@@ -265,6 +266,8 @@ namespace QMC.CDT_320
             QMC.CDT320.Ajin.AjinFactory.UseRealBoard = cfg.UseAjin;
             if (cfg.UseAjin) 
                 QMC.CDT320.Ajin.AjinSystem.Open(cfg.AjinIrqNo);
+            QMC.CDT320.Ajin.IoSettingsStore.Load();
+            QMC.CDT320.Ajin.CylinderManager.Initialize();
 
             QMC.CDT320.Ajin.AjinFactory.RegisterConfiguredAxes();
 

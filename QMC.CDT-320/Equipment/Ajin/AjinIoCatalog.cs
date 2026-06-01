@@ -8,6 +8,7 @@ namespace QMC.CDT320.Ajin
         public int No { get; set; }
         public string Address { get; set; }
         public string Name { get; set; }
+        public string UnitName { get; set; }
         public int Module { get; set; }
         public int Bit { get; set; }
         public bool Nc { get; set; }
@@ -16,6 +17,7 @@ namespace QMC.CDT320.Ajin
     public sealed class CylinderDefault
     {
         public string Name { get; set; }
+        public string UnitName { get; set; }
         public DioDefault OutFwd { get; set; }
         public DioDefault OutBwd { get; set; }
         public DioDefault InFwd { get; set; }
@@ -205,12 +207,19 @@ namespace QMC.CDT320.Ajin
 
         public static readonly CylinderDefault[] Cylinders =
         {
-            CYL("WaferFeederUpDownCyl", DORef(3, 16), DORef(3, 17), DIRef(0, 28), DIRef(0, 29)),
-            CYL("WaferFeederClampCyl", DORef(3, 18), DORef(3, 19), DIRef(0, 30), DIRef(0, 31)),
-            CYL("NgBinGuideCyl", DORef(3, 26), DORef(3, 27), DIRef(1, 31), DIRef(2, 0)),
-            CYL("GoodBinGuideCyl", DORef(4, 0), DORef(4, 1), DIRef(2, 4), DIRef(2, 5)),
-            CYL("BinFeederUpDownCyl", DORef(4, 6), DORef(4, 7), DIRef(2, 9), DIRef(2, 10)),
-            CYL("BinFeederClampCyl", DORef(4, 8), DORef(4, 9), DIRef(2, 11), DIRef(2, 12))
+            CYL("InputFeederLift", DORef(3, 16), DORef(3, 17), DIRef(0, 28), DIRef(0, 29)),
+            CYL("InputFeederClamp", DORef(3, 18), DORef(3, 19), DIRef(0, 30), DIRef(0, 31)),
+            CYL("ReticleLift", DORef(3, 20), DORef(3, 21), DIRef(1, 4), DIRef(1, 5)),
+            CYL("ReticleSideSlideFront", DORef(3, 22), DORef(3, 23), DIRef(1, 6), DIRef(1, 7)),
+            CYL("ReticleSideSlideRear", DORef(3, 24), DORef(3, 25), DIRef(1, 8), DIRef(1, 9)),
+            CYL("NGBinGuideLift", DORef(3, 26), DORef(3, 27), DIRef(1, 31), DIRef(2, 0)),
+            CYL("NGBinGuideClampLift", DORef(3, 28), DORef(3, 29), DIRef(2, 1), DIRef(2, 2)),
+            CYL("NGBinGuideClamp", DORef(3, 30), DORef(3, 31), DIRef(2, 1), DIRef(2, 2)),
+            CYL("GoodBinGuideLift", DORef(4, 0), DORef(4, 1), DIRef(2, 4), DIRef(2, 5)),
+            CYL("GoodBinGuideClampLift", DORef(4, 2), DORef(4, 3), DIRef(2, 6), DIRef(2, 7)),
+            CYL("GoodBinGuideClamp", DORef(4, 4), DORef(4, 5), DIRef(2, 6), DIRef(2, 7)),
+            CYL("OutputFeederLift", DORef(4, 6), DORef(4, 7), DIRef(2, 9), DIRef(2, 10)),
+            CYL("OutputFeederClamp", DORef(4, 8), DORef(4, 9), DIRef(2, 11), DIRef(2, 12))
         };
 
         public static class Inputs
@@ -269,12 +278,26 @@ namespace QMC.CDT320.Ajin
 
         public static class CylinderRefs
         {
-            public static readonly CylinderDefault WaferFeederUpDownCyl = FindCylinder("WaferFeederUpDownCyl");
-            public static readonly CylinderDefault WaferFeederClampCyl = FindCylinder("WaferFeederClampCyl");
-            public static readonly CylinderDefault NgBinGuideCyl = FindCylinder("NgBinGuideCyl");
-            public static readonly CylinderDefault GoodBinGuideCyl = FindCylinder("GoodBinGuideCyl");
-            public static readonly CylinderDefault BinFeederUpDownCyl = FindCylinder("BinFeederUpDownCyl");
-            public static readonly CylinderDefault BinFeederClampCyl = FindCylinder("BinFeederClampCyl");
+            public static readonly CylinderDefault InputFeederLift = FindCylinder("InputFeederLift");
+            public static readonly CylinderDefault InputFeederClamp = FindCylinder("InputFeederClamp");
+            public static readonly CylinderDefault ReticleLift = FindCylinder("ReticleLift");
+            public static readonly CylinderDefault ReticleSideSlideFront = FindCylinder("ReticleSideSlideFront");
+            public static readonly CylinderDefault ReticleSideSlideRear = FindCylinder("ReticleSideSlideRear");
+            public static readonly CylinderDefault NGBinGuideLift = FindCylinder("NGBinGuideLift");
+            public static readonly CylinderDefault NGBinGuideClampLift = FindCylinder("NGBinGuideClampLift");
+            public static readonly CylinderDefault NGBinGuideClamp = FindCylinder("NGBinGuideClamp");
+            public static readonly CylinderDefault GoodBinGuideLift = FindCylinder("GoodBinGuideLift");
+            public static readonly CylinderDefault GoodBinGuideClampLift = FindCylinder("GoodBinGuideClampLift");
+            public static readonly CylinderDefault GoodBinGuideClamp = FindCylinder("GoodBinGuideClamp");
+            public static readonly CylinderDefault OutputFeederLift = FindCylinder("OutputFeederLift");
+            public static readonly CylinderDefault OutputFeederClamp = FindCylinder("OutputFeederClamp");
+
+            public static readonly CylinderDefault WaferFeederUpDownCyl = InputFeederLift;
+            public static readonly CylinderDefault WaferFeederClampCyl = InputFeederClamp;
+            public static readonly CylinderDefault NgBinGuideCyl = NGBinGuideLift;
+            public static readonly CylinderDefault GoodBinGuideCyl = GoodBinGuideLift;
+            public static readonly CylinderDefault BinFeederUpDownCyl = OutputFeederLift;
+            public static readonly CylinderDefault BinFeederClampCyl = OutputFeederClamp;
         }
 
         public static DioDefault FrontPickerVacuum(int pickerNo)
@@ -415,12 +438,15 @@ namespace QMC.CDT320.Ajin
                 OutBwd = Map(item.OutBwd),
                 InFwd = Map(item.InFwd),
                 InBwd = Map(item.InBwd),
+                UseFwdInput = item.InFwd != null,
+                UseBwdInput = item.InBwd != null,
                 SingleSolenoid = item.SingleSolenoid
             };
         }
 
         private static DioMap Map(DioDefault item)
         {
+            if (item == null) return null;
             return new DioMap { No = item.No, Address = item.Address, Module = item.Module, Bit = item.Bit, Nc = item.Nc };
         }
 
@@ -439,6 +465,7 @@ namespace QMC.CDT320.Ajin
                 No = ++_outputNo,
                 Address = OutputAddress(module, bit),
                 Name = name,
+                UnitName = DeriveUnitName(name),
                 Module = module,
                 Bit = bit
             };
@@ -451,6 +478,7 @@ namespace QMC.CDT320.Ajin
                 No = ++_inputNo,
                 Address = InputAddress(module, bit),
                 Name = name,
+                UnitName = DeriveUnitName(name),
                 Module = module,
                 Bit = bit,
                 Nc = nc
@@ -459,17 +487,74 @@ namespace QMC.CDT320.Ajin
 
         private static DioDefault DORef(int module, int bit)
         {
-            return new DioDefault { Address = OutputAddress(module, bit), Module = module, Bit = bit };
+            DioDefault found = FindOutput(module, bit);
+            return new DioDefault
+            {
+                Address = OutputAddress(module, bit),
+                Name = found != null ? found.Name : string.Empty,
+                UnitName = found != null ? found.UnitName : string.Empty,
+                Module = module,
+                Bit = bit
+            };
         }
 
         private static DioDefault DIRef(int module, int bit, bool nc = false)
         {
-            return new DioDefault { Address = InputAddress(module, bit), Module = module, Bit = bit, Nc = nc };
+            DioDefault found = FindInput(module, bit);
+            return new DioDefault
+            {
+                Address = InputAddress(module, bit),
+                Name = found != null ? found.Name : string.Empty,
+                UnitName = found != null ? found.UnitName : string.Empty,
+                Module = module,
+                Bit = bit,
+                Nc = nc
+            };
         }
 
         private static CylinderDefault CYL(string name, DioDefault outFwd, DioDefault outBwd, DioDefault inFwd, DioDefault inBwd)
         {
-            return new CylinderDefault { Name = name, OutFwd = outFwd, OutBwd = outBwd, InFwd = inFwd, InBwd = inBwd };
+            return new CylinderDefault
+            {
+                Name = name,
+                UnitName = DeriveUnitName(name),
+                OutFwd = outFwd,
+                OutBwd = outBwd,
+                InFwd = inFwd,
+                InBwd = inBwd
+            };
+        }
+
+        private static string DeriveUnitName(string name)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(name)) return string.Empty;
+                if (Contains(name, "WaferFeeder") || Contains(name, "InputFeeder")) return "WaferFeeder";
+                if (Contains(name, "WaferStage") || Contains(name, "Reticle") || Contains(name, "Needle") || Contains(name, "Eject")) return "WaferStage";
+                if (Contains(name, "FrontPicker")) return "FrontPicker";
+                if (Contains(name, "RearPicker")) return "RearPicker";
+                if (Contains(name, "NgBin") || Contains(name, "NGBin")) return "BinStage";
+                if (Contains(name, "GoodBin")) return "BinStage";
+                if (Contains(name, "BinFeeder") || Contains(name, "OutputFeeder")) return "BinFeeder";
+                if (Contains(name, "BinLifter") || Contains(name, "BinCassette")) return "BinCassette";
+                if (Contains(name, "Vision") || Contains(name, "Camera") || Contains(name, "Light")) return "Vision";
+                if (Contains(name, "Lamp") || Contains(name, "Buzzer") || Contains(name, "Button") || Contains(name, "Emg")) return "OperationPanel";
+                if (Contains(name, "Door") || Contains(name, "CDA") || Contains(name, "Vacuum") || Contains(name, "Ionizer")) return "Utility";
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+
+            return "Common";
+        }
+
+        private static bool Contains(string text, string token)
+        {
+            return text != null && text.IndexOf(token, StringComparison.OrdinalIgnoreCase) >= 0;
         }
     }
 }

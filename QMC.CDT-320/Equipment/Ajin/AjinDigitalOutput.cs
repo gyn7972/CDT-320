@@ -21,6 +21,7 @@ namespace QMC.CDT320.Ajin
         public override void Write(bool state)
         {
             base.Write(state);
+            if (Config.IsSimulationMode) return;
             if (!AjinSystem.IsOpen) return;
             AjinIoScanService.WriteOutput(this, state);
         }

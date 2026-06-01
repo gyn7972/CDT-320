@@ -272,8 +272,8 @@ namespace QMC.CDT320
             WaferClampedSensor = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.BinFeederUnclamp);
 
             // ── Cylinders ────────────────────────────────────────────────────
-            FeederUpDownCyl = AjinFactory.CreateCylinder(AjinIoCatalog.CylinderRefs.BinFeederUpDownCyl);
-            FeederClampCyl  = AjinFactory.CreateCylinder(AjinIoCatalog.CylinderRefs.BinFeederClampCyl);
+            FeederUpDownCyl = CylinderManager.Get(AjinIoCatalog.CylinderRefs.OutputFeederLift);
+            FeederClampCyl  = CylinderManager.Get(AjinIoCatalog.CylinderRefs.OutputFeederClamp);
 
             // ── Composite 트리 등록 ──────────────────────────────────────────
             Components.Add(BinElevatorZ);

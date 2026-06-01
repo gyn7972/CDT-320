@@ -355,7 +355,7 @@ namespace QMC.CDT_320.Ui.Localization
             // 설정 서브
             A("set.general",          "GENERAL",          "GENERAL");
             A("set.motion",           "MOTION",           "MOTION");
-            A("set.ioControl",        "I/O CONTROL",      "I/O CONTROL");
+            A("set.ioControl",        "DIGITAL LINK",     "DIGITAL LINK");
             A("set.digital",          "DIGITAL",          "DIGITAL");
             A("set.digitalLink",      "DIGITAL LINK",     "DIGITAL LINK");
             A("set.cylinder",         "CYLINDER",         "CYLINDER");

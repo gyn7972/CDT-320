@@ -39,6 +39,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
 
         private void ApplyRuntimeUi()
         {
+            lblHeader.Text = "DIGITAL LINK";
+            lblStatus.Text = "Live hardware I/O. DO commands are written directly to the mapped Ajin output.";
             lblHeader.BackColor = UiTheme.StatusBarBg;
             lblHeader.ForeColor = UiTheme.StatusBarFg;
             lblHeader.Font = UiTheme.SectionFont;
@@ -195,7 +197,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             QMC.Common.MessageDialog.Show(this, message, "I/O Control", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
 
-        private class IoItem<T>
+        internal class IoItem<T>
         {
             public int No;
             public string Address;
@@ -205,7 +207,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             public T Port;
         }
 
-        private class OutputTarget
+        internal class OutputTarget
         {
             public int No;
             public string Address;
@@ -275,14 +277,22 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             }
         }
 
-        private class IoCollector
+        internal class CylinderTarget
+        {
+            public string Name;
+            public BaseCylinder Cylinder;
+        }
+
+        internal class IoCollector
         {
             public readonly List<IoItem<BaseDigitalInput>> Inputs = new List<IoItem<BaseDigitalInput>>();
             public readonly List<OutputTarget> Outputs = new List<OutputTarget>();
+            public readonly List<CylinderTarget> Cylinders = new List<CylinderTarget>();
 
             private readonly HashSet<object> _visited = new HashSet<object>();
             private readonly HashSet<BaseDigitalInput> _seenInputs = new HashSet<BaseDigitalInput>();
             private readonly HashSet<BaseDigitalOutput> _seenOutputs = new HashSet<BaseDigitalOutput>();
+            private readonly HashSet<BaseCylinder> _seenCylinders = new HashSet<BaseCylinder>();
             private readonly HashSet<string> _seenInputNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             private readonly HashSet<string> _seenInputAddresses = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             private readonly HashSet<string> _seenOutputNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -318,6 +328,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 var cylinder = obj as BaseCylinder;
                 if (cylinder != null)
                 {
+                    AddCylinder(cylinder);
                     Visit(cylinder.OutFwd, Join(path, "OutFwd"), depth + 1);
                     Visit(cylinder.OutBwd, Join(path, "OutBwd"), depth + 1);
                     Visit(cylinder.InFwd, Join(path, "InFwd"), depth + 1);
@@ -349,6 +360,19 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                     try { value = prop.GetValue(obj, null); } catch { }
                     Visit(value, Join(path, prop.Name), depth + 1);
                 }
+            }
+
+            private void AddCylinder(BaseCylinder cylinder)
+            {
+                if (cylinder == null || !_seenCylinders.Add(cylinder)) return;
+                CylinderDefault catalog = AjinIoCatalog.FindCylinder(cylinder.Name);
+                if (catalog == null) return;
+
+                Cylinders.Add(new CylinderTarget
+                {
+                    Name = catalog.Name,
+                    Cylinder = cylinder
+                });
             }
 
             private void AddInput(BaseDigitalInput port, string path)

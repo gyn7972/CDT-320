@@ -359,6 +359,9 @@
     <Compile Include="Equipment\Ajin\AjinFactory.cs" />
     <Compile Include="Equipment\Ajin\AjinIoCatalog.cs" />
     <Compile Include="Equipment\Ajin\AjinSystem.cs" />
+    <Compile Include="Equipment\Ajin\CylinderManager.cs" />
+    <Compile Include="Equipment\Ajin\CylinderSettingsStore.cs" />
+    <Compile Include="Equipment\Ajin\IoSettingsStore.cs" />
     <!-- Equipment / Vision (Vision ?�로?�스 ?�신) -->
     <Compile Include="Equipment\Vision\VisionAdapters.cs" />
     <Compile Include="Equipment\Vision\VisionHub.cs" />
@@ -791,6 +794,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\Settings\IoControlPage.resx">
       <DependentUpon>IoControlPage.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\Settings\IoListPage.resx">
+      <DependentUpon>IoListPage.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\Settings\PositionTeachingPage.resx">
       <DependentUpon>PositionTeachingPage.cs</DependentUpon>

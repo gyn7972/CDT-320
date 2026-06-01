@@ -25,17 +25,15 @@ namespace QMC.CDT_320.Ui.Tabs
             // ── 주 메뉴 (디자이너 버튼 등록) ──
             RegisterSidebarButton(BtnGeneral,     "set.general",   op, () => new GeneralPage());
             RegisterSidebarButton(BtnMotion,      "set.motion",    mt, () => new MotionPage());
-            RegisterSidebarButton(BtnIoControl,   "set.ioControl", mt, () => new IoControlPage());
+            RegisterSidebarButton(BtnIoControl,   "set.digitalLink", mt, () => new IoControlPage());
             RegisterSidebarButton(BtnDigital,     "set.digital",   mt, () => new IoListPage("set.digital",
-                new[] { "INDEX", "SYMBOL", "BOARD", "BIT", "DESCRIPTION", "STATE" }, CatalogRows.Digital));
-            RegisterSidebarButton(BtnDigitalLink, "set.digitalLink", mt, () => new IoListPage("set.digitalLink",
-                new[] { "INDEX", "SOURCE", "TARGET", "DESCRIPTION" }, CatalogRows.Link));
+                new[] { "INDEX", "MODULE", "SYMBOL", "BOARD", "BIT", "DESCRIPTION", "SIM", "STATE" }, CatalogRows.Digital));
             RegisterSidebarButton(BtnCylinder,    "set.cylinder",  mt, () => new IoListPage("set.cylinder",
-                new[] { "INDEX", "NAME", "FWD DO", "BWD DO", "FWD DI", "BWD DI", "STATE" }, CatalogRows.Cylinder));
+                new[] { "INDEX", "MODULE", "NAME", "FWD DO", "BWD DO", "FWD DI", "BWD DI", "SIM", "STATE" }, CatalogRows.Cylinder));
             RegisterSidebarButton(BtnLamp,        "set.lamp",      en, () => new IoListPage("set.lamp",
-                new[] { "INDEX", "NAME", "DO", "STATE" }, CatalogRows.Lamp));
+                new[] { "INDEX", "MODULE", "NAME", "DO", "SIM", "STATE" }, CatalogRows.Lamp));
             RegisterSidebarButton(BtnSwitch,      "set.switch",    en, () => new IoListPage("set.switch",
-                new[] { "INDEX", "NAME", "DI", "STATE" }, CatalogRows.Switch));
+                new[] { "INDEX", "MODULE", "NAME", "DI", "SIM", "STATE" }, CatalogRows.Switch));
             RegisterSidebarButton(BtnLightSource, "set.lightSource", en, () => new IoListPage("set.lightSource",
                 new[] { "INDEX", "NAME", "PORT", "LEVEL" }, CatalogRows.Light));
 
@@ -87,33 +85,25 @@ namespace QMC.CDT_320.Ui.Tabs
                 return rows.ToArray();
             }
 
-            public static string[][] Link()
-            {
-                var rows = new List<string[]>();
-                int index = 1;
-                foreach (var item in AjinIoCatalog.Cylinders)
-                {
-                    rows.Add(new[] { (index++).ToString(), Format(item.OutFwd, true), Format(item.InFwd, false), item.Name + " FWD" });
-                    rows.Add(new[] { (index++).ToString(), Format(item.OutBwd, true), Format(item.InBwd, false), item.Name + " BWD" });
-                }
-                return rows.ToArray();
-            }
-
             public static string[][] Cylinder()
             {
                 var rows = new List<string[]>();
                 for (int i = 0; i < AjinIoCatalog.Cylinders.Length; i++)
                 {
                     var item = AjinIoCatalog.Cylinders[i];
+                    CylMap map;
+                    AjinConfigStore.Current.Cylinders.TryGetValue(item.Name, out map);
                     rows.Add(new[]
                     {
                         (i + 1).ToString(),
+                        item.UnitName,
                         item.Name,
-                        Format(item.OutFwd, true),
-                        Format(item.OutBwd, true),
-                        Format(item.InFwd, false),
-                        Format(item.InBwd, false),
-                        CylinderState(item)
+                        Format(map != null ? map.OutFwd : null, item.OutFwd, true),
+                        Format(map != null ? map.OutBwd : null, item.OutBwd, true),
+                        Format(map != null && map.UseFwdInput ? map.InFwd : null, item.InFwd, false),
+                        Format(map != null && map.UseBwdInput ? map.InBwd : null, item.InBwd, false),
+                        CylinderSettingsStore.Simulation(item.Name, !AjinFactory.IsRealBoardReady) ? "ON" : "OFF",
+                        CylinderState(map, item)
                     });
                 }
                 return rows.ToArray();
@@ -127,7 +117,7 @@ namespace QMC.CDT_320.Ui.Tabs
                     if (!IsLamp(item.Name)) 
                         continue;
 
-                    rows.Add(new[] { item.No.ToString(), item.Name, item.Address, State(item, true) });
+                    rows.Add(new[] { item.No.ToString(), item.UnitName, item.Name, item.Address, SimText(item.Name, true), State(item, true) });
                 }
                 return rows.ToArray();
             }
@@ -138,7 +128,7 @@ namespace QMC.CDT_320.Ui.Tabs
                 foreach (var item in AjinIoCatalog.DigitalInputs)
                 {
                     if (!IsSwitch(item.Name)) continue;
-                    rows.Add(new[] { item.No.ToString(), item.Name, item.Address, State(item, false) });
+                    rows.Add(new[] { item.No.ToString(), item.UnitName, item.Name, item.Address, SimText(item.Name, false), State(item, false) });
                 }
                 return rows.ToArray();
             }
@@ -160,26 +150,44 @@ namespace QMC.CDT_320.Ui.Tabs
                 return new[]
                 {
                     (isOutput ? "DO-" : "DI-") + item.No,
+                    item.UnitName,
                     item.Address,
                     (isOutput ? "DO " : "DI ") + item.Module,
                     item.Bit.ToString("00"),
                     item.Name,
+                    SimText(item.Name, isOutput),
                     State(item, isOutput)
                 };
             }
 
-            private static string CylinderState(CylinderDefault item)
+            private static string CylinderState(CylMap map, CylinderDefault item)
             {
-                bool fwd = IsOn(item.InFwd, false);
-                bool bwd = IsOn(item.InBwd, false);
+                bool fwd = IsOn(map != null && map.UseFwdInput ? map.InFwd : null, item != null ? item.InFwd : null, false);
+                bool bwd = IsOn(map != null && map.UseBwdInput ? map.InBwd : null, item != null ? item.InBwd : null, false);
                 if (fwd && !bwd) return "FWD";
                 if (!fwd && bwd) return "BWD";
                 if (fwd && bwd) return "BOTH";
                 return "OFF";
             }
 
+            private static string Format(DioMap map, DioDefault fallback, bool isOutput)
+            {
+                if (map == null) return string.Empty;
+                var catalog = isOutput
+                    ? AjinIoCatalog.FindOutput(map.Module, map.Bit)
+                    : AjinIoCatalog.FindInput(map.Module, map.Bit);
+                string name = catalog != null ? catalog.Name : string.Empty;
+                string address = !string.IsNullOrEmpty(map.Address)
+                    ? map.Address
+                    : isOutput
+                        ? AjinIoCatalog.OutputAddress(map.Module, map.Bit)
+                        : AjinIoCatalog.InputAddress(map.Module, map.Bit);
+                return string.IsNullOrEmpty(name) ? address : address + " " + name;
+            }
+
             private static string Format(DioDefault item, bool isOutput)
             {
+                if (item == null) return string.Empty;
                 var catalog = isOutput
                     ? AjinIoCatalog.FindOutput(item.Module, item.Bit)
                     : AjinIoCatalog.FindInput(item.Module, item.Bit);
@@ -195,11 +203,27 @@ namespace QMC.CDT_320.Ui.Tabs
                 return IsOn(item, isOutput) ? "ON" : "OFF";
             }
 
+            private static string SimText(string name, bool isOutput)
+            {
+                bool sim = isOutput
+                    ? IoSettingsStore.OutputSimulation(name, !AjinFactory.IsRealBoardReady)
+                    : IoSettingsStore.InputSimulation(name, !AjinFactory.IsRealBoardReady);
+                return sim ? "ON" : "OFF";
+            }
+
             private static bool IsOn(DioDefault item, bool isOutput)
             {
                 var service = AjinIoScanService.Current;
                 if (service == null || item == null) return false;
                 var snapshot = service.GetLatest(item.Module, item.Bit, isOutput);
+                return snapshot != null && snapshot.ErrorCode == 0 && snapshot.IsOn;
+            }
+
+            private static bool IsOn(DioMap map, DioDefault fallback, bool isOutput)
+            {
+                var service = AjinIoScanService.Current;
+                if (service == null || map == null) return false;
+                var snapshot = service.GetLatest(map.Module, map.Bit, isOutput);
                 return snapshot != null && snapshot.ErrorCode == 0 && snapshot.IsOn;
             }
 

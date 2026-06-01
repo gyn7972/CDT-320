@@ -326,9 +326,12 @@ namespace QMC.CDT320.Ajin
 
             string name = catalog.Name;
             DioMap m = ResolveInputMap(catalog);
+            bool simMode = IoSettingsStore.InputSimulation(name, !Ready);
             if (Ready)
             {
-                return new AjinDigitalInput(name, m.Module, m.Bit, m.Nc);
+                BaseDigitalInput input = new AjinDigitalInput(name, m.Module, m.Bit, m.Nc);
+                input.Config.IsSimulationMode = simMode;
+                return input;
             }
 
             return ConfigureSimInput(new SimDigitalInput(name), m.Module, m.Bit, m.Nc);
@@ -351,9 +354,12 @@ namespace QMC.CDT320.Ajin
 
             string name = catalog.Name;
             DioMap m = ResolveOutputMap(catalog);
+            bool simMode = IoSettingsStore.OutputSimulation(name, !Ready);
             if (Ready)
             {
-                return new AjinDigitalOutput(name, m.Module, m.Bit, m.Nc);
+                BaseDigitalOutput output = new AjinDigitalOutput(name, m.Module, m.Bit, m.Nc);
+                output.Config.IsSimulationMode = simMode;
+                return output;
             }
 
             return ConfigureSimOutput(new SimDigitalOutput(name), m.Module, m.Bit, m.Nc);
@@ -426,22 +432,53 @@ namespace QMC.CDT320.Ajin
                 CylMap cy;
                 if (Cfg.Cylinders.TryGetValue(name, out cy))
                 {
-                    return new AjinCylinder(name,
-                        (cy.OutFwd.Module, cy.OutFwd.Bit),
-                        (cy.OutBwd.Module, cy.OutBwd.Bit),
-                        (cy.InFwd .Module, cy.InFwd .Bit),
-                        (cy.InBwd .Module, cy.InBwd .Bit),
+                    BaseCylinder mapped = new AjinCylinder(name,
+                        cy.OutFwd,
+                        cy.OutBwd,
+                        cy.UseFwdInput ? cy.InFwd : null,
+                        cy.UseBwdInput ? cy.InBwd : null,
                         cy.SingleSolenoid || singleSolenoid);
+                    CylinderSettingsStore.Apply(mapped);
+                    return mapped;
                 }
 
-                return new AjinCylinder(name,
+                BaseCylinder fallback = new AjinCylinder(name,
                     (catalog.OutFwd.Module, catalog.OutFwd.Bit),
                     (catalog.OutBwd.Module, catalog.OutBwd.Bit),
                     (catalog.InFwd.Module, catalog.InFwd.Bit),
                     (catalog.InBwd.Module, catalog.InBwd.Bit),
                     catalog.SingleSolenoid || singleSolenoid);
+                CylinderSettingsStore.Apply(fallback);
+                return fallback;
             }
-            return new SimCylinder(name);
+            BaseCylinder sim = new SimCylinder(name);
+            CylinderSettingsStore.Apply(sim);
+            return sim;
+        }
+
+        public static void ApplyInputSimulation(BaseDigitalInput input, bool simulationMode)
+        {
+            if (input == null) return;
+            input.Config.IsSimulationMode = simulationMode || !Ready || input is SimDigitalInput;
+        }
+
+        public static void ApplyOutputSimulation(BaseDigitalOutput output, bool simulationMode)
+        {
+            if (output == null) return;
+            output.Config.IsSimulationMode = simulationMode || !Ready || output is SimDigitalOutput;
+        }
+
+        public static void ApplyCylinderSimulation(BaseCylinder cylinder, bool simulationMode)
+        {
+            if (cylinder == null) return;
+
+            bool sim = simulationMode || !Ready || cylinder is SimCylinder;
+            cylinder.Config.IsSimulationMode = sim;
+
+            ApplyOutputSimulation(cylinder.OutFwd, sim);
+            ApplyOutputSimulation(cylinder.OutBwd, sim);
+            ApplyInputSimulation(cylinder.InFwd, sim);
+            ApplyInputSimulation(cylinder.InBwd, sim);
         }
 
         private static bool TryFindDio(string name, out DioMap m)

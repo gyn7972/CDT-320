@@ -63,8 +63,8 @@ namespace QMC.CDT320
             WaferFeederClampSensor = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.WaferFeederUpClamp);
             WaferFeederRingCheckSensor = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.WaferFeederRingCheck);
             WaferFeederOverloadSensor = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.WaferFeederOverloadCheck);
-            FeederUpDownCyl = AjinFactory.CreateCylinder(AjinIoCatalog.CylinderRefs.WaferFeederUpDownCyl);
-            FeederClampCyl = AjinFactory.CreateCylinder(AjinIoCatalog.CylinderRefs.WaferFeederClampCyl);
+            FeederUpDownCyl = CylinderManager.Get(AjinIoCatalog.CylinderRefs.InputFeederLift);
+            FeederClampCyl = CylinderManager.Get(AjinIoCatalog.CylinderRefs.InputFeederClamp);
 
             Components.Add(FeederY);
             Components.Add(WaferFeederUpSensor);

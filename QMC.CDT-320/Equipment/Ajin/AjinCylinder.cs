@@ -11,10 +11,23 @@ namespace QMC.CDT320.Ajin
         private readonly (int mod, int bit) _outFwd, _outBwd, _inFwd, _inBwd;
 
         public AjinCylinder(string name,
+            DioMap outFwd, DioMap outBwd,
+            DioMap inFwd, DioMap inBwd,
+            bool singleSolenoid = false)
+            : base(name)
+        {
+            Setup.IsSingleSolenoid = singleSolenoid;
+            Setup.UseFwdSensor = inFwd != null;
+            Setup.UseBwdSensor = inBwd != null;
+            Config.IsSimulationMode = false;
+            ReplaceInternalIo(name, outFwd, outBwd, inFwd, inBwd);
+        }
+
+        public AjinCylinder(string name,
             (int mod, int bit) outFwd, (int mod, int bit) outBwd,
             (int mod, int bit) inFwd,  (int mod, int bit) inBwd,
             bool singleSolenoid = false)
-            : this(name, outFwd, outBwd, inFwd, inBwd, singleSolenoid, initialized: false)
+            : this(name, Map(outFwd), Map(outBwd), Map(inFwd), Map(inBwd), singleSolenoid)
         {
         }
 
@@ -33,21 +46,45 @@ namespace QMC.CDT320.Ajin
             Config.IsSimulationMode = false;
 
             // base 가 만든 Sim DIO 대신 실 DIO 로 교체
-            ReplaceInternalIo(name, outFwd, outBwd, inFwd, inBwd);
+            ReplaceInternalIo(name, Map(outFwd), Map(outBwd), Map(inFwd), Map(inBwd));
         }
 
         private void ReplaceInternalIo(string name,
-            (int mod, int bit) outFwd, (int mod, int bit) outBwd,
-            (int mod, int bit) inFwd,  (int mod, int bit) inBwd)
+            DioMap outFwd, DioMap outBwd,
+            DioMap inFwd, DioMap inBwd)
         {
             // BaseCylinder 의 OutFwd/OutBwd/InFwd/InBwd 는 private set 이라
             // 리플렉션으로 교체. 한 번만 수행되므로 비용 무시.
             var t = typeof(BaseCylinder);
             var bf = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic;
-            t.GetProperty("OutFwd", bf).SetValue(this, new AjinDigitalOutput(name + "_OutFwd", outFwd.mod, outFwd.bit));
-            t.GetProperty("OutBwd", bf).SetValue(this, new AjinDigitalOutput(name + "_OutBwd", outBwd.mod, outBwd.bit));
-            t.GetProperty("InFwd",  bf).SetValue(this, new AjinDigitalInput (name + "_InFwd",  inFwd.mod,  inFwd.bit));
-            t.GetProperty("InBwd",  bf).SetValue(this, new AjinDigitalInput (name + "_InBwd",  inBwd.mod,  inBwd.bit));
+            t.GetProperty("OutFwd", bf).SetValue(this, CreateOutput(name + "_OutFwd", outFwd));
+            t.GetProperty("OutBwd", bf).SetValue(this, CreateOutput(name + "_OutBwd", outBwd));
+            t.GetProperty("InFwd",  bf).SetValue(this, CreateInput(name + "_InFwd", inFwd));
+            t.GetProperty("InBwd",  bf).SetValue(this, CreateInput(name + "_InBwd", inBwd));
+        }
+
+        public void Rebind(DioMap outFwd, DioMap outBwd, DioMap inFwd, DioMap inBwd)
+        {
+            Setup.UseFwdSensor = inFwd != null;
+            Setup.UseBwdSensor = inBwd != null;
+            ReplaceInternalIo(Name, outFwd, outBwd, inFwd, inBwd);
+        }
+
+        private static BaseDigitalOutput CreateOutput(string name, DioMap map)
+        {
+            if (map == null) return new SimDigitalOutput(name);
+            return new AjinDigitalOutput(name, map.Module, map.Bit);
+        }
+
+        private static BaseDigitalInput CreateInput(string name, DioMap map)
+        {
+            if (map == null) return new SimDigitalInput(name);
+            return new AjinDigitalInput(name, map.Module, map.Bit);
+        }
+
+        private static DioMap Map((int mod, int bit) value)
+        {
+            return new DioMap { Module = value.mod, Bit = value.bit };
         }
 
         // base 가 호출하는 DI/DO 팩토리 — 생성 중에는 sim 이 만들어지고,
