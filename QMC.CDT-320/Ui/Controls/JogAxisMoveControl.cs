@@ -9,6 +9,12 @@ using System.Windows.Forms;
 
 namespace QMC.CDT_320.Ui.Controls
 {
+    public enum JogAxisMoveLayoutMode
+    {
+        AxisColumns,
+        Stage
+    }
+
     public partial class JogAxisMoveControl : UserControl
     {
         private readonly List<JogAxisItem> _items = new List<JogAxisItem>();
@@ -18,14 +24,48 @@ namespace QMC.CDT_320.Ui.Controls
         private readonly Color _modeSelectedColor = Color.FromArgb(0, 122, 204);
         private readonly Color _normalButtonColor = Color.FromArgb(108, 118, 126);
         private readonly Color _activeButtonColor = Color.FromArgb(255, 242, 153);
-        private int _buttonAreaMaxHeight = 140;
-        private int _buttonAreaMinHeight = 130;
-        private int _buttonAreaMaxWidth = 170;
-        private int _buttonAreaMinWidth = 160;
+        private int _buttonAreaMaxHeight = 92;
+        private int _buttonAreaMinHeight = 72;
+        private int _buttonAreaMaxWidth = 132;
+        private int _buttonAreaMinWidth = 112;
         private bool _showCurrentSpeedMode = true;
         private bool _isJogging;
+        private JogAxisMoveLayoutMode _layoutMode = JogAxisMoveLayoutMode.AxisColumns;
 
         public JogSpeedControl SpeedControl { get; set; }
+
+        public JogAxisMoveLayoutMode LayoutMode
+        {
+            get
+            {
+                try
+                {
+                    return _layoutMode;
+                }
+                catch
+                {
+                    return JogAxisMoveLayoutMode.AxisColumns;
+                }
+                finally
+                {
+                }
+            }
+            set
+            {
+                try
+                {
+                    _layoutMode = value;
+                    RebuildAxisButtons();
+                }
+                catch (Exception ex)
+                {
+                    EventLogger.Write(EventKind.Warning, "UI", "JOG-AXIS", "Layout mode set failed: " + ex.Message);
+                }
+                finally
+                {
+                }
+            }
+        }
 
         public bool ShowCurrentSpeedMode
         {
@@ -71,7 +111,7 @@ namespace QMC.CDT_320.Ui.Controls
                 }
                 catch
                 {
-                    return 140;
+                    return 92;
                 }
                 finally
                 {
@@ -81,7 +121,7 @@ namespace QMC.CDT_320.Ui.Controls
             {
                 try
                 {
-                    _buttonAreaMaxHeight = Math.Max(80, value);
+                    _buttonAreaMaxHeight = Math.Max(56, value);
                     UpdateAxisButtonAreaSize();
                 }
                 catch (Exception ex)
@@ -104,7 +144,7 @@ namespace QMC.CDT_320.Ui.Controls
                 }
                 catch
                 {
-                    return 130;
+                    return 72;
                 }
                 finally
                 {
@@ -114,7 +154,7 @@ namespace QMC.CDT_320.Ui.Controls
             {
                 try
                 {
-                    _buttonAreaMinHeight = Math.Max(80, value);
+                    _buttonAreaMinHeight = Math.Max(48, value);
                     UpdateAxisButtonAreaSize();
                 }
                 catch (Exception ex)
@@ -137,7 +177,7 @@ namespace QMC.CDT_320.Ui.Controls
                 }
                 catch
                 {
-                    return 170;
+                    return 132;
                 }
                 finally
                 {
@@ -170,7 +210,7 @@ namespace QMC.CDT_320.Ui.Controls
                 }
                 catch
                 {
-                    return 160;
+                    return 112;
                 }
                 finally
                 {
@@ -180,7 +220,7 @@ namespace QMC.CDT_320.Ui.Controls
             {
                 try
                 {
-                    _buttonAreaMinWidth = Math.Max(100, value);
+                    _buttonAreaMinWidth = Math.Max(80, value);
                     UpdateAxisButtonAreaSize();
                 }
                 catch (Exception ex)
@@ -198,6 +238,7 @@ namespace QMC.CDT_320.Ui.Controls
             try
             {
                 InitializeComponent();
+                cboStepPreset.SelectedIndex = 0;
                 SizeChanged += JogAxisMoveControl_SizeChanged;
                 ApplyCurrentSpeedModeVisibility();
                 ApplyModeButtonStyles();
@@ -308,10 +349,14 @@ namespace QMC.CDT_320.Ui.Controls
                 if (rootLayout == null || axisHost == null || rootLayout.RowStyles.Count < 3 || axisHost.ColumnStyles.Count < 3 || axisHost.RowStyles.Count < 3)
                     return;
 
+                float modePanelHeight = rootLayout.RowStyles[0].Height;
+                if (rootLayout.RowStyles[0].SizeType != SizeType.Absolute)
+                    modePanelHeight = 84F;
+
                 int availableHeight = Height
                     - rootLayout.Padding.Top
                     - rootLayout.Padding.Bottom
-                    - 136;
+                    - (int)modePanelHeight;
                 int availableWidth = Width
                     - rootLayout.Padding.Left
                     - rootLayout.Padding.Right
@@ -324,14 +369,12 @@ namespace QMC.CDT_320.Ui.Controls
                     availableWidth = _buttonAreaMinWidth;
 
                 int maxHeight = _buttonAreaMaxHeight;
-                if (_items.Count >= 4)
-                    maxHeight = Math.Max(maxHeight, 220);
 
                 int height = Math.Min(maxHeight, availableHeight);
                 height = Math.Max(Math.Min(_buttonAreaMinHeight, availableHeight), height);
                 int maxWidth = _buttonAreaMaxWidth;
                 if (_items.Count > 1)
-                    maxWidth = Math.Max(maxWidth, _items.Count * 120);
+                    maxWidth = Math.Max(maxWidth, _items.Count * 72);
 
                 int width = Math.Min(maxWidth, availableWidth);
                 width = Math.Max(Math.Min(_buttonAreaMinWidth, availableWidth), width);
@@ -367,6 +410,12 @@ namespace QMC.CDT_320.Ui.Controls
         {
             try
             {
+                if (_layoutMode == JogAxisMoveLayoutMode.Stage && _items.Count > 1)
+                {
+                    BuildStageButtons();
+                    return;
+                }
+
                 axisButtonLayout.ColumnCount = Math.Max(1, _items.Count);
                 axisButtonLayout.RowCount = 1;
                 axisButtonLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
@@ -376,6 +425,269 @@ namespace QMC.CDT_320.Ui.Controls
 
                 for (int index = 0; index < _items.Count; index++)
                     axisButtonLayout.Controls.Add(CreateAxisColumn(_items[index]), index, 0);
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        private void RebuildAxisButtons()
+        {
+            try
+            {
+                if (axisButtonLayout == null)
+                    return;
+
+                _buttonAxes.Clear();
+                _buttonDirections.Clear();
+                axisButtonLayout.Controls.Clear();
+                axisButtonLayout.ColumnStyles.Clear();
+                axisButtonLayout.RowStyles.Clear();
+                BuildAxisButtons();
+                UpdateAxisButtonAreaSize();
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        private void BuildStageButtons()
+        {
+            try
+            {
+                JogAxisItem xItem = FirstAxisByText("X");
+                JogAxisItem yItem = FirstAxisByText("Y");
+                JogAxisItem tItem = FirstAxisByText("T");
+                List<JogAxisItem> sideItems = new List<JogAxisItem>();
+
+                foreach (JogAxisItem item in _items)
+                {
+                    if (item == null)
+                        continue;
+                    if (ReferenceEquals(item, xItem) || ReferenceEquals(item, yItem) || ReferenceEquals(item, tItem))
+                        continue;
+                    sideItems.Add(item);
+                }
+
+                axisButtonLayout.ColumnCount = 2;
+                axisButtonLayout.RowCount = 1;
+                axisButtonLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 42F));
+                axisButtonLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 58F));
+                axisButtonLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+                axisButtonLayout.Controls.Add(CreateStagePad(xItem, yItem, tItem), 0, 0);
+                axisButtonLayout.Controls.Add(CreateStageSideAxes(sideItems), 1, 0);
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        private JogAxisItem FirstAxisByText(string axisLetter)
+        {
+            try
+            {
+                foreach (JogAxisItem item in _items)
+                {
+                    if (item == null)
+                        continue;
+
+                    if (IsAxisTextMatch(item, axisLetter))
+                        return item;
+                }
+
+                return null;
+            }
+            catch
+            {
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool IsAxisTextMatch(JogAxisItem item, string axisLetter)
+        {
+            try
+            {
+                if (item == null || string.IsNullOrWhiteSpace(axisLetter))
+                    return false;
+
+                string letter = axisLetter.ToUpperInvariant();
+                string plusText = (item.PlusText ?? string.Empty).ToUpperInvariant();
+                string minusText = (item.MinusText ?? string.Empty).ToUpperInvariant();
+                if (plusText == letter + "+" || plusText == "+" + letter || minusText == letter + "-" || minusText == "-" + letter)
+                    return true;
+
+                string axisName = (item.AxisName ?? string.Empty).Trim().ToUpperInvariant();
+                return axisName.EndsWith(letter, StringComparison.OrdinalIgnoreCase);
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private Control CreateStagePad(JogAxisItem xItem, JogAxisItem yItem, JogAxisItem tItem)
+        {
+            try
+            {
+                TableLayoutPanel layout = new TableLayoutPanel();
+                layout.ColumnCount = 3;
+                layout.RowCount = 3;
+                layout.Dock = DockStyle.Fill;
+                layout.Margin = new Padding(1);
+                for (int i = 0; i < 3; i++)
+                    layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.333F));
+                for (int i = 0; i < 3; i++)
+                    layout.RowStyles.Add(new RowStyle(SizeType.Percent, 33.333F));
+
+                layout.Controls.Add(CreateStagePadButton(tItem, -1, tItem != null ? tItem.MinusText : "T-"), 0, 0);
+                layout.Controls.Add(CreateStagePadButton(yItem, 1, yItem != null ? yItem.PlusText : "Y+"), 1, 0);
+                layout.Controls.Add(CreateStagePadButton(tItem, 1, tItem != null ? tItem.PlusText : "T+"), 2, 0);
+                layout.Controls.Add(CreateStagePadButton(xItem, -1, xItem != null ? xItem.MinusText : "X-"), 0, 1);
+                layout.Controls.Add(CreateStopAllButton(), 1, 1);
+                layout.Controls.Add(CreateStagePadButton(xItem, 1, xItem != null ? xItem.PlusText : "X+"), 2, 1);
+                layout.Controls.Add(CreateBlankCell(), 0, 2);
+                layout.Controls.Add(CreateStagePadButton(yItem, -1, yItem != null ? yItem.MinusText : "Y-"), 1, 2);
+                layout.Controls.Add(CreateBlankCell(), 2, 2);
+                return layout;
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        private Control CreateStageSideAxes(List<JogAxisItem> sideItems)
+        {
+            try
+            {
+                TableLayoutPanel layout = new TableLayoutPanel();
+                int count = Math.Max(1, sideItems != null ? sideItems.Count : 0);
+                bool wrapRows = count > 3;
+                int rowCount = wrapRows ? 2 : 1;
+                int columnCount = wrapRows ? (int)Math.Ceiling(count / 2.0) : count;
+                layout.ColumnCount = columnCount;
+                layout.RowCount = rowCount;
+                layout.Dock = DockStyle.Fill;
+                layout.Margin = new Padding(1);
+
+                for (int index = 0; index < columnCount; index++)
+                    layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F / columnCount));
+
+                for (int index = 0; index < rowCount; index++)
+                    layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F / rowCount));
+
+                if (sideItems == null || sideItems.Count == 0)
+                {
+                    layout.Controls.Add(CreateBlankCell(), 0, 0);
+                    return layout;
+                }
+
+                for (int index = 0; index < sideItems.Count; index++)
+                {
+                    int column = wrapRows ? index % columnCount : index;
+                    int row = wrapRows ? index / columnCount : 0;
+                    layout.Controls.Add(CreateAxisColumn(sideItems[index]), column, row);
+                }
+
+                return layout;
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        private Control CreateStagePadButton(JogAxisItem item, int direction, string text)
+        {
+            try
+            {
+                if (item == null)
+                    return CreateBlankCell();
+
+                Button button = new Button();
+                ConfigureJogButton(button, text, item, direction);
+                button.Margin = new Padding(1);
+                return button;
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        private Control CreateStopAllButton()
+        {
+            try
+            {
+                Button button = new Button();
+                button.BackColor = Color.FromArgb(208, 208, 208);
+                button.Dock = DockStyle.Fill;
+                button.FlatStyle = FlatStyle.Flat;
+                button.Font = new Font("Malgun Gothic", 7.5F, FontStyle.Bold);
+                button.ForeColor = Color.Black;
+                button.Margin = new Padding(1);
+                button.Text = "STOP";
+                button.UseVisualStyleBackColor = false;
+                button.Click += async (s, e) =>
+                {
+                    try
+                    {
+                        await StopAllAsync(true);
+                    }
+                    catch (Exception ex)
+                    {
+                        ShowJogError("Jog stop failed", ex);
+                    }
+                    finally
+                    {
+                    }
+                };
+                return button;
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        private static Control CreateBlankCell()
+        {
+            try
+            {
+                Panel panel = new Panel();
+                panel.Dock = DockStyle.Fill;
+                panel.Margin = new Padding(1);
+                return panel;
             }
             catch
             {
@@ -397,13 +709,13 @@ namespace QMC.CDT_320.Ui.Controls
                 Button minusButton = new Button();
 
                 layout.Dock = DockStyle.Fill;
-                layout.Margin = new Padding(4);
+                layout.Margin = new Padding(1);
 
                 axisLabel.BackColor = Color.White;
                 axisLabel.BorderStyle = BorderStyle.FixedSingle;
                 axisLabel.Dock = DockStyle.Fill;
-                axisLabel.Font = new Font("Malgun Gothic", 8.0F, FontStyle.Bold);
-                axisLabel.Margin = new Padding(0, 0, 0, 4);
+                axisLabel.Font = new Font("Malgun Gothic", 7.0F, FontStyle.Bold);
+                axisLabel.Margin = new Padding(0, 0, 0, 1);
                 axisLabel.Text = item.AxisName;
                 axisLabel.TextAlign = ContentAlignment.MiddleCenter;
 
@@ -462,7 +774,7 @@ namespace QMC.CDT_320.Ui.Controls
                 layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.333F));
                 layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.334F));
                 layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.333F));
-                layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 28F));
+                layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 20F));
                 layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
 
                 layout.SetColumnSpan(axisLabel, 3);
@@ -487,7 +799,7 @@ namespace QMC.CDT_320.Ui.Controls
                 layout.ColumnCount = 1;
                 layout.RowCount = 4;
                 layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-                layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 28F));
+                layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 20F));
                 layout.RowStyles.Add(new RowStyle(SizeType.Percent, 34F));
                 layout.RowStyles.Add(new RowStyle(SizeType.Percent, 32F));
                 layout.RowStyles.Add(new RowStyle(SizeType.Percent, 34F));
@@ -513,9 +825,9 @@ namespace QMC.CDT_320.Ui.Controls
                 button.BackColor = direction == 0 ? Color.FromArgb(208, 208, 208) : _normalButtonColor;
                 button.Dock = DockStyle.Fill;
                 button.FlatStyle = FlatStyle.Flat;
-                button.Font = new Font("Malgun Gothic", direction == 0 ? 9.0F : 11.0F, FontStyle.Bold);
+                button.Font = new Font("Malgun Gothic", direction == 0 ? 7.2F : 8.2F, FontStyle.Bold);
                 button.ForeColor = direction == 0 ? Color.Black : Color.White;
-                button.Margin = new Padding(3, 3, 3, 5);
+                button.Margin = new Padding(1);
                 button.Text = text;
                 button.UseVisualStyleBackColor = false;
 
@@ -693,29 +1005,48 @@ namespace QMC.CDT_320.Ui.Controls
             }
         }
 
-        private void btnStep1000_Click(object sender, EventArgs e)
+        private void cboStepPreset_SelectedIndexChanged(object sender, EventArgs e)
         {
-            try { numStepDistance.Value = 1000; } catch { } finally { }
+            try
+            {
+                string text = cboStepPreset.SelectedItem != null ? cboStepPreset.SelectedItem.ToString() : string.Empty;
+                decimal value;
+                if (!decimal.TryParse(text, NumberStyles.Number, CultureInfo.InvariantCulture, out value))
+                    return;
+
+                if (value <= 0)
+                    value = numStepDistance.Minimum;
+
+                if (value < numStepDistance.Minimum)
+                    value = numStepDistance.Minimum;
+                if (value > numStepDistance.Maximum)
+                    value = numStepDistance.Maximum;
+
+                numStepDistance.Value = value;
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Warning, "UI", "JOG-AXIS", "Step preset select failed: " + ex.Message);
+            }
+            finally
+            {
+            }
         }
 
-        private void btnStep100_Click(object sender, EventArgs e)
+        private void cboStepPreset_MouseWheel(object sender, MouseEventArgs e)
         {
-            try { numStepDistance.Value = 100; } catch { } finally { }
-        }
-
-        private void btnStep10_Click(object sender, EventArgs e)
-        {
-            try { numStepDistance.Value = 10; } catch { } finally { }
-        }
-
-        private void btnStep1_Click(object sender, EventArgs e)
-        {
-            try { numStepDistance.Value = 1; } catch { } finally { }
-        }
-
-        private void btnStepZero_Click(object sender, EventArgs e)
-        {
-            try { numStepDistance.Value = numStepDistance.Minimum; } catch { } finally { }
+            try
+            {
+                HandledMouseEventArgs handled = e as HandledMouseEventArgs;
+                if (handled != null)
+                    handled.Handled = true;
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
         }
 
         private void ApplyModeButtonStyles()
@@ -767,7 +1098,7 @@ namespace QMC.CDT_320.Ui.Controls
             try
             {
                 bool isStepMode = rdoStep.Checked;
-                foreach (Control control in new Control[] { numStepDistance, lblStepUnit, btnStep1000, btnStep100, btnStep10, btnStep1, btnStepZero })
+                foreach (Control control in new Control[] { numStepDistance, lblStepUnit, cboStepPreset })
                 {
                     control.Enabled = isStepMode;
                     control.ForeColor = isStepMode ? Color.FromArgb(30, 35, 40) : Color.FromArgb(130, 135, 140);

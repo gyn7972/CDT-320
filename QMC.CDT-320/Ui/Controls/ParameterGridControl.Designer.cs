@@ -49,7 +49,7 @@ namespace QMC.CDT_320.Ui.Controls
             headerStyle.SelectionForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(48)))), ((int)(((byte)(52)))), ((int)(((byte)(58)))));
             headerStyle.WrapMode = System.Windows.Forms.DataGridViewTriState.True;
             this.grid.ColumnHeadersDefaultCellStyle = headerStyle;
-            this.grid.ColumnHeadersHeight = 34;
+            this.grid.ColumnHeadersHeight = 28;
             this.grid.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
             this.grid.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
             this.colName,
@@ -64,7 +64,7 @@ namespace QMC.CDT_320.Ui.Controls
             this.grid.MultiSelect = false;
             this.grid.Name = "grid";
             this.grid.RowHeadersVisible = false;
-            this.grid.RowTemplate.Height = 38;
+            this.grid.RowTemplate.Height = 30;
             this.grid.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
             this.grid.Size = new System.Drawing.Size(640, 480);
             this.grid.TabIndex = 0;

@@ -282,8 +282,8 @@ namespace QMC.CDT320
                 return false;
             }
 
-            bool ex2 = await loader.MoveToExchangePositionAsync();
-            if (!ex2)
+            int ex2 = await loader.MoveToExchangePositionAsync();
+            if (ex2 != 0)
             {
                 AlarmManager.Raise(AlarmSeverity.Error, "LOT-EX",
                     loader.Name, "援먰솚 ?꾩튂 ?댁넚 ?ㅽ뙣.");
@@ -328,12 +328,12 @@ namespace QMC.CDT320
             try
             {
                 Log("[LOTPORT] InputStage handoff (LoadAndPrepare) ?쒖옉...");
-                bool handoff = await _machine.InputStage.LoadAndPrepareWaferAsync();
-                Log("[LOTPORT] InputStage handoff " + (handoff ? "OK" : "WARN"));
+                int handoff = await _machine.InputStage.LoadAndPrepareWaferAsync();
+                Log("[LOTPORT] InputStage handoff " + (handoff == 0 ? "OK" : "WARN"));
 
                 // Stage 58 ??臾몄꽌 ?뺥빀: InputStage ?쒗???ㅽ뙣 ??AlarmManager.Raise 蹂닿컯.
                 // (?댁쟾: Console.WriteLine 留???UI ?뚮엺 諛곕꼫/?덉뒪?좊━??誘몃컲??
-                if (!handoff)
+                if (handoff != 0)
                 {
                     AlarmManager.Raise(AlarmSeverity.Warning, "IS-LOAD",
                         _machine.InputStage.Name,
@@ -341,7 +341,7 @@ namespace QMC.CDT320
                     ErrorCount++;
                 }
 
-                if (handoff)
+                if (handoff == 0)
                 {
                     // ?쇰뜑 ?꾪눜 (?⑥씠?쇰뒗 ?대? InputStage 媛 ?↔퀬 ?덉쓬)
                     Log("[LOTPORT] ?쇰뜑 ?꾪눜 (InputStage ?⑤룆 ?묒뾽?쇰줈 ?꾪솚)...");
@@ -351,10 +351,10 @@ namespace QMC.CDT320
 
                     // VisionAlign + Origin ?뺤젙
                     Log("[INPUTSTAGE] VisionAlign ?쒖옉...");
-                    bool aligned = await _machine.InputStage.VisionAlignAndSetupOriginAsync();
-                    Log("[INPUTSTAGE] VisionAlign " + (aligned ? "OK" : "WARN (sim ?쒓퀎)"));
+                    int aligned = await _machine.InputStage.VisionAlignAndSetupOriginAsync();
+                    Log("[INPUTSTAGE] VisionAlign " + (aligned == 0 ? "OK" : "WARN (sim ?쒓퀎)"));
 
-                    if (!aligned)
+                    if (aligned != 0)
                     {
                         AlarmManager.Raise(AlarmSeverity.Warning, "IS-ALIGN",
                             _machine.InputStage.Name,
@@ -409,9 +409,9 @@ namespace QMC.CDT320
             try
             {
                 Log("[INPUTSTAGE] UnloadWafer ?쒖옉...");
-                bool ok = await _machine.InputStage.UnloadWaferAsync();
-                Log("[INPUTSTAGE] UnloadWafer " + (ok ? "OK" : "WARN"));
-                return ok;
+                int ok = await _machine.InputStage.UnloadWaferAsync();
+                Log("[INPUTSTAGE] UnloadWafer " + (ok == 0 ? "OK" : "WARN"));
+                return ok == 0;
             }
             catch (Exception ex)
             {
@@ -432,8 +432,8 @@ namespace QMC.CDT320
                 Log("[LOTPORT] Retract skipped ??feeder not at exchange position");
                 return true;
             }
-            bool ok = await loader.RetractFeederAsync();
-            if (!ok)
+            int ok = await loader.RetractFeederAsync();
+            if (ok != 0)
             {
                 AlarmManager.Raise(AlarmSeverity.Error, "LOT-RET",
                     loader.Name, "?쇰뜑 ?꾪눜 ?ㅽ뙣.");

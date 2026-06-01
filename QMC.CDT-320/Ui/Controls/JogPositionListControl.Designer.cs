@@ -6,6 +6,8 @@ namespace QMC.CDT_320.Ui.Controls
         private System.Windows.Forms.DataGridView grid;
         private System.Windows.Forms.DataGridViewTextBoxColumn colAxis;
         private System.Windows.Forms.DataGridViewTextBoxColumn colPosition;
+        private System.Windows.Forms.DataGridViewTextBoxColumn colAxis2;
+        private System.Windows.Forms.DataGridViewTextBoxColumn colPosition2;
 
         protected override void Dispose(bool disposing)
         {
@@ -25,6 +27,8 @@ namespace QMC.CDT_320.Ui.Controls
             this.grid = new System.Windows.Forms.DataGridView();
             this.colAxis = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.colPosition = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.colAxis2 = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.colPosition2 = new System.Windows.Forms.DataGridViewTextBoxColumn();
             ((System.ComponentModel.ISupportInitialize)(this.grid)).BeginInit();
             this.SuspendLayout();
             // 
@@ -41,7 +45,9 @@ namespace QMC.CDT_320.Ui.Controls
             this.grid.ColumnHeadersVisible = false;
             this.grid.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
             this.colAxis,
-            this.colPosition});
+            this.colPosition,
+            this.colAxis2,
+            this.colPosition2});
             this.grid.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grid.EnableHeadersVisualStyles = false;
             this.grid.Location = new System.Drawing.Point(0, 0);
@@ -51,7 +57,7 @@ namespace QMC.CDT_320.Ui.Controls
             this.grid.ReadOnly = true;
             this.grid.RowHeadersVisible = false;
             this.grid.RowHeadersWidth = 51;
-            this.grid.RowTemplate.Height = 34;
+            this.grid.RowTemplate.Height = 28;
             this.grid.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
             this.grid.Size = new System.Drawing.Size(343, 40);
             this.grid.TabIndex = 0;
@@ -75,6 +81,28 @@ namespace QMC.CDT_320.Ui.Controls
             this.colPosition.Name = "colPosition";
             this.colPosition.ReadOnly = true;
             this.colPosition.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            //
+            // colAxis2
+            //
+            this.colAxis2.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.Fill;
+            this.colAxis2.FillWeight = 45F;
+            this.colAxis2.HeaderText = "AXIS";
+            this.colAxis2.MinimumWidth = 6;
+            this.colAxis2.Name = "colAxis2";
+            this.colAxis2.ReadOnly = true;
+            this.colAxis2.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            this.colAxis2.Visible = false;
+            //
+            // colPosition2
+            //
+            this.colPosition2.AutoSizeMode = System.Windows.Forms.DataGridViewAutoSizeColumnMode.Fill;
+            this.colPosition2.FillWeight = 55F;
+            this.colPosition2.HeaderText = "POSITION";
+            this.colPosition2.MinimumWidth = 6;
+            this.colPosition2.Name = "colPosition2";
+            this.colPosition2.ReadOnly = true;
+            this.colPosition2.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            this.colPosition2.Visible = false;
             // 
             // JogPositionListControl
             // 

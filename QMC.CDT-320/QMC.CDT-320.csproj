@@ -204,6 +204,12 @@
     <Compile Include="Equipment\Unit\IonizerUnit.cs" />
     <Compile Include="Equipment\Unit\PostPnpTransferUnit.cs" />
     <Compile Include="Equipment\Plate.cs" />
+    <Compile Include="Ui\Pages\Recipe\InputStageRecipePage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\Recipe\InputStageRecipePage.Designer.cs">
+      <DependentUpon>InputStageRecipePage.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Pages\Settings\AxisSetupPage.Designer.cs">
       <DependentUpon>AxisSetupPage.cs</DependentUpon>
     </Compile>
@@ -773,6 +779,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\Recipe\ProjectPage.resx">
       <DependentUpon>ProjectPage.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\Recipe\InputStageRecipePage.resx">
+      <DependentUpon>InputStageRecipePage.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\Recipe\StageRecipePage.resx">
       <DependentUpon>StageRecipePage.cs</DependentUpon>

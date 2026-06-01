@@ -175,10 +175,10 @@
             // jogAxisMoveControl
             // 
             this.jogAxisMoveControl.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(246)))), ((int)(((byte)(248)))));
-            this.jogAxisMoveControl.ButtonAreaMaxHeight = 150;
-            this.jogAxisMoveControl.ButtonAreaMaxWidth = 270;
-            this.jogAxisMoveControl.ButtonAreaMinHeight = 120;
-            this.jogAxisMoveControl.ButtonAreaMinWidth = 250;
+            this.jogAxisMoveControl.ButtonAreaMaxHeight = 92;
+            this.jogAxisMoveControl.ButtonAreaMaxWidth = 160;
+            this.jogAxisMoveControl.ButtonAreaMinHeight = 72;
+            this.jogAxisMoveControl.ButtonAreaMinWidth = 132;
             this.jogAxisMoveControl.Dock = System.Windows.Forms.DockStyle.Fill;
             this.jogAxisMoveControl.Location = new System.Drawing.Point(0, 0);
             this.jogAxisMoveControl.Margin = new System.Windows.Forms.Padding(0);

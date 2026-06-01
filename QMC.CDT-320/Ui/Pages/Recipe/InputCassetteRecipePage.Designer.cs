@@ -97,6 +97,7 @@
             this.btnReadyMove = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnSlotLoadingMove = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnSlotUnloadingMove = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.btnMapping = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.grpIo = new System.Windows.Forms.GroupBox();
             this.ioCylinderPanel = new QMC.CDT_320.Ui.Controls.IoCylinderPanelControl();
             this.centerLayout = new System.Windows.Forms.TableLayoutPanel();
@@ -159,7 +160,6 @@
             this.lblWaitScanSettleVal = new System.Windows.Forms.Label();
             this.lblWaitMoveTimeoutKey = new System.Windows.Forms.Label();
             this.lblWaitMoveTimeoutVal = new System.Windows.Forms.Label();
-            this.btnMapping = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.rootLayout.SuspendLayout();
             this.contentLayout.SuspendLayout();
             this.leftLayout.SuspendLayout();
@@ -177,9 +177,9 @@
             this.optionRows.SuspendLayout();
             this.waitRows.SuspendLayout();
             this.SuspendLayout();
-            // 
+            //
             // rootLayout
-            // 
+            //
             this.rootLayout.ColumnCount = 1;
             this.rootLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.rootLayout.Controls.Add(this.lblHeader, 0, 0);
@@ -191,9 +191,9 @@
             this.rootLayout.RowCount = 2;
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.rootLayout.Size = new System.Drawing.Size(1694, 980);
+            this.rootLayout.Size = new System.Drawing.Size(1678, 900);
             this.rootLayout.TabIndex = 0;
-            // 
+            //
             // lblHeader
             // 
             this.lblHeader.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(45)))), ((int)(((byte)(45)))));
@@ -204,7 +204,7 @@
             this.lblHeader.Margin = new System.Windows.Forms.Padding(0);
             this.lblHeader.Name = "lblHeader";
             this.lblHeader.Padding = new System.Windows.Forms.Padding(18, 0, 0, 0);
-            this.lblHeader.Size = new System.Drawing.Size(1694, 30);
+            this.lblHeader.Size = new System.Drawing.Size(1678, 30);
             this.lblHeader.TabIndex = 0;
             this.lblHeader.Tag = "i18n:recipe.inputCassette";
             this.lblHeader.Text = "INPUT CASSETTE";
@@ -227,7 +227,7 @@
             this.contentLayout.Padding = new System.Windows.Forms.Padding(1);
             this.contentLayout.RowCount = 1;
             this.contentLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.contentLayout.Size = new System.Drawing.Size(1694, 950);
+            this.contentLayout.Size = new System.Drawing.Size(1678, 870);
             this.contentLayout.TabIndex = 1;
             // 
             // leftLayout
@@ -243,7 +243,7 @@
             this.leftLayout.RowCount = 2;
             this.leftLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 610F));
             this.leftLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.leftLayout.Size = new System.Drawing.Size(290, 948);
+            this.leftLayout.Size = new System.Drawing.Size(290, 868);
             this.leftLayout.TabIndex = 0;
             // 
             // grpActions
@@ -364,6 +364,20 @@
             this.btnSlotUnloadingMove.Text = "SLOT MOVE (UNLOADING)";
             this.btnSlotUnloadingMove.Click += new System.EventHandler(this.btnSlotUnloadingMove_Click);
             // 
+            // btnMapping
+            //
+            this.btnMapping.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnMapping.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnMapping.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnMapping.ForeColor = System.Drawing.Color.White;
+            this.btnMapping.Location = new System.Drawing.Point(12, 478);
+            this.btnMapping.Margin = new System.Windows.Forms.Padding(0, 0, 0, 10);
+            this.btnMapping.Name = "btnMapping";
+            this.btnMapping.Size = new System.Drawing.Size(260, 36);
+            this.btnMapping.TabIndex = 5;
+            this.btnMapping.Text = "Seq - Mapping";
+            this.btnMapping.Click += new System.EventHandler(this.btnMapping_Click);
+            //
             // grpIo
             // 
             this.grpIo.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(245)))), ((int)(((byte)(245)))));
@@ -373,7 +387,7 @@
             this.grpIo.Location = new System.Drawing.Point(0, 610);
             this.grpIo.Margin = new System.Windows.Forms.Padding(0);
             this.grpIo.Name = "grpIo";
-            this.grpIo.Size = new System.Drawing.Size(290, 338);
+            this.grpIo.Size = new System.Drawing.Size(290, 258);
             this.grpIo.TabIndex = 1;
             this.grpIo.TabStop = false;
             this.grpIo.Text = "CYLINDER && I/O";
@@ -385,7 +399,7 @@
             this.ioCylinderPanel.Location = new System.Drawing.Point(3, 26);
             this.ioCylinderPanel.Margin = new System.Windows.Forms.Padding(0);
             this.ioCylinderPanel.Name = "ioCylinderPanel";
-            this.ioCylinderPanel.Size = new System.Drawing.Size(284, 309);
+            this.ioCylinderPanel.Size = new System.Drawing.Size(284, 229);
             this.ioCylinderPanel.TabIndex = 0;
             // 
             // centerLayout
@@ -401,7 +415,7 @@
             this.centerLayout.RowCount = 2;
             this.centerLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 610F));
             this.centerLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.centerLayout.Size = new System.Drawing.Size(710, 948);
+            this.centerLayout.Size = new System.Drawing.Size(694, 868);
             this.centerLayout.TabIndex = 1;
             // 
             // grpWait
@@ -413,7 +427,7 @@
             this.grpWait.Location = new System.Drawing.Point(0, 610);
             this.grpWait.Margin = new System.Windows.Forms.Padding(0);
             this.grpWait.Name = "grpWait";
-            this.grpWait.Size = new System.Drawing.Size(710, 338);
+            this.grpWait.Size = new System.Drawing.Size(694, 258);
             this.grpWait.TabIndex = 1;
             this.grpWait.TabStop = false;
             this.grpWait.Text = "WAIT TIME";
@@ -425,7 +439,7 @@
             this.waitParameterGrid.Location = new System.Drawing.Point(3, 26);
             this.waitParameterGrid.Margin = new System.Windows.Forms.Padding(0);
             this.waitParameterGrid.Name = "waitParameterGrid";
-            this.waitParameterGrid.Size = new System.Drawing.Size(704, 309);
+            this.waitParameterGrid.Size = new System.Drawing.Size(688, 229);
             this.waitParameterGrid.TabIndex = 0;
             // 
             // grpOptions
@@ -437,7 +451,7 @@
             this.grpOptions.Location = new System.Drawing.Point(0, 0);
             this.grpOptions.Margin = new System.Windows.Forms.Padding(0, 0, 0, 6);
             this.grpOptions.Name = "grpOptions";
-            this.grpOptions.Size = new System.Drawing.Size(710, 604);
+            this.grpOptions.Size = new System.Drawing.Size(694, 604);
             this.grpOptions.TabIndex = 0;
             this.grpOptions.TabStop = false;
             this.grpOptions.Text = "OPTION";
@@ -449,7 +463,7 @@
             this.optionParameterGrid.Location = new System.Drawing.Point(3, 26);
             this.optionParameterGrid.Margin = new System.Windows.Forms.Padding(0);
             this.optionParameterGrid.Name = "optionParameterGrid";
-            this.optionParameterGrid.Size = new System.Drawing.Size(704, 575);
+            this.optionParameterGrid.Size = new System.Drawing.Size(688, 575);
             this.optionParameterGrid.TabIndex = 0;
             // 
             // rightLayout
@@ -460,12 +474,12 @@
             this.rightLayout.Controls.Add(this.grpJog, 0, 0);
             this.rightLayout.Controls.Add(this.grpSpeed, 1, 0);
             this.rightLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.rightLayout.Location = new System.Drawing.Point(1013, 1);
+            this.rightLayout.Location = new System.Drawing.Point(997, 1);
             this.rightLayout.Margin = new System.Windows.Forms.Padding(0);
             this.rightLayout.Name = "rightLayout";
             this.rightLayout.RowCount = 1;
             this.rightLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.rightLayout.Size = new System.Drawing.Size(680, 948);
+            this.rightLayout.Size = new System.Drawing.Size(680, 868);
             this.rightLayout.TabIndex = 2;
             // 
             // grpJog
@@ -477,7 +491,7 @@
             this.grpJog.Location = new System.Drawing.Point(0, 0);
             this.grpJog.Margin = new System.Windows.Forms.Padding(0, 0, 6, 0);
             this.grpJog.Name = "grpJog";
-            this.grpJog.Size = new System.Drawing.Size(554, 948);
+            this.grpJog.Size = new System.Drawing.Size(554, 868);
             this.grpJog.TabIndex = 0;
             this.grpJog.TabStop = false;
             this.grpJog.Text = "JOG";
@@ -495,7 +509,7 @@
             this.jogCompositeLayout.RowCount = 2;
             this.jogCompositeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 62F));
             this.jogCompositeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.jogCompositeLayout.Size = new System.Drawing.Size(548, 919);
+            this.jogCompositeLayout.Size = new System.Drawing.Size(548, 839);
             this.jogCompositeLayout.TabIndex = 0;
             // 
             // jogPositionListControl
@@ -517,6 +531,7 @@
             this.jogAxisMoveControl.Location = new System.Drawing.Point(0, 62);
             this.jogAxisMoveControl.Margin = new System.Windows.Forms.Padding(0);
             this.jogAxisMoveControl.Name = "jogAxisMoveControl";
+            this.jogAxisMoveControl.ShowCurrentSpeedMode = true;
             this.jogAxisMoveControl.Size = new System.Drawing.Size(548, 516);
             this.jogAxisMoveControl.SpeedControl = null;
             this.jogAxisMoveControl.TabIndex = 1;
@@ -530,7 +545,7 @@
             this.grpSpeed.Location = new System.Drawing.Point(560, 0);
             this.grpSpeed.Margin = new System.Windows.Forms.Padding(0);
             this.grpSpeed.Name = "grpSpeed";
-            this.grpSpeed.Size = new System.Drawing.Size(120, 948);
+            this.grpSpeed.Size = new System.Drawing.Size(120, 868);
             this.grpSpeed.TabIndex = 1;
             this.grpSpeed.TabStop = false;
             this.grpSpeed.Text = "SPEED";
@@ -1108,20 +1123,6 @@
             this.lblWaitMoveTimeoutVal.TabIndex = 3;
             this.lblWaitMoveTimeoutVal.Text = "10000 ms";
             this.lblWaitMoveTimeoutVal.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // btnMapping
-            // 
-            this.btnMapping.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnMapping.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnMapping.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.btnMapping.ForeColor = System.Drawing.Color.White;
-            this.btnMapping.Location = new System.Drawing.Point(12, 478);
-            this.btnMapping.Margin = new System.Windows.Forms.Padding(0, 0, 0, 10);
-            this.btnMapping.Name = "btnMapping";
-            this.btnMapping.Size = new System.Drawing.Size(260, 36);
-            this.btnMapping.TabIndex = 5;
-            this.btnMapping.Text = "Seq - Mapping";
-            this.btnMapping.Click += new System.EventHandler(this.btnMapping_Click);
             // 
             // InputCassetteRecipePage
             // 
