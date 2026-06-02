@@ -85,6 +85,14 @@ namespace QMC.Vision.Ui.Pages
             _gridCtrl.Columns.Add(Col("ChannelCount", "Ch수"));
             _gridCtrl.Columns.Add(Col("PageCount", "Page수"));
             _gridCtrl.Columns.Add(Col("MaxPower", "MaxPwr"));
+            // Stage 77 — Vendor 콤보 (LFine/Leesos). 컬렉션 끝(index 6)에 추가하되 DisplayIndex 로 PortName 옆 표시
+            //   → 기존 인덱스 기반 셀 접근(Cells[0], IntOf(r,2..5)) 보존.
+            var colVendor = new DataGridViewComboBoxColumn { Name = "Vendor", HeaderText = "Vendor", FlatStyle = FlatStyle.Flat };
+            colVendor.Items.Add("LFine"); colVendor.Items.Add("Leesos");
+            _gridCtrl.Columns.Add(colVendor);
+            colVendor.DisplayIndex = 1;
+            _gridCtrl.DataError += (s, e) => { e.ThrowException = false; };   // 콤보 외 값 입력 예외 방지
+            _gridCtrl.CellEndEdit += GridCtrl_VendorCellEndEdit;              // Vendor 변경 시 기본값 제안
             _gridCtrl.SelectionChanged += (s, e) => BindLabelsForSelectedController();
             // Stage 70 A — Delete 키로 컨트롤러 삭제
             _gridCtrl.KeyDown += (s, e) => { if (e.KeyCode == Keys.Delete) { DeleteController(); e.Handled = true; } };
@@ -155,7 +163,8 @@ namespace QMC.Vision.Ui.Pages
             _gridCtrl.Rows.Clear();
             foreach (var c in setup.Controllers)
             {
-                _gridCtrl.Rows.Add(c.PortName, c.Name, c.BaudRate, c.ChannelCount, c.PageCount, c.MaxPower);
+                _gridCtrl.Rows.Add(c.PortName, c.Name, c.BaudRate, c.ChannelCount, c.PageCount, c.MaxPower,
+                                   string.IsNullOrEmpty(c.Vendor) ? "LFine" : c.Vendor);
                 if (!string.IsNullOrEmpty(c.PortName))
                     _labelCache[c.PortName] = CloneLabels(c.ChannelLabels);
             }
@@ -384,9 +393,11 @@ namespace QMC.Vision.Ui.Pages
                 // 채널 라벨: 캐시(단일 진실원) → ChannelCount 로 reconcile (캐시 미스 시 store fallback)
                 _labelCache.TryGetValue(port, out var cached);
                 if (cached == null) cached = LightSystemSetupStore.Current.GetController(port)?.ChannelLabels;
+                string vendor = r.Cells["Vendor"].Value?.ToString()?.Trim();
+                if (string.IsNullOrEmpty(vendor)) vendor = "LFine";
                 setup.Controllers.Add(new LightControllerEntry
                 {
-                    PortName = port, Name = Str(r, 1),
+                    PortName = port, Vendor = vendor, Name = Str(r, 1),
                     BaudRate = IntOf(r, 2, 9600), ChannelCount = chCount,
                     PageCount = IntOf(r, 4, 1), MaxPower = IntOf(r, 5, 240),
                     ChannelLabels = ReconcileLabels(cached, chCount)
@@ -416,9 +427,29 @@ namespace QMC.Vision.Ui.Pages
             SetStatus("저장 완료 — " + LightSystemSetupStore.Path_, false);
         }
 
+        /// <summary>Stage 77 — Vendor 변경 시 벤더 특성에 맞춰 PageCount/MaxPower 보정.</summary>
+        private void GridCtrl_VendorCellEndEdit(object sender, DataGridViewCellEventArgs e)
+        {
+            if (e.RowIndex < 0 || _gridCtrl.Columns[e.ColumnIndex].Name != "Vendor") return;
+            var row = _gridCtrl.Rows[e.RowIndex];
+            string vendor = row.Cells["Vendor"].Value?.ToString();
+            if (string.Equals(vendor, "Leesos", StringComparison.OrdinalIgnoreCase))
+            {
+                row.Cells["PageCount"].Value = 1;   // Leesos 는 Page 미지원
+                if (!int.TryParse(row.Cells["MaxPower"].Value?.ToString(), out int mp) || mp <= 0 || mp > 255)
+                    row.Cells["MaxPower"].Value = 255;   // Volume 0~255
+                SetStatus("Vendor=Leesos — Page 미지원(1) / MaxPwr 0~255 (응답형: Strobe 미사용)", false);
+            }
+            else if (string.Equals(vendor, "LFine", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!int.TryParse(row.Cells["MaxPower"].Value?.ToString(), out int mp) || mp <= 0)
+                    row.Cells["MaxPower"].Value = 240;
+            }
+        }
+
         private void AddController()
         {
-            _gridCtrl.Rows.Add("COM?", "Illuminator", 9600, 8, 1, 240);
+            _gridCtrl.Rows.Add("COM?", "Illuminator", 9600, 8, 1, 240, "LFine");   // Stage 77 — 기본 Vendor LFine
             SetStatus("컨트롤러 행 추가 — PortName 수정 후 저장", false);
         }
 

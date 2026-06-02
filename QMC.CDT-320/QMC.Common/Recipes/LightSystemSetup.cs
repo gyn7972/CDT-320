@@ -74,6 +74,9 @@ namespace QMC.Common.Recipes
     public class LightControllerEntry
     {
         [DataMember] public string PortName     { get; set; }          // 자연키(FK), 유일
+        // Stage 77 — 벤더 ("LFine" | "Leesos"). 기본 "LFine".
+        // DataContract 이니셜라이저는 역직렬화 때 실행되지 않으므로 OnDeserializing 으로 기본값 주입.
+        [DataMember(EmitDefaultValue = false)] public string Vendor { get; set; } = "LFine";
         [DataMember] public string Name         { get; set; } = "";    // 사람용 라벨
         [DataMember] public int    BaudRate     { get; set; } = 9600;
         [DataMember] public int    ChannelCount { get; set; } = 8;
@@ -82,11 +85,14 @@ namespace QMC.Common.Recipes
         [DataMember] public int    MaxOnTimeUs  { get; set; } = 999;
         [DataMember] public List<LightChannelLabel> ChannelLabels { get; set; } = new List<LightChannelLabel>();
 
+        [OnDeserializing] internal void OnDeserializing(StreamingContext c) { Vendor = "LFine"; }
+        [OnDeserialized]  internal void OnDeserialized (StreamingContext c) { if (string.IsNullOrEmpty(Vendor)) Vendor = "LFine"; }
+
         public LightControllerEntry Clone()
         {
             var c = new LightControllerEntry
             {
-                PortName = PortName, Name = Name, BaudRate = BaudRate, ChannelCount = ChannelCount,
+                PortName = PortName, Vendor = Vendor, Name = Name, BaudRate = BaudRate, ChannelCount = ChannelCount,
                 PageCount = PageCount, MaxPower = MaxPower, MaxOnTimeUs = MaxOnTimeUs,
                 ChannelLabels = new List<LightChannelLabel>()
             };

@@ -19,7 +19,8 @@ namespace QMC.Vision.Comm
 
         public static event Action<string> Log;
 
-        /// <summary>Setup 의 컨트롤러들을 인스턴스화하여 등록. useSim 시 전부 Sim.</summary>
+        /// <summary>Setup 의 컨트롤러들을 인스턴스화하여 등록. useSim 시 전부 Sim.
+        /// Stage 77 — entry.Vendor 로 벤더별 컨트롤러 생성 (Factory 가 분기).</summary>
         public static void Initialize(LightSystemSetup setup, bool useSim)
         {
             DisposeAll();
@@ -27,17 +28,9 @@ namespace QMC.Vision.Comm
             foreach (var entry in setup.Controllers)
             {
                 if (string.IsNullOrEmpty(entry.PortName)) continue;
-                var cfg = new LFineLightConfig
-                {
-                    PortName     = entry.PortName,
-                    BaudRate     = entry.BaudRate,
-                    MaxPower     = entry.MaxPower,
-                    MaxOnTimeUs  = entry.MaxOnTimeUs,
-                    ChannelCount = entry.ChannelCount
-                };
-                ILightController ctrl = LightControllerFactory.Create(cfg, useSim);
+                ILightController ctrl = LightControllerFactory.Create(entry, useSim);
                 _byPort[entry.PortName] = ctrl;
-                Emit($"register {entry.PortName} ({ctrl.GetType().Name})");
+                Emit($"register {entry.PortName} [{entry.Vendor}] ({ctrl.GetType().Name})");
             }
         }
 

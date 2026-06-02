@@ -117,6 +117,9 @@
     <Compile Include="Optics\LFine\LFineLightConfig.cs" />
     <Compile Include="Optics\LFine\LFineProtocol.cs" />
     <Compile Include="Optics\LFine\LFineLightController.cs" />
+    <Compile Include="Optics\Leesos\LeesosLightConfig.cs" />
+    <Compile Include="Optics\Leesos\LeesosProtocol.cs" />
+    <Compile Include="Optics\Leesos\LeesosLightController.cs" />
     <Compile Include="Comm\LightHub.cs" />
     <Compile Include="Ui\Pages\LightSystemSetupPage.cs">
       <SubType>UserControl</SubType>

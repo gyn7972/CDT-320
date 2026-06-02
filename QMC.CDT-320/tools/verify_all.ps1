@@ -156,6 +156,16 @@ Add-Row "STAGE70" "Setup: 컨트롤러 삭제 + ChannelCount 동기 + Controller
 $acsP = Join-Path $Root "QMC.Common\Recipes\AlgorithmCameraSubset.cs"
 Add-Row "STAGE70" "Wiring.Page → Setting.Page 마이그레이션" (Test-Greps $acsP @('MigrateWiringPageToSettings')) $acsP
 
+# Stage 77 — LeesOS 2차 벤더
+$leeCtrl  = Join-Path $Root "QMC.Vision\Optics\Leesos\LeesosLightController.cs"
+$leeProto = Join-Path $Root "QMC.Vision\Optics\Leesos\LeesosProtocol.cs"
+$leeCfg   = Join-Path $Root "QMC.Vision\Optics\Leesos\LeesosLightConfig.cs"
+Add-Row "STAGE77" "Leesos Controller/Protocol/Config 존재" ((Test-Path $leeCtrl) -and (Test-Path $leeProto) -and (Test-Path $leeCfg)) "leesos"
+Add-Row "STAGE77" "LeesosProtocol LH/LC/LS 명령 빌더" (Test-Greps $leeProto @('BuildVolumeCommand','BuildOnOffCommand','BuildStatusCommand','"LC"','"LH"','"LS"')) $leeProto
+Add-Row "STAGE77" "LightControllerEntry.Vendor + 마이그레이션" (Test-Greps $lsetup @('string Vendor','OnDeserializing')) $lsetup
+$lfac = Join-Path $Root "QMC.Vision\Optics\LightControllerFactory.cs"
+Add-Row "STAGE77" "Factory 벤더 분기 (Leesos) + entry 시그니처" (Test-Greps $lfac @('case "Leesos"','Create\(LightControllerEntry','ToLeesosConfig')) $lfac
+
 # ── 출력 ──
 $bar = "=" * 110
 Write-Output $bar
