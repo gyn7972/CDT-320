@@ -77,6 +77,8 @@ namespace QMC.Common.Recipes
         // Stage 77 — 벤더 ("LFine" | "Leesos"). 기본 "LFine".
         // DataContract 이니셜라이저는 역직렬화 때 실행되지 않으므로 OnDeserializing 으로 기본값 주입.
         [DataMember(EmitDefaultValue = false)] public string Vendor { get; set; } = "LFine";
+        // Stage 79 — 동작 모드. 기본 StrobeOnCommand(가장 안전 — 캐시 skip 안 함).
+        [DataMember(EmitDefaultValue = false)] public LightControllerMode Mode { get; set; } = LightControllerMode.StrobeOnCommand;
         [DataMember] public string Name         { get; set; } = "";    // 사람용 라벨
         [DataMember] public int    BaudRate     { get; set; } = 9600;
         [DataMember] public int    ChannelCount { get; set; } = 8;
@@ -85,14 +87,15 @@ namespace QMC.Common.Recipes
         [DataMember] public int    MaxOnTimeUs  { get; set; } = 999;
         [DataMember] public List<LightChannelLabel> ChannelLabels { get; set; } = new List<LightChannelLabel>();
 
-        [OnDeserializing] internal void OnDeserializing(StreamingContext c) { Vendor = "LFine"; }
+        // Stage 79 — 구버전 JSON 에 키 없으면 Vendor=LFine, Mode=StrobeOnCommand(안전치) 주입.
+        [OnDeserializing] internal void OnDeserializing(StreamingContext c) { Vendor = "LFine"; Mode = LightControllerMode.StrobeOnCommand; }
         [OnDeserialized]  internal void OnDeserialized (StreamingContext c) { if (string.IsNullOrEmpty(Vendor)) Vendor = "LFine"; }
 
         public LightControllerEntry Clone()
         {
             var c = new LightControllerEntry
             {
-                PortName = PortName, Vendor = Vendor, Name = Name, BaudRate = BaudRate, ChannelCount = ChannelCount,
+                PortName = PortName, Vendor = Vendor, Mode = Mode, Name = Name, BaudRate = BaudRate, ChannelCount = ChannelCount,
                 PageCount = PageCount, MaxPower = MaxPower, MaxOnTimeUs = MaxOnTimeUs,
                 ChannelLabels = new List<LightChannelLabel>()
             };

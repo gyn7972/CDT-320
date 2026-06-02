@@ -18,8 +18,8 @@ namespace QMC.Vision.Optics.Leesos
         [DataMember] public string Parity       { get; set; } = "None";
         [DataMember] public string Handshake    { get; set; } = "None";
         [DataMember] public int    TimeoutMs    { get; set; } = 1000;    // 응답형 → 적용됨
-        [DataMember] public int    MaxPower     { get; set; } = 255;     // hex 2자리이므로 0~255
-        [DataMember] public int    ChannelCount { get; set; } = 8;
+        [DataMember] public int    MaxPower     { get; set; } = 4095;    // 12-bit (000~FFF)
+        [DataMember] public int    ChannelCount { get; set; } = 4;       // LPD-6524-4CH 기본 (2CH 모델은 사용자 변경)
         [DataMember] public List<LeesosChannel> Channels { get; set; } = new List<LeesosChannel>();
 
         public LeesosLightConfig Clone()

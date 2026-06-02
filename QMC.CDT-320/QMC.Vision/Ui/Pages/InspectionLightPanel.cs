@@ -230,10 +230,12 @@ namespace QMC.Vision.Ui.Pages
             try
             {
                 int applied = 0;
-                // Page 별로 그룹핑하여 페이지 전환 회수 최소화.
+                // Stage 79 — Page 별로 채널 배열을 만들어 SetChannelBatchAsync 1회 (LFine=SP 1프레임 → tact-time).
+                //   On=false 또는 Level 0 = OFF(times 0)로 일원화.
                 foreach (var grp in ov.Settings.GroupBy(s => s.Page).OrderBy(g => g.Key))
                 {
                     await ctrl.SwitchPageAsync(grp.Key);
+                    int[] times = new int[ctrl.ChannelCount];   // 0 = OFF
                     foreach (var s in grp)
                     {
                         if (!w.Channels.Contains(s.Channel))
@@ -241,11 +243,11 @@ namespace QMC.Vision.Ui.Pages
                             AlarmManager.Raise(AlarmSeverity.Warning, "LIGHT-CHANNEL-OUT-OF-POOL", "Light/" + _algorithm, $"ch{s.Channel} not in pool");
                             continue;
                         }
-                        await ctrl.SetPowerAsync(s.Channel, s.Level);
-                        await ctrl.SetOnOffAsync(s.Channel, s.On);
-                        if (s.StrobeTimeUs > 0) await ctrl.SetStrobeTimeAsync(s.Channel, s.StrobeTimeUs);
-                        if (s.Level > 0) applied++;
+                        if (s.Channel >= 1 && s.Channel <= ctrl.ChannelCount)
+                            times[s.Channel - 1] = s.On ? s.Level : 0;
+                        if (s.On && s.Level > 0) applied++;
                     }
+                    await ctrl.SetChannelBatchAsync(grp.Key, times);
                 }
 
                 // Stage 75 — 적용 후 응답 수신(검증용). 무응답/타임아웃이면 표시만.

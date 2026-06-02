@@ -91,8 +91,13 @@ namespace QMC.Vision.Ui.Pages
             colVendor.Items.Add("LFine"); colVendor.Items.Add("Leesos");
             _gridCtrl.Columns.Add(colVendor);
             colVendor.DisplayIndex = 1;
+            // Stage 79 — Mode 콤보 (캐시 정책). 컬렉션 끝(index 7) + DisplayIndex 2 로 Vendor 옆 표시.
+            var colMode = new DataGridViewComboBoxColumn { Name = "Mode", HeaderText = "Mode", FlatStyle = FlatStyle.Flat };
+            colMode.Items.Add("Continuous"); colMode.Items.Add("StrobeExternal"); colMode.Items.Add("StrobeOnCommand");
+            _gridCtrl.Columns.Add(colMode);
+            colMode.DisplayIndex = 2;
             _gridCtrl.DataError += (s, e) => { e.ThrowException = false; };   // 콤보 외 값 입력 예외 방지
-            _gridCtrl.CellEndEdit += GridCtrl_VendorCellEndEdit;              // Vendor 변경 시 기본값 제안
+            _gridCtrl.CellEndEdit += GridCtrl_VendorCellEndEdit;              // Vendor/Mode 변경 시 보정
             _gridCtrl.SelectionChanged += (s, e) => BindLabelsForSelectedController();
             // Stage 70 A — Delete 키로 컨트롤러 삭제
             _gridCtrl.KeyDown += (s, e) => { if (e.KeyCode == Keys.Delete) { DeleteController(); e.Handled = true; } };
@@ -164,7 +169,7 @@ namespace QMC.Vision.Ui.Pages
             foreach (var c in setup.Controllers)
             {
                 _gridCtrl.Rows.Add(c.PortName, c.Name, c.BaudRate, c.ChannelCount, c.PageCount, c.MaxPower,
-                                   string.IsNullOrEmpty(c.Vendor) ? "LFine" : c.Vendor);
+                                   string.IsNullOrEmpty(c.Vendor) ? "LFine" : c.Vendor, c.Mode.ToString());
                 if (!string.IsNullOrEmpty(c.PortName))
                     _labelCache[c.PortName] = CloneLabels(c.ChannelLabels);
             }
@@ -395,9 +400,11 @@ namespace QMC.Vision.Ui.Pages
                 if (cached == null) cached = LightSystemSetupStore.Current.GetController(port)?.ChannelLabels;
                 string vendor = r.Cells["Vendor"].Value?.ToString()?.Trim();
                 if (string.IsNullOrEmpty(vendor)) vendor = "LFine";
+                if (!Enum.TryParse(r.Cells["Mode"].Value?.ToString(), out LightControllerMode mode))
+                    mode = LightControllerMode.StrobeOnCommand;
                 setup.Controllers.Add(new LightControllerEntry
                 {
-                    PortName = port, Vendor = vendor, Name = Str(r, 1),
+                    PortName = port, Vendor = vendor, Mode = mode, Name = Str(r, 1),
                     BaudRate = IntOf(r, 2, 9600), ChannelCount = chCount,
                     PageCount = IntOf(r, 4, 1), MaxPower = IntOf(r, 5, 240),
                     ChannelLabels = ReconcileLabels(cached, chCount)
@@ -427,29 +434,42 @@ namespace QMC.Vision.Ui.Pages
             SetStatus("저장 완료 — " + LightSystemSetupStore.Path_, false);
         }
 
-        /// <summary>Stage 77 — Vendor 변경 시 벤더 특성에 맞춰 PageCount/MaxPower 보정.</summary>
+        /// <summary>Stage 77/79 — Vendor 변경 시 벤더 특성에 맞춰 Mode/PageCount/MaxPower 보정.</summary>
         private void GridCtrl_VendorCellEndEdit(object sender, DataGridViewCellEventArgs e)
         {
-            if (e.RowIndex < 0 || _gridCtrl.Columns[e.ColumnIndex].Name != "Vendor") return;
+            if (e.RowIndex < 0) return;
+            string col = _gridCtrl.Columns[e.ColumnIndex].Name;
+            if (col == "Mode") { ApplyModeLabel(_gridCtrl.Rows[e.RowIndex]); return; }
+            if (col != "Vendor") return;
             var row = _gridCtrl.Rows[e.RowIndex];
             string vendor = row.Cells["Vendor"].Value?.ToString();
             if (string.Equals(vendor, "Leesos", StringComparison.OrdinalIgnoreCase))
             {
-                row.Cells["PageCount"].Value = 1;   // Leesos 는 Page 미지원
-                if (!int.TryParse(row.Cells["MaxPower"].Value?.ToString(), out int mp) || mp <= 0 || mp > 255)
-                    row.Cells["MaxPower"].Value = 255;   // Volume 0~255
-                SetStatus("Vendor=Leesos — Page 미지원(1) / MaxPwr 0~255 (응답형: Strobe 미사용)", false);
+                // Leesos: Page 미지원(1), Mode=Continuous 고정(readonly), Volume 12-bit(0~4095)
+                row.Cells["PageCount"].Value = 1;
+                row.Cells["Mode"].Value = "Continuous";
+                row.Cells["Mode"].ReadOnly = true;
+                if (!int.TryParse(row.Cells["MaxPower"].Value?.ToString(), out int mp) || mp <= 0 || mp > 4095 || mp == 240)
+                    row.Cells["MaxPower"].Value = 4095;
+                SetStatus("Vendor=Leesos — Page 미지원(1) / Mode=Continuous 고정 / MaxPwr 0~4095 (12-bit, Strobe 미사용)", false);
             }
             else if (string.Equals(vendor, "LFine", StringComparison.OrdinalIgnoreCase))
             {
+                row.Cells["Mode"].ReadOnly = false;
                 if (!int.TryParse(row.Cells["MaxPower"].Value?.ToString(), out int mp) || mp <= 0)
                     row.Cells["MaxPower"].Value = 240;
             }
         }
 
+        private void ApplyModeLabel(DataGridViewRow row)
+        {
+            if (string.Equals(row.Cells["Mode"].Value?.ToString(), "StrobeOnCommand", StringComparison.OrdinalIgnoreCase))
+                SetStatus("Mode=StrobeOnCommand — 캐시 skip 안 함(매 호출이 발사 트리거). 같은 검사 반복 시 매번 송신.", false);
+        }
+
         private void AddController()
         {
-            _gridCtrl.Rows.Add("COM?", "Illuminator", 9600, 8, 1, 240, "LFine");   // Stage 77 — 기본 Vendor LFine
+            _gridCtrl.Rows.Add("COM?", "Illuminator", 9600, 8, 1, 240, "LFine", "StrobeOnCommand");   // Stage 77/79 — 기본 Vendor/Mode
             SetStatus("컨트롤러 행 추가 — PortName 수정 후 저장", false);
         }
 

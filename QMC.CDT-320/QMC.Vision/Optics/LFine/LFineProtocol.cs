@@ -26,10 +26,10 @@ namespace QMC.Vision.Optics.LFine
         public const string PageOnTimeText    = "SP";
         public const string ChannelOnTimeText = "SC";
 
-        /// <summary>단일 채널 on-time 명령 payload — 예 page=1,ch=3,time=50 → "SC0103;050".
+        /// <summary>단일 채널 on-time 명령 payload — 예 page=1,ch=3,time=50 → "SC0103;050", 채널 번호(“00” ~ “15”).
         /// (레퍼런스 GetChannelOnTimeCommand 와 동일: time 은 그대로 3자리.)</summary>
         public static string BuildChannelOnTimeCommand(int page, int channel, int time)
-            => string.Format("{0}{1:00}{2:00};{3:000}", ChannelOnTimeText, page, channel, time);
+            => string.Format("{0}{1:00}{2:00};{3:000}", ChannelOnTimeText, page, channel > 0 ? channel - 1 : 0, time);
 
         /// <summary>페이지 전체(다채널) on-time 명령 payload — 예 page=1,times=[500,0,..] → "SP0100;050;000;..".
         /// (레퍼런스 GetPageOnTimeCommand 와 동일: 채널 값은 <b>time/10</b> 3자리.)</summary>

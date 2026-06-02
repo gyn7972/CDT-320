@@ -166,6 +166,15 @@ Add-Row "STAGE77" "LightControllerEntry.Vendor + 마이그레이션" (Test-Greps
 $lfac = Join-Path $Root "QMC.Vision\Optics\LightControllerFactory.cs"
 Add-Row "STAGE77" "Factory 벤더 분기 (Leesos) + entry 시그니처" (Test-Greps $lfac @('case "Leesos"','Create\(LightControllerEntry','ToLeesosConfig')) $lfac
 
+# Stage 79 — batch + Mode + Leesos 매뉴얼 정정
+$lmode = Join-Path $Root "QMC.Common\Recipes\LightControllerMode.cs"
+Add-Row "STAGE79" "LightControllerMode enum (3값)" (Test-Greps $lmode @('Continuous','StrobeExternal','StrobeOnCommand')) $lmode
+Add-Row "STAGE79" "ILightController.Mode + SetChannelBatchAsync" (Test-Greps $lifc @('LightControllerMode Mode','SetChannelBatchAsync')) $lifc
+Add-Row "STAGE79" "LightControllerEntry.Mode + 마이그레이션 기본" (Test-Greps $lsetup @('LightControllerMode Mode','Mode = LightControllerMode.StrobeOnCommand')) $lsetup
+Add-Row "STAGE79" "LFine SetChannelBatchAsync (SP 1프레임 + Mode skip)" (Test-Greps $lfctrl @('SetChannelBatchAsync','PageOnTimeFrame','StrobeOnCommand')) $lfctrl
+Add-Row "STAGE79" "Leesos 매뉴얼 정정 (12-bit X3 / A~G,T / ER)" (Test-Greps $leeProto @('EncodeChannel','BuildVolumeAllCommand','X3','ErrText\s*=\s*"ER"')) $leeProto
+Add-Row "STAGE79" "InspectionLightPanel batch 적용" (Test-Greps $lpanel @('SetChannelBatchAsync')) $lpanel
+
 # ── 출력 ──
 $bar = "=" * 110
 Write-Output $bar
