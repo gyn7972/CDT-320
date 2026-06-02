@@ -32,10 +32,13 @@ namespace QMC.CDT320
         private QMC.CDT320.Sequencing.MachineSequenceContext _seqContext;
         private QMC.CDT320.Sequencing.AutoSequenceCoordinator _coordinator;
         private int _manualBusyCount;
+        private bool _isMachineInitialized;
+        private bool _isDeveloperReadyRestored;
 
         public event Action<EquipmentStatus> StatusChanged;
         public event Action<string>        LogMessage;
         public event Action<int, int>      CycleProgress;  // (done, total)
+        public event Action<bool>          MachineInitializedChanged;
 
         /// <summary>CDT-320 ?섎뱶?⑥뼱 ?좊떅 ?몃━?낅땲??</summary>
         public CDT320_Machine Machine => _machine;
@@ -43,6 +46,11 @@ namespace QMC.CDT320
         public EquipmentStatus Status => _status;
         public bool IsManualBusy => Volatile.Read(ref _manualBusyCount) > 0;
         public bool IsSequenceRunning => _coordinatorTask != null && !_coordinatorTask.IsCompleted;
+        public bool IsMachineInitialized => _isMachineInitialized;
+        public bool IsDeveloperReadyRestored => _isDeveloperReadyRestored;
+        public DateTime MachineInitializedAt { get; private set; }
+        public string LastActionFailureMessage { get; private set; }
+        public bool CanRunEquipment => IsMachineInitialized && _status != EquipmentStatus.Alarm && !IsSequenceRunning;
         public QMC.CDT320.Sequencing.SequenceRunMode? ActiveSequenceRunMode { get; private set; }
         public int CycleTotal  { get; private set; }
         public int CycleDone   { get; private set; }
@@ -192,6 +200,297 @@ namespace QMC.CDT320
         public MachineController(CDT320_Machine machine)
         {
             _machine = machine ?? throw new ArgumentNullException(nameof(machine));
+        }
+
+        public void ApplyStartupMachineRuntimeState(AppSettings settings)
+        {
+            try
+            {
+                settings = settings ?? AppSettingsStore.Current ?? AppSettingsStore.Load();
+                _isDeveloperReadyRestored = false;
+
+                if (!settings.DeveloperMode)
+                {
+                    SetMachineInitialized(false, "StartupNormalMode", true);
+                    QMC.Common.Log.Write("Main", "SYSTEM", "MachineRuntimeRestore",
+                        "Machine initialized state is false on normal startup. - Ok");
+                    return;
+                }
+
+                var state = MachineRuntimeStateStore.Load();
+                if (state == null || !state.IsMachineInitialized)
+                {
+                    SetMachineInitialized(false, "DeveloperModeNoSavedReady", true);
+                    QMC.Common.Log.Write("Main", "SYSTEM", "MachineRuntimeRestore",
+                        "Developer mode is on, but saved initialized state does not exist. - Failed");
+                    AlarmManager.Raise(AlarmSeverity.Warning, "INIT-RESTORE-NO-STATE", "MachineController",
+                        "Developer Mode: 저장된 장비 초기화 상태가 없어 INIT이 필요합니다.");
+                    return;
+                }
+
+                string reason;
+                if (!ValidateDeveloperRuntimeState(settings, state, out reason))
+                {
+                    SetMachineInitialized(false, "DeveloperModeRestoreFailed", true);
+                    QMC.Common.Log.Write("Main", "SYSTEM", "MachineRuntimeRestore",
+                        "Developer mode initialized state restore failed: " + reason + " - Failed");
+                    AlarmManager.Raise(AlarmSeverity.Warning, "INIT-RESTORE-FAIL", "MachineController",
+                        "Developer Mode: 장비 초기화 상태 복구 실패. " + reason);
+                    return;
+                }
+
+                _isDeveloperReadyRestored = true;
+                SetMachineInitialized(true, "DeveloperModeRestore", true);
+                if (_status == EquipmentStatus.Idle || _status == EquipmentStatus.Stopped)
+                    SetStatus(EquipmentStatus.Ready);
+
+                QMC.Common.Log.Write("Main", "SYSTEM", "MachineRuntimeRestore",
+                    "Developer mode initialized state restored. file=" + MachineRuntimeStateStore.StatePath + " - Ok");
+            }
+            catch (Exception ex)
+            {
+                SetMachineInitialized(false, "StartupRestoreException", true);
+                QMC.Common.Log.Write("Main", "SYSTEM", "MachineRuntimeRestore",
+                    "Machine initialized state restore failed: " + ex.Message + " - Failed");
+                AlarmManager.Raise(AlarmSeverity.Warning, "INIT-RESTORE-EX", "MachineController",
+                    "장비 초기화 상태 복구 중 오류가 발생했습니다. " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private bool ValidateDeveloperRuntimeState(
+            AppSettings settings,
+            MachineRuntimeState state,
+            out string reason)
+        {
+            reason = "";
+            try
+            {
+                if (settings == null)
+                {
+                    reason = "settings is null";
+                    return false;
+                }
+
+                if (state == null)
+                {
+                    reason = "saved state is null";
+                    return false;
+                }
+
+                if (!state.DeveloperMode)
+                {
+                    reason = "saved state was not created in Developer Mode";
+                    return false;
+                }
+
+                if (state.Axes == null || state.Axes.Count == 0)
+                {
+                    reason = "saved axis state is empty";
+                    return false;
+                }
+
+                foreach (var ax in EnumerateAxes())
+                {
+                    try { ax.UpdateStatus(); } catch { }
+
+                    MachineAxisRuntimeState saved = null;
+                    foreach (var s in state.Axes)
+                    {
+                        if (s != null && string.Equals(s.Name, ax.Name, StringComparison.OrdinalIgnoreCase))
+                        {
+                            saved = s;
+                            break;
+                        }
+                    }
+
+                    if (saved == null)
+                    {
+                        reason = "axis state is missing: " + ax.Name;
+                        return false;
+                    }
+
+                    if (settings.BypassHardware)
+                    {
+                        if (!saved.IsServoOn || saved.IsAlarm || !saved.IsHomeDone)
+                        {
+                            reason = "saved axis is not ready: " + ax.Name;
+                            return false;
+                        }
+
+                        continue;
+                    }
+
+                    if (!ax.IsServoOn)
+                    {
+                        reason = "axis servo is off: " + ax.Name;
+                        return false;
+                    }
+
+                    if (ax.IsAlarm)
+                    {
+                        reason = "axis alarm is active: " + ax.Name;
+                        return false;
+                    }
+
+                    if (!ax.IsHomeDone)
+                    {
+                        reason = "axis home is not done: " + ax.Name;
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                reason = ex.Message;
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private void SetMachineInitialized(bool initialized, string reason, bool saveState)
+        {
+            try
+            {
+                bool changed = _isMachineInitialized != initialized;
+                _isMachineInitialized = initialized;
+                if (initialized)
+                    MachineInitializedAt = DateTime.Now;
+                else
+                    MachineInitializedAt = DateTime.MinValue;
+
+                Log("[INIT-STATE] MachineInitialized=" + initialized + " reason=" + reason);
+                QMC.Common.Log.Write("Main", "SYSTEM", "MachineInitialized",
+                    "Machine initialized=" + initialized + ", reason=" + reason + " - Ok");
+
+                if (saveState)
+                    SaveMachineRuntimeState(reason);
+
+                if (changed)
+                {
+                    var h = MachineInitializedChanged;
+                    if (h != null) try { h(initialized); } catch { }
+                }
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "MachineInitialized",
+                    "Machine initialized state update failed: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        public bool SaveMachineRuntimeState(string reason)
+        {
+            try
+            {
+                var state = CaptureMachineRuntimeState(reason);
+                bool ok = MachineRuntimeStateStore.Save(state);
+                QMC.Common.Log.Write("Main", "SYSTEM", "MachineRuntimeStateSave",
+                    "Machine runtime state save. reason=" + reason + ", file=" + MachineRuntimeStateStore.StatePath +
+                    (ok ? " - Ok" : " - Failed"));
+                return ok;
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "MachineRuntimeStateSave",
+                    "Machine runtime state save failed: " + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        public void SaveMachineRuntimeStateForApplicationClosing()
+        {
+            try
+            {
+                var settings = AppSettingsStore.Current ?? AppSettingsStore.Load();
+                if (settings != null && settings.DeveloperMode)
+                {
+                    SaveMachineRuntimeState("ApplicationClosingDeveloperMode");
+                    return;
+                }
+
+                SetMachineInitialized(false, "ApplicationClosingNormalMode", true);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "MachineRuntimeStateClose",
+                    "Machine runtime state close save failed: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        private MachineRuntimeState CaptureMachineRuntimeState(string reason)
+        {
+            var state = new MachineRuntimeState
+            {
+                IsMachineInitialized = _isMachineInitialized,
+                DeveloperMode = AppSettingsStore.Current != null && AppSettingsStore.Current.DeveloperMode,
+                SavedAt = DateTime.Now,
+                SaveReason = reason ?? "",
+                Status = _status.ToString(),
+                MaterialSnapshotPath = QMC.CDT320.Materials.MaterialSnapshotStore.SnapshotPath,
+                Axes = new List<MachineAxisRuntimeState>()
+            };
+
+            foreach (var ax in EnumerateAxes())
+            {
+                try { ax.UpdateStatus(); } catch { }
+                state.Axes.Add(new MachineAxisRuntimeState
+                {
+                    Name = ax.Name,
+                    IsServoOn = ax.IsServoOn,
+                    IsAlarm = ax.IsAlarm,
+                    IsHomeDone = ax.IsHomeDone,
+                    IsInPosition = ax.IsInPosition,
+                    ActualPosition = ax.ActualPosition
+                });
+            }
+
+            return state;
+        }
+
+        private bool EnsureMachineInitializedForRun(string source)
+        {
+            try
+            {
+                LastActionFailureMessage = "";
+                if (_isMachineInitialized)
+                    return true;
+
+                LastActionFailureMessage = "장비 초기화가 완료되지 않았습니다. INIT 후 START를 수행하세요.";
+                QMC.Common.Log.Write("Main", "SYSTEM", source,
+                    "Run failed: machine is not initialized. - Failed");
+                AlarmManager.Raise(AlarmSeverity.Warning, "START-NOT-INITIALIZED", "MachineController",
+                    LastActionFailureMessage);
+                Log("[START] failed: machine is not initialized");
+                return false;
+            }
+            catch (Exception ex)
+            {
+                LastActionFailureMessage = ex.Message;
+                QMC.Common.Log.Write("Main", "SYSTEM", source,
+                    "Run initialized check failed: " + ex.Message + " - Failed");
+                AlarmManager.Raise(AlarmSeverity.Warning, "START-INIT-CHECK", "MachineController",
+                    "장비 초기화 상태 확인 실패. " + ex.Message);
+                return false;
+            }
+            finally
+            {
+            }
         }
 
         // ??????????????????????????????????????????
@@ -565,6 +864,7 @@ namespace QMC.CDT320
             Log("[SHUTDOWN] ?ㅻ퉬 ?뺤긽 醫낅즺 ?쒗???쒖옉...");
             try
             {
+                SetMachineInitialized(false, "Shutdown", false);
                 _cycleCts?.Cancel();
                 await Task.Delay(500);
                 foreach (var ax in EnumerateAxes()) ax.Stop();
@@ -575,6 +875,7 @@ namespace QMC.CDT320
                 }
                 LotStorage.CloseLot(aborted: true);
                 AppSettingsStore.Save();
+                SaveMachineRuntimeState("Shutdown");
                 SetStatus(EquipmentStatus.Stopped);
                 Log("[SHUTDOWN] ?ㅻ퉬 醫낅즺 ?꾨즺.");
             }
@@ -622,6 +923,7 @@ namespace QMC.CDT320
             Log("[E-STOP] 鍮꾩긽 ?뺤? ?쒗???쒖옉...");
             try
             {
+                SetMachineInitialized(false, "EmergencyStop", false);
                 _cycleCts?.Cancel();
                 int axTotal = 0, axFail = 0;
                 foreach (var ax in EnumerateAxes())
@@ -636,6 +938,7 @@ namespace QMC.CDT320
                 }
                 AlarmManager.Raise(AlarmSeverity.Error, "E-STOP", "Machine",
                     "?ъ슜???덉쟾?뚮줈 鍮꾩긽 ?뺤?");
+                SaveMachineRuntimeState("EmergencyStop");
                 SetStatus(EquipmentStatus.Alarm);
 
                 // Stage 45 ??Tower Lamp ?뚮엺 (鍮④컯 + 遺?). 紐낆떆??寃곌낵 湲곕줉.
@@ -811,6 +1114,7 @@ namespace QMC.CDT320
         public async Task InitAsync()
         {
             if (_status == EquipmentStatus.Initializing || _status == EquipmentStatus.AutoRunning) return;
+            SetMachineInitialized(false, "InitStart", false);
             SetStatus(EquipmentStatus.Initializing);
             Log("[INIT] All axes servo ON + HOME search...");
 
@@ -829,6 +1133,7 @@ namespace QMC.CDT320
                 {
                     AlarmManager.Raise(AlarmSeverity.Error, "HOME-" + ax.Name, ax.Name, "HOME ?ㅽ뙣: " + ex.Message);
                     Log("[ALARM] " + ax.Name + " HOME ?ㅽ뙣: " + ex.Message);
+                    SetMachineInitialized(false, "InitHomeException", true);
                     SetStatus(EquipmentStatus.Alarm);
                     return;
                 }
@@ -836,6 +1141,7 @@ namespace QMC.CDT320
                 {
                     AlarmManager.Raise(AlarmSeverity.Error, "HOME-" + ax.Name, ax.Name, "HOME ???뚮엺 肄붾뱶 " + ax.AlarmCode);
                     Log("[ALARM] " + ax.Name + " HOME ?뚮엺 (code=" + ax.AlarmCode + ")");
+                    SetMachineInitialized(false, "InitAxisAlarm", true);
                     SetStatus(EquipmentStatus.Alarm);
                     return;
                 }
@@ -899,6 +1205,7 @@ namespace QMC.CDT320
             try { EnsureDieMaps(); } catch (Exception dmEx) { Log("[INIT] DieMap ?앹꽦 寃쎄퀬: " + dmEx.Message); }
 
             Log("[INIT] 珥덇린???꾨즺. Ready.");
+            SetMachineInitialized(true, "InitComplete", true);
             SetStatus(EquipmentStatus.Ready);
         }
 
@@ -907,8 +1214,11 @@ namespace QMC.CDT320
         {
             try
             {
+                LastActionFailureMessage = "";
+
                 if (_status == EquipmentStatus.Alarm)
                 {
+                    LastActionFailureMessage = "Alarm 상태에서는 START를 수행할 수 없습니다.";
                     QMC.Common.Log.Write("Main", "SYSTEM", "StartAsync", "Start failed: alarm status is active. - Failed");
                     AlarmManager.Raise(AlarmSeverity.Warning, "START-ALARM", "MachineController", "Alarm 상태에서는 START를 수행할 수 없습니다.");
                     Log("[START] failed: alarm status is active");
@@ -917,11 +1227,15 @@ namespace QMC.CDT320
 
                 if (IsSequenceRunning)
                 {
+                    LastActionFailureMessage = "Sequence가 이미 실행 중입니다.";
                     QMC.Common.Log.Write("Main", "SYSTEM", "StartAsync", "Start failed: sequence is already running. - Failed");
                     AlarmManager.Raise(AlarmSeverity.Warning, "START-RUNNING", "MachineController", "Sequence가 이미 실행 중입니다.");
                     Log("[START] failed: sequence is already running");
                     return -1;
                 }
+
+                if (!EnsureMachineInitializedForRun("StartAsync"))
+                    return -1;
 
                 foreach (var ax in EnumerateAxes())
                     ax.ServoOn();
@@ -937,6 +1251,7 @@ namespace QMC.CDT320
             }
             catch (Exception ex)
             {
+                LastActionFailureMessage = "Start failed: " + ex.Message;
                 QMC.Common.Log.Write("Main", "SYSTEM", "StartAsync", "Start failed: " + ex.Message + " - Failed");
                 AlarmManager.Raise(AlarmSeverity.Error, "START-EX", "MachineController", "Start failed: " + ex.Message);
                 Log("[START] failed: " + ex.Message);
@@ -1023,6 +1338,9 @@ namespace QMC.CDT320
         {
             try
             {
+                if (!EnsureMachineInitializedForRun("StartSequenceAsync"))
+                    return;
+
                 if (_coordinatorTask != null && !_coordinatorTask.IsCompleted)
                     await StopSequenceAsync().ConfigureAwait(false);
 
@@ -1169,6 +1487,9 @@ namespace QMC.CDT320
 
         public async Task CycleRunAsync(int totalDies = -1)
         {
+            if (!EnsureMachineInitializedForRun("CycleRunAsync"))
+                return;
+
             if (_status == EquipmentStatus.AutoRunning) { Log("[CYCLE] already running"); return; }
             // Ready/Running ?몄뿉??Stopped ?먯꽌 ?ъ떆???덉슜 (CYCLE STOP ???ш컻)
             if (_status != EquipmentStatus.Ready &&

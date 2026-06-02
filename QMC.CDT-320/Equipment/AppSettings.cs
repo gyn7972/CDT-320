@@ -18,6 +18,7 @@ namespace QMC.CDT320
         [DataMember] public string LastProject      { get; set; }
         [DataMember] public bool   SimulationMode   { get; set; } = true;
         [DataMember] public bool   DryRunMode       { get; set; } = false;
+        [DataMember] public bool   DeveloperMode    { get; set; } = false;
 
         /// <summary>AJINEXTEK AXL 실보드 사용 여부. false 일 때는 Sim 모드.</summary>
         [DataMember] public bool   UseAjin          { get; set; } = false;

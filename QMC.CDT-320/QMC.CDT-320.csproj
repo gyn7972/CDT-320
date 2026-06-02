@@ -83,6 +83,7 @@
     <Compile Include="Equipment\Unit\InputStageUnit.cs" />
     <Compile Include="Equipment\IStageInterfaces.cs" />
     <Compile Include="Equipment\MachineController.cs" />
+    <Compile Include="Equipment\MachineRuntimeState.cs" />
     <Compile Include="Equipment\OperationPanelMonitorService.cs" />
     <Compile Include="Equipment\SimComponents.cs" />
     <Compile Include="Equipment\SimulatorBridge.cs" />

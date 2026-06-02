@@ -343,6 +343,7 @@ namespace QMC.CDT_320
             BeginSimulatorAutoConnect(cfg);
             Controller = new MachineController(Machine);
             ApplyRuntimeMode();
+            Controller.ApplyStartupMachineRuntimeState(cfg);
             PromptMaterialRecoveryOnStartup();
             alarmBanner.ClearRequested += async (s, args) =>
             {
@@ -1142,6 +1143,7 @@ namespace QMC.CDT_320
             }
             catch { }
             SaveMachineSettings();
+            try { Controller?.SaveMachineRuntimeStateForApplicationClosing(); } catch { }
             try { OpPanelMonitor?.Dispose(); } catch { }
             try { MotionMonitor?.Dispose(); } catch { }
             try { IoScan?.Dispose(); } catch { }
