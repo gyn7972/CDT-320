@@ -72,7 +72,6 @@
     <Compile Include="Equipment\AppSettings.cs" />
     <Compile Include="Equipment\CDT320Machine.cs" />
     <Compile Include="Equipment\CycleMode.cs" />
-    <Compile Include="Equipment\Unit\InputLoaderUnit.cs" />
     <Compile Include="Equipment\Unit\OutCassetteUnit.cs" />
     <Compile Include="Equipment\Unit\BinFeederUnit.cs" />
     <Compile Include="Equipment\Unit\OutputStageUnit.cs" />
@@ -83,6 +82,7 @@
     <Compile Include="Equipment\Unit\InputStageUnit.cs" />
     <Compile Include="Equipment\IStageInterfaces.cs" />
     <Compile Include="Equipment\MachineController.cs" />
+    <Compile Include="Equipment\OperationPanelMonitorService.cs" />
     <Compile Include="Equipment\SimComponents.cs" />
     <Compile Include="Equipment\SimulatorBridge.cs" />
     <Compile Include="Equipment\Sim\SimCassetteDriver.cs" />
@@ -262,7 +262,8 @@
     <Compile Include="Sequencing\MachineSequenceContext.cs" />
     <Compile Include="Sequencing\UnitSequenceBase.cs" />
     <Compile Include="Sequencing\AutoSequenceCoordinator.cs" />
-    <Compile Include="Sequencing\InputLoaderSequence.cs" />
+    <Compile Include="Sequencing\InputCassetteSequence.cs" />
+    <Compile Include="Sequencing\InputSequence.cs" />
     <!-- Equipment / Alarms -->
     <!-- Equipment / Logging -->
     <!-- Equipment / Recipes -->

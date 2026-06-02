@@ -54,6 +54,7 @@ namespace QMC.CDT320
         private Task _coordinatorTask;
         private QMC.CDT320.Sequencing.MachineSequenceContext _seqContext;
         private QMC.CDT320.Sequencing.AutoSequenceCoordinator _coordinator;
+        private int _manualBusyCount;
 
         public event Action<MachineStatus> StatusChanged;
         public event Action<string>        LogMessage;
@@ -63,6 +64,9 @@ namespace QMC.CDT320
         public CDT320_Machine Machine => _machine;
 
         public MachineStatus Status => _status;
+        public bool IsManualBusy => Volatile.Read(ref _manualBusyCount) > 0;
+        public bool IsSequenceRunning => _coordinatorTask != null && !_coordinatorTask.IsCompleted;
+        public QMC.CDT320.Sequencing.SequenceRunMode? ActiveSequenceRunMode { get; private set; }
         public int CycleTotal  { get; private set; }
         public int CycleDone   { get; private set; }
         public int GoodCount   { get; private set; }
@@ -226,26 +230,27 @@ namespace QMC.CDT320
         /// <returns>?ㅼ쓬 ?⑥씠???댁넚 ?깃났 ??true. 移댁꽭??鍮꾩뿀嫄곕굹 ?명꽣??李⑤떒 ??false.</returns>
         public async Task<bool> LoadNextWaferAsync()
         {
-            var loader = _machine.InputLoader;
+            var cassette = _machine.InputCassette;
+            var feeder = _machine.InputFeeder;
 
             // 移댁꽭???덉갑 ?뺤씤
-            if (!loader.CassetteExistSensor.IsOn)
+            if (!cassette.CassetteExistSensor.IsOn)
             {
                 AlarmManager.Raise(AlarmSeverity.Warning, "LOT-NOCASS",
-                    loader.Name, "Input 移댁꽭?멸? 媛먯??섏? ?딆뒿?덈떎.");
+                    cassette.Name, "Input cassette is not detected.");
                 Log("[LOTPORT] InputCassette absent ??load skipped");
                 return false;
             }
 
             // 留ㅽ븨 誘몄닔?????ㅼ틪
-            if (loader.WaferMap == null || loader.WaferMap.Count == 0)
+            if (cassette.WaferMap == null || cassette.WaferMap.Count == 0)
             {
                 Log("[LOTPORT] WaferMap empty ??scan cassette");
-                bool scanned = (await loader.ScanCassetteAsync(16, 6.0)) == 0;
+                bool scanned = (await cassette.ScanCassetteAsync(16, 6.0)) == 0;
                 if (!scanned)
                 {
                     AlarmManager.Raise(AlarmSeverity.Warning, "LOT-SCAN",
-                        loader.Name, "移댁꽭???ㅼ틪 ?ㅽ뙣.");
+                        cassette.Name, "Input cassette scan failed.");
                     return false;
                 }
                 RaiseLotPortChanged();
@@ -253,9 +258,9 @@ namespace QMC.CDT320
 
             // ?ㅼ쓬 ?⑥씠???щ’ ?먯깋
             int next = -1;
-            for (int s = CurrentInputSlot + 1; s < loader.WaferMap.Count; s++)
+            for (int s = CurrentInputSlot + 1; s < cassette.WaferMap.Count; s++)
             {
-                if (loader.WaferMap[s]) { next = s; break; }
+                if (cassette.WaferMap[s]) { next = s; break; }
             }
             if (next < 0)
             {
@@ -266,27 +271,27 @@ namespace QMC.CDT320
             // ?대룞 + 援먰솚 ?꾩튂 ?꾩쭊
             double slotPitch = 6.0;
             //double targetZ = loader.Setup.FirstSlotPosition + next * slotPitch;
-            double targetZ = loader.InputCassette.Recipe.FirstSlotPosition + next * slotPitch;
+            double targetZ = cassette.Recipe.FirstSlotPosition + next * slotPitch;
             Log($"[LOTPORT] Move to slot {next} (Z={targetZ:F2}mm)");
             try
             {
-                int moveResult = await loader.MoveToTargetSlotAsync(targetZ);
+                int moveResult = await cassette.MoveToTargetSlotAsync(targetZ);
                 if (moveResult != 0)
                     return false;
             }
             catch (Exception ex)
             {
                 AlarmManager.Raise(AlarmSeverity.Error, "LOT-MOVE",
-                    loader.Name, "?щ’ ?대룞 ?ㅽ뙣: " + ex.Message);
+                    cassette.Name, "Slot move failed: " + ex.Message);
                 Log("[LOTPORT ERROR] " + ex.Message);
                 return false;
             }
 
-            int ex2 = await loader.MoveToExchangePositionAsync();
+            int ex2 = await feeder.MoveToExchangePositionAsync();
             if (ex2 != 0)
             {
                 AlarmManager.Raise(AlarmSeverity.Error, "LOT-EX",
-                    loader.Name, "援먰솚 ?꾩튂 ?댁넚 ?ㅽ뙣.");
+                    feeder.Name, "Exchange position move failed.");
                 return false;
             }
 
@@ -345,7 +350,7 @@ namespace QMC.CDT320
                 {
                     // ?쇰뜑 ?꾪눜 (?⑥씠?쇰뒗 ?대? InputStage 媛 ?↔퀬 ?덉쓬)
                     Log("[LOTPORT] ?쇰뜑 ?꾪눜 (InputStage ?⑤룆 ?묒뾽?쇰줈 ?꾪솚)...");
-                    await loader.RetractFeederAsync();
+                    await feeder.RetractFeederAsync();
                     InputWaferAtExchange = false;
                     RaiseLotPortChanged();
 
@@ -426,17 +431,17 @@ namespace QMC.CDT320
         /// </summary>
         public async Task<bool> RetractCurrentWaferAsync()
         {
-            var loader = _machine.InputLoader;
+            var feeder = _machine.InputFeeder;
             if (!InputWaferAtExchange)
             {
                 Log("[LOTPORT] Retract skipped ??feeder not at exchange position");
                 return true;
             }
-            int ok = await loader.RetractFeederAsync();
+            int ok = await feeder.RetractFeederAsync();
             if (ok != 0)
             {
                 AlarmManager.Raise(AlarmSeverity.Error, "LOT-RET",
-                    loader.Name, "?쇰뜑 ?꾪눜 ?ㅽ뙣.");
+                    feeder.Name, "Feeder retract failed.");
                 return false;
             }
             InputWaferAtExchange = false;
@@ -690,6 +695,7 @@ namespace QMC.CDT320
 
         /// <summary>true 硫?紐⑥뀡 ?놁씠 吏꾪뻾留?(Recipe.DryRun ?곹뼢).</summary>
         public bool DryRun { get; set; } = false;
+        public bool GlobalDryRun { get; set; } = false;
         /// <summary>true 硫??ㅼ씠 1媛쒕쭏???ъ슜???뺤씤 (Recipe.StepRun ?곹뼢). CycleMode.Step ? ?숈씪.</summary>
         public bool StepRun
         {
@@ -705,7 +711,7 @@ namespace QMC.CDT320
         public void ApplyRecipeMode(QMC.CDT320.Recipes.RecipeProject p)
         {
             if (p == null) return;
-            DryRun  = p.DryRun;
+            DryRun  = GlobalDryRun || p.DryRun;
             StepRun = p.StepRun;
             // Stage 33 ??Recipe ??ModuleSubset ?뚮씪誘명꽣瑜?Controller ?듭뀡??諛섏쁺
             if (p.Module != null)
@@ -879,12 +885,12 @@ namespace QMC.CDT320
                     var ctx = new QMC.CDT320.Sequencing.MachineSequenceContext(
                         this,
                         new QMC.CDT320.Sequencing.SequenceSignalBus());
-                    var sequence = new QMC.CDT320.Sequencing.InputLoaderSequence(ctx);
+                    var sequence = new QMC.CDT320.Sequencing.InputSequence(ctx);
                     bool mapped = await sequence.ExecuteMappingAsync(CancellationToken.None);
                     if (mapped)
                     {
                         int n = 0;
-                        foreach (var b in _machine.InputLoader.WaferMap) if (b) n++;
+                        foreach (var b in _machine.InputCassette.WaferMap) if (b) n++;
                         Log($"[INIT] WaferMap OK ({n}??媛먯?)");
                     }
                     else
@@ -959,6 +965,40 @@ namespace QMC.CDT320
             return Task.CompletedTask;
         }
 
+        public IDisposable EnterManualOperation()
+        {
+            Interlocked.Increment(ref _manualBusyCount);
+            if (_status != MachineStatus.Alarm && _status != MachineStatus.Cycling)
+                SetStatus(MachineStatus.Running);
+            return new ManualOperationScope(this);
+        }
+
+        private void LeaveManualOperation()
+        {
+            if (Interlocked.Decrement(ref _manualBusyCount) < 0)
+                Interlocked.Exchange(ref _manualBusyCount, 0);
+
+            if (!IsManualBusy && !IsSequenceRunning && _status == MachineStatus.Running)
+                SetStatus(MachineStatus.Stopped);
+        }
+
+        private sealed class ManualOperationScope : IDisposable
+        {
+            private MachineController _owner;
+
+            public ManualOperationScope(MachineController owner)
+            {
+                _owner = owner;
+            }
+
+            public void Dispose()
+            {
+                var owner = Interlocked.Exchange(ref _owner, null);
+                if (owner != null)
+                    owner.LeaveManualOperation();
+            }
+        }
+
         /// <summary>CYCLE RUN: ?먮룞 ?ъ씠???쒖옉. ?ㅼ씠留?紐⑤뱶(UseDieMapMode=true)???뚮뒗
         /// Input ?ㅼ씠留듭쓽 IsTarget=true ?ㅼ씠瑜?紐⑤몢 泥섎━. totalDies&lt;=0 ?먮뒗 ?ㅼ씠留?紐⑤뱶???뚮뒗
         /// EnsureDieMaps ???쒖꽦 ?ㅼ씠 ?섍? ?먮룞 ?곸슜??</summary>
@@ -979,9 +1019,13 @@ namespace QMC.CDT320
 
             _coordinator.Register(
                 QMC.CDT320.Sequencing.SequenceUnitKind.InputLoader,
-                () => new QMC.CDT320.Sequencing.InputLoaderSequence(_seqContext));
+                () => new QMC.CDT320.Sequencing.InputSequence(_seqContext));
 
             _coordinator.Configure(options);
+            ActiveSequenceRunMode = options.Mode;
+            SetStatus(options.Mode == QMC.CDT320.Sequencing.SequenceRunMode.Auto
+                ? MachineStatus.Cycling
+                : MachineStatus.Running);
             Log("[SEQ] StartSequenceAsync units=" + options.Units + ", mode=" + options.Mode);
 
             _coordinatorTask = Task.Run(async () =>
@@ -1017,11 +1061,15 @@ namespace QMC.CDT320
             _coordinatorTask = null;
             _coordinator = null;
             _seqContext = null;
+            ActiveSequenceRunMode = null;
             if (_autoCts != null)
             {
                 _autoCts.Dispose();
                 _autoCts = null;
             }
+
+            if (_status == MachineStatus.Running || _status == MachineStatus.Cycling)
+                SetStatus(MachineStatus.Stopped);
         }
 
         /// <summary>吏?뺥븳 ?좊떅?ㅼ쓣 Manual 紐⑤뱶濡??쒖옉?⑸땲??</summary>

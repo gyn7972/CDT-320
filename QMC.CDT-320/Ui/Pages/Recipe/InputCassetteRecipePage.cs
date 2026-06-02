@@ -142,7 +142,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             try
             {
                 var machine = FindMachine();
-                _InputCassetteUnit = machine != null && machine.InputLoader != null ? machine.InputLoader.InputCassette : null;
+                _InputCassetteUnit = machine != null ? machine.InputCassette : null;
 
                 if (_InputCassetteUnit != null)
                     _InputCassetteUnit.EnsureSlotPositionBuffer();
@@ -391,7 +391,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 var ctx = new QMC.CDT320.Sequencing.MachineSequenceContext(
                     host.Controller,
                     new QMC.CDT320.Sequencing.SequenceSignalBus());
-                var sequence = new QMC.CDT320.Sequencing.InputLoaderSequence(ctx);
+                var sequence = new QMC.CDT320.Sequencing.InputSequence(ctx);
                 bool ok = await sequence.ExecuteMappingAsync(System.Threading.CancellationToken.None, IsFineMove());
                 if (!ok)
                     QMC.Common.MessageDialog.Show(this, "Input Cassette Mapping 실패", "Input Cassette Mapping", MessageBoxButtons.OK, MessageBoxIcon.Warning);

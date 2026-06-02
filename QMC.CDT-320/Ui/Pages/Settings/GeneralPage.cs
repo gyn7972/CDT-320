@@ -1,5 +1,6 @@
-using System.Windows.Forms;
+﻿using System.Windows.Forms;
 using QMC.CDT320;
+using QMC.CDT_320;
 using QMC.CDT_320.Ui.Localization;
 
 namespace QMC.CDT_320.Ui.Pages.Settings
@@ -29,6 +30,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             lblBinArray.Tag = "i18n:set.gen.binArr";
             lblVisionMatch.Text = Lang.T("set.gen.visionMatchErr");
             lblVisionMatch.Tag = "i18n:set.gen.visionMatchErr";
+            lblSimulationMode.Text = "SIMULATION MODE";
+            lblDryRunMode.Text = "DRY RUN MODE";
 
             grpAjin.Tag = "level:Maintenance";
         }
@@ -44,9 +47,13 @@ namespace QMC.CDT_320.Ui.Pages.Settings
 
             ResetEnableDisableItems(_cbBinArr);
             ResetEnableDisableItems(_cbVisionMatch);
+            ResetEnableDisableItems(_cbSimulationMode);
+            ResetEnableDisableItems(_cbDryRunMode);
 
             _cbBinArr.SelectedIndex = cfg.BinArrayFile ? 0 : 1;
             _cbVisionMatch.SelectedIndex = cfg.VisionMatchError ? 0 : 1;
+            _cbSimulationMode.SelectedIndex = cfg.SimulationMode ? 0 : 1;
+            _cbDryRunMode.SelectedIndex = cfg.DryRunMode ? 0 : 1;
             _cbAjin.Checked = cfg.UseAjin;
             _tbIrq.Text = cfg.AjinIrqNo.ToString();
         }
@@ -74,10 +81,25 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 AppSettingsStore.Save();
             };
 
+            _cbSimulationMode.SelectedIndexChanged += (s, e) =>
+            {
+                AppSettingsStore.Current.SimulationMode = _cbSimulationMode.SelectedIndex == 0;
+                AppSettingsStore.Save();
+                ApplyRuntimeModeToHost();
+            };
+
+            _cbDryRunMode.SelectedIndexChanged += (s, e) =>
+            {
+                AppSettingsStore.Current.DryRunMode = _cbDryRunMode.SelectedIndex == 0;
+                AppSettingsStore.Save();
+                ApplyRuntimeModeToHost();
+            };
+
             _cbAjin.CheckedChanged += (s, e) =>
             {
                 AppSettingsStore.Current.UseAjin = _cbAjin.Checked;
                 AppSettingsStore.Save();
+                ApplyRuntimeModeToHost();
             };
 
             _tbIrq.TextChanged += (s, e) =>
@@ -94,6 +116,13 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             combo.Items.Clear();
             combo.Items.Add("ENABLE");
             combo.Items.Add("DISABLE");
+        }
+
+        private void ApplyRuntimeModeToHost()
+        {
+            var host = FindForm() as Form1;
+            if (host != null)
+                host.ApplyRuntimeMode();
         }
     }
 }

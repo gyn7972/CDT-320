@@ -8,14 +8,14 @@ namespace QMC.CDT320.Sim
     /// </summary>
     public class WaferLoaderAdapter : IWaferLoader
     {
-        private readonly InputLoaderUnit _loader;
+        private readonly InputFeederUnit _loader;
 
         /// <summary>위험 범위 시작 (피더 중간 위치 — 인계 전).</summary>
         public double DangerRangeMin { get; set; } = 30.0;
         /// <summary>위험 범위 끝 (피더 인계 위치 직전).</summary>
         public double DangerRangeMax { get; set; } = 140.0;
 
-        public WaferLoaderAdapter(InputLoaderUnit loader)
+        public WaferLoaderAdapter(InputFeederUnit loader)
         {
             _loader = loader;
         }

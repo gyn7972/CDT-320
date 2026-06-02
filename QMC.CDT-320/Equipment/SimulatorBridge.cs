@@ -126,8 +126,8 @@ namespace QMC.CDT320
             var m = _machine;
 
             // Input side (0~7)
-            _axisMap[m.InputLoader.WaferLifterZ]    = 0;   // WaferLifterZ
-            _axisMap[m.InputLoader.FeederY]      = 1;   // WaferFeederY
+            _axisMap[m.InputCassette.WaferLifterZ] = 0;   // WaferLifterZ
+            _axisMap[m.InputFeeder.FeederY]        = 1;   // WaferFeederY
             _axisMap[m.InputStage.StageY]        = 2;   // WaferStageY
             _axisMap[m.InputStage.StageT]        = 3;   // WaferStageT
             _axisMap[m.InputStage.ExpanderZ]     = 4;   // WaferExpandingZ
@@ -184,10 +184,10 @@ namespace QMC.CDT320
             // 카세트/피더 관련 DI 를 시뮬레이터로 통보. 시뮬레이터에는 DI_SET 명령이
             // 없어 LOG 형태로만 송신되나, 추후 시뮬레이터 측 DI 시각화 추가 시
             // 본 매핑이 그대로 활용된다.
-            _diMap[m.InputLoader.CassetteExistSensor] = "X060";
-            _diMap[m.InputLoader.ProtrusionSensor]    = "X061";
-            _diMap[m.InputLoader.WaferDetectSensor]   = "X062";
-            _diMap[m.InputLoader.WaferClampedSensor]  = "X063";
+            _diMap[m.InputCassette.CassetteExistSensor] = "X060";
+            _diMap[m.InputCassette.ProtrusionSensor]    = "X061";
+            _diMap[m.InputCassette.WaferDetectSensor]   = "X062";
+            _diMap[m.InputFeeder.WaferClampedSensor]    = "X063";
         }
 
         // ──────────────────────────────────────────────

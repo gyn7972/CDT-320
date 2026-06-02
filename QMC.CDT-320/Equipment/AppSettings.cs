@@ -16,6 +16,8 @@ namespace QMC.CDT320
         [DataMember] public string SimulatorHost    { get; set; } = "127.0.0.1";
         [DataMember] public int    SimulatorPort    { get; set; } = 7001;
         [DataMember] public string LastProject      { get; set; }
+        [DataMember] public bool   SimulationMode   { get; set; } = true;
+        [DataMember] public bool   DryRunMode       { get; set; } = false;
 
         /// <summary>AJINEXTEK AXL 실보드 사용 여부. false 일 때는 Sim 모드.</summary>
         [DataMember] public bool   UseAjin          { get; set; } = false;
@@ -47,6 +49,8 @@ namespace QMC.CDT320
 
         // ── Simulator link — auto connect ──
         [DataMember] public bool   SimulatorAutoConnect { get; set; } = false;
+
+        public bool BypassHardware => SimulationMode || DryRunMode;
     }
 
     /// <summary>
@@ -74,6 +78,9 @@ namespace QMC.CDT320
                     var ser = new DataContractJsonSerializer(typeof(AppSettings));
                     Current = (AppSettings)ser.ReadObject(fs);
                 }
+
+                if (!Current.UseAjin && !Current.SimulationMode && !Current.DryRunMode)
+                    Current.SimulationMode = true;
             }
             catch { Current = new AppSettings(); }
             return Current;

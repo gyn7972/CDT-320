@@ -33,6 +33,7 @@ namespace QMC.CDT_320
         internal MachineController Controller     { get; private set; }
         internal MotionMonitorService MotionMonitor { get; private set; }
         internal AjinIoScanService IoScan { get; private set; }
+        internal OperationPanelMonitorService OpPanelMonitor { get; private set; }
         internal string CurrentRecipeName { get; private set; }
 
         /// <summary>구현 설명 주석입니다.</summary>
@@ -95,6 +96,56 @@ namespace QMC.CDT_320
             }
             finally
             {
+            }
+        }
+
+        internal void ApplyRuntimeMode()
+        {
+            try
+            {
+                var cfg = AppSettingsStore.Current ?? AppSettingsStore.Load();
+                bool bypassHardware = cfg.BypassHardware;
+                bool forceSimulation = bypassHardware || !AjinFactory.IsRealBoardReady;
+
+                AjinFactory.UseRealBoard = cfg.UseAjin && !bypassHardware;
+
+                if (Machine != null)
+                {
+                    foreach (BaseAxis axis in CurrentAxes())
+                    {
+                        if (axis == null || axis.Config == null) continue;
+                        axis.Config.IsSimulationMode = forceSimulation || axis is SimAxis;
+                    }
+
+                    foreach (BaseDigitalInput input in EnumerateInputs(Machine))
+                        AjinFactory.ApplyInputSimulation(input, forceSimulation);
+
+                    foreach (BaseDigitalOutput output in EnumerateOutputs(Machine))
+                        AjinFactory.ApplyOutputSimulation(output, forceSimulation);
+
+                    foreach (BaseCylinder cylinder in EnumerateCylinders(Machine))
+                        AjinFactory.ApplyCylinderSimulation(cylinder, forceSimulation);
+                }
+
+                if (Controller != null)
+                {
+                    Controller.GlobalDryRun = cfg.DryRunMode;
+                    if (cfg.DryRunMode) Controller.DryRun = true;
+                }
+
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Event,
+                    UserSession.Name,
+                    "RUNTIME-MODE",
+                    $"Simulation={cfg.SimulationMode}, DryRun={cfg.DryRunMode}, UseAjin={cfg.UseAjin}, HardwareBypass={bypassHardware}");
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Warning,
+                    UserSession.Name,
+                    "RUNTIME-MODE",
+                    "Runtime mode apply failed: " + ex.Message);
             }
         }
 
@@ -263,8 +314,8 @@ namespace QMC.CDT_320
 
             // 구현 보조 주석입니다.
             QMC.CDT320.Ajin.AjinConfigStore.Load();
-            QMC.CDT320.Ajin.AjinFactory.UseRealBoard = cfg.UseAjin;
-            if (cfg.UseAjin) 
+            QMC.CDT320.Ajin.AjinFactory.UseRealBoard = cfg.UseAjin && !cfg.BypassHardware;
+            if (QMC.CDT320.Ajin.AjinFactory.UseRealBoard) 
                 QMC.CDT320.Ajin.AjinSystem.Open(cfg.AjinIrqNo);
             QMC.CDT320.Ajin.IoSettingsStore.Load();
             QMC.CDT320.Ajin.CylinderManager.Initialize();
@@ -285,9 +336,11 @@ namespace QMC.CDT_320
             // 구현 보조 주석입니다.
             Machine    = new CDT320_Machine();
             LoadMachineSettings();
+            ApplyRuntimeMode();
             Bridge     = new SimulatorBridge(Machine);
             BeginSimulatorAutoConnect(cfg);
             Controller = new MachineController(Machine);
+            ApplyRuntimeMode();
             alarmBanner.ClearRequested += async (s, args) =>
             {
                 try
@@ -306,9 +359,11 @@ namespace QMC.CDT_320
                 }
             };
             MotionMonitor = new MotionMonitorService();
-            MotionMonitor.Start(CurrentAxes(), cfg.UseAjin ? 50 : 100);
+            MotionMonitor.Start(CurrentAxes(), QMC.CDT320.Ajin.AjinFactory.UseRealBoard ? 50 : 100);
             IoScan = new AjinIoScanService();
-            IoScan.Start(EnumerateAjinInputs(Machine), EnumerateAjinOutputs(Machine), cfg.UseAjin ? 10 : 100, () => AjinSystem.IsOpen);
+            IoScan.Start(EnumerateInputs(Machine), EnumerateOutputs(Machine), QMC.CDT320.Ajin.AjinFactory.UseRealBoard ? 10 : 100, () => !AppSettingsStore.Current.BypassHardware && AjinSystem.IsOpen);
+            OpPanelMonitor = new OperationPanelMonitorService(Machine, Controller);
+            OpPanelMonitor.Start();
 
             // 구현 보조 주석입니다.
             try
@@ -321,7 +376,7 @@ namespace QMC.CDT_320
             // 구현 보조 주석입니다.
             if (!cfg.UseAjin)
             {
-                CassetteDriver = new QMC.CDT320.Sim.SimCassetteDriver(Machine.InputLoader, Machine.OutputUnloader);
+                CassetteDriver = new QMC.CDT320.Sim.SimCassetteDriver(Machine.InputCassette, Machine.InputFeeder, Machine.OutputUnloader);
             }
             Controller.StatusChanged += OnMachineStatusChanged;
             Controller.LogMessage    += s => QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, UserSession.Name, "CTRL", s);
@@ -778,6 +833,30 @@ namespace QMC.CDT_320
                     yield return output;
         }
 
+        private static IEnumerable<BaseDigitalInput> EnumerateInputs(CDT320_Machine machine)
+        {
+            if (machine == null) yield break;
+            foreach (var unit in machine.Units)
+                foreach (var input in EnumerateInputs(unit))
+                    yield return input;
+        }
+
+        private static IEnumerable<BaseDigitalOutput> EnumerateOutputs(CDT320_Machine machine)
+        {
+            if (machine == null) yield break;
+            foreach (var unit in machine.Units)
+                foreach (var output in EnumerateOutputs(unit))
+                    yield return output;
+        }
+
+        private static IEnumerable<BaseCylinder> EnumerateCylinders(CDT320_Machine machine)
+        {
+            if (machine == null) yield break;
+            foreach (var unit in machine.Units)
+                foreach (var cylinder in EnumerateCylinders(unit))
+                    yield return cylinder;
+        }
+
         private static IEnumerable<BaseAxis> EnumerateAxes(BaseEquipmentNode node)
         {
             if (node == null) yield break;
@@ -864,6 +943,88 @@ namespace QMC.CDT_320
                     yield return childOutput;
         }
 
+        private static IEnumerable<BaseDigitalInput> EnumerateInputs(BaseEquipmentNode node)
+        {
+            if (node == null) yield break;
+
+            var input = node as BaseDigitalInput;
+            if (input != null)
+            {
+                yield return input;
+                yield break;
+            }
+
+            var cylinder = node as BaseCylinder;
+            if (cylinder != null)
+            {
+                if (cylinder.InFwd != null) yield return cylinder.InFwd;
+                if (cylinder.InBwd != null) yield return cylinder.InBwd;
+                yield break;
+            }
+
+            var prop = node.GetType().GetProperty("Components");
+            if (prop == null) yield break;
+
+            var components = prop.GetValue(node) as System.Collections.IEnumerable;
+            if (components == null) yield break;
+
+            foreach (BaseEquipmentNode child in components)
+                foreach (var childInput in EnumerateInputs(child))
+                    yield return childInput;
+        }
+
+        private static IEnumerable<BaseDigitalOutput> EnumerateOutputs(BaseEquipmentNode node)
+        {
+            if (node == null) yield break;
+
+            var output = node as BaseDigitalOutput;
+            if (output != null)
+            {
+                yield return output;
+                yield break;
+            }
+
+            var cylinder = node as BaseCylinder;
+            if (cylinder != null)
+            {
+                if (cylinder.OutFwd != null) yield return cylinder.OutFwd;
+                if (cylinder.OutBwd != null) yield return cylinder.OutBwd;
+                yield break;
+            }
+
+            var prop = node.GetType().GetProperty("Components");
+            if (prop == null) yield break;
+
+            var components = prop.GetValue(node) as System.Collections.IEnumerable;
+            if (components == null) yield break;
+
+            foreach (BaseEquipmentNode child in components)
+                foreach (var childOutput in EnumerateOutputs(child))
+                    yield return childOutput;
+        }
+
+        private static IEnumerable<BaseCylinder> EnumerateCylinders(BaseEquipmentNode node)
+        {
+            if (node == null) yield break;
+
+            var cylinder = node as BaseCylinder;
+            if (cylinder != null)
+            {
+                yield return cylinder;
+                yield break;
+            }
+
+            var prop = node.GetType().GetProperty("Components");
+            if (prop == null) yield break;
+
+            var components = prop.GetValue(node) as System.Collections.IEnumerable;
+            if (components == null) yield break;
+
+            foreach (BaseEquipmentNode child in components)
+                foreach (var childCylinder in EnumerateCylinders(child))
+                    yield return childCylinder;
+        }
+
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
             try
@@ -873,6 +1034,7 @@ namespace QMC.CDT_320
             }
             catch { }
             SaveMachineSettings();
+            try { OpPanelMonitor?.Dispose(); } catch { }
             try { MotionMonitor?.Dispose(); } catch { }
             try { IoScan?.Dispose(); } catch { }
             try { if (_jogPopup != null && !_jogPopup.IsDisposed) _jogPopup.Dispose(); } catch { }

@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Drawing;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using QMC.CDT320.Sequencing;
 using QMC.Common.Motion;
 
 namespace QMC.CDT_320.Ui.Pages.WorkInfo
@@ -10,6 +12,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
     {
         private const int SLOT_COUNT_UI = 16;
         private System.Windows.Forms.Timer _refreshTimer;
+        private bool _manualSequenceRunning;
 
         public InputCassettePage()
         {
@@ -75,65 +78,86 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         {
             var host = GetHost();
             if (host?.Controller == null) return;
+            if (_manualSequenceRunning) return;
 
+            IDisposable manualScope = null;
             try
             {
+                _manualSequenceRunning = true;
+                SetActionButtonsEnabled(false);
+                manualScope = host.Controller.EnterManualOperation();
                 await action(host);
             }
             catch (Exception ex)
             {
                 QMC.Common.MessageDialog.Show("LotPort error:\n" + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
+            finally
+            {
+                if (manualScope != null)
+                    manualScope.Dispose();
+                _manualSequenceRunning = false;
+                SetActionButtonsEnabled(true);
+                RefreshFromMachine();
+            }
+        }
 
-            RefreshFromMachine();
+        private void SetActionButtonsEnabled(bool enabled)
+        {
+            btnPrev.Enabled = enabled;
+            btnNext.Enabled = enabled;
+            btnInit.Enabled = enabled;
+            btnReady.Enabled = enabled;
+            btnMap.Enabled = enabled;
+            btnLoad.Enabled = enabled;
+            btnUnload.Enabled = enabled;
         }
 
         private async Task LifterInitAsync(Form1 host)
         {
-            var loader = host.Machine.InputLoader;
-            loader.WaferLifterZ.ResetAlarm();
-            loader.WaferLifterZ.ServoOn();
-            loader.FeederY.ResetAlarm();
-            loader.FeederY.ServoOn();
-            await loader.WaferLifterZ.HomeSearchAsync();
-            await loader.FeederY.HomeSearchAsync();
+            var cassette = host.Machine.InputCassette;
+            var feeder = host.Machine.InputFeeder;
+            cassette.WaferLifterZ.ResetAlarm();
+            cassette.WaferLifterZ.ServoOn();
+            feeder.FeederY.ResetAlarm();
+            feeder.FeederY.ServoOn();
+            await cassette.WaferLifterZ.HomeSearchAsync();
+            await feeder.FeederY.HomeSearchAsync();
         }
 
         private Task LifterReadyAsync(Form1 host)
         {
-            var loader = host.Machine.InputLoader;
-            loader.WaferLifterZ.ServoOn();
-            loader.FeederY.ServoOn();
+            var cassette = host.Machine.InputCassette;
+            var feeder = host.Machine.InputFeeder;
+            cassette.WaferLifterZ.ServoOn();
+            feeder.FeederY.ServoOn();
             return Task.CompletedTask;
         }
 
         private async Task MapAsync(Form1 host)
         {
-            try
-            {
-                var ctx = new QMC.CDT320.Sequencing.MachineSequenceContext(
-                    host.Controller,
-                    new QMC.CDT320.Sequencing.SequenceSignalBus());
-                var sequence = new QMC.CDT320.Sequencing.InputLoaderSequence(ctx);
-                await sequence.ExecuteMappingAsync(System.Threading.CancellationToken.None);
-            }
-            catch
-            {
-                throw;
-            }
-            finally
-            {
-            }
+            var sequence = CreateManualInputSequence(host);
+            await sequence.ExecuteMappingAsync(CancellationToken.None);
         }
 
         private async Task LoadAsync(Form1 host)
         {
-            await host.Controller.LoadNextWaferAsync();
+            var sequence = CreateManualInputSequence(host);
+            await sequence.ExecuteCassetteLoadingAsync(CancellationToken.None);
         }
 
         private async Task UnloadAsync(Form1 host)
         {
-            await host.Controller.RetractCurrentWaferAsync();
+            var sequence = CreateManualInputSequence(host);
+            await sequence.ExecuteCassetteUnloadingAsync(CancellationToken.None);
+        }
+
+        private InputSequence CreateManualInputSequence(Form1 host)
+        {
+            var ctx = new MachineSequenceContext(host.Controller, new SequenceSignalBus());
+            var sequence = new InputSequence(ctx);
+            sequence.Configure(SequenceRunMode.Manual);
+            return sequence;
         }
 
         private void MoveSlotRel(int delta)
@@ -141,7 +165,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             var host = GetHost();
             if (host?.Machine == null) return;
 
-            var loader = host.Machine.InputLoader;
+            var loader = host.Machine.InputCassette;
             double pitch = 6.0;
             _ = loader.WaferLifterZ.MoveRelativeAsync(delta * pitch, 20.0);
         }
@@ -151,7 +175,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             var host = GetHost();
             if (host?.Machine == null) return;
 
-            var loader = host.Machine.InputLoader;
+            var loader = host.Machine.InputCassette;
             var ctrl = host.Controller;
 
             if (_lifterPosLabel != null)

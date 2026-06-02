@@ -1,4 +1,5 @@
 using QMC.Common.IO;
+using QMC.Common;
 using QMC.CDT320.Ajin;
 
 namespace QMC.CDT320
@@ -7,7 +8,7 @@ namespace QMC.CDT320
     /// Stage 45 — Operation Panel + Tower Lamp + Buzzer (CDT-310 매뉴얼 사양).<br/>
     /// 운전자 조작 버튼 (Start/Stop/Reset/EMG) + 표시 램프 + 신호탑 + 부저.
     /// </summary>
-    public class OperationPanelUnit
+    public class OperationPanelUnit : BaseUnit<UnitSetup, UnitConfig, UnitRecipe>
     {
         // ─── DI (운전자 입력) ─────────────────────────────────────────
         public BaseDigitalInput StartButton { get; private set; }
@@ -32,7 +33,7 @@ namespace QMC.CDT320
         // ─── Buzzer ───────────────────────────────────────────────────
         public BaseDigitalOutput Buzzer     { get; private set; }
 
-        public OperationPanelUnit()
+        public OperationPanelUnit() : base("OperationPanel")
         {
             // DI
             StartButton = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.StartButton);
@@ -53,6 +54,21 @@ namespace QMC.CDT320
             TlGreen   = AjinFactory.CreateDigitalOutput(AjinIoCatalog.Outputs.TlGreen);
 
             Buzzer    = AjinFactory.CreateDigitalOutput(AjinIoCatalog.Outputs.Buzzer);
+
+            Components.Add(StartButton);
+            Components.Add(StopButton);
+            Components.Add(ResetButton);
+            Components.Add(EmgFront);
+            Components.Add(EmgLeft);
+            Components.Add(EmgRear);
+            Components.Add(OpEmgOn);
+            Components.Add(StartLamp);
+            Components.Add(StopLamp);
+            Components.Add(ResetLamp);
+            Components.Add(TlRed);
+            Components.Add(TlYellow);
+            Components.Add(TlGreen);
+            Components.Add(Buzzer);
         }
 
         // ─── 헬퍼 메서드 ─────────────────────────────────────────────

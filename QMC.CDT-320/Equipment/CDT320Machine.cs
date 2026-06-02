@@ -1,4 +1,4 @@
-using QMC.Common;
+﻿using QMC.Common;
 using System.Threading.Tasks;
 
 namespace QMC.CDT320
@@ -169,9 +169,8 @@ namespace QMC.CDT320
         : Machine<CDT320MachineSetup, CDT320MachineConfig, CDT320MachineRecipe>
     {
         /// <summary>Input Cassette에서 웨이퍼를 공급하는 로더 유닛.</summary>
-        public InputLoaderUnit      InputLoader      { get; }
-        public InputCassetteUnit    InputCassetteUnit    { get { return InputLoader.InputCassette; } }
-        public InputFeederUnit      WaferFeeder      { get { return InputLoader.WaferFeeder; } }
+        public InputCassetteUnit    InputCassette { get; }
+        public InputFeederUnit      InputFeeder { get; }
 
         /// <summary>웨이퍼를 고정하고 다이 위치를 관리하는 Input Stage 유닛.</summary>
         public InputStageUnit       InputStage       { get; }
@@ -226,14 +225,15 @@ namespace QMC.CDT320
         /// </summary>
         public CDT320_Machine() : base("CDT-320")
         {
-            InputLoader = new InputLoaderUnit();
+            InputCassette = new InputCassetteUnit();
+            InputFeeder = new InputFeederUnit();
 
             // InputStageUnit - Wafer Vision 은 실 TCP Adapter 사용 (QMC.Vision 과 통신).
             // VisionHub 가 연결 안 된 경우 Adapter 는 안전 fallback(Expose/Match = false).
             // Stage 28 — NullWaferLoader 를 WaferLoaderAdapter(InputLoader) 로 교체:
             //   InputStage 의 안전 인터락이 실 InputLoader.FeederY 위치 + Cyl 상태를 체크하도록 함.
             InputStage = new InputStageUnit(
-                loader:     new QMC.CDT320.Sim.WaferLoaderAdapter(InputLoader),
+                loader:     new QMC.CDT320.Sim.WaferLoaderAdapter(InputFeeder),
                 barcode:    new NullBarcodeReader(),
                 vision:     new VisionComm.WaferVisionAdapter(),
                 mapHandler: new NullWaferMapHandler(),
@@ -275,7 +275,8 @@ namespace QMC.CDT320
                 unloader: new QMC.CDT320.Sim.OutputUnloaderAdapter(OutputUnloader));
             //BinStage = new BinStageUnit();
 
-            Units.Add(InputLoader);
+            Units.Add(InputCassette);
+            Units.Add(InputFeeder);
             Units.Add(InputStage);
             //Units.Add(WaferStage);
             Units.Add(TransferPicker);
@@ -288,6 +289,7 @@ namespace QMC.CDT320
             Units.Add(BinCassette);
             Units.Add(BinFeeder);
             Units.Add(OutputUnloader);
+            Units.Add(OpPanel);
         }
     }
 }

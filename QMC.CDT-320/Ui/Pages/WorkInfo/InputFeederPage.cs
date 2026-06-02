@@ -24,10 +24,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private void WireEvents()
         {
             btnInit.Click += (s, e) => RunAction(host => InitFeederAsync(host));
-            btnFwd.Click += (s, e) => RunAction(host => host.Machine.InputLoader.FeederUpDownCyl.MoveFwdAsync());
-            btnBwd.Click += (s, e) => RunAction(host => host.Machine.InputLoader.FeederUpDownCyl.MoveBwdAsync());
-            btnClamp.Click += (s, e) => RunAction(host => host.Machine.InputLoader.FeederClampCyl.MoveFwdAsync());
-            btnUnclamp.Click += (s, e) => RunAction(host => host.Machine.InputLoader.FeederClampCyl.MoveBwdAsync());
+            btnFwd.Click += (s, e) => RunAction(host => host.Machine.InputFeeder.FeederUpDownCyl.MoveFwdAsync());
+            btnBwd.Click += (s, e) => RunAction(host => host.Machine.InputFeeder.FeederUpDownCyl.MoveBwdAsync());
+            btnClamp.Click += (s, e) => RunAction(host => host.Machine.InputFeeder.FeederClampCyl.MoveFwdAsync());
+            btnUnclamp.Click += (s, e) => RunAction(host => host.Machine.InputFeeder.FeederClampCyl.MoveBwdAsync());
         }
 
         private Form1 GetHost() => FindForm() as Form1;
@@ -68,7 +68,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
         private async Task InitFeederAsync(Form1 host)
         {
-            var loader = host.Machine.InputLoader;
+            var loader = host.Machine.InputFeeder;
             loader.FeederY.ResetAlarm();
             loader.FeederY.ServoOn();
             await loader.FeederY.HomeSearchAsync();
@@ -78,7 +78,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         {
             var host = GetHost();
             if (host?.Machine == null) return;
-            var loader = host.Machine.InputLoader;
+            var loader = host.Machine.InputFeeder;
 
             _lblFeederPos.Text = AxisUnitConverter.FormatDisplay(loader.FeederY.ActualPosition, loader.FeederY, "0.###", true);
             _lblClampState.Text = loader.FeederClampCyl.IsFwd ? "CLAMPED" : (loader.FeederClampCyl.IsBwd ? "OPEN" : "...");
@@ -86,8 +86,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             _lblUpDownState.Text = loader.FeederUpDownCyl.IsFwd ? "DOWN" : (loader.FeederUpDownCyl.IsBwd ? "UP" : "...");
             _lblExist.Text = loader.WaferClampedSensor.IsOn ? "WAFER" : "EMPTY";
 
-            _dotRing.IsOn = loader.WaferDetectSensor.IsOn;
-            _dotOverload.IsOn = loader.ProtrusionSensor.IsOn;
+            _dotRing.IsOn = loader.WaferFeederRingCheckSensor.IsOn;
+            _dotOverload.IsOn = loader.WaferFeederOverloadSensor.IsOn;
         }
 
         protected override void OnHandleDestroyed(EventArgs e)
