@@ -233,3 +233,14 @@
 | M-76-3 | QMC.Vision\Optics\ILightController.cs | LFine 무응답 가정 인터페이스인데 Leesos 는 응답형 | Stage 75 ReceiveResponseAsync 가 이미 존재 → 응답 검증을 그 메서드로 수행, 인터페이스 시그니처 변경 없음 |
 | M-76-4 | 사전조사 "11 메서드" / "OnDeserialized" | 실제 인터페이스 = 9 메서드 + 3 속성 / Vendor 마이그레이션은 OnDeserializing 필요 | SPEC 에서 정정 반영 |
 | M-76-5 | LightSystemSetup.cs:74 LightControllerEntry | Vendor 필드 없음 + 직렬화 콜백 없음(이니셜라이저 미실행) | Vendor 필드 + [OnDeserializing] 기본값("LFine") 추가 (구현 Stage) |
+
+## STAGE 78 — 조명 batch + Mode + Leesos 매뉴얼 정정 SPEC (2026-06-02)
+
+| ID | 위치 | 내용 | 처리 |
+|---|---|---|---|
+| M-78-1 | LFineLightController SetPowerAsync(:67) | 현재 캐시 비교 없이 매번 송신 → StrobeOnCommand 이미 안전 | batch 메서드에만 Mode-gated skip 도입 (Continuous/StrobeExternal 만 skip) |
+| M-78-2 | Stage 77 Leesos (8-bit X2, "ERR", raw ch) | 매뉴얼(12BIT PDF §5.3) = 12-bit X3(0~4095), 에러 "ER", 채널 1~9/A~G/T | LeesosProtocol/Controller 매뉴얼 기준 정정 (M-77 후속) |
+| M-78-3 | LeesosLightConfig MaxPower 255 / ChannelCount 8 | 매뉴얼 = 4095 / 4CH(LPD-6524-4CH 기본) | Config 기본값 정정 |
+| M-78-4 | InspectionLightPanel.Apply(:237-246) 채널별 foreach | tact-time 누락 → SP/배치 1프레임으로 일원화 | SetChannelBatchAsync 도입 |
+| M-78-5 | 프롬프트 사전조사 (Vendor없음/Factory LFine만/Leesos신규/11메서드) | Stage 76/77 이후 무효 (Vendor/Leesos/Factory분기 이미 존재) | SPEC 에서 현행 기준 정정 |
+| M-78-6 | working-tree WIP (LFine SC 0-based, Leesos X3) | 미커밋 코드 편집 | SPEC 이 정식화, 구현 Stage 에서 실장비 채널 인덱싱 확정 (확인 필요 #2) |
