@@ -223,3 +223,13 @@
 |---|---|---|---|
 | M-70-1 | LightSystemSetup / InspectionLightSubset | Wiring.Page(Setup) → Setting.Page(Recipe) 이동 | AlgorithmLightWiring.Page → LegacyPage(읽기전용) + AlgorithmCameraSubset.MigrateWiringPageToSettings 자동 1회. 소비 후 LegacyPage=0 → 재저장 시 구 키 소멸 |
 | M-70-2 | FinderPage:55 / InspectorPage:53 | 더미 IlluminatorPanel(4채널) 사용 | InspectionLightPanel(algorithmKey, inspectionId) 로 교체. VisionModule.AlgorithmKey 추가 (5 모듈 override) |
+
+## STAGE 76 — LeesOS 조명 컨트롤러 (2차 벤더) SPEC (2026-06-02)
+
+| ID | 위치 | 내용 | 처리 |
+|---|---|---|---|
+| M-76-1 | LightControl/Optics/Leesos/* | 레거시 베이스(SerialComm/IlluminatorConfig/ListParam/Param/BytesConverter) 의존 → 직접 포팅 불가 | 프로토콜 의미만 차용, QMC.Vision\Optics\Leesos\ 에 신규 구현 |
+| M-76-2 | DigitalIlluminatorCommunicator.cs:56-57(주석) vs 125-234(코드) | 명령 prefix 주석=H/C/SPWR ↔ 실제 코드=LH/LC/LS 불일치 (사전조사가 주석값 인용) | 실제 코드(LH{ch}ON·OF / LC{ch}{X2} / LS{ch}01) 채택. 매뉴얼 부재 → 구현 전 실 장비 hex dump 1회로 최종 확정 (확인 필요 #2) |
+| M-76-3 | QMC.Vision\Optics\ILightController.cs | LFine 무응답 가정 인터페이스인데 Leesos 는 응답형 | Stage 75 ReceiveResponseAsync 가 이미 존재 → 응답 검증을 그 메서드로 수행, 인터페이스 시그니처 변경 없음 |
+| M-76-4 | 사전조사 "11 메서드" / "OnDeserialized" | 실제 인터페이스 = 9 메서드 + 3 속성 / Vendor 마이그레이션은 OnDeserializing 필요 | SPEC 에서 정정 반영 |
+| M-76-5 | LightSystemSetup.cs:74 LightControllerEntry | Vendor 필드 없음 + 직렬화 콜백 없음(이니셜라이저 미실행) | Vendor 필드 + [OnDeserializing] 기본값("LFine") 추가 (구현 Stage) |
