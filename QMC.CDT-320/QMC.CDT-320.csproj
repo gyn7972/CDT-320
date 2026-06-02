@@ -72,6 +72,7 @@
     <Compile Include="Equipment\AppSettings.cs" />
     <Compile Include="Equipment\CDT320Machine.cs" />
     <Compile Include="Equipment\CycleMode.cs" />
+    <Compile Include="Equipment\EquipmentStatus.cs" />
     <Compile Include="Equipment\Unit\OutCassetteUnit.cs" />
     <Compile Include="Equipment\Unit\BinFeederUnit.cs" />
     <Compile Include="Equipment\Unit\OutputStageUnit.cs" />
@@ -133,6 +134,18 @@
     </Compile>
     <Compile Include="Ui\Controls\JogSpeedControl.Designer.cs">
       <DependentUpon>JogSpeedControl.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Controls\CassetteSlotView.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Controls\CassetteSlotView.Designer.cs">
+      <DependentUpon>CassetteSlotView.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Controls\MaterialDetailView.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Controls\MaterialDetailView.Designer.cs">
+      <DependentUpon>MaterialDetailView.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Controls\IoCylinderItem.cs" />
     <Compile Include="Ui\Controls\IoCylinderPanelControl.cs">
@@ -259,6 +272,8 @@
     <Compile Include="Sequencing\SequenceRunMode.cs" />
     <Compile Include="Sequencing\SequenceRunOptions.cs" />
     <Compile Include="Sequencing\SequenceSignalBus.cs" />
+    <Compile Include="Sequencing\SequenceExecutionState.cs" />
+    <Compile Include="Sequencing\SequenceResumeStore.cs" />
     <Compile Include="Sequencing\MachineSequenceContext.cs" />
     <Compile Include="Sequencing\UnitSequenceBase.cs" />
     <Compile Include="Sequencing\AutoSequenceCoordinator.cs" />
@@ -271,6 +286,9 @@
     <!-- Equipment / Materials (310 ?�식) -->
     <Compile Include="Equipment\Materials\Die.cs" />
     <Compile Include="Equipment\Materials\DieTapeFrame.cs" />
+    <Compile Include="Equipment\Materials\MaterialModel.cs" />
+    <Compile Include="Equipment\Materials\MaterialSnapshotStore.cs" />
+    <Compile Include="Equipment\Materials\MaterialStateService.cs" />
     <Compile Include="Equipment\Materials\MaterialStorage.cs" />
     <Compile Include="Equipment\Materials\MaterialSpecs.cs" />
     <!-- Equipment / Vision (310 ?�식 ??좌표/캘리브레?�션) -->
@@ -317,6 +335,12 @@
     </Compile>
     <Compile Include="Ui\Dialogs\RemoteViewerDialog.Designer.cs">
       <DependentUpon>RemoteViewerDialog.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Dialogs\MaterialValueEditDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\MaterialValueEditDialog.Designer.cs">
+      <DependentUpon>MaterialValueEditDialog.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Pages\WorkInfo\ActiveLotPage.cs">
       <SubType>UserControl</SubType>
@@ -723,6 +747,9 @@
       <AutoGen>True</AutoGen>
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
+    <EmbeddedResource Include="Ui\Controls\CassetteSlotView.resx">
+      <DependentUpon>CassetteSlotView.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Ui\Controls\JogAxisMoveControl.resx">
       <DependentUpon>JogAxisMoveControl.cs</DependentUpon>
     </EmbeddedResource>
@@ -737,6 +764,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Dialogs\RemoteViewerDialog.resx">
       <DependentUpon>RemoteViewerDialog.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Dialogs\MaterialValueEditDialog.resx">
+      <DependentUpon>MaterialValueEditDialog.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\History\AlarmHistoryPage.resx">
       <DependentUpon>AlarmHistoryPage.cs</DependentUpon>
@@ -817,8 +847,17 @@
     <EmbeddedResource Include="Ui\Pages\Settings\VisionLinkPage.resx">
       <DependentUpon>VisionLinkPage.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\WorkInfo\InputCassettePage.resx">
+      <DependentUpon>InputCassettePage.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\WorkInfo\OperationPanelStatusPage.resx">
       <DependentUpon>OperationPanelStatusPage.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Tabs\RecipeTab.resx">
+      <DependentUpon>RecipeTab.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Tabs\SettingsTab.resx">
+      <DependentUpon>SettingsTab.cs</DependentUpon>
     </EmbeddedResource>
     <None Include="Properties\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>

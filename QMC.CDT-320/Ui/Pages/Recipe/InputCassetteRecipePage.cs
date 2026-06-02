@@ -392,8 +392,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     host.Controller,
                     new QMC.CDT320.Sequencing.SequenceSignalBus());
                 var sequence = new QMC.CDT320.Sequencing.InputSequence(ctx);
-                bool ok = await sequence.ExecuteMappingAsync(System.Threading.CancellationToken.None, IsFineMove());
-                if (!ok)
+                int sequenceResult = await sequence.ExecuteMappingAsync(System.Threading.CancellationToken.None, IsFineMove());
+                if (sequenceResult != 0)
                     QMC.Common.MessageDialog.Show(this, "Input Cassette Mapping 실패", "Input Cassette Mapping", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
             catch (Exception ex)
@@ -659,6 +659,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     ParameterGridItem.Micron("MAPPING END Z", ParameterGridScope.Recipe, () => _InputCassetteUnit.Recipe.MappingEndPosition, v => _InputCassetteUnit.Recipe.MappingEndPosition = v),
                     ParameterGridItem.Micron("LOADING OFFSET", ParameterGridScope.Config, () => _InputCassetteUnit.Config.LoadingPositionOffset, v => _InputCassetteUnit.Config.LoadingPositionOffset = v),
                     ParameterGridItem.Micron("UNLOADING OFFSET", ParameterGridScope.Config, () => _InputCassetteUnit.Config.UnloadingPositionOffset, v => _InputCassetteUnit.Config.UnloadingPositionOffset = v),
+                    ParameterGridItem.Micron("LEVEL 2 OFFSET", ParameterGridScope.Config, () => _InputCassetteUnit.Config.Level2PositionOffset, v => _InputCassetteUnit.Config.Level2PositionOffset = Math.Max(0.0, v)),
                     ParameterGridItem.Micron("SLOT PITCH", ParameterGridScope.Config, () => _InputCassetteUnit.Config.SlotPitch, v => _InputCassetteUnit.Config.SlotPitch = Math.Max(0.0, v)),
                     ParameterGridItem.Int("SLOT COUNT", "ea", ParameterGridScope.Config, () => _InputCassetteUnit.Config.SlotCount, v =>
                     {

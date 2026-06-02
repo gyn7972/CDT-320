@@ -48,14 +48,19 @@ namespace QMC.CDT320.Sim
             _inputFeeder = inputFeeder ?? throw new ArgumentNullException(nameof(inputFeeder));
             _output = output ?? throw new ArgumentNullException(nameof(output));
 
-            // 기본 카세트 가득 채우기 (16 슬롯)
-            InputSlotsHasWafer = new bool[16];
+            int inputSlotCount = _inputCassette.Config != null && _inputCassette.Config.SlotCount > 0
+                ? _inputCassette.Config.SlotCount
+                : 16;
+            int outputSlotCount = 25;
+
+            // 기본 카세트 가득 채우기
+            InputSlotsHasWafer = new bool[inputSlotCount];
             for (int i = 0; i < InputSlotsHasWafer.Length; i++) InputSlotsHasWafer[i] = true;
 
-            // Output 카세트(25 슬롯) — 비어있는 상태로 시작
-            OutputNgSlots    = new bool[25];
-            OutputGood1Slots = new bool[25];
-            OutputGood2Slots = new bool[25];
+            // Output 카세트 - 비어있는 상태로 시작
+            OutputNgSlots    = new bool[outputSlotCount];
+            OutputGood1Slots = new bool[outputSlotCount];
+            OutputGood2Slots = new bool[outputSlotCount];
 
             HookInput();
             HookOutput();

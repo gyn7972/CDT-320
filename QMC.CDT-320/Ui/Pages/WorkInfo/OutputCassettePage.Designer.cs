@@ -17,6 +17,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private TableLayoutPanel ngLayout;
         private TableLayoutPanel good1Layout;
         private TableLayoutPanel good2Layout;
+        private CassetteSlotView _ngCassetteView;
+        private CassetteSlotView _good1CassetteView;
+        private CassetteSlotView _good2CassetteView;
         private FlowLayoutPanel actionPanel;
         private Label lblElevatorPos;
         private Label lblElevatorTitle;
@@ -43,6 +46,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.ngLayout = new TableLayoutPanel();
             this.good1Layout = new TableLayoutPanel();
             this.good2Layout = new TableLayoutPanel();
+            this._ngCassetteView = new QMC.CDT_320.Ui.Controls.CassetteSlotView();
+            this._good1CassetteView = new QMC.CDT_320.Ui.Controls.CassetteSlotView();
+            this._good2CassetteView = new QMC.CDT_320.Ui.Controls.CassetteSlotView();
             this.actionPanel = new FlowLayoutPanel();
             this.lblElevatorPos = new Label();
             this.lblElevatorTitle = new Label();
@@ -260,25 +266,49 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.grpElevator.Text = "ELEVATOR Z";
 
             this.grpNgCassette.BackColor = UiTheme.OptionPanelBg;
-            this.grpNgCassette.Controls.Add(this.ngLayout);
+            this.grpNgCassette.Controls.Add(this._ngCassetteView);
             this.grpNgCassette.Dock = DockStyle.Fill;
             this.grpNgCassette.Font = UiTheme.SectionFont;
             this.grpNgCassette.Margin = new Padding(4);
             this.grpNgCassette.Text = "NG CASSETTE";
 
             this.grpGood1Cassette.BackColor = UiTheme.OptionPanelBg;
-            this.grpGood1Cassette.Controls.Add(this.good1Layout);
+            this.grpGood1Cassette.Controls.Add(this._good1CassetteView);
             this.grpGood1Cassette.Dock = DockStyle.Fill;
             this.grpGood1Cassette.Font = UiTheme.SectionFont;
             this.grpGood1Cassette.Margin = new Padding(4);
             this.grpGood1Cassette.Text = "GOOD1 CASSETTE";
 
             this.grpGood2Cassette.BackColor = UiTheme.OptionPanelBg;
-            this.grpGood2Cassette.Controls.Add(this.good2Layout);
+            this.grpGood2Cassette.Controls.Add(this._good2CassetteView);
             this.grpGood2Cassette.Dock = DockStyle.Fill;
             this.grpGood2Cassette.Font = UiTheme.SectionFont;
             this.grpGood2Cassette.Margin = new Padding(4);
             this.grpGood2Cassette.Text = "GOOD2 CASSETTE";
+
+            this._ngCassetteView.BackColor = UiTheme.OptionPanelBg;
+            this._ngCassetteView.Dock = DockStyle.Fill;
+            this._ngCassetteView.Location = new Point(3, 28);
+            this._ngCassetteView.Name = "_ngCassetteView";
+            this._ngCassetteView.Size = new Size(440, 540);
+            this._ngCassetteView.TabIndex = 0;
+            this._ngCassetteView.Title = "NG CASSETTE";
+
+            this._good1CassetteView.BackColor = UiTheme.OptionPanelBg;
+            this._good1CassetteView.Dock = DockStyle.Fill;
+            this._good1CassetteView.Location = new Point(3, 28);
+            this._good1CassetteView.Name = "_good1CassetteView";
+            this._good1CassetteView.Size = new Size(440, 540);
+            this._good1CassetteView.TabIndex = 0;
+            this._good1CassetteView.Title = "GOOD1 CASSETTE";
+
+            this._good2CassetteView.BackColor = UiTheme.OptionPanelBg;
+            this._good2CassetteView.Dock = DockStyle.Fill;
+            this._good2CassetteView.Location = new Point(3, 28);
+            this._good2CassetteView.Name = "_good2CassetteView";
+            this._good2CassetteView.Size = new Size(440, 540);
+            this._good2CassetteView.TabIndex = 0;
+            this._good2CassetteView.Title = "GOOD2 CASSETTE";
 
             this.elevatorLayout.ColumnCount = 2;
             this.elevatorLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 180F));

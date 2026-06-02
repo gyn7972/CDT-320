@@ -65,10 +65,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             {
                 var host = (FindForm() ?? ParentForm) as Form1;
                 var ctrl = host?.Controller;
-                MachineStatus status = ctrl?.Status ?? MachineStatus.Idle;
+                EquipmentStatus status = ctrl?.Status ?? EquipmentStatus.Idle;
                 int done = ctrl?.CycleDone ?? 0;
                 int total = ctrl?.CycleTotal ?? 0;
-                bool cycling = status == MachineStatus.Cycling;
+                bool cycling = status == EquipmentStatus.AutoRunning;
 
                 var states = new string[UnitNames.Length];
                 var steps = new string[UnitNames.Length];
@@ -79,7 +79,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     {
                         states[i] = status.ToString().ToUpper();
                         steps[i] = "-";
-                        descriptions[i] = status == MachineStatus.Initializing ? "Homing..." : "Waiting";
+                        descriptions[i] = status == EquipmentStatus.Initializing ? "Homing..." : "Waiting";
                     }
                     else
                     {

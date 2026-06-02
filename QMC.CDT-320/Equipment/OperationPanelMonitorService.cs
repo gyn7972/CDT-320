@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
 using QMC.CDT320.Sequencing;
@@ -143,13 +143,13 @@ namespace QMC.CDT320
 
         private bool IsAlarmActive()
         {
-            return _controller.Status == MachineStatus.Alarm ||
+            return _controller.Status == EquipmentStatus.Alarm ||
                    (AlarmManager.Active != null && AlarmManager.Active.Count > 0);
         }
 
         private bool IsAutoRunning()
         {
-            return _controller.Status == MachineStatus.Cycling ||
+            return _controller.Status == EquipmentStatus.AutoRunning ||
                    (_controller.IsSequenceRunning &&
                     _controller.ActiveSequenceRunMode == SequenceRunMode.Auto);
         }
@@ -157,7 +157,7 @@ namespace QMC.CDT320
         private bool IsManualRunning()
         {
             return _controller.IsManualBusy ||
-                   _controller.Status == MachineStatus.Running ||
+                   _controller.Status == EquipmentStatus.ManualRunning ||
                    (_controller.IsSequenceRunning &&
                     _controller.ActiveSequenceRunMode.HasValue &&
                     _controller.ActiveSequenceRunMode.Value != SequenceRunMode.Auto);
@@ -189,10 +189,7 @@ namespace QMC.CDT320
             if (IsAlarmActive())
                 return;
 
-            if (_controller.Status == MachineStatus.Idle)
-                await _controller.StartAsync().ConfigureAwait(false);
-            else
-                await _controller.CycleRunAsync().ConfigureAwait(false);
+            await _controller.StartAsync().ConfigureAwait(false);
         }
 
         private async Task HandleStopAsync()

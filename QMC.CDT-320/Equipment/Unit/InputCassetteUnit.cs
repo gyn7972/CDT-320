@@ -1,10 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using QMC.CDT320.Ajin;
 using QMC.Common;
+using QMC.Common.Alarms;
 using QMC.Common.IO;
 using QMC.Common.Motion;
 
@@ -32,13 +34,14 @@ namespace QMC.CDT320
         [DataMember]public bool bDryRun { get; set; }
         [DataMember]public double LoadingPositionOffset { get; set; }
         [DataMember]public double UnloadingPositionOffset { get; set; }
+        [DataMember]public double Level2PositionOffset { get; set; }
         [DataMember]public double SlotPitch { get; set; }
         [DataMember]public int SlotCount { get; set; }
         [DataMember]public double ScanVelocity { get; set; }
         [DataMember]public int ScanSettleTimeMs { get; set; }
         [DataMember]public int ElevatorMoveTimeoutMs { get; set; }
         [DataMember]public int InchSelect { get; set; } // 0: 8Inch, 1: 12Inch
-        [DataMember] public int SelectedCassetteLevel { get; set; } // 0: 1단, 1: 2단
+        [DataMember] public int SelectedCassetteLevel { get; set; } // 1: 1단, 2: 2단 사용
 
         [OnDeserializing]
         private void OnDeserializing(StreamingContext ctx) { SetDefaults(); }
@@ -48,13 +51,14 @@ namespace QMC.CDT320
             bDryRun = false;
             LoadingPositionOffset = 0.00;
             UnloadingPositionOffset = 0.00;
+            Level2PositionOffset = 59.00;
             SlotPitch = 5.00;
             SlotCount = 25;
             ScanVelocity = 20.0;
             ScanSettleTimeMs = 100;
             ElevatorMoveTimeoutMs = 10000;
             InchSelect = 0;
-            SelectedCassetteLevel = 0;
+            SelectedCassetteLevel = 1;
         }
     }
     
@@ -709,6 +713,22 @@ namespace QMC.CDT320
                 UpdateWaferCassetteSlotState(i, map[i] ? SlotPresence.Exist : SlotPresence.Empty, ProcessState.Ready);
         }
 
+        public void BuildSimulatedWaferMap()
+        {
+            BeginWaferMapping();
+
+            int count = Config != null && Config.SlotCount > 0 ? Config.SlotCount : 25;
+            var map = new List<bool>(count);
+            for (int i = 0; i < count; i++)
+            {
+                map.Add(true);
+                UpdateSlotPosition(i, CalculateNominalSlotPosition(i));
+            }
+
+            WaferMap = map.AsReadOnly();
+            EndWaferMapping();
+        }
+
         public async Task<int> StopWaferCassetteMotion(string reason)
         {
             try
@@ -747,42 +767,286 @@ namespace QMC.CDT320
             {
                 if (!IsAnyCassetteSensorOn())
                 {
-                    Console.WriteLine("[ALARM] '" + Name + "' ScanCassette: cassette not detected.");
-                    return -1;
+                    return FailMappingScan("IN-CST-MAP-CST-MISSING", "Cassette is not detected.");
                 }
 
-                var map = new List<bool>();
+                if (maxSlots <= 0)
+                {
+                    return FailMappingScan("IN-CST-MAP-SLOT-COUNT", "Slot count is invalid.");
+                }
+
+                if (slotPitch <= 0.0)
+                {
+                    return FailMappingScan("IN-CST-MAP-PITCH", "Slot pitch is invalid.");
+                }
+
                 int startResult = await MoveToWaferCassetteMappingStartPosition();
                 if (startResult != 0 || WaferLifterZ.IsAlarm)
                 {
-                    Console.WriteLine("[ALARM] '" + Name + "' ScanCassette: WaferLifterZ move failed at mapping start.");
-                    return startResult != 0 ? startResult : -1;
+                    return FailMappingScan("IN-CST-MAP-START", "WaferLifterZ move failed at mapping start.");
                 }
 
+                if (Config.bDryRun || WaferLifterZ.Config.IsSimulationMode)
+                    return await ScanCassetteByNominalPositionAsync(maxSlots);
+
+                var detectedPositions = await CollectMappingSensorPositionsAsync();
+                if (detectedPositions == null)
+                    return -1;
+
+                bool[] slotMap;
+                double[] slotPositions;
+                if (!BuildMappingResultFromDetectedPositions(detectedPositions, maxSlots, slotPitch, out slotMap, out slotPositions))
+                    return -1;
+
+                var map = new List<bool>(maxSlots);
+                for (int i = 0; i < maxSlots; i++)
+                {
+                    map.Add(slotMap[i]);
+                    if (slotMap[i])
+                        UpdateSlotPosition(i, slotPositions[i]);
+                }
+
+                if (map.Count(x => x) <= 0)
+                    return FailMappingScan("IN-CST-MAP-NO-WAFER", "No wafer was detected during mapping scan.");
+
+                WaferMap = map.AsReadOnly();
+                Log.Write("Main", "SYSTEM", "InputCassetteMapping", "Mapping scan completed. detected=" + detectedPositions.Count + ", slots=" + map.Count(x => x) + " - Ok");
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                FailMappingScan("IN-CST-MAP-EXCEPTION", "Mapping scan failed: " + ex.Message);
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> ScanCassetteByNominalPositionAsync(int maxSlots)
+        {
+            try
+            {
+                var map = new List<bool>();
                 for (int i = 0; i < maxSlots; i++)
                 {
                     int moveResult = await MoveWaferLifterZ(CalculateNominalSlotPosition(i));
                     if (moveResult != 0 || WaferLifterZ.IsAlarm)
                     {
-                        Console.WriteLine("[ALARM] '" + Name + "' ScanCassette: WaferLifterZ move failed at slot " + i + ".");
-                        return moveResult != 0 ? moveResult : -1;
+                        return FailMappingScan("IN-CST-MAP-SIM-MOVE", "WaferLifterZ simulation move failed at slot " + i + ".");
                     }
 
                     await Task.Delay(Config.ScanSettleTimeMs).ContinueWith(_ => { });
-                    UpdateSlotPosition(i, WaferLifterZ.ActualPosition);
-                    map.Add(WaferMappingSensor.IsOn);
+                    UpdateSlotPosition(i, CalculateNominalSlotPosition(i));
+                    map.Add(true);
                 }
 
                 WaferMap = map.AsReadOnly();
+                Log.Write("Main", "SYSTEM", "InputCassetteMapping", "Simulation mapping scan completed. slots=" + map.Count + " - Ok");
                 return 0;
             }
-            catch
+            catch (Exception ex)
             {
-                throw;
+                FailMappingScan("IN-CST-MAP-SIM-EXCEPTION", "Simulation mapping scan failed: " + ex.Message);
+                return -1;
             }
             finally
             {
             }
+        }
+
+        private async Task<List<double>> CollectMappingSensorPositionsAsync()
+        {
+            try
+            {
+                var detectedPositions = new List<double>();
+                bool previous = WaferMappingSensor.IsOn;
+                if (previous)
+                    return FailMappingScanList("IN-CST-MAP-SENSOR-ON", "Mapping sensor is ON at mapping start. Check mapping start position.");
+
+                double scanVelocity = Config.ScanVelocity > 0.0 ? Config.ScanVelocity : WaferLifterZ.Config.DefaultVelocity;
+                if (scanVelocity <= 0.0)
+                    scanVelocity = 1.0;
+
+                Task<int> moveTask = WaferLifterZ.MoveAbsoluteAsync(Recipe.MappingEndPosition, scanVelocity);
+                while (!moveTask.IsCompleted)
+                {
+                    if (IsWaferProtrusionDetected())
+                    {
+                        WaferLifterZ.EStop();
+                        return FailMappingScanList("IN-CST-MAP-PROTRUSION", "Wafer protrusion detected during mapping scan.");
+                    }
+
+                    bool current = WaferMappingSensor.IsOn;
+                    if (current && !previous)
+                        AddDetectedMappingPosition(detectedPositions, WaferLifterZ.ActualPosition);
+
+                    previous = current;
+                    await Task.Delay(5).ContinueWith(_ => { });
+                }
+
+                int moveResult = await moveTask;
+                if (moveResult != 0 || WaferLifterZ.IsAlarm)
+                    return FailMappingScanList("IN-CST-MAP-END", "WaferLifterZ move failed during mapping scan.");
+
+                return detectedPositions;
+            }
+            catch (Exception ex)
+            {
+                return FailMappingScanList("IN-CST-MAP-COLLECT", "Mapping sensor position collect failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private void AddDetectedMappingPosition(List<double> detectedPositions, double position)
+        {
+            try
+            {
+                double minSpacing = Config.SlotPitch > 0.0 ? Config.SlotPitch * 0.5 : 0.0;
+                if (detectedPositions.Count > 0 && minSpacing > 0.0)
+                {
+                    double last = detectedPositions[detectedPositions.Count - 1];
+                    if (Math.Abs(position - last) < minSpacing)
+                        return;
+                }
+
+                detectedPositions.Add(position);
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        private bool BuildMappingResultFromDetectedPositions(
+            IReadOnlyList<double> detectedPositions,
+            int maxSlots,
+            double slotPitch,
+            out bool[] slotMap,
+            out double[] slotPositions)
+        {
+            slotMap = new bool[maxSlots];
+            slotPositions = new double[maxSlots];
+            for (int i = 0; i < slotPositions.Length; i++)
+                slotPositions[i] = double.NaN;
+
+            try
+            {
+                double firstSlotPosition = CalculateNominalSlotPosition(0);
+                double tolerance = ResolveMappingPitchTolerance(slotPitch);
+                int previousSlot = -1;
+                double previousPosition = double.NaN;
+
+                foreach (double position in detectedPositions)
+                {
+                    int slotIndex = (int)Math.Round((position - firstSlotPosition) / slotPitch);
+                    if (slotIndex < 0 || slotIndex >= maxSlots)
+                    {
+                        FailMappingScan("IN-CST-MAP-SLOT-MATCH", "Detected wafer position is outside slot range. position=" + FormatPosition(position));
+                        return false;
+                    }
+
+                    if (slotMap[slotIndex])
+                    {
+                        FailMappingScan("IN-CST-MAP-DUPLICATE", "Duplicate wafer detection matched to the same slot. slot=" + (slotIndex + 1));
+                        return false;
+                    }
+
+                    if (previousSlot >= 0)
+                    {
+                        int slotGap = Math.Abs(slotIndex - previousSlot);
+                        double actualGap = Math.Abs(position - previousPosition);
+                        double expectedGap = slotPitch * slotGap;
+                        double error = Math.Abs(actualGap - expectedGap);
+                        if (slotGap <= 0 || error > tolerance)
+                        {
+                            FailMappingScan(
+                                "IN-CST-MAP-PITCH-CHECK",
+                                "Mapping pitch check failed. prevSlot=" + (previousSlot + 1) +
+                                ", slot=" + (slotIndex + 1) +
+                                ", actualGap=" + FormatPosition(actualGap) +
+                                ", expectedGap=" + FormatPosition(expectedGap) +
+                                ", error=" + FormatPosition(error));
+                            return false;
+                        }
+                    }
+
+                    slotMap[slotIndex] = true;
+                    slotPositions[slotIndex] = position;
+                    previousSlot = slotIndex;
+                    previousPosition = position;
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                FailMappingScan("IN-CST-MAP-BUILD", "Mapping result build failed: " + ex.Message);
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private double ResolveMappingPitchTolerance(double slotPitch)
+        {
+            try
+            {
+                double tolerance = Setup.InPositionTolerance;
+                if (tolerance <= 0.0)
+                    tolerance = slotPitch * 0.1;
+                return Math.Max(tolerance, 0.001);
+            }
+            catch
+            {
+                return 0.001;
+            }
+            finally
+            {
+            }
+        }
+
+        private int FailMappingScan(string alarmCode, string message)
+        {
+            try
+            {
+                Log.Write("Main", "SYSTEM", "InputCassetteMapping", message + " - Failed");
+                AlarmManager.Raise(AlarmSeverity.Warning, alarmCode, Name, message);
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+
+            return -1;
+        }
+
+        private List<double> FailMappingScanList(string alarmCode, string message)
+        {
+            try
+            {
+                FailMappingScan(alarmCode, message);
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+
+            return null;
+        }
+
+        private static string FormatPosition(double value)
+        {
+            return value.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
         }
 
         public async Task<int> MoveToTargetSlotAsync(double targetPosition)
@@ -930,6 +1194,20 @@ namespace QMC.CDT320
         {
             ValidateSlotIndex(slotIndex);
             return Recipe.FirstSlotPosition + Config.LoadingPositionOffset + (Config.SlotPitch * slotIndex);
+        }
+
+        public double CalculateCassetteLevelSlotPosition(int level, int slotIndex)
+        {
+            ValidateSlotIndex(slotIndex);
+            if (level < 2)
+                return CalculateWaferCassetteSlotTargetPosition(slotIndex);
+
+            double level1LastPosition = CalculateWaferCassetteSlotTargetPosition(Config.SlotCount - 1);
+            double levelGap = Config.Level2PositionOffset;
+            if (levelGap <= 0.0)
+                levelGap = Config.SlotPitch > 0.0 ? Config.SlotPitch : 0.001;
+
+            return level1LastPosition + levelGap + (Config.SlotPitch * slotIndex);
         }
 
         private static async Task<int> WaitUntilAsync(Func<bool> condition, int timeoutMs)

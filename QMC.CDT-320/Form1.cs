@@ -7,6 +7,7 @@ using QMC.Common.IO;
 using QMC.Common.Motion;
 using QMC.CDT320;
 using QMC.CDT320.Ajin;
+using QMC.CDT320.Materials;
 using QMC.CDT_320.Ui;
 using QMC.CDT_320.Ui.Localization;
 using QMC.CDT_320.Ui.Security;
@@ -35,6 +36,7 @@ namespace QMC.CDT_320
         internal AjinIoScanService IoScan { get; private set; }
         internal OperationPanelMonitorService OpPanelMonitor { get; private set; }
         internal string CurrentRecipeName { get; private set; }
+        private bool _materialSnapshotRestored;
 
         /// <summary>구현 설명 주석입니다.</summary>
         ///
@@ -341,6 +343,7 @@ namespace QMC.CDT_320
             BeginSimulatorAutoConnect(cfg);
             Controller = new MachineController(Machine);
             ApplyRuntimeMode();
+            PromptMaterialRecoveryOnStartup();
             alarmBanner.ClearRequested += async (s, args) =>
             {
                 try
@@ -378,7 +381,7 @@ namespace QMC.CDT_320
             {
                 CassetteDriver = new QMC.CDT320.Sim.SimCassetteDriver(Machine.InputCassette, Machine.InputFeeder, Machine.OutputUnloader);
             }
-            Controller.StatusChanged += OnMachineStatusChanged;
+            Controller.StatusChanged += OnEquipmentStatusChanged;
             Controller.LogMessage    += s => QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, UserSession.Name, "CTRL", s);
             // 구현 보조 주석입니다.
             if (Program.AutoCycleCount > 0)
@@ -452,6 +455,8 @@ namespace QMC.CDT_320
                 {
                     LoadMachineRecipe(last.FileName);
                     Controller.ApplyRecipeMode(last);
+                    if (!_materialSnapshotRestored)
+                        InitializeMaterialStateFromRecipe(last);
                     // 구현 보조 주석입니다.
                     RefreshProjectName(last.FileName);
                     QMC.Common.Logging.EventLogger.Write(
@@ -462,6 +467,9 @@ namespace QMC.CDT_320
                 }
             }
             catch { /* Optional startup failure ignored. */ }
+
+            if (!_materialSnapshotRestored && MaterialStorage.State.Cassettes.Count == 0)
+                MaterialStateService.InitializeForRecipe(1, 1, 25, 25);
 
             // 구현 보조 주석입니다.
             timerClock.Start();
@@ -572,6 +580,106 @@ namespace QMC.CDT_320
             }
         }
 
+        private void PromptMaterialRecoveryOnStartup()
+        {
+            try
+            {
+                if (!MaterialSnapshotStore.Exists())
+                {
+                    Log.Write("Main", UserSession.Name, "MaterialRecovery", "Material snapshot does not exist. New empty Material state will be created. - Ok");
+                    MaterialStateService.InitializeForRecipe(1, 1, 25, 25);
+                    return;
+                }
+
+                var snapshot = MaterialSnapshotStore.Load();
+                if (snapshot == null)
+                {
+                    Log.Write("Main", UserSession.Name, "MaterialRecovery", "Material snapshot load failed. New empty Material state will be created. - Failed");
+                    QMC.Common.MessageDialog.Show(
+                        this,
+                        "저장된 Material 정보를 불러오지 못했습니다.\r\n새 Material 상태로 초기화합니다.\r\n\r\nFile: " + MaterialSnapshotStore.SnapshotPath,
+                        "Material Recovery",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning);
+                    MaterialStateService.InitializeForRecipe(1, 1, 25, 25);
+                    return;
+                }
+
+                string savedAt = snapshot != null ? snapshot.SavedAt.ToString("yyyy-MM-dd HH:mm:ss") : "unknown";
+                string lot = snapshot != null ? snapshot.LotId : "";
+                string recipe = snapshot != null ? snapshot.RecipeName : "";
+
+                var message =
+                    "이전에 저장된 Material 정보가 있습니다.\r\n\r\n" +
+                    "저장 시간: " + savedAt + "\r\n" +
+                    "Recipe: " + (string.IsNullOrEmpty(recipe) ? "-" : recipe) + "\r\n" +
+                    "Lot: " + (string.IsNullOrEmpty(lot) ? "-" : lot) + "\r\n" +
+                    "File: " + MaterialSnapshotStore.SnapshotPath + "\r\n\r\n" +
+                    "[예] 기존 Material 정보를 사용합니다.\r\n" +
+                    "[아니오] 초기화 후 새 Material 상태로 시작합니다.";
+
+                Log.Write("Main", UserSession.Name, "MaterialRecovery", "Material snapshot exists. Asking user to restore or initialize. - Start");
+                var result = QMC.Common.MessageDialog.Show(
+                    this,
+                    message,
+                    "Material Recovery",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Warning);
+
+                if (result == DialogResult.Yes)
+                {
+                    _materialSnapshotRestored = MaterialStorage.RestoreLastSnapshot();
+                    if (!_materialSnapshotRestored)
+                    {
+                        Log.Write("Main", UserSession.Name, "MaterialRecovery", "Material snapshot restore failed. New empty Material state will be created. - Failed");
+                        QMC.Common.MessageDialog.Show(
+                            this,
+                            "Material 정보 복구에 실패했습니다.\r\n새 Material 상태로 초기화합니다.\r\n\r\nFile: " + MaterialSnapshotStore.SnapshotPath,
+                            "Material Recovery",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Warning);
+                        MaterialStateService.InitializeForRecipe(1, 1, 25, 25);
+                        return;
+                    }
+
+                    Log.Write("Main", UserSession.Name, "MaterialRecovery", "Material snapshot restored by user. - Ok");
+                    return;
+                }
+
+                Log.Write("Main", UserSession.Name, "MaterialRecovery", "Material snapshot ignored by user. New empty Material state will be created. - Ok");
+                MaterialStateService.InitializeForRecipe(1, 1, 25, 25);
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", UserSession.Name, "MaterialRecovery", "Material recovery prompt failed: " + ex.Message + " - Failed");
+                QMC.Common.MessageDialog.Show(
+                    this,
+                    "Material 복구 선택 처리 중 오류가 발생했습니다.\r\n새 Material 상태로 초기화합니다.\r\n\r\n" + ex.Message,
+                    "Material Recovery",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                MaterialStateService.InitializeForRecipe(1, 1, 25, 25);
+            }
+            finally
+            {
+            }
+        }
+
+        private void InitializeMaterialStateFromRecipe(QMC.CDT320.Recipes.RecipeProject recipe)
+        {
+            if (recipe == null) return;
+
+            int inputLevels = recipe.InputCassetteLevelCount;
+            int goodLevels = recipe.GoodCassetteLevelCount;
+            if (inputLevels < 1 || inputLevels > 2) inputLevels = 1;
+            if (goodLevels < 1 || goodLevels > 2) goodLevels = 1;
+
+            MaterialStorage.InitializeDefaultState(inputLevels, goodLevels, 25, 25);
+            MaterialStorage.State.RecipeName = recipe.FileName ?? "";
+            MaterialStorage.State.LotId = recipe.LotId ?? "";
+            MaterialStateService.NotifyAndSave("InitializeFromRecipe");
+        }
+
         /// <summary>
         ///
         /// </summary>
@@ -672,9 +780,9 @@ namespace QMC.CDT_320
             AccessControl.Apply(this);
         }
 
-        private void OnMachineStatusChanged(QMC.CDT320.MachineStatus status)
+        private void OnEquipmentStatusChanged(QMC.CDT320.EquipmentStatus status)
         {
-            if (InvokeRequired) { BeginInvoke(new Action<QMC.CDT320.MachineStatus>(OnMachineStatusChanged), status); return; }
+            if (InvokeRequired) { BeginInvoke(new Action<QMC.CDT320.EquipmentStatus>(OnEquipmentStatusChanged), status); return; }
             RefreshStateBig();
         }
 
@@ -691,17 +799,17 @@ namespace QMC.CDT_320
 
         private void RefreshStateBig()
         {
-            var ms = Controller?.Status ?? QMC.CDT320.MachineStatus.Idle;
+            var ms = Controller?.Status ?? QMC.CDT320.EquipmentStatus.Idle;
             lblStateBig.Text = ms.ToString().ToUpper();
             System.Drawing.Color c;
             switch (ms)
             {
-                case QMC.CDT320.MachineStatus.Ready:       c = System.Drawing.Color.LightGreen;  break;
-                case QMC.CDT320.MachineStatus.Running:     c = System.Drawing.Color.DeepSkyBlue; break;
-                case QMC.CDT320.MachineStatus.Cycling:     c = UiTheme.LogoOrange;              break;
-                case QMC.CDT320.MachineStatus.Initializing:c = System.Drawing.Color.Gold;        break;
-                case QMC.CDT320.MachineStatus.Alarm:       c = System.Drawing.Color.IndianRed;   break;
-                case QMC.CDT320.MachineStatus.Stopped:     c = System.Drawing.Color.Silver;      break;
+                case QMC.CDT320.EquipmentStatus.Ready:       c = System.Drawing.Color.LightGreen;  break;
+                case QMC.CDT320.EquipmentStatus.ManualRunning:     c = System.Drawing.Color.DeepSkyBlue; break;
+                case QMC.CDT320.EquipmentStatus.AutoRunning:     c = UiTheme.LogoOrange;              break;
+                case QMC.CDT320.EquipmentStatus.Initializing:c = System.Drawing.Color.Gold;        break;
+                case QMC.CDT320.EquipmentStatus.Alarm:       c = System.Drawing.Color.IndianRed;   break;
+                case QMC.CDT320.EquipmentStatus.Stopped:     c = System.Drawing.Color.Silver;      break;
                 default:                                   c = System.Drawing.Color.White;       break;
             }
             lblStateBig.ForeColor = c;

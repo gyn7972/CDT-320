@@ -1,4 +1,4 @@
-namespace QMC.CDT_320.Ui.Pages.Settings
+﻿namespace QMC.CDT_320.Ui.Pages.Settings
 {
     partial class AlarmMasterPage
     {
@@ -63,7 +63,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 46F));
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.rootLayout.Size = new System.Drawing.Size(1416, 980);
+            this.rootLayout.Size = new System.Drawing.Size(1678, 900);
             this.rootLayout.TabIndex = 0;
             // 
             // lblHeader
@@ -74,7 +74,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this.lblHeader.Margin = new System.Windows.Forms.Padding(0, 0, 0, 4);
             this.lblHeader.Name = "lblHeader";
             this.lblHeader.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
-            this.lblHeader.Size = new System.Drawing.Size(1400, 28);
+            this.lblHeader.Size = new System.Drawing.Size(1662, 28);
             this.lblHeader.TabIndex = 0;
             this.lblHeader.Text = "ALARM MASTER";
             this.lblHeader.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -103,7 +103,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this.filterLayout.Name = "filterLayout";
             this.filterLayout.RowCount = 1;
             this.filterLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.filterLayout.Size = new System.Drawing.Size(1400, 38);
+            this.filterLayout.Size = new System.Drawing.Size(1662, 38);
             this.filterLayout.TabIndex = 1;
             // 
             // lblSearch
@@ -123,7 +123,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this._tbFilter.Font = new System.Drawing.Font("Segoe UI", 9F);
             this._tbFilter.Location = new System.Drawing.Point(67, 3);
             this._tbFilter.Name = "_tbFilter";
-            this._tbFilter.Size = new System.Drawing.Size(294, 27);
+            this._tbFilter.Size = new System.Drawing.Size(294, 23);
             this._tbFilter.TabIndex = 1;
             // 
             // lblCategory
@@ -144,7 +144,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this._cbCategory.Font = new System.Drawing.Font("Segoe UI", 9F);
             this._cbCategory.Location = new System.Drawing.Point(447, 3);
             this._cbCategory.Name = "_cbCategory";
-            this._cbCategory.Size = new System.Drawing.Size(164, 28);
+            this._cbCategory.Size = new System.Drawing.Size(164, 23);
             this._cbCategory.TabIndex = 3;
             // 
             // _lblCount
@@ -212,7 +212,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             this._grid.Name = "_grid";
             this._grid.RowHeadersVisible = false;
             this._grid.RowHeadersWidth = 51;
-            this._grid.Size = new System.Drawing.Size(1400, 886);
+            this._grid.Size = new System.Drawing.Size(1662, 806);
             this._grid.TabIndex = 2;
             // 
             // dataGridViewTextBoxColumn1

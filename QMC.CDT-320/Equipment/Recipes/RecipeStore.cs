@@ -232,6 +232,8 @@ namespace QMC.CDT320.Recipes
         [DataMember] public string PartId             { get; set; }
         [DataMember] public string InputCassetteId    { get; set; }
         [DataMember] public string OutputCassetteId   { get; set; }
+        [DataMember] public int    InputCassetteLevelCount { get; set; } = 1;
+        [DataMember] public int    GoodCassetteLevelCount  { get; set; } = 1;
         [DataMember] public string ColletModelNum     { get; set; }
         [DataMember] public string ColletLotNum       { get; set; }
         [DataMember] public string XmlPath            { get; set; }

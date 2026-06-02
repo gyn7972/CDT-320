@@ -57,9 +57,9 @@
             ((System.ComponentModel.ISupportInitialize)(this.numStepDistance)).BeginInit();
             this.axisHost.SuspendLayout();
             this.SuspendLayout();
-            //
+            // 
             // rootLayout
-            //
+            // 
             this.rootLayout.ColumnCount = 2;
             this.rootLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 34F));
             this.rootLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 66F));
@@ -77,9 +77,9 @@
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.rootLayout.Size = new System.Drawing.Size(430, 340);
             this.rootLayout.TabIndex = 0;
-            //
+            // 
             // grpSpeedMode
-            //
+            // 
             this.grpSpeedMode.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(207)))), ((int)(((byte)(211)))), ((int)(((byte)(216)))));
             this.grpSpeedMode.Controls.Add(this.speedModeLayout);
             this.grpSpeedMode.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -91,9 +91,9 @@
             this.grpSpeedMode.TabIndex = 0;
             this.grpSpeedMode.TabStop = false;
             this.grpSpeedMode.Text = "Speed Mode";
-            //
+            // 
             // speedModeLayout
-            //
+            // 
             this.speedModeLayout.ColumnCount = 2;
             this.speedModeLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 33.33333F));
             this.speedModeLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 33.33334F));
@@ -108,9 +108,9 @@
             this.speedModeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 31.15942F));
             this.speedModeLayout.Size = new System.Drawing.Size(134, 39);
             this.speedModeLayout.TabIndex = 0;
-            //
+            // 
             // rdoCoarse
-            //
+            // 
             this.rdoCoarse.Appearance = System.Windows.Forms.Appearance.Button;
             this.rdoCoarse.Dock = System.Windows.Forms.DockStyle.Fill;
             this.rdoCoarse.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
@@ -125,9 +125,9 @@
             this.rdoCoarse.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             this.rdoCoarse.UseVisualStyleBackColor = false;
             this.rdoCoarse.CheckedChanged += new System.EventHandler(this.ModeRadio_CheckedChanged);
-            //
+            // 
             // rdoFine
-            //
+            // 
             this.rdoFine.Appearance = System.Windows.Forms.Appearance.Button;
             this.rdoFine.Checked = true;
             this.rdoFine.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -144,9 +144,9 @@
             this.rdoFine.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             this.rdoFine.UseVisualStyleBackColor = false;
             this.rdoFine.CheckedChanged += new System.EventHandler(this.ModeRadio_CheckedChanged);
-            //
+            // 
             // rdoCurrent
-            //
+            // 
             this.rdoCurrent.Appearance = System.Windows.Forms.Appearance.Button;
             this.rdoCurrent.Dock = System.Windows.Forms.DockStyle.Fill;
             this.rdoCurrent.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
@@ -161,9 +161,9 @@
             this.rdoCurrent.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             this.rdoCurrent.UseVisualStyleBackColor = false;
             this.rdoCurrent.CheckedChanged += new System.EventHandler(this.ModeRadio_CheckedChanged);
-            //
+            // 
             // grpMoveMode
-            //
+            // 
             this.grpMoveMode.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(207)))), ((int)(((byte)(211)))), ((int)(((byte)(216)))));
             this.grpMoveMode.Controls.Add(this.moveModeLayout);
             this.grpMoveMode.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -175,9 +175,9 @@
             this.grpMoveMode.TabIndex = 1;
             this.grpMoveMode.TabStop = false;
             this.grpMoveMode.Text = "Move Mode";
-            //
+            // 
             // moveModeLayout
-            //
+            // 
             this.moveModeLayout.ColumnCount = 4;
             this.moveModeLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 25.27881F));
             this.moveModeLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 25.27881F));
@@ -198,9 +198,9 @@
             this.moveModeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
             this.moveModeLayout.Size = new System.Drawing.Size(270, 39);
             this.moveModeLayout.TabIndex = 0;
-            //
+            // 
             // rdoContinuous
-            //
+            // 
             this.rdoContinuous.Appearance = System.Windows.Forms.Appearance.Button;
             this.moveModeLayout.SetColumnSpan(this.rdoContinuous, 2);
             this.rdoContinuous.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -215,9 +215,9 @@
             this.rdoContinuous.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             this.rdoContinuous.UseVisualStyleBackColor = false;
             this.rdoContinuous.CheckedChanged += new System.EventHandler(this.ModeRadio_CheckedChanged);
-            //
+            // 
             // rdoStep
-            //
+            // 
             this.rdoStep.Appearance = System.Windows.Forms.Appearance.Button;
             this.rdoStep.Checked = true;
             this.moveModeLayout.SetColumnSpan(this.rdoStep, 2);
@@ -234,9 +234,9 @@
             this.rdoStep.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             this.rdoStep.UseVisualStyleBackColor = false;
             this.rdoStep.CheckedChanged += new System.EventHandler(this.ModeRadio_CheckedChanged);
-            //
+            // 
             // numStepDistance
-            //
+            // 
             this.moveModeLayout.SetColumnSpan(this.numStepDistance, 2);
             this.numStepDistance.Dock = System.Windows.Forms.DockStyle.Fill;
             this.numStepDistance.Location = new System.Drawing.Point(3, 21);
@@ -259,9 +259,9 @@
             0,
             0,
             0});
-            //
+            // 
             // lblStepUnit
-            //
+            // 
             this.lblStepUnit.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblStepUnit.Font = new System.Drawing.Font("Consolas", 9.5F, System.Drawing.FontStyle.Bold);
             this.lblStepUnit.Location = new System.Drawing.Point(139, 19);
@@ -270,9 +270,9 @@
             this.lblStepUnit.TabIndex = 8;
             this.lblStepUnit.Text = "um";
             this.lblStepUnit.TextAlign = System.Drawing.ContentAlignment.BottomLeft;
-            //
+            // 
             // cboStepPreset
-            //
+            // 
             this.cboStepPreset.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.cboStepPreset.Font = new System.Drawing.Font("맑은 고딕", 8F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(129)));
             this.cboStepPreset.FormattingEnabled = true;
@@ -289,9 +289,9 @@
             this.cboStepPreset.TabIndex = 3;
             this.cboStepPreset.SelectedIndexChanged += new System.EventHandler(this.cboStepPreset_SelectedIndexChanged);
             this.cboStepPreset.MouseWheel += new System.Windows.Forms.MouseEventHandler(this.cboStepPreset_MouseWheel);
-            //
+            // 
             // axisHost
-            //
+            // 
             this.axisHost.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(207)))), ((int)(((byte)(211)))), ((int)(((byte)(216)))));
             this.axisHost.ColumnCount = 3;
             this.rootLayout.SetColumnSpan(this.axisHost, 2);
@@ -310,9 +310,9 @@
             this.axisHost.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
             this.axisHost.Size = new System.Drawing.Size(424, 259);
             this.axisHost.TabIndex = 2;
-            //
+            // 
             // axisButtonLayout
-            //
+            // 
             this.axisButtonLayout.ColumnCount = 1;
             this.axisButtonLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.axisButtonLayout.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -323,9 +323,9 @@
             this.axisButtonLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.axisButtonLayout.Size = new System.Drawing.Size(116, 74);
             this.axisButtonLayout.TabIndex = 0;
-            //
+            // 
             // JogAxisMoveControl
-            //
+            // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 12F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(246)))), ((int)(((byte)(248)))));

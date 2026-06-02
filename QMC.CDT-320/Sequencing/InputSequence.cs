@@ -1,81 +1,258 @@
-﻿using System.Threading;
+using System;
+using System.Threading;
 using System.Threading.Tasks;
 using QMC.CDT320.Bin;
+using QMC.Common;
 using QMC.Common.Alarms;
 
 namespace QMC.CDT320.Sequencing
 {
-    /// <summary>InputLoader??移댁꽭???ㅼ틪, ?щ’ ?대룞, 援먰솚 ?꾩튂, InputStage ?몃뱶?ㅽ봽瑜??섑뻾?섎뒗 ?쒗?ㅼ엯?덈떎.</summary>
     public class InputSequence : UnitSequenceBase
     {
-        /// <summary>吏?뺥븳 ?쒗??而⑦뀓?ㅽ듃濡?InputLoader ?쒗?ㅻ? ?앹꽦?⑸땲??</summary>
         public InputSequence(MachineSequenceContext ctx)
             : base(ctx, SequenceUnitKind.InputLoader, "InputLoader")
         {
         }
 
-        /// <summary>Auto 紐⑤뱶?먯꽌 ?ㅼ쓬 ?⑥씠??1留?濡쒕뵫 ?먮쫫???ㅽ뻾?⑸땲??</summary>
         protected override async Task ExecuteAutoAsync(CancellationToken ct)
         {
-            await ExecuteLoadOnceAsync(ct).ConfigureAwait(false);
+            try
+            {
+                int result = await ExecuteMappingFirstAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                    throw new InvalidOperationException("Input auto sequence failed at cassette mapping. result=" + result);
+            }
+            catch (OperationCanceledException)
+            {
+                WriteLog("ExecuteAutoAsync", "Input auto sequence canceled. - Failed");
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Fail("SEQ-IN-AUTO-EX", "InputSequence", "Input auto sequence failed: " + ex.Message);
+                throw;
+            }
+            finally
+            {
+            }
         }
 
-        /// <summary>Manual ?먮뒗 Step 紐⑤뱶?먯꽌 ?ㅼ쓬 ?⑥씠??1留?濡쒕뵫 ?먮쫫???ㅽ뻾?⑸땲??</summary>
         protected override async Task ExecuteStepAsync(CancellationToken ct)
         {
-            await ExecuteLoadOnceAsync(ct).ConfigureAwait(false);
-        }
-
-        public async Task<bool> ExecuteMappingAsync(CancellationToken ct, bool bFine = false)
-        {
-            var sequence = new InputCassetteSequence(Context);
-            var options = InputCassetteSequenceOptions.Default();
-            options.FineMove = bFine;
-            options.RunMode = Mode;
-            return await sequence.RunMappingAsync(ct, options).ConfigureAwait(false);
-        }
-
-        public async Task<bool> ExecuteCassetteLoadingAsync(CancellationToken ct, bool bFine = false)
-        {
-            var sequence = new InputCassetteSequence(Context);
-            var options = InputCassetteSequenceOptions.Default();
-            options.FineMove = bFine;
-            options.RunMode = Mode;
-            return await sequence.RunLoadingAsync(ct, options).ConfigureAwait(false);
-        }
-
-        public async Task<bool> ExecuteCassetteUnloadingAsync(CancellationToken ct, bool bFine = false)
-        {
-            var sequence = new InputCassetteSequence(Context);
-            var options = InputCassetteSequenceOptions.Default();
-            options.FineMove = bFine;
-            options.RunMode = Mode;
-            return await sequence.RunUnloadingAsync(ct, options).ConfigureAwait(false);
-        }
-
-        private async Task ExecuteLoadOnceAsync(CancellationToken ct)
-        {
-            ct.ThrowIfCancellationRequested();
-            Context.LogPublic("[UNIT-INPUT-LOADER] LoadNextWafer ?쒖옉");
-
-            // Stage 01 ??湲곗〈 MachineController 濡쒗듃?ы듃 濡쒕뵫 ?먮쫫???덉쟾?섍쾶 ?ъ궗?⑺븳??
-            bool ok = await Context.Controller.LoadNextWaferAsync().ConfigureAwait(false);
-            ct.ThrowIfCancellationRequested();
-
-            if (ok)
+            try
             {
+                int result = await ExecuteMappingFirstAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                    throw new InvalidOperationException("Input step sequence failed at cassette mapping. result=" + result);
+            }
+            catch (OperationCanceledException)
+            {
+                WriteLog("ExecuteStepAsync", "Input step sequence canceled. - Failed");
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Fail("SEQ-IN-STEP-EX", "InputSequence", "Input step sequence failed: " + ex.Message);
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        public async Task<int> ExecuteMappingAsync(CancellationToken ct, bool bFine = false, int moveTimeoutMs = 0)
+        {
+            try
+            {
+                var sequence = new InputCassetteSequence(Context);
+                return await sequence.RunMappingAsync(ct, BuildCassetteSequenceOptions(bFine, moveTimeoutMs)).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                WriteLog("ExecuteMappingAsync", "Input cassette mapping sequence canceled. - Failed");
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("SEQ-IN-MAP-EX", "InputSequence", "Input cassette mapping sequence failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        public async Task<int> ExecuteCassetteLoadingAsync(CancellationToken ct, bool bFine = false, int moveTimeoutMs = 0)
+        {
+            try
+            {
+                var sequence = new InputCassetteSequence(Context);
+                return await sequence.RunLoadingAsync(ct, BuildCassetteSequenceOptions(bFine, moveTimeoutMs)).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                WriteLog("ExecuteCassetteLoadingAsync", "Input cassette loading sequence canceled. - Failed");
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("SEQ-IN-CST-LOAD-EX", "InputSequence", "Input cassette loading sequence failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        public async Task<int> ExecuteCassetteUnloadingAsync(CancellationToken ct, bool bFine = false, int moveTimeoutMs = 0)
+        {
+            try
+            {
+                var sequence = new InputCassetteSequence(Context);
+                return await sequence.RunUnloadingAsync(ct, BuildCassetteSequenceOptions(bFine, moveTimeoutMs)).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                WriteLog("ExecuteCassetteUnloadingAsync", "Input cassette unloading sequence canceled. - Failed");
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("SEQ-IN-CST-UNLOAD-EX", "InputSequence", "Input cassette unloading sequence failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> ExecuteMappingFirstAsync(CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                LogPublic("[UNIT-INPUT-LOADER] Input cassette mapping start");
+                WriteLog("ExecuteMappingFirstAsync", "Input cassette mapping requested as first input sequence step. - Start");
+
+                int result = await ExecuteMappingAsync(ct).ConfigureAwait(false);
+                ct.ThrowIfCancellationRequested();
+
+                if (result != 0)
+                    return Fail("SEQ-IN-MAPPING", "InputLoaderSequence", "Input cassette mapping failed. result=" + result);
+
+                Context.Bus.Set("InputCassetteMapped");
+                LogPublic("[UNIT-INPUT-LOADER] Input cassette mapping complete");
+                WriteLog("ExecuteMappingFirstAsync", "Input cassette mapping completed as first input sequence step. - Ok");
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                WriteLog("ExecuteMappingFirstAsync", "Input cassette mapping canceled. - Failed");
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("SEQ-IN-MAPPING-EX", "InputLoaderSequence", "Input cassette mapping exception: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> ExecuteLoadOnceAsync(CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                LogPublic("[UNIT-INPUT-LOADER] LoadNextWafer start");
+                WriteLog("ExecuteLoadOnceAsync", "LoadNextWafer requested. - Start");
+
+                bool ok = await Context.Controller.LoadNextWaferAsync().ConfigureAwait(false);
+                ct.ThrowIfCancellationRequested();
+
+                if (!ok)
+                    return Fail("SEQ-INLOAD", "InputLoaderSequence", "InputLoader failed to load next wafer.");
+
                 Context.Bus.Set("InputStageReady");
-                Context.LogPublic("[UNIT-INPUT-LOADER] LoadNextWafer ?꾨즺");
-                return;
+                LogPublic("[UNIT-INPUT-LOADER] LoadNextWafer complete");
+                WriteLog("ExecuteLoadOnceAsync", "LoadNextWafer completed. - Ok");
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                WriteLog("ExecuteLoadOnceAsync", "LoadNextWafer canceled. - Failed");
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("SEQ-INLOAD-EX", "InputLoaderSequence", "LoadNextWafer exception: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private InputCassetteSequenceOptions BuildCassetteSequenceOptions(bool bFine, int moveTimeoutMs)
+        {
+            try
+            {
+                var options = InputCassetteSequenceOptions.Default();
+                options.FineMove = bFine;
+                options.MoveTimeoutMs = moveTimeoutMs;
+                options.RunMode = Mode;
+                return options;
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        private int Fail(string alarmCode, string source, string message)
+        {
+            try
+            {
+                WriteLog(source, message + " - Failed");
+                AlarmManager.Raise(AlarmSeverity.Warning, alarmCode, source, message);
+                LogPublic("[UNIT-INPUT-LOADER] FAIL " + alarmCode + " - " + message);
+            }
+            catch (Exception ex)
+            {
+                WriteLog(source, "Failure handling failed: " + ex.Message + " - Failed");
+            }
+            finally
+            {
             }
 
-            AlarmManager.Raise(
-                AlarmSeverity.Warning,
-                "SEQ-INLOAD",
-                "InputLoaderSequence",
-                "InputLoader ?쒗?ㅼ뿉???ㅼ쓬 ?⑥씠??濡쒕뵫???꾨즺?섏? 紐삵뻽?듬땲??");
-            Context.LogPublic("[UNIT-INPUT-LOADER] LoadNextWafer ?ㅽ뙣");
+            return -1;
+        }
+
+        private void LogPublic(string message)
+        {
+            try
+            {
+                Context.LogPublic(message);
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        private static void WriteLog(string source, string message)
+        {
+            try
+            {
+                Log.Write("Main", "SYSTEM", source, message);
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
         }
     }
 }
-

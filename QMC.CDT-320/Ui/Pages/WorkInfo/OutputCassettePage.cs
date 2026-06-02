@@ -1,5 +1,8 @@
-﻿using System.Drawing;
+using System.Collections.Generic;
+using System.Drawing;
 using System.Windows.Forms;
+using QMC.CDT320;
+using QMC.CDT_320.Ui.Controls;
 using QMC.Common.Motion;
 
 namespace QMC.CDT_320.Ui.Pages.WorkInfo
@@ -41,24 +44,39 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             var unloader = host.Machine.OutputUnloader;
             lblElevatorPos.Text = AxisUnitConverter.FormatDisplay(unloader.BinElevatorZ.ActualPosition, unloader.BinElevatorZ, "0.###", true);
 
-            var driverProp = host.GetType().GetProperty("CassetteDriver",
-                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
-            var driver = driverProp?.GetValue(host) as QMC.CDT320.Sim.SimCassetteDriver;
+            var binCassette = host.Machine.BinCassette;
+            var driver = host.CassetteDriver;
+            int slotCount = binCassette != null && binCassette.Setup != null && binCassette.Setup.SlotCount > 0
+                ? binCassette.Setup.SlotCount
+                : 0;
 
-            UpdateLeds(ngLeds, driver?.OutputNgSlots, Color.LightCoral);
-            UpdateLeds(good1Leds, driver?.OutputGood1Slots, Color.LimeGreen);
-            UpdateLeds(good2Leds, driver?.OutputGood2Slots, Color.LimeGreen);
+            UpdateView(_ngCassetteView, slotCount, ResolveSlots(binCassette, TargetCassette.Ng, driver != null ? driver.OutputNgSlots : null), Color.LightCoral);
+            UpdateView(_good1CassetteView, slotCount, ResolveSlots(binCassette, TargetCassette.Good1, driver != null ? driver.OutputGood1Slots : null), Color.LimeGreen);
+            UpdateView(_good2CassetteView, slotCount, ResolveSlots(binCassette, TargetCassette.Good2, driver != null ? driver.OutputGood2Slots : null), Color.LimeGreen);
         }
 
-        private static void UpdateLeds(Label[] leds, bool[] state, Color filledColor)
+        private static IReadOnlyList<bool> ResolveSlots(OutCassetteUnit unit, TargetCassette cassette, bool[] fallback)
         {
-            for (int i = 0; i < leds.Length; i++)
+            if (unit != null && unit.SlotMap != null)
             {
-                bool filled = state != null && i < state.Length && state[i];
-                Color color = filled ? filledColor : Color.LightGray;
-                if (leds[i].BackColor != color) leds[i].BackColor = color;
+                bool[] map;
+                if (unit.SlotMap.TryGetValue(cassette, out map) && map != null && map.Length > 0)
+                    return map;
             }
+
+            return fallback;
+        }
+
+        private static void UpdateView(CassetteSlotView view, int slotCount, IReadOnlyList<bool> state, Color filledColor)
+        {
+            if (view == null)
+                return;
+
+            if (slotCount <= 0 && state != null)
+                slotCount = state.Count;
+
+            view.SetSlotCount(slotCount);
+            view.UpdateSlots(state, -1, filledColor, Color.Cyan);
         }
     }
 }
-

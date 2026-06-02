@@ -13,31 +13,6 @@ using QMC.CDT320.Materials;
 
 namespace QMC.CDT320
 {
-    /// <summary>?λ퉬 ?댁쟾 ?곹깭.</summary>
-    public enum MachineStatus
-    {
-        /// <summary>?湲?</summary>
-        Idle,
-
-        /// <summary>珥덇린??Home) 吏꾪뻾 以?</summary>
-        Initializing,
-
-        /// <summary>珥덇린???꾨즺, ?댁쟾 以鍮??꾨즺.</summary>
-        Ready,
-
-        /// <summary>?섎룞 ?댁쟾(?쒖옉) 以???媛쒕퀎 紐⑥뀡留??섑뻾.</summary>
-        Running,
-
-        /// <summary>?먮룞 CYCLE 吏꾪뻾 以?</summary>
-        Cycling,
-
-        /// <summary>?뺤? ?꾨즺.</summary>
-        Stopped,
-
-        /// <summary>?뚮엺 諛쒖깮.</summary>
-        Alarm
-    }
-
     /// <summary>
     /// ?묒뾽 ??쓽 珥덇린???쒖옉/?뺤?/CYCLE RUN/STOP 踰꾪듉???ㅼ젣 ?λ퉬 ?숈옉?쇰줈 ?곌껐?섎뒗 而⑦듃濡ㅻ윭.
     /// <para>
@@ -48,22 +23,24 @@ namespace QMC.CDT320
     public class MachineController
     {
         private readonly CDT320_Machine _machine;
-        private MachineStatus _status = MachineStatus.Idle;
+        private EquipmentStatus _status = EquipmentStatus.Idle;
         private CancellationTokenSource _cycleCts;
+        private bool _cycleStopRequested;
+        private bool _cycleResumePending;
         private CancellationTokenSource _autoCts;
         private Task _coordinatorTask;
         private QMC.CDT320.Sequencing.MachineSequenceContext _seqContext;
         private QMC.CDT320.Sequencing.AutoSequenceCoordinator _coordinator;
         private int _manualBusyCount;
 
-        public event Action<MachineStatus> StatusChanged;
+        public event Action<EquipmentStatus> StatusChanged;
         public event Action<string>        LogMessage;
         public event Action<int, int>      CycleProgress;  // (done, total)
 
         /// <summary>CDT-320 ?섎뱶?⑥뼱 ?좊떅 ?몃━?낅땲??</summary>
         public CDT320_Machine Machine => _machine;
 
-        public MachineStatus Status => _status;
+        public EquipmentStatus Status => _status;
         public bool IsManualBusy => Volatile.Read(ref _manualBusyCount) > 0;
         public bool IsSequenceRunning => _coordinatorTask != null && !_coordinatorTask.IsCompleted;
         public QMC.CDT320.Sequencing.SequenceRunMode? ActiveSequenceRunMode { get; private set; }
@@ -598,7 +575,7 @@ namespace QMC.CDT320
                 }
                 LotStorage.CloseLot(aborted: true);
                 AppSettingsStore.Save();
-                SetStatus(MachineStatus.Stopped);
+                SetStatus(EquipmentStatus.Stopped);
                 Log("[SHUTDOWN] ?ㅻ퉬 醫낅즺 ?꾨즺.");
             }
             catch (Exception ex)
@@ -626,7 +603,7 @@ namespace QMC.CDT320
                     ", ?쒖꽦?뚮엺=" + activeBefore + " ?댁젣)");
 
                 // ?뚮엺 ?곹깭??쇰㈃ Idle 濡?(?댁쁺 ?ш컻 ?꾪빐 INIT ?꾩슂)
-                if (_status == MachineStatus.Alarm) SetStatus(MachineStatus.Idle);
+                if (_status == EquipmentStatus.Alarm) SetStatus(EquipmentStatus.Idle);
 
                 // Tower Lamp OFF (?뚮엺 ?댁젣)
                 try { _machine.OpPanel?.TowerLampOff(); } catch { }
@@ -659,7 +636,7 @@ namespace QMC.CDT320
                 }
                 AlarmManager.Raise(AlarmSeverity.Error, "E-STOP", "Machine",
                     "?ъ슜???덉쟾?뚮줈 鍮꾩긽 ?뺤?");
-                SetStatus(MachineStatus.Alarm);
+                SetStatus(EquipmentStatus.Alarm);
 
                 // Stage 45 ??Tower Lamp ?뚮엺 (鍮④컯 + 遺?). 紐낆떆??寃곌낵 湲곕줉.
                 if (_machine.OpPanel != null)
@@ -833,8 +810,8 @@ namespace QMC.CDT320
         /// <summary>珥덇린?? 紐⑤뱺 異??쒕낫 ON + HOME + 移댁슫??珥덇린??</summary>
         public async Task InitAsync()
         {
-            if (_status == MachineStatus.Initializing || _status == MachineStatus.Cycling) return;
-            SetStatus(MachineStatus.Initializing);
+            if (_status == EquipmentStatus.Initializing || _status == EquipmentStatus.AutoRunning) return;
+            SetStatus(EquipmentStatus.Initializing);
             Log("[INIT] All axes servo ON + HOME search...");
 
             foreach (var ax in EnumerateAxes())
@@ -852,14 +829,14 @@ namespace QMC.CDT320
                 {
                     AlarmManager.Raise(AlarmSeverity.Error, "HOME-" + ax.Name, ax.Name, "HOME ?ㅽ뙣: " + ex.Message);
                     Log("[ALARM] " + ax.Name + " HOME ?ㅽ뙣: " + ex.Message);
-                    SetStatus(MachineStatus.Alarm);
+                    SetStatus(EquipmentStatus.Alarm);
                     return;
                 }
                 if (ax.IsAlarm)
                 {
                     AlarmManager.Raise(AlarmSeverity.Error, "HOME-" + ax.Name, ax.Name, "HOME ???뚮엺 肄붾뱶 " + ax.AlarmCode);
                     Log("[ALARM] " + ax.Name + " HOME ?뚮엺 (code=" + ax.AlarmCode + ")");
-                    SetStatus(MachineStatus.Alarm);
+                    SetStatus(EquipmentStatus.Alarm);
                     return;
                 }
             }
@@ -886,8 +863,8 @@ namespace QMC.CDT320
                         this,
                         new QMC.CDT320.Sequencing.SequenceSignalBus());
                     var sequence = new QMC.CDT320.Sequencing.InputSequence(ctx);
-                    bool mapped = await sequence.ExecuteMappingAsync(CancellationToken.None);
-                    if (mapped)
+                    int mapResult = await sequence.ExecuteMappingAsync(CancellationToken.None);
+                    if (mapResult == 0)
                     {
                         int n = 0;
                         foreach (var b in _machine.InputCassette.WaferMap) if (b) n++;
@@ -922,16 +899,53 @@ namespace QMC.CDT320
             try { EnsureDieMaps(); } catch (Exception dmEx) { Log("[INIT] DieMap ?앹꽦 寃쎄퀬: " + dmEx.Message); }
 
             Log("[INIT] 珥덇린???꾨즺. Ready.");
-            SetStatus(MachineStatus.Ready);
+            SetStatus(EquipmentStatus.Ready);
         }
 
-        /// <summary>?쒖옉: ?쒕낫 ON + ?댁쟾 以鍮??곹깭濡??꾪솚 (媛쒕퀎 紐⑥뀡? ?섎룞 硫붾돱?먯꽌).</summary>
-        public Task StartAsync()
+        /// <summary>장비 START: Servo ON 후 현재 구성된 자동 시퀀스를 시작합니다.</summary>
+        public async Task<int> StartAsync()
         {
-            foreach (var ax in EnumerateAxes()) ax.ServoOn();
-            Log("[START] ?댁쟾 以鍮?");
-            SetStatus(MachineStatus.Running);
-            return Task.CompletedTask;
+            try
+            {
+                if (_status == EquipmentStatus.Alarm)
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "StartAsync", "Start failed: alarm status is active. - Failed");
+                    AlarmManager.Raise(AlarmSeverity.Warning, "START-ALARM", "MachineController", "Alarm 상태에서는 START를 수행할 수 없습니다.");
+                    Log("[START] failed: alarm status is active");
+                    return -1;
+                }
+
+                if (IsSequenceRunning)
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "StartAsync", "Start failed: sequence is already running. - Failed");
+                    AlarmManager.Raise(AlarmSeverity.Warning, "START-RUNNING", "MachineController", "Sequence가 이미 실행 중입니다.");
+                    Log("[START] failed: sequence is already running");
+                    return -1;
+                }
+
+                foreach (var ax in EnumerateAxes())
+                    ax.ServoOn();
+
+                Log("[START] Servo ON complete. Input auto sequence start.");
+                QMC.Common.Log.Write("Main", "SYSTEM", "StartAsync", "Input auto sequence start requested. - Ok");
+
+                await StartSingleUnitAsync(
+                    QMC.CDT320.Sequencing.SequenceUnitKind.InputLoader,
+                    QMC.CDT320.Sequencing.SequenceRunMode.Auto).ConfigureAwait(false);
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "StartAsync", "Start failed: " + ex.Message + " - Failed");
+                AlarmManager.Raise(AlarmSeverity.Error, "START-EX", "MachineController", "Start failed: " + ex.Message);
+                Log("[START] failed: " + ex.Message);
+                SetStatus(EquipmentStatus.Alarm);
+                return -1;
+            }
+            finally
+            {
+            }
         }
 
         /// <summary>?뺤?: ?꾩옱 ?숈옉 以묒씤 異??뺤? + ?쒕낫 ?곹깭???좎?.
@@ -943,7 +957,9 @@ namespace QMC.CDT320
 
             // 2) ?ъ씠?댁씠 吏꾪뻾 以묒씠?쇰㈃ cancel ???ㅼ젣 LOT 留덈Т由щ뒗 CycleRunAsync ??
             //    catch (OperationCanceledException) ?먯꽌 SkippedCount ? ?④퍡 泥섎━??
-            bool wasCycling = (_status == MachineStatus.Cycling);
+            bool wasCycling = (_status == EquipmentStatus.AutoRunning);
+            _cycleStopRequested = false;
+            _cycleResumePending = false;
             _cycleCts?.Cancel();
 
             // 3) 吏꾪뻾 ?곹깭 濡쒓렇 媛뺥솕 + LOT 留덈Т由?(CloseLot)
@@ -961,15 +977,15 @@ namespace QMC.CDT320
             {
                 Log("[STOP] ?뺤?.");
             }
-            SetStatus(MachineStatus.Stopped);
+            SetStatus(EquipmentStatus.Stopped);
             return Task.CompletedTask;
         }
 
         public IDisposable EnterManualOperation()
         {
             Interlocked.Increment(ref _manualBusyCount);
-            if (_status != MachineStatus.Alarm && _status != MachineStatus.Cycling)
-                SetStatus(MachineStatus.Running);
+            if (_status != EquipmentStatus.Alarm && _status != EquipmentStatus.AutoRunning)
+                SetStatus(EquipmentStatus.ManualRunning);
             return new ManualOperationScope(this);
         }
 
@@ -978,8 +994,8 @@ namespace QMC.CDT320
             if (Interlocked.Decrement(ref _manualBusyCount) < 0)
                 Interlocked.Exchange(ref _manualBusyCount, 0);
 
-            if (!IsManualBusy && !IsSequenceRunning && _status == MachineStatus.Running)
-                SetStatus(MachineStatus.Stopped);
+            if (!IsManualBusy && !IsSequenceRunning && _status == EquipmentStatus.ManualRunning)
+                SetStatus(EquipmentStatus.Stopped);
         }
 
         private sealed class ManualOperationScope : IDisposable
@@ -1005,33 +1021,81 @@ namespace QMC.CDT320
         /// <summary>吏?뺥븳 ?듭뀡?쇰줈 蹂묐젹 ?쒗??Coordinator瑜??쒖옉?⑸땲??</summary>
         public async Task StartSequenceAsync(QMC.CDT320.Sequencing.SequenceRunOptions options)
         {
-            if (_coordinatorTask != null && !_coordinatorTask.IsCompleted)
-                await StopSequenceAsync();
-
-            if (options == null)
-                options = QMC.CDT320.Sequencing.SequenceRunOptions.FullAuto();
-
-            // Stage 01 ???쒗???ㅽ뻾 而⑦뀓?ㅽ듃? Coordinator瑜????ㅽ뻾 ?⑥쐞濡?援ъ꽦?쒕떎.
-            _autoCts = new CancellationTokenSource();
-            var bus = new QMC.CDT320.Sequencing.SequenceSignalBus();
-            _seqContext = new QMC.CDT320.Sequencing.MachineSequenceContext(this, bus);
-            _coordinator = new QMC.CDT320.Sequencing.AutoSequenceCoordinator(_seqContext);
-
-            _coordinator.Register(
-                QMC.CDT320.Sequencing.SequenceUnitKind.InputLoader,
-                () => new QMC.CDT320.Sequencing.InputSequence(_seqContext));
-
-            _coordinator.Configure(options);
-            ActiveSequenceRunMode = options.Mode;
-            SetStatus(options.Mode == QMC.CDT320.Sequencing.SequenceRunMode.Auto
-                ? MachineStatus.Cycling
-                : MachineStatus.Running);
-            Log("[SEQ] StartSequenceAsync units=" + options.Units + ", mode=" + options.Mode);
-
-            _coordinatorTask = Task.Run(async () =>
+            try
             {
-                await _coordinator.RunAsync(_autoCts.Token).ConfigureAwait(false);
-            });
+                if (_coordinatorTask != null && !_coordinatorTask.IsCompleted)
+                    await StopSequenceAsync().ConfigureAwait(false);
+
+                if (options == null)
+                    options = QMC.CDT320.Sequencing.SequenceRunOptions.FullAuto();
+
+                _autoCts = new CancellationTokenSource();
+                var bus = new QMC.CDT320.Sequencing.SequenceSignalBus();
+                _seqContext = new QMC.CDT320.Sequencing.MachineSequenceContext(this, bus);
+                _coordinator = new QMC.CDT320.Sequencing.AutoSequenceCoordinator(_seqContext);
+
+                _coordinator.Register(
+                    QMC.CDT320.Sequencing.SequenceUnitKind.InputLoader,
+                    () => new QMC.CDT320.Sequencing.InputSequence(_seqContext));
+
+                _coordinator.Configure(options);
+                ActiveSequenceRunMode = options.Mode;
+                SetStatus(options.Mode == QMC.CDT320.Sequencing.SequenceRunMode.Auto
+                    ? EquipmentStatus.AutoRunning
+                    : EquipmentStatus.ManualRunning);
+                Log("[SEQ] StartSequenceAsync units=" + options.Units + ", mode=" + options.Mode);
+                QMC.Common.Log.Write("Main", "SYSTEM", "StartSequenceAsync",
+                    "Sequence start. units=" + options.Units + ", mode=" + options.Mode + " - Ok");
+
+                var coordinator = _coordinator;
+                var cts = _autoCts;
+                _coordinatorTask = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await coordinator.RunAsync(cts.Token).ConfigureAwait(false);
+                        if (!cts.IsCancellationRequested && _status != EquipmentStatus.Alarm)
+                        {
+                            Log("[SEQ] Complete");
+                            SetStatus(EquipmentStatus.Ready);
+                        }
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        Log("[SEQ] Canceled");
+                    }
+                    catch (Exception ex)
+                    {
+                        QMC.Common.Log.Write("Main", "SYSTEM", "StartSequenceAsync",
+                            "Sequence failed: " + ex.Message + " - Failed");
+                        AlarmManager.Raise(AlarmSeverity.Error, "SEQ-EX", "MachineController", "Sequence failed: " + ex.Message);
+                        Log("[SEQ] failed: " + ex.Message);
+                        SetStatus(EquipmentStatus.Alarm);
+                    }
+                    finally
+                    {
+                        if (_coordinator == coordinator)
+                        {
+                            _coordinator = null;
+                            _seqContext = null;
+                            _coordinatorTask = null;
+                            ActiveSequenceRunMode = null;
+                        }
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "StartSequenceAsync",
+                    "Sequence start failed: " + ex.Message + " - Failed");
+                AlarmManager.Raise(AlarmSeverity.Error, "SEQ-START-EX", "MachineController", "Sequence start failed: " + ex.Message);
+                Log("[SEQ] start failed: " + ex.Message);
+                SetStatus(EquipmentStatus.Alarm);
+                throw;
+            }
+            finally
+            {
+            }
         }
 
         /// <summary>?ㅽ뻾 以묒씤 蹂묐젹 ?쒗?ㅻ? 以묐떒?섍퀬 Coordinator 醫낅즺瑜??湲고빀?덈떎.</summary>
@@ -1062,14 +1126,15 @@ namespace QMC.CDT320
             _coordinator = null;
             _seqContext = null;
             ActiveSequenceRunMode = null;
+            QMC.CDT320.Sequencing.SequenceResumeStore.ClearAll();
             if (_autoCts != null)
             {
                 _autoCts.Dispose();
                 _autoCts = null;
             }
 
-            if (_status == MachineStatus.Running || _status == MachineStatus.Cycling)
-                SetStatus(MachineStatus.Stopped);
+            if (_status == EquipmentStatus.ManualRunning || _status == EquipmentStatus.AutoRunning)
+                SetStatus(EquipmentStatus.Stopped);
         }
 
         /// <summary>吏?뺥븳 ?좊떅?ㅼ쓣 Manual 紐⑤뱶濡??쒖옉?⑸땲??</summary>
@@ -1104,20 +1169,25 @@ namespace QMC.CDT320
 
         public async Task CycleRunAsync(int totalDies = -1)
         {
-            if (_status == MachineStatus.Cycling) { Log("[CYCLE] already running"); return; }
+            if (_status == EquipmentStatus.AutoRunning) { Log("[CYCLE] already running"); return; }
             // Ready/Running ?몄뿉??Stopped ?먯꽌 ?ъ떆???덉슜 (CYCLE STOP ???ш컻)
-            if (_status != MachineStatus.Ready &&
-                _status != MachineStatus.Running &&
-                _status != MachineStatus.Stopped)
+            if (_status != EquipmentStatus.Ready &&
+                _status != EquipmentStatus.ManualRunning &&
+                _status != EquipmentStatus.Stopped)
             {
                 Log("[CYCLE] ?ㅽ뻾 ??珥덇린???꾩슂 (status=" + _status + ")");
                 return;
             }
-            if (_status == MachineStatus.Stopped)
+            if (_status == EquipmentStatus.Stopped)
             {
                 Log("[CYCLE] Stopped ?곹깭?먯꽌 ?ш컻");
                 // CYCLE STOP / STOP ? Servo OFF ?쒗궎吏 ?딆쓬 ??Servo ?ъ떆??遺덊븘??
             }
+
+            bool resumeCycle = _cycleResumePending &&
+                               CycleTotal > 0 &&
+                               CycleDone > 0 &&
+                               CycleDone < CycleTotal;
 
             // R3 ???ㅼ씠留?紐⑤뱶: Input ?ㅼ씠留듭쓽 ?쒖꽦 ?ㅼ씠 ?섎? totalDies 濡??ъ슜
             try { EnsureDieMaps(); } catch { }
@@ -1133,11 +1203,27 @@ namespace QMC.CDT320
                 totalDies = 10;   // legacy default
             }
             _cycleCts = new CancellationTokenSource();
-            CycleTotal = totalDies; CycleDone = 0; GoodCount = 0; NgCount = 0;
-            // Lot ?먮룞 ?쒖옉
-            string lotId = "LOT-" + DateTime.Now.ToString("yyyyMMdd-HHmmss");
-            LotStorage.OpenLot(lotId, "default", totalDies);
-            SetStatus(MachineStatus.Cycling);
+            _cycleStopRequested = false;
+
+            string lotId;
+            if (resumeCycle)
+            {
+                totalDies = CycleTotal;
+                lotId = LotStorage.ActiveLot != null
+                    ? LotStorage.ActiveLot.LotID
+                    : "LOT-" + DateTime.Now.ToString("yyyyMMdd-HHmmss");
+                if (LotStorage.ActiveLot == null)
+                    LotStorage.OpenLot(lotId, "default", totalDies);
+                _cycleResumePending = false;
+                Log("[CYCLE] resume from done=" + CycleDone + "/" + CycleTotal + ", lot=" + lotId);
+            }
+            else
+            {
+                CycleTotal = totalDies; CycleDone = 0; GoodCount = 0; NgCount = 0;
+                lotId = "LOT-" + DateTime.Now.ToString("yyyyMMdd-HHmmss");
+                LotStorage.OpenLot(lotId, "default", totalDies);
+            }
+            SetStatus(EquipmentStatus.AutoRunning);
             Log("[CYCLE] ?쒖옉 (total=" + totalDies + ", lot=" + lotId + ")");
 
             // Stage 41 ??SECS/HSMS ?ъ씠???쒖옉 ?대깽??
@@ -1148,11 +1234,14 @@ namespace QMC.CDT320
 
             try
             {
-                // ?ъ씠???쒖옉 ??泥??⑥씠??濡쒗듃?ы듃 吏꾩엯
-                bool loaded = await LoadNextWaferAsync();
-                if (!loaded)
+                if (!resumeCycle)
                 {
-                    Log("[CYCLE] 濡쒗듃?ы듃 泥??⑥씠??濡쒕뱶 ?ㅽ뙣 ???ъ씠??吏꾪뻾 (?붾젅?ы듃 紐⑤뱶)");
+                    // ?ъ씠???쒖옉 ??泥??⑥씠??濡쒗듃?ы듃 吏꾩엯
+                    bool loaded = await LoadNextWaferAsync();
+                    if (!loaded)
+                    {
+                        Log("[CYCLE] 濡쒗듃?ы듃 泥??⑥씠??濡쒕뱶 ?ㅽ뙣 ???ъ씠??吏꾪뻾 (?붾젅?ы듃 紐⑤뱶)");
+                    }
                 }
 
                 // ???ъ씠??= PickersPerCycle 媛??ㅼ씠 ?숈떆 泥섎━ (4 picker ?숈떆)
@@ -1160,7 +1249,8 @@ namespace QMC.CDT320
                 int totalCycles = (totalDies + pickers - 1) / pickers;
                 Log("[CYCLE] " + totalCycles + " cycles 횞 " + pickers + " pickers = " + totalDies + " dies");
 
-                for (int cyc = 0; cyc < totalCycles; cyc++)
+                int startCycle = resumeCycle ? System.Math.Max(0, CycleDone / pickers) : 0;
+                for (int cyc = startCycle; cyc < totalCycles; cyc++)
                 {
                     if (_cycleCts.Token.IsCancellationRequested) break;
                     int dieBase = cyc * pickers;
@@ -1184,6 +1274,8 @@ namespace QMC.CDT320
 
                 Log("[CYCLE] ?꾨즺 (good=" + GoodCount + ", ng=" + NgCount + ")");
                 LotStorage.CloseLot(aborted: false);
+                _cycleResumePending = false;
+                _cycleStopRequested = false;
                 // Stage 45 ??Tower Lamp OFF (?ъ씠???뺤긽 ?꾨즺)
                 try { _machine.OpPanel?.TowerLampOff(); } catch { }
                 // Stage 41 ??SECS/HSMS ?ъ씠???꾨즺 ?대깽??(Yield ?ы븿)
@@ -1194,28 +1286,38 @@ namespace QMC.CDT320
                         yield.ToString("F2"));
                 }
                 catch { }
-                SetStatus(MachineStatus.Ready);
+                SetStatus(EquipmentStatus.Ready);
             }
             catch (OperationCanceledException)
             {
-                // Skipped 移댁슫??= ?쒖옉 ??totalDies - ?ㅼ젣 泥섎━??ProcessedDies
-                int skipped = System.Math.Max(0, totalDies - CycleDone);
-                if (LotStorage.ActiveLot != null)
+                if (_cycleStopRequested)
                 {
-                    LotStorage.ActiveLot.SkippedCount = skipped;
+                    _cycleResumePending = true;
+                    Log("[CYCLE STOP] paused at done=" + CycleDone + "/" + CycleTotal);
+                    try { _machine.OpPanel?.TowerLampOff(); } catch { }
+                    SetStatus(EquipmentStatus.Stopped);
                 }
-                Log("[CYCLE] 以묐떒 (good=" + GoodCount + ", ng=" + NgCount + ", skipped=" + skipped + ")");
-                // Tower Lamp OFF (?ъ씠??以묐떒)
-                try { _machine.OpPanel?.TowerLampOff(); } catch { }
-                LotStorage.CloseLot(aborted: true);
-                SetStatus(MachineStatus.Stopped);
+                else
+                {
+                    // Skipped 移댁슫??= ?쒖옉 ??totalDies - ?ㅼ젣 泥섎━??ProcessedDies
+                    int skipped = System.Math.Max(0, totalDies - CycleDone);
+                    if (LotStorage.ActiveLot != null)
+                    {
+                        LotStorage.ActiveLot.SkippedCount = skipped;
+                    }
+                    Log("[CYCLE] 以묐떒 (good=" + GoodCount + ", ng=" + NgCount + ", skipped=" + skipped + ")");
+                    // Tower Lamp OFF (?ъ씠??以묐떒)
+                    try { _machine.OpPanel?.TowerLampOff(); } catch { }
+                    LotStorage.CloseLot(aborted: true);
+                    SetStatus(EquipmentStatus.Stopped);
+                }
             }
             catch (Exception ex)
             {
                 AlarmManager.Raise(AlarmSeverity.Error, "CYCLE-EX", "MachineController", ex.Message);
                 Log("[CYCLE ERROR] " + ex.Message);
                 LotStorage.CloseLot(aborted: true);
-                SetStatus(MachineStatus.Alarm);
+                SetStatus(EquipmentStatus.Alarm);
             }
         }
 
@@ -1224,6 +1326,8 @@ namespace QMC.CDT320
         {
             if (_cycleCts != null)
             {
+                _cycleStopRequested = true;
+                _cycleResumePending = true;
                 _cycleCts.Cancel();
                 Log("[CYCLE STOP] requested");
             }
@@ -1884,7 +1988,7 @@ namespace QMC.CDT320
         //  ?곹깭/濡쒓렇
         // ??????????????????????????????????????????
 
-        private void SetStatus(MachineStatus s)
+        private void SetStatus(EquipmentStatus s)
         {
             if (_status == s) return;
             _status = s;
