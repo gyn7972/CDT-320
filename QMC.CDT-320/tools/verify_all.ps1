@@ -152,7 +152,7 @@ Add-Row "STAGE70" "FinderPage/InspectorPage = InspectionLightPanel (IlluminatorP
 $setupF = Join-Path $Root "QMC.Common\Recipes\InspectionLightSubset.cs"
 Add-Row "STAGE70" "InspectionLightSetting.Page (Recipe 측)" (Test-Greps $setupF @('int Page')) $setupF
 $lspF = Join-Path $Root "QMC.Vision\Ui\Pages\LightSystemSetupPage.cs"
-Add-Row "STAGE70" "Setup: 컨트롤러 삭제 + ChannelCount 동기 + Controller 콤보" (Test-Greps $lspF @('DeleteController','SyncChannelCountFromLabels','RefreshControllerCombo')) $lspF
+Add-Row "STAGE70" "Setup: 컨트롤러 삭제 + 라벨 캐시 + Controller 콤보" (Test-Greps $lspF @('DeleteController','FlushLabelsToCache','RefreshControllerCombo')) $lspF
 $acsP = Join-Path $Root "QMC.Common\Recipes\AlgorithmCameraSubset.cs"
 Add-Row "STAGE70" "Wiring.Page → Setting.Page 마이그레이션" (Test-Greps $acsP @('MigrateWiringPageToSettings')) $acsP
 
@@ -182,6 +182,9 @@ Add-Row "STAGE81" "InspectionLightSetting.ControllerPort" (Test-Greps $ilsF @('s
 Add-Row "STAGE81" "FillRecipeControllerPorts 마이그레이션" (Test-Greps $acsF @('FillRecipeControllerPorts')) $acsF
 Add-Row "STAGE81" "Setup 결선 TreeView (_treeWiring) + Level 류 0" ((Test-Greps $lspF @('_treeWiring','ControllerSets')) -and (-not (Test-Greps $lspF @('TrackBar')))) $lspF
 Add-Row "STAGE81" "Recipe Apply 병렬 (Task.WhenAll) + Controller 컬럼" (Test-Greps $lpanel @('Task.WhenAll','ApplyControllerAsync','Ctrl')) $lpanel
+
+# Stage 82 — 채널 라벨 Channel 번호 직접 지정 (편집 가능, 비연속)
+Add-Row "STAGE82" "라벨 Channel 편집 가능 + SeedLabels/SanitizeLabels (강제 재번호 제거)" ((Test-Greps $lspF @('SeedLabels','SanitizeLabels')) -and (-not (Test-Greps $lspF @('ReconcileLabels')))) $lspF
 
 # ── 출력 ──
 $bar = "=" * 110
