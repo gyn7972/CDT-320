@@ -17,6 +17,8 @@ namespace QMC.CDT320
         [DataMember] public bool IsHomeDone { get; set; }
         [DataMember] public bool IsInPosition { get; set; }
         [DataMember] public double ActualPosition { get; set; }
+        [DataMember] public double CommandPosition { get; set; }
+        [DataMember] public uint AlarmCode { get; set; }
     }
 
     [DataContract]

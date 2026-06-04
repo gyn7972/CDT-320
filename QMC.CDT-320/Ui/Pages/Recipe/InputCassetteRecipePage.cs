@@ -417,7 +417,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     if (moveResult != 0)
                         return moveResult;
 
-                    return await _InputCassetteUnit.WaitWaferLifterZMoveDone(_InputCassetteUnit.Config.ElevatorMoveTimeoutMs);
+                    return await _InputCassetteUnit.WaitWaferLifterZMoveDone(_InputCassetteUnit.ResolveWaferLifterZMoveTimeoutMs());
                 }, actionName);
             }
             catch (Exception ex)
@@ -441,7 +441,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     if (moveResult != 0)
                         return moveResult;
 
-                    return await _InputCassetteUnit.WaitWaferLifterZMoveDone(_InputCassetteUnit.Config.ElevatorMoveTimeoutMs);
+                    return await _InputCassetteUnit.WaitWaferLifterZMoveDone(_InputCassetteUnit.ResolveWaferLifterZMoveTimeoutMs());
                 }, actionName);
             }
             catch (Exception ex)
@@ -667,7 +667,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                         _InputCassetteUnit.EnsureSlotPositionBuffer();
                     }),
                     ParameterGridItem.Double("SCAN/JOG VELOCITY", "mm/s", ParameterGridScope.Config, () => _InputCassetteUnit.Config.ScanVelocity, v => _InputCassetteUnit.Config.ScanVelocity = Math.Max(0.1, v)),
-                    ParameterGridItem.Micron("IN POSITION TOL.", ParameterGridScope.Setup, () => _InputCassetteUnit.Setup.InPositionTolerance, v => _InputCassetteUnit.Setup.InPositionTolerance = Math.Max(0.0, v)),
+                    ParameterGridItem.Micron("IN POSITION TOL.", ParameterGridScope.Config, () => _InputCassetteUnit.ResolveWaferLifterZInPositionTolerance(), v => _InputCassetteUnit.WaferLifterZ.Config.InPositionTolerance = Math.Max(0.0, v)),
                     ParameterGridItem.Selection("INCH SELECT", "Inch", ParameterGridScope.Config, () => _InputCassetteUnit.Config.InchSelect, v => _InputCassetteUnit.Config.InchSelect = Convert.ToInt32(v), new[]
                     {
                         new ParameterGridOption("8", 8),
@@ -685,7 +685,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 waitParameterGrid.SetItems(new[]
                 {
                     ParameterGridItem.Int("SCAN SETTLE TIME", "ms", ParameterGridScope.Config, () => _InputCassetteUnit.Config.ScanSettleTimeMs, v => _InputCassetteUnit.Config.ScanSettleTimeMs = Math.Max(0, v)),
-                    ParameterGridItem.Int("MOVE TIMEOUT", "ms", ParameterGridScope.Config, () => _InputCassetteUnit.Config.ElevatorMoveTimeoutMs, v => _InputCassetteUnit.Config.ElevatorMoveTimeoutMs = Math.Max(0, v))
+                    ParameterGridItem.Int("MOVE TIMEOUT", "ms", ParameterGridScope.Setup, () => _InputCassetteUnit.ResolveWaferLifterZMoveTimeoutMs(), v => _InputCassetteUnit.WaferLifterZ.Setup.MoveTimeoutMs = Math.Max(0, v))
                 });
             }
             catch (Exception ex)
@@ -740,7 +740,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                         if (moveResult != 0)
                             return moveResult;
 
-                        return await _InputCassetteUnit.WaitWaferLifterZMoveDone(_InputCassetteUnit.Config.ElevatorMoveTimeoutMs);
+                        return await _InputCassetteUnit.WaitWaferLifterZMoveDone(_InputCassetteUnit.ResolveWaferLifterZMoveTimeoutMs());
                     }
                     catch
                     {
@@ -835,13 +835,13 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     _InputCassetteUnit.EnsureSlotPositionBuffer();
                 }, false);
                 AttachDoubleEditor(lblConfigScanVelocityVal, "SCAN/JOG VELOCITY (mm/s)", () => _InputCassetteUnit.Config.ScanVelocity, v => _InputCassetteUnit.Config.ScanVelocity = Math.Max(0.1, v), "mm/s", false);
-                AttachMicronEditor(lblSetupToleranceVal, "IN POSITION TOLERANCE", () => _InputCassetteUnit.Setup.InPositionTolerance, v => _InputCassetteUnit.Setup.InPositionTolerance = Math.Max(0.0, v), false);
+                AttachMicronEditor(lblSetupToleranceVal, "IN POSITION TOLERANCE", () => _InputCassetteUnit.ResolveWaferLifterZInPositionTolerance(), v => _InputCassetteUnit.WaferLifterZ.Config.InPositionTolerance = Math.Max(0.0, v), false);
                 AttachIntEditor(lblConfigInchVal, "INCH SELECT", () => _InputCassetteUnit.Config.InchSelect, v => _InputCassetteUnit.Config.InchSelect = v, false);
                 AttachIntEditor(lblConfigLevelVal, "CASSETTE LEVEL", () => _InputCassetteUnit.Config.SelectedCassetteLevel, v => _InputCassetteUnit.Config.SelectedCassetteLevel = v, false);
                 AttachBoolEditor(lblSetupSimulationVal, "SIMULATION MODE", () => _InputCassetteUnit.Setup.IsSimulationMode, v => _InputCassetteUnit.Setup.IsSimulationMode = v, false);
                 AttachBoolEditor(lblConfigDryRunVal, "DRY RUN", () => _InputCassetteUnit.Config.bDryRun, v => _InputCassetteUnit.Config.bDryRun = v, false);
                 AttachIntEditor(lblWaitScanSettleVal, "SCAN SETTLE TIME (ms)", () => _InputCassetteUnit.Config.ScanSettleTimeMs, v => _InputCassetteUnit.Config.ScanSettleTimeMs = Math.Max(0, v), false);
-                AttachIntEditor(lblWaitMoveTimeoutVal, "MOVE TIMEOUT (ms)", () => _InputCassetteUnit.Config.ElevatorMoveTimeoutMs, v => _InputCassetteUnit.Config.ElevatorMoveTimeoutMs = Math.Max(0, v), false);
+                AttachIntEditor(lblWaitMoveTimeoutVal, "MOVE TIMEOUT (ms)", () => _InputCassetteUnit.ResolveWaferLifterZMoveTimeoutMs(), v => _InputCassetteUnit.WaferLifterZ.Setup.MoveTimeoutMs = Math.Max(0, v), false);
             }
             catch (Exception ex)
             {
@@ -1095,13 +1095,13 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 lblConfigSlotPitchVal.Text = FormatUm(_InputCassetteUnit.Config.SlotPitch);
                 lblConfigSlotCountVal.Text = _InputCassetteUnit.Config.SlotCount.ToString(CultureInfo.InvariantCulture);
                 lblConfigScanVelocityVal.Text = FormatNumber(_InputCassetteUnit.Config.ScanVelocity) + " mm/s";
-                lblSetupToleranceVal.Text = FormatUm(_InputCassetteUnit.Setup.InPositionTolerance);
+                lblSetupToleranceVal.Text = FormatUm(_InputCassetteUnit.ResolveWaferLifterZInPositionTolerance());
                 lblConfigInchVal.Text = _InputCassetteUnit.Config.InchSelect.ToString(CultureInfo.InvariantCulture);
                 lblConfigLevelVal.Text = _InputCassetteUnit.Config.SelectedCassetteLevel.ToString(CultureInfo.InvariantCulture);
                 lblSetupSimulationVal.Text = _InputCassetteUnit.Setup.IsSimulationMode.ToString();
                 lblConfigDryRunVal.Text = _InputCassetteUnit.Config.bDryRun.ToString();
                 lblWaitScanSettleVal.Text = _InputCassetteUnit.Config.ScanSettleTimeMs.ToString(CultureInfo.InvariantCulture) + " ms";
-                lblWaitMoveTimeoutVal.Text = _InputCassetteUnit.Config.ElevatorMoveTimeoutMs.ToString(CultureInfo.InvariantCulture) + " ms";
+                lblWaitMoveTimeoutVal.Text = _InputCassetteUnit.ResolveWaferLifterZMoveTimeoutMs().ToString(CultureInfo.InvariantCulture) + " ms";
                 optionParameterGrid.RefreshValues();
                 waitParameterGrid.RefreshValues();
                 ioCylinderPanel.RefreshStates();

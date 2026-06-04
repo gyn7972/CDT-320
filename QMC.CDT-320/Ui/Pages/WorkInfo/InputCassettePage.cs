@@ -390,7 +390,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private static int ResolveManualMoveTimeoutMs(Form1 host)
         {
             var cassette = host != null && host.Machine != null ? host.Machine.InputCassette : null;
-            int configured = cassette != null && cassette.Config != null ? cassette.Config.ElevatorMoveTimeoutMs : 0;
+            int configured = cassette != null ? cassette.ResolveWaferLifterZMoveTimeoutMs() : 0;
             return configured > 0 ? configured : 3000;
         }
 

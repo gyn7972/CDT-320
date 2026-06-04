@@ -201,7 +201,7 @@ namespace QMC.CDT320
         public OutCassetteUnit      BinCassette      { get; }
 
         /// <summary>Output Bin Feeder Y축과 클램프 실린더를 담당하는 유닛입니다.</summary>
-        public BinFeederUnit        BinFeeder        { get; }
+        public OutputFeederUnit        BinFeeder        { get; }
 
         /// <summary>Stage 45 — 운전 패널 (버튼 + 램프 + 신호탑 + 부저).</summary>
         public OperationPanelUnit   OpPanel          { get; }
@@ -249,7 +249,7 @@ namespace QMC.CDT320
 
             // OutputUnloaderUnit - 3개 카세트(NG·Good1·Good2) 교체 시퀀스 담당
             BinCassette = new OutCassetteUnit();
-            BinFeeder = new BinFeederUnit();
+            BinFeeder = new OutputFeederUnit();
             OutputUnloader = new OutputUnloaderUnit();
 
             // Stage 45 — Operation Panel + Tower Lamp + Buzzer 신규

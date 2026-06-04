@@ -46,8 +46,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
             var binCassette = host.Machine.BinCassette;
             var driver = host.CassetteDriver;
-            int slotCount = binCassette != null && binCassette.Setup != null && binCassette.Setup.SlotCount > 0
-                ? binCassette.Setup.SlotCount
+            int slotCount = binCassette != null && binCassette.Config != null && binCassette.Config.SlotCount > 0
+                ? binCassette.Config.SlotCount
                 : 0;
 
             UpdateView(_ngCassetteView, slotCount, ResolveSlots(binCassette, TargetCassette.Ng, driver != null ? driver.OutputNgSlots : null), Color.LightCoral);

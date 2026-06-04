@@ -1,22 +1,18 @@
-﻿using System.Drawing;
+using System;
+using System.Drawing;
 using System.Windows.Forms;
-using QMC.CDT_320.Ui.Controls;
-using QMC.CDT_320.Ui.Localization;
 
 namespace QMC.CDT_320.Ui.Pages.WorkInfo
 {
     partial class InputFeederPage
     {
-        private TableLayoutPanel rootLayout;
-        private Label lblHeader;
-        private TableLayoutPanel contentLayout;
-        private GroupBox grpWork;
-        private GroupBox grpCylinder;
-        private GroupBox grpFeeder;
-        private TableLayoutPanel workLayout;
-        private TableLayoutPanel cylinderLayout;
-        private TableLayoutPanel feederLayout;
-        private TableLayoutPanel actionsLayout;
+        private Panel rootPanel;
+        private Panel pnlWork;
+        private Panel pnlCylinder;
+        private Panel pnlInfo;
+        private Label lblWorkHeader;
+        private Label lblCylinderHeader;
+        private Label lblInfoHeader;
         private Label lblExistCaption;
         private Label _lblExist;
         private Label lblClampCaption;
@@ -25,238 +21,192 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private Label _lblUpDownState;
         private Label lblFeederPosCaption;
         private Label _lblFeederPos;
-        private IndicatorDot _dotRing;
+        private Label _markRing;
         private Label lblRingCaption;
-        private IndicatorDot _dotOverload;
+        private Label _markOverload;
         private Label lblOverloadCaption;
-        private ActionButton btnInit;
-        private ActionButton btnFwd;
-        private ActionButton btnBwd;
-        private ActionButton btnClamp;
-        private ActionButton btnUnclamp;
+
+        private static readonly Color CdtPageBg = Color.FromArgb(0xC9, 0xCB, 0xCD);
+        private static readonly Color CdtHeaderBg = Color.FromArgb(0xF0, 0x78, 0x00);
+        private static readonly Color CdtLabelBg = Color.FromArgb(0xB8, 0xBC, 0xC2);
+        private static readonly Color CdtValueBg = Color.FromArgb(0xA9, 0xAB, 0xAE);
 
         private void InitializeComponent()
         {
-            this.rootLayout = new TableLayoutPanel();
-            this.lblHeader = new Label();
-            this.contentLayout = new TableLayoutPanel();
-            this.grpWork = new GroupBox();
-            this.grpCylinder = new GroupBox();
-            this.grpFeeder = new GroupBox();
-            this.workLayout = new TableLayoutPanel();
-            this.cylinderLayout = new TableLayoutPanel();
-            this.feederLayout = new TableLayoutPanel();
-            this.actionsLayout = new TableLayoutPanel();
-            this.lblExistCaption = new Label();
-            this._lblExist = new Label();
-            this.lblClampCaption = new Label();
-            this._lblClampState = new Label();
-            this.lblUpDownCaption = new Label();
-            this._lblUpDownState = new Label();
-            this.lblFeederPosCaption = new Label();
-            this._lblFeederPos = new Label();
-            this._dotRing = new IndicatorDot();
-            this.lblRingCaption = new Label();
-            this._dotOverload = new IndicatorDot();
-            this.lblOverloadCaption = new Label();
-            this.btnInit = new ActionButton();
-            this.btnFwd = new ActionButton();
-            this.btnBwd = new ActionButton();
-            this.btnClamp = new ActionButton();
-            this.btnUnclamp = new ActionButton();
+            this.rootPanel = new Panel();
+            this.pnlWork = new Panel();
+            this.pnlCylinder = new Panel();
+            this.pnlInfo = new Panel();
+            this.lblWorkHeader = CreateHeaderLabel("작업 정보");
+            this.lblCylinderHeader = CreateHeaderLabel("FEEDER 실린더 정보");
+            this.lblInfoHeader = CreateHeaderLabel("정보");
+            this.lblExistCaption = CreateCaptionLabel("EXIST");
+            this._lblExist = CreateValueLabel("--");
+            this.lblClampCaption = CreateCaptionLabel("FEEDER CLAMP");
+            this._lblClampState = CreateValueLabel("--");
+            this.lblUpDownCaption = CreateCaptionLabel("FEEDER UP DOWN");
+            this._lblUpDownState = CreateValueLabel("--");
+            this.lblFeederPosCaption = CreateCaptionLabel("FEEDER AXIS Y");
+            this._lblFeederPos = CreateValueLabel("0 um");
+            this._markRing = CreateMarker();
+            this.lblRingCaption = CreateSensorLabel("FEEDER RING CHECK");
+            this._markOverload = CreateMarker();
+            this.lblOverloadCaption = CreateSensorLabel("FEEDER OVERLOAD CHECK");
+            this.rootPanel.SuspendLayout();
+            this.pnlWork.SuspendLayout();
+            this.pnlCylinder.SuspendLayout();
+            this.pnlInfo.SuspendLayout();
             this.SuspendLayout();
 
-            this.rootLayout.ColumnCount = 1;
-            this.rootLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            this.rootLayout.Controls.Add(this.lblHeader, 0, 0);
-            this.rootLayout.Controls.Add(this.contentLayout, 0, 1);
-            this.rootLayout.Controls.Add(this.actionsLayout, 0, 2);
-            this.rootLayout.Dock = DockStyle.Fill;
-            this.rootLayout.RowCount = 3;
-            this.rootLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
-            this.rootLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-            this.rootLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 96F));
+            ConfigureSectionPanel(this.pnlWork, BorderStyle.FixedSingle);
+            ConfigureSectionPanel(this.pnlCylinder, BorderStyle.FixedSingle);
+            ConfigureSectionPanel(this.pnlInfo, BorderStyle.None);
 
-            this.lblHeader.BackColor = UiTheme.StatusBarBg;
-            this.lblHeader.Dock = DockStyle.Fill;
-            this.lblHeader.Font = UiTheme.SectionFont;
-            this.lblHeader.ForeColor = UiTheme.StatusBarFg;
-            this.lblHeader.Padding = new Padding(10, 0, 0, 0);
-            this.lblHeader.Tag = "i18n:tab.workInfo";
-            this.lblHeader.Text = Lang.T("tab.workInfo");
-            this.lblHeader.TextAlign = ContentAlignment.MiddleLeft;
+            this.pnlWork.Controls.Add(this.lblExistCaption);
+            this.pnlWork.Controls.Add(this._lblExist);
+            this.pnlWork.Controls.Add(this.lblWorkHeader);
 
-            this.contentLayout.ColumnCount = 3;
-            this.contentLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 32F));
-            this.contentLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 34F));
-            this.contentLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 34F));
-            this.contentLayout.Controls.Add(this.grpWork, 0, 0);
-            this.contentLayout.Controls.Add(this.grpCylinder, 1, 0);
-            this.contentLayout.Controls.Add(this.grpFeeder, 0, 1);
-            this.contentLayout.Dock = DockStyle.Top;
-            this.contentLayout.Height = 330;
-            this.contentLayout.Padding = new Padding(8);
-            this.contentLayout.RowCount = 2;
-            this.contentLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 112F));
-            this.contentLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 190F));
-            this.contentLayout.SetColumnSpan(this.grpFeeder, 3);
+            this.pnlCylinder.Controls.Add(this.lblClampCaption);
+            this.pnlCylinder.Controls.Add(this._lblClampState);
+            this.pnlCylinder.Controls.Add(this.lblUpDownCaption);
+            this.pnlCylinder.Controls.Add(this._lblUpDownState);
+            this.pnlCylinder.Controls.Add(this.lblCylinderHeader);
 
-            this.grpWork.BackColor = UiTheme.OptionPanelBg;
-            this.grpWork.Controls.Add(this.workLayout);
-            this.grpWork.Dock = DockStyle.Fill;
-            this.grpWork.Font = UiTheme.SectionFont;
-            this.grpWork.Text = Lang.T("tab.workInfo");
-            this.grpCylinder.BackColor = UiTheme.OptionPanelBg;
-            this.grpCylinder.Controls.Add(this.cylinderLayout);
-            this.grpCylinder.Dock = DockStyle.Fill;
-            this.grpCylinder.Font = UiTheme.SectionFont;
-            this.grpCylinder.Text = "FEEDER CYLINDER / SENSOR";
-            this.grpFeeder.BackColor = UiTheme.OptionPanelBg;
-            this.grpFeeder.Controls.Add(this.feederLayout);
-            this.grpFeeder.Dock = DockStyle.Fill;
-            this.grpFeeder.Font = UiTheme.SectionFont;
-            this.grpFeeder.Text = "FEEDER AXIS Y / SENSOR";
+            this.pnlInfo.Controls.Add(this.lblFeederPosCaption);
+            this.pnlInfo.Controls.Add(this._lblFeederPos);
+            this.pnlInfo.Controls.Add(this._markRing);
+            this.pnlInfo.Controls.Add(this.lblRingCaption);
+            this.pnlInfo.Controls.Add(this._markOverload);
+            this.pnlInfo.Controls.Add(this.lblOverloadCaption);
+            this.pnlInfo.Controls.Add(this.lblInfoHeader);
 
-            this.workLayout.ColumnCount = 2;
-            this.workLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 160F));
-            this.workLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            this.workLayout.Controls.Add(this.lblExistCaption, 0, 0);
-            this.workLayout.Controls.Add(this._lblExist, 1, 0);
-            this.workLayout.Dock = DockStyle.Fill;
-            this.workLayout.Padding = new Padding(12, 20, 12, 12);
-            this.workLayout.RowCount = 4;
-            this.workLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 36F));
-            this.workLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 36F));
-            this.workLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 36F));
-            this.workLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 36F));
+            this.rootPanel.BackColor = CdtPageBg;
+            this.rootPanel.Controls.Add(this.pnlWork);
+            this.rootPanel.Controls.Add(this.pnlCylinder);
+            this.rootPanel.Controls.Add(this.pnlInfo);
+            this.rootPanel.Dock = DockStyle.Fill;
+            this.rootPanel.Margin = Padding.Empty;
+            this.rootPanel.Padding = Padding.Empty;
+            this.rootPanel.Resize += new EventHandler(this.RootPanel_Resize);
 
-            this.cylinderLayout.ColumnCount = 2;
-            this.cylinderLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 160F));
-            this.cylinderLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            this.cylinderLayout.Controls.Add(this.lblClampCaption, 0, 0);
-            this.cylinderLayout.Controls.Add(this._lblClampState, 1, 0);
-            this.cylinderLayout.Controls.Add(this.lblUpDownCaption, 0, 1);
-            this.cylinderLayout.Controls.Add(this._lblUpDownState, 1, 1);
-            this.cylinderLayout.Dock = DockStyle.Fill;
-            this.cylinderLayout.Padding = new Padding(12, 20, 12, 12);
-            this.cylinderLayout.RowCount = 4;
-            this.cylinderLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 36F));
-            this.cylinderLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 36F));
-            this.cylinderLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 36F));
-            this.cylinderLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 36F));
+            this.lblExistCaption.SetBounds(10, 28, 204, 32);
+            this._lblExist.SetBounds(214, 28, 210, 32);
 
-            this.feederLayout.ColumnCount = 2;
-            this.feederLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 160F));
-            this.feederLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            this.feederLayout.Controls.Add(this.lblFeederPosCaption, 0, 0);
-            this.feederLayout.Controls.Add(this._lblFeederPos, 1, 0);
-            this.feederLayout.Controls.Add(this._dotRing, 0, 1);
-            this.feederLayout.Controls.Add(this.lblRingCaption, 1, 1);
-            this.feederLayout.Controls.Add(this._dotOverload, 0, 2);
-            this.feederLayout.Controls.Add(this.lblOverloadCaption, 1, 2);
-            this.feederLayout.Dock = DockStyle.Fill;
-            this.feederLayout.Padding = new Padding(12, 20, 12, 12);
-            this.feederLayout.RowCount = 4;
-            this.feederLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 36F));
-            this.feederLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 36F));
-            this.feederLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 36F));
-            this.feederLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 36F));
+            this.lblClampCaption.SetBounds(10, 28, 204, 32);
+            this._lblClampState.SetBounds(214, 28, 236, 32);
+            this.lblUpDownCaption.SetBounds(10, 60, 204, 32);
+            this._lblUpDownState.SetBounds(214, 60, 236, 32);
 
-            this.lblExistCaption.Dock = DockStyle.Fill;
-            this.lblExistCaption.Font = UiTheme.ButtonFont;
-            this.lblExistCaption.Text = "EXIST";
-            this.lblExistCaption.TextAlign = ContentAlignment.MiddleLeft;
-            this.lblClampCaption.Dock = DockStyle.Fill;
-            this.lblClampCaption.Font = UiTheme.ButtonFont;
-            this.lblClampCaption.Text = "CLAMP";
-            this.lblClampCaption.TextAlign = ContentAlignment.MiddleLeft;
-            this.lblUpDownCaption.Dock = DockStyle.Fill;
-            this.lblUpDownCaption.Font = UiTheme.ButtonFont;
-            this.lblUpDownCaption.Text = "UP/DOWN";
-            this.lblUpDownCaption.TextAlign = ContentAlignment.MiddleLeft;
-            this.lblFeederPosCaption.Dock = DockStyle.Fill;
-            this.lblFeederPosCaption.Font = UiTheme.ButtonFont;
-            this.lblFeederPosCaption.Text = "Position";
-            this.lblFeederPosCaption.TextAlign = ContentAlignment.MiddleLeft;
-            this.lblRingCaption.Dock = DockStyle.Fill;
-            this.lblRingCaption.Font = UiTheme.ValueFont;
-            this.lblRingCaption.Text = "FEEDER RING CHECK";
-            this.lblRingCaption.TextAlign = ContentAlignment.MiddleLeft;
-            this.lblOverloadCaption.Dock = DockStyle.Fill;
-            this.lblOverloadCaption.Font = UiTheme.ValueFont;
-            this.lblOverloadCaption.Text = "FEEDER OVERLOAD CHECK";
-            this.lblOverloadCaption.TextAlign = ContentAlignment.MiddleLeft;
+            this.lblFeederPosCaption.SetBounds(16, 34, 318, 30);
+            this._lblFeederPos.SetBounds(334, 34, 76, 30);
+            this._markRing.SetBounds(16, 76, 16, 16);
+            this.lblRingCaption.SetBounds(36, 70, 328, 28);
+            this._markOverload.SetBounds(16, 108, 16, 16);
+            this.lblOverloadCaption.SetBounds(36, 102, 328, 28);
 
-            this._lblExist.BackColor = Color.White;
-            this._lblExist.BorderStyle = BorderStyle.FixedSingle;
-            this._lblExist.Dock = DockStyle.Fill;
-            this._lblExist.Font = new Font("Consolas", 10F);
-            this._lblExist.Text = "---";
-            this._lblExist.TextAlign = ContentAlignment.MiddleCenter;
-            this._lblClampState.BackColor = Color.White;
-            this._lblClampState.BorderStyle = BorderStyle.FixedSingle;
-            this._lblClampState.Dock = DockStyle.Fill;
-            this._lblClampState.Font = new Font("Consolas", 10F);
-            this._lblClampState.Text = "---";
-            this._lblClampState.TextAlign = ContentAlignment.MiddleCenter;
-            this._lblUpDownState.BackColor = Color.White;
-            this._lblUpDownState.BorderStyle = BorderStyle.FixedSingle;
-            this._lblUpDownState.Dock = DockStyle.Fill;
-            this._lblUpDownState.Font = new Font("Consolas", 10F);
-            this._lblUpDownState.Text = "---";
-            this._lblUpDownState.TextAlign = ContentAlignment.MiddleCenter;
-            this._lblFeederPos.BackColor = Color.White;
-            this._lblFeederPos.BorderStyle = BorderStyle.FixedSingle;
-            this._lblFeederPos.Dock = DockStyle.Fill;
-            this._lblFeederPos.Font = new Font("Consolas", 11F);
-            this._lblFeederPos.Padding = new Padding(0, 0, 6, 0);
-            this._lblFeederPos.Text = "0.000 mm";
-            this._lblFeederPos.TextAlign = ContentAlignment.MiddleRight;
-            this._dotRing.Dock = DockStyle.Fill;
-            this._dotRing.Margin = new Padding(3, 8, 3, 8);
-            this._dotRing.OnColor = Color.LimeGreen;
-            this._dotOverload.Dock = DockStyle.Fill;
-            this._dotOverload.Margin = new Padding(3, 8, 3, 8);
-            this._dotOverload.OnColor = Color.Red;
-
-            this.actionsLayout.BackColor = UiTheme.MainBg;
-            this.actionsLayout.ColumnCount = 6;
-            this.actionsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 160F));
-            this.actionsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 140F));
-            this.actionsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 140F));
-            this.actionsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 140F));
-            this.actionsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 140F));
-            this.actionsLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            this.actionsLayout.Controls.Add(this.btnInit, 0, 0);
-            this.actionsLayout.Controls.Add(this.btnFwd, 1, 0);
-            this.actionsLayout.Controls.Add(this.btnBwd, 2, 0);
-            this.actionsLayout.Controls.Add(this.btnClamp, 3, 0);
-            this.actionsLayout.Controls.Add(this.btnUnclamp, 4, 0);
-            this.actionsLayout.Dock = DockStyle.Fill;
-            this.actionsLayout.Padding = new Padding(12);
-            this.actionsLayout.RowCount = 1;
-            this.actionsLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-            this.btnInit.Dock = DockStyle.Top;
-            this.btnInit.Margin = new Padding(6);
-            this.btnInit.Text = "FEEDER INIT";
-            this.btnFwd.Dock = DockStyle.Top;
-            this.btnFwd.Margin = new Padding(6);
-            this.btnFwd.Text = "CYL FWD";
-            this.btnBwd.Dock = DockStyle.Top;
-            this.btnBwd.Margin = new Padding(6);
-            this.btnBwd.Text = "CYL BWD";
-            this.btnClamp.Dock = DockStyle.Top;
-            this.btnClamp.Margin = new Padding(6);
-            this.btnClamp.Text = "CLAMP";
-            this.btnUnclamp.Dock = DockStyle.Top;
-            this.btnUnclamp.Margin = new Padding(6);
-            this.btnUnclamp.Text = "UNCLAMP";
-
-            this.Controls.Add(this.rootLayout);
+            this.Controls.Add(this.rootPanel);
+            this.BackColor = CdtPageBg;
             this.Name = "InputFeederPage";
             this.Size = new Size(1678, 900);
+            this.rootPanel.ResumeLayout(false);
+            this.pnlWork.ResumeLayout(false);
+            this.pnlCylinder.ResumeLayout(false);
+            this.pnlInfo.ResumeLayout(false);
             this.ResumeLayout(false);
+            LayoutSections();
+        }
+
+        private void RootPanel_Resize(object sender, EventArgs e)
+        {
+            LayoutSections();
+        }
+
+        private void LayoutSections()
+        {
+            if (rootPanel == null) return;
+
+            int width = Math.Max(1, rootPanel.ClientSize.Width);
+            int height = Math.Max(1, rootPanel.ClientSize.Height);
+            int topHeight = Math.Min(254, height);
+            int halfWidth = width / 2;
+
+            pnlWork.SetBounds(0, 0, halfWidth, topHeight);
+            pnlCylinder.SetBounds(halfWidth, 0, width - halfWidth, topHeight);
+            pnlInfo.SetBounds(0, topHeight, width, height - topHeight);
+        }
+
+        private static void ConfigureSectionPanel(Panel panel, BorderStyle borderStyle)
+        {
+            panel.BackColor = CdtPageBg;
+            panel.BorderStyle = borderStyle;
+            panel.Margin = Padding.Empty;
+            panel.Padding = Padding.Empty;
+        }
+
+        private static Label CreateHeaderLabel(string text)
+        {
+            return new Label
+            {
+                BackColor = CdtHeaderBg,
+                Dock = DockStyle.Top,
+                Font = new Font("Malgun Gothic", 8F, FontStyle.Bold),
+                ForeColor = Color.White,
+                Height = 24,
+                Padding = new Padding(8, 0, 0, 0),
+                Text = text,
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+        }
+
+        private static Label CreateCaptionLabel(string text)
+        {
+            return new Label
+            {
+                BackColor = CdtLabelBg,
+                BorderStyle = BorderStyle.FixedSingle,
+                Font = new Font("Malgun Gothic", 7F, FontStyle.Bold),
+                ForeColor = Color.Black,
+                Padding = new Padding(8, 0, 0, 0),
+                Text = text,
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+        }
+
+        private static Label CreateValueLabel(string text)
+        {
+            return new Label
+            {
+                BackColor = CdtValueBg,
+                BorderStyle = BorderStyle.FixedSingle,
+                Font = new Font("Consolas", 7F, FontStyle.Bold),
+                ForeColor = Color.Black,
+                Padding = new Padding(0, 0, 8, 0),
+                Text = text,
+                TextAlign = ContentAlignment.MiddleRight
+            };
+        }
+
+        private static Label CreateSensorLabel(string text)
+        {
+            return new Label
+            {
+                BackColor = CdtLabelBg,
+                BorderStyle = BorderStyle.FixedSingle,
+                Font = new Font("Malgun Gothic", 7F, FontStyle.Bold),
+                ForeColor = Color.Black,
+                Padding = new Padding(8, 0, 0, 0),
+                Text = text,
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+        }
+
+        private static Label CreateMarker()
+        {
+            return new Label
+            {
+                BackColor = Color.Black,
+                BorderStyle = BorderStyle.FixedSingle
+            };
         }
     }
 }
-

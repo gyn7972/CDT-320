@@ -16,7 +16,6 @@ namespace QMC.CDT320
     public class InputCassetteSetup : ISetupData
     {
         [DataMember] public bool IsSimulationMode { get; set; }
-        [DataMember] public double InPositionTolerance { get; set; }
 
         [OnDeserializing]
         private void OnDeserializing(StreamingContext ctx) { SetDefaults(); }
@@ -24,7 +23,6 @@ namespace QMC.CDT320
         private void SetDefaults()
         {
             IsSimulationMode = false;
-            InPositionTolerance = 0.05;
         }
     }
 
@@ -38,8 +36,9 @@ namespace QMC.CDT320
         [DataMember]public double SlotPitch { get; set; }
         [DataMember]public int SlotCount { get; set; }
         [DataMember]public double ScanVelocity { get; set; }
+        [DataMember] public double ScanAcc { get; set; }
+        [DataMember] public double ScanDec { get; set; }
         [DataMember]public int ScanSettleTimeMs { get; set; }
-        [DataMember]public int ElevatorMoveTimeoutMs { get; set; }
         [DataMember]public int InchSelect { get; set; } // 0: 8Inch, 1: 12Inch
         [DataMember] public int SelectedCassetteLevel { get; set; } // 1: 1단, 2: 2단 사용
 
@@ -55,8 +54,9 @@ namespace QMC.CDT320
             SlotPitch = 5.00;
             SlotCount = 25;
             ScanVelocity = 20.0;
+            ScanAcc = 0.0;
+            ScanDec = 0.0;
             ScanSettleTimeMs = 100;
-            ElevatorMoveTimeoutMs = 10000;
             InchSelect = 0;
             SelectedCassetteLevel = 1;
         }
@@ -159,7 +159,10 @@ namespace QMC.CDT320
         {
             try
             {
-                await MoveWithProtrusionWatch(targetPos, bFine ? Config.ScanVelocity * 0.5 : Config.ScanVelocity);
+                if (!ValidateWaferLifterZTargetPosition(targetPos))
+                    return -1;
+
+                await MoveWithProtrusionWatch(targetPos, ResolveWaferLifterZMoveVelocity(bFine));
                 return 0;
             }
             catch
@@ -176,6 +179,9 @@ namespace QMC.CDT320
         {
             try
             {
+                if (!ValidateWaferLifterZTargetPosition(targetPos))
+                    return -1;
+
                 double velocity = ResolveJogVelocity(speedType, customSpeed);
                 await MoveWithProtrusionWatch(targetPos, velocity);
                 return 0;
@@ -289,7 +295,7 @@ namespace QMC.CDT320
             try
             {
                 double target = GetTeachingPosition(positionName);
-                return await WaitUntilAsync(() => IsWaferLifterZInPosition(target, Setup.InPositionTolerance), timeoutMs);
+                return await WaitUntilAsync(() => IsWaferLifterZInPosition(target, ResolveWaferLifterZInPositionTolerance()), timeoutMs);
             }
             catch
             {
@@ -302,12 +308,12 @@ namespace QMC.CDT320
 
         public bool IsWaferLifterZInAvoidPosition()
         {
-            return IsWaferLifterZInPosition(Recipe.AvoidPosition, Setup.InPositionTolerance);
+            return IsWaferLifterZInPosition(Recipe.AvoidPosition, ResolveWaferLifterZInPositionTolerance());
         }
 
         public bool IsWaferLifterZInSlotPosition(int slotIndex)
         {
-            return IsWaferLifterZInPosition(CalculateWaferCassetteSlotTargetPosition(slotIndex), Setup.InPositionTolerance);
+            return IsWaferLifterZInPosition(CalculateWaferCassetteSlotTargetPosition(slotIndex), ResolveWaferLifterZInPositionTolerance());
         }
 
         public void TeachWaferLifterZPosition(string positionName)
@@ -328,6 +334,14 @@ namespace QMC.CDT320
         public void TeachWaferLifterZMappingEndPosition()
         {
             Recipe.MappingEndPosition = WaferLifterZ.ActualPosition;
+        }
+
+        public void TeachWaferLifterZSlotBasePosition()
+        {
+            Recipe.FirstSlotPosition = WaferLifterZ.ActualPosition;
+            EnsureSlotPositionBuffer();
+            if (Recipe.SlotPosition != null && Recipe.SlotPosition.Length > 0)
+                Recipe.UpdateSlotPosition(0, WaferLifterZ.ActualPosition);
         }
 
         public double CalculateWaferCassetteSlotTargetPosition(int slotIndex)
@@ -354,7 +368,7 @@ namespace QMC.CDT320
                 if (moveResult != 0)
                     return moveResult;
 
-                return await WaitWaferLifterZInPosition(positionName, Config.ElevatorMoveTimeoutMs);
+                return await WaitWaferLifterZInPosition(positionName, ResolveWaferLifterZMoveTimeoutMs());
             }
             catch
             {
@@ -374,6 +388,11 @@ namespace QMC.CDT320
             return IsAnyCassetteSensorOn();
         }
 
+        public bool IsWaferCassette(int nSize)
+        {
+            return IsWaferCassetteExist(nSize);
+        }
+
         public bool IsWaferCassettePresentAll(int recipeSize)
         {
             if (recipeSize == 8)
@@ -386,6 +405,11 @@ namespace QMC.CDT320
         public bool IsWaferProtrusionDetected()
         {
             return WaferRingJutCheck.IsOn;
+        }
+
+        public bool IsWaferProtrusionDetectionSensor()
+        {
+            return IsWaferProtrusionDetected();
         }
 
         public bool IsWaferMapping()
@@ -453,6 +477,11 @@ namespace QMC.CDT320
             finally
             {
             }
+        }
+
+        public async Task<int> ManualMoveWaferLifterZJog(Direction dir, double speed)
+        {
+            return await ManualMoveWaferLifterZJog((int)dir, speed);
         }
 
         /// <summary>지정한 속도 모드로 Wafer Lifter Z축을 연속 조그 이동합니다.</summary>
@@ -645,7 +674,11 @@ namespace QMC.CDT320
 
         public bool CheckWaferCassetteMoveReady()
         {
-            return !WaferLifterZ.IsAlarm && !IsWaferProtrusionDetected();
+            return WaferLifterZ != null &&
+                   WaferLifterZ.IsServoOn &&
+                   !WaferLifterZ.IsAlarm &&
+                   !WaferLifterZ.IsMoving &&
+                   !IsWaferProtrusionDetected();
         }
 
         public bool CheckWaferCassetteTransferReady(TransferMode mode)
@@ -678,6 +711,11 @@ namespace QMC.CDT320
         public bool HasMoreProcessWafer()
         {
             return FindNextProcessWaferSlot() >= 0;
+        }
+
+        public bool IsHaveMoreProcessWafer()
+        {
+            return HasMoreProcessWafer();
         }
 
         public int FindNextProcessWaferSlot()
@@ -857,6 +895,9 @@ namespace QMC.CDT320
 
         private async Task<List<double>> CollectMappingSensorPositionsAsync()
         {
+            double originalAcc = 0.0;
+            double originalDec = 0.0;
+            bool restoreScanProfile = false;
             try
             {
                 var detectedPositions = new List<double>();
@@ -867,6 +908,17 @@ namespace QMC.CDT320
                 double scanVelocity = Config.ScanVelocity > 0.0 ? Config.ScanVelocity : WaferLifterZ.Config.DefaultVelocity;
                 if (scanVelocity <= 0.0)
                     scanVelocity = 1.0;
+
+                if (WaferLifterZ.Config != null && (Config.ScanAcc > 0.0 || Config.ScanDec > 0.0))
+                {
+                    originalAcc = WaferLifterZ.Config.Acceleration;
+                    originalDec = WaferLifterZ.Config.Deceleration;
+                    if (Config.ScanAcc > 0.0)
+                        WaferLifterZ.Config.Acceleration = Config.ScanAcc;
+                    if (Config.ScanDec > 0.0)
+                        WaferLifterZ.Config.Deceleration = Config.ScanDec;
+                    restoreScanProfile = true;
+                }
 
                 Task<int> moveTask = WaferLifterZ.MoveAbsoluteAsync(Recipe.MappingEndPosition, scanVelocity);
                 while (!moveTask.IsCompleted)
@@ -897,6 +949,11 @@ namespace QMC.CDT320
             }
             finally
             {
+                if (restoreScanProfile && WaferLifterZ != null && WaferLifterZ.Config != null)
+                {
+                    WaferLifterZ.Config.Acceleration = originalAcc;
+                    WaferLifterZ.Config.Deceleration = originalDec;
+                }
             }
         }
 
@@ -997,7 +1054,7 @@ namespace QMC.CDT320
         {
             try
             {
-                double tolerance = Setup.InPositionTolerance;
+                double tolerance = ResolveWaferLifterZInPositionTolerance();
                 if (tolerance <= 0.0)
                     tolerance = slotPitch * 0.1;
                 return Math.Max(tolerance, 0.001);
@@ -1049,6 +1106,82 @@ namespace QMC.CDT320
             return value.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
         }
 
+        public double ResolveWaferLifterZMoveVelocity(bool bFine)
+        {
+            try
+            {
+                if (WaferLifterZ == null || WaferLifterZ.Config == null)
+                    return 0.0;
+
+                if (bFine && WaferLifterZ.Config.JogFineVelocity > 0.0)
+                    return WaferLifterZ.Config.JogFineVelocity;
+
+                return WaferLifterZ.Config.DefaultVelocity;
+            }
+            catch
+            {
+                return 0.0;
+            }
+            finally
+            {
+            }
+        }
+
+        public int ResolveWaferLifterZMoveTimeoutMs()
+        {
+            try
+            {
+                if (WaferLifterZ != null && WaferLifterZ.Setup != null && WaferLifterZ.Setup.MoveTimeoutMs > 0)
+                    return WaferLifterZ.Setup.MoveTimeoutMs;
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+
+            return 60000;
+        }
+
+        public double ResolveWaferLifterZInPositionTolerance()
+        {
+            try
+            {
+                if (WaferLifterZ != null && WaferLifterZ.Config != null && WaferLifterZ.Config.InPositionTolerance >= 0.0)
+                    return WaferLifterZ.Config.InPositionTolerance;
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+
+            return 0.05;
+        }
+
+        private bool ValidateWaferLifterZTargetPosition(double targetPos)
+        {
+            try
+            {
+                if (WaferLifterZ == null || WaferLifterZ.Setup == null)
+                    return false;
+                if (!WaferLifterZ.Setup.SoftLimitEnabled)
+                    return true;
+
+                return targetPos <= WaferLifterZ.Setup.SoftLimitPlus &&
+                       targetPos >= WaferLifterZ.Setup.SoftLimitMinus;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
         public async Task<int> MoveToTargetSlotAsync(double targetPosition)
         {
             try
@@ -1074,9 +1207,10 @@ namespace QMC.CDT320
                     throw new InvalidOperationException("'" + Name + "' Move: protrusion sensor is ON.");
                 }
 
+                int moveResult;
                 using (var cts = new CancellationTokenSource())
                 {
-                    Task moveTask = WaferLifterZ.MoveAbsoluteAsync(targetPosition, velocity);
+                    Task<int> moveTask = WaferLifterZ.MoveAbsoluteAsync(targetPosition, velocity);
                     Task<bool> watchTask = Task.Run(async () =>
                     {
                         while (!cts.Token.IsCancellationRequested)
@@ -1093,6 +1227,7 @@ namespace QMC.CDT320
                     {
                         cts.Cancel();
                         await watchTask.ContinueWith(_ => { });
+                        moveResult = await moveTask;
                     }
                     else
                     {
@@ -1103,7 +1238,7 @@ namespace QMC.CDT320
                     }
                 }
 
-                if (WaferLifterZ.IsAlarm)
+                if (moveResult != 0 || WaferLifterZ.IsAlarm)
                     throw new InvalidOperationException("'" + Name + "' Move: WaferLifterZ alarm.");
 
                 return 0;

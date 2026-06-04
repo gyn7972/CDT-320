@@ -25,7 +25,7 @@ namespace QMC.CDT_320.Ui.Tabs
 
             RegisterSidebarButton(BtnMain, "work.page.main", op, () => new WorkMainPage());
 
-            RegisterActionButton(BtnInit,       "work.init",       op, () => RunSafe(async c => await c.InitAsync()));
+            RegisterActionButton(BtnInit,       "work.init",       op, () => RunSafe(c => c.InitAsync()));
             RegisterActionButton(BtnStart,      "work.start",      op, () => RunSafe(async c => await c.StartAsync()));
             RegisterActionButton(BtnStop,       "work.stop",       op, () => RunSafe(async c =>
             {

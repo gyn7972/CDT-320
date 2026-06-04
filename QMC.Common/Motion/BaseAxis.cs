@@ -175,6 +175,40 @@ namespace QMC.Common.Motion
             _simTargetPosition = newPosition;
         }
 
+        public virtual void RestoreRuntimeState(
+            double actualPosition,
+            double commandPosition,
+            bool isServoOn,
+            bool isHomeDone,
+            bool isInPosition,
+            bool isAlarm,
+            uint alarmCode)
+        {
+            try
+            {
+                ActualPosition = actualPosition;
+                CommandPosition = commandPosition;
+                _simTargetPosition = commandPosition;
+                CurrentVelocity = 0.0;
+                IsMoving = false;
+                IsInPosition = isInPosition;
+                IsServoOn = isServoOn;
+                IsHomeDone = isHomeDone;
+                IsAlarm = isAlarm;
+                AlarmCode = alarmCode;
+                Sensor_ORG = isHomeDone;
+                _currentMode = MotionMode.None;
+                _jogDirection = 0;
+                RaisePositionChanged();
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
         /// <summary>
         /// 현재 Config 속도/가감속 프로파일을 일괄 설정합니다.
         /// </summary>

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using QMC.Common;
@@ -10,14 +11,16 @@ using QMC.CDT320.Interlocks;
 using QMC.CDT320.Jobs;
 using QMC.CDT320.Lots;
 using QMC.CDT320.Materials;
+using QMC.CDT320.Alarms;
+using QMC.CDT320.Initialization;
 
 namespace QMC.CDT320
 {
     /// <summary>
-    /// ?묒뾽 ??쓽 珥덇린???쒖옉/?뺤?/CYCLE RUN/STOP 踰꾪듉???ㅼ젣 ?λ퉬 ?숈옉?쇰줈 ?곌껐?섎뒗 而⑦듃濡ㅻ윭.
+    /// 작업 탭의 초기화/시작/정지/CYCLE RUN/STOP 버튼을 실제 장비 동작으로 연결하는 컨트롤러입니다.
     /// <para>
-    /// CDT-320? Input(Loader/Stage) ??FRONT/REAR Picker(TransferPicker??Left/Right Arm) ??Output ?뚯씠?꾨씪??
-    /// 媛??≪뀡? CDT320_Machine ?몃━瑜??쒗쉶?섎ŉ ?ㅼ젣 Axis/DO/DI瑜?議곗옉.
+    /// CDT-320은 Input Loader/Stage, FRONT/REAR Picker, Output 라인의 각 유닛을
+    /// CDT320_Machine 트리에서 순회하면서 Axis/DO/DI를 제어합니다.
     /// </para>
     /// </summary>
     public class MachineController
@@ -34,13 +37,15 @@ namespace QMC.CDT320
         private int _manualBusyCount;
         private bool _isMachineInitialized;
         private bool _isDeveloperReadyRestored;
+        private readonly AxisInterferenceMap _axisInterferenceMap = AxisInterferenceMap.CreateDefault();
+        private readonly AxisInitializeInterlockService _axisInitializeInterlocks;
 
         public event Action<EquipmentStatus> StatusChanged;
         public event Action<string>        LogMessage;
         public event Action<int, int>      CycleProgress;  // (done, total)
         public event Action<bool>          MachineInitializedChanged;
 
-        /// <summary>CDT-320 ?섎뱶?⑥뼱 ?좊떅 ?몃━?낅땲??</summary>
+        /// <summary>CDT-320 하드웨어 유닛 트리입니다.</summary>
         public CDT320_Machine Machine => _machine;
 
         public EquipmentStatus Status => _status;
@@ -57,28 +62,27 @@ namespace QMC.CDT320
         public int GoodCount   { get; private set; }
         public int NgCount     { get; private set; }
 
-        // ??????????????????????????????????????????
-        //  Wafer ?ㅼ씠留???Input(?먰삎 300mm) / Output(?ш컖 ?몃젅??
-        //  ?ъ씠???쒖옉 ??EnsureDieMaps 濡???踰??앹꽦, ?댄썑 罹먯떛.
-        // ??????????????????????????????????????????
-        /// <summary>?⑥씠??吏곴꼍 [mm].</summary>
+        // Wafer die map settings.
+        // Input uses a circular 300mm wafer map, Output uses a rectangular tray map.
+        // The maps are created once by EnsureDieMaps and then cached.
+        /// <summary>웨이퍼 직경 [mm].</summary>
         public double WaferDiameterMm { get; set; } = 300.0;
-        /// <summary>?ㅼ씠 X ?ъ씠利?[mm].</summary>
+        /// <summary>다이 X 크기 [mm].</summary>
         public double DieSizeXMm { get; set; } = 8.12;
-        /// <summary>?ㅼ씠 Y ?ъ씠利?[mm].</summary>
+        /// <summary>다이 Y 크기 [mm].</summary>
         public double DieSizeYMm { get; set; } = 6.12;
-        /// <summary>Input ?ㅼ씠留?移?媛꾧꺽 [mm] (?⑥씠???쎌뾽 痢?.</summary>
+        /// <summary>Input die map gap [mm].</summary>
         public double InputGapMm  { get; set; } = 0.05;
-        /// <summary>Output ?ㅼ씠留?移?媛꾧꺽 [mm] (BIN ?몃젅??痢?.</summary>
+        /// <summary>Output die map gap [mm].</summary>
         public double OutputGapMm { get; set; } = 0.30;
 
         private QMC.CDT320.DieMaps.DieMap _inputDieMap;
         private QMC.CDT320.DieMaps.DieMap _outputDieMap;
-        /// <summary>Input ?ㅼ씠留?(?먰삎 300mm). null ?대㈃ EnsureDieMaps() ?몄텧 ?꾩슂.</summary>
+        /// <summary>Input die map. null이면 EnsureDieMaps 호출이 필요합니다.</summary>
         public QMC.CDT320.DieMaps.DieMap InputDieMap  => _inputDieMap;
-        /// <summary>Output ?ㅼ씠留?(?ш컖 ?몃젅??. null ?대㈃ EnsureDieMaps() ?몄텧 ?꾩슂.</summary>
+        /// <summary>Output die map. null이면 EnsureDieMaps 호출이 필요합니다.</summary>
         public QMC.CDT320.DieMaps.DieMap OutputDieMap => _outputDieMap;
-        /// <summary>true 硫??ъ씠?댁씠 InputDieMap.IsTarget=true ?ㅼ씠 醫뚰몴瑜??ъ슜.</summary>
+        /// <summary>true이면 사이클에서 InputDieMap의 IsTarget=true 다이 좌표를 사용합니다.</summary>
         public bool UseDieMapMode { get; set; } = true;
 
         // Stage 61 ??Pickup sequence options + cached sequence
@@ -133,7 +137,7 @@ namespace QMC.CDT320
                 // Output ?ш컖 ?몃젅????Input ?쒖꽦 ?ㅼ씠 ???댁긽 ?섏슜
                 int active = 0;
                 foreach (var e in _inputDieMap.Entries) if (e.IsTarget) active++;
-                // ?뺤궗媛?寃⑹옄 root(N) ?щ┝
+                // ?�사�?격자 root(N) ?�림
                 int side = (int)System.Math.Ceiling(System.Math.Sqrt(active));
                 _outputDieMap = QMC.CDT320.DieMaps.DieMapGenerator.GenerateRect(
                     side, side, DieSizeXMm, DieSizeYMm, OutputGapMm, OutputGapMm,
@@ -200,6 +204,7 @@ namespace QMC.CDT320
         public MachineController(CDT320_Machine machine)
         {
             _machine = machine ?? throw new ArgumentNullException(nameof(machine));
+            _axisInitializeInterlocks = new AxisInitializeInterlockService(_machine, EnumerateAxes);
         }
 
         public void ApplyStartupMachineRuntimeState(AppSettings settings)
@@ -218,6 +223,9 @@ namespace QMC.CDT320
                 }
 
                 var state = MachineRuntimeStateStore.Load();
+                if (settings.BypassHardware && state != null)
+                    RestoreBypassAxisRuntimeState(state);
+
                 if (state == null || !state.IsMachineInitialized)
                 {
                     SetMachineInitialized(false, "DeveloperModeNoSavedReady", true);
@@ -456,11 +464,60 @@ namespace QMC.CDT320
                     IsAlarm = ax.IsAlarm,
                     IsHomeDone = ax.IsHomeDone,
                     IsInPosition = ax.IsInPosition,
-                    ActualPosition = ax.ActualPosition
+                    ActualPosition = ax.ActualPosition,
+                    CommandPosition = ax.CommandPosition,
+                    AlarmCode = ax.AlarmCode
                 });
             }
 
             return state;
+        }
+
+        private void RestoreBypassAxisRuntimeState(MachineRuntimeState state)
+        {
+            try
+            {
+                if (state == null || state.Axes == null)
+                    return;
+
+                int restored = 0;
+                foreach (var ax in EnumerateAxes())
+                {
+                    MachineAxisRuntimeState saved = null;
+                    foreach (var s in state.Axes)
+                    {
+                        if (s != null && string.Equals(s.Name, ax.Name, StringComparison.OrdinalIgnoreCase))
+                        {
+                            saved = s;
+                            break;
+                        }
+                    }
+
+                    if (saved == null)
+                        continue;
+
+                    ax.RestoreRuntimeState(
+                        saved.ActualPosition,
+                        saved.CommandPosition,
+                        saved.IsServoOn,
+                        saved.IsHomeDone,
+                        saved.IsInPosition,
+                        saved.IsAlarm,
+                        saved.AlarmCode);
+                    restored++;
+                }
+
+                QMC.Common.Log.Write("Main", "SYSTEM", "MachineRuntimeRestore",
+                    "Bypass axis runtime state restored. count=" + restored + " - Ok");
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "MachineRuntimeRestore",
+                    "Bypass axis runtime state restore failed: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
         }
 
         private bool EnsureMachineInitializedForRun(string source)
@@ -518,7 +575,7 @@ namespace QMC.CDT320
                 return false;
             }
 
-            // 留ㅽ븨 誘몄닔?????ㅼ틪
+            // 매핑 미수?????�캔
             if (cassette.WaferMap == null || cassette.WaferMap.Count == 0)
             {
                 Log("[LOTPORT] WaferMap empty ??scan cassette");
@@ -742,7 +799,7 @@ namespace QMC.CDT320
         public async Task<bool> StoreCompletedWaferAsync(bool isGood)
         {
             var unloader = _machine.OutputUnloader;
-            // 移댁꽭???좎젙: Good ??Good1 ?곗꽑, 媛??李⑤㈃ Good2; NG ??Ng
+            // 카세???�정: Good ??Good1 ?�선, 가??차면 Good2; NG ??Ng
             QMC.CDT320.TargetCassette target;
             int slot;
             if (isGood)
@@ -813,7 +870,7 @@ namespace QMC.CDT320
             }
         }
 
-        /// <summary>Output 3 移댁꽭???щ’ 留ㅽ븨 (UI 踰꾪듉??.</summary>
+        /// <summary>Output 3 카세???�롯 매핑 (UI 버튼??.</summary>
         public async Task<bool> ScanOutputCassettesAsync()
         {
             var unloader = _machine.OutputUnloader;
@@ -941,7 +998,7 @@ namespace QMC.CDT320
                 SaveMachineRuntimeState("EmergencyStop");
                 SetStatus(EquipmentStatus.Alarm);
 
-                // Stage 45 ??Tower Lamp ?뚮엺 (鍮④컯 + 遺?). 紐낆떆??寃곌낵 湲곕줉.
+                // Stage 45 ??Tower Lamp ?�람 (빨강 + 부?�). 명시??결과 기록.
                 if (_machine.OpPanel != null)
                 {
                     try
@@ -1025,7 +1082,7 @@ namespace QMC.CDT320
         }
 
         // ??????????????????????????????????????????
-        //  以묒븰??紐⑥뀡 (Interlock 寃利????ㅼ젣 ?대룞)
+        //  중앙??모션 (Interlock 검�????�제 ?�동)
         // ??????????????????????????????????????????
 
         /// <summary>
@@ -1052,7 +1109,7 @@ namespace QMC.CDT320
         }
 
         // ??????????????????????????????????????????
-        //  Wafer Alignment (3 ??鍮꾩쟾 留ㅼ묶 ??CoordinateMap)
+        //  Wafer Alignment (3 ??비전 매칭 ??CoordinateMap)
         // ??????????????????????????????????????????
 
         /// <summary>
@@ -1106,107 +1163,643 @@ namespace QMC.CDT320
             }
         }
 
-        // ??????????????????????????????????????????
-        //  怨듭슜 踰꾪듉 ?≪뀡
-        // ??????????????????????????????????????????
+        // Common equipment button actions.
 
-        /// <summary>珥덇린?? 紐⑤뱺 異??쒕낫 ON + HOME + 移댁슫??珥덇린??</summary>
-        public async Task InitAsync()
+        public async Task<int> InitializeAxisAsync(string axisName)
         {
-            if (_status == EquipmentStatus.Initializing || _status == EquipmentStatus.AutoRunning) return;
-            SetMachineInitialized(false, "InitStart", false);
-            SetStatus(EquipmentStatus.Initializing);
-            Log("[INIT] All axes servo ON + HOME search...");
-
-            foreach (var ax in EnumerateAxes())
-            {
-                ax.ResetAlarm();
-                ax.ServoOn();
-            }
-
-            // 媛꾨떒 ?쒕?: ?쒖감?곸쑝濡?HomeSearch. 媛?Unit??二쇱슂 異뺣???
-            var axes = new List<BaseAxis>(EnumerateAxes());
-            foreach (var ax in axes)
-            {
-                try { await ax.HomeSearchAsync(); }
-                catch (Exception ex)
-                {
-                    AlarmManager.Raise(AlarmSeverity.Error, "HOME-" + ax.Name, ax.Name, "HOME ?ㅽ뙣: " + ex.Message);
-                    Log("[ALARM] " + ax.Name + " HOME ?ㅽ뙣: " + ex.Message);
-                    SetMachineInitialized(false, "InitHomeException", true);
-                    SetStatus(EquipmentStatus.Alarm);
-                    return;
-                }
-                if (ax.IsAlarm)
-                {
-                    AlarmManager.Raise(AlarmSeverity.Error, "HOME-" + ax.Name, ax.Name, "HOME ???뚮엺 肄붾뱶 " + ax.AlarmCode);
-                    Log("[ALARM] " + ax.Name + " HOME ?뚮엺 (code=" + ax.AlarmCode + ")");
-                    SetMachineInitialized(false, "InitAxisAlarm", true);
-                    SetStatus(EquipmentStatus.Alarm);
-                    return;
-                }
-            }
-
-            CycleDone = 0; CycleTotal = 0; GoodCount = 0; NgCount = 0;
-
-            // Stage 46 ??Resource Sensors ?ъ쟾 寃??(CDA / Vacuum ?쇱씤 ?뺤긽 ?щ?)
             try
             {
-                if (_machine.Resources != null && !_machine.Resources.AllOk)
+                LastActionFailureMessage = "";
+                if (IsSequenceRunning || _status == EquipmentStatus.AutoRunning)
                 {
-                    Log("[INIT] Resource 寃쎄퀬 ??CDA ?먮뒗 Vacuum ?쇱씤 鍮꾩젙??(sim 紐⑤뱶?먯꽌??OK 媛??");
+                    LastActionFailureMessage = "Sequence 실행 중에는 축 초기화를 수행할 수 없습니다.";
+                    QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAxis",
+                        "Axis initialize failed: sequence is running. axis=" + axisName + " - Failed");
+                    AlarmManager.Raise(AlarmSeverity.Warning, "INIT-AXIS-RUNNING", "MachineController", LastActionFailureMessage);
+                    return -1;
                 }
-            }
-            catch { }
 
-            // Stage 26 ??Init ??濡쒗듃?ы듃 ?먮룞 留ㅽ븨 (?듭뀡)
-            if (AutoScanCassetteOnInit)
+                var axis = FindAxisByName(axisName);
+                if (axis == null)
+                {
+                    LastActionFailureMessage = "초기화할 축을 찾을 수 없습니다. axis=" + axisName;
+                    QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAxis",
+                        "Axis initialize failed: axis not found. axis=" + axisName + " - Failed");
+                    AlarmManager.Raise(AlarmSeverity.Warning, "INIT-AXIS-NOTFOUND", "MachineController", LastActionFailureMessage);
+                    return -1;
+                }
+
+                SetMachineInitialized(false, "InitializeAxisStart:" + axis.Name, false);
+                SetStatus(EquipmentStatus.Initializing);
+                int result = await InitializeAxisCoreAsync(axis).ConfigureAwait(false);
+                if (result != 0)
+                {
+                    SetMachineInitialized(false, "InitializeAxisFailed:" + axis.Name, true);
+                    SetStatus(EquipmentStatus.Alarm);
+                    return result;
+                }
+
+                SaveMachineRuntimeState("InitializeAxis:" + axis.Name);
+                SetStatus(EquipmentStatus.Idle);
+                return 0;
+            }
+            catch (Exception ex)
             {
-                try
-                {
-                    Log("[INIT] InputCassette ?먮룞 留ㅽ븨 ?쒖옉...");
-                    var ctx = new QMC.CDT320.Sequencing.MachineSequenceContext(
-                        this,
-                        new QMC.CDT320.Sequencing.SequenceSignalBus());
-                    var sequence = new QMC.CDT320.Sequencing.InputSequence(ctx);
-                    int mapResult = await sequence.ExecuteMappingAsync(CancellationToken.None);
-                    if (mapResult == 0)
-                    {
-                        int n = 0;
-                        foreach (var b in _machine.InputCassette.WaferMap) if (b) n++;
-                        Log($"[INIT] WaferMap OK ({n}??媛먯?)");
-                    }
-                    else
-                    {
-                        Log("[INIT] WaferMap 誘몄닔????移댁꽭??誘멸컧吏 ?먮뒗 ?ㅼ틪 ?ㅽ뙣");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Log("[INIT] WaferMap ?덉쇅: " + ex.Message);
-                }
-
-                // Stage 27 fix ??Output 移댁꽭??3媛쒕룄 ?먮룞 ?ㅼ틪
-                //   _slotMap ??25 ?щ’?쇰줈 ?ъ씠利?珥덇린?뷀븯??StoreFullWafer ??
-                //   slotMap[target][slotIndex] = true 媛 ?뺤긽 湲곕줉?섎룄濡???
-                try
-                {
-                    Log("[INIT] OutputCassette ?먮룞 留ㅽ븨 ?쒖옉...");
-                    bool oOk = await ScanOutputCassettesAsync();
-                    Log("[INIT] OutputCassette 留ㅽ븨 " + (oOk ? "OK" : "FAILED"));
-                }
-                catch (Exception ex)
-                {
-                    Log("[INIT] OutputCassette ?덉쇅: " + ex.Message);
-                }
+                LastActionFailureMessage = "축 초기화 실패: " + ex.Message;
+                QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAxis",
+                    "Axis initialize failed. axis=" + axisName + ", error=" + ex.Message + " - Failed");
+                AlarmManager.Raise(AlarmSeverity.Error, "INIT-AXIS-EX", "MachineController", LastActionFailureMessage);
+                SetMachineInitialized(false, "InitializeAxisException", true);
+                SetStatus(EquipmentStatus.Alarm);
+                return -1;
             }
+            finally
+            {
+            }
+        }
 
-            // R3 ??Input/Output ?ㅼ씠留??앹꽦 (?대? ?덉쑝硫?skip)
-            try { EnsureDieMaps(); } catch (Exception dmEx) { Log("[INIT] DieMap ?앹꽦 寃쎄퀬: " + dmEx.Message); }
+        public async Task<int> InitializeAxisGroupAsync(string groupName)
+        {
+            try
+            {
+                LastActionFailureMessage = "";
+                if (IsSequenceRunning || _status == EquipmentStatus.AutoRunning)
+                {
+                    LastActionFailureMessage = "Sequence 실행 중에는 축 그룹 초기화를 수행할 수 없습니다.";
+                    QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAxisGroup",
+                        "Axis group initialize failed: sequence is running. group=" + groupName + " - Failed");
+                    AlarmManager.Raise(AlarmSeverity.Warning, "INIT-GROUP-RUNNING", "MachineController", LastActionFailureMessage);
+                    return -1;
+                }
 
-            Log("[INIT] 珥덇린???꾨즺. Ready.");
-            SetMachineInitialized(true, "InitComplete", true);
-            SetStatus(EquipmentStatus.Ready);
+                var plan = AxisInitializePlanStore.LoadOrCreateDefault(EnumerateAxes());
+                var steps = ResolveInitializeStepsByGroup(plan, groupName);
+                if (steps.Count == 0)
+                {
+                    LastActionFailureMessage = "초기화할 축 그룹을 찾을 수 없습니다. group=" + groupName;
+                    QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAxisGroup",
+                        "Axis group initialize failed: initialize step group is empty. group=" + groupName + " - Failed");
+                    AlarmManager.Raise(AlarmSeverity.Warning, "INIT-GROUP-EMPTY", "MachineController", LastActionFailureMessage);
+                    return -1;
+                }
+
+                SetMachineInitialized(false, "InitializeGroupStart:" + groupName, false);
+                SetStatus(EquipmentStatus.Initializing);
+                int initResult = await ExecuteInitializeStepsAsync(steps).ConfigureAwait(false);
+                if (initResult != 0)
+                {
+                    SetMachineInitialized(false, "InitializeGroupFailed:" + groupName, true);
+                    SetStatus(EquipmentStatus.Alarm);
+                    return initResult;
+                }
+
+                SaveMachineRuntimeState("InitializeAxisGroup:" + groupName);
+                SetStatus(EquipmentStatus.Idle);
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                LastActionFailureMessage = "축 그룹 초기화 실패: " + ex.Message;
+                QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAxisGroup",
+                    "Axis group initialize failed. group=" + groupName + ", error=" + ex.Message + " - Failed");
+                AlarmManager.Raise(AlarmSeverity.Error, "INIT-GROUP-EX", "MachineController", LastActionFailureMessage);
+                SetMachineInitialized(false, "InitializeGroupException", true);
+                SetStatus(EquipmentStatus.Alarm);
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        public async Task<int> InitializeAllAxesAsync(bool markMachineReady)
+        {
+            try
+            {
+                LastActionFailureMessage = "";
+                if (IsSequenceRunning || _status == EquipmentStatus.AutoRunning)
+                {
+                    LastActionFailureMessage = "Sequence 실행 중에는 전체 축 초기화를 수행할 수 없습니다.";
+                    QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAllAxes",
+                        "All axes initialize failed: sequence is running. - Failed");
+                    AlarmManager.Raise(AlarmSeverity.Warning, "INIT-ALL-RUNNING", "MachineController", LastActionFailureMessage);
+                    return -1;
+                }
+
+                var allAxes = new List<BaseAxis>(EnumerateAxes());
+                if (allAxes.Count == 0)
+                {
+                    LastActionFailureMessage = "초기화할 축 정보가 없습니다.";
+                    QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAllAxes",
+                        "All axes initialize failed: axis list is empty. - Failed");
+                    AlarmManager.Raise(AlarmSeverity.Warning, "INIT-ALL-EMPTY", "MachineController", LastActionFailureMessage);
+                    return -1;
+                }
+
+                var plan = AxisInitializePlanStore.LoadOrCreateDefault(allAxes);
+                var steps = ResolveEnabledInitializeSteps(plan);
+                if (steps.Count == 0)
+                {
+                    LastActionFailureMessage = "초기화 Plan Step 정보가 없습니다. file=" + AxisInitializePlanStore.PlanPath;
+                    QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAllAxes",
+                        "All axes initialize failed: initialize plan has no enabled step. file=" +
+                        AxisInitializePlanStore.PlanPath + " - Failed");
+                    AlarmManager.Raise(AlarmSeverity.Warning, "INIT-PLAN-EMPTY", "MachineController", LastActionFailureMessage);
+                    return -1;
+                }
+
+                SetMachineInitialized(false, "InitializeAllAxesStart", false);
+                SetStatus(EquipmentStatus.Initializing);
+                Log("[INIT] Axis initialize plan start. file=" + AxisInitializePlanStore.PlanPath);
+
+                int initResult = await ExecuteInitializeStepsAsync(steps).ConfigureAwait(false);
+                if (initResult != 0)
+                {
+                    SetMachineInitialized(false, "InitializeAllAxesFailed", true);
+                    SetStatus(EquipmentStatus.Alarm);
+                    return initResult;
+                }
+
+                if (markMachineReady)
+                {
+                    SetMachineInitialized(true, "InitializeAllAxesComplete", true);
+                    SetStatus(EquipmentStatus.Ready);
+                }
+                else
+                {
+                    SaveMachineRuntimeState("InitializeAllAxes");
+                }
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                LastActionFailureMessage = "전체 축 초기화 실패: " + ex.Message;
+                QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAllAxes",
+                    "All axes initialize failed: " + ex.Message + " - Failed");
+                AlarmManager.Raise(AlarmSeverity.Error, "INIT-ALL-EX", "MachineController", LastActionFailureMessage);
+                SetMachineInitialized(false, "InitializeAllAxesException", true);
+                SetStatus(EquipmentStatus.Alarm);
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> InitializeAxisCoreAsync(BaseAxis axis)
+        {
+            try
+            {
+                if (axis == null)
+                {
+                    LastActionFailureMessage = "초기화할 축 정보가 없습니다.";
+                    QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAxisCore",
+                        "Axis initialize failed: axis is null. - Failed");
+                    return -1;
+                }
+
+                QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAxisCore",
+                    "Axis initialize requested. axis=" + axis.Name + " - Start");
+
+                try
+                {
+                    var stopAxes = _axisInterferenceMap.ResolveInterferenceAxes(axis.Name);
+                    await StopAxesAsync(stopAxes, false).ConfigureAwait(false);
+                }
+                catch (Exception stopEx)
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAxisCore",
+                        "Axis interference stop failed before initialize. axis=" + axis.Name +
+                        ", error=" + stopEx.Message + " - Failed");
+                }
+
+                axis.ResetAlarm();
+                axis.ServoOn();
+
+                if (!axis.IsServoOn)
+                {
+                    LastActionFailureMessage = axis.Name + " Servo ON 실패";
+                    QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAxisCore",
+                        "Axis initialize failed: servo is off. axis=" + axis.Name + " - Failed");
+                    AlarmManager.Raise(AlarmSeverity.Error, "INIT-SERVO-" + axis.Name, axis.Name, LastActionFailureMessage);
+                    return -1;
+                }
+
+                int homeResult = await axis.HomeSearchAsync().ConfigureAwait(false);
+                if (homeResult != 0)
+                {
+                    LastActionFailureMessage = axis.Name + " HOME 실패. result=" + homeResult;
+                    QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAxisCore",
+                        "Axis initialize failed: home search failed. axis=" + axis.Name +
+                        ", result=" + homeResult + " - Failed");
+                    AlarmManager.Raise(AlarmSeverity.Error, "HOME-" + axis.Name, axis.Name, LastActionFailureMessage);
+                    return homeResult;
+                }
+
+                if (axis.IsAlarm)
+                {
+                    LastActionFailureMessage = axis.Name + " HOME 중 Alarm 발생. code=" + axis.AlarmCode;
+                    QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAxisCore",
+                        "Axis initialize failed: axis alarm. axis=" + axis.Name +
+                        ", code=" + axis.AlarmCode + " - Failed");
+                    AlarmManager.Raise(AlarmSeverity.Error, "HOME-" + axis.Name, axis.Name, LastActionFailureMessage);
+                    return -1;
+                }
+
+                if (!axis.IsHomeDone)
+                {
+                    LastActionFailureMessage = axis.Name + " HOME 완료 신호가 없습니다.";
+                    QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAxisCore",
+                        "Axis initialize failed: home done is false. axis=" + axis.Name + " - Failed");
+                    AlarmManager.Raise(AlarmSeverity.Error, "HOME-NOTDONE-" + axis.Name, axis.Name, LastActionFailureMessage);
+                    return -1;
+                }
+
+                QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAxisCore",
+                    "Axis initialize completed. axis=" + axis.Name + " - Ok");
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                LastActionFailureMessage = "축 초기화 실패: " + (axis != null ? axis.Name : "-") + " / " + ex.Message;
+                QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAxisCore",
+                    "Axis initialize failed. axis=" + (axis != null ? axis.Name : "-") +
+                    ", error=" + ex.Message + " - Failed");
+                AlarmManager.Raise(AlarmSeverity.Error, "INIT-AXIS-CORE-EX", "MachineController", LastActionFailureMessage);
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> ExecuteInitializeStepsAsync(IList<AxisInitializeStep> steps)
+        {
+            try
+            {
+                if (steps == null || steps.Count == 0)
+                {
+                    LastActionFailureMessage = "초기화 Step 정보가 없습니다.";
+                    QMC.Common.Log.Write("Main", "SYSTEM", "ExecuteInitializeSteps",
+                        "Axis initialize failed: step list is empty. - Failed");
+                    return -1;
+                }
+
+                foreach (var step in steps.OrderBy(x => x.StepNo))
+                {
+                    if (step == null || !step.Enabled)
+                        continue;
+
+                    var axes = ResolveAxesByNames(step.AxisNames);
+                    if (axes.Count == 0)
+                    {
+                        LastActionFailureMessage = "초기화 Step에 유효한 축이 없습니다. step=" + step.StepNo +
+                            ", group=" + step.GroupName;
+                        QMC.Common.Log.Write("Main", "SYSTEM", "ExecuteInitializeSteps",
+                            "Axis initialize step failed: no valid axes. step=" + step.StepNo +
+                            ", group=" + step.GroupName + " - Failed");
+                        AlarmManager.Raise(AlarmSeverity.Warning, "INIT-STEP-EMPTY", "MachineController", LastActionFailureMessage);
+                        return -1;
+                    }
+
+                    QMC.Common.Log.Write("Main", "SYSTEM", "ExecuteInitializeSteps",
+                        "Axis initialize step start. step=" + step.StepNo +
+                        ", group=" + step.GroupName +
+                        ", mode=" + step.RunMode +
+                        ", interlockGroup=" + step.InterlockGroup +
+                        ", axes=" + string.Join(",", axes.Select(x => x.Name).ToArray()) + " - Start");
+
+                    string interlockReason;
+                    if (_axisInitializeInterlocks != null &&
+                        !_axisInitializeInterlocks.VerifyStep(step, out interlockReason))
+                    {
+                        LastActionFailureMessage = interlockReason;
+                        return -1;
+                    }
+
+                    await StopInitializeInterlockGroupAsync(step).ConfigureAwait(false);
+
+                    int result = AxisInitializeRunMode.IsParallel(step.RunMode)
+                        ? await ExecuteInitializeStepParallelAsync(step, axes).ConfigureAwait(false)
+                        : await ExecuteInitializeStepSerialAsync(step, axes).ConfigureAwait(false);
+
+                    if (result != 0)
+                        return result;
+
+                    QMC.Common.Log.Write("Main", "SYSTEM", "ExecuteInitializeSteps",
+                        "Axis initialize step completed. step=" + step.StepNo +
+                        ", group=" + step.GroupName + " - Ok");
+                }
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                LastActionFailureMessage = "초기화 Step 실행 실패: " + ex.Message;
+                QMC.Common.Log.Write("Main", "SYSTEM", "ExecuteInitializeSteps",
+                    "Axis initialize step execution failed: " + ex.Message + " - Failed");
+                AlarmManager.Raise(AlarmSeverity.Error, "INIT-STEP-EX", "MachineController", LastActionFailureMessage);
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> StopInitializeInterlockGroupAsync(AxisInitializeStep step)
+        {
+            try
+            {
+                if (step == null || string.IsNullOrWhiteSpace(step.InterlockGroup))
+                    return 0;
+
+                var axes = ResolveAxesByGroup(step.InterlockGroup)
+                    .Select(x => x.Name)
+                    .ToList();
+
+                if (axes.Count == 0)
+                    axes = _axisInterferenceMap.ResolveInterferenceAxes(step.InterlockGroup).ToList();
+
+                if (axes.Count == 0)
+                    return 0;
+
+                QMC.Common.Log.Write("Main", "SYSTEM", "StopInitializeInterlockGroup",
+                    "Initialize interlock group stop requested. step=" + step.StepNo +
+                    ", interlockGroup=" + step.InterlockGroup +
+                    ", axes=" + string.Join(",", axes.ToArray()) + " - Start");
+
+                return await StopAxesAsync(axes, false).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "StopInitializeInterlockGroup",
+                    "Initialize interlock group stop failed. step=" + (step != null ? step.StepNo : 0) +
+                    ", error=" + ex.Message + " - Failed");
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> ExecuteInitializeStepSerialAsync(AxisInitializeStep step, IList<BaseAxis> axes)
+        {
+            try
+            {
+                foreach (var axis in axes)
+                {
+                    int result = await InitializeAxisCoreAsync(axis).ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+                }
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                LastActionFailureMessage = "Serial 초기화 Step 실패: " + ex.Message;
+                QMC.Common.Log.Write("Main", "SYSTEM", "ExecuteInitializeStepSerial",
+                    "Axis initialize serial step failed. step=" + (step != null ? step.StepNo : 0) +
+                    ", error=" + ex.Message + " - Failed");
+                AlarmManager.Raise(AlarmSeverity.Error, "INIT-SERIAL-EX", "MachineController", LastActionFailureMessage);
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> ExecuteInitializeStepParallelAsync(AxisInitializeStep step, IList<BaseAxis> axes)
+        {
+            try
+            {
+                var tasks = axes.Select(axis => InitializeAxisCoreAsync(axis)).ToArray();
+                int[] results = await Task.WhenAll(tasks).ConfigureAwait(false);
+                for (int i = 0; i < results.Length; i++)
+                {
+                    if (results[i] != 0)
+                        return results[i];
+                }
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                LastActionFailureMessage = "Parallel 초기화 Step 실패: " + ex.Message;
+                QMC.Common.Log.Write("Main", "SYSTEM", "ExecuteInitializeStepParallel",
+                    "Axis initialize parallel step failed. step=" + (step != null ? step.StepNo : 0) +
+                    ", error=" + ex.Message + " - Failed");
+                AlarmManager.Raise(AlarmSeverity.Error, "INIT-PARALLEL-EX", "MachineController", LastActionFailureMessage);
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        private List<AxisInitializeStep> ResolveEnabledInitializeSteps(AxisInitializePlan plan)
+        {
+            try
+            {
+                if (plan == null || plan.Steps == null)
+                    return new List<AxisInitializeStep>();
+
+                return plan.Steps
+                    .Where(x => x != null && x.Enabled)
+                    .OrderBy(x => x.StepNo)
+                    .ToList();
+            }
+            catch
+            {
+                return new List<AxisInitializeStep>();
+            }
+            finally
+            {
+            }
+        }
+
+        private List<AxisInitializeStep> ResolveInitializeStepsByGroup(AxisInitializePlan plan, string groupName)
+        {
+            try
+            {
+                if (plan == null || plan.Steps == null || string.IsNullOrWhiteSpace(groupName))
+                    return new List<AxisInitializeStep>();
+
+                return plan.Steps
+                    .Where(x => x != null && x.Enabled &&
+                        string.Equals(x.GroupName, groupName.Trim(), StringComparison.OrdinalIgnoreCase))
+                    .OrderBy(x => x.StepNo)
+                    .ToList();
+            }
+            catch
+            {
+                return new List<AxisInitializeStep>();
+            }
+            finally
+            {
+            }
+        }
+
+        private List<BaseAxis> ResolveAxesByNames(IEnumerable<string> axisNames)
+        {
+            var axes = new List<BaseAxis>();
+            try
+            {
+                if (axisNames == null)
+                    return axes;
+
+                var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var axisName in axisNames)
+                {
+                    if (string.IsNullOrWhiteSpace(axisName) || !visited.Add(axisName.Trim()))
+                        continue;
+
+                    var axis = FindAxisByName(axisName);
+                    if (axis == null)
+                    {
+                        QMC.Common.Log.Write("Main", "SYSTEM", "ResolveAxesByNames",
+                            "Axis resolve failed: axis not found. axis=" + axisName + " - Failed");
+                        continue;
+                    }
+
+                    axes.Add(axis);
+                }
+
+                return axes;
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "ResolveAxesByNames",
+                    "Axis resolve failed: " + ex.Message + " - Failed");
+                return axes;
+            }
+            finally
+            {
+            }
+        }
+
+        private List<BaseAxis> ResolveAxesByGroup(string groupName)
+        {
+            var axes = new List<BaseAxis>();
+            try
+            {
+                if (string.IsNullOrWhiteSpace(groupName))
+                    return axes;
+
+                foreach (var axis in EnumerateAxes())
+                {
+                    string unitName = axis.Setup != null ? axis.Setup.UnitName : "";
+                    if (string.Equals(unitName, groupName.Trim(), StringComparison.OrdinalIgnoreCase))
+                        axes.Add(axis);
+                }
+
+                return axes;
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "ResolveAxesByGroup",
+                    "Resolve axes by group failed. group=" + groupName + ", error=" + ex.Message + " - Failed");
+                return axes;
+            }
+            finally
+            {
+            }
+        }
+
+        /// <summary>장비 전체 초기화: 초기화 Plan에 따라 전체 축 HOME을 수행하고 카운터/맵 상태를 준비합니다.</summary>
+        public async Task<int> InitAsync()
+        {
+            try
+            {
+                LastActionFailureMessage = "";
+                if (_status == EquipmentStatus.Initializing || _status == EquipmentStatus.AutoRunning)
+                {
+                    LastActionFailureMessage = "장비가 이미 초기화 중이거나 자동 운전 중입니다.";
+                    QMC.Common.Log.Write("Main", "SYSTEM", "InitAsync",
+                        "Machine init failed: status=" + _status + " - Failed");
+                    return -1;
+                }
+
+                SetMachineInitialized(false, "InitStart", false);
+                int axisInitResult = await InitializeAllAxesAsync(false).ConfigureAwait(false);
+                if (axisInitResult != 0)
+                    return axisInitResult;
+
+                CycleDone = 0; CycleTotal = 0; GoodCount = 0; NgCount = 0;
+
+                // Resource Sensors 사전 확인(CDA / Vacuum 라인 상태).
+                try
+                {
+                    if (_machine.Resources != null && !_machine.Resources.AllOk)
+                    {
+                        Log("[INIT] Resource warning: CDA or Vacuum line is not OK. Simulation mode may allow this.");
+                    }
+                }
+                catch { }
+
+                // Init 시 카세트 자동 매핑 옵션.
+                if (AutoScanCassetteOnInit)
+                {
+                    try
+                    {
+                        Log("[INIT] InputCassette auto mapping start...");
+                        var ctx = new QMC.CDT320.Sequencing.MachineSequenceContext(
+                            this,
+                            new QMC.CDT320.Sequencing.SequenceSignalBus());
+                        var sequence = new QMC.CDT320.Sequencing.InputSequence(ctx);
+                        int mapResult = await sequence.ExecuteMappingAsync(CancellationToken.None);
+                        if (mapResult == 0)
+                        {
+                            int n = 0;
+                            foreach (var b in _machine.InputCassette.WaferMap) if (b) n++;
+                            Log($"[INIT] WaferMap OK ({n} detected)");
+                        }
+                        else
+                        {
+                            Log("[INIT] WaferMap failed: cassette not detected or scan failed.");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Log("[INIT] WaferMap exception: " + ex.Message);
+                    }
+
+                    // Output 카세트 3개도 자동 스캔합니다.
+                    // slot map은 25 슬롯 기준으로 초기화되어 StoreFullWafer에서 정상 기록되어야 합니다.
+                    try
+                    {
+                        Log("[INIT] OutputCassette auto mapping start...");
+                        bool oOk = await ScanOutputCassettesAsync();
+                        Log("[INIT] OutputCassette 매핑 " + (oOk ? "OK" : "FAILED"));
+                    }
+                    catch (Exception ex)
+                    {
+                        Log("[INIT] OutputCassette exception: " + ex.Message);
+                    }
+                }
+
+                // Input/Output die map 생성. 이미 존재하면 skip.
+                try { EnsureDieMaps(); } catch (Exception dmEx) { Log("[INIT] DieMap create warning: " + dmEx.Message); }
+
+                Log("[INIT] Complete. Ready.");
+                SetMachineInitialized(true, "InitComplete", true);
+                SetStatus(EquipmentStatus.Ready);
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                LastActionFailureMessage = "장비 초기화 실패: " + ex.Message;
+                QMC.Common.Log.Write("Main", "SYSTEM", "InitAsync",
+                    "Machine init failed: " + ex.Message + " - Failed");
+                AlarmManager.Raise(AlarmSeverity.Error, "INIT-EX", "MachineController", LastActionFailureMessage);
+                SetMachineInitialized(false, "InitException", true);
+                SetStatus(EquipmentStatus.Alarm);
+                return -1;
+            }
+            finally
+            {
+            }
         }
 
         /// <summary>장비 START: Servo ON 후 현재 구성된 자동 시퀀스를 시작합니다.</summary>
@@ -1270,7 +1863,7 @@ namespace QMC.CDT320
             // 1) 紐⑤뱺 異??뺤? (?쒕낫???좎?)
             foreach (var ax in EnumerateAxes()) ax.Stop();
 
-            // 2) ?ъ씠?댁씠 吏꾪뻾 以묒씠?쇰㈃ cancel ???ㅼ젣 LOT 留덈Т由щ뒗 CycleRunAsync ??
+            // 2) ?�이?�이 진행 중이?�면 cancel ???�제 LOT 마무리는 CycleRunAsync ??
             //    catch (OperationCanceledException) ?먯꽌 SkippedCount ? ?④퍡 泥섎━??
             bool wasCycling = (_status == EquipmentStatus.AutoRunning);
             _cycleStopRequested = false;
@@ -1283,7 +1876,7 @@ namespace QMC.CDT320
             {
                 int skipped = System.Math.Max(0, CycleTotal - CycleDone);
                 lot.SkippedCount = skipped;
-                Log("[STOP] LOT=" + lot.LotID + " 留덈Т由?以?(done=" + CycleDone + "/" + CycleTotal +
+                Log("[STOP] LOT=" + lot.LotID + " 마무�?�?(done=" + CycleDone + "/" + CycleTotal +
                     ", good=" + GoodCount + ", ng=" + NgCount + ", skipped=" + skipped + ")");
                 try { QMC.CDT320.Lots.LotStorage.CloseLot(aborted: true); } catch { }
                 try { _machine.OpPanel?.TowerLampOff(); } catch { }
@@ -1331,7 +1924,7 @@ namespace QMC.CDT320
         }
 
         /// <summary>CYCLE RUN: ?먮룞 ?ъ씠???쒖옉. ?ㅼ씠留?紐⑤뱶(UseDieMapMode=true)???뚮뒗
-        /// Input ?ㅼ씠留듭쓽 IsTarget=true ?ㅼ씠瑜?紐⑤몢 泥섎━. totalDies&lt;=0 ?먮뒗 ?ㅼ씠留?紐⑤뱶???뚮뒗
+        /// Input ?�이맵의 IsTarget=true ?�이�?모두 처리. totalDies&lt;=0 ?�는 ?�이�?모드???�는
         /// EnsureDieMaps ???쒖꽦 ?ㅼ씠 ?섍? ?먮룞 ?곸슜??</summary>
         /// <summary>吏?뺥븳 ?듭뀡?쇰줈 蹂묐젹 ?쒗??Coordinator瑜??쒖옉?⑸땲??</summary>
         public async Task StartSequenceAsync(QMC.CDT320.Sequencing.SequenceRunOptions options)
@@ -1455,6 +2048,211 @@ namespace QMC.CDT320
                 SetStatus(EquipmentStatus.Stopped);
         }
 
+        public async Task<int> StopSequenceForAlarmAsync(string alarmCode)
+        {
+            try
+            {
+                var coordinator = _coordinator;
+                var cts = _autoCts;
+                var task = _coordinatorTask;
+
+                if (coordinator != null)
+                    coordinator.AbortChildren();
+                if (cts != null && !cts.IsCancellationRequested)
+                    cts.Cancel();
+
+                if (task != null)
+                {
+                    try
+                    {
+                        await task.ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        Log("[SEQ] alarm stop canceled. code=" + alarmCode);
+                    }
+                }
+
+                _coordinatorTask = null;
+                _coordinator = null;
+                _seqContext = null;
+                ActiveSequenceRunMode = null;
+
+                if (_autoCts != null)
+                {
+                    _autoCts.Dispose();
+                    _autoCts = null;
+                }
+
+                QMC.Common.Log.Write("Main", "SYSTEM", "StopSequenceForAlarm",
+                    "Sequence stopped by alarm. code=" + alarmCode + " - Ok");
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "StopSequenceForAlarm",
+                    "Sequence stop by alarm failed. code=" + alarmCode + ", error=" + ex.Message + " - Failed");
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        public async Task<int> StopAxesAsync(IEnumerable<string> axisNames, bool emergencyStop = false)
+        {
+            try
+            {
+                if (axisNames == null)
+                    return 0;
+
+                int total = 0;
+                int failed = 0;
+                var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+                foreach (var axisName in axisNames)
+                {
+                    if (string.IsNullOrWhiteSpace(axisName))
+                        continue;
+                    if (!visited.Add(axisName.Trim()))
+                        continue;
+
+                    var axis = FindAxisByName(axisName);
+                    if (axis == null)
+                    {
+                        failed++;
+                        QMC.Common.Log.Write("Main", "SYSTEM", "StopAxes",
+                            "Axis stop failed: axis not found. axis=" + axisName + " - Failed");
+                        continue;
+                    }
+
+                    total++;
+                    try
+                    {
+                        if (emergencyStop)
+                            axis.EStop();
+                        else
+                            axis.Stop();
+
+                        QMC.Common.Log.Write("Main", "SYSTEM", "StopAxes",
+                            "Axis stopped. axis=" + axis.Name + ", emergency=" + emergencyStop + " - Ok");
+                    }
+                    catch (Exception ex)
+                    {
+                        failed++;
+                        QMC.Common.Log.Write("Main", "SYSTEM", "StopAxes",
+                            "Axis stop failed. axis=" + axis.Name + ", error=" + ex.Message + " - Failed");
+                    }
+                }
+
+                await Task.Yield();
+                return failed == 0 ? 0 : -1;
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "StopAxes",
+                    "Axis stop failed: " + ex.Message + " - Failed");
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        public async Task<int> StopInterferenceGroupAsync(string sourceAxisName, bool emergencyStop = false)
+        {
+            try
+            {
+                var axes = _axisInterferenceMap.ResolveInterferenceAxes(sourceAxisName);
+                QMC.Common.Log.Write("Main", "SYSTEM", "StopInterferenceGroup",
+                    "Interference group stop requested. sourceAxis=" + sourceAxisName +
+                    ", count=" + (axes != null ? axes.Count : 0) + ", emergency=" + emergencyStop + " - Start");
+                return await StopAxesAsync(axes, emergencyStop).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "StopInterferenceGroup",
+                    "Interference group stop failed. sourceAxis=" + sourceAxisName + ", error=" + ex.Message + " - Failed");
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        public async Task<int> StopAllAxesAsync(bool emergencyStop = false)
+        {
+            try
+            {
+                var axes = new List<string>();
+                foreach (var axis in EnumerateAxes())
+                    axes.Add(axis.Name);
+
+                QMC.Common.Log.Write("Main", "SYSTEM", "StopAllAxes",
+                    "All axis stop requested. count=" + axes.Count + ", emergency=" + emergencyStop + " - Start");
+                return await StopAxesAsync(axes, emergencyStop).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "StopAllAxes",
+                    "All axis stop failed: " + ex.Message + " - Failed");
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        public string ResolveAxisNameFromAlarm(string alarmSource, string alarmCode)
+        {
+            try
+            {
+                string source = alarmSource ?? "";
+                string code = alarmCode ?? "";
+
+                foreach (var axis in EnumerateAxes())
+                {
+                    if (string.Equals(source, axis.Name, StringComparison.OrdinalIgnoreCase))
+                        return axis.Name;
+
+                    if (source.IndexOf(axis.Name, StringComparison.OrdinalIgnoreCase) >= 0)
+                        return axis.Name;
+
+                    if (code.IndexOf(axis.Name, StringComparison.OrdinalIgnoreCase) >= 0)
+                        return axis.Name;
+                }
+
+                return "";
+            }
+            catch
+            {
+                return "";
+            }
+            finally
+            {
+            }
+        }
+
+        public void SetAlarmStateFromAlarmResponse(string alarmCode)
+        {
+            try
+            {
+                if (_status != EquipmentStatus.Alarm)
+                    SetStatus(EquipmentStatus.Alarm);
+
+                QMC.Common.Log.Write("Main", "SYSTEM", "SetAlarmStateFromAlarmResponse",
+                    "Machine status set to Alarm by alarm response. code=" + alarmCode + " - Ok");
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "SetAlarmStateFromAlarmResponse",
+                    "Machine status alarm update failed. code=" + alarmCode + ", error=" + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
         /// <summary>吏?뺥븳 ?좊떅?ㅼ쓣 Manual 紐⑤뱶濡??쒖옉?⑸땲??</summary>
         public Task StartManualAsync(QMC.CDT320.Sequencing.SequenceUnitKind units)
         {
@@ -1517,7 +2315,7 @@ namespace QMC.CDT320
                 int active = 0;
                 foreach (var e in _inputDieMap.Entries) if (e.IsTarget) active++;
                 if (totalDies <= 0 || totalDies > active) totalDies = active;
-                Log("[CYCLE] DieMap 紐⑤뱶 ??Input wafer ?쒖꽦 ?ㅼ씠 " + active + " 以?" + totalDies + "媛?泥섎━");
+                Log("[CYCLE] DieMap 모드 ??Input wafer ?�성 ?�이 " + active + " �?" + totalDies + "�?처리");
             }
             else if (totalDies <= 0)
             {
@@ -1582,7 +2380,7 @@ namespace QMC.CDT320
                     // R3 ??Manual 紐⑤뱶: 1 ?ъ씠??泥섎━ ???먮룞 ?뺤?
                     if (CycleMode == CycleMode.Manual)
                     {
-                        Log("[CYCLE] Manual 紐⑤뱶 ??1 ?ъ씠??泥섎━ ???뺤? (done=" + CycleDone + ")");
+                        Log("[CYCLE] Manual 모드 ??1 ?�이??처리 ???��? (done=" + CycleDone + ")");
                         break;
                     }
                 }
@@ -1659,7 +2457,7 @@ namespace QMC.CDT320
         //  ?ъ씠??1??遺??숈옉 (媛꾨떒 ?쒕?)
         // ??????????????????????????????????????????
 
-        /// <summary>???⑥씠?쇰떦 媛怨듯븷 ?ㅼ씠 ?? 1400 = 300mm ?⑥씠??????泥섎━ ???ㅼ쓬 ?щ’.</summary>
+        /// <summary>???�이?�당 가공할 ?�이 ?? 1400 = 300mm ?�이??????처리 ???�음 ?�롯.</summary>
         public int DiesPerWafer { get; set; } = 1400;
 
         /// <summary>Stage 33 ??留?N ?ㅼ씠留덈떎 Collet Cleaning ?쒗??(0?대㈃ 鍮꾪솢??.</summary>
@@ -1806,7 +2604,7 @@ namespace QMC.CDT320
                 }
             }
 
-            // Stage 26 ??留?DiesPerWafer 留덈떎 ?ㅼ쓬 移댁꽭???щ’ 吏꾪뻾
+            // Stage 26 ??�?DiesPerWafer 마다 ?�음 카세???�롯 진행
             //   cycleIdx == 0 ? CycleRunAsync ?먯꽌 LoadNextWaferAsync ?대? ?몄텧?덉쑝誘濡??ㅽ궢
             if (dieBase > 0 && DiesPerWafer > 0 && dieBase % DiesPerWafer == 0 && InputWaferAtExchange)
             {
@@ -1866,14 +2664,14 @@ namespace QMC.CDT320
             }
             await MoveInputStageToDieAsync(row, col);
 
-            // Stage 40 ??Dual Arm 紐⑤뱶: 吏앹닔 idx ??LeftArm, ???idx ??RightArm
+            // Stage 40 ??Dual Arm 모드: 짝수 idx ??LeftArm, ?�??idx ??RightArm
             var front = (DualArmMode && (index % 2 == 1))
                         ? _machine.TransferPicker.RightArm
                         : _machine.TransferPicker.LeftArm;
 
             front.ArmX.ServoOn();
             front.ArmY.ServoOn();
-            // 4 picker 紐⑤몢 ServoOn (PickerZ + PickerT)
+            // 4 picker 모두 ServoOn (PickerZ + PickerT)
             for (int p = 0; p < pickers; p++)
             {
                 front.Pickers[p].PickerZ.ServoOn();
@@ -2051,7 +2849,7 @@ namespace QMC.CDT320
             }
 
             // 14~18) Bottom+Side 蹂묐젹 ?뚯씠?꾨씪??(?⑥씪 ArmX ?뚯씠?꾨씪?????숈떆 珥ъ쁺)
-            //   - 醫뚰몴 紐⑤뜽: picker N abs X = ArmX - N*PickerPitchX (Side1X = SideVision1X = 850)
+            //   - 좌표 모델: picker N abs X = ArmX - N*PickerPitchX (Side1X = SideVision1X = 850)
             //   - Step 0~3 = Bottom Expose Picker 0~3 (ArmX = ArmInspectionPositionX + i*pitch)
             //   - Step 2~5 = Side sub-sequence Picker 0~3 (ArmX ?숈씪 ?꾩튂?먯꽌 picker[idx-2] 媛 Side X ?뺣젹)
             //   - 媛?picker Z????Bottom 吏곸쟾, Z????Side ?앹뿉??諛쒖깮.
@@ -2103,7 +2901,7 @@ namespace QMC.CDT320
                 }
                 else
                 {
-                    Log("[VISION] Inspection 誘몄뿰寃???Bottom/Side 寃??sim ?⑥뒪");
+                    Log("[VISION] Inspection 미연�???Bottom/Side 검??sim ?�스");
                 }
             }
             catch (Exception ex) { Log("[VISION] Bottom+Side ex: " + ex.Message); }
@@ -2124,7 +2922,7 @@ namespace QMC.CDT320
             catch (Exception ex) { Log("[PLACE] 19) move ex: " + ex.Message); }
             ct.ThrowIfCancellationRequested();
 
-            // ?? PlaceOnePickerAsync : picker p 瑜?吏??stage (Good/Ng) ??Place ??
+            // ?�?� PlaceOnePickerAsync : picker p �?지??stage (Good/Ng) ??Place ?�?�
             async Task PlaceOnePickerAsync(int p, StageModule outStage)
             {
                 var picker = front.Pickers[p];
@@ -2273,7 +3071,7 @@ namespace QMC.CDT320
                 }
                 catch (Exception ex) { Log("[COLLET] exception: " + ex.Message); }
             }
-            // Reject 遺꾨━ ??媛??ㅼ씠蹂?寃??
+            // Reject 분리 ??�??�이�?검??
             for (int p = 0; p < pickers; p++)
             {
                 if (SubPortMaterialRejector.ShouldReject(dies[p], out double rxX, out double rxY))
@@ -2293,6 +3091,30 @@ namespace QMC.CDT320
             foreach (var u in _machine.Units)
                 foreach (var ax in EnumerateAxesRec(u))
                     yield return ax;
+        }
+
+        private BaseAxis FindAxisByName(string axisName)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(axisName))
+                    return null;
+
+                foreach (var axis in EnumerateAxes())
+                {
+                    if (string.Equals(axis.Name, axisName.Trim(), StringComparison.OrdinalIgnoreCase))
+                        return axis;
+                }
+
+                return null;
+            }
+            catch
+            {
+                return null;
+            }
+            finally
+            {
+            }
         }
 
         private static IEnumerable<BaseAxis> EnumerateAxesRec(BaseEquipmentNode node)

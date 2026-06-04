@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using QMC.CDT320.Ajin;
@@ -9,9 +9,9 @@ using QMC.Common.Motion;
 namespace QMC.CDT320
 {
     /// <summary>Bin Feeder Y축과 실린더 동작에 필요한 기구 설정값입니다.</summary>
-    public class BinFeederSetup : ISetupData
+    public class OutputFeederSetup : ISetupData
     {
-        /// <summary>Bin Feeder 대기 위치입니다.</summary>
+        /// <summary>Output Feeder 대기 위치입니다.</summary>
         public double AvoidPosition { get; set; } = 0.0;
 
         /// <summary>OutputStage Good 교환 위치입니다.</summary>
@@ -34,14 +34,14 @@ namespace QMC.CDT320
     }
 
     /// <summary>Bin Feeder 고정 사양 설정입니다.</summary>
-    public class BinFeederConfig : IConfigData
+    public class OutputFeederConfig : IConfigData
     {
         /// <summary>시뮬레이션 모드 사용 여부입니다.</summary>
         public bool IsSimulationMode { get; set; } = true;
     }
 
     /// <summary>Bin Feeder 동작 레시피입니다.</summary>
-    public class BinFeederRecipe : IRecipeData
+    public class OutputFeederRecipe : IRecipeData
     {
         /// <summary>Bin Feeder Y축 이동 속도입니다.</summary>
         public double MoveVelocity { get; set; } = 100.0;
@@ -54,7 +54,7 @@ namespace QMC.CDT320
     }
 
     /// <summary>Bin Feeder의 Y축, 업다운 실린더, 클램프 실린더를 관리하는 유닛입니다.</summary>
-    public class BinFeederUnit : BaseUnit<BinFeederSetup, BinFeederConfig, BinFeederRecipe>
+    public class OutputFeederUnit : BaseUnit<OutputFeederSetup, OutputFeederConfig, OutputFeederRecipe>
     {
         private readonly Dictionary<string, double> _positionSnapshots = new Dictionary<string, double>();
 
@@ -98,7 +98,7 @@ namespace QMC.CDT320
         public BaseDigitalOutput BinFeederUnclampOut { get { return FeederClampCyl.OutBwd; } }
 
         /// <summary>BinFeederUnit을 생성하고 축, 센서, 실린더를 등록합니다.</summary>
-        public BinFeederUnit() : base("BinFeederUnit")
+        public OutputFeederUnit() : base("BinFeederUnit")
         {
             FeederY = AjinFactory.CreateAxis("BinFeederY");
             FeederY.Setup.SoftLimitPlus = 350.0;
