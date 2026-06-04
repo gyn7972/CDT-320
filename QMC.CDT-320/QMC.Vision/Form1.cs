@@ -62,10 +62,13 @@ namespace QMC.Vision
                 }
             }
             // Stage 70 — 구버전 Wiring.Page → 검사 Setting.Page 마이그레이션 (1회).
-            if (map.MigrateWiringPageToSettings(lightSetup))
+            bool recipeMigrated = map.MigrateWiringPageToSettings(lightSetup);
+            // Stage 81 — 구버전 Recipe Setting.ControllerPort 자동 채움 (다중 컨트롤러 모델).
+            recipeMigrated |= map.FillRecipeControllerPorts(lightSetup);
+            if (recipeMigrated)
             {
-                AlgorithmCameraMapStore.Save();              // 검사 Setting.Page 기록
-                QMC.Common.Recipes.LightSystemSetupStore.Save(); // Wiring.LegacyPage(0) 제거 — 새 스키마로 재저장
+                AlgorithmCameraMapStore.Save();              // 검사 Setting.Page/ControllerPort 기록
+                QMC.Common.Recipes.LightSystemSetupStore.Save(); // 구 단일 결선 키 제거 — 새 스키마로 재저장
             }
 
             // Stage 73 — 조명 Sim 여부를 비전 Provider 와 분리(독립 config). 기본 true=안전(Sim).

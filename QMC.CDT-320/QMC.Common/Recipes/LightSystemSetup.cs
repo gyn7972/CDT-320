@@ -43,8 +43,10 @@ namespace QMC.Common.Recipes
             ctrl.PortName = newPort;
             if (AlgorithmWirings != null)
                 foreach (var w in AlgorithmWirings)
-                    if (string.Equals(w.ControllerPort, oldPort, StringComparison.OrdinalIgnoreCase))
-                        w.ControllerPort = newPort;
+                    if (w.ControllerSets != null)
+                        foreach (var cs in w.ControllerSets)
+                            if (string.Equals(cs.ControllerPort, oldPort, StringComparison.OrdinalIgnoreCase))
+                                cs.ControllerPort = newPort;
             return true;
         }
 
@@ -64,8 +66,10 @@ namespace QMC.Common.Recipes
             }
             if (AlgorithmWirings != null)
                 foreach (var w in AlgorithmWirings)
-                    if (!string.IsNullOrEmpty(w.ControllerPort) && GetController(w.ControllerPort) == null)
-                        errs.Add($"결선 '{w.Algorithm}' 의 포트 '{w.ControllerPort}' 가 인벤토리에 없음");
+                    if (w.ControllerSets != null)
+                        foreach (var cs in w.ControllerSets)
+                            if (!string.IsNullOrEmpty(cs.ControllerPort) && GetController(cs.ControllerPort) == null)
+                                errs.Add($"결선 '{w.Algorithm}' 의 포트 '{cs.ControllerPort}' 가 인벤토리에 없음");
             return errs;
         }
     }
@@ -114,17 +118,52 @@ namespace QMC.Common.Recipes
         public LightChannelLabel Clone() => new LightChannelLabel { Channel = Channel, Name = Name, Color = Color };
     }
 
-    /// <summary>알고리즘 1 ↔ 컨트롤러 1 + 사용 채널 풀. 기본 빈 풀(조명 미사용) — 사용자 UI 에서 배정.</summary>
+    /// <summary>Stage 81 — 알고리즘 1 ↔ 컨트롤러 N (다중). 각 컨트롤러별 사용 채널 풀.</summary>
     [DataContract]
     public class AlgorithmLightWiring
     {
-        [DataMember] public string    Algorithm      { get; set; } = "";
-        [DataMember] public string    ControllerPort { get; set; }            // null/빈 = 조명 미사용
+        [DataMember] public string Algorithm { get; set; } = "";
+        [DataMember] public List<ControllerChannels> ControllerSets { get; set; } = new List<ControllerChannels>();
+
+        // Stage 70 — Page 는 Recipe(InspectionLightSetting) 로 이동. 구버전 키만 로드용 보존(읽기 후 0).
+        [DataMember(Name = "Page", EmitDefaultValue = false)] public int LegacyPage { get; set; } = 0;
+
+        // Stage 81 — 구버전 단일 컨트롤러 키 (마이그레이션용 임시 보존; 소비 후 비워 재저장 시 소멸).
+        [DataMember(Name = "ControllerPort", EmitDefaultValue = false)] public string LegacyControllerPort { get; set; }
+        [DataMember(Name = "Channels",       EmitDefaultValue = false)] public List<int> LegacyChannels { get; set; }
+
+        [OnDeserialized]
+        internal void OnDeserialized(StreamingContext _)
+        {
+            if ((ControllerSets == null || ControllerSets.Count == 0) && !string.IsNullOrEmpty(LegacyControllerPort))
+                ControllerSets = new List<ControllerChannels>
+                {
+                    new ControllerChannels { ControllerPort = LegacyControllerPort, Channels = LegacyChannels ?? new List<int>() }
+                };
+            if (ControllerSets == null) ControllerSets = new List<ControllerChannels>();
+            LegacyControllerPort = null;   // 소비 후 비움
+            LegacyChannels = null;
+        }
+
+        // ── 헬퍼 ──
+        public ControllerChannels GetSet(string port)
+            => ControllerSets?.FirstOrDefault(s => string.Equals(s.ControllerPort, port, StringComparison.OrdinalIgnoreCase));
+        public IEnumerable<string> Ports()
+            => ControllerSets?.Where(s => !string.IsNullOrEmpty(s.ControllerPort)).Select(s => s.ControllerPort)
+               ?? System.Linq.Enumerable.Empty<string>();
+        public bool IsWired
+            => ControllerSets != null && ControllerSets.Any(s => !string.IsNullOrEmpty(s.ControllerPort) && s.Channels != null && s.Channels.Count > 0);
+    }
+
+    /// <summary>Stage 81 — 한 알고리즘 결선의 컨트롤러 1개 + 그 컨트롤러 사용 채널 풀.</summary>
+    [DataContract]
+    public class ControllerChannels
+    {
+        [DataMember] public string    ControllerPort { get; set; }            // LightControllerEntry.PortName FK
         [DataMember] public List<int> Channels       { get; set; } = new List<int>();
 
-        // Stage 70 — Page 는 Recipe(InspectionLightSetting) 로 이동. 구버전 키만 로드용으로 보존(읽기 후 0).
-        // EmitDefaultValue=false 라 0 이면 Save 시 사라짐 → 다음 저장부터 새 스키마.
-        [DataMember(Name = "Page", EmitDefaultValue = false)] public int LegacyPage { get; set; } = 0;
+        public ControllerChannels Clone()
+            => new ControllerChannels { ControllerPort = ControllerPort, Channels = Channels != null ? new List<int>(Channels) : new List<int>() };
     }
 
     /// <summary>조명 시스템 Setup 영속화 — Config\light_system.json.</summary>

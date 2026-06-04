@@ -175,6 +175,14 @@ Add-Row "STAGE79" "LFine SetChannelBatchAsync (SP 1프레임 + Mode skip)" (Test
 Add-Row "STAGE79" "Leesos 매뉴얼 정정 (12-bit X3 / A~G,T / ER)" (Test-Greps $leeProto @('EncodeChannel','BuildVolumeAllCommand','X3','ErrText\s*=\s*"ER"')) $leeProto
 Add-Row "STAGE79" "InspectionLightPanel batch 적용" (Test-Greps $lpanel @('SetChannelBatchAsync')) $lpanel
 
+# Stage 81 — 다중 컨트롤러 결선 + UI 분리
+Add-Row "STAGE81" "AlgorithmLightWiring.ControllerSets + ControllerChannels + 마이그레이션" (Test-Greps $lsetup @('List<ControllerChannels> ControllerSets','class ControllerChannels','LegacyControllerPort')) $lsetup
+$ilsF = Join-Path $Root "QMC.Common\Recipes\InspectionLightSubset.cs"
+Add-Row "STAGE81" "InspectionLightSetting.ControllerPort" (Test-Greps $ilsF @('string ControllerPort')) $ilsF
+Add-Row "STAGE81" "FillRecipeControllerPorts 마이그레이션" (Test-Greps $acsF @('FillRecipeControllerPorts')) $acsF
+Add-Row "STAGE81" "Setup 결선 TreeView (_treeWiring) + Level 류 0" ((Test-Greps $lspF @('_treeWiring','ControllerSets')) -and (-not (Test-Greps $lspF @('TrackBar')))) $lspF
+Add-Row "STAGE81" "Recipe Apply 병렬 (Task.WhenAll) + Controller 컬럼" (Test-Greps $lpanel @('Task.WhenAll','ApplyControllerAsync','Ctrl')) $lpanel
+
 # ── 출력 ──
 $bar = "=" * 110
 Write-Output $bar

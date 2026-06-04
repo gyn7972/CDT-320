@@ -76,11 +76,10 @@ namespace QMC.Common.Recipes
                     if (alg == null) continue;     // 모호 — 사용자 검토
                     var w = setup.GetWiring(alg);
                     if (w == null) continue;
-                    // 한 알고리즘은 한 컨트롤러만 — 이미 다른 포트로 잡혔으면 건너뜀(첫 매칭 우선)
-                    if (string.IsNullOrEmpty(w.ControllerPort)) w.ControllerPort = c.PortName;
-                    if (string.Equals(w.ControllerPort, c.PortName, StringComparison.OrdinalIgnoreCase)
-                        && !w.Channels.Contains(lbl.Channel))
-                        w.Channels.Add(lbl.Channel);
+                    // Stage 81 — 다중 컨트롤러: 알고리즘에 이 포트의 ControllerSet 을 get-or-create 후 채널 추가.
+                    var cs = w.GetSet(c.PortName);
+                    if (cs == null) { cs = new ControllerChannels { ControllerPort = c.PortName }; w.ControllerSets.Add(cs); }
+                    if (!cs.Channels.Contains(lbl.Channel)) cs.Channels.Add(lbl.Channel);
                 }
             }
             return setup;

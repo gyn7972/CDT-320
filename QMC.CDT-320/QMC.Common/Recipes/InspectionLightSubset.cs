@@ -10,6 +10,8 @@ namespace QMC.Common.Recipes
     [DataContract]
     public class InspectionLightSetting
     {
+        // Stage 81 — 다중 컨트롤러 구분 (같은 채널 번호가 두 컨트롤러에 모두 있을 수 있어 Channel 만으론 모호).
+        [DataMember(EmitDefaultValue = false)] public string ControllerPort { get; set; }
         [DataMember] public int  Channel          { get; set; }       // 소속 알고리즘 Wiring.Channels 풀 내 값
         [DataMember] public int  Level            { get; set; }       // 0 ~ MaxPower
         [DataMember] public bool On               { get; set; } = true;
@@ -22,7 +24,7 @@ namespace QMC.Common.Recipes
         public InspectionLightSetting Clone()
             => new InspectionLightSetting
             {
-                Channel = Channel, Level = Level, On = On,
+                ControllerPort = ControllerPort, Channel = Channel, Level = Level, On = On,
                 StrobeTimeUs = StrobeTimeUs, StabilizeDelayMs = StabilizeDelayMs, Page = Page
             };
     }

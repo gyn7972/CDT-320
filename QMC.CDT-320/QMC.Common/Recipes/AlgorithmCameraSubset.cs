@@ -362,5 +362,33 @@ namespace QMC.Common.Recipes
             }
             return changed;
         }
+
+        /// <summary>Stage 81 — 구버전 Recipe 의 InspectionLightSetting.ControllerPort 가 비어 있으면
+        /// 소속 알고리즘 결선의 ControllerSets 로 자동 채움. 단일 결선=그 포트, 다중=ControllerSets[0](사용자 Setup 검토 필요).
+        /// 변경 발생 시 true.</summary>
+        public bool FillRecipeControllerPorts(LightSystemSetup setup)
+        {
+            if (setup?.AlgorithmWirings == null || Items == null) return false;
+            bool changed = false;
+            foreach (var w in setup.AlgorithmWirings)
+            {
+                if (w.ControllerSets == null || w.ControllerSets.Count == 0) continue;
+                string defaultPort = w.ControllerSets[0].ControllerPort;
+                if (string.IsNullOrEmpty(defaultPort)) continue;
+                var alg = Items.FirstOrDefault(m => string.Equals(m.Algorithm, w.Algorithm, StringComparison.OrdinalIgnoreCase));
+                if (alg?.InspectionLights == null) continue;
+                foreach (var ov in alg.InspectionLights)
+                    if (ov.Settings != null)
+                        foreach (var s in ov.Settings)
+                            if (string.IsNullOrEmpty(s.ControllerPort))
+                            {
+                                // 채널이 특정 ControllerSet 풀에만 있으면 그 포트로, 아니면 첫 포트로.
+                                var owner = w.ControllerSets.FirstOrDefault(cs => cs.Channels != null && cs.Channels.Contains(s.Channel));
+                                s.ControllerPort = owner?.ControllerPort ?? defaultPort;
+                                changed = true;
+                            }
+            }
+            return changed;
+        }
     }
 }

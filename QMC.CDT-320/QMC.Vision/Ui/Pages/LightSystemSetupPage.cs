@@ -18,7 +18,13 @@ namespace QMC.Vision.Ui.Pages
     {
         private DataGridView _gridCtrl;     // 컨트롤러 인벤토리
         private DataGridView _gridLabel;    // 선택 컨트롤러의 채널 라벨
-        private DataGridView _gridWiring;   // 알고리즘 결선
+        // Stage 81 — 결선: 평면 grid → TreeView + 선택 알고리즘의 ControllerSets 디테일 그리드 (다중 컨트롤러).
+        private TreeView _treeWiring;
+        private DataGridView _gridSets;     // 선택 알고리즘의 ControllerSets (ControllerPort 콤보 + ChannelsCsv)
+        private string _selAlg;             // 현재 선택 알고리즘
+        private bool   _suspendSets;        // _gridSets 프로그램적 바인딩 중 flush 억제
+        private readonly System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<ControllerChannels>> _wiringModel
+            = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<ControllerChannels>>(StringComparer.OrdinalIgnoreCase);
         private Label _lblStatus;
         private bool  _suspendSync;         // 프로그램적 바인딩 중 동기 이벤트 억제 (Stage 70 B)
 
@@ -42,7 +48,8 @@ namespace QMC.Vision.Ui.Pages
 
             var hdr = new Label
             {
-                Dock = DockStyle.Top, Height = 30, Text = "조명 시스템 설정 — 컨트롤러 인벤토리 + 알고리즘 결선",
+                Dock = DockStyle.Top, Height = 30,
+                Text = "조명 시스템 설정 — 기구적 결선 (한 번 설정 후 거의 변경 없음)   ※ 검사별 밝기/On-Off 값은 [레시피] 에서 설정",
                 BackColor = UiTheme.StatusBarBg, ForeColor = Color.White,
                 Font = UiTheme.SectionFont, TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding(10, 0, 0, 0)
             };
@@ -125,23 +132,36 @@ namespace QMC.Vision.Ui.Pages
             left.Controls.Add(_gridLabel, 0, 3);
             split.Controls.Add(left, 0, 0);
 
-            // 우측: 알고리즘 결선
-            var right = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2, BackColor = UiTheme.MainBg };
+            // 우측: 알고리즘 결선 (Stage 81 — TreeView + 선택 알고리즘 ControllerSets 디테일, 다중 컨트롤러)
+            var right = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 4, BackColor = UiTheme.MainBg };
             right.RowStyles.Add(new RowStyle(SizeType.Absolute, 24f));
-            right.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
-            right.Controls.Add(SectionLabel("알고리즘 결선 (컨트롤러 + 사용 채널) — Page 는 검사별(Recipe) 로 이동"), 0, 0);
-            _gridWiring = MakeGrid();
-            _gridWiring.AllowUserToAddRows = false;   // 5 알고리즘 고정
-            var colAlg = Col("Algorithm", "알고리즘"); colAlg.ReadOnly = true; _gridWiring.Columns.Add(colAlg);
-            // Stage 70 C — Controller 컬럼을 콤보박스로 (인벤토리 PortName)
-            var colCtrl = new DataGridViewComboBoxColumn { Name = "ControllerPort", HeaderText = "컨트롤러(Port)" };
-            _gridWiring.Columns.Add(colCtrl);
-            _gridWiring.Columns.Add(Col("ChannelsCsv", "채널 (예: 3,4,5)"));
-            // Stage 70 D-2 — Page 컬럼 제거
-            // 콤보에 없는 값 입력 시 예외 방지
-            _gridWiring.DataError += (s, e) => { e.ThrowException = false; };
-            right.Controls.Add(_gridWiring, 0, 1);
-            split.Controls.Add(right, 0, 0);
+            right.RowStyles.Add(new RowStyle(SizeType.Percent, 45f));
+            right.RowStyles.Add(new RowStyle(SizeType.Absolute, 34f));
+            right.RowStyles.Add(new RowStyle(SizeType.Percent, 55f));
+            right.Controls.Add(SectionLabel("알고리즘 결선 — 알고리즘 선택 후 컨트롤러/채널 배정 (한 알고리즘 = 여러 컨트롤러 가능)"), 0, 0);
+
+            _treeWiring = new TreeView { Dock = DockStyle.Fill, Font = UiTheme.ValueFont, HideSelection = false, BackColor = Color.White };
+            _treeWiring.AfterSelect += (s, e) => OnAlgNodeSelected(e.Node);
+            right.Controls.Add(_treeWiring, 0, 1);
+
+            var setsBar = new Panel { Dock = DockStyle.Fill, BackColor = UiTheme.MainBg };
+            var btnAddSet = new Button { Location = new Point(4, 2), Size = new Size(110, 28), Text = "컨트롤러 추가", FlatStyle = FlatStyle.Flat, Font = UiTheme.ButtonFont, BackColor = Color.White };
+            btnAddSet.Click += (s, e) => AddControllerSet();
+            var btnDelSet = new Button { Location = new Point(120, 2), Size = new Size(70, 28), Text = "삭제", FlatStyle = FlatStyle.Flat, Font = UiTheme.ButtonFont, BackColor = Color.White };
+            btnDelSet.Click += (s, e) => DeleteControllerSet();
+            setsBar.Controls.AddRange(new Control[] { btnAddSet, btnDelSet });
+            right.Controls.Add(setsBar, 0, 2);
+
+            _gridSets = MakeGrid();
+            _gridSets.AllowUserToAddRows = false;
+            var colSetCtrl = new DataGridViewComboBoxColumn { Name = "ControllerPort", HeaderText = "컨트롤러(Port)" };
+            _gridSets.Columns.Add(colSetCtrl);
+            _gridSets.Columns.Add(Col("ChannelsCsv", "채널 (예: 3,4,5)"));
+            _gridSets.DataError += (s, e) => { e.ThrowException = false; };
+            _gridSets.CellEndEdit  += (s, e) => { if (!_suspendSets) FlushSetsToModel(); };
+            _gridSets.RowsRemoved  += (s, e) => { if (!_suspendSets) FlushSetsToModel(); };
+            right.Controls.Add(_gridSets, 0, 3);
+
             split.Controls.Add(right, 1, 0);
         }
 
@@ -176,28 +196,127 @@ namespace QMC.Vision.Ui.Pages
 
             RefreshControllerCombo();   // Stage 70 C — 콤보 items = 현재 PortName 들
 
-            _gridWiring.Rows.Clear();
+            // Stage 81 — 결선 작업 모델 재시드 + 트리 빌드
+            _wiringModel.Clear();
             foreach (var alg in VisionAlgorithm.All)
             {
                 var w = setup.GetWiring(alg);
-                string csv = (w?.Channels != null) ? string.Join(",", w.Channels) : "";
-                _gridWiring.Rows.Add(VisionAlgorithm.Label(alg) + " (" + alg + ")", w?.ControllerPort ?? "", csv);
+                var list = new System.Collections.Generic.List<ControllerChannels>();
+                if (w?.ControllerSets != null) foreach (var cs in w.ControllerSets) list.Add(cs.Clone());
+                _wiringModel[alg] = list;
             }
+            _selAlg = null;
+            RebuildWiringTree();
             BindLabelsForSelectedController();
         }
 
-        /// <summary>Stage 70 C — 결선 그리드 Controller 콤보 items 를 현재 인벤토리 PortName 으로 재구성.</summary>
+        /// <summary>Stage 81 — ControllerSets 디테일 그리드의 Controller 콤보 items 를 현재 인벤토리 PortName 으로 재구성.</summary>
         private void RefreshControllerCombo()
         {
-            var col = _gridWiring?.Columns["ControllerPort"] as DataGridViewComboBoxColumn;
+            var col = _gridSets?.Columns["ControllerPort"] as DataGridViewComboBoxColumn;
             if (col == null) return;
             col.Items.Clear();
-            col.Items.Add("");   // 미사용 선택지
+            col.Items.Add("");   // 미배정
             foreach (DataGridViewRow r in _gridCtrl.Rows)
             {
                 if (r.IsNewRow) continue;
                 string p = r.Cells[0].Value?.ToString();
                 if (!string.IsNullOrEmpty(p) && !col.Items.Contains(p)) col.Items.Add(p);
+            }
+        }
+
+        // ── Stage 81 — 결선 TreeView + ControllerSets 디테일 ──
+        private void RebuildWiringTree()
+        {
+            _treeWiring.BeginUpdate();
+            _treeWiring.Nodes.Clear();
+            foreach (var alg in VisionAlgorithm.All)
+            {
+                var node = new TreeNode(VisionAlgorithm.Label(alg) + " (" + alg + ")") { Tag = alg };
+                if (_wiringModel.TryGetValue(alg, out var sets))
+                    foreach (var cs in sets)
+                        node.Nodes.Add(new TreeNode($"{(string.IsNullOrEmpty(cs.ControllerPort) ? "(미배정)" : cs.ControllerPort)}  [{string.Join(",", cs.Channels ?? new System.Collections.Generic.List<int>())}]"));
+                node.Expand();
+                _treeWiring.Nodes.Add(node);
+            }
+            _treeWiring.EndUpdate();
+            // 선택 유지
+            if (_selAlg != null)
+                foreach (TreeNode n in _treeWiring.Nodes)
+                    if (string.Equals(n.Tag as string, _selAlg, StringComparison.OrdinalIgnoreCase)) { _treeWiring.SelectedNode = n; break; }
+        }
+
+        private void OnAlgNodeSelected(TreeNode node)
+        {
+            if (node == null) return;
+            // 자식(ControllerSet) 노드 클릭 시 부모(알고리즘)로
+            string alg = (node.Tag as string) ?? (node.Parent?.Tag as string);
+            if (string.IsNullOrEmpty(alg)) return;
+            _selAlg = alg;
+            BindSetsGrid();
+        }
+
+        private void BindSetsGrid()
+        {
+            _suspendSets = true;
+            try
+            {
+                _gridSets.Rows.Clear();
+                if (_selAlg == null || !_wiringModel.TryGetValue(_selAlg, out var sets)) return;
+                foreach (var cs in sets)
+                    _gridSets.Rows.Add(cs.ControllerPort ?? "", string.Join(",", cs.Channels ?? new System.Collections.Generic.List<int>()));
+            }
+            finally { _suspendSets = false; }
+        }
+
+        /// <summary>_gridSets → _wiringModel[_selAlg] 반영 + 트리 노드 갱신.</summary>
+        private void FlushSetsToModel()
+        {
+            if (_selAlg == null) return;
+            var list = new System.Collections.Generic.List<ControllerChannels>();
+            foreach (DataGridViewRow r in _gridSets.Rows)
+            {
+                if (r.IsNewRow) continue;
+                string port = r.Cells["ControllerPort"].Value?.ToString()?.Trim();
+                var chans = ParseCsv(r.Cells["ChannelsCsv"].Value?.ToString());
+                list.Add(new ControllerChannels { ControllerPort = port, Channels = chans });
+            }
+            // (Controller,Channel) 중복 경고 (차단 X)
+            WarnDuplicateChannels(list);
+            _wiringModel[_selAlg] = list;
+            RebuildWiringTree();
+        }
+
+        private void WarnDuplicateChannels(System.Collections.Generic.List<ControllerChannels> list)
+        {
+            var seen = new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var cs in list)
+                if (!string.IsNullOrEmpty(cs.ControllerPort) && cs.Channels != null)
+                    foreach (var ch in cs.Channels)
+                        if (!seen.Add(cs.ControllerPort + "/" + ch))
+                            { SetStatus($"경고 — 동일 (컨트롤러,채널) 중복: {cs.ControllerPort}/{ch}", true); return; }
+        }
+
+        private void AddControllerSet()
+        {
+            if (_selAlg == null) { SetStatus("알고리즘을 먼저 선택하세요", true); return; }
+            if (!_wiringModel.TryGetValue(_selAlg, out var sets)) { sets = new System.Collections.Generic.List<ControllerChannels>(); _wiringModel[_selAlg] = sets; }
+            sets.Add(new ControllerChannels { ControllerPort = "", Channels = new System.Collections.Generic.List<int>() });
+            BindSetsGrid();
+            RebuildWiringTree();
+            SetStatus($"{VisionAlgorithm.Label(_selAlg)} — 컨트롤러 결선 행 추가 (Port/채널 입력)", false);
+        }
+
+        private void DeleteControllerSet()
+        {
+            if (_selAlg == null || _gridSets.CurrentRow == null || _gridSets.CurrentRow.IsNewRow) { SetStatus("삭제할 결선 행을 선택하세요", true); return; }
+            int idx = _gridSets.CurrentRow.Index;
+            if (_wiringModel.TryGetValue(_selAlg, out var sets) && idx >= 0 && idx < sets.Count)
+            {
+                sets.RemoveAt(idx);
+                BindSetsGrid();
+                RebuildWiringTree();
+                SetStatus("결선 행 삭제됨", false);
             }
         }
 
@@ -282,16 +401,17 @@ namespace QMC.Vision.Ui.Pages
             string port = _gridCtrl.CurrentRow.Cells[0].Value?.ToString();
             if (string.IsNullOrEmpty(port)) { _gridCtrl.Rows.Remove(_gridCtrl.CurrentRow); return; }
 
-            // 참조 검사: 이 포트를 쓰는 결선 행
-            var refRows = _gridWiring.Rows.Cast<DataGridViewRow>()
-                .Where(r => !r.IsNewRow && string.Equals(r.Cells["ControllerPort"].Value?.ToString(), port, StringComparison.OrdinalIgnoreCase))
-                .ToList();
-            if (refRows.Count > 0)
+            // Stage 81 — 참조 검사: 이 포트를 쓰는 ControllerSets (모든 알고리즘)
+            int refCount = _wiringModel.Sum(kv => kv.Value.Count(cs => string.Equals(cs.ControllerPort, port, StringComparison.OrdinalIgnoreCase)));
+            if (refCount > 0)
             {
-                var dlg = MessageBox.Show($"이 컨트롤러를 사용 중인 결선 {refRows.Count}건도 함께 비웁니다. 진행할까요?",
+                var dlg = MessageBox.Show($"이 컨트롤러를 사용 중인 결선 {refCount}건도 함께 비웁니다. (Recipe 의 해당 컨트롤러 값은 다음 로드 시 풀 밖으로 표시) 진행할까요?",
                     "컨트롤러 삭제", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
                 if (dlg != DialogResult.Yes) return;
-                foreach (var r in refRows) { r.Cells["ControllerPort"].Value = ""; r.Cells["ChannelsCsv"].Value = ""; }
+                foreach (var kv in _wiringModel)
+                    kv.Value.RemoveAll(cs => string.Equals(cs.ControllerPort, port, StringComparison.OrdinalIgnoreCase));
+                BindSetsGrid();
+                RebuildWiringTree();
             }
             _gridCtrl.Rows.Remove(_gridCtrl.CurrentRow);
             // Stage 71 — 캐시 엔트리 제거 (다음 BindLabels 가 stale flush 하지 않도록 _boundPort 도 해제)
@@ -360,21 +480,25 @@ namespace QMC.Vision.Ui.Pages
             }
         }
 
-        /// <summary>해당 포트를 쓰는 결선 행의 Channels 에서 > maxCh 채널 제거 + 보고.</summary>
+        /// <summary>Stage 81 — 해당 포트를 쓰는 모든 ControllerSets 의 Channels 에서 > maxCh 채널 제거 + 보고.</summary>
         private void TrimWiringPool(string port, int maxCh)
         {
             if (string.IsNullOrEmpty(port)) return;
             int trimmed = 0;
-            foreach (DataGridViewRow r in _gridWiring.Rows)
+            foreach (var kv in _wiringModel)
+                foreach (var cs in kv.Value)
+                {
+                    if (!string.Equals(cs.ControllerPort, port, StringComparison.OrdinalIgnoreCase) || cs.Channels == null) continue;
+                    int before = cs.Channels.Count;
+                    cs.Channels = cs.Channels.Where(c => c <= maxCh).ToList();
+                    trimmed += before - cs.Channels.Count;
+                }
+            if (trimmed > 0)
             {
-                if (r.IsNewRow) continue;
-                if (!string.Equals(r.Cells["ControllerPort"].Value?.ToString(), port, StringComparison.OrdinalIgnoreCase)) continue;
-                var chans = ParseCsv(r.Cells["ChannelsCsv"].Value?.ToString());
-                int before = chans.Count;
-                chans = chans.Where(c => c <= maxCh).ToList();
-                if (chans.Count != before) { r.Cells["ChannelsCsv"].Value = string.Join(",", chans); trimmed += before - chans.Count; }
+                BindSetsGrid();
+                RebuildWiringTree();
+                SetStatus($"결선 채널 {trimmed}건 잘림 (ChannelCount={maxCh} 초과)", false);
             }
-            if (trimmed > 0) SetStatus($"결선 채널 {trimmed}건 잘림 (ChannelCount={maxCh} 초과)", false);
         }
 
         private string SelectedControllerPort()
@@ -410,16 +534,21 @@ namespace QMC.Vision.Ui.Pages
                     ChannelLabels = ReconcileLabels(cached, chCount)
                 });
             }
+            // Stage 81 — 현재 디테일 그리드 편집을 모델에 flush 후, _wiringModel → ControllerSets 수집
+            FlushSetsToModel();
             setup.EnsureWirings();
-            int wi = 0;
             foreach (var alg in VisionAlgorithm.All)
             {
-                if (wi >= _gridWiring.Rows.Count) break;
-                var r = _gridWiring.Rows[wi++];
                 var w = setup.GetWiring(alg);
-                w.ControllerPort = Str(r, 1);
-                w.Channels = ParseCsv(Str(r, 2));
-                // Stage 70 D — Page 는 결선에서 제거됨 (Recipe 측 Setting.Page).
+                w.ControllerSets = new System.Collections.Generic.List<ControllerChannels>();
+                if (_wiringModel.TryGetValue(alg, out var list))
+                    foreach (var cs in list)
+                        if (!string.IsNullOrEmpty(cs.ControllerPort))
+                            w.ControllerSets.Add(new ControllerChannels
+                            {
+                                ControllerPort = cs.ControllerPort,
+                                Channels = new System.Collections.Generic.List<int>(cs.Channels ?? new System.Collections.Generic.List<int>())
+                            });
             }
             return setup;
         }
