@@ -244,3 +244,13 @@
 | M-78-4 | InspectionLightPanel.Apply(:237-246) 채널별 foreach | tact-time 누락 → SP/배치 1프레임으로 일원화 | SetChannelBatchAsync 도입 |
 | M-78-5 | 프롬프트 사전조사 (Vendor없음/Factory LFine만/Leesos신규/11메서드) | Stage 76/77 이후 무효 (Vendor/Leesos/Factory분기 이미 존재) | SPEC 에서 현행 기준 정정 |
 | M-78-6 | working-tree WIP (LFine SC 0-based, Leesos X3) | 미커밋 코드 편집 | SPEC 이 정식화, 구현 Stage 에서 실장비 채널 인덱싱 확정 (확인 필요 #2) |
+
+## STAGE 80 — 다중 컨트롤러 결선 + Setup/Recipe UI 분리 SPEC (2026-06-02)
+
+| ID | 위치 | 내용 | 처리 |
+|---|---|---|---|
+| M-80-1 | LightSystemSetup.cs:119 AlgorithmLightWiring | 단일 ControllerPort/Channels 가정 | List<ControllerChannels> ControllerSets 로 확장 + 1:1 마이그레이션 |
+| M-80-2 | InspectionLightSubset.cs:11 InspectionLightSetting | ControllerPort 없음(채널만으론 다중 컨트롤러 모호) | 필드 추가 + 자동 마이그레이션(단일=자동/다중=ControllerSets[0]+안내). StabilizeDelayMs 등 기존 필드 보존 |
+| M-80-3 | LightSystemSetupPage Level 류 | grep 결과 Level/Brightness/TrackBar 0건 — 이미 분리됨 | 헤더/안내 텍스트만 보강 |
+| M-80-4 | AlgorithmCameraMapStore (단일 algorithm_camera.json) | Vision 에 명명된 RecipeProject/프리셋 개념 없음 | 프리셋 헤더는 단일 파일명만 표시. 다중 명명 프리셋은 별도 Stage (확인 필요 #5) |
+| M-80-5 | baseline Leesos TimeoutMs | 프롬프트 500ms ↔ 실제 1000ms | 본 Stage 미차단, 필요 시 별도 조정 |
