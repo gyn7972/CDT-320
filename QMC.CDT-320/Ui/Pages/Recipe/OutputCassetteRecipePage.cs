@@ -15,7 +15,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
     /// <summary>구현 설명 주석입니다.</summary>
     public partial class OutputCassetteRecipePage : QMC.CDT_320.Ui.Pages.PageBase
     {
-        private OutCassetteUnit _binCassette;
+        private OutputCassetteUnit _binCassette;
         private BaseDigitalOutput _ngBinLockOut;
         private BaseDigitalOutput _ngBinUnlockOut;
         private readonly Timer _refreshTimer = new Timer();
@@ -63,7 +63,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private void ResolveUnit()
         {
             var machine = FindMachine();
-            _binCassette = machine != null ? machine.BinCassette : null;
+            _binCassette = machine != null ? machine.OutputCassette : null;
 
             _ngBinLockOut = AjinFactory.CreateDigitalOutput(AjinIoCatalog.FindOutput("NgBinCassetteLock"));
             _ngBinUnlockOut = AjinFactory.CreateDigitalOutput(AjinIoCatalog.FindOutput("NgBinCassetteUnlock"));

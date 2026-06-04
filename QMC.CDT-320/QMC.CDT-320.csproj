@@ -77,7 +77,7 @@
     <Compile Include="Equipment\CDT320Machine.cs" />
     <Compile Include="Equipment\CycleMode.cs" />
     <Compile Include="Equipment\EquipmentStatus.cs" />
-    <Compile Include="Equipment\Unit\OutCassetteUnit.cs" />
+    <Compile Include="Equipment\Unit\OutputCassetteUnit.cs" />
     <Compile Include="Equipment\Unit\OutputFeederUnit.cs" />
     <Compile Include="Equipment\Unit\OutputStageUnit.cs" />
     <Compile Include="Equipment\Unit\OutputUnloaderUnit.cs" />
@@ -85,7 +85,7 @@
     <Compile Include="Equipment\Unit\PickerRearUnit.cs" />
     <Compile Include="Equipment\Unit\VisionUnit.cs" />
     <Compile Include="Equipment\Unit\WaferTransferTypes.cs" />
-    <Compile Include="Equipment\Unit\SheetUnitPrimitives.cs" />
+    <Compile Include="Equipment\Unit\UnitDefined.cs" />
     <Compile Include="Equipment\Unit\InputCassetteUnit.cs" />
     <Compile Include="Equipment\Unit\InputFeederUnit.cs" />
     <Compile Include="Equipment\Unit\InputStageUnit.cs" />
@@ -222,10 +222,10 @@
       <DependentUpon>ModuleSubsetPage.cs</DependentUpon>
     </Compile>
     <Compile Include="Equipment\Vision\BarcodeSerialAdapter.cs" />
-    <Compile Include="Equipment\Unit\OperationPanelUnit.cs" />
-    <Compile Include="Equipment\Unit\ResourceSensorsUnit.cs" />
+    <Compile Include="Equipment\UnitCommon\OperationPanelUnit.cs" />
+    <Compile Include="Equipment\UnitCommon\ResourceSensorsUnit.cs" />
     <Compile Include="Equipment\SlotMapper.cs" />
-    <Compile Include="Equipment\Unit\IonizerUnit.cs" />
+    <Compile Include="Equipment\UnitCommon\IonizerUnit.cs" />
     <Compile Include="Equipment\Unit\PostPnpTransferUnit.cs" />
     <Compile Include="Equipment\Plate.cs" />
     <Compile Include="Ui\Pages\Recipe\InputStageRecipePage.cs">

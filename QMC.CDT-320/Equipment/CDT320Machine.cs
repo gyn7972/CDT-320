@@ -171,37 +171,37 @@ namespace QMC.CDT320
         /// <summary>Input Cassette에서 웨이퍼를 공급하는 로더 유닛.</summary>
         public InputCassetteUnit    InputCassette { get; }
         public InputFeederUnit      InputFeeder { get; }
-
         /// <summary>웨이퍼를 고정하고 다이 위치를 관리하는 Input Stage 유닛.</summary>
         public InputStageUnit       InputStage       { get; }
-        /// <summary>엑셀 WaferStage Sheet 기준 축/I/O/티칭 Unit입니다.</summary>
-        //public WaferStageUnit       WaferStage       { get; }
 
-        /// <summary>다이를 이송·검사·분류 동작을 수행하는 다축 이동 유닛.</summary>
-        public TransferPickerUnit   TransferPicker   { get; }
         /// <summary>엑셀 PickerFront Sheet 기준 축/I/O/티칭 Unit입니다.</summary>
-        //public PickerFrontUnit      PickerFront      { get; }
+        public PickerFrontUnit      PickerFront      { get; }
         /// <summary>엑셀 PickerRear Sheet 기준 축/I/O/티칭 Unit입니다.</summary>
-        //public PickerRearUnit       PickerRear       { get; }
+        public PickerRearUnit       PickerRear       { get; }
 
+        /// <summary>Stage 48 — Post PNP Transfer Tool (Pick&Place 후처리).</summary>
+        public PostPnpTransferUnit PostPnp { get; }
+        /// <summary>다이를 이송·검사·분류 동작을 수행하는 다축 이동 유닛.</summary>
+        public TransferPickerUnit TransferPicker { get; }
+
+        // <summary>엑셀 Vision Sheet 기준 축/I/O/티칭 Unit입니다.</summary>
+        public VisionUnit Vision { get; }
+
+        // 이거 쓰나?
         /// <summary>5면 촬상 후 결과 판정 유닛.</summary>
         public VisionInspectionUnit VisionInspection { get; }
-        /// <summary>엑셀 Vision Sheet 기준 축/I/O/티칭 Unit입니다.</summary>
-        //public VisionUnit           Vision           { get; }
-
+        
         /// <summary>양불 분류 적재 Output Stage 유닛.</summary>
         public OutputStageUnit      OutputStage      { get; }
-        /// <summary>엑셀 BinStage Sheet 기준 축/I/O/티칭 Unit입니다.</summary>
-        //public BinStageUnit         BinStage         { get; }
-
-        /// <summary>완성된 웨이퍼를 Output Cassette로 이송하는 언로더 유닛.</summary>
-        public OutputUnloaderUnit   OutputUnloader   { get; }
-
-        /// <summary>Output Bin 카세트 리프터와 매핑 센서를 담당하는 유닛입니다.</summary>
-        public OutCassetteUnit      BinCassette      { get; }
-
         /// <summary>Output Bin Feeder Y축과 클램프 실린더를 담당하는 유닛입니다.</summary>
-        public OutputFeederUnit        BinFeeder        { get; }
+        public OutputFeederUnit OutputFeeder { get; }
+        /// <summary>Output Bin 카세트 리프터와 매핑 센서를 담당하는 유닛입니다.</summary>
+        public OutputCassetteUnit      OutputCassette      { get; }
+
+        // 지워야할꺼.
+        /// <summary>완성된 웨이퍼를 Output Cassette로 이송하는 언로더 유닛.</summary>
+        public OutputUnloaderUnit OutputUnloader { get; }
+
 
         /// <summary>Stage 45 — 운전 패널 (버튼 + 램프 + 신호탑 + 부저).</summary>
         public OperationPanelUnit   OpPanel          { get; }
@@ -211,9 +211,6 @@ namespace QMC.CDT320
 
         /// <summary>Stage 47 — Ionizer (정전기 제거기).</summary>
         public IonizerUnit          Ionizer          { get; }
-
-        /// <summary>Stage 48 — Post PNP Transfer Tool (Pick&Place 후처리).</summary>
-        public PostPnpTransferUnit  PostPnp          { get; }
 
         /// <summary>Stage 50 — Bin Barcode Reader (Output 카세트 ID 읽기).</summary>
         public IBarcodeReader       BinBarcodeReader { get; }
@@ -248,8 +245,8 @@ namespace QMC.CDT320
             //Vision = new VisionUnit();
 
             // OutputUnloaderUnit - 3개 카세트(NG·Good1·Good2) 교체 시퀀스 담당
-            BinCassette = new OutCassetteUnit();
-            BinFeeder = new OutputFeederUnit();
+            OutputCassette = new OutputCassetteUnit();
+            OutputFeeder = new OutputFeederUnit();
             OutputUnloader = new OutputUnloaderUnit();
 
             // Stage 45 — Operation Panel + Tower Lamp + Buzzer 신규
@@ -286,8 +283,8 @@ namespace QMC.CDT320
             //Units.Add(Vision);
             Units.Add(OutputStage);
             //Units.Add(BinStage);
-            Units.Add(BinCassette);
-            Units.Add(BinFeeder);
+            Units.Add(OutputCassette);
+            Units.Add(OutputFeeder);
             Units.Add(OutputUnloader);
             Units.Add(OpPanel);
         }

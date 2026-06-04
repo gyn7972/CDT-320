@@ -21,7 +21,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private string _titleI18n = "INPUT/OUTPUT CASSETTE";
         private bool _isOutputCassette;
         private InputCassetteUnit _waferCassette;
-        private OutCassetteUnit _binCassette;
+        private OutputCassetteUnit _binCassette;
         private BaseAxis _activeAxis;
         private readonly Timer _refreshTimer = new Timer();
         private BaseDigitalOutput _ngBinLockOut;
@@ -159,7 +159,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
 
             _waferCassette = machine.InputCassette;
-            _binCassette = machine.BinCassette;
+            _binCassette = machine.OutputCassette;
             _activeAxis = _isOutputCassette
                 ? (_binCassette != null ? _binCassette.BinLifterZ : null)
                 : (_waferCassette != null ? _waferCassette.WaferLifterZ : null);

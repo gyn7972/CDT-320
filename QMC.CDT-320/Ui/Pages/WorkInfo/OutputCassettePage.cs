@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
 using QMC.CDT320;
@@ -44,7 +44,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             var unloader = host.Machine.OutputUnloader;
             lblElevatorPos.Text = AxisUnitConverter.FormatDisplay(unloader.BinElevatorZ.ActualPosition, unloader.BinElevatorZ, "0.###", true);
 
-            var binCassette = host.Machine.BinCassette;
+            var binCassette = host.Machine.OutputCassette;
             var driver = host.CassetteDriver;
             int slotCount = binCassette != null && binCassette.Config != null && binCassette.Config.SlotCount > 0
                 ? binCassette.Config.SlotCount
@@ -55,7 +55,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             UpdateView(_good2CassetteView, slotCount, ResolveSlots(binCassette, TargetCassette.Good2, driver != null ? driver.OutputGood2Slots : null), Color.LimeGreen);
         }
 
-        private static IReadOnlyList<bool> ResolveSlots(OutCassetteUnit unit, TargetCassette cassette, bool[] fallback)
+        private static IReadOnlyList<bool> ResolveSlots(OutputCassetteUnit unit, TargetCassette cassette, bool[] fallback)
         {
             if (unit != null && unit.SlotMap != null)
             {

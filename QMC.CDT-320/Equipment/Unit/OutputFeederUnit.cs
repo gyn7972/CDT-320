@@ -1,105 +1,137 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
-using QMC.CDT320.Ajin;
+﻿using QMC.CDT320.Ajin;
 using QMC.Common;
+using QMC.Common.Alarms;
 using QMC.Common.IO;
+using QMC.Common.Logging;
 using QMC.Common.Motion;
+using System;
+using System.Collections.Generic;
+using System.Runtime.Serialization;
+using System.Threading.Tasks;
 
 namespace QMC.CDT320
 {
-    /// <summary>Bin Feeder Y축과 실린더 동작에 필요한 기구 설정값입니다.</summary>
+    [DataContract]
     public class OutputFeederSetup : ISetupData
     {
-        /// <summary>Output Feeder 대기 위치입니다.</summary>
-        public double AvoidPosition { get; set; } = 0.0;
+        [DataMember] public bool IsSimulationMode { get; set; }
 
-        /// <summary>OutputStage Good 교환 위치입니다.</summary>
-        public double GoodStageExchangePositionY { get; set; } = 150.0;
+        public OutputFeederSetup()
+        {
+            SetDefaults();
+        }
 
-        /// <summary>OutputStage NG 교환 위치입니다.</summary>
-        public double NgStageExchangePositionY { get; set; } = 200.0;
+        [OnDeserializing]
+        private void OnDeserializing(StreamingContext ctx) { SetDefaults(); }
 
-        /// <summary>Bin 카세트 삽입 위치입니다.</summary>
-        public double CassetteInsertPositionY { get; set; } = 250.0;
-
-        /// <summary>카세트 로딩 기준 위치입니다.</summary>
-        public double CassetteLoadBasePosition { get; set; } = 30.0;
-
-        /// <summary>카세트 로딩 위치 피치입니다.</summary>
-        public double CassetteLoadPitch { get; set; } = 6.0;
-
-        /// <summary>위치 도달 판정 허용 오차입니다.</summary>
-        public double InPositionTolerance { get; set; } = 0.05;
+        private void SetDefaults()
+        {
+            IsSimulationMode = false;
+        }
     }
 
-    /// <summary>Bin Feeder 고정 사양 설정입니다.</summary>
+    [DataContract]
     public class OutputFeederConfig : IConfigData
     {
-        /// <summary>시뮬레이션 모드 사용 여부입니다.</summary>
-        public bool IsSimulationMode { get; set; } = true;
+        [DataMember] public bool bDryRun { get; set; }
+
+        public OutputFeederConfig()
+        {
+            SetDefaults();
+        }
+
+        [OnDeserializing]
+        private void OnDeserializing(StreamingContext ctx) { SetDefaults(); }
+
+        private void SetDefaults()
+        {
+            bDryRun = false;
+        }
     }
 
-    /// <summary>Bin Feeder 동작 레시피입니다.</summary>
+    [DataContract]
     public class OutputFeederRecipe : IRecipeData
     {
-        /// <summary>Bin Feeder Y축 이동 속도입니다.</summary>
-        public double MoveVelocity { get; set; } = 100.0;
+        [DataMember] public double AvoidPosition { get; set; }
+        [DataMember] public double GoodCassetteLoadPosition { get; set; }
+        [DataMember] public double GoodCassetteUnloadPosition { get; set; }
+        [DataMember] public double GoodCassetteExchangePosition { get; set; }
+        [DataMember] public double GoodWaferLoadAvoidPosition { get; set; }
+        [DataMember] public double GoodWaferLoadPosition { get; set; }
+        [DataMember] public double GoodWaferUnloadAvoidPosition { get; set; }
+        [DataMember] public double GoodWaferUnloadPosition { get; set; }
+        [DataMember] public double GoodWaferBarcodePosition { get; set; }
+        [DataMember] public double NGCassetteLoadPosition { get; set; }
+        [DataMember] public double NGCassetteUnloadPosition { get; set; }
+        [DataMember] public double NGCassetteExchangePosition { get; set; }
+        [DataMember] public double NGWaferLoadAvoidPosition { get; set; }
+        [DataMember] public double NGWaferLoadPosition { get; set; }
+        [DataMember] public double NGWaferUnloadAvoidPosition { get; set; }
+        [DataMember] public double NGWaferUnloadPosition { get; set; }
+        [DataMember] public double NGWaferBarcodePosition { get; set; }
 
-        /// <summary>Bin Feeder Y축 이동 완료 대기 시간입니다.</summary>
-        public int FeederMoveTimeoutMs { get; set; } = 5000;
+        public OutputFeederRecipe()
+        {
+            SetDefaults();
+        }
 
-        /// <summary>Bin Feeder 실린더 동작 완료 대기 시간입니다.</summary>
-        public int CylinderTimeoutMs { get; set; } = 1000;
+        [OnDeserializing]
+        private void OnDeserializing(StreamingContext ctx) { SetDefaults(); }
+
+        private void SetDefaults()
+        {
+            AvoidPosition = 0.0;
+            GoodCassetteLoadPosition = 30.0;
+            GoodCassetteUnloadPosition = 30.0;
+            GoodCassetteExchangePosition = 0.0;
+            GoodWaferLoadAvoidPosition = 0.0;
+            GoodWaferLoadPosition = 150.0;
+            GoodWaferUnloadAvoidPosition = 0.0;
+            GoodWaferUnloadPosition = 150.0;
+            GoodWaferBarcodePosition = 0.0;
+            NGCassetteLoadPosition = 30.0;
+            NGCassetteUnloadPosition = 30.0;
+            NGCassetteExchangePosition = 0.0;
+            NGWaferLoadAvoidPosition = 0.0;
+            NGWaferLoadPosition = 200.0;
+            NGWaferUnloadAvoidPosition = 0.0;
+            NGWaferUnloadPosition = 200.0;
+            NGWaferBarcodePosition = 0.0;
+        }
     }
 
-    /// <summary>Bin Feeder의 Y축, 업다운 실린더, 클램프 실린더를 관리하는 유닛입니다.</summary>
+    public sealed class FeederTransferState
+    {
+        public bool IsUp { get; set; }
+        public bool IsDown { get; set; }
+        public bool IsUnclamped { get; set; }
+        public bool HasRing { get; set; }
+        public bool IsOverload { get; set; }
+        public bool IsMoveReady { get; set; }
+    }
+
     public class OutputFeederUnit : BaseUnit<OutputFeederSetup, OutputFeederConfig, OutputFeederRecipe>
     {
         private readonly Dictionary<string, double> _positionSnapshots = new Dictionary<string, double>();
 
-        /// <summary>Bin Feeder Y축입니다.</summary>
+        public MaterialState CurrentMaterialState { get; private set; }
         public BaseAxis FeederY { get; private set; }
-
-        /// <summary>Bin Feeder 상승 확인 센서입니다.</summary>
         public BaseDigitalInput BinFeederUpSensor { get; private set; }
-
-        /// <summary>Bin Feeder 하강 확인 센서입니다.</summary>
         public BaseDigitalInput BinFeederDownSensor { get; private set; }
-
-        /// <summary>Bin Feeder 언클램프 확인 센서입니다.</summary>
         public BaseDigitalInput BinFeederUnclampSensor { get; private set; }
-
-        /// <summary>Bin Feeder 링 또는 웨이퍼 확인 센서입니다.</summary>
         public BaseDigitalInput BinFeederRingCheckSensor { get; private set; }
-
-        /// <summary>Bin Feeder 과부하 확인 센서입니다.</summary>
         public BaseDigitalInput BinFeederOverloadSensor { get; private set; }
-
-        /// <summary>Bin Feeder가 웨이퍼를 보유했는지 판단하는 대표 센서입니다.</summary>
         public BaseDigitalInput WaferClampedSensor { get { return BinFeederRingCheckSensor; } }
-
-        /// <summary>Bin Feeder 업다운 실린더입니다.</summary>
         public BaseCylinder FeederUpDownCyl { get; private set; }
-
-        /// <summary>Bin Feeder 클램프 실린더입니다.</summary>
         public BaseCylinder FeederClampCyl { get; private set; }
-
-        /// <summary>Bin Feeder 상승 출력입니다.</summary>
         public BaseDigitalOutput BinFeederUpOut { get { return FeederUpDownCyl.OutFwd; } }
-
-        /// <summary>Bin Feeder 하강 출력입니다.</summary>
         public BaseDigitalOutput BinFeederDownOut { get { return FeederUpDownCyl.OutBwd; } }
-
-        /// <summary>Bin Feeder 클램프 출력입니다.</summary>
         public BaseDigitalOutput BinFeederClampOut { get { return FeederClampCyl.OutFwd; } }
-
-        /// <summary>Bin Feeder 언클램프 출력입니다.</summary>
         public BaseDigitalOutput BinFeederUnclampOut { get { return FeederClampCyl.OutBwd; } }
 
-        /// <summary>BinFeederUnit을 생성하고 축, 센서, 실린더를 등록합니다.</summary>
         public OutputFeederUnit() : base("BinFeederUnit")
         {
+            CurrentMaterialState = MaterialState.Empty;
             FeederY = AjinFactory.CreateAxis("BinFeederY");
             FeederY.Setup.SoftLimitPlus = 350.0;
 
@@ -121,447 +153,766 @@ namespace QMC.CDT320
             Components.Add(FeederClampCyl);
         }
 
-        /// <summary>Bin Feeder Y축을 지정 위치로 이동합니다.</summary>
-        public async Task MoveBinFeederY(double targetPos, bool bFine = false)
+        public Task<int> MoveBinFeederY(double targetPos, bool bFine = false)
         {
-            await FeederY.MoveAbsoluteAsync(targetPos, bFine ? Recipe.MoveVelocity * 0.5 : Recipe.MoveVelocity);
-            if (FeederY.IsAlarm)
-                throw new InvalidOperationException("'" + Name + "' MoveBinFeederY: FeederY alarm.");
+            return MoveBinFeederYAsync(targetPos, bFine);
         }
 
-        /// <summary>Bin Feeder Y축을 지정 티칭 위치로 이동합니다.</summary>
-        public Task MoveBinFeederYToTeachingPosition(string positionName, bool bFine = false)
+        public async Task<int> MoveBinFeederYAsync(double targetPos, bool bFine = false)
+        {
+            try
+            {
+                if (!CheckBinFeederYMoveReady())
+                    return RaiseFeederAlarm("BF-Y-READY", "BinFeederY is not ready to move.");
+
+                if (!ValidateBinFeederYTargetPosition(targetPos))
+                    return RaiseFeederAlarm("BF-Y-SOFT-LIMIT", "BinFeederY target is out of soft limit. target=" + targetPos);
+
+                EventLogger.Write(EventKind.Event, "QMC", "BF-Y-MOVE", "Move BinFeederY target=" + targetPos);
+                int result = await FeederY.MoveAbsoluteAsync(targetPos, ResolveBinFeederYMoveVelocity(bFine));
+                if (result != 0 || FeederY.IsAlarm)
+                    return RaiseFeederAlarm("BF-Y-MOVE", "BinFeederY move failed. result=" + result + ", alarm=" + FeederY.IsAlarm);
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return RaiseFeederAlarm("BF-Y-MOVE-EX", "BinFeederY move exception: " + ex.Message);
+            }
+        }
+
+        public Task<int> MoveBinFeederYToTeachingPosition(string positionName, bool bFine = false)
         {
             return MoveBinFeederY(GetTeachingPosition(positionName), bFine);
         }
 
-        /// <summary>Bin Feeder를 대기 위치로 이동합니다.</summary>
-        public Task MoveToBinFeederAvoidPosition(bool bFine = false)
+        public Task<int> MoveToFeederAvoidPosition(bool bFine = false) { return MoveBinFeederY(Recipe.AvoidPosition, bFine); }
+        public Task<int> MoveToBinFeederAvoidPosition(bool bFine = false) { return MoveToFeederAvoidPosition(bFine); }
+
+        public Task<int> MoveToFeederCassetteLoadPosition(BinSide side, int slotIndex, bool bFine = false)
         {
-            return MoveBinFeederY(Setup.AvoidPosition, bFine);
+            ValidateSlotIndex(slotIndex);
+            return MoveBinFeederY(GetSidePosition(side, FeederPositionType.CassetteLoad), bFine);
         }
 
-        /// <summary>Bin Feeder를 지정 카세트 로딩 슬롯 위치로 이동합니다.</summary>
-        public Task MoveToBinFeederCassetteLoadPosition(int slotIndex, bool bFine = false)
+        public Task<int> MoveToBinFeederCassetteLoadPosition(int slotIndex, bool bFine = false)
         {
-            return MoveBinFeederY(CalculateBinFeederCassetteLoadPosition(slotIndex), bFine);
+            return MoveToFeederCassetteLoadPosition(BinSide.Good, slotIndex, bFine);
         }
 
-        /// <summary>Bin Feeder를 지정 카세트 삽입 위치로 이동합니다.</summary>
-        public Task MoveToBinFeederCassetteInsertPosition(bool bFine = false)
+        public Task<int> MoveToFeederCassetteUnloadPosition(BinSide side, int slotIndex, bool bFine = false)
         {
-            return MoveBinFeederY(Setup.CassetteInsertPositionY, bFine);
+            ValidateSlotIndex(slotIndex);
+            return MoveBinFeederY(GetSidePosition(side, FeederPositionType.CassetteUnload), bFine);
         }
 
-        /// <summary>Bin Feeder를 Good OutputStage 교환 위치로 이동합니다.</summary>
-        public Task MoveToBinFeederGoodStageExchangePosition(bool bFine = false)
+        public Task<int> MoveToFeederBarcodePosition(BinSide side, bool bFine = false)
         {
-            return MoveBinFeederY(Setup.GoodStageExchangePositionY, bFine);
+            return MoveBinFeederY(GetSidePosition(side, FeederPositionType.Barcode), bFine);
         }
 
-        /// <summary>Bin Feeder를 NG OutputStage 교환 위치로 이동합니다.</summary>
-        public Task MoveToBinFeederNgStageExchangePosition(bool bFine = false)
+        public Task<int> MoveToFeederStageLoadPosition(BinSide side, bool bFine = false)
         {
-            return MoveBinFeederY(Setup.NgStageExchangePositionY, bFine);
+            return MoveBinFeederY(GetSidePosition(side, FeederPositionType.StageLoad), bFine);
         }
 
-        /// <summary>지정 카세트에 대응하는 OutputStage 교환 위치로 이동합니다.</summary>
-        public Task MoveToBinFeederStageExchangePosition(TargetCassette cassette, bool bFine = false)
+        public Task<int> MoveToFeederStageUnloadPosition(BinSide side, bool bFine = false)
         {
-            return cassette == TargetCassette.Ng
-                ? MoveToBinFeederNgStageExchangePosition(bFine)
-                : MoveToBinFeederGoodStageExchangePosition(bFine);
+            return MoveBinFeederY(GetSidePosition(side, FeederPositionType.StageUnload), bFine);
         }
 
-        /// <summary>Bin Feeder Y축 이동 완료를 대기합니다.</summary>
+        public Task<int> MoveToFeederExchangePosition(BinSide side, bool bFine = false)
+        {
+            double position = GetSidePosition(side, FeederPositionType.Exchange);
+            if (Math.Abs(position) <= double.Epsilon)
+                position = Recipe.AvoidPosition;
+            return MoveBinFeederY(position, bFine);
+        }
+
+        public Task<int> MoveToBinFeederCassetteInsertPosition(bool bFine = false)
+        {
+            return MoveToFeederExchangePosition(BinSide.Good, bFine);
+        }
+
+        public Task<int> MoveToBinFeederGoodStageExchangePosition(bool bFine = false)
+        {
+            return MoveToFeederStageLoadPosition(BinSide.Good, bFine);
+        }
+
+        public Task<int> MoveToBinFeederNgStageExchangePosition(bool bFine = false)
+        {
+            return MoveToFeederStageLoadPosition(BinSide.Ng, bFine);
+        }
+
+        public Task<int> MoveToBinFeederStageExchangePosition(TargetCassette cassette, bool bFine = false)
+        {
+            return MoveToFeederStageLoadPosition(ToBinSide(cassette), bFine);
+        }
+
         public async Task<bool> WaitBinFeederYMoveDone(int timeoutMs)
         {
-            return await WaitUntilAsync(() => !FeederY.IsMoving && FeederY.IsInPosition && !FeederY.IsAlarm, timeoutMs);
+            int timeout = timeoutMs > 0 ? timeoutMs : ResolveBinFeederYMoveTimeoutMs();
+            return await WaitUntilAsync(() => !FeederY.IsMoving && FeederY.IsInPosition && !FeederY.IsAlarm && !IsFeederOverload(), timeout);
         }
 
-        /// <summary>Bin Feeder Y축 지정 티칭 위치 도달을 대기합니다.</summary>
         public async Task<bool> WaitBinFeederYInPosition(string positionName, int timeoutMs)
         {
             double target = GetTeachingPosition(positionName);
-            return await WaitUntilAsync(() => IsBinFeederYInPosition(target, Setup.InPositionTolerance), timeoutMs);
+            int timeout = timeoutMs > 0 ? timeoutMs : ResolveBinFeederYMoveTimeoutMs();
+            return await WaitUntilAsync(() => IsBinFeederYInPosition(target, ResolveBinFeederYInPositionTolerance()), timeout);
         }
 
-        /// <summary>Bin Feeder Y축 위치 도달 여부를 확인합니다.</summary>
         public bool IsBinFeederYInPosition(double targetPos, double tolerance)
         {
             return Math.Abs(FeederY.ActualPosition - targetPos) <= tolerance;
         }
 
-        /// <summary>Bin Feeder가 대기 위치에 있는지 확인합니다.</summary>
-        public bool IsBinFeederInAvoidPosition()
-        {
-            return IsBinFeederYInPosition(Setup.AvoidPosition, Setup.InPositionTolerance);
-        }
+        public bool IsBinFeederYInAvoidPosition() { return IsBinFeederInAvoidPosition(); }
+        public bool IsBinFeederInAvoidPosition() { return IsBinFeederYInPosition(Recipe.AvoidPosition, ResolveBinFeederYInPositionTolerance()); }
+        public bool IsBinFeederYInCassetteLoadPosition(BinSide side) { return IsBinFeederYInPosition(GetSidePosition(side, FeederPositionType.CassetteLoad), ResolveBinFeederYInPositionTolerance()); }
+        public bool IsBinFeederInCassetteLoadPosition(int slotIndex) { return IsBinFeederYInCassetteLoadPosition(BinSide.Good); }
+        public bool IsBinFeederYInCassetteUnloadPosition(BinSide side) { return IsBinFeederYInPosition(GetSidePosition(side, FeederPositionType.CassetteUnload), ResolveBinFeederYInPositionTolerance()); }
+        public bool IsBinFeederYInStageLoadPosition(BinSide side) { return IsBinFeederYInPosition(GetSidePosition(side, FeederPositionType.StageLoad), ResolveBinFeederYInPositionTolerance()); }
+        public bool IsBinFeederYInStageUnloadPosition(BinSide side) { return IsBinFeederYInPosition(GetSidePosition(side, FeederPositionType.StageUnload), ResolveBinFeederYInPositionTolerance()); }
+        public bool IsBinFeederYInBarcodePosition(BinSide side) { return IsBinFeederYInPosition(GetSidePosition(side, FeederPositionType.Barcode), ResolveBinFeederYInPositionTolerance()); }
+        public bool IsBinFeederYInExchangePosition(BinSide side) { return IsBinFeederYInPosition(GetSidePosition(side, FeederPositionType.Exchange), ResolveBinFeederYInPositionTolerance()); }
 
-        /// <summary>Bin Feeder가 지정 카세트 로딩 위치에 있는지 확인합니다.</summary>
-        public bool IsBinFeederInCassetteLoadPosition(int slotIndex)
-        {
-            return IsBinFeederYInPosition(CalculateBinFeederCassetteLoadPosition(slotIndex), Setup.InPositionTolerance);
-        }
+        public bool IsFeederUp() { return BinFeederUpSensor.IsOn; }
+        public bool IsFeederDown() { return BinFeederDownSensor.IsOn; }
+        public bool IsFeederUnclamped() { return BinFeederUnclampSensor.IsOn; }
+        public bool IsFeederOverload() { return BinFeederOverloadSensor.IsOn; }
+        public bool IsFeederRingDetected(bool expected = true) { return BinFeederRingCheckSensor.IsOn == expected; }
+        public bool IsFeederEmpty() { return IsFeederRingDetected(false); }
+        public bool IsFeederOccupied() { return IsFeederRingDetected(true); }
+        public bool IsBinFeederUp() { return IsFeederUp(); }
+        public bool IsBinFeederDown() { return IsFeederDown(); }
+        public bool IsBinFeederUnclamp() { return IsFeederUnclamped(); }
+        public bool IsBinFeederRingCheck() { return BinFeederRingCheckSensor.IsOn; }
+        public bool IsBinFeederClamp() { return !IsFeederUnclamped() || IsFeederRingDetected(true); }
+        public bool HasWaferOnFeeder() { return IsFeederOccupied(); }
 
-        /// <summary>Bin Feeder가 상승 상태인지 확인합니다.</summary>
-        public bool IsBinFeederUp()
-        {
-            return BinFeederUpSensor.IsOn;
-        }
-
-        /// <summary>Bin Feeder가 하강 상태인지 확인합니다.</summary>
-        public bool IsBinFeederDown()
-        {
-            return BinFeederDownSensor.IsOn;
-        }
-
-        /// <summary>Bin Feeder가 클램프 상태인지 확인합니다.</summary>
-        public bool IsBinFeederClamp()
-        {
-            return !BinFeederUnclampSensor.IsOn || BinFeederRingCheckSensor.IsOn;
-        }
-
-        /// <summary>Bin Feeder가 언클램프 상태인지 확인합니다.</summary>
-        public bool IsBinFeederUnclamp()
-        {
-            return BinFeederUnclampSensor.IsOn;
-        }
-
-        /// <summary>Bin Feeder 링 확인 센서 상태를 반환합니다.</summary>
-        public bool IsBinFeederRingCheck()
-        {
-            return BinFeederRingCheckSensor.IsOn;
-        }
-
-        /// <summary>Bin Feeder Y축 현재 위치를 지정 티칭 위치로 저장합니다.</summary>
         public void TeachBinFeederYPosition(string positionName)
         {
             SetTeachingPosition(positionName, FeederY.ActualPosition);
+            EventLogger.Write(EventKind.Event, "QMC", "BF-TEACH", "Teaching saved: " + positionName + "=" + FeederY.ActualPosition);
         }
 
-        /// <summary>Bin Feeder 대기 위치를 현재 위치로 저장합니다.</summary>
-        public void TeachBinFeederAvoidPosition()
-        {
-            Setup.AvoidPosition = FeederY.ActualPosition;
-        }
+        public void TeachBinFeederYAvoidPosition() { Recipe.AvoidPosition = FeederY.ActualPosition; }
+        public void TeachBinFeederAvoidPosition() { TeachBinFeederYAvoidPosition(); }
+        public void TeachBinFeederYCassetteLoadPosition(BinSide side) { SetSidePosition(side, FeederPositionType.CassetteLoad, FeederY.ActualPosition); }
+        public void TeachBinFeederYCassetteUnloadPosition(BinSide side) { SetSidePosition(side, FeederPositionType.CassetteUnload, FeederY.ActualPosition); }
+        public void TeachBinFeederYStageLoadPosition(BinSide side) { SetSidePosition(side, FeederPositionType.StageLoad, FeederY.ActualPosition); }
+        public void TeachBinFeederYStageUnloadPosition(BinSide side) { SetSidePosition(side, FeederPositionType.StageUnload, FeederY.ActualPosition); }
+        public void TeachBinFeederYBarcodePosition(BinSide side) { SetSidePosition(side, FeederPositionType.Barcode, FeederY.ActualPosition); }
+        public void TeachBinFeederYExchangePosition(BinSide side) { SetSidePosition(side, FeederPositionType.Exchange, FeederY.ActualPosition); }
+        public void TeachBinFeederGoodStageExchangePosition() { TeachBinFeederYStageLoadPosition(BinSide.Good); }
+        public void TeachBinFeederNgStageExchangePosition() { TeachBinFeederYStageLoadPosition(BinSide.Ng); }
+        public void TeachBinFeederCassetteInsertPosition() { TeachBinFeederYExchangePosition(BinSide.Good); }
+        public void TeachBinFeederCassetteLoadBasePosition() { TeachBinFeederYCassetteLoadPosition(BinSide.Good); }
 
-        /// <summary>Good Stage 교환 위치를 현재 위치로 저장합니다.</summary>
-        public void TeachBinFeederGoodStageExchangePosition()
-        {
-            Setup.GoodStageExchangePositionY = FeederY.ActualPosition;
-        }
-
-        /// <summary>NG Stage 교환 위치를 현재 위치로 저장합니다.</summary>
-        public void TeachBinFeederNgStageExchangePosition()
-        {
-            Setup.NgStageExchangePositionY = FeederY.ActualPosition;
-        }
-
-        /// <summary>카세트 삽입 위치를 현재 위치로 저장합니다.</summary>
-        public void TeachBinFeederCassetteInsertPosition()
-        {
-            Setup.CassetteInsertPositionY = FeederY.ActualPosition;
-        }
-
-        /// <summary>카세트 로딩 기준 위치를 현재 위치로 저장합니다.</summary>
-        public void TeachBinFeederCassetteLoadBasePosition()
-        {
-            Setup.CassetteLoadBasePosition = FeederY.ActualPosition;
-        }
-
-        /// <summary>지정 슬롯의 Bin Feeder 카세트 로딩 위치를 계산합니다.</summary>
         public double CalculateBinFeederCassetteLoadPosition(int slotIndex)
         {
-            if (slotIndex < 0)
-                throw new ArgumentOutOfRangeException("slotIndex");
-            return Setup.CassetteLoadBasePosition + (Setup.CassetteLoadPitch * slotIndex);
+            ValidateSlotIndex(slotIndex);
+            return Recipe.GoodCassetteLoadPosition;
         }
 
-        /// <summary>Bin Feeder 티칭 데이터가 유효한지 확인합니다.</summary>
-        public bool ValidateBinFeederTeachingComplete()
+        public bool ValidateBinFeederTeachingComplete() { return ValidateBinFeederYTeachingComplete(BinSide.Good) && ValidateBinFeederYTeachingComplete(BinSide.Ng); }
+        public bool ValidateBinFeederYTeachingComplete(BinSide side)
         {
-            return Setup.CassetteLoadPitch > 0.0 &&
-                   Setup.CassetteInsertPositionY != Setup.AvoidPosition &&
-                   Setup.GoodStageExchangePositionY != Setup.NgStageExchangePositionY;
+            return GetSidePosition(side, FeederPositionType.CassetteLoad) != Recipe.AvoidPosition &&
+                   GetSidePosition(side, FeederPositionType.CassetteUnload) != Recipe.AvoidPosition &&
+                   GetSidePosition(side, FeederPositionType.StageLoad) != GetSidePosition(side, FeederPositionType.StageUnload);
         }
 
-        /// <summary>지정 티칭 위치로 이동한 뒤 위치 도달을 확인합니다.</summary>
-        public async Task<bool> MoveToTeachingPositionAndVerify(string positionName, bool bFine = false)
+        public double GetBinFeederYTeachingPosition(string positionName) { return GetTeachingPosition(positionName); }
+
+        public async Task<int> MoveToTeachingPositionAndVerify(string positionName, bool bFine = false)
         {
-            await MoveBinFeederYToTeachingPosition(positionName, bFine);
-            return await WaitBinFeederYInPosition(positionName, Recipe.FeederMoveTimeoutMs);
+            int result = await MoveBinFeederYToTeachingPosition(positionName, bFine);
+            if (result != 0)
+                return result;
+
+            if (!await WaitBinFeederYInPosition(positionName, ResolveBinFeederYMoveTimeoutMs()))
+                return RaiseFeederAlarm("BF-TEACH-INPOS", "BinFeederY teaching position timeout: " + positionName);
+
+            return 0;
         }
 
-        /// <summary>Bin Feeder 업다운 실린더를 동작합니다.</summary>
-        public async Task<bool> SetBinFeederUpDown(bool up)
+        public void SetFeederLiftUpOutput(bool on) { SetExclusiveOutput(BinFeederUpOut, BinFeederDownOut, on, "BF-LIFT-UP-OUT"); }
+        public void SetFeederLiftDownOutput(bool on) { SetExclusiveOutput(BinFeederDownOut, BinFeederUpOut, on, "BF-LIFT-DOWN-OUT"); }
+        public void SetFeederClampOutput(bool on) { SetExclusiveOutput(BinFeederClampOut, BinFeederUnclampOut, on, "BF-CLAMP-OUT"); }
+        public void SetFeederUnclampOutput(bool on) { SetExclusiveOutput(BinFeederUnclampOut, BinFeederClampOut, on, "BF-UNCLAMP-OUT"); }
+
+        public Task<int> SetBinFeederUpDown(bool up) { return SetFeederUpDownAsync(up, ResolveLiftTimeoutMs(up)); }
+        public Task<int> FeederLiftUp(int timeoutMs) { return SetFeederUpDownAsync(true, timeoutMs); }
+        public Task<int> FeederLiftDown(int timeoutMs) { return SetFeederUpDownAsync(false, timeoutMs); }
+        public Task<int> ManualFeederLiftUp(int timeoutMs) { return FeederLiftUp(timeoutMs); }
+        public Task<int> ManualFeederLiftDown(int timeoutMs) { return FeederLiftDown(timeoutMs); }
+
+        public async Task<int> SetFeederUpDownAsync(bool up, int timeoutMs)
         {
-            if (up)
-                return await FeederUpDownCyl.MoveFwdAsync();
-            return await FeederUpDownCyl.MoveBwdAsync();
+            if (IsFeederOverload())
+                return RaiseFeederAlarm("BF-LIFT-OVERLOAD", "BinFeeder overload is on.");
+
+            bool ok = up ? await FeederUpDownCyl.MoveFwdAsync() : await FeederUpDownCyl.MoveBwdAsync();
+            if (!ok)
+                return RaiseFeederAlarm(up ? "BF-LIFT-UP" : "BF-LIFT-DOWN", "BinFeeder lift cylinder move failed.");
+
+            bool sensorOk = up ? await WaitFeederUp(timeoutMs) : await WaitFeederDown(timeoutMs);
+            if (!sensorOk)
+                return RaiseFeederAlarm(up ? "BF-LIFT-UP-TIMEOUT" : "BF-LIFT-DOWN-TIMEOUT", "BinFeeder lift sensor timeout.");
+
+            return 0;
         }
 
-        /// <summary>Bin Feeder 클램프 실린더를 동작합니다.</summary>
-        public async Task<bool> SetBinFeederClamp(bool clamp)
+        public Task<int> SetBinFeederClamp(bool clamp) { return SetFeederClampAsync(clamp, ResolveClampTimeoutMs(clamp)); }
+        public Task<int> FeederClamp(int timeoutMs) { return SetFeederClampAsync(true, timeoutMs); }
+        public Task<int> FeederUnclamp(int timeoutMs) { return SetFeederClampAsync(false, timeoutMs); }
+        public Task<int> ManualFeederClamp(int timeoutMs) { return FeederClamp(timeoutMs); }
+        public Task<int> ManualFeederUnclamp(int timeoutMs) { return FeederUnclamp(timeoutMs); }
+
+        public async Task<int> SetFeederClampAsync(bool clamp, int timeoutMs)
         {
-            if (clamp)
-                return await FeederClampCyl.MoveFwdAsync();
-            return await FeederClampCyl.MoveBwdAsync();
+            bool ok = clamp ? await FeederClampCyl.MoveFwdAsync() : await FeederClampCyl.MoveBwdAsync();
+            if (!ok)
+                return RaiseFeederAlarm(clamp ? "BF-CLAMP" : "BF-UNCLAMP", "BinFeeder clamp cylinder move failed.");
+
+            bool sensorOk = clamp ? await WaitFeederRingState(true, timeoutMs) : await WaitFeederUnclamped(timeoutMs);
+            if (!sensorOk)
+                return RaiseFeederAlarm(clamp ? "BF-CLAMP-TIMEOUT" : "BF-UNCLAMP-TIMEOUT", "BinFeeder clamp sensor timeout.");
+
+            return 0;
         }
 
-        /// <summary>Bin Feeder 상승 확인을 대기합니다.</summary>
-        public async Task<bool> WaitBinFeederUp(int timeoutMs)
-        {
-            return await BinFeederUpSensor.WaitUntilStateAsync(true, timeoutMs);
-        }
+        public async Task<bool> WaitFeederUp(int timeoutMs) { return await BinFeederUpSensor.WaitUntilStateAsync(true, timeoutMs); }
+        public async Task<bool> WaitFeederDown(int timeoutMs) { return await BinFeederDownSensor.WaitUntilStateAsync(true, timeoutMs); }
+        public async Task<bool> WaitFeederUnclamped(int timeoutMs) { return await BinFeederUnclampSensor.WaitUntilStateAsync(true, timeoutMs); }
+        public async Task<bool> WaitFeederRingState(bool expected, int timeoutMs) { return await BinFeederRingCheckSensor.WaitUntilStateAsync(expected, timeoutMs); }
+        public async Task<bool> WaitBinFeederUp(int timeoutMs) { return await WaitFeederUp(timeoutMs); }
+        public async Task<bool> WaitBinFeederDown(int timeoutMs) { return await WaitFeederDown(timeoutMs); }
+        public async Task<bool> WaitBinFeederUnclamp(int timeoutMs) { return await WaitFeederUnclamped(timeoutMs); }
+        public async Task<bool> WaitBinFeederClamp(int timeoutMs) { return await WaitFeederRingState(true, timeoutMs); }
+        public async Task<bool> WaitBinFeederRingClear(int timeoutMs) { return await WaitFeederRingState(false, timeoutMs); }
+        public bool CheckFeederOverloadClear() { return !IsFeederOverload(); }
 
-        /// <summary>Bin Feeder 하강 확인을 대기합니다.</summary>
-        public async Task<bool> WaitBinFeederDown(int timeoutMs)
-        {
-            return await BinFeederDownSensor.WaitUntilStateAsync(true, timeoutMs);
-        }
+        public void ManualMoveBinFeederYJog(Direction dir, double speed) { FeederY.MoveJogContinuous((int)dir, JogSpeedType.Custom, speed); }
+        public void ManualMoveBinFeederYJog(int direction, double speed) { ManualMoveBinFeederYJog(direction < 0 ? Direction.Minus : Direction.Plus, speed); }
+        public void ManualStopBinFeederY() { FeederY.StopJog(); }
+        public Task<int> ManualMoveToFeederAvoidPosition(bool bFine = false) { return MoveToFeederAvoidPosition(bFine); }
+        public Task<int> ManualMoveToBinFeederAvoidPosition(bool bFine = false) { return ManualMoveToFeederAvoidPosition(bFine); }
+        public Task<int> ManualMoveToFeederCassetteLoadPosition(BinSide side, int slotIndex, bool bFine = false) { return MoveToFeederCassetteLoadPosition(side, slotIndex, bFine); }
+        public Task<int> ManualMoveToBinFeederCassetteLoadPosition(int slotIndex, bool bFine = false) { return MoveToBinFeederCassetteLoadPosition(slotIndex, bFine); }
+        public Task<int> ManualMoveToFeederCassetteUnloadPosition(BinSide side, int slotIndex, bool bFine = false) { return MoveToFeederCassetteUnloadPosition(side, slotIndex, bFine); }
+        public Task<int> ManualMoveToFeederStageLoadPosition(BinSide side, bool bFine = false) { return MoveToFeederStageLoadPosition(side, bFine); }
+        public Task<int> ManualMoveToFeederStageUnloadPosition(BinSide side, bool bFine = false) { return MoveToFeederStageUnloadPosition(side, bFine); }
+        public Task<int> ManualMoveToFeederBarcodePosition(BinSide side, bool bFine = false) { return MoveToFeederBarcodePosition(side, bFine); }
+        public Task<int> ManualMoveToFeederExchangePosition(BinSide side, bool bFine = false) { return MoveToFeederExchangePosition(side, bFine); }
+        public Task<int> ManualMoveToBinFeederCassetteInsertPosition(bool bFine = false) { return MoveToBinFeederCassetteInsertPosition(bFine); }
 
-        /// <summary>Bin Feeder 클램프 확인을 대기합니다.</summary>
-        public async Task<bool> WaitBinFeederClamp(int timeoutMs)
+        public async Task<int> LoadFromCassetteToFeeder(BinSide side, int slotIndex, int timeoutMs, bool bFine = false, bool useBarcode = true)
         {
-            return await BinFeederRingCheckSensor.WaitUntilStateAsync(true, timeoutMs);
-        }
+            if (!CheckFeederCassetteReady(side, slotIndex, TransferMode.Load))
+                return RaiseFeederAlarm("BF-LOAD-READY", "BinFeeder load transfer is not ready.");
 
-        /// <summary>Bin Feeder 언클램프 확인을 대기합니다.</summary>
-        public async Task<bool> WaitBinFeederUnclamp(int timeoutMs)
-        {
-            return await BinFeederUnclampSensor.WaitUntilStateAsync(true, timeoutMs);
-        }
-
-        /// <summary>Bin Feeder 링 센서 해제를 대기합니다.</summary>
-        public async Task<bool> WaitBinFeederRingClear(int timeoutMs)
-        {
-            return await BinFeederRingCheckSensor.WaitUntilStateAsync(false, timeoutMs);
-        }
-
-        /// <summary>Bin Feeder Y축을 조그 이동합니다.</summary>
-        public void ManualMoveBinFeederYJog(int direction, double speed)
-        {
-            FeederY.MoveJogContinuous(direction, JogSpeedType.Custom, speed);
-        }
-
-        /// <summary>Bin Feeder Y축 조그 이동을 정지합니다.</summary>
-        public void ManualStopBinFeederY()
-        {
-            FeederY.StopJog();
-        }
-
-        /// <summary>수동으로 Bin Feeder를 대기 위치로 이동합니다.</summary>
-        public Task ManualMoveToBinFeederAvoidPosition(bool bFine = false)
-        {
-            return MoveToBinFeederAvoidPosition(bFine);
-        }
-
-        /// <summary>수동으로 Bin Feeder를 카세트 로딩 위치로 이동합니다.</summary>
-        public Task ManualMoveToBinFeederCassetteLoadPosition(int slotIndex, bool bFine = false)
-        {
-            return MoveToBinFeederCassetteLoadPosition(slotIndex, bFine);
-        }
-
-        /// <summary>수동으로 Bin Feeder를 카세트 삽입 위치로 이동합니다.</summary>
-        public Task ManualMoveToBinFeederCassetteInsertPosition(bool bFine = false)
-        {
-            return MoveToBinFeederCassetteInsertPosition(bFine);
-        }
-
-        /// <summary>Bin 카세트에서 Feeder로 웨이퍼를 로드합니다.</summary>
-        public async Task<bool> LoadWaferFromCassetteToFeeder(int slotIndex, int timeoutMs, bool bFine = false)
-        {
-            if (!CheckBinFeederTransferReady(TransferMode.Load))
-                return false;
-
-            await MoveToBinFeederCassetteLoadPosition(slotIndex, bFine);
+            int result = await MoveToFeederCassetteLoadPosition(side, slotIndex, bFine);
+            if (result != 0) return result;
             if (!await WaitBinFeederYMoveDone(timeoutMs))
-                return false;
+                return RaiseFeederAlarm("BF-LOAD-Y-TIMEOUT", "BinFeeder cassette load position timeout.");
 
-            if (!await SetBinFeederUpDown(true)) return false;
-            if (!await SetBinFeederClamp(true)) return false;
-            return await WaitBinFeederClamp(timeoutMs);
+            result = await FeederLiftUp(timeoutMs);
+            if (result != 0) return result;
+            result = await FeederClamp(timeoutMs);
+            if (result != 0) return result;
+            if (!IsFeederRingDetected(true))
+                return RaiseFeederAlarm("BF-LOAD-RING", "BinFeeder ring was not detected after cassette load.");
+
+            UpdateFeederMaterialState(MaterialState.Occupied);
+            if (useBarcode)
+                await ReadFeederBarcode(side, timeoutMs, bFine, 2);
+            return 0;
         }
 
-        /// <summary>Bin Feeder를 OutputStage 교환 위치로 이동합니다.</summary>
-        public async Task<bool> MoveBinFeederToStageExchangePosition(TargetCassette cassette, int timeoutMs, bool bFine = false)
+        public async Task<int> LoadWaferFromCassetteToFeeder(int slotIndex, int timeoutMs, bool bFine = false)
         {
-            if (!HasWaferOnFeeder())
-                return false;
-
-            await MoveToBinFeederStageExchangePosition(cassette, bFine);
-            return await WaitBinFeederYMoveDone(timeoutMs);
+            return await LoadFromCassetteToFeeder(BinSide.Good, slotIndex, timeoutMs, bFine, false);
         }
 
-        /// <summary>Bin Feeder 웨이퍼를 카세트로 되돌립니다.</summary>
+        public async Task<string> ReadFeederBarcode(BinSide side, int timeoutMs, bool bFine = false, int retry = 2)
+        {
+            if (!IsFeederOccupied())
+            {
+                RaiseFeederAlarm("BF-BARCODE-EMPTY", "BinFeeder has no ring for barcode read.");
+                return string.Empty;
+            }
+
+            int result = await MoveToFeederBarcodePosition(side, bFine);
+            if (result != 0)
+                return string.Empty;
+
+            if (!await WaitBinFeederYMoveDone(timeoutMs))
+            {
+                RaiseFeederAlarm("BF-BARCODE-TIMEOUT", "BinFeeder barcode position timeout.");
+                return string.Empty;
+            }
+
+            return string.Empty;
+        }
+
+        public async Task<int> LoadWaferToStageFromFeeder(BinSide side, int timeoutMs, bool bFine = false, bool useVacuum = true)
+        {
+            if (!CheckFeederStageReady(side, TransferMode.Load))
+                return RaiseFeederAlarm("BF-STAGE-LOAD-READY", "BinStage load transfer is not ready.");
+
+            int result = await MoveToFeederStageLoadPosition(side, bFine);
+            if (result != 0) return result;
+            if (!await WaitBinFeederYMoveDone(timeoutMs))
+                return RaiseFeederAlarm("BF-STAGE-LOAD-Y-TIMEOUT", "BinFeeder stage load position timeout.");
+
+            result = await FeederUnclamp(timeoutMs);
+            if (result != 0) return result;
+            result = await FeederLiftDown(timeoutMs);
+            if (result != 0) return result;
+            if (!await WaitFeederRingState(false, timeoutMs))
+                return RaiseFeederAlarm("BF-STAGE-LOAD-RING", "BinFeeder ring remained after stage load.");
+
+            ClearFeederMaterialState();
+            return 0;
+        }
+
+        public async Task<int> UnloadWaferFromStageToFeeder(BinSide side, int timeoutMs, bool bFine = false)
+        {
+            if (!CheckFeederStageReady(side, TransferMode.Unload))
+                return RaiseFeederAlarm("BF-STAGE-UNLOAD-READY", "BinStage unload transfer is not ready.");
+
+            int result = await MoveToFeederStageUnloadPosition(side, bFine);
+            if (result != 0) return result;
+            if (!await WaitBinFeederYMoveDone(timeoutMs))
+                return RaiseFeederAlarm("BF-STAGE-UNLOAD-Y-TIMEOUT", "BinFeeder stage unload position timeout.");
+
+            result = await FeederLiftUp(timeoutMs);
+            if (result != 0) return result;
+            result = await FeederClamp(timeoutMs);
+            if (result != 0) return result;
+            if (!await WaitFeederRingState(true, timeoutMs))
+                return RaiseFeederAlarm("BF-STAGE-UNLOAD-RING", "BinFeeder ring was not detected after stage unload.");
+
+            UpdateFeederMaterialState(MaterialState.Occupied);
+            return 0;
+        }
+
+        public async Task<int> UnloadFeederToCassette(BinSide side, int slotIndex, int timeoutMs, bool bFine = false)
+        {
+            if (!CheckFeederCassetteReady(side, slotIndex, TransferMode.Unload))
+                return RaiseFeederAlarm("BF-CST-UNLOAD-READY", "BinFeeder cassette unload transfer is not ready.");
+
+            int result = await MoveToFeederCassetteUnloadPosition(side, slotIndex, bFine);
+            if (result != 0) return result;
+            if (!await WaitBinFeederYMoveDone(timeoutMs))
+                return RaiseFeederAlarm("BF-CST-UNLOAD-Y-TIMEOUT", "BinFeeder cassette unload position timeout.");
+
+            result = await FeederLiftUp(timeoutMs);
+            if (result != 0) return result;
+            result = await FeederUnclamp(timeoutMs);
+            if (result != 0) return result;
+            result = await FeederLiftDown(timeoutMs);
+            if (result != 0) return result;
+            if (!await WaitFeederRingState(false, timeoutMs))
+                return RaiseFeederAlarm("BF-CST-UNLOAD-RING", "BinFeeder ring remained after cassette unload.");
+
+            ClearFeederMaterialState();
+            return 0;
+        }
+
         public async Task<bool> ReturnWaferFromFeederToCassette(int slotIndex, int timeoutMs, bool bFine = false)
         {
-            await MoveToBinFeederCassetteLoadPosition(slotIndex, bFine);
-            if (!await WaitBinFeederYMoveDone(timeoutMs))
-                return false;
-
-            if (!await SetBinFeederClamp(false)) return false;
-            if (!await SetBinFeederUpDown(false)) return false;
-            return await WaitBinFeederUnclamp(timeoutMs);
+            return await UnloadFeederToCassette(BinSide.Good, slotIndex, timeoutMs, bFine) == 0;
         }
 
-        /// <summary>Bin Feeder를 안전 상태로 복귀합니다.</summary>
+        public async Task<bool> MoveBinFeederToStageExchangePosition(TargetCassette cassette, int timeoutMs, bool bFine = false)
+        {
+            int result = await MoveToFeederStageLoadPosition(ToBinSide(cassette), bFine);
+            return result == 0 && await WaitBinFeederYMoveDone(timeoutMs);
+        }
+
+        public async Task<int> ExchangeFeederRingForNextSlot(BinSide side, int currentSlotIndex, int nextSlotIndex, int timeoutMs, bool bFine = false)
+        {
+            int result = await UnloadFeederToCassette(side, currentSlotIndex, timeoutMs, bFine);
+            if (result != 0) return result;
+            result = await LoadFromCassetteToFeeder(side, nextSlotIndex, timeoutMs, bFine, false);
+            if (result != 0) return result;
+            return await MoveToFeederExchangePosition(side, bFine);
+        }
+
+        public async Task<int> RecoverFeederToSafeState(int timeoutMs, bool moveAvoid = true)
+        {
+            try { FeederY.Stop(); } catch { }
+
+            int result = await FeederUnclamp(timeoutMs);
+            if (result != 0) return result;
+            result = await FeederLiftDown(timeoutMs);
+            if (result != 0) return result;
+
+            if (moveAvoid)
+            {
+                result = await MoveToFeederAvoidPosition();
+                if (result != 0) return result;
+                if (!await WaitBinFeederYMoveDone(timeoutMs))
+                    return RaiseFeederAlarm("BF-RECOVER-TIMEOUT", "BinFeeder avoid position timeout.");
+            }
+
+            return 0;
+        }
+
         public async Task<bool> RecoverBinFeederToSafeState(int timeoutMs, bool unclamp = true)
         {
-            if (unclamp && !await SetBinFeederClamp(false))
-                return false;
-
-            if (!await SetBinFeederUpDown(false))
-                return false;
-
-            await MoveToBinFeederAvoidPosition();
-            return await WaitBinFeederYMoveDone(timeoutMs);
+            return await RecoverFeederToSafeState(timeoutMs, true) == 0;
         }
 
-        /// <summary>Bin Feeder 축 이동 가능 상태인지 확인합니다.</summary>
-        public bool CheckBinFeederMoveReady()
+        public bool CheckBinFeederYMoveReady()
         {
-            return !FeederY.IsAlarm && !BinFeederOverloadSensor.IsOn;
+            return FeederY != null &&
+                   FeederY.IsServoOn &&
+                   !FeederY.IsAlarm &&
+                   !FeederY.IsMoving &&
+                   !IsFeederOverload();
         }
 
-        /// <summary>Bin Feeder 이송 준비 상태를 확인합니다.</summary>
-        public bool CheckBinFeederTransferReady(TransferMode mode)
+        public bool CheckFeederMoveReady() { return CheckBinFeederYMoveReady(); }
+        public bool CheckBinFeederMoveReady() { return CheckFeederMoveReady(); }
+
+        public bool CheckFeederTransferReady(TransferMode mode)
         {
-            if (!CheckBinFeederMoveReady())
+            if (!CheckFeederMoveReady())
                 return false;
             if (mode == TransferMode.Load)
-                return IsBinFeederDown() && IsBinFeederUnclamp();
+                return IsFeederDown() && IsFeederUnclamped() && IsFeederEmpty();
             if (mode == TransferMode.Unload)
-                return HasWaferOnFeeder();
+                return IsFeederOccupied();
             return true;
         }
 
-        /// <summary>Bin 카세트 로딩 준비 상태를 확인합니다.</summary>
-        public bool CheckBinCassetteLoadReady(int slotIndex, TransferMode mode)
+        public bool CheckBinFeederTransferReady(TransferMode mode) { return CheckFeederTransferReady(mode); }
+
+        public bool CheckFeederCassetteReady(BinSide side, int slotIndex, TransferMode mode)
         {
             if (slotIndex < 0)
                 return false;
-            return CheckBinFeederTransferReady(mode) && ValidateBinFeederTeachingComplete();
+            return ValidateBinFeederYTeachingComplete(side) && CheckFeederTransferReady(mode);
         }
 
-        /// <summary>Bin Feeder 공정 상태를 반환합니다.</summary>
+        public bool CheckBinCassetteLoadReady(int slotIndex, TransferMode mode)
+        {
+            return CheckFeederCassetteReady(BinSide.Good, slotIndex, mode);
+        }
+
+        public bool CheckFeederStageReady(BinSide side, TransferMode mode)
+        {
+            if (!ValidateBinFeederYTeachingComplete(side))
+                return false;
+            if (mode == TransferMode.Load)
+                return IsFeederOccupied();
+            if (mode == TransferMode.Unload)
+                return IsFeederEmpty();
+            return CheckFeederMoveReady();
+        }
+
+        public FeederTransferState GetFeederTransferState()
+        {
+            return new FeederTransferState
+            {
+                IsUp = IsFeederUp(),
+                IsDown = IsFeederDown(),
+                IsUnclamped = IsFeederUnclamped(),
+                HasRing = IsFeederRingDetected(true),
+                IsOverload = IsFeederOverload(),
+                IsMoveReady = CheckBinFeederYMoveReady()
+            };
+        }
+
         public WaferFeederProcessState GetBinFeederProcessState()
         {
-            if (FeederY.IsAlarm || BinFeederOverloadSensor.IsOn)
-                return WaferFeederProcessState.Alarm;
-            if (FeederY.IsMoving)
-                return WaferFeederProcessState.Moving;
-            if (HasWaferOnFeeder())
-                return WaferFeederProcessState.HasWafer;
+            if (FeederY.IsAlarm || IsFeederOverload()) return WaferFeederProcessState.Alarm;
+            if (FeederY.IsMoving) return WaferFeederProcessState.Moving;
+            if (IsFeederOccupied()) return WaferFeederProcessState.HasWafer;
             return WaferFeederProcessState.Empty;
         }
 
-        /// <summary>Bin Feeder에 웨이퍼가 있는지 확인합니다.</summary>
-        public bool HasWaferOnFeeder()
-        {
-            return BinFeederRingCheckSensor.IsOn || !BinFeederUnclampSensor.IsOn;
-        }
-
-        /// <summary>Bin Feeder가 안전 상태인지 확인합니다.</summary>
-        public bool IsBinFeederSafe()
-        {
-            return !BinFeederOverloadSensor.IsOn && !FeederY.IsAlarm;
-        }
-
-        /// <summary>조그 이동 전 인터락을 확인합니다.</summary>
-        public bool InterlockBeforeJog()
-        {
-            return IsBinFeederSafe();
-        }
-
-        /// <summary>픽업 전 Bin Feeder 상태를 검증합니다.</summary>
+        public bool IsBinFeederSafe() { return !IsFeederOverload() && !FeederY.IsAlarm; }
+        public bool InterlockBeforeJog() { return IsBinFeederSafe(); }
         public bool ValidateBinFeederBeforePickup(TransferPointType type)
         {
-            if (!IsBinFeederSafe())
-                return false;
-            if (type == TransferPointType.Cassette)
-                return IsBinFeederDown() || IsBinFeederInCassetteLoadPosition(0);
+            if (!IsBinFeederSafe()) return false;
+            if (type == TransferPointType.Cassette) return IsFeederDown() || IsBinFeederInCassetteLoadPosition(0);
             return true;
         }
 
-        /// <summary>Bin Feeder 현재 위치 스냅샷을 저장합니다.</summary>
-        public void RecordBinFeederPositionSnapshot(string key)
+        public bool ValidateFeederSidePosition(BinSide side, FeederPositionType type)
         {
-            _positionSnapshots[key] = FeederY.ActualPosition;
+            return ValidateBinFeederYTargetPosition(GetSidePosition(side, type));
         }
 
-        /// <summary>Bin Feeder를 카세트 삽입 교환 위치로 이동합니다.</summary>
-        public async Task<bool> MoveToExchangePositionAsync()
+        public string ResolveFeederTeachingPositionName(BinSide side, FeederPositionType type)
         {
-            bool cylResult = await SetBinFeederUpDown(true);
-            if (!cylResult)
+            string prefix = side == BinSide.Ng ? "NG" : "Good";
+            switch (type)
             {
-                Console.WriteLine("[ALARM] '" + Name + "' MoveToExchangePosition: feeder up/down timeout.");
-                return false;
+                case FeederPositionType.Avoid: return "35_BinFeederY.AvoidPos";
+                case FeederPositionType.CassetteLoad: return prefix + "CassetteLoadPosition";
+                case FeederPositionType.CassetteUnload: return prefix + "CassetteUnloadPosition";
+                case FeederPositionType.Barcode: return prefix + "WaferBarcodePosition";
+                case FeederPositionType.StageLoad: return prefix + "WaferLoadPosition";
+                case FeederPositionType.StageUnload: return prefix + "WaferUnloadPosition";
+                case FeederPositionType.Exchange: return prefix + "CassetteExchangePosition";
+                default: throw new ArgumentOutOfRangeException("type");
             }
-
-            cylResult = await SetBinFeederClamp(true);
-            if (!cylResult)
-            {
-                Console.WriteLine("[ALARM] '" + Name + "' MoveToExchangePosition: feeder clamp timeout.");
-                return false;
-            }
-
-            await MoveBinFeederY(Setup.CassetteInsertPositionY);
-            return !FeederY.IsAlarm;
         }
 
-        /// <summary>Bin Feeder를 언클램프 후 대기 위치로 복귀합니다.</summary>
-        public async Task<bool> RetractFeederAsync()
+        public void RecordBinFeederPositionSnapshot(string key) { _positionSnapshots[key] = FeederY.ActualPosition; }
+
+        public async Task<int> MoveToExchangePositionAsync()
         {
-            if (!await SetBinFeederClamp(false))
-            {
-                Console.WriteLine("[ALARM] '" + Name + "' RetractFeeder: feeder unclamp timeout.");
-                return false;
-            }
+            int result = await FeederLiftUp(ResolveLiftTimeoutMs(true));
+            if (result != 0) return result;
+            result = await FeederClamp(ResolveClampTimeoutMs(true));
+            if (result != 0) return result;
+            return await MoveToFeederExchangePosition(BinSide.Good);
+        }
 
-            bool released = await WaitBinFeederUnclamp(Recipe.CylinderTimeoutMs);
-            if (!released)
-            {
-                Console.WriteLine("[ALARM] '" + Name + "' RetractFeeder: feeder unclamp sensor timeout.");
-                return false;
-            }
+        public async Task<int> RetractFeederAsync()
+        {
+            int result = await FeederUnclamp(ResolveClampTimeoutMs(false));
+            if (result != 0) return result;
+            result = await MoveToFeederAvoidPosition();
+            if (result != 0) return result;
+            return await FeederLiftDown(ResolveLiftTimeoutMs(false));
+        }
 
-            await MoveToBinFeederAvoidPosition();
-            if (FeederY.IsAlarm)
+        public void StopFeederMotionAndOutputs(string reason) { StopFeederMotionAndOutputs(reason, FeederSafePolicy.AllOff); }
+        public void StopFeederMotionAndOutputs(string reason, FeederSafePolicy policy)
+        {
+            try
             {
-                Console.WriteLine("[ALARM] '" + Name + "' RetractFeeder: FeederY origin move failed.");
-                return false;
+                try { FeederY.StopJog(); } catch { }
+                try { FeederY.Stop(); } catch { }
+                SetFeederOutputsSafe(policy);
+                EventLogger.Write(EventKind.Event, "QMC", "BF-STOP", "BinFeeder stopped. reason=" + reason);
             }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "QMC", "BF-STOP", "BinFeeder stop failed: " + ex.Message);
+            }
+        }
 
-            if (!await SetBinFeederUpDown(false))
+        public void StopBinFeederMotion(string reason) { StopFeederMotionAndOutputs(reason); }
+
+        public void SetFeederOutputsSafe(FeederSafePolicy policy)
+        {
+            switch (policy)
             {
-                Console.WriteLine("[ALARM] '" + Name + "' RetractFeeder: feeder down timeout.");
-                return false;
+                case FeederSafePolicy.HoldClamp:
+                    SetFeederLiftUpOutput(false);
+                    SetFeederLiftDownOutput(true);
+                    break;
+                case FeederSafePolicy.HoldCurrent:
+                    break;
+                default:
+                    SetFeederLiftUpOutput(false);
+                    SetFeederLiftDownOutput(false);
+                    SetFeederClampOutput(false);
+                    SetFeederUnclampOutput(false);
+                    break;
             }
+        }
+
+        public string BuildFeederAlarmMessage(FeederAlarmCode code)
+        {
+            switch (code)
+            {
+                case FeederAlarmCode.AxisAlarm: return "BinFeederY axis alarm.";
+                case FeederAlarmCode.MoveTimeout: return "BinFeederY move timeout.";
+                case FeederAlarmCode.TeachingMissing: return "BinFeeder teaching position is missing.";
+                case FeederAlarmCode.Interlock: return "BinFeeder interlock condition is not satisfied.";
+                case FeederAlarmCode.Overload: return "BinFeeder overload input is on.";
+                case FeederAlarmCode.RingMissing: return "BinFeeder ring was not detected.";
+                default: return "BinFeeder alarm.";
+            }
+        }
+
+        public void UpdateFeederMaterialState(MaterialState state)
+        {
+            CurrentMaterialState = state;
+            EventLogger.Write(EventKind.Event, "QMC", "BF-MATERIAL", "BinFeeder material state=" + state);
+        }
+
+        public void ClearFeederMaterialState() { UpdateFeederMaterialState(MaterialState.Empty); }
+
+        private double ResolveBinFeederYMoveVelocity(bool bFine)
+        {
+            if (bFine && FeederY.Config.JogFineVelocity > 0.0)
+                return FeederY.Config.JogFineVelocity;
+            return FeederY.Config.DefaultVelocity;
+        }
+
+        private int ResolveBinFeederYMoveTimeoutMs()
+        {
+            return FeederY.Setup.MoveTimeoutMs > 0 ? FeederY.Setup.MoveTimeoutMs : 60000;
+        }
+
+        private double ResolveBinFeederYInPositionTolerance()
+        {
+            return FeederY.Config.InPositionTolerance > 0.0 ? FeederY.Config.InPositionTolerance : 0.05;
+        }
+
+        private int ResolveLiftTimeoutMs(bool up)
+        {
+            return up ? FeederUpDownCyl.Recipe.FwdTimeoutMs : FeederUpDownCyl.Recipe.BwdTimeoutMs;
+        }
+
+        private int ResolveClampTimeoutMs(bool clamp)
+        {
+            return clamp ? FeederClampCyl.Recipe.FwdTimeoutMs : FeederClampCyl.Recipe.BwdTimeoutMs;
+        }
+
+        private bool ValidateBinFeederYTargetPosition(double targetPos)
+        {
+            if (FeederY == null || FeederY.Setup == null)
+                return false;
+
+            if (FeederY.Setup.SoftLimitPlus != 0.0 && targetPos > FeederY.Setup.SoftLimitPlus)
+                return false;
+
+            if (FeederY.Setup.SoftLimitMinus != 0.0 && targetPos < FeederY.Setup.SoftLimitMinus)
+                return false;
 
             return true;
+        }
+
+        private int RaiseFeederAlarm(string code, string message)
+        {
+            EventLogger.Write(EventKind.Alarm, "QMC", code, message);
+            AlarmManager.Raise(AlarmSeverity.Error, code, Name, message);
+            Console.WriteLine("[ALARM] '" + Name + "' " + message);
+            return -1;
+        }
+
+        private void SetExclusiveOutput(BaseDigitalOutput onOutput, BaseDigitalOutput oppositeOutput, bool on, string code)
+        {
+            try
+            {
+                if (on)
+                    oppositeOutput.Off();
+                if (on) onOutput.On();
+                else onOutput.Off();
+            }
+            catch (Exception ex)
+            {
+                RaiseFeederAlarm(code, "BinFeeder output command failed: " + ex.Message);
+            }
         }
 
         private double GetTeachingPosition(string positionName)
         {
-            if (string.Equals(positionName, "Avoid", StringComparison.OrdinalIgnoreCase)) return Setup.AvoidPosition;
-            if (string.Equals(positionName, "GoodStageExchange", StringComparison.OrdinalIgnoreCase)) return Setup.GoodStageExchangePositionY;
-            if (string.Equals(positionName, "NgStageExchange", StringComparison.OrdinalIgnoreCase)) return Setup.NgStageExchangePositionY;
-            if (string.Equals(positionName, "CassetteInsert", StringComparison.OrdinalIgnoreCase)) return Setup.CassetteInsertPositionY;
-            if (string.Equals(positionName, "CassetteLoadBase", StringComparison.OrdinalIgnoreCase)) return Setup.CassetteLoadBasePosition;
+            if (string.Equals(positionName, "Avoid", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(positionName, "35_BinFeederY.AvoidPos", StringComparison.OrdinalIgnoreCase))
+                return Recipe.AvoidPosition;
+            if (string.Equals(positionName, "GoodStageExchange", StringComparison.OrdinalIgnoreCase)) return Recipe.GoodWaferLoadPosition;
+            if (string.Equals(positionName, "NgStageExchange", StringComparison.OrdinalIgnoreCase)) return Recipe.NGWaferLoadPosition;
+            if (string.Equals(positionName, "CassetteInsert", StringComparison.OrdinalIgnoreCase)) return Recipe.GoodCassetteExchangePosition;
+            if (string.Equals(positionName, "CassetteLoadBase", StringComparison.OrdinalIgnoreCase)) return Recipe.GoodCassetteLoadPosition;
+            if (string.Equals(positionName, "GoodCassetteLoadPosition", StringComparison.OrdinalIgnoreCase)) return Recipe.GoodCassetteLoadPosition;
+            if (string.Equals(positionName, "GoodCassetteUnloadPosition", StringComparison.OrdinalIgnoreCase)) return Recipe.GoodCassetteUnloadPosition;
+            if (string.Equals(positionName, "GoodCassetteExchangePosition", StringComparison.OrdinalIgnoreCase)) return Recipe.GoodCassetteExchangePosition;
+            if (string.Equals(positionName, "GoodWaferLoadPosition", StringComparison.OrdinalIgnoreCase)) return Recipe.GoodWaferLoadPosition;
+            if (string.Equals(positionName, "GoodWaferUnloadPosition", StringComparison.OrdinalIgnoreCase)) return Recipe.GoodWaferUnloadPosition;
+            if (string.Equals(positionName, "GoodWaferBarcodePosition", StringComparison.OrdinalIgnoreCase)) return Recipe.GoodWaferBarcodePosition;
+            if (string.Equals(positionName, "NGCassetteLoadPosition", StringComparison.OrdinalIgnoreCase)) return Recipe.NGCassetteLoadPosition;
+            if (string.Equals(positionName, "NGCassetteUnloadPosition", StringComparison.OrdinalIgnoreCase)) return Recipe.NGCassetteUnloadPosition;
+            if (string.Equals(positionName, "NGCassetteExchangePosition", StringComparison.OrdinalIgnoreCase)) return Recipe.NGCassetteExchangePosition;
+            if (string.Equals(positionName, "NGWaferLoadPosition", StringComparison.OrdinalIgnoreCase)) return Recipe.NGWaferLoadPosition;
+            if (string.Equals(positionName, "NGWaferUnloadPosition", StringComparison.OrdinalIgnoreCase)) return Recipe.NGWaferUnloadPosition;
+            if (string.Equals(positionName, "NGWaferBarcodePosition", StringComparison.OrdinalIgnoreCase)) return Recipe.NGWaferBarcodePosition;
             throw new ArgumentException("Unknown BinFeederY teaching position: " + positionName, "positionName");
         }
 
         private void SetTeachingPosition(string positionName, double position)
         {
-            if (string.Equals(positionName, "Avoid", StringComparison.OrdinalIgnoreCase)) Setup.AvoidPosition = position;
-            else if (string.Equals(positionName, "GoodStageExchange", StringComparison.OrdinalIgnoreCase)) Setup.GoodStageExchangePositionY = position;
-            else if (string.Equals(positionName, "NgStageExchange", StringComparison.OrdinalIgnoreCase)) Setup.NgStageExchangePositionY = position;
-            else if (string.Equals(positionName, "CassetteInsert", StringComparison.OrdinalIgnoreCase)) Setup.CassetteInsertPositionY = position;
-            else if (string.Equals(positionName, "CassetteLoadBase", StringComparison.OrdinalIgnoreCase)) Setup.CassetteLoadBasePosition = position;
+            if (string.Equals(positionName, "Avoid", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(positionName, "35_BinFeederY.AvoidPos", StringComparison.OrdinalIgnoreCase))
+                Recipe.AvoidPosition = position;
+            else if (string.Equals(positionName, "GoodStageExchange", StringComparison.OrdinalIgnoreCase)) Recipe.GoodWaferLoadPosition = position;
+            else if (string.Equals(positionName, "NgStageExchange", StringComparison.OrdinalIgnoreCase)) Recipe.NGWaferLoadPosition = position;
+            else if (string.Equals(positionName, "CassetteInsert", StringComparison.OrdinalIgnoreCase)) Recipe.GoodCassetteExchangePosition = position;
+            else if (string.Equals(positionName, "CassetteLoadBase", StringComparison.OrdinalIgnoreCase)) Recipe.GoodCassetteLoadPosition = position;
+            else if (string.Equals(positionName, "GoodCassetteLoadPosition", StringComparison.OrdinalIgnoreCase)) Recipe.GoodCassetteLoadPosition = position;
+            else if (string.Equals(positionName, "GoodCassetteUnloadPosition", StringComparison.OrdinalIgnoreCase)) Recipe.GoodCassetteUnloadPosition = position;
+            else if (string.Equals(positionName, "GoodCassetteExchangePosition", StringComparison.OrdinalIgnoreCase)) Recipe.GoodCassetteExchangePosition = position;
+            else if (string.Equals(positionName, "GoodWaferLoadPosition", StringComparison.OrdinalIgnoreCase)) Recipe.GoodWaferLoadPosition = position;
+            else if (string.Equals(positionName, "GoodWaferUnloadPosition", StringComparison.OrdinalIgnoreCase)) Recipe.GoodWaferUnloadPosition = position;
+            else if (string.Equals(positionName, "GoodWaferBarcodePosition", StringComparison.OrdinalIgnoreCase)) Recipe.GoodWaferBarcodePosition = position;
+            else if (string.Equals(positionName, "NGCassetteLoadPosition", StringComparison.OrdinalIgnoreCase)) Recipe.NGCassetteLoadPosition = position;
+            else if (string.Equals(positionName, "NGCassetteUnloadPosition", StringComparison.OrdinalIgnoreCase)) Recipe.NGCassetteUnloadPosition = position;
+            else if (string.Equals(positionName, "NGCassetteExchangePosition", StringComparison.OrdinalIgnoreCase)) Recipe.NGCassetteExchangePosition = position;
+            else if (string.Equals(positionName, "NGWaferLoadPosition", StringComparison.OrdinalIgnoreCase)) Recipe.NGWaferLoadPosition = position;
+            else if (string.Equals(positionName, "NGWaferUnloadPosition", StringComparison.OrdinalIgnoreCase)) Recipe.NGWaferUnloadPosition = position;
+            else if (string.Equals(positionName, "NGWaferBarcodePosition", StringComparison.OrdinalIgnoreCase)) Recipe.NGWaferBarcodePosition = position;
             else throw new ArgumentException("Unknown BinFeederY teaching position: " + positionName, "positionName");
+        }
+
+        private double GetSidePosition(BinSide side, FeederPositionType type)
+        {
+            if (type == FeederPositionType.Avoid)
+                return Recipe.AvoidPosition;
+
+            bool ng = side == BinSide.Ng;
+            switch (type)
+            {
+                case FeederPositionType.CassetteLoad: return ng ? Recipe.NGCassetteLoadPosition : Recipe.GoodCassetteLoadPosition;
+                case FeederPositionType.CassetteUnload: return ng ? Recipe.NGCassetteUnloadPosition : Recipe.GoodCassetteUnloadPosition;
+                case FeederPositionType.Barcode: return ng ? Recipe.NGWaferBarcodePosition : Recipe.GoodWaferBarcodePosition;
+                case FeederPositionType.StageLoad: return ng ? Recipe.NGWaferLoadPosition : Recipe.GoodWaferLoadPosition;
+                case FeederPositionType.StageUnload: return ng ? Recipe.NGWaferUnloadPosition : Recipe.GoodWaferUnloadPosition;
+                case FeederPositionType.Exchange: return ng ? Recipe.NGCassetteExchangePosition : Recipe.GoodCassetteExchangePosition;
+                default: throw new ArgumentOutOfRangeException("type");
+            }
+        }
+
+        private void SetSidePosition(BinSide side, FeederPositionType type, double position)
+        {
+            bool ng = side == BinSide.Ng;
+            switch (type)
+            {
+                case FeederPositionType.CassetteLoad:
+                    if (ng) Recipe.NGCassetteLoadPosition = position; else Recipe.GoodCassetteLoadPosition = position;
+                    break;
+                case FeederPositionType.CassetteUnload:
+                    if (ng) Recipe.NGCassetteUnloadPosition = position; else Recipe.GoodCassetteUnloadPosition = position;
+                    break;
+                case FeederPositionType.Barcode:
+                    if (ng) Recipe.NGWaferBarcodePosition = position; else Recipe.GoodWaferBarcodePosition = position;
+                    break;
+                case FeederPositionType.StageLoad:
+                    if (ng) Recipe.NGWaferLoadPosition = position; else Recipe.GoodWaferLoadPosition = position;
+                    break;
+                case FeederPositionType.StageUnload:
+                    if (ng) Recipe.NGWaferUnloadPosition = position; else Recipe.GoodWaferUnloadPosition = position;
+                    break;
+                case FeederPositionType.Exchange:
+                    if (ng) Recipe.NGCassetteExchangePosition = position; else Recipe.GoodCassetteExchangePosition = position;
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException("type");
+            }
+        }
+
+        private static BinSide ToBinSide(TargetCassette cassette)
+        {
+            return cassette == TargetCassette.Ng ? BinSide.Ng : BinSide.Good;
+        }
+
+        private static void ValidateSlotIndex(int slotIndex)
+        {
+            if (slotIndex < 0)
+                throw new ArgumentOutOfRangeException("slotIndex");
         }
 
         private static async Task<bool> WaitUntilAsync(Func<bool> condition, int timeoutMs)

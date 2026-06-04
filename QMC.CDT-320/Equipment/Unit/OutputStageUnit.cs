@@ -1,10 +1,12 @@
 ﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Runtime.Serialization;
 using QMC.Common;
 using QMC.Common.Motion;
 using QMC.CDT320.Ajin;
 using QMC.Common.Alarms;
+using QMC.Common.Logging;
 
 namespace QMC.CDT320
 {
@@ -119,6 +121,8 @@ namespace QMC.CDT320
     /// </summary>
     public class StageModuleSetup : ISetupData
     {
+        [DataMember] public bool IsSimulationMode { get; set; }
+
         /// <summary>
         ///
         ///
@@ -159,8 +163,13 @@ namespace QMC.CDT320
     /// <summary>구현 설명 주석입니다.</summary>
     public class StageModuleConfig : IConfigData
     {
-        /// <summary>구현 설명 주석입니다.</summary>
-        public bool IsSimulationMode { get; set; } = true;
+        [DataMember] public bool bDryRun { get; set; }
+
+        public bool IsSimulationMode
+        {
+            get { return bDryRun; }
+            set { bDryRun = value; }
+        }
 
         /// <summary>구현 설명 주석입니다.</summary>
         public int AvoidCheckIntervalMs { get; set; } = 10;
@@ -184,6 +193,8 @@ namespace QMC.CDT320
     /// <summary>구현 설명 주석입니다.</summary>
     public class OutputStageSetup : ISetupData
     {
+        [DataMember] public bool IsSimulationMode { get; set; }
+
         /// <summary>
         ///
         ///
@@ -206,8 +217,13 @@ namespace QMC.CDT320
     /// <summary>구현 설명 주석입니다.</summary>
     public class OutputStageConfig : IConfigData
     {
-        /// <summary>구현 설명 주석입니다.</summary>
-        public bool IsSimulationMode { get; set; } = true;
+        [DataMember] public bool bDryRun { get; set; }
+
+        public bool IsSimulationMode
+        {
+            get { return bDryRun; }
+            set { bDryRun = value; }
+        }
 
         /// <summary>구현 설명 주석입니다.</summary>
         public int TpuPlaceDoneTimeoutMs { get; set; } = 3000;
@@ -222,8 +238,27 @@ namespace QMC.CDT320
     /// <summary>구현 설명 주석입니다.</summary>
     public class OutputStageRecipe : IRecipeData
     {
+        [DataMember] public StageAxisPositions GoodBinY { get; set; } = new StageAxisPositions();
+        [DataMember] public StageAxisPositions GoodBinZ { get; set; } = new StageAxisPositions();
+        [DataMember] public StageAxisPositions NGBinY { get; set; } = new StageAxisPositions();
+        [DataMember] public StageAxisPositions VisionX { get; set; } = new StageAxisPositions();
+
         /// <summary>구현 설명 주석입니다.</summary>
         public double BinCameraVelocity { get; set; } = 200.0;
+
+        [OnDeserialized]
+        private void OnDeserialized(StreamingContext ctx)
+        {
+            EnsurePositionObjects();
+        }
+
+        public void EnsurePositionObjects()
+        {
+            if (GoodBinY == null) GoodBinY = new StageAxisPositions();
+            if (GoodBinZ == null) GoodBinZ = new StageAxisPositions();
+            if (NGBinY == null) NGBinY = new StageAxisPositions();
+            if (VisionX == null) VisionX = new StageAxisPositions();
+        }
     }
 
     // ==========================================================================
@@ -466,8 +501,208 @@ namespace QMC.CDT320
             BinCameraX.Setup.SoftLimitPlus = 350.0;
 
             // 구현 보조 주석입니다.
+            Components.Add(GoodStage);
             Components.Add(NgStage);
             Components.Add(BinCameraX);
+        }
+
+        public async Task<int> MoveStageAxis(BinStageAxis axis, double targetPos, bool bFine = false)
+        {
+            try
+            {
+                BaseAxis item = ResolveStageAxis(axis);
+                double velocity = ResolveStageAxisVelocity(item, bFine);
+                EventLogger.Write(EventKind.Event, "QMC", "OS-MOVE", axis + " target=" + targetPos);
+                int result = await item.MoveAbsoluteAsync(targetPos, velocity);
+                if (result != 0 || item.IsAlarm)
+                    return RaiseOutputStageAlarm("OS-MOVE", axis + " move failed. result=" + result + ", alarm=" + item.IsAlarm);
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return RaiseOutputStageAlarm("OS-MOVE-EX", axis + " move exception: " + ex.Message);
+            }
+        }
+
+        public Task<int> MoveStageAxisToTeachingPosition(BinStageAxis axis, string positionName, bool bFine = false)
+        {
+            return MoveStageAxis(axis, GetStageTeachingPosition(axis, positionName), bFine);
+        }
+
+        public async Task<int> MoveToStageAvoidPosition(bool bFine = false)
+        {
+            Recipe.EnsurePositionObjects();
+            int result = await MoveStageAxis(BinStageAxis.GoodBinY, Recipe.GoodBinY.AvoidPosition, bFine);
+            if (result != 0) return result;
+            result = await GoodStage.StageZ.MoveAbsoluteAsync(Recipe.GoodBinZ.AvoidPosition, GoodStage.Recipe.ZVelocity);
+            if (result != 0 || GoodStage.StageZ.IsAlarm) return RaiseOutputStageAlarm("OS-GOOD-Z", "GoodStage Z avoid move failed.");
+            result = await MoveStageAxis(BinStageAxis.NgBinY, Recipe.NGBinY.AvoidPosition, bFine);
+            if (result != 0) return result;
+            result = await NgStage.StageZ.MoveAbsoluteAsync(NgStage.Setup.AvoidPositionZ, NgStage.Recipe.ZVelocity);
+            if (result != 0 || NgStage.StageZ.IsAlarm) return RaiseOutputStageAlarm("OS-NG-Z", "NgStage Z avoid move failed.");
+            return await MoveStageAxis(BinStageAxis.VisionX, Recipe.VisionX.AvoidPosition, bFine);
+        }
+
+        public async Task<int> MoveToStageLoadPosition(BinSide side, bool bFine = false)
+        {
+            Recipe.EnsurePositionObjects();
+            if (side == BinSide.Ng)
+            {
+                int result = await MoveStageAxis(BinStageAxis.NgBinY, Recipe.NGBinY.LoadPosition, bFine);
+                if (result != 0) return result;
+                result = await NgStage.StageZ.MoveAbsoluteAsync(NgStage.Setup.WorkPositionZ, NgStage.Recipe.ZVelocity);
+                return result == 0 && !NgStage.StageZ.IsAlarm ? 0 : RaiseOutputStageAlarm("OS-NG-Z", "NgStage Z load move failed.");
+            }
+
+            int move = await MoveStageAxis(BinStageAxis.GoodBinY, Recipe.GoodBinY.LoadPosition, bFine);
+            if (move != 0) return move;
+            move = await GoodStage.StageZ.MoveAbsoluteAsync(Recipe.GoodBinZ.LoadPosition, GoodStage.Recipe.ZVelocity);
+            return move == 0 && !GoodStage.StageZ.IsAlarm ? 0 : RaiseOutputStageAlarm("OS-GOOD-Z", "GoodStage Z load move failed.");
+        }
+
+        public async Task<int> MoveToStageUnloadPosition(BinSide side, bool bFine = false)
+        {
+            Recipe.EnsurePositionObjects();
+            if (side == BinSide.Ng)
+                return await MoveStageAxis(BinStageAxis.NgBinY, Recipe.NGBinY.UnloadPosition, bFine);
+
+            int move = await MoveStageAxis(BinStageAxis.GoodBinY, Recipe.GoodBinY.UnloadPosition, bFine);
+            if (move != 0) return move;
+            move = await GoodStage.StageZ.MoveAbsoluteAsync(Recipe.GoodBinZ.UnloadPosition, GoodStage.Recipe.ZVelocity);
+            return move == 0 && !GoodStage.StageZ.IsAlarm ? 0 : RaiseOutputStageAlarm("OS-GOOD-Z", "GoodStage Z unload move failed.");
+        }
+
+        public async Task<int> MoveToStageProcessPosition(BinSide side, bool bFine = false)
+        {
+            Recipe.EnsurePositionObjects();
+            int result;
+            if (side == BinSide.Ng)
+                result = await MoveStageAxis(BinStageAxis.NgBinY, Recipe.NGBinY.ProcessPosition, bFine);
+            else
+            {
+                result = await MoveStageAxis(BinStageAxis.GoodBinY, Recipe.GoodBinY.ProcessPosition, bFine);
+                if (result == 0)
+                {
+                    int z = await GoodStage.StageZ.MoveAbsoluteAsync(Recipe.GoodBinZ.ProcessPosition, GoodStage.Recipe.ZVelocity);
+                    if (z != 0 || GoodStage.StageZ.IsAlarm) result = RaiseOutputStageAlarm("OS-GOOD-Z", "GoodStage Z process move failed.");
+                }
+            }
+
+            if (result != 0) return result;
+            return await MoveStageAxis(BinStageAxis.VisionX, Recipe.VisionX.ProcessPosition, bFine);
+        }
+
+        public bool IsStageAxisInPosition(BinStageAxis axis, double targetPos, double tolerance)
+        {
+            return Math.Abs(ResolveStageAxis(axis).ActualPosition - targetPos) <= tolerance;
+        }
+
+        public async Task<bool> WaitStageAxisMoveDone(BinStageAxis axis, int timeoutMs)
+        {
+            BaseAxis item = ResolveStageAxis(axis);
+            return await WaitUntilAsync(() => !item.IsMoving && item.IsInPosition && !item.IsAlarm, timeoutMs);
+        }
+
+        public void TeachStageAxisPosition(BinStageAxis axis, string positionName)
+        {
+            SetStageTeachingPosition(axis, positionName, ResolveStageAxis(axis).ActualPosition);
+            EventLogger.Write(EventKind.Event, "QMC", "OS-TEACH", axis + "." + positionName + "=" + ResolveStageAxis(axis).ActualPosition);
+        }
+
+        public double GetStageTeachingPosition(BinStageAxis axis, string positionName)
+        {
+            Recipe.EnsurePositionObjects();
+            StageAxisPositions positions = ResolveRecipePositions(axis);
+            if (string.Equals(positionName, "Avoid", StringComparison.OrdinalIgnoreCase)) return positions.AvoidPosition;
+            if (string.Equals(positionName, "Load", StringComparison.OrdinalIgnoreCase)) return positions.LoadPosition;
+            if (string.Equals(positionName, "Process", StringComparison.OrdinalIgnoreCase)) return positions.ProcessPosition;
+            if (string.Equals(positionName, "Unload", StringComparison.OrdinalIgnoreCase)) return positions.UnloadPosition;
+            if (string.Equals(positionName, "Reticle", StringComparison.OrdinalIgnoreCase)) return positions.ReticlePosition;
+            throw new ArgumentException("Unknown stage teaching position: " + positionName, "positionName");
+        }
+
+        public bool ValidateStageTeachingComplete(BinSide side)
+        {
+            Recipe.EnsurePositionObjects();
+            StageAxisPositions y = side == BinSide.Ng ? Recipe.NGBinY : Recipe.GoodBinY;
+            return y.LoadPosition != y.AvoidPosition &&
+                   y.ProcessPosition != y.AvoidPosition &&
+                   y.UnloadPosition != y.AvoidPosition;
+        }
+
+        private BaseAxis ResolveStageAxis(BinStageAxis axis)
+        {
+            switch (axis)
+            {
+                case BinStageAxis.NgBinY: return NgStage.StageY;
+                case BinStageAxis.NgBinZ: return NgStage.StageZ;
+                case BinStageAxis.GoodBinY: return GoodStage.StageY;
+                case BinStageAxis.VisionX: return BinCameraX;
+                default: throw new ArgumentOutOfRangeException("axis");
+            }
+        }
+
+        private double ResolveStageAxisVelocity(BaseAxis axis, bool bFine)
+        {
+            if (axis == BinCameraX)
+                return Recipe.BinCameraVelocity;
+
+            if (bFine && axis.Config != null && axis.Config.JogFineVelocity > 0.0)
+                return axis.Config.JogFineVelocity;
+
+            if (axis.Config != null && axis.Config.DefaultVelocity > 0.0)
+                return axis.Config.DefaultVelocity;
+
+            return 100.0;
+        }
+
+        private StageAxisPositions ResolveRecipePositions(BinStageAxis axis)
+        {
+            Recipe.EnsurePositionObjects();
+            switch (axis)
+            {
+                case BinStageAxis.NgBinY:
+                case BinStageAxis.NgBinZ:
+                    return Recipe.NGBinY;
+                case BinStageAxis.GoodBinY:
+                    return Recipe.GoodBinY;
+                case BinStageAxis.VisionX:
+                    return Recipe.VisionX;
+                default:
+                    throw new ArgumentOutOfRangeException("axis");
+            }
+        }
+
+        private void SetStageTeachingPosition(BinStageAxis axis, string positionName, double position)
+        {
+            StageAxisPositions positions = ResolveRecipePositions(axis);
+            if (string.Equals(positionName, "Avoid", StringComparison.OrdinalIgnoreCase)) positions.AvoidPosition = position;
+            else if (string.Equals(positionName, "Load", StringComparison.OrdinalIgnoreCase)) positions.LoadPosition = position;
+            else if (string.Equals(positionName, "Process", StringComparison.OrdinalIgnoreCase)) positions.ProcessPosition = position;
+            else if (string.Equals(positionName, "Unload", StringComparison.OrdinalIgnoreCase)) positions.UnloadPosition = position;
+            else if (string.Equals(positionName, "Reticle", StringComparison.OrdinalIgnoreCase)) positions.ReticlePosition = position;
+            else throw new ArgumentException("Unknown stage teaching position: " + positionName, "positionName");
+        }
+
+        private int RaiseOutputStageAlarm(string code, string message)
+        {
+            EventLogger.Write(EventKind.Alarm, "QMC", code, message);
+            AlarmManager.Raise(AlarmSeverity.Error, code, Name, message);
+            return -1;
+        }
+
+        private static async Task<bool> WaitUntilAsync(Func<bool> condition, int timeoutMs)
+        {
+            int elapsed = 0;
+            while (timeoutMs <= 0 || elapsed < timeoutMs)
+            {
+                if (condition())
+                    return true;
+
+                await Task.Delay(10).ContinueWith(_ => { });
+                elapsed += 10;
+            }
+            return condition();
         }
 
         // ======================================================================

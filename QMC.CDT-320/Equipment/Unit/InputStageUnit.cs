@@ -7,6 +7,8 @@ using QMC.Common.Motion;
 using QMC.CDT320.Ajin;
 using QMC.Common.Alarms;
 using QMC.Common.Logging;
+using System.Collections.Generic;
+using System.Runtime.Serialization;
 
 namespace QMC.CDT320
 {
@@ -20,6 +22,10 @@ namespace QMC.CDT320
     /// </summary>
     public class InputStageSetup : ISetupData
     {
+        [DataMember] public bool IsSimulationMode { get; set; } = false;
+
+        [DataMember] public double SafetyRadius { get; set; } = 0.0;
+
         /// <summary>ExpanderZ 하강(웨이퍼 고정) 절대 위치 [mm].</summary>
         public double ExpanderDownPosition  { get; set; } = 50.0;
 
@@ -81,8 +87,21 @@ namespace QMC.CDT320
     /// </summary>
     public class InputStageConfig : IConfigData
     {
-        /// <summary>시뮬레이션 모드 여부 (기본값: true).</summary>
-        public bool IsSimulationMode { get; set; } = true;
+        [DataMember] public bool bDryRun { get; set; }
+
+        [DataMember] public double PickUpEjectPinOffset { get; set; }
+
+        [DataMember] public double PickUpEjectPinSpeed { get; set; } = 100.0;
+
+        [DataMember] public double PickUpEjectPinAcc { get; set; }
+
+        [DataMember] public double PickUpEjectPinDec { get; set; }
+
+        public bool IsSimulationMode
+        {
+            get { return bDryRun; }
+            set { bDryRun = value; }
+        }
 
         /// <summary>얼라인 반복 촬상 최대 횟수.</summary>
         public int MaxAlignIterations { get; set; } = 3;
@@ -94,8 +113,28 @@ namespace QMC.CDT320
     /// <summary>
     /// InputStageUnit의 공정별 작업 파라미터.
     /// </summary>
+    [DataContract]
+    public sealed class StageAxisPositions
+    {
+        [DataMember] public double AvoidPosition { get; set; }
+        [DataMember] public double LoadPosition { get; set; }
+        [DataMember] public double ProcessPosition { get; set; }
+        [DataMember] public double UnloadPosition { get; set; }
+        [DataMember] public double ReadyPosition { get; set; }
+        [DataMember] public double ReticlePosition { get; set; }
+        [DataMember] public double[] DiePosition { get; set; } = new double[0];
+    }
+
     public class InputStageRecipe : IRecipeData
     {
+        [DataMember] public StageAxisPositions WaferY { get; set; } = new StageAxisPositions();
+        [DataMember] public StageAxisPositions WaferT { get; set; } = new StageAxisPositions();
+        [DataMember] public StageAxisPositions WaferZ { get; set; } = new StageAxisPositions();
+        [DataMember] public StageAxisPositions VisionX { get; set; } = new StageAxisPositions();
+        [DataMember] public StageAxisPositions NeedleX { get; set; } = new StageAxisPositions();
+        [DataMember] public StageAxisPositions NeedleZ { get; set; } = new StageAxisPositions();
+        [DataMember] public StageAxisPositions EjectPinZ { get; set; } = new StageAxisPositions();
+
         /// <summary>일반 이동 속도 [mm/s]. xlsx WaferStageY = 500 mm/s 반영.</summary>
         public double MoveVelocity          { get; set; } = 500.0;
 
@@ -129,6 +168,23 @@ namespace QMC.CDT320
 
         /// <summary>축 이동 완료 대기 타임아웃 [ms].</summary>
         public int MoveTimeoutMs            { get; set; } = 10000;
+
+        [OnDeserialized]
+        private void OnDeserialized(StreamingContext ctx)
+        {
+            EnsurePositionObjects();
+        }
+
+        public void EnsurePositionObjects()
+        {
+            if (WaferY == null) WaferY = new StageAxisPositions();
+            if (WaferT == null) WaferT = new StageAxisPositions();
+            if (WaferZ == null) WaferZ = new StageAxisPositions();
+            if (VisionX == null) VisionX = new StageAxisPositions();
+            if (NeedleX == null) NeedleX = new StageAxisPositions();
+            if (NeedleZ == null) NeedleZ = new StageAxisPositions();
+            if (EjectPinZ == null) EjectPinZ = new StageAxisPositions();
+        }
     }
 
     // ??????????????????????????????????????????????????????????????????????????

@@ -1,4 +1,4 @@
-using QMC.CDT320.Ajin;
+﻿using QMC.CDT320.Ajin;
 using QMC.Common;
 using QMC.Common.IO;
 using QMC.Common.Motion;
@@ -54,7 +54,7 @@ namespace QMC.CDT320
     public enum StageAlarmCode { None, AxisAlarm, MoveTimeout, TeachingMissing, Interlock, MaterialMissing }
 
     /// <summary>엑셀 Sheet 기반 Unit에서 공통으로 사용하는 Setup 데이터입니다.</summary>
-    public class SheetUnitSetup : ISetupData
+    public class UnitDefinedSetup : ISetupData
     {
         /// <summary>티칭 위치 테이블입니다.</summary>
         public Dictionary<string, double> TeachingPositions { get; set; } = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
@@ -76,14 +76,14 @@ namespace QMC.CDT320
     }
 
     /// <summary>엑셀 Sheet 기반 Unit에서 공통으로 사용하는 Config 데이터입니다.</summary>
-    public class SheetUnitConfig : IConfigData
+    public class UnitDefinedConfig : IConfigData
     {
         /// <summary>시뮬레이션 모드 여부입니다.</summary>
         public bool IsSimulationMode { get; set; } = true;
     }
 
     /// <summary>엑셀 Sheet 기반 Unit에서 공통으로 사용하는 Recipe 데이터입니다.</summary>
-    public class SheetUnitRecipe : IRecipeData
+    public class UnitDefinedRecipe : IRecipeData
     {
         /// <summary>축 이동 제한 시간입니다.</summary>
         public int MoveTimeoutMs { get; set; } = 5000;
@@ -96,7 +96,7 @@ namespace QMC.CDT320
     }
 
     /// <summary>엑셀 시트 정의 기반 Unit 공통 기능을 제공합니다.</summary>
-    public abstract class SheetDefinedUnit<TAxis> : BaseUnit<SheetUnitSetup, SheetUnitConfig, SheetUnitRecipe>
+    public abstract class UnitDefined<TAxis> : BaseUnit<UnitDefinedSetup, UnitDefinedConfig, UnitDefinedRecipe>
         where TAxis : struct
     {
         private readonly Dictionary<TAxis, BaseAxis> _axes = new Dictionary<TAxis, BaseAxis>();
@@ -104,7 +104,7 @@ namespace QMC.CDT320
         private readonly Dictionary<string, BaseDigitalOutput> _outputs = new Dictionary<string, BaseDigitalOutput>(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>시트 정의 Unit을 생성합니다.</summary>
-        protected SheetDefinedUnit(string name) : base(name) { }
+        protected UnitDefined(string name) : base(name) { }
 
         /// <summary>등록된 축 목록입니다.</summary>
         public IReadOnlyDictionary<TAxis, BaseAxis> Axes { get { return _axes; } }

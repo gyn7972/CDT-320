@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Runtime.Serialization;
 using System.Threading;
@@ -11,11 +11,11 @@ using QMC.Common.Motion;
 namespace QMC.CDT320
 {
     [DataContract]
-    public class OutCassetteSetup : ISetupData
+    public class OutputCassetteSetup : ISetupData
     {
         [DataMember] public bool IsSimulationMode { get; set; }
 
-        public OutCassetteSetup()
+        public OutputCassetteSetup()
         {
             SetDefaults();
         }
@@ -30,7 +30,7 @@ namespace QMC.CDT320
     }
 
     [DataContract]
-    public class OutCassetteConfig : IConfigData
+    public class OutputCassetteConfig : IConfigData
     {
         [DataMember] public bool bDryRun { get; set; }
         [DataMember] public double LoadingPositionOffset { get; set; }
@@ -46,7 +46,7 @@ namespace QMC.CDT320
         [DataMember] public double ScanDec { get; set; }
         [DataMember] public int ScanSettleTimeMs { get; set; }
 
-        public OutCassetteConfig()
+        public OutputCassetteConfig()
         {
             SetDefaults();
         }
@@ -73,7 +73,7 @@ namespace QMC.CDT320
     }
 
     [DataContract]
-    public class OutCassetteRecipe : IRecipeData
+    public class OutputCassetteRecipe : IRecipeData
     {
         [DataMember] public double AvoidPosition { get; set; }
         [DataMember] public double GoodLoaingPosition { get; set; }
@@ -87,7 +87,7 @@ namespace QMC.CDT320
         [DataMember] public double MappingStartPosition { get; set; }
         [DataMember] public double MappingEndPosition { get; set; }
 
-        public OutCassetteRecipe()
+        public OutputCassetteRecipe()
         {
             SetDefaults();
         }
@@ -143,7 +143,7 @@ namespace QMC.CDT320
         }
     }
 
-    public class OutCassetteUnit : BaseUnit<OutCassetteSetup, OutCassetteConfig, OutCassetteRecipe>
+    public class OutputCassetteUnit : BaseUnit<OutputCassetteSetup, OutputCassetteConfig, OutputCassetteRecipe>
     {
         private readonly Dictionary<TargetCassette, bool[]> _slotMap = new Dictionary<TargetCassette, bool[]>();
         private readonly Dictionary<TargetCassette, Dictionary<int, WaferSlotState>> _slotStates =
@@ -170,7 +170,7 @@ namespace QMC.CDT320
         public BaseDigitalInput WaferDetectSensor { get { return BinMappingSensor; } }
         public IReadOnlyDictionary<TargetCassette, bool[]> SlotMap { get { return _slotMap; } }
 
-        public OutCassetteUnit() : base("BinCassetteUnit")
+        public OutputCassetteUnit() : base("BinCassetteUnit")
         {
             BinLifterZ = AjinFactory.CreateAxis("BinLifterZ");
             BinLifterZ.Setup.SoftLimitPlus = 400.0;
