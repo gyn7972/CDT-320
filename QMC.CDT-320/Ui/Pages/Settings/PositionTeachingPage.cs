@@ -325,14 +325,14 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             L.Add(new TeachItem { Group="OutputStage", Key="BinCameraWorkPositionX", Name="BinCamera Work X",    Axis="#34 BinVisionX", Value=200.0, Unit="mm", Desc="Bin 검사 위치" });
             L.Add(new TeachItem { Group="OutputStage", Key="BinCameraRetractX",      Name="BinCamera Retract X", Axis="#34 BinVisionX", Value=0.0,   Unit="mm", Desc="후퇴(대기) 위치" });
 
-            // ── OutputUnloader ─────────────────────────────────────────
-            L.Add(new TeachItem { Group="OutputUnloader", Key="NgFirstSlotPositionZ",    Name="NG Slot 0 Z",           Axis="#36 BinLifterZ",  Value=20.0,   Unit="mm", Desc="NG 카세트 첫 슬롯" });
-            L.Add(new TeachItem { Group="OutputUnloader", Key="Good1FirstSlotPositionZ", Name="Good1 Slot 0 Z",        Axis="#36 BinLifterZ",  Value=80.0,   Unit="mm", Desc="Good1 카세트 첫 슬롯" });
-            L.Add(new TeachItem { Group="OutputUnloader", Key="Good2FirstSlotPositionZ", Name="Good2 Slot 0 Z",        Axis="#36 BinLifterZ",  Value=160.0,  Unit="mm", Desc="Good2 카세트 첫 슬롯" });
-            L.Add(new TeachItem { Group="OutputUnloader", Key="SlotPitchZ",              Name="슬롯 피치 Z",            Axis="#36 BinLifterZ",  Value=6.0,    Unit="mm", Desc="슬롯 간 간격" });
-            L.Add(new TeachItem { Group="OutputUnloader", Key="NgStageExchangePositionY",  Name="NG 교환 Y",            Axis="#35 BinFeederY",  Value=180.0,  Unit="mm", Desc="NG 카세트 인계 Y" });
-            L.Add(new TeachItem { Group="OutputUnloader", Key="GoodStageExchangePositionY",Name="Good 교환 Y",          Axis="#35 BinFeederY",  Value=180.0,  Unit="mm", Desc="Good 카세트 인계 Y" });
-            L.Add(new TeachItem { Group="OutputUnloader", Key="CassetteInsertPositionY",   Name="카세트 삽입 Y",        Axis="#35 BinFeederY",  Value=250.0,  Unit="mm", Desc="카세트 안쪽 진입 위치" });
+            // ── OutputCassette / OutputFeeder ─────────────────────────
+            L.Add(new TeachItem { Group="OutputCassette", Key="NgFirstSlotPositionZ",    Name="NG Slot 0 Z",           Axis="#36 BinLifterZ",  Value=20.0,   Unit="mm", Desc="NG 카세트 첫 슬롯" });
+            L.Add(new TeachItem { Group="OutputCassette", Key="Good1FirstSlotPositionZ", Name="Good1 Slot 0 Z",        Axis="#36 BinLifterZ",  Value=80.0,   Unit="mm", Desc="Good1 카세트 첫 슬롯" });
+            L.Add(new TeachItem { Group="OutputCassette", Key="Good2FirstSlotPositionZ", Name="Good2 Slot 0 Z",        Axis="#36 BinLifterZ",  Value=160.0,  Unit="mm", Desc="Good2 카세트 첫 슬롯" });
+            L.Add(new TeachItem { Group="OutputCassette", Key="SlotPitchZ",              Name="슬롯 피치 Z",            Axis="#36 BinLifterZ",  Value=6.0,    Unit="mm", Desc="슬롯 간 간격" });
+            L.Add(new TeachItem { Group="OutputFeeder", Key="NgStageExchangePositionY",  Name="NG 교환 Y",             Axis="#35 BinFeederY",  Value=180.0,  Unit="mm", Desc="NG 카세트 인계 Y" });
+            L.Add(new TeachItem { Group="OutputFeeder", Key="GoodStageExchangePositionY",Name="Good 교환 Y",           Axis="#35 BinFeederY",  Value=180.0,  Unit="mm", Desc="Good 카세트 인계 Y" });
+            L.Add(new TeachItem { Group="OutputFeeder", Key="CassetteInsertPositionY",   Name="카세트 삽입 Y",         Axis="#35 BinFeederY",  Value=250.0,  Unit="mm", Desc="카세트 안쪽 진입 위치" });
 
             return L;
         }
@@ -551,14 +551,14 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                         case "OutputStage.BinCameraWorkPositionX":  m.OutputStage.Setup.BinCameraWorkPositionX    = it.Value; applied++; break;
                         case "OutputStage.BinCameraRetractX":       m.OutputStage.Setup.BinCameraRetractPositionX = it.Value; applied++; break;
 
-                        // OutputUnloader (Stage 59 round 11)
-                        case "OutputUnloader.NgFirstSlotPositionZ":    m.OutputUnloader.Setup.NgFirstSlotPositionZ    = it.Value; applied++; break;
-                        case "OutputUnloader.Good1FirstSlotPositionZ": m.OutputUnloader.Setup.Good1FirstSlotPositionZ = it.Value; applied++; break;
-                        case "OutputUnloader.Good2FirstSlotPositionZ": m.OutputUnloader.Setup.Good2FirstSlotPositionZ = it.Value; applied++; break;
-                        case "OutputUnloader.SlotPitchZ":              m.OutputUnloader.Setup.SlotPitchZ              = it.Value; applied++; break;
-                        case "OutputUnloader.NgStageExchangePositionY":  m.OutputUnloader.Setup.NgStageExchangePositionY   = it.Value; applied++; break;
-                        case "OutputUnloader.GoodStageExchangePositionY":m.OutputUnloader.Setup.GoodStageExchangePositionY = it.Value; applied++; break;
-                        case "OutputUnloader.CassetteInsertPositionY":   m.OutputUnloader.Setup.CassetteInsertPositionY    = it.Value; applied++; break;
+                        // OutputCassette / OutputFeeder
+                        case "OutputCassette.NgFirstSlotPositionZ":    m.OutputCassette.Recipe.NGFirstSlotPosition = it.Value; applied++; break;
+                        case "OutputCassette.Good1FirstSlotPositionZ": m.OutputCassette.Recipe.GoodFirstSlotPosition = it.Value; applied++; break;
+                        case "OutputCassette.Good2FirstSlotPositionZ": m.OutputCassette.Config.GOODNGPositionOffset = it.Value - m.OutputCassette.Recipe.GoodFirstSlotPosition; applied++; break;
+                        case "OutputCassette.SlotPitchZ":              m.OutputCassette.Config.SlotPitch = it.Value; applied++; break;
+                        case "OutputFeeder.NgStageExchangePositionY":  m.OutputFeeder.Recipe.NGWaferLoadPosition = it.Value; m.OutputFeeder.Recipe.NGWaferUnloadPosition = it.Value; applied++; break;
+                        case "OutputFeeder.GoodStageExchangePositionY":m.OutputFeeder.Recipe.GoodWaferLoadPosition = it.Value; m.OutputFeeder.Recipe.GoodWaferUnloadPosition = it.Value; applied++; break;
+                        case "OutputFeeder.CassetteInsertPositionY":   m.OutputFeeder.Recipe.GoodCassetteExchangePosition = it.Value; m.OutputFeeder.Recipe.NGCassetteExchangePosition = it.Value; applied++; break;
 
                         // Stage 60 R-teach — 추가 매핑 (이전 16개 미적용 항목 보강)
                         // OutputStage 의 두 StageModule (Good + Ng) 모두 동일 값 적용
@@ -575,43 +575,43 @@ namespace QMC.CDT_320.Ui.Pages.Settings
 
                         // TpuArmSetup — Front
                         case "TPU.Front.ArmInputX":
-                            m.TransferPicker.LeftArm.Setup.ArmInputPositionX      = it.Value; applied++; break;
+                            m.PickerFront.Setup.ArmInputPositionX      = it.Value; applied++; break;
                         case "TPU.Front.ArmInspectX":
-                            m.TransferPicker.LeftArm.Setup.ArmInspectionPositionX = it.Value; applied++; break;
+                            m.PickerFront.Setup.ArmInspectionPositionX = it.Value; applied++; break;
                         case "TPU.Front.ArmOutputX":
-                            m.TransferPicker.LeftArm.Setup.ArmOutputPositionX     = it.Value; applied++; break;
+                            m.PickerFront.Setup.ArmOutputPositionX     = it.Value; applied++; break;
                         case "TPU.Front.SideVision1X":
-                            m.TransferPicker.LeftArm.Setup.SideVision1X = it.Value; applied++; break;
+                            m.PickerFront.Setup.SideVision1X = it.Value; applied++; break;
                         case "TPU.Front.SideVision1Y":
-                            m.TransferPicker.LeftArm.Setup.SideVision1Y = it.Value; applied++; break;
+                            m.PickerFront.Setup.SideVision1Y = it.Value; applied++; break;
                         case "TPU.Front.PickerPitchX":
-                            m.TransferPicker.LeftArm.Setup.PickerPitchX = it.Value; applied++; break;
+                            m.PickerFront.Setup.PickerPitchX = it.Value; applied++; break;
                         case "TPU.Front.SideY0":
-                            m.TransferPicker.LeftArm.Setup.SideVisionY0 = it.Value; applied++; break;
+                            m.PickerFront.Setup.SideVisionY0 = it.Value; applied++; break;
                         case "TPU.Front.ArmYPickup":
-                            m.TransferPicker.LeftArm.Setup.ArmYPickupPosition = it.Value; applied++; break;
+                            m.PickerFront.Setup.ArmYPickupPosition = it.Value; applied++; break;
                         case "TPU.Front.ArmYAvoid":
-                            m.TransferPicker.LeftArm.Setup.ArmYAvoidPosition  = it.Value; applied++; break;
+                            m.PickerFront.Setup.ArmYAvoidPosition  = it.Value; applied++; break;
 
                         // TpuArmSetup — Rear (대칭)
                         case "TPU.Rear.ArmInputX":
-                            m.TransferPicker.RightArm.Setup.ArmInputPositionX      = it.Value; applied++; break;
+                            m.PickerRear.Setup.ArmInputPositionX      = it.Value; applied++; break;
                         case "TPU.Rear.ArmInspectX":
-                            m.TransferPicker.RightArm.Setup.ArmInspectionPositionX = it.Value; applied++; break;
+                            m.PickerRear.Setup.ArmInspectionPositionX = it.Value; applied++; break;
                         case "TPU.Rear.ArmOutputX":
-                            m.TransferPicker.RightArm.Setup.ArmOutputPositionX     = it.Value; applied++; break;
+                            m.PickerRear.Setup.ArmOutputPositionX     = it.Value; applied++; break;
                         case "TPU.Rear.SideVision1X":
-                            m.TransferPicker.RightArm.Setup.SideVision1X = it.Value; applied++; break;
+                            m.PickerRear.Setup.SideVision1X = it.Value; applied++; break;
                         case "TPU.Rear.SideVision1Y":
-                            m.TransferPicker.RightArm.Setup.SideVision1Y = it.Value; applied++; break;
+                            m.PickerRear.Setup.SideVision1Y = it.Value; applied++; break;
                         case "TPU.Rear.PickerPitchX":
-                            m.TransferPicker.RightArm.Setup.PickerPitchX = it.Value; applied++; break;
+                            m.PickerRear.Setup.PickerPitchX = it.Value; applied++; break;
                         case "TPU.Rear.SideY0":
-                            m.TransferPicker.RightArm.Setup.SideVisionY0 = it.Value; applied++; break;
+                            m.PickerRear.Setup.SideVisionY0 = it.Value; applied++; break;
                         case "TPU.Rear.ArmYPickup":
-                            m.TransferPicker.RightArm.Setup.ArmYPickupPosition = it.Value; applied++; break;
+                            m.PickerRear.Setup.ArmYPickupPosition = it.Value; applied++; break;
                         case "TPU.Rear.ArmYAvoid":
-                            m.TransferPicker.RightArm.Setup.ArmYAvoidPosition  = it.Value; applied++; break;
+                            m.PickerRear.Setup.ArmYAvoidPosition  = it.Value; applied++; break;
 
                         default:
                             // 매핑 미지원 항목 — JSON 저장은 되지만 Setup 미반영. 디버그용 로그.
@@ -660,15 +660,20 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                     return 0;
                 if (idx < 0 || idx > 3) return 0;
 
-                var arm = isFront ? m.TransferPicker.LeftArm : m.TransferPicker.RightArm;
-                var p   = arm.Pickers[idx];
+                if (isFront)
+                    m.PickerFront.SetRuntimePickerZPosition(idx, it.Key, it.Value);
+                else
+                    m.PickerRear.SetRuntimePickerZPosition(idx, it.Key, it.Value);
+
                 switch (it.Key)
                 {
-                    case "PickPosition":  p.Setup.PickupPosition = it.Value; return 1;
-                    case "PlacePosition": p.Setup.PlacePosition  = it.Value; return 1;
-                    case "FocusPosition": p.Setup.FocusPosition  = it.Value; return 1;
-                    case "WaitPosition":  p.Setup.WaitPosition   = it.Value; return 1;
-                    default: return 0;
+                    case "PickPosition":
+                    case "PlacePosition":
+                    case "FocusPosition":
+                    case "WaitPosition":
+                        return 1;
+                    default:
+                        return 0;
                 }
             }
             catch { return 0; }

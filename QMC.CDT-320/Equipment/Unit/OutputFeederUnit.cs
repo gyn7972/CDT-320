@@ -110,7 +110,7 @@ namespace QMC.CDT320
         public bool IsMoveReady { get; set; }
     }
 
-    public class OutputFeederUnit : BaseUnit<OutputFeederSetup, OutputFeederConfig, OutputFeederRecipe>
+    public class OutputFeederUnit : BaseUnit<OutputFeederSetup, OutputFeederConfig, OutputFeederRecipe>, IUnitJogController
     {
         private readonly Dictionary<string, double> _positionSnapshots = new Dictionary<string, double>();
 
@@ -151,6 +151,49 @@ namespace QMC.CDT320
             Components.Add(BinFeederOverloadSensor);
             Components.Add(FeederUpDownCyl);
             Components.Add(FeederClampCyl);
+        }
+
+        public bool CanHandleJogAxis(BaseAxis axis)
+        {
+            return axis != null && ReferenceEquals(axis, FeederY);
+        }
+
+        public Task<int> JogStepAsync(
+            BaseAxis axis,
+            int direction,
+            JogSpeedType speedType,
+            double customSpeed,
+            double axisStepDistance)
+        {
+            if (!CanHandleJogAxis(axis))
+                return Task.FromResult(-1);
+
+            double signedDistance = (direction < 0 ? -1.0 : 1.0) * Math.Abs(axisStepDistance);
+            double target = FeederY.ActualPosition + signedDistance;
+            return MoveBinFeederY(target, speedType == JogSpeedType.Fine);
+        }
+
+        public Task<int> JogContinuousAsync(
+            BaseAxis axis,
+            int direction,
+            JogSpeedType speedType,
+            double customSpeed)
+        {
+            if (!CanHandleJogAxis(axis))
+                return Task.FromResult(-1);
+
+            double speed = UnitJogVelocityResolver.Resolve(axis, speedType, customSpeed);
+            ManualMoveBinFeederYJog(direction, speed);
+            return Task.FromResult(0);
+        }
+
+        public Task<int> StopJogAsync(BaseAxis axis)
+        {
+            if (!CanHandleJogAxis(axis))
+                return Task.FromResult(-1);
+
+            ManualStopBinFeederY();
+            return Task.FromResult(0);
         }
 
         public Task<int> MoveBinFeederY(double targetPos, bool bFine = false)

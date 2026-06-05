@@ -32,6 +32,9 @@ namespace QMC.CDT320
     /// <summary>Bin 계열 좌우/양불 작업 영역입니다.</summary>
     public enum BinSide { Ng, Good }
 
+    /// <summary>Output/bin cassette target group.</summary>
+    public enum TargetCassette { Ng, Good1, Good2 }
+
     /// <summary>카세트/피더/스테이지 간 이송 동작 모드입니다.</summary>
     public enum TransferMode { Load, Unload, Mapping, Manual }
 
@@ -183,7 +186,7 @@ namespace QMC.CDT320
     }
 
     /// <summary>엑셀 시트 정의 기반 Unit 공통 기능을 제공합니다.</summary>
-    public abstract class UnitDefined<TAxis> : BaseUnit<UnitDefinedSetup, UnitDefinedConfig, UnitDefinedRecipe>
+    public abstract class UnitDefined<TAxis> : BaseUnit<UnitDefinedSetup, UnitDefinedConfig, UnitDefinedRecipe>, IUnitJogController
         where TAxis : struct
     {
         private readonly Dictionary<TAxis, BaseAxis> _axes = new Dictionary<TAxis, BaseAxis>();
@@ -202,6 +205,54 @@ namespace QMC.CDT320
         /// <summary>등록된 출력 목록입니다.</summary>
         public IReadOnlyDictionary<string, BaseDigitalOutput> Outputs { get { return _outputs; } }
 
+        public bool CanHandleJogAxis(BaseAxis axis)
+        {
+            TAxis unitAxis;
+            return TryResolveAxis(axis, out unitAxis);
+        }
+
+        public async Task<int> JogStepAsync(
+            BaseAxis axis,
+            int direction,
+            JogSpeedType speedType,
+            double customSpeed,
+            double axisStepDistance)
+        {
+            TAxis unitAxis;
+            if (!TryResolveAxis(axis, out unitAxis))
+                return -1;
+
+            double signedDistance = (direction < 0 ? -1.0 : 1.0) * Math.Abs(axisStepDistance);
+            double target = axis.ActualPosition + signedDistance;
+            await MoveAxisAsync(unitAxis, target, speedType == JogSpeedType.Fine);
+            return 0;
+        }
+
+        public Task<int> JogContinuousAsync(
+            BaseAxis axis,
+            int direction,
+            JogSpeedType speedType,
+            double customSpeed)
+        {
+            TAxis unitAxis;
+            if (!TryResolveAxis(axis, out unitAxis))
+                return Task.FromResult(-1);
+
+            double speed = UnitJogVelocityResolver.Resolve(axis, speedType, customSpeed);
+            ManualMoveAxisJog(unitAxis, direction < 0 ? Direction.Minus : Direction.Plus, speed);
+            return Task.FromResult(0);
+        }
+
+        public Task<int> StopJogAsync(BaseAxis axis)
+        {
+            TAxis unitAxis;
+            if (!TryResolveAxis(axis, out unitAxis))
+                return Task.FromResult(-1);
+
+            ManualStopAxis(unitAxis);
+            return Task.FromResult(0);
+        }
+
         /// <summary>축을 등록하고 Components에 추가합니다.</summary>
         protected BaseAxis RegisterAxis(TAxis axis, string axisName)
         {
@@ -209,6 +260,21 @@ namespace QMC.CDT320
             _axes[axis] = item;
             Components.Add(item);
             return item;
+        }
+
+        private bool TryResolveAxis(BaseAxis axis, out TAxis unitAxis)
+        {
+            foreach (KeyValuePair<TAxis, BaseAxis> pair in _axes)
+            {
+                if (ReferenceEquals(axis, pair.Value))
+                {
+                    unitAxis = pair.Key;
+                    return true;
+                }
+            }
+
+            unitAxis = default(TAxis);
+            return false;
         }
 
         /// <summary>입력 포트를 등록하고 Components에 추가합니다.</summary>

@@ -98,7 +98,7 @@ namespace QMC.CDT320
         public bool RearSideVisionYAlarm { get; set; }
     }
 
-    public class VisionUnit : BaseUnit<VisionSetup, VisionConfig, VisionRecipe>
+    public class VisionUnit : BaseUnit<VisionSetup, VisionConfig, VisionRecipe>, IUnitJogController
     {
         private readonly Dictionary<VisionAxis, BaseAxis> axes = new Dictionary<VisionAxis, BaseAxis>();
 
@@ -145,6 +145,68 @@ namespace QMC.CDT320
         }
 
         public IReadOnlyDictionary<VisionAxis, BaseAxis> Axes { get { return axes; } }
+
+        public bool CanHandleJogAxis(BaseAxis axis)
+        {
+            VisionAxis visionAxis;
+            return TryResolveVisionAxis(axis, out visionAxis);
+        }
+
+        public async Task<int> JogStepAsync(
+            BaseAxis axis,
+            int direction,
+            JogSpeedType speedType,
+            double customSpeed,
+            double axisStepDistance)
+        {
+            VisionAxis visionAxis;
+            if (!TryResolveVisionAxis(axis, out visionAxis))
+                return -1;
+
+            double signedDistance = (direction < 0 ? -1.0 : 1.0) * Math.Abs(axisStepDistance);
+            double target = axis.ActualPosition + signedDistance;
+            return await MoveVisionAxis(visionAxis, target, speedType == JogSpeedType.Fine);
+        }
+
+        public Task<int> JogContinuousAsync(
+            BaseAxis axis,
+            int direction,
+            JogSpeedType speedType,
+            double customSpeed)
+        {
+            VisionAxis visionAxis;
+            if (!TryResolveVisionAxis(axis, out visionAxis))
+                return Task.FromResult(-1);
+
+            double speed = UnitJogVelocityResolver.Resolve(axis, speedType, customSpeed);
+            ManualMoveVisionAxisJog(visionAxis, direction < 0 ? Direction.Minus : Direction.Plus, speed);
+            return Task.FromResult(0);
+        }
+
+        public Task<int> StopJogAsync(BaseAxis axis)
+        {
+            VisionAxis visionAxis;
+            if (!TryResolveVisionAxis(axis, out visionAxis))
+                return Task.FromResult(-1);
+
+            ManualStopVisionAxis(visionAxis);
+            return Task.FromResult(0);
+        }
+
+        private bool TryResolveVisionAxis(BaseAxis axis, out VisionAxis visionAxis)
+        {
+            foreach (KeyValuePair<VisionAxis, BaseAxis> pair in axes)
+            {
+                if (ReferenceEquals(axis, pair.Value))
+                {
+                    visionAxis = pair.Key;
+                    return true;
+                }
+            }
+
+            visionAxis = VisionAxis.FrontSideVisionY;
+            return false;
+        }
 
         public async Task<int> MoveVisionAxis(VisionAxis axis, double targetPos, bool bFine = false)
         {

@@ -23,7 +23,8 @@ namespace QMC.CDT320.Sim
         //private readonly InputLoaderUnit _input; //-> 대체
         private readonly InputCassetteUnit _inputCassette;
         private readonly InputFeederUnit _inputFeeder;
-        private readonly OutputUnloaderUnit _output;
+        private readonly OutputCassetteUnit _outputCassette;
+        private readonly OutputFeederUnit _outputFeeder;
 
         // ─── Input 측 시뮬 상태 ─────────────────────────────────────────
         /// <summary>Input 카세트 슬롯별 가상 웨이퍼 유무 (인덱스 0 = 최하단).</summary>
@@ -42,11 +43,16 @@ namespace QMC.CDT320.Sim
         /// <summary>슬롯/카세트 상태가 바뀔 때 발행 (UI 갱신용).</summary>
         public event Action StateChanged;
 
-        public SimCassetteDriver(InputCassetteUnit inputCassette, InputFeederUnit inputFeeder, OutputUnloaderUnit output)
+        public SimCassetteDriver(
+            InputCassetteUnit inputCassette,
+            InputFeederUnit inputFeeder,
+            OutputCassetteUnit outputCassette,
+            OutputFeederUnit outputFeeder)
         {
             _inputCassette = inputCassette ?? throw new ArgumentNullException(nameof(inputCassette));
             _inputFeeder = inputFeeder ?? throw new ArgumentNullException(nameof(inputFeeder));
-            _output = output ?? throw new ArgumentNullException(nameof(output));
+            _outputCassette = outputCassette ?? throw new ArgumentNullException(nameof(outputCassette));
+            _outputFeeder = outputFeeder ?? throw new ArgumentNullException(nameof(outputFeeder));
 
             int inputSlotCount = _inputCassette.Config != null && _inputCassette.Config.SlotCount > 0
                 ? _inputCassette.Config.SlotCount
@@ -73,12 +79,12 @@ namespace QMC.CDT320.Sim
             UpdateInputDetectFromPosition();
 
             // Stage 27 — Output 측 초기 센서 주입
-            _output.ExistSensor_NG.SimulateInput(true);
-            _output.ExistSensor_Good1.SimulateInput(true);
-            _output.ExistSensor_Good2.SimulateInput(true);
-            _output.ProtrusionSensor.SimulateInput(false);
-            _output.WaferDetectSensor.SimulateInput(false);
-            _output.WaferClampedSensor.SimulateInput(false);
+            _outputCassette.NgBin8CassetteCheck0.SimulateInput(true);
+            _outputCassette.GoodBin8CassetteCheck0.SimulateInput(true);
+            _outputCassette.GoodBin8CassetteCheck1.SimulateInput(true);
+            _outputCassette.ProtrusionSensor.SimulateInput(false);
+            _outputCassette.WaferDetectSensor.SimulateInput(false);
+            _outputFeeder.WaferClampedSensor.SimulateInput(false);
             UpdateOutputDetectFromPosition();
         }
 
@@ -111,42 +117,42 @@ namespace QMC.CDT320.Sim
         private void HookOutput()
         {
             // ElevatorZ 이동 완료 → 카세트별 슬롯 위치 환산 후 WaferDetectSensor 갱신
-            _output.BinElevatorZ.MoveCompleted += _ => UpdateOutputDetectFromPosition();
+            _outputCassette.BinLifterZ.MoveCompleted += _ => UpdateOutputDetectFromPosition();
 
             // FeederClampCyl InFwd ↔ WaferClampedSensor
-            _output.FeederClampCyl.InFwd.StateChanged += (s, on) =>
+            _outputFeeder.FeederClampCyl.InFwd.StateChanged += (s, on) =>
             {
-                _output.WaferClampedSensor.SimulateInput(on);
+                _outputFeeder.WaferClampedSensor.SimulateInput(on);
             };
         }
 
         private void UpdateOutputDetectFromPosition()
         {
-            double pos = _output.BinElevatorZ.ActualPosition;
-            double pitch = _output.Setup.SlotPitchZ;
+            double pos = _outputCassette.BinLifterZ.ActualPosition;
+            double pitch = _outputCassette.Config.SlotPitch;
 
             // NG 카세트
-            int slot = (int)Math.Round((pos - _output.Setup.NgFirstSlotPositionZ) / pitch);
+            int slot = (int)Math.Round((pos - _outputCassette.Recipe.NGFirstSlotPosition) / pitch);
             if (slot >= 0 && slot < OutputNgSlots.Length)
             {
-                _output.WaferDetectSensor.SimulateInput(OutputNgSlots[slot]);
+                _outputCassette.WaferDetectSensor.SimulateInput(OutputNgSlots[slot]);
                 return;
             }
             // Good1 카세트
-            slot = (int)Math.Round((pos - _output.Setup.Good1FirstSlotPositionZ) / pitch);
+            slot = (int)Math.Round((pos - _outputCassette.Recipe.GoodFirstSlotPosition) / pitch);
             if (slot >= 0 && slot < OutputGood1Slots.Length)
             {
-                _output.WaferDetectSensor.SimulateInput(OutputGood1Slots[slot]);
+                _outputCassette.WaferDetectSensor.SimulateInput(OutputGood1Slots[slot]);
                 return;
             }
             // Good2 카세트
-            slot = (int)Math.Round((pos - _output.Setup.Good2FirstSlotPositionZ) / pitch);
+            slot = (int)Math.Round((pos - (_outputCassette.Recipe.GoodFirstSlotPosition + _outputCassette.Config.GOODNGPositionOffset)) / pitch);
             if (slot >= 0 && slot < OutputGood2Slots.Length)
             {
-                _output.WaferDetectSensor.SimulateInput(OutputGood2Slots[slot]);
+                _outputCassette.WaferDetectSensor.SimulateInput(OutputGood2Slots[slot]);
                 return;
             }
-            _output.WaferDetectSensor.SimulateInput(false);
+            _outputCassette.WaferDetectSensor.SimulateInput(false);
         }
 
         // ─── 외부 제어 API ─────────────────────────────────────────────

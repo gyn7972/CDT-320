@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using QMC.Common.IO;
 
 namespace QMC.CDT320.Interlocks
@@ -53,9 +53,7 @@ namespace QMC.CDT320.Interlocks
                 return true;
 
             return feeder.IsWaferFeederYInAvoidPosition()
-                   || feeder.IsWaferFeederYInCassetteLoadPosition()
-                   || feeder.IsWaferFeederYInCassetteUnloadPosition()
-                   || feeder.IsWaferFeederYInExchangePosition();
+                || feeder.IsWaferFeederYInExchangePosition();
         }
 
         private static bool IsFeederDown(InputFeederUnit feeder)

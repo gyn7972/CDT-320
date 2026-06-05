@@ -440,7 +440,7 @@ namespace QMC.CDT320
     ///
     /// </para>
     /// </summary>
-    public class OutputStageUnit : BaseUnit<OutputStageSetup, OutputStageConfig, OutputStageRecipe>
+    public class OutputStageUnit : BaseUnit<OutputStageSetup, OutputStageConfig, OutputStageRecipe>, IUnitJogController
     {
         // ----------------------------------------------------------------------
         // 구현 보조 주석입니다.
@@ -504,6 +504,56 @@ namespace QMC.CDT320
             Components.Add(GoodStage);
             Components.Add(NgStage);
             Components.Add(BinCameraX);
+        }
+
+        public bool CanHandleJogAxis(BaseAxis axis)
+        {
+            BinStageAxis stageAxis;
+            return TryResolveStageAxis(axis, out stageAxis) || IsGoodStageZAxis(axis);
+        }
+
+        public async Task<int> JogStepAsync(
+            BaseAxis axis,
+            int direction,
+            JogSpeedType speedType,
+            double customSpeed,
+            double axisStepDistance)
+        {
+            if (!CanHandleJogAxis(axis))
+                return -1;
+
+            double signedDistance = (direction < 0 ? -1.0 : 1.0) * Math.Abs(axisStepDistance);
+            double target = axis.ActualPosition + signedDistance;
+
+            BinStageAxis stageAxis;
+            if (TryResolveStageAxis(axis, out stageAxis))
+                return await MoveStageAxis(stageAxis, target, speedType == JogSpeedType.Fine);
+
+            int result = await GoodStage.StageZ.MoveAbsoluteAsync(target, ResolveStageAxisVelocity(axis, speedType == JogSpeedType.Fine));
+            return result == 0 && !GoodStage.StageZ.IsAlarm ? 0 : RaiseOutputStageAlarm("OS-GOOD-Z", "GoodStage Z jog step move failed.");
+        }
+
+        public Task<int> JogContinuousAsync(
+            BaseAxis axis,
+            int direction,
+            JogSpeedType speedType,
+            double customSpeed)
+        {
+            if (!CanHandleJogAxis(axis))
+                return Task.FromResult(-1);
+
+            double speed = UnitJogVelocityResolver.Resolve(axis, speedType, customSpeed);
+            axis.MoveJogContinuous(direction, JogSpeedType.Custom, speed);
+            return Task.FromResult(0);
+        }
+
+        public Task<int> StopJogAsync(BaseAxis axis)
+        {
+            if (!CanHandleJogAxis(axis))
+                return Task.FromResult(-1);
+
+            axis.StopJog();
+            return Task.FromResult(0);
         }
 
         public async Task<int> MoveStageAxis(BinStageAxis axis, double targetPos, bool bFine = false)
@@ -640,6 +690,44 @@ namespace QMC.CDT320
                 case BinStageAxis.VisionX: return BinCameraX;
                 default: throw new ArgumentOutOfRangeException("axis");
             }
+        }
+
+        private bool TryResolveStageAxis(BaseAxis axis, out BinStageAxis stageAxis)
+        {
+            stageAxis = BinStageAxis.NgBinY;
+            if (axis == null)
+                return false;
+
+            if (ReferenceEquals(axis, NgStage.StageY))
+            {
+                stageAxis = BinStageAxis.NgBinY;
+                return true;
+            }
+
+            if (ReferenceEquals(axis, NgStage.StageZ))
+            {
+                stageAxis = BinStageAxis.NgBinZ;
+                return true;
+            }
+
+            if (ReferenceEquals(axis, GoodStage.StageY))
+            {
+                stageAxis = BinStageAxis.GoodBinY;
+                return true;
+            }
+
+            if (ReferenceEquals(axis, BinCameraX))
+            {
+                stageAxis = BinStageAxis.VisionX;
+                return true;
+            }
+
+            return false;
+        }
+
+        private bool IsGoodStageZAxis(BaseAxis axis)
+        {
+            return axis != null && GoodStage != null && ReferenceEquals(axis, GoodStage.StageZ);
         }
 
         private double ResolveStageAxisVelocity(BaseAxis axis, bool bFine)

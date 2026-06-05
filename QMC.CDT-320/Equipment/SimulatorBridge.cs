@@ -138,7 +138,7 @@ namespace QMC.CDT320
             _axisMap[m.InputStage.EjectPinZ]     = 8;   // EjectPinZ
 
             // FRONT PICKER (LeftArm): 9, 10, 11~18
-            var left = m.TransferPicker.LeftArm;
+            var left = m.PickerFront;
             _axisMap[left.ArmX] = 9;
             _axisMap[left.ArmY] = 10;
             for (int i = 0; i < 4; i++)
@@ -148,7 +148,7 @@ namespace QMC.CDT320
             }
 
             // REAR PICKER (RightArm): 21, 22, 23~30
-            var right = m.TransferPicker.RightArm;
+            var right = m.PickerRear;
             _axisMap[right.ArmX] = 21;
             _axisMap[right.ArmY] = 22;
             for (int i = 0; i < 4; i++)
@@ -166,18 +166,18 @@ namespace QMC.CDT320
             _axisMap[m.OutputStage.GoodStage.StageZ] = 32;   // BinGoodZ
             _axisMap[m.OutputStage.NgStage.StageY]   = 33;   // BinNgY
             _axisMap[m.OutputStage.BinCameraX]       = 34;   // BinVisionX
-            _axisMap[m.OutputUnloader.FeederY]       = 35;   // BinFeederY
-            _axisMap[m.OutputUnloader.BinElevatorZ]     = 36;   // BinLifterZ
+            _axisMap[m.OutputFeeder.FeederY]         = 35;   // BinFeederY
+            _axisMap[m.OutputCassette.BinLifterZ]    = 36;   // BinLifterZ
 
             // ─── DO 매핑 ──────────────────────────────
             _doMap[m.InputStage.NeedleVacuum] = "Y046";
 
             for (int i = 0; i < 4; i++)
             {
-                _doMap[left.Pickers[i].VacuumOut]  = "Y" + (48 + i).ToString("D3"); // Y048~Y051
-                _doMap[left.Pickers[i].BlowOut]    = "Y" + (56 + i).ToString("D3"); // Y056~Y059
-                _doMap[right.Pickers[i].VacuumOut] = "Y" + (64 + i).ToString("D3"); // Y064~Y067
-                _doMap[right.Pickers[i].BlowOut]   = "Y" + (72 + i).ToString("D3"); // Y072~Y075
+                _doMap[left.Vacuums[i]]  = "Y" + (48 + i).ToString("D3"); // Y048~Y051
+                _doMap[left.Blows[i]]    = "Y" + (56 + i).ToString("D3"); // Y056~Y059
+                _doMap[right.Vacuums[i]] = "Y" + (64 + i).ToString("D3"); // Y064~Y067
+                _doMap[right.Blows[i]]   = "Y" + (72 + i).ToString("D3"); // Y072~Y075
             }
 
             // ─── DI 매핑 (Stage 26) ──────────────────
