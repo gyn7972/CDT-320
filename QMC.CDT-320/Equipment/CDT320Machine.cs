@@ -169,38 +169,38 @@ namespace QMC.CDT320
         : Machine<CDT320MachineSetup, CDT320MachineConfig, CDT320MachineRecipe>
     {
         /// <summary>Input Cassette에서 웨이퍼를 공급하는 로더 유닛.</summary>
-        public InputCassetteUnit    InputCassette { get; }
-        public InputFeederUnit      InputFeeder { get; }
+        public InputCassetteUnit    InputCassetteUnit { get; }
+        public InputFeederUnit      InputFeederUnit { get; }
         /// <summary>웨이퍼를 고정하고 다이 위치를 관리하는 Input Stage 유닛.</summary>
-        public InputStageUnit       InputStage       { get; }
+        public InputStageUnit       InputStageUnit       { get; }
 
         /// <summary>엑셀 PickerFront Sheet 기준 축/I/O/티칭 Unit입니다.</summary>
-        public PickerFrontUnit      PickerFront      { get; }
+        public PickerFrontUnit      PickerFrontUnit      { get; }
         /// <summary>엑셀 PickerRear Sheet 기준 축/I/O/티칭 Unit입니다.</summary>
-        public PickerRearUnit       PickerRear       { get; }
+        public PickerRearUnit       PickerRearUnit       { get; }
 
         // <summary>엑셀 Vision Sheet 기준 축/I/O/티칭 Unit입니다.</summary>
-        public VisionUnit Vision { get; }
+        public VisionUnit VisionUnit { get; }
 
         // 이거 쓰나?
         /// <summary>5면 촬상 후 결과 판정 유닛.</summary>
         public VisionInspectionUnit VisionInspection { get; }
         
         /// <summary>양불 분류 적재 Output Stage 유닛.</summary>
-        public OutputStageUnit      OutputStage      { get; }
+        public OutputStageUnit      OutputStageUnit      { get; }
         /// <summary>Output Bin Feeder Y축과 클램프 실린더를 담당하는 유닛입니다.</summary>
-        public OutputFeederUnit OutputFeeder { get; }
+        public OutputFeederUnit OutputFeederUnit { get; }
         /// <summary>Output Bin 카세트 리프터와 매핑 센서를 담당하는 유닛입니다.</summary>
-        public OutputCassetteUnit      OutputCassette      { get; }
+        public OutputCassetteUnit      OutputCassetteUnit      { get; }
 
         /// <summary>Stage 45 — 운전 패널 (버튼 + 램프 + 신호탑 + 부저).</summary>
-        public OperationPanelUnit   OpPanel          { get; }
+        public OperationPanelUnit   OpPanelUnit          { get; }
 
         /// <summary>Stage 46 — Resource Sensors (CDA + Vacuum 라인 압력 감지).</summary>
-        public ResourceSensorsUnit  Resources        { get; }
+        public ResourceSensorsUnit  ResourcesUnit        { get; }
 
         /// <summary>Stage 47 — Ionizer (정전기 제거기).</summary>
-        public IonizerUnit          Ionizer          { get; }
+        public IonizerUnit          IonizerUnit          { get; }
 
         /// <summary>Stage 50 — Bin Barcode Reader (Output 카세트 ID 읽기).</summary>
         public IBarcodeReader       BinBarcodeReader { get; }
@@ -212,38 +212,38 @@ namespace QMC.CDT320
         /// </summary>
         public CDT320_Machine() : base("CDT-320")
         {
-            InputCassette = new InputCassetteUnit();
-            InputFeeder = new InputFeederUnit();
-            InputCassette.BindMachine(this);
+            InputCassetteUnit = new InputCassetteUnit();
+            InputFeederUnit = new InputFeederUnit();
+            InputCassetteUnit.BindMachine(this);
 
             // InputStageUnit - Wafer Vision 은 실 TCP Adapter 사용 (QMC.Vision 과 통신).
             // VisionHub 가 연결 안 된 경우 Adapter 는 안전 fallback(Expose/Match = false).
             // Stage 28 — NullWaferLoader 를 WaferLoaderAdapter(InputLoader) 로 교체:
             //   InputStage 의 안전 인터락이 실 InputLoader.FeederY 위치 + Cyl 상태를 체크하도록 함.
-            InputStage = new InputStageUnit(
-                loader:     new QMC.CDT320.Sim.WaferLoaderAdapter(InputFeeder),
-                barcode:    new NullBarcodeReader(),
-                vision:     new VisionComm.WaferVisionAdapter(),
-                mapHandler: new NullWaferMapHandler(),
-                tpu:        new NullTransferPickerUnit());
+            InputStageUnit = new InputStageUnit(
+                vision: new VisionComm.WaferVisionAdapter(),
+                mapHandler: new NullWaferMapHandler());
+                //loader:     new QMC.CDT320.Sim.WaferLoaderAdapter(InputFeeder),
+                //barcode:    new NullBarcodeReader(),
+                //tpu:        new NullTransferPickerUnit());
 
             VisionInspection = new VisionInspectionUnit();
             //WaferStage = new WaferStageUnit();
-            PickerFront = new PickerFrontUnit();
-            PickerRear = new PickerRearUnit();
+            PickerFrontUnit = new PickerFrontUnit();
+            PickerRearUnit = new PickerRearUnit();
             //Vision = new VisionUnit();
 
-            OutputCassette = new OutputCassetteUnit();
-            OutputFeeder = new OutputFeederUnit();
+            OutputCassetteUnit = new OutputCassetteUnit();
+            OutputFeederUnit = new OutputFeederUnit();
 
             // Stage 45 — Operation Panel + Tower Lamp + Buzzer 신규
-            OpPanel = new OperationPanelUnit();
+            OpPanelUnit = new OperationPanelUnit();
 
             // Stage 46 — Resource Sensors (CDA + Vacuum 라인)
-            Resources = new ResourceSensorsUnit();
+            ResourcesUnit = new ResourceSensorsUnit();
 
             // Stage 47 — Ionizer (정전기 제거기)
-            Ionizer = new IonizerUnit();
+            IonizerUnit = new IonizerUnit();
 
             // Stage 50 — Bin Barcode Reader (별도 IBarcodeReader 인스턴스)
             //   실보드 운영 시 BarcodeSerialAdapter 로 교체 가능
@@ -251,24 +251,24 @@ namespace QMC.CDT320
 
             // Stage 27 — OutputStageUnit 의 IOutputUnloaderUnit 슬롯에 실 어댑터 주입
             //   이전엔 NullOutputUnloaderUnit 이라 RequestWaferChangeAsync 가 무효화됐음.
-            OutputStage = new OutputStageUnit(
+            OutputStageUnit = new OutputStageUnit(
                 tpu:      new NullTpuUnit(),
-                unloader: new QMC.CDT320.Sim.OutputUnloaderAdapter(OutputCassette, OutputFeeder));
+                unloader: new QMC.CDT320.Sim.OutputUnloaderAdapter(OutputCassetteUnit, OutputFeederUnit));
             //OutputStage = new BinStageUnit();
 
-            Units.Add(InputCassette);
-            Units.Add(InputFeeder);
-            Units.Add(InputStage);
+            Units.Add(InputCassetteUnit);
+            Units.Add(InputFeederUnit);
+            Units.Add(InputStageUnit);
             //Units.Add(WaferStage);
-            Units.Add(PickerFront);
-            Units.Add(PickerRear);
+            Units.Add(PickerFrontUnit);
+            Units.Add(PickerRearUnit);
             Units.Add(VisionInspection);
             //Units.Add(Vision);
-            Units.Add(OutputStage);
+            Units.Add(OutputStageUnit);
             //Units.Add(OutputStage);
-            Units.Add(OutputCassette);
-            Units.Add(OutputFeeder);
-            Units.Add(OpPanel);
+            Units.Add(OutputCassetteUnit);
+            Units.Add(OutputFeederUnit);
+            Units.Add(OpPanelUnit);
         }
     }
 }

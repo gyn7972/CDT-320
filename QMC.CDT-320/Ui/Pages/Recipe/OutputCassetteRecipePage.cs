@@ -146,7 +146,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             try
             {
                 var machine = FindMachine();
-                _OutCassetteUnit = machine != null ? machine.OutputCassette : null;
+                _OutCassetteUnit = machine != null ? machine.OutputCassetteUnit : null;
 
                 if (_OutCassetteUnit != null)
                     _OutCassetteUnit.Recipe.EnsureSlotPositionBuffers(_OutCassetteUnit.Config.SlotCount);

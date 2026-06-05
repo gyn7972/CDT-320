@@ -158,8 +158,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 return;
             }
 
-            _waferCassette = machine.InputCassette;
-            _binCassette = machine.OutputCassette;
+            _waferCassette = machine.InputCassetteUnit;
+            _binCassette = machine.OutputCassetteUnit;
             _activeAxis = _isOutputCassette
                 ? (_binCassette != null ? _binCassette.OutputLifterZ : null)
                 : (_waferCassette != null ? _waferCassette.InputLifterZ : null);

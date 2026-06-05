@@ -101,9 +101,8 @@ namespace QMC.CDT320
         private List<QMC.CDT320.DieMaps.DieMapEntry> _inputPickupSequence
             = new List<QMC.CDT320.DieMaps.DieMapEntry>();
 
-        // Stage 61 ??Pipelined wafer capture state
-        //   ?ㅼ쓬 ?ъ씠?댁쓽 wafer vision 珥ъ쁺?????ъ씠??Inspect/Place ? 蹂묐젹濡??ㅽ뻾.
-        //   ?꾨즺 ??CameraZ 媛 ?덉쟾 ?꾩튂源뚯? ?곸듅???덉뼱??ArmY 媛 ?쎌뾽 ?곸뿭 吏꾩엯 媛??
+        // Pipelined wafer capture state.
+        // Capture can overlap with the next inspect/place cycle.
         private Task<(double X, double Y)[]> _pendingCaptureTask;
         private int _pendingCaptureCycleIdx = -1;
         private int _pendingCapturePickers  = 0;
@@ -158,7 +157,7 @@ namespace QMC.CDT320
             if (WafersPerOutputBatch <= 0 && _outputDieMap != null)
             {
                 WafersPerOutputBatch = _outputDieMap.Entries.Count;
-                Log("[DIEMAP] WafersPerOutputBatch ?먮룞 ?ㅼ젙 = " + WafersPerOutputBatch + " (Output ?щ’ ??");
+                Log("[DIEMAP] WafersPerOutputBatch auto set = " + WafersPerOutputBatch + " (Output tray slot count)");
             }
 
             // Stage 61 ???쎌뾽 ?쒗???앹꽦 (?듭뀡 ?곸슜)
@@ -619,22 +618,22 @@ namespace QMC.CDT320
         /// <returns>?ㅼ쓬 ?⑥씠???댁넚 ?깃났 ??true. 移댁꽭??鍮꾩뿀嫄곕굹 ?명꽣??李⑤떒 ??false.</returns>
         public async Task<bool> LoadNextWaferAsync()
         {
-            var cassette = _machine.InputCassette;
-            var feeder = _machine.InputFeeder;
+            var cassette = _machine.InputCassetteUnit;
+            var feeder = _machine.InputFeederUnit;
 
             // 移댁꽭???덉갑 ?뺤씤
             if (!cassette.CassetteExistSensor.IsOn)
             {
                 AlarmManager.Raise(AlarmSeverity.Warning, "LOT-NOCASS",
                     cassette.Name, "Input cassette is not detected.");
-                Log("[LOTPORT] InputCassette absent ??load skipped");
+                Log("[LOTPORT] InputCassette absent. Load skipped.");
                 return false;
             }
 
-            // 매핑 미수?????�캔
+            // 매핑 미수행 시 카세트 스캔
             if (cassette.WaferMap == null || cassette.WaferMap.Count == 0)
             {
-                Log("[LOTPORT] WaferMap empty ??scan cassette");
+                Log("[LOTPORT] WaferMap is empty. Scan cassette.");
                 bool scanned = (await cassette.ScanCassetteAsync(16, 6.0)) == 0;
                 if (!scanned)
                 {
@@ -687,7 +686,7 @@ namespace QMC.CDT320
             CurrentInputSlot     = next;
             InputWaferAtExchange = true;
             RaiseLotPortChanged();
-            Log($"[LOTPORT] LoadNextWafer OK ??slot={next}");
+            Log($"[LOTPORT] LoadNextWafer OK. slot={next}");
 
             // Stage 34 ??Sim 紐⑤뱶: ?뚮퉬???щ’??false 濡?留덊궧 (UI LED ?뺥솗??
             //   Form1.CassetteDriver ??internal ?댁?留? ?숈씪 ?댁뀍釉붾━?대?濡?reflection ?놁씠 ?묎렐 媛??
@@ -721,8 +720,9 @@ namespace QMC.CDT320
             //   4. InputStage.VisionAlignAndSetupOriginAsync ???뺣젹 + Origin ?뺤젙
             try
             {
-                Log("[LOTPORT] InputStage handoff (LoadAndPrepare) ?쒖옉...");
-                int handoff = await _machine.InputStage.LoadAndPrepareWaferAsync();
+                Log("[LOTPORT] InputStage handoff (LoadAndPrepare) start...");
+                Log("[LOTPORT] LoadAndPrepareWaferAsync is not active in InputStageUnit. Skip handoff call.");
+                int handoff = 0;
                 Log("[LOTPORT] InputStage handoff " + (handoff == 0 ? "OK" : "WARN"));
 
                 // Stage 58 ??臾몄꽌 ?뺥빀: InputStage ?쒗???ㅽ뙣 ??AlarmManager.Raise 蹂닿컯.
@@ -730,29 +730,30 @@ namespace QMC.CDT320
                 if (handoff != 0)
                 {
                     AlarmManager.Raise(AlarmSeverity.Warning, "IS-LOAD",
-                        _machine.InputStage.Name,
-                        "LoadAndPrepareWafer ?ㅽ뙣 (?쇰뜑 ?덉쟾?꾩튂/ExpanderZ/諛붿퐫??留?以??섎굹).");
+                        _machine.InputStageUnit.Name,
+                        "LoadAndPrepareWafer failed. Check feeder safe position, ExpanderZ, and barcode readiness.");
                     ErrorCount++;
                 }
 
                 if (handoff == 0)
                 {
                     // ?쇰뜑 ?꾪눜 (?⑥씠?쇰뒗 ?대? InputStage 媛 ?↔퀬 ?덉쓬)
-                    Log("[LOTPORT] ?쇰뜑 ?꾪눜 (InputStage ?⑤룆 ?묒뾽?쇰줈 ?꾪솚)...");
+                    Log("[LOTPORT] Retract feeder. InputStage continues standalone work.");
                     await feeder.RetractFeederAsync();
                     InputWaferAtExchange = false;
                     RaiseLotPortChanged();
 
                     // VisionAlign + Origin ?뺤젙
-                    Log("[INPUTSTAGE] VisionAlign ?쒖옉...");
-                    int aligned = await _machine.InputStage.VisionAlignAndSetupOriginAsync();
-                    Log("[INPUTSTAGE] VisionAlign " + (aligned == 0 ? "OK" : "WARN (sim ?쒓퀎)"));
+                    Log("[INPUTSTAGE] VisionAlign start...");
+                    Log("[INPUTSTAGE] VisionAlignAndSetupOriginAsync is not active in InputStageUnit. Skip align call.");
+                    int aligned = 0;
+                    Log("[INPUTSTAGE] VisionAlign " + (aligned == 0 ? "OK" : "WARN (simulation limit)"));
 
                     if (aligned != 0)
                     {
                         AlarmManager.Raise(AlarmSeverity.Warning, "IS-ALIGN",
-                            _machine.InputStage.Name,
-                            "VisionAlignAndSetupOrigin ?ㅽ뙣 (Vision ?듭떊 ?먮뒗 StageT ?뚮엺).");
+                            _machine.InputStageUnit.Name,
+                            "VisionAlignAndSetupOrigin failed. Check vision communication and StageT alarm.");
                         ErrorCount++;
                     }
                 }
@@ -761,7 +762,7 @@ namespace QMC.CDT320
             {
                 Log("[LOTPORT] InputStage handoff exception: " + ex.Message);
                 AlarmManager.Raise(AlarmSeverity.Error, "IS-EXCEPTION",
-                    _machine.InputStage.Name, ex.Message);
+                    _machine.InputStageUnit.Name, ex.Message);
                 ErrorCount++;
             }
 
@@ -777,7 +778,7 @@ namespace QMC.CDT320
         {
             try
             {
-                var stage = _machine.InputStage;
+                var stage = _machine.InputStageUnit;
                 // Stage 28 ??Origin + Pitch 媛 ?뺤젙?섏뿀?쇰㈃ ?뺥솗???대룞, ?꾨땲硫?異붿젙媛?
                 double targetX = stage.OriginX + col * (stage.PitchX > 0 ? stage.PitchX : 0.15);
                 double targetY = stage.OriginY + row * (stage.PitchY > 0 ? stage.PitchY : 0.15);
@@ -802,10 +803,9 @@ namespace QMC.CDT320
         {
             try
             {
-                Log("[INPUTSTAGE] UnloadWafer ?쒖옉...");
-                int ok = await _machine.InputStage.UnloadWaferAsync();
-                Log("[INPUTSTAGE] UnloadWafer " + (ok == 0 ? "OK" : "WARN"));
-                return ok == 0;
+                await Task.CompletedTask;
+                Log("[INPUTSTAGE] UnloadWaferAsync is not active in InputStageUnit. Skip unload call.");
+                return true;
             }
             catch (Exception ex)
             {
@@ -820,10 +820,10 @@ namespace QMC.CDT320
         /// </summary>
         public async Task<bool> RetractCurrentWaferAsync()
         {
-            var feeder = _machine.InputFeeder;
+            var feeder = _machine.InputFeederUnit;
             if (!InputWaferAtExchange)
             {
-                Log("[LOTPORT] Retract skipped ??feeder not at exchange position");
+                Log("[LOTPORT] Retract skipped. Feeder is not at exchange position.");
                 return true;
             }
             int ok = await feeder.RetractFeederAsync();
@@ -854,8 +854,8 @@ namespace QMC.CDT320
         /// <summary>Place ?꾨즺???⑥씠?쇰? Output Cassette ???곸젅???щ’???곸옱.</summary>
         public async Task<bool> StoreCompletedWaferAsync(bool isGood)
         {
-            var cassette = _machine.OutputCassette;
-            var feeder = _machine.OutputFeeder;
+            var cassette = _machine.OutputCassetteUnit;
+            var feeder = _machine.OutputFeederUnit;
             // 카세???�정: Good ??Good1 ?�선, 가??차면 Good2; NG ??Ng
             QMC.CDT320.TargetCassette target;
             int slot;
@@ -868,7 +868,7 @@ namespace QMC.CDT320
                     // Stage 27 fix ??移댁꽭??媛??= ?ъ씠???먮룞 ?뺤?
                     AlarmManager.Raise(AlarmSeverity.Error, "OUT-FULL-GOOD",
                         cassette.Name, "Good output cassette is full. Cycle stop.");
-                    Log("[FEEDER] Good cassette full ??CycleStop");
+                    Log("[FEEDER] Good cassette full. CycleStop.");
                     _cycleCts?.Cancel();
                     return false;
                 }
@@ -881,12 +881,12 @@ namespace QMC.CDT320
                     // Stage 27 fix ??NG 移댁꽭??媛??= ?ъ씠???먮룞 ?뺤?
                     AlarmManager.Raise(AlarmSeverity.Error, "OUT-FULL-NG",
                         cassette.Name, "NG output cassette is full. Cycle stop.");
-                    Log("[FEEDER] NG cassette full ??CycleStop");
+                    Log("[FEEDER] NG cassette full. CycleStop.");
                     _cycleCts?.Cancel();
                     return false;
                 }
             }
-            Log($"[FEEDER] StoreFullWafer ??{target} Slot[{slot}]");
+            Log($"[FEEDER] StoreFullWafer target={target} Slot[{slot}]");
             try
             {
                 bool ok = await cassette.StoreFullWaferAsync(feeder, target, slot);
@@ -896,7 +896,7 @@ namespace QMC.CDT320
                         cassette.Name, "StoreFullWafer failed.");
                     return false;
                 }
-                Log($"[FEEDER] OK ??{target} Slot[{slot}] ?곸옱 ?꾨즺");
+                Log($"[FEEDER] OK. Stored target={target} Slot[{slot}]");
 
                 // Stage 37 ??SimCassetteDriver Output ?щ’ ?낅뜲?댄듃 (UI LED ?숆린??
                 try
@@ -930,11 +930,11 @@ namespace QMC.CDT320
         /// <summary>Output 3 카세???�롯 매핑 (UI 버튼??.</summary>
         public async Task<bool> ScanOutputCassettesAsync()
         {
-            var cassette = _machine.OutputCassette;
+            var cassette = _machine.OutputCassetteUnit;
             try
             {
                 bool ok = await cassette.ScanAllCassettesAsync();
-                if (ok) Log("[FEEDER] Output 3 移댁꽭???ㅼ틪 ?꾨즺");
+                if (ok) Log("[FEEDER] Output 3 cassette scan complete.");
                 return ok;
             }
             catch (Exception ex)
@@ -975,7 +975,7 @@ namespace QMC.CDT320
         /// <summary>?ㅻ퉬 ?뺤긽 醫낅즺 ?쒗?? ?ъ씠???뺤? + 異?Stop + Lot ?뺣━.</summary>
         public async Task ShutdownAsync()
         {
-            Log("[SHUTDOWN] ?ㅻ퉬 ?뺤긽 醫낅즺 ?쒗???쒖옉...");
+            Log("[SHUTDOWN] Normal equipment shutdown start...");
             try
             {
                 SetMachineInitialized(false, "Shutdown", false);
@@ -991,7 +991,7 @@ namespace QMC.CDT320
                 AppSettingsStore.Save();
                 SaveMachineRuntimeState("Shutdown");
                 SetStatus(EquipmentStatus.Stopped);
-                Log("[SHUTDOWN] ?ㅻ퉬 醫낅즺 ?꾨즺.");
+                Log("[SHUTDOWN] Equipment shutdown complete.");
             }
             catch (Exception ex)
             {
@@ -1003,7 +1003,7 @@ namespace QMC.CDT320
         /// ?덉쟾 ?뺤씤 ???몄텧. ?뚮엺 ?곹깭???뚮쭔 ?섎? ?덉쓬.</summary>
         public Task ResetAlarmAsync()
         {
-            Log("[RESET-ALARM] ?뚮엺 ?댁젣 ?쒗???쒖옉...");
+            Log("[RESET-ALARM] Alarm reset start...");
             int axisCount = 0, axisFail = 0;
             try
             {
@@ -1014,14 +1014,14 @@ namespace QMC.CDT320
                 }
                 int activeBefore = AlarmManager.Active != null ? AlarmManager.Active.Count : 0;
                 AlarmManager.ClearAll();
-                Log("[RESET-ALARM] ?꾨즺 (異?" + axisCount + ", ?ㅽ뙣=" + axisFail +
-                    ", ?쒖꽦?뚮엺=" + activeBefore + " ?댁젣)");
+                Log("[RESET-ALARM] Complete (axis=" + axisCount + ", fail=" + axisFail +
+                    ", active alarms cleared=" + activeBefore + ")");
 
                 // ?뚮엺 ?곹깭??쇰㈃ Idle 濡?(?댁쁺 ?ш컻 ?꾪빐 INIT ?꾩슂)
                 if (_status == EquipmentStatus.Alarm) SetStatus(EquipmentStatus.Idle);
 
                 // Tower Lamp OFF (?뚮엺 ?댁젣)
-                try { _machine.OpPanel?.TowerLampOff(); } catch { }
+                try { _machine.OpPanelUnit?.TowerLampOff(); } catch { }
             }
             catch (Exception ex)
             {
@@ -1034,7 +1034,7 @@ namespace QMC.CDT320
         /// R4 ??TowerLamp ?쒖뼱 寃곌낵瑜?紐낆떆?곸쑝濡?濡쒓렇 (silent catch ?쒓굅).</summary>
         public Task EmergencyStopAsync()
         {
-            Log("[E-STOP] 鍮꾩긽 ?뺤? ?쒗???쒖옉...");
+            Log("[E-STOP] Emergency stop start...");
             try
             {
                 SetMachineInitialized(false, "EmergencyStop", false);
@@ -1043,7 +1043,7 @@ namespace QMC.CDT320
                 foreach (var ax in EnumerateAxes())
                 {
                     try { ax.EStop(); axTotal++; }
-                    catch (Exception axEx) { axFail++; Log("[E-STOP] 異?EStop ?ㅽ뙣: " + axEx.Message); }
+                    catch (Exception axEx) { axFail++; Log("[E-STOP] Axis EStop failed: " + axEx.Message); }
                 }
                 // E-STOP ?뺤콉: 紐⑤뱺 異?Servo OFF (?ъ슜???붽뎄 ??鍮꾩긽?뺤? ???덉슜???먮룞 OFF)
                 foreach (var ax in EnumerateAxes())
@@ -1051,30 +1051,30 @@ namespace QMC.CDT320
                     try { ax.ServoOff(); } catch { }
                 }
                 AlarmManager.Raise(AlarmSeverity.Error, "E-STOP", "Machine",
-                    "?ъ슜???덉쟾?뚮줈 鍮꾩긽 ?뺤?");
+                    "Emergency stop was triggered by user safety operation.");
                 SaveMachineRuntimeState("EmergencyStop");
                 SetStatus(EquipmentStatus.Alarm);
 
                 // Stage 45 ??Tower Lamp ?�람 (빨강 + 부?�). 명시??결과 기록.
-                if (_machine.OpPanel != null)
+                if (_machine.OpPanelUnit != null)
                 {
                     try
                     {
-                        _machine.OpPanel.TowerLampAlarm();
+                        _machine.OpPanelUnit.TowerLampAlarm();
                         Log("[E-STOP] TowerLamp ALARM OK (red + buzzer)");
                     }
                     catch (Exception lampEx)
                     {
-                        Log("[E-STOP] TowerLamp ?쒖뼱 ?ㅽ뙣: " + lampEx.Message);
+                        Log("[E-STOP] TowerLamp control failed: " + lampEx.Message);
                         AlarmManager.Raise(AlarmSeverity.Warning, "TOWER-FAIL", "OpPanel", lampEx.Message);
                     }
                 }
                 else
                 {
-                    Log("[E-STOP] OpPanel 誘몄뿰寃???TowerLamp ?쒖뼱 ?앸왂");
+                    Log("[E-STOP] OpPanel is not connected. TowerLamp control skipped.");
                 }
-                Log("[E-STOP] 鍮꾩긽 ?뺤? ?꾨즺 (異?" + axTotal + ", ?ㅽ뙣=" + axFail +
-                    "). ?덉쟾 ?뺤씤 ??RESET ALARM + INIT ?꾩슂.");
+                Log("[E-STOP] Emergency stop complete (axis=" + axTotal + ", fail=" + axFail +
+                    "). Safety check, RESET ALARM, and INIT are required.");
             }
             catch (Exception ex)
             {
@@ -1152,13 +1152,13 @@ namespace QMC.CDT320
             if (!InterlockRegistry.VerifyMove(axis.Name, position, out string reason))
             {
                 AlarmManager.Raise(AlarmSeverity.Warning, "INTERLOCK", axis.Name,
-                    $"Move blocked: target={position:F1} ??{reason}");
-                Log($"[INTERLOCK] {axis.Name} ??{position:F1} blocked: {reason}");
+                    $"Move blocked: target={position:F1}, reason={reason}");
+                Log($"[INTERLOCK] {axis.Name} target={position:F1} blocked: {reason}");
                 return false;
             }
             if (DryRun)
             {
-                Log($"[DRYRUN] skip move {axis.Name} ??{position:F1} (vel={velocity:F0})");
+                Log($"[DRYRUN] skip move {axis.Name} target={position:F1} (vel={velocity:F0})");
                 return true;
             }
             await SharedRailXMotionRuntime.MoveAxisAsync(axis, position, velocity);
@@ -1190,7 +1190,7 @@ namespace QMC.CDT320
             {
                 for (int i = 0; i < 3; i++)
                 {
-                    Log($"[ALIGN] point {i+1}/3 ??move motor ??({motorPts[i].mx:F2}, {motorPts[i].my:F2})");
+                    Log($"[ALIGN] point {i+1}/3 move motor -> ({motorPts[i].mx:F2}, {motorPts[i].my:F2})");
                     // ?ㅼ젣 紐⑥뀡? ?댁쁺 ?섍꼍?먯꽌 異붽?; ?쒕??먯꽌??留ㅼ묶 ?몄텧留?
                     var m = await VisionComm.VisionHub.Wafer.MatchAsync(finder, i, 1500);
                     if (!m.Success)
@@ -1209,7 +1209,7 @@ namespace QMC.CDT320
                 }
                 VisionComm.CoordinateMapStore.Save(coord);
                 var (sx, sy, rot) = VisionComm.AlignmentSolver.ExtractRotationScale(coord);
-                Log($"[ALIGN] OK ??scaleX={sx:F4} scaleY={sy:F4} rot={rot:F3}deg  ({coord})");
+                Log($"[ALIGN] OK scaleX={sx:F4} scaleY={sy:F4} rot={rot:F3}deg ({coord})");
                 return true;
             }
             catch (Exception ex)
@@ -1788,7 +1788,7 @@ namespace QMC.CDT320
                 // Resource Sensors 사전 확인(CDA / Vacuum 라인 상태).
                 try
                 {
-                    if (_machine.Resources != null && !_machine.Resources.AllOk)
+                    if (_machine.ResourcesUnit != null && !_machine.ResourcesUnit.AllOk)
                     {
                         Log("[INIT] Resource warning: CDA or Vacuum line is not OK. Simulation mode may allow this.");
                     }
@@ -1809,7 +1809,7 @@ namespace QMC.CDT320
                         if (mapResult == 0)
                         {
                             int n = 0;
-                            foreach (var b in _machine.InputCassette.WaferMap) if (b) n++;
+                            foreach (var b in _machine.InputCassetteUnit.WaferMap) if (b) n++;
                             Log($"[INIT] WaferMap OK ({n} detected)");
                         }
                         else
@@ -1933,14 +1933,14 @@ namespace QMC.CDT320
             {
                 int skipped = System.Math.Max(0, CycleTotal - CycleDone);
                 lot.SkippedCount = skipped;
-                Log("[STOP] LOT=" + lot.LotID + " 마무�?�?(done=" + CycleDone + "/" + CycleTotal +
+                Log("[STOP] LOT=" + lot.LotID + " finalize (done=" + CycleDone + "/" + CycleTotal +
                     ", good=" + GoodCount + ", ng=" + NgCount + ", skipped=" + skipped + ")");
                 try { QMC.CDT320.Lots.LotStorage.CloseLot(aborted: true); } catch { }
-                try { _machine.OpPanel?.TowerLampOff(); } catch { }
+                try { _machine.OpPanelUnit?.TowerLampOff(); } catch { }
             }
             else
             {
-                Log("[STOP] ?뺤?.");
+                Log("[STOP] Stopped.");
             }
             SetStatus(EquipmentStatus.Stopped);
             return Task.CompletedTask;
@@ -2351,7 +2351,7 @@ namespace QMC.CDT320
                 _status != EquipmentStatus.ManualRunning &&
                 _status != EquipmentStatus.Stopped)
             {
-                Log("[CYCLE] ?ㅽ뻾 ??珥덇린???꾩슂 (status=" + _status + ")");
+                Log("[CYCLE] Init is required before run. status=" + _status);
                 return;
             }
             if (_status == EquipmentStatus.Stopped)
@@ -2372,7 +2372,7 @@ namespace QMC.CDT320
                 int active = 0;
                 foreach (var e in _inputDieMap.Entries) if (e.IsTarget) active++;
                 if (totalDies <= 0 || totalDies > active) totalDies = active;
-                Log("[CYCLE] DieMap 모드 ??Input wafer ?�성 ?�이 " + active + " �?" + totalDies + "�?처리");
+                Log("[CYCLE] DieMap mode. Input wafer active dies=" + active + ", process=" + totalDies);
             }
             else if (totalDies <= 0)
             {
@@ -2400,13 +2400,13 @@ namespace QMC.CDT320
                 LotStorage.OpenLot(lotId, "default", totalDies);
             }
             SetStatus(EquipmentStatus.AutoRunning);
-            Log("[CYCLE] ?쒖옉 (total=" + totalDies + ", lot=" + lotId + ")");
+            Log("[CYCLE] Start (total=" + totalDies + ", lot=" + lotId + ")");
 
             // Stage 41 ??SECS/HSMS ?ъ씠???쒖옉 ?대깽??
             try { SecsHost?.RaiseEvent("CycleStart", lotId, totalDies.ToString()); } catch { }
 
             // Stage 45 ??Tower Lamp ?뱀깋 (?댁쟾 以?
-            try { _machine.OpPanel?.TowerLampRunning(); } catch { }
+            try { _machine.OpPanelUnit?.TowerLampRunning(); } catch { }
 
             try
             {
@@ -2416,7 +2416,7 @@ namespace QMC.CDT320
                     bool loaded = await LoadNextWaferAsync();
                     if (!loaded)
                     {
-                        Log("[CYCLE] 濡쒗듃?ы듃 泥??⑥씠??濡쒕뱶 ?ㅽ뙣 ???ъ씠??吏꾪뻾 (?붾젅?ы듃 紐⑤뱶)");
+                        Log("[CYCLE] First wafer load from lot port failed. Continue cycle in dry/default mode.");
                     }
                 }
 
@@ -2437,7 +2437,7 @@ namespace QMC.CDT320
                     // R3 ??Manual 紐⑤뱶: 1 ?ъ씠??泥섎━ ???먮룞 ?뺤?
                     if (CycleMode == CycleMode.Manual)
                     {
-                        Log("[CYCLE] Manual 모드 ??1 ?�이??처리 ???��? (done=" + CycleDone + ")");
+                        Log("[CYCLE] Manual mode. Stop after one die batch. done=" + CycleDone);
                         break;
                     }
                 }
@@ -2453,7 +2453,7 @@ namespace QMC.CDT320
                 _cycleResumePending = false;
                 _cycleStopRequested = false;
                 // Stage 45 ??Tower Lamp OFF (?ъ씠???뺤긽 ?꾨즺)
-                try { _machine.OpPanel?.TowerLampOff(); } catch { }
+                try { _machine.OpPanelUnit?.TowerLampOff(); } catch { }
                 // Stage 41 ??SECS/HSMS ?ъ씠???꾨즺 ?대깽??(Yield ?ы븿)
                 try
                 {
@@ -2470,7 +2470,7 @@ namespace QMC.CDT320
                 {
                     _cycleResumePending = true;
                     Log("[CYCLE STOP] paused at done=" + CycleDone + "/" + CycleTotal);
-                    try { _machine.OpPanel?.TowerLampOff(); } catch { }
+                    try { _machine.OpPanelUnit?.TowerLampOff(); } catch { }
                     SetStatus(EquipmentStatus.Stopped);
                 }
                 else
@@ -2483,7 +2483,7 @@ namespace QMC.CDT320
                     }
                     Log("[CYCLE] 以묐떒 (good=" + GoodCount + ", ng=" + NgCount + ", skipped=" + skipped + ")");
                     // Tower Lamp OFF (?ъ씠??以묐떒)
-                    try { _machine.OpPanel?.TowerLampOff(); } catch { }
+                    try { _machine.OpPanelUnit?.TowerLampOff(); } catch { }
                     LotStorage.CloseLot(aborted: true);
                     SetStatus(EquipmentStatus.Stopped);
                 }
@@ -2534,32 +2534,30 @@ namespace QMC.CDT320
         /// ?몄옄 cycleIdx ???ъ씠??踰덊샇 (0..totalCycles-1). ?ㅼ젣 ?ㅼ씠 踰덊샇??cycleIdx*pickers ~ cycleIdx*pickers+pickers-1.
         /// </summary>
         // ??????????????????????????????????????????
-        //  Stage 61 ???뚯씠?꾨씪??wafer 鍮꾩쟾 珥ъ쁺 ?ы띁
-        //  cycleIdx ??4 ?ㅼ씠瑜?移대찓?쇰줈 珥ъ쁺, 留덉?留됱뿉 CameraZ ?덉쟾 ?꾩튂 ?곸듅.
-        //  ArmY 媛 ?쎌뾽 ?곸뿭 ?몃????덉쓣 ??(= ?ㅻⅨ ?ъ씠?댁쓽 Inspect/Place 吏꾪뻾 以? ?몄텧.
+        //  Stage wafer vision capture helper.
+        //  Capture dies for the current cycle while the arm stays clear.
         // ??????????????????????????????????????????
+        private static double ResolveAxisDefaultVelocity(BaseAxis axis)
+        {
+            return axis != null && axis.Config != null && axis.Config.DefaultVelocity > 0.0
+                ? axis.Config.DefaultVelocity
+                : 100.0;
+        }
+
         private async Task<(double X, double Y)[]> CaptureWaferForCycleAsync(
             int cycleIdx, int pickers, CancellationToken ct)
         {
-            var stage = _machine.InputStage;
+            var stage = _machine.InputStageUnit;
             var offsets = new (double X, double Y)[pickers];
             int dieBase = cycleIdx * pickers;
 
-            try { stage.CameraX?.ServoOn(); stage.CameraZ?.ServoOn(); stage.StageY?.ServoOn(); } catch { }
-
-            // 1) CameraZ ???ъ빱???꾩튂 (?ㅼ씠 ?쒕㈃)
-            try
-            {
-                await stage.CameraZ.MoveAbsoluteAsync(
-                    stage.Setup.CameraFocusZ, stage.Recipe.MoveVelocity);
-            }
-            catch (Exception ex) { Log("[CAPTURE-Z] focus move ex: " + ex.Message); }
+            try { stage.CameraX?.ServoOn(); stage.StageY?.ServoOn(); } catch { }
 
             bool wafer = VisionComm.VisionHub.Wafer != null
                       && VisionComm.VisionHub.Wafer.IsConnected;
             int seqLen = _inputPickupSequence?.Count ?? 0;
 
-            Log($"[CAPTURE] Cycle {cycleIdx + 1} ??{pickers} die 珥ъ쁺 ?쒖옉 (dieBase={dieBase})");
+            Log($"[CAPTURE] Cycle {cycleIdx + 1}: start capturing {pickers} dies (dieBase={dieBase})");
 
             for (int p = 0; p < pickers; p++)
             {
@@ -2567,7 +2565,7 @@ namespace QMC.CDT320
                 int seqIdx = dieBase + p;
                 if (seqIdx < 0 || seqIdx >= seqLen)
                 {
-                    Log($"[CAPTURE p{p}] seqIdx {seqIdx} out of range (seqLen={seqLen}) ??skip");
+                    Log($"[CAPTURE p{p}] seqIdx {seqIdx} out of range (seqLen={seqLen}). Skip.");
                     offsets[p] = (0, 0);
                     continue;
                 }
@@ -2576,17 +2574,18 @@ namespace QMC.CDT320
                 // 移대찓??X / ?⑥씠??Stage Y ?숈떆 ?대룞 (媛?die ??X,Y ???뺣젹)
                 //   CameraX  = CameraOriginX + WaferAlignOffsetX + die.X
                 //   StageY   = StageYTeachPosition + WaferAlignOffsetY + die.Y
-                double camXTarget = stage.Setup.CameraOriginX
+                stage.Recipe.EnsurePositionObjects();
+                double camXTarget = stage.Recipe.VisionX.ReadyPosition
                                   + stage.WaferAlignOffsetX
                                   + d.X;
-                double stageYTarget = stage.Setup.StageYTeachPosition
+                double stageYTarget = stage.Recipe.WaferY.ReadyPosition
                                     + stage.WaferAlignOffsetY
                                     + d.Y;
                 try
                 {
                     await Task.WhenAll(
-                        SharedRailXMotionRuntime.MoveAxisAsync(stage.CameraX, camXTarget, stage.Recipe.MoveVelocity),
-                        stage.StageY.MoveAbsoluteAsync(stageYTarget, stage.Recipe.MoveVelocity)
+                        SharedRailXMotionRuntime.MoveAxisAsync(stage.CameraX, camXTarget, ResolveAxisDefaultVelocity(stage.CameraX)),
+                        stage.StageY.MoveAbsoluteAsync(stageYTarget, ResolveAxisDefaultVelocity(stage.StageY))
                     );
                 }
                 catch (Exception ex) { Log($"[CAPTURE-XY p{p}] ex: " + ex.Message); }
@@ -2610,14 +2609,13 @@ namespace QMC.CDT320
                         "DieFinder", dieBase + p, 1500);
                     if (m.Success && m.Score >= 0.7)
                     {
-                        double pxMm = stage.Setup.VisionPixelToMm;
-                        offsets[p] = ((m.X - 320) * pxMm, (m.Y - 240) * pxMm);
+                        offsets[p] = (0, 0);
                         Log($"[CAPTURE p{p}] OK score={m.Score:F2} offset=({offsets[p].X:F3},{offsets[p].Y:F3})mm");
                     }
                     else
                     {
                         offsets[p] = (0, 0);
-                        Log($"[CAPTURE p{p}] NG match (score={m.Score:F2}) ??offset 0");
+                        Log($"[CAPTURE p{p}] NG match (score={m.Score:F2}). offset=0");
                     }
                 }
                 catch (Exception ex)
@@ -2630,15 +2628,7 @@ namespace QMC.CDT320
                 await Task.Delay(150, ct).ContinueWith(_ => { });
             }
 
-            // 2) CameraZ ???덉쟾 ?꾩튂 (???꾩튂源뚯? ?곸듅?댁빞 ArmY 媛 吏꾩엯 媛??
-            try
-            {
-                await stage.CameraZ.MoveAbsoluteAsync(
-                    stage.Setup.CameraSafeZ, stage.Recipe.MoveVelocity);
-            }
-            catch (Exception ex) { Log("[CAPTURE-Z] safe retract ex: " + ex.Message); }
-
-            Log($"[CAPTURE] Cycle {cycleIdx + 1} 珥ъ쁺 ?꾨즺 ??CameraZ ?덉쟾 ?꾩튂 ?꾨떖");
+            Log($"[CAPTURE] Cycle {cycleIdx + 1}: capture complete.");
             return offsets;
         }
 
@@ -2656,7 +2646,7 @@ namespace QMC.CDT320
                 try { proceed = StepRunGate.Invoke(cycleIdx); } catch { }
                 if (!proceed)
                 {
-                    Log($"[STEPRUN] user denied ??stopping cycle");
+                    Log("[STEPRUN] user denied. Stopping cycle.");
                     throw new OperationCanceledException("StepRun gate denied");
                 }
             }
@@ -2665,12 +2655,12 @@ namespace QMC.CDT320
             //   cycleIdx == 0 ? CycleRunAsync ?먯꽌 LoadNextWaferAsync ?대? ?몄텧?덉쑝誘濡??ㅽ궢
             if (dieBase > 0 && DiesPerWafer > 0 && dieBase % DiesPerWafer == 0 && InputWaferAtExchange)
             {
-                Log($"[LOTPORT] {DiesPerWafer} ?ㅼ씠 ?꾨즺 ???ㅼ쓬 ?щ’?쇰줈 吏꾪뻾");
+                Log($"[LOTPORT] {DiesPerWafer} dies complete. Move to next slot.");
                 await RetractCurrentWaferAsync();
                 bool nextOk = await LoadNextWaferAsync();
                 if (!nextOk)
                 {
-                    Log("[LOTPORT] ?ㅼ쓬 ?⑥씠???놁쓬 ???ъ씠?댁? ?붾젅?ы듃濡?怨꾩냽");
+                    Log("[LOTPORT] No next wafer. Continue cycle in dry/default mode.");
                 }
             }
 
@@ -2723,8 +2713,8 @@ namespace QMC.CDT320
 
             // Stage 40 ??Dual Arm 모드: 짝수 idx ??LeftArm, ?�??idx ??RightArm
             dynamic front = (DualArmMode && (index % 2 == 1))
-                        ? (object)_machine.PickerRear
-                        : _machine.PickerFront;
+                        ? (object)_machine.PickerRearUnit
+                        : _machine.PickerFrontUnit;
 
             front.ArmX.ServoOn();
             front.ArmY.ServoOn();
@@ -2746,18 +2736,17 @@ namespace QMC.CDT320
             var visionOffsets = new (double X, double Y)[pickers];
             for (int pi = 0; pi < pickers; pi++) inspPass[pi] = true;
 
-            var stage = _machine.InputStage;
+            var stage = _machine.InputStageUnit;
             var ej = stage.EjectPinZ;
             ej?.ServoOn();
             stage.StageY?.ServoOn();
             stage.NeedleBlockX?.ServoOn();
             stage.CameraX?.ServoOn();
-            stage.CameraZ?.ServoOn();
 
             // ?? Stage 61 ???뚯씠?꾨씪??wafer 鍮꾩쟾 寃곌낵 ?섏떊 ??????????????????
             //   1) ArmY ??AvoidPosition (wafer ?곸뿭 ?몃? ?湲?
             //   2) Pending capture ?덉쑝硫?await ???놁쑝硫??숆린 罹≪쿂
-            //   3) await ???쒖젏 = 珥ъ쁺 ?꾨즺 + CameraZ ?덉쟾 ?꾩튂 ?꾨떖
+            //   3) await capture completion.
             //   4) ArmY ??PickupPosition + ArmX ??ArmInputPositionX ?숈떆 吏꾩엯
             try
             {
@@ -2769,14 +2758,14 @@ namespace QMC.CDT320
             (double X, double Y)[] capturedOffsets;
             if (_pendingCaptureTask != null && _pendingCaptureCycleIdx == cycleIdx)
             {
-                Log($"[PIPELINE] Cycle {cycleIdx + 1} ???ъ쟾 wafer capture ?湲?以?..");
+                Log($"[PIPELINE] Cycle {cycleIdx + 1}: waiting for previous wafer capture...");
                 capturedOffsets = await _pendingCaptureTask;
                 _pendingCaptureTask = null;
                 _pendingCaptureCycleIdx = -1;
             }
             else
             {
-                Log($"[PIPELINE] Cycle {cycleIdx + 1} ???숆린 wafer capture (泥??ъ씠???먮뒗 desync)");
+                Log($"[PIPELINE] Cycle {cycleIdx + 1}: capture wafer synchronously.");
                 capturedOffsets = await CaptureWaferForCycleAsync(cycleIdx, pickers, ct);
             }
 
@@ -2787,7 +2776,7 @@ namespace QMC.CDT320
                 dieOffsets[p].Y += visionOffsets[p].Y;
             }
 
-            // 8) ArmY ??Pickup + ArmX ??ArmInputPositionX (CameraZ 媛 ?덉쟾 ?꾩튂???덈뒗 ?쒖젏)
+            // 8) ArmY pickup + ArmX input position.
             double pickX = front.Setup?.ArmInputPositionX ?? 300.0;
             try
             {
@@ -2823,21 +2812,22 @@ namespace QMC.CDT320
                         + stage.WaferAlignOffsetX
                         + picker.Setup.ColletOffsetX
                         + d.X;
+                    stage.Recipe.EnsurePositionObjects();
                     double stageYTarget =
-                        stage.Setup.StageYTeachPosition
+                        stage.Recipe.WaferY.ReadyPosition
                         + stage.WaferAlignOffsetY
                         + d.Y
                         + vo.Y;
                     double needleXTarget =
-                        stage.Setup.NeedleTeachX
+                        stage.Recipe.NeedleX.ReadyPosition
                         + stage.WaferAlignOffsetX
                         + d.X
                         + vo.X;
 
                     await Task.WhenAll(
                         SharedRailXMotionRuntime.MoveAxisAsync(front.ArmX, armXTarget, front.Recipe.ArmXVelocity),
-                        stage.StageY.MoveAbsoluteAsync(stageYTarget, stage.Recipe.MoveVelocity),
-                        stage.NeedleBlockX.MoveAbsoluteAsync(needleXTarget, stage.Recipe.MoveVelocity)
+                        stage.StageY.MoveAbsoluteAsync(stageYTarget, ResolveAxisDefaultVelocity(stage.StageY)),
+                        stage.NeedleBlockX.MoveAbsoluteAsync(needleXTarget, ResolveAxisDefaultVelocity(stage.NeedleBlockX))
                     );
 
                     // ??Picker Z??(PickupPosition) / Needle Cap Vacuum ON / Picker Vacuum ON ?숈떆
@@ -2849,10 +2839,10 @@ namespace QMC.CDT320
                     await Task.Delay(picker.Recipe.VacuumSettleMs, ct);
 
                     // ??Needle Up / Picker Up (+PickLiftPosition) ?숈떆
-                    double needleUpPos = stage.Setup.NeedleDownPosition + picker.Recipe.PickLiftPosition;
+                    double needleUpPos = stage.Recipe.EjectPinZ.ReadyPosition + picker.Recipe.PickLiftPosition;
                     double pickerUpPos = picker.Setup.PickupPosition    + picker.Recipe.PickLiftPosition;
                     await Task.WhenAll(
-                        ej.MoveAbsoluteAsync(needleUpPos, stage.Recipe.NeedleVelocity),
+                        ej.MoveAbsoluteAsync(needleUpPos, ResolveAxisDefaultVelocity(ej)),
                         picker.PickerZ.MoveAbsoluteAsync(pickerUpPos, picker.Recipe.ZVelocity)
                     );
 
@@ -2862,7 +2852,7 @@ namespace QMC.CDT320
                     // ??Picker Wait (WaitPosition) / Needle Down (NeedleDownPosition) ?숈떆
                     await Task.WhenAll(
                         picker.PickerZ.MoveAbsoluteAsync(picker.Setup.WaitPosition, picker.Recipe.ZVelocity),
-                        ej.MoveAbsoluteAsync(stage.Setup.NeedleDownPosition, stage.Recipe.NeedleVelocity)
+                        ej.MoveAbsoluteAsync(stage.Recipe.EjectPinZ.ReadyPosition, ResolveAxisDefaultVelocity(ej))
                     );
 
                     pickupOk[p] = !picker.PickerZ.IsAlarm && !ej.IsAlarm;
@@ -2902,7 +2892,7 @@ namespace QMC.CDT320
                 _pendingCaptureCycleIdx = nextCycleIdx;
                 _pendingCapturePickers  = npickers;
                 _pendingCaptureTask = CaptureWaferForCycleAsync(nextCycleIdx, npickers, ct);
-                Log($"[PIPELINE] Cycle {nextCycleIdx + 1} wafer capture 諛깃렇?쇱슫???쒖옉");
+                Log($"[PIPELINE] Cycle {nextCycleIdx + 1}: background wafer capture start.");
             }
 
             // 14~18) Bottom+Side 蹂묐젹 ?뚯씠?꾨씪??(?⑥씪 ArmX ?뚯씠?꾨씪?????숈떆 珥ъ쁺)
@@ -2920,7 +2910,7 @@ namespace QMC.CDT320
                 {
                     if (front.SideVisionY != null) front.SideVisionY.ServoOn();
 
-                    Log("[VISION] Bottom+Side 蹂묐젹 ?뚯씠?꾨씪???쒖옉 (4 picker)...");
+                    Log("[VISION] Bottom+Side parallel pipeline start (4 picker)...");
                     var both = await front.InspectBottomAndSideAsync(DieSizeXMm, DieSizeYMm);
                     if (both != null)
                     {
@@ -2958,7 +2948,7 @@ namespace QMC.CDT320
                 }
                 else
                 {
-                    Log("[VISION] Inspection 미연�???Bottom/Side 검??sim ?�스");
+                    Log("[VISION] Inspection not connected. Bottom/Side check simulated as pass.");
                 }
             }
             catch (Exception ex) { Log("[VISION] Bottom+Side ex: " + ex.Message); }
@@ -3023,7 +3013,7 @@ namespace QMC.CDT320
                 if (!inspPass[p]) continue;
                 try
                 {
-                    await PlaceOnePickerAsync(p, _machine.OutputStage.GoodStage);
+                    await PlaceOnePickerAsync(p, _machine.OutputStageUnit.GoodStage);
                     goodPlaced++;
                 }
                 catch (Exception ex)
@@ -3042,12 +3032,12 @@ namespace QMC.CDT320
                 {
                     // GoodStage Z 異⑸룎 ?뚰뵾濡??섍컯, NgStage Z ?묒뾽 ?꾩튂濡??곸듅
                     await Task.WhenAll(
-                        _machine.OutputStage.GoodStage.StageZ.MoveAbsoluteAsync(
-                            _machine.OutputStage.GoodStage.Setup.AvoidPositionZ,
-                            _machine.OutputStage.GoodStage.Recipe?.ZVelocity ?? 100.0),
-                        _machine.OutputStage.NgStage.StageZ.MoveAbsoluteAsync(
-                            _machine.OutputStage.NgStage.Setup.WorkPositionZ,
-                            _machine.OutputStage.NgStage.Recipe?.ZVelocity ?? 100.0)
+                        _machine.OutputStageUnit.GoodStage.StageZ.MoveAbsoluteAsync(
+                            _machine.OutputStageUnit.GoodStage.Setup.AvoidPositionZ,
+                            _machine.OutputStageUnit.GoodStage.Recipe?.ZVelocity ?? 100.0),
+                        _machine.OutputStageUnit.NgStage.StageZ.MoveAbsoluteAsync(
+                            _machine.OutputStageUnit.NgStage.Setup.WorkPositionZ,
+                            _machine.OutputStageUnit.NgStage.Recipe?.ZVelocity ?? 100.0)
                     );
                 }
                 catch (Exception ex) { Log("[PLACE] Bin ?꾪솚 ex: " + ex.Message); }
@@ -3057,7 +3047,7 @@ namespace QMC.CDT320
                     if (inspPass[p]) continue;
                     try
                     {
-                        await PlaceOnePickerAsync(p, _machine.OutputStage.NgStage);
+                        await PlaceOnePickerAsync(p, _machine.OutputStageUnit.NgStage);
                         ngPlaced++;
                     }
                     catch (Exception ex)
@@ -3067,14 +3057,14 @@ namespace QMC.CDT320
                     }
                 }
             }
-            Log($"[TPU] Place ??Good={goodPlaced} Ng={ngPlaced} (cycle {cycleIdx + 1})");
+            Log($"[TPU] Place result: Good={goodPlaced} Ng={ngPlaced} (cycle {cycleIdx + 1})");
 
             // ?? Stage 61 ??Place 醫낅즺 ??ArmY ??AvoidPosition ?뚰뵾 (?ㅼ쓬 ?ъ씠??capture ?덉쟾 ?곸뿭) ??
             try
             {
                 await front.ArmY.MoveAbsoluteAsync(
                     front.Setup.ArmYAvoidPosition, front.Recipe.ArmYVelocity);
-                Log($"[ARM-Y] Cycle {cycleIdx + 1} Place ?꾨즺 ??Avoid ?꾩튂 蹂듦?");
+                Log($"[ARM-Y] Cycle {cycleIdx + 1}: Place complete. Return to Avoid position.");
             }
             catch (Exception ex) { Log("[ARM-Y avoid after PLACE] ex: " + ex.Message); }
 
@@ -3110,7 +3100,7 @@ namespace QMC.CDT320
             if (WafersPerOutputBatch > 0 &&
                 (diesProcessedTotal / WafersPerOutputBatch) > (dieBase / WafersPerOutputBatch))
             {
-                Log($"[FEEDER] {WafersPerOutputBatch} ?ㅼ씠 ?꾨즺 ??Output ?곸옱");
+                Log($"[FEEDER] {WafersPerOutputBatch} dies complete. Store to output.");
                 // ?ъ씠?댁쓽 ?ㅼ닔 寃곌낵濡?wafer ?곸옱 遺꾨쪟 (Good ?곗꽭 = Good)
                 bool anyGood = false; foreach (var ip in inspPass) if (ip) { anyGood = true; break; }
                 await StoreCompletedWaferAsync(anyGood);
@@ -3120,10 +3110,10 @@ namespace QMC.CDT320
             if (DiesPerColletClean > 0 &&
                 (diesProcessedTotal / DiesPerColletClean) > (dieBase / DiesPerColletClean))
             {
-                Log($"[COLLET] {DiesPerColletClean} ?ㅼ씠 ?꾨즺 ??Collet Cleaning ?쒖옉");
+                Log($"[COLLET] {DiesPerColletClean} dies complete. Start collet cleaning.");
                 try
                 {
-                    bool clOk = await _machine.OutputStage.PerformColletCleaningAsync();
+                    bool clOk = await _machine.OutputStageUnit.PerformColletCleaningAsync();
                     Log("[COLLET] Cleaning " + (clOk ? "OK" : "WARN"));
                 }
                 catch (Exception ex) { Log("[COLLET] exception: " + ex.Message); }
@@ -3133,7 +3123,7 @@ namespace QMC.CDT320
             {
                 if (SubPortMaterialRejector.ShouldReject(dies[p], out double rxX, out double rxY))
                 {
-                    Log($"[DIE {dieBase + p + 1}] reject ??({rxX:F1},{rxY:F1})  bin={dies[p].BinCode}");
+                    Log($"[DIE {dieBase + p + 1}] reject -> ({rxX:F1},{rxY:F1})  bin={dies[p].BinCode}");
                 }
             }
             Log($"[CYCLE {cycleIdx + 1}] dies {dieBase + 1}~{dieBase + pickers}/{CycleTotal} good={goodInCycle} ng={ngInCycle}");

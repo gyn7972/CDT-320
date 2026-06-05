@@ -126,19 +126,19 @@ namespace QMC.CDT320
             var m = _machine;
 
             // Input side (0~7)
-            _axisMap[m.InputCassette.InputLifterZ] = 0;   // InputLifterZ
-            _axisMap[m.InputFeeder.FeederY]        = 1;   // InputFeederY
-            _axisMap[m.InputStage.StageY]        = 2;   // WaferStageY
-            _axisMap[m.InputStage.StageT]        = 3;   // WaferStageT
-            _axisMap[m.InputStage.ExpanderZ]     = 4;   // WaferExpandingZ
-            _axisMap[m.InputStage.CameraX]       = 5;   // InputVisionX
-            _axisMap[m.InputStage.NeedleBlockX]  = 6;   // NeedleX
-            _axisMap[m.InputStage.NeedleZ]       = 7;   // NeedleZ
+            _axisMap[m.InputCassetteUnit.InputLifterZ] = 0;   // InputLifterZ
+            _axisMap[m.InputFeederUnit.FeederY]        = 1;   // InputFeederY
+            _axisMap[m.InputStageUnit.StageY]        = 2;   // WaferStageY
+            _axisMap[m.InputStageUnit.StageT]        = 3;   // WaferStageT
+            _axisMap[m.InputStageUnit.ExpanderZ]     = 4;   // WaferExpandingZ
+            _axisMap[m.InputStageUnit.CameraX]       = 5;   // InputVisionX
+            _axisMap[m.InputStageUnit.NeedleBlockX]  = 6;   // NeedleX
+            _axisMap[m.InputStageUnit.NeedleZ]       = 7;   // NeedleZ
             // Stage 44 — EjectPinZ 매핑 추가 (이전 미대응)
-            _axisMap[m.InputStage.EjectPinZ]     = 8;   // EjectPinZ
+            _axisMap[m.InputStageUnit.EjectPinZ]     = 8;   // EjectPinZ
 
             // FRONT PICKER (LeftArm): 9, 10, 11~18
-            var left = m.PickerFront;
+            var left = m.PickerFrontUnit;
             _axisMap[left.ArmX] = 9;
             _axisMap[left.ArmY] = 10;
             for (int i = 0; i < 4; i++)
@@ -148,7 +148,7 @@ namespace QMC.CDT320
             }
 
             // REAR PICKER (RightArm): 21, 22, 23~30
-            var right = m.PickerRear;
+            var right = m.PickerRearUnit;
             _axisMap[right.ArmX] = 21;
             _axisMap[right.ArmY] = 22;
             for (int i = 0; i < 4; i++)
@@ -162,15 +162,15 @@ namespace QMC.CDT320
             _axisMap[right.SideVisionY] = 20;   // REAR  SIDE VISION_Y0
 
             // Output side (31~36)
-            _axisMap[m.OutputStage.GoodStage.StageY] = 31;   // OutputGoodStageY
-            _axisMap[m.OutputStage.GoodStage.StageZ] = 32;   // OutputGoodStageZ
-            _axisMap[m.OutputStage.NgStage.StageY]   = 33;   // OutputNGStageY
-            _axisMap[m.OutputStage.BinCameraX]       = 34;   // OutputVisionX
-            _axisMap[m.OutputFeeder.FeederY]         = 35;   // OutputFeederY
-            _axisMap[m.OutputCassette.OutputLifterZ]    = 36;   // OutputLifterZ
+            _axisMap[m.OutputStageUnit.GoodStage.StageY] = 31;   // OutputGoodStageY
+            _axisMap[m.OutputStageUnit.GoodStage.StageZ] = 32;   // OutputGoodStageZ
+            _axisMap[m.OutputStageUnit.NgStage.StageY]   = 33;   // OutputNGStageY
+            _axisMap[m.OutputStageUnit.BinCameraX]       = 34;   // OutputVisionX
+            _axisMap[m.OutputFeederUnit.FeederY]         = 35;   // OutputFeederY
+            _axisMap[m.OutputCassetteUnit.OutputLifterZ]    = 36;   // OutputLifterZ
 
             // ─── DO 매핑 ──────────────────────────────
-            _doMap[m.InputStage.NeedleVacuum] = "Y046";
+            _doMap[m.InputStageUnit.NeedleVacuum] = "Y046";
 
             for (int i = 0; i < 4; i++)
             {
@@ -184,10 +184,10 @@ namespace QMC.CDT320
             // 카세트/피더 관련 DI 를 시뮬레이터로 통보. 시뮬레이터에는 DI_SET 명령이
             // 없어 LOG 형태로만 송신되나, 추후 시뮬레이터 측 DI 시각화 추가 시
             // 본 매핑이 그대로 활용된다.
-            _diMap[m.InputCassette.CassetteExistSensor] = "X060";
-            _diMap[m.InputCassette.ProtrusionSensor]    = "X061";
-            _diMap[m.InputCassette.WaferDetectSensor]   = "X062";
-            _diMap[m.InputFeeder.WaferClampedSensor]    = "X063";
+            _diMap[m.InputCassetteUnit.CassetteExistSensor] = "X060";
+            _diMap[m.InputCassetteUnit.ProtrusionSensor]    = "X061";
+            _diMap[m.InputCassetteUnit.WaferDetectSensor]   = "X062";
+            _diMap[m.InputFeederUnit.WaferClampedSensor]    = "X063";
         }
 
         // ──────────────────────────────────────────────

@@ -115,7 +115,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             try
             {
                 var machine = FindMachine();
-                _outputFeederUnit = machine != null ? machine.OutputFeeder : null;
+                _outputFeederUnit = machine != null ? machine.OutputFeederUnit : null;
                 SetEnabledState(_outputFeederUnit != null);
             }
             catch (Exception ex)

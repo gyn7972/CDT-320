@@ -32,10 +32,10 @@ namespace QMC.CDT320.Motion.SharedRailX
         public IReadOnlyList<SharedRailXAxisSetting> GetAxisSettings()
         {
             var list = new List<SharedRailXAxisSetting>();
-            Add(list, SharedRailXAxis.InputVisionX, _machine.InputStage != null ? _machine.InputStage.CameraX : null);
-            Add(list, SharedRailXAxis.FrontPickerX, _machine.PickerFront != null ? _machine.PickerFront.PickerX : null);
-            Add(list, SharedRailXAxis.RearPickerX, _machine.PickerRear != null ? _machine.PickerRear.PickerX : null);
-            Add(list, SharedRailXAxis.OutputVisionX, _machine.OutputStage != null ? _machine.OutputStage.BinCameraX : null);
+            Add(list, SharedRailXAxis.InputVisionX, _machine.InputStageUnit != null ? _machine.InputStageUnit.CameraX : null);
+            Add(list, SharedRailXAxis.FrontPickerX, _machine.PickerFrontUnit != null ? _machine.PickerFrontUnit.PickerX : null);
+            Add(list, SharedRailXAxis.RearPickerX, _machine.PickerRearUnit != null ? _machine.PickerRearUnit.PickerX : null);
+            Add(list, SharedRailXAxis.OutputVisionX, _machine.OutputStageUnit != null ? _machine.OutputStageUnit.BinCameraX : null);
             return list;
         }
 

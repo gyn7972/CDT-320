@@ -221,8 +221,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         {
             try
             {
-                var cassette = host != null && host.Machine != null ? host.Machine.InputCassette : null;
-                var feeder = host != null && host.Machine != null ? host.Machine.InputFeeder : null;
+                var cassette = host != null && host.Machine != null ? host.Machine.InputCassetteUnit : null;
+                var feeder = host != null && host.Machine != null ? host.Machine.InputFeederUnit : null;
                 if (cassette == null || feeder == null)
                     return -1;
 
@@ -249,8 +249,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         {
             try
             {
-                var cassette = host != null && host.Machine != null ? host.Machine.InputCassette : null;
-                var feeder = host != null && host.Machine != null ? host.Machine.InputFeeder : null;
+                var cassette = host != null && host.Machine != null ? host.Machine.InputCassetteUnit : null;
+                var feeder = host != null && host.Machine != null ? host.Machine.InputFeederUnit : null;
                 if (cassette == null || feeder == null)
                     return -1;
 
@@ -367,7 +367,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
         private static bool ValidateInputCassetteManualCondition(Form1 host, bool mapping)
         {
-            var cassette = host != null && host.Machine != null ? host.Machine.InputCassette : null;
+            var cassette = host != null && host.Machine != null ? host.Machine.InputCassetteUnit : null;
             if (cassette == null || cassette.Config == null || cassette.Recipe == null)
                 return false;
 
@@ -389,7 +389,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
         private static int ResolveManualMoveTimeoutMs(Form1 host)
         {
-            var cassette = host != null && host.Machine != null ? host.Machine.InputCassette : null;
+            var cassette = host != null && host.Machine != null ? host.Machine.InputCassetteUnit : null;
             int configured = cassette != null ? cassette.ResolveWaferLifterZMoveTimeoutMs() : 0;
             return configured > 0 ? configured : 3000;
         }
@@ -564,7 +564,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         {
             try
             {
-                var loader = host != null && host.Machine != null ? host.Machine.InputCassette : null;
+                var loader = host != null && host.Machine != null ? host.Machine.InputCassetteUnit : null;
                 if (loader == null || loader.Config == null)
                     return -1;
 
@@ -614,7 +614,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 if (host == null || host.Machine == null)
                     return;
 
-                var loader = host.Machine.InputCassette;
+                var loader = host.Machine.InputCassetteUnit;
                 var ctrl = host.Controller;
                 int slotCount = loader.Config != null && loader.Config.SlotCount > 0 ? loader.Config.SlotCount : 0;
 

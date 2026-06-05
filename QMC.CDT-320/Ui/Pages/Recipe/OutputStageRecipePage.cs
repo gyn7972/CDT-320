@@ -186,7 +186,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             try
             {
                 var machine = FindMachine();
-                _outputStageUnit = machine != null ? machine.OutputStage : null;
+                _outputStageUnit = machine != null ? machine.OutputStageUnit : null;
                 if (_outputStageUnit != null)
                     _outputStageUnit.Recipe.EnsurePositionObjects();
                 SetEnabledState(_outputStageUnit != null);

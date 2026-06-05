@@ -104,8 +104,7 @@ namespace QMC.CDT_320.Ui.Controls
                     JogAxisItem.Single("CameraX", null, AxisUnitConverter.Micrometer, 1.0, "X+", "X-"),
                     JogAxisItem.Single("NeedleX", null, AxisUnitConverter.Micrometer, 1.0, "X+", "X-"),
                     JogAxisItem.Single("NeedleZ", null, AxisUnitConverter.Micrometer, 1.0, "Z+", "Z-"),
-                    JogAxisItem.Single("EjectPinZ", null, AxisUnitConverter.Micrometer, 1.0, "Z+", "Z-"),
-                    JogAxisItem.Single("CameraZ", null, AxisUnitConverter.Micrometer, 1.0, "Z+", "Z-")
+                    JogAxisItem.Single("EjectPinZ", null, AxisUnitConverter.Micrometer, 1.0, "Z+", "Z-")
                 });
             }
             catch (Exception ex)

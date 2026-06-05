@@ -15,7 +15,7 @@ namespace QMC.CDT320.Alarms
 
             //우선은 이거 막아 놓자.
             //map.AddGroup("InputCassette", "InputLifterZ", "FeederY");
-            //map.AddGroup("InputStage", "FeederY", "StageY", "StageT", "ExpanderZ", "CameraX", "CameraZ", "NeedleBlockX", "NeedleZ", "EjectPinZ");
+            //map.AddGroup("InputStage", "FeederY", "StageY", "StageT", "ExpanderZ", "CameraX", "NeedleBlockX", "NeedleZ", "EjectPinZ");
             //map.AddGroup("TransferFront", "FrontPickerX", "FrontPickerY", "FrontSideVisionY0",
             //    "FrontPickerZ0", "FrontPickerT0", "FrontPickerZ1", "FrontPickerT1",
             //    "FrontPickerZ2", "FrontPickerT2", "FrontPickerZ3", "FrontPickerT3",

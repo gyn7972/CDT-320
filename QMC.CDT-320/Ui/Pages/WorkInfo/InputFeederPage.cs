@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.Windows.Forms;
 using QMC.Common.Motion;
@@ -25,7 +25,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         {
             var host = GetHost();
             if (host?.Machine == null) return;
-            var loader = host.Machine.InputFeeder;
+            var loader = host.Machine.InputFeederUnit;
 
             _lblFeederPos.Text = AxisUnitConverter.FormatDisplay(loader.FeederY.ActualPosition, loader.FeederY, "0.###", true);
             _lblClampState.Text = loader.FeederClampCyl.IsFwd ? "CLAMP" : (loader.FeederClampCyl.IsBwd ? "UNCLAMP" : "ERROR");

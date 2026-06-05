@@ -41,7 +41,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             var host = FindForm() as Form1;
             if (host?.Machine == null) return;
 
-            var OutputCassette = host.Machine.OutputCassette;
+            var OutputCassette = host.Machine.OutputCassetteUnit;
             lblElevatorPos.Text = AxisUnitConverter.FormatDisplay(OutputCassette.OutputLifterZ.ActualPosition, OutputCassette.OutputLifterZ, "0.###", true);
 
             var driver = host.CassetteDriver;

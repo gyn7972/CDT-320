@@ -26,7 +26,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         {
             btnInit.Click += (s, e) => RunAction(host => InitFeederAsync(host));
             btnMap.Click += (s, e) => RunAction(host => host.Controller.ScanOutputCassettesAsync());
-            btnPick.Click += (s, e) => RunAction(host => host.Machine.OutputCassette.SupplyEmptyWaferAsync(host.Machine.OutputFeeder, QMC.CDT320.TargetCassette.Good1, 0));
+            btnPick.Click += (s, e) => RunAction(host => host.Machine.OutputCassetteUnit.SupplyEmptyWaferAsync(host.Machine.OutputFeederUnit, QMC.CDT320.TargetCassette.Good1, 0));
             btnPlace.Click += (s, e) => RunAction(host => host.Controller.StoreCompletedWaferAsync(false));
         }
 
@@ -62,8 +62,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
         private async Task InitFeederAsync(Form1 host)
         {
-            var feeder = host.Machine.OutputFeeder;
-            var cassette = host.Machine.OutputCassette;
+            var feeder = host.Machine.OutputFeederUnit;
+            var cassette = host.Machine.OutputCassetteUnit;
             feeder.FeederY.ResetAlarm();
             feeder.FeederY.ServoOn();
             cassette.OutputLifterZ.ResetAlarm();
@@ -77,8 +77,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             var host = GetHost();
             if (host?.Machine == null) return;
 
-            var feeder = host.Machine.OutputFeeder;
-            var cassette = host.Machine.OutputCassette;
+            var feeder = host.Machine.OutputFeederUnit;
+            var cassette = host.Machine.OutputCassetteUnit;
             lblFeederPos.Text = AxisUnitConverter.FormatDisplay(feeder.FeederY.ActualPosition, feeder.FeederY, "0.###", true);
             lblElevatorPos.Text = AxisUnitConverter.FormatDisplay(cassette.OutputLifterZ.ActualPosition, cassette.OutputLifterZ, "0.###", true);
             lblClamp.Text = feeder.FeederClampCyl.IsFwd ? "CLAMPED" : (feeder.FeederClampCyl.IsBwd ? "OPEN" : "...");

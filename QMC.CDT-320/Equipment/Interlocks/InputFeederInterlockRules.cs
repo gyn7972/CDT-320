@@ -29,8 +29,8 @@ namespace QMC.CDT320.Interlocks
         {
             reason = string.Empty;
             CDT320_Machine machine = request.Machine;
-            InputCassetteUnit cassette = machine.InputCassette;
-            InputStageUnit stage = machine.InputStage;
+            InputCassetteUnit cassette = machine.InputCassetteUnit;
+            InputStageUnit stage = machine.InputStageUnit;
 
             // 움직이지 않아야함.
             if (cassette != null && cassette.InputLifterZ != null && cassette.InputLifterZ.IsMoving)
@@ -55,14 +55,14 @@ namespace QMC.CDT320.Interlocks
             reason = string.Empty;
             CDT320_Machine machine = request.Machine;
 
-            if (machine.InputCassette != null &&
-                machine.InputCassette.InputLifterZ != null &&
-                machine.InputCassette.InputLifterZ.IsMoving)
+            if (machine.InputCassetteUnit != null &&
+                machine.InputCassetteUnit.InputLifterZ != null &&
+                machine.InputCassetteUnit.InputLifterZ.IsMoving)
                 return MotionGuardRuleHelpers.Block("InputFeederLift", "InputLifterZ is moving. InputFeederLift move is blocked.", out reason);
 
-            if (machine.InputFeeder != null &&
-                machine.InputFeeder.FeederY != null &&
-                machine.InputFeeder.FeederY.IsMoving)
+            if (machine.InputFeederUnit != null &&
+                machine.InputFeederUnit.FeederY != null &&
+                machine.InputFeederUnit.FeederY.IsMoving)
                 return MotionGuardRuleHelpers.Block("InputFeederLift", "InputFeederY is moving. InputFeederLift move is blocked.", out reason);
 
             return true;
@@ -73,14 +73,14 @@ namespace QMC.CDT320.Interlocks
             reason = string.Empty;
             CDT320_Machine machine = request.Machine;
 
-            if (machine.InputCassette != null &&
-                machine.InputCassette.InputLifterZ != null &&
-                machine.InputCassette.InputLifterZ.IsMoving)
+            if (machine.InputCassetteUnit != null &&
+                machine.InputCassetteUnit.InputLifterZ != null &&
+                machine.InputCassetteUnit.InputLifterZ.IsMoving)
                 return MotionGuardRuleHelpers.Block("InputFeederClamp", "InputLifterZ is moving. InputFeederClamp move is blocked.", out reason);
 
-            if (machine.InputFeeder != null &&
-                machine.InputFeeder.FeederY != null &&
-                machine.InputFeeder.FeederY.IsMoving)
+            if (machine.InputFeederUnit != null &&
+                machine.InputFeederUnit.FeederY != null &&
+                machine.InputFeederUnit.FeederY.IsMoving)
                 return MotionGuardRuleHelpers.Block("InputFeederClamp", "InputFeederY is moving. InputFeederClamp move is blocked.", out reason);
 
             return true;
@@ -92,8 +92,7 @@ namespace QMC.CDT320.Interlocks
                 return true;
 
             StageAxisPositions waferY = stage.Recipe != null ? stage.Recipe.WaferY : null;
-            return IsAt(stage.StageY, stage.Setup.StageYTeachPosition)
-                   || IsAt(stage.StageY, stage.Setup.UnloadPositionY)
+            return (waferY != null && IsAt(stage.StageY, waferY.ReadyPosition))
                    || (waferY != null && IsAt(stage.StageY, waferY.LoadPosition))
                    || (waferY != null && IsAt(stage.StageY, waferY.UnloadPosition));
         }
@@ -103,8 +102,8 @@ namespace QMC.CDT320.Interlocks
             if (stage == null || stage.ExpanderZ == null)
                 return true;
 
-            // Up Position이 Load/Unload 공통으로 안전한 위치임.
-            return IsAt(stage.ExpanderZ, stage.Setup.ExpanderUpPosition);
+            StageAxisPositions waferZ = stage.Recipe != null ? stage.Recipe.WaferZ : null;
+            return waferZ != null && IsAt(stage.ExpanderZ, waferZ.ReadyPosition);
         }
 
         private static bool IsAt(BaseAxis axis, double target)

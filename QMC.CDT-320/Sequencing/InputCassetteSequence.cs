@@ -122,12 +122,12 @@ namespace QMC.CDT320.Sequencing
 
         protected InputCassetteUnit Cassette
         {
-            get { return Context != null && Context.Machine != null ? Context.Machine.InputCassette : null; }
+            get { return Context != null && Context.Machine != null ? Context.Machine.InputCassetteUnit : null; }
         }
 
         protected InputFeederUnit Feeder
         {
-            get { return Context != null && Context.Machine != null ? Context.Machine.InputFeeder : null; }
+            get { return Context != null && Context.Machine != null ? Context.Machine.InputFeederUnit : null; }
         }
 
         public async Task<int> RunAsync(CancellationToken ct, InputCassetteSequenceOptions options)

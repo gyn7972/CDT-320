@@ -27,7 +27,7 @@ namespace QMC.CDT320.Interlocks
             if (machine == null)
                 return true;
 
-            InputFeederUnit feeder = machine.InputFeeder;
+            InputFeederUnit feeder = machine.InputFeederUnit;
 
             if (feeder == null)
                 return true;

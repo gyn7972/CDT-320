@@ -4,19 +4,48 @@ using QMC.CDT320;
 using QMC.Common.Logging;
 using QMC.Common.Motion;
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
-using System.Globalization;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace QMC.CDT_320.Ui.Pages.Recipe
 {
-    /// <summary>Input Cassette 레시피에서 InputCassetteUnit을 조작하는 화면입니다.</summary>
+    /// <summary>Input Feeder 레시피에서 InputFeederUnit을 조작하는 화면입니다.</summary>
     public partial class InputFeederRecipePage : QMC.CDT_320.Ui.Pages.PageBase
     {
-        private InputCassetteUnit _InputCassetteUnit;
+        private sealed class FeederTeachingPosition
+        {
+            public string DisplayName { get; private set; }
+            public string PositionName { get; private set; }
+            public Func<InputFeederUnit, double> Getter { get; private set; }
+            public Action<InputFeederUnit, double> Setter { get; private set; }
+
+            public FeederTeachingPosition(string displayName, string positionName, Func<InputFeederUnit, double> getter, Action<InputFeederUnit, double> setter)
+            {
+                DisplayName = displayName;
+                PositionName = positionName;
+                Getter = getter;
+                Setter = setter;
+            }
+        }
+
+        private static readonly FeederTeachingPosition[] TeachingPositions =
+        {
+            new FeederTeachingPosition("AVOID POSITION", "Avoid", unit => unit.Recipe.AvoidPosition, (unit, value) => unit.Recipe.AvoidPosition = value),
+            new FeederTeachingPosition("CASSETTE LOAD POSITION", "CassetteLoad", unit => unit.Recipe.CassetteLoadPosition, (unit, value) => unit.Recipe.CassetteLoadPosition = value),
+            new FeederTeachingPosition("CASSETTE UNLOAD POSITION", "CassetteUnload", unit => unit.Recipe.CassetteUnloadPosition, (unit, value) => unit.Recipe.CassetteUnloadPosition = value),
+            new FeederTeachingPosition("CASSETTE EXCHANGE POSITION", "CassetteExchange", unit => unit.Recipe.CassetteExchangePosition, (unit, value) => unit.Recipe.CassetteExchangePosition = value),
+            new FeederTeachingPosition("WAFER LOAD AVOID POSITION", "WaferLoadAvoid", unit => unit.Recipe.WaferLoadAvoidPosition, (unit, value) => unit.Recipe.WaferLoadAvoidPosition = value),
+            new FeederTeachingPosition("WAFER LOAD POSITION", "WaferLoad", unit => unit.Recipe.WaferLoadPosition, (unit, value) => unit.Recipe.WaferLoadPosition = value),
+            new FeederTeachingPosition("WAFER UNLOAD AVOID POSITION", "WaferUnloadAvoid", unit => unit.Recipe.WaferUnloadAvoidPosition, (unit, value) => unit.Recipe.WaferUnloadAvoidPosition = value),
+            new FeederTeachingPosition("WAFER UNLOAD POSITION", "WaferUnload", unit => unit.Recipe.WaferUnloadPosition, (unit, value) => unit.Recipe.WaferUnloadPosition = value),
+            new FeederTeachingPosition("WAFER BARCODE POSITION", "WaferBarcode", unit => unit.Recipe.WaferBarcodePosition, (unit, value) => unit.Recipe.WaferBarcodePosition = value)
+        };
+
         private InputFeederUnit _inputFeederUnit;
+        private readonly List<ActionButton> _teachingMoveButtons = new List<ActionButton>();
         private readonly Timer _refreshTimer = new Timer();
         private readonly ToolTip _toolTip = new ToolTip();
         private string _titleI18n = "recipe.inputFeeder";
@@ -40,7 +69,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
             catch (Exception ex)
             {
-                QMC.Common.MessageDialog.Show(ex.Message, "Input Cassette", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(ex.Message, "Input Feeder", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -64,7 +93,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
             catch (Exception ex)
             {
-                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette Load", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Feeder Load", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -99,18 +128,18 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 _refreshTimer.Tick += RefreshTimer_Tick;
                 optionParameterGrid.ParameterValueChanged += ParameterGrid_ParameterValueChanged;
                 waitParameterGrid.ParameterValueChanged += ParameterGrid_ParameterValueChanged;
+                ConfigureActionMoveButtons();
                 BindParameterGridMenus();
 
                 grpIo.ContextMenuStrip = new ContextMenuStrip();
-                grpIo.ContextMenuStrip.Items.Add("Input cassette DI 상태를 다시 읽습니다.", null, IoRefresh_Click);
+                grpIo.ContextMenuStrip.Items.Add("Input feeder DI 상태를 다시 읽습니다.", null, IoRefresh_Click);
 
-                _toolTip.SetToolTip(lblRecipeLoadingVal, "더블 클릭하면 값을 um 단위로 변경합니다.");
-                _toolTip.SetToolTip(lblRecipeUnloadingVal, "더블 클릭하면 값을 um 단위로 변경합니다.");
-                _toolTip.SetToolTip(lblConfigSlotCountVal, "더블 클릭하면 슬롯 개수를 변경하고 SlotPosition 버퍼를 다시 맞춥니다.");
+                _toolTip.SetToolTip(optionParameterGrid, "Input Feeder Y 티칭 위치를 설정합니다.");
+                _toolTip.SetToolTip(waitParameterGrid, "Input Feeder Y 이동 대기 시간을 설정합니다.");
             }
             catch (Exception ex)
             {
-                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette Configure", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Feeder Configure", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -150,8 +179,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             try
             {
                 var machine = FindMachine();
-                _InputCassetteUnit = machine != null ? machine.InputCassette : null;
-                _inputFeederUnit = machine != null ? machine.InputFeeder : null;
+                _inputFeederUnit = machine != null ? machine.InputFeederUnit : null;
 
                 SetEnabledState(_inputFeederUnit != null);
             }
@@ -195,6 +223,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 btnReadyMove.Enabled = enabled;
                 btnSlotLoadingMove.Enabled = enabled;
                 btnSlotUnloadingMove.Enabled = enabled;
+                foreach (var button in _teachingMoveButtons)
+                    button.Enabled = enabled;
 
                 jogPositionListControl.Enabled = enabled;
                 jogAxisMoveControl.Enabled = enabled;
@@ -202,36 +232,98 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
             catch (Exception ex)
             {
-                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette Enable", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Feeder Enable", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
             }
         }
 
-        private async void btnLoadingMove_Click(object sender, EventArgs e)
+        private void ConfigureActionMoveButtons()
         {
-            await ConfirmFeederMoveAsync("FEEDER LOAD", () => _inputFeederUnit.MoveToWaferFeederCassetteLoadPosition(0));
+            try
+            {
+                _teachingMoveButtons.Clear();
+
+                RegisterActionMoveButton(btnReadyMove, TeachingPositions[0]);
+                RegisterActionMoveButton(btnLoadingMove, TeachingPositions[1]);
+                RegisterActionMoveButton(btnUnloadingMove, TeachingPositions[2]);
+                RegisterActionMoveButton(btnSlotLoadingMove, TeachingPositions[3]);
+                RegisterActionMoveButton(btnSlotUnloadingMove, TeachingPositions[4]);
+                RegisterActionMoveButton(btnWaferLoadPositionMove, TeachingPositions[5]);
+                RegisterActionMoveButton(btnWaferUnloadAvoidPositionMove, TeachingPositions[6]);
+                RegisterActionMoveButton(btnWaferUnloadPositionMove, TeachingPositions[7]);
+                RegisterActionMoveButton(btnWaferBarcodePositionMove, TeachingPositions[8]);
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "INPUT-FEEDER", "ConfigureActionMoveButtons failed: " + ex.Message);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Feeder Action", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
         }
 
-        private async void btnUnloadingMove_Click(object sender, EventArgs e)
+        private void RegisterActionMoveButton(ActionButton button, FeederTeachingPosition position)
         {
-            await ConfirmFeederMoveAsync("FEEDER UNLOAD", () => _inputFeederUnit.MoveToWaferFeederCassetteUnloadPosition(0));
+            try
+            {
+                if (button == null || position == null)
+                    return;
+
+                button.Text = position.DisplayName;
+                button.Tag = position;
+                button.Cursor = Cursors.Hand;
+                ApplyActionButtonStyle(button);
+                if (!_teachingMoveButtons.Contains(button))
+                    _teachingMoveButtons.Add(button);
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
         }
 
-        private async void btnReadyMove_Click(object sender, EventArgs e)
+        private async void TeachingMoveButton_Click(object sender, EventArgs e)
         {
-            await ConfirmFeederMoveAsync("AVOID MOVE", () => _inputFeederUnit.MoveToWaferFeederAvoidPosition());
+            try
+            {
+                var button = sender as Control;
+                var position = button != null ? button.Tag as FeederTeachingPosition : null;
+                if (position == null)
+                    return;
+
+                await ConfirmTeachingMoveAsync(position);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Feeder Move", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
         }
 
-        private async void btnSlotLoadingMove_Click(object sender, EventArgs e)
+        private async Task ConfirmTeachingMoveAsync(FeederTeachingPosition position)
         {
-            await ConfirmFeederMoveAsync("STAGE LOAD", () => _inputFeederUnit.MoveToWaferFeederStageLoadPosition());
-        }
+            try
+            {
+                if (position == null)
+                    return;
 
-        private async void btnSlotUnloadingMove_Click(object sender, EventArgs e)
-        {
-            await ConfirmFeederMoveAsync("STAGE UNLOAD", () => _inputFeederUnit.MoveToWaferFeederStageUnloadPosition());
+                await ConfirmFeederMoveAsync(position.DisplayName, () => _inputFeederUnit.MoveWaferFeederYToTeachingPosition(position.PositionName, IsFineMove()));
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
         }
 
         private async Task ConfirmFeederMoveAsync(string actionName, Func<Task<int>> move)
@@ -273,7 +365,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 Cursor = Cursors.WaitCursor;
                 int result = await action();
                 if (result != 0)
-                    QMC.Common.MessageDialog.Show(this, actionName + " 실패", "Input Cassette", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, actionName + " 실패", "Input Feeder", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
             catch (Exception ex)
             {
@@ -283,26 +375,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             {
                 Cursor = Cursors.Default;
                 RefreshView();
-            }
-        }
-
-        private void BindTeachingMenus()
-        {
-            try
-            {
-                AttachTeachMenu(lblRecipeLoadingVal, "Loading");
-                AttachTeachMenu(lblRecipeUnloadingVal, "Unloading");
-                AttachTeachMenu(lblRecipeAvoidVal, "Avoid");
-                AttachTeachMenu(lblRecipeFirstSlotVal, "FirstSlot");
-                AttachTeachMenu(lblRecipeMappingStartVal, "MappingStart");
-                AttachTeachMenu(lblRecipeMappingEndVal, "MappingEnd");
-            }
-            catch (Exception ex)
-            {
-                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette Teach Menu", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
             }
         }
 
@@ -332,8 +404,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
             catch (Exception ex)
             {
-                EventLogger.Write(EventKind.Alarm, "UI", "INPUT-CASSETTE", "BindParameterGridMenus failed: " + ex.Message);
-                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette Grid Menu", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                EventLogger.Write(EventKind.Alarm, "UI", "INPUT-FEEDER", "BindParameterGridMenus failed: " + ex.Message);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Feeder Grid Menu", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -348,53 +420,19 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (item == null)
                     return string.Empty;
 
-                if (string.Equals(item.Key, "AVOID POSITION", StringComparison.OrdinalIgnoreCase))
-                    return "Avoid";
-                if (string.Equals(item.Key, "CASSETTE LOAD", StringComparison.OrdinalIgnoreCase))
-                    return "CassetteLoad";
-                if (string.Equals(item.Key, "CASSETTE UNLOAD", StringComparison.OrdinalIgnoreCase))
-                    return "CassetteUnload";
-                if (string.Equals(item.Key, "CASSETTE EXCHANGE", StringComparison.OrdinalIgnoreCase))
-                    return "CassetteExchange";
-                if (string.Equals(item.Key, "WAFER LOAD AVOID", StringComparison.OrdinalIgnoreCase))
-                    return "WaferLoadAvoid";
-                if (string.Equals(item.Key, "WAFER LOAD", StringComparison.OrdinalIgnoreCase))
-                    return "WaferLoad";
-                if (string.Equals(item.Key, "WAFER UNLOAD AVOID", StringComparison.OrdinalIgnoreCase))
-                    return "WaferUnloadAvoid";
-
-                return string.Empty;
-            }
-            catch (Exception ex)
-            {
-                EventLogger.Write(EventKind.Alarm, "UI", "INPUT-CASSETTE", "GetSelectedTeachingPositionName failed: " + ex.Message);
-                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette Grid Menu", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return string.Empty;
-            }
-            finally
-            {
-            }
-        }
-
-        private void AttachTeachMenu(Label label, string positionName)
-        {
-            try
-            {
-                var menu = label.ContextMenuStrip ?? new ContextMenuStrip();
-                menu.Items.Add("해당 위치로 이동", null, async (s, e) => await MoveByPositionName(positionName));
-                menu.Items.Add("현재 위치 티칭", null, (s, e) =>
+                foreach (var position in TeachingPositions)
                 {
-                    TeachPosition(positionName);
-                    SaveCurrentRecipeData();
-                    RefreshView();
-                });
+                    if (string.Equals(item.Key, position.DisplayName, StringComparison.OrdinalIgnoreCase))
+                        return position.PositionName;
+                }
 
-                label.ContextMenuStrip = menu;
-                label.Cursor = Cursors.Hand;
+                return string.Empty;
             }
             catch (Exception ex)
             {
-                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette Teach Menu", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                EventLogger.Write(EventKind.Alarm, "UI", "INPUT-FEEDER", "GetSelectedTeachingPositionName failed: " + ex.Message);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Feeder Grid Menu", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return string.Empty;
             }
             finally
             {
@@ -449,18 +487,16 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (_inputFeederUnit == null)
                     return;
 
-                optionParameterGrid.SetItems(new[]
+                var items = new List<ParameterGridItem>();
+                foreach (var position in TeachingPositions)
                 {
-                    ParameterGridItem.Micron("AVOID POSITION", ParameterGridScope.Recipe, () => _inputFeederUnit.Recipe.AvoidPosition, v => _inputFeederUnit.Recipe.AvoidPosition = v),
-                    ParameterGridItem.Micron("CASSETTE LOAD POSITION", ParameterGridScope.Recipe, () => _inputFeederUnit.Recipe.CassetteLoadPosition, v => _inputFeederUnit.Recipe.CassetteLoadPosition = v),
-                    ParameterGridItem.Micron("CASSETTE UNLOAD POSITION", ParameterGridScope.Recipe, () => _inputFeederUnit.Recipe.CassetteUnloadPosition, v => _inputFeederUnit.Recipe.CassetteUnloadPosition = v),
-                    ParameterGridItem.Micron("CASSETTE EXCHANGE", ParameterGridScope.Recipe, () => _inputFeederUnit.Recipe.CassetteExchangePosition, v => _inputFeederUnit.Recipe.CassetteExchangePosition = v),
-                    ParameterGridItem.Micron("WAFER LOAD AVOID POSITION", ParameterGridScope.Recipe, () => _inputFeederUnit.Recipe.WaferLoadAvoidPosition, v => _inputFeederUnit.Recipe.WaferLoadAvoidPosition = v),
-                    ParameterGridItem.Micron("WAFER LOAD POSITION", ParameterGridScope.Recipe, () => _inputFeederUnit.Recipe.WaferLoadPosition, v => _inputFeederUnit.Recipe.WaferLoadPosition = v),
-                    ParameterGridItem.Micron("WAFER UNLOAD AVOID POSITION", ParameterGridScope.Recipe, () => _inputFeederUnit.Recipe.WaferUnloadAvoidPosition, v => _inputFeederUnit.Recipe.WaferUnloadAvoidPosition = v),
-                    ParameterGridItem.Bool("SIMULATION MODE", ParameterGridScope.Setup, () => _inputFeederUnit.Setup.IsSimulationMode, v => _inputFeederUnit.Setup.IsSimulationMode = v),
-                    ParameterGridItem.Bool("DRY RUN", ParameterGridScope.Config, () => _inputFeederUnit.Config.bDryRun, v => _inputFeederUnit.Config.bDryRun = v)
-                });
+                    FeederTeachingPosition captured = position;
+                    items.Add(ParameterGridItem.Micron(captured.DisplayName, ParameterGridScope.Recipe, () => captured.Getter(_inputFeederUnit), v => captured.Setter(_inputFeederUnit, v)));
+                }
+
+                items.Add(ParameterGridItem.Bool("SIMULATION MODE", ParameterGridScope.Setup, () => _inputFeederUnit.Setup.IsSimulationMode, v => _inputFeederUnit.Setup.IsSimulationMode = v));
+                items.Add(ParameterGridItem.Bool("DRY RUN", ParameterGridScope.Config, () => _inputFeederUnit.Config.bDryRun, v => _inputFeederUnit.Config.bDryRun = v));
+                optionParameterGrid.SetItems(items);
 
                 waitParameterGrid.SetItems(new[]
                 {
@@ -469,8 +505,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
             catch (Exception ex)
             {
-                EventLogger.Write(EventKind.Alarm, "UI", "INPUT-CASSETTE", "BindParameterGrids failed: " + ex.Message);
-                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette Parameters", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                EventLogger.Write(EventKind.Alarm, "UI", "INPUT-FEEDER", "BindParameterGrids failed: " + ex.Message);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Feeder Parameters", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -490,16 +526,14 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     IoCylinderItem.Input("WAFER FEEDER DOWN", () => _inputFeederUnit.IsWaferFeederDown()),
                     IoCylinderItem.Input("WAFER FEEDER UNCLAMP", () => _inputFeederUnit.IsWaferFeederUnclamp()),
                     IoCylinderItem.Input("WAFER FEEDER RING CHECK", () => _inputFeederUnit.IsWaferFeederRingDetected()),
-                    IoCylinderItem.Output("WAFER FEEDER UP", () => _inputFeederUnit.InputFeederLiftUpCyl != null && _inputFeederUnit.InputFeederLiftUpCyl.IsOn, on => _inputFeederUnit.SetWaferFeederLiftUpOutput(on)),
-                    IoCylinderItem.Output("WAFER FEEDER DOWN", () => _inputFeederUnit.InputFeederLiftDownCyl != null && _inputFeederUnit.InputFeederLiftDownCyl.IsOn, on => _inputFeederUnit.SetWaferFeederLiftDownOutput(on)),
-                    IoCylinderItem.Output("WAFER FEEDER CLAMP", () => _inputFeederUnit.InputFeederClampCyl != null && _inputFeederUnit.InputFeederClampCyl.IsOn, on => _inputFeederUnit.SetWaferFeederClampOutput(on)),
-                    IoCylinderItem.Output("WAFER FEEDER UNCLAMP", () => _inputFeederUnit.InputFeederUnClampCyl != null && _inputFeederUnit.InputFeederUnClampCyl.IsOn, on => _inputFeederUnit.SetWaferFeederUnclampOutput(on))
+                    IoCylinderItem.Cylinder("WAFER FEEDER LIFT", _inputFeederUnit.InputFeederLift),
+                    IoCylinderItem.Cylinder("WAFER FEEDER CLAMP", _inputFeederUnit.InputFeederClamp)
                 });
             }
             catch (Exception ex)
             {
-                EventLogger.Write(EventKind.Alarm, "UI", "INPUT-CASSETTE", "BindIoPanel failed: " + ex.Message);
-                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette I/O", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                EventLogger.Write(EventKind.Alarm, "UI", "INPUT-FEEDER", "BindIoPanel failed: " + ex.Message);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Feeder I/O", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -576,8 +610,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
             catch (Exception ex)
             {
-                EventLogger.Write(EventKind.Alarm, "UI", "INPUT-CASSETTE", "BindJogPanel failed: " + ex.Message);
-                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette Jog", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                EventLogger.Write(EventKind.Alarm, "UI", "INPUT-FEEDER", "BindJogPanel failed: " + ex.Message);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Feeder Jog", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -588,206 +622,20 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         {
             try
             {
-                SaveEditedData(e != null && e.Scope == ParameterGridScope.Recipe);
+                SaveParameterData(e != null && e.Scope == ParameterGridScope.Recipe);
                 RefreshView();
             }
             catch (Exception ex)
             {
-                EventLogger.Write(EventKind.Alarm, "UI", "INPUT-CASSETTE", "Parameter save failed: " + ex.Message);
-                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette Parameter Save", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                EventLogger.Write(EventKind.Alarm, "UI", "INPUT-FEEDER", "Parameter save failed: " + ex.Message);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Feeder Parameter Save", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
             }
         }
 
-        private void BindEditableLabels()
-        {
-            try
-            {
-                AttachMicronEditor(lblRecipeLoadingVal, "LOADING Z", () => _InputCassetteUnit.Recipe.LoaingPosition, v => _InputCassetteUnit.Recipe.LoaingPosition = v, true);
-                AttachMicronEditor(lblRecipeUnloadingVal, "UNLOADING Z", () => _InputCassetteUnit.Recipe.UnloadingPosition, v => _InputCassetteUnit.Recipe.UnloadingPosition = v, true);
-                AttachMicronEditor(lblRecipeAvoidVal, "READY POSITION", () => _InputCassetteUnit.Recipe.AvoidPosition, v => _InputCassetteUnit.Recipe.AvoidPosition = v, true);
-                AttachMicronEditor(lblRecipeFirstSlotVal, "FIRST SLOT", () => _InputCassetteUnit.Recipe.FirstSlotPosition, v => _InputCassetteUnit.Recipe.FirstSlotPosition = v, true);
-                AttachMicronEditor(lblRecipeMappingStartVal, "MAPPING START Z", () => _InputCassetteUnit.Recipe.MappingStartPosition, v => _InputCassetteUnit.Recipe.MappingStartPosition = v, true);
-                AttachMicronEditor(lblRecipeMappingEndVal, "MAPPING END Z", () => _InputCassetteUnit.Recipe.MappingEndPosition, v => _InputCassetteUnit.Recipe.MappingEndPosition = v, true);
-                AttachMicronEditor(lblConfigLoadingOffsetVal, "LOADING OFFSET", () => _InputCassetteUnit.Config.LoadingPositionOffset, v => _InputCassetteUnit.Config.LoadingPositionOffset = v, false);
-                AttachMicronEditor(lblConfigUnloadingOffsetVal, "UNLOADING OFFSET", () => _InputCassetteUnit.Config.UnloadingPositionOffset, v => _InputCassetteUnit.Config.UnloadingPositionOffset = v, false);
-                AttachMicronEditor(lblConfigSlotPitchVal, "SLOT PITCH", () => _InputCassetteUnit.Config.SlotPitch, v => _InputCassetteUnit.Config.SlotPitch = v, false);
-                AttachIntEditor(lblConfigSlotCountVal, "SLOT COUNT", () => _InputCassetteUnit.Config.SlotCount, v =>
-                {
-                    _InputCassetteUnit.Config.SlotCount = Math.Max(0, v);
-                    _InputCassetteUnit.EnsureSlotPositionBuffer();
-                }, false);
-                AttachDoubleEditor(lblConfigScanVelocityVal, "SCAN/JOG VELOCITY (mm/s)", () => _InputCassetteUnit.Config.ScanVelocity, v => _InputCassetteUnit.Config.ScanVelocity = Math.Max(0.1, v), "mm/s", false);
-                AttachMicronEditor(lblSetupToleranceVal, "IN POSITION TOLERANCE", () => _InputCassetteUnit.ResolveWaferLifterZInPositionTolerance(), v => _InputCassetteUnit.InputLifterZ.Config.InPositionTolerance = Math.Max(0.0, v), false);
-                AttachIntEditor(lblConfigInchVal, "INCH SELECT", () => _InputCassetteUnit.Config.InchSelect, v => _InputCassetteUnit.Config.InchSelect = v, false);
-                AttachIntEditor(lblConfigLevelVal, "CASSETTE LEVEL", () => _InputCassetteUnit.Config.SelectedCassetteLevel, v => _InputCassetteUnit.Config.SelectedCassetteLevel = v, false);
-                AttachBoolEditor(lblSetupSimulationVal, "SIMULATION MODE", () => _InputCassetteUnit.Setup.IsSimulationMode, v => _InputCassetteUnit.Setup.IsSimulationMode = v, false);
-                AttachBoolEditor(lblConfigDryRunVal, "DRY RUN", () => _InputCassetteUnit.Config.bDryRun, v => _InputCassetteUnit.Config.bDryRun = v, false);
-                AttachIntEditor(lblWaitScanSettleVal, "SCAN SETTLE TIME (ms)", () => _InputCassetteUnit.Config.ScanSettleTimeMs, v => _InputCassetteUnit.Config.ScanSettleTimeMs = Math.Max(0, v), false);
-                AttachIntEditor(lblWaitMoveTimeoutVal, "MOVE TIMEOUT (ms)", () => _InputCassetteUnit.ResolveWaferLifterZMoveTimeoutMs(), v => _InputCassetteUnit.InputLifterZ.Setup.MoveTimeoutMs = Math.Max(0, v), false);
-            }
-            catch (Exception ex)
-            {
-                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette Edit Binding", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-            }
-        }
-
-        private void AttachMicronEditor(Label label, string name, Func<double> getter, Action<double> setter, bool isRecipeData)
-        {
-            try
-            {
-                label.DoubleClick += (s, e) =>
-                {
-                    try
-                    {
-                        if (_InputCassetteUnit == null) return;
-                        string text = Prompt.Show(name + " 값을 입력하세요. (um)", FormatNumber(getter() * 1000.0));
-                        if (text == null) return;
-                        double value;
-                        if (!TryParseDouble(text, out value))
-                            throw new FormatException("숫자 값을 입력해야 합니다.");
-
-                        setter(value / 1000.0);
-                        SaveEditedData(isRecipeData);
-                        RefreshView();
-                    }
-                    catch (Exception ex)
-                    {
-                        QMC.Common.MessageDialog.Show(this, ex.Message, name, MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    }
-                    finally
-                    {
-                    }
-                };
-            }
-            catch (Exception ex)
-            {
-                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette Editor", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-            }
-        }
-
-        private void AttachDoubleEditor(Label label, string name, Func<double> getter, Action<double> setter, string suffix, bool isRecipeData)
-        {
-            try
-            {
-                label.DoubleClick += (s, e) =>
-                {
-                    try
-                    {
-                        if (_InputCassetteUnit == null) return;
-                        string text = Prompt.Show(name + " 값을 입력하세요.", FormatNumber(getter()));
-                        if (text == null) return;
-                        double value;
-                        if (!TryParseDouble(text, out value))
-                            throw new FormatException("숫자 값을 입력해야 합니다.");
-
-                        setter(value);
-                        SaveEditedData(isRecipeData);
-                        RefreshView();
-                    }
-                    catch (Exception ex)
-                    {
-                        QMC.Common.MessageDialog.Show(this, ex.Message, name, MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    }
-                    finally
-                    {
-                    }
-                };
-            }
-            catch (Exception ex)
-            {
-                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette Editor", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-            }
-        }
-
-        private void AttachIntEditor(Label label, string name, Func<int> getter, Action<int> setter, bool isRecipeData)
-        {
-            try
-            {
-                label.DoubleClick += (s, e) =>
-                {
-                    try
-                    {
-                        if (_InputCassetteUnit == null) return;
-                        string text = Prompt.Show(name + " 값을 입력하세요.", getter().ToString(CultureInfo.InvariantCulture));
-                        if (text == null) return;
-                        int value;
-                        if (!int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out value) &&
-                            !int.TryParse(text, NumberStyles.Integer, CultureInfo.CurrentCulture, out value))
-                            throw new FormatException("정수 값을 입력해야 합니다.");
-
-                        setter(value);
-                        SaveEditedData(isRecipeData);
-                        RefreshView();
-                    }
-                    catch (Exception ex)
-                    {
-                        QMC.Common.MessageDialog.Show(this, ex.Message, name, MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    }
-                    finally
-                    {
-                    }
-                };
-            }
-            catch (Exception ex)
-            {
-                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette Editor", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-            }
-        }
-
-        private void AttachBoolEditor(Label label, string name, Func<bool> getter, Action<bool> setter, bool isRecipeData)
-        {
-            try
-            {
-                label.DoubleClick += (s, e) =>
-                {
-                    try
-                    {
-                        if (_InputCassetteUnit == null) return;
-                        string text = Prompt.Show(name + " 값을 입력하세요. (true/false)", getter().ToString());
-                        if (text == null) return;
-
-                        bool value;
-                        if (!TryParseBool(text, out value))
-                            throw new FormatException("true/false, 1/0, on/off 중 하나로 입력해야 합니다.");
-
-                        setter(value);
-                        SaveEditedData(isRecipeData);
-                        RefreshView();
-                    }
-                    catch (Exception ex)
-                    {
-                        QMC.Common.MessageDialog.Show(this, ex.Message, name, MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    }
-                    finally
-                    {
-                    }
-                };
-            }
-            catch (Exception ex)
-            {
-                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette Editor", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-            }
-        }
-
-        private void SaveEditedData(bool isRecipeData)
+        private void SaveParameterData(bool isRecipeData)
         {
             try
             {
@@ -798,7 +646,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
             catch (Exception ex)
             {
-                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette Save", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Feeder Save", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -897,90 +745,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
         }
 
-        private static bool TryParseDouble(string text, out double value)
-        {
-            try
-            {
-                text = (text ?? string.Empty).Replace("um", string.Empty).Replace("mm/s", string.Empty).Replace("ms", string.Empty).Trim();
-                return double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out value) ||
-                       double.TryParse(text, NumberStyles.Float, CultureInfo.CurrentCulture, out value);
-            }
-            catch
-            {
-                value = 0.0;
-                return false;
-            }
-            finally
-            {
-            }
-        }
-
-        private static bool TryParseBool(string text, out bool value)
-        {
-            try
-            {
-                string normalized = (text ?? string.Empty).Trim().ToLowerInvariant();
-                if (normalized == "true" || normalized == "1" || normalized == "on" || normalized == "yes" || normalized == "y")
-                {
-                    value = true;
-                    return true;
-                }
-
-                if (normalized == "false" || normalized == "0" || normalized == "off" || normalized == "no" || normalized == "n")
-                {
-                    value = false;
-                    return true;
-                }
-
-                return bool.TryParse(text, out value);
-            }
-            catch
-            {
-                value = false;
-                return false;
-            }
-            finally
-            {
-            }
-        }
-
-        private static string FormatUm(double value)
-        {
-            try
-            {
-                return FormatNumber(value * 1000.0) + " um";
-            }
-            catch
-            {
-                return "0 um";
-            }
-            finally
-            {
-            }
-        }
-
-        private static string FormatNumber(double value)
-        {
-            try
-            {
-                return value.ToString("0.###", CultureInfo.InvariantCulture);
-            }
-            catch
-            {
-                return "0";
-            }
-            finally
-            {
-            }
-        }
-
         private void ApplyRecipeTheme()
         {
             try
             {
                 Color bg = Color.FromArgb(207, 210, 214);
                 Color header = Color.FromArgb(64, 64, 64);
-                Color actionButtonColor = Color.FromArgb(88, 94, 103);
                 Color key = Color.FromArgb(208, 208, 208);
                 Color value = Color.White;
 
@@ -1007,11 +777,13 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 foreach (var group in new[] { grpActions, grpIo, grpOptions, grpWait, grpJog, grpSpeed })
                     group.Font = new Font("Malgun Gothic", 10F, FontStyle.Bold);
 
-                foreach (var buttonControl in new[] { btnLoadingMove, btnUnloadingMove, btnReadyMove, btnSlotLoadingMove, btnSlotUnloadingMove })
+                foreach (var buttonControl in new[]
                 {
-                    buttonControl.BackColor = actionButtonColor;
-                    buttonControl.ForeColor = Color.White;
-                    buttonControl.Font = new Font("Malgun Gothic", 8F, FontStyle.Bold);
+                    btnReadyMove, btnLoadingMove, btnUnloadingMove, btnSlotLoadingMove, btnSlotUnloadingMove,
+                    btnWaferLoadPositionMove, btnWaferUnloadAvoidPositionMove, btnWaferUnloadPositionMove, btnWaferBarcodePositionMove
+                })
+                {
+                    ApplyActionButtonStyle(buttonControl);
                 }
 
                 foreach (var label in new[]
@@ -1043,7 +815,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
             catch (Exception ex)
             {
-                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette Theme", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Feeder Theme", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -1062,6 +834,25 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 label.Margin = Padding.Empty;
                 label.Padding = new Padding(8, 0, 8, 0);
                 label.TextAlign = alignment;
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        private static void ApplyActionButtonStyle(ActionButton button)
+        {
+            try
+            {
+                if (button == null)
+                    return;
+
+                button.BackColor = Color.FromArgb(88, 94, 103);
+                button.ForeColor = Color.White;
+                button.Font = new Font("Malgun Gothic", 8F, FontStyle.Bold);
             }
             catch
             {

@@ -385,10 +385,10 @@ namespace QMC.CDT_320
             if (!cfg.UseAjin)
             {
                 CassetteDriver = new QMC.CDT320.Sim.SimCassetteDriver(
-                    Machine.InputCassette,
-                    Machine.InputFeeder,
-                    Machine.OutputCassette,
-                    Machine.OutputFeeder);
+                    Machine.InputCassetteUnit,
+                    Machine.InputFeederUnit,
+                    Machine.OutputCassetteUnit,
+                    Machine.OutputFeederUnit);
             }
             Controller.StatusChanged += OnEquipmentStatusChanged;
             Controller.LogMessage    += s => QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, UserSession.Name, "CTRL", s);

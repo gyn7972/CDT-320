@@ -142,7 +142,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             try
             {
                 var machine = FindMachine();
-                _InputCassetteUnit = machine != null ? machine.InputCassette : null;
+                _InputCassetteUnit = machine != null ? machine.InputCassetteUnit : null;
 
                 if (_InputCassetteUnit != null)
                     _InputCassetteUnit.EnsureSlotPositionBuffer();
@@ -405,26 +405,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
         }
 
-        private void BindTeachingMenus()
-        {
-            try
-            {
-                AttachTeachMenu(lblRecipeLoadingVal, "Loading");
-                AttachTeachMenu(lblRecipeUnloadingVal, "Unloading");
-                AttachTeachMenu(lblRecipeAvoidVal, "Avoid");
-                AttachTeachMenu(lblRecipeFirstSlotVal, "FirstSlot");
-                AttachTeachMenu(lblRecipeMappingStartVal, "MappingStart");
-                AttachTeachMenu(lblRecipeMappingEndVal, "MappingEnd");
-            }
-            catch (Exception ex)
-            {
-                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette Teach Menu", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-            }
-        }
-
         private void BindParameterGridMenus()
         {
             try
@@ -467,17 +447,17 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (item == null)
                     return string.Empty;
 
-                if (string.Equals(item.Key, "LOADING Z", StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(item.Key, "LOADING Z POSITION", StringComparison.OrdinalIgnoreCase))
                     return "Loading";
-                if (string.Equals(item.Key, "UNLOADING Z", StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(item.Key, "UNLOADING Z POSITION", StringComparison.OrdinalIgnoreCase))
                     return "Unloading";
                 if (string.Equals(item.Key, "READY POSITION", StringComparison.OrdinalIgnoreCase))
                     return "Avoid";
-                if (string.Equals(item.Key, "FIRST SLOT", StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(item.Key, "FIRST SLOT POSITION", StringComparison.OrdinalIgnoreCase))
                     return "FirstSlot";
-                if (string.Equals(item.Key, "MAPPING START Z", StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(item.Key, "MAPPING START Z POSITION", StringComparison.OrdinalIgnoreCase))
                     return "MappingStart";
-                if (string.Equals(item.Key, "MAPPING END Z", StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(item.Key, "MAPPING END Z POSITION", StringComparison.OrdinalIgnoreCase))
                     return "MappingEnd";
 
                 return string.Empty;
@@ -493,31 +473,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
         }
 
-        private void AttachTeachMenu(Label label, string positionName)
-        {
-            try
-            {
-                var menu = label.ContextMenuStrip ?? new ContextMenuStrip();
-                menu.Items.Add("해당 위치로 이동", null, async (s, e) => await MoveByPositionName(positionName));
-                menu.Items.Add("현재 위치 티칭", null, (s, e) =>
-                {
-                    TeachPosition(positionName);
-                    SaveCurrentRecipeData();
-                    RefreshView();
-                });
-
-                label.ContextMenuStrip = menu;
-                label.Cursor = Cursors.Hand;
-            }
-            catch (Exception ex)
-            {
-                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette Teach Menu", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-            }
-        }
-
         private async Task MoveByPositionName(string positionName)
         {
             try
@@ -525,17 +480,17 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (_InputCassetteUnit == null) return;
 
                 if (string.Equals(positionName, "Loading", StringComparison.OrdinalIgnoreCase))
-                    await MoveToTarget("LOADING Z", _InputCassetteUnit.Recipe.LoaingPosition);
+                    await MoveToTarget("LOADING Z POSITION", _InputCassetteUnit.Recipe.LoaingPosition);
                 else if (string.Equals(positionName, "Unloading", StringComparison.OrdinalIgnoreCase))
-                    await MoveToTarget("UNLOADING Z", _InputCassetteUnit.Recipe.UnloadingPosition);
+                    await MoveToTarget("UNLOADING Z POSITION", _InputCassetteUnit.Recipe.UnloadingPosition);
                 else if (string.Equals(positionName, "Avoid", StringComparison.OrdinalIgnoreCase))
                     await MoveToTarget("READY POSITION", _InputCassetteUnit.Recipe.AvoidPosition);
                 else if (string.Equals(positionName, "FirstSlot", StringComparison.OrdinalIgnoreCase))
-                    await MoveToTarget("FIRST SLOT", _InputCassetteUnit.Recipe.FirstSlotPosition);
+                    await MoveToTarget("FIRST SLOT POSITION", _InputCassetteUnit.Recipe.FirstSlotPosition);
                 else if (string.Equals(positionName, "MappingStart", StringComparison.OrdinalIgnoreCase))
-                    await MoveToTarget("MAPPING START Z", _InputCassetteUnit.Recipe.MappingStartPosition);
+                    await MoveToTarget("MAPPING START Z POSITION", _InputCassetteUnit.Recipe.MappingStartPosition);
                 else if (string.Equals(positionName, "MappingEnd", StringComparison.OrdinalIgnoreCase))
-                    await MoveToTarget("MAPPING END Z", _InputCassetteUnit.Recipe.MappingEndPosition);
+                    await MoveToTarget("MAPPING END Z POSITION", _InputCassetteUnit.Recipe.MappingEndPosition);
             }
             catch (Exception ex)
             {
@@ -586,9 +541,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     ParameterGridItem.Micron("LOADING Z POSITION", ParameterGridScope.Recipe, () => _InputCassetteUnit.Recipe.LoaingPosition, v => _InputCassetteUnit.Recipe.LoaingPosition = v),
                     ParameterGridItem.Micron("UNLOADING Z POSITION", ParameterGridScope.Recipe, () => _InputCassetteUnit.Recipe.UnloadingPosition, v => _InputCassetteUnit.Recipe.UnloadingPosition = v),
                     ParameterGridItem.Micron("READY POSITION", ParameterGridScope.Recipe, () => _InputCassetteUnit.Recipe.AvoidPosition, v => _InputCassetteUnit.Recipe.AvoidPosition = v),
-                    ParameterGridItem.Micron("FIRST SLOT", ParameterGridScope.Recipe, () => _InputCassetteUnit.Recipe.FirstSlotPosition, v => _InputCassetteUnit.Recipe.FirstSlotPosition = v),
-                    ParameterGridItem.Micron("MAPPING START Z", ParameterGridScope.Recipe, () => _InputCassetteUnit.Recipe.MappingStartPosition, v => _InputCassetteUnit.Recipe.MappingStartPosition = v),
-                    ParameterGridItem.Micron("MAPPING END Z", ParameterGridScope.Recipe, () => _InputCassetteUnit.Recipe.MappingEndPosition, v => _InputCassetteUnit.Recipe.MappingEndPosition = v),
+                    ParameterGridItem.Micron("FIRST SLOT POSITION", ParameterGridScope.Recipe, () => _InputCassetteUnit.Recipe.FirstSlotPosition, v => _InputCassetteUnit.Recipe.FirstSlotPosition = v),
+                    ParameterGridItem.Micron("MAPPING START Z POSITION", ParameterGridScope.Recipe, () => _InputCassetteUnit.Recipe.MappingStartPosition, v => _InputCassetteUnit.Recipe.MappingStartPosition = v),
+                    ParameterGridItem.Micron("MAPPING END Z POSITION", ParameterGridScope.Recipe, () => _InputCassetteUnit.Recipe.MappingEndPosition, v => _InputCassetteUnit.Recipe.MappingEndPosition = v),
                     ParameterGridItem.Micron("LOADING OFFSET", ParameterGridScope.Config, () => _InputCassetteUnit.Config.LoadingPositionOffset, v => _InputCassetteUnit.Config.LoadingPositionOffset = v),
                     ParameterGridItem.Micron("UNLOADING OFFSET", ParameterGridScope.Config, () => _InputCassetteUnit.Config.UnloadingPositionOffset, v => _InputCassetteUnit.Config.UnloadingPositionOffset = v),
                     ParameterGridItem.Micron("LEVEL 2 OFFSET", ParameterGridScope.Config, () => _InputCassetteUnit.Config.Level2PositionOffset, v => _InputCassetteUnit.Config.Level2PositionOffset = Math.Max(0.0, v)),
@@ -748,192 +703,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
         }
 
-        private void BindEditableLabels()
-        {
-            try
-            {
-                AttachMicronEditor(lblRecipeLoadingVal, "LOADING Z", () => _InputCassetteUnit.Recipe.LoaingPosition, v => _InputCassetteUnit.Recipe.LoaingPosition = v, true);
-                AttachMicronEditor(lblRecipeUnloadingVal, "UNLOADING Z", () => _InputCassetteUnit.Recipe.UnloadingPosition, v => _InputCassetteUnit.Recipe.UnloadingPosition = v, true);
-                AttachMicronEditor(lblRecipeAvoidVal, "READY POSITION", () => _InputCassetteUnit.Recipe.AvoidPosition, v => _InputCassetteUnit.Recipe.AvoidPosition = v, true);
-                AttachMicronEditor(lblRecipeFirstSlotVal, "FIRST SLOT", () => _InputCassetteUnit.Recipe.FirstSlotPosition, v => _InputCassetteUnit.Recipe.FirstSlotPosition = v, true);
-                AttachMicronEditor(lblRecipeMappingStartVal, "MAPPING START Z", () => _InputCassetteUnit.Recipe.MappingStartPosition, v => _InputCassetteUnit.Recipe.MappingStartPosition = v, true);
-                AttachMicronEditor(lblRecipeMappingEndVal, "MAPPING END Z", () => _InputCassetteUnit.Recipe.MappingEndPosition, v => _InputCassetteUnit.Recipe.MappingEndPosition = v, true);
-                AttachMicronEditor(lblConfigLoadingOffsetVal, "LOADING OFFSET", () => _InputCassetteUnit.Config.LoadingPositionOffset, v => _InputCassetteUnit.Config.LoadingPositionOffset = v, false);
-                AttachMicronEditor(lblConfigUnloadingOffsetVal, "UNLOADING OFFSET", () => _InputCassetteUnit.Config.UnloadingPositionOffset, v => _InputCassetteUnit.Config.UnloadingPositionOffset = v, false);
-                AttachMicronEditor(lblConfigSlotPitchVal, "SLOT PITCH", () => _InputCassetteUnit.Config.SlotPitch, v => _InputCassetteUnit.Config.SlotPitch = v, false);
-                AttachIntEditor(lblConfigSlotCountVal, "SLOT COUNT", () => _InputCassetteUnit.Config.SlotCount, v =>
-                {
-                    _InputCassetteUnit.Config.SlotCount = Math.Max(0, v);
-                    _InputCassetteUnit.EnsureSlotPositionBuffer();
-                }, false);
-                AttachDoubleEditor(lblConfigScanVelocityVal, "SCAN/JOG VELOCITY (mm/s)", () => _InputCassetteUnit.Config.ScanVelocity, v => _InputCassetteUnit.Config.ScanVelocity = Math.Max(0.1, v), "mm/s", false);
-                AttachMicronEditor(lblSetupToleranceVal, "IN POSITION TOLERANCE", () => _InputCassetteUnit.ResolveWaferLifterZInPositionTolerance(), v => _InputCassetteUnit.InputLifterZ.Config.InPositionTolerance = Math.Max(0.0, v), false);
-                AttachIntEditor(lblConfigInchVal, "INCH SELECT", () => _InputCassetteUnit.Config.InchSelect, v => _InputCassetteUnit.Config.InchSelect = v, false);
-                AttachIntEditor(lblConfigLevelVal, "CASSETTE LEVEL", () => _InputCassetteUnit.Config.SelectedCassetteLevel, v => _InputCassetteUnit.Config.SelectedCassetteLevel = v, false);
-                AttachBoolEditor(lblSetupSimulationVal, "SIMULATION MODE", () => _InputCassetteUnit.Setup.IsSimulationMode, v => _InputCassetteUnit.Setup.IsSimulationMode = v, false);
-                AttachBoolEditor(lblConfigDryRunVal, "DRY RUN", () => _InputCassetteUnit.Config.bDryRun, v => _InputCassetteUnit.Config.bDryRun = v, false);
-                AttachIntEditor(lblWaitScanSettleVal, "SCAN SETTLE TIME (ms)", () => _InputCassetteUnit.Config.ScanSettleTimeMs, v => _InputCassetteUnit.Config.ScanSettleTimeMs = Math.Max(0, v), false);
-                AttachIntEditor(lblWaitMoveTimeoutVal, "MOVE TIMEOUT (ms)", () => _InputCassetteUnit.ResolveWaferLifterZMoveTimeoutMs(), v => _InputCassetteUnit.InputLifterZ.Setup.MoveTimeoutMs = Math.Max(0, v), false);
-            }
-            catch (Exception ex)
-            {
-                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette Edit Binding", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-            }
-        }
-
-        private void AttachMicronEditor(Label label, string name, Func<double> getter, Action<double> setter, bool isRecipeData)
-        {
-            try
-            {
-                label.DoubleClick += (s, e) =>
-                {
-                    try
-                    {
-                        if (_InputCassetteUnit == null) return;
-                        string text = Prompt.Show(name + " 값을 입력하세요. (um)", FormatNumber(getter() * 1000.0));
-                        if (text == null) return;
-                        double value;
-                        if (!TryParseDouble(text, out value))
-                            throw new FormatException("숫자 값을 입력해야 합니다.");
-
-                        setter(value / 1000.0);
-                        SaveEditedData(isRecipeData);
-                        RefreshView();
-                    }
-                    catch (Exception ex)
-                    {
-                        QMC.Common.MessageDialog.Show(this, ex.Message, name, MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    }
-                    finally
-                    {
-                    }
-                };
-            }
-            catch (Exception ex)
-            {
-                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette Editor", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-            }
-        }
-
-        private void AttachDoubleEditor(Label label, string name, Func<double> getter, Action<double> setter, string suffix, bool isRecipeData)
-        {
-            try
-            {
-                label.DoubleClick += (s, e) =>
-                {
-                    try
-                    {
-                        if (_InputCassetteUnit == null) return;
-                        string text = Prompt.Show(name + " 값을 입력하세요.", FormatNumber(getter()));
-                        if (text == null) return;
-                        double value;
-                        if (!TryParseDouble(text, out value))
-                            throw new FormatException("숫자 값을 입력해야 합니다.");
-
-                        setter(value);
-                        SaveEditedData(isRecipeData);
-                        RefreshView();
-                    }
-                    catch (Exception ex)
-                    {
-                        QMC.Common.MessageDialog.Show(this, ex.Message, name, MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    }
-                    finally
-                    {
-                    }
-                };
-            }
-            catch (Exception ex)
-            {
-                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette Editor", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-            }
-        }
-
-        private void AttachIntEditor(Label label, string name, Func<int> getter, Action<int> setter, bool isRecipeData)
-        {
-            try
-            {
-                label.DoubleClick += (s, e) =>
-                {
-                    try
-                    {
-                        if (_InputCassetteUnit == null) return;
-                        string text = Prompt.Show(name + " 값을 입력하세요.", getter().ToString(CultureInfo.InvariantCulture));
-                        if (text == null) return;
-                        int value;
-                        if (!int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out value) &&
-                            !int.TryParse(text, NumberStyles.Integer, CultureInfo.CurrentCulture, out value))
-                            throw new FormatException("정수 값을 입력해야 합니다.");
-
-                        setter(value);
-                        SaveEditedData(isRecipeData);
-                        RefreshView();
-                    }
-                    catch (Exception ex)
-                    {
-                        QMC.Common.MessageDialog.Show(this, ex.Message, name, MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    }
-                    finally
-                    {
-                    }
-                };
-            }
-            catch (Exception ex)
-            {
-                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette Editor", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-            }
-        }
-
-        private void AttachBoolEditor(Label label, string name, Func<bool> getter, Action<bool> setter, bool isRecipeData)
-        {
-            try
-            {
-                label.DoubleClick += (s, e) =>
-                {
-                    try
-                    {
-                        if (_InputCassetteUnit == null) return;
-                        string text = Prompt.Show(name + " 값을 입력하세요. (true/false)", getter().ToString());
-                        if (text == null) return;
-
-                        bool value;
-                        if (!TryParseBool(text, out value))
-                            throw new FormatException("true/false, 1/0, on/off 중 하나로 입력해야 합니다.");
-
-                        setter(value);
-                        SaveEditedData(isRecipeData);
-                        RefreshView();
-                    }
-                    catch (Exception ex)
-                    {
-                        QMC.Common.MessageDialog.Show(this, ex.Message, name, MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    }
-                    finally
-                    {
-                    }
-                };
-            }
-            catch (Exception ex)
-            {
-                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette Editor", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-            }
-        }
-
         private void SaveEditedData(bool isRecipeData)
         {
             try
@@ -1067,53 +836,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
         }
 
-        private static bool TryParseDouble(string text, out double value)
-        {
-            try
-            {
-                text = (text ?? string.Empty).Replace("um", string.Empty).Replace("mm/s", string.Empty).Replace("ms", string.Empty).Trim();
-                return double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out value) ||
-                       double.TryParse(text, NumberStyles.Float, CultureInfo.CurrentCulture, out value);
-            }
-            catch
-            {
-                value = 0.0;
-                return false;
-            }
-            finally
-            {
-            }
-        }
-
-        private static bool TryParseBool(string text, out bool value)
-        {
-            try
-            {
-                string normalized = (text ?? string.Empty).Trim().ToLowerInvariant();
-                if (normalized == "true" || normalized == "1" || normalized == "on" || normalized == "yes" || normalized == "y")
-                {
-                    value = true;
-                    return true;
-                }
-
-                if (normalized == "false" || normalized == "0" || normalized == "off" || normalized == "no" || normalized == "n")
-                {
-                    value = false;
-                    return true;
-                }
-
-                return bool.TryParse(text, out value);
-            }
-            catch
-            {
-                value = false;
-                return false;
-            }
-            finally
-            {
-            }
-        }
-
         private static string FormatUm(double value)
         {
             try
@@ -1240,8 +962,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             {
             }
         }
-
-       
     }
 }
 

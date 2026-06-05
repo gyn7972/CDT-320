@@ -275,9 +275,9 @@
             this.speedLayout.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.trkSpeed)).BeginInit();
             this.SuspendLayout();
-            //
+            // 
             // rootLayout
-            //
+            // 
             this.rootLayout.ColumnCount = 1;
             this.rootLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.rootLayout.Controls.Add(this.lblHeader, 0, 0);
@@ -291,9 +291,9 @@
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.rootLayout.Size = new System.Drawing.Size(1678, 900);
             this.rootLayout.TabIndex = 0;
-            //
+            // 
             // lblHeader
-            //
+            // 
             this.lblHeader.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(64)))), ((int)(((byte)(64)))));
             this.lblHeader.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblHeader.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
@@ -307,9 +307,9 @@
             this.lblHeader.Tag = "i18n:recipe.outputStage";
             this.lblHeader.Text = "OUTPUT STAGE";
             this.lblHeader.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // contentLayout
-            //
+            // 
             this.contentLayout.ColumnCount = 3;
             this.contentLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.contentLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 428F));
@@ -326,9 +326,9 @@
             this.contentLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.contentLayout.Size = new System.Drawing.Size(1678, 870);
             this.contentLayout.TabIndex = 1;
-            //
+            // 
             // centerLayout
-            //
+            // 
             this.centerLayout.ColumnCount = 2;
             this.centerLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 59.94741F));
             this.centerLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 40.05259F));
@@ -344,9 +344,9 @@
             this.centerLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 44F));
             this.centerLayout.Size = new System.Drawing.Size(1141, 854);
             this.centerLayout.TabIndex = 1;
-            //
+            // 
             // grpVision
-            //
+            // 
             this.grpVision.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(245)))), ((int)(((byte)(245)))));
             this.grpVision.Controls.Add(this.visionPanel);
             this.grpVision.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -358,9 +358,9 @@
             this.grpVision.TabIndex = 0;
             this.grpVision.TabStop = false;
             this.grpVision.Text = "OUTPUT STAGE STATUS";
-            //
+            // 
             // visionPanel
-            //
+            // 
             this.visionPanel.BackColor = System.Drawing.Color.Black;
             this.visionPanel.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.visionPanel.Controls.Add(this.lblVisionInfo);
@@ -370,9 +370,9 @@
             this.visionPanel.Name = "visionPanel";
             this.visionPanel.Size = new System.Drawing.Size(669, 446);
             this.visionPanel.TabIndex = 0;
-            //
+            // 
             // lblVisionInfo
-            //
+            // 
             this.lblVisionInfo.AutoSize = true;
             this.lblVisionInfo.BackColor = System.Drawing.Color.Black;
             this.lblVisionInfo.Font = new System.Drawing.Font("Consolas", 9.5F, System.Drawing.FontStyle.Bold);
@@ -382,9 +382,9 @@
             this.lblVisionInfo.Size = new System.Drawing.Size(56, 90);
             this.lblVisionInfo.TabIndex = 0;
             this.lblVisionInfo.Text = "STAGE\r\nW : 640\r\nH : 480\r\nX : 0\r\nY : 0\r\nT : 0";
-            //
+            // 
             // grpManual
-            //
+            // 
             this.grpManual.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(245)))), ((int)(((byte)(245)))));
             this.grpManual.Controls.Add(this.manualScrollPanel);
             this.grpManual.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -396,9 +396,9 @@
             this.grpManual.TabIndex = 2;
             this.grpManual.TabStop = false;
             this.grpManual.Text = "MANUAL ACTION";
-            //
+            // 
             // manualScrollPanel
-            //
+            // 
             this.manualScrollPanel.AutoScroll = true;
             this.manualScrollPanel.Controls.Add(this.manualLayout);
             this.manualScrollPanel.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -407,9 +407,9 @@
             this.manualScrollPanel.Name = "manualScrollPanel";
             this.manualScrollPanel.Size = new System.Drawing.Size(669, 344);
             this.manualScrollPanel.TabIndex = 0;
-            //
+            // 
             // manualLayout
-            //
+            // 
             this.manualLayout.AutoSize = true;
             this.manualLayout.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
             this.manualLayout.ColumnCount = 2;
@@ -442,9 +442,9 @@
             this.manualLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 14.28571F));
             this.manualLayout.Size = new System.Drawing.Size(669, 344);
             this.manualLayout.TabIndex = 0;
-            //
+            // 
             // btnLoadingMove
-            //
+            // 
             this.btnLoadingMove.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnLoadingMove.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnLoadingMove.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -456,9 +456,9 @@
             this.btnLoadingMove.Size = new System.Drawing.Size(318, 37);
             this.btnLoadingMove.TabIndex = 0;
             this.btnLoadingMove.Text = "GOOD LOAD";
-            //
+            // 
             // btnCenterMove
-            //
+            // 
             this.btnCenterMove.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnCenterMove.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnCenterMove.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -470,9 +470,9 @@
             this.btnCenterMove.Size = new System.Drawing.Size(319, 37);
             this.btnCenterMove.TabIndex = 1;
             this.btnCenterMove.Text = "GOOD PROCESS";
-            //
+            // 
             // btnBarcodeMove
-            //
+            // 
             this.btnBarcodeMove.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnBarcodeMove.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnBarcodeMove.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -484,9 +484,9 @@
             this.btnBarcodeMove.Size = new System.Drawing.Size(318, 37);
             this.btnBarcodeMove.TabIndex = 2;
             this.btnBarcodeMove.Text = "GOOD UNLOAD";
-            //
+            // 
             // btnFirstDieMove
-            //
+            // 
             this.btnFirstDieMove.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnFirstDieMove.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnFirstDieMove.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -498,9 +498,9 @@
             this.btnFirstDieMove.Size = new System.Drawing.Size(319, 37);
             this.btnFirstDieMove.TabIndex = 3;
             this.btnFirstDieMove.Text = "GOOD RETICLE";
-            //
+            // 
             // btnPickUpTest
-            //
+            // 
             this.btnPickUpTest.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnPickUpTest.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnPickUpTest.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -512,9 +512,9 @@
             this.btnPickUpTest.Size = new System.Drawing.Size(318, 37);
             this.btnPickUpTest.TabIndex = 4;
             this.btnPickUpTest.Text = "VISION PROCESS";
-            //
+            // 
             // btnNeedleUpMove
-            //
+            // 
             this.btnNeedleUpMove.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnNeedleUpMove.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnNeedleUpMove.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -526,9 +526,9 @@
             this.btnNeedleUpMove.Size = new System.Drawing.Size(319, 37);
             this.btnNeedleUpMove.TabIndex = 5;
             this.btnNeedleUpMove.Text = "NG LOAD";
-            //
+            // 
             // btnNeedleDownMove
-            //
+            // 
             this.btnNeedleDownMove.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnNeedleDownMove.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnNeedleDownMove.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -540,9 +540,9 @@
             this.btnNeedleDownMove.Size = new System.Drawing.Size(318, 37);
             this.btnNeedleDownMove.TabIndex = 6;
             this.btnNeedleDownMove.Text = "NG PROCESS";
-            //
+            // 
             // btnNeedleReadyMove
-            //
+            // 
             this.btnNeedleReadyMove.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnNeedleReadyMove.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnNeedleReadyMove.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -554,9 +554,9 @@
             this.btnNeedleReadyMove.Size = new System.Drawing.Size(319, 37);
             this.btnNeedleReadyMove.TabIndex = 7;
             this.btnNeedleReadyMove.Text = "NG UNLOAD";
-            //
+            // 
             // btnNeedleBlockReady
-            //
+            // 
             this.btnNeedleBlockReady.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnNeedleBlockReady.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnNeedleBlockReady.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -568,9 +568,9 @@
             this.btnNeedleBlockReady.Size = new System.Drawing.Size(318, 37);
             this.btnNeedleBlockReady.TabIndex = 8;
             this.btnNeedleBlockReady.Text = "NG RETICLE";
-            //
+            // 
             // btnNeedleBlockWork
-            //
+            // 
             this.btnNeedleBlockWork.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnNeedleBlockWork.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnNeedleBlockWork.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -582,9 +582,9 @@
             this.btnNeedleBlockWork.Size = new System.Drawing.Size(319, 37);
             this.btnNeedleBlockWork.TabIndex = 9;
             this.btnNeedleBlockWork.Text = "AVOID ALL";
-            //
+            // 
             // btnAutoSettingMove
-            //
+            // 
             this.btnAutoSettingMove.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnAutoSettingMove.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnAutoSettingMove.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -596,9 +596,9 @@
             this.btnAutoSettingMove.Size = new System.Drawing.Size(318, 37);
             this.btnAutoSettingMove.TabIndex = 10;
             this.btnAutoSettingMove.Text = "BIN CAM WORK";
-            //
+            // 
             // btnInputConversion
-            //
+            // 
             this.btnInputConversion.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnInputConversion.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnInputConversion.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -610,9 +610,9 @@
             this.btnInputConversion.Size = new System.Drawing.Size(319, 37);
             this.btnInputConversion.TabIndex = 11;
             this.btnInputConversion.Text = "BIN CAM RETRACT";
-            //
+            // 
             // btnExpandWorkMove
-            //
+            // 
             this.btnExpandWorkMove.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnExpandWorkMove.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnExpandWorkMove.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -624,9 +624,9 @@
             this.btnExpandWorkMove.Size = new System.Drawing.Size(318, 40);
             this.btnExpandWorkMove.TabIndex = 12;
             this.btnExpandWorkMove.Text = "VISION LOAD";
-            //
+            // 
             // leftLayout
-            //
+            // 
             this.leftLayout.ColumnCount = 1;
             this.leftLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.leftLayout.Controls.Add(this.grpOptions, 0, 0);
@@ -643,9 +643,9 @@
             this.leftLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.leftLayout.Size = new System.Drawing.Size(458, 854);
             this.leftLayout.TabIndex = 0;
-            //
+            // 
             // grpOptions
-            //
+            // 
             this.grpOptions.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(245)))), ((int)(((byte)(245)))));
             this.grpOptions.Controls.Add(this.optionParameterGrid);
             this.grpOptions.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -657,9 +657,9 @@
             this.grpOptions.TabIndex = 0;
             this.grpOptions.TabStop = false;
             this.grpOptions.Text = "OPTION";
-            //
+            // 
             // optionParameterGrid
-            //
+            // 
             this.optionParameterGrid.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(246)))), ((int)(((byte)(248)))));
             this.optionParameterGrid.Dock = System.Windows.Forms.DockStyle.Fill;
             this.optionParameterGrid.Location = new System.Drawing.Point(3, 21);
@@ -667,9 +667,9 @@
             this.optionParameterGrid.Name = "optionParameterGrid";
             this.optionParameterGrid.Size = new System.Drawing.Size(444, 394);
             this.optionParameterGrid.TabIndex = 1;
-            //
+            // 
             // grpWait
-            //
+            // 
             this.grpWait.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(245)))), ((int)(((byte)(245)))));
             this.grpWait.Controls.Add(this.waitParameterGrid);
             this.grpWait.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -681,9 +681,9 @@
             this.grpWait.TabIndex = 1;
             this.grpWait.TabStop = false;
             this.grpWait.Text = "WAIT TIME";
-            //
+            // 
             // waitParameterGrid
-            //
+            // 
             this.waitParameterGrid.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(246)))), ((int)(((byte)(248)))));
             this.waitParameterGrid.Dock = System.Windows.Forms.DockStyle.Fill;
             this.waitParameterGrid.Location = new System.Drawing.Point(3, 21);
@@ -691,9 +691,9 @@
             this.waitParameterGrid.Name = "waitParameterGrid";
             this.waitParameterGrid.Size = new System.Drawing.Size(444, 173);
             this.waitParameterGrid.TabIndex = 1;
-            //
+            // 
             // grpIo
-            //
+            // 
             this.grpIo.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(245)))), ((int)(((byte)(245)))));
             this.grpIo.Controls.Add(this.ioCylinderPanel);
             this.grpIo.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -705,9 +705,9 @@
             this.grpIo.TabIndex = 3;
             this.grpIo.TabStop = false;
             this.grpIo.Text = "CYLINDER && I/O";
-            //
+            // 
             // ioCylinderPanel
-            //
+            // 
             this.ioCylinderPanel.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(205)))), ((int)(((byte)(205)))), ((int)(((byte)(205)))));
             this.ioCylinderPanel.Dock = System.Windows.Forms.DockStyle.Fill;
             this.ioCylinderPanel.Location = new System.Drawing.Point(3, 21);
@@ -715,9 +715,9 @@
             this.ioCylinderPanel.Name = "ioCylinderPanel";
             this.ioCylinderPanel.Size = new System.Drawing.Size(444, 191);
             this.ioCylinderPanel.TabIndex = 1;
-            //
+            // 
             // grpJog
-            //
+            // 
             this.grpJog.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(245)))), ((int)(((byte)(245)))));
             this.grpJog.Controls.Add(this.jogCommonLayout);
             this.grpJog.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -729,9 +729,9 @@
             this.grpJog.TabIndex = 1;
             this.grpJog.TabStop = false;
             this.grpJog.Text = "JOG OPERATION";
-            //
+            // 
             // jogCommonLayout
-            //
+            // 
             this.jogCommonLayout.ColumnCount = 1;
             this.jogCommonLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.jogCommonLayout.Controls.Add(this.jogPositionListControl, 0, 0);
@@ -744,9 +744,9 @@
             this.jogCommonLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.jogCommonLayout.Size = new System.Drawing.Size(414, 822);
             this.jogCommonLayout.TabIndex = 1;
-            //
+            // 
             // jogPositionListControl
-            //
+            // 
             this.jogPositionListControl.Dock = System.Windows.Forms.DockStyle.Fill;
             this.jogPositionListControl.Location = new System.Drawing.Point(3, 4);
             this.jogPositionListControl.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
@@ -754,9 +754,10 @@
             this.jogPositionListControl.Size = new System.Drawing.Size(408, 120);
             this.jogPositionListControl.TabIndex = 0;
             this.jogPositionListControl.WrapColumnsWhenMany = true;
-            //
+            // 
             // jogAxisMoveControl
-            //
+            // 
+            this.jogAxisMoveControl.AxisColumnsPerRow = 0;
             this.jogAxisMoveControl.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(246)))), ((int)(((byte)(248)))));
             this.jogAxisMoveControl.ButtonAreaMaxHeight = 620;
             this.jogAxisMoveControl.ButtonAreaMaxWidth = 460;
@@ -771,9 +772,9 @@
             this.jogAxisMoveControl.Size = new System.Drawing.Size(408, 686);
             this.jogAxisMoveControl.SpeedControl = null;
             this.jogAxisMoveControl.TabIndex = 1;
-            //
+            // 
             // rightLayout
-            //
+            // 
             this.rightLayout.ColumnCount = 1;
             this.rightLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.rightLayout.Controls.Add(this.grpSpeed, 0, 0);
@@ -785,9 +786,9 @@
             this.rightLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.rightLayout.Size = new System.Drawing.Size(93, 854);
             this.rightLayout.TabIndex = 2;
-            //
+            // 
             // grpSpeed
-            //
+            // 
             this.grpSpeed.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(245)))), ((int)(((byte)(245)))));
             this.grpSpeed.Controls.Add(this.jogSpeedControl);
             this.grpSpeed.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -799,9 +800,9 @@
             this.grpSpeed.TabIndex = 0;
             this.grpSpeed.TabStop = false;
             this.grpSpeed.Text = "SPEED";
-            //
+            // 
             // jogSpeedControl
-            //
+            // 
             this.jogSpeedControl.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(246)))), ((int)(((byte)(248)))));
             this.jogSpeedControl.Dock = System.Windows.Forms.DockStyle.Fill;
             this.jogSpeedControl.Location = new System.Drawing.Point(3, 21);
@@ -810,9 +811,9 @@
             this.jogSpeedControl.Size = new System.Drawing.Size(79, 822);
             this.jogSpeedControl.SpeedPercent = 50;
             this.jogSpeedControl.TabIndex = 1;
-            //
+            // 
             // optionLayout
-            //
+            // 
             this.optionLayout.ColumnCount = 2;
             this.optionLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 55F));
             this.optionLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 45F));
@@ -850,9 +851,9 @@
             this.optionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
             this.optionLayout.Size = new System.Drawing.Size(396, 412);
             this.optionLayout.TabIndex = 0;
-            //
+            // 
             // lblLoadingPositionKey
-            //
+            // 
             this.lblLoadingPositionKey.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
             this.lblLoadingPositionKey.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblLoadingPositionKey.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -863,9 +864,9 @@
             this.lblLoadingPositionKey.TabIndex = 0;
             this.lblLoadingPositionKey.Text = "LOADING POSITION";
             this.lblLoadingPositionKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // lblLoadingPositionValue
-            //
+            // 
             this.lblLoadingPositionValue.BackColor = System.Drawing.Color.White;
             this.lblLoadingPositionValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblLoadingPositionValue.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -876,9 +877,9 @@
             this.lblLoadingPositionValue.TabIndex = 1;
             this.lblLoadingPositionValue.Text = "SET";
             this.lblLoadingPositionValue.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            //
+            // 
             // lblCenterPositionKey
-            //
+            // 
             this.lblCenterPositionKey.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
             this.lblCenterPositionKey.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblCenterPositionKey.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -889,9 +890,9 @@
             this.lblCenterPositionKey.TabIndex = 2;
             this.lblCenterPositionKey.Text = "CENTER POSITION";
             this.lblCenterPositionKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // lblCenterPositionValue
-            //
+            // 
             this.lblCenterPositionValue.BackColor = System.Drawing.Color.White;
             this.lblCenterPositionValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblCenterPositionValue.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -902,9 +903,9 @@
             this.lblCenterPositionValue.TabIndex = 3;
             this.lblCenterPositionValue.Text = "SET";
             this.lblCenterPositionValue.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            //
+            // 
             // lblNeedlePositionKey
-            //
+            // 
             this.lblNeedlePositionKey.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
             this.lblNeedlePositionKey.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblNeedlePositionKey.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -915,9 +916,9 @@
             this.lblNeedlePositionKey.TabIndex = 4;
             this.lblNeedlePositionKey.Text = "NEEDLE POSITION";
             this.lblNeedlePositionKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // lblNeedlePositionValue
-            //
+            // 
             this.lblNeedlePositionValue.BackColor = System.Drawing.Color.White;
             this.lblNeedlePositionValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblNeedlePositionValue.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -928,9 +929,9 @@
             this.lblNeedlePositionValue.TabIndex = 5;
             this.lblNeedlePositionValue.Text = "SET";
             this.lblNeedlePositionValue.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            //
+            // 
             // lblTestBedPositionKey
-            //
+            // 
             this.lblTestBedPositionKey.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
             this.lblTestBedPositionKey.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblTestBedPositionKey.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -941,9 +942,9 @@
             this.lblTestBedPositionKey.TabIndex = 6;
             this.lblTestBedPositionKey.Text = "TEST BED POSITION";
             this.lblTestBedPositionKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // lblTestBedPositionValue
-            //
+            // 
             this.lblTestBedPositionValue.BackColor = System.Drawing.Color.White;
             this.lblTestBedPositionValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblTestBedPositionValue.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -954,9 +955,9 @@
             this.lblTestBedPositionValue.TabIndex = 7;
             this.lblTestBedPositionValue.Text = "SET";
             this.lblTestBedPositionValue.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            //
+            // 
             // lblBarcodePositionKey
-            //
+            // 
             this.lblBarcodePositionKey.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
             this.lblBarcodePositionKey.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblBarcodePositionKey.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -967,9 +968,9 @@
             this.lblBarcodePositionKey.TabIndex = 8;
             this.lblBarcodePositionKey.Text = "BARCODE POSITION";
             this.lblBarcodePositionKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // lblBarcodePositionValue
-            //
+            // 
             this.lblBarcodePositionValue.BackColor = System.Drawing.Color.White;
             this.lblBarcodePositionValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblBarcodePositionValue.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -980,9 +981,9 @@
             this.lblBarcodePositionValue.TabIndex = 9;
             this.lblBarcodePositionValue.Text = "SET";
             this.lblBarcodePositionValue.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            //
+            // 
             // lblVisionAlignKey
-            //
+            // 
             this.lblVisionAlignKey.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
             this.lblVisionAlignKey.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblVisionAlignKey.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -993,9 +994,9 @@
             this.lblVisionAlignKey.TabIndex = 10;
             this.lblVisionAlignKey.Text = "VISION ALIGN";
             this.lblVisionAlignKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // lblVisionAlignValue
-            //
+            // 
             this.lblVisionAlignValue.BackColor = System.Drawing.Color.White;
             this.lblVisionAlignValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblVisionAlignValue.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -1006,9 +1007,9 @@
             this.lblVisionAlignValue.TabIndex = 11;
             this.lblVisionAlignValue.Text = "SET";
             this.lblVisionAlignValue.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            //
+            // 
             // lblWorkRadiusKey
-            //
+            // 
             this.lblWorkRadiusKey.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
             this.lblWorkRadiusKey.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblWorkRadiusKey.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -1019,9 +1020,9 @@
             this.lblWorkRadiusKey.TabIndex = 12;
             this.lblWorkRadiusKey.Text = "WORK RADIUS";
             this.lblWorkRadiusKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // lblWorkRadiusValue
-            //
+            // 
             this.lblWorkRadiusValue.BackColor = System.Drawing.Color.White;
             this.lblWorkRadiusValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblWorkRadiusValue.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -1032,9 +1033,9 @@
             this.lblWorkRadiusValue.TabIndex = 13;
             this.lblWorkRadiusValue.Text = "SET";
             this.lblWorkRadiusValue.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            //
+            // 
             // lblFirstDiePositionKey
-            //
+            // 
             this.lblFirstDiePositionKey.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
             this.lblFirstDiePositionKey.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblFirstDiePositionKey.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -1045,9 +1046,9 @@
             this.lblFirstDiePositionKey.TabIndex = 14;
             this.lblFirstDiePositionKey.Text = "FIRST DIE POSITION";
             this.lblFirstDiePositionKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // lblFirstDiePositionValue
-            //
+            // 
             this.lblFirstDiePositionValue.BackColor = System.Drawing.Color.White;
             this.lblFirstDiePositionValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblFirstDiePositionValue.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -1058,9 +1059,9 @@
             this.lblFirstDiePositionValue.TabIndex = 15;
             this.lblFirstDiePositionValue.Text = "SET";
             this.lblFirstDiePositionValue.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            //
+            // 
             // lblNeedleMeasurePositionKey
-            //
+            // 
             this.lblNeedleMeasurePositionKey.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
             this.lblNeedleMeasurePositionKey.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblNeedleMeasurePositionKey.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -1071,9 +1072,9 @@
             this.lblNeedleMeasurePositionKey.TabIndex = 16;
             this.lblNeedleMeasurePositionKey.Text = "NEEDLE MEASURE POSITION";
             this.lblNeedleMeasurePositionKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // lblNeedleMeasurePositionValue
-            //
+            // 
             this.lblNeedleMeasurePositionValue.BackColor = System.Drawing.Color.White;
             this.lblNeedleMeasurePositionValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblNeedleMeasurePositionValue.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -1084,9 +1085,9 @@
             this.lblNeedleMeasurePositionValue.TabIndex = 17;
             this.lblNeedleMeasurePositionValue.Text = "SET";
             this.lblNeedleMeasurePositionValue.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            //
+            // 
             // waitLayout
-            //
+            // 
             this.waitLayout.ColumnCount = 2;
             this.waitLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 55F));
             this.waitLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 45F));
@@ -1112,9 +1113,9 @@
             this.waitLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
             this.waitLayout.Size = new System.Drawing.Size(396, 187);
             this.waitLayout.TabIndex = 0;
-            //
+            // 
             // lblNeedleUpWaitKey
-            //
+            // 
             this.lblNeedleUpWaitKey.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
             this.lblNeedleUpWaitKey.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblNeedleUpWaitKey.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -1125,9 +1126,9 @@
             this.lblNeedleUpWaitKey.TabIndex = 0;
             this.lblNeedleUpWaitKey.Text = "NEEDLE UP";
             this.lblNeedleUpWaitKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // lblNeedleUpWaitValue
-            //
+            // 
             this.lblNeedleUpWaitValue.BackColor = System.Drawing.Color.White;
             this.lblNeedleUpWaitValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblNeedleUpWaitValue.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -1138,9 +1139,9 @@
             this.lblNeedleUpWaitValue.TabIndex = 1;
             this.lblNeedleUpWaitValue.Text = "0 ms";
             this.lblNeedleUpWaitValue.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            //
+            // 
             // lblVacuumOnWaitKey
-            //
+            // 
             this.lblVacuumOnWaitKey.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
             this.lblVacuumOnWaitKey.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblVacuumOnWaitKey.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -1151,9 +1152,9 @@
             this.lblVacuumOnWaitKey.TabIndex = 2;
             this.lblVacuumOnWaitKey.Text = "VACUUM ON";
             this.lblVacuumOnWaitKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // lblVacuumOnWaitValue
-            //
+            // 
             this.lblVacuumOnWaitValue.BackColor = System.Drawing.Color.White;
             this.lblVacuumOnWaitValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblVacuumOnWaitValue.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -1164,9 +1165,9 @@
             this.lblVacuumOnWaitValue.TabIndex = 3;
             this.lblVacuumOnWaitValue.Text = "0 ms";
             this.lblVacuumOnWaitValue.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            //
+            // 
             // lblNeedleDownWaitKey
-            //
+            // 
             this.lblNeedleDownWaitKey.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
             this.lblNeedleDownWaitKey.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblNeedleDownWaitKey.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -1177,9 +1178,9 @@
             this.lblNeedleDownWaitKey.TabIndex = 4;
             this.lblNeedleDownWaitKey.Text = "NEEDLE DOWN";
             this.lblNeedleDownWaitKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // lblNeedleDownWaitValue
-            //
+            // 
             this.lblNeedleDownWaitValue.BackColor = System.Drawing.Color.White;
             this.lblNeedleDownWaitValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblNeedleDownWaitValue.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -1190,9 +1191,9 @@
             this.lblNeedleDownWaitValue.TabIndex = 5;
             this.lblNeedleDownWaitValue.Text = "0 ms";
             this.lblNeedleDownWaitValue.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            //
+            // 
             // lblVacuumOffWaitKey
-            //
+            // 
             this.lblVacuumOffWaitKey.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
             this.lblVacuumOffWaitKey.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblVacuumOffWaitKey.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -1203,9 +1204,9 @@
             this.lblVacuumOffWaitKey.TabIndex = 6;
             this.lblVacuumOffWaitKey.Text = "VACUUM OFF";
             this.lblVacuumOffWaitKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // lblVacuumOffWaitValue
-            //
+            // 
             this.lblVacuumOffWaitValue.BackColor = System.Drawing.Color.White;
             this.lblVacuumOffWaitValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblVacuumOffWaitValue.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -1216,9 +1217,9 @@
             this.lblVacuumOffWaitValue.TabIndex = 7;
             this.lblVacuumOffWaitValue.Text = "0 ms";
             this.lblVacuumOffWaitValue.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            //
+            // 
             // lblMovingWaitKey
-            //
+            // 
             this.lblMovingWaitKey.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
             this.lblMovingWaitKey.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblMovingWaitKey.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -1229,9 +1230,9 @@
             this.lblMovingWaitKey.TabIndex = 8;
             this.lblMovingWaitKey.Text = "MOVING";
             this.lblMovingWaitKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // lblMovingWaitValue
-            //
+            // 
             this.lblMovingWaitValue.BackColor = System.Drawing.Color.White;
             this.lblMovingWaitValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblMovingWaitValue.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -1242,9 +1243,9 @@
             this.lblMovingWaitValue.TabIndex = 9;
             this.lblMovingWaitValue.Text = "0 ms";
             this.lblMovingWaitValue.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            //
+            // 
             // ioLayout
-            //
+            // 
             this.ioLayout.ColumnCount = 3;
             this.ioLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 28F));
             this.ioLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 58F));
@@ -1272,9 +1273,9 @@
             this.ioLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 28F));
             this.ioLayout.Size = new System.Drawing.Size(396, 144);
             this.ioLayout.TabIndex = 0;
-            //
+            // 
             // dotNeedleVacuum
-            //
+            // 
             this.dotNeedleVacuum.BackColor = System.Drawing.Color.Transparent;
             this.dotNeedleVacuum.Dock = System.Windows.Forms.DockStyle.Fill;
             this.dotNeedleVacuum.Location = new System.Drawing.Point(15, 25);
@@ -1284,9 +1285,9 @@
             this.dotNeedleVacuum.OnColor = System.Drawing.Color.LimeGreen;
             this.dotNeedleVacuum.Size = new System.Drawing.Size(14, 14);
             this.dotNeedleVacuum.TabIndex = 0;
-            //
+            // 
             // lblNeedleVacuumKey
-            //
+            // 
             this.lblNeedleVacuumKey.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
             this.lblNeedleVacuumKey.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblNeedleVacuumKey.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -1297,9 +1298,9 @@
             this.lblNeedleVacuumKey.TabIndex = 1;
             this.lblNeedleVacuumKey.Text = "NEEDLE VACUUM";
             this.lblNeedleVacuumKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // lblNeedleVacuumValue
-            //
+            // 
             this.lblNeedleVacuumValue.BackColor = System.Drawing.Color.White;
             this.lblNeedleVacuumValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblNeedleVacuumValue.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -1310,9 +1311,9 @@
             this.lblNeedleVacuumValue.TabIndex = 2;
             this.lblNeedleVacuumValue.Text = "VACUUM";
             this.lblNeedleVacuumValue.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            //
+            // 
             // dotRingSensor
-            //
+            // 
             this.dotRingSensor.BackColor = System.Drawing.Color.Transparent;
             this.dotRingSensor.Dock = System.Windows.Forms.DockStyle.Fill;
             this.dotRingSensor.Location = new System.Drawing.Point(15, 53);
@@ -1322,9 +1323,9 @@
             this.dotRingSensor.OnColor = System.Drawing.Color.LimeGreen;
             this.dotRingSensor.Size = new System.Drawing.Size(14, 14);
             this.dotRingSensor.TabIndex = 3;
-            //
+            // 
             // lblRingSensorKey
-            //
+            // 
             this.lblRingSensorKey.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
             this.lblRingSensorKey.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblRingSensorKey.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -1335,9 +1336,9 @@
             this.lblRingSensorKey.TabIndex = 4;
             this.lblRingSensorKey.Text = "RING SENSOR";
             this.lblRingSensorKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // lblRingSensorValue
-            //
+            // 
             this.lblRingSensorValue.BackColor = System.Drawing.Color.White;
             this.lblRingSensorValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblRingSensorValue.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -1348,9 +1349,9 @@
             this.lblRingSensorValue.TabIndex = 5;
             this.lblRingSensorValue.Text = "OFF";
             this.lblRingSensorValue.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            //
+            // 
             // dotExpandCylinder
-            //
+            // 
             this.dotExpandCylinder.BackColor = System.Drawing.Color.Transparent;
             this.dotExpandCylinder.Dock = System.Windows.Forms.DockStyle.Fill;
             this.dotExpandCylinder.Location = new System.Drawing.Point(15, 81);
@@ -1360,9 +1361,9 @@
             this.dotExpandCylinder.OnColor = System.Drawing.Color.LimeGreen;
             this.dotExpandCylinder.Size = new System.Drawing.Size(14, 14);
             this.dotExpandCylinder.TabIndex = 6;
-            //
+            // 
             // lblExpandCylinderKey
-            //
+            // 
             this.lblExpandCylinderKey.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
             this.lblExpandCylinderKey.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblExpandCylinderKey.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -1373,9 +1374,9 @@
             this.lblExpandCylinderKey.TabIndex = 7;
             this.lblExpandCylinderKey.Text = "EXPAND CYLINDER";
             this.lblExpandCylinderKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // lblExpandCylinderValue
-            //
+            // 
             this.lblExpandCylinderValue.BackColor = System.Drawing.Color.White;
             this.lblExpandCylinderValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblExpandCylinderValue.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -1386,9 +1387,9 @@
             this.lblExpandCylinderValue.TabIndex = 8;
             this.lblExpandCylinderValue.Text = "READY";
             this.lblExpandCylinderValue.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            //
+            // 
             // dotNeedleBlock
-            //
+            // 
             this.dotNeedleBlock.BackColor = System.Drawing.Color.Transparent;
             this.dotNeedleBlock.Dock = System.Windows.Forms.DockStyle.Fill;
             this.dotNeedleBlock.Location = new System.Drawing.Point(15, 109);
@@ -1398,9 +1399,9 @@
             this.dotNeedleBlock.OnColor = System.Drawing.Color.LimeGreen;
             this.dotNeedleBlock.Size = new System.Drawing.Size(14, 20);
             this.dotNeedleBlock.TabIndex = 9;
-            //
+            // 
             // lblNeedleBlockKey
-            //
+            // 
             this.lblNeedleBlockKey.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
             this.lblNeedleBlockKey.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblNeedleBlockKey.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -1411,9 +1412,9 @@
             this.lblNeedleBlockKey.TabIndex = 10;
             this.lblNeedleBlockKey.Text = "NEEDLE BLOCK";
             this.lblNeedleBlockKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // lblNeedleBlockValue
-            //
+            // 
             this.lblNeedleBlockValue.BackColor = System.Drawing.Color.White;
             this.lblNeedleBlockValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblNeedleBlockValue.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -1424,9 +1425,9 @@
             this.lblNeedleBlockValue.TabIndex = 11;
             this.lblNeedleBlockValue.Text = "READY";
             this.lblNeedleBlockValue.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            //
+            // 
             // jogLayout
-            //
+            // 
             this.jogLayout.ColumnCount = 3;
             this.jogLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 36F));
             this.jogLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 34F));
@@ -1442,9 +1443,9 @@
             this.jogLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.jogLayout.Size = new System.Drawing.Size(444, 817);
             this.jogLayout.TabIndex = 0;
-            //
+            // 
             // jogAxisLayout
-            //
+            // 
             this.jogAxisLayout.ColumnCount = 2;
             this.jogAxisLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
             this.jogAxisLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
@@ -1472,9 +1473,9 @@
             this.jogAxisLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 16.7F));
             this.jogAxisLayout.Size = new System.Drawing.Size(146, 783);
             this.jogAxisLayout.TabIndex = 0;
-            //
+            // 
             // lblAxisXKey
-            //
+            // 
             this.lblAxisXKey.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
             this.lblAxisXKey.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblAxisXKey.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -1485,9 +1486,9 @@
             this.lblAxisXKey.TabIndex = 0;
             this.lblAxisXKey.Text = "AXIS X";
             this.lblAxisXKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // lblAxisXValue
-            //
+            // 
             this.lblAxisXValue.BackColor = System.Drawing.Color.White;
             this.lblAxisXValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblAxisXValue.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -1498,9 +1499,9 @@
             this.lblAxisXValue.TabIndex = 1;
             this.lblAxisXValue.Text = "0 um";
             this.lblAxisXValue.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            //
+            // 
             // lblAxisYKey
-            //
+            // 
             this.lblAxisYKey.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
             this.lblAxisYKey.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblAxisYKey.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -1511,9 +1512,9 @@
             this.lblAxisYKey.TabIndex = 2;
             this.lblAxisYKey.Text = "AXIS Y";
             this.lblAxisYKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // lblAxisYValue
-            //
+            // 
             this.lblAxisYValue.BackColor = System.Drawing.Color.White;
             this.lblAxisYValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblAxisYValue.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -1524,9 +1525,9 @@
             this.lblAxisYValue.TabIndex = 3;
             this.lblAxisYValue.Text = "0 um";
             this.lblAxisYValue.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            //
+            // 
             // lblAxisTKey
-            //
+            // 
             this.lblAxisTKey.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
             this.lblAxisTKey.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblAxisTKey.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -1537,9 +1538,9 @@
             this.lblAxisTKey.TabIndex = 4;
             this.lblAxisTKey.Text = "AXIS T";
             this.lblAxisTKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // lblAxisTValue
-            //
+            // 
             this.lblAxisTValue.BackColor = System.Drawing.Color.White;
             this.lblAxisTValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblAxisTValue.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -1550,9 +1551,9 @@
             this.lblAxisTValue.TabIndex = 5;
             this.lblAxisTValue.Text = "0 deg";
             this.lblAxisTValue.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            //
+            // 
             // lblExpandZKey
-            //
+            // 
             this.lblExpandZKey.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
             this.lblExpandZKey.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblExpandZKey.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -1563,9 +1564,9 @@
             this.lblExpandZKey.TabIndex = 6;
             this.lblExpandZKey.Text = "EXPAND Z";
             this.lblExpandZKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // lblExpandZValue
-            //
+            // 
             this.lblExpandZValue.BackColor = System.Drawing.Color.White;
             this.lblExpandZValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblExpandZValue.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -1576,9 +1577,9 @@
             this.lblExpandZValue.TabIndex = 7;
             this.lblExpandZValue.Text = "0 um";
             this.lblExpandZValue.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            //
+            // 
             // lblNeedleZKey
-            //
+            // 
             this.lblNeedleZKey.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
             this.lblNeedleZKey.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblNeedleZKey.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -1589,9 +1590,9 @@
             this.lblNeedleZKey.TabIndex = 8;
             this.lblNeedleZKey.Text = "NEEDLE Z";
             this.lblNeedleZKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // lblNeedleZValue
-            //
+            // 
             this.lblNeedleZValue.BackColor = System.Drawing.Color.White;
             this.lblNeedleZValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblNeedleZValue.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -1602,9 +1603,9 @@
             this.lblNeedleZValue.TabIndex = 9;
             this.lblNeedleZValue.Text = "0 um";
             this.lblNeedleZValue.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            //
+            // 
             // lblNeedleBlockZKey
-            //
+            // 
             this.lblNeedleBlockZKey.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
             this.lblNeedleBlockZKey.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblNeedleBlockZKey.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -1615,9 +1616,9 @@
             this.lblNeedleBlockZKey.TabIndex = 10;
             this.lblNeedleBlockZKey.Text = "NEEDLE BLOCK Z";
             this.lblNeedleBlockZKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
+            // 
             // lblNeedleBlockZValue
-            //
+            // 
             this.lblNeedleBlockZValue.BackColor = System.Drawing.Color.White;
             this.lblNeedleBlockZValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblNeedleBlockZValue.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -1628,9 +1629,9 @@
             this.lblNeedleBlockZValue.TabIndex = 11;
             this.lblNeedleBlockZValue.Text = "0 um";
             this.lblNeedleBlockZValue.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            //
+            // 
             // jogXyLayout
-            //
+            // 
             this.jogXyLayout.ColumnCount = 3;
             this.jogXyLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 33.33F));
             this.jogXyLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 33.34F));
@@ -1651,9 +1652,9 @@
             this.jogXyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 33.33F));
             this.jogXyLayout.Size = new System.Drawing.Size(138, 783);
             this.jogXyLayout.TabIndex = 1;
-            //
+            // 
             // btnJogYPlus
-            //
+            // 
             this.btnJogYPlus.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnJogYPlus.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnJogYPlus.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -1665,9 +1666,9 @@
             this.btnJogYPlus.Size = new System.Drawing.Size(38, 252);
             this.btnJogYPlus.TabIndex = 0;
             this.btnJogYPlus.Text = "+Y";
-            //
+            // 
             // btnJogXMinus
-            //
+            // 
             this.btnJogXMinus.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnJogXMinus.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnJogXMinus.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -1679,9 +1680,9 @@
             this.btnJogXMinus.Size = new System.Drawing.Size(37, 253);
             this.btnJogXMinus.TabIndex = 1;
             this.btnJogXMinus.Text = "-X";
-            //
+            // 
             // btnJogStop
-            //
+            // 
             this.btnJogStop.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnJogStop.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnJogStop.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -1693,9 +1694,9 @@
             this.btnJogStop.Size = new System.Drawing.Size(38, 253);
             this.btnJogStop.TabIndex = 2;
             this.btnJogStop.Text = "STOP";
-            //
+            // 
             // btnJogXPlus
-            //
+            // 
             this.btnJogXPlus.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnJogXPlus.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnJogXPlus.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -1707,9 +1708,9 @@
             this.btnJogXPlus.Size = new System.Drawing.Size(39, 253);
             this.btnJogXPlus.TabIndex = 3;
             this.btnJogXPlus.Text = "+X";
-            //
+            // 
             // btnJogTMinus
-            //
+            // 
             this.btnJogTMinus.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnJogTMinus.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnJogTMinus.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -1721,9 +1722,9 @@
             this.btnJogTMinus.Size = new System.Drawing.Size(37, 254);
             this.btnJogTMinus.TabIndex = 4;
             this.btnJogTMinus.Text = "-T";
-            //
+            // 
             // btnJogYMinus
-            //
+            // 
             this.btnJogYMinus.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnJogYMinus.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnJogYMinus.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -1735,9 +1736,9 @@
             this.btnJogYMinus.Size = new System.Drawing.Size(38, 254);
             this.btnJogYMinus.TabIndex = 5;
             this.btnJogYMinus.Text = "-Y";
-            //
+            // 
             // btnJogTPlus
-            //
+            // 
             this.btnJogTPlus.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnJogTPlus.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnJogTPlus.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -1749,9 +1750,9 @@
             this.btnJogTPlus.Size = new System.Drawing.Size(39, 254);
             this.btnJogTPlus.TabIndex = 6;
             this.btnJogTPlus.Text = "+T";
-            //
+            // 
             // jogZLayout
-            //
+            // 
             this.jogZLayout.ColumnCount = 3;
             this.jogZLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 33.33F));
             this.jogZLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 33.34F));
@@ -1774,9 +1775,9 @@
             this.jogZLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 40F));
             this.jogZLayout.Size = new System.Drawing.Size(122, 783);
             this.jogZLayout.TabIndex = 2;
-            //
+            // 
             // btnExpandUp
-            //
+            // 
             this.btnExpandUp.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnExpandUp.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnExpandUp.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -1788,9 +1789,9 @@
             this.btnExpandUp.Size = new System.Drawing.Size(32, 305);
             this.btnExpandUp.TabIndex = 0;
             this.btnExpandUp.Text = "UP";
-            //
+            // 
             // btnNeedleUp
-            //
+            // 
             this.btnNeedleUp.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnNeedleUp.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnNeedleUp.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -1802,9 +1803,9 @@
             this.btnNeedleUp.Size = new System.Drawing.Size(32, 305);
             this.btnNeedleUp.TabIndex = 1;
             this.btnNeedleUp.Text = "UP";
-            //
+            // 
             // btnBlockUp
-            //
+            // 
             this.btnBlockUp.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnBlockUp.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnBlockUp.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -1816,9 +1817,9 @@
             this.btnBlockUp.Size = new System.Drawing.Size(34, 305);
             this.btnBlockUp.TabIndex = 2;
             this.btnBlockUp.Text = "UP";
-            //
+            // 
             // lblExpandAxis
-            //
+            // 
             this.lblExpandAxis.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
             this.lblExpandAxis.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblExpandAxis.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -1829,9 +1830,9 @@
             this.lblExpandAxis.TabIndex = 3;
             this.lblExpandAxis.Text = "EXPAND";
             this.lblExpandAxis.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            //
+            // 
             // lblNeedleAxis
-            //
+            // 
             this.lblNeedleAxis.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
             this.lblNeedleAxis.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblNeedleAxis.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -1842,9 +1843,9 @@
             this.lblNeedleAxis.TabIndex = 4;
             this.lblNeedleAxis.Text = "NEEDLE";
             this.lblNeedleAxis.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            //
+            // 
             // lblBlockAxis
-            //
+            // 
             this.lblBlockAxis.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
             this.lblBlockAxis.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblBlockAxis.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -1855,9 +1856,9 @@
             this.lblBlockAxis.TabIndex = 5;
             this.lblBlockAxis.Text = "BLOCK";
             this.lblBlockAxis.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            //
+            // 
             // btnExpandDown
-            //
+            // 
             this.btnExpandDown.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnExpandDown.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnExpandDown.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -1869,9 +1870,9 @@
             this.btnExpandDown.Size = new System.Drawing.Size(32, 306);
             this.btnExpandDown.TabIndex = 6;
             this.btnExpandDown.Text = "DOWN";
-            //
+            // 
             // btnNeedleDown
-            //
+            // 
             this.btnNeedleDown.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnNeedleDown.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnNeedleDown.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -1883,9 +1884,9 @@
             this.btnNeedleDown.Size = new System.Drawing.Size(32, 306);
             this.btnNeedleDown.TabIndex = 7;
             this.btnNeedleDown.Text = "DOWN";
-            //
+            // 
             // btnBlockDown
-            //
+            // 
             this.btnBlockDown.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnBlockDown.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnBlockDown.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -1897,9 +1898,9 @@
             this.btnBlockDown.Size = new System.Drawing.Size(34, 306);
             this.btnBlockDown.TabIndex = 8;
             this.btnBlockDown.Text = "DOWN";
-            //
+            // 
             // speedLayout
-            //
+            // 
             this.speedLayout.ColumnCount = 1;
             this.speedLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.speedLayout.Controls.Add(this.trkSpeed, 0, 0);
@@ -1913,9 +1914,9 @@
             this.speedLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
             this.speedLayout.Size = new System.Drawing.Size(79, 817);
             this.speedLayout.TabIndex = 0;
-            //
+            // 
             // trkSpeed
-            //
+            // 
             this.trkSpeed.Dock = System.Windows.Forms.DockStyle.Fill;
             this.trkSpeed.Location = new System.Drawing.Point(15, 21);
             this.trkSpeed.Maximum = 100;
@@ -1925,9 +1926,9 @@
             this.trkSpeed.TabIndex = 0;
             this.trkSpeed.TickFrequency = 10;
             this.trkSpeed.Value = 50;
-            //
+            // 
             // lblSpeedValue
-            //
+            // 
             this.lblSpeedValue.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
             this.lblSpeedValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblSpeedValue.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -1938,9 +1939,9 @@
             this.lblSpeedValue.TabIndex = 1;
             this.lblSpeedValue.Text = "50%";
             this.lblSpeedValue.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            //
+            // 
             // OutputStageRecipePage
-            //
+            // 
             this.Controls.Add(this.rootLayout);
             this.Name = "OutputStageRecipePage";
             this.Size = new System.Drawing.Size(1678, 900);

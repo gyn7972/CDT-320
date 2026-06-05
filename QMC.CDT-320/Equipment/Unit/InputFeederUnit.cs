@@ -94,8 +94,8 @@ namespace QMC.CDT320
         public BaseDigitalInput WaferFeederClampSensor { get; private set; }
         public BaseDigitalInput WaferFeederRingCheckSensor { get; private set; }
         public BaseDigitalInput WaferFeederOverloadSensor { get; private set; }
-        public BaseDigitalInput WaferStage8RingCheckSensor { get; private set; }
-        public BaseDigitalInput WaferStage12RingCheckSensor { get; private set; }
+        public BaseDigitalInput WaferFeeder8RingCheckSensor { get; private set; }
+        public BaseDigitalInput WaferFeeder12RingCheckSensor { get; private set; }
         public BaseDigitalInput WaferClampedSensor { get { return WaferFeederClampSensor; } }
         public BaseCylinder InputFeederLift { get; private set; }
         public BaseCylinder InputFeederClamp { get; private set; }
@@ -120,8 +120,8 @@ namespace QMC.CDT320
             WaferFeederClampSensor = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.WaferFeederUpClamp);
             WaferFeederRingCheckSensor = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.WaferFeederRingCheck);
             WaferFeederOverloadSensor = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.WaferFeederOverloadCheck);
-            WaferStage8RingCheckSensor = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.WaferStage8RingCheck);
-            WaferStage12RingCheckSensor = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.WaferStage12RingCheck);
+            WaferFeeder8RingCheckSensor = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.WaferFeeder8RingCheck);
+            WaferFeeder12RingCheckSensor = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.WaferFeeder12RingCheck);
             InputFeederLift = CylinderManager.Get(AjinIoCatalog.CylinderRefs.InputFeederLift);
             InputFeederClamp = CylinderManager.Get(AjinIoCatalog.CylinderRefs.InputFeederClamp);
 
@@ -131,8 +131,8 @@ namespace QMC.CDT320
             Components.Add(WaferFeederClampSensor);
             Components.Add(WaferFeederRingCheckSensor);
             Components.Add(WaferFeederOverloadSensor);
-            Components.Add(WaferStage8RingCheckSensor);
-            Components.Add(WaferStage12RingCheckSensor);
+            Components.Add(WaferFeeder8RingCheckSensor);
+            Components.Add(WaferFeeder12RingCheckSensor);
             Components.Add(InputFeederLift);
             Components.Add(InputFeederClamp);
         }
@@ -427,11 +427,11 @@ namespace QMC.CDT320
             return WaferFeederClampSensor.IsOn;
         }
 
-        public bool IsWaferStageRingDetected(int size, bool expected = true)
+        public bool IsWaferFeederRingDetected(int size, bool expected = true)
         {
             try
             {
-                BaseDigitalInput sensor = size <= 8 ? WaferStage8RingCheckSensor : WaferStage12RingCheckSensor;
+                BaseDigitalInput sensor = size <= 8 ? WaferFeeder8RingCheckSensor : WaferFeeder12RingCheckSensor;
                 return sensor != null && sensor.IsOn == expected;
             }
             catch
@@ -974,9 +974,9 @@ namespace QMC.CDT320
             if (size != 8 && size != 12)
                 return false;
             if (mode == TransferMode.Load)
-                return IsWaferFeederOccupied() && IsWaferStageRingDetected(size, false);
+                return IsWaferFeederOccupied() && IsWaferFeederRingDetected(size, false);
             if (mode == TransferMode.Unload)
-                return IsWaferFeederEmpty() && IsWaferStageRingDetected(size, true);
+                return IsWaferFeederEmpty() && IsWaferFeederRingDetected(size, true);
             return CheckWaferFeederMoveReady();
         }
 

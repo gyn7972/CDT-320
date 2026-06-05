@@ -193,7 +193,7 @@ namespace QMC.CDT320.Initialization
             {
                 string state = rule.ExpectedState ?? "";
                 if (string.Equals(state, AxisInitializeInterlockState.AllOk, StringComparison.OrdinalIgnoreCase))
-                    return Check(_machine != null && _machine.Resources != null && _machine.Resources.AllOk,
+                    return Check(_machine != null && _machine.ResourcesUnit != null && _machine.ResourcesUnit.AllOk,
                         "Resource 상태가 정상(AllOk)이 아닙니다.", out reason);
 
                 reason = "지원하지 않는 Resource ExpectedState입니다. state=" + state;

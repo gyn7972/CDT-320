@@ -324,8 +324,7 @@ namespace QMC.CDT_320.Ui.Controls
                         JogAxisItem.Single("CameraX", null, AxisUnitConverter.Micrometer, 1.0, "X+", "X-"),
                         JogAxisItem.Single("NeedleX", null, AxisUnitConverter.Micrometer, 1.0, "X+", "X-"),
                         JogAxisItem.Single("NeedleZ", null, AxisUnitConverter.Micrometer, 1.0, "Z+", "Z-"),
-                        JogAxisItem.Single("EjectPinZ", null, AxisUnitConverter.Micrometer, 1.0, "Z+", "Z-"),
-                        JogAxisItem.Single("CameraZ", null, AxisUnitConverter.Micrometer, 1.0, "Z+", "Z-")
+                        JogAxisItem.Single("EjectPinZ", null, AxisUnitConverter.Micrometer, 1.0, "Z+", "Z-")
                     });
                     return;
                 }
@@ -614,13 +613,12 @@ namespace QMC.CDT_320.Ui.Controls
                 JogAxisItem yItem = FirstAxisByName("StageY") ?? FirstAxisByText("Y");
                 JogAxisItem cameraXItem = FirstAxisByName("CameraX");
                 JogAxisItem tItem = FirstAxisByName("StageT") ?? FirstAxisByText("T");
-                JogAxisItem cameraZItem = FirstAxisByName("CameraZ");
 
                 foreach (JogAxisItem item in _items)
                 {
                     if (item == null)
                         continue;
-                    if (ReferenceEquals(item, yItem) || ReferenceEquals(item, cameraXItem) || ReferenceEquals(item, tItem) || ReferenceEquals(item, cameraZItem))
+                    if (ReferenceEquals(item, yItem) || ReferenceEquals(item, cameraXItem) || ReferenceEquals(item, tItem))
                         continue;
                     if (GetControlKind(item) == JogAxisControlKind.Horizontal)
                         continue;
@@ -647,13 +645,12 @@ namespace QMC.CDT_320.Ui.Controls
                 JogAxisItem yItem = FirstAxisByName("StageY") ?? FirstAxisByText("Y");
                 JogAxisItem cameraXItem = FirstAxisByName("CameraX");
                 JogAxisItem tItem = FirstAxisByName("StageT") ?? FirstAxisByText("T");
-                JogAxisItem cameraZItem = FirstAxisByName("CameraZ");
 
                 foreach (JogAxisItem item in _items)
                 {
                     if (item == null)
                         continue;
-                    if (ReferenceEquals(item, yItem) || ReferenceEquals(item, cameraXItem) || ReferenceEquals(item, tItem) || ReferenceEquals(item, cameraZItem))
+                    if (ReferenceEquals(item, yItem) || ReferenceEquals(item, cameraXItem) || ReferenceEquals(item, tItem))
                         continue;
                     if (GetControlKind(item) == JogAxisControlKind.Horizontal)
                         count++;
@@ -677,7 +674,6 @@ namespace QMC.CDT_320.Ui.Controls
                 JogAxisItem yItem = FirstAxisByName("StageY") ?? FirstAxisByText("Y");
                 JogAxisItem cameraXItem = FirstAxisByName("CameraX");
                 JogAxisItem tItem = FirstAxisByName("StageT") ?? FirstAxisByText("T");
-                JogAxisItem cameraZItem = FirstAxisByName("CameraZ");
                 List<JogAxisItem> zItems = new List<JogAxisItem>();
                 List<JogAxisItem> horizontalExtraItems = new List<JogAxisItem>();
                 List<JogAxisItem> verticalExtraItems = new List<JogAxisItem>();
@@ -686,7 +682,7 @@ namespace QMC.CDT_320.Ui.Controls
                 {
                     if (item == null)
                         continue;
-                    if (ReferenceEquals(item, yItem) || ReferenceEquals(item, cameraXItem) || ReferenceEquals(item, tItem) || ReferenceEquals(item, cameraZItem))
+                    if (ReferenceEquals(item, yItem) || ReferenceEquals(item, cameraXItem) || ReferenceEquals(item, tItem))
                         continue;
 
                     if (GetControlKind(item) == JogAxisControlKind.Horizontal)
@@ -709,7 +705,7 @@ namespace QMC.CDT_320.Ui.Controls
                 axisButtonLayout.RowCount = 1;
                 axisButtonLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
                 axisButtonLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-                axisButtonLayout.Controls.Add(CreateStageSlotLayout(cameraXItem, yItem, tItem, cameraZItem, zItems, horizontalExtraItems), 0, 0);
+                axisButtonLayout.Controls.Add(CreateStageSlotLayout(cameraXItem, yItem, tItem, zItems, horizontalExtraItems), 0, 0);
             }
             catch
             {
@@ -720,7 +716,7 @@ namespace QMC.CDT_320.Ui.Controls
             }
         }
 
-        private Control CreateStageSlotLayout(JogAxisItem xItem, JogAxisItem yItem, JogAxisItem tItem, JogAxisItem cameraZItem, List<JogAxisItem> verticalItems, List<JogAxisItem> horizontalItems)
+        private Control CreateStageSlotLayout(JogAxisItem xItem, JogAxisItem yItem, JogAxisItem tItem, List<JogAxisItem> verticalItems, List<JogAxisItem> horizontalItems)
         {
             try
             {
@@ -761,8 +757,6 @@ namespace QMC.CDT_320.Ui.Controls
                 Control cross = CreateStagePad(xItem, yItem, tItem);
                 layout.Controls.Add(cross, 0, row);
                 layout.SetColumnSpan(cross, 5);
-                if (cameraZItem != null)
-                    layout.Controls.Add(CreateFixedAxisColumn(cameraZItem, true), 6, row);
 
                 row++;
                 AddStageGapRow(layout, row);

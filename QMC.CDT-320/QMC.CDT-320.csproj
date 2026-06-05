@@ -840,6 +840,9 @@
     <EmbeddedResource Include="Ui\Pages\Recipe\InputCassetteRecipePage.resx">
       <DependentUpon>InputCassetteRecipePage.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\Recipe\InputFeederRecipePage.resx">
+      <DependentUpon>InputFeederRecipePage.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\Recipe\LoadTapeFrameSubsetPage.resx">
       <DependentUpon>LoadTapeFrameSubsetPage.cs</DependentUpon>
     </EmbeddedResource>
@@ -848,6 +851,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\Recipe\OutputCassetteRecipePage.resx">
       <DependentUpon>OutputCassetteRecipePage.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\Recipe\OutputStageRecipePage.resx">
+      <DependentUpon>OutputStageRecipePage.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\Recipe\OutputSubsetPage.resx">
       <DependentUpon>OutputSubsetPage.cs</DependentUpon>
