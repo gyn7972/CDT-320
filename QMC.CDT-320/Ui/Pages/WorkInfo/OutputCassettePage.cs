@@ -41,10 +41,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             var host = FindForm() as Form1;
             if (host?.Machine == null) return;
 
-            var unloader = host.Machine.OutputUnloader;
-            lblElevatorPos.Text = AxisUnitConverter.FormatDisplay(unloader.BinElevatorZ.ActualPosition, unloader.BinElevatorZ, "0.###", true);
-
             var binCassette = host.Machine.OutputCassette;
+            lblElevatorPos.Text = AxisUnitConverter.FormatDisplay(binCassette.BinLifterZ.ActualPosition, binCassette.BinLifterZ, "0.###", true);
+
             var driver = host.CassetteDriver;
             int slotCount = binCassette != null && binCassette.Config != null && binCassette.Config.SlotCount > 0
                 ? binCassette.Config.SlotCount

@@ -143,7 +143,7 @@ namespace QMC.CDT320
         }
     }
 
-    public class OutputCassetteUnit : BaseUnit<OutputCassetteSetup, OutputCassetteConfig, OutputCassetteRecipe>
+    public class OutputCassetteUnit : BaseUnit<OutputCassetteSetup, OutputCassetteConfig, OutputCassetteRecipe>, IUnitJogController
     {
         private readonly Dictionary<TargetCassette, bool[]> _slotMap = new Dictionary<TargetCassette, bool[]>();
         private readonly Dictionary<TargetCassette, Dictionary<int, WaferSlotState>> _slotStates =
@@ -207,6 +207,50 @@ namespace QMC.CDT320
             Components.Add(NgBinCassetteUnlockOut);
 
             BeginMapping();
+        }
+
+        public bool CanHandleJogAxis(BaseAxis axis)
+        {
+            return axis != null && ReferenceEquals(axis, BinLifterZ);
+        }
+
+        public async Task<int> JogStepAsync(
+            BaseAxis axis,
+            int direction,
+            JogSpeedType speedType,
+            double customSpeed,
+            double axisStepDistance)
+        {
+            if (!CanHandleJogAxis(axis))
+                return -1;
+
+            double signedDistance = (direction < 0 ? -1.0 : 1.0) * Math.Abs(axisStepDistance);
+            double target = BinLifterZ.ActualPosition + signedDistance;
+            await MoveBinLifterZ(target, speedType == JogSpeedType.Fine);
+            return 0;
+        }
+
+        public Task<int> JogContinuousAsync(
+            BaseAxis axis,
+            int direction,
+            JogSpeedType speedType,
+            double customSpeed)
+        {
+            if (!CanHandleJogAxis(axis))
+                return Task.FromResult(-1);
+
+            double speed = UnitJogVelocityResolver.Resolve(axis, speedType, customSpeed);
+            ManualMoveBinLifterZJog(direction, speed);
+            return Task.FromResult(0);
+        }
+
+        public Task<int> StopJogAsync(BaseAxis axis)
+        {
+            if (!CanHandleJogAxis(axis))
+                return Task.FromResult(-1);
+
+            ManualStopBinLifterZ();
+            return Task.FromResult(0);
         }
 
         public async Task MoveBinLifterZ(double targetPos, bool bFine = false)
@@ -528,6 +572,67 @@ namespace QMC.CDT320
             ok &= await ScanCassetteAsync(TargetCassette.Good2, Config.SlotCount, Config.SlotPitch);
             EndMapping();
             return ok;
+        }
+
+        public async Task<bool> StoreFullWaferAsync(OutputFeederUnit feeder, TargetCassette target, int slotIndex)
+        {
+            if (feeder == null)
+                throw new ArgumentNullException("feeder");
+
+            ValidateSlotIndex(slotIndex);
+            BinSide side = ToBinSide(target);
+            int timeoutMs = ResolveTransferTimeoutMs(feeder);
+
+            int result = await feeder.UnloadWaferFromStageToFeeder(side, timeoutMs);
+            if (result != 0)
+                return false;
+
+            if (!await PrepareBinCassetteForFeederLoad(target, slotIndex, timeoutMs))
+                return false;
+
+            result = await feeder.UnloadFeederToCassette(side, slotIndex, timeoutMs);
+            if (result != 0)
+                return false;
+
+            UpdateBinCassetteSlotState(target, slotIndex, true);
+            return true;
+        }
+
+        public async Task<bool> SupplyEmptyWaferAsync(OutputFeederUnit feeder, TargetCassette source, int slotIndex)
+        {
+            if (feeder == null)
+                throw new ArgumentNullException("feeder");
+
+            ValidateSlotIndex(slotIndex);
+            BinSide side = ToBinSide(source);
+            int timeoutMs = ResolveTransferTimeoutMs(feeder);
+
+            if (!await PrepareBinCassetteForFeederLoad(source, slotIndex, timeoutMs))
+                return false;
+
+            int result = await feeder.LoadFromCassetteToFeeder(side, slotIndex, timeoutMs, false, false);
+            if (result != 0)
+                return false;
+
+            result = await feeder.LoadWaferToStageFromFeeder(side, timeoutMs);
+            if (result != 0)
+                return false;
+
+            UpdateBinCassetteSlotState(source, slotIndex, false);
+            return true;
+        }
+
+        public async Task<bool> ExchangeWaferSequenceAsync(
+            OutputFeederUnit feeder,
+            TargetCassette storeTarget,
+            int storeSlotIndex,
+            TargetCassette supplySource,
+            int supplySlotIndex)
+        {
+            if (!await StoreFullWaferAsync(feeder, storeTarget, storeSlotIndex))
+                return false;
+
+            return await SupplyEmptyWaferAsync(feeder, supplySource, supplySlotIndex);
         }
 
         public Task<bool> PrepareCassetteForFeederLoad(int slotIndex, int timeoutMs, bool bFine = false)
@@ -897,6 +1002,19 @@ namespace QMC.CDT320
         {
             if (slotIndex < 0 || slotIndex >= Config.SlotCount)
                 throw new ArgumentOutOfRangeException("slotIndex", "Slot index is out of bin cassette range.");
+        }
+
+        private static BinSide ToBinSide(TargetCassette cassette)
+        {
+            return cassette == TargetCassette.Ng ? BinSide.Ng : BinSide.Good;
+        }
+
+        private static int ResolveTransferTimeoutMs(OutputFeederUnit feeder)
+        {
+            if (feeder != null && feeder.FeederY != null && feeder.FeederY.Setup != null && feeder.FeederY.Setup.MoveTimeoutMs > 0)
+                return feeder.FeederY.Setup.MoveTimeoutMs;
+
+            return 60000;
         }
 
         private static void SetOutput(BaseDigitalOutput output, bool on)

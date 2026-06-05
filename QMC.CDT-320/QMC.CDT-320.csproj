@@ -80,11 +80,12 @@
     <Compile Include="Equipment\Unit\OutputCassetteUnit.cs" />
     <Compile Include="Equipment\Unit\OutputFeederUnit.cs" />
     <Compile Include="Equipment\Unit\OutputStageUnit.cs" />
-    <Compile Include="Equipment\Unit\OutputUnloaderUnit.cs" />
     <Compile Include="Equipment\Unit\PickerFrontUnit.cs" />
     <Compile Include="Equipment\Unit\PickerRearUnit.cs" />
+    <Compile Include="Equipment\Unit\Common\PickerTransferTypes.cs" />
     <Compile Include="Equipment\Unit\VisionUnit.cs" />
-    <Compile Include="Equipment\Unit\UnitDefined.cs" />
+    <Compile Include="Equipment\Unit\Common\IUnitJogController.cs" />
+    <Compile Include="Equipment\Unit\Common\UnitDefined.cs" />
     <Compile Include="Equipment\Unit\InputCassetteUnit.cs" />
     <Compile Include="Equipment\Unit\InputFeederUnit.cs" />
     <Compile Include="Equipment\Unit\InputStageUnit.cs" />
@@ -228,7 +229,6 @@
     <Compile Include="Equipment\UnitCommon\ResourceSensorsUnit.cs" />
     <Compile Include="Equipment\SlotMapper.cs" />
     <Compile Include="Equipment\UnitCommon\IonizerUnit.cs" />
-    <Compile Include="Equipment\Unit\PostPnpTransferUnit.cs" />
     <Compile Include="Equipment\Plate.cs" />
     <Compile Include="Ui\Pages\Recipe\InputStageRecipePage.cs">
       <SubType>UserControl</SubType>
@@ -278,7 +278,6 @@
     <Compile Include="Ui\Pages\Recipe\OutputSubsetPage.Designer.cs">
       <DependentUpon>OutputSubsetPage.cs</DependentUpon>
     </Compile>
-    <Compile Include="Equipment\Unit\TransferPickerUnit.cs" />
     <Compile Include="Equipment\UnitData.cs" />
     <!-- Sequencing -->
     <Compile Include="Sequencing\SequenceUnitKind.cs" />
@@ -898,5 +897,6 @@
       <Name>QMC.Common</Name>
     </ProjectReference>
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

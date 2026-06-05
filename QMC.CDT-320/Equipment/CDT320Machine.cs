@@ -161,8 +161,8 @@ namespace QMC.CDT320
     /// 전체 트리에 재귀적으로 전파된다.
     /// <para>
     /// 장비 공정 흐름:<br/>
-    /// [InputLoader] → [InputStage] → [TransferPicker] → [VisionInspection]
-    ///                                                 → [OutputStage] → [OutputUnloader]
+    /// [InputLoader] → [InputStage] → [Picker] → [VisionInspection]
+    ///                                      → [OutputStage] → [OutputCassette/OutputFeeder]
     /// </para>
     /// </summary>
     public class CDT320_Machine
@@ -179,11 +179,6 @@ namespace QMC.CDT320
         /// <summary>엑셀 PickerRear Sheet 기준 축/I/O/티칭 Unit입니다.</summary>
         public PickerRearUnit       PickerRear       { get; }
 
-        /// <summary>Stage 48 — Post PNP Transfer Tool (Pick&Place 후처리).</summary>
-        public PostPnpTransferUnit PostPnp { get; }
-        /// <summary>다이를 이송·검사·분류 동작을 수행하는 다축 이동 유닛.</summary>
-        public TransferPickerUnit TransferPicker { get; }
-
         // <summary>엑셀 Vision Sheet 기준 축/I/O/티칭 Unit입니다.</summary>
         public VisionUnit Vision { get; }
 
@@ -197,11 +192,6 @@ namespace QMC.CDT320
         public OutputFeederUnit OutputFeeder { get; }
         /// <summary>Output Bin 카세트 리프터와 매핑 센서를 담당하는 유닛입니다.</summary>
         public OutputCassetteUnit      OutputCassette      { get; }
-
-        // 지워야할꺼.
-        /// <summary>완성된 웨이퍼를 Output Cassette로 이송하는 언로더 유닛.</summary>
-        public OutputUnloaderUnit OutputUnloader { get; }
-
 
         /// <summary>Stage 45 — 운전 패널 (버튼 + 램프 + 신호탑 + 부저).</summary>
         public OperationPanelUnit   OpPanel          { get; }
@@ -237,18 +227,14 @@ namespace QMC.CDT320
                 mapHandler: new NullWaferMapHandler(),
                 tpu:        new NullTransferPickerUnit());
 
-            // TransferPickerUnit - Bottom/Side Vision 실 Adapter
-            TransferPicker   = new TransferPickerUnit(new VisionComm.TpuVisionAdapter());
             VisionInspection = new VisionInspectionUnit();
             //WaferStage = new WaferStageUnit();
-            //PickerFront = new PickerFrontUnit();
-            //PickerRear = new PickerRearUnit();
+            PickerFront = new PickerFrontUnit();
+            PickerRear = new PickerRearUnit();
             //Vision = new VisionUnit();
 
-            // OutputUnloaderUnit - 3개 카세트(NG·Good1·Good2) 교체 시퀀스 담당
             OutputCassette = new OutputCassetteUnit();
             OutputFeeder = new OutputFeederUnit();
-            OutputUnloader = new OutputUnloaderUnit();
 
             // Stage 45 — Operation Panel + Tower Lamp + Buzzer 신규
             OpPanel = new OperationPanelUnit();
@@ -259,9 +245,6 @@ namespace QMC.CDT320
             // Stage 47 — Ionizer (정전기 제거기)
             Ionizer = new IonizerUnit();
 
-            // Stage 48 — Post PNP Transfer Tool
-            PostPnp = new PostPnpTransferUnit();
-
             // Stage 50 — Bin Barcode Reader (별도 IBarcodeReader 인스턴스)
             //   실보드 운영 시 BarcodeSerialAdapter 로 교체 가능
             BinBarcodeReader = new NullBarcodeReader();
@@ -270,23 +253,21 @@ namespace QMC.CDT320
             //   이전엔 NullOutputUnloaderUnit 이라 RequestWaferChangeAsync 가 무효화됐음.
             OutputStage = new OutputStageUnit(
                 tpu:      new NullTpuUnit(),
-                unloader: new QMC.CDT320.Sim.OutputUnloaderAdapter(OutputUnloader));
+                unloader: new QMC.CDT320.Sim.OutputUnloaderAdapter(OutputCassette, OutputFeeder));
             //BinStage = new BinStageUnit();
 
             Units.Add(InputCassette);
             Units.Add(InputFeeder);
             Units.Add(InputStage);
             //Units.Add(WaferStage);
-            Units.Add(TransferPicker);
-            //Units.Add(PickerFront);
-            //Units.Add(PickerRear);
+            Units.Add(PickerFront);
+            Units.Add(PickerRear);
             Units.Add(VisionInspection);
             //Units.Add(Vision);
             Units.Add(OutputStage);
             //Units.Add(BinStage);
             Units.Add(OutputCassette);
             Units.Add(OutputFeeder);
-            Units.Add(OutputUnloader);
             Units.Add(OpPanel);
         }
     }

@@ -82,7 +82,7 @@ namespace QMC.CDT320
         WaferBarcode
     }
 
-    public class InputFeederUnit : BaseUnit<InputFeederSetup, InputFeederConfig, InputFeederRecipe>
+    public class InputFeederUnit : BaseUnit<InputFeederSetup, InputFeederConfig, InputFeederRecipe>, IUnitJogController
     {
         private readonly Dictionary<string, double> positionSnapshots = new Dictionary<string, double>();
 
@@ -135,6 +135,49 @@ namespace QMC.CDT320
             Components.Add(WaferStage12RingCheckSensor);
             Components.Add(InputFeederLift);
             Components.Add(InputFeederClamp);
+        }
+
+        public bool CanHandleJogAxis(BaseAxis axis)
+        {
+            return axis != null && ReferenceEquals(axis, FeederY);
+        }
+
+        public Task<int> JogStepAsync(
+            BaseAxis axis,
+            int direction,
+            JogSpeedType speedType,
+            double customSpeed,
+            double axisStepDistance)
+        {
+            if (!CanHandleJogAxis(axis))
+                return Task.FromResult(-1);
+
+            double signedDistance = (direction < 0 ? -1.0 : 1.0) * Math.Abs(axisStepDistance);
+            double target = FeederY.ActualPosition + signedDistance;
+            return MoveWaferFeederY(target, speedType == JogSpeedType.Fine);
+        }
+
+        public Task<int> JogContinuousAsync(
+            BaseAxis axis,
+            int direction,
+            JogSpeedType speedType,
+            double customSpeed)
+        {
+            if (!CanHandleJogAxis(axis))
+                return Task.FromResult(-1);
+
+            double speed = UnitJogVelocityResolver.Resolve(axis, speedType, customSpeed);
+            ManualMoveWaferFeederYJog(direction, speed);
+            return Task.FromResult(0);
+        }
+
+        public Task<int> StopJogAsync(BaseAxis axis)
+        {
+            if (!CanHandleJogAxis(axis))
+                return Task.FromResult(-1);
+
+            ManualStopWaferFeederY();
+            return Task.FromResult(0);
         }
 
         public Task<int> MoveWaferFeederY(double targetPos, bool bFine = false)

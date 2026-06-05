@@ -204,7 +204,7 @@ namespace QMC.CDT320
     /// <see cref="UnloadWaferAsync"/>
     /// </para>
     /// </summary>
-    public class InputStageUnit : BaseUnit<InputStageSetup, InputStageConfig, InputStageRecipe>
+    public class InputStageUnit : BaseUnit<InputStageSetup, InputStageConfig, InputStageRecipe>, IUnitJogController
     {
         // ──────────────────────────────────────────────────────────────────────
         //  §1. 하드웨어 컴포넌트 선언
@@ -427,6 +427,177 @@ namespace QMC.CDT320
             finally
             {
             }
+        }
+
+        public bool CanHandleJogAxis(BaseAxis axis)
+        {
+            if (axis == null)
+                return false;
+
+            WaferStageAxis stageAxis;
+            return TryResolveInputStageAxis(axis, out stageAxis) || ReferenceEquals(axis, CameraZ);
+        }
+
+        public async Task<int> JogStepAsync(
+            BaseAxis axis,
+            int direction,
+            JogSpeedType speedType,
+            double customSpeed,
+            double axisStepDistance)
+        {
+            if (!CanHandleJogAxis(axis))
+                return -1;
+
+            double signedDistance = (direction < 0 ? -1.0 : 1.0) * Math.Abs(axisStepDistance);
+            double target = axis.ActualPosition + signedDistance;
+
+            WaferStageAxis stageAxis;
+            if (TryResolveInputStageAxis(axis, out stageAxis))
+                return await MoveInputStageAxis(stageAxis, target, speedType == JogSpeedType.Fine);
+
+            return await CameraZ.MoveAbsoluteAsync(target, ResolveInputStageMoveVelocity(speedType == JogSpeedType.Fine));
+        }
+
+        public Task<int> JogContinuousAsync(
+            BaseAxis axis,
+            int direction,
+            JogSpeedType speedType,
+            double customSpeed)
+        {
+            if (!CanHandleJogAxis(axis))
+                return Task.FromResult(-1);
+
+            double speed = UnitJogVelocityResolver.Resolve(axis, speedType, customSpeed);
+            Direction dir = direction < 0 ? Direction.Minus : Direction.Plus;
+
+            WaferStageAxis stageAxis;
+            if (TryResolveInputStageAxis(axis, out stageAxis))
+                ManualMoveInputStageAxisJog(stageAxis, dir, speed);
+            else
+                CameraZ.MoveJogContinuous(direction, JogSpeedType.Custom, speed);
+
+            return Task.FromResult(0);
+        }
+
+        public Task<int> StopJogAsync(BaseAxis axis)
+        {
+            if (!CanHandleJogAxis(axis))
+                return Task.FromResult(-1);
+
+            WaferStageAxis stageAxis;
+            if (TryResolveInputStageAxis(axis, out stageAxis))
+                ManualStopInputStageAxis(stageAxis);
+            else
+                CameraZ.StopJog();
+
+            return Task.FromResult(0);
+        }
+
+        public async Task<int> MoveInputStageAxis(WaferStageAxis axis, double targetPos, bool bFine = false)
+        {
+            try
+            {
+                BaseAxis item = ResolveInputStageAxis(axis);
+                double velocity = ResolveInputStageMoveVelocity(axis, bFine);
+                return await item.MoveAbsoluteAsync(targetPos, velocity);
+            }
+            catch (Exception ex)
+            {
+                AlarmManager.Raise(AlarmSeverity.Warning, "IN-STAGE-MOVE", Name, ex.Message);
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        public void ManualMoveInputStageAxisJog(WaferStageAxis axis, Direction dir, double speed)
+        {
+            ResolveInputStageAxis(axis).MoveJogContinuous((int)dir, JogSpeedType.Custom, speed);
+        }
+
+        public void ManualStopInputStageAxis(WaferStageAxis axis)
+        {
+            ResolveInputStageAxis(axis).StopJog();
+        }
+
+        private BaseAxis ResolveInputStageAxis(WaferStageAxis axis)
+        {
+            switch (axis)
+            {
+                case WaferStageAxis.WaferY: return StageY;
+                case WaferStageAxis.WaferT: return StageT;
+                case WaferStageAxis.WaferExpandingZ: return ExpanderZ;
+                case WaferStageAxis.VisionX: return CameraX;
+                case WaferStageAxis.NeedleX: return NeedleBlockX;
+                case WaferStageAxis.NeedleZ: return NeedleZ;
+                case WaferStageAxis.EjectPinZ: return EjectPinZ;
+                default: throw new ArgumentOutOfRangeException("axis");
+            }
+        }
+
+        private bool TryResolveInputStageAxis(BaseAxis axis, out WaferStageAxis stageAxis)
+        {
+            stageAxis = WaferStageAxis.WaferY;
+            if (axis == null)
+                return false;
+
+            if (ReferenceEquals(axis, StageY))
+            {
+                stageAxis = WaferStageAxis.WaferY;
+                return true;
+            }
+
+            if (ReferenceEquals(axis, StageT))
+            {
+                stageAxis = WaferStageAxis.WaferT;
+                return true;
+            }
+
+            if (ReferenceEquals(axis, ExpanderZ))
+            {
+                stageAxis = WaferStageAxis.WaferExpandingZ;
+                return true;
+            }
+
+            if (ReferenceEquals(axis, CameraX))
+            {
+                stageAxis = WaferStageAxis.VisionX;
+                return true;
+            }
+
+            if (ReferenceEquals(axis, NeedleBlockX))
+            {
+                stageAxis = WaferStageAxis.NeedleX;
+                return true;
+            }
+
+            if (ReferenceEquals(axis, NeedleZ))
+            {
+                stageAxis = WaferStageAxis.NeedleZ;
+                return true;
+            }
+
+            if (ReferenceEquals(axis, EjectPinZ))
+            {
+                stageAxis = WaferStageAxis.EjectPinZ;
+                return true;
+            }
+
+            return false;
+        }
+
+        private double ResolveInputStageMoveVelocity(WaferStageAxis axis, bool bFine)
+        {
+            if (axis == WaferStageAxis.NeedleZ || axis == WaferStageAxis.EjectPinZ)
+                return Recipe.NeedleVelocity;
+
+            return bFine ? Recipe.AlignVelocity : Recipe.MoveVelocity;
+        }
+
+        private double ResolveInputStageMoveVelocity(bool bFine)
+        {
+            return bFine ? Recipe.AlignVelocity : Recipe.MoveVelocity;
         }
 
         // ──────────────────────────────────────────────────────────────────────

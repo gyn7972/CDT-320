@@ -786,21 +786,22 @@ namespace QMC.CDT320
         }
 
         // ??????????????????????????????????????????
-        //  Stage 27 ??OutputUnloader Feeder ?쒗??
+        //  Stage 27 - Output cassette/feeder transfer support.
         // ??????????????????????????????????????????
 
         /// <summary>?꾩옱 Output 移댁꽭?몃퀎 ?ㅼ쓬 ?곸옱 ?щ’ ?몃뜳??(0-base).</summary>
         public int OutputSlotNg    { get; private set; } = 0;
         public int OutputSlotGood1 { get; private set; } = 0;
         public int OutputSlotGood2 { get; private set; } = 0;
-        /// <summary>紐??ㅼ씠??OutputUnloader.StoreFullWafer ?몄텧 (諛곗튂 ?ш린).
+        /// <summary>Completed wafer store request delegated to OutputCassette/OutputFeeder.</summary>
         /// 0 = EnsureDieMaps ?먯꽌 OutputDieMap ?щ’ ?섎줈 ?먮룞 ?ㅼ젙.</summary>
         public int WafersPerOutputBatch { get; set; } = 0;
 
         /// <summary>Place ?꾨즺???⑥씠?쇰? Output Cassette ???곸젅???щ’???곸옱.</summary>
         public async Task<bool> StoreCompletedWaferAsync(bool isGood)
         {
-            var unloader = _machine.OutputUnloader;
+            var cassette = _machine.OutputCassette;
+            var feeder = _machine.OutputFeeder;
             // 카세???�정: Good ??Good1 ?�선, 가??차면 Good2; NG ??Ng
             QMC.CDT320.TargetCassette target;
             int slot;
@@ -812,7 +813,7 @@ namespace QMC.CDT320
                 {
                     // Stage 27 fix ??移댁꽭??媛??= ?ъ씠???먮룞 ?뺤?
                     AlarmManager.Raise(AlarmSeverity.Error, "OUT-FULL-GOOD",
-                        unloader.Name, "Good 移댁꽭??紐⑤몢 媛?????ъ씠???먮룞 ?뺤?.");
+                        cassette.Name, "Good output cassette is full. Cycle stop.");
                     Log("[FEEDER] Good cassette full ??CycleStop");
                     _cycleCts?.Cancel();
                     return false;
@@ -825,7 +826,7 @@ namespace QMC.CDT320
                 {
                     // Stage 27 fix ??NG 移댁꽭??媛??= ?ъ씠???먮룞 ?뺤?
                     AlarmManager.Raise(AlarmSeverity.Error, "OUT-FULL-NG",
-                        unloader.Name, "NG 移댁꽭??媛?????ъ씠???먮룞 ?뺤?.");
+                        cassette.Name, "NG output cassette is full. Cycle stop.");
                     Log("[FEEDER] NG cassette full ??CycleStop");
                     _cycleCts?.Cancel();
                     return false;
@@ -834,11 +835,11 @@ namespace QMC.CDT320
             Log($"[FEEDER] StoreFullWafer ??{target} Slot[{slot}]");
             try
             {
-                bool ok = await unloader.StoreFullWaferAsync(target, slot);
+                bool ok = await cassette.StoreFullWaferAsync(feeder, target, slot);
                 if (!ok)
                 {
                     AlarmManager.Raise(AlarmSeverity.Error, "OUT-STORE",
-                        unloader.Name, "StoreFullWafer ?ㅽ뙣.");
+                        cassette.Name, "StoreFullWafer failed.");
                     return false;
                 }
                 Log($"[FEEDER] OK ??{target} Slot[{slot}] ?곸옱 ?꾨즺");
@@ -867,7 +868,7 @@ namespace QMC.CDT320
             catch (Exception ex)
             {
                 AlarmManager.Raise(AlarmSeverity.Error, "OUT-STORE-EX",
-                    unloader.Name, ex.Message);
+                    cassette.Name, ex.Message);
                 return false;
             }
         }
@@ -875,10 +876,10 @@ namespace QMC.CDT320
         /// <summary>Output 3 카세???�롯 매핑 (UI 버튼??.</summary>
         public async Task<bool> ScanOutputCassettesAsync()
         {
-            var unloader = _machine.OutputUnloader;
+            var cassette = _machine.OutputCassette;
             try
             {
-                bool ok = await unloader.ScanAllCassettesAsync();
+                bool ok = await cassette.ScanAllCassettesAsync();
                 if (ok) Log("[FEEDER] Output 3 移댁꽭???ㅼ틪 ?꾨즺");
                 return ok;
             }
@@ -2667,9 +2668,9 @@ namespace QMC.CDT320
             await MoveInputStageToDieAsync(row, col);
 
             // Stage 40 ??Dual Arm 모드: 짝수 idx ??LeftArm, ?�??idx ??RightArm
-            var front = (DualArmMode && (index % 2 == 1))
-                        ? _machine.TransferPicker.RightArm
-                        : _machine.TransferPicker.LeftArm;
+            dynamic front = (DualArmMode && (index % 2 == 1))
+                        ? (object)_machine.PickerRear
+                        : _machine.PickerFront;
 
             front.ArmX.ServoOn();
             front.ArmY.ServoOn();

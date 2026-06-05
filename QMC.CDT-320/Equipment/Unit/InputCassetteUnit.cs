@@ -115,7 +115,7 @@ namespace QMC.CDT320
         }
     }
 
-    public class InputCassetteUnit : BaseUnit<InputCassetteSetup, InputCassetteConfig, InputCassetteRecipe>
+    public class InputCassetteUnit : BaseUnit<InputCassetteSetup, InputCassetteConfig, InputCassetteRecipe>, IUnitJogController
     {
         private readonly Dictionary<int, WaferSlotState> slotStates = new Dictionary<int, WaferSlotState>();
 
@@ -160,6 +160,46 @@ namespace QMC.CDT320
         public void BindMachine(CDT320_Machine machine)
         {
             Machine = machine;
+        }
+
+        public bool CanHandleJogAxis(BaseAxis axis)
+        {
+            return axis != null && ReferenceEquals(axis, WaferLifterZ);
+        }
+
+        public Task<int> JogStepAsync(
+            BaseAxis axis,
+            int direction,
+            JogSpeedType speedType,
+            double customSpeed,
+            double axisStepDistance)
+        {
+            if (!CanHandleJogAxis(axis))
+                return Task.FromResult(-1);
+
+            double signedDistance = (direction < 0 ? -1.0 : 1.0) * Math.Abs(axisStepDistance);
+            double target = WaferLifterZ.ActualPosition + signedDistance;
+            return MoveWaferLifterZ(target, speedType, customSpeed);
+        }
+
+        public Task<int> JogContinuousAsync(
+            BaseAxis axis,
+            int direction,
+            JogSpeedType speedType,
+            double customSpeed)
+        {
+            if (!CanHandleJogAxis(axis))
+                return Task.FromResult(-1);
+
+            return ManualMoveWaferLifterZJog(direction, speedType, customSpeed);
+        }
+
+        public Task<int> StopJogAsync(BaseAxis axis)
+        {
+            if (!CanHandleJogAxis(axis))
+                return Task.FromResult(-1);
+
+            return ManualStopWaferLifterZ();
         }
 
         public async Task<int> MoveWaferLifterZ(double targetPos, bool bFine = false)
@@ -494,6 +534,10 @@ namespace QMC.CDT320
         {
             try
             {
+                string interlockReason;
+                if (!CheckWaferLifterZInterlock(WaferLifterZ.ActualPosition, MotionGuardMoveKind.AxisMove, out interlockReason))
+                    return -11;
+
                 WaferLifterZ.MoveJogContinuous(direction, JogSpeedType.Custom, speed);
                 await Task.CompletedTask;
                 return 0;
@@ -517,6 +561,10 @@ namespace QMC.CDT320
         {
             try
             {
+                string interlockReason;
+                if (!CheckWaferLifterZInterlock(WaferLifterZ.ActualPosition, MotionGuardMoveKind.AxisMove, out interlockReason))
+                    return -11;
+
                 WaferLifterZ.MoveJogContinuous(direction, speedType, customSpeed);
                 await Task.CompletedTask;
                 return 0;

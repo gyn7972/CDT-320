@@ -384,7 +384,11 @@ namespace QMC.CDT_320
             // 구현 보조 주석입니다.
             if (!cfg.UseAjin)
             {
-                CassetteDriver = new QMC.CDT320.Sim.SimCassetteDriver(Machine.InputCassette, Machine.InputFeeder, Machine.OutputUnloader);
+                CassetteDriver = new QMC.CDT320.Sim.SimCassetteDriver(
+                    Machine.InputCassette,
+                    Machine.InputFeeder,
+                    Machine.OutputCassette,
+                    Machine.OutputFeeder);
             }
             Controller.StatusChanged += OnEquipmentStatusChanged;
             Controller.LogMessage    += s => QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, UserSession.Name, "CTRL", s);
@@ -841,7 +845,7 @@ namespace QMC.CDT_320
         {
             if (_jogPopup == null || _jogPopup.IsDisposed)
             {
-                _jogPopup = new AxisJogPopup(CurrentAxes())
+                _jogPopup = new AxisJogPopup(CurrentAxes(), Machine)
                 {
                     StartPosition = FormStartPosition.CenterScreen,
                     ShowInTaskbar = true,

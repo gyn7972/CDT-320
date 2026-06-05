@@ -15,7 +15,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             "TransferPicker(Front)",
             "TransferPicker(Rear)",
             "OutputStage",
-            "OutputUnloader"
+            "OutputCassette/Feeder"
         };
 
         private readonly List<List<TimeBar>> _bars = new List<List<TimeBar>>();

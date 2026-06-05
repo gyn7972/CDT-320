@@ -17,6 +17,15 @@ namespace QMC.CDT320
         [DataMember] public bool IsSimulationMode { get; set; }
         [DataMember] public double InputSafetyOffset { get; set; }
         [DataMember] public double OutputSafetyOffset { get; set; }
+        [DataMember] public double ArmInputPositionX { get; set; } = 300.0;
+        [DataMember] public double ArmInspectionPositionX { get; set; } = 750.0;
+        [DataMember] public double ArmOutputPositionX { get; set; } = 1200.0;
+        [DataMember] public double ArmYPickupPosition { get; set; } = 100.0;
+        [DataMember] public double ArmYAvoidPosition { get; set; } = 50.0;
+        [DataMember] public double PickerPitchX { get; set; } = 50.0;
+        [DataMember] public double SideVision1X { get; set; } = 850.0;
+        [DataMember] public double SideVision1Y { get; set; } = 0.0;
+        [DataMember] public double SideVisionY0 { get; set; } = 0.0;
     }
 
     [DataContract]
@@ -121,6 +130,14 @@ namespace QMC.CDT320
         [DataMember] public int MoveTimeoutMs { get; set; } = 5000;
         [DataMember] public int IoTimeoutMs { get; set; } = 1000;
         [DataMember] public int BlowTimeMs { get; set; } = 100;
+        [DataMember] public double ArmXVelocity { get; set; } = 2000.0;
+        [DataMember] public double ArmYVelocity { get; set; } = 500.0;
+        [DataMember] public double PickerZVelocity { get; set; } = 1000.0;
+        [DataMember] public double PickerTVelocity { get; set; } = 1000.0;
+        [DataMember] public int VacuumSettleMs { get; set; } = 50;
+        [DataMember] public double PickLiftPosition { get; set; } = 2.0;
+        [DataMember] public int PickLiftWaitMs { get; set; } = 50;
+        [DataMember] public int PlaceDelayMs { get; set; } = 50;
 
         [OnDeserialized]
         private void OnDeserialized(StreamingContext ctx)
@@ -141,7 +158,7 @@ namespace QMC.CDT320
         }
     }
 
-    public class PickerFrontUnit : BaseUnit<PickerFrontSetup, PickerFrontConfig, PickerFrontRecipe>
+    public class PickerFrontUnit : BaseUnit<PickerFrontSetup, PickerFrontConfig, PickerFrontRecipe>, IUnitJogController
     {
         public const int MaxPickerCount = 4;
         public const int MaxIoPickerCount = 8;
@@ -165,6 +182,10 @@ namespace QMC.CDT320
         public BaseDigitalInput[] FlowChecks { get; private set; }
         public BaseDigitalOutput[] Vacuums { get; private set; }
         public BaseDigitalOutput[] Blows { get; private set; }
+        public BaseAxis ArmX { get { return PickerX; } }
+        public BaseAxis ArmY { get { return PickerY; } }
+        public BaseAxis SideVisionY { get { return PickerY; } }
+        public PickerRuntimeTool[] Pickers { get; private set; }
 
         public PickerFrontUnit() : base("PickerFrontUnit")
         {
@@ -194,9 +215,152 @@ namespace QMC.CDT320
                 Vacuums[i] = RegisterOutput(BuildVacuumName(catalogNo));
                 Blows[i] = RegisterOutput(BuildBlowName(catalogNo));
             }
+
+            Pickers = CreateRuntimePickers();
+        }
+
+        private PickerRuntimeTool[] CreateRuntimePickers()
+        {
+            PickerRuntimeTool[] tools = new PickerRuntimeTool[MaxPickerCount];
+            for (int i = 0; i < MaxPickerCount; i++)
+            {
+                int index = i;
+                int pickerNo = i + 1;
+                tools[i] = new PickerRuntimeTool(
+                    GetAxis(GetPickerZAxis(index)),
+                    GetAxis(GetPickerTAxis(index)),
+                    () => CreateRuntimeToolSetup(index),
+                    () => CreateRuntimeToolRecipe(),
+                    () => PickerVacuumOn(pickerNo),
+                    () => PickerVacuumOff(pickerNo),
+                    () => SetPickerBlow(pickerNo, true),
+                    () => PickerBlowOff(pickerNo));
+            }
+
+            return tools;
+        }
+
+        private PickerRuntimeToolSetup CreateRuntimeToolSetup(int index)
+        {
+            Config.EnsureArrays();
+            return new PickerRuntimeToolSetup
+            {
+                ColletOffsetX = Config.Picker[index].AlignOffsetX,
+                ColletOffsetY = Config.Picker[index].AlignOffsetY,
+                PickupPosition = Recipe.PickerZ0.PickPosition,
+                WaitPosition = Recipe.PickerZ0.AvoidPosition,
+                PlacePosition = Recipe.PickerZ0.PlacePosition
+            };
+        }
+
+        public void SetRuntimePickerZPosition(int pickerIndex, string positionName, double position)
+        {
+            if (string.Equals(positionName, "PickPosition", StringComparison.OrdinalIgnoreCase))
+                Recipe.PickerZ0.PickPosition = position;
+            else if (string.Equals(positionName, "PlacePosition", StringComparison.OrdinalIgnoreCase))
+                Recipe.PickerZ0.PlacePosition = position;
+            else if (string.Equals(positionName, "FocusPosition", StringComparison.OrdinalIgnoreCase))
+                Recipe.PickerZ0.BottomPosition = position;
+            else if (string.Equals(positionName, "WaitPosition", StringComparison.OrdinalIgnoreCase))
+                Recipe.PickerZ0.AvoidPosition = position;
+        }
+
+        private PickerRuntimeToolRecipe CreateRuntimeToolRecipe()
+        {
+            return new PickerRuntimeToolRecipe
+            {
+                ZVelocity = Recipe.PickerZVelocity,
+                ThetaVelocity = Recipe.PickerTVelocity,
+                VacuumSettleMs = Recipe.VacuumSettleMs,
+                PickLiftPosition = Recipe.PickLiftPosition,
+                PickLiftWaitMs = Recipe.PickLiftWaitMs,
+                PlaceDelayMs = Recipe.PlaceDelayMs
+            };
+        }
+
+        public Task<Tuple<BottomVisionOffset[], SideVisionResult[]>> InspectBottomAndSideAsync(double dieSizeX, double dieSizeY)
+        {
+            BottomVisionOffset[] bottom = new BottomVisionOffset[MaxPickerCount];
+            SideVisionResult[] sideResults = new SideVisionResult[MaxPickerCount];
+            for (int i = 0; i < MaxPickerCount; i++)
+            {
+                bottom[i] = new BottomVisionOffset { PickerNo = i + 1, IsOk = true };
+                sideResults[i] = new SideVisionResult
+                {
+                    PickerNo = i + 1,
+                    Side1Ok = true,
+                    Side2Ok = true,
+                    Side3Ok = true,
+                    Side4Ok = true
+                };
+            }
+
+            return Task.FromResult(Tuple.Create(bottom, sideResults));
         }
 
         public IReadOnlyDictionary<PickerAxis, BaseAxis> Axes { get { return axes; } }
+
+        public bool CanHandleJogAxis(BaseAxis axis)
+        {
+            PickerAxis pickerAxis;
+            return TryResolvePickerAxis(axis, out pickerAxis);
+        }
+
+        public async Task<int> JogStepAsync(
+            BaseAxis axis,
+            int direction,
+            JogSpeedType speedType,
+            double customSpeed,
+            double axisStepDistance)
+        {
+            PickerAxis pickerAxis;
+            if (!TryResolvePickerAxis(axis, out pickerAxis))
+                return -1;
+
+            double signedDistance = (direction < 0 ? -1.0 : 1.0) * Math.Abs(axisStepDistance);
+            double target = axis.ActualPosition + signedDistance;
+            return await MovePickerAxis(pickerAxis, target, speedType == JogSpeedType.Fine);
+        }
+
+        public Task<int> JogContinuousAsync(
+            BaseAxis axis,
+            int direction,
+            JogSpeedType speedType,
+            double customSpeed)
+        {
+            PickerAxis pickerAxis;
+            if (!TryResolvePickerAxis(axis, out pickerAxis))
+                return Task.FromResult(-1);
+
+            double speed = UnitJogVelocityResolver.Resolve(axis, speedType, customSpeed);
+            ManualMovePickerAxisJog(pickerAxis, direction < 0 ? Direction.Minus : Direction.Plus, speed);
+            return Task.FromResult(0);
+        }
+
+        public Task<int> StopJogAsync(BaseAxis axis)
+        {
+            PickerAxis pickerAxis;
+            if (!TryResolvePickerAxis(axis, out pickerAxis))
+                return Task.FromResult(-1);
+
+            ManualStopPickerAxis(pickerAxis);
+            return Task.FromResult(0);
+        }
+
+        private bool TryResolvePickerAxis(BaseAxis axis, out PickerAxis pickerAxis)
+        {
+            foreach (KeyValuePair<PickerAxis, BaseAxis> pair in axes)
+            {
+                if (ReferenceEquals(axis, pair.Value))
+                {
+                    pickerAxis = pair.Key;
+                    return true;
+                }
+            }
+
+            pickerAxis = PickerAxis.PickerX;
+            return false;
+        }
 
         public async Task<int> MovePickerAxis(PickerAxis axis, double targetPos, bool bFine = false)
         {
