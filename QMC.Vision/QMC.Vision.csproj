@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{9BEE7A91-8A8E-41C3-9CE8-1F2A3E5C7D00}</ProjectGuid>
+    <OutputType>WinExe</OutputType>
+    <RootNamespace>QMC.Vision</RootNamespace>
+    <AssemblyName>QMC.Vision</AssemblyName>
+    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <Deterministic>true</Deterministic>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
+    <DebugSymbols>true</DebugSymbols>
+    <OutputPath>bin\x64\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <DebugType>full</DebugType>
+    <PlatformTarget>x64</PlatformTarget>
+    <LangVersion>7.3</LangVersion>
+    <ErrorReport>prompt</ErrorReport>
+    <Prefer32Bit>true</Prefer32Bit>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">
+    <OutputPath>bin\x64\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Optimize>true</Optimize>
+    <DebugType>pdbonly</DebugType>
+    <PlatformTarget>x64</PlatformTarget>
+    <LangVersion>7.3</LangVersion>
+    <ErrorReport>prompt</ErrorReport>
+    <Prefer32Bit>true</Prefer32Bit>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Runtime.Serialization" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Windows.Forms.DataVisualization" />
+    <Reference Include="System.Xml" />
+    <Reference Include="System.Xml.Linq" />
+    <Reference Include="Microsoft.CSharp" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="Form1.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Form1.Designer.cs">
+      <DependentUpon>Form1.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Core\GrabResult.cs" />
+    <Compile Include="Core\Roi.cs" />
+    <Compile Include="Core\MatchResult.cs" />
+    <Compile Include="Core\IPatternFinder.cs" />
+    <Compile Include="Core\IInspector.cs" />
+    <Compile Include="Core\IVisionBackend.cs" />
+    <Compile Include="Core\VisionFactory.cs" />
+    <Compile Include="Core\CameraInfo.cs" />
+    <Compile Include="Core\ICamera.cs" />
+    <Compile Include="Core\CameraBase.cs" />
+    <Compile Include="Core\CameraFactory.cs" />
+    <Compile Include="Core\CameraVector.cs" />
+    <Compile Include="Core\VisionScale.cs" />
+    <Compile Include="Core\MaterialTracker.cs" />
+    <Compile Include="Core\ImageLogSaver.cs" />
+    <Compile Include="Core\DataLogSaver.cs" />
+    <Compile Include="Core\JsonPrettySerializer.cs" />
+    <Compile Include="Core\Inspectors\InspectionParameters.cs" />
+    <Compile Include="Cameras\Sim\SimCamera.cs" />
+    <Compile Include="Cameras\Hik\HikMvsDll.cs" />
+    <Compile Include="Cameras\Hik\HikGigECamera.cs" />
+    <Compile Include="Backends\Sim\SimBackend.cs" />
+    <Compile Include="Backends\Sim\SimPatternFinder.cs" />
+    <Compile Include="Backends\Sim\SimInspector.cs" />
+    <Compile Include="Backends\OpenCv\OpenCvBackend.cs" />
+    <Compile Include="Backends\OpenCv\OpenCvPatternFinder.cs" />
+    <Compile Include="Backends\OpenCv\OpenCvInspector.cs" />
+    <Compile Include="Backends\Cognex\CognexBackend.cs" />
+    <Compile Include="Backends\Cognex\CognexInterop.cs" />
+    <Compile Include="Backends\Cognex\CognexPatternFinder.cs" />
+    <Compile Include="Backends\Cognex\CognexInspector.cs" />
+    <Compile Include="Backends\Cognex\CognexCaliper.cs" />
+    <Compile Include="Backends\Cognex\CognexHistogram.cs" />
+    <Compile Include="Backends\Cognex\CognexColorMatch.cs" />
+    <Compile Include="Core\IEdgeFinder.cs" />
+    <Compile Include="Modules\VisionModule.cs" />
+    <Compile Include="Modules\WaferVisionModule.cs" />
+    <Compile Include="Modules\BinVisionModule.cs" />
+    <Compile Include="Modules\BottomInspectionModule.cs" />
+    <Compile Include="Modules\TopSideInspectionModule.cs" />
+    <Compile Include="Modules\BottomSideInspectionModule.cs" />
+    <Compile Include="Comm\VisionTcpServer.cs" />
+    <Compile Include="Config\VisionConfig.cs" />
+    <Compile Include="Ui\UiTheme.cs" />
+    <Compile Include="Ui\Controls\CameraView.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Ui\Controls\IlluminatorPanel.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Ui\Controls\JogBox.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\OperationPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\ConfigurationPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\MaintenancePage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\RecipePage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\DataLogPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\FinderPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\InspectorPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <!-- Stage 2 — SPC + ParameterEditors + ZoomDialog -->
+    <Compile Include="Ui\Pages\SpcChartPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Editors\ParameterEditorBase.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Editors\ParameterEditorHost.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Editors\BottomInspectionParameterEditor.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Editors\SideInspectionParameterEditor.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Editors\DieGapInspectionParameterEditor.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Editors\DistortionParameterEditor.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Editors\VisionScaleParameterEditor.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\ZoomDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>
