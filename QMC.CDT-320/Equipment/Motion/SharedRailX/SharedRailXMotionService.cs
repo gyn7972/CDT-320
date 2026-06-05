@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -103,14 +103,14 @@ namespace QMC.CDT320.Motion.SharedRailX
                 .Add(axis, targetPosition));
         }
 
-        public Task<int> MoveWaferVisionAsync(double targetPosition, double velocity)
+        public Task<int> MoveInputVisionAsync(double targetPosition, double velocity)
         {
             return MoveAsync(SharedRailXAxis.WaferVisionX, targetPosition, velocity);
         }
 
-        public Task<int> MoveBinVisionAsync(double targetPosition, double velocity)
+        public Task<int> MoveOutputVisionAsync(double targetPosition, double velocity)
         {
-            return MoveAsync(SharedRailXAxis.BinVisionX, targetPosition, velocity);
+            return MoveAsync(SharedRailXAxis.OutputVisionX, targetPosition, velocity);
         }
 
         public Task<int> MoveFrontPickerAsync(double targetPosition, double velocity)
@@ -150,9 +150,9 @@ namespace QMC.CDT320.Motion.SharedRailX
             double frontPickerTarget,
             double velocity)
         {
-            return MoveAsync(SharedRailXMovePlan.Create("BinVisionX+FrontPickerX", velocity)
+            return MoveAsync(SharedRailXMovePlan.Create("OutputVisionX+FrontPickerX", velocity)
                 .UseMode(SharedRailXMoveMode.AjinMultiPosition)
-                .Add(SharedRailXAxis.BinVisionX, binVisionTarget)
+                .Add(SharedRailXAxis.OutputVisionX, binVisionTarget)
                 .Add(SharedRailXAxis.FrontPickerX, frontPickerTarget));
         }
 
@@ -161,9 +161,9 @@ namespace QMC.CDT320.Motion.SharedRailX
             double rearPickerTarget,
             double velocity)
         {
-            return MoveAsync(SharedRailXMovePlan.Create("BinVisionX+RearPickerX", velocity)
+            return MoveAsync(SharedRailXMovePlan.Create("OutputVisionX+RearPickerX", velocity)
                 .UseMode(SharedRailXMoveMode.AjinMultiPosition)
-                .Add(SharedRailXAxis.BinVisionX, binVisionTarget)
+                .Add(SharedRailXAxis.OutputVisionX, binVisionTarget)
                 .Add(SharedRailXAxis.RearPickerX, rearPickerTarget));
         }
 
@@ -188,7 +188,7 @@ namespace QMC.CDT320.Motion.SharedRailX
             return MoveAsync(SharedRailXMovePlan.Create("SharedRailX-All", velocity)
                 .UseMode(SharedRailXMoveMode.AjinMultiPosition)
                 .Add(SharedRailXAxis.WaferVisionX, waferVisionTarget)
-                .Add(SharedRailXAxis.BinVisionX, binVisionTarget)
+                .Add(SharedRailXAxis.OutputVisionX, binVisionTarget)
                 .Add(SharedRailXAxis.FrontPickerX, frontPickerTarget)
                 .Add(SharedRailXAxis.RearPickerX, rearPickerTarget));
         }

@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 
 namespace QMC.CDT320.Motion.SharedRailX
 {
@@ -16,7 +16,7 @@ namespace QMC.CDT320.Motion.SharedRailX
             Geometry[SharedRailXAxis.WaferVisionX] = new SharedRailXAxisGeometry();
             Geometry[SharedRailXAxis.FrontPickerX] = new SharedRailXAxisGeometry();
             Geometry[SharedRailXAxis.RearPickerX] = new SharedRailXAxisGeometry();
-            Geometry[SharedRailXAxis.BinVisionX] = new SharedRailXAxisGeometry();
+            Geometry[SharedRailXAxis.OutputVisionX] = new SharedRailXAxisGeometry();
         }
 
         public SharedRailXConfig SetGeometry(
