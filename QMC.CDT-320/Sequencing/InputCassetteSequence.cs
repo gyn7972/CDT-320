@@ -389,9 +389,11 @@ namespace QMC.CDT320.Sequencing
                     return Fail("IN-CST-MOVE-READY", cassette.Name, "Input cassette is not ready to move.");
 
                 int result = await cassette.MoveToWaferCassetteMappingStartPosition(Options.FineMove).ConfigureAwait(false);
-                if (result != 0) return Fail("IN-CST-MAP-START", cassette.Name, "Move mapping start position failed. result=" + result);
+                if (result != 0)
+                    return Fail("IN-CST-MAP-START", cassette.Name, "Move mapping start position failed. result=" + result);
                 result = await cassette.WaitWaferLifterZMoveDone(ResolveMoveTimeout(cassette)).ConfigureAwait(false);
-                if (result != 0) return Fail("IN-CST-MAP-START-WAIT", cassette.Name, "Mapping start position move timeout.");
+                if (result != 0)
+                    return Fail("IN-CST-MAP-START-WAIT", cassette.Name, "Mapping start position move timeout.");
 
                 CurrentStep = InputCassetteSequenceStep.MoveMappingEndPosition;
                 return 0;
