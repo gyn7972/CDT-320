@@ -42,6 +42,7 @@ namespace QMC.CDT320.Sequencing
         public int RequiredCassetteSize { get; set; }
         public int MoveTimeoutMs { get; set; }
         public SequenceRunMode RunMode { get; set; }
+        public SequenceStartMode StartMode { get; set; }
 
         public static InputCassetteSequenceOptions Default()
         {
@@ -51,7 +52,8 @@ namespace QMC.CDT320.Sequencing
                 RequireActiveLot = false,
                 RequiredCassetteSize = 0,
                 MoveTimeoutMs = 0,
-                RunMode = SequenceRunMode.Auto
+                RunMode = SequenceRunMode.Auto,
+                StartMode = SequenceStartMode.Resume
             };
         }
     }
@@ -540,6 +542,13 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
+                if (Options.StartMode == SequenceStartMode.Restart)
+                {
+                    SequenceResumeStore.Clear(SequenceStateName);
+                    WriteLog("ResolveStartStep", "Input cassette " + Kind + " sequence forced restart from step=" + defaultStep + ". - Ok");
+                    return defaultStep;
+                }
+
                 string stepText = SequenceResumeStore.ResolveStartStep(SequenceStateName, defaultStep.ToString());
                 InputCassetteSequenceStep parsed;
                 if (Enum.TryParse(stepText, out parsed) &&

@@ -211,13 +211,36 @@ namespace QMC.CDT320
         public MachineController(CDT320_Machine machine)
         {
             _machine = machine ?? throw new ArgumentNullException(nameof(machine));
-            SharedRailX = new SharedRailXMotionService(_machine);
+            SharedRailX = new SharedRailXMotionService(_machine, CreateSharedRailXConfig());
             SharedRailXMotionRuntime.ServiceProvider = () => SharedRailX;
             _axisInitializeInterlocks = new AxisInitializeInterlockService(_machine, EnumerateAxes);
             MotionGuardRuntime.ContextProvider = () =>
                 new MotionGuardContext(_machine, EnumerateAxes(), QMC.CDT320.Ajin.CylinderManager.Items.Values);
             BaseAxis.MotionGuard = VerifyAxisMotionGuard;
             QMC.Common.IO.BaseCylinder.MotionGuard = VerifyCylinderMotionGuard;
+        }
+
+        private static SharedRailXConfig CreateSharedRailXConfig()
+        {
+            var config = SharedRailXConfig.CreateDefault();
+
+            // Unit: mm.
+            // BodyOffsetMin/Max are the occupied rail area around the axis command position.
+            // Example: if a head is 80mm wide and the command position is its center,
+            // set bodyOffsetMin=-40 and bodyOffsetMax=40.
+            // RailOriginOffset converts each local axis position to a common rail coordinate:
+            // railPosition = axisPosition * positionScale + railOriginOffset.
+            config.DefaultSafetyDistance = 10.0;
+            config.EnablePathCheck = true;
+            config.RequireSameVelocityForGroupMove = true;
+
+            config
+                .SetGeometry(SharedRailXAxis.InputVisionX, 0.0, 0.0, railOriginOffset: 0.0)
+                .SetGeometry(SharedRailXAxis.FrontPickerX, 0.0, 0.0, railOriginOffset: 450.0)
+                .SetGeometry(SharedRailXAxis.RearPickerX, 0.0, 0.0, railOriginOffset: 600.0)
+                .SetGeometry(SharedRailXAxis.OutputVisionX, 0.0, 0.0, railOriginOffset: 1100.0);
+
+            return config;
         }
 
         private static bool VerifyAxisMotionGuard(

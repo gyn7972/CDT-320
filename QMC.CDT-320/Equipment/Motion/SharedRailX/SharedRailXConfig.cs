@@ -23,13 +23,17 @@ namespace QMC.CDT320.Motion.SharedRailX
             SharedRailXAxis axis,
             double bodyOffsetMin,
             double bodyOffsetMax,
-            double? safetyDistance = null)
+            double? safetyDistance = null,
+            double railOriginOffset = 0.0,
+            double positionScale = 1.0)
         {
             Geometry[axis] = new SharedRailXAxisGeometry
             {
                 BodyOffsetMin = bodyOffsetMin,
                 BodyOffsetMax = bodyOffsetMax,
-                SafetyDistance = safetyDistance
+                SafetyDistance = safetyDistance,
+                RailOriginOffset = railOriginOffset,
+                PositionScale = positionScale
             };
             return this;
         }
@@ -44,6 +48,8 @@ namespace QMC.CDT320.Motion.SharedRailX
     {
         public double BodyOffsetMin { get; set; } = 0.0;
         public double BodyOffsetMax { get; set; } = 0.0;
+        public double RailOriginOffset { get; set; } = 0.0;
+        public double PositionScale { get; set; } = 1.0;
         public double? SafetyDistance { get; set; }
     }
 }

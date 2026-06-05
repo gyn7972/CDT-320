@@ -326,6 +326,8 @@ namespace QMC.CDT320.Motion.SharedRailX
             {
                 BodyOffsetMin = geometry.BodyOffsetMin,
                 BodyOffsetMax = geometry.BodyOffsetMax,
+                RailOriginOffset = geometry.RailOriginOffset,
+                PositionScale = geometry.PositionScale,
                 SafetyDistance = geometry.SafetyDistance.HasValue
                     ? geometry.SafetyDistance.Value
                     : _config.DefaultSafetyDistance

@@ -14,16 +14,23 @@ namespace QMC.CDT320.Motion.SharedRailX
         public BaseAxis Axis { get; private set; }
         public double BodyOffsetMin { get; set; }
         public double BodyOffsetMax { get; set; }
+        public double RailOriginOffset { get; set; }
+        public double PositionScale { get; set; } = 1.0;
         public double SafetyDistance { get; set; }
 
-        public double GetMinAt(double centerPosition)
+        public double ToRailPosition(double axisPosition)
         {
-            return centerPosition + BodyOffsetMin;
+            return RailOriginOffset + axisPosition * PositionScale;
         }
 
-        public double GetMaxAt(double centerPosition)
+        public double GetMinAt(double axisPosition)
         {
-            return centerPosition + BodyOffsetMax;
+            return ToRailPosition(axisPosition) + BodyOffsetMin;
+        }
+
+        public double GetMaxAt(double axisPosition)
+        {
+            return ToRailPosition(axisPosition) + BodyOffsetMax;
         }
     }
 }

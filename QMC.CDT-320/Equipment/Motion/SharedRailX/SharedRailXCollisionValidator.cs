@@ -74,12 +74,15 @@ namespace QMC.CDT320.Motion.SharedRailX
             double target;
             bool moving = plan.TryGetTarget(setting.RailAxis, out target);
             double current = setting.Axis.ActualPosition;
+            double targetAxisPosition = moving ? target : current;
             return new SharedRailXAxisState
             {
                 Axis = setting.RailAxis,
                 Name = setting.Axis.Name,
-                Current = current,
-                Target = moving ? target : current,
+                CurrentAxis = current,
+                TargetAxis = targetAxisPosition,
+                Current = setting.ToRailPosition(current),
+                Target = setting.ToRailPosition(targetAxisPosition),
                 Moving = moving,
                 BodyOffsetMin = setting.BodyOffsetMin,
                 BodyOffsetMax = setting.BodyOffsetMax,
@@ -101,8 +104,10 @@ namespace QMC.CDT320.Motion.SharedRailX
                 string state = useTarget ? "target" : "current";
                 return SharedRailXValidationResult.Block(
                     "SharedRailX " + state + " distance is too close. " +
-                    a.Name + "=" + aPos.ToString("F3") + ", " +
-                    b.Name + "=" + bPos.ToString("F3") + ", gap=" +
+                    a.Name + " axis=" + (useTarget ? a.TargetAxis : a.CurrentAxis).ToString("F3") +
+                    " rail=" + aPos.ToString("F3") + ", " +
+                    b.Name + " axis=" + (useTarget ? b.TargetAxis : b.CurrentAxis).ToString("F3") +
+                    " rail=" + bPos.ToString("F3") + ", gap=" +
                     gap.ToString("F3") + ", required=" + required.ToString("F3"));
             }
 
@@ -134,8 +139,10 @@ namespace QMC.CDT320.Motion.SharedRailX
 
             return SharedRailXValidationResult.Block(
                 "SharedRailX move path can be too close. " +
-                a.Name + " " + a.Current.ToString("F3") + "->" + a.Target.ToString("F3") + ", " +
-                b.Name + " " + b.Current.ToString("F3") + "->" + b.Target.ToString("F3") +
+                a.Name + " axis " + a.CurrentAxis.ToString("F3") + "->" + a.TargetAxis.ToString("F3") +
+                " rail " + a.Current.ToString("F3") + "->" + a.Target.ToString("F3") + ", " +
+                b.Name + " axis " + b.CurrentAxis.ToString("F3") + "->" + b.TargetAxis.ToString("F3") +
+                " rail " + b.Current.ToString("F3") + "->" + b.Target.ToString("F3") +
                 ", required=" + required.ToString("F3"));
         }
 
@@ -175,6 +182,8 @@ namespace QMC.CDT320.Motion.SharedRailX
         {
             public SharedRailXAxis Axis;
             public string Name;
+            public double CurrentAxis;
+            public double TargetAxis;
             public double Current;
             public double Target;
             public bool Moving;

@@ -277,7 +277,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     return false;
 
                 var sequence = CreateManualInputSequence(host);
-                return await sequence.ExecuteMappingAsync(CancellationToken.None, false, ResolveManualMoveTimeoutMs(host)) == 0;
+                return await sequence.ExecuteMappingAsync(CancellationToken.None, false, ResolveManualMoveTimeoutMs(host), SequenceStartMode.Restart) == 0;
             }
             catch (Exception ex)
             {
@@ -297,7 +297,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     return false;
 
                 var sequence = CreateManualInputSequence(host);
-                return await sequence.ExecuteCassetteLoadingAsync(CancellationToken.None, false, ResolveManualMoveTimeoutMs(host)) == 0;
+                return await sequence.ExecuteCassetteLoadingAsync(CancellationToken.None, false, ResolveManualMoveTimeoutMs(host), SequenceStartMode.Restart) == 0;
             }
             catch (Exception ex)
             {
@@ -317,7 +317,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     return false;
 
                 var sequence = CreateManualInputSequence(host);
-                return await sequence.ExecuteCassetteUnloadingAsync(CancellationToken.None, false, ResolveManualMoveTimeoutMs(host)) == 0;
+                return await sequence.ExecuteCassetteUnloadingAsync(CancellationToken.None, false, ResolveManualMoveTimeoutMs(host), SequenceStartMode.Restart) == 0;
             }
             catch (Exception ex)
             {
