@@ -209,10 +209,10 @@
     <Compile Include="Ui\Pages\Recipe\OutputCassetteRecipePage.Designer.cs">
       <DependentUpon>OutputCassetteRecipePage.cs</DependentUpon>
     </Compile>
-    <Compile Include="Ui\Pages\Recipe\FeederRecipePage.Designer.cs">
-      <DependentUpon>FeederRecipePage.cs</DependentUpon>
+    <Compile Include="Ui\Pages\Recipe\InputFeederRecipePage.Designer.cs">
+      <DependentUpon>InputFeederRecipePage.cs</DependentUpon>
     </Compile>
-    <Compile Include="Ui\Pages\Recipe\FeederRecipePage.cs">
+    <Compile Include="Ui\Pages\Recipe\InputFeederRecipePage.cs">
       <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="Ui\Pages\Recipe\ModuleSubsetPage.cs">
