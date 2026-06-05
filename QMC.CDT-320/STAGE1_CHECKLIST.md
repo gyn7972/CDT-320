@@ -1,4 +1,4 @@
-# Stage 1 작업 체크리스트 — ✅ 전체 완료
+﻿# Stage 1 작업 체크리스트 — ✅ 전체 완료
 
 > **목표:** Tier 1+2 코드를 사용자 손에 닿게 + Recipe Subset 편집 GUI 완성 + 사이클 1회 실증.
 > **결과:** 정적 25/25 + Vision 21/21 + Handler 안정 기동 → **Stage 1 PASS**

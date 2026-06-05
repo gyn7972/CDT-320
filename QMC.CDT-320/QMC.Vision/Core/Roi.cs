@@ -1,4 +1,4 @@
-using System.Drawing;
+﻿using System.Drawing;
 using System.Runtime.Serialization;
 
 namespace QMC.Vision.Core

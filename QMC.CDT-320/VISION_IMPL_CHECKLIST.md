@@ -1,4 +1,4 @@
-# 320 Vision 이식 구현 체크리스트
+﻿# 320 Vision 이식 구현 체크리스트
 
 > 기준: `FEATURE_CATALOG_310.md` Tier 1 + Tier 2 우선 적용.
 > **아키텍처: 우리 것 그대로 유지** (ICamera + IVisionBackend + VisionModule + VisionTcpServer).

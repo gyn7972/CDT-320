@@ -1,4 +1,4 @@
-using System.Drawing;
+﻿using System.Drawing;
 using System.Windows.Forms;
 using QMC.CDT_320.Ui.Controls;
 using QMC.CDT_320.Ui.Localization;

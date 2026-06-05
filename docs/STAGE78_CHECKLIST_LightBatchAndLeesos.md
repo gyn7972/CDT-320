@@ -1,4 +1,4 @@
-# STAGE 78 — CHECKLIST: 조명 batch + Mode + Leesos 매뉴얼 정정
+﻿# STAGE 78 — CHECKLIST: 조명 batch + Mode + Leesos 매뉴얼 정정
 
 - **작성일**: 2026-06-02
 - **연계 SPEC**: `docs/STAGE78_SPEC_LightBatchAndLeesos.md`

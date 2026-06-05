@@ -1,4 +1,4 @@
-namespace QMC.CDT320
+﻿namespace QMC.CDT320
 {
     /// <summary>사이클 운영 모드 — Auto/Manual/Step.</summary>
     public enum CycleMode

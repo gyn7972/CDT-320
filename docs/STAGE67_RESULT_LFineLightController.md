@@ -1,4 +1,4 @@
-# STAGE 67 — RESULT: LFine 조명 컨트롤러 구현 (클래스 골격)
+﻿# STAGE 67 — RESULT: LFine 조명 컨트롤러 구현 (클래스 골격)
 
 - **작업 완료일**: 2026-05-29
 - **브랜치**: `stage-67-lfine-light-controller-impl` (base: stage-66 SPEC)

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using QMC.Common.Motion;
 
 namespace QMC.CDT320.Interlocks

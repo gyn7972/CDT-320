@@ -1,4 +1,4 @@
-namespace QMC.Common.Recipes
+﻿namespace QMC.Common.Recipes
 {
     /// <summary>
     /// Stage 79 — 조명 컨트롤러 동작 모드. 캐시 skip 정책을 결정한다.

@@ -1,4 +1,4 @@
-# STAGE 64 — RESULT: 검사별 카메라 파라미터 오버라이드
+﻿# STAGE 64 — RESULT: 검사별 카메라 파라미터 오버라이드
 
 - **작업 완료일**: 2026-05-28
 - **브랜치**: `stage-64-per-insp-camera-override`

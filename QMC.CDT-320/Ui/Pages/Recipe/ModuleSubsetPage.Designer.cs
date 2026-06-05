@@ -1,4 +1,4 @@
-using System.Drawing;
+Ôªøusing System.Drawing;
 using System.Windows.Forms;
 
 namespace QMC.CDT_320.Ui.Pages.Recipe
@@ -108,7 +108,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblPickPlaceHeader.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.editorLayout.SetColumnSpan(this.lblPickPlaceHeader, 2);
             this.lblPickPlaceHeader.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblPickPlaceHeader.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F, System.Drawing.FontStyle.Bold);
+            this.lblPickPlaceHeader.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F, System.Drawing.FontStyle.Bold);
             this.lblPickPlaceHeader.ForeColor = System.Drawing.Color.DarkSlateGray;
             this.lblPickPlaceHeader.Location = new System.Drawing.Point(13, 10);
             this.lblPickPlaceHeader.Name = "lblPickPlaceHeader";
@@ -121,7 +121,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // lblPickRetry
             // 
             this.lblPickRetry.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblPickRetry.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F);
+            this.lblPickRetry.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F);
             this.lblPickRetry.Location = new System.Drawing.Point(13, 40);
             this.lblPickRetry.Name = "lblPickRetry";
             this.lblPickRetry.Size = new System.Drawing.Size(214, 34);
@@ -156,7 +156,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // lblPickDelay
             // 
             this.lblPickDelay.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblPickDelay.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F);
+            this.lblPickDelay.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F);
             this.lblPickDelay.Location = new System.Drawing.Point(13, 74);
             this.lblPickDelay.Name = "lblPickDelay";
             this.lblPickDelay.Size = new System.Drawing.Size(214, 34);
@@ -181,7 +181,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // lblPlaceDelay
             // 
             this.lblPlaceDelay.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblPlaceDelay.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F);
+            this.lblPlaceDelay.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F);
             this.lblPlaceDelay.Location = new System.Drawing.Point(13, 108);
             this.lblPlaceDelay.Name = "lblPlaceDelay";
             this.lblPlaceDelay.Size = new System.Drawing.Size(214, 34);
@@ -209,7 +209,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblColletHeader.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.editorLayout.SetColumnSpan(this.lblColletHeader, 2);
             this.lblColletHeader.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblColletHeader.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F, System.Drawing.FontStyle.Bold);
+            this.lblColletHeader.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F, System.Drawing.FontStyle.Bold);
             this.lblColletHeader.ForeColor = System.Drawing.Color.DarkSlateGray;
             this.lblColletHeader.Location = new System.Drawing.Point(13, 142);
             this.lblColletHeader.Name = "lblColletHeader";
@@ -222,7 +222,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // lblColletEnable
             // 
             this.lblColletEnable.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblColletEnable.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F);
+            this.lblColletEnable.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F);
             this.lblColletEnable.Location = new System.Drawing.Point(13, 172);
             this.lblColletEnable.Name = "lblColletEnable";
             this.lblColletEnable.Size = new System.Drawing.Size(214, 34);
@@ -233,7 +233,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // _cbColletEnable
             // 
             this._cbColletEnable.Dock = System.Windows.Forms.DockStyle.Fill;
-            this._cbColletEnable.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F);
+            this._cbColletEnable.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F);
             this._cbColletEnable.Location = new System.Drawing.Point(233, 175);
             this._cbColletEnable.Name = "_cbColletEnable";
             this._cbColletEnable.Size = new System.Drawing.Size(832, 28);
@@ -243,7 +243,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // lblColletInterval
             // 
             this.lblColletInterval.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblColletInterval.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F);
+            this.lblColletInterval.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F);
             this.lblColletInterval.Location = new System.Drawing.Point(13, 206);
             this.lblColletInterval.Name = "lblColletInterval";
             this.lblColletInterval.Size = new System.Drawing.Size(214, 34);
@@ -281,7 +281,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblInspectionHeader.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.editorLayout.SetColumnSpan(this.lblInspectionHeader, 2);
             this.lblInspectionHeader.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblInspectionHeader.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F, System.Drawing.FontStyle.Bold);
+            this.lblInspectionHeader.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F, System.Drawing.FontStyle.Bold);
             this.lblInspectionHeader.ForeColor = System.Drawing.Color.DarkSlateGray;
             this.lblInspectionHeader.Location = new System.Drawing.Point(13, 240);
             this.lblInspectionHeader.Name = "lblInspectionHeader";
@@ -294,7 +294,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // lblBottomInspection
             // 
             this.lblBottomInspection.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblBottomInspection.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F);
+            this.lblBottomInspection.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F);
             this.lblBottomInspection.Location = new System.Drawing.Point(13, 270);
             this.lblBottomInspection.Name = "lblBottomInspection";
             this.lblBottomInspection.Size = new System.Drawing.Size(214, 34);
@@ -305,7 +305,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // _cbBottomInspect
             // 
             this._cbBottomInspect.Dock = System.Windows.Forms.DockStyle.Fill;
-            this._cbBottomInspect.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F);
+            this._cbBottomInspect.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F);
             this._cbBottomInspect.Location = new System.Drawing.Point(233, 273);
             this._cbBottomInspect.Name = "_cbBottomInspect";
             this._cbBottomInspect.Size = new System.Drawing.Size(832, 28);
@@ -315,7 +315,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // lblPlacementInspection
             // 
             this.lblPlacementInspection.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblPlacementInspection.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F);
+            this.lblPlacementInspection.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F);
             this.lblPlacementInspection.Location = new System.Drawing.Point(13, 304);
             this.lblPlacementInspection.Name = "lblPlacementInspection";
             this.lblPlacementInspection.Size = new System.Drawing.Size(214, 46);
@@ -326,7 +326,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // _cbPlacementInspect
             // 
             this._cbPlacementInspect.Dock = System.Windows.Forms.DockStyle.Fill;
-            this._cbPlacementInspect.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F);
+            this._cbPlacementInspect.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F);
             this._cbPlacementInspect.Location = new System.Drawing.Point(233, 307);
             this._cbPlacementInspect.Name = "_cbPlacementInspect";
             this._cbPlacementInspect.Size = new System.Drawing.Size(832, 40);

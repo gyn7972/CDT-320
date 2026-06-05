@@ -1,4 +1,4 @@
-# STAGE 69 — RESULT: 검사별 조명 매핑 구현
+﻿# STAGE 69 — RESULT: 검사별 조명 매핑 구현
 
 - **작업 완료일**: 2026-05-29
 - **브랜치**: `stage-69-per-insp-light-mapping-impl` (base: master)

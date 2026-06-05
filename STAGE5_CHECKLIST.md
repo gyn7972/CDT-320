@@ -1,4 +1,4 @@
-# Stage 5 체크리스트 — ✅ 완료
+﻿# Stage 5 체크리스트 — ✅ 완료
 
 ## A. UIA 자동화 스크립트
 - [x] **A1.** `tools/gui_cycle_automation.ps1` 신규 — PowerShell + UIAutomationClient

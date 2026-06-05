@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using QMC.Common.Data.Store;
 
 namespace QMC.Common

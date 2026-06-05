@@ -1,4 +1,4 @@
-# Stage 28 — InputStageUnit 시퀀스 통합
+﻿# Stage 28 — InputStageUnit 시퀀스 통합
 
 ## 1. 현황 (Phase 1 조사)
 

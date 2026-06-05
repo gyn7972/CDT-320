@@ -1,4 +1,4 @@
-# 310 Vision 기능 카탈로그
+﻿# 310 Vision 기능 카탈로그
 
 > 분석 대상: `D:\Work\CDT-320\QMC.DieTransfers.Visions-master`
 > 목적: 320 (QMC.Vision) 에 이식해야 하는 **기능** 추출.

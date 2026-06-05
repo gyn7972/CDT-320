@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using QMC.Common.IO;
 
 namespace QMC.CDT320.Sim

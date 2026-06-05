@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using QMC.Vision.Backends.Cognex;
 using QMC.Vision.Backends.OpenCv;
 using QMC.Vision.Backends.Sim;

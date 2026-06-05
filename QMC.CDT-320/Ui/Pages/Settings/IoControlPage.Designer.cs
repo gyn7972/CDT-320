@@ -1,4 +1,4 @@
-namespace QMC.CDT_320.Ui.Pages.Settings
+﻿namespace QMC.CDT_320.Ui.Pages.Settings
 {
     partial class IoControlPage
     {

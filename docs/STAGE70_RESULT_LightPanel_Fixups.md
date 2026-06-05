@@ -1,4 +1,4 @@
-# STAGE 70 — RESULT: Light Panel 5건 fixup
+﻿# STAGE 70 — RESULT: Light Panel 5건 fixup
 
 - **작업 완료일**: 2026-05-29
 - **브랜치**: `stage-70-light-ui-fixups` (base: master / Stage 69)

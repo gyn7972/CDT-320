@@ -1,4 +1,4 @@
-# STAGE 66 — CHECKLIST: LFine 디지털 조명 컨트롤러
+﻿# STAGE 66 — CHECKLIST: LFine 디지털 조명 컨트롤러
 
 - **연계 SPEC**: `docs/STAGE66_SPEC_LFineLightController.md`
 - **작성일**: 2026-05-29

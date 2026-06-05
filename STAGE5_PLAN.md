@@ -1,4 +1,4 @@
-# Stage 5 PLAN — GUI Cycle 자동화 (Stage 4 E2 후속)
+﻿# Stage 5 PLAN — GUI Cycle 자동화 (Stage 4 E2 후속)
 
 ## 목표
 Handler exe 자동 기동 후 UI Automation 으로 Init → CycleRun → Stop 클릭 실행 → JobQueue/Lot/DieMap 결과 자동 검증.

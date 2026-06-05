@@ -1,4 +1,4 @@
-# STAGE 77 — RESULT: LeesOS 디지털 조명 컨트롤러 (2차 벤더) 구현
+﻿# STAGE 77 — RESULT: LeesOS 디지털 조명 컨트롤러 (2차 벤더) 구현
 
 - **작성일**: 2026-06-02
 - **연계**: `STAGE76_SPEC_LeesosLightController.md` / `STAGE76_CHECKLIST_LeesosLightController.md`

@@ -1,4 +1,4 @@
-using QMC.Common.IO;
+﻿using QMC.Common.IO;
 using QMC.Common;
 using QMC.CDT320.Ajin;
 

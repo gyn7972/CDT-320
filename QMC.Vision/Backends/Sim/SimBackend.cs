@@ -1,4 +1,4 @@
-using QMC.Vision.Core;
+﻿using QMC.Vision.Core;
 
 namespace QMC.Vision.Backends.Sim
 {

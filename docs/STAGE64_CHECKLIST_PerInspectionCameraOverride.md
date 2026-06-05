@@ -1,4 +1,4 @@
-# STAGE 64 — CHECKLIST: 검사별 카메라 파라미터 오버라이드
+﻿# STAGE 64 — CHECKLIST: 검사별 카메라 파라미터 오버라이드
 
 - **연계 SPEC**: `docs/STAGE64_SPEC_PerInspectionCameraOverride.md`
 - **작성일**: 2026-05-28

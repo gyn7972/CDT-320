@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using QMC.CDT320.Recipes;
 
 namespace QMC.CDT320.DieMaps

@@ -1,4 +1,4 @@
-# STAGE 81 — RESULT: 다중 컨트롤러 결선 + Setup/Recipe UI 책임 분리 구현
+﻿# STAGE 81 — RESULT: 다중 컨트롤러 결선 + Setup/Recipe UI 책임 분리 구현
 
 - **작성일**: 2026-06-02
 - **연계**: `STAGE80_SPEC/CHECKLIST_MultiCtrl_UiSeparation.md`

@@ -1,4 +1,4 @@
-# STAGE 68 — SPEC: 검사별 조명 매핑 (Controller·Page·Channel·Level)
+﻿# STAGE 68 — SPEC: 검사별 조명 매핑 (Controller·Page·Channel·Level)
 
 - **작성일**: 2026-05-29
 - **단계**: SPEC (구현 전, 사용자 컨펌 대기)
