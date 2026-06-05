@@ -8,12 +8,14 @@ namespace QMC.Vision.Ui.Controls
     {
         // ─── 컨트롤 필드 ───
         private NumericUpDown _numPeriod;
+        private Label         _lblPeriodHz;   // Stage 87 — ms → Hz 환산 표시
         private Button        _btnToggleLive;
         private Button        _btnAllOn;
         private Button        _btnAllOff;
         private Label         _lblCount;
         private Label         _lblLast;
         private Label         _lblStatus;
+        private Label         _lblCamInfo;     // Stage 87 — 카메라 fps 안내
 
         // ─── Dispose ───
         private IContainer components = null;
@@ -62,6 +64,14 @@ namespace QMC.Vision.Ui.Controls
             };
             _numPeriod.ValueChanged += OnPeriodChanged;
             this.Controls.Add(_numPeriod);
+
+            // Stage 87 — ms → Hz 환산 (조명 송신 주기)
+            _lblPeriodHz = new Label
+            {
+                Location = new Point(168, y + 4), Size = new Size(90, 20),
+                Text = "≈ -- Hz", ForeColor = Color.DimGray
+            };
+            this.Controls.Add(_lblPeriodHz);
             y += 36;
 
             // 라이브 토글
@@ -124,6 +134,17 @@ namespace QMC.Vision.Ui.Controls
                 ForeColor = Color.DarkSlateGray
             };
             this.Controls.Add(_lblStatus);
+            y += 32;
+
+            // Stage 87 — 카메라 fps 안내 (검사별 자동 주기)
+            _lblCamInfo = new Label
+            {
+                Location = new Point(8, y), Size = new Size(420, 16),
+                Text = "카메라 라이브: Bottom 1.5 fps / 나머지 3~4 fps (검사별 자동)",
+                Font = new Font("맑은 고딕", 8F),
+                ForeColor = Color.Gray
+            };
+            this.Controls.Add(_lblCamInfo);
         }
     }
 }

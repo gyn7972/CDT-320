@@ -30,6 +30,10 @@ namespace QMC.Vision.Ui.Controls
         private bool _sending;          // 재진입 가드
         private int  _sendCount;
 
+        // Stage 87 — 카메라 라이브 start/stop 콜백 (호스트 FinderPage/InspectorPage 주입). null 가능.
+        private Action _startCameraLive;
+        private Action _stopCameraLive;
+
         public LightLiveTuningPanel()
         {
             if (LicenseManager.UsageMode == LicenseUsageMode.Designtime) return;
@@ -37,6 +41,7 @@ namespace QMC.Vision.Ui.Controls
 
             _timer = new Timer { Interval = 50, Enabled = false };
             _timer.Tick += OnTick;
+            UpdatePeriodHz();   // 초기 fps 환산 표시
         }
 
         public void Initialize(Func<IEnumerable<TuningRow>> currentValuesProvider)
@@ -44,10 +49,25 @@ namespace QMC.Vision.Ui.Controls
             _provider = currentValuesProvider;
         }
 
+        /// <summary>Stage 87 — 호스트가 카메라 라이브 start/stop 콜백 주입. 둘 다 null 가능(조명만 동작).</summary>
+        public void BindCameraLive(Action startLive, Action stopLive)
+        {
+            _startCameraLive = startLive;
+            _stopCameraLive  = stopLive;
+        }
+
         // ─── 이벤트 핸들러 본문 ──────────────────────────────────
         private void OnPeriodChanged(object sender, EventArgs e)
         {
             if (_timer != null) _timer.Interval = (int)_numPeriod.Value;
+            UpdatePeriodHz();
+        }
+
+        private void UpdatePeriodHz()
+        {
+            if (_lblPeriodHz == null) return;
+            double v = (double)_numPeriod.Value;
+            _lblPeriodHz.Text = v > 0 ? $"≈ {1000.0 / v:F1} Hz" : "";
         }
 
         private void OnToggleLiveClick(object sender, EventArgs e)
@@ -82,13 +102,15 @@ namespace QMC.Vision.Ui.Controls
             _btnToggleLive.BackColor = Color.FromArgb(0xB3, 0x1B, 0x1B);
             _timer.Interval = (int)_numPeriod.Value;
             _timer.Start();
-            SetStatus("라이브 중 — 주기적 송신", false);
+            try { _startCameraLive?.Invoke(); } catch { }   // Stage 87 — 카메라 라이브 동시 시작 (검사별 주기 자동)
+            SetStatus("라이브 중 — 조명 주기 송신 + 카메라 라이브", false);
         }
 
         private void StopLive()
         {
             _liveOn = false;
             _timer.Stop();
+            try { _stopCameraLive?.Invoke(); } catch { }     // Stage 87 — 카메라 라이브 동시 정지
             _btnToggleLive.Text = "▶ 라이브 시작";
             _btnToggleLive.BackColor = Color.FromArgb(0x2E, 0x7D, 0x32);
             SetStatus("정지", false);
