@@ -259,6 +259,11 @@ namespace QMC.Vision.Ui.Pages
         private void BindSetsGrid()
         {
             _suspendSets = true;
+
+
+
+
+                
             try
             {
                 _gridSets.Rows.Clear();
