@@ -236,9 +236,9 @@ namespace QMC.CDT320
 
             config
                 .SetGeometry(SharedRailXAxis.InputVisionX, 0.0, 0.0, railOriginOffset: 0.0)
-                .SetGeometry(SharedRailXAxis.FrontPickerX, 0.0, 0.0, railOriginOffset: 450.0)
-                .SetGeometry(SharedRailXAxis.RearPickerX, 0.0, 0.0, railOriginOffset: 600.0)
-                .SetGeometry(SharedRailXAxis.OutputVisionX, 0.0, 0.0, railOriginOffset: 1100.0);
+                .SetGeometry(SharedRailXAxis.FrontPickerX, 0.0, 0.0, railOriginOffset: 10.0)
+                .SetGeometry(SharedRailXAxis.RearPickerX, 0.0, 0.0, railOriginOffset: 20.0)
+                .SetGeometry(SharedRailXAxis.OutputVisionX, 0.0, 0.0, railOriginOffset: 30.0);
 
             return config;
         }
