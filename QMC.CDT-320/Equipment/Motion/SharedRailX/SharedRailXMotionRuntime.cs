@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using QMC.Common.Alarms;
 using QMC.Common.Motion;
 
 namespace QMC.CDT320.Motion.SharedRailX
@@ -45,6 +46,17 @@ namespace QMC.CDT320.Motion.SharedRailX
         {
             if (axis == null)
                 return;
+
+            SharedRailXMotionService service = ResolveService(null);
+            if (service != null && service.IsSharedRailAxis(axis))
+            {
+                string reason;
+                if (!service.VerifyJogMove(axis, direction, out reason))
+                {
+                    AlarmManager.Raise(AlarmSeverity.Warning, "SHARED-RAIL-X", "SharedRailX", reason);
+                    return;
+                }
+            }
 
             axis.MoveJogContinuous(direction, JogSpeedType.Custom, speed);
         }

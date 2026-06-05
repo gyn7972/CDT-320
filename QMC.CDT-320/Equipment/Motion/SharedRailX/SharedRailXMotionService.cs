@@ -80,6 +80,25 @@ namespace QMC.CDT320.Motion.SharedRailX
             return result.Allowed;
         }
 
+        public bool VerifyJogMove(BaseAxis axis, int direction, out string reason)
+        {
+            reason = string.Empty;
+            SharedRailXAxis railAxis;
+            if (!TryResolve(axis, out railAxis))
+                return true;
+
+            double targetPosition = direction > 0
+                ? axis.Setup.SoftLimitPlus
+                : axis.Setup.SoftLimitMinus;
+
+            var plan = SharedRailXMovePlan.Create("JogGuard:" + railAxis, axis.Config != null ? axis.Config.DefaultVelocity : 0.0)
+                .Add(railAxis, targetPosition);
+
+            SharedRailXValidationResult result = _validator.Validate(GetAxisSettings(), plan);
+            reason = result.Reason;
+            return result.Allowed;
+        }
+
         public async Task<int> MoveAsync(SharedRailXMovePlan plan)
         {
             if (plan == null)

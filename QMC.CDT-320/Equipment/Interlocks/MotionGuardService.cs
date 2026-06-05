@@ -129,18 +129,18 @@ namespace QMC.CDT320.Interlocks
                 RequiredChecks = checks
             };
 
-            if (checks.Count == 0)
-            {
-                result.Message = "No matrix check is required.";
-                return result;
-            }
-
             var request = new MotionGuardRuleContext(movingName, movingKey, targetValue, moveKind, checks, context);
             string ruleReason;
             if (!MotionGuardRuleRegistry.Verify(request, out ruleReason))
             {
                 result.Allowed = false;
                 result.Message = ruleReason;
+                return result;
+            }
+
+            if (checks.Count == 0)
+            {
+                result.Message = "No matrix check is required.";
                 return result;
             }
 
