@@ -502,7 +502,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 await RunSafeAsync(async () =>
                 {
                     await _OutCassetteUnit.MoveBinLifterZ(target, IsFineMove());
-                    bool done = await _OutCassetteUnit.WaitBinLifterZMoveDone(_OutCassetteUnit.BinLifterZ.Setup.MoveTimeoutMs);
+                    bool done = await _OutCassetteUnit.WaitBinLifterZMoveDone(_OutCassetteUnit.OutputLifterZ.Setup.MoveTimeoutMs);
                     return done ? 0 : -1;
                 }, actionName);
             }
@@ -524,7 +524,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 {
                     double target = _OutCassetteUnit.CalculateBinCassetteSlotTargetPosition(cassette, 0) + offset;
                     await _OutCassetteUnit.MoveBinLifterZ(target, IsFineMove());
-                    bool done = await _OutCassetteUnit.WaitBinLifterZMoveDone(_OutCassetteUnit.BinLifterZ.Setup.MoveTimeoutMs);
+                    bool done = await _OutCassetteUnit.WaitBinLifterZMoveDone(_OutCassetteUnit.OutputLifterZ.Setup.MoveTimeoutMs);
                     return done ? 0 : -1;
                 }, actionName);
             }
@@ -719,15 +719,15 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (string.Equals(positionName, "Avoid", StringComparison.OrdinalIgnoreCase))
                     _OutCassetteUnit.TeachBinLifterZAvoidPosition();
                 else if (string.Equals(positionName, "GoodLoading", StringComparison.OrdinalIgnoreCase))
-                    _OutCassetteUnit.Recipe.GoodLoaingPosition = _OutCassetteUnit.BinLifterZ.ActualPosition;
+                    _OutCassetteUnit.Recipe.GoodLoaingPosition = _OutCassetteUnit.OutputLifterZ.ActualPosition;
                 else if (string.Equals(positionName, "GoodUnloading", StringComparison.OrdinalIgnoreCase))
-                    _OutCassetteUnit.Recipe.GoodUnloadingPosition = _OutCassetteUnit.BinLifterZ.ActualPosition;
+                    _OutCassetteUnit.Recipe.GoodUnloadingPosition = _OutCassetteUnit.OutputLifterZ.ActualPosition;
                 else if (string.Equals(positionName, "GoodFirstSlot", StringComparison.OrdinalIgnoreCase))
                     _OutCassetteUnit.TeachBinLifterZFirstSlotPosition(TargetCassette.Good1);
                 else if (string.Equals(positionName, "NgLoading", StringComparison.OrdinalIgnoreCase))
-                    _OutCassetteUnit.Recipe.NGLoaingPosition = _OutCassetteUnit.BinLifterZ.ActualPosition;
+                    _OutCassetteUnit.Recipe.NGLoaingPosition = _OutCassetteUnit.OutputLifterZ.ActualPosition;
                 else if (string.Equals(positionName, "NgUnloading", StringComparison.OrdinalIgnoreCase))
-                    _OutCassetteUnit.Recipe.NGUnloadingPosition = _OutCassetteUnit.BinLifterZ.ActualPosition;
+                    _OutCassetteUnit.Recipe.NGUnloadingPosition = _OutCassetteUnit.OutputLifterZ.ActualPosition;
                 else if (string.Equals(positionName, "NgFirstSlot", StringComparison.OrdinalIgnoreCase))
                     _OutCassetteUnit.TeachBinLifterZFirstSlotPosition(TargetCassette.Ng);
                 else if (string.Equals(positionName, "MappingStart", StringComparison.OrdinalIgnoreCase))
@@ -773,7 +773,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                         _OutCassetteUnit.Recipe.EnsureSlotPositionBuffers(_OutCassetteUnit.Config.SlotCount);
                     }),
                     ParameterGridItem.Double("SCAN/JOG VELOCITY", "mm/s", ParameterGridScope.Config, () => _OutCassetteUnit.Config.ScanVelocity, v => _OutCassetteUnit.Config.ScanVelocity = Math.Max(0.1, v)),
-                    ParameterGridItem.Micron("IN POSITION TOL.", ParameterGridScope.Config, () => _OutCassetteUnit.BinLifterZ.Config.InPositionTolerance, v => _OutCassetteUnit.BinLifterZ.Config.InPositionTolerance = Math.Max(0.0, v)),
+                    ParameterGridItem.Micron("IN POSITION TOL.", ParameterGridScope.Config, () => _OutCassetteUnit.OutputLifterZ.Config.InPositionTolerance, v => _OutCassetteUnit.OutputLifterZ.Config.InPositionTolerance = Math.Max(0.0, v)),
                     ParameterGridItem.Selection("INCH SELECT", "Inch", ParameterGridScope.Config, () => _OutCassetteUnit.Config.InchSelect, v => _OutCassetteUnit.Config.InchSelect = Convert.ToInt32(v), new[]
                     {
                         new ParameterGridOption("8", 8),
@@ -791,7 +791,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 waitParameterGrid.SetItems(new[]
                 {
                     ParameterGridItem.Int("SCAN SETTLE TIME", "ms", ParameterGridScope.Config, () => _OutCassetteUnit.Config.ScanSettleTimeMs, v => _OutCassetteUnit.Config.ScanSettleTimeMs = Math.Max(0, v)),
-                    ParameterGridItem.Int("MOVE TIMEOUT", "ms", ParameterGridScope.Setup, () => _OutCassetteUnit.BinLifterZ.Setup.MoveTimeoutMs, v => _OutCassetteUnit.BinLifterZ.Setup.MoveTimeoutMs = Math.Max(0, v))
+                    ParameterGridItem.Int("MOVE TIMEOUT", "ms", ParameterGridScope.Setup, () => _OutCassetteUnit.OutputLifterZ.Setup.MoveTimeoutMs, v => _OutCassetteUnit.OutputLifterZ.Setup.MoveTimeoutMs = Math.Max(0, v))
                 });
             }
             catch (Exception ex)
@@ -841,14 +841,14 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (_OutCassetteUnit == null)
                     return;
 
-                JogAxisItem axisItem = JogAxisItem.Single("AXIS Z", _OutCassetteUnit.BinLifterZ, "um", 1000.0, "Z+", "Z-").WithControlKind(JogAxisControlKind.Vertical);
+                JogAxisItem axisItem = JogAxisItem.Single("AXIS Z", _OutCassetteUnit.OutputLifterZ, "um", 1000.0, "Z+", "Z-").WithControlKind(JogAxisControlKind.Vertical);
                 axisItem.StepMoveAsync = async (item, direction, speedType, customSpeed, axisStepDistance) =>
                 {
                     try
                     {
-                        double target = _OutCassetteUnit.BinLifterZ.ActualPosition + (direction * axisStepDistance);
+                        double target = _OutCassetteUnit.OutputLifterZ.ActualPosition + (direction * axisStepDistance);
                         await _OutCassetteUnit.MoveBinLifterZ(target, IsFineMove());
-                        bool done = await _OutCassetteUnit.WaitBinLifterZMoveDone(_OutCassetteUnit.BinLifterZ.Setup.MoveTimeoutMs);
+                        bool done = await _OutCassetteUnit.WaitBinLifterZMoveDone(_OutCassetteUnit.OutputLifterZ.Setup.MoveTimeoutMs);
                         return done ? 0 : -1;
                     }
                     catch
@@ -946,13 +946,13 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     _OutCassetteUnit.Recipe.EnsureSlotPositionBuffers(_OutCassetteUnit.Config.SlotCount);
                 }, false);
                 AttachDoubleEditor(lblConfigScanVelocityVal, "SCAN/JOG VELOCITY (mm/s)", () => _OutCassetteUnit.Config.ScanVelocity, v => _OutCassetteUnit.Config.ScanVelocity = Math.Max(0.1, v), "mm/s", false);
-                AttachMicronEditor(lblSetupToleranceVal, "IN POSITION TOLERANCE", () => _OutCassetteUnit.BinLifterZ.Config.InPositionTolerance, v => _OutCassetteUnit.BinLifterZ.Config.InPositionTolerance = Math.Max(0.0, v), false);
+                AttachMicronEditor(lblSetupToleranceVal, "IN POSITION TOLERANCE", () => _OutCassetteUnit.OutputLifterZ.Config.InPositionTolerance, v => _OutCassetteUnit.OutputLifterZ.Config.InPositionTolerance = Math.Max(0.0, v), false);
                 AttachIntEditor(lblConfigInchVal, "INCH SELECT", () => _OutCassetteUnit.Config.InchSelect, v => _OutCassetteUnit.Config.InchSelect = v, false);
                 AttachIntEditor(lblConfigLevelVal, "CASSETTE LEVEL", () => _OutCassetteUnit.Config.SelectedCassetteLevel, v => _OutCassetteUnit.Config.SelectedCassetteLevel = v, false);
                 AttachBoolEditor(lblSetupSimulationVal, "SIMULATION MODE", () => _OutCassetteUnit.Setup.IsSimulationMode, v => _OutCassetteUnit.Setup.IsSimulationMode = v, false);
                 AttachBoolEditor(lblConfigDryRunVal, "DRY RUN", () => _OutCassetteUnit.Config.bDryRun, v => _OutCassetteUnit.Config.bDryRun = v, false);
                 AttachIntEditor(lblWaitScanSettleVal, "SCAN SETTLE TIME (ms)", () => _OutCassetteUnit.Config.ScanSettleTimeMs, v => _OutCassetteUnit.Config.ScanSettleTimeMs = Math.Max(0, v), false);
-                AttachIntEditor(lblWaitMoveTimeoutVal, "MOVE TIMEOUT (ms)", () => _OutCassetteUnit.BinLifterZ.Setup.MoveTimeoutMs, v => _OutCassetteUnit.BinLifterZ.Setup.MoveTimeoutMs = Math.Max(0, v), false);
+                AttachIntEditor(lblWaitMoveTimeoutVal, "MOVE TIMEOUT (ms)", () => _OutCassetteUnit.OutputLifterZ.Setup.MoveTimeoutMs, v => _OutCassetteUnit.OutputLifterZ.Setup.MoveTimeoutMs = Math.Max(0, v), false);
             }
             catch (Exception ex)
             {
@@ -1206,13 +1206,13 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 lblConfigSlotPitchVal.Text = FormatUm(_OutCassetteUnit.Config.SlotPitch);
                 lblConfigSlotCountVal.Text = _OutCassetteUnit.Config.SlotCount.ToString(CultureInfo.InvariantCulture);
                 lblConfigScanVelocityVal.Text = FormatNumber(_OutCassetteUnit.Config.ScanVelocity) + " mm/s";
-                lblSetupToleranceVal.Text = FormatUm(_OutCassetteUnit.BinLifterZ.Config.InPositionTolerance);
+                lblSetupToleranceVal.Text = FormatUm(_OutCassetteUnit.OutputLifterZ.Config.InPositionTolerance);
                 lblConfigInchVal.Text = _OutCassetteUnit.Config.InchSelect.ToString(CultureInfo.InvariantCulture);
                 lblConfigLevelVal.Text = _OutCassetteUnit.Config.SelectedCassetteLevel.ToString(CultureInfo.InvariantCulture);
                 lblSetupSimulationVal.Text = _OutCassetteUnit.Setup.IsSimulationMode.ToString();
                 lblConfigDryRunVal.Text = _OutCassetteUnit.Config.bDryRun.ToString();
                 lblWaitScanSettleVal.Text = _OutCassetteUnit.Config.ScanSettleTimeMs.ToString(CultureInfo.InvariantCulture) + " ms";
-                lblWaitMoveTimeoutVal.Text = _OutCassetteUnit.BinLifterZ.Setup.MoveTimeoutMs.ToString(CultureInfo.InvariantCulture) + " ms";
+                lblWaitMoveTimeoutVal.Text = _OutCassetteUnit.OutputLifterZ.Setup.MoveTimeoutMs.ToString(CultureInfo.InvariantCulture) + " ms";
                 optionParameterGrid.RefreshValues();
                 waitParameterGrid.RefreshValues();
                 ioCylinderPanel.RefreshStates();

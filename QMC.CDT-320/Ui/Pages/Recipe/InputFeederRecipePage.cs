@@ -620,13 +620,13 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     _InputCassetteUnit.EnsureSlotPositionBuffer();
                 }, false);
                 AttachDoubleEditor(lblConfigScanVelocityVal, "SCAN/JOG VELOCITY (mm/s)", () => _InputCassetteUnit.Config.ScanVelocity, v => _InputCassetteUnit.Config.ScanVelocity = Math.Max(0.1, v), "mm/s", false);
-                AttachMicronEditor(lblSetupToleranceVal, "IN POSITION TOLERANCE", () => _InputCassetteUnit.ResolveWaferLifterZInPositionTolerance(), v => _InputCassetteUnit.WaferLifterZ.Config.InPositionTolerance = Math.Max(0.0, v), false);
+                AttachMicronEditor(lblSetupToleranceVal, "IN POSITION TOLERANCE", () => _InputCassetteUnit.ResolveWaferLifterZInPositionTolerance(), v => _InputCassetteUnit.InputLifterZ.Config.InPositionTolerance = Math.Max(0.0, v), false);
                 AttachIntEditor(lblConfigInchVal, "INCH SELECT", () => _InputCassetteUnit.Config.InchSelect, v => _InputCassetteUnit.Config.InchSelect = v, false);
                 AttachIntEditor(lblConfigLevelVal, "CASSETTE LEVEL", () => _InputCassetteUnit.Config.SelectedCassetteLevel, v => _InputCassetteUnit.Config.SelectedCassetteLevel = v, false);
                 AttachBoolEditor(lblSetupSimulationVal, "SIMULATION MODE", () => _InputCassetteUnit.Setup.IsSimulationMode, v => _InputCassetteUnit.Setup.IsSimulationMode = v, false);
                 AttachBoolEditor(lblConfigDryRunVal, "DRY RUN", () => _InputCassetteUnit.Config.bDryRun, v => _InputCassetteUnit.Config.bDryRun = v, false);
                 AttachIntEditor(lblWaitScanSettleVal, "SCAN SETTLE TIME (ms)", () => _InputCassetteUnit.Config.ScanSettleTimeMs, v => _InputCassetteUnit.Config.ScanSettleTimeMs = Math.Max(0, v), false);
-                AttachIntEditor(lblWaitMoveTimeoutVal, "MOVE TIMEOUT (ms)", () => _InputCassetteUnit.ResolveWaferLifterZMoveTimeoutMs(), v => _InputCassetteUnit.WaferLifterZ.Setup.MoveTimeoutMs = Math.Max(0, v), false);
+                AttachIntEditor(lblWaitMoveTimeoutVal, "MOVE TIMEOUT (ms)", () => _InputCassetteUnit.ResolveWaferLifterZMoveTimeoutMs(), v => _InputCassetteUnit.InputLifterZ.Setup.MoveTimeoutMs = Math.Max(0, v), false);
             }
             catch (Exception ex)
             {
