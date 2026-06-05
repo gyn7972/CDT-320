@@ -131,7 +131,7 @@ namespace QMC.CDT320
             _axisMap[m.InputStage.StageY]        = 2;   // WaferStageY
             _axisMap[m.InputStage.StageT]        = 3;   // WaferStageT
             _axisMap[m.InputStage.ExpanderZ]     = 4;   // WaferExpandingZ
-            _axisMap[m.InputStage.CameraX]       = 5;   // WaferVisionX
+            _axisMap[m.InputStage.CameraX]       = 5;   // InputVisionX
             _axisMap[m.InputStage.NeedleBlockX]  = 6;   // NeedleX
             _axisMap[m.InputStage.NeedleZ]       = 7;   // NeedleZ
             // Stage 44 — EjectPinZ 매핑 추가 (이전 미대응)

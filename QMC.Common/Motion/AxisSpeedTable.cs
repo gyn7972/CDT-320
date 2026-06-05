@@ -26,7 +26,7 @@ namespace QMC.Common.Motion
             {  2, new Params { DefaultVelocity= 500, Acceleration=  5000, Deceleration=  5000, HomeVelocity= 200, JogCoarse= 50, JogFine= 5 } }, // WaferStageY
             {  3, new Params { DefaultVelocity= 100, Acceleration=  1000, Deceleration=  1000, HomeVelocity= 200, JogCoarse= 50, JogFine= 5 } }, // WaferStageT
             {  4, new Params { DefaultVelocity=  50, Acceleration=   500, Deceleration=   500, HomeVelocity= 200, JogCoarse= 50, JogFine= 5 } }, // WaferExpandingZ
-            {  5, new Params { DefaultVelocity= 100, Acceleration=  1000, Deceleration=  1000, HomeVelocity= 200, JogCoarse= 50, JogFine= 5 } }, // WaferVisionX
+            {  5, new Params { DefaultVelocity= 100, Acceleration=  1000, Deceleration=  1000, HomeVelocity= 200, JogCoarse= 50, JogFine= 5 } }, // InputVisionX
             {  6, new Params { DefaultVelocity= 100, Acceleration=  1000, Deceleration=  1000, HomeVelocity= 200, JogCoarse= 50, JogFine= 5 } }, // NeedleX
             {  7, new Params { DefaultVelocity= 100, Acceleration=  1000, Deceleration=  1000, HomeVelocity= 200, JogCoarse= 50, JogFine= 5 } }, // NeedleZ
             {  8, new Params { DefaultVelocity=1000, Acceleration= 10000, Deceleration= 10000, HomeVelocity= 200, JogCoarse= 50, JogFine= 5 } }, // EjectPinZ

@@ -13,7 +13,7 @@ namespace QMC.CDT320.Motion.SharedRailX
         public SharedRailXConfig()
         {
             Geometry = new Dictionary<SharedRailXAxis, SharedRailXAxisGeometry>();
-            Geometry[SharedRailXAxis.WaferVisionX] = new SharedRailXAxisGeometry();
+            Geometry[SharedRailXAxis.InputVisionX] = new SharedRailXAxisGeometry();
             Geometry[SharedRailXAxis.FrontPickerX] = new SharedRailXAxisGeometry();
             Geometry[SharedRailXAxis.RearPickerX] = new SharedRailXAxisGeometry();
             Geometry[SharedRailXAxis.OutputVisionX] = new SharedRailXAxisGeometry();

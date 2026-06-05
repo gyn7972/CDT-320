@@ -1,4 +1,4 @@
-namespace QMC.CDT320.Interlocks
+﻿namespace QMC.CDT320.Interlocks
 {
     public static class InputStageInterlockRules
     {
@@ -17,7 +17,7 @@ namespace QMC.CDT320.Interlocks
             if (MotionGuardRuleHelpers.IsMoving(request, "WaferExpandingZ", "ExpanderZ"))
                 return VerifyWaferExpandingZ(request, out reason);
 
-            if (MotionGuardRuleHelpers.IsMoving(request, "WaferVisionX", "CameraX"))
+            if (MotionGuardRuleHelpers.IsMoving(request, "InputVisionX", "CameraX"))
                 return VerifyWaferVisionX(request, out reason);
 
             if (MotionGuardRuleHelpers.IsMoving(request, "NeedleX", "NeedleBlockX"))
