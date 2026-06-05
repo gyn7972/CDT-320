@@ -137,6 +137,15 @@ namespace QMC.Vision
             pnlContent.Controls.Add(_pgDataLog);
             pnlContent.Controls.Add(_pgSettings);
 
+            // Stage 88 — 카메라 자동 Open 결과 집계 + 상태바 표시 (조명 상태 옆). 알람은 CreateCameraForAlgorithm 이 이미 raise.
+            {
+                int camOk = 0, camTotal = 5;
+                void Tally(VisionModule m) { if (m?.Camera != null && m.Camera.IsOpen) camOk++; }
+                Tally(WaferMod); Tally(BinMod); Tally(BottomMod); Tally(FrontSideMod); Tally(RearSideMod);
+                if (lblStatusR != null && !lblStatusR.Text.Contains("Camera:"))
+                    lblStatusR.Text += $"  |  Camera: {camOk}/{camTotal} OK";
+            }
+
             timerClock.Start();
             UpdateClock();
             ShowTab(Tab.Operation);
@@ -349,6 +358,20 @@ namespace QMC.Vision
             try { _svrBottom?.Dispose(); }     catch { }
             try { _svrFrontSide?.Dispose(); }    catch { }
             try { _svrRearSide?.Dispose(); } catch { }
+
+            // Stage 88 — 카메라 안전 정리 (TCP/뷰어 끊은 뒤, 조명/Backend 앞): 라이브 정지 → VisionModule.Dispose(내부 Camera.Dispose).
+            //   미정리 시 카메라 핸들이 남아 다음 실행에서 port 점유 가능.
+            try { WaferMod    ?.Camera?.StopLive(); } catch { }
+            try { BinMod      ?.Camera?.StopLive(); } catch { }
+            try { BottomMod   ?.Camera?.StopLive(); } catch { }
+            try { FrontSideMod?.Camera?.StopLive(); } catch { }
+            try { RearSideMod ?.Camera?.StopLive(); } catch { }
+            try { WaferMod    ?.Dispose(); } catch { }
+            try { BinMod      ?.Dispose(); } catch { }
+            try { BottomMod   ?.Dispose(); } catch { }
+            try { FrontSideMod?.Dispose(); } catch { }
+            try { RearSideMod ?.Dispose(); } catch { }
+
             try { QMC.Vision.Comm.LightHub.DisposeAll(); } catch { }
             try { Backend?.Dispose(); }        catch { }
             base.OnFormClosing(e);
