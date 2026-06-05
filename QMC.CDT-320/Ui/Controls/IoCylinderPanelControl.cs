@@ -12,6 +12,7 @@ namespace QMC.CDT_320.Ui.Controls
         private readonly List<IoCylinderItem> _items = new List<IoCylinderItem>();
         private readonly Dictionary<IoCylinderItem, IoCylinderRow> _rows = new Dictionary<IoCylinderItem, IoCylinderRow>();
         private bool _isRefreshing;
+        private bool _isCommandRunning;
 
         public IoCylinderPanelControl()
         {
@@ -141,18 +142,6 @@ namespace QMC.CDT_320.Ui.Controls
                 var menu = new ContextMenuStrip();
                 menu.Items.Add("Refresh", null, (s, e) => RefreshStates());
 
-                if (item != null && item.ItemType == IoCylinderItemType.Output && item.CanControl)
-                {
-                    menu.Items.Add("Output ON", null, async (s, e) => await WriteOutputAsync(item, true));
-                    menu.Items.Add("Output OFF", null, async (s, e) => await WriteOutputAsync(item, false));
-                }
-                else if (item != null && item.ItemType == IoCylinderItemType.Cylinder && item.CanControl)
-                {
-                    menu.Items.Add("Forward", null, async (s, e) => await RunCommandAsync(item, "Forward", item.ForwardCommand));
-                    menu.Items.Add("Backward", null, async (s, e) => await RunCommandAsync(item, "Backward", item.BackwardCommand));
-                    menu.Items.Add("Off", null, async (s, e) => await RunCommandAsync(item, "Off", item.OffCommand));
-                }
-
                 return menu;
             }
             catch
@@ -217,7 +206,7 @@ namespace QMC.CDT_320.Ui.Controls
         {
             try
             {
-                if (_isRefreshing)
+                if (_isRefreshing || _isCommandRunning)
                     return;
 
                 Control control = sender as Control;
@@ -225,10 +214,15 @@ namespace QMC.CDT_320.Ui.Controls
                 if (item == null || !item.CanControl)
                     return;
 
+                _isCommandRunning = true;
                 if (item.ItemType == IoCylinderItemType.Output)
                 {
                     bool current = item.StateGetter != null && item.StateGetter();
                     await WriteOutputAsync(item, !current);
+                }
+                else if (item.ItemType == IoCylinderItemType.Cylinder)
+                {
+                    await ToggleCylinderAsync(item);
                 }
             }
             catch (Exception ex)
@@ -238,6 +232,7 @@ namespace QMC.CDT_320.Ui.Controls
             }
             finally
             {
+                _isCommandRunning = false;
             }
         }
 
@@ -246,10 +241,6 @@ namespace QMC.CDT_320.Ui.Controls
             try
             {
                 if (item == null || item.OutputWriter == null)
-                    return;
-
-                string message = item.DisplayName + " output??" + (value ? "ON" : "OFF") + " ?섏떆寃좎뒿?덇퉴?";
-                if (QMC.Common.MessageDialog.Show(this, message, "I/O Control", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
                     return;
 
                 int result = await item.OutputWriter(value);
@@ -269,15 +260,33 @@ namespace QMC.CDT_320.Ui.Controls
             }
         }
 
+        private async Task ToggleCylinderAsync(IoCylinderItem item)
+        {
+            try
+            {
+                if (item == null)
+                    return;
+
+                bool current = item.StateGetter != null && item.StateGetter();
+                string commandName = current ? "Backward" : "Forward";
+                Func<Task<int>> command = current ? item.BackwardCommand : item.ForwardCommand;
+                await RunCommandAsync(item, commandName, command);
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "IO-PANEL", "Cylinder toggle failed: " + ex.Message);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "I/O Panel", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
+        }
+
         private async Task RunCommandAsync(IoCylinderItem item, string commandName, Func<Task<int>> command)
         {
             try
             {
                 if (item == null || command == null)
-                    return;
-
-                string message = item.DisplayName + " " + commandName + " ?숈옉???ㅽ뻾?섏떆寃좎뒿?덇퉴?";
-                if (QMC.Common.MessageDialog.Show(this, message, "Cylinder Control", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
                     return;
 
                 int result = await command();

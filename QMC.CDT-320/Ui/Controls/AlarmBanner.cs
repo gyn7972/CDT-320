@@ -128,7 +128,7 @@ namespace QMC.CDT_320.Ui.Controls
             if (active.Count > 0)
             {
                 var top = active[active.Count - 1];
-                _msg.Text = $"[{top.Severity}] {top.Code} 쨌 {top.Source} 쨌 {top.Message}"
+                _msg.Text = $"[{top.Severity}] {top.Code} | {top.Source} | {top.Message}"
                             + (active.Count > 1 ? $"   (+ {active.Count - 1} more)" : "");
             }
 

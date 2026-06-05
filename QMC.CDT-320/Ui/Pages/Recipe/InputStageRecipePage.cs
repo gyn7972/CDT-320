@@ -15,9 +15,62 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 {
     public partial class InputStageRecipePage : PageBase
     {
+        private sealed class StageTeachingPosition
+        {
+            public StageTeachingPosition(
+                string displayName,
+                Func<InputStageUnit, BaseAxis> axisGetter,
+                Func<InputStageUnit, StageAxisPositions> positionSetGetter,
+                Func<StageAxisPositions, double> getter,
+                Action<StageAxisPositions, double> setter)
+            {
+                DisplayName = displayName;
+                AxisGetter = axisGetter;
+                PositionSetGetter = positionSetGetter;
+                Getter = getter;
+                Setter = setter;
+            }
+
+            public string DisplayName { get; private set; }
+            public Func<InputStageUnit, BaseAxis> AxisGetter { get; private set; }
+            public Func<InputStageUnit, StageAxisPositions> PositionSetGetter { get; private set; }
+            public Func<StageAxisPositions, double> Getter { get; private set; }
+            public Action<StageAxisPositions, double> Setter { get; private set; }
+        }
+
+        private static readonly StageTeachingPosition[] TeachingPositions = CreateTeachingPositions();
+
         private readonly string _titleI18n;
         private readonly Timer _refreshTimer = new Timer();
+        private readonly ToolTip _toolTip = new ToolTip();
         private InputStageUnit _InputStageUnit;
+
+        private static StageTeachingPosition[] CreateTeachingPositions()
+        {
+            var positions = new List<StageTeachingPosition>();
+            AddAxisTeachingPositions(positions, "WAFER Y", unit => unit.StageY, unit => unit.Recipe.WaferY);
+            AddAxisTeachingPositions(positions, "WAFER T", unit => unit.StageT, unit => unit.Recipe.WaferT);
+            AddAxisTeachingPositions(positions, "EXPANDER Z", unit => unit.ExpanderZ, unit => unit.Recipe.WaferZ);
+            AddAxisTeachingPositions(positions, "VISION X", unit => unit.CameraX, unit => unit.Recipe.VisionX);
+            AddAxisTeachingPositions(positions, "NEEDLE X", unit => unit.NeedleBlockX, unit => unit.Recipe.NeedleX);
+            AddAxisTeachingPositions(positions, "NEEDLE Z", unit => unit.NeedleZ, unit => unit.Recipe.NeedleZ);
+            AddAxisTeachingPositions(positions, "EJECT PIN Z", unit => unit.EjectPinZ, unit => unit.Recipe.EjectPinZ);
+            return positions.ToArray();
+        }
+
+        private static void AddAxisTeachingPositions(
+            List<StageTeachingPosition> positions,
+            string axisLabel,
+            Func<InputStageUnit, BaseAxis> axisGetter,
+            Func<InputStageUnit, StageAxisPositions> positionSetGetter)
+        {
+            positions.Add(new StageTeachingPosition(axisLabel + " AVOID POSITION", axisGetter, positionSetGetter, set => set.AvoidPosition, (set, value) => set.AvoidPosition = value));
+            positions.Add(new StageTeachingPosition(axisLabel + " LOAD POSITION", axisGetter, positionSetGetter, set => set.LoadPosition, (set, value) => set.LoadPosition = value));
+            positions.Add(new StageTeachingPosition(axisLabel + " PROCESS POSITION", axisGetter, positionSetGetter, set => set.ProcessPosition, (set, value) => set.ProcessPosition = value));
+            positions.Add(new StageTeachingPosition(axisLabel + " UNLOAD POSITION", axisGetter, positionSetGetter, set => set.UnloadPosition, (set, value) => set.UnloadPosition = value));
+            positions.Add(new StageTeachingPosition(axisLabel + " READY POSITION", axisGetter, positionSetGetter, set => set.ReadyPosition, (set, value) => set.ReadyPosition = value));
+            positions.Add(new StageTeachingPosition(axisLabel + " RETICLE POSITION", axisGetter, positionSetGetter, set => set.ReticlePosition, (set, value) => set.ReticlePosition = value));
+        }
 
         public InputStageRecipePage() : this("recipe.inputStage")
         {
@@ -154,6 +207,15 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 jogAxisMoveControl.ButtonAreaMaxWidth = 460;
 
                 ConfigureActionButtons();
+                BindParameterGridMenus();
+
+                grpIo.ContextMenuStrip = new ContextMenuStrip();
+                grpIo.ContextMenuStrip.Items.Add("Input stage I/O 상태를 다시 읽습니다.", null, IoRefresh_Click);
+
+                _toolTip.SetToolTip(optionParameterGrid, "Input Stage 티칭 위치와 설정값을 편집합니다.");
+                _toolTip.SetToolTip(waitParameterGrid, "Input Stage 대기 관련 파라미터를 표시합니다.");
+                _toolTip.SetToolTip(ioCylinderPanel, "Input Stage 출력 상태를 확인하고 제어합니다.");
+                _toolTip.SetToolTip(jogAxisMoveControl, "Input Stage 축을 Unit jog 경로로 이동합니다.");
             }
             catch (Exception ex)
             {
@@ -172,49 +234,58 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
             manualLayout.Dock = DockStyle.Top;
 
-            BindActionButton(btnLoadingMove, "WAFER Y AVOID", () => MoveAxisAsync(_InputStageUnit.StageY, _InputStageUnit.Recipe.WaferY.AvoidPosition, false));
-            BindActionButton(btnCenterMove, "WAFER Y LOAD", () => MoveAxisAsync(_InputStageUnit.StageY, _InputStageUnit.Recipe.WaferY.LoadPosition, false));
-            BindActionButton(btnBarcodeMove, "WAFER Y PROCESS", () => MoveAxisAsync(_InputStageUnit.StageY, _InputStageUnit.Recipe.WaferY.ProcessPosition, false));
-            BindActionButton(btnFirstDieMove, "WAFER Y UNLOAD", () => MoveAxisAsync(_InputStageUnit.StageY, _InputStageUnit.Recipe.WaferY.UnloadPosition, false));
-            BindActionButton(btnPickUpTest, "WAFER Y READY", () => MoveAxisAsync(_InputStageUnit.StageY, _InputStageUnit.Recipe.WaferY.ReadyPosition, false));
-            BindActionButton(btnNeedleUpMove, "WAFER Y RETICLE", () => MoveAxisAsync(_InputStageUnit.StageY, _InputStageUnit.Recipe.WaferY.ReticlePosition, false));
-            BindActionButton(btnNeedleDownMove, "WAFER T AVOID", () => MoveAxisAsync(_InputStageUnit.StageT, _InputStageUnit.Recipe.WaferT.AvoidPosition, false));
-            BindActionButton(btnNeedleReadyMove, "WAFER T LOAD", () => MoveAxisAsync(_InputStageUnit.StageT, _InputStageUnit.Recipe.WaferT.LoadPosition, false));
-            BindActionButton(btnNeedleBlockReady, "WAFER T PROCESS", () => MoveAxisAsync(_InputStageUnit.StageT, _InputStageUnit.Recipe.WaferT.ProcessPosition, false));
-            BindActionButton(btnNeedleBlockWork, "WAFER T UNLOAD", () => MoveAxisAsync(_InputStageUnit.StageT, _InputStageUnit.Recipe.WaferT.UnloadPosition, false));
-            BindActionButton(btnAutoSettingMove, "WAFER T READY", () => MoveAxisAsync(_InputStageUnit.StageT, _InputStageUnit.Recipe.WaferT.ReadyPosition, false));
-            BindActionButton(btnInputConversion, "WAFER T RETICLE", () => MoveAxisAsync(_InputStageUnit.StageT, _InputStageUnit.Recipe.WaferT.ReticlePosition, false));
-            BindActionButton(btnExpandWorkMove, "EXPANDER Z AVOID", () => MoveAxisAsync(_InputStageUnit.ExpanderZ, _InputStageUnit.Recipe.WaferZ.AvoidPosition, false));
-            BindActionButton(btnExpanderZLoad, "EXPANDER Z LOAD", () => MoveAxisAsync(_InputStageUnit.ExpanderZ, _InputStageUnit.Recipe.WaferZ.LoadPosition, false));
-            BindActionButton(btnExpanderZProcess, "EXPANDER Z PROCESS", () => MoveAxisAsync(_InputStageUnit.ExpanderZ, _InputStageUnit.Recipe.WaferZ.ProcessPosition, false));
-            BindActionButton(btnExpanderZUnload, "EXPANDER Z UNLOAD", () => MoveAxisAsync(_InputStageUnit.ExpanderZ, _InputStageUnit.Recipe.WaferZ.UnloadPosition, false));
-            BindActionButton(btnExpanderZReady, "EXPANDER Z READY", () => MoveAxisAsync(_InputStageUnit.ExpanderZ, _InputStageUnit.Recipe.WaferZ.ReadyPosition, false));
-            BindActionButton(btnExpanderZReticle, "EXPANDER Z RETICLE", () => MoveAxisAsync(_InputStageUnit.ExpanderZ, _InputStageUnit.Recipe.WaferZ.ReticlePosition, false));
-            BindActionButton(btnVisionXAvoid, "VISION X AVOID", () => MoveAxisAsync(_InputStageUnit.CameraX, _InputStageUnit.Recipe.VisionX.AvoidPosition, false));
-            BindActionButton(btnVisionXLoad, "VISION X LOAD", () => MoveAxisAsync(_InputStageUnit.CameraX, _InputStageUnit.Recipe.VisionX.LoadPosition, false));
-            BindActionButton(btnVisionXProcess, "VISION X PROCESS", () => MoveAxisAsync(_InputStageUnit.CameraX, _InputStageUnit.Recipe.VisionX.ProcessPosition, false));
-            BindActionButton(btnVisionXUnload, "VISION X UNLOAD", () => MoveAxisAsync(_InputStageUnit.CameraX, _InputStageUnit.Recipe.VisionX.UnloadPosition, false));
-            BindActionButton(btnVisionXReady, "VISION X READY", () => MoveAxisAsync(_InputStageUnit.CameraX, _InputStageUnit.Recipe.VisionX.ReadyPosition, false));
-            BindActionButton(btnVisionXReticle, "VISION X RETICLE", () => MoveAxisAsync(_InputStageUnit.CameraX, _InputStageUnit.Recipe.VisionX.ReticlePosition, false));
-            BindActionButton(btnNeedleXAvoid, "NEEDLE X AVOID", () => MoveAxisAsync(_InputStageUnit.NeedleBlockX, _InputStageUnit.Recipe.NeedleX.AvoidPosition, false));
-            BindActionButton(btnNeedleXLoad, "NEEDLE X LOAD", () => MoveAxisAsync(_InputStageUnit.NeedleBlockX, _InputStageUnit.Recipe.NeedleX.LoadPosition, false));
-            BindActionButton(btnNeedleXProcess, "NEEDLE X PROCESS", () => MoveAxisAsync(_InputStageUnit.NeedleBlockX, _InputStageUnit.Recipe.NeedleX.ProcessPosition, false));
-            BindActionButton(btnNeedleXUnload, "NEEDLE X UNLOAD", () => MoveAxisAsync(_InputStageUnit.NeedleBlockX, _InputStageUnit.Recipe.NeedleX.UnloadPosition, false));
-            BindActionButton(btnNeedleXReady, "NEEDLE X READY", () => MoveAxisAsync(_InputStageUnit.NeedleBlockX, _InputStageUnit.Recipe.NeedleX.ReadyPosition, false));
-            BindActionButton(btnNeedleXReticle, "NEEDLE X RETICLE", () => MoveAxisAsync(_InputStageUnit.NeedleBlockX, _InputStageUnit.Recipe.NeedleX.ReticlePosition, false));
-            BindActionButton(btnNeedleZAvoid, "NEEDLE Z AVOID", () => MoveAxisAsync(_InputStageUnit.NeedleZ, _InputStageUnit.Recipe.NeedleZ.AvoidPosition, false));
-            BindActionButton(btnNeedleZLoad, "NEEDLE Z LOAD", () => MoveAxisAsync(_InputStageUnit.NeedleZ, _InputStageUnit.Recipe.NeedleZ.LoadPosition, false));
-            BindActionButton(btnNeedleZProcess, "NEEDLE Z PROCESS", () => MoveAxisAsync(_InputStageUnit.NeedleZ, _InputStageUnit.Recipe.NeedleZ.ProcessPosition, false));
-            BindActionButton(btnNeedleZUnload, "NEEDLE Z UNLOAD", () => MoveAxisAsync(_InputStageUnit.NeedleZ, _InputStageUnit.Recipe.NeedleZ.UnloadPosition, false));
-            BindActionButton(btnNeedleZReady, "NEEDLE Z READY", () => MoveAxisAsync(_InputStageUnit.NeedleZ, _InputStageUnit.Recipe.NeedleZ.ReadyPosition, false));
-            BindActionButton(btnNeedleZReticle, "NEEDLE Z RETICLE", () => MoveAxisAsync(_InputStageUnit.NeedleZ, _InputStageUnit.Recipe.NeedleZ.ReticlePosition, false));
-            BindActionButton(btnEjectPinZAvoid, "EJECT PIN Z AVOID", () => MoveAxisAsync(_InputStageUnit.EjectPinZ, _InputStageUnit.Recipe.EjectPinZ.AvoidPosition, false));
-            BindActionButton(btnEjectPinZLoad, "EJECT PIN Z LOAD", () => MoveAxisAsync(_InputStageUnit.EjectPinZ, _InputStageUnit.Recipe.EjectPinZ.LoadPosition, false));
-            BindActionButton(btnEjectPinZProcess, "EJECT PIN Z PROCESS", () => MoveAxisAsync(_InputStageUnit.EjectPinZ, _InputStageUnit.Recipe.EjectPinZ.ProcessPosition, false));
-            BindActionButton(btnEjectPinZUnload, "EJECT PIN Z UNLOAD", () => MoveAxisAsync(_InputStageUnit.EjectPinZ, _InputStageUnit.Recipe.EjectPinZ.UnloadPosition, false));
-            BindActionButton(btnEjectPinZReady, "EJECT PIN Z READY", () => MoveAxisAsync(_InputStageUnit.EjectPinZ, _InputStageUnit.Recipe.EjectPinZ.ReadyPosition, false));
-            BindActionButton(btnEjectPinZReticle, "EJECT PIN Z RETICLE", () => MoveAxisAsync(_InputStageUnit.EjectPinZ, _InputStageUnit.Recipe.EjectPinZ.ReticlePosition, false));
+            BindTeachingActionButton(btnLoadingMove, "WAFER Y AVOID POSITION");
+            BindTeachingActionButton(btnCenterMove, "WAFER Y LOAD POSITION");
+            BindTeachingActionButton(btnBarcodeMove, "WAFER Y PROCESS POSITION");
+            BindTeachingActionButton(btnFirstDieMove, "WAFER Y UNLOAD POSITION");
+            BindTeachingActionButton(btnPickUpTest, "WAFER Y READY POSITION");
+            BindTeachingActionButton(btnNeedleUpMove, "WAFER Y RETICLE POSITION");
+            BindTeachingActionButton(btnNeedleDownMove, "WAFER T AVOID POSITION");
+            BindTeachingActionButton(btnNeedleReadyMove, "WAFER T LOAD POSITION");
+            BindTeachingActionButton(btnNeedleBlockReady, "WAFER T PROCESS POSITION");
+            BindTeachingActionButton(btnNeedleBlockWork, "WAFER T UNLOAD POSITION");
+            BindTeachingActionButton(btnAutoSettingMove, "WAFER T READY POSITION");
+            BindTeachingActionButton(btnInputConversion, "WAFER T RETICLE POSITION");
+            BindTeachingActionButton(btnExpandWorkMove, "EXPANDER Z AVOID POSITION");
+            BindTeachingActionButton(btnExpanderZLoad, "EXPANDER Z LOAD POSITION");
+            BindTeachingActionButton(btnExpanderZProcess, "EXPANDER Z PROCESS POSITION");
+            BindTeachingActionButton(btnExpanderZUnload, "EXPANDER Z UNLOAD POSITION");
+            BindTeachingActionButton(btnExpanderZReady, "EXPANDER Z READY POSITION");
+            BindTeachingActionButton(btnExpanderZReticle, "EXPANDER Z RETICLE POSITION");
+            BindTeachingActionButton(btnVisionXAvoid, "VISION X AVOID POSITION");
+            BindTeachingActionButton(btnVisionXLoad, "VISION X LOAD POSITION");
+            BindTeachingActionButton(btnVisionXProcess, "VISION X PROCESS POSITION");
+            BindTeachingActionButton(btnVisionXUnload, "VISION X UNLOAD POSITION");
+            BindTeachingActionButton(btnVisionXReady, "VISION X READY POSITION");
+            BindTeachingActionButton(btnVisionXReticle, "VISION X RETICLE POSITION");
+            BindTeachingActionButton(btnNeedleXAvoid, "NEEDLE X AVOID POSITION");
+            BindTeachingActionButton(btnNeedleXLoad, "NEEDLE X LOAD POSITION");
+            BindTeachingActionButton(btnNeedleXProcess, "NEEDLE X PROCESS POSITION");
+            BindTeachingActionButton(btnNeedleXUnload, "NEEDLE X UNLOAD POSITION");
+            BindTeachingActionButton(btnNeedleXReady, "NEEDLE X READY POSITION");
+            BindTeachingActionButton(btnNeedleXReticle, "NEEDLE X RETICLE POSITION");
+            BindTeachingActionButton(btnNeedleZAvoid, "NEEDLE Z AVOID POSITION");
+            BindTeachingActionButton(btnNeedleZLoad, "NEEDLE Z LOAD POSITION");
+            BindTeachingActionButton(btnNeedleZProcess, "NEEDLE Z PROCESS POSITION");
+            BindTeachingActionButton(btnNeedleZUnload, "NEEDLE Z UNLOAD POSITION");
+            BindTeachingActionButton(btnNeedleZReady, "NEEDLE Z READY POSITION");
+            BindTeachingActionButton(btnNeedleZReticle, "NEEDLE Z RETICLE POSITION");
+            BindTeachingActionButton(btnEjectPinZAvoid, "EJECT PIN Z AVOID POSITION");
+            BindTeachingActionButton(btnEjectPinZLoad, "EJECT PIN Z LOAD POSITION");
+            BindTeachingActionButton(btnEjectPinZProcess, "EJECT PIN Z PROCESS POSITION");
+            BindTeachingActionButton(btnEjectPinZUnload, "EJECT PIN Z UNLOAD POSITION");
+            BindTeachingActionButton(btnEjectPinZReady, "EJECT PIN Z READY POSITION");
+            BindTeachingActionButton(btnEjectPinZReticle, "EJECT PIN Z RETICLE POSITION");
             BindActionButton(btnInputStagePickTest, "PICK TEST", PickTestAsync);
+        }
+
+        private void BindTeachingActionButton(ActionButton button, string displayName)
+        {
+            StageTeachingPosition position = FindTeachingPosition(displayName);
+            if (position == null)
+                return;
+
+            BindActionButton(button, position.DisplayName, () => MoveByTeachingPositionAsync(position));
         }
 
         private void BindActionButton(ActionButton button, string text, Func<Task<int>> action)
@@ -310,6 +381,135 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
             catch
             {
+            }
+            finally
+            {
+            }
+        }
+
+        private void IoRefresh_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                BindIoPanel();
+                RefreshView();
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Stage I/O", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
+        }
+
+        private void BindParameterGridMenus()
+        {
+            try
+            {
+                var menu = new ContextMenuStrip();
+                menu.Items.Add("Move To Position", null, async (s, e) =>
+                {
+                    StageTeachingPosition position = GetSelectedTeachingPosition();
+                    if (position != null)
+                        await ConfirmAndRunAsync(position.DisplayName, () => MoveByTeachingPositionAsync(position));
+                });
+                menu.Items.Add("Teach Current Position", null, (s, e) =>
+                {
+                    StageTeachingPosition position = GetSelectedTeachingPosition();
+                    if (position == null)
+                        return;
+
+                    TeachPosition(position);
+                    SaveCurrentRecipeData();
+                    RefreshView();
+                });
+
+                optionParameterGrid.ContextMenuStrip = menu;
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "INPUT-STAGE", "BindParameterGridMenus failed: " + ex.Message);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Stage Grid Menu", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
+        }
+
+        private StageTeachingPosition GetSelectedTeachingPosition()
+        {
+            try
+            {
+                var item = optionParameterGrid.SelectedItem;
+                return item != null ? FindTeachingPosition(item.Key) : null;
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "INPUT-STAGE", "GetSelectedTeachingPosition failed: " + ex.Message);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Stage Grid Menu", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
+        private StageTeachingPosition FindTeachingPosition(string displayName)
+        {
+            if (string.IsNullOrWhiteSpace(displayName))
+                return null;
+
+            foreach (StageTeachingPosition position in TeachingPositions)
+            {
+                if (string.Equals(displayName, position.DisplayName, StringComparison.OrdinalIgnoreCase))
+                    return position;
+            }
+
+            return null;
+        }
+
+        private async Task<int> MoveByTeachingPositionAsync(StageTeachingPosition position)
+        {
+            try
+            {
+                if (_InputStageUnit == null || position == null)
+                    return -1;
+
+                StageAxisPositions positionSet = position.PositionSetGetter(_InputStageUnit);
+                BaseAxis axis = position.AxisGetter(_InputStageUnit);
+                if (positionSet == null || axis == null)
+                    return -1;
+
+                return await MoveAxisAsync(axis, position.Getter(positionSet), false);
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        private void TeachPosition(StageTeachingPosition position)
+        {
+            try
+            {
+                if (_InputStageUnit == null || position == null)
+                    return;
+
+                StageAxisPositions positionSet = position.PositionSetGetter(_InputStageUnit);
+                BaseAxis axis = position.AxisGetter(_InputStageUnit);
+                if (positionSet == null || axis == null)
+                    return;
+
+                position.Setter(positionSet, axis.ActualPosition);
+                EventLogger.Write(EventKind.Event, "UI", "INPUT-STAGE", position.DisplayName + " taught=" + axis.ActualPosition.ToString("F3", CultureInfo.InvariantCulture));
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Stage Teach", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
