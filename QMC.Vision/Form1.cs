@@ -76,6 +76,10 @@ namespace QMC.Vision
             bool lightUseSim = cfg.LightUseSim;
             QMC.Vision.Comm.LightHub.Initialize(lightSetup, lightUseSim);
 
+            // Stage 85 — 시작 시 자동 시리얼 Open (UI 비차단 fire-and-forget).
+            //   실패한 포트는 LightHub 내부에서 LIGHT-OPEN-FAIL 알람 raise. 재연결은 [설정>조명 시스템]의 '조명 연결' 버튼.
+            _ = ConnectLightsOnStartupAsync();
+
             Backend = VisionFactory.Global;
             lblStatusL.Text = $"Backend: {Backend.Name}   |   {Backend.VersionInfo}";
             lblStatusR.Text = $"TCP: Wafer={cfg.WaferVisionPort}  Bin={cfg.BinVisionPort}  Bottom={cfg.InspectionVisionPort}";
@@ -136,6 +140,45 @@ namespace QMC.Vision
             timerClock.Start();
             UpdateClock();
             ShowTab(Tab.Operation);
+        }
+
+        /// <summary>Stage 85 — Form1.Load 시점에 LightHub 의 모든 컨트롤러 시리얼 Open 시도(비차단).
+        /// 결과는 상태바에 표시. 실패 포트는 LIGHT-OPEN-FAIL 알람으로 이미 raise됨.
+        /// 재연결은 [설정>조명 시스템]의 '조명 연결' 버튼.</summary>
+        private async System.Threading.Tasks.Task ConnectLightsOnStartupAsync()
+        {
+            try
+            {
+                var res = await QMC.Vision.Comm.LightHub.ConnectAllAsync().ConfigureAwait(false);
+                int ok = 0, total = res.Count;
+                var fails = new System.Collections.Generic.List<string>();
+                foreach (var kv in res)
+                {
+                    if (kv.Value) ok++;
+                    else          fails.Add(kv.Key);
+                }
+                if (IsHandleCreated)
+                    BeginInvoke((MethodInvoker)(() => UpdateLightStartupStatus(ok, total, fails)));
+            }
+            catch (Exception ex)
+            {
+                try { Console.WriteLine($"[LightHub] startup connect 예외: {ex.Message}"); } catch { }
+            }
+        }
+
+        private void UpdateLightStartupStatus(int ok, int total, System.Collections.Generic.List<string> fails)
+        {
+            string suffix;
+            if (total == 0)
+                suffix = "  |  Light: (인벤토리 비어 있음)";
+            else if (fails.Count == 0)
+                suffix = $"  |  Light: {ok}/{total} OK";
+            else
+                suffix = $"  |  Light: {ok}/{total} (실패: {string.Join(",", fails)})";
+
+            // 기존 상태바 텍스트에 덧붙임 (덮어쓰기 X)
+            if (lblStatusR != null && !lblStatusR.Text.Contains("Light:"))
+                lblStatusR.Text += suffix;
         }
 
         private static ICamera CreateCameraForAlgorithm(AlgorithmCameraSubset map, string algorithm, string fallbackId)
