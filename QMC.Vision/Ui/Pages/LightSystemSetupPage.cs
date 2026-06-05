@@ -23,6 +23,7 @@ namespace QMC.Vision.Ui.Pages
         private DataGridView _gridSets;     // 선택 알고리즘의 ControllerSets (ControllerPort 콤보 + ChannelsCsv)
         private string _selAlg;             // 현재 선택 알고리즘
         private bool   _suspendSets;        // _gridSets 프로그램적 바인딩 중 flush 억제
+        private bool   _setsBindScheduled;  // BindSetsGrid BeginInvoke 중복 스케줄 가드 (재진입 예외 방지)
         private readonly System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<ControllerChannels>> _wiringModel
             = new System.Collections.Generic.Dictionary<string, System.Collections.Generic.List<ControllerChannels>>(StringComparer.OrdinalIgnoreCase);
         private Label _lblStatus;
@@ -258,14 +259,40 @@ namespace QMC.Vision.Ui.Pages
 
         private void BindSetsGrid()
         {
+            // ── 1중 가드: 이미 다음 메시지 사이클에 예약돼 있으면 중복 스케줄 안 함 ──
+            //   (트리 노드 빠른 연속 클릭 시 BeginInvoke 가 큐에 쌓이는 것 방지)
+            if (_setsBindScheduled) return;
+            _setsBindScheduled = true;
+
+            // ── 2중 가드: 핸들 미생성 (Designer / 첫 로드 전) — 핸들 생성 후 1회 재시도 ──
+            if (!IsHandleCreated)
+            {
+                _setsBindScheduled = false;
+                HandleCreated += BindSetsGridOnHandleCreated;
+                return;
+            }
+
+            // ── 3중 가드: BeginInvoke 로 현재 메시지(트리 AfterSelect + 셀 편집) 처리 완료 후 실행 ──
+            //   → WinForms 의 SetCurrentCellAddressCore 가 끝난 뒤 안전하게 Rows.Clear (재진입 차단)
+            BeginInvoke((MethodInvoker)BindSetsGridCore);
+        }
+
+        private void BindSetsGridOnHandleCreated(object sender, EventArgs e)
+        {
+            HandleCreated -= BindSetsGridOnHandleCreated;
+            BindSetsGrid();
+        }
+
+        private void BindSetsGridCore()
+        {
+            _setsBindScheduled = false;
             _suspendSets = true;
-
-
-
-
-                
             try
             {
+                // 편집 중 셀이 있으면 명시적으로 종료 + CurrentCell 해제 (Rows.Clear 의 강제 EndEdit 재진입 원인 제거)
+                try { _gridSets.EndEdit(); } catch { /* 편집 중 아닐 수 있음 */ }
+                try { _gridSets.CurrentCell = null; } catch { /* 이미 null 가능 */ }
+
                 _gridSets.Rows.Clear();
                 if (_selAlg == null || !_wiringModel.TryGetValue(_selAlg, out var sets)) return;
                 foreach (var cs in sets)
