@@ -9,6 +9,7 @@ using QMC.Common;
 using QMC.Common.Alarms;
 using QMC.Common.IO;
 using QMC.Common.Motion;
+using QMC.CDT320.Interlocks;
 
 namespace QMC.CDT320
 {
@@ -132,6 +133,7 @@ namespace QMC.CDT320
         public BaseDigitalInput WaferDetectSensor { get { return WaferMappingSensor; } }
 
         public IReadOnlyList<bool> WaferMap { get; private set; }
+        public CDT320_Machine Machine { get; private set; }
 
         public InputCassetteUnit() : base("InputCassetteUnit")
         {
@@ -155,12 +157,21 @@ namespace QMC.CDT320
             EnsureSlotPositionBuffer();
         }
 
+        public void BindMachine(CDT320_Machine machine)
+        {
+            Machine = machine;
+        }
+
         public async Task<int> MoveWaferLifterZ(double targetPos, bool bFine = false)
         {
             try
             {
                 if (!ValidateWaferLifterZTargetPosition(targetPos))
                     return -1;
+
+                string interlockReason;
+                if (!CheckWaferLifterZInterlock(targetPos, MotionGuardMoveKind.AxisMove, out interlockReason))
+                    return -11;
 
                 await MoveWithProtrusionWatch(targetPos, ResolveWaferLifterZMoveVelocity(bFine));
                 return 0;
@@ -182,6 +193,10 @@ namespace QMC.CDT320
                 if (!ValidateWaferLifterZTargetPosition(targetPos))
                     return -1;
 
+                string interlockReason;
+                if (!CheckWaferLifterZInterlock(targetPos, MotionGuardMoveKind.AxisMove, out interlockReason))
+                    return -11;
+
                 double velocity = ResolveJogVelocity(speedType, customSpeed);
                 await MoveWithProtrusionWatch(targetPos, velocity);
                 return 0;
@@ -193,6 +208,19 @@ namespace QMC.CDT320
             finally
             {
             }
+        }
+
+        private bool CheckWaferLifterZInterlock(
+            double targetPos,
+            MotionGuardMoveKind moveKind,
+            out string reason)
+        {
+            if (InputCassetteInterlockRules.CanMoveWaferLifterZ(Machine, targetPos, moveKind, out reason))
+                return true;
+
+            Log.Write("Main", "INTERLOCK", "InputCassette", reason + " - Blocked");
+            AlarmManager.Raise(AlarmSeverity.Warning, "INTERLOCK", Name, reason);
+            return false;
         }
 
         public async Task<int> MoveWaferLifterZToTeachingPosition(string positionName, bool bFine = false)
@@ -919,6 +947,10 @@ namespace QMC.CDT320
                         WaferLifterZ.Config.Deceleration = Config.ScanDec;
                     restoreScanProfile = true;
                 }
+
+                string interlockReason;
+                if (!CheckWaferLifterZInterlock(Recipe.MappingEndPosition, MotionGuardMoveKind.AxisMove, out interlockReason))
+                    return FailMappingScanList("IN-CST-MAP-INTERLOCK", interlockReason);
 
                 Task<int> moveTask = WaferLifterZ.MoveAbsoluteAsync(Recipe.MappingEndPosition, scanVelocity);
                 while (!moveTask.IsCompleted)

@@ -24,7 +24,7 @@ namespace QMC.Vision.Cameras.Hik
     public class HikGigECamera : CameraBase
     {
         private object  _camera;           // MyCamera 인스턴스
-        private IntPtr  _handle;
+        //private IntPtr  _handle;
         private Thread  _liveThread;
         private volatile bool _liveRun;
         private byte[]  _frameBuf;

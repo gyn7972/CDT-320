@@ -224,6 +224,7 @@ namespace QMC.CDT320
         {
             InputCassette = new InputCassetteUnit();
             InputFeeder = new InputFeederUnit();
+            InputCassette.BindMachine(this);
 
             // InputStageUnit - Wafer Vision 은 실 TCP Adapter 사용 (QMC.Vision 과 통신).
             // VisionHub 가 연결 안 된 경우 Adapter 는 안전 fallback(Expose/Match = false).

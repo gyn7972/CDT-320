@@ -205,6 +205,8 @@ namespace QMC.CDT320
         {
             _machine = machine ?? throw new ArgumentNullException(nameof(machine));
             _axisInitializeInterlocks = new AxisInitializeInterlockService(_machine, EnumerateAxes);
+            MotionGuardRuntime.ContextProvider = () =>
+                new MotionGuardContext(_machine, EnumerateAxes(), QMC.CDT320.Ajin.CylinderManager.Items.Values);
         }
 
         public void ApplyStartupMachineRuntimeState(AppSettings settings)

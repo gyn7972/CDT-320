@@ -84,7 +84,6 @@
     <Compile Include="Equipment\Unit\PickerFrontUnit.cs" />
     <Compile Include="Equipment\Unit\PickerRearUnit.cs" />
     <Compile Include="Equipment\Unit\VisionUnit.cs" />
-    <Compile Include="Equipment\Unit\WaferTransferTypes.cs" />
     <Compile Include="Equipment\Unit\UnitDefined.cs" />
     <Compile Include="Equipment\Unit\InputCassetteUnit.cs" />
     <Compile Include="Equipment\Unit\InputFeederUnit.cs" />
@@ -93,6 +92,9 @@
     <Compile Include="Equipment\MachineController.cs" />
     <Compile Include="Equipment\Initialization\AxisInitializeInterlockService.cs" />
     <Compile Include="Equipment\Initialization\AxisInitializePlan.cs" />
+    <Compile Include="Equipment\Interlocks\InputCassetteInterlockRules.cs" />
+    <Compile Include="Equipment\Interlocks\InputFeederInterlockRules.cs" />
+    <Compile Include="Equipment\Interlocks\MotionGuardRuleRegistry.cs" />
     <Compile Include="Equipment\MachineRuntimeState.cs" />
     <Compile Include="Equipment\OperationPanelMonitorService.cs" />
     <Compile Include="Equipment\SimComponents.cs" />
@@ -334,7 +336,11 @@
     <Compile Include="Equipment\Jobs\JobOrder.cs" />
     <Compile Include="Equipment\Jobs\JobQueue.cs" />
     <!-- Equipment / Interlocks (310 ?�식) -->
+    <Compile Include="Equipment\Interlocks\InterlockCheckMatrix.cs" />
+    <Compile Include="Equipment\Interlocks\InterlockCheckMatrixStore.cs" />
     <Compile Include="Equipment\Interlocks\MotionInterlock.cs" />
+    <Compile Include="Equipment\Interlocks\MotionGuardRuntime.cs" />
+    <Compile Include="Equipment\Interlocks\MotionGuardService.cs" />
     <Compile Include="Equipment\Interlocks\StandardInterlocks.cs" />
     <!-- Ui / Controls (310 ?�식) -->
     <Compile Include="Ui\Controls\DieMapView.cs">
