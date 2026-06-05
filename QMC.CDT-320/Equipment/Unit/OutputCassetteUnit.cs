@@ -149,7 +149,7 @@ namespace QMC.CDT320
         private readonly Dictionary<TargetCassette, Dictionary<int, WaferSlotState>> _slotStates =
             new Dictionary<TargetCassette, Dictionary<int, WaferSlotState>>();
 
-        public BaseAxis BinLifterZ { get; private set; }
+        public BaseAxis OutputLifterZ { get; private set; }
         public BaseDigitalInput GoodBin8CassetteCheck0 { get; private set; }
         public BaseDigitalInput GoodBin8CassetteCheck1 { get; private set; }
         public BaseDigitalInput GoodBin12CassetteCheck0 { get; private set; }
@@ -172,8 +172,8 @@ namespace QMC.CDT320
 
         public OutputCassetteUnit() : base("BinCassetteUnit")
         {
-            BinLifterZ = AjinFactory.CreateAxis("BinLifterZ");
-            BinLifterZ.Setup.SoftLimitPlus = 400.0;
+            OutputLifterZ = AjinFactory.CreateAxis("OutputLifterZ");
+            OutputLifterZ.Setup.SoftLimitPlus = 400.0;
 
             GoodBin8CassetteCheck0 = AjinFactory.CreateDigitalInput(AjinIoCatalog.FindInput("GoodBin8CassetteCheck0"));
             GoodBin8CassetteCheck1 = AjinFactory.CreateDigitalInput(AjinIoCatalog.FindInput("GoodBin8CassetteCheck1"));
@@ -190,7 +190,7 @@ namespace QMC.CDT320
             NgBinCassetteLockOut = AjinFactory.CreateDigitalOutput(AjinIoCatalog.FindOutput("NgBinCassetteLock"));
             NgBinCassetteUnlockOut = AjinFactory.CreateDigitalOutput(AjinIoCatalog.FindOutput("NgBinCassetteUnlock"));
 
-            Components.Add(BinLifterZ);
+            Components.Add(OutputLifterZ);
             Components.Add(GoodBin8CassetteCheck0);
             Components.Add(GoodBin8CassetteCheck1);
             Components.Add(GoodBin12CassetteCheck0);
@@ -211,7 +211,7 @@ namespace QMC.CDT320
 
         public bool CanHandleJogAxis(BaseAxis axis)
         {
-            return axis != null && ReferenceEquals(axis, BinLifterZ);
+            return axis != null && ReferenceEquals(axis, OutputLifterZ);
         }
 
         public async Task<int> JogStepAsync(
@@ -225,7 +225,7 @@ namespace QMC.CDT320
                 return -1;
 
             double signedDistance = (direction < 0 ? -1.0 : 1.0) * Math.Abs(axisStepDistance);
-            double target = BinLifterZ.ActualPosition + signedDistance;
+            double target = OutputLifterZ.ActualPosition + signedDistance;
             await MoveBinLifterZ(target, speedType == JogSpeedType.Fine);
             return 0;
         }
@@ -255,7 +255,7 @@ namespace QMC.CDT320
 
         public async Task MoveBinLifterZ(double targetPos, bool bFine = false)
         {
-            double velocity = bFine ? BinLifterZ.Config.JogFineVelocity : BinLifterZ.Config.DefaultVelocity;
+            double velocity = bFine ? OutputLifterZ.Config.JogFineVelocity : OutputLifterZ.Config.DefaultVelocity;
             if (velocity <= 0.0)
                 velocity = bFine ? Math.Max(1.0, Config.ScanVelocity * 0.5) : Config.ScanVelocity;
 
@@ -288,24 +288,24 @@ namespace QMC.CDT320
 
         public bool IsBinLifterZInPosition(double targetPos)
         {
-            return IsBinLifterZInPosition(targetPos, BinLifterZ.Config.InPositionTolerance);
+            return IsBinLifterZInPosition(targetPos, OutputLifterZ.Config.InPositionTolerance);
         }
 
         public bool IsBinLifterZInPosition(double targetPos, double tolerance)
         {
-            return Math.Abs(BinLifterZ.ActualPosition - targetPos) <= tolerance;
+            return Math.Abs(OutputLifterZ.ActualPosition - targetPos) <= tolerance;
         }
 
         public async Task<bool> WaitBinLifterZMoveDone(int timeoutMs)
         {
-            int timeout = timeoutMs > 0 ? timeoutMs : BinLifterZ.Setup.MoveTimeoutMs;
-            return await WaitUntilAsync(() => !BinLifterZ.IsMoving && BinLifterZ.IsInPosition && !BinLifterZ.IsAlarm, timeout);
+            int timeout = timeoutMs > 0 ? timeoutMs : OutputLifterZ.Setup.MoveTimeoutMs;
+            return await WaitUntilAsync(() => !OutputLifterZ.IsMoving && OutputLifterZ.IsInPosition && !OutputLifterZ.IsAlarm, timeout);
         }
 
         public async Task<bool> WaitBinLifterZInPosition(string positionName, int timeoutMs)
         {
             double target = GetTeachingPosition(positionName);
-            int timeout = timeoutMs > 0 ? timeoutMs : BinLifterZ.Setup.MoveTimeoutMs;
+            int timeout = timeoutMs > 0 ? timeoutMs : OutputLifterZ.Setup.MoveTimeoutMs;
             return await WaitUntilAsync(() => IsBinLifterZInPosition(target), timeout);
         }
 
@@ -326,12 +326,12 @@ namespace QMC.CDT320
 
         public void TeachBinLifterZPosition(string positionName)
         {
-            SetTeachingPosition(positionName, BinLifterZ.ActualPosition);
+            SetTeachingPosition(positionName, OutputLifterZ.ActualPosition);
         }
 
-        public void TeachBinLifterZAvoidPosition() { Recipe.AvoidPosition = BinLifterZ.ActualPosition; }
-        public void TeachBinLifterZMappingStartPosition() { Recipe.MappingStartPosition = BinLifterZ.ActualPosition; }
-        public void TeachBinLifterZMappingEndPosition() { Recipe.MappingEndPosition = BinLifterZ.ActualPosition; }
+        public void TeachBinLifterZAvoidPosition() { Recipe.AvoidPosition = OutputLifterZ.ActualPosition; }
+        public void TeachBinLifterZMappingStartPosition() { Recipe.MappingStartPosition = OutputLifterZ.ActualPosition; }
+        public void TeachBinLifterZMappingEndPosition() { Recipe.MappingEndPosition = OutputLifterZ.ActualPosition; }
 
         public void TeachBinLifterZSlotBasePosition()
         {
@@ -340,7 +340,7 @@ namespace QMC.CDT320
 
         public void TeachBinLifterZFirstSlotPosition(TargetCassette cassette)
         {
-            SetFirstSlotPosition(cassette, BinLifterZ.ActualPosition);
+            SetFirstSlotPosition(cassette, OutputLifterZ.ActualPosition);
         }
 
         public double CalculateCassetteSlotTargetPosition(int slotIndex)
@@ -369,7 +369,7 @@ namespace QMC.CDT320
         public async Task<bool> MoveToTeachingPositionAndVerify(string positionName, bool bFine = false)
         {
             await MoveBinLifterZToTeachingPosition(positionName, bFine);
-            return await WaitBinLifterZInPosition(positionName, BinLifterZ.Setup.MoveTimeoutMs);
+            return await WaitBinLifterZInPosition(positionName, OutputLifterZ.Setup.MoveTimeoutMs);
         }
 
         public void SetNgBinCassetteLock(bool on)
@@ -388,7 +388,7 @@ namespace QMC.CDT320
 
         public async Task<bool> NGBinLockCylinder(bool nLock, int timeoutMs = 0)
         {
-            int timeout = timeoutMs > 0 ? timeoutMs : BinLifterZ.Setup.MoveTimeoutMs;
+            int timeout = timeoutMs > 0 ? timeoutMs : OutputLifterZ.Setup.MoveTimeoutMs;
             if (nLock)
             {
                 SetNgBinCassetteUnlock(false);
@@ -465,12 +465,12 @@ namespace QMC.CDT320
 
         public void ManualMoveBinLifterZJog(int direction, double speed)
         {
-            BinLifterZ.MoveJogContinuous(direction, JogSpeedType.Custom, speed);
+            OutputLifterZ.MoveJogContinuous(direction, JogSpeedType.Custom, speed);
         }
 
         public void ManualStopBinLifterZ()
         {
-            BinLifterZ.StopJog();
+            OutputLifterZ.StopJog();
         }
 
         public Task ManualMoveToCassetteAvoidPosition(bool bFine = false) { return ManualMoveToBinCassetteAvoidPosition(bFine); }
@@ -508,7 +508,7 @@ namespace QMC.CDT320
                 return false;
 
             await MoveToCassetteSlotPosition(slot, bFine);
-            return await WaitBinLifterZMoveDone(BinLifterZ.Setup.MoveTimeoutMs);
+            return await WaitBinLifterZMoveDone(OutputLifterZ.Setup.MoveTimeoutMs);
         }
 
         public async Task<bool> ScanCassetteAsync(TargetCassette cassette, int maxSlots, double slotPitch)
@@ -525,35 +525,35 @@ namespace QMC.CDT320
 
             Recipe.EnsureSlotPositionBuffers(maxSlots);
             bool[] map = new bool[maxSlots];
-            double oldAcc = BinLifterZ.Config.Acceleration;
-            double oldDec = BinLifterZ.Config.Deceleration;
+            double oldAcc = OutputLifterZ.Config.Acceleration;
+            double oldDec = OutputLifterZ.Config.Deceleration;
 
             try
             {
                 if (Config.ScanAcc > 0.0)
-                    BinLifterZ.Config.Acceleration = Config.ScanAcc;
+                    OutputLifterZ.Config.Acceleration = Config.ScanAcc;
                 if (Config.ScanDec > 0.0)
-                    BinLifterZ.Config.Deceleration = Config.ScanDec;
+                    OutputLifterZ.Config.Deceleration = Config.ScanDec;
 
                 for (int i = 0; i < maxSlots; i++)
                 {
                     double position = GetFirstSlotPosition(cassette) + (i * slotPitch);
                     await MoveBinLifterZ(position, true);
-                    if (BinLifterZ.IsAlarm)
+                    if (OutputLifterZ.IsAlarm)
                     {
-                        Console.WriteLine("[ALARM] '" + Name + "' ScanCassette: BinLifterZ move failed at slot " + i + ".");
+                        Console.WriteLine("[ALARM] '" + Name + "' ScanCassette: OutputLifterZ move failed at slot " + i + ".");
                         return false;
                     }
 
                     await Task.Delay(Config.ScanSettleTimeMs).ContinueWith(_ => { });
-                    map[i] = Config.bDryRun || BinLifterZ.Config.IsSimulationMode ? true : BinMappingSensor.IsOn;
-                    Recipe.UpdateSlotPosition(cassette, i, BinLifterZ.ActualPosition);
+                    map[i] = Config.bDryRun || OutputLifterZ.Config.IsSimulationMode ? true : BinMappingSensor.IsOn;
+                    Recipe.UpdateSlotPosition(cassette, i, OutputLifterZ.ActualPosition);
                 }
             }
             finally
             {
-                BinLifterZ.Config.Acceleration = oldAcc;
-                BinLifterZ.Config.Deceleration = oldDec;
+                OutputLifterZ.Config.Acceleration = oldAcc;
+                OutputLifterZ.Config.Deceleration = oldDec;
             }
 
             _slotMap[cassette] = map;
@@ -670,10 +670,10 @@ namespace QMC.CDT320
 
         public bool CheckBinLifterZMoveReady()
         {
-            return BinLifterZ != null &&
-                   BinLifterZ.IsServoOn &&
-                   !BinLifterZ.IsAlarm &&
-                   !BinLifterZ.IsMoving &&
+            return OutputLifterZ != null &&
+                   OutputLifterZ.IsServoOn &&
+                   !OutputLifterZ.IsAlarm &&
+                   !OutputLifterZ.IsMoving &&
                    !IsBinProtrusionDetected();
         }
 
@@ -832,7 +832,7 @@ namespace QMC.CDT320
 
         public void StopBinCassetteMotion(string reason)
         {
-            BinLifterZ.Stop();
+            OutputLifterZ.Stop();
             Console.WriteLine("[STOP] '" + Name + "' " + reason);
         }
 
@@ -860,13 +860,13 @@ namespace QMC.CDT320
         {
             if (IsBinProtrusionDetected())
             {
-                BinLifterZ.EStop();
+                OutputLifterZ.EStop();
                 throw new InvalidOperationException("'" + Name + "' Move: protrusion sensor is ON.");
             }
 
             using (var cts = new CancellationTokenSource())
             {
-                Task moveTask = BinLifterZ.MoveAbsoluteAsync(targetPosition, velocity);
+                Task moveTask = OutputLifterZ.MoveAbsoluteAsync(targetPosition, velocity);
                 Task<bool> watchTask = Task.Run(async () =>
                 {
                     while (!cts.Token.IsCancellationRequested)
@@ -886,15 +886,15 @@ namespace QMC.CDT320
                 }
                 else
                 {
-                    BinLifterZ.EStop();
+                    OutputLifterZ.EStop();
                     cts.Cancel();
                     await moveTask.ContinueWith(_ => { });
                     throw new InvalidOperationException("'" + Name + "' Move: protrusion detected while moving.");
                 }
             }
 
-            if (BinLifterZ.IsAlarm)
-                throw new InvalidOperationException("'" + Name + "' Move: BinLifterZ alarm.");
+            if (OutputLifterZ.IsAlarm)
+                throw new InvalidOperationException("'" + Name + "' Move: OutputLifterZ alarm.");
         }
 
         private double GetTeachingPosition(string positionName)
@@ -906,7 +906,7 @@ namespace QMC.CDT320
             if (string.Equals(positionName, "GoodFirstSlot", StringComparison.OrdinalIgnoreCase)) return Recipe.GoodFirstSlotPosition;
             if (string.Equals(positionName, "Good1FirstSlot", StringComparison.OrdinalIgnoreCase)) return Recipe.GoodFirstSlotPosition;
             if (string.Equals(positionName, "Good2FirstSlot", StringComparison.OrdinalIgnoreCase)) return Recipe.GoodFirstSlotPosition + Config.GOODNGPositionOffset;
-            throw new ArgumentException("Unknown BinLifterZ teaching position: " + positionName, "positionName");
+            throw new ArgumentException("Unknown OutputLifterZ teaching position: " + positionName, "positionName");
         }
 
         private void SetTeachingPosition(string positionName, double position)
@@ -918,7 +918,7 @@ namespace QMC.CDT320
             else if (string.Equals(positionName, "GoodFirstSlot", StringComparison.OrdinalIgnoreCase)) Recipe.GoodFirstSlotPosition = position;
             else if (string.Equals(positionName, "Good1FirstSlot", StringComparison.OrdinalIgnoreCase)) Recipe.GoodFirstSlotPosition = position;
             else if (string.Equals(positionName, "Good2FirstSlot", StringComparison.OrdinalIgnoreCase)) Recipe.GoodFirstSlotPosition = position - Config.GOODNGPositionOffset;
-            else throw new ArgumentException("Unknown BinLifterZ teaching position: " + positionName, "positionName");
+            else throw new ArgumentException("Unknown OutputLifterZ teaching position: " + positionName, "positionName");
         }
 
         private double GetFirstSlotPosition(TargetCassette cassette)

@@ -1,4 +1,4 @@
-# Stage 60 RESULT — AlarmMaster 매뉴얼 호환 정비
+﻿# Stage 60 RESULT — AlarmMaster 매뉴얼 호환 정비
 
 **완료일**: 2026-05-04
 **SPEC**: `docs/STAGE60_SPEC_AlarmMasterManualCompat.md`

@@ -1,4 +1,4 @@
-# STAGE 68 — CHECKLIST: 검사별 조명 매핑
+﻿# STAGE 68 — CHECKLIST: 검사별 조명 매핑
 
 - **연계 SPEC**: `docs/STAGE68_SPEC_PerInspectionLightMapping.md`
 - **작성일**: 2026-05-29

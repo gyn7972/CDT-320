@@ -41,17 +41,17 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             var host = FindForm() as Form1;
             if (host?.Machine == null) return;
 
-            var binCassette = host.Machine.OutputCassette;
-            lblElevatorPos.Text = AxisUnitConverter.FormatDisplay(binCassette.BinLifterZ.ActualPosition, binCassette.BinLifterZ, "0.###", true);
+            var OutputCassette = host.Machine.OutputCassette;
+            lblElevatorPos.Text = AxisUnitConverter.FormatDisplay(OutputCassette.OutputLifterZ.ActualPosition, OutputCassette.OutputLifterZ, "0.###", true);
 
             var driver = host.CassetteDriver;
-            int slotCount = binCassette != null && binCassette.Config != null && binCassette.Config.SlotCount > 0
-                ? binCassette.Config.SlotCount
+            int slotCount = OutputCassette != null && OutputCassette.Config != null && OutputCassette.Config.SlotCount > 0
+                ? OutputCassette.Config.SlotCount
                 : 0;
 
-            UpdateView(_ngCassetteView, slotCount, ResolveSlots(binCassette, TargetCassette.Ng, driver != null ? driver.OutputNgSlots : null), Color.LightCoral);
-            UpdateView(_good1CassetteView, slotCount, ResolveSlots(binCassette, TargetCassette.Good1, driver != null ? driver.OutputGood1Slots : null), Color.LimeGreen);
-            UpdateView(_good2CassetteView, slotCount, ResolveSlots(binCassette, TargetCassette.Good2, driver != null ? driver.OutputGood2Slots : null), Color.LimeGreen);
+            UpdateView(_ngCassetteView, slotCount, ResolveSlots(OutputCassette, TargetCassette.Ng, driver != null ? driver.OutputNgSlots : null), Color.LightCoral);
+            UpdateView(_good1CassetteView, slotCount, ResolveSlots(OutputCassette, TargetCassette.Good1, driver != null ? driver.OutputGood1Slots : null), Color.LimeGreen);
+            UpdateView(_good2CassetteView, slotCount, ResolveSlots(OutputCassette, TargetCassette.Good2, driver != null ? driver.OutputGood2Slots : null), Color.LimeGreen);
         }
 
         private static IReadOnlyList<bool> ResolveSlots(OutputCassetteUnit unit, TargetCassette cassette, bool[] fallback)

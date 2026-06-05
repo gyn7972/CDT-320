@@ -1,4 +1,4 @@
-# CDT-320 Implementation Checklist — 원격 뷰어 (Vision 측)
+﻿# CDT-320 Implementation Checklist — 원격 뷰어 (Vision 측)
 
 > 참조: `04_design.md`. Stage 7 검증이 동일 체크리스트로 ✅/❌ 판정.
 

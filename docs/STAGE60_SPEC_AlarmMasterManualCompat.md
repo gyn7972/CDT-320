@@ -1,4 +1,4 @@
-# Stage 60 SPEC — AlarmMaster 매뉴얼 호환 정비
+﻿# Stage 60 SPEC — AlarmMaster 매뉴얼 호환 정비
 
 **작성일**: 2026-05-04
 **선행 산출물**: `docs/ALARM_AUDIT.md`, `docs/INDEX.md`

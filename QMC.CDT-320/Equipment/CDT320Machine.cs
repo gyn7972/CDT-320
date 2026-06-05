@@ -254,7 +254,7 @@ namespace QMC.CDT320
             OutputStage = new OutputStageUnit(
                 tpu:      new NullTpuUnit(),
                 unloader: new QMC.CDT320.Sim.OutputUnloaderAdapter(OutputCassette, OutputFeeder));
-            //BinStage = new BinStageUnit();
+            //OutputStage = new BinStageUnit();
 
             Units.Add(InputCassette);
             Units.Add(InputFeeder);
@@ -265,7 +265,7 @@ namespace QMC.CDT320
             Units.Add(VisionInspection);
             //Units.Add(Vision);
             Units.Add(OutputStage);
-            //Units.Add(BinStage);
+            //Units.Add(OutputStage);
             Units.Add(OutputCassette);
             Units.Add(OutputFeeder);
             Units.Add(OpPanel);

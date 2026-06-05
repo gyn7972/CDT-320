@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using Matrox.MatroxImagingLibrary;
 
 namespace QMC.Vision.Cameras.Mil

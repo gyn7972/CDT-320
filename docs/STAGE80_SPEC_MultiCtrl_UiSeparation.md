@@ -1,4 +1,4 @@
-# STAGE 80 — SPEC: 다중 컨트롤러 결선 + Setup/Recipe UI 책임 분리
+﻿# STAGE 80 — SPEC: 다중 컨트롤러 결선 + Setup/Recipe UI 책임 분리
 
 - **작성일**: 2026-06-02
 - **단계**: SPEC (구현 전, 사용자 컨펌 대기) — **SPEC + CHECKLIST 까지만, 코드 변경 없음**

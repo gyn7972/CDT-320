@@ -1,4 +1,4 @@
-namespace QMC.CDT320.Ajin
+﻿namespace QMC.CDT320.Ajin
 {
     /// <summary>AXL.dll 반환 코드 (AXT_FUNC_RESULT). 성공=0.</summary>
     public static class AxtReturn

@@ -1,4 +1,4 @@
-# Continuation 전체 계획 (Stage 14~18)
+﻿# Continuation 전체 계획 (Stage 14~18)
 
 > **시작:** Cognex 동글 활성화 직후
 > **목표:** 모든 미완료 항목 마무리. 다국어는 ko/en 만.

@@ -1,4 +1,4 @@
-# 320 Handler 이식 구현 체크리스트
+﻿# 320 Handler 이식 구현 체크리스트
 
 > 기준: `FEATURE_CATALOG_310_HANDLER.md` Tier 1 + Tier 2 핵심.
 > **아키텍처: 우리 것 그대로 유지** (Composite BaseEquipmentNode + MachineController + AppSettings JSON).

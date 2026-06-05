@@ -1,4 +1,4 @@
-# Overnight Work Progress (2026-04-30 시작)
+﻿# Overnight Work Progress (2026-04-30 시작)
 
 작업: A → B → C 순차 진행, 각 작업 계획→실행→검증, 총 10 라운드.
 

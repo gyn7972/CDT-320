@@ -97,7 +97,6 @@
             this.btnReadyMove = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnSlotLoadingMove = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnSlotUnloadingMove = new QMC.CDT_320.Ui.Controls.ActionButton();
-            this.btnMapping = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.grpIo = new System.Windows.Forms.GroupBox();
             this.ioCylinderPanel = new QMC.CDT_320.Ui.Controls.IoCylinderPanelControl();
             this.centerLayout = new System.Windows.Forms.TableLayoutPanel();
@@ -269,7 +268,6 @@
             this.actionLayout.Controls.Add(this.btnReadyMove, 0, 2);
             this.actionLayout.Controls.Add(this.btnSlotLoadingMove, 0, 4);
             this.actionLayout.Controls.Add(this.btnSlotUnloadingMove, 0, 5);
-            this.actionLayout.Controls.Add(this.btnMapping, 0, 9);
             this.actionLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.actionLayout.Location = new System.Drawing.Point(3, 26);
             this.actionLayout.Name = "actionLayout";
@@ -346,7 +344,7 @@
             this.btnSlotLoadingMove.Name = "btnSlotLoadingMove";
             this.btnSlotLoadingMove.Size = new System.Drawing.Size(260, 36);
             this.btnSlotLoadingMove.TabIndex = 3;
-            this.btnSlotLoadingMove.Text = "SLOT MOVE (LOADING)";
+            this.btnSlotLoadingMove.Text = "MAPPING START";
             this.btnSlotLoadingMove.Click += new System.EventHandler(this.btnSlotLoadingMove_Click);
             //
             // btnSlotUnloadingMove
@@ -361,22 +359,8 @@
             this.btnSlotUnloadingMove.Name = "btnSlotUnloadingMove";
             this.btnSlotUnloadingMove.Size = new System.Drawing.Size(260, 36);
             this.btnSlotUnloadingMove.TabIndex = 4;
-            this.btnSlotUnloadingMove.Text = "SLOT MOVE (UNLOADING)";
+            this.btnSlotUnloadingMove.Text = "MAPPING END";
             this.btnSlotUnloadingMove.Click += new System.EventHandler(this.btnSlotUnloadingMove_Click);
-            //
-            // btnMapping
-            //
-            this.btnMapping.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnMapping.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnMapping.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
-            this.btnMapping.ForeColor = System.Drawing.Color.White;
-            this.btnMapping.Location = new System.Drawing.Point(12, 478);
-            this.btnMapping.Margin = new System.Windows.Forms.Padding(0, 0, 0, 10);
-            this.btnMapping.Name = "btnMapping";
-            this.btnMapping.Size = new System.Drawing.Size(260, 36);
-            this.btnMapping.TabIndex = 5;
-            this.btnMapping.Text = "Seq - Mapping";
-            this.btnMapping.Click += new System.EventHandler(this.btnMapping_Click);
             //
             // grpIo
             //
@@ -1150,8 +1134,6 @@
             this.ResumeLayout(false);
 
         }
-
-        private Controls.ActionButton btnMapping;
     }
 }
 

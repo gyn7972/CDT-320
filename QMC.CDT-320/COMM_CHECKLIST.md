@@ -1,4 +1,4 @@
-# CDT-320 통신·구조 체크리스트
+﻿# CDT-320 통신·구조 체크리스트
 
 목표: **QMC.Vision ↔ QMC.CDT-320(Handler) ↔ CDT320Simulator** 의
 전체 통신 경로 + 핵심 기능이 정상 동작함을 자동/수동 확인.

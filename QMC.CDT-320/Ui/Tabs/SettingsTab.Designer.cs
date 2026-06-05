@@ -1,4 +1,4 @@
-using QMC.CDT_320.Ui.Controls;
+﻿using QMC.CDT_320.Ui.Controls;
 
 namespace QMC.CDT_320.Ui.Tabs
 {

@@ -1,4 +1,4 @@
-using QMC.Common;
+﻿using QMC.Common;
 
 namespace QMC.Common.IO
 {

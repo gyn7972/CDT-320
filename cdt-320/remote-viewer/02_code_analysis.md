@@ -1,4 +1,4 @@
-# CDT-320 Code Analysis — Vision 측 (그랩 영상 송출 대상)
+﻿# CDT-320 Code Analysis — Vision 측 (그랩 영상 송출 대상)
 
 > 분석 기준 경로: `D:\Work\CDT-320\QMC.CDT-320\QMC.Vision` (메모리의 `D:\Work\CDT-320\QMC.Vision` 는 구경로 — 실제는 솔루션 폴더 하위에 위치).
 

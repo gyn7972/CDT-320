@@ -1,4 +1,4 @@
-# Stage 6 PLAN — 추가 Cognex Backend Tools
+﻿# Stage 6 PLAN — 추가 Cognex Backend Tools
 
 ## 목표
 현재 Cognex backend 의 Pattern matching (PMAlign) + Blob 외에 산업 비전에서 흔히 쓰는 도구 추가:

@@ -1,4 +1,4 @@
-# Stage 27 — Feeder 시퀀스 체크리스트 점검 결과
+﻿# Stage 27 — Feeder 시퀀스 체크리스트 점검 결과
 
 검증일: 2026-04-28
 빌드: clean (warning 0)

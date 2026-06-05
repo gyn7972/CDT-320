@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading.Tasks;
 using System.IO.Ports;
 using QMC.CDT320.Logging;

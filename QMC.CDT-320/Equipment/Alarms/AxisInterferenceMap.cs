@@ -14,20 +14,20 @@ namespace QMC.CDT320.Alarms
             var map = new AxisInterferenceMap();
 
             //우선은 이거 막아 놓자.
-            //map.AddGroup("InputCassette", "WaferLifterZ", "FeederY");
+            //map.AddGroup("InputCassette", "InputLifterZ", "FeederY");
             //map.AddGroup("InputStage", "FeederY", "StageY", "StageT", "ExpanderZ", "CameraX", "CameraZ", "NeedleBlockX", "NeedleZ", "EjectPinZ");
-            //map.AddGroup("TransferFront", "LeftArm_ArmX", "LeftArm_ArmY", "LeftArm_SideVisionY",
-            //    "LeftArm_Picker1_Z", "LeftArm_Picker1_T", "LeftArm_Picker2_Z", "LeftArm_Picker2_T",
-            //    "LeftArm_Picker3_Z", "LeftArm_Picker3_T", "LeftArm_Picker4_Z", "LeftArm_Picker4_T",
-            //    "StageY", "StageT", "ExpanderZ", "GoodStage_StageY", "GoodStage_StageZ", "NgStage_StageY", "NgStage_StageZ");
-            //map.AddGroup("TransferRear", "RightArm_ArmX", "RightArm_ArmY", "RightArm_SideVisionY",
-            //    "RightArm_Picker1_Z", "RightArm_Picker1_T", "RightArm_Picker2_Z", "RightArm_Picker2_T",
-            //    "RightArm_Picker3_Z", "RightArm_Picker3_T", "RightArm_Picker4_Z", "RightArm_Picker4_T",
-            //    "StageY", "StageT", "ExpanderZ", "GoodStage_StageY", "GoodStage_StageZ", "NgStage_StageY", "NgStage_StageZ");
-            //map.AddGroup("OutputStage", "GoodStage_StageY", "GoodStage_StageZ", "NgStage_StageY", "NgStage_StageZ", "OutputStage_BinCameraX",
-            //    "LeftArm_ArmX", "LeftArm_ArmY", "RightArm_ArmX", "RightArm_ArmY", "BinFeederY", "BinLifterZ", "OutputUnloader_FeederY");
-            //map.AddGroup("OutputCassette", "BinLifterZ", "BinFeederY", "OutputUnloader_FeederY");
-            //map.AddGroup("PostPnp", "PostPnp_Z", "LeftArm_ArmX", "LeftArm_ArmY", "RightArm_ArmX", "RightArm_ArmY");
+            //map.AddGroup("TransferFront", "FrontPickerX", "FrontPickerY", "FrontSideVisionY0",
+            //    "FrontPickerZ0", "FrontPickerT0", "FrontPickerZ1", "FrontPickerT1",
+            //    "FrontPickerZ2", "FrontPickerT2", "FrontPickerZ3", "FrontPickerT3",
+            //    "StageY", "StageT", "ExpanderZ", "OutputGoodStageY", "OutputGoodStageZ", "OutputNGStageY", "NgStage_StageZ");
+            //map.AddGroup("TransferRear", "RearPickerX", "RearPickerY", "RearSideVisionY0",
+            //    "RearPickerZ0", "RearPickerT0", "RearPickerZ1", "RearPickerT1",
+            //    "RearPickerZ2", "RearPickerT2", "RearPickerZ3", "RearPickerT3",
+            //    "StageY", "StageT", "ExpanderZ", "OutputGoodStageY", "OutputGoodStageZ", "OutputNGStageY", "NgStage_StageZ");
+            //map.AddGroup("OutputStage", "OutputGoodStageY", "OutputGoodStageZ", "OutputNGStageY", "NgStage_StageZ", "OutputVisionX",
+            //    "FrontPickerX", "FrontPickerY", "RearPickerX", "RearPickerY", "OutputFeederY", "OutputLifterZ", "OutputFeederY");
+            //map.AddGroup("OutputCassette", "OutputLifterZ", "OutputFeederY", "OutputFeederY");
+            //map.AddGroup("PostPnp", "PostPnp_Z", "FrontPickerX", "FrontPickerY", "RearPickerX", "RearPickerY");
 
             return map;
         }

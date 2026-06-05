@@ -1,4 +1,4 @@
-# STAGE 63 — RESULT: TopSide/BottomSide → FrontSide/RearSide 리네임
+﻿# STAGE 63 — RESULT: TopSide/BottomSide → FrontSide/RearSide 리네임
 
 - **작업 완료일**: 2026-05-28
 - **브랜치**: `rename-sideinsp-front-rear` (base: `fix-vision-ui-overlap` b12f352)

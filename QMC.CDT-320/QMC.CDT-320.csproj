@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
@@ -91,10 +91,29 @@
     <Compile Include="Equipment\Unit\InputStageUnit.cs" />
     <Compile Include="Equipment\IStageInterfaces.cs" />
     <Compile Include="Equipment\MachineController.cs" />
+    <Compile Include="Equipment\Motion\SharedRailX\SharedRailXAxis.cs" />
+    <Compile Include="Equipment\Motion\SharedRailX\SharedRailXMoveMode.cs" />
+    <Compile Include="Equipment\Motion\SharedRailX\SharedRailXAxisSetting.cs" />
+    <Compile Include="Equipment\Motion\SharedRailX\SharedRailXConfig.cs" />
+    <Compile Include="Equipment\Motion\SharedRailX\SharedRailXTarget.cs" />
+    <Compile Include="Equipment\Motion\SharedRailX\SharedRailXMovePlan.cs" />
+    <Compile Include="Equipment\Motion\SharedRailX\SharedRailXValidationResult.cs" />
+    <Compile Include="Equipment\Motion\SharedRailX\SharedRailXCollisionValidator.cs" />
+    <Compile Include="Equipment\Motion\SharedRailX\SharedRailXMotionService.cs" />
+    <Compile Include="Equipment\Motion\SharedRailX\SharedRailXMotionRuntime.cs" />
     <Compile Include="Equipment\Initialization\AxisInitializeInterlockService.cs" />
     <Compile Include="Equipment\Initialization\AxisInitializePlan.cs" />
     <Compile Include="Equipment\Interlocks\InputCassetteInterlockRules.cs" />
     <Compile Include="Equipment\Interlocks\InputFeederInterlockRules.cs" />
+    <Compile Include="Equipment\Interlocks\SharedRailXInterlockRules.cs" />
+    <Compile Include="Equipment\Interlocks\InputStageInterlockRules.cs" />
+    <Compile Include="Equipment\Interlocks\VisionInterlockRules.cs" />
+    <Compile Include="Equipment\Interlocks\PickerFrontInterlockRules.cs" />
+    <Compile Include="Equipment\Interlocks\PickerRearInterlockRules.cs" />
+    <Compile Include="Equipment\Interlocks\OutputStageInterlockRules.cs" />
+    <Compile Include="Equipment\Interlocks\OutputFeederInterlockRules.cs" />
+    <Compile Include="Equipment\Interlocks\OutputCassetteInterlockRules.cs" />
+    <Compile Include="Equipment\Interlocks\MotionGuardRuleHelpers.cs" />
     <Compile Include="Equipment\Interlocks\MotionGuardRuleRegistry.cs" />
     <Compile Include="Equipment\MachineRuntimeState.cs" />
     <Compile Include="Equipment\OperationPanelMonitorService.cs" />
@@ -212,10 +231,16 @@
     <Compile Include="Ui\Pages\Recipe\OutputCassetteRecipePage.Designer.cs">
       <DependentUpon>OutputCassetteRecipePage.cs</DependentUpon>
     </Compile>
-    <Compile Include="Ui\Pages\Recipe\FeederRecipePage.Designer.cs">
-      <DependentUpon>FeederRecipePage.cs</DependentUpon>
+    <Compile Include="Ui\Pages\Recipe\InputFeederRecipePage.Designer.cs">
+      <DependentUpon>InputFeederRecipePage.cs</DependentUpon>
     </Compile>
-    <Compile Include="Ui\Pages\Recipe\FeederRecipePage.cs">
+    <Compile Include="Ui\Pages\Recipe\InputFeederRecipePage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\Recipe\OutputFeederRecipePage.Designer.cs">
+      <DependentUpon>OutputFeederRecipePage.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Pages\Recipe\OutputFeederRecipePage.cs">
       <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="Ui\Pages\Recipe\ModuleSubsetPage.cs">
@@ -235,6 +260,12 @@
     </Compile>
     <Compile Include="Ui\Pages\Recipe\InputStageRecipePage.Designer.cs">
       <DependentUpon>InputStageRecipePage.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Pages\Recipe\OutputStageRecipePage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\Recipe\OutputStageRecipePage.Designer.cs">
+      <DependentUpon>OutputStageRecipePage.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Pages\Settings\AxisSetupPage.Designer.cs">
       <DependentUpon>AxisSetupPage.cs</DependentUpon>

@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using QMC.CDT_320.Ui.Pages;
 using QMC.CDT_320.Ui.Pages.Settings;
 using QMC.CDT_320.Ui.Security;

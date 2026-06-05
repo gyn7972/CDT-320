@@ -35,6 +35,7 @@ namespace QMC.CDT_320.Ui.Controls
         private int _buttonAreaMinHeight = 72;
         private int _buttonAreaMaxWidth = 132;
         private int _buttonAreaMinWidth = 112;
+        private int _axisColumnsPerRow = 0;
         private bool _showCurrentSpeedMode = true;
         private bool _isJogging;
         private JogAxisMoveLayoutMode _layoutMode = JogAxisMoveLayoutMode.AxisColumns;
@@ -243,6 +244,32 @@ namespace QMC.CDT_320.Ui.Controls
             }
         }
 
+        /// <summary>0이면 단일 행(Flow), 1 이상이면 해당 열 수의 그리드로 축 버튼을 배치합니다(AxisColumns 모드, 축 2개 이상일 때).</summary>
+        public int AxisColumnsPerRow
+        {
+            get
+            {
+                try { return _axisColumnsPerRow; }
+                catch { return 0; }
+                finally { }
+            }
+            set
+            {
+                try
+                {
+                    _axisColumnsPerRow = Math.Max(0, value);
+                    RebuildAxisButtons();
+                }
+                catch (Exception ex)
+                {
+                    EventLogger.Write(EventKind.Warning, "UI", "JOG-AXIS", "AxisColumnsPerRow set failed: " + ex.Message);
+                }
+                finally
+                {
+                }
+            }
+        }
+
         public JogAxisMoveControl()
         {
             try
@@ -428,6 +455,13 @@ namespace QMC.CDT_320.Ui.Controls
                         requiredStageHeight += horizontalAxisCount * (StageAxisLabelHeight + StageJogButtonHeight + StageAxisColumnGap);
                     requiredStageWidth = GetStageSlotLayoutWidth();
                 }
+                else if (_axisColumnsPerRow > 0 && _items.Count > 1)
+                {
+                    int cols = Math.Max(1, Math.Min(_axisColumnsPerRow, _items.Count));
+                    int rows = (int)Math.Ceiling(_items.Count / (double)cols);
+                    requiredStageWidth = cols * StageAxisColumnWidth + Math.Max(0, cols - 1) * StageAxisColumnGap + StageAxisColumnGap;
+                    requiredStageHeight = rows * StageAxisColumnHeight + Math.Max(0, rows - 1) * StageAxisColumnGap + StageAxisColumnGap;
+                }
                 else if (_items.Count > 0)
                 {
                     requiredStageHeight = GetAxisItemRequiredHeight(_items);
@@ -488,7 +522,10 @@ namespace QMC.CDT_320.Ui.Controls
                 axisButtonLayout.RowCount = 1;
                 axisButtonLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
                 axisButtonLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-                axisButtonLayout.Controls.Add(CreateCenteredAxisFlow(_items), 0, 0);
+                Control axisContent = (_axisColumnsPerRow > 0 && _items.Count > 1)
+                    ? CreateCenteredAxisGrid(_items, _axisColumnsPerRow)
+                    : CreateCenteredAxisFlow(_items);
+                axisButtonLayout.Controls.Add(axisContent, 0, 0);
             }
             catch
             {
@@ -935,10 +972,10 @@ namespace QMC.CDT_320.Ui.Controls
                 outer.Dock = DockStyle.Fill;
                 outer.Margin = new Padding(1);
                 outer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
-                outer.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, totalWidth));
+                outer.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, totalWidth + StageAxisColumnGap));
                 outer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
                 outer.RowStyles.Add(new RowStyle(SizeType.Percent, 50F));
-                outer.RowStyles.Add(new RowStyle(SizeType.Absolute, totalHeight));
+                outer.RowStyles.Add(new RowStyle(SizeType.Absolute, totalHeight + StageAxisColumnGap));
                 outer.RowStyles.Add(new RowStyle(SizeType.Percent, 50F));
 
                 grid.ColumnCount = columnCount;
@@ -991,7 +1028,9 @@ namespace QMC.CDT_320.Ui.Controls
                 if (axes.Count == 0)
                     return CreateBlankCell();
 
-                int totalWidth = GetAxisItemRequiredWidth(axes);
+                // 가로 폭이 콘텐츠와 정확히 같으면 WrapContents=false FlowLayoutPanel이
+                // 마지막 컬럼을 잘라내므로 약간의 여유 폭(gap)을 확보한다.
+                int totalWidth = GetAxisItemRequiredWidth(axes) + StageAxisColumnGap;
                 int totalHeight = GetAxisItemRequiredHeight(axes);
                 TableLayoutPanel outer = new TableLayoutPanel();
                 FlowLayoutPanel flow = new FlowLayoutPanel();
@@ -1438,7 +1477,7 @@ namespace QMC.CDT_320.Ui.Controls
                 ConfigureJogButton(stopButton, "STOP", item, 0);
                 ConfigureJogButton(minusButton, item.MinusText, item, -1);
 
-                if (IsHorizontalAxis(item))
+                if (GetControlKind(item) == JogAxisControlKind.Horizontal)
                     ConfigureHorizontalAxisLayout(layout, axisLabel, minusButton, stopButton, plusButton);
                 else
                     ConfigureVerticalAxisLayout(layout, axisLabel, plusButton, stopButton, minusButton);

@@ -1,4 +1,4 @@
-# Continuation 리포트 (Stage 14~23)
+﻿# Continuation 리포트 (Stage 14~23)
 
 > **시작:** 사용자 출근 후 (Cognex 동글 활성화 직후)
 > **종료:** Stage 14~23 완료, 통합 회귀 **110/111 PASS, 0 FAIL** (1 INFO)

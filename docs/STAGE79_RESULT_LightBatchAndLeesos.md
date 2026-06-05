@@ -1,4 +1,4 @@
-# STAGE 79 — RESULT: 조명 batch + Mode + Leesos 매뉴얼 정정 구현
+﻿# STAGE 79 — RESULT: 조명 batch + Mode + Leesos 매뉴얼 정정 구현
 
 - **작성일**: 2026-06-02
 - **연계**: `STAGE78_SPEC_LightBatchAndLeesos.md` / `STAGE78_CHECKLIST_LightBatchAndLeesos.md`

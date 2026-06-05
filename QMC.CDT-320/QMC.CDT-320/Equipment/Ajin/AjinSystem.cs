@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using QMC.Common.Alarms;
 using QMC.CDT320.Logging;
 

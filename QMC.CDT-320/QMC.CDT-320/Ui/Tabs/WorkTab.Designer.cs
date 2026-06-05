@@ -1,4 +1,4 @@
-namespace QMC.CDT_320.Ui.Tabs
+﻿namespace QMC.CDT_320.Ui.Tabs
 {
     partial class WorkTab
     {

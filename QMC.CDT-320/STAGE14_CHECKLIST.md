@@ -1,4 +1,4 @@
-# Stage 14 체크리스트 — Cognex 동글 실 검증
+﻿# Stage 14 체크리스트 — Cognex 동글 실 검증
 
 ## A. 자동 검증 스크립트
 - [ ] **A1.** `tools/verify_cognex_runtime.pl` 신규

@@ -1,4 +1,4 @@
-# CDT-320 OutputUnloader 적재 시퀀스 상세 분석
+﻿# CDT-320 OutputUnloader 적재 시퀀스 상세 분석
 
 **문서 버전**: 1.0
 **작성일**: 2026-04-29

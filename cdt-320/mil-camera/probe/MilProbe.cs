@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using Matrox.MatroxImagingLibrary;
 
 // MIL 보드/디지타이저/카메라 감지 프로브 (본 구현 전 타당성 확인용).

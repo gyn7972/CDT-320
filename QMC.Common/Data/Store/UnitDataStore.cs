@@ -1,4 +1,4 @@
-namespace QMC.Common.Data.Store
+﻿namespace QMC.Common.Data.Store
 {
     /// <summary>BaseEquipmentNode가 사용하는 Setup / Config / Recipe Store facade입니다.</summary>
     public static class UnitDataStore

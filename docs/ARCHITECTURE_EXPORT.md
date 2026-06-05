@@ -1,4 +1,4 @@
-# CDT-320 Architecture Export (v2)
+﻿# CDT-320 Architecture Export (v2)
 
 > 다른 AI에게 인계하여 PPT/시퀀스 문서를 업데이트하기 위한 코드 분석 결과.
 > 모든 정보는 `D:\Work\CDT-320\` 의 실제 코드에서 추출. 코드에서 확인 안 된 항목은 "확인 필요"로 표시.

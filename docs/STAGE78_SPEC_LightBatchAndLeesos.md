@@ -1,4 +1,4 @@
-# STAGE 78 — SPEC: 조명 컨트롤러 batch + Mode + Leesos 매뉴얼 정정
+﻿# STAGE 78 — SPEC: 조명 컨트롤러 batch + Mode + Leesos 매뉴얼 정정
 
 - **작성일**: 2026-06-02
 - **단계**: SPEC (구현 전, 사용자 컨펌 대기) — **SPEC + CHECKLIST 까지만, 코드 변경 없음**

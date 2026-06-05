@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
 using QMC.CDT320.Bin;
@@ -60,12 +60,12 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        public async Task<int> ExecuteMappingAsync(CancellationToken ct, bool bFine = false, int moveTimeoutMs = 0)
+        public async Task<int> ExecuteMappingAsync(CancellationToken ct, bool bFine = false, int moveTimeoutMs = 0, SequenceStartMode startMode = SequenceStartMode.Resume)
         {
             try
             {
                 var sequence = new InputCassetteSequence(Context);
-                return await sequence.RunMappingAsync(ct, BuildCassetteSequenceOptions(bFine, moveTimeoutMs)).ConfigureAwait(false);
+                return await sequence.RunMappingAsync(ct, BuildCassetteSequenceOptions(bFine, moveTimeoutMs, startMode)).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -81,12 +81,12 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        public async Task<int> ExecuteCassetteLoadingAsync(CancellationToken ct, bool bFine = false, int moveTimeoutMs = 0)
+        public async Task<int> ExecuteCassetteLoadingAsync(CancellationToken ct, bool bFine = false, int moveTimeoutMs = 0, SequenceStartMode startMode = SequenceStartMode.Resume)
         {
             try
             {
                 var sequence = new InputCassetteSequence(Context);
-                return await sequence.RunLoadingAsync(ct, BuildCassetteSequenceOptions(bFine, moveTimeoutMs)).ConfigureAwait(false);
+                return await sequence.RunLoadingAsync(ct, BuildCassetteSequenceOptions(bFine, moveTimeoutMs, startMode)).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -102,12 +102,12 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        public async Task<int> ExecuteCassetteUnloadingAsync(CancellationToken ct, bool bFine = false, int moveTimeoutMs = 0)
+        public async Task<int> ExecuteCassetteUnloadingAsync(CancellationToken ct, bool bFine = false, int moveTimeoutMs = 0, SequenceStartMode startMode = SequenceStartMode.Resume)
         {
             try
             {
                 var sequence = new InputCassetteSequence(Context);
-                return await sequence.RunUnloadingAsync(ct, BuildCassetteSequenceOptions(bFine, moveTimeoutMs)).ConfigureAwait(false);
+                return await sequence.RunUnloadingAsync(ct, BuildCassetteSequenceOptions(bFine, moveTimeoutMs, startMode)).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -189,7 +189,7 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private InputCassetteSequenceOptions BuildCassetteSequenceOptions(bool bFine, int moveTimeoutMs)
+        private InputCassetteSequenceOptions BuildCassetteSequenceOptions(bool bFine, int moveTimeoutMs, SequenceStartMode startMode)
         {
             try
             {
@@ -197,6 +197,7 @@ namespace QMC.CDT320.Sequencing
                 options.FineMove = bFine;
                 options.MoveTimeoutMs = moveTimeoutMs;
                 options.RunMode = Mode;
+                options.StartMode = startMode;
                 return options;
             }
             catch
