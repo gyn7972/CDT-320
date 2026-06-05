@@ -31,9 +31,6 @@ namespace QMC.Vision.Ui.Pages
         private readonly Dictionary<string, int> _maxPowerByPort = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, InspectionLightSetting> _carry = new Dictionary<string, InspectionLightSetting>();
 
-        // [임시 라이브 튜닝] 블록1/4 — 라이브 튜닝 패널 (제거: 이 필드 + BuildLayout 3줄 + CollectRowsForLiveTuning + LightLiveTuningPanel 파일 2개 + csproj 2엔트리 삭제)
-        private QMC.Vision.Ui.Controls.LightLiveTuningPanel _liveTuning;
-
         public InspectionLightPanel()
         {
             if (LicenseManager.UsageMode == LicenseUsageMode.Designtime) return;
@@ -104,35 +101,6 @@ namespace QMC.Vision.Ui.Pages
             _grid.DataError += (s, e) => { e.ThrowException = false; };
             Controls.Add(_grid);
             Controls.SetChildIndex(_grid, 0);
-
-            // [임시 라이브 튜닝] 블록2 — 우측 220px 패널 (제거 시 이 3줄 삭제)
-            _liveTuning = new QMC.Vision.Ui.Controls.LightLiveTuningPanel { Dock = DockStyle.Right, Width = 220 };
-            _liveTuning.Initialize(CollectRowsForLiveTuning);
-            Controls.Add(_liveTuning);
-        }
-
-        // [임시 라이브 튜닝] 블록3 — 라이브 튜닝용 현재값 콜백 (제거 시 함께 삭제)
-        private System.Collections.Generic.IEnumerable<QMC.Vision.Ui.Controls.LightLiveTuningPanel.TuningRow>
-                CollectRowsForLiveTuning()
-        {
-            foreach (DataGridViewRow r in _grid.Rows)
-            {
-                if (r.IsNewRow) continue;
-                string port = r.Tag as string;    // BindFields 에서 ControllerPort 를 Tag 에 저장 (line 178 부근)
-                if (string.IsNullOrEmpty(port)) continue;
-
-                int ch = 0, lvl = 0;
-                try { ch  = Convert.ToInt32(r.Cells["Channel"].Value); } catch { }
-                try { lvl = Convert.ToInt32(r.Cells["Level"].Value);   } catch { }
-                if (ch <= 0) continue;
-
-                yield return new QMC.Vision.Ui.Controls.LightLiveTuningPanel.TuningRow
-                {
-                    ControllerPort = port,
-                    Channel        = ch,
-                    Level          = lvl
-                };
-            }
         }
 
         // ── Setup 결선 조회 ──
