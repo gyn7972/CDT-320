@@ -248,8 +248,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             var L = new List<TeachItem>();
 
             // ── InputLoader ────────────────────────────────────────────
-            L.Add(new TeachItem { Group="InputLoader", Key="FirstSlotPosition",   Name="첫 슬롯 Z 위치",        Axis="#00 WaferLifterZ", Value=10.0,  Unit="mm",  Desc= "카세트 슬롯 0번 WaferLifterZ 절대 위치" });
-            L.Add(new TeachItem { Group="InputLoader", Key="ExchangePositionY",   Name="교환 Y 위치",            Axis="#01 WaferFeederY", Value=150.0, Unit="mm",  Desc="피더가 InputStage 입구로 전진하는 Y" });
+            L.Add(new TeachItem { Group="InputLoader", Key="FirstSlotPosition",   Name="첫 슬롯 Z 위치",        Axis="#00 InputLifterZ", Value=10.0,  Unit="mm",  Desc= "카세트 슬롯 0번 InputLifterZ 절대 위치" });
+            L.Add(new TeachItem { Group="InputLoader", Key="ExchangePositionY",   Name="교환 Y 위치",            Axis="#01 InputFeederY", Value=150.0, Unit="mm",  Desc="피더가 InputStage 입구로 전진하는 Y" });
 
             // ── InputStage ─────────────────────────────────────────────
             L.Add(new TeachItem { Group="InputStage",  Key="ExpanderDownPosition",Name="ExpanderZ Down",        Axis="#04 WaferExpandingZ", Value=50.0, Unit="mm", Desc="테이프 텐션 확보 위치" });
@@ -319,20 +319,20 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             L.Add(new TeachItem { Group="TPU.Rear",    Key="SideY0",              Name="Rear Side Vision Y0",   Axis="#20 RearSideVisionY0",  Value=0.0, Unit="mm", Desc="Rear Side 카메라 베이스" });
 
             // ── OutputStage ────────────────────────────────────────────
-            L.Add(new TeachItem { Group="OutputStage", Key="StageBasePositionY",     Name="StageY 기준 Y",       Axis="#31 BinGoodY / #33 BinNgY", Value=200.0, Unit="mm", Desc="Place 시 StageY 기준" });
-            L.Add(new TeachItem { Group="OutputStage", Key="WorkPositionZ",          Name="Work Z (상승)",       Axis="#32 BinGoodZ",          Value=80.0,  Unit="mm", Desc="다이 받을 때 StageZ 상승" });
-            L.Add(new TeachItem { Group="OutputStage", Key="AvoidPositionZ",         Name="Avoid Z (하강)",      Axis="#32 BinGoodZ",          Value=0.0,   Unit="mm", Desc="반대편 작업 시 회피 위치" });
-            L.Add(new TeachItem { Group="OutputStage", Key="BinCameraWorkPositionX", Name="BinCamera Work X",    Axis="#34 BinVisionX", Value=200.0, Unit="mm", Desc="Bin 검사 위치" });
-            L.Add(new TeachItem { Group="OutputStage", Key="BinCameraRetractX",      Name="BinCamera Retract X", Axis="#34 BinVisionX", Value=0.0,   Unit="mm", Desc="후퇴(대기) 위치" });
+            L.Add(new TeachItem { Group="OutputStage", Key="StageBasePositionY",     Name="StageY 기준 Y",       Axis="#31 OutputGoodStageY / #33 OutputNGStageY", Value=200.0, Unit="mm", Desc="Place 시 StageY 기준" });
+            L.Add(new TeachItem { Group="OutputStage", Key="WorkPositionZ",          Name="Work Z (상승)",       Axis="#32 OutputGoodStageZ",          Value=80.0,  Unit="mm", Desc="다이 받을 때 StageZ 상승" });
+            L.Add(new TeachItem { Group="OutputStage", Key="AvoidPositionZ",         Name="Avoid Z (하강)",      Axis="#32 OutputGoodStageZ",          Value=0.0,   Unit="mm", Desc="반대편 작업 시 회피 위치" });
+            L.Add(new TeachItem { Group="OutputStage", Key="BinCameraWorkPositionX", Name="BinCamera Work X",    Axis="#34 OutputVisionX", Value=200.0, Unit="mm", Desc="Bin 검사 위치" });
+            L.Add(new TeachItem { Group="OutputStage", Key="BinCameraRetractX",      Name="BinCamera Retract X", Axis="#34 OutputVisionX", Value=0.0,   Unit="mm", Desc="후퇴(대기) 위치" });
 
             // ── OutputCassette / OutputFeeder ─────────────────────────
-            L.Add(new TeachItem { Group="OutputCassette", Key="NgFirstSlotPositionZ",    Name="NG Slot 0 Z",           Axis="#36 BinLifterZ",  Value=20.0,   Unit="mm", Desc="NG 카세트 첫 슬롯" });
-            L.Add(new TeachItem { Group="OutputCassette", Key="Good1FirstSlotPositionZ", Name="Good1 Slot 0 Z",        Axis="#36 BinLifterZ",  Value=80.0,   Unit="mm", Desc="Good1 카세트 첫 슬롯" });
-            L.Add(new TeachItem { Group="OutputCassette", Key="Good2FirstSlotPositionZ", Name="Good2 Slot 0 Z",        Axis="#36 BinLifterZ",  Value=160.0,  Unit="mm", Desc="Good2 카세트 첫 슬롯" });
-            L.Add(new TeachItem { Group="OutputCassette", Key="SlotPitchZ",              Name="슬롯 피치 Z",            Axis="#36 BinLifterZ",  Value=6.0,    Unit="mm", Desc="슬롯 간 간격" });
-            L.Add(new TeachItem { Group="OutputFeeder", Key="NgStageExchangePositionY",  Name="NG 교환 Y",             Axis="#35 BinFeederY",  Value=180.0,  Unit="mm", Desc="NG 카세트 인계 Y" });
-            L.Add(new TeachItem { Group="OutputFeeder", Key="GoodStageExchangePositionY",Name="Good 교환 Y",           Axis="#35 BinFeederY",  Value=180.0,  Unit="mm", Desc="Good 카세트 인계 Y" });
-            L.Add(new TeachItem { Group="OutputFeeder", Key="CassetteInsertPositionY",   Name="카세트 삽입 Y",         Axis="#35 BinFeederY",  Value=250.0,  Unit="mm", Desc="카세트 안쪽 진입 위치" });
+            L.Add(new TeachItem { Group="OutputCassette", Key="NgFirstSlotPositionZ",    Name="NG Slot 0 Z",           Axis="#36 OutputLifterZ",  Value=20.0,   Unit="mm", Desc="NG 카세트 첫 슬롯" });
+            L.Add(new TeachItem { Group="OutputCassette", Key="Good1FirstSlotPositionZ", Name="Good1 Slot 0 Z",        Axis="#36 OutputLifterZ",  Value=80.0,   Unit="mm", Desc="Good1 카세트 첫 슬롯" });
+            L.Add(new TeachItem { Group="OutputCassette", Key="Good2FirstSlotPositionZ", Name="Good2 Slot 0 Z",        Axis="#36 OutputLifterZ",  Value=160.0,  Unit="mm", Desc="Good2 카세트 첫 슬롯" });
+            L.Add(new TeachItem { Group="OutputCassette", Key="SlotPitchZ",              Name="슬롯 피치 Z",            Axis="#36 OutputLifterZ",  Value=6.0,    Unit="mm", Desc="슬롯 간 간격" });
+            L.Add(new TeachItem { Group="OutputFeeder", Key="NgStageExchangePositionY",  Name="NG 교환 Y",             Axis="#35 OutputFeederY",  Value=180.0,  Unit="mm", Desc="NG 카세트 인계 Y" });
+            L.Add(new TeachItem { Group="OutputFeeder", Key="GoodStageExchangePositionY",Name="Good 교환 Y",           Axis="#35 OutputFeederY",  Value=180.0,  Unit="mm", Desc="Good 카세트 인계 Y" });
+            L.Add(new TeachItem { Group="OutputFeeder", Key="CassetteInsertPositionY",   Name="카세트 삽입 Y",         Axis="#35 OutputFeederY",  Value=250.0,  Unit="mm", Desc="카세트 안쪽 진입 위치" });
 
             return L;
         }
@@ -679,7 +679,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             catch { return 0; }
         }
 
-        // 축 이름 ("#09 FrontPickerX" 또는 "#31 BinGoodY / #33 BinNgY") 으로부터
+        // 축 이름 ("#09 FrontPickerX" 또는 "#31 OutputGoodStageY / #33 OutputNGStageY") 으로부터
         // 첫 번째 매칭 축의 Actual Position 반환 — 단순 매칭 (이름 substring).
         private static double ResolveAxisActualPos(CDT320_Machine m, string axisLabel)
         {

@@ -536,10 +536,10 @@ namespace QMC.CDT320.Ajin
                 if (Contains(name, "WaferStage") || Contains(name, "Reticle") || Contains(name, "Needle") || Contains(name, "Eject")) return "WaferStage";
                 if (Contains(name, "FrontPicker")) return "FrontPicker";
                 if (Contains(name, "RearPicker")) return "RearPicker";
-                if (Contains(name, "NgBin") || Contains(name, "NGBin")) return "BinStage";
-                if (Contains(name, "GoodBin")) return "BinStage";
-                if (Contains(name, "BinFeeder") || Contains(name, "OutputFeeder")) return "BinFeeder";
-                if (Contains(name, "BinLifter") || Contains(name, "BinCassette")) return "BinCassette";
+                if (Contains(name, "NgBin") || Contains(name, "NGBin")) return "OutputStage";
+                if (Contains(name, "GoodBin")) return "OutputStage";
+                if (Contains(name, "OutputFeeder") || Contains(name, "OutputFeeder")) return "OutputFeeder";
+                if (Contains(name, "BinLifter") || Contains(name, "OutputCassette")) return "OutputCassette";
                 if (Contains(name, "Vision") || Contains(name, "Camera") || Contains(name, "Light")) return "Vision";
                 if (Contains(name, "Lamp") || Contains(name, "Buzzer") || Contains(name, "Button") || Contains(name, "Emg")) return "OperationPanel";
                 if (Contains(name, "Door") || Contains(name, "CDA") || Contains(name, "Vacuum") || Contains(name, "Ionizer")) return "Utility";

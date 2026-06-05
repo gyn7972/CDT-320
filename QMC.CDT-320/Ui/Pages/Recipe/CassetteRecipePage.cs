@@ -161,8 +161,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             _waferCassette = machine.InputCassette;
             _binCassette = machine.OutputCassette;
             _activeAxis = _isOutputCassette
-                ? (_binCassette != null ? _binCassette.BinLifterZ : null)
-                : (_waferCassette != null ? _waferCassette.WaferLifterZ : null);
+                ? (_binCassette != null ? _binCassette.OutputLifterZ : null)
+                : (_waferCassette != null ? _waferCassette.InputLifterZ : null);
             BindJogAxes();
 
             if (_isOutputCassette)
@@ -227,14 +227,14 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             lblOptStageKey.Text = "Axis State";
             lblWaitKey.Text = "Move Timeout";
 
-            lblOptLoadingZVal.Text = FormatAxis(_waferCassette.Recipe.AvoidPosition, _waferCassette.WaferLifterZ);
-            lblOptUnloadingZVal.Text = FormatAxis(_waferCassette.Recipe.FirstSlotPosition, _waferCassette.WaferLifterZ);
-            lblOptReadyPosVal.Text = FormatAxis(_waferCassette.Recipe.MappingStartPosition, _waferCassette.WaferLifterZ);
-            lblOptMappingZVal.Text = FormatAxis(_waferCassette.Recipe.MappingEndPosition, _waferCassette.WaferLifterZ);
-            lblOptSlotPitchVal.Text = FormatAxis(_waferCassette.Config.SlotPitch, _waferCassette.WaferLifterZ);
+            lblOptLoadingZVal.Text = FormatAxis(_waferCassette.Recipe.AvoidPosition, _waferCassette.InputLifterZ);
+            lblOptUnloadingZVal.Text = FormatAxis(_waferCassette.Recipe.FirstSlotPosition, _waferCassette.InputLifterZ);
+            lblOptReadyPosVal.Text = FormatAxis(_waferCassette.Recipe.MappingStartPosition, _waferCassette.InputLifterZ);
+            lblOptMappingZVal.Text = FormatAxis(_waferCassette.Recipe.MappingEndPosition, _waferCassette.InputLifterZ);
+            lblOptSlotPitchVal.Text = FormatAxis(_waferCassette.Config.SlotPitch, _waferCassette.InputLifterZ);
             lblOptCassetteGapVal.Text = _waferCassette.Config.SlotCount.ToString();
-            lblOptInchVal.Text = FormatAxis(_waferCassette.WaferLifterZ.ActualPosition, _waferCassette.WaferLifterZ);
-            lblOptStageVal.Text = AxisState(_waferCassette.WaferLifterZ);
+            lblOptInchVal.Text = FormatAxis(_waferCassette.InputLifterZ.ActualPosition, _waferCassette.InputLifterZ);
+            lblOptStageVal.Text = AxisState(_waferCassette.InputLifterZ);
             lblWaitVal.Text = _waferCassette.ResolveWaferLifterZMoveTimeoutMs() + " ms";
 
             dotSensor1.IsOn = _waferCassette.IsWaferCassetteExist(8);
@@ -258,15 +258,15 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             lblOptStageKey.Text = "Axis State";
             lblWaitKey.Text = "Move Timeout";
 
-            lblOptLoadingZVal.Text = FormatAxis(_binCassette.Recipe.AvoidPosition, _binCassette.BinLifterZ);
-            lblOptUnloadingZVal.Text = FormatAxis(_binCassette.Recipe.NGFirstSlotPosition, _binCassette.BinLifterZ);
-            lblOptReadyPosVal.Text = FormatAxis(_binCassette.Recipe.GoodFirstSlotPosition, _binCassette.BinLifterZ);
-            lblOptMappingZVal.Text = FormatAxis(_binCassette.Recipe.GoodFirstSlotPosition + _binCassette.Config.GOODNGPositionOffset, _binCassette.BinLifterZ);
-            lblOptSlotPitchVal.Text = FormatAxis(_binCassette.Config.SlotPitch, _binCassette.BinLifterZ);
+            lblOptLoadingZVal.Text = FormatAxis(_binCassette.Recipe.AvoidPosition, _binCassette.OutputLifterZ);
+            lblOptUnloadingZVal.Text = FormatAxis(_binCassette.Recipe.NGFirstSlotPosition, _binCassette.OutputLifterZ);
+            lblOptReadyPosVal.Text = FormatAxis(_binCassette.Recipe.GoodFirstSlotPosition, _binCassette.OutputLifterZ);
+            lblOptMappingZVal.Text = FormatAxis(_binCassette.Recipe.GoodFirstSlotPosition + _binCassette.Config.GOODNGPositionOffset, _binCassette.OutputLifterZ);
+            lblOptSlotPitchVal.Text = FormatAxis(_binCassette.Config.SlotPitch, _binCassette.OutputLifterZ);
             lblOptCassetteGapVal.Text = _binCassette.Config.SlotCount.ToString();
-            lblOptInchVal.Text = FormatAxis(_binCassette.BinLifterZ.ActualPosition, _binCassette.BinLifterZ);
-            lblOptStageVal.Text = AxisState(_binCassette.BinLifterZ);
-            lblWaitVal.Text = _binCassette.BinLifterZ.Setup.MoveTimeoutMs + " ms";
+            lblOptInchVal.Text = FormatAxis(_binCassette.OutputLifterZ.ActualPosition, _binCassette.OutputLifterZ);
+            lblOptStageVal.Text = AxisState(_binCassette.OutputLifterZ);
+            lblWaitVal.Text = _binCassette.OutputLifterZ.Setup.MoveTimeoutMs + " ms";
 
             dotSensor1.IsOn = _binCassette.IsBinCassetteExist(TargetCassette.Good1, 8) ||
                               _binCassette.IsBinCassetteExist(TargetCassette.Good2, 8);

@@ -8,19 +8,19 @@ namespace QMC.CDT320.Interlocks
             if (request == null || request.Machine == null)
                 return true;
 
-            if (MotionGuardRuleHelpers.IsMoving(request, "BinGoodY", "GoodBinY", "GoodStage_StageY"))
+            if (MotionGuardRuleHelpers.IsMoving(request, "OutputGoodStageY", "GoodBinY", "OutputGoodStageY"))
                 return VerifyBinGoodY(request, out reason);
 
-            if (MotionGuardRuleHelpers.IsMoving(request, "BinGoodZ", "GoodBinZ", "GoodStage_StageZ"))
+            if (MotionGuardRuleHelpers.IsMoving(request, "OutputGoodStageZ", "GoodBinZ", "OutputGoodStageZ"))
                 return VerifyBinGoodZ(request, out reason);
 
-            if (MotionGuardRuleHelpers.IsMoving(request, "BinNgY", "NgBinY", "NgStage_StageY"))
+            if (MotionGuardRuleHelpers.IsMoving(request, "OutputNGStageY", "NgBinY", "OutputNGStageY"))
                 return VerifyBinNgY(request, out reason);
 
             if (MotionGuardRuleHelpers.IsMoving(request, "BinNgZ", "NgBinZ", "NgStage_StageZ"))
                 return VerifyBinNgZ(request, out reason);
 
-            if (MotionGuardRuleHelpers.IsMoving(request, "BinVisionX", "OutputStage_BinCameraX"))
+            if (MotionGuardRuleHelpers.IsMoving(request, "OutputVisionX", "OutputVisionX"))
                 return VerifyBinVisionX(request, out reason);
 
             return true;

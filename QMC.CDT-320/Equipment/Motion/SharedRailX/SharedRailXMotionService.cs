@@ -35,7 +35,7 @@ namespace QMC.CDT320.Motion.SharedRailX
             Add(list, SharedRailXAxis.WaferVisionX, _machine.InputStage != null ? _machine.InputStage.CameraX : null);
             Add(list, SharedRailXAxis.FrontPickerX, _machine.PickerFront != null ? _machine.PickerFront.PickerX : null);
             Add(list, SharedRailXAxis.RearPickerX, _machine.PickerRear != null ? _machine.PickerRear.PickerX : null);
-            Add(list, SharedRailXAxis.BinVisionX, _machine.OutputStage != null ? _machine.OutputStage.BinCameraX : null);
+            Add(list, SharedRailXAxis.OutputVisionX, _machine.OutputStage != null ? _machine.OutputStage.BinCameraX : null);
             return list;
         }
 
@@ -296,21 +296,21 @@ namespace QMC.CDT320.Motion.SharedRailX
 
             using (SharedRailXMotionRuntime.EnterInternalDispatch())
             {
-                foreach (SharedRailXTarget target in targets)
-                {
+            foreach (SharedRailXTarget target in targets)
+            {
                     SharedRailXAxisSetting setting;
                     settingMap.TryGetValue(target.Axis, out setting);
-                    if (setting == null || setting.Axis == null)
-                        return RaiseBlocked("SharedRailX target axis is not mapped. axis=" + target.Axis);
+                if (setting == null || setting.Axis == null)
+                    return RaiseBlocked("SharedRailX target axis is not mapped. axis=" + target.Axis);
 
-                    double velocity = target.Velocity.HasValue ? target.Velocity.Value : plan.Velocity;
-                    tasks.Add(setting.Axis.MoveAbsoluteAsync(target.TargetPosition, velocity));
-                }
-
-                int[] results = await Task.WhenAll(tasks);
-                int fail = results.FirstOrDefault(x => x != 0);
-                return fail;
+                double velocity = target.Velocity.HasValue ? target.Velocity.Value : plan.Velocity;
+                tasks.Add(setting.Axis.MoveAbsoluteAsync(target.TargetPosition, velocity));
             }
+
+            int[] results = await Task.WhenAll(tasks);
+            int fail = results.FirstOrDefault(x => x != 0);
+            return fail;
+        }
         }
 
         private void Add(List<SharedRailXAxisSetting> list, SharedRailXAxis railAxis, BaseAxis axis)

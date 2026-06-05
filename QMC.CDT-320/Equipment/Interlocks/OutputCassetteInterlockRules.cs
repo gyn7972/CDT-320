@@ -8,7 +8,7 @@ namespace QMC.CDT320.Interlocks
             if (request == null || request.Machine == null)
                 return true;
 
-            if (MotionGuardRuleHelpers.IsMoving(request, "BinLifterZ", "ElevatorZ_Output", "OutputUnloader_ElevatorZ"))
+            if (MotionGuardRuleHelpers.IsMoving(request, "OutputLifterZ", "ElevatorZ_Output", "OutputLifterZ"))
                 return VerifyBinLifterZ(request, out reason);
 
             return true;

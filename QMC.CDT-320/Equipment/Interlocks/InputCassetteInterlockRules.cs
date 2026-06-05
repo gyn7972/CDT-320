@@ -11,7 +11,7 @@ namespace QMC.CDT320.Interlocks
             if (request == null || request.Machine == null)
                 return true;
 
-            if (MotionGuardRuleHelpers.IsMoving(request, "WaferLifterZ"))
+            if (MotionGuardRuleHelpers.IsMoving(request, "InputLifterZ"))
                 return CanMoveWaferLifterZ(request.Machine, request.TargetValue, request.MoveKind, out reason);
 
             return true;
@@ -34,26 +34,24 @@ namespace QMC.CDT320.Interlocks
 
             if (!IsWaferFeederYSafeForWaferLifterZ(feeder))
                 return MotionGuardRuleHelpers.Block(
-                    "WaferLifterZ",
-                    "WaferFeederY must be at a cassette-side safe teaching position before WaferLifterZ move/home.",
+                    "InputLifterZ",
+                    "InputFeederY must be at a cassette-side safe teaching position before InputLifterZ move/home.",
                     out reason);
 
-            // 아래 실린더 조건 필요없음.
-            //if (!IsFeederDown(feeder))
-            //    return Block("WaferLifterZ", "InputFeederLift must be Down before WaferLifterZ move/home.", out reason);
-            //if (!IsFeederClamp(feeder))
-            //    return Block("WaferLifterZ", "InputFeederClamp must be Clamp before WaferLifterZ move/home.", out reason);
-
+            
             return true;
         }
 
         private static bool IsWaferFeederYSafeForWaferLifterZ(InputFeederUnit feeder)
         {
             if (feeder == null || feeder.FeederY == null)
+            {
                 return true;
+            }
 
             return feeder.IsWaferFeederYInAvoidPosition()
-                || feeder.IsWaferFeederYInExchangePosition();
+                || feeder.IsWaferFeederYInExchangePosition()
+                || feeder.IsWaferFeederYInHomePosition(); // 실제로 초기화 위치가 안전한지 실장비에서 확인 필요.
         }
 
         private static bool IsFeederDown(InputFeederUnit feeder)

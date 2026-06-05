@@ -126,8 +126,8 @@ namespace QMC.CDT320
             var m = _machine;
 
             // Input side (0~7)
-            _axisMap[m.InputCassette.WaferLifterZ] = 0;   // WaferLifterZ
-            _axisMap[m.InputFeeder.FeederY]        = 1;   // WaferFeederY
+            _axisMap[m.InputCassette.InputLifterZ] = 0;   // InputLifterZ
+            _axisMap[m.InputFeeder.FeederY]        = 1;   // InputFeederY
             _axisMap[m.InputStage.StageY]        = 2;   // WaferStageY
             _axisMap[m.InputStage.StageT]        = 3;   // WaferStageT
             _axisMap[m.InputStage.ExpanderZ]     = 4;   // WaferExpandingZ
@@ -162,12 +162,12 @@ namespace QMC.CDT320
             _axisMap[right.SideVisionY] = 20;   // REAR  SIDE VISION_Y0
 
             // Output side (31~36)
-            _axisMap[m.OutputStage.GoodStage.StageY] = 31;   // BinGoodY
-            _axisMap[m.OutputStage.GoodStage.StageZ] = 32;   // BinGoodZ
-            _axisMap[m.OutputStage.NgStage.StageY]   = 33;   // BinNgY
-            _axisMap[m.OutputStage.BinCameraX]       = 34;   // BinVisionX
-            _axisMap[m.OutputFeeder.FeederY]         = 35;   // BinFeederY
-            _axisMap[m.OutputCassette.BinLifterZ]    = 36;   // BinLifterZ
+            _axisMap[m.OutputStage.GoodStage.StageY] = 31;   // OutputGoodStageY
+            _axisMap[m.OutputStage.GoodStage.StageZ] = 32;   // OutputGoodStageZ
+            _axisMap[m.OutputStage.NgStage.StageY]   = 33;   // OutputNGStageY
+            _axisMap[m.OutputStage.BinCameraX]       = 34;   // OutputVisionX
+            _axisMap[m.OutputFeeder.FeederY]         = 35;   // OutputFeederY
+            _axisMap[m.OutputCassette.OutputLifterZ]    = 36;   // OutputLifterZ
 
             // ─── DO 매핑 ──────────────────────────────
             _doMap[m.InputStage.NeedleVacuum] = "Y046";

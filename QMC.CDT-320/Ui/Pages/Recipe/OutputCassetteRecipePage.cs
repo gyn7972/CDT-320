@@ -199,15 +199,15 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             if (_binCassette == null)
                 return;
 
-            lblOptAvoidVal.Text = FormatAxis(_binCassette.Recipe.AvoidPosition, _binCassette.BinLifterZ);
-            lblOptNgSlotVal.Text = FormatAxis(_binCassette.Recipe.NGFirstSlotPosition, _binCassette.BinLifterZ);
-            lblOptGood1SlotVal.Text = FormatAxis(_binCassette.Recipe.GoodFirstSlotPosition, _binCassette.BinLifterZ);
-            lblOptGood2SlotVal.Text = FormatAxis(_binCassette.Recipe.GoodFirstSlotPosition + _binCassette.Config.GOODNGPositionOffset, _binCassette.BinLifterZ);
-            lblOptSlotPitchVal.Text = FormatAxis(_binCassette.Config.SlotPitch, _binCassette.BinLifterZ);
+            lblOptAvoidVal.Text = FormatAxis(_binCassette.Recipe.AvoidPosition, _binCassette.OutputLifterZ);
+            lblOptNgSlotVal.Text = FormatAxis(_binCassette.Recipe.NGFirstSlotPosition, _binCassette.OutputLifterZ);
+            lblOptGood1SlotVal.Text = FormatAxis(_binCassette.Recipe.GoodFirstSlotPosition, _binCassette.OutputLifterZ);
+            lblOptGood2SlotVal.Text = FormatAxis(_binCassette.Recipe.GoodFirstSlotPosition + _binCassette.Config.GOODNGPositionOffset, _binCassette.OutputLifterZ);
+            lblOptSlotPitchVal.Text = FormatAxis(_binCassette.Config.SlotPitch, _binCassette.OutputLifterZ);
             lblOptSlotCountVal.Text = _binCassette.Config.SlotCount.ToString();
-            lblOptActualVal.Text = FormatAxis(_binCassette.BinLifterZ.ActualPosition, _binCassette.BinLifterZ);
-            lblOptAxisStateVal.Text = AxisState(_binCassette.BinLifterZ);
-            lblWaitVal.Text = _binCassette.BinLifterZ.Setup.MoveTimeoutMs + " ms";
+            lblOptActualVal.Text = FormatAxis(_binCassette.OutputLifterZ.ActualPosition, _binCassette.OutputLifterZ);
+            lblOptAxisStateVal.Text = AxisState(_binCassette.OutputLifterZ);
+            lblWaitVal.Text = _binCassette.OutputLifterZ.Setup.MoveTimeoutMs + " ms";
 
             dotGoodCassette.IsOn = _binCassette.IsBinCassetteExist(TargetCassette.Good1, 8) ||
                                    _binCassette.IsBinCassetteExist(TargetCassette.Good2, 8);

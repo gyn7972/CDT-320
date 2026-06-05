@@ -21,8 +21,8 @@ namespace QMC.Common.Motion
         public static readonly IReadOnlyDictionary<int, Params> Table = new Dictionary<int, Params>
         {
             //  No                              DefVel   Accel    Decel    HomeVel  JogCoarse JogFine
-            {  0, new Params { DefaultVelocity= 100, Acceleration=  1000, Deceleration=  1000, HomeVelocity= 200, JogCoarse= 50, JogFine= 5 } }, // WaferLifterZ
-            {  1, new Params { DefaultVelocity= 100, Acceleration=  1000, Deceleration=  1000, HomeVelocity= 200, JogCoarse= 50, JogFine= 5 } }, // WaferFeederY
+            {  0, new Params { DefaultVelocity= 100, Acceleration=  1000, Deceleration=  1000, HomeVelocity= 200, JogCoarse= 50, JogFine= 5 } }, // InputLifterZ
+            {  1, new Params { DefaultVelocity= 100, Acceleration=  1000, Deceleration=  1000, HomeVelocity= 200, JogCoarse= 50, JogFine= 5 } }, // InputFeederY
             {  2, new Params { DefaultVelocity= 500, Acceleration=  5000, Deceleration=  5000, HomeVelocity= 200, JogCoarse= 50, JogFine= 5 } }, // WaferStageY
             {  3, new Params { DefaultVelocity= 100, Acceleration=  1000, Deceleration=  1000, HomeVelocity= 200, JogCoarse= 50, JogFine= 5 } }, // WaferStageT
             {  4, new Params { DefaultVelocity=  50, Acceleration=   500, Deceleration=   500, HomeVelocity= 200, JogCoarse= 50, JogFine= 5 } }, // WaferExpandingZ
@@ -52,12 +52,12 @@ namespace QMC.Common.Motion
             { 28, new Params { DefaultVelocity=1000, Acceleration= 10000, Deceleration= 10000, HomeVelocity= 200, JogCoarse= 50, JogFine= 5 } }, // RearPickerZ2
             { 29, new Params { DefaultVelocity=36000,Acceleration=360000, Deceleration=360000, HomeVelocity= 200, JogCoarse= 50, JogFine= 5 } }, // RearPickerT3
             { 30, new Params { DefaultVelocity=1000, Acceleration= 10000, Deceleration= 10000, HomeVelocity= 200, JogCoarse= 50, JogFine= 5 } }, // RearPickerZ3
-            { 31, new Params { DefaultVelocity= 500, Acceleration=  5000, Deceleration=  5000, HomeVelocity= 200, JogCoarse= 50, JogFine= 5 } }, // BinGoodY
-            { 32, new Params { DefaultVelocity= 100, Acceleration=  1000, Deceleration=  1000, HomeVelocity= 200, JogCoarse= 50, JogFine= 5 } }, // BinGoodZ
-            { 33, new Params { DefaultVelocity= 500, Acceleration=  5000, Deceleration=  5000, HomeVelocity= 200, JogCoarse= 50, JogFine= 5 } }, // BinNgY
-            { 34, new Params { DefaultVelocity= 100, Acceleration=  1000, Deceleration=  1000, HomeVelocity= 200, JogCoarse= 50, JogFine= 5 } }, // BinVisionX
-            { 35, new Params { DefaultVelocity= 100, Acceleration=  1000, Deceleration=  1000, HomeVelocity= 200, JogCoarse= 50, JogFine= 5 } }, // BinFeederY
-            { 36, new Params { DefaultVelocity= 100, Acceleration=  1000, Deceleration=  1000, HomeVelocity= 200, JogCoarse= 50, JogFine= 5 } }, // BinLifterZ
+            { 31, new Params { DefaultVelocity= 500, Acceleration=  5000, Deceleration=  5000, HomeVelocity= 200, JogCoarse= 50, JogFine= 5 } }, // OutputGoodStageY
+            { 32, new Params { DefaultVelocity= 100, Acceleration=  1000, Deceleration=  1000, HomeVelocity= 200, JogCoarse= 50, JogFine= 5 } }, // OutputGoodStageZ
+            { 33, new Params { DefaultVelocity= 500, Acceleration=  5000, Deceleration=  5000, HomeVelocity= 200, JogCoarse= 50, JogFine= 5 } }, // OutputNGStageY
+            { 34, new Params { DefaultVelocity= 100, Acceleration=  1000, Deceleration=  1000, HomeVelocity= 200, JogCoarse= 50, JogFine= 5 } }, // OutputVisionX
+            { 35, new Params { DefaultVelocity= 100, Acceleration=  1000, Deceleration=  1000, HomeVelocity= 200, JogCoarse= 50, JogFine= 5 } }, // OutputFeederY
+            { 36, new Params { DefaultVelocity= 100, Acceleration=  1000, Deceleration=  1000, HomeVelocity= 200, JogCoarse= 50, JogFine= 5 } }, // OutputLifterZ
         };
 
         /// <summary>축 번호로 파라미터 조회. 없으면 default Params 반환.</summary>

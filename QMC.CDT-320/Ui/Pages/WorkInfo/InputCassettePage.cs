@@ -226,11 +226,11 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 if (cassette == null || feeder == null)
                     return -1;
 
-                cassette.WaferLifterZ.ResetAlarm();
-                cassette.WaferLifterZ.ServoOn();
+                cassette.InputLifterZ.ResetAlarm();
+                cassette.InputLifterZ.ServoOn();
                 feeder.FeederY.ResetAlarm();
                 feeder.FeederY.ServoOn();
-                int lifterResult = await cassette.WaferLifterZ.HomeSearchAsync();
+                int lifterResult = await cassette.InputLifterZ.HomeSearchAsync();
                 if (lifterResult != 0)
                     return lifterResult;
                 return await feeder.FeederY.HomeSearchAsync();
@@ -254,7 +254,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 if (cassette == null || feeder == null)
                     return -1;
 
-                cassette.WaferLifterZ.ServoOn();
+                cassette.InputLifterZ.ServoOn();
                 feeder.FeederY.ServoOn();
                 await Task.CompletedTask;
                 return 0;
@@ -620,7 +620,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
                 if (_lifterPosLabel != null)
                 {
-                    _lifterPosLabel.Text = AxisUnitConverter.FormatDisplay(loader.WaferLifterZ.ActualPosition, loader.WaferLifterZ, "0.###", true);
+                    _lifterPosLabel.Text = AxisUnitConverter.FormatDisplay(loader.InputLifterZ.ActualPosition, loader.InputLifterZ, "0.###", true);
                 }
 
                 if (dotCassetteCheck1 != null)

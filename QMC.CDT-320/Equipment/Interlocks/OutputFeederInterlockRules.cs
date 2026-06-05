@@ -8,13 +8,13 @@ namespace QMC.CDT320.Interlocks
             if (request == null || request.Machine == null)
                 return true;
 
-            if (MotionGuardRuleHelpers.IsMoving(request, "BinFeederY", "FeederY_Output", "OutputUnloader_FeederY"))
+            if (MotionGuardRuleHelpers.IsMoving(request, "OutputFeederY", "FeederY_Output", "OutputFeederY"))
                 return VerifyBinFeederY(request, out reason);
 
-            if (MotionGuardRuleHelpers.IsMoving(request, "OutputFeederLift", "BinFeeder Up/Down"))
+            if (MotionGuardRuleHelpers.IsMoving(request, "OutputFeederLift", "OutputFeeder Up/Down"))
                 return VerifyOutputFeederLift(request, out reason);
 
-            if (MotionGuardRuleHelpers.IsMoving(request, "OutputFeederClamp", "BinFeeder Clamp/UnClamp"))
+            if (MotionGuardRuleHelpers.IsMoving(request, "OutputFeederClamp", "OutputFeeder Clamp/UnClamp"))
                 return VerifyOutputFeederClamp(request, out reason);
 
             return true;

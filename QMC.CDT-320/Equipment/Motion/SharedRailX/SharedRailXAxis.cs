@@ -5,6 +5,6 @@ namespace QMC.CDT320.Motion.SharedRailX
         WaferVisionX,
         FrontPickerX,
         RearPickerX,
-        BinVisionX
+        OutputVisionX
     }
 }
