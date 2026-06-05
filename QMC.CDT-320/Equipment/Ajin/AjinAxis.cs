@@ -89,12 +89,12 @@ namespace QMC.CDT320.Ajin
         {
             try
             {
+                if (UseSimulation)
+                    return await base.MoveAbsoluteAsync(targetPos, velocity);
+
                 string interlockReason;
                 if (!MotionGuardRuntime.VerifyAxisMove(this, targetPos, out interlockReason))
                     return -11;
-
-                if (UseSimulation)
-                    return await base.MoveAbsoluteAsync(targetPos, velocity);
 
                 if (!IsServoOn || IsAlarm || !AjinSystem.IsOpen)
                     return -2;
@@ -219,12 +219,12 @@ namespace QMC.CDT320.Ajin
         {
             try
             {
+                if (UseSimulation)
+                    return await base.HomeSearchAsync();
+
                 string interlockReason;
                 if (!MotionGuardRuntime.VerifyAxisHome(this, out interlockReason))
                     return -11;
-
-                if (UseSimulation)
-                    return await base.HomeSearchAsync();
 
                 if (!IsServoOn || IsAlarm || !AjinSystem.IsOpen)
                     return -2;
@@ -322,6 +322,11 @@ namespace QMC.CDT320.Ajin
                 }
 
                 if (!IsServoOn || IsAlarm || !AjinSystem.IsOpen)
+                    return;
+
+                double jogTarget = direction > 0 ? Setup.SoftLimitPlus : Setup.SoftLimitMinus;
+                string interlockReason;
+                if (!MotionGuardRuntime.VerifyAxisMove(this, jogTarget, out interlockReason))
                     return;
 
                 UpdateStatus();

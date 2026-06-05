@@ -11,7 +11,7 @@ namespace QMC.CDT320.Sim
     /// 책임:<br/>
     /// 1. <see cref="InputLoaderUnit.CassetteExistSensor"/> 기본 상태(true) 주입<br/>
     /// 2. <see cref="InputLoaderUnit.ProtrusionSensor"/> 기본 OFF<br/>
-    /// 3. ElevatorZ 이동 완료 시 현재 위치를 슬롯으로 환산하여
+    /// 3. LifterZ 이동 완료 시 현재 위치를 슬롯으로 환산하여
     ///    <see cref="InputLoaderUnit.WaferDetectSensor"/> 에 슬롯별 웨이퍼 유무를 반영<br/>
     /// 4. <see cref="InputLoaderUnit.FeederClampCyl"/> 전진/후진에 따라
     ///    <see cref="InputLoaderUnit.WaferClampedSensor"/> 토글<br/>
@@ -92,8 +92,8 @@ namespace QMC.CDT320.Sim
 
         private void HookInput()
         {
-            // ElevatorZ 이동 완료 → WaferDetectSensor 갱신
-            _inputCassette.WaferLifterZ.MoveCompleted += _ => UpdateInputDetectFromPosition();
+            // LifterZ 이동 완료 → WaferDetectSensor 갱신
+            _inputCassette.InputLifterZ.MoveCompleted += _ => UpdateInputDetectFromPosition();
 
             // FeederClampCyl InFwd ON ↔ WaferClampedSensor 동기화
             _inputFeeder.FeederClampCyl.InFwd.StateChanged += (sensor, on) =>
@@ -104,7 +104,7 @@ namespace QMC.CDT320.Sim
 
         private void UpdateInputDetectFromPosition()
         {
-            double pos   = _inputCassette.WaferLifterZ.ActualPosition;
+            double pos   = _inputCassette.InputLifterZ.ActualPosition;
             //double first = _input.Setup.FirstSlotPosition;
             double first = _inputCassette.Recipe.FirstSlotPosition;
             int slot = (int)Math.Round((pos - first) / InputSlotPitchMm);
@@ -116,8 +116,8 @@ namespace QMC.CDT320.Sim
 
         private void HookOutput()
         {
-            // ElevatorZ 이동 완료 → 카세트별 슬롯 위치 환산 후 WaferDetectSensor 갱신
-            _outputCassette.BinLifterZ.MoveCompleted += _ => UpdateOutputDetectFromPosition();
+            // LifterZ 이동 완료 → 카세트별 슬롯 위치 환산 후 WaferDetectSensor 갱신
+            _outputCassette.OutputLifterZ.MoveCompleted += _ => UpdateOutputDetectFromPosition();
 
             // FeederClampCyl InFwd ↔ WaferClampedSensor
             _outputFeeder.FeederClampCyl.InFwd.StateChanged += (s, on) =>
@@ -128,7 +128,7 @@ namespace QMC.CDT320.Sim
 
         private void UpdateOutputDetectFromPosition()
         {
-            double pos = _outputCassette.BinLifterZ.ActualPosition;
+            double pos = _outputCassette.OutputLifterZ.ActualPosition;
             double pitch = _outputCassette.Config.SlotPitch;
 
             // NG 카세트

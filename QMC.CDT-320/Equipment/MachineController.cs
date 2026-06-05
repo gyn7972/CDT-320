@@ -13,6 +13,7 @@ using QMC.CDT320.Lots;
 using QMC.CDT320.Materials;
 using QMC.CDT320.Alarms;
 using QMC.CDT320.Initialization;
+using QMC.CDT320.Motion.SharedRailX;
 
 namespace QMC.CDT320
 {
@@ -39,6 +40,7 @@ namespace QMC.CDT320
         private bool _isDeveloperReadyRestored;
         private readonly AxisInterferenceMap _axisInterferenceMap = AxisInterferenceMap.CreateDefault();
         private readonly AxisInitializeInterlockService _axisInitializeInterlocks;
+        public SharedRailXMotionService SharedRailX { get; private set; }
 
         public event Action<EquipmentStatus> StatusChanged;
         public event Action<string>        LogMessage;
@@ -204,9 +206,32 @@ namespace QMC.CDT320
         public MachineController(CDT320_Machine machine)
         {
             _machine = machine ?? throw new ArgumentNullException(nameof(machine));
+            SharedRailX = new SharedRailXMotionService(_machine);
             _axisInitializeInterlocks = new AxisInitializeInterlockService(_machine, EnumerateAxes);
             MotionGuardRuntime.ContextProvider = () =>
                 new MotionGuardContext(_machine, EnumerateAxes(), QMC.CDT320.Ajin.CylinderManager.Items.Values);
+            BaseAxis.MotionGuard = VerifyAxisMotionGuard;
+            QMC.Common.IO.BaseCylinder.MotionGuard = VerifyCylinderMotionGuard;
+        }
+
+        private static bool VerifyAxisMotionGuard(
+            BaseAxis axis,
+            double targetPosition,
+            AxisMotionGuardKind moveKind,
+            out string reason)
+        {
+            if (moveKind == AxisMotionGuardKind.Home)
+                return MotionGuardRuntime.VerifyAxisHome(axis, out reason);
+
+            return MotionGuardRuntime.VerifyAxisMove(axis, targetPosition, out reason);
+        }
+
+        private static bool VerifyCylinderMotionGuard(
+            QMC.Common.IO.BaseCylinder cylinder,
+            bool moveFwd,
+            out string reason)
+        {
+            return MotionGuardRuntime.VerifyCylinderMove(cylinder, moveFwd, out reason);
         }
 
         public void ApplyStartupMachineRuntimeState(AppSettings settings)
@@ -559,7 +584,7 @@ namespace QMC.CDT320
         /// <summary>
         /// InputLoader ???ㅼ쓬 ?⑥씠?쇰? InputStage 援먰솚 ?꾩튂源뚯? ?먮룞 吏꾪뻾.<br/>
         /// 1) WaferMap ??鍮꾩뼱 ?덉쑝硫?ScanCassetteAsync 濡?留ㅽ븨<br/>
-        /// 2) <see cref="CurrentInputSlot"/> ?ㅼ쓬???⑥씠??蹂댁쑀 ?щ’?쇰줈 ElevatorZ ?대룞<br/>
+        /// 2) <see cref="CurrentInputSlot"/> ?ㅼ쓬???⑥씠??蹂댁쑀 ?щ’?쇰줈 LifterZ ?대룞<br/>
         /// 3) MoveToExchangePositionAsync ?몄텧 (?쇰뜑 ?섍컯 ???대옩????Y ?꾩쭊)
         /// </summary>
         /// <returns>?ㅼ쓬 ?⑥씠???댁넚 ?깃났 ??true. 移댁꽭??鍮꾩뿀嫄곕굹 ?명꽣??李⑤떒 ??false.</returns>

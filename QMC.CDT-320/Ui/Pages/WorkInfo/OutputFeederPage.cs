@@ -66,10 +66,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             var cassette = host.Machine.OutputCassette;
             feeder.FeederY.ResetAlarm();
             feeder.FeederY.ServoOn();
-            cassette.BinLifterZ.ResetAlarm();
-            cassette.BinLifterZ.ServoOn();
+            cassette.OutputLifterZ.ResetAlarm();
+            cassette.OutputLifterZ.ServoOn();
             await feeder.FeederY.HomeSearchAsync();
-            await cassette.BinLifterZ.HomeSearchAsync();
+            await cassette.OutputLifterZ.HomeSearchAsync();
         }
 
         private void RefreshData()
@@ -80,7 +80,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             var feeder = host.Machine.OutputFeeder;
             var cassette = host.Machine.OutputCassette;
             lblFeederPos.Text = AxisUnitConverter.FormatDisplay(feeder.FeederY.ActualPosition, feeder.FeederY, "0.###", true);
-            lblElevatorPos.Text = AxisUnitConverter.FormatDisplay(cassette.BinLifterZ.ActualPosition, cassette.BinLifterZ, "0.###", true);
+            lblElevatorPos.Text = AxisUnitConverter.FormatDisplay(cassette.OutputLifterZ.ActualPosition, cassette.OutputLifterZ, "0.###", true);
             lblClamp.Text = feeder.FeederClampCyl.IsFwd ? "CLAMPED" : (feeder.FeederClampCyl.IsBwd ? "OPEN" : "...");
             lblUpDown.Text = feeder.FeederUpDownCyl.IsFwd ? "DOWN" : (feeder.FeederUpDownCyl.IsBwd ? "UP" : "...");
             dotNg.IsOn = cassette.NgBin8CassetteCheck0.IsOn;

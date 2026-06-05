@@ -496,7 +496,7 @@ namespace QMC.CDT320
 
             GoodStage  = new StageModule("GoodStage");
             NgStage    = new StageModule("NgStage");
-            BinCameraX = AjinFactory.CreateAxis("OutputStage_BinCameraX");
+            BinCameraX = AjinFactory.CreateAxis("OutputVisionX");
             // 구현 보조 주석입니다.
             BinCameraX.Setup.SoftLimitPlus = 350.0;
 

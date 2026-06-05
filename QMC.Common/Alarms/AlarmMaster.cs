@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -250,12 +250,12 @@ namespace QMC.Common.Alarms
                     TitleEn="Cassette not detected", CauseEn="Load-port cassette sensor OFF", ActionEn="Place cassette and retry",
                     ManualName="MaterialDoesNotExist", ManualLocator="DieTransfer/WaferLifter" },
                 new AlarmDefinition { Code="LOT-SCAN", Category=AlarmCategory.Motion, DefaultSeverity=AlarmSeverity.Warning,
-                    Title="카세트 스캔 실패", Cause="ElevatorZ 이동 실패 (스캔 도중)", Action="알람 클리어 후 수동 HOME, 재스캔",
-                    TitleEn="Cassette scan failed", CauseEn="ElevatorZ move failure during scan", ActionEn="Clear alarm, manual HOME, rescan",
+                    Title="카세트 스캔 실패", Cause="LifterZ 이동 실패 (스캔 도중)", Action="알람 클리어 후 수동 HOME, 재스캔",
+                    TitleEn="Cassette scan failed", CauseEn="LifterZ move failure during scan", ActionEn="Clear alarm, manual HOME, rescan",
                     ManualName="InvalidScanData", ManualLocator="DieTransfer/WaferLifter/SlotMapper" },
                 new AlarmDefinition { Code="LOT-MOVE", Category=AlarmCategory.Motion, DefaultSeverity=AlarmSeverity.Error,
-                    Title="카세트 슬롯 이동 실패", Cause="ElevatorZ 알람 또는 Protrusion 감지", Action="육안 확인 — 돌출 웨이퍼 제거",
-                    TitleEn="Cassette slot move failed", CauseEn="ElevatorZ alarm or protrusion detected", ActionEn="Visual check — remove protruding wafer",
+                    Title="카세트 슬롯 이동 실패", Cause="LifterZ 알람 또는 Protrusion 감지", Action="육안 확인 — 돌출 웨이퍼 제거",
+                    TitleEn="Cassette slot move failed", CauseEn="LifterZ alarm or protrusion detected", ActionEn="Visual check — remove protruding wafer",
                     ManualName="CannotMove", ManualLocator="DieTransfer/WaferLifter (Interlock)" },
                 new AlarmDefinition { Code="LOT-EX", Category=AlarmCategory.Material, DefaultSeverity=AlarmSeverity.Error,
                     Title="카세트 교환 위치 이동 실패", Cause="피더 클램프 미파지 또는 FeederY 알람", Action="피더 홈 복귀 후 재시도",
