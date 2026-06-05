@@ -17,6 +17,7 @@ namespace QMC.Vision.Core
 
         public event Action<GrabResult>           FrameReceived;
         public event Action<CameraConnectionEvent> ConnectionChanged;
+        public event Action                        ExposureEnded;
 
         // ─── 파라미터 기본 캐시 ───────────────────
         private double _exposureUs = 10_000;
@@ -95,6 +96,11 @@ namespace QMC.Vision.Core
         {
             var h = ConnectionChanged;
             if (h != null) try { h(ev); } catch { }
+        }
+        protected void RaiseExposureEnded()
+        {
+            var h = ExposureEnded;
+            if (h != null) try { h(); } catch { }
         }
 
         public virtual void Dispose() { try { Close(); } catch { } }

@@ -7,6 +7,8 @@ namespace QMC.Vision.Modules
     /// </summary>
     public class BinVisionModule : VisionModule
     {
+        public override string AlgorithmKey => QMC.Common.Recipes.VisionAlgorithm.Bin;
+
         public IPatternFinder Reticle           { get; }
         public IPatternFinder Die               { get; }
         public IInspector     PlacementInspector{ get; }

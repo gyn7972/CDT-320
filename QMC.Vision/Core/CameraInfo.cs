@@ -13,6 +13,8 @@ namespace QMC.Vision.Core
         /// <summary>GigE 카메라 IP. USB 이면 빈 값.</summary>
         public string IpAddress     { get; set; }
         public string MacAddress    { get; set; }
+        /// <summary>GigE 카메라의 사용자 정의 이름(chUserDefinedName). 설정 안 된 경우 빈 문자열.</summary>
+        public string UserDefinedName { get; set; }
         /// <summary>CameraTransport.GigE / USB3 / SIM</summary>
         public CameraTransport Transport { get; set; }
         public Size  MaxResolution  { get; set; }

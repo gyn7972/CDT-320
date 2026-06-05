@@ -21,6 +21,9 @@ namespace QMC.Vision.Core
         event Action<GrabResult>          FrameReceived;
         /// <summary>연결 유실 / 재연결 등 상태 이벤트.</summary>
         event Action<CameraConnectionEvent> ConnectionChanged;
+        /// <summary>센서 노출 종료 시점 (HW ExposureEnd 이벤트). 지원 카메라만 발화.
+        /// 전송 완료(FrameReceived)보다 앞서 도착하므로, 이 신호로 다음 기구 동작을 앞당길 수 있다.</summary>
+        event Action ExposureEnded;
 
         // ─── 라이프사이클 ───────────────────────────
         void Open();

@@ -1,20 +1,22 @@
 using System.Collections.Generic;
 using QMC.Vision.Cameras.Hik;
+using QMC.Vision.Cameras.Mil;
 using QMC.Vision.Cameras.Sim;
 
 namespace QMC.Vision.Core
 {
     /// <summary>
     /// 카메라 검색 + 생성. 벤더별 구현을 한 곳에서 관리.
-    /// 현재 지원: HIKVISION GigE + Sim. USB3 / Basler / Cognex 등 추후 추가.
+    /// 현재 지원: HIKVISION GigE + Matrox MIL(CL/CXP) + Sim. USB3 / Basler 등 추후 추가.
     /// </summary>
     public static class CameraFactory
     {
-        /// <summary>연결된 카메라 전체 검색 (Hik + Sim).</summary>
+        /// <summary>연결된 카메라 전체 검색 (Hik + MIL + Sim).</summary>
         public static List<CameraInfo> EnumerateAll()
         {
             var list = new List<CameraInfo>();
             list.AddRange(HikGigECamera.Enumerate());
+            list.AddRange(MilCamera.Enumerate());
             list.AddRange(SimCamera.Enumerate());
             return list;
         }
@@ -23,6 +25,7 @@ namespace QMC.Vision.Core
         public static ICamera Create(CameraInfo info)
         {
             if (info == null) return new SimCamera("Sim/0");
+            if (!string.IsNullOrEmpty(info.Id) && info.Id.StartsWith("Mil/")) return new MilCamera(info);
             switch (info.Transport)
             {
                 case CameraTransport.GigE: return new HikGigECamera(info);
@@ -36,6 +39,8 @@ namespace QMC.Vision.Core
         {
             if (string.IsNullOrEmpty(id)) return new SimCamera("Sim/0");
             if (id.StartsWith("Sim/")) return new SimCamera(id);
+            // Matrox MIL(CL/CXP): "Mil/n". MIL 미가용/카메라 없으면 Open 에서 실패 → 호출자가 Sim 으로 대체.
+            if (id.StartsWith("Mil/")) return new MilCamera(new CameraInfo { Id = id, Vendor = "Matrox", Transport = CameraTransport.CoaXPress });
 
             // HIK: 사용자가 IP(xxx.xxx.xxx.xxx) 로 지정했다고 가정.
             // SDK 로드 여부 + enum 결과로 매칭 시도.
