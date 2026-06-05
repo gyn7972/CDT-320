@@ -1,4 +1,4 @@
-namespace QMC.Common
+﻿namespace QMC.Common
 {
     /// <summary>
     /// Machine / Unit / Component 모든 계층의 공통 추상 베이스 클래스.

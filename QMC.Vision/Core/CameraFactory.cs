@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using QMC.Vision.Cameras.Hik;
 using QMC.Vision.Cameras.Mil;
 using QMC.Vision.Cameras.Sim;

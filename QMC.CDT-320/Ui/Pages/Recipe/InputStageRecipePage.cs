@@ -292,11 +292,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 var unit = _InputStageUnit;
                 return new[]
                 {
-                    ParameterGridItem.Micron("EXPANDER DOWN Z", ParameterGridScope.Setup, () => unit.Setup.ExpanderDownPosition, v => unit.Setup.ExpanderDownPosition = Math.Max(-1000.0, v)),
-                    ParameterGridItem.Micron("EXPANDER UP Z", ParameterGridScope.Setup, () => unit.Setup.ExpanderUpPosition, v => unit.Setup.ExpanderUpPosition = v),
-                    ParameterGridItem.Micron("UNLOAD STAGE Y", ParameterGridScope.Setup, () => unit.Setup.UnloadPositionY, v => unit.Setup.UnloadPositionY = v),
-                    ParameterGridItem.Micron("NEEDLE EJECT Z", ParameterGridScope.Setup, () => unit.Setup.NeedleEjectPosition, v => unit.Setup.NeedleEjectPosition = v),
-                    ParameterGridItem.Micron("NEEDLE DOWN Z", ParameterGridScope.Setup, () => unit.Setup.NeedleDownPosition, v => unit.Setup.NeedleDownPosition = v),
+                    ParameterGridItem.Micron("EXPANDER DOWN Z POSITION", ParameterGridScope.Setup, () => unit.Setup.ExpanderDownPosition, v => unit.Setup.ExpanderDownPosition = Math.Max(-1000.0, v)),
+                    ParameterGridItem.Micron("EXPANDER UP Z POSITION", ParameterGridScope.Setup, () => unit.Setup.ExpanderUpPosition, v => unit.Setup.ExpanderUpPosition = v),
+                    ParameterGridItem.Micron("UNLOAD STAGE Y POSITION", ParameterGridScope.Setup, () => unit.Setup.UnloadPositionY, v => unit.Setup.UnloadPositionY = v),
+                    ParameterGridItem.Micron("NEEDLE EJECT Z POSITION", ParameterGridScope.Setup, () => unit.Setup.NeedleEjectPosition, v => unit.Setup.NeedleEjectPosition = v),
+                    ParameterGridItem.Micron("NEEDLE DOWN Z POSITION", ParameterGridScope.Setup, () => unit.Setup.NeedleDownPosition, v => unit.Setup.NeedleDownPosition = v),
                     ParameterGridItem.Micron("PICKER OFFSET Y", ParameterGridScope.Setup, () => unit.Setup.PickerOffsetY, v => unit.Setup.PickerOffsetY = v),
                     ParameterGridItem.Micron("PICKER OFFSET X", ParameterGridScope.Setup, () => unit.Setup.PickerOffsetX, v => unit.Setup.PickerOffsetX = v),
                     ParameterGridItem.Micron("CAMERA ORIGIN X", ParameterGridScope.Setup, () => unit.Setup.CameraOriginX, v => unit.Setup.CameraOriginX = v),

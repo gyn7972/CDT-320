@@ -1,4 +1,4 @@
-# 카메라 연결 + 그랩 테스트 결과 — 2026-05-27
+﻿# 카메라 연결 + 그랩 테스트 결과 — 2026-05-27
 
 - **브랜치**: `stage-cam-conn-test`
 - **추가 파일**: `QMC.Vision\Tools\CameraConnectTest.cs`, `QMC.Vision\Program.cs` 분기, `QMC.Vision.csproj` Compile 등록

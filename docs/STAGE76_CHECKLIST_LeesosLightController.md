@@ -1,4 +1,4 @@
-# STAGE 76 — CHECKLIST: LeesOS 디지털 조명 컨트롤러 (2차 벤더)
+﻿# STAGE 76 — CHECKLIST: LeesOS 디지털 조명 컨트롤러 (2차 벤더)
 
 - **작성일**: 2026-06-02
 - **연계 SPEC**: `docs/STAGE76_SPEC_LeesosLightController.md`

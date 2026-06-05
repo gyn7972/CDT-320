@@ -38,12 +38,6 @@ namespace QMC.CDT320.Interlocks
                     "WaferFeederY must be at a cassette-side safe teaching position before WaferLifterZ move/home.",
                     out reason);
 
-            if (!IsFeederDown(feeder))
-                return Block("WaferLifterZ", "InputFeederLift must be Down before WaferLifterZ move/home.", out reason);
-
-            if (!IsFeederClamp(feeder))
-                return Block("WaferLifterZ", "InputFeederClamp must be Clamp before WaferLifterZ move/home.", out reason);
-
             return true;
         }
 

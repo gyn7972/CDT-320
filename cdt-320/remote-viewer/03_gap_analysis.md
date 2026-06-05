@@ -1,4 +1,4 @@
-# CDT-320 Gap Analysis — 원격 뷰어 (그랩 영상 송출)
+﻿# CDT-320 Gap Analysis — 원격 뷰어 (그랩 영상 송출)
 
 | Req ID | Status | Evidence in code | Notes |
 |--------|--------|------------------|-------|

@@ -1,4 +1,4 @@
-﻿﻿using QMC.CDT_320.Ui.Localization;
+﻿using QMC.CDT_320.Ui.Localization;
 using QMC.CDT_320.Ui.Controls;
 using QMC.CDT320;
 using QMC.Common.Logging;
@@ -153,14 +153,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 _InputCassetteUnit = machine != null ? machine.InputCassette : null;
                 _inputFeederUnit = machine != null ? machine.InputFeeder : null;
 
-                if (_InputCassetteUnit != null)
-                    _InputCassetteUnit.EnsureSlotPositionBuffer();
-
-                SetEnabledState(_InputCassetteUnit != null);
+                SetEnabledState(_inputFeederUnit != null);
             }
             catch (Exception ex)
             {
-                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette Resolve", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Feeder Resolve", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -198,7 +195,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 btnReadyMove.Enabled = enabled;
                 btnSlotLoadingMove.Enabled = enabled;
                 btnSlotUnloadingMove.Enabled = enabled;
-                btnMapping.Enabled = enabled;
 
                 jogPositionListControl.Enabled = enabled;
                 jogAxisMoveControl.Enabled = enabled;
@@ -215,242 +211,50 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
         private async void btnLoadingMove_Click(object sender, EventArgs e)
         {
-            try
-            {
-                if (_InputCassetteUnit == null) return;
-
-                DialogResult result = QMC.Common.MessageDialog.Show(
-                    this,
-                    "Loading Move를 진행하시겠습니까?",
-                    "Input Cassette Move",
-                    MessageBoxButtons.YesNo,
-                    MessageBoxIcon.Question);
-                if (result != DialogResult.Yes)
-                {
-                    QMC.Common.Logging.EventLogger.Write(
-                        QMC.Common.Logging.EventKind.Event,
-                        "UI",
-                        "INPUT-CASSETTE",
-                        "btnLoadingMove_Click canceled.");
-                    return;
-                }
-
-                await MoveToTarget("LOADING Z", _InputCassetteUnit.Recipe.LoaingPosition);
-            }
-            catch (Exception ex)
-            {
-                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette Move", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-            }
+            await ConfirmFeederMoveAsync("FEEDER LOAD", () => _inputFeederUnit.MoveToWaferFeederCassetteLoadPosition(0));
         }
 
         private async void btnUnloadingMove_Click(object sender, EventArgs e)
         {
-            try
-            {
-                if (_InputCassetteUnit == null) return;
-                DialogResult result = QMC.Common.MessageDialog.Show(
-                    this,
-                    "이동하시겠습니까?",
-                    "Input Cassette Move",
-                    MessageBoxButtons.YesNo,
-                    MessageBoxIcon.Question);
-                if (result != DialogResult.Yes)
-                {
-                    QMC.Common.Logging.EventLogger.Write(
-                        QMC.Common.Logging.EventKind.Event,
-                        "UI",
-                        "INPUT-CASSETTE",
-                        "btnUnloadingMove_Click canceled.");
-                    return;
-                }
-                await MoveToTarget("UNLOADING Z", _InputCassetteUnit.Recipe.UnloadingPosition);
-            }
-            catch (Exception ex)
-            {
-                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette Move", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-            }
+            await ConfirmFeederMoveAsync("FEEDER UNLOAD", () => _inputFeederUnit.MoveToWaferFeederCassetteUnloadPosition(0));
         }
 
         private async void btnReadyMove_Click(object sender, EventArgs e)
         {
-            try
-            {
-                if (_InputCassetteUnit == null) return;
-                DialogResult result = QMC.Common.MessageDialog.Show(
-                    this,
-                    "이동하시겠습니까?",
-                    "Input Cassette Move",
-                    MessageBoxButtons.YesNo,
-                    MessageBoxIcon.Question);
-                if (result != DialogResult.Yes)
-                {
-                    QMC.Common.Logging.EventLogger.Write(
-                        QMC.Common.Logging.EventKind.Event,
-                        "UI",
-                        "INPUT-CASSETTE",
-                        "btnReadyMove_Click canceled.");
-                    return;
-                }
-                await MoveToTarget("READY POSITION", _InputCassetteUnit.Recipe.AvoidPosition);
-            }
-            catch (Exception ex)
-            {
-                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette Move", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-            }
+            await ConfirmFeederMoveAsync("AVOID MOVE", () => _inputFeederUnit.MoveToWaferFeederAvoidPosition());
         }
 
         private async void btnSlotLoadingMove_Click(object sender, EventArgs e)
         {
-            try
-            {
-                DialogResult result = QMC.Common.MessageDialog.Show(
-                    this,
-                    "이동하시겠습니까?",
-                    "Input Cassette Move",
-                    MessageBoxButtons.YesNo,
-                    MessageBoxIcon.Question);
-                if (result != DialogResult.Yes)
-                {
-                    QMC.Common.Logging.EventLogger.Write(
-                        QMC.Common.Logging.EventKind.Event,
-                        "UI",
-                        "INPUT-CASSETTE",
-                        "btnSlotLoadingMove_Click canceled.");
-                    return;
-                }
-
-                await MoveSlotWithOffset(_InputCassetteUnit != null ? _InputCassetteUnit.Config.LoadingPositionOffset : 0.0, "Input cassette slot loading move");
-            }
-            catch (Exception ex)
-            {
-                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette Slot Move", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-            }
+            await ConfirmFeederMoveAsync("STAGE LOAD", () => _inputFeederUnit.MoveToWaferFeederStageLoadPosition());
         }
 
         private async void btnSlotUnloadingMove_Click(object sender, EventArgs e)
         {
-            try
-            {
-                DialogResult result = QMC.Common.MessageDialog.Show(
-                    this,
-                    "이동하시겠습니까?",
-                    "Input Cassette Move",
-                    MessageBoxButtons.YesNo,
-                    MessageBoxIcon.Question);
-                if (result != DialogResult.Yes)
-                {
-                    QMC.Common.Logging.EventLogger.Write(
-                        QMC.Common.Logging.EventKind.Event,
-                        "UI",
-                        "INPUT-CASSETTE",
-                        "btnSlotUnloadingMove_Click canceled.");
-                    return;
-                }
-
-                await MoveSlotWithOffset(_InputCassetteUnit != null ? _InputCassetteUnit.Config.UnloadingPositionOffset : 0.0, "Input cassette slot unloading move");
-            }
-            catch (Exception ex)
-            {
-                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette Slot Move", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-            }
+            await ConfirmFeederMoveAsync("STAGE UNLOAD", () => _inputFeederUnit.MoveToWaferFeederStageUnloadPosition());
         }
 
-        private async void btnMapping_Click(object sender, EventArgs e)
+        private async Task ConfirmFeederMoveAsync(string actionName, Func<Task<int>> move)
         {
             try
             {
+                if (_inputFeederUnit == null) return;
+
                 DialogResult result = QMC.Common.MessageDialog.Show(
-                    this,
-                    "Input Cassette Mapping을 진행하시겠습니까?",
-                    "Input Cassette Mapping",
-                    MessageBoxButtons.YesNo,
-                    MessageBoxIcon.Question);
+                    this, actionName + " 진행하시겠습니까?", "Input Feeder Move", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
                 if (result != DialogResult.Yes)
                 {
-                    QMC.Common.Logging.EventLogger.Write(
-                        QMC.Common.Logging.EventKind.Event,
-                        "UI",
-                        "INPUT-CASSETTE",
-                        "btnMapping_Click canceled.");
+                    EventLogger.Write(EventKind.Event, "UI", "INPUT-FEEDER", actionName + " canceled.");
                     return;
                 }
 
-                var host = FindHostForm();
-                if (host == null || host.Controller == null)
-                {
-                    QMC.Common.MessageDialog.Show(this, "Machine Controller를 찾을 수 없습니다.", "Input Cassette Mapping", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    return;
-                }
-
-                var ctx = new QMC.CDT320.Sequencing.MachineSequenceContext(
-                    host.Controller,
-                    new QMC.CDT320.Sequencing.SequenceSignalBus());
-                var sequence = new QMC.CDT320.Sequencing.InputSequence(ctx);
-                int sequenceResult = await sequence.ExecuteMappingAsync(System.Threading.CancellationToken.None, IsFineMove());
-                if (sequenceResult != 0)
-                    QMC.Common.MessageDialog.Show(this, "Input Cassette Mapping 실패", "Input Cassette Mapping", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            }
-            catch (Exception ex)
-            {
-                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette Mapping", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-                RefreshView();
-            }
-        }
-
-        private async Task MoveToTarget(string actionName, double target)
-        {
-            try
-            {
-                if (_InputCassetteUnit == null) return;
                 await RunSafeAsync(async () =>
                 {
-                    int moveResult = await _InputCassetteUnit.MoveWaferLifterZ(target, IsFineMove());
+                    int moveResult = await move();
                     if (moveResult != 0)
                         return moveResult;
 
-                    return await _InputCassetteUnit.WaitWaferLifterZMoveDone(_InputCassetteUnit.ResolveWaferLifterZMoveTimeoutMs());
-                }, actionName);
-            }
-            catch (Exception ex)
-            {
-                QMC.Common.MessageDialog.Show(this, ex.Message, actionName, MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-            }
-        }
-
-        private async Task MoveSlotWithOffset(double offset, string actionName)
-        {
-            try
-            {
-                if (_InputCassetteUnit == null) return;
-                await RunSafeAsync(async () =>
-                {
-                    double target = _InputCassetteUnit.CalculateWaferCassetteSlotTargetPosition(0) + offset;
-                    int moveResult = await _InputCassetteUnit.MoveWaferLifterZ(target, IsFineMove());
-                    if (moveResult != 0)
-                        return moveResult;
-
-                    return await _InputCassetteUnit.WaitWaferLifterZMoveDone(_InputCassetteUnit.ResolveWaferLifterZMoveTimeoutMs());
+                    return await _inputFeederUnit.WaitWaferFeederYMoveDone(_inputFeederUnit.FeederY.Setup.MoveTimeoutMs) ? 0 : -1;
                 }, actionName);
             }
             catch (Exception ex)
@@ -642,26 +446,25 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         {
             try
             {
-                if (_InputCassetteUnit == null || _inputFeederUnit == null)
+                if (_inputFeederUnit == null)
                     return;
 
                 optionParameterGrid.SetItems(new[]
                 {
                     ParameterGridItem.Micron("AVOID POSITION", ParameterGridScope.Recipe, () => _inputFeederUnit.Recipe.AvoidPosition, v => _inputFeederUnit.Recipe.AvoidPosition = v),
-                    ParameterGridItem.Micron("CASSETTE LOAD", ParameterGridScope.Recipe, () => _inputFeederUnit.Recipe.CassetteLoadPosition, v => _inputFeederUnit.Recipe.CassetteLoadPosition = v),
-                    ParameterGridItem.Micron("CASSETTE UNLOAD", ParameterGridScope.Recipe, () => _inputFeederUnit.Recipe.CassetteUnloadPosition, v => _inputFeederUnit.Recipe.CassetteUnloadPosition = v),
+                    ParameterGridItem.Micron("CASSETTE LOAD POSITION", ParameterGridScope.Recipe, () => _inputFeederUnit.Recipe.CassetteLoadPosition, v => _inputFeederUnit.Recipe.CassetteLoadPosition = v),
+                    ParameterGridItem.Micron("CASSETTE UNLOAD POSITION", ParameterGridScope.Recipe, () => _inputFeederUnit.Recipe.CassetteUnloadPosition, v => _inputFeederUnit.Recipe.CassetteUnloadPosition = v),
                     ParameterGridItem.Micron("CASSETTE EXCHANGE", ParameterGridScope.Recipe, () => _inputFeederUnit.Recipe.CassetteExchangePosition, v => _inputFeederUnit.Recipe.CassetteExchangePosition = v),
-                    ParameterGridItem.Micron("WAFER LOAD AVOID", ParameterGridScope.Recipe, () => _inputFeederUnit.Recipe.WaferLoadAvoidPosition, v => _inputFeederUnit.Recipe.WaferLoadAvoidPosition = v),
-                    ParameterGridItem.Micron("WAFER LOAD", ParameterGridScope.Recipe, () => _inputFeederUnit.Recipe.WaferLoadPosition, v => _inputFeederUnit.Recipe.WaferLoadPosition = v),
-                    ParameterGridItem.Micron("WAFER UNLOAD AVOID", ParameterGridScope.Recipe, () => _inputFeederUnit.Recipe.WaferUnloadAvoidPosition, v => _inputFeederUnit.Recipe.WaferUnloadAvoidPosition = v),
+                    ParameterGridItem.Micron("WAFER LOAD AVOID POSITION", ParameterGridScope.Recipe, () => _inputFeederUnit.Recipe.WaferLoadAvoidPosition, v => _inputFeederUnit.Recipe.WaferLoadAvoidPosition = v),
+                    ParameterGridItem.Micron("WAFER LOAD POSITION", ParameterGridScope.Recipe, () => _inputFeederUnit.Recipe.WaferLoadPosition, v => _inputFeederUnit.Recipe.WaferLoadPosition = v),
+                    ParameterGridItem.Micron("WAFER UNLOAD AVOID POSITION", ParameterGridScope.Recipe, () => _inputFeederUnit.Recipe.WaferUnloadAvoidPosition, v => _inputFeederUnit.Recipe.WaferUnloadAvoidPosition = v),
                     ParameterGridItem.Bool("SIMULATION MODE", ParameterGridScope.Setup, () => _inputFeederUnit.Setup.IsSimulationMode, v => _inputFeederUnit.Setup.IsSimulationMode = v),
                     ParameterGridItem.Bool("DRY RUN", ParameterGridScope.Config, () => _inputFeederUnit.Config.bDryRun, v => _inputFeederUnit.Config.bDryRun = v)
                 });
 
                 waitParameterGrid.SetItems(new[]
                 {
-                    ParameterGridItem.Int("SCAN SETTLE TIME", "ms", ParameterGridScope.Config, () => _InputCassetteUnit.Config.ScanSettleTimeMs, v => _InputCassetteUnit.Config.ScanSettleTimeMs = Math.Max(0, v)),
-                    ParameterGridItem.Int("MOVE TIMEOUT", "ms", ParameterGridScope.Setup, () => _InputCassetteUnit.ResolveWaferLifterZMoveTimeoutMs(), v => _InputCassetteUnit.WaferLifterZ.Setup.MoveTimeoutMs = Math.Max(0, v))
+                    ParameterGridItem.Int("MOVE TIMEOUT", "ms", ParameterGridScope.Setup, () => _inputFeederUnit.FeederY.Setup.MoveTimeoutMs, v => _inputFeederUnit.FeederY.Setup.MoveTimeoutMs = Math.Max(0, v))
                 });
             }
             catch (Exception ex)
@@ -678,14 +481,14 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         {
             try
             {
-                if (_InputCassetteUnit == null)
+                if (_inputFeederUnit == null)
                     return;
 
                 ioCylinderPanel.SetItems(new[]
                 {
                     IoCylinderItem.Input("WAFER FEEDER UP", () => _inputFeederUnit.IsWaferFeederUp()),
                     IoCylinderItem.Input("WAFER FEEDER DOWN", () => _inputFeederUnit.IsWaferFeederDown()),
-                    IoCylinderItem.Input("WAFER FEEDER UNCLAMP", () => _inputFeederUnit.IsWaferFeederClamp()),
+                    IoCylinderItem.Input("WAFER FEEDER UNCLAMP", () => _inputFeederUnit.IsWaferFeederUnclamp()),
                     IoCylinderItem.Input("WAFER FEEDER RING CHECK", () => _inputFeederUnit.IsWaferFeederRingDetected()),
                     IoCylinderItem.Output("WAFER FEEDER UP", () => _inputFeederUnit.InputFeederLiftUpCyl != null && _inputFeederUnit.InputFeederLiftUpCyl.IsOn, on => _inputFeederUnit.SetWaferFeederLiftUpOutput(on)),
                     IoCylinderItem.Output("WAFER FEEDER DOWN", () => _inputFeederUnit.InputFeederLiftDownCyl != null && _inputFeederUnit.InputFeederLiftDownCyl.IsOn, on => _inputFeederUnit.SetWaferFeederLiftDownOutput(on)),
@@ -707,20 +510,20 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         {
             try
             {
-                if (_InputCassetteUnit == null)
+                if (_inputFeederUnit == null)
                     return;
 
-                JogAxisItem axisItem = JogAxisItem.Single("AXIS Z", _InputCassetteUnit.WaferLifterZ, "um", 1000.0, "Z+", "Z-").WithControlKind(JogAxisControlKind.Vertical);
+                JogAxisItem axisItem = JogAxisItem.Single("FEEDER Y", _inputFeederUnit.FeederY, "um", 1000.0, "Y+", "Y-").WithControlKind(JogAxisControlKind.Vertical);
                 axisItem.StepMoveAsync = async (item, direction, speedType, customSpeed, axisStepDistance) =>
                 {
                     try
                     {
-                        double target = _InputCassetteUnit.WaferLifterZ.ActualPosition + (direction * axisStepDistance);
-                        int moveResult = await _InputCassetteUnit.MoveWaferLifterZ(target, speedType, customSpeed);
+                        double target = _inputFeederUnit.FeederY.ActualPosition + (direction * axisStepDistance);
+                        int moveResult = await _inputFeederUnit.MoveWaferFeederY(target, false);
                         if (moveResult != 0)
                             return moveResult;
 
-                        return await _InputCassetteUnit.WaitWaferLifterZMoveDone(_InputCassetteUnit.ResolveWaferLifterZMoveTimeoutMs());
+                        return await _inputFeederUnit.WaitWaferFeederYMoveDone(_inputFeederUnit.FeederY.Setup.MoveTimeoutMs) ? 0 : -1;
                     }
                     catch
                     {
@@ -730,11 +533,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     {
                     }
                 };
-                axisItem.ContinuousMoveAsync = async (item, direction, speedType, customSpeed) =>
+                axisItem.ContinuousMoveAsync = (item, direction, speedType, customSpeed) =>
                 {
                     try
                     {
-                        return await _InputCassetteUnit.ManualMoveWaferLifterZJog(direction, speedType, customSpeed);
+                        _inputFeederUnit.ManualMoveWaferFeederYJog(direction, customSpeed);
+                        return Task.FromResult(0);
                     }
                     catch
                     {
@@ -744,11 +548,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     {
                     }
                 };
-                axisItem.StopAsync = async item =>
+                axisItem.StopAsync = item =>
                 {
                     try
                     {
-                        return await _InputCassetteUnit.ManualStopWaferLifterZ();
+                        _inputFeederUnit.ManualStopWaferFeederY();
+                        return Task.FromResult(0);
                     }
                     catch
                     {
@@ -1061,36 +866,13 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         {
             try
             {
-                if (_InputCassetteUnit == null)
+                if (_inputFeederUnit == null)
                     return;
 
-                lblRecipeLoadingVal.Text = FormatUm(_InputCassetteUnit.Recipe.LoaingPosition);
-                lblRecipeUnloadingVal.Text = FormatUm(_InputCassetteUnit.Recipe.UnloadingPosition);
-                lblRecipeAvoidVal.Text = FormatUm(_InputCassetteUnit.Recipe.AvoidPosition);
-                lblRecipeFirstSlotVal.Text = FormatUm(_InputCassetteUnit.Recipe.FirstSlotPosition);
-                lblRecipeMappingStartVal.Text = FormatUm(_InputCassetteUnit.Recipe.MappingStartPosition);
-                lblRecipeMappingEndVal.Text = FormatUm(_InputCassetteUnit.Recipe.MappingEndPosition);
-                lblConfigLoadingOffsetVal.Text = FormatUm(_InputCassetteUnit.Config.LoadingPositionOffset);
-                lblConfigUnloadingOffsetVal.Text = FormatUm(_InputCassetteUnit.Config.UnloadingPositionOffset);
-                lblConfigSlotPitchVal.Text = FormatUm(_InputCassetteUnit.Config.SlotPitch);
-                lblConfigSlotCountVal.Text = _InputCassetteUnit.Config.SlotCount.ToString(CultureInfo.InvariantCulture);
-                lblConfigScanVelocityVal.Text = FormatNumber(_InputCassetteUnit.Config.ScanVelocity) + " mm/s";
-                lblSetupToleranceVal.Text = FormatUm(_InputCassetteUnit.ResolveWaferLifterZInPositionTolerance());
-                lblConfigInchVal.Text = _InputCassetteUnit.Config.InchSelect.ToString(CultureInfo.InvariantCulture);
-                lblConfigLevelVal.Text = _InputCassetteUnit.Config.SelectedCassetteLevel.ToString(CultureInfo.InvariantCulture);
-                lblSetupSimulationVal.Text = _InputCassetteUnit.Setup.IsSimulationMode.ToString();
-                lblConfigDryRunVal.Text = _InputCassetteUnit.Config.bDryRun.ToString();
-                lblWaitScanSettleVal.Text = _InputCassetteUnit.Config.ScanSettleTimeMs.ToString(CultureInfo.InvariantCulture) + " ms";
-                lblWaitMoveTimeoutVal.Text = _InputCassetteUnit.ResolveWaferLifterZMoveTimeoutMs().ToString(CultureInfo.InvariantCulture) + " ms";
                 optionParameterGrid.RefreshValues();
                 waitParameterGrid.RefreshValues();
                 ioCylinderPanel.RefreshStates();
                 jogPositionListControl.RefreshState();
-
-                dot8Inch.IsOn = _InputCassetteUnit.IsWaferCassetteExist(8);
-                dot12Inch.IsOn = _InputCassetteUnit.IsWaferCassetteExist(12);
-                dotProtrusion.IsOn = _InputCassetteUnit.IsWaferProtrusionDetected();
-                dotMapping.IsOn = _InputCassetteUnit.IsWaferMapping();
             }
             catch
             {
@@ -1225,7 +1007,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 foreach (var group in new[] { grpActions, grpIo, grpOptions, grpWait, grpJog, grpSpeed })
                     group.Font = new Font("Malgun Gothic", 10F, FontStyle.Bold);
 
-                foreach (var buttonControl in new[] { btnLoadingMove, btnUnloadingMove, btnReadyMove, btnSlotLoadingMove, btnSlotUnloadingMove, btnMapping })
+                foreach (var buttonControl in new[] { btnLoadingMove, btnUnloadingMove, btnReadyMove, btnSlotLoadingMove, btnSlotUnloadingMove })
                 {
                     buttonControl.BackColor = actionButtonColor;
                     buttonControl.ForeColor = Color.White;

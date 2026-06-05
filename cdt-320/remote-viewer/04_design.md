@@ -1,4 +1,4 @@
-# CDT-320 Design — 원격 뷰어 (Vision 측 그랩 영상 송출)
+﻿# CDT-320 Design — 원격 뷰어 (Vision 측 그랩 영상 송출)
 
 > 참조: `01_document_review.md`, `02_code_analysis.md`, `03_gap_analysis.md`
 > 제약: **QMC.CDT-320(Handler) 미수정.** QMC.Vision 만 변경. SP_RemoteViewer 클라이언트 무수정 호환.

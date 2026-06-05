@@ -1,4 +1,4 @@
-namespace QMC.CDT_320.Ui.Security
+﻿namespace QMC.CDT_320.Ui.Security
 {
     /// <summary>
     /// 설비 UI 권한 레벨. 값이 클수록 상위 권한.

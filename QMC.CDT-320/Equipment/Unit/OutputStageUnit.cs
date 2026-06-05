@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using System.Runtime.Serialization;
 using QMC.Common;
 using QMC.Common.Motion;
+using QMC.Common.IO;
 using QMC.CDT320.Ajin;
 using QMC.Common.Alarms;
 using QMC.Common.Logging;
@@ -463,6 +464,37 @@ namespace QMC.CDT320
         public BaseAxis BinCameraX { get; private set; }
 
         // ----------------------------------------------------------------------
+        // Bin Guide/Clamp 센서 (DI) — Good/Ng
+
+        public BaseDigitalInput NgBinGuideUpSensor { get; private set; }
+        public BaseDigitalInput NgBinGuideDownSensor { get; private set; }
+        public BaseDigitalInput NgBinClampUpSensor { get; private set; }
+        public BaseDigitalInput NgBinUnclampSensor { get; private set; }
+        public BaseDigitalInput NgBinRingSensor { get; private set; }
+        public BaseDigitalInput GoodBinGuideUpSensor { get; private set; }
+        public BaseDigitalInput GoodBinGuideDownSensor { get; private set; }
+        public BaseDigitalInput GoodBinClampUpSensor { get; private set; }
+        public BaseDigitalInput GoodBinUnclampSensor { get; private set; }
+        public BaseDigitalInput GoodBinRingSensor { get; private set; }
+
+        // Bin Guide/Clamp 출력 (DO) — Good/Ng + Bottom Vision Blow
+
+        public BaseDigitalOutput NgBinGuideUpOut { get; private set; }
+        public BaseDigitalOutput NgBinGuideDownOut { get; private set; }
+        public BaseDigitalOutput NgBinClampUpOut { get; private set; }
+        public BaseDigitalOutput NgBinClampDownOut { get; private set; }
+        public BaseDigitalOutput NgBinClampOut { get; private set; }
+        public BaseDigitalOutput NgBinUnclampOut { get; private set; }
+        public BaseDigitalOutput GoodBinGuideUpOut { get; private set; }
+        public BaseDigitalOutput GoodBinGuideDownOut { get; private set; }
+        public BaseDigitalOutput GoodBinClampUpOut { get; private set; }
+        public BaseDigitalOutput GoodBinClampDownOut { get; private set; }
+        public BaseDigitalOutput GoodBinClampOut { get; private set; }
+        public BaseDigitalOutput GoodBinUnclampOut { get; private set; }
+        public BaseDigitalOutput BottomVisionBlowOnOut { get; private set; }
+        public BaseDigitalOutput BottomVisionBlowOffOut { get; private set; }
+
+        // ----------------------------------------------------------------------
         // 구현 보조 주석입니다.
 
         /// <summary>
@@ -500,10 +532,52 @@ namespace QMC.CDT320
             // 구현 보조 주석입니다.
             BinCameraX.Setup.SoftLimitPlus = 350.0;
 
+            // Bin Guide/Clamp 센서 (DI)
+            NgBinGuideUpSensor     = RegisterInput("NgBinGuideUp");
+            NgBinGuideDownSensor   = RegisterInput("NgBinGuideDown");
+            NgBinClampUpSensor     = RegisterInput("NgBinClampUp");
+            NgBinUnclampSensor     = RegisterInput("NgBinUnclamp");
+            NgBinRingSensor        = RegisterInput("NgBinRing");
+            GoodBinGuideUpSensor   = RegisterInput("GoodBinGuideUp");
+            GoodBinGuideDownSensor = RegisterInput("GoodBinGuideDown");
+            GoodBinClampUpSensor   = RegisterInput("GoodBinClampUp");
+            GoodBinUnclampSensor   = RegisterInput("GoodBinClamp"); // 카탈로그상 GoodBinUnclamp(2,7) → GoodBinClamp 로 명칭 변경됨
+            GoodBinRingSensor      = RegisterInput("GoodBinRing");
+
+            // Bin Guide/Clamp 출력 (DO)
+            NgBinGuideUpOut     = RegisterOutput("NgBinGuideUp");
+            NgBinGuideDownOut   = RegisterOutput("NgBinGuideDown");
+            NgBinClampUpOut     = RegisterOutput("NgBinClampUp");
+            NgBinClampDownOut   = RegisterOutput("NgBinClampDown");
+            NgBinClampOut       = RegisterOutput("NgBinClamp");
+            NgBinUnclampOut     = RegisterOutput("NgBinUnclamp");
+            GoodBinGuideUpOut   = RegisterOutput("GoodBinGuideUp");
+            GoodBinGuideDownOut = RegisterOutput("GoodBinGuideDown");
+            GoodBinClampUpOut   = RegisterOutput("GoodBinClampUp");
+            GoodBinClampDownOut = RegisterOutput("GoodBinClampDown");
+            GoodBinClampOut     = RegisterOutput("GoodBinClamp");
+            GoodBinUnclampOut   = RegisterOutput("GoodBinUnclamp");
+            BottomVisionBlowOnOut  = RegisterOutput("BottomVisionBlow");
+            BottomVisionBlowOffOut = RegisterOutput("BottomVisionBlowOff");
+
             // 구현 보조 주석입니다.
             Components.Add(GoodStage);
             Components.Add(NgStage);
             Components.Add(BinCameraX);
+        }
+
+        private BaseDigitalInput RegisterInput(string catalogName)
+        {
+            BaseDigitalInput item = AjinFactory.CreateDigitalInput(AjinIoCatalog.FindInput(catalogName));
+            Components.Add(item);
+            return item;
+        }
+
+        private BaseDigitalOutput RegisterOutput(string catalogName)
+        {
+            BaseDigitalOutput item = AjinFactory.CreateDigitalOutput(AjinIoCatalog.FindOutput(catalogName));
+            Components.Add(item);
+            return item;
         }
 
         public bool CanHandleJogAxis(BaseAxis axis)

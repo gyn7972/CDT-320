@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Text;
 
 namespace QMC.Vision.Optics.Leesos

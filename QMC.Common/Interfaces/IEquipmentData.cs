@@ -1,4 +1,4 @@
-namespace QMC.Common
+﻿namespace QMC.Common
 {
     /// <summary>
     /// 설비 노드의 Setup 데이터임을 나타내는 마커 인터페이스.

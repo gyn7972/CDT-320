@@ -1,4 +1,4 @@
-# Stage 2 작업 체크리스트 — ✅ 전체 완료
+﻿# Stage 2 작업 체크리스트 — ✅ 전체 완료
 
 > **목표:** Vision 측 운영 화면 풀스택 + Cognex 동글 검증.
 > **결과:** Stage 2 정적 10/10 PASS + Vision 21/21 PASS + Vision exe 안정 기동 → **Stage 2 PASS**

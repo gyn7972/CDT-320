@@ -1,4 +1,4 @@
-# CDT-320 MIL 카메라 포팅 — 설계 + 체크리스트
+﻿# CDT-320 MIL 카메라 포팅 — 설계 + 체크리스트
 
 ## 목표/범위
 Matrox 보드(MIL)로 들어오는 카메라를 기존 `ICamera` 추상화에 추가. **이미지 처리(IVisionBackend) 아님.** Hik/Sim과 병행(대체 아님). BottomInspection에 매핑 예정. 검증은 기존 카메라 검색/매핑 UI(`CameraMappingPanel`).

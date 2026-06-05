@@ -1,4 +1,4 @@
-# STAGE 62 — CHECKLIST: Vision 알고리즘별 카메라 파라미터 설정
+﻿# STAGE 62 — CHECKLIST: Vision 알고리즘별 카메라 파라미터 설정
 
 - **연계 SPEC**: `D:\Work\CDT-320\docs\STAGE62_SPEC_VisionAlgorithmCameraConfig.md`
 - **작성일**: 2026-05-27

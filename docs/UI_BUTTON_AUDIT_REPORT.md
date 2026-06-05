@@ -1,4 +1,4 @@
-# UI Button Audit Report (작업 D R10)
+﻿# UI Button Audit Report (작업 D R10)
 
 - **작업 날짜**: 2026-04-30 (야간 무인, R10)
 - **검증 방법**: `--audit-all` CLI 옵션으로 핸들러 실행 → 모든 페이지 1회씩 로드 → `UiClickAuditor` 가 OnLoad 시 자동으로 dead button 식별 후 placeholder 핸들러 부착

@@ -1,4 +1,4 @@
-using QMC.Common.Alarms;
+﻿using QMC.Common.Alarms;
 using QMC.Common.Recipes;
 using QMC.Vision.Optics.LFine;
 using QMC.Vision.Optics.Leesos;

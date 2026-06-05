@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Windows.Forms;
 using QMC.CDT320;
 using QMC.CDT_320.Ui;

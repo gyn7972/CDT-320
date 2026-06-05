@@ -1,4 +1,4 @@
-using System.Drawing;
+Ôªøusing System.Drawing;
 using System.Windows.Forms;
 
 namespace QMC.CDT_320.Ui.Pages.Recipe
@@ -101,7 +101,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblFrameHeader.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.editorLayout.SetColumnSpan(this.lblFrameHeader, 2);
             this.lblFrameHeader.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblFrameHeader.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F, System.Drawing.FontStyle.Bold);
+            this.lblFrameHeader.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F, System.Drawing.FontStyle.Bold);
             this.lblFrameHeader.ForeColor = System.Drawing.Color.DarkSlateGray;
             this.lblFrameHeader.Location = new System.Drawing.Point(13, 10);
             this.lblFrameHeader.Name = "lblFrameHeader";
@@ -114,7 +114,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // lblName
             // 
             this.lblName.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblName.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F);
+            this.lblName.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F);
             this.lblName.Location = new System.Drawing.Point(13, 40);
             this.lblName.Name = "lblName";
             this.lblName.Size = new System.Drawing.Size(214, 34);
@@ -134,7 +134,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // lblGridX
             // 
             this.lblGridX.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblGridX.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F);
+            this.lblGridX.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F);
             this.lblGridX.Location = new System.Drawing.Point(13, 74);
             this.lblGridX.Name = "lblGridX";
             this.lblGridX.Size = new System.Drawing.Size(214, 34);
@@ -169,7 +169,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // lblGridY
             // 
             this.lblGridY.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblGridY.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F);
+            this.lblGridY.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F);
             this.lblGridY.Location = new System.Drawing.Point(13, 108);
             this.lblGridY.Name = "lblGridY";
             this.lblGridY.Size = new System.Drawing.Size(214, 34);
@@ -204,7 +204,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // lblPitchX
             // 
             this.lblPitchX.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblPitchX.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F);
+            this.lblPitchX.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F);
             this.lblPitchX.Location = new System.Drawing.Point(13, 142);
             this.lblPitchX.Name = "lblPitchX";
             this.lblPitchX.Size = new System.Drawing.Size(214, 34);
@@ -235,7 +235,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // lblPitchY
             // 
             this.lblPitchY.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblPitchY.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F);
+            this.lblPitchY.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F);
             this.lblPitchY.Location = new System.Drawing.Point(13, 176);
             this.lblPitchY.Name = "lblPitchY";
             this.lblPitchY.Size = new System.Drawing.Size(214, 34);
@@ -266,7 +266,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // lblDiameter
             // 
             this.lblDiameter.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblDiameter.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F);
+            this.lblDiameter.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F);
             this.lblDiameter.Location = new System.Drawing.Point(13, 210);
             this.lblDiameter.Name = "lblDiameter";
             this.lblDiameter.Size = new System.Drawing.Size(214, 34);
@@ -302,7 +302,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // lblRotate
             // 
             this.lblRotate.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblRotate.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F);
+            this.lblRotate.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F);
             this.lblRotate.Location = new System.Drawing.Point(13, 244);
             this.lblRotate.Name = "lblRotate";
             this.lblRotate.Size = new System.Drawing.Size(214, 38);

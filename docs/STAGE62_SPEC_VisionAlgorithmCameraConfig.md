@@ -1,4 +1,4 @@
-# STAGE 62 — SPEC: Vision 알고리즘별 카메라 파라미터 설정 (Recipe Layer)
+﻿# STAGE 62 — SPEC: Vision 알고리즘별 카메라 파라미터 설정 (Recipe Layer)
 
 - **작성일**: 2026-05-27
 - **단계**: SPEC (구현 전, 사용자 컨펌 대기)

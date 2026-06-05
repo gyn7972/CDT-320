@@ -1,4 +1,4 @@
-# Stage 32 — 설비 단위 (Machine-Level) 시퀀스 통합
+﻿# Stage 32 — 설비 단위 (Machine-Level) 시퀀스 통합
 
 ## 1. 현황 — Stage 28~31 통합 결과
 

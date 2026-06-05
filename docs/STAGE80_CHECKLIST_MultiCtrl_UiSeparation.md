@@ -1,4 +1,4 @@
-# STAGE 80 — CHECKLIST: 다중 컨트롤러 결선 + Setup/Recipe UI 책임 분리
+﻿# STAGE 80 — CHECKLIST: 다중 컨트롤러 결선 + Setup/Recipe UI 책임 분리
 
 - **작성일**: 2026-06-02
 - **연계 SPEC**: `docs/STAGE80_SPEC_MultiCtrl_UiSeparation.md`

@@ -1,4 +1,4 @@
-namespace QMC.CDT320.Sequencing
+﻿namespace QMC.CDT320.Sequencing
 {
     /// <summary>시퀀스 실행 모드를 나타냅니다.</summary>
     public enum SequenceRunMode

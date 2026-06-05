@@ -1,4 +1,4 @@
-# Stage 27 — Feeder 시퀀스 통합 작업 계획
+﻿# Stage 27 — Feeder 시퀀스 통합 작업 계획
 
 ## 1. 배경 (Phase 1 조사 결과)
 

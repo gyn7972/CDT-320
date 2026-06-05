@@ -1,4 +1,4 @@
-﻿﻿using QMC.CDT_320.Ui.Localization;
+﻿using QMC.CDT_320.Ui.Localization;
 using QMC.CDT_320.Ui.Controls;
 using QMC.CDT320;
 using QMC.Common.Logging;
@@ -189,7 +189,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 btnReadyMove.Enabled = enabled;
                 btnSlotLoadingMove.Enabled = enabled;
                 btnSlotUnloadingMove.Enabled = enabled;
-                btnMapping.Enabled = enabled;
 
                 jogPositionListControl.Enabled = enabled;
                 jogAxisMoveControl.Enabled = enabled;
@@ -319,7 +318,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     return;
                 }
 
-                await MoveSlotWithOffset(_InputCassetteUnit != null ? _InputCassetteUnit.Config.LoadingPositionOffset : 0.0, "Input cassette slot loading move");
+                if (_InputCassetteUnit == null) return;
+                await MoveToTarget("MAPPING START Z", _InputCassetteUnit.Recipe.MappingStartPosition);
             }
             catch (Exception ex)
             {
@@ -350,7 +350,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     return;
                 }
 
-                await MoveSlotWithOffset(_InputCassetteUnit != null ? _InputCassetteUnit.Config.UnloadingPositionOffset : 0.0, "Input cassette slot unloading move");
+                if (_InputCassetteUnit == null) return;
+                await MoveToTarget("MAPPING END Z", _InputCassetteUnit.Recipe.MappingEndPosition);
             }
             catch (Exception ex)
             {
@@ -361,51 +362,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
         }
 
-        private async void btnMapping_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                DialogResult result = QMC.Common.MessageDialog.Show(
-                    this,
-                    "Input Cassette Mapping을 진행하시겠습니까?",
-                    "Input Cassette Mapping",
-                    MessageBoxButtons.YesNo,
-                    MessageBoxIcon.Question);
-                if (result != DialogResult.Yes)
-                {
-                    QMC.Common.Logging.EventLogger.Write(
-                        QMC.Common.Logging.EventKind.Event,
-                        "UI",
-                        "INPUT-CASSETTE",
-                        "btnMapping_Click canceled.");
-                    return;
-                }
-
-                var host = FindHostForm();
-                if (host == null || host.Controller == null)
-                {
-                    QMC.Common.MessageDialog.Show(this, "Machine Controller를 찾을 수 없습니다.", "Input Cassette Mapping", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    return;
-                }
-
-                var ctx = new QMC.CDT320.Sequencing.MachineSequenceContext(
-                    host.Controller,
-                    new QMC.CDT320.Sequencing.SequenceSignalBus());
-                var sequence = new QMC.CDT320.Sequencing.InputSequence(ctx);
-                int sequenceResult = await sequence.ExecuteMappingAsync(System.Threading.CancellationToken.None, IsFineMove());
-                if (sequenceResult != 0)
-                    QMC.Common.MessageDialog.Show(this, "Input Cassette Mapping 실패", "Input Cassette Mapping", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            }
-            catch (Exception ex)
-            {
-                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette Mapping", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-                RefreshView();
-            }
-        }
-
         private async Task MoveToTarget(string actionName, double target)
         {
             try
@@ -413,30 +369,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (_InputCassetteUnit == null) return;
                 await RunSafeAsync(async () =>
                 {
-                    int moveResult = await _InputCassetteUnit.MoveWaferLifterZ(target, IsFineMove());
-                    if (moveResult != 0)
-                        return moveResult;
-
-                    return await _InputCassetteUnit.WaitWaferLifterZMoveDone(_InputCassetteUnit.ResolveWaferLifterZMoveTimeoutMs());
-                }, actionName);
-            }
-            catch (Exception ex)
-            {
-                QMC.Common.MessageDialog.Show(this, ex.Message, actionName, MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-            }
-        }
-
-        private async Task MoveSlotWithOffset(double offset, string actionName)
-        {
-            try
-            {
-                if (_InputCassetteUnit == null) return;
-                await RunSafeAsync(async () =>
-                {
-                    double target = _InputCassetteUnit.CalculateWaferCassetteSlotTargetPosition(0) + offset;
                     int moveResult = await _InputCassetteUnit.MoveWaferLifterZ(target, IsFineMove());
                     if (moveResult != 0)
                         return moveResult;
@@ -651,8 +583,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
                 optionParameterGrid.SetItems(new[]
                 {
-                    ParameterGridItem.Micron("LOADING Z", ParameterGridScope.Recipe, () => _InputCassetteUnit.Recipe.LoaingPosition, v => _InputCassetteUnit.Recipe.LoaingPosition = v),
-                    ParameterGridItem.Micron("UNLOADING Z", ParameterGridScope.Recipe, () => _InputCassetteUnit.Recipe.UnloadingPosition, v => _InputCassetteUnit.Recipe.UnloadingPosition = v),
+                    ParameterGridItem.Micron("LOADING Z POSITION", ParameterGridScope.Recipe, () => _InputCassetteUnit.Recipe.LoaingPosition, v => _InputCassetteUnit.Recipe.LoaingPosition = v),
+                    ParameterGridItem.Micron("UNLOADING Z POSITION", ParameterGridScope.Recipe, () => _InputCassetteUnit.Recipe.UnloadingPosition, v => _InputCassetteUnit.Recipe.UnloadingPosition = v),
                     ParameterGridItem.Micron("READY POSITION", ParameterGridScope.Recipe, () => _InputCassetteUnit.Recipe.AvoidPosition, v => _InputCassetteUnit.Recipe.AvoidPosition = v),
                     ParameterGridItem.Micron("FIRST SLOT", ParameterGridScope.Recipe, () => _InputCassetteUnit.Recipe.FirstSlotPosition, v => _InputCassetteUnit.Recipe.FirstSlotPosition = v),
                     ParameterGridItem.Micron("MAPPING START Z", ParameterGridScope.Recipe, () => _InputCassetteUnit.Recipe.MappingStartPosition, v => _InputCassetteUnit.Recipe.MappingStartPosition = v),
@@ -1245,7 +1177,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 foreach (var group in new[] { grpActions, grpIo, grpOptions, grpWait, grpJog, grpSpeed })
                     group.Font = new Font("Malgun Gothic", 10F, FontStyle.Bold);
 
-                foreach (var buttonControl in new[] { btnLoadingMove, btnUnloadingMove, btnReadyMove, btnSlotLoadingMove, btnSlotUnloadingMove, btnMapping })
+                foreach (var buttonControl in new[] { btnLoadingMove, btnUnloadingMove, btnReadyMove, btnSlotLoadingMove, btnSlotUnloadingMove })
                 {
                     buttonControl.BackColor = actionButtonColor;
                     buttonControl.ForeColor = Color.White;

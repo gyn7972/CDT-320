@@ -1,4 +1,4 @@
-using QMC.Common.IO;
+﻿using QMC.Common.IO;
 using QMC.CDT320.Ajin;
 
 namespace QMC.CDT320

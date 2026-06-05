@@ -1,4 +1,4 @@
-# Sequence Recovery Rules
+﻿# Sequence Recovery Rules
 
 ## 기본 규칙
 

@@ -1,4 +1,4 @@
-using System.Windows.Forms;
+﻿using System.Windows.Forms;
 using QMC.Vision.Core.Inspectors;
 
 namespace QMC.Vision.Ui.Editors

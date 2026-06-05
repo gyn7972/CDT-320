@@ -1,4 +1,4 @@
-# CDT-320 Verification — 원격 뷰어 (Vision 측 그랩 영상 송출)
+﻿# CDT-320 Verification — 원격 뷰어 (Vision 측 그랩 영상 송출)
 
 > 참조: `05_checklist.md`. 검증 3 라운드 수행.
 > 런타임 증거: QMC.Vision.exe 기동 → 헤드리스 TCP 클라이언트(`06_implementation/viewer_test_client.ps1`)로 5개 포트 프레임 수신/디코드.

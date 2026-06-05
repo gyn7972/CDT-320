@@ -1,4 +1,4 @@
-namespace QMC.Common.Motion
+﻿namespace QMC.Common.Motion
 {
     /// <summary>
     /// 축의 현재 동작 모드를 나타내는 열거형.

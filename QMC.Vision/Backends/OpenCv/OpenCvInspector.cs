@@ -1,4 +1,4 @@
-using System.Drawing;
+﻿using System.Drawing;
 using QMC.Vision.Core;
 
 namespace QMC.Vision.Backends.OpenCv

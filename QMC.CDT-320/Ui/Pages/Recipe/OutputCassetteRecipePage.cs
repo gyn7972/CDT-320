@@ -197,7 +197,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 btnNgSlotStartMove.Enabled = enabled;
                 btnNgSlotEndMove.Enabled = enabled;
                 btnReadyMove.Enabled = enabled;
-                btnMapping.Enabled = enabled;
 
                 jogPositionListControl.Enabled = enabled;
                 jogAxisMoveControl.Enabled = enabled;
@@ -492,46 +491,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
             finally
             {
-            }
-        }
-
-        private async void btnMapping_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                DialogResult result = QMC.Common.MessageDialog.Show(
-                    this,
-                    "Output Cassette Mapping을 진행하시겠습니까?",
-                    "Output Cassette Mapping",
-                    MessageBoxButtons.YesNo,
-                    MessageBoxIcon.Question);
-                if (result != DialogResult.Yes)
-                {
-                    QMC.Common.Logging.EventLogger.Write(
-                        QMC.Common.Logging.EventKind.Event,
-                        "UI",
-                        "OUTPUT-CASSETTE",
-                        "btnMapping_Click canceled.");
-                    return;
-                }
-
-                if (_OutCassetteUnit == null)
-                {
-                    QMC.Common.MessageDialog.Show(this, "Bin Cassette Unit을 찾을 수 없습니다.", "Output Cassette Mapping", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    return;
-                }
-
-                bool ok = await _OutCassetteUnit.ScanAllCassettesAsync();
-                if (!ok)
-                    QMC.Common.MessageDialog.Show(this, "Output Cassette Mapping 실패", "Output Cassette Mapping", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            }
-            catch (Exception ex)
-            {
-                QMC.Common.MessageDialog.Show(this, ex.Message, "Output Cassette Mapping", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-                RefreshView();
             }
         }
 
@@ -1402,7 +1361,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 Font actionFont = new Font("Malgun Gothic", 8F, FontStyle.Bold);
                 Font groupFont = new Font("Malgun Gothic", 8.5F, FontStyle.Bold);
 
-                foreach (var buttonControl in new[] { btnGoodLoadingMove, btnGoodUnloadingMove, btnGoodSlotStartMove, btnGoodSlotEndMove, btnNgLoadingMove, btnNgUnloadingMove, btnNgSlotStartMove, btnNgSlotEndMove, btnReadyMove, btnMapping })
+                foreach (var buttonControl in new[] { btnGoodLoadingMove, btnGoodUnloadingMove, btnGoodSlotStartMove, btnGoodSlotEndMove, btnNgLoadingMove, btnNgUnloadingMove, btnNgSlotStartMove, btnNgSlotEndMove, btnReadyMove })
                 {
                     buttonControl.BackColor = actionButtonColor;
                     buttonControl.ForeColor = Color.White;
