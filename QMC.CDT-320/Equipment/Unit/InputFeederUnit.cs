@@ -190,21 +190,21 @@ namespace QMC.CDT320
             try
             {
                 if (!CheckWaferFeederYMoveReady())
-                    return RaiseFeederAlarm("WF-Y-READY", "WaferFeederY is not ready to move.");
+                    return RaiseFeederAlarm("WF-Y-READY", "InputFeederY is not ready to move.");
 
                 if (!ValidateWaferFeederYTargetPosition(targetPos))
-                    return RaiseFeederAlarm("WF-Y-SOFT-LIMIT", "WaferFeederY target is out of soft limit. target=" + targetPos);
+                    return RaiseFeederAlarm("WF-Y-SOFT-LIMIT", "InputFeederY target is out of soft limit. target=" + targetPos);
 
-                EventLogger.Write(EventKind.Event, "QMC", "WF-Y-MOVE", "Move WaferFeederY target=" + targetPos);
+                EventLogger.Write(EventKind.Event, "QMC", "WF-Y-MOVE", "Move InputFeederY target=" + targetPos);
                 int result = await FeederY.MoveAbsoluteAsync(targetPos, ResolveWaferFeederYMoveVelocity(bFine));
                 if (result != 0 || FeederY.IsAlarm)
-                    return RaiseFeederAlarm("WF-Y-MOVE", "WaferFeederY move failed. result=" + result + ", alarm=" + FeederY.IsAlarm);
+                    return RaiseFeederAlarm("WF-Y-MOVE", "InputFeederY move failed. result=" + result + ", alarm=" + FeederY.IsAlarm);
 
                 return 0;
             }
             catch (Exception ex)
             {
-                return RaiseFeederAlarm("WF-Y-MOVE-EX", "WaferFeederY move exception: " + ex.Message);
+                return RaiseFeederAlarm("WF-Y-MOVE-EX", "InputFeederY move exception: " + ex.Message);
             }
             finally
             {
@@ -224,7 +224,7 @@ namespace QMC.CDT320
             }
             catch (Exception ex)
             {
-                return RaiseFeederAlarm("WF-TEACH-MOVE", "WaferFeederY teaching move failed: " + ex.Message);
+                return RaiseFeederAlarm("WF-TEACH-MOVE", "InputFeederY teaching move failed: " + ex.Message);
             }
             finally
             {
@@ -382,6 +382,11 @@ namespace QMC.CDT320
             return IsWaferFeederInExchangePosition();
         }
 
+        public bool IsWaferFeederYInHomePosition()
+        {
+            return IsWaferFeederYInPosition(0.0, ResolveWaferFeederYInPositionTolerance());
+        }
+
         public bool IsWaferFeederUp()
         {
             return WaferFeederUpSensor.IsOn;
@@ -522,7 +527,7 @@ namespace QMC.CDT320
                 return result;
 
             if (!await WaitWaferFeederYInPosition(positionName, ResolveWaferFeederYMoveTimeoutMs()))
-                return RaiseFeederAlarm("WF-TEACH-INPOS", "WaferFeederY teaching position timeout: " + positionName);
+                return RaiseFeederAlarm("WF-TEACH-INPOS", "InputFeederY teaching position timeout: " + positionName);
 
             return 0;
         }
@@ -1115,7 +1120,7 @@ namespace QMC.CDT320
                 return result;
 
             if (FeederY.IsAlarm)
-                return RaiseFeederAlarm("WF-EX-Y-ALARM", "WaferFeederY alarm after exchange move.");
+                return RaiseFeederAlarm("WF-EX-Y-ALARM", "InputFeederY alarm after exchange move.");
 
             return 0;
         }
@@ -1143,7 +1148,7 @@ namespace QMC.CDT320
             if (FeederY.IsAlarm)
             {
                 Console.WriteLine("[ALARM] '" + Name + "' RetractFeeder: FeederY origin move failed.");
-                return RaiseFeederAlarm("WF-RET-Y-ALARM", "WaferFeederY alarm after retract move.");
+                return RaiseFeederAlarm("WF-RET-Y-ALARM", "InputFeederY alarm after retract move.");
             }
 
             result = await SetWaferFeederUpDown(false);
@@ -1208,9 +1213,9 @@ namespace QMC.CDT320
             switch (code)
             {
                 case FeederAlarmCode.AxisAlarm:
-                    return "WaferFeederY axis alarm.";
+                    return "InputFeederY axis alarm.";
                 case FeederAlarmCode.MoveTimeout:
-                    return "WaferFeederY move timeout.";
+                    return "InputFeederY move timeout.";
                 case FeederAlarmCode.TeachingMissing:
                     return "WaferFeeder teaching position is missing.";
                 case FeederAlarmCode.Interlock:
@@ -1351,7 +1356,7 @@ namespace QMC.CDT320
             }
             catch (Exception ex)
             {
-                EventLogger.Write(EventKind.Warning, "QMC", "WF-Y-VALIDATE", "WaferFeederY target validate failed: " + ex.Message);
+                EventLogger.Write(EventKind.Warning, "QMC", "WF-Y-VALIDATE", "InputFeederY target validate failed: " + ex.Message);
                 return false;
             }
             finally
@@ -1427,7 +1432,7 @@ namespace QMC.CDT320
             {
             }
 
-            throw new ArgumentException("Unknown WaferFeederY teaching position: " + positionName, "positionName");
+            throw new ArgumentException("Unknown InputFeederY teaching position: " + positionName, "positionName");
         }
 
         private void SetTeachingPosition(string positionName, double position)
@@ -1447,7 +1452,7 @@ namespace QMC.CDT320
                 else if (string.Equals(key, "StageLoad", StringComparison.OrdinalIgnoreCase)) Recipe.WaferLoadPosition = position;
                 else if (string.Equals(key, "StageBarcode", StringComparison.OrdinalIgnoreCase)) Recipe.WaferBarcodePosition = position;
                 else if (string.Equals(key, "StageUnload", StringComparison.OrdinalIgnoreCase)) Recipe.WaferUnloadPosition = position;
-                else throw new ArgumentException("Unknown WaferFeederY teaching position: " + positionName, "positionName");
+                else throw new ArgumentException("Unknown InputFeederY teaching position: " + positionName, "positionName");
             }
             finally
             {
@@ -1460,7 +1465,7 @@ namespace QMC.CDT320
             {
                 string key = positionName ?? string.Empty;
                 key = key.Replace("1_WaferFeederY.", string.Empty);
-                key = key.Replace("WaferFeederY.", string.Empty);
+                key = key.Replace("InputFeederY.", string.Empty);
                 key = key.Replace("Position", string.Empty);
                 key = key.Replace("Pos", string.Empty);
                 key = key.Replace("Casstte", "Cassette");

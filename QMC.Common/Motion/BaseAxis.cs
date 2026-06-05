@@ -6,6 +6,19 @@ using QMC.Common.Logging;
 
 namespace QMC.Common.Motion
 {
+    public enum AxisMotionGuardKind
+    {
+        Absolute,
+        Home,
+        JogContinuous
+    }
+
+    public delegate bool AxisMotionGuardHandler(
+        BaseAxis axis,
+        double targetPosition,
+        AxisMotionGuardKind moveKind,
+        out string reason);
+
     /// <summary>
     /// 모든 축(Axis) 구현체의 공통 추상 베이스 클래스.<br/>
     /// <list type="bullet">
@@ -17,6 +30,8 @@ namespace QMC.Common.Motion
     public abstract class BaseAxis
         : BaseComponent<AxisSetup, AxisConfig, AxisRecipe>
     {
+        public static AxisMotionGuardHandler MotionGuard { get; set; }
+
         // ─────────────────────────────────────────────
         //  내부 상태 필드
         // ─────────────────────────────────────────────
@@ -240,6 +255,9 @@ namespace QMC.Common.Motion
                 if (!IsServoOn || IsAlarm)
                     return -2;
 
+                if (!VerifyMotionGuard(targetPos, AxisMotionGuardKind.Absolute))
+                    return -11;
+
                 double vel = velocity > 0 ? velocity : Config.DefaultVelocity;
                 CommandPosition = targetPos;
                 _simTargetPosition = targetPos;
@@ -329,6 +347,9 @@ namespace QMC.Common.Motion
             {
                 if (!IsServoOn || IsAlarm)
                     return -2;
+
+                if (!VerifyMotionGuard(Setup.HomeOffset, AxisMotionGuardKind.Home))
+                    return -11;
 
                 _currentMode = MotionMode.Homing;
                 IsHomeDone = false;
@@ -420,6 +441,10 @@ namespace QMC.Common.Motion
             if (!IsServoOn || IsAlarm) 
                 return;
 
+            double jogTarget = direction > 0 ? Setup.SoftLimitPlus : Setup.SoftLimitMinus;
+            if (!VerifyMotionGuard(jogTarget, AxisMotionGuardKind.JogContinuous))
+                return;
+
             _jogDirection   = direction;
             CurrentVelocity = GetJogVelocity(speedType, customVel);
             IsMoving        = true;
@@ -427,8 +452,18 @@ namespace QMC.Common.Motion
             _currentMode    = MotionMode.Jog;
 
             // CommandPosition은 소프트 리미트 끝으로 설정 - 시뮬레이터가 매 틱 갱신
-            CommandPosition    = direction > 0 ? Setup.SoftLimitPlus : Setup.SoftLimitMinus;
+            CommandPosition    = jogTarget;
             _simTargetPosition = CommandPosition;
+        }
+
+        private bool VerifyMotionGuard(double targetPosition, AxisMotionGuardKind moveKind)
+        {
+            AxisMotionGuardHandler guard = MotionGuard;
+            if (guard == null)
+                return true;
+
+            string reason;
+            return guard(this, targetPosition, moveKind, out reason);
         }
 
         /// <summary>

@@ -119,7 +119,7 @@ namespace QMC.CDT320
     {
         private readonly Dictionary<int, WaferSlotState> slotStates = new Dictionary<int, WaferSlotState>();
 
-        public BaseAxis WaferLifterZ { get; private set; }
+        public BaseAxis InputLifterZ { get; private set; }
 
         public BaseDigitalInput Wafer8CassetteCheck0 { get; private set; }
         public BaseDigitalInput Wafer8CassetteCheck1 { get; private set; }
@@ -137,7 +137,7 @@ namespace QMC.CDT320
 
         public InputCassetteUnit() : base("InputCassetteUnit")
         {
-            WaferLifterZ = AjinFactory.CreateAxis("WaferLifterZ");
+            InputLifterZ = AjinFactory.CreateAxis("InputLifterZ");
             Wafer8CassetteCheck0 = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.Wafer8CassetteCheck0);
             Wafer8CassetteCheck1 = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.Wafer8CassetteCheck1);
             Wafer12CassetteCheck0 = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.Wafer12CassetteCheck0);
@@ -145,7 +145,7 @@ namespace QMC.CDT320
             WaferRingJutCheck = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.WaferRingJUTCheck);
             WaferMappingSensor = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.WaferMapping);
 
-            Components.Add(WaferLifterZ);
+            Components.Add(InputLifterZ);
             Components.Add(Wafer8CassetteCheck0);
             Components.Add(Wafer8CassetteCheck1);
             Components.Add(Wafer12CassetteCheck0);
@@ -164,7 +164,7 @@ namespace QMC.CDT320
 
         public bool CanHandleJogAxis(BaseAxis axis)
         {
-            return axis != null && ReferenceEquals(axis, WaferLifterZ);
+            return axis != null && ReferenceEquals(axis, InputLifterZ);
         }
 
         public Task<int> JogStepAsync(
@@ -178,7 +178,7 @@ namespace QMC.CDT320
                 return Task.FromResult(-1);
 
             double signedDistance = (direction < 0 ? -1.0 : 1.0) * Math.Abs(axisStepDistance);
-            double target = WaferLifterZ.ActualPosition + signedDistance;
+            double target = InputLifterZ.ActualPosition + signedDistance;
             return MoveWaferLifterZ(target, speedType, customSpeed);
         }
 
@@ -340,14 +340,14 @@ namespace QMC.CDT320
 
         public bool IsWaferLifterZInPosition(double targetPos, double tolerance)
         {
-            return Math.Abs(WaferLifterZ.ActualPosition - targetPos) <= tolerance;
+            return Math.Abs(InputLifterZ.ActualPosition - targetPos) <= tolerance;
         }
 
         public async Task<int> WaitWaferLifterZMoveDone(int timeoutMs)
         {
             try
             {
-                return await WaitUntilAsync(() => !WaferLifterZ.IsMoving && WaferLifterZ.IsInPosition && !WaferLifterZ.IsAlarm, timeoutMs);
+                return await WaitUntilAsync(() => !InputLifterZ.IsMoving && InputLifterZ.IsInPosition && !InputLifterZ.IsAlarm, timeoutMs);
             }
             catch
             {
@@ -386,30 +386,30 @@ namespace QMC.CDT320
 
         public void TeachWaferLifterZPosition(string positionName)
         {
-            SetTeachingPosition(positionName, WaferLifterZ.ActualPosition);
+            SetTeachingPosition(positionName, InputLifterZ.ActualPosition);
         }
 
         public void TeachWaferLifterZAvoidPosition()
         {
-            Recipe.AvoidPosition = WaferLifterZ.ActualPosition;
+            Recipe.AvoidPosition = InputLifterZ.ActualPosition;
         }
 
         public void TeachWaferLifterZMappingStartPosition()
         {
-            Recipe.MappingStartPosition = WaferLifterZ.ActualPosition;
+            Recipe.MappingStartPosition = InputLifterZ.ActualPosition;
         }
 
         public void TeachWaferLifterZMappingEndPosition()
         {
-            Recipe.MappingEndPosition = WaferLifterZ.ActualPosition;
+            Recipe.MappingEndPosition = InputLifterZ.ActualPosition;
         }
 
         public void TeachWaferLifterZSlotBasePosition()
         {
-            Recipe.FirstSlotPosition = WaferLifterZ.ActualPosition;
+            Recipe.FirstSlotPosition = InputLifterZ.ActualPosition;
             EnsureSlotPositionBuffer();
             if (Recipe.SlotPosition != null && Recipe.SlotPosition.Length > 0)
-                Recipe.UpdateSlotPosition(0, WaferLifterZ.ActualPosition);
+                Recipe.UpdateSlotPosition(0, InputLifterZ.ActualPosition);
         }
 
         public double CalculateWaferCassetteSlotTargetPosition(int slotIndex)
@@ -535,10 +535,10 @@ namespace QMC.CDT320
             try
             {
                 string interlockReason;
-                if (!CheckWaferLifterZInterlock(WaferLifterZ.ActualPosition, MotionGuardMoveKind.AxisMove, out interlockReason))
+                if (!CheckWaferLifterZInterlock(InputLifterZ.ActualPosition, MotionGuardMoveKind.AxisMove, out interlockReason))
                     return -11;
 
-                WaferLifterZ.MoveJogContinuous(direction, JogSpeedType.Custom, speed);
+                InputLifterZ.MoveJogContinuous(direction, JogSpeedType.Custom, speed);
                 await Task.CompletedTask;
                 return 0;
             }
@@ -562,10 +562,10 @@ namespace QMC.CDT320
             try
             {
                 string interlockReason;
-                if (!CheckWaferLifterZInterlock(WaferLifterZ.ActualPosition, MotionGuardMoveKind.AxisMove, out interlockReason))
+                if (!CheckWaferLifterZInterlock(InputLifterZ.ActualPosition, MotionGuardMoveKind.AxisMove, out interlockReason))
                     return -11;
 
-                WaferLifterZ.MoveJogContinuous(direction, speedType, customSpeed);
+                InputLifterZ.MoveJogContinuous(direction, speedType, customSpeed);
                 await Task.CompletedTask;
                 return 0;
             }
@@ -582,7 +582,7 @@ namespace QMC.CDT320
         {
             try
             {
-                WaferLifterZ.StopJog();
+                InputLifterZ.StopJog();
                 await Task.CompletedTask;
                 return 0;
             }
@@ -688,7 +688,7 @@ namespace QMC.CDT320
                 if (result != 0)
                     return result;
 
-                return !WaferLifterZ.IsAlarm ? 0 : -1;
+                return !InputLifterZ.IsAlarm ? 0 : -1;
             }
             catch
             {
@@ -750,10 +750,10 @@ namespace QMC.CDT320
 
         public bool CheckWaferCassetteMoveReady()
         {
-            return WaferLifterZ != null &&
-                   WaferLifterZ.IsServoOn &&
-                   !WaferLifterZ.IsAlarm &&
-                   !WaferLifterZ.IsMoving &&
+            return InputLifterZ != null &&
+                   InputLifterZ.IsServoOn &&
+                   !InputLifterZ.IsAlarm &&
+                   !InputLifterZ.IsMoving &&
                    !IsWaferProtrusionDetected();
         }
 
@@ -847,7 +847,7 @@ namespace QMC.CDT320
         {
             try
             {
-                WaferLifterZ.Stop();
+                InputLifterZ.Stop();
                 Console.WriteLine("[STOP] '" + Name + "' " + reason);
                 await Task.CompletedTask;
                 return 0;
@@ -895,12 +895,12 @@ namespace QMC.CDT320
                 }
 
                 int startResult = await MoveToWaferCassetteMappingStartPosition();
-                if (startResult != 0 || WaferLifterZ.IsAlarm)
+                if (startResult != 0 || InputLifterZ.IsAlarm)
                 {
-                    return FailMappingScan("IN-CST-MAP-START", "WaferLifterZ move failed at mapping start.");
+                    return FailMappingScan("IN-CST-MAP-START", "InputLifterZ move failed at mapping start.");
                 }
 
-                if (Config.bDryRun || WaferLifterZ.Config.IsSimulationMode)
+                if (Config.bDryRun || InputLifterZ.Config.IsSimulationMode)
                     return await ScanCassetteByNominalPositionAsync(maxSlots);
 
                 var detectedPositions = await CollectMappingSensorPositionsAsync();
@@ -945,9 +945,9 @@ namespace QMC.CDT320
                 for (int i = 0; i < maxSlots; i++)
                 {
                     int moveResult = await MoveWaferLifterZ(CalculateNominalSlotPosition(i));
-                    if (moveResult != 0 || WaferLifterZ.IsAlarm)
+                    if (moveResult != 0 || InputLifterZ.IsAlarm)
                     {
-                        return FailMappingScan("IN-CST-MAP-SIM-MOVE", "WaferLifterZ simulation move failed at slot " + i + ".");
+                        return FailMappingScan("IN-CST-MAP-SIM-MOVE", "InputLifterZ simulation move failed at slot " + i + ".");
                     }
 
                     await Task.Delay(Config.ScanSettleTimeMs).ContinueWith(_ => { });
@@ -981,18 +981,18 @@ namespace QMC.CDT320
                 if (previous)
                     return FailMappingScanList("IN-CST-MAP-SENSOR-ON", "Mapping sensor is ON at mapping start. Check mapping start position.");
 
-                double scanVelocity = Config.ScanVelocity > 0.0 ? Config.ScanVelocity : WaferLifterZ.Config.DefaultVelocity;
+                double scanVelocity = Config.ScanVelocity > 0.0 ? Config.ScanVelocity : InputLifterZ.Config.DefaultVelocity;
                 if (scanVelocity <= 0.0)
                     scanVelocity = 1.0;
 
-                if (WaferLifterZ.Config != null && (Config.ScanAcc > 0.0 || Config.ScanDec > 0.0))
+                if (InputLifterZ.Config != null && (Config.ScanAcc > 0.0 || Config.ScanDec > 0.0))
                 {
-                    originalAcc = WaferLifterZ.Config.Acceleration;
-                    originalDec = WaferLifterZ.Config.Deceleration;
+                    originalAcc = InputLifterZ.Config.Acceleration;
+                    originalDec = InputLifterZ.Config.Deceleration;
                     if (Config.ScanAcc > 0.0)
-                        WaferLifterZ.Config.Acceleration = Config.ScanAcc;
+                        InputLifterZ.Config.Acceleration = Config.ScanAcc;
                     if (Config.ScanDec > 0.0)
-                        WaferLifterZ.Config.Deceleration = Config.ScanDec;
+                        InputLifterZ.Config.Deceleration = Config.ScanDec;
                     restoreScanProfile = true;
                 }
 
@@ -1000,26 +1000,26 @@ namespace QMC.CDT320
                 if (!CheckWaferLifterZInterlock(Recipe.MappingEndPosition, MotionGuardMoveKind.AxisMove, out interlockReason))
                     return FailMappingScanList("IN-CST-MAP-INTERLOCK", interlockReason);
 
-                Task<int> moveTask = WaferLifterZ.MoveAbsoluteAsync(Recipe.MappingEndPosition, scanVelocity);
+                Task<int> moveTask = InputLifterZ.MoveAbsoluteAsync(Recipe.MappingEndPosition, scanVelocity);
                 while (!moveTask.IsCompleted)
                 {
                     if (IsWaferProtrusionDetected())
                     {
-                        WaferLifterZ.EStop();
+                        InputLifterZ.EStop();
                         return FailMappingScanList("IN-CST-MAP-PROTRUSION", "Wafer protrusion detected during mapping scan.");
                     }
 
                     bool current = WaferMappingSensor.IsOn;
                     if (current && !previous)
-                        AddDetectedMappingPosition(detectedPositions, WaferLifterZ.ActualPosition);
+                        AddDetectedMappingPosition(detectedPositions, InputLifterZ.ActualPosition);
 
                     previous = current;
                     await Task.Delay(5).ContinueWith(_ => { });
                 }
 
                 int moveResult = await moveTask;
-                if (moveResult != 0 || WaferLifterZ.IsAlarm)
-                    return FailMappingScanList("IN-CST-MAP-END", "WaferLifterZ move failed during mapping scan.");
+                if (moveResult != 0 || InputLifterZ.IsAlarm)
+                    return FailMappingScanList("IN-CST-MAP-END", "InputLifterZ move failed during mapping scan.");
 
                 return detectedPositions;
             }
@@ -1029,10 +1029,10 @@ namespace QMC.CDT320
             }
             finally
             {
-                if (restoreScanProfile && WaferLifterZ != null && WaferLifterZ.Config != null)
+                if (restoreScanProfile && InputLifterZ != null && InputLifterZ.Config != null)
                 {
-                    WaferLifterZ.Config.Acceleration = originalAcc;
-                    WaferLifterZ.Config.Deceleration = originalDec;
+                    InputLifterZ.Config.Acceleration = originalAcc;
+                    InputLifterZ.Config.Deceleration = originalDec;
                 }
             }
         }
@@ -1190,13 +1190,13 @@ namespace QMC.CDT320
         {
             try
             {
-                if (WaferLifterZ == null || WaferLifterZ.Config == null)
+                if (InputLifterZ == null || InputLifterZ.Config == null)
                     return 0.0;
 
-                if (bFine && WaferLifterZ.Config.JogFineVelocity > 0.0)
-                    return WaferLifterZ.Config.JogFineVelocity;
+                if (bFine && InputLifterZ.Config.JogFineVelocity > 0.0)
+                    return InputLifterZ.Config.JogFineVelocity;
 
-                return WaferLifterZ.Config.DefaultVelocity;
+                return InputLifterZ.Config.DefaultVelocity;
             }
             catch
             {
@@ -1211,8 +1211,8 @@ namespace QMC.CDT320
         {
             try
             {
-                if (WaferLifterZ != null && WaferLifterZ.Setup != null && WaferLifterZ.Setup.MoveTimeoutMs > 0)
-                    return WaferLifterZ.Setup.MoveTimeoutMs;
+                if (InputLifterZ != null && InputLifterZ.Setup != null && InputLifterZ.Setup.MoveTimeoutMs > 0)
+                    return InputLifterZ.Setup.MoveTimeoutMs;
             }
             catch
             {
@@ -1228,8 +1228,8 @@ namespace QMC.CDT320
         {
             try
             {
-                if (WaferLifterZ != null && WaferLifterZ.Config != null && WaferLifterZ.Config.InPositionTolerance >= 0.0)
-                    return WaferLifterZ.Config.InPositionTolerance;
+                if (InputLifterZ != null && InputLifterZ.Config != null && InputLifterZ.Config.InPositionTolerance >= 0.0)
+                    return InputLifterZ.Config.InPositionTolerance;
             }
             catch
             {
@@ -1245,13 +1245,13 @@ namespace QMC.CDT320
         {
             try
             {
-                if (WaferLifterZ == null || WaferLifterZ.Setup == null)
+                if (InputLifterZ == null || InputLifterZ.Setup == null)
                     return false;
-                if (!WaferLifterZ.Setup.SoftLimitEnabled)
+                if (!InputLifterZ.Setup.SoftLimitEnabled)
                     return true;
 
-                return targetPos <= WaferLifterZ.Setup.SoftLimitPlus &&
-                       targetPos >= WaferLifterZ.Setup.SoftLimitMinus;
+                return targetPos <= InputLifterZ.Setup.SoftLimitPlus &&
+                       targetPos >= InputLifterZ.Setup.SoftLimitMinus;
             }
             catch
             {
@@ -1283,14 +1283,14 @@ namespace QMC.CDT320
             {
                 if (IsWaferProtrusionDetected())
                 {
-                    WaferLifterZ.EStop();
+                    InputLifterZ.EStop();
                     throw new InvalidOperationException("'" + Name + "' Move: protrusion sensor is ON.");
                 }
 
                 int moveResult;
                 using (var cts = new CancellationTokenSource())
                 {
-                    Task<int> moveTask = WaferLifterZ.MoveAbsoluteAsync(targetPosition, velocity);
+                    Task<int> moveTask = InputLifterZ.MoveAbsoluteAsync(targetPosition, velocity);
                     Task<bool> watchTask = Task.Run(async () =>
                     {
                         while (!cts.Token.IsCancellationRequested)
@@ -1311,15 +1311,15 @@ namespace QMC.CDT320
                     }
                     else
                     {
-                        WaferLifterZ.EStop();
+                        InputLifterZ.EStop();
                         cts.Cancel();
                         await moveTask.ContinueWith(_ => { });
                         throw new InvalidOperationException("'" + Name + "' Move: protrusion detected while moving.");
                     }
                 }
 
-                if (moveResult != 0 || WaferLifterZ.IsAlarm)
-                    throw new InvalidOperationException("'" + Name + "' Move: WaferLifterZ alarm.");
+                if (moveResult != 0 || InputLifterZ.IsAlarm)
+                    throw new InvalidOperationException("'" + Name + "' Move: InputLifterZ alarm.");
 
                 return 0;
             }
@@ -1337,13 +1337,13 @@ namespace QMC.CDT320
             try
             {
                 if (speedType == JogSpeedType.Coarse)
-                    return WaferLifterZ.Config.JogCoarseVelocity;
+                    return InputLifterZ.Config.JogCoarseVelocity;
                 if (speedType == JogSpeedType.Fine)
-                    return WaferLifterZ.Config.JogFineVelocity;
+                    return InputLifterZ.Config.JogFineVelocity;
                 if (customSpeed > 0)
                     return customSpeed;
 
-                return WaferLifterZ.Config.JogFineVelocity;
+                return InputLifterZ.Config.JogFineVelocity;
             }
             catch
             {
@@ -1360,7 +1360,7 @@ namespace QMC.CDT320
             if (string.Equals(positionName, "MappingStart", StringComparison.OrdinalIgnoreCase)) return Recipe.MappingStartPosition;
             if (string.Equals(positionName, "MappingEnd", StringComparison.OrdinalIgnoreCase)) return Recipe.MappingEndPosition;
             if (string.Equals(positionName, "FirstSlot", StringComparison.OrdinalIgnoreCase)) return Recipe.FirstSlotPosition;
-            throw new ArgumentException("Unknown WaferLifterZ teaching position: " + positionName, "positionName");
+            throw new ArgumentException("Unknown InputLifterZ teaching position: " + positionName, "positionName");
         }
 
         private void SetTeachingPosition(string positionName, double position)
@@ -1369,7 +1369,7 @@ namespace QMC.CDT320
             else if (string.Equals(positionName, "MappingStart", StringComparison.OrdinalIgnoreCase)) Recipe.MappingStartPosition = position;
             else if (string.Equals(positionName, "MappingEnd", StringComparison.OrdinalIgnoreCase)) Recipe.MappingEndPosition = position;
             else if (string.Equals(positionName, "FirstSlot", StringComparison.OrdinalIgnoreCase)) Recipe.FirstSlotPosition = position;
-            else throw new ArgumentException("Unknown WaferLifterZ teaching position: " + positionName, "positionName");
+            else throw new ArgumentException("Unknown InputLifterZ teaching position: " + positionName, "positionName");
         }
 
         private bool IsAnyCassetteSensorOn()

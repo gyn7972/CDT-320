@@ -13,6 +13,7 @@ using QMC.CDT320.Lots;
 using QMC.CDT320.Materials;
 using QMC.CDT320.Alarms;
 using QMC.CDT320.Initialization;
+using QMC.CDT320.Motion.SharedRailX;
 
 namespace QMC.CDT320
 {
@@ -39,6 +40,7 @@ namespace QMC.CDT320
         private bool _isDeveloperReadyRestored;
         private readonly AxisInterferenceMap _axisInterferenceMap = AxisInterferenceMap.CreateDefault();
         private readonly AxisInitializeInterlockService _axisInitializeInterlocks;
+        public SharedRailXMotionService SharedRailX { get; private set; }
 
         public event Action<EquipmentStatus> StatusChanged;
         public event Action<string>        LogMessage;
@@ -47,6 +49,11 @@ namespace QMC.CDT320
 
         /// <summary>CDT-320 하드웨어 유닛 트리입니다.</summary>
         public CDT320_Machine Machine => _machine;
+
+        public Task<int> MoveSharedRailXAsync(SharedRailXMovePlan plan)
+        {
+            return SharedRailX != null ? SharedRailX.MoveAsync(plan) : Task.FromResult(-1);
+        }
 
         public EquipmentStatus Status => _status;
         public bool IsManualBusy => Volatile.Read(ref _manualBusyCount) > 0;
@@ -204,9 +211,56 @@ namespace QMC.CDT320
         public MachineController(CDT320_Machine machine)
         {
             _machine = machine ?? throw new ArgumentNullException(nameof(machine));
+            SharedRailX = new SharedRailXMotionService(_machine, CreateSharedRailXConfig());
+            SharedRailXMotionRuntime.ServiceProvider = () => SharedRailX;
             _axisInitializeInterlocks = new AxisInitializeInterlockService(_machine, EnumerateAxes);
             MotionGuardRuntime.ContextProvider = () =>
                 new MotionGuardContext(_machine, EnumerateAxes(), QMC.CDT320.Ajin.CylinderManager.Items.Values);
+            BaseAxis.MotionGuard = VerifyAxisMotionGuard;
+            QMC.Common.IO.BaseCylinder.MotionGuard = VerifyCylinderMotionGuard;
+        }
+
+        private static SharedRailXConfig CreateSharedRailXConfig()
+        {
+            var config = SharedRailXConfig.CreateDefault();
+
+            // Unit: mm.
+            // BodyOffsetMin/Max are the occupied rail area around the axis command position.
+            // Example: if a head is 80mm wide and the command position is its center,
+            // set bodyOffsetMin=-40 and bodyOffsetMax=40.
+            // RailOriginOffset converts each local axis position to a common rail coordinate:
+            // railPosition = axisPosition * positionScale + railOriginOffset.
+            config.DefaultSafetyDistance = 10.0;
+            config.EnablePathCheck = true;
+            config.RequireSameVelocityForGroupMove = true;
+
+            config
+                .SetGeometry(SharedRailXAxis.InputVisionX, 0.0, 0.0, railOriginOffset: 0.0)
+                .SetGeometry(SharedRailXAxis.FrontPickerX, 0.0, 0.0, railOriginOffset: 450.0)
+                .SetGeometry(SharedRailXAxis.RearPickerX, 0.0, 0.0, railOriginOffset: 600.0)
+                .SetGeometry(SharedRailXAxis.OutputVisionX, 0.0, 0.0, railOriginOffset: 1100.0);
+
+            return config;
+        }
+
+        private static bool VerifyAxisMotionGuard(
+            BaseAxis axis,
+            double targetPosition,
+            AxisMotionGuardKind moveKind,
+            out string reason)
+        {
+            if (moveKind == AxisMotionGuardKind.Home)
+                return MotionGuardRuntime.VerifyAxisHome(axis, out reason);
+
+            return MotionGuardRuntime.VerifyAxisMove(axis, targetPosition, out reason);
+        }
+
+        private static bool VerifyCylinderMotionGuard(
+            QMC.Common.IO.BaseCylinder cylinder,
+            bool moveFwd,
+            out string reason)
+        {
+            return MotionGuardRuntime.VerifyCylinderMove(cylinder, moveFwd, out reason);
         }
 
         public void ApplyStartupMachineRuntimeState(AppSettings settings)
@@ -559,7 +613,7 @@ namespace QMC.CDT320
         /// <summary>
         /// InputLoader ???ㅼ쓬 ?⑥씠?쇰? InputStage 援먰솚 ?꾩튂源뚯? ?먮룞 吏꾪뻾.<br/>
         /// 1) WaferMap ??鍮꾩뼱 ?덉쑝硫?ScanCassetteAsync 濡?留ㅽ븨<br/>
-        /// 2) <see cref="CurrentInputSlot"/> ?ㅼ쓬???⑥씠??蹂댁쑀 ?щ’?쇰줈 ElevatorZ ?대룞<br/>
+        /// 2) <see cref="CurrentInputSlot"/> ?ㅼ쓬???⑥씠??蹂댁쑀 ?щ’?쇰줈 LifterZ ?대룞<br/>
         /// 3) MoveToExchangePositionAsync ?몄텧 (?쇰뜑 ?섍컯 ???대옩????Y ?꾩쭊)
         /// </summary>
         /// <returns>?ㅼ쓬 ?⑥씠???댁넚 ?깃났 ??true. 移댁꽭??鍮꾩뿀嫄곕굹 ?명꽣??李⑤떒 ??false.</returns>
@@ -1107,7 +1161,7 @@ namespace QMC.CDT320
                 Log($"[DRYRUN] skip move {axis.Name} ??{position:F1} (vel={velocity:F0})");
                 return true;
             }
-            await axis.MoveAbsoluteAsync(position, velocity);
+            await SharedRailXMotionRuntime.MoveAxisAsync(axis, position, velocity);
             return true;
         }
 
@@ -2531,7 +2585,7 @@ namespace QMC.CDT320
                 try
                 {
                     await Task.WhenAll(
-                        stage.CameraX.MoveAbsoluteAsync(camXTarget, stage.Recipe.MoveVelocity),
+                        SharedRailXMotionRuntime.MoveAxisAsync(stage.CameraX, camXTarget, stage.Recipe.MoveVelocity),
                         stage.StageY.MoveAbsoluteAsync(stageYTarget, stage.Recipe.MoveVelocity)
                     );
                 }
@@ -2738,7 +2792,7 @@ namespace QMC.CDT320
             try
             {
                 await Task.WhenAll(
-                    front.ArmX.MoveAbsoluteAsync(pickX, front.Recipe?.ArmXVelocity ?? 2000.0),
+                    SharedRailXMotionRuntime.MoveAxisAsync(front.ArmX, pickX, front.Recipe?.ArmXVelocity ?? 2000.0),
                     front.ArmY.MoveAbsoluteAsync(front.Setup.ArmYPickupPosition,
                                                  front.Recipe.ArmYVelocity)
                 );
@@ -2781,7 +2835,7 @@ namespace QMC.CDT320
                         + vo.X;
 
                     await Task.WhenAll(
-                        front.ArmX.MoveAbsoluteAsync(armXTarget, front.Recipe.ArmXVelocity),
+                        SharedRailXMotionRuntime.MoveAxisAsync(front.ArmX, armXTarget, front.Recipe.ArmXVelocity),
                         stage.StageY.MoveAbsoluteAsync(stageYTarget, stage.Recipe.MoveVelocity),
                         stage.NeedleBlockX.MoveAbsoluteAsync(needleXTarget, stage.Recipe.MoveVelocity)
                     );
@@ -2914,8 +2968,8 @@ namespace QMC.CDT320
             try
             {
                 var move19 = new System.Collections.Generic.List<Task>();
-                move19.Add(front.ArmX.MoveAbsoluteAsync(placeArmX,
-                                                        front.Recipe?.ArmXVelocity ?? 2000.0));
+                move19.Add(SharedRailXMotionRuntime.MoveAxisAsync(front.ArmX, placeArmX,
+                                                                  front.Recipe?.ArmXVelocity ?? 2000.0));
                 for (int p = 0; p < pickers; p++)
                     move19.Add(front.Pickers[p].PickerZ.MoveAbsoluteAsync(
                         front.Pickers[p].Setup.WaitPosition,
@@ -2936,8 +2990,8 @@ namespace QMC.CDT320
 
                 // ??ArmX (PlaceX + Bottom OffsetX) / Stage Y (HomeY + Bottom OffsetY) / PickerT (Bottom OffsetT) ?숈떆
                 await Task.WhenAll(
-                    front.ArmX.MoveAbsoluteAsync(placeArmX + offX,
-                                                 front.Recipe?.ArmXVelocity ?? 2000.0),
+                    SharedRailXMotionRuntime.MoveAxisAsync(front.ArmX, placeArmX + offX,
+                                                           front.Recipe?.ArmXVelocity ?? 2000.0),
                     outStage.StageY.MoveAbsoluteAsync(outStage.Setup.HomePositionY + offY,
                                                      outStage.Recipe?.YVelocity ?? 500.0),
                     picker.PickerT.MoveAbsoluteAsync(offT, picker.Recipe.ThetaVelocity)

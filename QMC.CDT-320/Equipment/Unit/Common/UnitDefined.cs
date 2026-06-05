@@ -26,7 +26,7 @@ namespace QMC.CDT320
     /// <summary>Vision 시트에 정의된 축입니다.</summary>
     public enum VisionAxis { FrontSideVisionY, RearSideVisionY }
 
-    /// <summary>BinStage 시트에 정의된 축입니다.</summary>
+    /// <summary>OutputStage 시트에 정의된 축입니다.</summary>
     public enum BinStageAxis { NgBinY, NgBinZ, GoodBinY, VisionX }
 
     /// <summary>Bin 계열 좌우/양불 작업 영역입니다.</summary>
@@ -50,7 +50,7 @@ namespace QMC.CDT320
     /// <summary>정지/복구 시 출력 안전 정책입니다.</summary>
     public enum FeederSafePolicy { AllOff, HoldClamp, HoldCurrent }
 
-    /// <summary>정지/복구 시 BinStage 출력 안전 정책입니다.</summary>
+    /// <summary>정지/복구 시 OutputStage 출력 안전 정책입니다.</summary>
     public enum StageSafePolicy { AllOff, HoldClamp, HoldCurrent }
 
     /// <summary>Unit 내 재료 상태입니다.</summary>

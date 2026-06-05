@@ -6,6 +6,7 @@ using QMC.Common;
 using QMC.Common.Motion;
 using QMC.Common.IO;
 using QMC.CDT320.Ajin;
+using QMC.CDT320.Motion.SharedRailX;
 using QMC.Common.Alarms;
 using QMC.Common.Logging;
 
@@ -528,7 +529,7 @@ namespace QMC.CDT320
 
             GoodStage  = new StageModule("GoodStage");
             NgStage    = new StageModule("NgStage");
-            BinCameraX = AjinFactory.CreateAxis("OutputStage_BinCameraX");
+            BinCameraX = AjinFactory.CreateAxis("OutputVisionX");
             // 구현 보조 주석입니다.
             BinCameraX.Setup.SoftLimitPlus = 350.0;
 
@@ -617,7 +618,7 @@ namespace QMC.CDT320
                 return Task.FromResult(-1);
 
             double speed = UnitJogVelocityResolver.Resolve(axis, speedType, customSpeed);
-            axis.MoveJogContinuous(direction, JogSpeedType.Custom, speed);
+            SharedRailXMotionRuntime.MoveJogContinuous(axis, direction, speed);
             return Task.FromResult(0);
         }
 
@@ -637,7 +638,7 @@ namespace QMC.CDT320
                 BaseAxis item = ResolveStageAxis(axis);
                 double velocity = ResolveStageAxisVelocity(item, bFine);
                 EventLogger.Write(EventKind.Event, "QMC", "OS-MOVE", axis + " target=" + targetPos);
-                int result = await item.MoveAbsoluteAsync(targetPos, velocity);
+                int result = await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, velocity);
                 if (result != 0 || item.IsAlarm)
                     return RaiseOutputStageAlarm("OS-MOVE", axis + " move failed. result=" + result + ", alarm=" + item.IsAlarm);
                 return 0;
@@ -1043,7 +1044,7 @@ namespace QMC.CDT320
             Console.WriteLine("[INFO]  '" + Name + "' -> TPU 후퇴 확인. BinCamera 진입 중...");
 
             // 구현 보조 주석입니다.
-            await BinCameraX.MoveAbsoluteAsync(
+            await SharedRailXMotionRuntime.MoveAxisAsync(BinCameraX,
                 Setup.BinCameraWorkPositionX, Recipe.BinCameraVelocity);
 
             if (BinCameraX.IsAlarm)
@@ -1069,7 +1070,7 @@ namespace QMC.CDT320
 
             // 구현 보조 주석입니다.
             // 구현 보조 주석입니다.
-            await BinCameraX.MoveAbsoluteAsync(
+            await SharedRailXMotionRuntime.MoveAxisAsync(BinCameraX,
                 Setup.BinCameraRetractPositionX, Recipe.BinCameraVelocity);
 
             if (BinCameraX.IsAlarm)

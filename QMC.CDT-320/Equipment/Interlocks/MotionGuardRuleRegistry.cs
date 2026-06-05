@@ -63,8 +63,16 @@ namespace QMC.CDT320.Interlocks
 
         static MotionGuardRuleRegistry()
         {
+            Register(SharedRailXInterlockRules.Verify);
             Register(InputCassetteInterlockRules.Verify);
             Register(InputFeederInterlockRules.Verify);
+            Register(InputStageInterlockRules.Verify);
+            Register(VisionInterlockRules.Verify);
+            Register(PickerFrontInterlockRules.Verify);
+            Register(PickerRearInterlockRules.Verify);
+            Register(OutputStageInterlockRules.Verify);
+            Register(OutputFeederInterlockRules.Verify);
+            Register(OutputCassetteInterlockRules.Verify);
         }
 
         public static void Register(MotionGuardRule rule)

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using QMC.Common.Motion;
 
 namespace QMC.CDT320.Interlocks
@@ -13,36 +13,39 @@ namespace QMC.CDT320.Interlocks
             if (request == null || request.Machine == null)
                 return true;
 
-            if (IsMoving(request, "WaferFeederY") || IsMoving(request, "FeederY"))
-                return VerifyWaferFeederY(request, out reason);
+            if (MotionGuardRuleHelpers.IsMoving(request, "InputFeederY", "FeederY"))
+                return VerifyInputFeederY(request, out reason);
 
-            if (IsMoving(request, "InputFeederLift"))
+            if (MotionGuardRuleHelpers.IsMoving(request, "InputFeederLift"))
                 return VerifyInputFeederLift(request, out reason);
 
-            if (IsMoving(request, "InputFeederClamp"))
+            if (MotionGuardRuleHelpers.IsMoving(request, "InputFeederClamp"))
                 return VerifyInputFeederClamp(request, out reason);
 
             return true;
         }
 
-        private static bool VerifyWaferFeederY(MotionGuardRuleContext request, out string reason)
+        private static bool VerifyInputFeederY(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
             CDT320_Machine machine = request.Machine;
             InputCassetteUnit cassette = machine.InputCassette;
             InputStageUnit stage = machine.InputStage;
 
-            if (cassette != null && cassette.WaferLifterZ != null && cassette.WaferLifterZ.IsMoving)
-                return Block("WaferFeederY", "WaferLifterZ is moving. WaferFeederY move is blocked.", out reason);
+            // 움직이지 않아야함.
+            if (cassette != null && cassette.InputLifterZ != null && cassette.InputLifterZ.IsMoving)
+                return MotionGuardRuleHelpers.Block("InputFeederY", "InputLifterZ is moving. InputFeederY move is blocked.", out reason);
 
             if (stage == null)
                 return true;
 
             if (!IsInputStageYAtLoadOrUnload(stage))
-                return Block("WaferFeederY", "InputStage StageY must be at Loading or Unloading position.", out reason);
+                return MotionGuardRuleHelpers.Block("InputFeederY", "InputStage StageY must be at Loading or Unloading position.", out reason);
 
             if (!IsExpanderZAtLoadOrUnload(stage))
-                return Block("WaferFeederY", "InputStage ExpanderZ must be at Loading or Unloading position.", out reason);
+                return MotionGuardRuleHelpers.Block("InputFeederY", "InputStage ExpanderZ must be at Loading or Unloading position.", out reason);
+
+
 
             return true;
         }
@@ -53,14 +56,14 @@ namespace QMC.CDT320.Interlocks
             CDT320_Machine machine = request.Machine;
 
             if (machine.InputCassette != null &&
-                machine.InputCassette.WaferLifterZ != null &&
-                machine.InputCassette.WaferLifterZ.IsMoving)
-                return Block("InputFeederLift", "WaferLifterZ is moving. InputFeederLift move is blocked.", out reason);
+                machine.InputCassette.InputLifterZ != null &&
+                machine.InputCassette.InputLifterZ.IsMoving)
+                return MotionGuardRuleHelpers.Block("InputFeederLift", "InputLifterZ is moving. InputFeederLift move is blocked.", out reason);
 
             if (machine.InputFeeder != null &&
                 machine.InputFeeder.FeederY != null &&
                 machine.InputFeeder.FeederY.IsMoving)
-                return Block("InputFeederLift", "WaferFeederY is moving. InputFeederLift move is blocked.", out reason);
+                return MotionGuardRuleHelpers.Block("InputFeederLift", "InputFeederY is moving. InputFeederLift move is blocked.", out reason);
 
             return true;
         }
@@ -71,14 +74,14 @@ namespace QMC.CDT320.Interlocks
             CDT320_Machine machine = request.Machine;
 
             if (machine.InputCassette != null &&
-                machine.InputCassette.WaferLifterZ != null &&
-                machine.InputCassette.WaferLifterZ.IsMoving)
-                return Block("InputFeederClamp", "WaferLifterZ is moving. InputFeederClamp move is blocked.", out reason);
+                machine.InputCassette.InputLifterZ != null &&
+                machine.InputCassette.InputLifterZ.IsMoving)
+                return MotionGuardRuleHelpers.Block("InputFeederClamp", "InputLifterZ is moving. InputFeederClamp move is blocked.", out reason);
 
             if (machine.InputFeeder != null &&
                 machine.InputFeeder.FeederY != null &&
                 machine.InputFeeder.FeederY.IsMoving)
-                return Block("InputFeederClamp", "WaferFeederY is moving. InputFeederClamp move is blocked.", out reason);
+                return MotionGuardRuleHelpers.Block("InputFeederClamp", "InputFeederY is moving. InputFeederClamp move is blocked.", out reason);
 
             return true;
         }
@@ -100,8 +103,8 @@ namespace QMC.CDT320.Interlocks
             if (stage == null || stage.ExpanderZ == null)
                 return true;
 
-            return IsAt(stage.ExpanderZ, stage.Setup.ExpanderDownPosition)
-                   || IsAt(stage.ExpanderZ, stage.Setup.ExpanderUpPosition);
+            // Up Position이 Load/Unload 공통으로 안전한 위치임.
+            return IsAt(stage.ExpanderZ, stage.Setup.ExpanderUpPosition);
         }
 
         private static bool IsAt(BaseAxis axis, double target)
@@ -112,16 +115,5 @@ namespace QMC.CDT320.Interlocks
             return Math.Abs(axis.ActualPosition - target) <= PositionTolerance;
         }
 
-        private static bool IsMoving(MotionGuardRuleContext request, string name)
-        {
-            return string.Equals(request.MovingKey, InterlockCheckMatrix.NormalizeName(name), StringComparison.OrdinalIgnoreCase) ||
-                   string.Equals(request.MovingName, name, StringComparison.OrdinalIgnoreCase);
-        }
-
-        private static bool Block(string movingName, string message, out string reason)
-        {
-            reason = "Interlock blocked. moving=" + movingName + ". " + message;
-            return false;
-        }
     }
 }

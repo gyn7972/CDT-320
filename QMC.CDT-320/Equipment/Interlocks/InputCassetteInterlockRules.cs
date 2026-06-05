@@ -11,7 +11,7 @@ namespace QMC.CDT320.Interlocks
             if (request == null || request.Machine == null)
                 return true;
 
-            if (IsMoving(request, "WaferLifterZ"))
+            if (MotionGuardRuleHelpers.IsMoving(request, "InputLifterZ"))
                 return CanMoveWaferLifterZ(request.Machine, request.TargetValue, request.MoveKind, out reason);
 
             return true;
@@ -33,21 +33,25 @@ namespace QMC.CDT320.Interlocks
                 return true;
 
             if (!IsWaferFeederYSafeForWaferLifterZ(feeder))
-                return Block(
-                    "WaferLifterZ",
-                    "WaferFeederY must be at a cassette-side safe teaching position before WaferLifterZ move/home.",
+                return MotionGuardRuleHelpers.Block(
+                    "InputLifterZ",
+                    "InputFeederY must be at a cassette-side safe teaching position before InputLifterZ move/home.",
                     out reason);
 
+            
             return true;
         }
 
         private static bool IsWaferFeederYSafeForWaferLifterZ(InputFeederUnit feeder)
         {
             if (feeder == null || feeder.FeederY == null)
+            {
                 return true;
+            }
 
             return feeder.IsWaferFeederYInAvoidPosition()
-                || feeder.IsWaferFeederYInExchangePosition();
+                || feeder.IsWaferFeederYInExchangePosition()
+                || feeder.IsWaferFeederYInHomePosition(); // 실제로 초기화 위치가 안전한지 실장비에서 확인 필요.
         }
 
         private static bool IsFeederDown(InputFeederUnit feeder)
@@ -74,16 +78,5 @@ namespace QMC.CDT320.Interlocks
             return cylinder != null && cylinder.IsFwd;
         }
 
-        private static bool IsMoving(MotionGuardRuleContext request, string name)
-        {
-            return string.Equals(request.MovingKey, InterlockCheckMatrix.NormalizeName(name), StringComparison.OrdinalIgnoreCase) ||
-                   string.Equals(request.MovingName, name, StringComparison.OrdinalIgnoreCase);
-        }
-
-        private static bool Block(string movingName, string message, out string reason)
-        {
-            reason = "Interlock blocked. moving=" + movingName + ". " + message;
-            return false;
-        }
     }
 }
