@@ -32,6 +32,12 @@ namespace QMC.CDT320
     /// <summary>Bin 계열 좌우/양불 작업 영역입니다.</summary>
     public enum BinSide { Ng, Good }
 
+    /// <summary>카세트/피더/스테이지 간 이송 동작 모드입니다.</summary>
+    public enum TransferMode { Load, Unload, Mapping, Manual }
+
+    /// <summary>이송 전 확인 대상 위치입니다.</summary>
+    public enum TransferPointType { Cassette, Stage, Picker }
+
     /// <summary>피더/스테이지 위치 타입입니다.</summary>
     public enum FeederPositionType { Avoid, CassetteLoad, CassetteUnload, Barcode, StageLoad, StageUnload, Exchange }
 
@@ -47,11 +53,92 @@ namespace QMC.CDT320
     /// <summary>Unit 내 재료 상태입니다.</summary>
     public enum MaterialState { Empty, Occupied, Processing, Completed, Error }
 
+    /// <summary>카세트 슬롯 내 소재 존재 상태입니다.</summary>
+    public enum SlotPresence { Unknown, Empty, Exist }
+
+    /// <summary>카세트 슬롯 단위 공정 상태입니다.</summary>
+    public enum ProcessState { Unknown, Ready, Processing, Done, Ng }
+
     /// <summary>피더 알람 코드입니다.</summary>
     public enum FeederAlarmCode { None, AxisAlarm, MoveTimeout, TeachingMissing, Interlock, Overload, RingMissing }
 
     /// <summary>스테이지 알람 코드입니다.</summary>
     public enum StageAlarmCode { None, AxisAlarm, MoveTimeout, TeachingMissing, Interlock, MaterialMissing }
+
+    /// <summary>Input wafer cassette 알람 코드입니다.</summary>
+    public enum WaferCassetteAlarmCode { None, CassetteMissing, SizeMismatch, ProtrusionDetected, MappingTimeout, MoveTimeout, TeachingMissing }
+
+    /// <summary>Output/bin cassette 알람 코드입니다.</summary>
+    public enum CassetteAlarmCode { None, CassetteMissing, SizeMismatch, ProtrusionDetected, MappingTimeout, MoveTimeout, TeachingMissing, LockTimeout }
+
+    /// <summary>Wafer/bin feeder 소재 이송 상태입니다.</summary>
+    public enum WaferFeederProcessState { Empty, HasWafer, Moving, Alarm }
+
+    /// <summary>카세트 슬롯 상태입니다.</summary>
+    public sealed class WaferSlotState
+    {
+        public SlotPresence Presence { get; set; }
+        public ProcessState Process { get; set; }
+    }
+
+    /// <summary>Input wafer cassette 센서 상태입니다.</summary>
+    public sealed class WaferCassetteSensorState
+    {
+        public bool Wafer8CassetteCheck0 { get; set; }
+        public bool Wafer8CassetteCheck1 { get; set; }
+        public bool Wafer12CassetteCheck0 { get; set; }
+        public bool Wafer12CassetteCheck1 { get; set; }
+        public bool WaferRingJutCheck { get; set; }
+        public bool WaferMapping { get; set; }
+        public bool IsCassetteExist { get; set; }
+        public bool IsSizeMatched { get; set; }
+    }
+
+    /// <summary>Input wafer cassette 소재 슬롯 모음입니다.</summary>
+    public sealed class WaferCassetteMaterial
+    {
+        public WaferCassetteMaterial(int maxSlots)
+        {
+            MaxSlots = maxSlots;
+            Slots = new List<WaferSlotState>();
+        }
+
+        public int MaxSlots { get; private set; }
+        public List<WaferSlotState> Slots { get; private set; }
+    }
+
+    /// <summary>Output/bin cassette 센서 상태입니다.</summary>
+    public sealed class BinCassetteSensorState
+    {
+        public bool GoodBin8CassetteCheck0 { get; set; }
+        public bool GoodBin8CassetteCheck1 { get; set; }
+        public bool GoodBin12CassetteCheck0 { get; set; }
+        public bool GoodBin12CassetteCheck1 { get; set; }
+        public bool NgBin8CassetteCheck0 { get; set; }
+        public bool NgBin8CassetteCheck1 { get; set; }
+        public bool NgBin12CassetteCheck0 { get; set; }
+        public bool NgBin12CassetteCheck1 { get; set; }
+        public bool NgBinCassetteBw { get; set; }
+        public bool NgBinCassetteLock { get; set; }
+        public bool BinRingJutCheck { get; set; }
+        public bool BinMapping { get; set; }
+        public bool IsGoodCassetteExist { get; set; }
+        public bool IsNgCassetteExist { get; set; }
+        public bool IsSizeMatched { get; set; }
+    }
+
+    /// <summary>Output/bin cassette 소재 슬롯 모음입니다.</summary>
+    public sealed class BinCassetteMaterial
+    {
+        public BinCassetteMaterial(int maxSlots)
+        {
+            MaxSlots = maxSlots;
+            Slots = new List<WaferSlotState>();
+        }
+
+        public int MaxSlots { get; private set; }
+        public List<WaferSlotState> Slots { get; private set; }
+    }
 
     /// <summary>엑셀 Sheet 기반 Unit에서 공통으로 사용하는 Setup 데이터입니다.</summary>
     public class UnitDefinedSetup : ISetupData

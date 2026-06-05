@@ -2,6 +2,7 @@
 using QMC.Common;
 using QMC.Common.Alarms;
 using QMC.Common.Motion.Ajin;
+using QMC.CDT320.Interlocks;
 using System;
 using System.Threading.Tasks;
 
@@ -88,6 +89,10 @@ namespace QMC.CDT320.Ajin
         {
             try
             {
+                string interlockReason;
+                if (!MotionGuardRuntime.VerifyAxisMove(this, targetPos, out interlockReason))
+                    return -11;
+
                 if (UseSimulation)
                     return await base.MoveAbsoluteAsync(targetPos, velocity);
 
@@ -214,6 +219,10 @@ namespace QMC.CDT320.Ajin
         {
             try
             {
+                string interlockReason;
+                if (!MotionGuardRuntime.VerifyAxisHome(this, out interlockReason))
+                    return -11;
+
                 if (UseSimulation)
                     return await base.HomeSearchAsync();
 
