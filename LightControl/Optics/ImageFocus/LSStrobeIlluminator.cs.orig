@@ -1,0 +1,269 @@
+<<<<<<< HEAD
+﻿
+=======
+﻿//using Google.Protobuf.WellKnownTypes;
+//using Newtonsoft.Json.Linq;
+>>>>>>> origin/master
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+
+namespace QMC.Common.Vision.Optics.ImageFocus
+{
+    public class LSStrobeIlluminator : Illuminator
+    {
+        public class SetTimeData
+        {
+            public int Channel { set; get; }
+            public double SetTime { set; get; }
+
+            public SetTimeData() : this(0, 0)
+            {
+            }
+
+            public SetTimeData(int nChannel, double nTime)
+            {
+                Channel = nChannel;
+                SetTime = nTime;
+            }
+        }
+
+        [NonSerialized]
+        private LSStrobeIlluminatorCommunicator m_Communicator;
+        private Task m_Task;
+        private Queue<SetTimeData> m_CommandQueue;
+        private CancellationTokenSource m_Cts;
+        private bool m_bStop;
+        private object m_QueueLock;
+        public LSDigitalIlluminatorConfig LSDigitalIlluminatorConfig
+        {
+            get
+            {
+                return Config as LSDigitalIlluminatorConfig;
+            }
+            set
+            {
+                Config = value;
+            }
+        }
+
+
+
+        public LSStrobeIlluminator() : this("StrobeIlluminator")
+        {
+        }
+
+        public LSStrobeIlluminator(string strName) : base(strName)
+        {
+            LSDigitalIlluminatorConfig = new LSDigitalIlluminatorConfig();
+            LSDigitalIlluminatorConfig.Name = strName;
+            m_CommandQueue = new Queue<SetTimeData>();
+            m_QueueLock = new object();
+            m_bStop = false;
+            Type = IlluminatorType.Strobe;
+        }
+
+        public override int Initialize()
+        {
+            int ret = 0;
+            if ((ret = base.Initialize()) != 0) return ret;
+
+            try
+            {
+                if (m_Communicator == null)
+                    m_Communicator = new LSStrobeIlluminatorCommunicator();
+
+                if (m_Communicator.IsOpen)
+                {
+                    m_bStop = true;
+                    if (m_Task != null)
+                    {
+                        m_Task.Wait();
+                    }
+                    m_Communicator.Close();
+                }
+
+                m_Communicator.PortName = LSDigitalIlluminatorConfig.PortName;
+                m_Communicator.BaudRate = LSDigitalIlluminatorConfig.BaudRate;
+                m_Communicator.DataBits = LSDigitalIlluminatorConfig.DataBits;
+                m_Communicator.Parity = LSDigitalIlluminatorConfig.Parity;
+                m_Communicator.StopBits = LSDigitalIlluminatorConfig.StopBits;
+                m_Communicator.Handshake = LSDigitalIlluminatorConfig.Handshake;
+                m_Communicator.ReplyTimeout = LSDigitalIlluminatorConfig.TimeOut;
+
+                m_Communicator.Open();
+
+                //if (m_Communicator.IsOpen)
+                //{
+                //    m_bStop = false;
+                //    m_Cts = new CancellationTokenSource();
+                //    CancellationToken token = m_Cts.Token;
+                //    m_Task = Task.Factory.StartNew(() =>
+                //    {
+                //        while (true)
+                //        {
+                //            if (m_bStop)
+                //                break;
+
+                //            if (CommandQueueCount() > 0)
+                //            {
+                //                SendTime();
+                //            }
+
+                //            token.Register(() =>
+                //            {
+                //                m_bStop = true;
+                //            });
+                //            Thread.Sleep(100);
+                //        }
+                //    });
+                //}
+            }
+            catch (Exception ex)
+            {
+                //Console.WriteLine(ex.Message);
+                MessageBox.Show(ex.Message);
+
+                ret = -1;
+            }
+            return ret;
+        }
+
+        public override void Close()
+        {
+            base.Close();
+            if (m_Cts != null)
+                m_Cts.Cancel();
+
+            if (m_Communicator != null)
+                m_Communicator.Close();
+        }
+
+        public override int StrobeOn(int channel)
+        {
+            int ret = 0;
+            if (m_Communicator != null && m_Communicator.IsOpen)
+            {
+                m_Communicator.StrobeOn(channel);
+            }
+            return ret;
+        }
+
+        public override int SetStrobeOnTime(int channel, double settime)
+        {
+            int ret = 0;
+            if (m_Communicator != null && m_Communicator.IsOpen)
+            {
+                double dValue = (int)settime;
+                //수정 필요
+                dValue += 0.005;
+
+                //m_Communicator.SetTime(channel, settime);
+                m_Communicator.SetTime(channel, dValue);
+            }
+            return ret;
+        }
+
+        public override int SetStrobeOnTime(IlluminationDataSet illuminationDataSet)
+        {
+            int ret = 0;
+            if (m_Communicator != null && m_Communicator.IsOpen)
+            {
+                StringBuilder builder = new StringBuilder();
+                if (illuminationDataSet != null)
+                {
+                    int nTotalLength = 0;
+                    List<byte[]> sendByteList = new List<byte[]>();
+
+                    //TO DO : 동작은 되나, 더 나은 방법으로 수정 필요.
+                    if (illuminationDataSet.Values.Count == 4)
+                    {
+                        string strCommand = string.Empty;
+                        StringBuilder command = new StringBuilder();
+                        command.Append("A");
+                        int i = 0;
+                        foreach (var item in illuminationDataSet.Values)
+                        {
+                            if(i != 0)
+                                command.Append(",");
+
+                            double value = (int)item.StrobeValue;
+                            value += 0.005;
+
+                            //command.Append(m_Communicator.GetTimeCommand(item.StrobeValue));
+                            command.Append(m_Communicator.GetTimeCommand(value));
+                            i++;
+                        }
+
+                        byte[] data = Encoding.ASCII.GetBytes(command.ToString());
+                        int nLength = data.Length + 2;
+                        byte[] array = new byte[nLength];
+                        array[0] = LSStrobeIlluminatorCommunicator.Stx;
+                        Array.Copy(data, 0, array, 1, data.Length);
+                        array[nLength - 1] = LSStrobeIlluminatorCommunicator.Etx;
+
+                        nTotalLength += nLength;
+                        sendByteList.Add(array);
+                        Log.Write("TopInspection", "SendBytes");
+                        m_Communicator.SendBytes(array);
+                        byte[] byteRecv;
+                        m_Communicator.ReceiveFrame(out byteRecv, LSStrobeIlluminatorCommunicator.Etx);
+                        //Console.WriteLine(byteRecv[0]);
+                        Log.Write("TopInspection", "ReceiveFrame");
+                    }
+                    else
+                    {
+                        foreach (var item in illuminationDataSet.Values)
+                        {
+                            string strCommand = m_Communicator.SetTimeCommand(item.Channel, item.StrobeValue);
+
+                            byte[] data = Encoding.ASCII.GetBytes(strCommand);
+                            int nLength = data.Length + 2;
+                            byte[] array = new byte[nLength];
+                            array[0] = LSStrobeIlluminatorCommunicator.Stx;
+                            Array.Copy(data, 0, array, 1, data.Length);
+                            array[nLength - 1] = LSStrobeIlluminatorCommunicator.Etx;
+
+                            nTotalLength += nLength;
+                            sendByteList.Add(array);
+                            builder.Append(strCommand);
+                            m_Communicator.SendBytes(array);
+                            byte[] byteRecv;
+                            m_Communicator.ReceiveFrame(out byteRecv, LSStrobeIlluminatorCommunicator.Etx);
+                            Thread.Sleep(100);
+                        }
+                    }
+
+                    byte[] sendBytes = new byte[nTotalLength];
+                    int nStartIndex = 0;
+                    foreach (var item in sendByteList)
+                    {
+                        Array.Copy(item, 0, sendBytes, nStartIndex, item.Length);
+                        nStartIndex += item.Length;
+                    }
+                    //m_Communicator.SendBytes(sendBytes);
+                    //m_Communicator.Send(builder.ToString());
+                }
+
+
+
+            }
+            return ret;
+        }
+
+        public override int SetStrobeEdge(int channel, bool mode)
+        {
+            int ret = 0;
+            if (m_Communicator != null && m_Communicator.IsOpen)
+            {
+                m_Communicator.SetEdgeMode(channel, mode);
+            }
+            return ret;
+        }
+
+    }
+}

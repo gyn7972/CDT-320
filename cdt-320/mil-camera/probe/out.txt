@@ -1,0 +1,7 @@
+APP|MappAlloc OK
+SYS|OK|systemType=18|digitizers=4
+DIG0|empty (no camera / needs format)
+DIG1|empty (no camera / needs format)
+DIG2|empty (no camera / needs format)
+DIG3|empty (no camera / needs format)
+HOST|alloc=True
