@@ -5,6 +5,7 @@ using QMC.Common;
 using QMC.Common.IO;
 using QMC.Common.Motion;
 using QMC.CDT320.Ajin;
+using QMC.CDT320.Motion.SharedRailX;
 using QMC.Common.Alarms;
 using QMC.Common.Logging;
 using System.Collections.Generic;
@@ -499,7 +500,7 @@ namespace QMC.CDT320
             {
                 BaseAxis item = ResolveInputStageAxis(axis);
                 double velocity = ResolveInputStageMoveVelocity(axis, bFine);
-                return await item.MoveAbsoluteAsync(targetPos, velocity);
+                return await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, velocity);
             }
             catch (Exception ex)
             {
@@ -513,7 +514,7 @@ namespace QMC.CDT320
 
         public void ManualMoveInputStageAxisJog(WaferStageAxis axis, Direction dir, double speed)
         {
-            ResolveInputStageAxis(axis).MoveJogContinuous((int)dir, JogSpeedType.Custom, speed);
+            SharedRailXMotionRuntime.MoveJogContinuous(ResolveInputStageAxis(axis), (int)dir, speed);
         }
 
         public void ManualStopInputStageAxis(WaferStageAxis axis)
@@ -1017,7 +1018,7 @@ namespace QMC.CDT320
                         double targetX = OriginX + col * PitchX;
 
                         Task<int> moveY = StageY.MoveAbsoluteAsync(targetY, Recipe.MoveVelocity);
-                        Task<int> moveX = CameraX.MoveAbsoluteAsync(targetX, Recipe.MoveVelocity);
+                        Task<int> moveX = SharedRailXMotionRuntime.MoveAxisAsync(CameraX, targetX, Recipe.MoveVelocity);
                         int[] moveResults = await Task.WhenAll(moveY, moveX);
 
                         if (moveResults[0] != 0 || moveResults[1] != 0 || StageY.IsAlarm || CameraX.IsAlarm)
@@ -1207,7 +1208,7 @@ namespace QMC.CDT320
                 double targetY = origY + row * pitchY;
 
                 Task<int> moveY = StageY.MoveAbsoluteAsync(targetY, Recipe.AlignVelocity);
-                Task<int> moveX = CameraX.MoveAbsoluteAsync(targetX, Recipe.AlignVelocity);
+                Task<int> moveX = SharedRailXMotionRuntime.MoveAxisAsync(CameraX, targetX, Recipe.AlignVelocity);
                 int[] results = await Task.WhenAll(moveY, moveX);
 
                 if (results[0] != 0 || results[1] != 0 || StageY.IsAlarm || CameraX.IsAlarm)

@@ -13,13 +13,13 @@ namespace QMC.CDT320.Interlocks
             if (request == null || request.Machine == null)
                 return true;
 
-            if (IsMoving(request, "WaferFeederY") || IsMoving(request, "FeederY"))
+            if (MotionGuardRuleHelpers.IsMoving(request, "WaferFeederY", "FeederY"))
                 return VerifyWaferFeederY(request, out reason);
 
-            if (IsMoving(request, "InputFeederLift"))
+            if (MotionGuardRuleHelpers.IsMoving(request, "InputFeederLift"))
                 return VerifyInputFeederLift(request, out reason);
 
-            if (IsMoving(request, "InputFeederClamp"))
+            if (MotionGuardRuleHelpers.IsMoving(request, "InputFeederClamp"))
                 return VerifyInputFeederClamp(request, out reason);
 
             return true;
@@ -33,16 +33,16 @@ namespace QMC.CDT320.Interlocks
             InputStageUnit stage = machine.InputStage;
 
             if (cassette != null && cassette.WaferLifterZ != null && cassette.WaferLifterZ.IsMoving)
-                return Block("WaferFeederY", "WaferLifterZ is moving. WaferFeederY move is blocked.", out reason);
+                return MotionGuardRuleHelpers.Block("WaferFeederY", "WaferLifterZ is moving. WaferFeederY move is blocked.", out reason);
 
             if (stage == null)
                 return true;
 
             if (!IsInputStageYAtLoadOrUnload(stage))
-                return Block("WaferFeederY", "InputStage StageY must be at Loading or Unloading position.", out reason);
+                return MotionGuardRuleHelpers.Block("WaferFeederY", "InputStage StageY must be at Loading or Unloading position.", out reason);
 
             if (!IsExpanderZAtLoadOrUnload(stage))
-                return Block("WaferFeederY", "InputStage ExpanderZ must be at Loading or Unloading position.", out reason);
+                return MotionGuardRuleHelpers.Block("WaferFeederY", "InputStage ExpanderZ must be at Loading or Unloading position.", out reason);
 
             return true;
         }
@@ -55,12 +55,12 @@ namespace QMC.CDT320.Interlocks
             if (machine.InputCassette != null &&
                 machine.InputCassette.WaferLifterZ != null &&
                 machine.InputCassette.WaferLifterZ.IsMoving)
-                return Block("InputFeederLift", "WaferLifterZ is moving. InputFeederLift move is blocked.", out reason);
+                return MotionGuardRuleHelpers.Block("InputFeederLift", "WaferLifterZ is moving. InputFeederLift move is blocked.", out reason);
 
             if (machine.InputFeeder != null &&
                 machine.InputFeeder.FeederY != null &&
                 machine.InputFeeder.FeederY.IsMoving)
-                return Block("InputFeederLift", "WaferFeederY is moving. InputFeederLift move is blocked.", out reason);
+                return MotionGuardRuleHelpers.Block("InputFeederLift", "WaferFeederY is moving. InputFeederLift move is blocked.", out reason);
 
             return true;
         }
@@ -73,12 +73,12 @@ namespace QMC.CDT320.Interlocks
             if (machine.InputCassette != null &&
                 machine.InputCassette.WaferLifterZ != null &&
                 machine.InputCassette.WaferLifterZ.IsMoving)
-                return Block("InputFeederClamp", "WaferLifterZ is moving. InputFeederClamp move is blocked.", out reason);
+                return MotionGuardRuleHelpers.Block("InputFeederClamp", "WaferLifterZ is moving. InputFeederClamp move is blocked.", out reason);
 
             if (machine.InputFeeder != null &&
                 machine.InputFeeder.FeederY != null &&
                 machine.InputFeeder.FeederY.IsMoving)
-                return Block("InputFeederClamp", "WaferFeederY is moving. InputFeederClamp move is blocked.", out reason);
+                return MotionGuardRuleHelpers.Block("InputFeederClamp", "WaferFeederY is moving. InputFeederClamp move is blocked.", out reason);
 
             return true;
         }
@@ -112,16 +112,5 @@ namespace QMC.CDT320.Interlocks
             return Math.Abs(axis.ActualPosition - target) <= PositionTolerance;
         }
 
-        private static bool IsMoving(MotionGuardRuleContext request, string name)
-        {
-            return string.Equals(request.MovingKey, InterlockCheckMatrix.NormalizeName(name), StringComparison.OrdinalIgnoreCase) ||
-                   string.Equals(request.MovingName, name, StringComparison.OrdinalIgnoreCase);
-        }
-
-        private static bool Block(string movingName, string message, out string reason)
-        {
-            reason = "Interlock blocked. moving=" + movingName + ". " + message;
-            return false;
-        }
     }
 }

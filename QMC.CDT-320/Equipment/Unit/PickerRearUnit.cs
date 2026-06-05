@@ -1,4 +1,5 @@
 ﻿using QMC.CDT320.Ajin;
+using QMC.CDT320.Motion.SharedRailX;
 using QMC.Common;
 using QMC.Common.Alarms;
 using QMC.Common.IO;
@@ -333,7 +334,7 @@ namespace QMC.CDT320
                     return RaisePickerAlarm("PK-MOVE-READY", axis + " is not ready to move.");
 
                 EventLogger.Write(EventKind.Event, "QMC", "PK-MOVE", Name + " " + axis + " target=" + targetPos);
-                int result = await item.MoveAbsoluteAsync(targetPos, ResolveMoveVelocity(item, bFine));
+                int result = await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, ResolveMoveVelocity(item, bFine));
                 if (result != 0 || item.IsAlarm)
                     return RaisePickerAlarm("PK-MOVE", axis + " move failed. result=" + result + ", alarm=" + item.IsAlarm);
 
@@ -631,7 +632,7 @@ namespace QMC.CDT320
 
         public void ManualMovePickerAxisJog(PickerAxis axis, Direction dir, double speed)
         {
-            GetAxis(axis).MoveJogContinuous((int)dir, JogSpeedType.Custom, speed);
+            SharedRailXMotionRuntime.MoveJogContinuous(GetAxis(axis), (int)dir, speed);
         }
 
         public void ManualStopPickerAxis(PickerAxis axis)
