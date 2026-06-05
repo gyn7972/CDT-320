@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Drawing;
 using System.Windows.Forms;
 
@@ -60,7 +60,7 @@ namespace QMC.Vision.Ui.Controls
             _numPeriod = new NumericUpDown
             {
                 Location = new Point(82, y), Size = new Size(80, 24),
-                Minimum = 10, Maximum = 1000, Value = 50, Increment = 10
+                Minimum = 0, Maximum = 1000, Value = 50, Increment = 10
             };
             _numPeriod.ValueChanged += OnPeriodChanged;
             this.Controls.Add(_numPeriod);
