@@ -27,18 +27,62 @@ namespace QMC.CDT320.Interlocks
             if (machine == null)
                 return true;
 
+            InputCassetteUnit Cassette = machine.InputCassetteUnit;
             InputFeederUnit feeder = machine.InputFeederUnit;
 
             if (feeder == null)
                 return true;
 
+            if (moveKind == MotionGuardMoveKind.AxisHome)
+            {
+                return CanHomeWaferLifterZ(Cassette, feeder, out reason);
+            }
+
+            return CanMoveWaferLifterZToPosition(feeder, out reason);
+        }
+
+        private static bool CanHomeWaferLifterZ(InputCassetteUnit Cassette, InputFeederUnit feeder, out string reason)
+        {
+            reason = string.Empty;
+            if (feeder == null)
+                return true;
+
+            if (feeder.FeederY != null && feeder.FeederY.IsMoving)
+                return MotionGuardRuleHelpers.Block(
+                    "InputLifterZ",
+                    "InputFeederY is moving. InputLifterZ home is blocked.",
+                    out reason);
+
+            if (Cassette.IsWaferCassetteExist(8) || Cassette.IsWaferCassetteExist(12))
+            {
+                if (!IsWaferFeederYSafeForWaferLifterZ(feeder))
+                    return MotionGuardRuleHelpers.Block(
+                        "InputLifterZ",
+                        "InputFeederY must be at a cassette-side safe teaching position before InputLifterZ move.",
+                        out reason);
+            }
+
+            return true;
+        }
+
+        private static bool CanMoveWaferLifterZToPosition(InputFeederUnit feeder, out string reason)
+        {
+            reason = string.Empty;
+            if (feeder == null)
+                return true;
+
+            if (feeder.FeederY != null && feeder.FeederY.IsMoving)
+                return MotionGuardRuleHelpers.Block(
+                    "InputLifterZ",
+                    "InputFeederY is moving. InputLifterZ move is blocked.",
+                    out reason);
+
             if (!IsWaferFeederYSafeForWaferLifterZ(feeder))
                 return MotionGuardRuleHelpers.Block(
                     "InputLifterZ",
-                    "InputFeederY must be at a cassette-side safe teaching position before InputLifterZ move/home.",
+                    "InputFeederY must be at a cassette-side safe teaching position before InputLifterZ move.",
                     out reason);
 
-            
             return true;
         }
 
