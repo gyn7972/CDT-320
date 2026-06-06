@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
+using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
 using QMC.Common;
@@ -39,6 +41,7 @@ namespace QMC.CDT_320
         internal string CurrentRecipeName { get; private set; }
         private bool _materialSnapshotRestored;
         private bool _applicationExitRequested;
+        private bool _topDoorClosed = true;
 
         /// <summary>구현 설명 주석입니다.</summary>
         ///
@@ -317,10 +320,144 @@ namespace QMC.CDT_320
         public Form1()
         {
             InitializeComponent();
+            WireShellNavigationEvents();
+        }
+
+        private void WireShellNavigationEvents()
+        {
+            btnTabWork.Click += (s, e) => ShowTab(MainTab.Work);
+            btnTabWorkInfo.Click += (s, e) => ShowTab(MainTab.WorkInfo);
+            btnTabHistory.Click += (s, e) => ShowTab(MainTab.History);
+            btnTabRecipe.Click += (s, e) => ShowTab(MainTab.Recipe);
+            btnAxisJog.Click += (s, e) => ShowOrRestoreJogPopup(this);
+            btnAxisPosition.Click += (s, e) => ShowOrRestoreAxisPositionPopup(this);
+            btnTabSettings.Click += (s, e) => ShowTab(MainTab.Settings);
+            btnTabUser.Click += (s, e) => ShowTab(MainTab.User);
+            btnTabExit.Click += (s, e) => RequestApplicationExit();
+            btnDoorToggle.Click += (s, e) => ToggleDoorSimulationState();
+            btnBuzzerStop.Click += (s, e) => StopBuzzerFromTopButton();
+            UpdateTopCommandButtons();
+        }
+
+        private void ToggleDoorSimulationState()
+        {
+            _topDoorClosed = !_topDoorClosed;
+            ApplyDoorSimulationState(_topDoorClosed);
+            UpdateDoorToggleButton();
+
+            QMC.Common.Logging.EventLogger.Write(
+                QMC.Common.Logging.EventKind.Event,
+                UserSession.Name,
+                "TOP-DOOR",
+                _topDoorClosed ? "Door simulation state changed: CLOSE" : "Door simulation state changed: OPEN");
+        }
+
+        private void StopBuzzerFromTopButton()
+        {
+            try
+            {
+                if (OpPanelMonitor != null)
+                    OpPanelMonitor.StopBuzzer();
+                else
+                    Machine?.OpPanelUnit?.Buzzer?.Off();
+
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Event,
+                    UserSession.Name,
+                    "TOP-BUZZER",
+                    "Buzzer stop requested from top button.");
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Warning,
+                    UserSession.Name,
+                    "TOP-BUZZER",
+                    "Buzzer stop failed: " + ex.Message);
+            }
+        }
+
+        private void ApplyDoorSimulationState(bool closed)
+        {
+            if (Machine == null)
+                return;
+
+            int total = 0;
+            int applied = 0;
+            foreach (BaseDigitalInput input in EnumerateInputs(Machine))
+            {
+                if (!IsDoorCheckInput(input))
+                    continue;
+
+                total++;
+                if (input.Config != null && input.Config.IsSimulationMode)
+                {
+                    input.SimulateInput(closed);
+                    applied++;
+                }
+            }
+
+            if (total == 0)
+            {
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Warning,
+                    UserSession.Name,
+                    "TOP-DOOR",
+                    "Door check inputs were not found.");
+            }
+            else if (applied == 0)
+            {
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Event,
+                    UserSession.Name,
+                    "TOP-DOOR",
+                    "Door check inputs are hardware mode. Simulation injection skipped.");
+            }
+        }
+
+        private static bool IsDoorCheckInput(BaseDigitalInput input)
+        {
+            if (input == null || string.IsNullOrEmpty(input.Name))
+                return false;
+
+            return string.Equals(input.Name, "LeftDoorCheck", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(input.Name, "RearDoorCheck", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(input.Name, "RightDoorCheck", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(input.Name, "WaferLifterDoorCheck", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(input.Name, "BinLifterDoorCheck", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private void UpdateTopCommandButtons()
+        {
+            UpdateDoorToggleButton();
+            btnBuzzerStop.BackColor = Color.FromArgb(92, 64, 34);
+            btnBuzzerStop.ForeColor = Color.White;
+        }
+
+        private void UpdateDoorToggleButton()
+        {
+            if (btnDoorToggle == null)
+                return;
+
+            if (_topDoorClosed)
+            {
+                btnDoorToggle.Text = "DOOR\r\nCLOSE";
+                btnDoorToggle.BackColor = Color.FromArgb(48, 92, 76);
+                btnDoorToggle.FlatAppearance.BorderColor = Color.FromArgb(110, 150, 136);
+            }
+            else
+            {
+                btnDoorToggle.Text = "DOOR\r\nOPEN";
+                btnDoorToggle.BackColor = Color.FromArgb(122, 46, 46);
+                btnDoorToggle.FlatAppearance.BorderColor = Color.FromArgb(210, 90, 74);
+            }
         }
 
         private void Form1_Load(object sender, EventArgs e)
         {
+            if (DesignMode || LicenseManager.UsageMode == LicenseUsageMode.Designtime)
+                return;
+
             // 구현 보조 주석입니다.
             var cfg = AppSettingsStore.Load();
             if (!string.IsNullOrEmpty(cfg.Language)) Lang.SetLanguage(cfg.Language);
@@ -382,6 +519,8 @@ namespace QMC.CDT_320
             IoScan.Start(EnumerateInputs(Machine), EnumerateOutputs(Machine), QMC.CDT320.Ajin.AjinFactory.UseRealBoard ? 10 : 100, () => !AppSettingsStore.Current.BypassHardware && AjinSystem.IsOpen);
             OpPanelMonitor = new OperationPanelMonitorService(Machine, Controller);
             OpPanelMonitor.Start();
+            ApplyDoorSimulationState(_topDoorClosed);
+            UpdateTopCommandButtons();
 
             // 구현 보조 주석입니다.
             try
