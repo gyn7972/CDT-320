@@ -7,8 +7,8 @@ using QMC.Common.Alarms;
 namespace QMC.CDT_320.Ui.Controls
 {
     /// <summary>
-    /// 활성 알람이 있을 때만 표시되는 빨간/오렌지 슬림 배너.
-    /// 최신 알람 메시지 + [CLEAR] 버튼.
+    ///
+    ///
     /// </summary>
     public class AlarmBanner : Panel
     {
@@ -17,6 +17,8 @@ namespace QMC.CDT_320.Ui.Controls
         private readonly Button _btnClear;
         private Timer _blinkTimer;
         private bool  _blinkOn;
+
+        public event EventHandler ClearRequested;
 
         public AlarmBanner()
         {
@@ -28,7 +30,7 @@ namespace QMC.CDT_320.Ui.Controls
             _icon = new Label
             {
                 Dock = DockStyle.Left, Width = 40,
-                Text = "⚠", ForeColor = Color.White,
+                Text = "!", ForeColor = Color.White,
                 BackColor = Color.Transparent,
                 Font = new Font("Segoe UI Symbol", 18F, FontStyle.Bold),
                 TextAlign = ContentAlignment.MiddleCenter
@@ -52,7 +54,7 @@ namespace QMC.CDT_320.Ui.Controls
             };
             _btnClear.FlatAppearance.BorderColor = Color.White;
             _btnClear.FlatAppearance.BorderSize  = 1;
-            _btnClear.Click += (s, e) => AlarmManager.ClearAll();
+            _btnClear.Click += OnClearClicked;
 
             Controls.Add(_msg);
             Controls.Add(_btnClear);
@@ -83,6 +85,25 @@ namespace QMC.CDT_320.Ui.Controls
 
         private void OnAlarmChanged(AlarmRecord rec) => Refresh();
 
+        private void OnClearClicked(object sender, EventArgs e)
+        {
+            try
+            {
+                var handler = ClearRequested;
+                if (handler != null)
+                    handler(this, EventArgs.Empty);
+                else
+                    AlarmManager.ClearAll();
+            }
+            catch
+            {
+                AlarmManager.ClearAll();
+            }
+            finally
+            {
+            }
+        }
+
         public new void Refresh()
         {
             if (InvokeRequired) { BeginInvoke(new Action(Refresh)); return; }
@@ -95,7 +116,7 @@ namespace QMC.CDT_320.Ui.Controls
                 return;
             }
 
-            // 색상
+            // 구현 보조 주석입니다.
             switch (sev.Value)
             {
                 case AlarmSeverity.Warning:  BackColor = Color.FromArgb(0xD9, 0x77, 0x06); _btnClear.BackColor = Color.FromArgb(0x99, 0x54, 0x04); break;
@@ -107,7 +128,7 @@ namespace QMC.CDT_320.Ui.Controls
             if (active.Count > 0)
             {
                 var top = active[active.Count - 1];
-                _msg.Text = $"[{top.Severity}] {top.Code} · {top.Source} · {top.Message}"
+                _msg.Text = $"[{top.Severity}] {top.Code} | {top.Source} | {top.Message}"
                             + (active.Count > 1 ? $"   (+ {active.Count - 1} more)" : "");
             }
 
@@ -124,3 +145,4 @@ namespace QMC.CDT_320.Ui.Controls
         }
     }
 }
+

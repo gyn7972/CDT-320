@@ -1,13 +1,13 @@
 ﻿using System;
 using System.Threading.Tasks;
 using System.IO.Ports;
-using QMC.CDT320.Logging;
+using QMC.Common.Logging;
 
 namespace QMC.CDT320.VisionComm
 {
     /// <summary>
-    /// Stage 43 — CDT-310 매뉴얼 사양: Wafer/Bin Barcode Communicator (Serial Port).
-    /// IBarcodeReader 를 시리얼 포트로 어댑팅. 미연결 시 안전 fallback.
+    /// Stage 43 ??CDT-310 留ㅻ돱???ъ뼇: Wafer/Bin Barcode Communicator (Serial Port).
+    /// IBarcodeReader 瑜??쒕━???ы듃濡??대뙌?? 誘몄뿰寃????덉쟾 fallback.
     /// </summary>
     public class BarcodeSerialAdapter : IBarcodeReader, IDisposable
     {
@@ -15,7 +15,7 @@ namespace QMC.CDT320.VisionComm
         private readonly int _baudRate;
         private SerialPort _port;
 
-        /// <summary>마지막 읽기 결과 (캐시).</summary>
+        /// <summary>留덉?留??쎄린 寃곌낵 (罹먯떆).</summary>
         public string LastReadId { get; private set; } = "";
 
         public BarcodeSerialAdapter(string portName, int baudRate = 9600)
@@ -57,7 +57,7 @@ namespace QMC.CDT320.VisionComm
                         if (!TryOpen()) return "WAFER-NULL-ID";
                     }
                     _port.ReadTimeout = timeoutMs;
-                    // 트리거 전송 (장비 모델에 맞게 수정)
+                    // ?몃━嫄??꾩넚 (?λ퉬 紐⑤뜽??留욊쾶 ?섏젙)
                     _port.WriteLine("READ?");
                     string id = _port.ReadLine().Trim();
                     LastReadId = id;
@@ -79,3 +79,4 @@ namespace QMC.CDT320.VisionComm
         }
     }
 }
+

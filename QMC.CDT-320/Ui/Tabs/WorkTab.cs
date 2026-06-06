@@ -25,7 +25,7 @@ namespace QMC.CDT_320.Ui.Tabs
 
             RegisterSidebarButton(BtnMain, "work.page.main", op, () => new WorkMainPage());
 
-            RegisterActionButton(BtnInit,       "work.init",       op, () => RunSafe(c => c.InitAsync()));
+            RegisterActionButton(BtnInit,       "work.init",       op, OpenInitializationMonitor);
             RegisterActionButton(BtnStart,      "work.start",      op, () => RunSafe(async c => await c.StartAsync()));
             RegisterActionButton(BtnStop,       "work.stop",       op, () => RunSafe(async c =>
             {
@@ -108,6 +108,29 @@ namespace QMC.CDT_320.Ui.Tabs
             {
                 QMC.Common.Log.Write("Main", "SYSTEM", "RunSafe", "Work action failed: " + ex.Message + " - Failed");
                 QMC.Common.MessageDialog.Show(FindForm(), "Work action failed:\n" + ex.Message, "Work", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
+        }
+
+        private void OpenInitializationMonitor()
+        {
+            try
+            {
+                if (Host == null || Host.Controller == null)
+                {
+                    QMC.Common.MessageDialog.Show(FindForm(), "Machine Controller를 찾을 수 없습니다.", "Work", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                using (var dlg = new InitializationMonitorDialog(Host.Controller))
+                    dlg.ShowDialog(FindForm());
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "OpenInitializationMonitor", "Initialization monitor dialog failed: " + ex.Message + " - Failed");
+                QMC.Common.MessageDialog.Show(FindForm(), "초기화 모니터를 열 수 없습니다.\n" + ex.Message, "Work", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using QMC.Common.Data.Store;
 
 namespace QMC.Common
 {
@@ -63,6 +64,94 @@ namespace QMC.Common
             // Composite Pattern: 자식 Unit들에게 Save()를 위임 → Unit은 다시 Component에 위임
             foreach (BaseEquipmentNode unit in Units)
                 unit.Save();
+        }
+
+        /// <summary>
+        /// Composite: 설비 자신의 Setup / Config 를 저장한 뒤 모든 하위 Unit으로 위임.
+        /// </summary>
+        public override bool SaveSettings()
+        {
+            try
+            {
+                bool ok = UnitDataStore.SaveSetup(Setup, StorageKey);
+                ok &= UnitDataStore.SaveConfig(Config, StorageKey);
+
+                foreach (BaseEquipmentNode unit in Units)
+                    ok &= unit.SaveSettings();
+
+                return ok;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        /// <summary>
+        /// Composite: 설비 자신의 Setup / Config 를 로드한 뒤 모든 하위 Unit으로 위임.
+        /// </summary>
+        public override void LoadSettings()
+        {
+            try
+            {
+                Setup = UnitDataStore.LoadSetup(StorageKey, Setup);
+                Config = UnitDataStore.LoadConfig(StorageKey, Config);
+
+                foreach (BaseEquipmentNode unit in Units)
+                    unit.LoadSettings();
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        /// <summary>
+        /// Composite: 레시피 이름별 설비 Recipe 를 저장한 뒤 모든 하위 Unit으로 위임.
+        /// </summary>
+        public override bool SaveRecipe(string recipeName)
+        {
+            try
+            {
+                bool ok = UnitDataStore.SaveRecipe(Recipe, recipeName, StorageKey);
+
+                foreach (BaseEquipmentNode unit in Units)
+                    ok &= unit.SaveRecipe(recipeName);
+
+                return ok;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        /// <summary>
+        /// Composite: 레시피 이름별 설비 Recipe 를 로드한 뒤 모든 하위 Unit으로 위임.
+        /// </summary>
+        public override void LoadRecipe(string recipeName)
+        {
+            try
+            {
+                Recipe = UnitDataStore.LoadRecipe(recipeName, StorageKey, Recipe);
+
+                foreach (BaseEquipmentNode unit in Units)
+                    unit.LoadRecipe(recipeName);
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
         }
     }
 }

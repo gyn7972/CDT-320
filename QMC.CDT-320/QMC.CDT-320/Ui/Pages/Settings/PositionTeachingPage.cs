@@ -9,6 +9,8 @@ using System.Text;
 using System.Windows.Forms;
 using QMC.CDT320;
 using QMC.CDT_320.Ui.Localization;
+using QMC.Common.Data.Store;
+using QMC.Common.Motion;
 
 namespace QMC.CDT_320.Ui.Pages.Settings
 {
@@ -17,7 +19,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
     /// 각 Unit 의 핵심 시퀀스 위치(절대 좌표)를 그리드에서 편집·티칭·저장.
     /// 메뉴얼(CDT-310/CDT-300) + 코드의 Setup 클래스 기준으로 항목을 시드한다.
     /// </summary>
-    public class PositionTeachingPage : PageBase
+    public partial class PositionTeachingPage : PageBase
     {
         // ── 위치 항목 메타 ─────────────────────────────────────────────
         public class TeachItem
@@ -31,14 +33,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             public string Desc  { get; set; }   // 한 줄 설명
         }
 
-        private DataGridView _grid;
         private List<TeachItem> _items;
 
-        // ── Stage 61 — Jog 패널 컴포넌트 ──
-        private Panel    _jogPanel;
-        private Label    _jogAxisLabel, _jogPosLabel;
-        private TextBox  _jogSpeedBox, _jogStepBox;
-        private Panel    _jogButtonArea;
         private System.Windows.Forms.Timer _jogPosTimer;
         private QMC.Common.Motion.BaseAxis _jogCurrentAxis;
 
@@ -48,203 +44,39 @@ namespace QMC.CDT_320.Ui.Pages.Settings
 
         public PositionTeachingPage()
         {
-            Controls.Add(CreateSectionHeader("set.teach"));
-
-            BuildHeader();
-            BuildGrid();
-            BuildJogPanel();
-            BuildActions();
+            InitializeComponent();
+            WireRuntimeEvents();
 
             _items = LoadOrSeed();
             FillGrid();
         }
 
-        // ──────────────────────────────────────
-        //  UI 구성
-        // ──────────────────────────────────────
-        private void BuildHeader()
+        private void WireRuntimeEvents()
         {
-            Controls.Add(new Label
-            {
-                Location = new Point(8, 36), Size = new Size(1400, 26),
-                Text = "POSITION TEACHING (시퀀스 위치 티칭)",
-                BackColor = UiTheme.StatusBarBg, ForeColor = Color.White,
-                Font = UiTheme.SectionFont, TextAlign = ContentAlignment.MiddleLeft,
-                Padding = new Padding(10, 0, 0, 0)
-            });
-        }
-
-        private void BuildGrid()
-        {
-            _grid = new DataGridView
-            {
-                Location = new Point(8, 66), Size = new Size(1100, 800),
-                ReadOnly = false,
-                AllowUserToAddRows = false,
-                AllowUserToDeleteRows = false,
-                RowHeadersVisible = false,
-                MultiSelect = false,
-                SelectionMode = DataGridViewSelectionMode.FullRowSelect,
-                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
-                BackgroundColor = Color.White,
-                Font = new Font("맑은 고딕", 9F),
-                EnableHeadersVisualStyles = false,
-                ColumnHeadersDefaultCellStyle =
-                {
-                    BackColor = Color.FromArgb(0x50, 0x50, 0x50),
-                    ForeColor = Color.White,
-                    Alignment = DataGridViewContentAlignment.MiddleCenter,
-                    Font = new Font("맑은 고딕", 9F, FontStyle.Bold)
-                },
-                RowTemplate = { Height = 24 }
-            };
-            _grid.Columns.Add("GROUP", "MODULE");
-            _grid.Columns.Add("KEY",   "KEY");
-            _grid.Columns.Add("NAME",  "NAME");
-            _grid.Columns.Add("AXIS",  "AXIS (#No)");
-            var col = new DataGridViewTextBoxColumn { Name = "VALUE", HeaderText = "VALUE", DefaultCellStyle = { Alignment = DataGridViewContentAlignment.MiddleRight, Font = new Font("Consolas", 10F, FontStyle.Bold) } };
-            _grid.Columns.Add(col);
-            _grid.Columns.Add("UNIT",  "UNIT");
-            _grid.Columns.Add("DESC",  "DESCRIPTION");
-
-            _grid.Columns["GROUP"].ReadOnly = true;
-            _grid.Columns["KEY"]  .ReadOnly = true;
-            _grid.Columns["NAME"] .ReadOnly = true;
-            _grid.Columns["AXIS"] .ReadOnly = true;
-            _grid.Columns["UNIT"] .ReadOnly = true;
-            _grid.Columns["DESC"] .ReadOnly = true;
-
             _grid.CellEndEdit += OnCellEdit;
             _grid.SelectionChanged += (s, e) => OnGridSelectionChanged();
-            Controls.Add(_grid);
-        }
 
-        // ──────────────────────────────────────
-        //  Stage 61 — Jog 패널 (그리드 오른쪽)
-        //  속도 / 스텝 입력 + 축 방향에 맞는 +/- 버튼.
-        //    X 축: 좌우 버튼 (− ← →+)
-        //    Y/Z 축: 상하 버튼 (+ 위, − 아래)
-        //    T 축: 회전 버튼 (CCW / CW)
-        // ──────────────────────────────────────
-        private void BuildJogPanel()
-        {
-            _jogPanel = new Panel
+            btnStepMul10.Click += (s, e) => MultiplyStep(10.0);
+            btnStepDiv10.Click += (s, e) => MultiplyStep(0.1);
+            btnStep5.Click += (s, e) => { _jogStepBox.Text = GetJogStepPreset(0); };
+            btnStep1.Click += (s, e) => { _jogStepBox.Text = GetJogStepPreset(1); };
+            btnStep01.Click += (s, e) => { _jogStepBox.Text = GetJogStepPreset(2); };
+            btnStep001.Click += (s, e) => { _jogStepBox.Text = GetJogStepPreset(3); };
+            btnStep0001.Click += (s, e) => { _jogStepBox.Text = GetJogStepPreset(4); };
+
+            btnTeach.Click += (s, e) => TeachFromCurrentPos();
+            btnGoto.Click += (s, e) => MoveToTaught();
+            btnApply.Click += (s, e) => ApplyToSetup();
+            btnSave.Click += (s, e) => DoSave();
+            btnReload.Click += (s, e) => { _items = LoadOrSeed(); FillGrid(); };
+            btnReset.Click += (s, e) =>
             {
-                Location = new Point(1116, 66), Size = new Size(290, 800),
-                BackColor = Color.FromArgb(0xF2, 0xF5, 0xFA),
-                BorderStyle = BorderStyle.FixedSingle
+                if (QMC.Common.MessageDialog.Show("기본값으로 초기화하시겠습니까?", "Reset",
+                                     MessageBoxButtons.OKCancel) != DialogResult.OK) return;
+                _items = SeedDefault();
+                FillGrid();
             };
 
-            var header = new Label
-            {
-                Location = new Point(0, 0), Size = new Size(290, 28),
-                Text = "AXIS JOG",
-                BackColor = UiTheme.StatusBarBg, ForeColor = Color.White,
-                Font = UiTheme.SectionFont, TextAlign = ContentAlignment.MiddleCenter
-            };
-            _jogPanel.Controls.Add(header);
-
-            _jogAxisLabel = new Label
-            {
-                Location = new Point(8, 36), Size = new Size(274, 22),
-                Text = "Axis: (선택된 행 없음)",
-                Font = new Font("맑은 고딕", 9F, FontStyle.Bold)
-            };
-            _jogPanel.Controls.Add(_jogAxisLabel);
-
-            _jogPosLabel = new Label
-            {
-                Location = new Point(8, 60), Size = new Size(274, 22),
-                Text = "Actual Pos: -",
-                Font = new Font("Consolas", 10F)
-            };
-            _jogPanel.Controls.Add(_jogPosLabel);
-
-            _jogPanel.Controls.Add(new Label
-            {
-                Location = new Point(8, 92), Size = new Size(80, 22),
-                Text = "Speed:", Font = new Font("맑은 고딕", 9F)
-            });
-            _jogSpeedBox = new TextBox
-            {
-                Location = new Point(90, 90), Size = new Size(100, 22),
-                Text = "100", Font = new Font("Consolas", 10F),
-                TextAlign = HorizontalAlignment.Right
-            };
-            _jogPanel.Controls.Add(_jogSpeedBox);
-            _jogPanel.Controls.Add(new Label
-            {
-                Location = new Point(194, 92), Size = new Size(60, 22),
-                Text = "mm/s", Font = new Font("맑은 고딕", 8.5F),
-                ForeColor = Color.DimGray
-            });
-
-            _jogPanel.Controls.Add(new Label
-            {
-                Location = new Point(8, 122), Size = new Size(80, 22),
-                Text = "Step:", Font = new Font("맑은 고딕", 9F)
-            });
-            _jogStepBox = new TextBox
-            {
-                Location = new Point(90, 120), Size = new Size(80, 22),
-                Text = "1.0", Font = new Font("Consolas", 10F),
-                TextAlign = HorizontalAlignment.Right
-            };
-            _jogPanel.Controls.Add(_jogStepBox);
-
-            // ×10 / ÷10 버튼 (Step 텍스트박스 우측)
-            var btnMul10 = new Button {
-                Location = new Point(174, 119), Size = new Size(40, 25),
-                Text = "×10", Font = new Font("맑은 고딕", 8F, FontStyle.Bold),
-                BackColor = Color.FromArgb(0xE2, 0xEB, 0xF8), FlatStyle = FlatStyle.Flat
-            };
-            btnMul10.Click += (s, e) => MultiplyStep(10.0);
-            _jogPanel.Controls.Add(btnMul10);
-
-            var btnDiv10 = new Button {
-                Location = new Point(218, 119), Size = new Size(40, 25),
-                Text = "÷10", Font = new Font("맑은 고딕", 8F, FontStyle.Bold),
-                BackColor = Color.FromArgb(0xE2, 0xEB, 0xF8), FlatStyle = FlatStyle.Flat
-            };
-            btnDiv10.Click += (s, e) => MultiplyStep(0.1);
-            _jogPanel.Controls.Add(btnDiv10);
-
-            // Step 프리셋 버튼 — 5 / 1 / 0.1 / 0.01 / 0.001
-            string[] presets = new[] { "5", "1", "0.1", "0.01", "0.001" };
-            int x = 8;
-            int btnW = 53;
-            for (int i = 0; i < presets.Length; i++)
-            {
-                var p = presets[i];
-                var b = new Button {
-                    Location = new Point(x, 150), Size = new Size(btnW, 26),
-                    Text = p, Font = new Font("맑은 고딕", 8.5F, FontStyle.Bold),
-                    BackColor = Color.FromArgb(0xEC, 0xF3, 0xFA), FlatStyle = FlatStyle.Flat,
-                    Margin = new Padding(2)
-                };
-                b.Click += (s, e) => { _jogStepBox.Text = p; };
-                _jogPanel.Controls.Add(b);
-                x += btnW + 2;
-            }
-
-            _jogButtonArea = new Panel
-            {
-                Location = new Point(8, 188), Size = new Size(274, 260),
-                BackColor = Color.White, BorderStyle = BorderStyle.FixedSingle
-            };
-            _jogPanel.Controls.Add(_jogButtonArea);
-
-            var hint = new Label
-            {
-                Location = new Point(8, 456), Size = new Size(274, 60),
-                Text = "그리드 행 클릭 → 해당 축 자동 전환.\nServo OFF 상태면 자동 ON 후 이동.",
-                Font = new Font("맑은 고딕", 8F), ForeColor = Color.DimGray
-            };
-            _jogPanel.Controls.Add(hint);
-
-            Controls.Add(_jogPanel);
-
-            // 200ms 주기로 현재 축 위치 갱신
             _jogPosTimer = new System.Windows.Forms.Timer { Interval = 200 };
             _jogPosTimer.Tick += (s, e) => RefreshJogPos();
             _jogPosTimer.Start();
@@ -261,12 +93,54 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         private void OnGridSelectionChanged()
         {
             var it = CurrentItem();
-            if (it == null) { _jogCurrentAxis = null; _jogAxisLabel.Text = "Axis: (없음)"; ClearJogButtons(); return; }
+            if (it == null) { _jogCurrentAxis = null; _jogAxisLabel.Text = "Axis: (없음)"; ClearJogButtons(); UpdateJogUnitUi(); return; }
             var host = FindForm() as Form1;
             if (host?.Machine == null) return;
             _jogCurrentAxis = ResolveAxis(host.Machine, it.Axis);
             _jogAxisLabel.Text = "Axis: " + it.Axis;
+            UpdateJogUnitUi();
             RebuildJogButtons(DetectAxisDir(it.Axis));
+        }
+
+        private void UpdateJogUnitUi()
+        {
+            try
+            {
+                string unit = _jogCurrentAxis == null ? AxisUnitConverter.Millimeter : AxisUnitConverter.DisplayUnitFor(_jogCurrentAxis);
+                lblSpeedUnit.Text = unit + "/s";
+                lblStep.Text = "Step (" + unit + ")";
+                btnStep5.Text = GetJogStepPreset(0);
+                btnStep1.Text = GetJogStepPreset(1);
+                btnStep01.Text = GetJogStepPreset(2);
+                btnStep001.Text = GetJogStepPreset(3);
+                btnStep0001.Text = GetJogStepPreset(4);
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        private string GetJogStepPreset(int index)
+        {
+            try
+            {
+                string unit = _jogCurrentAxis == null ? AxisUnitConverter.Millimeter : AxisUnitConverter.DisplayUnitFor(_jogCurrentAxis);
+                double[] presets = AxisUnitConverter.Normalize(unit) == AxisUnitConverter.Micrometer
+                    ? new[] { 5000.0, 1000.0, 100.0, 10.0, 1.0 }
+                    : new[] { 5.0, 1.0, 0.1, 0.01, 0.001 };
+                double value = presets[Math.Max(0, Math.Min(index, presets.Length - 1))];
+                return value.ToString("0.###");
+            }
+            catch
+            {
+                return "1";
+            }
+            finally
+            {
+            }
         }
 
         private void ClearJogButtons()
@@ -275,7 +149,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             _jogButtonArea.Controls.Clear();
         }
 
-        /// <summary>axis 라벨 (예: "#12 FRONT PICKER_Z0", "#03 WAFER STAGE_T") 에서 마지막 방향 문자 추출.</summary>
+        /// <summary>axis 라벨 (예: "#12 FrontPickerZ0", "#03 WaferStageT") 에서 마지막 방향 문자 추출.</summary>
         private static char DetectAxisDir(string axisLabel)
         {
             if (string.IsNullOrEmpty(axisLabel)) return '?';
@@ -346,11 +220,13 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             try
             {
                 if (!_jogCurrentAxis.IsServoOn) _jogCurrentAxis.ServoOn();
-                await _jogCurrentAxis.MoveRelativeAsync(sign * step, speed);
+                double nativeStep = AxisUnitConverter.FromDisplay(step, _jogCurrentAxis);
+                double nativeSpeed = AxisUnitConverter.FromDisplay(speed, _jogCurrentAxis);
+                await _jogCurrentAxis.MoveRelativeAsync(sign * nativeStep, nativeSpeed);
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Jog 실패: " + ex.Message, "Jog",
+                QMC.Common.MessageDialog.Show("Jog 실패: " + ex.Message, "Jog",
                                 MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
@@ -358,50 +234,10 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         private void RefreshJogPos()
         {
             if (_jogPosLabel == null) return;
+            UpdateJogUnitUi();
             _jogPosLabel.Text = _jogCurrentAxis == null
                 ? "Actual Pos: -"
-                : "Actual Pos: " + _jogCurrentAxis.ActualPosition.ToString("F3");
-        }
-
-        private void BuildActions()
-        {
-            var actions = new FlowLayoutPanel
-            {
-                Dock = DockStyle.Bottom, Height = 60, Padding = new Padding(8),
-                BackColor = UiTheme.OptionPanelBg, FlowDirection = FlowDirection.LeftToRight
-            };
-
-            var btnTeach = new Controls.ActionButton { Text = "TEACH (현재축위치 적용)", Size = new Size(220, 44), Margin = new Padding(4) };
-            btnTeach.Click += (s, e) => TeachFromCurrentPos();
-            actions.Controls.Add(btnTeach);
-
-            var btnGoto = new Controls.ActionButton { Text = "MOVE TO (이 위치로 이동)", Size = new Size(220, 44), Margin = new Padding(4) };
-            btnGoto.Click += (s, e) => MoveToTaught();
-            actions.Controls.Add(btnGoto);
-
-            var btnApply = new Controls.ActionButton { Text = "APPLY (Setup 반영)", Size = new Size(180, 44), Margin = new Padding(4) };
-            btnApply.Click += (s, e) => ApplyToSetup();
-            actions.Controls.Add(btnApply);
-
-            var btnSave = new Controls.ActionButton { Text = "SAVE", Size = new Size(120, 44), Margin = new Padding(4) };
-            btnSave.Click += (s, e) => DoSave();
-            actions.Controls.Add(btnSave);
-
-            var btnReload = new Controls.ActionButton { Text = "RELOAD", Size = new Size(120, 44), Margin = new Padding(4) };
-            btnReload.Click += (s, e) => { _items = LoadOrSeed(); FillGrid(); };
-            actions.Controls.Add(btnReload);
-
-            var btnReset = new Controls.ActionButton { Text = "RESET DEFAULT", Size = new Size(160, 44), Margin = new Padding(4) };
-            btnReset.Click += (s, e) =>
-            {
-                if (MessageBox.Show("기본값으로 초기화하시겠습니까?", "Reset",
-                                     MessageBoxButtons.OKCancel) != DialogResult.OK) return;
-                _items = SeedDefault();
-                FillGrid();
-            };
-            actions.Controls.Add(btnReset);
-
-            Controls.Add(actions);
+                : "Actual Pos: " + AxisUnitConverter.FormatDisplay(_jogCurrentAxis.ActualPosition, _jogCurrentAxis, "0.###", true);
         }
 
         // ──────────────────────────────────────
@@ -412,26 +248,26 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             var L = new List<TeachItem>();
 
             // ── InputLoader ────────────────────────────────────────────
-            L.Add(new TeachItem { Group="InputLoader", Key="FirstSlotPosition",   Name="첫 슬롯 Z 위치",        Axis="#00 WAFER LIFTER_Z", Value=10.0,  Unit="mm",  Desc="카세트 슬롯 0번 ElevatorZ 절대 위치" });
-            L.Add(new TeachItem { Group="InputLoader", Key="ExchangePositionY",   Name="교환 Y 위치",            Axis="#01 WAFER FEEDER_Y", Value=150.0, Unit="mm",  Desc="피더가 InputStage 입구로 전진하는 Y" });
+            L.Add(new TeachItem { Group="InputLoader", Key="FirstSlotPosition",   Name="첫 슬롯 Z 위치",        Axis="#00 InputLifterZ", Value=10.0,  Unit="mm",  Desc= "카세트 슬롯 0번 InputLifterZ 절대 위치" });
+            L.Add(new TeachItem { Group="InputLoader", Key="ExchangePositionY",   Name="교환 Y 위치",            Axis="#01 InputFeederY", Value=150.0, Unit="mm",  Desc="피더가 InputStage 입구로 전진하는 Y" });
 
             // ── InputStage ─────────────────────────────────────────────
-            L.Add(new TeachItem { Group="InputStage",  Key="ExpanderDownPosition",Name="ExpanderZ Down",        Axis="#04 WAFER EXPANDING_Z", Value=50.0, Unit="mm", Desc="테이프 텐션 확보 위치" });
-            L.Add(new TeachItem { Group="InputStage",  Key="ExpanderUpPosition",  Name="ExpanderZ Up",          Axis="#04 WAFER EXPANDING_Z", Value=0.0,  Unit="mm", Desc="언로드 위치 (텐션 해제)" });
-            L.Add(new TeachItem { Group="InputStage",  Key="UnloadPositionY",     Name="Unload StageY",         Axis="#02 WAFER STAGE_Y",     Value=0.0,  Unit="mm", Desc="언로드 시 StageY 이동 위치" });
-            L.Add(new TeachItem { Group="InputStage",  Key="NeedleEjectPosition", Name="Needle Eject Z",        Axis="#07 NEEDLE_Z",          Value=5.0,  Unit="mm", Desc="다이 분리 시 니들 상승 위치" });
-            L.Add(new TeachItem { Group="InputStage",  Key="NeedleDownPosition",  Name="Needle Down Z",         Axis="#07 NEEDLE_Z",          Value=0.0,  Unit="mm", Desc="니들 대기 위치" });
-            L.Add(new TeachItem { Group="InputStage",  Key="PickerOffsetX",       Name="Picker Offset X",       Axis="#06 NEEDLE_X",          Value=0.0,  Unit="mm", Desc="스캔→픽업 X 보정" });
-            L.Add(new TeachItem { Group="InputStage",  Key="PickerOffsetY",       Name="Picker Offset Y",       Axis="#02 WAFER STAGE_Y",     Value=3.0,  Unit="mm", Desc="스캔→픽업 Y 보정" });
+            L.Add(new TeachItem { Group="InputStage",  Key="ExpanderDownPosition",Name="ExpanderZ Down",        Axis="#04 WaferExpandingZ", Value=50.0, Unit="mm", Desc="테이프 텐션 확보 위치" });
+            L.Add(new TeachItem { Group="InputStage",  Key="ExpanderUpPosition",  Name="ExpanderZ Up",          Axis="#04 WaferExpandingZ", Value=0.0,  Unit="mm", Desc="언로드 위치 (텐션 해제)" });
+            L.Add(new TeachItem { Group="InputStage",  Key="UnloadPositionY",     Name="Unload StageY",         Axis="#02 WaferStageY",     Value=0.0,  Unit="mm", Desc="언로드 시 StageY 이동 위치" });
+            L.Add(new TeachItem { Group="InputStage",  Key="NeedleEjectPosition", Name="Needle Eject Z",        Axis="#07 NeedleZ",          Value=5.0,  Unit="mm", Desc="다이 분리 시 니들 상승 위치" });
+            L.Add(new TeachItem { Group="InputStage",  Key="NeedleDownPosition",  Name="Needle Down Z",         Axis="#07 NeedleZ",          Value=0.0,  Unit="mm", Desc="니들 대기 위치" });
+            L.Add(new TeachItem { Group="InputStage",  Key="PickerOffsetX",       Name="Picker Offset X",       Axis="#06 NeedleX",          Value=0.0,  Unit="mm", Desc="스캔→픽업 X 보정" });
+            L.Add(new TeachItem { Group="InputStage",  Key="PickerOffsetY",       Name="Picker Offset Y",       Axis="#02 WaferStageY",     Value=3.0,  Unit="mm", Desc="스캔→픽업 Y 보정" });
 
             // ── TransferPicker — Picker Z 위치 (Front 4 + Rear 4 = 8 picker, 각 4 위치 = 32 entries) ──
             // 각 picker (PickerComponent) 마다 Pick/Place/Focus/Wait Z 위치를 별도 티칭.
             //   Front Picker 0~3 → axis #12, #14, #16, #18
             //   Rear  Picker 0~3 → axis #24, #26, #28, #30
-            string[] frontZAxes = new[] { "#12 FRONT PICKER_Z0", "#14 FRONT PICKER_Z1",
-                                          "#16 FRONT PICKER_Z2", "#18 FRONT PICKER_Z3" };
-            string[] rearZAxes  = new[] { "#24 REAR PICKER_Z0",  "#26 REAR PICKER_Z1",
-                                          "#28 REAR PICKER_Z2",  "#30 REAR PICKER_Z3" };
+            string[] frontZAxes = new[] { "#12 FrontPickerZ0", "#14 FrontPickerZ1",
+                                          "#16 FrontPickerZ2", "#18 FrontPickerZ3" };
+            string[] rearZAxes  = new[] { "#24 RearPickerZ0",  "#26 RearPickerZ1",
+                                          "#28 RearPickerZ2",  "#30 RearPickerZ3" };
             string[] zKinds     = new[] { "PickPosition", "PlacePosition", "FocusPosition", "WaitPosition" };
             string[] zKindNames = new[] { "Pick Z",       "Place Z",       "Focus Z",       "Wait Z" };
             double[] zDefaults  = new[] {  42.0,            42.0,            20.0,           0.0 };
@@ -463,40 +299,40 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 }
             }
 
-            L.Add(new TeachItem { Group="TPU.Front",   Key="ArmInputX",           Name="Arm X — Input",         Axis="#09 FRONT PICKER_X",    Value=300.0,  Unit="mm", Desc="Pickup 위치" });
-            L.Add(new TeachItem { Group="TPU.Front",   Key="ArmInspectX",         Name="Arm X — Inspection",    Axis="#09 FRONT PICKER_X",    Value=750.0,  Unit="mm", Desc="Bottom/Side Vision 위치" });
-            L.Add(new TeachItem { Group="TPU.Front",   Key="ArmOutputX",          Name="Arm X — Output",        Axis="#09 FRONT PICKER_X",    Value=1200.0, Unit="mm", Desc="Place 위치" });
+            L.Add(new TeachItem { Group="TPU.Front",   Key="ArmInputX",           Name="Arm X — Input",         Axis="#09 FrontPickerX",    Value=300.0,  Unit="mm", Desc="Pickup 위치" });
+            L.Add(new TeachItem { Group="TPU.Front",   Key="ArmInspectX",         Name="Arm X — Inspection",    Axis="#09 FrontPickerX",    Value=750.0,  Unit="mm", Desc="Bottom/Side Vision 위치" });
+            L.Add(new TeachItem { Group="TPU.Front",   Key="ArmOutputX",          Name="Arm X — Output",        Axis="#09 FrontPickerX",    Value=1200.0, Unit="mm", Desc="Place 위치" });
             // Stage 61 — Front Arm Y Pickup / Avoid
-            L.Add(new TeachItem { Group="TPU.Front",   Key="ArmYPickup",          Name="Arm Y — Pickup",        Axis="#10 FRONT PICKER_Y",    Value=100.0,  Unit="mm", Desc="다이 픽업 시 ArmY 위치" });
-            L.Add(new TeachItem { Group="TPU.Front",   Key="ArmYAvoid",           Name="Arm Y — Avoid",         Axis="#10 FRONT PICKER_Y",    Value=50.0,   Unit="mm", Desc="이동 중 간섭 회피 ArmY" });
-            L.Add(new TeachItem { Group="TPU.Front",   Key="SideVision1X",        Name="Side1 X (회전 전)",     Axis="#09 FRONT PICKER_X",    Value=720.0,  Unit="mm", Desc="Side 1번 면 촬상 X" });
-            L.Add(new TeachItem { Group="TPU.Front",   Key="SideVision1Y",        Name="Side1 Y",               Axis="#10 FRONT PICKER_Y",    Value=200.0,  Unit="mm", Desc="Side 1번 면 촬상 Y" });
-            L.Add(new TeachItem { Group="TPU.Front",   Key="PickerPitchX",        Name="Picker 간 피치 X",      Axis="#09 FRONT PICKER_X",    Value=8.0,    Unit="mm", Desc="4 picker 사이 X 거리" });
-            L.Add(new TeachItem { Group="TPU.Front",   Key="SideY0",              Name="Side Vision Y0",        Axis="#19 FRONT SIDE VISION_Y0", Value=0.0, Unit="mm", Desc="Side 카메라 베이스 위치" });
+            L.Add(new TeachItem { Group="TPU.Front",   Key="ArmYPickup",          Name="Arm Y — Pickup",        Axis="#10 FrontPickerY",    Value=100.0,  Unit="mm", Desc="다이 픽업 시 ArmY 위치" });
+            L.Add(new TeachItem { Group="TPU.Front",   Key="ArmYAvoid",           Name="Arm Y — Avoid",         Axis="#10 FrontPickerY",    Value=50.0,   Unit="mm", Desc="이동 중 간섭 회피 ArmY" });
+            L.Add(new TeachItem { Group="TPU.Front",   Key="SideVision1X",        Name="Side1 X (회전 전)",     Axis="#09 FrontPickerX",    Value=720.0,  Unit="mm", Desc="Side 1번 면 촬상 X" });
+            L.Add(new TeachItem { Group="TPU.Front",   Key="SideVision1Y",        Name="Side1 Y",               Axis="#10 FrontPickerY",    Value=200.0,  Unit="mm", Desc="Side 1번 면 촬상 Y" });
+            L.Add(new TeachItem { Group="TPU.Front",   Key="PickerPitchX",        Name="Picker 간 피치 X",      Axis="#09 FrontPickerX",    Value=8.0,    Unit="mm", Desc="4 picker 사이 X 거리" });
+            L.Add(new TeachItem { Group="TPU.Front",   Key="SideY0",              Name="Side Vision Y0",        Axis="#19 FrontSideVisionY0", Value=0.0, Unit="mm", Desc="Side 카메라 베이스 위치" });
 
-            L.Add(new TeachItem { Group="TPU.Rear",    Key="ArmInputX",           Name="Rear Arm X — Input",    Axis="#21 REAR PICKER_X",     Value=300.0,  Unit="mm", Desc="Pickup" });
-            L.Add(new TeachItem { Group="TPU.Rear",    Key="ArmInspectX",         Name="Rear Arm X — Inspect",  Axis="#21 REAR PICKER_X",     Value=750.0,  Unit="mm", Desc="Inspection" });
-            L.Add(new TeachItem { Group="TPU.Rear",    Key="ArmOutputX",          Name="Rear Arm X — Output",   Axis="#21 REAR PICKER_X",     Value=1200.0, Unit="mm", Desc="Place" });
+            L.Add(new TeachItem { Group="TPU.Rear",    Key="ArmInputX",           Name="Rear Arm X — Input",    Axis="#21 RearPickerX",     Value=300.0,  Unit="mm", Desc="Pickup" });
+            L.Add(new TeachItem { Group="TPU.Rear",    Key="ArmInspectX",         Name="Rear Arm X — Inspect",  Axis="#21 RearPickerX",     Value=750.0,  Unit="mm", Desc="Inspection" });
+            L.Add(new TeachItem { Group="TPU.Rear",    Key="ArmOutputX",          Name="Rear Arm X — Output",   Axis="#21 RearPickerX",     Value=1200.0, Unit="mm", Desc="Place" });
             // Stage 61 — Rear Arm Y Pickup / Avoid
-            L.Add(new TeachItem { Group="TPU.Rear",    Key="ArmYPickup",          Name="Rear Arm Y — Pickup",   Axis="#22 REAR PICKER_Y",     Value=100.0,  Unit="mm", Desc="다이 픽업 시 ArmY 위치" });
-            L.Add(new TeachItem { Group="TPU.Rear",    Key="ArmYAvoid",           Name="Rear Arm Y — Avoid",    Axis="#22 REAR PICKER_Y",     Value=50.0,   Unit="mm", Desc="이동 중 간섭 회피 ArmY" });
-            L.Add(new TeachItem { Group="TPU.Rear",    Key="SideY0",              Name="Rear Side Vision Y0",   Axis="#20 REAR SIDE VISION_Y0",  Value=0.0, Unit="mm", Desc="Rear Side 카메라 베이스" });
+            L.Add(new TeachItem { Group="TPU.Rear",    Key="ArmYPickup",          Name="Rear Arm Y — Pickup",   Axis="#22 RearPickerY",     Value=100.0,  Unit="mm", Desc="다이 픽업 시 ArmY 위치" });
+            L.Add(new TeachItem { Group="TPU.Rear",    Key="ArmYAvoid",           Name="Rear Arm Y — Avoid",    Axis="#22 RearPickerY",     Value=50.0,   Unit="mm", Desc="이동 중 간섭 회피 ArmY" });
+            L.Add(new TeachItem { Group="TPU.Rear",    Key="SideY0",              Name="Rear Side Vision Y0",   Axis="#20 RearSideVisionY0",  Value=0.0, Unit="mm", Desc="Rear Side 카메라 베이스" });
 
             // ── OutputStage ────────────────────────────────────────────
-            L.Add(new TeachItem { Group="OutputStage", Key="StageBasePositionY",     Name="StageY 기준 Y",       Axis="#33 GOOD BIN_Y / #31 NG BIN_Y", Value=200.0, Unit="mm", Desc="Place 시 StageY 기준" });
-            L.Add(new TeachItem { Group="OutputStage", Key="WorkPositionZ",          Name="Work Z (상승)",       Axis="#32 NG BIN_Z",          Value=80.0,  Unit="mm", Desc="다이 받을 때 StageZ 상승" });
-            L.Add(new TeachItem { Group="OutputStage", Key="AvoidPositionZ",         Name="Avoid Z (하강)",      Axis="#32 NG BIN_Z",          Value=0.0,   Unit="mm", Desc="반대편 작업 시 회피 위치" });
-            L.Add(new TeachItem { Group="OutputStage", Key="BinCameraWorkPositionX", Name="BinCamera Work X",    Axis="#34 INSPECTION VISION_X", Value=200.0, Unit="mm", Desc="Bin 검사 위치" });
-            L.Add(new TeachItem { Group="OutputStage", Key="BinCameraRetractX",      Name="BinCamera Retract X", Axis="#34 INSPECTION VISION_X", Value=0.0,   Unit="mm", Desc="후퇴(대기) 위치" });
+            L.Add(new TeachItem { Group="OutputStage", Key="StageBasePositionY",     Name="StageY 기준 Y",       Axis="#31 OutputGoodStageY / #33 OutputNGStageY", Value=200.0, Unit="mm", Desc="Place 시 StageY 기준" });
+            L.Add(new TeachItem { Group="OutputStage", Key="WorkPositionZ",          Name="Work Z (상승)",       Axis="#32 OutputGoodStageZ",          Value=80.0,  Unit="mm", Desc="다이 받을 때 StageZ 상승" });
+            L.Add(new TeachItem { Group="OutputStage", Key="AvoidPositionZ",         Name="Avoid Z (하강)",      Axis="#32 OutputGoodStageZ",          Value=0.0,   Unit="mm", Desc="반대편 작업 시 회피 위치" });
+            L.Add(new TeachItem { Group="OutputStage", Key="BinCameraWorkPositionX", Name="BinCamera Work X",    Axis="#34 OutputVisionX", Value=200.0, Unit="mm", Desc="Bin 검사 위치" });
+            L.Add(new TeachItem { Group="OutputStage", Key="BinCameraRetractX",      Name="BinCamera Retract X", Axis="#34 OutputVisionX", Value=0.0,   Unit="mm", Desc="후퇴(대기) 위치" });
 
-            // ── OutputUnloader ─────────────────────────────────────────
-            L.Add(new TeachItem { Group="OutputUnloader", Key="NgFirstSlotPositionZ",    Name="NG Slot 0 Z",           Axis="#36 BIN LIFTER_Z",  Value=20.0,   Unit="mm", Desc="NG 카세트 첫 슬롯" });
-            L.Add(new TeachItem { Group="OutputUnloader", Key="Good1FirstSlotPositionZ", Name="Good1 Slot 0 Z",        Axis="#36 BIN LIFTER_Z",  Value=80.0,   Unit="mm", Desc="Good1 카세트 첫 슬롯" });
-            L.Add(new TeachItem { Group="OutputUnloader", Key="Good2FirstSlotPositionZ", Name="Good2 Slot 0 Z",        Axis="#36 BIN LIFTER_Z",  Value=160.0,  Unit="mm", Desc="Good2 카세트 첫 슬롯" });
-            L.Add(new TeachItem { Group="OutputUnloader", Key="SlotPitchZ",              Name="슬롯 피치 Z",            Axis="#36 BIN LIFTER_Z",  Value=6.0,    Unit="mm", Desc="슬롯 간 간격" });
-            L.Add(new TeachItem { Group="OutputUnloader", Key="NgStageExchangePositionY",  Name="NG 교환 Y",            Axis="#35 BIN FEEDER_Y",  Value=180.0,  Unit="mm", Desc="NG 카세트 인계 Y" });
-            L.Add(new TeachItem { Group="OutputUnloader", Key="GoodStageExchangePositionY",Name="Good 교환 Y",          Axis="#35 BIN FEEDER_Y",  Value=180.0,  Unit="mm", Desc="Good 카세트 인계 Y" });
-            L.Add(new TeachItem { Group="OutputUnloader", Key="CassetteInsertPositionY",   Name="카세트 삽입 Y",        Axis="#35 BIN FEEDER_Y",  Value=250.0,  Unit="mm", Desc="카세트 안쪽 진입 위치" });
+            // ── OutputCassette / OutputFeeder ─────────────────────────
+            L.Add(new TeachItem { Group="OutputCassette", Key="NgFirstSlotPositionZ",    Name="NG Slot 0 Z",           Axis="#36 OutputLifterZ",  Value=20.0,   Unit="mm", Desc="NG 카세트 첫 슬롯" });
+            L.Add(new TeachItem { Group="OutputCassette", Key="Good1FirstSlotPositionZ", Name="Good1 Slot 0 Z",        Axis="#36 OutputLifterZ",  Value=80.0,   Unit="mm", Desc="Good1 카세트 첫 슬롯" });
+            L.Add(new TeachItem { Group="OutputCassette", Key="Good2FirstSlotPositionZ", Name="Good2 Slot 0 Z",        Axis="#36 OutputLifterZ",  Value=160.0,  Unit="mm", Desc="Good2 카세트 첫 슬롯" });
+            L.Add(new TeachItem { Group="OutputCassette", Key="SlotPitchZ",              Name="슬롯 피치 Z",            Axis="#36 OutputLifterZ",  Value=6.0,    Unit="mm", Desc="슬롯 간 간격" });
+            L.Add(new TeachItem { Group="OutputFeeder", Key="NgStageExchangePositionY",  Name="NG 교환 Y",             Axis="#35 OutputFeederY",  Value=180.0,  Unit="mm", Desc="NG 카세트 인계 Y" });
+            L.Add(new TeachItem { Group="OutputFeeder", Key="GoodStageExchangePositionY",Name="Good 교환 Y",           Axis="#35 OutputFeederY",  Value=180.0,  Unit="mm", Desc="Good 카세트 인계 Y" });
+            L.Add(new TeachItem { Group="OutputFeeder", Key="CassetteInsertPositionY",   Name="카세트 삽입 Y",         Axis="#35 OutputFeederY",  Value=250.0,  Unit="mm", Desc="카세트 안쪽 진입 위치" });
 
             return L;
         }
@@ -536,15 +372,14 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 Directory.CreateDirectory(Path.GetDirectoryName(SavePath));
                 using (var fs = File.Create(SavePath))
                 {
-                    var ser = new DataContractJsonSerializer(typeof(TeachStore));
-                    ser.WriteObject(fs, new TeachStore { Items = _items });
+                    JsonPrettySerializer.WriteObject(fs, typeof(TeachStore), new TeachStore { Items = _items });
                 }
-                MessageBox.Show("티칭 데이터 저장 완료.\n" + SavePath, "Position Teaching",
+                QMC.Common.MessageDialog.Show("티칭 데이터 저장 완료.\n" + SavePath, "Position Teaching",
                                  MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
-                MessageBox.Show("저장 실패: " + ex.Message);
+                QMC.Common.MessageDialog.Show("저장 실패: " + ex.Message);
             }
         }
 
@@ -558,7 +393,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             foreach (var it in _items)
             {
                 int idx = _grid.Rows.Add(it.Group, it.Key, it.Name, it.Axis,
-                                         it.Value.ToString("F3"), it.Unit, it.Desc);
+                                         FormatTeachValue(it), GetTeachDisplayUnit(it), it.Desc);
                 if (it.Group != lastGroup)
                 {
                     _grid.Rows[idx].DefaultCellStyle.BackColor = Color.FromArgb(0xEC, 0xF0, 0xF6);
@@ -575,13 +410,66 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             string txt = (_grid.Rows[e.RowIndex].Cells["VALUE"].Value as string) ?? "0";
             if (double.TryParse(txt, out double v))
             {
-                _items[e.RowIndex].Value = v;
-                _grid.Rows[e.RowIndex].Cells["VALUE"].Value = v.ToString("F3");
+                TeachItem item = _items[e.RowIndex];
+                BaseAxis axis = ResolveTeachAxis(item);
+                item.Value = axis == null ? v : AxisUnitConverter.FromDisplay(v, axis);
+                _grid.Rows[e.RowIndex].Cells["VALUE"].Value = FormatTeachValue(item);
+                _grid.Rows[e.RowIndex].Cells["UNIT"].Value = GetTeachDisplayUnit(item);
             }
             else
             {
-                MessageBox.Show("숫자만 입력 가능합니다.");
-                _grid.Rows[e.RowIndex].Cells["VALUE"].Value = _items[e.RowIndex].Value.ToString("F3");
+                QMC.Common.MessageDialog.Show("숫자만 입력 가능합니다.");
+                _grid.Rows[e.RowIndex].Cells["VALUE"].Value = FormatTeachValue(_items[e.RowIndex]);
+            }
+        }
+
+        private BaseAxis ResolveTeachAxis(TeachItem item)
+        {
+            try
+            {
+                var host = FindForm() as Form1;
+                if (item == null || host?.Machine == null) return null;
+                return ResolveAxis(host.Machine, item.Axis);
+            }
+            catch
+            {
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
+        private string GetTeachDisplayUnit(TeachItem item)
+        {
+            try
+            {
+                BaseAxis axis = ResolveTeachAxis(item);
+                return axis == null ? item.Unit : AxisUnitConverter.DisplayUnitFor(axis);
+            }
+            catch
+            {
+                return item != null ? item.Unit : string.Empty;
+            }
+            finally
+            {
+            }
+        }
+
+        private string FormatTeachValue(TeachItem item)
+        {
+            try
+            {
+                BaseAxis axis = ResolveTeachAxis(item);
+                double value = axis == null ? item.Value : AxisUnitConverter.ToDisplay(item.Value, axis);
+                return value.ToString("F3");
+            }
+            catch
+            {
+                return item != null ? item.Value.ToString("F3") : "0.000";
+            }
+            finally
+            {
             }
         }
 
@@ -601,11 +489,12 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             var it = CurrentItem();
             if (it == null) return;
             var host = FindForm() as Form1;
-            if (host?.Machine == null) { MessageBox.Show("Machine 미초기화"); return; }
+            if (host?.Machine == null) { QMC.Common.MessageDialog.Show("Machine 미초기화"); return; }
             double pos = ResolveAxisActualPos(host.Machine, it.Axis);
-            if (double.IsNaN(pos)) { MessageBox.Show("축을 식별하지 못했습니다: " + it.Axis); return; }
+            if (double.IsNaN(pos)) { QMC.Common.MessageDialog.Show("축을 식별하지 못했습니다: " + it.Axis); return; }
             it.Value = pos;
-            _grid.Rows[_grid.CurrentRow.Index].Cells["VALUE"].Value = pos.ToString("F3");
+            _grid.Rows[_grid.CurrentRow.Index].Cells["VALUE"].Value = FormatTeachValue(it);
+            _grid.Rows[_grid.CurrentRow.Index].Cells["UNIT"].Value = GetTeachDisplayUnit(it);
         }
 
         /// <summary>현재 행의 위치값으로 해당 축을 이동.</summary>
@@ -614,22 +503,22 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             var it = CurrentItem();
             if (it == null) return;
             var host = FindForm() as Form1;
-            if (host?.Machine == null) { MessageBox.Show("Machine 미초기화"); return; }
+            if (host?.Machine == null) { QMC.Common.MessageDialog.Show("Machine 미초기화"); return; }
             var ax = ResolveAxis(host.Machine, it.Axis);
-            if (ax == null) { MessageBox.Show("축을 찾지 못했습니다: " + it.Axis); return; }
+            if (ax == null) { QMC.Common.MessageDialog.Show("축을 찾지 못했습니다: " + it.Axis); return; }
             try
             {
                 if (!ax.IsServoOn) ax.ServoOn();
                 await ax.MoveAbsoluteAsync(it.Value, 50.0);
             }
-            catch (Exception ex) { MessageBox.Show("이동 실패: " + ex.Message); }
+            catch (Exception ex) { QMC.Common.MessageDialog.Show("이동 실패: " + ex.Message); }
         }
 
         /// <summary>티칭 데이터를 각 Unit 의 Setup 객체에 반영 (런타임 적용).</summary>
         private void ApplyToSetup()
         {
             var host = FindForm() as Form1;
-            if (host?.Machine == null) { MessageBox.Show("Machine 미초기화"); return; }
+            if (host?.Machine == null) { QMC.Common.MessageDialog.Show("Machine 미초기화"); return; }
             var m = host.Machine;
             int applied = 0;
 
@@ -646,88 +535,90 @@ namespace QMC.CDT_320.Ui.Pages.Settings
 
                     switch (it.Group + "." + it.Key)
                     {
-                        case "InputLoader.FirstSlotPosition":   m.InputLoader.Setup.FirstSlotPosition  = it.Value; applied++; break;
-                        case "InputLoader.ExchangePositionY":   m.InputLoader.Setup.ExchangePositionY  = it.Value; applied++; break;
+                        //case "InputLoader.FirstSlotPosition":   m.InputLoader.Setup.FirstSlotPosition  = it.Value; applied++; break;
+                        //case "InputLoader.ExchangePositionY":   m.InputLoader.Setup.ExchangePositionY  = it.Value; applied++; break;
 
-                        case "InputStage.ExpanderDownPosition": m.InputStage.Setup.ExpanderDownPosition = it.Value; applied++; break;
-                        case "InputStage.ExpanderUpPosition":   m.InputStage.Setup.ExpanderUpPosition   = it.Value; applied++; break;
-                        case "InputStage.UnloadPositionY":      m.InputStage.Setup.UnloadPositionY      = it.Value; applied++; break;
-                        case "InputStage.NeedleEjectPosition":  m.InputStage.Setup.NeedleEjectPosition  = it.Value; applied++; break;
-                        case "InputStage.NeedleDownPosition":   m.InputStage.Setup.NeedleDownPosition   = it.Value; applied++; break;
-                        case "InputStage.PickerOffsetX":        m.InputStage.Setup.PickerOffsetX        = it.Value; applied++; break;
-                        case "InputStage.PickerOffsetY":        m.InputStage.Setup.PickerOffsetY        = it.Value; applied++; break;
+                        case "InputStage.ExpanderDownPosition": m.InputStageUnit.Recipe.WaferZ.LoadPosition    = it.Value; applied++; break;
+                        case "InputStage.ExpanderUpPosition":   m.InputStageUnit.Recipe.WaferZ.ReadyPosition   = it.Value; applied++; break;
+                        case "InputStage.UnloadPositionY":      m.InputStageUnit.Recipe.WaferY.UnloadPosition  = it.Value; applied++; break;
+                        case "InputStage.NeedleEjectPosition":  m.InputStageUnit.Recipe.NeedleZ.ProcessPosition = it.Value; applied++; break;
+                        case "InputStage.NeedleDownPosition":   m.InputStageUnit.Recipe.NeedleZ.LoadPosition   = it.Value; applied++; break;
+                        // PickerOffsetX/Y are not declared in InputStageSetup/Config/Recipe.
 
                         // OutputStage (Stage 59 round 11)
-                        case "OutputStage.StageBasePositionY":      m.OutputStage.Setup.StageBasePositionY        = it.Value; applied++; break;
-                        case "OutputStage.BinCameraWorkPositionX":  m.OutputStage.Setup.BinCameraWorkPositionX    = it.Value; applied++; break;
-                        case "OutputStage.BinCameraRetractX":       m.OutputStage.Setup.BinCameraRetractPositionX = it.Value; applied++; break;
+                        case "OutputStage.StageBasePositionY":
+                            m.OutputStageUnit.GoodStage.Recipe.HomePositionY = it.Value;
+                            m.OutputStageUnit.NgStage.Recipe.HomePositionY = it.Value;
+                            applied += 2; break;
+                        case "OutputStage.BinCameraWorkPositionX":  m.OutputStageUnit.Recipe.VisionX.ProcessPosition = it.Value; applied++; break;
+                        case "OutputStage.BinCameraRetractX":       m.OutputStageUnit.Recipe.VisionX.AvoidPosition = it.Value; applied++; break;
 
-                        // OutputUnloader (Stage 59 round 11)
-                        case "OutputUnloader.NgFirstSlotPositionZ":    m.OutputUnloader.Setup.NgFirstSlotPositionZ    = it.Value; applied++; break;
-                        case "OutputUnloader.Good1FirstSlotPositionZ": m.OutputUnloader.Setup.Good1FirstSlotPositionZ = it.Value; applied++; break;
-                        case "OutputUnloader.Good2FirstSlotPositionZ": m.OutputUnloader.Setup.Good2FirstSlotPositionZ = it.Value; applied++; break;
-                        case "OutputUnloader.SlotPitchZ":              m.OutputUnloader.Setup.SlotPitchZ              = it.Value; applied++; break;
-                        case "OutputUnloader.NgStageExchangePositionY":  m.OutputUnloader.Setup.NgStageExchangePositionY   = it.Value; applied++; break;
-                        case "OutputUnloader.GoodStageExchangePositionY":m.OutputUnloader.Setup.GoodStageExchangePositionY = it.Value; applied++; break;
-                        case "OutputUnloader.CassetteInsertPositionY":   m.OutputUnloader.Setup.CassetteInsertPositionY    = it.Value; applied++; break;
+                        // OutputCassette / OutputFeeder
+                        case "OutputCassette.NgFirstSlotPositionZ":    m.OutputCassetteUnit.Recipe.NGFirstSlotPosition = it.Value; applied++; break;
+                        case "OutputCassette.Good1FirstSlotPositionZ": m.OutputCassetteUnit.Recipe.GoodFirstSlotPosition = it.Value; applied++; break;
+                        case "OutputCassette.Good2FirstSlotPositionZ": m.OutputCassetteUnit.Config.GOODNGPositionOffset = it.Value - m.OutputCassetteUnit.Recipe.GoodFirstSlotPosition; applied++; break;
+                        case "OutputCassette.SlotPitchZ":              m.OutputCassetteUnit.Config.SlotPitch = it.Value; applied++; break;
+                        case "OutputFeeder.NgStageExchangePositionY":  m.OutputFeederUnit.Recipe.NGWaferLoadPosition = it.Value; m.OutputFeederUnit.Recipe.NGWaferUnloadPosition = it.Value; applied++; break;
+                        case "OutputFeeder.GoodStageExchangePositionY":m.OutputFeederUnit.Recipe.GoodWaferLoadPosition = it.Value; m.OutputFeederUnit.Recipe.GoodWaferUnloadPosition = it.Value; applied++; break;
+                        case "OutputFeeder.CassetteInsertPositionY":   m.OutputFeederUnit.Recipe.GoodCassetteExchangePosition = it.Value; m.OutputFeederUnit.Recipe.NGCassetteExchangePosition = it.Value; applied++; break;
 
                         // Stage 60 R-teach — 추가 매핑 (이전 16개 미적용 항목 보강)
                         // OutputStage 의 두 StageModule (Good + Ng) 모두 동일 값 적용
                         case "OutputStage.WorkPositionZ":
-                            m.OutputStage.GoodStage.Setup.WorkPositionZ  = it.Value;
-                            m.OutputStage.NgStage  .Setup.WorkPositionZ  = it.Value;
+                            m.OutputStageUnit.GoodStage.Recipe.WorkPositionZ  = it.Value;
+                            m.OutputStageUnit.NgStage  .Recipe.WorkPositionZ  = it.Value;
                             applied += 2; break;
                         case "OutputStage.AvoidPositionZ":
-                            m.OutputStage.GoodStage.Setup.AvoidPositionZ = it.Value;
-                            m.OutputStage.NgStage  .Setup.AvoidPositionZ = it.Value;
+                            m.OutputStageUnit.GoodStage.Recipe.AvoidPositionZ = it.Value;
+                            m.OutputStageUnit.NgStage  .Recipe.AvoidPositionZ = it.Value;
                             applied += 2; break;
 
                         // (Per-picker Z teaching 은 switch 진입 전에 ApplyPerPickerZ 에서 처리)
 
                         // TpuArmSetup — Front
                         case "TPU.Front.ArmInputX":
-                            m.TransferPicker.LeftArm.Setup.ArmInputPositionX      = it.Value; applied++; break;
+                            m.PickerFrontUnit.Setup.ArmInputPositionX      = it.Value; applied++; break;
                         case "TPU.Front.ArmInspectX":
-                            m.TransferPicker.LeftArm.Setup.ArmInspectionPositionX = it.Value; applied++; break;
+                            m.PickerFrontUnit.Setup.ArmInspectionPositionX = it.Value; applied++; break;
                         case "TPU.Front.ArmOutputX":
-                            m.TransferPicker.LeftArm.Setup.ArmOutputPositionX     = it.Value; applied++; break;
+                            m.PickerFrontUnit.Setup.ArmOutputPositionX     = it.Value; applied++; break;
                         case "TPU.Front.SideVision1X":
-                            m.TransferPicker.LeftArm.Setup.SideVision1X = it.Value; applied++; break;
+                            m.PickerFrontUnit.Setup.SideVision1X = it.Value; applied++; break;
                         case "TPU.Front.SideVision1Y":
-                            m.TransferPicker.LeftArm.Setup.SideVision1Y = it.Value; applied++; break;
+                            m.PickerFrontUnit.Setup.SideVision1Y = it.Value; applied++; break;
                         case "TPU.Front.PickerPitchX":
-                            m.TransferPicker.LeftArm.Setup.PickerPitchX = it.Value; applied++; break;
+                            m.PickerFrontUnit.Setup.PickerPitchX = it.Value; applied++; break;
                         case "TPU.Front.SideY0":
-                            m.TransferPicker.LeftArm.Setup.SideVisionY0 = it.Value; applied++; break;
+                            m.PickerFrontUnit.Setup.SideVisionY0 = it.Value; applied++; break;
                         case "TPU.Front.ArmYPickup":
-                            m.TransferPicker.LeftArm.Setup.ArmYPickupPosition = it.Value; applied++; break;
+                            m.PickerFrontUnit.Setup.ArmYPickupPosition = it.Value; applied++; break;
                         case "TPU.Front.ArmYAvoid":
-                            m.TransferPicker.LeftArm.Setup.ArmYAvoidPosition  = it.Value; applied++; break;
+                            m.PickerFrontUnit.Setup.ArmYAvoidPosition  = it.Value; applied++; break;
 
                         // TpuArmSetup — Rear (대칭)
                         case "TPU.Rear.ArmInputX":
-                            m.TransferPicker.RightArm.Setup.ArmInputPositionX      = it.Value; applied++; break;
+                            m.PickerRearUnit.Setup.ArmInputPositionX      = it.Value; applied++; break;
                         case "TPU.Rear.ArmInspectX":
-                            m.TransferPicker.RightArm.Setup.ArmInspectionPositionX = it.Value; applied++; break;
+                            m.PickerRearUnit.Setup.ArmInspectionPositionX = it.Value; applied++; break;
                         case "TPU.Rear.ArmOutputX":
-                            m.TransferPicker.RightArm.Setup.ArmOutputPositionX     = it.Value; applied++; break;
+                            m.PickerRearUnit.Setup.ArmOutputPositionX     = it.Value; applied++; break;
                         case "TPU.Rear.SideVision1X":
-                            m.TransferPicker.RightArm.Setup.SideVision1X = it.Value; applied++; break;
+                            m.PickerRearUnit.Setup.SideVision1X = it.Value; applied++; break;
                         case "TPU.Rear.SideVision1Y":
-                            m.TransferPicker.RightArm.Setup.SideVision1Y = it.Value; applied++; break;
+                            m.PickerRearUnit.Setup.SideVision1Y = it.Value; applied++; break;
                         case "TPU.Rear.PickerPitchX":
-                            m.TransferPicker.RightArm.Setup.PickerPitchX = it.Value; applied++; break;
+                            m.PickerRearUnit.Setup.PickerPitchX = it.Value; applied++; break;
                         case "TPU.Rear.SideY0":
-                            m.TransferPicker.RightArm.Setup.SideVisionY0 = it.Value; applied++; break;
+                            m.PickerRearUnit.Setup.SideVisionY0 = it.Value; applied++; break;
                         case "TPU.Rear.ArmYPickup":
-                            m.TransferPicker.RightArm.Setup.ArmYPickupPosition = it.Value; applied++; break;
+                            m.PickerRearUnit.Setup.ArmYPickupPosition = it.Value; applied++; break;
                         case "TPU.Rear.ArmYAvoid":
-                            m.TransferPicker.RightArm.Setup.ArmYAvoidPosition  = it.Value; applied++; break;
+                            m.PickerRearUnit.Setup.ArmYAvoidPosition  = it.Value; applied++; break;
 
                         default:
                             // 매핑 미지원 항목 — JSON 저장은 되지만 Setup 미반영. 디버그용 로그.
-                            QMC.CDT320.Logging.EventLogger.Write(
-                                QMC.CDT320.Logging.EventKind.Event,
+                            QMC.Common.Logging.EventLogger.Write(
+                                QMC.Common.Logging.EventKind.Event,
                                 QMC.CDT_320.Ui.Security.UserSession.Name,
                                 "TEACH-NOAPPLY",
                                 $"{it.Group}.{it.Key} = {it.Value} (Setup property 미정의 — JSON 만 저장)");
@@ -738,8 +629,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 {
                     try
                     {
-                        QMC.CDT320.Logging.EventLogger.Write(
-                            QMC.CDT320.Logging.EventKind.Event,
+                        QMC.Common.Logging.EventLogger.Write(
+                            QMC.Common.Logging.EventKind.Event,
                             QMC.CDT_320.Ui.Security.UserSession.Name,
                             "TEACH-EX",
                             $"{it.Group}.{it.Key}: {ex.GetType().Name}: {ex.Message}");
@@ -747,7 +638,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                     catch { }
                 }
             }
-            MessageBox.Show($"Setup 반영 완료: {applied} 항목\n\n" +
+            QMC.Common.MessageDialog.Show($"Setup 반영 완료: {applied} 항목\n\n" +
                             "(미반영 항목은 JSON 에만 저장됨 — EventLog TEACH-NOAPPLY 참조)",
                             "Apply", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
@@ -771,21 +662,26 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                     return 0;
                 if (idx < 0 || idx > 3) return 0;
 
-                var arm = isFront ? m.TransferPicker.LeftArm : m.TransferPicker.RightArm;
-                var p   = arm.Pickers[idx];
+                if (isFront)
+                    m.PickerFrontUnit.SetRuntimePickerZPosition(idx, it.Key, it.Value);
+                else
+                    m.PickerRearUnit.SetRuntimePickerZPosition(idx, it.Key, it.Value);
+
                 switch (it.Key)
                 {
-                    case "PickPosition":  p.Setup.PickupPosition = it.Value; return 1;
-                    case "PlacePosition": p.Setup.PlacePosition  = it.Value; return 1;
-                    case "FocusPosition": p.Setup.FocusPosition  = it.Value; return 1;
-                    case "WaitPosition":  p.Setup.WaitPosition   = it.Value; return 1;
-                    default: return 0;
+                    case "PickPosition":
+                    case "PlacePosition":
+                    case "FocusPosition":
+                    case "WaitPosition":
+                        return 1;
+                    default:
+                        return 0;
                 }
             }
             catch { return 0; }
         }
 
-        // 축 이름 ("#09 FRONT PICKER_X" 또는 "#33 GOOD BIN_Y / #31 NG BIN_Y") 으로부터
+        // 축 이름 ("#09 FrontPickerX" 또는 "#31 OutputGoodStageY / #33 OutputNGStageY") 으로부터
         // 첫 번째 매칭 축의 Actual Position 반환 — 단순 매칭 (이름 substring).
         private static double ResolveAxisActualPos(CDT320_Machine m, string axisLabel)
         {
@@ -841,3 +737,5 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         }
     }
 }
+
+

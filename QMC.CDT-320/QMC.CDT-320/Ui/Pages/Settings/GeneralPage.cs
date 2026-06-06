@@ -1,150 +1,137 @@
-﻿using System.Drawing;
-using System.Windows.Forms;
+﻿using System.Windows.Forms;
 using QMC.CDT320;
+using QMC.CDT_320;
 using QMC.CDT_320.Ui.Localization;
 
 namespace QMC.CDT_320.Ui.Pages.Settings
 {
-    /// <summary>설정 - GENERAL: 언어/빈 배열파일/비전 매칭 에러.</summary>
-    public class GeneralPage : PageBase
+    /// <summary>Settings - General.</summary>
+    public partial class GeneralPage : PageBase
     {
-        private ComboBox _cbLang;
-        private ComboBox _cbBinArr;
-        private ComboBox _cbVisionMatch;
-
         public GeneralPage()
         {
-            BuildBody();
+            InitializeComponent();
+            ApplyRuntimeUi();
+            LoadSettings();
+            WireEvents();
         }
 
-        private void BuildBody()
+        private void ApplyRuntimeUi()
         {
-            // 상하 자연스러운 흐름을 위해 Dock=Top 컨트롤을 "역순"으로 추가한다.
-            //   (WinForms Dock=Top 은 z-order 가 낮을수록 위에 배치 — 마지막에 추가한 것이 최상단.)
-            //   순서를 명확히 하기 위해 Controls.Add 순서를 다음과 같이 한다:
-            //     ① ajinGroup  (아래)
-            //     ② body       (가운데)
-            //     ③ header     (맨 위)
+            lblHeader.Text = Lang.T("common.setting");
+            lblHeader.Tag = "i18n:common.setting";
+            lblHeader.BackColor = UiTheme.StatusBarBg;
+            lblHeader.ForeColor = UiTheme.StatusBarFg;
+            lblHeader.Font = UiTheme.SectionFont;
 
+            lblLanguage.Text = Lang.T("set.gen.language");
+            lblLanguage.Tag = "i18n:set.gen.language";
+            lblBinArray.Text = Lang.T("set.gen.binArr");
+            lblBinArray.Tag = "i18n:set.gen.binArr";
+            lblVisionMatch.Text = Lang.T("set.gen.visionMatchErr");
+            lblVisionMatch.Tag = "i18n:set.gen.visionMatchErr";
+            lblSimulationMode.Text = "SIMULATION MODE";
+            lblDryRunMode.Text = "DRY RUN MODE";
+            lblDeveloperMode.Text = "DEVELOPER MODE";
+
+            grpAjin.Tag = "level:Maintenance";
+        }
+
+        private void LoadSettings()
+        {
             var cfg = AppSettingsStore.Current;
 
-            // ── AJINEXTEK 그룹 (Dock=Top, 고정 높이 110)
-            var ajinGroup = new GroupBox
-            {
-                Dock     = DockStyle.Top,
-                Height   = 110,
-                Padding  = new Padding(8, 4, 8, 8),
-                Text     = "AJINEXTEK (실보드)  — 변경 후 재시작 필요",
-                Font     = UiTheme.SectionFont,
-                Tag      = "level:Maintenance"
-            };
-            var cbAjin = new CheckBox
-            {
-                Location  = new Point(16, 28), AutoSize = true,
-                Text      = "UseAjin (AXL.dll)",
-                Checked   = cfg.UseAjin,
-                Font      = UiTheme.ButtonFont
-            };
-            var lblIrq = new Label { Location = new Point(16, 60), AutoSize = true, Text = "IRQ NO.", Font = UiTheme.ButtonFont };
-            var tbIrq  = new TextBox { Location = new Point(90, 56), Size = new Size(80, 26), Text = cfg.AjinIrqNo.ToString(), Font = UiTheme.ValueFont };
-            cbAjin.CheckedChanged += (s, e) =>
-            {
-                AppSettingsStore.Current.UseAjin = cbAjin.Checked;
-                AppSettingsStore.Save();
-            };
-            tbIrq.TextChanged += (s, e) =>
-            {
-                if (int.TryParse(tbIrq.Text, out var v))
-                {
-                    AppSettingsStore.Current.AjinIrqNo = v;
-                    AppSettingsStore.Save();
-                }
-            };
-            ajinGroup.Controls.Add(cbAjin);
-            ajinGroup.Controls.Add(lblIrq);
-            ajinGroup.Controls.Add(tbIrq);
-            Controls.Add(ajinGroup);
-
-            // ── 일반 설정 body (Dock=Top, Height=140)
-            var body = new TableLayoutPanel
-            {
-                Dock = DockStyle.Top, ColumnCount = 2, RowCount = 3, Height = 140,
-                Padding = new Padding(8), BackColor = UiTheme.MainBg
-            };
-            body.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 180));
-            body.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 240));
-            for (int i = 0; i < 3; i++) body.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));
-
-            body.Controls.Add(MakeLabel("set.gen.language"), 0, 0);
-            _cbLang = new ComboBox
-            {
-                Dock          = DockStyle.Fill,
-                DropDownStyle = ComboBoxStyle.DropDownList,
-                Font          = UiTheme.ValueFont,
-                Margin        = new Padding(2)
-            };
-            foreach (var code in Lang.Supported) _cbLang.Items.Add(code);
+            _cbLang.Items.Clear();
+            foreach (var code in Lang.Supported)
+                _cbLang.Items.Add(code);
             _cbLang.SelectedItem = Lang.Current;
+
+            ResetEnableDisableItems(_cbBinArr);
+            ResetEnableDisableItems(_cbVisionMatch);
+            ResetEnableDisableItems(_cbSimulationMode);
+            ResetEnableDisableItems(_cbDryRunMode);
+            ResetEnableDisableItems(_cbDeveloperMode);
+
+            _cbBinArr.SelectedIndex = cfg.BinArrayFile ? 0 : 1;
+            _cbVisionMatch.SelectedIndex = cfg.VisionMatchError ? 0 : 1;
+            _cbSimulationMode.SelectedIndex = cfg.SimulationMode ? 0 : 1;
+            _cbDryRunMode.SelectedIndex = cfg.DryRunMode ? 0 : 1;
+            _cbDeveloperMode.SelectedIndex = cfg.DeveloperMode ? 0 : 1;
+            _cbAjin.Checked = cfg.UseAjin;
+            _tbIrq.Text = cfg.AjinIrqNo.ToString();
+        }
+
+        private void WireEvents()
+        {
             _cbLang.SelectedIndexChanged += (s, e) =>
             {
-                var code = (string)_cbLang.SelectedItem;
+                var code = _cbLang.SelectedItem as string;
+                if (string.IsNullOrWhiteSpace(code)) return;
                 Lang.SetLanguage(code);
                 AppSettingsStore.Current.Language = code;
                 AppSettingsStore.Save();
             };
-            body.Controls.Add(_cbLang, 1, 0);
 
-            body.Controls.Add(MakeLabel("set.gen.binArr"), 0, 1);
-            _cbBinArr = MakeEnableDisable();
-            _cbBinArr.SelectedIndex = cfg.BinArrayFile ? 0 : 1;
             _cbBinArr.SelectedIndexChanged += (s, e) =>
             {
                 AppSettingsStore.Current.BinArrayFile = _cbBinArr.SelectedIndex == 0;
                 AppSettingsStore.Save();
             };
-            body.Controls.Add(_cbBinArr, 1, 1);
 
-            body.Controls.Add(MakeLabel("set.gen.visionMatchErr"), 0, 2);
-            _cbVisionMatch = MakeEnableDisable();
-            _cbVisionMatch.SelectedIndex = cfg.VisionMatchError ? 0 : 1;
             _cbVisionMatch.SelectedIndexChanged += (s, e) =>
             {
                 AppSettingsStore.Current.VisionMatchError = _cbVisionMatch.SelectedIndex == 0;
                 AppSettingsStore.Save();
             };
-            body.Controls.Add(_cbVisionMatch, 1, 2);
-            Controls.Add(body);
 
-            // ── 섹션 헤더 (마지막에 추가 → 최상단)
-            Controls.Add(CreateSectionHeader("common.setting"));
+            _cbSimulationMode.SelectedIndexChanged += (s, e) =>
+            {
+                AppSettingsStore.Current.SimulationMode = _cbSimulationMode.SelectedIndex == 0;
+                AppSettingsStore.Save();
+                ApplyRuntimeModeToHost();
+            };
+
+            _cbDryRunMode.SelectedIndexChanged += (s, e) =>
+            {
+                AppSettingsStore.Current.DryRunMode = _cbDryRunMode.SelectedIndex == 0;
+                AppSettingsStore.Save();
+                ApplyRuntimeModeToHost();
+            };
+
+            _cbDeveloperMode.SelectedIndexChanged += (s, e) =>
+            {
+                AppSettingsStore.Current.DeveloperMode = _cbDeveloperMode.SelectedIndex == 0;
+                AppSettingsStore.Save();
+            };
+
+            _cbAjin.CheckedChanged += (s, e) =>
+            {
+                AppSettingsStore.Current.UseAjin = _cbAjin.Checked;
+                AppSettingsStore.Save();
+                ApplyRuntimeModeToHost();
+            };
+
+            _tbIrq.TextChanged += (s, e) =>
+            {
+                int value;
+                if (!int.TryParse(_tbIrq.Text, out value)) return;
+                AppSettingsStore.Current.AjinIrqNo = value;
+                AppSettingsStore.Save();
+            };
         }
 
-        private static Label MakeLabel(string i18nKey) => new Label
+        private static void ResetEnableDisableItems(ComboBox combo)
         {
-            Dock      = DockStyle.Fill,
-            Text      = Lang.T(i18nKey),
-            Tag       = "i18n:" + i18nKey,
-            BackColor = Color.FromArgb(0xD0, 0xD0, 0xD0),
-            ForeColor = Color.Black,
-            Font      = new Font("맑은 고딕", 9F),
-            TextAlign = ContentAlignment.MiddleLeft,
-            Padding   = new Padding(6, 0, 0, 0),
-            Margin    = new Padding(2)
-        };
+            combo.Items.Clear();
+            combo.Items.Add("ENABLE");
+            combo.Items.Add("DISABLE");
+        }
 
-        private static ComboBox MakeEnableDisable()
+        private void ApplyRuntimeModeToHost()
         {
-            var cb = new ComboBox
-            {
-                Dock          = DockStyle.Fill,
-                DropDownStyle = ComboBoxStyle.DropDownList,
-                Font          = UiTheme.ValueFont,
-                Margin        = new Padding(2)
-            };
-            cb.Items.Add("ENABLE");
-            cb.Items.Add("DISABLE");
-            cb.SelectedIndex = 0;
-            return cb;
+            var host = FindForm() as Form1;
+            if (host != null)
+                host.ApplyRuntimeMode();
         }
     }
 }

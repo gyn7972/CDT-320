@@ -36,7 +36,7 @@ namespace QMC.CDT_320
             _instanceMutex = new Mutex(true, MUTEX_NAME, out created);
             if (!created)
             {
-                MessageBox.Show("CDT-320 Handler 가 이미 실행 중입니다.",
+                QMC.Common.MessageDialog.Show("CDT-320 Handler 가 이미 실행 중입니다.",
                                 "Single Instance",
                                 MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
@@ -70,3 +70,4 @@ namespace QMC.CDT_320
         }
     }
 }
+

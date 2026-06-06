@@ -1,77 +1,40 @@
-﻿using System.Drawing;
-using System.Windows.Forms;
+﻿using System.Windows.Forms;
 using QMC.CDT320.Recipes;
 
 namespace QMC.CDT_320.Ui.Pages.Recipe
 {
-    /// <summary>
-    /// Stage 57 — Output Subset 편집 (NG/Good Plate 사양 + DiesPerWafer 등).<br/>
-    /// Stage 54 의 OutputSubset 데이터 클래스를 노출.
-    /// </summary>
-    public class OutputSubsetPage : SubsetPageBase
+    public partial class OutputSubsetPage : SubsetPageBase
     {
-        private NumericUpDown _nGoodMax, _nNgMax, _nDiesPerWafer, _nWafersPerBatch;
-        private CheckBox _cbAutoBin, _cbAlarmFull;
-        private TextBox _tbDefaultGood;
-
-        public OutputSubsetPage() : base("recipe.outputSubset") { }
+        public OutputSubsetPage() : base("recipe.outputSubset")
+        {
+            InitializeComponent();
+        }
 
         protected override void BuildEditor(Panel c)
         {
-            int yy = 10, dy = 36;
-            c.Controls.Add(new Label
-            {
-                Location = new Point(10, yy), Size = new Size(490, 24),
-                Text = "Plate 슬롯 + 사이클 파라미터",
-                Font = UiTheme.SectionFont, ForeColor = Color.DarkSlateGray,
-                BorderStyle = BorderStyle.FixedSingle, BackColor = Color.LightYellow,
-                TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding(8, 0, 0, 0)
-            });
-            yy += 30;
-            c.Controls.Add(MakeLabel("Good Plate 최대 슬롯",     10, yy)); _nGoodMax        = MakeNum(220, yy, 1m, 100m, 0); c.Controls.Add(_nGoodMax);        yy += dy;
-            c.Controls.Add(MakeLabel("NG Plate 최대 슬롯",       10, yy)); _nNgMax          = MakeNum(220, yy, 1m, 100m, 0); c.Controls.Add(_nNgMax);          yy += dy;
-            c.Controls.Add(MakeLabel("Wafer 당 다이 수",         10, yy)); _nDiesPerWafer   = MakeNum(220, yy, 1m, 100m, 0); c.Controls.Add(_nDiesPerWafer);   yy += dy;
-            c.Controls.Add(MakeLabel("Output Batch 당 Wafer 수",10, yy)); _nWafersPerBatch = MakeNum(220, yy, 1m, 100m, 0); c.Controls.Add(_nWafersPerBatch); yy += dy + 8;
-
-            _cbAutoBin = new CheckBox
-            {
-                Location = new Point(220, yy), Size = new Size(280, 26),
-                Text = "Auto Bin Transition 활성", Font = UiTheme.ButtonFont
-            };
-            c.Controls.Add(MakeLabel("자동 Bin 전환", 10, yy)); c.Controls.Add(_cbAutoBin); yy += dy;
-
-            _cbAlarmFull = new CheckBox
-            {
-                Location = new Point(220, yy), Size = new Size(280, 26),
-                Text = "Plate 가득 시 알람 + 사이클 정지", Font = UiTheme.ButtonFont
-            };
-            c.Controls.Add(MakeLabel("가득 시 알람", 10, yy)); c.Controls.Add(_cbAlarmFull); yy += dy + 8;
-
-            c.Controls.Add(MakeLabel("기본 Good 카세트", 10, yy));
-            _tbDefaultGood = MakeText(220, yy, 280); c.Controls.Add(_tbDefaultGood);
         }
 
         protected override void LoadFromRecipe()
         {
             var o = _project.Output ?? new OutputSubset();
-            _nGoodMax.Value        = o.GoodPlateMaxSlots;
-            _nNgMax.Value          = o.NgPlateMaxSlots;
-            _nDiesPerWafer.Value   = o.DiesPerWafer;
+            _nGoodMax.Value = o.GoodPlateMaxSlots;
+            _nNgMax.Value = o.NgPlateMaxSlots;
+            _nDiesPerWafer.Value = o.DiesPerWafer;
             _nWafersPerBatch.Value = o.WafersPerOutputBatch;
-            _cbAutoBin.Checked     = o.AutoBinTransition;
-            _cbAlarmFull.Checked   = o.AlarmOnFull;
-            _tbDefaultGood.Text    = o.DefaultGoodCassette ?? "";
+            _cbAutoBin.Checked = o.AutoBinTransition;
+            _cbAlarmFull.Checked = o.AlarmOnFull;
+            _tbDefaultGood.Text = o.DefaultGoodCassette ?? "";
         }
 
         protected override void SaveToRecipe()
         {
             var o = _project.Output ?? (_project.Output = new OutputSubset());
-            o.GoodPlateMaxSlots   = (int)_nGoodMax.Value;
-            o.NgPlateMaxSlots     = (int)_nNgMax.Value;
-            o.DiesPerWafer        = (int)_nDiesPerWafer.Value;
+            o.GoodPlateMaxSlots = (int)_nGoodMax.Value;
+            o.NgPlateMaxSlots = (int)_nNgMax.Value;
+            o.DiesPerWafer = (int)_nDiesPerWafer.Value;
             o.WafersPerOutputBatch = (int)_nWafersPerBatch.Value;
-            o.AutoBinTransition   = _cbAutoBin.Checked;
-            o.AlarmOnFull         = _cbAlarmFull.Checked;
+            o.AutoBinTransition = _cbAutoBin.Checked;
+            o.AlarmOnFull = _cbAlarmFull.Checked;
             o.DefaultGoodCassette = _tbDefaultGood.Text;
         }
     }

@@ -2,6 +2,7 @@
 using System.IO;
 using System.Runtime.Serialization;
 using System.Runtime.Serialization.Json;
+using QMC.Common.Data.Store;
 
 namespace QMC.CDT320.VisionComm
 {
@@ -88,8 +89,7 @@ namespace QMC.CDT320.VisionComm
                 if (m != null) Current = m;
                 using (var fs = File.Create(Path_))
                 {
-                    var ser = new DataContractJsonSerializer(typeof(CoordinateMap));
-                    ser.WriteObject(fs, Current);
+                    JsonPrettySerializer.WriteObject(fs, typeof(CoordinateMap), Current);
                 }
             }
             catch { }

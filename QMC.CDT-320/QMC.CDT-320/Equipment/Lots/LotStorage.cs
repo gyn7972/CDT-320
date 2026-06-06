@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.Serialization.Json;
+using QMC.Common.Data.Store;
 
 namespace QMC.CDT320.Lots
 {
@@ -78,8 +79,7 @@ namespace QMC.CDT320.Lots
                 string path = Path.Combine(Dir, fn);
                 using (var fs = File.Create(path))
                 {
-                    var ser = new DataContractJsonSerializer(typeof(Lot));
-                    ser.WriteObject(fs, lot);
+                    JsonPrettySerializer.WriteObject(fs, typeof(Lot), lot);
                 }
             }
             catch { }

@@ -5,6 +5,7 @@ using System.Linq;
 using System.Runtime.Serialization.Json;
 using System.Text;
 using QMC.CDT320.Materials;
+using QMC.Common.Data.Store;
 
 namespace QMC.CDT320.DieMaps
 {
@@ -241,8 +242,7 @@ namespace QMC.CDT320.DieMaps
                 if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
                 using (var fs = File.Create(path))
                 {
-                    var ser = new DataContractJsonSerializer(typeof(DieMap));
-                    ser.WriteObject(fs, map);
+                    JsonPrettySerializer.WriteObject(fs, typeof(DieMap), map);
                 }
             }
             catch { }

@@ -11,38 +11,38 @@ using System.Threading;
 using System.Threading.Tasks;
 using QMC.CDT320.Materials;
 using QMC.CDT320.Recipes;
+using QMC.Common.Data.Store;
 
-using Alarms = QMC.Common.Alarms;
 namespace QMC.CDT320.Secs
 {
     /// <summary>
-    /// SECS/GEM Host 통신 베이스 — 310 의 DieTransferGemService 단순화.
-    /// 본 라운드는 <b>골격</b> 만 — Stream/Function 디스패치 + RemoteCommand 4종 + EventReport 송신 + ZipRecipe.
-    /// 실제 HSMS 연결은 별도 라운드(이번 라운드는 line-delimited TCP 시뮬 가능).
+    ///
+    ///
+    ///
     /// </summary>
     public class SecsHost : IDisposable
     {
         public event Action<string> Log;
 
-        // ── 설정 ──
+        // 설정
         public int Port { get; }
         public bool IsRunning { get; private set; }
 
-        /// <summary>true 면 HsmsConnection (4-byte length prefix + SecsMessage) 사용. false 면 line-protocol.</summary>
+        /// <summary>구현 설명 주석입니다.</summary>
         public bool UseHsms { get; set; } = false;
-        /// <summary>HSMS 모드일 때의 활성 연결.</summary>
+        /// <summary>구현 설명 주석입니다.</summary>
         public HsmsConnection HsmsActive { get; private set; }
 
-        // ── RemoteCommand 핸들러 (등록형) ──
+        // 구현 보조 주석입니다.
         private readonly Dictionary<string, Func<string[], int>> _remoteCommands
             = new Dictionary<string, Func<string[], int>>(StringComparer.OrdinalIgnoreCase);
 
         public IReadOnlyDictionary<string, Func<string[], int>> RemoteCommands => _remoteCommands;
 
-        // ── 이벤트 리포트 큐 ──
+        // 구현 보조 주석입니다.
         private readonly ConcurrentQueue<string> _eventQueue = new ConcurrentQueue<string>();
 
-        // ── TCP ──
+        // ?? TCP ??
         private TcpListener _listener;
         private CancellationTokenSource _cts;
         private readonly List<TcpClient> _clients = new List<TcpClient>();
@@ -51,7 +51,7 @@ namespace QMC.CDT320.Secs
         {
             Port = port;
             RegisterStandardCommands();
-            // Stage 7 — AlarmManager 이벤트 자동 구독 → S5F1 broadcast
+            // 구현 보조 주석입니다.
             try { QMC.Common.Alarms.AlarmManager.AlarmRaised += OnAlarmRaised; } catch { }
         }
 
@@ -66,9 +66,9 @@ namespace QMC.CDT320.Secs
             catch { }
         }
 
-        // ─────────────────────────────────────────
-        //  K2: RemoteCommand (호스트 → 장비)
-        // ─────────────────────────────────────────
+        // ?????????????????????????????????????????
+        // 구현 보조 주석입니다.
+        // ?????????????????????????????????????????
         private void RegisterStandardCommands()
         {
             _remoteCommands["ProceedWithTapeFrame"] = args =>
@@ -78,7 +78,7 @@ namespace QMC.CDT320.Secs
                 if (f == null) return -2;
                 if (f.IdentifierState != IdentifierState.WaitingForHost) return -3;
                 f.IdentifierState = IdentifierState.VerificationOk;
-                LogMsg($"[RC] ProceedWithTapeFrame {args[0]} → VerificationOk");
+                LogMsg($"[RC] ProceedWithTapeFrame {args[0]} ??VerificationOk");
                 return 0;
             };
             _remoteCommands["StoppedWithTapeFrame"] = args =>
@@ -87,7 +87,7 @@ namespace QMC.CDT320.Secs
                 var f = MaterialStorage.GetFrame(args[0]);
                 if (f == null) return -2;
                 f.IdentifierState = IdentifierState.VerificationFailed;
-                LogMsg($"[RC] StoppedWithTapeFrame {args[0]} → VerificationFailed");
+                LogMsg($"[RC] StoppedWithTapeFrame {args[0]} ??VerificationFailed");
                 return 0;
             };
             _remoteCommands["ProceedWithMap"] = args =>
@@ -99,7 +99,7 @@ namespace QMC.CDT320.Secs
                 if (!File.Exists(args[1])) { f.DieMapGenerateState = DieMapGenerateState.VerificationFailed; return -4; }
                 f.MapFileName = args[1];
                 f.DieMapGenerateState = DieMapGenerateState.VerificationOk;
-                LogMsg($"[RC] ProceedWithMap {args[0]} {args[1]} → VerificationOk");
+                LogMsg($"[RC] ProceedWithMap {args[0]} {args[1]} ??VerificationOk");
                 return 0;
             };
             _remoteCommands["StoppedWithMap"] = args =>
@@ -108,7 +108,7 @@ namespace QMC.CDT320.Secs
                 var f = MaterialStorage.GetFrame(args[0]);
                 if (f == null) return -2;
                 f.DieMapGenerateState = DieMapGenerateState.VerificationFailed;
-                LogMsg($"[RC] StoppedWithMap {args[0]} → VerificationFailed");
+                LogMsg($"[RC] StoppedWithMap {args[0]} ??VerificationFailed");
                 return 0;
             };
         }
@@ -119,9 +119,9 @@ namespace QMC.CDT320.Secs
             _remoteCommands[name] = handler;
         }
 
-        // ─────────────────────────────────────────
-        //  K3: EventReport (장비 → 호스트)
-        // ─────────────────────────────────────────
+        // ?????????????????????????????????????????
+        // 구현 보조 주석입니다.
+        // ?????????????????????????????????????????
         public void RaiseEvent(string eventName, params string[] data)
         {
             string line = $"EVT|{eventName}|{(data == null ? 0 : data.Length)}" +
@@ -139,9 +139,9 @@ namespace QMC.CDT320.Secs
         public void RaiseJobOrderStateChanged(string uid, string type, string state)
             => RaiseEvent("JobOrderStateChanged", uid, type, state);
 
-        // ─────────────────────────────────────────
-        //  K4: Recipe ZIP 직렬화 (310 ZipRecipeBodySecsItemConverter 동등)
-        // ─────────────────────────────────────────
+        // ?????????????????????????????????????????
+        // 구현 보조 주석입니다.
+        // ?????????????????????????????????????????
         public static string SerializeZipBase64(RecipeProject recipe)
         {
             if (recipe == null) return null;
@@ -149,8 +149,7 @@ namespace QMC.CDT320.Secs
             {
                 using (var zip = new GZipStream(ms, CompressionMode.Compress, leaveOpen: true))
                 {
-                    var ser = new DataContractJsonSerializer(typeof(RecipeProject));
-                    ser.WriteObject(zip, recipe);
+                    JsonPrettySerializer.WriteObject(zip, typeof(RecipeProject), recipe);
                 }
                 return Convert.ToBase64String(ms.ToArray());
             }
@@ -172,9 +171,9 @@ namespace QMC.CDT320.Secs
             catch { return null; }
         }
 
-        // ─────────────────────────────────────────
-        //  TCP 서버 (line-delimited 시뮬 모드)
-        // ─────────────────────────────────────────
+        // ?????????????????????????????????????????
+        // 구현 보조 주석입니다.
+        // ?????????????????????????????????????????
         public void Start()
         {
             if (IsRunning) return;
@@ -190,11 +189,11 @@ namespace QMC.CDT320.Secs
             catch (Exception ex) { LogMsg("[SECS] start failed: " + ex.Message); }
         }
 
-        /// <summary>접속한 host 와 HSMS 핸드셰이크 후 SecsMessage 큐 처리.</summary>
+        /// <summary>구현 설명 주석입니다.</summary>
         private void HandleHsmsClient(TcpClient client)
         {
-            // HsmsConnection 은 host 측에서 ConnectAsync 하지만, 우리가 server 라서
-            // 이미 연결된 socket 을 NetworkStream 으로 바로 wrapping.
+            // 구현 보조 주석입니다.
+            // 구현 보조 주석입니다.
             try
             {
                 var stream = client.GetStream();
@@ -238,7 +237,7 @@ namespace QMC.CDT320.Secs
 
         private void HandleHsmsMessage(NetworkStream stream, SecsMessage msg)
         {
-            // S1F1 → S1F2 (PING/PONG)
+            // S1F1 ??S1F2 (PING/PONG)
             if (msg.Stream == 1 && msg.Function == 1)
             {
                 var reply = new SecsMessage { Stream = 1, Function = 2, ReplyExpected = false, SystemBytes = msg.SystemBytes };
@@ -246,8 +245,8 @@ namespace QMC.CDT320.Secs
                 return;
             }
 
-            // S2F41 (Host 명령 — RemoteCommand 디스패치). 실 SECS 는 list 디코딩 필요.
-            // 우리 단순 버전: TextPayload 가 "RC|<cmd>|arg1|..." 형식
+            // 구현 보조 주석입니다.
+            // 구현 보조 주석입니다.
             if (msg.Stream == 2 && msg.Function == 41 && msg.ReplyExpected)
             {
                 string text = msg.TextPayload ?? "";
@@ -276,7 +275,7 @@ namespace QMC.CDT320.Secs
                 return;
             }
 
-            // 미정의 — 비워둠
+            // Unknown message: ignore.
         }
 
         private void SendHsmsBytes(NetworkStream stream, byte[] payload)
@@ -364,7 +363,7 @@ namespace QMC.CDT320.Secs
         private void ProcessLine(NetworkStream stream, string line)
         {
             LogMsg($"[SECS] RX: {line}");
-            // 라인 형식 — 시뮬 모드:  RC|<command>|<arg1>|<arg2>|...
+            // 구현 보조 주석입니다.
             //               or       RECIPE_PUT|<base64-zip>
             //               or       PING
             try
@@ -431,7 +430,7 @@ namespace QMC.CDT320.Secs
             {
                 if (UseHsms)
                 {
-                    // S6F11 (Event report send) — TextPayload 에 line 을 그대로
+                    // S6F11 event report sends the queued text payload.
                     var msg = SecsMessage.S6F11(line);
                     msg.SystemBytes = (uint)Environment.TickCount;
                     byte[] payload = msg.ToBytes();
@@ -465,3 +464,4 @@ namespace QMC.CDT320.Secs
         public void Dispose() => Stop();
     }
 }
+

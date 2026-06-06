@@ -1,73 +1,516 @@
-﻿using System.Drawing;
-using System.Windows.Forms;
-using QMC.CDT_320.Ui.Controls;
+﻿using QMC.CDT_320.Ui.Controls;
 using QMC.CDT_320.Ui.Localization;
+using QMC.CDT320;
+using QMC.CDT320.Ajin;
+using QMC.Common.IO;
+using QMC.Common.Motion;
+using System;
+using System.ComponentModel;
+using System.Drawing;
+using System.Threading.Tasks;
+using System.Windows.Forms;
 
 namespace QMC.CDT_320.Ui.Pages.Recipe
 {
     /// <summary>
-    /// 레시피 - INPUT/OUTPUT CASSETTE (공용).
-    /// 좌측 동작 버튼 + 중앙 옵션 + 대기시간 + 실린더 I/O + 우측 조그/속도.
+    ///
+    ///
     /// </summary>
-    public class CassetteRecipePage : PageBase
+    public partial class CassetteRecipePage : QMC.CDT_320.Ui.Pages.PageBase
     {
-        public CassetteRecipePage(string titleI18n)
+        private string _titleI18n = "INPUT/OUTPUT CASSETTE";
+        private bool _isOutputCassette;
+        private InputCassetteUnit _waferCassette;
+        private OutputCassetteUnit _binCassette;
+        private BaseAxis _activeAxis;
+        private readonly Timer _refreshTimer = new Timer();
+        private BaseDigitalOutput _ngBinLockOut;
+        private BaseDigitalOutput _ngBinUnlockOut;
+
+        public CassetteRecipePage() : this("INPUT/OUTPUT CASSETTE", null, null)
         {
-            Controls.Add(CreateSectionHeader(titleI18n));
+        }
 
-            // 좌측 동작
-            Controls.Add(RecipeLayout.OrangeBar(8, 36, 240, "동작"));
-            int y = 70;
-            foreach (var a in new[] { "LOADING 위치 이동", "UNLOADING 위치 이동", "준비 위치 이동" })
+        public CassetteRecipePage(string titleI18n) : this(titleI18n, null, null)
+        {
+        }
+
+        public CassetteRecipePage(string titleI18n, object unitConfig, string configSavePath)
+        {
+            InitializeComponent();
+            ApplyRecipeTheme();
+
+            _titleI18n = string.IsNullOrWhiteSpace(titleI18n) ? "INPUT/OUTPUT CASSETTE" : titleI18n;
+            lblHeader.Text = _titleI18n;
+            _isOutputCassette = _titleI18n.IndexOf("output", StringComparison.OrdinalIgnoreCase) >= 0;
+
+            if (unitConfig != null)
+                unitConfigGrid.BindConfig(unitConfig, configSavePath);
+
+            ConfigureRuntimeBehavior();
+        }
+
+        protected override void OnLoad(EventArgs e)
+        {
+            base.OnLoad(e);
+            if (LicenseManager.UsageMode == LicenseUsageMode.Designtime) return;
+
+            ResolveUnits();
+            RefreshView();
+            _refreshTimer.Start();
+        }
+
+        protected override void OnHandleDestroyed(EventArgs e)
+        {
+            try { _refreshTimer.Stop(); } catch { }
+            base.OnHandleDestroyed(e);
+        }
+
+        private async void btnLoadingMove_Click(object sender, EventArgs e)
+        {
+            if (_isOutputCassette)
+                await MoveBinTo("Avoid");
+            else
+                await MoveWaferTo("Avoid");
+        }
+
+        private async void btnUnloadingMove_Click(object sender, EventArgs e)
+        {
+            if (_isOutputCassette)
+                await MoveBinTo("NgFirstSlot");
+            else
+                await MoveWaferTo("FirstSlot");
+        }
+
+        private async void btnReadyMove_Click(object sender, EventArgs e)
+        {
+            if (_isOutputCassette)
+                await MoveBinTo("Good1FirstSlot");
+            else
+                await MoveWaferTo("MappingStart");
+        }
+
+        private async void btnSlotLoadingMove_Click(object sender, EventArgs e)
+        {
+            if (_isOutputCassette)
+                await MoveBinTo("Good2FirstSlot");
+            else
+                await MoveWaferTo("MappingEnd");
+        }
+
+        private async void btnSlotUnloadingMove_Click(object sender, EventArgs e)
+        {
+            if (_isOutputCassette)
+                await RunSafeAsync(() => _binCassette.ScanAllCassettesAsync(), "Bin cassette scan");
+            else
+                await RunSafeAsync(() => _waferCassette.WaferScan(), "Wafer cassette scan");
+        }
+
+        private void btnJogPlus_Click(object sender, EventArgs e)
+        {
+            Jog(1);
+        }
+
+        private void btnJogMinus_Click(object sender, EventArgs e)
+        {
+            Jog(-1);
+        }
+
+        private void btnJogStop_Click(object sender, EventArgs e)
+        {
+            StopJog();
+        }
+
+        private void trkSpeed_ValueChanged(object sender, EventArgs e)
+        {
+            lblSpeedValue.Text = $"{trkSpeed.Value} %";
+        }
+
+        private void ConfigureRuntimeBehavior()
+        {
+            _refreshTimer.Interval = 250;
+            _refreshTimer.Tick += (s, e) => RefreshView();
+
+            btnLoadingMove.Text = "AVOID 이동";
+            btnUnloadingMove.Text = _isOutputCassette ? "NG 1번 슬롯 이동" : "1번 슬롯 이동";
+            btnReadyMove.Text = _isOutputCassette ? "GOOD1 1번 슬롯 이동" : "MAPPING START 이동";
+            btnSlotLoadingMove.Text = _isOutputCassette ? "GOOD2 1번 슬롯 이동" : "MAPPING END 이동";
+            btnSlotUnloadingMove.Text = "SCAN";
+
+            lblSensor1.Text = _isOutputCassette ? "GOOD CASSETTE" : "8 INCH CASSETTE";
+            lblSensor2.Text = _isOutputCassette ? "NG CASSETTE" : "12 INCH CASSETTE";
+            lblProtrusion.Text = _isOutputCassette ? "BIN PROTRUSION" : "WAFER PROTRUSION";
+            lblMapping.Text = _isOutputCassette ? "BIN MAPPING" : "WAFER MAPPING";
+
+            AttachTeachMenu(lblOptLoadingZVal, "Avoid");
+            AttachTeachMenu(lblOptUnloadingZVal, _isOutputCassette ? "NgFirstSlot" : "FirstSlot");
+            AttachTeachMenu(lblOptReadyPosVal, _isOutputCassette ? "Good1FirstSlot" : "MappingStart");
+            AttachTeachMenu(lblOptMappingZVal, _isOutputCassette ? "Good2FirstSlot" : "MappingEnd");
+            AttachIoMenu();
+        }
+
+        private void ResolveUnits()
+        {
+            var machine = FindMachine();
+            if (machine == null)
             {
-                Controls.Add(new ActionButton { Location = new Point(12, y), Size = new Size(220, 44), Text = a });
-                y += 52;
+                SetEnabledState(false);
+                return;
             }
-            y += 180;
-            Controls.Add(new ActionButton { Location = new Point(12, y), Size = new Size(220, 44), Text = "SLOT 위치 이동 (LOADING)" });   y += 52;
-            Controls.Add(new ActionButton { Location = new Point(12, y), Size = new Size(220, 44), Text = "SLOT 위치 이동 (UNLOADING)" }); y += 52;
 
-            // 좌하단 실린더 & I/O
-            Controls.Add(RecipeLayout.OrangeBar(8, y + 8, 240, "실린더 & I/O"));
-            y += 44;
-            foreach (var t in new[] { "CASSETTE 감지 SENSOR 1", "CASSETTE 감지 SENSOR 2", "돌출 감지 SENSOR", "맵핑센서" })
+            _waferCassette = machine.InputCassetteUnit;
+            _binCassette = machine.OutputCassetteUnit;
+            _activeAxis = _isOutputCassette
+                ? (_binCassette != null ? _binCassette.OutputLifterZ : null)
+                : (_waferCassette != null ? _waferCassette.InputLifterZ : null);
+            BindJogAxes();
+
+            if (_isOutputCassette)
             {
-                Controls.Add(new IndicatorDot { Location = new Point(14, y + 6), Size = new Size(12, 12), OnColor = Color.LimeGreen });
-                Controls.Add(new Label { Location = new Point(30, y), Size = new Size(212, 22), Text = t, BackColor = Color.FromArgb(0xD0,0xD0,0xD0), Font = new Font("맑은 고딕", 9F), TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding(6, 0, 0, 0), BorderStyle = BorderStyle.FixedSingle });
-                y += 24;
+                _ngBinLockOut = AjinFactory.CreateDigitalOutput(AjinIoCatalog.FindOutput("NgBinCassetteLock"));
+                _ngBinUnlockOut = AjinFactory.CreateDigitalOutput(AjinIoCatalog.FindOutput("NgBinCassetteUnlock"));
+                if (_binCassette != null)
+                    unitConfigGrid.BindConfig(_binCassette.Setup, null);
+            }
+            else if (_waferCassette != null)
+            {
+                unitConfigGrid.BindConfig(_waferCassette.Setup, null);
             }
 
-            // 중앙 옵션
-            Controls.Add(RecipeLayout.OrangeBar(260, 36, 600, "옵션"));
-            y = 70;
-            foreach (var kv in new (string, string)[]
+            SetEnabledState(_activeAxis != null);
+        }
+
+        private void BindJogAxes()
+        {
+            
+        }
+
+        private CDT320_Machine FindMachine()
+        {
+            foreach (Form form in Application.OpenForms)
             {
-                ("LOADING Z",     "121070 um"),
-                ("UNLOADING Z",   "117000 um"),
-                ("READY POSITION","129771 um"),
-                ("MAPPING Z",     "104745 um"),
-                ("SLOT PITCH",    "19000 um"),
-                ("카세트 간격",   "59000 um"),
-                ("8인치 or 12인치","12인치"),
-                ("카세트 2단 활성화","1단"),
-            })
-            {
-                RecipeLayout.AddPair(this, 264, y, 200, 380, kv.Item1, kv.Item2);
-                y += 32;
+                var host = form as QMC.CDT_320.Form1;
+                if (host != null)
+                    return host.Machine;
             }
 
-            // 대기시간
-            Controls.Add(RecipeLayout.OrangeBar(260, y + 8, 600, "대기시간"));
-            y += 44;
-            RecipeLayout.AddPair(this, 264, y, 200, 380, "이동 후 대기시간", "100 ms");
+            return null;
+        }
 
-            // 조그 영역
-            Controls.Add(RecipeLayout.OrangeBar(880, 540, 300, "조그 운전"));
-            var jog = RecipeLayout.SimpleJog(880, 570, 300, 320, "AXIS Z");
-            Controls.Add(jog);
+        private void SetEnabledState(bool enabled)
+        {
+            foreach (var button in new Control[] { btnLoadingMove, btnUnloadingMove, btnReadyMove, btnSlotLoadingMove, btnSlotUnloadingMove })
+                button.Enabled = enabled;
 
-            // 속도
-            Controls.Add(RecipeLayout.VerticalSpeedBar(1200, 36, 140, 880));
+        }
+
+        private void RefreshView()
+        {
+            if (_isOutputCassette)
+                RefreshBinView();
+            else
+                RefreshWaferView();
+        }
+
+        private void RefreshWaferView()
+        {
+            if (_waferCassette == null)
+                return;
+
+            lblOptLoadingZKey.Text = "Avoid Position";
+            lblOptUnloadingZKey.Text = "First Slot Position";
+            lblOptReadyPosKey.Text = "Mapping Start Position";
+            lblOptMappingZKey.Text = "Mapping End Position";
+            lblOptSlotPitchKey.Text = "Slot Pitch";
+            lblOptCassetteGapKey.Text = "Slot Count";
+            lblOptInchKey.Text = "Actual Position";
+            lblOptStageKey.Text = "Axis State";
+            lblWaitKey.Text = "Move Timeout";
+
+            lblOptLoadingZVal.Text = FormatAxis(_waferCassette.Recipe.AvoidPosition, _waferCassette.InputLifterZ);
+            lblOptUnloadingZVal.Text = FormatAxis(_waferCassette.Recipe.FirstSlotPosition, _waferCassette.InputLifterZ);
+            lblOptReadyPosVal.Text = FormatAxis(_waferCassette.Recipe.MappingStartPosition, _waferCassette.InputLifterZ);
+            lblOptMappingZVal.Text = FormatAxis(_waferCassette.Recipe.MappingEndPosition, _waferCassette.InputLifterZ);
+            lblOptSlotPitchVal.Text = FormatAxis(_waferCassette.Config.SlotPitch, _waferCassette.InputLifterZ);
+            lblOptCassetteGapVal.Text = _waferCassette.Config.SlotCount.ToString();
+            lblOptInchVal.Text = FormatAxis(_waferCassette.InputLifterZ.ActualPosition, _waferCassette.InputLifterZ);
+            lblOptStageVal.Text = AxisState(_waferCassette.InputLifterZ);
+            lblWaitVal.Text = _waferCassette.ResolveWaferLifterZMoveTimeoutMs() + " ms";
+
+            dotSensor1.IsOn = _waferCassette.IsWaferCassetteExist(8);
+            dotSensor2.IsOn = _waferCassette.IsWaferCassetteExist(12);
+            dotProtrusion.IsOn = _waferCassette.IsWaferProtrusionDetected();
+            dotMapping.IsOn = _waferCassette.IsWaferMapping();
+        }
+
+        private void RefreshBinView()
+        {
+            if (_binCassette == null)
+                return;
+
+            lblOptLoadingZKey.Text = "Avoid Position";
+            lblOptUnloadingZKey.Text = "NG First Slot";
+            lblOptReadyPosKey.Text = "Good1 First Slot";
+            lblOptMappingZKey.Text = "Good2 First Slot";
+            lblOptSlotPitchKey.Text = "Slot Pitch";
+            lblOptCassetteGapKey.Text = "Slot Count";
+            lblOptInchKey.Text = "Actual Position";
+            lblOptStageKey.Text = "Axis State";
+            lblWaitKey.Text = "Move Timeout";
+
+            lblOptLoadingZVal.Text = FormatAxis(_binCassette.Recipe.AvoidPosition, _binCassette.OutputLifterZ);
+            lblOptUnloadingZVal.Text = FormatAxis(_binCassette.Recipe.NGFirstSlotPosition, _binCassette.OutputLifterZ);
+            lblOptReadyPosVal.Text = FormatAxis(_binCassette.Recipe.GoodFirstSlotPosition, _binCassette.OutputLifterZ);
+            lblOptMappingZVal.Text = FormatAxis(_binCassette.Recipe.GoodFirstSlotPosition + _binCassette.Config.GOODNGPositionOffset, _binCassette.OutputLifterZ);
+            lblOptSlotPitchVal.Text = FormatAxis(_binCassette.Config.SlotPitch, _binCassette.OutputLifterZ);
+            lblOptCassetteGapVal.Text = _binCassette.Config.SlotCount.ToString();
+            lblOptInchVal.Text = FormatAxis(_binCassette.OutputLifterZ.ActualPosition, _binCassette.OutputLifterZ);
+            lblOptStageVal.Text = AxisState(_binCassette.OutputLifterZ);
+            lblWaitVal.Text = _binCassette.OutputLifterZ.Setup.MoveTimeoutMs + " ms";
+
+            dotSensor1.IsOn = _binCassette.IsBinCassetteExist(TargetCassette.Good1, 8) ||
+                              _binCassette.IsBinCassetteExist(TargetCassette.Good2, 8);
+            dotSensor2.IsOn = _binCassette.IsBinCassetteExist(TargetCassette.Ng, 8);
+            dotProtrusion.IsOn = _binCassette.IsBinProtrusionDetected();
+            dotMapping.IsOn = _binCassette.IsBinMapping();
+        }
+
+        private async Task MoveWaferTo(string positionName)
+        {
+            if (_waferCassette == null) return;
+            await RunSafeAsync(() => _waferCassette.MoveToTeachingPositionAndVerify(positionName), "Wafer cassette move " + positionName);
+        }
+
+        private async Task MoveBinTo(string positionName)
+        {
+            if (_binCassette == null) return;
+            await RunSafeAsync(() => _binCassette.MoveToTeachingPositionAndVerify(positionName), "Bin cassette move " + positionName);
+        }
+
+        private async Task RunSafeAsync(Func<Task<bool>> action, string actionName)
+        {
+            try
+            {
+                Cursor = Cursors.WaitCursor;
+                bool ok = await action();
+                if (!ok)
+                    QMC.Common.MessageDialog.Show(this, actionName + " ?ㅽ뙣", "Cassette", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.MessageDialog.Show(this, ex.Message, actionName, MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                Cursor = Cursors.Default;
+                RefreshView();
+            }
+        }
+
+        private async Task RunSafeAsync(Func<Task<int>> action, string actionName)
+        {
+            try
+            {
+                Cursor = Cursors.WaitCursor;
+                int result = await action();
+                if (result != 0)
+                    QMC.Common.MessageDialog.Show(this, actionName + " failed", "Cassette", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.MessageDialog.Show(this, ex.Message, actionName, MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                Cursor = Cursors.Default;
+                RefreshView();
+            }
+        }
+
+        private void AttachTeachMenu(Label label, string positionName)
+        {
+            var menu = new ContextMenuStrip();
+            menu.Items.Add("해당 위치로 이동", null, async (s, e) =>
+            {
+                if (_isOutputCassette)
+                    await MoveBinTo(positionName);
+                else
+                    await MoveWaferTo(positionName);
+            });
+            menu.Items.Add("현재 위치 저장", null, (s, e) =>
+            {
+                TeachPosition(positionName);
+                RefreshView();
+            });
+            label.ContextMenuStrip = menu;
+            label.Cursor = Cursors.Hand;
+            label.DoubleClick += async (s, e) =>
+            {
+                if (_isOutputCassette)
+                    await MoveBinTo(positionName);
+                else
+                    await MoveWaferTo(positionName);
+            };
+        }
+
+        private void AttachIoMenu()
+        {
+            var menu = new ContextMenuStrip();
+            if (_isOutputCassette)
+            {
+                menu.Items.Add("NG Cassette Lock ON", null, (s, e) => { _ngBinLockOut?.On(); _ngBinUnlockOut?.Off(); });
+                menu.Items.Add("NG Cassette Unlock ON", null, (s, e) => { _ngBinUnlockOut?.On(); _ngBinLockOut?.Off(); });
+                menu.Items.Add("NG Cassette Lock/Unlock OFF", null, (s, e) => { _ngBinLockOut?.Off(); _ngBinUnlockOut?.Off(); });
+            }
+            else
+            {
+                menu.Items.Add("Input Cassette I/O는 DI 확인 전용입니다.", null, (s, e) => { });
+            }
+
+            ioSection.ContextMenuStrip = menu;
+            lblIoTitle.ContextMenuStrip = menu;
+            lblSensor1.ContextMenuStrip = menu;
+            lblSensor2.ContextMenuStrip = menu;
+            lblProtrusion.ContextMenuStrip = menu;
+            lblMapping.ContextMenuStrip = menu;
+        }
+
+        private void TeachPosition(string positionName)
+        {
+            if (_isOutputCassette)
+                TeachBinPosition(positionName);
+            else
+                TeachWaferPosition(positionName);
+        }
+
+        private void TeachWaferPosition(string positionName)
+        {
+            if (_waferCassette == null) return;
+            if (string.Equals(positionName, "Avoid", StringComparison.OrdinalIgnoreCase))
+                _waferCassette.TeachWaferLifterZAvoidPosition();
+            else if (string.Equals(positionName, "FirstSlot", StringComparison.OrdinalIgnoreCase))
+                _waferCassette.TeachWaferLifterZPosition("FirstSlot");
+            else if (string.Equals(positionName, "MappingStart", StringComparison.OrdinalIgnoreCase))
+                _waferCassette.TeachWaferLifterZMappingStartPosition();
+            else if (string.Equals(positionName, "MappingEnd", StringComparison.OrdinalIgnoreCase))
+                _waferCassette.TeachWaferLifterZMappingEndPosition();
+        }
+
+        private void TeachBinPosition(string positionName)
+        {
+            if (_binCassette == null) return;
+            if (string.Equals(positionName, "Avoid", StringComparison.OrdinalIgnoreCase))
+                _binCassette.TeachBinLifterZAvoidPosition();
+            else if (string.Equals(positionName, "NgFirstSlot", StringComparison.OrdinalIgnoreCase))
+                _binCassette.TeachBinLifterZFirstSlotPosition(TargetCassette.Ng);
+            else if (string.Equals(positionName, "Good1FirstSlot", StringComparison.OrdinalIgnoreCase))
+                _binCassette.TeachBinLifterZFirstSlotPosition(TargetCassette.Good1);
+            else if (string.Equals(positionName, "Good2FirstSlot", StringComparison.OrdinalIgnoreCase))
+                _binCassette.TeachBinLifterZFirstSlotPosition(TargetCassette.Good2);
+        }
+
+        private void Jog(int direction)
+        {
+            if (_activeAxis == null) 
+                return;
+
+            try
+            {
+                _activeAxis.MoveJogContinuous(direction, JogSpeedType.Custom, JogSpeed());
+            }
+            catch (Exception ex)
+            {
+                //log.Write(ex);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Jog", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void StopJog()
+        {
+            try { _activeAxis?.StopJog(); } catch { }
+        }
+
+        private double JogSpeed()
+        {
+            return Math.Max(1.0, trkSpeed.Value);
+        }
+
+        private static string FormatAxis(double value, BaseAxis axis)
+        {
+            return AxisUnitConverter.FormatDisplay(value, axis, "0.###", true);
+        }
+
+        private static string AxisState(BaseAxis axis)
+        {
+            if (axis == null) return "-";
+            if (axis.IsAlarm) return "ALARM";
+            if (axis.IsMoving) return "MOVING";
+            if (axis.IsInPosition) return "INPOS";
+            return "READY";
+        }
+
+        private void ApplyRecipeTheme()
+        {
+            BackColor = UiTheme.MainBg;
+            mainLayout.BackColor = UiTheme.MainBg;
+            contentLayout.BackColor = UiTheme.MainBg;
+
+            foreach (var panel in new[] { panelLeft, panelCenter, panelRight, actionSection, ioSection, optionRows, waitRows, jogSection, speedSection, ioSensor1Row, ioSensor2Row, ioProtrusionRow, ioMappingRow })
+                panel.BackColor = UiTheme.OptionPanelBg;
+
+            foreach (var label in new[] { lblHeader, lblActionTitle, lblIoTitle, lblWaitTitle, lblSpeedTitle })
+            {
+                label.BackColor = label == lblHeader ? UiTheme.StatusBarBg : UiTheme.OptionHeaderBg;
+                label.ForeColor = label == lblHeader ? UiTheme.StatusBarFg : UiTheme.OptionHeaderFg;
+                label.Font = UiTheme.SectionFont;
+            }
+
+            foreach (var button in new[] { btnLoadingMove, btnUnloadingMove, btnReadyMove, btnSlotLoadingMove, btnSlotUnloadingMove })
+                button.Font = UiTheme.ButtonFont;
+
+            ApplyLabelCellStyle();
+        }
+
+        private void ApplyLabelCellStyle()
+        {
+            var keyLabels = new[]
+            {
+                lblSensor1, lblSensor2, lblProtrusion, lblMapping,
+                lblOptLoadingZKey, lblOptUnloadingZKey, lblOptReadyPosKey, lblOptMappingZKey,
+                lblOptSlotPitchKey, lblOptCassetteGapKey, lblOptInchKey, lblOptStageKey,
+                lblWaitKey
+            };
+
+            foreach (var label in keyLabels)
+            {
+                label.BackColor = Color.Gainsboro;
+                label.BorderStyle = BorderStyle.FixedSingle;
+                label.Dock = DockStyle.Fill;
+                label.Font = UiTheme.ButtonFont;
+                label.Margin = Padding.Empty;
+                label.Padding = new Padding(6, 0, 6, 0);
+                label.TextAlign = ContentAlignment.MiddleLeft;
+            }
+
+            var valueLabels = new[]
+            {
+                lblOptLoadingZVal, lblOptUnloadingZVal, lblOptReadyPosVal, lblOptMappingZVal,
+                lblOptSlotPitchVal, lblOptCassetteGapVal, lblOptInchVal, lblOptStageVal,
+                lblWaitVal, lblSpeedHigh, lblSpeedMid, lblSpeedLow, lblSpeedValue
+            };
+
+            foreach (var label in valueLabels)
+            {
+                label.BackColor = UiTheme.ValueBoxBg;
+                label.BorderStyle = BorderStyle.FixedSingle;
+                label.Dock = DockStyle.Fill;
+                label.Font = UiTheme.ValueFont;
+                label.ForeColor = UiTheme.ValueBoxFg;
+                label.Margin = Padding.Empty;
+                label.Padding = new Padding(6, 0, 6, 0);
+                label.TextAlign = ContentAlignment.MiddleRight;
+            }
         }
     }
 }
+

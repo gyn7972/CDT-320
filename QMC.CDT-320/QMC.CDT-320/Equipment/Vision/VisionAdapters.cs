@@ -63,7 +63,7 @@ namespace QMC.CDT320.VisionComm
 
     /// <summary>
     /// TransferPickerUnit 용 <see cref="IVisionTpuClient"/> 실구현 —
-    /// Bottom(Inspection) / Side(FrontSide/RearSide) vision 호출.
+    /// Bottom(Inspection) / Side(TopSide/BottomSide) vision 호출.
     /// 현재 Side 는 Bottom 과 같은 포트(Inspection) 공유 — 매뉴얼 기준.
     /// </summary>
     public class TpuVisionAdapter : IVisionTpuClient

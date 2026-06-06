@@ -92,7 +92,7 @@ namespace QMC.CDT_320.Ui.Tabs
             this.BackColor      = UiTheme.MainBg;
             this.DoubleBuffered = true;
             this.Name           = "TabBase";
-            this.Size           = new Size(1694, 980);
+            this.Size           = new Size(UiTheme.ShellContentWidth, UiTheme.ShellContentHeight);
 
             this.PnlSidebar.ResumeLayout(false);
             this.ResumeLayout(false);
