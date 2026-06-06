@@ -35,8 +35,10 @@ namespace QMC.CDT_320
         internal MotionMonitorService MotionMonitor { get; private set; }
         internal AjinIoScanService IoScan { get; private set; }
         internal OperationPanelMonitorService OpPanelMonitor { get; private set; }
+        internal QMC.CDT320.Alarms.AlarmResponseService AlarmResponse { get; private set; }
         internal string CurrentRecipeName { get; private set; }
         private bool _materialSnapshotRestored;
+        private bool _applicationExitRequested;
 
         /// <summary>구현 설명 주석입니다.</summary>
         ///
@@ -343,6 +345,9 @@ namespace QMC.CDT_320
             BeginSimulatorAutoConnect(cfg);
             Controller = new MachineController(Machine);
             ApplyRuntimeMode();
+            Controller.ApplyStartupMachineRuntimeState(cfg);
+            AlarmResponse = new QMC.CDT320.Alarms.AlarmResponseService(Controller);
+            AlarmResponse.Start();
             PromptMaterialRecoveryOnStartup();
             alarmBanner.ClearRequested += async (s, args) =>
             {
@@ -379,7 +384,11 @@ namespace QMC.CDT_320
             // 구현 보조 주석입니다.
             if (!cfg.UseAjin)
             {
-                CassetteDriver = new QMC.CDT320.Sim.SimCassetteDriver(Machine.InputCassette, Machine.InputFeeder, Machine.OutputUnloader);
+                CassetteDriver = new QMC.CDT320.Sim.SimCassetteDriver(
+                    Machine.InputCassetteUnit,
+                    Machine.InputFeederUnit,
+                    Machine.OutputCassetteUnit,
+                    Machine.OutputFeederUnit);
             }
             Controller.StatusChanged += OnEquipmentStatusChanged;
             Controller.LogMessage    += s => QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, UserSession.Name, "CTRL", s);
@@ -739,7 +748,18 @@ namespace QMC.CDT_320
                             UserSession.Name,
                             "APP-EXIT",
                             "Application exit requested.");
-                        Close();
+                        _applicationExitRequested = true;
+                        try
+                        {
+                            Close();
+                        }
+                        finally
+                        {
+                            if (!IsDisposed && !Disposing)
+                            {
+                                _applicationExitRequested = false;
+                            }
+                        }
                     }
                     else
                     {
@@ -825,7 +845,7 @@ namespace QMC.CDT_320
         {
             if (_jogPopup == null || _jogPopup.IsDisposed)
             {
-                _jogPopup = new AxisJogPopup(CurrentAxes())
+                _jogPopup = new AxisJogPopup(CurrentAxes(), Machine)
                 {
                     StartPosition = FormStartPosition.CenterScreen,
                     ShowInTaskbar = true,
@@ -1135,6 +1155,18 @@ namespace QMC.CDT_320
 
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
+            if (!_applicationExitRequested)
+            {
+                e.Cancel = true;
+                Log.Write("Main", UserSession.Name, "OnFormClosing", "Application close ignored. Use EXIT button.");
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Event,
+                    UserSession.Name,
+                    "APP-CLOSE-BLOCKED",
+                    "Application close ignored. Use EXIT button.");
+                return;
+            }
+
             try
             {
                 AppSettingsStore.Current.Language = Lang.Current;
@@ -1142,6 +1174,8 @@ namespace QMC.CDT_320
             }
             catch { }
             SaveMachineSettings();
+            try { Controller?.SaveMachineRuntimeStateForApplicationClosing(); } catch { }
+            try { AlarmResponse?.Dispose(); } catch { }
             try { OpPanelMonitor?.Dispose(); } catch { }
             try { MotionMonitor?.Dispose(); } catch { }
             try { IoScan?.Dispose(); } catch { }

@@ -1,9 +1,12 @@
-using System;
+﻿using System;
 using System.ComponentModel;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
 using System.Windows.Forms;
+using System.Collections.Generic;
+using QMC.Common.Recipes;
+using QMC.Vision.Config;
 using QMC.Vision.Core;
 using QMC.Vision.Modules;
 using QMC.Vision.Ui.Controls;
@@ -49,11 +52,16 @@ namespace QMC.Vision.Ui.Pages
             };
             Controls.Add(title);
 
-            _cam = new CameraView { Location = new Point(6, 34), Size = new Size(700, 520) };
+            _cam = new CameraView { Location = new Point(6, 34), Size = new Size(700, 500) };
             Controls.Add(_cam);
 
-            var illum = new IlluminatorPanel { Location = new Point(6, 560), Size = new Size(340, 180) };
-            var jog   = new JogBox           { Location = new Point(356,560), Size = new Size(260, 260) };
+            // Stage 70 E — 더미 IlluminatorPanel → 검사별 InspectionLightPanel.
+            // Stage 72 — 겹침/잘림 해소: 카메라 높이 500 으로 소폭 축소 → 밴드 y544 상향.
+            //   illum x:6~446 / jog x:456~716 (10px 간격, 우측 컨트롤 x720~ 과 분리)
+            //   illum,jog 하단 824 ≤ Recipe 콘텐츠 높이(≈832) — JogBox 280 컴팩트화로 내부 버튼도 안 잘림.
+            var illum = new InspectionLightPanel(_module?.AlgorithmKey ?? "", _finder?.Id ?? "")
+            { Location = new Point(6, 544), Size = new Size(440, 280) };
+            var jog   = new JogBox { Location = new Point(456, 544), Size = new Size(260, 280) };
             Controls.Add(illum);
             Controls.Add(jog);
 
@@ -112,6 +120,15 @@ namespace QMC.Vision.Ui.Pages
             Controls.Add(_btnEditSearch); Controls.Add(_btnEditTrain);
             Controls.Add(_lblStatus);
 
+            // Stage 87 — 라이브 튜닝 패널 우측 빈 공간 (720, 560) 540×264. 카메라 라이브 + 조명 펄스 통합.
+            var liveTuning = new LightLiveTuningPanel
+            {
+                Location = new Point(720, 560), Size = new Size(540, 264), Name = "_liveTuning"
+            };
+            liveTuning.Initialize(CollectRowsForLiveTuning);
+            liveTuning.BindCameraLive(() => StartLive(0), () => StopLive());
+            Controls.Add(liveTuning);
+
             // CameraView ROI 변경 콜백 — 편집 후 finder 에 반영
             _cam.RoiEdited += (which, roi) =>
             {
@@ -121,6 +138,71 @@ namespace QMC.Vision.Ui.Pages
                 Status($"{which} ROI updated: x={roi.CenterX:F0} y={roi.CenterY:F0} w={roi.Width:F0} h={roi.Height:F0}");
                 _cam.SetOverlay(_finder.SearchRoi, null);
             };
+        }
+
+        // ── Stage 87 — 카메라 라이브 grab loop (라이브 튜닝 패널이 start/stop 트리거) ──
+        private System.Windows.Forms.Timer _liveTimer;
+        private bool _liveOn;
+
+        /// <summary>카메라 라이브 grab 시작. intervalMs=0 이면 검사별 기본 주기(Bottom 667ms / 그 외 333ms).</summary>
+        public void StartLive(int intervalMs = 0)
+        {
+            if (_liveOn) return;
+            if (_liveTimer == null)
+            {
+                _liveTimer = new System.Windows.Forms.Timer();
+                _liveTimer.Tick += OnLiveTick;
+            }
+            _liveTimer.Interval = intervalMs > 0 ? intervalMs : ResolveDefaultLiveIntervalMs();
+            _liveTimer.Start();
+            _liveOn = true;
+        }
+
+        public void StopLive()
+        {
+            if (_liveTimer != null) _liveTimer.Stop();
+            _liveOn = false;
+        }
+
+        public bool IsLiveOn => _liveOn;
+
+        private void OnLiveTick(object sender, EventArgs e)
+        {
+            if (_module == null) return;
+            try
+            {
+                var r = _module.Grab();
+                if (r != null && r.IsSuccess) _cam.SetFrame(r);
+            }
+            catch (Exception ex) { StopLive(); Status("LIVE 정지: " + ex.Message); }
+        }
+
+        /// <summary>검사/카메라명 기반 권장 grab 주기 — Bottom 계열 667ms(≈1.5fps), 그 외 333ms(≈3fps).</summary>
+        private int ResolveDefaultLiveIntervalMs()
+        {
+            string key = (_module?.Name ?? string.Empty).ToLowerInvariant();
+            if (key.Contains("bottom") || key.Contains("btm")) return 667;
+            return 333;
+        }
+
+        /// <summary>Stage 87 — 현재 검사(algorithm+id)의 저장된 조명 설정을 TuningRow 로 변환 (라이브 튜닝 송신 소스).</summary>
+        private IEnumerable<LightLiveTuningPanel.TuningRow> CollectRowsForLiveTuning()
+        {
+            var ov = AlgorithmCameraMapStore.Current?.Get(_module?.AlgorithmKey)?.GetLightOverride(_finder?.Id);
+            if (ov?.Settings == null) yield break;
+            foreach (var s in ov.Settings)
+                if (!string.IsNullOrEmpty(s.ControllerPort) && s.Channel > 0)
+                    yield return new LightLiveTuningPanel.TuningRow
+                    { ControllerPort = s.ControllerPort, Channel = s.Channel, Level = s.Level };
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                try { StopLive(); _liveTimer?.Dispose(); } catch { }
+            }
+            base.Dispose(disposing);
         }
 
         private GrabResult _lastGrab;

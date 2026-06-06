@@ -26,7 +26,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         {
             btnInit.Click += (s, e) => RunAction(host => InitFeederAsync(host));
             btnMap.Click += (s, e) => RunAction(host => host.Controller.ScanOutputCassettesAsync());
-            btnPick.Click += (s, e) => RunAction(host => host.Machine.OutputUnloader.SupplyEmptyWaferAsync(QMC.CDT320.TargetCassette.Good1, 0));
+            btnPick.Click += (s, e) => RunAction(host => host.Machine.OutputCassetteUnit.SupplyEmptyWaferAsync(host.Machine.OutputFeederUnit, QMC.CDT320.TargetCassette.Good1, 0));
             btnPlace.Click += (s, e) => RunAction(host => host.Controller.StoreCompletedWaferAsync(false));
         }
 
@@ -62,13 +62,14 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
         private async Task InitFeederAsync(Form1 host)
         {
-            var unloader = host.Machine.OutputUnloader;
-            unloader.FeederY.ResetAlarm();
-            unloader.FeederY.ServoOn();
-            unloader.BinElevatorZ.ResetAlarm();
-            unloader.BinElevatorZ.ServoOn();
-            await unloader.FeederY.HomeSearchAsync();
-            await unloader.BinElevatorZ.HomeSearchAsync();
+            var feeder = host.Machine.OutputFeederUnit;
+            var cassette = host.Machine.OutputCassetteUnit;
+            feeder.FeederY.ResetAlarm();
+            feeder.FeederY.ServoOn();
+            cassette.OutputLifterZ.ResetAlarm();
+            cassette.OutputLifterZ.ServoOn();
+            await feeder.FeederY.HomeSearchAsync();
+            await cassette.OutputLifterZ.HomeSearchAsync();
         }
 
         private void RefreshData()
@@ -76,17 +77,18 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             var host = GetHost();
             if (host?.Machine == null) return;
 
-            var unloader = host.Machine.OutputUnloader;
-            lblFeederPos.Text = AxisUnitConverter.FormatDisplay(unloader.FeederY.ActualPosition, unloader.FeederY, "0.###", true);
-            lblElevatorPos.Text = AxisUnitConverter.FormatDisplay(unloader.BinElevatorZ.ActualPosition, unloader.BinElevatorZ, "0.###", true);
-            lblClamp.Text = unloader.FeederClampCyl.IsFwd ? "CLAMPED" : (unloader.FeederClampCyl.IsBwd ? "OPEN" : "...");
-            lblUpDown.Text = unloader.FeederUpDownCyl.IsFwd ? "DOWN" : (unloader.FeederUpDownCyl.IsBwd ? "UP" : "...");
-            dotNg.IsOn = unloader.ExistSensor_NG.IsOn;
-            dotGood1.IsOn = unloader.ExistSensor_Good1.IsOn;
-            dotGood2.IsOn = unloader.ExistSensor_Good2.IsOn;
-            dotProtrusion.IsOn = unloader.ProtrusionSensor.IsOn;
-            dotDetect.IsOn = unloader.WaferDetectSensor.IsOn;
-            dotClamped.IsOn = unloader.WaferClampedSensor.IsOn;
+            var feeder = host.Machine.OutputFeederUnit;
+            var cassette = host.Machine.OutputCassetteUnit;
+            lblFeederPos.Text = AxisUnitConverter.FormatDisplay(feeder.FeederY.ActualPosition, feeder.FeederY, "0.###", true);
+            lblElevatorPos.Text = AxisUnitConverter.FormatDisplay(cassette.OutputLifterZ.ActualPosition, cassette.OutputLifterZ, "0.###", true);
+            lblClamp.Text = feeder.FeederClampCyl.IsFwd ? "CLAMPED" : (feeder.FeederClampCyl.IsBwd ? "OPEN" : "...");
+            lblUpDown.Text = feeder.FeederUpDownCyl.IsFwd ? "DOWN" : (feeder.FeederUpDownCyl.IsBwd ? "UP" : "...");
+            dotNg.IsOn = cassette.NgBin8CassetteCheck0.IsOn;
+            dotGood1.IsOn = cassette.GoodBin8CassetteCheck0.IsOn;
+            dotGood2.IsOn = cassette.GoodBin8CassetteCheck1.IsOn;
+            dotProtrusion.IsOn = cassette.ProtrusionSensor.IsOn;
+            dotDetect.IsOn = cassette.WaferDetectSensor.IsOn;
+            dotClamped.IsOn = feeder.WaferClampedSensor.IsOn;
         }
     }
 }

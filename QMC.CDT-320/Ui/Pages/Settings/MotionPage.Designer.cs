@@ -37,6 +37,8 @@
         private QMC.CDT_320.Ui.Controls.ActionButton btnEnable;
         private QMC.CDT_320.Ui.Controls.ActionButton btnDisable;
         private QMC.CDT_320.Ui.Controls.ActionButton btnHome;
+        private QMC.CDT_320.Ui.Controls.ActionButton btnGroupHome;
+        private QMC.CDT_320.Ui.Controls.ActionButton btnAllHome;
         private QMC.CDT_320.Ui.Controls.ActionButton btnAllStop;
         private QMC.CDT_320.Ui.Controls.ActionButton btnAlarmClear;
         private QMC.CDT_320.Ui.Controls.ActionButton btnAllServoOff;
@@ -89,6 +91,8 @@
             this.btnEnable = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnDisable = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnHome = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.btnGroupHome = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.btnAllHome = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnAllStop = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnAlarmClear = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnAllServoOff = new QMC.CDT_320.Ui.Controls.ActionButton();
@@ -543,29 +547,33 @@
             // 
             // actionsPanel
             // 
-            this.actionsPanel.ColumnCount = 11;
+            this.actionsPanel.ColumnCount = 13;
+            this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7F));
+            this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7F));
             this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 8F));
             this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 8F));
             this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 8F));
             this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 8F));
-            this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 10F));
-            this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 12F));
-            this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 9F));
-            this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 9F));
-            this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 9F));
             this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 9F));
             this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 10F));
+            this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 8F));
+            this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 8F));
+            this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7F));
+            this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7F));
+            this.actionsPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 7F));
             this.actionsPanel.Controls.Add(this.btnEnable, 0, 0);
             this.actionsPanel.Controls.Add(this.btnDisable, 1, 0);
             this.actionsPanel.Controls.Add(this.btnHome, 2, 0);
-            this.actionsPanel.Controls.Add(this.btnAllStop, 3, 0);
-            this.actionsPanel.Controls.Add(this.btnAlarmClear, 4, 0);
-            this.actionsPanel.Controls.Add(this.btnAllServoOff, 5, 0);
-            this.actionsPanel.Controls.Add(this.btnServoOn, 6, 0);
-            this.actionsPanel.Controls.Add(this.btnServoOff, 7, 0);
-            this.actionsPanel.Controls.Add(this.btnParaLoad, 8, 0);
-            this.actionsPanel.Controls.Add(this.btnParaSave, 9, 0);
-            this.actionsPanel.Controls.Add(this.btnBoardScan, 10, 0);
+            this.actionsPanel.Controls.Add(this.btnGroupHome, 3, 0);
+            this.actionsPanel.Controls.Add(this.btnAllHome, 4, 0);
+            this.actionsPanel.Controls.Add(this.btnAllStop, 5, 0);
+            this.actionsPanel.Controls.Add(this.btnAlarmClear, 6, 0);
+            this.actionsPanel.Controls.Add(this.btnAllServoOff, 7, 0);
+            this.actionsPanel.Controls.Add(this.btnServoOn, 8, 0);
+            this.actionsPanel.Controls.Add(this.btnServoOff, 9, 0);
+            this.actionsPanel.Controls.Add(this.btnParaLoad, 10, 0);
+            this.actionsPanel.Controls.Add(this.btnParaSave, 11, 0);
+            this.actionsPanel.Controls.Add(this.btnBoardScan, 12, 0);
             this.actionsPanel.Dock = System.Windows.Forms.DockStyle.Fill;
             this.actionsPanel.Location = new System.Drawing.Point(8, 912);
             this.actionsPanel.Margin = new System.Windows.Forms.Padding(0);
@@ -606,7 +614,29 @@
             this.btnHome.Name = "btnHome";
             this.btnHome.Size = new System.Drawing.Size(104, 44);
             this.btnHome.TabIndex = 2;
-            this.btnHome.Text = "HOME";
+            this.btnHome.Text = "INIT AXIS";
+            //
+            // btnGroupHome
+            //
+            this.btnGroupHome.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnGroupHome.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnGroupHome.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.btnGroupHome.Margin = new System.Windows.Forms.Padding(4, 8, 4, 8);
+            this.btnGroupHome.Name = "btnGroupHome";
+            this.btnGroupHome.Size = new System.Drawing.Size(104, 44);
+            this.btnGroupHome.TabIndex = 3;
+            this.btnGroupHome.Text = "INIT GROUP";
+            //
+            // btnAllHome
+            //
+            this.btnAllHome.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnAllHome.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnAllHome.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.btnAllHome.Margin = new System.Windows.Forms.Padding(4, 8, 4, 8);
+            this.btnAllHome.Name = "btnAllHome";
+            this.btnAllHome.Size = new System.Drawing.Size(104, 44);
+            this.btnAllHome.TabIndex = 4;
+            this.btnAllHome.Text = "INIT ALL";
             // 
             // btnAllStop
             // 
@@ -616,7 +646,7 @@
             this.btnAllStop.Margin = new System.Windows.Forms.Padding(4, 8, 4, 8);
             this.btnAllStop.Name = "btnAllStop";
             this.btnAllStop.Size = new System.Drawing.Size(104, 44);
-            this.btnAllStop.TabIndex = 3;
+            this.btnAllStop.TabIndex = 5;
             this.btnAllStop.Text = "ALL STOP";
             // 
             // btnAlarmClear

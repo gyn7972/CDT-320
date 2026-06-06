@@ -1,0 +1,133 @@
+﻿{
+  "doc2": {
+    "path": "D:\\Work\\CDT-320\\문서\\02_CDT320_개발계획서.pptx",
+    "tables": [
+      {
+        "file": "ppt/slides/slide5.xml",
+        "cols": 4,
+        "rows": [
+          ["1",  "UI 연결 + Recipe Subset",                 "DieMap/MaterialBin/4 Subset/Self-Test 5종/Lang.cs i18n",        "25/25"],
+          ["2",  "SPC + Editors + Zoom + Cognex 진단",      "SpcChartPage/ParameterEditor 5종/ZoomDialog/Cognex 진단",       "10/10"],
+          ["3",  "Lot + Reject + 5 Interlock + HSMS",       "RemoteViewer/Ionizer/Reject/Lot/Ext.Interlocks/HSMS",          "9/9"],
+          ["4",  "RemoteViewerDialog + ActiveLot + UseHsms","Dialog/ActiveLotPage/UseHsms 듀얼/S6F11/Cognex Test",           "11/11"],
+          ["5",  "GUI Cycle 자동화",                        "tools/gui_cycle_automation.ps1 (UIA + i18n)",                  "3/3"],
+          ["6",  "Cognex Caliper / Histogram / ColorMatch", "CognexCaliper/Histogram/ColorMatch + IEdgeFinder",             "5/5"],
+          ["7",  "SECS 13 표준 메시지 + AlarmManager",       "S1F1~S9F5 헬퍼 + AlarmManager → S5F1 자동",                    "3/3"],
+          ["8",  "추가 5 Interlock (총 15)",                "ExtendedInterlocks2 — Lifter/Barcode/SubPort/Cleaner/EStop",    "2/2"],
+          ["9",  "문서화 (1차)",                             "README / ARCHITECTURE / USER_GUIDE",                            "(데이터 소스 미발견)"],
+          ["10", "정적 Audit",                              "audit_threading.pl / audit_memory.pl",                         "(데이터 소스 미발견)"]
+        ]
+      },
+      {
+        "file": "ppt/slides/slide6.xml",
+        "cols": 4,
+        "rows": [
+          ["11", "i18n 중국어 zh-CN",                       "Lang.Zh + RegisterChinese 50+ 키 + Z()/T() 헬퍼",              "4/4"],
+          ["12", "i18n 일본어 + AlarmMaster",                "Lang.Ja + AlarmCategory 8종 + AlarmDefinition 18 정의",        "4/4"],
+          ["13", "DryRun / StepRun 운영 모드",               "MachineController.DryRun/StepRun + StepRunGate + ApplyMode",   "4/4"],
+          ["14", "Coordinate Map (3-point Alignment)",      "AlignmentSolver/CoordinateMap/Cognex stdev 0.037 sub-pixel",   "2/2"],
+          ["15", "GUI 자동화 ASCII-only PS1",                "PowerShell ANSI 호환 한글→ASCII + UIA 안정화",                 "3/4 (1 SKIP)"],
+          ["16", "Material 추적 + SecsItem 팩토리",          "Die/DieTapeFrame/MaterialStorage + SecsItem 9 Format",         "3/3"],
+          ["17", "Remote Viewer TCP 화면 캡처",              "tools/remote_viewer_client.ps1",                               "1/1"],
+          ["18", "자가진단 (SystemSelfTest)",                "SystemSelfTestDialog (5 진단) + runtime_cycle_test.pl",         "2/2"],
+          ["19", "AlarmMaster 페이지",                       "AlarmMasterPage (DataGrid+Save+카테고리) + Raise lookup",       "5/5"],
+          ["20", "Pick Retry",                              "DoOneDieAsync 비전 매치 3회 재시도 + Backoff (50→100→200ms)",   "3/3"]
+        ]
+      },
+      {
+        "file": "ppt/slides/slide7.xml",
+        "cols": 4,
+        "rows": [
+          ["21", "BinCodeMap NG → bin → color",             "BinCodeMap.ConvertToBinCode/ConvertToBinCodeColor",            "3/3"],
+          ["22", "JobOrder + JobQueue + DieMap CSV",        "JobOrder/JobQueue (Pending+History) + DieMapGenerator.LoadCsv","3/3"],
+          ["23", "25 Interlock 등록 + 알람 다국어",          "InterlockRegistry 25개 + Title/Cause/ActionEn + Lang.Current","5/5"],
+          ["24", "--auto-cycle N CLI",                      "Program.cs CLI + Init→CycleRun(N)→Lot JSON→종료",              "5/5"],
+          ["25", "ExtendedInterlocks3",                     "Door/WaferZ vs Lifter/Vacuum vs Picker/BinLid/ServoOff",       "2/2"],
+          ["26", "UI Polish + LotPort",                     "Lang.Apply Tag/Anchor/사이드바 통합/LotPort 5항목",             "(데이터 소스 미발견)"],
+          ["27", "Feeder 통합 + 4 GAP fix",                 "StoreCompletedWafer/OutputUnloader/Input·OutputFeederPage+GAP","(데이터 소스 미발견)"],
+          ["28", "InputStageUnit 통합",                     "WaferLoaderAdapter + LoadAndPrepare→Retract→VisionAlign",      "(데이터 소스 미발견)"],
+          ["29", "TransferPickerUnit 통합",                 "front.Pickers[0].Pickup/Place + TpuArm SoftLimit (1600/350)", "(데이터 소스 미발견)"],
+          ["30", "OutputStageUnit 통합",                    "DoOneDie Place→Receive (Grade+VisionOff) + InspectBinPos",    "(데이터 소스 미발견)"],
+          ["31", "VisionInspection 통합",                   "InspectBottom (4-picker) + Side (4면) + sim fallback",        "(데이터 소스 미발견)"],
+          ["32", "설비 라이프사이클",                        "ShutdownAsync (사이클정지+Stop+Lot Close+Save) + EmergencyStop","(데이터 소스 미발견)"]
+        ]
+      },
+      {
+        "file": "ppt/slides/slide11.xml",
+        "cols": 4,
+        "rows": [
+          ["Ajin DLL 미로드 (AXL-OPEN, AXL-DLL)",          "Critical — 전체 정지",                       "낮음",  "AjinFactory Sim fallback (BaseAxis → SimAxis)"],
+          ["Vision PC 통신 단절 (VISION-CONN)",            "사이클 정지 (5100/5101/5103/5104~5106)",      "중",    "VisionTcpClient 재연결 + AlarmRaised 이벤트"],
+          ["카세트 만석 (OUT-FULL-GOOD/NG)",                "사이클 정지 (정상 종점)",                     "정상",  "Good1↔Good2 자동 전환 + 양측 만재시 _cycleCts.Cancel()"],
+          ["E-Stop / Door 인터락 (E-STOP, EMG-PRESSED)",    "즉시 정지 (모든 축 EStop + Critical)",        "낮음",  "EmergencyStopAsync (Stage 32)"],
+          ["돌출 센서 트리거 (OUT-STORE-EX)",               "충돌 위험 — 육안 확인 필요",                  "낮음",  "10ms 폴링 + 즉시 EStop / Protrusion Guard"],
+          ["모션 인터락 위반 (INTERLOCK)",                   "사이클 정지 (9건 모션 인터락)",                "중",    "InterlockRegistry.VerifyMove + 안전위치 이동"],
+          ["Output Unloader 적재 실패 (OUT-STORE)",         "Wafer 적재 누락",                            "낮음",  "StoreFullWaferAsync 실패 → Error 알람 후 재시도"]
+        ]
+      }
+    ]
+  },
+  "doc3": {
+    "path": "D:\\Work\\CDT-320\\문서\\03_CDT320_체크리스트.pptx",
+    "tables": [
+      {
+        "file": "ppt/slides/slide3.xml",
+        "cols": 4,
+        "rows": [
+          ["Stage 1 — Handler Features (310 이식)",  "25", "25", "0"],
+          ["Stage 2 — SPC + Editors",                 "10", "10", "0"],
+          ["Stage 3 — Lot + Reject + Interlock",     "9",  "9",  "0"],
+          ["Stage 4 — RemoteViewer + ActiveLot",     "11", "11", "0"],
+          ["Stage 5 — GUI UIA",                       "3",  "3",  "0"],
+          ["Stage 6 — Cognex 검사",                   "5",  "5",  "0"],
+          ["Stage 7 — SECS 13 메시지",                "3",  "3",  "0"],
+          ["Stage 8 — 추가 5 Interlock",              "2",  "2",  "0"],
+          ["Stage 11~14 — i18n / DryRun / CoordMap", "14", "14", "0"],
+          ["Stage 15~18 — PS1 / Material / SelfTest","10", "9",  "0 (1 SKIP)"],
+          ["Stage 19~22 — Alarm/Pick/Bin/Job",       "16", "16", "0"],
+          ["Stage 23~25 — Interlock25/CLI/ExtIL3",   "12", "12", "0"],
+          ["TOTAL",                                  "118","117","0"]
+        ]
+      },
+      {
+        "file": "ppt/slides/slide4.xml",
+        "cols": 6,
+        "rows": [
+          ["1", "LOT-20260429-094707", "7", "1", "87.5%",  "0"],
+          ["2", "LOT-20260429-121750", "3", "1", "75.0%",  "0"],
+          ["3", "LOT-20260429-122832", "3", "1", "75.0%",  "0"],
+          ["4", "LOT-20260429-144149", "4", "0", "100.0%", "0"],
+          ["5", "LOT-20260429-152031", "4", "0", "100.0%", "0"],
+          ["6", "LOT-20260429-162418", "8", "0", "100.0%", "0"],
+          ["7", "LOT-20260429-225116", "2", "2", "50.0%",  "0"],
+          ["8", "LOT-20260429-230106", "4", "0", "100.0%", "0"],
+          ["9", "LOT-20260429-230851", "3", "1", "75.0%",  "0"]
+        ]
+      },
+      {
+        "file": "ppt/slides/slide6.xml",
+        "cols": 4,
+        "rows": [
+          ["43", "매뉴얼 비전 + 바코드 통합 (5104~5106 + Serial 4/6)", "VisionHub.Main/FrontSide/RearSide + BarcodeSerialAdapter",  "(데이터 소스 미발견)"],
+          ["44", "Eject Pin Z + Side Vision Y (axis 8/19/20)",      "InputStageUnit.EjectPinZ + TpuArmUnit.SideVisionY (L/R)",   "(데이터 소스 미발견)"],
+          ["45", "Operation Panel (Tower Lamp + Buzzer + EMG)",     "OperationPanelUnit (DI 7 + DO 7) — Y003~Y006 Lamp/Buzzer", "(데이터 소스 미발견)"],
+          ["46", "Resource Sensors + Slot Mapper",                  "ResourceSensorsUnit (CDA×2 + Vacuum×4) + SlotMapper",      "(데이터 소스 미발견)"],
+          ["47", "Ionizer",                                         "IonizerUnit.cs",                                            "(데이터 소스 미발견)"],
+          ["48", "Post PNP Transfer Tool",                          "PostPnpTransferUnit.cs",                                    "(데이터 소스 미발견)"]
+        ]
+      },
+      {
+        "file": "ppt/slides/slide7.xml",
+        "cols": 4,
+        "rows": [
+          ["49", "NG/Good Plate",                                    "Plate.cs + PlateRegistry.NgPlate / GoodPlate",                "(데이터 소스 미발견)"],
+          ["50", "Bin Barcode Reader",                               "NullBarcodeReader + BarcodeSerialAdapter (Stage 43 연결)",    "(데이터 소스 미발견)"],
+          ["51", "Inspection Subset (Bottom + Front/RearSide)",      "RecipeProject.BottomInsp/FrontSideInsp/RearSideInsp",          "(데이터 소스 미발견)"],
+          ["52", "FrontSide / RearSide Inspection 모듈 (Vision PC)", "QMC.Vision/Modules + VisionConfig 5105/5106 포트",             "(데이터 소스 미발견)"],
+          ["53", "Eject + Side 사이클 통합",                          "DoOneDie EJECT axis 8 + SideVisionY axis 19",                 "(데이터 소스 미발견)"],
+          ["54", "Recipe Output Subset",                             "RecipeStore.OutputSubset (DiesPerWafer 등)",                   "(데이터 소스 미발견)"]
+        ]
+      }
+    ]
+  }
+}

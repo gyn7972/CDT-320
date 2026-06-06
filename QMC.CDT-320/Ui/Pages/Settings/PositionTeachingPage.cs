@@ -248,8 +248,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             var L = new List<TeachItem>();
 
             // ── InputLoader ────────────────────────────────────────────
-            L.Add(new TeachItem { Group="InputLoader", Key="FirstSlotPosition",   Name="첫 슬롯 Z 위치",        Axis="#00 WaferLifterZ", Value=10.0,  Unit="mm",  Desc= "카세트 슬롯 0번 WaferLifterZ 절대 위치" });
-            L.Add(new TeachItem { Group="InputLoader", Key="ExchangePositionY",   Name="교환 Y 위치",            Axis="#01 WaferFeederY", Value=150.0, Unit="mm",  Desc="피더가 InputStage 입구로 전진하는 Y" });
+            L.Add(new TeachItem { Group="InputLoader", Key="FirstSlotPosition",   Name="첫 슬롯 Z 위치",        Axis="#00 InputLifterZ", Value=10.0,  Unit="mm",  Desc= "카세트 슬롯 0번 InputLifterZ 절대 위치" });
+            L.Add(new TeachItem { Group="InputLoader", Key="ExchangePositionY",   Name="교환 Y 위치",            Axis="#01 InputFeederY", Value=150.0, Unit="mm",  Desc="피더가 InputStage 입구로 전진하는 Y" });
 
             // ── InputStage ─────────────────────────────────────────────
             L.Add(new TeachItem { Group="InputStage",  Key="ExpanderDownPosition",Name="ExpanderZ Down",        Axis="#04 WaferExpandingZ", Value=50.0, Unit="mm", Desc="테이프 텐션 확보 위치" });
@@ -319,20 +319,20 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             L.Add(new TeachItem { Group="TPU.Rear",    Key="SideY0",              Name="Rear Side Vision Y0",   Axis="#20 RearSideVisionY0",  Value=0.0, Unit="mm", Desc="Rear Side 카메라 베이스" });
 
             // ── OutputStage ────────────────────────────────────────────
-            L.Add(new TeachItem { Group="OutputStage", Key="StageBasePositionY",     Name="StageY 기준 Y",       Axis="#31 BinGoodY / #33 BinNgY", Value=200.0, Unit="mm", Desc="Place 시 StageY 기준" });
-            L.Add(new TeachItem { Group="OutputStage", Key="WorkPositionZ",          Name="Work Z (상승)",       Axis="#32 BinGoodZ",          Value=80.0,  Unit="mm", Desc="다이 받을 때 StageZ 상승" });
-            L.Add(new TeachItem { Group="OutputStage", Key="AvoidPositionZ",         Name="Avoid Z (하강)",      Axis="#32 BinGoodZ",          Value=0.0,   Unit="mm", Desc="반대편 작업 시 회피 위치" });
-            L.Add(new TeachItem { Group="OutputStage", Key="BinCameraWorkPositionX", Name="BinCamera Work X",    Axis="#34 BinVisionX", Value=200.0, Unit="mm", Desc="Bin 검사 위치" });
-            L.Add(new TeachItem { Group="OutputStage", Key="BinCameraRetractX",      Name="BinCamera Retract X", Axis="#34 BinVisionX", Value=0.0,   Unit="mm", Desc="후퇴(대기) 위치" });
+            L.Add(new TeachItem { Group="OutputStage", Key="StageBasePositionY",     Name="StageY 기준 Y",       Axis="#31 OutputGoodStageY / #33 OutputNGStageY", Value=200.0, Unit="mm", Desc="Place 시 StageY 기준" });
+            L.Add(new TeachItem { Group="OutputStage", Key="WorkPositionZ",          Name="Work Z (상승)",       Axis="#32 OutputGoodStageZ",          Value=80.0,  Unit="mm", Desc="다이 받을 때 StageZ 상승" });
+            L.Add(new TeachItem { Group="OutputStage", Key="AvoidPositionZ",         Name="Avoid Z (하강)",      Axis="#32 OutputGoodStageZ",          Value=0.0,   Unit="mm", Desc="반대편 작업 시 회피 위치" });
+            L.Add(new TeachItem { Group="OutputStage", Key="BinCameraWorkPositionX", Name="BinCamera Work X",    Axis="#34 OutputVisionX", Value=200.0, Unit="mm", Desc="Bin 검사 위치" });
+            L.Add(new TeachItem { Group="OutputStage", Key="BinCameraRetractX",      Name="BinCamera Retract X", Axis="#34 OutputVisionX", Value=0.0,   Unit="mm", Desc="후퇴(대기) 위치" });
 
-            // ── OutputUnloader ─────────────────────────────────────────
-            L.Add(new TeachItem { Group="OutputUnloader", Key="NgFirstSlotPositionZ",    Name="NG Slot 0 Z",           Axis="#36 BinLifterZ",  Value=20.0,   Unit="mm", Desc="NG 카세트 첫 슬롯" });
-            L.Add(new TeachItem { Group="OutputUnloader", Key="Good1FirstSlotPositionZ", Name="Good1 Slot 0 Z",        Axis="#36 BinLifterZ",  Value=80.0,   Unit="mm", Desc="Good1 카세트 첫 슬롯" });
-            L.Add(new TeachItem { Group="OutputUnloader", Key="Good2FirstSlotPositionZ", Name="Good2 Slot 0 Z",        Axis="#36 BinLifterZ",  Value=160.0,  Unit="mm", Desc="Good2 카세트 첫 슬롯" });
-            L.Add(new TeachItem { Group="OutputUnloader", Key="SlotPitchZ",              Name="슬롯 피치 Z",            Axis="#36 BinLifterZ",  Value=6.0,    Unit="mm", Desc="슬롯 간 간격" });
-            L.Add(new TeachItem { Group="OutputUnloader", Key="NgStageExchangePositionY",  Name="NG 교환 Y",            Axis="#35 BinFeederY",  Value=180.0,  Unit="mm", Desc="NG 카세트 인계 Y" });
-            L.Add(new TeachItem { Group="OutputUnloader", Key="GoodStageExchangePositionY",Name="Good 교환 Y",          Axis="#35 BinFeederY",  Value=180.0,  Unit="mm", Desc="Good 카세트 인계 Y" });
-            L.Add(new TeachItem { Group="OutputUnloader", Key="CassetteInsertPositionY",   Name="카세트 삽입 Y",        Axis="#35 BinFeederY",  Value=250.0,  Unit="mm", Desc="카세트 안쪽 진입 위치" });
+            // ── OutputCassette / OutputFeeder ─────────────────────────
+            L.Add(new TeachItem { Group="OutputCassette", Key="NgFirstSlotPositionZ",    Name="NG Slot 0 Z",           Axis="#36 OutputLifterZ",  Value=20.0,   Unit="mm", Desc="NG 카세트 첫 슬롯" });
+            L.Add(new TeachItem { Group="OutputCassette", Key="Good1FirstSlotPositionZ", Name="Good1 Slot 0 Z",        Axis="#36 OutputLifterZ",  Value=80.0,   Unit="mm", Desc="Good1 카세트 첫 슬롯" });
+            L.Add(new TeachItem { Group="OutputCassette", Key="Good2FirstSlotPositionZ", Name="Good2 Slot 0 Z",        Axis="#36 OutputLifterZ",  Value=160.0,  Unit="mm", Desc="Good2 카세트 첫 슬롯" });
+            L.Add(new TeachItem { Group="OutputCassette", Key="SlotPitchZ",              Name="슬롯 피치 Z",            Axis="#36 OutputLifterZ",  Value=6.0,    Unit="mm", Desc="슬롯 간 간격" });
+            L.Add(new TeachItem { Group="OutputFeeder", Key="NgStageExchangePositionY",  Name="NG 교환 Y",             Axis="#35 OutputFeederY",  Value=180.0,  Unit="mm", Desc="NG 카세트 인계 Y" });
+            L.Add(new TeachItem { Group="OutputFeeder", Key="GoodStageExchangePositionY",Name="Good 교환 Y",           Axis="#35 OutputFeederY",  Value=180.0,  Unit="mm", Desc="Good 카세트 인계 Y" });
+            L.Add(new TeachItem { Group="OutputFeeder", Key="CassetteInsertPositionY",   Name="카세트 삽입 Y",         Axis="#35 OutputFeederY",  Value=250.0,  Unit="mm", Desc="카세트 안쪽 진입 위치" });
 
             return L;
         }
@@ -538,80 +538,82 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                         //case "InputLoader.FirstSlotPosition":   m.InputLoader.Setup.FirstSlotPosition  = it.Value; applied++; break;
                         //case "InputLoader.ExchangePositionY":   m.InputLoader.Setup.ExchangePositionY  = it.Value; applied++; break;
 
-                        case "InputStage.ExpanderDownPosition": m.InputStage.Setup.ExpanderDownPosition = it.Value; applied++; break;
-                        case "InputStage.ExpanderUpPosition":   m.InputStage.Setup.ExpanderUpPosition   = it.Value; applied++; break;
-                        case "InputStage.UnloadPositionY":      m.InputStage.Setup.UnloadPositionY      = it.Value; applied++; break;
-                        case "InputStage.NeedleEjectPosition":  m.InputStage.Setup.NeedleEjectPosition  = it.Value; applied++; break;
-                        case "InputStage.NeedleDownPosition":   m.InputStage.Setup.NeedleDownPosition   = it.Value; applied++; break;
-                        case "InputStage.PickerOffsetX":        m.InputStage.Setup.PickerOffsetX        = it.Value; applied++; break;
-                        case "InputStage.PickerOffsetY":        m.InputStage.Setup.PickerOffsetY        = it.Value; applied++; break;
+                        case "InputStage.ExpanderDownPosition": m.InputStageUnit.Recipe.WaferZ.LoadPosition    = it.Value; applied++; break;
+                        case "InputStage.ExpanderUpPosition":   m.InputStageUnit.Recipe.WaferZ.ReadyPosition   = it.Value; applied++; break;
+                        case "InputStage.UnloadPositionY":      m.InputStageUnit.Recipe.WaferY.UnloadPosition  = it.Value; applied++; break;
+                        case "InputStage.NeedleEjectPosition":  m.InputStageUnit.Recipe.NeedleZ.ProcessPosition = it.Value; applied++; break;
+                        case "InputStage.NeedleDownPosition":   m.InputStageUnit.Recipe.NeedleZ.LoadPosition   = it.Value; applied++; break;
+                        // PickerOffsetX/Y are not declared in InputStageSetup/Config/Recipe.
 
                         // OutputStage (Stage 59 round 11)
-                        case "OutputStage.StageBasePositionY":      m.OutputStage.Setup.StageBasePositionY        = it.Value; applied++; break;
-                        case "OutputStage.BinCameraWorkPositionX":  m.OutputStage.Setup.BinCameraWorkPositionX    = it.Value; applied++; break;
-                        case "OutputStage.BinCameraRetractX":       m.OutputStage.Setup.BinCameraRetractPositionX = it.Value; applied++; break;
+                        case "OutputStage.StageBasePositionY":
+                            m.OutputStageUnit.GoodStage.Recipe.HomePositionY = it.Value;
+                            m.OutputStageUnit.NgStage.Recipe.HomePositionY = it.Value;
+                            applied += 2; break;
+                        case "OutputStage.BinCameraWorkPositionX":  m.OutputStageUnit.Recipe.VisionX.ProcessPosition = it.Value; applied++; break;
+                        case "OutputStage.BinCameraRetractX":       m.OutputStageUnit.Recipe.VisionX.AvoidPosition = it.Value; applied++; break;
 
-                        // OutputUnloader (Stage 59 round 11)
-                        case "OutputUnloader.NgFirstSlotPositionZ":    m.OutputUnloader.Setup.NgFirstSlotPositionZ    = it.Value; applied++; break;
-                        case "OutputUnloader.Good1FirstSlotPositionZ": m.OutputUnloader.Setup.Good1FirstSlotPositionZ = it.Value; applied++; break;
-                        case "OutputUnloader.Good2FirstSlotPositionZ": m.OutputUnloader.Setup.Good2FirstSlotPositionZ = it.Value; applied++; break;
-                        case "OutputUnloader.SlotPitchZ":              m.OutputUnloader.Setup.SlotPitchZ              = it.Value; applied++; break;
-                        case "OutputUnloader.NgStageExchangePositionY":  m.OutputUnloader.Setup.NgStageExchangePositionY   = it.Value; applied++; break;
-                        case "OutputUnloader.GoodStageExchangePositionY":m.OutputUnloader.Setup.GoodStageExchangePositionY = it.Value; applied++; break;
-                        case "OutputUnloader.CassetteInsertPositionY":   m.OutputUnloader.Setup.CassetteInsertPositionY    = it.Value; applied++; break;
+                        // OutputCassette / OutputFeeder
+                        case "OutputCassette.NgFirstSlotPositionZ":    m.OutputCassetteUnit.Recipe.NGFirstSlotPosition = it.Value; applied++; break;
+                        case "OutputCassette.Good1FirstSlotPositionZ": m.OutputCassetteUnit.Recipe.GoodFirstSlotPosition = it.Value; applied++; break;
+                        case "OutputCassette.Good2FirstSlotPositionZ": m.OutputCassetteUnit.Config.GOODNGPositionOffset = it.Value - m.OutputCassetteUnit.Recipe.GoodFirstSlotPosition; applied++; break;
+                        case "OutputCassette.SlotPitchZ":              m.OutputCassetteUnit.Config.SlotPitch = it.Value; applied++; break;
+                        case "OutputFeeder.NgStageExchangePositionY":  m.OutputFeederUnit.Recipe.NGWaferLoadPosition = it.Value; m.OutputFeederUnit.Recipe.NGWaferUnloadPosition = it.Value; applied++; break;
+                        case "OutputFeeder.GoodStageExchangePositionY":m.OutputFeederUnit.Recipe.GoodWaferLoadPosition = it.Value; m.OutputFeederUnit.Recipe.GoodWaferUnloadPosition = it.Value; applied++; break;
+                        case "OutputFeeder.CassetteInsertPositionY":   m.OutputFeederUnit.Recipe.GoodCassetteExchangePosition = it.Value; m.OutputFeederUnit.Recipe.NGCassetteExchangePosition = it.Value; applied++; break;
 
                         // Stage 60 R-teach — 추가 매핑 (이전 16개 미적용 항목 보강)
                         // OutputStage 의 두 StageModule (Good + Ng) 모두 동일 값 적용
                         case "OutputStage.WorkPositionZ":
-                            m.OutputStage.GoodStage.Setup.WorkPositionZ  = it.Value;
-                            m.OutputStage.NgStage  .Setup.WorkPositionZ  = it.Value;
+                            m.OutputStageUnit.GoodStage.Recipe.WorkPositionZ  = it.Value;
+                            m.OutputStageUnit.NgStage  .Recipe.WorkPositionZ  = it.Value;
                             applied += 2; break;
                         case "OutputStage.AvoidPositionZ":
-                            m.OutputStage.GoodStage.Setup.AvoidPositionZ = it.Value;
-                            m.OutputStage.NgStage  .Setup.AvoidPositionZ = it.Value;
+                            m.OutputStageUnit.GoodStage.Recipe.AvoidPositionZ = it.Value;
+                            m.OutputStageUnit.NgStage  .Recipe.AvoidPositionZ = it.Value;
                             applied += 2; break;
 
                         // (Per-picker Z teaching 은 switch 진입 전에 ApplyPerPickerZ 에서 처리)
 
                         // TpuArmSetup — Front
                         case "TPU.Front.ArmInputX":
-                            m.TransferPicker.LeftArm.Setup.ArmInputPositionX      = it.Value; applied++; break;
+                            m.PickerFrontUnit.Setup.ArmInputPositionX      = it.Value; applied++; break;
                         case "TPU.Front.ArmInspectX":
-                            m.TransferPicker.LeftArm.Setup.ArmInspectionPositionX = it.Value; applied++; break;
+                            m.PickerFrontUnit.Setup.ArmInspectionPositionX = it.Value; applied++; break;
                         case "TPU.Front.ArmOutputX":
-                            m.TransferPicker.LeftArm.Setup.ArmOutputPositionX     = it.Value; applied++; break;
+                            m.PickerFrontUnit.Setup.ArmOutputPositionX     = it.Value; applied++; break;
                         case "TPU.Front.SideVision1X":
-                            m.TransferPicker.LeftArm.Setup.SideVision1X = it.Value; applied++; break;
+                            m.PickerFrontUnit.Setup.SideVision1X = it.Value; applied++; break;
                         case "TPU.Front.SideVision1Y":
-                            m.TransferPicker.LeftArm.Setup.SideVision1Y = it.Value; applied++; break;
+                            m.PickerFrontUnit.Setup.SideVision1Y = it.Value; applied++; break;
                         case "TPU.Front.PickerPitchX":
-                            m.TransferPicker.LeftArm.Setup.PickerPitchX = it.Value; applied++; break;
+                            m.PickerFrontUnit.Setup.PickerPitchX = it.Value; applied++; break;
                         case "TPU.Front.SideY0":
-                            m.TransferPicker.LeftArm.Setup.SideVisionY0 = it.Value; applied++; break;
+                            m.PickerFrontUnit.Setup.SideVisionY0 = it.Value; applied++; break;
                         case "TPU.Front.ArmYPickup":
-                            m.TransferPicker.LeftArm.Setup.ArmYPickupPosition = it.Value; applied++; break;
+                            m.PickerFrontUnit.Setup.ArmYPickupPosition = it.Value; applied++; break;
                         case "TPU.Front.ArmYAvoid":
-                            m.TransferPicker.LeftArm.Setup.ArmYAvoidPosition  = it.Value; applied++; break;
+                            m.PickerFrontUnit.Setup.ArmYAvoidPosition  = it.Value; applied++; break;
 
                         // TpuArmSetup — Rear (대칭)
                         case "TPU.Rear.ArmInputX":
-                            m.TransferPicker.RightArm.Setup.ArmInputPositionX      = it.Value; applied++; break;
+                            m.PickerRearUnit.Setup.ArmInputPositionX      = it.Value; applied++; break;
                         case "TPU.Rear.ArmInspectX":
-                            m.TransferPicker.RightArm.Setup.ArmInspectionPositionX = it.Value; applied++; break;
+                            m.PickerRearUnit.Setup.ArmInspectionPositionX = it.Value; applied++; break;
                         case "TPU.Rear.ArmOutputX":
-                            m.TransferPicker.RightArm.Setup.ArmOutputPositionX     = it.Value; applied++; break;
+                            m.PickerRearUnit.Setup.ArmOutputPositionX     = it.Value; applied++; break;
                         case "TPU.Rear.SideVision1X":
-                            m.TransferPicker.RightArm.Setup.SideVision1X = it.Value; applied++; break;
+                            m.PickerRearUnit.Setup.SideVision1X = it.Value; applied++; break;
                         case "TPU.Rear.SideVision1Y":
-                            m.TransferPicker.RightArm.Setup.SideVision1Y = it.Value; applied++; break;
+                            m.PickerRearUnit.Setup.SideVision1Y = it.Value; applied++; break;
                         case "TPU.Rear.PickerPitchX":
-                            m.TransferPicker.RightArm.Setup.PickerPitchX = it.Value; applied++; break;
+                            m.PickerRearUnit.Setup.PickerPitchX = it.Value; applied++; break;
                         case "TPU.Rear.SideY0":
-                            m.TransferPicker.RightArm.Setup.SideVisionY0 = it.Value; applied++; break;
+                            m.PickerRearUnit.Setup.SideVisionY0 = it.Value; applied++; break;
                         case "TPU.Rear.ArmYPickup":
-                            m.TransferPicker.RightArm.Setup.ArmYPickupPosition = it.Value; applied++; break;
+                            m.PickerRearUnit.Setup.ArmYPickupPosition = it.Value; applied++; break;
                         case "TPU.Rear.ArmYAvoid":
-                            m.TransferPicker.RightArm.Setup.ArmYAvoidPosition  = it.Value; applied++; break;
+                            m.PickerRearUnit.Setup.ArmYAvoidPosition  = it.Value; applied++; break;
 
                         default:
                             // 매핑 미지원 항목 — JSON 저장은 되지만 Setup 미반영. 디버그용 로그.
@@ -660,21 +662,26 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                     return 0;
                 if (idx < 0 || idx > 3) return 0;
 
-                var arm = isFront ? m.TransferPicker.LeftArm : m.TransferPicker.RightArm;
-                var p   = arm.Pickers[idx];
+                if (isFront)
+                    m.PickerFrontUnit.SetRuntimePickerZPosition(idx, it.Key, it.Value);
+                else
+                    m.PickerRearUnit.SetRuntimePickerZPosition(idx, it.Key, it.Value);
+
                 switch (it.Key)
                 {
-                    case "PickPosition":  p.Setup.PickupPosition = it.Value; return 1;
-                    case "PlacePosition": p.Setup.PlacePosition  = it.Value; return 1;
-                    case "FocusPosition": p.Setup.FocusPosition  = it.Value; return 1;
-                    case "WaitPosition":  p.Setup.WaitPosition   = it.Value; return 1;
-                    default: return 0;
+                    case "PickPosition":
+                    case "PlacePosition":
+                    case "FocusPosition":
+                    case "WaitPosition":
+                        return 1;
+                    default:
+                        return 0;
                 }
             }
             catch { return 0; }
         }
 
-        // 축 이름 ("#09 FrontPickerX" 또는 "#31 BinGoodY / #33 BinNgY") 으로부터
+        // 축 이름 ("#09 FrontPickerX" 또는 "#31 OutputGoodStageY / #33 OutputNGStageY") 으로부터
         // 첫 번째 매칭 축의 Actual Position 반환 — 단순 매칭 (이름 substring).
         private static double ResolveAxisActualPos(CDT320_Machine m, string axisLabel)
         {

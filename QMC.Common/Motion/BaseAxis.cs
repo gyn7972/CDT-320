@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
 using QMC.Common.Alarms;
@@ -6,6 +6,19 @@ using QMC.Common.Logging;
 
 namespace QMC.Common.Motion
 {
+    public enum AxisMotionGuardKind
+    {
+        Absolute,
+        Home,
+        JogContinuous
+    }
+
+    public delegate bool AxisMotionGuardHandler(
+        BaseAxis axis,
+        double targetPosition,
+        AxisMotionGuardKind moveKind,
+        out string reason);
+
     /// <summary>
     /// 모든 축(Axis) 구현체의 공통 추상 베이스 클래스.<br/>
     /// <list type="bullet">
@@ -17,6 +30,8 @@ namespace QMC.Common.Motion
     public abstract class BaseAxis
         : BaseComponent<AxisSetup, AxisConfig, AxisRecipe>
     {
+        public static AxisMotionGuardHandler MotionGuard { get; set; }
+
         // ─────────────────────────────────────────────
         //  내부 상태 필드
         // ─────────────────────────────────────────────
@@ -175,6 +190,40 @@ namespace QMC.Common.Motion
             _simTargetPosition = newPosition;
         }
 
+        public virtual void RestoreRuntimeState(
+            double actualPosition,
+            double commandPosition,
+            bool isServoOn,
+            bool isHomeDone,
+            bool isInPosition,
+            bool isAlarm,
+            uint alarmCode)
+        {
+            try
+            {
+                ActualPosition = actualPosition;
+                CommandPosition = commandPosition;
+                _simTargetPosition = commandPosition;
+                CurrentVelocity = 0.0;
+                IsMoving = false;
+                IsInPosition = isInPosition;
+                IsServoOn = isServoOn;
+                IsHomeDone = isHomeDone;
+                IsAlarm = isAlarm;
+                AlarmCode = alarmCode;
+                Sensor_ORG = isHomeDone;
+                _currentMode = MotionMode.None;
+                _jogDirection = 0;
+                RaisePositionChanged();
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
         /// <summary>
         /// 현재 Config 속도/가감속 프로파일을 일괄 설정합니다.
         /// </summary>
@@ -205,6 +254,9 @@ namespace QMC.Common.Motion
             {
                 if (!IsServoOn || IsAlarm)
                     return -2;
+
+                if (!VerifyMotionGuard(targetPos, AxisMotionGuardKind.Absolute))
+                    return -11;
 
                 double vel = velocity > 0 ? velocity : Config.DefaultVelocity;
                 CommandPosition = targetPos;
@@ -296,6 +348,9 @@ namespace QMC.Common.Motion
                 if (!IsServoOn || IsAlarm)
                     return -2;
 
+                if (!VerifyMotionGuard(Setup.HomeOffset, AxisMotionGuardKind.Home))
+                    return -11;
+
                 _currentMode = MotionMode.Homing;
                 IsHomeDone = false;
 
@@ -386,6 +441,10 @@ namespace QMC.Common.Motion
             if (!IsServoOn || IsAlarm) 
                 return;
 
+            double jogTarget = direction > 0 ? Setup.SoftLimitPlus : Setup.SoftLimitMinus;
+            if (!VerifyMotionGuard(jogTarget, AxisMotionGuardKind.JogContinuous))
+                return;
+
             _jogDirection   = direction;
             CurrentVelocity = GetJogVelocity(speedType, customVel);
             IsMoving        = true;
@@ -393,8 +452,18 @@ namespace QMC.Common.Motion
             _currentMode    = MotionMode.Jog;
 
             // CommandPosition은 소프트 리미트 끝으로 설정 - 시뮬레이터가 매 틱 갱신
-            CommandPosition    = direction > 0 ? Setup.SoftLimitPlus : Setup.SoftLimitMinus;
+            CommandPosition    = jogTarget;
             _simTargetPosition = CommandPosition;
+        }
+
+        private bool VerifyMotionGuard(double targetPosition, AxisMotionGuardKind moveKind)
+        {
+            AxisMotionGuardHandler guard = MotionGuard;
+            if (guard == null)
+                return true;
+
+            string reason;
+            return guard(this, targetPosition, moveKind, out reason);
         }
 
         /// <summary>

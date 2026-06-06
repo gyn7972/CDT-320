@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Drawing;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 using QMC.Common.Motion;
 
@@ -13,7 +12,6 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         public InputFeederPage()
         {
             InitializeComponent();
-            WireEvents();
 
             _timer = new System.Windows.Forms.Timer { Interval = 200 };
             _timer.Tick += (s, e) => RefreshFromMachine();
@@ -21,73 +19,23 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             HandleDestroyed += (s, e) => _timer.Stop();
         }
 
-        private void WireEvents()
-        {
-            btnInit.Click += (s, e) => RunAction(host => InitFeederAsync(host));
-            btnFwd.Click += (s, e) => RunAction(host => host.Machine.InputFeeder.FeederUpDownCyl.MoveFwdAsync());
-            btnBwd.Click += (s, e) => RunAction(host => host.Machine.InputFeeder.FeederUpDownCyl.MoveBwdAsync());
-            btnClamp.Click += (s, e) => RunAction(host => host.Machine.InputFeeder.FeederClampCyl.MoveFwdAsync());
-            btnUnclamp.Click += (s, e) => RunAction(host => host.Machine.InputFeeder.FeederClampCyl.MoveBwdAsync());
-        }
-
         private Form1 GetHost() => FindForm() as Form1;
-
-        private async void RunAction(Func<Form1, Task> action)
-        {
-            var host = GetHost();
-            if (host?.Machine == null) return;
-
-            try
-            {
-                await action(host);
-            }
-            catch (Exception ex)
-            {
-                QMC.Common.MessageDialog.Show("Feeder error: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-
-            RefreshFromMachine();
-        }
-
-        private async void RunAction(Func<Form1, Task<bool>> action)
-        {
-            var host = GetHost();
-            if (host?.Machine == null) return;
-
-            try
-            {
-                await action(host);
-            }
-            catch (Exception ex)
-            {
-                QMC.Common.MessageDialog.Show("Feeder error: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-
-            RefreshFromMachine();
-        }
-
-        private async Task InitFeederAsync(Form1 host)
-        {
-            var loader = host.Machine.InputFeeder;
-            loader.FeederY.ResetAlarm();
-            loader.FeederY.ServoOn();
-            await loader.FeederY.HomeSearchAsync();
-        }
 
         private void RefreshFromMachine()
         {
             var host = GetHost();
             if (host?.Machine == null) return;
-            var loader = host.Machine.InputFeeder;
+            var loader = host.Machine.InputFeederUnit;
 
             _lblFeederPos.Text = AxisUnitConverter.FormatDisplay(loader.FeederY.ActualPosition, loader.FeederY, "0.###", true);
-            _lblClampState.Text = loader.FeederClampCyl.IsFwd ? "CLAMPED" : (loader.FeederClampCyl.IsBwd ? "OPEN" : "...");
-            _lblClampState.ForeColor = loader.FeederClampCyl.IsFwd ? Color.LimeGreen : Color.Black;
-            _lblUpDownState.Text = loader.FeederUpDownCyl.IsFwd ? "DOWN" : (loader.FeederUpDownCyl.IsBwd ? "UP" : "...");
-            _lblExist.Text = loader.WaferClampedSensor.IsOn ? "WAFER" : "EMPTY";
+            _lblClampState.Text = loader.FeederClampCyl.IsFwd ? "CLAMP" : (loader.FeederClampCyl.IsBwd ? "UNCLAMP" : "ERROR");
+            _lblClampState.ForeColor = loader.FeederClampCyl.IsFwd || loader.FeederClampCyl.IsBwd ? Color.Black : Color.Red;
+            _lblUpDownState.Text = loader.FeederUpDownCyl.IsFwd ? "DOWN" : (loader.FeederUpDownCyl.IsBwd ? "UP" : "--");
+            _lblUpDownState.ForeColor = Color.Black;
+            _lblExist.Text = loader.WaferClampedSensor.IsOn ? "WAFER" : "--";
 
-            _dotRing.IsOn = loader.WaferFeederRingCheckSensor.IsOn;
-            _dotOverload.IsOn = loader.WaferFeederOverloadSensor.IsOn;
+            _markRing.BackColor = loader.WaferFeederRingCheckSensor.IsOn ? Color.LimeGreen : Color.Black;
+            _markOverload.BackColor = loader.WaferFeederOverloadSensor.IsOn ? Color.Red : Color.Black;
         }
 
         protected override void OnHandleDestroyed(EventArgs e)
@@ -97,5 +45,3 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         }
     }
 }
-
-

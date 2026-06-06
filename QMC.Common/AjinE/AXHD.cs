@@ -1,4 +1,4 @@
-using System;
+ï»¿using System;
 using System.Collections.Generic;
 using System.Text;
 
@@ -345,8 +345,8 @@ namespace QMC.Common.Motion.Ajin
 	        EVENT_QICNT1L						= 0x05,				// Counter1 < Comparater1 state.
 	        EVENT_QICNT1E						= 0X06,				// Counter1 = Comparater1 state.
 	        EVENT_QICNT1G						= 0x07,				// Counter1 > Comparater1 state.
-	        EVENT_QICNT1LE						= 0x08,				// Counter1 ¡Â Comparater1 state.
-	        EVENT_QICNT1GE						= 0x09,				// Counter1 ¡Ã Comparater1 state.
+	        EVENT_QICNT1LE						= 0x08,				// Counter1 â‰¤ Comparater1 state.
+	        EVENT_QICNT1GE						= 0x09,				// Counter1 â‰¥ Comparater1 state.
 	        EVENT_QICNT1EUP						= 0x0A,				// Counter1 = Comparater1 event during counting up.
 	        EVENT_QICNT1EDN						= 0x0B,				// Counter1 = Comparater1 event during counting down.
 	        EVENT_QICNT1BND						= 0x0C,				// Counter1 is same with boundary value.
@@ -354,8 +354,8 @@ namespace QMC.Common.Motion.Ajin
 	        EVENT_QICNT2L						= 0x0D,				// Counter2 < Comparater2 state.
 	        EVENT_QICNT2E						= 0x0E,				// Counter2 = Comparater2 state.
 	        EVENT_QICNT2G						= 0x0F,				// Counter2 > Comparater2 state.
-	        EVENT_QICNT2LE						= 0x10,				// Counter2 ¡Â Comparater2 state.
-	        EVENT_QICNT2GE						= 0x11,				// Counter2 ¡Ã Comparater2 state.
+	        EVENT_QICNT2LE						= 0x10,				// Counter2 â‰¤ Comparater2 state.
+	        EVENT_QICNT2GE						= 0x11,				// Counter2 â‰¥ Comparater2 state.
 	        EVENT_QICNT2EUP						= 0x12,				// Counter2 = Comparater2 event during counting up.
 	        EVENT_QICNT2EDN						= 0x13,				// Counter2 = Comparater2 event during counting down.
 	        EVENT_QICNT2BND						= 0x14,				// Counter2 is same with boundary value.
@@ -364,32 +364,32 @@ namespace QMC.Common.Motion.Ajin
 	        EVENT_QICNT3L						= 0x15,				// Counter3 < Comparater3 state.
 	        EVENT_QICNT3E						= 0x16,				// Counter3 = Comparater3 state.
 	        EVENT_QICNT3G						= 0x17,				// Counter3 > Comparater3 state.
-	        EVENT_QICNT3LE						= 0x18,				// Counter3 ¡Â Comparater3 state.
-	        EVENT_QICNT3GE						= 0x19,				// Counter3 ¡Ã Comparater3 state.
+	        EVENT_QICNT3LE						= 0x18,				// Counter3 â‰¤ Comparater3 state.
+	        EVENT_QICNT3GE						= 0x19,				// Counter3 â‰¥ Comparater3 state.
 	        EVENT_QICNT3EUP						= 0x1A,				// Counter3 = Comparater3 event during counting up.
 	        EVENT_QICNT3EDN						= 0x1B,				// Counter3 = Comparater3 event during counting down.
 	        EVENT_QICNT3BND						= 0x1C,				// Counter3 is same with boundary value.
 	        EVENT_QICNT4L						= 0x1D,				// Counter4 < Comparater4 state.
 	        EVENT_QICNT4E						= 0x1E,				// Counter4 = Comparater4 state.
 	        EVENT_QICNT4G						= 0x1F,				// Counter4 > Comparater4 state.
-	        EVENT_QICNT4LE						= 0x20,				// Counter4 ¡Â Comparater4 state.
-	        EVENT_QICNT4GE						= 0x21,				// Counter4 ¡Ã Comparater4 state.
+	        EVENT_QICNT4LE						= 0x20,				// Counter4 â‰¤ Comparater4 state.
+	        EVENT_QICNT4GE						= 0x21,				// Counter4 â‰¥ Comparater4 state.
 	        EVENT_QICNT4EUP						= 0x22,				// Counter4 = Comparater4 event during counting up.
 	        EVENT_QICNT4EDN						= 0x23,				// Counter4 = Comparater4 event during counting down.
 	        EVENT_QICNT4BND						= 0x24,				// Counter4 is same with boundary value.
 	        EVENT_QICNT5L						= 0x25,				// Counter5 < Comparater5 state.
 	        EVENT_QICNT5E						= 0x26,				// Counter5 = Comparater5 state.
 	        EVENT_QICNT5G						= 0x27,				// Counter5 > Comparater5 state.
-	        EVENT_QICNT5LE						= 0x28,				// Counter5 ¡Â Comparater5 state.
-	        EVENT_QICNT5GE						= 0x29,				// Counter5 ¡Ã Comparater5 state.
+	        EVENT_QICNT5LE						= 0x28,				// Counter5 â‰¤ Comparater5 state.
+	        EVENT_QICNT5GE						= 0x29,				// Counter5 â‰¥ Comparater5 state.
 	        EVENT_QICNT5EUP						= 0x2A,				// Counter5 = Comparater5 event during counting up.
 	        EVENT_QICNT5EDN						= 0x2B,				// Counter5 = Comparater5 event during counting down.
 	        EVENT_QICNT5BND						= 0x2C,				// Counter5 is same with boundary value.
 	        EVENT_QIDEVL						= 0x2D,				// DEVIATION value < Comparater4 state.
 	        EVENT_QIDEVE						= 0x2E,				// DEVIATION value = Comparater4 state.
 	        EVENT_QIDEVG						= 0x2F,				// DEVIATION value > Comparater4 state.
-	        EVENT_QIDEVLE						= 0x30,				// DEVIATION value ¡Â Comparater4 state.
-	        EVENT_QIDEVGE						= 0x31,				// DEVIATION value ¡Ã Comparater4 state.
+	        EVENT_QIDEVLE						= 0x30,				// DEVIATION value â‰¤ Comparater4 state.
+	        EVENT_QIDEVGE						= 0x31,				// DEVIATION value â‰¥ Comparater4 state.
 	        EVENT_QIPELM						= 0x32,				// PELM input signal is activated state.
 	        EVENT_QINELM						= 0x33,				// NELM input signal is activated state.
 	        EVENT_QIPSLM						= 0x34,				// PSLM input signal is activated state.
@@ -559,7 +559,7 @@ namespace QMC.Common.Motion.Ajin
 
         public static uint QI_OPERATION_COMMAND(uint command, int axisNo)
         {
-            return ((command & 0xFF) << ((axisNo % 4) * 8));    // bit 7..0 : enum _QISCOMMAND ÂüÁ¶
+            return ((command & 0xFF) << ((axisNo % 4) * 8));    // bit 7..0 : enum _QISCOMMAND ì°¸ì¡°
         }
 
     	#endregion

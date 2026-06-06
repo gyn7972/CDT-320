@@ -1,4 +1,4 @@
-using System.Drawing;
+Ôªøusing System.Drawing;
 using System.Windows.Forms;
 
 namespace QMC.CDT_320.Ui.Pages.Recipe
@@ -77,7 +77,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblUnloadHeader.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.editorLayout.SetColumnSpan(this.lblUnloadHeader, 2);
             this.lblUnloadHeader.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblUnloadHeader.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F, System.Drawing.FontStyle.Bold);
+            this.lblUnloadHeader.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F, System.Drawing.FontStyle.Bold);
             this.lblUnloadHeader.ForeColor = System.Drawing.Color.DarkSlateGray;
             this.lblUnloadHeader.Location = new System.Drawing.Point(13, 10);
             this.lblUnloadHeader.Name = "lblUnloadHeader";
@@ -90,7 +90,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // lblRole
             // 
             this.lblRole.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblRole.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F);
+            this.lblRole.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F);
             this.lblRole.Location = new System.Drawing.Point(13, 40);
             this.lblRole.Name = "lblRole";
             this.lblRole.Size = new System.Drawing.Size(214, 34);
@@ -115,7 +115,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // lblGapInspection
             // 
             this.lblGapInspection.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblGapInspection.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F);
+            this.lblGapInspection.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F);
             this.lblGapInspection.Location = new System.Drawing.Point(13, 74);
             this.lblGapInspection.Name = "lblGapInspection";
             this.lblGapInspection.Size = new System.Drawing.Size(214, 34);
@@ -126,7 +126,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // _cbGapInsp
             // 
             this._cbGapInsp.Dock = System.Windows.Forms.DockStyle.Fill;
-            this._cbGapInsp.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F);
+            this._cbGapInsp.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F);
             this._cbGapInsp.Location = new System.Drawing.Point(233, 77);
             this._cbGapInsp.Name = "_cbGapInsp";
             this._cbGapInsp.Size = new System.Drawing.Size(832, 28);
@@ -136,7 +136,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // lblGapUpper
             // 
             this.lblGapUpper.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblGapUpper.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F);
+            this.lblGapUpper.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F);
             this.lblGapUpper.Location = new System.Drawing.Point(13, 108);
             this.lblGapUpper.Name = "lblGapUpper";
             this.lblGapUpper.Size = new System.Drawing.Size(214, 34);
@@ -162,7 +162,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // lblGapLower
             // 
             this.lblGapLower.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblGapLower.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F);
+            this.lblGapLower.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F);
             this.lblGapLower.Location = new System.Drawing.Point(13, 142);
             this.lblGapLower.Name = "lblGapLower";
             this.lblGapLower.Size = new System.Drawing.Size(214, 38);

@@ -1,10 +1,13 @@
 ﻿using QMC.CDT_320.Ui.Controls;
+using QMC.CDT320;
 using QMC.Common.Logging;
 using QMC.Common.Motion;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Reflection;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -14,14 +17,23 @@ namespace QMC.CDT_320.Ui.Dialogs
     public partial class AxisJogPopup : Form
     {
         private readonly List<BaseAxis> _axes;
+        private readonly CDT320_Machine _machine;
+        private readonly List<IUnitJogController> _unitJogControllers;
         private readonly Timer _posTimer = new Timer();
         private JogAxisItem _selectedItem;
 
         public AxisJogPopup(IEnumerable<BaseAxis> axes)
+            : this(axes, null)
+        {
+        }
+
+        public AxisJogPopup(IEnumerable<BaseAxis> axes, CDT320_Machine machine)
         {
             try
             {
                 _axes = SortAxes(axes).ToList();
+                _machine = machine;
+                _unitJogControllers = EnumerateUnitJogControllers(machine).ToList();
 
                 InitializeComponent();
                 BindAxes();
@@ -184,6 +196,10 @@ namespace QMC.CDT_320.Ui.Dialogs
                 if (item.Axis.IsMoving)
                     return -2;
 
+                int? unitStepResult = await ExecuteUnitStepAsync(item, direction, speedType, customSpeed, axisStepDistance);
+                if (unitStepResult.HasValue)
+                    return unitStepResult.Value;
+
                 int result = await item.Axis.MoveJogStepAsync(direction, speedType, axisStepDistance, customSpeed);
                 EventLogger.Write(EventKind.Event, "UI", "JOG-POPUP", item.AxisName + " step jog result=" + result);
                 return result;
@@ -207,6 +223,10 @@ namespace QMC.CDT_320.Ui.Dialogs
                     return -1;
 
                 EnsureServoOn(item.Axis);
+                int? unitContinuousResult = await ExecuteUnitContinuousAsync(item, direction, speedType, customSpeed);
+                if (unitContinuousResult.HasValue)
+                    return unitContinuousResult.Value;
+
                 item.Axis.MoveJogContinuous(direction, speedType, customSpeed);
                 EventLogger.Write(EventKind.Event, "UI", "JOG-POPUP", item.AxisName + " continuous jog start.");
                 await Task.CompletedTask;
@@ -229,6 +249,10 @@ namespace QMC.CDT_320.Ui.Dialogs
             {
                 if (item == null || item.Axis == null)
                     return -1;
+
+                int? unitStopResult = await ExecuteUnitStopAsync(item);
+                if (unitStopResult.HasValue)
+                    return unitStopResult.Value;
 
                 item.Axis.StopJog();
                 EventLogger.Write(EventKind.Event, "UI", "JOG-POPUP", item.AxisName + " jog stop.");
@@ -260,6 +284,127 @@ namespace QMC.CDT_320.Ui.Dialogs
             finally
             {
                 RefreshPosition();
+            }
+        }
+
+        private async Task<int?> ExecuteUnitStepAsync(
+            JogAxisItem item,
+            int direction,
+            JogSpeedType speedType,
+            double customSpeed,
+            double axisStepDistance)
+        {
+            IUnitJogController controller = FindUnitJogController(item);
+            if (controller == null)
+                return null;
+
+            return await controller.JogStepAsync(item.Axis, direction, speedType, customSpeed, axisStepDistance);
+        }
+
+        private async Task<int?> ExecuteUnitContinuousAsync(
+            JogAxisItem item,
+            int direction,
+            JogSpeedType speedType,
+            double customSpeed)
+        {
+            IUnitJogController controller = FindUnitJogController(item);
+            if (controller == null)
+                return null;
+
+            return await controller.JogContinuousAsync(item.Axis, direction, speedType, customSpeed);
+        }
+
+        private async Task<int?> ExecuteUnitStopAsync(JogAxisItem item)
+        {
+            IUnitJogController controller = FindUnitJogController(item);
+            if (controller == null)
+                return null;
+
+            return await controller.StopJogAsync(item.Axis);
+        }
+
+        private IUnitJogController FindUnitJogController(JogAxisItem item)
+        {
+            if (item == null || item.Axis == null || _unitJogControllers == null)
+                return null;
+
+            foreach (IUnitJogController controller in _unitJogControllers)
+            {
+                if (controller != null && controller.CanHandleJogAxis(item.Axis))
+                    return controller;
+            }
+
+            return null;
+        }
+
+        private static IEnumerable<IUnitJogController> EnumerateUnitJogControllers(CDT320_Machine machine)
+        {
+            if (machine == null)
+                yield break;
+
+            HashSet<object> visited = new HashSet<object>();
+
+            if (machine.Units != null)
+            {
+                foreach (object unit in machine.Units)
+                {
+                    foreach (IUnitJogController controller in EnumerateUnitJogControllers(unit, visited))
+                        yield return controller;
+                }
+            }
+
+            foreach (PropertyInfo property in machine.GetType().GetProperties(BindingFlags.Instance | BindingFlags.Public))
+            {
+                if (property.GetIndexParameters().Length > 0)
+                    continue;
+
+                object value;
+                try
+                {
+                    value = property.GetValue(machine, null);
+                }
+                catch
+                {
+                    continue;
+                }
+
+                foreach (IUnitJogController controller in EnumerateUnitJogControllers(value, visited))
+                    yield return controller;
+            }
+        }
+
+        private static IEnumerable<IUnitJogController> EnumerateUnitJogControllers(object node, HashSet<object> visited)
+        {
+            if (node == null || visited == null || visited.Contains(node))
+                yield break;
+
+            visited.Add(node);
+
+            IUnitJogController controller = node as IUnitJogController;
+            if (controller != null)
+                yield return controller;
+
+            PropertyInfo componentsProperty = node.GetType().GetProperty("Components", BindingFlags.Instance | BindingFlags.Public);
+            if (componentsProperty == null)
+                yield break;
+
+            IEnumerable components = null;
+            try
+            {
+                components = componentsProperty.GetValue(node, null) as IEnumerable;
+            }
+            catch
+            {
+                components = null;
+            }
+
+            if (components == null)
+                yield break;
+
+            foreach (object component in components)
+            {
+                foreach (IUnitJogController child in EnumerateUnitJogControllers(component, visited))
+                    yield return child;
             }
         }
 

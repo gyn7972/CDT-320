@@ -1,8 +1,7 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Runtime.Serialization;
 using System.Runtime.Serialization.Json;
-using QMC.Vision.Core;
 
 namespace QMC.Vision.Config
 {
@@ -15,17 +14,88 @@ namespace QMC.Vision.Config
         [DataMember] public VisionProvider Provider         { get; set; } = VisionProvider.Sim;
         [DataMember] public string         Language         { get; set; } = "ko";
 
+        // Stage 73 — 조명 컨트롤러 Sim 여부. 비전 백엔드(Provider)와 독립.
+        // true(기본,안전) = 기동 시 SimLightController. 실제 점등 테스트는 조명 Setup 페이지의
+        // '조명 연결' 버튼으로 실장비 재초기화 + 시리얼 Open. (Cognex 키 없이 Provider=Sim 이어도 조명은 실제 가능)
+        [DataMember] public bool           LightUseSim      { get; set; } = false;   // Stage 89 — 실장비 기본. Sim 은 명시 opt-in("LightUseSim":true). (구 OnDeserializing 강제 true 제거)
+
         // 모듈별 TCP 포트 (CDT-310 매뉴얼 기준 기본값)
         [DataMember] public int WaferVisionPort             { get; set; } = 5100;
         [DataMember] public int InspectionVisionPort        { get; set; } = 5101;
         [DataMember] public int BinVisionPort               { get; set; } = 5103;
-        [DataMember] public int MainCommunicatorPort        { get; set; } = 5104;
-        // Stage 44 — 매뉴얼 호환 추가 채널
-        [DataMember] public int TopSideInspectionPort       { get; set; } = 5105;
-        [DataMember] public int BottomSideInspectionPort    { get; set; } = 5106;
+        // Stage 44 — 매뉴얼 호환 추가 채널 (Stage 63: TopSide/BottomSide → FrontSide/RearSide)
+        [DataMember] public int FrontSideInspectionPort     { get; set; } = 5105;
+        [DataMember] public int RearSideInspectionPort      { get; set; } = 5106;
+
+        // Stage 63 — 구버전 키 마이그레이션 (값 있으면 OnDeserialized 가 새 프로퍼티로 이전 후 0 으로 비움 → 다음 Save 시 사라짐)
+        [DataMember(Name = "TopSideInspectionPort",    EmitDefaultValue = false)] public int LegacyTopSideInspectionPort    { get; set; }
+        [DataMember(Name = "BottomSideInspectionPort", EmitDefaultValue = false)] public int LegacyBottomSideInspectionPort { get; set; }
+
+        // DataContractJsonSerializer 는 생성자/프로퍼티 이니셜라이저를 실행하지 않는다.
+        // 따라서 구버전 json 에 없는 뷰어 키는 기본값 대신 0/null 로 남는다 → 역직렬화 전에 기본값을 심어
+        // "키가 있으면 덮어쓰고, 없으면 기본값 유지" 가 되도록 한다.
+        [OnDeserializing]
+        internal void OnDeserializing(StreamingContext ctx)
+        {
+            // Stage 89 — LightUseSim 강제 true 제거: JSON 값 그대로 반영(없으면 default false). 사용자가 false 저장하면 유지.
+            RemoteViewerEnable   = true;
+            RemoteViewerSource   = "GrabImage";
+            RemoteViewerFps      = 10;
+            RemoteViewerQuality  = 60;
+            WaferViewerPort      = 5200;
+            InspectionViewerPort = 5201;
+            BinViewerPort        = 5203;
+            FrontSideViewerPort  = 5205;
+            RearSideViewerPort   = 5206;
+            MilDcfPath           = "";
+        }
+
+        [OnDeserialized]
+        internal void OnDeserialized(StreamingContext ctx)
+        {
+            if (LegacyTopSideInspectionPort != 0)    { FrontSideInspectionPort = LegacyTopSideInspectionPort;    LegacyTopSideInspectionPort = 0; }
+            if (LegacyBottomSideInspectionPort != 0) { RearSideInspectionPort  = LegacyBottomSideInspectionPort; LegacyBottomSideInspectionPort = 0; }
+
+            // 뷰어 블록이 통째로 비어있는(=내 interim 빌드가 0 으로 저장했거나 구버전) 경우 자가 치유.
+            bool viewerUnconfigured = string.IsNullOrEmpty(RemoteViewerSource)
+                && WaferViewerPort == 0 && InspectionViewerPort == 0 && BinViewerPort == 0
+                && FrontSideViewerPort == 0 && RearSideViewerPort == 0;
+            if (viewerUnconfigured) RemoteViewerEnable = true;
+            if (string.IsNullOrEmpty(RemoteViewerSource)) RemoteViewerSource = "GrabImage";
+            if (RemoteViewerFps     <= 0) RemoteViewerFps     = 10;
+            if (RemoteViewerQuality <= 0) RemoteViewerQuality = 60;
+            if (WaferViewerPort      <= 0) WaferViewerPort      = 5200;
+            if (InspectionViewerPort <= 0) InspectionViewerPort = 5201;
+            if (BinViewerPort        <= 0) BinViewerPort        = 5203;
+            if (FrontSideViewerPort  <= 0) FrontSideViewerPort  = 5205;
+            if (RearSideViewerPort   <= 0) RearSideViewerPort   = 5206;
+        }
 
         [DataMember] public string ImageLogPath             { get; set; } = @".\Log\Image";
         [DataMember] public bool   ImageLogEnable           { get; set; } = false;
+
+        // ── Matrox MIL 카메라 (Camera Link / CoaXPress) ──
+        /// <summary>MIL 디지타이저 DataFormat. 비우면 "M_DEFAULT"(CXP GenICam 자동). CameraLink 면 .dcf 경로.
+        /// 시스템(보드)은 항상 M_SYSTEM_DEFAULT(MILConfig 기본) 사용 — 별도 설정 불필요.</summary>
+        [DataMember] public string MilDcfPath               { get; set; } = "";
+
+        // ── 원격 뷰어 (그랩 영상 송출) — Handler 등 외부에서 SP_RemoteViewer 호환 클라이언트로 수신 ──
+        [DataMember] public bool   RemoteViewerEnable       { get; set; } = true;
+        /// <summary>"GrabImage"(기본) 또는 "ScreenRegion".</summary>
+        [DataMember] public string RemoteViewerSource       { get; set; } = "GrabImage";
+        [DataMember] public int    RemoteViewerFps          { get; set; } = 10;
+        [DataMember] public int    RemoteViewerQuality      { get; set; } = 60;
+        // 모듈(스테이션)별 뷰어 포트 — 명령포트(5100~5106)와 분리.
+        [DataMember] public int    WaferViewerPort          { get; set; } = 5200;
+        [DataMember] public int    InspectionViewerPort     { get; set; } = 5201; // Bottom
+        [DataMember] public int    BinViewerPort            { get; set; } = 5203;
+        [DataMember] public int    FrontSideViewerPort      { get; set; } = 5205;
+        [DataMember] public int    RearSideViewerPort       { get; set; } = 5206;
+        // ScreenRegion 소스용 사각형 (0,0,0,0 = 주 모니터 전체)
+        [DataMember] public int    RemoteViewerScreenX      { get; set; } = 0;
+        [DataMember] public int    RemoteViewerScreenY      { get; set; } = 0;
+        [DataMember] public int    RemoteViewerScreenW      { get; set; } = 0;
+        [DataMember] public int    RemoteViewerScreenH      { get; set; } = 0;
 
         /// <summary>모듈별 카메라 ID (백엔드에 따라 의미 다름).</summary>
         [DataMember] public string WaferCameraId            { get; set; } = "Sim/Wafer";
@@ -78,6 +148,8 @@ namespace QMC.Vision.Config
                 }
             }
             catch { Current = new VisionSettings(); }
+            // Stage 63 — OnDeserialized 가 구 포트 키를 새 프로퍼티로 옮겼을 수 있음 → 정규화 재저장.
+            Save();
             return Current;
         }
 
@@ -87,7 +159,8 @@ namespace QMC.Vision.Config
             {
                 using (var fs = File.Create(Path_))
                 {
-                    JsonPrettySerializer.WriteObject(fs, typeof(VisionSettings), Current);
+                    var ser = new DataContractJsonSerializer(typeof(VisionSettings));
+                    ser.WriteObject(fs, Current);
                 }
             }
             catch { }

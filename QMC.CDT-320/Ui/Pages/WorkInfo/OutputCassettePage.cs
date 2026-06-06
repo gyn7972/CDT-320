@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Drawing;
 using System.Windows.Forms;
 using QMC.CDT320;
@@ -41,21 +41,20 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             var host = FindForm() as Form1;
             if (host?.Machine == null) return;
 
-            var unloader = host.Machine.OutputUnloader;
-            lblElevatorPos.Text = AxisUnitConverter.FormatDisplay(unloader.BinElevatorZ.ActualPosition, unloader.BinElevatorZ, "0.###", true);
+            var OutputCassette = host.Machine.OutputCassetteUnit;
+            lblElevatorPos.Text = AxisUnitConverter.FormatDisplay(OutputCassette.OutputLifterZ.ActualPosition, OutputCassette.OutputLifterZ, "0.###", true);
 
-            var binCassette = host.Machine.BinCassette;
             var driver = host.CassetteDriver;
-            int slotCount = binCassette != null && binCassette.Setup != null && binCassette.Setup.SlotCount > 0
-                ? binCassette.Setup.SlotCount
+            int slotCount = OutputCassette != null && OutputCassette.Config != null && OutputCassette.Config.SlotCount > 0
+                ? OutputCassette.Config.SlotCount
                 : 0;
 
-            UpdateView(_ngCassetteView, slotCount, ResolveSlots(binCassette, TargetCassette.Ng, driver != null ? driver.OutputNgSlots : null), Color.LightCoral);
-            UpdateView(_good1CassetteView, slotCount, ResolveSlots(binCassette, TargetCassette.Good1, driver != null ? driver.OutputGood1Slots : null), Color.LimeGreen);
-            UpdateView(_good2CassetteView, slotCount, ResolveSlots(binCassette, TargetCassette.Good2, driver != null ? driver.OutputGood2Slots : null), Color.LimeGreen);
+            UpdateView(_ngCassetteView, slotCount, ResolveSlots(OutputCassette, TargetCassette.Ng, driver != null ? driver.OutputNgSlots : null), Color.LightCoral);
+            UpdateView(_good1CassetteView, slotCount, ResolveSlots(OutputCassette, TargetCassette.Good1, driver != null ? driver.OutputGood1Slots : null), Color.LimeGreen);
+            UpdateView(_good2CassetteView, slotCount, ResolveSlots(OutputCassette, TargetCassette.Good2, driver != null ? driver.OutputGood2Slots : null), Color.LimeGreen);
         }
 
-        private static IReadOnlyList<bool> ResolveSlots(OutCassetteUnit unit, TargetCassette cassette, bool[] fallback)
+        private static IReadOnlyList<bool> ResolveSlots(OutputCassetteUnit unit, TargetCassette cassette, bool[] fallback)
         {
             if (unit != null && unit.SlotMap != null)
             {

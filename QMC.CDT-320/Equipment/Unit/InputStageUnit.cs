@@ -5,8 +5,11 @@ using QMC.Common;
 using QMC.Common.IO;
 using QMC.Common.Motion;
 using QMC.CDT320.Ajin;
+using QMC.CDT320.Motion.SharedRailX;
 using QMC.Common.Alarms;
 using QMC.Common.Logging;
+using System.Collections.Generic;
+using System.Runtime.Serialization;
 
 namespace QMC.CDT320
 {
@@ -20,60 +23,11 @@ namespace QMC.CDT320
     /// </summary>
     public class InputStageSetup : ISetupData
     {
-        /// <summary>ExpanderZ 하강(웨이퍼 고정) 절대 위치 [mm].</summary>
-        public double ExpanderDownPosition  { get; set; } = 50.0;
+        [DataMember] public bool IsSimulationMode { get; set; } = false;
 
-        /// <summary>ExpanderZ 상승(언로딩 가능) 절대 위치 [mm].</summary>
-        public double ExpanderUpPosition    { get; set; } = 0.0;
+        [DataMember] public double SafetyRadius { get; set; } = 0.0;
 
-        /// <summary>웨이퍼 언로딩 시 StageY가 이동할 절대 위치 [mm].</summary>
-        public double UnloadPositionY       { get; set; } = 0.0;
-
-        /// <summary>NeedleZ 상승(이젝트) 절대 위치 [mm].</summary>
-        public double NeedleEjectPosition   { get; set; } = 5.0;
-
-        /// <summary>NeedleZ 하강(대기) 절대 위치 [mm].</summary>
-        public double NeedleDownPosition    { get; set; } = 0.0;
-
-        /// <summary>
-        /// TPU 픽커 기구의 StageY 방향 오프셋 [mm].<br/>
-        /// 스캔 위치에서 픽업 위치로 이동 시 더해진다.
-        /// </summary>
-        public double PickerOffsetY         { get; set; } = 3.0;
-
-        /// <summary>
-        /// TPU 픽커 기구의 NeedleBlockX 방향 오프셋 [mm].<br/>
-        /// 스캔 위치에서 픽업 위치로 이동 시 더해진다.
-        /// </summary>
-        public double PickerOffsetX         { get; set; } = 0.0;
-
-        /// <summary>바코드 리더 읽기 타임아웃 [ms].</summary>
-        public int BarcodeReadTimeoutMs     { get; set; } = 3000;
-
-        // ─── Stage 61 — PICK 시퀀스 신규 티칭 위치 ────────────────────
-
-        /// <summary>웨이퍼 비전 카메라 X 원점 (티칭) [mm].
-        /// CameraX 절대 위치 = CameraOriginX + 와퍼맵 Die X.</summary>
-        public double CameraOriginX         { get; set; } = 100.0;
-
-        /// <summary>웨이퍼 비전 카메라 Z 포커스 위치 (티칭) [mm].</summary>
-        public double CameraFocusZ          { get; set; } = -2.0;
-
-        /// <summary>웨이퍼 비전 카메라 Z 안전(회피) 위치 [mm].
-        /// 촬영 종료 후 ArmY 가 픽업 영역에 진입하기 전 CameraZ 가 이 위치까지 상승.</summary>
-        public double CameraSafeZ           { get; set; } = 50.0;
-
-        /// <summary>Wafer Stage Y 기준 위치 (티칭) [mm].
-        /// StageY 절대 위치 = StageYTeachPosition + WaferAlignOffsetY + 와퍼맵 Die Y + VisionOffsetY.
-        /// die.Y 범위 ±150mm (300mm wafer) 가정 시 TeachPosition 은 |die.Y_max| 보다 커야 음수 stage 위치 회피.</summary>
-        public double StageYTeachPosition   { get; set; } = 200.0;
-
-        /// <summary>니들 X 티칭 위치 [mm].
-        /// NeedleX 절대 위치 = NeedleTeachX + WaferAlignOffsetX + 와퍼맵 Die X + VisionOffsetX.</summary>
-        public double NeedleTeachX          { get; set; } = 100.0;
-
-        /// <summary>비전 픽셀-mm 환산 계수 [mm/px]. (m.X-320, m.Y-240) 의 단위 변환에 사용.</summary>
-        public double VisionPixelToMm       { get; set; } = 0.01;
+        [DataMember] public int BarcodeReadTimeoutMs { get; set; } = 3000;
     }
 
     /// <summary>
@@ -81,54 +35,90 @@ namespace QMC.CDT320
     /// </summary>
     public class InputStageConfig : IConfigData
     {
-        /// <summary>시뮬레이션 모드 여부 (기본값: true).</summary>
-        public bool IsSimulationMode { get; set; } = true;
+        [DataMember] public bool bDryRun { get; set; }
+
+        [DataMember] public double PickUpEjectPinOffset { get; set; }
+
+        [DataMember] public double PickUpEjectPinSpeed { get; set; } = 100.0;
+
+        [DataMember] public double PickUpEjectPinAcc { get; set; }
+
+        [DataMember] public double PickUpEjectPinDec { get; set; }
+
+        public bool IsSimulationMode
+        {
+            get { return bDryRun; }
+            set { bDryRun = value; }
+        }
 
         /// <summary>얼라인 반복 촬상 최대 횟수.</summary>
-        public int MaxAlignIterations { get; set; } = 3;
+        [DataMember] public int MaxAlignIterations { get; set; } = 3;
 
         /// <summary>얼라인 수렴 임계값 [deg]. 이 값 이하이면 반복을 종료한다.</summary>
-        public double AlignConvergenceThresholdDeg { get; set; } = 0.005;
+        [DataMember] public double AlignConvergenceThresholdDeg { get; set; } = 0.005;
     }
 
     /// <summary>
     /// InputStageUnit의 공정별 작업 파라미터.
     /// </summary>
+    [DataContract]
+    public sealed class StageAxisPositions
+    {
+        [DataMember] public double AvoidPosition { get; set; }
+        [DataMember] public double LoadPosition { get; set; }
+        [DataMember] public double ProcessPosition { get; set; }
+        [DataMember] public double UnloadPosition { get; set; }
+        [DataMember] public double ReadyPosition { get; set; }
+        [DataMember] public double ReticlePosition { get; set; }
+        [DataMember] public double[] DiePosition { get; set; } = new double[0];
+    }
+
     public class InputStageRecipe : IRecipeData
     {
-        /// <summary>일반 이동 속도 [mm/s]. xlsx WaferStageY = 500 mm/s 반영.</summary>
-        public double MoveVelocity          { get; set; } = 500.0;
+        [DataMember] public StageAxisPositions WaferY { get; set; } = new StageAxisPositions();
+        [DataMember] public StageAxisPositions WaferT { get; set; } = new StageAxisPositions();
+        [DataMember] public StageAxisPositions WaferZ { get; set; } = new StageAxisPositions();
+        [DataMember] public StageAxisPositions VisionX { get; set; } = new StageAxisPositions();
+        [DataMember] public StageAxisPositions NeedleX { get; set; } = new StageAxisPositions();
+        [DataMember] public StageAxisPositions NeedleZ { get; set; } = new StageAxisPositions();
+        [DataMember] public StageAxisPositions EjectPinZ { get; set; } = new StageAxisPositions();
 
-        /// <summary>얼라인 이동 속도 [mm/s]. 미세 이동이라 30→100 정도.</summary>
-        public double AlignVelocity         { get; set; } = 100.0;
+        [OnDeserialized]
+        private void OnDeserialized(StreamingContext ctx)
+        {
+            EnsurePositionObjects();
+        }
 
-        /// <summary>NeedleZ 이젝트 이동 속도 [mm/s]. xlsx NeedleZ = 100 mm/s.</summary>
-        public double NeedleVelocity        { get; set; } = 100.0;
+        public void EnsurePositionObjects()
+        {
+            if (WaferY == null) WaferY = new StageAxisPositions();
+            if (WaferT == null) WaferT = new StageAxisPositions();
+            if (WaferZ == null) WaferZ = new StageAxisPositions();
+            if (VisionX == null) VisionX = new StageAxisPositions();
+            if (NeedleX == null) NeedleX = new StageAxisPositions();
+            if (NeedleZ == null) NeedleZ = new StageAxisPositions();
+            if (EjectPinZ == null) EjectPinZ = new StageAxisPositions();
+        }
+    }
 
-        /// <summary>NeedleVacuum 흡착 안정화 대기 [ms].</summary>
-        public int NeedleVacuumSettleMs     { get; set; } = 50;
+    public partial class InputStageUnit
+    {
+        private const double DefaultEstimatedPitchX = 0.15;
+        private const double DefaultEstimatedPitchY = 0.15;
 
-        /// <summary>
-        /// 레퍼런스 마크 2점 간 X 거리가 0에 가까워 피치 계산 불가 시 사용할 기본 X 피치 [mm].
-        /// </summary>
-        public double DefaultPitchX         { get; set; } = 0.15;
+        private static double ResolveAxisVelocity(BaseAxis axis)
+        {
+            return axis != null && axis.Config != null && axis.Config.DefaultVelocity > 0.0
+                ? axis.Config.DefaultVelocity
+                : 100.0;
+        }
 
-        /// <summary>
-        /// 레퍼런스 마크 2점 간 Y 거리가 0에 가까워 피치 계산 불가 시 사용할 기본 Y 피치 [mm].
-        /// </summary>
-        public double DefaultPitchY         { get; set; } = 0.15;
-
-        /// <summary>비전 Expose 완료 대기 타임아웃 [ms].</summary>
-        public int VisionExposeTimeoutMs    { get; set; } = 2000;
-
-        /// <summary>비전 검사 결과 수신 타임아웃 [ms].</summary>
-        public int VisionResultTimeoutMs    { get; set; } = 5000;
-
-        /// <summary>TPU 픽커 상승 완료 대기 타임아웃 [ms].</summary>
-        public int PickerUpTimeoutMs        { get; set; } = 3000;
-
-        /// <summary>축 이동 완료 대기 타임아웃 [ms].</summary>
-        public int MoveTimeoutMs            { get; set; } = 10000;
+        private static double ResolveAxisFineVelocity(BaseAxis axis)
+        {
+            return axis != null && axis.Config != null && axis.Config.JogFineVelocity > 0.0
+                ? axis.Config.JogFineVelocity
+                : ResolveAxisVelocity(axis);
+        }
     }
 
     // ??????????????????????????????????????????????????????????????????????????
@@ -148,7 +138,7 @@ namespace QMC.CDT320
     /// <see cref="UnloadWaferAsync"/>
     /// </para>
     /// </summary>
-    public class InputStageUnit : BaseUnit<InputStageSetup, InputStageConfig, InputStageRecipe>
+    public partial class InputStageUnit : BaseUnit<InputStageSetup, InputStageConfig, InputStageRecipe>, IUnitJogController
     {
         // ──────────────────────────────────────────────────────────────────────
         //  §1. 하드웨어 컴포넌트 선언
@@ -197,40 +187,34 @@ namespace QMC.CDT320
         /// </summary>
         public BaseAxis EjectPinZ   { get; private set; }
 
-        /// <summary>Stage 61 — 웨이퍼 비전 카메라 Z 축 (Simulator axis 37 호환).
-        /// 다이 촬영 전 포커스 위치로 이동.</summary>
-        public BaseAxis CameraZ     { get; private set; }
-
         /// <summary>
         /// 니들 진공 흡착 DO.<br/>
         /// On 상태에서 테이프를 니들 상단에 흡착·고정하여 이젝트 동작의 정밀도를 높인다.
         /// </summary>
         public BaseDigitalOutput NeedleVacuum { get; private set; }
 
-        /// <summary>8 inch wafer ring check input. X033.</summary>
-        public BaseDigitalInput WaferStage8RingCheckSensor { get; private set; }
 
-        /// <summary>12 inch wafer ring check input. X034.</summary>
-        public BaseDigitalInput WaferStage12RingCheckSensor { get; private set; }
-
+        // InputLoadSequence으로 옮겨야함.
         // ──────────────────────────────────────────────────────────────────────
         //  §2. 외부 연동 인터페이스 (생성자 주입)
         // ──────────────────────────────────────────────────────────────────────
 
+        ///// <summary>촬상 트리거 및 결과 수신을 위한 비전 PC TCP 통신 인터페이스.</summary>
+        public IVisionTcpClient Vision { get; private set; }
+
+        ///// <summary>맵 파싱 및 UI 전송을 위한 웨이퍼 맵 핸들러 인터페이스.</summary>
+        public IWaferMapHandler MapHandler { get; private set; }
+
         /// <summary>피더 안전 위치 확인을 위한 로더 유닛 인터페이스.</summary>
-        public IWaferLoader        Loader     { get; private set; }
+        //public IWaferLoader        Loader     { get; private set; }
 
-        /// <summary>웨이퍼 ID 취득을 위한 바코드 리더 인터페이스.</summary>
-        public IBarcodeReader      Barcode    { get; private set; }
+        ///// <summary>웨이퍼 ID 취득을 위한 바코드 리더 인터페이스.</summary>
+        //public IBarcodeReader      Barcode    { get; private set; }
 
-        /// <summary>촬상 트리거 및 결과 수신을 위한 비전 PC TCP 통신 인터페이스.</summary>
-        public IVisionTcpClient    Vision     { get; private set; }
 
-        /// <summary>맵 파싱 및 UI 전송을 위한 웨이퍼 맵 핸들러 인터페이스.</summary>
-        public IWaferMapHandler    MapHandler { get; private set; }
 
-        /// <summary>픽업 신호 송수신을 위한 TPU 연동 인터페이스.</summary>
-        public ITransferPickerUnit Tpu        { get; private set; }
+        ///// <summary>픽업 신호 송수신을 위한 TPU 연동 인터페이스.</summary>
+        //public ITransferPickerUnit Tpu        { get; private set; }
 
         // ──────────────────────────────────────────────────────────────────────
         //  §3. 내부 상태 (얼라인 결과 및 원점 좌표)
@@ -270,20 +254,16 @@ namespace QMC.CDT320
         /// <param name="vision">비전 PC TCP 통신 인터페이스</param>
         /// <param name="mapHandler">웨이퍼 맵 핸들러 인터페이스</param>
         /// <param name="tpu">TPU 연동 인터페이스</param>
-        public InputStageUnit(
-            IWaferLoader        loader,
-            IBarcodeReader      barcode,
-            IVisionTcpClient    vision,
-            IWaferMapHandler    mapHandler,
-            ITransferPickerUnit tpu)
+        public InputStageUnit(IVisionTcpClient    vision, IWaferMapHandler mapHandler)
             : base("InputStageUnit")
         {
             // ── 외부 인터페이스 저장 ───────────────────────────────────────
-            Loader     = loader     ?? throw new ArgumentNullException("loader");
-            Barcode    = barcode    ?? throw new ArgumentNullException("barcode");
-            Vision     = vision     ?? throw new ArgumentNullException("vision");
+            Vision = vision ?? throw new ArgumentNullException("vision");
             MapHandler = mapHandler ?? throw new ArgumentNullException("mapHandler");
-            Tpu        = tpu        ?? throw new ArgumentNullException("tpu");
+
+            //Loader     = loader     ?? throw new ArgumentNullException("loader");
+            //Barcode    = barcode    ?? throw new ArgumentNullException("barcode");
+            //Tpu        = tpu        ?? throw new ArgumentNullException("tpu");
 
             // ── Motion Axes ────────────────────────────────────────────────
             StageY       = AjinFactory.CreateAxis("StageY");
@@ -292,30 +272,10 @@ namespace QMC.CDT320
             CameraX      = AjinFactory.CreateAxis("CameraX");
             NeedleBlockX = AjinFactory.CreateAxis("NeedleBlockX");
             NeedleZ      = AjinFactory.CreateAxis("NeedleZ");
-            // Stage 44 — Eject Pin Z 축 (매뉴얼 사양 호환)
             EjectPinZ    = AjinFactory.CreateAxis("EjectPinZ");
-            // Stage 61 — 웨이퍼 비전 카메라 Z (포커스 이동) 축
-            CameraZ      = AjinFactory.CreateAxis("CameraZ");
-            CameraZ.Setup.SoftLimitPlus  = 100.0;
-            CameraZ.Setup.SoftLimitMinus = -50.0;
-
-            // Stage 28 — InputStage 축 SoftLimit 확장 (default 200 → 적정값)
-            //   StageY: 다이 행(Row)에 따라 ~300mm 까지 이동 (Wafer Stage 사양)
-            //   CameraX: 다이 열에 따라 ~300mm 이동
-            //   StageT: ±360° 회전 (단위는 deg)
-            //   ExpanderZ / NeedleZ / NeedleBlockX: 100mm 이내
-            StageY.Setup.SoftLimitPlus       = 350.0;
-            CameraX.Setup.SoftLimitPlus      = 350.0;
-            StageT.Setup.SoftLimitPlus       = 360.0;
-            StageT.Setup.SoftLimitMinus      = -360.0;
-            NeedleBlockX.Setup.SoftLimitPlus = 250.0;
-
+            
             // ── Digital Output ─────────────────────────────────────────────
             NeedleVacuum = AjinFactory.CreateDigitalOutput(AjinIoCatalog.Outputs.NeedleVacuum);
-
-            // ── Digital Input ──────────────────────────────────────────────
-            WaferStage8RingCheckSensor = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.WaferStage8RingCheck);
-            WaferStage12RingCheckSensor = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.WaferStage12RingCheck);
 
             // ── Composite 트리 등록 ────────────────────────────────────────
             Components.Add(StageY);
@@ -325,10 +285,7 @@ namespace QMC.CDT320
             Components.Add(NeedleBlockX);
             Components.Add(NeedleZ);
             Components.Add(EjectPinZ);
-            Components.Add(CameraZ);
             Components.Add(NeedleVacuum);
-            Components.Add(WaferStage8RingCheckSensor);
-            Components.Add(WaferStage12RingCheckSensor);
         }
 
         // ──────────────────────────────────────────────────────────────────────
@@ -343,34 +300,172 @@ namespace QMC.CDT320
         /// PICK 시 StageY 절대 위치 계산에 사용.</summary>
         public double WaferAlignOffsetY { get; set; } = 0.0;
 
-        public bool IsWaferStage8RingChecked()
+        public bool CanHandleJogAxis(BaseAxis axis)
+        {
+            if (axis == null)
+                return false;
+
+            WaferStageAxis stageAxis;
+            return TryResolveInputStageAxis(axis, out stageAxis);
+        }
+
+        public async Task<int> JogStepAsync(
+            BaseAxis axis,
+            int direction,
+            JogSpeedType speedType,
+            double customSpeed,
+            double axisStepDistance)
+        {
+            if (!CanHandleJogAxis(axis))
+                return -1;
+
+            double signedDistance = (direction < 0 ? -1.0 : 1.0) * Math.Abs(axisStepDistance);
+            double target = axis.ActualPosition + signedDistance;
+
+            WaferStageAxis stageAxis;
+            if (TryResolveInputStageAxis(axis, out stageAxis))
+                return await MoveInputStageAxis(stageAxis, target, speedType == JogSpeedType.Fine);
+
+            return -1;
+        }
+
+        public Task<int> JogContinuousAsync(
+            BaseAxis axis,
+            int direction,
+            JogSpeedType speedType,
+            double customSpeed)
+        {
+            if (!CanHandleJogAxis(axis))
+                return Task.FromResult(-1);
+
+            double speed = UnitJogVelocityResolver.Resolve(axis, speedType, customSpeed);
+            Direction dir = direction < 0 ? Direction.Minus : Direction.Plus;
+
+            WaferStageAxis stageAxis;
+            if (TryResolveInputStageAxis(axis, out stageAxis))
+                ManualMoveInputStageAxisJog(stageAxis, dir, speed);
+
+            return Task.FromResult(0);
+        }
+
+        public Task<int> StopJogAsync(BaseAxis axis)
+        {
+            if (!CanHandleJogAxis(axis))
+                return Task.FromResult(-1);
+
+            WaferStageAxis stageAxis;
+            if (TryResolveInputStageAxis(axis, out stageAxis))
+                ManualStopInputStageAxis(stageAxis);
+
+            return Task.FromResult(0);
+        }
+
+        public async Task<int> MoveInputStageAxis(WaferStageAxis axis, double targetPos, bool bFine = false)
         {
             try
             {
-                return WaferStage8RingCheckSensor != null && WaferStage8RingCheckSensor.IsOn;
+                BaseAxis item = ResolveInputStageAxis(axis);
+                double velocity = ResolveInputStageMoveVelocity(axis, bFine);
+                return await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, velocity);
             }
-            catch
+            catch (Exception ex)
             {
-                return false;
+                AlarmManager.Raise(AlarmSeverity.Warning, "IN-STAGE-MOVE", Name, ex.Message);
+                return -1;
             }
             finally
             {
             }
         }
 
-        public bool IsWaferStage12RingChecked()
+        public void ManualMoveInputStageAxisJog(WaferStageAxis axis, Direction dir, double speed)
         {
-            try
+            SharedRailXMotionRuntime.MoveJogContinuous(ResolveInputStageAxis(axis), (int)dir, speed);
+        }
+
+        public void ManualStopInputStageAxis(WaferStageAxis axis)
+        {
+            ResolveInputStageAxis(axis).StopJog();
+        }
+
+        private BaseAxis ResolveInputStageAxis(WaferStageAxis axis)
+        {
+            switch (axis)
             {
-                return WaferStage12RingCheckSensor != null && WaferStage12RingCheckSensor.IsOn;
+                case WaferStageAxis.WaferY: return StageY;
+                case WaferStageAxis.WaferT: return StageT;
+                case WaferStageAxis.WaferExpandingZ: return ExpanderZ;
+                case WaferStageAxis.VisionX: return CameraX;
+                case WaferStageAxis.NeedleX: return NeedleBlockX;
+                case WaferStageAxis.NeedleZ: return NeedleZ;
+                case WaferStageAxis.EjectPinZ: return EjectPinZ;
+                default: throw new ArgumentOutOfRangeException("axis");
             }
-            catch
-            {
+        }
+
+        private bool TryResolveInputStageAxis(BaseAxis axis, out WaferStageAxis stageAxis)
+        {
+            stageAxis = WaferStageAxis.WaferY;
+            if (axis == null)
                 return false;
-            }
-            finally
+
+            if (ReferenceEquals(axis, StageY))
             {
+                stageAxis = WaferStageAxis.WaferY;
+                return true;
             }
+
+            if (ReferenceEquals(axis, StageT))
+            {
+                stageAxis = WaferStageAxis.WaferT;
+                return true;
+            }
+
+            if (ReferenceEquals(axis, ExpanderZ))
+            {
+                stageAxis = WaferStageAxis.WaferExpandingZ;
+                return true;
+            }
+
+            if (ReferenceEquals(axis, CameraX))
+            {
+                stageAxis = WaferStageAxis.VisionX;
+                return true;
+            }
+
+            if (ReferenceEquals(axis, NeedleBlockX))
+            {
+                stageAxis = WaferStageAxis.NeedleX;
+                return true;
+            }
+
+            if (ReferenceEquals(axis, NeedleZ))
+            {
+                stageAxis = WaferStageAxis.NeedleZ;
+                return true;
+            }
+
+            if (ReferenceEquals(axis, EjectPinZ))
+            {
+                stageAxis = WaferStageAxis.EjectPinZ;
+                return true;
+            }
+
+            return false;
+        }
+
+        private double ResolveInputStageMoveVelocity(WaferStageAxis axis, bool bFine)
+        {
+            if (axis == WaferStageAxis.NeedleZ || axis == WaferStageAxis.EjectPinZ)
+                return ResolveAxisVelocity(ResolveInputStageAxis(axis));
+
+            BaseAxis item = ResolveInputStageAxis(axis);
+            return bFine ? ResolveAxisFineVelocity(item) : ResolveAxisVelocity(item);
+        }
+
+        private double ResolveInputStageMoveVelocity(bool bFine)
+        {
+            return bFine ? ResolveAxisFineVelocity(StageY) : ResolveAxisVelocity(StageY);
         }
 
         // ──────────────────────────────────────────────────────────────────────
@@ -393,10 +488,10 @@ namespace QMC.CDT320
         //  §6. 핵심 시퀀스 로직
         // ??????????????????????????????????????????????????????????????????????
 
+        // InputLoadSequence로 옮겨서 구현 예정.
         // ──────────────────────────────────────────────────────────────────────
         //  Step 1: 자재 로딩 및 준비
         // ──────────────────────────────────────────────────────────────────────
-
         /// <summary>
         /// 웨이퍼를 스테이지에 고정하고 맵 데이터를 로드한다.<br/>
         /// <para>
@@ -408,81 +503,82 @@ namespace QMC.CDT320
         /// </para>
         /// </summary>
         /// <returns>시퀀스 전체 성공 시 true, 인터락 위반 또는 중간 실패 시 false</returns>
-        public async Task<int> LoadAndPrepareWaferAsync()
-        {
-            try
-            {
-                // ── Step 1: 로더 피더 안전 위치 인터락 ───────────────────────
-                if (!Loader.IsFeederAtSafePosition)
-                {
-                    return RaiseStageAlarm(
-                        AlarmSeverity.Warning,
-                        "IS-FEEDER",
-                        "InputStageUnit.LoadAndPrepareWaferAsync",
-                        "로더 피더가 안전 위치에 없습니다. ExpanderZ 하강 금지.");
-                }
+        //public async Task<int> LoadAndPrepareWaferAsync()
+        //{
+        //    try
+        //    {
+        //        // ── Step 1: 로더 피더 안전 위치 인터락 ───────────────────────
+        //        if (!Loader.IsFeederAtSafePosition)
+        //        {
+        //            return RaiseStageAlarm(
+        //                AlarmSeverity.Warning,
+        //                "IS-FEEDER",
+        //                "InputStageUnit.LoadAndPrepareWaferAsync",
+        //                "로더 피더가 안전 위치에 없습니다. ExpanderZ 하강 금지.");
+        //        }
 
-                // ── Step 2: ExpanderZ Down 이동 (테이프 텐션 확보) ───────────
-                Console.WriteLine($"[INFO]  '{Name}' ? ExpanderZ Down 위치({Setup.ExpanderDownPosition}mm) 이동.");
-                int moveResult = await ExpanderZ.MoveAbsoluteAsync(Setup.ExpanderDownPosition, Recipe.MoveVelocity);
+        //        // ── Step 2: ExpanderZ Down 이동 (테이프 텐션 확보) ───────────
+        //        Console.WriteLine($"[INFO]  '{Name}' ? ExpanderZ Down 위치({Setup.ExpanderDownPosition}mm) 이동.");
+        //        int moveResult = await ExpanderZ.MoveAbsoluteAsync(Setup.ExpanderDownPosition, ResolveAxisVelocity(ExpanderZ));
 
-                if (moveResult != 0 || ExpanderZ.IsAlarm)
-                {
-                    return RaiseStageAlarm(
-                        AlarmSeverity.Error,
-                        "IS-EXPZ",
-                        "InputStageUnit.LoadAndPrepareWaferAsync",
-                        $"ExpanderZ 이동 실패 (result={moveResult}, axis code={ExpanderZ.AlarmCode}).");
-                }
+        //        if (moveResult != 0 || ExpanderZ.IsAlarm)
+        //        {
+        //            return RaiseStageAlarm(
+        //                AlarmSeverity.Error,
+        //                "IS-EXPZ",
+        //                "InputStageUnit.LoadAndPrepareWaferAsync",
+        //                $"ExpanderZ 이동 실패 (result={moveResult}, axis code={ExpanderZ.AlarmCode}).");
+        //        }
 
-                // ── Step 3: 바코드 리딩 ───────────────────────────────────────
-                Console.WriteLine($"[INFO]  '{Name}' ? 바코드 리딩 시작.");
-                string waferId = await Barcode.ReadAsync(Setup.BarcodeReadTimeoutMs);
+        //        // ── Step 3: 바코드 리딩 ───────────────────────────────────────
+        //        Console.WriteLine($"[INFO]  '{Name}' ? 바코드 리딩 시작.");
+        //        string waferId = await Barcode.ReadAsync(Setup.BarcodeReadTimeoutMs);
 
-                if (string.IsNullOrEmpty(waferId))
-                {
-                    return RaiseStageAlarm(
-                        AlarmSeverity.Warning,
-                        "IS-BARCODE",
-                        "InputStageUnit.LoadAndPrepareWaferAsync",
-                        "바코드 읽기 실패 (Wafer ID 비어있음).");
-                }
+        //        if (string.IsNullOrEmpty(waferId))
+        //        {
+        //            return RaiseStageAlarm(
+        //                AlarmSeverity.Warning,
+        //                "IS-BARCODE",
+        //                "InputStageUnit.LoadAndPrepareWaferAsync",
+        //                "바코드 읽기 실패 (Wafer ID 비어있음).");
+        //        }
 
-                Console.WriteLine($"[INFO]  '{Name}' ? Wafer ID 취득 완료: [{waferId}]");
+        //        Console.WriteLine($"[INFO]  '{Name}' ? Wafer ID 취득 완료: [{waferId}]");
 
-                // ── Step 4: 맵 파싱 및 UI 업데이트 ───────────────────────────
-                WaferMapData mapData = await MapHandler.ParseMapAsync(waferId);
+        //        // ── Step 4: 맵 파싱 및 UI 업데이트 ───────────────────────────
+        //        WaferMapData mapData = await MapHandler.ParseMapAsync(waferId);
 
-                if (mapData == null)
-                {
-                    return RaiseStageAlarm(
-                        AlarmSeverity.Warning,
-                        "IS-MAP",
-                        "InputStageUnit.LoadAndPrepareWaferAsync",
-                        $"Wafer ID [{waferId}] 맵 파싱 실패 (ParseMapAsync null).");
-                }
+        //        if (mapData == null)
+        //        {
+        //            return RaiseStageAlarm(
+        //                AlarmSeverity.Warning,
+        //                "IS-MAP",
+        //                "InputStageUnit.LoadAndPrepareWaferAsync",
+        //                $"Wafer ID [{waferId}] 맵 파싱 실패 (ParseMapAsync null).");
+        //        }
 
-                CurrentWaferMap = mapData;
-                MapHandler.SendMapToUi(mapData);
+        //        CurrentWaferMap = mapData;
+        //        MapHandler.SendMapToUi(mapData);
 
-                Console.WriteLine(
-                    $"[INFO]  '{Name}' ? 맵 로드 완료. " +
-                    $"다이 배열: {mapData.RowCount}행 × {mapData.ColumnCount}열");
-                return 0;
-            }
-            catch (Exception ex)
-            {
-                return RaiseStageAlarm(
-                    AlarmSeverity.Error,
-                    "IS-LOAD-EX",
-                    "InputStageUnit.LoadAndPrepareWaferAsync",
-                    "LoadAndPrepareWafer exception: " + ex.Message);
-            }
-            finally
-            {
-            }
-        }
+        //        Console.WriteLine(
+        //            $"[INFO]  '{Name}' ? 맵 로드 완료. " +
+        //            $"다이 배열: {mapData.RowCount}행 × {mapData.ColumnCount}열");
+        //        return 0;
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return RaiseStageAlarm(
+        //            AlarmSeverity.Error,
+        //            "IS-LOAD-EX",
+        //            "InputStageUnit.LoadAndPrepareWaferAsync",
+        //            "LoadAndPrepareWafer exception: " + ex.Message);
+        //    }
+        //    finally
+        //    {
+        //    }
+        //}
 
+        // InputLoadSequence로 옮겨서 구현 예정.
         // ──────────────────────────────────────────────────────────────────────
         //  Step 2: 비전 얼라인 및 원점 셋업
         // ──────────────────────────────────────────────────────────────────────
@@ -499,165 +595,165 @@ namespace QMC.CDT320
         /// </para>
         /// </summary>
         /// <returns>얼라인 성공 시 true, 통신 오류 또는 축 알람 시 false</returns>
-        public async Task<int> VisionAlignAndSetupOriginAsync()
-        {
-            try
-            {
-                if (CurrentWaferMap == null)
-                {
-                    return RaiseStageAlarm(
-                        AlarmSeverity.Warning,
-                        "IS-ALIGN-MAP",
-                        "InputStageUnit.VisionAlignAndSetupOriginAsync",
-                        "맵 데이터 없음. LoadAndPrepare를 먼저 실행하세요.");
-                }
+        //public async Task<int> VisionAlignAndSetupOriginAsync()
+        //{
+        //    try
+        //    {
+        //        if (CurrentWaferMap == null)
+        //        {
+        //            return RaiseStageAlarm(
+        //                AlarmSeverity.Warning,
+        //                "IS-ALIGN-MAP",
+        //                "InputStageUnit.VisionAlignAndSetupOriginAsync",
+        //                "맵 데이터 없음. LoadAndPrepare를 먼저 실행하세요.");
+        //        }
 
-                WaferMapData map = CurrentWaferMap;
+        //        WaferMapData map = CurrentWaferMap;
 
-                // ── Step 1: 맵 중앙 다이로 이동 후 Theta 반복 보정 ──────────
-                int centerRow = map.RowCount / 2;
-                int centerCol = map.ColumnCount / 2;
+        //        // ── Step 1: 맵 중앙 다이로 이동 후 Theta 반복 보정 ──────────
+        //        int centerRow = map.RowCount / 2;
+        //        int centerCol = map.ColumnCount / 2;
 
-                Console.WriteLine(
-                    $"[INFO]  '{Name}' ? 얼라인 시작. 중앙 다이 [{centerRow},{centerCol}]로 이동.");
+        //        Console.WriteLine(
+        //            $"[INFO]  '{Name}' ? 얼라인 시작. 중앙 다이 [{centerRow},{centerCol}]로 이동.");
 
-                // 초기 중앙 좌표로 이동 (원점 미수립 상태이므로 0 + 피치 추정으로 이동)
-                int moveResult = await MoveToDieAsync(centerRow, centerCol, useEstimate: true);
-                if (moveResult != 0)
-                    return moveResult;
+        //        // 초기 중앙 좌표로 이동 (원점 미수립 상태이므로 0 + 피치 추정으로 이동)
+        //        int moveResult = await MoveToDieAsync(centerRow, centerCol, useEstimate: true);
+        //        if (moveResult != 0)
+        //            return moveResult;
 
-                double totalDeltaTheta = 0.0;
+        //        double totalDeltaTheta = 0.0;
 
-                for (int iter = 0; iter < Config.MaxAlignIterations; iter++)
-                {
-                    VisionAlignResult alignResult = await Vision.TriggerAlignAsync("Center");
+        //        for (int iter = 0; iter < Config.MaxAlignIterations; iter++)
+        //        {
+        //            VisionAlignResult alignResult = await Vision.TriggerAlignAsync("Center");
 
-                    if (alignResult == null)
-                    {
-                        return RaiseStageAlarm(
-                            AlarmSeverity.Warning,
-                            "IS-ALIGN",
-                            "InputStageUnit.VisionAlignAndSetupOriginAsync",
-                            $"중앙 다이 비전 얼라인 매칭 실패 (반복 {iter + 1}).");
-                    }
+        //            if (alignResult == null)
+        //            {
+        //                return RaiseStageAlarm(
+        //                    AlarmSeverity.Warning,
+        //                    "IS-ALIGN",
+        //                    "InputStageUnit.VisionAlignAndSetupOriginAsync",
+        //                    $"중앙 다이 비전 얼라인 매칭 실패 (반복 {iter + 1}).");
+        //            }
 
-                    double dTheta = alignResult.DeltaTheta;
-                    totalDeltaTheta += dTheta;
+        //            double dTheta = alignResult.DeltaTheta;
+        //            totalDeltaTheta += dTheta;
 
-                    Console.WriteLine(
-                        $"[INFO]  '{Name}' ? 얼라인 반복 [{iter + 1}/{Config.MaxAlignIterations}] " +
-                        $"dTheta={dTheta:F4}°, dX={alignResult.DeltaX:F4}mm, dY={alignResult.DeltaY:F4}mm");
+        //            Console.WriteLine(
+        //                $"[INFO]  '{Name}' ? 얼라인 반복 [{iter + 1}/{Config.MaxAlignIterations}] " +
+        //                $"dTheta={dTheta:F4}°, dX={alignResult.DeltaX:F4}mm, dY={alignResult.DeltaY:F4}mm");
 
-                    // Theta 보정 이동
-                    int thetaResult = await StageT.MoveRelativeAsync(dTheta, Recipe.AlignVelocity);
-                    if (thetaResult != 0 || StageT.IsAlarm)
-                    {
-                        return RaiseStageAlarm(
-                            AlarmSeverity.Warning,
-                            "IS-ALIGN",
-                            "InputStageUnit.VisionAlignAndSetupOriginAsync",
-                            $"StageT Theta 보정 이동 실패 (result={thetaResult}, axis code={StageT.AlarmCode}).");
-                    }
+        //            // Theta 보정 이동
+        //            int thetaResult = await StageT.MoveRelativeAsync(dTheta, ResolveAxisFineVelocity(StageT));
+        //            if (thetaResult != 0 || StageT.IsAlarm)
+        //            {
+        //                return RaiseStageAlarm(
+        //                    AlarmSeverity.Warning,
+        //                    "IS-ALIGN",
+        //                    "InputStageUnit.VisionAlignAndSetupOriginAsync",
+        //                    $"StageT Theta 보정 이동 실패 (result={thetaResult}, axis code={StageT.AlarmCode}).");
+        //            }
 
-                    // 수렴 판정
-                    if (Math.Abs(dTheta) < Config.AlignConvergenceThresholdDeg)
-                    {
-                        Console.WriteLine(
-                            $"[INFO]  '{Name}' ? Theta 수렴 확인 (누적 보정: {totalDeltaTheta:F4}°). 얼라인 완료.");
-                        break;
-                    }
-                }
+        //            // 수렴 판정
+        //            if (Math.Abs(dTheta) < Config.AlignConvergenceThresholdDeg)
+        //            {
+        //                Console.WriteLine(
+        //                    $"[INFO]  '{Name}' ? Theta 수렴 확인 (누적 보정: {totalDeltaTheta:F4}°). 얼라인 완료.");
+        //                break;
+        //            }
+        //        }
 
-                // ── Step 2: 레퍼런스 마크 1 촬상 ─────────────────────────────
-                Console.WriteLine($"[INFO]  '{Name}' ? 레퍼런스 마크 1 [{map.Ref1Row},{map.Ref1Col}] 촬상.");
-                moveResult = await MoveToDieAsync(map.Ref1Row, map.Ref1Col, useEstimate: true);
-                if (moveResult != 0)
-                    return moveResult;
+        //        // ── Step 2: 레퍼런스 마크 1 촬상 ─────────────────────────────
+        //        Console.WriteLine($"[INFO]  '{Name}' ? 레퍼런스 마크 1 [{map.Ref1Row},{map.Ref1Col}] 촬상.");
+        //        moveResult = await MoveToDieAsync(map.Ref1Row, map.Ref1Col, useEstimate: true);
+        //        if (moveResult != 0)
+        //            return moveResult;
 
-                VisionAlignResult ref1Result = await Vision.TriggerAlignAsync("Ref1");
-                if (ref1Result == null)
-                {
-                    return RaiseStageAlarm(
-                        AlarmSeverity.Warning,
-                        "IS-ALIGN",
-                        "InputStageUnit.VisionAlignAndSetupOriginAsync",
-                        $"레퍼런스 마크 1 [{map.Ref1Row},{map.Ref1Col}] 비전 매칭 실패.");
-                }
+        //        VisionAlignResult ref1Result = await Vision.TriggerAlignAsync("Ref1");
+        //        if (ref1Result == null)
+        //        {
+        //            return RaiseStageAlarm(
+        //                AlarmSeverity.Warning,
+        //                "IS-ALIGN",
+        //                "InputStageUnit.VisionAlignAndSetupOriginAsync",
+        //                $"레퍼런스 마크 1 [{map.Ref1Row},{map.Ref1Col}] 비전 매칭 실패.");
+        //        }
 
-                double ref1X = CameraX.ActualPosition + ref1Result.DeltaX;
-                double ref1Y = StageY.ActualPosition  + ref1Result.DeltaY;
+        //        double ref1X = CameraX.ActualPosition + ref1Result.DeltaX;
+        //        double ref1Y = StageY.ActualPosition  + ref1Result.DeltaY;
 
-                // ── Step 3: 레퍼런스 마크 2 촬상 ─────────────────────────────
-                Console.WriteLine($"[INFO]  '{Name}' ? 레퍼런스 마크 2 [{map.Ref2Row},{map.Ref2Col}] 촬상.");
-                moveResult = await MoveToDieAsync(map.Ref2Row, map.Ref2Col, useEstimate: true);
-                if (moveResult != 0)
-                    return moveResult;
+        //        // ── Step 3: 레퍼런스 마크 2 촬상 ─────────────────────────────
+        //        Console.WriteLine($"[INFO]  '{Name}' ? 레퍼런스 마크 2 [{map.Ref2Row},{map.Ref2Col}] 촬상.");
+        //        moveResult = await MoveToDieAsync(map.Ref2Row, map.Ref2Col, useEstimate: true);
+        //        if (moveResult != 0)
+        //            return moveResult;
 
-                VisionAlignResult ref2Result = await Vision.TriggerAlignAsync("Ref2");
-                if (ref2Result == null)
-                {
-                    return RaiseStageAlarm(
-                        AlarmSeverity.Warning,
-                        "IS-ALIGN",
-                        "InputStageUnit.VisionAlignAndSetupOriginAsync",
-                        $"레퍼런스 마크 2 [{map.Ref2Row},{map.Ref2Col}] 비전 매칭 실패.");
-                }
+        //        VisionAlignResult ref2Result = await Vision.TriggerAlignAsync("Ref2");
+        //        if (ref2Result == null)
+        //        {
+        //            return RaiseStageAlarm(
+        //                AlarmSeverity.Warning,
+        //                "IS-ALIGN",
+        //                "InputStageUnit.VisionAlignAndSetupOriginAsync",
+        //                $"레퍼런스 마크 2 [{map.Ref2Row},{map.Ref2Col}] 비전 매칭 실패.");
+        //        }
 
-                double ref2X = CameraX.ActualPosition + ref2Result.DeltaX;
-                double ref2Y = StageY.ActualPosition  + ref2Result.DeltaY;
+        //        double ref2X = CameraX.ActualPosition + ref2Result.DeltaX;
+        //        double ref2Y = StageY.ActualPosition  + ref2Result.DeltaY;
 
-                // ── Step 4: X/Y 피치 계산 ────────────────────────────────────
-                int colSpan = map.Ref2Col - map.Ref1Col;
-                int rowSpan = map.Ref2Row - map.Ref1Row;
+        //        // ── Step 4: X/Y 피치 계산 ────────────────────────────────────
+        //        int colSpan = map.Ref2Col - map.Ref1Col;
+        //        int rowSpan = map.Ref2Row - map.Ref1Row;
 
-                if (colSpan != 0 && Math.Abs(ref2X - ref1X) > 1e-6)
-                {
-                    PitchX = (ref2X - ref1X) / colSpan;
-                    Console.WriteLine($"[INFO]  '{Name}' ? X 피치 계산 완료: {PitchX:F6}mm/col");
-                }
-                else
-                {
-                    PitchX = Recipe.DefaultPitchX;
-                    Console.WriteLine(
-                        $"[WARN]  '{Name}' ? X 피치 계산 불가 (Ref X좌표 동일). " +
-                        $"기본값 사용: {PitchX}mm");
-                }
+        //        if (colSpan != 0 && Math.Abs(ref2X - ref1X) > 1e-6)
+        //        {
+        //            PitchX = (ref2X - ref1X) / colSpan;
+        //            Console.WriteLine($"[INFO]  '{Name}' ? X 피치 계산 완료: {PitchX:F6}mm/col");
+        //        }
+        //        else
+        //        {
+        //            PitchX = DefaultEstimatedPitchX;
+        //            Console.WriteLine(
+        //                $"[WARN]  '{Name}' ? X 피치 계산 불가 (Ref X좌표 동일). " +
+        //                $"기본값 사용: {PitchX}mm");
+        //        }
 
-                if (rowSpan != 0 && Math.Abs(ref2Y - ref1Y) > 1e-6)
-                {
-                    PitchY = (ref2Y - ref1Y) / rowSpan;
-                    Console.WriteLine($"[INFO]  '{Name}' ? Y 피치 계산 완료: {PitchY:F6}mm/row");
-                }
-                else
-                {
-                    PitchY = Recipe.DefaultPitchY;
-                    Console.WriteLine(
-                        $"[WARN]  '{Name}' ? Y 피치 계산 불가 (Ref Y좌표 동일). " +
-                        $"기본값 사용: {PitchY}mm");
-                }
+        //        if (rowSpan != 0 && Math.Abs(ref2Y - ref1Y) > 1e-6)
+        //        {
+        //            PitchY = (ref2Y - ref1Y) / rowSpan;
+        //            Console.WriteLine($"[INFO]  '{Name}' ? Y 피치 계산 완료: {PitchY:F6}mm/row");
+        //        }
+        //        else
+        //        {
+        //            PitchY = DefaultEstimatedPitchY;
+        //            Console.WriteLine(
+        //                $"[WARN]  '{Name}' ? Y 피치 계산 불가 (Ref Y좌표 동일). " +
+        //                $"기본값 사용: {PitchY}mm");
+        //        }
 
-                // ── Step 5: 첫 번째 다이 원점(Origin) 확정 ───────────────────
-                // Ref1 좌표를 기준으로 Index[0,0]의 절대 좌표를 역산
-                OriginX = ref1X - (map.Ref1Col * PitchX);
-                OriginY = ref1Y - (map.Ref1Row * PitchY);
+        //        // ── Step 5: 첫 번째 다이 원점(Origin) 확정 ───────────────────
+        //        // Ref1 좌표를 기준으로 Index[0,0]의 절대 좌표를 역산
+        //        OriginX = ref1X - (map.Ref1Col * PitchX);
+        //        OriginY = ref1Y - (map.Ref1Row * PitchY);
 
-                Console.WriteLine(
-                    $"[INFO]  '{Name}' ? 원점 확정 완료. " +
-                    $"Origin X={OriginX:F4}mm, Y={OriginY:F4}mm");
-                return 0;
-            }
-            catch (Exception ex)
-            {
-                return RaiseStageAlarm(
-                    AlarmSeverity.Error,
-                    "IS-ALIGN-EX",
-                    "InputStageUnit.VisionAlignAndSetupOriginAsync",
-                    "VisionAlign exception: " + ex.Message);
-            }
-            finally
-            {
-            }
-        }
+        //        Console.WriteLine(
+        //            $"[INFO]  '{Name}' ? 원점 확정 완료. " +
+        //            $"Origin X={OriginX:F4}mm, Y={OriginY:F4}mm");
+        //        return 0;
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return RaiseStageAlarm(
+        //            AlarmSeverity.Error,
+        //            "IS-ALIGN-EX",
+        //            "InputStageUnit.VisionAlignAndSetupOriginAsync",
+        //            "VisionAlign exception: " + ex.Message);
+        //    }
+        //    finally
+        //    {
+        //    }
+        //}
 
         // ──────────────────────────────────────────────────────────────────────
         //  Step 3: 사용자 컨펌 대기
@@ -699,7 +795,7 @@ namespace QMC.CDT320
                 {
                     Console.WriteLine(
                         $"[INFO]  '{Name}' ? 사용자 Angle 오프셋 적용: {result.AngleOffset:F4}°");
-                    await StageT.MoveRelativeAsync(result.AngleOffset, Recipe.AlignVelocity);
+                    await StageT.MoveRelativeAsync(result.AngleOffset, ResolveAxisFineVelocity(StageT));
                 }
 
                 if (Math.Abs(result.StartOffsetX) > 1e-6 || Math.Abs(result.StartOffsetY) > 1e-6)
@@ -723,6 +819,9 @@ namespace QMC.CDT320
             return result;
         }
 
+
+
+        // Step 4 : FrontPickerSequence, RearPickerSequence로 옮겨서 구현 예정.
         // ──────────────────────────────────────────────────────────────────────
         //  Step 4: 다중 스캔 및 픽업 동기화
         // ──────────────────────────────────────────────────────────────────────
@@ -750,143 +849,145 @@ namespace QMC.CDT320
         /// </summary>
         /// <param name="startDieIndex">픽업을 시작할 글로벌 다이 인덱스 (0-based 선형 인덱스)</param>
         /// <returns>맵 완료(또는 남은 다이 소진) 시 true, 중간 오류 시 false</returns>
-        public async Task<int> MultiScanAndPickupAsync(int startDieIndex = 0)
-        {
-            try
-            {
-                if (CurrentWaferMap == null)
-                    return RaiseStageAlarm(AlarmSeverity.Warning, "IS-PICK-MAP", "InputStageUnit.MultiScanAndPickupAsync", "맵 데이터 없음.");
+        //public async Task<int> MultiScanAndPickupAsync(int startDieIndex = 0)
+        //{
+        //    try
+        //    {
+        //        if (CurrentWaferMap == null)
+        //            return RaiseStageAlarm(AlarmSeverity.Warning, "IS-PICK-MAP", "InputStageUnit.MultiScanAndPickupAsync", "맵 데이터 없음.");
 
-                WaferMapData map       = CurrentWaferMap;
-                int          totalDies = map.RowCount * map.ColumnCount;
-                int          batchSize = Tpu.PickerCount > 0 ? Tpu.PickerCount : 1;
+        //        WaferMapData map       = CurrentWaferMap;
+        //        int          totalDies = map.RowCount * map.ColumnCount;
+        //        int          batchSize = Tpu.PickerCount > 0 ? Tpu.PickerCount : 1;
 
-                Console.WriteLine(
-                    $"[INFO]  '{Name}' ? 다이 픽업 시작. " +
-                    $"총 {totalDies}개, 배치 크기: {batchSize}, 시작 인덱스: {startDieIndex}");
+        //        Console.WriteLine(
+        //            $"[INFO]  '{Name}' ? 다이 픽업 시작. " +
+        //            $"총 {totalDies}개, 배치 크기: {batchSize}, 시작 인덱스: {startDieIndex}");
 
-                int dieIndex = startDieIndex;
+        //        int dieIndex = startDieIndex;
 
-                while (dieIndex < totalDies)
-                {
-                    // ── Phase A: 배치 단위 비전 스캔 ──────────────────────────
-                    // Expose 완료만 받고 결과를 기다리지 않아 다음 이동이 즉시 시작된다.
-                    int batchStart = dieIndex;
-                    int batchEnd   = Math.Min(dieIndex + batchSize, totalDies);
+        //        while (dieIndex < totalDies)
+        //        {
+        //            // ── Phase A: 배치 단위 비전 스캔 ──────────────────────────
+        //            // Expose 완료만 받고 결과를 기다리지 않아 다음 이동이 즉시 시작된다.
+        //            int batchStart = dieIndex;
+        //            int batchEnd   = Math.Min(dieIndex + batchSize, totalDies);
 
-                    for (int i = batchStart; i < batchEnd; i++)
-                    {
-                        int row = i / map.ColumnCount;
-                        int col = i % map.ColumnCount;
+        //            for (int i = batchStart; i < batchEnd; i++)
+        //            {
+        //                int row = i / map.ColumnCount;
+        //                int col = i % map.ColumnCount;
 
-                        if (!map.DieMap[row, col])
-                        {
-                            Console.WriteLine($"[INFO]  '{Name}' ? 다이 [{i}] NG ? 스캔 스킵.");
-                            continue;
-                        }
+        //                if (!map.DieMap[row, col])
+        //                {
+        //                    Console.WriteLine($"[INFO]  '{Name}' ? 다이 [{i}] NG ? 스캔 스킵.");
+        //                    continue;
+        //                }
 
-                        // StageY + CameraX 동시 이동 (비전 촬상 위치)
-                        double targetY = OriginY + row * PitchY;
-                        double targetX = OriginX + col * PitchX;
+        //                // StageY + CameraX 동시 이동 (비전 촬상 위치)
+        //                double targetY = OriginY + row * PitchY;
+        //                double targetX = OriginX + col * PitchX;
 
-                        Task<int> moveY = StageY.MoveAbsoluteAsync(targetY, Recipe.MoveVelocity);
-                        Task<int> moveX = CameraX.MoveAbsoluteAsync(targetX, Recipe.MoveVelocity);
-                        int[] moveResults = await Task.WhenAll(moveY, moveX);
+        //                Task<int> moveY = StageY.MoveAbsoluteAsync(targetY, ResolveAxisVelocity(StageY));
+        //                Task<int> moveX = SharedRailXMotionRuntime.MoveAxisAsync(CameraX, targetX, ResolveAxisVelocity(CameraX));
+        //                int[] moveResults = await Task.WhenAll(moveY, moveX);
 
-                        if (moveResults[0] != 0 || moveResults[1] != 0 || StageY.IsAlarm || CameraX.IsAlarm)
-                        {
-                            return RaiseStageAlarm(
-                                AlarmSeverity.Error,
-                                "IS-MOVE",
-                                "InputStageUnit.MultiScanAndPickupAsync",
-                                $"Phase A 스캔 이동 후 축 알람 (다이 [{i}], StageY result={moveResults[0]}, CameraX result={moveResults[1]}, StageY.IsAlarm={StageY.IsAlarm}, CameraX.IsAlarm={CameraX.IsAlarm}).");
-                        }
+        //                if (moveResults[0] != 0 || moveResults[1] != 0 || StageY.IsAlarm || CameraX.IsAlarm)
+        //                {
+        //                    return RaiseStageAlarm(
+        //                        AlarmSeverity.Error,
+        //                        "IS-MOVE",
+        //                        "InputStageUnit.MultiScanAndPickupAsync",
+        //                        $"Phase A 스캔 이동 후 축 알람 (다이 [{i}], StageY result={moveResults[0]}, CameraX result={moveResults[1]}, StageY.IsAlarm={StageY.IsAlarm}, CameraX.IsAlarm={CameraX.IsAlarm}).");
+        //                }
 
-                        // ── 비전 트리거: Expose 완료만 대기, 결과는 나중에 수집 ──
-                        bool exposed = await Vision.TriggerExposeAsync(i);
+        //                // ── 비전 트리거: Expose 완료만 대기, 결과는 나중에 수집 ──
+        //                bool exposed = await Vision.TriggerExposeAsync(i);
 
-                        if (!exposed)
-                            return RaiseStageAlarm(AlarmSeverity.Error, "IS-VISION-EXPOSE", "InputStageUnit.MultiScanAndPickupAsync", $"비전 Expose 실패 (다이 [{i}]).");
+        //                if (!exposed)
+        //                    return RaiseStageAlarm(AlarmSeverity.Error, "IS-VISION-EXPOSE", "InputStageUnit.MultiScanAndPickupAsync", $"비전 Expose 실패 (다이 [{i}]).");
 
-                        // Expose 완료 즉시 다음 좌표 이동 ? 비전 분석은 백그라운드에서 진행
-                        Console.WriteLine(
-                            $"[INFO]  '{Name}' ? 다이 [{i}] Expose 완료. 즉시 다음 좌표로 이동.");
-                    }
+        //                // Expose 완료 즉시 다음 좌표 이동 ? 비전 분석은 백그라운드에서 진행
+        //                Console.WriteLine(
+        //                    $"[INFO]  '{Name}' ? 다이 [{i}] Expose 완료. 즉시 다음 좌표로 이동.");
+        //            }
 
-                    // ── Phase B: 배치 단위 픽업 동작 ──────────────────────────
-                    for (int i = batchStart; i < batchEnd; i++)
-                    {
-                        int row = i / map.ColumnCount;
-                        int col = i % map.ColumnCount;
+        //            // ── Phase B: 배치 단위 픽업 동작 ──────────────────────────
+        //            for (int i = batchStart; i < batchEnd; i++)
+        //            {
+        //                int row = i / map.ColumnCount;
+        //                int col = i % map.ColumnCount;
 
-                        if (!map.DieMap[row, col])
-                        {
-                            Console.WriteLine($"[INFO]  '{Name}' ? 다이 [{i}] NG ? 픽업 스킵.");
-                            continue;
-                        }
+        //                if (!map.DieMap[row, col])
+        //                {
+        //                    Console.WriteLine($"[INFO]  '{Name}' ? 다이 [{i}] NG ? 픽업 스킵.");
+        //                    continue;
+        //                }
 
-                        // ── 비전 결과 수집 (픽업 전 OK 여부 최종 확인) ────────
-                        bool inspOk = await Vision.GetResultAsync(i, Recipe.VisionResultTimeoutMs);
+        //                // ── 비전 결과 수집 (픽업 전 OK 여부 최종 확인) ────────
+        //                bool inspOk = await Vision.GetResultAsync(i, ResolveVisionResultTimeoutMs());
 
-                        if (!inspOk)
-                        {
-                            Console.WriteLine(
-                                $"[WARN]  '{Name}' ? 다이 [{i}] 비전 NG 또는 타임아웃 ? 픽업 스킵.");
-                            continue;
-                        }
+        //                if (!inspOk)
+        //                {
+        //                    Console.WriteLine(
+        //                        $"[WARN]  '{Name}' ? 다이 [{i}] 비전 NG 또는 타임아웃 ? 픽업 스킵.");
+        //                    continue;
+        //                }
 
-                        // ── TPU 픽커 준비 확인 ─────────────────────────────────
-                        if (!Tpu.IsPickerReady)
-                        {
-                            Console.WriteLine($"[WARN]  '{Name}' ? 다이 [{i}] TPU 픽커 미준비 ? 픽업 스킵.");
-                            continue;
-                        }
+        //                // ── TPU 픽커 준비 확인 ─────────────────────────────────
+        //                if (!Tpu.IsPickerReady)
+        //                {
+        //                    Console.WriteLine($"[WARN]  '{Name}' ? 다이 [{i}] TPU 픽커 미준비 ? 픽업 스킵.");
+        //                    continue;
+        //                }
 
-                        // ── 픽업 위치로 이동 (스캔 오프셋 + 기구 오프셋 적용) ─
-                        double pickY = OriginY + row * PitchY + Setup.PickerOffsetY;
-                        double pickX = OriginX + col * PitchX + Setup.PickerOffsetX;
+        //                // ── 픽업 위치로 이동 (스캔 오프셋 + 기구 오프셋 적용) ─
+        //                double pickY = OriginY + row * PitchY + Setup.PickerOffsetY;
+        //                double pickX = OriginX + col * PitchX + Setup.PickerOffsetX;
 
-                        Task<int> pickMoveY = StageY.MoveAbsoluteAsync(pickY, Recipe.MoveVelocity);
-                        Task<int> pickMoveX = NeedleBlockX.MoveAbsoluteAsync(pickX, Recipe.MoveVelocity);
-                        int[] pickMoveResults = await Task.WhenAll(pickMoveY, pickMoveX);
+        //                Task<int> pickMoveY = StageY.MoveAbsoluteAsync(pickY, ResolveAxisVelocity(StageY));
+        //                Task<int> pickMoveX = NeedleBlockX.MoveAbsoluteAsync(pickX, ResolveAxisVelocity(NeedleBlockX));
+        //                int[] pickMoveResults = await Task.WhenAll(pickMoveY, pickMoveX);
 
-                        if (pickMoveResults[0] != 0 || pickMoveResults[1] != 0 || StageY.IsAlarm || NeedleBlockX.IsAlarm)
-                        {
-                            return RaiseStageAlarm(
-                                AlarmSeverity.Error,
-                                "IS-MOVE",
-                                "InputStageUnit.MultiScanAndPickupAsync",
-                                $"Phase B 픽업 위치 이동 후 축 알람 (다이 [{i}], StageY result={pickMoveResults[0]}, NeedleBlockX result={pickMoveResults[1]}, StageY.IsAlarm={StageY.IsAlarm}, NeedleBlockX.IsAlarm={NeedleBlockX.IsAlarm}).");
-                        }
+        //                if (pickMoveResults[0] != 0 || pickMoveResults[1] != 0 || StageY.IsAlarm || NeedleBlockX.IsAlarm)
+        //                {
+        //                    return RaiseStageAlarm(
+        //                        AlarmSeverity.Error,
+        //                        "IS-MOVE",
+        //                        "InputStageUnit.MultiScanAndPickupAsync",
+        //                        $"Phase B 픽업 위치 이동 후 축 알람 (다이 [{i}], StageY result={pickMoveResults[0]}, NeedleBlockX result={pickMoveResults[1]}, StageY.IsAlarm={StageY.IsAlarm}, NeedleBlockX.IsAlarm={NeedleBlockX.IsAlarm}).");
+        //                }
 
-                        // ── 픽업 시퀀스 실행 ───────────────────────────────────
-                        int pickOk = await ExecutePickupAsync(i);
+        //                // ── 픽업 시퀀스 실행 ───────────────────────────────────
+        //                int pickOk = await ExecutePickupAsync(i);
 
-                        if (pickOk != 0)
-                            return pickOk;
+        //                if (pickOk != 0)
+        //                    return pickOk;
 
-                        Console.WriteLine($"[INFO]  '{Name}' ? 다이 [{i}] 픽업 완료.");
-                    }
+        //                Console.WriteLine($"[INFO]  '{Name}' ? 다이 [{i}] 픽업 완료.");
+        //            }
 
-                    dieIndex = batchEnd;
-                }
+        //            dieIndex = batchEnd;
+        //        }
 
-                Console.WriteLine($"[INFO]  '{Name}' ? 모든 다이 픽업 완료.");
-                return 0;
-            }
-            catch (Exception ex)
-            {
-                return RaiseStageAlarm(AlarmSeverity.Error, "IS-PICK-EX", "InputStageUnit.MultiScanAndPickupAsync", "MultiScanAndPickup exception: " + ex.Message);
-            }
-            finally
-            {
-            }
-        }
+        //        Console.WriteLine($"[INFO]  '{Name}' ? 모든 다이 픽업 완료.");
+        //        return 0;
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return RaiseStageAlarm(AlarmSeverity.Error, "IS-PICK-EX", "InputStageUnit.MultiScanAndPickupAsync", "MultiScanAndPickup exception: " + ex.Message);
+        //    }
+        //    finally
+        //    {
+        //    }
+        //}
 
+
+
+        // Step 5 : InputLoadSequence로 옮겨서 구현 예정.
         // ──────────────────────────────────────────────────────────────────────
         //  Step 5: 자재 언로딩
         // ──────────────────────────────────────────────────────────────────────
-
         /// <summary>
         /// 웨이퍼 맵 처리 완료 후 스테이지를 언로딩 위치로 이동하고 로더에 교체를 요청한다.<br/>
         /// <para>
@@ -897,44 +998,44 @@ namespace QMC.CDT320
         /// </para>
         /// </summary>
         /// <returns>시퀀스 전체 성공 시 true, 축 알람 발생 시 false</returns>
-        public async Task<int> UnloadWaferAsync()
-        {
-            try
-            {
-                // ── Step 1: 언로딩 위치로 이동 ───────────────────────────────
-                Console.WriteLine(
-                    $"[INFO]  '{Name}' ? 언로딩 위치({Setup.UnloadPositionY}mm)로 StageY 이동.");
-                int moveResult = await StageY.MoveAbsoluteAsync(Setup.UnloadPositionY, Recipe.MoveVelocity);
+        //public async Task<int> UnloadWaferAsync()
+        //{
+        //    try
+        //    {
+        //        // ── Step 1: 언로딩 위치로 이동 ───────────────────────────────
+        //        Console.WriteLine(
+        //            $"[INFO]  '{Name}' ? 언로딩 위치({Setup.UnloadPositionY}mm)로 StageY 이동.");
+        //        int moveResult = await StageY.MoveAbsoluteAsync(Setup.UnloadPositionY, ResolveAxisVelocity(StageY));
 
-                if (moveResult != 0 || StageY.IsAlarm)
-                    return RaiseStageAlarm(AlarmSeverity.Error, "IS-STAGEY", "InputStageUnit.UnloadWaferAsync", $"StageY 이동 실패 (result={moveResult}, axis code={StageY.AlarmCode}).");
+        //        if (moveResult != 0 || StageY.IsAlarm)
+        //            return RaiseStageAlarm(AlarmSeverity.Error, "IS-STAGEY", "InputStageUnit.UnloadWaferAsync", $"StageY 이동 실패 (result={moveResult}, axis code={StageY.AlarmCode}).");
 
-                // ── Step 2: ExpanderZ Up 이동 (텐션 해제) ────────────────────
-                Console.WriteLine(
-                    $"[INFO]  '{Name}' ? ExpanderZ Up 위치({Setup.ExpanderUpPosition}mm) 이동. 텐션 해제.");
-                moveResult = await ExpanderZ.MoveAbsoluteAsync(Setup.ExpanderUpPosition, Recipe.MoveVelocity);
+        //        // ── Step 2: ExpanderZ Up 이동 (텐션 해제) ────────────────────
+        //        Console.WriteLine(
+        //            $"[INFO]  '{Name}' ? ExpanderZ Up 위치({Setup.ExpanderUpPosition}mm) 이동. 텐션 해제.");
+        //        moveResult = await ExpanderZ.MoveAbsoluteAsync(Setup.ExpanderUpPosition, ResolveAxisVelocity(ExpanderZ));
 
-                if (moveResult != 0 || ExpanderZ.IsAlarm)
-                    return RaiseStageAlarm(AlarmSeverity.Error, "IS-EXPZ", "InputStageUnit.UnloadWaferAsync", $"ExpanderZ 이동 실패 (result={moveResult}, axis code={ExpanderZ.AlarmCode}).");
+        //        if (moveResult != 0 || ExpanderZ.IsAlarm)
+        //            return RaiseStageAlarm(AlarmSeverity.Error, "IS-EXPZ", "InputStageUnit.UnloadWaferAsync", $"ExpanderZ 이동 실패 (result={moveResult}, axis code={ExpanderZ.AlarmCode}).");
 
-                // ── Step 3: 로더에 웨이퍼 교체 요청 신호 전송 ───────────────
-                // IWaferLoader 인터페이스를 통한 가상 이벤트 발생
-                Console.WriteLine($"[INFO]  '{Name}' ? 로더 유닛에 웨이퍼 교체(Change) 요청 신호 전송.");
-                OnWaferChangeRequested();
+        //        // ── Step 3: 로더에 웨이퍼 교체 요청 신호 전송 ───────────────
+        //        // IWaferLoader 인터페이스를 통한 가상 이벤트 발생
+        //        Console.WriteLine($"[INFO]  '{Name}' ? 로더 유닛에 웨이퍼 교체(Change) 요청 신호 전송.");
+        //        OnWaferChangeRequested();
 
-                CurrentWaferMap = null;
+        //        CurrentWaferMap = null;
 
-                Console.WriteLine($"[INFO]  '{Name}' ? 웨이퍼 언로딩 완료. 다음 자재 대기 중.");
-                return 0;
-            }
-            catch (Exception ex)
-            {
-                return RaiseStageAlarm(AlarmSeverity.Error, "IS-UNLOAD-EX", "InputStageUnit.UnloadWaferAsync", "UnloadWafer exception: " + ex.Message);
-            }
-            finally
-            {
-            }
-        }
+        //        Console.WriteLine($"[INFO]  '{Name}' ? 웨이퍼 언로딩 완료. 다음 자재 대기 중.");
+        //        return 0;
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return RaiseStageAlarm(AlarmSeverity.Error, "IS-UNLOAD-EX", "InputStageUnit.UnloadWaferAsync", "UnloadWafer exception: " + ex.Message);
+        //    }
+        //    finally
+        //    {
+        //    }
+        //}
 
         // ??????????????????????????????????????????????????????????????????????
         //  §7. 이벤트
@@ -957,7 +1058,6 @@ namespace QMC.CDT320
         // ??????????????????????????????????????????????????????????????????????
         //  §8. 내부 유틸리티 메서드
         // ??????????????????????????????????????????????????????????????????????
-
         /// <summary>
         /// 지정한 다이 좌표로 StageY와 CameraX를 동시에 이동한다.
         /// </summary>
@@ -971,16 +1071,16 @@ namespace QMC.CDT320
         {
             try
             {
-                double pitchX = useEstimate ? Recipe.DefaultPitchX : PitchX;
-                double pitchY = useEstimate ? Recipe.DefaultPitchY : PitchY;
+                double pitchX = useEstimate ? DefaultEstimatedPitchX : PitchX;
+                double pitchY = useEstimate ? DefaultEstimatedPitchY : PitchY;
                 double origX  = useEstimate ? 0.0               : OriginX;
                 double origY  = useEstimate ? 0.0               : OriginY;
 
                 double targetX = origX + col * pitchX;
                 double targetY = origY + row * pitchY;
 
-                Task<int> moveY = StageY.MoveAbsoluteAsync(targetY, Recipe.AlignVelocity);
-                Task<int> moveX = CameraX.MoveAbsoluteAsync(targetX, Recipe.AlignVelocity);
+                Task<int> moveY = StageY.MoveAbsoluteAsync(targetY, ResolveAxisFineVelocity(StageY));
+                Task<int> moveX = SharedRailXMotionRuntime.MoveAxisAsync(CameraX, targetX, ResolveAxisFineVelocity(CameraX));
                 int[] results = await Task.WhenAll(moveY, moveX);
 
                 if (results[0] != 0 || results[1] != 0 || StageY.IsAlarm || CameraX.IsAlarm)
@@ -997,6 +1097,8 @@ namespace QMC.CDT320
             }
         }
 
+
+        // ExecutePickupAsync : FrontPickerSequence, RearPickerSequence로 옮겨서 구현 예정.
         /// <summary>
         /// NeedleZ 이젝트 동작을 포함한 단일 다이 픽업 시퀀스를 실행한다.<br/>
         /// <para>
@@ -1010,52 +1112,52 @@ namespace QMC.CDT320
         /// </summary>
         /// <param name="dieIndex">픽업 대상 글로벌 다이 인덱스</param>
         /// <returns>성공 시 true, 타임아웃 또는 축 알람 시 false</returns>
-        private async Task<int> ExecutePickupAsync(int dieIndex)
-        {
-            try
-            {
-                // ── 1. NeedleVacuum On ─────────────────────────────────────────
-                NeedleVacuum.On();
-                await Task.Delay(Recipe.NeedleVacuumSettleMs).ContinueWith(_ => { });
+        //private async Task<int> ExecutePickupAsync(int dieIndex)
+        //{
+        //    try
+        //    {
+        //        // ── 1. NeedleVacuum On ─────────────────────────────────────────
+        //        NeedleVacuum.On();
+        //        await Task.Delay(ResolveNeedleVacuumSettleMs()).ContinueWith(_ => { });
 
-                // ── 2. TPU 픽업 가능 신호 전송 ────────────────────────────────
-                Tpu.NotifyPickReady(dieIndex);
+        //        // ── 2. TPU 픽업 가능 신호 전송 ────────────────────────────────
+        //        Tpu.NotifyPickReady(dieIndex);
 
-                // ── 3. NeedleZ 상승 (Eject) ───────────────────────────────────
-                int moveResult = await NeedleZ.MoveAbsoluteAsync(Setup.NeedleEjectPosition, Recipe.NeedleVelocity);
+        //        // ── 3. NeedleZ 상승 (Eject) ───────────────────────────────────
+        //        int moveResult = await NeedleZ.MoveAbsoluteAsync(Setup.NeedleEjectPosition, ResolveAxisVelocity(NeedleZ));
 
-                if (moveResult != 0 || NeedleZ.IsAlarm)
-                    return RaiseStageAlarm(AlarmSeverity.Error, "IS-MOVE", "InputStageUnit.ExecutePickupAsync", $"NeedleZ 상승(Eject) 실패 (다이 [{dieIndex}], result={moveResult}, axis code={NeedleZ.AlarmCode}).");
+        //        if (moveResult != 0 || NeedleZ.IsAlarm)
+        //            return RaiseStageAlarm(AlarmSeverity.Error, "IS-MOVE", "InputStageUnit.ExecutePickupAsync", $"NeedleZ 상승(Eject) 실패 (다이 [{dieIndex}], result={moveResult}, axis code={NeedleZ.AlarmCode}).");
 
-                // ── 4. TPU 픽커 상승 완료 대기 ───────────────────────────────
-                bool pickerUp = await Tpu.WaitPickerUpAsync(Recipe.PickerUpTimeoutMs);
+        //        // ── 4. TPU 픽커 상승 완료 대기 ───────────────────────────────
+        //        bool pickerUp = await Tpu.WaitPickerUpAsync(ResolvePickerUpTimeoutMs());
 
-                if (!pickerUp)
-                {
-                    Console.WriteLine(
-                        $"[ALARM] '{Name}' ? ExecutePickup: TPU 픽커 상승 타임아웃 (다이 [{dieIndex}]).");
-                    // 안전을 위해 NeedleZ 하강 + 진공 해제
-                    await NeedleZ.MoveAbsoluteAsync(Setup.NeedleDownPosition, Recipe.NeedleVelocity);
-                    return RaiseStageAlarm(AlarmSeverity.Error, "IS-PICKER-UP", "InputStageUnit.ExecutePickupAsync", $"TPU 픽커 상승 타임아웃 (다이 [{dieIndex}]).");
-                }
+        //        if (!pickerUp)
+        //        {
+        //            Console.WriteLine(
+        //                $"[ALARM] '{Name}' ? ExecutePickup: TPU 픽커 상승 타임아웃 (다이 [{dieIndex}]).");
+        //            // 안전을 위해 NeedleZ 하강 + 진공 해제
+        //            await NeedleZ.MoveAbsoluteAsync(Setup.NeedleDownPosition, ResolveAxisVelocity(NeedleZ));
+        //            return RaiseStageAlarm(AlarmSeverity.Error, "IS-PICKER-UP", "InputStageUnit.ExecutePickupAsync", $"TPU 픽커 상승 타임아웃 (다이 [{dieIndex}]).");
+        //        }
 
-                // ── 5. NeedleZ 하강 + NeedleVacuum Off ───────────────────────
-                moveResult = await NeedleZ.MoveAbsoluteAsync(Setup.NeedleDownPosition, Recipe.NeedleVelocity);
+        //        // ── 5. NeedleZ 하강 + NeedleVacuum Off ───────────────────────
+        //        moveResult = await NeedleZ.MoveAbsoluteAsync(Setup.NeedleDownPosition, ResolveAxisVelocity(NeedleZ));
 
-                if (moveResult != 0 || NeedleZ.IsAlarm)
-                    return RaiseStageAlarm(AlarmSeverity.Error, "IS-MOVE", "InputStageUnit.ExecutePickupAsync", $"NeedleZ 하강 실패 (다이 [{dieIndex}], result={moveResult}, axis code={NeedleZ.AlarmCode}).");
+        //        if (moveResult != 0 || NeedleZ.IsAlarm)
+        //            return RaiseStageAlarm(AlarmSeverity.Error, "IS-MOVE", "InputStageUnit.ExecutePickupAsync", $"NeedleZ 하강 실패 (다이 [{dieIndex}], result={moveResult}, axis code={NeedleZ.AlarmCode}).");
 
-                return 0;
-            }
-            catch (Exception ex)
-            {
-                return RaiseStageAlarm(AlarmSeverity.Error, "IS-PICK-EX", "InputStageUnit.ExecutePickupAsync", "ExecutePickup exception: " + ex.Message);
-            }
-            finally
-            {
-                NeedleVacuum.Off();
-            }
-        }
+        //        return 0;
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        return RaiseStageAlarm(AlarmSeverity.Error, "IS-PICK-EX", "InputStageUnit.ExecutePickupAsync", "ExecutePickup exception: " + ex.Message);
+        //    }
+        //    finally
+        //    {
+        //        NeedleVacuum.Off();
+        //    }
+        //}
 
         private int RaiseStageAlarm(AlarmSeverity severity, string code, string source, string message)
         {

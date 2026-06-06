@@ -13,6 +13,7 @@ namespace QMC.CDT_320.Ui.Controls
         private bool _isRefreshing;
 
         public event EventHandler<ParameterGridChangedEventArgs> ParameterValueChanged;
+        public event EventHandler<ParameterGridChangedEventArgs> ParameterRowDoubleClicked;
 
         public ParameterGridItem SelectedItem
         {
@@ -459,6 +460,21 @@ namespace QMC.CDT_320.Ui.Controls
             }
         }
 
+        private void OnParameterRowDoubleClicked(ParameterGridItem item)
+        {
+            try
+            {
+                ParameterRowDoubleClicked?.Invoke(this, new ParameterGridChangedEventArgs(item));
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "PARAM-GRID", "RowDoubleClicked failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
         private void ToggleBoolRow(DataGridViewRow row)
         {
             try
@@ -475,7 +491,7 @@ namespace QMC.CDT_320.Ui.Controls
                     current = Convert.ToBoolean(item.Getter());
 
                 bool next = !current;
-                string message = item.DisplayName + " 媛믪쓣 " + (next ? "True" : "False") + "(??濡?蹂寃쏀븯?쒓쿋?듬땲源?";
+                string message = item.DisplayName + " 값을 " + (next ? "True" : "False") + "로 변경하시겠습니까?";
                 DialogResult result = QMC.Common.MessageDialog.Show(this, message, "Parameter Change", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
                 if (result != DialogResult.Yes)
                     return;
@@ -579,10 +595,13 @@ namespace QMC.CDT_320.Ui.Controls
         {
             try
             {
-                if (e.RowIndex < 0 || e.ColumnIndex != colValue.Index)
+                if (e.RowIndex < 0)
                     return;
 
-                ShowNumericEditor(grid.Rows[e.RowIndex]);
+                if (e.ColumnIndex == colValue.Index)
+                    ShowNumericEditor(grid.Rows[e.RowIndex]);
+                else
+                    OnParameterRowDoubleClicked(grid.Rows[e.RowIndex].Tag as ParameterGridItem);
             }
             catch (Exception ex)
             {

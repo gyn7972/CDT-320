@@ -20,9 +20,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         {
             var host = FindForm() as Form1;
             if (host?.Machine == null) return;
-            var op = host.Machine.OpPanel;
-            var res = host.Machine.Resources;
-            var ion = host.Machine.Ionizer;
+            var op = host.Machine.OpPanelUnit;
+            var res = host.Machine.ResourcesUnit;
+            var ion = host.Machine.IonizerUnit;
 
             if (op != null)
             {

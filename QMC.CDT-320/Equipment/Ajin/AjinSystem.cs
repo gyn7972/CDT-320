@@ -24,8 +24,6 @@ namespace QMC.CDT320.Ajin
 
             try
             {
-
-
                 int r = AXL.Open(irqNo);
                 if (r != 0)
                 {

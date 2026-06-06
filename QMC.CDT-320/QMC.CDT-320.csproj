@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
@@ -70,19 +70,52 @@
   <ItemGroup>
     <!-- Equipment / Core -->
     <Compile Include="Equipment\AppSettings.cs" />
+    <Compile Include="Equipment\Alarms\AlarmResponsePolicy.cs" />
+    <Compile Include="Equipment\Alarms\AlarmResponseService.cs" />
+    <Compile Include="Equipment\Alarms\AlarmStopScope.cs" />
+    <Compile Include="Equipment\Alarms\AxisInterferenceMap.cs" />
     <Compile Include="Equipment\CDT320Machine.cs" />
     <Compile Include="Equipment\CycleMode.cs" />
     <Compile Include="Equipment\EquipmentStatus.cs" />
-    <Compile Include="Equipment\Unit\OutCassetteUnit.cs" />
-    <Compile Include="Equipment\Unit\BinFeederUnit.cs" />
+    <Compile Include="Equipment\Unit\OutputCassetteUnit.cs" />
+    <Compile Include="Equipment\Unit\OutputFeederUnit.cs" />
     <Compile Include="Equipment\Unit\OutputStageUnit.cs" />
-    <Compile Include="Equipment\Unit\OutputUnloaderUnit.cs" />
-    <Compile Include="Equipment\Unit\WaferTransferTypes.cs" />
+    <Compile Include="Equipment\Unit\PickerFrontUnit.cs" />
+    <Compile Include="Equipment\Unit\PickerRearUnit.cs" />
+    <Compile Include="Equipment\Unit\Common\PickerTransferTypes.cs" />
+    <Compile Include="Equipment\Unit\VisionUnit.cs" />
+    <Compile Include="Equipment\Unit\Common\IUnitJogController.cs" />
+    <Compile Include="Equipment\Unit\Common\UnitDefined.cs" />
     <Compile Include="Equipment\Unit\InputCassetteUnit.cs" />
     <Compile Include="Equipment\Unit\InputFeederUnit.cs" />
     <Compile Include="Equipment\Unit\InputStageUnit.cs" />
     <Compile Include="Equipment\IStageInterfaces.cs" />
     <Compile Include="Equipment\MachineController.cs" />
+    <Compile Include="Equipment\Motion\SharedRailX\SharedRailXAxis.cs" />
+    <Compile Include="Equipment\Motion\SharedRailX\SharedRailXMoveMode.cs" />
+    <Compile Include="Equipment\Motion\SharedRailX\SharedRailXAxisSetting.cs" />
+    <Compile Include="Equipment\Motion\SharedRailX\SharedRailXConfig.cs" />
+    <Compile Include="Equipment\Motion\SharedRailX\SharedRailXTarget.cs" />
+    <Compile Include="Equipment\Motion\SharedRailX\SharedRailXMovePlan.cs" />
+    <Compile Include="Equipment\Motion\SharedRailX\SharedRailXValidationResult.cs" />
+    <Compile Include="Equipment\Motion\SharedRailX\SharedRailXCollisionValidator.cs" />
+    <Compile Include="Equipment\Motion\SharedRailX\SharedRailXMotionService.cs" />
+    <Compile Include="Equipment\Motion\SharedRailX\SharedRailXMotionRuntime.cs" />
+    <Compile Include="Equipment\Initialization\AxisInitializeInterlockService.cs" />
+    <Compile Include="Equipment\Initialization\AxisInitializePlan.cs" />
+    <Compile Include="Equipment\Interlocks\InputCassetteInterlockRules.cs" />
+    <Compile Include="Equipment\Interlocks\InputFeederInterlockRules.cs" />
+    <Compile Include="Equipment\Interlocks\SharedRailXInterlockRules.cs" />
+    <Compile Include="Equipment\Interlocks\InputStageInterlockRules.cs" />
+    <Compile Include="Equipment\Interlocks\VisionInterlockRules.cs" />
+    <Compile Include="Equipment\Interlocks\PickerFrontInterlockRules.cs" />
+    <Compile Include="Equipment\Interlocks\PickerRearInterlockRules.cs" />
+    <Compile Include="Equipment\Interlocks\OutputStageInterlockRules.cs" />
+    <Compile Include="Equipment\Interlocks\OutputFeederInterlockRules.cs" />
+    <Compile Include="Equipment\Interlocks\OutputCassetteInterlockRules.cs" />
+    <Compile Include="Equipment\Interlocks\MotionGuardRuleHelpers.cs" />
+    <Compile Include="Equipment\Interlocks\MotionGuardRuleRegistry.cs" />
+    <Compile Include="Equipment\MachineRuntimeState.cs" />
     <Compile Include="Equipment\OperationPanelMonitorService.cs" />
     <Compile Include="Equipment\SimComponents.cs" />
     <Compile Include="Equipment\SimulatorBridge.cs" />
@@ -198,10 +231,16 @@
     <Compile Include="Ui\Pages\Recipe\OutputCassetteRecipePage.Designer.cs">
       <DependentUpon>OutputCassetteRecipePage.cs</DependentUpon>
     </Compile>
-    <Compile Include="Ui\Pages\Recipe\FeederRecipePage.Designer.cs">
-      <DependentUpon>FeederRecipePage.cs</DependentUpon>
+    <Compile Include="Ui\Pages\Recipe\InputFeederRecipePage.Designer.cs">
+      <DependentUpon>InputFeederRecipePage.cs</DependentUpon>
     </Compile>
-    <Compile Include="Ui\Pages\Recipe\FeederRecipePage.cs">
+    <Compile Include="Ui\Pages\Recipe\InputFeederRecipePage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\Recipe\OutputFeederRecipePage.Designer.cs">
+      <DependentUpon>OutputFeederRecipePage.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Pages\Recipe\OutputFeederRecipePage.cs">
       <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="Ui\Pages\Recipe\ModuleSubsetPage.cs">
@@ -211,17 +250,22 @@
       <DependentUpon>ModuleSubsetPage.cs</DependentUpon>
     </Compile>
     <Compile Include="Equipment\Vision\BarcodeSerialAdapter.cs" />
-    <Compile Include="Equipment\Unit\OperationPanelUnit.cs" />
-    <Compile Include="Equipment\Unit\ResourceSensorsUnit.cs" />
+    <Compile Include="Equipment\UnitCommon\OperationPanelUnit.cs" />
+    <Compile Include="Equipment\UnitCommon\ResourceSensorsUnit.cs" />
     <Compile Include="Equipment\SlotMapper.cs" />
-    <Compile Include="Equipment\Unit\IonizerUnit.cs" />
-    <Compile Include="Equipment\Unit\PostPnpTransferUnit.cs" />
+    <Compile Include="Equipment\UnitCommon\IonizerUnit.cs" />
     <Compile Include="Equipment\Plate.cs" />
     <Compile Include="Ui\Pages\Recipe\InputStageRecipePage.cs">
       <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="Ui\Pages\Recipe\InputStageRecipePage.Designer.cs">
       <DependentUpon>InputStageRecipePage.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Pages\Recipe\OutputStageRecipePage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\Recipe\OutputStageRecipePage.Designer.cs">
+      <DependentUpon>OutputStageRecipePage.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Pages\Settings\AxisSetupPage.Designer.cs">
       <DependentUpon>AxisSetupPage.cs</DependentUpon>
@@ -265,7 +309,6 @@
     <Compile Include="Ui\Pages\Recipe\OutputSubsetPage.Designer.cs">
       <DependentUpon>OutputSubsetPage.cs</DependentUpon>
     </Compile>
-    <Compile Include="Equipment\Unit\TransferPickerUnit.cs" />
     <Compile Include="Equipment\UnitData.cs" />
     <!-- Sequencing -->
     <Compile Include="Sequencing\SequenceUnitKind.cs" />
@@ -323,7 +366,11 @@
     <Compile Include="Equipment\Jobs\JobOrder.cs" />
     <Compile Include="Equipment\Jobs\JobQueue.cs" />
     <!-- Equipment / Interlocks (310 ?�식) -->
+    <Compile Include="Equipment\Interlocks\InterlockCheckMatrix.cs" />
+    <Compile Include="Equipment\Interlocks\InterlockCheckMatrixStore.cs" />
     <Compile Include="Equipment\Interlocks\MotionInterlock.cs" />
+    <Compile Include="Equipment\Interlocks\MotionGuardRuntime.cs" />
+    <Compile Include="Equipment\Interlocks\MotionGuardService.cs" />
     <Compile Include="Equipment\Interlocks\StandardInterlocks.cs" />
     <!-- Ui / Controls (310 ?�식) -->
     <Compile Include="Ui\Controls\DieMapView.cs">
@@ -793,6 +840,9 @@
     <EmbeddedResource Include="Ui\Pages\Recipe\InputCassetteRecipePage.resx">
       <DependentUpon>InputCassetteRecipePage.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\Recipe\InputFeederRecipePage.resx">
+      <DependentUpon>InputFeederRecipePage.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\Recipe\LoadTapeFrameSubsetPage.resx">
       <DependentUpon>LoadTapeFrameSubsetPage.cs</DependentUpon>
     </EmbeddedResource>
@@ -801,6 +851,12 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\Recipe\OutputCassetteRecipePage.resx">
       <DependentUpon>OutputCassetteRecipePage.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\Recipe\OutputFeederRecipePage.resx">
+      <DependentUpon>OutputFeederRecipePage.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\Recipe\OutputStageRecipePage.resx">
+      <DependentUpon>OutputStageRecipePage.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\Recipe\OutputSubsetPage.resx">
       <DependentUpon>OutputSubsetPage.cs</DependentUpon>
@@ -850,6 +906,9 @@
     <EmbeddedResource Include="Ui\Pages\WorkInfo\InputCassettePage.resx">
       <DependentUpon>InputCassettePage.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\WorkInfo\InputFeederPage.resx">
+      <DependentUpon>InputFeederPage.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\WorkInfo\OperationPanelStatusPage.resx">
       <DependentUpon>OperationPanelStatusPage.cs</DependentUpon>
     </EmbeddedResource>
@@ -878,5 +937,6 @@
       <Name>QMC.Common</Name>
     </ProjectReference>
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

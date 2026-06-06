@@ -65,7 +65,7 @@ namespace QMC.CDT320
 
         private void Tick()
         {
-            var op = _machine.OpPanel;
+            var op = _machine.OpPanelUnit;
             if (op == null)
                 return;
 
@@ -200,7 +200,7 @@ namespace QMC.CDT320
 
         private async Task HandleResetAsync()
         {
-            var op = _machine.OpPanel;
+            var op = _machine.OpPanelUnit;
             if (op != null)
                 Write(op.ResetLamp, true);
 

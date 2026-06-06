@@ -42,6 +42,7 @@ namespace QMC.CDT320.Sequencing
         public int RequiredCassetteSize { get; set; }
         public int MoveTimeoutMs { get; set; }
         public SequenceRunMode RunMode { get; set; }
+        public SequenceStartMode StartMode { get; set; }
 
         public static InputCassetteSequenceOptions Default()
         {
@@ -51,7 +52,8 @@ namespace QMC.CDT320.Sequencing
                 RequireActiveLot = false,
                 RequiredCassetteSize = 0,
                 MoveTimeoutMs = 0,
-                RunMode = SequenceRunMode.Auto
+                RunMode = SequenceRunMode.Auto,
+                StartMode = SequenceStartMode.Resume
             };
         }
     }
@@ -120,12 +122,12 @@ namespace QMC.CDT320.Sequencing
 
         protected InputCassetteUnit Cassette
         {
-            get { return Context != null && Context.Machine != null ? Context.Machine.InputCassette : null; }
+            get { return Context != null && Context.Machine != null ? Context.Machine.InputCassetteUnit : null; }
         }
 
         protected InputFeederUnit Feeder
         {
-            get { return Context != null && Context.Machine != null ? Context.Machine.InputFeeder : null; }
+            get { return Context != null && Context.Machine != null ? Context.Machine.InputFeederUnit : null; }
         }
 
         public async Task<int> RunAsync(CancellationToken ct, InputCassetteSequenceOptions options)
@@ -387,9 +389,11 @@ namespace QMC.CDT320.Sequencing
                     return Fail("IN-CST-MOVE-READY", cassette.Name, "Input cassette is not ready to move.");
 
                 int result = await cassette.MoveToWaferCassetteMappingStartPosition(Options.FineMove).ConfigureAwait(false);
-                if (result != 0) return Fail("IN-CST-MAP-START", cassette.Name, "Move mapping start position failed. result=" + result);
+                if (result != 0)
+                    return Fail("IN-CST-MAP-START", cassette.Name, "Move mapping start position failed. result=" + result);
                 result = await cassette.WaitWaferLifterZMoveDone(ResolveMoveTimeout(cassette)).ConfigureAwait(false);
-                if (result != 0) return Fail("IN-CST-MAP-START-WAIT", cassette.Name, "Mapping start position move timeout.");
+                if (result != 0)
+                    return Fail("IN-CST-MAP-START-WAIT", cassette.Name, "Mapping start position move timeout.");
 
                 CurrentStep = InputCassetteSequenceStep.MoveMappingEndPosition;
                 return 0;
@@ -540,6 +544,13 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
+                if (Options.StartMode == SequenceStartMode.Restart)
+                {
+                    SequenceResumeStore.Clear(SequenceStateName);
+                    WriteLog("ResolveStartStep", "Input cassette " + Kind + " sequence forced restart from step=" + defaultStep + ". - Ok");
+                    return defaultStep;
+                }
+
                 string stepText = SequenceResumeStore.ResolveStartStep(SequenceStateName, defaultStep.ToString());
                 InputCassetteSequenceStep parsed;
                 if (Enum.TryParse(stepText, out parsed) &&
@@ -599,7 +610,7 @@ namespace QMC.CDT320.Sequencing
             if (Options.MoveTimeoutMs > 0)
                 return Options.MoveTimeoutMs;
 
-            int configured = cassette != null && cassette.Config != null ? cassette.Config.ElevatorMoveTimeoutMs : 0;
+            int configured = cassette != null ? cassette.ResolveWaferLifterZMoveTimeoutMs() : 0;
             return configured > 0 ? configured : 3000;
         }
 

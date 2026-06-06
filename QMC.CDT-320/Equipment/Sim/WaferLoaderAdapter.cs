@@ -1,4 +1,4 @@
-namespace QMC.CDT320.Sim
+﻿namespace QMC.CDT320.Sim
 {
     /// <summary>
     /// Stage 28 — 실 InputLoaderUnit 을 IWaferLoader 인터페이스로 어댑팅.<br/>

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.ComponentModel;
 using System.Windows.Forms;
 using QMC.CDT320;
@@ -25,7 +25,7 @@ namespace QMC.CDT_320.Ui.Tabs
 
             RegisterSidebarButton(BtnMain, "work.page.main", op, () => new WorkMainPage());
 
-            RegisterActionButton(BtnInit,       "work.init",       op, () => RunSafe(async c => await c.InitAsync()));
+            RegisterActionButton(BtnInit,       "work.init",       op, () => RunSafe(c => c.InitAsync()));
             RegisterActionButton(BtnStart,      "work.start",      op, () => RunSafe(async c => await c.StartAsync()));
             RegisterActionButton(BtnStop,       "work.stop",       op, () => RunSafe(async c =>
             {
@@ -129,7 +129,11 @@ namespace QMC.CDT_320.Ui.Tabs
                 if (result != 0)
                 {
                     QMC.Common.Log.Write("Main", "SYSTEM", "RunSafe", "Work action failed: return=" + result + " - Failed");
-                    QMC.Common.MessageDialog.Show(FindForm(), "작업 수행에 실패했습니다.\nAlarm/Event Log를 확인하세요.", "Work", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    string message = string.IsNullOrEmpty(Host.Controller.LastActionFailureMessage)
+                        ? "작업 수행에 실패했습니다.\nAlarm/Event Log를 확인하세요."
+                        : Host.Controller.LastActionFailureMessage;
+                    QMC.Common.MessageDialog.Show(FindForm(), message, "Work", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
                 }
             }
             catch (Exception ex)

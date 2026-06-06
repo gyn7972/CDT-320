@@ -2,6 +2,7 @@
 using QMC.Common;
 using QMC.Common.Alarms;
 using QMC.Common.Motion.Ajin;
+using QMC.CDT320.Interlocks;
 using System;
 using System.Threading.Tasks;
 
@@ -29,6 +30,11 @@ namespace QMC.CDT320.Ajin
         private bool UseSimulation
         {
             get { return Config != null && Config.IsSimulationMode; }
+        }
+
+        public bool CanUseSynchronizedAbsoluteMove
+        {
+            get { return !UseSimulation && AjinSystem.IsOpen; }
         }
 
         public AjinAxis(string name, int axisNo) : base(name)
@@ -90,6 +96,10 @@ namespace QMC.CDT320.Ajin
             {
                 if (UseSimulation)
                     return await base.MoveAbsoluteAsync(targetPos, velocity);
+
+                string interlockReason;
+                if (!MotionGuardRuntime.VerifyAxisMove(this, targetPos, out interlockReason))
+                    return -11;
 
                 if (!IsServoOn || IsAlarm || !AjinSystem.IsOpen)
                     return -2;
@@ -178,6 +188,51 @@ namespace QMC.CDT320.Ajin
             }
         }
 
+        public int ValidateSynchronizedAbsoluteMove(double targetPos, double velocity, out double resolvedVelocity)
+        {
+            resolvedVelocity = velocity > 0 ? velocity : Config.DefaultVelocity;
+
+            if (!CanUseSynchronizedAbsoluteMove)
+                return -2;
+            if (!IsServoOn || IsAlarm)
+                return -2;
+
+            UpdateStatus();
+            return CheckSoftLimitTarget(targetPos);
+        }
+
+        public void BeginSynchronizedAbsoluteMove(double targetPos, double velocity)
+        {
+            double resolvedVelocity = velocity > 0 ? velocity : Config.DefaultVelocity;
+            CommandPosition = targetPos;
+            CurrentVelocity = resolvedVelocity;
+            IsMoving = true;
+            IsInPosition = false;
+            _motionDirection = targetPos > ActualPosition ? 1 : targetPos < ActualPosition ? -1 : 0;
+            RaiseMoveStarted();
+        }
+
+        public void FailSynchronizedAbsoluteMove(int ret)
+        {
+            IsMoving = false;
+            IsAlarm = true;
+            AlarmCode = (uint)ret;
+            _motionDirection = 0;
+            AlarmManager.Raise(
+                AlarmSeverity.Error,
+                "AX-MOVE-MULTI",
+                Name,
+                "AXM.MoveMultiplePosition failed. ret=0x" + ret.ToString("X4"));
+        }
+
+        public async Task<int> WaitSynchronizedMoveDoneAsync()
+        {
+            int waitRet = await WaitUntilMoveDone();
+            if (waitRet == 0 && !IsAlarm)
+                _motionDirection = 0;
+            return IsAlarm ? (int)AlarmCode : waitRet;
+        }
+
         public override void Stop()
         {
             _motionDirection = 0;
@@ -216,6 +271,10 @@ namespace QMC.CDT320.Ajin
             {
                 if (UseSimulation)
                     return await base.HomeSearchAsync();
+
+                string interlockReason;
+                if (!MotionGuardRuntime.VerifyAxisHome(this, out interlockReason))
+                    return -11;
 
                 if (!IsServoOn || IsAlarm || !AjinSystem.IsOpen)
                     return -2;
@@ -313,6 +372,11 @@ namespace QMC.CDT320.Ajin
                 }
 
                 if (!IsServoOn || IsAlarm || !AjinSystem.IsOpen)
+                    return;
+
+                double jogTarget = direction > 0 ? Setup.SoftLimitPlus : Setup.SoftLimitMinus;
+                string interlockReason;
+                if (!MotionGuardRuntime.VerifyAxisMove(this, jogTarget, out interlockReason))
                     return;
 
                 UpdateStatus();

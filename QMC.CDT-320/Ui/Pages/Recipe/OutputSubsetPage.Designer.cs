@@ -1,4 +1,4 @@
-using System.Drawing;
+Ôªøusing System.Drawing;
 using System.Windows.Forms;
 
 namespace QMC.CDT_320.Ui.Pages.Recipe
@@ -100,7 +100,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblOutputHeader.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.editorLayout.SetColumnSpan(this.lblOutputHeader, 2);
             this.lblOutputHeader.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblOutputHeader.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F, System.Drawing.FontStyle.Bold);
+            this.lblOutputHeader.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F, System.Drawing.FontStyle.Bold);
             this.lblOutputHeader.ForeColor = System.Drawing.Color.DarkSlateGray;
             this.lblOutputHeader.Location = new System.Drawing.Point(13, 10);
             this.lblOutputHeader.Name = "lblOutputHeader";
@@ -113,7 +113,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // lblGoodMax
             // 
             this.lblGoodMax.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblGoodMax.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F);
+            this.lblGoodMax.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F);
             this.lblGoodMax.Location = new System.Drawing.Point(13, 40);
             this.lblGoodMax.Name = "lblGoodMax";
             this.lblGoodMax.Size = new System.Drawing.Size(214, 34);
@@ -132,7 +132,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             0,
             0});
             this._nGoodMax.Name = "_nGoodMax";
-            this._nGoodMax.Size = new System.Drawing.Size(832, 27);
+            this._nGoodMax.Size = new System.Drawing.Size(832, 23);
             this._nGoodMax.TabIndex = 2;
             this._nGoodMax.Value = new decimal(new int[] {
             1,
@@ -143,7 +143,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // lblNgMax
             // 
             this.lblNgMax.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblNgMax.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F);
+            this.lblNgMax.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F);
             this.lblNgMax.Location = new System.Drawing.Point(13, 74);
             this.lblNgMax.Name = "lblNgMax";
             this.lblNgMax.Size = new System.Drawing.Size(214, 34);
@@ -162,7 +162,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             0,
             0});
             this._nNgMax.Name = "_nNgMax";
-            this._nNgMax.Size = new System.Drawing.Size(832, 27);
+            this._nNgMax.Size = new System.Drawing.Size(832, 23);
             this._nNgMax.TabIndex = 4;
             this._nNgMax.Value = new decimal(new int[] {
             1,
@@ -173,7 +173,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // lblDiesPerWafer
             // 
             this.lblDiesPerWafer.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblDiesPerWafer.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F);
+            this.lblDiesPerWafer.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F);
             this.lblDiesPerWafer.Location = new System.Drawing.Point(13, 108);
             this.lblDiesPerWafer.Name = "lblDiesPerWafer";
             this.lblDiesPerWafer.Size = new System.Drawing.Size(214, 34);
@@ -192,7 +192,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             0,
             0});
             this._nDiesPerWafer.Name = "_nDiesPerWafer";
-            this._nDiesPerWafer.Size = new System.Drawing.Size(832, 27);
+            this._nDiesPerWafer.Size = new System.Drawing.Size(832, 23);
             this._nDiesPerWafer.TabIndex = 6;
             this._nDiesPerWafer.Value = new decimal(new int[] {
             1,
@@ -203,7 +203,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // lblWafersPerBatch
             // 
             this.lblWafersPerBatch.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblWafersPerBatch.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F);
+            this.lblWafersPerBatch.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F);
             this.lblWafersPerBatch.Location = new System.Drawing.Point(13, 142);
             this.lblWafersPerBatch.Name = "lblWafersPerBatch";
             this.lblWafersPerBatch.Size = new System.Drawing.Size(214, 34);
@@ -222,7 +222,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             0,
             0});
             this._nWafersPerBatch.Name = "_nWafersPerBatch";
-            this._nWafersPerBatch.Size = new System.Drawing.Size(832, 27);
+            this._nWafersPerBatch.Size = new System.Drawing.Size(832, 23);
             this._nWafersPerBatch.TabIndex = 8;
             this._nWafersPerBatch.Value = new decimal(new int[] {
             1,
@@ -233,7 +233,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // lblAutoBin
             // 
             this.lblAutoBin.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblAutoBin.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F);
+            this.lblAutoBin.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F);
             this.lblAutoBin.Location = new System.Drawing.Point(13, 176);
             this.lblAutoBin.Name = "lblAutoBin";
             this.lblAutoBin.Size = new System.Drawing.Size(214, 34);
@@ -244,7 +244,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // _cbAutoBin
             // 
             this._cbAutoBin.Dock = System.Windows.Forms.DockStyle.Fill;
-            this._cbAutoBin.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F);
+            this._cbAutoBin.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F);
             this._cbAutoBin.Location = new System.Drawing.Point(233, 179);
             this._cbAutoBin.Name = "_cbAutoBin";
             this._cbAutoBin.Size = new System.Drawing.Size(832, 28);
@@ -254,7 +254,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // lblAlarmFull
             // 
             this.lblAlarmFull.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblAlarmFull.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F);
+            this.lblAlarmFull.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F);
             this.lblAlarmFull.Location = new System.Drawing.Point(13, 210);
             this.lblAlarmFull.Name = "lblAlarmFull";
             this.lblAlarmFull.Size = new System.Drawing.Size(214, 34);
@@ -265,7 +265,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // _cbAlarmFull
             // 
             this._cbAlarmFull.Dock = System.Windows.Forms.DockStyle.Fill;
-            this._cbAlarmFull.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F);
+            this._cbAlarmFull.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F);
             this._cbAlarmFull.Location = new System.Drawing.Point(233, 213);
             this._cbAlarmFull.Name = "_cbAlarmFull";
             this._cbAlarmFull.Size = new System.Drawing.Size(832, 28);
@@ -275,7 +275,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // lblDefaultGood
             // 
             this.lblDefaultGood.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblDefaultGood.Font = new System.Drawing.Font("∏º¿∫ ∞ÌµÒ", 11F);
+            this.lblDefaultGood.Font = new System.Drawing.Font("ÎßëÏùÄ Í≥†Îîï", 11F);
             this.lblDefaultGood.Location = new System.Drawing.Point(13, 244);
             this.lblDefaultGood.Name = "lblDefaultGood";
             this.lblDefaultGood.Size = new System.Drawing.Size(214, 38);
@@ -289,7 +289,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this._tbDefaultGood.Font = new System.Drawing.Font("Consolas", 10F);
             this._tbDefaultGood.Location = new System.Drawing.Point(233, 247);
             this._tbDefaultGood.Name = "_tbDefaultGood";
-            this._tbDefaultGood.Size = new System.Drawing.Size(832, 27);
+            this._tbDefaultGood.Size = new System.Drawing.Size(832, 23);
             this._tbDefaultGood.TabIndex = 14;
             // 
             // OutputSubsetPage

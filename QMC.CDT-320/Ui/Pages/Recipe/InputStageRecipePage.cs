@@ -15,9 +15,178 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 {
     public partial class InputStageRecipePage : PageBase
     {
+        private enum StagePositionKind
+        {
+            Avoid,
+            Load,
+            Process,
+            Unload,
+            Ready,
+            Reticle
+        }
+
+        private sealed class StageTeachingPosition
+        {
+            public StageTeachingPosition(
+                string axisLabel,
+                StagePositionKind kind,
+                Func<InputStageUnit, BaseAxis> axisGetter,
+                Func<InputStageUnit, StageAxisPositions> positionSetGetter,
+                Func<StageAxisPositions, double> getter,
+                Action<StageAxisPositions, double> setter)
+            {
+                AxisLabel = axisLabel;
+                Kind = kind;
+                DisplayName = GetPositionLabel(kind) + " - " + axisLabel;
+                AxisGetter = axisGetter;
+                PositionSetGetter = positionSetGetter;
+                Getter = getter;
+                Setter = setter;
+            }
+
+            public string AxisLabel { get; private set; }
+            public StagePositionKind Kind { get; private set; }
+            public string DisplayName { get; private set; }
+            public Func<InputStageUnit, BaseAxis> AxisGetter { get; private set; }
+            public Func<InputStageUnit, StageAxisPositions> PositionSetGetter { get; private set; }
+            public Func<StageAxisPositions, double> Getter { get; private set; }
+            public Action<StageAxisPositions, double> Setter { get; private set; }
+        }
+
+        private static readonly StageTeachingPosition[] TeachingPositions = CreateTeachingPositions();
+
         private readonly string _titleI18n;
         private readonly Timer _refreshTimer = new Timer();
+        private readonly ToolTip _toolTip = new ToolTip();
         private InputStageUnit _InputStageUnit;
+
+        private static StageTeachingPosition[] CreateTeachingPositions()
+        {
+            var axes = new List<StageTeachingAxis>();
+            AddTeachingAxis(axes, "WAFER Y", unit => unit.StageY, unit => unit.Recipe.WaferY);
+            AddTeachingAxis(axes, "WAFER T", unit => unit.StageT, unit => unit.Recipe.WaferT);
+            AddTeachingAxis(axes, "EXPANDER Z", unit => unit.ExpanderZ, unit => unit.Recipe.WaferZ);
+            AddTeachingAxis(axes, "VISION X", unit => unit.CameraX, unit => unit.Recipe.VisionX, false, false);
+            AddTeachingAxis(axes, "NEEDLE X", unit => unit.NeedleBlockX, unit => unit.Recipe.NeedleX, false, false);
+            AddTeachingAxis(axes, "NEEDLE Z", unit => unit.NeedleZ, unit => unit.Recipe.NeedleZ);
+            AddTeachingAxis(axes, "EJECT PIN Z", unit => unit.EjectPinZ, unit => unit.Recipe.EjectPinZ, false, false);
+
+            var positions = new List<StageTeachingPosition>();
+            foreach (StagePositionKind kind in new[] { StagePositionKind.Avoid, StagePositionKind.Load, StagePositionKind.Process, StagePositionKind.Unload, StagePositionKind.Ready, StagePositionKind.Reticle })
+            {
+                foreach (StageTeachingAxis axis in axes)
+                {
+                    if (!axis.Supports(kind))
+                        continue;
+
+                    AddTeachingPosition(positions, axis, kind);
+                }
+            }
+
+            return positions.ToArray();
+        }
+
+        private sealed class StageTeachingAxis
+        {
+            public StageTeachingAxis(
+                string axisLabel,
+                Func<InputStageUnit, BaseAxis> axisGetter,
+                Func<InputStageUnit, StageAxisPositions> positionSetGetter,
+                bool includeLoad,
+                bool includeUnload)
+            {
+                AxisLabel = axisLabel;
+                AxisGetter = axisGetter;
+                PositionSetGetter = positionSetGetter;
+                IncludeLoad = includeLoad;
+                IncludeUnload = includeUnload;
+            }
+
+            public string AxisLabel { get; private set; }
+            public Func<InputStageUnit, BaseAxis> AxisGetter { get; private set; }
+            public Func<InputStageUnit, StageAxisPositions> PositionSetGetter { get; private set; }
+            public bool IncludeLoad { get; private set; }
+            public bool IncludeUnload { get; private set; }
+
+            public bool Supports(StagePositionKind kind)
+            {
+                if (kind == StagePositionKind.Load)
+                    return IncludeLoad;
+                if (kind == StagePositionKind.Unload)
+                    return IncludeUnload;
+                return true;
+            }
+        }
+
+        private static void AddTeachingAxis(
+            List<StageTeachingAxis> axes,
+            string axisLabel,
+            Func<InputStageUnit, BaseAxis> axisGetter,
+            Func<InputStageUnit, StageAxisPositions> positionSetGetter,
+            bool includeLoad = true,
+            bool includeUnload = true)
+        {
+            axes.Add(new StageTeachingAxis(axisLabel, axisGetter, positionSetGetter, includeLoad, includeUnload));
+        }
+
+        private static void AddTeachingPosition(
+            List<StageTeachingPosition> positions,
+            StageTeachingAxis axis,
+            StagePositionKind kind,
+            Func<StageAxisPositions, double> getter,
+            Action<StageAxisPositions, double> setter)
+        {
+            positions.Add(new StageTeachingPosition(axis.AxisLabel, kind, axis.AxisGetter, axis.PositionSetGetter, getter, setter));
+        }
+
+        private static void AddTeachingPosition(
+            List<StageTeachingPosition> positions,
+            StageTeachingAxis axis,
+            StagePositionKind kind)
+        {
+            switch (kind)
+            {
+                case StagePositionKind.Avoid:
+                    AddTeachingPosition(positions, axis, kind, set => set.AvoidPosition, (set, value) => set.AvoidPosition = value);
+                    break;
+                case StagePositionKind.Load:
+                    AddTeachingPosition(positions, axis, kind, set => set.LoadPosition, (set, value) => set.LoadPosition = value);
+                    break;
+                case StagePositionKind.Process:
+                    AddTeachingPosition(positions, axis, kind, set => set.ProcessPosition, (set, value) => set.ProcessPosition = value);
+                    break;
+                case StagePositionKind.Unload:
+                    AddTeachingPosition(positions, axis, kind, set => set.UnloadPosition, (set, value) => set.UnloadPosition = value);
+                    break;
+                case StagePositionKind.Ready:
+                    AddTeachingPosition(positions, axis, kind, set => set.ReadyPosition, (set, value) => set.ReadyPosition = value);
+                    break;
+                case StagePositionKind.Reticle:
+                    AddTeachingPosition(positions, axis, kind, set => set.ReticlePosition, (set, value) => set.ReticlePosition = value);
+                    break;
+            }
+        }
+
+        private static string GetPositionLabel(StagePositionKind kind)
+        {
+            switch (kind)
+            {
+                case StagePositionKind.Avoid:
+                    return "AVOID POSITION";
+                case StagePositionKind.Load:
+                    return "LOAD POSITION";
+                case StagePositionKind.Process:
+                    return "PROCESS POSITION";
+                case StagePositionKind.Unload:
+                    return "UNLOAD POSITION";
+                case StagePositionKind.Ready:
+                    return "READY POSITION";
+                case StagePositionKind.Reticle:
+                    return "RETICLE POSITION";
+                default:
+                    return kind.ToString().ToUpperInvariant() + " POSITION";
+            }
+        }
 
         public InputStageRecipePage() : this("recipe.inputStage")
         {
@@ -143,6 +312,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 _refreshTimer.Interval = 250;
                 _refreshTimer.Tick += RefreshTimer_Tick;
                 optionParameterGrid.ParameterValueChanged += ParameterGrid_ParameterValueChanged;
+                optionParameterGrid.ParameterRowDoubleClicked += OptionParameterGrid_RowDoubleClicked;
                 waitParameterGrid.ParameterValueChanged += ParameterGrid_ParameterValueChanged;
 
                 jogAxisMoveControl.SpeedControl = jogSpeedControl;
@@ -153,19 +323,16 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 jogAxisMoveControl.ButtonAreaMinWidth = 300;
                 jogAxisMoveControl.ButtonAreaMaxWidth = 460;
 
-                btnLoadingMove.Click += async (s, e) => await ConfirmAndRunAsync("EXPANDER DOWN", () => MoveAxisAsync(_InputStageUnit.ExpanderZ, _InputStageUnit.Setup.ExpanderDownPosition, _InputStageUnit.Recipe.MoveVelocity));
-                btnCenterMove.Click += async (s, e) => await ConfirmAndRunAsync("CENTER MOVE", MoveCenterAsync);
-                btnBarcodeMove.Click += async (s, e) => await ConfirmAndRunAsync("BARCODE MOVE", MoveCameraOriginAsync);
-                btnFirstDieMove.Click += async (s, e) => await ConfirmAndRunAsync("FIRST DIE MOVE", MoveFirstDieAsync);
-                btnNeedleUpMove.Click += async (s, e) => await ConfirmAndRunAsync("NEEDLE UP", () => MoveAxisAsync(_InputStageUnit.NeedleZ, _InputStageUnit.Setup.NeedleEjectPosition, _InputStageUnit.Recipe.NeedleVelocity));
-                btnNeedleDownMove.Click += async (s, e) => await ConfirmAndRunAsync("NEEDLE DOWN", () => MoveAxisAsync(_InputStageUnit.NeedleZ, _InputStageUnit.Setup.NeedleDownPosition, _InputStageUnit.Recipe.NeedleVelocity));
-                btnNeedleReadyMove.Click += async (s, e) => await ConfirmAndRunAsync("NEEDLE READY", () => MoveAxisAsync(_InputStageUnit.NeedleZ, _InputStageUnit.Setup.NeedleDownPosition, _InputStageUnit.Recipe.NeedleVelocity));
-                btnNeedleBlockReady.Click += async (s, e) => await ConfirmAndRunAsync("NEEDLE BLOCK READY", () => MoveAxisAsync(_InputStageUnit.NeedleBlockX, _InputStageUnit.Setup.NeedleTeachX, _InputStageUnit.Recipe.MoveVelocity));
-                btnNeedleBlockWork.Click += async (s, e) => await ConfirmAndRunAsync("NEEDLE BLOCK WORK", () => MoveAxisAsync(_InputStageUnit.NeedleBlockX, _InputStageUnit.Setup.NeedleTeachX + _InputStageUnit.Setup.PickerOffsetX, _InputStageUnit.Recipe.MoveVelocity));
-                btnExpandWorkMove.Click += async (s, e) => await ConfirmAndRunAsync("EXPAND WORK", () => MoveAxisAsync(_InputStageUnit.ExpanderZ, _InputStageUnit.Setup.ExpanderDownPosition, _InputStageUnit.Recipe.MoveVelocity));
-                btnPickUpTest.Click += async (s, e) => await ConfirmAndRunAsync("PICK TEST", PickTestAsync);
-                btnAutoSettingMove.Click += async (s, e) => await ConfirmAndRunAsync("VISION ALIGN", () => _InputStageUnit.VisionAlignAndSetupOriginAsync());
-                btnInputConversion.Click += async (s, e) => await ConfirmAndRunAsync("LOAD/PREPARE", () => _InputStageUnit.LoadAndPrepareWaferAsync());
+                ConfigureActionButtons();
+                BindParameterGridMenus();
+
+                grpIo.ContextMenuStrip = new ContextMenuStrip();
+                grpIo.ContextMenuStrip.Items.Add("Input stage I/O 상태를 다시 읽습니다.", null, IoRefresh_Click);
+
+                _toolTip.SetToolTip(optionParameterGrid, "이름 셀 더블클릭: 현재 위치 티칭, 값 셀 더블클릭: 직접 편집");
+                _toolTip.SetToolTip(waitParameterGrid, "Input Stage 대기 관련 파라미터를 표시합니다.");
+                _toolTip.SetToolTip(ioCylinderPanel, "Input Stage 출력 상태를 확인하고 제어합니다.");
+                _toolTip.SetToolTip(jogAxisMoveControl, "Input Stage 축을 Unit jog 경로로 이동합니다.");
             }
             catch (Exception ex)
             {
@@ -174,6 +341,100 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             finally
             {
             }
+        }
+
+        private void ConfigureActionButtons()
+        {
+            manualScrollPanel.AutoScroll = true;
+            manualScrollPanel.HorizontalScroll.Enabled = false;
+            manualScrollPanel.HorizontalScroll.Visible = false;
+
+            manualLayout.Dock = DockStyle.Top;
+            BuildManualActionButtons();
+        }
+
+        private void BuildManualActionButtons()
+        {
+            manualScrollPanel.SuspendLayout();
+            try
+            {
+                manualScrollPanel.Controls.Clear();
+                manualLayout.Controls.Clear();
+                manualLayout.RowStyles.Clear();
+                manualLayout.ColumnStyles.Clear();
+                manualLayout.ColumnCount = 2;
+                manualLayout.RowCount = 0;
+                manualLayout.AutoSize = true;
+                manualLayout.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+                manualLayout.Dock = DockStyle.Top;
+                manualLayout.Padding = new Padding(8, 18, 8, 8);
+                manualLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+                manualLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+
+                foreach (StageTeachingPosition position in TeachingPositions)
+                    AddManualButton(CreateManualActionButton(position.DisplayName, () => MoveByTeachingPositionAsync(position)));
+
+                AddManualButton(CreateManualActionButton("PICK TEST", PickTestAsync));
+                manualScrollPanel.Controls.Add(manualLayout);
+            }
+            finally
+            {
+                manualScrollPanel.ResumeLayout(true);
+            }
+        }
+
+        private ActionButton CreateManualActionButton(string text, Func<Task<int>> action)
+        {
+            var button = new ActionButton
+            {
+                BackColor = Color.FromArgb(0x80, 0x80, 0x80),
+                Cursor = Cursors.Hand,
+                Dock = DockStyle.Fill,
+                Font = new Font("Malgun Gothic", 9F, FontStyle.Bold),
+                ForeColor = Color.White,
+                Margin = new Padding(4),
+                Size = new Size(150, 39),
+                Text = text
+            };
+
+            button.Click += async (s, e) => await ConfirmAndRunAsync(text, action);
+            return button;
+        }
+
+        private void AddManualButton(ActionButton button)
+        {
+            if (button == null)
+                return;
+
+            int index = manualLayout.Controls.Count;
+            int column = index % manualLayout.ColumnCount;
+            int targetRow = index / manualLayout.ColumnCount;
+
+            while (manualLayout.RowStyles.Count <= targetRow)
+                manualLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 45F));
+
+            button.Visible = true;
+            button.Dock = DockStyle.Fill;
+            manualLayout.Controls.Add(button, column, targetRow);
+            manualLayout.RowCount = targetRow + 1;
+        }
+
+        private void BindTeachingActionButton(ActionButton button, string displayName)
+        {
+            StageTeachingPosition position = FindTeachingPosition(displayName);
+            if (position == null)
+                return;
+
+            BindActionButton(button, position.DisplayName, () => MoveByTeachingPositionAsync(position));
+        }
+
+        private void BindActionButton(ActionButton button, string text, Func<Task<int>> action)
+        {
+            if (button == null)
+                return;
+
+            button.Text = text;
+            button.Click += async (s, e) => await ConfirmAndRunAsync(text, action);
         }
 
         private void RefreshTimer_Tick(object sender, EventArgs e)
@@ -195,7 +456,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             try
             {
                 var machine = FindMachine();
-                _InputStageUnit = machine != null ? machine.InputStage : null;
+                _InputStageUnit = machine != null ? machine.InputStageUnit : null;
                 SetEnabledState(_InputStageUnit != null);
             }
             catch (Exception ex)
@@ -266,6 +527,160 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
         }
 
+        private void IoRefresh_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                BindIoPanel();
+                RefreshView();
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Stage I/O", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
+        }
+
+        private void BindParameterGridMenus()
+        {
+            try
+            {
+                var menu = new ContextMenuStrip();
+                menu.Items.Add("Move To Position", null, async (s, e) =>
+                {
+                    StageTeachingPosition position = GetSelectedTeachingPosition();
+                    if (position != null)
+                        await ConfirmAndRunAsync(position.DisplayName, () => MoveByTeachingPositionAsync(position));
+                });
+                menu.Items.Add("Teach Current Position", null, (s, e) =>
+                {
+                    StageTeachingPosition position = GetSelectedTeachingPosition();
+                    if (position == null)
+                        return;
+
+                    TeachPosition(position);
+                    SaveCurrentRecipeData();
+                    RefreshView();
+                });
+
+                optionParameterGrid.ContextMenuStrip = menu;
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "INPUT-STAGE", "BindParameterGridMenus failed: " + ex.Message);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Stage Grid Menu", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
+        }
+
+        private void OptionParameterGrid_RowDoubleClicked(object sender, ParameterGridChangedEventArgs e)
+        {
+            try
+            {
+                if (e == null || e.Item == null)
+                    return;
+
+                StageTeachingPosition position = FindTeachingPosition(e.Item.Key);
+                if (position == null)
+                    return;
+
+                TeachPosition(position);
+                SaveCurrentRecipeData();
+                RefreshView();
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "INPUT-STAGE", "Option double click teach failed: " + ex.Message);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Stage Teach", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
+        }
+
+        private StageTeachingPosition GetSelectedTeachingPosition()
+        {
+            try
+            {
+                var item = optionParameterGrid.SelectedItem;
+                return item != null ? FindTeachingPosition(item.Key) : null;
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "INPUT-STAGE", "GetSelectedTeachingPosition failed: " + ex.Message);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Stage Grid Menu", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
+        private StageTeachingPosition FindTeachingPosition(string displayName)
+        {
+            if (string.IsNullOrWhiteSpace(displayName))
+                return null;
+
+            foreach (StageTeachingPosition position in TeachingPositions)
+            {
+                if (string.Equals(displayName, position.DisplayName, StringComparison.OrdinalIgnoreCase))
+                    return position;
+            }
+
+            return null;
+        }
+
+        private async Task<int> MoveByTeachingPositionAsync(StageTeachingPosition position)
+        {
+            try
+            {
+                if (_InputStageUnit == null || position == null)
+                    return -1;
+
+                StageAxisPositions positionSet = position.PositionSetGetter(_InputStageUnit);
+                BaseAxis axis = position.AxisGetter(_InputStageUnit);
+                if (positionSet == null || axis == null)
+                    return -1;
+
+                return await MoveAxisAsync(axis, position.Getter(positionSet), false);
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        private void TeachPosition(StageTeachingPosition position)
+        {
+            try
+            {
+                if (_InputStageUnit == null || position == null)
+                    return;
+
+                StageAxisPositions positionSet = position.PositionSetGetter(_InputStageUnit);
+                BaseAxis axis = position.AxisGetter(_InputStageUnit);
+                if (positionSet == null || axis == null)
+                    return;
+
+                position.Setter(positionSet, axis.ActualPosition);
+                EventLogger.Write(EventKind.Event, "UI", "INPUT-STAGE", position.DisplayName + " taught=" + axis.ActualPosition.ToString("F3", CultureInfo.InvariantCulture));
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Stage Teach", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
+        }
+
         private void BindParameterGrids()
         {
             try
@@ -290,30 +705,22 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             try
             {
                 var unit = _InputStageUnit;
-                return new[]
-                {
-                    ParameterGridItem.Micron("EXPANDER DOWN Z", ParameterGridScope.Setup, () => unit.Setup.ExpanderDownPosition, v => unit.Setup.ExpanderDownPosition = Math.Max(-1000.0, v)),
-                    ParameterGridItem.Micron("EXPANDER UP Z", ParameterGridScope.Setup, () => unit.Setup.ExpanderUpPosition, v => unit.Setup.ExpanderUpPosition = v),
-                    ParameterGridItem.Micron("UNLOAD STAGE Y", ParameterGridScope.Setup, () => unit.Setup.UnloadPositionY, v => unit.Setup.UnloadPositionY = v),
-                    ParameterGridItem.Micron("NEEDLE EJECT Z", ParameterGridScope.Setup, () => unit.Setup.NeedleEjectPosition, v => unit.Setup.NeedleEjectPosition = v),
-                    ParameterGridItem.Micron("NEEDLE DOWN Z", ParameterGridScope.Setup, () => unit.Setup.NeedleDownPosition, v => unit.Setup.NeedleDownPosition = v),
-                    ParameterGridItem.Micron("PICKER OFFSET Y", ParameterGridScope.Setup, () => unit.Setup.PickerOffsetY, v => unit.Setup.PickerOffsetY = v),
-                    ParameterGridItem.Micron("PICKER OFFSET X", ParameterGridScope.Setup, () => unit.Setup.PickerOffsetX, v => unit.Setup.PickerOffsetX = v),
-                    ParameterGridItem.Micron("CAMERA ORIGIN X", ParameterGridScope.Setup, () => unit.Setup.CameraOriginX, v => unit.Setup.CameraOriginX = v),
-                    ParameterGridItem.Micron("CAMERA FOCUS Z", ParameterGridScope.Setup, () => unit.Setup.CameraFocusZ, v => unit.Setup.CameraFocusZ = v),
-                    ParameterGridItem.Micron("CAMERA SAFE Z", ParameterGridScope.Setup, () => unit.Setup.CameraSafeZ, v => unit.Setup.CameraSafeZ = v),
-                    ParameterGridItem.Micron("STAGE Y TEACH", ParameterGridScope.Setup, () => unit.Setup.StageYTeachPosition, v => unit.Setup.StageYTeachPosition = v),
-                    ParameterGridItem.Micron("NEEDLE TEACH X", ParameterGridScope.Setup, () => unit.Setup.NeedleTeachX, v => unit.Setup.NeedleTeachX = v),
-                    ParameterGridItem.Double("VISION PIXEL", "mm/px", ParameterGridScope.Setup, () => unit.Setup.VisionPixelToMm, v => unit.Setup.VisionPixelToMm = Math.Max(0.0, v)),
-                    ParameterGridItem.Bool("SIMULATION MODE", ParameterGridScope.Config, () => unit.Config.IsSimulationMode, v => unit.Config.IsSimulationMode = v),
-                    ParameterGridItem.Int("ALIGN ITERATIONS", "count", ParameterGridScope.Config, () => unit.Config.MaxAlignIterations, v => unit.Config.MaxAlignIterations = Math.Max(1, v)),
-                    ParameterGridItem.Double("ALIGN THRESHOLD", "deg", ParameterGridScope.Config, () => unit.Config.AlignConvergenceThresholdDeg, v => unit.Config.AlignConvergenceThresholdDeg = Math.Max(0.0, v)),
-                    ParameterGridItem.Double("MOVE VELOCITY", "mm/s", ParameterGridScope.Recipe, () => unit.Recipe.MoveVelocity, v => unit.Recipe.MoveVelocity = Math.Max(0.1, v)),
-                    ParameterGridItem.Double("ALIGN VELOCITY", "mm/s", ParameterGridScope.Recipe, () => unit.Recipe.AlignVelocity, v => unit.Recipe.AlignVelocity = Math.Max(0.1, v)),
-                    ParameterGridItem.Double("NEEDLE VELOCITY", "mm/s", ParameterGridScope.Recipe, () => unit.Recipe.NeedleVelocity, v => unit.Recipe.NeedleVelocity = Math.Max(0.1, v)),
-                    ParameterGridItem.Micron("DEFAULT PITCH X", ParameterGridScope.Recipe, () => unit.Recipe.DefaultPitchX, v => unit.Recipe.DefaultPitchX = Math.Max(0.0, v)),
-                    ParameterGridItem.Micron("DEFAULT PITCH Y", ParameterGridScope.Recipe, () => unit.Recipe.DefaultPitchY, v => unit.Recipe.DefaultPitchY = Math.Max(0.0, v))
-                };
+                unit.Recipe.EnsurePositionObjects();
+
+                var items = new List<ParameterGridItem>();
+                AddStagePositions(items, unit);
+                
+                items.Add(ParameterGridItem.Micron("SAFETY RADIUS", ParameterGridScope.Setup, () => unit.Setup.SafetyRadius, v => unit.Setup.SafetyRadius = Math.Max(0.0, v)));
+                items.Add(ParameterGridItem.Int("BARCODE READ TIMEOUT", "ms", ParameterGridScope.Setup, () => unit.Setup.BarcodeReadTimeoutMs, v => unit.Setup.BarcodeReadTimeoutMs = Math.Max(0, v)));
+                items.Add(ParameterGridItem.Int("ALIGN ITERATIONS", "count", ParameterGridScope.Config, () => unit.Config.MaxAlignIterations, v => unit.Config.MaxAlignIterations = Math.Max(1, v)));
+                items.Add(ParameterGridItem.Double("ALIGN THRESHOLD", "deg", ParameterGridScope.Config, () => unit.Config.AlignConvergenceThresholdDeg, v => unit.Config.AlignConvergenceThresholdDeg = Math.Max(0.0, v)));
+                items.Add(ParameterGridItem.Micron("PICK UP EJECT PIN OFFSET", ParameterGridScope.Config, () => unit.Config.PickUpEjectPinOffset, v => unit.Config.PickUpEjectPinOffset = v));
+                items.Add(ParameterGridItem.Double("PICK UP EJECT PIN SPEED", "mm/s", ParameterGridScope.Config, () => unit.Config.PickUpEjectPinSpeed, v => unit.Config.PickUpEjectPinSpeed = Math.Max(0.0, v)));
+                items.Add(ParameterGridItem.Double("PICK UP EJECT PIN ACC", "mm/s2", ParameterGridScope.Config, () => unit.Config.PickUpEjectPinAcc, v => unit.Config.PickUpEjectPinAcc = Math.Max(0.0, v)));
+                items.Add(ParameterGridItem.Double("PICK UP EJECT PIN DEC", "mm/s2", ParameterGridScope.Config, () => unit.Config.PickUpEjectPinDec, v => unit.Config.PickUpEjectPinDec = Math.Max(0.0, v)));
+                items.Add(ParameterGridItem.Bool("CONFIG DRY RUN", ParameterGridScope.Config, () => unit.Config.bDryRun, v => unit.Config.bDryRun = v));
+                items.Add(ParameterGridItem.Bool("SETUP SIMULATION MODE", ParameterGridScope.Setup, () => unit.Setup.IsSimulationMode, v => unit.Setup.IsSimulationMode = v));
+                return items;
             }
             catch
             {
@@ -324,19 +731,22 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
         }
 
+        private static void AddStagePositions(List<ParameterGridItem> items, InputStageUnit unit)
+        {
+            foreach (StageTeachingPosition position in TeachingPositions)
+            {
+                StageTeachingPosition captured = position;
+                items.Add(ParameterGridItem.Micron(captured.DisplayName, ParameterGridScope.Recipe,
+                    () => captured.Getter(captured.PositionSetGetter(unit)),
+                    v => captured.Setter(captured.PositionSetGetter(unit), v)));
+            }
+        }
+
         private IEnumerable<ParameterGridItem> BuildWaitItems()
         {
             try
             {
-                var unit = _InputStageUnit;
-                return new[]
-                {
-                    ParameterGridItem.Int("NEEDLE VACUUM SETTLE", "ms", ParameterGridScope.Recipe, () => unit.Recipe.NeedleVacuumSettleMs, v => unit.Recipe.NeedleVacuumSettleMs = Math.Max(0, v)),
-                    ParameterGridItem.Int("VISION EXPOSE TIMEOUT", "ms", ParameterGridScope.Recipe, () => unit.Recipe.VisionExposeTimeoutMs, v => unit.Recipe.VisionExposeTimeoutMs = Math.Max(0, v)),
-                    ParameterGridItem.Int("VISION RESULT TIMEOUT", "ms", ParameterGridScope.Recipe, () => unit.Recipe.VisionResultTimeoutMs, v => unit.Recipe.VisionResultTimeoutMs = Math.Max(0, v)),
-                    ParameterGridItem.Int("PICKER UP TIMEOUT", "ms", ParameterGridScope.Recipe, () => unit.Recipe.PickerUpTimeoutMs, v => unit.Recipe.PickerUpTimeoutMs = Math.Max(0, v)),
-                    ParameterGridItem.Int("MOVE TIMEOUT", "ms", ParameterGridScope.Recipe, () => unit.Recipe.MoveTimeoutMs, v => unit.Recipe.MoveTimeoutMs = Math.Max(0, v))
-                };
+                return new ParameterGridItem[0];
             }
             catch
             {
@@ -356,9 +766,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
                 ioCylinderPanel.SetItems(new[]
                 {
-                    IoCylinderItem.Output("NEEDLE VACUUM", () => _InputStageUnit.NeedleVacuum != null && _InputStageUnit.NeedleVacuum.IsOn, WriteNeedleVacuumAsync),
-                    IoCylinderItem.Input("8 INCH RING CHECK", () => _InputStageUnit.IsWaferStage8RingChecked()),
-                    IoCylinderItem.Input("12 INCH RING CHECK", () => _InputStageUnit.IsWaferStage12RingChecked())
+                    IoCylinderItem.Output("NEEDLE VACUUM", () => _InputStageUnit.NeedleVacuum != null && _InputStageUnit.NeedleVacuum.IsOn, WriteNeedleVacuumAsync)
                 });
             }
             catch (Exception ex)
@@ -379,14 +787,13 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
                 var items = new List<JogAxisItem>
                 {
-                    JogAxisItem.Single("StageY", _InputStageUnit.StageY, string.Empty, 1.0, "Y+", "Y-").WithControlKind(JogAxisControlKind.CrossWithT),
-                    JogAxisItem.Single("StageT", _InputStageUnit.StageT, string.Empty, 1.0, "T+", "T-").WithControlKind(JogAxisControlKind.CrossWithT),
-                    JogAxisItem.Single("ExpanderZ", _InputStageUnit.ExpanderZ, string.Empty, 1.0, "Z+", "Z-").WithControlKind(JogAxisControlKind.Vertical),
-                    JogAxisItem.Single("CameraX", _InputStageUnit.CameraX, string.Empty, 1.0, "X+", "X-").WithControlKind(JogAxisControlKind.CrossWithT),
-                    JogAxisItem.Single("NeedleX", _InputStageUnit.NeedleBlockX, string.Empty, 1.0, "X+", "X-").WithControlKind(JogAxisControlKind.Horizontal),
-                    JogAxisItem.Single("NeedleZ", _InputStageUnit.NeedleZ, string.Empty, 1.0, "Z+", "Z-").WithControlKind(JogAxisControlKind.Vertical),
-                    JogAxisItem.Single("EjectPinZ", _InputStageUnit.EjectPinZ, string.Empty, 1.0, "Z+", "Z-").WithControlKind(JogAxisControlKind.Vertical),
-                    JogAxisItem.Single("CameraZ", _InputStageUnit.CameraZ, string.Empty, 1.0, "Z+", "Z-").WithControlKind(JogAxisControlKind.Vertical)
+                    BuildJogAxis("StageY", _InputStageUnit.StageY, "Y+", "Y-", JogAxisControlKind.CrossWithT),
+                    BuildJogAxis("StageT", _InputStageUnit.StageT, "T+", "T-", JogAxisControlKind.CrossWithT),
+                    BuildJogAxis("ExpanderZ", _InputStageUnit.ExpanderZ, "Z+", "Z-", JogAxisControlKind.Vertical),
+                    BuildJogAxis("CameraX", _InputStageUnit.CameraX, "X+", "X-", JogAxisControlKind.CrossWithT),
+                    BuildJogAxis("NeedleX", _InputStageUnit.NeedleBlockX, "X+", "X-", JogAxisControlKind.Horizontal),
+                    BuildJogAxis("NeedleZ", _InputStageUnit.NeedleZ, "Z+", "Z-", JogAxisControlKind.Vertical),
+                    BuildJogAxis("EjectPinZ", _InputStageUnit.EjectPinZ, "Z+", "Z-", JogAxisControlKind.Vertical)
                 };
 
                 jogPositionListControl.SetItems(items);
@@ -399,6 +806,17 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             finally
             {
             }
+        }
+
+        private JogAxisItem BuildJogAxis(string name, BaseAxis axis, string plus, string minus, JogAxisControlKind kind)
+        {
+            JogAxisItem item = JogAxisItem.Single(name, axis, string.Empty, 1.0, plus, minus).WithControlKind(kind);
+            item.StepMoveAsync = (it, direction, speedType, customSpeed, axisStepDistance) =>
+                _InputStageUnit.JogStepAsync(axis, direction, speedType, customSpeed, axisStepDistance);
+            item.ContinuousMoveAsync = (it, direction, speedType, customSpeed) =>
+                _InputStageUnit.JogContinuousAsync(axis, direction, speedType, customSpeed);
+            item.StopAsync = it => _InputStageUnit.StopJogAsync(axis);
+            return item;
         }
 
         private async Task<int> WriteNeedleVacuumAsync(bool value)
@@ -473,14 +891,18 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
         }
 
-        private async Task<int> MoveAxisAsync(BaseAxis axis, double target, double velocity)
+        private async Task<int> MoveAxisAsync(BaseAxis axis, double target, bool bFine)
         {
             try
             {
-                if (axis == null)
+                if (_InputStageUnit == null || axis == null)
                     return -1;
 
-                return await axis.MoveAbsoluteAsync(target, velocity);
+                WaferStageAxis stageAxis;
+                if (TryResolveStageAxis(axis, out stageAxis))
+                    return await _InputStageUnit.MoveInputStageAxis(stageAxis, target, bFine);
+
+                return await axis.MoveAbsoluteAsync(target, bFine ? ResolveAxisFineVelocity(axis) : ResolveAxisVelocity(axis));
             }
             catch
             {
@@ -491,6 +913,57 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
         }
 
+        private bool TryResolveStageAxis(BaseAxis axis, out WaferStageAxis stageAxis)
+        {
+            stageAxis = WaferStageAxis.WaferY;
+            if (_InputStageUnit == null || axis == null)
+                return false;
+
+            if (ReferenceEquals(axis, _InputStageUnit.StageY))
+            {
+                stageAxis = WaferStageAxis.WaferY;
+                return true;
+            }
+
+            if (ReferenceEquals(axis, _InputStageUnit.StageT))
+            {
+                stageAxis = WaferStageAxis.WaferT;
+                return true;
+            }
+
+            if (ReferenceEquals(axis, _InputStageUnit.ExpanderZ))
+            {
+                stageAxis = WaferStageAxis.WaferExpandingZ;
+                return true;
+            }
+
+            if (ReferenceEquals(axis, _InputStageUnit.CameraX))
+            {
+                stageAxis = WaferStageAxis.VisionX;
+                return true;
+            }
+
+            if (ReferenceEquals(axis, _InputStageUnit.NeedleBlockX))
+            {
+                stageAxis = WaferStageAxis.NeedleX;
+                return true;
+            }
+
+            if (ReferenceEquals(axis, _InputStageUnit.NeedleZ))
+            {
+                stageAxis = WaferStageAxis.NeedleZ;
+                return true;
+            }
+
+            if (ReferenceEquals(axis, _InputStageUnit.EjectPinZ))
+            {
+                stageAxis = WaferStageAxis.EjectPinZ;
+                return true;
+            }
+
+            return false;
+        }
+
         private async Task<int> MoveCenterAsync()
         {
             try
@@ -498,8 +971,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (_InputStageUnit == null)
                     return -1;
 
-                Task<int> moveY = _InputStageUnit.StageY.MoveAbsoluteAsync(_InputStageUnit.Setup.StageYTeachPosition, _InputStageUnit.Recipe.MoveVelocity);
-                Task<int> moveX = _InputStageUnit.CameraX.MoveAbsoluteAsync(_InputStageUnit.Setup.CameraOriginX, _InputStageUnit.Recipe.MoveVelocity);
+                Task<int> moveY = MoveAxisAsync(_InputStageUnit.StageY, _InputStageUnit.Recipe.WaferY.ReadyPosition, false);
+                Task<int> moveX = MoveAxisAsync(_InputStageUnit.CameraX, _InputStageUnit.Recipe.VisionX.ReadyPosition, false);
                 int[] results = await Task.WhenAll(moveY, moveX);
                 return results[0] != 0 ? results[0] : results[1];
             }
@@ -519,10 +992,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (_InputStageUnit == null)
                     return -1;
 
-                Task<int> moveX = _InputStageUnit.CameraX.MoveAbsoluteAsync(_InputStageUnit.Setup.CameraOriginX, _InputStageUnit.Recipe.MoveVelocity);
-                Task<int> moveZ = _InputStageUnit.CameraZ.MoveAbsoluteAsync(_InputStageUnit.Setup.CameraFocusZ, _InputStageUnit.Recipe.MoveVelocity);
-                int[] results = await Task.WhenAll(moveX, moveZ);
-                return results[0] != 0 ? results[0] : results[1];
+                return await MoveAxisAsync(_InputStageUnit.CameraX, _InputStageUnit.Recipe.VisionX.ReadyPosition, false);
             }
             catch
             {
@@ -540,11 +1010,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (_InputStageUnit == null)
                     return -1;
 
-                double targetX = Math.Abs(_InputStageUnit.OriginX) > 0.000001 ? _InputStageUnit.OriginX : _InputStageUnit.Setup.CameraOriginX;
-                double targetY = Math.Abs(_InputStageUnit.OriginY) > 0.000001 ? _InputStageUnit.OriginY : _InputStageUnit.Setup.StageYTeachPosition;
+                double targetX = Math.Abs(_InputStageUnit.OriginX) > 0.000001 ? _InputStageUnit.OriginX : _InputStageUnit.Recipe.VisionX.ReadyPosition;
+                double targetY = Math.Abs(_InputStageUnit.OriginY) > 0.000001 ? _InputStageUnit.OriginY : _InputStageUnit.Recipe.WaferY.ReadyPosition;
 
-                Task<int> moveY = _InputStageUnit.StageY.MoveAbsoluteAsync(targetY, _InputStageUnit.Recipe.MoveVelocity);
-                Task<int> moveX = _InputStageUnit.CameraX.MoveAbsoluteAsync(targetX, _InputStageUnit.Recipe.MoveVelocity);
+                Task<int> moveY = MoveAxisAsync(_InputStageUnit.StageY, targetY, false);
+                Task<int> moveX = MoveAxisAsync(_InputStageUnit.CameraX, targetX, false);
                 int[] results = await Task.WhenAll(moveY, moveX);
                 return results[0] != 0 ? results[0] : results[1];
             }
@@ -564,12 +1034,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (_InputStageUnit == null)
                     return -1;
 
-                int result = await _InputStageUnit.NeedleZ.MoveAbsoluteAsync(_InputStageUnit.Setup.NeedleEjectPosition, _InputStageUnit.Recipe.NeedleVelocity);
+                int result = await MoveAxisAsync(_InputStageUnit.NeedleZ, _InputStageUnit.Recipe.NeedleZ.ProcessPosition, false);
                 if (result != 0)
                     return result;
 
-                await Task.Delay(Math.Max(0, _InputStageUnit.Recipe.NeedleVacuumSettleMs)).ContinueWith(_ => { });
-                return await _InputStageUnit.NeedleZ.MoveAbsoluteAsync(_InputStageUnit.Setup.NeedleDownPosition, _InputStageUnit.Recipe.NeedleVelocity);
+                await Task.Delay(50).ContinueWith(_ => { });
+                return await MoveAxisAsync(_InputStageUnit.NeedleZ, _InputStageUnit.Recipe.NeedleZ.LoadPosition, false);
             }
             catch
             {
@@ -635,8 +1105,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     "Pitch Y  : " + FormatUm(_InputStageUnit.PitchY) + Environment.NewLine +
                     "Align X  : " + FormatUm(_InputStageUnit.WaferAlignOffsetX) + Environment.NewLine +
                     "Align Y  : " + FormatUm(_InputStageUnit.WaferAlignOffsetY) + Environment.NewLine +
-                    "Ring 8   : " + OnOff(_InputStageUnit.IsWaferStage8RingChecked()) + Environment.NewLine +
-                    "Ring 12  : " + OnOff(_InputStageUnit.IsWaferStage12RingChecked());
+                    "Needle Vacuum : " + OnOff(_InputStageUnit.NeedleVacuum != null && _InputStageUnit.NeedleVacuum.IsOn);
             }
             catch
             {
@@ -659,6 +1128,20 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             finally
             {
             }
+        }
+
+        private static double ResolveAxisVelocity(BaseAxis axis)
+        {
+            return axis != null && axis.Config != null && axis.Config.DefaultVelocity > 0.0
+                ? axis.Config.DefaultVelocity
+                : 100.0;
+        }
+
+        private static double ResolveAxisFineVelocity(BaseAxis axis)
+        {
+            return axis != null && axis.Config != null && axis.Config.JogFineVelocity > 0.0
+                ? axis.Config.JogFineVelocity
+                : ResolveAxisVelocity(axis);
         }
 
         private static string OnOff(bool value)

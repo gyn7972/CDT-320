@@ -3,59 +3,89 @@
     partial class OutputCassetteRecipePage
     {
         private System.ComponentModel.IContainer components = null;
-        private System.Windows.Forms.TableLayoutPanel mainLayout;
+        private System.Windows.Forms.TableLayoutPanel rootLayout;
         private System.Windows.Forms.Label lblHeader;
         private System.Windows.Forms.TableLayoutPanel contentLayout;
-        private System.Windows.Forms.TableLayoutPanel panelLeft;
-        private System.Windows.Forms.TableLayoutPanel actionSection;
-        private System.Windows.Forms.Label lblActionTitle;
-        private QMC.CDT_320.Ui.Controls.ActionButton btnAvoidMove;
-        private QMC.CDT_320.Ui.Controls.ActionButton btnNgSlotMove;
-        private QMC.CDT_320.Ui.Controls.ActionButton btnGood1SlotMove;
-        private QMC.CDT_320.Ui.Controls.ActionButton btnGood2SlotMove;
-        private QMC.CDT_320.Ui.Controls.ActionButton btnScan;
-        private System.Windows.Forms.TableLayoutPanel ioSection;
-        private System.Windows.Forms.Label lblIoTitle;
-        private QMC.CDT_320.Ui.Controls.IndicatorDot dotGoodCassette;
-        private QMC.CDT_320.Ui.Controls.IndicatorDot dotNgCassette;
-        private QMC.CDT_320.Ui.Controls.IndicatorDot dotBinProtrusion;
-        private QMC.CDT_320.Ui.Controls.IndicatorDot dotBinMapping;
-        private System.Windows.Forms.Label lblGoodCassette;
-        private System.Windows.Forms.Label lblNgCassette;
-        private System.Windows.Forms.Label lblBinProtrusion;
-        private System.Windows.Forms.Label lblBinMapping;
-        private System.Windows.Forms.TableLayoutPanel panelCenter;
-        private System.Windows.Forms.Label lblOptionTitle;
+        private System.Windows.Forms.TableLayoutPanel leftLayout;
+        private System.Windows.Forms.TableLayoutPanel centerLayout;
+        private System.Windows.Forms.TableLayoutPanel rightLayout;
+        private System.Windows.Forms.GroupBox grpActions;
+        private System.Windows.Forms.GroupBox grpIo;
+        private System.Windows.Forms.GroupBox grpOptions;
+        private System.Windows.Forms.GroupBox grpWait;
+        private System.Windows.Forms.GroupBox grpJog;
+        private System.Windows.Forms.GroupBox grpSpeed;
+        private System.Windows.Forms.TableLayoutPanel jogCompositeLayout;
+        private QMC.CDT_320.Ui.Controls.JogPositionListControl jogPositionListControl;
+        private QMC.CDT_320.Ui.Controls.JogAxisMoveControl jogAxisMoveControl;
+        private QMC.CDT_320.Ui.Controls.JogSpeedControl jogSpeedControl;
+        private System.Windows.Forms.TableLayoutPanel actionLayout;
+        private System.Windows.Forms.TableLayoutPanel goodLayout;
+        private System.Windows.Forms.TableLayoutPanel ngLayout;
+        private System.Windows.Forms.TableLayoutPanel commonLayout;
+        private System.Windows.Forms.Label lblGoodGroup;
+        private System.Windows.Forms.Label lblNgGroup;
+        private System.Windows.Forms.Label lblCommonGroup;
+        private QMC.CDT_320.Ui.Controls.ActionButton btnGoodLoadingMove;
+        private QMC.CDT_320.Ui.Controls.ActionButton btnGoodUnloadingMove;
+        private QMC.CDT_320.Ui.Controls.ActionButton btnGoodSlotStartMove;
+        private QMC.CDT_320.Ui.Controls.ActionButton btnGoodSlotEndMove;
+        private QMC.CDT_320.Ui.Controls.ActionButton btnNgLoadingMove;
+        private QMC.CDT_320.Ui.Controls.ActionButton btnNgUnloadingMove;
+        private QMC.CDT_320.Ui.Controls.ActionButton btnNgSlotStartMove;
+        private QMC.CDT_320.Ui.Controls.ActionButton btnNgSlotEndMove;
+        private QMC.CDT_320.Ui.Controls.ActionButton btnReadyMove;
+        private QMC.CDT_320.Ui.Controls.IoCylinderPanelControl ioCylinderPanel;
+        private System.Windows.Forms.TableLayoutPanel ioLayout;
+        private QMC.CDT_320.Ui.Controls.IndicatorDot dot8Inch;
+        private QMC.CDT_320.Ui.Controls.IndicatorDot dot12Inch;
+        private QMC.CDT_320.Ui.Controls.IndicatorDot dotProtrusion;
+        private QMC.CDT_320.Ui.Controls.IndicatorDot dotMapping;
+        private System.Windows.Forms.Label lbl8Inch;
+        private System.Windows.Forms.Label lbl12Inch;
+        private System.Windows.Forms.Label lblProtrusion;
+        private System.Windows.Forms.Label lblMapping;
+        private System.Windows.Forms.Label lblMappingBody;
+        private QMC.CDT_320.Ui.Controls.ParameterGridControl optionParameterGrid;
         private System.Windows.Forms.TableLayoutPanel optionRows;
-        private System.Windows.Forms.Label lblOptAvoidKey;
-        private System.Windows.Forms.Label lblOptAvoidVal;
-        private System.Windows.Forms.Label lblOptNgSlotKey;
-        private System.Windows.Forms.Label lblOptNgSlotVal;
-        private System.Windows.Forms.Label lblOptGood1SlotKey;
-        private System.Windows.Forms.Label lblOptGood1SlotVal;
-        private System.Windows.Forms.Label lblOptGood2SlotKey;
-        private System.Windows.Forms.Label lblOptGood2SlotVal;
-        private System.Windows.Forms.Label lblOptSlotPitchKey;
-        private System.Windows.Forms.Label lblOptSlotPitchVal;
-        private System.Windows.Forms.Label lblOptSlotCountKey;
-        private System.Windows.Forms.Label lblOptSlotCountVal;
-        private System.Windows.Forms.Label lblOptActualKey;
-        private System.Windows.Forms.Label lblOptActualVal;
-        private System.Windows.Forms.Label lblOptAxisStateKey;
-        private System.Windows.Forms.Label lblOptAxisStateVal;
-        private System.Windows.Forms.Label lblWaitTitle;
+        private System.Windows.Forms.Label lblRecipeLoadingKey;
+        private System.Windows.Forms.Label lblRecipeLoadingVal;
+        private System.Windows.Forms.Label lblRecipeUnloadingKey;
+        private System.Windows.Forms.Label lblRecipeUnloadingVal;
+        private System.Windows.Forms.Label lblRecipeAvoidKey;
+        private System.Windows.Forms.Label lblRecipeAvoidVal;
+        private System.Windows.Forms.Label lblRecipeFirstSlotKey;
+        private System.Windows.Forms.Label lblRecipeFirstSlotVal;
+        private System.Windows.Forms.Label lblRecipeMappingStartKey;
+        private System.Windows.Forms.Label lblRecipeMappingStartVal;
+        private System.Windows.Forms.Label lblRecipeMappingEndKey;
+        private System.Windows.Forms.Label lblRecipeMappingEndVal;
+        private System.Windows.Forms.Label lblConfigLoadingOffsetKey;
+        private System.Windows.Forms.Label lblConfigLoadingOffsetVal;
+        private System.Windows.Forms.Label lblConfigUnloadingOffsetKey;
+        private System.Windows.Forms.Label lblConfigUnloadingOffsetVal;
+        private System.Windows.Forms.Label lblConfigSlotPitchKey;
+        private System.Windows.Forms.Label lblConfigSlotPitchVal;
+        private System.Windows.Forms.Label lblConfigSlotCountKey;
+        private System.Windows.Forms.Label lblConfigSlotCountVal;
+        private System.Windows.Forms.Label lblConfigScanVelocityKey;
+        private System.Windows.Forms.Label lblConfigScanVelocityVal;
+        private System.Windows.Forms.Label lblSetupToleranceKey;
+        private System.Windows.Forms.Label lblSetupToleranceVal;
+        private System.Windows.Forms.Label lblConfigInchKey;
+        private System.Windows.Forms.Label lblConfigInchVal;
+        private System.Windows.Forms.Label lblConfigLevelKey;
+        private System.Windows.Forms.Label lblConfigLevelVal;
+        private System.Windows.Forms.Label lblSetupSimulationKey;
+        private System.Windows.Forms.Label lblSetupSimulationVal;
+        private System.Windows.Forms.Label lblConfigDryRunKey;
+        private System.Windows.Forms.Label lblConfigDryRunVal;
+        private QMC.CDT_320.Ui.Controls.ParameterGridControl waitParameterGrid;
         private System.Windows.Forms.TableLayoutPanel waitRows;
-        private System.Windows.Forms.Label lblWaitKey;
-        private System.Windows.Forms.Label lblWaitVal;
-        private System.Windows.Forms.TableLayoutPanel panelRight;
-        private System.Windows.Forms.TableLayoutPanel jogSection;
-        private System.Windows.Forms.TableLayoutPanel speedSection;
-        private System.Windows.Forms.Label lblSpeedTitle;
-        private System.Windows.Forms.Label lblSpeedHigh;
-        private System.Windows.Forms.TrackBar trkSpeed;
-        private System.Windows.Forms.Label lblSpeedMid;
-        private System.Windows.Forms.Label lblSpeedLow;
-        private System.Windows.Forms.Label lblSpeedValue;
+        private System.Windows.Forms.Label lblWaitScanSettleKey;
+        private System.Windows.Forms.Label lblWaitScanSettleVal;
+        private System.Windows.Forms.Label lblWaitMoveTimeoutKey;
+        private System.Windows.Forms.Label lblWaitMoveTimeoutVal;
 
         protected override void Dispose(bool disposing)
         {
@@ -66,734 +96,1222 @@
 
         private void InitializeComponent()
         {
-            this.mainLayout = new System.Windows.Forms.TableLayoutPanel();
+            this.rootLayout = new System.Windows.Forms.TableLayoutPanel();
             this.lblHeader = new System.Windows.Forms.Label();
             this.contentLayout = new System.Windows.Forms.TableLayoutPanel();
-            this.panelLeft = new System.Windows.Forms.TableLayoutPanel();
-            this.actionSection = new System.Windows.Forms.TableLayoutPanel();
-            this.lblActionTitle = new System.Windows.Forms.Label();
-            this.btnAvoidMove = new QMC.CDT_320.Ui.Controls.ActionButton();
-            this.btnNgSlotMove = new QMC.CDT_320.Ui.Controls.ActionButton();
-            this.btnGood1SlotMove = new QMC.CDT_320.Ui.Controls.ActionButton();
-            this.btnGood2SlotMove = new QMC.CDT_320.Ui.Controls.ActionButton();
-            this.btnScan = new QMC.CDT_320.Ui.Controls.ActionButton();
-            this.ioSection = new System.Windows.Forms.TableLayoutPanel();
-            this.lblIoTitle = new System.Windows.Forms.Label();
-            this.dotGoodCassette = new QMC.CDT_320.Ui.Controls.IndicatorDot();
-            this.lblGoodCassette = new System.Windows.Forms.Label();
-            this.dotNgCassette = new QMC.CDT_320.Ui.Controls.IndicatorDot();
-            this.lblNgCassette = new System.Windows.Forms.Label();
-            this.dotBinProtrusion = new QMC.CDT_320.Ui.Controls.IndicatorDot();
-            this.lblBinProtrusion = new System.Windows.Forms.Label();
-            this.dotBinMapping = new QMC.CDT_320.Ui.Controls.IndicatorDot();
-            this.lblBinMapping = new System.Windows.Forms.Label();
-            this.panelCenter = new System.Windows.Forms.TableLayoutPanel();
-            this.lblOptionTitle = new System.Windows.Forms.Label();
+            this.leftLayout = new System.Windows.Forms.TableLayoutPanel();
+            this.grpActions = new System.Windows.Forms.GroupBox();
+            this.actionLayout = new System.Windows.Forms.TableLayoutPanel();
+            this.lblGoodGroup = new System.Windows.Forms.Label();
+            this.goodLayout = new System.Windows.Forms.TableLayoutPanel();
+            this.btnGoodLoadingMove = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.btnGoodUnloadingMove = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.btnGoodSlotStartMove = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.btnGoodSlotEndMove = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.lblNgGroup = new System.Windows.Forms.Label();
+            this.ngLayout = new System.Windows.Forms.TableLayoutPanel();
+            this.btnNgLoadingMove = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.btnNgUnloadingMove = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.btnNgSlotStartMove = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.btnNgSlotEndMove = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.lblCommonGroup = new System.Windows.Forms.Label();
+            this.commonLayout = new System.Windows.Forms.TableLayoutPanel();
+            this.btnReadyMove = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.grpIo = new System.Windows.Forms.GroupBox();
+            this.ioCylinderPanel = new QMC.CDT_320.Ui.Controls.IoCylinderPanelControl();
+            this.centerLayout = new System.Windows.Forms.TableLayoutPanel();
+            this.grpWait = new System.Windows.Forms.GroupBox();
+            this.waitParameterGrid = new QMC.CDT_320.Ui.Controls.ParameterGridControl();
+            this.grpOptions = new System.Windows.Forms.GroupBox();
+            this.optionParameterGrid = new QMC.CDT_320.Ui.Controls.ParameterGridControl();
+            this.rightLayout = new System.Windows.Forms.TableLayoutPanel();
+            this.grpJog = new System.Windows.Forms.GroupBox();
+            this.jogCompositeLayout = new System.Windows.Forms.TableLayoutPanel();
+            this.jogPositionListControl = new QMC.CDT_320.Ui.Controls.JogPositionListControl();
+            this.jogAxisMoveControl = new QMC.CDT_320.Ui.Controls.JogAxisMoveControl();
+            this.grpSpeed = new System.Windows.Forms.GroupBox();
+            this.jogSpeedControl = new QMC.CDT_320.Ui.Controls.JogSpeedControl();
+            this.ioLayout = new System.Windows.Forms.TableLayoutPanel();
+            this.dot8Inch = new QMC.CDT_320.Ui.Controls.IndicatorDot();
+            this.lbl8Inch = new System.Windows.Forms.Label();
+            this.dot12Inch = new QMC.CDT_320.Ui.Controls.IndicatorDot();
+            this.lbl12Inch = new System.Windows.Forms.Label();
+            this.dotProtrusion = new QMC.CDT_320.Ui.Controls.IndicatorDot();
+            this.lblProtrusion = new System.Windows.Forms.Label();
+            this.dotMapping = new QMC.CDT_320.Ui.Controls.IndicatorDot();
+            this.lblMapping = new System.Windows.Forms.Label();
+            this.lblMappingBody = new System.Windows.Forms.Label();
             this.optionRows = new System.Windows.Forms.TableLayoutPanel();
-            this.lblOptAvoidKey = new System.Windows.Forms.Label();
-            this.lblOptAvoidVal = new System.Windows.Forms.Label();
-            this.lblOptNgSlotKey = new System.Windows.Forms.Label();
-            this.lblOptNgSlotVal = new System.Windows.Forms.Label();
-            this.lblOptGood1SlotKey = new System.Windows.Forms.Label();
-            this.lblOptGood1SlotVal = new System.Windows.Forms.Label();
-            this.lblOptGood2SlotKey = new System.Windows.Forms.Label();
-            this.lblOptGood2SlotVal = new System.Windows.Forms.Label();
-            this.lblOptSlotPitchKey = new System.Windows.Forms.Label();
-            this.lblOptSlotPitchVal = new System.Windows.Forms.Label();
-            this.lblOptSlotCountKey = new System.Windows.Forms.Label();
-            this.lblOptSlotCountVal = new System.Windows.Forms.Label();
-            this.lblOptActualKey = new System.Windows.Forms.Label();
-            this.lblOptActualVal = new System.Windows.Forms.Label();
-            this.lblOptAxisStateKey = new System.Windows.Forms.Label();
-            this.lblOptAxisStateVal = new System.Windows.Forms.Label();
-            this.lblWaitTitle = new System.Windows.Forms.Label();
+            this.lblRecipeLoadingKey = new System.Windows.Forms.Label();
+            this.lblRecipeLoadingVal = new System.Windows.Forms.Label();
+            this.lblRecipeUnloadingKey = new System.Windows.Forms.Label();
+            this.lblRecipeUnloadingVal = new System.Windows.Forms.Label();
+            this.lblRecipeAvoidKey = new System.Windows.Forms.Label();
+            this.lblRecipeAvoidVal = new System.Windows.Forms.Label();
+            this.lblRecipeFirstSlotKey = new System.Windows.Forms.Label();
+            this.lblRecipeFirstSlotVal = new System.Windows.Forms.Label();
+            this.lblRecipeMappingStartKey = new System.Windows.Forms.Label();
+            this.lblRecipeMappingStartVal = new System.Windows.Forms.Label();
+            this.lblRecipeMappingEndKey = new System.Windows.Forms.Label();
+            this.lblRecipeMappingEndVal = new System.Windows.Forms.Label();
+            this.lblConfigLoadingOffsetKey = new System.Windows.Forms.Label();
+            this.lblConfigLoadingOffsetVal = new System.Windows.Forms.Label();
+            this.lblConfigUnloadingOffsetKey = new System.Windows.Forms.Label();
+            this.lblConfigUnloadingOffsetVal = new System.Windows.Forms.Label();
+            this.lblConfigSlotPitchKey = new System.Windows.Forms.Label();
+            this.lblConfigSlotPitchVal = new System.Windows.Forms.Label();
+            this.lblConfigSlotCountKey = new System.Windows.Forms.Label();
+            this.lblConfigSlotCountVal = new System.Windows.Forms.Label();
+            this.lblConfigScanVelocityKey = new System.Windows.Forms.Label();
+            this.lblConfigScanVelocityVal = new System.Windows.Forms.Label();
+            this.lblSetupToleranceKey = new System.Windows.Forms.Label();
+            this.lblSetupToleranceVal = new System.Windows.Forms.Label();
+            this.lblConfigInchKey = new System.Windows.Forms.Label();
+            this.lblConfigInchVal = new System.Windows.Forms.Label();
+            this.lblConfigLevelKey = new System.Windows.Forms.Label();
+            this.lblConfigLevelVal = new System.Windows.Forms.Label();
+            this.lblSetupSimulationKey = new System.Windows.Forms.Label();
+            this.lblSetupSimulationVal = new System.Windows.Forms.Label();
+            this.lblConfigDryRunKey = new System.Windows.Forms.Label();
+            this.lblConfigDryRunVal = new System.Windows.Forms.Label();
             this.waitRows = new System.Windows.Forms.TableLayoutPanel();
-            this.lblWaitKey = new System.Windows.Forms.Label();
-            this.lblWaitVal = new System.Windows.Forms.Label();
-            this.panelRight = new System.Windows.Forms.TableLayoutPanel();
-            this.jogSection = new System.Windows.Forms.TableLayoutPanel();
-            this.speedSection = new System.Windows.Forms.TableLayoutPanel();
-            this.lblSpeedTitle = new System.Windows.Forms.Label();
-            this.lblSpeedHigh = new System.Windows.Forms.Label();
-            this.trkSpeed = new System.Windows.Forms.TrackBar();
-            this.lblSpeedMid = new System.Windows.Forms.Label();
-            this.lblSpeedLow = new System.Windows.Forms.Label();
-            this.lblSpeedValue = new System.Windows.Forms.Label();
-            this.mainLayout.SuspendLayout();
+            this.lblWaitScanSettleKey = new System.Windows.Forms.Label();
+            this.lblWaitScanSettleVal = new System.Windows.Forms.Label();
+            this.lblWaitMoveTimeoutKey = new System.Windows.Forms.Label();
+            this.lblWaitMoveTimeoutVal = new System.Windows.Forms.Label();
+            this.rootLayout.SuspendLayout();
             this.contentLayout.SuspendLayout();
-            this.panelLeft.SuspendLayout();
-            this.actionSection.SuspendLayout();
-            this.ioSection.SuspendLayout();
-            this.panelCenter.SuspendLayout();
+            this.leftLayout.SuspendLayout();
+            this.grpActions.SuspendLayout();
+            this.actionLayout.SuspendLayout();
+            this.goodLayout.SuspendLayout();
+            this.ngLayout.SuspendLayout();
+            this.commonLayout.SuspendLayout();
+            this.grpIo.SuspendLayout();
+            this.centerLayout.SuspendLayout();
+            this.grpWait.SuspendLayout();
+            this.grpOptions.SuspendLayout();
+            this.rightLayout.SuspendLayout();
+            this.grpJog.SuspendLayout();
+            this.jogCompositeLayout.SuspendLayout();
+            this.grpSpeed.SuspendLayout();
+            this.ioLayout.SuspendLayout();
             this.optionRows.SuspendLayout();
             this.waitRows.SuspendLayout();
-            this.panelRight.SuspendLayout();
-            this.jogSection.SuspendLayout();
-            this.speedSection.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.trkSpeed)).BeginInit();
             this.SuspendLayout();
             // 
-            // mainLayout
+            // rootLayout
             // 
-            this.mainLayout.ColumnCount = 1;
-            this.mainLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.mainLayout.Controls.Add(this.lblHeader, 0, 0);
-            this.mainLayout.Controls.Add(this.contentLayout, 0, 1);
-            this.mainLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.mainLayout.Location = new System.Drawing.Point(0, 0);
-            this.mainLayout.Margin = new System.Windows.Forms.Padding(0);
-            this.mainLayout.Name = "mainLayout";
-            this.mainLayout.RowCount = 2;
-            this.mainLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
-            this.mainLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.mainLayout.Size = new System.Drawing.Size(1500, 900);
-            this.mainLayout.TabIndex = 0;
+            this.rootLayout.ColumnCount = 1;
+            this.rootLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.rootLayout.Controls.Add(this.lblHeader, 0, 0);
+            this.rootLayout.Controls.Add(this.contentLayout, 0, 1);
+            this.rootLayout.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.rootLayout.Location = new System.Drawing.Point(0, 0);
+            this.rootLayout.Margin = new System.Windows.Forms.Padding(0);
+            this.rootLayout.Name = "rootLayout";
+            this.rootLayout.RowCount = 2;
+            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
+            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.rootLayout.Size = new System.Drawing.Size(1678, 900);
+            this.rootLayout.TabIndex = 0;
             // 
             // lblHeader
             // 
+            this.lblHeader.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(45)))), ((int)(((byte)(45)))));
             this.lblHeader.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblHeader.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
+            this.lblHeader.ForeColor = System.Drawing.Color.White;
             this.lblHeader.Location = new System.Drawing.Point(0, 0);
             this.lblHeader.Margin = new System.Windows.Forms.Padding(0);
             this.lblHeader.Name = "lblHeader";
-            this.lblHeader.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
-            this.lblHeader.Size = new System.Drawing.Size(1500, 30);
+            this.lblHeader.Padding = new System.Windows.Forms.Padding(18, 0, 0, 0);
+            this.lblHeader.Size = new System.Drawing.Size(1678, 30);
             this.lblHeader.TabIndex = 0;
+            this.lblHeader.Tag = "i18n:recipe.outputCassette";
             this.lblHeader.Text = "OUTPUT CASSETTE";
             this.lblHeader.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // contentLayout
             // 
-            this.contentLayout.ColumnCount = 4;
-            this.contentLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 240F));
-            this.contentLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 490F));
-            this.contentLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 410F));
+            this.contentLayout.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(216)))), ((int)(((byte)(219)))), ((int)(((byte)(222)))));
+            this.contentLayout.ColumnCount = 3;
+            this.contentLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 296F));
             this.contentLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.contentLayout.Controls.Add(this.panelLeft, 0, 0);
-            this.contentLayout.Controls.Add(this.panelCenter, 1, 0);
-            this.contentLayout.Controls.Add(this.panelRight, 2, 0);
+            this.contentLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 680F));
+            this.contentLayout.Controls.Add(this.leftLayout, 0, 0);
+            this.contentLayout.Controls.Add(this.centerLayout, 1, 0);
+            this.contentLayout.Controls.Add(this.rightLayout, 2, 0);
             this.contentLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.contentLayout.Location = new System.Drawing.Point(0, 30);
             this.contentLayout.Margin = new System.Windows.Forms.Padding(0);
             this.contentLayout.Name = "contentLayout";
-            this.contentLayout.Padding = new System.Windows.Forms.Padding(8, 6, 8, 8);
+            this.contentLayout.Padding = new System.Windows.Forms.Padding(1);
             this.contentLayout.RowCount = 1;
             this.contentLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.contentLayout.Size = new System.Drawing.Size(1500, 870);
+            this.contentLayout.Size = new System.Drawing.Size(1678, 870);
             this.contentLayout.TabIndex = 1;
             // 
-            // panelLeft
+            // leftLayout
             // 
-            this.panelLeft.ColumnCount = 1;
-            this.panelLeft.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.panelLeft.Controls.Add(this.actionSection, 0, 0);
-            this.panelLeft.Controls.Add(this.ioSection, 0, 1);
-            this.panelLeft.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.panelLeft.Location = new System.Drawing.Point(8, 6);
-            this.panelLeft.Margin = new System.Windows.Forms.Padding(0, 0, 8, 0);
-            this.panelLeft.Name = "panelLeft";
-            this.panelLeft.RowCount = 2;
-            this.panelLeft.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 330F));
-            this.panelLeft.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 150F));
-            this.panelLeft.Size = new System.Drawing.Size(232, 856);
-            this.panelLeft.TabIndex = 0;
+            this.leftLayout.ColumnCount = 1;
+            this.leftLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.leftLayout.Controls.Add(this.grpActions, 0, 0);
+            this.leftLayout.Controls.Add(this.grpIo, 0, 1);
+            this.leftLayout.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.leftLayout.Location = new System.Drawing.Point(1, 1);
+            this.leftLayout.Margin = new System.Windows.Forms.Padding(0, 0, 6, 0);
+            this.leftLayout.Name = "leftLayout";
+            this.leftLayout.RowCount = 2;
+            this.leftLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 523F));
+            this.leftLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.leftLayout.Size = new System.Drawing.Size(290, 868);
+            this.leftLayout.TabIndex = 0;
             // 
-            // actionSection
+            // grpActions
             // 
-            this.actionSection.ColumnCount = 1;
-            this.actionSection.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.actionSection.Controls.Add(this.lblActionTitle, 0, 0);
-            this.actionSection.Controls.Add(this.btnAvoidMove, 0, 1);
-            this.actionSection.Controls.Add(this.btnNgSlotMove, 0, 2);
-            this.actionSection.Controls.Add(this.btnGood1SlotMove, 0, 3);
-            this.actionSection.Controls.Add(this.btnGood2SlotMove, 0, 4);
-            this.actionSection.Controls.Add(this.btnScan, 0, 5);
-            this.actionSection.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.actionSection.Location = new System.Drawing.Point(0, 0);
-            this.actionSection.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
-            this.actionSection.Name = "actionSection";
-            this.actionSection.RowCount = 6;
-            this.actionSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
-            this.actionSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 58F));
-            this.actionSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 58F));
-            this.actionSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 58F));
-            this.actionSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 58F));
-            this.actionSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 58F));
-            this.actionSection.Size = new System.Drawing.Size(232, 322);
-            this.actionSection.TabIndex = 0;
+            this.grpActions.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(245)))), ((int)(((byte)(245)))));
+            this.grpActions.Controls.Add(this.actionLayout);
+            this.grpActions.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.grpActions.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.grpActions.Location = new System.Drawing.Point(0, 0);
+            this.grpActions.Margin = new System.Windows.Forms.Padding(0, 0, 0, 6);
+            this.grpActions.Name = "grpActions";
+            this.grpActions.Size = new System.Drawing.Size(290, 517);
+            this.grpActions.TabIndex = 0;
+            this.grpActions.TabStop = false;
+            this.grpActions.Text = "ACTION";
             // 
-            // lblActionTitle
+            // actionLayout
             // 
-            this.lblActionTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblActionTitle.Location = new System.Drawing.Point(0, 0);
-            this.lblActionTitle.Margin = new System.Windows.Forms.Padding(0);
-            this.lblActionTitle.Name = "lblActionTitle";
-            this.lblActionTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
-            this.lblActionTitle.Size = new System.Drawing.Size(232, 30);
-            this.lblActionTitle.TabIndex = 0;
-            this.lblActionTitle.Text = "동작";
-            this.lblActionTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.actionLayout.ColumnCount = 1;
+            this.actionLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.actionLayout.Controls.Add(this.lblGoodGroup, 0, 0);
+            this.actionLayout.Controls.Add(this.goodLayout, 0, 1);
+            this.actionLayout.Controls.Add(this.lblNgGroup, 0, 2);
+            this.actionLayout.Controls.Add(this.ngLayout, 0, 3);
+            this.actionLayout.Controls.Add(this.lblCommonGroup, 0, 4);
+            this.actionLayout.Controls.Add(this.commonLayout, 0, 5);
+            this.actionLayout.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.actionLayout.Location = new System.Drawing.Point(3, 21);
+            this.actionLayout.Name = "actionLayout";
+            this.actionLayout.Padding = new System.Windows.Forms.Padding(10, 12, 10, 6);
+            this.actionLayout.RowCount = 6;
+            this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 24F));
+            this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 40F));
+            this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 24F));
+            this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 40F));
+            this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 24F));
+            this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 20F));
+            this.actionLayout.Size = new System.Drawing.Size(284, 493);
+            this.actionLayout.TabIndex = 0;
             // 
-            // btnAvoidMove
+            // lblGoodGroup
             // 
-            this.btnAvoidMove.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnAvoidMove.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnAvoidMove.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnAvoidMove.Font = new System.Drawing.Font("맑은 고딕", 12F, System.Drawing.FontStyle.Bold);
-            this.btnAvoidMove.ForeColor = System.Drawing.Color.White;
-            this.btnAvoidMove.Location = new System.Drawing.Point(8, 36);
-            this.btnAvoidMove.Margin = new System.Windows.Forms.Padding(8, 6, 8, 4);
-            this.btnAvoidMove.Name = "btnAvoidMove";
-            this.btnAvoidMove.Size = new System.Drawing.Size(216, 48);
-            this.btnAvoidMove.TabIndex = 1;
-            this.btnAvoidMove.Text = "AVOID 이동";
-            this.btnAvoidMove.Click += new System.EventHandler(this.btnAvoidMove_Click);
+            this.lblGoodGroup.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblGoodGroup.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.lblGoodGroup.Location = new System.Drawing.Point(10, 12);
+            this.lblGoodGroup.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
+            this.lblGoodGroup.Name = "lblGoodGroup";
+            this.lblGoodGroup.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
+            this.lblGoodGroup.Size = new System.Drawing.Size(264, 22);
+            this.lblGoodGroup.TabIndex = 0;
+            this.lblGoodGroup.Text = "GOOD";
+            this.lblGoodGroup.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
-            // btnNgSlotMove
+            // goodLayout
             // 
-            this.btnNgSlotMove.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnNgSlotMove.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnNgSlotMove.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnNgSlotMove.Font = new System.Drawing.Font("맑은 고딕", 12F, System.Drawing.FontStyle.Bold);
-            this.btnNgSlotMove.ForeColor = System.Drawing.Color.White;
-            this.btnNgSlotMove.Location = new System.Drawing.Point(8, 92);
-            this.btnNgSlotMove.Margin = new System.Windows.Forms.Padding(8, 4, 8, 4);
-            this.btnNgSlotMove.Name = "btnNgSlotMove";
-            this.btnNgSlotMove.Size = new System.Drawing.Size(216, 50);
-            this.btnNgSlotMove.TabIndex = 2;
-            this.btnNgSlotMove.Text = "NG 1번 슬롯 이동";
-            this.btnNgSlotMove.Click += new System.EventHandler(this.btnNgSlotMove_Click);
+            this.goodLayout.ColumnCount = 1;
+            this.goodLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.goodLayout.Controls.Add(this.btnGoodLoadingMove, 0, 0);
+            this.goodLayout.Controls.Add(this.btnGoodUnloadingMove, 0, 1);
+            this.goodLayout.Controls.Add(this.btnGoodSlotStartMove, 0, 2);
+            this.goodLayout.Controls.Add(this.btnGoodSlotEndMove, 0, 3);
+            this.goodLayout.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.goodLayout.Location = new System.Drawing.Point(10, 36);
+            this.goodLayout.Margin = new System.Windows.Forms.Padding(0, 0, 0, 6);
+            this.goodLayout.Name = "goodLayout";
+            this.goodLayout.RowCount = 4;
+            this.goodLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 25F));
+            this.goodLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 25F));
+            this.goodLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 25F));
+            this.goodLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 25F));
+            this.goodLayout.Size = new System.Drawing.Size(264, 155);
+            this.goodLayout.TabIndex = 1;
             // 
-            // btnGood1SlotMove
+            // btnGoodLoadingMove
             // 
-            this.btnGood1SlotMove.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnGood1SlotMove.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnGood1SlotMove.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnGood1SlotMove.Font = new System.Drawing.Font("맑은 고딕", 12F, System.Drawing.FontStyle.Bold);
-            this.btnGood1SlotMove.ForeColor = System.Drawing.Color.White;
-            this.btnGood1SlotMove.Location = new System.Drawing.Point(8, 150);
-            this.btnGood1SlotMove.Margin = new System.Windows.Forms.Padding(8, 4, 8, 4);
-            this.btnGood1SlotMove.Name = "btnGood1SlotMove";
-            this.btnGood1SlotMove.Size = new System.Drawing.Size(216, 50);
-            this.btnGood1SlotMove.TabIndex = 3;
-            this.btnGood1SlotMove.Text = "GOOD1 1번 슬롯 이동";
-            this.btnGood1SlotMove.Click += new System.EventHandler(this.btnGood1SlotMove_Click);
+            this.btnGoodLoadingMove.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnGoodLoadingMove.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnGoodLoadingMove.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnGoodLoadingMove.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnGoodLoadingMove.ForeColor = System.Drawing.Color.White;
+            this.btnGoodLoadingMove.Location = new System.Drawing.Point(0, 0);
+            this.btnGoodLoadingMove.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
+            this.btnGoodLoadingMove.Name = "btnGoodLoadingMove";
+            this.btnGoodLoadingMove.Size = new System.Drawing.Size(264, 30);
+            this.btnGoodLoadingMove.TabIndex = 0;
+            this.btnGoodLoadingMove.Text = "GOOD LOADING MOVE";
+            this.btnGoodLoadingMove.Click += new System.EventHandler(this.btnGoodLoadingMove_Click);
             // 
-            // btnGood2SlotMove
+            // btnGoodUnloadingMove
             // 
-            this.btnGood2SlotMove.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnGood2SlotMove.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnGood2SlotMove.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnGood2SlotMove.Font = new System.Drawing.Font("맑은 고딕", 12F, System.Drawing.FontStyle.Bold);
-            this.btnGood2SlotMove.ForeColor = System.Drawing.Color.White;
-            this.btnGood2SlotMove.Location = new System.Drawing.Point(8, 208);
-            this.btnGood2SlotMove.Margin = new System.Windows.Forms.Padding(8, 4, 8, 4);
-            this.btnGood2SlotMove.Name = "btnGood2SlotMove";
-            this.btnGood2SlotMove.Size = new System.Drawing.Size(216, 50);
-            this.btnGood2SlotMove.TabIndex = 4;
-            this.btnGood2SlotMove.Text = "GOOD2 1번 슬롯 이동";
-            this.btnGood2SlotMove.Click += new System.EventHandler(this.btnGood2SlotMove_Click);
+            this.btnGoodUnloadingMove.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnGoodUnloadingMove.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnGoodUnloadingMove.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnGoodUnloadingMove.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnGoodUnloadingMove.ForeColor = System.Drawing.Color.White;
+            this.btnGoodUnloadingMove.Location = new System.Drawing.Point(0, 38);
+            this.btnGoodUnloadingMove.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
+            this.btnGoodUnloadingMove.Name = "btnGoodUnloadingMove";
+            this.btnGoodUnloadingMove.Size = new System.Drawing.Size(264, 30);
+            this.btnGoodUnloadingMove.TabIndex = 1;
+            this.btnGoodUnloadingMove.Text = "GOOD UNLOADING MOVE";
+            this.btnGoodUnloadingMove.Click += new System.EventHandler(this.btnGoodUnloadingMove_Click);
             // 
-            // btnScan
+            // btnGoodSlotStartMove
             // 
-            this.btnScan.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnScan.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnScan.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnScan.Font = new System.Drawing.Font("맑은 고딕", 12F, System.Drawing.FontStyle.Bold);
-            this.btnScan.ForeColor = System.Drawing.Color.White;
-            this.btnScan.Location = new System.Drawing.Point(8, 266);
-            this.btnScan.Margin = new System.Windows.Forms.Padding(8, 4, 8, 8);
-            this.btnScan.Name = "btnScan";
-            this.btnScan.Size = new System.Drawing.Size(216, 48);
-            this.btnScan.TabIndex = 5;
-            this.btnScan.Text = "SCAN";
-            this.btnScan.Click += new System.EventHandler(this.btnScan_Click);
+            this.btnGoodSlotStartMove.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnGoodSlotStartMove.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnGoodSlotStartMove.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnGoodSlotStartMove.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnGoodSlotStartMove.ForeColor = System.Drawing.Color.White;
+            this.btnGoodSlotStartMove.Location = new System.Drawing.Point(0, 76);
+            this.btnGoodSlotStartMove.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
+            this.btnGoodSlotStartMove.Name = "btnGoodSlotStartMove";
+            this.btnGoodSlotStartMove.Size = new System.Drawing.Size(264, 30);
+            this.btnGoodSlotStartMove.TabIndex = 2;
+            this.btnGoodSlotStartMove.Text = "GOOD SLOT START";
+            this.btnGoodSlotStartMove.Click += new System.EventHandler(this.btnGoodSlotStartMove_Click);
             // 
-            // ioSection
+            // btnGoodSlotEndMove
             // 
-            this.ioSection.ColumnCount = 2;
-            this.ioSection.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 32F));
-            this.ioSection.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.ioSection.Controls.Add(this.lblIoTitle, 0, 0);
-            this.ioSection.Controls.Add(this.dotGoodCassette, 0, 1);
-            this.ioSection.Controls.Add(this.lblGoodCassette, 1, 1);
-            this.ioSection.Controls.Add(this.dotNgCassette, 0, 2);
-            this.ioSection.Controls.Add(this.lblNgCassette, 1, 2);
-            this.ioSection.Controls.Add(this.dotBinProtrusion, 0, 3);
-            this.ioSection.Controls.Add(this.lblBinProtrusion, 1, 3);
-            this.ioSection.Controls.Add(this.dotBinMapping, 0, 4);
-            this.ioSection.Controls.Add(this.lblBinMapping, 1, 4);
-            this.ioSection.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.ioSection.Location = new System.Drawing.Point(0, 330);
-            this.ioSection.Margin = new System.Windows.Forms.Padding(0);
-            this.ioSection.Name = "ioSection";
-            this.ioSection.RowCount = 5;
-            this.ioSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
-            this.ioSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 28F));
-            this.ioSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 28F));
-            this.ioSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 28F));
-            this.ioSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 28F));
-            this.ioSection.Size = new System.Drawing.Size(232, 526);
-            this.ioSection.TabIndex = 1;
+            this.btnGoodSlotEndMove.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnGoodSlotEndMove.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnGoodSlotEndMove.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnGoodSlotEndMove.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnGoodSlotEndMove.ForeColor = System.Drawing.Color.White;
+            this.btnGoodSlotEndMove.Location = new System.Drawing.Point(0, 114);
+            this.btnGoodSlotEndMove.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
+            this.btnGoodSlotEndMove.Name = "btnGoodSlotEndMove";
+            this.btnGoodSlotEndMove.Size = new System.Drawing.Size(264, 33);
+            this.btnGoodSlotEndMove.TabIndex = 3;
+            this.btnGoodSlotEndMove.Text = "GOOD SLOT END";
+            this.btnGoodSlotEndMove.Click += new System.EventHandler(this.btnGoodSlotEndMove_Click);
             // 
-            // lblIoTitle
+            // lblNgGroup
             // 
-            this.ioSection.SetColumnSpan(this.lblIoTitle, 2);
-            this.lblIoTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblIoTitle.Location = new System.Drawing.Point(0, 0);
-            this.lblIoTitle.Margin = new System.Windows.Forms.Padding(0);
-            this.lblIoTitle.Name = "lblIoTitle";
-            this.lblIoTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
-            this.lblIoTitle.Size = new System.Drawing.Size(232, 30);
-            this.lblIoTitle.TabIndex = 0;
-            this.lblIoTitle.Text = "실린더 I/O";
-            this.lblIoTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblNgGroup.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblNgGroup.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.lblNgGroup.Location = new System.Drawing.Point(10, 197);
+            this.lblNgGroup.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
+            this.lblNgGroup.Name = "lblNgGroup";
+            this.lblNgGroup.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
+            this.lblNgGroup.Size = new System.Drawing.Size(264, 22);
+            this.lblNgGroup.TabIndex = 2;
+            this.lblNgGroup.Text = "NG";
+            this.lblNgGroup.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
-            // dotGoodCassette
+            // ngLayout
             // 
-            this.dotGoodCassette.BackColor = System.Drawing.Color.Transparent;
-            this.dotGoodCassette.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.dotGoodCassette.Location = new System.Drawing.Point(8, 36);
-            this.dotGoodCassette.Margin = new System.Windows.Forms.Padding(8, 6, 6, 6);
-            this.dotGoodCassette.Name = "dotGoodCassette";
-            this.dotGoodCassette.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
-            this.dotGoodCassette.OnColor = System.Drawing.Color.LimeGreen;
-            this.dotGoodCassette.Size = new System.Drawing.Size(18, 16);
-            this.dotGoodCassette.TabIndex = 1;
+            this.ngLayout.ColumnCount = 1;
+            this.ngLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.ngLayout.Controls.Add(this.btnNgLoadingMove, 0, 0);
+            this.ngLayout.Controls.Add(this.btnNgUnloadingMove, 0, 1);
+            this.ngLayout.Controls.Add(this.btnNgSlotStartMove, 0, 2);
+            this.ngLayout.Controls.Add(this.btnNgSlotEndMove, 0, 3);
+            this.ngLayout.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.ngLayout.Location = new System.Drawing.Point(10, 221);
+            this.ngLayout.Margin = new System.Windows.Forms.Padding(0, 0, 0, 6);
+            this.ngLayout.Name = "ngLayout";
+            this.ngLayout.RowCount = 4;
+            this.ngLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 25F));
+            this.ngLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 25F));
+            this.ngLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 25F));
+            this.ngLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 25F));
+            this.ngLayout.Size = new System.Drawing.Size(264, 155);
+            this.ngLayout.TabIndex = 3;
             // 
-            // lblGoodCassette
+            // btnNgLoadingMove
             // 
-            this.lblGoodCassette.Location = new System.Drawing.Point(35, 30);
-            this.lblGoodCassette.Name = "lblGoodCassette";
-            this.lblGoodCassette.Size = new System.Drawing.Size(100, 23);
-            this.lblGoodCassette.TabIndex = 2;
-            this.lblGoodCassette.Text = "GOOD BIN CASSETTE";
+            this.btnNgLoadingMove.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnNgLoadingMove.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnNgLoadingMove.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnNgLoadingMove.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnNgLoadingMove.ForeColor = System.Drawing.Color.White;
+            this.btnNgLoadingMove.Location = new System.Drawing.Point(0, 0);
+            this.btnNgLoadingMove.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
+            this.btnNgLoadingMove.Name = "btnNgLoadingMove";
+            this.btnNgLoadingMove.Size = new System.Drawing.Size(264, 30);
+            this.btnNgLoadingMove.TabIndex = 4;
+            this.btnNgLoadingMove.Text = "NG LOADING MOVE";
+            this.btnNgLoadingMove.Click += new System.EventHandler(this.btnNgLoadingMove_Click);
             // 
-            // dotNgCassette
+            // btnNgUnloadingMove
             // 
-            this.dotNgCassette.BackColor = System.Drawing.Color.Transparent;
-            this.dotNgCassette.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.dotNgCassette.Location = new System.Drawing.Point(8, 64);
-            this.dotNgCassette.Margin = new System.Windows.Forms.Padding(8, 6, 6, 6);
-            this.dotNgCassette.Name = "dotNgCassette";
-            this.dotNgCassette.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
-            this.dotNgCassette.OnColor = System.Drawing.Color.LimeGreen;
-            this.dotNgCassette.Size = new System.Drawing.Size(18, 16);
-            this.dotNgCassette.TabIndex = 3;
+            this.btnNgUnloadingMove.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnNgUnloadingMove.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnNgUnloadingMove.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnNgUnloadingMove.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnNgUnloadingMove.ForeColor = System.Drawing.Color.White;
+            this.btnNgUnloadingMove.Location = new System.Drawing.Point(0, 38);
+            this.btnNgUnloadingMove.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
+            this.btnNgUnloadingMove.Name = "btnNgUnloadingMove";
+            this.btnNgUnloadingMove.Size = new System.Drawing.Size(264, 30);
+            this.btnNgUnloadingMove.TabIndex = 5;
+            this.btnNgUnloadingMove.Text = "NG UNLOADING MOVE";
+            this.btnNgUnloadingMove.Click += new System.EventHandler(this.btnNgUnloadingMove_Click);
             // 
-            // lblNgCassette
+            // btnNgSlotStartMove
             // 
-            this.lblNgCassette.Location = new System.Drawing.Point(35, 58);
-            this.lblNgCassette.Name = "lblNgCassette";
-            this.lblNgCassette.Size = new System.Drawing.Size(100, 23);
-            this.lblNgCassette.TabIndex = 4;
-            this.lblNgCassette.Text = "NG BIN CASSETTE";
+            this.btnNgSlotStartMove.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnNgSlotStartMove.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnNgSlotStartMove.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnNgSlotStartMove.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnNgSlotStartMove.ForeColor = System.Drawing.Color.White;
+            this.btnNgSlotStartMove.Location = new System.Drawing.Point(0, 76);
+            this.btnNgSlotStartMove.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
+            this.btnNgSlotStartMove.Name = "btnNgSlotStartMove";
+            this.btnNgSlotStartMove.Size = new System.Drawing.Size(264, 30);
+            this.btnNgSlotStartMove.TabIndex = 6;
+            this.btnNgSlotStartMove.Text = "NG SLOT START";
+            this.btnNgSlotStartMove.Click += new System.EventHandler(this.btnNgSlotStartMove_Click);
             // 
-            // dotBinProtrusion
+            // btnNgSlotEndMove
             // 
-            this.dotBinProtrusion.BackColor = System.Drawing.Color.Transparent;
-            this.dotBinProtrusion.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.dotBinProtrusion.Location = new System.Drawing.Point(8, 92);
-            this.dotBinProtrusion.Margin = new System.Windows.Forms.Padding(8, 6, 6, 6);
-            this.dotBinProtrusion.Name = "dotBinProtrusion";
-            this.dotBinProtrusion.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
-            this.dotBinProtrusion.OnColor = System.Drawing.Color.LimeGreen;
-            this.dotBinProtrusion.Size = new System.Drawing.Size(18, 16);
-            this.dotBinProtrusion.TabIndex = 5;
+            this.btnNgSlotEndMove.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnNgSlotEndMove.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnNgSlotEndMove.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnNgSlotEndMove.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnNgSlotEndMove.ForeColor = System.Drawing.Color.White;
+            this.btnNgSlotEndMove.Location = new System.Drawing.Point(0, 114);
+            this.btnNgSlotEndMove.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
+            this.btnNgSlotEndMove.Name = "btnNgSlotEndMove";
+            this.btnNgSlotEndMove.Size = new System.Drawing.Size(264, 33);
+            this.btnNgSlotEndMove.TabIndex = 7;
+            this.btnNgSlotEndMove.Text = "NG SLOT END";
+            this.btnNgSlotEndMove.Click += new System.EventHandler(this.btnNgSlotEndMove_Click);
             // 
-            // lblBinProtrusion
+            // lblCommonGroup
             // 
-            this.lblBinProtrusion.Location = new System.Drawing.Point(35, 86);
-            this.lblBinProtrusion.Name = "lblBinProtrusion";
-            this.lblBinProtrusion.Size = new System.Drawing.Size(100, 23);
-            this.lblBinProtrusion.TabIndex = 6;
-            this.lblBinProtrusion.Text = "BIN PROTRUSION";
+            this.lblCommonGroup.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblCommonGroup.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.lblCommonGroup.Location = new System.Drawing.Point(10, 382);
+            this.lblCommonGroup.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
+            this.lblCommonGroup.Name = "lblCommonGroup";
+            this.lblCommonGroup.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
+            this.lblCommonGroup.Size = new System.Drawing.Size(264, 22);
+            this.lblCommonGroup.TabIndex = 4;
+            this.lblCommonGroup.Text = "COMMON";
+            this.lblCommonGroup.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
-            // dotBinMapping
+            // commonLayout
             // 
-            this.dotBinMapping.BackColor = System.Drawing.Color.Transparent;
-            this.dotBinMapping.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.dotBinMapping.Location = new System.Drawing.Point(8, 120);
-            this.dotBinMapping.Margin = new System.Windows.Forms.Padding(8, 6, 6, 6);
-            this.dotBinMapping.Name = "dotBinMapping";
-            this.dotBinMapping.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
-            this.dotBinMapping.OnColor = System.Drawing.Color.LimeGreen;
-            this.dotBinMapping.Size = new System.Drawing.Size(18, 400);
-            this.dotBinMapping.TabIndex = 7;
+            this.commonLayout.ColumnCount = 1;
+            this.commonLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.commonLayout.Controls.Add(this.btnReadyMove, 0, 0);
+            this.commonLayout.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.commonLayout.Location = new System.Drawing.Point(10, 406);
+            this.commonLayout.Margin = new System.Windows.Forms.Padding(0);
+            this.commonLayout.Name = "commonLayout";
+            this.commonLayout.RowCount = 1;
+            this.commonLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.commonLayout.Size = new System.Drawing.Size(264, 81);
+            this.commonLayout.TabIndex = 5;
             // 
-            // lblBinMapping
+            // btnReadyMove
             // 
-            this.lblBinMapping.Location = new System.Drawing.Point(35, 114);
-            this.lblBinMapping.Name = "lblBinMapping";
-            this.lblBinMapping.Size = new System.Drawing.Size(100, 23);
-            this.lblBinMapping.TabIndex = 8;
-            this.lblBinMapping.Text = "BIN MAPPING";
+            this.btnReadyMove.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnReadyMove.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnReadyMove.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnReadyMove.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnReadyMove.ForeColor = System.Drawing.Color.White;
+            this.btnReadyMove.Location = new System.Drawing.Point(0, 0);
+            this.btnReadyMove.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
+            this.btnReadyMove.Name = "btnReadyMove";
+            this.btnReadyMove.Size = new System.Drawing.Size(264, 73);
+            this.btnReadyMove.TabIndex = 8;
+            this.btnReadyMove.Text = "READY MOVE";
+            this.btnReadyMove.Click += new System.EventHandler(this.btnReadyMove_Click);
             // 
-            // panelCenter
+            // grpIo
             // 
-            this.panelCenter.ColumnCount = 1;
-            this.panelCenter.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.panelCenter.Controls.Add(this.lblOptionTitle, 0, 0);
-            this.panelCenter.Controls.Add(this.optionRows, 0, 1);
-            this.panelCenter.Controls.Add(this.lblWaitTitle, 0, 2);
-            this.panelCenter.Controls.Add(this.waitRows, 0, 3);
-            this.panelCenter.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.panelCenter.Location = new System.Drawing.Point(248, 6);
-            this.panelCenter.Margin = new System.Windows.Forms.Padding(0, 0, 8, 0);
-            this.panelCenter.Name = "panelCenter";
-            this.panelCenter.RowCount = 5;
-            this.panelCenter.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
-            this.panelCenter.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 264F));
-            this.panelCenter.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
-            this.panelCenter.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 36F));
-            this.panelCenter.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.panelCenter.Size = new System.Drawing.Size(482, 856);
-            this.panelCenter.TabIndex = 1;
+            this.grpIo.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(245)))), ((int)(((byte)(245)))));
+            this.grpIo.Controls.Add(this.ioCylinderPanel);
+            this.grpIo.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.grpIo.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.grpIo.Location = new System.Drawing.Point(0, 523);
+            this.grpIo.Margin = new System.Windows.Forms.Padding(0);
+            this.grpIo.Name = "grpIo";
+            this.grpIo.Size = new System.Drawing.Size(290, 345);
+            this.grpIo.TabIndex = 1;
+            this.grpIo.TabStop = false;
+            this.grpIo.Text = "CYLINDER && I/O";
             // 
-            // lblOptionTitle
+            // ioCylinderPanel
             // 
-            this.lblOptionTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblOptionTitle.Location = new System.Drawing.Point(0, 0);
-            this.lblOptionTitle.Margin = new System.Windows.Forms.Padding(0);
-            this.lblOptionTitle.Name = "lblOptionTitle";
-            this.lblOptionTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
-            this.lblOptionTitle.Size = new System.Drawing.Size(482, 30);
-            this.lblOptionTitle.TabIndex = 0;
-            this.lblOptionTitle.Text = "옵션";
-            this.lblOptionTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.ioCylinderPanel.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(205)))), ((int)(((byte)(205)))), ((int)(((byte)(205)))));
+            this.ioCylinderPanel.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.ioCylinderPanel.Location = new System.Drawing.Point(3, 21);
+            this.ioCylinderPanel.Margin = new System.Windows.Forms.Padding(0);
+            this.ioCylinderPanel.Name = "ioCylinderPanel";
+            this.ioCylinderPanel.Size = new System.Drawing.Size(284, 321);
+            this.ioCylinderPanel.TabIndex = 0;
+            // 
+            // centerLayout
+            // 
+            this.centerLayout.ColumnCount = 1;
+            this.centerLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.centerLayout.Controls.Add(this.grpWait, 0, 1);
+            this.centerLayout.Controls.Add(this.grpOptions, 0, 0);
+            this.centerLayout.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.centerLayout.Location = new System.Drawing.Point(297, 1);
+            this.centerLayout.Margin = new System.Windows.Forms.Padding(0, 0, 6, 0);
+            this.centerLayout.Name = "centerLayout";
+            this.centerLayout.RowCount = 2;
+            this.centerLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 675F));
+            this.centerLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.centerLayout.Size = new System.Drawing.Size(694, 868);
+            this.centerLayout.TabIndex = 1;
+            // 
+            // grpWait
+            // 
+            this.grpWait.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(245)))), ((int)(((byte)(245)))));
+            this.grpWait.Controls.Add(this.waitParameterGrid);
+            this.grpWait.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.grpWait.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.grpWait.Location = new System.Drawing.Point(0, 675);
+            this.grpWait.Margin = new System.Windows.Forms.Padding(0);
+            this.grpWait.Name = "grpWait";
+            this.grpWait.Size = new System.Drawing.Size(694, 193);
+            this.grpWait.TabIndex = 1;
+            this.grpWait.TabStop = false;
+            this.grpWait.Text = "WAIT TIME";
+            // 
+            // waitParameterGrid
+            // 
+            this.waitParameterGrid.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(246)))), ((int)(((byte)(248)))));
+            this.waitParameterGrid.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.waitParameterGrid.Location = new System.Drawing.Point(3, 21);
+            this.waitParameterGrid.Margin = new System.Windows.Forms.Padding(0);
+            this.waitParameterGrid.Name = "waitParameterGrid";
+            this.waitParameterGrid.Size = new System.Drawing.Size(688, 169);
+            this.waitParameterGrid.TabIndex = 0;
+            // 
+            // grpOptions
+            // 
+            this.grpOptions.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(245)))), ((int)(((byte)(245)))));
+            this.grpOptions.Controls.Add(this.optionParameterGrid);
+            this.grpOptions.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.grpOptions.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.grpOptions.Location = new System.Drawing.Point(0, 0);
+            this.grpOptions.Margin = new System.Windows.Forms.Padding(0, 0, 0, 6);
+            this.grpOptions.Name = "grpOptions";
+            this.grpOptions.Size = new System.Drawing.Size(694, 669);
+            this.grpOptions.TabIndex = 0;
+            this.grpOptions.TabStop = false;
+            this.grpOptions.Text = "OPTION";
+            // 
+            // optionParameterGrid
+            // 
+            this.optionParameterGrid.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(246)))), ((int)(((byte)(248)))));
+            this.optionParameterGrid.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.optionParameterGrid.Location = new System.Drawing.Point(3, 21);
+            this.optionParameterGrid.Margin = new System.Windows.Forms.Padding(0);
+            this.optionParameterGrid.Name = "optionParameterGrid";
+            this.optionParameterGrid.Size = new System.Drawing.Size(688, 645);
+            this.optionParameterGrid.TabIndex = 0;
+            // 
+            // rightLayout
+            // 
+            this.rightLayout.ColumnCount = 2;
+            this.rightLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.rightLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 120F));
+            this.rightLayout.Controls.Add(this.grpJog, 0, 0);
+            this.rightLayout.Controls.Add(this.grpSpeed, 1, 0);
+            this.rightLayout.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.rightLayout.Location = new System.Drawing.Point(997, 1);
+            this.rightLayout.Margin = new System.Windows.Forms.Padding(0);
+            this.rightLayout.Name = "rightLayout";
+            this.rightLayout.RowCount = 1;
+            this.rightLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.rightLayout.Size = new System.Drawing.Size(680, 868);
+            this.rightLayout.TabIndex = 2;
+            // 
+            // grpJog
+            // 
+            this.grpJog.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(245)))), ((int)(((byte)(245)))));
+            this.grpJog.Controls.Add(this.jogCompositeLayout);
+            this.grpJog.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.grpJog.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.grpJog.Location = new System.Drawing.Point(0, 0);
+            this.grpJog.Margin = new System.Windows.Forms.Padding(0, 0, 6, 0);
+            this.grpJog.Name = "grpJog";
+            this.grpJog.Size = new System.Drawing.Size(554, 868);
+            this.grpJog.TabIndex = 0;
+            this.grpJog.TabStop = false;
+            this.grpJog.Text = "JOG";
+            // 
+            // jogCompositeLayout
+            // 
+            this.jogCompositeLayout.ColumnCount = 1;
+            this.jogCompositeLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.jogCompositeLayout.Controls.Add(this.jogPositionListControl, 0, 0);
+            this.jogCompositeLayout.Controls.Add(this.jogAxisMoveControl, 0, 1);
+            this.jogCompositeLayout.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.jogCompositeLayout.Location = new System.Drawing.Point(3, 21);
+            this.jogCompositeLayout.Margin = new System.Windows.Forms.Padding(0);
+            this.jogCompositeLayout.Name = "jogCompositeLayout";
+            this.jogCompositeLayout.RowCount = 2;
+            this.jogCompositeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 62F));
+            this.jogCompositeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.jogCompositeLayout.Size = new System.Drawing.Size(548, 844);
+            this.jogCompositeLayout.TabIndex = 0;
+            // 
+            // jogPositionListControl
+            // 
+            this.jogPositionListControl.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.jogPositionListControl.Location = new System.Drawing.Point(0, 0);
+            this.jogPositionListControl.Margin = new System.Windows.Forms.Padding(0, 0, 0, 6);
+            this.jogPositionListControl.Name = "jogPositionListControl";
+            this.jogPositionListControl.Size = new System.Drawing.Size(548, 56);
+            this.jogPositionListControl.TabIndex = 0;
+            this.jogPositionListControl.WrapColumnsWhenMany = true;
+            // 
+            // jogAxisMoveControl
+            // 
+            this.jogAxisMoveControl.AxisColumnsPerRow = 0;
+            this.jogAxisMoveControl.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(246)))), ((int)(((byte)(248)))));
+            this.jogAxisMoveControl.ButtonAreaMaxHeight = 164;
+            this.jogAxisMoveControl.ButtonAreaMaxWidth = 222;
+            this.jogAxisMoveControl.ButtonAreaMinHeight = 164;
+            this.jogAxisMoveControl.ButtonAreaMinWidth = 222;
+            this.jogAxisMoveControl.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.jogAxisMoveControl.LayoutMode = QMC.CDT_320.Ui.Controls.JogAxisMoveLayoutMode.AxisColumns;
+            this.jogAxisMoveControl.Location = new System.Drawing.Point(0, 62);
+            this.jogAxisMoveControl.Margin = new System.Windows.Forms.Padding(0);
+            this.jogAxisMoveControl.Name = "jogAxisMoveControl";
+            this.jogAxisMoveControl.ShowCurrentSpeedMode = true;
+            this.jogAxisMoveControl.Size = new System.Drawing.Size(548, 782);
+            this.jogAxisMoveControl.SpeedControl = null;
+            this.jogAxisMoveControl.TabIndex = 1;
+            // 
+            // grpSpeed
+            // 
+            this.grpSpeed.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(245)))), ((int)(((byte)(245)))));
+            this.grpSpeed.Controls.Add(this.jogSpeedControl);
+            this.grpSpeed.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.grpSpeed.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.grpSpeed.Location = new System.Drawing.Point(560, 0);
+            this.grpSpeed.Margin = new System.Windows.Forms.Padding(0);
+            this.grpSpeed.Name = "grpSpeed";
+            this.grpSpeed.Size = new System.Drawing.Size(120, 868);
+            this.grpSpeed.TabIndex = 1;
+            this.grpSpeed.TabStop = false;
+            this.grpSpeed.Text = "SPEED";
+            // 
+            // jogSpeedControl
+            // 
+            this.jogSpeedControl.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(246)))), ((int)(((byte)(248)))));
+            this.jogSpeedControl.Location = new System.Drawing.Point(3, 26);
+            this.jogSpeedControl.Margin = new System.Windows.Forms.Padding(0);
+            this.jogSpeedControl.Name = "jogSpeedControl";
+            this.jogSpeedControl.Size = new System.Drawing.Size(114, 578);
+            this.jogSpeedControl.SpeedPercent = 50;
+            this.jogSpeedControl.TabIndex = 0;
+            // 
+            // ioLayout
+            // 
+            this.ioLayout.ColumnCount = 2;
+            this.ioLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 32F));
+            this.ioLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.ioLayout.Controls.Add(this.dot8Inch, 0, 0);
+            this.ioLayout.Controls.Add(this.lbl8Inch, 1, 0);
+            this.ioLayout.Controls.Add(this.dot12Inch, 0, 1);
+            this.ioLayout.Controls.Add(this.lbl12Inch, 1, 1);
+            this.ioLayout.Controls.Add(this.dotProtrusion, 0, 2);
+            this.ioLayout.Controls.Add(this.lblProtrusion, 1, 2);
+            this.ioLayout.Controls.Add(this.dotMapping, 0, 3);
+            this.ioLayout.Controls.Add(this.lblMapping, 1, 3);
+            this.ioLayout.Controls.Add(this.lblMappingBody, 1, 4);
+            this.ioLayout.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.ioLayout.Location = new System.Drawing.Point(3, 21);
+            this.ioLayout.Name = "ioLayout";
+            this.ioLayout.Padding = new System.Windows.Forms.Padding(12, 22, 12, 12);
+            this.ioLayout.RowCount = 6;
+            this.ioLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
+            this.ioLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
+            this.ioLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
+            this.ioLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
+            this.ioLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 230F));
+            this.ioLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.ioLayout.Size = new System.Drawing.Size(208, 414);
+            this.ioLayout.TabIndex = 0;
+            // 
+            // dot8Inch
+            // 
+            this.dot8Inch.BackColor = System.Drawing.Color.Transparent;
+            this.dot8Inch.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.dot8Inch.Location = new System.Drawing.Point(20, 30);
+            this.dot8Inch.Margin = new System.Windows.Forms.Padding(8);
+            this.dot8Inch.Name = "dot8Inch";
+            this.dot8Inch.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
+            this.dot8Inch.OnColor = System.Drawing.Color.LimeGreen;
+            this.dot8Inch.Size = new System.Drawing.Size(16, 14);
+            this.dot8Inch.TabIndex = 0;
+            // 
+            // lbl8Inch
+            // 
+            this.lbl8Inch.Location = new System.Drawing.Point(47, 22);
+            this.lbl8Inch.Name = "lbl8Inch";
+            this.lbl8Inch.Size = new System.Drawing.Size(100, 23);
+            this.lbl8Inch.TabIndex = 1;
+            this.lbl8Inch.Text = "8 INCH CASSETTE";
+            // 
+            // dot12Inch
+            // 
+            this.dot12Inch.BackColor = System.Drawing.Color.Transparent;
+            this.dot12Inch.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.dot12Inch.Location = new System.Drawing.Point(20, 60);
+            this.dot12Inch.Margin = new System.Windows.Forms.Padding(8);
+            this.dot12Inch.Name = "dot12Inch";
+            this.dot12Inch.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
+            this.dot12Inch.OnColor = System.Drawing.Color.LimeGreen;
+            this.dot12Inch.Size = new System.Drawing.Size(16, 14);
+            this.dot12Inch.TabIndex = 2;
+            // 
+            // lbl12Inch
+            // 
+            this.lbl12Inch.Location = new System.Drawing.Point(47, 52);
+            this.lbl12Inch.Name = "lbl12Inch";
+            this.lbl12Inch.Size = new System.Drawing.Size(100, 23);
+            this.lbl12Inch.TabIndex = 3;
+            this.lbl12Inch.Text = "12 INCH CASSETTE";
+            // 
+            // dotProtrusion
+            // 
+            this.dotProtrusion.BackColor = System.Drawing.Color.Transparent;
+            this.dotProtrusion.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.dotProtrusion.Location = new System.Drawing.Point(20, 90);
+            this.dotProtrusion.Margin = new System.Windows.Forms.Padding(8);
+            this.dotProtrusion.Name = "dotProtrusion";
+            this.dotProtrusion.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
+            this.dotProtrusion.OnColor = System.Drawing.Color.LimeGreen;
+            this.dotProtrusion.Size = new System.Drawing.Size(16, 14);
+            this.dotProtrusion.TabIndex = 4;
+            // 
+            // lblProtrusion
+            // 
+            this.lblProtrusion.Location = new System.Drawing.Point(47, 82);
+            this.lblProtrusion.Name = "lblProtrusion";
+            this.lblProtrusion.Size = new System.Drawing.Size(100, 23);
+            this.lblProtrusion.TabIndex = 5;
+            this.lblProtrusion.Text = "WAFER PROTRUSION";
+            // 
+            // dotMapping
+            // 
+            this.dotMapping.BackColor = System.Drawing.Color.Transparent;
+            this.dotMapping.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.dotMapping.Location = new System.Drawing.Point(20, 120);
+            this.dotMapping.Margin = new System.Windows.Forms.Padding(8);
+            this.dotMapping.Name = "dotMapping";
+            this.dotMapping.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
+            this.dotMapping.OnColor = System.Drawing.Color.LimeGreen;
+            this.dotMapping.Size = new System.Drawing.Size(16, 14);
+            this.dotMapping.TabIndex = 6;
+            // 
+            // lblMapping
+            // 
+            this.lblMapping.Location = new System.Drawing.Point(47, 112);
+            this.lblMapping.Name = "lblMapping";
+            this.lblMapping.Size = new System.Drawing.Size(100, 23);
+            this.lblMapping.TabIndex = 7;
+            this.lblMapping.Text = "WAFER MAPPING";
+            // 
+            // lblMappingBody
+            // 
+            this.lblMappingBody.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(205)))), ((int)(((byte)(205)))), ((int)(((byte)(205)))));
+            this.lblMappingBody.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.lblMappingBody.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblMappingBody.Font = new System.Drawing.Font("맑은 고딕", 8.5F, System.Drawing.FontStyle.Bold);
+            this.lblMappingBody.Location = new System.Drawing.Point(44, 142);
+            this.lblMappingBody.Margin = new System.Windows.Forms.Padding(0);
+            this.lblMappingBody.Name = "lblMappingBody";
+            this.lblMappingBody.Size = new System.Drawing.Size(152, 230);
+            this.lblMappingBody.TabIndex = 8;
+            this.lblMappingBody.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
             // optionRows
             // 
             this.optionRows.ColumnCount = 2;
-            this.optionRows.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 220F));
+            this.optionRows.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 290F));
             this.optionRows.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.optionRows.Controls.Add(this.lblOptAvoidKey, 0, 0);
-            this.optionRows.Controls.Add(this.lblOptAvoidVal, 1, 0);
-            this.optionRows.Controls.Add(this.lblOptNgSlotKey, 0, 1);
-            this.optionRows.Controls.Add(this.lblOptNgSlotVal, 1, 1);
-            this.optionRows.Controls.Add(this.lblOptGood1SlotKey, 0, 2);
-            this.optionRows.Controls.Add(this.lblOptGood1SlotVal, 1, 2);
-            this.optionRows.Controls.Add(this.lblOptGood2SlotKey, 0, 3);
-            this.optionRows.Controls.Add(this.lblOptGood2SlotVal, 1, 3);
-            this.optionRows.Controls.Add(this.lblOptSlotPitchKey, 0, 4);
-            this.optionRows.Controls.Add(this.lblOptSlotPitchVal, 1, 4);
-            this.optionRows.Controls.Add(this.lblOptSlotCountKey, 0, 5);
-            this.optionRows.Controls.Add(this.lblOptSlotCountVal, 1, 5);
-            this.optionRows.Controls.Add(this.lblOptActualKey, 0, 6);
-            this.optionRows.Controls.Add(this.lblOptActualVal, 1, 6);
-            this.optionRows.Controls.Add(this.lblOptAxisStateKey, 0, 7);
-            this.optionRows.Controls.Add(this.lblOptAxisStateVal, 1, 7);
-            this.optionRows.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.optionRows.Location = new System.Drawing.Point(0, 30);
-            this.optionRows.Margin = new System.Windows.Forms.Padding(0);
+            this.optionRows.Controls.Add(this.lblRecipeLoadingKey, 0, 0);
+            this.optionRows.Controls.Add(this.lblRecipeLoadingVal, 1, 0);
+            this.optionRows.Controls.Add(this.lblRecipeUnloadingKey, 0, 1);
+            this.optionRows.Controls.Add(this.lblRecipeUnloadingVal, 1, 1);
+            this.optionRows.Controls.Add(this.lblRecipeAvoidKey, 0, 2);
+            this.optionRows.Controls.Add(this.lblRecipeAvoidVal, 1, 2);
+            this.optionRows.Controls.Add(this.lblRecipeFirstSlotKey, 0, 3);
+            this.optionRows.Controls.Add(this.lblRecipeFirstSlotVal, 1, 3);
+            this.optionRows.Controls.Add(this.lblRecipeMappingStartKey, 0, 4);
+            this.optionRows.Controls.Add(this.lblRecipeMappingStartVal, 1, 4);
+            this.optionRows.Controls.Add(this.lblRecipeMappingEndKey, 0, 5);
+            this.optionRows.Controls.Add(this.lblRecipeMappingEndVal, 1, 5);
+            this.optionRows.Controls.Add(this.lblConfigLoadingOffsetKey, 0, 6);
+            this.optionRows.Controls.Add(this.lblConfigLoadingOffsetVal, 1, 6);
+            this.optionRows.Controls.Add(this.lblConfigUnloadingOffsetKey, 0, 7);
+            this.optionRows.Controls.Add(this.lblConfigUnloadingOffsetVal, 1, 7);
+            this.optionRows.Controls.Add(this.lblConfigSlotPitchKey, 0, 8);
+            this.optionRows.Controls.Add(this.lblConfigSlotPitchVal, 1, 8);
+            this.optionRows.Controls.Add(this.lblConfigSlotCountKey, 0, 9);
+            this.optionRows.Controls.Add(this.lblConfigSlotCountVal, 1, 9);
+            this.optionRows.Controls.Add(this.lblConfigScanVelocityKey, 0, 10);
+            this.optionRows.Controls.Add(this.lblConfigScanVelocityVal, 1, 10);
+            this.optionRows.Controls.Add(this.lblSetupToleranceKey, 0, 11);
+            this.optionRows.Controls.Add(this.lblSetupToleranceVal, 1, 11);
+            this.optionRows.Controls.Add(this.lblConfigInchKey, 0, 12);
+            this.optionRows.Controls.Add(this.lblConfigInchVal, 1, 12);
+            this.optionRows.Controls.Add(this.lblConfigLevelKey, 0, 13);
+            this.optionRows.Controls.Add(this.lblConfigLevelVal, 1, 13);
+            this.optionRows.Controls.Add(this.lblSetupSimulationKey, 0, 14);
+            this.optionRows.Controls.Add(this.lblSetupSimulationVal, 1, 14);
+            this.optionRows.Controls.Add(this.lblConfigDryRunKey, 0, 15);
+            this.optionRows.Controls.Add(this.lblConfigDryRunVal, 1, 15);
+            this.optionRows.Dock = System.Windows.Forms.DockStyle.Top;
+            this.optionRows.Location = new System.Drawing.Point(3, 26);
             this.optionRows.Name = "optionRows";
-            this.optionRows.RowCount = 8;
-            this.optionRows.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 33F));
-            this.optionRows.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 33F));
-            this.optionRows.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 33F));
-            this.optionRows.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 33F));
-            this.optionRows.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 33F));
-            this.optionRows.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 33F));
-            this.optionRows.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 33F));
-            this.optionRows.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 33F));
-            this.optionRows.Size = new System.Drawing.Size(482, 264);
-            this.optionRows.TabIndex = 1;
+            this.optionRows.Padding = new System.Windows.Forms.Padding(10, 18, 10, 10);
+            this.optionRows.RowCount = 18;
+            this.optionRows.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
+            this.optionRows.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
+            this.optionRows.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
+            this.optionRows.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
+            this.optionRows.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
+            this.optionRows.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
+            this.optionRows.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
+            this.optionRows.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
+            this.optionRows.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
+            this.optionRows.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
+            this.optionRows.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
+            this.optionRows.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
+            this.optionRows.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
+            this.optionRows.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
+            this.optionRows.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
+            this.optionRows.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
+            this.optionRows.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
+            this.optionRows.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.optionRows.Size = new System.Drawing.Size(826, 540);
+            this.optionRows.TabIndex = 0;
             // 
-            // lblOptAvoidKey
+            // lblRecipeLoadingKey
             // 
-            this.lblOptAvoidKey.Location = new System.Drawing.Point(3, 0);
-            this.lblOptAvoidKey.Name = "lblOptAvoidKey";
-            this.lblOptAvoidKey.Size = new System.Drawing.Size(100, 23);
-            this.lblOptAvoidKey.TabIndex = 0;
-            this.lblOptAvoidKey.Text = "Avoid Position";
+            this.lblRecipeLoadingKey.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblRecipeLoadingKey.Location = new System.Drawing.Point(13, 18);
+            this.lblRecipeLoadingKey.Name = "lblRecipeLoadingKey";
+            this.lblRecipeLoadingKey.Size = new System.Drawing.Size(284, 23);
+            this.lblRecipeLoadingKey.TabIndex = 0;
+            this.lblRecipeLoadingKey.Text = "LOADING Z";
+            this.lblRecipeLoadingKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
-            // lblOptAvoidVal
+            // lblRecipeLoadingVal
             // 
-            this.lblOptAvoidVal.Location = new System.Drawing.Point(223, 0);
-            this.lblOptAvoidVal.Name = "lblOptAvoidVal";
-            this.lblOptAvoidVal.Size = new System.Drawing.Size(100, 23);
-            this.lblOptAvoidVal.TabIndex = 1;
-            this.lblOptAvoidVal.Text = "0.000 mm";
+            this.lblRecipeLoadingVal.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblRecipeLoadingVal.Location = new System.Drawing.Point(303, 18);
+            this.lblRecipeLoadingVal.Name = "lblRecipeLoadingVal";
+            this.lblRecipeLoadingVal.Size = new System.Drawing.Size(510, 23);
+            this.lblRecipeLoadingVal.TabIndex = 1;
+            this.lblRecipeLoadingVal.Text = "150000 um";
+            this.lblRecipeLoadingVal.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
-            // lblOptNgSlotKey
+            // lblRecipeUnloadingKey
             // 
-            this.lblOptNgSlotKey.Location = new System.Drawing.Point(3, 33);
-            this.lblOptNgSlotKey.Name = "lblOptNgSlotKey";
-            this.lblOptNgSlotKey.Size = new System.Drawing.Size(100, 23);
-            this.lblOptNgSlotKey.TabIndex = 2;
-            this.lblOptNgSlotKey.Text = "NG First Slot";
+            this.lblRecipeUnloadingKey.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblRecipeUnloadingKey.Location = new System.Drawing.Point(13, 50);
+            this.lblRecipeUnloadingKey.Name = "lblRecipeUnloadingKey";
+            this.lblRecipeUnloadingKey.Size = new System.Drawing.Size(284, 23);
+            this.lblRecipeUnloadingKey.TabIndex = 2;
+            this.lblRecipeUnloadingKey.Text = "UNLOADING Z";
+            this.lblRecipeUnloadingKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
-            // lblOptNgSlotVal
+            // lblRecipeUnloadingVal
             // 
-            this.lblOptNgSlotVal.Location = new System.Drawing.Point(223, 33);
-            this.lblOptNgSlotVal.Name = "lblOptNgSlotVal";
-            this.lblOptNgSlotVal.Size = new System.Drawing.Size(100, 23);
-            this.lblOptNgSlotVal.TabIndex = 3;
-            this.lblOptNgSlotVal.Text = "0.000 mm";
+            this.lblRecipeUnloadingVal.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblRecipeUnloadingVal.Location = new System.Drawing.Point(303, 50);
+            this.lblRecipeUnloadingVal.Name = "lblRecipeUnloadingVal";
+            this.lblRecipeUnloadingVal.Size = new System.Drawing.Size(510, 23);
+            this.lblRecipeUnloadingVal.TabIndex = 3;
+            this.lblRecipeUnloadingVal.Text = "150000 um";
+            this.lblRecipeUnloadingVal.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
-            // lblOptGood1SlotKey
+            // lblRecipeAvoidKey
             // 
-            this.lblOptGood1SlotKey.Location = new System.Drawing.Point(3, 66);
-            this.lblOptGood1SlotKey.Name = "lblOptGood1SlotKey";
-            this.lblOptGood1SlotKey.Size = new System.Drawing.Size(100, 23);
-            this.lblOptGood1SlotKey.TabIndex = 4;
-            this.lblOptGood1SlotKey.Text = "Good1 First Slot";
+            this.lblRecipeAvoidKey.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblRecipeAvoidKey.Location = new System.Drawing.Point(13, 82);
+            this.lblRecipeAvoidKey.Name = "lblRecipeAvoidKey";
+            this.lblRecipeAvoidKey.Size = new System.Drawing.Size(284, 23);
+            this.lblRecipeAvoidKey.TabIndex = 4;
+            this.lblRecipeAvoidKey.Text = "READY POSITION";
+            this.lblRecipeAvoidKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
-            // lblOptGood1SlotVal
+            // lblRecipeAvoidVal
             // 
-            this.lblOptGood1SlotVal.Location = new System.Drawing.Point(223, 66);
-            this.lblOptGood1SlotVal.Name = "lblOptGood1SlotVal";
-            this.lblOptGood1SlotVal.Size = new System.Drawing.Size(100, 23);
-            this.lblOptGood1SlotVal.TabIndex = 5;
-            this.lblOptGood1SlotVal.Text = "0.000 mm";
+            this.lblRecipeAvoidVal.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblRecipeAvoidVal.Location = new System.Drawing.Point(303, 82);
+            this.lblRecipeAvoidVal.Name = "lblRecipeAvoidVal";
+            this.lblRecipeAvoidVal.Size = new System.Drawing.Size(510, 23);
+            this.lblRecipeAvoidVal.TabIndex = 5;
+            this.lblRecipeAvoidVal.Text = "0 um";
+            this.lblRecipeAvoidVal.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
-            // lblOptGood2SlotKey
+            // lblRecipeFirstSlotKey
             // 
-            this.lblOptGood2SlotKey.Location = new System.Drawing.Point(3, 99);
-            this.lblOptGood2SlotKey.Name = "lblOptGood2SlotKey";
-            this.lblOptGood2SlotKey.Size = new System.Drawing.Size(100, 23);
-            this.lblOptGood2SlotKey.TabIndex = 6;
-            this.lblOptGood2SlotKey.Text = "Good2 First Slot";
+            this.lblRecipeFirstSlotKey.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblRecipeFirstSlotKey.Location = new System.Drawing.Point(13, 114);
+            this.lblRecipeFirstSlotKey.Name = "lblRecipeFirstSlotKey";
+            this.lblRecipeFirstSlotKey.Size = new System.Drawing.Size(284, 23);
+            this.lblRecipeFirstSlotKey.TabIndex = 6;
+            this.lblRecipeFirstSlotKey.Text = "FIRST SLOT";
+            this.lblRecipeFirstSlotKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
-            // lblOptGood2SlotVal
+            // lblRecipeFirstSlotVal
             // 
-            this.lblOptGood2SlotVal.Location = new System.Drawing.Point(223, 99);
-            this.lblOptGood2SlotVal.Name = "lblOptGood2SlotVal";
-            this.lblOptGood2SlotVal.Size = new System.Drawing.Size(100, 23);
-            this.lblOptGood2SlotVal.TabIndex = 7;
-            this.lblOptGood2SlotVal.Text = "0.000 mm";
+            this.lblRecipeFirstSlotVal.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblRecipeFirstSlotVal.Location = new System.Drawing.Point(303, 114);
+            this.lblRecipeFirstSlotVal.Name = "lblRecipeFirstSlotVal";
+            this.lblRecipeFirstSlotVal.Size = new System.Drawing.Size(510, 23);
+            this.lblRecipeFirstSlotVal.TabIndex = 7;
+            this.lblRecipeFirstSlotVal.Text = "10000 um";
+            this.lblRecipeFirstSlotVal.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
-            // lblOptSlotPitchKey
+            // lblRecipeMappingStartKey
             // 
-            this.lblOptSlotPitchKey.Location = new System.Drawing.Point(3, 132);
-            this.lblOptSlotPitchKey.Name = "lblOptSlotPitchKey";
-            this.lblOptSlotPitchKey.Size = new System.Drawing.Size(100, 23);
-            this.lblOptSlotPitchKey.TabIndex = 8;
-            this.lblOptSlotPitchKey.Text = "Slot Pitch";
+            this.lblRecipeMappingStartKey.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblRecipeMappingStartKey.Location = new System.Drawing.Point(13, 146);
+            this.lblRecipeMappingStartKey.Name = "lblRecipeMappingStartKey";
+            this.lblRecipeMappingStartKey.Size = new System.Drawing.Size(284, 23);
+            this.lblRecipeMappingStartKey.TabIndex = 8;
+            this.lblRecipeMappingStartKey.Text = "MAPPING START Z";
+            this.lblRecipeMappingStartKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
-            // lblOptSlotPitchVal
+            // lblRecipeMappingStartVal
             // 
-            this.lblOptSlotPitchVal.Location = new System.Drawing.Point(223, 132);
-            this.lblOptSlotPitchVal.Name = "lblOptSlotPitchVal";
-            this.lblOptSlotPitchVal.Size = new System.Drawing.Size(100, 23);
-            this.lblOptSlotPitchVal.TabIndex = 9;
-            this.lblOptSlotPitchVal.Text = "0.000 mm";
+            this.lblRecipeMappingStartVal.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblRecipeMappingStartVal.Location = new System.Drawing.Point(303, 146);
+            this.lblRecipeMappingStartVal.Name = "lblRecipeMappingStartVal";
+            this.lblRecipeMappingStartVal.Size = new System.Drawing.Size(510, 23);
+            this.lblRecipeMappingStartVal.TabIndex = 9;
+            this.lblRecipeMappingStartVal.Text = "5000 um";
+            this.lblRecipeMappingStartVal.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
-            // lblOptSlotCountKey
+            // lblRecipeMappingEndKey
             // 
-            this.lblOptSlotCountKey.Location = new System.Drawing.Point(3, 165);
-            this.lblOptSlotCountKey.Name = "lblOptSlotCountKey";
-            this.lblOptSlotCountKey.Size = new System.Drawing.Size(100, 23);
-            this.lblOptSlotCountKey.TabIndex = 10;
-            this.lblOptSlotCountKey.Text = "Slot Count";
+            this.lblRecipeMappingEndKey.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblRecipeMappingEndKey.Location = new System.Drawing.Point(13, 178);
+            this.lblRecipeMappingEndKey.Name = "lblRecipeMappingEndKey";
+            this.lblRecipeMappingEndKey.Size = new System.Drawing.Size(284, 23);
+            this.lblRecipeMappingEndKey.TabIndex = 10;
+            this.lblRecipeMappingEndKey.Text = "MAPPING END Z";
+            this.lblRecipeMappingEndKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
-            // lblOptSlotCountVal
+            // lblRecipeMappingEndVal
             // 
-            this.lblOptSlotCountVal.Location = new System.Drawing.Point(223, 165);
-            this.lblOptSlotCountVal.Name = "lblOptSlotCountVal";
-            this.lblOptSlotCountVal.Size = new System.Drawing.Size(100, 23);
-            this.lblOptSlotCountVal.TabIndex = 11;
-            this.lblOptSlotCountVal.Text = "0";
+            this.lblRecipeMappingEndVal.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblRecipeMappingEndVal.Location = new System.Drawing.Point(303, 178);
+            this.lblRecipeMappingEndVal.Name = "lblRecipeMappingEndVal";
+            this.lblRecipeMappingEndVal.Size = new System.Drawing.Size(510, 23);
+            this.lblRecipeMappingEndVal.TabIndex = 11;
+            this.lblRecipeMappingEndVal.Text = "130000 um";
+            this.lblRecipeMappingEndVal.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
-            // lblOptActualKey
+            // lblConfigLoadingOffsetKey
             // 
-            this.lblOptActualKey.Location = new System.Drawing.Point(3, 198);
-            this.lblOptActualKey.Name = "lblOptActualKey";
-            this.lblOptActualKey.Size = new System.Drawing.Size(100, 23);
-            this.lblOptActualKey.TabIndex = 12;
-            this.lblOptActualKey.Text = "Actual Position";
+            this.lblConfigLoadingOffsetKey.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblConfigLoadingOffsetKey.Location = new System.Drawing.Point(13, 210);
+            this.lblConfigLoadingOffsetKey.Name = "lblConfigLoadingOffsetKey";
+            this.lblConfigLoadingOffsetKey.Size = new System.Drawing.Size(284, 23);
+            this.lblConfigLoadingOffsetKey.TabIndex = 12;
+            this.lblConfigLoadingOffsetKey.Text = "LOADING OFFSET";
+            this.lblConfigLoadingOffsetKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
-            // lblOptActualVal
+            // lblConfigLoadingOffsetVal
             // 
-            this.lblOptActualVal.Location = new System.Drawing.Point(223, 198);
-            this.lblOptActualVal.Name = "lblOptActualVal";
-            this.lblOptActualVal.Size = new System.Drawing.Size(100, 23);
-            this.lblOptActualVal.TabIndex = 13;
-            this.lblOptActualVal.Text = "0.000 mm";
+            this.lblConfigLoadingOffsetVal.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblConfigLoadingOffsetVal.Location = new System.Drawing.Point(303, 210);
+            this.lblConfigLoadingOffsetVal.Name = "lblConfigLoadingOffsetVal";
+            this.lblConfigLoadingOffsetVal.Size = new System.Drawing.Size(510, 23);
+            this.lblConfigLoadingOffsetVal.TabIndex = 13;
+            this.lblConfigLoadingOffsetVal.Text = "0 um";
+            this.lblConfigLoadingOffsetVal.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
-            // lblOptAxisStateKey
+            // lblConfigUnloadingOffsetKey
             // 
-            this.lblOptAxisStateKey.Location = new System.Drawing.Point(3, 231);
-            this.lblOptAxisStateKey.Name = "lblOptAxisStateKey";
-            this.lblOptAxisStateKey.Size = new System.Drawing.Size(100, 23);
-            this.lblOptAxisStateKey.TabIndex = 14;
-            this.lblOptAxisStateKey.Text = "Axis State";
+            this.lblConfigUnloadingOffsetKey.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblConfigUnloadingOffsetKey.Location = new System.Drawing.Point(13, 242);
+            this.lblConfigUnloadingOffsetKey.Name = "lblConfigUnloadingOffsetKey";
+            this.lblConfigUnloadingOffsetKey.Size = new System.Drawing.Size(284, 23);
+            this.lblConfigUnloadingOffsetKey.TabIndex = 14;
+            this.lblConfigUnloadingOffsetKey.Text = "UNLOADING OFFSET";
+            this.lblConfigUnloadingOffsetKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
-            // lblOptAxisStateVal
+            // lblConfigUnloadingOffsetVal
             // 
-            this.lblOptAxisStateVal.Location = new System.Drawing.Point(223, 231);
-            this.lblOptAxisStateVal.Name = "lblOptAxisStateVal";
-            this.lblOptAxisStateVal.Size = new System.Drawing.Size(100, 23);
-            this.lblOptAxisStateVal.TabIndex = 15;
-            this.lblOptAxisStateVal.Text = "-";
+            this.lblConfigUnloadingOffsetVal.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblConfigUnloadingOffsetVal.Location = new System.Drawing.Point(303, 242);
+            this.lblConfigUnloadingOffsetVal.Name = "lblConfigUnloadingOffsetVal";
+            this.lblConfigUnloadingOffsetVal.Size = new System.Drawing.Size(510, 23);
+            this.lblConfigUnloadingOffsetVal.TabIndex = 15;
+            this.lblConfigUnloadingOffsetVal.Text = "0 um";
+            this.lblConfigUnloadingOffsetVal.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
-            // lblWaitTitle
+            // lblConfigSlotPitchKey
             // 
-            this.lblWaitTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblWaitTitle.Location = new System.Drawing.Point(0, 294);
-            this.lblWaitTitle.Margin = new System.Windows.Forms.Padding(0);
-            this.lblWaitTitle.Name = "lblWaitTitle";
-            this.lblWaitTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
-            this.lblWaitTitle.Size = new System.Drawing.Size(482, 30);
-            this.lblWaitTitle.TabIndex = 2;
-            this.lblWaitTitle.Text = "대기시간";
-            this.lblWaitTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblConfigSlotPitchKey.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblConfigSlotPitchKey.Location = new System.Drawing.Point(13, 274);
+            this.lblConfigSlotPitchKey.Name = "lblConfigSlotPitchKey";
+            this.lblConfigSlotPitchKey.Size = new System.Drawing.Size(284, 23);
+            this.lblConfigSlotPitchKey.TabIndex = 16;
+            this.lblConfigSlotPitchKey.Text = "SLOT PITCH";
+            this.lblConfigSlotPitchKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // lblConfigSlotPitchVal
+            // 
+            this.lblConfigSlotPitchVal.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblConfigSlotPitchVal.Location = new System.Drawing.Point(303, 274);
+            this.lblConfigSlotPitchVal.Name = "lblConfigSlotPitchVal";
+            this.lblConfigSlotPitchVal.Size = new System.Drawing.Size(510, 23);
+            this.lblConfigSlotPitchVal.TabIndex = 17;
+            this.lblConfigSlotPitchVal.Text = "5000 um";
+            this.lblConfigSlotPitchVal.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // lblConfigSlotCountKey
+            // 
+            this.lblConfigSlotCountKey.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblConfigSlotCountKey.Location = new System.Drawing.Point(13, 306);
+            this.lblConfigSlotCountKey.Name = "lblConfigSlotCountKey";
+            this.lblConfigSlotCountKey.Size = new System.Drawing.Size(284, 23);
+            this.lblConfigSlotCountKey.TabIndex = 18;
+            this.lblConfigSlotCountKey.Text = "SLOT COUNT";
+            this.lblConfigSlotCountKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // lblConfigSlotCountVal
+            // 
+            this.lblConfigSlotCountVal.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblConfigSlotCountVal.Location = new System.Drawing.Point(303, 306);
+            this.lblConfigSlotCountVal.Name = "lblConfigSlotCountVal";
+            this.lblConfigSlotCountVal.Size = new System.Drawing.Size(510, 23);
+            this.lblConfigSlotCountVal.TabIndex = 19;
+            this.lblConfigSlotCountVal.Text = "25";
+            this.lblConfigSlotCountVal.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // lblConfigScanVelocityKey
+            // 
+            this.lblConfigScanVelocityKey.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblConfigScanVelocityKey.Location = new System.Drawing.Point(13, 338);
+            this.lblConfigScanVelocityKey.Name = "lblConfigScanVelocityKey";
+            this.lblConfigScanVelocityKey.Size = new System.Drawing.Size(284, 23);
+            this.lblConfigScanVelocityKey.TabIndex = 20;
+            this.lblConfigScanVelocityKey.Text = "SCAN/JOG VELOCITY";
+            this.lblConfigScanVelocityKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // lblConfigScanVelocityVal
+            // 
+            this.lblConfigScanVelocityVal.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblConfigScanVelocityVal.Location = new System.Drawing.Point(303, 338);
+            this.lblConfigScanVelocityVal.Name = "lblConfigScanVelocityVal";
+            this.lblConfigScanVelocityVal.Size = new System.Drawing.Size(510, 23);
+            this.lblConfigScanVelocityVal.TabIndex = 21;
+            this.lblConfigScanVelocityVal.Text = "20 mm/s";
+            this.lblConfigScanVelocityVal.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // lblSetupToleranceKey
+            // 
+            this.lblSetupToleranceKey.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblSetupToleranceKey.Location = new System.Drawing.Point(13, 370);
+            this.lblSetupToleranceKey.Name = "lblSetupToleranceKey";
+            this.lblSetupToleranceKey.Size = new System.Drawing.Size(284, 23);
+            this.lblSetupToleranceKey.TabIndex = 22;
+            this.lblSetupToleranceKey.Text = "IN POSITION TOL.";
+            this.lblSetupToleranceKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // lblSetupToleranceVal
+            // 
+            this.lblSetupToleranceVal.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblSetupToleranceVal.Location = new System.Drawing.Point(303, 370);
+            this.lblSetupToleranceVal.Name = "lblSetupToleranceVal";
+            this.lblSetupToleranceVal.Size = new System.Drawing.Size(510, 23);
+            this.lblSetupToleranceVal.TabIndex = 23;
+            this.lblSetupToleranceVal.Text = "50 um";
+            this.lblSetupToleranceVal.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // lblConfigInchKey
+            // 
+            this.lblConfigInchKey.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblConfigInchKey.Location = new System.Drawing.Point(13, 402);
+            this.lblConfigInchKey.Name = "lblConfigInchKey";
+            this.lblConfigInchKey.Size = new System.Drawing.Size(284, 23);
+            this.lblConfigInchKey.TabIndex = 24;
+            this.lblConfigInchKey.Text = "INCH SELECT";
+            this.lblConfigInchKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // lblConfigInchVal
+            // 
+            this.lblConfigInchVal.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblConfigInchVal.Location = new System.Drawing.Point(303, 402);
+            this.lblConfigInchVal.Name = "lblConfigInchVal";
+            this.lblConfigInchVal.Size = new System.Drawing.Size(510, 23);
+            this.lblConfigInchVal.TabIndex = 25;
+            this.lblConfigInchVal.Text = "1";
+            this.lblConfigInchVal.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // lblConfigLevelKey
+            // 
+            this.lblConfigLevelKey.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblConfigLevelKey.Location = new System.Drawing.Point(13, 434);
+            this.lblConfigLevelKey.Name = "lblConfigLevelKey";
+            this.lblConfigLevelKey.Size = new System.Drawing.Size(284, 23);
+            this.lblConfigLevelKey.TabIndex = 26;
+            this.lblConfigLevelKey.Text = "CASSETTE LEVEL";
+            this.lblConfigLevelKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // lblConfigLevelVal
+            // 
+            this.lblConfigLevelVal.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblConfigLevelVal.Location = new System.Drawing.Point(303, 434);
+            this.lblConfigLevelVal.Name = "lblConfigLevelVal";
+            this.lblConfigLevelVal.Size = new System.Drawing.Size(510, 23);
+            this.lblConfigLevelVal.TabIndex = 27;
+            this.lblConfigLevelVal.Text = "2";
+            this.lblConfigLevelVal.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // lblSetupSimulationKey
+            // 
+            this.lblSetupSimulationKey.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblSetupSimulationKey.Location = new System.Drawing.Point(13, 466);
+            this.lblSetupSimulationKey.Name = "lblSetupSimulationKey";
+            this.lblSetupSimulationKey.Size = new System.Drawing.Size(284, 23);
+            this.lblSetupSimulationKey.TabIndex = 28;
+            this.lblSetupSimulationKey.Text = "SIMULATION MODE";
+            this.lblSetupSimulationKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // lblSetupSimulationVal
+            // 
+            this.lblSetupSimulationVal.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblSetupSimulationVal.Location = new System.Drawing.Point(303, 466);
+            this.lblSetupSimulationVal.Name = "lblSetupSimulationVal";
+            this.lblSetupSimulationVal.Size = new System.Drawing.Size(510, 23);
+            this.lblSetupSimulationVal.TabIndex = 29;
+            this.lblSetupSimulationVal.Text = "True";
+            this.lblSetupSimulationVal.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // lblConfigDryRunKey
+            // 
+            this.lblConfigDryRunKey.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblConfigDryRunKey.Location = new System.Drawing.Point(13, 498);
+            this.lblConfigDryRunKey.Name = "lblConfigDryRunKey";
+            this.lblConfigDryRunKey.Size = new System.Drawing.Size(284, 23);
+            this.lblConfigDryRunKey.TabIndex = 30;
+            this.lblConfigDryRunKey.Text = "DRY RUN";
+            this.lblConfigDryRunKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // lblConfigDryRunVal
+            // 
+            this.lblConfigDryRunVal.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblConfigDryRunVal.Location = new System.Drawing.Point(303, 498);
+            this.lblConfigDryRunVal.Name = "lblConfigDryRunVal";
+            this.lblConfigDryRunVal.Size = new System.Drawing.Size(510, 23);
+            this.lblConfigDryRunVal.TabIndex = 31;
+            this.lblConfigDryRunVal.Text = "True";
+            this.lblConfigDryRunVal.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // waitRows
             // 
             this.waitRows.ColumnCount = 2;
-            this.waitRows.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 220F));
+            this.waitRows.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 290F));
             this.waitRows.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.waitRows.Controls.Add(this.lblWaitKey, 0, 0);
-            this.waitRows.Controls.Add(this.lblWaitVal, 1, 0);
-            this.waitRows.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.waitRows.Location = new System.Drawing.Point(0, 324);
-            this.waitRows.Margin = new System.Windows.Forms.Padding(0);
+            this.waitRows.Controls.Add(this.lblWaitScanSettleKey, 0, 0);
+            this.waitRows.Controls.Add(this.lblWaitScanSettleVal, 1, 0);
+            this.waitRows.Controls.Add(this.lblWaitMoveTimeoutKey, 0, 1);
+            this.waitRows.Controls.Add(this.lblWaitMoveTimeoutVal, 1, 1);
+            this.waitRows.Dock = System.Windows.Forms.DockStyle.Top;
+            this.waitRows.Location = new System.Drawing.Point(3, 26);
             this.waitRows.Name = "waitRows";
-            this.waitRows.RowCount = 1;
-            this.waitRows.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 33F));
-            this.waitRows.Size = new System.Drawing.Size(482, 36);
-            this.waitRows.TabIndex = 3;
+            this.waitRows.Padding = new System.Windows.Forms.Padding(10, 18, 10, 10);
+            this.waitRows.RowCount = 3;
+            this.waitRows.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
+            this.waitRows.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 70F));
+            this.waitRows.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.waitRows.Size = new System.Drawing.Size(826, 126);
+            this.waitRows.TabIndex = 0;
             // 
-            // lblWaitKey
+            // lblWaitScanSettleKey
             // 
-            this.lblWaitKey.Location = new System.Drawing.Point(3, 0);
-            this.lblWaitKey.Name = "lblWaitKey";
-            this.lblWaitKey.Size = new System.Drawing.Size(100, 23);
-            this.lblWaitKey.TabIndex = 0;
-            this.lblWaitKey.Text = "Move Timeout";
+            this.lblWaitScanSettleKey.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblWaitScanSettleKey.Location = new System.Drawing.Point(13, 18);
+            this.lblWaitScanSettleKey.Name = "lblWaitScanSettleKey";
+            this.lblWaitScanSettleKey.Size = new System.Drawing.Size(284, 23);
+            this.lblWaitScanSettleKey.TabIndex = 0;
+            this.lblWaitScanSettleKey.Text = "SCAN SETTLE TIME";
+            this.lblWaitScanSettleKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
-            // lblWaitVal
+            // lblWaitScanSettleVal
             // 
-            this.lblWaitVal.Location = new System.Drawing.Point(223, 0);
-            this.lblWaitVal.Name = "lblWaitVal";
-            this.lblWaitVal.Size = new System.Drawing.Size(100, 23);
-            this.lblWaitVal.TabIndex = 1;
-            this.lblWaitVal.Text = "0 ms";
+            this.lblWaitScanSettleVal.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblWaitScanSettleVal.Location = new System.Drawing.Point(303, 18);
+            this.lblWaitScanSettleVal.Name = "lblWaitScanSettleVal";
+            this.lblWaitScanSettleVal.Size = new System.Drawing.Size(510, 23);
+            this.lblWaitScanSettleVal.TabIndex = 1;
+            this.lblWaitScanSettleVal.Text = "100 ms";
+            this.lblWaitScanSettleVal.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
-            // panelRight
+            // lblWaitMoveTimeoutKey
             // 
-            this.panelRight.ColumnCount = 1;
-            this.panelRight.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.panelRight.Controls.Add(this.jogSection, 0, 0);
-            this.panelRight.Controls.Add(this.speedSection, 0, 1);
-            this.panelRight.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.panelRight.Location = new System.Drawing.Point(738, 6);
-            this.panelRight.Margin = new System.Windows.Forms.Padding(0, 0, 8, 0);
-            this.panelRight.Name = "panelRight";
-            this.panelRight.RowCount = 3;
-            this.panelRight.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 330F));
-            this.panelRight.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 210F));
-            this.panelRight.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.panelRight.Size = new System.Drawing.Size(402, 856);
-            this.panelRight.TabIndex = 2;
-            
+            this.lblWaitMoveTimeoutKey.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblWaitMoveTimeoutKey.Location = new System.Drawing.Point(13, 50);
+            this.lblWaitMoveTimeoutKey.Name = "lblWaitMoveTimeoutKey";
+            this.lblWaitMoveTimeoutKey.Size = new System.Drawing.Size(284, 23);
+            this.lblWaitMoveTimeoutKey.TabIndex = 2;
+            this.lblWaitMoveTimeoutKey.Text = "MOVE TIMEOUT";
+            this.lblWaitMoveTimeoutKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
-            // speedSection
+            // lblWaitMoveTimeoutVal
             // 
-            this.speedSection.ColumnCount = 1;
-            this.speedSection.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.speedSection.Controls.Add(this.lblSpeedTitle, 0, 0);
-            this.speedSection.Controls.Add(this.lblSpeedHigh, 0, 1);
-            this.speedSection.Controls.Add(this.trkSpeed, 0, 2);
-            this.speedSection.Controls.Add(this.lblSpeedMid, 0, 3);
-            this.speedSection.Controls.Add(this.lblSpeedLow, 0, 4);
-            this.speedSection.Controls.Add(this.lblSpeedValue, 0, 5);
-            this.speedSection.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.speedSection.Location = new System.Drawing.Point(0, 330);
-            this.speedSection.Margin = new System.Windows.Forms.Padding(0);
-            this.speedSection.Name = "speedSection";
-            this.speedSection.RowCount = 6;
-            this.speedSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
-            this.speedSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 28F));
-            this.speedSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 96F));
-            this.speedSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 28F));
-            this.speedSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 28F));
-            this.speedSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 28F));
-            this.speedSection.Size = new System.Drawing.Size(402, 210);
-            this.speedSection.TabIndex = 1;
-            // 
-            // lblSpeedTitle
-            // 
-            this.lblSpeedTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblSpeedTitle.Location = new System.Drawing.Point(0, 0);
-            this.lblSpeedTitle.Margin = new System.Windows.Forms.Padding(0);
-            this.lblSpeedTitle.Name = "lblSpeedTitle";
-            this.lblSpeedTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
-            this.lblSpeedTitle.Size = new System.Drawing.Size(402, 30);
-            this.lblSpeedTitle.TabIndex = 0;
-            this.lblSpeedTitle.Text = "속도";
-            this.lblSpeedTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // lblSpeedHigh
-            // 
-            this.lblSpeedHigh.Location = new System.Drawing.Point(3, 30);
-            this.lblSpeedHigh.Name = "lblSpeedHigh";
-            this.lblSpeedHigh.Size = new System.Drawing.Size(100, 23);
-            this.lblSpeedHigh.TabIndex = 1;
-            this.lblSpeedHigh.Text = "H";
-            // 
-            // trkSpeed
-            // 
-            this.trkSpeed.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.trkSpeed.LargeChange = 10;
-            this.trkSpeed.Location = new System.Drawing.Point(8, 61);
-            this.trkSpeed.Margin = new System.Windows.Forms.Padding(8, 3, 8, 3);
-            this.trkSpeed.Maximum = 100;
-            this.trkSpeed.Minimum = 1;
-            this.trkSpeed.Name = "trkSpeed";
-            this.trkSpeed.Orientation = System.Windows.Forms.Orientation.Vertical;
-            this.trkSpeed.Size = new System.Drawing.Size(386, 90);
-            this.trkSpeed.TabIndex = 2;
-            this.trkSpeed.TickFrequency = 10;
-            this.trkSpeed.Value = 50;
-            this.trkSpeed.ValueChanged += new System.EventHandler(this.trkSpeed_ValueChanged);
-            // 
-            // lblSpeedMid
-            // 
-            this.lblSpeedMid.Location = new System.Drawing.Point(3, 154);
-            this.lblSpeedMid.Name = "lblSpeedMid";
-            this.lblSpeedMid.Size = new System.Drawing.Size(100, 23);
-            this.lblSpeedMid.TabIndex = 3;
-            this.lblSpeedMid.Text = "M";
-            // 
-            // lblSpeedLow
-            // 
-            this.lblSpeedLow.Location = new System.Drawing.Point(3, 182);
-            this.lblSpeedLow.Name = "lblSpeedLow";
-            this.lblSpeedLow.Size = new System.Drawing.Size(100, 23);
-            this.lblSpeedLow.TabIndex = 4;
-            this.lblSpeedLow.Text = "L";
-            // 
-            // lblSpeedValue
-            // 
-            this.lblSpeedValue.Location = new System.Drawing.Point(3, 210);
-            this.lblSpeedValue.Name = "lblSpeedValue";
-            this.lblSpeedValue.Size = new System.Drawing.Size(100, 23);
-            this.lblSpeedValue.TabIndex = 5;
-            this.lblSpeedValue.Text = "50 %";
+            this.lblWaitMoveTimeoutVal.Dock = System.Windows.Forms.DockStyle.Top;
+            this.lblWaitMoveTimeoutVal.Location = new System.Drawing.Point(303, 50);
+            this.lblWaitMoveTimeoutVal.Name = "lblWaitMoveTimeoutVal";
+            this.lblWaitMoveTimeoutVal.Size = new System.Drawing.Size(510, 23);
+            this.lblWaitMoveTimeoutVal.TabIndex = 3;
+            this.lblWaitMoveTimeoutVal.Text = "10000 ms";
+            this.lblWaitMoveTimeoutVal.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // OutputCassetteRecipePage
             // 
-            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
-            this.Controls.Add(this.mainLayout);
+            this.Controls.Add(this.rootLayout);
             this.Name = "OutputCassetteRecipePage";
             this.Size = new System.Drawing.Size(1678, 900);
-            this.mainLayout.ResumeLayout(false);
+            this.rootLayout.ResumeLayout(false);
             this.contentLayout.ResumeLayout(false);
-            this.panelLeft.ResumeLayout(false);
-            this.actionSection.ResumeLayout(false);
-            this.ioSection.ResumeLayout(false);
-            this.panelCenter.ResumeLayout(false);
+            this.leftLayout.ResumeLayout(false);
+            this.grpActions.ResumeLayout(false);
+            this.actionLayout.ResumeLayout(false);
+            this.goodLayout.ResumeLayout(false);
+            this.ngLayout.ResumeLayout(false);
+            this.commonLayout.ResumeLayout(false);
+            this.grpIo.ResumeLayout(false);
+            this.centerLayout.ResumeLayout(false);
+            this.grpWait.ResumeLayout(false);
+            this.grpOptions.ResumeLayout(false);
+            this.rightLayout.ResumeLayout(false);
+            this.grpJog.ResumeLayout(false);
+            this.jogCompositeLayout.ResumeLayout(false);
+            this.grpSpeed.ResumeLayout(false);
+            this.ioLayout.ResumeLayout(false);
             this.optionRows.ResumeLayout(false);
             this.waitRows.ResumeLayout(false);
-            this.panelRight.ResumeLayout(false);
-            this.jogSection.ResumeLayout(false);
-            this.speedSection.ResumeLayout(false);
-            this.speedSection.PerformLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.trkSpeed)).EndInit();
             this.ResumeLayout(false);
 
         }
     }
 }
+
 

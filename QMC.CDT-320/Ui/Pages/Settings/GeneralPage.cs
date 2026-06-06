@@ -32,6 +32,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             lblVisionMatch.Tag = "i18n:set.gen.visionMatchErr";
             lblSimulationMode.Text = "SIMULATION MODE";
             lblDryRunMode.Text = "DRY RUN MODE";
+            lblDeveloperMode.Text = "DEVELOPER MODE";
 
             grpAjin.Tag = "level:Maintenance";
         }
@@ -49,11 +50,13 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             ResetEnableDisableItems(_cbVisionMatch);
             ResetEnableDisableItems(_cbSimulationMode);
             ResetEnableDisableItems(_cbDryRunMode);
+            ResetEnableDisableItems(_cbDeveloperMode);
 
             _cbBinArr.SelectedIndex = cfg.BinArrayFile ? 0 : 1;
             _cbVisionMatch.SelectedIndex = cfg.VisionMatchError ? 0 : 1;
             _cbSimulationMode.SelectedIndex = cfg.SimulationMode ? 0 : 1;
             _cbDryRunMode.SelectedIndex = cfg.DryRunMode ? 0 : 1;
+            _cbDeveloperMode.SelectedIndex = cfg.DeveloperMode ? 0 : 1;
             _cbAjin.Checked = cfg.UseAjin;
             _tbIrq.Text = cfg.AjinIrqNo.ToString();
         }
@@ -93,6 +96,12 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 AppSettingsStore.Current.DryRunMode = _cbDryRunMode.SelectedIndex == 0;
                 AppSettingsStore.Save();
                 ApplyRuntimeModeToHost();
+            };
+
+            _cbDeveloperMode.SelectedIndexChanged += (s, e) =>
+            {
+                AppSettingsStore.Current.DeveloperMode = _cbDeveloperMode.SelectedIndex == 0;
+                AppSettingsStore.Save();
             };
 
             _cbAjin.CheckedChanged += (s, e) =>

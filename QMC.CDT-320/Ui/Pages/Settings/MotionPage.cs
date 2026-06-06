@@ -102,7 +102,9 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         {
             btnEnable.Click += (s, e) => RunSelectedAxis(ax => ax.ServoOn());
             btnDisable.Click += (s, e) => RunSelectedAxis(ax => ax.ServoOff());
-            btnHome.Click += async (s, e) => await RunSelectedAxisAsync(ax => ax.HomeSearchAsync());
+            btnHome.Click += async (s, e) => await InitializeSelectedAxisAsync();
+            btnGroupHome.Click += async (s, e) => await InitializeSelectedAxisGroupAsync();
+            btnAllHome.Click += async (s, e) => await InitializeAllAxesAsync();
             btnAllStop.Click += (s, e) => RunAllAxes(ax => ax.Stop());
             btnAlarmClear.Click += (s, e) => ClearAllAxisAlarms();
             btnAllServoOff.Click += (s, e) => RunAllAxes(ax => ax.ServoOff());
@@ -236,6 +238,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             }
 
             RefreshConfigDynamic();
+            RefreshStatusDynamic();
+            RefreshMachineRuntimeHeader();
         }
 
         private static void ApplyAxisToGrid(DataGridViewRow row, BaseAxis axis)
@@ -319,6 +323,190 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             await operation(axis);
         }
 
+        private async System.Threading.Tasks.Task InitializeSelectedAxisAsync()
+        {
+            try
+            {
+                BaseAxis axis = SelectedAxis();
+                if (axis == null)
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "MotionInitializeAxis",
+                        "Axis initialize failed: selected axis is null. - Failed");
+                    QMC.Common.MessageDialog.Show(this, "선택된 축이 없습니다.", "Motion", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                if (!ConfirmMotionAction(axis.Name + " 축 초기화를 진행하시겠습니까?"))
+                    return;
+
+                if (Host == null || Host.Controller == null)
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "MotionInitializeAxis",
+                        "Axis initialize failed: controller is null. - Failed");
+                    QMC.Common.MessageDialog.Show(this, "Machine Controller를 찾을 수 없습니다.", "Motion", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                int result = await Host.Controller.InitializeAxisAsync(axis.Name);
+                ShowMotionActionResult(result, "MotionInitializeAxis");
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "MotionInitializeAxis",
+                    "Axis initialize failed: " + ex.Message + " - Failed");
+                QMC.Common.MessageDialog.Show(this, "축 초기화 실패:\r\n" + ex.Message, "Motion", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                RefreshAllRows();
+            }
+        }
+
+        private async System.Threading.Tasks.Task InitializeSelectedAxisGroupAsync()
+        {
+            try
+            {
+                BaseAxis axis = SelectedAxis();
+                if (axis == null)
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "MotionInitializeGroup",
+                        "Axis group initialize failed: selected axis is null. - Failed");
+                    QMC.Common.MessageDialog.Show(this, "선택된 축이 없습니다.", "Motion", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                string groupName = axis.Setup != null ? axis.Setup.UnitName : "";
+                if (string.IsNullOrWhiteSpace(groupName))
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "MotionInitializeGroup",
+                        "Axis group initialize failed: group name is empty. axis=" + axis.Name + " - Failed");
+                    QMC.Common.MessageDialog.Show(this, "선택 축의 그룹 정보가 없습니다.", "Motion", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                if (!ConfirmMotionAction(groupName + " 그룹 초기화를 진행하시겠습니까?"))
+                    return;
+
+                if (Host == null || Host.Controller == null)
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "MotionInitializeGroup",
+                        "Axis group initialize failed: controller is null. group=" + groupName + " - Failed");
+                    QMC.Common.MessageDialog.Show(this, "Machine Controller를 찾을 수 없습니다.", "Motion", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                int result = await Host.Controller.InitializeAxisGroupAsync(groupName);
+                ShowMotionActionResult(result, "MotionInitializeGroup");
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "MotionInitializeGroup",
+                    "Axis group initialize failed: " + ex.Message + " - Failed");
+                QMC.Common.MessageDialog.Show(this, "축 그룹 초기화 실패:\r\n" + ex.Message, "Motion", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                RefreshAllRows();
+            }
+        }
+
+        private async System.Threading.Tasks.Task InitializeAllAxesAsync()
+        {
+            try
+            {
+                if (Host == null || Host.Controller == null)
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "MotionInitializeAll",
+                        "All axes initialize failed: controller is null. - Failed");
+                    QMC.Common.MessageDialog.Show(this, "Machine Controller를 찾을 수 없습니다.", "Motion", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                if (!ConfirmMotionAction("전체 축 초기화를 진행하시겠습니까?"))
+                    return;
+
+                int result = await Host.Controller.InitializeAllAxesAsync(true);
+                ShowMotionActionResult(result, "MotionInitializeAll");
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "MotionInitializeAll",
+                    "All axes initialize failed: " + ex.Message + " - Failed");
+                QMC.Common.MessageDialog.Show(this, "전체 축 초기화 실패:\r\n" + ex.Message, "Motion", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                RefreshAllRows();
+            }
+        }
+
+        private bool ConfirmMotionAction(string message)
+        {
+            try
+            {
+                return QMC.Common.MessageDialog.Show(this, message, "Motion", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes;
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "ConfirmMotionAction",
+                    "Motion action confirm failed: " + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private void ShowMotionActionResult(int result, string source)
+        {
+            try
+            {
+                if (result == 0)
+                    return;
+
+                string message = Host != null && Host.Controller != null && !string.IsNullOrWhiteSpace(Host.Controller.LastActionFailureMessage)
+                    ? Host.Controller.LastActionFailureMessage
+                    : "Motion 작업이 실패했습니다. Alarm/Event Log를 확인하세요.";
+
+                QMC.Common.Log.Write("Main", "SYSTEM", source,
+                    "Motion action failed: return=" + result + ", message=" + message + " - Failed");
+                QMC.Common.MessageDialog.Show(this, message, "Motion", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", source,
+                    "Motion action result handling failed: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        private void RefreshMachineRuntimeHeader()
+        {
+            try
+            {
+                if (Host == null || Host.Controller == null)
+                {
+                    lblModuleHeader.Text = "MODULE LIST";
+                    return;
+                }
+
+                string initialized = Host.Controller.IsMachineInitialized ? "READY" : "NOT INIT";
+                string restored = Host.Controller.IsDeveloperReadyRestored ? " / RESTORED" : "";
+                string time = Host.Controller.IsMachineInitialized && Host.Controller.MachineInitializedAt > DateTime.MinValue
+                    ? " / " + Host.Controller.MachineInitializedAt.ToString("yyyy-MM-dd HH:mm:ss")
+                    : "";
+                lblModuleHeader.Text = "MODULE LIST   INIT: " + initialized + restored + time;
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
         private void RunAllAxes(Action<BaseAxis> operation)
         {
             foreach (BaseAxis axis in _rows.Select(x => x.Axis).Where(x => x != null))
@@ -388,6 +576,11 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             if (!AjinSystem.IsOpen)
             {
                 QMC.Common.MessageDialog.Show("AXL library is not open.");
+                return;
+            }
+
+            {
+                QMC.Common.MessageDialog.Show("현재 잔비 Setup중에는 mot 파일 저장 불가.");
                 return;
             }
 

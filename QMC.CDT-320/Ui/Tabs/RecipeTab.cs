@@ -18,13 +18,13 @@ namespace QMC.CDT_320.Ui.Tabs
 
             RegisterSidebarButton(BtnProject,          "recipe.project",         en, () => new ProjectPage());
             RegisterSidebarButton(BtnInputCassette,    "recipe.inputCassette",   en, () => new InputCassetteRecipePage());
-            RegisterSidebarButton(BtnInputFeeder,      "recipe.inputFeeder",     en, () => new FeederRecipePage("recipe.inputFeeder"));
+            RegisterSidebarButton(BtnInputFeeder,      "recipe.inputFeeder",     en, () => new InputFeederRecipePage("recipe.inputFeeder"));
             RegisterSidebarButton(BtnInputStage,       "recipe.inputStage",      en, () => new InputStageRecipePage("recipe.inputStage"));
             RegisterSidebarButton(BtnFrontHead,        "recipe.frontHead",       en, () => new HeadRecipePage("recipe.frontHead"));
             RegisterSidebarButton(BtnRearHead,         "recipe.rearHead",        en, () => new HeadRecipePage("recipe.rearHead"));
-            RegisterSidebarButton(BtnOutputFeeder,     "recipe.outputFeeder",    en, () => new FeederRecipePage("recipe.outputFeeder"));
+            RegisterSidebarButton(BtnOutputFeeder,     "recipe.outputFeeder",    en, () => new OutputFeederRecipePage("recipe.outputFeeder"));
             RegisterSidebarButton(BtnOutputCassette,   "recipe.outputCassette",  en, () => new OutputCassetteRecipePage());
-            RegisterSidebarButton(BtnOutputStage,      "recipe.outputStage",     en, () => new StageRecipePage("recipe.outputStage"));
+            RegisterSidebarButton(BtnOutputStage,      "recipe.outputStage",     en, () => new OutputStageRecipePage("recipe.outputStage"));
             RegisterSidebarButton(BtnInputVision,      "recipe.inputVision",     en, () => new VisionRecipePage("recipe.inputVision"));
             RegisterSidebarButton(BtnOutputVision,     "recipe.outputVision",    en, () => new VisionRecipePage("recipe.outputVision"));
             RegisterSidebarButton(BtnLowerVision,      "recipe.lowerVision",     en, () => new VisionRecipePage("recipe.lowerVision"));
