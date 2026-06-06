@@ -5,15 +5,13 @@ using System.Linq;
 namespace QMC.Common.Alarms
 {
     /// <summary>
-    /// 프로세스 전역 알람 관리자 (Handler + Vision 양쪽에서 동일 클래스 사용).
+    /// 프로세스 전역 알람 관리자.
     /// <list type="bullet">
     ///   <item><description>Raise(...) 로 알람 발생, Clear(id) / ClearAll() 로 해제</description></item>
     ///   <item><description>Active: 해제되지 않은 알람 리스트</description></item>
     ///   <item><description>History: 전체 레코드 (해제된 것 포함)</description></item>
     ///   <item><description>AlarmRaised / AlarmCleared 이벤트 발행 — UI 배너가 구독</description></item>
     /// </list>
-    /// <para>Language 의존성은 <see cref="LanguageProvider"/> 콜백으로 추상화 — 호스트(Handler)가
-    /// 부팅 시 <c>AlarmManager.LanguageProvider = () =&gt; Lang.Current</c> 설정.</para>
     /// </summary>
     public static class AlarmManager
     {
@@ -23,9 +21,7 @@ namespace QMC.Common.Alarms
 
         public static event Action<AlarmRecord> AlarmRaised;
         public static event Action<AlarmRecord> AlarmCleared;
-
-        /// <summary>현재 언어 코드("ko" / "en") 반환 콜백. 호스트가 설정. 기본 "ko".</summary>
-        public static Func<string> LanguageProvider { get; set; } = () => "ko";
+        public static Func<string> LanguageProvider { get; set; }
 
         public static IReadOnlyList<AlarmRecord> Active
         {
@@ -61,14 +57,14 @@ namespace QMC.Common.Alarms
 
         public static AlarmRecord Raise(AlarmSeverity sev, string code, string source, string message)
         {
-            // AlarmMaster lookup: message 가 비어있으면 정의된 Title 사용
+            // Stage 19 — AlarmMaster lookup: message 가 비어있으면 정의된 Title 사용
+            // Stage 23 — Lang.Current (ko/en) 적용
             if (string.IsNullOrEmpty(message))
             {
                 var def = AlarmMaster.Get(code);
                 if (def != null)
                 {
-                    string lang = "ko";
-                    try { lang = LanguageProvider?.Invoke() ?? "ko"; } catch { }
+                    string lang = GetLanguage();
                     message = def.GetTitle(lang);
                 }
             }
@@ -80,6 +76,7 @@ namespace QMC.Common.Alarms
                 rec = new AlarmRecord(_seq, sev, code, source, message);
                 _all.Add(rec);
             }
+            try { QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Alarm, "QMC", rec.Code, "[" + rec.Severity + "] " + rec.Source + " - " + rec.Message); } catch { }
             try { AlarmRaised?.Invoke(rec); } catch { }
             return rec;
         }
@@ -93,6 +90,7 @@ namespace QMC.Common.Alarms
                 if (rec == null || !rec.IsActive) return;
                 rec.Cleared = DateTime.Now;
             }
+            try { QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "QMC", rec.Code, "[CLEARED] " + rec.Source + " - " + rec.Message); } catch { }
             try { AlarmCleared?.Invoke(rec); } catch { }
         }
 
@@ -106,7 +104,10 @@ namespace QMC.Common.Alarms
                 foreach (var a in cleared) a.Cleared = DateTime.Now;
             }
             foreach (var a in cleared)
+            {
+                try { QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "QMC", a.Code, "[CLEARED] " + a.Source + " - " + a.Message); } catch { }
                 try { AlarmCleared?.Invoke(a); } catch { }
+            }
         }
 
         /// <summary>테스트/개발 — 모든 기록 삭제.</summary>
@@ -116,6 +117,24 @@ namespace QMC.Common.Alarms
             {
                 _all.Clear();
                 _seq = 0;
+            }
+        }
+
+        private static string GetLanguage()
+        {
+            try
+            {
+                if (LanguageProvider != null)
+                    return LanguageProvider() ?? "ko";
+
+                return "ko";
+            }
+            catch
+            {
+                return "ko";
+            }
+            finally
+            {
             }
         }
     }

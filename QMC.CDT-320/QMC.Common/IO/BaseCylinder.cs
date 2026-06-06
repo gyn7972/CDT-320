@@ -3,6 +3,11 @@ using System.Threading.Tasks;
 
 namespace QMC.Common.IO
 {
+    public delegate bool CylinderMotionGuardHandler(
+        BaseCylinder cylinder,
+        bool moveFwd,
+        out string reason);
+
     // ??????????????????????????????????????????????????????????????????????????
     //  실린더 전용 데이터 클래스
     // ??????????????????????????????????????????????????????????????????????????
@@ -21,6 +26,10 @@ namespace QMC.Common.IO
         /// </list>
         /// </summary>
         public bool IsSingleSolenoid { get; set; } = false;
+
+        public bool UseFwdSensor { get; set; } = true;
+
+        public bool UseBwdSensor { get; set; } = true;
     }
 
     /// <summary>
@@ -71,6 +80,8 @@ namespace QMC.Common.IO
     public abstract class BaseCylinder
         : BaseComponent<CylinderSetup, CylinderConfig, CylinderRecipe>
     {
+        public static CylinderMotionGuardHandler MotionGuard { get; set; }
+
         // ──────────────────────────────────────────────────────────────────────
         //  시뮬레이션 모드 내부 상수
         // ──────────────────────────────────────────────────────────────────────
@@ -182,6 +193,9 @@ namespace QMC.Common.IO
         /// <returns>전진 완료 시 <c>true</c>, 타임아웃 시 <c>false</c></returns>
         public virtual async Task<bool> MoveFwdAsync()
         {
+            if (!VerifyMotionGuard(true))
+                return false;
+
             // ── 밸브 출력 제어 ───────────────────────────────────────────────
             OutFwd.On();
 
@@ -197,7 +211,13 @@ namespace QMC.Common.IO
             }
 
             // ── 전진 완료 센서 대기 ──────────────────────────────────────────
-            bool result = await InFwd.WaitUntilStateAsync(true, Recipe.FwdTimeoutMs);
+            bool result;
+            if (Setup.UseFwdSensor)
+                result = await InFwd.WaitUntilStateAsync(true, Recipe.FwdTimeoutMs);
+            else if (Setup.UseBwdSensor)
+                result = await InBwd.WaitUntilStateAsync(false, Recipe.FwdTimeoutMs);
+            else
+                result = true;
 
             if (!result)
                 Console.WriteLine($"[ALARM] '{Name}' ? 전진(Fwd) 타임아웃 ({Recipe.FwdTimeoutMs}ms 초과)");
@@ -216,6 +236,9 @@ namespace QMC.Common.IO
         /// <returns>후진 완료 시 <c>true</c>, 타임아웃 시 <c>false</c></returns>
         public virtual async Task<bool> MoveBwdAsync()
         {
+            if (!VerifyMotionGuard(false))
+                return false;
+
             // ── 밸브 출력 제어 ───────────────────────────────────────────────
             if (Setup.IsSingleSolenoid)
             {
@@ -238,12 +261,28 @@ namespace QMC.Common.IO
             }
 
             // ── 후진 완료 센서 대기 ──────────────────────────────────────────
-            bool result = await InBwd.WaitUntilStateAsync(true, Recipe.BwdTimeoutMs);
+            bool result;
+            if (Setup.UseBwdSensor)
+                result = await InBwd.WaitUntilStateAsync(true, Recipe.BwdTimeoutMs);
+            else if (Setup.UseFwdSensor)
+                result = await InFwd.WaitUntilStateAsync(false, Recipe.BwdTimeoutMs);
+            else
+                result = true;
 
             if (!result)
                 Console.WriteLine($"[ALARM] '{Name}' ? 후진(Bwd) 타임아웃 ({Recipe.BwdTimeoutMs}ms 초과)");
 
             return result;
+        }
+
+        private bool VerifyMotionGuard(bool moveFwd)
+        {
+            CylinderMotionGuardHandler guard = MotionGuard;
+            if (guard == null)
+                return true;
+
+            string reason;
+            return guard(this, moveFwd, out reason);
         }
     }
 }

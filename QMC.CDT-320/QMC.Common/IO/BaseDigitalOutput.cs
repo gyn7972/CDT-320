@@ -22,6 +22,11 @@ namespace QMC.Common.IO
         /// <summary>백그라운드 상태 읽기 태스크 취소 토큰 소스.</summary>
         private readonly CancellationTokenSource _cts = new CancellationTokenSource();
 
+        protected virtual bool UseInternalStatusUpdate
+        {
+            get { return true; }
+        }
+
         // ──────────────────────────────────────────────────────────────────────
         //  상태 프로퍼티
         // ──────────────────────────────────────────────────────────────────────
@@ -43,7 +48,8 @@ namespace QMC.Common.IO
         /// <param name="name">I/O 포인트 이름 (예: "Sol_PickupVacuum")</param>
         protected BaseDigitalOutput(string name) : base(name)
         {
-            StartPollingTask();
+            if (UseInternalStatusUpdate)
+                StartPollingTask();
         }
 
         // ──────────────────────────────────────────────────────────────────────
@@ -84,11 +90,20 @@ namespace QMC.Common.IO
         /// <summary>IsOn 상태가 실제로 변경될 때 발행.</summary>
         public event System.Action<BaseDigitalOutput, bool> StateChanged;
 
-        private void RaiseStateChanged(bool state)
+        protected void RaiseStateChanged(bool state)
         {
             var h = StateChanged;
             if (h == null) return;
             try { h(this, state); } catch { }
+        }
+
+        protected internal void ApplyScannedState(bool logical)
+        {
+            if (IsOn != logical)
+            {
+                IsOn = logical;
+                RaiseStateChanged(logical);
+            }
         }
 
         // ──────────────────────────────────────────────────────────────────────

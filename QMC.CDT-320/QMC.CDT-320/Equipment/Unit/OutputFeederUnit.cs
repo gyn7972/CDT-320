@@ -1,0 +1,983 @@
+﻿using QMC.CDT320.Ajin;
+using QMC.Common;
+using QMC.Common.Alarms;
+using QMC.Common.IO;
+using QMC.Common.Logging;
+using QMC.Common.Motion;
+using System;
+using System.Collections.Generic;
+using System.Runtime.Serialization;
+using System.Threading.Tasks;
+
+namespace QMC.CDT320
+{
+    [DataContract]
+    public class OutputFeederSetup : ISetupData
+    {
+        [DataMember] public bool IsSimulationMode { get; set; }
+
+        public OutputFeederSetup()
+        {
+            SetDefaults();
+        }
+
+        [OnDeserializing]
+        private void OnDeserializing(StreamingContext ctx) { SetDefaults(); }
+
+        private void SetDefaults()
+        {
+            IsSimulationMode = false;
+        }
+    }
+
+    [DataContract]
+    public class OutputFeederConfig : IConfigData
+    {
+        [DataMember] public bool bDryRun { get; set; }
+
+        public OutputFeederConfig()
+        {
+            SetDefaults();
+        }
+
+        [OnDeserializing]
+        private void OnDeserializing(StreamingContext ctx) { SetDefaults(); }
+
+        private void SetDefaults()
+        {
+            bDryRun = false;
+        }
+    }
+
+    [DataContract]
+    public class OutputFeederRecipe : IRecipeData
+    {
+        [DataMember] public double AvoidPosition { get; set; }
+        [DataMember] public double GoodCassetteLoadPosition { get; set; }
+        [DataMember] public double GoodCassetteUnloadPosition { get; set; }
+        [DataMember] public double GoodCassetteExchangePosition { get; set; }
+        [DataMember] public double GoodWaferLoadAvoidPosition { get; set; }
+        [DataMember] public double GoodWaferLoadPosition { get; set; }
+        [DataMember] public double GoodWaferUnloadAvoidPosition { get; set; }
+        [DataMember] public double GoodWaferUnloadPosition { get; set; }
+        [DataMember] public double GoodWaferBarcodePosition { get; set; }
+        [DataMember] public double NGCassetteLoadPosition { get; set; }
+        [DataMember] public double NGCassetteUnloadPosition { get; set; }
+        [DataMember] public double NGCassetteExchangePosition { get; set; }
+        [DataMember] public double NGWaferLoadAvoidPosition { get; set; }
+        [DataMember] public double NGWaferLoadPosition { get; set; }
+        [DataMember] public double NGWaferUnloadAvoidPosition { get; set; }
+        [DataMember] public double NGWaferUnloadPosition { get; set; }
+        [DataMember] public double NGWaferBarcodePosition { get; set; }
+
+        public OutputFeederRecipe()
+        {
+            SetDefaults();
+        }
+
+        [OnDeserializing]
+        private void OnDeserializing(StreamingContext ctx) { SetDefaults(); }
+
+        private void SetDefaults()
+        {
+            AvoidPosition = 0.0;
+            GoodCassetteLoadPosition = 30.0;
+            GoodCassetteUnloadPosition = 30.0;
+            GoodCassetteExchangePosition = 0.0;
+            GoodWaferLoadAvoidPosition = 0.0;
+            GoodWaferLoadPosition = 150.0;
+            GoodWaferUnloadAvoidPosition = 0.0;
+            GoodWaferUnloadPosition = 150.0;
+            GoodWaferBarcodePosition = 0.0;
+            NGCassetteLoadPosition = 30.0;
+            NGCassetteUnloadPosition = 30.0;
+            NGCassetteExchangePosition = 0.0;
+            NGWaferLoadAvoidPosition = 0.0;
+            NGWaferLoadPosition = 200.0;
+            NGWaferUnloadAvoidPosition = 0.0;
+            NGWaferUnloadPosition = 200.0;
+            NGWaferBarcodePosition = 0.0;
+        }
+    }
+
+    public sealed class FeederTransferState
+    {
+        public bool IsUp { get; set; }
+        public bool IsDown { get; set; }
+        public bool IsUnclamped { get; set; }
+        public bool HasRing { get; set; }
+        public bool IsOverload { get; set; }
+        public bool IsMoveReady { get; set; }
+    }
+
+    public class OutputFeederUnit : BaseUnit<OutputFeederSetup, OutputFeederConfig, OutputFeederRecipe>, IUnitJogController
+    {
+        private readonly Dictionary<string, double> _positionSnapshots = new Dictionary<string, double>();
+
+        public MaterialState CurrentMaterialState { get; private set; }
+        public BaseAxis FeederY { get; private set; }
+        public BaseDigitalInput BinFeederUpSensor { get; private set; }
+        public BaseDigitalInput BinFeederDownSensor { get; private set; }
+        public BaseDigitalInput BinFeederUnclampSensor { get; private set; }
+        public BaseDigitalInput BinFeederRingCheckSensor { get; private set; }
+        public BaseDigitalInput BinFeederOverloadSensor { get; private set; }
+        public BaseDigitalInput WaferClampedSensor { get { return BinFeederRingCheckSensor; } }
+        public BaseCylinder FeederUpDownCyl { get; private set; }
+        public BaseCylinder FeederClampCyl { get; private set; }
+        public BaseDigitalOutput BinFeederUpOut { get { return FeederUpDownCyl.OutFwd; } }
+        public BaseDigitalOutput BinFeederDownOut { get { return FeederUpDownCyl.OutBwd; } }
+        public BaseDigitalOutput BinFeederClampOut { get { return FeederClampCyl.OutFwd; } }
+        public BaseDigitalOutput BinFeederUnclampOut { get { return FeederClampCyl.OutBwd; } }
+
+        public OutputFeederUnit() : base("BinFeederUnit")
+        {
+            CurrentMaterialState = MaterialState.Empty;
+            FeederY = AjinFactory.CreateAxis("OutputFeederY");
+            FeederY.Setup.SoftLimitPlus = 350.0;
+
+            BinFeederUpSensor = AjinFactory.CreateDigitalInput(AjinIoCatalog.FindInput("BinNFeederUp"));
+            BinFeederDownSensor = AjinFactory.CreateDigitalInput(AjinIoCatalog.FindInput("BinFeederDown"));
+            BinFeederUnclampSensor = AjinFactory.CreateDigitalInput(AjinIoCatalog.FindInput("BinFeederUnclamp"));
+            BinFeederRingCheckSensor = AjinFactory.CreateDigitalInput(AjinIoCatalog.FindInput("BinFeederRing"));
+            BinFeederOverloadSensor = AjinFactory.CreateDigitalInput(AjinIoCatalog.FindInput("BinFeederOverload"));
+            FeederUpDownCyl = CylinderManager.Get(AjinIoCatalog.CylinderRefs.OutputFeederLift);
+            FeederClampCyl = CylinderManager.Get(AjinIoCatalog.CylinderRefs.OutputFeederClamp);
+
+            Components.Add(FeederY);
+            Components.Add(BinFeederUpSensor);
+            Components.Add(BinFeederDownSensor);
+            Components.Add(BinFeederUnclampSensor);
+            Components.Add(BinFeederRingCheckSensor);
+            Components.Add(BinFeederOverloadSensor);
+            Components.Add(FeederUpDownCyl);
+            Components.Add(FeederClampCyl);
+        }
+
+        public bool CanHandleJogAxis(BaseAxis axis)
+        {
+            return axis != null && ReferenceEquals(axis, FeederY);
+        }
+
+        public Task<int> JogStepAsync(
+            BaseAxis axis,
+            int direction,
+            JogSpeedType speedType,
+            double customSpeed,
+            double axisStepDistance)
+        {
+            if (!CanHandleJogAxis(axis))
+                return Task.FromResult(-1);
+
+            double signedDistance = (direction < 0 ? -1.0 : 1.0) * Math.Abs(axisStepDistance);
+            double target = FeederY.ActualPosition + signedDistance;
+            return MoveBinFeederY(target, speedType == JogSpeedType.Fine);
+        }
+
+        public Task<int> JogContinuousAsync(
+            BaseAxis axis,
+            int direction,
+            JogSpeedType speedType,
+            double customSpeed)
+        {
+            if (!CanHandleJogAxis(axis))
+                return Task.FromResult(-1);
+
+            double speed = UnitJogVelocityResolver.Resolve(axis, speedType, customSpeed);
+            ManualMoveBinFeederYJog(direction, speed);
+            return Task.FromResult(0);
+        }
+
+        public Task<int> StopJogAsync(BaseAxis axis)
+        {
+            if (!CanHandleJogAxis(axis))
+                return Task.FromResult(-1);
+
+            ManualStopBinFeederY();
+            return Task.FromResult(0);
+        }
+
+        public Task<int> MoveBinFeederY(double targetPos, bool bFine = false)
+        {
+            return MoveBinFeederYAsync(targetPos, bFine);
+        }
+
+        public async Task<int> MoveBinFeederYAsync(double targetPos, bool bFine = false)
+        {
+            try
+            {
+                if (!CheckBinFeederYMoveReady())
+                    return RaiseFeederAlarm("BF-Y-READY", "OutputFeederY is not ready to move.");
+
+                if (!ValidateBinFeederYTargetPosition(targetPos))
+                    return RaiseFeederAlarm("BF-Y-SOFT-LIMIT", "OutputFeederY target is out of soft limit. target=" + targetPos);
+
+                EventLogger.Write(EventKind.Event, "QMC", "BF-Y-MOVE", "Move OutputFeederY target=" + targetPos);
+                int result = await FeederY.MoveAbsoluteAsync(targetPos, ResolveBinFeederYMoveVelocity(bFine));
+                if (result != 0 || FeederY.IsAlarm)
+                    return RaiseFeederAlarm("BF-Y-MOVE", "OutputFeederY move failed. result=" + result + ", alarm=" + FeederY.IsAlarm);
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return RaiseFeederAlarm("BF-Y-MOVE-EX", "OutputFeederY move exception: " + ex.Message);
+            }
+        }
+
+        public Task<int> MoveBinFeederYToTeachingPosition(string positionName, bool bFine = false)
+        {
+            return MoveBinFeederY(GetTeachingPosition(positionName), bFine);
+        }
+
+        public Task<int> MoveToFeederAvoidPosition(bool bFine = false) { return MoveBinFeederY(Recipe.AvoidPosition, bFine); }
+        public Task<int> MoveToBinFeederAvoidPosition(bool bFine = false) { return MoveToFeederAvoidPosition(bFine); }
+
+        public Task<int> MoveToFeederCassetteLoadPosition(BinSide side, int slotIndex, bool bFine = false)
+        {
+            ValidateSlotIndex(slotIndex);
+            return MoveBinFeederY(GetSidePosition(side, FeederPositionType.CassetteLoad), bFine);
+        }
+
+        public Task<int> MoveToBinFeederCassetteLoadPosition(int slotIndex, bool bFine = false)
+        {
+            return MoveToFeederCassetteLoadPosition(BinSide.Good, slotIndex, bFine);
+        }
+
+        public Task<int> MoveToFeederCassetteUnloadPosition(BinSide side, int slotIndex, bool bFine = false)
+        {
+            ValidateSlotIndex(slotIndex);
+            return MoveBinFeederY(GetSidePosition(side, FeederPositionType.CassetteUnload), bFine);
+        }
+
+        public Task<int> MoveToFeederBarcodePosition(BinSide side, bool bFine = false)
+        {
+            return MoveBinFeederY(GetSidePosition(side, FeederPositionType.Barcode), bFine);
+        }
+
+        public Task<int> MoveToFeederStageLoadPosition(BinSide side, bool bFine = false)
+        {
+            return MoveBinFeederY(GetSidePosition(side, FeederPositionType.StageLoad), bFine);
+        }
+
+        public Task<int> MoveToFeederStageUnloadPosition(BinSide side, bool bFine = false)
+        {
+            return MoveBinFeederY(GetSidePosition(side, FeederPositionType.StageUnload), bFine);
+        }
+
+        public Task<int> MoveToFeederExchangePosition(BinSide side, bool bFine = false)
+        {
+            double position = GetSidePosition(side, FeederPositionType.Exchange);
+            if (Math.Abs(position) <= double.Epsilon)
+                position = Recipe.AvoidPosition;
+            return MoveBinFeederY(position, bFine);
+        }
+
+        public Task<int> MoveToBinFeederCassetteInsertPosition(bool bFine = false)
+        {
+            return MoveToFeederExchangePosition(BinSide.Good, bFine);
+        }
+
+        public Task<int> MoveToBinFeederGoodStageExchangePosition(bool bFine = false)
+        {
+            return MoveToFeederStageLoadPosition(BinSide.Good, bFine);
+        }
+
+        public Task<int> MoveToBinFeederNgStageExchangePosition(bool bFine = false)
+        {
+            return MoveToFeederStageLoadPosition(BinSide.Ng, bFine);
+        }
+
+        public Task<int> MoveToBinFeederStageExchangePosition(TargetCassette cassette, bool bFine = false)
+        {
+            return MoveToFeederStageLoadPosition(ToBinSide(cassette), bFine);
+        }
+
+        public async Task<bool> WaitBinFeederYMoveDone(int timeoutMs)
+        {
+            int timeout = timeoutMs > 0 ? timeoutMs : ResolveBinFeederYMoveTimeoutMs();
+            return await WaitUntilAsync(() => !FeederY.IsMoving && FeederY.IsInPosition && !FeederY.IsAlarm && !IsFeederOverload(), timeout);
+        }
+
+        public async Task<bool> WaitBinFeederYInPosition(string positionName, int timeoutMs)
+        {
+            double target = GetTeachingPosition(positionName);
+            int timeout = timeoutMs > 0 ? timeoutMs : ResolveBinFeederYMoveTimeoutMs();
+            return await WaitUntilAsync(() => IsBinFeederYInPosition(target, ResolveBinFeederYInPositionTolerance()), timeout);
+        }
+
+        public bool IsBinFeederYInPosition(double targetPos, double tolerance)
+        {
+            return Math.Abs(FeederY.ActualPosition - targetPos) <= tolerance;
+        }
+
+        public bool IsBinFeederYInAvoidPosition() { return IsBinFeederInAvoidPosition(); }
+        public bool IsBinFeederInAvoidPosition() { return IsBinFeederYInPosition(Recipe.AvoidPosition, ResolveBinFeederYInPositionTolerance()); }
+        public bool IsBinFeederYInCassetteLoadPosition(BinSide side) { return IsBinFeederYInPosition(GetSidePosition(side, FeederPositionType.CassetteLoad), ResolveBinFeederYInPositionTolerance()); }
+        public bool IsBinFeederInCassetteLoadPosition(int slotIndex) { return IsBinFeederYInCassetteLoadPosition(BinSide.Good); }
+        public bool IsBinFeederYInCassetteUnloadPosition(BinSide side) { return IsBinFeederYInPosition(GetSidePosition(side, FeederPositionType.CassetteUnload), ResolveBinFeederYInPositionTolerance()); }
+        public bool IsBinFeederYInStageLoadPosition(BinSide side) { return IsBinFeederYInPosition(GetSidePosition(side, FeederPositionType.StageLoad), ResolveBinFeederYInPositionTolerance()); }
+        public bool IsBinFeederYInStageUnloadPosition(BinSide side) { return IsBinFeederYInPosition(GetSidePosition(side, FeederPositionType.StageUnload), ResolveBinFeederYInPositionTolerance()); }
+        public bool IsBinFeederYInBarcodePosition(BinSide side) { return IsBinFeederYInPosition(GetSidePosition(side, FeederPositionType.Barcode), ResolveBinFeederYInPositionTolerance()); }
+        public bool IsBinFeederYInExchangePosition(BinSide side) { return IsBinFeederYInPosition(GetSidePosition(side, FeederPositionType.Exchange), ResolveBinFeederYInPositionTolerance()); }
+
+        public bool IsFeederUp() { return BinFeederUpSensor.IsOn; }
+        public bool IsFeederDown() { return BinFeederDownSensor.IsOn; }
+        public bool IsFeederUnclamped() { return BinFeederUnclampSensor.IsOn; }
+        public bool IsFeederOverload() { return BinFeederOverloadSensor.IsOn; }
+        public bool IsFeederRingDetected(bool expected = true) { return BinFeederRingCheckSensor.IsOn == expected; }
+        public bool IsFeederEmpty() { return IsFeederRingDetected(false); }
+        public bool IsFeederOccupied() { return IsFeederRingDetected(true); }
+        public bool IsBinFeederUp() { return IsFeederUp(); }
+        public bool IsBinFeederDown() { return IsFeederDown(); }
+        public bool IsBinFeederUnclamp() { return IsFeederUnclamped(); }
+        public bool IsBinFeederRingCheck() { return BinFeederRingCheckSensor.IsOn; }
+        public bool IsBinFeederClamp() { return !IsFeederUnclamped() || IsFeederRingDetected(true); }
+        public bool HasWaferOnFeeder() { return IsFeederOccupied(); }
+
+        public void TeachBinFeederYPosition(string positionName)
+        {
+            SetTeachingPosition(positionName, FeederY.ActualPosition);
+            EventLogger.Write(EventKind.Event, "QMC", "BF-TEACH", "Teaching saved: " + positionName + "=" + FeederY.ActualPosition);
+        }
+
+        public void TeachBinFeederYAvoidPosition() { Recipe.AvoidPosition = FeederY.ActualPosition; }
+        public void TeachBinFeederAvoidPosition() { TeachBinFeederYAvoidPosition(); }
+        public void TeachBinFeederYCassetteLoadPosition(BinSide side) { SetSidePosition(side, FeederPositionType.CassetteLoad, FeederY.ActualPosition); }
+        public void TeachBinFeederYCassetteUnloadPosition(BinSide side) { SetSidePosition(side, FeederPositionType.CassetteUnload, FeederY.ActualPosition); }
+        public void TeachBinFeederYStageLoadPosition(BinSide side) { SetSidePosition(side, FeederPositionType.StageLoad, FeederY.ActualPosition); }
+        public void TeachBinFeederYStageUnloadPosition(BinSide side) { SetSidePosition(side, FeederPositionType.StageUnload, FeederY.ActualPosition); }
+        public void TeachBinFeederYBarcodePosition(BinSide side) { SetSidePosition(side, FeederPositionType.Barcode, FeederY.ActualPosition); }
+        public void TeachBinFeederYExchangePosition(BinSide side) { SetSidePosition(side, FeederPositionType.Exchange, FeederY.ActualPosition); }
+        public void TeachBinFeederGoodStageExchangePosition() { TeachBinFeederYStageLoadPosition(BinSide.Good); }
+        public void TeachBinFeederNgStageExchangePosition() { TeachBinFeederYStageLoadPosition(BinSide.Ng); }
+        public void TeachBinFeederCassetteInsertPosition() { TeachBinFeederYExchangePosition(BinSide.Good); }
+        public void TeachBinFeederCassetteLoadBasePosition() { TeachBinFeederYCassetteLoadPosition(BinSide.Good); }
+
+        public double CalculateBinFeederCassetteLoadPosition(int slotIndex)
+        {
+            ValidateSlotIndex(slotIndex);
+            return Recipe.GoodCassetteLoadPosition;
+        }
+
+        public bool ValidateBinFeederTeachingComplete() { return ValidateBinFeederYTeachingComplete(BinSide.Good) && ValidateBinFeederYTeachingComplete(BinSide.Ng); }
+        public bool ValidateBinFeederYTeachingComplete(BinSide side)
+        {
+            return GetSidePosition(side, FeederPositionType.CassetteLoad) != Recipe.AvoidPosition &&
+                   GetSidePosition(side, FeederPositionType.CassetteUnload) != Recipe.AvoidPosition &&
+                   GetSidePosition(side, FeederPositionType.StageLoad) != GetSidePosition(side, FeederPositionType.StageUnload);
+        }
+
+        public double GetBinFeederYTeachingPosition(string positionName) { return GetTeachingPosition(positionName); }
+
+        public async Task<int> MoveToTeachingPositionAndVerify(string positionName, bool bFine = false)
+        {
+            int result = await MoveBinFeederYToTeachingPosition(positionName, bFine);
+            if (result != 0)
+                return result;
+
+            if (!await WaitBinFeederYInPosition(positionName, ResolveBinFeederYMoveTimeoutMs()))
+                return RaiseFeederAlarm("BF-TEACH-INPOS", "OutputFeederY teaching position timeout: " + positionName);
+
+            return 0;
+        }
+
+        public void SetFeederLiftUpOutput(bool on) { SetExclusiveOutput(BinFeederUpOut, BinFeederDownOut, on, "BF-LIFT-UP-OUT"); }
+        public void SetFeederLiftDownOutput(bool on) { SetExclusiveOutput(BinFeederDownOut, BinFeederUpOut, on, "BF-LIFT-DOWN-OUT"); }
+        public void SetFeederClampOutput(bool on) { SetExclusiveOutput(BinFeederClampOut, BinFeederUnclampOut, on, "BF-CLAMP-OUT"); }
+        public void SetFeederUnclampOutput(bool on) { SetExclusiveOutput(BinFeederUnclampOut, BinFeederClampOut, on, "BF-UNCLAMP-OUT"); }
+
+        public Task<int> SetBinFeederUpDown(bool up) { return SetFeederUpDownAsync(up, ResolveLiftTimeoutMs(up)); }
+        public Task<int> FeederLiftUp(int timeoutMs) { return SetFeederUpDownAsync(true, timeoutMs); }
+        public Task<int> FeederLiftDown(int timeoutMs) { return SetFeederUpDownAsync(false, timeoutMs); }
+        public Task<int> ManualFeederLiftUp(int timeoutMs) { return FeederLiftUp(timeoutMs); }
+        public Task<int> ManualFeederLiftDown(int timeoutMs) { return FeederLiftDown(timeoutMs); }
+
+        public async Task<int> SetFeederUpDownAsync(bool up, int timeoutMs)
+        {
+            if (IsFeederOverload())
+                return RaiseFeederAlarm("BF-LIFT-OVERLOAD", "OutputFeeder overload is on.");
+
+            bool ok = up ? await FeederUpDownCyl.MoveFwdAsync() : await FeederUpDownCyl.MoveBwdAsync();
+            if (!ok)
+                return RaiseFeederAlarm(up ? "BF-LIFT-UP" : "BF-LIFT-DOWN", "OutputFeeder lift cylinder move failed.");
+
+            bool sensorOk = up ? await WaitFeederUp(timeoutMs) : await WaitFeederDown(timeoutMs);
+            if (!sensorOk)
+                return RaiseFeederAlarm(up ? "BF-LIFT-UP-TIMEOUT" : "BF-LIFT-DOWN-TIMEOUT", "OutputFeeder lift sensor timeout.");
+
+            return 0;
+        }
+
+        public Task<int> SetBinFeederClamp(bool clamp) { return SetFeederClampAsync(clamp, ResolveClampTimeoutMs(clamp)); }
+        public Task<int> FeederClamp(int timeoutMs) { return SetFeederClampAsync(true, timeoutMs); }
+        public Task<int> FeederUnclamp(int timeoutMs) { return SetFeederClampAsync(false, timeoutMs); }
+        public Task<int> ManualFeederClamp(int timeoutMs) { return FeederClamp(timeoutMs); }
+        public Task<int> ManualFeederUnclamp(int timeoutMs) { return FeederUnclamp(timeoutMs); }
+
+        public async Task<int> SetFeederClampAsync(bool clamp, int timeoutMs)
+        {
+            bool ok = clamp ? await FeederClampCyl.MoveFwdAsync() : await FeederClampCyl.MoveBwdAsync();
+            if (!ok)
+                return RaiseFeederAlarm(clamp ? "BF-CLAMP" : "BF-UNCLAMP", "OutputFeeder clamp cylinder move failed.");
+
+            bool sensorOk = clamp ? await WaitFeederRingState(true, timeoutMs) : await WaitFeederUnclamped(timeoutMs);
+            if (!sensorOk)
+                return RaiseFeederAlarm(clamp ? "BF-CLAMP-TIMEOUT" : "BF-UNCLAMP-TIMEOUT", "OutputFeeder clamp sensor timeout.");
+
+            return 0;
+        }
+
+        public async Task<bool> WaitFeederUp(int timeoutMs) { return await BinFeederUpSensor.WaitUntilStateAsync(true, timeoutMs); }
+        public async Task<bool> WaitFeederDown(int timeoutMs) { return await BinFeederDownSensor.WaitUntilStateAsync(true, timeoutMs); }
+        public async Task<bool> WaitFeederUnclamped(int timeoutMs) { return await BinFeederUnclampSensor.WaitUntilStateAsync(true, timeoutMs); }
+        public async Task<bool> WaitFeederRingState(bool expected, int timeoutMs) { return await BinFeederRingCheckSensor.WaitUntilStateAsync(expected, timeoutMs); }
+        public async Task<bool> WaitBinFeederUp(int timeoutMs) { return await WaitFeederUp(timeoutMs); }
+        public async Task<bool> WaitBinFeederDown(int timeoutMs) { return await WaitFeederDown(timeoutMs); }
+        public async Task<bool> WaitBinFeederUnclamp(int timeoutMs) { return await WaitFeederUnclamped(timeoutMs); }
+        public async Task<bool> WaitBinFeederClamp(int timeoutMs) { return await WaitFeederRingState(true, timeoutMs); }
+        public async Task<bool> WaitBinFeederRingClear(int timeoutMs) { return await WaitFeederRingState(false, timeoutMs); }
+        public bool CheckFeederOverloadClear() { return !IsFeederOverload(); }
+
+        public void ManualMoveBinFeederYJog(Direction dir, double speed) { FeederY.MoveJogContinuous((int)dir, JogSpeedType.Custom, speed); }
+        public void ManualMoveBinFeederYJog(int direction, double speed) { ManualMoveBinFeederYJog(direction < 0 ? Direction.Minus : Direction.Plus, speed); }
+        public void ManualStopBinFeederY() { FeederY.StopJog(); }
+        public Task<int> ManualMoveToFeederAvoidPosition(bool bFine = false) { return MoveToFeederAvoidPosition(bFine); }
+        public Task<int> ManualMoveToBinFeederAvoidPosition(bool bFine = false) { return ManualMoveToFeederAvoidPosition(bFine); }
+        public Task<int> ManualMoveToFeederCassetteLoadPosition(BinSide side, int slotIndex, bool bFine = false) { return MoveToFeederCassetteLoadPosition(side, slotIndex, bFine); }
+        public Task<int> ManualMoveToBinFeederCassetteLoadPosition(int slotIndex, bool bFine = false) { return MoveToBinFeederCassetteLoadPosition(slotIndex, bFine); }
+        public Task<int> ManualMoveToFeederCassetteUnloadPosition(BinSide side, int slotIndex, bool bFine = false) { return MoveToFeederCassetteUnloadPosition(side, slotIndex, bFine); }
+        public Task<int> ManualMoveToFeederStageLoadPosition(BinSide side, bool bFine = false) { return MoveToFeederStageLoadPosition(side, bFine); }
+        public Task<int> ManualMoveToFeederStageUnloadPosition(BinSide side, bool bFine = false) { return MoveToFeederStageUnloadPosition(side, bFine); }
+        public Task<int> ManualMoveToFeederBarcodePosition(BinSide side, bool bFine = false) { return MoveToFeederBarcodePosition(side, bFine); }
+        public Task<int> ManualMoveToFeederExchangePosition(BinSide side, bool bFine = false) { return MoveToFeederExchangePosition(side, bFine); }
+        public Task<int> ManualMoveToBinFeederCassetteInsertPosition(bool bFine = false) { return MoveToBinFeederCassetteInsertPosition(bFine); }
+
+        public async Task<int> LoadFromCassetteToFeeder(BinSide side, int slotIndex, int timeoutMs, bool bFine = false, bool useBarcode = true)
+        {
+            if (!CheckFeederCassetteReady(side, slotIndex, TransferMode.Load))
+                return RaiseFeederAlarm("BF-LOAD-READY", "OutputFeeder load transfer is not ready.");
+
+            int result = await MoveToFeederCassetteLoadPosition(side, slotIndex, bFine);
+            if (result != 0) return result;
+            if (!await WaitBinFeederYMoveDone(timeoutMs))
+                return RaiseFeederAlarm("BF-LOAD-Y-TIMEOUT", "OutputFeeder cassette load position timeout.");
+
+            result = await FeederLiftUp(timeoutMs);
+            if (result != 0) return result;
+            result = await FeederClamp(timeoutMs);
+            if (result != 0) return result;
+            if (!IsFeederRingDetected(true))
+                return RaiseFeederAlarm("BF-LOAD-RING", "OutputFeeder ring was not detected after cassette load.");
+
+            UpdateFeederMaterialState(MaterialState.Occupied);
+            if (useBarcode)
+                await ReadFeederBarcode(side, timeoutMs, bFine, 2);
+            return 0;
+        }
+
+        public async Task<int> LoadWaferFromCassetteToFeeder(int slotIndex, int timeoutMs, bool bFine = false)
+        {
+            return await LoadFromCassetteToFeeder(BinSide.Good, slotIndex, timeoutMs, bFine, false);
+        }
+
+        public async Task<string> ReadFeederBarcode(BinSide side, int timeoutMs, bool bFine = false, int retry = 2)
+        {
+            if (!IsFeederOccupied())
+            {
+                RaiseFeederAlarm("BF-BARCODE-EMPTY", "OutputFeeder has no ring for barcode read.");
+                return string.Empty;
+            }
+
+            int result = await MoveToFeederBarcodePosition(side, bFine);
+            if (result != 0)
+                return string.Empty;
+
+            if (!await WaitBinFeederYMoveDone(timeoutMs))
+            {
+                RaiseFeederAlarm("BF-BARCODE-TIMEOUT", "OutputFeeder barcode position timeout.");
+                return string.Empty;
+            }
+
+            return string.Empty;
+        }
+
+        public async Task<int> LoadWaferToStageFromFeeder(BinSide side, int timeoutMs, bool bFine = false, bool useVacuum = true)
+        {
+            if (!CheckFeederStageReady(side, TransferMode.Load))
+                return RaiseFeederAlarm("BF-STAGE-LOAD-READY", "OutputStage load transfer is not ready.");
+
+            int result = await MoveToFeederStageLoadPosition(side, bFine);
+            if (result != 0) return result;
+            if (!await WaitBinFeederYMoveDone(timeoutMs))
+                return RaiseFeederAlarm("BF-STAGE-LOAD-Y-TIMEOUT", "OutputFeeder stage load position timeout.");
+
+            result = await FeederUnclamp(timeoutMs);
+            if (result != 0) return result;
+            result = await FeederLiftDown(timeoutMs);
+            if (result != 0) return result;
+            if (!await WaitFeederRingState(false, timeoutMs))
+                return RaiseFeederAlarm("BF-STAGE-LOAD-RING", "OutputFeeder ring remained after stage load.");
+
+            ClearFeederMaterialState();
+            return 0;
+        }
+
+        public async Task<int> UnloadWaferFromStageToFeeder(BinSide side, int timeoutMs, bool bFine = false)
+        {
+            if (!CheckFeederStageReady(side, TransferMode.Unload))
+                return RaiseFeederAlarm("BF-STAGE-UNLOAD-READY", "OutputStage unload transfer is not ready.");
+
+            int result = await MoveToFeederStageUnloadPosition(side, bFine);
+            if (result != 0) return result;
+            if (!await WaitBinFeederYMoveDone(timeoutMs))
+                return RaiseFeederAlarm("BF-STAGE-UNLOAD-Y-TIMEOUT", "OutputFeeder stage unload position timeout.");
+
+            result = await FeederLiftUp(timeoutMs);
+            if (result != 0) return result;
+            result = await FeederClamp(timeoutMs);
+            if (result != 0) return result;
+            if (!await WaitFeederRingState(true, timeoutMs))
+                return RaiseFeederAlarm("BF-STAGE-UNLOAD-RING", "OutputFeeder ring was not detected after stage unload.");
+
+            UpdateFeederMaterialState(MaterialState.Occupied);
+            return 0;
+        }
+
+        public async Task<int> UnloadFeederToCassette(BinSide side, int slotIndex, int timeoutMs, bool bFine = false)
+        {
+            if (!CheckFeederCassetteReady(side, slotIndex, TransferMode.Unload))
+                return RaiseFeederAlarm("BF-CST-UNLOAD-READY", "OutputFeeder cassette unload transfer is not ready.");
+
+            int result = await MoveToFeederCassetteUnloadPosition(side, slotIndex, bFine);
+            if (result != 0) return result;
+            if (!await WaitBinFeederYMoveDone(timeoutMs))
+                return RaiseFeederAlarm("BF-CST-UNLOAD-Y-TIMEOUT", "OutputFeeder cassette unload position timeout.");
+
+            result = await FeederLiftUp(timeoutMs);
+            if (result != 0) return result;
+            result = await FeederUnclamp(timeoutMs);
+            if (result != 0) return result;
+            result = await FeederLiftDown(timeoutMs);
+            if (result != 0) return result;
+            if (!await WaitFeederRingState(false, timeoutMs))
+                return RaiseFeederAlarm("BF-CST-UNLOAD-RING", "OutputFeeder ring remained after cassette unload.");
+
+            ClearFeederMaterialState();
+            return 0;
+        }
+
+        public async Task<bool> ReturnWaferFromFeederToCassette(int slotIndex, int timeoutMs, bool bFine = false)
+        {
+            return await UnloadFeederToCassette(BinSide.Good, slotIndex, timeoutMs, bFine) == 0;
+        }
+
+        public async Task<bool> MoveBinFeederToStageExchangePosition(TargetCassette cassette, int timeoutMs, bool bFine = false)
+        {
+            int result = await MoveToFeederStageLoadPosition(ToBinSide(cassette), bFine);
+            return result == 0 && await WaitBinFeederYMoveDone(timeoutMs);
+        }
+
+        public async Task<int> ExchangeFeederRingForNextSlot(BinSide side, int currentSlotIndex, int nextSlotIndex, int timeoutMs, bool bFine = false)
+        {
+            int result = await UnloadFeederToCassette(side, currentSlotIndex, timeoutMs, bFine);
+            if (result != 0) return result;
+            result = await LoadFromCassetteToFeeder(side, nextSlotIndex, timeoutMs, bFine, false);
+            if (result != 0) return result;
+            return await MoveToFeederExchangePosition(side, bFine);
+        }
+
+        public async Task<int> RecoverFeederToSafeState(int timeoutMs, bool moveAvoid = true)
+        {
+            try { FeederY.Stop(); } catch { }
+
+            int result = await FeederUnclamp(timeoutMs);
+            if (result != 0) return result;
+            result = await FeederLiftDown(timeoutMs);
+            if (result != 0) return result;
+
+            if (moveAvoid)
+            {
+                result = await MoveToFeederAvoidPosition();
+                if (result != 0) return result;
+                if (!await WaitBinFeederYMoveDone(timeoutMs))
+                    return RaiseFeederAlarm("BF-RECOVER-TIMEOUT", "OutputFeeder avoid position timeout.");
+            }
+
+            return 0;
+        }
+
+        public async Task<bool> RecoverBinFeederToSafeState(int timeoutMs, bool unclamp = true)
+        {
+            return await RecoverFeederToSafeState(timeoutMs, true) == 0;
+        }
+
+        public bool CheckBinFeederYMoveReady()
+        {
+            return FeederY != null &&
+                   FeederY.IsServoOn &&
+                   !FeederY.IsAlarm &&
+                   !FeederY.IsMoving &&
+                   !IsFeederOverload();
+        }
+
+        public bool CheckFeederMoveReady() { return CheckBinFeederYMoveReady(); }
+        public bool CheckBinFeederMoveReady() { return CheckFeederMoveReady(); }
+
+        public bool CheckFeederTransferReady(TransferMode mode)
+        {
+            if (!CheckFeederMoveReady())
+                return false;
+            if (mode == TransferMode.Load)
+                return IsFeederDown() && IsFeederUnclamped() && IsFeederEmpty();
+            if (mode == TransferMode.Unload)
+                return IsFeederOccupied();
+            return true;
+        }
+
+        public bool CheckBinFeederTransferReady(TransferMode mode) { return CheckFeederTransferReady(mode); }
+
+        public bool CheckFeederCassetteReady(BinSide side, int slotIndex, TransferMode mode)
+        {
+            if (slotIndex < 0)
+                return false;
+            return ValidateBinFeederYTeachingComplete(side) && CheckFeederTransferReady(mode);
+        }
+
+        public bool CheckBinCassetteLoadReady(int slotIndex, TransferMode mode)
+        {
+            return CheckFeederCassetteReady(BinSide.Good, slotIndex, mode);
+        }
+
+        public bool CheckFeederStageReady(BinSide side, TransferMode mode)
+        {
+            if (!ValidateBinFeederYTeachingComplete(side))
+                return false;
+            if (mode == TransferMode.Load)
+                return IsFeederOccupied();
+            if (mode == TransferMode.Unload)
+                return IsFeederEmpty();
+            return CheckFeederMoveReady();
+        }
+
+        public FeederTransferState GetFeederTransferState()
+        {
+            return new FeederTransferState
+            {
+                IsUp = IsFeederUp(),
+                IsDown = IsFeederDown(),
+                IsUnclamped = IsFeederUnclamped(),
+                HasRing = IsFeederRingDetected(true),
+                IsOverload = IsFeederOverload(),
+                IsMoveReady = CheckBinFeederYMoveReady()
+            };
+        }
+
+        public WaferFeederProcessState GetBinFeederProcessState()
+        {
+            if (FeederY.IsAlarm || IsFeederOverload()) return WaferFeederProcessState.Alarm;
+            if (FeederY.IsMoving) return WaferFeederProcessState.Moving;
+            if (IsFeederOccupied()) return WaferFeederProcessState.HasWafer;
+            return WaferFeederProcessState.Empty;
+        }
+
+        public bool IsBinFeederSafe() { return !IsFeederOverload() && !FeederY.IsAlarm; }
+        public bool InterlockBeforeJog() { return IsBinFeederSafe(); }
+        public bool ValidateBinFeederBeforePickup(TransferPointType type)
+        {
+            if (!IsBinFeederSafe()) return false;
+            if (type == TransferPointType.Cassette) return IsFeederDown() || IsBinFeederInCassetteLoadPosition(0);
+            return true;
+        }
+
+        public bool ValidateFeederSidePosition(BinSide side, FeederPositionType type)
+        {
+            return ValidateBinFeederYTargetPosition(GetSidePosition(side, type));
+        }
+
+        public string ResolveFeederTeachingPositionName(BinSide side, FeederPositionType type)
+        {
+            string prefix = side == BinSide.Ng ? "NG" : "Good";
+            switch (type)
+            {
+                case FeederPositionType.Avoid: return "35_BinFeederY.AvoidPos";
+                case FeederPositionType.CassetteLoad: return prefix + "CassetteLoadPosition";
+                case FeederPositionType.CassetteUnload: return prefix + "CassetteUnloadPosition";
+                case FeederPositionType.Barcode: return prefix + "WaferBarcodePosition";
+                case FeederPositionType.StageLoad: return prefix + "WaferLoadPosition";
+                case FeederPositionType.StageUnload: return prefix + "WaferUnloadPosition";
+                case FeederPositionType.Exchange: return prefix + "CassetteExchangePosition";
+                default: throw new ArgumentOutOfRangeException("type");
+            }
+        }
+
+        public void RecordBinFeederPositionSnapshot(string key) { _positionSnapshots[key] = FeederY.ActualPosition; }
+
+        public async Task<int> MoveToExchangePositionAsync()
+        {
+            int result = await FeederLiftUp(ResolveLiftTimeoutMs(true));
+            if (result != 0) return result;
+            result = await FeederClamp(ResolveClampTimeoutMs(true));
+            if (result != 0) return result;
+            return await MoveToFeederExchangePosition(BinSide.Good);
+        }
+
+        public async Task<int> RetractFeederAsync()
+        {
+            int result = await FeederUnclamp(ResolveClampTimeoutMs(false));
+            if (result != 0) return result;
+            result = await MoveToFeederAvoidPosition();
+            if (result != 0) return result;
+            return await FeederLiftDown(ResolveLiftTimeoutMs(false));
+        }
+
+        public void StopFeederMotionAndOutputs(string reason) { StopFeederMotionAndOutputs(reason, FeederSafePolicy.AllOff); }
+        public void StopFeederMotionAndOutputs(string reason, FeederSafePolicy policy)
+        {
+            try
+            {
+                try { FeederY.StopJog(); } catch { }
+                try { FeederY.Stop(); } catch { }
+                SetFeederOutputsSafe(policy);
+                EventLogger.Write(EventKind.Event, "QMC", "BF-STOP", "OutputFeeder stopped. reason=" + reason);
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "QMC", "BF-STOP", "OutputFeeder stop failed: " + ex.Message);
+            }
+        }
+
+        public void StopBinFeederMotion(string reason) { StopFeederMotionAndOutputs(reason); }
+
+        public void SetFeederOutputsSafe(FeederSafePolicy policy)
+        {
+            switch (policy)
+            {
+                case FeederSafePolicy.HoldClamp:
+                    SetFeederLiftUpOutput(false);
+                    SetFeederLiftDownOutput(true);
+                    break;
+                case FeederSafePolicy.HoldCurrent:
+                    break;
+                default:
+                    SetFeederLiftUpOutput(false);
+                    SetFeederLiftDownOutput(false);
+                    SetFeederClampOutput(false);
+                    SetFeederUnclampOutput(false);
+                    break;
+            }
+        }
+
+        public string BuildFeederAlarmMessage(FeederAlarmCode code)
+        {
+            switch (code)
+            {
+                case FeederAlarmCode.AxisAlarm: return "OutputFeederY axis alarm.";
+                case FeederAlarmCode.MoveTimeout: return "OutputFeederY move timeout.";
+                case FeederAlarmCode.TeachingMissing: return "OutputFeeder teaching position is missing.";
+                case FeederAlarmCode.Interlock: return "OutputFeeder interlock condition is not satisfied.";
+                case FeederAlarmCode.Overload: return "OutputFeeder overload input is on.";
+                case FeederAlarmCode.RingMissing: return "OutputFeeder ring was not detected.";
+                default: return "OutputFeeder alarm.";
+            }
+        }
+
+        public void UpdateFeederMaterialState(MaterialState state)
+        {
+            CurrentMaterialState = state;
+            EventLogger.Write(EventKind.Event, "QMC", "BF-MATERIAL", "OutputFeeder material state=" + state);
+        }
+
+        public void ClearFeederMaterialState() { UpdateFeederMaterialState(MaterialState.Empty); }
+
+        private double ResolveBinFeederYMoveVelocity(bool bFine)
+        {
+            if (bFine && FeederY.Config.JogFineVelocity > 0.0)
+                return FeederY.Config.JogFineVelocity;
+            return FeederY.Config.DefaultVelocity;
+        }
+
+        private int ResolveBinFeederYMoveTimeoutMs()
+        {
+            return FeederY.Setup.MoveTimeoutMs > 0 ? FeederY.Setup.MoveTimeoutMs : 60000;
+        }
+
+        private double ResolveBinFeederYInPositionTolerance()
+        {
+            return FeederY.Config.InPositionTolerance > 0.0 ? FeederY.Config.InPositionTolerance : 0.05;
+        }
+
+        private int ResolveLiftTimeoutMs(bool up)
+        {
+            return up ? FeederUpDownCyl.Recipe.FwdTimeoutMs : FeederUpDownCyl.Recipe.BwdTimeoutMs;
+        }
+
+        private int ResolveClampTimeoutMs(bool clamp)
+        {
+            return clamp ? FeederClampCyl.Recipe.FwdTimeoutMs : FeederClampCyl.Recipe.BwdTimeoutMs;
+        }
+
+        private bool ValidateBinFeederYTargetPosition(double targetPos)
+        {
+            if (FeederY == null || FeederY.Setup == null)
+                return false;
+
+            if (FeederY.Setup.SoftLimitPlus != 0.0 && targetPos > FeederY.Setup.SoftLimitPlus)
+                return false;
+
+            if (FeederY.Setup.SoftLimitMinus != 0.0 && targetPos < FeederY.Setup.SoftLimitMinus)
+                return false;
+
+            return true;
+        }
+
+        private int RaiseFeederAlarm(string code, string message)
+        {
+            EventLogger.Write(EventKind.Alarm, "QMC", code, message);
+            AlarmManager.Raise(AlarmSeverity.Error, code, Name, message);
+            Console.WriteLine("[ALARM] '" + Name + "' " + message);
+            return -1;
+        }
+
+        private void SetExclusiveOutput(BaseDigitalOutput onOutput, BaseDigitalOutput oppositeOutput, bool on, string code)
+        {
+            try
+            {
+                if (on)
+                    oppositeOutput.Off();
+                if (on) onOutput.On();
+                else onOutput.Off();
+            }
+            catch (Exception ex)
+            {
+                RaiseFeederAlarm(code, "OutputFeeder output command failed: " + ex.Message);
+            }
+        }
+
+        private double GetTeachingPosition(string positionName)
+        {
+            if (string.Equals(positionName, "Avoid", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(positionName, "35_BinFeederY.AvoidPos", StringComparison.OrdinalIgnoreCase))
+                return Recipe.AvoidPosition;
+            if (string.Equals(positionName, "GoodStageExchange", StringComparison.OrdinalIgnoreCase)) return Recipe.GoodWaferLoadPosition;
+            if (string.Equals(positionName, "NgStageExchange", StringComparison.OrdinalIgnoreCase)) return Recipe.NGWaferLoadPosition;
+            if (string.Equals(positionName, "CassetteInsert", StringComparison.OrdinalIgnoreCase)) return Recipe.GoodCassetteExchangePosition;
+            if (string.Equals(positionName, "CassetteLoadBase", StringComparison.OrdinalIgnoreCase)) return Recipe.GoodCassetteLoadPosition;
+            if (string.Equals(positionName, "GoodCassetteLoadPosition", StringComparison.OrdinalIgnoreCase)) return Recipe.GoodCassetteLoadPosition;
+            if (string.Equals(positionName, "GoodCassetteUnloadPosition", StringComparison.OrdinalIgnoreCase)) return Recipe.GoodCassetteUnloadPosition;
+            if (string.Equals(positionName, "GoodCassetteExchangePosition", StringComparison.OrdinalIgnoreCase)) return Recipe.GoodCassetteExchangePosition;
+            if (string.Equals(positionName, "GoodWaferLoadAvoidPosition", StringComparison.OrdinalIgnoreCase)) return Recipe.GoodWaferLoadAvoidPosition;
+            if (string.Equals(positionName, "GoodWaferLoadPosition", StringComparison.OrdinalIgnoreCase)) return Recipe.GoodWaferLoadPosition;
+            if (string.Equals(positionName, "GoodWaferUnloadAvoidPosition", StringComparison.OrdinalIgnoreCase)) return Recipe.GoodWaferUnloadAvoidPosition;
+            if (string.Equals(positionName, "GoodWaferUnloadPosition", StringComparison.OrdinalIgnoreCase)) return Recipe.GoodWaferUnloadPosition;
+            if (string.Equals(positionName, "GoodWaferBarcodePosition", StringComparison.OrdinalIgnoreCase)) return Recipe.GoodWaferBarcodePosition;
+            if (string.Equals(positionName, "NGCassetteLoadPosition", StringComparison.OrdinalIgnoreCase)) return Recipe.NGCassetteLoadPosition;
+            if (string.Equals(positionName, "NGCassetteUnloadPosition", StringComparison.OrdinalIgnoreCase)) return Recipe.NGCassetteUnloadPosition;
+            if (string.Equals(positionName, "NGCassetteExchangePosition", StringComparison.OrdinalIgnoreCase)) return Recipe.NGCassetteExchangePosition;
+            if (string.Equals(positionName, "NGWaferLoadAvoidPosition", StringComparison.OrdinalIgnoreCase)) return Recipe.NGWaferLoadAvoidPosition;
+            if (string.Equals(positionName, "NGWaferLoadPosition", StringComparison.OrdinalIgnoreCase)) return Recipe.NGWaferLoadPosition;
+            if (string.Equals(positionName, "NGWaferUnloadAvoidPosition", StringComparison.OrdinalIgnoreCase)) return Recipe.NGWaferUnloadAvoidPosition;
+            if (string.Equals(positionName, "NGWaferUnloadPosition", StringComparison.OrdinalIgnoreCase)) return Recipe.NGWaferUnloadPosition;
+            if (string.Equals(positionName, "NGWaferBarcodePosition", StringComparison.OrdinalIgnoreCase)) return Recipe.NGWaferBarcodePosition;
+            throw new ArgumentException("Unknown OutputFeederY teaching position: " + positionName, "positionName");
+        }
+
+        private void SetTeachingPosition(string positionName, double position)
+        {
+            if (string.Equals(positionName, "Avoid", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(positionName, "35_BinFeederY.AvoidPos", StringComparison.OrdinalIgnoreCase))
+                Recipe.AvoidPosition = position;
+            else if (string.Equals(positionName, "GoodStageExchange", StringComparison.OrdinalIgnoreCase)) Recipe.GoodWaferLoadPosition = position;
+            else if (string.Equals(positionName, "NgStageExchange", StringComparison.OrdinalIgnoreCase)) Recipe.NGWaferLoadPosition = position;
+            else if (string.Equals(positionName, "CassetteInsert", StringComparison.OrdinalIgnoreCase)) Recipe.GoodCassetteExchangePosition = position;
+            else if (string.Equals(positionName, "CassetteLoadBase", StringComparison.OrdinalIgnoreCase)) Recipe.GoodCassetteLoadPosition = position;
+            else if (string.Equals(positionName, "GoodCassetteLoadPosition", StringComparison.OrdinalIgnoreCase)) Recipe.GoodCassetteLoadPosition = position;
+            else if (string.Equals(positionName, "GoodCassetteUnloadPosition", StringComparison.OrdinalIgnoreCase)) Recipe.GoodCassetteUnloadPosition = position;
+            else if (string.Equals(positionName, "GoodCassetteExchangePosition", StringComparison.OrdinalIgnoreCase)) Recipe.GoodCassetteExchangePosition = position;
+            else if (string.Equals(positionName, "GoodWaferLoadAvoidPosition", StringComparison.OrdinalIgnoreCase)) Recipe.GoodWaferLoadAvoidPosition = position;
+            else if (string.Equals(positionName, "GoodWaferLoadPosition", StringComparison.OrdinalIgnoreCase)) Recipe.GoodWaferLoadPosition = position;
+            else if (string.Equals(positionName, "GoodWaferUnloadAvoidPosition", StringComparison.OrdinalIgnoreCase)) Recipe.GoodWaferUnloadAvoidPosition = position;
+            else if (string.Equals(positionName, "GoodWaferUnloadPosition", StringComparison.OrdinalIgnoreCase)) Recipe.GoodWaferUnloadPosition = position;
+            else if (string.Equals(positionName, "GoodWaferBarcodePosition", StringComparison.OrdinalIgnoreCase)) Recipe.GoodWaferBarcodePosition = position;
+            else if (string.Equals(positionName, "NGCassetteLoadPosition", StringComparison.OrdinalIgnoreCase)) Recipe.NGCassetteLoadPosition = position;
+            else if (string.Equals(positionName, "NGCassetteUnloadPosition", StringComparison.OrdinalIgnoreCase)) Recipe.NGCassetteUnloadPosition = position;
+            else if (string.Equals(positionName, "NGCassetteExchangePosition", StringComparison.OrdinalIgnoreCase)) Recipe.NGCassetteExchangePosition = position;
+            else if (string.Equals(positionName, "NGWaferLoadAvoidPosition", StringComparison.OrdinalIgnoreCase)) Recipe.NGWaferLoadAvoidPosition = position;
+            else if (string.Equals(positionName, "NGWaferLoadPosition", StringComparison.OrdinalIgnoreCase)) Recipe.NGWaferLoadPosition = position;
+            else if (string.Equals(positionName, "NGWaferUnloadAvoidPosition", StringComparison.OrdinalIgnoreCase)) Recipe.NGWaferUnloadAvoidPosition = position;
+            else if (string.Equals(positionName, "NGWaferUnloadPosition", StringComparison.OrdinalIgnoreCase)) Recipe.NGWaferUnloadPosition = position;
+            else if (string.Equals(positionName, "NGWaferBarcodePosition", StringComparison.OrdinalIgnoreCase)) Recipe.NGWaferBarcodePosition = position;
+            else throw new ArgumentException("Unknown OutputFeederY teaching position: " + positionName, "positionName");
+        }
+
+        private double GetSidePosition(BinSide side, FeederPositionType type)
+        {
+            if (type == FeederPositionType.Avoid)
+                return Recipe.AvoidPosition;
+
+            bool ng = side == BinSide.Ng;
+            switch (type)
+            {
+                case FeederPositionType.CassetteLoad: return ng ? Recipe.NGCassetteLoadPosition : Recipe.GoodCassetteLoadPosition;
+                case FeederPositionType.CassetteUnload: return ng ? Recipe.NGCassetteUnloadPosition : Recipe.GoodCassetteUnloadPosition;
+                case FeederPositionType.Barcode: return ng ? Recipe.NGWaferBarcodePosition : Recipe.GoodWaferBarcodePosition;
+                case FeederPositionType.StageLoad: return ng ? Recipe.NGWaferLoadPosition : Recipe.GoodWaferLoadPosition;
+                case FeederPositionType.StageUnload: return ng ? Recipe.NGWaferUnloadPosition : Recipe.GoodWaferUnloadPosition;
+                case FeederPositionType.Exchange: return ng ? Recipe.NGCassetteExchangePosition : Recipe.GoodCassetteExchangePosition;
+                default: throw new ArgumentOutOfRangeException("type");
+            }
+        }
+
+        private void SetSidePosition(BinSide side, FeederPositionType type, double position)
+        {
+            bool ng = side == BinSide.Ng;
+            switch (type)
+            {
+                case FeederPositionType.CassetteLoad:
+                    if (ng) Recipe.NGCassetteLoadPosition = position; else Recipe.GoodCassetteLoadPosition = position;
+                    break;
+                case FeederPositionType.CassetteUnload:
+                    if (ng) Recipe.NGCassetteUnloadPosition = position; else Recipe.GoodCassetteUnloadPosition = position;
+                    break;
+                case FeederPositionType.Barcode:
+                    if (ng) Recipe.NGWaferBarcodePosition = position; else Recipe.GoodWaferBarcodePosition = position;
+                    break;
+                case FeederPositionType.StageLoad:
+                    if (ng) Recipe.NGWaferLoadPosition = position; else Recipe.GoodWaferLoadPosition = position;
+                    break;
+                case FeederPositionType.StageUnload:
+                    if (ng) Recipe.NGWaferUnloadPosition = position; else Recipe.GoodWaferUnloadPosition = position;
+                    break;
+                case FeederPositionType.Exchange:
+                    if (ng) Recipe.NGCassetteExchangePosition = position; else Recipe.GoodCassetteExchangePosition = position;
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException("type");
+            }
+        }
+
+        private static BinSide ToBinSide(TargetCassette cassette)
+        {
+            return cassette == TargetCassette.Ng ? BinSide.Ng : BinSide.Good;
+        }
+
+        private static void ValidateSlotIndex(int slotIndex)
+        {
+            if (slotIndex < 0)
+                throw new ArgumentOutOfRangeException("slotIndex");
+        }
+
+        private static async Task<bool> WaitUntilAsync(Func<bool> condition, int timeoutMs)
+        {
+            int elapsed = 0;
+            while (timeoutMs <= 0 || elapsed < timeoutMs)
+            {
+                if (condition())
+                    return true;
+
+                await Task.Delay(10).ContinueWith(_ => { });
+                elapsed += 10;
+            }
+            return condition();
+        }
+    }
+}

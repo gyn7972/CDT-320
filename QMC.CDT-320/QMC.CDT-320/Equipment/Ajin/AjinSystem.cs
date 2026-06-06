@@ -1,11 +1,13 @@
-﻿using System;
-using QMC.Common.Alarms;
-using QMC.CDT320.Logging;
+﻿using QMC.Common.Alarms;
+using QMC.Common.Logging;
+using QMC.Common.Motion.Ajin;
+using System;
+using System.IO;
 
 namespace QMC.CDT320.Ajin
 {
     /// <summary>
-    /// AXL 라이브러리 전역 수명주기 관리. 앱 시작 시 Open, 종료 시 Close.
+    /// AXL ?쇱씠釉뚮윭由??꾩뿭 ?섎챸二쇨린 愿由? ???쒖옉 ??Open, 醫낅즺 ??Close.
     /// </summary>
     public static class AjinSystem
     {
@@ -17,23 +19,51 @@ namespace QMC.CDT320.Ajin
 
         public static bool Open(int irqNo = 7)
         {
-            if (IsOpen) return true;
+            if (IsOpen) 
+                return true;
+
             try
             {
-                uint r = Axl.AxlOpen(irqNo);
-                if (!AxtReturn.IsSuccess(r))
+                int r = AXL.Open(irqNo);
+                if (r != 0)
                 {
-                    LastErrorCode = (int)r;
+                    LastErrorCode = r;
                     LastError     = "AxlOpen failed 0x" + r.ToString("X4");
                     EventLogger.Write(EventKind.Alarm, "SYS", "AXL-OPEN", LastError);
                     AlarmManager.Raise(AlarmSeverity.Critical, "AXL-OPEN", "AjinSystem", LastError);
                     return false;
                 }
 
+                string motPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Motor","CDT-320.mot");
+                if (!string.IsNullOrEmpty(motPath) && File.Exists(motPath))
+                {
+                    r = (int)AXM.AxmMotLoadParaAll(motPath);
+                    if (r != 0)
+                    {
+                        LastErrorCode = r;
+                        LastError = "AxmMotLoadParaAll failed. Code=" + r + " (" + DescribeAxlError(r) + "), Path=" + motPath;
+                        EventLogger.Write(EventKind.Alarm, "SYS", "AXM-MOT-LOAD", LastError);
+                        AlarmManager.Raise(AlarmSeverity.Critical, "AXM-MOT-LOAD", "AjinSystem", LastError);
+                        
+                        //Test?좊븣???곗꽑 ?섏뼱媛?? I/O留??뺤씤?섎뒗嫄몃줈.
+                        //IsOpen = false;
+                        // ?뚮씪誘명꽣 濡쒕뱶 ?ㅽ뙣?대룄 AXL? ?대젮 ?덉쑝誘濡? ?꾩슂 ??Close
+                        //AXL.Close();
+                        //return false;
+                    }
+                    else
+                    {
+                        IsOpen = true;
+                    }
+                }
+
                 int n = 0;
-                if (AxtReturn.IsSuccess(Axl.AxmInfoGetAxisCount(ref n))) AxisCount = n;
+                if (AXM.GetAxisCount(out n) == 0) 
+                    AxisCount = n;
+
                 n = 0;
-                if (AxtReturn.IsSuccess(Axl.AxdInfoGetModuleCount(ref n))) DioModuleCount = n;
+                if (AXD.GetModuleCount(out n) == 0) 
+                    DioModuleCount = n;
 
                 IsOpen = true;
                 EventLogger.Write(EventKind.Event, "SYS", "AXL-OPEN",
@@ -59,9 +89,24 @@ namespace QMC.CDT320.Ajin
         public static void Close()
         {
             if (!IsOpen) return;
-            try { Axl.AxlClose(); } catch { }
+            try { AXL.Close(); } catch { }
             IsOpen = false;
             EventLogger.Write(EventKind.Event, "SYS", "AXL-CLOSE", "AXL closed");
         }
+
+        private static string DescribeAxlError(int code)
+        {
+            switch (code)
+            {
+                case 1152: return "AXT_RT_NETWORK_ERROR";
+                case 1153: return "AXT_RT_NETWORK_LOCK_MISMATCH";
+                case 4051: return "AXT_RT_MOTION_NOT_MODULE";
+                case 4053: return "AXT_RT_MOTION_NOT_INITIAL_AXIS_NO";
+                case 4055: return "AXT_RT_MOTION_NOT_PARA_READ";
+                case 4111: return "AXT_RT_MOTION_INVALID_FILE_LOAD";
+                default: return "AXL/AXM error";
+            }
+        }
     }
 }
+

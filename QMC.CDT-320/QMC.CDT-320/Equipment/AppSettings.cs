@@ -2,6 +2,7 @@
 using System.IO;
 using System.Runtime.Serialization;
 using System.Runtime.Serialization.Json;
+using QMC.Common.Data.Store;
 
 namespace QMC.CDT320
 {
@@ -15,6 +16,9 @@ namespace QMC.CDT320
         [DataMember] public string SimulatorHost    { get; set; } = "127.0.0.1";
         [DataMember] public int    SimulatorPort    { get; set; } = 7001;
         [DataMember] public string LastProject      { get; set; }
+        [DataMember] public bool   SimulationMode   { get; set; } = true;
+        [DataMember] public bool   DryRunMode       { get; set; } = false;
+        [DataMember] public bool   DeveloperMode    { get; set; } = false;
 
         /// <summary>AJINEXTEK AXL 실보드 사용 여부. false 일 때는 Sim 모드.</summary>
         [DataMember] public bool   UseAjin          { get; set; } = false;
@@ -29,23 +33,12 @@ namespace QMC.CDT320
         [DataMember] public int    VisionBinPort        { get; set; } = 5103;
         /// <summary>Stage 43 — 매뉴얼 추가: MainCommunicator (5104).</summary>
         [DataMember] public int    VisionMainPort       { get; set; } = 5104;
-        /// <summary>Stage 43 — 매뉴얼 추가: FrontSide Inspection Vision (5105). (Stage 63: TopSide → FrontSide)</summary>
-        [DataMember] public int    VisionFrontSidePort  { get; set; } = 5105;
-        /// <summary>Stage 43 — 매뉴얼 추가: RearSide Inspection Vision (5106). (Stage 63: BottomSide → RearSide)</summary>
-        [DataMember] public int    VisionRearSidePort   { get; set; } = 5106;
+        /// <summary>Stage 43 — 매뉴얼 추가: TopSide Inspection Vision (5105).</summary>
+        [DataMember] public int    VisionTopSidePort    { get; set; } = 5105;
+        /// <summary>Stage 43 — 매뉴얼 추가: BottomSide Inspection Vision (5106).</summary>
+        [DataMember] public int    VisionBottomSidePort { get; set; } = 5106;
         /// <summary>앱 시작 시 자동 연결 시도 여부.</summary>
         [DataMember] public bool   VisionAutoConnect    { get; set; } = true;
-
-        // Stage 63 — 구버전 키 마이그레이션 (OnDeserialized 가 새 프로퍼티로 이전 후 0 으로 비움)
-        [DataMember(Name = "VisionTopSidePort",    EmitDefaultValue = false)] public int LegacyVisionTopSidePort    { get; set; }
-        [DataMember(Name = "VisionBottomSidePort", EmitDefaultValue = false)] public int LegacyVisionBottomSidePort { get; set; }
-
-        [OnDeserialized]
-        internal void OnDeserialized(StreamingContext ctx)
-        {
-            if (LegacyVisionTopSidePort != 0)    { VisionFrontSidePort = LegacyVisionTopSidePort;    LegacyVisionTopSidePort = 0; }
-            if (LegacyVisionBottomSidePort != 0) { VisionRearSidePort  = LegacyVisionBottomSidePort; LegacyVisionBottomSidePort = 0; }
-        }
 
         // ── Barcode link (CDT-310 매뉴얼 사양 — Serial Port 4/6) ──
         /// <summary>Stage 43 — Wafer Barcode 시리얼 포트 번호.</summary>
@@ -57,6 +50,8 @@ namespace QMC.CDT320
 
         // ── Simulator link — auto connect ──
         [DataMember] public bool   SimulatorAutoConnect { get; set; } = false;
+
+        public bool BypassHardware => SimulationMode && DryRunMode;
     }
 
     /// <summary>
@@ -84,10 +79,11 @@ namespace QMC.CDT320
                     var ser = new DataContractJsonSerializer(typeof(AppSettings));
                     Current = (AppSettings)ser.ReadObject(fs);
                 }
+
+                if (!Current.UseAjin && !Current.SimulationMode && !Current.DryRunMode)
+                    Current.SimulationMode = true;
             }
             catch { Current = new AppSettings(); }
-            // Stage 63 — OnDeserialized 가 구 포트 키(VisionTopSidePort 등)를 새 프로퍼티로 옮겼을 수 있음 → 정규화 재저장.
-            Save();
             return Current;
         }
 
@@ -97,8 +93,7 @@ namespace QMC.CDT320
             {
                 using (var fs = File.Create(Path_))
                 {
-                    var ser = new DataContractJsonSerializer(typeof(AppSettings));
-                    ser.WriteObject(fs, Current);
+                    JsonPrettySerializer.WriteObject(fs, typeof(AppSettings), Current);
                 }
             }
             catch { }

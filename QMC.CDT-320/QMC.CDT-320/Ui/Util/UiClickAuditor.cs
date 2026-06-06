@@ -4,17 +4,17 @@ using System.ComponentModel;
 using System.Drawing;
 using System.Reflection;
 using System.Windows.Forms;
-using QMC.CDT320.Logging;
+using QMC.Common.Logging;
 using QMC.CDT_320.Ui.Controls;
 using QMC.CDT_320.Ui.Security;
 
 namespace QMC.CDT_320.Ui.Util
 {
     /// <summary>
-    /// Stage 60 — 페이지의 클릭 가능한 컨트롤 중 Click 핸들러가 부착되지 않은 것에
-    /// 사용자 피드백용 placeholder 핸들러를 자동 부착한다.
-    /// 사용자 보고: "클릭 안되는 버튼들 너무 많다".
-    /// 리플렉션으로 EventHandlerList를 검사하여 실제 핸들러 부착 여부를 판별한다.
+    /// Stage 60 ???섏씠吏???대┃ 媛?ν븳 而⑦듃濡?以?Click ?몃뱾?ш? 遺李⑸릺吏 ?딆? 寃껋뿉
+    /// ?ъ슜???쇰뱶諛깆슜 placeholder ?몃뱾?щ? ?먮룞 遺李⑺븳??
+    /// ?ъ슜??蹂닿퀬: "?대┃ ?덈릺??踰꾪듉???덈Т 留롫떎".
+    /// 由ы뵆?됱뀡?쇰줈 EventHandlerList瑜?寃?ы븯???ㅼ젣 ?몃뱾??遺李??щ?瑜??먮퀎?쒕떎.
     /// </summary>
     public static class UiClickAuditor
     {
@@ -36,10 +36,10 @@ namespace QMC.CDT_320.Ui.Util
             catch { _initOk = false; }
         }
 
-        /// <summary>해당 컨트롤에 Click 이벤트 핸들러가 부착되어 있는지 검사.</summary>
+        /// <summary>?대떦 而⑦듃濡ㅼ뿉 Click ?대깽???몃뱾?ш? 遺李⑸릺???덈뒗吏 寃??</summary>
         public static bool HasClickHandler(Control c)
         {
-            if (!_initOk || c == null) return true; // fail-safe — 핸들된 것으로 가정
+            if (!_initOk || c == null) return true;
             try
             {
                 var list = _eventsField.GetValue(c) as EventHandlerList;
@@ -49,9 +49,8 @@ namespace QMC.CDT_320.Ui.Util
         }
 
         /// <summary>
-        /// root 의 모든 자손 컨트롤(Button / ActionButton / SidebarButton) 중
-        /// Click 핸들러가 없는 것에 placeholder 피드백 핸들러를 부착한다.
-        /// 부착된 컨트롤 개수를 반환.
+        /// root ??紐⑤뱺 ?먯넀 而⑦듃濡?Button / ActionButton / SidebarButton) 以?        /// Click ?몃뱾?ш? ?녿뒗 寃껋뿉 placeholder ?쇰뱶諛??몃뱾?щ? 遺李⑺븳??
+        /// 遺李⑸맂 而⑦듃濡?媛쒖닔瑜?諛섑솚.
         /// </summary>
         public static int EnsureFeedback(Control root)
         {
@@ -60,15 +59,15 @@ namespace QMC.CDT_320.Ui.Util
             foreach (var c in EnumerateClickable(root))
             {
                 total++;
-                // 사용자 보고: "클릭해도 변화 없음" — dead button 검사 *전에* 모든 컨트롤에
-                // 시각 피드백(노란 깜빡임)만 부착. 기존 실제 핸들러는 그대로 동작.
+                // ?ъ슜??蹂닿퀬: "?대┃?대룄 蹂???놁쓬" ??dead button 寃??*?꾩뿉* 紐⑤뱺 而⑦듃濡ㅼ뿉
+                // ?쒓컖 ?쇰뱶諛??몃? 源쒕묀??留?遺李? 湲곗〈 ?ㅼ젣 ?몃뱾?щ뒗 洹몃?濡??숈옉.
                 bool hadHandler = HasClickHandler(c);
                 var captured = c;
                 c.Click += (s, e) => FlashOnly(captured);
 
                 if (!hadHandler)
                 {
-                    // 진짜 dead button — placeholder 핸들러 추가 (EventLog 기록까지)
+                    // 吏꾩쭨 dead button ??placeholder ?몃뱾??異붽? (EventLog 湲곕줉源뚯?)
                     c.Click += (s, e) => StubFeedback(captured);
                     wired++;
                 }
@@ -85,7 +84,7 @@ namespace QMC.CDT_320.Ui.Util
             return wired;
         }
 
-        // 사용자 시각 피드백 전용 — EventLog 기록 X (실제 핸들러도 같이 동작)
+        // ?ъ슜???쒓컖 ?쇰뱶諛??꾩슜 ??EventLog 湲곕줉 X (?ㅼ젣 ?몃뱾?щ룄 媛숈씠 ?숈옉)
         private static void FlashOnly(Control c)
         {
             try
@@ -117,10 +116,10 @@ namespace QMC.CDT_320.Ui.Util
         }
 
         /// <summary>
-        /// Stage 60 R12 — root 의 모든 Button/ActionButton/SidebarButton 에 PerformClick() 호출.
-        /// audit 으로 부착된 placeholder 핸들러가 작동해 UI-CLICK-STUB 로그 다수 발생.
-        /// 안 되는 (예외 throw) 컨트롤은 EventLog 에 UI-CLICK-FAIL 기록.
-        /// 반환: (시도 수, 성공 수, 실패 수)
+        /// Stage 60 R12 ??root ??紐⑤뱺 Button/ActionButton/SidebarButton ??PerformClick() ?몄텧.
+        /// audit ?쇰줈 遺李⑸맂 placeholder ?몃뱾?ш? ?묐룞??UI-CLICK-STUB 濡쒓렇 ?ㅼ닔 諛쒖깮.
+        /// ???섎뒗 (?덉쇅 throw) 而⑦듃濡ㅼ? EventLog ??UI-CLICK-FAIL 湲곕줉.
+        /// 諛섑솚: (?쒕룄 ?? ?깃났 ?? ?ㅽ뙣 ??
         /// </summary>
         public static (int tried, int success, int failed) PerformClickAll(Control root)
         {
@@ -134,8 +133,8 @@ namespace QMC.CDT_320.Ui.Util
                     if (c is Button btn) btn.PerformClick();
                     else
                     {
-                        // ActionButton / SidebarButton 은 Button 미상속 (Control 직접 상속)
-                        // 직접 OnClick 트리거 — Control.OnClick(EventArgs) 가 protected 라 reflection
+                        // ActionButton / SidebarButton ? Button 誘몄긽??(Control 吏곸젒 ?곸냽)
+                        // 吏곸젒 OnClick ?몃━嫄???Control.OnClick(EventArgs) 媛 protected ??reflection
                         var mi = typeof(Control).GetMethod("OnClick",
                             BindingFlags.NonPublic | BindingFlags.Instance);
                         if (mi != null)
@@ -146,7 +145,7 @@ namespace QMC.CDT_320.Ui.Util
                         {
                             failed++;
                             EventLogger.Write(EventKind.Event, UserSession.Name,
-                                "UI-CLICK-FAIL", "OnClick reflection 실패: " + c.GetType().Name);
+                                "UI-CLICK-FAIL", "OnClick reflection ?ㅽ뙣: " + c.GetType().Name);
                             continue;
                         }
                     }
@@ -159,7 +158,7 @@ namespace QMC.CDT_320.Ui.Util
                     try
                     {
                         EventLogger.Write(EventKind.Event, UserSession.Name,
-                            "UI-CLICK-FAIL", "Click 예외: " + label + " — " + ex.GetType().Name + ": " + (ex.Message ?? "(no msg)"));
+                            "UI-CLICK-FAIL", "Click ?덉쇅: " + label + " ??" + ex.GetType().Name + ": " + (ex.Message ?? "(no msg)"));
                     }
                     catch { }
                 }
@@ -174,9 +173,8 @@ namespace QMC.CDT_320.Ui.Util
             return (tried, success, failed);
         }
 
-        // ──────────────────────────────────────────
-        //  Placeholder 피드백
-        // ──────────────────────────────────────────
+        // ??????????????????????????????????????????
+        //  Placeholder ?쇰뱶諛?        // ??????????????????????????????????????????
         private static void StubFeedback(Control c)
         {
             string label = c?.Text;
@@ -189,7 +187,7 @@ namespace QMC.CDT_320.Ui.Util
             }
             catch { }
 
-            // 짧은 시각 깜빡임 — 클릭이 실제로 받아졌음을 알림
+            // 吏㏃? ?쒓컖 源쒕묀?????대┃???ㅼ젣濡?諛쏆븘議뚯쓬???뚮┝
             try
             {
                 Color orig = c.BackColor;
@@ -208,3 +206,4 @@ namespace QMC.CDT_320.Ui.Util
         }
     }
 }
+

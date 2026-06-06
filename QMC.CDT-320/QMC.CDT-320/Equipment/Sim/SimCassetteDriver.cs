@@ -1,4 +1,5 @@
 ﻿using System;
+using QMC.CDT320.Sequencing;
 using QMC.Common.IO;
 
 namespace QMC.CDT320.Sim
@@ -10,7 +11,7 @@ namespace QMC.CDT320.Sim
     /// 책임:<br/>
     /// 1. <see cref="InputLoaderUnit.CassetteExistSensor"/> 기본 상태(true) 주입<br/>
     /// 2. <see cref="InputLoaderUnit.ProtrusionSensor"/> 기본 OFF<br/>
-    /// 3. ElevatorZ 이동 완료 시 현재 위치를 슬롯으로 환산하여
+    /// 3. LifterZ 이동 완료 시 현재 위치를 슬롯으로 환산하여
     ///    <see cref="InputLoaderUnit.WaferDetectSensor"/> 에 슬롯별 웨이퍼 유무를 반영<br/>
     /// 4. <see cref="InputLoaderUnit.FeederClampCyl"/> 전진/후진에 따라
     ///    <see cref="InputLoaderUnit.WaferClampedSensor"/> 토글<br/>
@@ -19,8 +20,11 @@ namespace QMC.CDT320.Sim
     /// </summary>
     public class SimCassetteDriver
     {
-        private readonly InputLoaderUnit _input;
-        private readonly OutputUnloaderUnit _output;
+        //private readonly InputLoaderUnit _input; //-> 대체
+        private readonly InputCassetteUnit _inputCassette;
+        private readonly InputFeederUnit _inputFeeder;
+        private readonly OutputCassetteUnit _outputCassette;
+        private readonly OutputFeederUnit _outputFeeder;
 
         // ─── Input 측 시뮬 상태 ─────────────────────────────────────────
         /// <summary>Input 카세트 슬롯별 가상 웨이퍼 유무 (인덱스 0 = 최하단).</summary>
@@ -39,37 +43,48 @@ namespace QMC.CDT320.Sim
         /// <summary>슬롯/카세트 상태가 바뀔 때 발행 (UI 갱신용).</summary>
         public event Action StateChanged;
 
-        public SimCassetteDriver(InputLoaderUnit input, OutputUnloaderUnit output)
+        public SimCassetteDriver(
+            InputCassetteUnit inputCassette,
+            InputFeederUnit inputFeeder,
+            OutputCassetteUnit outputCassette,
+            OutputFeederUnit outputFeeder)
         {
-            _input  = input  ?? throw new ArgumentNullException(nameof(input));
-            _output = output ?? throw new ArgumentNullException(nameof(output));
+            _inputCassette = inputCassette ?? throw new ArgumentNullException(nameof(inputCassette));
+            _inputFeeder = inputFeeder ?? throw new ArgumentNullException(nameof(inputFeeder));
+            _outputCassette = outputCassette ?? throw new ArgumentNullException(nameof(outputCassette));
+            _outputFeeder = outputFeeder ?? throw new ArgumentNullException(nameof(outputFeeder));
 
-            // 기본 카세트 가득 채우기 (16 슬롯)
-            InputSlotsHasWafer = new bool[16];
+            int inputSlotCount = _inputCassette.Config != null && _inputCassette.Config.SlotCount > 0
+                ? _inputCassette.Config.SlotCount
+                : 16;
+            int outputSlotCount = 25;
+
+            // 기본 카세트 가득 채우기
+            InputSlotsHasWafer = new bool[inputSlotCount];
             for (int i = 0; i < InputSlotsHasWafer.Length; i++) InputSlotsHasWafer[i] = true;
 
-            // Output 카세트(25 슬롯) — 비어있는 상태로 시작
-            OutputNgSlots    = new bool[25];
-            OutputGood1Slots = new bool[25];
-            OutputGood2Slots = new bool[25];
+            // Output 카세트 - 비어있는 상태로 시작
+            OutputNgSlots    = new bool[outputSlotCount];
+            OutputGood1Slots = new bool[outputSlotCount];
+            OutputGood2Slots = new bool[outputSlotCount];
 
             HookInput();
             HookOutput();
 
             // 초기 센서 상태 주입
-            _input.CassetteExistSensor.SimulateInput(InputCassettePresent);
-            _input.ProtrusionSensor.SimulateInput(false);
-            _input.WaferDetectSensor.SimulateInput(false);
-            _input.WaferClampedSensor.SimulateInput(false);
+            _inputCassette.CassetteExistSensor.SimulateInput(InputCassettePresent);
+            _inputCassette.ProtrusionSensor.SimulateInput(false);
+            _inputCassette.WaferDetectSensor.SimulateInput(false);
+            _inputFeeder.WaferClampedSensor.SimulateInput(false);
             UpdateInputDetectFromPosition();
 
             // Stage 27 — Output 측 초기 센서 주입
-            _output.ExistSensor_NG.SimulateInput(true);
-            _output.ExistSensor_Good1.SimulateInput(true);
-            _output.ExistSensor_Good2.SimulateInput(true);
-            _output.ProtrusionSensor.SimulateInput(false);
-            _output.WaferDetectSensor.SimulateInput(false);
-            _output.WaferClampedSensor.SimulateInput(false);
+            _outputCassette.NgBin8CassetteCheck0.SimulateInput(true);
+            _outputCassette.GoodBin8CassetteCheck0.SimulateInput(true);
+            _outputCassette.GoodBin8CassetteCheck1.SimulateInput(true);
+            _outputCassette.ProtrusionSensor.SimulateInput(false);
+            _outputCassette.WaferDetectSensor.SimulateInput(false);
+            _outputFeeder.WaferClampedSensor.SimulateInput(false);
             UpdateOutputDetectFromPosition();
         }
 
@@ -77,66 +92,67 @@ namespace QMC.CDT320.Sim
 
         private void HookInput()
         {
-            // ElevatorZ 이동 완료 → WaferDetectSensor 갱신
-            _input.ElevatorZ.MoveCompleted += _ => UpdateInputDetectFromPosition();
+            // LifterZ 이동 완료 → WaferDetectSensor 갱신
+            _inputCassette.InputLifterZ.MoveCompleted += _ => UpdateInputDetectFromPosition();
 
             // FeederClampCyl InFwd ON ↔ WaferClampedSensor 동기화
-            _input.FeederClampCyl.InFwd.StateChanged += (sensor, on) =>
+            _inputFeeder.FeederClampCyl.InFwd.StateChanged += (sensor, on) =>
             {
-                _input.WaferClampedSensor.SimulateInput(on);
+                _inputFeeder.WaferClampedSensor.SimulateInput(on);
             };
         }
 
         private void UpdateInputDetectFromPosition()
         {
-            double pos   = _input.ElevatorZ.ActualPosition;
-            double first = _input.Setup.FirstSlotPosition;
+            double pos   = _inputCassette.InputLifterZ.ActualPosition;
+            //double first = _input.Setup.FirstSlotPosition;
+            double first = _inputCassette.Recipe.FirstSlotPosition;
             int slot = (int)Math.Round((pos - first) / InputSlotPitchMm);
             bool has = (slot >= 0 && slot < InputSlotsHasWafer.Length) && InputSlotsHasWafer[slot];
-            _input.WaferDetectSensor.SimulateInput(has);
+            _inputCassette.WaferDetectSensor.SimulateInput(has);
         }
 
         // ─── Output 훅 (Stage 27) ───────────────────────────────────────
 
         private void HookOutput()
         {
-            // ElevatorZ 이동 완료 → 카세트별 슬롯 위치 환산 후 WaferDetectSensor 갱신
-            _output.ElevatorZ.MoveCompleted += _ => UpdateOutputDetectFromPosition();
+            // LifterZ 이동 완료 → 카세트별 슬롯 위치 환산 후 WaferDetectSensor 갱신
+            _outputCassette.OutputLifterZ.MoveCompleted += _ => UpdateOutputDetectFromPosition();
 
             // FeederClampCyl InFwd ↔ WaferClampedSensor
-            _output.FeederClampCyl.InFwd.StateChanged += (s, on) =>
+            _outputFeeder.FeederClampCyl.InFwd.StateChanged += (s, on) =>
             {
-                _output.WaferClampedSensor.SimulateInput(on);
+                _outputFeeder.WaferClampedSensor.SimulateInput(on);
             };
         }
 
         private void UpdateOutputDetectFromPosition()
         {
-            double pos = _output.ElevatorZ.ActualPosition;
-            double pitch = _output.Setup.SlotPitchZ;
+            double pos = _outputCassette.OutputLifterZ.ActualPosition;
+            double pitch = _outputCassette.Config.SlotPitch;
 
             // NG 카세트
-            int slot = (int)Math.Round((pos - _output.Setup.NgFirstSlotPositionZ) / pitch);
+            int slot = (int)Math.Round((pos - _outputCassette.Recipe.NGFirstSlotPosition) / pitch);
             if (slot >= 0 && slot < OutputNgSlots.Length)
             {
-                _output.WaferDetectSensor.SimulateInput(OutputNgSlots[slot]);
+                _outputCassette.WaferDetectSensor.SimulateInput(OutputNgSlots[slot]);
                 return;
             }
             // Good1 카세트
-            slot = (int)Math.Round((pos - _output.Setup.Good1FirstSlotPositionZ) / pitch);
+            slot = (int)Math.Round((pos - _outputCassette.Recipe.GoodFirstSlotPosition) / pitch);
             if (slot >= 0 && slot < OutputGood1Slots.Length)
             {
-                _output.WaferDetectSensor.SimulateInput(OutputGood1Slots[slot]);
+                _outputCassette.WaferDetectSensor.SimulateInput(OutputGood1Slots[slot]);
                 return;
             }
             // Good2 카세트
-            slot = (int)Math.Round((pos - _output.Setup.Good2FirstSlotPositionZ) / pitch);
+            slot = (int)Math.Round((pos - (_outputCassette.Recipe.GoodFirstSlotPosition + _outputCassette.Config.GOODNGPositionOffset)) / pitch);
             if (slot >= 0 && slot < OutputGood2Slots.Length)
             {
-                _output.WaferDetectSensor.SimulateInput(OutputGood2Slots[slot]);
+                _outputCassette.WaferDetectSensor.SimulateInput(OutputGood2Slots[slot]);
                 return;
             }
-            _output.WaferDetectSensor.SimulateInput(false);
+            _outputCassette.WaferDetectSensor.SimulateInput(false);
         }
 
         // ─── 외부 제어 API ─────────────────────────────────────────────
@@ -145,7 +161,7 @@ namespace QMC.CDT320.Sim
         public void SetInputCassettePresent(bool present)
         {
             InputCassettePresent = present;
-            _input.CassetteExistSensor.SimulateInput(present);
+            _inputCassette.CassetteExistSensor.SimulateInput(present);
             StateChanged?.Invoke();
         }
 

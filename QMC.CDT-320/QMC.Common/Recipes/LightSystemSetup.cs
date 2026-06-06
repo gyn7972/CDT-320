@@ -82,7 +82,8 @@ namespace QMC.Common.Recipes
         // DataContract 이니셜라이저는 역직렬화 때 실행되지 않으므로 OnDeserializing 으로 기본값 주입.
         [DataMember(EmitDefaultValue = false)] public string Vendor { get; set; } = "LFine";
         // Stage 79 — 동작 모드. 기본 StrobeOnCommand(가장 안전 — 캐시 skip 안 함).
-        [DataMember(EmitDefaultValue = false)] public LightControllerMode Mode { get; set; } = LightControllerMode.StrobeOnCommand;
+        // Stage 84 — EmitDefaultValue=false 제거: Continuous(=0=default(enum))가 JSON 에서 누락되던 문제 수정. 항상 기록.
+        [DataMember] public LightControllerMode Mode { get; set; } = LightControllerMode.StrobeOnCommand;
         [DataMember] public string Name         { get; set; } = "";    // 사람용 라벨
         [DataMember] public int    BaudRate     { get; set; } = 9600;
         [DataMember] public int    ChannelCount { get; set; } = 8;

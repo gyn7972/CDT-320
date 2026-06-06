@@ -1,38 +1,48 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Linq;
 using System.Windows.Forms;
-using QMC.Common;
-using QMC.Common.Motion;
 using QMC.CDT320;
+using QMC.CDT320.Ajin;
 using QMC.CDT_320.Ui.Localization;
+using QMC.Common;
+using QMC.Common.Alarms;
+using QMC.Common.Motion;
 
 namespace QMC.CDT_320.Ui.Pages.Settings
 {
     /// <summary>
-    /// 설정 - MOTION.
-    /// 상단: 축 전체 목록(DataGridView) — 호스트 Machine 트리에서 실제 축을 읽어 실시간 갱신.
-    /// 하단: CONFIGURATION (STATUS/CONFIG/SPEED 탭).
-    /// 최하단: ENABLE/DISABLE/HOME/ALL STOP/... 공통 액션.
+    /// Settings - Motion.
+    /// The grid is built from Ajin mapping registrations and Motion AxisData.
     /// </summary>
-    public class MotionPage : PageBase
+    public partial class MotionPage : PageBase
     {
-        private DataGridView _grid;
-        private readonly List<BaseAxis> _axes = new List<BaseAxis>();
+        private sealed class MotionAxisRow
+        {
+            public BaseAxis Axis { get; set; }
+        }
+
+        private readonly List<MotionAxisRow> _rows = new List<MotionAxisRow>();
         private Timer _refresh;
 
         public MotionPage()
         {
-            Controls.Add(CreateSectionHeader("set.motion"));
-            BuildTop();
-            BuildConfig();
-            BuildActions();
+            InitializeComponent();
+            ApplyRuntimeUi();
+            WireActions();
+            InitializeConfigPanels();
+            InitializeSpeedTab();
+            InitializeStatusPanels();
 
             Load += (s, e) =>
             {
-                AttachAxes();
+                LoadAxisRows();
                 StartRefresh();
+                RefreshConfigForSelected();
+                LoadSpeedRows();
             };
+
             Disposed += (s, e) =>
             {
                 _refresh?.Stop();
@@ -42,108 +52,160 @@ namespace QMC.CDT_320.Ui.Pages.Settings
 
         private Form1 Host => FindForm() as Form1;
 
-        // ──────────────────────────────────────
-        //  상단 모듈 리스트
-        // ──────────────────────────────────────
-        private void BuildTop()
+        private void ApplyRuntimeUi()
         {
-            Controls.Add(new Label
-            {
-                Location = new Point(8, 36), Size = new Size(1400, 26),
-                Text = "MODUEL LIST",
-                BackColor = UiTheme.StatusBarBg, ForeColor = Color.White,
-                Font = UiTheme.SectionFont, TextAlign = ContentAlignment.MiddleLeft,
-                Padding = new Padding(10, 0, 0, 0)
-            });
+            lblPageHeader.Text = Lang.T("set.motion");
+            lblPageHeader.Tag = "i18n:set.motion";
+            lblPageHeader.BackColor = UiTheme.StatusBarBg;
+            lblPageHeader.ForeColor = UiTheme.StatusBarFg;
+            lblPageHeader.Font = UiTheme.SectionFont;
 
-            _grid = new DataGridView
+            lblModuleHeader.BackColor = UiTheme.StatusBarBg;
+            lblModuleHeader.ForeColor = Color.White;
+            lblModuleHeader.Font = UiTheme.SectionFont;
+
+            lblConfigHeader.BackColor = UiTheme.StatusBarBg;
+            lblConfigHeader.ForeColor = Color.White;
+            lblConfigHeader.Font = UiTheme.SectionFont;
+
+            actionsPanel.BackColor = UiTheme.OptionPanelBg;
+            configTabs.SelectedTab = tabConfig;
+
+            // configLayout: 세로 스크롤만 허용하고 가로 스크롤은 표시하지 않는다.
+            // TableLayoutPanel은 Layout 시마다 스크롤 상태를 재계산하므로 이벤트에서 매번 강제로 끈다.
+            configLayout.AutoScroll = true;
+            configLayout.Layout += SuppressHorizontalScroll;
+            configLayout.Resize += SuppressHorizontalScroll;
+            SuppressHorizontalScroll(configLayout, null);
+
+            grid.AllowUserToResizeColumns = true;
+            grid.AllowUserToResizeRows = false;
+            foreach (DataGridViewColumn col in grid.Columns)
             {
-                Location                = new Point(8, 66),
-                Size                    = new Size(1400, 300),
-                ReadOnly                = true,
-                AllowUserToAddRows      = false,
-                AllowUserToDeleteRows   = false,
-                RowHeadersVisible       = false,
-                MultiSelect             = false,
-                SelectionMode           = DataGridViewSelectionMode.FullRowSelect,
-                AutoSizeColumnsMode     = DataGridViewAutoSizeColumnsMode.Fill,
-                BackgroundColor         = Color.White,
-                Font                    = new Font("맑은 고딕", 9F),
-                EnableHeadersVisualStyles = false,
-                ColumnHeadersDefaultCellStyle =
-                {
-                    BackColor = Color.FromArgb(0x50, 0x50, 0x50),
-                    ForeColor = Color.White,
-                    Alignment = DataGridViewContentAlignment.MiddleCenter,
-                    Font      = new Font("맑은 고딕", 9F, FontStyle.Bold)
-                },
-                RowTemplate = { Height = 26 }
-            };
-            _grid.Columns.Add("INDEX",            "INDEX");
-            _grid.Columns.Add("KEY",              "KEY");
-            _grid.Columns.Add("NO",               "NO.");
-            _grid.Columns.Add("STATUS",           "STATUS");
-            _grid.Columns.Add("COMMAND_POSITION", "COMMAND POSITION");
-            _grid.Columns.Add("ACTUAL_POSITION",  "ACTUAL POSITION");
-            _grid.Columns.Add("DONE",             "DONE");
-            _grid.Columns.Add("INP_DONE",         "INP DONE");
-            _grid.Columns.Add("HOME_END",         "HOME END");
-            _grid.Columns.Add("ALARM",            "ALARM");
-            Controls.Add(_grid);
+                col.SortMode = DataGridViewColumnSortMode.NotSortable;
+                col.Resizable = DataGridViewTriState.True;
+            }
         }
 
-        // ──────────────────────────────────────
-        //  축 수집 + 실시간 갱신
-        // ──────────────────────────────────────
-        private void AttachAxes()
+        private static void SuppressHorizontalScroll(object sender, EventArgs e)
         {
-            _axes.Clear();
-            _grid.Rows.Clear();
-            if (Host?.Machine == null) { SeedFallback(); return; }
+            var ctl = sender as ScrollableControl;
+            if (ctl == null) return;
+            // 가로 스크롤바를 강제로 숨김. 세로 스크롤은 AutoScroll이 자동으로 관리한다.
+            ctl.HorizontalScroll.Maximum = 0;
+            ctl.HorizontalScroll.Visible = false;
+            ctl.HorizontalScroll.Enabled = false;
+            ctl.AutoScroll = true;
+        }
 
-            int idx = 0;
-            foreach (var ax in EnumerateAxes(Host.Machine))
+        private void WireActions()
+        {
+            btnEnable.Click += (s, e) => RunSelectedAxis(ax => ax.ServoOn());
+            btnDisable.Click += (s, e) => RunSelectedAxis(ax => ax.ServoOff());
+            btnHome.Click += async (s, e) => await InitializeSelectedAxisAsync();
+            btnGroupHome.Click += async (s, e) => await InitializeSelectedAxisGroupAsync();
+            btnAllHome.Click += async (s, e) => await InitializeAllAxesAsync();
+            btnAllStop.Click += (s, e) => RunAllAxes(ax => ax.Stop());
+            btnAlarmClear.Click += (s, e) => ClearAllAxisAlarms();
+            btnAllServoOff.Click += (s, e) => RunAllAxes(ax => ax.ServoOff());
+            btnServoOn.Click += (s, e) => RunSelectedAxis(ax => ax.ServoOn());
+            btnServoOff.Click += (s, e) => RunSelectedAxis(ax => ax.ServoOff());
+            btnParaLoad.Click += (s, e) => DoLoadPara();
+            btnParaSave.Click += (s, e) => DoSavePara();
+            btnBoardScan.Click += (s, e) => ShowBoardScan();
+        }
+
+        private void LoadAxisRows()
+        {
+            try
             {
-                _axes.Add(ax);
-                _grid.Rows.Add(
-                    ++idx, ax.Name, "-",
-                    StateText(ax),
-                    ax.CommandPosition.ToString("F1"),
-                    ax.ActualPosition.ToString("F1"),
-                    ax.IsInPosition ? "ON" : "OFF",
-                    ax.IsInPosition ? "ON" : "OFF",
-                    ax.IsHomeDone   ? "ON" : "OFF",
-                    ax.IsAlarm      ? "ON" : "OFF");
+                DetachAxes();
+                _rows.Clear();
+                grid.Rows.Clear();
 
-                ax.ActualPositionChanged += OnAxisPos;
-                ax.MoveCompleted         += OnAxisDone;
+                List<BaseAxis> axes = AjinAxisRegistry.GetOrderedAxes(Host?.Machine)
+                    .Where(x => x != null)
+                    .OrderBy(x => x.Setup != null ? x.Setup.AxisNo : int.MaxValue)
+                    .ThenBy(x => x.Name)
+                    .ToList();
+
+                int index = 0;
+                foreach (BaseAxis axis in axes)
+                {
+                    AxisSetup setup = axis.Setup;
+                    AxisMap map = FindAxisMap(axis.Name);
+
+                    grid.Rows.Add(
+                        ++index,
+                        setup != null ? setup.UnitName : string.Empty,
+                        setup != null && !string.IsNullOrWhiteSpace(setup.DisplayName) ? setup.DisplayName : axis.Name,
+                        setup != null ? setup.AxisNo.ToString() : string.Empty,
+                        setup != null ? setup.BoardNo.ToString() : string.Empty,
+                        map != null ? map.ChannelNo.ToString("X") : string.Empty,
+                        StateText(axis),
+                        axis.IsServoOn ? "ON" : "OFF",
+                        FormatAxisValue(axis.CommandPosition, axis, "0.###"),
+                        FormatAxisValue(axis.ActualPosition, axis, "0.###"),
+                        FormatAxisValue(axis.CurrentVelocity, axis, "0.###"),
+                        axis.IsInPosition ? "ON" : "OFF",
+                        axis.IsInPosition ? "ON" : "OFF",
+                        axis.IsHomeDone ? "ON" : "OFF",
+                        axis.IsAlarm ? "ON" : "OFF",
+                        axis.Sensor_PEL ? "ON" : "OFF",
+                        axis.Sensor_MEL ? "ON" : "OFF",
+                        axis.Sensor_ORG ? "ON" : "OFF");
+
+                    _rows.Add(new MotionAxisRow { Axis = axis });
+                    axis.ActualPositionChanged += OnAxisPos;
+                    axis.MoveCompleted += OnAxisDone;
+                }
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Alarms.AlarmManager.Raise(
+                    QMC.Common.Alarms.AlarmSeverity.Warning,
+                    "UI-MOTION",
+                    "MotionPage",
+                    "LoadAxisRows failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private static AxisMap FindAxisMap(string axisName)
+        {
+            try
+            {
+                AjinConfig cfg = AjinConfigStore.Current ?? AjinConfigStore.Load();
+                if (cfg?.Axes == null) return null;
+                AxisMap map;
+                return cfg.Axes.TryGetValue(AjinAxisDefaults.ResolveName(axisName), out map) ? map : null;
+            }
+            catch
+            {
+                return null;
+            }
+            finally
+            {
             }
         }
 
         private void DetachAxes()
         {
-            foreach (var ax in _axes)
+            foreach (MotionAxisRow row in _rows)
             {
-                ax.ActualPositionChanged -= OnAxisPos;
-                ax.MoveCompleted         -= OnAxisDone;
+                if (row.Axis == null) continue;
+                row.Axis.ActualPositionChanged -= OnAxisPos;
+                row.Axis.MoveCompleted -= OnAxisDone;
             }
-            _axes.Clear();
-        }
-
-        private void SeedFallback()
-        {
-            string[,] axes =
-            {
-                { "WAFER LIFTER_Z", "0" }, { "WAFER FEEDER_Y", "1" }, { "WAFER STAGE_Y", "2" },
-                { "WAFER STAGE_T", "3" }, { "WAFER EXPANDING_Z", "4" }, { "ALIGN VISION_X", "5" },
-                { "NEEDLE_X", "6" }, { "NEEDLE_Z", "7" }, { "FRONT PICKER_X", "9" }, { "REAR PICKER_X", "21" }
-            };
-            for (int i = 0; i < axes.GetLength(0); i++)
-                _grid.Rows.Add(i + 1, axes[i, 0], axes[i, 1], "NONE", "0", "0", "OFF", "OFF", "OFF", "OFF");
         }
 
         private void StartRefresh()
         {
+            if (_refresh != null)
+                return;
+
             _refresh = new Timer { Interval = 250 };
             _refresh.Tick += (s, e) => RefreshAllRows();
             _refresh.Start();
@@ -151,203 +213,439 @@ namespace QMC.CDT_320.Ui.Pages.Settings
 
         private void RefreshAllRows()
         {
-            if (_grid.IsDisposed) return;
-            for (int i = 0; i < _axes.Count && i < _grid.Rows.Count; i++)
+            if (grid.IsDisposed) return;
+
+            for (int i = 0; i < _rows.Count && i < grid.Rows.Count; i++)
             {
-                var ax = _axes[i];
-                var row = _grid.Rows[i];
-                row.Cells[3].Value = StateText(ax);
-                row.Cells[4].Value = ax.CommandPosition.ToString("F1");
-                row.Cells[5].Value = ax.ActualPosition.ToString("F1");
-                row.Cells[6].Value = ax.IsInPosition ? "ON" : "OFF";
-                row.Cells[7].Value = ax.IsInPosition ? "ON" : "OFF";
-                row.Cells[8].Value = ax.IsHomeDone   ? "ON" : "OFF";
-                row.Cells[9].Value = ax.IsAlarm      ? "ON" : "OFF";
-                row.DefaultCellStyle.ForeColor = ax.IsAlarm ? Color.IndianRed
-                    : (ax.IsMoving ? Color.SteelBlue : Color.Black);
+                MotionAxisRow item = _rows[i];
+                DataGridViewRow row = grid.Rows[i];
+
+                if (item.Axis == null)
+                {
+                    row.Cells["STATUS"].Value = "NO AXIS";
+                    row.DefaultCellStyle.ForeColor = Color.Gray;
+                    continue;
+                }
+
+                AxisStatusSnapshot snapshot = Host?.MotionMonitor?.GetLatest(item.Axis);
+                if (snapshot == null)
+                {
+                    ApplyAxisToGrid(row, item.Axis);
+                    continue;
+                }
+
+                ApplySnapshotToGrid(row, snapshot);
+            }
+
+            RefreshConfigDynamic();
+            RefreshStatusDynamic();
+            RefreshMachineRuntimeHeader();
+        }
+
+        private static void ApplyAxisToGrid(DataGridViewRow row, BaseAxis axis)
+        {
+            row.Cells["NO"].Value = axis.Setup.AxisNo.ToString();
+            row.Cells["STATUS"].Value = StateText(axis);
+            row.Cells["SERVO"].Value = axis.IsServoOn ? "ON" : "OFF";
+            row.Cells["COMMAND_POSITION"].Value = FormatAxisValue(axis.CommandPosition, axis, "0.###");
+            row.Cells["ACTUAL_POSITION"].Value = FormatAxisValue(axis.ActualPosition, axis, "0.###");
+            row.Cells["VELOCITY"].Value = FormatAxisValue(axis.CurrentVelocity, axis, "0.###");
+            row.Cells["DONE"].Value = axis.IsInPosition ? "ON" : "OFF";
+            row.Cells["INP_DONE"].Value = axis.IsInPosition ? "ON" : "OFF";
+            row.Cells["HOME_END"].Value = axis.IsHomeDone ? "ON" : "OFF";
+            row.Cells["ALARM"].Value = axis.IsAlarm ? "ON" : "OFF";
+            row.Cells["PEL"].Value = axis.Sensor_PEL ? "ON" : "OFF";
+            row.Cells["MEL"].Value = axis.Sensor_MEL ? "ON" : "OFF";
+            row.Cells["ORG"].Value = axis.Sensor_ORG ? "ON" : "OFF";
+            row.DefaultCellStyle.ForeColor = axis.IsAlarm ? Color.IndianRed : axis.IsMoving ? Color.SteelBlue : Color.Black;
+        }
+
+        private static void ApplySnapshotToGrid(DataGridViewRow row, AxisStatusSnapshot snapshot)
+        {
+            row.Cells["NO"].Value = snapshot.AxisNo.ToString();
+            row.Cells["STATUS"].Value = StateText(snapshot);
+            row.Cells["SERVO"].Value = snapshot.IsServoOn ? "ON" : "OFF";
+            row.Cells["COMMAND_POSITION"].Value = FormatAxisValue(snapshot.CommandPosition, snapshot.Unit, "0.###");
+            row.Cells["ACTUAL_POSITION"].Value = FormatAxisValue(snapshot.ActualPosition, snapshot.Unit, "0.###");
+            row.Cells["VELOCITY"].Value = FormatAxisValue(snapshot.CurrentVelocity, snapshot.Unit, "0.###");
+            row.Cells["DONE"].Value = snapshot.IsInPosition ? "ON" : "OFF";
+            row.Cells["INP_DONE"].Value = snapshot.IsInPosition ? "ON" : "OFF";
+            row.Cells["HOME_END"].Value = snapshot.IsHomeDone ? "ON" : "OFF";
+            row.Cells["ALARM"].Value = snapshot.IsAlarm ? "ON" : "OFF";
+            row.Cells["PEL"].Value = snapshot.SensorPel ? "ON" : "OFF";
+            row.Cells["MEL"].Value = snapshot.SensorMel ? "ON" : "OFF";
+            row.Cells["ORG"].Value = snapshot.SensorOrg ? "ON" : "OFF";
+            row.DefaultCellStyle.ForeColor = snapshot.IsAlarm ? Color.IndianRed : snapshot.IsMoving ? Color.SteelBlue : Color.Black;
+        }
+
+        private void RunSelectedAxis(Action<BaseAxis> operation)
+        {
+            BaseAxis axis = SelectedAxis();
+            if (axis == null) return;
+            operation(axis);
+        }
+
+        private static string FormatAxisValue(double nativeValue, BaseAxis axis, string format)
+        {
+            try
+            {
+                return FormatAxisValue(nativeValue, AxisUnitConverter.DisplayUnitFor(axis), format);
+            }
+            catch
+            {
+                return nativeValue.ToString(format, System.Globalization.CultureInfo.InvariantCulture);
+            }
+            finally
+            {
             }
         }
 
-        private void OnAxisPos(BaseAxis ax, double pos) { /* Timer 가 처리 */ }
-        private void OnAxisDone(BaseAxis ax)            { /* Timer 가 처리 */ }
+        private static string FormatAxisValue(double nativeValue, string displayUnit, string format)
+        {
+            try
+            {
+                double displayValue = AxisUnitConverter.ToDisplay(nativeValue, displayUnit);
+                return displayValue.ToString(format, System.Globalization.CultureInfo.InvariantCulture);
+            }
+            catch
+            {
+                return nativeValue.ToString(format, System.Globalization.CultureInfo.InvariantCulture);
+            }
+            finally
+            {
+            }
+        }
 
-        // ──────────────────────────────────────
-        //  AXL 파라미터 파일 LOAD/SAVE
-        // ──────────────────────────────────────
+        private async System.Threading.Tasks.Task RunSelectedAxisAsync(Func<BaseAxis, System.Threading.Tasks.Task> operation)
+        {
+            BaseAxis axis = SelectedAxis();
+            if (axis == null) return;
+            await operation(axis);
+        }
+
+        private async System.Threading.Tasks.Task InitializeSelectedAxisAsync()
+        {
+            try
+            {
+                BaseAxis axis = SelectedAxis();
+                if (axis == null)
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "MotionInitializeAxis",
+                        "Axis initialize failed: selected axis is null. - Failed");
+                    QMC.Common.MessageDialog.Show(this, "선택된 축이 없습니다.", "Motion", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                if (!ConfirmMotionAction(axis.Name + " 축 초기화를 진행하시겠습니까?"))
+                    return;
+
+                if (Host == null || Host.Controller == null)
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "MotionInitializeAxis",
+                        "Axis initialize failed: controller is null. - Failed");
+                    QMC.Common.MessageDialog.Show(this, "Machine Controller를 찾을 수 없습니다.", "Motion", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                int result = await Host.Controller.InitializeAxisAsync(axis.Name);
+                ShowMotionActionResult(result, "MotionInitializeAxis");
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "MotionInitializeAxis",
+                    "Axis initialize failed: " + ex.Message + " - Failed");
+                QMC.Common.MessageDialog.Show(this, "축 초기화 실패:\r\n" + ex.Message, "Motion", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                RefreshAllRows();
+            }
+        }
+
+        private async System.Threading.Tasks.Task InitializeSelectedAxisGroupAsync()
+        {
+            try
+            {
+                BaseAxis axis = SelectedAxis();
+                if (axis == null)
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "MotionInitializeGroup",
+                        "Axis group initialize failed: selected axis is null. - Failed");
+                    QMC.Common.MessageDialog.Show(this, "선택된 축이 없습니다.", "Motion", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                string groupName = axis.Setup != null ? axis.Setup.UnitName : "";
+                if (string.IsNullOrWhiteSpace(groupName))
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "MotionInitializeGroup",
+                        "Axis group initialize failed: group name is empty. axis=" + axis.Name + " - Failed");
+                    QMC.Common.MessageDialog.Show(this, "선택 축의 그룹 정보가 없습니다.", "Motion", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                if (!ConfirmMotionAction(groupName + " 그룹 초기화를 진행하시겠습니까?"))
+                    return;
+
+                if (Host == null || Host.Controller == null)
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "MotionInitializeGroup",
+                        "Axis group initialize failed: controller is null. group=" + groupName + " - Failed");
+                    QMC.Common.MessageDialog.Show(this, "Machine Controller를 찾을 수 없습니다.", "Motion", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                int result = await Host.Controller.InitializeAxisGroupAsync(groupName);
+                ShowMotionActionResult(result, "MotionInitializeGroup");
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "MotionInitializeGroup",
+                    "Axis group initialize failed: " + ex.Message + " - Failed");
+                QMC.Common.MessageDialog.Show(this, "축 그룹 초기화 실패:\r\n" + ex.Message, "Motion", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                RefreshAllRows();
+            }
+        }
+
+        private async System.Threading.Tasks.Task InitializeAllAxesAsync()
+        {
+            try
+            {
+                if (Host == null || Host.Controller == null)
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "MotionInitializeAll",
+                        "All axes initialize failed: controller is null. - Failed");
+                    QMC.Common.MessageDialog.Show(this, "Machine Controller를 찾을 수 없습니다.", "Motion", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                if (!ConfirmMotionAction("전체 축 초기화를 진행하시겠습니까?"))
+                    return;
+
+                int result = await Host.Controller.InitializeAllAxesAsync(true);
+                ShowMotionActionResult(result, "MotionInitializeAll");
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "MotionInitializeAll",
+                    "All axes initialize failed: " + ex.Message + " - Failed");
+                QMC.Common.MessageDialog.Show(this, "전체 축 초기화 실패:\r\n" + ex.Message, "Motion", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                RefreshAllRows();
+            }
+        }
+
+        private bool ConfirmMotionAction(string message)
+        {
+            try
+            {
+                return QMC.Common.MessageDialog.Show(this, message, "Motion", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes;
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "ConfirmMotionAction",
+                    "Motion action confirm failed: " + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private void ShowMotionActionResult(int result, string source)
+        {
+            try
+            {
+                if (result == 0)
+                    return;
+
+                string message = Host != null && Host.Controller != null && !string.IsNullOrWhiteSpace(Host.Controller.LastActionFailureMessage)
+                    ? Host.Controller.LastActionFailureMessage
+                    : null;
+
+                if (string.IsNullOrWhiteSpace(message))
+                {
+                    BaseAxis axis = SelectedAxis();
+                    if (axis != null && !string.IsNullOrWhiteSpace(axis.LastMotionFailureMessage))
+                        message = axis.LastMotionFailureMessage;
+                }
+
+                if (string.IsNullOrWhiteSpace(message))
+                    message = "Motion 작업이 실패했습니다. result=" + result + ". Alarm/Event Log를 확인하세요.";
+
+                QMC.Common.Log.Write("Main", "SYSTEM", source,
+                    "Motion action failed: return=" + result + ", message=" + message + " - Failed");
+                QMC.Common.MessageDialog.Show(this, message, "Motion", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", source,
+                    "Motion action result handling failed: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        private void RefreshMachineRuntimeHeader()
+        {
+            try
+            {
+                if (Host == null || Host.Controller == null)
+                {
+                    lblModuleHeader.Text = "MODULE LIST";
+                    return;
+                }
+
+                string initialized = Host.Controller.IsMachineInitialized ? "READY" : "NOT INIT";
+                string restored = Host.Controller.IsDeveloperReadyRestored ? " / RESTORED" : "";
+                string time = Host.Controller.IsMachineInitialized && Host.Controller.MachineInitializedAt > DateTime.MinValue
+                    ? " / " + Host.Controller.MachineInitializedAt.ToString("yyyy-MM-dd HH:mm:ss")
+                    : "";
+                lblModuleHeader.Text = "MODULE LIST   INIT: " + initialized + restored + time;
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        private void RunAllAxes(Action<BaseAxis> operation)
+        {
+            foreach (BaseAxis axis in _rows.Select(x => x.Axis).Where(x => x != null))
+                operation(axis);
+        }
+
+        private void ClearAllAxisAlarms()
+        {
+            try
+            {
+                RunAllAxes(ax => ax.ResetAlarm());
+                AlarmManager.ClearAll();
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Alarms.AlarmManager.Raise(
+                    QMC.Common.Alarms.AlarmSeverity.Error,
+                    "AX-ALARM-CLEAR",
+                    "MotionPage",
+                    ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private BaseAxis SelectedAxis()
+        {
+            if (grid.CurrentRow == null || grid.CurrentRow.Index < 0 || grid.CurrentRow.Index >= _rows.Count)
+                return null;
+            return _rows[grid.CurrentRow.Index].Axis;
+        }
+
+        private void ShowBoardScan()
+        {
+            using (var dlg = new Dialogs.BoardScanDialog(_rows.Select(x => x.Axis).Where(x => x != null).ToList()))
+                dlg.ShowDialog(FindForm());
+        }
 
         private void DoLoadPara()
         {
-            if (!QMC.CDT320.Ajin.AjinSystem.IsOpen)
+            if (!AjinSystem.IsOpen)
             {
-                MessageBox.Show("AXL library is not open. Enable UseAjin in Settings → GENERAL and restart.");
+                QMC.Common.MessageDialog.Show("AXL library is not open. Enable UseAjin in Settings > GENERAL and restart.");
                 return;
             }
+
             using (var dlg = new OpenFileDialog { Filter = "Motion parameters (*.mot)|*.mot|All files (*.*)|*.*" })
             {
                 if (dlg.ShowDialog(FindForm()) != DialogResult.OK) return;
-                uint r = QMC.CDT320.Ajin.Axl.AxmMotLoadParaAll(dlg.FileName);
-                if (QMC.CDT320.Ajin.AxtReturn.IsSuccess(r))
+                int r = QMC.Common.Motion.Ajin.AXM.LoadParameters(dlg.FileName);
+                if (r == 0)
                 {
-                    QMC.CDT320.Logging.EventLogger.Write(QMC.CDT320.Logging.EventKind.Event, "QMC", "PARA-LOAD", dlg.FileName);
-                    MessageBox.Show("파라미터 로드 완료.");
+                    ApplyParametersFromBoard();
+                    QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "QMC", "PARA-LOAD", dlg.FileName);
+                    QMC.Common.MessageDialog.Show("Parameter load complete.");
                 }
                 else
                 {
-                    MessageBox.Show("파라미터 로드 실패. 0x" + r.ToString("X4"));
+                    QMC.Common.MessageDialog.Show("Parameter load failed. 0x" + r.ToString("X4"));
                 }
             }
         }
 
         private void DoSavePara()
         {
-            if (!QMC.CDT320.Ajin.AjinSystem.IsOpen)
+            if (!AjinSystem.IsOpen)
             {
-                MessageBox.Show("AXL library is not open.");
+                QMC.Common.MessageDialog.Show("AXL library is not open.");
                 return;
             }
+
+            {
+                QMC.Common.MessageDialog.Show("현재 잔비 Setup중에는 mot 파일 저장 불가.");
+                return;
+            }
+
             using (var dlg = new SaveFileDialog { Filter = "Motion parameters (*.mot)|*.mot", FileName = "axl_para.mot" })
             {
                 if (dlg.ShowDialog(FindForm()) != DialogResult.OK) return;
-                uint r = QMC.CDT320.Ajin.Axl.AxmMotSaveParaAll(dlg.FileName);
-                if (QMC.CDT320.Ajin.AxtReturn.IsSuccess(r))
+                int r = QMC.Common.Motion.Ajin.AXM.SaveParameters(dlg.FileName);
+                if (r == 0)
                 {
-                    QMC.CDT320.Logging.EventLogger.Write(QMC.CDT320.Logging.EventKind.Event, "QMC", "PARA-SAVE", dlg.FileName);
-                    MessageBox.Show("파라미터 저장 완료.");
+                    QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "QMC", "PARA-SAVE", dlg.FileName);
+                    QMC.Common.MessageDialog.Show("Parameter save complete.");
                 }
                 else
                 {
-                    MessageBox.Show("파라미터 저장 실패. 0x" + r.ToString("X4"));
+                    QMC.Common.MessageDialog.Show("Parameter save failed. 0x" + r.ToString("X4"));
                 }
             }
         }
 
         private static string StateText(BaseAxis ax)
         {
-            if (ax.IsAlarm)    return "ALARM";
-            if (ax.IsMoving)   return "MOVING";
+            if (ax.IsAlarm) return "ALARM";
+            if (ax.IsMoving) return "MOVING";
             if (!ax.IsServoOn) return "SV-OFF";
             if (ax.IsHomeDone) return "READY";
             return "NONE";
         }
 
-        // ──────────────────────────────────────
-        //  CONFIGURATION 탭
-        // ──────────────────────────────────────
-        private void BuildConfig()
+        private static string StateText(AxisStatusSnapshot snapshot)
         {
-            Controls.Add(new Label
-            {
-                Location = new Point(8, 380), Size = new Size(1400, 26),
-                Text = "CONFIGURATION",
-                BackColor = UiTheme.StatusBarBg, ForeColor = Color.White,
-                Font = UiTheme.SectionFont, TextAlign = ContentAlignment.MiddleLeft,
-                Padding = new Padding(10, 0, 0, 0)
-            });
-
-            var tabs = new TabControl
-            {
-                Location  = new Point(8, 410), Size = new Size(1400, 500),
-                Alignment = TabAlignment.Left, Multiline = true,
-                // Stage 60 — ItemSize 너무 작아 탭 이름 잘리는 이슈 수정 (30,80 → 100,32)
-                SizeMode  = TabSizeMode.Fixed, ItemSize = new Size(100, 32),
-                Font      = UiTheme.ButtonFont
-            };
-            tabs.TabPages.Add(new TabPage { Text = "STATUS", BackColor = UiTheme.OptionPanelBg });
-            tabs.TabPages.Add(new TabPage { Text = "CONFIG", BackColor = UiTheme.OptionPanelBg });
-            tabs.TabPages.Add(new TabPage { Text = "SPEED",  BackColor = UiTheme.OptionPanelBg });
-            FillConfigTab(tabs.TabPages[1]);
-            // Stage 60 — STATUS 탭은 비어있으므로 진입 시 CONFIG 탭이 보이도록 default 변경
-            tabs.SelectedIndex = 1;
-            Controls.Add(tabs);
+            if (snapshot.IsAlarm) return "ALARM";
+            if (snapshot.IsMoving) return "MOVING";
+            if (!snapshot.IsServoOn) return "SV-OFF";
+            if (snapshot.IsHomeDone) return "READY";
+            return "NONE";
         }
 
-        private static void FillConfigTab(TabPage tab)
-        {
-            void Block(int x, int y, int w, int h, string title, (string, string)[] pairs)
-            {
-                var p = new Panel { Location = new Point(x, y), Size = new Size(w, h), BackColor = UiTheme.OptionPanelBg };
-                p.Controls.Add(new Label
-                {
-                    Dock = DockStyle.Top, Height = 22, Text = title,
-                    BackColor = Color.FromArgb(0x80,0x80,0x80), ForeColor = Color.White,
-                    Font = UiTheme.SectionFont, TextAlign = ContentAlignment.MiddleLeft,
-                    Padding = new Padding(6,0,0,0)
-                });
-                int yy = 28;
-                foreach (var pair in pairs)
-                {
-                    p.Controls.Add(new Label { Location = new Point(4, yy),  Size = new Size(140, 24), Text = pair.Item1, BackColor = Color.FromArgb(0xD0,0xD0,0xD0), Font = new Font("맑은 고딕", 9F), TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding(6,0,0,0), BorderStyle = BorderStyle.FixedSingle });
-                    p.Controls.Add(new Label { Location = new Point(148, yy),Size = new Size(w - 152, 24), Text = pair.Item2, BackColor = Color.White, Font = new Font("Consolas", 9F), TextAlign = ContentAlignment.MiddleRight, Padding = new Padding(0,0,6,0), BorderStyle = BorderStyle.FixedSingle });
-                    yy += 26;
-                }
-                tab.Controls.Add(p);
-            }
+        private void OnAxisPos(BaseAxis ax, double pos) { }
+        private void OnAxisDone(BaseAxis ax) { }
 
-            Block(0,   0, 430, 260, "CONFIG", new[] { ("OUTPUT MODE","PULSE-HIGH/CW/CCW"), ("INPUT MODE","OBVERSE SQR4"), ("INPUT SOURCE","ENCODER"), ("Z PHASE LEVEL","HIGH"), ("SERVO LEVEL","HIGH"), ("MAXIMUM VELOCITY","3,000,000") });
-            Block(440, 0, 430, 170, "INPOSITION", new[] { ("LEVEL","ACTIVE HIGH"), ("SOFTWARE","DISABLE"), ("SOFTWARE LENGTH","10 pulse") });
-            Block(440, 174, 430, 86, "HOME", new[] { ("SIGNAL","LOW"), ("MODE","NEGATIVE LIMIT") });
-            Block(880, 0, 430, 260, "LIMIT", new[] { ("STOP MODE","EMERGENCY"), ("NEGATIVE LEVEL","ACTIVE LOW"), ("POSITIVE LEVEL","ACTIVE LOW"), ("SOFTWARE","DISABLE"), ("SOFTWARE NEGATIVE","0 pulse"), ("SOFTWARE POSITIVE","1,000,000 pulse") });
-            Block(0,   266, 430, 120, "EMERGENCY SIGNAL", new[] { ("LEVEL","DISABLE"), ("STOP MODE","EMERGENCY") });
-            Block(440, 266, 430, 120, "ALARM", new[] { ("RESET SIGNAL","HIGH"), ("LEVEL","ACTIVE LOW") });
-            Block(880, 266, 430, 120, "POSITION CLEAR", new[] { ("ENABLED","FALSE"), ("PULSE","10,000 pulse") });
-        }
-
-        // ──────────────────────────────────────
-        //  최하단 공통 액션
-        // ──────────────────────────────────────
-        private void BuildActions()
-        {
-            var actions = new FlowLayoutPanel
-            {
-                Dock = DockStyle.Bottom, Height = 60, Padding = new Padding(8),
-                BackColor = UiTheme.OptionPanelBg, FlowDirection = FlowDirection.LeftToRight
-            };
-            Action<string, Action<BaseAxis>> add = (label, op) =>
-            {
-                var b = new Controls.ActionButton { Text = label, Size = new Size(120, 44), Margin = new Padding(4) };
-                b.Click += (s, e) => { if (_grid.CurrentRow is DataGridViewRow row && row.Index < _axes.Count) op(_axes[row.Index]); };
-                actions.Controls.Add(b);
-            };
-            add("ENABLE",    ax => ax.ServoOn());
-            add("DISABLE",   ax => ax.ServoOff());
-            add("HOME",      async ax => await ax.HomeSearchAsync());
-            add("ALL STOP",  ax => { foreach (var a in _axes) a.Stop(); });
-            add("ALRAM CLEAR", ax => { foreach (var a in _axes) a.ResetAlarm(); });
-            add("ALL SERVO OFF",ax => { foreach (var a in _axes) a.ServoOff(); });
-            add("SERVO ON",  ax => ax.ServoOn());
-            add("SERVO OFF", ax => ax.ServoOff());
-
-            // ── AXL 파라미터 파일 로드/저장 (Ajin 사용 시에만 의미 있음) ──
-            var btnLoad = new Controls.ActionButton { Text = "PARA LOAD", Size = new Size(120, 44), Margin = new Padding(4) };
-            var btnSave = new Controls.ActionButton { Text = "PARA SAVE", Size = new Size(120, 44), Margin = new Padding(4) };
-            btnLoad.Click += (s, e) => DoLoadPara();
-            btnSave.Click += (s, e) => DoSavePara();
-            actions.Controls.Add(btnLoad);
-            actions.Controls.Add(btnSave);
-
-            // ── 보드 스캔 테스트 다이얼로그 ──
-            var btnScan = new Controls.ActionButton { Text = "BOARD SCAN", Size = new Size(140, 44), Margin = new Padding(4) };
-            btnScan.Click += (s, e) =>
-            {
-                using (var dlg = new Dialogs.BoardScanDialog(_axes))
-                    dlg.ShowDialog(FindForm());
-            };
-            actions.Controls.Add(btnScan);
-
-            Controls.Add(actions);
-        }
-
-        // ──────────────────────────────────────
-        //  트리 순회
-        // ──────────────────────────────────────
         private static IEnumerable<BaseAxis> EnumerateAxes(CDT320_Machine m)
         {
             foreach (var u in m.Units)
-                foreach (var a in Rec(u)) yield return a;
+                foreach (var a in Rec(u))
+                    yield return a;
         }
+
         private static IEnumerable<BaseAxis> Rec(BaseEquipmentNode node)
         {
-            if (node is BaseAxis ax) { yield return ax; yield break; }
+            if (node is BaseAxis ax)
+            {
+                yield return ax;
+                yield break;
+            }
+
             var prop = node.GetType().GetProperty("Components");
             if (prop != null && prop.GetValue(node) is System.Collections.IEnumerable comps)
                 foreach (BaseEquipmentNode c in comps)
@@ -356,3 +654,5 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         }
     }
 }
+
+

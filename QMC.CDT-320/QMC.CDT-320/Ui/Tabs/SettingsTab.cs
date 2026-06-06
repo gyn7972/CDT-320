@@ -1,7 +1,11 @@
-﻿using System.ComponentModel;
+﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel;
 using QMC.CDT_320.Ui.Pages;
 using QMC.CDT_320.Ui.Pages.Settings;
 using QMC.CDT_320.Ui.Security;
+using QMC.CDT320.Ajin;
+using QMC.Common.IO;
 
 namespace QMC.CDT_320.Ui.Tabs
 {
@@ -18,31 +22,31 @@ namespace QMC.CDT_320.Ui.Tabs
             const UserLevel en = UserLevel.Engineer;
             const UserLevel mt = UserLevel.Maintenance;
 
-            AddSidebarButton("set.general",     op, () => new GeneralPage());
-            AddSidebarButton("set.motion",      mt, () => new MotionPage());
-            AddSidebarButton("set.digital",     mt, () => new IoListPage("set.digital",
-                new[] { "INDEX", "SYMBOL", "BOARD", "BIT", "DESCRIPTION", "STATE" }, Seed.Digital()));
-            AddSidebarButton("set.digitalLink", mt, () => new IoListPage("set.digitalLink",
-                new[] { "INDEX", "SOURCE", "TARGET", "DESCRIPTION" }, Seed.Link()));
-            AddSidebarButton("set.cylinder",    mt, () => new IoListPage("set.cylinder",
-                new[] { "INDEX", "NAME", "FWD DO", "BWD DO", "FWD DI", "BWD DI", "STATE" }, Seed.Cylinder()));
-            AddSidebarButton("set.lamp",        en, () => new IoListPage("set.lamp",
-                new[] { "INDEX", "NAME", "DO", "STATE" }, Seed.Lamp()));
-            AddSidebarButton("set.switch",      en, () => new IoListPage("set.switch",
-                new[] { "INDEX", "NAME", "DI", "STATE" }, Seed.Switch()));
-            AddSidebarButton("set.lightSource", en, () => new IoListPage("set.lightSource",
-                new[] { "INDEX", "NAME", "PORT", "LEVEL" }, Seed.Light()));
+            // ── 주 메뉴 (디자이너 버튼 등록) ──
+            RegisterSidebarButton(BtnGeneral,     "set.general",   op, () => new GeneralPage());
+            RegisterSidebarButton(BtnMotion,      "set.motion",    mt, () => new MotionPage());
+            RegisterSidebarButton(BtnIoControl,   "set.digitalLink", mt, () => new IoControlPage());
+            RegisterSidebarButton(BtnDigital,     "set.digital",   mt, () => new IoListPage("set.digital",
+                new[] { "INDEX", "MODULE", "SYMBOL", "BOARD", "BIT", "DESCRIPTION", "SIM", "STATE" }, CatalogRows.Digital));
+            RegisterSidebarButton(BtnCylinder,    "set.cylinder",  mt, () => new IoListPage("set.cylinder",
+                new[] { "INDEX", "MODULE", "NAME", "FWD DO", "BWD DO", "FWD DI", "BWD DI", "SIM", "STATE" }, CatalogRows.Cylinder));
+            RegisterSidebarButton(BtnLamp,        "set.lamp",      en, () => new IoListPage("set.lamp",
+                new[] { "INDEX", "MODULE", "NAME", "DO", "SIM", "STATE" }, CatalogRows.Lamp));
+            RegisterSidebarButton(BtnSwitch,      "set.switch",    en, () => new IoListPage("set.switch",
+                new[] { "INDEX", "MODULE", "NAME", "DI", "SIM", "STATE" }, CatalogRows.Switch));
+            RegisterSidebarButton(BtnLightSource, "set.lightSource", en, () => new IoListPage("set.lightSource",
+                new[] { "INDEX", "NAME", "PORT", "LEVEL" }, CatalogRows.Light));
 
-            AddSidebarButton("set.barcode",      en, () => new BarcodeReaderPage(), toBottomArea: true);
-            AddSidebarButton("set.zoomLens",     en, () => new ZoomLensPage(),       toBottomArea: true);
-            AddSidebarButton("set.heightSensor", en, () => new HeightSensorPage(),   toBottomArea: true);
-            AddSidebarButton("set.simulator",    en, () => new SimulatorLinkPage(),  toBottomArea: true);
-            AddSidebarButton("set.visionLink",   en, () => new VisionLinkPage(),     toBottomArea: true);
+            // ?? 蹂댁“ 硫붾돱 ??
+            RegisterSidebarButton(BtnBarcode,      "set.barcode",      en, () => new BarcodeReaderPage());
+            RegisterSidebarButton(BtnZoomLens,     "set.zoomLens",     en, () => new ZoomLensPage());
+            RegisterSidebarButton(BtnHeightSensor, "set.heightSensor", en, () => new HeightSensorPage());
+            RegisterSidebarButton(BtnSimulator,    "set.simulator",    en, () => new SimulatorLinkPage());
+            RegisterSidebarButton(BtnVisionLink,   "set.visionLink",   en, () => new VisionLinkPage());
 
             // Self-Test 다이얼로그 버튼 — 페이지가 아닌 즉시 팝업
-            var btnSelf = AddSidebarButton("set.selfTest", en,
-                () => new PlaceholderPage("set.selfTest"), toBottomArea: true);
-            btnSelf.Click += (s, e) =>
+            RegisterSidebarButton(BtnSelfTest, "set.selfTest", en, () => new PlaceholderPage("set.selfTest"));
+            BtnSelfTest.Click += (s, e) =>
             {
                 var host = FindForm() as Form1;
                 using (var dlg = new Dialogs.SystemSelfTestDialog(host))
@@ -50,18 +54,18 @@ namespace QMC.CDT_320.Ui.Tabs
             };
 
             // Stage 19 — Alarm Master 페이지
-            AddSidebarButton("settings.alarmMaster", en, () => new AlarmMasterPage(), toBottomArea: true);
+            RegisterSidebarButton(BtnAlarmMaster, "settings.alarmMaster", en, () => new AlarmMasterPage());
 
             // Stage 59 — Position Teaching 페이지 (시퀀스 위치 티칭)
-            AddSidebarButton("set.teach",       en, () => new PositionTeachingPage(),  toBottomArea: true);
-            AddSidebarButton("set.axisSetup",   en, () => new AxisSetupPage(),         toBottomArea: true);
-            AddSidebarButton("set.cameraSetup", en, () => new CameraSetupPage(),       toBottomArea: true);
-            AddSidebarButton("set.lightSetup",  en, () => new LightControllerPage(),   toBottomArea: true);
+            RegisterSidebarButton(BtnTeach,       "set.teach",       en, () => new PositionTeachingPage());
+            RegisterSidebarButton(BtnAxisSetup,   "set.axisSetup",   en, () => new AxisSetupPage());
+            RegisterSidebarButton(BtnCameraSetup, "set.cameraSetup", en, () => new CameraSetupPage());
+            RegisterSidebarButton(BtnLightSetup,  "set.lightSetup",  en, () => new LightControllerPage());
 
             // Stage 4 — Remote Viewer 다이얼로그
-            var btnRemote = AddSidebarButton("settings.remoteViewer", mt,
-                () => new PlaceholderPage("settings.remoteViewer"), toBottomArea: true);
-            btnRemote.Click += (s, e) =>
+            RegisterSidebarButton(BtnRemoteViewer, "settings.remoteViewer", mt,
+                () => new PlaceholderPage("settings.remoteViewer"));
+            BtnRemoteViewer.Click += (s, e) =>
             {
                 var host = FindForm() as Form1;
                 using (var dlg = new Dialogs.RemoteViewerDialog(host))
@@ -69,104 +73,66 @@ namespace QMC.CDT_320.Ui.Tabs
             };
         }
 
-        private static class Seed
+        private static class CatalogRows
         {
-            // Stage 59 — 메뉴얼(CDT-310/CDT-300) 기준 풀세트 시드
             public static string[][] Digital()
             {
-                var L = new System.Collections.Generic.List<string[]>
-                {
-                    new[] { "1",  "X000", "DI0", "00", "START BUTTON",            "OFF" },
-                    new[] { "2",  "X001", "DI0", "01", "STOP BUTTON",             "OFF" },
-                    new[] { "3",  "X002", "DI0", "02", "RESET BUTTON",            "OFF" },
-                    new[] { "4",  "X003", "DI0", "03", "EMG",                     "OFF" },
-                    new[] { "5",  "X004", "DI0", "04", "OP EMG ON",               "OFF" },
-                    new[] { "6",  "X007", "DI0", "07", "MAIN CDA 1 CHECK",        "ON"  },
-                    new[] { "7",  "X008", "DI0", "08", "MAIN CDA 2 CHECK",        "ON"  },
-                    new[] { "8",  "X009", "DI0", "09", "MAIN VACUUM 1 CHECK",     "ON"  },
-                    new[] { "9",  "X010", "DI0", "10", "MAIN VACUUM 2 CHECK",     "ON"  },
-                    new[] { "10", "X011", "DI0", "11", "MAIN VACUUM 3 CHECK",     "ON"  },
-                    new[] { "11", "X012", "DI0", "12", "MAIN VACUUM 4 CHECK",     "ON"  },
-                    new[] { "12", "X028", "DI0", "28", "WAFER FEEDER UP",         "OFF" },
-                    new[] { "13", "X029", "DI0", "29", "WAFER FEEDER DOWN",       "ON"  },
-                    new[] { "14", "X043", "DI1", "11", "FRONT PICKER CDA TANK",   "ON"  },
-                    new[] { "15", "X044", "DI1", "12", "FRONT PICKER VAC TANK",   "ON"  },
-                    new[] { "16", "X053", "DI1", "21", "REAR PICKER CDA TANK",    "ON"  },
-                    new[] { "17", "X054", "DI1", "22", "REAR PICKER VAC TANK",    "ON"  },
-                    new[] { "18", "X063", "DI1", "31", "NG BIN GUIDE UP",         "OFF" },
-                    new[] { "19", "X064", "DI2", "00", "NG BIN GUIDE DOWN",       "ON"  },
-                    new[] { "20", "X068", "DI2", "04", "GOOD BIN GUIDE UP",       "OFF" },
-                    new[] { "21", "X069", "DI2", "05", "GOOD BIN GUIDE DOWN",     "ON"  },
-                };
-                // FRONT PICKER 0~7 FLOW CHECK
-                for (int i = 0; i < 8; i++)
-                    L.Add(new[] { (22+i).ToString(), "X" + (45+i).ToString("D3"), "DI1", (13+i).ToString("D2"), $"FRONT PICKER {i} FLOW", "OFF" });
-                // REAR PICKER 0~7 FLOW CHECK
-                for (int i = 0; i < 8; i++)
-                    L.Add(new[] { (30+i).ToString(), "X" + (55+i).ToString("D3"), "DI1", (23+i).ToString("D2"), $"REAR PICKER {i} FLOW",  "OFF" });
-                // DO
-                L.Add(new[] { "38", "Y000", "DO0", "00", "START LAMP",       "OFF" });
-                L.Add(new[] { "39", "Y001", "DO0", "01", "STOP LAMP",        "OFF" });
-                L.Add(new[] { "40", "Y002", "DO0", "02", "RESET LAMP",       "OFF" });
-                L.Add(new[] { "41", "Y003", "DO0", "03", "TL RED",           "OFF" });
-                L.Add(new[] { "42", "Y004", "DO0", "04", "TL YELLOW",        "OFF" });
-                L.Add(new[] { "43", "Y005", "DO0", "05", "TL GREEN",         "ON"  });
-                L.Add(new[] { "44", "Y006", "DO0", "06", "BUZZER",           "OFF" });
-                L.Add(new[] { "45", "Y016", "DO0", "16", "WAFER FEEDER UP",  "OFF" });
-                L.Add(new[] { "46", "Y017", "DO0", "17", "WAFER FEEDER DOWN","OFF" });
-                L.Add(new[] { "47", "Y026", "DO0", "26", "NG BIN GUIDE UP",  "OFF" });
-                L.Add(new[] { "48", "Y027", "DO0", "27", "NG BIN GUIDE DOWN","OFF" });
-                L.Add(new[] { "49", "Y032", "DO1", "00", "GOOD BIN GUIDE UP","OFF" });
-                L.Add(new[] { "50", "Y033", "DO1", "01", "GOOD BIN GUIDE DOWN","OFF" });
-                L.Add(new[] { "51", "Y044", "DO1", "12", "BOTTOM VISION BLOW ON", "OFF" });
-                L.Add(new[] { "52", "Y046", "DO1", "14", "NEEDLE VACUUM",    "OFF" });
-                for (int i = 0; i < 8; i++)
-                    L.Add(new[] { (53+i).ToString(), "Y" + (48+i).ToString("D3"), "DO1", (16+i).ToString("D2"), $"FRONT PICKER {i} VACUUM", "OFF" });
-                for (int i = 0; i < 8; i++)
-                    L.Add(new[] { (61+i).ToString(), "Y" + (56+i).ToString("D3"), "DO1", (24+i).ToString("D2"), $"FRONT PICKER {i} BLOW",   "OFF" });
-                for (int i = 0; i < 8; i++)
-                    L.Add(new[] { (69+i).ToString(), "Y" + (64+i).ToString("D3"), "DO2", i.ToString("D2"),     $"REAR PICKER {i} VACUUM",   "OFF" });
-                for (int i = 0; i < 8; i++)
-                    L.Add(new[] { (77+i).ToString(), "Y" + (72+i).ToString("D3"), "DO2", (8+i).ToString("D2"), $"REAR PICKER {i} BLOW",     "OFF" });
-                return L.ToArray();
+                var rows = new List<string[]>();
+                foreach (var item in AjinIoCatalog.DigitalInputs)
+                    rows.Add(DioRow(item, false));
+                foreach (var item in AjinIoCatalog.DigitalOutputs)
+                    rows.Add(DioRow(item, true));
+                return rows.ToArray();
             }
-            public static string[][] Link() => new[]
+
+            public static string[][] Cylinder()
             {
-                new[] { "1", "Y016 WAFER FEEDER UP",   "X028 WAFER FEEDER UP",   "WAFER FEEDER UP cylinder" },
-                new[] { "2", "Y017 WAFER FEEDER DOWN", "X029 WAFER FEEDER DOWN", "WAFER FEEDER DOWN cylinder" },
-                new[] { "3", "Y026 NG BIN UP",         "X063 NG BIN GUIDE UP",   "NG BIN UP→GUIDE UP" },
-                new[] { "4", "Y027 NG BIN DOWN",       "X064 NG BIN GUIDE DOWN", "NG BIN DOWN→GUIDE DOWN" },
-                new[] { "5", "Y032 GOOD BIN UP",       "X068 GOOD BIN GUIDE UP", "GOOD BIN UP→GUIDE UP" },
-                new[] { "6", "Y033 GOOD BIN DOWN",     "X069 GOOD BIN GUIDE DOWN", "GOOD BIN DOWN→GUIDE DOWN" },
-                new[] { "7", "Y048 FRONT VAC0",        "X045 FRONT FLOW0",       "FRONT Picker 0 VAC→FLOW" },
-                new[] { "8", "Y049 FRONT VAC1",        "X046 FRONT FLOW1",       "FRONT Picker 1 VAC→FLOW" },
-            };
-            public static string[][] Cylinder() => new[]
+                var rows = new List<string[]>();
+                for (int i = 0; i < AjinIoCatalog.Cylinders.Length; i++)
+                {
+                    var item = AjinIoCatalog.Cylinders[i];
+                    CylMap map;
+                    AjinConfigStore.Current.Cylinders.TryGetValue(item.Name, out map);
+                    rows.Add(new[]
+                    {
+                        (i + 1).ToString(),
+                        item.UnitName,
+                        item.Name,
+                        Format(map != null ? map.OutFwd : null, item.OutFwd, true),
+                        Format(map != null ? map.OutBwd : null, item.OutBwd, true),
+                        Format(map != null && map.UseFwdInput ? map.InFwd : null, item.InFwd, false),
+                        Format(map != null && map.UseBwdInput ? map.InBwd : null, item.InBwd, false),
+                        CylinderSettingsStore.Simulation(item.Name, !AjinFactory.IsRealBoardReady) ? "ON" : "OFF",
+                        CylinderState(map, item)
+                    });
+                }
+                return rows.ToArray();
+            }
+
+            public static string[][] Lamp()
             {
-                new[] { "1", "WAFER FEEDER UP/DOWN",  "Y016", "Y017", "X028", "X029", "DOWN" },
-                new[] { "2", "NG BIN GUIDE",          "Y026", "Y027", "X063", "X064", "DOWN" },
-                new[] { "3", "GOOD BIN GUIDE",        "Y032", "Y033", "X068", "X069", "DOWN" },
-                new[] { "4", "BOTTOM VISION BLOW",    "Y044", "—",    "—",    "—",    "OFF" },
-                new[] { "5", "NEEDLE VACUUM",         "Y046", "—",    "—",    "—",    "OFF" },
-            };
-            public static string[][] Lamp() => new[]
+                var rows = new List<string[]>();
+                foreach (var item in AjinIoCatalog.DigitalOutputs)
+                {
+                    if (!IsLamp(item.Name)) 
+                        continue;
+
+                    rows.Add(new[] { item.No.ToString(), item.UnitName, item.Name, item.Address, SimText(item.Name, true), State(item, true) });
+                }
+                return rows.ToArray();
+            }
+
+            public static string[][] Switch()
             {
-                new[] { "1", "START LAMP", "Y000", "OFF" },
-                new[] { "2", "STOP LAMP",  "Y001", "OFF" },
-                new[] { "3", "RESET LAMP", "Y002", "OFF" },
-                new[] { "4", "TL RED",     "Y003", "OFF" },
-                new[] { "5", "TL YELLOW",  "Y004", "OFF" },
-                new[] { "6", "TL GREEN",   "Y005", "ON"  },
-                new[] { "7", "BUZZER",     "Y006", "OFF" },
-            };
-            public static string[][] Switch() => new[]
-            {
-                new[] { "1", "START SW",  "X000", "OFF" },
-                new[] { "2", "STOP SW",   "X001", "OFF" },
-                new[] { "3", "RESET SW",  "X002", "OFF" },
-                new[] { "4", "EMG",       "X003", "OFF" },
-                new[] { "5", "OP EMG ON", "X004", "OFF" },
-            };
+                var rows = new List<string[]>();
+                foreach (var item in AjinIoCatalog.DigitalInputs)
+                {
+                    if (!IsSwitch(item.Name)) continue;
+                    rows.Add(new[] { item.No.ToString(), item.UnitName, item.Name, item.Address, SimText(item.Name, false), State(item, false) });
+                }
+                return rows.ToArray();
+            }
+
             public static string[][] Light() => new[]
             {
                 new[] { "1", "INPUT STAGE RING",      "COM1", "128" },
@@ -178,6 +144,104 @@ namespace QMC.CDT_320.Ui.Tabs
                 new[] { "7", "BOTTOM SIDE VISION",    "COM3", "200" },
                 new[] { "8", "ALIGN MARK ILLUM",      "COM1", "100" },
             };
+
+            private static string[] DioRow(DioDefault item, bool isOutput)
+            {
+                return new[]
+                {
+                    (isOutput ? "DO-" : "DI-") + item.No,
+                    item.UnitName,
+                    item.Address,
+                    (isOutput ? "DO " : "DI ") + item.Module,
+                    item.Bit.ToString("00"),
+                    item.Name,
+                    SimText(item.Name, isOutput),
+                    State(item, isOutput)
+                };
+            }
+
+            private static string CylinderState(CylMap map, CylinderDefault item)
+            {
+                bool fwd = IsOn(map != null && map.UseFwdInput ? map.InFwd : null, item != null ? item.InFwd : null, false);
+                bool bwd = IsOn(map != null && map.UseBwdInput ? map.InBwd : null, item != null ? item.InBwd : null, false);
+                if (fwd && !bwd) return "FWD";
+                if (!fwd && bwd) return "BWD";
+                if (fwd && bwd) return "BOTH";
+                return "OFF";
+            }
+
+            private static string Format(DioMap map, DioDefault fallback, bool isOutput)
+            {
+                if (map == null) return string.Empty;
+                var catalog = isOutput
+                    ? AjinIoCatalog.FindOutput(map.Module, map.Bit)
+                    : AjinIoCatalog.FindInput(map.Module, map.Bit);
+                string name = catalog != null ? catalog.Name : string.Empty;
+                string address = !string.IsNullOrEmpty(map.Address)
+                    ? map.Address
+                    : isOutput
+                        ? AjinIoCatalog.OutputAddress(map.Module, map.Bit)
+                        : AjinIoCatalog.InputAddress(map.Module, map.Bit);
+                return string.IsNullOrEmpty(name) ? address : address + " " + name;
+            }
+
+            private static string Format(DioDefault item, bool isOutput)
+            {
+                if (item == null) return string.Empty;
+                var catalog = isOutput
+                    ? AjinIoCatalog.FindOutput(item.Module, item.Bit)
+                    : AjinIoCatalog.FindInput(item.Module, item.Bit);
+                string name = catalog != null ? catalog.Name : string.Empty;
+                string address = isOutput
+                    ? AjinIoCatalog.OutputAddress(item.Module, item.Bit)
+                    : AjinIoCatalog.InputAddress(item.Module, item.Bit);
+                return string.IsNullOrEmpty(name) ? address : address + " " + name;
+            }
+
+            private static string State(DioDefault item, bool isOutput)
+            {
+                return IsOn(item, isOutput) ? "ON" : "OFF";
+            }
+
+            private static string SimText(string name, bool isOutput)
+            {
+                bool sim = isOutput
+                    ? IoSettingsStore.OutputSimulation(name, !AjinFactory.IsRealBoardReady)
+                    : IoSettingsStore.InputSimulation(name, !AjinFactory.IsRealBoardReady);
+                return sim ? "ON" : "OFF";
+            }
+
+            private static bool IsOn(DioDefault item, bool isOutput)
+            {
+                var service = AjinIoScanService.Current;
+                if (service == null || item == null) return false;
+                var snapshot = service.GetLatest(item.Module, item.Bit, isOutput);
+                return snapshot != null && snapshot.ErrorCode == 0 && snapshot.IsOn;
+            }
+
+            private static bool IsOn(DioMap map, DioDefault fallback, bool isOutput)
+            {
+                var service = AjinIoScanService.Current;
+                if (service == null || map == null) return false;
+                var snapshot = service.GetLatest(map.Module, map.Bit, isOutput);
+                return snapshot != null && snapshot.ErrorCode == 0 && snapshot.IsOn;
+            }
+
+            private static bool IsLamp(string name)
+            {
+                if (Contains(name, "Clamp")) return false;
+                return Contains(name, "Lamp") || Contains(name, "Tl") || Contains(name, "Buzzer");
+            }
+
+            private static bool IsSwitch(string name)
+            {
+                return Contains(name, "Button") || Contains(name, "Emg");// || Contains(name, "Door");
+            }
+
+            private static bool Contains(string text, string token)
+            {
+                return text != null && text.IndexOf(token, StringComparison.OrdinalIgnoreCase) >= 0;
+            }
         }
     }
 }

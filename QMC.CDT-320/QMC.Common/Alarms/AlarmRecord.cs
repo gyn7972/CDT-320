@@ -2,7 +2,7 @@
 
 namespace QMC.Common.Alarms
 {
-    /// <summary>1건의 알람 레코드 (불변 필드 + Cleared 만 setter).</summary>
+    /// <summary>1건의 알람 레코드 (불변).</summary>
     public class AlarmRecord
     {
         public int           Id          { get; }

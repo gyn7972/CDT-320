@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace QMC.CDT320.Materials
 {
@@ -12,9 +13,53 @@ namespace QMC.CDT320.Materials
     {
         private static readonly ConcurrentDictionary<string, Die>           _dies   = new ConcurrentDictionary<string, Die>(StringComparer.Ordinal);
         private static readonly ConcurrentDictionary<string, DieTapeFrame>  _frames = new ConcurrentDictionary<string, DieTapeFrame>(StringComparer.Ordinal);
+        private static MaterialSnapshot _state = CreateDefaultState(1, 1, 25, 25);
 
         public static IReadOnlyDictionary<string, Die>          Dies   => _dies;
         public static IReadOnlyDictionary<string, DieTapeFrame> Frames => _frames;
+        public static MaterialSnapshot State => _state;
+
+        public static MaterialSnapshot CreateDefaultState(int inputLevelCount, int goodLevelCount, int inputSlots, int outputSlots)
+        {
+            if (inputLevelCount < 1) inputLevelCount = 1;
+            if (inputLevelCount > 2) inputLevelCount = 2;
+            if (goodLevelCount < 1) goodLevelCount = 1;
+            if (goodLevelCount > 2) goodLevelCount = 2;
+
+            var snapshot = new MaterialSnapshot
+            {
+                SaveReason = "DefaultState",
+                SavedAt = DateTime.Now
+            };
+
+            snapshot.Cassettes.Add(CreateCassette(CassetteMaterialRole.Input1, 1, true, inputSlots));
+            snapshot.Cassettes.Add(CreateCassette(CassetteMaterialRole.Input2, 2, inputLevelCount >= 2, inputSlots));
+            snapshot.Cassettes.Add(CreateCassette(CassetteMaterialRole.Good1, 1, true, outputSlots));
+            snapshot.Cassettes.Add(CreateCassette(CassetteMaterialRole.Good2, 2, goodLevelCount >= 2, outputSlots));
+            snapshot.Cassettes.Add(CreateCassette(CassetteMaterialRole.Ng1, 1, true, outputSlots));
+            return snapshot;
+        }
+
+        public static void InitializeDefaultState(int inputLevelCount, int goodLevelCount, int inputSlots, int outputSlots)
+        {
+            _state = CreateDefaultState(inputLevelCount, goodLevelCount, inputSlots, outputSlots);
+        }
+
+        public static bool RestoreLastSnapshot()
+        {
+            var loaded = MaterialSnapshotStore.Load();
+            if (loaded == null) return false;
+            Normalize(loaded);
+            _state = loaded;
+            return true;
+        }
+
+        public static void ReplaceState(MaterialSnapshot snapshot)
+        {
+            if (snapshot == null) return;
+            Normalize(snapshot);
+            _state = snapshot;
+        }
 
         // ── Die ──
         public static Die GetOrCreateDie(string uid)
@@ -75,6 +120,48 @@ namespace QMC.CDT320.Materials
         {
             _dies.Clear();
             _frames.Clear();
+            _state = CreateDefaultState(1, 1, 25, 25);
+        }
+
+        private static CassetteMaterial CreateCassette(CassetteMaterialRole role, int level, bool enabled, int slots)
+        {
+            var cassette = new CassetteMaterial
+            {
+                CassetteId = role.ToString(),
+                Role = role,
+                Level = level,
+                IsEnabled = enabled,
+                IsPresent = false,
+                IsMapped = false,
+                SlotCount = slots
+            };
+            cassette.EnsureSlots();
+            return cassette;
+        }
+
+        private static void Normalize(MaterialSnapshot snapshot)
+        {
+            if (snapshot.Cassettes == null) snapshot.Cassettes = new List<CassetteMaterial>();
+            if (snapshot.Wafers == null) snapshot.Wafers = new List<WaferMaterial>();
+            if (snapshot.Dies == null) snapshot.Dies = new List<DieMaterial>();
+
+            foreach (var cassette in snapshot.Cassettes)
+            {
+                if (cassette.Slots == null) cassette.Slots = new List<CassetteSlotMaterial>();
+                cassette.EnsureSlots();
+            }
+
+            foreach (var wafer in snapshot.Wafers)
+            {
+                if (wafer.CurrentLocation == null)
+                    wafer.CurrentLocation = MaterialLocation.Unknown();
+                if (wafer.SourceSlotNumber < 0)
+                    wafer.SourceCassetteSlotPosition = double.NaN;
+                if (wafer.CurrentLocation == null || wafer.CurrentLocation.SlotNumber < 0)
+                    wafer.CurrentCassetteSlotPosition = double.NaN;
+            }
+            foreach (var die in snapshot.Dies.Where(d => d.CurrentLocation == null))
+                die.CurrentLocation = MaterialLocation.Unknown();
         }
     }
 }

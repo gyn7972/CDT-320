@@ -105,7 +105,7 @@
     <Compile Include="Equipment\Initialization\AxisInitializePlan.cs" />
     <Compile Include="Equipment\Interlocks\InputCassetteInterlockRules.cs" />
     <Compile Include="Equipment\Interlocks\InputFeederInterlockRules.cs" />
-    <Compile Include="Equipment\Interlocks\SharedRailXInterlockRules.cs" />
+    <Compile Include="Equipment\Interlocks\Common\SharedRailXInterlockRules.cs" />
     <Compile Include="Equipment\Interlocks\InputStageInterlockRules.cs" />
     <Compile Include="Equipment\Interlocks\VisionInterlockRules.cs" />
     <Compile Include="Equipment\Interlocks\PickerFrontInterlockRules.cs" />
@@ -113,8 +113,8 @@
     <Compile Include="Equipment\Interlocks\OutputStageInterlockRules.cs" />
     <Compile Include="Equipment\Interlocks\OutputFeederInterlockRules.cs" />
     <Compile Include="Equipment\Interlocks\OutputCassetteInterlockRules.cs" />
-    <Compile Include="Equipment\Interlocks\MotionGuardRuleHelpers.cs" />
-    <Compile Include="Equipment\Interlocks\MotionGuardRuleRegistry.cs" />
+    <Compile Include="Equipment\Interlocks\Common\MotionGuardRuleHelpers.cs" />
+    <Compile Include="Equipment\Interlocks\Common\MotionGuardRuleRegistry.cs" />
     <Compile Include="Equipment\MachineRuntimeState.cs" />
     <Compile Include="Equipment\OperationPanelMonitorService.cs" />
     <Compile Include="Equipment\SimComponents.cs" />
@@ -352,9 +352,9 @@
     <Compile Include="Equipment\Lots\Lot.cs" />
     <Compile Include="Equipment\Lots\LotStorage.cs" />
     <!-- Equipment / Interlocks (Stage 3 ??5 + Stage 8 ??5 추�?, �?15) -->
-    <Compile Include="Equipment\Interlocks\ExtendedInterlocks.cs" />
-    <Compile Include="Equipment\Interlocks\ExtendedInterlocks2.cs" />
-    <Compile Include="Equipment\Interlocks\ExtendedInterlocks3.cs" />
+    <Compile Include="Equipment\Interlocks\Common\ExtendedInterlocks.cs" />
+    <Compile Include="Equipment\Interlocks\Common\ExtendedInterlocks2.cs" />
+    <Compile Include="Equipment\Interlocks\Common\ExtendedInterlocks3.cs" />
     <!-- Equipment / Bin (310 ?�식) -->
     <Compile Include="Equipment\Bin\BinCodeMap.cs" />
     <!-- Equipment / DieMaps (310 ?�식) -->
@@ -366,12 +366,12 @@
     <Compile Include="Equipment\Jobs\JobOrder.cs" />
     <Compile Include="Equipment\Jobs\JobQueue.cs" />
     <!-- Equipment / Interlocks (310 ?�식) -->
-    <Compile Include="Equipment\Interlocks\InterlockCheckMatrix.cs" />
-    <Compile Include="Equipment\Interlocks\InterlockCheckMatrixStore.cs" />
-    <Compile Include="Equipment\Interlocks\MotionInterlock.cs" />
-    <Compile Include="Equipment\Interlocks\MotionGuardRuntime.cs" />
-    <Compile Include="Equipment\Interlocks\MotionGuardService.cs" />
-    <Compile Include="Equipment\Interlocks\StandardInterlocks.cs" />
+    <Compile Include="Equipment\Interlocks\Common\InterlockCheckMatrix.cs" />
+    <Compile Include="Equipment\Interlocks\Common\InterlockCheckMatrixStore.cs" />
+    <Compile Include="Equipment\Interlocks\Common\MotionInterlock.cs" />
+    <Compile Include="Equipment\Interlocks\Common\MotionGuardRuntime.cs" />
+    <Compile Include="Equipment\Interlocks\Common\MotionGuardService.cs" />
+    <Compile Include="Equipment\Interlocks\Common\StandardInterlocks.cs" />
     <!-- Ui / Controls (310 ?�식) -->
     <Compile Include="Ui\Controls\DieMapView.cs">
       <SubType>Component</SubType>
@@ -500,6 +500,12 @@
     </Compile>
     <Compile Include="Ui\Dialogs\CstStatusDialog.Designer.cs">
       <DependentUpon>CstStatusDialog.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Dialogs\InitializationMonitorDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\InitializationMonitorDialog.Designer.cs">
+      <DependentUpon>InitializationMonitorDialog.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Dialogs\LoginDialog.cs">
       <SubType>Form</SubType>

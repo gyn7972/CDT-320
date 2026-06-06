@@ -1,272 +1,1015 @@
 ﻿using System;
 using System.Drawing;
+using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using QMC.Common.Alarms;
+using QMC.Common.Logging;
+using QMC.CDT320.Materials;
+using QMC.CDT320.Sequencing;
 using QMC.CDT_320.Ui.Controls;
-using QMC.CDT_320.Ui.Localization;
+using QMC.CDT_320.Ui.Dialogs;
+using QMC.Common.Motion;
 
 namespace QMC.CDT_320.Ui.Pages.WorkInfo
 {
-    /// <summary>
-    /// 작업정보 - INPUT CASSETTE: 리프터 축 + 슬롯 상태 + 맵/로딩/언로딩 액션.<br/>
-    /// Stage 26 — 7개 버튼 모두 MachineController 의 로트포트 시퀀스에 연결.
-    /// </summary>
-    public class InputCassettePage : PageBase
+    public partial class InputCassettePage : QMC.CDT_320.Ui.Pages.PageBase
     {
-        // Stage 36 — InputCassette 16 슬롯 (SimCassetteDriver 와 동일)
-        private const int   SLOT_COUNT_UI = 16;
-        private readonly Label[] _slotLeds      = new Label[SLOT_COUNT_UI];
-        private readonly Label[] _slotIndexLbls = new Label[SLOT_COUNT_UI];
-        private Label _lifterPosLabel;
         private System.Windows.Forms.Timer _refreshTimer;
+        private bool _manualSequenceRunning;
+        private CassetteSlotView _cassetteSlotView;
+        private CassetteSlotView _cassetteSlotViewLevel2;
+        private CassetteMaterialRole _selectedCassetteRole = CassetteMaterialRole.Input1;
+        private int _selectedMaterialSlot = -1;
+        private const string LogSource = "INPUT-CASSETTE-PAGE";
 
         public InputCassettePage()
         {
-            Controls.Add(CreateSectionHeader("common.info"));
-
-            // 상단 — Lifter Axis Z + Cassette Check 2개
-            var top = new FlowLayoutPanel
+            try
             {
-                Dock      = DockStyle.Top,
-                Height    = 80,
-                Padding   = new Padding(8),
-                BackColor = UiTheme.MainBg
-            };
-            _lifterPosLabel = new Label
-            {
-                Location = new Point(0, 28), Size = new Size(220, 28),
-                Text = "0.000 mm", BackColor = Color.White, ForeColor = Color.Black,
-                Font = new Font("Consolas", 10F),
-                TextAlign = ContentAlignment.MiddleRight,
-                Padding = new Padding(0, 0, 6, 0),
-                BorderStyle = BorderStyle.FixedSingle
-            };
-            top.Controls.Add(BuildAxisBlock("LIFTER AXIS Z", _lifterPosLabel));
-            top.Controls.Add(BuildIoBlock("LIFTER CASSETTE CHECK #1"));
-            top.Controls.Add(BuildIoBlock("LIFTER CASSETTE CHECK #2"));
+                InitializeComponent();
+                BindDesignerControls();
+                WireEvents();
 
-            // 레전드
-            var legend = BuildLegend();
-            legend.Location = new Point(700, 8);
-
-            // 좌측 슬롯 상태 패널
-            var leftGrp = new Panel { Location = new Point(12, 90), Size = new Size(320, 180), BackColor = UiTheme.MainBg };
-            var slotHdr = new Label
-            {
-                Dock = DockStyle.Top, Height = 26,
-                Text = Lang.T("wi.slotState"), Tag = "i18n:wi.slotState",
-                BackColor = Color.FromArgb(0x50, 0x50, 0x50), ForeColor = Color.White,
-                Font = UiTheme.SectionFont, TextAlign = ContentAlignment.MiddleCenter
-            };
-            leftGrp.Controls.Add(slotHdr);
-            leftGrp.Controls.Add(InfoRows.Pair("wi.slotNo", "BIN 1").SetDockFill());
-            var stateRow = InfoRows.Pair("common.state", "EMPTY");
-            stateRow.Top = 54;
-            leftGrp.Controls.Add(stateRow);
-
-            var btnPrev  = new Button { Location = new Point(6, 96),  Size = new Size(140, 34), Text = Lang.T("common.prev"),    Tag = "i18n:common.prev",    FlatStyle = FlatStyle.Flat, Font = UiTheme.ButtonFont };
-            var btnNext  = new Button { Location = new Point(152, 96),Size = new Size(140, 34), Text = Lang.T("common.next"),    Tag = "i18n:common.next",    FlatStyle = FlatStyle.Flat, Font = UiTheme.ButtonFont };
-            var btnInit  = new Button { Location = new Point(6, 136), Size = new Size(140, 34), Text = Lang.T("wi.lifterInit"),  Tag = "i18n:wi.lifterInit",  FlatStyle = FlatStyle.Flat, Font = UiTheme.ButtonFont };
-            var btnReady = new Button { Location = new Point(152, 136),Size = new Size(140, 34), Text = Lang.T("wi.lifterReady"),Tag = "i18n:wi.lifterReady", FlatStyle = FlatStyle.Flat, Font = UiTheme.ButtonFont };
-            leftGrp.Controls.Add(btnPrev); leftGrp.Controls.Add(btnNext);
-            leftGrp.Controls.Add(btnInit); leftGrp.Controls.Add(btnReady);
-
-            // ── Stage 26 — 버튼 콜백 연결 ───────────────────────────────
-            btnPrev .Click += (s, e) => MoveSlotRel(-1);
-            btnNext .Click += (s, e) => MoveSlotRel(+1);
-            btnInit .Click += (s, e) => RunAction(LifterInitAsync);
-            btnReady.Click += (s, e) => RunAction(LifterReadyAsync);
-
-            // 우측 LIFTER — Stage 36: 16 슬롯 (높이 확장: 32 + 16*22 = 384)
-            var lifterGrp = new Panel { Location = new Point(480, 90), Size = new Size(360, 410) };
-            var lifterHdr = new Label
-            {
-                Dock = DockStyle.Top, Height = 26,
-                Text = "LIFTER", BackColor = Color.Black, ForeColor = Color.White,
-                Font = UiTheme.SectionFont, TextAlign = ContentAlignment.MiddleCenter
-            };
-            lifterGrp.Controls.Add(lifterHdr);
-            // Stage 36 — 슬롯 row 높이 22px 로 압축 (16 슬롯 fit)
-            for (int i = 0; i < SLOT_COUNT_UI; i++)
-            {
-                var row = new Panel { Location = new Point(0, 32 + i * 22), Size = new Size(360, 20) };
-                var nameLbl = new Label { Location = new Point(0, 0),   Size = new Size(120, 20), BorderStyle = BorderStyle.FixedSingle, BackColor = Color.White, Text = "SLOT-" + (i + 1).ToString("D2"), TextAlign = ContentAlignment.MiddleCenter, Font = new Font("Consolas", 8F) };
-                var idxLbl  = new Label { Location = new Point(124, 0), Size = new Size(24, 20),  Text = (i + 1).ToString("D2"), Font = new Font("Consolas", 8F, FontStyle.Bold), TextAlign = ContentAlignment.MiddleCenter };
-                var ledLbl  = new Label { Location = new Point(152, 0), Size = new Size(196, 20), BackColor = Color.LightGray };
-                row.Controls.Add(nameLbl);
-                row.Controls.Add(idxLbl);
-                row.Controls.Add(ledLbl);
-                _slotLeds[i]      = ledLbl;
-                _slotIndexLbls[i] = idxLbl;
-                lifterGrp.Controls.Add(row);
+                _refreshTimer = new System.Windows.Forms.Timer { Interval = 200 };
+                _refreshTimer.Tick += (s, e) => RefreshFromMachine();
+                HandleCreated += (s, e) => _refreshTimer.Start();
+                HandleDestroyed += (s, e) => _refreshTimer.Stop();
             }
-
-            // 하단 ACTION 버튼들 — Stage 26 콜백 연결
-            var actions = new FlowLayoutPanel
+            catch (Exception ex)
             {
-                Dock = DockStyle.Bottom, Height = 96, Padding = new Padding(12),
-                BackColor = UiTheme.MainBg, FlowDirection = FlowDirection.LeftToRight
-            };
-            var btnMap   = new ActionButton { Text = Lang.T("wi.liftWaferMapping"),   Tag = "i18n:wi.liftWaferMapping",   Width = 180, Margin = new Padding(6) };
-            var btnLoad  = new ActionButton { Text = Lang.T("wi.liftWaferLoading"),   Tag = "i18n:wi.liftWaferLoading",   Width = 180, Margin = new Padding(6) };
-            var btnUnld  = new ActionButton { Text = Lang.T("wi.liftWaferUnloading"), Tag = "i18n:wi.liftWaferUnloading", Width = 180, Margin = new Padding(6) };
-            actions.Controls.Add(btnMap);
-            actions.Controls.Add(btnLoad);
-            actions.Controls.Add(btnUnld);
-            btnMap .Click += (s, e) => RunAction(MapAsync);
-            btnLoad.Click += (s, e) => RunAction(LoadAsync);
-            btnUnld.Click += (s, e) => RunAction(UnloadAsync);
-
-            Controls.Add(top);
-            Controls.Add(legend);
-            Controls.Add(leftGrp);
-            Controls.Add(lifterGrp);
-            Controls.Add(actions);
-            Controls.SetChildIndex(top, 0);
-
-            // ── Stage 26 — 200ms 폴링: 슬롯 LED + lifter 위치 갱신 ──────
-            _refreshTimer = new System.Windows.Forms.Timer { Interval = 200 };
-            _refreshTimer.Tick += (s, e) => RefreshFromMachine();
-            HandleCreated += (s, e) => _refreshTimer.Start();
-            HandleDestroyed += (s, e) => _refreshTimer.Stop();
+                WriteAlarm("INPUT-CST-INIT", "InputCassettePage initialize failed: " + ex.Message);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
         }
 
-        // ────────────────────────────────────────────────────────────────
-        //  Helper - Form1 에서 Controller / Machine 획득
-        // ────────────────────────────────────────────────────────────────
+        private void BindDesignerControls()
+        {
+            try
+            {
+                _cassetteSlotView = cassetteSlotView;
+                _cassetteSlotViewLevel2 = cassetteSlotViewLevel2;
+            }
+            catch (Exception ex)
+            {
+                WriteAlarm("INPUT-CST-BIND", "Designer control bind failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private void WireEvents()
+        {
+            try
+            {
+                btnPrev.Click += async (s, e) => await RunMotionAction("LIFTER PREV", host => MoveSlotAsync(host, -1));
+                btnNext.Click += async (s, e) => await RunMotionAction("LIFTER NEXT", host => MoveSlotAsync(host, +1));
+                btnInit.Click += async (s, e) => await RunMotionAction("LIFTER INIT", LifterInitAsync);
+                btnReady.Click += async (s, e) => await RunMotionAction("LIFTER READY", LifterReadyAsync);
+                btnMap.Click += async (s, e) => await RunSequenceAction("LIFT WAFER MAPPING", MapAsync);
+                btnLoad.Click += async (s, e) => await RunSequenceAction("LIFT WAFER LOADING", LoadAsync);
+                btnUnload.Click += async (s, e) => await RunSequenceAction("LIFT WAFER UNLOADING", UnloadAsync);
+
+                if (cassetteSlotView != null)
+                    cassetteSlotView.SlotSelected += (s, e) => SelectMaterialSlot(CassetteMaterialRole.Input1, e.SlotIndex);
+                if (cassetteSlotViewLevel2 != null)
+                    cassetteSlotViewLevel2.SlotSelected += (s, e) => SelectMaterialSlot(CassetteMaterialRole.Input2, e.SlotIndex);
+                if (materialDetailView != null)
+                    materialDetailView.EditRequested += MaterialDetailView_EditRequested;
+            }
+            catch (Exception ex)
+            {
+                WriteAlarm("INPUT-CST-EVENT", "Event bind failed: " + ex.Message);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Cassette", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
+        }
 
         private Form1 GetHost() => FindForm() as Form1;
 
-        private async void RunAction(Func<Form1, Task> action)
+        private async Task RunSequenceAction(string actionName, Func<Form1, Task<bool>> action)
         {
-            var host = GetHost();
-            if (host?.Controller == null) return;
-            try { await action(host); }
+            IDisposable manualScope = null;
+            try
+            {
+                var host = GetHost();
+                if (host == null || host.Controller == null || action == null)
+                    return;
+                if (_manualSequenceRunning)
+                    return;
+                if (!ConfirmAction(actionName))
+                    return;
+
+                _manualSequenceRunning = true;
+                SetActionButtonsEnabled(false);
+                manualScope = host.Controller.EnterManualOperation();
+                WriteEvent("INPUT-CST-ACTION", actionName + " start");
+                bool ok = await action(host);
+                WriteEvent("INPUT-CST-ACTION", actionName + " result=" + ok);
+                if (!ok)
+                {
+                    RaiseWarning("INPUT-CST-CONDITION", actionName + " condition failed.");
+                    QMC.Common.MessageDialog.Show(
+                        this,
+                        "Input Cassette 조건이 맞지 않아 동작을 중단했습니다.\nAlarm/Event Log를 확인하세요.",
+                        "Input Cassette",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Warning);
+                }
+            }
             catch (Exception ex)
             {
-                MessageBox.Show("LotPort error:\n" + ex.Message, "Error",
-                    MessageBoxButtons.OK, MessageBoxIcon.Error);
+                WriteAlarm("INPUT-CST-ACTION-EX", actionName + " failed: " + ex.Message);
+                QMC.Common.MessageDialog.Show(this, "LotPort error:\n" + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
-            RefreshFromMachine();
+            finally
+            {
+                if (manualScope != null)
+                    manualScope.Dispose();
+                _manualSequenceRunning = false;
+                SetActionButtonsEnabled(true);
+                RefreshFromMachine();
+            }
         }
 
-        // ────────────────────────────────────────────────────────────────
-        //  버튼 액션
-        // ────────────────────────────────────────────────────────────────
-
-        private async Task LifterInitAsync(Form1 host)
+        private async Task RunMotionAction(string actionName, Func<Form1, Task<int>> action)
         {
-            var loader = host.Machine.InputLoader;
-            loader.ElevatorZ.ResetAlarm(); loader.ElevatorZ.ServoOn();
-            loader.FeederY.ResetAlarm();   loader.FeederY.ServoOn();
-            await loader.ElevatorZ.HomeSearchAsync();
-            await loader.FeederY.HomeSearchAsync();
+            IDisposable manualScope = null;
+            try
+            {
+                var host = GetHost();
+                if (host == null || host.Controller == null || action == null)
+                    return;
+                if (_manualSequenceRunning)
+                    return;
+                if (!ConfirmAction(actionName))
+                    return;
+
+                _manualSequenceRunning = true;
+                SetActionButtonsEnabled(false);
+                manualScope = host.Controller.EnterManualOperation();
+                WriteEvent("INPUT-CST-MOTION", actionName + " start");
+                int result = await action(host);
+                WriteEvent("INPUT-CST-MOTION", actionName + " result=" + result);
+                if (result != 0)
+                {
+                    RaiseWarning("INPUT-CST-MOTION-FAIL", actionName + " result=" + result);
+                    QMC.Common.MessageDialog.Show(this, actionName + " 실패\nAlarm/Event Log를 확인하세요.", "Input Cassette", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+            }
+            catch (Exception ex)
+            {
+                WriteAlarm("INPUT-CST-MOTION-EX", actionName + " failed: " + ex.Message);
+                QMC.Common.MessageDialog.Show(this, ex.Message, actionName, MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                if (manualScope != null)
+                    manualScope.Dispose();
+                _manualSequenceRunning = false;
+                SetActionButtonsEnabled(true);
+                RefreshFromMachine();
+            }
         }
 
-        private Task LifterReadyAsync(Form1 host)
+        private bool ConfirmAction(string actionName)
         {
-            var loader = host.Machine.InputLoader;
-            loader.ElevatorZ.ServoOn();
-            loader.FeederY.ServoOn();
-            return Task.CompletedTask;
+            try
+            {
+                DialogResult result = QMC.Common.MessageDialog.Show(this, actionName + " 진행하시겠습니까?", "Input Cassette", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                return result == DialogResult.Yes;
+            }
+            catch (Exception ex)
+            {
+                WriteAlarm("INPUT-CST-CONFIRM", "Confirm failed: " + ex.Message);
+                return false;
+            }
+            finally
+            {
+            }
         }
 
-        private async Task MapAsync(Form1 host)
+        private void SetActionButtonsEnabled(bool enabled)
         {
-            await host.Controller.ScanInputCassetteAsync();
+            try
+            {
+                btnPrev.Enabled = enabled;
+                btnNext.Enabled = enabled;
+                btnInit.Enabled = enabled;
+                btnReady.Enabled = enabled;
+                btnMap.Enabled = enabled;
+                btnLoad.Enabled = enabled;
+                btnUnload.Enabled = enabled;
+            }
+            catch (Exception ex)
+            {
+                WriteAlarm("INPUT-CST-BUTTON", "Button enable failed: " + ex.Message);
+            }
+            finally
+            {
+            }
         }
 
-        private async Task LoadAsync(Form1 host)
+        private async Task<int> LifterInitAsync(Form1 host)
         {
-            await host.Controller.LoadNextWaferAsync();
+            try
+            {
+                var cassette = host != null && host.Machine != null ? host.Machine.InputCassetteUnit : null;
+                var feeder = host != null && host.Machine != null ? host.Machine.InputFeederUnit : null;
+                if (cassette == null || feeder == null)
+                    return -1;
+
+                cassette.InputLifterZ.ResetAlarm();
+                cassette.InputLifterZ.ServoOn();
+                feeder.FeederY.ResetAlarm();
+                feeder.FeederY.ServoOn();
+                int lifterResult = await cassette.InputLifterZ.HomeSearchAsync();
+                if (lifterResult != 0)
+                    return lifterResult;
+                return await feeder.FeederY.HomeSearchAsync();
+            }
+            catch (Exception ex)
+            {
+                WriteAlarm("INPUT-CST-INIT-MOVE", "Lifter init failed: " + ex.Message);
+                return -1;
+            }
+            finally
+            {
+            }
         }
 
-        private async Task UnloadAsync(Form1 host)
+        private async Task<int> LifterReadyAsync(Form1 host)
         {
-            await host.Controller.RetractCurrentWaferAsync();
+            try
+            {
+                var cassette = host != null && host.Machine != null ? host.Machine.InputCassetteUnit : null;
+                var feeder = host != null && host.Machine != null ? host.Machine.InputFeederUnit : null;
+                if (cassette == null || feeder == null)
+                    return -1;
+
+                cassette.InputLifterZ.ServoOn();
+                feeder.FeederY.ServoOn();
+                await Task.CompletedTask;
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                WriteAlarm("INPUT-CST-READY-MOVE", "Lifter ready failed: " + ex.Message);
+                return -1;
+            }
+            finally
+            {
+            }
         }
 
-        private void MoveSlotRel(int delta)
+        private async Task<bool> MapAsync(Form1 host)
         {
-            var host = GetHost();
-            if (host?.Machine == null) return;
-            var loader = host.Machine.InputLoader;
-            double pitch = 6.0;
-            _ = loader.ElevatorZ.MoveRelativeAsync(delta * pitch, 20.0);
+            try
+            {
+                if (!ValidateInputCassetteManualCondition(host, true))
+                    return false;
+
+                var sequence = CreateManualInputSequence(host);
+                return await sequence.ExecuteMappingAsync(CancellationToken.None, false, ResolveManualMoveTimeoutMs(host), SequenceStartMode.Restart) == 0;
+            }
+            catch (Exception ex)
+            {
+                WriteAlarm("INPUT-CST-MAP", "Mapping failed: " + ex.Message);
+                return false;
+            }
+            finally
+            {
+            }
         }
 
-        // ────────────────────────────────────────────────────────────────
-        //  UI 갱신
-        // ────────────────────────────────────────────────────────────────
+        private async Task<bool> LoadAsync(Form1 host)
+        {
+            try
+            {
+                if (!ValidateInputCassetteManualCondition(host, false))
+                    return false;
+
+                var sequence = CreateManualInputSequence(host);
+                return await sequence.ExecuteCassetteLoadingAsync(CancellationToken.None, false, ResolveManualMoveTimeoutMs(host), SequenceStartMode.Restart) == 0;
+            }
+            catch (Exception ex)
+            {
+                WriteAlarm("INPUT-CST-LOAD", "Loading failed: " + ex.Message);
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<bool> UnloadAsync(Form1 host)
+        {
+            try
+            {
+                if (!ValidateInputCassetteManualCondition(host, false))
+                    return false;
+
+                var sequence = CreateManualInputSequence(host);
+                return await sequence.ExecuteCassetteUnloadingAsync(CancellationToken.None, false, ResolveManualMoveTimeoutMs(host), SequenceStartMode.Restart) == 0;
+            }
+            catch (Exception ex)
+            {
+                WriteAlarm("INPUT-CST-UNLOAD", "Unloading failed: " + ex.Message);
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private InputSequence CreateManualInputSequence(Form1 host)
+        {
+            try
+            {
+                var ctx = new MachineSequenceContext(host.Controller, new SequenceSignalBus());
+                var sequence = new InputSequence(ctx);
+                sequence.Configure(SequenceRunMode.Manual);
+                return sequence;
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        private void SelectMaterialSlot(CassetteMaterialRole role, int slotIndex)
+        {
+            try
+            {
+                _selectedCassetteRole = role;
+                _selectedMaterialSlot = slotIndex;
+                RefreshSelectedMaterialDetail();
+                RefreshFromMachine();
+            }
+            catch (Exception ex)
+            {
+                WriteAlarm("INPUT-CST-SLOT", "Slot select failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool ValidateInputCassetteManualCondition(Form1 host, bool mapping)
+        {
+            var cassette = host != null && host.Machine != null ? host.Machine.InputCassetteUnit : null;
+            if (cassette == null || cassette.Config == null || cassette.Recipe == null)
+                return false;
+
+            if (cassette.Config.SlotCount <= 0)
+                return false;
+
+            if (!cassette.CheckWaferCassetteMoveReady())
+                return false;
+
+            if (IsHardwareBypassed(host))
+                return true;
+
+            int cassetteSize = cassette.Config.InchSelect == 0 ? 8 : 12;
+            if (!cassette.IsWaferCassetteExist(cassetteSize))
+                return false;
+
+            return !mapping || cassette.CheckWaferCassetteMappingReady();
+        }
+
+        private static int ResolveManualMoveTimeoutMs(Form1 host)
+        {
+            var cassette = host != null && host.Machine != null ? host.Machine.InputCassetteUnit : null;
+            int configured = cassette != null ? cassette.ResolveWaferLifterZMoveTimeoutMs() : 0;
+            return configured > 0 ? configured : 3000;
+        }
+
+        private static bool IsHardwareBypassed(Form1 host)
+        {
+            var settings = QMC.CDT320.AppSettingsStore.Current;
+            return (settings != null && settings.BypassHardware) ||
+                   (host != null && host.Controller != null && host.Controller.GlobalDryRun);
+        }
+
+        private void RefreshSelectedMaterialDetail()
+        {
+            if (materialDetailView == null)
+                return;
+
+            if (_selectedMaterialSlot < 0)
+            {
+                materialDetailView.Clear();
+                return;
+            }
+
+            var snapshot = MaterialStorage.State;
+            var cassette = snapshot != null && snapshot.Cassettes != null
+                ? snapshot.Cassettes.FirstOrDefault(c => c.Role == _selectedCassetteRole)
+                : null;
+            var slot = cassette != null && cassette.Slots != null &&
+                       _selectedMaterialSlot >= 0 && _selectedMaterialSlot < cassette.Slots.Count
+                ? cassette.Slots[_selectedMaterialSlot]
+                : null;
+            var wafer = snapshot != null && snapshot.Wafers != null && slot != null && !string.IsNullOrEmpty(slot.WaferId)
+                ? snapshot.Wafers.FirstOrDefault(w => w.WaferId == slot.WaferId)
+                : null;
+
+            materialDetailView.SetRows("WAFER MATERIAL", BuildWaferMaterialRows(cassette, slot, wafer));
+        }
+
+        private System.Collections.Generic.IEnumerable<MaterialDetailRow> BuildWaferMaterialRows(CassetteMaterial cassette, CassetteSlotMaterial slot, WaferMaterial wafer)
+        {
+            bool mapped = cassette != null && cassette.IsMapped;
+            string specName = wafer != null ? wafer.TapeFrameSpecName : "";
+            var spec = !string.IsNullOrEmpty(specName) ? MaterialSpecs.FindFrame(specName) : null;
+
+            return new[]
+            {
+                Row("Selected", _selectedCassetteRole + " / SLOT " + (_selectedMaterialSlot + 1).ToString("00"), "", false),
+                Row("Cassette ID", cassette != null ? cassette.CassetteId : "", "", false),
+                Row("Cassette Mapped", cassette != null && cassette.IsMapped ? "Y" : "N", "", false),
+                Row("Slot", slot != null ? (slot.HasWafer ? "HAS WAFER" : "EMPTY") : "", "", false),
+                Row("Wafer ID", wafer != null ? wafer.WaferId : "", "WaferId", mapped),
+                Row("Lot ID", wafer != null ? wafer.CassetteLotId : (cassette != null ? cassette.CassetteLotId : ""), "CassetteLotId", mapped),
+                Row("State", wafer != null ? WaferMaterialStateText.ToDisplayName(wafer.State) : "", "State", mapped),
+                Row("Location", wafer != null && wafer.CurrentLocation != null ? wafer.CurrentLocation.ToString() : "", "", false),
+                Row("Cassette Role", wafer != null ? wafer.SourceCassetteRole.ToString() : "", "", false),
+                Row("Cassette Slot", wafer != null && wafer.SourceSlotNumber >= 0 ? (wafer.SourceSlotNumber + 1).ToString("00") : "", "", false),
+                Row("Cassette Position", wafer != null ? FormatCassettePosition(wafer.CurrentCassetteSlotPosition) : "", "", false),
+                Row("TapeFrame Spec", specName, "TapeFrameSpecName", mapped),
+                Row("Spec Grid X", spec != null ? spec.GridX.ToString() : "", "", false),
+                Row("Spec Grid Y", spec != null ? spec.GridY.ToString() : "", "", false),
+                Row("Spec Pitch X", spec != null ? spec.PitchX.ToString("0.###") : "", "", false),
+                Row("Spec Pitch Y", spec != null ? spec.PitchY.ToString("0.###") : "", "", false),
+                Row("Spec Diameter", spec != null ? spec.OuterDiameterMm.ToString("0.###") : "", "", false),
+                Row("Die Spec", spec != null ? spec.DieSpecName : "", "", false),
+                Row("Updated", wafer != null ? wafer.UpdatedAt.ToString("yyyy-MM-dd HH:mm:ss") : "", "", false)
+            };
+        }
+
+        private static MaterialDetailRow Row(string name, string value, string key, bool editable)
+        {
+            return new MaterialDetailRow
+            {
+                Name = name,
+                Value = value,
+                Key = key,
+                Editable = editable
+            };
+        }
+
+        private void MaterialDetailView_EditRequested(object sender, MaterialDetailEditEventArgs e)
+        {
+            try
+            {
+                if (e == null || e.Row == null)
+                    return;
+
+                var snapshot = MaterialStorage.State;
+                var cassette = snapshot != null && snapshot.Cassettes != null
+                    ? snapshot.Cassettes.FirstOrDefault(c => c.Role == _selectedCassetteRole)
+                    : null;
+
+                if (cassette == null || !cassette.IsMapped)
+                {
+                    RaiseWarning("INPUT-CST-MATERIAL-EDIT", "Material edit requested before mapping.");
+                    QMC.Common.MessageDialog.Show(this, "Mapping 완료된 Cassette Slot에서만 Material을 수정할 수 있습니다.", "Material", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                string newValue;
+                if (!TryEditMaterialValue(e.Row, out newValue))
+                    return;
+
+                bool ok = MaterialStateService.UpdateWaferFieldInMappedCassette(
+                    _selectedCassetteRole,
+                    _selectedMaterialSlot,
+                    e.Row.Key,
+                    newValue);
+
+                WriteEvent("INPUT-CST-MATERIAL", e.Row.Key + " update result=" + ok);
+                if (!ok)
+                {
+                    RaiseWarning("INPUT-CST-MATERIAL-FAIL", e.Row.Key + " update failed.");
+                    QMC.Common.MessageDialog.Show(this, "Material 값을 변경하지 못했습니다.", "Material", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                RefreshSelectedMaterialDetail();
+                RefreshFromMachine();
+            }
+            catch (Exception ex)
+            {
+                WriteAlarm("INPUT-CST-MATERIAL-EX", "Material edit failed: " + ex.Message);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Material", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
+        }
+
+        private bool TryEditMaterialValue(MaterialDetailRow row, out string value)
+        {
+            value = row != null ? row.Value : "";
+            if (row == null)
+                return false;
+
+            if (row.Key == "State")
+            {
+                var states = WaferMaterialStateText.DisplayNames;
+                using (var dialog = new EnumPickerDialog("Wafer State", states, row.Value))
+                {
+                    if (dialog.ShowDialog(this) != DialogResult.OK)
+                        return false;
+                    value = dialog.SelectedValue;
+                    return true;
+                }
+            }
+
+            if (row.Key == "TapeFrameSpecName")
+            {
+                var specs = MaterialSpecs.Data != null && MaterialSpecs.Data.Frames != null
+                    ? MaterialSpecs.Data.Frames.Select(f => f.Name).Where(n => !string.IsNullOrEmpty(n)).ToArray()
+                    : new string[0];
+
+                using (var dialog = new EnumPickerDialog("TapeFrame Spec", specs, row.Value))
+                {
+                    if (dialog.ShowDialog(this) != DialogResult.OK)
+                        return false;
+                    value = dialog.SelectedValue;
+                    return true;
+                }
+            }
+
+            using (var dialog = new MaterialValueEditDialog(row.Name, row.Value))
+            {
+                if (dialog.ShowDialog(this) != DialogResult.OK)
+                    return false;
+                value = dialog.ValueText;
+                return true;
+            }
+        }
+
+        private async Task<int> MoveSlotAsync(Form1 host, int delta)
+        {
+            try
+            {
+                var loader = host != null && host.Machine != null ? host.Machine.InputCassetteUnit : null;
+                if (loader == null || loader.Config == null)
+                    return -1;
+
+                int slotCount = loader.Config.SlotCount;
+                if (slotCount <= 0)
+                    return -1;
+
+                int currentSlot = _selectedMaterialSlot >= 0 ? _selectedMaterialSlot : (host.Controller != null ? host.Controller.CurrentInputSlot : -1);
+                if (currentSlot < 0)
+                    currentSlot = delta >= 0 ? 0 : slotCount - 1;
+
+                int targetSlot = Math.Max(0, Math.Min(slotCount - 1, currentSlot + delta));
+                if (targetSlot == currentSlot)
+                    return 0;
+
+                double targetPosition;
+                if (!MaterialStateService.TryGetCassetteSlotPosition(_selectedCassetteRole, targetSlot, out targetPosition))
+                {
+                    RaiseWarning("INPUT-CST-SLOT-POS", "Cassette slot position data is missing. role=" + _selectedCassetteRole + ", slot=" + targetSlot);
+                    return -1;
+                }
+
+                _selectedMaterialSlot = targetSlot;
+                int moveResult = await loader.MoveWaferLifterZ(targetPosition, false);
+                if (moveResult != 0)
+                    return moveResult;
+
+                int waitResult = await loader.WaitWaferLifterZMoveDone(ResolveManualMoveTimeoutMs(host));
+                RefreshSelectedMaterialDetail();
+                return waitResult;
+            }
+            catch (Exception ex)
+            {
+                WriteAlarm("INPUT-CST-SLOT-MOVE", "Slot move failed: " + ex.Message);
+                return -1;
+            }
+            finally
+            {
+            }
+        }
 
         private void RefreshFromMachine()
         {
-            var host = GetHost();
-            if (host?.Machine == null) return;
-            var loader = host.Machine.InputLoader;
-            var ctrl   = host.Controller;
-
-            if (_lifterPosLabel != null)
-                _lifterPosLabel.Text = loader.ElevatorZ.ActualPosition.ToString("F3") + " mm";
-
-            // 슬롯 LED — WaferMap 상위 6 슬롯만 표시
-            var map = loader.WaferMap;
-            int curSlot = ctrl != null ? ctrl.CurrentInputSlot : -1;
-            for (int i = 0; i < SLOT_COUNT_UI; i++)
+            try
             {
-                Color c;
-                if (map != null && i < map.Count)
+                var host = GetHost();
+                if (host == null || host.Machine == null)
+                    return;
+
+                var loader = host.Machine.InputCassetteUnit;
+                var ctrl = host.Controller;
+                int slotCount = loader.Config != null && loader.Config.SlotCount > 0 ? loader.Config.SlotCount : 0;
+
+                if (_lifterPosLabel != null)
                 {
-                    if (i == curSlot)        c = Color.Cyan;        // 작업 준비
-                    else if (map[i])         c = Color.LimeGreen;   // 웨이퍼 있음
-                    else                     c = Color.LightGray;   // 비어 있음
+                    _lifterPosLabel.Text = AxisUnitConverter.FormatDisplay(loader.InputLifterZ.ActualPosition, loader.InputLifterZ, "0.###", true);
                 }
-                else                         c = Color.LightGray;
-                if (_slotLeds[i].BackColor != c) _slotLeds[i].BackColor = c;
+
+                if (dotCassetteCheck1 != null)
+                    dotCassetteCheck1.IsOn = IsSelectedCassetteLevel(loader, 0);
+                if (dotCassetteCheck2 != null)
+                    dotCassetteCheck2.IsOn = IsSelectedCassetteLevel(loader, 1);
+
+                UpdateCassetteLevelLabels(loader);
+
+                var map = loader.WaferMap;
+                int curSlot = ResolveDisplayedSlot(ctrl);
+                if (lblSlotNoValue != null)
+                    lblSlotNoValue.Text = curSlot >= 0 ? GetCassetteRoleDisplay(_selectedCassetteRole) + " / " + (curSlot + 1).ToString("00") : GetCassetteRoleDisplay(_selectedCassetteRole) + " / -";
+                if (lblSlotStateValue != null)
+                {
+                    string waferId;
+                    WaferMaterialState state;
+                    bool hasWafer;
+                    ResolveDisplayedSlotState(_selectedCassetteRole, curSlot, map, out waferId, out state, out hasWafer);
+                    Color stateColor = GetStateColor(state);
+                    lblSlotStateValue.Text = BuildStateText(state, waferId, false);
+                    lblSlotStateValue.BackColor = stateColor;
+                    lblSlotStateValue.ForeColor = stateColor == Color.Navy ? Color.White : Color.Black;
+                }
+
+                RefreshCassetteLevelViews(loader, map, curSlot, slotCount);
+                RefreshSelectedMaterialDetail();
             }
-        }
-
-        // ────────────────────────────────────────────────────────────────
-        //  헬퍼 빌드
-        // ────────────────────────────────────────────────────────────────
-
-        private static Control BuildAxisBlock(string title, Label valueLabel)
-        {
-            var p = new Panel { Width = 220, Height = 60, Margin = new Padding(4) };
-            p.Controls.Add(new Label { Location = new Point(0, 0),  Size = new Size(220, 24), Text = title, BackColor = Color.Black, ForeColor = Color.White, Font = UiTheme.SectionFont, TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding(6, 0, 0, 0) });
-            valueLabel.Location = new Point(0, 28);
-            valueLabel.Size     = new Size(220, 28);
-            p.Controls.Add(valueLabel);
-            return p;
-        }
-
-        private static Control BuildIoBlock(string title)
-        {
-            var p = new Panel { Width = 200, Height = 30, Margin = new Padding(4) };
-            p.Controls.Add(new IndicatorDot { Location = new Point(6, 8), Size = new Size(12, 12), OnColor = Color.LimeGreen });
-            p.Controls.Add(new Label { Location = new Point(24, 2), Size = new Size(170, 26), Text = title, BackColor = Color.FromArgb(0xD0,0xD0,0xD0), ForeColor = Color.Black, Font = new Font("맑은 고딕", 9F), TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding(6, 0, 0, 0) });
-            return p;
-        }
-
-        private static Control BuildLegend()
-        {
-            var p = new Panel { Size = new Size(260, 70), BackColor = UiTheme.MainBg, BorderStyle = BorderStyle.FixedSingle };
-            void Add(int x, int y, Color color, string text)
+            catch (Exception ex)
             {
-                p.Controls.Add(new Label { Location = new Point(x, y), Size = new Size(28, 18), BackColor = color });
-                p.Controls.Add(new Label { Location = new Point(x + 32, y), Size = new Size(90, 18), Text = text, Font = new Font("맑은 고딕", 9F), TextAlign = ContentAlignment.MiddleLeft });
+                WriteWarning("INPUT-CST-REFRESH", "Refresh failed: " + ex.Message);
             }
-            Add(8, 6,   Color.Cyan,      Lang.T("wi.legend.ready"));
-            Add(130, 6, Color.LimeGreen, Lang.T("wi.legend.empty"));
-            Add(8, 26,  Color.Orange,    Lang.T("wi.legend.working"));
-            Add(130, 26,Color.Red,       Lang.T("wi.legend.finish"));
-            Add(8, 46,  Color.Navy,      Lang.T("wi.legend.workReady"));
-            return p;
+            finally
+            {
+            }
         }
-    }
 
-    internal static class CtrlExt
-    {
-        public static T SetDockFill<T>(this T c) where T : Control { c.Dock = DockStyle.None; return c; }
+        private void UpdateCassetteLevelLabels(QMC.CDT320.InputCassetteUnit loader)
+        {
+            int level = GetSelectedCassetteLevel(loader);
+            if (lblCassetteCheck1 != null)
+            {
+                lblCassetteCheck1.Text = "1단 사용";
+                lblCassetteCheck1.BackColor = Color.White;
+            }
+            if (lblCassetteCheck2 != null)
+            {
+                bool useLevel2 = level >= 2;
+                lblCassetteCheck2.Text = useLevel2 ? "2단 사용" : "2단 미사용";
+                lblCassetteCheck2.BackColor = useLevel2 ? Color.White : Color.FromArgb(0xD0, 0xD0, 0xD0);
+            }
+        }
+
+        private int ResolveDisplayedSlot(QMC.CDT320.MachineController ctrl)
+        {
+            try
+            {
+                if (_selectedMaterialSlot >= 0)
+                    return _selectedMaterialSlot;
+                return ctrl != null ? ctrl.CurrentInputSlot : -1;
+            }
+            catch
+            {
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        private void ResolveDisplayedSlotState(
+            CassetteMaterialRole role,
+            int curSlot,
+            System.Collections.Generic.IReadOnlyList<bool> fallbackMap,
+            out string waferId,
+            out WaferMaterialState state,
+            out bool hasWafer)
+        {
+            waferId = "";
+            state = WaferMaterialState.Empty;
+            hasWafer = false;
+            try
+            {
+                if (curSlot < 0)
+                    return;
+
+                if (TryGetSlotMaterial(role, curSlot, out waferId, out state, out hasWafer))
+                    return;
+
+                hasWafer = fallbackMap != null && curSlot >= 0 && curSlot < fallbackMap.Count && fallbackMap[curSlot];
+                state = hasWafer ? WaferMaterialState.Ready : WaferMaterialState.Empty;
+                waferId = "";
+            }
+            catch (Exception ex)
+            {
+                WriteWarning("INPUT-CST-SLOT-STATE", "Slot state resolve failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private void RefreshCassetteLevelViews(QMC.CDT320.InputCassetteUnit loader, System.Collections.Generic.IReadOnlyList<bool> map, int curSlot, int slotCount)
+        {
+            int levelCount = GetConfiguredCassetteLevelCount(loader);
+            var level1Items = BuildMaterialSlotItems(CassetteMaterialRole.Input1, slotCount, map);
+            var level2Items = BuildMaterialSlotItems(CassetteMaterialRole.Input2, slotCount, null);
+
+            ApplyCassetteLevelLayout(levelCount);
+            UpdateCassetteLevelView(_cassetteSlotView, "INPUT CASSETTE 1단", true, slotCount, level1Items);
+            UpdateCassetteLevelView(_cassetteSlotViewLevel2, "INPUT CASSETTE 2단", levelCount >= 2, slotCount, level2Items);
+        }
+
+        private static bool IsSelectedCassetteLevel(QMC.CDT320.InputCassetteUnit loader, int level)
+        {
+            if (level == 0)
+                return true;
+            return GetConfiguredCassetteLevelCount(loader) >= 2;
+        }
+
+        private static int GetSelectedCassetteLevel(QMC.CDT320.InputCassetteUnit loader)
+        {
+            return GetConfiguredCassetteLevelCount(loader);
+        }
+
+        private static int GetConfiguredCassetteLevelCount(QMC.CDT320.InputCassetteUnit loader)
+        {
+            int configured = loader != null && loader.Config != null ? loader.Config.SelectedCassetteLevel : 0;
+            return configured >= 2 ? 2 : 1;
+        }
+
+        private void ApplyCassetteLevelLayout(int levelCount)
+        {
+            if (cassetteLevelLayout == null || cassetteLevelLayout.ColumnStyles.Count < 2)
+                return;
+
+            bool useLevel2 = levelCount >= 2;
+            cassetteLevelLayout.ColumnStyles[0].SizeType = SizeType.Percent;
+            cassetteLevelLayout.ColumnStyles[0].Width = useLevel2 ? 50F : 100F;
+            cassetteLevelLayout.ColumnStyles[1].SizeType = useLevel2 ? SizeType.Percent : SizeType.Absolute;
+            cassetteLevelLayout.ColumnStyles[1].Width = useLevel2 ? 50F : 0F;
+
+            if (_cassetteSlotView != null)
+                _cassetteSlotView.Visible = true;
+            if (_cassetteSlotViewLevel2 != null)
+                _cassetteSlotViewLevel2.Visible = useLevel2;
+        }
+
+        private static void UpdateCassetteLevelView(CassetteSlotView view, string title, bool active, int slotCount, System.Collections.Generic.IReadOnlyList<CassetteSlotDisplayItem> items)
+        {
+            if (view == null)
+                return;
+
+            view.Title = title;
+            view.EmptyColor = Color.Lime;
+            view.Enabled = active;
+            view.SetSlotCount(slotCount);
+            view.UpdateMaterialSlots(active ? items : null);
+        }
+
+        private static System.Collections.Generic.IReadOnlyList<CassetteSlotDisplayItem> BuildMaterialSlotItems(
+            CassetteMaterialRole role,
+            int slotCount,
+            System.Collections.Generic.IReadOnlyList<bool> fallbackMap)
+        {
+            var items = new CassetteSlotDisplayItem[slotCount];
+            for (int i = 0; i < slotCount; i++)
+            {
+                bool fallbackHasWafer = fallbackMap != null && i < fallbackMap.Count && fallbackMap[i];
+                items[i] = new CassetteSlotDisplayItem
+                {
+                    HasWafer = fallbackHasWafer,
+                    State = fallbackHasWafer ? WaferMaterialState.Ready : WaferMaterialState.Empty
+                };
+            }
+
+            var snapshot = MaterialStorage.State;
+            var cassette = snapshot != null && snapshot.Cassettes != null
+                ? snapshot.Cassettes.FirstOrDefault(c => c.Role == role)
+                : null;
+
+            if (cassette == null || !cassette.IsMapped)
+                return items;
+
+            int count = Math.Min(slotCount, cassette.Slots != null ? cassette.Slots.Count : 0);
+            for (int i = 0; i < count; i++)
+            {
+                var slot = cassette.Slots[i];
+                var wafer = snapshot != null && snapshot.Wafers != null && slot != null && !string.IsNullOrEmpty(slot.WaferId)
+                    ? snapshot.Wafers.FirstOrDefault(w => w.WaferId == slot.WaferId)
+                    : null;
+
+                WaferMaterialState state = wafer != null ? WaferMaterialStateText.Normalize(wafer.State) : WaferMaterialState.Empty;
+                bool hasWafer = slot != null && slot.HasWafer && state != WaferMaterialState.Empty;
+                items[i].HasWafer = hasWafer;
+                items[i].WaferId = hasWafer && slot != null ? slot.WaferId : "";
+                items[i].State = hasWafer ? state : WaferMaterialState.Empty;
+            }
+
+            return items;
+        }
+
+        private static bool TryGetSlotMaterial(CassetteMaterialRole role, int slotIndex, out string waferId, out WaferMaterialState state, out bool hasWafer)
+        {
+            waferId = "";
+            state = WaferMaterialState.Empty;
+            hasWafer = false;
+            try
+            {
+                var snapshot = MaterialStorage.State;
+                var cassette = snapshot != null && snapshot.Cassettes != null
+                    ? snapshot.Cassettes.FirstOrDefault(c => c.Role == role)
+                    : null;
+                var slot = cassette != null && cassette.Slots != null && slotIndex >= 0 && slotIndex < cassette.Slots.Count
+                    ? cassette.Slots[slotIndex]
+                    : null;
+                if (slot == null)
+                    return false;
+
+                var wafer = snapshot != null && snapshot.Wafers != null && !string.IsNullOrEmpty(slot.WaferId)
+                    ? snapshot.Wafers.FirstOrDefault(w => w.WaferId == slot.WaferId)
+                    : null;
+                waferId = slot.WaferId ?? "";
+                state = wafer != null ? WaferMaterialStateText.Normalize(wafer.State) : (slot.HasWafer ? WaferMaterialState.Ready : WaferMaterialState.Empty);
+                hasWafer = slot.HasWafer && state != WaferMaterialState.Empty;
+                return cassette != null && cassette.IsMapped;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private static string GetCassetteRoleDisplay(CassetteMaterialRole role)
+        {
+            try
+            {
+                return role == CassetteMaterialRole.Input2 ? "2단" : "1단";
+            }
+            catch
+            {
+                return "1단";
+            }
+            finally
+            {
+            }
+        }
+
+        private static string BuildStateText(WaferMaterialState state, string waferId, bool includeWaferId)
+        {
+            try
+            {
+                WaferMaterialState normalized = WaferMaterialStateText.Normalize(state);
+                string stateText = WaferMaterialStateText.ToDisplayName(normalized);
+                if (!includeWaferId || normalized == WaferMaterialState.Empty || string.IsNullOrWhiteSpace(waferId))
+                    return stateText;
+                return stateText + " / " + waferId;
+            }
+            catch
+            {
+                return "EMPTY";
+            }
+            finally
+            {
+            }
+        }
+
+        private static string FormatCassettePosition(double position)
+        {
+            try
+            {
+                if (double.IsNaN(position))
+                    return "";
+                return position.ToString("0.###") + " mm";
+            }
+            catch
+            {
+                return "";
+            }
+            finally
+            {
+            }
+        }
+
+        private static Color GetStateColor(WaferMaterialState state)
+        {
+            try
+            {
+                switch (WaferMaterialStateText.Normalize(state))
+                {
+                    case WaferMaterialState.Ready:
+                        return Color.Cyan;
+                    case WaferMaterialState.WorkReady:
+                        return Color.Navy;
+                    case WaferMaterialState.Working:
+                        return Color.Orange;
+                    case WaferMaterialState.Finish:
+                        return Color.Red;
+                    default:
+                        return Color.Lime;
+                }
+            }
+            catch
+            {
+                return Color.Lime;
+            }
+            finally
+            {
+            }
+        }
+
+        protected override void OnHandleDestroyed(EventArgs e)
+        {
+            try
+            {
+                _refreshTimer?.Stop();
+                _refreshTimer?.Dispose();
+            }
+            catch (Exception ex)
+            {
+                WriteWarning("INPUT-CST-DISPOSE", "Dispose failed: " + ex.Message);
+            }
+            finally
+            {
+                base.OnHandleDestroyed(e);
+            }
+        }
+
+        private static void WriteEvent(string code, string message)
+        {
+            try
+            {
+                EventLogger.Write(EventKind.Event, "UI", code, message);
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        private static void WriteWarning(string code, string message)
+        {
+            try
+            {
+                EventLogger.Write(EventKind.Warning, "UI", code, message);
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        private static void WriteAlarm(string code, string message)
+        {
+            try
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", code, message);
+                AlarmManager.Raise(AlarmSeverity.Warning, code, LogSource, message);
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        private static void RaiseWarning(string code, string message)
+        {
+            try
+            {
+                EventLogger.Write(EventKind.Warning, "UI", code, message);
+                AlarmManager.Raise(AlarmSeverity.Warning, code, LogSource, message);
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
     }
 }
+
+

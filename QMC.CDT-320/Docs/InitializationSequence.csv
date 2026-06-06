@@ -1,0 +1,31 @@
+StepNo,GroupName,Phase,TargetType,Target,Command,Enabled,Description
+10,PickerZ,Home,Axis,FrontPickerZ0;FrontPickerZ1;FrontPickerZ2;FrontPickerZ3;RearPickerZ0;RearPickerZ1;RearPickerZ2;RearPickerZ3,Home,TRUE,Picker Z axes home first to secure vertical clearance.
+10,InputStageNeedleZ,Home,Axis,NeedleZ;EjectPinZ,Home,TRUE,Input stage needle vertical axes home before planar stage axes.
+10,OutputStageZ,Home,Axis,GoodStage_StageZ;NgStage_StageZ,Home,TRUE,Output stage Z axes home before Y axes.
+20,PickerT,Home,Axis,FrontPickerT0;FrontPickerT1;FrontPickerT2;FrontPickerT3;RearPickerT0;RearPickerT1;RearPickerT2;RearPickerT3,Home,TRUE,Picker T axes home after Picker Z clearance.
+20,InputStageZ,Home,Axis,ExpanderZ,Home,TRUE,ExpanderZ home after needle vertical axes.
+30,FrontPickerY,Home,Axis,FrontPickerY -> Avoid,Home,TRUE,"FrontPickerY home, then move to Avoid in axis post hook."
+40,RearPickerY,Home,Axis,RearPickerY -> Avoid,Home,TRUE,"RearPickerY home, then move to Avoid in axis post hook."
+40,Vision,Home,Axis,FrontSideVisionY;RearSideVisionY,Home,TRUE,Side vision axes home.
+40,CylinderTemplate,PreActions,Cylinder,ReticleLift,CylinderBwd,FALSE,Template only. Confirm safe direction before enabling.
+40,CylinderTemplate,PreActions,Cylinder,ReticleSideSlideFront,CylinderBwd,FALSE,Template only. Confirm safe direction before enabling.
+40,CylinderTemplate,PreActions,Cylinder,ReticleSideSlideRear,CylinderBwd,FALSE,Template only. Confirm safe direction before enabling.
+50,InputFeederClamp,PreActions,Cylinder,InputFeederClamp,CylinderBwd,TRUE,Input feeder must be unclamped before InputFeederY home.
+60,InputFeederLift,PreActions,Cylinder,InputFeederLift,CylinderFwd,TRUE,Input feeder must be up before InputFeederY home.
+701,InputFeeder,Home,Axis,FeederY,Home,TRUE,70-1: InputFeederY home. SharedRailX/InputFeeder relation is checked in prepare hook.
+702,SharedRailX,Home,Axis,CameraX;FrontPickerX;RearPickerX;OutputVisionX,Home,TRUE,70-2: Common X rail axes home after InputFeeder relation check.
+80,InputCassette,Home,Axis,InputLifterZ,Home,TRUE,Input cassette lifter Z home after InputFeederY is safe.
+80,InputStage,Home,Axis,StageY;StageT,Home,TRUE,StageY/StageT home. StageY moves to Avoid before NeedleBlockX.
+90,InputStageNeedleX,Home,Axis,NeedleBlockX,Home,TRUE,NeedleBlockX home after StageY home and Avoid move.
+90,OutputFeederClamp,PreActions,Cylinder,OutputFeederClamp,CylinderBwd,TRUE,Output feeder must be unclamped before OutputFeederY home.
+90,OutputFeederLift,PreActions,Cylinder,OutputFeederLift,CylinderFwd,TRUE,Output feeder must be up before OutputFeederY home.
+901,OutputFeeder,Home,Axis,OutputFeederY,Home,TRUE,90-1: OutputFeederY home. SharedRailX/OutputFeeder relation is checked in prepare hook.
+902,SharedRailXOutput,Home,Axis,CameraX;FrontPickerX;RearPickerX;OutputVisionX,Home,TRUE,90-2: Shared rail X output-side relation check step. Already homed axes are skipped.
+100,NGBinGuideClamp,PreActions,Cylinder,NGBinGuideClamp,CylinderBwd,FALSE,NG bin guide clamp UnClamp. Disabled until field direction is confirmed.
+110,NGBinGuideClampLift,PreActions,Cylinder,NGBinGuideClampLift,CylinderBwd,FALSE,NG bin guide clamp lift UP. Disabled until field direction is confirmed.
+120,NGBinGuideLift,PreActions,Cylinder,NGBinGuideLift,CylinderBwd,FALSE,NG bin guide lift UP. Disabled until field direction is confirmed.
+130,GoodBinGuideClamp,PreActions,Cylinder,GoodBinGuideClamp,CylinderBwd,FALSE,Good bin guide clamp UnClamp. Disabled until field direction is confirmed.
+140,GoodBinGuideClampLift,PreActions,Cylinder,GoodBinGuideClampLift,CylinderBwd,FALSE,Good bin guide clamp lift UP. Disabled until field direction is confirmed.
+150,GoodBinGuideLift,PreActions,Cylinder,GoodBinGuideLift,CylinderBwd,FALSE,Good bin guide lift DOWN. Disabled until field direction is confirmed.
+160,OutputStage,Home,Axis,GoodStage_StageY;NgStage_StageY,Home,TRUE,Output stage Y axes home after feeder relation and bin guide template steps.
+170,OutputCassette,Home,Axis,OutputLifterZ,Home,TRUE,Output cassette lifter Z home after OutputFeederY is safe.

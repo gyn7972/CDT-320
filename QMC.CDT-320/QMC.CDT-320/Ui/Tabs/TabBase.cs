@@ -190,5 +190,28 @@ namespace QMC.CDT_320.Ui.Tabs
                 AccessControl.Apply(page);
             }
         }
+
+        /// <summary>디자이너에서 이미 생성·배치된 <see cref="SidebarButton"/>을 TabBase 인프라에 등록한다.
+        /// (권한 태그 / 페이지 팩토리 / 클릭 핸들러만 연결하며, 컨트롤 자체의 부모 배치는 디자이너가 담당.)</summary>
+        protected SidebarButton RegisterSidebarButton(
+            SidebarButton btn,
+            string i18nKey,
+            UserLevel? minLevel           = null,
+            Func<UserControl> pageFactory = null)
+        {
+            if (btn == null) return null;
+
+            btn.Tag  = minLevel.HasValue
+                          ? ("i18n:" + i18nKey + ";level:" + minLevel.Value)
+                          : ("i18n:" + i18nKey);
+            btn.Text = Lang.T(i18nKey);
+
+            string key = i18nKey;
+            btn.Click += (s, e) => ShowPage(key);
+
+            SidebarButtons[key] = btn;
+            if (pageFactory != null) PageFactories[key] = pageFactory;
+            return btn;
+        }
     }
 }
