@@ -1,4 +1,5 @@
 ﻿using System;
+using QMC.Common.IO;
 using QMC.Common.Motion;
 
 namespace QMC.CDT320.Interlocks
@@ -34,7 +35,15 @@ namespace QMC.CDT320.Interlocks
 
             // 움직이지 않아야함.
             if (cassette != null && cassette.InputLifterZ != null && cassette.InputLifterZ.IsMoving)
-                return MotionGuardRuleHelpers.Block("InputFeederY", "InputLifterZ is moving. InputFeederY move is blocked.", out reason);
+                return MotionGuardRuleHelpers.Block(
+                    "InputFeederY",
+                    request.MoveKind == MotionGuardMoveKind.AxisHome
+                        ? "InputLifterZ is moving. InputFeederY home is blocked."
+                        : "InputLifterZ is moving. InputFeederY move is blocked.",
+                    out reason);
+
+            if (request.MoveKind == MotionGuardMoveKind.AxisHome)
+                return VerifyInputFeederYHome(machine, out reason);
 
             if (stage == null)
                 return true;
@@ -46,6 +55,46 @@ namespace QMC.CDT320.Interlocks
                 return MotionGuardRuleHelpers.Block("InputFeederY", "InputStage ExpanderZ must be at Loading or Unloading position.", out reason);
 
 
+
+            return true;
+        }
+
+        private static bool VerifyInputFeederYHome(CDT320_Machine machine, out string reason)
+        {
+            reason = string.Empty;
+            if (machine == null)
+                return true;
+
+            if (!IsInputVisionXInAvoidPosition(machine.InputStageUnit))
+                return MotionGuardRuleHelpers.Block(
+                    "InputFeederY",
+                    "InputVisionX must be at Avoid position before InputFeederY home.",
+                    out reason);
+
+            if (!IsFrontPickerXInAvoidPosition(machine.PickerFrontUnit))
+                return MotionGuardRuleHelpers.Block(
+                    "InputFeederY",
+                    "FrontPickerX must be at Avoid position before InputFeederY home.",
+                    out reason);
+
+            if (!IsRearPickerXInAvoidPosition(machine.PickerRearUnit))
+                return MotionGuardRuleHelpers.Block(
+                    "InputFeederY",
+                    "RearPickerX must be at Avoid position before InputFeederY home.",
+                    out reason);
+
+            InputFeederUnit feeder = machine.InputFeederUnit;
+            if (!IsFeederUnclamp(feeder))
+                return MotionGuardRuleHelpers.Block(
+                    "InputFeederY",
+                    "InputFeeder must be unclamped before InputFeederY home.",
+                    out reason);
+
+            if (!IsFeederUp(feeder))
+                return MotionGuardRuleHelpers.Block(
+                    "InputFeederY",
+                    "InputFeeder must be up before InputFeederY home.",
+                    out reason);
 
             return true;
         }
@@ -104,6 +153,55 @@ namespace QMC.CDT320.Interlocks
 
             StageAxisPositions waferZ = stage.Recipe != null ? stage.Recipe.WaferZ : null;
             return waferZ != null && IsAt(stage.ExpanderZ, waferZ.ReadyPosition);
+        }
+
+        private static bool IsInputVisionXInAvoidPosition(InputStageUnit stage)
+        {
+            if (stage == null)
+                return true;
+
+            StageAxisPositions visionX = stage.Recipe != null ? stage.Recipe.VisionX : null;
+            return visionX != null && IsAt(stage.CameraX, visionX.AvoidPosition);
+        }
+
+        private static bool IsFrontPickerXInAvoidPosition(PickerFrontUnit picker)
+        {
+            if (picker == null)
+                return true;
+
+            return IsAt(picker.PickerX, picker.GetPickerTeachingPosition(PickerAxis.PickerX, "AvoidPosition"));
+        }
+
+        private static bool IsRearPickerXInAvoidPosition(PickerRearUnit picker)
+        {
+            if (picker == null)
+                return true;
+
+            return IsAt(picker.PickerX, picker.GetPickerTeachingPosition(PickerAxis.PickerX, "AvoidPosition"));
+        }
+
+        private static bool IsFeederUp(InputFeederUnit feeder)
+        {
+            if (feeder == null)
+                return true;
+
+            if (feeder.IsWaferFeederUp())
+                return true;
+
+            BaseCylinder cylinder = feeder.InputFeederLift;
+            return cylinder != null && cylinder.IsFwd;
+        }
+
+        private static bool IsFeederUnclamp(InputFeederUnit feeder)
+        {
+            if (feeder == null)
+                return true;
+
+            if (feeder.IsWaferFeederUnclamp())
+                return true;
+
+            BaseCylinder cylinder = feeder.InputFeederClamp;
+            return cylinder != null && cylinder.IsBwd;
         }
 
         private static bool IsAt(BaseAxis axis, double target)
