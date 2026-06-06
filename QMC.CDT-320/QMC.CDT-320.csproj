@@ -852,6 +852,9 @@
     <EmbeddedResource Include="Ui\Pages\Recipe\OutputCassetteRecipePage.resx">
       <DependentUpon>OutputCassetteRecipePage.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\Recipe\OutputFeederRecipePage.resx">
+      <DependentUpon>OutputFeederRecipePage.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\Recipe\OutputStageRecipePage.resx">
       <DependentUpon>OutputStageRecipePage.cs</DependentUpon>
     </EmbeddedResource>

@@ -27,7 +27,7 @@ namespace QMC.CDT320
     public enum VisionAxis { FrontSideVisionY, RearSideVisionY }
 
     /// <summary>OutputStage 시트에 정의된 축입니다.</summary>
-    public enum BinStageAxis { NgBinY, NgBinZ, GoodBinY, VisionX }
+    public enum BinStageAxis { NgBinY, NgBinZ, GoodBinY, GoodBinZ, VisionX }
 
     /// <summary>Bin 계열 좌우/양불 작업 영역입니다.</summary>
     public enum BinSide { Ng, Good }

@@ -132,7 +132,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             0,
             0});
             this._nGoodMax.Name = "_nGoodMax";
-            this._nGoodMax.Size = new System.Drawing.Size(832, 27);
+            this._nGoodMax.Size = new System.Drawing.Size(832, 23);
             this._nGoodMax.TabIndex = 2;
             this._nGoodMax.Value = new decimal(new int[] {
             1,
@@ -162,7 +162,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             0,
             0});
             this._nNgMax.Name = "_nNgMax";
-            this._nNgMax.Size = new System.Drawing.Size(832, 27);
+            this._nNgMax.Size = new System.Drawing.Size(832, 23);
             this._nNgMax.TabIndex = 4;
             this._nNgMax.Value = new decimal(new int[] {
             1,
@@ -192,7 +192,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             0,
             0});
             this._nDiesPerWafer.Name = "_nDiesPerWafer";
-            this._nDiesPerWafer.Size = new System.Drawing.Size(832, 27);
+            this._nDiesPerWafer.Size = new System.Drawing.Size(832, 23);
             this._nDiesPerWafer.TabIndex = 6;
             this._nDiesPerWafer.Value = new decimal(new int[] {
             1,
@@ -222,7 +222,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             0,
             0});
             this._nWafersPerBatch.Name = "_nWafersPerBatch";
-            this._nWafersPerBatch.Size = new System.Drawing.Size(832, 27);
+            this._nWafersPerBatch.Size = new System.Drawing.Size(832, 23);
             this._nWafersPerBatch.TabIndex = 8;
             this._nWafersPerBatch.Value = new decimal(new int[] {
             1,
@@ -289,7 +289,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this._tbDefaultGood.Font = new System.Drawing.Font("Consolas", 10F);
             this._tbDefaultGood.Location = new System.Drawing.Point(233, 247);
             this._tbDefaultGood.Name = "_tbDefaultGood";
-            this._tbDefaultGood.Size = new System.Drawing.Size(832, 27);
+            this._tbDefaultGood.Size = new System.Drawing.Size(832, 23);
             this._tbDefaultGood.TabIndex = 14;
             // 
             // OutputSubsetPage

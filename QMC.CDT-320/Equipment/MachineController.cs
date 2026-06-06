@@ -2982,8 +2982,8 @@ namespace QMC.CDT320
                 await Task.WhenAll(
                     SharedRailXMotionRuntime.MoveAxisAsync(front.ArmX, placeArmX + offX,
                                                            front.Recipe?.ArmXVelocity ?? 2000.0),
-                    outStage.StageY.MoveAbsoluteAsync(outStage.Setup.HomePositionY + offY,
-                                                     outStage.Recipe?.YVelocity ?? 500.0),
+                    outStage.StageY.MoveAbsoluteAsync(outStage.Recipe.HomePositionY + offY,
+                                                     ResolveAxisDefaultVelocity(outStage.StageY)),
                     picker.PickerT.MoveAbsoluteAsync(offT, picker.Recipe.ThetaVelocity)
                 );
 
@@ -3033,11 +3033,11 @@ namespace QMC.CDT320
                     // GoodStage Z 異⑸룎 ?뚰뵾濡??섍컯, NgStage Z ?묒뾽 ?꾩튂濡??곸듅
                     await Task.WhenAll(
                         _machine.OutputStageUnit.GoodStage.StageZ.MoveAbsoluteAsync(
-                            _machine.OutputStageUnit.GoodStage.Setup.AvoidPositionZ,
-                            _machine.OutputStageUnit.GoodStage.Recipe?.ZVelocity ?? 100.0),
+                            _machine.OutputStageUnit.GoodStage.Recipe.AvoidPositionZ,
+                            ResolveAxisDefaultVelocity(_machine.OutputStageUnit.GoodStage.StageZ)),
                         _machine.OutputStageUnit.NgStage.StageZ.MoveAbsoluteAsync(
-                            _machine.OutputStageUnit.NgStage.Setup.WorkPositionZ,
-                            _machine.OutputStageUnit.NgStage.Recipe?.ZVelocity ?? 100.0)
+                            _machine.OutputStageUnit.NgStage.Recipe.WorkPositionZ,
+                            ResolveAxisDefaultVelocity(_machine.OutputStageUnit.NgStage.StageZ))
                     );
                 }
                 catch (Exception ex) { Log("[PLACE] Bin ?꾪솚 ex: " + ex.Message); }

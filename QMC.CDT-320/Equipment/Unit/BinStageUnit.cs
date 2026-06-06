@@ -12,6 +12,7 @@ namespace QMC.CDT320
             RegisterAxis(BinStageAxis.NgBinY, "NgBinY");
             RegisterAxis(BinStageAxis.NgBinZ, "NgBinZ");
             RegisterAxis(BinStageAxis.GoodBinY, "GoodBinY");
+            RegisterAxis(BinStageAxis.GoodBinZ, "GoodBinZ");
             RegisterAxis(BinStageAxis.VisionX, "BinStageVisionX");
 
             RegisterInput("NgGuideUp", "NgBinGuideUp");

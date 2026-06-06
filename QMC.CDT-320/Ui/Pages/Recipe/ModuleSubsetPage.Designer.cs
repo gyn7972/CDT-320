@@ -145,7 +145,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             0,
             0});
             this._nPickRetry.Name = "_nPickRetry";
-            this._nPickRetry.Size = new System.Drawing.Size(832, 27);
+            this._nPickRetry.Size = new System.Drawing.Size(832, 23);
             this._nPickRetry.TabIndex = 2;
             this._nPickRetry.Value = new decimal(new int[] {
             1,
@@ -175,7 +175,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             0,
             0});
             this._nPickDelay.Name = "_nPickDelay";
-            this._nPickDelay.Size = new System.Drawing.Size(832, 27);
+            this._nPickDelay.Size = new System.Drawing.Size(832, 23);
             this._nPickDelay.TabIndex = 4;
             // 
             // lblPlaceDelay
@@ -200,7 +200,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             0,
             0});
             this._nPlaceDelay.Name = "_nPlaceDelay";
-            this._nPlaceDelay.Size = new System.Drawing.Size(832, 27);
+            this._nPlaceDelay.Size = new System.Drawing.Size(832, 23);
             this._nPlaceDelay.TabIndex = 6;
             // 
             // lblColletHeader
@@ -267,7 +267,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             0,
             0});
             this._nColletInterval.Name = "_nColletInterval";
-            this._nColletInterval.Size = new System.Drawing.Size(832, 27);
+            this._nColletInterval.Size = new System.Drawing.Size(832, 23);
             this._nColletInterval.TabIndex = 11;
             this._nColletInterval.Value = new decimal(new int[] {
             1,

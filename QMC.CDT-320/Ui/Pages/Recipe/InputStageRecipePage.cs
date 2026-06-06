@@ -15,22 +15,37 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 {
     public partial class InputStageRecipePage : PageBase
     {
+        private enum StagePositionKind
+        {
+            Avoid,
+            Load,
+            Process,
+            Unload,
+            Ready,
+            Reticle
+        }
+
         private sealed class StageTeachingPosition
         {
             public StageTeachingPosition(
-                string displayName,
+                string axisLabel,
+                StagePositionKind kind,
                 Func<InputStageUnit, BaseAxis> axisGetter,
                 Func<InputStageUnit, StageAxisPositions> positionSetGetter,
                 Func<StageAxisPositions, double> getter,
                 Action<StageAxisPositions, double> setter)
             {
-                DisplayName = displayName;
+                AxisLabel = axisLabel;
+                Kind = kind;
+                DisplayName = GetPositionLabel(kind) + " - " + axisLabel;
                 AxisGetter = axisGetter;
                 PositionSetGetter = positionSetGetter;
                 Getter = getter;
                 Setter = setter;
             }
 
+            public string AxisLabel { get; private set; }
+            public StagePositionKind Kind { get; private set; }
             public string DisplayName { get; private set; }
             public Func<InputStageUnit, BaseAxis> AxisGetter { get; private set; }
             public Func<InputStageUnit, StageAxisPositions> PositionSetGetter { get; private set; }
@@ -47,29 +62,130 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
         private static StageTeachingPosition[] CreateTeachingPositions()
         {
+            var axes = new List<StageTeachingAxis>();
+            AddTeachingAxis(axes, "WAFER Y", unit => unit.StageY, unit => unit.Recipe.WaferY);
+            AddTeachingAxis(axes, "WAFER T", unit => unit.StageT, unit => unit.Recipe.WaferT);
+            AddTeachingAxis(axes, "EXPANDER Z", unit => unit.ExpanderZ, unit => unit.Recipe.WaferZ);
+            AddTeachingAxis(axes, "VISION X", unit => unit.CameraX, unit => unit.Recipe.VisionX, false, false);
+            AddTeachingAxis(axes, "NEEDLE X", unit => unit.NeedleBlockX, unit => unit.Recipe.NeedleX, false, false);
+            AddTeachingAxis(axes, "NEEDLE Z", unit => unit.NeedleZ, unit => unit.Recipe.NeedleZ);
+            AddTeachingAxis(axes, "EJECT PIN Z", unit => unit.EjectPinZ, unit => unit.Recipe.EjectPinZ, false, false);
+
             var positions = new List<StageTeachingPosition>();
-            AddAxisTeachingPositions(positions, "WAFER Y", unit => unit.StageY, unit => unit.Recipe.WaferY);
-            AddAxisTeachingPositions(positions, "WAFER T", unit => unit.StageT, unit => unit.Recipe.WaferT);
-            AddAxisTeachingPositions(positions, "EXPANDER Z", unit => unit.ExpanderZ, unit => unit.Recipe.WaferZ);
-            AddAxisTeachingPositions(positions, "VISION X", unit => unit.CameraX, unit => unit.Recipe.VisionX);
-            AddAxisTeachingPositions(positions, "NEEDLE X", unit => unit.NeedleBlockX, unit => unit.Recipe.NeedleX);
-            AddAxisTeachingPositions(positions, "NEEDLE Z", unit => unit.NeedleZ, unit => unit.Recipe.NeedleZ);
-            AddAxisTeachingPositions(positions, "EJECT PIN Z", unit => unit.EjectPinZ, unit => unit.Recipe.EjectPinZ);
+            foreach (StagePositionKind kind in new[] { StagePositionKind.Avoid, StagePositionKind.Load, StagePositionKind.Process, StagePositionKind.Unload, StagePositionKind.Ready, StagePositionKind.Reticle })
+            {
+                foreach (StageTeachingAxis axis in axes)
+                {
+                    if (!axis.Supports(kind))
+                        continue;
+
+                    AddTeachingPosition(positions, axis, kind);
+                }
+            }
+
             return positions.ToArray();
         }
 
-        private static void AddAxisTeachingPositions(
-            List<StageTeachingPosition> positions,
+        private sealed class StageTeachingAxis
+        {
+            public StageTeachingAxis(
+                string axisLabel,
+                Func<InputStageUnit, BaseAxis> axisGetter,
+                Func<InputStageUnit, StageAxisPositions> positionSetGetter,
+                bool includeLoad,
+                bool includeUnload)
+            {
+                AxisLabel = axisLabel;
+                AxisGetter = axisGetter;
+                PositionSetGetter = positionSetGetter;
+                IncludeLoad = includeLoad;
+                IncludeUnload = includeUnload;
+            }
+
+            public string AxisLabel { get; private set; }
+            public Func<InputStageUnit, BaseAxis> AxisGetter { get; private set; }
+            public Func<InputStageUnit, StageAxisPositions> PositionSetGetter { get; private set; }
+            public bool IncludeLoad { get; private set; }
+            public bool IncludeUnload { get; private set; }
+
+            public bool Supports(StagePositionKind kind)
+            {
+                if (kind == StagePositionKind.Load)
+                    return IncludeLoad;
+                if (kind == StagePositionKind.Unload)
+                    return IncludeUnload;
+                return true;
+            }
+        }
+
+        private static void AddTeachingAxis(
+            List<StageTeachingAxis> axes,
             string axisLabel,
             Func<InputStageUnit, BaseAxis> axisGetter,
-            Func<InputStageUnit, StageAxisPositions> positionSetGetter)
+            Func<InputStageUnit, StageAxisPositions> positionSetGetter,
+            bool includeLoad = true,
+            bool includeUnload = true)
         {
-            positions.Add(new StageTeachingPosition(axisLabel + " AVOID POSITION", axisGetter, positionSetGetter, set => set.AvoidPosition, (set, value) => set.AvoidPosition = value));
-            positions.Add(new StageTeachingPosition(axisLabel + " LOAD POSITION", axisGetter, positionSetGetter, set => set.LoadPosition, (set, value) => set.LoadPosition = value));
-            positions.Add(new StageTeachingPosition(axisLabel + " PROCESS POSITION", axisGetter, positionSetGetter, set => set.ProcessPosition, (set, value) => set.ProcessPosition = value));
-            positions.Add(new StageTeachingPosition(axisLabel + " UNLOAD POSITION", axisGetter, positionSetGetter, set => set.UnloadPosition, (set, value) => set.UnloadPosition = value));
-            positions.Add(new StageTeachingPosition(axisLabel + " READY POSITION", axisGetter, positionSetGetter, set => set.ReadyPosition, (set, value) => set.ReadyPosition = value));
-            positions.Add(new StageTeachingPosition(axisLabel + " RETICLE POSITION", axisGetter, positionSetGetter, set => set.ReticlePosition, (set, value) => set.ReticlePosition = value));
+            axes.Add(new StageTeachingAxis(axisLabel, axisGetter, positionSetGetter, includeLoad, includeUnload));
+        }
+
+        private static void AddTeachingPosition(
+            List<StageTeachingPosition> positions,
+            StageTeachingAxis axis,
+            StagePositionKind kind,
+            Func<StageAxisPositions, double> getter,
+            Action<StageAxisPositions, double> setter)
+        {
+            positions.Add(new StageTeachingPosition(axis.AxisLabel, kind, axis.AxisGetter, axis.PositionSetGetter, getter, setter));
+        }
+
+        private static void AddTeachingPosition(
+            List<StageTeachingPosition> positions,
+            StageTeachingAxis axis,
+            StagePositionKind kind)
+        {
+            switch (kind)
+            {
+                case StagePositionKind.Avoid:
+                    AddTeachingPosition(positions, axis, kind, set => set.AvoidPosition, (set, value) => set.AvoidPosition = value);
+                    break;
+                case StagePositionKind.Load:
+                    AddTeachingPosition(positions, axis, kind, set => set.LoadPosition, (set, value) => set.LoadPosition = value);
+                    break;
+                case StagePositionKind.Process:
+                    AddTeachingPosition(positions, axis, kind, set => set.ProcessPosition, (set, value) => set.ProcessPosition = value);
+                    break;
+                case StagePositionKind.Unload:
+                    AddTeachingPosition(positions, axis, kind, set => set.UnloadPosition, (set, value) => set.UnloadPosition = value);
+                    break;
+                case StagePositionKind.Ready:
+                    AddTeachingPosition(positions, axis, kind, set => set.ReadyPosition, (set, value) => set.ReadyPosition = value);
+                    break;
+                case StagePositionKind.Reticle:
+                    AddTeachingPosition(positions, axis, kind, set => set.ReticlePosition, (set, value) => set.ReticlePosition = value);
+                    break;
+            }
+        }
+
+        private static string GetPositionLabel(StagePositionKind kind)
+        {
+            switch (kind)
+            {
+                case StagePositionKind.Avoid:
+                    return "AVOID POSITION";
+                case StagePositionKind.Load:
+                    return "LOAD POSITION";
+                case StagePositionKind.Process:
+                    return "PROCESS POSITION";
+                case StagePositionKind.Unload:
+                    return "UNLOAD POSITION";
+                case StagePositionKind.Ready:
+                    return "READY POSITION";
+                case StagePositionKind.Reticle:
+                    return "RETICLE POSITION";
+                default:
+                    return kind.ToString().ToUpperInvariant() + " POSITION";
+            }
         }
 
         public InputStageRecipePage() : this("recipe.inputStage")
@@ -196,6 +312,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 _refreshTimer.Interval = 250;
                 _refreshTimer.Tick += RefreshTimer_Tick;
                 optionParameterGrid.ParameterValueChanged += ParameterGrid_ParameterValueChanged;
+                optionParameterGrid.ParameterRowDoubleClicked += OptionParameterGrid_RowDoubleClicked;
                 waitParameterGrid.ParameterValueChanged += ParameterGrid_ParameterValueChanged;
 
                 jogAxisMoveControl.SpeedControl = jogSpeedControl;
@@ -212,7 +329,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 grpIo.ContextMenuStrip = new ContextMenuStrip();
                 grpIo.ContextMenuStrip.Items.Add("Input stage I/O 상태를 다시 읽습니다.", null, IoRefresh_Click);
 
-                _toolTip.SetToolTip(optionParameterGrid, "Input Stage 티칭 위치와 설정값을 편집합니다.");
+                _toolTip.SetToolTip(optionParameterGrid, "이름 셀 더블클릭: 현재 위치 티칭, 값 셀 더블클릭: 직접 편집");
                 _toolTip.SetToolTip(waitParameterGrid, "Input Stage 대기 관련 파라미터를 표시합니다.");
                 _toolTip.SetToolTip(ioCylinderPanel, "Input Stage 출력 상태를 확인하고 제어합니다.");
                 _toolTip.SetToolTip(jogAxisMoveControl, "Input Stage 축을 Unit jog 경로로 이동합니다.");
@@ -233,50 +350,73 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             manualScrollPanel.HorizontalScroll.Visible = false;
 
             manualLayout.Dock = DockStyle.Top;
+            BuildManualActionButtons();
+        }
 
-            BindTeachingActionButton(btnLoadingMove, "WAFER Y AVOID POSITION");
-            BindTeachingActionButton(btnCenterMove, "WAFER Y LOAD POSITION");
-            BindTeachingActionButton(btnBarcodeMove, "WAFER Y PROCESS POSITION");
-            BindTeachingActionButton(btnFirstDieMove, "WAFER Y UNLOAD POSITION");
-            BindTeachingActionButton(btnPickUpTest, "WAFER Y READY POSITION");
-            BindTeachingActionButton(btnNeedleUpMove, "WAFER Y RETICLE POSITION");
-            BindTeachingActionButton(btnNeedleDownMove, "WAFER T AVOID POSITION");
-            BindTeachingActionButton(btnNeedleReadyMove, "WAFER T LOAD POSITION");
-            BindTeachingActionButton(btnNeedleBlockReady, "WAFER T PROCESS POSITION");
-            BindTeachingActionButton(btnNeedleBlockWork, "WAFER T UNLOAD POSITION");
-            BindTeachingActionButton(btnAutoSettingMove, "WAFER T READY POSITION");
-            BindTeachingActionButton(btnInputConversion, "WAFER T RETICLE POSITION");
-            BindTeachingActionButton(btnExpandWorkMove, "EXPANDER Z AVOID POSITION");
-            BindTeachingActionButton(btnExpanderZLoad, "EXPANDER Z LOAD POSITION");
-            BindTeachingActionButton(btnExpanderZProcess, "EXPANDER Z PROCESS POSITION");
-            BindTeachingActionButton(btnExpanderZUnload, "EXPANDER Z UNLOAD POSITION");
-            BindTeachingActionButton(btnExpanderZReady, "EXPANDER Z READY POSITION");
-            BindTeachingActionButton(btnExpanderZReticle, "EXPANDER Z RETICLE POSITION");
-            BindTeachingActionButton(btnVisionXAvoid, "VISION X AVOID POSITION");
-            BindTeachingActionButton(btnVisionXLoad, "VISION X LOAD POSITION");
-            BindTeachingActionButton(btnVisionXProcess, "VISION X PROCESS POSITION");
-            BindTeachingActionButton(btnVisionXUnload, "VISION X UNLOAD POSITION");
-            BindTeachingActionButton(btnVisionXReady, "VISION X READY POSITION");
-            BindTeachingActionButton(btnVisionXReticle, "VISION X RETICLE POSITION");
-            BindTeachingActionButton(btnNeedleXAvoid, "NEEDLE X AVOID POSITION");
-            BindTeachingActionButton(btnNeedleXLoad, "NEEDLE X LOAD POSITION");
-            BindTeachingActionButton(btnNeedleXProcess, "NEEDLE X PROCESS POSITION");
-            BindTeachingActionButton(btnNeedleXUnload, "NEEDLE X UNLOAD POSITION");
-            BindTeachingActionButton(btnNeedleXReady, "NEEDLE X READY POSITION");
-            BindTeachingActionButton(btnNeedleXReticle, "NEEDLE X RETICLE POSITION");
-            BindTeachingActionButton(btnNeedleZAvoid, "NEEDLE Z AVOID POSITION");
-            BindTeachingActionButton(btnNeedleZLoad, "NEEDLE Z LOAD POSITION");
-            BindTeachingActionButton(btnNeedleZProcess, "NEEDLE Z PROCESS POSITION");
-            BindTeachingActionButton(btnNeedleZUnload, "NEEDLE Z UNLOAD POSITION");
-            BindTeachingActionButton(btnNeedleZReady, "NEEDLE Z READY POSITION");
-            BindTeachingActionButton(btnNeedleZReticle, "NEEDLE Z RETICLE POSITION");
-            BindTeachingActionButton(btnEjectPinZAvoid, "EJECT PIN Z AVOID POSITION");
-            BindTeachingActionButton(btnEjectPinZLoad, "EJECT PIN Z LOAD POSITION");
-            BindTeachingActionButton(btnEjectPinZProcess, "EJECT PIN Z PROCESS POSITION");
-            BindTeachingActionButton(btnEjectPinZUnload, "EJECT PIN Z UNLOAD POSITION");
-            BindTeachingActionButton(btnEjectPinZReady, "EJECT PIN Z READY POSITION");
-            BindTeachingActionButton(btnEjectPinZReticle, "EJECT PIN Z RETICLE POSITION");
-            BindActionButton(btnInputStagePickTest, "PICK TEST", PickTestAsync);
+        private void BuildManualActionButtons()
+        {
+            manualScrollPanel.SuspendLayout();
+            try
+            {
+                manualScrollPanel.Controls.Clear();
+                manualLayout.Controls.Clear();
+                manualLayout.RowStyles.Clear();
+                manualLayout.ColumnStyles.Clear();
+                manualLayout.ColumnCount = 2;
+                manualLayout.RowCount = 0;
+                manualLayout.AutoSize = true;
+                manualLayout.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+                manualLayout.Dock = DockStyle.Top;
+                manualLayout.Padding = new Padding(8, 18, 8, 8);
+                manualLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+                manualLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+
+                foreach (StageTeachingPosition position in TeachingPositions)
+                    AddManualButton(CreateManualActionButton(position.DisplayName, () => MoveByTeachingPositionAsync(position)));
+
+                AddManualButton(CreateManualActionButton("PICK TEST", PickTestAsync));
+                manualScrollPanel.Controls.Add(manualLayout);
+            }
+            finally
+            {
+                manualScrollPanel.ResumeLayout(true);
+            }
+        }
+
+        private ActionButton CreateManualActionButton(string text, Func<Task<int>> action)
+        {
+            var button = new ActionButton
+            {
+                BackColor = Color.FromArgb(0x80, 0x80, 0x80),
+                Cursor = Cursors.Hand,
+                Dock = DockStyle.Fill,
+                Font = new Font("Malgun Gothic", 9F, FontStyle.Bold),
+                ForeColor = Color.White,
+                Margin = new Padding(4),
+                Size = new Size(150, 39),
+                Text = text
+            };
+
+            button.Click += async (s, e) => await ConfirmAndRunAsync(text, action);
+            return button;
+        }
+
+        private void AddManualButton(ActionButton button)
+        {
+            if (button == null)
+                return;
+
+            int index = manualLayout.Controls.Count;
+            int column = index % manualLayout.ColumnCount;
+            int targetRow = index / manualLayout.ColumnCount;
+
+            while (manualLayout.RowStyles.Count <= targetRow)
+                manualLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 45F));
+
+            button.Visible = true;
+            button.Dock = DockStyle.Fill;
+            manualLayout.Controls.Add(button, column, targetRow);
+            manualLayout.RowCount = targetRow + 1;
         }
 
         private void BindTeachingActionButton(ActionButton button, string displayName)
@@ -437,6 +577,31 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
         }
 
+        private void OptionParameterGrid_RowDoubleClicked(object sender, ParameterGridChangedEventArgs e)
+        {
+            try
+            {
+                if (e == null || e.Item == null)
+                    return;
+
+                StageTeachingPosition position = FindTeachingPosition(e.Item.Key);
+                if (position == null)
+                    return;
+
+                TeachPosition(position);
+                SaveCurrentRecipeData();
+                RefreshView();
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "INPUT-STAGE", "Option double click teach failed: " + ex.Message);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Stage Teach", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
+        }
+
         private StageTeachingPosition GetSelectedTeachingPosition()
         {
             try
@@ -542,28 +707,19 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 var unit = _InputStageUnit;
                 unit.Recipe.EnsurePositionObjects();
 
-                var items = new List<ParameterGridItem>
-                {
-                    ParameterGridItem.Bool("SETUP SIMULATION MODE", ParameterGridScope.Setup, () => unit.Setup.IsSimulationMode, v => unit.Setup.IsSimulationMode = v),
-                    ParameterGridItem.Micron("SAFETY RADIUS", ParameterGridScope.Setup, () => unit.Setup.SafetyRadius, v => unit.Setup.SafetyRadius = Math.Max(0.0, v)),
-                    ParameterGridItem.Int("BARCODE READ TIMEOUT", "ms", ParameterGridScope.Setup, () => unit.Setup.BarcodeReadTimeoutMs, v => unit.Setup.BarcodeReadTimeoutMs = Math.Max(0, v)),
-                    ParameterGridItem.Bool("CONFIG DRY RUN", ParameterGridScope.Config, () => unit.Config.bDryRun, v => unit.Config.bDryRun = v),
-                    ParameterGridItem.Micron("PICK UP EJECT PIN OFFSET", ParameterGridScope.Config, () => unit.Config.PickUpEjectPinOffset, v => unit.Config.PickUpEjectPinOffset = v),
-                    ParameterGridItem.Double("PICK UP EJECT PIN SPEED", "mm/s", ParameterGridScope.Config, () => unit.Config.PickUpEjectPinSpeed, v => unit.Config.PickUpEjectPinSpeed = Math.Max(0.0, v)),
-                    ParameterGridItem.Double("PICK UP EJECT PIN ACC", "mm/s2", ParameterGridScope.Config, () => unit.Config.PickUpEjectPinAcc, v => unit.Config.PickUpEjectPinAcc = Math.Max(0.0, v)),
-                    ParameterGridItem.Double("PICK UP EJECT PIN DEC", "mm/s2", ParameterGridScope.Config, () => unit.Config.PickUpEjectPinDec, v => unit.Config.PickUpEjectPinDec = Math.Max(0.0, v)),
-                    ParameterGridItem.Int("ALIGN ITERATIONS", "count", ParameterGridScope.Config, () => unit.Config.MaxAlignIterations, v => unit.Config.MaxAlignIterations = Math.Max(1, v)),
-                    ParameterGridItem.Double("ALIGN THRESHOLD", "deg", ParameterGridScope.Config, () => unit.Config.AlignConvergenceThresholdDeg, v => unit.Config.AlignConvergenceThresholdDeg = Math.Max(0.0, v))
-                };
-
-                AddStagePositions(items, "WAFER Y", () => unit.Recipe.WaferY);
-                AddStagePositions(items, "WAFER T", () => unit.Recipe.WaferT);
-                AddStagePositions(items, "EXPANDER Z", () => unit.Recipe.WaferZ);
-                AddStagePositions(items, "VISION X", () => unit.Recipe.VisionX);
-                AddStagePositions(items, "NEEDLE X", () => unit.Recipe.NeedleX);
-                AddStagePositions(items, "NEEDLE Z", () => unit.Recipe.NeedleZ);
-                AddStagePositions(items, "EJECT PIN Z", () => unit.Recipe.EjectPinZ);
-
+                var items = new List<ParameterGridItem>();
+                AddStagePositions(items, unit);
+                
+                items.Add(ParameterGridItem.Micron("SAFETY RADIUS", ParameterGridScope.Setup, () => unit.Setup.SafetyRadius, v => unit.Setup.SafetyRadius = Math.Max(0.0, v)));
+                items.Add(ParameterGridItem.Int("BARCODE READ TIMEOUT", "ms", ParameterGridScope.Setup, () => unit.Setup.BarcodeReadTimeoutMs, v => unit.Setup.BarcodeReadTimeoutMs = Math.Max(0, v)));
+                items.Add(ParameterGridItem.Int("ALIGN ITERATIONS", "count", ParameterGridScope.Config, () => unit.Config.MaxAlignIterations, v => unit.Config.MaxAlignIterations = Math.Max(1, v)));
+                items.Add(ParameterGridItem.Double("ALIGN THRESHOLD", "deg", ParameterGridScope.Config, () => unit.Config.AlignConvergenceThresholdDeg, v => unit.Config.AlignConvergenceThresholdDeg = Math.Max(0.0, v)));
+                items.Add(ParameterGridItem.Micron("PICK UP EJECT PIN OFFSET", ParameterGridScope.Config, () => unit.Config.PickUpEjectPinOffset, v => unit.Config.PickUpEjectPinOffset = v));
+                items.Add(ParameterGridItem.Double("PICK UP EJECT PIN SPEED", "mm/s", ParameterGridScope.Config, () => unit.Config.PickUpEjectPinSpeed, v => unit.Config.PickUpEjectPinSpeed = Math.Max(0.0, v)));
+                items.Add(ParameterGridItem.Double("PICK UP EJECT PIN ACC", "mm/s2", ParameterGridScope.Config, () => unit.Config.PickUpEjectPinAcc, v => unit.Config.PickUpEjectPinAcc = Math.Max(0.0, v)));
+                items.Add(ParameterGridItem.Double("PICK UP EJECT PIN DEC", "mm/s2", ParameterGridScope.Config, () => unit.Config.PickUpEjectPinDec, v => unit.Config.PickUpEjectPinDec = Math.Max(0.0, v)));
+                items.Add(ParameterGridItem.Bool("CONFIG DRY RUN", ParameterGridScope.Config, () => unit.Config.bDryRun, v => unit.Config.bDryRun = v));
+                items.Add(ParameterGridItem.Bool("SETUP SIMULATION MODE", ParameterGridScope.Setup, () => unit.Setup.IsSimulationMode, v => unit.Setup.IsSimulationMode = v));
                 return items;
             }
             catch
@@ -575,14 +731,15 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
         }
 
-        private static void AddStagePositions(List<ParameterGridItem> items, string axisLabel, Func<StageAxisPositions> set)
+        private static void AddStagePositions(List<ParameterGridItem> items, InputStageUnit unit)
         {
-            items.Add(ParameterGridItem.Micron(axisLabel + " AVOID POSITION", ParameterGridScope.Recipe, () => set().AvoidPosition, v => set().AvoidPosition = v));
-            items.Add(ParameterGridItem.Micron(axisLabel + " LOAD POSITION", ParameterGridScope.Recipe, () => set().LoadPosition, v => set().LoadPosition = v));
-            items.Add(ParameterGridItem.Micron(axisLabel + " PROCESS POSITION", ParameterGridScope.Recipe, () => set().ProcessPosition, v => set().ProcessPosition = v));
-            items.Add(ParameterGridItem.Micron(axisLabel + " UNLOAD POSITION", ParameterGridScope.Recipe, () => set().UnloadPosition, v => set().UnloadPosition = v));
-            items.Add(ParameterGridItem.Micron(axisLabel + " READY POSITION", ParameterGridScope.Recipe, () => set().ReadyPosition, v => set().ReadyPosition = v));
-            items.Add(ParameterGridItem.Micron(axisLabel + " RETICLE POSITION", ParameterGridScope.Recipe, () => set().ReticlePosition, v => set().ReticlePosition = v));
+            foreach (StageTeachingPosition position in TeachingPositions)
+            {
+                StageTeachingPosition captured = position;
+                items.Add(ParameterGridItem.Micron(captured.DisplayName, ParameterGridScope.Recipe,
+                    () => captured.Getter(captured.PositionSetGetter(unit)),
+                    v => captured.Setter(captured.PositionSetGetter(unit), v)));
+            }
         }
 
         private IEnumerable<ParameterGridItem> BuildWaitItems()

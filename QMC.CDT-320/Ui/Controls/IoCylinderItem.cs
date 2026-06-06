@@ -21,6 +21,8 @@ namespace QMC.CDT_320.Ui.Controls
         public Func<Task<int>> BackwardCommand { get; set; }
         public Func<Task<int>> OffCommand { get; set; }
         public bool CanControl { get; set; }
+        public string OnText { get; set; }
+        public string OffText { get; set; }
 
         public IoCylinderItem()
         {
@@ -99,6 +101,24 @@ namespace QMC.CDT_320.Ui.Controls
                     OutputWriter = writer,
                     CanControl = writer != null
                 };
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        public static IoCylinderItem Output(string displayName, Func<bool> stateGetter, Func<bool, Task<int>> writer, string onText, string offText)
+        {
+            try
+            {
+                var item = Output(displayName, stateGetter, writer);
+                item.OnText = onText;
+                item.OffText = offText;
+                return item;
             }
             catch
             {

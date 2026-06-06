@@ -116,78 +116,28 @@ namespace QMC.CDT320
 
     // ==========================================================================
     // 구현 보조 주석입니다.
-
     /// <summary>
-    ///
     ///
     /// </summary>
     public class StageModuleSetup : ISetupData
     {
-        [DataMember] public bool IsSimulationMode { get; set; }
-
-        /// <summary>
-        ///
-        ///
-        /// </summary>
-        public double WorkPositionZ   { get; set; } = 10.0;
-
-        /// <summary>
-        ///
-        ///
-        /// </summary>
-        public double AvoidPositionZ  { get; set; } = 0.0;
-
-        /// <summary>
-        ///
-        ///
-        /// </summary>
-        public double UnloadPositionY { get; set; } = -50.0;
-
-        /// <summary>
-        ///
-        ///
-        /// </summary>
-        public double HomePositionY   { get; set; } = 0.0;
-
-        /// <summary>
-        ///
-        ///
-        /// </summary>
-        public double CleaningPositionY { get; set; } = 80.0;
-
-        /// <summary>
-        ///
-        ///
-        /// </summary>
-        public double PositionTolerance { get; set; } = 0.05;
+        
     }
 
     /// <summary>구현 설명 주석입니다.</summary>
     public class StageModuleConfig : IConfigData
     {
-        [DataMember] public bool bDryRun { get; set; }
-
-        public bool IsSimulationMode
-        {
-            get { return bDryRun; }
-            set { bDryRun = value; }
-        }
-
-        /// <summary>구현 설명 주석입니다.</summary>
-        public int AvoidCheckIntervalMs { get; set; } = 10;
-
-        /// <summary>구현 설명 주석입니다.</summary>
-        public int AvoidTimeoutMs { get; set; } = 3000;
+      
     }
 
     /// <summary>구현 설명 주석입니다.</summary>
     public class StageModuleRecipe : IRecipeData
     {
-        /// <summary>구현 설명 주석입니다.</summary>
-        public double YVelocity { get; set; } = 100.0;
-
-        /// <summary>구현 설명 주석입니다.</summary>
-        public double ZVelocity { get; set; } = 50.0;
+        public double WorkPositionZ { get; set; } = 10.0;
+        public double AvoidPositionZ { get; set; } = 0.0;
+        public double UnloadPositionY { get; set; } = -50.0;
+        public double HomePositionY { get; set; } = 0.0;
+        public double CleaningPositionY { get; set; } = 80.0;
     }
 
     // --------------------------------------------------------------------------
@@ -196,24 +146,6 @@ namespace QMC.CDT320
     public class OutputStageSetup : ISetupData
     {
         [DataMember] public bool IsSimulationMode { get; set; }
-
-        /// <summary>
-        ///
-        ///
-        /// </summary>
-        public double BinCameraWorkPositionX { get; set; } = 150.0;
-
-        /// <summary>
-        ///
-        ///
-        /// </summary>
-        public double BinCameraRetractPositionX { get; set; } = 0.0;
-
-        /// <summary>
-        ///
-        ///
-        /// </summary>
-        public double StageBasePositionY { get; set; } = 50.0;
     }
 
     /// <summary>구현 설명 주석입니다.</summary>
@@ -226,27 +158,17 @@ namespace QMC.CDT320
             get { return bDryRun; }
             set { bDryRun = value; }
         }
-
         /// <summary>구현 설명 주석입니다.</summary>
-        public int TpuPlaceDoneTimeoutMs { get; set; } = 3000;
-
-        /// <summary>구현 설명 주석입니다.</summary>
-        public int WaferChangeTimeoutMs { get; set; } = 0;
-
-        /// <summary>구현 설명 주석입니다.</summary>
-        public int ColletCleaningTimeoutMs { get; set; } = 10000;
+        [DataMember] public int ColletCleaningTimeoutMs { get; set; } = 10000;
     }
 
     /// <summary>구현 설명 주석입니다.</summary>
     public class OutputStageRecipe : IRecipeData
     {
-        [DataMember] public StageAxisPositions GoodBinY { get; set; } = new StageAxisPositions();
-        [DataMember] public StageAxisPositions GoodBinZ { get; set; } = new StageAxisPositions();
-        [DataMember] public StageAxisPositions NGBinY { get; set; } = new StageAxisPositions();
+        [DataMember] public StageAxisPositions GoodStageY { get; set; } = new StageAxisPositions();
+        [DataMember] public StageAxisPositions GoodStageZ { get; set; } = new StageAxisPositions();
+        [DataMember] public StageAxisPositions NGStageY { get; set; } = new StageAxisPositions();
         [DataMember] public StageAxisPositions VisionX { get; set; } = new StageAxisPositions();
-
-        /// <summary>구현 설명 주석입니다.</summary>
-        public double BinCameraVelocity { get; set; } = 200.0;
 
         [OnDeserialized]
         private void OnDeserialized(StreamingContext ctx)
@@ -256,9 +178,9 @@ namespace QMC.CDT320
 
         public void EnsurePositionObjects()
         {
-            if (GoodBinY == null) GoodBinY = new StageAxisPositions();
-            if (GoodBinZ == null) GoodBinZ = new StageAxisPositions();
-            if (NGBinY == null) NGBinY = new StageAxisPositions();
+            if (GoodStageY == null) GoodStageY = new StageAxisPositions();
+            if (GoodStageZ == null) GoodStageZ = new StageAxisPositions();
+            if (NGStageY == null) NGStageY = new StageAxisPositions();
             if (VisionX == null) VisionX = new StageAxisPositions();
         }
     }
@@ -266,55 +188,24 @@ namespace QMC.CDT320
     // ==========================================================================
     // 구현 보조 주석입니다.
     // ==========================================================================
-
     /// <summary>
     ///
-    ///
-    /// <para>
-    ///
-    ///
-    ///
-    /// </para>
-    /// <para>
-    ///
-    /// </para>
     /// </summary>
     public class StageModule : BaseUnit<StageModuleSetup, StageModuleConfig, StageModuleRecipe>
     {
         // ----------------------------------------------------------------------
         // 구현 보조 주석입니다.
         // ----------------------------------------------------------------------
-
-        /// <summary>
-        ///
-        ///
-        /// </summary>
         public BaseAxis StageY { get; private set; }
-
-        /// <summary>
-        ///
-        ///
-        ///
-        /// </summary>
         public BaseAxis StageZ { get; private set; }
 
         // ----------------------------------------------------------------------
         // 구현 보조 주석입니다.
-
-        /// <summary>
-        ///
-        /// </summary>
         /// <param name="value">입력 값입니다.</param>
         public StageModule(string moduleName) : base(moduleName)
         {
             StageY = AjinFactory.CreateAxis(moduleName + "_StageY");
             StageZ = AjinFactory.CreateAxis(moduleName + "_StageZ");
-
-            // 구현 보조 주석입니다.
-            StageY.Setup.SoftLimitPlus = 350.0;
-            StageZ.Setup.SoftLimitPlus = 250.0;
-
-            // 구현 보조 주석입니다.
             Components.Add(StageY);
             Components.Add(StageZ);
         }
@@ -330,8 +221,9 @@ namespace QMC.CDT320
         /// <returns>처리 결과입니다.</returns>
         public bool IsAtAvoidPosition()
         {
-            double diff = Math.Abs(StageZ.ActualPosition - Setup.AvoidPositionZ);
-            return diff <= Setup.PositionTolerance;
+            double tolerance = StageZ.Config != null ? StageZ.Config.InPositionTolerance : 0.01;
+            double diff = Math.Abs(StageZ.ActualPosition - Recipe.AvoidPositionZ);
+            return diff <= tolerance;
         }
 
         /// <summary>
@@ -341,11 +233,10 @@ namespace QMC.CDT320
         /// <returns>처리 결과입니다.</returns>
         public async Task<bool> MoveToAvoidPositionAsync()
         {
-            // 구현 보조 주석입니다.
             if (IsAtAvoidPosition())
                 return true;
 
-            await StageZ.MoveAbsoluteAsync(Setup.AvoidPositionZ, Recipe.ZVelocity);
+            await StageZ.MoveAbsoluteAsync(Recipe.AvoidPositionZ, ResolveAxisVelocity(StageZ));
 
             if (StageZ.IsAlarm)
             {
@@ -364,7 +255,7 @@ namespace QMC.CDT320
         /// <returns>처리 결과입니다.</returns>
         public async Task<bool> MoveToWorkPositionAsync()
         {
-            await StageZ.MoveAbsoluteAsync(Setup.WorkPositionZ, Recipe.ZVelocity);
+            await StageZ.MoveAbsoluteAsync(Recipe.WorkPositionZ, ResolveAxisVelocity(StageZ));
 
             if (StageZ.IsAlarm)
             {
@@ -388,7 +279,7 @@ namespace QMC.CDT320
         /// <returns>처리 결과입니다.</returns>
         public async Task<bool> MoveYAsync(double targetY)
         {
-            await StageY.MoveAbsoluteAsync(targetY, Recipe.YVelocity);
+            await StageY.MoveAbsoluteAsync(targetY, ResolveAxisVelocity(StageY));
 
             if (StageY.IsAlarm)
             {
@@ -414,7 +305,15 @@ namespace QMC.CDT320
         /// <returns>처리 결과입니다.</returns>
         public async Task<bool> MoveToHomeAsync()
         {
-            return await MoveYAsync(Setup.HomePositionY);
+            return await MoveYAsync(Recipe.HomePositionY);
+        }
+
+        private double ResolveAxisVelocity(BaseAxis axis)
+        {
+            if (axis != null && axis.Config != null && axis.Config.DefaultVelocity > 0.0)
+                return axis.Config.DefaultVelocity;
+
+            return 100.0;
         }
     }
 
@@ -423,24 +322,7 @@ namespace QMC.CDT320
     // ==========================================================================
 
     /// <summary>
-    ///
-    ///
-    ///
-    /// <para>
-    ///
-    ///
-    /// </para>
-    /// <para>
-    ///
-    /// <c>OutputStageUnit</c><br/>
-    ///
-    ///
-    ///
-    ///
-    ///
-    ///
-    ///
-    /// </para>
+    //
     /// </summary>
     public class OutputStageUnit : BaseUnit<OutputStageSetup, OutputStageConfig, OutputStageRecipe>, IUnitJogController
     {
@@ -448,21 +330,11 @@ namespace QMC.CDT320
         // 구현 보조 주석입니다.
         // ----------------------------------------------------------------------
 
-        /// <summary>
-        ///
-        /// </summary>
         public StageModule GoodStage { get; private set; }
 
-        /// <summary>
-        ///
-        /// </summary>
         public StageModule NgStage { get; private set; }
 
-        /// <summary>
-        ///
-        ///
-        /// </summary>
-        public BaseAxis BinCameraX { get; private set; }
+        public BaseAxis OutputCameraX { get; private set; }
 
         // ----------------------------------------------------------------------
         // Bin Guide/Clamp 센서 (DI) — Good/Ng
@@ -529,9 +401,7 @@ namespace QMC.CDT320
 
             GoodStage  = new StageModule("GoodStage");
             NgStage    = new StageModule("NgStage");
-            BinCameraX = AjinFactory.CreateAxis("OutputVisionX");
-            // 구현 보조 주석입니다.
-            BinCameraX.Setup.SoftLimitPlus = 350.0;
+            OutputCameraX = AjinFactory.CreateAxis("OutputVisionX");
 
             // Bin Guide/Clamp 센서 (DI)
             NgBinGuideUpSensor     = RegisterInput("NgBinGuideUp");
@@ -564,7 +434,7 @@ namespace QMC.CDT320
             // 구현 보조 주석입니다.
             Components.Add(GoodStage);
             Components.Add(NgStage);
-            Components.Add(BinCameraX);
+            Components.Add(OutputCameraX);
         }
 
         private BaseDigitalInput RegisterInput(string catalogName)
@@ -584,7 +454,7 @@ namespace QMC.CDT320
         public bool CanHandleJogAxis(BaseAxis axis)
         {
             BinStageAxis stageAxis;
-            return TryResolveStageAxis(axis, out stageAxis) || IsGoodStageZAxis(axis);
+            return TryResolveStageAxis(axis, out stageAxis);
         }
 
         public async Task<int> JogStepAsync(
@@ -604,8 +474,7 @@ namespace QMC.CDT320
             if (TryResolveStageAxis(axis, out stageAxis))
                 return await MoveStageAxis(stageAxis, target, speedType == JogSpeedType.Fine);
 
-            int result = await GoodStage.StageZ.MoveAbsoluteAsync(target, ResolveStageAxisVelocity(axis, speedType == JogSpeedType.Fine));
-            return result == 0 && !GoodStage.StageZ.IsAlarm ? 0 : RaiseOutputStageAlarm("OS-GOOD-Z", "GoodStage Z jog step move failed.");
+            return -1;
         }
 
         public Task<int> JogContinuousAsync(
@@ -657,14 +526,14 @@ namespace QMC.CDT320
         public async Task<int> MoveToStageAvoidPosition(bool bFine = false)
         {
             Recipe.EnsurePositionObjects();
-            int result = await MoveStageAxis(BinStageAxis.GoodBinY, Recipe.GoodBinY.AvoidPosition, bFine);
+            int result = await MoveStageAxis(BinStageAxis.GoodBinY, Recipe.GoodStageY.AvoidPosition, bFine);
             if (result != 0) return result;
-            result = await GoodStage.StageZ.MoveAbsoluteAsync(Recipe.GoodBinZ.AvoidPosition, GoodStage.Recipe.ZVelocity);
-            if (result != 0 || GoodStage.StageZ.IsAlarm) return RaiseOutputStageAlarm("OS-GOOD-Z", "GoodStage Z avoid move failed.");
-            result = await MoveStageAxis(BinStageAxis.NgBinY, Recipe.NGBinY.AvoidPosition, bFine);
+            result = await MoveStageAxis(BinStageAxis.GoodBinZ, Recipe.GoodStageZ.AvoidPosition, bFine);
             if (result != 0) return result;
-            result = await NgStage.StageZ.MoveAbsoluteAsync(NgStage.Setup.AvoidPositionZ, NgStage.Recipe.ZVelocity);
-            if (result != 0 || NgStage.StageZ.IsAlarm) return RaiseOutputStageAlarm("OS-NG-Z", "NgStage Z avoid move failed.");
+            result = await MoveStageAxis(BinStageAxis.NgBinY, Recipe.NGStageY.AvoidPosition, bFine);
+            if (result != 0) return result;
+            result = await MoveStageAxis(BinStageAxis.NgBinZ, NgStage.Recipe.AvoidPositionZ, bFine);
+            if (result != 0) return result;
             return await MoveStageAxis(BinStageAxis.VisionX, Recipe.VisionX.AvoidPosition, bFine);
         }
 
@@ -673,28 +542,25 @@ namespace QMC.CDT320
             Recipe.EnsurePositionObjects();
             if (side == BinSide.Ng)
             {
-                int result = await MoveStageAxis(BinStageAxis.NgBinY, Recipe.NGBinY.LoadPosition, bFine);
+                int result = await MoveStageAxis(BinStageAxis.NgBinY, Recipe.NGStageY.LoadPosition, bFine);
                 if (result != 0) return result;
-                result = await NgStage.StageZ.MoveAbsoluteAsync(NgStage.Setup.WorkPositionZ, NgStage.Recipe.ZVelocity);
-                return result == 0 && !NgStage.StageZ.IsAlarm ? 0 : RaiseOutputStageAlarm("OS-NG-Z", "NgStage Z load move failed.");
+                return await MoveStageAxis(BinStageAxis.NgBinZ, NgStage.Recipe.WorkPositionZ, bFine);
             }
 
-            int move = await MoveStageAxis(BinStageAxis.GoodBinY, Recipe.GoodBinY.LoadPosition, bFine);
+            int move = await MoveStageAxis(BinStageAxis.GoodBinY, Recipe.GoodStageY.LoadPosition, bFine);
             if (move != 0) return move;
-            move = await GoodStage.StageZ.MoveAbsoluteAsync(Recipe.GoodBinZ.LoadPosition, GoodStage.Recipe.ZVelocity);
-            return move == 0 && !GoodStage.StageZ.IsAlarm ? 0 : RaiseOutputStageAlarm("OS-GOOD-Z", "GoodStage Z load move failed.");
+            return await MoveStageAxis(BinStageAxis.GoodBinZ, Recipe.GoodStageZ.LoadPosition, bFine);
         }
 
         public async Task<int> MoveToStageUnloadPosition(BinSide side, bool bFine = false)
         {
             Recipe.EnsurePositionObjects();
             if (side == BinSide.Ng)
-                return await MoveStageAxis(BinStageAxis.NgBinY, Recipe.NGBinY.UnloadPosition, bFine);
+                return await MoveStageAxis(BinStageAxis.NgBinY, Recipe.NGStageY.UnloadPosition, bFine);
 
-            int move = await MoveStageAxis(BinStageAxis.GoodBinY, Recipe.GoodBinY.UnloadPosition, bFine);
+            int move = await MoveStageAxis(BinStageAxis.GoodBinY, Recipe.GoodStageY.UnloadPosition, bFine);
             if (move != 0) return move;
-            move = await GoodStage.StageZ.MoveAbsoluteAsync(Recipe.GoodBinZ.UnloadPosition, GoodStage.Recipe.ZVelocity);
-            return move == 0 && !GoodStage.StageZ.IsAlarm ? 0 : RaiseOutputStageAlarm("OS-GOOD-Z", "GoodStage Z unload move failed.");
+            return await MoveStageAxis(BinStageAxis.GoodBinZ, Recipe.GoodStageZ.UnloadPosition, bFine);
         }
 
         public async Task<int> MoveToStageProcessPosition(BinSide side, bool bFine = false)
@@ -702,14 +568,13 @@ namespace QMC.CDT320
             Recipe.EnsurePositionObjects();
             int result;
             if (side == BinSide.Ng)
-                result = await MoveStageAxis(BinStageAxis.NgBinY, Recipe.NGBinY.ProcessPosition, bFine);
+                result = await MoveStageAxis(BinStageAxis.NgBinY, Recipe.NGStageY.ProcessPosition, bFine);
             else
             {
-                result = await MoveStageAxis(BinStageAxis.GoodBinY, Recipe.GoodBinY.ProcessPosition, bFine);
+                result = await MoveStageAxis(BinStageAxis.GoodBinY, Recipe.GoodStageY.ProcessPosition, bFine);
                 if (result == 0)
                 {
-                    int z = await GoodStage.StageZ.MoveAbsoluteAsync(Recipe.GoodBinZ.ProcessPosition, GoodStage.Recipe.ZVelocity);
-                    if (z != 0 || GoodStage.StageZ.IsAlarm) result = RaiseOutputStageAlarm("OS-GOOD-Z", "GoodStage Z process move failed.");
+                    result = await MoveStageAxis(BinStageAxis.GoodBinZ, Recipe.GoodStageZ.ProcessPosition, bFine);
                 }
             }
 
@@ -749,7 +614,7 @@ namespace QMC.CDT320
         public bool ValidateStageTeachingComplete(BinSide side)
         {
             Recipe.EnsurePositionObjects();
-            StageAxisPositions y = side == BinSide.Ng ? Recipe.NGBinY : Recipe.GoodBinY;
+            StageAxisPositions y = side == BinSide.Ng ? Recipe.NGStageY : Recipe.GoodStageY;
             return y.LoadPosition != y.AvoidPosition &&
                    y.ProcessPosition != y.AvoidPosition &&
                    y.UnloadPosition != y.AvoidPosition;
@@ -762,7 +627,8 @@ namespace QMC.CDT320
                 case BinStageAxis.NgBinY: return NgStage.StageY;
                 case BinStageAxis.NgBinZ: return NgStage.StageZ;
                 case BinStageAxis.GoodBinY: return GoodStage.StageY;
-                case BinStageAxis.VisionX: return BinCameraX;
+                case BinStageAxis.GoodBinZ: return GoodStage.StageZ;
+                case BinStageAxis.VisionX: return OutputCameraX;
                 default: throw new ArgumentOutOfRangeException("axis");
             }
         }
@@ -791,7 +657,13 @@ namespace QMC.CDT320
                 return true;
             }
 
-            if (ReferenceEquals(axis, BinCameraX))
+            if (ReferenceEquals(axis, GoodStage.StageZ))
+            {
+                stageAxis = BinStageAxis.GoodBinZ;
+                return true;
+            }
+
+            if (ReferenceEquals(axis, OutputCameraX))
             {
                 stageAxis = BinStageAxis.VisionX;
                 return true;
@@ -800,16 +672,8 @@ namespace QMC.CDT320
             return false;
         }
 
-        private bool IsGoodStageZAxis(BaseAxis axis)
-        {
-            return axis != null && GoodStage != null && ReferenceEquals(axis, GoodStage.StageZ);
-        }
-
         private double ResolveStageAxisVelocity(BaseAxis axis, bool bFine)
         {
-            if (axis == BinCameraX)
-                return Recipe.BinCameraVelocity;
-
             if (bFine && axis.Config != null && axis.Config.JogFineVelocity > 0.0)
                 return axis.Config.JogFineVelocity;
 
@@ -825,10 +689,13 @@ namespace QMC.CDT320
             switch (axis)
             {
                 case BinStageAxis.NgBinY:
+                    return Recipe.NGStageY;
                 case BinStageAxis.NgBinZ:
-                    return Recipe.NGBinY;
+                    throw new InvalidOperationException("NgStage Z teaching positions are defined in StageModuleRecipe, not OutputStageRecipe.");
                 case BinStageAxis.GoodBinY:
-                    return Recipe.GoodBinY;
+                    return Recipe.GoodStageY;
+                case BinStageAxis.GoodBinZ:
+                    return Recipe.GoodStageZ;
                 case BinStageAxis.VisionX:
                     return Recipe.VisionX;
                 default:
@@ -897,7 +764,6 @@ namespace QMC.CDT320
         {
             StageModule opposite = GetOppositeStage(targetStage);
 
-            // 구현 보조 주석입니다.
             if (opposite.IsAtAvoidPosition())
             {
                 Console.WriteLine(
@@ -906,9 +772,6 @@ namespace QMC.CDT320
                 return true;
             }
 
-            // 구현 보조 주석입니다.
-            // 구현 보조 주석입니다.
-            // 구현 보조 주석입니다.
             Console.WriteLine(
                 "[WARN]  '" + Name + "' -> Interlock: '" + opposite.Name +
                 "' Z=" + AxisUnitConverter.FormatDisplay(opposite.StageZ.ActualPosition, opposite.StageZ, "0.###", true) +
@@ -981,14 +844,15 @@ namespace QMC.CDT320
 
             // 구현 보조 주석입니다.
             // Final Y = base position + TPU offset + bottom vision offset.
-            double finalY = Setup.StageBasePositionY
+            double baseY = target.Recipe.HomePositionY;
+            double finalY = baseY
                             + request.TpuOffsetY
                             + request.VisionOffsetY;
 
             Console.WriteLine(
                 "[INFO]  '" + Name + "' -> '" + target.Name +
                 "' StageY 이동. FinalY=" + finalY.ToString("F3") + "mm " +
-                "(Base=" + Setup.StageBasePositionY.ToString("F3") +
+                "(Base=" + baseY.ToString("F3") +
                 " + TpuY=" + request.TpuOffsetY.ToString("F3") +
                 " + VisionY=" + request.VisionOffsetY.ToString("F3") + ")");
 
@@ -1027,7 +891,7 @@ namespace QMC.CDT320
 
             // 구현 보조 주석입니다.
             // 구현 보조 주석입니다.
-            bool placeDone = await Tpu.WaitPlaceDoneAsync(Config.TpuPlaceDoneTimeoutMs);
+            bool placeDone = await Tpu.WaitPlaceDoneAsync();
             if (!placeDone)
             {
                 Console.WriteLine(
@@ -1036,18 +900,17 @@ namespace QMC.CDT320
                     AlarmSeverity.Warning,
                     "OS-PLACEDONE",
                     source: Name + ".InspectBinPositionAsync",
-                    message: "TPU Place 완료 대기 타임아웃(timeout=" +
-                             Config.TpuPlaceDoneTimeoutMs + "ms)");
+                    message: "TPU Place 완료 대기 타임아웃");
                 return false;
             }
 
             Console.WriteLine("[INFO]  '" + Name + "' -> TPU 후퇴 확인. BinCamera 진입 중...");
 
             // 구현 보조 주석입니다.
-            await SharedRailXMotionRuntime.MoveAxisAsync(BinCameraX,
-                Setup.BinCameraWorkPositionX, Recipe.BinCameraVelocity);
+            await SharedRailXMotionRuntime.MoveAxisAsync(OutputCameraX,
+                Recipe.VisionX.ProcessPosition, ResolveStageAxisVelocity(OutputCameraX, false));
 
-            if (BinCameraX.IsAlarm)
+            if (OutputCameraX.IsAlarm)
             {
                 Console.WriteLine(
                     "[ALARM] '" + Name + "' -> InspectBin: BinCameraX 진입 실패.");
@@ -1056,7 +919,7 @@ namespace QMC.CDT320
                     "OS-BINCAM",
                     source: Name + ".InspectBinPositionAsync",
                     message: "BinCameraX 검사 위치 진입 실패 (axis code=" +
-                             BinCameraX.AlarmCode + ")");
+                             OutputCameraX.AlarmCode + ")");
                 return false;
             }
 
@@ -1070,10 +933,10 @@ namespace QMC.CDT320
 
             // 구현 보조 주석입니다.
             // 구현 보조 주석입니다.
-            await SharedRailXMotionRuntime.MoveAxisAsync(BinCameraX,
-                Setup.BinCameraRetractPositionX, Recipe.BinCameraVelocity);
+            await SharedRailXMotionRuntime.MoveAxisAsync(OutputCameraX,
+                Recipe.VisionX.AvoidPosition, ResolveStageAxisVelocity(OutputCameraX, false));
 
-            if (BinCameraX.IsAlarm)
+            if (OutputCameraX.IsAlarm)
             {
                 Console.WriteLine(
                     "[ALARM] '" + Name + "' -> InspectBin: BinCameraX 후퇴 실패.");
@@ -1082,7 +945,7 @@ namespace QMC.CDT320
                     "OS-BINCAM",
                     source: Name + ".InspectBinPositionAsync",
                     message: "BinCameraX 대기 위치 후퇴 실패 (axis code=" +
-                             BinCameraX.AlarmCode + ")");
+                             OutputCameraX.AlarmCode + ")");
                 return false;
             }
 
@@ -1139,10 +1002,10 @@ namespace QMC.CDT320
             // 구현 보조 주석입니다.
             Console.WriteLine(
                 "[INFO]  '" + Name + "' -> '" + target.Name +
-                "' 교체 위치(Y=" + target.Setup.UnloadPositionY.ToString("F1") +
+                "' 교체 위치(Y=" + target.Recipe.UnloadPositionY.ToString("F1") +
                 "mm)로 이동 중...");
 
-            bool moveOk = await target.MoveYAsync(target.Setup.UnloadPositionY);
+            bool moveOk = await target.MoveYAsync(target.Recipe.UnloadPositionY);
             if (!moveOk)
                 return false;
 
@@ -1152,7 +1015,7 @@ namespace QMC.CDT320
 
             // 구현 보조 주석입니다.
             // 구현 보조 주석입니다.
-            bool changeOk = await Unloader.RequestWaferChangeAsync(grade, Config.WaferChangeTimeoutMs);
+            bool changeOk = await Unloader.RequestWaferChangeAsync(grade);
 
             if (!changeOk)
             {
@@ -1191,24 +1054,18 @@ namespace QMC.CDT320
         {
             Console.WriteLine("[INFO]  '" + Name + "' -> 콜렛 클리닝 시작. NgStage 더미 영역으로 이동.");
 
-            // 구현 보조 주석입니다.
-            // 구현 보조 주석입니다.
             bool interlockOk = await EnsureOppositeStageAvoidedAsync(NgStage);
             if (!interlockOk)
                 return false;
 
-            // 구현 보조 주석입니다.
-            // 구현 보조 주석입니다.
             Console.WriteLine(
                 "[INFO]  '" + Name + "' -> NgStage StageY ??CleaningPositionY=" +
-                NgStage.Setup.CleaningPositionY.ToString("F1") + "mm 이동 중...");
+                NgStage.Recipe.CleaningPositionY.ToString("F1") + "mm 이동 중...");
 
-            bool cleaningMoveOk = await NgStage.MoveYAsync(NgStage.Setup.CleaningPositionY);
+            bool cleaningMoveOk = await NgStage.MoveYAsync(NgStage.Recipe.CleaningPositionY);
             if (!cleaningMoveOk)
                 return false;
 
-            // 구현 보조 주석입니다.
-            // 구현 보조 주석입니다.
             Console.WriteLine(
                 "[INFO]  '" + Name + "' -> NgStage StageZ WorkPositionZ 상승 중...");
 
@@ -1219,23 +1076,17 @@ namespace QMC.CDT320
             Console.WriteLine(
                 "[INFO]  '" + Name + "' -> 클리닝 준비 완료. TPU에 콜렛 클리닝 요청 전송.");
 
-            // 구현 보조 주석입니다.
-            // 구현 보조 주석입니다.
-            // 구현 보조 주석입니다.
             bool cleaningOk = await Tpu.RequestColletCleaningAsync(Config.ColletCleaningTimeoutMs);
             if (!cleaningOk)
             {
                 Console.WriteLine(
                     "[ALARM] '" + Name + "' -> ColletCleaning: TPU 클리닝 타임아웃");
-                // 구현 보조 주석입니다.
             }
             else
             {
                 Console.WriteLine("[INFO]  '" + Name + "' -> TPU 콜렛 클리닝 완료.");
             }
 
-            // 구현 보조 주석입니다.
-            // 구현 보조 주석입니다.
             Console.WriteLine(
                 "[INFO]  '" + Name + "' -> NgStage StageZ 회피 위치 하강 중...");
 

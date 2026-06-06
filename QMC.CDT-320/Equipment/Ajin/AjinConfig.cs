@@ -97,9 +97,9 @@ namespace QMC.CDT320.Ajin
             ADD(28, "RearPickerZ2",      "RearPicker",     0, 0,   50, false, "mm",  200, "NEG", "RearPickerZ2"),
             ADD(29, "RearPickerT3",      "RearPicker",     0, 0,  360, false, "deg", 100, "NEG", "RearPickerT3"),
             ADD(30, "RearPickerZ3",      "RearPicker",     0, 0,   50, false, "mm",  200, "NEG", "RearPickerZ3"),
-            ADD(31, "OutputGoodStageY",          "OutputStage",    0, 0,  500, false, "mm",  100, "NEG", "OutputGoodStageY"),
-            ADD(32, "OutputGoodStageZ",          "OutputStage",    0, 0,  100, false, "mm",  100, "NEG", "OutputGoodStageZ"),
-            ADD(33, "OutputNGStageY",            "OutputStage",    0, 0,  500, false, "mm",  100, "NEG", "OutputNGStageY"),
+            ADD(31, "OutputGoodStageY",  "OutputStage",    0, 0,  500, false, "mm",  100, "NEG", "GoodStage_StageY"),
+            ADD(32, "OutputGoodStageZ",  "OutputStage",    0, 0,  100, false, "mm",  100, "NEG", "GoodStage_StageZ"),
+            ADD(33, "OutputNGStageY",    "OutputStage",    0, 0,  500, false, "mm",  100, "NEG", "NGStage_StageY"),
             ADD(34, "OutputVisionX",        "OutputStage",    0, 0,  300, false, "mm",  100, "NEG", "BinCameraX", "OutputVisionX"),
             ADD(35, "OutputFeederY",        "OutputFeeder", 0, 0,  300, false, "mm",  100, "NEG", "FeederY_Output", "OutputFeederY"),
             ADD(36, "OutputLifterZ",        "OutputCassette", 0, 0,  200, true,  "mm",  100, "NEG", "ElevatorZ_Output", "OutputLifterZ")

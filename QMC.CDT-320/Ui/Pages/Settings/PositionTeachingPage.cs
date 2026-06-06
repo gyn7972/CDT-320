@@ -546,9 +546,12 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                         // PickerOffsetX/Y are not declared in InputStageSetup/Config/Recipe.
 
                         // OutputStage (Stage 59 round 11)
-                        case "OutputStage.StageBasePositionY":      m.OutputStageUnit.Setup.StageBasePositionY        = it.Value; applied++; break;
-                        case "OutputStage.BinCameraWorkPositionX":  m.OutputStageUnit.Setup.BinCameraWorkPositionX    = it.Value; applied++; break;
-                        case "OutputStage.BinCameraRetractX":       m.OutputStageUnit.Setup.BinCameraRetractPositionX = it.Value; applied++; break;
+                        case "OutputStage.StageBasePositionY":
+                            m.OutputStageUnit.GoodStage.Recipe.HomePositionY = it.Value;
+                            m.OutputStageUnit.NgStage.Recipe.HomePositionY = it.Value;
+                            applied += 2; break;
+                        case "OutputStage.BinCameraWorkPositionX":  m.OutputStageUnit.Recipe.VisionX.ProcessPosition = it.Value; applied++; break;
+                        case "OutputStage.BinCameraRetractX":       m.OutputStageUnit.Recipe.VisionX.AvoidPosition = it.Value; applied++; break;
 
                         // OutputCassette / OutputFeeder
                         case "OutputCassette.NgFirstSlotPositionZ":    m.OutputCassetteUnit.Recipe.NGFirstSlotPosition = it.Value; applied++; break;
@@ -562,12 +565,12 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                         // Stage 60 R-teach — 추가 매핑 (이전 16개 미적용 항목 보강)
                         // OutputStage 의 두 StageModule (Good + Ng) 모두 동일 값 적용
                         case "OutputStage.WorkPositionZ":
-                            m.OutputStageUnit.GoodStage.Setup.WorkPositionZ  = it.Value;
-                            m.OutputStageUnit.NgStage  .Setup.WorkPositionZ  = it.Value;
+                            m.OutputStageUnit.GoodStage.Recipe.WorkPositionZ  = it.Value;
+                            m.OutputStageUnit.NgStage  .Recipe.WorkPositionZ  = it.Value;
                             applied += 2; break;
                         case "OutputStage.AvoidPositionZ":
-                            m.OutputStageUnit.GoodStage.Setup.AvoidPositionZ = it.Value;
-                            m.OutputStageUnit.NgStage  .Setup.AvoidPositionZ = it.Value;
+                            m.OutputStageUnit.GoodStage.Recipe.AvoidPositionZ = it.Value;
+                            m.OutputStageUnit.NgStage  .Recipe.AvoidPositionZ = it.Value;
                             applied += 2; break;
 
                         // (Per-picker Z teaching 은 switch 진입 전에 ApplyPerPickerZ 에서 처리)

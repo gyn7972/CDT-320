@@ -165,7 +165,7 @@ namespace QMC.CDT320
             _axisMap[m.OutputStageUnit.GoodStage.StageY] = 31;   // OutputGoodStageY
             _axisMap[m.OutputStageUnit.GoodStage.StageZ] = 32;   // OutputGoodStageZ
             _axisMap[m.OutputStageUnit.NgStage.StageY]   = 33;   // OutputNGStageY
-            _axisMap[m.OutputStageUnit.BinCameraX]       = 34;   // OutputVisionX
+            _axisMap[m.OutputStageUnit.OutputCameraX]       = 34;   // OutputVisionX
             _axisMap[m.OutputFeederUnit.FeederY]         = 35;   // OutputFeederY
             _axisMap[m.OutputCassetteUnit.OutputLifterZ]    = 36;   // OutputLifterZ
 

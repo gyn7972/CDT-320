@@ -228,13 +228,16 @@ namespace QMC.CDT320
                 //tpu:        new NullTransferPickerUnit());
 
             VisionInspection = new VisionInspectionUnit();
-            //WaferStage = new WaferStageUnit();
             PickerFrontUnit = new PickerFrontUnit();
             PickerRearUnit = new PickerRearUnit();
-            //Vision = new VisionUnit();
+            VisionUnit = new VisionUnit();
 
-            OutputCassetteUnit = new OutputCassetteUnit();
             OutputFeederUnit = new OutputFeederUnit();
+            OutputCassetteUnit = new OutputCassetteUnit();
+            OutputStageUnit = new OutputStageUnit(
+                tpu: new NullTpuUnit(),
+                unloader: new QMC.CDT320.Sim.OutputUnloaderAdapter(OutputCassetteUnit, OutputFeederUnit));
+            
 
             // Stage 45 — Operation Panel + Tower Lamp + Buzzer 신규
             OpPanelUnit = new OperationPanelUnit();
@@ -249,25 +252,17 @@ namespace QMC.CDT320
             //   실보드 운영 시 BarcodeSerialAdapter 로 교체 가능
             BinBarcodeReader = new NullBarcodeReader();
 
-            // Stage 27 — OutputStageUnit 의 IOutputUnloaderUnit 슬롯에 실 어댑터 주입
-            //   이전엔 NullOutputUnloaderUnit 이라 RequestWaferChangeAsync 가 무효화됐음.
-            OutputStageUnit = new OutputStageUnit(
-                tpu:      new NullTpuUnit(),
-                unloader: new QMC.CDT320.Sim.OutputUnloaderAdapter(OutputCassetteUnit, OutputFeederUnit));
-            //OutputStage = new BinStageUnit();
 
             Units.Add(InputCassetteUnit);
             Units.Add(InputFeederUnit);
             Units.Add(InputStageUnit);
-            //Units.Add(WaferStage);
             Units.Add(PickerFrontUnit);
             Units.Add(PickerRearUnit);
             Units.Add(VisionInspection);
-            //Units.Add(Vision);
-            Units.Add(OutputStageUnit);
-            //Units.Add(OutputStage);
+            Units.Add(VisionUnit);
             Units.Add(OutputCassetteUnit);
             Units.Add(OutputFeederUnit);
+            Units.Add(OutputStageUnit);
             Units.Add(OpPanelUnit);
         }
     }

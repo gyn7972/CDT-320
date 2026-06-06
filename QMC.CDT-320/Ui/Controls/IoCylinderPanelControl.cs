@@ -186,7 +186,7 @@ namespace QMC.CDT_320.Ui.Controls
                     return string.Empty;
 
                 if (item.ItemType == IoCylinderItemType.Output)
-                    return (item.DisplayName ?? string.Empty) + " : " + (on ? "ON" : "OFF");
+                    return (item.DisplayName ?? string.Empty) + " : " + (on ? (item.OnText ?? "ON") : (item.OffText ?? "OFF"));
 
                 if (item.ItemType == IoCylinderItemType.Cylinder)
                     return (item.DisplayName ?? string.Empty) + " : " + (on ? "FWD" : "BWD/OFF");

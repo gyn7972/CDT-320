@@ -428,19 +428,19 @@
             this.manualLayout.Controls.Add(this.btnAutoSettingMove, 0, 5);
             this.manualLayout.Controls.Add(this.btnInputConversion, 1, 5);
             this.manualLayout.Controls.Add(this.btnExpandWorkMove, 0, 6);
-            this.manualLayout.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.manualLayout.Dock = System.Windows.Forms.DockStyle.Top;
             this.manualLayout.Location = new System.Drawing.Point(0, 0);
             this.manualLayout.Name = "manualLayout";
             this.manualLayout.Padding = new System.Windows.Forms.Padding(8, 18, 8, 8);
             this.manualLayout.RowCount = 7;
-            this.manualLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 14.28571F));
-            this.manualLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 14.28571F));
-            this.manualLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 14.28571F));
-            this.manualLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 14.28571F));
-            this.manualLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 14.28571F));
-            this.manualLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 14.28571F));
-            this.manualLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 14.28571F));
-            this.manualLayout.Size = new System.Drawing.Size(669, 344);
+            this.manualLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 48F));
+            this.manualLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 48F));
+            this.manualLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 48F));
+            this.manualLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 48F));
+            this.manualLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 48F));
+            this.manualLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 48F));
+            this.manualLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 48F));
+            this.manualLayout.Size = new System.Drawing.Size(669, 362);
             this.manualLayout.TabIndex = 0;
             // 
             // btnLoadingMove
@@ -455,7 +455,7 @@
             this.btnLoadingMove.Name = "btnLoadingMove";
             this.btnLoadingMove.Size = new System.Drawing.Size(318, 37);
             this.btnLoadingMove.TabIndex = 0;
-            this.btnLoadingMove.Text = "GOOD LOAD";
+            this.btnLoadingMove.Text = "GOOD LOAD POSITION";
             // 
             // btnCenterMove
             // 
@@ -469,7 +469,7 @@
             this.btnCenterMove.Name = "btnCenterMove";
             this.btnCenterMove.Size = new System.Drawing.Size(319, 37);
             this.btnCenterMove.TabIndex = 1;
-            this.btnCenterMove.Text = "GOOD PROCESS";
+            this.btnCenterMove.Text = "GOOD PROCESS POSITION";
             // 
             // btnBarcodeMove
             // 
@@ -483,7 +483,7 @@
             this.btnBarcodeMove.Name = "btnBarcodeMove";
             this.btnBarcodeMove.Size = new System.Drawing.Size(318, 37);
             this.btnBarcodeMove.TabIndex = 2;
-            this.btnBarcodeMove.Text = "GOOD UNLOAD";
+            this.btnBarcodeMove.Text = "GOOD UNLOAD POSITION";
             // 
             // btnFirstDieMove
             // 
@@ -497,7 +497,7 @@
             this.btnFirstDieMove.Name = "btnFirstDieMove";
             this.btnFirstDieMove.Size = new System.Drawing.Size(319, 37);
             this.btnFirstDieMove.TabIndex = 3;
-            this.btnFirstDieMove.Text = "GOOD RETICLE";
+            this.btnFirstDieMove.Text = "GOOD RETICLE POSITION";
             // 
             // btnPickUpTest
             // 
@@ -511,7 +511,7 @@
             this.btnPickUpTest.Name = "btnPickUpTest";
             this.btnPickUpTest.Size = new System.Drawing.Size(318, 37);
             this.btnPickUpTest.TabIndex = 4;
-            this.btnPickUpTest.Text = "VISION PROCESS";
+            this.btnPickUpTest.Text = "VISION PROCESS POSITION";
             // 
             // btnNeedleUpMove
             // 
@@ -525,7 +525,7 @@
             this.btnNeedleUpMove.Name = "btnNeedleUpMove";
             this.btnNeedleUpMove.Size = new System.Drawing.Size(319, 37);
             this.btnNeedleUpMove.TabIndex = 5;
-            this.btnNeedleUpMove.Text = "NG LOAD";
+            this.btnNeedleUpMove.Text = "NG LOAD POSITION";
             // 
             // btnNeedleDownMove
             // 
@@ -539,7 +539,7 @@
             this.btnNeedleDownMove.Name = "btnNeedleDownMove";
             this.btnNeedleDownMove.Size = new System.Drawing.Size(318, 37);
             this.btnNeedleDownMove.TabIndex = 6;
-            this.btnNeedleDownMove.Text = "NG PROCESS";
+            this.btnNeedleDownMove.Text = "NG PROCESS POSITION";
             // 
             // btnNeedleReadyMove
             // 
@@ -553,7 +553,7 @@
             this.btnNeedleReadyMove.Name = "btnNeedleReadyMove";
             this.btnNeedleReadyMove.Size = new System.Drawing.Size(319, 37);
             this.btnNeedleReadyMove.TabIndex = 7;
-            this.btnNeedleReadyMove.Text = "NG UNLOAD";
+            this.btnNeedleReadyMove.Text = "NG UNLOAD POSITION";
             // 
             // btnNeedleBlockReady
             // 
@@ -567,7 +567,7 @@
             this.btnNeedleBlockReady.Name = "btnNeedleBlockReady";
             this.btnNeedleBlockReady.Size = new System.Drawing.Size(318, 37);
             this.btnNeedleBlockReady.TabIndex = 8;
-            this.btnNeedleBlockReady.Text = "NG RETICLE";
+            this.btnNeedleBlockReady.Text = "NG RETICLE POSITION";
             // 
             // btnNeedleBlockWork
             // 
@@ -581,7 +581,7 @@
             this.btnNeedleBlockWork.Name = "btnNeedleBlockWork";
             this.btnNeedleBlockWork.Size = new System.Drawing.Size(319, 37);
             this.btnNeedleBlockWork.TabIndex = 9;
-            this.btnNeedleBlockWork.Text = "AVOID ALL";
+            this.btnNeedleBlockWork.Text = "AVOID ALL POSITION";
             // 
             // btnAutoSettingMove
             // 
@@ -595,7 +595,7 @@
             this.btnAutoSettingMove.Name = "btnAutoSettingMove";
             this.btnAutoSettingMove.Size = new System.Drawing.Size(318, 37);
             this.btnAutoSettingMove.TabIndex = 10;
-            this.btnAutoSettingMove.Text = "BIN CAM WORK";
+            this.btnAutoSettingMove.Text = "BIN CAM WORK POSITION";
             // 
             // btnInputConversion
             // 
@@ -609,7 +609,7 @@
             this.btnInputConversion.Name = "btnInputConversion";
             this.btnInputConversion.Size = new System.Drawing.Size(319, 37);
             this.btnInputConversion.TabIndex = 11;
-            this.btnInputConversion.Text = "BIN CAM RETRACT";
+            this.btnInputConversion.Text = "BIN CAM RETRACT POSITION";
             // 
             // btnExpandWorkMove
             // 
@@ -623,7 +623,7 @@
             this.btnExpandWorkMove.Name = "btnExpandWorkMove";
             this.btnExpandWorkMove.Size = new System.Drawing.Size(318, 40);
             this.btnExpandWorkMove.TabIndex = 12;
-            this.btnExpandWorkMove.Text = "VISION LOAD";
+            this.btnExpandWorkMove.Text = "VISION AVOID POSITION";
             // 
             // leftLayout
             // 
@@ -639,7 +639,7 @@
             this.leftLayout.RowCount = 3;
             this.centerLayout.SetRowSpan(this.leftLayout, 2);
             this.leftLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 426F));
-            this.leftLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 205F));
+            this.leftLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 105F));
             this.leftLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.leftLayout.Size = new System.Drawing.Size(458, 854);
             this.leftLayout.TabIndex = 0;
@@ -677,7 +677,7 @@
             this.grpWait.Location = new System.Drawing.Point(4, 430);
             this.grpWait.Margin = new System.Windows.Forms.Padding(4);
             this.grpWait.Name = "grpWait";
-            this.grpWait.Size = new System.Drawing.Size(450, 197);
+            this.grpWait.Size = new System.Drawing.Size(450, 97);
             this.grpWait.TabIndex = 1;
             this.grpWait.TabStop = false;
             this.grpWait.Text = "WAIT TIME";
@@ -689,7 +689,7 @@
             this.waitParameterGrid.Location = new System.Drawing.Point(3, 21);
             this.waitParameterGrid.Margin = new System.Windows.Forms.Padding(0);
             this.waitParameterGrid.Name = "waitParameterGrid";
-            this.waitParameterGrid.Size = new System.Drawing.Size(444, 173);
+            this.waitParameterGrid.Size = new System.Drawing.Size(444, 73);
             this.waitParameterGrid.TabIndex = 1;
             // 
             // grpIo
@@ -698,10 +698,10 @@
             this.grpIo.Controls.Add(this.ioCylinderPanel);
             this.grpIo.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpIo.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
-            this.grpIo.Location = new System.Drawing.Point(4, 635);
+            this.grpIo.Location = new System.Drawing.Point(4, 535);
             this.grpIo.Margin = new System.Windows.Forms.Padding(4);
             this.grpIo.Name = "grpIo";
-            this.grpIo.Size = new System.Drawing.Size(450, 215);
+            this.grpIo.Size = new System.Drawing.Size(450, 315);
             this.grpIo.TabIndex = 3;
             this.grpIo.TabStop = false;
             this.grpIo.Text = "CYLINDER && I/O";
@@ -713,7 +713,7 @@
             this.ioCylinderPanel.Location = new System.Drawing.Point(3, 21);
             this.ioCylinderPanel.Margin = new System.Windows.Forms.Padding(0);
             this.ioCylinderPanel.Name = "ioCylinderPanel";
-            this.ioCylinderPanel.Size = new System.Drawing.Size(444, 191);
+            this.ioCylinderPanel.Size = new System.Drawing.Size(444, 291);
             this.ioCylinderPanel.TabIndex = 1;
             // 
             // grpJog

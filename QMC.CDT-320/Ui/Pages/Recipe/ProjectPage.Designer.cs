@@ -176,7 +176,7 @@
             this.rootLayout.RowCount = 2;
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.rootLayout.Size = new System.Drawing.Size(1400, 900);
+            this.rootLayout.Size = new System.Drawing.Size(1678, 900);
             this.rootLayout.TabIndex = 0;
             // 
             // lblHeader
@@ -189,7 +189,7 @@
             this.lblHeader.Margin = new System.Windows.Forms.Padding(0);
             this.lblHeader.Name = "lblHeader";
             this.lblHeader.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
-            this.lblHeader.Size = new System.Drawing.Size(1400, 30);
+            this.lblHeader.Size = new System.Drawing.Size(1678, 30);
             this.lblHeader.TabIndex = 0;
             this.lblHeader.Tag = "i18n:recipe.project";
             this.lblHeader.Text = "PROJECT";
@@ -211,7 +211,7 @@
             this.contentLayout.Padding = new System.Windows.Forms.Padding(8);
             this.contentLayout.RowCount = 1;
             this.contentLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.contentLayout.Size = new System.Drawing.Size(1400, 870);
+            this.contentLayout.Size = new System.Drawing.Size(1678, 870);
             this.contentLayout.TabIndex = 1;
             // 
             // grpProjects
@@ -235,23 +235,23 @@
             this.listLayout.Controls.Add(this.listProjects, 0, 0);
             this.listLayout.Controls.Add(this.buttonLayout, 0, 1);
             this.listLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.listLayout.Location = new System.Drawing.Point(3, 26);
+            this.listLayout.Location = new System.Drawing.Point(3, 21);
             this.listLayout.Name = "listLayout";
             this.listLayout.Padding = new System.Windows.Forms.Padding(8, 18, 8, 8);
             this.listLayout.RowCount = 2;
             this.listLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.listLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 38F));
-            this.listLayout.Size = new System.Drawing.Size(346, 817);
+            this.listLayout.Size = new System.Drawing.Size(346, 822);
             this.listLayout.TabIndex = 0;
             // 
             // listProjects
             // 
             this.listProjects.Dock = System.Windows.Forms.DockStyle.Fill;
             this.listProjects.Font = new System.Drawing.Font("Consolas", 9.5F, System.Drawing.FontStyle.Bold);
-            this.listProjects.ItemHeight = 19;
+            this.listProjects.ItemHeight = 15;
             this.listProjects.Location = new System.Drawing.Point(11, 21);
             this.listProjects.Name = "listProjects";
-            this.listProjects.Size = new System.Drawing.Size(324, 747);
+            this.listProjects.Size = new System.Drawing.Size(324, 752);
             this.listProjects.TabIndex = 0;
             // 
             // buttonLayout
@@ -266,7 +266,7 @@
             this.buttonLayout.Controls.Add(this.btnOpen, 2, 0);
             this.buttonLayout.Controls.Add(this.btnOpenFolder, 3, 0);
             this.buttonLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.buttonLayout.Location = new System.Drawing.Point(11, 774);
+            this.buttonLayout.Location = new System.Drawing.Point(11, 779);
             this.buttonLayout.Name = "buttonLayout";
             this.buttonLayout.RowCount = 1;
             this.buttonLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
@@ -330,7 +330,7 @@
             this.grpGlobal.Location = new System.Drawing.Point(372, 12);
             this.grpGlobal.Margin = new System.Windows.Forms.Padding(4);
             this.grpGlobal.Name = "grpGlobal";
-            this.grpGlobal.Size = new System.Drawing.Size(452, 846);
+            this.grpGlobal.Size = new System.Drawing.Size(577, 846);
             this.grpGlobal.TabIndex = 1;
             this.grpGlobal.TabStop = false;
             this.grpGlobal.Text = "GLOBAL OPTION";
@@ -361,7 +361,7 @@
             this.centerLayout.Controls.Add(this.lblAutoLimitKey, 0, 9);
             this.centerLayout.Controls.Add(this.lblAutoLimitValue, 1, 9);
             this.centerLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.centerLayout.Location = new System.Drawing.Point(3, 26);
+            this.centerLayout.Location = new System.Drawing.Point(3, 21);
             this.centerLayout.Name = "centerLayout";
             this.centerLayout.Padding = new System.Windows.Forms.Padding(10, 18, 10, 8);
             this.centerLayout.RowCount = 10;
@@ -375,7 +375,7 @@
             this.centerLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
             this.centerLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
             this.centerLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
-            this.centerLayout.Size = new System.Drawing.Size(446, 817);
+            this.centerLayout.Size = new System.Drawing.Size(571, 822);
             this.centerLayout.TabIndex = 0;
             // 
             // lblMachineKey
@@ -387,7 +387,7 @@
             this.lblMachineKey.Location = new System.Drawing.Point(13, 18);
             this.lblMachineKey.Name = "lblMachineKey";
             this.lblMachineKey.Padding = new System.Windows.Forms.Padding(6, 0, 6, 0);
-            this.lblMachineKey.Size = new System.Drawing.Size(185, 32);
+            this.lblMachineKey.Size = new System.Drawing.Size(241, 32);
             this.lblMachineKey.TabIndex = 0;
             this.lblMachineKey.Text = "MACHINE NO";
             this.lblMachineKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -397,10 +397,10 @@
             this.tbMachine.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.tbMachine.Dock = System.Windows.Forms.DockStyle.Fill;
             this.tbMachine.Font = new System.Drawing.Font("Consolas", 9.5F, System.Drawing.FontStyle.Bold);
-            this.tbMachine.Location = new System.Drawing.Point(202, 19);
+            this.tbMachine.Location = new System.Drawing.Point(258, 19);
             this.tbMachine.Margin = new System.Windows.Forms.Padding(1);
             this.tbMachine.Name = "tbMachine";
-            this.tbMachine.Size = new System.Drawing.Size(233, 26);
+            this.tbMachine.Size = new System.Drawing.Size(302, 22);
             this.tbMachine.TabIndex = 1;
             this.tbMachine.Text = "DS530";
             this.tbMachine.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
@@ -414,7 +414,7 @@
             this.lblFlowKey.Location = new System.Drawing.Point(13, 50);
             this.lblFlowKey.Name = "lblFlowKey";
             this.lblFlowKey.Padding = new System.Windows.Forms.Padding(6, 0, 6, 0);
-            this.lblFlowKey.Size = new System.Drawing.Size(185, 32);
+            this.lblFlowKey.Size = new System.Drawing.Size(241, 32);
             this.lblFlowKey.TabIndex = 2;
             this.lblFlowKey.Text = "CASSETTE FLOW";
             this.lblFlowKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -424,10 +424,10 @@
             this.tbFlow.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.tbFlow.Dock = System.Windows.Forms.DockStyle.Fill;
             this.tbFlow.Font = new System.Drawing.Font("Consolas", 9.5F, System.Drawing.FontStyle.Bold);
-            this.tbFlow.Location = new System.Drawing.Point(202, 51);
+            this.tbFlow.Location = new System.Drawing.Point(258, 51);
             this.tbFlow.Margin = new System.Windows.Forms.Padding(1);
             this.tbFlow.Name = "tbFlow";
-            this.tbFlow.Size = new System.Drawing.Size(233, 26);
+            this.tbFlow.Size = new System.Drawing.Size(302, 22);
             this.tbFlow.TabIndex = 3;
             this.tbFlow.Text = "Mapping";
             this.tbFlow.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
@@ -441,7 +441,7 @@
             this.lblDryRunKey.Location = new System.Drawing.Point(13, 82);
             this.lblDryRunKey.Name = "lblDryRunKey";
             this.lblDryRunKey.Padding = new System.Windows.Forms.Padding(6, 0, 6, 0);
-            this.lblDryRunKey.Size = new System.Drawing.Size(185, 32);
+            this.lblDryRunKey.Size = new System.Drawing.Size(241, 32);
             this.lblDryRunKey.TabIndex = 4;
             this.lblDryRunKey.Text = "DRY RUN";
             this.lblDryRunKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -452,10 +452,10 @@
             this.lblDryRunValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblDryRunValue.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblDryRunValue.Font = new System.Drawing.Font("Consolas", 9.5F, System.Drawing.FontStyle.Bold);
-            this.lblDryRunValue.Location = new System.Drawing.Point(204, 82);
+            this.lblDryRunValue.Location = new System.Drawing.Point(260, 82);
             this.lblDryRunValue.Name = "lblDryRunValue";
             this.lblDryRunValue.Padding = new System.Windows.Forms.Padding(6, 0, 6, 0);
-            this.lblDryRunValue.Size = new System.Drawing.Size(229, 32);
+            this.lblDryRunValue.Size = new System.Drawing.Size(298, 32);
             this.lblDryRunValue.TabIndex = 5;
             this.lblDryRunValue.Text = "DISABLE";
             this.lblDryRunValue.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
@@ -469,7 +469,7 @@
             this.lblStepRunKey.Location = new System.Drawing.Point(13, 114);
             this.lblStepRunKey.Name = "lblStepRunKey";
             this.lblStepRunKey.Padding = new System.Windows.Forms.Padding(6, 0, 6, 0);
-            this.lblStepRunKey.Size = new System.Drawing.Size(185, 32);
+            this.lblStepRunKey.Size = new System.Drawing.Size(241, 32);
             this.lblStepRunKey.TabIndex = 6;
             this.lblStepRunKey.Text = "STEP RUN";
             this.lblStepRunKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -480,10 +480,10 @@
             this.lblStepRunValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblStepRunValue.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblStepRunValue.Font = new System.Drawing.Font("Consolas", 9.5F, System.Drawing.FontStyle.Bold);
-            this.lblStepRunValue.Location = new System.Drawing.Point(204, 114);
+            this.lblStepRunValue.Location = new System.Drawing.Point(260, 114);
             this.lblStepRunValue.Name = "lblStepRunValue";
             this.lblStepRunValue.Padding = new System.Windows.Forms.Padding(6, 0, 6, 0);
-            this.lblStepRunValue.Size = new System.Drawing.Size(229, 32);
+            this.lblStepRunValue.Size = new System.Drawing.Size(298, 32);
             this.lblStepRunValue.TabIndex = 7;
             this.lblStepRunValue.Text = "DISABLE";
             this.lblStepRunValue.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
@@ -497,7 +497,7 @@
             this.lblXmlSaveKey.Location = new System.Drawing.Point(13, 146);
             this.lblXmlSaveKey.Name = "lblXmlSaveKey";
             this.lblXmlSaveKey.Padding = new System.Windows.Forms.Padding(6, 0, 6, 0);
-            this.lblXmlSaveKey.Size = new System.Drawing.Size(185, 32);
+            this.lblXmlSaveKey.Size = new System.Drawing.Size(241, 32);
             this.lblXmlSaveKey.TabIndex = 8;
             this.lblXmlSaveKey.Text = "XML SAVE";
             this.lblXmlSaveKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -508,10 +508,10 @@
             this.lblXmlSaveValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblXmlSaveValue.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblXmlSaveValue.Font = new System.Drawing.Font("Consolas", 9.5F, System.Drawing.FontStyle.Bold);
-            this.lblXmlSaveValue.Location = new System.Drawing.Point(204, 146);
+            this.lblXmlSaveValue.Location = new System.Drawing.Point(260, 146);
             this.lblXmlSaveValue.Name = "lblXmlSaveValue";
             this.lblXmlSaveValue.Padding = new System.Windows.Forms.Padding(6, 0, 6, 0);
-            this.lblXmlSaveValue.Size = new System.Drawing.Size(229, 32);
+            this.lblXmlSaveValue.Size = new System.Drawing.Size(298, 32);
             this.lblXmlSaveValue.TabIndex = 9;
             this.lblXmlSaveValue.Text = "ENABLE";
             this.lblXmlSaveValue.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
@@ -525,7 +525,7 @@
             this.lblReDtKey.Location = new System.Drawing.Point(13, 178);
             this.lblReDtKey.Name = "lblReDtKey";
             this.lblReDtKey.Padding = new System.Windows.Forms.Padding(6, 0, 6, 0);
-            this.lblReDtKey.Size = new System.Drawing.Size(185, 32);
+            this.lblReDtKey.Size = new System.Drawing.Size(241, 32);
             this.lblReDtKey.TabIndex = 10;
             this.lblReDtKey.Text = "Re-DT";
             this.lblReDtKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -536,10 +536,10 @@
             this.lblReDtValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblReDtValue.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblReDtValue.Font = new System.Drawing.Font("Consolas", 9.5F, System.Drawing.FontStyle.Bold);
-            this.lblReDtValue.Location = new System.Drawing.Point(204, 178);
+            this.lblReDtValue.Location = new System.Drawing.Point(260, 178);
             this.lblReDtValue.Name = "lblReDtValue";
             this.lblReDtValue.Padding = new System.Windows.Forms.Padding(6, 0, 6, 0);
-            this.lblReDtValue.Size = new System.Drawing.Size(229, 32);
+            this.lblReDtValue.Size = new System.Drawing.Size(298, 32);
             this.lblReDtValue.TabIndex = 11;
             this.lblReDtValue.Text = "DISABLE";
             this.lblReDtValue.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
@@ -553,7 +553,7 @@
             this.lblEbrModeKey.Location = new System.Drawing.Point(13, 210);
             this.lblEbrModeKey.Name = "lblEbrModeKey";
             this.lblEbrModeKey.Padding = new System.Windows.Forms.Padding(6, 0, 6, 0);
-            this.lblEbrModeKey.Size = new System.Drawing.Size(185, 32);
+            this.lblEbrModeKey.Size = new System.Drawing.Size(241, 32);
             this.lblEbrModeKey.TabIndex = 12;
             this.lblEbrModeKey.Text = "EBR MODE";
             this.lblEbrModeKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -564,10 +564,10 @@
             this.lblEbrModeValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblEbrModeValue.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblEbrModeValue.Font = new System.Drawing.Font("Consolas", 9.5F, System.Drawing.FontStyle.Bold);
-            this.lblEbrModeValue.Location = new System.Drawing.Point(204, 210);
+            this.lblEbrModeValue.Location = new System.Drawing.Point(260, 210);
             this.lblEbrModeValue.Name = "lblEbrModeValue";
             this.lblEbrModeValue.Padding = new System.Windows.Forms.Padding(6, 0, 6, 0);
-            this.lblEbrModeValue.Size = new System.Drawing.Size(229, 32);
+            this.lblEbrModeValue.Size = new System.Drawing.Size(298, 32);
             this.lblEbrModeValue.TabIndex = 13;
             this.lblEbrModeValue.Text = "ENABLE";
             this.lblEbrModeValue.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
@@ -581,7 +581,7 @@
             this.lblAlignCheckKey.Location = new System.Drawing.Point(13, 242);
             this.lblAlignCheckKey.Name = "lblAlignCheckKey";
             this.lblAlignCheckKey.Padding = new System.Windows.Forms.Padding(6, 0, 6, 0);
-            this.lblAlignCheckKey.Size = new System.Drawing.Size(185, 32);
+            this.lblAlignCheckKey.Size = new System.Drawing.Size(241, 32);
             this.lblAlignCheckKey.TabIndex = 14;
             this.lblAlignCheckKey.Text = "ALIGN CHECK";
             this.lblAlignCheckKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -592,10 +592,10 @@
             this.lblAlignCheckValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblAlignCheckValue.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblAlignCheckValue.Font = new System.Drawing.Font("Consolas", 9.5F, System.Drawing.FontStyle.Bold);
-            this.lblAlignCheckValue.Location = new System.Drawing.Point(204, 242);
+            this.lblAlignCheckValue.Location = new System.Drawing.Point(260, 242);
             this.lblAlignCheckValue.Name = "lblAlignCheckValue";
             this.lblAlignCheckValue.Padding = new System.Windows.Forms.Padding(6, 0, 6, 0);
-            this.lblAlignCheckValue.Size = new System.Drawing.Size(229, 32);
+            this.lblAlignCheckValue.Size = new System.Drawing.Size(298, 32);
             this.lblAlignCheckValue.TabIndex = 15;
             this.lblAlignCheckValue.Text = "ENABLE";
             this.lblAlignCheckValue.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
@@ -609,7 +609,7 @@
             this.lblNeedleCheckKey.Location = new System.Drawing.Point(13, 274);
             this.lblNeedleCheckKey.Name = "lblNeedleCheckKey";
             this.lblNeedleCheckKey.Padding = new System.Windows.Forms.Padding(6, 0, 6, 0);
-            this.lblNeedleCheckKey.Size = new System.Drawing.Size(185, 32);
+            this.lblNeedleCheckKey.Size = new System.Drawing.Size(241, 32);
             this.lblNeedleCheckKey.TabIndex = 16;
             this.lblNeedleCheckKey.Text = "NEEDLE CHECK MODE";
             this.lblNeedleCheckKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -620,10 +620,10 @@
             this.lblNeedleCheckValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblNeedleCheckValue.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblNeedleCheckValue.Font = new System.Drawing.Font("Consolas", 9.5F, System.Drawing.FontStyle.Bold);
-            this.lblNeedleCheckValue.Location = new System.Drawing.Point(204, 274);
+            this.lblNeedleCheckValue.Location = new System.Drawing.Point(260, 274);
             this.lblNeedleCheckValue.Name = "lblNeedleCheckValue";
             this.lblNeedleCheckValue.Padding = new System.Windows.Forms.Padding(6, 0, 6, 0);
-            this.lblNeedleCheckValue.Size = new System.Drawing.Size(229, 32);
+            this.lblNeedleCheckValue.Size = new System.Drawing.Size(298, 32);
             this.lblNeedleCheckValue.TabIndex = 17;
             this.lblNeedleCheckValue.Text = "DISABLE";
             this.lblNeedleCheckValue.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
@@ -637,7 +637,7 @@
             this.lblAutoLimitKey.Location = new System.Drawing.Point(13, 306);
             this.lblAutoLimitKey.Name = "lblAutoLimitKey";
             this.lblAutoLimitKey.Padding = new System.Windows.Forms.Padding(6, 0, 6, 0);
-            this.lblAutoLimitKey.Size = new System.Drawing.Size(185, 503);
+            this.lblAutoLimitKey.Size = new System.Drawing.Size(241, 508);
             this.lblAutoLimitKey.TabIndex = 18;
             this.lblAutoLimitKey.Text = "AUTO POSITION LIMIT";
             this.lblAutoLimitKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -648,10 +648,10 @@
             this.lblAutoLimitValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblAutoLimitValue.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblAutoLimitValue.Font = new System.Drawing.Font("Consolas", 9.5F, System.Drawing.FontStyle.Bold);
-            this.lblAutoLimitValue.Location = new System.Drawing.Point(204, 306);
+            this.lblAutoLimitValue.Location = new System.Drawing.Point(260, 306);
             this.lblAutoLimitValue.Name = "lblAutoLimitValue";
             this.lblAutoLimitValue.Padding = new System.Windows.Forms.Padding(6, 0, 6, 0);
-            this.lblAutoLimitValue.Size = new System.Drawing.Size(229, 503);
+            this.lblAutoLimitValue.Size = new System.Drawing.Size(298, 508);
             this.lblAutoLimitValue.TabIndex = 19;
             this.lblAutoLimitValue.Text = "50";
             this.lblAutoLimitValue.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
@@ -664,13 +664,13 @@
             this.rightLayout.Controls.Add(this.grpXml, 0, 1);
             this.rightLayout.Controls.Add(this.btnSaveRecipe, 0, 2);
             this.rightLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.rightLayout.Location = new System.Drawing.Point(831, 11);
+            this.rightLayout.Location = new System.Drawing.Point(956, 11);
             this.rightLayout.Name = "rightLayout";
             this.rightLayout.RowCount = 3;
             this.rightLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 45F));
             this.rightLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 45F));
             this.rightLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 58F));
-            this.rightLayout.Size = new System.Drawing.Size(558, 848);
+            this.rightLayout.Size = new System.Drawing.Size(711, 848);
             this.rightLayout.TabIndex = 2;
             // 
             // grpProjectOption
@@ -682,7 +682,7 @@
             this.grpProjectOption.Location = new System.Drawing.Point(4, 4);
             this.grpProjectOption.Margin = new System.Windows.Forms.Padding(4);
             this.grpProjectOption.Name = "grpProjectOption";
-            this.grpProjectOption.Size = new System.Drawing.Size(550, 387);
+            this.grpProjectOption.Size = new System.Drawing.Size(703, 387);
             this.grpProjectOption.TabIndex = 0;
             this.grpProjectOption.TabStop = false;
             this.grpProjectOption.Text = "PROJECT OPTION";
@@ -707,7 +707,7 @@
             this.projectOptionLayout.Controls.Add(this.lblBinKey, 0, 6);
             this.projectOptionLayout.Controls.Add(this.tbBin, 1, 6);
             this.projectOptionLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.projectOptionLayout.Location = new System.Drawing.Point(3, 26);
+            this.projectOptionLayout.Location = new System.Drawing.Point(3, 21);
             this.projectOptionLayout.Name = "projectOptionLayout";
             this.projectOptionLayout.Padding = new System.Windows.Forms.Padding(10, 18, 10, 8);
             this.projectOptionLayout.RowCount = 7;
@@ -718,7 +718,7 @@
             this.projectOptionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
             this.projectOptionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
             this.projectOptionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
-            this.projectOptionLayout.Size = new System.Drawing.Size(544, 358);
+            this.projectOptionLayout.Size = new System.Drawing.Size(697, 363);
             this.projectOptionLayout.TabIndex = 0;
             // 
             // lblFileKey
@@ -730,7 +730,7 @@
             this.lblFileKey.Location = new System.Drawing.Point(13, 18);
             this.lblFileKey.Name = "lblFileKey";
             this.lblFileKey.Padding = new System.Windows.Forms.Padding(6, 0, 6, 0);
-            this.lblFileKey.Size = new System.Drawing.Size(229, 32);
+            this.lblFileKey.Size = new System.Drawing.Size(298, 32);
             this.lblFileKey.TabIndex = 0;
             this.lblFileKey.Text = "FILE NAME";
             this.lblFileKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -740,10 +740,10 @@
             this.tbFile.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.tbFile.Dock = System.Windows.Forms.DockStyle.Fill;
             this.tbFile.Font = new System.Drawing.Font("Consolas", 9.5F, System.Drawing.FontStyle.Bold);
-            this.tbFile.Location = new System.Drawing.Point(246, 19);
+            this.tbFile.Location = new System.Drawing.Point(315, 19);
             this.tbFile.Margin = new System.Windows.Forms.Padding(1);
             this.tbFile.Name = "tbFile";
-            this.tbFile.Size = new System.Drawing.Size(287, 26);
+            this.tbFile.Size = new System.Drawing.Size(371, 22);
             this.tbFile.TabIndex = 1;
             this.tbFile.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
             // 
@@ -756,7 +756,7 @@
             this.lblMapKey.Location = new System.Drawing.Point(13, 50);
             this.lblMapKey.Name = "lblMapKey";
             this.lblMapKey.Padding = new System.Windows.Forms.Padding(6, 0, 6, 0);
-            this.lblMapKey.Size = new System.Drawing.Size(229, 32);
+            this.lblMapKey.Size = new System.Drawing.Size(298, 32);
             this.lblMapKey.TabIndex = 2;
             this.lblMapKey.Text = "MAP FORMAT";
             this.lblMapKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -766,10 +766,10 @@
             this.tbMap.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.tbMap.Dock = System.Windows.Forms.DockStyle.Fill;
             this.tbMap.Font = new System.Drawing.Font("Consolas", 9.5F, System.Drawing.FontStyle.Bold);
-            this.tbMap.Location = new System.Drawing.Point(246, 51);
+            this.tbMap.Location = new System.Drawing.Point(315, 51);
             this.tbMap.Margin = new System.Windows.Forms.Padding(1);
             this.tbMap.Name = "tbMap";
-            this.tbMap.Size = new System.Drawing.Size(287, 26);
+            this.tbMap.Size = new System.Drawing.Size(371, 22);
             this.tbMap.TabIndex = 3;
             this.tbMap.Text = "SEC";
             this.tbMap.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
@@ -783,7 +783,7 @@
             this.lblDirKey.Location = new System.Drawing.Point(13, 82);
             this.lblDirKey.Name = "lblDirKey";
             this.lblDirKey.Padding = new System.Windows.Forms.Padding(6, 0, 6, 0);
-            this.lblDirKey.Size = new System.Drawing.Size(229, 32);
+            this.lblDirKey.Size = new System.Drawing.Size(298, 32);
             this.lblDirKey.TabIndex = 4;
             this.lblDirKey.Text = "MAP DIRECTION";
             this.lblDirKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -793,10 +793,10 @@
             this.tbDir.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.tbDir.Dock = System.Windows.Forms.DockStyle.Fill;
             this.tbDir.Font = new System.Drawing.Font("Consolas", 9.5F, System.Drawing.FontStyle.Bold);
-            this.tbDir.Location = new System.Drawing.Point(246, 83);
+            this.tbDir.Location = new System.Drawing.Point(315, 83);
             this.tbDir.Margin = new System.Windows.Forms.Padding(1);
             this.tbDir.Name = "tbDir";
-            this.tbDir.Size = new System.Drawing.Size(287, 26);
+            this.tbDir.Size = new System.Drawing.Size(371, 22);
             this.tbDir.TabIndex = 5;
             this.tbDir.Text = "START";
             this.tbDir.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
@@ -810,7 +810,7 @@
             this.lblChipKey.Location = new System.Drawing.Point(13, 114);
             this.lblChipKey.Name = "lblChipKey";
             this.lblChipKey.Padding = new System.Windows.Forms.Padding(6, 0, 6, 0);
-            this.lblChipKey.Size = new System.Drawing.Size(229, 32);
+            this.lblChipKey.Size = new System.Drawing.Size(298, 32);
             this.lblChipKey.TabIndex = 6;
             this.lblChipKey.Text = "CHIP THICKNESS";
             this.lblChipKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -820,10 +820,10 @@
             this.tbChip.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.tbChip.Dock = System.Windows.Forms.DockStyle.Fill;
             this.tbChip.Font = new System.Drawing.Font("Consolas", 9.5F, System.Drawing.FontStyle.Bold);
-            this.tbChip.Location = new System.Drawing.Point(246, 115);
+            this.tbChip.Location = new System.Drawing.Point(315, 115);
             this.tbChip.Margin = new System.Windows.Forms.Padding(1);
             this.tbChip.Name = "tbChip";
-            this.tbChip.Size = new System.Drawing.Size(287, 26);
+            this.tbChip.Size = new System.Drawing.Size(371, 22);
             this.tbChip.TabIndex = 7;
             this.tbChip.Text = "150";
             this.tbChip.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
@@ -837,7 +837,7 @@
             this.lblMasterKey.Location = new System.Drawing.Point(13, 146);
             this.lblMasterKey.Name = "lblMasterKey";
             this.lblMasterKey.Padding = new System.Windows.Forms.Padding(6, 0, 6, 0);
-            this.lblMasterKey.Size = new System.Drawing.Size(229, 32);
+            this.lblMasterKey.Size = new System.Drawing.Size(298, 32);
             this.lblMasterKey.TabIndex = 8;
             this.lblMasterKey.Text = "MASTER CHIP";
             this.lblMasterKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -847,10 +847,10 @@
             this.tbMaster.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.tbMaster.Dock = System.Windows.Forms.DockStyle.Fill;
             this.tbMaster.Font = new System.Drawing.Font("Consolas", 9.5F, System.Drawing.FontStyle.Bold);
-            this.tbMaster.Location = new System.Drawing.Point(246, 147);
+            this.tbMaster.Location = new System.Drawing.Point(315, 147);
             this.tbMaster.Margin = new System.Windows.Forms.Padding(1);
             this.tbMaster.Name = "tbMaster";
-            this.tbMaster.Size = new System.Drawing.Size(287, 26);
+            this.tbMaster.Size = new System.Drawing.Size(371, 22);
             this.tbMaster.TabIndex = 9;
             this.tbMaster.Text = "150";
             this.tbMaster.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
@@ -864,7 +864,7 @@
             this.lblTapeKey.Location = new System.Drawing.Point(13, 178);
             this.lblTapeKey.Name = "lblTapeKey";
             this.lblTapeKey.Padding = new System.Windows.Forms.Padding(6, 0, 6, 0);
-            this.lblTapeKey.Size = new System.Drawing.Size(229, 32);
+            this.lblTapeKey.Size = new System.Drawing.Size(298, 32);
             this.lblTapeKey.TabIndex = 10;
             this.lblTapeKey.Text = "TAPE THICKNESS";
             this.lblTapeKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -874,10 +874,10 @@
             this.tbTape.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.tbTape.Dock = System.Windows.Forms.DockStyle.Fill;
             this.tbTape.Font = new System.Drawing.Font("Consolas", 9.5F, System.Drawing.FontStyle.Bold);
-            this.tbTape.Location = new System.Drawing.Point(246, 179);
+            this.tbTape.Location = new System.Drawing.Point(315, 179);
             this.tbTape.Margin = new System.Windows.Forms.Padding(1);
             this.tbTape.Name = "tbTape";
-            this.tbTape.Size = new System.Drawing.Size(287, 26);
+            this.tbTape.Size = new System.Drawing.Size(371, 22);
             this.tbTape.TabIndex = 11;
             this.tbTape.Text = "100";
             this.tbTape.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
@@ -891,7 +891,7 @@
             this.lblBinKey.Location = new System.Drawing.Point(13, 210);
             this.lblBinKey.Name = "lblBinKey";
             this.lblBinKey.Padding = new System.Windows.Forms.Padding(6, 0, 6, 0);
-            this.lblBinKey.Size = new System.Drawing.Size(229, 140);
+            this.lblBinKey.Size = new System.Drawing.Size(298, 145);
             this.lblBinKey.TabIndex = 12;
             this.lblBinKey.Text = "BIN SORT NUMBER";
             this.lblBinKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -901,10 +901,10 @@
             this.tbBin.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.tbBin.Dock = System.Windows.Forms.DockStyle.Fill;
             this.tbBin.Font = new System.Drawing.Font("Consolas", 9.5F, System.Drawing.FontStyle.Bold);
-            this.tbBin.Location = new System.Drawing.Point(246, 211);
+            this.tbBin.Location = new System.Drawing.Point(315, 211);
             this.tbBin.Margin = new System.Windows.Forms.Padding(1);
             this.tbBin.Name = "tbBin";
-            this.tbBin.Size = new System.Drawing.Size(287, 26);
+            this.tbBin.Size = new System.Drawing.Size(371, 22);
             this.tbBin.TabIndex = 13;
             this.tbBin.Text = "1";
             this.tbBin.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
@@ -918,7 +918,7 @@
             this.grpXml.Location = new System.Drawing.Point(4, 399);
             this.grpXml.Margin = new System.Windows.Forms.Padding(4);
             this.grpXml.Name = "grpXml";
-            this.grpXml.Size = new System.Drawing.Size(550, 387);
+            this.grpXml.Size = new System.Drawing.Size(703, 387);
             this.grpXml.TabIndex = 1;
             this.grpXml.TabStop = false;
             this.grpXml.Text = "XML TRACE FILE RECORD ITEM";
@@ -943,7 +943,7 @@
             this.xmlLayout.Controls.Add(this.lblXmlKey, 0, 6);
             this.xmlLayout.Controls.Add(this.tbXml, 1, 6);
             this.xmlLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.xmlLayout.Location = new System.Drawing.Point(3, 26);
+            this.xmlLayout.Location = new System.Drawing.Point(3, 21);
             this.xmlLayout.Name = "xmlLayout";
             this.xmlLayout.Padding = new System.Windows.Forms.Padding(10, 18, 10, 8);
             this.xmlLayout.RowCount = 7;
@@ -954,7 +954,7 @@
             this.xmlLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
             this.xmlLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
             this.xmlLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
-            this.xmlLayout.Size = new System.Drawing.Size(544, 358);
+            this.xmlLayout.Size = new System.Drawing.Size(697, 363);
             this.xmlLayout.TabIndex = 0;
             // 
             // lblLotKey
@@ -966,7 +966,7 @@
             this.lblLotKey.Location = new System.Drawing.Point(13, 18);
             this.lblLotKey.Name = "lblLotKey";
             this.lblLotKey.Padding = new System.Windows.Forms.Padding(6, 0, 6, 0);
-            this.lblLotKey.Size = new System.Drawing.Size(229, 32);
+            this.lblLotKey.Size = new System.Drawing.Size(298, 32);
             this.lblLotKey.TabIndex = 0;
             this.lblLotKey.Text = "LOT ID";
             this.lblLotKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -976,10 +976,10 @@
             this.tbLot.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.tbLot.Dock = System.Windows.Forms.DockStyle.Fill;
             this.tbLot.Font = new System.Drawing.Font("Consolas", 9.5F, System.Drawing.FontStyle.Bold);
-            this.tbLot.Location = new System.Drawing.Point(246, 19);
+            this.tbLot.Location = new System.Drawing.Point(315, 19);
             this.tbLot.Margin = new System.Windows.Forms.Padding(1);
             this.tbLot.Name = "tbLot";
-            this.tbLot.Size = new System.Drawing.Size(287, 26);
+            this.tbLot.Size = new System.Drawing.Size(371, 22);
             this.tbLot.TabIndex = 1;
             this.tbLot.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
             // 
@@ -992,7 +992,7 @@
             this.lblPartKey.Location = new System.Drawing.Point(13, 50);
             this.lblPartKey.Name = "lblPartKey";
             this.lblPartKey.Padding = new System.Windows.Forms.Padding(6, 0, 6, 0);
-            this.lblPartKey.Size = new System.Drawing.Size(229, 32);
+            this.lblPartKey.Size = new System.Drawing.Size(298, 32);
             this.lblPartKey.TabIndex = 2;
             this.lblPartKey.Text = "PART ID";
             this.lblPartKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -1002,10 +1002,10 @@
             this.tbPart.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.tbPart.Dock = System.Windows.Forms.DockStyle.Fill;
             this.tbPart.Font = new System.Drawing.Font("Consolas", 9.5F, System.Drawing.FontStyle.Bold);
-            this.tbPart.Location = new System.Drawing.Point(246, 51);
+            this.tbPart.Location = new System.Drawing.Point(315, 51);
             this.tbPart.Margin = new System.Windows.Forms.Padding(1);
             this.tbPart.Name = "tbPart";
-            this.tbPart.Size = new System.Drawing.Size(287, 26);
+            this.tbPart.Size = new System.Drawing.Size(371, 22);
             this.tbPart.TabIndex = 3;
             this.tbPart.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
             // 
@@ -1018,7 +1018,7 @@
             this.lblInCstKey.Location = new System.Drawing.Point(13, 82);
             this.lblInCstKey.Name = "lblInCstKey";
             this.lblInCstKey.Padding = new System.Windows.Forms.Padding(6, 0, 6, 0);
-            this.lblInCstKey.Size = new System.Drawing.Size(229, 32);
+            this.lblInCstKey.Size = new System.Drawing.Size(298, 32);
             this.lblInCstKey.TabIndex = 4;
             this.lblInCstKey.Text = "INPUT CASSETTE ID";
             this.lblInCstKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -1028,10 +1028,10 @@
             this.tbInCst.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.tbInCst.Dock = System.Windows.Forms.DockStyle.Fill;
             this.tbInCst.Font = new System.Drawing.Font("Consolas", 9.5F, System.Drawing.FontStyle.Bold);
-            this.tbInCst.Location = new System.Drawing.Point(246, 83);
+            this.tbInCst.Location = new System.Drawing.Point(315, 83);
             this.tbInCst.Margin = new System.Windows.Forms.Padding(1);
             this.tbInCst.Name = "tbInCst";
-            this.tbInCst.Size = new System.Drawing.Size(287, 26);
+            this.tbInCst.Size = new System.Drawing.Size(371, 22);
             this.tbInCst.TabIndex = 5;
             this.tbInCst.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
             // 
@@ -1044,7 +1044,7 @@
             this.lblOutCstKey.Location = new System.Drawing.Point(13, 114);
             this.lblOutCstKey.Name = "lblOutCstKey";
             this.lblOutCstKey.Padding = new System.Windows.Forms.Padding(6, 0, 6, 0);
-            this.lblOutCstKey.Size = new System.Drawing.Size(229, 32);
+            this.lblOutCstKey.Size = new System.Drawing.Size(298, 32);
             this.lblOutCstKey.TabIndex = 6;
             this.lblOutCstKey.Text = "OUTPUT CASSETTE ID";
             this.lblOutCstKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -1054,10 +1054,10 @@
             this.tbOutCst.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.tbOutCst.Dock = System.Windows.Forms.DockStyle.Fill;
             this.tbOutCst.Font = new System.Drawing.Font("Consolas", 9.5F, System.Drawing.FontStyle.Bold);
-            this.tbOutCst.Location = new System.Drawing.Point(246, 115);
+            this.tbOutCst.Location = new System.Drawing.Point(315, 115);
             this.tbOutCst.Margin = new System.Windows.Forms.Padding(1);
             this.tbOutCst.Name = "tbOutCst";
-            this.tbOutCst.Size = new System.Drawing.Size(287, 26);
+            this.tbOutCst.Size = new System.Drawing.Size(371, 22);
             this.tbOutCst.TabIndex = 7;
             this.tbOutCst.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
             // 
@@ -1070,7 +1070,7 @@
             this.lblColletMKey.Location = new System.Drawing.Point(13, 146);
             this.lblColletMKey.Name = "lblColletMKey";
             this.lblColletMKey.Padding = new System.Windows.Forms.Padding(6, 0, 6, 0);
-            this.lblColletMKey.Size = new System.Drawing.Size(229, 32);
+            this.lblColletMKey.Size = new System.Drawing.Size(298, 32);
             this.lblColletMKey.TabIndex = 8;
             this.lblColletMKey.Text = "COLLET MODEL NUM";
             this.lblColletMKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -1080,10 +1080,10 @@
             this.tbColletM.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.tbColletM.Dock = System.Windows.Forms.DockStyle.Fill;
             this.tbColletM.Font = new System.Drawing.Font("Consolas", 9.5F, System.Drawing.FontStyle.Bold);
-            this.tbColletM.Location = new System.Drawing.Point(246, 147);
+            this.tbColletM.Location = new System.Drawing.Point(315, 147);
             this.tbColletM.Margin = new System.Windows.Forms.Padding(1);
             this.tbColletM.Name = "tbColletM";
-            this.tbColletM.Size = new System.Drawing.Size(287, 26);
+            this.tbColletM.Size = new System.Drawing.Size(371, 22);
             this.tbColletM.TabIndex = 9;
             this.tbColletM.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
             // 
@@ -1096,7 +1096,7 @@
             this.lblColletLKey.Location = new System.Drawing.Point(13, 178);
             this.lblColletLKey.Name = "lblColletLKey";
             this.lblColletLKey.Padding = new System.Windows.Forms.Padding(6, 0, 6, 0);
-            this.lblColletLKey.Size = new System.Drawing.Size(229, 32);
+            this.lblColletLKey.Size = new System.Drawing.Size(298, 32);
             this.lblColletLKey.TabIndex = 10;
             this.lblColletLKey.Text = "COLLET LOT NUM";
             this.lblColletLKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -1106,10 +1106,10 @@
             this.tbColletL.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.tbColletL.Dock = System.Windows.Forms.DockStyle.Fill;
             this.tbColletL.Font = new System.Drawing.Font("Consolas", 9.5F, System.Drawing.FontStyle.Bold);
-            this.tbColletL.Location = new System.Drawing.Point(246, 179);
+            this.tbColletL.Location = new System.Drawing.Point(315, 179);
             this.tbColletL.Margin = new System.Windows.Forms.Padding(1);
             this.tbColletL.Name = "tbColletL";
-            this.tbColletL.Size = new System.Drawing.Size(287, 26);
+            this.tbColletL.Size = new System.Drawing.Size(371, 22);
             this.tbColletL.TabIndex = 11;
             this.tbColletL.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
             // 
@@ -1122,7 +1122,7 @@
             this.lblXmlKey.Location = new System.Drawing.Point(13, 210);
             this.lblXmlKey.Name = "lblXmlKey";
             this.lblXmlKey.Padding = new System.Windows.Forms.Padding(6, 0, 6, 0);
-            this.lblXmlKey.Size = new System.Drawing.Size(229, 140);
+            this.lblXmlKey.Size = new System.Drawing.Size(298, 145);
             this.lblXmlKey.TabIndex = 12;
             this.lblXmlKey.Text = "XML PATH";
             this.lblXmlKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -1132,10 +1132,10 @@
             this.tbXml.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.tbXml.Dock = System.Windows.Forms.DockStyle.Fill;
             this.tbXml.Font = new System.Drawing.Font("Consolas", 9.5F, System.Drawing.FontStyle.Bold);
-            this.tbXml.Location = new System.Drawing.Point(246, 211);
+            this.tbXml.Location = new System.Drawing.Point(315, 211);
             this.tbXml.Margin = new System.Windows.Forms.Padding(1);
             this.tbXml.Name = "tbXml";
-            this.tbXml.Size = new System.Drawing.Size(287, 26);
+            this.tbXml.Size = new System.Drawing.Size(371, 22);
             this.tbXml.TabIndex = 13;
             this.tbXml.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
             // 
@@ -1149,7 +1149,7 @@
             this.btnSaveRecipe.Location = new System.Drawing.Point(8, 798);
             this.btnSaveRecipe.Margin = new System.Windows.Forms.Padding(8);
             this.btnSaveRecipe.Name = "btnSaveRecipe";
-            this.btnSaveRecipe.Size = new System.Drawing.Size(542, 42);
+            this.btnSaveRecipe.Size = new System.Drawing.Size(695, 42);
             this.btnSaveRecipe.TabIndex = 2;
             this.btnSaveRecipe.Text = "RECIPE SAVE";
             // 

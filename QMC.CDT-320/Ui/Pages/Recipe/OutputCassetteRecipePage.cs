@@ -16,9 +16,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
     /// <summary>Output Cassette 레시피에서 OutCassetteUnit을 조작하는 화면입니다.</summary>
     public partial class OutputCassetteRecipePage : QMC.CDT_320.Ui.Pages.PageBase
     {
-        private OutputCassetteUnit _binCassette;
-        private BaseDigitalOutput _ngBinLockOut;
-        private BaseDigitalOutput _ngBinUnlockOut;
         private OutputCassetteUnit _OutCassetteUnit;
         private readonly Timer _refreshTimer = new Timer();
         private readonly ToolTip _toolTip = new ToolTip();
@@ -73,7 +70,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             try
             {
                 _refreshTimer.Stop();
-                jogAxisMoveControl.StopAllAsync(true).GetAwaiter().GetResult();
+                if (jogAxisMoveControl != null)
+                    jogAxisMoveControl.StopAllAsync(true).GetAwaiter().GetResult();
             }
             catch
             {
@@ -914,7 +912,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         {
             try
             {
-                SaveEditedData(e != null && e.Scope == ParameterGridScope.Recipe);
+                SaveEditedData(e != null && e.Item != null && e.Item.Scope == ParameterGridScope.Recipe);
                 RefreshView();
             }
             catch (Exception ex)

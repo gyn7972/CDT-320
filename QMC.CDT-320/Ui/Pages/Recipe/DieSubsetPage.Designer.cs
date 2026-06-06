@@ -170,7 +170,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this._tbName.Location = new System.Drawing.Point(233, 43);
             this._tbName.Margin = new System.Windows.Forms.Padding(3, 3, 3, 4);
             this._tbName.Name = "_tbName";
-            this._tbName.Size = new System.Drawing.Size(832, 27);
+            this._tbName.Size = new System.Drawing.Size(832, 23);
             this._tbName.TabIndex = 2;
             // 
             // lblWidth
@@ -201,7 +201,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             0,
             196608});
             this._nW.Name = "_nW";
-            this._nW.Size = new System.Drawing.Size(832, 27);
+            this._nW.Size = new System.Drawing.Size(832, 23);
             this._nW.TabIndex = 4;
             this._nW.Value = new decimal(new int[] {
             1,
@@ -237,7 +237,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             0,
             196608});
             this._nH.Name = "_nH";
-            this._nH.Size = new System.Drawing.Size(832, 27);
+            this._nH.Size = new System.Drawing.Size(832, 23);
             this._nH.TabIndex = 6;
             this._nH.Value = new decimal(new int[] {
             1,
@@ -273,7 +273,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             0,
             196608});
             this._nT.Name = "_nT";
-            this._nT.Size = new System.Drawing.Size(832, 27);
+            this._nT.Size = new System.Drawing.Size(832, 23);
             this._nT.TabIndex = 8;
             this._nT.Value = new decimal(new int[] {
             1,
@@ -325,7 +325,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             0,
             -2147483648});
             this._nWLow.Name = "_nWLow";
-            this._nWLow.Size = new System.Drawing.Size(832, 27);
+            this._nWLow.Size = new System.Drawing.Size(832, 23);
             this._nWLow.TabIndex = 11;
             // 
             // lblWidthUpper
@@ -351,7 +351,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             0,
             0});
             this._nWUp.Name = "_nWUp";
-            this._nWUp.Size = new System.Drawing.Size(832, 27);
+            this._nWUp.Size = new System.Drawing.Size(832, 23);
             this._nWUp.TabIndex = 13;
             // 
             // lblHeightLower
@@ -382,7 +382,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             0,
             -2147483648});
             this._nHLow.Name = "_nHLow";
-            this._nHLow.Size = new System.Drawing.Size(832, 27);
+            this._nHLow.Size = new System.Drawing.Size(832, 23);
             this._nHLow.TabIndex = 15;
             // 
             // lblHeightUpper
@@ -408,7 +408,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             0,
             0});
             this._nHUp.Name = "_nHUp";
-            this._nHUp.Size = new System.Drawing.Size(832, 27);
+            this._nHUp.Size = new System.Drawing.Size(832, 23);
             this._nHUp.TabIndex = 17;
             // 
             // lblVisionHeader
@@ -450,7 +450,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             0,
             0});
             this._nChipDepth.Name = "_nChipDepth";
-            this._nChipDepth.Size = new System.Drawing.Size(832, 27);
+            this._nChipDepth.Size = new System.Drawing.Size(832, 23);
             this._nChipDepth.TabIndex = 20;
             // 
             // lblChippingLength
@@ -476,7 +476,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             0,
             0});
             this._nChipLen.Name = "_nChipLen";
-            this._nChipLen.Size = new System.Drawing.Size(832, 27);
+            this._nChipLen.Size = new System.Drawing.Size(832, 23);
             this._nChipLen.TabIndex = 22;
             // 
             // lblForeignSize
@@ -502,7 +502,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             0,
             0});
             this._nForeign.Name = "_nForeign";
-            this._nForeign.Size = new System.Drawing.Size(832, 27);
+            this._nForeign.Size = new System.Drawing.Size(832, 23);
             this._nForeign.TabIndex = 24;
             // 
             // DieSubsetPage
