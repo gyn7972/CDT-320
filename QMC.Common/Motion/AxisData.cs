@@ -350,6 +350,8 @@ namespace QMC.Common.Motion
 
         /// <summary>브레이크 장착 여부.</summary>
         public bool Brake { get; set; } = false;
+
+       
     }
 
     /// <summary>
