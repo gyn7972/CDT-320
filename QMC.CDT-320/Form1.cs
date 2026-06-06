@@ -109,16 +109,26 @@ namespace QMC.CDT_320
             {
                 var cfg = AppSettingsStore.Current ?? AppSettingsStore.Load();
                 bool bypassHardware = cfg.BypassHardware;
-                bool forceSimulation = bypassHardware || !AjinFactory.IsRealBoardReady;
-
                 AjinFactory.UseRealBoard = cfg.UseAjin && !bypassHardware;
+                if (AjinFactory.UseRealBoard && !AjinSystem.IsOpen)
+                    AjinSystem.Open(cfg.AjinIrqNo);
+
+                bool forceSimulation = bypassHardware || !AjinFactory.IsRealBoardReady;
 
                 if (Machine != null)
                 {
-                    foreach (BaseAxis axis in CurrentAxes())
+                    List<BaseAxis> axes = CurrentAxes();
+                    if (forceSimulation)
                     {
-                        if (axis == null || axis.Config == null) continue;
-                        axis.Config.IsSimulationMode = forceSimulation || axis is SimAxis;
+                        foreach (BaseAxis axis in axes)
+                        {
+                            if (axis == null || axis.Config == null) continue;
+                            axis.Config.IsSimulationMode = true;
+                        }
+                    }
+                    else
+                    {
+                        AjinFactory.ApplyPersistedAxisValues(axes);
                     }
 
                     foreach (BaseDigitalInput input in EnumerateInputs(Machine))

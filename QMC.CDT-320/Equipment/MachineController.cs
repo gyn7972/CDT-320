@@ -1446,10 +1446,10 @@ namespace QMC.CDT320
                 int homeResult = await axis.HomeSearchAsync().ConfigureAwait(false);
                 if (homeResult != 0)
                 {
-                    LastActionFailureMessage = axis.Name + " HOME 실패. result=" + homeResult;
+                    LastActionFailureMessage = BuildAxisMotionFailureMessage(axis, "HOME 실패", homeResult);
                     QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAxisCore",
                         "Axis initialize failed: home search failed. axis=" + axis.Name +
-                        ", result=" + homeResult + " - Failed");
+                        ", result=" + homeResult + ", message=" + LastActionFailureMessage + " - Failed");
                     AlarmManager.Raise(AlarmSeverity.Error, "HOME-" + axis.Name, axis.Name, LastActionFailureMessage);
                     return homeResult;
                 }
@@ -1489,6 +1489,35 @@ namespace QMC.CDT320
             finally
             {
             }
+        }
+
+        private static string BuildAxisMotionFailureMessage(BaseAxis axis, string action, int result)
+        {
+            if (axis == null)
+                return (action ?? "Motion") + " 실패. result=" + result;
+
+            if (!string.IsNullOrWhiteSpace(axis.LastMotionFailureMessage))
+                return axis.LastMotionFailureMessage;
+
+            string reason;
+            if (axis.IsAlarm)
+                reason = "Axis alarm is ON. AlarmCode=0x" + axis.AlarmCode.ToString("X4");
+            else if (!axis.IsServoOn)
+                reason = "Servo is OFF.";
+            else if (result == -11)
+                reason = "Motion guard/interlock blocked.";
+            else if (result == -2)
+                reason = "Axis is not ready.";
+            else
+                reason = "Motion failed.";
+
+            string unit = axis.Setup != null ? axis.Setup.Unit : string.Empty;
+            return axis.Name + " " + (action ?? "Motion") +
+                   ". result=" + result +
+                   ", reason=" + reason +
+                   ", servo=" + (axis.IsServoOn ? "ON" : "OFF") +
+                   ", alarm=" + (axis.IsAlarm ? "ON" : "OFF") +
+                   ", pos=" + axis.ActualPosition.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) + " " + unit;
         }
 
         private async Task<int> ExecuteInitializeStepsAsync(IList<AxisInitializeStep> steps)

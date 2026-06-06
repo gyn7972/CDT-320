@@ -32,6 +32,26 @@ namespace QMC.CDT320.Ajin
             get { return Config != null && Config.IsSimulationMode; }
         }
 
+        private double AxisHomeTarget()
+        {
+            return Setup != null ? Setup.HomeOffset : 0.0;
+        }
+
+        private int FailAjinAxisNotReady(string action, double targetPosition, bool hasTarget)
+        {
+            string reason;
+            if (!AjinSystem.IsOpen)
+                reason = "AXL is not open.";
+            else if (IsAlarm)
+                reason = "Axis alarm is ON. AlarmCode=0x" + AlarmCode.ToString("X4");
+            else if (!IsServoOn)
+                reason = "Servo is OFF.";
+            else
+                reason = "Axis is not ready.";
+
+            return FailMotion(-2, action, reason, targetPosition, hasTarget);
+        }
+
         public bool CanUseSynchronizedAbsoluteMove
         {
             get { return !UseSimulation && AjinSystem.IsOpen; }
@@ -99,10 +119,10 @@ namespace QMC.CDT320.Ajin
 
                 string interlockReason;
                 if (!MotionGuardRuntime.VerifyAxisMove(this, targetPos, out interlockReason))
-                    return -11;
+                    return FailMotion(-11, "ABS MOVE", interlockReason, targetPos, true);
 
                 if (!IsServoOn || IsAlarm || !AjinSystem.IsOpen)
-                    return -2;
+                    return FailAjinAxisNotReady("ABS MOVE", targetPos, true);
 
                 UpdateStatus();
                 int limitCheck = CheckSoftLimitTarget(targetPos);
@@ -140,7 +160,12 @@ namespace QMC.CDT320.Ajin
                 int waitRet = await WaitUntilMoveDone();
                 if (waitRet == 0 && !IsAlarm)
                     _motionDirection = 0;
-                return IsAlarm ? (int)AlarmCode : waitRet;
+                if (IsAlarm)
+                    return FailMotion((int)AlarmCode, "ABS MOVE", "Axis alarm occurred during move.", targetPos, true);
+                if (waitRet != 0)
+                    return FailMotion(waitRet, "ABS MOVE", "Move wait failed.", targetPos, true);
+                ClearMotionFailure();
+                return 0;
             }
             catch (Exception ex)
             {
@@ -193,9 +218,9 @@ namespace QMC.CDT320.Ajin
             resolvedVelocity = velocity > 0 ? velocity : Config.DefaultVelocity;
 
             if (!CanUseSynchronizedAbsoluteMove)
-                return -2;
+                return FailAjinAxisNotReady("SYNC ABS MOVE", targetPos, true);
             if (!IsServoOn || IsAlarm)
-                return -2;
+                return FailAjinAxisNotReady("SYNC ABS MOVE", targetPos, true);
 
             UpdateStatus();
             return CheckSoftLimitTarget(targetPos);
@@ -274,10 +299,10 @@ namespace QMC.CDT320.Ajin
 
                 string interlockReason;
                 if (!MotionGuardRuntime.VerifyAxisHome(this, out interlockReason))
-                    return -11;
+                    return FailMotion(-11, "HOME", interlockReason, AxisHomeTarget(), true);
 
                 if (!IsServoOn || IsAlarm || !AjinSystem.IsOpen)
-                    return -2;
+                    return FailAjinAxisNotReady("HOME", AxisHomeTarget(), true);
 
                 IsHomeDone = false;
                 IsMoving = true;
@@ -323,9 +348,12 @@ namespace QMC.CDT320.Ajin
                 if (IsHomeDone)
                 {
                     RaiseMoveCompleted();
+                    ClearMotionFailure();
                     return 0;
                 }
-                return IsAlarm ? (int)AlarmCode : -1;
+                if (IsAlarm)
+                    return FailMotion((int)AlarmCode, "HOME", "Axis alarm occurred during home search.", AxisHomeTarget(), true);
+                return FailMotion(-1, "HOME", "Home search failed before HomeDone.", AxisHomeTarget(), true);
             }
             catch (Exception ex)
             {
@@ -372,12 +400,18 @@ namespace QMC.CDT320.Ajin
                 }
 
                 if (!IsServoOn || IsAlarm || !AjinSystem.IsOpen)
+                {
+                    FailAjinAxisNotReady("JOG", 0, false);
                     return;
+                }
 
                 double jogTarget = direction > 0 ? Setup.SoftLimitPlus : Setup.SoftLimitMinus;
                 string interlockReason;
                 if (!MotionGuardRuntime.VerifyAxisMove(this, jogTarget, out interlockReason))
+                {
+                    RecordMotionFailure(-11, "JOG", interlockReason, jogTarget, true);
                     return;
+                }
 
                 UpdateStatus();
 
@@ -434,7 +468,7 @@ namespace QMC.CDT320.Ajin
                     return await base.MoveJogStepAsync(direction, speedType, stepDistance, customVel);
 
                 if (!IsServoOn || IsAlarm)
-                    return -2;
+                    return FailAjinAxisNotReady("JOG STEP", 0, false);
 
                 int jogDirection = direction < 0 ? -1 : 1;
                 double vel = GetJogVelocity(speedType, customVel);
@@ -444,7 +478,7 @@ namespace QMC.CDT320.Ajin
 
                 UpdateStatus();
                 if (IsMoving)
-                    return -2;
+                    return FailMotion(-2, "JOG STEP", "Axis is already moving.");
 
                 return await MoveRelativeAsync(distance, vel);
             }

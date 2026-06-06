@@ -79,6 +79,10 @@ namespace QMC.Common.Motion
         /// <summary>알람 코드.</summary>
         public uint AlarmCode           { get; protected set; }
 
+        public int LastMotionFailureCode { get; protected set; }
+        public string LastMotionFailureMessage { get; protected set; }
+        public DateTime LastMotionFailureTime { get; protected set; }
+
         /// <summary>양(+) 방향 하드웨어 리미트 센서 신호.</summary>
         public bool Sensor_PEL          { get; protected set; }
 
@@ -237,6 +241,65 @@ namespace QMC.Common.Motion
             Config.Deceleration    = dec;
         }
 
+        public void ClearMotionFailure()
+        {
+            LastMotionFailureCode = 0;
+            LastMotionFailureMessage = string.Empty;
+            LastMotionFailureTime = DateTime.MinValue;
+        }
+
+        protected void RecordMotionFailure(int code, string action, string reason)
+        {
+            RecordMotionFailure(code, action, reason, 0, false);
+        }
+
+        protected void RecordMotionFailure(int code, string action, string reason, double targetPosition, bool hasTarget)
+        {
+            LastMotionFailureCode = code;
+            LastMotionFailureTime = DateTime.Now;
+            LastMotionFailureMessage = BuildMotionFailureMessage(code, action, reason, targetPosition, hasTarget);
+        }
+
+        protected int FailMotion(int code, string action, string reason)
+        {
+            RecordMotionFailure(code, action, reason);
+            return code;
+        }
+
+        protected int FailMotion(int code, string action, string reason, double targetPosition, bool hasTarget)
+        {
+            RecordMotionFailure(code, action, reason, targetPosition, hasTarget);
+            return code;
+        }
+
+        protected int FailAxisNotReady(string action, double targetPosition, bool hasTarget)
+        {
+            string reason;
+            if (IsAlarm)
+                reason = "Axis alarm is ON. AlarmCode=0x" + AlarmCode.ToString("X4");
+            else if (!IsServoOn)
+                reason = "Servo is OFF.";
+            else
+                reason = "Axis is not ready.";
+
+            return FailMotion(-2, action, reason, targetPosition, hasTarget);
+        }
+
+        protected string BuildMotionFailureMessage(int code, string action, string reason, double targetPosition, bool hasTarget)
+        {
+            string message = Name + " " + (action ?? "motion") + " failed. result=" + code;
+            if (!string.IsNullOrWhiteSpace(reason))
+                message += ", reason=" + reason;
+            if (hasTarget)
+                message += ", target=" + targetPosition.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) + " " + (Setup != null ? Setup.Unit : "");
+            message += ", servo=" + (IsServoOn ? "ON" : "OFF");
+            message += ", alarm=" + (IsAlarm ? "ON" : "OFF");
+            if (IsAlarm || AlarmCode != 0)
+                message += ", alarmCode=0x" + AlarmCode.ToString("X4");
+            message += ", pos=" + ActualPosition.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) + " " + (Setup != null ? Setup.Unit : "");
+            return message;
+        }
+
         // ─────────────────────────────────────────────
         //  §2. 이동 메서드
         // ─────────────────────────────────────────────
@@ -253,10 +316,12 @@ namespace QMC.Common.Motion
             try
             {
                 if (!IsServoOn || IsAlarm)
-                    return -2;
+                    return FailAxisNotReady("ABS MOVE", targetPos, true);
 
                 if (!VerifyMotionGuard(targetPos, AxisMotionGuardKind.Absolute))
                     return -11;
+
+                ClearMotionFailure();
 
                 double vel = velocity > 0 ? velocity : Config.DefaultVelocity;
                 CommandPosition = targetPos;
@@ -346,10 +411,12 @@ namespace QMC.Common.Motion
             try
             {
                 if (!IsServoOn || IsAlarm)
-                    return -2;
+                    return FailAxisNotReady("HOME", Setup.HomeOffset, true);
 
                 if (!VerifyMotionGuard(Setup.HomeOffset, AxisMotionGuardKind.Home))
                     return -11;
+
+                ClearMotionFailure();
 
                 _currentMode = MotionMode.Homing;
                 IsHomeDone = false;
@@ -438,12 +505,17 @@ namespace QMC.Common.Motion
         public virtual void MoveJogContinuous(int direction, JogSpeedType speedType,
                                               double customVel = 0)
         {
-            if (!IsServoOn || IsAlarm) 
+            if (!IsServoOn || IsAlarm)
+            {
+                FailAxisNotReady("JOG", 0, false);
                 return;
+            }
 
             double jogTarget = direction > 0 ? Setup.SoftLimitPlus : Setup.SoftLimitMinus;
             if (!VerifyMotionGuard(jogTarget, AxisMotionGuardKind.JogContinuous))
                 return;
+
+            ClearMotionFailure();
 
             _jogDirection   = direction;
             CurrentVelocity = GetJogVelocity(speedType, customVel);
@@ -463,7 +535,10 @@ namespace QMC.Common.Motion
                 return true;
 
             string reason;
-            return guard(this, targetPosition, moveKind, out reason);
+            bool allowed = guard(this, targetPosition, moveKind, out reason);
+            if (!allowed)
+                RecordMotionFailure(-11, moveKind.ToString().ToUpperInvariant(), reason, targetPosition, true);
+            return allowed;
         }
 
         /// <summary>

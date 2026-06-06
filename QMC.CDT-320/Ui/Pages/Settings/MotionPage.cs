@@ -466,7 +466,17 @@ namespace QMC.CDT_320.Ui.Pages.Settings
 
                 string message = Host != null && Host.Controller != null && !string.IsNullOrWhiteSpace(Host.Controller.LastActionFailureMessage)
                     ? Host.Controller.LastActionFailureMessage
-                    : "Motion 작업이 실패했습니다. Alarm/Event Log를 확인하세요.";
+                    : null;
+
+                if (string.IsNullOrWhiteSpace(message))
+                {
+                    BaseAxis axis = SelectedAxis();
+                    if (axis != null && !string.IsNullOrWhiteSpace(axis.LastMotionFailureMessage))
+                        message = axis.LastMotionFailureMessage;
+                }
+
+                if (string.IsNullOrWhiteSpace(message))
+                    message = "Motion 작업이 실패했습니다. result=" + result + ". Alarm/Event Log를 확인하세요.";
 
                 QMC.Common.Log.Write("Main", "SYSTEM", source,
                     "Motion action failed: return=" + result + ", message=" + message + " - Failed");
