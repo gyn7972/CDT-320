@@ -17,6 +17,7 @@ namespace QMC.CDT320
         private bool _prevStop;
         private bool _prevReset;
         private int _commandBusy;
+        private int _buzzerMuted;
 
         public OperationPanelMonitorService(CDT320_Machine machine, MachineController controller)
         {
@@ -89,6 +90,14 @@ namespace QMC.CDT320
             ApplyLampState(op, start, reset);
         }
 
+        public void StopBuzzer()
+        {
+            Interlocked.Exchange(ref _buzzerMuted, 1);
+            var op = _machine.OpPanelUnit;
+            if (op != null)
+                Write(op.Buzzer, false);
+        }
+
         private static void UpdateInputs(OperationPanelUnit op)
         {
             TryUpdate(op.StartButton);
@@ -112,10 +121,11 @@ namespace QMC.CDT320
                 Write(op.TlRed, true);
                 Write(op.TlYellow, false);
                 Write(op.TlGreen, false);
-                Write(op.Buzzer, true);
+                Write(op.Buzzer, Interlocked.CompareExchange(ref _buzzerMuted, 0, 0) == 0);
             }
             else if (autoRunning)
             {
+                Interlocked.Exchange(ref _buzzerMuted, 0);
                 Write(op.TlRed, false);
                 Write(op.TlYellow, false);
                 Write(op.TlGreen, true);
@@ -123,6 +133,7 @@ namespace QMC.CDT320
             }
             else if (manualRunning)
             {
+                Interlocked.Exchange(ref _buzzerMuted, 0);
                 Write(op.TlRed, false);
                 Write(op.TlYellow, true);
                 Write(op.TlGreen, true);
@@ -130,6 +141,7 @@ namespace QMC.CDT320
             }
             else
             {
+                Interlocked.Exchange(ref _buzzerMuted, 0);
                 Write(op.TlRed, false);
                 Write(op.TlYellow, true);
                 Write(op.TlGreen, false);
