@@ -1,4 +1,4 @@
-using QMC.Common.Motion;
+﻿using QMC.Common.Motion;
 
 namespace QMC.CDT320.Interlocks
 {
@@ -74,26 +74,30 @@ namespace QMC.CDT320.Interlocks
             if (picker == null)
                 return true;
 
-            if (IsMovingExcept(picker.PickerX, movingName, "FrontPickerX"))
-                return MotionGuardRuleHelpers.Block(movingName, "FrontPickerX is moving.", out reason);
-            if (IsMovingExcept(picker.PickerY, movingName, "FrontPickerY"))
-                return MotionGuardRuleHelpers.Block(movingName, "FrontPickerY is moving.", out reason);
-            if (IsMovingExcept(picker.PickerT0, movingName, "FrontPickerT0"))
-                return MotionGuardRuleHelpers.Block(movingName, "FrontPickerT0 is moving.", out reason);
-            if (IsMovingExcept(picker.PickerT1, movingName, "FrontPickerT1"))
-                return MotionGuardRuleHelpers.Block(movingName, "FrontPickerT1 is moving.", out reason);
-            if (IsMovingExcept(picker.PickerT2, movingName, "FrontPickerT2"))
-                return MotionGuardRuleHelpers.Block(movingName, "FrontPickerT2 is moving.", out reason);
-            if (IsMovingExcept(picker.PickerT3, movingName, "FrontPickerT3"))
-                return MotionGuardRuleHelpers.Block(movingName, "FrontPickerT3 is moving.", out reason);
-            if (IsMovingExcept(picker.PickerZ0, movingName, "FrontPickerZ0"))
-                return MotionGuardRuleHelpers.Block(movingName, "FrontPickerZ0 is moving.", out reason);
-            if (IsMovingExcept(picker.PickerZ1, movingName, "FrontPickerZ1"))
-                return MotionGuardRuleHelpers.Block(movingName, "FrontPickerZ1 is moving.", out reason);
-            if (IsMovingExcept(picker.PickerZ2, movingName, "FrontPickerZ2"))
-                return MotionGuardRuleHelpers.Block(movingName, "FrontPickerZ2 is moving.", out reason);
-            if (IsMovingExcept(picker.PickerZ3, movingName, "FrontPickerZ3"))
-                return MotionGuardRuleHelpers.Block(movingName, "FrontPickerZ3 is moving.", out reason);
+
+            // 같은 축에 있어서 동시에 구동되도 간섭은 되지 않는다.
+            // 다른 유닛과의 상관관계를 봐야한다. Z축 내려왔을때.
+            // 
+            //if (IsMovingExcept(picker.PickerX, movingName, "FrontPickerX"))
+            //    return MotionGuardRuleHelpers.Block(movingName, "FrontPickerX is moving.", out reason);
+            //if (IsMovingExcept(picker.PickerY, movingName, "FrontPickerY"))
+            //    return MotionGuardRuleHelpers.Block(movingName, "FrontPickerY is moving.", out reason);
+            //if (IsMovingExcept(picker.PickerT0, movingName, "FrontPickerT0"))
+            //    return MotionGuardRuleHelpers.Block(movingName, "FrontPickerT0 is moving.", out reason);
+            //if (IsMovingExcept(picker.PickerT1, movingName, "FrontPickerT1"))
+            //    return MotionGuardRuleHelpers.Block(movingName, "FrontPickerT1 is moving.", out reason);
+            //if (IsMovingExcept(picker.PickerT2, movingName, "FrontPickerT2"))
+            //    return MotionGuardRuleHelpers.Block(movingName, "FrontPickerT2 is moving.", out reason);
+            //if (IsMovingExcept(picker.PickerT3, movingName, "FrontPickerT3"))
+            //    return MotionGuardRuleHelpers.Block(movingName, "FrontPickerT3 is moving.", out reason);
+            //if (IsMovingExcept(picker.PickerZ0, movingName, "FrontPickerZ0"))
+            //    return MotionGuardRuleHelpers.Block(movingName, "FrontPickerZ0 is moving.", out reason);
+            //if (IsMovingExcept(picker.PickerZ1, movingName, "FrontPickerZ1"))
+            //    return MotionGuardRuleHelpers.Block(movingName, "FrontPickerZ1 is moving.", out reason);
+            //if (IsMovingExcept(picker.PickerZ2, movingName, "FrontPickerZ2"))
+            //    return MotionGuardRuleHelpers.Block(movingName, "FrontPickerZ2 is moving.", out reason);
+            //if (IsMovingExcept(picker.PickerZ3, movingName, "FrontPickerZ3"))
+            //    return MotionGuardRuleHelpers.Block(movingName, "FrontPickerZ3 is moving.", out reason);
 
             return true;
         }

@@ -1,4 +1,4 @@
-using QMC.Common.Motion;
+﻿using QMC.Common.Motion;
 
 namespace QMC.CDT320.Interlocks
 {
@@ -74,26 +74,26 @@ namespace QMC.CDT320.Interlocks
             if (picker == null)
                 return true;
 
-            if (IsMovingExcept(picker.PickerX, movingName, "RearPickerX"))
-                return MotionGuardRuleHelpers.Block(movingName, "RearPickerX is moving.", out reason);
-            if (IsMovingExcept(picker.PickerY, movingName, "RearPickerY"))
-                return MotionGuardRuleHelpers.Block(movingName, "RearPickerY is moving.", out reason);
-            if (IsMovingExcept(picker.PickerT0, movingName, "RearPickerT0"))
-                return MotionGuardRuleHelpers.Block(movingName, "RearPickerT0 is moving.", out reason);
-            if (IsMovingExcept(picker.PickerT1, movingName, "RearPickerT1"))
-                return MotionGuardRuleHelpers.Block(movingName, "RearPickerT1 is moving.", out reason);
-            if (IsMovingExcept(picker.PickerT2, movingName, "RearPickerT2"))
-                return MotionGuardRuleHelpers.Block(movingName, "RearPickerT2 is moving.", out reason);
-            if (IsMovingExcept(picker.PickerT3, movingName, "RearPickerT3"))
-                return MotionGuardRuleHelpers.Block(movingName, "RearPickerT3 is moving.", out reason);
-            if (IsMovingExcept(picker.PickerZ0, movingName, "RearPickerZ0"))
-                return MotionGuardRuleHelpers.Block(movingName, "RearPickerZ0 is moving.", out reason);
-            if (IsMovingExcept(picker.PickerZ1, movingName, "RearPickerZ1"))
-                return MotionGuardRuleHelpers.Block(movingName, "RearPickerZ1 is moving.", out reason);
-            if (IsMovingExcept(picker.PickerZ2, movingName, "RearPickerZ2"))
-                return MotionGuardRuleHelpers.Block(movingName, "RearPickerZ2 is moving.", out reason);
-            if (IsMovingExcept(picker.PickerZ3, movingName, "RearPickerZ3"))
-                return MotionGuardRuleHelpers.Block(movingName, "RearPickerZ3 is moving.", out reason);
+            //if (IsMovingExcept(picker.PickerX, movingName, "RearPickerX"))
+            //    return MotionGuardRuleHelpers.Block(movingName, "RearPickerX is moving.", out reason);
+            //if (IsMovingExcept(picker.PickerY, movingName, "RearPickerY"))
+            //    return MotionGuardRuleHelpers.Block(movingName, "RearPickerY is moving.", out reason);
+            //if (IsMovingExcept(picker.PickerT0, movingName, "RearPickerT0"))
+            //    return MotionGuardRuleHelpers.Block(movingName, "RearPickerT0 is moving.", out reason);
+            //if (IsMovingExcept(picker.PickerT1, movingName, "RearPickerT1"))
+            //    return MotionGuardRuleHelpers.Block(movingName, "RearPickerT1 is moving.", out reason);
+            //if (IsMovingExcept(picker.PickerT2, movingName, "RearPickerT2"))
+            //    return MotionGuardRuleHelpers.Block(movingName, "RearPickerT2 is moving.", out reason);
+            //if (IsMovingExcept(picker.PickerT3, movingName, "RearPickerT3"))
+            //    return MotionGuardRuleHelpers.Block(movingName, "RearPickerT3 is moving.", out reason);
+            //if (IsMovingExcept(picker.PickerZ0, movingName, "RearPickerZ0"))
+            //    return MotionGuardRuleHelpers.Block(movingName, "RearPickerZ0 is moving.", out reason);
+            //if (IsMovingExcept(picker.PickerZ1, movingName, "RearPickerZ1"))
+            //    return MotionGuardRuleHelpers.Block(movingName, "RearPickerZ1 is moving.", out reason);
+            //if (IsMovingExcept(picker.PickerZ2, movingName, "RearPickerZ2"))
+            //    return MotionGuardRuleHelpers.Block(movingName, "RearPickerZ2 is moving.", out reason);
+            //if (IsMovingExcept(picker.PickerZ3, movingName, "RearPickerZ3"))
+            //    return MotionGuardRuleHelpers.Block(movingName, "RearPickerZ3 is moving.", out reason);
 
             return true;
         }
