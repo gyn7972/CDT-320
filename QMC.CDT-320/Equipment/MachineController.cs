@@ -1431,6 +1431,9 @@ namespace QMC.CDT320
                         ", error=" + stopEx.Message + " - Failed");
                 }
 
+                axis.ServoOff();
+                Thread.Sleep(500);
+
                 axis.ResetAlarm();
                 axis.ServoOn();
 

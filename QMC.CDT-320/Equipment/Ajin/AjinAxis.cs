@@ -12,6 +12,7 @@ namespace QMC.CDT320.Ajin
     {
         private readonly object _sync = new object();
         private int _motionDirection;
+        private bool _isHomeSearching;
 
         public int AxisNo { get; }
 
@@ -307,6 +308,8 @@ namespace QMC.CDT320.Ajin
                 IsHomeDone = false;
                 IsMoving = true;
                 IsInPosition = false;
+                _motionDirection = 0;
+                _isHomeSearching = true;
 
                 int ret;
                 lock (_sync)
@@ -368,7 +371,14 @@ namespace QMC.CDT320.Ajin
             }
             finally
             {
-                UpdateStatus();
+                try
+                {
+                    UpdateStatus();
+                }
+                finally
+                {
+                    _isHomeSearching = false;
+                }
             }
         }
 
@@ -648,8 +658,8 @@ namespace QMC.CDT320.Ajin
                 ActualPosition >= Setup.SoftLimitPlus && _motionDirection > 0;
             bool softLimitNegative = Setup != null && Setup.SoftLimitEnabled &&
                 ActualPosition <= Setup.SoftLimitMinus && _motionDirection < 0;
-            bool hardLimitPositive = pel && _motionDirection > 0;
-            bool hardLimitNegative = mel && _motionDirection < 0;
+            bool hardLimitPositive = !_isHomeSearching && pel && _motionDirection > 0;
+            bool hardLimitNegative = !_isHomeSearching && mel && _motionDirection < 0;
 
             IsAlarm = fault || softLimitPositive || softLimitNegative || hardLimitPositive || hardLimitNegative;
             if (IsAlarm)
@@ -683,7 +693,7 @@ namespace QMC.CDT320.Ajin
             Sensor_PEL = pel;
             Sensor_MEL = mel;
             Sensor_ORG = org;
-            if ((Sensor_PEL && !wasPel) || (Sensor_MEL && !wasMel))
+            if (!_isHomeSearching && ((Sensor_PEL && !wasPel) || (Sensor_MEL && !wasMel)))
             {
                 string side = Sensor_PEL ? "PEL(+)" : "MEL(-)";
                 AlarmManager.Raise(
