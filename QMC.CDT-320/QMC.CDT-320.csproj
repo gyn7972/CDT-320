@@ -216,9 +216,6 @@
     <Compile Include="Ui\Pages\Material\MaterialBinPage.Designer.cs">
       <DependentUpon>MaterialBinPage.cs</DependentUpon>
     </Compile>
-    <Compile Include="Ui\Pages\Recipe\CassetteRecipePage.Designer.cs">
-      <DependentUpon>CassetteRecipePage.cs</DependentUpon>
-    </Compile>
     <Compile Include="Ui\Pages\Recipe\InputCassetteRecipePage.cs">
       <SubType>UserControl</SubType>
     </Compile>
@@ -666,19 +663,22 @@
       <SubType>UserControl</SubType>
     </Compile>
     <!-- UI / Pages / Recipe -->
-    <Compile Include="Ui\Pages\Recipe\CassetteRecipePage.cs">
-      <SubType>UserControl</SubType>
-    </Compile>
     <Compile Include="Ui\Pages\Recipe\ForceControlPage.Designer.cs">
       <DependentUpon>ForceControlPage.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Pages\Recipe\ForceControlPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="Ui\Pages\Recipe\HeadRecipePage.Designer.cs">
-      <DependentUpon>HeadRecipePage.cs</DependentUpon>
+    <Compile Include="Ui\Pages\Recipe\FrontPickerRecipePage.Designer.cs">
+      <DependentUpon>FrontPickerRecipePage.cs</DependentUpon>
     </Compile>
-    <Compile Include="Ui\Pages\Recipe\HeadRecipePage.cs">
+    <Compile Include="Ui\Pages\Recipe\FrontPickerRecipePage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\Recipe\RearPickerRecipePage.Designer.cs">
+      <DependentUpon>RearPickerRecipePage.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Pages\Recipe\RearPickerRecipePage.cs">
       <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="Ui\Pages\Recipe\MapCreatePage.Designer.cs">
@@ -832,10 +832,6 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\Material\MaterialBinPage.resx">
       <DependentUpon>MaterialBinPage.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Ui\Pages\Recipe\CassetteRecipePage.resx">
-      <DependentUpon>CassetteRecipePage.cs</DependentUpon>
-      <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\Recipe\DieSubsetPage.resx">
       <DependentUpon>DieSubsetPage.cs</DependentUpon>
