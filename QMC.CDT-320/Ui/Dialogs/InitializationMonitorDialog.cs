@@ -11,6 +11,12 @@ namespace QMC.CDT_320.Ui.Dialogs
 {
     public partial class InitializationMonitorDialog : Form
     {
+        private const string StatusWaiting = "Waiting";
+        private const string StatusDisabled = "Disabled";
+        private const string StatusRunning = "Running";
+        private const string StatusDone = "Done";
+        private const string StatusFailed = "Failed";
+
         private readonly MachineController _controller;
         private bool _running;
 
@@ -59,7 +65,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
             catch (Exception ex)
             {
-                QMC.Common.MessageDialog.Show(this, "초기화 Plan 로딩 실패:\n" + ex.Message,
+                QMC.Common.MessageDialog.Show(this, "Initialize plan load failed:\n" + ex.Message,
                     "Init Monitor", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
@@ -77,6 +83,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 if (action == null)
                     continue;
 
+                string status = action.Enabled && step.Enabled ? StatusWaiting : StatusDisabled;
                 int rowIndex = grid.Rows.Add(
                     step.StepNo,
                     step.GroupName,
@@ -84,11 +91,11 @@ namespace QMC.CDT_320.Ui.Dialogs
                     action.TargetType,
                     action.Name,
                     action.Command,
-                    action.Enabled && step.Enabled ? "대기" : "비활성",
+                    status,
                     action.Description);
                 DataGridViewRow row = grid.Rows[rowIndex];
                 row.Tag = step.StepNo;
-                ApplyStatusStyle(row, action.Enabled && step.Enabled ? "대기" : "비활성");
+                ApplyStatusStyle(row, status);
             }
         }
 
@@ -97,6 +104,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             if (step == null || step.AxisNames == null || step.AxisNames.Count == 0)
                 return;
 
+            string status = step.Enabled ? StatusWaiting : StatusDisabled;
             int rowIndex = grid.Rows.Add(
                 step.StepNo,
                 step.GroupName,
@@ -104,11 +112,11 @@ namespace QMC.CDT_320.Ui.Dialogs
                 "Axis",
                 string.Join("; ", step.AxisNames.ToArray()),
                 "Home",
-                step.Enabled ? "대기" : "비활성",
+                status,
                 step.Comment);
             DataGridViewRow row = grid.Rows[rowIndex];
             row.Tag = step.StepNo;
-            ApplyStatusStyle(row, step.Enabled ? "대기" : "비활성");
+            ApplyStatusStyle(row, status);
         }
 
         private async void btnRunSelected_Click(object sender, EventArgs e)
@@ -155,7 +163,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 if (result != 0)
                 {
                     string message = string.IsNullOrEmpty(_controller.LastActionFailureMessage)
-                        ? "초기화 실행에 실패했습니다."
+                        ? "Initialize execution failed."
                         : _controller.LastActionFailureMessage;
                     QMC.Common.MessageDialog.Show(this, message, "Init Monitor",
                         MessageBoxButtons.OK, MessageBoxIcon.Warning);
@@ -163,7 +171,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
             catch (Exception ex)
             {
-                QMC.Common.MessageDialog.Show(this, "초기화 실행 오류:\n" + ex.Message,
+                QMC.Common.MessageDialog.Show(this, "Initialize execution error:\n" + ex.Message,
                     "Init Monitor", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
@@ -186,11 +194,11 @@ namespace QMC.CDT_320.Ui.Dialogs
             foreach (DataGridViewRow row in grid.Rows)
             {
                 string current = Convert.ToString(row.Cells[colStatus.Index].Value);
-                if (string.Equals(current, "비활성", StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(current, StatusDisabled, StringComparison.OrdinalIgnoreCase))
                     continue;
 
-                row.Cells[colStatus.Index].Value = "대기";
-                ApplyStatusStyle(row, "대기");
+                row.Cells[colStatus.Index].Value = StatusWaiting;
+                ApplyStatusStyle(row, StatusWaiting);
             }
         }
 
@@ -218,8 +226,9 @@ namespace QMC.CDT_320.Ui.Dialogs
                 if (!string.Equals(groupName, progress.GroupName, StringComparison.OrdinalIgnoreCase))
                     continue;
 
-                row.Cells[colStatus.Index].Value = progress.Status;
-                ApplyStatusStyle(row, progress.Status);
+                string status = NormalizeStatus(progress.Status);
+                row.Cells[colStatus.Index].Value = status;
+                ApplyStatusStyle(row, status);
                 if (!string.IsNullOrWhiteSpace(progress.Message))
                     row.Cells[colDescription.Index].Value = progress.Message;
             }
@@ -233,13 +242,13 @@ namespace QMC.CDT_320.Ui.Dialogs
             Color backColor = Color.White;
             Color foreColor = Color.FromArgb(30, 30, 30);
 
-            if (string.Equals(status, "진행중", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(status, StatusRunning, StringComparison.OrdinalIgnoreCase))
                 backColor = Color.FromArgb(255, 245, 157);
-            else if (string.Equals(status, "완료", StringComparison.OrdinalIgnoreCase))
+            else if (string.Equals(status, StatusDone, StringComparison.OrdinalIgnoreCase))
                 backColor = Color.FromArgb(200, 230, 201);
-            else if (string.Equals(status, "실패", StringComparison.OrdinalIgnoreCase))
+            else if (string.Equals(status, StatusFailed, StringComparison.OrdinalIgnoreCase))
                 backColor = Color.FromArgb(255, 205, 210);
-            else if (string.Equals(status, "비활성", StringComparison.OrdinalIgnoreCase))
+            else if (string.Equals(status, StatusDisabled, StringComparison.OrdinalIgnoreCase))
             {
                 backColor = Color.FromArgb(238, 238, 238);
                 foreColor = Color.FromArgb(120, 120, 120);
@@ -249,6 +258,21 @@ namespace QMC.CDT_320.Ui.Dialogs
             row.DefaultCellStyle.SelectionBackColor = ControlPaint.Dark(backColor);
             row.DefaultCellStyle.ForeColor = foreColor;
             row.DefaultCellStyle.SelectionForeColor = foreColor;
+        }
+
+        private static string NormalizeStatus(string status)
+        {
+            if (string.Equals(status, "진행중", StringComparison.OrdinalIgnoreCase))
+                return StatusRunning;
+            if (string.Equals(status, "완료", StringComparison.OrdinalIgnoreCase))
+                return StatusDone;
+            if (string.Equals(status, "실패", StringComparison.OrdinalIgnoreCase))
+                return StatusFailed;
+            if (string.Equals(status, "비활성", StringComparison.OrdinalIgnoreCase))
+                return StatusDisabled;
+            if (string.Equals(status, "대기", StringComparison.OrdinalIgnoreCase))
+                return StatusWaiting;
+            return string.IsNullOrWhiteSpace(status) ? StatusWaiting : status;
         }
     }
 }

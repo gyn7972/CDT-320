@@ -13,6 +13,8 @@ namespace QMC.CDT_320.Ui.Tabs
     /// <summary>작업 탭 - 장비 전체 제어 버튼과 작업 화면을 구성합니다.</summary>
     public partial class WorkTab : TabBase
     {
+        private InitializationMonitorDialog _initializationMonitorDialog;
+
         public WorkTab()
         {
             InitializeComponent();
@@ -124,8 +126,16 @@ namespace QMC.CDT_320.Ui.Tabs
                     return;
                 }
 
-                using (var dlg = new InitializationMonitorDialog(Host.Controller))
-                    dlg.ShowDialog(FindForm());
+                if (_initializationMonitorDialog != null && !_initializationMonitorDialog.IsDisposed)
+                {
+                    _initializationMonitorDialog.Activate();
+                    _initializationMonitorDialog.BringToFront();
+                    return;
+                }
+
+                _initializationMonitorDialog = new InitializationMonitorDialog(Host.Controller);
+                _initializationMonitorDialog.FormClosed += delegate { _initializationMonitorDialog = null; };
+                _initializationMonitorDialog.Show(FindForm());
             }
             catch (Exception ex)
             {
@@ -134,6 +144,22 @@ namespace QMC.CDT_320.Ui.Tabs
             }
             finally
             {
+            }
+        }
+
+        protected override void OnHandleDestroyed(EventArgs e)
+        {
+            try
+            {
+                if (_initializationMonitorDialog != null && !_initializationMonitorDialog.IsDisposed)
+                    _initializationMonitorDialog.Close();
+            }
+            catch
+            {
+            }
+            finally
+            {
+                base.OnHandleDestroyed(e);
             }
         }
 

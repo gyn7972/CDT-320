@@ -1,4 +1,4 @@
-using QMC.Common.IO;
+﻿using QMC.Common.IO;
 using QMC.Common.Motion;
 
 namespace QMC.CDT320.Interlocks
@@ -79,8 +79,8 @@ namespace QMC.CDT320.Interlocks
                 return MotionGuardRuleHelpers.Block(movingName, "InputStage StageY is moving.", out reason);
             if (MotionGuardRuleHelpers.IsAxisMoving(stage.CameraX))
                 return MotionGuardRuleHelpers.Block(movingName, "InputVisionX is moving.", out reason);
-            if (MotionGuardRuleHelpers.IsAxisMoving(stage.ExpanderZ))
-                return MotionGuardRuleHelpers.Block(movingName, "InputStage ExpanderZ is moving.", out reason);
+            //if (MotionGuardRuleHelpers.IsAxisMoving(stage.ExpanderZ))
+            //    return MotionGuardRuleHelpers.Block(movingName, "InputStage ExpanderZ is moving.", out reason);
 
             return true;
         }
@@ -91,16 +91,20 @@ namespace QMC.CDT320.Interlocks
             if (vision == null)
                 return true;
 
-            if (IsMovingExcept(vision.FrontSideVisionY, movingName, "FrontSideVisionY", "FrontSideVisionY0"))
-                return MotionGuardRuleHelpers.Block(movingName, "FrontSideVisionY is moving.", out reason);
-            if (IsMovingExcept(vision.RearSideVisionY, movingName, "RearSideVisionY", "RearSideVisionY0"))
-                return MotionGuardRuleHelpers.Block(movingName, "RearSideVisionY is moving.", out reason);
-            if (IsCylinderMovingExcept(vision.ReticleLift, movingName, "ReticleLift", "Reticle Up/Down"))
-                return MotionGuardRuleHelpers.Block(movingName, "ReticleLift is moving.", out reason);
-            if (IsCylinderMovingExcept(vision.ReticleFrontSideSlide, movingName, "ReticleSideSlideFront", "Reticle Front FW/BW"))
-                return MotionGuardRuleHelpers.Block(movingName, "Reticle front slide is moving.", out reason);
-            if (IsCylinderMovingExcept(vision.ReticleRearSideSlide, movingName, "ReticleSideSlideRear", "Reticle Back FW/BW"))
-                return MotionGuardRuleHelpers.Block(movingName, "Reticle rear slide is moving.", out reason);
+            //서로 움직여도 상관없음.
+            //if (IsMovingExcept(vision.FrontSideVisionY, movingName, "FrontSideVisionY", "FrontSideVisionY0"))
+            //    return MotionGuardRuleHelpers.Block(movingName, "FrontSideVisionY is moving.", out reason);
+            //if (IsMovingExcept(vision.RearSideVisionY, movingName, "RearSideVisionY", "RearSideVisionY0"))
+            //    return MotionGuardRuleHelpers.Block(movingName, "RearSideVisionY is moving.", out reason);
+
+
+            // 간섭 무
+            //if (IsCylinderMovingExcept(vision.ReticleLift, movingName, "ReticleLift", "Reticle Up/Down"))
+            //    return MotionGuardRuleHelpers.Block(movingName, "ReticleLift is moving.", out reason);
+            //if (IsCylinderMovingExcept(vision.ReticleFrontSideSlide, movingName, "ReticleSideSlideFront", "Reticle Front FW/BW"))
+            //    return MotionGuardRuleHelpers.Block(movingName, "Reticle front slide is moving.", out reason);
+            //if (IsCylinderMovingExcept(vision.ReticleRearSideSlide, movingName, "ReticleSideSlideRear", "Reticle Back FW/BW"))
+            //    return MotionGuardRuleHelpers.Block(movingName, "Reticle rear slide is moving.", out reason);
 
             return true;
         }

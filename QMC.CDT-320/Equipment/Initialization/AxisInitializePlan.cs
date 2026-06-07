@@ -138,7 +138,7 @@ namespace QMC.CDT320.Initialization
 
     public static class AxisInitializePlanStore
     {
-        private const int CurrentDefaultVersion = 5;
+        private const int CurrentDefaultVersion = 6;
         public static string RootDir => @"D:\CDT-320";
         public static string Dir => Path.Combine(RootDir, "Config");
         public static string PlanPath => Path.Combine(Dir, "axis_initialize_plan.json");
@@ -301,8 +301,8 @@ namespace QMC.CDT320.Initialization
 
                 AddKnownStep(plan, axisByName, used, 10, "OutputStageZ",
                     AxisInitializeRunMode.Parallel,
-                    "Output stage Z axes home before Y axes.",
-                    "OutputGoodStageZ", "OutputNGStageZ", "GoodStage_StageZ", "NgStage_StageZ");
+                    "Output good stage Z home before Y axes. NG stage has Y axis only.",
+                    "OutputGoodStageZ", "GoodStage_StageZ");
 
                 AddKnownStep(plan, axisByName, used, 20, "PickerT",
                     AxisInitializeRunMode.Parallel,
@@ -348,10 +348,20 @@ namespace QMC.CDT320.Initialization
                     "InputFeederY home. SharedRailX/InputFeeder relation is checked in prepare hook.",
                     "InputFeederY", "FeederY");
 
-                AddKnownStep(plan, axisByName, used, 72, "SharedRailX",
-                    AxisInitializeRunMode.Parallel,
-                    "Common X rail axes home after InputFeeder relation check.",
-                    "InputVisionX", "CameraX", "FrontPickerX", "RearPickerX", "OutputVisionX");
+                AddKnownStep(plan, axisByName, used, 72, "InputVisionX",
+                    AxisInitializeRunMode.Serial,
+                    "InputVisionX home. Step 72/73/74 always run in order after InputFeeder relation check.",
+                    "InputVisionX", "CameraX");
+
+                AddKnownStep(plan, axisByName, used, 73, "FrontPickerX",
+                    AxisInitializeRunMode.Serial,
+                    "FrontPickerX home after InputVisionX.",
+                    "FrontPickerX");
+
+                AddKnownStep(plan, axisByName, used, 74, "RearPickerX",
+                    AxisInitializeRunMode.Serial,
+                    "RearPickerX home after FrontPickerX.",
+                    "RearPickerX");
 
                 AddKnownStep(plan, axisByName, used, 80, "InputCassette",
                     AxisInitializeRunMode.Serial,
@@ -380,9 +390,9 @@ namespace QMC.CDT320.Initialization
                     "OutputFeederY");
 
                 AddKnownStepAllowDuplicate(plan, axisByName, 92, "SharedRailXOutput",
-                    AxisInitializeRunMode.Parallel,
-                    "Shared rail X output-side relation check step. Axes already homed are skipped by runtime.",
-                    "InputVisionX", "CameraX", "FrontPickerX", "RearPickerX", "OutputVisionX");
+                    AxisInitializeRunMode.Serial,
+                    "OutputVisionX home. OutputFeederY/OutputVisionX relation is checked before order selection.",
+                    "OutputVisionX");
 
                 AddActionOnlyStep(plan, 100, "NGBinGuideClamp", "NGBinGuideClamp", AxisInitializeActionCommand.CylinderBwd,
                     "NG bin guide clamp UnClamp. Disabled until field direction is confirmed.", false);
@@ -702,10 +712,6 @@ namespace QMC.CDT320.Initialization
                     return new[] { "OutputGoodStageZ" };
                 case "OutputGoodStageZ":
                     return new[] { "GoodStage_StageZ" };
-                case "NgStage_StageZ":
-                    return new[] { "OutputNGStageZ" };
-                case "OutputNGStageZ":
-                    return new[] { "NgStage_StageZ" };
                 case "GoodStage_StageY":
                     return new[] { "OutputGoodStageY" };
                 case "OutputGoodStageY":

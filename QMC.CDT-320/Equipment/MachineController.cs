@@ -1458,13 +1458,13 @@ namespace QMC.CDT320
                 }
 
                 int result;
-                if (stepNo == 71 || stepNo == 72)
+                if (stepNo == 71 || stepNo == 72 || stepNo == 73 || stepNo == 74)
                 {
-                    var pairSteps = plan.Steps.Where(x => x != null && x.Enabled && (x.StepNo == 71 || x.StepNo == 72)).ToList();
-                    result = await ExecuteConditionalInitializePairAsync(
-                        pairSteps,
+                    var sequenceSteps = plan.Steps.Where(x => x != null && x.Enabled && (x.StepNo == 71 || x.StepNo == 72 || x.StepNo == 73 || x.StepNo == 74)).ToList();
+                    result = await ExecuteConditionalInitializeSequenceAsync(
+                        sequenceSteps,
                         71,
-                        72,
+                        new[] { 72, 73, 74 },
                         ShouldRunSharedRailBeforeInputFeederHome,
                         "InputFeeder/SharedRailX").ConfigureAwait(false);
                 }
@@ -1744,7 +1744,6 @@ namespace QMC.CDT320
                 switch (axis.Name)
                 {
                     case "GoodStage_StageZ":
-                    case "NgStage_StageZ":
                         return await MoveOutputStageZToAvoidAsync().ConfigureAwait(false);
                     case "FrontPickerY":
                         return await MoveFrontPickerYToAvoidAfterHomeAsync().ConfigureAwait(false);
@@ -1873,15 +1872,15 @@ namespace QMC.CDT320
                 bool inputPairExecuted = false;
                 bool outputPairExecuted = false;
                 foreach (var batch in enabledSteps
-                    .Where(x => x.StepNo != 71 && x.StepNo != 72 && x.StepNo != 91 && x.StepNo != 92)
+                    .Where(x => x.StepNo != 71 && x.StepNo != 72 && x.StepNo != 73 && x.StepNo != 74 && x.StepNo != 91 && x.StepNo != 92)
                     .GroupBy(x => x.StepNo))
                 {
                     if (!inputPairExecuted && batch.Key >= 80)
                     {
-                        int conditionalResult = await ExecuteConditionalInitializePairAsync(
+                        int conditionalResult = await ExecuteConditionalInitializeSequenceAsync(
                             enabledSteps,
                             71,
-                            72,
+                            new[] { 72, 73, 74 },
                             ShouldRunSharedRailBeforeInputFeederHome,
                             "InputFeeder/SharedRailX").ConfigureAwait(false);
                         if (conditionalResult != 0)
@@ -1931,10 +1930,10 @@ namespace QMC.CDT320
 
                 if (!inputPairExecuted)
                 {
-                    int result = await ExecuteConditionalInitializePairAsync(
+                    int result = await ExecuteConditionalInitializeSequenceAsync(
                         enabledSteps,
                         71,
-                        72,
+                        new[] { 72, 73, 74 },
                         ShouldRunSharedRailBeforeInputFeederHome,
                         "InputFeeder/SharedRailX").ConfigureAwait(false);
                     if (result != 0)
@@ -2087,6 +2086,93 @@ namespace QMC.CDT320
             finally
             {
             }
+        }
+
+        private async Task<int> ExecuteConditionalInitializeSequenceAsync(
+            IList<AxisInitializeStep> steps,
+            int firstStepNo,
+            int[] orderedSecondStepNos,
+            Func<bool> shouldRunSecondFirst,
+            string relationName)
+        {
+            try
+            {
+                if (steps == null)
+                    return 0;
+
+                AxisInitializeStep first = steps.FirstOrDefault(x => x != null && x.Enabled && x.StepNo == firstStepNo);
+                var secondSteps = (orderedSecondStepNos ?? new int[0])
+                    .SelectMany(stepNo => steps
+                        .Where(x => x != null && x.Enabled && x.StepNo == stepNo)
+                        .OrderBy(x => x.GroupName)
+                        .ToList())
+                    .ToList();
+
+                if (first == null && secondSteps.Count == 0)
+                    return 0;
+
+                bool secondFirst = shouldRunSecondFirst != null && shouldRunSecondFirst();
+                string secondOrder = string.Join("->", (orderedSecondStepNos ?? new int[0]).Select(x => x.ToString()).ToArray());
+                QMC.Common.Log.Write("Main", "SYSTEM", "ExecuteInitializeConditionalSequence",
+                    "Conditional initialize sequence order selected. relation=" + relationName +
+                    ", order=" + (secondFirst ? secondOrder + "->" + firstStepNo : firstStepNo + "->" + secondOrder) +
+                    " - Start");
+
+                if (secondFirst)
+                {
+                    int secondResult = await ExecuteInitializeOrderedStepsAsync(secondSteps).ConfigureAwait(false);
+                    if (secondResult != 0)
+                        return secondResult;
+
+                    int firstResult = first != null ? await ExecuteInitializeSingleStepAsync(first).ConfigureAwait(false) : 0;
+                    if (firstResult != 0)
+                        return firstResult;
+                }
+                else
+                {
+                    int firstResult = first != null ? await ExecuteInitializeSingleStepAsync(first).ConfigureAwait(false) : 0;
+                    if (firstResult != 0)
+                        return firstResult;
+
+                    int secondResult = await ExecuteInitializeOrderedStepsAsync(secondSteps).ConfigureAwait(false);
+                    if (secondResult != 0)
+                        return secondResult;
+                }
+
+                QMC.Common.Log.Write("Main", "SYSTEM", "ExecuteInitializeConditionalSequence",
+                    "Conditional initialize sequence completed. relation=" + relationName + " - Ok");
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                LastActionFailureMessage = "Conditional initialize sequence failed: " + ex.Message;
+                QMC.Common.Log.Write("Main", "SYSTEM", "ExecuteInitializeConditionalSequence",
+                    "Conditional initialize sequence failed. relation=" + relationName +
+                    ", error=" + ex.Message + " - Failed");
+                AlarmManager.Raise(AlarmSeverity.Error, "INIT-COND-SEQ-EX", "MachineController", LastActionFailureMessage);
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> ExecuteInitializeOrderedStepsAsync(IList<AxisInitializeStep> steps)
+        {
+            if (steps == null)
+                return 0;
+
+            foreach (AxisInitializeStep step in steps
+                .Where(x => x != null && x.Enabled)
+                .OrderBy(x => x.StepNo)
+                .ThenBy(x => x.GroupName))
+            {
+                int result = await ExecuteInitializeSingleStepAsync(step).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+            }
+
+            return 0;
         }
 
         private async Task<int> ExecuteConditionalInitializePairAsync(
@@ -2398,13 +2484,6 @@ namespace QMC.CDT320
                 bool ok = await stage.GoodStage.MoveToAvoidPositionAsync().ConfigureAwait(false);
                 if (!ok)
                     return FailInitializePreparation("GoodStage Z avoid move failed.");
-            }
-
-            if (stage.NgStage != null)
-            {
-                bool ok = await stage.NgStage.MoveToAvoidPositionAsync().ConfigureAwait(false);
-                if (!ok)
-                    return FailInitializePreparation("NgStage Z avoid move failed.");
             }
 
             return 0;

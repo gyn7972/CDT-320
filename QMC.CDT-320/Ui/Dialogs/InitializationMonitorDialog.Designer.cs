@@ -75,12 +75,12 @@ namespace QMC.CDT_320.Ui.Dialogs
             // lblTitle
             // 
             this.lblTitle.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblTitle.Font = new System.Drawing.Font("맑은 고딕", 12F, System.Drawing.FontStyle.Bold);
+            this.lblTitle.Font = new System.Drawing.Font("Malgun Gothic", 12F, System.Drawing.FontStyle.Bold);
             this.lblTitle.Location = new System.Drawing.Point(3, 0);
             this.lblTitle.Name = "lblTitle";
             this.lblTitle.Size = new System.Drawing.Size(1154, 34);
             this.lblTitle.TabIndex = 0;
-            this.lblTitle.Text = "초기화 순서 모니터";
+            this.lblTitle.Text = "Initialization Sequence Monitor";
             this.lblTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // grid
@@ -95,7 +95,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.grid.CellBorderStyle = System.Windows.Forms.DataGridViewCellBorderStyle.SingleHorizontal;
             headerStyle.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
             headerStyle.BackColor = System.Drawing.Color.FromArgb(238, 242, 246);
-            headerStyle.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            headerStyle.Font = new System.Drawing.Font("Malgun Gothic", 9F, System.Drawing.FontStyle.Bold);
             headerStyle.ForeColor = System.Drawing.Color.FromArgb(30, 30, 30);
             headerStyle.SelectionBackColor = System.Drawing.Color.FromArgb(238, 242, 246);
             headerStyle.SelectionForeColor = System.Drawing.Color.FromArgb(30, 30, 30);
@@ -130,7 +130,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             centerStyle.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
             this.colStepNo.DefaultCellStyle = centerStyle;
             this.colStepNo.FillWeight = 45F;
-            this.colStepNo.HeaderText = "순서";
+            this.colStepNo.HeaderText = "Step";
             this.colStepNo.Name = "colStepNo";
             this.colStepNo.ReadOnly = true;
             this.colStepNo.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
@@ -138,7 +138,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             // colGroupName
             // 
             this.colGroupName.FillWeight = 90F;
-            this.colGroupName.HeaderText = "그룹";
+            this.colGroupName.HeaderText = "Group";
             this.colGroupName.Name = "colGroupName";
             this.colGroupName.ReadOnly = true;
             this.colGroupName.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
@@ -146,7 +146,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             // colPhase
             // 
             this.colPhase.FillWeight = 70F;
-            this.colPhase.HeaderText = "단계";
+            this.colPhase.HeaderText = "Phase";
             this.colPhase.Name = "colPhase";
             this.colPhase.ReadOnly = true;
             this.colPhase.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
@@ -154,7 +154,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             // colTargetType
             // 
             this.colTargetType.FillWeight = 70F;
-            this.colTargetType.HeaderText = "대상";
+            this.colTargetType.HeaderText = "Type";
             this.colTargetType.Name = "colTargetType";
             this.colTargetType.ReadOnly = true;
             this.colTargetType.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
@@ -178,10 +178,10 @@ namespace QMC.CDT_320.Ui.Dialogs
             // colStatus
             // 
             statusStyle.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
-            statusStyle.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            statusStyle.Font = new System.Drawing.Font("Malgun Gothic", 9F, System.Drawing.FontStyle.Bold);
             this.colStatus.DefaultCellStyle = statusStyle;
             this.colStatus.FillWeight = 70F;
-            this.colStatus.HeaderText = "상태";
+            this.colStatus.HeaderText = "Status";
             this.colStatus.Name = "colStatus";
             this.colStatus.ReadOnly = true;
             this.colStatus.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
@@ -189,7 +189,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             // colDescription
             // 
             this.colDescription.FillWeight = 240F;
-            this.colDescription.HeaderText = "설명";
+            this.colDescription.HeaderText = "Description";
             this.colDescription.Name = "colDescription";
             this.colDescription.ReadOnly = true;
             this.colDescription.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
@@ -210,45 +210,45 @@ namespace QMC.CDT_320.Ui.Dialogs
             // 
             // btnRunSelected
             // 
-            this.btnRunSelected.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.btnRunSelected.Font = new System.Drawing.Font("Malgun Gothic", 10F, System.Drawing.FontStyle.Bold);
             this.btnRunSelected.Location = new System.Drawing.Point(1021, 11);
             this.btnRunSelected.Name = "btnRunSelected";
             this.btnRunSelected.Size = new System.Drawing.Size(130, 32);
             this.btnRunSelected.TabIndex = 0;
-            this.btnRunSelected.Text = "선택 Step 실행";
+            this.btnRunSelected.Text = "Run Step";
             this.btnRunSelected.UseVisualStyleBackColor = true;
             this.btnRunSelected.Click += new System.EventHandler(this.btnRunSelected_Click);
             // 
             // btnRunAll
             // 
-            this.btnRunAll.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.btnRunAll.Font = new System.Drawing.Font("Malgun Gothic", 10F, System.Drawing.FontStyle.Bold);
             this.btnRunAll.Location = new System.Drawing.Point(895, 11);
             this.btnRunAll.Name = "btnRunAll";
             this.btnRunAll.Size = new System.Drawing.Size(120, 32);
             this.btnRunAll.TabIndex = 1;
-            this.btnRunAll.Text = "전체 자동 초기화";
+            this.btnRunAll.Text = "Run All";
             this.btnRunAll.UseVisualStyleBackColor = true;
             this.btnRunAll.Click += new System.EventHandler(this.btnRunAll_Click);
             // 
             // btnRefresh
             // 
-            this.btnRefresh.Font = new System.Drawing.Font("맑은 고딕", 10F);
+            this.btnRefresh.Font = new System.Drawing.Font("Malgun Gothic", 10F);
             this.btnRefresh.Location = new System.Drawing.Point(789, 11);
             this.btnRefresh.Name = "btnRefresh";
             this.btnRefresh.Size = new System.Drawing.Size(100, 32);
             this.btnRefresh.TabIndex = 2;
-            this.btnRefresh.Text = "새로고침";
+            this.btnRefresh.Text = "Refresh";
             this.btnRefresh.UseVisualStyleBackColor = true;
             this.btnRefresh.Click += new System.EventHandler(this.btnRefresh_Click);
             // 
             // btnClose
             // 
-            this.btnClose.Font = new System.Drawing.Font("맑은 고딕", 10F);
+            this.btnClose.Font = new System.Drawing.Font("Malgun Gothic", 10F);
             this.btnClose.Location = new System.Drawing.Point(683, 11);
             this.btnClose.Name = "btnClose";
             this.btnClose.Size = new System.Drawing.Size(100, 32);
             this.btnClose.TabIndex = 3;
-            this.btnClose.Text = "닫기";
+            this.btnClose.Text = "Close";
             this.btnClose.UseVisualStyleBackColor = true;
             this.btnClose.Click += new System.EventHandler(this.btnClose_Click);
             // 
@@ -258,19 +258,18 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(1184, 661);
             this.Controls.Add(this.layoutRoot);
-            this.Font = new System.Drawing.Font("맑은 고딕", 9F);
+            this.Font = new System.Drawing.Font("Malgun Gothic", 9F);
             this.MinimumSize = new System.Drawing.Size(980, 560);
             this.Name = "InitializationMonitorDialog";
             this.Padding = new System.Windows.Forms.Padding(12);
-            this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
-            this.Text = "초기화 순서 모니터";
+            this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
+            this.Text = "Initialization Sequence Monitor";
             this.FormClosed += new System.Windows.Forms.FormClosedEventHandler(this.InitializationMonitorDialog_FormClosed);
             this.Load += new System.EventHandler(this.InitializationMonitorDialog_Load);
             this.layoutRoot.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.grid)).EndInit();
             this.pnlButtons.ResumeLayout(false);
             this.ResumeLayout(false);
-
         }
     }
 }
