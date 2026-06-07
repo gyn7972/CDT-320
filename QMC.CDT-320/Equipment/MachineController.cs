@@ -1458,23 +1458,23 @@ namespace QMC.CDT320
                 }
 
                 int result;
-                if (stepNo == 701 || stepNo == 702)
+                if (stepNo == 71 || stepNo == 72)
                 {
-                    var pairSteps = plan.Steps.Where(x => x != null && x.Enabled && (x.StepNo == 701 || x.StepNo == 702)).ToList();
+                    var pairSteps = plan.Steps.Where(x => x != null && x.Enabled && (x.StepNo == 71 || x.StepNo == 72)).ToList();
                     result = await ExecuteConditionalInitializePairAsync(
                         pairSteps,
-                        701,
-                        702,
+                        71,
+                        72,
                         ShouldRunSharedRailBeforeInputFeederHome,
                         "InputFeeder/SharedRailX").ConfigureAwait(false);
                 }
-                else if (stepNo == 901 || stepNo == 902)
+                else if (stepNo == 91 || stepNo == 92)
                 {
-                    var pairSteps = plan.Steps.Where(x => x != null && x.Enabled && (x.StepNo == 901 || x.StepNo == 902)).ToList();
+                    var pairSteps = plan.Steps.Where(x => x != null && x.Enabled && (x.StepNo == 91 || x.StepNo == 92)).ToList();
                     result = await ExecuteConditionalInitializePairAsync(
                         pairSteps,
-                        901,
-                        902,
+                        91,
+                        92,
                         ShouldRunSharedRailBeforeOutputFeederHome,
                         "OutputFeeder/SharedRailX").ConfigureAwait(false);
                 }
@@ -1873,15 +1873,15 @@ namespace QMC.CDT320
                 bool inputPairExecuted = false;
                 bool outputPairExecuted = false;
                 foreach (var batch in enabledSteps
-                    .Where(x => x.StepNo != 701 && x.StepNo != 702 && x.StepNo != 901 && x.StepNo != 902)
+                    .Where(x => x.StepNo != 71 && x.StepNo != 72 && x.StepNo != 91 && x.StepNo != 92)
                     .GroupBy(x => x.StepNo))
                 {
                     if (!inputPairExecuted && batch.Key >= 80)
                     {
                         int conditionalResult = await ExecuteConditionalInitializePairAsync(
                             enabledSteps,
-                            701,
-                            702,
+                            71,
+                            72,
                             ShouldRunSharedRailBeforeInputFeederHome,
                             "InputFeeder/SharedRailX").ConfigureAwait(false);
                         if (conditionalResult != 0)
@@ -1894,8 +1894,8 @@ namespace QMC.CDT320
                     {
                         int conditionalResult = await ExecuteConditionalInitializePairAsync(
                             enabledSteps,
-                            901,
-                            902,
+                            91,
+                            92,
                             ShouldRunSharedRailBeforeOutputFeederHome,
                             "OutputFeeder/SharedRailX").ConfigureAwait(false);
                         if (conditionalResult != 0)
@@ -1933,8 +1933,8 @@ namespace QMC.CDT320
                 {
                     int result = await ExecuteConditionalInitializePairAsync(
                         enabledSteps,
-                        701,
-                        702,
+                        71,
+                        72,
                         ShouldRunSharedRailBeforeInputFeederHome,
                         "InputFeeder/SharedRailX").ConfigureAwait(false);
                     if (result != 0)
@@ -1945,8 +1945,8 @@ namespace QMC.CDT320
                 {
                     int result = await ExecuteConditionalInitializePairAsync(
                         enabledSteps,
-                        901,
-                        902,
+                        91,
+                        92,
                         ShouldRunSharedRailBeforeOutputFeederHome,
                         "OutputFeeder/SharedRailX").ConfigureAwait(false);
                     if (result != 0)

@@ -138,7 +138,7 @@ namespace QMC.CDT320.Initialization
 
     public static class AxisInitializePlanStore
     {
-        private const int CurrentDefaultVersion = 2;
+        private const int CurrentDefaultVersion = 5;
         public static string RootDir => @"D:\CDT-320";
         public static string Dir => Path.Combine(RootDir, "Config");
         public static string PlanPath => Path.Combine(Dir, "axis_initialize_plan.json");
@@ -302,7 +302,7 @@ namespace QMC.CDT320.Initialization
                 AddKnownStep(plan, axisByName, used, 10, "OutputStageZ",
                     AxisInitializeRunMode.Parallel,
                     "Output stage Z axes home before Y axes.",
-                    "GoodStage_StageZ", "NgStage_StageZ");
+                    "OutputGoodStageZ", "OutputNGStageZ", "GoodStage_StageZ", "NgStage_StageZ");
 
                 AddKnownStep(plan, axisByName, used, 20, "PickerT",
                     AxisInitializeRunMode.Parallel,
@@ -312,8 +312,8 @@ namespace QMC.CDT320.Initialization
 
                 AddKnownStep(plan, axisByName, used, 20, "InputStageZ",
                     AxisInitializeRunMode.Serial,
-                    "ExpanderZ home after needle vertical axes.",
-                    "ExpanderZ");
+                    "InputExpandingZ home after needle vertical axes.",
+                    "InputExpandingZ", "ExpanderZ");
 
                 AddKnownStep(plan, axisByName, used, 30, "FrontPickerY",
                     AxisInitializeRunMode.Serial,
@@ -328,7 +328,14 @@ namespace QMC.CDT320.Initialization
                 AddKnownStep(plan, axisByName, used, 40, "Vision",
                     AxisInitializeRunMode.Parallel,
                     "Side vision axes home.",
-                    "FrontSideVisionY", "RearSideVisionY");
+                    "FrontSideVisionY0", "RearSideVisionY0", "FrontSideVisionY", "RearSideVisionY");
+
+                AddActionOnlyStep(plan, 40, "CylinderTemplate", "ReticleLift", AxisInitializeActionCommand.CylinderBwd,
+                    "Template only. Confirm safe direction before enabling.", false);
+                AddActionOnlyStep(plan, 40, "CylinderTemplate", "ReticleSideSlideFront", AxisInitializeActionCommand.CylinderBwd,
+                    "Template only. Confirm safe direction before enabling.", false);
+                AddActionOnlyStep(plan, 40, "CylinderTemplate", "ReticleSideSlideRear", AxisInitializeActionCommand.CylinderBwd,
+                    "Template only. Confirm safe direction before enabling.", false);
 
                 AddActionOnlyStep(plan, 50, "InputFeederClamp", "InputFeederClamp", AxisInitializeActionCommand.CylinderBwd,
                     "Input feeder must be unclamped before InputFeederY home.");
@@ -336,15 +343,15 @@ namespace QMC.CDT320.Initialization
                 AddActionOnlyStep(plan, 60, "InputFeederLift", "InputFeederLift", AxisInitializeActionCommand.CylinderFwd,
                     "Input feeder must be up before InputFeederY home.");
 
-                AddKnownStep(plan, axisByName, used, 701, "InputFeeder",
+                AddKnownStep(plan, axisByName, used, 71, "InputFeeder",
                     AxisInitializeRunMode.Serial,
                     "InputFeederY home. SharedRailX/InputFeeder relation is checked in prepare hook.",
-                    "FeederY");
+                    "InputFeederY", "FeederY");
 
-                AddKnownStep(plan, axisByName, used, 702, "SharedRailX",
+                AddKnownStep(plan, axisByName, used, 72, "SharedRailX",
                     AxisInitializeRunMode.Parallel,
                     "Common X rail axes home after InputFeeder relation check.",
-                    "CameraX", "FrontPickerX", "RearPickerX", "OutputVisionX");
+                    "InputVisionX", "CameraX", "FrontPickerX", "RearPickerX", "OutputVisionX");
 
                 AddKnownStep(plan, axisByName, used, 80, "InputCassette",
                     AxisInitializeRunMode.Serial,
@@ -353,13 +360,13 @@ namespace QMC.CDT320.Initialization
 
                 AddKnownStep(plan, axisByName, used, 80, "InputStage",
                     AxisInitializeRunMode.Parallel,
-                    "StageY/StageT home. StageY moves to Avoid in axis post hook before NeedleBlockX.",
-                    "StageY", "StageT");
+                    "InputStageY/InputStageT home. InputStageY moves to Avoid in axis post hook before NeedleX.",
+                    "InputStageY", "InputStageT", "StageY", "StageT");
 
                 AddKnownStep(plan, axisByName, used, 90, "InputStageNeedleX",
                     AxisInitializeRunMode.Serial,
-                    "NeedleBlockX home after StageY home and Avoid move.",
-                    "NeedleBlockX");
+                    "NeedleX home after InputStageY home and Avoid move.",
+                    "NeedleX", "NeedleBlockX");
 
                 AddActionOnlyStep(plan, 90, "OutputFeederClamp", "OutputFeederClamp", AxisInitializeActionCommand.CylinderBwd,
                     "Output feeder must be unclamped before OutputFeederY home.");
@@ -367,15 +374,15 @@ namespace QMC.CDT320.Initialization
                 AddActionOnlyStep(plan, 90, "OutputFeederLift", "OutputFeederLift", AxisInitializeActionCommand.CylinderFwd,
                     "Output feeder must be up before OutputFeederY home.");
 
-                AddKnownStep(plan, axisByName, used, 901, "OutputFeeder",
+                AddKnownStep(plan, axisByName, used, 91, "OutputFeeder",
                     AxisInitializeRunMode.Serial,
                     "OutputFeederY home. SharedRailX/OutputFeeder relation is checked in prepare hook.",
                     "OutputFeederY");
 
-                AddKnownStepAllowDuplicate(plan, axisByName, 902, "SharedRailXOutput",
+                AddKnownStepAllowDuplicate(plan, axisByName, 92, "SharedRailXOutput",
                     AxisInitializeRunMode.Parallel,
                     "Shared rail X output-side relation check step. Axes already homed are skipped by runtime.",
-                    "CameraX", "FrontPickerX", "RearPickerX", "OutputVisionX");
+                    "InputVisionX", "CameraX", "FrontPickerX", "RearPickerX", "OutputVisionX");
 
                 AddActionOnlyStep(plan, 100, "NGBinGuideClamp", "NGBinGuideClamp", AxisInitializeActionCommand.CylinderBwd,
                     "NG bin guide clamp UnClamp. Disabled until field direction is confirmed.", false);
@@ -393,7 +400,7 @@ namespace QMC.CDT320.Initialization
                 AddKnownStep(plan, axisByName, used, 160, "OutputStage",
                     AxisInitializeRunMode.Parallel,
                     "Output stage Y axes home after feeder relation and bin guide template steps.",
-                    "GoodStage_StageY", "NgStage_StageY");
+                    "OutputGoodStageY", "OutputNGStageY", "GoodStage_StageY", "NgStage_StageY");
 
                 AddKnownStep(plan, axisByName, used, 170, "OutputCassette",
                     AxisInitializeRunMode.Serial,
@@ -401,7 +408,6 @@ namespace QMC.CDT320.Initialization
                     "OutputLifterZ");
 
                 AddRemainingGroupedSteps(plan, cleanAxes, used, 200);
-                AddDisabledCylinderTemplateStep(plan);
             }
             catch (Exception ex)
             {
@@ -482,13 +488,15 @@ namespace QMC.CDT320.Initialization
                     return;
 
                 var resolved = new List<string>();
+                var duplicateGuard = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 foreach (string axisName in axisNames)
                 {
                     if (string.IsNullOrWhiteSpace(axisName))
                         continue;
 
                     BaseAxis axis;
-                    if (axisByName.TryGetValue(axisName.Trim(), out axis) && axis != null)
+                    if (TryResolveAxis(axisByName, axisName, out axis) && axis != null &&
+                        duplicateGuard.Add(axis.Name))
                         resolved.Add(axis.Name);
                 }
 
@@ -560,67 +568,6 @@ namespace QMC.CDT320.Initialization
             }
         }
 
-        private static void AddDisabledCylinderTemplateStep(AxisInitializePlan plan)
-        {
-            try
-            {
-                if (plan == null || plan.Steps == null)
-                    return;
-
-                var actions = new List<AxisInitializeAction>
-                {
-                    CreateDisabledCylinderAction("ReticleLift", AxisInitializeActionCommand.CylinderBwd, "Reticle lift safe direction을 현장 기준에 맞게 Fwd/Bwd로 선택하세요."),
-                    CreateDisabledCylinderAction("ReticleSideSlideFront", AxisInitializeActionCommand.CylinderBwd, "Front reticle side slide safe direction을 현장 기준에 맞게 선택하세요."),
-                    CreateDisabledCylinderAction("ReticleSideSlideRear", AxisInitializeActionCommand.CylinderBwd, "Rear reticle side slide safe direction을 현장 기준에 맞게 선택하세요."),
-                    CreateDisabledCylinderAction("NGBinGuideLift", AxisInitializeActionCommand.CylinderBwd, "NG bin guide lift safe direction을 현장 기준에 맞게 선택하세요."),
-                    CreateDisabledCylinderAction("NGBinGuideClampLift", AxisInitializeActionCommand.CylinderBwd, "NG bin clamp lift safe direction을 현장 기준에 맞게 선택하세요."),
-                    CreateDisabledCylinderAction("NGBinGuideClamp", AxisInitializeActionCommand.CylinderBwd, "NG bin clamp safe direction을 현장 기준에 맞게 선택하세요."),
-                    CreateDisabledCylinderAction("GoodBinGuideLift", AxisInitializeActionCommand.CylinderBwd, "Good bin guide lift safe direction을 현장 기준에 맞게 선택하세요."),
-                    CreateDisabledCylinderAction("GoodBinGuideClampLift", AxisInitializeActionCommand.CylinderBwd, "Good bin clamp lift safe direction을 현장 기준에 맞게 선택하세요."),
-                    CreateDisabledCylinderAction("GoodBinGuideClamp", AxisInitializeActionCommand.CylinderBwd, "Good bin clamp safe direction을 현장 기준에 맞게 선택하세요.")
-                };
-
-                plan.Steps.Add(new AxisInitializeStep
-                {
-                    Comment = "실린더 초기화 템플릿 Step입니다. 필요한 항목만 Enabled=true로 바꾸고 StepNo를 원하는 위치로 조정하세요.",
-                    StepNo = 900,
-                    GroupName = "CylinderTemplate",
-                    AxisNames = new List<string>(),
-                    PreActions = actions,
-                    PostActions = new List<AxisInitializeAction>(),
-                    RunMode = AxisInitializeRunMode.Serial,
-                    InterlockGroup = "CylinderTemplate",
-                    Interlocks = new List<AxisInitializeInterlockRule>(),
-                    Enabled = false
-                });
-            }
-            catch (Exception ex)
-            {
-                Log.Write("Main", "SYSTEM", "AxisInitializePlanDefault",
-                    "Cylinder template step add failed: " + ex.Message + " - Failed");
-            }
-            finally
-            {
-            }
-        }
-
-        private static AxisInitializeAction CreateDisabledCylinderAction(
-            string cylinderName,
-            string command,
-            string description)
-        {
-            return new AxisInitializeAction
-            {
-                Comment = "기본은 비활성입니다. 현장 안전 방향 확인 후 Enabled=true로 바꾸세요.",
-                TargetType = AxisInitializeInterlockTarget.Cylinder,
-                Name = cylinderName,
-                Command = command,
-                TimeoutMs = 0,
-                Enabled = false,
-                Description = description
-            };
-        }
-
         private static void AddKnownStep(
             AxisInitializePlan plan,
             IDictionary<string, BaseAxis> axisByName,
@@ -643,7 +590,7 @@ namespace QMC.CDT320.Initialization
                         continue;
 
                     BaseAxis axis;
-                    if (!axisByName.TryGetValue(axisName.Trim(), out axis) || axis == null)
+                    if (!TryResolveAxis(axisByName, axisName, out axis) || axis == null)
                         continue;
 
                     if (used.Add(axis.Name))
@@ -672,6 +619,103 @@ namespace QMC.CDT320.Initialization
             }
             finally
             {
+            }
+        }
+
+        private static bool TryResolveAxis(
+            IDictionary<string, BaseAxis> axisByName,
+            string requestedName,
+            out BaseAxis axis)
+        {
+            axis = null;
+            try
+            {
+                if (axisByName == null || string.IsNullOrWhiteSpace(requestedName))
+                    return false;
+
+                string name = requestedName.Trim();
+                if (axisByName.TryGetValue(name, out axis) && axis != null)
+                    return true;
+
+                string[] aliases = GetAxisAliases(name);
+                if (aliases == null)
+                    return false;
+
+                foreach (string alias in aliases)
+                {
+                    if (string.IsNullOrWhiteSpace(alias))
+                        continue;
+
+                    if (axisByName.TryGetValue(alias.Trim(), out axis) && axis != null)
+                        return true;
+                }
+
+                return false;
+            }
+            catch
+            {
+                axis = null;
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private static string[] GetAxisAliases(string name)
+        {
+            switch (name)
+            {
+                case "FeederY":
+                    return new[] { "InputFeederY" };
+                case "InputFeederY":
+                    return new[] { "FeederY" };
+                case "CameraX":
+                    return new[] { "InputVisionX" };
+                case "InputVisionX":
+                    return new[] { "CameraX" };
+                case "ExpanderZ":
+                    return new[] { "InputExpandingZ" };
+                case "InputExpandingZ":
+                    return new[] { "ExpanderZ" };
+                case "StageY":
+                    return new[] { "InputStageY" };
+                case "InputStageY":
+                    return new[] { "StageY" };
+                case "StageT":
+                    return new[] { "InputStageT" };
+                case "InputStageT":
+                    return new[] { "StageT" };
+                case "NeedleBlockX":
+                    return new[] { "NeedleX" };
+                case "NeedleX":
+                    return new[] { "NeedleBlockX" };
+                case "FrontSideVisionY":
+                    return new[] { "FrontSideVisionY0" };
+                case "FrontSideVisionY0":
+                    return new[] { "FrontSideVisionY" };
+                case "RearSideVisionY":
+                    return new[] { "RearSideVisionY0" };
+                case "RearSideVisionY0":
+                    return new[] { "RearSideVisionY" };
+                case "GoodStage_StageZ":
+                    return new[] { "OutputGoodStageZ" };
+                case "OutputGoodStageZ":
+                    return new[] { "GoodStage_StageZ" };
+                case "NgStage_StageZ":
+                    return new[] { "OutputNGStageZ" };
+                case "OutputNGStageZ":
+                    return new[] { "NgStage_StageZ" };
+                case "GoodStage_StageY":
+                    return new[] { "OutputGoodStageY" };
+                case "OutputGoodStageY":
+                    return new[] { "GoodStage_StageY" };
+                case "NgStage_StageY":
+                    return new[] { "OutputNGStageY" };
+                case "OutputNGStageY":
+                    return new[] { "NgStage_StageY" };
+                default:
+                    return null;
             }
         }
 

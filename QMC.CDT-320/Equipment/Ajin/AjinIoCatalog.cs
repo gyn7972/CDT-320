@@ -237,7 +237,7 @@ namespace QMC.CDT320.Ajin
             public static readonly DioDefault MainVacuum2Check = FindInput("MainVacuum2Check");
             public static readonly DioDefault MainVacuum3Check = FindInput("MainVacuum3Check");
             public static readonly DioDefault MainVacuum4Check = FindInput("MainVacuum4Check");
-            public static readonly DioDefault WaferLifterIonizerAlarm = FindInput("WaferLifterIonizerAlarm");
+            public static readonly DioDefault InputLifterIonizerAlarm = FindInput("WaferLifterIonizerAlarm");
             public static readonly DioDefault Wafer8CassetteCheck0 = FindInput("Wafer8CassetteCheck0");
             public static readonly DioDefault Wafer8CassetteCheck1 = FindInput("Wafer8CassetteCheck1");
             public static readonly DioDefault Wafer12CassetteCheck0 = FindInput("Wafer12CassetteCheck0");
