@@ -203,6 +203,9 @@
     <Compile Include="Ui\Pages\FinderPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="Ui\Pages\FinderPage.Designer.cs">
+      <DependentUpon>FinderPage.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Pages\InspectorPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
