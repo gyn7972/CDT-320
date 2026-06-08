@@ -121,6 +121,12 @@
     <Compile Include="Optics\Leesos\LeesosProtocol.cs" />
     <Compile Include="Optics\Leesos\LeesosLightController.cs" />
     <Compile Include="Comm\LightHub.cs" />
+    <Compile Include="Ui\Pages\VisionTargetPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\VisionTargetPage.Designer.cs">
+      <DependentUpon>VisionTargetPage.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Pages\LightSystemSetupPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
