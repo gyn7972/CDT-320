@@ -5,6 +5,7 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
 using System.Windows.Forms;
+using QMC.Vision.Config;
 using QMC.Vision.Core;
 using QMC.Vision.Modules;
 using QMC.Vision.Ui.Controls;
@@ -45,6 +46,7 @@ namespace QMC.Vision.Ui.Pages
             WireCamera();
             BuildParams();
             LoadTarget();
+            BuildChildPanels();
             if (_finder != null) _cam.SetOverlay(_finder.SearchRoi, null);
             Status((module?.Name ?? "?") + " / " + (finder?.Id ?? "?"));
         }
@@ -52,6 +54,65 @@ namespace QMC.Vision.Ui.Pages
         private void WireCamera()
         {
             _cam.RoiEdited += OnCamRoiEdited;
+        }
+
+        // ── 우측: 검사 조명(InspectionLightPanel) + 라이브튜닝(LightLiveTuningPanel) 주입(런타임) ──
+        private void BuildChildPanels()
+        {
+            var light = new InspectionLightPanel(_module?.AlgorithmKey ?? "", _finder?.Id ?? "") { Dock = DockStyle.Fill };
+            _lightHost.Controls.Add(light);
+
+            var live = new LightLiveTuningPanel { Dock = DockStyle.Fill };
+            live.Initialize(CollectRowsForLiveTuning);
+            live.BindCameraLive(() => StartLive(0), () => StopLive());
+            _liveHost.Controls.Add(live);
+        }
+
+        // ── 카메라 라이브 grab loop (라이브튜닝 패널 start/stop 트리거) — FinderPage 동일 ──
+        private System.Windows.Forms.Timer _liveTimer;
+        private bool _liveOn;
+
+        public void StartLive(int intervalMs = 0)
+        {
+            if (_liveOn) return;
+            if (_liveTimer == null) { _liveTimer = new System.Windows.Forms.Timer(); _liveTimer.Tick += OnLiveTick; }
+            _liveTimer.Interval = intervalMs > 0 ? intervalMs : ResolveDefaultLiveIntervalMs();
+            _liveTimer.Start();
+            _liveOn = true;
+        }
+
+        public void StopLive()
+        {
+            if (_liveTimer != null) _liveTimer.Stop();
+            _liveOn = false;
+        }
+
+        private void OnLiveTick(object sender, EventArgs e)
+        {
+            if (_module == null) return;
+            try
+            {
+                var r = _module.Grab();
+                if (r != null && r.IsSuccess) _cam.SetFrame(r);
+            }
+            catch (Exception ex) { StopLive(); Status("LIVE 정지: " + ex.Message); }
+        }
+
+        private int ResolveDefaultLiveIntervalMs()
+        {
+            string key = (_module?.Name ?? string.Empty).ToLowerInvariant();
+            if (key.Contains("bottom") || key.Contains("btm")) return 667;
+            return 333;
+        }
+
+        private IEnumerable<LightLiveTuningPanel.TuningRow> CollectRowsForLiveTuning()
+        {
+            var ov = AlgorithmCameraMapStore.Current?.Get(_module?.AlgorithmKey)?.GetLightOverride(_finder?.Id);
+            if (ov?.Settings == null) yield break;
+            foreach (var s in ov.Settings)
+                if (!string.IsNullOrEmpty(s.ControllerPort) && s.Channel > 0)
+                    yield return new LightLiveTuningPanel.TuningRow
+                    { ControllerPort = s.ControllerPort, Channel = s.Channel, Level = s.Level };
         }
 
         // ── 파라미터(우측 ParameterGridControl) = finder ROI 바인딩 ──

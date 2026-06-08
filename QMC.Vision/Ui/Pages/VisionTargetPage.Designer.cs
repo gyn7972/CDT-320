@@ -17,21 +17,19 @@ namespace QMC.Vision.Ui.Pages
         private CameraView _cam;
         private Label _secMatch;
         private DataGridView _result;
-        // 중 (ROI 라디오 제거 — 세팅선택기는 RecipePage 영속 바로 이동. 중앙=ACTION 전체)
+        // 중 (ACTION 전체)
         private TableLayoutPanel _center;
         private Label _secAction;
         private TableLayoutPanel _actionPanel;
         private Button _btnGrab, _btnMatch, _btnTrain, _btnLoad, _btnSaveImg, _btnEditSearch, _btnEditTrain;
-        // 우
+        // 우 (PARAMETERS + 조명 + 라이브튜닝 — JOG/SPEED 교체)
         private TableLayoutPanel _right;
         private Label _secParam;
         private ParameterGridControl _params;
-        private Label _secJog;
-        private JogBox _jog;
-        private Label _secSpeed;
-        private TableLayoutPanel _speedPanel;
-        private TrackBar _trkSpeed;
-        private Label _lblSpeed;
+        private Label _secLight;
+        private Panel _lightHost;      // 런타임: InspectionLightPanel(alg, settingId)
+        private Label _secLive;
+        private Panel _liveHost;       // 런타임: LightLiveTuningPanel
 
         protected override void Dispose(bool disposing)
         {
@@ -57,21 +55,17 @@ namespace QMC.Vision.Ui.Pages
             this._right = new TableLayoutPanel();
             this._secParam = new Label();
             this._params = new ParameterGridControl();
-            this._secJog = new Label();
-            this._jog = new JogBox();
-            this._secSpeed = new Label();
-            this._speedPanel = new TableLayoutPanel();
-            this._trkSpeed = new TrackBar();
-            this._lblSpeed = new Label();
+            this._secLight = new Label();
+            this._lightHost = new Panel();
+            this._secLive = new Label();
+            this._liveHost = new Panel();
             this._root.SuspendLayout();
             this._main.SuspendLayout();
             this._left.SuspendLayout();
             this._center.SuspendLayout();
             this._actionPanel.SuspendLayout();
             this._right.SuspendLayout();
-            this._speedPanel.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)this._result).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)this._trkSpeed).BeginInit();
             this.SuspendLayout();
 
             this.BackColor = UiTheme.MainBg;
@@ -81,8 +75,8 @@ namespace QMC.Vision.Ui.Pages
             this._secMatch.Dock = DockStyle.Fill; this._secMatch.Text = "MATCH RESULT"; this._secMatch.BackColor = UiTheme.StatusBarBg; this._secMatch.ForeColor = Color.White; this._secMatch.Font = UiTheme.SectionFont; this._secMatch.TextAlign = ContentAlignment.MiddleLeft; this._secMatch.Padding = new Padding(8, 0, 0, 0);
             this._secAction.Dock = DockStyle.Fill; this._secAction.Text = "ACTION"; this._secAction.BackColor = UiTheme.StatusBarBg; this._secAction.ForeColor = Color.White; this._secAction.Font = UiTheme.SectionFont; this._secAction.TextAlign = ContentAlignment.MiddleLeft; this._secAction.Padding = new Padding(8, 0, 0, 0);
             this._secParam.Dock = DockStyle.Fill; this._secParam.Text = "PARAMETERS"; this._secParam.BackColor = UiTheme.StatusBarBg; this._secParam.ForeColor = Color.White; this._secParam.Font = UiTheme.SectionFont; this._secParam.TextAlign = ContentAlignment.MiddleLeft; this._secParam.Padding = new Padding(8, 0, 0, 0);
-            this._secJog.Dock = DockStyle.Fill; this._secJog.Text = "JOG (미구현)"; this._secJog.BackColor = UiTheme.StatusBarBg; this._secJog.ForeColor = Color.White; this._secJog.Font = UiTheme.SectionFont; this._secJog.TextAlign = ContentAlignment.MiddleLeft; this._secJog.Padding = new Padding(8, 0, 0, 0);
-            this._secSpeed.Dock = DockStyle.Fill; this._secSpeed.Text = "SPEED (미구현)"; this._secSpeed.BackColor = UiTheme.StatusBarBg; this._secSpeed.ForeColor = Color.White; this._secSpeed.Font = UiTheme.SectionFont; this._secSpeed.TextAlign = ContentAlignment.MiddleLeft; this._secSpeed.Padding = new Padding(8, 0, 0, 0);
+            this._secLight.Dock = DockStyle.Fill; this._secLight.Text = "검사 조명"; this._secLight.BackColor = UiTheme.StatusBarBg; this._secLight.ForeColor = Color.White; this._secLight.Font = UiTheme.SectionFont; this._secLight.TextAlign = ContentAlignment.MiddleLeft; this._secLight.Padding = new Padding(8, 0, 0, 0);
+            this._secLive.Dock = DockStyle.Fill; this._secLive.Text = "라이브 튜닝"; this._secLive.BackColor = UiTheme.StatusBarBg; this._secLive.ForeColor = Color.White; this._secLive.Font = UiTheme.SectionFont; this._secLive.TextAlign = ContentAlignment.MiddleLeft; this._secLive.Padding = new Padding(8, 0, 0, 0);
 
             // ── 좌 (camera + match) ──
             this._cam.Dock = DockStyle.Fill;
@@ -154,29 +148,10 @@ namespace QMC.Vision.Ui.Pages
             this._center.Controls.Add(this._secAction, 0, 0);
             this._center.Controls.Add(this._actionPanel, 0, 1);
 
-            // ── 우 (params + jog + speed) — JOG/SPEED 는 inert(비활성) ──
+            // ── 우 (PARAMETERS + 조명 + 라이브튜닝) — 호스트 패널은 런타임 BuildChildPanels 에서 채움 ──
             this._params.Dock = DockStyle.Fill;
-            this._jog.Dock = DockStyle.Fill;
-            this._jog.Enabled = false;
-            this._trkSpeed.Dock = DockStyle.Fill;
-            this._trkSpeed.Minimum = 0;
-            this._trkSpeed.Maximum = 100;
-            this._trkSpeed.Value = 50;
-            this._trkSpeed.TickFrequency = 10;
-            this._trkSpeed.Enabled = false;
-            this._lblSpeed.Dock = DockStyle.Fill;
-            this._lblSpeed.Text = "50%";
-            this._lblSpeed.Font = UiTheme.ValueFont;
-            this._lblSpeed.TextAlign = ContentAlignment.MiddleCenter;
-            this._speedPanel.Dock = DockStyle.Fill;
-            this._speedPanel.ColumnCount = 2;
-            this._speedPanel.RowCount = 1;
-            this._speedPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
-            this._speedPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 60f));
-            this._speedPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
-            this._speedPanel.Controls.Add(this._trkSpeed, 0, 0);
-            this._speedPanel.Controls.Add(this._lblSpeed, 1, 0);
-
+            this._lightHost.Dock = DockStyle.Fill; this._lightHost.BackColor = UiTheme.MainBg;
+            this._liveHost.Dock = DockStyle.Fill; this._liveHost.BackColor = UiTheme.MainBg;
             this._right.Dock = DockStyle.Fill;
             this._right.ColumnCount = 1;
             this._right.RowCount = 6;
@@ -185,15 +160,15 @@ namespace QMC.Vision.Ui.Pages
             this._right.RowStyles.Add(new RowStyle(SizeType.Absolute, 24f));
             this._right.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
             this._right.RowStyles.Add(new RowStyle(SizeType.Absolute, 24f));
-            this._right.RowStyles.Add(new RowStyle(SizeType.Absolute, 180f));
+            this._right.RowStyles.Add(new RowStyle(SizeType.Absolute, 240f));
             this._right.RowStyles.Add(new RowStyle(SizeType.Absolute, 24f));
-            this._right.RowStyles.Add(new RowStyle(SizeType.Absolute, 48f));
+            this._right.RowStyles.Add(new RowStyle(SizeType.Absolute, 200f));
             this._right.Controls.Add(this._secParam, 0, 0);
             this._right.Controls.Add(this._params, 0, 1);
-            this._right.Controls.Add(this._secJog, 0, 2);
-            this._right.Controls.Add(this._jog, 0, 3);
-            this._right.Controls.Add(this._secSpeed, 0, 4);
-            this._right.Controls.Add(this._speedPanel, 0, 5);
+            this._right.Controls.Add(this._secLight, 0, 2);
+            this._right.Controls.Add(this._lightHost, 0, 3);
+            this._right.Controls.Add(this._secLive, 0, 4);
+            this._right.Controls.Add(this._liveHost, 0, 5);
 
             // ── _main (3열) ──
             this._main.Dock = DockStyle.Fill;
@@ -229,10 +204,10 @@ namespace QMC.Vision.Ui.Pages
             this._root.Controls.Add(this._lblStatus, 0, 1);
 
             this.Controls.Add(this._root);
+            this.AutoScaleMode = AutoScaleMode.None;
             this.Name = "VisionTargetPage";
+            this.Size = new Size(1710, 832);   // 디자인타임 실 footprint(RecipePage _content)
             ((System.ComponentModel.ISupportInitialize)this._result).EndInit();
-            ((System.ComponentModel.ISupportInitialize)this._trkSpeed).EndInit();
-            this._speedPanel.ResumeLayout(false);
             this._right.ResumeLayout(false);
             this._actionPanel.ResumeLayout(false);
             this._center.ResumeLayout(false);
