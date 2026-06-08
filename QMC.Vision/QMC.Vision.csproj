@@ -143,6 +143,9 @@
     <Compile Include="Ui\Controls\CameraView.cs">
       <SubType>Component</SubType>
     </Compile>
+    <Compile Include="Ui\Controls\CameraView.Designer.cs">
+      <DependentUpon>CameraView.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Controls\IlluminatorPanel.cs">
       <SubType>UserControl</SubType>
     </Compile>

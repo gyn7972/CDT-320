@@ -9,7 +9,7 @@ namespace QMC.Vision.Ui.Controls
     /// <summary>
     /// 카메라 출력 표시 컨트롤 + 오버레이(ROI, Match 결과, 크로스헤어, STAGE 정보).
     /// </summary>
-    public class CameraView : Control
+    public partial class CameraView : Control
     {
         private Bitmap _frame;
         private Roi _overlayRoi;
@@ -35,19 +35,17 @@ namespace QMC.Vision.Ui.Controls
                      ControlStyles.OptimizedDoubleBuffer |
                      ControlStyles.ResizeRedraw |
                      ControlStyles.UserPaint, true);
-            BackColor = Color.Black;
+            InitializeComponent();   // Stage 90 — BackColor + 이벤트 named 핸들러 연결(.Designer.cs)
+        }
 
-            MouseDown += OnMouseDownEditing;
-            MouseMove += OnMouseMoveEditing;
-            MouseUp   += OnMouseUpEditing;
-            DoubleClick += (s, e) =>
-            {
-                // ROI 편집 중이 아닐 때만 줌 다이얼로그
-                if (_editing) return;
-                if (_frame == null) return;
-                using (var d = new QMC.Vision.Ui.Dialogs.ZoomDialog((Bitmap)_frame.Clone(), "CameraView Zoom"))
-                    d.ShowDialog(this);
-            };
+        // Stage 90 — 기존 DoubleClick 람다 추출(인스턴스 필드만 참조 → closure 아님). 동작 동일.
+        private void OnViewDoubleClick(object s, EventArgs e)
+        {
+            // ROI 편집 중이 아닐 때만 줌 다이얼로그
+            if (_editing) return;
+            if (_frame == null) return;
+            using (var d = new QMC.Vision.Ui.Dialogs.ZoomDialog((Bitmap)_frame.Clone(), "CameraView Zoom"))
+                d.ShowDialog(this);
         }
 
         // ── ROI 드래그 편집 진입 ──
