@@ -22,6 +22,15 @@ namespace QMC.CDT320
     }
 
     [DataContract]
+    public class MachineInitializeStepRuntimeState
+    {
+        [DataMember] public int StepNo { get; set; }
+        [DataMember] public string GroupName { get; set; }
+        [DataMember] public string Status { get; set; }
+        [DataMember] public string Message { get; set; }
+    }
+
+    [DataContract]
     public class MachineRuntimeState
     {
         [DataMember] public bool IsMachineInitialized { get; set; }
@@ -32,6 +41,8 @@ namespace QMC.CDT320
         [DataMember] public string MaterialSnapshotPath { get; set; }
         [DataMember] public List<MachineAxisRuntimeState> Axes { get; set; } =
             new List<MachineAxisRuntimeState>();
+        [DataMember] public List<MachineInitializeStepRuntimeState> InitializeSteps { get; set; } =
+            new List<MachineInitializeStepRuntimeState>();
     }
 
     public static class MachineRuntimeStateStore
@@ -85,6 +96,8 @@ namespace QMC.CDT320
                 state.SavedAt = NormalizeDateTime(state.SavedAt, DateTime.Now);
                 if (state.Axes == null)
                     state.Axes = new List<MachineAxisRuntimeState>();
+                if (state.InitializeSteps == null)
+                    state.InitializeSteps = new List<MachineInitializeStepRuntimeState>();
 
                 string tmp = StatePath + ".tmp";
                 using (var fs = File.Create(tmp))

@@ -115,6 +115,16 @@ namespace QMC.CDT320.Initialization
         }
     }
 
+    public static class AxisInitializeStepStatus
+    {
+        public const string Waiting = "Waiting";
+        public const string Running = "Running";
+        public const string Complete = "Done";
+        public const string Failed = "Failed";
+        public const string Disabled = "Disabled";
+        public const string ReinitializeRequired = "Reinitialize Required";
+    }
+
     public static class AxisInitializeRunMode
     {
         public const string Serial = "Serial";
@@ -331,11 +341,11 @@ namespace QMC.CDT320.Initialization
                     "FrontSideVisionY0", "RearSideVisionY0", "FrontSideVisionY", "RearSideVisionY");
 
                 AddActionOnlyStep(plan, 40, "CylinderTemplate", "ReticleLift", AxisInitializeActionCommand.CylinderBwd,
-                    "Template only. Confirm safe direction before enabling.", false);
+                    "Reticle lift moves backward before shared rail/input feeder initialize.");
                 AddActionOnlyStep(plan, 40, "CylinderTemplate", "ReticleSideSlideFront", AxisInitializeActionCommand.CylinderBwd,
-                    "Template only. Confirm safe direction before enabling.", false);
+                    "Reticle side slide front moves backward before shared rail/input feeder initialize.");
                 AddActionOnlyStep(plan, 40, "CylinderTemplate", "ReticleSideSlideRear", AxisInitializeActionCommand.CylinderBwd,
-                    "Template only. Confirm safe direction before enabling.", false);
+                    "Reticle side slide rear moves backward before shared rail/input feeder initialize.");
 
                 AddActionOnlyStep(plan, 50, "InputFeederClamp", "InputFeederClamp", AxisInitializeActionCommand.CylinderBwd,
                     "Input feeder must be unclamped before InputFeederY home.");
