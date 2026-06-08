@@ -144,7 +144,10 @@
       <SubType>Component</SubType>
     </Compile>
     <Compile Include="Ui\Controls\JogBox.cs">
-      <SubType>Component</SubType>
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Controls\JogBox.Designer.cs">
+      <DependentUpon>JogBox.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Pages\OperationPage.cs">
       <SubType>UserControl</SubType>
