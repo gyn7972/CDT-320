@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
@@ -42,6 +42,22 @@ namespace QMC.Vision.Ui.Controls
             _timer = new Timer { Interval = 50, Enabled = false };
             _timer.Tick += OnTick;
             UpdatePeriodHz();   // 초기 fps 환산 표시
+            ApplyUnifiedTheme();   // R2e — 타깃 페이지 섹션/표면 테마와 통일
+        }
+
+        /// <summary>R2e — 헤더를 주황 섹션 스타일로, 표면을 그리드 표면색으로 통일(동작 불변).</summary>
+        private void ApplyUnifiedTheme()
+        {
+            if (_lblHeader != null)
+            {
+                _lblHeader.BackColor = Color.FromArgb(217, 119, 6);
+                _lblHeader.Font = new Font("맑은 고딕", 11F, FontStyle.Bold);
+                _lblHeader.TextAlign = ContentAlignment.MiddleLeft;
+                _lblHeader.Padding = new Padding(10, 0, 0, 0);
+                _lblHeader.Text = "라이브 튜닝";
+            }
+            this.BackColor = Color.FromArgb(245, 246, 248);
+            this.BorderStyle = BorderStyle.None;
         }
 
         public void Initialize(Func<IEnumerable<TuningRow>> currentValuesProvider)

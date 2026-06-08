@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.ComponentModel;
 using System.Drawing;
 using System.Linq;
@@ -13,8 +13,9 @@ namespace QMC.Vision.Ui.Pages
     /// 섹션 1: 컨트롤러 인벤토리 (Port/Baud/ChannelCount/PageCount/MaxPower) + 채널 라벨.
     /// 섹션 2: 알고리즘 결선 표 (5 알고리즘 × 컨트롤러 콤보 + 채널 다중체크 + 페이지).
     /// 포트 일괄 변경 버튼 포함. 저장: Config\light_system.json.
+    /// Stage 97 — Designer/Code 분리. 정적 shell 은 .Designer.cs, 결선그리드·TreeView·콤보 채움·바인딩 로직은 Code.
     /// </summary>
-    public class LightSystemSetupPage : UserControl
+    public partial class LightSystemSetupPage : UserControl
     {
         private DataGridView _gridCtrl;     // 컨트롤러 인벤토리
         private DataGridView _gridLabel;    // 선택 컨트롤러의 채널 라벨
@@ -38,133 +39,39 @@ namespace QMC.Vision.Ui.Pages
 
         public LightSystemSetupPage()
         {
+            InitializeComponent();
             if (LicenseManager.UsageMode == LicenseUsageMode.Designtime) return;
-            BuildLayout();
             LoadFromStore();
         }
 
-        private void BuildLayout()
+        // ── 이벤트 핸들러 (Designer 에서 named 연결, 원본 람다와 동일 동작) ──
+        private void OnSaveClick(object sender, EventArgs e) => Save();
+        private void OnReloadClick(object sender, EventArgs e) => LoadFromStore();
+        private void OnAddCtrlClick(object sender, EventArgs e) => AddController();
+        private void OnDelCtrlClick(object sender, EventArgs e) => DeleteController();
+        private void OnMigrateClick(object sender, EventArgs e) => Migrate();
+        private void OnRenameClick(object sender, EventArgs e) => RenamePort();
+        private void OnConnectLightsClick(object sender, EventArgs e) => ConnectLights();
+        private void OnDisconnectLightsClick(object sender, EventArgs e) => DisconnectLights();
+        private void OnGridDataError(object sender, DataGridViewDataErrorEventArgs e) => e.ThrowException = false;
+        private void OnGridCtrlSelectionChanged(object sender, EventArgs e) => BindLabelsForSelectedController();
+        private void OnGridCtrlKeyDown(object sender, KeyEventArgs e)
         {
-            BackColor = UiTheme.MainBg;
-
-            var hdr = new Label
-            {
-                Dock = DockStyle.Top, Height = 30,
-                Text = "조명 시스템 설정 — 기구적 결선 (한 번 설정 후 거의 변경 없음)   ※ 검사별 밝기/On-Off 값은 [레시피] 에서 설정",
-                BackColor = UiTheme.StatusBarBg, ForeColor = Color.White,
-                Font = UiTheme.SectionFont, TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding(10, 0, 0, 0)
-            };
-            Controls.Add(hdr);
-
-            var bar = new Panel { Dock = DockStyle.Top, Height = 40, BackColor = Color.WhiteSmoke };
-            var btnSave    = MakeBtn("저장", 8, UiTheme.Accent, Color.White);   btnSave.Click    += (s, e) => Save();
-            var btnReload  = MakeBtn("취소", 120, Color.White, Color.Black);    btnReload.Click  += (s, e) => LoadFromStore();
-            var btnAddCtrl = MakeBtn("컨트롤러 추가", 210, Color.White, Color.Black); btnAddCtrl.Width = 120; btnAddCtrl.Click += (s, e) => AddController();
-            var btnDelCtrl = MakeBtn("컨트롤러 삭제", 340, Color.White, Color.Black); btnDelCtrl.Width = 120; btnDelCtrl.Click += (s, e) => DeleteController();
-            var btnMigrate = MakeBtn("io_set 가져오기", 470, Color.White, Color.Black); btnMigrate.Width = 130; btnMigrate.Click += (s, e) => Migrate();
-            var btnRename  = MakeBtn("포트 일괄 변경", 610, Color.White, Color.Black); btnRename.Width = 130; btnRename.Click += (s, e) => RenamePort();
-            // Stage 73 — 실장비 조명 연결/해제 (비전 Sim 이어도 실제 시리얼 점등 테스트용)
-            var btnConnect = MakeBtn("조명 연결", 750, Color.FromArgb(0x2E, 0x7D, 0x32), Color.White); btnConnect.Width = 110; btnConnect.Click += (s, e) => ConnectLights();
-            var btnDisc    = MakeBtn("조명 해제", 870, Color.White, Color.Black); btnDisc.Width = 110; btnDisc.Click += (s, e) => DisconnectLights();
-            bar.Controls.AddRange(new Control[] { btnSave, btnReload, btnAddCtrl, btnDelCtrl, btnMigrate, btnRename, btnConnect, btnDisc });
-            Controls.Add(bar);
-
-            _lblStatus = new Label { Dock = DockStyle.Bottom, Height = 24, Font = UiTheme.ValueFont, ForeColor = Color.DarkSlateGray, Padding = new Padding(8, 2, 0, 0) };
-            Controls.Add(_lblStatus);
-
-            // 본문: 좌(컨트롤러+라벨) / 우(결선)
-            var split = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1, BackColor = UiTheme.MainBg };
-            split.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
-            split.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
-            Controls.Add(split);
-            Controls.SetChildIndex(split, 0);
-
-            // 좌측: 컨트롤러 인벤토리 + 채널 라벨 (세로 2분할)
-            var left = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 4, BackColor = UiTheme.MainBg };
-            left.RowStyles.Add(new RowStyle(SizeType.Absolute, 24f));
-            left.RowStyles.Add(new RowStyle(SizeType.Percent, 50f));
-            left.RowStyles.Add(new RowStyle(SizeType.Absolute, 24f));
-            left.RowStyles.Add(new RowStyle(SizeType.Percent, 50f));
-            left.Controls.Add(SectionLabel("컨트롤러 인벤토리 (PortName 고유)"), 0, 0);
-            _gridCtrl = MakeGrid();
-            _gridCtrl.Columns.Add(Col("PortName", "PortName"));
-            _gridCtrl.Columns.Add(Col("Name", "Name"));
-            _gridCtrl.Columns.Add(Col("BaudRate", "Baud"));
-            _gridCtrl.Columns.Add(Col("ChannelCount", "Ch수"));
-            _gridCtrl.Columns.Add(Col("PageCount", "Page수"));
-            _gridCtrl.Columns.Add(Col("MaxPower", "MaxPwr"));
-            // Stage 77 — Vendor 콤보 (LFine/Leesos). 컬렉션 끝(index 6)에 추가하되 DisplayIndex 로 PortName 옆 표시
-            //   → 기존 인덱스 기반 셀 접근(Cells[0], IntOf(r,2..5)) 보존.
-            var colVendor = new DataGridViewComboBoxColumn { Name = "Vendor", HeaderText = "Vendor", FlatStyle = FlatStyle.Flat };
-            colVendor.Items.Add("LFine"); colVendor.Items.Add("Leesos");
-            _gridCtrl.Columns.Add(colVendor);
-            colVendor.DisplayIndex = 1;
-            // Stage 79 — Mode 콤보 (캐시 정책). 컬렉션 끝(index 7) + DisplayIndex 2 로 Vendor 옆 표시.
-            var colMode = new DataGridViewComboBoxColumn { Name = "Mode", HeaderText = "Mode", FlatStyle = FlatStyle.Flat };
-            colMode.Items.Add("Continuous"); colMode.Items.Add("StrobeExternal"); colMode.Items.Add("StrobeOnCommand");
-            _gridCtrl.Columns.Add(colMode);
-            colMode.DisplayIndex = 2;
-            _gridCtrl.DataError += (s, e) => { e.ThrowException = false; };   // 콤보 외 값 입력 예외 방지
-            _gridCtrl.CellEndEdit += GridCtrl_VendorCellEndEdit;              // Vendor/Mode 변경 시 보정
-            _gridCtrl.SelectionChanged += (s, e) => BindLabelsForSelectedController();
-            // Stage 70 A — Delete 키로 컨트롤러 삭제
-            _gridCtrl.KeyDown += (s, e) => { if (e.KeyCode == Keys.Delete) { DeleteController(); e.Handled = true; } };
-            // Stage 70 C — PortName 편집 시 결선 콤보 items 동기
-            // Stage 70 B 방향2 — ChannelCount 셀 편집 시 라벨 행 증감
-            _gridCtrl.CellEndEdit += GridCtrl_CellEndEdit;
-            // Stage 71 — PortName 편집 시작값 캡처 (라벨 캐시 키 이전용)
-            _gridCtrl.CellBeginEdit += (s, e) =>
-            {
-                if (e.RowIndex >= 0 && _gridCtrl.Columns[e.ColumnIndex].Name == "PortName")
-                    _editingOldPort = _gridCtrl.Rows[e.RowIndex].Cells[0].Value?.ToString();
-            };
-            left.Controls.Add(_gridCtrl, 0, 1);
-            left.Controls.Add(SectionLabel("선택 컨트롤러의 채널 라벨 — Ch 번호 직접 지정 (1~Ch수, 비연속/부분 사용 가능)"), 0, 2);
-            _gridLabel = MakeGrid();
-            // Stage 82 — Channel 편집 가능 (4채널 중 1,3번만 사용 등 비연속 채널 배정 지원)
-            _gridLabel.Columns.Add(Col("Channel", "Ch"));
-            _gridLabel.Columns.Add(Col("Name", "Name"));
-            _gridLabel.Columns.Add(Col("Color", "Color"));
-            // Stage 82 — 라벨 행 추가/삭제는 ChannelCount 와 분리 — 캐시에만 반영 (Channel 값은 사용자 지정)
-            _gridLabel.UserAddedRow   += (s, e) => { if (!_suspendSync) FlushLabelsToCache(); };
-            _gridLabel.RowsRemoved    += (s, e) => { if (!_suspendSync) FlushLabelsToCache(); };
-            // Stage 71 — 라벨 Name/Color 편집을 즉시 캐시에 write-through (선택 변경에도 보존)
-            _gridLabel.CellEndEdit    += (s, e) => { if (!_suspendSync) FlushLabelsToCache(); };
-            left.Controls.Add(_gridLabel, 0, 3);
-            split.Controls.Add(left, 0, 0);
-
-            // 우측: 알고리즘 결선 (Stage 81 — TreeView + 선택 알고리즘 ControllerSets 디테일, 다중 컨트롤러)
-            var right = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 4, BackColor = UiTheme.MainBg };
-            right.RowStyles.Add(new RowStyle(SizeType.Absolute, 24f));
-            right.RowStyles.Add(new RowStyle(SizeType.Percent, 45f));
-            right.RowStyles.Add(new RowStyle(SizeType.Absolute, 34f));
-            right.RowStyles.Add(new RowStyle(SizeType.Percent, 55f));
-            right.Controls.Add(SectionLabel("알고리즘 결선 — 알고리즘 선택 후 컨트롤러/채널 배정 (한 알고리즘 = 여러 컨트롤러 가능)"), 0, 0);
-
-            _treeWiring = new TreeView { Dock = DockStyle.Fill, Font = UiTheme.ValueFont, HideSelection = false, BackColor = Color.White };
-            _treeWiring.AfterSelect += (s, e) => OnAlgNodeSelected(e.Node);
-            right.Controls.Add(_treeWiring, 0, 1);
-
-            var setsBar = new Panel { Dock = DockStyle.Fill, BackColor = UiTheme.MainBg };
-            var btnAddSet = new Button { Location = new Point(4, 2), Size = new Size(110, 28), Text = "컨트롤러 추가", FlatStyle = FlatStyle.Flat, Font = UiTheme.ButtonFont, BackColor = Color.White };
-            btnAddSet.Click += (s, e) => AddControllerSet();
-            var btnDelSet = new Button { Location = new Point(120, 2), Size = new Size(70, 28), Text = "삭제", FlatStyle = FlatStyle.Flat, Font = UiTheme.ButtonFont, BackColor = Color.White };
-            btnDelSet.Click += (s, e) => DeleteControllerSet();
-            setsBar.Controls.AddRange(new Control[] { btnAddSet, btnDelSet });
-            right.Controls.Add(setsBar, 0, 2);
-
-            _gridSets = MakeGrid();
-            _gridSets.AllowUserToAddRows = false;
-            var colSetCtrl = new DataGridViewComboBoxColumn { Name = "ControllerPort", HeaderText = "컨트롤러(Port)" };
-            _gridSets.Columns.Add(colSetCtrl);
-            _gridSets.Columns.Add(Col("ChannelsCsv", "채널 (예: 3,4,5)"));
-            _gridSets.DataError += (s, e) => { e.ThrowException = false; };
-            _gridSets.CellEndEdit  += (s, e) => { if (!_suspendSets) FlushSetsToModel(); };
-            _gridSets.RowsRemoved  += (s, e) => { if (!_suspendSets) FlushSetsToModel(); };
-            right.Controls.Add(_gridSets, 0, 3);
-
-            split.Controls.Add(right, 1, 0);
+            if (e.KeyCode == Keys.Delete) { DeleteController(); e.Handled = true; }
         }
+        private void OnGridCtrlCellBeginEdit(object sender, DataGridViewCellCancelEventArgs e)
+        {
+            if (e.RowIndex >= 0 && _gridCtrl.Columns[e.ColumnIndex].Name == "PortName")
+                _editingOldPort = _gridCtrl.Rows[e.RowIndex].Cells[0].Value?.ToString();
+        }
+        private void OnGridLabelUserAddedRow(object sender, DataGridViewRowEventArgs e) { if (!_suspendSync) FlushLabelsToCache(); }
+        private void OnGridLabelRowsRemoved(object sender, DataGridViewRowsRemovedEventArgs e) { if (!_suspendSync) FlushLabelsToCache(); }
+        private void OnGridLabelCellEndEdit(object sender, DataGridViewCellEventArgs e) { if (!_suspendSync) FlushLabelsToCache(); }
+        private void OnTreeAfterSelect(object sender, TreeViewEventArgs e) => OnAlgNodeSelected(e.Node);
+        private void OnAddSetClick(object sender, EventArgs e) => AddControllerSet();
+        private void OnDelSetClick(object sender, EventArgs e) => DeleteControllerSet();
+        private void OnGridSetsCellEndEdit(object sender, DataGridViewCellEventArgs e) { if (!_suspendSets) FlushSetsToModel(); }
+        private void OnGridSetsRowsRemoved(object sender, DataGridViewRowsRemovedEventArgs e) { if (!_suspendSets) FlushSetsToModel(); }
 
         // ── 로드/저장 ──
         private void LoadFromStore()
@@ -706,15 +613,7 @@ namespace QMC.Vision.Ui.Pages
             catch (Exception ex) { SetStatus("조명 해제 예외: " + ex.Message, true); }
         }
 
-        // ── helpers ──
-        private static Button MakeBtn(string t, int x, Color bg, Color fg)
-            => new Button { Location = new Point(x, 4), Size = new Size(100, 32), Text = t, FlatStyle = FlatStyle.Flat, Font = UiTheme.ButtonFont, BackColor = bg, ForeColor = fg };
-        private static Label SectionLabel(string t)
-            => new Label { Dock = DockStyle.Fill, Text = "  " + t, Font = UiTheme.ButtonFont, ForeColor = Color.Black, BackColor = UiTheme.SidebarHeaderBg, TextAlign = ContentAlignment.MiddleLeft };
-        private static DataGridView MakeGrid()
-            => new DataGridView { Dock = DockStyle.Fill, AllowUserToAddRows = true, AllowUserToDeleteRows = true, RowHeadersVisible = false, Font = UiTheme.ValueFont, BackgroundColor = Color.White, AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill };
-        private static DataGridViewTextBoxColumn Col(string name, string header)
-            => new DataGridViewTextBoxColumn { Name = name, HeaderText = header };
+        // ── helpers (로직) ──
         private static string Str(DataGridViewRow r, int i) => r.Cells[i].Value?.ToString()?.Trim() ?? "";
         private static int IntOf(DataGridViewRow r, int i, int def) => int.TryParse(Str(r, i), out var v) ? v : def;
         private static System.Collections.Generic.List<int> ParseCsv(string csv)

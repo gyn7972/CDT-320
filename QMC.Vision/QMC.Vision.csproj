@@ -121,15 +121,55 @@
     <Compile Include="Optics\Leesos\LeesosProtocol.cs" />
     <Compile Include="Optics\Leesos\LeesosLightController.cs" />
     <Compile Include="Comm\LightHub.cs" />
+    <Compile Include="Ui\Pages\VisionTargetPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\VisionTargetPage.Designer.cs">
+      <DependentUpon>VisionTargetPage.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Pages\ITargetPage.cs" />
+    <Compile Include="Ui\Pages\InspectorTargetPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\InspectorTargetPage.Designer.cs">
+      <DependentUpon>InspectorTargetPage.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Pages\LightSystemSetupPage.cs">
       <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\LightSystemSetupPage.Designer.cs">
+      <DependentUpon>LightSystemSetupPage.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Pages\InspectionLightPanel.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="Ui\Pages\InspectionLightPanel.Designer.cs">
+      <DependentUpon>InspectionLightPanel.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\UiTheme.cs" />
+    <Compile Include="Ui\Controls\SidebarButton.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Ui\Controls\GridTheme.cs" />
+    <Compile Include="Ui\Controls\ParameterGridItem.cs" />
+    <Compile Include="Ui\Controls\ParameterGridChangedEventArgs.cs" />
+    <Compile Include="Ui\Controls\ParameterGridControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Controls\ParameterGridControl.Designer.cs">
+      <DependentUpon>ParameterGridControl.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Controls\NumericKeypadDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Controls\NumericKeypadDialog.Designer.cs">
+      <DependentUpon>NumericKeypadDialog.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Controls\BottomMenuButton.cs">
       <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Ui\Controls\BottomMenuButton.Designer.cs">
+      <DependentUpon>BottomMenuButton.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Controls\LightLiveTuningPanel.cs">
       <SubType>UserControl</SubType>
@@ -140,48 +180,93 @@
     <Compile Include="Ui\Controls\CameraView.cs">
       <SubType>Component</SubType>
     </Compile>
+    <Compile Include="Ui\Controls\CameraView.Designer.cs">
+      <DependentUpon>CameraView.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Controls\IlluminatorPanel.cs">
       <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Ui\Controls\IlluminatorPanel.Designer.cs">
+      <DependentUpon>IlluminatorPanel.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Controls\JogBox.cs">
       <SubType>Component</SubType>
     </Compile>
+    <Compile Include="Ui\Controls\JogBox.Designer.cs">
+      <DependentUpon>JogBox.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Pages\OperationPage.cs">
       <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\OperationPage.Designer.cs">
+      <DependentUpon>OperationPage.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Pages\ConfigurationPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="Ui\Pages\ConfigurationPage.Designer.cs">
+      <DependentUpon>ConfigurationPage.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Pages\RecipePage.cs">
       <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\RecipePage.Designer.cs">
+      <DependentUpon>RecipePage.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Pages\DataLogPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="Ui\Pages\DataLogPage.Designer.cs">
+      <DependentUpon>DataLogPage.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Pages\SettingsPage.cs">
       <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\SettingsPage.Designer.cs">
+      <DependentUpon>SettingsPage.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Pages\CameraMappingPanel.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="Ui\Pages\CameraMappingPanel.Designer.cs">
+      <DependentUpon>CameraMappingPanel.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Pages\InspectionOverridePanel.cs">
       <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\InspectionOverridePanel.Designer.cs">
+      <DependentUpon>InspectionOverridePanel.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Pages\FinderPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="Ui\Pages\FinderPage.Designer.cs">
+      <DependentUpon>FinderPage.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Pages\InspectorPage.cs">
       <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\InspectorPage.Designer.cs">
+      <DependentUpon>InspectorPage.cs</DependentUpon>
     </Compile>
     <!-- Stage 2 — SPC + ParameterEditors + ZoomDialog -->
     <Compile Include="Ui\Pages\SpcChartPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="Ui\Pages\SpcChartPage.Designer.cs">
+      <DependentUpon>SpcChartPage.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Editors\ParameterEditorBase.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="Ui\Editors\ParameterEditorBase.Designer.cs">
+      <DependentUpon>ParameterEditorBase.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Editors\ParameterEditorHost.cs">
       <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Editors\ParameterEditorHost.Designer.cs">
+      <DependentUpon>ParameterEditorHost.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Editors\BottomInspectionParameterEditor.cs">
       <SubType>UserControl</SubType>
@@ -201,6 +286,9 @@
     <Compile Include="Ui\Dialogs\ZoomDialog.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="Ui\Dialogs\ZoomDialog.Designer.cs">
+      <DependentUpon>ZoomDialog.cs</DependentUpon>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <!-- Stage 62 — QMC.Common 의 Alarms 공용 사용 -->
@@ -208,6 +296,32 @@
       <Project>{1E539F7D-24C0-4FC8-B818-FDED38A809C7}</Project>
       <Name>QMC.Common</Name>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Ui\Controls\LightLiveTuningPanel.resx">
+      <DependentUpon>LightLiveTuningPanel.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\CameraMappingPanel.resx">
+      <DependentUpon>CameraMappingPanel.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\ConfigurationPage.resx">
+      <DependentUpon>ConfigurationPage.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\InspectionLightPanel.resx">
+      <DependentUpon>InspectionLightPanel.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\LightSystemSetupPage.resx">
+      <DependentUpon>LightSystemSetupPage.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\RecipePage.resx">
+      <DependentUpon>RecipePage.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\SettingsPage.resx">
+      <DependentUpon>SettingsPage.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\VisionTargetPage.resx">
+      <DependentUpon>VisionTargetPage.cs</DependentUpon>
+    </EmbeddedResource>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!--

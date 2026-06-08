@@ -5,7 +5,7 @@
 use strict; use warnings;
 use IO::Socket::INET;
 
-my $ROOT     = "D:/Work/CDT-320/QMC.CDT-320";
+use FindBin; my $ROOT = "$FindBin::Bin/..";
 my $VIS_EXE  = "$ROOT/QMC.Vision/bin/Debug/QMC.Vision.exe";
 my @rows;
 sub row { push @rows, [@_] }

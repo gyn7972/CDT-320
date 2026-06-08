@@ -440,7 +440,7 @@
             this.manualLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 48F));
             this.manualLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 48F));
             this.manualLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 48F));
-            this.manualLayout.Size = new System.Drawing.Size(669, 362);
+            this.manualLayout.Size = new System.Drawing.Size(652, 362);
             this.manualLayout.TabIndex = 0;
             // 
             // btnLoadingMove
@@ -453,7 +453,7 @@
             this.btnLoadingMove.Location = new System.Drawing.Point(12, 22);
             this.btnLoadingMove.Margin = new System.Windows.Forms.Padding(4);
             this.btnLoadingMove.Name = "btnLoadingMove";
-            this.btnLoadingMove.Size = new System.Drawing.Size(318, 37);
+            this.btnLoadingMove.Size = new System.Drawing.Size(310, 40);
             this.btnLoadingMove.TabIndex = 0;
             this.btnLoadingMove.Text = "GOOD LOAD POSITION";
             // 
@@ -464,10 +464,10 @@
             this.btnCenterMove.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnCenterMove.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnCenterMove.ForeColor = System.Drawing.Color.White;
-            this.btnCenterMove.Location = new System.Drawing.Point(338, 22);
+            this.btnCenterMove.Location = new System.Drawing.Point(330, 22);
             this.btnCenterMove.Margin = new System.Windows.Forms.Padding(4);
             this.btnCenterMove.Name = "btnCenterMove";
-            this.btnCenterMove.Size = new System.Drawing.Size(319, 37);
+            this.btnCenterMove.Size = new System.Drawing.Size(310, 40);
             this.btnCenterMove.TabIndex = 1;
             this.btnCenterMove.Text = "GOOD PROCESS POSITION";
             // 
@@ -478,10 +478,10 @@
             this.btnBarcodeMove.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnBarcodeMove.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnBarcodeMove.ForeColor = System.Drawing.Color.White;
-            this.btnBarcodeMove.Location = new System.Drawing.Point(12, 67);
+            this.btnBarcodeMove.Location = new System.Drawing.Point(12, 70);
             this.btnBarcodeMove.Margin = new System.Windows.Forms.Padding(4);
             this.btnBarcodeMove.Name = "btnBarcodeMove";
-            this.btnBarcodeMove.Size = new System.Drawing.Size(318, 37);
+            this.btnBarcodeMove.Size = new System.Drawing.Size(310, 40);
             this.btnBarcodeMove.TabIndex = 2;
             this.btnBarcodeMove.Text = "GOOD UNLOAD POSITION";
             // 
@@ -492,10 +492,10 @@
             this.btnFirstDieMove.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnFirstDieMove.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnFirstDieMove.ForeColor = System.Drawing.Color.White;
-            this.btnFirstDieMove.Location = new System.Drawing.Point(338, 67);
+            this.btnFirstDieMove.Location = new System.Drawing.Point(330, 70);
             this.btnFirstDieMove.Margin = new System.Windows.Forms.Padding(4);
             this.btnFirstDieMove.Name = "btnFirstDieMove";
-            this.btnFirstDieMove.Size = new System.Drawing.Size(319, 37);
+            this.btnFirstDieMove.Size = new System.Drawing.Size(310, 40);
             this.btnFirstDieMove.TabIndex = 3;
             this.btnFirstDieMove.Text = "GOOD RETICLE POSITION";
             // 
@@ -506,10 +506,10 @@
             this.btnPickUpTest.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnPickUpTest.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnPickUpTest.ForeColor = System.Drawing.Color.White;
-            this.btnPickUpTest.Location = new System.Drawing.Point(12, 112);
+            this.btnPickUpTest.Location = new System.Drawing.Point(12, 118);
             this.btnPickUpTest.Margin = new System.Windows.Forms.Padding(4);
             this.btnPickUpTest.Name = "btnPickUpTest";
-            this.btnPickUpTest.Size = new System.Drawing.Size(318, 37);
+            this.btnPickUpTest.Size = new System.Drawing.Size(310, 40);
             this.btnPickUpTest.TabIndex = 4;
             this.btnPickUpTest.Text = "VISION PROCESS POSITION";
             // 
@@ -520,10 +520,10 @@
             this.btnNeedleUpMove.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnNeedleUpMove.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnNeedleUpMove.ForeColor = System.Drawing.Color.White;
-            this.btnNeedleUpMove.Location = new System.Drawing.Point(338, 112);
+            this.btnNeedleUpMove.Location = new System.Drawing.Point(330, 118);
             this.btnNeedleUpMove.Margin = new System.Windows.Forms.Padding(4);
             this.btnNeedleUpMove.Name = "btnNeedleUpMove";
-            this.btnNeedleUpMove.Size = new System.Drawing.Size(319, 37);
+            this.btnNeedleUpMove.Size = new System.Drawing.Size(310, 40);
             this.btnNeedleUpMove.TabIndex = 5;
             this.btnNeedleUpMove.Text = "NG LOAD POSITION";
             // 
@@ -534,10 +534,10 @@
             this.btnNeedleDownMove.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnNeedleDownMove.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnNeedleDownMove.ForeColor = System.Drawing.Color.White;
-            this.btnNeedleDownMove.Location = new System.Drawing.Point(12, 157);
+            this.btnNeedleDownMove.Location = new System.Drawing.Point(12, 166);
             this.btnNeedleDownMove.Margin = new System.Windows.Forms.Padding(4);
             this.btnNeedleDownMove.Name = "btnNeedleDownMove";
-            this.btnNeedleDownMove.Size = new System.Drawing.Size(318, 37);
+            this.btnNeedleDownMove.Size = new System.Drawing.Size(310, 40);
             this.btnNeedleDownMove.TabIndex = 6;
             this.btnNeedleDownMove.Text = "NG PROCESS POSITION";
             // 
@@ -548,10 +548,10 @@
             this.btnNeedleReadyMove.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnNeedleReadyMove.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnNeedleReadyMove.ForeColor = System.Drawing.Color.White;
-            this.btnNeedleReadyMove.Location = new System.Drawing.Point(338, 157);
+            this.btnNeedleReadyMove.Location = new System.Drawing.Point(330, 166);
             this.btnNeedleReadyMove.Margin = new System.Windows.Forms.Padding(4);
             this.btnNeedleReadyMove.Name = "btnNeedleReadyMove";
-            this.btnNeedleReadyMove.Size = new System.Drawing.Size(319, 37);
+            this.btnNeedleReadyMove.Size = new System.Drawing.Size(310, 40);
             this.btnNeedleReadyMove.TabIndex = 7;
             this.btnNeedleReadyMove.Text = "NG UNLOAD POSITION";
             // 
@@ -562,10 +562,10 @@
             this.btnNeedleBlockReady.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnNeedleBlockReady.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnNeedleBlockReady.ForeColor = System.Drawing.Color.White;
-            this.btnNeedleBlockReady.Location = new System.Drawing.Point(12, 202);
+            this.btnNeedleBlockReady.Location = new System.Drawing.Point(12, 214);
             this.btnNeedleBlockReady.Margin = new System.Windows.Forms.Padding(4);
             this.btnNeedleBlockReady.Name = "btnNeedleBlockReady";
-            this.btnNeedleBlockReady.Size = new System.Drawing.Size(318, 37);
+            this.btnNeedleBlockReady.Size = new System.Drawing.Size(310, 40);
             this.btnNeedleBlockReady.TabIndex = 8;
             this.btnNeedleBlockReady.Text = "NG RETICLE POSITION";
             // 
@@ -576,10 +576,10 @@
             this.btnNeedleBlockWork.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnNeedleBlockWork.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnNeedleBlockWork.ForeColor = System.Drawing.Color.White;
-            this.btnNeedleBlockWork.Location = new System.Drawing.Point(338, 202);
+            this.btnNeedleBlockWork.Location = new System.Drawing.Point(330, 214);
             this.btnNeedleBlockWork.Margin = new System.Windows.Forms.Padding(4);
             this.btnNeedleBlockWork.Name = "btnNeedleBlockWork";
-            this.btnNeedleBlockWork.Size = new System.Drawing.Size(319, 37);
+            this.btnNeedleBlockWork.Size = new System.Drawing.Size(310, 40);
             this.btnNeedleBlockWork.TabIndex = 9;
             this.btnNeedleBlockWork.Text = "AVOID ALL POSITION";
             // 
@@ -590,10 +590,10 @@
             this.btnAutoSettingMove.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnAutoSettingMove.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnAutoSettingMove.ForeColor = System.Drawing.Color.White;
-            this.btnAutoSettingMove.Location = new System.Drawing.Point(12, 247);
+            this.btnAutoSettingMove.Location = new System.Drawing.Point(12, 262);
             this.btnAutoSettingMove.Margin = new System.Windows.Forms.Padding(4);
             this.btnAutoSettingMove.Name = "btnAutoSettingMove";
-            this.btnAutoSettingMove.Size = new System.Drawing.Size(318, 37);
+            this.btnAutoSettingMove.Size = new System.Drawing.Size(310, 40);
             this.btnAutoSettingMove.TabIndex = 10;
             this.btnAutoSettingMove.Text = "BIN CAM WORK POSITION";
             // 
@@ -604,10 +604,10 @@
             this.btnInputConversion.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnInputConversion.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnInputConversion.ForeColor = System.Drawing.Color.White;
-            this.btnInputConversion.Location = new System.Drawing.Point(338, 247);
+            this.btnInputConversion.Location = new System.Drawing.Point(330, 262);
             this.btnInputConversion.Margin = new System.Windows.Forms.Padding(4);
             this.btnInputConversion.Name = "btnInputConversion";
-            this.btnInputConversion.Size = new System.Drawing.Size(319, 37);
+            this.btnInputConversion.Size = new System.Drawing.Size(310, 40);
             this.btnInputConversion.TabIndex = 11;
             this.btnInputConversion.Text = "BIN CAM RETRACT POSITION";
             // 
@@ -618,10 +618,10 @@
             this.btnExpandWorkMove.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnExpandWorkMove.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
             this.btnExpandWorkMove.ForeColor = System.Drawing.Color.White;
-            this.btnExpandWorkMove.Location = new System.Drawing.Point(12, 292);
+            this.btnExpandWorkMove.Location = new System.Drawing.Point(12, 310);
             this.btnExpandWorkMove.Margin = new System.Windows.Forms.Padding(4);
             this.btnExpandWorkMove.Name = "btnExpandWorkMove";
-            this.btnExpandWorkMove.Size = new System.Drawing.Size(318, 40);
+            this.btnExpandWorkMove.Size = new System.Drawing.Size(310, 40);
             this.btnExpandWorkMove.TabIndex = 12;
             this.btnExpandWorkMove.Text = "VISION AVOID POSITION";
             // 

@@ -1,25 +1,26 @@
 #!perl
 use strict; use warnings;
-my $ROOT = "D:/Work/CDT-320/QMC.CDT-320";
+use FindBin; my $ROOT = "$FindBin::Bin/..";
 my @rows; sub row { push @rows, [@_] }
 sub greps { my ($f,$p)=@_; return 0 unless -e $f; open my $fh,'<',$f or return 0; local $/; my $c=<$fh>; close $fh; return $c=~/$p/s?1:0 }
 
-row("BUILD","QMC.CDT-320.exe", -e "$ROOT/QMC.CDT-320/bin/Debug/QMC.CDT-320.exe"?"PASS":"FAIL","");
+# Vision 베이스라인 — Handler 빌드 비의존(QMC.Vision.exe 존재로 빌드 proxy).
+row("BUILD","QMC.Vision.exe", -e "$ROOT/QMC.Vision/bin/Debug/QMC.Vision.exe"?"PASS":"FAIL","");
 
-# Stage 52 — TopSide / BottomSide Inspection Modules in QMC.Vision
-my $tsi = "$ROOT/QMC.Vision/Modules/TopSideInspectionModule.cs";
-my $r1 = greps($tsi, qr/class\s+TopSideInspectionModule/);
-row("STAGE52","TopSideInspectionModule.cs exists (port 5105)",
+# Stage 52 — Side Inspection Modules. (명칭 변경: TopSide→FrontSide(5105), BottomSide→RearSide(5106))
+my $tsi = "$ROOT/QMC.Vision/Modules/FrontSideInspectionModule.cs";
+my $r1 = greps($tsi, qr/class\s+FrontSideInspectionModule/);
+row("STAGE52","FrontSideInspectionModule.cs exists (port 5105)",
     $r1?"PASS":"FAIL", $tsi);
 
-my $bsi = "$ROOT/QMC.Vision/Modules/BottomSideInspectionModule.cs";
-my $r2 = greps($bsi, qr/class\s+BottomSideInspectionModule/);
-row("STAGE52","BottomSideInspectionModule.cs exists (port 5106)",
+my $bsi = "$ROOT/QMC.Vision/Modules/RearSideInspectionModule.cs";
+my $r2 = greps($bsi, qr/class\s+RearSideInspectionModule/);
+row("STAGE52","RearSideInspectionModule.cs exists (port 5106)",
     $r2?"PASS":"FAIL", $bsi);
 
 my $vform = "$ROOT/QMC.Vision/Form1.cs";
-my $r3 = greps($vform, qr/TopSide|BottomSide/);
-row("STAGE52","QMC.Vision Form1 — TopSide/BottomSide modules wired (TCP server)",
+my $r3 = greps($vform, qr/FrontSideInspectionModule/) && greps($vform, qr/RearSideInspectionModule/);
+row("STAGE52","QMC.Vision Form1 — FrontSide/RearSide modules wired (TCP server)",
     $r3?"PASS":"FAIL", $vform);
 
 my $bar="="x110;

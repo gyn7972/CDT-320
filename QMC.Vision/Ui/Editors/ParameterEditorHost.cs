@@ -1,60 +1,33 @@
-﻿using System;
+using System;
 using System.ComponentModel;
-using System.Drawing;
 using System.Windows.Forms;
-using QMC.Vision.Core.Inspectors;
 
 namespace QMC.Vision.Ui.Editors
 {
     /// <summary>
     /// 5종 InspectionParameters 편집기를 콤보로 선택하여 표시하는 호스트.
     /// 310 의 5 ParameterEditor 의 기능을 우리 스타일로 통합.
+    /// Stage 91 — Designer/Code 분리(디자이너 로드 가능). shell 은 .Designer.cs, 콤보채움/편집기전환은 Code.
     /// </summary>
-    public class ParameterEditorHost : UserControl
+    public partial class ParameterEditorHost : UserControl
     {
-        private ComboBox _cbTool;
-        private Panel    _content;
-
         public ParameterEditorHost()
         {
+            InitializeComponent();
             if (LicenseManager.UsageMode == LicenseUsageMode.Designtime) return;
-            BuildLayout();
-            ShowEditor("BottomInspection");
-        }
 
-        private void BuildLayout()
-        {
-            var hdr = new Label
-            {
-                Dock = DockStyle.Top, Height = 30, Text = "Inspection Parameter Editors",
-                BackColor = UiTheme.StatusBarBg, ForeColor = Color.White,
-                Font = UiTheme.SectionFont, TextAlign = ContentAlignment.MiddleLeft,
-                Padding = new Padding(10, 0, 0, 0)
-            };
-            Controls.Add(hdr);
-
-            var bar = new Panel { Dock = DockStyle.Top, Height = 40, BackColor = Color.WhiteSmoke };
-            bar.Controls.Add(new Label { Location = new Point(10, 10), AutoSize = true, Text = "Tool:", Font = UiTheme.ButtonFont });
-            _cbTool = new ComboBox
-            {
-                Location = new Point(60, 6), Size = new Size(280, 28),
-                DropDownStyle = ComboBoxStyle.DropDownList, Font = UiTheme.ButtonFont
-            };
+            // 동적 채움 — 콤보 Items. SelectedIndex=0 이 OnToolChanged 를 통해 첫 편집기(BottomInspection) 표시.
             _cbTool.Items.AddRange(new object[]
             {
                 "BottomInspection", "SideInspection", "DieGapInspection",
                 "Distortion", "VisionScale"
             });
             _cbTool.SelectedIndex = 0;
-            _cbTool.SelectedIndexChanged += (s, e) =>
-            {
-                ShowEditor((string)_cbTool.SelectedItem);
-            };
-            bar.Controls.Add(_cbTool);
-            Controls.Add(bar);
+        }
 
-            _content = new Panel { Dock = DockStyle.Fill, BackColor = UiTheme.MainBg };
-            Controls.Add(_content);
+        private void OnToolChanged(object sender, EventArgs e)
+        {
+            ShowEditor((string)_cbTool.SelectedItem);
         }
 
         private void ShowEditor(string tool)

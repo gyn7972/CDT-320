@@ -8,141 +8,64 @@ using QMC.Vision.Core;
 
 namespace QMC.Vision.Ui.Pages
 {
-    /// <summary>Configuration — 백엔드 Provider 선택 + Image log saver 설정.</summary>
-    public class ConfigurationPage : UserControl
+    /// <summary>Configuration — 백엔드 Provider 선택 + Image log saver 설정.
+    /// Stage 93 — Designer/Code 분리. 정적 shell 은 .Designer.cs, 런타임 데이터/진단은 Code.</summary>
+    public partial class ConfigurationPage : UserControl
     {
-        private ComboBox _cbProvider;
-        private Label    _lblBackendVer;
-        private TextBox  _tbImagePath;
-        private CheckBox _cbImageEnable;
+        private bool _initializing;   // 초기 데이터 세팅 중 핸들러 부작용(Switch/Save) 억제
 
         public ConfigurationPage()
         {
-
+            InitializeComponent();
             if (LicenseManager.UsageMode == LicenseUsageMode.Designtime) return;
-            BuildLayout();
+            LoadConfig();
         }
 
-        private void BuildLayout()
+        private void LoadConfig()
         {
-            var hdr = new Label
+            _initializing = true;
+            try
             {
-                Dock = DockStyle.Top, Height = 30, Text = "Configuration — Module",
-                BackColor = UiTheme.StatusBarBg, ForeColor = Color.White,
-                Font = UiTheme.SectionFont, TextAlign = ContentAlignment.MiddleLeft,
-                Padding = new Padding(10, 0, 0, 0)
-            };
-            Controls.Add(hdr);
-
-            var provGrp = new GroupBox
-            {
-                Location = new Point(20, 50), Size = new Size(640, 110),
-                Text = "Vision Backend (재시작 후 반영)",
-                Font = UiTheme.SectionFont
-            };
-            provGrp.Controls.Add(new Label { Location = new Point(16, 30), AutoSize = true, Text = "Provider", Font = UiTheme.ButtonFont });
-            _cbProvider = new ComboBox
-            {
-                Location = new Point(100, 26), Size = new Size(200, 26),
-                DropDownStyle = ComboBoxStyle.DropDownList, Font = UiTheme.ButtonFont
-            };
-            foreach (var p in Enum.GetValues(typeof(VisionProvider))) _cbProvider.Items.Add(p);
-            _cbProvider.SelectedItem = VisionConfigStore.Current.Provider;
-            _cbProvider.SelectedIndexChanged += (s, e) =>
-            {
-                var sel = (VisionProvider)_cbProvider.SelectedItem;
-                VisionFactory.Switch(sel);
+                foreach (var p in Enum.GetValues(typeof(VisionProvider))) _cbProvider.Items.Add(p);
+                _cbProvider.SelectedItem = VisionConfigStore.Current.Provider;
                 _lblBackendVer.Text = VisionFactory.Global.VersionInfo;
-            };
-            provGrp.Controls.Add(_cbProvider);
+                _cgxLabel.Text = ProbeCognex();
+                _tbImagePath.Text = VisionConfigStore.Current.ImageLogPath;
+                _cbImageEnable.Checked = VisionConfigStore.Current.ImageLogEnable;
+            }
+            finally { _initializing = false; }
+        }
 
-            _lblBackendVer = new Label
-            {
-                Location = new Point(16, 66), Size = new Size(600, 30),
-                Text = VisionFactory.Global.VersionInfo,
-                Font = UiTheme.ValueFont, ForeColor = Color.DarkSlateGray
-            };
-            provGrp.Controls.Add(_lblBackendVer);
+        // ── 이벤트 핸들러 (Designer 에서 named 연결) ──
+        private void OnProviderChanged(object sender, EventArgs e)
+        {
+            if (_initializing) return;
+            var sel = (VisionProvider)_cbProvider.SelectedItem;
+            VisionFactory.Switch(sel);
+            _lblBackendVer.Text = VisionFactory.Global.VersionInfo;
+        }
 
-            Controls.Add(provGrp);
+        private void OnCgxRefreshClick(object sender, EventArgs e) => _cgxLabel.Text = ProbeCognex();
+        private void OnCgxTestClick(object sender, EventArgs e) => _cgxLabel.Text = RunCognexTest();
 
-            // Cognex 라이선스 / 어셈블리 진단 패널
-            var cgxGrp = new GroupBox
-            {
-                Location = new Point(680, 50), Size = new Size(560, 110),
-                Text = "Cognex VisionPro diagnostics",
-                Font = UiTheme.SectionFont
-            };
-            // Stage 62 UI audit fix: height 70 -> 46 (라벨이 버튼 y=78 침범 방지).
-            // Cognex 진단 메시지는 보통 2~3줄; 5줄 메시지(로드 실패) 시 일부 잘림은 허용.
-            var cgxLabel = new Label
-            {
-                Location = new Point(16, 30), Size = new Size(530, 46),
-                Font = UiTheme.ValueFont, ForeColor = Color.DarkSlateGray, Text = ProbeCognex()
-            };
-            var btnCgxRefresh = new Button
-            {
-                Location = new Point(330, 78), Size = new Size(100, 24),
-                Text = "Refresh", FlatStyle = FlatStyle.Flat, Font = UiTheme.ButtonFont, BackColor = Color.White
-            };
-            btnCgxRefresh.Click += (s, e) => cgxLabel.Text = ProbeCognex();
-            cgxGrp.Controls.Add(cgxLabel);
-            cgxGrp.Controls.Add(btnCgxRefresh);
+        private void OnImagePathChanged(object sender, EventArgs e)
+        {
+            if (_initializing) return;
+            VisionConfigStore.Current.ImageLogPath = _tbImagePath.Text;
+            VisionConfigStore.Save();
+        }
 
-            var btnCgxTest = new Button
-            {
-                Location = new Point(440, 78), Size = new Size(100, 24),
-                Text = "Run test", FlatStyle = FlatStyle.Flat, Font = UiTheme.ButtonFont,
-                BackColor = UiTheme.Accent, ForeColor = Color.White
-            };
-            btnCgxTest.Click += (s, e) => cgxLabel.Text = RunCognexTest();
-            cgxGrp.Controls.Add(btnCgxTest);
-            Controls.Add(cgxGrp);
+        private void OnBrowseClick(object sender, EventArgs e)
+        {
+            using (var d = new FolderBrowserDialog { SelectedPath = Directory.Exists(_tbImagePath.Text) ? _tbImagePath.Text : "" })
+                if (d.ShowDialog() == DialogResult.OK) _tbImagePath.Text = d.SelectedPath;
+        }
 
-            var imgGrp = new GroupBox
-            {
-                Location = new Point(20, 180), Size = new Size(640, 100),
-                Text = "Image log saver", Font = UiTheme.SectionFont
-            };
-            imgGrp.Controls.Add(new Label { Location = new Point(16, 30), AutoSize = true, Text = "Path", Font = UiTheme.ButtonFont });
-            _tbImagePath = new TextBox
-            {
-                Location = new Point(56, 26), Size = new Size(440, 26),
-                Text = VisionConfigStore.Current.ImageLogPath, Font = UiTheme.ValueFont
-            };
-            _tbImagePath.TextChanged += (s, e) =>
-            {
-                VisionConfigStore.Current.ImageLogPath = _tbImagePath.Text;
-                VisionConfigStore.Save();
-            };
-            imgGrp.Controls.Add(_tbImagePath);
-
-            var btnBrowse = new Button
-            {
-                Location = new Point(504, 24), Size = new Size(100, 30),
-                Text = "Browse...", FlatStyle = FlatStyle.Flat, Font = UiTheme.ButtonFont
-            };
-            btnBrowse.Click += (s, e) =>
-            {
-                using (var d = new FolderBrowserDialog { SelectedPath = Directory.Exists(_tbImagePath.Text) ? _tbImagePath.Text : "" })
-                    if (d.ShowDialog() == DialogResult.OK) _tbImagePath.Text = d.SelectedPath;
-            };
-            imgGrp.Controls.Add(btnBrowse);
-
-            _cbImageEnable = new CheckBox
-            {
-                Location = new Point(16, 64), AutoSize = true,
-                Text = "Enable", Font = UiTheme.ButtonFont,
-                Checked = VisionConfigStore.Current.ImageLogEnable
-            };
-            _cbImageEnable.CheckedChanged += (s, e) =>
-            {
-                VisionConfigStore.Current.ImageLogEnable = _cbImageEnable.Checked;
-                VisionConfigStore.Save();
-            };
-            imgGrp.Controls.Add(_cbImageEnable);
-
-            Controls.Add(imgGrp);
+        private void OnImageEnableChanged(object sender, EventArgs e)
+        {
+            if (_initializing) return;
+            VisionConfigStore.Current.ImageLogEnable = _cbImageEnable.Checked;
+            VisionConfigStore.Save();
         }
 
         /// <summary>Cognex 라이선스/실호출 테스트 — Sim 카메라 grab → CogPMAlignTool Train+Match → 결과.</summary>
