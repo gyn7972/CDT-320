@@ -95,7 +95,7 @@ namespace QMC.CDT_320.Ui.Controls
 
             try
             {
-                _axis.MoveJogContinuous(direction, SpeedType, GetSpeed());
+                _axis.MoveJogContinuous(direction, SpeedType, GetAxisSpeed());
             }
             catch (Exception ex)
             {
@@ -110,7 +110,7 @@ namespace QMC.CDT_320.Ui.Controls
 
             try
             {
-                await _axis.MoveJogStepAsync(direction, SpeedType, AxisUnitConverter.FromDisplay(StepDistance, _axis), GetSpeed());
+                await _axis.MoveJogStepAsync(direction, SpeedType, AxisUnitConverter.FromDisplay(StepDistance, _axis), GetAxisSpeed());
             }
             catch (Exception ex)
             {
@@ -142,6 +142,11 @@ namespace QMC.CDT_320.Ui.Controls
 
             try { return Math.Max(0.0, SpeedProvider()); }
             catch { return 0.0; }
+        }
+
+        private double GetAxisSpeed()
+        {
+            return AxisUnitConverter.FromDisplayVelocity(GetSpeed(), _axis);
         }
 
         private void UpdateEnabledState()

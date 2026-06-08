@@ -271,7 +271,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 foreach (DataGridViewRow row in speedGrid.Rows)
                 {
                     AjinAxis ajin = row.Tag as AjinAxis;
-                    if (ajin == null) continue;
+                    if (ajin == null)
+                        continue;
                     if (ajin.WriteSetupToBoard())
                         boardWritten++;
                 }

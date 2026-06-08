@@ -10,6 +10,9 @@ namespace QMC.CDT320.Ajin
 {
     public class AjinAxis : BaseAxis
     {
+        private const bool ForceTestBoard = true;
+        private const double ForcedTestBoardVelocity = 5.0;
+
         private readonly object _sync = new object();
         private int _motionDirection;
         private bool _isHomeSearching;
@@ -131,6 +134,10 @@ namespace QMC.CDT320.Ajin
                     return limitCheck;
 
                 double vel = velocity > 0 ? velocity : Config.DefaultVelocity;
+                double boardTargetPos = ToBoardPosition(targetPos);
+                double boardVelocity = ToBoardVelocity(vel);
+                double boardAcceleration = ToBoardAcceleration(Config.Acceleration);
+                double boardDeceleration = ToBoardAcceleration(Config.Deceleration);
                 CommandPosition = targetPos;
                 CurrentVelocity = vel;
                 IsMoving = true;
@@ -141,7 +148,7 @@ namespace QMC.CDT320.Ajin
                 lock (_sync)
                 {
                     AXM.SetAbsRelMode(AxisNo, true);
-                    ret = AXM.MovePosition(AxisNo, targetPos, vel, Config.Acceleration, Config.Deceleration);
+                    ret = AXM.MovePosition(AxisNo, boardTargetPos, boardVelocity, boardAcceleration, boardDeceleration);
                 }
                 if (ret != 0)
                 {
@@ -272,7 +279,7 @@ namespace QMC.CDT320.Ajin
             base.Stop();
             if (!AjinSystem.IsOpen) return;
             lock (_sync)
-                AXM.Stop(AxisNo, Config.Deceleration);
+                AXM.Stop(AxisNo, ToBoardAcceleration(Config.Deceleration));
         }
 
         public override void EStop()
@@ -394,8 +401,9 @@ namespace QMC.CDT320.Ajin
             if (!AjinSystem.IsOpen) return;
             lock (_sync)
             {
-                AXM.SetCommandPosition(AxisNo, newPosition);
-                AXM.SetActualPosition(AxisNo, newPosition);
+                double boardPosition = ToBoardPosition(newPosition);
+                AXM.SetCommandPosition(AxisNo, boardPosition);
+                AXM.SetActualPosition(AxisNo, boardPosition);
             }
         }
 
@@ -428,6 +436,9 @@ namespace QMC.CDT320.Ajin
                 int jogDirection = direction < 0 ? -1 : 1;
                 double vel = GetJogVelocity(speedType, customVel);
                 double signedVel = jogDirection * Math.Abs(vel);
+                double boardSignedVel = ToBoardVelocity(signedVel);
+                double boardAcceleration = ToBoardAcceleration(Config.Acceleration);
+                double boardDeceleration = ToBoardAcceleration(Config.Deceleration);
                 CurrentVelocity = signedVel;
                 IsMoving = true;
                 IsInPosition = false;
@@ -435,7 +446,7 @@ namespace QMC.CDT320.Ajin
 
                 int ret;
                 lock (_sync)
-                    ret = AXM.MoveVelocity(AxisNo, signedVel, Config.Acceleration, Config.Deceleration);
+                    ret = AXM.MoveVelocity(AxisNo, boardSignedVel, boardAcceleration, boardDeceleration);
                 if (ret != 0)
                 {
                     IsMoving = false;
@@ -520,7 +531,7 @@ namespace QMC.CDT320.Ajin
             }
 
             lock (_sync)
-                AXM.Stop(AxisNo, Config.Deceleration);
+                AXM.Stop(AxisNo, ToBoardAcceleration(Config.Deceleration));
             base.StopJog();
             UpdateStatus();
         }
@@ -637,10 +648,10 @@ namespace QMC.CDT320.Ajin
             int servoRet,
             bool svOn)
         {
-            CommandPosition = cmd;
+            CommandPosition = FromBoardPosition(cmd);
 
             double prev = ActualPosition;
-            ActualPosition = act;
+            ActualPosition = FromBoardPosition(act);
             if (prev != act)
                 RaisePositionChanged();
 
@@ -851,7 +862,7 @@ namespace QMC.CDT320.Ajin
                     s.EncoderMethod = encMethod;
                     s.ZPhaseLevel = zLvl;
                     s.ServoOnLevel = srvLvl;
-                    s.MaxVelocity = maxVel;
+                    s.MaxVelocity = FromBoardVelocity(maxVel);
                     s.MoveUnit = unit;
                     s.PulsePerUnit = pulse;
 
@@ -882,8 +893,8 @@ namespace QMC.CDT320.Ajin
                     s.NegativeLimitAction = negAct;
                     s.NegativeLimitLevel = negLvl;
                     s.NegativeLimitValue = negVal;
-                    s.SoftLimitPositive = swPos;
-                    s.SoftLimitNegative = swNeg;
+                    s.SoftLimitPositive = FromBoardPosition(swPos);
+                    s.SoftLimitNegative = FromBoardPosition(swNeg);
 
                     ActiveLevel ampFaultLvl = 0, ampResetLvl = 0, homeLvl = 0;
                     bool ampFaultVal = false, homeVal = false;
@@ -938,14 +949,14 @@ namespace QMC.CDT320.Ajin
                     double v1 = 0, v2 = 0, vLast = 0, vIndex = 0, a1 = 0, a2 = 0;
                     if (AXM.GetHomeVelocity(AxisNo, ref v1, ref v2, ref vLast, ref vIndex, ref a1, ref a2) == 0)
                     {
-                        c.HomeFirstVelocity = v1;
-                        c.HomeSecondVelocity = v2;
-                        c.HomeThirdVelocity = vLast;
-                        c.HomeLastVelocity = vLast;
-                        c.HomeIndexSearchVelocity = vIndex;
-                        c.HomeFirstAcceleration = a1;
-                        c.HomeSecondAcceleration = a2;
-                        c.HomeVelocity = v1;
+                        c.HomeFirstVelocity = FromBoardVelocity(v1);
+                        c.HomeSecondVelocity = FromBoardVelocity(v2);
+                        c.HomeThirdVelocity = FromBoardVelocity(vLast);
+                        c.HomeLastVelocity = FromBoardVelocity(vLast);
+                        c.HomeIndexSearchVelocity = FromBoardVelocity(vIndex);
+                        c.HomeFirstAcceleration = FromBoardAcceleration(a1);
+                        c.HomeSecondAcceleration = FromBoardAcceleration(a2);
+                        c.HomeVelocity = FromBoardVelocity(v1);
                     }
 
                     // Home method
@@ -957,13 +968,13 @@ namespace QMC.CDT320.Ajin
                     {
                         setup.HomeDirection = hDir;
                         setup.HomeSignal = hSig;
-                        setup.HomeOffset = hOff;
+                        setup.HomeOffset = FromBoardPosition(hOff);
                     }
 
                     // Max velocity
                     double maxVel = 0;
                     if (AXM.GetMaxVelocity(AxisNo, ref maxVel) == 0 && maxVel > 0)
-                        c.MaxVelocity = maxVel;
+                        c.MaxVelocity = FromBoardVelocity(maxVel);
 
                     // Unit / pulse
                     double unit = 0; int pulse = 0;
@@ -988,9 +999,9 @@ namespace QMC.CDT320.Ajin
                         // Soft limits
                         double swPos = 0, swNeg = 0;
                         if (AXM.GetPositivePosition(AxisNo, ref swPos) == 0)
-                            setup.SoftLimitPlus = swPos;
+                            setup.SoftLimitPlus = FromBoardPosition(swPos);
                         if (AXM.GetNegativePosition(AxisNo, ref swNeg) == 0)
-                            setup.SoftLimitMinus = swNeg;
+                            setup.SoftLimitMinus = FromBoardPosition(swNeg);
 
                         // Soft limit Enable 플래그
                         try
@@ -1131,7 +1142,14 @@ namespace QMC.CDT320.Ajin
         /// <returns>적용 성공 여부.</returns>
         public bool WriteSetupToBoard()
         {
-            if (Config == null || Config.IsSimulationMode || !AjinSystem.IsOpen) return false;
+            if (Config == null || Config.IsSimulationMode || !AjinSystem.IsOpen)
+                return false;
+
+            // 우선 보드에 Write하지말고 진행하자.
+            if (ForceTestBoard == true)
+            {
+                return false;
+            }
 
             try
             {
@@ -1140,7 +1158,8 @@ namespace QMC.CDT320.Ajin
 
                 lock (_sync)
                 {
-                    // Move unit / pulse - 정수 캐스팅 시 손실되지 않도록 분모를 1 로 가정한다.
+                    // Move unit / pulse. Ajin board unit is fixed to the internal control unit:
+                    // length axes = mm, theta axes = deg. Setup.Unit is display-only.
                     if (setup != null && setup.PulsesPerUnit > 0)
                     {
                         try { AXM.SetMoveUnitPerPulse(AxisNo, 1, (int)System.Math.Round(setup.PulsesPerUnit)); }
@@ -1150,22 +1169,26 @@ namespace QMC.CDT320.Ajin
                     // Max velocity
                     if (c.MaxVelocity > 0)
                     {
-                        try { AXM.SetMaxVelocity(AxisNo, c.MaxVelocity); }
+                        try { AXM.SetMaxVelocity(AxisNo, ToBoardVelocity(c.MaxVelocity)); }
                         catch (Exception ex) { LogWriteWarn("MaxVelocity", ex); }
                     }
 
-                    // Home velocity / acceleration
-                    try
+                    // Home velocity / acceleration.
+                    // During board bring-up tests, keep the home profile already applied in Ajin.
+                    if (!ForceTestBoard)
                     {
-                        AXM.SetHomeVelocity(AxisNo,
-                            c.HomeFirstVelocity,
-                            c.HomeSecondVelocity,
-                            c.HomeLastVelocity,
-                            c.HomeIndexSearchVelocity,
-                            c.HomeFirstAcceleration,
-                            c.HomeSecondAcceleration);
+                        try
+                        {
+                            AXM.SetHomeVelocity(AxisNo,
+                                ToBoardVelocity(c.HomeFirstVelocity),
+                                ToBoardVelocity(c.HomeSecondVelocity),
+                                ToBoardVelocity(c.HomeLastVelocity),
+                                ToBoardVelocity(c.HomeIndexSearchVelocity),
+                                ToBoardAcceleration(c.HomeFirstAcceleration),
+                                ToBoardAcceleration(c.HomeSecondAcceleration));
+                        }
+                        catch (Exception ex) { LogWriteWarn("HomeVelocity", ex); }
                     }
-                    catch (Exception ex) { LogWriteWarn("HomeVelocity", ex); }
 
                     if (setup != null)
                     {
@@ -1177,7 +1200,7 @@ namespace QMC.CDT320.Ajin
                                 setup.HomeSignal,
                                 HomeZPhase.None,
                                 0.0,
-                                setup.HomeOffset);
+                                ToBoardPosition(setup.HomeOffset));
                         }
                         catch (Exception ex) { LogWriteWarn("HomeMethod", ex); }
 
@@ -1189,7 +1212,7 @@ namespace QMC.CDT320.Ajin
                         try { AXM.SetNegativeLimitLevel(AxisNo, setup.NegativeLimitLevel); } catch (Exception ex) { LogWriteWarn("NegativeLimitLevel", ex); }
 
                         // Soft limits (Use + Pos/Neg 통합 적용)
-                        try { AXM.SetSoftLimits(AxisNo, setup.SoftLimitEnabled, setup.SoftLimitPlus, setup.SoftLimitMinus); }
+                        try { AXM.SetSoftLimits(AxisNo, setup.SoftLimitEnabled, ToBoardPosition(setup.SoftLimitPlus), ToBoardPosition(setup.SoftLimitMinus)); }
                         catch (Exception ex) { LogWriteWarn("SoftLimits", ex); }
 
                         // Pulse out / Encoder input (모델 enum → AXL enum 매핑, 라운드트립 시 raw 보존)
@@ -1339,6 +1362,39 @@ namespace QMC.CDT320.Ajin
                 default:
                     return EncoderInput.Reverse;
             }
+        }
+
+        internal double ToBoardPosition(double nativePosition)
+        {
+            return nativePosition;
+        }
+
+        internal double FromBoardPosition(double boardPosition)
+        {
+            return boardPosition;
+        }
+
+        internal double ToBoardVelocity(double nativeVelocity)
+        {
+            if (ForceTestBoard && nativeVelocity != 0.0)
+                return nativeVelocity < 0.0 ? -ForcedTestBoardVelocity : ForcedTestBoardVelocity;
+
+            return nativeVelocity;
+        }
+
+        internal double FromBoardVelocity(double boardVelocity)
+        {
+            return boardVelocity;
+        }
+
+        internal double ToBoardAcceleration(double nativeAcceleration)
+        {
+            return nativeAcceleration;
+        }
+
+        internal double FromBoardAcceleration(double boardAcceleration)
+        {
+            return boardAcceleration;
         }
 
         private async Task<int> WaitUntilMoveDone()

@@ -1,5 +1,7 @@
 ﻿using QMC.Common.Motion;
 
+using QMC.Common.IO;
+
 namespace QMC.CDT320.Interlocks
 {
     public static class PickerFrontInterlockRules
@@ -28,15 +30,18 @@ namespace QMC.CDT320.Interlocks
         private static bool VerifyFrontPickerX(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
-            if (!VerifySharedXClear(request.Machine, "FrontPickerX", out reason))
-                return false;
-
             return VerifyFrontPickerNotBusy(request.Machine.PickerFrontUnit, "FrontPickerX", out reason);
         }
 
         private static bool VerifyFrontPickerY(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
+            if (!VerifyReticleCylinderClear(request.Machine, "FrontPickerY", out reason))
+                return false;
+            if (request.Machine.PickerRearUnit != null &&
+                MotionGuardRuleHelpers.IsAxisMoving(request.Machine.PickerRearUnit.PickerY))
+                return MotionGuardRuleHelpers.Block("FrontPickerY", "RearPickerY is moving.", out reason);
+
             return VerifyFrontPickerNotBusy(request.Machine.PickerFrontUnit, "FrontPickerY", out reason);
         }
 
@@ -52,20 +57,25 @@ namespace QMC.CDT320.Interlocks
             return VerifyFrontPickerNotBusy(request.Machine.PickerFrontUnit, request.MovingName, out reason);
         }
 
-        private static bool VerifySharedXClear(CDT320_Machine machine, string movingName, out string reason)
+        private static bool VerifyReticleCylinderClear(CDT320_Machine machine, string movingName, out string reason)
         {
             reason = string.Empty;
-            if (machine == null)
+            if (machine == null || machine.VisionUnit == null)
                 return true;
 
-            if (machine.InputStageUnit != null && MotionGuardRuleHelpers.IsAxisMoving(machine.InputStageUnit.CameraX))
-                return MotionGuardRuleHelpers.Block(movingName, "InputVisionX is moving.", out reason);
-            if (machine.OutputStageUnit != null && MotionGuardRuleHelpers.IsAxisMoving(machine.OutputStageUnit.OutputCameraX))
-                return MotionGuardRuleHelpers.Block(movingName, "OutputVisionX is moving.", out reason);
-            if (machine.PickerRearUnit != null && MotionGuardRuleHelpers.IsAxisMoving(machine.PickerRearUnit.PickerX))
-                return MotionGuardRuleHelpers.Block(movingName, "RearPickerX is moving.", out reason);
+            if (IsCylinderMoving(machine.VisionUnit.ReticleLift))
+                return MotionGuardRuleHelpers.Block(movingName, "ReticleLift is moving.", out reason);
+            if (IsCylinderMoving(machine.VisionUnit.ReticleFrontSideSlide))
+                return MotionGuardRuleHelpers.Block(movingName, "ReticleSideSlideFront is moving.", out reason);
+            if (IsCylinderMoving(machine.VisionUnit.ReticleRearSideSlide))
+                return MotionGuardRuleHelpers.Block(movingName, "ReticleSideSlideRear is moving.", out reason);
 
             return true;
+        }
+
+        private static bool IsCylinderMoving(BaseCylinder cylinder)
+        {
+            return MotionGuardRuleHelpers.IsCylinderMoving(cylinder);
         }
 
         private static bool VerifyFrontPickerNotBusy(PickerFrontUnit picker, string movingName, out string reason)

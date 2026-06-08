@@ -1,4 +1,4 @@
-using QMC.Common.Motion;
+﻿using QMC.Common.Motion;
 
 namespace QMC.CDT320.Interlocks
 {
@@ -134,10 +134,12 @@ namespace QMC.CDT320.Interlocks
                 return MotionGuardRuleHelpers.Block(movingName, "InputVisionX is moving.", out reason);
             if (IsMovingExcept(stage.NeedleBlockX, movingName, "NeedleX", "NeedleBlockX"))
                 return MotionGuardRuleHelpers.Block(movingName, "NeedleX is moving.", out reason);
-            if (IsMovingExcept(stage.NeedleZ, movingName, "NeedleZ"))
-                return MotionGuardRuleHelpers.Block(movingName, "NeedleZ is moving.", out reason);
-            if (IsMovingExcept(stage.EjectPinZ, movingName, "EjectPinZ"))
-                return MotionGuardRuleHelpers.Block(movingName, "EjectPinZ is moving.", out reason);
+
+            //서로 같이 움직여도 상관없음.
+            //if (IsMovingExcept(stage.NeedleZ, movingName, "NeedleZ"))
+            //    return MotionGuardRuleHelpers.Block(movingName, "NeedleZ is moving.", out reason);
+            //if (IsMovingExcept(stage.EjectPinZ, movingName, "EjectPinZ"))
+            //    return MotionGuardRuleHelpers.Block(movingName, "EjectPinZ is moving.", out reason);
 
             return true;
         }

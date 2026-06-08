@@ -36,6 +36,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
 
         private List<AxisRow> _items;
         private bool _gridLoading;
+        private QMC.CDT_320.Ui.Dialogs.SharedRailXSetupDialog _sharedRailXDialog;
 
         public AxisSetupPage()
         {
@@ -84,6 +85,42 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         }
 
         private void OnApplyClick(object sender, EventArgs e) => ApplyToAxes();
+
+        private void OnSharedRailXClick(object sender, EventArgs e)
+        {
+            try
+            {
+                Form1 host = FindForm() as Form1;
+                if (host == null || host.Controller == null)
+                {
+                    QMC.Common.MessageDialog.Show("MachineController 미초기화", "SharedRailX",
+                        MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                if (_sharedRailXDialog == null || _sharedRailXDialog.IsDisposed)
+                {
+                    _sharedRailXDialog = new QMC.CDT_320.Ui.Dialogs.SharedRailXSetupDialog(host.Controller);
+                    _sharedRailXDialog.FormClosed += (s, args) => { _sharedRailXDialog = null; };
+                    _sharedRailXDialog.Show(host);
+                }
+                else
+                {
+                    if (!_sharedRailXDialog.Visible)
+                        _sharedRailXDialog.Show(host);
+                    _sharedRailXDialog.Activate();
+                    _sharedRailXDialog.BringToFront();
+                }
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.MessageDialog.Show("SharedRailX dialog open failed: " + ex.Message,
+                    "SharedRailX", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+            finally
+            {
+            }
+        }
 
         // ── 메뉴얼 기준 37 axes seed ─────────────────────────────────
         public static List<AxisRow> SeedDefault()

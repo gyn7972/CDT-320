@@ -11,6 +11,7 @@
         private QMC.CDT_320.Ui.Controls.ActionButton btnReload;
         private QMC.CDT_320.Ui.Controls.ActionButton btnReset;
         private QMC.CDT_320.Ui.Controls.ActionButton btnApply;
+        private QMC.CDT_320.Ui.Controls.ActionButton btnSharedRailX;
 
         protected override void Dispose(bool disposing)
         {
@@ -44,6 +45,7 @@
             this.btnReload = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnReset = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnApply = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.btnSharedRailX = new QMC.CDT_320.Ui.Controls.ActionButton();
             ((System.ComponentModel.ISupportInitialize)(this.grid)).BeginInit();
             this.actionsPanel.SuspendLayout();
             this.SuspendLayout();
@@ -212,6 +214,7 @@
             this.actionsPanel.Controls.Add(this.btnReload);
             this.actionsPanel.Controls.Add(this.btnReset);
             this.actionsPanel.Controls.Add(this.btnApply);
+            this.actionsPanel.Controls.Add(this.btnSharedRailX);
             this.actionsPanel.Dock = System.Windows.Forms.DockStyle.Bottom;
             this.actionsPanel.Location = new System.Drawing.Point(0, 840);
             this.actionsPanel.Name = "actionsPanel";
@@ -274,6 +277,20 @@
             this.btnApply.TabIndex = 3;
             this.btnApply.Text = "APPLY (Soft Limit 반영)";
             this.btnApply.Click += new System.EventHandler(this.OnApplyClick);
+            // 
+            // btnSharedRailX
+            // 
+            this.btnSharedRailX.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(96)))), ((int)(((byte)(96)))), ((int)(((byte)(96)))));
+            this.btnSharedRailX.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnSharedRailX.Font = new System.Drawing.Font("맑은 고딕", 12F, System.Drawing.FontStyle.Bold);
+            this.btnSharedRailX.ForeColor = System.Drawing.Color.White;
+            this.btnSharedRailX.Location = new System.Drawing.Point(692, 12);
+            this.btnSharedRailX.Margin = new System.Windows.Forms.Padding(4);
+            this.btnSharedRailX.Name = "btnSharedRailX";
+            this.btnSharedRailX.Size = new System.Drawing.Size(180, 44);
+            this.btnSharedRailX.TabIndex = 4;
+            this.btnSharedRailX.Text = "SHARED RAIL X";
+            this.btnSharedRailX.Click += new System.EventHandler(this.OnSharedRailXClick);
             // 
             // AxisSetupPage
             // 

@@ -15,7 +15,9 @@ namespace QMC.Common.Motion
     }
 
     /// <summary>
-    /// 축 위치/속도 단위 변환 헬퍼. 내부 저장값은 축의 현재 <see cref="AxisSetup.Unit"/> 기준 값이다.
+    /// 축 위치/속도 단위 변환 헬퍼.
+    /// 내부 저장/제어 단위는 길이축은 mm, 회전축은 deg 이고,
+    /// <see cref="AxisSetup.Unit"/> 은 화면 표시/입력 단위로만 사용한다.
     /// </summary>
     public static class AxisUnitConverter
     {
@@ -130,6 +132,21 @@ namespace QMC.Common.Motion
             }
         }
 
+        public static string NativeUnitFor(BaseAxis axis)
+        {
+            try
+            {
+                return NativeUnitFor(DisplayUnitFor(axis));
+            }
+            catch
+            {
+                return Millimeter;
+            }
+            finally
+            {
+            }
+        }
+
         public static string DisplayUnitFor(BaseAxis axis)
         {
             try
@@ -209,6 +226,16 @@ namespace QMC.Common.Motion
             }
         }
 
+        public static double ToDisplayVelocity(double nativeVelocity, BaseAxis axis)
+        {
+            return ToDisplay(nativeVelocity, axis);
+        }
+
+        public static double FromDisplayVelocity(double displayVelocity, BaseAxis axis)
+        {
+            return FromDisplay(displayVelocity, axis);
+        }
+
         public static string Format(double value, string unit)
         {
             try
@@ -268,28 +295,28 @@ namespace QMC.Common.Motion
         /// <summary>AXL 라이브러리의 축 번호 (0-based).</summary>
         public int AxisNo { get; set; } = 0;
 
-        /// <summary>논리 단위 1당 펄스 수.</summary>
+        /// <summary>내부 제어 단위 1당 펄스 수. 길이축은 pulses/mm, 회전축은 pulses/deg.</summary>
         public double PulsesPerUnit { get; set; } = 1000.0;
 
         /// <summary>보드 설정용 축 스케일.</summary>
         public int AxisScale { get; set; } = 1000;
 
-        /// <summary>축 위치 단위. 예: mm, um, deg.</summary>
+        /// <summary>화면 표시/입력 단위. 내부 저장/제어 단위는 길이축 mm, 회전축 deg.</summary>
         public string Unit { get; set; } = AxisUnitConverter.Millimeter;
 
         /// <summary>축 사용 여부. false 이면 매니저에서 생성하지 않을 수 있다.</summary>
         public bool IsEnabled { get; set; } = true;
 
-        /// <summary>플러스 방향 소프트웨어 리밋 위치 [Unit].</summary>
+        /// <summary>플러스 방향 소프트웨어 리밋 위치 [mm 또는 deg].</summary>
         public double SoftLimitPlus { get; set; } = 200.0;
 
-        /// <summary>마이너스 방향 소프트웨어 리밋 위치 [Unit].</summary>
+        /// <summary>마이너스 방향 소프트웨어 리밋 위치 [mm 또는 deg].</summary>
         public double SoftLimitMinus { get; set; } = -5.0;
 
         /// <summary>소프트웨어 리밋 사용 여부.</summary>
         public bool SoftLimitEnabled { get; set; } = true;
 
-        /// <summary>원점 완료 후 적용할 원점 오프셋 [Unit].</summary>
+        /// <summary>원점 완료 후 적용할 원점 오프셋 [mm 또는 deg].</summary>
         public double HomeOffset { get; set; } = 0.0;
 
         /// <summary>원점 복귀 방향.</summary>
@@ -345,7 +372,7 @@ namespace QMC.Common.Motion
         /// <summary>감속 Jerk 비율 [%].</summary>
         public int DecJerkPercent { get; set; } = 50;
 
-        /// <summary>축의 기구 Stroke [Unit].</summary>
+        /// <summary>축의 기구 Stroke [mm 또는 deg].</summary>
         public double Stroke { get; set; } = 0.0;
 
         /// <summary>브레이크 장착 여부.</summary>
@@ -365,58 +392,58 @@ namespace QMC.Common.Motion
         /// false 여도 보드가 열려 있지 않거나 축 번호가 유효하지 않으면 자동으로 true 로 폴백한다.
         /// </summary>
         public bool IsSimulationMode { get; set; } = true;
-        /// <summary>일반 이동 기본 속도 [Unit/s].</summary>
+        /// <summary>일반 이동 기본 속도 [mm/s 또는 deg/s].</summary>
         public double DefaultVelocity { get; set; } = 100.0;
 
-        /// <summary>축의 최대 허용 속도 [Unit/s].</summary>
+        /// <summary>축의 최대 허용 속도 [mm/s 또는 deg/s].</summary>
         public double MaxVelocity { get; set; } = 0.0;
 
-        /// <summary>일반 이동 가속도 [Unit/s^2].</summary>
+        /// <summary>일반 이동 가속도 [mm/s^2 또는 deg/s^2].</summary>
         public double Acceleration { get; set; } = 1000.0;
 
-        /// <summary>일반 이동 감속도 [Unit/s^2].</summary>
+        /// <summary>일반 이동 감속도 [mm/s^2 또는 deg/s^2].</summary>
         public double Deceleration { get; set; } = 1000.0;
 
-        /// <summary>원점 복귀 1차 속도 [Unit/s].</summary>
+        /// <summary>원점 복귀 1차 속도 [mm/s 또는 deg/s].</summary>
         public double HomeFirstVelocity { get; set; } = 50.0;
 
-        /// <summary>원점 복귀 2차 속도 [Unit/s].</summary>
+        /// <summary>원점 복귀 2차 속도 [mm/s 또는 deg/s].</summary>
         public double HomeSecondVelocity { get; set; } = 20.0;
 
-        /// <summary>원점 복귀 3차 속도 [Unit/s].</summary>
+        /// <summary>원점 복귀 3차 속도 [mm/s 또는 deg/s].</summary>
         public double HomeThirdVelocity { get; set; } = 5.0;
 
-        /// <summary>원점 복귀 마지막 접근 속도 [Unit/s].</summary>
+        /// <summary>원점 복귀 마지막 접근 속도 [mm/s 또는 deg/s].</summary>
         public double HomeLastVelocity { get; set; } = 1.0;
         public double HomeIndexSearchVelocity { get; set; } = 5;
 
-        /// <summary>원점 복귀 대표 속도 [Unit/s]. 기존 코드 호환용.</summary>
+        /// <summary>원점 복귀 대표 속도 [mm/s 또는 deg/s]. 기존 코드 호환용.</summary>
         public double HomeVelocity { get; set; } = 200.0;
 
-        /// <summary>원점 복귀 1차 가속도 [Unit/s^2].</summary>
+        /// <summary>원점 복귀 1차 가속도 [mm/s^2 또는 deg/s^2].</summary>
         public double HomeFirstAcceleration { get; set; } = 500.0;
 
-        /// <summary>원점 복귀 1차 감속도 [Unit/s^2].</summary>
+        /// <summary>원점 복귀 1차 감속도 [mm/s^2 또는 deg/s^2].</summary>
         public double HomeFirstDeceleration { get; set; } = 500.0;
 
-        /// <summary>원점 복귀 2차 가속도 [Unit/s^2].</summary>
+        /// <summary>원점 복귀 2차 가속도 [mm/s^2 또는 deg/s^2].</summary>
         public double HomeSecondAcceleration { get; set; } = 200.0;
 
-        /// <summary>원점 복귀 2차 감속도 [Unit/s^2].</summary>
+        /// <summary>원점 복귀 2차 감속도 [mm/s^2 또는 deg/s^2].</summary>
         public double HomeSecondDeceleration { get; set; } = 200.0;
 
-        /// <summary>Jog 빠른 속도 [Unit/s].</summary>
+        /// <summary>Jog 빠른 속도 [mm/s 또는 deg/s].</summary>
         public double JogCoarseVelocity { get; set; } = 10.0;
 
-        /// <summary>Jog 미세 속도 [Unit/s].</summary>
+        /// <summary>Jog 미세 속도 [mm/s 또는 deg/s].</summary>
         public double JogFineVelocity { get; set; } = 5.0;
 
-        /// <summary>Jog 가속도 [Unit/s^2].</summary>
+        /// <summary>Jog 가속도 [mm/s^2 또는 deg/s^2].</summary>
         public double JogAcceleration { get; set; } = 100.0;
 
-        /// <summary>Jog 감속도 [Unit/s^2].</summary>
+        /// <summary>Jog 감속도 [mm/s^2 또는 deg/s^2].</summary>
         public double JogDeceleration { get; set; } = 100.0;
-        /// <summary>인포지션 허용 오차 [Unit].</summary>
+        /// <summary>인포지션 허용 오차 [mm 또는 deg].</summary>
         public double InPositionTolerance { get; set; } = 0.01;
     }
 

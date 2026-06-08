@@ -63,6 +63,12 @@ namespace QMC.CDT320
             return SharedRailX != null ? SharedRailX.MoveAsync(plan) : Task.FromResult(-1);
         }
 
+        public void ReloadSharedRailXConfig()
+        {
+            SharedRailX = new SharedRailXMotionService(_machine, CreateSharedRailXConfig());
+            SharedRailXMotionRuntime.ServiceProvider = () => SharedRailX;
+        }
+
         public EquipmentStatus Status => _status;
         public bool IsManualBusy => Volatile.Read(ref _manualBusyCount) > 0;
         public bool IsSequenceRunning => _coordinatorTask != null && !_coordinatorTask.IsCompleted;
@@ -229,25 +235,7 @@ namespace QMC.CDT320
 
         private static SharedRailXConfig CreateSharedRailXConfig()
         {
-            var config = SharedRailXConfig.CreateDefault();
-
-            // Unit: mm.
-            // BodyOffsetMin/Max are the occupied rail area around the axis command position.
-            // Example: if a head is 80mm wide and the command position is its center,
-            // set bodyOffsetMin=-40 and bodyOffsetMax=40.
-            // RailOriginOffset converts each local axis position to a common rail coordinate:
-            // railPosition = axisPosition * positionScale + railOriginOffset.
-            config.DefaultSafetyDistance = 10.0;
-            config.EnablePathCheck = true;
-            config.RequireSameVelocityForGroupMove = true;
-
-            config
-                .SetGeometry(SharedRailXAxis.InputVisionX, 0.0, 0.0, railOriginOffset: 0.0)
-                .SetGeometry(SharedRailXAxis.FrontPickerX, 0.0, 0.0, railOriginOffset: 10.0)
-                .SetGeometry(SharedRailXAxis.RearPickerX, 0.0, 0.0, railOriginOffset: 20.0)
-                .SetGeometry(SharedRailXAxis.OutputVisionX, 0.0, 0.0, railOriginOffset: 30.0);
-
-            return config;
+            return SharedRailXConfigStore.LoadOrCreateDefault();
         }
 
         private static bool VerifyAxisMotionGuard(
