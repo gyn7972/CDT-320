@@ -25,17 +25,53 @@ namespace QMC.Vision.Ui.Pages
         private readonly Dictionary<string, int> _maxPowerByPort = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, InspectionLightSetting> _carry = new Dictionary<string, InspectionLightSetting>();
 
+        // R2e — 행 바인딩 중 변경 이벤트 억제 가드.
+        private bool _suppressChange;
+
+        /// <summary>R2e — 조명 값(Level/Page) 변경 알림. 타깃 페이지가 구독해 dirty 전파(상태점 점등).</summary>
+        public event EventHandler LightChanged;
+
+        /// <summary>
+        /// R2e — 타깃 페이지 편입 모드. true 면 자체 저장/취소 버튼 숨김(상단바 통합 저장이 PersistLight 호출).
+        /// 기본 false = 독립 에디터(SettingsPage/옛 FinderPage·InspectorPage) 동작 보존.
+        /// </summary>
+        public bool EmbeddedMode
+        {
+            get { return _embedded; }
+            set
+            {
+                _embedded = value;
+                if (_btnSave != null) _btnSave.Visible = !value;
+                if (_btnCancel != null) _btnCancel.Visible = !value;
+            }
+        }
+        private bool _embedded;
+
         public InspectionLightPanel()
         {
             InitializeComponent();
+            WireGrid();
         }
 
         public InspectionLightPanel(string algorithm, string inspectionId)
         {
             InitializeComponent();
+            WireGrid();
             if (LicenseManager.UsageMode == LicenseUsageMode.Designtime) return;
             SelectInspection(algorithm, inspectionId);
         }
+
+        private void WireGrid()
+        {
+            if (_grid == null) return;
+            _grid.CurrentCellDirtyStateChanged += (s, e) =>
+            { if (_grid.IsCurrentCellDirty) _grid.CommitEdit(DataGridViewDataErrorContexts.Commit); };
+            _grid.CellValueChanged += (s, e) =>
+            { if (!_suppressChange) LightChanged?.Invoke(this, EventArgs.Empty); };
+        }
+
+        /// <summary>R2e — 통합 저장 진입점(타깃 상단바 저장이 호출). 독립 Save 와 동일.</summary>
+        public void PersistLight() => Save();
 
         public void SelectInspection(string algorithm, string inspectionId)
         {
@@ -60,6 +96,13 @@ namespace QMC.Vision.Ui.Pages
         private static string Key(string port, int ch) => (port ?? "") + "/" + ch;
 
         private void BindFields()
+        {
+            _suppressChange = true;
+            try { BindFieldsCore(); }
+            finally { _suppressChange = false; }
+        }
+
+        private void BindFieldsCore()
         {
             _carry.Clear();
             _maxPowerByPort.Clear();

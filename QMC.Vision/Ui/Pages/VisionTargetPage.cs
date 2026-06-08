@@ -23,6 +23,7 @@ namespace QMC.Vision.Ui.Pages
         private readonly VisionModule _module;
         private readonly IPatternFinder _finder;
         private bool _dirty;
+        private InspectionLightPanel _lightPanel;   // R2e — 편입 조명패널(통합 저장 대상)
 
         /// <summary>세팅(finder) 변경 미저장 여부.</summary>
         public bool IsDirty => _dirty;
@@ -59,8 +60,9 @@ namespace QMC.Vision.Ui.Pages
         // ── 우측: 검사 조명(InspectionLightPanel) + 라이브튜닝(LightLiveTuningPanel) 주입(런타임) ──
         private void BuildChildPanels()
         {
-            var light = new InspectionLightPanel(_module?.AlgorithmKey ?? "", _finder?.Id ?? "") { Dock = DockStyle.Fill };
-            _lightHost.Controls.Add(light);
+            _lightPanel = new InspectionLightPanel(_module?.AlgorithmKey ?? "", _finder?.Id ?? "") { Dock = DockStyle.Fill, EmbeddedMode = true };
+            _lightPanel.LightChanged += (s, e) => MarkDirty();   // R2e — 조명 변경 → 상태점 점등
+            _lightHost.Controls.Add(_lightPanel);
 
             var live = new LightLiveTuningPanel { Dock = DockStyle.Fill };
             live.Initialize(CollectRowsForLiveTuning);
@@ -163,6 +165,7 @@ namespace QMC.Vision.Ui.Pages
                 string path = TargetPath();
                 Directory.CreateDirectory(Path.GetDirectoryName(path));
                 _finder.SaveParameters(path);
+                _lightPanel?.PersistLight();   // R2e — 통합 저장(ROI + 조명)
                 _dirty = false;
                 DirtyChanged?.Invoke(this, EventArgs.Empty);
                 Status("타깃 저장됨 — " + path);
