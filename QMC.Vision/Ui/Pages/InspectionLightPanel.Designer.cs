@@ -71,14 +71,22 @@ namespace QMC.Vision.Ui.Pages
             this._bar.Height = 40;
             this._bar.BackColor = UiTheme.MainBg;
 
-            // 버튼들
-            InitBtn(this._btnSave, "저장", 8, UiTheme.Accent, Color.White);
+            // 버튼들 (IC 직렬화 가능 — 헬퍼 호출 인라인)
+            this._btnSave.Location = new Point(8, 4); this._btnSave.Size = new Size(90, 32);
+            this._btnSave.Text = "저장"; this._btnSave.FlatStyle = FlatStyle.Flat; this._btnSave.Font = UiTheme.ButtonFont;
+            this._btnSave.BackColor = UiTheme.Accent; this._btnSave.ForeColor = Color.White;
             this._btnSave.Click += new System.EventHandler(this.OnSaveClick);
-            InitBtn(this._btnApply, "실행 적용", 104, Color.White, Color.Black);
+            this._btnApply.Location = new Point(104, 4); this._btnApply.Size = new Size(90, 32);
+            this._btnApply.Text = "실행 적용"; this._btnApply.FlatStyle = FlatStyle.Flat; this._btnApply.Font = UiTheme.ButtonFont;
+            this._btnApply.BackColor = Color.White; this._btnApply.ForeColor = Color.Black;
             this._btnApply.Click += new System.EventHandler(this.OnApplyClick);
-            InitBtn(this._btnReset, "초기화", 200, Color.White, Color.Black);
+            this._btnReset.Location = new Point(200, 4); this._btnReset.Size = new Size(90, 32);
+            this._btnReset.Text = "초기화"; this._btnReset.FlatStyle = FlatStyle.Flat; this._btnReset.Font = UiTheme.ButtonFont;
+            this._btnReset.BackColor = Color.White; this._btnReset.ForeColor = Color.Black;
             this._btnReset.Click += new System.EventHandler(this.OnResetClick);
-            InitBtn(this._btnCancel, "취소", 296, Color.White, Color.Black);
+            this._btnCancel.Location = new Point(296, 4); this._btnCancel.Size = new Size(90, 32);
+            this._btnCancel.Text = "취소"; this._btnCancel.FlatStyle = FlatStyle.Flat; this._btnCancel.Font = UiTheme.ButtonFont;
+            this._btnCancel.BackColor = Color.White; this._btnCancel.ForeColor = Color.Black;
             this._btnCancel.Click += new System.EventHandler(this.OnCancelClick);
             this._bar.Controls.Add(this._btnSave);
             this._bar.Controls.Add(this._btnApply);
@@ -129,8 +137,5 @@ namespace QMC.Vision.Ui.Pages
             ((System.ComponentModel.ISupportInitialize)this._grid).EndInit();
             this.ResumeLayout(false);
         }
-
-        private void InitBtn(Button b, string text, int x, Color bg, Color fg)
-        { b.Location = new Point(x, 4); b.Size = new Size(90, 32); b.Text = text; b.FlatStyle = FlatStyle.Flat; b.Font = UiTheme.ButtonFont; b.BackColor = bg; b.ForeColor = fg; }
     }
 }
