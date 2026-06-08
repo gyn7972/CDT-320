@@ -90,16 +90,21 @@ namespace QMC.Vision.Ui.Pages
             this._lblVerdict.BorderStyle = BorderStyle.FixedSingle;
             this._lblVerdict.TextAlign = ContentAlignment.MiddleCenter;
 
-            // 버튼들
-            InitBtn(this._btnGrab, "GRAB", 720, 372, 170, 44, Color.White, Color.Black);
+            // 버튼들 (IC 직렬화 가능 — 헬퍼 호출 인라인)
+            this._btnGrab.Location = new Point(720, 372); this._btnGrab.Size = new Size(170, 44); this._btnGrab.Text = "GRAB";
+            this._btnGrab.FlatStyle = FlatStyle.Flat; this._btnGrab.Font = UiTheme.ButtonFont; this._btnGrab.BackColor = Color.White; this._btnGrab.ForeColor = Color.Black;
             this._btnGrab.Click += new System.EventHandler(this.OnGrabClick);
-            InitBtn(this._btnLoad, "LOAD", 900, 372, 170, 44, Color.White, Color.Black);
+            this._btnLoad.Location = new Point(900, 372); this._btnLoad.Size = new Size(170, 44); this._btnLoad.Text = "LOAD";
+            this._btnLoad.FlatStyle = FlatStyle.Flat; this._btnLoad.Font = UiTheme.ButtonFont; this._btnLoad.BackColor = Color.White; this._btnLoad.ForeColor = Color.Black;
             this._btnLoad.Click += new System.EventHandler(this.OnLoadClick);
-            InitBtn(this._btnSave, "SAVE", 1080, 372, 180, 44, Color.White, Color.Black);
+            this._btnSave.Location = new Point(1080, 372); this._btnSave.Size = new Size(180, 44); this._btnSave.Text = "SAVE";
+            this._btnSave.FlatStyle = FlatStyle.Flat; this._btnSave.Font = UiTheme.ButtonFont; this._btnSave.BackColor = Color.White; this._btnSave.ForeColor = Color.Black;
             this._btnSave.Click += new System.EventHandler(this.OnSaveClick);
-            InitBtn(this._btnInspect, "INSPECT", 720, 422, 540, 56, UiTheme.Accent, Color.White);
+            this._btnInspect.Location = new Point(720, 422); this._btnInspect.Size = new Size(540, 56); this._btnInspect.Text = "INSPECT";
+            this._btnInspect.FlatStyle = FlatStyle.Flat; this._btnInspect.Font = UiTheme.ButtonFont; this._btnInspect.BackColor = UiTheme.Accent; this._btnInspect.ForeColor = Color.White;
             this._btnInspect.Click += new System.EventHandler(this.OnInspectClick);
-            InitBtn(this._btnEditRoi, "Edit INSPECTION ROI (drag)", 720, 488, 540, 36, Color.LightYellow, Color.Black);
+            this._btnEditRoi.Location = new Point(720, 488); this._btnEditRoi.Size = new Size(540, 36); this._btnEditRoi.Text = "Edit INSPECTION ROI (drag)";
+            this._btnEditRoi.FlatStyle = FlatStyle.Flat; this._btnEditRoi.Font = UiTheme.ButtonFont; this._btnEditRoi.BackColor = Color.LightYellow; this._btnEditRoi.ForeColor = Color.Black;
             this._btnEditRoi.Click += new System.EventHandler(this.OnEditRoiClick);
 
             // _lblStatus
@@ -128,12 +133,6 @@ namespace QMC.Vision.Ui.Pages
             this.Name = "InspectorPage";
             ((System.ComponentModel.ISupportInitialize)this._result).EndInit();
             this.ResumeLayout(false);
-        }
-
-        private void InitBtn(Button b, string text, int x, int y, int w, int h, Color bg, Color fg)
-        {
-            b.Location = new Point(x, y); b.Size = new Size(w, h); b.Text = text;
-            b.FlatStyle = FlatStyle.Flat; b.Font = UiTheme.ButtonFont; b.BackColor = bg; b.ForeColor = fg;
         }
     }
 }
