@@ -161,6 +161,9 @@
     <Compile Include="Ui\Pages\OperationPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="Ui\Pages\OperationPage.Designer.cs">
+      <DependentUpon>OperationPage.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Pages\ConfigurationPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
@@ -169,6 +172,9 @@
     </Compile>
     <Compile Include="Ui\Pages\DataLogPage.cs">
       <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\DataLogPage.Designer.cs">
+      <DependentUpon>DataLogPage.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Pages\SettingsPage.cs">
       <SubType>UserControl</SubType>
