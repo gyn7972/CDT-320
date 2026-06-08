@@ -121,6 +121,12 @@
     <Compile Include="Optics\Leesos\LeesosProtocol.cs" />
     <Compile Include="Optics\Leesos\LeesosLightController.cs" />
     <Compile Include="Comm\LightHub.cs" />
+    <Compile Include="Ui\Pages\VisionTargetPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\VisionTargetPage.Designer.cs">
+      <DependentUpon>VisionTargetPage.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Pages\LightSystemSetupPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
@@ -284,6 +290,9 @@
     <EmbeddedResource Include="Ui\Controls\LightLiveTuningPanel.resx">
       <DependentUpon>LightLiveTuningPanel.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\CameraMappingPanel.resx">
+      <DependentUpon>CameraMappingPanel.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\ConfigurationPage.resx">
       <DependentUpon>ConfigurationPage.cs</DependentUpon>
     </EmbeddedResource>
@@ -292,6 +301,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\LightSystemSetupPage.resx">
       <DependentUpon>LightSystemSetupPage.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\RecipePage.resx">
+      <DependentUpon>RecipePage.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\SettingsPage.resx">
       <DependentUpon>SettingsPage.cs</DependentUpon>

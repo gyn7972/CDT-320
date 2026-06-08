@@ -7,15 +7,13 @@ namespace QMC.Vision.Ui.Pages
     {
         private System.ComponentModel.IContainer components = null;
 
-        private Label            _hdr;
-        private Panel            _bar;
-        private Button           _btnSpc;
-        private Button           _btnParams;
-        private TableLayoutPanel _table;
-        // _tree, _content 는 Code.cs(상태)에서도 쓰이므로 여기 선언
-        private TreeView         _tree;
-        private Panel            _content;
         private TableLayoutPanel _root;
+        private Label            _hdr;
+        private TableLayoutPanel _body;
+        private Panel            _content;     // 좌: 타깃 페이지 호스트 (계약 보존)
+        private Panel            _sidebar;     // 우: RecipeTab 미러 사이드바
+        private Label            _sideHdr;
+        private FlowLayoutPanel  _sideFlow;    // 런타임 BuildSidebar 가 버튼 채움
 
         protected override void Dispose(bool disposing)
         {
@@ -25,101 +23,86 @@ namespace QMC.Vision.Ui.Pages
 
         private void InitializeComponent()
         {
-            this._hdr = new Label();
-            this._bar = new Panel();
-            this._btnSpc = new Button();
-            this._btnParams = new Button();
-            this._table = new TableLayoutPanel();
-            this._tree = new TreeView();
-            this._content = new Panel();
             this._root = new TableLayoutPanel();
-            this._bar.SuspendLayout();
-            this._table.SuspendLayout();
+            this._hdr = new Label();
+            this._body = new TableLayoutPanel();
+            this._content = new Panel();
+            this._sidebar = new Panel();
+            this._sideHdr = new Label();
+            this._sideFlow = new FlowLayoutPanel();
             this._root.SuspendLayout();
+            this._body.SuspendLayout();
+            this._sidebar.SuspendLayout();
             this.SuspendLayout();
 
-            // _hdr (root TLP 0,0 셀 — Absolute 30)
+            // _hdr (root 0,0 — Absolute 30) : 브레드크럼(현재 타깃 표시)
             this._hdr.Dock = DockStyle.Fill;
-            this._hdr.Height = 30;
-            this._hdr.Text = "Recipe — Module";
+            this._hdr.Text = "Recipe";
             this._hdr.BackColor = UiTheme.StatusBarBg;
             this._hdr.ForeColor = Color.White;
             this._hdr.Font = UiTheme.SectionFont;
             this._hdr.TextAlign = ContentAlignment.MiddleLeft;
             this._hdr.Padding = new Padding(10, 0, 0, 0);
 
-            // _bar (root TLP 0,1 — Absolute 40)
-            this._bar.Dock = DockStyle.Fill;
-            this._bar.Height = 40;
-            this._bar.BackColor = Color.WhiteSmoke;
-
-            // _btnSpc
-            this._btnSpc.Location = new Point(8, 4);
-            this._btnSpc.Size = new Size(180, 32);
-            this._btnSpc.Text = "SPC X-bar Chart";
-            this._btnSpc.FlatStyle = FlatStyle.Flat;
-            this._btnSpc.BackColor = Color.White;
-            this._btnSpc.Font = UiTheme.ButtonFont;
-            this._btnSpc.Click += new System.EventHandler(this.OnSpcClick);
-
-            // _btnParams
-            this._btnParams.Location = new Point(196, 4);
-            this._btnParams.Size = new Size(220, 32);
-            this._btnParams.Text = "Inspection Parameters…";
-            this._btnParams.FlatStyle = FlatStyle.Flat;
-            this._btnParams.BackColor = Color.White;
-            this._btnParams.Font = UiTheme.ButtonFont;
-            this._btnParams.Click += new System.EventHandler(this.OnParamsClick);
-
-            this._bar.Controls.Add(this._btnSpc);
-            this._bar.Controls.Add(this._btnParams);
-
-            // _tree
-            this._tree.Dock = DockStyle.Fill;
-            this._tree.Font = UiTheme.ButtonFont;
-            this._tree.BorderStyle = BorderStyle.FixedSingle;
-            this._tree.AfterSelect += new TreeViewEventHandler(this.OnTreeAfterSelect);
-
-            // _content
+            // _content (body 0,0 — Percent) : 타깃 페이지 호스트
             this._content.Dock = DockStyle.Fill;
             this._content.BackColor = UiTheme.MainBg;
 
-            // _table (Col0 Absolute 280 = tree, Col1 Percent 100 = content)
-            this._table.Dock = DockStyle.Fill;
-            this._table.ColumnCount = 2;
-            this._table.RowCount = 1;
-            this._table.BackColor = UiTheme.MainBg;
-            this._table.Margin = Padding.Empty;
-            this._table.Padding = Padding.Empty;
-            this._table.ColumnStyles.Clear();
-            this._table.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 280f));
-            this._table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
-            this._table.RowStyles.Clear();
-            this._table.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
-            this._table.Controls.Add(this._tree, 0, 0);
-            this._table.Controls.Add(this._content, 1, 0);
+            // _sideHdr (sidebar Top) : 사이드바 헤더
+            this._sideHdr.Dock = DockStyle.Top;
+            this._sideHdr.Height = 28;
+            this._sideHdr.Text = "  비전 타깃";
+            this._sideHdr.BackColor = UiTheme.SidebarHeaderBg;
+            this._sideHdr.ForeColor = UiTheme.SidebarHeaderFg;
+            this._sideHdr.Font = UiTheme.ButtonFont;
+            this._sideHdr.TextAlign = ContentAlignment.MiddleLeft;
 
-            // _root (Row0 30=hdr, Row1 40=bar, Row2 100%=table)
+            // _sideFlow (sidebar Fill, 위→아래 단일열, 런타임 채움)
+            this._sideFlow.Dock = DockStyle.Fill;
+            this._sideFlow.FlowDirection = FlowDirection.TopDown;
+            this._sideFlow.WrapContents = false;
+            this._sideFlow.AutoScroll = true;
+            this._sideFlow.BackColor = UiTheme.SidebarBg;
+            this._sideFlow.Padding = new Padding(4, 4, 4, 4);
+
+            // _sidebar (body 0,1 — Absolute 240)
+            this._sidebar.Dock = DockStyle.Fill;
+            this._sidebar.BackColor = UiTheme.SidebarBg;
+            this._sidebar.Controls.Add(this._sideFlow);
+            this._sidebar.Controls.Add(this._sideHdr);
+
+            // _body (2열: content % | sidebar 240)
+            this._body.Dock = DockStyle.Fill;
+            this._body.ColumnCount = 2;
+            this._body.RowCount = 1;
+            this._body.BackColor = UiTheme.MainBg;
+            this._body.Margin = Padding.Empty;
+            this._body.Padding = Padding.Empty;
+            this._body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+            this._body.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 240f));
+            this._body.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+            this._body.Controls.Add(this._content, 0, 0);
+            this._body.Controls.Add(this._sidebar, 1, 0);
+
+            // _root (Row0 30=hdr, Row1 100%=body)
             this._root.Dock = DockStyle.Fill;
             this._root.ColumnCount = 1;
-            this._root.RowCount = 3;
+            this._root.RowCount = 2;
             this._root.BackColor = UiTheme.MainBg;
             this._root.Margin = Padding.Empty;
             this._root.Padding = Padding.Empty;
             this._root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
             this._root.RowStyles.Add(new RowStyle(SizeType.Absolute, 30f));
-            this._root.RowStyles.Add(new RowStyle(SizeType.Absolute, 40f));
             this._root.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
             this._root.Controls.Add(this._hdr, 0, 0);
-            this._root.Controls.Add(this._bar, 0, 1);
-            this._root.Controls.Add(this._table, 0, 2);
+            this._root.Controls.Add(this._body, 0, 1);
 
             // RecipePage
             this.Controls.Add(this._root);
             this.Load += new System.EventHandler(this.OnPageLoad);
             this.Name = "RecipePage";
-            this._bar.ResumeLayout(false);
-            this._table.ResumeLayout(false);
+            this._sidebar.ResumeLayout(false);
+            this._body.ResumeLayout(false);
             this._root.ResumeLayout(false);
             this.ResumeLayout(false);
         }
