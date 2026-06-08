@@ -82,20 +82,27 @@ namespace QMC.Vision.Ui.Pages
             this._result.Columns.Add("R", "R");
             this._result.Columns.Add("Score", "Score");
 
-            // 버튼들
-            InitBtn(this._btnGrab, "GRAB", 720, 364, 170, 44, Color.White, Color.Black);
+            // 버튼들 (IC 직렬화 가능 — 헬퍼 호출 인라인)
+            this._btnGrab.Location = new Point(720, 364); this._btnGrab.Size = new Size(170, 44); this._btnGrab.Text = "GRAB";
+            this._btnGrab.FlatStyle = FlatStyle.Flat; this._btnGrab.Font = UiTheme.ButtonFont; this._btnGrab.BackColor = Color.White; this._btnGrab.ForeColor = Color.Black;
             this._btnGrab.Click += new System.EventHandler(this.OnGrabClick);
-            InitBtn(this._btnLoad, "LOAD", 900, 364, 170, 44, Color.White, Color.Black);
+            this._btnLoad.Location = new Point(900, 364); this._btnLoad.Size = new Size(170, 44); this._btnLoad.Text = "LOAD";
+            this._btnLoad.FlatStyle = FlatStyle.Flat; this._btnLoad.Font = UiTheme.ButtonFont; this._btnLoad.BackColor = Color.White; this._btnLoad.ForeColor = Color.Black;
             this._btnLoad.Click += new System.EventHandler(this.OnLoadClick);
-            InitBtn(this._btnSave, "SAVE", 1080, 364, 180, 44, Color.White, Color.Black);
+            this._btnSave.Location = new Point(1080, 364); this._btnSave.Size = new Size(180, 44); this._btnSave.Text = "SAVE";
+            this._btnSave.FlatStyle = FlatStyle.Flat; this._btnSave.Font = UiTheme.ButtonFont; this._btnSave.BackColor = Color.White; this._btnSave.ForeColor = Color.Black;
             this._btnSave.Click += new System.EventHandler(this.OnSaveClick);
-            InitBtn(this._btnTrain, "TRAIN", 720, 416, 265, 50, UiTheme.Accent, Color.White);
+            this._btnTrain.Location = new Point(720, 416); this._btnTrain.Size = new Size(265, 50); this._btnTrain.Text = "TRAIN";
+            this._btnTrain.FlatStyle = FlatStyle.Flat; this._btnTrain.Font = UiTheme.ButtonFont; this._btnTrain.BackColor = UiTheme.Accent; this._btnTrain.ForeColor = Color.White;
             this._btnTrain.Click += new System.EventHandler(this.OnTrainClick);
-            InitBtn(this._btnMatch, "MATCH", 995, 416, 265, 50, UiTheme.Accent, Color.White);
+            this._btnMatch.Location = new Point(995, 416); this._btnMatch.Size = new Size(265, 50); this._btnMatch.Text = "MATCH";
+            this._btnMatch.FlatStyle = FlatStyle.Flat; this._btnMatch.Font = UiTheme.ButtonFont; this._btnMatch.BackColor = UiTheme.Accent; this._btnMatch.ForeColor = Color.White;
             this._btnMatch.Click += new System.EventHandler(this.OnMatchClick);
-            InitBtn(this._btnEditSearch, "Edit SEARCH ROI (drag)", 720, 478, 265, 36, Color.LightYellow, Color.Black);
+            this._btnEditSearch.Location = new Point(720, 478); this._btnEditSearch.Size = new Size(265, 36); this._btnEditSearch.Text = "Edit SEARCH ROI (drag)";
+            this._btnEditSearch.FlatStyle = FlatStyle.Flat; this._btnEditSearch.Font = UiTheme.ButtonFont; this._btnEditSearch.BackColor = Color.LightYellow; this._btnEditSearch.ForeColor = Color.Black;
             this._btnEditSearch.Click += new System.EventHandler(this.OnEditSearchClick);
-            InitBtn(this._btnEditTrain, "Edit TRAIN ROI (drag)", 995, 478, 265, 36, Color.LightYellow, Color.Black);
+            this._btnEditTrain.Location = new Point(995, 478); this._btnEditTrain.Size = new Size(265, 36); this._btnEditTrain.Text = "Edit TRAIN ROI (drag)";
+            this._btnEditTrain.FlatStyle = FlatStyle.Flat; this._btnEditTrain.Font = UiTheme.ButtonFont; this._btnEditTrain.BackColor = Color.LightYellow; this._btnEditTrain.ForeColor = Color.Black;
             this._btnEditTrain.Click += new System.EventHandler(this.OnEditTrainClick);
 
             // _lblStatus
@@ -125,12 +132,6 @@ namespace QMC.Vision.Ui.Pages
             this.Name = "FinderPage";
             ((System.ComponentModel.ISupportInitialize)this._result).EndInit();
             this.ResumeLayout(false);
-        }
-
-        private void InitBtn(Button b, string text, int x, int y, int w, int h, Color bg, Color fg)
-        {
-            b.Location = new Point(x, y); b.Size = new Size(w, h); b.Text = text;
-            b.FlatStyle = FlatStyle.Flat; b.Font = UiTheme.ButtonFont; b.BackColor = bg; b.ForeColor = fg;
         }
     }
 }
