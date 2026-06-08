@@ -41,7 +41,7 @@ namespace QMC.Vision.Ui.Pages
             this._grid = new System.Windows.Forms.DataGridView();
             this.Ctrl = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.Channel = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.Name = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.ColName = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.Level = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.Page = new System.Windows.Forms.DataGridViewComboBoxColumn();
             this._bar.SuspendLayout();
@@ -164,7 +164,7 @@ namespace QMC.Vision.Ui.Pages
             this._grid.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
             this.Ctrl,
             this.Channel,
-            this.Name,
+            this.ColName,
             this.Level,
             this.Page});
             this._grid.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -193,15 +193,15 @@ namespace QMC.Vision.Ui.Pages
             this.Channel.HeaderText = "Ch";
             this.Channel.Name = "Channel";
             this.Channel.ReadOnly = true;
-            // 
-            // Name
-            // 
+            //
+            // ColName
+            //
             dataGridViewCellStyle3.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(242)))), ((int)(((byte)(242)))), ((int)(((byte)(242)))));
-            this.Name.DefaultCellStyle = dataGridViewCellStyle3;
-            this.Name.FillWeight = 30F;
-            this.Name.HeaderText = "이름";
-            this.Name.Name = "Name";
-            this.Name.ReadOnly = true;
+            this.ColName.DefaultCellStyle = dataGridViewCellStyle3;
+            this.ColName.FillWeight = 30F;
+            this.ColName.HeaderText = "이름";
+            this.ColName.Name = "ColName";
+            this.ColName.ReadOnly = true;
             // 
             // Level
             // 
@@ -233,7 +233,7 @@ namespace QMC.Vision.Ui.Pages
 
         private DataGridViewTextBoxColumn Ctrl;
         private DataGridViewTextBoxColumn Channel;
-        private DataGridViewTextBoxColumn Name;
+        private DataGridViewTextBoxColumn ColName;
         private DataGridViewTextBoxColumn Level;
         private DataGridViewComboBoxColumn Page;
     }
