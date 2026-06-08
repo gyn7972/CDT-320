@@ -276,17 +276,17 @@ namespace QMC.CDT320
             {
                 settings = settings ?? AppSettingsStore.Current ?? AppSettingsStore.Load();
                 _isDeveloperReadyRestored = false;
+                var state = MachineRuntimeStateStore.Load();
 
                 if (!settings.DeveloperMode)
                 {
-                    ClearAxisInitializeStepStates();
+                    RestoreAxisInitializeStepRuntimeState(state);
                     SetMachineInitialized(false, "StartupNormalMode", true);
                     QMC.Common.Log.Write("Main", "SYSTEM", "MachineRuntimeRestore",
                         "Machine initialized state is false on normal startup. - Ok");
                     return;
                 }
 
-                var state = MachineRuntimeStateStore.Load();
                 if (settings.BypassHardware && state != null)
                     RestoreBypassAxisRuntimeState(state);
                 if (state != null)
@@ -294,6 +294,7 @@ namespace QMC.CDT320
 
                 if (state == null || !state.IsMachineInitialized)
                 {
+                    RestoreAxisInitializeStepRuntimeState(state);
                     SetMachineInitialized(false, "DeveloperModeNoSavedReady", true);
                     QMC.Common.Log.Write("Main", "SYSTEM", "MachineRuntimeRestore",
                         "Developer mode is on, but saved initialized state does not exist. - Failed");
@@ -305,7 +306,7 @@ namespace QMC.CDT320
                 string reason;
                 if (!ValidateDeveloperRuntimeState(settings, state, out reason))
                 {
-                    ClearAxisInitializeStepStates();
+                    RestoreAxisInitializeStepRuntimeState(state);
                     SetMachineInitialized(false, "DeveloperModeRestoreFailed", true);
                     QMC.Common.Log.Write("Main", "SYSTEM", "MachineRuntimeRestore",
                         "Developer mode initialized state restore failed: " + reason + " - Failed");
@@ -324,7 +325,7 @@ namespace QMC.CDT320
             }
             catch (Exception ex)
             {
-                ClearAxisInitializeStepStates();
+                RestoreAxisInitializeStepRuntimeState(MachineRuntimeStateStore.Load());
                 SetMachineInitialized(false, "StartupRestoreException", true);
                 QMC.Common.Log.Write("Main", "SYSTEM", "MachineRuntimeRestore",
                     "Machine initialized state restore failed: " + ex.Message + " - Failed");
@@ -1705,6 +1706,7 @@ namespace QMC.CDT320
                     case "OutputFeederY":
                         return await PrepareOutputFeederYHomeByAxisAsync(axis).ConfigureAwait(false);
                     case "CameraX":
+                    case "InputVisionX":
                     case "FrontPickerX":
                     case "RearPickerX":
                     case "OutputVisionX":
@@ -2183,6 +2185,11 @@ namespace QMC.CDT320
 
         private void SetAxisInitializeStepProgress(AxisInitializeStepProgress progress)
         {
+            SetAxisInitializeStepProgress(progress, true);
+        }
+
+        private void SetAxisInitializeStepProgress(AxisInitializeStepProgress progress, bool persist)
+        {
             try
             {
                 if (progress == null)
@@ -2200,7 +2207,8 @@ namespace QMC.CDT320
                         };
                 }
 
-                SaveAxisInitializeStepRuntimeStateIfNeeded(progress);
+                if (persist)
+                    SaveMachineRuntimeState("InitializeStepProgress:" + progress.StepNo + ":" + (progress.GroupName ?? ""));
             }
             catch
             {
@@ -2288,7 +2296,7 @@ namespace QMC.CDT320
                         GroupName = saved.GroupName ?? "",
                         Status = saved.Status ?? "",
                         Message = saved.Message ?? ""
-                    });
+                    }, false);
                 }
 
                 QMC.Common.Log.Write("Main", "SYSTEM", "MachineRuntimeRestore",
@@ -2314,75 +2322,9 @@ namespace QMC.CDT320
                         return;
                 }
 
-                AppSettings settings = AppSettingsStore.Current ?? AppSettingsStore.Load();
-                if (settings == null || !settings.DeveloperMode)
-                    return;
-
                 MachineRuntimeState state = MachineRuntimeStateStore.Load();
-                if (state == null || !state.DeveloperMode)
+                if (state == null || state.InitializeSteps == null || state.InitializeSteps.Count == 0)
                     return;
-
-                if (state.InitializeSteps != null && state.InitializeSteps.Count > 0)
-                    RestoreAxisInitializeStepRuntimeState(state);
-                else
-                    RestoreAxisInitializeStepRuntimeStateFromSavedAxes(state);
-            }
-            catch (Exception ex)
-            {
-                QMC.Common.Log.Write("Main", "SYSTEM", "MachineRuntimeRestore",
-                    "Initialize step fallback restore failed: " + ex.Message + " - Failed");
-            }
-            finally
-            {
-                _restoringAxisInitializeStepState = false;
-            }
-        }
-
-        private void RestoreAxisInitializeStepRuntimeStateFromSavedAxes(MachineRuntimeState state)
-        {
-            try
-            {
-                ClearAxisInitializeStepStates();
-                if (state == null || state.Axes == null || state.Axes.Count == 0)
-                    return;
-
-                AxisInitializePlan plan = AxisInitializePlanStore.LoadOrCreateDefault(EnumerateAxes());
-                if (plan == null || plan.Steps == null)
-                    return;
-
-                var savedAxes = state.Axes
-                    .Where(x => x != null && !string.IsNullOrWhiteSpace(x.Name))
-                    .GroupBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
-                    .ToDictionary(x => x.Key, x => x.First(), StringComparer.OrdinalIgnoreCase);
-
-                _restoringAxisInitializeStepState = true;
-                foreach (AxisInitializeStep step in plan.Steps.Where(x => x != null && x.Enabled))
-                {
-                    if (step.AxisNames == null || step.AxisNames.Count == 0)
-                    {
-                        if (state.IsMachineInitialized)
-                            SetAxisInitializeStepProgress(AxisInitializeStepProgress.Create(step, AxisInitializeStepStatus.Complete, ""));
-                        continue;
-                    }
-
-                    bool ready = true;
-                    foreach (string axisName in step.AxisNames)
-                    {
-                        MachineAxisRuntimeState axisState;
-                        if (string.IsNullOrWhiteSpace(axisName) ||
-                            !savedAxes.TryGetValue(axisName, out axisState) ||
-                            !axisState.IsServoOn ||
-                            axisState.IsAlarm ||
-                            !axisState.IsHomeDone)
-                        {
-                            ready = false;
-                            break;
-                        }
-                    }
-
-                    if (ready)
-                        SetAxisInitializeStepProgress(AxisInitializeStepProgress.Create(step, AxisInitializeStepStatus.Complete, ""));
-                }
 
                 _restoringAxisInitializeStepState = false;
                 SaveMachineRuntimeState("InitializeStepStatusRebuiltFromSavedAxes");
@@ -2426,12 +2368,6 @@ namespace QMC.CDT320
                 if (step == null)
                 {
                     reason = "초기화 Step 정보가 없습니다. 다시 초기화가 필요합니다.";
-                    return false;
-                }
-
-                if (_status == EquipmentStatus.Alarm)
-                {
-                    reason = "장비 Alarm 상태입니다. 알람 해제 후 다시 초기화가 필요합니다.";
                     return false;
                 }
 
@@ -2729,6 +2665,8 @@ namespace QMC.CDT320
                 string groupName = step != null ? step.GroupName : "";
                 if (string.Equals(groupName, "SharedRailX", StringComparison.OrdinalIgnoreCase))
                     return await MoveSharedRailAxesToAvoidAsync().ConfigureAwait(false);
+                if (string.Equals(groupName, "RearPickerX", StringComparison.OrdinalIgnoreCase))
+                    return await MoveSharedRailAxesToAvoidAsync().ConfigureAwait(false);
                 if (string.Equals(groupName, "OutputStageZ", StringComparison.OrdinalIgnoreCase))
                     return await MoveOutputStageZToAvoidAsync().ConfigureAwait(false);
 
@@ -2818,6 +2756,10 @@ namespace QMC.CDT320
 
         private async Task<int> MoveInputSafeXAxesToAvoidAsync()
         {
+            int pickerResult = await MoveFrontRearPickerXToAvoidAsync().ConfigureAwait(false);
+            if (pickerResult != 0)
+                return pickerResult;
+
             if (_machine.InputStageUnit != null &&
                 _machine.InputStageUnit.CameraX != null &&
                 _machine.InputStageUnit.Recipe != null &&
@@ -2829,6 +2771,40 @@ namespace QMC.CDT320
                     "InputVisionX.Avoid").ConfigureAwait(false);
                 if (result != 0)
                     return result;
+            }
+
+            return 0;
+        }
+
+        private async Task<int> MoveFrontRearPickerXToAvoidAsync()
+        {
+            BaseAxis frontAxis = _machine.PickerFrontUnit != null ? _machine.PickerFrontUnit.PickerX : null;
+            BaseAxis rearAxis = _machine.PickerRearUnit != null ? _machine.PickerRearUnit.PickerX : null;
+            bool canMoveFront = frontAxis != null &&
+                frontAxis.IsHomeDone &&
+                _machine.PickerFrontUnit.Recipe != null &&
+                _machine.PickerFrontUnit.Recipe.PickerX != null;
+            bool canMoveRear = rearAxis != null &&
+                rearAxis.IsHomeDone &&
+                _machine.PickerRearUnit.Recipe != null &&
+                _machine.PickerRearUnit.Recipe.PickerX != null;
+
+            if (canMoveFront && canMoveRear && SharedRailX != null)
+            {
+                double frontTarget = _machine.PickerFrontUnit.Recipe.PickerX.AvoidPosition;
+                double rearTarget = _machine.PickerRearUnit.Recipe.PickerX.AvoidPosition;
+                double velocity = Math.Min(ResolveAxisDefaultVelocity(frontAxis), ResolveAxisDefaultVelocity(rearAxis));
+                if (velocity <= 0.0)
+                    velocity = ResolveAxisDefaultVelocity(frontAxis);
+
+                int result = await SharedRailX.MoveFrontAndRearPickerAsync(
+                    frontTarget,
+                    rearTarget,
+                    velocity).ConfigureAwait(false);
+                if (result != 0 || frontAxis.IsAlarm || rearAxis.IsAlarm)
+                    return FailInitializePreparation("FrontPickerX/RearPickerX Avoid 이동 실패. result=" + result);
+
+                return 0;
             }
 
             if (_machine.PickerFrontUnit != null &&
