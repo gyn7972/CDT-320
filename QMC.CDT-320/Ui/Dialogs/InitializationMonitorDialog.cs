@@ -16,6 +16,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         private const string StatusRunning = "Running";
         private const string StatusDone = "Done";
         private const string StatusFailed = "Failed";
+        private const string StatusReinitializeRequired = "Reinitialize Required";
 
         private readonly MachineController _controller;
         private bool _running;
@@ -61,6 +62,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                     AddActionRows(step, step.PostActions, "PostActions");
                 }
 
+                ApplyStoredStatuses();
                 grid.ClearSelection();
             }
             catch (Exception ex)
@@ -160,6 +162,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 _running = true;
                 SetButtonsEnabled(false);
                 int result = await action();
+                ApplyStoredStatuses();
                 if (result != 0)
                 {
                     string message = string.IsNullOrEmpty(_controller.LastActionFailureMessage)
@@ -213,6 +216,27 @@ namespace QMC.CDT_320.Ui.Dialogs
                 return;
             }
 
+            ApplyProgressToRows(progress);
+        }
+
+        private void ApplyStoredStatuses()
+        {
+            if (_controller == null)
+                return;
+
+            IList<AxisInitializeStepProgress> statuses = _controller.GetAxisInitializeStepStatusSnapshot();
+            if (statuses == null)
+                return;
+
+            foreach (AxisInitializeStepProgress progress in statuses)
+                ApplyProgressToRows(progress);
+        }
+
+        private void ApplyProgressToRows(AxisInitializeStepProgress progress)
+        {
+            if (progress == null)
+                return;
+
             foreach (DataGridViewRow row in grid.Rows)
             {
                 if (row.Tag == null)
@@ -248,6 +272,8 @@ namespace QMC.CDT_320.Ui.Dialogs
                 backColor = Color.FromArgb(200, 230, 201);
             else if (string.Equals(status, StatusFailed, StringComparison.OrdinalIgnoreCase))
                 backColor = Color.FromArgb(255, 205, 210);
+            else if (string.Equals(status, StatusReinitializeRequired, StringComparison.OrdinalIgnoreCase))
+                backColor = Color.FromArgb(255, 224, 178);
             else if (string.Equals(status, StatusDisabled, StringComparison.OrdinalIgnoreCase))
             {
                 backColor = Color.FromArgb(238, 238, 238);
@@ -272,6 +298,18 @@ namespace QMC.CDT_320.Ui.Dialogs
                 return StatusDisabled;
             if (string.Equals(status, "대기", StringComparison.OrdinalIgnoreCase))
                 return StatusWaiting;
+            if (string.Equals(status, AxisInitializeStepStatus.Waiting, StringComparison.OrdinalIgnoreCase))
+                return StatusWaiting;
+            if (string.Equals(status, AxisInitializeStepStatus.Running, StringComparison.OrdinalIgnoreCase))
+                return StatusRunning;
+            if (string.Equals(status, AxisInitializeStepStatus.Complete, StringComparison.OrdinalIgnoreCase))
+                return StatusDone;
+            if (string.Equals(status, AxisInitializeStepStatus.Failed, StringComparison.OrdinalIgnoreCase))
+                return StatusFailed;
+            if (string.Equals(status, AxisInitializeStepStatus.Disabled, StringComparison.OrdinalIgnoreCase))
+                return StatusDisabled;
+            if (string.Equals(status, AxisInitializeStepStatus.ReinitializeRequired, StringComparison.OrdinalIgnoreCase))
+                return StatusReinitializeRequired;
             return string.IsNullOrWhiteSpace(status) ? StatusWaiting : status;
         }
     }

@@ -115,6 +115,16 @@ namespace QMC.CDT320.Initialization
         }
     }
 
+    public static class AxisInitializeStepStatus
+    {
+        public const string Waiting = "Waiting";
+        public const string Running = "Running";
+        public const string Complete = "Done";
+        public const string Failed = "Failed";
+        public const string Disabled = "Disabled";
+        public const string ReinitializeRequired = "Reinitialize Required";
+    }
+
     public static class AxisInitializeRunMode
     {
         public const string Serial = "Serial";
