@@ -46,6 +46,7 @@ namespace QMC.CDT320
         private readonly object _axisInitializeStepStateLock = new object();
         private readonly Dictionary<string, AxisInitializeStepProgress> _axisInitializeStepStates =
             new Dictionary<string, AxisInitializeStepProgress>(StringComparer.OrdinalIgnoreCase);
+        private bool _restoringAxisInitializeStepState;
         public SharedRailXMotionService SharedRailX { get; private set; }
 
         public event Action<EquipmentStatus> StatusChanged;
@@ -288,10 +289,11 @@ namespace QMC.CDT320
                 var state = MachineRuntimeStateStore.Load();
                 if (settings.BypassHardware && state != null)
                     RestoreBypassAxisRuntimeState(state);
+                if (state != null)
+                    RestoreAxisInitializeStepRuntimeState(state);
 
                 if (state == null || !state.IsMachineInitialized)
                 {
-                    ClearAxisInitializeStepStates();
                     SetMachineInitialized(false, "DeveloperModeNoSavedReady", true);
                     QMC.Common.Log.Write("Main", "SYSTEM", "MachineRuntimeRestore",
                         "Developer mode is on, but saved initialized state does not exist. - Failed");
@@ -313,7 +315,6 @@ namespace QMC.CDT320
                 }
 
                 _isDeveloperReadyRestored = true;
-                RestoreAxisInitializeStepRuntimeState(state);
                 SetMachineInitialized(true, "DeveloperModeRestore", true);
                 if (_status == EquipmentStatus.Idle || _status == EquipmentStatus.Stopped)
                     SetStatus(EquipmentStatus.Ready);
@@ -2198,9 +2199,42 @@ namespace QMC.CDT320
                             Message = progress.Message ?? ""
                         };
                 }
+
+                SaveAxisInitializeStepRuntimeStateIfNeeded(progress);
             }
             catch
             {
+            }
+            finally
+            {
+            }
+        }
+
+        private void SaveAxisInitializeStepRuntimeStateIfNeeded(AxisInitializeStepProgress progress)
+        {
+            try
+            {
+                if (progress == null)
+                    return;
+
+                if (_restoringAxisInitializeStepState)
+                    return;
+
+                if (!string.Equals(progress.Status, AxisInitializeStepStatus.Complete, StringComparison.OrdinalIgnoreCase) &&
+                    !string.Equals(progress.Status, AxisInitializeStepStatus.Failed, StringComparison.OrdinalIgnoreCase) &&
+                    !string.Equals(progress.Status, AxisInitializeStepStatus.ReinitializeRequired, StringComparison.OrdinalIgnoreCase))
+                    return;
+
+                AppSettings settings = AppSettingsStore.Current ?? AppSettingsStore.Load();
+                if (settings == null || !settings.DeveloperMode)
+                    return;
+
+                SaveMachineRuntimeState("InitializeStepStatus:" + progress.StepNo + ":" + progress.GroupName);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "MachineRuntimeStateSave",
+                    "Initialize step status save failed: " + ex.Message + " - Failed");
             }
             finally
             {
@@ -2242,6 +2276,7 @@ namespace QMC.CDT320
                 if (state == null || state.InitializeSteps == null)
                     return;
 
+                _restoringAxisInitializeStepState = true;
                 foreach (MachineInitializeStepRuntimeState saved in state.InitializeSteps)
                 {
                     if (saved == null)
@@ -2284,19 +2319,13 @@ namespace QMC.CDT320
                     return;
 
                 MachineRuntimeState state = MachineRuntimeStateStore.Load();
-                if (state == null || !state.IsMachineInitialized || !state.DeveloperMode ||
-                    state.InitializeSteps == null || state.InitializeSteps.Count == 0)
+                if (state == null || !state.DeveloperMode)
                     return;
 
-                string reason;
-                if (!ValidateDeveloperRuntimeState(settings, state, out reason))
-                {
-                    QMC.Common.Log.Write("Main", "SYSTEM", "MachineRuntimeRestore",
-                        "Initialize step fallback restore skipped: " + reason + " - Failed");
-                    return;
-                }
-
-                RestoreAxisInitializeStepRuntimeState(state);
+                if (state.InitializeSteps != null && state.InitializeSteps.Count > 0)
+                    RestoreAxisInitializeStepRuntimeState(state);
+                else
+                    RestoreAxisInitializeStepRuntimeStateFromSavedAxes(state);
             }
             catch (Exception ex)
             {
@@ -2305,6 +2334,70 @@ namespace QMC.CDT320
             }
             finally
             {
+                _restoringAxisInitializeStepState = false;
+            }
+        }
+
+        private void RestoreAxisInitializeStepRuntimeStateFromSavedAxes(MachineRuntimeState state)
+        {
+            try
+            {
+                ClearAxisInitializeStepStates();
+                if (state == null || state.Axes == null || state.Axes.Count == 0)
+                    return;
+
+                AxisInitializePlan plan = AxisInitializePlanStore.LoadOrCreateDefault(EnumerateAxes());
+                if (plan == null || plan.Steps == null)
+                    return;
+
+                var savedAxes = state.Axes
+                    .Where(x => x != null && !string.IsNullOrWhiteSpace(x.Name))
+                    .GroupBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
+                    .ToDictionary(x => x.Key, x => x.First(), StringComparer.OrdinalIgnoreCase);
+
+                _restoringAxisInitializeStepState = true;
+                foreach (AxisInitializeStep step in plan.Steps.Where(x => x != null && x.Enabled))
+                {
+                    if (step.AxisNames == null || step.AxisNames.Count == 0)
+                    {
+                        if (state.IsMachineInitialized)
+                            SetAxisInitializeStepProgress(AxisInitializeStepProgress.Create(step, AxisInitializeStepStatus.Complete, ""));
+                        continue;
+                    }
+
+                    bool ready = true;
+                    foreach (string axisName in step.AxisNames)
+                    {
+                        MachineAxisRuntimeState axisState;
+                        if (string.IsNullOrWhiteSpace(axisName) ||
+                            !savedAxes.TryGetValue(axisName, out axisState) ||
+                            !axisState.IsServoOn ||
+                            axisState.IsAlarm ||
+                            !axisState.IsHomeDone)
+                        {
+                            ready = false;
+                            break;
+                        }
+                    }
+
+                    if (ready)
+                        SetAxisInitializeStepProgress(AxisInitializeStepProgress.Create(step, AxisInitializeStepStatus.Complete, ""));
+                }
+
+                _restoringAxisInitializeStepState = false;
+                SaveMachineRuntimeState("InitializeStepStatusRebuiltFromSavedAxes");
+
+                QMC.Common.Log.Write("Main", "SYSTEM", "MachineRuntimeRestore",
+                    "Initialize step runtime state rebuilt from saved axes. axisCount=" + savedAxes.Count + " - Ok");
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "MachineRuntimeRestore",
+                    "Initialize step runtime state rebuild failed: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+                _restoringAxisInitializeStepState = false;
             }
         }
 
