@@ -252,6 +252,12 @@
     <EmbeddedResource Include="Ui\Controls\LightLiveTuningPanel.resx">
       <DependentUpon>LightLiveTuningPanel.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\LightSystemSetupPage.resx">
+      <DependentUpon>LightSystemSetupPage.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\SettingsPage.resx">
+      <DependentUpon>SettingsPage.cs</DependentUpon>
+    </EmbeddedResource>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!--
