@@ -131,6 +131,9 @@
     <Compile Include="Ui\Controls\BottomMenuButton.cs">
       <SubType>Component</SubType>
     </Compile>
+    <Compile Include="Ui\Controls\BottomMenuButton.Designer.cs">
+      <DependentUpon>BottomMenuButton.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Controls\LightLiveTuningPanel.cs">
       <SubType>UserControl</SubType>
     </Compile>
