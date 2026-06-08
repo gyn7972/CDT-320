@@ -194,17 +194,18 @@ namespace QMC.CDT_320.Ui.Controls
             for (int i = 0; i < count; i++)
             {
                 CassetteSlotDisplayItem item = slots != null && i < slots.Count ? slots[i] : null;
-                bool hasWafer = item != null && item.HasWafer;
+                bool known = item != null && item.IsKnown;
+                bool hasWafer = known && item.HasWafer;
                 if (hasWafer)
                     filled++;
 
-                WaferMaterialState state = item != null
+                WaferMaterialState state = known
                     ? WaferMaterialStateText.Normalize(item.State)
                     : WaferMaterialState.Empty;
 
-                Color backColor = ResolveStateColor(state);
-                Color foreColor = state == WaferMaterialState.WorkReady ? Color.White : Color.Black;
-                string text = BuildSlotText(state, item != null ? item.WaferId : "");
+                Color backColor = known ? ResolveStateColor(state) : Color.White;
+                Color foreColor = known && state == WaferMaterialState.WorkReady ? Color.White : Color.Black;
+                string text = known ? BuildSlotText(state, item.WaferId) : "-";
 
                 var label = _slotStateLabels[i];
                 if (label.BackColor != backColor)
@@ -260,6 +261,7 @@ namespace QMC.CDT_320.Ui.Controls
 
     public sealed class CassetteSlotDisplayItem
     {
+        public bool IsKnown { get; set; } = true;
         public bool HasWafer { get; set; }
         public string WaferId { get; set; } = "";
         public WaferMaterialState State { get; set; } = WaferMaterialState.Empty;

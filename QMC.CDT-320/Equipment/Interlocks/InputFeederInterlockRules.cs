@@ -176,6 +176,11 @@ namespace QMC.CDT320.Interlocks
                 || string.Equals(name, "Ready", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(name, "Safe", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(name, "CassetteExchange", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(name, "CassetteLoad", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(name, "CassetteUnload", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(name, "WaferLoad", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(name, "WaferUnload", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(name, "WaferBarcode", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(name, "WaferLoadAvoid", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(name, "WaferUnloadAvoid", StringComparison.OrdinalIgnoreCase);
         }

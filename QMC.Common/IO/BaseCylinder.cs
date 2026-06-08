@@ -193,8 +193,15 @@ namespace QMC.Common.IO
         /// <returns>전진 완료 시 <c>true</c>, 타임아웃 시 <c>false</c></returns>
         public virtual async Task<bool> MoveFwdAsync()
         {
+            return await MoveFwdAsync(System.Threading.CancellationToken.None);
+        }
+
+        public virtual async Task<bool> MoveFwdAsync(System.Threading.CancellationToken ct)
+        {
             if (!VerifyMotionGuard(true))
                 return false;
+
+            ct.ThrowIfCancellationRequested();
 
             // ── 밸브 출력 제어 ───────────────────────────────────────────────
             OutFwd.On();
@@ -205,7 +212,8 @@ namespace QMC.Common.IO
             // ── 시뮬레이션 모드: 지연 후 센서 강제 주입 ────────────────────
             if (Config.IsSimulationMode)
             {
-                await Task.Delay(SimulationDelayMs).ContinueWith(_ => { });
+                await Task.Delay(SimulationDelayMs, ct);
+                ct.ThrowIfCancellationRequested();
                 InBwd.SimulateInput(false);
                 InFwd.SimulateInput(true);
             }
@@ -213,9 +221,9 @@ namespace QMC.Common.IO
             // ── 전진 완료 센서 대기 ──────────────────────────────────────────
             bool result;
             if (Setup.UseFwdSensor)
-                result = await InFwd.WaitUntilStateAsync(true, Recipe.FwdTimeoutMs);
+                result = await InFwd.WaitUntilStateAsync(true, Recipe.FwdTimeoutMs, ct);
             else if (Setup.UseBwdSensor)
-                result = await InBwd.WaitUntilStateAsync(false, Recipe.FwdTimeoutMs);
+                result = await InBwd.WaitUntilStateAsync(false, Recipe.FwdTimeoutMs, ct);
             else
                 result = true;
 
@@ -236,8 +244,15 @@ namespace QMC.Common.IO
         /// <returns>후진 완료 시 <c>true</c>, 타임아웃 시 <c>false</c></returns>
         public virtual async Task<bool> MoveBwdAsync()
         {
+            return await MoveBwdAsync(System.Threading.CancellationToken.None);
+        }
+
+        public virtual async Task<bool> MoveBwdAsync(System.Threading.CancellationToken ct)
+        {
             if (!VerifyMotionGuard(false))
                 return false;
+
+            ct.ThrowIfCancellationRequested();
 
             // ── 밸브 출력 제어 ───────────────────────────────────────────────
             if (Setup.IsSingleSolenoid)
@@ -255,7 +270,8 @@ namespace QMC.Common.IO
             // ── 시뮬레이션 모드: 지연 후 센서 강제 주입 ────────────────────
             if (Config.IsSimulationMode)
             {
-                await Task.Delay(SimulationDelayMs).ContinueWith(_ => { });
+                await Task.Delay(SimulationDelayMs, ct);
+                ct.ThrowIfCancellationRequested();
                 InFwd.SimulateInput(false);
                 InBwd.SimulateInput(true);
             }
@@ -263,9 +279,9 @@ namespace QMC.Common.IO
             // ── 후진 완료 센서 대기 ──────────────────────────────────────────
             bool result;
             if (Setup.UseBwdSensor)
-                result = await InBwd.WaitUntilStateAsync(true, Recipe.BwdTimeoutMs);
+                result = await InBwd.WaitUntilStateAsync(true, Recipe.BwdTimeoutMs, ct);
             else if (Setup.UseFwdSensor)
-                result = await InFwd.WaitUntilStateAsync(false, Recipe.BwdTimeoutMs);
+                result = await InFwd.WaitUntilStateAsync(false, Recipe.BwdTimeoutMs, ct);
             else
                 result = true;
 

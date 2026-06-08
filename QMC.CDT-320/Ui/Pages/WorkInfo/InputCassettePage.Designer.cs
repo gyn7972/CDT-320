@@ -56,6 +56,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private ActionButton btnMap;
         private ActionButton btnLoad;
         private ActionButton btnUnload;
+        private ActionButton btnStop;
 
         private void InitializeComponent()
         {
@@ -108,6 +109,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.btnMap = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnLoad = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnUnload = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.btnStop = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.lifterLayout = new System.Windows.Forms.TableLayoutPanel();
             this.rootLayout.SuspendLayout();
             this.topLayout.SuspendLayout();
@@ -742,6 +744,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.actionsLayout.Controls.Add(this.btnMap);
             this.actionsLayout.Controls.Add(this.btnLoad);
             this.actionsLayout.Controls.Add(this.btnUnload);
+            this.actionsLayout.Controls.Add(this.btnStop);
             this.actionsLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.actionsLayout.Location = new System.Drawing.Point(3, 807);
             this.actionsLayout.Name = "actionsLayout";
@@ -790,6 +793,18 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.btnUnload.TabIndex = 2;
             this.btnUnload.Tag = "i18n:wi.liftWaferUnloading";
             this.btnUnload.Text = "LIFT WAFER UNLOADING";
+            // 
+            // btnStop
+            // 
+            this.btnStop.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(160)))), ((int)(((byte)(48)))), ((int)(((byte)(48)))));
+            this.btnStop.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnStop.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
+            this.btnStop.ForeColor = System.Drawing.Color.White;
+            this.btnStop.Margin = new System.Windows.Forms.Padding(6);
+            this.btnStop.Name = "btnStop";
+            this.btnStop.Size = new System.Drawing.Size(140, 64);
+            this.btnStop.TabIndex = 3;
+            this.btnStop.Text = "STOP";
             // 
             // lifterLayout
             // 

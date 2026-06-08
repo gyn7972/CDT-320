@@ -31,6 +31,20 @@ namespace QMC.CDT320
     }
 
     [DataContract]
+    public class MachineCylinderRuntimeState
+    {
+        [DataMember] public string Name { get; set; }
+        [DataMember] public bool IsFwd { get; set; }
+        [DataMember] public bool IsBwd { get; set; }
+        [DataMember] public bool InFwdOn { get; set; }
+        [DataMember] public bool InBwdOn { get; set; }
+        [DataMember] public bool OutFwdOn { get; set; }
+        [DataMember] public bool OutBwdOn { get; set; }
+        [DataMember] public bool IsSingleSolenoid { get; set; }
+        [DataMember] public bool IsSimulationMode { get; set; }
+    }
+
+    [DataContract]
     public class MachineRuntimeState
     {
         [DataMember] public bool IsMachineInitialized { get; set; }
@@ -41,6 +55,8 @@ namespace QMC.CDT320
         [DataMember] public string MaterialSnapshotPath { get; set; }
         [DataMember] public List<MachineAxisRuntimeState> Axes { get; set; } =
             new List<MachineAxisRuntimeState>();
+        [DataMember] public List<MachineCylinderRuntimeState> Cylinders { get; set; } =
+            new List<MachineCylinderRuntimeState>();
         [DataMember] public List<MachineInitializeStepRuntimeState> InitializeSteps { get; set; } =
             new List<MachineInitializeStepRuntimeState>();
     }
@@ -96,6 +112,8 @@ namespace QMC.CDT320
                 state.SavedAt = NormalizeDateTime(state.SavedAt, DateTime.Now);
                 if (state.Axes == null)
                     state.Axes = new List<MachineAxisRuntimeState>();
+                if (state.Cylinders == null)
+                    state.Cylinders = new List<MachineCylinderRuntimeState>();
                 if (state.InitializeSteps == null)
                     state.InitializeSteps = new List<MachineInitializeStepRuntimeState>();
 

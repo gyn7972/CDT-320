@@ -139,10 +139,19 @@ namespace QMC.Common.IO
         public virtual async Task<bool> WaitUntilStateAsync(bool targetState,
                                                             int timeoutMs = 3000)
         {
+            return await WaitUntilStateAsync(targetState, timeoutMs, CancellationToken.None);
+        }
+
+        public virtual async Task<bool> WaitUntilStateAsync(bool targetState,
+                                                            int timeoutMs,
+                                                            CancellationToken ct)
+        {
             Stopwatch sw = Stopwatch.StartNew();
 
             while (IsOn != targetState)
             {
+                ct.ThrowIfCancellationRequested();
+
                 if (sw.ElapsedMilliseconds >= timeoutMs)
                 {
                     string stateStr = targetState ? "ON" : "OFF";
@@ -152,12 +161,12 @@ namespace QMC.Common.IO
                     return false;
                 }
 
-                await Task.Delay(10).ContinueWith(_ => { }); // 취소 예외 억제
+                await Task.Delay(10, ct);
             }
 
             // ── 채터링 방지: 목표 상태 도달 후 안정화 대기 ──────────────────
             if (Recipe.SettleTimeMs > 0)
-                await Task.Delay(Recipe.SettleTimeMs).ContinueWith(_ => { });
+                await Task.Delay(Recipe.SettleTimeMs, ct);
 
             return true;
         }

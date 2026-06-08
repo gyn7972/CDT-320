@@ -319,6 +319,8 @@
     <Compile Include="Sequencing\UnitSequenceBase.cs" />
     <Compile Include="Sequencing\AutoSequenceCoordinator.cs" />
     <Compile Include="Sequencing\InputCassetteSequence.cs" />
+    <Compile Include="Sequencing\InputFeederSequence.cs" />
+    <Compile Include="Sequencing\InputStageSequence.cs" />
     <Compile Include="Sequencing\InputSequence.cs" />
     <!-- Equipment / Alarms -->
     <!-- Equipment / Logging -->
@@ -920,6 +922,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\WorkInfo\InputFeederPage.resx">
       <DependentUpon>InputFeederPage.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\WorkInfo\InputStagePage.resx">
+      <DependentUpon>InputStagePage.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\WorkInfo\OperationPanelStatusPage.resx">
       <DependentUpon>OperationPanelStatusPage.cs</DependentUpon>
