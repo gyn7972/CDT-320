@@ -6,13 +6,15 @@ using System.Windows.Forms;
 using QMC.Common.Recipes;   // VisionAlgorithm, InspectionLabel
 using QMC.Vision.Core;
 using QMC.Vision.Modules;
+using QMC.Vision.Ui.Controls;   // SidebarButton
 
 namespace QMC.Vision.Ui.Pages
 {
     /// <summary>
-    /// R2b — Handler VisionRecipePage 미러. 사이드바=검사 알고리즘 5개(평면) / 영속 세팅선택기 바=알고리즘의 finder/inspector
-    /// (상태점: 미설정 회색·설정완료 녹·변경됨 주황) / 본문 스왑 finder→VisionTargetPage·inspector→InspectorPage /
-    /// 상단바 SAVE=타깃 레시피저장(SaveParameters). 무인자 ctor·ShowSpc/ShowParameterEditors 보존.
+    /// R2c — Handler VisionRecipePage 미러. 사이드바=검사 알고리즘 5개(평면, Handler SidebarButton 1:1) +
+    /// 영속 세팅선택기 바=알고리즘의 finder/inspector. 상태점(미설정 회색/설정완료 녹/변경됨 주황) 페인트.
+    /// 본문 스왑 finder→VisionTargetPage·inspector→InspectorPage. 상단바 SAVE=타깃 레시피저장.
+    /// 무인자 ctor·ShowSpc/ShowParameterEditors 보존(SPC/파라미터 진입점은 불필요로 미노출).
     /// </summary>
     public partial class RecipePage : UserControl
     {
@@ -25,15 +27,10 @@ namespace QMC.Vision.Ui.Pages
             public IInspector Inspector;
         }
 
-        private static readonly Color DotOff   = Color.FromArgb(0x8C, 0x8C, 0x8C); // 미설정
-        private static readonly Color DotDone  = Color.FromArgb(0x2E, 0x7D, 0x32); // 설정완료
-        private static readonly Color DotDirty = Color.FromArgb(0xE8, 0x85, 0x1A); // 변경됨
-
         private readonly Dictionary<string, VisionModule> _algoModules = new Dictionary<string, VisionModule>();
-        private readonly Dictionary<string, Button> _algoBtns = new Dictionary<string, Button>();
+        private readonly Dictionary<string, SidebarButton> _algoBtns = new Dictionary<string, SidebarButton>();
         private readonly Dictionary<string, Setting> _settings = new Dictionary<string, Setting>();
-        private readonly Dictionary<string, Button> _setBtns = new Dictionary<string, Button>();
-        private readonly Dictionary<string, Panel> _setDots = new Dictionary<string, Panel>();
+        private readonly Dictionary<string, SidebarButton> _setBtns = new Dictionary<string, SidebarButton>();
         private readonly Dictionary<string, UserControl> _cache = new Dictionary<string, UserControl>();
         private string _curAlgo;
         private string _curSetKey;
@@ -45,7 +42,7 @@ namespace QMC.Vision.Ui.Pages
 
         private void OnPageLoad(object sender, EventArgs e) => BuildSidebar();
 
-        // ── public 진입 보존(계약 — 사이드바엔 없으나 프로그램적 진입 + verify grep) ──
+        // ── public 진입 보존(계약 — SPC/파라미터는 미노출이나 메서드/페이지 보존) ──
         private void ShowSpc()
         {
             _content.Controls.Clear();
@@ -57,7 +54,7 @@ namespace QMC.Vision.Ui.Pages
             _content.Controls.Add(new Editors.ParameterEditorHost { Dock = DockStyle.Fill });
         }
 
-        // ── 사이드바: 검사 알고리즘 5개 평면 ──
+        // ── 사이드바: 검사 알고리즘 5개 평면(Handler SidebarButton) ──
         private void BuildSidebar()
         {
             var host = FindForm() as Form1;
@@ -83,21 +80,15 @@ namespace QMC.Vision.Ui.Pages
             if (string.IsNullOrEmpty(key) || _algoModules.ContainsKey(key)) return;
             _algoModules[key] = module;
 
-            var btn = new Button
+            var btn = new SidebarButton
             {
-                Text = "  " + VisionAlgorithm.Label(key),
+                Text = VisionAlgorithm.Label(key),
                 Tag = key,
-                AutoSize = false,
-                Width = 224,
-                Height = 34,
-                Margin = new Padding(0, 0, 0, 2),
-                FlatStyle = FlatStyle.Flat,
-                Font = UiTheme.ButtonFont,
-                BackColor = UiTheme.SidebarBtnBg,
-                ForeColor = UiTheme.SidebarBtnFg,
-                TextAlign = ContentAlignment.MiddleLeft
+                Width = 200,
+                Height = 46,
+                Margin = new Padding(0),
+                Status = AlgoStatus(module)
             };
-            btn.FlatAppearance.BorderSize = 0;
             btn.Click += new EventHandler(OnAlgorithmClick);
             _algoBtns[key] = btn;
             _sideFlow.Controls.Add(btn);
@@ -105,19 +96,14 @@ namespace QMC.Vision.Ui.Pages
 
         private void OnAlgorithmClick(object sender, EventArgs e)
         {
-            if (sender is Button b && b.Tag is string key) SelectAlgorithm(key);
+            if (sender is SidebarButton b && b.Tag is string key) SelectAlgorithm(key);
         }
 
         private void SelectAlgorithm(string algoKey)
         {
             if (!_algoModules.TryGetValue(algoKey, out var module)) return;
             _curAlgo = algoKey;
-            foreach (var kv in _algoBtns)
-            {
-                bool sel = kv.Key == algoKey;
-                kv.Value.BackColor = sel ? UiTheme.SidebarBtnSelBg : UiTheme.SidebarBtnBg;
-                kv.Value.ForeColor = sel ? UiTheme.SidebarBtnSelFg : UiTheme.SidebarBtnFg;
-            }
+            foreach (var kv in _algoBtns) kv.Value.Selected = (kv.Key == algoKey);
             BuildSettingSelector(module);
         }
 
@@ -127,7 +113,6 @@ namespace QMC.Vision.Ui.Pages
             _setFlow.Controls.Clear();
             _settings.Clear();
             _setBtns.Clear();
-            _setDots.Clear();
             _curSetKey = null;
 
             foreach (var kv in module.Finders)
@@ -144,45 +129,30 @@ namespace QMC.Vision.Ui.Pages
             if (_settings.ContainsKey(key)) return;
             _settings[key] = s;
 
-            var btn = new Button
+            var btn = new SidebarButton
             {
-                Text = "   " + InspectionLabel.Get(s.Module.AlgorithmKey, s.Id),
+                Text = InspectionLabel.Get(s.Module.AlgorithmKey, s.Id),
                 Tag = key,
-                AutoSize = false,
-                Width = 150,
-                Height = 30,
+                Width = 160,
+                Height = 32,
                 Margin = new Padding(0, 0, 4, 0),
-                FlatStyle = FlatStyle.Flat,
-                Font = UiTheme.ButtonFont,
-                BackColor = Color.White,
-                ForeColor = Color.Black,
-                TextAlign = ContentAlignment.MiddleLeft
+                Status = SettingStatus(key, s)
             };
-            btn.FlatAppearance.BorderColor = Color.Silver;
-            var dot = new Panel { Width = 8, Dock = DockStyle.Left, BackColor = DotColor(key, s) };
-            btn.Controls.Add(dot);
             btn.Click += new EventHandler(OnSettingClick);
-
             _setBtns[key] = btn;
-            _setDots[key] = dot;
             _setFlow.Controls.Add(btn);
         }
 
         private void OnSettingClick(object sender, EventArgs e)
         {
-            if (sender is Button b && b.Tag is string key) ShowSetting(key);
+            if (sender is SidebarButton b && b.Tag is string key) ShowSetting(key);
         }
 
         private void ShowSetting(string key)
         {
             if (!_settings.TryGetValue(key, out var s)) return;
 
-            foreach (var kv in _setBtns)
-            {
-                bool sel = kv.Key == key;
-                kv.Value.BackColor = sel ? UiTheme.Accent : Color.White;
-                kv.Value.ForeColor = sel ? Color.White : Color.Black;
-            }
+            foreach (var kv in _setBtns) kv.Value.Selected = (kv.Key == key);
 
             if (_curSetKey != null && _cache.TryGetValue(_curSetKey, out var prev)) prev.Visible = false;
             _curSetKey = key;
@@ -193,7 +163,7 @@ namespace QMC.Vision.Ui.Pages
                 {
                     var vtp = new VisionTargetPage(s.Module, s.Finder) { Dock = DockStyle.Fill, Visible = false };
                     string k = key;
-                    vtp.DirtyChanged += (snd, ev) => UpdateDot(k);
+                    vtp.DirtyChanged += (snd, ev) => { UpdateSettingDot(k); UpdateAlgoDot(s.Module); };
                     page = vtp;
                 }
                 else
@@ -207,30 +177,53 @@ namespace QMC.Vision.Ui.Pages
             page.BringToFront();
 
             _hdr.Text = "Recipe — " + VisionAlgorithm.Label(_curAlgo) + " / " + InspectionLabel.Get(s.Module.AlgorithmKey, s.Id);
-            UpdateDot(key);
+            UpdateSettingDot(key);
         }
 
-        // ── 상태점 (미설정/설정완료/변경됨) ──
+        // ── 상태(미설정/설정완료/변경됨) ──
         private string SettingPath(Setting s)
         {
             string id = (s.Id ?? "x").Replace('/', '_');
             return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "VisionRecipe", s.Module.AlgorithmKey ?? "Unknown", id + ".json");
         }
 
-        private Color DotColor(string key, Setting s)
+        private SidebarStatus SettingStatus(string key, Setting s)
         {
             bool hasData = File.Exists(SettingPath(s));
-            if (!hasData) return DotOff;
-            // 현재 표시 중 VisionTargetPage 가 dirty 면 주황
-            if (key == _curSetKey && _cache.TryGetValue(key, out var pg) && pg is VisionTargetPage vtp && vtp.IsDirty)
-                return DotDirty;
-            return DotDone;
+            if (_cache.TryGetValue(key, out var pg) && pg is VisionTargetPage vtp && vtp.IsDirty)
+                return SidebarStatus.Dirty;
+            return hasData ? SidebarStatus.Done : SidebarStatus.Off;
         }
 
-        private void UpdateDot(string key)
+        private void UpdateSettingDot(string key)
         {
-            if (_settings.TryGetValue(key, out var s) && _setDots.TryGetValue(key, out var dot))
-                dot.BackColor = DotColor(key, s);
+            if (_settings.TryGetValue(key, out var s) && _setBtns.TryGetValue(key, out var btn))
+                btn.Status = SettingStatus(key, s);
+        }
+
+        /// <summary>알고리즘 상태점 = 세팅 집계(any dirty→변경됨 / any 저장→설정완료 / 없음→미설정).</summary>
+        private SidebarStatus AlgoStatus(VisionModule module)
+        {
+            bool anyData = false;
+            foreach (var kv in module.Finders)
+            {
+                string p = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "VisionRecipe", module.AlgorithmKey ?? "Unknown", (kv.Key ?? "x").Replace('/', '_') + ".json");
+                if (File.Exists(p)) anyData = true;
+                string k = "F:" + module.AlgorithmKey + ":" + kv.Key;
+                if (_cache.TryGetValue(k, out var pg) && pg is VisionTargetPage vtp && vtp.IsDirty) return SidebarStatus.Dirty;
+            }
+            foreach (var kv in module.Inspectors)
+            {
+                string p = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "VisionRecipe", module.AlgorithmKey ?? "Unknown", (kv.Key ?? "x").Replace('/', '_') + ".json");
+                if (File.Exists(p)) anyData = true;
+            }
+            return anyData ? SidebarStatus.Done : SidebarStatus.Off;
+        }
+
+        private void UpdateAlgoDot(VisionModule module)
+        {
+            if (module != null && _algoBtns.TryGetValue(module.AlgorithmKey, out var btn))
+                btn.Status = AlgoStatus(module);
         }
 
         // ── 상단바 SAVE = 타깃 레시피 저장 ──
@@ -241,7 +234,7 @@ namespace QMC.Vision.Ui.Pages
             {
                 if (_cache.TryGetValue(_curSetKey, out var pg) && pg is VisionTargetPage vtp)
                 {
-                    vtp.SaveTarget();   // finder.SaveParameters + dirty clear (DirtyChanged→UpdateDot)
+                    vtp.SaveTarget();   // finder.SaveParameters + dirty clear (DirtyChanged→dot 갱신)
                 }
                 else
                 {
@@ -250,7 +243,8 @@ namespace QMC.Vision.Ui.Pages
                     if (s.IsFinder) s.Finder?.SaveParameters(path);
                     else s.Inspector?.SaveParameters(path);
                 }
-                UpdateDot(_curSetKey);
+                UpdateSettingDot(_curSetKey);
+                UpdateAlgoDot(s.Module);
             }
             catch { }
         }

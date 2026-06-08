@@ -79,14 +79,15 @@ namespace QMC.Vision.Ui.Pages
             this._content.Dock = DockStyle.Fill;
             this._content.BackColor = UiTheme.MainBg;
 
-            // _sideHdr
+            // _sideHdr (Handler LblSidebarHeader 미러: H50, MiddleRight, SectionFont, Pad 우16)
             this._sideHdr.Dock = DockStyle.Top;
-            this._sideHdr.Height = 28;
-            this._sideHdr.Text = "  검사 알고리즘";
+            this._sideHdr.Height = 50;
+            this._sideHdr.Text = "검사 알고리즘";
             this._sideHdr.BackColor = UiTheme.SidebarHeaderBg;
             this._sideHdr.ForeColor = UiTheme.SidebarHeaderFg;
-            this._sideHdr.Font = UiTheme.ButtonFont;
-            this._sideHdr.TextAlign = ContentAlignment.MiddleLeft;
+            this._sideHdr.Font = UiTheme.SectionFont;
+            this._sideHdr.TextAlign = ContentAlignment.MiddleRight;
+            this._sideHdr.Padding = new Padding(0, 0, 16, 0);
 
             // _sideFlow (알고리즘 버튼 — 런타임 BuildSidebar)
             this._sideFlow.Dock = DockStyle.Fill;
@@ -110,7 +111,7 @@ namespace QMC.Vision.Ui.Pages
             this._body.Margin = Padding.Empty;
             this._body.Padding = Padding.Empty;
             this._body.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
-            this._body.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 240f));
+            this._body.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 210f));   // Handler SidebarWidth
             this._body.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
             this._body.Controls.Add(this._content, 0, 0);
             this._body.Controls.Add(this._sidebar, 1, 0);
