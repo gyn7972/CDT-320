@@ -161,17 +161,32 @@
     <Compile Include="Ui\Pages\OperationPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="Ui\Pages\OperationPage.Designer.cs">
+      <DependentUpon>OperationPage.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Pages\ConfigurationPage.cs">
       <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\ConfigurationPage.Designer.cs">
+      <DependentUpon>ConfigurationPage.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Pages\RecipePage.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="Ui\Pages\RecipePage.Designer.cs">
+      <DependentUpon>RecipePage.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Pages\DataLogPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="Ui\Pages\DataLogPage.Designer.cs">
+      <DependentUpon>DataLogPage.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Pages\SettingsPage.cs">
       <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\SettingsPage.Designer.cs">
+      <DependentUpon>SettingsPage.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Pages\CameraMappingPanel.cs">
       <SubType>UserControl</SubType>
@@ -188,6 +203,9 @@
     <!-- Stage 2 — SPC + ParameterEditors + ZoomDialog -->
     <Compile Include="Ui\Pages\SpcChartPage.cs">
       <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\SpcChartPage.Designer.cs">
+      <DependentUpon>SpcChartPage.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Editors\ParameterEditorBase.cs">
       <SubType>UserControl</SubType>
