@@ -4,7 +4,7 @@
 use strict;
 use warnings;
 
-my $ROOT = "D:/Work/CDT-320/QMC.CDT-320";
+use FindBin; my $ROOT = "$FindBin::Bin/..";
 my @rows;
 sub row { push @rows, [@_]; }
 sub greps {

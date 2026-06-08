@@ -11,7 +11,7 @@ use strict;
 use warnings;
 use IO::Socket::INET;
 
-my $ROOT       = "D:/Work/CDT-320";
+use FindBin; my $ROOT = "$FindBin::Bin/..";
 my $SOL        = "$ROOT/QMC.CDT-320";
 my $HANDLER    = "$SOL/QMC.CDT-320/bin/Debug/QMC.CDT-320.exe";
 my $VISION     = "$SOL/QMC.Vision/bin/Debug/QMC.Vision.exe";

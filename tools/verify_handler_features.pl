@@ -5,7 +5,7 @@
 use strict;
 use warnings;
 
-my $ROOT     = "D:/Work/CDT-320/QMC.CDT-320";
+use FindBin; my $ROOT = "$FindBin::Bin/..";
 my $HND_ROOT = "$ROOT/QMC.CDT-320";
 my $HND_EXE  = "$HND_ROOT/bin/Debug/QMC.CDT-320.exe";
 

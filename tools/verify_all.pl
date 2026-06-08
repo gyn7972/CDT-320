@@ -1,6 +1,6 @@
 #!perl
 # verify_all.pl — 모든 단계 통합 회귀
-use strict; use warnings;
+use strict; use warnings; use FindBin;
 
 my @stages = qw(
     handler_features
@@ -25,7 +25,7 @@ my $totalFail = 0;
 my $totalAll  = 0;
 
 foreach my $s (@stages) {
-    my $script = "D:/Work/CDT-320/QMC.CDT-320/tools/verify_${s}.pl";
+    my $script = "$FindBin::Bin/verify_${s}.pl";
     if (! -e $script) {
         printf "%-25s %-12s\n", $s, "(skip — script not found)";
         next;
@@ -48,7 +48,7 @@ printf "%-25s %-12d %-10d %-10s\n", "TOTAL", $totalAll, $totalPass,
 print "=" x 110, "\n";
 
 # Vision 정적
-my $vis = "D:/Work/CDT-320/QMC.CDT-320/tools/verify_vision_features.pl";
+my $vis = "$FindBin::Bin/verify_vision_features.pl";
 if (-e $vis) {
     print "\nVision (정적 only — Vision exe 미실행 시 1 SKIP):\n";
     my $vout = `perl "$vis" 2>&1 | tail -1`;

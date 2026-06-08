@@ -4,7 +4,7 @@
 use strict;
 use warnings;
 
-my $ROOT     = "D:/Work/CDT-320/QMC.CDT-320";
+use FindBin; my $ROOT = "$FindBin::Bin/..";
 my $VIS_ROOT = "$ROOT/QMC.Vision";
 my $VIS_EXE  = "$VIS_ROOT/bin/Debug/QMC.Vision.exe";
 

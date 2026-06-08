@@ -1,6 +1,6 @@
 #!perl
 use strict; use warnings;
-my $ROOT = "D:/Work/CDT-320/QMC.CDT-320";
+use FindBin; my $ROOT = "$FindBin::Bin/..";
 my @rows; sub row { push @rows, [@_] }
 sub greps { my ($f,$p)=@_; return 0 unless -e $f; open my $fh,'<',$f or return 0; local $/; my $c=<$fh>; close $fh; return $c=~/$p/s?1:0 }
 
