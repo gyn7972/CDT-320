@@ -85,27 +85,28 @@ namespace QMC.Vision.Ui.Pages
             this._lblToggleHdr.Font = UiTheme.ButtonFont;
             this._lblToggleHdr.ForeColor = Color.Gray;
 
+            // (IC 직렬화 가능 — 헬퍼 호출 인라인. ck: Size(120,24) Text="기본값" Checked=true / lbl: Size(160,22) / num: Size(w,26) / btn: Size(w,32))
             // Exposure (y=44)
-            InitCheck(this._ckExposure, 20, 44);
-            InitLbl(this._lblExposure, "Exposure (μs)", 150, 46);
-            InitNum(this._numExposure, 320, 42, 150, 1m, 1000000m, 0, 100m);
+            this._ckExposure.Location = new Point(20, 44); this._ckExposure.Size = new Size(120, 24); this._ckExposure.Text = "기본값"; this._ckExposure.Checked = true; this._ckExposure.Font = UiTheme.ButtonFont;
+            this._lblExposure.Location = new Point(150, 46); this._lblExposure.Size = new Size(160, 22); this._lblExposure.Text = "Exposure (μs)"; this._lblExposure.Font = UiTheme.ButtonFont;
+            this._numExposure.Location = new Point(320, 42); this._numExposure.Size = new Size(150, 26); this._numExposure.Minimum = 1m; this._numExposure.Maximum = 1000000m; this._numExposure.DecimalPlaces = 0; this._numExposure.Increment = 100m; this._numExposure.Font = UiTheme.ValueFont;
             this._ckExposure.CheckedChanged += new System.EventHandler(this.OnCkExposure);
 
             // Gain (y=78)
-            InitCheck(this._ckGain, 20, 78);
-            InitLbl(this._lblGain, "Gain (dB)", 150, 80);
-            InitNum(this._numGain, 320, 76, 150, 0m, 48m, 1, 0.5m);
+            this._ckGain.Location = new Point(20, 78); this._ckGain.Size = new Size(120, 24); this._ckGain.Text = "기본값"; this._ckGain.Checked = true; this._ckGain.Font = UiTheme.ButtonFont;
+            this._lblGain.Location = new Point(150, 80); this._lblGain.Size = new Size(160, 22); this._lblGain.Text = "Gain (dB)"; this._lblGain.Font = UiTheme.ButtonFont;
+            this._numGain.Location = new Point(320, 76); this._numGain.Size = new Size(150, 26); this._numGain.Minimum = 0m; this._numGain.Maximum = 48m; this._numGain.DecimalPlaces = 1; this._numGain.Increment = 0.5m; this._numGain.Font = UiTheme.ValueFont;
             this._ckGain.CheckedChanged += new System.EventHandler(this.OnCkGain);
 
             // Fps (y=112)
-            InitCheck(this._ckFps, 20, 112);
-            InitLbl(this._lblFps, "Frame rate (fps)", 150, 114);
-            InitNum(this._numFps, 320, 110, 150, 1m, 1000m, 0, 1m);
+            this._ckFps.Location = new Point(20, 112); this._ckFps.Size = new Size(120, 24); this._ckFps.Text = "기본값"; this._ckFps.Checked = true; this._ckFps.Font = UiTheme.ButtonFont;
+            this._lblFps.Location = new Point(150, 114); this._lblFps.Size = new Size(160, 22); this._lblFps.Text = "Frame rate (fps)"; this._lblFps.Font = UiTheme.ButtonFont;
+            this._numFps.Location = new Point(320, 110); this._numFps.Size = new Size(150, 26); this._numFps.Minimum = 1m; this._numFps.Maximum = 1000m; this._numFps.DecimalPlaces = 0; this._numFps.Increment = 1m; this._numFps.Font = UiTheme.ValueFont;
             this._ckFps.CheckedChanged += new System.EventHandler(this.OnCkFps);
 
             // Trigger (y=146)
-            InitCheck(this._ckTrigger, 20, 146);
-            InitLbl(this._lblTrigger, "Trigger mode", 150, 148);
+            this._ckTrigger.Location = new Point(20, 146); this._ckTrigger.Size = new Size(120, 24); this._ckTrigger.Text = "기본값"; this._ckTrigger.Checked = true; this._ckTrigger.Font = UiTheme.ButtonFont;
+            this._lblTrigger.Location = new Point(150, 148); this._lblTrigger.Size = new Size(160, 22); this._lblTrigger.Text = "Trigger mode"; this._lblTrigger.Font = UiTheme.ButtonFont;
             this._cbTrigger.Location = new Point(320, 144);
             this._cbTrigger.Size = new Size(150, 26);
             this._cbTrigger.DropDownStyle = ComboBoxStyle.DropDownList;
@@ -113,8 +114,8 @@ namespace QMC.Vision.Ui.Pages
             this._ckTrigger.CheckedChanged += new System.EventHandler(this.OnCkTrigger);
 
             // Pixel (y=180)
-            InitCheck(this._ckPixel, 20, 180);
-            InitLbl(this._lblPixel, "Pixel format", 150, 182);
+            this._ckPixel.Location = new Point(20, 180); this._ckPixel.Size = new Size(120, 24); this._ckPixel.Text = "기본값"; this._ckPixel.Checked = true; this._ckPixel.Font = UiTheme.ButtonFont;
+            this._lblPixel.Location = new Point(150, 182); this._lblPixel.Size = new Size(160, 22); this._lblPixel.Text = "Pixel format"; this._lblPixel.Font = UiTheme.ButtonFont;
             this._cbPixel.Location = new Point(320, 178);
             this._cbPixel.Size = new Size(150, 26);
             this._cbPixel.DropDownStyle = ComboBoxStyle.DropDownList;
@@ -122,28 +123,28 @@ namespace QMC.Vision.Ui.Pages
             this._ckPixel.CheckedChanged += new System.EventHandler(this.OnCkPixel);
 
             // Delay (y=214)
-            InitCheck(this._ckDelay, 20, 214);
-            InitLbl(this._lblDelay, "Delay before grab (ms)", 150, 216);
-            InitNum(this._numDelay, 320, 212, 150, 0m, 60000m, 0, 10m);
+            this._ckDelay.Location = new Point(20, 214); this._ckDelay.Size = new Size(120, 24); this._ckDelay.Text = "기본값"; this._ckDelay.Checked = true; this._ckDelay.Font = UiTheme.ButtonFont;
+            this._lblDelay.Location = new Point(150, 216); this._lblDelay.Size = new Size(160, 22); this._lblDelay.Text = "Delay before grab (ms)"; this._lblDelay.Font = UiTheme.ButtonFont;
+            this._numDelay.Location = new Point(320, 212); this._numDelay.Size = new Size(150, 26); this._numDelay.Minimum = 0m; this._numDelay.Maximum = 60000m; this._numDelay.DecimalPlaces = 0; this._numDelay.Increment = 10m; this._numDelay.Font = UiTheme.ValueFont;
             this._ckDelay.CheckedChanged += new System.EventHandler(this.OnCkDelay);
 
             // ROI (y=248)
-            InitCheck(this._ckRoi, 20, 248);
-            InitLbl(this._lblRoi, "ROI (X/Y/W/H 묶음)", 150, 250);
-            InitNum(this._numRoiX, 320, 246, 70, 0m, 8000m, 0, 1m);
-            InitNum(this._numRoiY, 398, 246, 70, 0m, 8000m, 0, 1m);
-            InitNum(this._numRoiW, 476, 246, 70, 0m, 8000m, 0, 1m);
-            InitNum(this._numRoiH, 554, 246, 70, 0m, 8000m, 0, 1m);
+            this._ckRoi.Location = new Point(20, 248); this._ckRoi.Size = new Size(120, 24); this._ckRoi.Text = "기본값"; this._ckRoi.Checked = true; this._ckRoi.Font = UiTheme.ButtonFont;
+            this._lblRoi.Location = new Point(150, 250); this._lblRoi.Size = new Size(160, 22); this._lblRoi.Text = "ROI (X/Y/W/H 묶음)"; this._lblRoi.Font = UiTheme.ButtonFont;
+            this._numRoiX.Location = new Point(320, 246); this._numRoiX.Size = new Size(70, 26); this._numRoiX.Minimum = 0m; this._numRoiX.Maximum = 8000m; this._numRoiX.DecimalPlaces = 0; this._numRoiX.Increment = 1m; this._numRoiX.Font = UiTheme.ValueFont;
+            this._numRoiY.Location = new Point(398, 246); this._numRoiY.Size = new Size(70, 26); this._numRoiY.Minimum = 0m; this._numRoiY.Maximum = 8000m; this._numRoiY.DecimalPlaces = 0; this._numRoiY.Increment = 1m; this._numRoiY.Font = UiTheme.ValueFont;
+            this._numRoiW.Location = new Point(476, 246); this._numRoiW.Size = new Size(70, 26); this._numRoiW.Minimum = 0m; this._numRoiW.Maximum = 8000m; this._numRoiW.DecimalPlaces = 0; this._numRoiW.Increment = 1m; this._numRoiW.Font = UiTheme.ValueFont;
+            this._numRoiH.Location = new Point(554, 246); this._numRoiH.Size = new Size(70, 26); this._numRoiH.Minimum = 0m; this._numRoiH.Maximum = 8000m; this._numRoiH.DecimalPlaces = 0; this._numRoiH.Increment = 1m; this._numRoiH.Font = UiTheme.ValueFont;
             this._ckRoi.CheckedChanged += new System.EventHandler(this.OnCkRoi);
 
             // 버튼 (y=294)
-            InitBtn(this._btnSave, "저장", 20, 294, 110, UiTheme.Accent, Color.White);
+            this._btnSave.Location = new Point(20, 294); this._btnSave.Size = new Size(110, 32); this._btnSave.Text = "저장"; this._btnSave.FlatStyle = FlatStyle.Flat; this._btnSave.Font = UiTheme.ButtonFont; this._btnSave.BackColor = UiTheme.Accent; this._btnSave.ForeColor = Color.White;
             this._btnSave.Click += new System.EventHandler(this.OnSaveClick);
-            InitBtn(this._btnReset, "기본값 복원", 140, 294, 120, Color.White, Color.Black);
+            this._btnReset.Location = new Point(140, 294); this._btnReset.Size = new Size(120, 32); this._btnReset.Text = "기본값 복원"; this._btnReset.FlatStyle = FlatStyle.Flat; this._btnReset.Font = UiTheme.ButtonFont; this._btnReset.BackColor = Color.White; this._btnReset.ForeColor = Color.Black;
             this._btnReset.Click += new System.EventHandler(this.OnResetClick);
-            InitBtn(this._btnCancel, "취소", 270, 294, 90, Color.White, Color.Black);
+            this._btnCancel.Location = new Point(270, 294); this._btnCancel.Size = new Size(90, 32); this._btnCancel.Text = "취소"; this._btnCancel.FlatStyle = FlatStyle.Flat; this._btnCancel.Font = UiTheme.ButtonFont; this._btnCancel.BackColor = Color.White; this._btnCancel.ForeColor = Color.Black;
             this._btnCancel.Click += new System.EventHandler(this.OnCancelClick);
-            InitBtn(this._btnTest, "테스트 그랩", 370, 294, 120, Color.White, Color.Black);
+            this._btnTest.Location = new Point(370, 294); this._btnTest.Size = new Size(120, 32); this._btnTest.Text = "테스트 그랩"; this._btnTest.FlatStyle = FlatStyle.Flat; this._btnTest.Font = UiTheme.ButtonFont; this._btnTest.BackColor = Color.White; this._btnTest.ForeColor = Color.Black;
             this._btnTest.Click += new System.EventHandler(this.OnTestClick);
 
             // _lblStatus (y=338)
@@ -181,15 +182,5 @@ namespace QMC.Vision.Ui.Pages
             this._body.ResumeLayout(false);
             this.ResumeLayout(false);
         }
-
-        // 디자이너 내부 초기화 헬퍼 (정적 속성만; 동작 로직 아님)
-        private void InitCheck(CheckBox c, int x, int y)
-        { c.Location = new Point(x, y); c.Size = new Size(120, 24); c.Text = "기본값"; c.Checked = true; c.Font = UiTheme.ButtonFont; }
-        private void InitLbl(Label l, string text, int x, int y)
-        { l.Location = new Point(x, y); l.Size = new Size(160, 22); l.Text = text; l.Font = UiTheme.ButtonFont; }
-        private void InitNum(NumericUpDown n, int x, int y, int w, decimal min, decimal max, int dp, decimal inc)
-        { n.Location = new Point(x, y); n.Size = new Size(w, 26); n.Minimum = min; n.Maximum = max; n.DecimalPlaces = dp; n.Increment = inc; n.Font = UiTheme.ValueFont; }
-        private void InitBtn(Button b, string text, int x, int y, int w, Color bg, Color fg)
-        { b.Location = new Point(x, y); b.Size = new Size(w, 32); b.Text = text; b.FlatStyle = FlatStyle.Flat; b.Font = UiTheme.ButtonFont; b.BackColor = bg; b.ForeColor = fg; }
     }
 }

@@ -27,7 +27,11 @@ $patterns = @(
     @{ Name = 'lambda-event';       Rx = '=>' },
     @{ Name = 'local-control-var';  Rx = 'var\s+\w+\s*=\s*new\b' },
     @{ Name = 'layout-arithmetic';  Rx = '(\bint\s+\w+\s*=\s*-?\d)|(\b\w+\s*\+=\s*-?\d)' },   # 숫자 산술만 (이벤트 += new EventHandler 제외)
-    @{ Name = 'logic-statement';    Rx = '\b(if|for|foreach|while|switch)\b' }
+    @{ Name = 'logic-statement';    Rx = '\b(if|for|foreach|while|switch)\b' },
+    # IC 내 비허용 메서드 호출: 문장 시작이 bareword 호출(Foo(...))이며 new/제어문/this/base/cast 아닌 것
+    #   → 사용자 헬퍼(InitLbl/InitBtn/BeginInitNums 등) self-call. VS CodeDom 직렬화기 로드 실패 원인.
+    #   허용: this.x.., ((cast))..., new X(, obj.Method( (모두 문장 시작이 bareword '(' 아님)
+    @{ Name = 'ic-helper-call';     Rx = '^\s*(?!new\b|if\b|for\b|foreach\b|while\b|do\b|switch\b|return\b|using\b|lock\b|else\b|try\b|catch\b|base\b|this\b)[A-Za-z_]\w*\s*\(' }
 )
 
 $files = @()
