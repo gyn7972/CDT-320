@@ -141,7 +141,10 @@
       <SubType>Component</SubType>
     </Compile>
     <Compile Include="Ui\Controls\IlluminatorPanel.cs">
-      <SubType>Component</SubType>
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Controls\IlluminatorPanel.Designer.cs">
+      <DependentUpon>IlluminatorPanel.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Controls\JogBox.cs">
       <SubType>UserControl</SubType>
