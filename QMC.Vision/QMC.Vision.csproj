@@ -209,6 +209,11 @@
       <Name>QMC.Common</Name>
     </ProjectReference>
   </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Ui\Controls\LightLiveTuningPanel.resx">
+      <DependentUpon>LightLiveTuningPanel.cs</DependentUpon>
+    </EmbeddedResource>
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!--
     HIK MVS x64 런타임을 출력 폴더로 복사.
