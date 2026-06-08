@@ -219,6 +219,9 @@
     <Compile Include="Ui\Dialogs\ZoomDialog.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="Ui\Dialogs\ZoomDialog.Designer.cs">
+      <DependentUpon>ZoomDialog.cs</DependentUpon>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <!-- Stage 62 — QMC.Common 의 Alarms 공용 사용 -->

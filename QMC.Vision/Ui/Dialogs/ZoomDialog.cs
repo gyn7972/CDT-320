@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
@@ -12,65 +12,38 @@ namespace QMC.Vision.Ui.Dialogs
     /// - 마우스 휠: 50% ~ 800% 줌
     /// - 좌클릭 드래그: 팬
     /// - 더블클릭: 1:1 리셋
+    /// Stage 92 — Designer/Code 분리(디자이너 로드 가능). shell 은 .Designer.cs, 그리기/줌/팬 로직은 여기.
     /// </summary>
-    public class ZoomDialog : Form
+    public partial class ZoomDialog : Form
     {
         private readonly Bitmap _image;
         private float _zoom = 1.0f;
         private PointF _offset = new PointF(0, 0);
         private bool _dragging;
         private Point _lastDrag;
-        private Panel _canvas;
-        private Label _statusBar;
-        private Button _btnSave, _btnReset, _btnClose;
+
+        /// <summary>디자이너 전용 파라미터리스 생성자(이미지 없음). 런타임 호출자는 (Bitmap, title) 사용.</summary>
+        public ZoomDialog() : this(null) { }
 
         public ZoomDialog(Bitmap image, string title = "Zoom")
         {
             _image = image != null ? new Bitmap(image) : null;
-
-            Text = title;
-            FormBorderStyle = FormBorderStyle.Sizable;
-            StartPosition = FormStartPosition.CenterParent;
-            MinimumSize = new Size(640, 480);
-            ClientSize = new Size(1024, 768);
-            BackColor = Color.FromArgb(40, 40, 40);
-            ShowIcon = false;
-
-            BuildLayout();
+            InitializeComponent();
+            _canvas.SetStyle();                 // 더블버퍼 (Panel.SetStyle protected → 확장)
+            Text = title;                       // 런타임 제목
+            _statusBar.Text = $"Image: {_image?.Width ?? 0} × {_image?.Height ?? 0}   Zoom: 100%   Wheel = zoom, Drag = pan, DoubleClick = 1:1";
         }
 
-        private void BuildLayout()
+        // ── 이벤트 핸들러 (Designer 에서 named 연결) ──
+        private void OnResetClick(object sender, EventArgs e) => ResetView();
+        private void OnSaveClick(object sender, EventArgs e) => DoSave();
+        private void OnCanvasDoubleClick(object sender, EventArgs e) => ResetView();
+        private void OnCanvasMouseEnter(object sender, EventArgs e) => _canvas.Focus();   // 휠 이벤트 받도록
+
+        private void ResetView()
         {
-            _statusBar = new Label
-            {
-                Dock = DockStyle.Top, Height = 28,
-                BackColor = Color.FromArgb(0xD9, 0x77, 0x06), ForeColor = Color.White,
-                Font = new Font("맑은 고딕", 10F, FontStyle.Bold),
-                Text = $"Image: {_image?.Width ?? 0} × {_image?.Height ?? 0}   Zoom: 100%   Wheel = zoom, Drag = pan, DoubleClick = 1:1",
-                TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding(10, 0, 0, 0)
-            };
-            Controls.Add(_statusBar);
-
-            var bar = new Panel { Dock = DockStyle.Bottom, Height = 44, BackColor = Color.FromArgb(45, 45, 48) };
-            _btnReset = new Button { Location = new Point(10, 6), Size = new Size(100, 32), Text = "1:1",  FlatStyle = FlatStyle.Flat, BackColor = Color.White, Font = new Font("맑은 고딕", 10F) };
-            _btnSave  = new Button { Location = new Point(116, 6), Size = new Size(100, 32), Text = "SAVE", FlatStyle = FlatStyle.Flat, BackColor = Color.White, Font = new Font("맑은 고딕", 10F) };
-            _btnClose = new Button { Location = new Point(222, 6), Size = new Size(100, 32), Text = "CLOSE", FlatStyle = FlatStyle.Flat, BackColor = Color.White, Font = new Font("맑은 고딕", 10F), DialogResult = DialogResult.OK };
-            _btnReset.Click += (s, e) => { _zoom = 1.0f; _offset = new PointF(0, 0); _canvas.Invalidate(); UpdateStatus(); };
-            _btnSave .Click += (s, e) => DoSave();
-            bar.Controls.Add(_btnReset); bar.Controls.Add(_btnSave); bar.Controls.Add(_btnClose);
-            Controls.Add(bar);
-
-            _canvas = new Panel { Dock = DockStyle.Fill, BackColor = Color.Black };
-            _canvas.Paint     += OnPaintCanvas;
-            _canvas.MouseWheel+= OnWheel;
-            _canvas.MouseDown += OnDown;
-            _canvas.MouseMove += OnMove;
-            _canvas.MouseUp   += OnUp;
-            _canvas.DoubleClick += (s, e) => { _zoom = 1.0f; _offset = new PointF(0, 0); _canvas.Invalidate(); UpdateStatus(); };
-            _canvas.MouseEnter += (s, e) => _canvas.Focus();   // 휠 이벤트 받도록
-            _canvas.SetStyle();
-            Controls.Add(_canvas);
-            Controls.SetChildIndex(_canvas, 0);
+            _zoom = 1.0f; _offset = new PointF(0, 0);
+            _canvas.Invalidate(); UpdateStatus();
         }
 
         private void OnPaintCanvas(object sender, PaintEventArgs e)
