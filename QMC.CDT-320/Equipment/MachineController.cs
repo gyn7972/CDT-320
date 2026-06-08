@@ -43,6 +43,9 @@ namespace QMC.CDT320
         private readonly AxisInitializeInterlockService _axisInitializeInterlocks;
         private readonly object _initializeHomedAxisLock = new object();
         private HashSet<string> _initializeHomedAxisNames;
+        private readonly object _axisInitializeStepStateLock = new object();
+        private readonly Dictionary<string, AxisInitializeStepProgress> _axisInitializeStepStates =
+            new Dictionary<string, AxisInitializeStepProgress>(StringComparer.OrdinalIgnoreCase);
         public SharedRailXMotionService SharedRailX { get; private set; }
 
         public event Action<EquipmentStatus> StatusChanged;
@@ -275,6 +278,7 @@ namespace QMC.CDT320
 
                 if (!settings.DeveloperMode)
                 {
+                    ClearAxisInitializeStepStates();
                     SetMachineInitialized(false, "StartupNormalMode", true);
                     QMC.Common.Log.Write("Main", "SYSTEM", "MachineRuntimeRestore",
                         "Machine initialized state is false on normal startup. - Ok");
@@ -287,6 +291,7 @@ namespace QMC.CDT320
 
                 if (state == null || !state.IsMachineInitialized)
                 {
+                    ClearAxisInitializeStepStates();
                     SetMachineInitialized(false, "DeveloperModeNoSavedReady", true);
                     QMC.Common.Log.Write("Main", "SYSTEM", "MachineRuntimeRestore",
                         "Developer mode is on, but saved initialized state does not exist. - Failed");
@@ -298,6 +303,7 @@ namespace QMC.CDT320
                 string reason;
                 if (!ValidateDeveloperRuntimeState(settings, state, out reason))
                 {
+                    ClearAxisInitializeStepStates();
                     SetMachineInitialized(false, "DeveloperModeRestoreFailed", true);
                     QMC.Common.Log.Write("Main", "SYSTEM", "MachineRuntimeRestore",
                         "Developer mode initialized state restore failed: " + reason + " - Failed");
@@ -307,6 +313,7 @@ namespace QMC.CDT320
                 }
 
                 _isDeveloperReadyRestored = true;
+                RestoreAxisInitializeStepRuntimeState(state);
                 SetMachineInitialized(true, "DeveloperModeRestore", true);
                 if (_status == EquipmentStatus.Idle || _status == EquipmentStatus.Stopped)
                     SetStatus(EquipmentStatus.Ready);
@@ -316,6 +323,7 @@ namespace QMC.CDT320
             }
             catch (Exception ex)
             {
+                ClearAxisInitializeStepStates();
                 SetMachineInitialized(false, "StartupRestoreException", true);
                 QMC.Common.Log.Write("Main", "SYSTEM", "MachineRuntimeRestore",
                     "Machine initialized state restore failed: " + ex.Message + " - Failed");
@@ -510,7 +518,8 @@ namespace QMC.CDT320
                 SaveReason = reason ?? "",
                 Status = _status.ToString(),
                 MaterialSnapshotPath = QMC.CDT320.Materials.MaterialSnapshotStore.SnapshotPath,
-                Axes = new List<MachineAxisRuntimeState>()
+                Axes = new List<MachineAxisRuntimeState>(),
+                InitializeSteps = CaptureAxisInitializeStepRuntimeStates()
             };
 
             foreach (var ax in EnumerateAxes())
@@ -1425,6 +1434,32 @@ namespace QMC.CDT320
             }
         }
 
+        public IList<AxisInitializeStepProgress> GetAxisInitializeStepStatusSnapshot()
+        {
+            try
+            {
+                EnsureAxisInitializeStepStatesLoadedFromRuntimeState();
+
+                AxisInitializePlan plan = GetAxisInitializePlan();
+                if (plan == null || plan.Steps == null)
+                    return new List<AxisInitializeStepProgress>();
+
+                return plan.Steps
+                    .Where(x => x != null)
+                    .Select(GetValidatedAxisInitializeStepProgress)
+                    .ToList();
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "GetAxisInitializeStepStatusSnapshot",
+                    "Get initialize step status snapshot failed: " + ex.Message + " - Failed");
+                return new List<AxisInitializeStepProgress>();
+            }
+            finally
+            {
+            }
+        }
+
         public async Task<int> InitializePlanStepAsync(int stepNo)
         {
             try
@@ -1994,12 +2029,12 @@ namespace QMC.CDT320
                     ", mode=" + step.RunMode +
                     ", interlockGroup=" + step.InterlockGroup +
                     ", axes=" + string.Join(",", axes.Select(x => x.Name).ToArray()) + " - Start");
-                RaiseAxisInitializeStepProgress(step, "진행중", "");
+                RaiseAxisInitializeStepProgress(step, AxisInitializeStepStatus.Running, "");
 
                 int prepareResult = await PrepareInitializeStepAsync(step).ConfigureAwait(false);
                 if (prepareResult != 0)
                 {
-                    RaiseAxisInitializeStepProgress(step, "실패", LastActionFailureMessage);
+                    RaiseAxisInitializeStepProgress(step, AxisInitializeStepStatus.Failed, LastActionFailureMessage);
                     return prepareResult;
                 }
 
@@ -2008,7 +2043,7 @@ namespace QMC.CDT320
                     !_axisInitializeInterlocks.VerifyStep(step, out interlockReason))
                 {
                     LastActionFailureMessage = interlockReason;
-                    RaiseAxisInitializeStepProgress(step, "실패", LastActionFailureMessage);
+                    RaiseAxisInitializeStepProgress(step, AxisInitializeStepStatus.Failed, LastActionFailureMessage);
                     return -1;
                 }
 
@@ -2017,7 +2052,7 @@ namespace QMC.CDT320
                 int preActionResult = await ExecuteInitializeActionsAsync(step, step.PreActions, "PreActions").ConfigureAwait(false);
                 if (preActionResult != 0)
                 {
-                    RaiseAxisInitializeStepProgress(step, "실패", LastActionFailureMessage);
+                    RaiseAxisInitializeStepProgress(step, AxisInitializeStepStatus.Failed, LastActionFailureMessage);
                     return preActionResult;
                 }
 
@@ -2031,28 +2066,28 @@ namespace QMC.CDT320
 
                 if (result != 0)
                 {
-                    RaiseAxisInitializeStepProgress(step, "실패", LastActionFailureMessage);
+                    RaiseAxisInitializeStepProgress(step, AxisInitializeStepStatus.Failed, LastActionFailureMessage);
                     return result;
                 }
 
                 int postActionResult = await ExecuteInitializeActionsAsync(step, step.PostActions, "PostActions").ConfigureAwait(false);
                 if (postActionResult != 0)
                 {
-                    RaiseAxisInitializeStepProgress(step, "실패", LastActionFailureMessage);
+                    RaiseAxisInitializeStepProgress(step, AxisInitializeStepStatus.Failed, LastActionFailureMessage);
                     return postActionResult;
                 }
 
                 int completeResult = await CompleteInitializeStepAsync(step).ConfigureAwait(false);
                 if (completeResult != 0)
                 {
-                    RaiseAxisInitializeStepProgress(step, "실패", LastActionFailureMessage);
+                    RaiseAxisInitializeStepProgress(step, AxisInitializeStepStatus.Failed, LastActionFailureMessage);
                     return completeResult;
                 }
 
                 QMC.Common.Log.Write("Main", "SYSTEM", "ExecuteInitializeStep",
                     "Axis initialize step completed. step=" + step.StepNo +
                     ", group=" + step.GroupName + " - Ok");
-                RaiseAxisInitializeStepProgress(step, "완료", "");
+                RaiseAxisInitializeStepProgress(step, AxisInitializeStepStatus.Complete, "");
                 return 0;
             }
             catch (Exception ex)
@@ -2063,7 +2098,7 @@ namespace QMC.CDT320
                     ", group=" + (step != null ? step.GroupName : "") +
                     ", error=" + ex.Message + " - Failed");
                 AlarmManager.Raise(AlarmSeverity.Error, "INIT-STEP-EX", "MachineController", LastActionFailureMessage);
-                RaiseAxisInitializeStepProgress(step, "실패", LastActionFailureMessage);
+                RaiseAxisInitializeStepProgress(step, AxisInitializeStepStatus.Failed, LastActionFailureMessage);
                 return -1;
             }
             finally
@@ -2073,13 +2108,16 @@ namespace QMC.CDT320
 
         private void RaiseAxisInitializeStepProgress(AxisInitializeStep step, string status, string message)
         {
+            AxisInitializeStepProgress progress = AxisInitializeStepProgress.Create(step, status, message);
+            SetAxisInitializeStepProgress(progress);
+
             var handler = AxisInitializeStepProgressChanged;
             if (handler == null)
                 return;
 
             try
             {
-                handler(AxisInitializeStepProgress.Create(step, status, message));
+                handler(progress);
             }
             catch
             {
@@ -2087,6 +2125,276 @@ namespace QMC.CDT320
             finally
             {
             }
+        }
+
+        private AxisInitializeStepProgress GetValidatedAxisInitializeStepProgress(AxisInitializeStep step)
+        {
+            AxisInitializeStepProgress progress;
+            lock (_axisInitializeStepStateLock)
+            {
+                _axisInitializeStepStates.TryGetValue(GetAxisInitializeStepStateKey(step), out progress);
+            }
+
+            if (progress == null)
+            {
+                if (_isMachineInitialized)
+                {
+                    string initializedReason;
+                    if (CheckAxisInitializeStepStillValid(step, out initializedReason))
+                    {
+                        progress = AxisInitializeStepProgress.Create(step, AxisInitializeStepStatus.Complete, "");
+                        SetAxisInitializeStepProgress(progress);
+                        return progress;
+                    }
+                }
+
+                progress = AxisInitializeStepProgress.Create(
+                    step,
+                    step != null && step.Enabled ? AxisInitializeStepStatus.Waiting : AxisInitializeStepStatus.Disabled,
+                    "");
+            }
+            else
+            {
+                progress = new AxisInitializeStepProgress
+                {
+                    StepNo = progress.StepNo,
+                    GroupName = progress.GroupName,
+                    Status = progress.Status,
+                    Message = progress.Message
+                };
+            }
+
+            if (step == null || !step.Enabled)
+                return progress;
+
+            if (string.Equals(progress.Status, AxisInitializeStepStatus.Complete, StringComparison.OrdinalIgnoreCase))
+            {
+                string reason;
+                if (!CheckAxisInitializeStepStillValid(step, out reason))
+                {
+                    progress.Status = AxisInitializeStepStatus.ReinitializeRequired;
+                    progress.Message = reason;
+                    SetAxisInitializeStepProgress(progress);
+                }
+            }
+
+            return progress;
+        }
+
+        private void SetAxisInitializeStepProgress(AxisInitializeStepProgress progress)
+        {
+            try
+            {
+                if (progress == null)
+                    return;
+
+                lock (_axisInitializeStepStateLock)
+                {
+                    _axisInitializeStepStates[GetAxisInitializeStepStateKey(progress.StepNo, progress.GroupName)] =
+                        new AxisInitializeStepProgress
+                        {
+                            StepNo = progress.StepNo,
+                            GroupName = progress.GroupName ?? "",
+                            Status = progress.Status ?? "",
+                            Message = progress.Message ?? ""
+                        };
+                }
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        private List<MachineInitializeStepRuntimeState> CaptureAxisInitializeStepRuntimeStates()
+        {
+            try
+            {
+                lock (_axisInitializeStepStateLock)
+                {
+                    return _axisInitializeStepStates.Values
+                        .Where(x => x != null)
+                        .Select(x => new MachineInitializeStepRuntimeState
+                        {
+                            StepNo = x.StepNo,
+                            GroupName = x.GroupName ?? "",
+                            Status = x.Status ?? "",
+                            Message = x.Message ?? ""
+                        })
+                        .ToList();
+                }
+            }
+            catch
+            {
+                return new List<MachineInitializeStepRuntimeState>();
+            }
+            finally
+            {
+            }
+        }
+
+        private void RestoreAxisInitializeStepRuntimeState(MachineRuntimeState state)
+        {
+            try
+            {
+                ClearAxisInitializeStepStates();
+                if (state == null || state.InitializeSteps == null)
+                    return;
+
+                foreach (MachineInitializeStepRuntimeState saved in state.InitializeSteps)
+                {
+                    if (saved == null)
+                        continue;
+
+                    SetAxisInitializeStepProgress(new AxisInitializeStepProgress
+                    {
+                        StepNo = saved.StepNo,
+                        GroupName = saved.GroupName ?? "",
+                        Status = saved.Status ?? "",
+                        Message = saved.Message ?? ""
+                    });
+                }
+
+                QMC.Common.Log.Write("Main", "SYSTEM", "MachineRuntimeRestore",
+                    "Initialize step runtime state restored. count=" + state.InitializeSteps.Count + " - Ok");
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "MachineRuntimeRestore",
+                    "Initialize step runtime state restore failed: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        private void EnsureAxisInitializeStepStatesLoadedFromRuntimeState()
+        {
+            try
+            {
+                lock (_axisInitializeStepStateLock)
+                {
+                    if (_axisInitializeStepStates.Count > 0)
+                        return;
+                }
+
+                AppSettings settings = AppSettingsStore.Current ?? AppSettingsStore.Load();
+                if (settings == null || !settings.DeveloperMode)
+                    return;
+
+                MachineRuntimeState state = MachineRuntimeStateStore.Load();
+                if (state == null || !state.IsMachineInitialized || !state.DeveloperMode ||
+                    state.InitializeSteps == null || state.InitializeSteps.Count == 0)
+                    return;
+
+                string reason;
+                if (!ValidateDeveloperRuntimeState(settings, state, out reason))
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "MachineRuntimeRestore",
+                        "Initialize step fallback restore skipped: " + reason + " - Failed");
+                    return;
+                }
+
+                RestoreAxisInitializeStepRuntimeState(state);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "MachineRuntimeRestore",
+                    "Initialize step fallback restore failed: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        private void ClearAxisInitializeStepStates()
+        {
+            try
+            {
+                lock (_axisInitializeStepStateLock)
+                {
+                    _axisInitializeStepStates.Clear();
+                }
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        private bool CheckAxisInitializeStepStillValid(AxisInitializeStep step, out string reason)
+        {
+            reason = "";
+            try
+            {
+                if (step == null)
+                {
+                    reason = "초기화 Step 정보가 없습니다. 다시 초기화가 필요합니다.";
+                    return false;
+                }
+
+                if (_status == EquipmentStatus.Alarm)
+                {
+                    reason = "장비 Alarm 상태입니다. 알람 해제 후 다시 초기화가 필요합니다.";
+                    return false;
+                }
+
+                var axes = ResolveAxesByNames(step.AxisNames);
+                foreach (BaseAxis axis in axes)
+                {
+                    if (axis == null)
+                        continue;
+
+                    if (axis.IsAlarm)
+                    {
+                        reason = axis.Name + " Alarm 발생. code=0x" + axis.AlarmCode.ToString("X4") +
+                            ". 알람 해제 후 다시 초기화가 필요합니다.";
+                        return false;
+                    }
+
+                    if (!axis.IsServoOn)
+                    {
+                        reason = axis.Name + " Servo OFF 상태입니다. Servo ON 후 다시 초기화가 필요합니다.";
+                        return false;
+                    }
+
+                    if (!axis.IsHomeDone)
+                    {
+                        reason = axis.Name + " HOME 완료 상태가 해제되었습니다. 다시 초기화가 필요합니다.";
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                reason = "초기화 완료 상태 확인 실패: " + ex.Message + ". 다시 초기화가 필요합니다.";
+                QMC.Common.Log.Write("Main", "SYSTEM", "CheckAxisInitializeStepStillValid",
+                    "Check initialize step status failed. step=" + (step != null ? step.StepNo : 0) +
+                    ", group=" + (step != null ? step.GroupName : "") +
+                    ", error=" + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private static string GetAxisInitializeStepStateKey(AxisInitializeStep step)
+        {
+            return step == null
+                ? GetAxisInitializeStepStateKey(0, "")
+                : GetAxisInitializeStepStateKey(step.StepNo, step.GroupName);
+        }
+
+        private static string GetAxisInitializeStepStateKey(int stepNo, string groupName)
+        {
+            return stepNo.ToString(System.Globalization.CultureInfo.InvariantCulture) + "|" + (groupName ?? "");
         }
 
         private async Task<int> ExecuteConditionalInitializeSequenceAsync(
