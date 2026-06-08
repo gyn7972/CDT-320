@@ -11,8 +11,8 @@ use strict;
 use warnings;
 use IO::Socket::INET;
 
-my $ROOT       = "D:/Work/CDT-320";
-my $SOL        = "$ROOT/QMC.CDT-320";
+use FindBin; my $ROOT = "$FindBin::Bin/..";
+my $SOL        = $ROOT;   # flat 트리: 솔루션 루트 = ROOT (QMC.CDT-320·QMC.Vision 형제)
 my $HANDLER    = "$SOL/QMC.CDT-320/bin/Debug/QMC.CDT-320.exe";
 my $VISION     = "$SOL/QMC.Vision/bin/Debug/QMC.Vision.exe";
 my $SIM        = "$ROOT/CDT320Simulator/bin/Debug/net472/CDT320Simulator.exe";

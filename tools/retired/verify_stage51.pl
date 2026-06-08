@@ -4,17 +4,19 @@ use FindBin; my $ROOT = "$FindBin::Bin/..";
 my @rows; sub row { push @rows, [@_] }
 sub greps { my ($f,$p)=@_; return 0 unless -e $f; open my $fh,'<',$f or return 0; local $/; my $c=<$fh>; close $fh; return $c=~/$p/s?1:0 }
 
-my $rct = "$ROOT/tools/runtime_cycle_test.pl";
-my $r1 = greps($rct, qr/Stage 18/) &&
-        greps($rct, qr/RUN_GUI_CYCLE/) &&
-        greps($rct, qr/gui_cycle_automation\.ps1/) &&
-        greps($rct, qr/Lot.*ProcessedDies/) &&
-        greps($rct, qr/Lot.*State/);
-row("STAGE18","runtime_cycle_test.pl — Stage 18 cycle 결과 검증 통합", $r1?"PASS":"FAIL", $rct);
+row("BUILD","QMC.CDT-320.exe", -e "$ROOT/QMC.CDT-320/bin/Debug/QMC.CDT-320.exe"?"PASS":"FAIL","");
 
-my $cga = "$ROOT/tools/gui_cycle_automation.ps1";
-my $r2 = -e $cga ? "PASS" : "FAIL";
-row("STAGE18","gui_cycle_automation.ps1 (Stage 5 의존성)", $r2, $cga);
+# Stage 51 — Inspection Subset (Bottom + TopSide + BottomSide)
+my $rs = "$ROOT/QMC.CDT-320/Equipment/Recipes/RecipeStore.cs";
+my $r1 = greps($rs, qr/class\s+InspectionSubset/);
+row("STAGE51","RecipeStore — InspectionSubset class",
+    $r1?"PASS":"FAIL", $rs);
+
+my $r2 = greps($rs, qr/BottomInsp/) &&
+         greps($rs, qr/TopSideInsp/) &&
+         greps($rs, qr/BottomSideInsp/);
+row("STAGE51","RecipeProject — BottomInsp + TopSideInsp + BottomSideInsp",
+    $r2?"PASS":"FAIL", $rs);
 
 my $bar="="x110;
 print "$bar\n";
