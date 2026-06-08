@@ -305,6 +305,36 @@ namespace QMC.CDT320
         /// PICK 시 StageY 절대 위치 계산에 사용.</summary>
         public double WaferAlignOffsetY { get; set; } = 0.0;
 
+        /// <summary>
+        /// NeedleZ가 Safe(Avoid) 위치에 있는지 확인합니다.<br/>
+        /// InputStageY HOME 전, NeedleZ 간섭을 피하기 위한 안전 조건 확인에 사용합니다.
+        /// </summary>
+        public bool IsNeedleZInSafePosition()
+        {
+            if (NeedleZ == null || Recipe == null)
+                return true;
+
+            Recipe.EnsurePositionObjects();
+            return Math.Abs(NeedleZ.ActualPosition - Recipe.NeedleZ.AvoidPosition) <= ResolveNeedleZInPositionTolerance();
+        }
+
+        private double ResolveNeedleZInPositionTolerance()
+        {
+            try
+            {
+                if (NeedleZ != null && NeedleZ.Config != null && NeedleZ.Config.InPositionTolerance >= 0.0)
+                    return NeedleZ.Config.InPositionTolerance;
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+
+            return 0.05;
+        }
+
         public bool CanHandleJogAxis(BaseAxis axis)
         {
             if (axis == null)

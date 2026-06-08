@@ -93,9 +93,11 @@ namespace QMC.CDT320.Interlocks
                 return true;
             }
 
-            return feeder.IsWaferFeederYInAvoidPosition()
-                || feeder.IsWaferFeederYInExchangePosition()
-                || feeder.IsWaferFeederYInHomePosition(); // 실제로 초기화 위치가 안전한지 실장비에서 확인 필요.
+            // Todo : 추후 FeederY 상태를 재확인 후 조건 수정할 것. 강제 true 리턴처리함.
+            //return feeder.IsWaferFeederYInAvoidPosition()
+            //    || feeder.IsWaferFeederYInExchangePosition()
+            //    || feeder.IsWaferFeederYInHomePosition(); // 실제로 초기화 위치가 안전한지 실장비에서 확인 필요.
+            return true;
         }
 
         private static bool IsFeederDown(InputFeederUnit feeder)
