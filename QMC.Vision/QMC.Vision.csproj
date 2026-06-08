@@ -192,8 +192,14 @@
     <Compile Include="Ui\Editors\ParameterEditorBase.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="Ui\Editors\ParameterEditorBase.Designer.cs">
+      <DependentUpon>ParameterEditorBase.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Editors\ParameterEditorHost.cs">
       <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Editors\ParameterEditorHost.Designer.cs">
+      <DependentUpon>ParameterEditorHost.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Editors\BottomInspectionParameterEditor.cs">
       <SubType>UserControl</SubType>
