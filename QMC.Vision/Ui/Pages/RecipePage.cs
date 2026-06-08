@@ -65,12 +65,9 @@ namespace QMC.Vision.Ui.Pages
             foreach (var kv in module.Finders)
             {
                 var mod = module; var finder = kv.Value; var fid = kv.Key;
-                // R2 프로토타입 대표 타깃 = Wafer/AlignDieFinder → 신규 3열 VisionTargetPage. 나머지는 기존 FinderPage.
-                bool rep = label == "Wafer vision" && fid == "AlignDieFinder";
-                Func<UserControl> factory = rep
-                    ? (Func<UserControl>)(() => new VisionTargetPage(mod, finder) { Dock = DockStyle.Fill })
-                    : () => new FinderPage(mod, finder) { Dock = DockStyle.Fill };
-                AddTargetButton(rep ? (fid + "  ★") : fid, "F:" + label + ":" + fid, factory);
+                // R2: 모든 Finder 타깃 = 신규 3열 VisionTargetPage(Handler VisionRecipePage 미러). Inspector 는 InspectorPage 유지.
+                AddTargetButton(fid, "F:" + label + ":" + fid,
+                    () => new VisionTargetPage(mod, finder) { Dock = DockStyle.Fill });
             }
             foreach (var kv in module.Inspectors)
             {
