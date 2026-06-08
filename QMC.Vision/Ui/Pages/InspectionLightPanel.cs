@@ -64,6 +64,7 @@ namespace QMC.Vision.Ui.Pages
         private void WireGrid()
         {
             if (_grid == null) return;
+            QMC.Vision.Ui.Controls.GridTheme.Apply(_grid);   // R2e — PARAMETERS 그리드와 시각 통일
             _grid.CurrentCellDirtyStateChanged += (s, e) =>
             { if (_grid.IsCurrentCellDirty) _grid.CommitEdit(DataGridViewDataErrorContexts.Commit); };
             _grid.CellValueChanged += (s, e) =>

@@ -150,6 +150,7 @@
     <Compile Include="Ui\Controls\SidebarButton.cs">
       <SubType>Component</SubType>
     </Compile>
+    <Compile Include="Ui\Controls\GridTheme.cs" />
     <Compile Include="Ui\Controls\ParameterGridItem.cs" />
     <Compile Include="Ui\Controls\ParameterGridChangedEventArgs.cs" />
     <Compile Include="Ui\Controls\ParameterGridControl.cs">
