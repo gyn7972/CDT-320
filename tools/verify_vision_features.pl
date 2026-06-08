@@ -17,7 +17,7 @@ sub row { push @rows, [@_]; }
 
 # ── 0. Build ──────────────────────────────
 row("BUILD",  "QMC.Vision.exe (310 이식 후 빌드)",  -e $VIS_EXE ? "PASS" : "FAIL", "");
-row("BUILD",  "QMC.CDT-320.exe (Handler 빌드)",      -e $HND_EXE ? "PASS" : "FAIL", "");
+# (Vision 베이스라인 — Handler 빌드 의존 제거. Handler 검증은 tools/retired/ 참조.)
 
 # ── 1. 정적 검사 ─────────────────────────
 sub greps {
