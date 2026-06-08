@@ -134,7 +134,9 @@ namespace QMC.Vision.Ui.Pages
             // RecipePage
             this.Controls.Add(this._root);
             this.Load += new System.EventHandler(this.OnPageLoad);
+            this.AutoScaleMode = AutoScaleMode.None;
             this.Name = "RecipePage";
+            this.Size = new Size(1920, 902);
             this._sidebar.ResumeLayout(false);
             this._body.ResumeLayout(false);
             this._hdrPanel.ResumeLayout(false);

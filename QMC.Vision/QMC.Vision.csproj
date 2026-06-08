@@ -127,6 +127,13 @@
     <Compile Include="Ui\Pages\VisionTargetPage.Designer.cs">
       <DependentUpon>VisionTargetPage.cs</DependentUpon>
     </Compile>
+    <Compile Include="Ui\Pages\ITargetPage.cs" />
+    <Compile Include="Ui\Pages\InspectorTargetPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\InspectorTargetPage.Designer.cs">
+      <DependentUpon>InspectorTargetPage.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Pages\LightSystemSetupPage.cs">
       <SubType>UserControl</SubType>
     </Compile>

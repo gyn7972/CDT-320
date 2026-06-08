@@ -13,7 +13,7 @@ namespace QMC.Vision.Ui.Pages
     /// <summary>
     /// R2c — Handler VisionRecipePage 미러. 사이드바=검사 알고리즘 5개(평면, Handler SidebarButton 1:1) +
     /// 영속 세팅선택기 바=알고리즘의 finder/inspector. 상태점(미설정 회색/설정완료 녹/변경됨 주황) 페인트.
-    /// 본문 스왑 finder→VisionTargetPage·inspector→InspectorPage. 상단바 SAVE=타깃 레시피저장.
+    /// 본문 스왑 finder→VisionTargetPage·inspector→InspectorTargetPage(R2d, 3열). 상단바 SAVE=타깃 레시피저장.
     /// 무인자 ctor·ShowSpc/ShowParameterEditors 보존(SPC/파라미터 진입점은 불필요로 미노출).
     /// </summary>
     public partial class RecipePage : UserControl
@@ -159,16 +159,18 @@ namespace QMC.Vision.Ui.Pages
 
             if (!_cache.TryGetValue(key, out var page))
             {
+                string k = key;
                 if (s.IsFinder)
                 {
                     var vtp = new VisionTargetPage(s.Module, s.Finder) { Dock = DockStyle.Fill, Visible = false };
-                    string k = key;
                     vtp.DirtyChanged += (snd, ev) => { UpdateSettingDot(k); UpdateAlgoDot(s.Module); };
                     page = vtp;
                 }
                 else
                 {
-                    page = new InspectorPage(s.Module, s.Inspector) { Dock = DockStyle.Fill, Visible = false };
+                    var itp = new InspectorTargetPage(s.Module, s.Inspector) { Dock = DockStyle.Fill, Visible = false };
+                    itp.DirtyChanged += (snd, ev) => { UpdateSettingDot(k); UpdateAlgoDot(s.Module); };
+                    page = itp;
                 }
                 _content.Controls.Add(page);
                 _cache[key] = page;
@@ -190,7 +192,7 @@ namespace QMC.Vision.Ui.Pages
         private SidebarStatus SettingStatus(string key, Setting s)
         {
             bool hasData = File.Exists(SettingPath(s));
-            if (_cache.TryGetValue(key, out var pg) && pg is VisionTargetPage vtp && vtp.IsDirty)
+            if (_cache.TryGetValue(key, out var pg) && pg is ITargetPage tp && tp.IsDirty)
                 return SidebarStatus.Dirty;
             return hasData ? SidebarStatus.Done : SidebarStatus.Off;
         }
@@ -210,12 +212,14 @@ namespace QMC.Vision.Ui.Pages
                 string p = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "VisionRecipe", module.AlgorithmKey ?? "Unknown", (kv.Key ?? "x").Replace('/', '_') + ".json");
                 if (File.Exists(p)) anyData = true;
                 string k = "F:" + module.AlgorithmKey + ":" + kv.Key;
-                if (_cache.TryGetValue(k, out var pg) && pg is VisionTargetPage vtp && vtp.IsDirty) return SidebarStatus.Dirty;
+                if (_cache.TryGetValue(k, out var pg) && pg is ITargetPage tp && tp.IsDirty) return SidebarStatus.Dirty;
             }
             foreach (var kv in module.Inspectors)
             {
                 string p = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "VisionRecipe", module.AlgorithmKey ?? "Unknown", (kv.Key ?? "x").Replace('/', '_') + ".json");
                 if (File.Exists(p)) anyData = true;
+                string k = "I:" + module.AlgorithmKey + ":" + kv.Key;
+                if (_cache.TryGetValue(k, out var pg) && pg is ITargetPage tp && tp.IsDirty) return SidebarStatus.Dirty;
             }
             return anyData ? SidebarStatus.Done : SidebarStatus.Off;
         }
@@ -232,9 +236,9 @@ namespace QMC.Vision.Ui.Pages
             if (_curSetKey == null || !_settings.TryGetValue(_curSetKey, out var s)) return;
             try
             {
-                if (_cache.TryGetValue(_curSetKey, out var pg) && pg is VisionTargetPage vtp)
+                if (_cache.TryGetValue(_curSetKey, out var pg) && pg is ITargetPage tp)
                 {
-                    vtp.SaveTarget();   // finder.SaveParameters + dirty clear (DirtyChanged→dot 갱신)
+                    tp.SaveTarget();   // finder/inspector.SaveParameters + dirty clear (DirtyChanged→dot 갱신)
                 }
                 else
                 {
