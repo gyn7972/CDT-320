@@ -131,6 +131,9 @@
     <Compile Include="Ui\Controls\BottomMenuButton.cs">
       <SubType>Component</SubType>
     </Compile>
+    <Compile Include="Ui\Controls\BottomMenuButton.Designer.cs">
+      <DependentUpon>BottomMenuButton.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Controls\LightLiveTuningPanel.cs">
       <SubType>UserControl</SubType>
     </Compile>
@@ -140,11 +143,20 @@
     <Compile Include="Ui\Controls\CameraView.cs">
       <SubType>Component</SubType>
     </Compile>
+    <Compile Include="Ui\Controls\CameraView.Designer.cs">
+      <DependentUpon>CameraView.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Controls\IlluminatorPanel.cs">
-      <SubType>Component</SubType>
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Controls\IlluminatorPanel.Designer.cs">
+      <DependentUpon>IlluminatorPanel.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Controls\JogBox.cs">
-      <SubType>Component</SubType>
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Controls\JogBox.Designer.cs">
+      <DependentUpon>JogBox.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Pages\OperationPage.cs">
       <SubType>UserControl</SubType>
