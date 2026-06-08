@@ -124,6 +124,9 @@
     <Compile Include="Ui\Pages\LightSystemSetupPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="Ui\Pages\LightSystemSetupPage.Designer.cs">
+      <DependentUpon>LightSystemSetupPage.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Pages\InspectionLightPanel.cs">
       <SubType>UserControl</SubType>
     </Compile>
