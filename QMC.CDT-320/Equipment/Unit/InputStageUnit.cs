@@ -8,6 +8,7 @@ using QMC.CDT320.Ajin;
 using QMC.CDT320.Motion.SharedRailX;
 using QMC.Common.Alarms;
 using QMC.Common.Logging;
+using QMC.CDT320.Materials;
 using System.Collections.Generic;
 using System.Runtime.Serialization;
 
@@ -222,6 +223,10 @@ namespace QMC.CDT320
 
         /// <summary>현재 로드된 웨이퍼의 맵 데이터. 로딩 완료 후 설정된다.</summary>
         public WaferMapData CurrentWaferMap  { get; private set; }
+
+        public WaferMaterial CurrentWaferMaterial { get; private set; }
+
+        public string CurrentWaferId { get { return CurrentWaferMaterial != null ? CurrentWaferMaterial.WaferId : ""; } }
 
         /// <summary>얼라인 완료 후 확정된 첫 번째 다이(Index 1)의 StageY 절대 좌표 [mm].</summary>
         public double OriginY                { get; private set; }
@@ -488,100 +493,59 @@ namespace QMC.CDT320
         //  §6. 핵심 시퀀스 로직
         // ??????????????????????????????????????????????????????????????????????
 
-        // InputLoadSequence로 옮겨서 구현 예정.
-        // ──────────────────────────────────────────────────────────────────────
-        //  Step 1: 자재 로딩 및 준비
-        // ──────────────────────────────────────────────────────────────────────
-        /// <summary>
-        /// 웨이퍼를 스테이지에 고정하고 맵 데이터를 로드한다.<br/>
-        /// <para>
-        /// 시퀀스:<br/>
-        /// 1. 로더 피더 안전 위치 인터락 확인<br/>
-        /// 2. ExpanderZ → Down 위치 이동 (테이프 텐션 확보)<br/>
-        /// 3. 바코드 리딩으로 Wafer ID 취득<br/>
-        /// 4. 맵 데이터 파싱 및 UI 업데이트
-        /// </para>
-        /// </summary>
-        /// <returns>시퀀스 전체 성공 시 true, 인터락 위반 또는 중간 실패 시 false</returns>
-        //public async Task<int> LoadAndPrepareWaferAsync()
-        //{
-        //    try
-        //    {
-        //        // ── Step 1: 로더 피더 안전 위치 인터락 ───────────────────────
-        //        if (!Loader.IsFeederAtSafePosition)
-        //        {
-        //            return RaiseStageAlarm(
-        //                AlarmSeverity.Warning,
-        //                "IS-FEEDER",
-        //                "InputStageUnit.LoadAndPrepareWaferAsync",
-        //                "로더 피더가 안전 위치에 없습니다. ExpanderZ 하강 금지.");
-        //        }
+        public async Task<int> LoadAndPrepareWaferAsync(string waferId, bool requireMapData, bool bFine = false)
+        {
+            try
+            {
+                EnsurePositionObjectsForSequence();
 
-        //        // ── Step 2: ExpanderZ Down 이동 (테이프 텐션 확보) ───────────
-        //        Console.WriteLine($"[INFO]  '{Name}' ? ExpanderZ Down 위치({Setup.ExpanderDownPosition}mm) 이동.");
-        //        int moveResult = await ExpanderZ.MoveAbsoluteAsync(Setup.ExpanderDownPosition, ResolveAxisVelocity(ExpanderZ));
+                int result = await MoveInputStageAxis(WaferStageAxis.WaferY, Recipe.WaferY.LoadPosition, bFine).ConfigureAwait(false);
+                if (result != 0 || StageY.IsAlarm)
+                    return RaiseStageAlarm(AlarmSeverity.Error, "IS-LOAD-Y", "InputStageUnit.LoadAndPrepareWaferAsync",
+                        "StageY load position move failed. result=" + result + ", alarm=" + StageY.IsAlarm);
 
-        //        if (moveResult != 0 || ExpanderZ.IsAlarm)
-        //        {
-        //            return RaiseStageAlarm(
-        //                AlarmSeverity.Error,
-        //                "IS-EXPZ",
-        //                "InputStageUnit.LoadAndPrepareWaferAsync",
-        //                $"ExpanderZ 이동 실패 (result={moveResult}, axis code={ExpanderZ.AlarmCode}).");
-        //        }
+                result = await MoveInputStageAxis(WaferStageAxis.WaferExpandingZ, Recipe.WaferZ.LoadPosition, bFine).ConfigureAwait(false);
+                if (result != 0 || ExpanderZ.IsAlarm)
+                    return RaiseStageAlarm(AlarmSeverity.Error, "IS-LOAD-Z", "InputStageUnit.LoadAndPrepareWaferAsync",
+                        "ExpanderZ load position move failed. result=" + result + ", alarm=" + ExpanderZ.IsAlarm);
 
-        //        // ── Step 3: 바코드 리딩 ───────────────────────────────────────
-        //        Console.WriteLine($"[INFO]  '{Name}' ? 바코드 리딩 시작.");
-        //        string waferId = await Barcode.ReadAsync(Setup.BarcodeReadTimeoutMs);
+                if (string.IsNullOrWhiteSpace(waferId))
+                    waferId = "WAFER-" + DateTime.Now.ToString("yyyyMMddHHmmss");
 
-        //        if (string.IsNullOrEmpty(waferId))
-        //        {
-        //            return RaiseStageAlarm(
-        //                AlarmSeverity.Warning,
-        //                "IS-BARCODE",
-        //                "InputStageUnit.LoadAndPrepareWaferAsync",
-        //                "바코드 읽기 실패 (Wafer ID 비어있음).");
-        //        }
+                WaferMapData mapData = null;
+                if (MapHandler != null)
+                    mapData = await MapHandler.ParseMapAsync(waferId).ConfigureAwait(false);
 
-        //        Console.WriteLine($"[INFO]  '{Name}' ? Wafer ID 취득 완료: [{waferId}]");
+                if (mapData == null)
+                {
+                    if (requireMapData)
+                    {
+                        return RaiseStageAlarm(AlarmSeverity.Warning, "IS-MAP", "InputStageUnit.LoadAndPrepareWaferAsync",
+                            "Wafer map load failed. waferId=" + waferId);
+                    }
 
-        //        // ── Step 4: 맵 파싱 및 UI 업데이트 ───────────────────────────
-        //        WaferMapData mapData = await MapHandler.ParseMapAsync(waferId);
+                    mapData = CreateFallbackWaferMap(waferId);
+                }
 
-        //        if (mapData == null)
-        //        {
-        //            return RaiseStageAlarm(
-        //                AlarmSeverity.Warning,
-        //                "IS-MAP",
-        //                "InputStageUnit.LoadAndPrepareWaferAsync",
-        //                $"Wafer ID [{waferId}] 맵 파싱 실패 (ParseMapAsync null).");
-        //        }
+                NormalizeWaferMap(mapData, waferId);
+                CurrentWaferMap = mapData;
 
-        //        CurrentWaferMap = mapData;
-        //        MapHandler.SendMapToUi(mapData);
+                if (MapHandler != null)
+                    MapHandler.SendMapToUi(mapData);
 
-        //        Console.WriteLine(
-        //            $"[INFO]  '{Name}' ? 맵 로드 완료. " +
-        //            $"다이 배열: {mapData.RowCount}행 × {mapData.ColumnCount}열");
-        //        return 0;
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        return RaiseStageAlarm(
-        //            AlarmSeverity.Error,
-        //            "IS-LOAD-EX",
-        //            "InputStageUnit.LoadAndPrepareWaferAsync",
-        //            "LoadAndPrepareWafer exception: " + ex.Message);
-        //    }
-        //    finally
-        //    {
-        //    }
-        //}
-
-        // InputLoadSequence로 옮겨서 구현 예정.
-        // ──────────────────────────────────────────────────────────────────────
-        //  Step 2: 비전 얼라인 및 원점 셋업
-        // ──────────────────────────────────────────────────────────────────────
+                EventLogger.Write(EventKind.Event, "QMC", "IS-LOAD",
+                    "InputStage wafer prepared. waferId=" + waferId + ", rows=" + mapData.RowCount + ", cols=" + mapData.ColumnCount);
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return RaiseStageAlarm(AlarmSeverity.Error, "IS-LOAD-EX", "InputStageUnit.LoadAndPrepareWaferAsync",
+                    "LoadAndPrepareWafer exception: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
 
         /// <summary>
         /// 비전 촬상과 축 이동을 반복하여 웨이퍼 각도를 보정하고 다이 원점 좌표를 수립한다.<br/>
@@ -595,165 +559,149 @@ namespace QMC.CDT320
         /// </para>
         /// </summary>
         /// <returns>얼라인 성공 시 true, 통신 오류 또는 축 알람 시 false</returns>
-        //public async Task<int> VisionAlignAndSetupOriginAsync()
-        //{
-        //    try
-        //    {
-        //        if (CurrentWaferMap == null)
-        //        {
-        //            return RaiseStageAlarm(
-        //                AlarmSeverity.Warning,
-        //                "IS-ALIGN-MAP",
-        //                "InputStageUnit.VisionAlignAndSetupOriginAsync",
-        //                "맵 데이터 없음. LoadAndPrepare를 먼저 실행하세요.");
-        //        }
+        public async Task<int> VisionAlignAndSetupOriginAsync(bool requireVisionAlign, bool bFine = false)
+        {
+            try
+            {
+                if (CurrentWaferMap == null)
+                    CurrentWaferMap = CreateFallbackWaferMap("WAFER-NO-MAP");
 
-        //        WaferMapData map = CurrentWaferMap;
+                NormalizeWaferMap(CurrentWaferMap, CurrentWaferMap.WaferId);
+                WaferMapData map = CurrentWaferMap;
 
-        //        // ── Step 1: 맵 중앙 다이로 이동 후 Theta 반복 보정 ──────────
-        //        int centerRow = map.RowCount / 2;
-        //        int centerCol = map.ColumnCount / 2;
+                int result = await MoveInputStageAxis(WaferStageAxis.WaferY, Recipe.WaferY.ProcessPosition, bFine).ConfigureAwait(false);
+                if (result != 0) return result;
 
-        //        Console.WriteLine(
-        //            $"[INFO]  '{Name}' ? 얼라인 시작. 중앙 다이 [{centerRow},{centerCol}]로 이동.");
+                result = await MoveInputStageAxis(WaferStageAxis.VisionX, Recipe.VisionX.ProcessPosition, bFine).ConfigureAwait(false);
+                if (result != 0) return result;
 
-        //        // 초기 중앙 좌표로 이동 (원점 미수립 상태이므로 0 + 피치 추정으로 이동)
-        //        int moveResult = await MoveToDieAsync(centerRow, centerCol, useEstimate: true);
-        //        if (moveResult != 0)
-        //            return moveResult;
+                if (!requireVisionAlign || Vision == null)
+                {
+                    SetEstimatedOriginFromCurrentPosition(map);
+                    return 0;
+                }
 
-        //        double totalDeltaTheta = 0.0;
+                int centerRow = map.RowCount / 2;
+                int centerCol = map.ColumnCount / 2;
 
-        //        for (int iter = 0; iter < Config.MaxAlignIterations; iter++)
-        //        {
-        //            VisionAlignResult alignResult = await Vision.TriggerAlignAsync("Center");
+                result = await MoveToDieAsync(centerRow, centerCol, true).ConfigureAwait(false);
+                if (result != 0) return result;
 
-        //            if (alignResult == null)
-        //            {
-        //                return RaiseStageAlarm(
-        //                    AlarmSeverity.Warning,
-        //                    "IS-ALIGN",
-        //                    "InputStageUnit.VisionAlignAndSetupOriginAsync",
-        //                    $"중앙 다이 비전 얼라인 매칭 실패 (반복 {iter + 1}).");
-        //            }
+                for (int iter = 0; iter < Config.MaxAlignIterations; iter++)
+                {
+                    VisionAlignResult alignResult = await Vision.TriggerAlignAsync("Center").ConfigureAwait(false);
+                    if (alignResult == null)
+                        return RaiseStageAlarm(AlarmSeverity.Warning, "IS-ALIGN", "InputStageUnit.VisionAlignAndSetupOriginAsync",
+                            "Center vision align failed. iteration=" + (iter + 1));
 
-        //            double dTheta = alignResult.DeltaTheta;
-        //            totalDeltaTheta += dTheta;
+                    int thetaResult = await StageT.MoveRelativeAsync(alignResult.DeltaTheta, ResolveAxisFineVelocity(StageT)).ConfigureAwait(false);
+                    if (thetaResult != 0 || StageT.IsAlarm)
+                        return RaiseStageAlarm(AlarmSeverity.Warning, "IS-ALIGN-T", "InputStageUnit.VisionAlignAndSetupOriginAsync",
+                            "StageT correction failed. result=" + thetaResult + ", alarm=" + StageT.IsAlarm);
 
-        //            Console.WriteLine(
-        //                $"[INFO]  '{Name}' ? 얼라인 반복 [{iter + 1}/{Config.MaxAlignIterations}] " +
-        //                $"dTheta={dTheta:F4}°, dX={alignResult.DeltaX:F4}mm, dY={alignResult.DeltaY:F4}mm");
+                    if (Math.Abs(alignResult.DeltaTheta) < Config.AlignConvergenceThresholdDeg)
+                        break;
+                }
 
-        //            // Theta 보정 이동
-        //            int thetaResult = await StageT.MoveRelativeAsync(dTheta, ResolveAxisFineVelocity(StageT));
-        //            if (thetaResult != 0 || StageT.IsAlarm)
-        //            {
-        //                return RaiseStageAlarm(
-        //                    AlarmSeverity.Warning,
-        //                    "IS-ALIGN",
-        //                    "InputStageUnit.VisionAlignAndSetupOriginAsync",
-        //                    $"StageT Theta 보정 이동 실패 (result={thetaResult}, axis code={StageT.AlarmCode}).");
-        //            }
+                result = await MoveToDieAsync(map.Ref1Row, map.Ref1Col, true).ConfigureAwait(false);
+                if (result != 0) return result;
 
-        //            // 수렴 판정
-        //            if (Math.Abs(dTheta) < Config.AlignConvergenceThresholdDeg)
-        //            {
-        //                Console.WriteLine(
-        //                    $"[INFO]  '{Name}' ? Theta 수렴 확인 (누적 보정: {totalDeltaTheta:F4}°). 얼라인 완료.");
-        //                break;
-        //            }
-        //        }
+                VisionAlignResult ref1Result = await Vision.TriggerAlignAsync("Ref1").ConfigureAwait(false);
+                if (ref1Result == null)
+                    return RaiseStageAlarm(AlarmSeverity.Warning, "IS-ALIGN-REF1", "InputStageUnit.VisionAlignAndSetupOriginAsync",
+                        "Ref1 vision align failed.");
 
-        //        // ── Step 2: 레퍼런스 마크 1 촬상 ─────────────────────────────
-        //        Console.WriteLine($"[INFO]  '{Name}' ? 레퍼런스 마크 1 [{map.Ref1Row},{map.Ref1Col}] 촬상.");
-        //        moveResult = await MoveToDieAsync(map.Ref1Row, map.Ref1Col, useEstimate: true);
-        //        if (moveResult != 0)
-        //            return moveResult;
+                double ref1X = CameraX.ActualPosition + ref1Result.DeltaX;
+                double ref1Y = StageY.ActualPosition + ref1Result.DeltaY;
 
-        //        VisionAlignResult ref1Result = await Vision.TriggerAlignAsync("Ref1");
-        //        if (ref1Result == null)
-        //        {
-        //            return RaiseStageAlarm(
-        //                AlarmSeverity.Warning,
-        //                "IS-ALIGN",
-        //                "InputStageUnit.VisionAlignAndSetupOriginAsync",
-        //                $"레퍼런스 마크 1 [{map.Ref1Row},{map.Ref1Col}] 비전 매칭 실패.");
-        //        }
+                result = await MoveToDieAsync(map.Ref2Row, map.Ref2Col, true).ConfigureAwait(false);
+                if (result != 0) return result;
 
-        //        double ref1X = CameraX.ActualPosition + ref1Result.DeltaX;
-        //        double ref1Y = StageY.ActualPosition  + ref1Result.DeltaY;
+                VisionAlignResult ref2Result = await Vision.TriggerAlignAsync("Ref2").ConfigureAwait(false);
+                if (ref2Result == null)
+                    return RaiseStageAlarm(AlarmSeverity.Warning, "IS-ALIGN-REF2", "InputStageUnit.VisionAlignAndSetupOriginAsync",
+                        "Ref2 vision align failed.");
 
-        //        // ── Step 3: 레퍼런스 마크 2 촬상 ─────────────────────────────
-        //        Console.WriteLine($"[INFO]  '{Name}' ? 레퍼런스 마크 2 [{map.Ref2Row},{map.Ref2Col}] 촬상.");
-        //        moveResult = await MoveToDieAsync(map.Ref2Row, map.Ref2Col, useEstimate: true);
-        //        if (moveResult != 0)
-        //            return moveResult;
+                double ref2X = CameraX.ActualPosition + ref2Result.DeltaX;
+                double ref2Y = StageY.ActualPosition + ref2Result.DeltaY;
 
-        //        VisionAlignResult ref2Result = await Vision.TriggerAlignAsync("Ref2");
-        //        if (ref2Result == null)
-        //        {
-        //            return RaiseStageAlarm(
-        //                AlarmSeverity.Warning,
-        //                "IS-ALIGN",
-        //                "InputStageUnit.VisionAlignAndSetupOriginAsync",
-        //                $"레퍼런스 마크 2 [{map.Ref2Row},{map.Ref2Col}] 비전 매칭 실패.");
-        //        }
+                int colSpan = map.Ref2Col - map.Ref1Col;
+                int rowSpan = map.Ref2Row - map.Ref1Row;
+                PitchX = colSpan != 0 && Math.Abs(ref2X - ref1X) > 1e-6 ? (ref2X - ref1X) / colSpan : ResolveFallbackPitchX(ref1Result, ref2Result);
+                PitchY = rowSpan != 0 && Math.Abs(ref2Y - ref1Y) > 1e-6 ? (ref2Y - ref1Y) / rowSpan : ResolveFallbackPitchY(ref1Result, ref2Result);
+                OriginX = ref1X - (map.Ref1Col * PitchX);
+                OriginY = ref1Y - (map.Ref1Row * PitchY);
 
-        //        double ref2X = CameraX.ActualPosition + ref2Result.DeltaX;
-        //        double ref2Y = StageY.ActualPosition  + ref2Result.DeltaY;
+                EventLogger.Write(EventKind.Event, "QMC", "IS-ALIGN",
+                    "InputStage align complete. originX=" + OriginX + ", originY=" + OriginY + ", pitchX=" + PitchX + ", pitchY=" + PitchY);
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return RaiseStageAlarm(AlarmSeverity.Error, "IS-ALIGN-EX", "InputStageUnit.VisionAlignAndSetupOriginAsync",
+                    "VisionAlign exception: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
 
-        //        // ── Step 4: X/Y 피치 계산 ────────────────────────────────────
-        //        int colSpan = map.Ref2Col - map.Ref1Col;
-        //        int rowSpan = map.Ref2Row - map.Ref1Row;
+        public async Task<int> PrepareUnloadWaferAsync(bool bFine = false)
+        {
+            try
+            {
+                EnsurePositionObjectsForSequence();
 
-        //        if (colSpan != 0 && Math.Abs(ref2X - ref1X) > 1e-6)
-        //        {
-        //            PitchX = (ref2X - ref1X) / colSpan;
-        //            Console.WriteLine($"[INFO]  '{Name}' ? X 피치 계산 완료: {PitchX:F6}mm/col");
-        //        }
-        //        else
-        //        {
-        //            PitchX = DefaultEstimatedPitchX;
-        //            Console.WriteLine(
-        //                $"[WARN]  '{Name}' ? X 피치 계산 불가 (Ref X좌표 동일). " +
-        //                $"기본값 사용: {PitchX}mm");
-        //        }
+                int result = await MoveInputStageAxis(WaferStageAxis.WaferY, Recipe.WaferY.UnloadPosition, bFine).ConfigureAwait(false);
+                if (result != 0 || StageY.IsAlarm)
+                    return RaiseStageAlarm(AlarmSeverity.Error, "IS-UNLOAD-Y", "InputStageUnit.PrepareUnloadWaferAsync",
+                        "StageY unload position move failed. result=" + result + ", alarm=" + StageY.IsAlarm);
 
-        //        if (rowSpan != 0 && Math.Abs(ref2Y - ref1Y) > 1e-6)
-        //        {
-        //            PitchY = (ref2Y - ref1Y) / rowSpan;
-        //            Console.WriteLine($"[INFO]  '{Name}' ? Y 피치 계산 완료: {PitchY:F6}mm/row");
-        //        }
-        //        else
-        //        {
-        //            PitchY = DefaultEstimatedPitchY;
-        //            Console.WriteLine(
-        //                $"[WARN]  '{Name}' ? Y 피치 계산 불가 (Ref Y좌표 동일). " +
-        //                $"기본값 사용: {PitchY}mm");
-        //        }
+                result = await MoveInputStageAxis(WaferStageAxis.WaferExpandingZ, Recipe.WaferZ.UnloadPosition, bFine).ConfigureAwait(false);
+                if (result != 0 || ExpanderZ.IsAlarm)
+                    return RaiseStageAlarm(AlarmSeverity.Error, "IS-UNLOAD-Z", "InputStageUnit.PrepareUnloadWaferAsync",
+                        "ExpanderZ unload position move failed. result=" + result + ", alarm=" + ExpanderZ.IsAlarm);
 
-        //        // ── Step 5: 첫 번째 다이 원점(Origin) 확정 ───────────────────
-        //        // Ref1 좌표를 기준으로 Index[0,0]의 절대 좌표를 역산
-        //        OriginX = ref1X - (map.Ref1Col * PitchX);
-        //        OriginY = ref1Y - (map.Ref1Row * PitchY);
+                OnWaferChangeRequested();
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return RaiseStageAlarm(AlarmSeverity.Error, "IS-UNLOAD-EX", "InputStageUnit.PrepareUnloadWaferAsync",
+                    "PrepareUnloadWafer exception: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
 
-        //        Console.WriteLine(
-        //            $"[INFO]  '{Name}' ? 원점 확정 완료. " +
-        //            $"Origin X={OriginX:F4}mm, Y={OriginY:F4}mm");
-        //        return 0;
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        return RaiseStageAlarm(
-        //            AlarmSeverity.Error,
-        //            "IS-ALIGN-EX",
-        //            "InputStageUnit.VisionAlignAndSetupOriginAsync",
-        //            "VisionAlign exception: " + ex.Message);
-        //    }
-        //    finally
-        //    {
-        //    }
-        //}
+        public void ClearCurrentWaferMap()
+        {
+            CurrentWaferMap = null;
+            OriginX = 0.0;
+            OriginY = 0.0;
+            PitchX = 0.0;
+            PitchY = 0.0;
+            WaferAlignOffsetX = 0.0;
+            WaferAlignOffsetY = 0.0;
+        }
+
+        public void SetCurrentWaferMaterial(WaferMaterial wafer)
+        {
+            CurrentWaferMaterial = wafer;
+        }
+
+        public WaferMaterial TakeCurrentWaferMaterial()
+        {
+            WaferMaterial wafer = CurrentWaferMaterial;
+            CurrentWaferMaterial = null;
+            return wafer;
+        }
+
+        public void ClearCurrentWaferMaterial()
+        {
+            CurrentWaferMaterial = null;
+        }
 
         // ──────────────────────────────────────────────────────────────────────
         //  Step 3: 사용자 컨펌 대기
@@ -1058,6 +1006,95 @@ namespace QMC.CDT320
         // ??????????????????????????????????????????????????????????????????????
         //  §8. 내부 유틸리티 메서드
         // ??????????????????????????????????????????????????????????????????????
+        private void EnsurePositionObjectsForSequence()
+        {
+            if (Recipe != null)
+                Recipe.EnsurePositionObjects();
+        }
+
+        private WaferMapData CreateFallbackWaferMap(string waferId)
+        {
+            return new WaferMapData
+            {
+                WaferId = string.IsNullOrWhiteSpace(waferId) ? "WAFER-FALLBACK" : waferId,
+                RowCount = 1,
+                ColumnCount = 1,
+                DieMap = new bool[1, 1] { { true } },
+                Ref1Row = 0,
+                Ref1Col = 0,
+                Ref2Row = 0,
+                Ref2Col = 0
+            };
+        }
+
+        private void NormalizeWaferMap(WaferMapData map, string waferId)
+        {
+            if (map == null)
+                return;
+
+            if (string.IsNullOrWhiteSpace(map.WaferId))
+                map.WaferId = string.IsNullOrWhiteSpace(waferId) ? "WAFER" : waferId;
+
+            if (map.RowCount <= 0)
+                map.RowCount = map.DieMap != null ? map.DieMap.GetLength(0) : 1;
+            if (map.ColumnCount <= 0)
+                map.ColumnCount = map.DieMap != null ? map.DieMap.GetLength(1) : 1;
+            if (map.DieMap == null || map.DieMap.GetLength(0) != map.RowCount || map.DieMap.GetLength(1) != map.ColumnCount)
+            {
+                map.DieMap = new bool[map.RowCount, map.ColumnCount];
+                for (int row = 0; row < map.RowCount; row++)
+                {
+                    for (int col = 0; col < map.ColumnCount; col++)
+                        map.DieMap[row, col] = true;
+                }
+            }
+
+            map.Ref1Row = ClampIndex(map.Ref1Row, map.RowCount);
+            map.Ref1Col = ClampIndex(map.Ref1Col, map.ColumnCount);
+            map.Ref2Row = ClampIndex(map.Ref2Row, map.RowCount);
+            map.Ref2Col = ClampIndex(map.Ref2Col, map.ColumnCount);
+        }
+
+        private static int ClampIndex(int value, int count)
+        {
+            if (count <= 0)
+                return 0;
+            if (value < 0)
+                return 0;
+            if (value >= count)
+                return count - 1;
+            return value;
+        }
+
+        private void SetEstimatedOriginFromCurrentPosition(WaferMapData map)
+        {
+            PitchX = DefaultEstimatedPitchX;
+            PitchY = DefaultEstimatedPitchY;
+
+            int refCol = map != null ? map.Ref1Col : 0;
+            int refRow = map != null ? map.Ref1Row : 0;
+            OriginX = CameraX.ActualPosition - (refCol * PitchX);
+            OriginY = StageY.ActualPosition - (refRow * PitchY);
+        }
+
+        private double ResolveFallbackPitchX(VisionAlignResult ref1Result, VisionAlignResult ref2Result)
+        {
+            if (ref2Result != null && ref2Result.PitchX > 0.0)
+                return ref2Result.PitchX;
+            if (ref1Result != null && ref1Result.PitchX > 0.0)
+                return ref1Result.PitchX;
+            return DefaultEstimatedPitchX;
+        }
+
+        private double ResolveFallbackPitchY(VisionAlignResult ref1Result, VisionAlignResult ref2Result)
+        {
+            if (ref2Result != null && ref2Result.PitchY > 0.0)
+                return ref2Result.PitchY;
+            if (ref1Result != null && ref1Result.PitchY > 0.0)
+                return ref1Result.PitchY;
+            return DefaultEstimatedPitchY;
+        }
+
         /// <summary>
         /// 지정한 다이 좌표로 StageY와 CameraX를 동시에 이동한다.
         /// </summary>

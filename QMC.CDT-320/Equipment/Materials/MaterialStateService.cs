@@ -166,6 +166,117 @@ namespace QMC.CDT320.Materials
             return wafer;
         }
 
+        public static WaferMaterial GetWaferInCassette(CassetteMaterialRole cassetteRole, int slotNumber)
+        {
+            var cassette = State.Cassettes.FirstOrDefault(c => c.Role == cassetteRole);
+            if (cassette == null || !cassette.IsMapped)
+                return null;
+
+            cassette.EnsureSlots();
+            if (slotNumber < 0 || slotNumber >= cassette.Slots.Count)
+                return null;
+
+            var slot = cassette.Slots[slotNumber];
+            if (slot == null || !slot.HasWafer || string.IsNullOrWhiteSpace(slot.WaferId))
+                return null;
+
+            return State.Wafers.FirstOrDefault(w => w.WaferId == slot.WaferId);
+        }
+
+        public static WaferMaterial GetWaferAtLocation(MaterialLocationKind kind)
+        {
+            return State.Wafers.FirstOrDefault(w =>
+                w.CurrentLocation != null &&
+                w.CurrentLocation.Kind == kind &&
+                WaferMaterialStateText.Normalize(w.State) != WaferMaterialState.Empty);
+        }
+
+        public static WaferMaterial CreateWaferAtLocation(MaterialLocationKind kind, string waferId, WaferMaterialState state)
+        {
+            var wafer = GetOrCreateWafer(waferId);
+            RemoveWaferFromCassetteSlot(wafer.WaferId);
+            wafer.CurrentLocation = new MaterialLocation { Kind = kind };
+            wafer.State = WaferMaterialStateText.Normalize(state);
+            if (string.IsNullOrWhiteSpace(wafer.TapeFrameSpecName))
+                wafer.TapeFrameSpecName = ResolveRecipeTapeFrameSpecName(0);
+            wafer.UpdatedAt = DateTime.Now;
+            NotifyAndSave("CreateWaferAtLocation");
+            return wafer;
+        }
+
+        public static bool ClearWaferAtLocation(MaterialLocationKind kind)
+        {
+            var wafers = State.Wafers
+                .Where(w => w.CurrentLocation != null &&
+                            w.CurrentLocation.Kind == kind &&
+                            WaferMaterialStateText.Normalize(w.State) != WaferMaterialState.Empty)
+                .ToList();
+            if (wafers.Count == 0)
+                return false;
+
+            foreach (var wafer in wafers)
+            {
+                wafer.State = WaferMaterialState.Empty;
+                wafer.CurrentLocation = MaterialLocation.Unknown();
+                wafer.UpdatedAt = DateTime.Now;
+            }
+
+            NotifyAndSave("ClearWaferAtLocation");
+            return true;
+        }
+
+        public static bool ClearInputCassetteSlotData(CassetteMaterialRole cassetteRole, int slotNumber)
+        {
+            var cassette = State.Cassettes.FirstOrDefault(c => c.Role == cassetteRole);
+            if (cassette == null)
+                return false;
+
+            cassette.EnsureSlots();
+            if (slotNumber < 0 || slotNumber >= cassette.Slots.Count)
+                return false;
+
+            var slot = cassette.Slots[slotNumber];
+            var targetWafers = State.Wafers.Where(w =>
+                w != null &&
+                ((!string.IsNullOrWhiteSpace(slot.WaferId) && w.WaferId == slot.WaferId) ||
+                 (w.SourceCassetteRole == cassetteRole && w.SourceSlotNumber == slotNumber)))
+                .ToList();
+
+            foreach (var wafer in targetWafers)
+            {
+                wafer.State = WaferMaterialState.Empty;
+                wafer.CurrentLocation = MaterialLocation.Unknown();
+                wafer.UpdatedAt = DateTime.Now;
+            }
+
+            slot.WaferId = "";
+            slot.HasWafer = false;
+            NotifyAndSave("ClearInputCassetteSlotData");
+            return true;
+        }
+
+        public static void MoveWaferToInputFeeder(WaferMaterial wafer)
+        {
+            if (wafer == null || string.IsNullOrWhiteSpace(wafer.WaferId))
+                return;
+
+            MoveWafer(
+                wafer.WaferId,
+                new MaterialLocation { Kind = MaterialLocationKind.InputFeeder },
+                WaferMaterialState.WorkReady);
+        }
+
+        public static void MoveWaferToInputStage(WaferMaterial wafer)
+        {
+            if (wafer == null || string.IsNullOrWhiteSpace(wafer.WaferId))
+                return;
+
+            MoveWafer(
+                wafer.WaferId,
+                new MaterialLocation { Kind = MaterialLocationKind.InputStage },
+                WaferMaterialState.Working);
+        }
+
         public static bool UpdateWaferFieldInMappedCassette(
             CassetteMaterialRole cassetteRole,
             int slotNumber,

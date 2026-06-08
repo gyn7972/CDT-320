@@ -145,7 +145,8 @@ namespace QMC.CDT320.Sequencing
                     Context.LogPublic("[INPUT-CASSETTE] " + Options.RunMode + " " + Kind + " step=" + CurrentStep);
 
                     InputCassetteSequenceStep executingStep = CurrentStep;
-                    int result = await ExecuteCurrentStepAsync(ct).ConfigureAwait(false);
+                    int result = await AwaitStepWithCancellationAsync(ExecuteCurrentStepAsync(ct), ct).ConfigureAwait(false);
+                    ct.ThrowIfCancellationRequested();
                     if (result != 0)
                         return result;
 
@@ -173,6 +174,22 @@ namespace QMC.CDT320.Sequencing
         }
 
         protected abstract Task<int> ExecuteCurrentStepAsync(CancellationToken ct);
+
+        protected static async Task<int> AwaitStepWithCancellationAsync(Task<int> stepTask, CancellationToken ct)
+        {
+            if (stepTask == null)
+                return -1;
+
+            if (stepTask.IsCompleted)
+                return await stepTask.ConfigureAwait(false);
+
+            Task cancelTask = Task.Delay(Timeout.Infinite, ct);
+            Task completed = await Task.WhenAny(stepTask, cancelTask).ConfigureAwait(false);
+            if (!ReferenceEquals(completed, stepTask))
+                ct.ThrowIfCancellationRequested();
+
+            return await stepTask.ConfigureAwait(false);
+        }
 
         protected int CheckLot(InputCassetteSequenceStep nextStep)
         {

@@ -37,6 +37,7 @@ namespace QMC.CDT320
         private QMC.CDT320.Sequencing.MachineSequenceContext _seqContext;
         private QMC.CDT320.Sequencing.AutoSequenceCoordinator _coordinator;
         private int _manualBusyCount;
+        private CancellationTokenSource _manualCts;
         private bool _isMachineInitialized;
         private bool _isDeveloperReadyRestored;
         private readonly AxisInterferenceMap _axisInterferenceMap = AxisInterferenceMap.CreateDefault();
@@ -66,6 +67,14 @@ namespace QMC.CDT320
         public EquipmentStatus Status => _status;
         public bool IsManualBusy => Volatile.Read(ref _manualBusyCount) > 0;
         public bool IsSequenceRunning => _coordinatorTask != null && !_coordinatorTask.IsCompleted;
+        public CancellationToken ManualOperationToken
+        {
+            get
+            {
+                var cts = _manualCts;
+                return cts != null ? cts.Token : CancellationToken.None;
+            }
+        }
         public bool IsMachineInitialized => _isMachineInitialized;
         public bool IsDeveloperReadyRestored => _isDeveloperReadyRestored;
         public DateTime MachineInitializedAt { get; private set; }
@@ -280,6 +289,7 @@ namespace QMC.CDT320
 
                 if (!settings.DeveloperMode)
                 {
+                    RestoreCylinderRuntimeState(state, settings);
                     RestoreAxisInitializeStepRuntimeState(state);
                     SetMachineInitialized(false, "StartupNormalMode", true);
                     QMC.Common.Log.Write("Main", "SYSTEM", "MachineRuntimeRestore",
@@ -289,6 +299,8 @@ namespace QMC.CDT320
 
                 if (settings.BypassHardware && state != null)
                     RestoreBypassAxisRuntimeState(state);
+                if (state != null)
+                    RestoreCylinderRuntimeState(state, settings);
                 if (state != null)
                     RestoreAxisInitializeStepRuntimeState(state);
 
@@ -521,6 +533,7 @@ namespace QMC.CDT320
                 Status = _status.ToString(),
                 MaterialSnapshotPath = QMC.CDT320.Materials.MaterialSnapshotStore.SnapshotPath,
                 Axes = new List<MachineAxisRuntimeState>(),
+                Cylinders = new List<MachineCylinderRuntimeState>(),
                 InitializeSteps = CaptureAxisInitializeStepRuntimeStates()
             };
 
@@ -537,6 +550,30 @@ namespace QMC.CDT320
                     ActualPosition = ax.ActualPosition,
                     CommandPosition = ax.CommandPosition,
                     AlarmCode = ax.AlarmCode
+                });
+            }
+
+            foreach (var cylinder in QMC.CDT320.Ajin.CylinderManager.Items.Values)
+            {
+                if (cylinder == null)
+                    continue;
+
+                try { cylinder.InFwd.UpdateStatus(); } catch { }
+                try { cylinder.InBwd.UpdateStatus(); } catch { }
+                try { cylinder.OutFwd.UpdateStatus(); } catch { }
+                try { cylinder.OutBwd.UpdateStatus(); } catch { }
+
+                state.Cylinders.Add(new MachineCylinderRuntimeState
+                {
+                    Name = cylinder.Name,
+                    IsFwd = cylinder.IsFwd,
+                    IsBwd = cylinder.IsBwd,
+                    InFwdOn = cylinder.InFwd != null && cylinder.InFwd.IsOn,
+                    InBwdOn = cylinder.InBwd != null && cylinder.InBwd.IsOn,
+                    OutFwdOn = cylinder.OutFwd != null && cylinder.OutFwd.IsOn,
+                    OutBwdOn = cylinder.OutBwd != null && cylinder.OutBwd.IsOn,
+                    IsSingleSolenoid = cylinder.Setup != null && cylinder.Setup.IsSingleSolenoid,
+                    IsSimulationMode = cylinder.Config != null && cylinder.Config.IsSimulationMode
                 });
             }
 
@@ -588,6 +625,119 @@ namespace QMC.CDT320
             finally
             {
             }
+        }
+
+        private void RestoreCylinderRuntimeState(MachineRuntimeState state, AppSettings settings)
+        {
+            try
+            {
+                if (QMC.CDT320.Ajin.CylinderManager.Items == null || QMC.CDT320.Ajin.CylinderManager.Items.Count == 0)
+                    return;
+
+                bool hasSavedState = state != null && state.Cylinders != null && state.Cylinders.Count > 0;
+                int restored = 0;
+                int defaulted = 0;
+                foreach (var cylinder in QMC.CDT320.Ajin.CylinderManager.Items.Values)
+                {
+                    if (cylinder == null)
+                        continue;
+
+                    if (!CanRestoreSimulationCylinder(cylinder))
+                        continue;
+
+                    MachineCylinderRuntimeState saved = null;
+                    if (hasSavedState)
+                    {
+                        foreach (var item in state.Cylinders)
+                        {
+                            if (item != null && string.Equals(item.Name, cylinder.Name, StringComparison.OrdinalIgnoreCase))
+                            {
+                                saved = item;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (saved != null)
+                    {
+                        RestoreCylinderIoState(cylinder, saved);
+                        restored++;
+                    }
+
+                    if (EnsureSimulationCylinderDisplayState(cylinder))
+                        defaulted++;
+                }
+
+                QMC.Common.Log.Write("Main", "SYSTEM", "MachineRuntimeRestore",
+                    "Cylinder runtime state restored. count=" + restored + ", defaulted=" + defaulted + " - Ok");
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "MachineRuntimeRestore",
+                    "Cylinder runtime state restore failed: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool CanRestoreSimulationCylinder(QMC.Common.IO.BaseCylinder cylinder)
+        {
+            if (cylinder == null || cylinder.Config == null || !cylinder.Config.IsSimulationMode)
+                return false;
+
+            return IsSimulationInput(cylinder.InFwd)
+                && IsSimulationInput(cylinder.InBwd)
+                && IsSimulationOutput(cylinder.OutFwd)
+                && IsSimulationOutput(cylinder.OutBwd);
+        }
+
+        private static bool IsSimulationInput(QMC.Common.IO.BaseDigitalInput input)
+        {
+            return input != null && input.Config != null && input.Config.IsSimulationMode;
+        }
+
+        private static bool IsSimulationOutput(QMC.Common.IO.BaseDigitalOutput output)
+        {
+            return output != null && output.Config != null && output.Config.IsSimulationMode;
+        }
+
+        private static void RestoreCylinderIoState(QMC.Common.IO.BaseCylinder cylinder, MachineCylinderRuntimeState saved)
+        {
+            if (cylinder == null || saved == null)
+                return;
+
+            if (cylinder.OutFwd != null)
+                cylinder.OutFwd.Write(saved.OutFwdOn);
+            if (cylinder.OutBwd != null)
+                cylinder.OutBwd.Write(saved.OutBwdOn);
+
+            if (cylinder.InFwd != null)
+                cylinder.InFwd.SimulateInput(saved.InFwdOn);
+            if (cylinder.InBwd != null)
+                cylinder.InBwd.SimulateInput(saved.InBwdOn);
+        }
+
+        private static bool EnsureSimulationCylinderDisplayState(QMC.Common.IO.BaseCylinder cylinder)
+        {
+            if (cylinder == null || !CanRestoreSimulationCylinder(cylinder))
+                return false;
+
+            bool inFwdOn = cylinder.InFwd != null && cylinder.InFwd.IsOn;
+            bool inBwdOn = cylinder.InBwd != null && cylinder.InBwd.IsOn;
+            if (inFwdOn != inBwdOn)
+                return false;
+
+            if (cylinder.OutFwd != null)
+                cylinder.OutFwd.Write(false);
+            if (cylinder.OutBwd != null)
+                cylinder.OutBwd.Write(false);
+            if (cylinder.InFwd != null)
+                cylinder.InFwd.SimulateInput(false);
+            if (cylinder.InBwd != null)
+                cylinder.InBwd.SimulateInput(true);
+
+            return true;
         }
 
         private bool EnsureMachineInitializedForRun(string source)
@@ -3541,6 +3691,8 @@ namespace QMC.CDT320
         /// 吏꾪뻾 以?LOT ???덉쑝硫?誘몄쭊???ㅼ씠瑜?Skipped 移댁슫?몃줈 湲곕줉?섍퀬 LOT JSON ???</summary>
         public Task StopAsync()
         {
+            CancelManualOperation();
+
             // 1) 紐⑤뱺 異??뺤? (?쒕낫???좎?)
             foreach (var ax in EnumerateAxes()) ax.Stop();
 
@@ -3572,16 +3724,36 @@ namespace QMC.CDT320
 
         public IDisposable EnterManualOperation()
         {
-            Interlocked.Increment(ref _manualBusyCount);
+            if (Interlocked.Increment(ref _manualBusyCount) == 1)
+            {
+                var old = Interlocked.Exchange(ref _manualCts, new CancellationTokenSource());
+                if (old != null)
+                    old.Dispose();
+            }
+
             if (_status != EquipmentStatus.Alarm && _status != EquipmentStatus.AutoRunning)
                 SetStatus(EquipmentStatus.ManualRunning);
             return new ManualOperationScope(this);
+        }
+
+        public void CancelManualOperation()
+        {
+            var cts = _manualCts;
+            if (cts != null && !cts.IsCancellationRequested)
+                cts.Cancel();
         }
 
         private void LeaveManualOperation()
         {
             if (Interlocked.Decrement(ref _manualBusyCount) < 0)
                 Interlocked.Exchange(ref _manualBusyCount, 0);
+
+            if (!IsManualBusy)
+            {
+                var cts = Interlocked.Exchange(ref _manualCts, null);
+                if (cts != null)
+                    cts.Dispose();
+            }
 
             if (!IsManualBusy && !IsSequenceRunning && _status == EquipmentStatus.ManualRunning)
                 SetStatus(EquipmentStatus.Stopped);

@@ -74,13 +74,20 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 btnMap.Click += async (s, e) => await RunSequenceAction("LIFT WAFER MAPPING", MapAsync);
                 btnLoad.Click += async (s, e) => await RunSequenceAction("LIFT WAFER LOADING", LoadAsync);
                 btnUnload.Click += async (s, e) => await RunSequenceAction("LIFT WAFER UNLOADING", UnloadAsync);
+                btnStop.Click += async (s, e) => await StopManualActionAsync();
+                actionsLayout.Resize += (s, e) => AlignStopButton();
+                AlignStopButton();
 
                 if (cassetteSlotView != null)
                     cassetteSlotView.SlotSelected += (s, e) => SelectMaterialSlot(CassetteMaterialRole.Input1, e.SlotIndex);
                 if (cassetteSlotViewLevel2 != null)
                     cassetteSlotViewLevel2.SlotSelected += (s, e) => SelectMaterialSlot(CassetteMaterialRole.Input2, e.SlotIndex);
                 if (materialDetailView != null)
+                {
                     materialDetailView.EditRequested += MaterialDetailView_EditRequested;
+                    materialDetailView.CreateDataRequested += MaterialDetailView_CreateDataRequested;
+                    materialDetailView.ClearDataRequested += MaterialDetailView_ClearDataRequested;
+                }
             }
             catch (Exception ex)
             {
@@ -124,6 +131,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                         MessageBoxIcon.Warning);
                 }
             }
+            catch (OperationCanceledException)
+            {
+                WriteEvent("INPUT-CST-CANCEL", actionName + " canceled.");
+            }
             catch (Exception ex)
             {
                 WriteAlarm("INPUT-CST-ACTION-EX", actionName + " failed: " + ex.Message);
@@ -163,6 +174,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     RaiseWarning("INPUT-CST-MOTION-FAIL", actionName + " result=" + result);
                     QMC.Common.MessageDialog.Show(this, actionName + " 실패\nAlarm/Event Log를 확인하세요.", "Input Cassette", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 }
+            }
+            catch (OperationCanceledException)
+            {
+                WriteEvent("INPUT-CST-MOTION-CANCEL", actionName + " canceled.");
             }
             catch (Exception ex)
             {
@@ -207,6 +222,13 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 btnMap.Enabled = enabled;
                 btnLoad.Enabled = enabled;
                 btnUnload.Enabled = enabled;
+                if (actionsLayout != null)
+                    actionsLayout.Enabled = true;
+                if (btnStop != null)
+                {
+                    btnStop.Enabled = true;
+                    btnStop.BringToFront();
+                }
             }
             catch (Exception ex)
             {
@@ -215,6 +237,44 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             finally
             {
             }
+        }
+
+        private async Task StopManualActionAsync()
+        {
+            try
+            {
+                var host = GetHost();
+                if (host == null || host.Controller == null)
+                    return;
+
+                WriteEvent("INPUT-CST-STOP", "Manual action stop requested.");
+                await host.Controller.StopAsync();
+            }
+            catch (Exception ex)
+            {
+                WriteAlarm("INPUT-CST-STOP-EX", "Manual action stop failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private void AlignStopButton()
+        {
+            if (actionsLayout == null || btnStop == null)
+                return;
+
+            int usedWidth = actionsLayout.Padding.Left + actionsLayout.Padding.Right;
+            foreach (Control control in actionsLayout.Controls)
+            {
+                if (ReferenceEquals(control, btnStop))
+                    continue;
+                usedWidth += control.Width + control.Margin.Left + control.Margin.Right;
+            }
+
+            int stopWidth = btnStop.Width + 6;
+            int leftMargin = Math.Max(6, actionsLayout.ClientSize.Width - usedWidth - stopWidth - btnStop.Margin.Right);
+            btnStop.Margin = new Padding(leftMargin, 6, 6, 6);
         }
 
         private async Task<int> LifterInitAsync(Form1 host)
@@ -276,8 +336,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 if (!ValidateInputCassetteManualCondition(host, true))
                     return false;
 
-                var sequence = CreateManualInputSequence(host);
-                return await sequence.ExecuteMappingAsync(CancellationToken.None, false, ResolveManualMoveTimeoutMs(host), SequenceStartMode.Restart) == 0;
+                var sequence = CreateInputCassetteSequence(host);
+                return await sequence.RunMappingAsync(host.Controller.ManualOperationToken, BuildCassetteOptions(host, SequenceStartMode.Restart)) == 0;
             }
             catch (Exception ex)
             {
@@ -296,8 +356,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 if (!ValidateInputCassetteManualCondition(host, false))
                     return false;
 
-                var sequence = CreateManualInputSequence(host);
-                return await sequence.ExecuteCassetteLoadingAsync(CancellationToken.None, false, ResolveManualMoveTimeoutMs(host), SequenceStartMode.Restart) == 0;
+                var sequence = CreateInputCassetteSequence(host);
+                return await sequence.RunLoadingAsync(host.Controller.ManualOperationToken, BuildCassetteOptions(host, SequenceStartMode.Restart)) == 0;
             }
             catch (Exception ex)
             {
@@ -316,8 +376,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 if (!ValidateInputCassetteManualCondition(host, false))
                     return false;
 
-                var sequence = CreateManualInputSequence(host);
-                return await sequence.ExecuteCassetteUnloadingAsync(CancellationToken.None, false, ResolveManualMoveTimeoutMs(host), SequenceStartMode.Restart) == 0;
+                var sequence = CreateInputCassetteSequence(host);
+                return await sequence.RunUnloadingAsync(host.Controller.ManualOperationToken, BuildCassetteOptions(host, SequenceStartMode.Restart)) == 0;
             }
             catch (Exception ex)
             {
@@ -329,14 +389,12 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             }
         }
 
-        private InputSequence CreateManualInputSequence(Form1 host)
+        private InputCassetteSequence CreateInputCassetteSequence(Form1 host)
         {
             try
             {
                 var ctx = new MachineSequenceContext(host.Controller, new SequenceSignalBus());
-                var sequence = new InputSequence(ctx);
-                sequence.Configure(SequenceRunMode.Manual);
-                return sequence;
+                return new InputCassetteSequence(ctx);
             }
             catch
             {
@@ -345,6 +403,16 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             finally
             {
             }
+        }
+
+        private InputCassetteSequenceOptions BuildCassetteOptions(Form1 host, SequenceStartMode startMode)
+        {
+            var options = InputCassetteSequenceOptions.Default();
+            options.RunMode = SequenceRunMode.Manual;
+            options.StartMode = startMode;
+            options.MoveTimeoutMs = ResolveManualMoveTimeoutMs(host);
+            options.FineMove = false;
+            return options;
         }
 
         private void SelectMaterialSlot(CassetteMaterialRole role, int slotIndex)
@@ -420,9 +488,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                        _selectedMaterialSlot >= 0 && _selectedMaterialSlot < cassette.Slots.Count
                 ? cassette.Slots[_selectedMaterialSlot]
                 : null;
-            var wafer = snapshot != null && snapshot.Wafers != null && slot != null && !string.IsNullOrEmpty(slot.WaferId)
-                ? snapshot.Wafers.FirstOrDefault(w => w.WaferId == slot.WaferId)
-                : null;
+            var wafer = ResolveCassetteSlotWafer(snapshot, _selectedCassetteRole, _selectedMaterialSlot, slot);
 
             materialDetailView.SetRows("WAFER MATERIAL", BuildWaferMaterialRows(cassette, slot, wafer));
         }
@@ -438,7 +504,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 Row("Selected", _selectedCassetteRole + " / SLOT " + (_selectedMaterialSlot + 1).ToString("00"), "", false),
                 Row("Cassette ID", cassette != null ? cassette.CassetteId : "", "", false),
                 Row("Cassette Mapped", cassette != null && cassette.IsMapped ? "Y" : "N", "", false),
-                Row("Slot", slot != null ? (slot.HasWafer ? "HAS WAFER" : "EMPTY") : "", "", false),
+                Row("Slot", BuildSlotOccupancyText(slot, wafer, mapped), "", false),
                 Row("Wafer ID", wafer != null ? wafer.WaferId : "", "WaferId", mapped),
                 Row("Lot ID", wafer != null ? wafer.CassetteLotId : (cassette != null ? cassette.CassetteLotId : ""), "CassetteLotId", mapped),
                 Row("State", wafer != null ? WaferMaterialStateText.ToDisplayName(wafer.State) : "", "State", mapped),
@@ -516,6 +582,60 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             finally
             {
             }
+        }
+
+        private void MaterialDetailView_CreateDataRequested(object sender, EventArgs e)
+        {
+            try
+            {
+                if (_selectedMaterialSlot < 0)
+                    return;
+
+                if (!ConfirmMaterialDataAction("선택한 Cassette Slot에 Material Data를 생성하시겠습니까?"))
+                    return;
+
+                var wafer = MaterialStateService.GetOrCreateWaferInMappedCassette(_selectedCassetteRole, _selectedMaterialSlot, "");
+                if (wafer == null)
+                {
+                    RaiseWarning("INPUT-CST-DATA-CREATE", "Material data create failed. Mapping is required.");
+                    QMC.Common.MessageDialog.Show(this, "Mapping 완료된 Cassette Slot에서만 Data 생성이 가능합니다.", "Material", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                WriteEvent("INPUT-CST-DATA-CREATE", "slot=" + _selectedCassetteRole + "/" + (_selectedMaterialSlot + 1).ToString("00") + ", wafer=" + wafer.WaferId);
+                RefreshSelectedMaterialDetail();
+                RefreshFromMachine();
+            }
+            catch (Exception ex)
+            {
+                WriteAlarm("INPUT-CST-DATA-CREATE-EX", "Material data create failed: " + ex.Message);
+            }
+        }
+
+        private void MaterialDetailView_ClearDataRequested(object sender, EventArgs e)
+        {
+            try
+            {
+                if (_selectedMaterialSlot < 0)
+                    return;
+
+                if (!ConfirmMaterialDataAction("선택한 Cassette Slot의 Material Data를 초기화하시겠습니까?"))
+                    return;
+
+                bool ok = MaterialStateService.ClearInputCassetteSlotData(_selectedCassetteRole, _selectedMaterialSlot);
+                WriteEvent("INPUT-CST-DATA-CLEAR", "slot=" + _selectedCassetteRole + "/" + (_selectedMaterialSlot + 1).ToString("00") + ", result=" + ok);
+                RefreshSelectedMaterialDetail();
+                RefreshFromMachine();
+            }
+            catch (Exception ex)
+            {
+                WriteAlarm("INPUT-CST-DATA-CLEAR-EX", "Material data clear failed: " + ex.Message);
+            }
+        }
+
+        private bool ConfirmMaterialDataAction(string message)
+        {
+            return QMC.Common.MessageDialog.Show(this, message, "Material Data", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes;
         }
 
         private bool TryEditMaterialValue(MaterialDetailRow row, out string value)
@@ -639,9 +759,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     string waferId;
                     WaferMaterialState state;
                     bool hasWafer;
-                    ResolveDisplayedSlotState(_selectedCassetteRole, curSlot, map, out waferId, out state, out hasWafer);
-                    Color stateColor = GetStateColor(state);
-                    lblSlotStateValue.Text = BuildStateText(state, waferId, false);
+                    bool known;
+                    ResolveDisplayedSlotState(_selectedCassetteRole, curSlot, map, out waferId, out state, out hasWafer, out known);
+                    Color stateColor = known ? GetStateColor(state) : Color.White;
+                    lblSlotStateValue.Text = known ? BuildStateText(state, waferId, false) : "-";
                     lblSlotStateValue.BackColor = stateColor;
                     lblSlotStateValue.ForeColor = stateColor == Color.Navy ? Color.White : Color.Black;
                 }
@@ -697,20 +818,26 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             System.Collections.Generic.IReadOnlyList<bool> fallbackMap,
             out string waferId,
             out WaferMaterialState state,
-            out bool hasWafer)
+            out bool hasWafer,
+            out bool known)
         {
             waferId = "";
             state = WaferMaterialState.Empty;
             hasWafer = false;
+            known = false;
             try
             {
                 if (curSlot < 0)
                     return;
 
                 if (TryGetSlotMaterial(role, curSlot, out waferId, out state, out hasWafer))
+                {
+                    known = true;
                     return;
+                }
 
                 hasWafer = fallbackMap != null && curSlot >= 0 && curSlot < fallbackMap.Count && fallbackMap[curSlot];
+                known = hasWafer;
                 state = hasWafer ? WaferMaterialState.Ready : WaferMaterialState.Empty;
                 waferId = "";
             }
@@ -786,21 +913,23 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             int slotCount,
             System.Collections.Generic.IReadOnlyList<bool> fallbackMap)
         {
+            var snapshot = MaterialStorage.State;
+            var cassette = snapshot != null && snapshot.Cassettes != null
+                ? snapshot.Cassettes.FirstOrDefault(c => c.Role == role)
+                : null;
+            bool mapped = cassette != null && cassette.IsMapped;
+
             var items = new CassetteSlotDisplayItem[slotCount];
             for (int i = 0; i < slotCount; i++)
             {
                 bool fallbackHasWafer = fallbackMap != null && i < fallbackMap.Count && fallbackMap[i];
                 items[i] = new CassetteSlotDisplayItem
                 {
+                    IsKnown = mapped || fallbackHasWafer,
                     HasWafer = fallbackHasWafer,
                     State = fallbackHasWafer ? WaferMaterialState.Ready : WaferMaterialState.Empty
                 };
             }
-
-            var snapshot = MaterialStorage.State;
-            var cassette = snapshot != null && snapshot.Cassettes != null
-                ? snapshot.Cassettes.FirstOrDefault(c => c.Role == role)
-                : null;
 
             if (cassette == null || !cassette.IsMapped)
                 return items;
@@ -809,18 +938,54 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             for (int i = 0; i < count; i++)
             {
                 var slot = cassette.Slots[i];
-                var wafer = snapshot != null && snapshot.Wafers != null && slot != null && !string.IsNullOrEmpty(slot.WaferId)
-                    ? snapshot.Wafers.FirstOrDefault(w => w.WaferId == slot.WaferId)
-                    : null;
+                var wafer = ResolveCassetteSlotWafer(snapshot, role, i, slot);
 
                 WaferMaterialState state = wafer != null ? WaferMaterialStateText.Normalize(wafer.State) : WaferMaterialState.Empty;
-                bool hasWafer = slot != null && slot.HasWafer && state != WaferMaterialState.Empty;
+                bool hasWafer = ((slot != null && slot.HasWafer) || IsWaferInInputTransferLocation(wafer)) && state != WaferMaterialState.Empty;
                 items[i].HasWafer = hasWafer;
-                items[i].WaferId = hasWafer && slot != null ? slot.WaferId : "";
+                items[i].WaferId = hasWafer && wafer != null ? wafer.WaferId : (hasWafer && slot != null ? slot.WaferId : "");
                 items[i].State = hasWafer ? state : WaferMaterialState.Empty;
             }
 
             return items;
+        }
+
+        private static WaferMaterial ResolveCassetteSlotWafer(MaterialSnapshot snapshot, CassetteMaterialRole role, int slotIndex, CassetteSlotMaterial slot)
+        {
+            if (snapshot == null || snapshot.Wafers == null || slotIndex < 0)
+                return null;
+
+            if (slot != null && !string.IsNullOrEmpty(slot.WaferId))
+            {
+                var waferInSlot = snapshot.Wafers.FirstOrDefault(w => w.WaferId == slot.WaferId);
+                if (waferInSlot != null)
+                    return waferInSlot;
+            }
+
+            return snapshot.Wafers.FirstOrDefault(w =>
+                w != null &&
+                w.SourceCassetteRole == role &&
+                w.SourceSlotNumber == slotIndex &&
+                WaferMaterialStateText.Normalize(w.State) != WaferMaterialState.Empty &&
+                IsWaferInInputTransferLocation(w));
+        }
+
+        private static bool IsWaferInInputTransferLocation(WaferMaterial wafer)
+        {
+            if (wafer == null || wafer.CurrentLocation == null)
+                return false;
+
+            return wafer.CurrentLocation.Kind == MaterialLocationKind.InputFeeder ||
+                   wafer.CurrentLocation.Kind == MaterialLocationKind.InputStage;
+        }
+
+        private static string BuildSlotOccupancyText(CassetteSlotMaterial slot, WaferMaterial wafer, bool mapped)
+        {
+            if (slot != null && slot.HasWafer)
+                return "HAS WAFER";
+            if (IsWaferInInputTransferLocation(wafer))
+                return wafer.CurrentLocation.Kind.ToString();
+            return mapped && slot != null ? "EMPTY" : "";
         }
 
         private static bool TryGetSlotMaterial(CassetteMaterialRole role, int slotIndex, out string waferId, out WaferMaterialState state, out bool hasWafer)
@@ -840,12 +1005,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 if (slot == null)
                     return false;
 
-                var wafer = snapshot != null && snapshot.Wafers != null && !string.IsNullOrEmpty(slot.WaferId)
-                    ? snapshot.Wafers.FirstOrDefault(w => w.WaferId == slot.WaferId)
-                    : null;
-                waferId = slot.WaferId ?? "";
+                var wafer = ResolveCassetteSlotWafer(snapshot, role, slotIndex, slot);
+                waferId = wafer != null ? wafer.WaferId : (slot.WaferId ?? "");
                 state = wafer != null ? WaferMaterialStateText.Normalize(wafer.State) : (slot.HasWafer ? WaferMaterialState.Ready : WaferMaterialState.Empty);
-                hasWafer = slot.HasWafer && state != WaferMaterialState.Empty;
+                hasWafer = (slot.HasWafer || IsWaferInInputTransferLocation(wafer)) && state != WaferMaterialState.Empty;
                 return cassette != null && cassette.IsMapped;
             }
             catch
