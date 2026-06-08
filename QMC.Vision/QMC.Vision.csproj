@@ -136,6 +136,12 @@
     <Compile Include="Ui\UiTheme.cs" />
     <Compile Include="Ui\Controls\ParameterGridItem.cs" />
     <Compile Include="Ui\Controls\ParameterGridChangedEventArgs.cs" />
+    <Compile Include="Ui\Controls\NumericKeypadDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Controls\NumericKeypadDialog.Designer.cs">
+      <DependentUpon>NumericKeypadDialog.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Controls\BottomMenuButton.cs">
       <SubType>Component</SubType>
     </Compile>
