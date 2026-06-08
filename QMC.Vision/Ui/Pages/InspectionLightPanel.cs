@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
@@ -15,17 +15,11 @@ namespace QMC.Vision.Ui.Pages
 {
     /// <summary>
     /// 검사별 조명 값 편집 패널 (Recipe).
-    /// <para>Stage 81 — 다중 컨트롤러 결선 지원. 결선(ControllerSets/풀)은 Setup 에서 추론(읽기전용 헤더).
-    /// 행 = (Controller, Channel) 자동 생성. 사용자는 Level/Page 만 편집. Apply 는 컨트롤러별 batch 를 Task.WhenAll 병렬.</para>
+    /// <para>Stage 81 — 다중 컨트롤러 결선 지원. 행 = (Controller, Channel) 자동 생성. 사용자는 Level/Page 만 편집.</para>
+    /// Stage 94 — Designer/Code 분리. 정적 shell(헤더/결선/버튼/그리드+컬럼)은 .Designer.cs, 그리드 행 바인딩(BindFields)은 Code.
     /// </summary>
-    public class InspectionLightPanel : UserControl
+    public partial class InspectionLightPanel : UserControl
     {
-        private Label    _lblHeader;
-        private Label    _lblWiring;
-        private DataGridView _grid;
-        private Button   _btnSave, _btnApply, _btnReset, _btnCancel;
-        private Label    _lblStatus;
-
         private string _algorithm, _inspectionId;
         // Stage 81 — 컨트롤러별 MaxPower / (port,ch) 보존값.
         private readonly Dictionary<string, int> _maxPowerByPort = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
@@ -33,14 +27,13 @@ namespace QMC.Vision.Ui.Pages
 
         public InspectionLightPanel()
         {
-            if (LicenseManager.UsageMode == LicenseUsageMode.Designtime) return;
-            BuildLayout();
+            InitializeComponent();
         }
 
         public InspectionLightPanel(string algorithm, string inspectionId)
         {
+            InitializeComponent();
             if (LicenseManager.UsageMode == LicenseUsageMode.Designtime) return;
-            BuildLayout();
             SelectInspection(algorithm, inspectionId);
         }
 
@@ -53,55 +46,12 @@ namespace QMC.Vision.Ui.Pages
             BindFields();
         }
 
-        private void BuildLayout()
-        {
-            BackColor = UiTheme.MainBg;
-
-            _lblHeader = new Label
-            {
-                Dock = DockStyle.Top, Height = 30, Text = "검사 조명",
-                BackColor = UiTheme.StatusBarBg, ForeColor = Color.White,
-                Font = UiTheme.SectionFont, TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding(10, 0, 0, 0)
-            };
-            Controls.Add(_lblHeader);
-
-            _lblWiring = new Label
-            {
-                Dock = DockStyle.Top, Height = 48, Font = UiTheme.ValueFont, ForeColor = Color.DarkSlateGray,
-                BackColor = Color.WhiteSmoke, TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding(10, 2, 0, 0)
-            };
-            Controls.Add(_lblWiring);
-
-            var bar = new Panel { Dock = DockStyle.Top, Height = 40, BackColor = UiTheme.MainBg };
-            _btnSave   = MakeBtn("저장", 8,   UiTheme.Accent, Color.White); _btnSave.Click   += (s, e) => Save();
-            _btnApply  = MakeBtn("실행 적용", 104, Color.White, Color.Black); _btnApply.Click += (s, e) => Apply();
-            _btnReset  = MakeBtn("초기화", 200, Color.White, Color.Black); _btnReset.Click  += (s, e) => ResetLevels();
-            _btnCancel = MakeBtn("취소", 296, Color.White, Color.Black); _btnCancel.Click += (s, e) => BindFields();
-            bar.Controls.AddRange(new Control[] { _btnSave, _btnApply, _btnReset, _btnCancel });
-            Controls.Add(bar);
-
-            _lblStatus = new Label { Dock = DockStyle.Bottom, Height = 24, Font = UiTheme.ValueFont, ForeColor = Color.DarkSlateGray, Padding = new Padding(8, 2, 0, 0) };
-            Controls.Add(_lblStatus);
-
-            _grid = new DataGridView { Dock = DockStyle.Fill, RowHeadersVisible = false, Font = UiTheme.ValueFont, BackgroundColor = Color.White, AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill, AllowUserToAddRows = false, AllowUserToDeleteRows = false };
-            var colCtrl = new DataGridViewTextBoxColumn  { Name = "Ctrl",    HeaderText = "컨트롤러", ReadOnly = true, FillWeight = 24 };
-            var colCh   = new DataGridViewTextBoxColumn  { Name = "Channel", HeaderText = "Ch",       ReadOnly = true, FillWeight = 10 };
-            var colName = new DataGridViewTextBoxColumn  { Name = "Name",    HeaderText = "이름",     ReadOnly = true, FillWeight = 30 };
-            var colLvl  = new DataGridViewTextBoxColumn  { Name = "Level",   HeaderText = "Level",    FillWeight = 18 };
-            var colPg   = new DataGridViewComboBoxColumn { Name = "Page",    HeaderText = "Page",     FillWeight = 12 };
-            _grid.Columns.Add(colCtrl);
-            _grid.Columns.Add(colCh);
-            _grid.Columns.Add(colName);
-            _grid.Columns.Add(colLvl);
-            _grid.Columns.Add(colPg);
-            var ro = Color.FromArgb(0xF2, 0xF2, 0xF2);
-            colCtrl.DefaultCellStyle.BackColor = ro;
-            colCh.DefaultCellStyle.BackColor   = ro;
-            colName.DefaultCellStyle.BackColor = ro;
-            _grid.DataError += (s, e) => { e.ThrowException = false; };
-            Controls.Add(_grid);
-            Controls.SetChildIndex(_grid, 0);
-        }
+        // ── 이벤트 핸들러 (Designer 에서 named 연결) ──
+        private void OnSaveClick(object sender, EventArgs e) => Save();
+        private void OnApplyClick(object sender, EventArgs e) => Apply();
+        private void OnResetClick(object sender, EventArgs e) => ResetLevels();
+        private void OnCancelClick(object sender, EventArgs e) => BindFields();
+        private void OnGridDataError(object sender, DataGridViewDataErrorEventArgs e) => e.ThrowException = false;
 
         // ── Setup 결선 조회 ──
         private AlgorithmLightWiring Wiring()
@@ -299,8 +249,6 @@ namespace QMC.Vision.Ui.Pages
             SetStatus("초기화 — 모든 채널 Level 0 (저장 시 조명 미사용)", false);
         }
 
-        private static Button MakeBtn(string t, int x, Color bg, Color fg)
-            => new Button { Location = new Point(x, 4), Size = new Size(90, 32), Text = t, FlatStyle = FlatStyle.Flat, Font = UiTheme.ButtonFont, BackColor = bg, ForeColor = fg };
         private static int IntOf(DataGridViewRow r, string col, int def) => int.TryParse(r.Cells[col].Value?.ToString(), out var v) ? v : def;
         private void SetStatus(string msg, bool err) { _lblStatus.ForeColor = err ? Color.Firebrick : Color.DarkSlateGray; _lblStatus.Text = msg; }
     }
