@@ -12,14 +12,23 @@ using QMC.Vision.Ui.Controls;
 namespace QMC.Vision.Ui.Pages
 {
     /// <summary>
-    /// R2 프로토타입 — Handler VisionRecipePage 미러(3열 TLP): 좌 카메라+매치결과 / 중 ROI 라디오+액션3×3 /
-    /// 우 ParameterGridControl(R1)+JOG+SPEED. 값 편집은 R1 NumericKeypadDialog(ParameterGridControl 내장).
-    /// 기능(Grab/Match/Train/Load/Save/EditROI)은 FinderPage 와 동일 로직 — 동작 보존.
+    /// R2b — Handler VisionRecipePage 미러(3열 TLP). 좌 카메라+매치 / 중 ACTION 3×3 / 우 ParameterGridControl+JOG+SPEED.
+    /// ROI 라디오 제거(세팅선택기는 RecipePage 영속 바). 액션 SAVE=이미지저장(상단바 SAVE=타깃 레시피저장).
+    /// dirty 추적(세팅 단위) + SaveTarget/LoadTarget(finder.SaveParameters/LoadParameters). JOG/SPEED inert.
+    /// 기능(Grab/Match/Train/Load/EditROI)은 FinderPage 동일.
     /// </summary>
     public partial class VisionTargetPage : UserControl
     {
         private readonly VisionModule _module;
         private readonly IPatternFinder _finder;
+        private bool _dirty;
+
+        /// <summary>세팅(finder) 변경 미저장 여부.</summary>
+        public bool IsDirty => _dirty;
+        /// <summary>저장된 레시피 데이터(파라미터 파일) 존재 여부.</summary>
+        public bool HasSavedData => _finder != null && File.Exists(TargetPath());
+        /// <summary>dirty 상태 변경 알림(RecipePage 상태점 갱신용).</summary>
+        public event EventHandler DirtyChanged;
 
         public VisionTargetPage()
         {
@@ -35,6 +44,7 @@ namespace QMC.Vision.Ui.Pages
             if (LicenseManager.UsageMode == LicenseUsageMode.Designtime) return;
             WireCamera();
             BuildParams();
+            LoadTarget();
             if (_finder != null) _cam.SetOverlay(_finder.SearchRoi, null);
             Status((module?.Name ?? "?") + " / " + (finder?.Id ?? "?"));
         }
@@ -60,11 +70,59 @@ namespace QMC.Vision.Ui.Pages
                 ParameterGridItem.Double("Train H", "px", ParameterGridScope.Recipe, () => _finder.TrainRoi.Height,  v => { _finder.TrainRoi.Height = v;  }),
             };
             _params.SetItems(items);
+            _params.ParameterValueChanged += (s, e) => MarkDirty();
         }
 
         private void RefreshOverlay()
         {
             if (_finder != null) _cam.SetOverlay(_finder.SearchRoi, null);
+        }
+
+        // ── dirty / 타깃 저장(상단바 SAVE 가 호출) ──
+        private string TargetPath()
+        {
+            string alg = _module?.AlgorithmKey ?? "Unknown";
+            string id = (_finder?.Id ?? "x").Replace('/', '_');
+            return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "VisionRecipe", alg, id + ".json");
+        }
+
+        private void MarkDirty()
+        {
+            if (_dirty) return;
+            _dirty = true;
+            DirtyChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        /// <summary>타깃 레시피 저장 — finder 파라미터(ROI 등)를 Config/VisionRecipe/&lt;alg&gt;/&lt;id&gt;.json 으로.</summary>
+        public void SaveTarget()
+        {
+            if (_finder == null) { Status("저장 대상 없음"); return; }
+            try
+            {
+                string path = TargetPath();
+                Directory.CreateDirectory(Path.GetDirectoryName(path));
+                _finder.SaveParameters(path);
+                _dirty = false;
+                DirtyChanged?.Invoke(this, EventArgs.Empty);
+                Status("타깃 저장됨 — " + path);
+            }
+            catch (Exception ex) { Status("타깃 저장 실패: " + ex.Message); }
+        }
+
+        private void LoadTarget()
+        {
+            if (_finder == null) return;
+            try
+            {
+                string path = TargetPath();
+                if (File.Exists(path))
+                {
+                    _finder.LoadParameters(path);
+                    _params.RefreshValues();
+                    RefreshOverlay();
+                }
+            }
+            catch { }
         }
 
         // ── 액션(중앙 3×3) — FinderPage 동일 로직 ──
@@ -76,11 +134,9 @@ namespace QMC.Vision.Ui.Pages
         private void OnMatchClick(object sender, EventArgs e) => DoMatch();
         private void OnTrainClick(object sender, EventArgs e) => DoTrain();
         private void OnLoadClick(object sender, EventArgs e) => DoLoad();
-        private void OnSaveClick(object sender, EventArgs e) => DoSave();
+        private void OnSaveImageClick(object sender, EventArgs e) => DoSaveImage();
         private void OnEditSearchClick(object sender, EventArgs e) => BeginEditRoi(true);
         private void OnEditTrainClick(object sender, EventArgs e) => BeginEditRoi(false);
-
-        private void OnSpeedScroll(object sender, EventArgs e) => _lblSpeed.Text = _trkSpeed.Value + "%";
 
         private void OnCamRoiEdited(string which, Roi roi)
         {
@@ -90,6 +146,7 @@ namespace QMC.Vision.Ui.Pages
             Status($"{which} ROI updated: x={roi.CenterX:F0} y={roi.CenterY:F0} w={roi.Width:F0} h={roi.Height:F0}");
             _cam.SetOverlay(_finder.SearchRoi, null);
             _params.RefreshValues();
+            MarkDirty();
         }
 
         private void DoGrab()
@@ -133,10 +190,11 @@ namespace QMC.Vision.Ui.Pages
             }
         }
 
-        private void DoSave()
+        /// <summary>이미지 저장(현재 프레임 → 파일). 타깃 레시피 저장과 별개.</summary>
+        private void DoSaveImage()
         {
             var img = CurrentImage;
-            if (img == null) { Status("SAVE: no image (do GRAB or LOAD first)"); return; }
+            if (img == null) { Status("이미지저장: 이미지 없음 (GRAB/LOAD 먼저)"); return; }
             using (var dlg = new SaveFileDialog
             {
                 Title = "Save current image",
@@ -152,9 +210,9 @@ namespace QMC.Vision.Ui.Pages
                     if (ext == ".bmp") fmt = ImageFormat.Bmp;
                     else if (ext == ".jpg" || ext == ".jpeg") fmt = ImageFormat.Jpeg;
                     img.Save(dlg.FileName, fmt);
-                    Status("SAVE OK: " + dlg.FileName);
+                    Status("이미지 저장 OK: " + dlg.FileName);
                 }
-                catch (Exception ex) { Status("SAVE FAIL: " + ex.Message); }
+                catch (Exception ex) { Status("이미지 저장 실패: " + ex.Message); }
             }
         }
 
@@ -167,6 +225,7 @@ namespace QMC.Vision.Ui.Pages
             try
             {
                 _finder.Train(img);
+                MarkDirty();
                 Status($"TRAIN OK — pattern from rect[{_finder.TrainRoi.CenterX:F0},{_finder.TrainRoi.CenterY:F0} {_finder.TrainRoi.Width:F0}x{_finder.TrainRoi.Height:F0}]");
             }
             catch (Exception ex) { Status("TRAIN FAIL: " + ex.Message); }

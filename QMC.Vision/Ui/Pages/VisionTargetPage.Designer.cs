@@ -17,15 +17,11 @@ namespace QMC.Vision.Ui.Pages
         private CameraView _cam;
         private Label _secMatch;
         private DataGridView _result;
-        // 중
+        // 중 (ROI 라디오 제거 — 세팅선택기는 RecipePage 영속 바로 이동. 중앙=ACTION 전체)
         private TableLayoutPanel _center;
-        private Label _secRoi;
-        private TableLayoutPanel _roiPanel;
-        private RadioButton _rdoMain, _rdoSub, _rdoChip, _rdoCross;
-        private RadioButton _rdoIndex1, _rdoIndex2, _rdoIndex4, _rdoIndex8;
         private Label _secAction;
         private TableLayoutPanel _actionPanel;
-        private Button _btnGrab, _btnMatch, _btnTrain, _btnLoad, _btnSave, _btnEditSearch, _btnEditTrain;
+        private Button _btnGrab, _btnMatch, _btnTrain, _btnLoad, _btnSaveImg, _btnEditSearch, _btnEditTrain;
         // 우
         private TableLayoutPanel _right;
         private Label _secParam;
@@ -54,14 +50,10 @@ namespace QMC.Vision.Ui.Pages
             this._secMatch = new Label();
             this._result = new DataGridView();
             this._center = new TableLayoutPanel();
-            this._secRoi = new Label();
-            this._roiPanel = new TableLayoutPanel();
-            this._rdoMain = new RadioButton(); this._rdoSub = new RadioButton(); this._rdoChip = new RadioButton(); this._rdoCross = new RadioButton();
-            this._rdoIndex1 = new RadioButton(); this._rdoIndex2 = new RadioButton(); this._rdoIndex4 = new RadioButton(); this._rdoIndex8 = new RadioButton();
             this._secAction = new Label();
             this._actionPanel = new TableLayoutPanel();
             this._btnGrab = new Button(); this._btnMatch = new Button(); this._btnTrain = new Button();
-            this._btnLoad = new Button(); this._btnSave = new Button(); this._btnEditSearch = new Button(); this._btnEditTrain = new Button();
+            this._btnLoad = new Button(); this._btnSaveImg = new Button(); this._btnEditSearch = new Button(); this._btnEditTrain = new Button();
             this._right = new TableLayoutPanel();
             this._secParam = new Label();
             this._params = new ParameterGridControl();
@@ -75,7 +67,6 @@ namespace QMC.Vision.Ui.Pages
             this._main.SuspendLayout();
             this._left.SuspendLayout();
             this._center.SuspendLayout();
-            this._roiPanel.SuspendLayout();
             this._actionPanel.SuspendLayout();
             this._right.SuspendLayout();
             this._speedPanel.SuspendLayout();
@@ -88,11 +79,10 @@ namespace QMC.Vision.Ui.Pages
             // ── 섹션 라벨(주황바, 인라인) ──
             this._secCam.Dock = DockStyle.Fill; this._secCam.Text = "CAMERA"; this._secCam.BackColor = UiTheme.StatusBarBg; this._secCam.ForeColor = Color.White; this._secCam.Font = UiTheme.SectionFont; this._secCam.TextAlign = ContentAlignment.MiddleLeft; this._secCam.Padding = new Padding(8, 0, 0, 0);
             this._secMatch.Dock = DockStyle.Fill; this._secMatch.Text = "MATCH RESULT"; this._secMatch.BackColor = UiTheme.StatusBarBg; this._secMatch.ForeColor = Color.White; this._secMatch.Font = UiTheme.SectionFont; this._secMatch.TextAlign = ContentAlignment.MiddleLeft; this._secMatch.Padding = new Padding(8, 0, 0, 0);
-            this._secRoi.Dock = DockStyle.Fill; this._secRoi.Text = "ROI"; this._secRoi.BackColor = UiTheme.StatusBarBg; this._secRoi.ForeColor = Color.White; this._secRoi.Font = UiTheme.SectionFont; this._secRoi.TextAlign = ContentAlignment.MiddleLeft; this._secRoi.Padding = new Padding(8, 0, 0, 0);
             this._secAction.Dock = DockStyle.Fill; this._secAction.Text = "ACTION"; this._secAction.BackColor = UiTheme.StatusBarBg; this._secAction.ForeColor = Color.White; this._secAction.Font = UiTheme.SectionFont; this._secAction.TextAlign = ContentAlignment.MiddleLeft; this._secAction.Padding = new Padding(8, 0, 0, 0);
             this._secParam.Dock = DockStyle.Fill; this._secParam.Text = "PARAMETERS"; this._secParam.BackColor = UiTheme.StatusBarBg; this._secParam.ForeColor = Color.White; this._secParam.Font = UiTheme.SectionFont; this._secParam.TextAlign = ContentAlignment.MiddleLeft; this._secParam.Padding = new Padding(8, 0, 0, 0);
-            this._secJog.Dock = DockStyle.Fill; this._secJog.Text = "JOG"; this._secJog.BackColor = UiTheme.StatusBarBg; this._secJog.ForeColor = Color.White; this._secJog.Font = UiTheme.SectionFont; this._secJog.TextAlign = ContentAlignment.MiddleLeft; this._secJog.Padding = new Padding(8, 0, 0, 0);
-            this._secSpeed.Dock = DockStyle.Fill; this._secSpeed.Text = "SPEED"; this._secSpeed.BackColor = UiTheme.StatusBarBg; this._secSpeed.ForeColor = Color.White; this._secSpeed.Font = UiTheme.SectionFont; this._secSpeed.TextAlign = ContentAlignment.MiddleLeft; this._secSpeed.Padding = new Padding(8, 0, 0, 0);
+            this._secJog.Dock = DockStyle.Fill; this._secJog.Text = "JOG (미구현)"; this._secJog.BackColor = UiTheme.StatusBarBg; this._secJog.ForeColor = Color.White; this._secJog.Font = UiTheme.SectionFont; this._secJog.TextAlign = ContentAlignment.MiddleLeft; this._secJog.Padding = new Padding(8, 0, 0, 0);
+            this._secSpeed.Dock = DockStyle.Fill; this._secSpeed.Text = "SPEED (미구현)"; this._secSpeed.BackColor = UiTheme.StatusBarBg; this._secSpeed.ForeColor = Color.White; this._secSpeed.Font = UiTheme.SectionFont; this._secSpeed.TextAlign = ContentAlignment.MiddleLeft; this._secSpeed.Padding = new Padding(8, 0, 0, 0);
 
             // ── 좌 (camera + match) ──
             this._cam.Dock = DockStyle.Fill;
@@ -122,34 +112,6 @@ namespace QMC.Vision.Ui.Pages
             this._left.Controls.Add(this._secMatch, 0, 2);
             this._left.Controls.Add(this._result, 0, 3);
 
-            // ── 중 ROI 라디오 (인라인) ──
-            this._rdoMain.Dock = DockStyle.Fill; this._rdoMain.Text = "Main"; this._rdoMain.Checked = true; this._rdoMain.Font = UiTheme.ButtonFont;
-            this._rdoSub.Dock = DockStyle.Fill; this._rdoSub.Text = "Sub"; this._rdoSub.Font = UiTheme.ButtonFont;
-            this._rdoChip.Dock = DockStyle.Fill; this._rdoChip.Text = "Chip"; this._rdoChip.Font = UiTheme.ButtonFont;
-            this._rdoCross.Dock = DockStyle.Fill; this._rdoCross.Text = "Cross"; this._rdoCross.Font = UiTheme.ButtonFont;
-            this._rdoIndex1.Dock = DockStyle.Fill; this._rdoIndex1.Text = "Index 1"; this._rdoIndex1.Checked = true; this._rdoIndex1.Font = UiTheme.ButtonFont;
-            this._rdoIndex2.Dock = DockStyle.Fill; this._rdoIndex2.Text = "Index 2"; this._rdoIndex2.Font = UiTheme.ButtonFont;
-            this._rdoIndex4.Dock = DockStyle.Fill; this._rdoIndex4.Text = "Index 4"; this._rdoIndex4.Font = UiTheme.ButtonFont;
-            this._rdoIndex8.Dock = DockStyle.Fill; this._rdoIndex8.Text = "Index 8"; this._rdoIndex8.Font = UiTheme.ButtonFont;
-            this._roiPanel.Dock = DockStyle.Fill;
-            this._roiPanel.ColumnCount = 4;
-            this._roiPanel.RowCount = 2;
-            this._roiPanel.BackColor = UiTheme.OptionPanelBg;
-            this._roiPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25f));
-            this._roiPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25f));
-            this._roiPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25f));
-            this._roiPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25f));
-            this._roiPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 50f));
-            this._roiPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 50f));
-            this._roiPanel.Controls.Add(this._rdoMain, 0, 0);
-            this._roiPanel.Controls.Add(this._rdoSub, 1, 0);
-            this._roiPanel.Controls.Add(this._rdoChip, 2, 0);
-            this._roiPanel.Controls.Add(this._rdoCross, 3, 0);
-            this._roiPanel.Controls.Add(this._rdoIndex1, 0, 1);
-            this._roiPanel.Controls.Add(this._rdoIndex2, 1, 1);
-            this._roiPanel.Controls.Add(this._rdoIndex4, 2, 1);
-            this._roiPanel.Controls.Add(this._rdoIndex8, 3, 1);
-
             // ── 중 액션 3×3 (인라인) ──
             this._btnGrab.Dock = DockStyle.Fill; this._btnGrab.Text = "GRAB"; this._btnGrab.FlatStyle = FlatStyle.Flat; this._btnGrab.Font = UiTheme.ButtonFont; this._btnGrab.BackColor = UiTheme.Accent; this._btnGrab.ForeColor = Color.White;
             this._btnGrab.Click += new System.EventHandler(this.OnGrabClick);
@@ -159,8 +121,8 @@ namespace QMC.Vision.Ui.Pages
             this._btnTrain.Click += new System.EventHandler(this.OnTrainClick);
             this._btnLoad.Dock = DockStyle.Fill; this._btnLoad.Text = "LOAD"; this._btnLoad.FlatStyle = FlatStyle.Flat; this._btnLoad.Font = UiTheme.ButtonFont; this._btnLoad.BackColor = Color.White; this._btnLoad.ForeColor = Color.Black;
             this._btnLoad.Click += new System.EventHandler(this.OnLoadClick);
-            this._btnSave.Dock = DockStyle.Fill; this._btnSave.Text = "SAVE"; this._btnSave.FlatStyle = FlatStyle.Flat; this._btnSave.Font = UiTheme.ButtonFont; this._btnSave.BackColor = Color.White; this._btnSave.ForeColor = Color.Black;
-            this._btnSave.Click += new System.EventHandler(this.OnSaveClick);
+            this._btnSaveImg.Dock = DockStyle.Fill; this._btnSaveImg.Text = "이미지 저장"; this._btnSaveImg.FlatStyle = FlatStyle.Flat; this._btnSaveImg.Font = UiTheme.ButtonFont; this._btnSaveImg.BackColor = Color.White; this._btnSaveImg.ForeColor = Color.Black;
+            this._btnSaveImg.Click += new System.EventHandler(this.OnSaveImageClick);
             this._btnEditSearch.Dock = DockStyle.Fill; this._btnEditSearch.Text = "EDIT SEARCH ROI"; this._btnEditSearch.FlatStyle = FlatStyle.Flat; this._btnEditSearch.Font = UiTheme.ButtonFont; this._btnEditSearch.BackColor = Color.LightYellow; this._btnEditSearch.ForeColor = Color.Black;
             this._btnEditSearch.Click += new System.EventHandler(this.OnEditSearchClick);
             this._btnEditTrain.Dock = DockStyle.Fill; this._btnEditTrain.Text = "EDIT TRAIN ROI"; this._btnEditTrain.FlatStyle = FlatStyle.Flat; this._btnEditTrain.Font = UiTheme.ButtonFont; this._btnEditTrain.BackColor = Color.LightYellow; this._btnEditTrain.ForeColor = Color.Black;
@@ -178,33 +140,30 @@ namespace QMC.Vision.Ui.Pages
             this._actionPanel.Controls.Add(this._btnMatch, 1, 0);
             this._actionPanel.Controls.Add(this._btnTrain, 2, 0);
             this._actionPanel.Controls.Add(this._btnLoad, 0, 1);
-            this._actionPanel.Controls.Add(this._btnSave, 1, 1);
+            this._actionPanel.Controls.Add(this._btnSaveImg, 1, 1);
             this._actionPanel.Controls.Add(this._btnEditSearch, 2, 1);
             this._actionPanel.Controls.Add(this._btnEditTrain, 0, 2);
 
             this._center.Dock = DockStyle.Fill;
             this._center.ColumnCount = 1;
-            this._center.RowCount = 4;
+            this._center.RowCount = 2;
             this._center.Margin = Padding.Empty;
             this._center.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
             this._center.RowStyles.Add(new RowStyle(SizeType.Absolute, 24f));
-            this._center.RowStyles.Add(new RowStyle(SizeType.Absolute, 80f));
-            this._center.RowStyles.Add(new RowStyle(SizeType.Absolute, 24f));
             this._center.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
-            this._center.Controls.Add(this._secRoi, 0, 0);
-            this._center.Controls.Add(this._roiPanel, 0, 1);
-            this._center.Controls.Add(this._secAction, 0, 2);
-            this._center.Controls.Add(this._actionPanel, 0, 3);
+            this._center.Controls.Add(this._secAction, 0, 0);
+            this._center.Controls.Add(this._actionPanel, 0, 1);
 
-            // ── 우 (params + jog + speed) ──
+            // ── 우 (params + jog + speed) — JOG/SPEED 는 inert(비활성) ──
             this._params.Dock = DockStyle.Fill;
             this._jog.Dock = DockStyle.Fill;
+            this._jog.Enabled = false;
             this._trkSpeed.Dock = DockStyle.Fill;
             this._trkSpeed.Minimum = 0;
             this._trkSpeed.Maximum = 100;
             this._trkSpeed.Value = 50;
             this._trkSpeed.TickFrequency = 10;
-            this._trkSpeed.Scroll += new System.EventHandler(this.OnSpeedScroll);
+            this._trkSpeed.Enabled = false;
             this._lblSpeed.Dock = DockStyle.Fill;
             this._lblSpeed.Text = "50%";
             this._lblSpeed.Font = UiTheme.ValueFont;
@@ -276,7 +235,6 @@ namespace QMC.Vision.Ui.Pages
             this._speedPanel.ResumeLayout(false);
             this._right.ResumeLayout(false);
             this._actionPanel.ResumeLayout(false);
-            this._roiPanel.ResumeLayout(false);
             this._center.ResumeLayout(false);
             this._left.ResumeLayout(false);
             this._main.ResumeLayout(false);

@@ -1,24 +1,42 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.IO;
 using System.Windows.Forms;
+using QMC.Common.Recipes;   // VisionAlgorithm, InspectionLabel
 using QMC.Vision.Core;
 using QMC.Vision.Modules;
 
 namespace QMC.Vision.Ui.Pages
 {
     /// <summary>
-    /// Recipe — Handler VisionRecipePage 미러(우측 사이드바). 좌측 트리 제거(R2).
-    /// 사이드바(RecipeTab 경량 미러): 모듈 그룹 + 타깃 버튼 → lazy 페이지 스왑(_content).
-    /// 타깃 본문은 기존 호스트 페이지 재사용(FinderPage/InspectorPage/SpcChartPage/ParameterEditorHost) — 계약 보존.
-    /// 무인자 ctor / public ShowSpc·ShowParameterEditors 보존.
+    /// R2b — Handler VisionRecipePage 미러. 사이드바=검사 알고리즘 5개(평면) / 영속 세팅선택기 바=알고리즘의 finder/inspector
+    /// (상태점: 미설정 회색·설정완료 녹·변경됨 주황) / 본문 스왑 finder→VisionTargetPage·inspector→InspectorPage /
+    /// 상단바 SAVE=타깃 레시피저장(SaveParameters). 무인자 ctor·ShowSpc/ShowParameterEditors 보존.
     /// </summary>
     public partial class RecipePage : UserControl
     {
-        private readonly Dictionary<string, Func<UserControl>> _targets = new Dictionary<string, Func<UserControl>>();
+        private sealed class Setting
+        {
+            public VisionModule Module;
+            public string Id;
+            public bool IsFinder;
+            public IPatternFinder Finder;
+            public IInspector Inspector;
+        }
+
+        private static readonly Color DotOff   = Color.FromArgb(0x8C, 0x8C, 0x8C); // 미설정
+        private static readonly Color DotDone  = Color.FromArgb(0x2E, 0x7D, 0x32); // 설정완료
+        private static readonly Color DotDirty = Color.FromArgb(0xE8, 0x85, 0x1A); // 변경됨
+
+        private readonly Dictionary<string, VisionModule> _algoModules = new Dictionary<string, VisionModule>();
+        private readonly Dictionary<string, Button> _algoBtns = new Dictionary<string, Button>();
+        private readonly Dictionary<string, Setting> _settings = new Dictionary<string, Setting>();
+        private readonly Dictionary<string, Button> _setBtns = new Dictionary<string, Button>();
+        private readonly Dictionary<string, Panel> _setDots = new Dictionary<string, Panel>();
         private readonly Dictionary<string, UserControl> _cache = new Dictionary<string, UserControl>();
-        private readonly Dictionary<string, Button> _btns = new Dictionary<string, Button>();
-        private string _curKey;
+        private string _curAlgo;
+        private string _curSetKey;
 
         public RecipePage()
         {
@@ -27,87 +45,51 @@ namespace QMC.Vision.Ui.Pages
 
         private void OnPageLoad(object sender, EventArgs e) => BuildSidebar();
 
-        // ── public 진입 보존(기존 호출자 호환) ──
-        private void ShowSpc() => ShowTarget("__spc");
-        private void ShowParameterEditors() => ShowTarget("__params");
+        // ── public 진입 보존(계약 — 사이드바엔 없으나 프로그램적 진입 + verify grep) ──
+        private void ShowSpc()
+        {
+            _content.Controls.Clear();
+            _content.Controls.Add(new SpcChartPage { Dock = DockStyle.Fill });
+        }
+        private void ShowParameterEditors()
+        {
+            _content.Controls.Clear();
+            _content.Controls.Add(new Editors.ParameterEditorHost { Dock = DockStyle.Fill });
+        }
 
-        // ── 사이드바 구성(런타임) ──
+        // ── 사이드바: 검사 알고리즘 5개 평면 ──
         private void BuildSidebar()
         {
             var host = FindForm() as Form1;
             if (host == null) return;
 
             _sideFlow.Controls.Clear();
-            _targets.Clear();
-            _cache.Clear();
-            _btns.Clear();
-            _curKey = null;
+            _algoBtns.Clear();
+            _algoModules.Clear();
 
-            AddModuleGroup("Wafer vision",             host.WaferMod);
-            AddModuleGroup("Bin vision",               host.BinMod);
-            AddModuleGroup("Bottom inspection vision", host.BottomMod);
-            AddModuleGroup("Front side inspection",    host.FrontSideMod);
-            AddModuleGroup("Rear side inspection",     host.RearSideMod);
+            AddAlgoButton(host.WaferMod);
+            AddAlgoButton(host.BinMod);
+            AddAlgoButton(host.BottomMod);
+            AddAlgoButton(host.FrontSideMod);
+            AddAlgoButton(host.RearSideMod);
 
-            AddGroupHeader("일반");
-            AddTargetButton("SPC X-bar Chart", "__spc", () => new SpcChartPage { Dock = DockStyle.Fill });
-            AddTargetButton("검사 파라미터", "__params", () => new Editors.ParameterEditorHost { Dock = DockStyle.Fill });
-
-            // 첫 타깃 자동 선택
-            foreach (var kv in _targets) { ShowTarget(kv.Key); break; }
+            foreach (var kv in _algoBtns) { SelectAlgorithm(kv.Key); break; }
         }
 
-        private void AddModuleGroup(string label, VisionModule module)
+        private void AddAlgoButton(VisionModule module)
         {
             if (module == null) return;
-            AddGroupHeader(label + "  [" + module.Camera.Info.Id + "]");
-
-            foreach (var kv in module.Finders)
-            {
-                var mod = module; var finder = kv.Value; var fid = kv.Key;
-                // R2: 모든 Finder 타깃 = 신규 3열 VisionTargetPage(Handler VisionRecipePage 미러). Inspector 는 InspectorPage 유지.
-                AddTargetButton(fid, "F:" + label + ":" + fid,
-                    () => new VisionTargetPage(mod, finder) { Dock = DockStyle.Fill });
-            }
-            foreach (var kv in module.Inspectors)
-            {
-                var mod = module; var insp = kv.Value;
-                AddTargetButton(kv.Key, "I:" + label + ":" + kv.Key,
-                    () => new InspectorPage(mod, insp) { Dock = DockStyle.Fill });
-            }
-        }
-
-        private void AddGroupHeader(string text)
-        {
-            var lbl = new Label
-            {
-                Text = text,
-                AutoSize = false,
-                Width = 224,
-                Height = 24,
-                Margin = new Padding(0, 6, 0, 2),
-                Font = UiTheme.ButtonFont,
-                ForeColor = Color.Gainsboro,
-                BackColor = Color.FromArgb(0x40, 0x40, 0x40),
-                TextAlign = ContentAlignment.MiddleLeft,
-                Padding = new Padding(6, 0, 0, 0)
-            };
-            _sideFlow.Controls.Add(lbl);
-        }
-
-        /// <summary>타깃 버튼(상태 점 + 텍스트) — 클릭 시 lazy 페이지 스왑.</summary>
-        private void AddTargetButton(string text, string key, Func<UserControl> factory)
-        {
-            if (_targets.ContainsKey(key)) return;
-            _targets[key] = factory;
+            string key = module.AlgorithmKey;
+            if (string.IsNullOrEmpty(key) || _algoModules.ContainsKey(key)) return;
+            _algoModules[key] = module;
 
             var btn = new Button
             {
-                Text = "   " + text,
+                Text = "  " + VisionAlgorithm.Label(key),
                 Tag = key,
                 AutoSize = false,
                 Width = 224,
-                Height = 30,
+                Height = 34,
                 Margin = new Padding(0, 0, 0, 2),
                 FlatStyle = FlatStyle.Flat,
                 Font = UiTheme.ButtonFont,
@@ -116,57 +98,161 @@ namespace QMC.Vision.Ui.Pages
                 TextAlign = ContentAlignment.MiddleLeft
             };
             btn.FlatAppearance.BorderSize = 0;
-            // 상태 점(미설정=회색) — 좌측 색바. R3/리뷰에서 설정완료/변경됨 색 매핑.
-            var dot = new Panel { Width = 8, Height = 30, Dock = DockStyle.Left, BackColor = UiTheme.SidebarBtnBg };
-            dot.BackColor = Color.FromArgb(0x8C, 0x8C, 0x8C);
-            btn.Controls.Add(dot);
-            btn.Click += new EventHandler(OnTargetButtonClick);
-
-            _btns[key] = btn;
+            btn.Click += new EventHandler(OnAlgorithmClick);
+            _algoBtns[key] = btn;
             _sideFlow.Controls.Add(btn);
         }
 
-        private void OnTargetButtonClick(object sender, EventArgs e)
+        private void OnAlgorithmClick(object sender, EventArgs e)
         {
-            var btn = sender as Button;
-            if (btn?.Tag is string key) ShowTarget(key);
+            if (sender is Button b && b.Tag is string key) SelectAlgorithm(key);
         }
 
-        /// <summary>lazy 페이지 스왑(RecipeTab.ShowPage 미러) — 생성·캐시·가시성 토글.</summary>
-        private void ShowTarget(string key)
+        private void SelectAlgorithm(string algoKey)
         {
-            if (key == null || !_targets.ContainsKey(key)) return;
-
-            // 버튼 선택 표시
-            foreach (var kv in _btns)
+            if (!_algoModules.TryGetValue(algoKey, out var module)) return;
+            _curAlgo = algoKey;
+            foreach (var kv in _algoBtns)
             {
-                bool sel = kv.Key == key;
+                bool sel = kv.Key == algoKey;
                 kv.Value.BackColor = sel ? UiTheme.SidebarBtnSelBg : UiTheme.SidebarBtnBg;
                 kv.Value.ForeColor = sel ? UiTheme.SidebarBtnSelFg : UiTheme.SidebarBtnFg;
             }
+            BuildSettingSelector(module);
+        }
 
-            // 이전 페이지 숨김
-            if (_curKey != null && _cache.TryGetValue(_curKey, out var prev)) prev.Visible = false;
-            _curKey = key;
+        // ── 세팅선택기: 현 알고리즘의 finder/inspector ──
+        private void BuildSettingSelector(VisionModule module)
+        {
+            _setFlow.Controls.Clear();
+            _settings.Clear();
+            _setBtns.Clear();
+            _setDots.Clear();
+            _curSetKey = null;
 
-            // lazy 생성 + 캐시
+            foreach (var kv in module.Finders)
+                AddSetting(new Setting { Module = module, Id = kv.Key, IsFinder = true, Finder = kv.Value });
+            foreach (var kv in module.Inspectors)
+                AddSetting(new Setting { Module = module, Id = kv.Key, IsFinder = false, Inspector = kv.Value });
+
+            foreach (var kv in _settings) { ShowSetting(kv.Key); break; }
+        }
+
+        private void AddSetting(Setting s)
+        {
+            string key = (s.IsFinder ? "F:" : "I:") + s.Module.AlgorithmKey + ":" + s.Id;
+            if (_settings.ContainsKey(key)) return;
+            _settings[key] = s;
+
+            var btn = new Button
+            {
+                Text = "   " + InspectionLabel.Get(s.Module.AlgorithmKey, s.Id),
+                Tag = key,
+                AutoSize = false,
+                Width = 150,
+                Height = 30,
+                Margin = new Padding(0, 0, 4, 0),
+                FlatStyle = FlatStyle.Flat,
+                Font = UiTheme.ButtonFont,
+                BackColor = Color.White,
+                ForeColor = Color.Black,
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+            btn.FlatAppearance.BorderColor = Color.Silver;
+            var dot = new Panel { Width = 8, Dock = DockStyle.Left, BackColor = DotColor(key, s) };
+            btn.Controls.Add(dot);
+            btn.Click += new EventHandler(OnSettingClick);
+
+            _setBtns[key] = btn;
+            _setDots[key] = dot;
+            _setFlow.Controls.Add(btn);
+        }
+
+        private void OnSettingClick(object sender, EventArgs e)
+        {
+            if (sender is Button b && b.Tag is string key) ShowSetting(key);
+        }
+
+        private void ShowSetting(string key)
+        {
+            if (!_settings.TryGetValue(key, out var s)) return;
+
+            foreach (var kv in _setBtns)
+            {
+                bool sel = kv.Key == key;
+                kv.Value.BackColor = sel ? UiTheme.Accent : Color.White;
+                kv.Value.ForeColor = sel ? Color.White : Color.Black;
+            }
+
+            if (_curSetKey != null && _cache.TryGetValue(_curSetKey, out var prev)) prev.Visible = false;
+            _curSetKey = key;
+
             if (!_cache.TryGetValue(key, out var page))
             {
-                page = _targets[key]();
-                if (page != null)
+                if (s.IsFinder)
                 {
-                    page.Dock = DockStyle.Fill;
-                    page.Visible = false;
-                    _content.Controls.Add(page);
-                    _cache[key] = page;
+                    var vtp = new VisionTargetPage(s.Module, s.Finder) { Dock = DockStyle.Fill, Visible = false };
+                    string k = key;
+                    vtp.DirtyChanged += (snd, ev) => UpdateDot(k);
+                    page = vtp;
                 }
+                else
+                {
+                    page = new InspectorPage(s.Module, s.Inspector) { Dock = DockStyle.Fill, Visible = false };
+                }
+                _content.Controls.Add(page);
+                _cache[key] = page;
             }
-            if (page != null)
+            page.Visible = true;
+            page.BringToFront();
+
+            _hdr.Text = "Recipe — " + VisionAlgorithm.Label(_curAlgo) + " / " + InspectionLabel.Get(s.Module.AlgorithmKey, s.Id);
+            UpdateDot(key);
+        }
+
+        // ── 상태점 (미설정/설정완료/변경됨) ──
+        private string SettingPath(Setting s)
+        {
+            string id = (s.Id ?? "x").Replace('/', '_');
+            return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "VisionRecipe", s.Module.AlgorithmKey ?? "Unknown", id + ".json");
+        }
+
+        private Color DotColor(string key, Setting s)
+        {
+            bool hasData = File.Exists(SettingPath(s));
+            if (!hasData) return DotOff;
+            // 현재 표시 중 VisionTargetPage 가 dirty 면 주황
+            if (key == _curSetKey && _cache.TryGetValue(key, out var pg) && pg is VisionTargetPage vtp && vtp.IsDirty)
+                return DotDirty;
+            return DotDone;
+        }
+
+        private void UpdateDot(string key)
+        {
+            if (_settings.TryGetValue(key, out var s) && _setDots.TryGetValue(key, out var dot))
+                dot.BackColor = DotColor(key, s);
+        }
+
+        // ── 상단바 SAVE = 타깃 레시피 저장 ──
+        private void OnSaveRecipeClick(object sender, EventArgs e)
+        {
+            if (_curSetKey == null || !_settings.TryGetValue(_curSetKey, out var s)) return;
+            try
             {
-                page.Visible = true;
-                page.BringToFront();
-                if (_btns.TryGetValue(key, out var b)) _hdr.Text = "Recipe — " + b.Text.Trim();
+                if (_cache.TryGetValue(_curSetKey, out var pg) && pg is VisionTargetPage vtp)
+                {
+                    vtp.SaveTarget();   // finder.SaveParameters + dirty clear (DirtyChanged→UpdateDot)
+                }
+                else
+                {
+                    string path = SettingPath(s);
+                    Directory.CreateDirectory(Path.GetDirectoryName(path));
+                    if (s.IsFinder) s.Finder?.SaveParameters(path);
+                    else s.Inspector?.SaveParameters(path);
+                }
+                UpdateDot(_curSetKey);
             }
+            catch { }
         }
     }
 }
