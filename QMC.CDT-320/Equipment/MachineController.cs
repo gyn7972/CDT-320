@@ -2322,9 +2322,81 @@ namespace QMC.CDT320
                         return;
                 }
 
-                MachineRuntimeState state = MachineRuntimeStateStore.Load();
-                if (state == null || state.InitializeSteps == null || state.InitializeSteps.Count == 0)
+                AppSettings settings = AppSettingsStore.Current ?? AppSettingsStore.Load();
+                if (settings == null || !settings.DeveloperMode)
                     return;
+
+                MachineRuntimeState state = MachineRuntimeStateStore.Load();
+                if (state == null || !state.DeveloperMode)
+                    return;
+
+                if (state.InitializeSteps != null && state.InitializeSteps.Count > 0)
+                    RestoreAxisInitializeStepRuntimeState(state);
+                else
+                    RestoreAxisInitializeStepRuntimeStateFromSavedAxes(state);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "MachineRuntimeRestore",
+                    "Initialize step fallback restore failed: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+                _restoringAxisInitializeStepState = false;
+            }
+        }
+
+        private void RestoreAxisInitializeStepRuntimeStateFromSavedAxes(MachineRuntimeState state)
+        {
+            try
+            {
+                ClearAxisInitializeStepStates();
+                if (state == null || state.Axes == null || state.Axes.Count == 0)
+                    return;
+
+                AxisInitializePlan plan = AxisInitializePlanStore.LoadOrCreateDefault(EnumerateAxes());
+                if (plan == null || plan.Steps == null)
+                    return;
+
+                var savedAxes = state.Axes
+                    .Where(x => x != null && !string.IsNullOrWhiteSpace(x.Name))
+                    .GroupBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
+                    .ToDictionary(x => x.Key, x => x.First(), StringComparer.OrdinalIgnoreCase);
+
+                _restoringAxisInitializeStepState = true;
+                foreach (AxisInitializeStep step in plan.Steps.Where(x => x != null && x.Enabled))
+                {
+                    if (step.AxisNames == null || step.AxisNames.Count == 0)
+                    {
+                        if (state.IsMachineInitialized)
+                            SetAxisInitializeStepProgress(
+                                AxisInitializeStepProgress.Create(step, AxisInitializeStepStatus.Complete, ""),
+                                false);
+                        continue;
+                    }
+
+                    bool ready = true;
+                    foreach (string axisName in step.AxisNames)
+                    {
+                        MachineAxisRuntimeState axisState;
+                        if (string.IsNullOrWhiteSpace(axisName) ||
+                            !savedAxes.TryGetValue(axisName, out axisState) ||
+                            !axisState.IsServoOn ||
+                            axisState.IsAlarm ||
+                            !axisState.IsHomeDone)
+                        {
+                            ready = false;
+                            break;
+                        }
+                    }
+
+                    if (ready)
+                    {
+                        SetAxisInitializeStepProgress(
+                            AxisInitializeStepProgress.Create(step, AxisInitializeStepStatus.Complete, ""),
+                            false);
+                    }
+                }
 
                 _restoringAxisInitializeStepState = false;
                 SaveMachineRuntimeState("InitializeStepStatusRebuiltFromSavedAxes");
