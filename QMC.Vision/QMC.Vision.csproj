@@ -147,13 +147,13 @@
       <DependentUpon>CameraView.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Controls\IlluminatorPanel.cs">
-      <SubType>UserControl</SubType>
+      <SubType>Component</SubType>
     </Compile>
     <Compile Include="Ui\Controls\IlluminatorPanel.Designer.cs">
       <DependentUpon>IlluminatorPanel.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Controls\JogBox.cs">
-      <SubType>UserControl</SubType>
+      <SubType>Component</SubType>
     </Compile>
     <Compile Include="Ui\Controls\JogBox.Designer.cs">
       <DependentUpon>JogBox.cs</DependentUpon>
