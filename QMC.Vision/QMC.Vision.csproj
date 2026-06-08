@@ -204,6 +204,9 @@
     <Compile Include="Ui\Pages\SpcChartPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="Ui\Pages\SpcChartPage.Designer.cs">
+      <DependentUpon>SpcChartPage.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Editors\ParameterEditorBase.cs">
       <SubType>UserControl</SubType>
     </Compile>
