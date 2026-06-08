@@ -3,7 +3,7 @@
 생성: 2026-06-08 (verify 스위트 재정립 Stage 2).
 
 ## 격리 사유
-여기 36개 스크립트(`verify_handler_features.pl` + Handler 계열 `verify_stageN.pl`)는
+여기 37개 스크립트(`verify_handler_features.pl` + Handler 계열 `verify_stageN.pl`)는
 **은퇴된 백업 repo(`D:/Work/CDT-320/QMC.CDT-320`)의 구 AI Handler 스캐폴딩** 기준으로 작성됐다.
 현행 flat 트리 `D:/Work/source/QMC.CDT-320` 의 Handler 는 origin(팀) 대규모 머지로 교체된
 **권위 코드베이스**라, 이 스크립트들이 검사하는 파일/심볼 체계와 불일치한다.
@@ -26,8 +26,11 @@
 **Handler UI 디자이너 스윕**(QMC.CDT-320, 현재 범위 밖, 30+ 파일) 진행 시,
 팀 권위 Handler 아키텍처 기준으로 이 체크들을 재작성/되살리는 것을 고려한다.
 
-## 격리 목록 (36)
-handler_features, stage3, stage5, stage7, stage8, stage9, stage10, stage11, stage12, stage13,
-stage16, stage19, stage20, stage21, stage22, stage23, stage24, stage25, stage26, stage27,
-stage28, stage29, stage30, stage31, stage32, stage43, stage44, stage45, stage46, stage47,
-stage48, stage49, stage50, stage51, stage53, stage54
+## 격리 목록 (37)
+handler_features, stage3, stage4, stage5, stage7, stage8, stage9, stage10, stage11, stage12,
+stage13, stage16, stage19, stage20, stage21, stage22, stage23, stage24, stage25, stage26,
+stage27, stage28, stage29, stage30, stage31, stage32, stage43, stage44, stage45, stage46,
+stage47, stage48, stage49, stage50, stage51, stage53, stage54
+
+(stage4 는 RemoteViewerDialog/ActiveLotPage/SecsHost/SettingsTab/WorkInfoTab/Handler-csproj/Lang 등
+Handler 지배적이라 추가 격리. Vision ConfigurationPage Cognex 진단은 stage2 가 커버.)

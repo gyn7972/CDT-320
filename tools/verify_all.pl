@@ -6,7 +6,7 @@ use strict; use warnings; use FindBin;
 
 # 코어 정적 베이스라인 — 현행 트리(Vision 디자이너 스윕 반영) 대상만. Handler 빌드에 비의존.
 my @stages = qw(
-    stage2 stage4 stage6 stage52
+    stage2 stage6 stage52
     stage14 stage15 stage17 stage18
 );
 
