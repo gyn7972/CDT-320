@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Drawing;
 using System.Windows.Forms;
 using QMC.Vision.Core;
 using QMC.Vision.Modules;
@@ -6,78 +8,164 @@ using QMC.Vision.Modules;
 namespace QMC.Vision.Ui.Pages
 {
     /// <summary>
-    /// Recipe — 좌측 트리(5 모듈: Wafer/Bin/Bottom/FrontSide/RearSide) → FinderPage/InspectorPage 전환.
-    /// Form1 의 모듈 인스턴스를 공유(Load 이벤트에서 해석).
-    /// Stage 93 — Designer/Code 분리. 정적 shell 은 .Designer.cs, 트리 채움/패널 전환은 Code.
+    /// Recipe — Handler VisionRecipePage 미러(우측 사이드바). 좌측 트리 제거(R2).
+    /// 사이드바(RecipeTab 경량 미러): 모듈 그룹 + 타깃 버튼 → lazy 페이지 스왑(_content).
+    /// 타깃 본문은 기존 호스트 페이지 재사용(FinderPage/InspectorPage/SpcChartPage/ParameterEditorHost) — 계약 보존.
+    /// 무인자 ctor / public ShowSpc·ShowParameterEditors 보존.
     /// </summary>
     public partial class RecipePage : UserControl
     {
+        private readonly Dictionary<string, Func<UserControl>> _targets = new Dictionary<string, Func<UserControl>>();
+        private readonly Dictionary<string, UserControl> _cache = new Dictionary<string, UserControl>();
+        private readonly Dictionary<string, Button> _btns = new Dictionary<string, Button>();
+        private string _curKey;
+
         public RecipePage()
         {
             InitializeComponent();
         }
 
-        // ── 이벤트 핸들러 (Designer 에서 named 연결) ──
-        private void OnSpcClick(object sender, EventArgs e) => ShowSpc();
-        private void OnParamsClick(object sender, EventArgs e) => ShowParameterEditors();
+        private void OnPageLoad(object sender, EventArgs e) => BuildSidebar();
 
-        private void OnTreeAfterSelect(object sender, TreeViewEventArgs e)
-        {
-            if (e.Node.Tag is FinderLauncher fl) ShowFinder(fl.Module, fl.Finder);
-            else if (e.Node.Tag is InspectorLauncher il) ShowInspector(il.Module, il.Inspector);
-        }
+        // ── public 진입 보존(기존 호출자 호환) ──
+        private void ShowSpc() => ShowTarget("__spc");
+        private void ShowParameterEditors() => ShowTarget("__params");
 
-        private void OnPageLoad(object sender, EventArgs e) => PopulateTree();
-
-        private class FinderLauncher    { public VisionModule Module; public IPatternFinder Finder; }
-        private class InspectorLauncher { public VisionModule Module; public IInspector     Inspector; }
-
-        private void PopulateTree()
+        // ── 사이드바 구성(런타임) ──
+        private void BuildSidebar()
         {
             var host = FindForm() as Form1;
             if (host == null) return;
 
-            _tree.Nodes.Clear();
-            AddModuleNode("Wafer vision",             host.WaferMod);
-            AddModuleNode("Bin vision",               host.BinMod);
-            AddModuleNode("Bottom inspection vision", host.BottomMod);
-            AddModuleNode("Front side inspection",    host.FrontSideMod);  // Stage 65 — 누락 모듈 추가
-            AddModuleNode("Rear side inspection",     host.RearSideMod);   // Stage 65 — 누락 모듈 추가
-            _tree.ExpandAll();
+            _sideFlow.Controls.Clear();
+            _targets.Clear();
+            _cache.Clear();
+            _btns.Clear();
+            _curKey = null;
+
+            AddModuleGroup("Wafer vision",             host.WaferMod);
+            AddModuleGroup("Bin vision",               host.BinMod);
+            AddModuleGroup("Bottom inspection vision", host.BottomMod);
+            AddModuleGroup("Front side inspection",    host.FrontSideMod);
+            AddModuleGroup("Rear side inspection",     host.RearSideMod);
+
+            AddGroupHeader("일반");
+            AddTargetButton("SPC X-bar Chart", "__spc", () => new SpcChartPage { Dock = DockStyle.Fill });
+            AddTargetButton("검사 파라미터", "__params", () => new Editors.ParameterEditorHost { Dock = DockStyle.Fill });
+
+            // 첫 타깃 자동 선택
+            foreach (var kv in _targets) { ShowTarget(kv.Key); break; }
         }
 
-        private void AddModuleNode(string label, VisionModule module)
+        private void AddModuleGroup(string label, VisionModule module)
         {
             if (module == null) return;
-            var root = _tree.Nodes.Add(label + "  [" + module.Camera.Info.Id + "]");
+            AddGroupHeader(label + "  [" + module.Camera.Info.Id + "]");
+
             foreach (var kv in module.Finders)
-                root.Nodes.Add(new TreeNode(kv.Key) { Tag = new FinderLauncher { Module = module, Finder = kv.Value } });
+            {
+                var mod = module; var finder = kv.Value;
+                AddTargetButton(kv.Key, "F:" + label + ":" + kv.Key,
+                    () => new FinderPage(mod, finder) { Dock = DockStyle.Fill });
+            }
             foreach (var kv in module.Inspectors)
-                root.Nodes.Add(new TreeNode(kv.Key) { Tag = new InspectorLauncher { Module = module, Inspector = kv.Value } });
+            {
+                var mod = module; var insp = kv.Value;
+                AddTargetButton(kv.Key, "I:" + label + ":" + kv.Key,
+                    () => new InspectorPage(mod, insp) { Dock = DockStyle.Fill });
+            }
         }
 
-        private void ShowFinder(VisionModule mod, IPatternFinder f)
+        private void AddGroupHeader(string text)
         {
-            _content.Controls.Clear();
-            _content.Controls.Add(new FinderPage(mod, f) { Dock = DockStyle.Fill });
+            var lbl = new Label
+            {
+                Text = text,
+                AutoSize = false,
+                Width = 224,
+                Height = 24,
+                Margin = new Padding(0, 6, 0, 2),
+                Font = UiTheme.ButtonFont,
+                ForeColor = Color.Gainsboro,
+                BackColor = Color.FromArgb(0x40, 0x40, 0x40),
+                TextAlign = ContentAlignment.MiddleLeft,
+                Padding = new Padding(6, 0, 0, 0)
+            };
+            _sideFlow.Controls.Add(lbl);
         }
 
-        private void ShowInspector(VisionModule mod, IInspector i)
+        /// <summary>타깃 버튼(상태 점 + 텍스트) — 클릭 시 lazy 페이지 스왑.</summary>
+        private void AddTargetButton(string text, string key, Func<UserControl> factory)
         {
-            _content.Controls.Clear();
-            _content.Controls.Add(new InspectorPage(mod, i) { Dock = DockStyle.Fill });
+            if (_targets.ContainsKey(key)) return;
+            _targets[key] = factory;
+
+            var btn = new Button
+            {
+                Text = "   " + text,
+                Tag = key,
+                AutoSize = false,
+                Width = 224,
+                Height = 30,
+                Margin = new Padding(0, 0, 0, 2),
+                FlatStyle = FlatStyle.Flat,
+                Font = UiTheme.ButtonFont,
+                BackColor = UiTheme.SidebarBtnBg,
+                ForeColor = UiTheme.SidebarBtnFg,
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+            btn.FlatAppearance.BorderSize = 0;
+            // 상태 점(미설정=회색) — 좌측 색바. R3/리뷰에서 설정완료/변경됨 색 매핑.
+            var dot = new Panel { Width = 8, Height = 30, Dock = DockStyle.Left, BackColor = UiTheme.SidebarBtnBg };
+            dot.BackColor = Color.FromArgb(0x8C, 0x8C, 0x8C);
+            btn.Controls.Add(dot);
+            btn.Click += new EventHandler(OnTargetButtonClick);
+
+            _btns[key] = btn;
+            _sideFlow.Controls.Add(btn);
         }
 
-        private void ShowSpc()
+        private void OnTargetButtonClick(object sender, EventArgs e)
         {
-            _content.Controls.Clear();
-            _content.Controls.Add(new SpcChartPage { Dock = DockStyle.Fill });
+            var btn = sender as Button;
+            if (btn?.Tag is string key) ShowTarget(key);
         }
 
-        private void ShowParameterEditors()
+        /// <summary>lazy 페이지 스왑(RecipeTab.ShowPage 미러) — 생성·캐시·가시성 토글.</summary>
+        private void ShowTarget(string key)
         {
-            _content.Controls.Clear();
-            _content.Controls.Add(new Editors.ParameterEditorHost { Dock = DockStyle.Fill });
+            if (key == null || !_targets.ContainsKey(key)) return;
+
+            // 버튼 선택 표시
+            foreach (var kv in _btns)
+            {
+                bool sel = kv.Key == key;
+                kv.Value.BackColor = sel ? UiTheme.SidebarBtnSelBg : UiTheme.SidebarBtnBg;
+                kv.Value.ForeColor = sel ? UiTheme.SidebarBtnSelFg : UiTheme.SidebarBtnFg;
+            }
+
+            // 이전 페이지 숨김
+            if (_curKey != null && _cache.TryGetValue(_curKey, out var prev)) prev.Visible = false;
+            _curKey = key;
+
+            // lazy 생성 + 캐시
+            if (!_cache.TryGetValue(key, out var page))
+            {
+                page = _targets[key]();
+                if (page != null)
+                {
+                    page.Dock = DockStyle.Fill;
+                    page.Visible = false;
+                    _content.Controls.Add(page);
+                    _cache[key] = page;
+                }
+            }
+            if (page != null)
+            {
+                page.Visible = true;
+                page.BringToFront();
+                if (_btns.TryGetValue(key, out var b)) _hdr.Text = "Recipe — " + b.Text.Trim();
+            }
         }
     }
 }
