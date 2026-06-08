@@ -1669,6 +1669,7 @@ namespace QMC.CDT320
                     case "OutputFeederY":
                         return await PrepareOutputFeederYHomeByAxisAsync(axis).ConfigureAwait(false);
                     case "CameraX":
+                    case "InputVisionX":
                     case "FrontPickerX":
                     case "RearPickerX":
                     case "OutputVisionX":
@@ -2328,6 +2329,8 @@ namespace QMC.CDT320
                 string groupName = step != null ? step.GroupName : "";
                 if (string.Equals(groupName, "SharedRailX", StringComparison.OrdinalIgnoreCase))
                     return await MoveSharedRailAxesToAvoidAsync().ConfigureAwait(false);
+                if (string.Equals(groupName, "RearPickerX", StringComparison.OrdinalIgnoreCase))
+                    return await MoveSharedRailAxesToAvoidAsync().ConfigureAwait(false);
                 if (string.Equals(groupName, "OutputStageZ", StringComparison.OrdinalIgnoreCase))
                     return await MoveOutputStageZToAvoidAsync().ConfigureAwait(false);
 
@@ -2417,6 +2420,10 @@ namespace QMC.CDT320
 
         private async Task<int> MoveInputSafeXAxesToAvoidAsync()
         {
+            int pickerResult = await MoveFrontRearPickerXToAvoidAsync().ConfigureAwait(false);
+            if (pickerResult != 0)
+                return pickerResult;
+
             if (_machine.InputStageUnit != null &&
                 _machine.InputStageUnit.CameraX != null &&
                 _machine.InputStageUnit.Recipe != null &&
@@ -2428,6 +2435,40 @@ namespace QMC.CDT320
                     "InputVisionX.Avoid").ConfigureAwait(false);
                 if (result != 0)
                     return result;
+            }
+
+            return 0;
+        }
+
+        private async Task<int> MoveFrontRearPickerXToAvoidAsync()
+        {
+            BaseAxis frontAxis = _machine.PickerFrontUnit != null ? _machine.PickerFrontUnit.PickerX : null;
+            BaseAxis rearAxis = _machine.PickerRearUnit != null ? _machine.PickerRearUnit.PickerX : null;
+            bool canMoveFront = frontAxis != null &&
+                frontAxis.IsHomeDone &&
+                _machine.PickerFrontUnit.Recipe != null &&
+                _machine.PickerFrontUnit.Recipe.PickerX != null;
+            bool canMoveRear = rearAxis != null &&
+                rearAxis.IsHomeDone &&
+                _machine.PickerRearUnit.Recipe != null &&
+                _machine.PickerRearUnit.Recipe.PickerX != null;
+
+            if (canMoveFront && canMoveRear && SharedRailX != null)
+            {
+                double frontTarget = _machine.PickerFrontUnit.Recipe.PickerX.AvoidPosition;
+                double rearTarget = _machine.PickerRearUnit.Recipe.PickerX.AvoidPosition;
+                double velocity = Math.Min(ResolveAxisDefaultVelocity(frontAxis), ResolveAxisDefaultVelocity(rearAxis));
+                if (velocity <= 0.0)
+                    velocity = ResolveAxisDefaultVelocity(frontAxis);
+
+                int result = await SharedRailX.MoveFrontAndRearPickerAsync(
+                    frontTarget,
+                    rearTarget,
+                    velocity).ConfigureAwait(false);
+                if (result != 0 || frontAxis.IsAlarm || rearAxis.IsAlarm)
+                    return FailInitializePreparation("FrontPickerX/RearPickerX Avoid 이동 실패. result=" + result);
+
+                return 0;
             }
 
             if (_machine.PickerFrontUnit != null &&
