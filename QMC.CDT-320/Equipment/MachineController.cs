@@ -275,23 +275,23 @@ namespace QMC.CDT320
             {
                 settings = settings ?? AppSettingsStore.Current ?? AppSettingsStore.Load();
                 _isDeveloperReadyRestored = false;
+                var state = MachineRuntimeStateStore.Load();
 
                 if (!settings.DeveloperMode)
                 {
-                    ClearAxisInitializeStepStates();
+                    RestoreAxisInitializeStepRuntimeState(state);
                     SetMachineInitialized(false, "StartupNormalMode", true);
                     QMC.Common.Log.Write("Main", "SYSTEM", "MachineRuntimeRestore",
                         "Machine initialized state is false on normal startup. - Ok");
                     return;
                 }
 
-                var state = MachineRuntimeStateStore.Load();
                 if (settings.BypassHardware && state != null)
                     RestoreBypassAxisRuntimeState(state);
 
                 if (state == null || !state.IsMachineInitialized)
                 {
-                    ClearAxisInitializeStepStates();
+                    RestoreAxisInitializeStepRuntimeState(state);
                     SetMachineInitialized(false, "DeveloperModeNoSavedReady", true);
                     QMC.Common.Log.Write("Main", "SYSTEM", "MachineRuntimeRestore",
                         "Developer mode is on, but saved initialized state does not exist. - Failed");
@@ -303,7 +303,7 @@ namespace QMC.CDT320
                 string reason;
                 if (!ValidateDeveloperRuntimeState(settings, state, out reason))
                 {
-                    ClearAxisInitializeStepStates();
+                    RestoreAxisInitializeStepRuntimeState(state);
                     SetMachineInitialized(false, "DeveloperModeRestoreFailed", true);
                     QMC.Common.Log.Write("Main", "SYSTEM", "MachineRuntimeRestore",
                         "Developer mode initialized state restore failed: " + reason + " - Failed");
@@ -323,7 +323,7 @@ namespace QMC.CDT320
             }
             catch (Exception ex)
             {
-                ClearAxisInitializeStepStates();
+                RestoreAxisInitializeStepRuntimeState(MachineRuntimeStateStore.Load());
                 SetMachineInitialized(false, "StartupRestoreException", true);
                 QMC.Common.Log.Write("Main", "SYSTEM", "MachineRuntimeRestore",
                     "Machine initialized state restore failed: " + ex.Message + " - Failed");
@@ -2183,6 +2183,11 @@ namespace QMC.CDT320
 
         private void SetAxisInitializeStepProgress(AxisInitializeStepProgress progress)
         {
+            SetAxisInitializeStepProgress(progress, true);
+        }
+
+        private void SetAxisInitializeStepProgress(AxisInitializeStepProgress progress, bool persist)
+        {
             try
             {
                 if (progress == null)
@@ -2199,6 +2204,9 @@ namespace QMC.CDT320
                             Message = progress.Message ?? ""
                         };
                 }
+
+                if (persist)
+                    SaveMachineRuntimeState("InitializeStepProgress:" + progress.StepNo + ":" + (progress.GroupName ?? ""));
             }
             catch
             {
@@ -2254,7 +2262,7 @@ namespace QMC.CDT320
                         GroupName = saved.GroupName ?? "",
                         Status = saved.Status ?? "",
                         Message = saved.Message ?? ""
-                    });
+                    }, false);
                 }
 
                 QMC.Common.Log.Write("Main", "SYSTEM", "MachineRuntimeRestore",
@@ -2280,22 +2288,9 @@ namespace QMC.CDT320
                         return;
                 }
 
-                AppSettings settings = AppSettingsStore.Current ?? AppSettingsStore.Load();
-                if (settings == null || !settings.DeveloperMode)
-                    return;
-
                 MachineRuntimeState state = MachineRuntimeStateStore.Load();
-                if (state == null || !state.IsMachineInitialized || !state.DeveloperMode ||
-                    state.InitializeSteps == null || state.InitializeSteps.Count == 0)
+                if (state == null || state.InitializeSteps == null || state.InitializeSteps.Count == 0)
                     return;
-
-                string reason;
-                if (!ValidateDeveloperRuntimeState(settings, state, out reason))
-                {
-                    QMC.Common.Log.Write("Main", "SYSTEM", "MachineRuntimeRestore",
-                        "Initialize step fallback restore skipped: " + reason + " - Failed");
-                    return;
-                }
 
                 RestoreAxisInitializeStepRuntimeState(state);
             }
@@ -2334,12 +2329,6 @@ namespace QMC.CDT320
                 if (step == null)
                 {
                     reason = "초기화 Step 정보가 없습니다. 다시 초기화가 필요합니다.";
-                    return false;
-                }
-
-                if (_status == EquipmentStatus.Alarm)
-                {
-                    reason = "장비 Alarm 상태입니다. 알람 해제 후 다시 초기화가 필요합니다.";
                     return false;
                 }
 
