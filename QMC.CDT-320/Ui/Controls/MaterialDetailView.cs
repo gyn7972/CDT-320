@@ -25,6 +25,8 @@ namespace QMC.CDT_320.Ui.Controls
     public sealed partial class MaterialDetailView : UserControl
     {
         public event EventHandler<MaterialDetailEditEventArgs> EditRequested;
+        public event EventHandler CreateDataRequested;
+        public event EventHandler ClearDataRequested;
 
         public MaterialDetailView()
         {
@@ -100,6 +102,20 @@ namespace QMC.CDT_320.Ui.Controls
             var handler = EditRequested;
             if (handler != null)
                 handler(this, new MaterialDetailEditEventArgs(row));
+        }
+
+        private void btnCreateData_Click(object sender, EventArgs e)
+        {
+            var handler = CreateDataRequested;
+            if (handler != null)
+                handler(this, EventArgs.Empty);
+        }
+
+        private void btnClearData_Click(object sender, EventArgs e)
+        {
+            var handler = ClearDataRequested;
+            if (handler != null)
+                handler(this, EventArgs.Empty);
         }
 
         private static string Normalize(string value)

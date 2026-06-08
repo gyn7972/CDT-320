@@ -101,6 +101,7 @@
     <Compile Include="Equipment\Motion\SharedRailX\SharedRailXCollisionValidator.cs" />
     <Compile Include="Equipment\Motion\SharedRailX\SharedRailXMotionService.cs" />
     <Compile Include="Equipment\Motion\SharedRailX\SharedRailXMotionRuntime.cs" />
+    <Compile Include="Equipment\Motion\SharedRailX\SharedRailXConfigStore.cs" />
     <Compile Include="Equipment\Initialization\AxisInitializeInterlockService.cs" />
     <Compile Include="Equipment\Initialization\AxisInitializePlan.cs" />
     <Compile Include="Equipment\Interlocks\InputCassetteInterlockRules.cs" />
@@ -318,6 +319,8 @@
     <Compile Include="Sequencing\UnitSequenceBase.cs" />
     <Compile Include="Sequencing\AutoSequenceCoordinator.cs" />
     <Compile Include="Sequencing\InputCassetteSequence.cs" />
+    <Compile Include="Sequencing\InputFeederSequence.cs" />
+    <Compile Include="Sequencing\InputStageSequence.cs" />
     <Compile Include="Sequencing\InputSequence.cs" />
     <!-- Equipment / Alarms -->
     <!-- Equipment / Logging -->
@@ -503,6 +506,12 @@
     </Compile>
     <Compile Include="Ui\Dialogs\InitializationMonitorDialog.Designer.cs">
       <DependentUpon>InitializationMonitorDialog.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Dialogs\SharedRailXSetupDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\SharedRailXSetupDialog.Designer.cs">
+      <DependentUpon>SharedRailXSetupDialog.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Dialogs\LoginDialog.cs">
       <SubType>Form</SubType>
@@ -913,6 +922,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\WorkInfo\InputFeederPage.resx">
       <DependentUpon>InputFeederPage.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\WorkInfo\InputStagePage.resx">
+      <DependentUpon>InputStagePage.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\WorkInfo\OperationPanelStatusPage.resx">
       <DependentUpon>OperationPanelStatusPage.cs</DependentUpon>

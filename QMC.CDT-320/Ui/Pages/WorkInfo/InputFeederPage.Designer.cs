@@ -1,15 +1,26 @@
-﻿using System;
 using System.Drawing;
 using System.Windows.Forms;
+using QMC.CDT_320.Ui.Controls;
 
 namespace QMC.CDT_320.Ui.Pages.WorkInfo
 {
     partial class InputFeederPage
     {
-        private Panel rootPanel;
-        private Panel pnlWork;
-        private Panel pnlCylinder;
-        private Panel pnlInfo;
+        private TableLayoutPanel rootPanel;
+        private Label lblHeader;
+        private TableLayoutPanel topLayout;
+        private TableLayoutPanel contentLayout;
+        private GroupBox pnlWork;
+        private GroupBox pnlCylinder;
+        private GroupBox pnlInfo;
+        private TableLayoutPanel workLayout;
+        private TableLayoutPanel cylinderLayout;
+        private TableLayoutPanel infoLayout;
+        private Button btnRefreshMaterial;
+        private MaterialDetailView materialDetailView;
+        private TableLayoutPanel axisPanel;
+        private TableLayoutPanel ringPanel;
+        private TableLayoutPanel overloadPanel;
         private Label lblWorkHeader;
         private Label lblCylinderHeader;
         private Label lblInfoHeader;
@@ -25,188 +36,367 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private Label lblRingCaption;
         private Label _markOverload;
         private Label lblOverloadCaption;
-
-        private static readonly Color CdtPageBg = Color.FromArgb(0xC9, 0xCB, 0xCD);
-        private static readonly Color CdtHeaderBg = Color.FromArgb(0xF0, 0x78, 0x00);
-        private static readonly Color CdtLabelBg = Color.FromArgb(0xB8, 0xBC, 0xC2);
-        private static readonly Color CdtValueBg = Color.FromArgb(0xA9, 0xAB, 0xAE);
+        private FlowLayoutPanel actionsLayout;
+        private ActionButton btnLoadFromCassette;
+        private ActionButton btnLoadToStage;
+        private ActionButton btnUnloadFromStage;
+        private ActionButton btnUnloadToCassette;
+        private ActionButton btnRecover;
+        private ActionButton btnStop;
 
         private void InitializeComponent()
         {
-            this.rootPanel = new Panel();
-            this.pnlWork = new Panel();
-            this.pnlCylinder = new Panel();
-            this.pnlInfo = new Panel();
-            this.lblWorkHeader = CreateHeaderLabel("작업 정보");
-            this.lblCylinderHeader = CreateHeaderLabel("FEEDER 실린더 정보");
-            this.lblInfoHeader = CreateHeaderLabel("정보");
-            this.lblExistCaption = CreateCaptionLabel("EXIST");
-            this._lblExist = CreateValueLabel("--");
-            this.lblClampCaption = CreateCaptionLabel("FEEDER CLAMP");
-            this._lblClampState = CreateValueLabel("--");
-            this.lblUpDownCaption = CreateCaptionLabel("FEEDER UP DOWN");
-            this._lblUpDownState = CreateValueLabel("--");
-            this.lblFeederPosCaption = CreateCaptionLabel("FEEDER AXIS Y");
-            this._lblFeederPos = CreateValueLabel("0 um");
-            this._markRing = CreateMarker();
-            this.lblRingCaption = CreateSensorLabel("FEEDER RING CHECK");
-            this._markOverload = CreateMarker();
-            this.lblOverloadCaption = CreateSensorLabel("FEEDER OVERLOAD CHECK");
+            this.rootPanel = new TableLayoutPanel();
+            this.lblHeader = new Label();
+            this.topLayout = new TableLayoutPanel();
+            this.axisPanel = new TableLayoutPanel();
+            this.lblFeederPosCaption = new Label();
+            this._lblFeederPos = new Label();
+            this.ringPanel = new TableLayoutPanel();
+            this._markRing = new Label();
+            this.lblRingCaption = new Label();
+            this.overloadPanel = new TableLayoutPanel();
+            this._markOverload = new Label();
+            this.lblOverloadCaption = new Label();
+            this.contentLayout = new TableLayoutPanel();
+            this.pnlWork = new GroupBox();
+            this.workLayout = new TableLayoutPanel();
+            this.lblWorkHeader = new Label();
+            this.lblExistCaption = new Label();
+            this._lblExist = new Label();
+            this.pnlCylinder = new GroupBox();
+            this.cylinderLayout = new TableLayoutPanel();
+            this.lblCylinderHeader = new Label();
+            this.lblClampCaption = new Label();
+            this._lblClampState = new Label();
+            this.lblUpDownCaption = new Label();
+            this._lblUpDownState = new Label();
+            this.pnlInfo = new GroupBox();
+            this.infoLayout = new TableLayoutPanel();
+            this.btnRefreshMaterial = new Button();
+            this.materialDetailView = new MaterialDetailView();
+            this.lblInfoHeader = new Label();
+            this.actionsLayout = new FlowLayoutPanel();
+            this.btnLoadFromCassette = new ActionButton();
+            this.btnLoadToStage = new ActionButton();
+            this.btnUnloadFromStage = new ActionButton();
+            this.btnUnloadToCassette = new ActionButton();
+            this.btnRecover = new ActionButton();
+            this.btnStop = new ActionButton();
             this.rootPanel.SuspendLayout();
+            this.topLayout.SuspendLayout();
+            this.axisPanel.SuspendLayout();
+            this.ringPanel.SuspendLayout();
+            this.overloadPanel.SuspendLayout();
+            this.contentLayout.SuspendLayout();
             this.pnlWork.SuspendLayout();
+            this.workLayout.SuspendLayout();
             this.pnlCylinder.SuspendLayout();
+            this.cylinderLayout.SuspendLayout();
             this.pnlInfo.SuspendLayout();
+            this.infoLayout.SuspendLayout();
+            this.actionsLayout.SuspendLayout();
             this.SuspendLayout();
 
-            ConfigureSectionPanel(this.pnlWork, BorderStyle.FixedSingle);
-            ConfigureSectionPanel(this.pnlCylinder, BorderStyle.FixedSingle);
-            ConfigureSectionPanel(this.pnlInfo, BorderStyle.None);
-
-            this.pnlWork.Controls.Add(this.lblExistCaption);
-            this.pnlWork.Controls.Add(this._lblExist);
-            this.pnlWork.Controls.Add(this.lblWorkHeader);
-
-            this.pnlCylinder.Controls.Add(this.lblClampCaption);
-            this.pnlCylinder.Controls.Add(this._lblClampState);
-            this.pnlCylinder.Controls.Add(this.lblUpDownCaption);
-            this.pnlCylinder.Controls.Add(this._lblUpDownState);
-            this.pnlCylinder.Controls.Add(this.lblCylinderHeader);
-
-            this.pnlInfo.Controls.Add(this.lblFeederPosCaption);
-            this.pnlInfo.Controls.Add(this._lblFeederPos);
-            this.pnlInfo.Controls.Add(this._markRing);
-            this.pnlInfo.Controls.Add(this.lblRingCaption);
-            this.pnlInfo.Controls.Add(this._markOverload);
-            this.pnlInfo.Controls.Add(this.lblOverloadCaption);
-            this.pnlInfo.Controls.Add(this.lblInfoHeader);
-
-            this.rootPanel.BackColor = CdtPageBg;
-            this.rootPanel.Controls.Add(this.pnlWork);
-            this.rootPanel.Controls.Add(this.pnlCylinder);
-            this.rootPanel.Controls.Add(this.pnlInfo);
+            this.rootPanel.BackColor = Color.FromArgb(191, 191, 191);
+            this.rootPanel.ColumnCount = 1;
+            this.rootPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            this.rootPanel.Controls.Add(this.lblHeader, 0, 0);
+            this.rootPanel.Controls.Add(this.topLayout, 0, 1);
+            this.rootPanel.Controls.Add(this.contentLayout, 0, 2);
+            this.rootPanel.Controls.Add(this.actionsLayout, 0, 3);
             this.rootPanel.Dock = DockStyle.Fill;
-            this.rootPanel.Margin = Padding.Empty;
-            this.rootPanel.Padding = Padding.Empty;
-            this.rootPanel.Resize += new EventHandler(this.RootPanel_Resize);
+            this.rootPanel.Location = new Point(0, 0);
+            this.rootPanel.Name = "rootPanel";
+            this.rootPanel.RowCount = 4;
+            this.rootPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
+            this.rootPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 110F));
+            this.rootPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            this.rootPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 96F));
+            this.rootPanel.Size = new Size(1678, 900);
+            this.rootPanel.TabIndex = 0;
 
-            this.lblExistCaption.SetBounds(10, 28, 204, 32);
-            this._lblExist.SetBounds(214, 28, 210, 32);
+            this.lblHeader.BackColor = Color.FromArgb(217, 119, 6);
+            this.lblHeader.Dock = DockStyle.Fill;
+            this.lblHeader.Font = new Font("맑은 고딕", 11F, FontStyle.Bold);
+            this.lblHeader.ForeColor = Color.White;
+            this.lblHeader.Padding = new Padding(10, 0, 0, 0);
+            this.lblHeader.Text = "INFO";
+            this.lblHeader.TextAlign = ContentAlignment.MiddleLeft;
 
-            this.lblClampCaption.SetBounds(10, 28, 204, 32);
-            this._lblClampState.SetBounds(214, 28, 236, 32);
-            this.lblUpDownCaption.SetBounds(10, 60, 204, 32);
-            this._lblUpDownState.SetBounds(214, 60, 236, 32);
+            this.topLayout.ColumnCount = 3;
+            this.topLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 260F));
+            this.topLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 280F));
+            this.topLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            this.topLayout.Controls.Add(this.axisPanel, 0, 0);
+            this.topLayout.Controls.Add(this.ringPanel, 1, 0);
+            this.topLayout.Controls.Add(this.overloadPanel, 2, 0);
+            this.topLayout.Dock = DockStyle.Fill;
+            this.topLayout.Padding = new Padding(8);
+            this.topLayout.RowCount = 1;
+            this.topLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
 
-            this.lblFeederPosCaption.SetBounds(16, 34, 318, 30);
-            this._lblFeederPos.SetBounds(334, 34, 76, 30);
-            this._markRing.SetBounds(16, 76, 16, 16);
-            this.lblRingCaption.SetBounds(36, 70, 328, 28);
-            this._markOverload.SetBounds(16, 108, 16, 16);
-            this.lblOverloadCaption.SetBounds(36, 102, 328, 28);
+            this.axisPanel.ColumnCount = 1;
+            this.axisPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            this.axisPanel.Controls.Add(this.lblFeederPosCaption, 0, 0);
+            this.axisPanel.Controls.Add(this._lblFeederPos, 0, 1);
+            this.axisPanel.Dock = DockStyle.Fill;
+            this.axisPanel.Margin = new Padding(4);
+            this.axisPanel.RowCount = 2;
+            this.axisPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 24F));
+            this.axisPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
 
+            this.lblFeederPosCaption.BackColor = Color.Black;
+            this.lblFeederPosCaption.Dock = DockStyle.Fill;
+            this.lblFeederPosCaption.Font = new Font("맑은 고딕", 11F, FontStyle.Bold);
+            this.lblFeederPosCaption.ForeColor = Color.White;
+            this.lblFeederPosCaption.Padding = new Padding(6, 0, 0, 0);
+            this.lblFeederPosCaption.Text = "FEEDER AXIS Y";
+            this.lblFeederPosCaption.TextAlign = ContentAlignment.MiddleLeft;
+            this._lblFeederPos.BackColor = Color.White;
+            this._lblFeederPos.BorderStyle = BorderStyle.FixedSingle;
+            this._lblFeederPos.Dock = DockStyle.Fill;
+            this._lblFeederPos.Font = new Font("Consolas", 10F);
+            this._lblFeederPos.Padding = new Padding(0, 0, 6, 0);
+            this._lblFeederPos.Text = "0 um";
+            this._lblFeederPos.TextAlign = ContentAlignment.MiddleRight;
+
+            this.ringPanel.ColumnCount = 2;
+            this.ringPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 46F));
+            this.ringPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            this.ringPanel.Controls.Add(this._markRing, 0, 0);
+            this.ringPanel.Controls.Add(this.lblRingCaption, 1, 0);
+            this.ringPanel.Dock = DockStyle.Fill;
+            this.ringPanel.Margin = new Padding(4);
+            this.ringPanel.RowCount = 1;
+            this.ringPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            this._markRing.BackColor = Color.Black;
+            this._markRing.BorderStyle = BorderStyle.FixedSingle;
+            this._markRing.Dock = DockStyle.Fill;
+            this._markRing.Margin = new Padding(10, 20, 10, 20);
+            this.lblRingCaption.BackColor = Color.FromArgb(208, 208, 208);
+            this.lblRingCaption.Dock = DockStyle.Fill;
+            this.lblRingCaption.Font = new Font("Consolas", 10F);
+            this.lblRingCaption.Padding = new Padding(6, 0, 0, 0);
+            this.lblRingCaption.Text = "FEEDER RING CHECK";
+            this.lblRingCaption.TextAlign = ContentAlignment.MiddleLeft;
+
+            this.overloadPanel.ColumnCount = 2;
+            this.overloadPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 46F));
+            this.overloadPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            this.overloadPanel.Controls.Add(this._markOverload, 0, 0);
+            this.overloadPanel.Controls.Add(this.lblOverloadCaption, 1, 0);
+            this.overloadPanel.Dock = DockStyle.Fill;
+            this.overloadPanel.Margin = new Padding(4);
+            this.overloadPanel.RowCount = 1;
+            this.overloadPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            this._markOverload.BackColor = Color.Black;
+            this._markOverload.BorderStyle = BorderStyle.FixedSingle;
+            this._markOverload.Dock = DockStyle.Fill;
+            this._markOverload.Margin = new Padding(10, 20, 10, 20);
+            this.lblOverloadCaption.BackColor = Color.FromArgb(208, 208, 208);
+            this.lblOverloadCaption.Dock = DockStyle.Fill;
+            this.lblOverloadCaption.Font = new Font("Consolas", 10F);
+            this.lblOverloadCaption.Padding = new Padding(6, 0, 0, 0);
+            this.lblOverloadCaption.Text = "FEEDER OVERLOAD CHECK";
+            this.lblOverloadCaption.TextAlign = ContentAlignment.MiddleLeft;
+
+            this.contentLayout.ColumnCount = 3;
+            this.contentLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 260F));
+            this.contentLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 320F));
+            this.contentLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            this.contentLayout.Controls.Add(this.pnlWork, 0, 0);
+            this.contentLayout.Controls.Add(this.pnlCylinder, 1, 0);
+            this.contentLayout.Controls.Add(this.materialDetailView, 2, 0);
+            this.contentLayout.Dock = DockStyle.Fill;
+            this.contentLayout.Padding = new Padding(12, 8, 12, 8);
+            this.contentLayout.RowCount = 1;
+            this.contentLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+
+            this.pnlWork.BackColor = Color.FromArgb(240, 240, 240);
+            this.pnlWork.Controls.Add(this.workLayout);
+            this.pnlWork.Dock = DockStyle.Fill;
+            this.pnlWork.Font = new Font("맑은 고딕", 11F, FontStyle.Bold);
+            this.pnlWork.Text = "작업 정보";
+            this.workLayout.ColumnCount = 2;
+            this.workLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120F));
+            this.workLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            this.workLayout.Controls.Add(this.lblExistCaption, 0, 0);
+            this.workLayout.Controls.Add(this._lblExist, 1, 0);
+            this.workLayout.Dock = DockStyle.Top;
+            this.workLayout.Location = new Point(3, 23);
+            this.workLayout.Padding = new Padding(8);
+            this.workLayout.RowCount = 1;
+            this.workLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 36F));
+            this.workLayout.Size = new Size(254, 56);
+
+            this.lblExistCaption.BackColor = Color.FromArgb(208, 208, 208);
+            this.lblExistCaption.Dock = DockStyle.Fill;
+            this.lblExistCaption.Font = new Font("맑은 고딕", 10F, FontStyle.Bold);
+            this.lblExistCaption.Padding = new Padding(6, 0, 0, 0);
+            this.lblExistCaption.Text = "EXIST";
+            this.lblExistCaption.TextAlign = ContentAlignment.MiddleLeft;
+            this._lblExist.BackColor = Color.White;
+            this._lblExist.BorderStyle = BorderStyle.FixedSingle;
+            this._lblExist.Dock = DockStyle.Fill;
+            this._lblExist.Font = new Font("Consolas", 10F);
+            this._lblExist.Padding = new Padding(0, 0, 6, 0);
+            this._lblExist.Text = "--";
+            this._lblExist.TextAlign = ContentAlignment.MiddleRight;
+
+            this.pnlCylinder.BackColor = Color.FromArgb(240, 240, 240);
+            this.pnlCylinder.Controls.Add(this.cylinderLayout);
+            this.pnlCylinder.Dock = DockStyle.Fill;
+            this.pnlCylinder.Font = new Font("맑은 고딕", 11F, FontStyle.Bold);
+            this.pnlCylinder.Text = "FEEDER 실린더 정보";
+            this.cylinderLayout.ColumnCount = 2;
+            this.cylinderLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 150F));
+            this.cylinderLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            this.cylinderLayout.Controls.Add(this.lblClampCaption, 0, 0);
+            this.cylinderLayout.Controls.Add(this._lblClampState, 1, 0);
+            this.cylinderLayout.Controls.Add(this.lblUpDownCaption, 0, 1);
+            this.cylinderLayout.Controls.Add(this._lblUpDownState, 1, 1);
+            this.cylinderLayout.Dock = DockStyle.Top;
+            this.cylinderLayout.Location = new Point(3, 23);
+            this.cylinderLayout.Padding = new Padding(8);
+            this.cylinderLayout.RowCount = 2;
+            this.cylinderLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 36F));
+            this.cylinderLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 36F));
+            this.cylinderLayout.Size = new Size(314, 92);
+
+            this.lblClampCaption.BackColor = Color.FromArgb(208, 208, 208);
+            this.lblClampCaption.Dock = DockStyle.Fill;
+            this.lblClampCaption.Font = new Font("맑은 고딕", 10F, FontStyle.Bold);
+            this.lblClampCaption.Padding = new Padding(6, 0, 0, 0);
+            this.lblClampCaption.Text = "FEEDER CLAMP";
+            this.lblClampCaption.TextAlign = ContentAlignment.MiddleLeft;
+            this._lblClampState.BackColor = Color.White;
+            this._lblClampState.BorderStyle = BorderStyle.FixedSingle;
+            this._lblClampState.Dock = DockStyle.Fill;
+            this._lblClampState.Font = new Font("Consolas", 10F);
+            this._lblClampState.Padding = new Padding(0, 0, 6, 0);
+            this._lblClampState.Text = "--";
+            this._lblClampState.TextAlign = ContentAlignment.MiddleRight;
+            this.lblUpDownCaption.BackColor = Color.FromArgb(208, 208, 208);
+            this.lblUpDownCaption.Dock = DockStyle.Fill;
+            this.lblUpDownCaption.Font = new Font("맑은 고딕", 10F, FontStyle.Bold);
+            this.lblUpDownCaption.Padding = new Padding(6, 0, 0, 0);
+            this.lblUpDownCaption.Text = "FEEDER UP DOWN";
+            this.lblUpDownCaption.TextAlign = ContentAlignment.MiddleLeft;
+            this._lblUpDownState.BackColor = Color.White;
+            this._lblUpDownState.BorderStyle = BorderStyle.FixedSingle;
+            this._lblUpDownState.Dock = DockStyle.Fill;
+            this._lblUpDownState.Font = new Font("Consolas", 10F);
+            this._lblUpDownState.Padding = new Padding(0, 0, 6, 0);
+            this._lblUpDownState.Text = "--";
+            this._lblUpDownState.TextAlign = ContentAlignment.MiddleRight;
+
+            this.pnlInfo.BackColor = Color.FromArgb(240, 240, 240);
+            this.pnlInfo.Controls.Add(this.infoLayout);
+            this.pnlInfo.Dock = DockStyle.Fill;
+            this.pnlInfo.Font = new Font("맑은 고딕", 11F, FontStyle.Bold);
+            this.pnlInfo.Text = "정보";
+            this.infoLayout.ColumnCount = 1;
+            this.infoLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            this.infoLayout.Controls.Add(this.btnRefreshMaterial, 0, 0);
+            this.infoLayout.Dock = DockStyle.Fill;
+            this.infoLayout.Padding = new Padding(6);
+            this.infoLayout.RowCount = 2;
+            this.infoLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 42F));
+            this.infoLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            this.btnRefreshMaterial.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+            this.btnRefreshMaterial.BackColor = Color.FromArgb(128, 128, 128);
+            this.btnRefreshMaterial.Cursor = Cursors.Hand;
+            this.btnRefreshMaterial.FlatStyle = FlatStyle.Flat;
+            this.btnRefreshMaterial.Font = new Font("Consolas", 10F, FontStyle.Bold);
+            this.btnRefreshMaterial.ForeColor = Color.White;
+            this.btnRefreshMaterial.Margin = new Padding(6);
+            this.btnRefreshMaterial.Name = "btnRefreshMaterial";
+            this.btnRefreshMaterial.Size = new Size(110, 30);
+            this.btnRefreshMaterial.Text = "REFRESH";
+            this.btnRefreshMaterial.UseVisualStyleBackColor = false;
+            this.materialDetailView.BackColor = Color.FromArgb(240, 240, 240);
+            this.materialDetailView.Dock = DockStyle.Fill;
+            this.materialDetailView.Name = "materialDetailView";
+            this.materialDetailView.Visible = true;
+
+            this.actionsLayout.BackColor = Color.FromArgb(191, 191, 191);
+            this.actionsLayout.Controls.Add(this.btnLoadFromCassette);
+            this.actionsLayout.Controls.Add(this.btnLoadToStage);
+            this.actionsLayout.Controls.Add(this.btnUnloadFromStage);
+            this.actionsLayout.Controls.Add(this.btnUnloadToCassette);
+            this.actionsLayout.Controls.Add(this.btnRecover);
+            this.actionsLayout.Controls.Add(this.btnStop);
+            this.actionsLayout.Dock = DockStyle.Fill;
+            this.actionsLayout.Padding = new Padding(12);
+            this.actionsLayout.WrapContents = false;
+            this.btnLoadFromCassette.BackColor = Color.FromArgb(128, 128, 128);
+            this.btnLoadFromCassette.Cursor = Cursors.Hand;
+            this.btnLoadFromCassette.Font = new Font("맑은 고딕", 11F);
+            this.btnLoadFromCassette.ForeColor = Color.White;
+            this.btnLoadFromCassette.Margin = new Padding(6);
+            this.btnLoadFromCassette.Name = "btnLoadFromCassette";
+            this.btnLoadFromCassette.Size = new Size(180, 64);
+            this.btnLoadFromCassette.Text = "CST -> FEEDER";
+            this.btnLoadToStage.BackColor = Color.FromArgb(128, 128, 128);
+            this.btnLoadToStage.Cursor = Cursors.Hand;
+            this.btnLoadToStage.Font = new Font("맑은 고딕", 11F);
+            this.btnLoadToStage.ForeColor = Color.White;
+            this.btnLoadToStage.Margin = new Padding(6);
+            this.btnLoadToStage.Name = "btnLoadToStage";
+            this.btnLoadToStage.Size = new Size(180, 64);
+            this.btnLoadToStage.Text = "FEEDER -> STAGE";
+            this.btnUnloadFromStage.BackColor = Color.FromArgb(128, 128, 128);
+            this.btnUnloadFromStage.Cursor = Cursors.Hand;
+            this.btnUnloadFromStage.Font = new Font("맑은 고딕", 11F);
+            this.btnUnloadFromStage.ForeColor = Color.White;
+            this.btnUnloadFromStage.Margin = new Padding(6);
+            this.btnUnloadFromStage.Name = "btnUnloadFromStage";
+            this.btnUnloadFromStage.Size = new Size(180, 64);
+            this.btnUnloadFromStage.Text = "STAGE -> FEEDER";
+            this.btnUnloadToCassette.BackColor = Color.FromArgb(128, 128, 128);
+            this.btnUnloadToCassette.Cursor = Cursors.Hand;
+            this.btnUnloadToCassette.Font = new Font("맑은 고딕", 11F);
+            this.btnUnloadToCassette.ForeColor = Color.White;
+            this.btnUnloadToCassette.Margin = new Padding(6);
+            this.btnUnloadToCassette.Name = "btnUnloadToCassette";
+            this.btnUnloadToCassette.Size = new Size(180, 64);
+            this.btnUnloadToCassette.Text = "FEEDER -> CST";
+            this.btnRecover.BackColor = Color.FromArgb(128, 128, 128);
+            this.btnRecover.Cursor = Cursors.Hand;
+            this.btnRecover.Font = new Font("맑은 고딕", 11F);
+            this.btnRecover.ForeColor = Color.White;
+            this.btnRecover.Margin = new Padding(6);
+            this.btnRecover.Name = "btnRecover";
+            this.btnRecover.Size = new Size(180, 64);
+            this.btnRecover.Text = "RECOVER";
+            this.btnStop.BackColor = Color.FromArgb(160, 48, 48);
+            this.btnStop.Cursor = Cursors.Hand;
+            this.btnStop.Font = new Font("맑은 고딕", 11F, FontStyle.Bold);
+            this.btnStop.ForeColor = Color.White;
+            this.btnStop.Margin = new Padding(6);
+            this.btnStop.Name = "btnStop";
+            this.btnStop.Size = new Size(140, 64);
+            this.btnStop.Text = "STOP";
+
+            this.BackColor = Color.FromArgb(191, 191, 191);
             this.Controls.Add(this.rootPanel);
-            this.BackColor = CdtPageBg;
             this.Name = "InputFeederPage";
             this.Size = new Size(1678, 900);
             this.rootPanel.ResumeLayout(false);
+            this.topLayout.ResumeLayout(false);
+            this.axisPanel.ResumeLayout(false);
+            this.ringPanel.ResumeLayout(false);
+            this.overloadPanel.ResumeLayout(false);
+            this.contentLayout.ResumeLayout(false);
             this.pnlWork.ResumeLayout(false);
+            this.workLayout.ResumeLayout(false);
             this.pnlCylinder.ResumeLayout(false);
+            this.cylinderLayout.ResumeLayout(false);
             this.pnlInfo.ResumeLayout(false);
+            this.infoLayout.ResumeLayout(false);
+            this.actionsLayout.ResumeLayout(false);
             this.ResumeLayout(false);
-            LayoutSections();
-        }
-
-        private void RootPanel_Resize(object sender, EventArgs e)
-        {
-            LayoutSections();
-        }
-
-        private void LayoutSections()
-        {
-            if (rootPanel == null) return;
-
-            int width = Math.Max(1, rootPanel.ClientSize.Width);
-            int height = Math.Max(1, rootPanel.ClientSize.Height);
-            int topHeight = Math.Min(254, height);
-            int halfWidth = width / 2;
-
-            pnlWork.SetBounds(0, 0, halfWidth, topHeight);
-            pnlCylinder.SetBounds(halfWidth, 0, width - halfWidth, topHeight);
-            pnlInfo.SetBounds(0, topHeight, width, height - topHeight);
-        }
-
-        private static void ConfigureSectionPanel(Panel panel, BorderStyle borderStyle)
-        {
-            panel.BackColor = CdtPageBg;
-            panel.BorderStyle = borderStyle;
-            panel.Margin = Padding.Empty;
-            panel.Padding = Padding.Empty;
-        }
-
-        private static Label CreateHeaderLabel(string text)
-        {
-            return new Label
-            {
-                BackColor = CdtHeaderBg,
-                Dock = DockStyle.Top,
-                Font = new Font("Malgun Gothic", 8F, FontStyle.Bold),
-                ForeColor = Color.White,
-                Height = 24,
-                Padding = new Padding(8, 0, 0, 0),
-                Text = text,
-                TextAlign = ContentAlignment.MiddleLeft
-            };
-        }
-
-        private static Label CreateCaptionLabel(string text)
-        {
-            return new Label
-            {
-                BackColor = CdtLabelBg,
-                BorderStyle = BorderStyle.FixedSingle,
-                Font = new Font("Malgun Gothic", 7F, FontStyle.Bold),
-                ForeColor = Color.Black,
-                Padding = new Padding(8, 0, 0, 0),
-                Text = text,
-                TextAlign = ContentAlignment.MiddleLeft
-            };
-        }
-
-        private static Label CreateValueLabel(string text)
-        {
-            return new Label
-            {
-                BackColor = CdtValueBg,
-                BorderStyle = BorderStyle.FixedSingle,
-                Font = new Font("Consolas", 7F, FontStyle.Bold),
-                ForeColor = Color.Black,
-                Padding = new Padding(0, 0, 8, 0),
-                Text = text,
-                TextAlign = ContentAlignment.MiddleRight
-            };
-        }
-
-        private static Label CreateSensorLabel(string text)
-        {
-            return new Label
-            {
-                BackColor = CdtLabelBg,
-                BorderStyle = BorderStyle.FixedSingle,
-                Font = new Font("Malgun Gothic", 7F, FontStyle.Bold),
-                ForeColor = Color.Black,
-                Padding = new Padding(8, 0, 0, 0),
-                Text = text,
-                TextAlign = ContentAlignment.MiddleLeft
-            };
-        }
-
-        private static Label CreateMarker()
-        {
-            return new Label
-            {
-                BackColor = Color.Black,
-                BorderStyle = BorderStyle.FixedSingle
-            };
         }
     }
 }
