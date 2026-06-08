@@ -167,6 +167,9 @@
     <Compile Include="Ui\Pages\ConfigurationPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="Ui\Pages\ConfigurationPage.Designer.cs">
+      <DependentUpon>ConfigurationPage.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Pages\RecipePage.cs">
       <SubType>UserControl</SubType>
     </Compile>
