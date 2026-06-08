@@ -270,6 +270,12 @@
     <EmbeddedResource Include="Ui\Controls\LightLiveTuningPanel.resx">
       <DependentUpon>LightLiveTuningPanel.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\ConfigurationPage.resx">
+      <DependentUpon>ConfigurationPage.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\InspectionLightPanel.resx">
+      <DependentUpon>InspectionLightPanel.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\LightSystemSetupPage.resx">
       <DependentUpon>LightSystemSetupPage.cs</DependentUpon>
     </EmbeddedResource>
