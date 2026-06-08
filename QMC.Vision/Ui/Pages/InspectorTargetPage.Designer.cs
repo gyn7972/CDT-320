@@ -4,7 +4,7 @@ using QMC.Vision.Ui.Controls;
 
 namespace QMC.Vision.Ui.Pages
 {
-    partial class VisionTargetPage
+    partial class InspectorTargetPage
     {
         private System.ComponentModel.IContainer components = null;
 
@@ -15,13 +15,14 @@ namespace QMC.Vision.Ui.Pages
         private TableLayoutPanel _left;
         private Label _secCam;
         private CameraView _cam;
-        // 중 (ACTION 콤팩트 + 결과)
+        // 중 (ACTION 콤팩트 + 검사결과 + verdict)
         private TableLayoutPanel _center;
         private Label _secAction;
         private TableLayoutPanel _actionPanel;
-        private Button _btnGrab, _btnMatch, _btnTrain, _btnLoad, _btnSaveImg, _btnEditSearch, _btnEditTrain;
-        private Label _secMatch;
+        private Button _btnInspect, _btnGrab, _btnLoad, _btnSaveImg, _btnEditRoi;
+        private Label _secResult;
         private DataGridView _result;
+        private Label _lblVerdict;
         // 우 (PARAMETERS + 조명 + 라이브튜닝)
         private TableLayoutPanel _right;
         private Label _secParam;
@@ -48,10 +49,10 @@ namespace QMC.Vision.Ui.Pages
             this._center = new TableLayoutPanel();
             this._secAction = new Label();
             this._actionPanel = new TableLayoutPanel();
-            this._btnGrab = new Button(); this._btnMatch = new Button(); this._btnTrain = new Button();
-            this._btnLoad = new Button(); this._btnSaveImg = new Button(); this._btnEditSearch = new Button(); this._btnEditTrain = new Button();
-            this._secMatch = new Label();
+            this._btnInspect = new Button(); this._btnGrab = new Button(); this._btnLoad = new Button(); this._btnSaveImg = new Button(); this._btnEditRoi = new Button();
+            this._secResult = new Label();
             this._result = new DataGridView();
+            this._lblVerdict = new Label();
             this._right = new TableLayoutPanel();
             this._secParam = new Label();
             this._params = new ParameterGridControl();
@@ -73,7 +74,7 @@ namespace QMC.Vision.Ui.Pages
             // ── 섹션 라벨 ──
             this._secCam.Dock = DockStyle.Fill; this._secCam.Text = "CAMERA"; this._secCam.BackColor = UiTheme.StatusBarBg; this._secCam.ForeColor = Color.White; this._secCam.Font = UiTheme.SectionFont; this._secCam.TextAlign = ContentAlignment.MiddleLeft; this._secCam.Padding = new Padding(8, 0, 0, 0);
             this._secAction.Dock = DockStyle.Fill; this._secAction.Text = "ACTION"; this._secAction.BackColor = UiTheme.StatusBarBg; this._secAction.ForeColor = Color.White; this._secAction.Font = UiTheme.SectionFont; this._secAction.TextAlign = ContentAlignment.MiddleLeft; this._secAction.Padding = new Padding(8, 0, 0, 0);
-            this._secMatch.Dock = DockStyle.Fill; this._secMatch.Text = "MATCH RESULT"; this._secMatch.BackColor = UiTheme.StatusBarBg; this._secMatch.ForeColor = Color.White; this._secMatch.Font = UiTheme.SectionFont; this._secMatch.TextAlign = ContentAlignment.MiddleLeft; this._secMatch.Padding = new Padding(8, 0, 0, 0);
+            this._secResult.Dock = DockStyle.Fill; this._secResult.Text = "검사 결과"; this._secResult.BackColor = UiTheme.StatusBarBg; this._secResult.ForeColor = Color.White; this._secResult.Font = UiTheme.SectionFont; this._secResult.TextAlign = ContentAlignment.MiddleLeft; this._secResult.Padding = new Padding(8, 0, 0, 0);
             this._secParam.Dock = DockStyle.Fill; this._secParam.Text = "PARAMETERS"; this._secParam.BackColor = UiTheme.StatusBarBg; this._secParam.ForeColor = Color.White; this._secParam.Font = UiTheme.SectionFont; this._secParam.TextAlign = ContentAlignment.MiddleLeft; this._secParam.Padding = new Padding(8, 0, 0, 0);
             this._secLight.Dock = DockStyle.Fill; this._secLight.Text = "검사 조명"; this._secLight.BackColor = UiTheme.StatusBarBg; this._secLight.ForeColor = Color.White; this._secLight.Font = UiTheme.SectionFont; this._secLight.TextAlign = ContentAlignment.MiddleLeft; this._secLight.Padding = new Padding(8, 0, 0, 0);
             this._secLive.Dock = DockStyle.Fill; this._secLive.Text = "라이브 튜닝"; this._secLive.BackColor = UiTheme.StatusBarBg; this._secLive.ForeColor = Color.White; this._secLive.Font = UiTheme.SectionFont; this._secLive.TextAlign = ContentAlignment.MiddleLeft; this._secLive.Padding = new Padding(8, 0, 0, 0);
@@ -88,59 +89,54 @@ namespace QMC.Vision.Ui.Pages
             this._left.Controls.Add(this._secCam, 0, 0);
             this._left.Controls.Add(this._cam, 0, 1);
 
-            // ── 중 ACTION (콤팩트 3×3, 버튼 h≈44) ──
-            this._btnGrab.Dock = DockStyle.Fill; this._btnGrab.Text = "GRAB"; this._btnGrab.FlatStyle = FlatStyle.Flat; this._btnGrab.Font = UiTheme.ButtonFont; this._btnGrab.BackColor = UiTheme.Accent; this._btnGrab.ForeColor = Color.White;
+            // ── 중 ACTION (콤팩트: INSPECT span + GRAB/LOAD + 이미지저장/EDIT ROI) ──
+            this._btnInspect.Dock = DockStyle.Fill; this._btnInspect.Text = "INSPECT"; this._btnInspect.FlatStyle = FlatStyle.Flat; this._btnInspect.Font = UiTheme.SectionFont; this._btnInspect.BackColor = UiTheme.Accent; this._btnInspect.ForeColor = Color.White;
+            this._btnInspect.Click += new System.EventHandler(this.OnInspectClick);
+            this._btnGrab.Dock = DockStyle.Fill; this._btnGrab.Text = "GRAB"; this._btnGrab.FlatStyle = FlatStyle.Flat; this._btnGrab.Font = UiTheme.ButtonFont; this._btnGrab.BackColor = Color.White; this._btnGrab.ForeColor = Color.Black;
             this._btnGrab.Click += new System.EventHandler(this.OnGrabClick);
-            this._btnMatch.Dock = DockStyle.Fill; this._btnMatch.Text = "MATCH"; this._btnMatch.FlatStyle = FlatStyle.Flat; this._btnMatch.Font = UiTheme.ButtonFont; this._btnMatch.BackColor = UiTheme.Accent; this._btnMatch.ForeColor = Color.White;
-            this._btnMatch.Click += new System.EventHandler(this.OnMatchClick);
-            this._btnTrain.Dock = DockStyle.Fill; this._btnTrain.Text = "TRAIN"; this._btnTrain.FlatStyle = FlatStyle.Flat; this._btnTrain.Font = UiTheme.ButtonFont; this._btnTrain.BackColor = UiTheme.Accent; this._btnTrain.ForeColor = Color.White;
-            this._btnTrain.Click += new System.EventHandler(this.OnTrainClick);
             this._btnLoad.Dock = DockStyle.Fill; this._btnLoad.Text = "LOAD"; this._btnLoad.FlatStyle = FlatStyle.Flat; this._btnLoad.Font = UiTheme.ButtonFont; this._btnLoad.BackColor = Color.White; this._btnLoad.ForeColor = Color.Black;
             this._btnLoad.Click += new System.EventHandler(this.OnLoadClick);
             this._btnSaveImg.Dock = DockStyle.Fill; this._btnSaveImg.Text = "이미지 저장"; this._btnSaveImg.FlatStyle = FlatStyle.Flat; this._btnSaveImg.Font = UiTheme.ButtonFont; this._btnSaveImg.BackColor = Color.White; this._btnSaveImg.ForeColor = Color.Black;
             this._btnSaveImg.Click += new System.EventHandler(this.OnSaveImageClick);
-            this._btnEditSearch.Dock = DockStyle.Fill; this._btnEditSearch.Text = "EDIT SEARCH ROI"; this._btnEditSearch.FlatStyle = FlatStyle.Flat; this._btnEditSearch.Font = UiTheme.ButtonFont; this._btnEditSearch.BackColor = Color.LightYellow; this._btnEditSearch.ForeColor = Color.Black;
-            this._btnEditSearch.Click += new System.EventHandler(this.OnEditSearchClick);
-            this._btnEditTrain.Dock = DockStyle.Fill; this._btnEditTrain.Text = "EDIT TRAIN ROI"; this._btnEditTrain.FlatStyle = FlatStyle.Flat; this._btnEditTrain.Font = UiTheme.ButtonFont; this._btnEditTrain.BackColor = Color.LightYellow; this._btnEditTrain.ForeColor = Color.Black;
-            this._btnEditTrain.Click += new System.EventHandler(this.OnEditTrainClick);
+            this._btnEditRoi.Dock = DockStyle.Fill; this._btnEditRoi.Text = "EDIT INSPECTION ROI"; this._btnEditRoi.FlatStyle = FlatStyle.Flat; this._btnEditRoi.Font = UiTheme.ButtonFont; this._btnEditRoi.BackColor = Color.LightYellow; this._btnEditRoi.ForeColor = Color.Black;
+            this._btnEditRoi.Click += new System.EventHandler(this.OnEditRoiClick);
             this._actionPanel.Dock = DockStyle.Fill;
-            this._actionPanel.ColumnCount = 3; this._actionPanel.RowCount = 3; this._actionPanel.Margin = Padding.Empty;
-            this._actionPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.34f));
-            this._actionPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33f));
-            this._actionPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33f));
+            this._actionPanel.ColumnCount = 2; this._actionPanel.RowCount = 3; this._actionPanel.Margin = Padding.Empty;
+            this._actionPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
+            this._actionPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
+            this._actionPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 52f));
             this._actionPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 44f));
             this._actionPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 44f));
-            this._actionPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 44f));
-            this._actionPanel.Controls.Add(this._btnGrab, 0, 0);
-            this._actionPanel.Controls.Add(this._btnMatch, 1, 0);
-            this._actionPanel.Controls.Add(this._btnTrain, 2, 0);
-            this._actionPanel.Controls.Add(this._btnLoad, 0, 1);
-            this._actionPanel.Controls.Add(this._btnSaveImg, 1, 1);
-            this._actionPanel.Controls.Add(this._btnEditSearch, 2, 1);
-            this._actionPanel.Controls.Add(this._btnEditTrain, 0, 2);
+            this._actionPanel.Controls.Add(this._btnInspect, 0, 0);
+            this._actionPanel.SetColumnSpan(this._btnInspect, 2);
+            this._actionPanel.Controls.Add(this._btnGrab, 0, 1);
+            this._actionPanel.Controls.Add(this._btnLoad, 1, 1);
+            this._actionPanel.Controls.Add(this._btnSaveImg, 0, 2);
+            this._actionPanel.Controls.Add(this._btnEditRoi, 1, 2);
 
-            // ── 중 결과 그리드 ──
+            // ── 중 검사결과 + verdict ──
             this._result.Dock = DockStyle.Fill;
             this._result.AllowUserToAddRows = false; this._result.RowHeadersVisible = false;
             this._result.BackgroundColor = Color.White; this._result.Font = UiTheme.ValueFont;
             this._result.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
-            this._result.Columns.Add("Idx", "Idx");
-            this._result.Columns.Add("X", "X");
-            this._result.Columns.Add("Y", "Y");
-            this._result.Columns.Add("Angle", "Angle");
-            this._result.Columns.Add("Score", "Score");
+            this._result.Columns.Add("Item", "항목");
+            this._result.Columns.Add("Value", "값");
+            this._result.Columns.Add("Pass", "결과");
+            this._lblVerdict.Dock = DockStyle.Fill; this._lblVerdict.Text = "-"; this._lblVerdict.Font = UiTheme.SectionFont; this._lblVerdict.ForeColor = Color.White; this._lblVerdict.BackColor = Color.Gray; this._lblVerdict.TextAlign = ContentAlignment.MiddleCenter;
 
             this._center.Dock = DockStyle.Fill;
-            this._center.ColumnCount = 1; this._center.RowCount = 4; this._center.Margin = Padding.Empty;
+            this._center.ColumnCount = 1; this._center.RowCount = 5; this._center.Margin = Padding.Empty;
             this._center.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
             this._center.RowStyles.Add(new RowStyle(SizeType.Absolute, 24f));
             this._center.RowStyles.Add(new RowStyle(SizeType.Absolute, 150f));
             this._center.RowStyles.Add(new RowStyle(SizeType.Absolute, 24f));
             this._center.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+            this._center.RowStyles.Add(new RowStyle(SizeType.Absolute, 40f));
             this._center.Controls.Add(this._secAction, 0, 0);
             this._center.Controls.Add(this._actionPanel, 0, 1);
-            this._center.Controls.Add(this._secMatch, 0, 2);
+            this._center.Controls.Add(this._secResult, 0, 2);
             this._center.Controls.Add(this._result, 0, 3);
+            this._center.Controls.Add(this._lblVerdict, 0, 4);
 
             // ── 우 (PARAMETERS + 조명 + 라이브튜닝) ──
             this._params.Dock = DockStyle.Fill;
@@ -189,7 +185,7 @@ namespace QMC.Vision.Ui.Pages
 
             this.Controls.Add(this._root);
             this.AutoScaleMode = AutoScaleMode.None;
-            this.Name = "VisionTargetPage";
+            this.Name = "InspectorTargetPage";
             this.Size = new Size(1710, 832);
             ((System.ComponentModel.ISupportInitialize)this._result).EndInit();
             this._right.ResumeLayout(false);

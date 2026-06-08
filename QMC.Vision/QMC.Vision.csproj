@@ -127,6 +127,13 @@
     <Compile Include="Ui\Pages\VisionTargetPage.Designer.cs">
       <DependentUpon>VisionTargetPage.cs</DependentUpon>
     </Compile>
+    <Compile Include="Ui\Pages\ITargetPage.cs" />
+    <Compile Include="Ui\Pages\InspectorTargetPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\InspectorTargetPage.Designer.cs">
+      <DependentUpon>InspectorTargetPage.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Pages\LightSystemSetupPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
@@ -140,6 +147,10 @@
       <DependentUpon>InspectionLightPanel.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\UiTheme.cs" />
+    <Compile Include="Ui\Controls\SidebarButton.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Ui\Controls\GridTheme.cs" />
     <Compile Include="Ui\Controls\ParameterGridItem.cs" />
     <Compile Include="Ui\Controls\ParameterGridChangedEventArgs.cs" />
     <Compile Include="Ui\Controls\ParameterGridControl.cs">
@@ -307,6 +318,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\SettingsPage.resx">
       <DependentUpon>SettingsPage.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\VisionTargetPage.resx">
+      <DependentUpon>VisionTargetPage.cs</DependentUpon>
     </EmbeddedResource>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
