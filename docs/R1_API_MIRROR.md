@@ -43,3 +43,33 @@ ParameterGridControl 의 Selection 편집은 **그리드 내 DataGridViewComboBo
 - ParameterGridChangedEventArgs.cs
 - ParameterGridControl.cs + .Designer.cs
 - NumericKeypadDialog.cs + .Designer.cs
+
+---
+
+# R1 재검토 추가 (2026-06-08) — VisionRecipePage 미러 기준 + ui/tab + Step 2b
+
+## §VisionRecipePage (Handler) — R2 미러 기준 구조
+근거: `QMC.CDT-320/Ui/Pages/Recipe/VisionRecipePage.cs(159)` + `.Designer.cs`. **좌측 트리 없음 / 탭컨트롤 없음** — 단일 비전 레시피 페이지(타깃 1개). `PageBase` 상속, ctor `VisionRecipePage()` / `VisionRecipePage(string titleI18n)`.
+- **레이아웃(전부 TableLayoutPanel)**: `rootLayout`(1열×2행) = `lblHeader` + `contentLayout`(3열: 좌|중|우).
+  - **좌** `leftLayout`: `grpCamera`(cameraPanel + lblCameraInfo) / `grpMatchResult`(gridMatch DataGridView).
+  - **중** `centerLayout`: `grpRoi`(thumbPanel/lblThumb + `roiOptionLayout`: 라디오 **rdoMain/rdoSub/rdoChip/rdoCross** + **rdoIndex1/2/4/8**) / `grpAction`(**actionCommandPanel = ActionCommandPanelControl**, 3×3 GRAB/MATCH/FAST SHUTTER/SMALL ROI/MATCH MOVE/IMAGE SAVE/THETA MATCH MOVE).
+  - **우** `rightLayout`: `grpScale`(key|value Label 쌍 ScaleX/ScaleY/Pitch/Scale/Gray) / `grpJog`(ActionButton 조그패드 X/Y/T/Stop) / `grpSpeed`(TrackBar trkSpeed + lblSpeedValue).
+- **검사/타깃 선택 방식**: 페이지 내부는 **라디오버튼**(ROI Main/Sub/Chip/Cross, Index 1/2/4/8)로 대상 전환. 5개 비전 타깃(Input/Output/Lower/Bottom/Side Vision)은 **각각 별도 VisionRecipePage 인스턴스**로 Handler 쉘 RecipeTab 사이드바가 선택(페이지 내부 아님).
+- **데이터 흐름**: BindActionCommands→actionCommandPanel.SetItems(GRAB/MATCH/…), 액션 ExecuteAsync→VisionHub.Wafer.ExposeAsync/MatchAsync(TCP). 즉 **이미 Vision TCP(VisionHub) 호출** = Handler→Vision 통신. (Vision 자체 RecipePage 는 로컬 모듈 직접 호출.)
+- 사용 커스텀 컨트롤: **ActionCommandPanelControl**(액션 그리드, async), **ActionButton**(조그). (R1 ParameterGridControl 은 VisionRecipePage 엔 직접 없음 — Subset/Stage 등 다른 레시피 페이지에서 사용.)
+
+## §ui/tab (Handler `Ui/Tabs/`) — TabBase / RecipeTab
+근거: `TabBase.cs(217)`, `RecipeTab.cs(46)`. **판정: 재사용 컨트롤 아님 → 쉘-결합 내비게이션 패턴.**
+- TabBase: 하단 6개 탭 공통 껍데기(우측 사이드바 + 중앙 콘텐츠 호스트). API `AddSidebarButton`/`RegisterSidebarButton(SidebarButton, i18nKey, UserLevel?, Func<UserControl>)`/`SetSidebarHeader`/`ShowPage(key)`/`TryShowPage`. 사이드바버튼→lazy 페이지팩토리→`PnlContent` 콘텐츠 스왑 + PageCache.
+- RecipeTab: TabBase 상속, ctor 에서 `RegisterSidebarButton` 24개(Project/InputCassette/…/InputVision/OutputVision/LowerVision/BottomVision/SideVision/…) 등록. 비전 타깃은 `() => new VisionRecipePage("recipe.xxxVision")`.
+- **의존성(쉘 결합)**: `Form1 Host`, `QMC.CDT_320.Ui.Security`(UserLevel/AccessControl/UserSession), `Localization.Lang`(T/Apply), `UiTheme`, `UiClickAuditor`. → Vision 으로 그대로 미러 불가(보안/로컬라이제이션/Host 결합). 원자 재사용 조각은 `SidebarButton`(토글버튼, UiTheme 경결합)뿐.
+
+## §Step 2b 판정 — 검사 선택 탭 컨트롤 = **패턴 (R1 미생성, R2 인라인 적용)**
+- Handler 의 "검사/페이지 선택"은 **TabBase 사이드바버튼 + 콘텐츠 스왑 패턴**(쉘 결합)이지 독립 드롭인 컨트롤이 아님. 따라서 프롬프트 규칙("단순 레이아웃 패턴이면 R1 보고만, R2 적용")대로 **R1 에서 탭 컨트롤 신규 생성 안 함**.
+- **R2 권고**: Vision RecipePage 의 좌측 트리 제거 후, **인라인 사이드바-버튼 스트립 패턴**(TLP 베이스, 버튼별 모듈/검사 선택→`_content` 스왑)로 재구성. 필요 시 `SidebarButton`(Handler) 을 Vision 에 경량 미러(UiTheme 의존만; Vision UiTheme 동일값 보유) — **R2 시점에 결정**. 또는 VisionRecipePage 식 단일페이지+라디오 방식.
+- ⚠ 컨벤션(2026-06-08): 레이아웃 베이스 **TableLayoutPanel**(GroupBox 단독 아님), RowStyles/ColumnStyles 는 IC 내 선언적(헬퍼·반복문 금지), 동적행 런타임 BuildXxx, **마우스 우선**, 긴 영역 스크롤.
+
+## R1 최종 산출 (재검토 반영)
+- 신규 컨트롤 3종(ParameterGridItem/Control + NumericKeypadDialog) — 완료(Stage 101-103).
+- **검사 선택 탭 컨트롤: 신규 생성 안 함**(패턴 판정 → R2 인라인). EnumPickerDialog: 불요.
+- R2 미러 기준 = 본 문서 §VisionRecipePage + §ui/tab.
