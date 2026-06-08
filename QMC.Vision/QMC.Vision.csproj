@@ -134,6 +134,8 @@
       <DependentUpon>InspectionLightPanel.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\UiTheme.cs" />
+    <Compile Include="Ui\Controls\ParameterGridItem.cs" />
+    <Compile Include="Ui\Controls\ParameterGridChangedEventArgs.cs" />
     <Compile Include="Ui\Controls\BottomMenuButton.cs">
       <SubType>Component</SubType>
     </Compile>
