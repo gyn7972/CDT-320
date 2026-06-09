@@ -1,9 +1,13 @@
 using System;
 using System.ComponentModel;
+using System.Drawing;
+using System.Linq;
 using System.Windows.Forms;
 using QMC.Common.Recipes;
 using QMC.Vision.Config;
-using QMC.Vision.Ui.Editors;
+using QMC.Vision.Core.Parameters;
+using QMC.Vision.Ui;
+using QMC.Vision.Ui.Controls;
 
 namespace QMC.Vision.Ui.Pages
 {
@@ -19,6 +23,11 @@ namespace QMC.Vision.Ui.Pages
         private TabControl              _inspTabs;        // Stage 69 — [카메라][조명] 탭
         private LightSystemSetupPage    _lightSetupPage;  // Stage 69 — 조명 시스템 Setup
         private Control                 _currentEditor;   // 검사 알고리즘 편집기 캐시
+        // P4 — ② 검사 파라미터 그리드(에디터 5종 흡수). 런타임 단일 패널 재사용.
+        private Panel                   _inspParamHost;
+        private ParameterGridControl    _inspParamGrid;
+        private Button                  _btnInspParamSave;
+        private string                  _inspParamTarget;
 
         public SettingsPage()
         {
@@ -48,6 +57,26 @@ namespace QMC.Vision.Ui.Pages
             // Stage 69 — 조명 시스템 Setup 페이지
             _lightSetupPage = new LightSystemSetupPage { Dock = DockStyle.Fill, Visible = false };
             _detailHost.Controls.Add(_lightSetupPage);
+
+            // P4 — ② 검사 파라미터 통일 그리드(에디터 5종 흡수). 그리드 + 하단 저장 바.
+            _inspParamGrid = new ParameterGridControl { Dock = DockStyle.Fill };
+            _btnInspParamSave = new Button
+            {
+                Text = "저장", Dock = DockStyle.Right, Width = 120,
+                FlatStyle = FlatStyle.Flat, BackColor = UiTheme.Accent, ForeColor = Color.White, Font = UiTheme.SectionFont
+            };
+            _btnInspParamSave.Click += OnInspParamSave;
+            var inspBar = new Panel { Dock = DockStyle.Bottom, Height = 44, BackColor = UiTheme.MainBg };
+            inspBar.Controls.Add(_btnInspParamSave);
+            _inspParamHost = new Panel { Dock = DockStyle.Fill, Visible = false };
+            _inspParamHost.Controls.Add(_inspParamGrid);
+            _inspParamHost.Controls.Add(inspBar);
+            _detailHost.Controls.Add(_inspParamHost);
+        }
+
+        private void OnInspParamSave(object sender, EventArgs e)
+        {
+            if (!string.IsNullOrEmpty(_inspParamTarget)) ParameterStoreHost.Current?.SaveTarget(_inspParamTarget);
         }
 
         private void OnOverrideChanged(string alg, string insp) => RefreshInspectionNode(alg, insp);
@@ -159,10 +188,15 @@ namespace QMC.Vision.Ui.Pages
 
         private void ShowInspectionEditor(string tool)
         {
-            var ed = InspectionEditorFactory.Create(tool);   // P3 — 문자열 switch 폐기(공용 팩토리)
-            if (ed == null) return;
-            ed.Dock = DockStyle.Fill;
-            SwapEditor(ed);
+            // P4 — 에디터 5종 → 통일 그리드 흡수. 레지스트리로 정규 target 해석 후 store 질의.
+            var entry = InspectionParamRegistry.ByTool(tool);
+            var store = ParameterStoreHost.Current;
+            if (entry == null || store == null) return;
+            _inspParamTarget = entry.Target;
+            _inspParamGrid.SetItems(store.GetByTarget(entry.Target)
+                .Select(d => ParameterGridItem.FromDescriptor(d, store))
+                .Where(x => x != null));
+            SwapEditor(_inspParamHost);
         }
 
         private void SwapEditor(Control next)
@@ -176,7 +210,8 @@ namespace QMC.Vision.Ui.Pages
             // 기존 inspection 편집기 메모리 정리 (새 인스턴스로 교체).
             // 영구 패널(_camPanel/_inspTabs/_lightSetupPage)은 dispose 대상에서 제외.
             if (_currentEditor != null && _currentEditor != next
-                && _currentEditor != _camPanel && _currentEditor != _inspTabs && _currentEditor != _lightSetupPage)
+                && _currentEditor != _camPanel && _currentEditor != _inspTabs && _currentEditor != _lightSetupPage
+                && _currentEditor != _inspParamHost)
             {
                 try { _detailHost.Controls.Remove(_currentEditor); _currentEditor.Dispose(); } catch { }
             }

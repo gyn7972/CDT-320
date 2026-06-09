@@ -271,34 +271,6 @@
     <Compile Include="Ui\Pages\SpcChartPage.Designer.cs">
       <DependentUpon>SpcChartPage.cs</DependentUpon>
     </Compile>
-    <Compile Include="Ui\Editors\InspectionEditorFactory.cs" />
-    <Compile Include="Ui\Editors\ParameterEditorBase.cs">
-      <SubType>UserControl</SubType>
-    </Compile>
-    <Compile Include="Ui\Editors\ParameterEditorBase.Designer.cs">
-      <DependentUpon>ParameterEditorBase.cs</DependentUpon>
-    </Compile>
-    <Compile Include="Ui\Editors\ParameterEditorHost.cs">
-      <SubType>UserControl</SubType>
-    </Compile>
-    <Compile Include="Ui\Editors\ParameterEditorHost.Designer.cs">
-      <DependentUpon>ParameterEditorHost.cs</DependentUpon>
-    </Compile>
-    <Compile Include="Ui\Editors\BottomInspectionParameterEditor.cs">
-      <SubType>UserControl</SubType>
-    </Compile>
-    <Compile Include="Ui\Editors\SideInspectionParameterEditor.cs">
-      <SubType>UserControl</SubType>
-    </Compile>
-    <Compile Include="Ui\Editors\DieGapInspectionParameterEditor.cs">
-      <SubType>UserControl</SubType>
-    </Compile>
-    <Compile Include="Ui\Editors\DistortionParameterEditor.cs">
-      <SubType>UserControl</SubType>
-    </Compile>
-    <Compile Include="Ui\Editors\VisionScaleParameterEditor.cs">
-      <SubType>UserControl</SubType>
-    </Compile>
     <Compile Include="Ui\Dialogs\ZoomDialog.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -316,12 +288,6 @@
   <ItemGroup>
     <EmbeddedResource Include="Ui\Controls\LightLiveTuningPanel.resx">
       <DependentUpon>LightLiveTuningPanel.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Ui\Editors\ParameterEditorBase.resx">
-      <DependentUpon>ParameterEditorBase.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Ui\Editors\ParameterEditorHost.resx">
-      <DependentUpon>ParameterEditorHost.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\CameraMappingPanel.resx">
       <DependentUpon>CameraMappingPanel.cs</DependentUpon>

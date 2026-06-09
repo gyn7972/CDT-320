@@ -14,7 +14,7 @@ namespace QMC.Vision.Ui.Pages
     /// R2c — Handler VisionRecipePage 미러. 사이드바=검사 알고리즘 5개(평면, Handler SidebarButton 1:1) +
     /// 영속 세팅선택기 바=알고리즘의 finder/inspector. 상태점(미설정 회색/설정완료 녹/변경됨 주황) 페인트.
     /// 본문 스왑 finder→VisionTargetPage·inspector→InspectorTargetPage(R2d, 3열). 상단바 SAVE=타깃 레시피저장.
-    /// 무인자 ctor·ShowSpc/ShowParameterEditors 보존(SPC/파라미터 진입점은 불필요로 미노출).
+    /// 무인자 ctor·ShowSpc 보존(SPC 미노출). P4 — ② 파라미터는 타깃 페이지/SettingsPage 통일 그리드로 흡수(ParameterEditorHost 제거).
     /// </summary>
     public partial class RecipePage : UserControl
     {
@@ -48,11 +48,7 @@ namespace QMC.Vision.Ui.Pages
             _content.Controls.Clear();
             _content.Controls.Add(new SpcChartPage { Dock = DockStyle.Fill });
         }
-        private void ShowParameterEditors()
-        {
-            _content.Controls.Clear();
-            _content.Controls.Add(new Editors.ParameterEditorHost { Dock = DockStyle.Fill });
-        }
+        // P4 — ShowParameterEditors(ParameterEditorHost) 제거: ② 편집은 타깃 페이지/SettingsPage 통일 그리드로 흡수.
 
         // ── 사이드바: 검사 알고리즘 5개 평면(Handler SidebarButton) ──
         private void BuildSidebar()

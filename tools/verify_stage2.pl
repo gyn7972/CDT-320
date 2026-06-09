@@ -35,34 +35,28 @@ my $mp = "$VIS_ROOT/Ui/Pages/RecipePage.cs";
 my $a2 = greps($mp, qr/SpcChartPage/) && greps($mp, qr/ShowSpc/);
 row("STAGE2", "RecipePage — SPC 진입 + ShowSpc()", $a2?"PASS":"FAIL", $mp);
 
-# B. 5 ParameterEditors
+# B. ② 파라미터 — P4 에디터 흡수(ParameterEditor 5종/Base/Host 제거 → 통일 그리드)
 my $base = "$VIS_ROOT/Ui/Editors/ParameterEditorBase.cs";
 my $host = "$VIS_ROOT/Ui/Editors/ParameterEditorHost.cs";
-my $b1 = greps($base, qr/abstract\s+(?:partial\s+)?class\s+ParameterEditorBase/) &&
-         greps($base, qr/abstract\s+void\s+BuildEditor/) &&
-         greps($base, qr/abstract\s+void\s+LoadFromParameters/) &&
-         greps($base, qr/abstract\s+void\s+SaveToParameters/) &&
-         greps($host, qr/class\s+ParameterEditorHost/) &&
-         greps($host, qr/BottomInspection/) && greps($host, qr/SideInspection/) &&
-         greps($host, qr/DieGapInspection/) && greps($host, qr/Distortion/) &&
-         greps($host, qr/VisionScale/);
-row("STAGE2", "ParameterEditorBase + Host (5 tool combo)", $b1?"PASS":"FAIL", $host);
+my $reg  = "$VIS_ROOT/Core/Parameters/InspectionParamRegistry.cs";
+my $pgi  = "$VIS_ROOT/Ui/Controls/ParameterGridItem.cs";
+my $sp   = "$VIS_ROOT/Ui/Pages/SettingsPage.cs";
+# 에디터 Base/Host 제거됨 + FromDescriptor 어댑터 + 레지스트리 존재
+my $b1 = (! -e $base) && (! -e $host) &&
+         greps($pgi, qr/FromDescriptor/) &&
+         greps($reg, qr/class\s+InspectionParamRegistry/);
+row("STAGE2", "② 에디터 흡수: Base/Host 제거 + FromDescriptor + 레지스트리", $b1?"PASS":"FAIL", $pgi);
 
-my @editors = qw(BottomInspection SideInspection DieGapInspection Distortion VisionScale);
-my $b2_pass = 1;
-foreach my $e (@editors) {
-    my $f = "$VIS_ROOT/Ui/Editors/${e}ParameterEditor.cs";
-    if (!greps($f, qr/class\s+${e}ParameterEditor/) ||
-        !greps($f, qr/LoadFromParameters/) ||
-        !greps($f, qr/SaveToParameters/)) {
-        $b2_pass = 0; last;
-    }
-}
-row("STAGE2", "5 ParameterEditor 구현 (Bottom/Side/DieGap/Distortion/Scale)", $b2_pass?"PASS":"FAIL", "");
+# ② 5종 = InspectionParameters POCO IParameterProvider + 레지스트리 5 매핑
+my @tools = qw(BottomInspection SideInspection DieGapInspection Distortion VisionScale);
+my $b2_pass = greps("$VIS_ROOT/Core/Inspectors/InspectionParameters.cs", qr/IParameterProvider/) ? 1 : 0;
+foreach my $t (@tools) { $b2_pass = 0 unless greps($reg, qr/"\Q$t\E"/); }
+row("STAGE2", "② 5종 디스크립터 + 레지스트리 매핑(Bottom/Side/DieGap/Distortion/Scale)", $b2_pass?"PASS":"FAIL", $reg);
 
-my $maint = "$VIS_ROOT/Ui/Pages/RecipePage.cs";
-my $b3 = greps($maint, qr/ParameterEditorHost/) && greps($maint, qr/ShowParameterEditors/);
-row("STAGE2", "RecipePage → ParameterEditorHost 진입", $b3?"PASS":"FAIL", $maint);
+# SettingsPage → 통일 그리드(에디터 대체): 레지스트리+FromDescriptor 사용, InspectionEditorFactory 미사용
+my $b3 = greps($sp, qr/InspectionParamRegistry/) && greps($sp, qr/FromDescriptor/) &&
+         !greps($sp, qr/InspectionEditorFactory/);
+row("STAGE2", "SettingsPage → 통일 그리드(② 에디터 흡수)", $b3?"PASS":"FAIL", $sp);
 
 # C. ZoomDialog — 디자이너 스윕: MouseWheel 배선은 .Designer.cs, 줌로직/핸들러는 .cs.
 my $zd  = "$VIS_ROOT/Ui/Dialogs/ZoomDialog.cs";
@@ -88,12 +82,11 @@ row("STAGE2", "ConfigurationPage — Cognex 진단(ProbeCognex/Backend/Loaded)",
 # csproj 등록 확인
 my $proj = "$VIS_ROOT/QMC.Vision.csproj";
 my $d2 = greps($proj, qr/SpcChartPage\.cs/) &&
-         greps($proj, qr/ParameterEditorBase\.cs/) &&
-         greps($proj, qr/ParameterEditorHost\.cs/) &&
-         greps($proj, qr/BottomInspectionParameterEditor\.cs/) &&
+         greps($proj, qr/Core\\Parameters\\ParameterStore\.cs/) &&
          greps($proj, qr/ZoomDialog\.cs/) &&
+         !greps($proj, qr/ParameterEditorBase\.cs/) &&
          greps($proj, qr/System\.Windows\.Forms\.DataVisualization/);
-row("STAGE2", "csproj 에 12 신규 파일 + DataVisualization 참조", $d2?"PASS":"FAIL", $proj);
+row("STAGE2", "csproj: SPC/ParameterStore/Zoom 등록 + 에디터 제거 + DataVisualization", $d2?"PASS":"FAIL", $proj);
 
 # 출력
 my $bar = "=" x 110; my $sep = "-" x 110;
