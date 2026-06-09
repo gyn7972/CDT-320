@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Threading;
 using System.Threading.Tasks;
 using QMC.Common.Alarms;
@@ -9,6 +10,8 @@ namespace QMC.CDT320.Motion.SharedRailX
     public static class SharedRailXMotionRuntime
     {
         private static readonly AsyncLocal<int> InternalDispatchDepth = new AsyncLocal<int>();
+        private static readonly ConcurrentDictionary<BaseAxis, CancellationTokenSource> JogGuardTokens =
+            new ConcurrentDictionary<BaseAxis, CancellationTokenSource>();
 
         public static Func<SharedRailXMotionService> ServiceProvider { get; set; }
 
@@ -58,7 +61,11 @@ namespace QMC.CDT320.Motion.SharedRailX
                 }
             }
 
-            axis.MoveJogContinuous(direction, JogSpeedType.Custom, speed);
+            using (EnterInternalDispatch())
+                axis.MoveJogContinuous(direction, JogSpeedType.Custom, speed);
+
+            if (service != null && service.IsSharedRailAxis(axis))
+                StartJogGuard(axis, direction, service);
         }
 
         public static SharedRailXMotionService ResolveService(CDT320_Machine machine)
@@ -70,9 +77,77 @@ namespace QMC.CDT320.Motion.SharedRailX
             return machine != null ? new SharedRailXMotionService(machine) : null;
         }
 
+        private static void StartJogGuard(BaseAxis axis, int direction, SharedRailXMotionService service)
+        {
+            if (axis == null || service == null)
+                return;
+
+            StopJogGuard(axis);
+            var cts = new CancellationTokenSource();
+            JogGuardTokens[axis] = cts;
+            Task.Run(() => MonitorJogDistanceAsync(axis, direction, cts.Token), cts.Token);
+        }
+
+        private static void StopJogGuard(BaseAxis axis)
+        {
+            if (axis == null)
+                return;
+
+            CancellationTokenSource old;
+            if (JogGuardTokens.TryRemove(axis, out old) && old != null)
+            {
+                try { old.Cancel(); } catch { }
+                old.Dispose();
+            }
+        }
+
+        private static async Task MonitorJogDistanceAsync(BaseAxis axis, int direction, CancellationToken ct)
+        {
+            try
+            {
+                while (!ct.IsCancellationRequested)
+                {
+                    await Task.Delay(20, ct).ConfigureAwait(false);
+                    if (axis == null || !axis.IsMoving)
+                        break;
+
+                    SharedRailXMotionService service = ResolveService(null);
+                    if (service == null || !service.IsSharedRailAxis(axis))
+                        break;
+
+                    string reason;
+                    if (!service.VerifyJogCurrentDistance(axis, direction, out reason))
+                    {
+                        using (EnterInternalDispatch())
+                            axis.StopJog();
+
+                        AlarmManager.Raise(AlarmSeverity.Warning, "SHARED-RAIL-X-JOG-STOP", "SharedRailX", reason);
+                        break;
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch (Exception ex)
+            {
+                AlarmManager.Raise(AlarmSeverity.Warning, "SHARED-RAIL-X-JOG-GUARD", "SharedRailX", ex.Message);
+            }
+            finally
+            {
+                StopJogGuard(axis);
+            }
+        }
+
         private sealed class DispatchScope : IDisposable
         {
+            private readonly IDisposable _motionGuardBypass;
             private bool _disposed;
+
+            public DispatchScope()
+            {
+                _motionGuardBypass = BaseAxis.BeginMotionGuardBypass();
+            }
 
             public void Dispose()
             {
@@ -80,6 +155,8 @@ namespace QMC.CDT320.Motion.SharedRailX
                     return;
 
                 _disposed = true;
+                if (_motionGuardBypass != null)
+                    _motionGuardBypass.Dispose();
                 InternalDispatchDepth.Value = Math.Max(0, InternalDispatchDepth.Value - 1);
             }
         }

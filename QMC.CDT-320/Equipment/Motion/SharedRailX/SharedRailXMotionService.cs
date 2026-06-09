@@ -87,14 +87,19 @@ namespace QMC.CDT320.Motion.SharedRailX
             if (!TryResolve(axis, out railAxis))
                 return true;
 
-            double targetPosition = direction > 0
-                ? axis.Setup.SoftLimitPlus
-                : axis.Setup.SoftLimitMinus;
+            SharedRailXValidationResult result = ValidateJogCurrentDistance(GetAxisSettings(), railAxis, direction, false);
+            reason = result.Reason;
+            return result.Allowed;
+        }
 
-            var plan = SharedRailXMovePlan.Create("JogGuard:" + railAxis, axis.Config != null ? axis.Config.DefaultVelocity : 0.0)
-                .Add(railAxis, targetPosition);
+        public bool VerifyJogCurrentDistance(BaseAxis axis, int direction, out string reason)
+        {
+            reason = string.Empty;
+            SharedRailXAxis railAxis;
+            if (!TryResolve(axis, out railAxis))
+                return true;
 
-            SharedRailXValidationResult result = _validator.Validate(GetAxisSettings(), plan);
+            SharedRailXValidationResult result = ValidateJogCurrentDistance(GetAxisSettings(), railAxis, direction, true);
             reason = result.Reason;
             return result.Allowed;
         }
@@ -359,6 +364,60 @@ namespace QMC.CDT320.Motion.SharedRailX
                     ? geometry.SafetyDistance.Value
                     : _config.DefaultSafetyDistance
             });
+        }
+
+        private static SharedRailXValidationResult ValidateJogCurrentDistance(
+            IReadOnlyList<SharedRailXAxisSetting> settings,
+            SharedRailXAxis movingRailAxis,
+            int direction,
+            bool stopAtLimit)
+        {
+            if (settings == null)
+                return SharedRailXValidationResult.Block("SharedRailX settings are empty.");
+
+            SharedRailXAxisSetting moving = settings.FirstOrDefault(x => x != null && x.Axis != null && x.RailAxis == movingRailAxis);
+            if (moving == null)
+                return SharedRailXValidationResult.Block("SharedRailX jog axis is not mapped. axis=" + movingRailAxis);
+
+            double movingMin = moving.GetMinAt(moving.Axis.ActualPosition);
+            double movingMax = moving.GetMaxAt(moving.Axis.ActualPosition);
+            double railDirection = (direction < 0 ? -1.0 : 1.0) * moving.PositionScale;
+
+            foreach (SharedRailXAxisSetting other in settings)
+            {
+                if (other == null || other.Axis == null || other.RailAxis == movingRailAxis)
+                    continue;
+
+                double otherMin = other.GetMinAt(other.Axis.ActualPosition);
+                double otherMax = other.GetMaxAt(other.Axis.ActualPosition);
+                double required = Math.Max(moving.SafetyDistance, other.SafetyDistance);
+                double gap = CalculateCurrentGap(movingMin, movingMax, otherMin, otherMax);
+                bool otherIsRight = movingMax <= otherMin;
+                bool otherIsLeft = otherMax <= movingMin;
+                bool movingTowardOther = (railDirection > 0.0 && otherIsRight) || (railDirection < 0.0 && otherIsLeft);
+
+                if (gap < required || (stopAtLimit && movingTowardOther && gap <= required))
+                {
+                    return SharedRailXValidationResult.Block(
+                        "SharedRailX jog distance is too close. " +
+                        moving.Axis.Name + " rail=" + moving.ToRailPosition(moving.Axis.ActualPosition).ToString("F3") +
+                        ", " + other.Axis.Name + " rail=" + other.ToRailPosition(other.Axis.ActualPosition).ToString("F3") +
+                        ", direction=" + (direction < 0 ? "-" : "+") +
+                        ", gap=" + gap.ToString("F3") +
+                        ", required=" + required.ToString("F3"));
+                }
+            }
+
+            return SharedRailXValidationResult.Allow();
+        }
+
+        private static double CalculateCurrentGap(double aMin, double aMax, double bMin, double bMax)
+        {
+            if (aMax <= bMin)
+                return bMin - aMax;
+            if (bMax <= aMin)
+                return aMin - bMax;
+            return 0.0;
         }
 
         private static int RaiseBlocked(string reason)
