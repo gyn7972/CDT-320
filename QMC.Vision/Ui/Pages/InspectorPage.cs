@@ -1,10 +1,10 @@
-﻿using System;
+using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
 using System.Windows.Forms;
-using System.Collections.Generic;
 using QMC.Common.Recipes;
 using QMC.Vision.Config;
 using QMC.Vision.Core;
@@ -14,125 +14,38 @@ using QMC.Vision.Ui.Controls;
 namespace QMC.Vision.Ui.Pages
 {
     /// <summary>
-    /// Inspector 공용 페이지 — SurfaceInspector / PlacementInspector / FocusInspector 등.
-    /// 좌측: CameraView + JogBox + Illuminator
-    /// 우측: 결과 키-값 테이블 + Grab/Load/Save/Inspect 버튼 + ROI 편집 + PASS/FAIL 표시
+    /// Inspector 공용 페이지 — 좌측 CameraView + JogBox + 검사별 조명, 우측 결과 테이블 + Inspect + PASS/FAIL.
+    /// Stage 94 — Designer/Code 분리. 정적 shell 은 .Designer.cs, 그랩/검사/결과 로직·런타임 자식패널은 Code.
     /// </summary>
-    public class InspectorPage : UserControl
+    public partial class InspectorPage : UserControl
     {
         private readonly VisionModule _module;
         private readonly IInspector   _inspector;
-        private CameraView _cam;
-        private DataGridView _result;
-        private Button _btnGrab, _btnLoad, _btnSave, _btnInspect, _btnEditRoi;
-        private Label  _lblStatus, _lblVerdict;
 
         /// <summary>디자이너용 파라미터 없는 생성자.</summary>
-        public InspectorPage() { BuildLayout(); }
+        public InspectorPage()
+        {
+            InitializeComponent();
+            if (LicenseManager.UsageMode == LicenseUsageMode.Designtime) return;
+            BuildChildPanels();
+        }
 
         public InspectorPage(VisionModule module, IInspector inspector)
         {
             _module = module; _inspector = inspector;
-            BuildLayout();
+            InitializeComponent();
+            if (LicenseManager.UsageMode == LicenseUsageMode.Designtime) return;
+            BuildChildPanels();
             Text = module.Name + " / " + inspector.Id;
         }
 
-        private void BuildLayout()
+        /// <summary>런타임 의존 자식 패널(주입 _module/_inspector 기반) — Designer 직렬화 불가라 Code 유지.</summary>
+        private void BuildChildPanels()
         {
-            if (LicenseManager.UsageMode == LicenseUsageMode.Designtime) return;
-
-            var title = new Label
-            {
-                Dock = DockStyle.Top, Height = 26,
-                Text = Text, BackColor = UiTheme.StatusBarBg, ForeColor = Color.White,
-                Font = UiTheme.SectionFont, TextAlign = ContentAlignment.MiddleLeft,
-                Padding = new Padding(10, 0, 0, 0)
-            };
-            Controls.Add(title);
-
-            _cam = new CameraView { Location = new Point(6, 34), Size = new Size(700, 500) };
-            Controls.Add(_cam);
-
-            // Stage 70 E — 더미 IlluminatorPanel → 검사별 InspectionLightPanel.
-            // Stage 72 — 겹침/잘림 해소: 카메라 높이 500 으로 소폭 축소 → 밴드 y544 상향.
-            //   illum x:6~446 / jog x:456~716 (10px 간격, 우측 컨트롤 x720~ 과 분리)
-            //   illum,jog 하단 824 ≤ Recipe 콘텐츠 높이(≈832) — JogBox 280 컴팩트화로 내부 버튼도 안 잘림.
             var illum = new InspectionLightPanel(_module?.AlgorithmKey ?? "", _inspector?.Id ?? "")
             { Location = new Point(6, 544), Size = new Size(440, 280) };
-            var jog   = new JogBox { Location = new Point(456, 544), Size = new Size(260, 280) };
             Controls.Add(illum);
-            Controls.Add(jog);
 
-            // 결과 키-값 테이블
-            _result = new DataGridView
-            {
-                Location = new Point(720, 34), Size = new Size(540, 270),
-                ReadOnly = true, AllowUserToAddRows = false,
-                RowHeadersVisible = false, BackgroundColor = Color.White,
-                Font = UiTheme.ValueFont,
-                EnableHeadersVisualStyles = false,
-                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
-                ColumnHeadersDefaultCellStyle =
-                {
-                    BackColor = Color.FromArgb(0x50,0x50,0x50), ForeColor = Color.White,
-                    Alignment = DataGridViewContentAlignment.MiddleCenter,
-                    Font = new Font("맑은 고딕", 9F, FontStyle.Bold)
-                }
-            };
-            foreach (var c in new[] { "Item", "Value", "Pass" })
-                _result.Columns.Add(c, c);
-            Controls.Add(_result);
-
-            // PASS/FAIL 라벨
-            _lblVerdict = new Label
-            {
-                Location = new Point(720, 312), Size = new Size(540, 50),
-                Text = "—", Font = new Font("Segoe UI", 22F, FontStyle.Bold),
-                ForeColor = Color.DimGray, BackColor = Color.WhiteSmoke,
-                BorderStyle = BorderStyle.FixedSingle,
-                TextAlign = ContentAlignment.MiddleCenter
-            };
-            Controls.Add(_lblVerdict);
-
-            // 1행: GRAB / LOAD / SAVE
-            _btnGrab = new Button { Location = new Point(720, 372), Size = new Size(170, 44), Text = "GRAB", FlatStyle = FlatStyle.Flat, Font = UiTheme.ButtonFont, BackColor = Color.White };
-            _btnLoad = new Button { Location = new Point(900, 372), Size = new Size(170, 44), Text = "LOAD", FlatStyle = FlatStyle.Flat, Font = UiTheme.ButtonFont, BackColor = Color.White };
-            _btnSave = new Button { Location = new Point(1080,372), Size = new Size(180, 44), Text = "SAVE", FlatStyle = FlatStyle.Flat, Font = UiTheme.ButtonFont, BackColor = Color.White };
-
-            // 2행: INSPECT (큰 버튼)
-            _btnInspect = new Button
-            {
-                Location = new Point(720, 422), Size = new Size(540, 56),
-                Text = "INSPECT", FlatStyle = FlatStyle.Flat, Font = UiTheme.ButtonFont,
-                BackColor = UiTheme.Accent, ForeColor = Color.White
-            };
-
-            // 3행: ROI 편집
-            _btnEditRoi = new Button
-            {
-                Location = new Point(720, 488), Size = new Size(540, 36),
-                Text = "Edit INSPECTION ROI (drag)", FlatStyle = FlatStyle.Flat, Font = UiTheme.ButtonFont,
-                BackColor = Color.LightYellow
-            };
-
-            _lblStatus = new Label
-            {
-                Location = new Point(720, 532), Size = new Size(540, 30),
-                Text = "Ready.", Font = UiTheme.ValueFont, ForeColor = Color.DarkSlateGray,
-                BorderStyle = BorderStyle.FixedSingle, BackColor = Color.WhiteSmoke,
-                TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding(8, 0, 0, 0)
-            };
-
-            _btnGrab   .Click += (s,e) => DoGrab();
-            _btnLoad   .Click += (s,e) => DoLoad();
-            _btnSave   .Click += (s,e) => DoSave();
-            _btnInspect.Click += (s,e) => DoInspect();
-            _btnEditRoi.Click += (s,e) => BeginEditRoi();
-
-            Controls.Add(_btnGrab); Controls.Add(_btnLoad); Controls.Add(_btnSave);
-            Controls.Add(_btnInspect); Controls.Add(_btnEditRoi); Controls.Add(_lblStatus);
-
-            // Stage 87 — 라이브 튜닝 패널 우측 빈 공간 (720, 566) 540×264. 카메라 라이브 + 조명 펄스 통합.
             var liveTuning = new LightLiveTuningPanel
             {
                 Location = new Point(720, 566), Size = new Size(540, 264), Name = "_liveTuning"
@@ -140,17 +53,24 @@ namespace QMC.Vision.Ui.Pages
             liveTuning.Initialize(CollectRowsForLiveTuning);
             liveTuning.BindCameraLive(() => StartLive(0), () => StopLive());
             Controls.Add(liveTuning);
-
-            _cam.RoiEdited += (which, roi) =>
-            {
-                if (_inspector == null) return;
-                _inspector.InspectionRoi = roi;
-                Status($"INSPECTION ROI updated: x={roi.CenterX:F0} y={roi.CenterY:F0} w={roi.Width:F0} h={roi.Height:F0}");
-                _cam.SetOverlay(_inspector.InspectionRoi, null);
-            };
         }
 
-        // ── Stage 87 — 카메라 라이브 grab loop (라이브 튜닝 패널이 start/stop 트리거) ──
+        // ── 이벤트 핸들러 (Designer 에서 named 연결) ──
+        private void OnGrabClick(object sender, EventArgs e) => DoGrab();
+        private void OnLoadClick(object sender, EventArgs e) => DoLoad();
+        private void OnSaveClick(object sender, EventArgs e) => DoSave();
+        private void OnInspectClick(object sender, EventArgs e) => DoInspect();
+        private void OnEditRoiClick(object sender, EventArgs e) => BeginEditRoi();
+
+        private void OnCamRoiEdited(string which, Roi roi)
+        {
+            if (_inspector == null) return;
+            _inspector.InspectionRoi = roi;
+            Status($"INSPECTION ROI updated: x={roi.CenterX:F0} y={roi.CenterY:F0} w={roi.Width:F0} h={roi.Height:F0}");
+            _cam.SetOverlay(_inspector.InspectionRoi, null);
+        }
+
+        // ── Stage 87 — 카메라 라이브 grab loop ──
         private System.Windows.Forms.Timer _liveTimer;
         private bool _liveOn;
 
@@ -195,7 +115,7 @@ namespace QMC.Vision.Ui.Pages
             return 333;
         }
 
-        /// <summary>Stage 87 — 현재 검사(algorithm+id)의 저장된 조명 설정을 TuningRow 로 변환 (라이브 튜닝 송신 소스).</summary>
+        /// <summary>Stage 87 — 현재 검사(algorithm+id)의 저장된 조명 설정을 TuningRow 로 변환.</summary>
         private IEnumerable<LightLiveTuningPanel.TuningRow> CollectRowsForLiveTuning()
         {
             var ov = AlgorithmCameraMapStore.Current?.Get(_module?.AlgorithmKey)?.GetLightOverride(_inspector?.Id);
@@ -204,15 +124,6 @@ namespace QMC.Vision.Ui.Pages
                 if (!string.IsNullOrEmpty(s.ControllerPort) && s.Channel > 0)
                     yield return new LightLiveTuningPanel.TuningRow
                     { ControllerPort = s.ControllerPort, Channel = s.Channel, Level = s.Level };
-        }
-
-        protected override void Dispose(bool disposing)
-        {
-            if (disposing)
-            {
-                try { StopLive(); _liveTimer?.Dispose(); } catch { }
-            }
-            base.Dispose(disposing);
         }
 
         private GrabResult _lastGrab;

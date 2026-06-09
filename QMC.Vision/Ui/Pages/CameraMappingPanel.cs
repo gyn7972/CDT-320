@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
@@ -12,33 +12,14 @@ namespace QMC.Vision.Ui.Pages
 {
     /// <summary>
     /// 알고리즘 1개의 카메라 매핑 + 카메라 파라미터 편집 패널.
-    /// SettingsPage 의 우측 디테일로 호스팅됨. <see cref="SelectAlgorithm"/> 으로 표시 알고리즘 변경.
+    /// Stage 96 — Designer/Code 분리. 정적 shell 은 .Designer.cs, 콤보채움·바인딩·연결/라이브 로직은 Code.
     /// </summary>
-    public class CameraMappingPanel : UserControl
+    public partial class CameraMappingPanel : UserControl
     {
-        private Label    _lblAlgorithm;
-        private ComboBox _cbCameraId;
-        // _btnDiscover 는 BuildLayout 에서 할당; UpdateConnectButtons 에서 disable 위해 field 화
-        private Button   _btnDiscover;
-        private NumericUpDown _numExposure, _numGain, _numFps, _numDelay;
-        private NumericUpDown _numRoiX, _numRoiY, _numRoiW, _numRoiH;
-        private ComboBox _cbTrigger, _cbPixel;
-        // MIL(Matrox) DCF — "Mil/..." 선택 + "DCF 직접 지정" 체크 시에만 표시 (전역 VisionSettings 저장)
-        private CheckBox _chkMilDcf;
-        private TextBox  _txtMilDcf;
-        private Label    _lblMil;
-        private Button   _btnSave, _btnApply, _btnTestGrab, _btnReset, _btnCancel;
-        private Button   _btnConnect, _btnLiveStart, _btnLiveStop;
-        private Label    _lblStatus;
-        private PictureBox _picPreview;
-        private Panel    _body;
-
         private string _algorithm;
         private bool   _suspendBinding;
 
         // ── 연결 상태 ──
-        // _activeCamOwned = true  →  단독 인스턴스 (운영 모듈과 무관). Disconnect 시 dispose.
-        // _activeCamOwned = false →  운영 모듈(Form1) 카메라 borrow. Disconnect 시 이벤트 detach 만.
         private ICamera _activeCam;
         private bool    _activeCamOwned;
         private bool    _isLive;
@@ -48,11 +29,33 @@ namespace QMC.Vision.Ui.Pages
 
         public CameraMappingPanel()
         {
+            InitializeComponent();
             if (LicenseManager.UsageMode == LicenseUsageMode.Designtime) return;
             _uiCtx = SynchronizationContext.Current ?? new WindowsFormsSynchronizationContext();
-            BuildLayout();
-            Disposed += (s, e) => Disconnect();
+            BuildCombos();
+            UpdateConnectButtons();
         }
+
+        /// <summary>콤보 Items(enum) 동적 채움 — 런타임.</summary>
+        private void BuildCombos()
+        {
+            foreach (var v in Enum.GetNames(typeof(CameraTriggerMode))) _cbTrigger.Items.Add(v);
+            foreach (var v in Enum.GetNames(typeof(CameraPixelFormat))) _cbPixel.Items.Add(v);
+        }
+
+        // ── 이벤트 핸들러 (Designer 에서 named 연결) ──
+        private void OnAnyFieldChanged(object sender, EventArgs e) => OnFieldChanged();
+        private void OnDiscoverClick(object sender, EventArgs e) => DiscoverCameras();
+        private void OnMilDcfCheckedChanged(object sender, EventArgs e) { UpdateMilDcfVisibility(); OnMilFieldChanged(); }
+        private void OnMilTextChanged(object sender, EventArgs e) => OnMilFieldChanged();
+        private void OnSaveClick(object sender, EventArgs e) => SaveAll();
+        private void OnCancelClick(object sender, EventArgs e) => CancelChanges();
+        private void OnResetClick(object sender, EventArgs e) => ResetToDefaults();
+        private void OnApplyClick(object sender, EventArgs e) => ApplyToRunningModule();
+        private void OnTestGrabClick(object sender, EventArgs e) => TestGrab();
+        private void OnConnectClick(object sender, EventArgs e) => ToggleConnect();
+        private void OnLiveStartClick(object sender, EventArgs e) => LiveStart();
+        private void OnLiveStopClick(object sender, EventArgs e) => LiveStop();
 
         public void SelectAlgorithm(string algorithm)
         {
@@ -71,163 +74,6 @@ namespace QMC.Vision.Ui.Pages
                 try { _body.AutoScrollPosition = Point.Empty; } catch { }
             }));
         }
-
-        private void BuildLayout()
-        {
-            BackColor = UiTheme.MainBg;
-
-            _lblAlgorithm = new Label
-            {
-                Dock = DockStyle.Top, Height = 30, Text = "카메라 매핑",
-                BackColor = UiTheme.StatusBarBg, ForeColor = Color.White,
-                Font = UiTheme.SectionFont, TextAlign = ContentAlignment.MiddleLeft,
-                Padding = new Padding(10, 0, 0, 0)
-            };
-            Controls.Add(_lblAlgorithm);
-
-            // AutoScroll: 해상도가 작아져 콘텐트(특히 하단 프리뷰 PictureBox)가 패널 높이를 넘으면 스크롤로 접근 가능하게.
-            _body = new Panel { Dock = DockStyle.Fill, BackColor = UiTheme.MainBg, AutoScroll = true, Padding = new Padding(10, 12, 10, 10) };
-            Controls.Add(_body);
-            var body = _body;
-
-            int x1 = 20, x2 = 180, y = 30, dy = 36;
-
-            body.Controls.Add(L("카메라 ID", x1, y));
-            // DropDownList: 직접 타이핑 차단 — [카메라 검색] 으로 발견된 항목에서만 선택 가능.
-            _cbCameraId = new ComboBox { Location = new Point(x2, y - 2), Size = new Size(360, 26), Font = UiTheme.ValueFont, DropDownStyle = ComboBoxStyle.DropDownList };
-            _cbCameraId.SelectedIndexChanged += (s, e) => OnFieldChanged();
-            body.Controls.Add(_cbCameraId);
-            _btnDiscover = new Button
-            {
-                Location = new Point(x2 + 370, y - 2), Size = new Size(120, 28),
-                Text = "카메라 검색", FlatStyle = FlatStyle.Flat, Font = UiTheme.ButtonFont, BackColor = Color.White
-            };
-            _btnDiscover.Click += (s, e) => DiscoverCameras();
-            body.Controls.Add(_btnDiscover);
-
-            y += dy;
-            body.Controls.Add(L("Exposure (μs)", x1, y));
-            _numExposure = MakeNum(x2, y, 1, 1_000_000, 0, 100); body.Controls.Add(_numExposure);
-            _numExposure.ValueChanged += (s, e) => OnFieldChanged();
-
-            y += dy;
-            body.Controls.Add(L("Gain (dB)", x1, y));
-            _numGain = MakeNum(x2, y, 0, 48, 1, 0.5M); body.Controls.Add(_numGain);
-            _numGain.ValueChanged += (s, e) => OnFieldChanged();
-
-            y += dy;
-            body.Controls.Add(L("Frame rate (fps)", x1, y));
-            _numFps = MakeNum(x2, y, 1, 1000, 0, 1); body.Controls.Add(_numFps);
-            _numFps.ValueChanged += (s, e) => OnFieldChanged();
-
-            y += dy;
-            body.Controls.Add(L("Trigger mode", x1, y));
-            _cbTrigger = new ComboBox { Location = new Point(x2, y - 2), Size = new Size(150, 26), DropDownStyle = ComboBoxStyle.DropDownList, Font = UiTheme.ValueFont };
-            foreach (var v in Enum.GetNames(typeof(CameraTriggerMode))) _cbTrigger.Items.Add(v);
-            _cbTrigger.SelectedIndexChanged += (s, e) => OnFieldChanged();
-            body.Controls.Add(_cbTrigger);
-
-            y += dy;
-            body.Controls.Add(L("Pixel format", x1, y));
-            _cbPixel = new ComboBox { Location = new Point(x2, y - 2), Size = new Size(150, 26), DropDownStyle = ComboBoxStyle.DropDownList, Font = UiTheme.ValueFont };
-            foreach (var v in Enum.GetNames(typeof(CameraPixelFormat))) _cbPixel.Items.Add(v);
-            _cbPixel.SelectedIndexChanged += (s, e) => OnFieldChanged();
-            body.Controls.Add(_cbPixel);
-
-            y += dy;
-            body.Controls.Add(L("Delay before grab (ms)", x1, y));
-            _numDelay = MakeNum(x2, y, 0, 60_000, 0, 10); body.Controls.Add(_numDelay);
-            _numDelay.ValueChanged += (s, e) => OnFieldChanged();
-
-            // Stage 62 — ROI 4 필드 (0 = full sensor)
-            // UI audit fix: AutoSize 라벨이 NumericUpDown 영역 침범 → 모든 라벨 폭 고정.
-            y += dy;
-            body.Controls.Add(L("ROI (0=full sensor)", x1, y));
-            body.Controls.Add(new Label { Location = new Point(x2,        y + 2), AutoSize = false, Size = new Size(56, 22), Text = "OffsetX", Font = UiTheme.ButtonFont });
-            _numRoiX = MakeNum(x2 + 60,  y, 0, 8000, 0, 1); _numRoiX.Width = 80; body.Controls.Add(_numRoiX);
-            body.Controls.Add(new Label { Location = new Point(x2 + 145,  y + 2), AutoSize = false, Size = new Size(56, 22), Text = "OffsetY", Font = UiTheme.ButtonFont });
-            _numRoiY = MakeNum(x2 + 205, y, 0, 8000, 0, 1); _numRoiY.Width = 80; body.Controls.Add(_numRoiY);
-            body.Controls.Add(new Label { Location = new Point(x2 + 290,  y + 2), AutoSize = false, Size = new Size(16, 22), Text = "W",       Font = UiTheme.ButtonFont });
-            _numRoiW = MakeNum(x2 + 310, y, 0, 8000, 0, 1); _numRoiW.Width = 80; body.Controls.Add(_numRoiW);
-            body.Controls.Add(new Label { Location = new Point(x2 + 395,  y + 2), AutoSize = false, Size = new Size(16, 22), Text = "H",       Font = UiTheme.ButtonFont });
-            _numRoiH = MakeNum(x2 + 415, y, 0, 8000, 0, 1); _numRoiH.Width = 80; body.Controls.Add(_numRoiH);
-            _numRoiX.ValueChanged += (s, e) => OnFieldChanged();
-            _numRoiY.ValueChanged += (s, e) => OnFieldChanged();
-            _numRoiW.ValueChanged += (s, e) => OnFieldChanged();
-            _numRoiH.ValueChanged += (s, e) => OnFieldChanged();
-
-            // ── MIL(Matrox) DCF: "Mil/..." 카메라 선택 시 체크박스 노출, 체크하면 경로칸 표시(기본 숨김) ──
-            // CXP/GenICam 은 DCF 불필요(M_DEFAULT 자동). CameraLink 등 포맷 지정이 필요할 때만 사용.
-            y += dy;
-            _chkMilDcf = new CheckBox
-            {
-                Location = new Point(x1, y + 2), Size = new Size(220, 22),
-                Text = "MIL DCF 직접 지정", Font = UiTheme.ButtonFont, Visible = false
-            };
-            _chkMilDcf.CheckedChanged += (s, e) => { UpdateMilDcfVisibility(); OnMilFieldChanged(); };
-            body.Controls.Add(_chkMilDcf);
-
-            y += dy;
-            _lblMil = L("MIL DCF 경로", x1, y); _lblMil.Visible = false; body.Controls.Add(_lblMil);
-            _txtMilDcf = new TextBox { Location = new Point(x2, y - 2), Size = new Size(360, 26), Font = UiTheme.ValueFont, Visible = false };
-            _txtMilDcf.TextChanged += (s, e) => OnMilFieldChanged();
-            body.Controls.Add(_txtMilDcf);
-
-            // 액션
-            y += dy + 12;
-            _btnSave = new Button { Location = new Point(x1, y), Size = new Size(110, 32), Text = "저장", FlatStyle = FlatStyle.Flat, Font = UiTheme.ButtonFont, BackColor = UiTheme.Accent, ForeColor = Color.White };
-            _btnSave.Click += (s, e) => SaveAll();
-            body.Controls.Add(_btnSave);
-
-            _btnCancel = new Button { Location = new Point(x1 + 120, y), Size = new Size(90, 32), Text = "취소", FlatStyle = FlatStyle.Flat, Font = UiTheme.ButtonFont, BackColor = Color.White };
-            _btnCancel.Click += (s, e) => CancelChanges();
-            body.Controls.Add(_btnCancel);
-
-            _btnReset = new Button { Location = new Point(x1 + 220, y), Size = new Size(120, 32), Text = "기본값 복원", FlatStyle = FlatStyle.Flat, Font = UiTheme.ButtonFont, BackColor = Color.White };
-            _btnReset.Click += (s, e) => ResetToDefaults();
-            body.Controls.Add(_btnReset);
-
-            _btnApply = new Button { Location = new Point(x1 + 350, y), Size = new Size(160, 32), Text = "실행 모듈에 적용", FlatStyle = FlatStyle.Flat, Font = UiTheme.ButtonFont, BackColor = Color.White };
-            _btnApply.Click += (s, e) => ApplyToRunningModule();
-            body.Controls.Add(_btnApply);
-
-            _btnTestGrab = new Button { Location = new Point(x1 + 520, y), Size = new Size(120, 32), Text = "테스트 그랩", FlatStyle = FlatStyle.Flat, Font = UiTheme.ButtonFont, BackColor = Color.White };
-            _btnTestGrab.Click += (s, e) => TestGrab();
-            body.Controls.Add(_btnTestGrab);
-
-            // ── 새 행: Connect / Live ──
-            y += 40;
-            _btnConnect = new Button { Location = new Point(x1, y), Size = new Size(110, 32), Text = "Connect", FlatStyle = FlatStyle.Flat, Font = UiTheme.ButtonFont, BackColor = UiTheme.Accent, ForeColor = Color.White };
-            _btnConnect.Click += (s, e) => ToggleConnect();
-            body.Controls.Add(_btnConnect);
-
-            _btnLiveStart = new Button { Location = new Point(x1 + 120, y), Size = new Size(110, 32), Text = "Live Start", FlatStyle = FlatStyle.Flat, Font = UiTheme.ButtonFont, BackColor = Color.White };
-            _btnLiveStart.Click += (s, e) => LiveStart();
-            body.Controls.Add(_btnLiveStart);
-
-            _btnLiveStop = new Button { Location = new Point(x1 + 240, y), Size = new Size(110, 32), Text = "Live Stop", FlatStyle = FlatStyle.Flat, Font = UiTheme.ButtonFont, BackColor = Color.White };
-            _btnLiveStop.Click += (s, e) => LiveStop();
-            body.Controls.Add(_btnLiveStop);
-
-            _lblStatus = new Label { Location = new Point(x1, y + 40), Size = new Size(900, 24), Text = "", Font = UiTheme.ValueFont, ForeColor = Color.DarkSlateGray };
-            body.Controls.Add(_lblStatus);
-
-            _picPreview = new PictureBox { Location = new Point(x1, y + 70), Size = new Size(640, 360), BorderStyle = BorderStyle.FixedSingle, BackColor = Color.Black, SizeMode = PictureBoxSizeMode.Zoom };
-            body.Controls.Add(_picPreview);
-
-            UpdateConnectButtons();
-        }
-
-        private static Label L(string text, int x, int y)
-            => new Label { Location = new Point(x, y), Size = new Size(160, 22), Text = text, Font = UiTheme.ButtonFont };
-
-        private static NumericUpDown MakeNum(int x, int y, decimal min, decimal max, int dp, decimal inc)
-            => new NumericUpDown
-            {
-                Location = new Point(x, y - 2), Size = new Size(150, 26),
-                Minimum = min, Maximum = max, DecimalPlaces = dp, Increment = inc,
-                Font = UiTheme.ValueFont
-            };
 
         private AlgorithmCameraMapping CurrentMapping()
         {
@@ -458,7 +304,7 @@ namespace QMC.Vision.Ui.Pages
         }
 
         // ──────────────────────────────────────────
-        //  Connect / Disconnect / Live  (HikGrabTestQmc 와 동일 패턴)
+        //  Connect / Disconnect / Live
         // ──────────────────────────────────────────
 
         private void ToggleConnect()
@@ -475,9 +321,7 @@ namespace QMC.Vision.Ui.Pages
             var m = CurrentMapping();
             try
             {
-                // 1차 시도: 운영 모듈(Form1)이 이미 같은 카메라를 보유 중이면 그 인스턴스 borrow.
-                //          매핑이 변경됐으면 RebindAlgorithmCamera 로 swap 후 borrow.
-                //          이는 HIK GigE 의 동시 exclusive 점유 충돌(MV_CC_OpenDevice failed)을 회피한다.
+                // 운영 모듈(Form1)이 같은 카메라 보유 중이면 borrow (exclusive 점유 충돌 회피).
                 var form = FindForm() as Form1;
                 var mod  = form?.ResolveModule(_algorithm);
                 if (mod != null)
@@ -485,7 +329,6 @@ namespace QMC.Vision.Ui.Pages
                     bool sameId = string.Equals(mod.Camera?.Info?.Id, m.CameraId, StringComparison.OrdinalIgnoreCase);
                     if (!sameId || mod.Camera == null || !mod.Camera.IsOpen)
                     {
-                        // 매핑 변경되었거나 운영 카메라가 닫혀있음 → Rebind (Form1 이 swap + open)
                         if (!form.RebindAlgorithmCamera(_algorithm, m, out var rebindErr))
                         {
                             _lblStatus.ForeColor = Color.Firebrick;
@@ -509,7 +352,7 @@ namespace QMC.Vision.Ui.Pages
                     return;
                 }
 
-                // Fallback: 메인 폼(Form1) 을 찾을 수 없는 단독 모드 → 새 인스턴스 직접 open.
+                // Fallback: 단독 모드 → 새 인스턴스 직접 open.
                 var cam = AlgorithmCameraBinder.CreateAndApply(m, out var openErr, out var applyErr);
                 if (cam == null || !cam.IsOpen)
                 {
@@ -546,11 +389,9 @@ namespace QMC.Vision.Ui.Pages
             try { _activeCam.ConnectionChanged -= Cam_ConnectionChanged; } catch { }
             if (_activeCamOwned)
             {
-                // 단독 모드 — 우리가 만든 인스턴스이므로 close/dispose
                 try { _activeCam.Close();   } catch { }
                 try { _activeCam.Dispose(); } catch { }
             }
-            // borrow 모드는 close/dispose 안 함 (운영 모듈이 계속 사용)
             _activeCam = null;
             _activeCamOwned = false;
             if (_lblStatus != null) { _lblStatus.ForeColor = Color.DarkSlateGray; _lblStatus.Text = "Disconnected"; }

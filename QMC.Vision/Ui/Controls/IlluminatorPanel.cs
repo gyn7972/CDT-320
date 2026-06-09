@@ -1,35 +1,28 @@
-﻿using System.Drawing;
+using System;
+using System.ComponentModel;
 using System.Windows.Forms;
 
 namespace QMC.Vision.Ui.Controls
 {
-    /// <summary>조명 4개 채널 밝기 슬라이더.</summary>
-    public class IlluminatorPanel : Panel
+    /// <summary>조명 4개 채널 밝기 슬라이더.
+    /// Stage 90 — Designer/Code 분리(디자이너 로드 가능). 4채널 unroll + named 핸들러로 closure 제거. 레이아웃은 .Designer.cs.</summary>
+    public partial class IlluminatorPanel : Panel
     {
         public IlluminatorPanel()
         {
-            BackColor = UiTheme.OptionPanelBg;
-            BorderStyle = BorderStyle.FixedSingle;
-            Height = 180;
+            InitializeComponent();
+            if (LicenseManager.UsageMode == LicenseUsageMode.Designtime) return;
+        }
 
-            var hdr = new Label
-            {
-                Dock = DockStyle.Top, Height = 26, Text = "Illuminator",
-                BackColor = UiTheme.StatusBarBg, ForeColor = Color.White,
-                Font = UiTheme.SectionFont, TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding(10, 0, 0, 0)
-            };
-            Controls.Add(hdr);
-
-            int y = 30;
-            foreach (var n in new[] { "CH 1", "CH 2", "CH 3", "CH 4" })
-            {
-                Controls.Add(new Label   { Location = new Point(6, y + 4), Size = new Size(40, 20), Text = n, Font = UiTheme.ButtonFont });
-                var tb = new TrackBar    { Location = new Point(50, y - 4), Size = new Size(180, 30), Minimum = 0, Maximum = 255, Value = 128, TickFrequency = 32 };
-                var val = new Label       { Location = new Point(234, y + 4), Size = new Size(40, 20), Text = "128", Font = UiTheme.ValueFont, TextAlign = ContentAlignment.MiddleRight };
-                tb.ValueChanged += (s, e) => val.Text = tb.Value.ToString();
-                Controls.Add(tb); Controls.Add(val);
-                y += 32;
-            }
+        // 트랙바 값 변경 → 해당 채널 값 라벨 갱신 (sender 비교로 closure 캡처 없이).
+        private void OnTrackValueChanged(object sender, EventArgs e)
+        {
+            var tb = sender as TrackBar;
+            if (tb == null) return;
+            if      (tb == _tb1) _val1.Text = tb.Value.ToString();
+            else if (tb == _tb2) _val2.Text = tb.Value.ToString();
+            else if (tb == _tb3) _val3.Text = tb.Value.ToString();
+            else if (tb == _tb4) _val4.Text = tb.Value.ToString();
         }
     }
 }

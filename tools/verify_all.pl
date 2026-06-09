@@ -1,17 +1,13 @@
 #!perl
-# verify_all.pl — 모든 단계 통합 회귀
-use strict; use warnings;
+# verify_all.pl — 코어 회귀 (Vision + 자동화 존재체크).
+#   Handler 계열 36개는 tools/retired/ 로 격리(은퇴 백업 AI-Handler 스캐폴딩 기준, 팀 권위 Handler 와 불일치).
+#   런타임(comm/cognex_runtime)은 별도 그룹 — run_runtime.pl 참조.
+use strict; use warnings; use FindBin;
 
+# 코어 정적 베이스라인 — 현행 트리(Vision 디자이너 스윕 반영) 대상만. Handler 빌드에 비의존.
 my @stages = qw(
-    handler_features
-    stage2 stage3 stage4 stage5 stage6 stage7 stage8
-    stage9 stage10
-    stage11 stage12 stage13
-    stage14 stage15 stage16 stage17 stage18 stage19 stage20 stage21 stage22 stage23
-    stage24 stage25
-    stage26 stage27 stage28 stage29 stage30 stage31 stage32
-    stage43 stage44 stage45 stage46 stage47 stage48
-    stage49 stage50 stage51 stage52 stage53 stage54
+    stage2 stage6 stage52
+    stage14 stage15 stage17 stage18
 );
 
 print "=" x 110, "\n";
@@ -25,7 +21,7 @@ my $totalFail = 0;
 my $totalAll  = 0;
 
 foreach my $s (@stages) {
-    my $script = "D:/Work/CDT-320/QMC.CDT-320/tools/verify_${s}.pl";
+    my $script = "$FindBin::Bin/verify_${s}.pl";
     if (! -e $script) {
         printf "%-25s %-12s\n", $s, "(skip — script not found)";
         next;
@@ -48,7 +44,7 @@ printf "%-25s %-12d %-10d %-10s\n", "TOTAL", $totalAll, $totalPass,
 print "=" x 110, "\n";
 
 # Vision 정적
-my $vis = "D:/Work/CDT-320/QMC.CDT-320/tools/verify_vision_features.pl";
+my $vis = "$FindBin::Bin/verify_vision_features.pl";
 if (-e $vis) {
     print "\nVision (정적 only — Vision exe 미실행 시 1 SKIP):\n";
     my $vout = `perl "$vis" 2>&1 | tail -1`;

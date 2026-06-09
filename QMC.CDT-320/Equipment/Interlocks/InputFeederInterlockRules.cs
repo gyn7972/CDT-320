@@ -88,23 +88,23 @@ namespace QMC.CDT320.Interlocks
             if (machine == null)
                 return true;
 
-            if (!IsInputVisionXInAvoidPosition(machine.InputStageUnit))
-                return MotionGuardRuleHelpers.Block(
-                    "InputFeederY",
-                    "InputVisionX must be at Avoid position before InputFeederY home.",
-                    out reason);
+            //if (!IsInputVisionXInAvoidPosition(machine.InputStageUnit))
+            //    return MotionGuardRuleHelpers.Block(
+            //        "InputFeederY",
+            //        "InputVisionX must be at Avoid position before InputFeederY home.",
+            //        out reason);
 
-            if (!IsFrontPickerXInAvoidPosition(machine.PickerFrontUnit))
-                return MotionGuardRuleHelpers.Block(
-                    "InputFeederY",
-                    "FrontPickerX must be at Avoid position before InputFeederY home.",
-                    out reason);
+            //if (!IsFrontPickerXInAvoidPosition(machine.PickerFrontUnit))
+            //    return MotionGuardRuleHelpers.Block(
+            //        "InputFeederY",
+            //        "FrontPickerX must be at Avoid position before InputFeederY home.",
+            //        out reason);
 
-            if (!IsRearPickerXInAvoidPosition(machine.PickerRearUnit))
-                return MotionGuardRuleHelpers.Block(
-                    "InputFeederY",
-                    "RearPickerX must be at Avoid position before InputFeederY home.",
-                    out reason);
+            //if (!IsRearPickerXInAvoidPosition(machine.PickerRearUnit))
+            //    return MotionGuardRuleHelpers.Block(
+            //        "InputFeederY",
+            //        "RearPickerX must be at Avoid position before InputFeederY home.",
+            //        out reason);
 
             InputFeederUnit feeder = machine.InputFeederUnit;
             if (!IsFeederUnclamp(feeder))
@@ -113,7 +113,7 @@ namespace QMC.CDT320.Interlocks
                     "InputFeeder must be unclamped before InputFeederY home.",
                     out reason);
 
-            if (!IsFeederUp(feeder))
+            if (IsFeederUp(feeder) == true)
                 return MotionGuardRuleHelpers.Block(
                     "InputFeederY",
                     "InputFeeder must be up before InputFeederY home.",

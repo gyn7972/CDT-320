@@ -51,9 +51,9 @@ namespace QMC.CDT320
         public SharedRailXMotionService SharedRailX { get; private set; }
 
         public event Action<EquipmentStatus> StatusChanged;
-        public event Action<string>        LogMessage;
-        public event Action<int, int>      CycleProgress;  // (done, total)
-        public event Action<bool>          MachineInitializedChanged;
+        public event Action<string> LogMessage;
+        public event Action<int, int> CycleProgress;  // (done, total)
+        public event Action<bool> MachineInitializedChanged;
         public event Action<AxisInitializeStepProgress> AxisInitializeStepProgressChanged;
 
         /// <summary>CDT-320 하드웨어 유닛 트리입니다.</summary>
@@ -62,6 +62,12 @@ namespace QMC.CDT320
         public Task<int> MoveSharedRailXAsync(SharedRailXMovePlan plan)
         {
             return SharedRailX != null ? SharedRailX.MoveAsync(plan) : Task.FromResult(-1);
+        }
+
+        public void ReloadSharedRailXConfig()
+        {
+            SharedRailX = new SharedRailXMotionService(_machine, CreateSharedRailXConfig());
+            SharedRailXMotionRuntime.ServiceProvider = () => SharedRailX;
         }
 
         public EquipmentStatus Status => _status;
@@ -81,10 +87,10 @@ namespace QMC.CDT320
         public string LastActionFailureMessage { get; private set; }
         public bool CanRunEquipment => IsMachineInitialized && _status != EquipmentStatus.Alarm && !IsSequenceRunning;
         public QMC.CDT320.Sequencing.SequenceRunMode? ActiveSequenceRunMode { get; private set; }
-        public int CycleTotal  { get; private set; }
-        public int CycleDone   { get; private set; }
-        public int GoodCount   { get; private set; }
-        public int NgCount     { get; private set; }
+        public int CycleTotal { get; private set; }
+        public int CycleDone { get; private set; }
+        public int GoodCount { get; private set; }
+        public int NgCount { get; private set; }
 
         // Wafer die map settings.
         // Input uses a circular 300mm wafer map, Output uses a rectangular tray map.
@@ -96,14 +102,14 @@ namespace QMC.CDT320
         /// <summary>다이 Y 크기 [mm].</summary>
         public double DieSizeYMm { get; set; } = 6.12;
         /// <summary>Input die map gap [mm].</summary>
-        public double InputGapMm  { get; set; } = 0.05;
+        public double InputGapMm { get; set; } = 0.05;
         /// <summary>Output die map gap [mm].</summary>
         public double OutputGapMm { get; set; } = 0.30;
 
         private QMC.CDT320.DieMaps.DieMap _inputDieMap;
         private QMC.CDT320.DieMaps.DieMap _outputDieMap;
         /// <summary>Input die map. null이면 EnsureDieMaps 호출이 필요합니다.</summary>
-        public QMC.CDT320.DieMaps.DieMap InputDieMap  => _inputDieMap;
+        public QMC.CDT320.DieMaps.DieMap InputDieMap => _inputDieMap;
         /// <summary>Output die map. null이면 EnsureDieMaps 호출이 필요합니다.</summary>
         public QMC.CDT320.DieMaps.DieMap OutputDieMap => _outputDieMap;
         /// <summary>true이면 사이클에서 InputDieMap의 IsTarget=true 다이 좌표를 사용합니다.</summary>
@@ -122,7 +128,7 @@ namespace QMC.CDT320
         // Capture can overlap with the next inspect/place cycle.
         private Task<(double X, double Y)[]> _pendingCaptureTask;
         private int _pendingCaptureCycleIdx = -1;
-        private int _pendingCapturePickers  = 0;
+        private int _pendingCapturePickers = 0;
 
         public IReadOnlyList<QMC.CDT320.DieMaps.DieMapEntry> InputPickupSequence
             => _inputPickupSequence;
@@ -187,34 +193,34 @@ namespace QMC.CDT320
         //  internal setter ??Cycle ?ㅽ뻾 以묒뿉 ?꾩쟻, Init ??由ъ뀑.
         // ??????????????????????????????????????????
         /// <summary>PICK ?ㅽ뙣 ?꾩쟻 ??(?ъ떆???꾩뿉???ㅽ뙣濡?移댁슫?몃릺??寃쎌슦).</summary>
-        public int PickFailCount   { get; internal set; }
+        public int PickFailCount { get; internal set; }
         /// <summary>PLACE ?ㅽ뙣 ?꾩쟻 ??(Output ?щ’ placement vision NG).</summary>
-        public int PlaceFailCount  { get; internal set; }
+        public int PlaceFailCount { get; internal set; }
         /// <summary>FRONT (LEFT ARM) Collet ?ъ슜 ?잛닔 ??Pick 1?뚮떦 +1.</summary>
         public int Collet1UseCount { get; internal set; }
         /// <summary>REAR (RIGHT ARM) Collet ?ъ슜 ?잛닔.</summary>
         public int Collet2UseCount { get; internal set; }
         /// <summary>EjectPin/Needle ?ъ슜 ?잛닔 (?ㅼ씠 1媛쒕떦 1??.</summary>
-        public int NeedleUseCount  { get; internal set; }
+        public int NeedleUseCount { get; internal set; }
         /// <summary>?뚮엺 ?꾩쟻 諛쒖깮 ??</summary>
-        public int ErrorCount      { get; internal set; }
+        public int ErrorCount { get; internal set; }
         /// <summary>?뺤긽 ?ㅼ슫(STOP/ECMG ??IDLE) ?꾩쟻 ?쒓컙.</summary>
         public TimeSpan NormalDownTime { get; internal set; } = TimeSpan.Zero;
         /// <summary>?뚮엺/?먮윭濡??명븳 ?ㅼ슫 ?꾩쟻 ?쒓컙.</summary>
-        public TimeSpan ErrorDownTime  { get; internal set; } = TimeSpan.Zero;
+        public TimeSpan ErrorDownTime { get; internal set; } = TimeSpan.Zero;
         /// <summary>?뚮엺 諛쒖깮 ??蹂듦뎄源뚯? 嫄몃┛ ?꾩쟻 ?쒓컙.</summary>
-        public TimeSpan RecoveryTime   { get; internal set; } = TimeSpan.Zero;
+        public TimeSpan RecoveryTime { get; internal set; } = TimeSpan.Zero;
         /// <summary>Mean Time Between Failure (rolling).</summary>
-        public TimeSpan Mtbf           { get; internal set; } = TimeSpan.Zero;
+        public TimeSpan Mtbf { get; internal set; } = TimeSpan.Zero;
         /// <summary>Mean Time To Recovery (rolling).</summary>
-        public TimeSpan Mttr           { get; internal set; } = TimeSpan.Zero;
+        public TimeSpan Mttr { get; internal set; } = TimeSpan.Zero;
 
         // ??????????????????????????????????????????
         //  濡쒗듃?ы듃 (Input Cassette) 吏꾪뻾 ?곹깭
         // ??????????????????????????????????????????
 
         /// <summary>?꾩옱 InputLoader 媛 泥섎━ 以묒씤 ?щ’ ?몃뜳??(0-base). -1 = 誘몄옣李??몃줈???곹깭.</summary>
-        public int  CurrentInputSlot { get; private set; } = -1;
+        public int CurrentInputSlot { get; private set; } = -1;
         /// <summary>?꾩옱 ?щ’???⑥씠?쇨? InputStage 援먰솚 ?꾩튂源뚯? ?댁넚?섏뿀?붿? ?щ?.</summary>
         public bool InputWaferAtExchange { get; private set; } = false;
         /// <summary>濡쒗듃?ы듃 ?쒗??吏꾪뻾 ?쒖젏??諛쒗뻾 (UI 媛깆떊??.</summary>
@@ -238,25 +244,7 @@ namespace QMC.CDT320
 
         private static SharedRailXConfig CreateSharedRailXConfig()
         {
-            var config = SharedRailXConfig.CreateDefault();
-
-            // Unit: mm.
-            // BodyOffsetMin/Max are the occupied rail area around the axis command position.
-            // Example: if a head is 80mm wide and the command position is its center,
-            // set bodyOffsetMin=-40 and bodyOffsetMax=40.
-            // RailOriginOffset converts each local axis position to a common rail coordinate:
-            // railPosition = axisPosition * positionScale + railOriginOffset.
-            config.DefaultSafetyDistance = 10.0;
-            config.EnablePathCheck = true;
-            config.RequireSameVelocityForGroupMove = true;
-
-            config
-                .SetGeometry(SharedRailXAxis.InputVisionX, 0.0, 0.0, railOriginOffset: 0.0)
-                .SetGeometry(SharedRailXAxis.FrontPickerX, 0.0, 0.0, railOriginOffset: 10.0)
-                .SetGeometry(SharedRailXAxis.RearPickerX, 0.0, 0.0, railOriginOffset: 20.0)
-                .SetGeometry(SharedRailXAxis.OutputVisionX, 0.0, 0.0, railOriginOffset: 30.0);
-
-            return config;
+            return SharedRailXConfigStore.LoadOrCreateDefault();
         }
 
         private static bool VerifyAxisMotionGuard(
@@ -848,7 +836,7 @@ namespace QMC.CDT320
                 return false;
             }
 
-            CurrentInputSlot     = next;
+            CurrentInputSlot = next;
             InputWaferAtExchange = true;
             RaiseLotPortChanged();
             Log($"[LOTPORT] LoadNextWafer OK. slot={next}");
@@ -948,7 +936,7 @@ namespace QMC.CDT320
                 double targetX = stage.OriginX + col * (stage.PitchX > 0 ? stage.PitchX : 0.15);
                 double targetY = stage.OriginY + row * (stage.PitchY > 0 ? stage.PitchY : 0.15);
                 bool xOk = await MoveAxisAsync(stage.CameraX, targetX, 100.0);
-                bool yOk = await MoveAxisAsync(stage.StageY,  targetY, 100.0);
+                bool yOk = await MoveAxisAsync(stage.StageY, targetY, 100.0);
                 if (!xOk || !yOk)
                 {
                     Log($"[INPUTSTAGE] Move to die [{row},{col}] blocked");
@@ -1009,7 +997,7 @@ namespace QMC.CDT320
         // ??????????????????????????????????????????
 
         /// <summary>?꾩옱 Output 移댁꽭?몃퀎 ?ㅼ쓬 ?곸옱 ?щ’ ?몃뜳??(0-base).</summary>
-        public int OutputSlotNg    { get; private set; } = 0;
+        public int OutputSlotNg { get; private set; } = 0;
         public int OutputSlotGood1 { get; private set; } = 0;
         public int OutputSlotGood2 { get; private set; } = 0;
         /// <summary>Completed wafer store request delegated to OutputCassette/OutputFeeder.</summary>
@@ -1275,7 +1263,7 @@ namespace QMC.CDT320
         public void ApplyRecipeMode(QMC.CDT320.Recipes.RecipeProject p)
         {
             if (p == null) return;
-            DryRun  = GlobalDryRun || p.DryRun;
+            DryRun = GlobalDryRun || p.DryRun;
             StepRun = p.StepRun;
             // Stage 33 ??Recipe ??ModuleSubset ?뚮씪誘명꽣瑜?Controller ?듭뀡??諛섏쁺
             if (p.Module != null)
@@ -1360,12 +1348,12 @@ namespace QMC.CDT320
             {
                 for (int i = 0; i < 3; i++)
                 {
-                    Log($"[ALIGN] point {i+1}/3 move motor -> ({motorPts[i].mx:F2}, {motorPts[i].my:F2})");
+                    Log($"[ALIGN] point {i + 1}/3 move motor -> ({motorPts[i].mx:F2}, {motorPts[i].my:F2})");
                     // ?ㅼ젣 紐⑥뀡? ?댁쁺 ?섍꼍?먯꽌 異붽?; ?쒕??먯꽌??留ㅼ묶 ?몄텧留?
                     var m = await VisionComm.VisionHub.Wafer.MatchAsync(finder, i, 1500);
                     if (!m.Success)
                     {
-                        Log($"[ALIGN] point {i+1} match failed: {m.RawError}");
+                        Log($"[ALIGN] point {i + 1} match failed: {m.RawError}");
                         return false;
                     }
                     px[i] = m.X; py[i] = m.Y;
@@ -1743,7 +1731,10 @@ namespace QMC.CDT320
                 Thread.Sleep(500);
 
                 axis.ResetAlarm();
+                Thread.Sleep(500);
+
                 axis.ServoOn();
+                Thread.Sleep(500);
 
                 if (!axis.IsServoOn)
                 {
@@ -1856,7 +1847,7 @@ namespace QMC.CDT320
                         return await PrepareInputLifterZHomeAsync(axis).ConfigureAwait(false);
                     case "OutputLifterZ":
                         return await PrepareOutputLifterZHomeAsync(axis).ConfigureAwait(false);
-                    case "FeederY":
+                    case "InputFeederY":
                         return await PrepareInputFeederYHomeByAxisAsync(axis).ConfigureAwait(false);
                     case "OutputFeederY":
                         return await PrepareOutputFeederYHomeByAxisAsync(axis).ConfigureAwait(false);
@@ -1866,6 +1857,12 @@ namespace QMC.CDT320
                     case "RearPickerX":
                     case "OutputVisionX":
                         return await PrepareSharedRailXAxisHomeAsync(axis).ConfigureAwait(false);
+                    case "InputExpandingZ":
+                        return await PrepareInputExpandingZHomeAsync(axis).ConfigureAwait(false);
+                    case "InputStageY":
+                        return await PrepareInputStageYHomeAsync(axis).ConfigureAwait(false);
+                    case "NeedleX":
+                        return await PrepareNeedleXHomeAsync(axis).ConfigureAwait(false);
                     default:
                         return await PrepareDefaultAxisHomeAsync(axis).ConfigureAwait(false);
                 }
@@ -1970,10 +1967,9 @@ namespace QMC.CDT320
             return Task.FromResult(0);
         }
 
-        private Task<int> PrepareInputLifterZHomeAsync(BaseAxis axis)
+        private async Task<int> PrepareInputLifterZHomeAsync(BaseAxis axis)
         {
-            // TODO: InputLifterZ HOME 전 필요한 실린더/피더/도어 조건을 현장 기준으로 추가하세요.
-            return Task.FromResult(0);
+            return await PrepareInputLifterHomeAsync().ConfigureAwait(false);
         }
 
         private Task<int> PrepareOutputLifterZHomeAsync(BaseAxis axis)
@@ -1996,6 +1992,42 @@ namespace QMC.CDT320
         {
             // TODO: Shared Rail X축 HOME 전 Picker Z/가이드/비전 Reticle 상태 조건이 있으면 여기에 추가하세요.
             return Task.FromResult(0);
+        }
+
+        private async Task<int> PrepareInputExpandingZHomeAsync(BaseAxis axis)
+        {
+            return await PrepareInputExpandingHomeAsync().ConfigureAwait(false);
+        }
+
+        private async Task<int> PrepareInputStageYHomeAsync(BaseAxis axis)
+        {
+            return await PrepareInputStageHomeAsync().ConfigureAwait(false);
+        }
+
+        private async Task<int> PrepareNeedleXHomeAsync(BaseAxis axis)
+        {
+            return await PrepareNeedleHomeAsync().ConfigureAwait(false);
+        }
+
+        private async Task<int> PrepareNeedleHomeAsync()
+        {
+            Log("[INIT] Prepare NeedleX home: NeedleZ Safe(Avoid) move.");
+
+            var stage = _machine.InputStageUnit;
+            if (stage == null)
+                return 0;
+
+            int result = await MoveInputNeedleZSafeToAvoidAsync().ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            //if (!stage.IsNeedleZInSafePosition())
+            //{
+            //    return FailInitializePreparation(
+            //        "NeedleX HOME 불가: NeedleZ가 Avoid 위치에 있지 않습니다.");
+            //}
+
+            return 0;
         }
 
         private async Task<int> MoveFrontPickerYToAvoidAfterHomeAsync()
@@ -2913,6 +2945,77 @@ namespace QMC.CDT320
             {
             }
         }
+        private Task<int> PrepareInputLifterHomeAsync()
+        {
+            Log("[INIT] Prepare InputLifter home: check input cassette wafer protrusion.");
+
+            var inputCassette = _machine.InputCassetteUnit;
+            if (inputCassette == null)
+                return Task.FromResult(0);
+
+            if (inputCassette.IsWaferProtrusionDetected())
+            {
+                // Todo: Ring 감지 시 초기화 방법 재확인
+                return Task.FromResult(FailInitializePreparation(
+                    "InputLifter HOME 불가: Input Cassette 웨이퍼 돌출(Ring Jut)이 감지되었습니다."));
+            }
+
+            return Task.FromResult(0);
+        }
+
+        private Task<int> PrepareInputExpandingHomeAsync()
+        {
+            Log("[INIT] Prepare InputExpanding home: check wafer stage touch sensor.");
+
+            var visionUnit = _machine.VisionUnit;
+            if (visionUnit == null)
+                return Task.FromResult(0);
+
+            // Todo : Wafer 데이터로 확인
+            if (visionUnit.IsVisionWaferStageTouchSensor(true))
+            {
+                return Task.FromResult(FailInitializePreparation(
+                    "InputExpandingZ HOME 불가: Wafer Stage Touch Sensor가 감지되었습니다."));
+            }
+
+            return Task.FromResult(0);
+        }
+
+        private async Task<int> PrepareInputStageHomeAsync()
+        {
+            Log("[INIT] Prepare InputStageY home: NeedleZ Safe(Avoid) move.");
+
+            var stage = _machine.InputStageUnit;
+            if (stage == null)
+                return 0;
+
+            int result = await MoveInputNeedleZSafeToAvoidAsync().ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            //if (!stage.IsNeedleZInSafePosition())
+            //{
+            //    return FailInitializePreparation(
+            //        "InputStageY HOME 불가: NeedleZ가 Safe 위치에 있지 않습니다.");
+            //}
+
+            return 0;
+        }
+
+        private async Task<int> MoveInputNeedleZSafeToAvoidAsync()
+        {
+            var stage = _machine.InputStageUnit;
+            if (stage == null ||
+                stage.NeedleZ == null ||
+                stage.Recipe == null ||
+                stage.Recipe.NeedleZ == null)
+                return 0;
+
+            return await MoveAxisTeachingAsync(
+                stage.NeedleZ,
+                stage.Recipe.NeedleZ.AvoidPosition,
+                "InputNeedleZ.Avoid").ConfigureAwait(false);
+        }
 
         private async Task<int> PrepareInputFeederHomeAsync()
         {
@@ -2933,11 +3036,17 @@ namespace QMC.CDT320
                     return FailInitializePreparation("InputFeeder unclamp failed. result=" + result);
             }
 
-            if (!feeder.IsWaferFeederUp())
+            if (feeder.IsWaferFeederUp())
             {
-                result = await feeder.SetWaferFeederUpDown(true).ConfigureAwait(false);
+                result = await feeder.SetWaferFeederUpDown(false).ConfigureAwait(false);
                 if (result != 0)
                     return FailInitializePreparation("InputFeeder lift up failed. result=" + result);
+            }
+
+            if (feeder.IsWaferFeederRingCheck())
+            {
+                // Todo: Ring 감지 시 초기화 방법 재확인
+                return FailInitializePreparation("InputFeeder Ring Check.");
             }
 
             return 0;
@@ -3140,7 +3249,7 @@ namespace QMC.CDT320
                     return 0;
 
                 if (!axis.IsHomeDone)
-                    return 0;
+                    return -1;
 
                 using (MotionGuardRuntime.BeginAxisTeachingMove(axis, targetPosition, targetName))
                 {
@@ -4497,8 +4606,8 @@ namespace QMC.CDT320
                     var e = _inputPickupSequence[seqIdx];
                     dies[i].WaferIndexX = e.GridX;
                     dies[i].WaferIndeY = e.GridY;
-                    dies[i].X     = e.X;
-                    dies[i].Y     = e.Y;
+                    dies[i].X = e.X;
+                    dies[i].Y = e.Y;
                 }
                 // InputStage ?대룞? ????ㅼ씠 (泥?picker) 湲곗?
                 row = dies[0].WaferIndeY;
@@ -4528,12 +4637,12 @@ namespace QMC.CDT320
 
             // Stage 58 ???댁쁺 ?듦퀎: Front collet + Needle 4 picker ?ъ슜
             Collet1UseCount += pickers;
-            NeedleUseCount  += pickers;
+            NeedleUseCount += pickers;
 
             // 蹂???좎뼵 + Servo ON
             bool[] pickupOk = new bool[pickers];
             bool[] inspPass = new bool[pickers];
-            var dieOffsets    = new (double X, double Y)[pickers];
+            var dieOffsets = new (double X, double Y)[pickers];
             var visionOffsets = new (double X, double Y)[pickers];
             for (int pi = 0; pi < pickers; pi++) inspPass[pi] = true;
 
@@ -4601,9 +4710,9 @@ namespace QMC.CDT320
             {
                 if (!inspPass[p]) { pickupOk[p] = false; continue; }  // vision NG picker skip
 
-                var d      = dies[p];
+                var d = dies[p];
                 var picker = front.Pickers[p];
-                var vo     = visionOffsets[p];
+                var vo = visionOffsets[p];
                 try
                 {
                     // ??3異??숈떆 ?대룞
@@ -4641,7 +4750,7 @@ namespace QMC.CDT320
 
                     // ??Needle Up / Picker Up (+PickLiftPosition) ?숈떆
                     double needleUpPos = stage.Recipe.EjectPinZ.ReadyPosition + picker.Recipe.PickLiftPosition;
-                    double pickerUpPos = picker.Setup.PickupPosition    + picker.Recipe.PickLiftPosition;
+                    double pickerUpPos = picker.Setup.PickupPosition + picker.Recipe.PickLiftPosition;
                     await Task.WhenAll(
                         ej.MoveAbsoluteAsync(needleUpPos, ResolveAxisDefaultVelocity(ej)),
                         picker.PickerZ.MoveAbsoluteAsync(pickerUpPos, picker.Recipe.ZVelocity)
@@ -4691,7 +4800,7 @@ namespace QMC.CDT320
             {
                 int npickers = pickers;
                 _pendingCaptureCycleIdx = nextCycleIdx;
-                _pendingCapturePickers  = npickers;
+                _pendingCapturePickers = npickers;
                 _pendingCaptureTask = CaptureWaferForCycleAsync(nextCycleIdx, npickers, ct);
                 Log($"[PIPELINE] Cycle {nextCycleIdx + 1}: background wafer capture start.");
             }
@@ -4702,7 +4811,7 @@ namespace QMC.CDT320
             //   - Step 2~5 = Side sub-sequence Picker 0~3 (ArmX ?숈씪 ?꾩튂?먯꽌 picker[idx-2] 媛 Side X ?뺣젹)
             //   - 媛?picker Z????Bottom 吏곸쟾, Z????Side ?앹뿉??諛쒖깮.
             BottomVisionOffset[] bottomResults = null;
-            SideVisionResult[]   sideResults   = null;
+            SideVisionResult[] sideResults = null;
             bool visionConnected = VisionComm.VisionHub.Inspection != null
                                 && VisionComm.VisionHub.Inspection.IsConnected;
             try
@@ -4716,7 +4825,7 @@ namespace QMC.CDT320
                     if (both != null)
                     {
                         bottomResults = both.Item1;
-                        sideResults   = both.Item2;
+                        sideResults = both.Item2;
 
                         // Bottom 寃곌낵 ??picker offset / inspPass 諛섏쁺
                         if (bottomResults != null)

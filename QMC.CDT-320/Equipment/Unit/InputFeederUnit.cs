@@ -578,7 +578,7 @@ namespace QMC.CDT320
             {
                 ct.ThrowIfCancellationRequested();
 
-                if (IsWaferFeederOverload())
+                if (!IsWaferFeederOverload())
                     return RaiseFeederAlarm("WF-LIFT-OVERLOAD", "WaferFeeder overload is on.");
 
                 if (up && !IsWaferFeederEmpty())

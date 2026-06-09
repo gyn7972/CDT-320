@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.ComponentModel;
 using System.Drawing;
 using System.Globalization;
@@ -12,9 +12,9 @@ namespace QMC.Vision.Ui.Pages
 {
     /// <summary>
     /// SPC X-bar 차트 페이지 — DataLogSaver CSV 의 다이별 검사 항목을 시계열 X-bar 로 표시.
-    /// 310 의 XBarChartForm 동등 기능 (코드 독자 작성).
+    /// Stage 93 — Designer/Code 분리. 정적 shell(차트/필터바)은 .Designer.cs, CSV 로드·시리즈 생성은 Code.
     /// </summary>
-    public class SpcChartPage : UserControl
+    public partial class SpcChartPage : UserControl
     {
         // 310 DataLogSaver.InspectionItems 15종 (사용자 선택 가능)
         private static readonly string[] Items = {
@@ -29,105 +29,33 @@ namespace QMC.Vision.Ui.Pages
             "ForeignObjectSize",
         };
 
-        private ComboBox     _cbItem;
-        private NumericUpDown _nLsl, _nUsl;
-        private Chart        _chart;
-        private Label        _lblStats;
-        private DateTimePicker _dpDate;
+        private string[] _columns;
+        private string[][] _rows = new string[0][];
+        private bool _initializing;   // 초기 콤보/날짜 세팅 중 핸들러 트리거 억제
 
         public SpcChartPage()
         {
+            InitializeComponent();
             if (LicenseManager.UsageMode == LicenseUsageMode.Designtime) return;
-            BuildLayout();
+
+            _initializing = true;
+            try
+            {
+                foreach (var s in Items) _cbItem.Items.Add(s);
+                _cbItem.SelectedIndex = 0;
+                _dpDate.Value = DateTime.Today;
+            }
+            finally { _initializing = false; }
+
             ReloadCsvAndPlot();
         }
 
-        private void BuildLayout()
-        {
-            var hdr = new Label
-            {
-                Dock = DockStyle.Top, Height = 30, Text = "SPC X-bar Chart",
-                BackColor = UiTheme.StatusBarBg, ForeColor = Color.White,
-                Font = UiTheme.SectionFont, TextAlign = ContentAlignment.MiddleLeft,
-                Padding = new Padding(10, 0, 0, 0)
-            };
-            Controls.Add(hdr);
-
-            var top = new Panel { Dock = DockStyle.Top, Height = 80, BackColor = Color.WhiteSmoke };
-            top.Controls.Add(new Label { Location = new Point(8, 8), AutoSize = true, Text = "Item:", Font = UiTheme.ButtonFont });
-            _cbItem = new ComboBox
-            {
-                Location = new Point(60, 4), Size = new Size(280, 28),
-                DropDownStyle = ComboBoxStyle.DropDownList, Font = UiTheme.ButtonFont
-            };
-            foreach (var s in Items) _cbItem.Items.Add(s);
-            _cbItem.SelectedIndex = 0;
-            _cbItem.SelectedIndexChanged += (s, e) => Plot();
-            top.Controls.Add(_cbItem);
-
-            top.Controls.Add(new Label { Location = new Point(360, 8), AutoSize = true, Text = "Date:", Font = UiTheme.ButtonFont });
-            _dpDate = new DateTimePicker
-            {
-                Location = new Point(410, 4), Size = new Size(160, 28),
-                Format = DateTimePickerFormat.Custom, CustomFormat = "yyyy-MM-dd",
-                Font = UiTheme.ButtonFont, Value = DateTime.Today
-            };
-            _dpDate.ValueChanged += (s, e) => ReloadCsvAndPlot();
-            top.Controls.Add(_dpDate);
-
-            top.Controls.Add(new Label { Location = new Point(8, 44), AutoSize = true, Text = "LSL:", Font = UiTheme.ButtonFont });
-            _nLsl = new NumericUpDown
-            {
-                Location = new Point(60, 40), Size = new Size(120, 28),
-                Minimum = -1000, Maximum = 1000, DecimalPlaces = 4, Increment = 0.001m,
-                Font = UiTheme.ValueFont, Value = -0.05m
-            };
-            _nLsl.ValueChanged += (s, e) => Plot();
-            top.Controls.Add(_nLsl);
-            top.Controls.Add(new Label { Location = new Point(200, 44), AutoSize = true, Text = "USL:", Font = UiTheme.ButtonFont });
-            _nUsl = new NumericUpDown
-            {
-                Location = new Point(240, 40), Size = new Size(120, 28),
-                Minimum = -1000, Maximum = 1000, DecimalPlaces = 4, Increment = 0.001m,
-                Font = UiTheme.ValueFont, Value = 0.05m
-            };
-            _nUsl.ValueChanged += (s, e) => Plot();
-            top.Controls.Add(_nUsl);
-
-            var btnReload = new Button
-            {
-                Location = new Point(580, 4), Size = new Size(120, 28),
-                Text = "Reload CSV", FlatStyle = FlatStyle.Flat, Font = UiTheme.ButtonFont,
-                BackColor = Color.White
-            };
-            btnReload.Click += (s, e) => ReloadCsvAndPlot();
-            top.Controls.Add(btnReload);
-
-            _lblStats = new Label
-            {
-                Location = new Point(380, 40), Size = new Size(540, 28),
-                Text = "(no data)", Font = UiTheme.ValueFont,
-                BackColor = Color.WhiteSmoke,
-                BorderStyle = BorderStyle.FixedSingle,
-                TextAlign = ContentAlignment.MiddleLeft, Padding = new Padding(8, 0, 0, 0)
-            };
-            top.Controls.Add(_lblStats);
-            Controls.Add(top);
-
-            _chart = new Chart { Dock = DockStyle.Fill };
-            var ca = new ChartArea("main")
-            {
-                BackColor = Color.White,
-                AxisX = { Title = "Sample", MajorGrid = { LineColor = Color.LightGray } },
-                AxisY = { Title = "Value", MajorGrid = { LineColor = Color.LightGray } }
-            };
-            _chart.ChartAreas.Add(ca);
-            _chart.Legends.Add(new Legend("legend") { Docking = Docking.Top });
-            Controls.Add(_chart);
-        }
-
-        private string[] _columns;
-        private string[][] _rows = new string[0][];
+        // ── 이벤트 핸들러 (Designer 에서 named 연결) ──
+        private void OnItemChanged(object sender, EventArgs e) { if (_initializing) return; Plot(); }
+        private void OnDateChanged(object sender, EventArgs e) { if (_initializing) return; ReloadCsvAndPlot(); }
+        private void OnLslChanged(object sender, EventArgs e) => Plot();
+        private void OnUslChanged(object sender, EventArgs e) => Plot();
+        private void OnReloadClick(object sender, EventArgs e) => ReloadCsvAndPlot();
 
         private void ReloadCsvAndPlot()
         {

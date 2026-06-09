@@ -275,10 +275,18 @@ namespace QMC.CDT320.Motion.SharedRailX
             IReadOnlyList<double> decelerations)
         {
             int[] axisNos = ajinAxes.Select(x => x.AxisNo).ToArray();
-            double[] targetPositions = positions.ToArray();
-            double[] targetVelocities = velocities.ToArray();
-            double[] targetAccelerations = accelerations.ToArray();
-            double[] targetDecelerations = decelerations.ToArray();
+            double[] targetPositions = ajinAxes
+                .Select((axis, index) => axis.ToBoardPosition(positions[index]))
+                .ToArray();
+            double[] targetVelocities = ajinAxes
+                .Select((axis, index) => axis.ToBoardVelocity(velocities[index]))
+                .ToArray();
+            double[] targetAccelerations = ajinAxes
+                .Select((axis, index) => axis.ToBoardAcceleration(accelerations[index]))
+                .ToArray();
+            double[] targetDecelerations = ajinAxes
+                .Select((axis, index) => axis.ToBoardAcceleration(decelerations[index]))
+                .ToArray();
 
             using (SharedRailXMotionRuntime.EnterInternalDispatch())
             {
@@ -297,7 +305,7 @@ namespace QMC.CDT320.Motion.SharedRailX
                 }
 
                 for (int i = 0; i < ajinAxes.Count; i++)
-                    ajinAxes[i].BeginSynchronizedAbsoluteMove(targetPositions[i], targetVelocities[i]);
+                    ajinAxes[i].BeginSynchronizedAbsoluteMove(positions[i], velocities[i]);
 
                 int[] waitResults = await Task.WhenAll(ajinAxes.Select(x => x.WaitSynchronizedMoveDoneAsync()));
                 return waitResults.FirstOrDefault(x => x != 0);

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Windows.Forms;
@@ -8,8 +8,9 @@ namespace QMC.Vision.Ui.Controls
     /// <summary>
     /// 하단 네비게이션 바 버튼 — 상단 원형 아이콘 + 한글 라벨.
     /// QMC.CDT_320 Handler 의 BottomMenuButton 과 동일 스타일.
+    /// Stage 90 — Designer/Code 분리. 직렬화 속성은 .Designer.cs, SetStyle/페인트는 여기.
     /// </summary>
-    public class BottomMenuButton : Control
+    public partial class BottomMenuButton : Control
     {
         private bool _hover;
         private bool _selected;
@@ -29,11 +30,7 @@ namespace QMC.Vision.Ui.Controls
                      ControlStyles.OptimizedDoubleBuffer |
                      ControlStyles.ResizeRedraw |
                      ControlStyles.UserPaint, true);
-            Size      = new Size(110, 70);
-            Cursor    = Cursors.Hand;
-            Font      = UiTheme.BottomBtnFont;
-            ForeColor = UiTheme.BottomBarFg;
-            BackColor = UiTheme.BottomBarBg;
+            InitializeComponent();
         }
 
         protected override void OnMouseEnter(EventArgs e) { _hover = true;  Invalidate(); base.OnMouseEnter(e); }

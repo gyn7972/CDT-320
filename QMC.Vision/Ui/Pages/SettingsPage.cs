@@ -1,6 +1,5 @@
-﻿using System;
+using System;
 using System.ComponentModel;
-using System.Drawing;
 using System.Windows.Forms;
 using QMC.Common.Recipes;
 using QMC.Vision.Config;
@@ -9,86 +8,35 @@ using QMC.Vision.Ui.Editors;
 namespace QMC.Vision.Ui.Pages
 {
     /// <summary>
-    /// 설정 페이지 — 좌측 사이드바(2 그룹) + 우측 디테일.
-    /// <list type="bullet">
-    ///   <item>카메라 매핑: 5 비전 모듈 (Wafer/Bin/BottomInsp/FrontSide/RearSide) ↔ 카메라 ID/파라미터</item>
-    ///   <item>검사 알고리즘: 5 InspectionParameters (BottomInsp/SideInsp/DieGap/Distortion/VisionScale)</item>
-    /// </list>
+    /// 설정 페이지 — 좌측 사이드바(트리) + 우측 디테일 호스트.
+    /// Stage 93 — Designer/Code 분리. 정적 chrome 은 .Designer.cs, 서브패널 인스턴스화·트리 구성·전환은 Code.
     /// </summary>
-    public class SettingsPage : UserControl
+    public partial class SettingsPage : UserControl
     {
-        private TreeView _tree;
-        private Panel    _detailHost;
-
         private CameraMappingPanel      _camPanel;
         private InspectionOverridePanel _inspPanel;       // Stage 64 — 검사별 카메라 오버라이드
         private InspectionLightPanel    _lightPanel;      // Stage 69 — 검사별 조명
         private TabControl              _inspTabs;        // Stage 69 — [카메라][조명] 탭
         private LightSystemSetupPage    _lightSetupPage;  // Stage 69 — 조명 시스템 Setup
-        private Control                 _currentEditor;   // 검사 알고리즘 편집기 캐시 비활성 (TabControl 포함 가능)
+        private Control                 _currentEditor;   // 검사 알고리즘 편집기 캐시
 
         public SettingsPage()
         {
+            InitializeComponent();
             if (LicenseManager.UsageMode == LicenseUsageMode.Designtime) return;
-            BuildLayout();
+            BuildDetailPanels();
             LoadAlgorithms();
         }
 
-        private void BuildLayout()
+        /// <summary>우측 디테일 호스트에 들어가는 서브패널(다른 UserControl) 인스턴스화 — 런타임.</summary>
+        private void BuildDetailPanels()
         {
-            BackColor = UiTheme.MainBg;
-
-            var hdr = new Label
-            {
-                Dock = DockStyle.Top, Height = 30,
-                Text = "설정 — 비전 알고리즘별 카메라 + 검사 파라미터",
-                BackColor = UiTheme.StatusBarBg, ForeColor = Color.White,
-                Font = UiTheme.SectionFont, TextAlign = ContentAlignment.MiddleLeft,
-                Padding = new Padding(10, 0, 0, 0)
-            };
-            Controls.Add(hdr);
-
-            // 좌측 사이드바
-            var sidebar = new Panel
-            {
-                Dock = DockStyle.Left, Width = UiTheme.SidebarWidth + 20, BackColor = UiTheme.SidebarBg
-            };
-            Controls.Add(sidebar);
-
-            var sideHdr = new Label
-            {
-                Dock = DockStyle.Top, Height = 28, Text = "  알고리즘 선택",
-                BackColor = UiTheme.SidebarHeaderBg, ForeColor = UiTheme.SidebarHeaderFg,
-                Font = UiTheme.SectionFont, TextAlign = ContentAlignment.MiddleLeft
-            };
-            sidebar.Controls.Add(sideHdr);
-
-            _tree = new TreeView
-            {
-                Dock = DockStyle.Fill, BorderStyle = BorderStyle.None,
-                BackColor = UiTheme.SidebarBtnBg, ForeColor = UiTheme.SidebarBtnFg,
-                Font = UiTheme.ButtonFont,
-                ShowLines = false, ShowPlusMinus = true, ShowRootLines = true,
-                HideSelection = false, FullRowSelect = true, ItemHeight = 28
-            };
-            _tree.AfterSelect += Tree_AfterSelect;
-            sidebar.Controls.Add(_tree);
-            sidebar.Controls.SetChildIndex(_tree,  0);
-            sidebar.Controls.SetChildIndex(sideHdr, 1);
-
-            // 우측 디테일
-            _detailHost = new Panel { Dock = DockStyle.Fill, BackColor = UiTheme.MainBg };
-            Controls.Add(_detailHost);
-            Controls.SetChildIndex(_detailHost, 0);
-            Controls.SetChildIndex(sidebar,    1);
-            Controls.SetChildIndex(hdr,        2);
-
             _camPanel = new CameraMappingPanel { Dock = DockStyle.Fill, Visible = false };
             _detailHost.Controls.Add(_camPanel);
 
-            // Stage 69 — 검사 노드용 [카메라][조명] 탭 (검사 노드 선택 시만 Visible)
-            _inspPanel  = new InspectionOverridePanel { Dock = DockStyle.Fill };
-            _inspPanel.OverrideChanged += (alg, insp) => RefreshInspectionNode(alg, insp);
+            // Stage 69 — 검사 노드용 [카메라][조명] 탭
+            _inspPanel = new InspectionOverridePanel { Dock = DockStyle.Fill };
+            _inspPanel.OverrideChanged += OnOverrideChanged;
             _lightPanel = new InspectionLightPanel { Dock = DockStyle.Fill };
             _inspTabs = new TabControl { Dock = DockStyle.Fill, Visible = false };
             var tabCam   = new TabPage("카메라"); tabCam.Controls.Add(_inspPanel);
@@ -101,6 +49,8 @@ namespace QMC.Vision.Ui.Pages
             _lightSetupPage = new LightSystemSetupPage { Dock = DockStyle.Fill, Visible = false };
             _detailHost.Controls.Add(_lightSetupPage);
         }
+
+        private void OnOverrideChanged(string alg, string insp) => RefreshInspectionNode(alg, insp);
 
         private void LoadAlgorithms()
         {

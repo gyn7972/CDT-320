@@ -1,4 +1,5 @@
-﻿using System;
+using System;
+using System.ComponentModel;
 using System.Drawing;
 using System.IO;
 using System.Windows.Forms;
@@ -9,11 +10,10 @@ namespace QMC.Vision.Ui.Editors
     /// <summary>
     /// 5종 InspectionParameters 편집기 공통 베이스.
     /// 서브클래스: BuildEditor 에서 입력 컨트롤 + LoadFromParameters / SaveToParameters 구현.
+    /// Stage 91 — Designer/Code 분리(디자이너 로드 가능). shell 은 .Designer.cs, 동적 입력은 자식 BuildEditor(Code).
     /// </summary>
-    public abstract class ParameterEditorBase : UserControl
+    public abstract partial class ParameterEditorBase : UserControl
     {
-        protected Panel _editorPanel;
-        protected Label _lblPath;
         protected string _toolName;
         protected string _jsonPath;
 
@@ -21,74 +21,28 @@ namespace QMC.Vision.Ui.Editors
         {
             _toolName = toolName;
             _jsonPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Recipes", toolName + ".json");
-            BuildShell();
-            try { OnLoad(); } catch { }
-        }
 
-        private void BuildShell()
-        {
-            BackColor = UiTheme.MainBg;
+            InitializeComponent();
+            _lblHeader.Text = $"{_toolName} Parameters";   // 동적(toolName 기준)
+            _lblPath.Text   = _jsonPath;
+            BuildEditor(_editorPanel);                      // 자식 동적 입력 폼
 
-            var hdr = new Label
-            {
-                Dock = DockStyle.Top, Height = 30,
-                Text = $"{_toolName} Parameters",
-                BackColor = UiTheme.StatusBarBg, ForeColor = Color.White,
-                Font = UiTheme.SectionFont, TextAlign = ContentAlignment.MiddleLeft,
-                Padding = new Padding(10, 0, 0, 0)
-            };
-            Controls.Add(hdr);
-
-            var bar = new Panel { Dock = DockStyle.Top, Height = 40, BackColor = Color.WhiteSmoke };
-            var btnLoad = new Button
-            {
-                Location = new Point(8, 4), Size = new Size(100, 32),
-                Text = "Reload", FlatStyle = FlatStyle.Flat, Font = UiTheme.ButtonFont, BackColor = Color.White
-            };
-            btnLoad.Click += (s, e) => OnLoad();
-            bar.Controls.Add(btnLoad);
-
-            var btnSave = new Button
-            {
-                Location = new Point(116, 4), Size = new Size(120, 32),
-                Text = "SAVE", FlatStyle = FlatStyle.Flat, Font = UiTheme.ButtonFont,
-                BackColor = UiTheme.Accent, ForeColor = Color.White
-            };
-            btnSave.Click += (s, e) => OnSave();
-            bar.Controls.Add(btnSave);
-
-            _lblPath = new Label
-            {
-                Location = new Point(244, 10), Size = new Size(640, 24),
-                Text = _jsonPath, Font = UiTheme.ValueFont, ForeColor = Color.DarkSlateGray,
-                TextAlign = ContentAlignment.MiddleLeft
-            };
-            bar.Controls.Add(_lblPath);
-            Controls.Add(bar);
-
-            _editorPanel = new Panel
-            {
-                Dock = DockStyle.Fill, BackColor = UiTheme.MainBg,
-                AutoScroll = true, Padding = new Padding(10)
-            };
-            Controls.Add(_editorPanel);
-            BuildEditor(_editorPanel);
+            if (LicenseManager.UsageMode == LicenseUsageMode.Designtime) return;
+            OnLoad();                                       // 런타임 — JSON 로드
         }
 
         protected abstract void BuildEditor(Panel container);
         protected abstract void LoadFromParameters();
         protected abstract void SaveToParameters();
 
+        // ── 이벤트 핸들러 (Designer 에서 named 연결) ──
+        private void OnReloadClick(object sender, EventArgs e) => OnLoad();
+        private void OnSaveClick(object sender, EventArgs e)   => OnSave();
+
         private void OnLoad()
         {
-            try
-            {
-                LoadFromParameters();
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Load fail: " + ex.Message);
-            }
+            try { LoadFromParameters(); }
+            catch (Exception ex) { MessageBox.Show("Load fail: " + ex.Message); }
         }
 
         private void OnSave()
@@ -102,7 +56,7 @@ namespace QMC.Vision.Ui.Editors
             catch (Exception ex) { MessageBox.Show("Save fail: " + ex.Message); }
         }
 
-        // ── 편의 헬퍼 ──
+        // ── 편의 헬퍼 (자식 BuildEditor 에서 동적 컨트롤 생성) ──
         protected Label MakeLabel(string text, int x, int y, int w = 220)
             => new Label
             {

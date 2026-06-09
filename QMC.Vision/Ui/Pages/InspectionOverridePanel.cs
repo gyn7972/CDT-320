@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.ComponentModel;
 using System.Drawing;
 using System.Windows.Forms;
@@ -11,21 +11,10 @@ namespace QMC.Vision.Ui.Pages
     /// <summary>
     /// Stage 64 — 검사 1개의 카메라 파라미터 오버라이드 편집 패널.
     /// 필드별 "기본값" 체크박스 + 입력칸. 체크 = 알고리즘 기본값 상속(비활성), 해제 = override 입력(활성).
-    /// ROI 는 4 필드 묶음(단일 체크박스). 빈 override 는 저장 시 제거됨.
+    /// Stage 94 — Designer/Code 분리. 정적 shell 은 .Designer.cs, 콤보 채움·바인딩·저장 로직은 Code.
     /// </summary>
-    public class InspectionOverridePanel : UserControl
+    public partial class InspectionOverridePanel : UserControl
     {
-        private Label    _lblHeader;
-        private Label    _lblCamera;
-
-        private CheckBox _ckExposure, _ckGain, _ckFps, _ckTrigger, _ckPixel, _ckDelay, _ckRoi;
-        private NumericUpDown _numExposure, _numGain, _numFps, _numDelay;
-        private ComboBox _cbTrigger, _cbPixel;
-        private NumericUpDown _numRoiX, _numRoiY, _numRoiW, _numRoiH;
-
-        private Button _btnSave, _btnReset, _btnCancel, _btnTest;
-        private Label  _lblStatus;
-
         private string _algorithm, _inspectionId;
 
         /// <summary>override 저장/변경 후 SettingsPage 가 TreeView 노드 표시를 갱신하도록.</summary>
@@ -33,8 +22,16 @@ namespace QMC.Vision.Ui.Pages
 
         public InspectionOverridePanel()
         {
+            InitializeComponent();
             if (LicenseManager.UsageMode == LicenseUsageMode.Designtime) return;
-            BuildLayout();
+            BuildCombos();
+        }
+
+        /// <summary>콤보 Items(enum) 동적 채움 — 런타임.</summary>
+        private void BuildCombos()
+        {
+            foreach (var v in Enum.GetNames(typeof(CameraTriggerMode))) _cbTrigger.Items.Add(v);
+            foreach (var v in Enum.GetNames(typeof(CameraPixelFormat))) _cbPixel.Items.Add(v);
         }
 
         public void SelectInspection(string algorithm, string inspectionId)
@@ -45,6 +42,22 @@ namespace QMC.Vision.Ui.Pages
                             + "  (" + VisionAlgorithm.Label(algorithm) + " / " + inspectionId + ")";
             BindFields();
         }
+
+        // ── 체크박스 토글 핸들러 (Designer 에서 named 연결) ──
+        private void OnCkExposure(object sender, EventArgs e) => _numExposure.Enabled = !_ckExposure.Checked;
+        private void OnCkGain(object sender, EventArgs e)     => _numGain.Enabled     = !_ckGain.Checked;
+        private void OnCkFps(object sender, EventArgs e)      => _numFps.Enabled      = !_ckFps.Checked;
+        private void OnCkTrigger(object sender, EventArgs e)  => _cbTrigger.Enabled   = !_ckTrigger.Checked;
+        private void OnCkPixel(object sender, EventArgs e)    => _cbPixel.Enabled     = !_ckPixel.Checked;
+        private void OnCkDelay(object sender, EventArgs e)    => _numDelay.Enabled    = !_ckDelay.Checked;
+        private void OnCkRoi(object sender, EventArgs e)
+        { bool en = !_ckRoi.Checked; _numRoiX.Enabled = _numRoiY.Enabled = _numRoiW.Enabled = _numRoiH.Enabled = en; }
+
+        // ── 버튼 핸들러 ──
+        private void OnSaveClick(object sender, EventArgs e)   => Save();
+        private void OnResetClick(object sender, EventArgs e)  => ResetAll();
+        private void OnCancelClick(object sender, EventArgs e) => Cancel();
+        private void OnTestClick(object sender, EventArgs e)   => TestGrab();
 
         private AlgorithmCameraMapping BaseMapping()
             => AlgorithmCameraMapStore.Current?.Get(_algorithm);
@@ -59,101 +72,6 @@ namespace QMC.Vision.Ui.Pages
                 if (string.Equals(o.InspectionId, _inspectionId, StringComparison.OrdinalIgnoreCase)) return o;
             return null;
         }
-
-        private void BuildLayout()
-        {
-            BackColor = UiTheme.MainBg;
-
-            _lblHeader = new Label
-            {
-                Dock = DockStyle.Top, Height = 30, Text = "검사 카메라 오버라이드",
-                BackColor = UiTheme.StatusBarBg, ForeColor = Color.White,
-                Font = UiTheme.SectionFont, TextAlign = ContentAlignment.MiddleLeft,
-                Padding = new Padding(10, 0, 0, 0)
-            };
-            Controls.Add(_lblHeader);
-
-            var body = new Panel { Dock = DockStyle.Fill, BackColor = UiTheme.MainBg, AutoScroll = true, Padding = new Padding(10) };
-            Controls.Add(body);
-
-            int xCk = 20, xLbl = 150, xVal = 320, y = 10, dy = 34;
-
-            _lblCamera = new Label { Location = new Point(xCk, y), Size = new Size(560, 22), Font = UiTheme.ValueFont, ForeColor = Color.DarkSlateGray, Text = "카메라: -" };
-            body.Controls.Add(_lblCamera);
-            y += dy;
-
-            body.Controls.Add(new Label { Location = new Point(xCk, y - 24), Size = new Size(560, 20), Text = "─ 필드별 토글 (체크 = 알고리즘 기본값 상속) ─", Font = UiTheme.ButtonFont, ForeColor = Color.Gray });
-
-            _ckExposure = MakeCheck(xCk, y); body.Controls.Add(_ckExposure);
-            body.Controls.Add(L("Exposure (μs)", xLbl, y));
-            _numExposure = MakeNum(xVal, y, 1, 1_000_000, 0, 100); body.Controls.Add(_numExposure);
-            y += dy;
-
-            _ckGain = MakeCheck(xCk, y); body.Controls.Add(_ckGain);
-            body.Controls.Add(L("Gain (dB)", xLbl, y));
-            _numGain = MakeNum(xVal, y, 0, 48, 1, 0.5M); body.Controls.Add(_numGain);
-            y += dy;
-
-            _ckFps = MakeCheck(xCk, y); body.Controls.Add(_ckFps);
-            body.Controls.Add(L("Frame rate (fps)", xLbl, y));
-            _numFps = MakeNum(xVal, y, 1, 1000, 0, 1); body.Controls.Add(_numFps);
-            y += dy;
-
-            _ckTrigger = MakeCheck(xCk, y); body.Controls.Add(_ckTrigger);
-            body.Controls.Add(L("Trigger mode", xLbl, y));
-            _cbTrigger = new ComboBox { Location = new Point(xVal, y - 2), Size = new Size(150, 26), DropDownStyle = ComboBoxStyle.DropDownList, Font = UiTheme.ValueFont };
-            foreach (var v in Enum.GetNames(typeof(CameraTriggerMode))) _cbTrigger.Items.Add(v);
-            body.Controls.Add(_cbTrigger);
-            y += dy;
-
-            _ckPixel = MakeCheck(xCk, y); body.Controls.Add(_ckPixel);
-            body.Controls.Add(L("Pixel format", xLbl, y));
-            _cbPixel = new ComboBox { Location = new Point(xVal, y - 2), Size = new Size(150, 26), DropDownStyle = ComboBoxStyle.DropDownList, Font = UiTheme.ValueFont };
-            foreach (var v in Enum.GetNames(typeof(CameraPixelFormat))) _cbPixel.Items.Add(v);
-            body.Controls.Add(_cbPixel);
-            y += dy;
-
-            _ckDelay = MakeCheck(xCk, y); body.Controls.Add(_ckDelay);
-            body.Controls.Add(L("Delay before grab (ms)", xLbl, y));
-            _numDelay = MakeNum(xVal, y, 0, 60_000, 0, 10); body.Controls.Add(_numDelay);
-            y += dy;
-
-            // ROI 묶음 (단일 체크박스)
-            _ckRoi = MakeCheck(xCk, y); body.Controls.Add(_ckRoi);
-            body.Controls.Add(L("ROI (X/Y/W/H 묶음)", xLbl, y));
-            _numRoiX = MakeNum(xVal,       y, 0, 8000, 0, 1); _numRoiX.Width = 70; body.Controls.Add(_numRoiX);
-            _numRoiY = MakeNum(xVal + 78,  y, 0, 8000, 0, 1); _numRoiY.Width = 70; body.Controls.Add(_numRoiY);
-            _numRoiW = MakeNum(xVal + 156, y, 0, 8000, 0, 1); _numRoiW.Width = 70; body.Controls.Add(_numRoiW);
-            _numRoiH = MakeNum(xVal + 234, y, 0, 8000, 0, 1); _numRoiH.Width = 70; body.Controls.Add(_numRoiH);
-            y += dy + 12;
-
-            _btnSave   = MakeBtn("저장",        xCk,        y, 110, UiTheme.Accent, Color.White); _btnSave.Click   += (s, e) => Save();      body.Controls.Add(_btnSave);
-            _btnReset  = MakeBtn("기본값 복원",  xCk + 120,  y, 120, Color.White, Color.Black);   _btnReset.Click  += (s, e) => ResetAll();  body.Controls.Add(_btnReset);
-            _btnCancel = MakeBtn("취소",        xCk + 250,  y, 90,  Color.White, Color.Black);    _btnCancel.Click += (s, e) => Cancel();    body.Controls.Add(_btnCancel);
-            _btnTest   = MakeBtn("테스트 그랩",  xCk + 350,  y, 120, Color.White, Color.Black);   _btnTest.Click   += (s, e) => TestGrab();  body.Controls.Add(_btnTest);
-            y += 44;
-
-            _lblStatus = new Label { Location = new Point(xCk, y), Size = new Size(640, 24), Text = "", Font = UiTheme.ValueFont, ForeColor = Color.DarkSlateGray };
-            body.Controls.Add(_lblStatus);
-
-            // 체크박스 → 입력칸 활성/비활성 토글
-            _ckExposure.CheckedChanged += (s, e) => _numExposure.Enabled = !_ckExposure.Checked;
-            _ckGain    .CheckedChanged += (s, e) => _numGain.Enabled     = !_ckGain.Checked;
-            _ckFps     .CheckedChanged += (s, e) => _numFps.Enabled      = !_ckFps.Checked;
-            _ckTrigger .CheckedChanged += (s, e) => _cbTrigger.Enabled   = !_ckTrigger.Checked;
-            _ckPixel   .CheckedChanged += (s, e) => _cbPixel.Enabled     = !_ckPixel.Checked;
-            _ckDelay   .CheckedChanged += (s, e) => _numDelay.Enabled    = !_ckDelay.Checked;
-            _ckRoi     .CheckedChanged += (s, e) => { bool en = !_ckRoi.Checked; _numRoiX.Enabled = _numRoiY.Enabled = _numRoiW.Enabled = _numRoiH.Enabled = en; };
-        }
-
-        private static CheckBox MakeCheck(int x, int y)
-            => new CheckBox { Location = new Point(x, y), Size = new Size(120, 24), Text = "기본값", Checked = true, Font = UiTheme.ButtonFont };
-        private static Label L(string t, int x, int y)
-            => new Label { Location = new Point(x, y + 2), Size = new Size(160, 22), Text = t, Font = UiTheme.ButtonFont };
-        private static NumericUpDown MakeNum(int x, int y, decimal min, decimal max, int dp, decimal inc)
-            => new NumericUpDown { Location = new Point(x, y - 2), Size = new Size(150, 26), Minimum = min, Maximum = max, DecimalPlaces = dp, Increment = inc, Font = UiTheme.ValueFont };
-        private static Button MakeBtn(string t, int x, int y, int w, Color bg, Color fg)
-            => new Button { Location = new Point(x, y), Size = new Size(w, 32), Text = t, FlatStyle = FlatStyle.Flat, Font = UiTheme.ButtonFont, BackColor = bg, ForeColor = fg };
 
         private static decimal Clamp(decimal v, decimal min, decimal max) => v < min ? min : (v > max ? max : v);
 
