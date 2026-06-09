@@ -1853,7 +1853,11 @@ namespace QMC.CDT320
                         return await PrepareOutputFeederYHomeByAxisAsync(axis).ConfigureAwait(false);
                     case "CameraX":
                     case "InputVisionX":
+                        return await PrepareInputVisionXHomeAsync(axis).ConfigureAwait(false);
                     case "FrontPickerX":
+                        return await PrepareFrontPickerXHomeAsync(axis).ConfigureAwait(false);
+                    case "FrontPickerY":
+                        return await PrepareFrontPickerYHomeAsync(axis).ConfigureAwait(false);
                     case "RearPickerX":
                     case "OutputVisionX":
                         return await PrepareSharedRailXAxisHomeAsync(axis).ConfigureAwait(false);
@@ -2011,23 +2015,122 @@ namespace QMC.CDT320
 
         private async Task<int> PrepareNeedleHomeAsync()
         {
-            Log("[INIT] Prepare NeedleX home: NeedleZ Safe(Avoid) move.");
+            Log("[INIT] Prepare NeedleX home: NeedleZ Avoid check.");
 
             var stage = _machine.InputStageUnit;
-            if (stage == null)
-                return 0;
-
-            int result = await MoveInputNeedleZSafeToAvoidAsync().ConfigureAwait(false);
-            if (result != 0)
-                return result;
-
-            //if (!stage.IsNeedleZInSafePosition())
-            //{
-            //    return FailInitializePreparation(
-            //        "NeedleX HOME 불가: NeedleZ가 Avoid 위치에 있지 않습니다.");
-            //}
+            if (stage != null && !stage.IsNeedleZInSafePosition())
+            {
+                return FailInitializePreparation(
+                    "NeedleX HOME 불가: NeedleZ가 Avoid 위치에 있지 않습니다.");
+            }
 
             return 0;
+        }
+
+        private async Task<int> PrepareInputVisionXHomeAsync(BaseAxis axis)
+        {
+            return await PrepareInputVisionHomeAsync().ConfigureAwait(false);
+        }
+
+        private async Task<int> PrepareInputVisionHomeAsync()
+        {
+            Log("[INIT] Prepare InputVisionX home: InputFeederY Avoid check, feeder cylinder down.");
+
+            var feeder = _machine.InputFeederUnit;
+            if (feeder != null && !feeder.IsWaferFeederInAvoidPosition())
+            {
+                return FailInitializePreparation(
+                    "InputVisionX HOME 불가: InputFeederY가 Avoid 위치에 있지 않습니다.");
+            }
+
+            if (feeder != null && !feeder.IsWaferFeederDown())
+            {
+                return FailInitializePreparation(
+                    "InputVisionX HOME 불가: InputFeeder 실린더가 Down 위치에 있지 않습니다.");
+            }
+
+            return 0;
+        }
+
+        private async Task<int> PrepareFrontPickerXHomeAsync(BaseAxis axis)
+        {
+            return await PrepareFrontPickerHomeAsync().ConfigureAwait(false);
+        }
+
+        private Task<int> PrepareFrontPickerHomeAsync()
+        {
+            Log("[INIT] Prepare FrontPickerX home: check InputVisionX/FrontPickerY/FrontPickerZ/InputFeederY Avoid and feeder cylinder down.");
+
+            var stage = _machine.InputStageUnit;
+            if (stage != null && !stage.IsVisionXInAvoidPosition())
+            {
+                return Task.FromResult(FailInitializePreparation(
+                    "FrontPickerX HOME 불가: InputVisionX가 Avoid 위치에 있지 않습니다."));
+            }
+
+            var front = _machine.PickerFrontUnit;
+            if (front != null)
+            {
+                if (!front.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition"))
+                {
+                    return Task.FromResult(FailInitializePreparation(
+                        "FrontPickerX HOME 불가: FrontPickerY가 Avoid 위치에 있지 않습니다."));
+                }
+
+                PickerAxis[] zAxes = { PickerAxis.PickerZ0, PickerAxis.PickerZ1, PickerAxis.PickerZ2, PickerAxis.PickerZ3 };
+                foreach (PickerAxis zAxis in zAxes)
+                {
+                    if (!front.IsPickerAxisInTeachingPosition(zAxis, "AvoidPosition"))
+                    {
+                        return Task.FromResult(FailInitializePreparation(
+                            "FrontPickerX HOME 불가: Front" + zAxis + "가 Avoid 위치에 있지 않습니다."));
+                    }
+                }
+            }
+
+            var feeder = _machine.InputFeederUnit;
+            if (feeder != null)
+            {
+                if (!feeder.IsWaferFeederYInAvoidPosition())
+                {
+                    return Task.FromResult(FailInitializePreparation(
+                        "FrontPickerX HOME 불가: InputFeederY가 Avoid 위치에 있지 않습니다."));
+                }
+
+                if (!feeder.IsWaferFeederDown())
+                {
+                    return Task.FromResult(FailInitializePreparation(
+                        "FrontPickerX HOME 불가: InputFeeder 실린더가 Down 위치에 있지 않습니다."));
+                }
+            }
+
+            return Task.FromResult(0);
+        }
+
+        private async Task<int> PrepareFrontPickerYHomeAsync(BaseAxis axis)
+        {
+            return await CheckFrontPickerZAxesAvoidAsync().ConfigureAwait(false);
+        }
+
+        private Task<int> CheckFrontPickerZAxesAvoidAsync()
+        {
+            Log("[INIT] Prepare FrontPickerY home: check FrontPickerZ0~Z3 Avoid.");
+
+            var front = _machine.PickerFrontUnit;
+            if (front != null)
+            {
+                PickerAxis[] zAxes = { PickerAxis.PickerZ0, PickerAxis.PickerZ1, PickerAxis.PickerZ2, PickerAxis.PickerZ3 };
+                foreach (PickerAxis zAxis in zAxes)
+                {
+                    if (!front.IsPickerAxisInTeachingPosition(zAxis, "AvoidPosition"))
+                    {
+                        return Task.FromResult(FailInitializePreparation(
+                            "FrontPickerY HOME 불가: Front" + zAxis + "가 Avoid 위치에 있지 않습니다."));
+                    }
+                }
+            }
+
+            return Task.FromResult(0);
         }
 
         private async Task<int> MoveFrontPickerYToAvoidAfterHomeAsync()
@@ -2955,9 +3058,9 @@ namespace QMC.CDT320
 
             if (inputCassette.IsWaferProtrusionDetected())
             {
-                // Todo: Ring 감지 시 초기화 방법 재확인
+                // Todo: Jut 감지 시 초기화 방법 재확인
                 return Task.FromResult(FailInitializePreparation(
-                    "InputLifter HOME 불가: Input Cassette 웨이퍼 돌출(Ring Jut)이 감지되었습니다."));
+                    "InputLifter HOME 불가: Input Cassette 웨이퍼 돌출(Jut)이 감지되었습니다."));
             }
 
             return Task.FromResult(0);
@@ -2983,21 +3086,14 @@ namespace QMC.CDT320
 
         private async Task<int> PrepareInputStageHomeAsync()
         {
-            Log("[INIT] Prepare InputStageY home: NeedleZ Safe(Avoid) move.");
+            Log("[INIT] Prepare InputStageY home: NeedleZ Avoid check.");
 
             var stage = _machine.InputStageUnit;
-            if (stage == null)
-                return 0;
-
-            int result = await MoveInputNeedleZSafeToAvoidAsync().ConfigureAwait(false);
-            if (result != 0)
-                return result;
-
-            //if (!stage.IsNeedleZInSafePosition())
-            //{
-            //    return FailInitializePreparation(
-            //        "InputStageY HOME 불가: NeedleZ가 Safe 위치에 있지 않습니다.");
-            //}
+            if (stage != null && !stage.IsNeedleZInSafePosition())
+            {
+                return FailInitializePreparation(
+                    "InputStageY HOME 불가: NeedleZ가 Avoid 위치에 있지 않습니다.");
+            }
 
             return 0;
         }
@@ -3017,18 +3113,36 @@ namespace QMC.CDT320
                 "InputNeedleZ.Avoid").ConfigureAwait(false);
         }
 
+        private async Task<int> MoveInputFeederYToAvoidAsync()
+        {
+            var feeder = _machine.InputFeederUnit;
+            if (feeder == null ||
+                feeder.FeederY == null ||
+                feeder.Recipe == null)
+                return 0;
+
+            return await MoveAxisTeachingAsync(
+                feeder.FeederY,
+                feeder.Recipe.AvoidPosition,
+                "InputFeederY.Avoid").ConfigureAwait(false);
+        }
+
         private async Task<int> PrepareInputFeederHomeAsync()
         {
-            Log("[INIT] Prepare InputFeeder home: X axes Avoid, feeder unclamp/up.");
+            Log("[INIT] Prepare InputFeeder home: InputLifterZ Avoid check, feeder unclamp/up.");
 
-            int result = await MoveInputSafeXAxesToAvoidAsync().ConfigureAwait(false);
-            if (result != 0)
-                return result;
+            var cassette = _machine.InputCassetteUnit;
+            if (cassette != null && !cassette.IsWaferLifterZInAvoidPosition())
+            {
+                return FailInitializePreparation(
+                    "InputFeeder HOME 불가: InputLifterZ가 Avoid 위치에 있지 않습니다.");
+            }
 
             var feeder = _machine.InputFeederUnit;
             if (feeder == null)
                 return 0;
 
+            int result;
             if (!feeder.IsWaferFeederUnclamp())
             {
                 result = await feeder.SetWaferFeederClamp(false).ConfigureAwait(false);

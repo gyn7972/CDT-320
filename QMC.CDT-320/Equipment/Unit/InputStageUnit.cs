@@ -364,6 +364,36 @@ namespace QMC.CDT320
             return 0.05;
         }
 
+        /// <summary>
+        /// VisionX(CameraX)가 Avoid 위치에 있는지 확인합니다.<br/>
+        /// Shared Rail X축(FrontPickerX 등) HOME 전 간섭을 피하기 위한 조건 확인에 사용합니다.
+        /// </summary>
+        public bool IsVisionXInAvoidPosition()
+        {
+            if (CameraX == null || Recipe == null)
+                return true;
+
+            Recipe.EnsurePositionObjects();
+            return Math.Abs(CameraX.ActualPosition - Recipe.VisionX.AvoidPosition) <= ResolveVisionXInPositionTolerance();
+        }
+
+        private double ResolveVisionXInPositionTolerance()
+        {
+            try
+            {
+                if (CameraX != null && CameraX.Config != null && CameraX.Config.InPositionTolerance >= 0.0)
+                    return CameraX.Config.InPositionTolerance;
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+
+            return 0.05;
+        }
+
         public bool CanHandleJogAxis(BaseAxis axis)
         {
             if (axis == null)
