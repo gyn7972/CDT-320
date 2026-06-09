@@ -1856,6 +1856,8 @@ namespace QMC.CDT320
                         return await PrepareInputExpandingZHomeAsync(axis).ConfigureAwait(false);
                     case "InputStageY":
                         return await PrepareInputStageYHomeAsync(axis).ConfigureAwait(false);
+                    case "NeedleX":
+                        return await PrepareNeedleXHomeAsync(axis).ConfigureAwait(false);
                     default:
                         return await PrepareDefaultAxisHomeAsync(axis).ConfigureAwait(false);
                 }
@@ -1995,6 +1997,32 @@ namespace QMC.CDT320
         private async Task<int> PrepareInputStageYHomeAsync(BaseAxis axis)
         {
             return await PrepareInputStageHomeAsync().ConfigureAwait(false);
+        }
+
+        private async Task<int> PrepareNeedleXHomeAsync(BaseAxis axis)
+        {
+            return await PrepareNeedleHomeAsync().ConfigureAwait(false);
+        }
+
+        private async Task<int> PrepareNeedleHomeAsync()
+        {
+            Log("[INIT] Prepare NeedleX home: NeedleZ Safe(Avoid) move.");
+
+            var stage = _machine.InputStageUnit;
+            if (stage == null)
+                return 0;
+
+            int result = await MoveInputNeedleZSafeToAvoidAsync().ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            //if (!stage.IsNeedleZInSafePosition())
+            //{
+            //    return FailInitializePreparation(
+            //        "NeedleX HOME 불가: NeedleZ가 Avoid 위치에 있지 않습니다.");
+            //}
+
+            return 0;
         }
 
         private async Task<int> MoveFrontPickerYToAvoidAfterHomeAsync()
@@ -2948,21 +2976,40 @@ namespace QMC.CDT320
             return Task.FromResult(0);
         }
 
-        private Task<int> PrepareInputStageHomeAsync()
+        private async Task<int> PrepareInputStageHomeAsync()
         {
-            Log("[INIT] Prepare InputStageY home: check NeedleZ safe position.");
+            Log("[INIT] Prepare InputStageY home: NeedleZ Safe(Avoid) move.");
 
             var stage = _machine.InputStageUnit;
             if (stage == null)
-                return Task.FromResult(0);
+                return 0;
 
-            if (!stage.IsNeedleZInSafePosition())
-            {
-                return Task.FromResult(FailInitializePreparation(
-                    "InputStageY HOME 불가: NeedleZ가 Safe 위치에 있지 않습니다."));
-            }
+            int result = await MoveInputNeedleZSafeToAvoidAsync().ConfigureAwait(false);
+            if (result != 0)
+                return result;
 
-            return Task.FromResult(0);
+            //if (!stage.IsNeedleZInSafePosition())
+            //{
+            //    return FailInitializePreparation(
+            //        "InputStageY HOME 불가: NeedleZ가 Safe 위치에 있지 않습니다.");
+            //}
+
+            return 0;
+        }
+
+        private async Task<int> MoveInputNeedleZSafeToAvoidAsync()
+        {
+            var stage = _machine.InputStageUnit;
+            if (stage == null ||
+                stage.NeedleZ == null ||
+                stage.Recipe == null ||
+                stage.Recipe.NeedleZ == null)
+                return 0;
+
+            return await MoveAxisTeachingAsync(
+                stage.NeedleZ,
+                stage.Recipe.NeedleZ.AvoidPosition,
+                "InputNeedleZ.Avoid").ConfigureAwait(false);
         }
 
         private async Task<int> PrepareInputFeederHomeAsync()
@@ -3197,7 +3244,7 @@ namespace QMC.CDT320
                     return 0;
 
                 if (!axis.IsHomeDone)
-                    return 0;
+                    return -1;
 
                 using (MotionGuardRuntime.BeginAxisTeachingMove(axis, targetPosition, targetName))
                 {
