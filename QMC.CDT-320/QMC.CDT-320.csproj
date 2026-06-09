@@ -884,6 +884,9 @@
     <EmbeddedResource Include="Ui\Pages\Recipe\DieSubsetPage.resx">
       <DependentUpon>DieSubsetPage.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\Recipe\FrontPickerRecipePage.resx">
+      <DependentUpon>FrontPickerRecipePage.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\Recipe\InputCassetteRecipePage.resx">
       <DependentUpon>InputCassetteRecipePage.cs</DependentUpon>
     </EmbeddedResource>

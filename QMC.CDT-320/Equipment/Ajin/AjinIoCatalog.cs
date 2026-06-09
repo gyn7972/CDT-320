@@ -251,6 +251,7 @@ namespace QMC.CDT320.Ajin
             public static readonly DioDefault WaferFeederOverloadCheck = FindInput("WaferFeederOverloadCheck");
             public static readonly DioDefault WaferFeeder8RingCheck = FindInput("WaferStage8RingCheck");
             public static readonly DioDefault WaferFeeder12RingCheck = FindInput("WaferStage12RingCheck");
+            public static readonly DioDefault WaferStageTouchSensor = FindInput("WaferStageTouchSensor");
             public static readonly DioDefault NgBin8CassetteCheck0 = FindInput("NgBin8CassetteCheck0");
             public static readonly DioDefault GoodBin8CassetteCheck0 = FindInput("GoodBin8CassetteCheck0");
             public static readonly DioDefault GoodBin8CassetteCheck1 = FindInput("GoodBin8CassetteCheck1");
@@ -275,6 +276,7 @@ namespace QMC.CDT320.Ajin
             public static readonly DioDefault WaferFeederClamp = FindOutput("WaferFeederClamp");
             public static readonly DioDefault WaferFeederUnclamp = FindOutput("WaferFeederUnclamp");
             public static readonly DioDefault NeedleVacuum = FindOutput("NeedleVacuum");
+            public static readonly DioDefault NeedleBlow = FindOutput("NeedleBlow");
             public static readonly DioDefault PostPnpVacuum = null;
         }
 
