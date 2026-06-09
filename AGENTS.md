@@ -117,6 +117,20 @@ Log.Write("Main", UserSession.Name, "RequestApplicationExit", "Application exit 
 - Stop은 현재 시퀀스 재개 정보를 폐기한다. 다시 시작하면 초기 조건부터 시작한다.
 - 시퀀스 실패는 반드시 로그와 알람을 남긴다.
 - 공통 규칙은 repo 루트의 `SEQUENCE_RECOVERY_RULES.md`를 따른다.
+
+## Sequence Motion Safety Rule
+
+- 시퀀스 클래스에서 모터/축 이동 명령을 내린 뒤에는 절대 바로 다음 Step이나 다음 간섭 가능 축으로 넘어가지 않는다.
+- 이동 명령과 이동 완료 확인은 코드에서 분리해서 작성한다.
+  - 예: `Move...CommandAsync(...)`로 이동 명령 결과 확인
+  - 예: `Wait...InPosition...Async(...)`로 이동 완료, InPosition, Teaching Position 확인
+- 이동 명령 후에는 반드시 명령 결과를 확인한다. `result != 0`이면 즉시 실패 처리하고 Alarm/Log를 남긴다.
+- 이동 명령 결과가 성공이어도 반드시 `Wait`로 이동 완료를 확인하고, 최종적으로 InPosition 또는 Teaching Position 도착 여부를 확인한다.
+- 병렬 이동이 허용된 축은 `Task.WhenAll(...)`로 이동 명령을 동시에 내리고, 각 결과를 모두 확인한다. 이후 완료 대기도 별도 `Task.WhenAll(...)`로 수행하고 각 결과를 모두 확인한다.
+- 병렬 이동이 허용되지 않은 축은 이전 축의 명령 결과, Wait, InPosition/Teaching 확인이 모두 끝난 뒤 다음 축을 이동한다.
+- 이 규칙은 시뮬레이션, DryRun, 실장비 모두 동일하게 적용한다. 시뮬레이션에서도 이동 완료 확인을 생략하지 않는다.
+- 이 규칙을 어기면 장비 충돌/사고 위험이 있으므로 새 시퀀스 작성과 기존 시퀀스 수정 시 최우선으로 검토한다.
+
 # Korean Text Recovery Rule
 
 - 코드 수정 중 한글이 깨진 UI 문구, 주석, 로그 문구를 발견하면 가능한 범위에서 함께 복원한다.

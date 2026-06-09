@@ -76,6 +76,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 btnUnload.Click += async (s, e) => await RunSequenceAction("LIFT WAFER UNLOADING", UnloadAsync);
                 btnStop.Click += async (s, e) => await StopManualActionAsync();
                 actionsLayout.Resize += (s, e) => AlignStopButton();
+                actionsLayout.WrapContents = false;
+                EnsureStopButtonLast();
                 AlignStopButton();
 
                 if (cassetteSlotView != null)
@@ -227,7 +229,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 if (btnStop != null)
                 {
                     btnStop.Enabled = true;
-                    btnStop.BringToFront();
+                    EnsureStopButtonLast();
+                    AlignStopButton();
                 }
             }
             catch (Exception ex)
@@ -264,6 +267,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             if (actionsLayout == null || btnStop == null)
                 return;
 
+            EnsureStopButtonLast();
+
             int usedWidth = actionsLayout.Padding.Left + actionsLayout.Padding.Right;
             foreach (Control control in actionsLayout.Controls)
             {
@@ -275,6 +280,16 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             int stopWidth = btnStop.Width + 6;
             int leftMargin = Math.Max(6, actionsLayout.ClientSize.Width - usedWidth - stopWidth - btnStop.Margin.Right);
             btnStop.Margin = new Padding(leftMargin, 6, 6, 6);
+        }
+
+        private void EnsureStopButtonLast()
+        {
+            if (actionsLayout == null || btnStop == null || !actionsLayout.Controls.Contains(btnStop))
+                return;
+
+            int lastIndex = actionsLayout.Controls.Count - 1;
+            if (actionsLayout.Controls.GetChildIndex(btnStop) != lastIndex)
+                actionsLayout.Controls.SetChildIndex(btnStop, lastIndex);
         }
 
         private async Task<int> LifterInitAsync(Form1 host)

@@ -1,0 +1,774 @@
+using System;
+using System.Threading;
+using System.Threading.Tasks;
+using QMC.CDT320.Materials;
+
+namespace QMC.CDT320.Sequencing
+{
+    internal enum InputStageAlignStep
+    {
+        Idle,
+        CheckUnit,
+        MoveVisionProcessPosition,
+        MoveCenterMarkPosition,
+        FindCenterMark,
+        CorrectTheta,
+        VerifyThetaTolerance,
+        MoveRef1Position,
+        FindRef1Mark,
+        MoveRef2Position,
+        FindRef2Mark,
+        CalculateAlignResult,
+        ApplyAlignResult,
+        Complete,
+        Error
+    }
+
+    internal sealed class InputStageAlignSequence : InputStageSequenceBase<InputStageAlignStep>
+    {
+        private WaferMapData _map;
+        private WaferMaterial _wafer;
+        private VisionAlignResult _centerResult;
+        private VisionAlignResult _verifyCenterResult;
+        private VisionAlignResult _ref1Result;
+        private VisionAlignResult _ref2Result;
+        private double _ref1X;
+        private double _ref1Y;
+        private double _ref2X;
+        private double _ref2Y;
+        private double _originX;
+        private double _originY;
+        private double _pitchX;
+        private double _pitchY;
+        private double _thetaFromTwoPoint;
+        private int _thetaRetryCount;
+
+        public InputStageAlignSequence(MachineSequenceContext context)
+            : base(context, InputStageSequenceKind.Align, "InputStageAlignSequence")
+        {
+        }
+
+        protected override InputStageAlignStep IdleStep { get { return InputStageAlignStep.Idle; } }
+        protected override InputStageAlignStep InitialStep { get { return InputStageAlignStep.CheckUnit; } }
+        protected override InputStageAlignStep CompleteStep { get { return InputStageAlignStep.Complete; } }
+        protected override InputStageAlignStep ErrorStep { get { return InputStageAlignStep.Error; } }
+
+        protected override Task<int> ExecuteCurrentStepAsync(CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                switch (CurrentStep)
+                {
+                    case InputStageAlignStep.CheckUnit:
+                        return Task.FromResult(CheckAlignUnit());
+                    case InputStageAlignStep.MoveVisionProcessPosition:
+                        return MoveVisionProcessPositionAsync(ct);
+                    case InputStageAlignStep.MoveCenterMarkPosition:
+                        return MoveCenterMarkPositionAsync(ct);
+                    case InputStageAlignStep.FindCenterMark:
+                        return FindCenterMarkAsync(ct);
+                    case InputStageAlignStep.CorrectTheta:
+                        return CorrectThetaAsync(ct);
+                    case InputStageAlignStep.VerifyThetaTolerance:
+                        return VerifyThetaToleranceAsync(ct);
+                    case InputStageAlignStep.MoveRef1Position:
+                        return MoveRef1PositionAsync(ct);
+                    case InputStageAlignStep.FindRef1Mark:
+                        return FindRef1MarkAsync(ct);
+                    case InputStageAlignStep.MoveRef2Position:
+                        return MoveRef2PositionAsync(ct);
+                    case InputStageAlignStep.FindRef2Mark:
+                        return FindRef2MarkAsync(ct);
+                    case InputStageAlignStep.CalculateAlignResult:
+                        return Task.FromResult(CalculateAlignResult());
+                    case InputStageAlignStep.ApplyAlignResult:
+                        return Task.FromResult(ApplyAlignResult());
+                    default:
+                        return Task.FromResult(FailUnsupportedStep());
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Task.FromResult(Fail("IN-STAGE-ALIGN-STEP-EX", "InputStageAlignSequence", "Align step failed: " + ex.Message));
+            }
+            finally
+            {
+            }
+        }
+
+        private int CheckAlignUnit()
+        {
+            try
+            {
+                int result = CheckUnit(InputStageAlignStep.MoveVisionProcessPosition);
+                if (result != 0)
+                    return result;
+
+                if (Stage.Recipe == null)
+                    return Fail("IN-STAGE-ALIGN-RECIPE", Stage.Name, "Input stage recipe is not available.");
+
+                if (Stage.StageY == null || Stage.StageT == null || Stage.ExpanderZ == null || Stage.CameraX == null)
+                    return Fail("IN-STAGE-ALIGN-AXIS", Stage.Name, "Input stage required axis is not available.");
+
+                if (!Stage.StageY.IsServoOn || !Stage.StageT.IsServoOn || !Stage.ExpanderZ.IsServoOn || !Stage.CameraX.IsServoOn)
+                    return Fail("IN-STAGE-ALIGN-SERVO", Stage.Name, "Input stage servo is not on.");
+
+                if (Stage.StageY.IsAlarm || Stage.StageT.IsAlarm || Stage.ExpanderZ.IsAlarm || Stage.CameraX.IsAlarm)
+                    return Fail("IN-STAGE-ALIGN-ALARM", Stage.Name, "Input stage axis alarm exists.");
+
+                _wafer = Stage.CurrentWaferMaterial ?? MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
+                if (_wafer == null)
+                    return Fail("IN-STAGE-ALIGN-WAFER", "Material", "InputStage wafer data was not found.");
+
+                string waferId = !string.IsNullOrWhiteSpace(Options.WaferId) ? Options.WaferId : _wafer.WaferId;
+                _map = Stage.EnsureWaferMapForAlign(waferId, Options.AllowFallbackMap);
+                if (_map == null)
+                    return Fail("IN-STAGE-ALIGN-MAP", Stage.Name, "InputStage wafer map was not found.");
+
+                if (Options.RequireVisionAlign && Stage.Vision == null)
+                    return Fail("IN-STAGE-ALIGN-VISION", Stage.Name, "Vision align is required but vision client is not available.");
+
+                CurrentStep = InputStageAlignStep.MoveVisionProcessPosition;
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("IN-STAGE-ALIGN-CHECK-EX", "InputStageAlignSequence", "Align unit check failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> MoveVisionProcessPositionAsync(CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                if (Options.EnableMotion)
+                {
+                    int result = await MoveAxisAndVerifyAsync(WaferStageAxis.VisionX, Stage.Recipe.VisionX.ProcessPosition, "VisionX process", ct).ConfigureAwait(false);
+                    if (result != 0) return result;
+
+                    result = await MoveAxisAndVerifyAsync(WaferStageAxis.WaferExpandingZ, Stage.Recipe.WaferZ.ProcessPosition, "StageZ process", ct).ConfigureAwait(false);
+                    if (result != 0) return result;
+                }
+
+                CurrentStep = InputStageAlignStep.MoveCenterMarkPosition;
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("IN-STAGE-ALIGN-VISION-POS-EX", Stage.Name, "Vision process position move failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> MoveCenterMarkPositionAsync(CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                if (Options.EnableMotion)
+                {
+                    int centerRow = _map != null ? _map.RowCount / 2 : 0;
+                    int centerCol = _map != null ? _map.ColumnCount / 2 : 0;
+                    int result = await MoveVisionPointAndVerifyAsync(centerRow, centerCol, "center mark", ct).ConfigureAwait(false);
+                    if (result != 0) return result;
+                }
+
+                CurrentStep = InputStageAlignStep.FindCenterMark;
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("IN-STAGE-ALIGN-CENTER-MOVE-EX", Stage.Name, "Center mark position move failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> FindCenterMarkAsync(CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                _centerResult = await TriggerAlignAsync(ResolveTargetId(Options.CenterAlignTargetId, "Center"), ct).ConfigureAwait(false);
+                if (_centerResult == null)
+                    return Fail("IN-STAGE-ALIGN-CENTER", "Vision", "Center align mark find failed.");
+
+                CurrentStep = InputStageAlignStep.CorrectTheta;
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("IN-STAGE-ALIGN-CENTER-EX", "Vision", "Center align mark find exception: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> CorrectThetaAsync(CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                if (!Options.EnableMotion)
+                {
+                    CurrentStep = InputStageAlignStep.VerifyThetaTolerance;
+                    return 0;
+                }
+
+                double deltaTheta = _centerResult != null ? _centerResult.DeltaTheta : 0.0;
+                double targetT = Stage.StageT.ActualPosition + deltaTheta;
+                int result = await MoveAxisAndVerifyAsync(WaferStageAxis.WaferT, targetT, "StageT theta correction", ct).ConfigureAwait(false);
+                if (result != 0) return result;
+
+                CurrentStep = InputStageAlignStep.VerifyThetaTolerance;
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("IN-STAGE-ALIGN-THETA-EX", Stage.Name, "Theta correction failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> VerifyThetaToleranceAsync(CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                _verifyCenterResult = await TriggerAlignAsync(ResolveTargetId(Options.CenterAlignTargetId, "Center"), ct).ConfigureAwait(false);
+                if (_verifyCenterResult == null)
+                    return Fail("IN-STAGE-ALIGN-THETA-VERIFY", "Vision", "Center align verify failed.");
+
+                double theta = Math.Abs(_verifyCenterResult.DeltaTheta);
+                double tolerance = ResolveThetaTolerance();
+                if (theta <= tolerance)
+                {
+                    CurrentStep = InputStageAlignStep.MoveRef1Position;
+                    return 0;
+                }
+
+                if (_thetaRetryCount < Math.Max(0, Options.AlignRetryCount))
+                {
+                    _thetaRetryCount++;
+                    _centerResult = _verifyCenterResult;
+                    CurrentStep = InputStageAlignStep.CorrectTheta;
+                    return 0;
+                }
+
+                return Fail("IN-STAGE-ALIGN-THETA-TOL", Stage.Name,
+                    "Theta correction is out of tolerance. theta=" + theta.ToString("F6") +
+                    ", tolerance=" + tolerance.ToString("F6"));
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("IN-STAGE-ALIGN-THETA-VERIFY-EX", Stage.Name, "Theta tolerance verify failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> MoveRef1PositionAsync(CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                if (Options.EnableMotion)
+                {
+                    int result = await MoveVisionPointAndVerifyAsync(_map.Ref1Row, _map.Ref1Col, "ref1 mark", ct).ConfigureAwait(false);
+                    if (result != 0) return result;
+                }
+
+                CurrentStep = InputStageAlignStep.FindRef1Mark;
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("IN-STAGE-ALIGN-REF1-MOVE-EX", Stage.Name, "Ref1 mark position move failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> FindRef1MarkAsync(CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                _ref1Result = await TriggerAlignAsync(ResolveTargetId(Options.Ref1AlignTargetId, "Ref1"), ct).ConfigureAwait(false);
+                if (_ref1Result == null)
+                    return Fail("IN-STAGE-ALIGN-REF1", "Vision", "Ref1 align mark find failed.");
+
+                _ref1X = Stage.CameraX.ActualPosition + _ref1Result.DeltaX;
+                _ref1Y = Stage.StageY.ActualPosition + _ref1Result.DeltaY;
+                CurrentStep = InputStageAlignStep.MoveRef2Position;
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("IN-STAGE-ALIGN-REF1-EX", "Vision", "Ref1 align mark find exception: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> MoveRef2PositionAsync(CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                if (Options.EnableMotion)
+                {
+                    int result = await MoveVisionPointAndVerifyAsync(_map.Ref2Row, _map.Ref2Col, "ref2 mark", ct).ConfigureAwait(false);
+                    if (result != 0) return result;
+                }
+
+                CurrentStep = InputStageAlignStep.FindRef2Mark;
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("IN-STAGE-ALIGN-REF2-MOVE-EX", Stage.Name, "Ref2 mark position move failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> FindRef2MarkAsync(CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                _ref2Result = await TriggerAlignAsync(ResolveTargetId(Options.Ref2AlignTargetId, "Ref2"), ct).ConfigureAwait(false);
+                if (_ref2Result == null)
+                    return Fail("IN-STAGE-ALIGN-REF2", "Vision", "Ref2 align mark find failed.");
+
+                _ref2X = Stage.CameraX.ActualPosition + _ref2Result.DeltaX;
+                _ref2Y = Stage.StageY.ActualPosition + _ref2Result.DeltaY;
+                CurrentStep = InputStageAlignStep.CalculateAlignResult;
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return Fail("IN-STAGE-ALIGN-REF2-EX", "Vision", "Ref2 align mark find exception: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private int CalculateAlignResult()
+        {
+            try
+            {
+                int colSpan = _map.Ref2Col - _map.Ref1Col;
+                int rowSpan = _map.Ref2Row - _map.Ref1Row;
+
+                _pitchX = colSpan != 0 && Math.Abs(_ref2X - _ref1X) > 1e-9
+                    ? (_ref2X - _ref1X) / colSpan
+                    : Stage.ResolveAlignPitchX(_ref1Result, _ref2Result);
+                _pitchY = rowSpan != 0 && Math.Abs(_ref2Y - _ref1Y) > 1e-9
+                    ? (_ref2Y - _ref1Y) / rowSpan
+                    : Stage.ResolveAlignPitchY(_ref1Result, _ref2Result);
+
+                if (Math.Abs(_pitchX) <= 1e-9 || Math.Abs(_pitchY) <= 1e-9)
+                    return Fail("IN-STAGE-ALIGN-PITCH", Stage.Name, "Calculated align pitch is invalid. pitchX=" + _pitchX + ", pitchY=" + _pitchY);
+
+                _originX = _ref1X - (_map.Ref1Col * _pitchX);
+                _originY = _ref1Y - (_map.Ref1Row * _pitchY);
+
+                _thetaFromTwoPoint = Math.Atan2(_ref2Y - _ref1Y, _ref2X - _ref1X) * 180.0 / Math.PI;
+                if (Math.Abs(_thetaFromTwoPoint) > ResolveThetaTolerance())
+                    return Fail("IN-STAGE-ALIGN-REF-THETA", Stage.Name,
+                        "Two point theta is out of tolerance. theta=" + _thetaFromTwoPoint.ToString("F6") +
+                        ", tolerance=" + ResolveThetaTolerance().ToString("F6"));
+
+                CurrentStep = InputStageAlignStep.ApplyAlignResult;
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return Fail("IN-STAGE-ALIGN-CALC-EX", Stage.Name, "Align result calculation failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private int ApplyAlignResult()
+        {
+            try
+            {
+                Stage.ApplyWaferAlignResult(_originX, _originY, _pitchX, _pitchY, 0.0, 0.0);
+
+                WaferMaterial wafer = Stage.CurrentWaferMaterial ?? MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
+                if (wafer != null)
+                    MaterialStateService.MoveWafer(wafer.WaferId, new MaterialLocation { Kind = MaterialLocationKind.InputStage }, WaferMaterialState.Working);
+
+                Context.Bus.Set("InputStageAligned");
+                Context.Bus.Set("InputStageReady");
+                CurrentStep = InputStageAlignStep.Complete;
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return Fail("IN-STAGE-ALIGN-APPLY-EX", Stage.Name, "Align result apply failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<VisionAlignResult> TriggerAlignAsync(string targetId, CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                if (!Options.RequireVisionAlign && Stage.Vision == null)
+                    return new VisionAlignResult();
+
+                if (Stage.Vision == null)
+                    return null;
+
+                Task<VisionAlignResult> alignTask = Stage.Vision.TriggerAlignAsync(targetId);
+                if (alignTask == null)
+                    return null;
+
+                if (alignTask.IsCompleted)
+                    return await alignTask.ConfigureAwait(false);
+
+                Task cancelTask = Task.Delay(Timeout.Infinite, ct);
+                Task completed = await Task.WhenAny(alignTask, cancelTask).ConfigureAwait(false);
+                if (!ReferenceEquals(completed, alignTask))
+                    ct.ThrowIfCancellationRequested();
+
+                return await alignTask.ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch
+            {
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> MoveVisionPointAndVerifyAsync(int row, int col, string description, CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                double targetY = row * Stage.ResolveAlignPitchY(null, null);
+                double targetX = col * Stage.ResolveAlignPitchX(null, null);
+
+                Task<int> moveY = MoveAxisCommandAsync(WaferStageAxis.WaferY, targetY, description + " StageY", ct);
+                Task<int> moveX = MoveAxisCommandAsync(WaferStageAxis.VisionX, targetX, description + " VisionX", ct);
+                int[] moveResults = await Task.WhenAll(moveY, moveX).ConfigureAwait(false);
+                if (moveResults[0] != 0) return moveResults[0];
+                if (moveResults[1] != 0) return moveResults[1];
+
+                Task<int> waitY = WaitAxisInPositionResultAsync(WaferStageAxis.WaferY, targetY, description + " StageY", ct);
+                Task<int> waitX = WaitAxisInPositionResultAsync(WaferStageAxis.VisionX, targetX, description + " VisionX", ct);
+                int[] waitResults = await Task.WhenAll(waitY, waitX).ConfigureAwait(false);
+                if (waitResults[0] != 0) return waitResults[0];
+                if (waitResults[1] != 0) return waitResults[1];
+
+                int result = CheckStageAxisInPosition(WaferStageAxis.WaferY, targetY, description + " StageY");
+                if (result != 0) return result;
+
+                result = CheckStageAxisInPosition(WaferStageAxis.VisionX, targetX, description + " VisionX");
+                if (result != 0) return result;
+
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("IN-STAGE-ALIGN-POINT-MOVE-EX", Stage.Name, description + " move failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> MoveAxisAndVerifyAsync(WaferStageAxis axis, double target, string description, CancellationToken ct)
+        {
+            try
+            {
+                int result = await MoveAxisCommandAsync(axis, target, description, ct).ConfigureAwait(false);
+                if (result != 0) return result;
+
+                result = await WaitAxisInPositionResultAsync(axis, target, description, ct).ConfigureAwait(false);
+                if (result != 0) return result;
+
+                return CheckStageAxisInPosition(axis, target, description);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("IN-STAGE-ALIGN-MOVE-VERIFY-EX", Stage.Name, description + " move verify failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> MoveAxisCommandAsync(WaferStageAxis axis, double target, string description, CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                int result = await AwaitStepWithCancellationAsync(Stage.MoveInputStageAxis(axis, target, Options.FineMove), ct).ConfigureAwait(false);
+                if (result != 0)
+                    return Fail("IN-STAGE-ALIGN-MOVE", Stage.Name, description + " move command failed. axis=" + axis + ", target=" + target + ", result=" + result);
+
+                ct.ThrowIfCancellationRequested();
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("IN-STAGE-ALIGN-MOVE-EX", Stage.Name, description + " move command exception: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> WaitAxisInPositionResultAsync(WaferStageAxis axis, double target, string description, CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                int result = await AwaitStepWithCancellationAsync(Stage.WaitInputStageAxisInPosition(axis, target, ResolveTimeout()), ct).ConfigureAwait(false);
+                if (result != 0)
+                    return Fail("IN-STAGE-ALIGN-MOVE-TIMEOUT", Stage.Name, description + " move done timeout. axis=" + axis + ", target=" + target);
+
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("IN-STAGE-ALIGN-WAIT-EX", Stage.Name, description + " move wait exception: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private int CheckStageAxisInPosition(WaferStageAxis axis, double target, string description)
+        {
+            try
+            {
+                QMC.Common.Motion.BaseAxis item = ResolveStageAxis(axis);
+                if (item == null)
+                    return Fail("IN-STAGE-ALIGN-AXIS", Stage.Name, description + " axis is not available. axis=" + axis);
+
+                if (item.IsMoving || item.IsAlarm || !IsAxisInPosition(item, target))
+                    return Fail("IN-STAGE-ALIGN-POSITION", Stage.Name, description + " final position check failed. axis=" + axis + ", target=" + target);
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return Fail("IN-STAGE-ALIGN-POSITION-EX", Stage.Name, description + " final position check exception: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private QMC.Common.Motion.BaseAxis ResolveStageAxis(WaferStageAxis axis)
+        {
+            try
+            {
+                switch (axis)
+                {
+                    case WaferStageAxis.WaferY: return Stage.StageY;
+                    case WaferStageAxis.WaferT: return Stage.StageT;
+                    case WaferStageAxis.WaferExpandingZ: return Stage.ExpanderZ;
+                    case WaferStageAxis.VisionX: return Stage.CameraX;
+                    case WaferStageAxis.NeedleX: return Stage.NeedleBlockX;
+                    case WaferStageAxis.NeedleZ: return Stage.NeedleZ;
+                    case WaferStageAxis.EjectPinZ: return Stage.EjectPinZ;
+                    default: return null;
+                }
+            }
+            catch
+            {
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool IsAxisInPosition(QMC.Common.Motion.BaseAxis axis, double target)
+        {
+            try
+            {
+                if (axis == null)
+                    return false;
+
+                double tolerance = axis.Config != null && axis.Config.InPositionTolerance > 0.0
+                    ? axis.Config.InPositionTolerance
+                    : 0.05;
+                return Math.Abs(axis.ActualPosition - target) <= tolerance;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private static string ResolveTargetId(string value, string fallback)
+        {
+            try
+            {
+                return string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
+            }
+            catch
+            {
+                return fallback;
+            }
+            finally
+            {
+            }
+        }
+
+        private double ResolveThetaTolerance()
+        {
+            try
+            {
+                return Options.AlignThetaToleranceDeg > 0.0
+                    ? Options.AlignThetaToleranceDeg
+                    : (Stage.Config != null ? Stage.Config.AlignConvergenceThresholdDeg : 0.005);
+            }
+            catch
+            {
+                return 0.005;
+            }
+            finally
+            {
+            }
+        }
+
+        private int ResolveTimeout()
+        {
+            try
+            {
+                return Options.MoveTimeoutMs > 0 ? Options.MoveTimeoutMs : 10000;
+            }
+            catch
+            {
+                return 10000;
+            }
+            finally
+            {
+            }
+        }
+
+        private static async Task<int> AwaitStepWithCancellationAsync(Task<int> stepTask, CancellationToken ct)
+        {
+            try
+            {
+                if (stepTask == null)
+                    return -1;
+
+                if (stepTask.IsCompleted)
+                    return await stepTask.ConfigureAwait(false);
+
+                Task cancelTask = Task.Delay(Timeout.Infinite, ct);
+                Task completed = await Task.WhenAny(stepTask, cancelTask).ConfigureAwait(false);
+                if (!ReferenceEquals(completed, stepTask))
+                    ct.ThrowIfCancellationRequested();
+
+                return await stepTask.ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch
+            {
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+    }
+}

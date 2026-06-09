@@ -57,6 +57,8 @@ namespace QMC.CDT320
 
         /// <summary>얼라인 수렴 임계값 [deg]. 이 값 이하이면 반복을 종료한다.</summary>
         [DataMember] public double AlignConvergenceThresholdDeg { get; set; } = 0.005;
+
+        [DataMember] public int SequenceMoveTimeoutMs { get; set; } = 10000;
     }
 
     /// <summary>
@@ -329,7 +331,13 @@ namespace QMC.CDT320
 
             WaferStageAxis stageAxis;
             if (TryResolveInputStageAxis(axis, out stageAxis))
-                return await MoveInputStageAxis(stageAxis, target, speedType == JogSpeedType.Fine);
+            {
+                int result = await MoveInputStageAxis(stageAxis, target, speedType == JogSpeedType.Fine).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                return await WaitInputStageAxisInPosition(stageAxis, target, ResolveSequenceMoveTimeout()).ConfigureAwait(false);
+            }
 
             return -1;
         }
@@ -376,6 +384,28 @@ namespace QMC.CDT320
             catch (Exception ex)
             {
                 AlarmManager.Raise(AlarmSeverity.Warning, "IN-STAGE-MOVE", Name, ex.Message);
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        public async Task<int> WaitInputStageAxisInPosition(WaferStageAxis axis, double targetPos, int timeoutMs)
+        {
+            try
+            {
+                BaseAxis item = ResolveInputStageAxis(axis);
+                bool arrived = await WaitAxisInPositionAsync(item, targetPos, timeoutMs).ConfigureAwait(false);
+                if (arrived)
+                    return 0;
+
+                return RaiseStageAlarm(AlarmSeverity.Error, "IN-STAGE-MOVE-TIMEOUT", Name,
+                    axis + " move done timeout. target=" + targetPos);
+            }
+            catch (Exception ex)
+            {
+                AlarmManager.Raise(AlarmSeverity.Warning, "IN-STAGE-MOVE-WAIT", Name, ex.Message);
                 return -1;
             }
             finally
@@ -504,10 +534,18 @@ namespace QMC.CDT320
                     return RaiseStageAlarm(AlarmSeverity.Error, "IS-LOAD-Y", "InputStageUnit.LoadAndPrepareWaferAsync",
                         "StageY load position move failed. result=" + result + ", alarm=" + StageY.IsAlarm);
 
+                result = await WaitInputStageAxisInPosition(WaferStageAxis.WaferY, Recipe.WaferY.LoadPosition, ResolveSequenceMoveTimeout()).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
                 result = await MoveInputStageAxis(WaferStageAxis.WaferExpandingZ, Recipe.WaferZ.LoadPosition, bFine).ConfigureAwait(false);
                 if (result != 0 || ExpanderZ.IsAlarm)
                     return RaiseStageAlarm(AlarmSeverity.Error, "IS-LOAD-Z", "InputStageUnit.LoadAndPrepareWaferAsync",
                         "ExpanderZ load position move failed. result=" + result + ", alarm=" + ExpanderZ.IsAlarm);
+
+                result = await WaitInputStageAxisInPosition(WaferStageAxis.WaferExpandingZ, Recipe.WaferZ.LoadPosition, ResolveSequenceMoveTimeout()).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
 
                 if (string.IsNullOrWhiteSpace(waferId))
                     waferId = "WAFER-" + DateTime.Now.ToString("yyyyMMddHHmmss");
@@ -572,7 +610,13 @@ namespace QMC.CDT320
                 int result = await MoveInputStageAxis(WaferStageAxis.WaferY, Recipe.WaferY.ProcessPosition, bFine).ConfigureAwait(false);
                 if (result != 0) return result;
 
+                result = await WaitInputStageAxisInPosition(WaferStageAxis.WaferY, Recipe.WaferY.ProcessPosition, ResolveSequenceMoveTimeout()).ConfigureAwait(false);
+                if (result != 0) return result;
+
                 result = await MoveInputStageAxis(WaferStageAxis.VisionX, Recipe.VisionX.ProcessPosition, bFine).ConfigureAwait(false);
+                if (result != 0) return result;
+
+                result = await WaitInputStageAxisInPosition(WaferStageAxis.VisionX, Recipe.VisionX.ProcessPosition, ResolveSequenceMoveTimeout()).ConfigureAwait(false);
                 if (result != 0) return result;
 
                 if (!requireVisionAlign || Vision == null)
@@ -594,10 +638,15 @@ namespace QMC.CDT320
                         return RaiseStageAlarm(AlarmSeverity.Warning, "IS-ALIGN", "InputStageUnit.VisionAlignAndSetupOriginAsync",
                             "Center vision align failed. iteration=" + (iter + 1));
 
+                    double targetT = StageT.ActualPosition + alignResult.DeltaTheta;
                     int thetaResult = await StageT.MoveRelativeAsync(alignResult.DeltaTheta, ResolveAxisFineVelocity(StageT)).ConfigureAwait(false);
                     if (thetaResult != 0 || StageT.IsAlarm)
                         return RaiseStageAlarm(AlarmSeverity.Warning, "IS-ALIGN-T", "InputStageUnit.VisionAlignAndSetupOriginAsync",
                             "StageT correction failed. result=" + thetaResult + ", alarm=" + StageT.IsAlarm);
+
+                    int thetaWaitResult = await WaitInputStageAxisInPosition(WaferStageAxis.WaferT, targetT, ResolveSequenceMoveTimeout()).ConfigureAwait(false);
+                    if (thetaWaitResult != 0)
+                        return thetaWaitResult;
 
                     if (Math.Abs(alignResult.DeltaTheta) < Config.AlignConvergenceThresholdDeg)
                         break;
@@ -657,10 +706,18 @@ namespace QMC.CDT320
                     return RaiseStageAlarm(AlarmSeverity.Error, "IS-UNLOAD-Y", "InputStageUnit.PrepareUnloadWaferAsync",
                         "StageY unload position move failed. result=" + result + ", alarm=" + StageY.IsAlarm);
 
+                result = await WaitInputStageAxisInPosition(WaferStageAxis.WaferY, Recipe.WaferY.UnloadPosition, ResolveSequenceMoveTimeout()).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
                 result = await MoveInputStageAxis(WaferStageAxis.WaferExpandingZ, Recipe.WaferZ.UnloadPosition, bFine).ConfigureAwait(false);
                 if (result != 0 || ExpanderZ.IsAlarm)
                     return RaiseStageAlarm(AlarmSeverity.Error, "IS-UNLOAD-Z", "InputStageUnit.PrepareUnloadWaferAsync",
                         "ExpanderZ unload position move failed. result=" + result + ", alarm=" + ExpanderZ.IsAlarm);
+
+                result = await WaitInputStageAxisInPosition(WaferStageAxis.WaferExpandingZ, Recipe.WaferZ.UnloadPosition, ResolveSequenceMoveTimeout()).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
 
                 OnWaferChangeRequested();
                 return 0;
@@ -684,6 +741,85 @@ namespace QMC.CDT320
             PitchY = 0.0;
             WaferAlignOffsetX = 0.0;
             WaferAlignOffsetY = 0.0;
+        }
+
+        public WaferMapData EnsureWaferMapForAlign(string waferId, bool allowFallback)
+        {
+            try
+            {
+                if (CurrentWaferMap == null && allowFallback)
+                    CurrentWaferMap = CreateFallbackWaferMap(waferId);
+
+                NormalizeWaferMap(CurrentWaferMap, waferId);
+                return CurrentWaferMap;
+            }
+            catch (Exception ex)
+            {
+                RaiseStageAlarm(AlarmSeverity.Warning, "IS-MAP-ALIGN", "InputStageUnit.EnsureWaferMapForAlign",
+                    "Align wafer map prepare failed: " + ex.Message);
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
+        public double ResolveAlignPitchX(VisionAlignResult ref1Result, VisionAlignResult ref2Result)
+        {
+            try
+            {
+                return ResolveFallbackPitchX(ref1Result, ref2Result);
+            }
+            catch
+            {
+                return DefaultEstimatedPitchX;
+            }
+            finally
+            {
+            }
+        }
+
+        public double ResolveAlignPitchY(VisionAlignResult ref1Result, VisionAlignResult ref2Result)
+        {
+            try
+            {
+                return ResolveFallbackPitchY(ref1Result, ref2Result);
+            }
+            catch
+            {
+                return DefaultEstimatedPitchY;
+            }
+            finally
+            {
+            }
+        }
+
+        public void ApplyWaferAlignResult(double originX, double originY, double pitchX, double pitchY, double alignOffsetX, double alignOffsetY)
+        {
+            try
+            {
+                OriginX = originX;
+                OriginY = originY;
+                PitchX = pitchX;
+                PitchY = pitchY;
+                WaferAlignOffsetX = alignOffsetX;
+                WaferAlignOffsetY = alignOffsetY;
+                EventLogger.Write(EventKind.Event, "QMC", "IS-ALIGN",
+                    "InputStage align result applied. originX=" + OriginX.ToString("F4") +
+                    ", originY=" + OriginY.ToString("F4") +
+                    ", pitchX=" + PitchX.ToString("F4") +
+                    ", pitchY=" + PitchY.ToString("F4") +
+                    ", offsetX=" + WaferAlignOffsetX.ToString("F4") +
+                    ", offsetY=" + WaferAlignOffsetY.ToString("F4"));
+            }
+            catch (Exception ex)
+            {
+                RaiseStageAlarm(AlarmSeverity.Warning, "IS-ALIGN-APPLY", "InputStageUnit.ApplyWaferAlignResult",
+                    "Align result apply failed: " + ex.Message);
+            }
+            finally
+            {
+            }
         }
 
         public void SetCurrentWaferMaterial(WaferMaterial wafer)
@@ -743,7 +879,22 @@ namespace QMC.CDT320
                 {
                     Console.WriteLine(
                         $"[INFO]  '{Name}' ? 사용자 Angle 오프셋 적용: {result.AngleOffset:F4}°");
-                    await StageT.MoveRelativeAsync(result.AngleOffset, ResolveAxisFineVelocity(StageT));
+                    double targetT = StageT.ActualPosition + result.AngleOffset;
+                    int moveResult = await StageT.MoveRelativeAsync(result.AngleOffset, ResolveAxisFineVelocity(StageT)).ConfigureAwait(false);
+                    if (moveResult != 0 || StageT.IsAlarm)
+                    {
+                        RaiseStageAlarm(AlarmSeverity.Warning, "IS-CONFIRM-T", "InputStageUnit.WaitForUserConfirmAsync",
+                            "User confirm StageT correction failed. result=" + moveResult + ", alarm=" + StageT.IsAlarm);
+                        result.IsConfirmed = false;
+                        return result;
+                    }
+
+                    moveResult = await WaitInputStageAxisInPosition(WaferStageAxis.WaferT, targetT, ResolveSequenceMoveTimeout()).ConfigureAwait(false);
+                    if (moveResult != 0)
+                    {
+                        result.IsConfirmed = false;
+                        return result;
+                    }
                 }
 
                 if (Math.Abs(result.StartOffsetX) > 1e-6 || Math.Abs(result.StartOffsetY) > 1e-6)
@@ -1095,6 +1246,39 @@ namespace QMC.CDT320
             return DefaultEstimatedPitchY;
         }
 
+        private async Task<bool> WaitAxisInPositionAsync(BaseAxis axis, double target, int timeoutMs)
+        {
+            if (axis == null)
+                return false;
+
+            DateTime deadline = DateTime.Now.AddMilliseconds(timeoutMs > 0 ? timeoutMs : 10000);
+            while (DateTime.Now <= deadline)
+            {
+                if (!axis.IsMoving && IsAxisInPosition(axis, target))
+                    return true;
+
+                await Task.Delay(20).ConfigureAwait(false);
+            }
+
+            return !axis.IsMoving && IsAxisInPosition(axis, target);
+        }
+
+        private static bool IsAxisInPosition(BaseAxis axis, double target)
+        {
+            if (axis == null)
+                return false;
+
+            double tolerance = axis.Config != null && axis.Config.InPositionTolerance > 0.0
+                ? axis.Config.InPositionTolerance
+                : 0.05;
+            return Math.Abs(axis.ActualPosition - target) <= tolerance;
+        }
+
+        private int ResolveSequenceMoveTimeout()
+        {
+            return Config != null && Config.SequenceMoveTimeoutMs > 0 ? Config.SequenceMoveTimeoutMs : 10000;
+        }
+
         /// <summary>
         /// 지정한 다이 좌표로 StageY와 CameraX를 동시에 이동한다.
         /// </summary>
@@ -1122,6 +1306,12 @@ namespace QMC.CDT320
 
                 if (results[0] != 0 || results[1] != 0 || StageY.IsAlarm || CameraX.IsAlarm)
                     return RaiseStageAlarm(AlarmSeverity.Error, "IS-MOVE-DIE", "InputStageUnit.MoveToDieAsync", $"Die 이동 실패 (row={row}, col={col}, StageY result={results[0]}, CameraX result={results[1]}, StageY.IsAlarm={StageY.IsAlarm}, CameraX.IsAlarm={CameraX.IsAlarm}).");
+
+                Task<int> waitY = WaitInputStageAxisInPosition(WaferStageAxis.WaferY, targetY, ResolveSequenceMoveTimeout());
+                Task<int> waitX = WaitInputStageAxisInPosition(WaferStageAxis.VisionX, targetX, ResolveSequenceMoveTimeout());
+                int[] waitResults = await Task.WhenAll(waitY, waitX);
+                if (waitResults[0] != 0 || waitResults[1] != 0)
+                    return RaiseStageAlarm(AlarmSeverity.Error, "IS-MOVE-DIE-WAIT", "InputStageUnit.MoveToDieAsync", $"Die 이동 완료 확인 실패 (row={row}, col={col}, StageY wait={waitResults[0]}, CameraX wait={waitResults[1]}).");
 
                 return 0;
             }

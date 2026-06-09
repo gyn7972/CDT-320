@@ -1016,7 +1016,7 @@ namespace QMC.CDT320
         /// 0 = EnsureDieMaps ?먯꽌 OutputDieMap ?щ’ ?섎줈 ?먮룞 ?ㅼ젙.</summary>
         public int WafersPerOutputBatch { get; set; } = 0;
 
-        /// <summary>Place ?꾨즺???⑥씠?쇰? Output Cassette ???곸젅???щ’???곸옱.</summary>
+        /// <summary>Place completed wafer into Output Cassette.</summary>
         public async Task<bool> StoreCompletedWaferAsync(bool isGood)
         {
             var cassette = _machine.OutputCassetteUnit;
@@ -1092,7 +1092,7 @@ namespace QMC.CDT320
             }
         }
 
-        /// <summary>Output 3 카세???�롯 매핑 (UI 버튼??.</summary>
+        /// <summary>Output 3 카세트 매핑 (UI 버튼).</summary>
         public async Task<bool> ScanOutputCassettesAsync()
         {
             var cassette = _machine.OutputCassetteUnit;
@@ -1146,12 +1146,17 @@ namespace QMC.CDT320
                 SetMachineInitialized(false, "Shutdown", false);
                 _cycleCts?.Cancel();
                 await Task.Delay(500);
-                foreach (var ax in EnumerateAxes()) ax.Stop();
-                // Shutdown ?뺤콉: 紐⑤뱺 異?Servo OFF (?ъ슜???붽뎄 ???꾨줈洹몃옩 醫낅즺 ???덉슜???먮룞 OFF)
                 foreach (var ax in EnumerateAxes())
                 {
-                    try { ax.ServoOff(); } catch { }
+                    ax.Stop();
                 }
+
+                // 프로그램 종료시 서보 OFF 해야하나? 우선 막자.
+                //foreach (var ax in EnumerateAxes())
+                //{
+                //    try { ax.ServoOff(); } catch { }
+                //}
+
                 LotStorage.CloseLot(aborted: true);
                 AppSettingsStore.Save();
                 SaveMachineRuntimeState("Shutdown");

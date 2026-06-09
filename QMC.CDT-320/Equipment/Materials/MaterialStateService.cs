@@ -386,6 +386,7 @@ namespace QMC.CDT320.Materials
             {
                 State.SaveReason = reason ?? "";
                 State.SavedAt = DateTime.Now;
+                NormalizeSnapshotHeader(State);
                 if (!MaterialSnapshotStore.Save(State))
                 {
                     Log.Write("Main", "SYSTEM", "MaterialStateSave", "Material state save failed. reason=" + State.SaveReason + ", file=" + MaterialSnapshotStore.SnapshotPath + " - Failed");
@@ -400,6 +401,67 @@ namespace QMC.CDT320.Materials
             finally
             {
             }
+        }
+
+        private static void NormalizeSnapshotHeader(MaterialSnapshot snapshot)
+        {
+            try
+            {
+                if (snapshot == null)
+                    return;
+
+                if (string.IsNullOrWhiteSpace(snapshot.RecipeName))
+                {
+                    var project = RecipeStore.LoadLastOrDefault();
+                    if (project != null)
+                        snapshot.RecipeName = project.FileName ?? "";
+                }
+
+                if (string.IsNullOrWhiteSpace(snapshot.LotId))
+                {
+                    string lotId = ResolveSnapshotLotId(snapshot);
+                    if (!string.IsNullOrWhiteSpace(lotId))
+                        snapshot.LotId = lotId;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateSave", "Material snapshot header normalize failed: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        private static string ResolveSnapshotLotId(MaterialSnapshot snapshot)
+        {
+            try
+            {
+                if (snapshot == null)
+                    return "";
+
+                if (snapshot.Cassettes != null)
+                {
+                    var cassette = snapshot.Cassettes.FirstOrDefault(c => c != null && !string.IsNullOrWhiteSpace(c.CassetteLotId));
+                    if (cassette != null)
+                        return cassette.CassetteLotId.Trim();
+                }
+
+                if (snapshot.Wafers != null)
+                {
+                    var wafer = snapshot.Wafers.FirstOrDefault(w => w != null && !string.IsNullOrWhiteSpace(w.CassetteLotId));
+                    if (wafer != null)
+                        return wafer.CassetteLotId.Trim();
+                }
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+
+            return "";
         }
 
         private static void RemoveWaferFromCassetteSlot(string waferId)

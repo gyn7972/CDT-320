@@ -235,15 +235,22 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 if (stage == null)
                     return;
 
-                lblStageExistValue.Text = stage.CurrentWaferMap != null ? "WAFER" : "EMPTY";
+                WaferMaterial currentWafer = stage.CurrentWaferMaterial ?? MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
+                bool hasWafer = stage.CurrentWaferMap != null ||
+                                (currentWafer != null && WaferMaterialStateText.Normalize(currentWafer.State) != WaferMaterialState.Empty);
+
+                lblStageExistValue.Text = hasWafer ? "WAFER" : "EMPTY";
                 lblStageAlignValue.Text = stage.PitchX != 0.0 || stage.PitchY != 0.0 ? "COMPLETE" : "INCOMPLETE";
-                lblStageBarcodeValue.Text = stage.CurrentWaferMap != null && !string.IsNullOrWhiteSpace(stage.CurrentWaferMap.WaferId) ? stage.CurrentWaferMap.WaferId : "INCOMPLETE";
+                lblStageBarcodeValue.Text = ResolveStageWaferId(stage, currentWafer);
                 lblStageChipAlignValue.Text = stage.OriginX != 0.0 || stage.OriginY != 0.0 ? "COMPLETE" : "INCOMPLETE";
 
-                lblStageAxisXValue.Text = AxisUnitConverter.FormatDisplay(stage.CameraX.ActualPosition, stage.CameraX, "0.###", true);
+                lblVisionAxisXValue.Text = AxisUnitConverter.FormatDisplay(stage.CameraX.ActualPosition, stage.CameraX, "0.###", true);
                 lblStageAxisTValue.Text = AxisUnitConverter.FormatDisplay(stage.StageT.ActualPosition, stage.StageT, "0.###", true);
                 lblStageAxisYValue.Text = AxisUnitConverter.FormatDisplay(stage.StageY.ActualPosition, stage.StageY, "0.###", true);
+                lblStageAxisZValue.Text = AxisUnitConverter.FormatDisplay(stage.ExpanderZ.ActualPosition, stage.ExpanderZ, "0.###", true);
+                label2.Text = AxisUnitConverter.FormatDisplay(stage.NeedleBlockX.ActualPosition, stage.NeedleBlockX, "0.###", true);
                 lblNeedleAxisZValue.Text = AxisUnitConverter.FormatDisplay(stage.NeedleZ.ActualPosition, stage.NeedleZ, "0.###", true);
+                label4.Text = AxisUnitConverter.FormatDisplay(stage.EjectPinZ.ActualPosition, stage.EjectPinZ, "0.###", true);
                 lblExpendingValue.Text = AxisUnitConverter.FormatDisplay(stage.ExpanderZ.ActualPosition, stage.ExpanderZ, "0.###", true);
                 lblNeedleUpDownValue.Text = stage.NeedleZ.IsMoving ? "MOVING" : "STOP";
                 dotNeedleVacuum.IsOn = stage.NeedleVacuum.IsOn;
@@ -290,6 +297,15 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 return stage.CurrentWaferMaterial;
 
             return MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
+        }
+
+        private static string ResolveStageWaferId(QMC.CDT320.InputStageUnit stage, WaferMaterial currentWafer)
+        {
+            if (stage != null && stage.CurrentWaferMap != null && !string.IsNullOrWhiteSpace(stage.CurrentWaferMap.WaferId))
+                return stage.CurrentWaferMap.WaferId;
+            if (currentWafer != null && !string.IsNullOrWhiteSpace(currentWafer.WaferId))
+                return currentWafer.WaferId;
+            return "INCOMPLETE";
         }
 
         private void MaterialDetailView_CreateDataRequested(object sender, EventArgs e)

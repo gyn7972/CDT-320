@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using QMC.CDT320.Lots;
@@ -8,97 +8,7 @@ using QMC.Common.Alarms;
 
 namespace QMC.CDT320.Sequencing
 {
-    public enum InputCassetteSequenceKind
-    {
-        Loading,
-        Mapping,
-        Unloading
-    }
-
-    public enum InputCassetteSequenceStep
-    {
-        Idle,
-        CheckFeederPosition,
-        CheckLot,
-        CheckCassetteDetected,
-        CheckCassetteSize,
-        CheckCassetteMaterial,
-        CheckMappingStartCondition,
-        MoveLoadingPosition,
-        MoveUnloadingPosition,
-        MoveMappingStartPosition,
-        MoveMappingEndPosition,
-        ScanSlots,
-        BuildWaferInfo,
-        MoveFirstWaferSlot,
-        Complete,
-        Error
-    }
-
-    public sealed class InputCassetteSequenceOptions
-    {
-        public bool FineMove { get; set; }
-        public bool RequireActiveLot { get; set; }
-        public int RequiredCassetteSize { get; set; }
-        public int MoveTimeoutMs { get; set; }
-        public SequenceRunMode RunMode { get; set; }
-        public SequenceStartMode StartMode { get; set; }
-
-        public static InputCassetteSequenceOptions Default()
-        {
-            return new InputCassetteSequenceOptions
-            {
-                FineMove = false,
-                RequireActiveLot = false,
-                RequiredCassetteSize = 0,
-                MoveTimeoutMs = 0,
-                RunMode = SequenceRunMode.Auto,
-                StartMode = SequenceStartMode.Resume
-            };
-        }
-    }
-
-    public sealed class InputCassetteSequence
-    {
-        private readonly MachineSequenceContext _context;
-
-        public InputCassetteSequence(MachineSequenceContext context)
-        {
-            _context = context ?? throw new ArgumentNullException(nameof(context));
-        }
-
-        public Task<int> RunLoadingAsync(CancellationToken ct)
-        {
-            return RunLoadingAsync(ct, InputCassetteSequenceOptions.Default());
-        }
-
-        public Task<int> RunLoadingAsync(CancellationToken ct, InputCassetteSequenceOptions options)
-        {
-            return new InputCassetteLoadingSequence(_context).RunAsync(ct, options);
-        }
-
-        public Task<int> RunMappingAsync(CancellationToken ct)
-        {
-            return RunMappingAsync(ct, InputCassetteSequenceOptions.Default());
-        }
-
-        public Task<int> RunMappingAsync(CancellationToken ct, InputCassetteSequenceOptions options)
-        {
-            return new InputCassetteMappingSequence(_context).RunAsync(ct, options);
-        }
-
-        public Task<int> RunUnloadingAsync(CancellationToken ct)
-        {
-            return RunUnloadingAsync(ct, InputCassetteSequenceOptions.Default());
-        }
-
-        public Task<int> RunUnloadingAsync(CancellationToken ct, InputCassetteSequenceOptions options)
-        {
-            return new InputCassetteUnloadingSequence(_context).RunAsync(ct, options);
-        }
-    }
-
-    internal abstract class InputCassetteSequenceBase
+    internal abstract class InputCassetteSequenceBase<TStep> where TStep : struct
     {
         private const string SequenceNamePrefix = "InputCassetteSequence";
 
@@ -110,15 +20,18 @@ namespace QMC.CDT320.Sequencing
             Context = context ?? throw new ArgumentNullException(nameof(context));
             Kind = kind;
             Name = name ?? kind.ToString();
-            CurrentStep = InputCassetteSequenceStep.Idle;
+            CurrentStep = IdleStep;
         }
 
         protected MachineSequenceContext Context { get; private set; }
         protected InputCassetteSequenceKind Kind { get; private set; }
         protected string Name { get; private set; }
         protected InputCassetteSequenceOptions Options { get; private set; }
-        protected InputCassetteSequenceStep CurrentStep { get; set; }
-        protected abstract InputCassetteSequenceStep InitialStep { get; }
+        protected TStep CurrentStep { get; set; }
+        protected abstract TStep IdleStep { get; }
+        protected abstract TStep InitialStep { get; }
+        protected abstract TStep CompleteStep { get; }
+        protected abstract TStep ErrorStep { get; }
 
         protected InputCassetteUnit Cassette
         {
@@ -138,19 +51,18 @@ namespace QMC.CDT320.Sequencing
                 CurrentStep = ResolveStartStep(InitialStep);
                 SequenceResumeStore.MarkRunning(SequenceStateName, CurrentStep.ToString());
 
-                while (CurrentStep != InputCassetteSequenceStep.Complete &&
-                       CurrentStep != InputCassetteSequenceStep.Error)
+                while (!IsStep(CurrentStep, CompleteStep) && !IsStep(CurrentStep, ErrorStep))
                 {
                     ct.ThrowIfCancellationRequested();
                     Context.LogPublic("[INPUT-CASSETTE] " + Options.RunMode + " " + Kind + " step=" + CurrentStep);
 
-                    InputCassetteSequenceStep executingStep = CurrentStep;
+                    TStep executingStep = CurrentStep;
                     int result = await AwaitStepWithCancellationAsync(ExecuteCurrentStepAsync(ct), ct).ConfigureAwait(false);
                     ct.ThrowIfCancellationRequested();
                     if (result != 0)
                         return result;
 
-                    if (CurrentStep != InputCassetteSequenceStep.Error)
+                    if (!IsStep(CurrentStep, ErrorStep))
                         SequenceResumeStore.MarkStepCompleted(SequenceStateName, executingStep.ToString(), CurrentStep.ToString());
                 }
 
@@ -175,23 +87,7 @@ namespace QMC.CDT320.Sequencing
 
         protected abstract Task<int> ExecuteCurrentStepAsync(CancellationToken ct);
 
-        protected static async Task<int> AwaitStepWithCancellationAsync(Task<int> stepTask, CancellationToken ct)
-        {
-            if (stepTask == null)
-                return -1;
-
-            if (stepTask.IsCompleted)
-                return await stepTask.ConfigureAwait(false);
-
-            Task cancelTask = Task.Delay(Timeout.Infinite, ct);
-            Task completed = await Task.WhenAny(stepTask, cancelTask).ConfigureAwait(false);
-            if (!ReferenceEquals(completed, stepTask))
-                ct.ThrowIfCancellationRequested();
-
-            return await stepTask.ConfigureAwait(false);
-        }
-
-        protected int CheckLot(InputCassetteSequenceStep nextStep)
+        protected int CheckLot(TStep nextStep)
         {
             try
             {
@@ -210,7 +106,7 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        protected int CheckCassetteDetected(InputCassetteSequenceStep nextStep)
+        protected int CheckCassetteDetected(TStep nextStep)
         {
             try
             {
@@ -236,7 +132,7 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        protected int CheckCassetteSize(InputCassetteSequenceStep nextStep, bool allowMismatch)
+        protected int CheckCassetteSize(TStep nextStep, bool allowMismatch)
         {
             try
             {
@@ -268,15 +164,19 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        protected int CheckCassetteMaterial(InputCassetteSequenceStep nextStep)
+        protected int CheckCassetteMaterial(TStep nextStep)
         {
             try
             {
                 var cassette = Cassette;
                 if (cassette == null)
                     return Fail("IN-CST-MISSING", "InputCassette", "Input cassette unit is not available.");
-                if (cassette.GetWaferMaterialCassette() == null)
+                var material = cassette.GetWaferMaterialCassette();
+                if (material == null)
                     return Fail("IN-CST-MATERIAL", cassette.Name, "Input cassette material information is missing.");
+                int slotCount = cassette.Config != null ? cassette.Config.SlotCount : 0;
+                if (slotCount <= 0 || material.Slots == null || material.Slots.Count != slotCount)
+                    return Fail("IN-CST-MATERIAL-SLOT", cassette.Name, "Input cassette material slot information does not match cassette config.");
 
                 CurrentStep = nextStep;
                 return 0;
@@ -290,7 +190,7 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        protected int CheckMappingStartCondition(InputCassetteSequenceStep nextStep)
+        protected int CheckMappingStartCondition(TStep nextStep)
         {
             try
             {
@@ -318,7 +218,7 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        protected int CheckFeederPosition(InputCassetteSequenceStep nextStep)
+        protected int CheckFeederPosition(TStep nextStep)
         {
             try
             {
@@ -356,7 +256,7 @@ namespace QMC.CDT320.Sequencing
                 result = await cassette.WaitWaferLifterZMoveDone(ResolveMoveTimeout(cassette)).ConfigureAwait(false);
                 if (result != 0) return Fail("IN-CST-LOAD-WAIT", cassette.Name, "Loading position move timeout.");
 
-                CurrentStep = InputCassetteSequenceStep.Complete;
+                CurrentStep = CompleteStep;
                 return 0;
             }
             catch (Exception ex)
@@ -383,7 +283,7 @@ namespace QMC.CDT320.Sequencing
                 result = await cassette.WaitWaferLifterZMoveDone(ResolveMoveTimeout(cassette)).ConfigureAwait(false);
                 if (result != 0) return Fail("IN-CST-UNLOAD-WAIT", cassette.Name, "Unloading position move timeout.");
 
-                CurrentStep = InputCassetteSequenceStep.Complete;
+                CurrentStep = CompleteStep;
                 return 0;
             }
             catch (Exception ex)
@@ -395,7 +295,7 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        protected async Task<int> MoveMappingStartPositionAsync()
+        protected async Task<int> MoveMappingStartPositionAsync(TStep nextStep)
         {
             try
             {
@@ -412,7 +312,7 @@ namespace QMC.CDT320.Sequencing
                 if (result != 0)
                     return Fail("IN-CST-MAP-START-WAIT", cassette.Name, "Mapping start position move timeout.");
 
-                CurrentStep = InputCassetteSequenceStep.MoveMappingEndPosition;
+                CurrentStep = nextStep;
                 return 0;
             }
             catch (Exception ex)
@@ -424,7 +324,7 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        protected async Task<int> MoveMappingEndPositionAsync()
+        protected async Task<int> MoveMappingEndPositionAsync(TStep nextStep)
         {
             try
             {
@@ -437,7 +337,7 @@ namespace QMC.CDT320.Sequencing
                 result = await cassette.WaitWaferLifterZMoveDone(ResolveMoveTimeout(cassette)).ConfigureAwait(false);
                 if (result != 0) return Fail("IN-CST-MAP-END-WAIT", cassette.Name, "Mapping end position move timeout.");
 
-                CurrentStep = InputCassetteSequenceStep.ScanSlots;
+                CurrentStep = nextStep;
                 return 0;
             }
             catch (Exception ex)
@@ -449,7 +349,7 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        protected async Task<int> ScanSlotsAsync()
+        protected async Task<int> ScanSlotsAsync(TStep nextStep)
         {
             try
             {
@@ -468,7 +368,7 @@ namespace QMC.CDT320.Sequencing
                     if (result != 0) return Fail("IN-CST-SCAN", cassette.Name, "Wafer scan failed. result=" + result);
                 }
 
-                CurrentStep = InputCassetteSequenceStep.BuildWaferInfo;
+                CurrentStep = nextStep;
                 return 0;
             }
             catch (Exception ex)
@@ -480,7 +380,7 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        protected int BuildWaferInfo()
+        protected int BuildWaferInfo(TStep nextStep)
         {
             try
             {
@@ -489,7 +389,7 @@ namespace QMC.CDT320.Sequencing
                 if (result != 0)
                     return Fail("IN-CST-BUILD-WAFER", cassette != null ? cassette.Name : "InputCassette", "Input cassette material mapping result registration failed. result=" + result);
 
-                CurrentStep = InputCassetteSequenceStep.MoveFirstWaferSlot;
+                CurrentStep = nextStep;
                 return 0;
             }
             catch (Exception ex)
@@ -518,7 +418,7 @@ namespace QMC.CDT320.Sequencing
                     if (result != 0) return Fail("IN-CST-FIRST-SLOT-WAIT", cassette.Name, "First wafer slot move timeout.");
                 }
 
-                CurrentStep = InputCassetteSequenceStep.Complete;
+                CurrentStep = CompleteStep;
                 return 0;
             }
             catch (Exception ex)
@@ -539,8 +439,8 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
-                InputCassetteSequenceStep failedStep = CurrentStep;
-                CurrentStep = InputCassetteSequenceStep.Error;
+                TStep failedStep = CurrentStep;
+                CurrentStep = ErrorStep;
                 SequenceResumeStore.MarkAlarm(SequenceStateName, failedStep.ToString(), message);
                 WriteLog(source, message + " - Failed");
                 AlarmManager.Raise(AlarmSeverity.Warning, alarmCode, source, message);
@@ -557,7 +457,7 @@ namespace QMC.CDT320.Sequencing
             return -1;
         }
 
-        private InputCassetteSequenceStep ResolveStartStep(InputCassetteSequenceStep defaultStep)
+        private TStep ResolveStartStep(TStep defaultStep)
         {
             try
             {
@@ -569,11 +469,11 @@ namespace QMC.CDT320.Sequencing
                 }
 
                 string stepText = SequenceResumeStore.ResolveStartStep(SequenceStateName, defaultStep.ToString());
-                InputCassetteSequenceStep parsed;
+                TStep parsed;
                 if (Enum.TryParse(stepText, out parsed) &&
-                    parsed != InputCassetteSequenceStep.Idle &&
-                    parsed != InputCassetteSequenceStep.Complete &&
-                    parsed != InputCassetteSequenceStep.Error)
+                    !IsStep(parsed, IdleStep) &&
+                    !IsStep(parsed, CompleteStep) &&
+                    !IsStep(parsed, ErrorStep))
                 {
                     WriteLog("ResolveStartStep", "Input cassette " + Kind + " sequence resume step=" + parsed + ". - Ok");
                     return parsed;
@@ -711,6 +611,27 @@ namespace QMC.CDT320.Sequencing
             return configured >= 2 ? 2 : 1;
         }
 
+        private static async Task<int> AwaitStepWithCancellationAsync(Task<int> stepTask, CancellationToken ct)
+        {
+            if (stepTask == null)
+                return -1;
+
+            if (stepTask.IsCompleted)
+                return await stepTask.ConfigureAwait(false);
+
+            Task cancelTask = Task.Delay(Timeout.Infinite, ct);
+            Task completed = await Task.WhenAny(stepTask, cancelTask).ConfigureAwait(false);
+            if (!ReferenceEquals(completed, stepTask))
+                ct.ThrowIfCancellationRequested();
+
+            return await stepTask.ConfigureAwait(false);
+        }
+
+        private static bool IsStep(TStep left, TStep right)
+        {
+            return object.Equals(left, right);
+        }
+
         protected static void WriteLog(string source, string message)
         {
             try
@@ -719,138 +640,6 @@ namespace QMC.CDT320.Sequencing
             }
             catch
             {
-            }
-            finally
-            {
-            }
-        }
-    }
-
-    internal sealed class InputCassetteLoadingSequence : InputCassetteSequenceBase
-    {
-        public InputCassetteLoadingSequence(MachineSequenceContext context)
-            : base(context, InputCassetteSequenceKind.Loading, "InputCassetteLoadingSequence")
-        {
-        }
-
-        protected override InputCassetteSequenceStep InitialStep
-        {
-            get { return InputCassetteSequenceStep.CheckFeederPosition; }
-        }
-
-        protected override Task<int> ExecuteCurrentStepAsync(CancellationToken ct)
-        {
-            try
-            {
-                switch (CurrentStep)
-                {
-                    case InputCassetteSequenceStep.CheckFeederPosition:
-                        return Task.FromResult(CheckFeederPosition(InputCassetteSequenceStep.CheckCassetteDetected));
-                    case InputCassetteSequenceStep.CheckCassetteDetected:
-                        return Task.FromResult(CheckCassetteDetected(InputCassetteSequenceStep.MoveLoadingPosition));
-                    case InputCassetteSequenceStep.MoveLoadingPosition:
-                        return MoveLoadingPositionAsync();
-                    default:
-                        return Task.FromResult(FailUnsupportedStep());
-                }
-            }
-            catch (Exception ex)
-            {
-                return Task.FromResult(Fail("IN-CST-LOAD-STEP-EX", "InputCassetteLoadingSequence", "Loading step failed: " + ex.Message));
-            }
-            finally
-            {
-            }
-        }
-    }
-
-    internal sealed class InputCassetteUnloadingSequence : InputCassetteSequenceBase
-    {
-        public InputCassetteUnloadingSequence(MachineSequenceContext context)
-            : base(context, InputCassetteSequenceKind.Unloading, "InputCassetteUnloadingSequence")
-        {
-        }
-
-        protected override InputCassetteSequenceStep InitialStep
-        {
-            get { return InputCassetteSequenceStep.CheckCassetteDetected; }
-        }
-
-        protected override Task<int> ExecuteCurrentStepAsync(CancellationToken ct)
-        {
-            try
-            {
-                switch (CurrentStep)
-                {
-                    case InputCassetteSequenceStep.CheckCassetteDetected:
-                        return Task.FromResult(CheckCassetteDetected(InputCassetteSequenceStep.CheckCassetteSize));
-                    case InputCassetteSequenceStep.CheckCassetteSize:
-                        return Task.FromResult(CheckCassetteSize(InputCassetteSequenceStep.CheckFeederPosition, true));
-                    case InputCassetteSequenceStep.CheckFeederPosition:
-                        return Task.FromResult(CheckFeederPosition(InputCassetteSequenceStep.MoveUnloadingPosition));
-                    case InputCassetteSequenceStep.MoveUnloadingPosition:
-                        return MoveUnloadingPositionAsync();
-                    default:
-                        return Task.FromResult(FailUnsupportedStep());
-                }
-            }
-            catch (Exception ex)
-            {
-                return Task.FromResult(Fail("IN-CST-UNLOAD-STEP-EX", "InputCassetteUnloadingSequence", "Unloading step failed: " + ex.Message));
-            }
-            finally
-            {
-            }
-        }
-    }
-
-    internal sealed class InputCassetteMappingSequence : InputCassetteSequenceBase
-    {
-        public InputCassetteMappingSequence(MachineSequenceContext context)
-            : base(context, InputCassetteSequenceKind.Mapping, "InputCassetteMappingSequence")
-        {
-        }
-
-        protected override InputCassetteSequenceStep InitialStep
-        {
-            get { return InputCassetteSequenceStep.CheckLot; }
-        }
-
-        protected override Task<int> ExecuteCurrentStepAsync(CancellationToken ct)
-        {
-            try
-            {
-                switch (CurrentStep)
-                {
-                    case InputCassetteSequenceStep.CheckLot:
-                        return Task.FromResult(CheckLot(InputCassetteSequenceStep.CheckCassetteDetected));
-                    case InputCassetteSequenceStep.CheckCassetteDetected:
-                        return Task.FromResult(CheckCassetteDetected(InputCassetteSequenceStep.CheckCassetteSize));
-                    case InputCassetteSequenceStep.CheckCassetteSize:
-                        return Task.FromResult(CheckCassetteSize(InputCassetteSequenceStep.CheckCassetteMaterial, false));
-                    case InputCassetteSequenceStep.CheckCassetteMaterial:
-                        return Task.FromResult(CheckCassetteMaterial(InputCassetteSequenceStep.CheckMappingStartCondition));
-                    case InputCassetteSequenceStep.CheckMappingStartCondition:
-                        return Task.FromResult(CheckMappingStartCondition(InputCassetteSequenceStep.CheckFeederPosition));
-                    case InputCassetteSequenceStep.CheckFeederPosition:
-                        return Task.FromResult(CheckFeederPosition(InputCassetteSequenceStep.MoveMappingStartPosition));
-                    case InputCassetteSequenceStep.MoveMappingStartPosition:
-                        return MoveMappingStartPositionAsync();
-                    case InputCassetteSequenceStep.MoveMappingEndPosition:
-                        return MoveMappingEndPositionAsync();
-                    case InputCassetteSequenceStep.ScanSlots:
-                        return ScanSlotsAsync();
-                    case InputCassetteSequenceStep.BuildWaferInfo:
-                        return Task.FromResult(BuildWaferInfo());
-                    case InputCassetteSequenceStep.MoveFirstWaferSlot:
-                        return MoveFirstWaferSlotAsync();
-                    default:
-                        return Task.FromResult(FailUnsupportedStep());
-                }
-            }
-            catch (Exception ex)
-            {
-                return Task.FromResult(Fail("IN-CST-MAP-STEP-EX", "InputCassetteMappingSequence", "Mapping step failed: " + ex.Message));
             }
             finally
             {

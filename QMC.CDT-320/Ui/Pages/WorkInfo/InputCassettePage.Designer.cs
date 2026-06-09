@@ -751,6 +751,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.actionsLayout.Padding = new System.Windows.Forms.Padding(12);
             this.actionsLayout.Size = new System.Drawing.Size(1672, 90);
             this.actionsLayout.TabIndex = 3;
+            this.actionsLayout.WrapContents = false;
             // 
             // btnMap
             // 

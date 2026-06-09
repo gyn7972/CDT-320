@@ -764,15 +764,17 @@ namespace QMC.CDT_320
                 }
 
                 string savedAt = snapshot != null ? snapshot.SavedAt.ToString("yyyy-MM-dd HH:mm:ss") : "unknown";
-                string lot = snapshot != null ? snapshot.LotId : "";
-                string recipe = snapshot != null ? snapshot.RecipeName : "";
+                string lot = ResolveMaterialSnapshotLotId(snapshot);
+                string recipe = ResolveMaterialSnapshotRecipeName(snapshot);
+                string snapshotFileName = System.IO.Path.GetFileName(MaterialSnapshotStore.SnapshotPath);
 
                 var message =
                     "이전에 저장된 Material 정보가 있습니다.\r\n\r\n" +
                     "저장 시간: " + savedAt + "\r\n" +
                     "Recipe: " + (string.IsNullOrEmpty(recipe) ? "-" : recipe) + "\r\n" +
                     "Lot: " + (string.IsNullOrEmpty(lot) ? "-" : lot) + "\r\n" +
-                    "File: " + MaterialSnapshotStore.SnapshotPath + "\r\n\r\n" +
+                    "File: " + (string.IsNullOrEmpty(snapshotFileName) ? "-" : snapshotFileName) + "\r\n" +
+                    "Path: " + MaterialSnapshotStore.SnapshotPath + "\r\n\r\n" +
                     "[예] 기존 Material 정보를 사용합니다.\r\n" +
                     "[아니오] 초기화 후 새 Material 상태로 시작합니다.";
 
@@ -821,6 +823,62 @@ namespace QMC.CDT_320
             finally
             {
             }
+        }
+
+        private static string ResolveMaterialSnapshotRecipeName(MaterialSnapshot snapshot)
+        {
+            try
+            {
+                if (snapshot == null)
+                    return "";
+
+                if (!string.IsNullOrWhiteSpace(snapshot.RecipeName))
+                    return snapshot.RecipeName.Trim();
+
+                var project = QMC.CDT320.Recipes.RecipeStore.LoadLastOrDefault();
+                return project != null && !string.IsNullOrWhiteSpace(project.FileName) ? project.FileName.Trim() : "";
+            }
+            catch
+            {
+                return "";
+            }
+            finally
+            {
+            }
+        }
+
+        private static string ResolveMaterialSnapshotLotId(MaterialSnapshot snapshot)
+        {
+            try
+            {
+                if (snapshot == null)
+                    return "";
+
+                if (!string.IsNullOrWhiteSpace(snapshot.LotId))
+                    return snapshot.LotId.Trim();
+
+                if (snapshot.Cassettes != null)
+                {
+                    var cassette = snapshot.Cassettes.FirstOrDefault(c => c != null && !string.IsNullOrWhiteSpace(c.CassetteLotId));
+                    if (cassette != null)
+                        return cassette.CassetteLotId.Trim();
+                }
+
+                if (snapshot.Wafers != null)
+                {
+                    var wafer = snapshot.Wafers.FirstOrDefault(w => w != null && !string.IsNullOrWhiteSpace(w.CassetteLotId));
+                    if (wafer != null)
+                        return wafer.CassetteLotId.Trim();
+                }
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+
+            return "";
         }
 
         private void InitializeMaterialStateFromRecipe(QMC.CDT320.Recipes.RecipeProject recipe)

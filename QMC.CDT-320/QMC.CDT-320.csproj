@@ -308,19 +308,52 @@
     </Compile>
     <Compile Include="Equipment\UnitData.cs" />
     <!-- Sequencing -->
-    <Compile Include="Sequencing\SequenceUnitKind.cs" />
-    <Compile Include="Sequencing\SequenceRunMode.cs" />
-    <Compile Include="Sequencing\SequenceRunOptions.cs" />
-    <Compile Include="Sequencing\SequenceSignalBus.cs" />
-    <Compile Include="Sequencing\SequenceExecutionState.cs" />
-    <Compile Include="Sequencing\SequenceResumeStore.cs" />
-    <Compile Include="Sequencing\MachineSequenceContext.cs" />
-    <Compile Include="Sequencing\UnitSequenceBase.cs" />
-    <Compile Include="Sequencing\AutoSequenceCoordinator.cs" />
-    <Compile Include="Sequencing\InputCassetteSequence.cs" />
-    <Compile Include="Sequencing\InputFeederSequence.cs" />
-    <Compile Include="Sequencing\InputStageSequence.cs" />
+    <Compile Include="Sequencing\Common\SequenceUnitKind.cs" />
+    <Compile Include="Sequencing\Common\SequenceRunMode.cs" />
+    <Compile Include="Sequencing\Common\SequenceRunOptions.cs" />
+    <Compile Include="Sequencing\Common\SequenceSignalBus.cs" />
+    <Compile Include="Sequencing\Common\SequenceExecutionState.cs" />
+    <Compile Include="Sequencing\Common\SequenceResumeStore.cs" />
+    <Compile Include="Sequencing\Common\MachineSequenceContext.cs" />
+    <Compile Include="Sequencing\Common\UnitSequenceBase.cs" />
+    <Compile Include="Sequencing\Common\AutoSequenceCoordinator.cs" />
+    <Compile Include="Sequencing\InputCassette\InputCassetteSequenceKind.cs" />
+    <Compile Include="Sequencing\InputCassette\InputCassetteSequenceOptions.cs" />
+    <Compile Include="Sequencing\InputCassette\InputCassetteSequence.cs" />
+    <Compile Include="Sequencing\InputCassette\InputCassetteSequenceBase.cs" />
+    <Compile Include="Sequencing\InputCassette\InputCassetteLoadingSequence.cs" />
+    <Compile Include="Sequencing\InputCassette\InputCassetteMappingSequence.cs" />
+    <Compile Include="Sequencing\InputCassette\InputCassetteUnloadingSequence.cs" />
+    <Compile Include="Sequencing\InputFeeder\InputFeederSequenceKind.cs" />
+    <Compile Include="Sequencing\InputFeeder\InputFeederSequenceOptions.cs" />
+    <Compile Include="Sequencing\InputFeeder\InputFeederSequence.cs" />
+    <Compile Include="Sequencing\InputFeeder\InputFeederSequenceBase.cs" />
+    <Compile Include="Sequencing\InputFeeder\InputFeederLoadFromCassetteSequence.cs" />
+    <Compile Include="Sequencing\InputFeeder\InputFeederLoadToStageSequence.cs" />
+    <Compile Include="Sequencing\InputFeeder\InputFeederUnloadFromStageSequence.cs" />
+    <Compile Include="Sequencing\InputFeeder\InputFeederUnloadToCassetteSequence.cs" />
+    <Compile Include="Sequencing\InputFeeder\InputFeederExchangeSequence.cs" />
+    <Compile Include="Sequencing\InputFeeder\InputFeederRecoverSequence.cs" />
+    <Compile Include="Sequencing\InputStage\InputStageSequenceKind.cs" />
+    <Compile Include="Sequencing\InputStage\InputStageSequenceOptions.cs" />
+    <Compile Include="Sequencing\InputStage\InputStageSequence.cs" />
+    <Compile Include="Sequencing\InputStage\InputStageSequenceBase.cs" />
+    <Compile Include="Sequencing\InputStage\InputStagePrepareLoadSequence.cs" />
+    <Compile Include="Sequencing\InputStage\InputStageAlignSequence.cs" />
+    <Compile Include="Sequencing\InputStage\InputStagePrepareUnloadSequence.cs" />
+    <Compile Include="Sequencing\InputStage\InputStageMoveAvoidSequence.cs" />
     <Compile Include="Sequencing\InputSequence.cs" />
+    <Compile Include="Sequencing\OutputFeeder\OutputFeederSequenceKind.cs" />
+    <Compile Include="Sequencing\OutputFeeder\OutputFeederSequenceOptions.cs" />
+    <Compile Include="Sequencing\OutputFeeder\OutputFeederSequence.cs" />
+    <Compile Include="Sequencing\OutputFeeder\OutputFeederSequenceBase.cs" />
+    <Compile Include="Sequencing\OutputFeeder\OutputFeederLoadFromCassetteSequence.cs" />
+    <Compile Include="Sequencing\OutputFeeder\OutputFeederLoadToStageSequence.cs" />
+    <Compile Include="Sequencing\OutputFeeder\OutputFeederUnloadFromStageSequence.cs" />
+    <Compile Include="Sequencing\OutputFeeder\OutputFeederUnloadToCassetteSequence.cs" />
+    <Compile Include="Sequencing\OutputFeeder\OutputFeederExchangeSequence.cs" />
+    <Compile Include="Sequencing\OutputFeeder\OutputFeederRecoverSequence.cs" />
+    <Compile Include="Sequencing\OutputSequence.cs" />
     <!-- Equipment / Alarms -->
     <!-- Equipment / Logging -->
     <!-- Equipment / Recipes -->
