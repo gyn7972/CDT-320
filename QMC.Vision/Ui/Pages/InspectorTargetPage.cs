@@ -4,9 +4,11 @@ using System.ComponentModel;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
+using System.Linq;
 using System.Windows.Forms;
 using QMC.Vision.Config;
 using QMC.Vision.Core;
+using QMC.Vision.Core.Parameters;
 using QMC.Vision.Modules;
 using QMC.Vision.Ui.Controls;
 
@@ -117,19 +119,17 @@ namespace QMC.Vision.Ui.Pages
                     { ControllerPort = s.ControllerPort, Channel = s.Channel, Level = s.Level };
         }
 
-        // ── 파라미터(우측 ParameterGridControl) = inspector InspectionRoi 바인딩 ──
+        // ── 파라미터(우측 ParameterGridControl) = P4 스토어 질의(GetByTarget) → FromDescriptor ──
+        // 타깃 전 디스크립터(InspectionRoi Setup + Cognex 임계 + 주입 ② Bottom 등) 노출, SCOPE=계층.
         private void BuildParams()
         {
             if (_inspector == null) return;
-            var items = new List<ParameterGridItem>
-            {
-                ParameterGridItem.Double("Inspect X", "px", ParameterGridScope.Setup, () => _inspector.InspectionRoi.CenterX, v => { _inspector.InspectionRoi.CenterX = v; RefreshOverlay(); }),
-                ParameterGridItem.Double("Inspect Y", "px", ParameterGridScope.Setup, () => _inspector.InspectionRoi.CenterY, v => { _inspector.InspectionRoi.CenterY = v; RefreshOverlay(); }),
-                ParameterGridItem.Double("Inspect W", "px", ParameterGridScope.Setup, () => _inspector.InspectionRoi.Width,   v => { _inspector.InspectionRoi.Width = v;   RefreshOverlay(); }),
-                ParameterGridItem.Double("Inspect H", "px", ParameterGridScope.Setup, () => _inspector.InspectionRoi.Height,  v => { _inspector.InspectionRoi.Height = v;  RefreshOverlay(); }),
-            };
-            _params.SetItems(items);
-            _params.ParameterValueChanged += (s, e) => MarkDirty();
+            var store = ParameterStoreHost.Current;
+            if (store != null)
+                _params.SetItems(store.GetByTarget(_inspector.Id)
+                    .Select(d => ParameterGridItem.FromDescriptor(d, store))
+                    .Where(x => x != null));
+            _params.ParameterValueChanged += (s, e) => { RefreshOverlay(); MarkDirty(); };
         }
 
         private void RefreshOverlay()

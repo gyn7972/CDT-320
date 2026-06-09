@@ -4,9 +4,11 @@ using System.ComponentModel;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
+using System.Linq;
 using System.Windows.Forms;
 using QMC.Vision.Config;
 using QMC.Vision.Core;
+using QMC.Vision.Core.Parameters;
 using QMC.Vision.Modules;
 using QMC.Vision.Ui.Controls;
 
@@ -117,23 +119,17 @@ namespace QMC.Vision.Ui.Pages
                     { ControllerPort = s.ControllerPort, Channel = s.Channel, Level = s.Level };
         }
 
-        // ── 파라미터(우측 ParameterGridControl) = finder ROI 바인딩 ──
+        // ── 파라미터(우측 ParameterGridControl) = P4 스토어 질의(GetByTarget) → FromDescriptor ──
+        // 타깃 전 디스크립터(Setup ROI + Recipe 임계/Train ROI + ② 등) 노출, SCOPE=계층. scope 하드코딩 제거.
         private void BuildParams()
         {
             if (_finder == null) return;
-            var items = new List<ParameterGridItem>
-            {
-                ParameterGridItem.Double("Search X", "px", ParameterGridScope.Setup, () => _finder.SearchRoi.CenterX, v => { _finder.SearchRoi.CenterX = v; RefreshOverlay(); }),
-                ParameterGridItem.Double("Search Y", "px", ParameterGridScope.Setup, () => _finder.SearchRoi.CenterY, v => { _finder.SearchRoi.CenterY = v; RefreshOverlay(); }),
-                ParameterGridItem.Double("Search W", "px", ParameterGridScope.Setup, () => _finder.SearchRoi.Width,   v => { _finder.SearchRoi.Width = v;   RefreshOverlay(); }),
-                ParameterGridItem.Double("Search H", "px", ParameterGridScope.Setup, () => _finder.SearchRoi.Height,  v => { _finder.SearchRoi.Height = v;  RefreshOverlay(); }),
-                ParameterGridItem.Double("Train X", "px", ParameterGridScope.Recipe, () => _finder.TrainRoi.CenterX, v => { _finder.TrainRoi.CenterX = v; }),
-                ParameterGridItem.Double("Train Y", "px", ParameterGridScope.Recipe, () => _finder.TrainRoi.CenterY, v => { _finder.TrainRoi.CenterY = v; }),
-                ParameterGridItem.Double("Train W", "px", ParameterGridScope.Recipe, () => _finder.TrainRoi.Width,   v => { _finder.TrainRoi.Width = v;   }),
-                ParameterGridItem.Double("Train H", "px", ParameterGridScope.Recipe, () => _finder.TrainRoi.Height,  v => { _finder.TrainRoi.Height = v;  }),
-            };
-            _params.SetItems(items);
-            _params.ParameterValueChanged += (s, e) => MarkDirty();
+            var store = ParameterStoreHost.Current;
+            if (store != null)
+                _params.SetItems(store.GetByTarget(_finder.Id)
+                    .Select(d => ParameterGridItem.FromDescriptor(d, store))
+                    .Where(x => x != null));
+            _params.ParameterValueChanged += (s, e) => { RefreshOverlay(); MarkDirty(); };
         }
 
         private void RefreshOverlay()
