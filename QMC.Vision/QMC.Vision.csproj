@@ -85,6 +85,10 @@
     <Compile Include="Core\Parameters\ParameterDescriptor.cs" />
     <Compile Include="Core\Parameters\IParameterProvider.cs" />
     <Compile Include="Core\Parameters\VisionParameterDescriptors.cs" />
+    <Compile Include="Core\Parameters\ParameterSnapshot.cs" />
+    <Compile Include="Core\Parameters\SnapshotFileStore.cs" />
+    <Compile Include="Core\Parameters\ParameterStoreHost.cs" />
+    <Compile Include="Core\Parameters\ParameterStore.cs" />
     <Compile Include="Cameras\Sim\SimCamera.cs" />
     <Compile Include="Cameras\Hik\HikMvsDll.cs" />
     <Compile Include="Cameras\Hik\HikGigECamera.cs" />
@@ -120,6 +124,7 @@
     <Compile Include="Config\VisionSettingsParameters.cs" />
     <Compile Include="Config\CameraParameters.cs" />
     <Compile Include="Config\LightingParameters.cs" />
+    <Compile Include="Config\ParameterStoreBootstrap.cs" />
     <Compile Include="Optics\ILightController.cs" />
     <Compile Include="Optics\LightControllerFactory.cs" />
     <Compile Include="Optics\Sim\SimLightController.cs" />

@@ -134,8 +134,9 @@ namespace QMC.Vision.Backends.Cognex
             }
         }
 
-        public void LoadParameters(string path) { /* 추후 JSON 파라미터 — Tier 3 */ }
-        public void SaveParameters(string path) { /* 추후 JSON 파라미터 — Tier 3 */ }
+        // P2 — 스토어 위임(G1). path 미사용.
+        public void LoadParameters(string path) => ParameterStoreHost.Current?.LoadTarget(ParameterTarget);
+        public void SaveParameters(string path) => ParameterStoreHost.Current?.SaveTarget(ParameterTarget);
 
         // P1 — SSOT 디스크립터: InspectionRoi(Setup) + Blob 임계(Recipe, #2)
         public string ParameterTarget => Id;

@@ -60,11 +60,9 @@ namespace QMC.Vision.Backends.Sim
             return r;
         }
 
-        public void LoadParameters(string path) { /* sim: no-op */ }
-        public void SaveParameters(string path)
-        {
-            try { File.WriteAllText(path, "SimPatternFinder: " + Id); } catch { }
-        }
+        // P2 — 스토어 위임(텍스트 스텁 폐기, G1 해소). path 인자는 시그니처 호환용(미사용).
+        public void LoadParameters(string path) => ParameterStoreHost.Current?.LoadTarget(ParameterTarget);
+        public void SaveParameters(string path) => ParameterStoreHost.Current?.SaveTarget(ParameterTarget);
 
         // P1 — SSOT 디스크립터 (값=자기 속성 바인딩, 동작 무변경)
         public string ParameterTarget => Id;

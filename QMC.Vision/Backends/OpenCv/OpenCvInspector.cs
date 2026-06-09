@@ -37,8 +37,9 @@ namespace QMC.Vision.Backends.OpenCv
             return r;
         }
 
-        public void LoadParameters(string path) { }
-        public void SaveParameters(string path) { }
+        // P2 — 스토어 위임(G1). path 미사용.
+        public void LoadParameters(string path) => ParameterStoreHost.Current?.LoadTarget(ParameterTarget);
+        public void SaveParameters(string path) => ParameterStoreHost.Current?.SaveTarget(ParameterTarget);
 
         // P1 — SSOT 디스크립터 (InspectionRoi=Setup)
         public string ParameterTarget => Id;

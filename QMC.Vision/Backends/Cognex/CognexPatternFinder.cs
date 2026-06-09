@@ -160,26 +160,9 @@ namespace QMC.Vision.Backends.Cognex
             }
         }
 
-        public void LoadParameters(string path)
-        {
-            // TODO: CogPMAlignTool 직렬화 — Cognex 자체 직렬화는 .vpp 포맷.
-            //   추후 별도 라운드에서 CogSerializer 사용 예정.
-        }
-
-        public void SaveParameters(string path)
-        {
-            try
-            {
-                Directory.CreateDirectory(Path.GetDirectoryName(path));
-                File.WriteAllText(path, "CognexPatternFinder: " + Id +
-                    "\nAcceptThreshold=" + AcceptThreshold +
-                    "\nMaxInstances=" + MaxInstances +
-                    "\nSearchRoi=" + (SearchRoi?.BoundingBox.ToString() ?? "") +
-                    "\nTrainRoi=" + (TrainRoi?.BoundingBox.ToString() ?? "") +
-                    "\nTrained=" + _trainSucceeded);
-            }
-            catch { }
-        }
+        // P2 — 스토어 위임(스칼라 파라미터; CogPMAlignTool 모델 .vpp 직렬화는 별도 Tier). path 미사용.
+        public void LoadParameters(string path) => ParameterStoreHost.Current?.LoadTarget(ParameterTarget);
+        public void SaveParameters(string path) => ParameterStoreHost.Current?.SaveTarget(ParameterTarget);
 
         // P1 — SSOT 디스크립터
         public string ParameterTarget => Id;

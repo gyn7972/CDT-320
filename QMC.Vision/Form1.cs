@@ -103,6 +103,10 @@ namespace QMC.Vision
             ApplyDelayFromMap(FrontSideMod,    map, VisionAlgorithm.FrontSide);
             ApplyDelayFromMap(RearSideMod, map, VisionAlgorithm.RearSide);
 
+            // P2 — 파라미터 스토어 부팅(디스크립터 등록 + 영속 로드/마이그레이션). 실패해도 앱 기동 지속.
+            try { ParameterStoreBootstrap.Build(new VisionModule[] { WaferMod, BinMod, BottomMod, FrontSideMod, RearSideMod }); }
+            catch { }
+
             // ── TCP 서버 ──
             _svrWafer      = new VisionTcpServer(WaferMod,      cfg.WaferVisionPort);
             _svrBin        = new VisionTcpServer(BinMod,        cfg.BinVisionPort);

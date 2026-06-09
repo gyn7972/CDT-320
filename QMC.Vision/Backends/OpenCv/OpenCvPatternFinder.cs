@@ -165,8 +165,9 @@ namespace QMC.Vision.Backends.OpenCv
             return result;
         }
 
-        public void LoadParameters(string path) { }
-        public void SaveParameters(string path) { try { File.WriteAllText(path, "OpenCvPatternFinder: " + Id); } catch { } }
+        // P2 — 스토어 위임(텍스트 스텁 폐기, G1). path 미사용.
+        public void LoadParameters(string path) => ParameterStoreHost.Current?.LoadTarget(ParameterTarget);
+        public void SaveParameters(string path) => ParameterStoreHost.Current?.SaveTarget(ParameterTarget);
 
         // P1 — SSOT 디스크립터
         public string ParameterTarget => Id;
