@@ -366,7 +366,7 @@ namespace QMC.CDT320.Motion.SharedRailX
             });
         }
 
-        private static SharedRailXValidationResult ValidateJogCurrentDistance(
+        private SharedRailXValidationResult ValidateJogCurrentDistance(
             IReadOnlyList<SharedRailXAxisSetting> settings,
             SharedRailXAxis movingRailAxis,
             int direction,
@@ -387,16 +387,22 @@ namespace QMC.CDT320.Motion.SharedRailX
             {
                 if (other == null || other.Axis == null || other.RailAxis == movingRailAxis)
                     continue;
+                if (!_config.IsCollisionPairEnabled(movingRailAxis, other.RailAxis))
+                    continue;
 
                 double otherMin = other.GetMinAt(other.Axis.ActualPosition);
                 double otherMax = other.GetMaxAt(other.Axis.ActualPosition);
                 double required = Math.Max(moving.SafetyDistance, other.SafetyDistance);
                 double gap = CalculateCurrentGap(movingMin, movingMax, otherMin, otherMax);
-                bool otherIsRight = movingMax <= otherMin;
-                bool otherIsLeft = otherMax <= movingMin;
-                bool movingTowardOther = (railDirection > 0.0 && otherIsRight) || (railDirection < 0.0 && otherIsLeft);
+                bool movingTowardOther = IsMovingTowardOther(
+                    movingMin,
+                    movingMax,
+                    otherMin,
+                    otherMax,
+                    railDirection);
 
-                if (gap < required || (stopAtLimit && movingTowardOther && gap <= required))
+                if ((gap < required && (stopAtLimit || movingTowardOther)) ||
+                    (stopAtLimit && movingTowardOther && gap <= required))
                 {
                     return SharedRailXValidationResult.Block(
                         "SharedRailX jog distance is too close. " +
@@ -409,6 +415,31 @@ namespace QMC.CDT320.Motion.SharedRailX
             }
 
             return SharedRailXValidationResult.Allow();
+        }
+
+        private static bool IsMovingTowardOther(
+            double movingMin,
+            double movingMax,
+            double otherMin,
+            double otherMax,
+            double railDirection)
+        {
+            if (railDirection == 0.0)
+                return true;
+
+            if (movingMax <= otherMin)
+                return railDirection > 0.0;
+            if (otherMax <= movingMin)
+                return railDirection < 0.0;
+
+            double movingCenter = (movingMin + movingMax) / 2.0;
+            double otherCenter = (otherMin + otherMax) / 2.0;
+            if (otherCenter > movingCenter)
+                return railDirection > 0.0;
+            if (otherCenter < movingCenter)
+                return railDirection < 0.0;
+
+            return false;
         }
 
         private static double CalculateCurrentGap(double aMin, double aMax, double bMin, double bMax)
