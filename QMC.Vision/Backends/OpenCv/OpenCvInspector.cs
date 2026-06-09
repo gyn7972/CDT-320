@@ -1,10 +1,12 @@
-﻿using System.Drawing;
+﻿using System.Collections.Generic;
+using System.Drawing;
 using QMC.Vision.Core;
+using QMC.Vision.Core.Parameters;
 
 namespace QMC.Vision.Backends.OpenCv
 {
     /// <summary>OpenCV 기반 외관 검사 — 에지 검출/채움 검사 등. EmguCV 로드 시 구현.</summary>
-    public class OpenCvInspector : IInspector
+    public class OpenCvInspector : IInspector, IParameterProvider
     {
         public string Id { get; }
         public Roi InspectionRoi { get; set; }
@@ -37,5 +39,9 @@ namespace QMC.Vision.Backends.OpenCv
 
         public void LoadParameters(string path) { }
         public void SaveParameters(string path) { }
+
+        // P1 — SSOT 디스크립터 (InspectionRoi=Setup)
+        public string ParameterTarget => Id;
+        public IEnumerable<ParameterDescriptor> DescribeParameters() => VisionParameterDescriptors.InspectorRoi(this);
     }
 }

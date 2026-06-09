@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using QMC.Vision.Core;
+using QMC.Vision.Core.Parameters;
 
 namespace QMC.Vision.Backends.Cognex
 {
@@ -11,7 +13,7 @@ namespace QMC.Vision.Backends.Cognex
     /// 동적 reflection 으로 호출 — 빌드 시 Cognex 어셈블리 의존 없음.
     /// 미로드/실패 시 OpenCvPatternFinder(BasicSad) 로 자동 fallback.
     /// </summary>
-    public class CognexPatternFinder : IPatternFinder
+    public class CognexPatternFinder : IPatternFinder, IParameterProvider
     {
         public string Id { get; }
         public Roi SearchRoi { get; set; }
@@ -178,5 +180,9 @@ namespace QMC.Vision.Backends.Cognex
             }
             catch { }
         }
+
+        // P1 — SSOT 디스크립터
+        public string ParameterTarget => Id;
+        public IEnumerable<ParameterDescriptor> DescribeParameters() => VisionParameterDescriptors.Finder(this);
     }
 }

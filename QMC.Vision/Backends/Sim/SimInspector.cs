@@ -1,10 +1,12 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using QMC.Vision.Core;
+using QMC.Vision.Core.Parameters;
 
 namespace QMC.Vision.Backends.Sim
 {
-    public class SimInspector : IInspector
+    public class SimInspector : IInspector, IParameterProvider
     {
         public string Id { get; }
         public Roi InspectionRoi { get; set; }
@@ -30,5 +32,9 @@ namespace QMC.Vision.Backends.Sim
 
         public void LoadParameters(string path) { }
         public void SaveParameters(string path) { }
+
+        // P1 — SSOT 디스크립터 (InspectionRoi=Setup)
+        public string ParameterTarget => Id;
+        public IEnumerable<ParameterDescriptor> DescribeParameters() => VisionParameterDescriptors.InspectorRoi(this);
     }
 }

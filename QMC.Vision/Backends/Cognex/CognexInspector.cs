@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Drawing;
 using QMC.Vision.Core;
+using QMC.Vision.Core.Parameters;
 
 namespace QMC.Vision.Backends.Cognex
 {
@@ -12,7 +13,7 @@ namespace QMC.Vision.Backends.Cognex
     /// - Histogram: 평균/표준편차로 표면 균질성 평가 (가능 시)
     /// 미로드/실패 시 Sim fallback.
     /// </summary>
-    public class CognexInspector : IInspector
+    public class CognexInspector : IInspector, IParameterProvider
     {
         public string Id { get; }
         public Roi    InspectionRoi { get; set; }
@@ -135,5 +136,15 @@ namespace QMC.Vision.Backends.Cognex
 
         public void LoadParameters(string path) { /* 추후 JSON 파라미터 — Tier 3 */ }
         public void SaveParameters(string path) { /* 추후 JSON 파라미터 — Tier 3 */ }
+
+        // P1 — SSOT 디스크립터: InspectionRoi(Setup) + Blob 임계(Recipe, #2)
+        public string ParameterTarget => Id;
+        public IEnumerable<ParameterDescriptor> DescribeParameters()
+        {
+            foreach (var d in VisionParameterDescriptors.InspectorRoi(this)) yield return d;
+            yield return ParameterDescriptor.Int(Id, "Threshold", "Threshold", "", ParameterLayer.Recipe, () => Threshold, v => Threshold = v, min: 0, max: 255);
+            yield return ParameterDescriptor.Int(Id, "MinDefectArea", "Min Defect Area", "px²", ParameterLayer.Recipe, () => MinDefectArea, v => MinDefectArea = v, min: 0);
+            yield return ParameterDescriptor.Double(Id, "MaxTotalDefectArea", "Max Total Defect Area", "px²", ParameterLayer.Recipe, () => MaxTotalDefectArea, v => MaxTotalDefectArea = v, min: 0);
+        }
     }
 }

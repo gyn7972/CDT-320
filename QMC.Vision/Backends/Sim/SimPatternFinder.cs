@@ -1,12 +1,14 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using QMC.Vision.Core;
+using QMC.Vision.Core.Parameters;
 
 namespace QMC.Vision.Backends.Sim
 {
     /// <summary>시뮬 Finder — TrainRoi 중심 좌표를 랜덤 drift로 반환.</summary>
-    public class SimPatternFinder : IPatternFinder
+    public class SimPatternFinder : IPatternFinder, IParameterProvider
     {
         public string Id { get; }
         public Roi SearchRoi { get; set; }
@@ -63,5 +65,9 @@ namespace QMC.Vision.Backends.Sim
         {
             try { File.WriteAllText(path, "SimPatternFinder: " + Id); } catch { }
         }
+
+        // P1 — SSOT 디스크립터 (값=자기 속성 바인딩, 동작 무변경)
+        public string ParameterTarget => Id;
+        public IEnumerable<ParameterDescriptor> DescribeParameters() => VisionParameterDescriptors.Finder(this);
     }
 }

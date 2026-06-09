@@ -79,6 +79,12 @@
     <Compile Include="Core\ImageLogSaver.cs" />
     <Compile Include="Core\DataLogSaver.cs" />
     <Compile Include="Core\Inspectors\InspectionParameters.cs" />
+    <Compile Include="Core\Parameters\ParameterLayer.cs" />
+    <Compile Include="Core\Parameters\ParameterType.cs" />
+    <Compile Include="Core\Parameters\ParameterOption.cs" />
+    <Compile Include="Core\Parameters\ParameterDescriptor.cs" />
+    <Compile Include="Core\Parameters\IParameterProvider.cs" />
+    <Compile Include="Core\Parameters\VisionParameterDescriptors.cs" />
     <Compile Include="Cameras\Sim\SimCamera.cs" />
     <Compile Include="Cameras\Hik\HikMvsDll.cs" />
     <Compile Include="Cameras\Hik\HikGigECamera.cs" />
@@ -111,6 +117,9 @@
     <Compile Include="Config\VisionConfig.cs" />
     <Compile Include="Config\AlgorithmCameraMap.cs" />
     <Compile Include="Config\AlgorithmCameraBinder.cs" />
+    <Compile Include="Config\VisionSettingsParameters.cs" />
+    <Compile Include="Config\CameraParameters.cs" />
+    <Compile Include="Config\LightingParameters.cs" />
     <Compile Include="Optics\ILightController.cs" />
     <Compile Include="Optics\LightControllerFactory.cs" />
     <Compile Include="Optics\Sim\SimLightController.cs" />
@@ -301,14 +310,29 @@
     <EmbeddedResource Include="Ui\Controls\LightLiveTuningPanel.resx">
       <DependentUpon>LightLiveTuningPanel.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Editors\ParameterEditorBase.resx">
+      <DependentUpon>ParameterEditorBase.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Editors\ParameterEditorHost.resx">
+      <DependentUpon>ParameterEditorHost.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\CameraMappingPanel.resx">
       <DependentUpon>CameraMappingPanel.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\ConfigurationPage.resx">
       <DependentUpon>ConfigurationPage.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\DataLogPage.resx">
+      <DependentUpon>DataLogPage.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\InspectionLightPanel.resx">
       <DependentUpon>InspectionLightPanel.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\InspectionOverridePanel.resx">
+      <DependentUpon>InspectionOverridePanel.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\InspectorPage.resx">
+      <DependentUpon>InspectorPage.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\LightSystemSetupPage.resx">
       <DependentUpon>LightSystemSetupPage.cs</DependentUpon>
@@ -318,6 +342,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\SettingsPage.resx">
       <DependentUpon>SettingsPage.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\SpcChartPage.resx">
+      <DependentUpon>SpcChartPage.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\VisionTargetPage.resx">
       <DependentUpon>VisionTargetPage.cs</DependentUpon>
