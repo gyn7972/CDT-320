@@ -1858,6 +1858,16 @@ namespace QMC.CDT320
                         return await PrepareFrontPickerXHomeAsync(axis).ConfigureAwait(false);
                     case "FrontPickerY":
                         return await PrepareFrontPickerYHomeAsync(axis).ConfigureAwait(false);
+                    case "FrontPickerT0":
+                    case "FrontPickerT1":
+                    case "FrontPickerT2":
+                    case "FrontPickerT3":
+                        return await PrepareFrontPickerTHomeAsync(axis).ConfigureAwait(false);
+                    case "RearPickerT0":
+                    case "RearPickerT1":
+                    case "RearPickerT2":
+                    case "RearPickerT3":
+                        return await PrepareRearPickerTHomeAsync(axis).ConfigureAwait(false);
                     case "RearPickerX":
                     case "OutputVisionX":
                         return await PrepareSharedRailXAxisHomeAsync(axis).ConfigureAwait(false);
@@ -1865,6 +1875,8 @@ namespace QMC.CDT320
                         return await PrepareInputExpandingZHomeAsync(axis).ConfigureAwait(false);
                     case "InputStageY":
                         return await PrepareInputStageYHomeAsync(axis).ConfigureAwait(false);
+                    case "InputStageT":
+                        return await PrepareInputStageTHomeAsync(axis).ConfigureAwait(false);
                     case "NeedleX":
                         return await PrepareNeedleXHomeAsync(axis).ConfigureAwait(false);
                     default:
@@ -2109,7 +2121,35 @@ namespace QMC.CDT320
 
         private async Task<int> PrepareFrontPickerYHomeAsync(BaseAxis axis)
         {
-            return await CheckFrontPickerZAxesAvoidAsync().ConfigureAwait(false);
+            return await PrepareFrontPickerYHomeConditionAsync().ConfigureAwait(false);
+        }
+
+        private Task<int> PrepareFrontPickerYHomeConditionAsync()
+        {
+            Log("[INIT] Check FrontPickerY home condition: FrontPickerZ0~Z3 / InputFeederY Avoid.");
+
+            var front = _machine.PickerFrontUnit;
+            if (front != null)
+            {
+                PickerAxis[] zAxes = { PickerAxis.PickerZ0, PickerAxis.PickerZ1, PickerAxis.PickerZ2, PickerAxis.PickerZ3 };
+                foreach (PickerAxis zAxis in zAxes)
+                {
+                    if (!front.IsPickerAxisInTeachingPosition(zAxis, "AvoidPosition"))
+                    {
+                        return Task.FromResult(FailInitializePreparation(
+                            "FrontPickerY HOME 불가: Front" + zAxis + "가 Avoid 위치에 있지 않습니다."));
+                    }
+                }
+            }
+
+            var feeder = _machine.InputFeederUnit;
+            if (feeder != null && !feeder.IsWaferFeederYInAvoidPosition())
+            {
+                return Task.FromResult(FailInitializePreparation(
+                    "FrontPickerY HOME 불가: InputFeederY가 Avoid 위치에 있지 않습니다."));
+            }
+
+            return Task.FromResult(0);
         }
 
         private Task<int> CheckFrontPickerZAxesAvoidAsync()
@@ -2128,6 +2168,91 @@ namespace QMC.CDT320
                             "FrontPickerY HOME 불가: Front" + zAxis + "가 Avoid 위치에 있지 않습니다."));
                     }
                 }
+            }
+
+            return Task.FromResult(0);
+        }
+
+        private Task<int> CheckRearPickerZAxesAvoidAsync()
+        {
+            Log("[INIT] Prepare InputStageY home: check RearPickerZ0~Z3 Avoid.");
+
+            var rear = _machine.PickerRearUnit;
+            if (rear != null)
+            {
+                PickerAxis[] zAxes = { PickerAxis.PickerZ0, PickerAxis.PickerZ1, PickerAxis.PickerZ2, PickerAxis.PickerZ3 };
+                foreach (PickerAxis zAxis in zAxes)
+                {
+                    if (!rear.IsPickerAxisInTeachingPosition(zAxis, "AvoidPosition"))
+                    {
+                        return Task.FromResult(FailInitializePreparation(
+                            "InputStageY HOME 불가: Rear" + zAxis + "가 Avoid 위치에 있지 않습니다."));
+                    }
+                }
+            }
+
+            return Task.FromResult(0);
+        }
+
+        private async Task<int> PrepareFrontPickerTHomeAsync(BaseAxis axis)
+        {
+            return await CheckFrontPickerTPairedZAvoidAsync(axis).ConfigureAwait(false);
+        }
+
+        private Task<int> CheckFrontPickerTPairedZAvoidAsync(BaseAxis axis)
+        {
+            Log("[INIT] Prepare FrontPickerT home: check paired FrontPickerZ Avoid.");
+
+            var front = _machine.PickerFrontUnit;
+            if (front == null || axis == null)
+                return Task.FromResult(0);
+
+            PickerAxis zAxis;
+            switch (axis.Name)
+            {
+                case "FrontPickerT0": zAxis = PickerAxis.PickerZ0; break;
+                case "FrontPickerT1": zAxis = PickerAxis.PickerZ1; break;
+                case "FrontPickerT2": zAxis = PickerAxis.PickerZ2; break;
+                case "FrontPickerT3": zAxis = PickerAxis.PickerZ3; break;
+                default: return Task.FromResult(0);
+            }
+
+            if (!front.IsPickerAxisInTeachingPosition(zAxis, "AvoidPosition"))
+            {
+                return Task.FromResult(FailInitializePreparation(
+                    axis.Name + " HOME 불가: Front" + zAxis + "가 Avoid 위치에 있지 않습니다."));
+            }
+
+            return Task.FromResult(0);
+        }
+
+        private async Task<int> PrepareRearPickerTHomeAsync(BaseAxis axis)
+        {
+            return await CheckRearPickerTPairedZAvoidAsync(axis).ConfigureAwait(false);
+        }
+
+        private Task<int> CheckRearPickerTPairedZAvoidAsync(BaseAxis axis)
+        {
+            Log("[INIT] Prepare RearPickerT home: check paired RearPickerZ Avoid.");
+
+            var rear = _machine.PickerRearUnit;
+            if (rear == null || axis == null)
+                return Task.FromResult(0);
+
+            PickerAxis zAxis;
+            switch (axis.Name)
+            {
+                case "RearPickerT0": zAxis = PickerAxis.PickerZ0; break;
+                case "RearPickerT1": zAxis = PickerAxis.PickerZ1; break;
+                case "RearPickerT2": zAxis = PickerAxis.PickerZ2; break;
+                case "RearPickerT3": zAxis = PickerAxis.PickerZ3; break;
+                default: return Task.FromResult(0);
+            }
+
+            if (!rear.IsPickerAxisInTeachingPosition(zAxis, "AvoidPosition"))
+            {
+                return Task.FromResult(FailInitializePreparation(
+                    axis.Name + " HOME 불가: Rear" + zAxis + "가 Avoid 위치에 있지 않습니다."));
             }
 
             return Task.FromResult(0);
@@ -3086,7 +3211,7 @@ namespace QMC.CDT320
 
         private async Task<int> PrepareInputStageHomeAsync()
         {
-            Log("[INIT] Prepare InputStageY home: NeedleZ Avoid check.");
+            Log("[INIT] Prepare InputStageY home: NeedleZ / Front,RearPickerZ0~Z3 Avoid check.");
 
             var stage = _machine.InputStageUnit;
             if (stage != null && !stage.IsNeedleZInSafePosition())
@@ -3094,6 +3219,36 @@ namespace QMC.CDT320
                 return FailInitializePreparation(
                     "InputStageY HOME 불가: NeedleZ가 Avoid 위치에 있지 않습니다.");
             }
+
+            int result = await CheckFrontPickerZAxesAvoidAsync().ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            result = await CheckRearPickerZAxesAvoidAsync().ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            return 0;
+        }
+
+        private async Task<int> PrepareInputStageTHomeAsync(BaseAxis axis)
+        {
+            Log("[INIT] Prepare InputStageT home: NeedleZ / Front,RearPickerZ0~Z3 Avoid check.");
+
+            var stage = _machine.InputStageUnit;
+            if (stage != null && !stage.IsNeedleZInSafePosition())
+            {
+                return FailInitializePreparation(
+                    "InputStageT HOME 불가: NeedleZ가 Avoid 위치에 있지 않습니다.");
+            }
+
+            int result = await CheckFrontPickerZAxesAvoidAsync().ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            result = await CheckRearPickerZAxesAvoidAsync().ConfigureAwait(false);
+            if (result != 0)
+                return result;
 
             return 0;
         }
