@@ -29,7 +29,7 @@ namespace QMC.CDT320.Sequencing
                 WaferId = "",
                 AllowFallbackMap = true,
                 AlignThetaToleranceDeg = 0.005,
-                AlignRetryCount = 1,
+                AlignRetryCount = 3,
                 CenterAlignTargetId = "Center",
                 Ref1AlignTargetId = "Ref1",
                 Ref2AlignTargetId = "Ref2",

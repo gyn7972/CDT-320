@@ -107,6 +107,32 @@ namespace QMC.CDT320.Materials
             => _data.Dies?.FirstOrDefault(d => d.Name == name);
 
         public static TapeFrameSpec FindFrame(string name)
-            => _data.Frames?.FirstOrDefault(f => f.Name == name);
+            => _data.Frames?.FirstOrDefault(f => string.Equals(f.Name, name, StringComparison.OrdinalIgnoreCase));
+
+        public static TapeFrameSpec UpsertFrame(string name, int gridX, int gridY, double pitchX, double pitchY, double outerDiameterMm, string dieSpecName)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+                name = "Frame_" + DateTime.Now.ToString("yyyyMMdd_HHmmss");
+
+            if (_data.Frames == null)
+                _data.Frames = new List<TapeFrameSpec>();
+
+            string specName = name.Trim();
+            var spec = _data.Frames.FirstOrDefault(f => string.Equals(f.Name, specName, StringComparison.OrdinalIgnoreCase));
+            if (spec == null)
+            {
+                spec = new TapeFrameSpec { Name = specName };
+                _data.Frames.Add(spec);
+            }
+
+            spec.GridX = Math.Max(1, gridX);
+            spec.GridY = Math.Max(1, gridY);
+            spec.PitchX = pitchX > 0.0 ? pitchX : 1.0;
+            spec.PitchY = pitchY > 0.0 ? pitchY : 1.0;
+            spec.OuterDiameterMm = outerDiameterMm > 0.0 ? outerDiameterMm : 200.0;
+            spec.DieSpecName = dieSpecName ?? "";
+            Save();
+            return spec;
+        }
     }
 }

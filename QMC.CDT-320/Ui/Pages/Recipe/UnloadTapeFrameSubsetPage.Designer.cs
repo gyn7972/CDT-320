@@ -109,7 +109,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             "NgUnload"});
             this._cbRole.Location = new System.Drawing.Point(233, 43);
             this._cbRole.Name = "_cbRole";
-            this._cbRole.Size = new System.Drawing.Size(832, 28);
+            this._cbRole.Size = new System.Drawing.Size(832, 23);
             this._cbRole.TabIndex = 2;
             // 
             // lblGapInspection
@@ -156,7 +156,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             0,
             0});
             this._nUpper.Name = "_nUpper";
-            this._nUpper.Size = new System.Drawing.Size(832, 27);
+            this._nUpper.Size = new System.Drawing.Size(832, 23);
             this._nUpper.TabIndex = 6;
             // 
             // lblGapLower
@@ -182,7 +182,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             0,
             0});
             this._nLower.Name = "_nLower";
-            this._nLower.Size = new System.Drawing.Size(832, 27);
+            this._nLower.Size = new System.Drawing.Size(832, 23);
             this._nLower.TabIndex = 8;
             // 
             // UnloadTapeFrameSubsetPage

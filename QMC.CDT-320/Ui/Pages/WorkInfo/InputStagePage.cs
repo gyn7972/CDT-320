@@ -114,9 +114,20 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 _manualSequenceRunning = true;
                 SetSequenceButtonsEnabled(false);
                 manualScope = host.Controller.EnterManualOperation();
+                CancellationToken manualToken = host.Controller.ManualOperationToken;
                 SequenceFailureStore.Clear();
                 WriteEvent("INPUT-STAGE-ACTION", actionName + " start");
-                bool ok = await action(host);
+                Task<bool> actionTask = action(host);
+                Task cancelTask = WaitForCancellationAsync(manualToken);
+                Task completed = await Task.WhenAny(actionTask, cancelTask).ConfigureAwait(true);
+                if (completed == cancelTask)
+                {
+                    ObserveManualActionTask(actionTask, actionName);
+                    WriteEvent("INPUT-STAGE-CANCEL", actionName + " canceled by stop.");
+                    return;
+                }
+
+                bool ok = await actionTask.ConfigureAwait(true);
                 WriteEvent("INPUT-STAGE-ACTION", actionName + " result=" + ok);
                 if (!ok)
                 {
@@ -142,6 +153,46 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 SetSequenceButtonsEnabled(true);
                 RefreshFromMachine();
             }
+        }
+
+        private static Task WaitForCancellationAsync(CancellationToken ct)
+        {
+            if (!ct.CanBeCanceled)
+                return Task.Delay(Timeout.Infinite);
+            if (ct.IsCancellationRequested)
+                return Task.FromResult(0);
+
+            var tcs = new TaskCompletionSource<int>();
+            ct.Register(() => tcs.TrySetResult(0));
+            return tcs.Task;
+        }
+
+        private void ObserveManualActionTask(Task<bool> task, string actionName)
+        {
+            if (task == null)
+                return;
+
+            task.ContinueWith(t =>
+            {
+                try
+                {
+                    if (t.IsFaulted)
+                    {
+                        Exception ex = t.Exception != null ? t.Exception.GetBaseException() : null;
+                        WriteAlarm("INPUT-STAGE-ACTION-LATE-EX", actionName + " finished after stop: " + (ex != null ? ex.Message : "unknown"));
+                    }
+                    else if (t.IsCanceled)
+                    {
+                        WriteEvent("INPUT-STAGE-ACTION-LATE-CANCEL", actionName + " canceled after stop.");
+                    }
+                }
+                catch
+                {
+                }
+                finally
+                {
+                }
+            });
         }
 
         private bool ConfirmAction(string actionName)
@@ -178,6 +229,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
                 WriteEvent("INPUT-STAGE-STOP", "Manual action stop requested.");
                 await host.Controller.StopAsync();
+                _manualSequenceRunning = false;
+                SetSequenceButtonsEnabled(true);
+                RefreshFromMachine();
             }
             catch (Exception ex)
             {

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Globalization;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using QMC.CDT320;
@@ -18,6 +19,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         private readonly ToolTip _toolTip;
         private readonly System.Windows.Forms.Timer _statusTimer;
         private DataGridView _activeGrid;
+        private CancellationTokenSource _runCts;
         private bool _syncingGridSelection;
         private bool _stopping;
         private SharedRailXConfigDocument _document;
@@ -341,6 +343,9 @@ namespace QMC.CDT_320.Ui.Dialogs
                 _stopping = true;
                 btnStop.Enabled = false;
                 lblStatus.Text = "STOP requested...";
+                CancellationTokenSource cts = _runCts;
+                if (cts != null)
+                    cts.Cancel();
                 int result = await _controller.StopAllAxesAsync(false).ConfigureAwait(true);
                 RefreshStatus();
                 lblStatus.Text = result == 0 ? "STOP complete." : "STOP failed. result=" + result;
@@ -642,16 +647,18 @@ namespace QMC.CDT_320.Ui.Dialogs
             if (!TryGetSelectedAxis(out axis))
                 return;
 
-            await RunAsync("Move " + axis, async () =>
+            await RunAsync("Move " + axis, async ct =>
             {
                 if (!ReadGridToDocument()) return -1;
                 SaveDocumentAndReloadRuntime();
+                ct.ThrowIfCancellationRequested();
 
                 DataGridViewRow testRow = FindRow(_testGrid, axis);
                 DataGridViewRow statusRow = FindRow(grid, axis);
                 double target = ReadAxisDisplayCell(testRow, "colTarget", axis, 0.0);
                 double velocity = ReadVelocity(testRow, axis);
                 int result = await _controller.SharedRailX.MoveAsync(axis, target, velocity);
+                ct.ThrowIfCancellationRequested();
                 SetRowStatus(statusRow, result == 0 ? "Done" : "Failed", result == 0 ? Color.FromArgb(220, 245, 225) : Color.FromArgb(255, 225, 225),
                     result == 0 ? "" : "result=" + result);
                 return result;
@@ -660,10 +667,11 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         private async Task RunHeadSubMoveAsync()
         {
-            await RunAsync("Move Head/Sub SharedRailX axes", async () =>
+            await RunAsync("Move Head/Sub SharedRailX axes", async ct =>
             {
                 if (!ReadGridToDocument()) return -1;
                 SaveDocumentAndReloadRuntime();
+                ct.ThrowIfCancellationRequested();
 
                 List<DataGridViewRow> rows = GetHeadSubRows();
                 if (rows.Count == 0)
@@ -688,6 +696,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                 }
 
                 int result = await _controller.MoveSharedRailXAsync(plan);
+                ct.ThrowIfCancellationRequested();
                 foreach (DataGridViewRow row in rows)
                     SetRowStatus(row, result == 0 ? "Done" : "Failed",
                         result == 0 ? Color.FromArgb(220, 245, 225) : Color.FromArgb(255, 225, 225),
@@ -707,9 +716,11 @@ namespace QMC.CDT_320.Ui.Dialogs
             if (!TryGetRowAxis(row, out axis))
                 return;
 
-            await RunAsync("Home " + axis, async () =>
+            await RunAsync("Home " + axis, async ct =>
             {
+                ct.ThrowIfCancellationRequested();
                 int result = await _controller.InitializeAxisAsync(AxisName(axis));
+                ct.ThrowIfCancellationRequested();
                 SetRowStatus(row, result == 0 ? "Home Done" : "Home Failed", result == 0 ? Color.FromArgb(220, 245, 225) : Color.FromArgb(255, 225, 225),
                     result == 0 ? "" : _controller.LastActionFailureMessage);
                 return result;
@@ -718,17 +729,19 @@ namespace QMC.CDT_320.Ui.Dialogs
 
         private async Task RunAllHomeAsync()
         {
-            await RunAsync("Home all SharedRailX axes", async () =>
+            await RunAsync("Home all SharedRailX axes", async ct =>
             {
                 int firstFail = 0;
                 foreach (DataGridViewRow row in grid.Rows)
                 {
+                    ct.ThrowIfCancellationRequested();
                     SharedRailXAxis axis;
                     if (!TryGetRowAxis(row, out axis))
                         continue;
 
                     SetRowStatus(row, "Homing", Color.FromArgb(255, 245, 205), "");
                     int result = await _controller.InitializeAxisAsync(AxisName(axis));
+                    ct.ThrowIfCancellationRequested();
                     SetRowStatus(row, result == 0 ? "Home Done" : "Home Failed",
                         result == 0 ? Color.FromArgb(220, 245, 225) : Color.FromArgb(255, 225, 225),
                         result == 0 ? "" : _controller.LastActionFailureMessage);
@@ -742,19 +755,37 @@ namespace QMC.CDT_320.Ui.Dialogs
             });
         }
 
-        private async Task RunAsync(string actionName, Func<Task<int>> action)
+        private async Task RunAsync(string actionName, Func<CancellationToken, Task<int>> action)
         {
             if (_running || action == null || _controller == null || _controller.SharedRailX == null)
                 return;
 
+            CancellationTokenSource cts = new CancellationTokenSource();
             try
             {
+                _runCts = cts;
                 _running = true;
                 SetButtonsEnabled(false);
                 lblStatus.Text = actionName + " running...";
-                int result = await action();
+                Task<int> actionTask = action(cts.Token);
+                Task cancelTask = WaitForCancellationAsync(cts.Token);
+                Task completed = await Task.WhenAny(actionTask, cancelTask).ConfigureAwait(true);
+                if (completed == cancelTask)
+                {
+                    ObserveRunTask(actionTask);
+                    RefreshStatus();
+                    lblStatus.Text = actionName + " stopped.";
+                    return;
+                }
+
+                int result = await actionTask.ConfigureAwait(true);
                 RefreshStatus();
                 lblStatus.Text = actionName + (result == 0 ? " complete." : " failed. result=" + result);
+            }
+            catch (OperationCanceledException)
+            {
+                RefreshStatus();
+                lblStatus.Text = actionName + " stopped.";
             }
             catch (Exception ex)
             {
@@ -764,9 +795,35 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
             finally
             {
+                if (_runCts == cts)
+                    _runCts = null;
+                cts.Dispose();
                 _running = false;
                 SetButtonsEnabled(true);
             }
+        }
+
+        private static Task WaitForCancellationAsync(CancellationToken ct)
+        {
+            if (!ct.CanBeCanceled)
+                return Task.Delay(Timeout.Infinite);
+            if (ct.IsCancellationRequested)
+                return Task.FromResult(0);
+
+            var tcs = new TaskCompletionSource<int>();
+            ct.Register(() => tcs.TrySetResult(0));
+            return tcs.Task;
+        }
+
+        private static void ObserveRunTask(Task<int> task)
+        {
+            if (task == null)
+                return;
+
+            task.ContinueWith(t =>
+            {
+                Exception ignored = t.Exception;
+            }, TaskContinuationOptions.OnlyOnFaulted);
         }
 
         private bool ValidateTarget(SharedRailXAxis axis, double target, out string reason)

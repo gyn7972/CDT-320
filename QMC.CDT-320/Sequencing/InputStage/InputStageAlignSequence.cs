@@ -27,8 +27,11 @@ namespace QMC.CDT320.Sequencing
 
     internal sealed class InputStageAlignSequence : InputStageSequenceBase<InputStageAlignStep>
     {
+        private static readonly object SimVisionRandomLock = new object();
+        private static readonly Random SimVisionRandom = new Random();
         private WaferMapData _map;
         private WaferMaterial _wafer;
+        private TapeFrameSpec _frameSpec;
         private VisionAlignResult _centerResult;
         private VisionAlignResult _verifyCenterResult;
         private VisionAlignResult _ref1Result;
@@ -131,6 +134,9 @@ namespace QMC.CDT320.Sequencing
                 if (_map == null)
                     return Fail("IN-STAGE-ALIGN-MAP", Stage.Name, "InputStage wafer map was not found.");
 
+                _frameSpec = ResolveFrameSpecForWafer(_wafer);
+                ApplyFrameSpecToMap(_map, _frameSpec);
+
                 if (Options.RequireVisionAlign && Stage.Vision == null)
                     return Fail("IN-STAGE-ALIGN-VISION", Stage.Name, "Vision align is required but vision client is not available.");
 
@@ -214,9 +220,9 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 ct.ThrowIfCancellationRequested();
-                _centerResult = await TriggerAlignAsync(ResolveTargetId(Options.CenterAlignTargetId, "Center"), ct).ConfigureAwait(false);
+                _centerResult = await RequestVisionPcOffsetWithRetryAsync(ResolveTargetId(Options.CenterAlignTargetId, "Center"), "Center", ct).ConfigureAwait(false);
                 if (_centerResult == null)
-                    return Fail("IN-STAGE-ALIGN-CENTER", "Vision", "Center align mark find failed.");
+                    return Fail("IN-STAGE-ALIGN-CENTER", "Vision", "Center vision offset receive failed.");
 
                 CurrentStep = InputStageAlignStep.CorrectTheta;
                 return 0;
@@ -271,9 +277,9 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 ct.ThrowIfCancellationRequested();
-                _verifyCenterResult = await TriggerAlignAsync(ResolveTargetId(Options.CenterAlignTargetId, "Center"), ct).ConfigureAwait(false);
+                _verifyCenterResult = await RequestVisionPcOffsetWithRetryAsync(ResolveTargetId(Options.CenterAlignTargetId, "Center"), "CenterVerify", ct).ConfigureAwait(false);
                 if (_verifyCenterResult == null)
-                    return Fail("IN-STAGE-ALIGN-THETA-VERIFY", "Vision", "Center align verify failed.");
+                    return Fail("IN-STAGE-ALIGN-THETA-VERIFY", "Vision", "Center verify vision offset receive failed.");
 
                 double theta = Math.Abs(_verifyCenterResult.DeltaTheta);
                 double tolerance = ResolveThetaTolerance();
@@ -340,9 +346,9 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 ct.ThrowIfCancellationRequested();
-                _ref1Result = await TriggerAlignAsync(ResolveTargetId(Options.Ref1AlignTargetId, "Ref1"), ct).ConfigureAwait(false);
+                _ref1Result = await RequestVisionPcOffsetWithRetryAsync(ResolveTargetId(Options.Ref1AlignTargetId, "Ref1"), "Ref1", ct).ConfigureAwait(false);
                 if (_ref1Result == null)
-                    return Fail("IN-STAGE-ALIGN-REF1", "Vision", "Ref1 align mark find failed.");
+                    return Fail("IN-STAGE-ALIGN-REF1", "Vision", "Ref1 vision offset receive failed.");
 
                 _ref1X = Stage.CameraX.ActualPosition + _ref1Result.DeltaX;
                 _ref1Y = Stage.StageY.ActualPosition + _ref1Result.DeltaY;
@@ -394,14 +400,18 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 ct.ThrowIfCancellationRequested();
-                _ref2Result = await TriggerAlignAsync(ResolveTargetId(Options.Ref2AlignTargetId, "Ref2"), ct).ConfigureAwait(false);
+                _ref2Result = await RequestVisionPcOffsetWithRetryAsync(ResolveTargetId(Options.Ref2AlignTargetId, "Ref2"), "Ref2", ct).ConfigureAwait(false);
                 if (_ref2Result == null)
-                    return Fail("IN-STAGE-ALIGN-REF2", "Vision", "Ref2 align mark find failed.");
+                    return Fail("IN-STAGE-ALIGN-REF2", "Vision", "Ref2 vision offset receive failed.");
 
                 _ref2X = Stage.CameraX.ActualPosition + _ref2Result.DeltaX;
                 _ref2Y = Stage.StageY.ActualPosition + _ref2Result.DeltaY;
                 CurrentStep = InputStageAlignStep.CalculateAlignResult;
                 return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
@@ -421,10 +431,10 @@ namespace QMC.CDT320.Sequencing
 
                 _pitchX = colSpan != 0 && Math.Abs(_ref2X - _ref1X) > 1e-9
                     ? (_ref2X - _ref1X) / colSpan
-                    : Stage.ResolveAlignPitchX(_ref1Result, _ref2Result);
+                    : ResolveAlignPitchX(_ref1Result, _ref2Result);
                 _pitchY = rowSpan != 0 && Math.Abs(_ref2Y - _ref1Y) > 1e-9
                     ? (_ref2Y - _ref1Y) / rowSpan
-                    : Stage.ResolveAlignPitchY(_ref1Result, _ref2Result);
+                    : ResolveAlignPitchY(_ref1Result, _ref2Result);
 
                 if (Math.Abs(_pitchX) <= 1e-9 || Math.Abs(_pitchY) <= 1e-9)
                     return Fail("IN-STAGE-ALIGN-PITCH", Stage.Name, "Calculated align pitch is invalid. pitchX=" + _pitchX + ", pitchY=" + _pitchY);
@@ -474,13 +484,57 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private async Task<VisionAlignResult> TriggerAlignAsync(string targetId, CancellationToken ct)
+        private async Task<VisionAlignResult> RequestVisionPcOffsetWithRetryAsync(string targetId, string stepName, CancellationToken ct)
+        {
+            try
+            {
+                int retryCount = Math.Max(3, Options.AlignRetryCount);
+                int maxAttempts = retryCount + 1;
+                for (int attempt = 1; attempt <= maxAttempts; attempt++)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    VisionAlignResult result = await RequestVisionPcOffsetOnceAsync(targetId, stepName, ct).ConfigureAwait(false);
+                    if (result != null)
+                    {
+                        WriteLog("InputStageAlignSequence",
+                            "Vision PC offset received. step=" + stepName +
+                            ", target=" + targetId +
+                            ", attempt=" + attempt +
+                            ", dx=" + result.DeltaX.ToString("F6") +
+                            ", dy=" + result.DeltaY.ToString("F6") +
+                            ", dt=" + result.DeltaTheta.ToString("F6") + " - Ok");
+                        return result;
+                    }
+
+                    WriteLog("InputStageAlignSequence",
+                        "Vision PC offset receive failed. step=" + stepName +
+                        ", target=" + targetId +
+                        ", attempt=" + attempt + "/" + maxAttempts + " - Retry");
+                }
+
+                return null;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                WriteLog("InputStageAlignSequence", "Vision PC offset retry exception. step=" + stepName + ": " + ex.Message + " - Failed");
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<VisionAlignResult> RequestVisionPcOffsetOnceAsync(string targetId, string stepName, CancellationToken ct)
         {
             try
             {
                 ct.ThrowIfCancellationRequested();
-                if (!Options.RequireVisionAlign && Stage.Vision == null)
-                    return new VisionAlignResult();
+                if (IsSimulationOrDryRun())
+                    return await RequestSimVisionOffsetAsync(targetId, stepName, ct).ConfigureAwait(false);
 
                 if (Stage.Vision == null)
                     return null;
@@ -503,9 +557,216 @@ namespace QMC.CDT320.Sequencing
             {
                 throw;
             }
+            catch (Exception ex)
+            {
+                WriteLog("InputStageAlignSequence", "Vision PC offset request exception. step=" + stepName + ": " + ex.Message + " - Failed");
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<VisionAlignResult> RequestSimVisionOffsetAsync(string targetId, string stepName, CancellationToken ct)
+        {
+            try
+            {
+                await Task.Delay(120, ct).ConfigureAwait(false);
+
+                bool ok;
+                double dx;
+                double dy;
+                double dt;
+                lock (SimVisionRandomLock)
+                {
+                    ok = SimVisionRandom.Next(0, 100) >= 25;
+                    dx = (SimVisionRandom.NextDouble() - 0.5) * 0.02;
+                    dy = (SimVisionRandom.NextDouble() - 0.5) * 0.02;
+                    dt = ResolveSimThetaOffset(stepName);
+                }
+
+                if (!ok)
+                    return null;
+
+                return new VisionAlignResult
+                {
+                    DeltaX = dx,
+                    DeltaY = dy,
+                    DeltaTheta = dt,
+                    PitchX = ResolveAlignPitchX(null, null),
+                    PitchY = ResolveAlignPitchY(null, null)
+                };
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                WriteLog("InputStageAlignSequence", "Simulation vision offset failed. target=" + targetId + ", step=" + stepName + ": " + ex.Message + " - Failed");
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
+        private double ResolveSimThetaOffset(string stepName)
+        {
+            try
+            {
+                double tolerance = ResolveThetaTolerance();
+                if (string.Equals(stepName, "CenterVerify", StringComparison.OrdinalIgnoreCase))
+                    return (SimVisionRandom.NextDouble() - 0.5) * tolerance;
+
+                if (string.Equals(stepName, "Center", StringComparison.OrdinalIgnoreCase))
+                    return (SimVisionRandom.NextDouble() - 0.5) * tolerance * 3.0;
+
+                return (SimVisionRandom.NextDouble() - 0.5) * tolerance;
+            }
             catch
             {
+                return 0.0;
+            }
+            finally
+            {
+            }
+        }
+
+        private TapeFrameSpec ResolveFrameSpecForWafer(WaferMaterial wafer)
+        {
+            try
+            {
+                string specName = wafer != null ? wafer.TapeFrameSpecName : "";
+                if (string.IsNullOrWhiteSpace(specName))
+                {
+                    specName = MaterialStateService.ResolveRecipeTapeFrameSpecName(0);
+                    if (wafer != null && !string.IsNullOrWhiteSpace(specName))
+                    {
+                        wafer.TapeFrameSpecName = specName;
+                        MaterialStateService.NotifyAndSave("InputStageAlignSpecResolve");
+                    }
+                }
+
+                var spec = MaterialSpecs.FindFrame(specName);
+                if (spec != null)
+                    return spec;
+
+                specName = MaterialStateService.ResolveRecipeTapeFrameSpecName(0);
+                return MaterialSpecs.FindFrame(specName);
+            }
+            catch (Exception ex)
+            {
+                WriteLog("InputStageAlignSequence", "Frame spec resolve failed: " + ex.Message + " - Failed");
                 return null;
+            }
+            finally
+            {
+            }
+        }
+
+        private void ApplyFrameSpecToMap(WaferMapData map, TapeFrameSpec spec)
+        {
+            try
+            {
+                if (map == null || spec == null)
+                    return;
+
+                bool fallbackMap = map.RowCount <= 1 && map.ColumnCount <= 1;
+                if (fallbackMap)
+                {
+                    map.RowCount = Math.Max(1, spec.GridY);
+                    map.ColumnCount = Math.Max(1, spec.GridX);
+                    map.DieMap = new bool[map.RowCount, map.ColumnCount];
+                    for (int row = 0; row < map.RowCount; row++)
+                    {
+                        for (int col = 0; col < map.ColumnCount; col++)
+                            map.DieMap[row, col] = true;
+                    }
+                }
+
+                bool invalidRefPair = map.Ref1Row == map.Ref2Row && map.Ref1Col == map.Ref2Col;
+                if (fallbackMap || invalidRefPair)
+                {
+                    int centerRow = map.RowCount / 2;
+                    int leftCol = map.ColumnCount > 1 ? Math.Max(0, map.ColumnCount / 4) : 0;
+                    int rightCol = map.ColumnCount > 1 ? Math.Min(map.ColumnCount - 1, (map.ColumnCount * 3) / 4) : 0;
+                    if (rightCol == leftCol && map.ColumnCount > 1)
+                        rightCol = map.ColumnCount - 1;
+
+                    map.Ref1Row = centerRow;
+                    map.Ref1Col = leftCol;
+                    map.Ref2Row = centerRow;
+                    map.Ref2Col = rightCol;
+                }
+
+                WriteLog("InputStageAlignSequence",
+                    "Frame spec applied to align map. spec=" + spec.Name +
+                    ", gridX=" + spec.GridX +
+                    ", gridY=" + spec.GridY +
+                    ", pitchX=" + spec.PitchX.ToString("F6") +
+                    ", pitchY=" + spec.PitchY.ToString("F6") + " - Ok");
+            }
+            catch (Exception ex)
+            {
+                WriteLog("InputStageAlignSequence", "Frame spec apply to map failed: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        private double ResolveAlignPitchX(VisionAlignResult ref1Result, VisionAlignResult ref2Result)
+        {
+            try
+            {
+                if (ref2Result != null && ref2Result.PitchX > 0.0)
+                    return ref2Result.PitchX;
+                if (ref1Result != null && ref1Result.PitchX > 0.0)
+                    return ref1Result.PitchX;
+                if (_frameSpec != null && _frameSpec.PitchX > 0.0)
+                    return _frameSpec.PitchX;
+                return Stage.ResolveAlignPitchX(ref1Result, ref2Result);
+            }
+            catch
+            {
+                return Stage.ResolveAlignPitchX(ref1Result, ref2Result);
+            }
+            finally
+            {
+            }
+        }
+
+        private double ResolveAlignPitchY(VisionAlignResult ref1Result, VisionAlignResult ref2Result)
+        {
+            try
+            {
+                if (ref2Result != null && ref2Result.PitchY > 0.0)
+                    return ref2Result.PitchY;
+                if (ref1Result != null && ref1Result.PitchY > 0.0)
+                    return ref1Result.PitchY;
+                if (_frameSpec != null && _frameSpec.PitchY > 0.0)
+                    return _frameSpec.PitchY;
+                return Stage.ResolveAlignPitchY(ref1Result, ref2Result);
+            }
+            catch
+            {
+                return Stage.ResolveAlignPitchY(ref1Result, ref2Result);
+            }
+            finally
+            {
+            }
+        }
+
+        private bool IsSimulationOrDryRun()
+        {
+            try
+            {
+                return Stage != null && Stage.IsInputStageSimulationOrDryRun();
+            }
+            catch
+            {
+                return false;
             }
             finally
             {
@@ -517,8 +778,8 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 ct.ThrowIfCancellationRequested();
-                double targetY = row * Stage.ResolveAlignPitchY(null, null);
-                double targetX = col * Stage.ResolveAlignPitchX(null, null);
+                double targetY = row * ResolveAlignPitchY(null, null);
+                double targetX = col * ResolveAlignPitchX(null, null);
 
                 Task<int> moveY = MoveAxisCommandAsync(WaferStageAxis.WaferY, targetY, description + " StageY", ct);
                 Task<int> moveX = MoveAxisCommandAsync(WaferStageAxis.VisionX, targetX, description + " VisionX", ct);

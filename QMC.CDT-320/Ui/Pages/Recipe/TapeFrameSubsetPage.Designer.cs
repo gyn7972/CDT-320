@@ -7,6 +7,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
     {
         private TableLayoutPanel editorLayout;
         private Label lblFrameHeader;
+        private Label lblSpecLibrary;
+        private ComboBox _cbSpecLibrary;
+        private Button btnLoadSpec;
+        private Button btnSaveSpec;
         private Label lblName;
         private TextBox _tbName;
         private Label lblGridX;
@@ -26,6 +30,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         {
             this.editorLayout = new System.Windows.Forms.TableLayoutPanel();
             this.lblFrameHeader = new System.Windows.Forms.Label();
+            this.lblSpecLibrary = new System.Windows.Forms.Label();
+            this._cbSpecLibrary = new System.Windows.Forms.ComboBox();
+            this.btnLoadSpec = new System.Windows.Forms.Button();
+            this.btnSaveSpec = new System.Windows.Forms.Button();
             this.lblName = new System.Windows.Forms.Label();
             this._tbName = new System.Windows.Forms.TextBox();
             this.lblGridX = new System.Windows.Forms.Label();
@@ -60,30 +68,43 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // 
             // editorLayout
             // 
-            this.editorLayout.ColumnCount = 2;
+            this.editorLayout.ColumnCount = 4;
             this.editorLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 220F));
-            this.editorLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 280F));
+            this.editorLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.editorLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 120F));
+            this.editorLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 120F));
             this.editorLayout.Controls.Add(this.lblFrameHeader, 0, 0);
-            this.editorLayout.Controls.Add(this.lblName, 0, 1);
-            this.editorLayout.Controls.Add(this._tbName, 1, 1);
-            this.editorLayout.Controls.Add(this.lblGridX, 0, 2);
-            this.editorLayout.Controls.Add(this._nGridX, 1, 2);
-            this.editorLayout.Controls.Add(this.lblGridY, 0, 3);
-            this.editorLayout.Controls.Add(this._nGridY, 1, 3);
-            this.editorLayout.Controls.Add(this.lblPitchX, 0, 4);
-            this.editorLayout.Controls.Add(this._nPitchX, 1, 4);
-            this.editorLayout.Controls.Add(this.lblPitchY, 0, 5);
-            this.editorLayout.Controls.Add(this._nPitchY, 1, 5);
-            this.editorLayout.Controls.Add(this.lblDiameter, 0, 6);
-            this.editorLayout.Controls.Add(this._nDiameter, 1, 6);
-            this.editorLayout.Controls.Add(this.lblRotate, 0, 7);
-            this.editorLayout.Controls.Add(this._cbRotate, 1, 7);
+            this.editorLayout.Controls.Add(this.lblSpecLibrary, 0, 1);
+            this.editorLayout.Controls.Add(this._cbSpecLibrary, 1, 1);
+            this.editorLayout.Controls.Add(this.btnLoadSpec, 2, 1);
+            this.editorLayout.Controls.Add(this.btnSaveSpec, 3, 1);
+            this.editorLayout.Controls.Add(this.lblName, 0, 2);
+            this.editorLayout.Controls.Add(this._tbName, 1, 2);
+            this.editorLayout.Controls.Add(this.lblGridX, 0, 3);
+            this.editorLayout.Controls.Add(this._nGridX, 1, 3);
+            this.editorLayout.Controls.Add(this.lblGridY, 0, 4);
+            this.editorLayout.Controls.Add(this._nGridY, 1, 4);
+            this.editorLayout.Controls.Add(this.lblPitchX, 0, 5);
+            this.editorLayout.Controls.Add(this._nPitchX, 1, 5);
+            this.editorLayout.Controls.Add(this.lblPitchY, 0, 6);
+            this.editorLayout.Controls.Add(this._nPitchY, 1, 6);
+            this.editorLayout.Controls.Add(this.lblDiameter, 0, 7);
+            this.editorLayout.Controls.Add(this._nDiameter, 1, 7);
+            this.editorLayout.Controls.Add(this.lblRotate, 0, 8);
+            this.editorLayout.Controls.Add(this._cbRotate, 1, 8);
+            this.editorLayout.SetColumnSpan(this._tbName, 3);
+            this.editorLayout.SetColumnSpan(this._nGridX, 3);
+            this.editorLayout.SetColumnSpan(this._nGridY, 3);
+            this.editorLayout.SetColumnSpan(this._nPitchX, 3);
+            this.editorLayout.SetColumnSpan(this._nPitchY, 3);
+            this.editorLayout.SetColumnSpan(this._nDiameter, 3);
+            this.editorLayout.SetColumnSpan(this._cbRotate, 3);
             this.editorLayout.Dock = System.Windows.Forms.DockStyle.Top;
             this.editorLayout.Location = new System.Drawing.Point(8, 12);
             this.editorLayout.Margin = new System.Windows.Forms.Padding(0);
             this.editorLayout.Name = "editorLayout";
             this.editorLayout.Padding = new System.Windows.Forms.Padding(10);
-            this.editorLayout.RowCount = 8;
+            this.editorLayout.RowCount = 9;
             this.editorLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
             this.editorLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
             this.editorLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
@@ -92,14 +113,15 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.editorLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
             this.editorLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
             this.editorLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
-            this.editorLayout.Size = new System.Drawing.Size(1078, 292);
+            this.editorLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
+            this.editorLayout.Size = new System.Drawing.Size(1078, 326);
             this.editorLayout.TabIndex = 0;
             // 
             // lblFrameHeader
             // 
             this.lblFrameHeader.BackColor = System.Drawing.Color.LightYellow;
             this.lblFrameHeader.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.editorLayout.SetColumnSpan(this.lblFrameHeader, 2);
+            this.editorLayout.SetColumnSpan(this.lblFrameHeader, 4);
             this.lblFrameHeader.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblFrameHeader.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
             this.lblFrameHeader.ForeColor = System.Drawing.Color.DarkSlateGray;
@@ -110,6 +132,55 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblFrameHeader.TabIndex = 0;
             this.lblFrameHeader.Text = "Tape frame specification";
             this.lblFrameHeader.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // lblSpecLibrary
+            // 
+            this.lblSpecLibrary.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblSpecLibrary.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblSpecLibrary.Location = new System.Drawing.Point(13, 40);
+            this.lblSpecLibrary.Name = "lblSpecLibrary";
+            this.lblSpecLibrary.Size = new System.Drawing.Size(214, 34);
+            this.lblSpecLibrary.TabIndex = 1;
+            this.lblSpecLibrary.Text = "Saved spec";
+            this.lblSpecLibrary.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // _cbSpecLibrary
+            // 
+            this._cbSpecLibrary.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._cbSpecLibrary.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this._cbSpecLibrary.Font = new System.Drawing.Font("Consolas", 10F);
+            this._cbSpecLibrary.Location = new System.Drawing.Point(233, 43);
+            this._cbSpecLibrary.Name = "_cbSpecLibrary";
+            this._cbSpecLibrary.Size = new System.Drawing.Size(592, 23);
+            this._cbSpecLibrary.TabIndex = 2;
+            // 
+            // btnLoadSpec
+            // 
+            this.btnLoadSpec.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnLoadSpec.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnLoadSpec.Font = new System.Drawing.Font("맑은 고딕", 9F);
+            this.btnLoadSpec.Location = new System.Drawing.Point(831, 43);
+            this.btnLoadSpec.Name = "btnLoadSpec";
+            this.btnLoadSpec.Size = new System.Drawing.Size(114, 28);
+            this.btnLoadSpec.TabIndex = 3;
+            this.btnLoadSpec.Text = "LOAD SPEC";
+            this.btnLoadSpec.UseVisualStyleBackColor = true;
+            this.btnLoadSpec.Click += new System.EventHandler(this.btnLoadSpec_Click);
+            // 
+            // btnSaveSpec
+            // 
+            this.btnSaveSpec.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(230)))), ((int)(((byte)(88)))), ((int)(((byte)(31)))));
+            this.btnSaveSpec.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnSaveSpec.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnSaveSpec.Font = new System.Drawing.Font("맑은 고딕", 9F);
+            this.btnSaveSpec.ForeColor = System.Drawing.Color.White;
+            this.btnSaveSpec.Location = new System.Drawing.Point(951, 43);
+            this.btnSaveSpec.Name = "btnSaveSpec";
+            this.btnSaveSpec.Size = new System.Drawing.Size(114, 28);
+            this.btnSaveSpec.TabIndex = 4;
+            this.btnSaveSpec.Text = "SAVE SPEC";
+            this.btnSaveSpec.UseVisualStyleBackColor = false;
+            this.btnSaveSpec.Click += new System.EventHandler(this.btnSaveSpec_Click);
             // 
             // lblName
             // 
@@ -128,7 +199,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this._tbName.Font = new System.Drawing.Font("Consolas", 10F);
             this._tbName.Location = new System.Drawing.Point(233, 43);
             this._tbName.Name = "_tbName";
-            this._tbName.Size = new System.Drawing.Size(832, 27);
+            this._tbName.Size = new System.Drawing.Size(832, 23);
             this._tbName.TabIndex = 2;
             // 
             // lblGridX
@@ -158,7 +229,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             0,
             0});
             this._nGridX.Name = "_nGridX";
-            this._nGridX.Size = new System.Drawing.Size(832, 27);
+            this._nGridX.Size = new System.Drawing.Size(832, 23);
             this._nGridX.TabIndex = 4;
             this._nGridX.Value = new decimal(new int[] {
             1,
@@ -193,7 +264,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             0,
             0});
             this._nGridY.Name = "_nGridY";
-            this._nGridY.Size = new System.Drawing.Size(832, 27);
+            this._nGridY.Size = new System.Drawing.Size(832, 23);
             this._nGridY.TabIndex = 6;
             this._nGridY.Value = new decimal(new int[] {
             1,
@@ -224,7 +295,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             0,
             196608});
             this._nPitchX.Name = "_nPitchX";
-            this._nPitchX.Size = new System.Drawing.Size(832, 27);
+            this._nPitchX.Size = new System.Drawing.Size(832, 23);
             this._nPitchX.TabIndex = 8;
             this._nPitchX.Value = new decimal(new int[] {
             1,
@@ -255,7 +326,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             0,
             196608});
             this._nPitchY.Name = "_nPitchY";
-            this._nPitchY.Size = new System.Drawing.Size(832, 27);
+            this._nPitchY.Size = new System.Drawing.Size(832, 23);
             this._nPitchY.TabIndex = 10;
             this._nPitchY.Value = new decimal(new int[] {
             1,
@@ -291,7 +362,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             0,
             0});
             this._nDiameter.Name = "_nDiameter";
-            this._nDiameter.Size = new System.Drawing.Size(832, 27);
+            this._nDiameter.Size = new System.Drawing.Size(832, 23);
             this._nDiameter.TabIndex = 12;
             this._nDiameter.Value = new decimal(new int[] {
             50,
@@ -322,7 +393,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             "R270"});
             this._cbRotate.Location = new System.Drawing.Point(233, 247);
             this._cbRotate.Name = "_cbRotate";
-            this._cbRotate.Size = new System.Drawing.Size(832, 28);
+            this._cbRotate.Size = new System.Drawing.Size(832, 23);
             this._cbRotate.TabIndex = 14;
             // 
             // TapeFrameSubsetPage
