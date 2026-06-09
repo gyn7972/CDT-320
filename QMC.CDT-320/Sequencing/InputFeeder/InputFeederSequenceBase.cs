@@ -225,6 +225,7 @@ namespace QMC.CDT320.Sequencing
                 TStep failedStep = CurrentStep;
                 CurrentStep = ErrorStep;
                 SequenceResumeStore.MarkAlarm(SequenceStateName, failedStep.ToString(), message);
+                SequenceFailureStore.Record(SequenceStateName, Kind.ToString(), failedStep.ToString(), alarmCode, source, message);
                 WriteLog(source, message + " - Failed");
                 AlarmManager.Raise(AlarmSeverity.Warning, alarmCode, source, message);
                 Context.LogPublic("[INPUT-FEEDER] FAIL " + alarmCode + " - " + message);

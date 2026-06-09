@@ -119,6 +119,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 _manualSequenceRunning = true;
                 SetActionButtonsEnabled(false);
                 manualScope = host.Controller.EnterManualOperation();
+                SequenceFailureStore.Clear();
                 WriteEvent("INPUT-CST-ACTION", actionName + " start");
                 bool ok = await action(host);
                 WriteEvent("INPUT-CST-ACTION", actionName + " result=" + ok);
@@ -127,7 +128,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     RaiseWarning("INPUT-CST-CONDITION", actionName + " condition failed.");
                     QMC.Common.MessageDialog.Show(
                         this,
-                        "Input Cassette 조건이 맞지 않아 동작을 중단했습니다.\nAlarm/Event Log를 확인하세요.",
+                        SequenceFailureStore.BuildManualFailureMessage(actionName, "Input Cassette 조건이 맞지 않아 동작을 중단했습니다.\nAlarm/Event Log를 확인하세요."),
                         "Input Cassette",
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Warning);
@@ -168,13 +169,15 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 _manualSequenceRunning = true;
                 SetActionButtonsEnabled(false);
                 manualScope = host.Controller.EnterManualOperation();
+                SequenceFailureStore.Clear();
                 WriteEvent("INPUT-CST-MOTION", actionName + " start");
                 int result = await action(host);
                 WriteEvent("INPUT-CST-MOTION", actionName + " result=" + result);
                 if (result != 0)
                 {
                     RaiseWarning("INPUT-CST-MOTION-FAIL", actionName + " result=" + result);
-                    QMC.Common.MessageDialog.Show(this, actionName + " 실패\nAlarm/Event Log를 확인하세요.", "Input Cassette", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    string message = SequenceFailureStore.BuildManualFailureMessage(actionName, actionName + " failed. result=" + result + "\nAlarm/Event Log를 확인하세요.");
+                    QMC.Common.MessageDialog.Show(this, message, "Input Cassette", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 }
             }
             catch (OperationCanceledException)

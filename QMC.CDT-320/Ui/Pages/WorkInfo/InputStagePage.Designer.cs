@@ -833,6 +833,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.actionsLayout.Padding = new System.Windows.Forms.Padding(12);
             this.actionsLayout.Size = new System.Drawing.Size(1672, 84);
             this.actionsLayout.TabIndex = 2;
+            this.actionsLayout.WrapContents = false;
             // 
             // btnWfAlign
             // 
@@ -843,10 +844,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.btnWfAlign.Location = new System.Drawing.Point(18, 18);
             this.btnWfAlign.Margin = new System.Windows.Forms.Padding(6);
             this.btnWfAlign.Name = "btnWfAlign";
-            this.btnWfAlign.Size = new System.Drawing.Size(160, 44);
+            this.btnWfAlign.Size = new System.Drawing.Size(180, 64);
             this.btnWfAlign.TabIndex = 0;
             this.btnWfAlign.Tag = "i18n:wi.wfAlign";
-            this.btnWfAlign.Text = "WF ALIGN";
+            this.btnWfAlign.Text = "WAFER ALIGN";
             // 
             // btnWfBarcode
             // 
@@ -854,13 +855,13 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.btnWfBarcode.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnWfBarcode.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnWfBarcode.ForeColor = System.Drawing.Color.White;
-            this.btnWfBarcode.Location = new System.Drawing.Point(190, 18);
+            this.btnWfBarcode.Location = new System.Drawing.Point(210, 18);
             this.btnWfBarcode.Margin = new System.Windows.Forms.Padding(6);
             this.btnWfBarcode.Name = "btnWfBarcode";
-            this.btnWfBarcode.Size = new System.Drawing.Size(160, 44);
+            this.btnWfBarcode.Size = new System.Drawing.Size(180, 64);
             this.btnWfBarcode.TabIndex = 1;
             this.btnWfBarcode.Tag = "i18n:wi.wfBarcode";
-            this.btnWfBarcode.Text = "WF BARCODE";
+            this.btnWfBarcode.Text = "WAFER BARCODE";
             // 
             // btnStop
             // 
@@ -868,10 +869,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.btnStop.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnStop.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
             this.btnStop.ForeColor = System.Drawing.Color.White;
-            this.btnStop.Location = new System.Drawing.Point(362, 18);
+            this.btnStop.Location = new System.Drawing.Point(402, 18);
             this.btnStop.Margin = new System.Windows.Forms.Padding(6);
             this.btnStop.Name = "btnStop";
-            this.btnStop.Size = new System.Drawing.Size(140, 44);
+            this.btnStop.Size = new System.Drawing.Size(140, 64);
             this.btnStop.TabIndex = 2;
             this.btnStop.Text = "STOP";
             // 

@@ -315,6 +315,7 @@
     <Compile Include="Sequencing\Common\SequenceSignalBus.cs" />
     <Compile Include="Sequencing\Common\SequenceExecutionState.cs" />
     <Compile Include="Sequencing\Common\SequenceResumeStore.cs" />
+    <Compile Include="Sequencing\Common\SequenceFailureStore.cs" />
     <Compile Include="Sequencing\Common\MachineSequenceContext.cs" />
     <Compile Include="Sequencing\Common\UnitSequenceBase.cs" />
     <Compile Include="Sequencing\Common\AutoSequenceCoordinator.cs" />
@@ -742,12 +743,6 @@
       <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="Ui\Pages\Recipe\Helper\RecipeLayoutHelpers.cs" />
-    <Compile Include="Ui\Pages\Recipe\StageRecipePage.Designer.cs">
-      <DependentUpon>StageRecipePage.cs</DependentUpon>
-    </Compile>
-    <Compile Include="Ui\Pages\Recipe\StageRecipePage.cs">
-      <SubType>UserControl</SubType>
-    </Compile>
     <Compile Include="Ui\Pages\Recipe\VisionRecipePage.Designer.cs">
       <DependentUpon>VisionRecipePage.cs</DependentUpon>
     </Compile>
@@ -884,6 +879,9 @@
     <EmbeddedResource Include="Ui\Pages\Recipe\DieSubsetPage.resx">
       <DependentUpon>DieSubsetPage.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\Recipe\FrontPickerRecipePage.resx">
+      <DependentUpon>FrontPickerRecipePage.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\Recipe\InputCassetteRecipePage.resx">
       <DependentUpon>InputCassetteRecipePage.cs</DependentUpon>
     </EmbeddedResource>
@@ -916,9 +914,6 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\Recipe\InputStageRecipePage.resx">
       <DependentUpon>InputStageRecipePage.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Ui\Pages\Recipe\StageRecipePage.resx">
-      <DependentUpon>StageRecipePage.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\Recipe\TapeFrameSubsetPage.resx">
       <DependentUpon>TapeFrameSubsetPage.cs</DependentUpon>

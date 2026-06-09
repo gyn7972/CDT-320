@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
 using QMC.CDT320.Materials;
@@ -130,8 +130,9 @@ namespace QMC.CDT320.Sequencing
             if (cassette == null)
                 return Fail("IN-FEEDER-CST-MISSING", "InputCassette", "Input cassette unit is not available.");
 
-            if (!IsUnloadSlotEmpty(cassette, Options.SlotIndex))
-                return Fail("IN-FEEDER-CST-SLOT-OCCUPIED", cassette.Name, "Unload cassette slot must be empty. slot=" + Options.SlotIndex);
+            int unloadSlot = ResolveUnloadSlotIndex();
+            if (!IsUnloadSlotEmpty(cassette, unloadSlot))
+                return Fail("IN-FEEDER-CST-SLOT-OCCUPIED", cassette.Name, "Unload cassette slot must be empty. slot=" + unloadSlot);
 
             CurrentStep = InputFeederUnloadToCassetteStep.MoveCassetteToUnloadOffsetPosition;
             return 0;
@@ -143,7 +144,8 @@ namespace QMC.CDT320.Sequencing
             if (cassette == null)
                 return Fail("IN-FEEDER-CST-MISSING", "InputCassette", "Input cassette unit is not available.");
 
-            double target = cassette.CalculateWaferCassetteSlotTargetPosition(Options.SlotIndex) + ResolveCassetteUnloadOffset(cassette);
+            int unloadSlot = ResolveUnloadSlotIndex();
+            double target = cassette.CalculateWaferCassetteSlotTargetPosition(unloadSlot) + ResolveCassetteUnloadOffset(cassette);
             int result = await MoveCassetteZAndVerifyAsync(cassette, target, "cassette unload offset", ct).ConfigureAwait(false);
             if (result != 0) return result;
 
@@ -206,14 +208,15 @@ namespace QMC.CDT320.Sequencing
             ct.ThrowIfCancellationRequested();
 
             int result = await AwaitStepWithCancellationAsync(
-                Feeder.MoveToWaferFeederCassetteUnloadPosition(Options.SlotIndex, Options.FineMove),
+                Feeder.MoveToWaferFeederCassetteUnloadPosition(ResolveUnloadSlotIndex(), Options.FineMove),
                 ct).ConfigureAwait(false);
             if (result != 0)
                 return Fail("IN-FEEDER-CST-UNLOAD-POS", Feeder.Name, "WaferFeeder cassette unload position move command failed. result=" + result);
 
             bool done = await AwaitStepWithCancellationAsync(Feeder.WaitWaferFeederYMoveDone(ResolveTimeout()), ct).ConfigureAwait(false);
-            if (!done || !Feeder.IsWaferFeederInCassetteUnloadPosition(Options.SlotIndex))
-                return Fail("IN-FEEDER-CST-UNLOAD-POS-TIMEOUT", Feeder.Name, "WaferFeeder cassette unload position timeout. slot=" + Options.SlotIndex);
+            int unloadSlot = ResolveUnloadSlotIndex();
+            if (!done || !Feeder.IsWaferFeederInCassetteUnloadPosition(unloadSlot))
+                return Fail("IN-FEEDER-CST-UNLOAD-POS-TIMEOUT", Feeder.Name, "WaferFeeder cassette unload position timeout. slot=" + unloadSlot);
 
             CurrentStep = InputFeederUnloadToCassetteStep.PrepareFeederUnclamp;
             return 0;
@@ -255,14 +258,16 @@ namespace QMC.CDT320.Sequencing
                 return Fail("IN-FEEDER-MATERIAL-CST", "Material", "InputFeeder wafer data was not found for cassette material move.");
 
             InputCassetteUnit cassette = ResolveCassette();
-            double slotPosition = cassette != null ? cassette.CalculateWaferCassetteSlotTargetPosition(Options.SlotIndex) : wafer.SourceCassetteSlotPosition;
+            int unloadSlot = ResolveUnloadSlotIndex(wafer);
+            double slotPosition = cassette != null ? cassette.CalculateWaferCassetteSlotTargetPosition(unloadSlot) : wafer.SourceCassetteSlotPosition;
 
             MaterialStateService.PutWaferInCassette(
                 wafer.WaferId,
                 Options.CassetteRole,
-                Options.SlotIndex,
+                unloadSlot,
                 wafer.CassetteLotId,
-                slotPosition);
+                slotPosition,
+                WaferMaterialState.Finish);
 
             Feeder.ClearCurrentWaferMaterial();
             Context.Bus.Set("InputFeederEmpty");
@@ -274,7 +279,11 @@ namespace QMC.CDT320.Sequencing
         {
             InputCassetteUnit cassette = ResolveCassette();
             if (cassette != null)
-                cassette.UpdateWaferCassetteSlotState(Options.SlotIndex, SlotPresence.Exist, ProcessState.Done);
+            {
+                cassette.UpdateWaferCassetteSlotState(ResolveUnloadSlotIndex(), SlotPresence.Exist, ProcessState.Done);
+                if (cassette.IsInputCassetteProcessComplete())
+                    cassette.RaiseInputCassetteCompleteAlarm(cassette.Name);
+            }
 
             CurrentStep = InputFeederUnloadToCassetteStep.MoveFeederPostUnloadPosition;
             return 0;
@@ -315,7 +324,7 @@ namespace QMC.CDT320.Sequencing
             if (cassette == null)
                 return Fail("IN-FEEDER-CST-MISSING", "InputCassette", "Input cassette unit is not available.");
 
-            double target = cassette.CalculateWaferCassetteSlotTargetPosition(Options.SlotIndex);
+            double target = cassette.CalculateWaferCassetteSlotTargetPosition(ResolveUnloadSlotIndex());
             int result = await MoveCassetteZAndVerifyAsync(cassette, target, "cassette final slot", ct).ConfigureAwait(false);
             if (result != 0) return result;
 
@@ -328,9 +337,10 @@ namespace QMC.CDT320.Sequencing
             if (Feeder.CurrentWaferMaterial != null || MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputFeeder) != null)
                 return Fail("IN-FEEDER-DATA-CLEAR", "Material", "InputFeeder wafer data remained after cassette unload.");
 
-            WaferMaterial cassetteWafer = MaterialStateService.GetWaferInCassette(Options.CassetteRole, Options.SlotIndex);
+            int unloadSlot = ResolveUnloadSlotIndex();
+            WaferMaterial cassetteWafer = MaterialStateService.GetWaferInCassette(Options.CassetteRole, unloadSlot);
             if (cassetteWafer == null)
-                return Fail("IN-FEEDER-CST-DATA", "Material", "Cassette wafer data was not found after feeder unload. slot=" + Options.SlotIndex);
+                return Fail("IN-FEEDER-CST-DATA", "Material", "Cassette wafer data was not found after feeder unload. slot=" + unloadSlot);
 
             Context.Bus.Set("InputCassetteSlotUpdated");
             CurrentStep = InputFeederUnloadToCassetteStep.Complete;
@@ -360,6 +370,11 @@ namespace QMC.CDT320.Sequencing
             if (cassette == null || slotIndex < 0)
                 return false;
 
+            WaferMaterial feederWafer = ResolveFeederWafer();
+            WaferMaterial cassetteWafer = MaterialStateService.GetWaferInCassette(Options.CassetteRole, slotIndex);
+            if (cassetteWafer != null && feederWafer != null && string.Equals(cassetteWafer.WaferId, feederWafer.WaferId, StringComparison.OrdinalIgnoreCase))
+                return true;
+
             WaferCassetteMaterial material = cassette.GetWaferMaterialCassette();
             if (material == null || material.Slots == null || slotIndex >= material.Slots.Count)
                 return false;
@@ -369,8 +384,8 @@ namespace QMC.CDT320.Sequencing
                 return false;
 
             return state.Presence == SlotPresence.Empty ||
-                   (state.Presence == SlotPresence.Exist && state.Process == ProcessState.Processing && ResolveFeederWafer() != null) ||
-                   MaterialStateService.GetWaferInCassette(Options.CassetteRole, slotIndex) == null;
+                   (state.Presence == SlotPresence.Exist && state.Process == ProcessState.Processing && feederWafer != null) ||
+                   cassetteWafer == null;
         }
 
         private double ResolveCassetteUnloadOffset(InputCassetteUnit cassette)
@@ -386,6 +401,23 @@ namespace QMC.CDT320.Sequencing
         private WaferMaterial ResolveFeederWafer()
         {
             return Feeder.CurrentWaferMaterial ?? MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputFeeder);
+        }
+
+        private int ResolveUnloadSlotIndex()
+        {
+            return ResolveUnloadSlotIndex(ResolveFeederWafer());
+        }
+
+        private int ResolveUnloadSlotIndex(WaferMaterial wafer)
+        {
+            if (wafer != null &&
+                wafer.SourceCassetteRole == Options.CassetteRole &&
+                wafer.SourceSlotNumber >= 0)
+            {
+                return wafer.SourceSlotNumber;
+            }
+
+            return Options.SlotIndex;
         }
 
         private bool IsHardwareBypass()

@@ -10,6 +10,7 @@ using QMC.Common.Alarms;
 using QMC.Common.IO;
 using QMC.Common.Motion;
 using QMC.CDT320.Interlocks;
+using QMC.CDT320.Materials;
 
 namespace QMC.CDT320
 {
@@ -789,6 +790,91 @@ namespace QMC.CDT320
             return FindNextProcessWaferSlot() >= 0;
         }
 
+        public bool IsInputCassetteProcessComplete()
+        {
+            try
+            {
+                int slotCount = Config != null && Config.SlotCount > 0 ? Config.SlotCount : 0;
+                if (slotCount <= 0)
+                    return false;
+
+                bool hasProcessWafer = false;
+                var cassette = MaterialStateService.State != null && MaterialStateService.State.Cassettes != null
+                    ? MaterialStateService.State.Cassettes.FirstOrDefault(c => c.Role == CassetteMaterialRole.Input1)
+                    : null;
+
+                if (cassette != null && cassette.IsMapped)
+                {
+                    cassette.EnsureSlots();
+                    int count = Math.Min(slotCount, cassette.Slots.Count);
+                    for (int i = 0; i < count; i++)
+                    {
+                        WaferSlotState slotState;
+                        bool hasSlotState = slotStates.TryGetValue(i, out slotState);
+                        var slot = cassette.Slots[i];
+                        bool hasMaterialSlot = slot != null && slot.HasWafer && !string.IsNullOrWhiteSpace(slot.WaferId);
+
+                        if (!hasMaterialSlot &&
+                            (!hasSlotState || slotState.Presence != SlotPresence.Exist))
+                        {
+                            continue;
+                        }
+
+                        hasProcessWafer = true;
+
+                        if (hasSlotState &&
+                            slotState.Process != ProcessState.Done &&
+                            slotState.Process != ProcessState.Ng)
+                        {
+                            return false;
+                        }
+
+                        if (hasMaterialSlot)
+                        {
+                            WaferMaterial wafer = MaterialStateService.GetWaferInCassette(CassetteMaterialRole.Input1, i);
+                            if (wafer == null)
+                                return false;
+
+                            if (WaferMaterialStateText.Normalize(wafer.State) != WaferMaterialState.Finish)
+                                return false;
+                        }
+                    }
+
+                    return hasProcessWafer;
+                }
+
+                for (int i = 0; i < slotCount; i++)
+                {
+                    WaferSlotState state;
+                    if (!slotStates.TryGetValue(i, out state) || state.Presence != SlotPresence.Exist)
+                        continue;
+
+                    hasProcessWafer = true;
+                    if (state.Process != ProcessState.Done && state.Process != ProcessState.Ng)
+                        return false;
+                }
+
+                return hasProcessWafer;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "InputCassetteUnit",
+                    "Input cassette complete check failed: " + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        public void RaiseInputCassetteCompleteAlarm(string source)
+        {
+            const string code = "IN-CST-CHANGE";
+            const string message = "Input cassette processing is complete. Replace input cassette.";
+            AlarmManager.Raise(AlarmSeverity.Warning, code, string.IsNullOrWhiteSpace(source) ? Name : source, message);
+            Log.Write("Main", "ALARM", code, message + " - Check");
+        }
+
         public bool IsHaveMoreProcessWafer()
         {
             return HasMoreProcessWafer();
@@ -804,6 +890,61 @@ namespace QMC.CDT320
                     (state.Process == ProcessState.Ready || state.Process == ProcessState.Unknown))
                     return i;
             }
+
+            return FindNextProcessWaferSlotFromMaterialState();
+        }
+
+        private int FindNextProcessWaferSlotFromMaterialState()
+        {
+            try
+            {
+                int slotCount = Config != null && Config.SlotCount > 0 ? Config.SlotCount : 0;
+                if (slotCount <= 0)
+                    return -1;
+
+                var cassette = MaterialStateService.State != null && MaterialStateService.State.Cassettes != null
+                    ? MaterialStateService.State.Cassettes.FirstOrDefault(c => c.Role == CassetteMaterialRole.Input1)
+                    : null;
+                if (cassette == null || !cassette.IsMapped)
+                    return -1;
+
+                cassette.EnsureSlots();
+                int count = Math.Min(slotCount, cassette.Slots.Count);
+                for (int i = 0; i < count; i++)
+                {
+                    WaferSlotState slotState;
+                    if (slotStates.TryGetValue(i, out slotState) &&
+                        slotState.Process != ProcessState.Ready &&
+                        slotState.Process != ProcessState.Unknown)
+                    {
+                        continue;
+                    }
+
+                    var slot = cassette.Slots[i];
+                    if (slot == null || !slot.HasWafer || string.IsNullOrWhiteSpace(slot.WaferId))
+                        continue;
+
+                    WaferMaterial wafer = MaterialStateService.GetWaferInCassette(CassetteMaterialRole.Input1, i);
+                    if (wafer == null)
+                        continue;
+
+                    WaferMaterialState state = WaferMaterialStateText.Normalize(wafer.State);
+                    if (state == WaferMaterialState.Ready || state == WaferMaterialState.WorkReady)
+                    {
+                        UpdateWaferCassetteSlotState(i, SlotPresence.Exist, ProcessState.Ready);
+                        return i;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "InputCassetteUnit",
+                    "Find next process wafer slot from material state failed: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+
             return -1;
         }
 

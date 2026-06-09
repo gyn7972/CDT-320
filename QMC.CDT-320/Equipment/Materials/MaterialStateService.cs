@@ -95,12 +95,59 @@ namespace QMC.CDT320.Materials
             return specName;
         }
 
+        public static string SyncRecipeTapeFrameSpec(RecipeProject project)
+        {
+            try
+            {
+                if (project == null || project.Frame == null)
+                    return "";
+
+                string specName = string.IsNullOrWhiteSpace(project.Frame.FrameSpecName)
+                    ? ResolveDefaultTapeFrameSpecName(0)
+                    : project.Frame.FrameSpecName.Trim();
+
+                EnsureTapeFrameSpecFromRecipe(project, specName);
+                return specName;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialSpecSync", "Recipe tape frame spec sync failed: " + ex.Message + " - Failed");
+                return "";
+            }
+            finally
+            {
+            }
+        }
+
         public static void PutWaferInCassette(
             string waferId,
             CassetteMaterialRole cassetteRole,
             int slotNumber,
             string cassetteLotId,
             double slotPosition = double.NaN)
+        {
+            PutWaferInCassette(waferId, cassetteRole, slotNumber, cassetteLotId, slotPosition, false, WaferMaterialState.Ready);
+        }
+
+        public static void PutWaferInCassette(
+            string waferId,
+            CassetteMaterialRole cassetteRole,
+            int slotNumber,
+            string cassetteLotId,
+            double slotPosition,
+            WaferMaterialState state)
+        {
+            PutWaferInCassette(waferId, cassetteRole, slotNumber, cassetteLotId, slotPosition, true, state);
+        }
+
+        private static void PutWaferInCassette(
+            string waferId,
+            CassetteMaterialRole cassetteRole,
+            int slotNumber,
+            string cassetteLotId,
+            double slotPosition,
+            bool updateState,
+            WaferMaterialState state)
         {
             var cassette = State.Cassettes.FirstOrDefault(c => c.Role == cassetteRole);
             if (cassette == null) return;
@@ -116,6 +163,8 @@ namespace QMC.CDT320.Materials
                 cassetteRole,
                 slotNumber);
             ApplyWaferCassettePosition(wafer, slotPosition);
+            if (updateState)
+                wafer.State = WaferMaterialStateText.Normalize(state);
             wafer.UpdatedAt = DateTime.Now;
 
             cassette.CassetteLotId = cassetteLotId ?? cassette.CassetteLotId;
@@ -557,24 +606,15 @@ namespace QMC.CDT320.Materials
             if (MaterialSpecs.Data == null)
                 return;
 
-            if (MaterialSpecs.Data.Frames == null)
-                MaterialSpecs.Data.Frames = new List<TapeFrameSpec>();
-
             var frame = project.Frame;
-            var spec = MaterialSpecs.Data.Frames.FirstOrDefault(f => f.Name == specName);
-            if (spec == null)
-            {
-                spec = new TapeFrameSpec { Name = specName };
-                MaterialSpecs.Data.Frames.Add(spec);
-            }
-
-            spec.GridX = frame.GridX;
-            spec.GridY = frame.GridY;
-            spec.PitchX = frame.PitchX;
-            spec.PitchY = frame.PitchY;
-            spec.OuterDiameterMm = frame.OuterDiameterMm;
-            spec.DieSpecName = project.Die != null ? project.Die.DieSpecName ?? "" : "";
-            MaterialSpecs.Save();
+            MaterialSpecs.UpsertFrame(
+                specName,
+                frame.GridX,
+                frame.GridY,
+                frame.PitchX,
+                frame.PitchY,
+                frame.OuterDiameterMm,
+                project.Die != null ? project.Die.DieSpecName ?? "" : "");
         }
 
         private static string ResolveCassetteTapeFrameSpecName(CassetteMaterial cassette)

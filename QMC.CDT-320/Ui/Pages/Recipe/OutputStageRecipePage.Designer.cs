@@ -75,6 +75,8 @@
         private QMC.CDT_320.Ui.Controls.ActionButton btnAutoSettingMove;
         private QMC.CDT_320.Ui.Controls.ActionButton btnInputConversion;
         private QMC.CDT_320.Ui.Controls.ActionButton btnExpandWorkMove;
+        private QMC.CDT_320.Ui.Controls.ActionButton btnVisionProcessMove;
+        private QMC.CDT_320.Ui.Controls.ActionButton btnVisionReticleMove;
 
         private QMC.CDT_320.Ui.Controls.IndicatorDot dotNeedleVacuum;
         private QMC.CDT_320.Ui.Controls.IndicatorDot dotRingSensor;
@@ -157,6 +159,8 @@
             this.btnAutoSettingMove = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnInputConversion = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnExpandWorkMove = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.btnVisionProcessMove = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.btnVisionReticleMove = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.leftLayout = new System.Windows.Forms.TableLayoutPanel();
             this.grpOptions = new System.Windows.Forms.GroupBox();
             this.optionParameterGrid = new QMC.CDT_320.Ui.Controls.ParameterGridControl();
@@ -428,11 +432,13 @@
             this.manualLayout.Controls.Add(this.btnAutoSettingMove, 0, 5);
             this.manualLayout.Controls.Add(this.btnInputConversion, 1, 5);
             this.manualLayout.Controls.Add(this.btnExpandWorkMove, 0, 6);
+            this.manualLayout.Controls.Add(this.btnVisionProcessMove, 1, 6);
+            this.manualLayout.Controls.Add(this.btnVisionReticleMove, 0, 7);
             this.manualLayout.Dock = System.Windows.Forms.DockStyle.Top;
             this.manualLayout.Location = new System.Drawing.Point(0, 0);
             this.manualLayout.Name = "manualLayout";
             this.manualLayout.Padding = new System.Windows.Forms.Padding(8, 18, 8, 8);
-            this.manualLayout.RowCount = 7;
+            this.manualLayout.RowCount = 8;
             this.manualLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 48F));
             this.manualLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 48F));
             this.manualLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 48F));
@@ -440,7 +446,8 @@
             this.manualLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 48F));
             this.manualLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 48F));
             this.manualLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 48F));
-            this.manualLayout.Size = new System.Drawing.Size(652, 362);
+            this.manualLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 48F));
+            this.manualLayout.Size = new System.Drawing.Size(669, 410);
             this.manualLayout.TabIndex = 0;
             // 
             // btnLoadingMove
@@ -624,7 +631,35 @@
             this.btnExpandWorkMove.Size = new System.Drawing.Size(310, 40);
             this.btnExpandWorkMove.TabIndex = 12;
             this.btnExpandWorkMove.Text = "VISION AVOID POSITION";
-            // 
+            //
+            // btnVisionProcessMove
+            //
+            this.btnVisionProcessMove.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnVisionProcessMove.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnVisionProcessMove.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnVisionProcessMove.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnVisionProcessMove.ForeColor = System.Drawing.Color.White;
+            this.btnVisionProcessMove.Location = new System.Drawing.Point(338, 292);
+            this.btnVisionProcessMove.Margin = new System.Windows.Forms.Padding(4);
+            this.btnVisionProcessMove.Name = "btnVisionProcessMove";
+            this.btnVisionProcessMove.Size = new System.Drawing.Size(319, 40);
+            this.btnVisionProcessMove.TabIndex = 13;
+            this.btnVisionProcessMove.Text = "VISION X PROCESS POSITION";
+            //
+            // btnVisionReticleMove
+            //
+            this.btnVisionReticleMove.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnVisionReticleMove.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnVisionReticleMove.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnVisionReticleMove.Font = new System.Drawing.Font("맑은 고딕", 9F, System.Drawing.FontStyle.Bold);
+            this.btnVisionReticleMove.ForeColor = System.Drawing.Color.White;
+            this.btnVisionReticleMove.Location = new System.Drawing.Point(12, 337);
+            this.btnVisionReticleMove.Margin = new System.Windows.Forms.Padding(4);
+            this.btnVisionReticleMove.Name = "btnVisionReticleMove";
+            this.btnVisionReticleMove.Size = new System.Drawing.Size(318, 40);
+            this.btnVisionReticleMove.TabIndex = 14;
+            this.btnVisionReticleMove.Text = "VISION X RETICLE POSITION";
+            //
             // leftLayout
             // 
             this.leftLayout.ColumnCount = 1;

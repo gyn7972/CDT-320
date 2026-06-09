@@ -148,7 +148,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 BindParameterGridMenus();
 
                 jogAxisMoveControl.SpeedControl = jogSpeedControl;
-                jogAxisMoveControl.LayoutMode = JogAxisMoveLayoutMode.AxisColumns;
+                jogAxisMoveControl.LayoutMode = JogAxisMoveLayoutMode.OutputStagePad;
                 jogAxisMoveControl.AxisColumnsPerRow = 2;
                 jogAxisMoveControl.ShowCurrentSpeedMode = true;
                 jogAxisMoveControl.ButtonAreaMinHeight = 420;
@@ -185,6 +185,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 btnPickUpTest.Click += async (s, e) => await ConfirmAndRunAsync(btnPickUpTest.Text, () => _outputStageUnit.MoveStageAxisToTeachingPosition(BinStageAxis.VisionX, "Process"));
                 btnAutoSettingMove.Click += async (s, e) => await ConfirmAndRunAsync(btnAutoSettingMove.Text, () => _outputStageUnit.MoveStageAxisToTeachingPosition(BinStageAxis.VisionX, "Process"));
                 btnInputConversion.Click += async (s, e) => await ConfirmAndRunAsync(btnInputConversion.Text, () => _outputStageUnit.MoveStageAxisToTeachingPosition(BinStageAxis.VisionX, "Avoid"));
+                // VISION X 티칭 위치 (Process / Reticle)
+                btnVisionProcessMove.Text = "VISION X PROCESS POSITION";
+                btnVisionReticleMove.Text = "VISION X RETICLE POSITION";
+                btnVisionProcessMove.Click += async (s, e) => await ConfirmAndRunAsync(btnVisionProcessMove.Text, () => _outputStageUnit.MoveStageAxisToTeachingPosition(BinStageAxis.VisionX, "Process"));
+                btnVisionReticleMove.Click += async (s, e) => await ConfirmAndRunAsync(btnVisionReticleMove.Text, () => _outputStageUnit.MoveStageAxisToTeachingPosition(BinStageAxis.VisionX, "Reticle"));
             }
             catch (Exception ex)
             {
@@ -428,14 +433,21 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     IoCylinderItem.Input("GOOD BIN UNCLAMP", () => unit.GoodBinUnclampSensor.IsOn),
                     IoCylinderItem.Input("GOOD BIN RING CHECK", () => unit.GoodBinRingSensor.IsOn),
 
-                    // ===== OUTPUT (DO) =====
-                    IoCylinderItem.Output("NG BIN GUIDE", () => unit.NgBinGuideUpOut.IsOn, on => WritePairOut(unit.NgBinGuideUpOut, unit.NgBinGuideDownOut, on), "UP", "DOWN"),
-                    IoCylinderItem.Output("NG BIN CLAMP LIFT", () => unit.NgBinClampUpOut.IsOn, on => WritePairOut(unit.NgBinClampUpOut, unit.NgBinClampDownOut, on), "UP", "DOWN"),
-                    IoCylinderItem.Output("NG BIN CLAMP", () => unit.NgBinClampOut.IsOn, on => WritePairOut(unit.NgBinClampOut, unit.NgBinUnclampOut, on), "CLAMP", "UNCLAMP"),
-                    IoCylinderItem.Output("GOOD BIN GUIDE", () => unit.GoodBinGuideUpOut.IsOn, on => WritePairOut(unit.GoodBinGuideUpOut, unit.GoodBinGuideDownOut, on), "UP", "DOWN"),
-                    IoCylinderItem.Output("GOOD BIN CLAMP LIFT", () => unit.GoodBinClampUpOut.IsOn, on => WritePairOut(unit.GoodBinClampUpOut, unit.GoodBinClampDownOut, on), "UP", "DOWN"),
-                    IoCylinderItem.Output("GOOD BIN CLAMP", () => unit.GoodBinClampOut.IsOn, on => WritePairOut(unit.GoodBinClampOut, unit.GoodBinUnclampOut, on), "CLAMP", "UNCLAMP"),
-                    IoCylinderItem.Output("BOTTOM VISION BLOW", () => unit.BottomVisionBlowOnOut.IsOn, on => WritePairOut(unit.BottomVisionBlowOnOut, unit.BottomVisionBlowOffOut, on), "ON", "OFF")
+                    // ===== OUTPUT (DO) — 개별 14개 =====
+                    IoCylinderItem.Output("NG BIN GUIDE UP", () => unit.NgBinGuideUpOut.IsOn, on => WriteOutAsync(unit.NgBinGuideUpOut, on), "ON", "OFF"),
+                    IoCylinderItem.Output("NG BIN GUIDE DOWN", () => unit.NgBinGuideDownOut.IsOn, on => WriteOutAsync(unit.NgBinGuideDownOut, on), "ON", "OFF"),
+                    IoCylinderItem.Output("NG BIN CLAMP UP", () => unit.NgBinClampUpOut.IsOn, on => WriteOutAsync(unit.NgBinClampUpOut, on), "ON", "OFF"),
+                    IoCylinderItem.Output("NG BIN CLAMP DOWN", () => unit.NgBinClampDownOut.IsOn, on => WriteOutAsync(unit.NgBinClampDownOut, on), "ON", "OFF"),
+                    IoCylinderItem.Output("NG BIN CLAMP", () => unit.NgBinClampOut.IsOn, on => WriteOutAsync(unit.NgBinClampOut, on), "ON", "OFF"),
+                    IoCylinderItem.Output("NG BIN UNCLAMP", () => unit.NgBinUnclampOut.IsOn, on => WriteOutAsync(unit.NgBinUnclampOut, on), "ON", "OFF"),
+                    IoCylinderItem.Output("GOOD BIN GUIDE UP", () => unit.GoodBinGuideUpOut.IsOn, on => WriteOutAsync(unit.GoodBinGuideUpOut, on), "ON", "OFF"),
+                    IoCylinderItem.Output("GOOD BIN GUIDE DOWN", () => unit.GoodBinGuideDownOut.IsOn, on => WriteOutAsync(unit.GoodBinGuideDownOut, on), "ON", "OFF"),
+                    IoCylinderItem.Output("GOOD BIN CLAMP UP", () => unit.GoodBinClampUpOut.IsOn, on => WriteOutAsync(unit.GoodBinClampUpOut, on), "ON", "OFF"),
+                    IoCylinderItem.Output("GOOD BIN CLAMP DOWN", () => unit.GoodBinClampDownOut.IsOn, on => WriteOutAsync(unit.GoodBinClampDownOut, on), "ON", "OFF"),
+                    IoCylinderItem.Output("GOOD BIN CLAMP", () => unit.GoodBinClampOut.IsOn, on => WriteOutAsync(unit.GoodBinClampOut, on), "ON", "OFF"),
+                    IoCylinderItem.Output("GOOD BIN UNCLAMP", () => unit.GoodBinUnclampOut.IsOn, on => WriteOutAsync(unit.GoodBinUnclampOut, on), "ON", "OFF"),
+                    IoCylinderItem.Output("BOTTOM VISION BLOW ON", () => unit.BottomVisionBlowOnOut.IsOn, on => WriteOutAsync(unit.BottomVisionBlowOnOut, on), "ON", "OFF"),
+                    IoCylinderItem.Output("BOTTOM VISION BLOW OFF", () => unit.BottomVisionBlowOffOut.IsOn, on => WriteOutAsync(unit.BottomVisionBlowOffOut, on), "ON", "OFF")
                 });
             }
             catch (Exception ex)
@@ -460,6 +472,22 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             {
                 WriteOut(forward, forwardOn);
                 WriteOut(backward, !forwardOn);
+                return Task.FromResult(0);
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        private static Task<int> WriteOutAsync(QMC.Common.IO.BaseDigitalOutput output, bool on)
+        {
+            try
+            {
+                WriteOut(output, on);
                 return Task.FromResult(0);
             }
             catch

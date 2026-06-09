@@ -112,7 +112,21 @@ namespace QMC.CDT320.Sequencing
             if (cassette == null)
                 return Fail("IN-FEEDER-CST-MISSING", "InputCassette", "Input cassette unit is not available.");
 
+            if (cassette.IsInputCassetteProcessComplete())
+            {
+                cassette.RaiseInputCassetteCompleteAlarm(cassette.Name);
+                return Fail("IN-FEEDER-CST-COMPLETE", cassette.Name,
+                    "Input cassette processing is complete. Replace input cassette.");
+            }
+
             int nextSlot = cassette.FindNextProcessWaferSlot();
+            if (nextSlot < 0 && cassette.IsInputCassetteProcessComplete())
+            {
+                cassette.RaiseInputCassetteCompleteAlarm(cassette.Name);
+                return Fail("IN-FEEDER-CST-COMPLETE", cassette.Name,
+                    "Input cassette processing is complete. Replace input cassette.");
+            }
+
             if (Options.RunMode == SequenceRunMode.Auto &&
                 nextSlot >= 0 &&
                 Options.SlotIndex != nextSlot)

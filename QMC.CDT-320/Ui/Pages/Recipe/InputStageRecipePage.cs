@@ -316,7 +316,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 waitParameterGrid.ParameterValueChanged += ParameterGrid_ParameterValueChanged;
 
                 jogAxisMoveControl.SpeedControl = jogSpeedControl;
-                jogAxisMoveControl.LayoutMode = JogAxisMoveLayoutMode.Stage;
+                jogAxisMoveControl.LayoutMode = JogAxisMoveLayoutMode.InputStagePad;
                 jogAxisMoveControl.ShowCurrentSpeedMode = true;
                 jogAxisMoveControl.ButtonAreaMinHeight = 520;
                 jogAxisMoveControl.ButtonAreaMaxHeight = 620;
@@ -766,7 +766,15 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
                 ioCylinderPanel.SetItems(new[]
                 {
-                    IoCylinderItem.Output("NEEDLE VACUUM", () => _InputStageUnit.NeedleVacuum != null && _InputStageUnit.NeedleVacuum.IsOn, WriteNeedleVacuumAsync)
+                    // ===== INPUT (DI) — 3개 =====
+                    IoCylinderItem.Input("WAFER STAGE 8\" RING CHECK", () => _InputStageUnit.WaferStage8RingCheckSensor != null && _InputStageUnit.WaferStage8RingCheckSensor.IsOn),
+                    IoCylinderItem.Input("WAFER STAGE 12\" RING CHECK", () => _InputStageUnit.WaferStage12RingCheckSensor != null && _InputStageUnit.WaferStage12RingCheckSensor.IsOn),
+                    IoCylinderItem.Input("WAFER STAGE TOUCH SENSOR", () => _InputStageUnit.WaferStageTouchSensor != null && _InputStageUnit.WaferStageTouchSensor.IsOn),
+
+                    // ===== OUTPUT (DO) — 3개 =====
+                    IoCylinderItem.Output("IONIZER ON", () => _InputStageUnit.Ionizer != null && _InputStageUnit.Ionizer.IsOn, WriteIonizerAsync),
+                    IoCylinderItem.Output("NEEDLE VACUUM", () => _InputStageUnit.NeedleVacuum != null && _InputStageUnit.NeedleVacuum.IsOn, WriteNeedleVacuumAsync),
+                    IoCylinderItem.Output("NEEDLE BLOW", () => _InputStageUnit.NeedleBlow != null && _InputStageUnit.NeedleBlow.IsOn, WriteNeedleBlowAsync)
                 });
             }
             catch (Exception ex)
@@ -833,6 +841,48 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             catch (Exception ex)
             {
                 EventLogger.Write(EventKind.Alarm, "UI", "INPUT-STAGE", "Needle vacuum write failed: " + ex.Message);
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> WriteNeedleBlowAsync(bool value)
+        {
+            try
+            {
+                if (_InputStageUnit == null || _InputStageUnit.NeedleBlow == null)
+                    return -1;
+
+                _InputStageUnit.NeedleBlow.Write(value);
+                await Task.CompletedTask;
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "INPUT-STAGE", "Needle blow write failed: " + ex.Message);
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> WriteIonizerAsync(bool value)
+        {
+            try
+            {
+                if (_InputStageUnit == null || _InputStageUnit.Ionizer == null)
+                    return -1;
+
+                _InputStageUnit.Ionizer.Write(value);
+                await Task.CompletedTask;
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "INPUT-STAGE", "Ionizer write failed: " + ex.Message);
                 return -1;
             }
             finally

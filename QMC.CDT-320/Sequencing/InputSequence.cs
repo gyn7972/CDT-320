@@ -434,7 +434,11 @@ namespace QMC.CDT320.Sequencing
                 if (cassette == null)
                     return -1;
 
-                return cassette.FindNextProcessWaferSlot();
+                int slotIndex = cassette.FindNextProcessWaferSlot();
+                if (slotIndex < 0 && cassette.IsInputCassetteProcessComplete())
+                    cassette.RaiseInputCassetteCompleteAlarm(cassette.Name);
+
+                return slotIndex;
             }
             catch (Exception ex)
             {
@@ -468,6 +472,7 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
+                SequenceFailureStore.Record("InputSequence", Kind.ToString(), "", alarmCode, source, message);
                 WriteLog(source, message + " - Failed");
                 AlarmManager.Raise(AlarmSeverity.Warning, alarmCode, source, message);
                 LogPublic("[UNIT-INPUT-LOADER] FAIL " + alarmCode + " - " + message);
