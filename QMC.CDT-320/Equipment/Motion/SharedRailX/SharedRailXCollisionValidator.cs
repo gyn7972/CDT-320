@@ -42,6 +42,9 @@ namespace QMC.CDT320.Motion.SharedRailX
                 {
                     SharedRailXAxisState a = states[i];
                     SharedRailXAxisState b = states[j];
+                    if (!_config.IsCollisionPairEnabled(a.Axis, b.Axis))
+                        continue;
+
                     SharedRailXValidationResult current = ValidateDistance(a, b, false);
                     if (!current.Allowed)
                         return current;

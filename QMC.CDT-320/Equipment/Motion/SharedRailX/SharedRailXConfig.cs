@@ -9,6 +9,7 @@ namespace QMC.CDT320.Motion.SharedRailX
         public bool RequireSameVelocityForGroupMove { get; set; } = true;
 
         public Dictionary<SharedRailXAxis, SharedRailXAxisGeometry> Geometry { get; private set; }
+        public List<SharedRailXAxisPair> CollisionPairs { get; private set; }
 
         public SharedRailXConfig()
         {
@@ -17,6 +18,12 @@ namespace QMC.CDT320.Motion.SharedRailX
             Geometry[SharedRailXAxis.FrontPickerX] = new SharedRailXAxisGeometry();
             Geometry[SharedRailXAxis.RearPickerX] = new SharedRailXAxisGeometry();
             Geometry[SharedRailXAxis.OutputVisionX] = new SharedRailXAxisGeometry();
+
+            CollisionPairs = new List<SharedRailXAxisPair>();
+            AddCollisionPair(SharedRailXAxis.InputVisionX, SharedRailXAxis.FrontPickerX);
+            AddCollisionPair(SharedRailXAxis.InputVisionX, SharedRailXAxis.RearPickerX);
+            AddCollisionPair(SharedRailXAxis.OutputVisionX, SharedRailXAxis.FrontPickerX);
+            AddCollisionPair(SharedRailXAxis.OutputVisionX, SharedRailXAxis.RearPickerX);
         }
 
         public SharedRailXConfig SetGeometry(
@@ -38,6 +45,45 @@ namespace QMC.CDT320.Motion.SharedRailX
             return this;
         }
 
+        public SharedRailXConfig SetCollisionPairs(IEnumerable<SharedRailXAxisPair> pairs)
+        {
+            CollisionPairs.Clear();
+            if (pairs == null)
+                return this;
+
+            foreach (SharedRailXAxisPair pair in pairs)
+                AddCollisionPair(pair.AxisA, pair.AxisB);
+
+            return this;
+        }
+
+        public SharedRailXConfig AddCollisionPair(SharedRailXAxis axisA, SharedRailXAxis axisB)
+        {
+            if (axisA == axisB)
+                return this;
+            if (IsCollisionPairEnabled(axisA, axisB))
+                return this;
+
+            CollisionPairs.Add(new SharedRailXAxisPair(axisA, axisB));
+            return this;
+        }
+
+        public bool IsCollisionPairEnabled(SharedRailXAxis axisA, SharedRailXAxis axisB)
+        {
+            if (axisA == axisB)
+                return false;
+            if (CollisionPairs == null || CollisionPairs.Count == 0)
+                return false;
+
+            foreach (SharedRailXAxisPair pair in CollisionPairs)
+            {
+                if (pair.Matches(axisA, axisB))
+                    return true;
+            }
+
+            return false;
+        }
+
         public static SharedRailXConfig CreateDefault()
         {
             return new SharedRailXConfig();
@@ -51,5 +97,23 @@ namespace QMC.CDT320.Motion.SharedRailX
         public double RailOriginOffset { get; set; } = 0.0;
         public double PositionScale { get; set; } = 1.0;
         public double? SafetyDistance { get; set; }
+    }
+
+    public struct SharedRailXAxisPair
+    {
+        public SharedRailXAxis AxisA { get; private set; }
+        public SharedRailXAxis AxisB { get; private set; }
+
+        public SharedRailXAxisPair(SharedRailXAxis axisA, SharedRailXAxis axisB)
+        {
+            AxisA = axisA;
+            AxisB = axisB;
+        }
+
+        public bool Matches(SharedRailXAxis axisA, SharedRailXAxis axisB)
+        {
+            return (AxisA == axisA && AxisB == axisB) ||
+                   (AxisA == axisB && AxisB == axisA);
+        }
     }
 }
