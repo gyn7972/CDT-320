@@ -1,4 +1,4 @@
-namespace QMC.CDT_320.Ui.Dialogs
+﻿namespace QMC.CDT_320.Ui.Dialogs
 {
     partial class SharedRailXSetupDialog
     {
@@ -17,8 +17,14 @@ namespace QMC.CDT_320.Ui.Dialogs
         private System.Windows.Forms.CheckBox chkSubOutputVision;
         private System.Windows.Forms.CheckBox chkSubFrontPicker;
         private System.Windows.Forms.CheckBox chkSubRearPicker;
+        private System.Windows.Forms.TableLayoutPanel _gridGroups;
+        private System.Windows.Forms.Label lblStatusParameter;
+        private System.Windows.Forms.Label lblTestParameter;
+        private System.Windows.Forms.Label lblSettingParameter;
         private System.Windows.Forms.DataGridView grid;
-        private System.Windows.Forms.FlowLayoutPanel pnlButtons;
+        private System.Windows.Forms.DataGridView _testGrid;
+        private System.Windows.Forms.DataGridView _settingGrid;
+        private System.Windows.Forms.TableLayoutPanel pnlButtons;
         private System.Windows.Forms.Button btnReload;
         private System.Windows.Forms.Button btnSave;
         private System.Windows.Forms.Button btnApply;
@@ -26,10 +32,10 @@ namespace QMC.CDT_320.Ui.Dialogs
         private System.Windows.Forms.Button btnHelp;
         private System.Windows.Forms.Button btnMoveSelected;
         private System.Windows.Forms.Button btnMoveHeadSub;
-        private System.Windows.Forms.Button btnMoveAll;
         private System.Windows.Forms.Button btnHomeSelected;
         private System.Windows.Forms.Button btnHomeAll;
         private System.Windows.Forms.Button btnRefresh;
+        private System.Windows.Forms.Button btnStop;
         private System.Windows.Forms.Button btnClose;
         private System.Windows.Forms.Label lblPath;
         private System.Windows.Forms.Label lblStatus;
@@ -73,7 +79,13 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.chkSubOutputVision = new System.Windows.Forms.CheckBox();
             this.chkSubFrontPicker = new System.Windows.Forms.CheckBox();
             this.chkSubRearPicker = new System.Windows.Forms.CheckBox();
+            this._gridGroups = new System.Windows.Forms.TableLayoutPanel();
+            this.lblStatusParameter = new System.Windows.Forms.Label();
+            this.lblTestParameter = new System.Windows.Forms.Label();
+            this.lblSettingParameter = new System.Windows.Forms.Label();
             this.grid = new System.Windows.Forms.DataGridView();
+            this._testGrid = new System.Windows.Forms.DataGridView();
+            this._settingGrid = new System.Windows.Forms.DataGridView();
             this.colAxis = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.colCurrent = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.colTarget = new System.Windows.Forms.DataGridViewTextBoxColumn();
@@ -85,7 +97,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.colSafety = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.colStatus = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.colMessage = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.pnlButtons = new System.Windows.Forms.FlowLayoutPanel();
+            this.pnlButtons = new System.Windows.Forms.TableLayoutPanel();
             this.btnReload = new System.Windows.Forms.Button();
             this.btnSave = new System.Windows.Forms.Button();
             this.btnApply = new System.Windows.Forms.Button();
@@ -93,16 +105,19 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.btnHelp = new System.Windows.Forms.Button();
             this.btnMoveSelected = new System.Windows.Forms.Button();
             this.btnMoveHeadSub = new System.Windows.Forms.Button();
-            this.btnMoveAll = new System.Windows.Forms.Button();
             this.btnHomeSelected = new System.Windows.Forms.Button();
             this.btnHomeAll = new System.Windows.Forms.Button();
             this.btnRefresh = new System.Windows.Forms.Button();
+            this.btnStop = new System.Windows.Forms.Button();
             this.btnClose = new System.Windows.Forms.Button();
             this.lblPath = new System.Windows.Forms.Label();
             this.lblStatus = new System.Windows.Forms.Label();
             this.layoutRoot.SuspendLayout();
             this.pnlTop.SuspendLayout();
+            this._gridGroups.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.grid)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this._testGrid)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this._settingGrid)).BeginInit();
             this.pnlButtons.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -112,7 +127,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.layoutRoot.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.layoutRoot.Controls.Add(this.lblTitle, 0, 0);
             this.layoutRoot.Controls.Add(this.pnlTop, 0, 1);
-            this.layoutRoot.Controls.Add(this.grid, 0, 2);
+            this.layoutRoot.Controls.Add(this._gridGroups, 0, 2);
             this.layoutRoot.Controls.Add(this.pnlButtons, 0, 3);
             this.layoutRoot.Controls.Add(this.lblPath, 0, 4);
             this.layoutRoot.Controls.Add(this.lblStatus, 0, 5);
@@ -273,9 +288,69 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.chkSubRearPicker.TabIndex = 10;
             this.chkSubRearPicker.Text = "RearPickerX";
             this.chkSubRearPicker.UseVisualStyleBackColor = true;
-            // 
+            //
+            // _gridGroups
+            //
+            this._gridGroups.ColumnCount = 3;
+            this._gridGroups.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 38F));
+            this._gridGroups.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 24F));
+            this._gridGroups.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 38F));
+            this._gridGroups.Controls.Add(this.lblStatusParameter, 0, 0);
+            this._gridGroups.Controls.Add(this.lblTestParameter, 1, 0);
+            this._gridGroups.Controls.Add(this.lblSettingParameter, 2, 0);
+            this._gridGroups.Controls.Add(this.grid, 0, 1);
+            this._gridGroups.Controls.Add(this._testGrid, 1, 1);
+            this._gridGroups.Controls.Add(this._settingGrid, 2, 1);
+            this._gridGroups.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._gridGroups.Location = new System.Drawing.Point(3, 113);
+            this._gridGroups.Name = "_gridGroups";
+            this._gridGroups.RowCount = 2;
+            this._gridGroups.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 24F));
+            this._gridGroups.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this._gridGroups.Size = new System.Drawing.Size(1154, 361);
+            this._gridGroups.TabIndex = 2;
+            //
+            // lblStatusParameter
+            //
+            this.lblStatusParameter.BackColor = System.Drawing.Color.FromArgb(238, 242, 246);
+            this.lblStatusParameter.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblStatusParameter.Font = new System.Drawing.Font("Malgun Gothic", 9F, System.Drawing.FontStyle.Bold);
+            this.lblStatusParameter.Location = new System.Drawing.Point(3, 0);
+            this.lblStatusParameter.Name = "lblStatusParameter";
+            this.lblStatusParameter.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
+            this.lblStatusParameter.Size = new System.Drawing.Size(432, 24);
+            this.lblStatusParameter.TabIndex = 0;
+            this.lblStatusParameter.Text = "STATUS PARAMETER";
+            this.lblStatusParameter.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            //
+            // lblTestParameter
+            //
+            this.lblTestParameter.BackColor = System.Drawing.Color.FromArgb(238, 242, 246);
+            this.lblTestParameter.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblTestParameter.Font = new System.Drawing.Font("Malgun Gothic", 9F, System.Drawing.FontStyle.Bold);
+            this.lblTestParameter.Location = new System.Drawing.Point(441, 0);
+            this.lblTestParameter.Name = "lblTestParameter";
+            this.lblTestParameter.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
+            this.lblTestParameter.Size = new System.Drawing.Size(270, 24);
+            this.lblTestParameter.TabIndex = 1;
+            this.lblTestParameter.Text = "TEST PARAMETER";
+            this.lblTestParameter.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            //
+            // lblSettingParameter
+            //
+            this.lblSettingParameter.BackColor = System.Drawing.Color.FromArgb(238, 242, 246);
+            this.lblSettingParameter.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblSettingParameter.Font = new System.Drawing.Font("Malgun Gothic", 9F, System.Drawing.FontStyle.Bold);
+            this.lblSettingParameter.Location = new System.Drawing.Point(717, 0);
+            this.lblSettingParameter.Name = "lblSettingParameter";
+            this.lblSettingParameter.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
+            this.lblSettingParameter.Size = new System.Drawing.Size(434, 24);
+            this.lblSettingParameter.TabIndex = 2;
+            this.lblSettingParameter.Text = "SETTING PARAMETER";
+            this.lblSettingParameter.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            //
             // grid
-            // 
+            //
             this.grid.AllowUserToAddRows = false;
             this.grid.AllowUserToDeleteRows = false;
             this.grid.AllowUserToOrderColumns = false;
@@ -306,14 +381,58 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.colMessage});
             this.grid.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grid.EnableHeadersVisualStyles = false;
-            this.grid.Location = new System.Drawing.Point(3, 113);
+            this.grid.Location = new System.Drawing.Point(3, 27);
             this.grid.MultiSelect = false;
             this.grid.Name = "grid";
             this.grid.RowHeadersVisible = false;
             this.grid.RowTemplate.Height = 30;
             this.grid.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
-            this.grid.Size = new System.Drawing.Size(1154, 361);
+            this.grid.Size = new System.Drawing.Size(432, 331);
             this.grid.TabIndex = 2;
+            //
+            // _testGrid
+            //
+            this._testGrid.AllowUserToAddRows = false;
+            this._testGrid.AllowUserToDeleteRows = false;
+            this._testGrid.AllowUserToOrderColumns = false;
+            this._testGrid.AllowUserToResizeRows = false;
+            this._testGrid.AutoSizeColumnsMode = System.Windows.Forms.DataGridViewAutoSizeColumnsMode.Fill;
+            this._testGrid.BackgroundColor = System.Drawing.Color.White;
+            this._testGrid.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
+            this._testGrid.ColumnHeadersDefaultCellStyle = headerStyle;
+            this._testGrid.ColumnHeadersHeight = 34;
+            this._testGrid.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._testGrid.EnableHeadersVisualStyles = false;
+            this._testGrid.Location = new System.Drawing.Point(441, 27);
+            this._testGrid.MultiSelect = false;
+            this._testGrid.Name = "_testGrid";
+            this._testGrid.RowHeadersVisible = false;
+            this._testGrid.RowTemplate.Height = 30;
+            this._testGrid.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.CellSelect;
+            this._testGrid.Size = new System.Drawing.Size(270, 331);
+            this._testGrid.TabIndex = 3;
+            //
+            // _settingGrid
+            //
+            this._settingGrid.AllowUserToAddRows = false;
+            this._settingGrid.AllowUserToDeleteRows = false;
+            this._settingGrid.AllowUserToOrderColumns = false;
+            this._settingGrid.AllowUserToResizeRows = false;
+            this._settingGrid.AutoSizeColumnsMode = System.Windows.Forms.DataGridViewAutoSizeColumnsMode.Fill;
+            this._settingGrid.BackgroundColor = System.Drawing.Color.White;
+            this._settingGrid.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
+            this._settingGrid.ColumnHeadersDefaultCellStyle = headerStyle;
+            this._settingGrid.ColumnHeadersHeight = 34;
+            this._settingGrid.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._settingGrid.EnableHeadersVisualStyles = false;
+            this._settingGrid.Location = new System.Drawing.Point(717, 27);
+            this._settingGrid.MultiSelect = false;
+            this._settingGrid.Name = "_settingGrid";
+            this._settingGrid.RowHeadersVisible = false;
+            this._settingGrid.RowTemplate.Height = 30;
+            this._settingGrid.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.CellSelect;
+            this._settingGrid.Size = new System.Drawing.Size(434, 331);
+            this._settingGrid.TabIndex = 4;
             // 
             // colAxis
             // 
@@ -407,27 +526,43 @@ namespace QMC.CDT_320.Ui.Dialogs
             // 
             // pnlButtons
             // 
-            this.pnlButtons.Controls.Add(this.btnReload);
-            this.pnlButtons.Controls.Add(this.btnSave);
-            this.pnlButtons.Controls.Add(this.btnApply);
-            this.pnlButtons.Controls.Add(this.btnValidate);
-            this.pnlButtons.Controls.Add(this.btnHelp);
-            this.pnlButtons.Controls.Add(this.btnMoveSelected);
-            this.pnlButtons.Controls.Add(this.btnMoveHeadSub);
-            this.pnlButtons.Controls.Add(this.btnMoveAll);
-            this.pnlButtons.Controls.Add(this.btnHomeSelected);
-            this.pnlButtons.Controls.Add(this.btnHomeAll);
-            this.pnlButtons.Controls.Add(this.btnRefresh);
-            this.pnlButtons.Controls.Add(this.btnClose);
+            this.pnlButtons.ColumnCount = 10;
+            this.pnlButtons.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 102F));
+            this.pnlButtons.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 102F));
+            this.pnlButtons.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 118F));
+            this.pnlButtons.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 102F));
+            this.pnlButtons.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 102F));
+            this.pnlButtons.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 122F));
+            this.pnlButtons.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 132F));
+            this.pnlButtons.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.pnlButtons.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 102F));
+            this.pnlButtons.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 90F));
+            this.pnlButtons.Controls.Add(this.btnReload, 0, 0);
+            this.pnlButtons.Controls.Add(this.btnSave, 1, 0);
+            this.pnlButtons.Controls.Add(this.btnApply, 2, 0);
+            this.pnlButtons.Controls.Add(this.btnValidate, 3, 0);
+            this.pnlButtons.Controls.Add(this.btnHelp, 4, 0);
+            this.pnlButtons.Controls.Add(this.btnMoveSelected, 5, 0);
+            this.pnlButtons.Controls.Add(this.btnMoveHeadSub, 6, 0);
+            this.pnlButtons.Controls.Add(this.btnStop, 8, 0);
+            this.pnlButtons.Controls.Add(this.btnClose, 9, 0);
+            this.pnlButtons.Controls.Add(this.btnHomeSelected, 0, 1);
+            this.pnlButtons.SetColumnSpan(this.btnHomeSelected, 2);
+            this.pnlButtons.Controls.Add(this.btnHomeAll, 2, 1);
+            this.pnlButtons.Controls.Add(this.btnRefresh, 3, 1);
             this.pnlButtons.Dock = System.Windows.Forms.DockStyle.Fill;
             this.pnlButtons.Location = new System.Drawing.Point(3, 480);
             this.pnlButtons.Name = "pnlButtons";
             this.pnlButtons.Padding = new System.Windows.Forms.Padding(0, 8, 0, 0);
+            this.pnlButtons.RowCount = 2;
+            this.pnlButtons.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 38F));
+            this.pnlButtons.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 38F));
             this.pnlButtons.Size = new System.Drawing.Size(1154, 82);
             this.pnlButtons.TabIndex = 3;
             // 
             // buttons
             // 
+            this.btnReload.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnReload.Location = new System.Drawing.Point(3, 11);
             this.btnReload.Name = "btnReload";
             this.btnReload.Size = new System.Drawing.Size(96, 32);
@@ -435,6 +570,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.btnReload.Text = "Reload";
             this.btnReload.UseVisualStyleBackColor = true;
             this.btnReload.Click += new System.EventHandler(this.btnReload_Click);
+            this.btnSave.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnSave.Location = new System.Drawing.Point(105, 11);
             this.btnSave.Name = "btnSave";
             this.btnSave.Size = new System.Drawing.Size(96, 32);
@@ -442,6 +578,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.btnSave.Text = "Save";
             this.btnSave.UseVisualStyleBackColor = true;
             this.btnSave.Click += new System.EventHandler(this.btnSave_Click);
+            this.btnApply.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnApply.Location = new System.Drawing.Point(207, 11);
             this.btnApply.Name = "btnApply";
             this.btnApply.Size = new System.Drawing.Size(112, 32);
@@ -449,6 +586,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.btnApply.Text = "Save + Apply";
             this.btnApply.UseVisualStyleBackColor = true;
             this.btnApply.Click += new System.EventHandler(this.btnApply_Click);
+            this.btnValidate.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnValidate.Location = new System.Drawing.Point(325, 11);
             this.btnValidate.Name = "btnValidate";
             this.btnValidate.Size = new System.Drawing.Size(96, 32);
@@ -456,6 +594,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.btnValidate.Text = "Validate";
             this.btnValidate.UseVisualStyleBackColor = true;
             this.btnValidate.Click += new System.EventHandler(this.btnValidate_Click);
+            this.btnHelp.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnHelp.Location = new System.Drawing.Point(427, 11);
             this.btnHelp.Name = "btnHelp";
             this.btnHelp.Size = new System.Drawing.Size(96, 32);
@@ -463,6 +602,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.btnHelp.Text = "설명";
             this.btnHelp.UseVisualStyleBackColor = true;
             this.btnHelp.Click += new System.EventHandler(this.btnHelp_Click);
+            this.btnMoveSelected.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnMoveSelected.Location = new System.Drawing.Point(529, 11);
             this.btnMoveSelected.Name = "btnMoveSelected";
             this.btnMoveSelected.Size = new System.Drawing.Size(116, 32);
@@ -470,6 +610,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.btnMoveSelected.Text = "Move Selected";
             this.btnMoveSelected.UseVisualStyleBackColor = true;
             this.btnMoveSelected.Click += new System.EventHandler(this.btnMoveSelected_Click);
+            this.btnMoveHeadSub.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnMoveHeadSub.Location = new System.Drawing.Point(651, 11);
             this.btnMoveHeadSub.Name = "btnMoveHeadSub";
             this.btnMoveHeadSub.Size = new System.Drawing.Size(126, 32);
@@ -477,13 +618,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.btnMoveHeadSub.Text = "Move Head/Sub";
             this.btnMoveHeadSub.UseVisualStyleBackColor = true;
             this.btnMoveHeadSub.Click += new System.EventHandler(this.btnMoveHeadSub_Click);
-            this.btnMoveAll.Location = new System.Drawing.Point(783, 11);
-            this.btnMoveAll.Name = "btnMoveAll";
-            this.btnMoveAll.Size = new System.Drawing.Size(94, 32);
-            this.btnMoveAll.TabIndex = 8;
-            this.btnMoveAll.Text = "Move All";
-            this.btnMoveAll.UseVisualStyleBackColor = true;
-            this.btnMoveAll.Click += new System.EventHandler(this.btnMoveAll_Click);
+            this.btnHomeSelected.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnHomeSelected.Location = new System.Drawing.Point(3, 49);
             this.btnHomeSelected.Name = "btnHomeSelected";
             this.btnHomeSelected.Size = new System.Drawing.Size(126, 32);
@@ -491,24 +626,39 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.btnHomeSelected.Text = "Home Selected X";
             this.btnHomeSelected.UseVisualStyleBackColor = true;
             this.btnHomeSelected.Click += new System.EventHandler(this.btnHomeSelected_Click);
-            this.btnHomeAll.Location = new System.Drawing.Point(135, 49);
+            this.btnHomeAll.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnHomeAll.Location = new System.Drawing.Point(207, 49);
             this.btnHomeAll.Name = "btnHomeAll";
             this.btnHomeAll.Size = new System.Drawing.Size(102, 32);
             this.btnHomeAll.TabIndex = 10;
             this.btnHomeAll.Text = "Home All X";
             this.btnHomeAll.UseVisualStyleBackColor = true;
             this.btnHomeAll.Click += new System.EventHandler(this.btnHomeAll_Click);
-            this.btnRefresh.Location = new System.Drawing.Point(243, 49);
+            this.btnRefresh.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnRefresh.Location = new System.Drawing.Point(325, 49);
             this.btnRefresh.Name = "btnRefresh";
             this.btnRefresh.Size = new System.Drawing.Size(84, 32);
             this.btnRefresh.TabIndex = 11;
             this.btnRefresh.Text = "Refresh";
             this.btnRefresh.UseVisualStyleBackColor = true;
             this.btnRefresh.Click += new System.EventHandler(this.btnRefresh_Click);
-            this.btnClose.Location = new System.Drawing.Point(333, 49);
+            this.btnStop.BackColor = System.Drawing.Color.FromArgb(176, 48, 48);
+            this.btnStop.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnStop.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnStop.Font = new System.Drawing.Font("Malgun Gothic", 9F, System.Drawing.FontStyle.Bold);
+            this.btnStop.ForeColor = System.Drawing.Color.White;
+            this.btnStop.Location = new System.Drawing.Point(1067, 11);
+            this.btnStop.Name = "btnStop";
+            this.btnStop.Size = new System.Drawing.Size(96, 32);
+            this.btnStop.TabIndex = 12;
+            this.btnStop.Text = "STOP";
+            this.btnStop.UseVisualStyleBackColor = false;
+            this.btnStop.Click += new System.EventHandler(this.btnStop_Click);
+            this.btnClose.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnClose.Location = new System.Drawing.Point(1169, 11);
             this.btnClose.Name = "btnClose";
             this.btnClose.Size = new System.Drawing.Size(84, 32);
-            this.btnClose.TabIndex = 12;
+            this.btnClose.TabIndex = 13;
             this.btnClose.Text = "Close";
             this.btnClose.UseVisualStyleBackColor = true;
             this.btnClose.Click += new System.EventHandler(this.btnClose_Click);
@@ -550,7 +700,10 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.layoutRoot.ResumeLayout(false);
             this.pnlTop.ResumeLayout(false);
             this.pnlTop.PerformLayout();
+            this._gridGroups.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.grid)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this._testGrid)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this._settingGrid)).EndInit();
             this.pnlButtons.ResumeLayout(false);
             this.ResumeLayout(false);
         }

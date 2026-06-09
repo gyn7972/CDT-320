@@ -315,6 +315,7 @@
     <Compile Include="Sequencing\Common\SequenceSignalBus.cs" />
     <Compile Include="Sequencing\Common\SequenceExecutionState.cs" />
     <Compile Include="Sequencing\Common\SequenceResumeStore.cs" />
+    <Compile Include="Sequencing\Common\SequenceFailureStore.cs" />
     <Compile Include="Sequencing\Common\MachineSequenceContext.cs" />
     <Compile Include="Sequencing\Common\UnitSequenceBase.cs" />
     <Compile Include="Sequencing\Common\AutoSequenceCoordinator.cs" />

@@ -25,6 +25,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         public InputStagePage()
         {
             InitializeComponent();
+            ConfigureInfoLayoutForReadableText();
             CreateSequenceButtons();
             WireEvents();
 
@@ -38,6 +39,13 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
         private void CreateSequenceButtons()
         {
+            if (actionsLayout != null)
+                actionsLayout.WrapContents = false;
+
+            ConfigureActionButtonSize(btnWfAlign, 180, 64);
+            ConfigureActionButtonSize(btnWfBarcode, 180, 64);
+            ConfigureActionButtonSize(btnStop, 140, 64);
+
             if (btnStop != null && actionsLayout.Controls.Contains(btnStop))
                 actionsLayout.Controls.Remove(btnStop);
 
@@ -49,18 +57,29 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             actionsLayout.Controls.Add(btnMoveAvoid);
             if (btnStop != null)
                 actionsLayout.Controls.Add(btnStop);
+            EnsureStopButtonLast();
             AlignStopButton();
+        }
+
+        private static void ConfigureActionButtonSize(ActionButton button, int width, int height)
+        {
+            if (button == null)
+                return;
+
+            button.Width = width;
+            button.Height = height;
+            button.Margin = new Padding(6);
         }
 
         private static ActionButton CreateActionButton(string text)
         {
-            return new ActionButton
+            var button = new ActionButton
             {
                 Text = text,
-                Width = 160,
-                Height = 44,
                 Margin = new Padding(6)
             };
+            ConfigureActionButtonSize(button, 180, 64);
+            return button;
         }
 
         private void WireEvents()
@@ -74,6 +93,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             materialDetailView.CreateDataRequested += MaterialDetailView_CreateDataRequested;
             materialDetailView.ClearDataRequested += MaterialDetailView_ClearDataRequested;
             actionsLayout.Resize += (s, e) => AlignStopButton();
+            actionsLayout.WrapContents = false;
+            EnsureStopButtonLast();
             AlignStopButton();
         }
 
@@ -93,13 +114,15 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 _manualSequenceRunning = true;
                 SetSequenceButtonsEnabled(false);
                 manualScope = host.Controller.EnterManualOperation();
+                SequenceFailureStore.Clear();
                 WriteEvent("INPUT-STAGE-ACTION", actionName + " start");
                 bool ok = await action(host);
                 WriteEvent("INPUT-STAGE-ACTION", actionName + " result=" + ok);
                 if (!ok)
                 {
                     RaiseWarning("INPUT-STAGE-FAIL", actionName + " failed.");
-                    QMC.Common.MessageDialog.Show(this, actionName + " 실패\nAlarm/Event Log를 확인하세요.", "Input Stage", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    string message = SequenceFailureStore.BuildManualFailureMessage(actionName, actionName + " failed. Alarm/Event Log를 확인하세요.");
+                    QMC.Common.MessageDialog.Show(this, message, "Input Stage", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 }
             }
             catch (OperationCanceledException)
@@ -140,7 +163,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             if (btnStop != null)
             {
                 btnStop.Enabled = true;
-                btnStop.BringToFront();
+                EnsureStopButtonLast();
+                AlignStopButton();
             }
         }
 
@@ -169,6 +193,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             if (actionsLayout == null || btnStop == null)
                 return;
 
+            EnsureStopButtonLast();
+
             int usedWidth = actionsLayout.Padding.Left + actionsLayout.Padding.Right;
             foreach (Control control in actionsLayout.Controls)
             {
@@ -180,6 +206,16 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             int stopWidth = btnStop.Width + 6;
             int leftMargin = Math.Max(6, actionsLayout.ClientSize.Width - usedWidth - stopWidth - btnStop.Margin.Right);
             btnStop.Margin = new Padding(leftMargin, 6, 6, 6);
+        }
+
+        private void EnsureStopButtonLast()
+        {
+            if (actionsLayout == null || btnStop == null || !actionsLayout.Controls.Contains(btnStop))
+                return;
+
+            int lastIndex = actionsLayout.Controls.Count - 1;
+            if (actionsLayout.Controls.GetChildIndex(btnStop) != lastIndex)
+                actionsLayout.Controls.SetChildIndex(btnStop, lastIndex);
         }
 
         private async Task<bool> RunPrepareLoadAsync(Form1 host)
@@ -235,9 +271,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 if (stage == null)
                     return;
 
-                WaferMaterial currentWafer = stage.CurrentWaferMaterial ?? MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
-                bool hasWafer = stage.CurrentWaferMap != null ||
-                                (currentWafer != null && WaferMaterialStateText.Normalize(currentWafer.State) != WaferMaterialState.Empty);
+                WaferMaterial currentWafer = stage.GetCurrentStageWaferMaterial();
+                bool hasWafer = stage.HasWaferOnStage();
 
                 lblStageExistValue.Text = hasWafer ? "WAFER" : "EMPTY";
                 lblStageAlignValue.Text = stage.PitchX != 0.0 || stage.PitchY != 0.0 ? "COMPLETE" : "INCOMPLETE";
@@ -253,7 +288,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 label4.Text = AxisUnitConverter.FormatDisplay(stage.EjectPinZ.ActualPosition, stage.EjectPinZ, "0.###", true);
                 lblExpendingValue.Text = AxisUnitConverter.FormatDisplay(stage.ExpanderZ.ActualPosition, stage.ExpanderZ, "0.###", true);
                 lblNeedleUpDownValue.Text = stage.NeedleZ.IsMoving ? "MOVING" : "STOP";
-                dotNeedleVacuum.IsOn = stage.NeedleVacuum.IsOn;
+                dotNeedleVacuum.IsOn = stage.IsInputStageSimulationOrDryRun() ? hasWafer : stage.NeedleVacuum.IsOn;
                 RefreshMaterialDetail(false);
             }
             catch (Exception ex)
@@ -293,10 +328,96 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         {
             var host = GetHost();
             var stage = host != null && host.Machine != null ? host.Machine.InputStageUnit : null;
-            if (stage != null && stage.CurrentWaferMaterial != null)
-                return stage.CurrentWaferMaterial;
+            if (stage != null)
+                return stage.GetCurrentStageWaferMaterial();
 
             return MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
+        }
+
+        private void ConfigureInfoLayoutForReadableText()
+        {
+            try
+            {
+                ConfigureAxisPanel(stageAxisYPanel, lblStageAxisYTitle, lblStageAxisYValue);
+                ConfigureAxisPanel(stageAxisTPanel, lblStageAxisTTitle, lblStageAxisTValue);
+                ConfigureAxisPanel(tableLayoutPanel1, lblStageAxisZTitle, lblStageAxisZValue);
+                ConfigureAxisPanel(stageAxisXPanel, lblStageAxisXTitle, lblVisionAxisXValue);
+                ConfigureAxisPanel(tableLayoutPanel2, label1, label2);
+                ConfigureAxisPanel(needleAxisZPanel, lblNeedleAxisZTitle, lblNeedleAxisZValue);
+                ConfigureAxisPanel(tableLayoutPanel3, label3, label4);
+                ConfigureStatusValueLabels();
+
+                if (infoLayout != null)
+                {
+                    infoLayout.SuspendLayout();
+                    infoLayout.RowStyles.Clear();
+                    infoLayout.RowCount = 8;
+                    for (int i = 0; i < 4; i++)
+                        infoLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 64F));
+                    for (int i = 4; i < 8; i++)
+                        infoLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 25F));
+                    infoLayout.ResumeLayout();
+                }
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        private static void ConfigureAxisPanel(TableLayoutPanel panel, Label title, Label value)
+        {
+            if (panel != null)
+            {
+                panel.RowStyles.Clear();
+                panel.RowCount = 2;
+                panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 26F));
+                panel.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+                panel.MinimumSize = new System.Drawing.Size(0, 56);
+                panel.Margin = new Padding(4, 4, 4, 4);
+            }
+
+            if (title != null)
+            {
+                title.AutoSize = false;
+                title.AutoEllipsis = true;
+                title.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+                title.Padding = new Padding(6, 0, 0, 0);
+                title.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            }
+
+            if (value != null)
+            {
+                value.AutoSize = false;
+                value.AutoEllipsis = true;
+                value.Font = new System.Drawing.Font("Consolas", 9.5F, System.Drawing.FontStyle.Bold);
+                value.Padding = new Padding(0, 0, 6, 0);
+                value.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+            }
+        }
+
+        private void ConfigureStatusValueLabels()
+        {
+            ConfigureCompactValueLabel(lblStageExistValue);
+            ConfigureCompactValueLabel(lblStageAlignValue);
+            ConfigureCompactValueLabel(lblStageBarcodeValue);
+            ConfigureCompactValueLabel(lblStageChipAlignValue);
+            ConfigureCompactValueLabel(lblStageFinishValue);
+            ConfigureCompactValueLabel(lblExpendingValue);
+            ConfigureCompactValueLabel(lblNeedleUpDownValue);
+        }
+
+        private static void ConfigureCompactValueLabel(Label label)
+        {
+            if (label == null)
+                return;
+
+            label.AutoSize = false;
+            label.AutoEllipsis = true;
+            label.Font = new System.Drawing.Font("Consolas", 9F, System.Drawing.FontStyle.Bold);
+            label.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
         }
 
         private static string ResolveStageWaferId(QMC.CDT320.InputStageUnit stage, WaferMaterial currentWafer)

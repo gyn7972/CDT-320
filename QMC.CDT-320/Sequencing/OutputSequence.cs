@@ -76,6 +76,7 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
+                SequenceFailureStore.Record("OutputSequence", Kind.ToString(), "", alarmCode, source, message);
                 Log.Write("Main", "SYSTEM", source, message + " - Failed");
                 AlarmManager.Raise(AlarmSeverity.Warning, alarmCode, source, message);
                 Context.LogPublic("[UNIT-OUTPUT] FAIL " + alarmCode + " - " + message);

@@ -857,6 +857,56 @@ namespace QMC.CDT320
             CurrentWaferMaterial = wafer;
         }
 
+        public WaferMaterial GetCurrentStageWaferMaterial()
+        {
+            try
+            {
+                return CurrentWaferMaterial ?? MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
+            }
+            catch
+            {
+                return CurrentWaferMaterial;
+            }
+            finally
+            {
+            }
+        }
+
+        public bool HasWaferOnStage()
+        {
+            try
+            {
+                WaferMaterial wafer = GetCurrentStageWaferMaterial();
+                return wafer != null &&
+                       !string.IsNullOrWhiteSpace(wafer.WaferId) &&
+                       WaferMaterialStateText.Normalize(wafer.State) != WaferMaterialState.Empty;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        public bool IsInputStageSimulationOrDryRun()
+        {
+            try
+            {
+                bool setupSimulation = Setup != null && Setup.IsSimulationMode;
+                bool configDryRun = Config != null && Config.bDryRun;
+                return setupSimulation || configDryRun;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
         public WaferMaterial TakeCurrentWaferMaterial()
         {
             WaferMaterial wafer = CurrentWaferMaterial;

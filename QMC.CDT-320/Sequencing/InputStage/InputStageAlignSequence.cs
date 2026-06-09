@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using QMC.CDT320.Materials;
+using QMC.CDT320.Motion.SharedRailX;
 
 namespace QMC.CDT320.Sequencing
 {
@@ -582,6 +583,11 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 ct.ThrowIfCancellationRequested();
+                string guardReason;
+                if (!VerifySharedRailAxisMove(axis, target, out guardReason))
+                    return Fail("IN-STAGE-ALIGN-SHARED-RAIL", Stage.Name,
+                        description + " shared rail check failed. axis=" + axis + ", target=" + target + ". " + guardReason);
+
                 int result = await AwaitStepWithCancellationAsync(Stage.MoveInputStageAxis(axis, target, Options.FineMove), ct).ConfigureAwait(false);
                 if (result != 0)
                     return Fail("IN-STAGE-ALIGN-MOVE", Stage.Name, description + " move command failed. axis=" + axis + ", target=" + target + ", result=" + result);
@@ -596,6 +602,34 @@ namespace QMC.CDT320.Sequencing
             catch (Exception ex)
             {
                 return Fail("IN-STAGE-ALIGN-MOVE-EX", Stage.Name, description + " move command exception: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private bool VerifySharedRailAxisMove(WaferStageAxis axis, double target, out string reason)
+        {
+            reason = string.Empty;
+            try
+            {
+                QMC.Common.Motion.BaseAxis item = ResolveStageAxis(axis);
+                if (item == null)
+                {
+                    reason = "Axis is not available.";
+                    return false;
+                }
+
+                SharedRailXMotionService service = SharedRailXMotionRuntime.ResolveService(Context.Machine);
+                if (service == null || !service.IsSharedRailAxis(item))
+                    return true;
+
+                return service.VerifySingleAxisMove(item, target, out reason);
+            }
+            catch (Exception ex)
+            {
+                reason = "SharedRailX check exception: " + ex.Message;
+                return false;
             }
             finally
             {

@@ -203,6 +203,7 @@ namespace QMC.CDT320.Motion.SharedRailX
             EnsureRow(document, SharedRailXAxis.FrontPickerX);
             EnsureRow(document, SharedRailXAxis.RearPickerX);
             EnsureRow(document, SharedRailXAxis.OutputVisionX);
+            NormalizeLegacyZeroGeometry(document);
 
             foreach (SharedRailXAxisGeometryRow row in document.Axes)
             {
@@ -212,6 +213,61 @@ namespace QMC.CDT320.Motion.SharedRailX
                     row.PositionScale = 1.0;
                 if (row.TestVelocity <= 0.0)
                     row.TestVelocity = 5.0;
+            }
+        }
+
+        private static void NormalizeLegacyZeroGeometry(SharedRailXConfigDocument document)
+        {
+            if (document == null || document.Axes == null)
+                return;
+
+            SharedRailXConfigDocument defaults = CreateDefaultDocument();
+            double? firstOrigin = null;
+            bool allKnownOriginsEqual = true;
+            bool anyKnownAxis = false;
+            foreach (SharedRailXAxisGeometryRow row in document.Axes)
+            {
+                if (row == null)
+                    continue;
+
+                SharedRailXAxis parsedAxis;
+                if (!Enum.TryParse(row.Axis, true, out parsedAxis))
+                    continue;
+
+                anyKnownAxis = true;
+                if (!firstOrigin.HasValue)
+                    firstOrigin = row.RailOriginOffset;
+                else if (Math.Abs(firstOrigin.Value - row.RailOriginOffset) > 0.000001)
+                {
+                    allKnownOriginsEqual = false;
+                    break;
+                }
+            }
+
+            if (!anyKnownAxis ||
+                !allKnownOriginsEqual ||
+                !firstOrigin.HasValue ||
+                Math.Abs(firstOrigin.Value) > 0.000001)
+            {
+                return;
+            }
+
+            foreach (SharedRailXAxisGeometryRow row in document.Axes)
+            {
+                if (row == null)
+                    continue;
+
+                SharedRailXAxisGeometryRow defaultRow = defaults.Axes.Find(x =>
+                    x != null && string.Equals(x.Axis, row.Axis, StringComparison.OrdinalIgnoreCase));
+                if (defaultRow == null)
+                    continue;
+
+                row.BodyOffsetMin = defaultRow.BodyOffsetMin;
+                row.BodyOffsetMax = defaultRow.BodyOffsetMax;
+                row.RailOriginOffset = defaultRow.RailOriginOffset;
+                row.PositionScale = defaultRow.PositionScale;
+                if (!row.SafetyDistance.HasValue)
+                    row.SafetyDistance = defaultRow.SafetyDistance;
             }
         }
 

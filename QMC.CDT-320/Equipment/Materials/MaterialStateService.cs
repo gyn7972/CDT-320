@@ -102,6 +102,29 @@ namespace QMC.CDT320.Materials
             string cassetteLotId,
             double slotPosition = double.NaN)
         {
+            PutWaferInCassette(waferId, cassetteRole, slotNumber, cassetteLotId, slotPosition, false, WaferMaterialState.Ready);
+        }
+
+        public static void PutWaferInCassette(
+            string waferId,
+            CassetteMaterialRole cassetteRole,
+            int slotNumber,
+            string cassetteLotId,
+            double slotPosition,
+            WaferMaterialState state)
+        {
+            PutWaferInCassette(waferId, cassetteRole, slotNumber, cassetteLotId, slotPosition, true, state);
+        }
+
+        private static void PutWaferInCassette(
+            string waferId,
+            CassetteMaterialRole cassetteRole,
+            int slotNumber,
+            string cassetteLotId,
+            double slotPosition,
+            bool updateState,
+            WaferMaterialState state)
+        {
             var cassette = State.Cassettes.FirstOrDefault(c => c.Role == cassetteRole);
             if (cassette == null) return;
             cassette.EnsureSlots();
@@ -116,6 +139,8 @@ namespace QMC.CDT320.Materials
                 cassetteRole,
                 slotNumber);
             ApplyWaferCassettePosition(wafer, slotPosition);
+            if (updateState)
+                wafer.State = WaferMaterialStateText.Normalize(state);
             wafer.UpdatedAt = DateTime.Now;
 
             cassette.CassetteLotId = cassetteLotId ?? cassette.CassetteLotId;

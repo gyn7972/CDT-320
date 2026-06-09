@@ -93,13 +93,15 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 _manualSequenceRunning = true;
                 SetSequenceButtonsEnabled(false);
                 manualScope = host.Controller.EnterManualOperation();
+                SequenceFailureStore.Clear();
                 WriteEvent("INPUT-FEEDER-ACTION", actionName + " start");
                 bool ok = await action(host);
                 WriteEvent("INPUT-FEEDER-ACTION", actionName + " result=" + ok);
                 if (!ok)
                 {
                     RaiseWarning("INPUT-FEEDER-FAIL", actionName + " failed.");
-                    QMC.Common.MessageDialog.Show(this, actionName + " 실패\nAlarm/Event Log를 확인하세요.", "Input Feeder", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    string message = SequenceFailureStore.BuildManualFailureMessage(actionName, actionName + " failed. Alarm/Event Log를 확인하세요.");
+                    QMC.Common.MessageDialog.Show(this, message, "Input Feeder", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 }
             }
             catch (OperationCanceledException)
@@ -213,7 +215,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
         private async Task<bool> RunUnloadToCassetteAsync(Form1 host)
         {
-            return await CreateSequence(host).RunUnloadToCassetteAsync(host.Controller.ManualOperationToken, BuildOptions(host)) == 0;
+            return await CreateSequence(host).RunUnloadToCassetteAsync(host.Controller.ManualOperationToken, BuildUnloadToCassetteOptions(host)) == 0;
         }
 
         private async Task<bool> RunRecoverAsync(Form1 host)
@@ -237,6 +239,21 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             options.WaferSize = ResolveInputWaferSize(host);
             options.MoveTimeoutMs = ResolveMoveTimeoutMs(host);
             options.FineMove = false;
+            return options;
+        }
+
+        private InputFeederSequenceOptions BuildUnloadToCassetteOptions(Form1 host)
+        {
+            var options = BuildOptions(host);
+            WaferMaterial wafer = ResolveFeederWaferMaterial();
+            if (wafer != null &&
+                wafer.SourceCassetteRole == options.CassetteRole &&
+                wafer.SourceSlotNumber >= 0)
+            {
+                options.SlotIndex = wafer.SourceSlotNumber;
+                options.NextSlotIndex = options.SlotIndex;
+            }
+
             return options;
         }
 
@@ -279,12 +296,36 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             _lblClampState.ForeColor = loader.FeederClampCyl.IsFwd || loader.FeederClampCyl.IsBwd ? Color.Black : Color.Red;
             _lblUpDownState.Text = loader.FeederUpDownCyl.IsFwd ? "DOWN" : (loader.FeederUpDownCyl.IsBwd ? "UP" : "--");
             _lblUpDownState.ForeColor = Color.Black;
-            _lblExist.Text = loader.WaferClampedSensor.IsOn ? "WAFER" : "--";
+            bool hasFeederWaferData = HasDisplayFeederWafer();
+            bool hasFeederWafer = loader.IsWaferFeederSimulationOrDryRun()
+                ? hasFeederWaferData
+                : loader.HasWaferOnFeeder();
+            _lblExist.Text = hasFeederWafer ? "WAFER" : "--";
 
-            _markRing.BackColor = loader.WaferFeederRingCheckSensor.IsOn ? Color.LimeGreen : Color.Black;
-            _markOverload.BackColor = loader.WaferFeederOverloadSensor.IsOn ? Color.Red : Color.Black;
+            _markRing.BackColor = loader.IsWaferFeederSimulationOrDryRun()
+                ? (hasFeederWaferData ? Color.LimeGreen : Color.Black)
+                : (loader.WaferFeederRingCheckSensor.IsOn ? Color.LimeGreen : Color.Black);
+            _markOverload.BackColor = loader.IsWaferFeederOverload() ? Color.Red : Color.Black;
 
             RefreshMaterialDetail(false);
+        }
+
+        private bool HasDisplayFeederWafer()
+        {
+            try
+            {
+                WaferMaterial wafer = ResolveFeederWaferMaterial();
+                return wafer != null &&
+                       !string.IsNullOrWhiteSpace(wafer.WaferId) &&
+                       WaferMaterialStateText.Normalize(wafer.State) != WaferMaterialState.Empty;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
         }
 
         private void RefreshMaterialDetail(bool force)
