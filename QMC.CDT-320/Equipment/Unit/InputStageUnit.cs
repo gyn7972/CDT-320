@@ -196,6 +196,21 @@ namespace QMC.CDT320
         /// </summary>
         public BaseDigitalOutput NeedleVacuum { get; private set; }
 
+        /// <summary>니들 블로우 DO. 흡착 해제 시 에어를 분사하여 다이/테이프 분리를 돕는다.</summary>
+        public BaseDigitalOutput NeedleBlow { get; private set; }
+
+        /// <summary>이오나이저 On DO. 정전기 제거를 위해 사용한다.</summary>
+        public BaseDigitalOutput Ionizer { get; private set; }
+
+        /// <summary>8인치 웨이퍼 링 감지 DI.</summary>
+        public BaseDigitalInput WaferStage8RingCheckSensor { get; private set; }
+
+        /// <summary>12인치 웨이퍼 링 감지 DI.</summary>
+        public BaseDigitalInput WaferStage12RingCheckSensor { get; private set; }
+
+        /// <summary>웨이퍼 스테이지 터치 센서 DI.</summary>
+        public BaseDigitalInput WaferStageTouchSensor { get; private set; }
+
 
         // InputLoadSequence으로 옮겨야함.
         // ──────────────────────────────────────────────────────────────────────
@@ -283,6 +298,13 @@ namespace QMC.CDT320
             
             // ── Digital Output ─────────────────────────────────────────────
             NeedleVacuum = AjinFactory.CreateDigitalOutput(AjinIoCatalog.Outputs.NeedleVacuum);
+            NeedleBlow = AjinFactory.CreateDigitalOutput(AjinIoCatalog.Outputs.NeedleBlow);
+            Ionizer = AjinFactory.CreateDigitalOutput(AjinIoCatalog.Outputs.IonizerOn);
+
+            // ── Digital Input ──────────────────────────────────────────────
+            WaferStage8RingCheckSensor = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.WaferFeeder8RingCheck);
+            WaferStage12RingCheckSensor = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.WaferFeeder12RingCheck);
+            WaferStageTouchSensor = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.WaferStageTouchSensor);
 
             // ── Composite 트리 등록 ────────────────────────────────────────
             Components.Add(StageY);
@@ -293,6 +315,11 @@ namespace QMC.CDT320
             Components.Add(NeedleZ);
             Components.Add(EjectPinZ);
             Components.Add(NeedleVacuum);
+            Components.Add(NeedleBlow);
+            Components.Add(Ionizer);
+            Components.Add(WaferStage8RingCheckSensor);
+            Components.Add(WaferStage12RingCheckSensor);
+            Components.Add(WaferStageTouchSensor);
         }
 
         // ──────────────────────────────────────────────────────────────────────

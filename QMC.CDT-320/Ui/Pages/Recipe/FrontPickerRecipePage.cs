@@ -1,4 +1,4 @@
-using QMC.CDT_320.Ui.Controls;
+﻿using QMC.CDT_320.Ui.Controls;
 using QMC.CDT_320.Ui.Localization;
 using QMC.CDT320;
 using QMC.Common.IO;
@@ -103,18 +103,29 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
         private void BindActions()
         {
-            manualPanel.Controls.Clear();
-            AddActionButton("AVOID MOVE", delegate { return unit.MoveToPickerAvoidPosition(IsFineMove()); });
-            AddActionButton("LOAD MOVE", delegate { return unit.MoveToPickerLoadPosition(IsFineMove()); });
-            AddActionButton("UNLOAD MOVE", delegate { return unit.MoveToPickerUnloadPosition(IsFineMove()); });
-            AddActionButton("SAFE RETREAT", delegate { return unit.MoveToPickerSafeRetreatPosition(IsFineMove()); });
-
-            for (int pickerNo = 1; pickerNo <= 4; pickerNo++)
+            manualLayout.SuspendLayout();
+            try
             {
-                int captured = pickerNo;
-                AddActionButton("P" + captured + " DIE PICK", delegate { return unit.MoveToPickerDiePickPosition(captured, IsFineMove()); });
-                AddActionButton("P" + captured + " DIE PROCESS", delegate { return unit.MoveToPickerDieProcessPosition(captured, IsFineMove()); });
-                AddActionButton("P" + captured + " DIE PLACE", delegate { return unit.MoveToPickerDiePlacePosition(captured, IsFineMove()); });
+                manualLayout.Controls.Clear();
+                manualLayout.RowStyles.Clear();
+                manualLayout.RowCount = 0;
+
+                AddActionButton("AVOID MOVE", delegate { return unit.MoveToPickerAvoidPosition(IsFineMove()); });
+                AddActionButton("LOAD MOVE", delegate { return unit.MoveToPickerLoadPosition(IsFineMove()); });
+                AddActionButton("UNLOAD MOVE", delegate { return unit.MoveToPickerUnloadPosition(IsFineMove()); });
+                AddActionButton("SAFE RETREAT", delegate { return unit.MoveToPickerSafeRetreatPosition(IsFineMove()); });
+
+                for (int pickerNo = 1; pickerNo <= 4; pickerNo++)
+                {
+                    int captured = pickerNo;
+                    AddActionButton("P" + captured + " DIE PICK", delegate { return unit.MoveToPickerDiePickPosition(captured, IsFineMove()); });
+                    AddActionButton("P" + captured + " DIE PROCESS", delegate { return unit.MoveToPickerDieProcessPosition(captured, IsFineMove()); });
+                    AddActionButton("P" + captured + " DIE PLACE", delegate { return unit.MoveToPickerDiePlacePosition(captured, IsFineMove()); });
+                }
+            }
+            finally
+            {
+                manualLayout.ResumeLayout(true);
             }
         }
 
@@ -122,15 +133,22 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         {
             ActionButton button = new ActionButton();
             button.Text = text;
-            button.Width = 260;
-            button.Height = 34;
-            button.Margin = new Padding(4);
-            button.BackColor = Color.FromArgb(88, 94, 103);
+            button.Dock = DockStyle.Fill;
+            button.Margin = new Padding(2);
+            button.BackColor = Color.FromArgb(128, 128, 128);
             button.ForeColor = Color.White;
-            button.Font = new Font("Malgun Gothic", 8F, FontStyle.Bold);
+            button.Font = new Font("Malgun Gothic", 9F, FontStyle.Bold);
             button.Cursor = Cursors.Hand;
             button.Click += async delegate { await ConfirmMoveAsync(text, command); };
-            manualPanel.Controls.Add(button);
+
+            int index = manualLayout.Controls.Count;
+            int column = index % manualLayout.ColumnCount;
+            int targetRow = index / manualLayout.ColumnCount;
+            while (manualLayout.RowStyles.Count <= targetRow)
+                manualLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 45F));
+
+            manualLayout.Controls.Add(button, column, targetRow);
+            manualLayout.RowCount = targetRow + 1;
         }
 
         private void BindParameterGrids()
@@ -142,24 +160,33 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             positionItems.Clear();
 
             List<ParameterGridItem> optionItems = new List<ParameterGridItem>();
-            AddAxisPositionItems(optionItems, PickerAxis.PickerX, "PICKER X", "um");
-            AddAxisPositionItems(optionItems, PickerAxis.PickerY, "PICKER Y", "um");
-            AddAxisPositionItems(optionItems, PickerAxis.PickerT0, "PICKER T", "deg");
-            AddAxisPositionItems(optionItems, PickerAxis.PickerZ0, "PICKER Z", "um");
+
+            // ===== RECIPE (teaching positions) =====
+            AddPositionItem(optionItems, PickerAxis.PickerX, "PICKER X", "INPUT AVOID POSITION", "InputAvoidPosition", "um");
+            AddPositionItem(optionItems, PickerAxis.PickerX, "PICKER X", "OUTPUT AVOID POSITION", "OutputAvoidPosition", "um");
+            AddDieArrayItems(optionItems, PickerAxis.PickerX, "PICKER X", "um");
+
+            AddPositionItem(optionItems, PickerAxis.PickerY, "PICKER Y", "AVOID POSITION", "AvoidPosition", "um");
+            AddDieArrayItems(optionItems, PickerAxis.PickerY, "PICKER Y", "um");
+
+            AddBaseFiveItems(optionItems, PickerAxis.PickerT0, "PICKER T1", "deg");
+            AddBaseFiveItems(optionItems, PickerAxis.PickerZ0, "PICKER Z1", "um");
+            AddBaseFiveItems(optionItems, PickerAxis.PickerT1, "PICKER T2", "deg");
+            AddBaseFiveItems(optionItems, PickerAxis.PickerZ1, "PICKER Z2", "um");
+            AddBaseFiveItems(optionItems, PickerAxis.PickerT2, "PICKER T3", "deg");
+            AddBaseFiveItems(optionItems, PickerAxis.PickerZ2, "PICKER Z3", "um");
+            AddBaseFiveItems(optionItems, PickerAxis.PickerT3, "PICKER T4", "deg");
+            AddBaseFiveItems(optionItems, PickerAxis.PickerZ3, "PICKER Z4", "um");
+
+            // ===== CONFIG =====
+            optionItems.Add(ParameterGridItem.Bool("DRY RUN", ParameterGridScope.Config, () => unit.Config.bDryRun, v => unit.Config.bDryRun = v));
+            AddPickerConfigItems(optionItems);
+
+            // ===== SETUP =====
             optionItems.Add(ParameterGridItem.Bool("SIMULATION MODE", ParameterGridScope.Setup, () => unit.Setup.IsSimulationMode, v => unit.Setup.IsSimulationMode = v));
             optionItems.Add(ParameterGridItem.Double("INPUT SAFETY OFFSET", "um", ParameterGridScope.Setup, () => unit.Setup.InputSafetyOffset * 1000.0, v => unit.Setup.InputSafetyOffset = v / 1000.0));
             optionItems.Add(ParameterGridItem.Double("OUTPUT SAFETY OFFSET", "um", ParameterGridScope.Setup, () => unit.Setup.OutputSafetyOffset * 1000.0, v => unit.Setup.OutputSafetyOffset = v / 1000.0));
-            optionItems.Add(ParameterGridItem.Double("ARM INPUT X", "um", ParameterGridScope.Setup, () => unit.Setup.ArmInputPositionX * 1000.0, v => unit.Setup.ArmInputPositionX = v / 1000.0));
-            optionItems.Add(ParameterGridItem.Double("ARM INSPECTION X", "um", ParameterGridScope.Setup, () => unit.Setup.ArmInspectionPositionX * 1000.0, v => unit.Setup.ArmInspectionPositionX = v / 1000.0));
-            optionItems.Add(ParameterGridItem.Double("ARM OUTPUT X", "um", ParameterGridScope.Setup, () => unit.Setup.ArmOutputPositionX * 1000.0, v => unit.Setup.ArmOutputPositionX = v / 1000.0));
-            optionItems.Add(ParameterGridItem.Double("ARM Y PICKUP", "um", ParameterGridScope.Setup, () => unit.Setup.ArmYPickupPosition * 1000.0, v => unit.Setup.ArmYPickupPosition = v / 1000.0));
-            optionItems.Add(ParameterGridItem.Double("ARM Y AVOID", "um", ParameterGridScope.Setup, () => unit.Setup.ArmYAvoidPosition * 1000.0, v => unit.Setup.ArmYAvoidPosition = v / 1000.0));
-            optionItems.Add(ParameterGridItem.Double("PICKER PITCH X", "um", ParameterGridScope.Setup, () => unit.Setup.PickerPitchX * 1000.0, v => unit.Setup.PickerPitchX = v / 1000.0));
-            optionItems.Add(ParameterGridItem.Double("SIDE VISION 1 X", "um", ParameterGridScope.Setup, () => unit.Setup.SideVision1X * 1000.0, v => unit.Setup.SideVision1X = v / 1000.0));
-            optionItems.Add(ParameterGridItem.Double("SIDE VISION 1 Y", "um", ParameterGridScope.Setup, () => unit.Setup.SideVision1Y * 1000.0, v => unit.Setup.SideVision1Y = v / 1000.0));
-            optionItems.Add(ParameterGridItem.Double("SIDE VISION Y0", "um", ParameterGridScope.Setup, () => unit.Setup.SideVisionY0 * 1000.0, v => unit.Setup.SideVisionY0 = v / 1000.0));
-            optionItems.Add(ParameterGridItem.Bool("DRY RUN", ParameterGridScope.Config, () => unit.Config.bDryRun, v => unit.Config.bDryRun = v));
-            AddPickerConfigItems(optionItems);
+
             optionParameterGrid.SetItems(optionItems);
 
             waitParameterGrid.SetItems(new[]
@@ -191,23 +218,22 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
         }
 
-        private void AddAxisPositionItems(List<ParameterGridItem> items, PickerAxis axis, string axisName, string displayUnit)
+        private void AddBaseFiveItems(List<ParameterGridItem> items, PickerAxis axis, string axisName, string displayUnit)
         {
-            AddPositionItem(items, axis, axisName, "INPUT AVOID POSITION", "InputAvoidPosition", displayUnit);
-            AddPositionItem(items, axis, axisName, "OUTPUT AVOID POSITION", "OutputAvoidPosition", displayUnit);
             AddPositionItem(items, axis, axisName, "AVOID POSITION", "AvoidPosition", displayUnit);
             AddPositionItem(items, axis, axisName, "PICK POSITION", "PickPosition", displayUnit);
             AddPositionItem(items, axis, axisName, "BOTTOM POSITION", "BottomPosition", displayUnit);
             AddPositionItem(items, axis, axisName, "SIDE POSITION", "SidePosition", displayUnit);
             AddPositionItem(items, axis, axisName, "PLACE POSITION", "PlacePosition", displayUnit);
-            for (int i = 0; i < 4; i++)
-            {
-                string pickerLabel = "P" + (i + 1) + " ";
-                AddPositionItem(items, axis, axisName, pickerLabel + "DIE PICK POSITION", "DiePickPosition[" + i + "]", displayUnit);
-                AddPositionItem(items, axis, axisName, pickerLabel + "DIE BOTTOM POSITION", "DieBottomPosition[" + i + "]", displayUnit);
-                AddPositionItem(items, axis, axisName, pickerLabel + "DIE SIDE POSITION", "DieSidePosition[" + i + "]", displayUnit);
-                AddPositionItem(items, axis, axisName, pickerLabel + "DIE PLACE POSITION", "DiePlacePosition[" + i + "]", displayUnit);
-            }
+        }
+
+        private void AddDieArrayItems(List<ParameterGridItem> items, PickerAxis axis, string axisName, string displayUnit)
+        {
+            string[] keys = { "DiePickPosition", "DieBottomPosition", "DieSidePosition", "DiePlacePosition" };
+            string[] labels = { "DIE PICK POSITION", "DIE BOTTOM POSITION", "DIE SIDE POSITION", "DIE PLACE POSITION" };
+            for (int k = 0; k < keys.Length; k++)
+                for (int i = 0; i < 4; i++)
+                    AddPositionItem(items, axis, axisName, "P" + (i + 1) + " " + labels[k], keys[k] + "[" + i + "]", displayUnit);
         }
 
         private void AddPositionItem(List<ParameterGridItem> items, PickerAxis axis, string axisName, string displaySuffix, string positionName, string displayUnit)
@@ -226,15 +252,28 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 return;
 
             List<IoCylinderItem> items = new List<IoCylinderItem>();
-            items.Add(IoCylinderItem.Input("CDA TANK PRESSURE", () => unit.IsPickerCdaPressureOk()));
-            items.Add(IoCylinderItem.Input("VACUUM TANK PRESSURE", () => unit.IsPickerVacuumPressureOk()));
+
+            // ===== INPUT =====
+            items.Add(IoCylinderItem.Input("FRONT PICKER CDA TANK PRESSURE CHECK", () => unit.IsPickerCdaPressureOk()));
+            items.Add(IoCylinderItem.Input("FRONT PICKER VACUUM TANK PRESSURE CHECK", () => unit.IsPickerVacuumPressureOk()));
             for (int i = 1; i <= 8; i++)
             {
                 int pickerNo = i;
-                items.Add(IoCylinderItem.Input("P" + pickerNo + " FLOW", () => unit.IsPickerFlowDetected(pickerNo)));
-                items.Add(IoCylinderItem.Output("P" + pickerNo + " VACUUM", () => OutputOn(unit.Vacuums, pickerNo), on => { unit.SetPickerVacuum(pickerNo, on); return Task.FromResult(0); }, "ON", "OFF"));
-                items.Add(IoCylinderItem.Output("P" + pickerNo + " BLOW", () => OutputOn(unit.Blows, pickerNo), on => { unit.SetPickerBlow(pickerNo, on); return Task.FromResult(0); }, "ON", "OFF"));
+                items.Add(IoCylinderItem.Input("FRONT PICKER " + (pickerNo - 1) + " FLOW CHECK", () => unit.IsPickerFlowDetected(pickerNo)));
             }
+
+            // ===== OUTPUT =====
+            for (int i = 1; i <= 8; i++)
+            {
+                int pickerNo = i;
+                items.Add(IoCylinderItem.Output("FRONT PICKER " + (pickerNo - 1) + " VACUUM", () => OutputOn(unit.Vacuums, pickerNo), on => { unit.SetPickerVacuum(pickerNo, on); return Task.FromResult(0); }, "ON", "OFF"));
+            }
+            for (int i = 1; i <= 8; i++)
+            {
+                int pickerNo = i;
+                items.Add(IoCylinderItem.Output("FRONT PICKER " + (pickerNo - 1) + " BLOW", () => OutputOn(unit.Blows, pickerNo), on => { unit.SetPickerBlow(pickerNo, on); return Task.FromResult(0); }, "ON", "OFF"));
+            }
+
             ioCylinderPanel.SetItems(items);
         }
 
@@ -244,22 +283,21 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 return;
 
             List<JogAxisItem> items = new List<JogAxisItem>();
-            AddJogItem(items, "PICKER X", PickerAxis.PickerX, "X+", "X-", JogAxisControlKind.Horizontal);
+            AddJogItem(items, "PICKER X", PickerAxis.PickerX, "X+", "X-", JogAxisControlKind.Vertical);
             AddJogItem(items, "PICKER Y", PickerAxis.PickerY, "Y+", "Y-", JogAxisControlKind.Vertical);
-            AddJogItem(items, "PICKER T0", PickerAxis.PickerT0, "T+", "T-", JogAxisControlKind.Horizontal);
+            AddJogItem(items, "PICKER T0", PickerAxis.PickerT0, "T+", "T-", JogAxisControlKind.Vertical);
             AddJogItem(items, "PICKER Z0", PickerAxis.PickerZ0, "Z+", "Z-", JogAxisControlKind.Vertical);
-            AddJogItem(items, "PICKER T1", PickerAxis.PickerT1, "T+", "T-", JogAxisControlKind.Horizontal);
+            AddJogItem(items, "PICKER T1", PickerAxis.PickerT1, "T+", "T-", JogAxisControlKind.Vertical);
             AddJogItem(items, "PICKER Z1", PickerAxis.PickerZ1, "Z+", "Z-", JogAxisControlKind.Vertical);
-            AddJogItem(items, "PICKER T2", PickerAxis.PickerT2, "T+", "T-", JogAxisControlKind.Horizontal);
+            AddJogItem(items, "PICKER T2", PickerAxis.PickerT2, "T+", "T-", JogAxisControlKind.Vertical);
             AddJogItem(items, "PICKER Z2", PickerAxis.PickerZ2, "Z+", "Z-", JogAxisControlKind.Vertical);
-            AddJogItem(items, "PICKER T3", PickerAxis.PickerT3, "T+", "T-", JogAxisControlKind.Horizontal);
+            AddJogItem(items, "PICKER T3", PickerAxis.PickerT3, "T+", "T-", JogAxisControlKind.Vertical);
             AddJogItem(items, "PICKER Z3", PickerAxis.PickerZ3, "Z+", "Z-", JogAxisControlKind.Vertical);
             jogAxisMoveControl.SpeedControl = jogSpeedControl;
-            jogAxisMoveControl.LayoutMode = JogAxisMoveLayoutMode.AxisColumns;
-            jogAxisMoveControl.AxisColumnsPerRow = 2;
+            jogAxisMoveControl.LayoutMode = JogAxisMoveLayoutMode.PickerTabbed;
             jogAxisMoveControl.ShowCurrentSpeedMode = true;
-            jogAxisMoveControl.ButtonAreaMinHeight = 180;
-            jogAxisMoveControl.ButtonAreaMaxHeight = 260;
+            jogAxisMoveControl.ButtonAreaMinHeight = 360;
+            jogAxisMoveControl.ButtonAreaMaxHeight = 700;
             jogAxisMoveControl.SetItems(items);
             jogPositionListControl.SetItems(items);
         }
@@ -405,8 +443,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
         private void RefreshVisionView()
         {
-            lblVisionInfo.Text =
-                "VISION VIEW" + Environment.NewLine +
+            string body =
                 "FRONT PICKER" + Environment.NewLine +
                 "X : " + AxisText(GetAxis(PickerAxis.PickerX), false) + Environment.NewLine +
                 "Y : " + AxisText(GetAxis(PickerAxis.PickerY), false) + Environment.NewLine +
@@ -414,6 +451,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 "Z0: " + AxisText(GetAxis(PickerAxis.PickerZ0), false) + Environment.NewLine +
                 "CDA: " + OnOff(unit.IsPickerCdaPressureOk()) + Environment.NewLine +
                 "VAC: " + OnOff(unit.IsPickerVacuumPressureOk());
+
+            lblVisionInfo.Text = "BOTTOM VISION" + Environment.NewLine + body;
+            lblVisionInfo2.Text = "SIDE VISION 1" + Environment.NewLine + body;
+            lblVisionInfo3.Text = "SIDE VISION 2" + Environment.NewLine + body;
         }
 
         private void SetPosition(PickerAxis axis, string positionName, double value)
@@ -439,7 +480,13 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         {
             if (axis == PickerAxis.PickerX) return unit.Recipe.PickerX;
             if (axis == PickerAxis.PickerY) return unit.Recipe.PickerY;
-            if (IsTheta(axis)) return unit.Recipe.PickerT0;
+            if (axis == PickerAxis.PickerT0) return unit.Recipe.PickerT0;
+            if (axis == PickerAxis.PickerT1) return unit.Recipe.PickerT1;
+            if (axis == PickerAxis.PickerT2) return unit.Recipe.PickerT2;
+            if (axis == PickerAxis.PickerT3) return unit.Recipe.PickerT3;
+            if (axis == PickerAxis.PickerZ1) return unit.Recipe.PickerZ1;
+            if (axis == PickerAxis.PickerZ2) return unit.Recipe.PickerZ2;
+            if (axis == PickerAxis.PickerZ3) return unit.Recipe.PickerZ3;
             return unit.Recipe.PickerZ0;
         }
 

@@ -752,14 +752,14 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 optionParameterGrid.SetItems(new[]
                 {
                     ParameterGridItem.Micron("READY POSITION", ParameterGridScope.Recipe, () => _OutCassetteUnit.Recipe.AvoidPosition, v => _OutCassetteUnit.Recipe.AvoidPosition = v),
-                    ParameterGridItem.Micron("GOOD LOADING Z", ParameterGridScope.Recipe, () => _OutCassetteUnit.Recipe.GoodLoaingPosition, v => _OutCassetteUnit.Recipe.GoodLoaingPosition = v),
-                    ParameterGridItem.Micron("GOOD UNLOADING Z", ParameterGridScope.Recipe, () => _OutCassetteUnit.Recipe.GoodUnloadingPosition, v => _OutCassetteUnit.Recipe.GoodUnloadingPosition = v),
-                    ParameterGridItem.Micron("GOOD FIRST SLOT", ParameterGridScope.Recipe, () => _OutCassetteUnit.Recipe.GoodFirstSlotPosition, v => _OutCassetteUnit.Recipe.GoodFirstSlotPosition = v),
-                    ParameterGridItem.Micron("NG LOADING Z", ParameterGridScope.Recipe, () => _OutCassetteUnit.Recipe.NGLoaingPosition, v => _OutCassetteUnit.Recipe.NGLoaingPosition = v),
-                    ParameterGridItem.Micron("NG UNLOADING Z", ParameterGridScope.Recipe, () => _OutCassetteUnit.Recipe.NGUnloadingPosition, v => _OutCassetteUnit.Recipe.NGUnloadingPosition = v),
-                    ParameterGridItem.Micron("NG FIRST SLOT", ParameterGridScope.Recipe, () => _OutCassetteUnit.Recipe.NGFirstSlotPosition, v => _OutCassetteUnit.Recipe.NGFirstSlotPosition = v),
-                    ParameterGridItem.Micron("MAPPING START Z", ParameterGridScope.Recipe, () => _OutCassetteUnit.Recipe.MappingStartPosition, v => _OutCassetteUnit.Recipe.MappingStartPosition = v),
-                    ParameterGridItem.Micron("MAPPING END Z", ParameterGridScope.Recipe, () => _OutCassetteUnit.Recipe.MappingEndPosition, v => _OutCassetteUnit.Recipe.MappingEndPosition = v),
+                    ParameterGridItem.Micron("GOOD LOADING Z POSITON", ParameterGridScope.Recipe, () => _OutCassetteUnit.Recipe.GoodLoaingPosition, v => _OutCassetteUnit.Recipe.GoodLoaingPosition = v),
+                    ParameterGridItem.Micron("GOOD UNLOADING Z POSITON", ParameterGridScope.Recipe, () => _OutCassetteUnit.Recipe.GoodUnloadingPosition, v => _OutCassetteUnit.Recipe.GoodUnloadingPosition = v),
+                    ParameterGridItem.Micron("GOOD FIRST SLOT POSITON", ParameterGridScope.Recipe, () => _OutCassetteUnit.Recipe.GoodFirstSlotPosition, v => _OutCassetteUnit.Recipe.GoodFirstSlotPosition = v),
+                    ParameterGridItem.Micron("NG LOADING Z POSITON", ParameterGridScope.Recipe, () => _OutCassetteUnit.Recipe.NGLoaingPosition, v => _OutCassetteUnit.Recipe.NGLoaingPosition = v),
+                    ParameterGridItem.Micron("NG UNLOADING Z POSITON", ParameterGridScope.Recipe, () => _OutCassetteUnit.Recipe.NGUnloadingPosition, v => _OutCassetteUnit.Recipe.NGUnloadingPosition = v),
+                    ParameterGridItem.Micron("NG FIRST SLOT POSITON", ParameterGridScope.Recipe, () => _OutCassetteUnit.Recipe.NGFirstSlotPosition, v => _OutCassetteUnit.Recipe.NGFirstSlotPosition = v),
+                    ParameterGridItem.Micron("MAPPING START Z POSITON", ParameterGridScope.Recipe, () => _OutCassetteUnit.Recipe.MappingStartPosition, v => _OutCassetteUnit.Recipe.MappingStartPosition = v),
+                    ParameterGridItem.Micron("MAPPING END Z POSITON", ParameterGridScope.Recipe, () => _OutCassetteUnit.Recipe.MappingEndPosition, v => _OutCassetteUnit.Recipe.MappingEndPosition = v),
                     ParameterGridItem.Micron("LOADING OFFSET", ParameterGridScope.Config, () => _OutCassetteUnit.Config.LoadingPositionOffset, v => _OutCassetteUnit.Config.LoadingPositionOffset = v),
                     ParameterGridItem.Micron("UNLOADING OFFSET", ParameterGridScope.Config, () => _OutCassetteUnit.Config.UnloadingPositionOffset, v => _OutCassetteUnit.Config.UnloadingPositionOffset = v),
                     ParameterGridItem.Micron("LEVEL 2 OFFSET", ParameterGridScope.Config, () => _OutCassetteUnit.Config.Level2PositionOffset, v => _OutCassetteUnit.Config.Level2PositionOffset = Math.Max(0.0, v)),
@@ -819,7 +819,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     IoCylinderItem.Input("NG BIN 12 INCH CASSETTE", () => !_OutCassetteUnit.IsGoodBin(12) && _OutCassetteUnit.IsNgBin(12) && !_OutCassetteUnit.IsNgBin(8) && !_OutCassetteUnit.IsGoodBin(8)),
                     IoCylinderItem.Input("BIN RING JUT CHECK", () => _OutCassetteUnit.IsBinProtrusionDetectionSensor()),
                     IoCylinderItem.Input("BIN MAPPING", () => _OutCassetteUnit.IsBinMapping()),
+
+                    // ===== OUTPUT (DO) =====
                     IoCylinderItem.Output("NG BIN CASSETTE LOCK", () => _OutCassetteUnit.NgBinCassetteLockOut != null && _OutCassetteUnit.NgBinCassetteLockOut.IsOn, on => _OutCassetteUnit.SetNgBinCassetteLock(on)),
+                    IoCylinderItem.Output("NG BIN CASSETTE UNLOCK", () => _OutCassetteUnit.NgBinCassetteUnlockOut != null && _OutCassetteUnit.NgBinCassetteUnlockOut.IsOn, on => _OutCassetteUnit.SetNgBinCassetteUnlock(on)),
                 });
             }
             catch (Exception ex)
