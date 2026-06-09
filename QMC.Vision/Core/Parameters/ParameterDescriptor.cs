@@ -17,6 +17,7 @@ namespace QMC.Vision.Core.Parameters
         public string Unit { get; set; }
         public ParameterType Type { get; set; }
         public ParameterLayer Layer { get; set; }   // ← 선언 1회 (UI SCOPE·저장소 라우팅 근거)
+        public ParameterDomain Domain { get; set; } = ParameterDomain.General;   // 그리드 표시 필터(조명 제외)
         public object Default { get; set; }
         public double? Min { get; set; }
         public double? Max { get; set; }

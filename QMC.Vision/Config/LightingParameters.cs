@@ -24,15 +24,18 @@ namespace QMC.Vision.Config
         {
             string t = ParameterTarget;
             string pfx = (_s.ControllerPort ?? "") + "/" + _s.Channel + ".";   // 다채널 구분 키 접두
+            // 조명 디스크립터 = Domain.Lighting → 파라미터 그리드 표시 제외(전용 InspectionLightPanel 담당). 저장/영속은 유지.
             // #7 결선 → Setup
-            yield return ParameterDescriptor.Text(t, pfx + "ControllerPort", "Controller Port", ParameterLayer.Setup, () => _s.ControllerPort, v => _s.ControllerPort = v);
-            yield return ParameterDescriptor.Int(t, pfx + "Channel", "Channel", "", ParameterLayer.Setup, () => _s.Channel, v => _s.Channel = v, min: 0);
+            yield return Light(ParameterDescriptor.Text(t, pfx + "ControllerPort", "Controller Port", ParameterLayer.Setup, () => _s.ControllerPort, v => _s.ControllerPort = v));
+            yield return Light(ParameterDescriptor.Int(t, pfx + "Channel", "Channel", "", ParameterLayer.Setup, () => _s.Channel, v => _s.Channel = v, min: 0));
             // 조명 값 → Recipe
-            yield return ParameterDescriptor.Int(t, pfx + "Level", "Level", "", ParameterLayer.Recipe, () => _s.Level, v => _s.Level = v, min: 0);
-            yield return ParameterDescriptor.Bool(t, pfx + "On", "On", ParameterLayer.Recipe, () => _s.On, v => _s.On = v);
-            yield return ParameterDescriptor.Int(t, pfx + "StrobeTimeUs", "Strobe Time", "us", ParameterLayer.Recipe, () => _s.StrobeTimeUs, v => _s.StrobeTimeUs = v, min: 0);
-            yield return ParameterDescriptor.Int(t, pfx + "StabilizeDelayMs", "Stabilize Delay", "ms", ParameterLayer.Recipe, () => _s.StabilizeDelayMs, v => _s.StabilizeDelayMs = v, min: 0);
-            yield return ParameterDescriptor.Int(t, pfx + "Page", "Page", "", ParameterLayer.Recipe, () => _s.Page, v => _s.Page = v, min: 0);
+            yield return Light(ParameterDescriptor.Int(t, pfx + "Level", "Level", "", ParameterLayer.Recipe, () => _s.Level, v => _s.Level = v, min: 0));
+            yield return Light(ParameterDescriptor.Bool(t, pfx + "On", "On", ParameterLayer.Recipe, () => _s.On, v => _s.On = v));
+            yield return Light(ParameterDescriptor.Int(t, pfx + "StrobeTimeUs", "Strobe Time", "us", ParameterLayer.Recipe, () => _s.StrobeTimeUs, v => _s.StrobeTimeUs = v, min: 0));
+            yield return Light(ParameterDescriptor.Int(t, pfx + "StabilizeDelayMs", "Stabilize Delay", "ms", ParameterLayer.Recipe, () => _s.StabilizeDelayMs, v => _s.StabilizeDelayMs = v, min: 0));
+            yield return Light(ParameterDescriptor.Int(t, pfx + "Page", "Page", "", ParameterLayer.Recipe, () => _s.Page, v => _s.Page = v, min: 0));
         }
+
+        private static ParameterDescriptor Light(ParameterDescriptor d) { d.Domain = ParameterDomain.Lighting; return d; }
     }
 }

@@ -194,6 +194,7 @@ namespace QMC.Vision.Ui.Pages
             if (entry == null || store == null) return;
             _inspParamTarget = entry.Target;
             _inspParamGrid.SetItems(store.GetByTarget(entry.Target)
+                .Where(d => d.Domain != ParameterDomain.Lighting)   // 조명=전용 패널 담당, 그리드 제외
                 .Select(d => ParameterGridItem.FromDescriptor(d, store))
                 .Where(x => x != null));
             SwapEditor(_inspParamHost);

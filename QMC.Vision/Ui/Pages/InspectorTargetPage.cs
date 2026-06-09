@@ -127,6 +127,7 @@ namespace QMC.Vision.Ui.Pages
             var store = ParameterStoreHost.Current;
             if (store != null)
                 _params.SetItems(store.GetByTarget(_inspector.Id)
+                    .Where(d => d.Domain != ParameterDomain.Lighting)   // 조명=전용 패널 담당, 그리드 제외
                     .Select(d => ParameterGridItem.FromDescriptor(d, store))
                     .Where(x => x != null));
             _params.ParameterValueChanged += (s, e) => { RefreshOverlay(); MarkDirty(); };
