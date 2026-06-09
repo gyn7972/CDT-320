@@ -159,16 +159,8 @@ namespace QMC.Vision.Ui.Pages
 
         private void ShowInspectionEditor(string tool)
         {
-            UserControl ed;
-            switch (tool)
-            {
-                case "BottomInspection": ed = new BottomInspectionParameterEditor(); break;
-                case "SideInspection":   ed = new SideInspectionParameterEditor();   break;
-                case "DieGapInspection": ed = new DieGapInspectionParameterEditor(); break;
-                case "Distortion":       ed = new DistortionParameterEditor();       break;
-                case "VisionScale":      ed = new VisionScaleParameterEditor();      break;
-                default: return;
-            }
+            var ed = InspectionEditorFactory.Create(tool);   // P3 — 문자열 switch 폐기(공용 팩토리)
+            if (ed == null) return;
             ed.Dock = DockStyle.Fill;
             SwapEditor(ed);
         }

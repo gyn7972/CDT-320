@@ -89,6 +89,7 @@
     <Compile Include="Core\Parameters\SnapshotFileStore.cs" />
     <Compile Include="Core\Parameters\ParameterStoreHost.cs" />
     <Compile Include="Core\Parameters\ParameterStore.cs" />
+    <Compile Include="Core\Parameters\InspectionParamRegistry.cs" />
     <Compile Include="Cameras\Sim\SimCamera.cs" />
     <Compile Include="Cameras\Hik\HikMvsDll.cs" />
     <Compile Include="Cameras\Hik\HikGigECamera.cs" />
@@ -270,6 +271,7 @@
     <Compile Include="Ui\Pages\SpcChartPage.Designer.cs">
       <DependentUpon>SpcChartPage.cs</DependentUpon>
     </Compile>
+    <Compile Include="Ui\Editors\InspectionEditorFactory.cs" />
     <Compile Include="Ui\Editors\ParameterEditorBase.cs">
       <SubType>UserControl</SubType>
     </Compile>

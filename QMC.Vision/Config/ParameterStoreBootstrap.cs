@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using QMC.Vision.Backends.Cognex;
 using QMC.Vision.Core.Inspectors;
 using QMC.Vision.Core.Parameters;
 using QMC.Vision.Modules;
@@ -29,14 +30,34 @@ namespace QMC.Vision.Config
         {
             var store = new ParameterStore { SetupFilePath = SetupPath };
 
-            // finder/inspector → Snapshot
-            if (modules != null)
-                foreach (var m in modules)
-                {
-                    if (m == null) continue;
-                    foreach (var f in m.Finders.Values) store.Register(f as IParameterProvider, ParameterChannel.Snapshot);
-                    foreach (var i in m.Inspectors.Values) store.Register(i as IParameterProvider, ParameterChannel.Snapshot);
-                }
+            var moduleList = modules != null ? new List<VisionModule>(modules) : new List<VisionModule>();
+
+            // ② 영속 인스턴스 — 레지스트리 단일 소스(G3). 인스펙터 등록 전 생성·주입.
+            BottomParams      = (BottomInspectionParameters)  InspectionParamRegistry.ByTool("BottomInspection").Create();
+            DistortionParams  = (DistortionParameters)        InspectionParamRegistry.ByTool("Distortion").Create();
+            VisionScaleParams = (VisionScaleParameters)       InspectionParamRegistry.ByTool("VisionScale").Create();
+            SideParams        = (SideInspectionParameters)    InspectionParamRegistry.ByTool("SideInspection").Create();
+            DieGapParams      = (DieGapInspectionParameters)  InspectionParamRegistry.ByTool("DieGapInspection").Create();
+
+            // P3 (G2) — Cognex SurfaceInspector 에 Bottom② 주입(소비 단일화). 등록 전 주입 → describe 가 inline Threshold 생략.
+            foreach (var m in moduleList)
+                foreach (var i in m.Inspectors.Values)
+                    if (i is CognexInspector cog && string.Equals(cog.Id, BottomParams.ParameterTarget, StringComparison.OrdinalIgnoreCase))
+                        cog.BottomParams = BottomParams;
+
+            // finder/inspector → Snapshot (주입 후 등록)
+            foreach (var m in moduleList)
+            {
+                foreach (var f in m.Finders.Values) store.Register(f as IParameterProvider, ParameterChannel.Snapshot);
+                foreach (var i in m.Inspectors.Values) store.Register(i as IParameterProvider, ParameterChannel.Snapshot);
+            }
+
+            // ② → Snapshot (인스펙터 다음 — Bottom Threshold 는 inspector 키와 비충돌)
+            store.Register(BottomParams,      ParameterChannel.Snapshot);
+            store.Register(DistortionParams,  ParameterChannel.Snapshot);
+            store.Register(VisionScaleParams, ParameterChannel.Snapshot);
+            store.Register(SideParams,        ParameterChannel.Snapshot);
+            store.Register(DieGapParams,      ParameterChannel.Snapshot);
 
             // VisionSettings → VisionConfig 위임(통째 vision.json)
             store.Register(new VisionSettingsParameters(VisionConfigStore.Current), ParameterChannel.VisionConfig);
@@ -57,18 +78,6 @@ namespace QMC.Vision.Config
                         }
                 }
             store.SetDelegateSave(ParameterChannel.CameraMap, () => AlgorithmCameraMapStore.Save());
-
-            // ② 영속 인스턴스 → Snapshot (P2 한정, orphan)
-            BottomParams      = new BottomInspectionParameters();
-            DistortionParams  = new DistortionParameters();
-            VisionScaleParams = new VisionScaleParameters();
-            SideParams        = new SideInspectionParameters();
-            DieGapParams      = new DieGapInspectionParameters();
-            store.Register(BottomParams,      ParameterChannel.Snapshot);
-            store.Register(DistortionParams,  ParameterChannel.Snapshot);
-            store.Register(VisionScaleParams, ParameterChannel.Snapshot);
-            store.Register(SideParams,        ParameterChannel.Snapshot);
-            store.Register(DieGapParams,      ParameterChannel.Snapshot);
 
             // 로드(신 경로) — 위임 채널은 기존 스토어가 이미 로드
             store.LoadAll();
