@@ -30,7 +30,15 @@ namespace QMC.Common.Motion
     public abstract class BaseAxis
         : BaseComponent<AxisSetup, AxisConfig, AxisRecipe>
     {
+        private static readonly AsyncLocal<int> MotionGuardBypassDepth = new AsyncLocal<int>();
+
         public static AxisMotionGuardHandler MotionGuard { get; set; }
+
+        public static IDisposable BeginMotionGuardBypass()
+        {
+            MotionGuardBypassDepth.Value = MotionGuardBypassDepth.Value + 1;
+            return new MotionGuardBypassScope();
+        }
 
         // ─────────────────────────────────────────────
         //  내부 상태 필드
@@ -530,6 +538,9 @@ namespace QMC.Common.Motion
 
         private bool VerifyMotionGuard(double targetPosition, AxisMotionGuardKind moveKind)
         {
+            if (MotionGuardBypassDepth.Value > 0)
+                return true;
+
             AxisMotionGuardHandler guard = MotionGuard;
             if (guard == null)
                 return true;
@@ -539,6 +550,20 @@ namespace QMC.Common.Motion
             if (!allowed)
                 RecordMotionFailure(-11, moveKind.ToString().ToUpperInvariant(), reason, targetPosition, true);
             return allowed;
+        }
+
+        private sealed class MotionGuardBypassScope : IDisposable
+        {
+            private bool _disposed;
+
+            public void Dispose()
+            {
+                if (_disposed)
+                    return;
+
+                _disposed = true;
+                MotionGuardBypassDepth.Value = Math.Max(0, MotionGuardBypassDepth.Value - 1);
+            }
         }
 
         /// <summary>
@@ -712,14 +737,14 @@ namespace QMC.Common.Motion
             }
 
             // 소프트 리미트 검사
-            if (Setup.SoftLimitEnabled && ActualPosition >= Setup.SoftLimitPlus)
+            if (_currentMode != MotionMode.Homing && Setup.SoftLimitEnabled && ActualPosition >= Setup.SoftLimitPlus)
             {
                 ActualPosition = Setup.SoftLimitPlus;
                 TriggerSoftLimitAlarm(alarmCode: 10);
                 return;
             }
 
-            if (Setup.SoftLimitEnabled && ActualPosition <= Setup.SoftLimitMinus)
+            if (_currentMode != MotionMode.Homing && Setup.SoftLimitEnabled && ActualPosition <= Setup.SoftLimitMinus)
             {
                 ActualPosition = Setup.SoftLimitMinus;
                 TriggerSoftLimitAlarm(alarmCode: 11);
