@@ -201,6 +201,12 @@ namespace QMC.CDT320.Ajin
                     Normalize(Current);
                     EnsureDefaultAxes(Current);
                 }
+
+                EventLogger.Write(EventKind.Event, "QMC", "AJIN-MAP-LOAD",
+                    "Ajin map loaded. path=" + Path_
+                    + ", cylinders=" + (Current.Cylinders != null ? Current.Cylinders.Count : 0)
+                    + ", NGBinGuideLift=" + FormatCylinderMap(Current, "NGBinGuideLift")
+                    + ", GoodBinGuideLift=" + FormatCylinderMap(Current, "GoodBinGuideLift"));
             }
             catch (Exception ex)
             {
@@ -258,6 +264,55 @@ namespace QMC.CDT320.Ajin
             EnsureDefaultAxes(c);
             AjinIoCatalog.ApplyDefaults(c, true);
             return c;
+        }
+
+        private static string FormatCylinderMap(AjinConfig config, string name)
+        {
+            try
+            {
+                if (config == null || config.Cylinders == null || string.IsNullOrWhiteSpace(name))
+                    return "-";
+
+                CylMap map;
+                if (!config.Cylinders.TryGetValue(name, out map) || map == null)
+                    return "-";
+
+                return "FWD=" + FormatDio(map.OutFwd, true)
+                    + ",BWD=" + FormatDio(map.OutBwd, true)
+                    + ",InFwd=" + FormatDio(map.UseFwdInput ? map.InFwd : null, false)
+                    + ",InBwd=" + FormatDio(map.UseBwdInput ? map.InBwd : null, false);
+            }
+            catch
+            {
+                return "-";
+            }
+            finally
+            {
+            }
+        }
+
+        private static string FormatDio(DioMap map, bool output)
+        {
+            try
+            {
+                if (map == null)
+                    return "-";
+
+                string address = !string.IsNullOrWhiteSpace(map.Address)
+                    ? map.Address
+                    : output
+                        ? AjinIoCatalog.OutputAddress(map.Module, map.Bit)
+                        : AjinIoCatalog.InputAddress(map.Module, map.Bit);
+
+                return address + "(M" + map.Module + ",B" + map.Bit + ",No" + map.No + ")";
+            }
+            catch
+            {
+                return "-";
+            }
+            finally
+            {
+            }
         }
 
         private static void Normalize(AjinConfig c)

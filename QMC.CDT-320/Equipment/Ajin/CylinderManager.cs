@@ -28,8 +28,11 @@ namespace QMC.CDT320.Ajin
                     _items[item.Name] = cylinder;
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                EventLogger.Write(EventKind.Alarm, "QMC", "CYL-MAP-INIT",
+                    "Cylinder manager initialize failed: " + ex.Message);
+                throw;
             }
             finally
             {
