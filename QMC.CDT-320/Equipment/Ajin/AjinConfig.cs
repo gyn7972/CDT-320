@@ -214,23 +214,31 @@ namespace QMC.CDT320.Ajin
         {
             try
             {
-                if (Current == null)
-                    Current = Default();
-
-                Normalize(Current);
-                using (var fs = File.Create(Path_))
-                {
-                    var ser = new DataContractJsonSerializer(typeof(AjinConfig), CreateSettings(true));
-                    using (XmlDictionaryWriter writer = JsonReaderWriterFactory.CreateJsonWriter(fs, Encoding.UTF8, true, true, "  "))
-                    {
-                        ser.WriteObject(writer, Current);
-                        writer.Flush();
-                    }
-                }
+                SaveOrThrow();
             }
-            catch { }
+            catch
+            {
+            }
             finally
             {
+            }
+        }
+
+        public static void SaveOrThrow()
+        {
+            if (Current == null)
+                Current = Default();
+
+            Normalize(Current);
+            Directory.CreateDirectory(Dir);
+            using (var fs = File.Create(Path_))
+            {
+                var ser = new DataContractJsonSerializer(typeof(AjinConfig), CreateSettings(true));
+                using (XmlDictionaryWriter writer = JsonReaderWriterFactory.CreateJsonWriter(fs, Encoding.UTF8, true, true, "  "))
+                {
+                    ser.WriteObject(writer, Current);
+                    writer.Flush();
+                }
             }
         }
 

@@ -9,11 +9,11 @@ namespace QMC.CDT320.Sequencing
         Idle,
         CheckLot,
         CheckCassetteDetected,
+        CheckCassetteSize,
         CheckCassetteMaterial,
         CheckMappingStartCondition,
         CheckFeederPosition,
         MoveMappingStartPosition,
-        MoveMappingEndPosition,
         ScanSlots,
         BuildBinInfo,
         MoveFirstEmptySlot,
@@ -43,7 +43,9 @@ namespace QMC.CDT320.Sequencing
                     case OutputCassetteMappingStep.CheckLot:
                         return Task.FromResult(CheckLot(OutputCassetteMappingStep.CheckCassetteDetected));
                     case OutputCassetteMappingStep.CheckCassetteDetected:
-                        return Task.FromResult(CheckCassetteDetected(OutputCassetteMappingStep.CheckCassetteMaterial));
+                        return Task.FromResult(CheckCassetteDetected(OutputCassetteMappingStep.CheckCassetteSize));
+                    case OutputCassetteMappingStep.CheckCassetteSize:
+                        return Task.FromResult(CheckCassetteSize(OutputCassetteMappingStep.CheckCassetteMaterial, false));
                     case OutputCassetteMappingStep.CheckCassetteMaterial:
                         return Task.FromResult(CheckCassetteMaterial(OutputCassetteMappingStep.CheckMappingStartCondition));
                     case OutputCassetteMappingStep.CheckMappingStartCondition:
@@ -51,9 +53,7 @@ namespace QMC.CDT320.Sequencing
                     case OutputCassetteMappingStep.CheckFeederPosition:
                         return Task.FromResult(CheckFeederPosition(OutputCassetteMappingStep.MoveMappingStartPosition));
                     case OutputCassetteMappingStep.MoveMappingStartPosition:
-                        return MoveMappingStartPositionAsync(OutputCassetteMappingStep.MoveMappingEndPosition, ct);
-                    case OutputCassetteMappingStep.MoveMappingEndPosition:
-                        return MoveMappingEndPositionAsync(OutputCassetteMappingStep.ScanSlots, ct);
+                        return MoveMappingStartPositionAsync(OutputCassetteMappingStep.ScanSlots, ct);
                     case OutputCassetteMappingStep.ScanSlots:
                         return ScanSlotsAsync(OutputCassetteMappingStep.BuildBinInfo, ct);
                     case OutputCassetteMappingStep.BuildBinInfo:

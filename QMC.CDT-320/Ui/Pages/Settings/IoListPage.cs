@@ -604,7 +604,10 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             try
             {
                 if (_simColumnIndex < 0) return;
+                if (_grid.IsCurrentCellDirty)
+                    _grid.CommitEdit(DataGridViewDataErrorContexts.Commit);
                 _grid.EndEdit();
+                _grid.CommitEdit(DataGridViewDataErrorContexts.Commit);
 
                 foreach (DataGridViewRow row in _grid.Rows)
                 {
@@ -626,9 +629,16 @@ namespace QMC.CDT_320.Ui.Pages.Settings
 
                 if (IsCylinderPage())
                 {
-                    AjinConfigStore.Save();
+                    AjinConfigStore.SaveOrThrow();
                     CylinderSettingsStore.Save();
                     CylinderManager.ApplyMappings();
+                    RebuildRowIndex();
+                    QMC.Common.MessageDialog.Show(
+                        this,
+                        "Cylinder I/O mapping saved and applied.\r\n" + AjinConfigStore.Path_,
+                        "CYLINDER",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information);
                 }
                 else
                     IoSettingsStore.Save();

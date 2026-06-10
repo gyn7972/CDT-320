@@ -14,7 +14,6 @@ namespace QMC.CDT320.Sequencing
         CheckMappingStartCondition,
         CheckFeederPosition,
         MoveMappingStartPosition,
-        MoveMappingEndPosition,
         ScanSlots,
         BuildWaferInfo,
         MoveFirstWaferSlot,
@@ -54,9 +53,7 @@ namespace QMC.CDT320.Sequencing
                     case InputCassetteMappingStep.CheckFeederPosition:
                         return Task.FromResult(CheckFeederPosition(InputCassetteMappingStep.MoveMappingStartPosition));
                     case InputCassetteMappingStep.MoveMappingStartPosition:
-                        return MoveMappingStartPositionAsync(InputCassetteMappingStep.MoveMappingEndPosition);
-                    case InputCassetteMappingStep.MoveMappingEndPosition:
-                        return MoveMappingEndPositionAsync(InputCassetteMappingStep.ScanSlots);
+                        return MoveMappingStartPositionAsync(InputCassetteMappingStep.ScanSlots);
                     case InputCassetteMappingStep.ScanSlots:
                         return ScanSlotsAsync(InputCassetteMappingStep.BuildWaferInfo);
                     case InputCassetteMappingStep.BuildWaferInfo:
