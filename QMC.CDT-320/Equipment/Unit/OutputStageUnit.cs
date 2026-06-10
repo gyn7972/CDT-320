@@ -404,30 +404,30 @@ namespace QMC.CDT320
             OutputCameraX = AjinFactory.CreateAxis("OutputVisionX");
 
             // Bin Guide/Clamp 센서 (DI)
-            NgBinGuideUpSensor     = RegisterInput("NgBinGuideUp");
-            NgBinGuideDownSensor   = RegisterInput("NgBinGuideDown");
-            NgBinClampUpSensor     = RegisterInput("NgBinClampUp");
-            NgBinUnclampSensor     = RegisterInput("NgBinUnclamp");
+            NgBinGuideUpSensor     = RegisterCylinderInput("NGBinGuideLift", true, "NgBinGuideUp");
+            NgBinGuideDownSensor   = RegisterCylinderInput("NGBinGuideLift", false, "NgBinGuideDown");
+            NgBinClampUpSensor     = RegisterCylinderInput("NGBinGuideClampLift", true, "NgBinClampUp");
+            NgBinUnclampSensor     = RegisterCylinderInput("NGBinGuideClamp", false, "NgBinUnclamp");
             NgBinRingSensor        = RegisterInput("NgBinRing");
-            GoodBinGuideUpSensor   = RegisterInput("GoodBinGuideUp");
-            GoodBinGuideDownSensor = RegisterInput("GoodBinGuideDown");
-            GoodBinClampUpSensor   = RegisterInput("GoodBinClampUp");
-            GoodBinUnclampSensor   = RegisterInput("GoodBinClamp"); // 카탈로그상 GoodBinUnclamp(2,7) → GoodBinClamp 로 명칭 변경됨
+            GoodBinGuideUpSensor   = RegisterCylinderInput("GoodBinGuideLift", true, "GoodBinGuideUp");
+            GoodBinGuideDownSensor = RegisterCylinderInput("GoodBinGuideLift", false, "GoodBinGuideDown");
+            GoodBinClampUpSensor   = RegisterCylinderInput("GoodBinGuideClampLift", true, "GoodBinClampUp");
+            GoodBinUnclampSensor   = RegisterCylinderInput("GoodBinGuideClamp", false, "GoodBinClamp");
             GoodBinRingSensor      = RegisterInput("GoodBinRing");
 
             // Bin Guide/Clamp 출력 (DO)
-            NgBinGuideUpOut     = RegisterOutput("NgBinGuideUp");
-            NgBinGuideDownOut   = RegisterOutput("NgBinGuideDown");
-            NgBinClampUpOut     = RegisterOutput("NgBinClampUp");
-            NgBinClampDownOut   = RegisterOutput("NgBinClampDown");
-            NgBinClampOut       = RegisterOutput("NgBinClamp");
-            NgBinUnclampOut     = RegisterOutput("NgBinUnclamp");
-            GoodBinGuideUpOut   = RegisterOutput("GoodBinGuideUp");
-            GoodBinGuideDownOut = RegisterOutput("GoodBinGuideDown");
-            GoodBinClampUpOut   = RegisterOutput("GoodBinClampUp");
-            GoodBinClampDownOut = RegisterOutput("GoodBinClampDown");
-            GoodBinClampOut     = RegisterOutput("GoodBinClamp");
-            GoodBinUnclampOut   = RegisterOutput("GoodBinUnclamp");
+            NgBinGuideUpOut     = RegisterCylinderOutput("NGBinGuideLift", true, "NgBinGuideUp");
+            NgBinGuideDownOut   = RegisterCylinderOutput("NGBinGuideLift", false, "NgBinGuideDown");
+            NgBinClampUpOut     = RegisterCylinderOutput("NGBinGuideClampLift", true, "NgBinClampUp");
+            NgBinClampDownOut   = RegisterCylinderOutput("NGBinGuideClampLift", false, "NgBinClampDown");
+            NgBinClampOut       = RegisterCylinderOutput("NGBinGuideClamp", true, "NgBinClamp");
+            NgBinUnclampOut     = RegisterCylinderOutput("NGBinGuideClamp", false, "NgBinUnclamp");
+            GoodBinGuideUpOut   = RegisterCylinderOutput("GoodBinGuideLift", true, "GoodBinGuideUp");
+            GoodBinGuideDownOut = RegisterCylinderOutput("GoodBinGuideLift", false, "GoodBinGuideDown");
+            GoodBinClampUpOut   = RegisterCylinderOutput("GoodBinGuideClampLift", true, "GoodBinClampUp");
+            GoodBinClampDownOut = RegisterCylinderOutput("GoodBinGuideClampLift", false, "GoodBinClampDown");
+            GoodBinClampOut     = RegisterCylinderOutput("GoodBinGuideClamp", true, "GoodBinClamp");
+            GoodBinUnclampOut   = RegisterCylinderOutput("GoodBinGuideClamp", false, "GoodBinUnclamp");
             BottomVisionBlowOnOut  = RegisterOutput("BottomVisionBlow");
             BottomVisionBlowOffOut = RegisterOutput("BottomVisionBlowOff");
 
@@ -449,6 +449,145 @@ namespace QMC.CDT320
             BaseDigitalOutput item = AjinFactory.CreateDigitalOutput(AjinIoCatalog.FindOutput(catalogName));
             Components.Add(item);
             return item;
+        }
+
+        public void ApplyCylinderIoMappings()
+        {
+            try
+            {
+                NgBinGuideUpSensor = RebindInput(NgBinGuideUpSensor, RegisterCylinderInput("NGBinGuideLift", true, "NgBinGuideUp"));
+                NgBinGuideDownSensor = RebindInput(NgBinGuideDownSensor, RegisterCylinderInput("NGBinGuideLift", false, "NgBinGuideDown"));
+                NgBinClampUpSensor = RebindInput(NgBinClampUpSensor, RegisterCylinderInput("NGBinGuideClampLift", true, "NgBinClampUp"));
+                NgBinUnclampSensor = RebindInput(NgBinUnclampSensor, RegisterCylinderInput("NGBinGuideClamp", false, "NgBinUnclamp"));
+                GoodBinGuideUpSensor = RebindInput(GoodBinGuideUpSensor, RegisterCylinderInput("GoodBinGuideLift", true, "GoodBinGuideUp"));
+                GoodBinGuideDownSensor = RebindInput(GoodBinGuideDownSensor, RegisterCylinderInput("GoodBinGuideLift", false, "GoodBinGuideDown"));
+                GoodBinClampUpSensor = RebindInput(GoodBinClampUpSensor, RegisterCylinderInput("GoodBinGuideClampLift", true, "GoodBinClampUp"));
+                GoodBinUnclampSensor = RebindInput(GoodBinUnclampSensor, RegisterCylinderInput("GoodBinGuideClamp", false, "GoodBinClamp"));
+
+                NgBinGuideUpOut = RebindOutput(NgBinGuideUpOut, RegisterCylinderOutput("NGBinGuideLift", true, "NgBinGuideUp"));
+                NgBinGuideDownOut = RebindOutput(NgBinGuideDownOut, RegisterCylinderOutput("NGBinGuideLift", false, "NgBinGuideDown"));
+                NgBinClampUpOut = RebindOutput(NgBinClampUpOut, RegisterCylinderOutput("NGBinGuideClampLift", true, "NgBinClampUp"));
+                NgBinClampDownOut = RebindOutput(NgBinClampDownOut, RegisterCylinderOutput("NGBinGuideClampLift", false, "NgBinClampDown"));
+                NgBinClampOut = RebindOutput(NgBinClampOut, RegisterCylinderOutput("NGBinGuideClamp", true, "NgBinClamp"));
+                NgBinUnclampOut = RebindOutput(NgBinUnclampOut, RegisterCylinderOutput("NGBinGuideClamp", false, "NgBinUnclamp"));
+                GoodBinGuideUpOut = RebindOutput(GoodBinGuideUpOut, RegisterCylinderOutput("GoodBinGuideLift", true, "GoodBinGuideUp"));
+                GoodBinGuideDownOut = RebindOutput(GoodBinGuideDownOut, RegisterCylinderOutput("GoodBinGuideLift", false, "GoodBinGuideDown"));
+                GoodBinClampUpOut = RebindOutput(GoodBinClampUpOut, RegisterCylinderOutput("GoodBinGuideClampLift", true, "GoodBinClampUp"));
+                GoodBinClampDownOut = RebindOutput(GoodBinClampDownOut, RegisterCylinderOutput("GoodBinGuideClampLift", false, "GoodBinClampDown"));
+                GoodBinClampOut = RebindOutput(GoodBinClampOut, RegisterCylinderOutput("GoodBinGuideClamp", true, "GoodBinClamp"));
+                GoodBinUnclampOut = RebindOutput(GoodBinUnclampOut, RegisterCylinderOutput("GoodBinGuideClamp", false, "GoodBinUnclamp"));
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "QMC", "OS-CYL-IO",
+                    "OutputStage cylinder I/O mapping apply failed: " + ex.Message);
+                throw;
+            }
+        }
+
+        private BaseDigitalInput RebindInput(BaseDigitalInput target, BaseDigitalInput replacement)
+        {
+            if (replacement == null)
+                return target;
+
+            if (target != null)
+                Components.Remove(target);
+
+            if (!Components.Contains(replacement))
+                Components.Add(replacement);
+
+            return replacement;
+        }
+
+        private BaseDigitalOutput RebindOutput(BaseDigitalOutput target, BaseDigitalOutput replacement)
+        {
+            if (replacement == null)
+                return target;
+
+            if (target != null)
+                Components.Remove(target);
+
+            if (!Components.Contains(replacement))
+                Components.Add(replacement);
+
+            return replacement;
+        }
+
+        private BaseDigitalInput RegisterCylinderInput(string cylinderName, bool fwd, string fallbackCatalogName)
+        {
+            DioMap map = ResolveCylinderInputMap(cylinderName, fwd);
+            BaseDigitalInput item = map != null
+                ? AjinFactory.CreateSharedDigitalInput(cylinderName + (fwd ? "_InFwd" : "_InBwd"), map, !AjinFactory.IsRealBoardReady)
+                : AjinFactory.CreateDigitalInput(AjinIoCatalog.FindInput(fallbackCatalogName));
+            Components.Add(item);
+            LogCylinderIoBinding(cylinderName, fwd ? "InFwd" : "InBwd", map, false, fallbackCatalogName);
+            return item;
+        }
+
+        private BaseDigitalOutput RegisterCylinderOutput(string cylinderName, bool fwd, string fallbackCatalogName)
+        {
+            DioMap map = ResolveCylinderOutputMap(cylinderName, fwd);
+            BaseDigitalOutput item = map != null
+                ? AjinFactory.CreateSharedDigitalOutput(cylinderName + (fwd ? "_OutFwd" : "_OutBwd"), map, !AjinFactory.IsRealBoardReady)
+                : AjinFactory.CreateDigitalOutput(AjinIoCatalog.FindOutput(fallbackCatalogName));
+            Components.Add(item);
+            LogCylinderIoBinding(cylinderName, fwd ? "OutFwd" : "OutBwd", map, true, fallbackCatalogName);
+            return item;
+        }
+
+        private static DioMap ResolveCylinderInputMap(string cylinderName, bool fwd)
+        {
+            CylMap map;
+            if (AjinConfigStore.Current.Cylinders.TryGetValue(cylinderName, out map) && map != null)
+                return fwd
+                    ? map.UseFwdInput ? map.InFwd : null
+                    : map.UseBwdInput ? map.InBwd : null;
+
+            CylinderDefault fallback = AjinIoCatalog.FindCylinder(cylinderName);
+            DioDefault item = fallback == null ? null : fwd ? fallback.InFwd : fallback.InBwd;
+            return ToDioMap(item);
+        }
+
+        private static DioMap ResolveCylinderOutputMap(string cylinderName, bool fwd)
+        {
+            CylMap map;
+            if (AjinConfigStore.Current.Cylinders.TryGetValue(cylinderName, out map) && map != null)
+                return fwd ? map.OutFwd : map.OutBwd;
+
+            CylinderDefault fallback = AjinIoCatalog.FindCylinder(cylinderName);
+            DioDefault item = fallback == null ? null : fwd ? fallback.OutFwd : fallback.OutBwd;
+            return ToDioMap(item);
+        }
+
+        private static DioMap ToDioMap(DioDefault item)
+        {
+            if (item == null)
+                return null;
+
+            return new DioMap
+            {
+                No = item.No,
+                Address = item.Address,
+                Module = item.Module,
+                Bit = item.Bit,
+                Nc = item.Nc
+            };
+        }
+
+        private static void LogCylinderIoBinding(
+            string cylinderName,
+            string direction,
+            DioMap map,
+            bool output,
+            string fallbackCatalogName)
+        {
+            string address = map == null
+                ? "fallback:" + fallbackCatalogName
+                : output
+                    ? AjinIoCatalog.OutputAddress(map.Module, map.Bit)
+                    : AjinIoCatalog.InputAddress(map.Module, map.Bit);
+            EventLogger.Write(EventKind.Event, "QMC", "OS-CYL-IO",
+                cylinderName + "." + direction + " bound to " + address);
         }
 
         public bool CanHandleJogAxis(BaseAxis axis)

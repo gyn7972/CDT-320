@@ -632,6 +632,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                     AjinConfigStore.SaveOrThrow();
                     CylinderSettingsStore.Save();
                     CylinderManager.ApplyMappings();
+                    ApplyUnitCylinderMappings();
                     RebuildRowIndex();
                     QMC.Common.MessageDialog.Show(
                         this,
@@ -682,6 +683,25 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             }
             finally
             {
+            }
+        }
+
+        private void ApplyUnitCylinderMappings()
+        {
+            try
+            {
+                var host = FindForm() as Form1;
+                if (host == null || host.Machine == null)
+                    return;
+
+                if (host.Machine.OutputStageUnit != null)
+                    host.Machine.OutputStageUnit.ApplyCylinderIoMappings();
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "QMC", "CYL-MAP-UNIT",
+                    "Unit cylinder mapping apply failed: " + ex.Message);
+                throw;
             }
         }
 
