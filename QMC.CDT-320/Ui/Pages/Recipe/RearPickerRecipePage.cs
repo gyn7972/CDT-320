@@ -24,6 +24,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
         private readonly Timer refreshTimer = new Timer();
         private readonly Dictionary<string, PositionItem> positionItems = new Dictionary<string, PositionItem>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, List<PositionItem>> groupMoves = new Dictionary<string, List<PositionItem>>(StringComparer.OrdinalIgnoreCase);
         private PickerRearUnit unit;
 
         public RearPickerRecipePage()
@@ -110,18 +111,16 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 manualLayout.RowStyles.Clear();
                 manualLayout.RowCount = 0;
 
-                AddActionButton("AVOID MOVE", delegate { return unit.MoveToPickerAvoidPosition(IsFineMove()); });
-                AddActionButton("LOAD MOVE", delegate { return unit.MoveToPickerLoadPosition(IsFineMove()); });
-                AddActionButton("UNLOAD MOVE", delegate { return unit.MoveToPickerUnloadPosition(IsFineMove()); });
-                AddActionButton("SAFE RETREAT", delegate { return unit.MoveToPickerSafeRetreatPosition(IsFineMove()); });
-
-                for (int pickerNo = 1; pickerNo <= 4; pickerNo++)
-                {
-                    int captured = pickerNo;
-                    AddActionButton("P" + captured + " DIE PICK", delegate { return unit.MoveToPickerDiePickPosition(captured, IsFineMove()); });
-                    AddActionButton("P" + captured + " DIE PROCESS", delegate { return unit.MoveToPickerDieProcessPosition(captured, IsFineMove()); });
-                    AddActionButton("P" + captured + " DIE PLACE", delegate { return unit.MoveToPickerDiePlacePosition(captured, IsFineMove()); });
-                }
+                // 옵션 파라미터 그룹과 1:1 매칭 — 버튼 하나가 해당 그룹 항목 전체를 이동
+                AddActionButton("AVOID POSITION", delegate { return MoveGroupAsync("K_AVOID"); });
+                AddActionButton("PICK POSITION", delegate { return MoveGroupAsync("K_PICK"); });
+                AddActionButton("BOTTOM POSITION", delegate { return MoveGroupAsync("K_BOTTOM"); });
+                AddActionButton("SIDE POSITION", delegate { return MoveGroupAsync("K_SIDE"); });
+                AddActionButton("PLACE POSITION", delegate { return MoveGroupAsync("K_PLACE"); });
+                AddActionButton("DIE PICK POSITION", delegate { return MoveGroupAsync("K_DiePickPosition"); });
+                AddActionButton("DIE BOTTOM POSITION", delegate { return MoveGroupAsync("K_DieBottomPosition"); });
+                AddActionButton("DIE SIDE POSITION", delegate { return MoveGroupAsync("K_DieSidePosition"); });
+                AddActionButton("DIE PLACE POSITION", delegate { return MoveGroupAsync("K_DiePlacePosition"); });
             }
             finally
             {
@@ -158,31 +157,54 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
             EnsureData();
             positionItems.Clear();
+            groupMoves.Clear();
 
             List<ParameterGridItem> optionItems = new List<ParameterGridItem>();
 
-            // ===== RECIPE (teaching positions) =====
-            AddPositionItem(optionItems, PickerAxis.PickerX, "PICKER X", "INPUT AVOID POSITION", "InputAvoidPosition", "um");
-            AddPositionItem(optionItems, PickerAxis.PickerX, "PICKER X", "OUTPUT AVOID POSITION", "OutputAvoidPosition", "um");
-            AddDieArrayItems(optionItems, PickerAxis.PickerX, "PICKER X", "um");
+            // ===== RECIPE (teaching positions) — 위치 종류별 접이식 그룹 =====
+            PickerAxis[] tzKeys = { PickerAxis.PickerT0, PickerAxis.PickerZ0, PickerAxis.PickerT1, PickerAxis.PickerZ1, PickerAxis.PickerT2, PickerAxis.PickerZ2, PickerAxis.PickerT3, PickerAxis.PickerZ3 };
+            string[] tzNames = { "PICKER T1", "PICKER Z1", "PICKER T2", "PICKER Z2", "PICKER T3", "PICKER Z3", "PICKER T4", "PICKER Z4" };
+            string[] tzUnits = { "deg", "um", "deg", "um", "deg", "um", "deg", "um" };
 
-            AddPositionItem(optionItems, PickerAxis.PickerY, "PICKER Y", "AVOID POSITION", "AvoidPosition", "um");
-            AddDieArrayItems(optionItems, PickerAxis.PickerY, "PICKER Y", "um");
+            PickerAxis[] dieKeys = { PickerAxis.PickerX, PickerAxis.PickerY };
+            string[] dieNames = { "PICKER X", "PICKER Y" };
 
-            AddBaseFiveItems(optionItems, PickerAxis.PickerT0, "PICKER T1", "deg");
-            AddBaseFiveItems(optionItems, PickerAxis.PickerZ0, "PICKER Z1", "um");
-            AddBaseFiveItems(optionItems, PickerAxis.PickerT1, "PICKER T2", "deg");
-            AddBaseFiveItems(optionItems, PickerAxis.PickerZ1, "PICKER Z2", "um");
-            AddBaseFiveItems(optionItems, PickerAxis.PickerT2, "PICKER T3", "deg");
-            AddBaseFiveItems(optionItems, PickerAxis.PickerZ2, "PICKER Z3", "um");
-            AddBaseFiveItems(optionItems, PickerAxis.PickerT3, "PICKER T4", "deg");
-            AddBaseFiveItems(optionItems, PickerAxis.PickerZ3, "PICKER Z4", "um");
+            // AVOID — 전체 축의 avoid 위치
+            optionItems.Add(ParameterGridItem.Header("AVOID POSITION", "K_AVOID"));
+            AddPositionItem(optionItems, PickerAxis.PickerX, "PICKER X", "INPUT AVOID POSITION", "InputAvoidPosition", "um", "PICKER X INPUT", "K_AVOID");
+            AddPositionItem(optionItems, PickerAxis.PickerX, "PICKER X", "OUTPUT AVOID POSITION", "OutputAvoidPosition", "um", "PICKER X OUTPUT", "K_AVOID");
+            AddPositionItem(optionItems, PickerAxis.PickerY, "PICKER Y", "AVOID POSITION", "AvoidPosition", "um", "PICKER Y", "K_AVOID");
+            for (int i = 0; i < tzKeys.Length; i++)
+                AddPositionItem(optionItems, tzKeys[i], tzNames[i], "AVOID POSITION", "AvoidPosition", tzUnits[i], tzNames[i], "K_AVOID");
 
-            // ===== CONFIG =====
+            // T/Z 모션 종류 — PICK / BOTTOM / SIDE / PLACE
+            string[] tzKinds = { "PICK", "BOTTOM", "SIDE", "PLACE" };
+            string[] tzKindPos = { "PickPosition", "BottomPosition", "SidePosition", "PlacePosition" };
+            for (int k = 0; k < tzKinds.Length; k++)
+            {
+                string gk = "K_" + tzKinds[k];
+                optionItems.Add(ParameterGridItem.Header(tzKinds[k] + " POSITION", gk));
+                for (int i = 0; i < tzKeys.Length; i++)
+                    AddPositionItem(optionItems, tzKeys[i], tzNames[i], tzKinds[k] + " POSITION", tzKindPos[k], tzUnits[i], tzNames[i], gk);
+            }
+
+            // X/Y 다이 어레이 종류 — DIE PICK / DIE BOTTOM / DIE SIDE / DIE PLACE (P1~4)
+            string[] dieKinds = { "DIE PICK", "DIE BOTTOM", "DIE SIDE", "DIE PLACE" };
+            string[] dieKindPos = { "DiePickPosition", "DieBottomPosition", "DieSidePosition", "DiePlacePosition" };
+            for (int k = 0; k < dieKinds.Length; k++)
+            {
+                string gk = "K_" + dieKindPos[k];
+                optionItems.Add(ParameterGridItem.Header(dieKinds[k] + " POSITION", gk));
+                for (int a = 0; a < dieKeys.Length; a++)
+                    for (int i = 0; i < 4; i++)
+                        AddPositionItem(optionItems, dieKeys[a], dieNames[a], "P" + (i + 1) + " " + dieKinds[k] + " POSITION", dieKindPos[k] + "[" + i + "]", "um", dieNames[a] + " P" + (i + 1), gk);
+            }
+
+            // ===== CONFIG (그룹 없이 펼친 상태로 표시) =====
             optionItems.Add(ParameterGridItem.Bool("DRY RUN", ParameterGridScope.Config, () => unit.Config.bDryRun, v => unit.Config.bDryRun = v));
             AddPickerConfigItems(optionItems);
 
-            // ===== SETUP =====
+            // ===== SETUP (그룹 없이 펼친 상태로 표시) =====
             optionItems.Add(ParameterGridItem.Bool("SIMULATION MODE", ParameterGridScope.Setup, () => unit.Setup.IsSimulationMode, v => unit.Setup.IsSimulationMode = v));
             optionItems.Add(ParameterGridItem.Double("INPUT SAFETY OFFSET", "um", ParameterGridScope.Setup, () => unit.Setup.InputSafetyOffset * 1000.0, v => unit.Setup.InputSafetyOffset = v / 1000.0));
             optionItems.Add(ParameterGridItem.Double("OUTPUT SAFETY OFFSET", "um", ParameterGridScope.Setup, () => unit.Setup.OutputSafetyOffset * 1000.0, v => unit.Setup.OutputSafetyOffset = v / 1000.0));
@@ -218,32 +240,29 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
         }
 
-        private void AddBaseFiveItems(List<ParameterGridItem> items, PickerAxis axis, string axisName, string displayUnit)
-        {
-            AddPositionItem(items, axis, axisName, "AVOID POSITION", "AvoidPosition", displayUnit);
-            AddPositionItem(items, axis, axisName, "PICK POSITION", "PickPosition", displayUnit);
-            AddPositionItem(items, axis, axisName, "BOTTOM POSITION", "BottomPosition", displayUnit);
-            AddPositionItem(items, axis, axisName, "SIDE POSITION", "SidePosition", displayUnit);
-            AddPositionItem(items, axis, axisName, "PLACE POSITION", "PlacePosition", displayUnit);
-        }
-
-        private void AddDieArrayItems(List<ParameterGridItem> items, PickerAxis axis, string axisName, string displayUnit)
-        {
-            string[] keys = { "DiePickPosition", "DieBottomPosition", "DieSidePosition", "DiePlacePosition" };
-            string[] labels = { "DIE PICK POSITION", "DIE BOTTOM POSITION", "DIE SIDE POSITION", "DIE PLACE POSITION" };
-            for (int k = 0; k < keys.Length; k++)
-                for (int i = 0; i < 4; i++)
-                    AddPositionItem(items, axis, axisName, "P" + (i + 1) + " " + labels[k], keys[k] + "[" + i + "]", displayUnit);
-        }
-
-        private void AddPositionItem(List<ParameterGridItem> items, PickerAxis axis, string axisName, string displaySuffix, string positionName, string displayUnit)
+        private void AddPositionItem(List<ParameterGridItem> items, PickerAxis axis, string axisName, string displaySuffix, string positionName, string displayUnit, string memberDisplay, string groupKey)
         {
             string display = axisName + " " + displaySuffix;
-            positionItems[display] = new PositionItem { DisplayName = display, Axis = axis, PositionName = positionName };
+            PositionItem posItem = new PositionItem { DisplayName = display, Axis = axis, PositionName = positionName };
+            positionItems[display] = posItem;
+
+            List<PositionItem> groupList;
+            if (!groupMoves.TryGetValue(groupKey, out groupList))
+            {
+                groupList = new List<PositionItem>();
+                groupMoves[groupKey] = groupList;
+            }
+            groupList.Add(posItem);
+
+            ParameterGridItem item;
             if (displayUnit == "deg")
-                items.Add(ParameterGridItem.Double(display, "deg", ParameterGridScope.Recipe, () => unit.GetPickerTeachingPosition(axis, positionName), v => SetPosition(axis, positionName, v)));
+                item = ParameterGridItem.Double(memberDisplay, "deg", ParameterGridScope.Recipe, () => unit.GetPickerTeachingPosition(axis, positionName), v => SetPosition(axis, positionName, v));
             else
-                items.Add(ParameterGridItem.Double(display, "um", ParameterGridScope.Recipe, () => unit.GetPickerTeachingPosition(axis, positionName) * 1000.0, v => SetPosition(axis, positionName, v / 1000.0)));
+                item = ParameterGridItem.Double(memberDisplay, "um", ParameterGridScope.Recipe, () => unit.GetPickerTeachingPosition(axis, positionName) * 1000.0, v => SetPosition(axis, positionName, v / 1000.0));
+
+            item.Key = display;                     // 이동/티칭 조회는 전체 이름(positionItems 키)으로 매칭
+            item.GroupKey = groupKey;
+            items.Add(item);
         }
 
         private void BindIoPanel()
@@ -253,25 +272,17 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
             List<IoCylinderItem> items = new List<IoCylinderItem>();
 
-            // ===== INPUT =====
+            // 공용 압력 체크
             items.Add(IoCylinderItem.Input("REAR PICKER CDA TANK PRESSURE CHECK", () => unit.IsPickerCdaPressureOk()));
             items.Add(IoCylinderItem.Input("REAR PICKER VACUUM TANK PRESSURE CHECK", () => unit.IsPickerVacuumPressureOk()));
-            for (int i = 1; i <= 8; i++)
-            {
-                int pickerNo = i;
-                items.Add(IoCylinderItem.Input("REAR PICKER " + (pickerNo - 1) + " FLOW CHECK", () => unit.IsPickerFlowDetected(pickerNo)));
-            }
 
-            // ===== OUTPUT =====
-            for (int i = 1; i <= 8; i++)
+            // 피커 1~4: FLOW / VACUUM / BLOW 를 한 세트로 묶어 정렬 (5~8 미사용)
+            for (int i = 1; i <= 4; i++)
             {
                 int pickerNo = i;
-                items.Add(IoCylinderItem.Output("REAR PICKER " + (pickerNo - 1) + " VACUUM", () => OutputOn(unit.Vacuums, pickerNo), on => { unit.SetPickerVacuum(pickerNo, on); return Task.FromResult(0); }, "ON", "OFF"));
-            }
-            for (int i = 1; i <= 8; i++)
-            {
-                int pickerNo = i;
-                items.Add(IoCylinderItem.Output("REAR PICKER " + (pickerNo - 1) + " BLOW", () => OutputOn(unit.Blows, pickerNo), on => { unit.SetPickerBlow(pickerNo, on); return Task.FromResult(0); }, "ON", "OFF"));
+                items.Add(IoCylinderItem.Input("REAR PICKER " + pickerNo + " FLOW CHECK", () => unit.IsPickerFlowDetected(pickerNo)));
+                items.Add(IoCylinderItem.Output("REAR PICKER " + pickerNo + " VACUUM", () => OutputOn(unit.Vacuums, pickerNo), on => { unit.SetPickerVacuum(pickerNo, on); return Task.FromResult(0); }, "ON", "OFF"));
+                items.Add(IoCylinderItem.Output("REAR PICKER " + pickerNo + " BLOW", () => OutputOn(unit.Blows, pickerNo), on => { unit.SetPickerBlow(pickerNo, on); return Task.FromResult(0); }, "ON", "OFF"));
             }
 
             ioCylinderPanel.SetItems(items);
@@ -347,6 +358,56 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             await ConfirmMoveAsync(item.DisplayName, delegate { return unit.MovePickerAxisToTeachingPosition(item.Axis, item.PositionName, IsFineMove()); });
         }
 
+        private async Task<int> MoveGroupAsync(string groupKey)
+        {
+            if (unit == null || string.IsNullOrEmpty(groupKey) || !groupMoves.ContainsKey(groupKey))
+                return -1;
+
+            List<PositionItem> members = groupMoves[groupKey];
+            if (members == null || members.Count == 0)
+                return 0;
+
+            bool fine = IsFineMove();
+
+            // 같은 축에 위치가 여러 개면(예: PICKER X INPUT/OUTPUT AVOID) 순차 실행, 서로 다른 축은 병렬 실행
+            Dictionary<PickerAxis, List<PositionItem>> byAxis = new Dictionary<PickerAxis, List<PositionItem>>();
+            foreach (PositionItem m in members)
+            {
+                List<PositionItem> list;
+                if (!byAxis.TryGetValue(m.Axis, out list))
+                {
+                    list = new List<PositionItem>();
+                    byAxis[m.Axis] = list;
+                }
+                list.Add(m);
+            }
+
+            List<Task<int>> tasks = new List<Task<int>>();
+            foreach (KeyValuePair<PickerAxis, List<PositionItem>> pair in byAxis)
+                tasks.Add(MoveAxisSequentialAsync(pair.Value, fine));
+
+            int[] results = await Task.WhenAll(tasks);
+            int finalResult = 0;
+            foreach (int r in results)
+            {
+                if (r != 0)
+                    finalResult = r;
+            }
+            return finalResult;
+        }
+
+        private async Task<int> MoveAxisSequentialAsync(List<PositionItem> moves, bool fine)
+        {
+            int last = 0;
+            foreach (PositionItem m in moves)
+            {
+                int r = await unit.MovePickerAxisToTeachingPosition(m.Axis, m.PositionName, fine);
+                if (r != 0)
+                    last = r;
+            }
+            return last;
+        }
+
         private void TeachSelectedPosition(string key)
         {
             if (unit == null || string.IsNullOrWhiteSpace(key) || !positionItems.ContainsKey(key))
@@ -361,6 +422,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private async Task ConfirmMoveAsync(string actionName, Func<Task<int>> move)
         {
             if (unit == null || move == null)
+                return;
+
+            if (ManualMoveGuard.BlockIfNotReady(this, "Rear Picker"))
                 return;
 
             DialogResult result = QMC.Common.MessageDialog.Show(this, actionName + " move?", "Rear Picker", MessageBoxButtons.YesNo, MessageBoxIcon.Question);

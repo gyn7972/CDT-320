@@ -372,8 +372,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 manualLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
                 manualLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
 
-                foreach (StageTeachingPosition position in TeachingPositions)
-                    AddManualButton(CreateManualActionButton(position.DisplayName, () => MoveByTeachingPositionAsync(position)));
+                foreach (StagePositionKind kind in OptionKindOrder)
+                {
+                    StagePositionKind capturedKind = kind;
+                    AddManualButton(CreateManualActionButton(GetPositionLabel(kind), () => MoveByKindAsync(capturedKind)));
+                }
 
                 AddManualButton(CreateManualActionButton("PICK TEST", PickTestAsync));
                 manualScrollPanel.Controls.Add(manualLayout);
@@ -658,6 +661,44 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
         }
 
+        private async Task<int> MoveByKindAsync(StagePositionKind kind)
+        {
+            try
+            {
+                if (_InputStageUnit == null)
+                    return -1;
+
+                var tasks = new List<Task<int>>();
+                foreach (StageTeachingPosition position in TeachingPositions)
+                {
+                    if (position.Kind != kind)
+                        continue;
+
+                    tasks.Add(MoveByTeachingPositionAsync(position));
+                }
+
+                if (tasks.Count == 0)
+                    return 0;
+
+                int[] results = await Task.WhenAll(tasks);
+                int finalResult = 0;
+                foreach (int result in results)
+                {
+                    if (result != 0)
+                        finalResult = result;
+                }
+
+                return finalResult;
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
         private void TeachPosition(StageTeachingPosition position)
         {
             try
@@ -732,14 +773,36 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
         }
 
+        private static readonly StagePositionKind[] OptionKindOrder =
+        {
+            StagePositionKind.Avoid,
+            StagePositionKind.Load,
+            StagePositionKind.Unload,
+            StagePositionKind.Ready,
+            StagePositionKind.Process,
+            StagePositionKind.Reticle
+        };
+
         private static void AddStagePositions(List<ParameterGridItem> items, InputStageUnit unit)
         {
-            foreach (StageTeachingPosition position in TeachingPositions)
+            foreach (StagePositionKind kind in OptionKindOrder)
             {
-                StageTeachingPosition captured = position;
-                items.Add(ParameterGridItem.Micron(captured.DisplayName, ParameterGridScope.Recipe,
-                    () => captured.Getter(captured.PositionSetGetter(unit)),
-                    v => captured.Setter(captured.PositionSetGetter(unit), v)));
+                string groupKey = "POS_" + kind;
+                items.Add(ParameterGridItem.Header(GetPositionLabel(kind), groupKey));
+
+                foreach (StageTeachingPosition position in TeachingPositions)
+                {
+                    if (position.Kind != kind)
+                        continue;
+
+                    StageTeachingPosition captured = position;
+                    ParameterGridItem item = ParameterGridItem.Micron(captured.AxisLabel, ParameterGridScope.Recipe,
+                        () => captured.Getter(captured.PositionSetGetter(unit)),
+                        v => captured.Setter(captured.PositionSetGetter(unit), v));
+                    item.Key = captured.DisplayName;   // 더블클릭/메뉴 티칭 조회는 원래 이름(DisplayName)으로 매칭
+                    item.GroupKey = groupKey;
+                    items.Add(item);
+                }
             }
         }
 
@@ -914,11 +977,15 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
         }
 
+        
         private async Task ConfirmAndRunAsync(string actionName, Func<Task<int>> action)
         {
             try
             {
                 if (_InputStageUnit == null || action == null)
+                    return;
+
+                if (ManualMoveGuard.BlockIfNotReady(this, "Input Stage"))
                     return;
 
                 DialogResult confirm = QMC.Common.MessageDialog.Show(this, actionName + " 진행하시겠습니까?", "Input Stage", MessageBoxButtons.YesNo, MessageBoxIcon.Question);

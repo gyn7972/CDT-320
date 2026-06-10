@@ -731,6 +731,7 @@
     <Compile Include="Ui\Pages\Recipe\FrontPickerRecipePage.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="Ui\Pages\Recipe\ManualMoveGuard.cs" />
     <Compile Include="Ui\Pages\Recipe\RearPickerRecipePage.Designer.cs">
       <DependentUpon>RearPickerRecipePage.cs</DependentUpon>
     </Compile>

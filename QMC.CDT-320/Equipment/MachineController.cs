@@ -1907,7 +1907,10 @@ namespace QMC.CDT320
                     case "RearPickerT2":
                     case "RearPickerT3":
                         return await PrepareRearPickerTHomeAsync(axis).ConfigureAwait(false);
+                    case "RearPickerY":
+                        return await PrepareRearPickerYHomeAsync(axis).ConfigureAwait(false);
                     case "RearPickerX":
+                        return await PrepareRearPickerXHomeAsync(axis).ConfigureAwait(false);
                     case "OutputVisionX":
                         return await PrepareSharedRailXAxisHomeAsync(axis).ConfigureAwait(false);
                     case "InputExpandingZ":
@@ -2106,12 +2109,12 @@ namespace QMC.CDT320
 
         private async Task<int> PrepareFrontPickerXHomeAsync(BaseAxis axis)
         {
-            return await PrepareFrontPickerHomeAsync().ConfigureAwait(false);
+            return await PrepareFrontPickerXHomeConditionAsync().ConfigureAwait(false);
         }
 
-        private async Task<int> PrepareFrontPickerHomeAsync()
+        private async Task<int> PrepareFrontPickerXHomeConditionAsync()
         {
-            Log("[INIT] Prepare FrontPickerX home: check InputVisionX/FrontPickerY/FrontPickerZ/InputFeederY Avoid and feeder cylinder down.");
+            Log("[INIT] Check FrontPickerX home: InputVisionX / InputExpandingZ / FrontPickerY / FrontPickerZ0~Z3 / InputFeederY Avoid, feeder cylinder down.");
 
             var stage = _machine.InputStageUnit;
             if (stage != null && !stage.IsVisionXInAvoidPosition())
@@ -2120,25 +2123,22 @@ namespace QMC.CDT320
                     "FrontPickerX HOME 불가: InputVisionX가 Avoid 위치에 있지 않습니다.");
             }
 
-            var front = _machine.PickerFrontUnit;
-            if (front != null)
+            if (stage != null && !stage.IsExpanderZInAvoidPosition())
             {
-                if (!front.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition"))
-                {
-                    return FailInitializePreparation(
-                        "FrontPickerX HOME 불가: FrontPickerY가 Avoid 위치에 있지 않습니다.");
-                }
-
-                PickerAxis[] zAxes = { PickerAxis.PickerZ0, PickerAxis.PickerZ1, PickerAxis.PickerZ2, PickerAxis.PickerZ3 };
-                foreach (PickerAxis zAxis in zAxes)
-                {
-                    if (!front.IsPickerAxisInTeachingPosition(zAxis, "AvoidPosition"))
-                    {
-                        return FailInitializePreparation(
-                            "FrontPickerX HOME 불가: Front" + zAxis + "가 Avoid 위치에 있지 않습니다.");
-                    }
-                }
+                return FailInitializePreparation(
+                    "FrontPickerX HOME 불가: InputExpandingZ가 Avoid 위치에 있지 않습니다.");
             }
+
+            var front = _machine.PickerFrontUnit;
+            if (front != null && !front.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition"))
+            {
+                return FailInitializePreparation(
+                    "FrontPickerX HOME 불가: FrontPickerY가 Avoid 위치에 있지 않습니다.");
+            }
+
+            int result = await CheckFrontPickerZAxesAvoidAsync().ConfigureAwait(false);
+            if (result != 0)
+                return result;
 
             var feeder = _machine.InputFeederUnit;
             if (feeder != null)
@@ -2148,11 +2148,13 @@ namespace QMC.CDT320
                     return FailInitializePreparation(
                         "FrontPickerX HOME 불가: InputFeederY가 Avoid 위치에 있지 않습니다.");
                 }
-            }
 
-            int downResult = await EnsureInputFeederLiftDownForSharedRailHomeAsync("FrontPickerX").ConfigureAwait(false);
-            if (downResult != 0)
-                return downResult;
+                if (!feeder.IsWaferFeederDown())
+                {
+                    return FailInitializePreparation(
+                        "FrontPickerX HOME 불가: InputFeeder 실린더가 Down 위치에 있지 않습니다.");
+                }
+            }
 
             return 0;
         }
@@ -2162,38 +2164,33 @@ namespace QMC.CDT320
             return await PrepareFrontPickerYHomeConditionAsync().ConfigureAwait(false);
         }
 
-        private Task<int> PrepareFrontPickerYHomeConditionAsync()
+        private async Task<int> PrepareFrontPickerYHomeConditionAsync()
         {
-            Log("[INIT] Check FrontPickerY home condition: FrontPickerZ0~Z3 / InputFeederY Avoid.");
+            Log("[INIT] Check FrontPickerY home: InputExpandingZ / FrontPickerZ0~Z3 / InputFeederY Avoid.");
 
-            var front = _machine.PickerFrontUnit;
-            if (front != null)
+            var stage = _machine.InputStageUnit;
+            if (stage != null && !stage.IsExpanderZInAvoidPosition())
             {
-                PickerAxis[] zAxes = { PickerAxis.PickerZ0, PickerAxis.PickerZ1, PickerAxis.PickerZ2, PickerAxis.PickerZ3 };
-                foreach (PickerAxis zAxis in zAxes)
-                {
-                    if (!front.IsPickerAxisInTeachingPosition(zAxis, "AvoidPosition"))
-                    {
-                        return Task.FromResult(FailInitializePreparation(
-                            "FrontPickerY HOME 불가: Front" + zAxis + "가 Avoid 위치에 있지 않습니다."));
-                    }
-                }
+                return FailInitializePreparation(
+                    "FrontPickerY HOME 불가: InputExpandingZ가 Avoid 위치에 있지 않습니다.");
             }
+
+            int result = await CheckFrontPickerZAxesAvoidAsync().ConfigureAwait(false);
+            if (result != 0)
+                return result;
 
             var feeder = _machine.InputFeederUnit;
             if (feeder != null && !feeder.IsWaferFeederYInAvoidPosition())
             {
-                return Task.FromResult(FailInitializePreparation(
-                    "FrontPickerY HOME 불가: InputFeederY가 Avoid 위치에 있지 않습니다."));
+                return FailInitializePreparation(
+                    "FrontPickerY HOME 불가: InputFeederY가 Avoid 위치에 있지 않습니다.");
             }
 
-            return Task.FromResult(0);
+            return 0;
         }
 
         private Task<int> CheckFrontPickerZAxesAvoidAsync()
         {
-            Log("[INIT] Prepare FrontPickerY home: check FrontPickerZ0~Z3 Avoid.");
-
             var front = _machine.PickerFrontUnit;
             if (front != null)
             {
@@ -2213,8 +2210,6 @@ namespace QMC.CDT320
 
         private Task<int> CheckRearPickerZAxesAvoidAsync()
         {
-            Log("[INIT] Prepare InputStageY home: check RearPickerZ0~Z3 Avoid.");
-
             var rear = _machine.PickerRearUnit;
             if (rear != null)
             {
@@ -2224,12 +2219,85 @@ namespace QMC.CDT320
                     if (!rear.IsPickerAxisInTeachingPosition(zAxis, "AvoidPosition"))
                     {
                         return Task.FromResult(FailInitializePreparation(
-                            "InputStageY HOME 불가: Rear" + zAxis + "가 Avoid 위치에 있지 않습니다."));
+                            "RearPickerY HOME 불가: Rear" + zAxis + "가 Avoid 위치에 있지 않습니다."));
                     }
                 }
             }
 
             return Task.FromResult(0);
+        }
+
+        private async Task<int> PrepareRearPickerYHomeAsync(BaseAxis axis)
+        {
+            return await PrepareRearPickerYHomeConditionAsync().ConfigureAwait(false);
+        }
+
+        private async Task<int> PrepareRearPickerYHomeConditionAsync()
+        {
+            Log("[INIT] Check RearPickerY home condition: InputExpandingZ / FrontPickerY / RearPickerZ0~Z3 Avoid.");
+
+            var stage = _machine.InputStageUnit;
+            if (stage != null && !stage.IsExpanderZInAvoidPosition())
+            {
+                return FailInitializePreparation(
+                    "RearPickerY HOME 불가: InputExpandingZ가 Avoid 위치에 있지 않습니다.");
+            }
+
+            var front = _machine.PickerFrontUnit;
+            if (front != null && !front.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition"))
+            {
+                return FailInitializePreparation(
+                    "RearPickerY HOME 불가: FrontPickerY가 Avoid 위치에 있지 않습니다.");
+            }
+
+            int result = await CheckRearPickerZAxesAvoidAsync().ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            return 0;
+        }
+
+        private async Task<int> PrepareRearPickerXHomeAsync(BaseAxis axis)
+        {
+            return await PrepareRearPickerXHomeConditionAsync().ConfigureAwait(false);
+        }
+
+        private async Task<int> PrepareRearPickerXHomeConditionAsync()
+        {
+            Log("[INIT] Check RearPickerX home condition: InputVisionX / InputExpandingZ / FrontPickerY / RearPickerY / RearPickerZ0~Z3 Avoid.");
+
+            var stage = _machine.InputStageUnit;
+            if (stage != null && !stage.IsVisionXInAvoidPosition())
+            {
+                return FailInitializePreparation(
+                    "RearPickerX HOME 불가: InputVisionX가 Avoid 위치에 있지 않습니다.");
+            }
+
+            if (stage != null && !stage.IsExpanderZInAvoidPosition())
+            {
+                return FailInitializePreparation(
+                    "RearPickerX HOME 불가: InputExpandingZ가 Avoid 위치에 있지 않습니다.");
+            }
+
+            var front = _machine.PickerFrontUnit;
+            if (front != null && !front.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition"))
+            {
+                return FailInitializePreparation(
+                    "RearPickerX HOME 불가: FrontPickerY가 Avoid 위치에 있지 않습니다.");
+            }
+
+            var rear = _machine.PickerRearUnit;
+            if (rear != null && !rear.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition"))
+            {
+                return FailInitializePreparation(
+                    "RearPickerX HOME 불가: RearPickerY가 Avoid 위치에 있지 않습니다.");
+            }
+
+            int result = await CheckRearPickerZAxesAvoidAsync().ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            return 0;
         }
 
         private async Task<int> PrepareFrontPickerTHomeAsync(BaseAxis axis)
