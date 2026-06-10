@@ -1041,75 +1041,42 @@ namespace QMC.CDT320
         /// <summary>Place completed wafer into Output Cassette.</summary>
         public async Task<bool> StoreCompletedWaferAsync(bool isGood)
         {
-            var cassette = _machine.OutputCassetteUnit;
-            var feeder = _machine.OutputFeederUnit;
-            // 카세???�정: Good ??Good1 ?�선, 가??차면 Good2; NG ??Ng
-            QMC.CDT320.TargetCassette target;
-            int slot;
-            if (isGood)
-            {
-                if (OutputSlotGood1 < 25) { target = QMC.CDT320.TargetCassette.Good1; slot = OutputSlotGood1++; }
-                else if (OutputSlotGood2 < 25) { target = QMC.CDT320.TargetCassette.Good2; slot = OutputSlotGood2++; }
-                else
-                {
-                    // Stage 27 fix ??移댁꽭??媛??= ?ъ씠???먮룞 ?뺤?
-                    AlarmManager.Raise(AlarmSeverity.Error, "OUT-FULL-GOOD",
-                        cassette.Name, "Good output cassette is full. Cycle stop.");
-                    Log("[FEEDER] Good cassette full. CycleStop.");
-                    _cycleCts?.Cancel();
-                    return false;
-                }
-            }
-            else
-            {
-                if (OutputSlotNg < 25) { target = QMC.CDT320.TargetCassette.Ng; slot = OutputSlotNg++; }
-                else
-                {
-                    // Stage 27 fix ??NG 移댁꽭??媛??= ?ъ씠???먮룞 ?뺤?
-                    AlarmManager.Raise(AlarmSeverity.Error, "OUT-FULL-NG",
-                        cassette.Name, "NG output cassette is full. Cycle stop.");
-                    Log("[FEEDER] NG cassette full. CycleStop.");
-                    _cycleCts?.Cancel();
-                    return false;
-                }
-            }
-            Log($"[FEEDER] StoreFullWafer target={target} Slot[{slot}]");
             try
             {
-                bool ok = await cassette.StoreFullWaferAsync(feeder, target, slot);
-                if (!ok)
+                DieGrade grade = isGood ? DieGrade.Good : DieGrade.Ng;
+                Log("[OUTPUT] Store completed wafer requested. grade=" + grade);
+
+                var ctx = new QMC.CDT320.Sequencing.MachineSequenceContext(
+                    this,
+                    _seqContext != null ? _seqContext.Bus : new QMC.CDT320.Sequencing.SequenceSignalBus());
+                var sequence = new QMC.CDT320.Sequencing.OutputSequence(ctx);
+                int result = await sequence.ExecuteStoreStageToCassetteAsync(
+                    _cycleCts != null ? _cycleCts.Token : CancellationToken.None,
+                    grade,
+                    false,
+                    0,
+                    QMC.CDT320.Sequencing.SequenceStartMode.Resume).ConfigureAwait(false);
+                if (result != 0)
                 {
                     AlarmManager.Raise(AlarmSeverity.Error, "OUT-STORE",
-                        cassette.Name, "StoreFullWafer failed.");
+                        _machine.OutputCassetteUnit != null ? _machine.OutputCassetteUnit.Name : "OutputCassette",
+                        "Output store sequence failed. result=" + result);
                     return false;
                 }
-                Log($"[FEEDER] OK. Stored target={target} Slot[{slot}]");
 
-                // Stage 37 ??SimCassetteDriver Output ?щ’ ?낅뜲?댄듃 (UI LED ?숆린??
-                try
-                {
-                    var hostInstances = System.Windows.Forms.Application.OpenForms;
-                    foreach (System.Windows.Forms.Form f in hostInstances)
-                    {
-                        var driverProp = f.GetType().GetProperty("CassetteDriver",
-                            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
-                        if (driverProp == null) continue;
-                        var driver = driverProp.GetValue(f) as QMC.CDT320.Sim.SimCassetteDriver;
-                        if (driver != null)
-                        {
-                            driver.SetOutputSlotFilled(target, slot, true);
-                            break;
-                        }
-                    }
-                }
-                catch { /* best-effort */ }
-
+                Log("[OUTPUT] Store completed wafer OK. grade=" + grade);
                 return true;
+            }
+            catch (OperationCanceledException)
+            {
+                Log("[OUTPUT] Store completed wafer canceled.");
+                throw;
             }
             catch (Exception ex)
             {
                 AlarmManager.Raise(AlarmSeverity.Error, "OUT-STORE-EX",
-                    cassette.Name, ex.Message);
+                    _machine.OutputCassetteUnit != null ? _machine.OutputCassetteUnit.Name : "OutputCassette",
+                    ex.Message);
                 return false;
             }
         }
@@ -1117,10 +1084,18 @@ namespace QMC.CDT320
         /// <summary>Output 3 카세트 매핑 (UI 버튼).</summary>
         public async Task<bool> ScanOutputCassettesAsync()
         {
-            var cassette = _machine.OutputCassetteUnit;
             try
             {
-                bool ok = await cassette.ScanAllCassettesAsync();
+                var ctx = new QMC.CDT320.Sequencing.MachineSequenceContext(
+                    this,
+                    _seqContext != null ? _seqContext.Bus : new QMC.CDT320.Sequencing.SequenceSignalBus());
+                var sequence = new QMC.CDT320.Sequencing.OutputSequence(ctx);
+                int result = await sequence.ExecuteCassetteMappingAsync(
+                    _cycleCts != null ? _cycleCts.Token : CancellationToken.None,
+                    false,
+                    0,
+                    QMC.CDT320.Sequencing.SequenceStartMode.Resume).ConfigureAwait(false);
+                bool ok = result == 0;
                 if (ok) Log("[FEEDER] Output 3 cassette scan complete.");
                 return ok;
             }

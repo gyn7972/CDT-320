@@ -81,6 +81,30 @@ namespace QMC.CDT320.Materials
             NotifyAndSave("InputCassetteMapping");
         }
 
+        public static void UpdateOutputCassetteMapping(
+            int goodLevelCount,
+            int slotCount,
+            IReadOnlyList<bool> good1Map,
+            IReadOnlyList<bool> good2Map,
+            IReadOnlyList<bool> ngMap,
+            IReadOnlyList<double> good1SlotPositions,
+            IReadOnlyList<double> good2SlotPositions,
+            IReadOnlyList<double> ngSlotPositions,
+            string cassetteLotId,
+            string tapeFrameSpecName)
+        {
+            if (goodLevelCount < 1) goodLevelCount = 1;
+            if (goodLevelCount > 2) goodLevelCount = 2;
+            if (slotCount < 0) slotCount = 0;
+
+            UpdateCassetteMapping(CassetteMaterialRole.Good1, true, slotCount, good1Map, good1SlotPositions, cassetteLotId, tapeFrameSpecName);
+            UpdateCassetteMapping(CassetteMaterialRole.Good2, goodLevelCount >= 2, slotCount, good2Map, good2SlotPositions, cassetteLotId, tapeFrameSpecName);
+            UpdateCassetteMapping(CassetteMaterialRole.Ng1, true, slotCount, ngMap, ngSlotPositions, cassetteLotId, tapeFrameSpecName);
+
+            State.LotId = cassetteLotId ?? State.LotId;
+            NotifyAndSave("OutputCassetteMapping");
+        }
+
         public static string ResolveRecipeTapeFrameSpecName(int inchSelect)
         {
             var project = RecipeStore.LoadLastOrDefault();
@@ -340,6 +364,41 @@ namespace QMC.CDT320.Materials
             slot.WaferId = "";
             slot.HasWafer = false;
             NotifyAndSave("ClearInputCassetteSlotData");
+            return true;
+        }
+
+        public static bool ClearOutputCassetteSlotData(CassetteMaterialRole cassetteRole, int slotNumber)
+        {
+            if (cassetteRole != CassetteMaterialRole.Good1 &&
+                cassetteRole != CassetteMaterialRole.Good2 &&
+                cassetteRole != CassetteMaterialRole.Ng1)
+                return false;
+
+            var cassette = State.Cassettes.FirstOrDefault(c => c.Role == cassetteRole);
+            if (cassette == null)
+                return false;
+
+            cassette.EnsureSlots();
+            if (slotNumber < 0 || slotNumber >= cassette.Slots.Count)
+                return false;
+
+            var slot = cassette.Slots[slotNumber];
+            var targetWafers = State.Wafers.Where(w =>
+                w != null &&
+                ((!string.IsNullOrWhiteSpace(slot.WaferId) && w.WaferId == slot.WaferId) ||
+                 (w.SourceCassetteRole == cassetteRole && w.SourceSlotNumber == slotNumber)))
+                .ToList();
+
+            foreach (var wafer in targetWafers)
+            {
+                wafer.State = WaferMaterialState.Empty;
+                wafer.CurrentLocation = MaterialLocation.Unknown();
+                wafer.UpdatedAt = DateTime.Now;
+            }
+
+            slot.WaferId = "";
+            slot.HasWafer = false;
+            NotifyAndSave("ClearOutputCassetteSlotData");
             return true;
         }
 
@@ -838,7 +897,12 @@ namespace QMC.CDT320.Materials
                 wafer.SourceCassetteRole = role;
                 wafer.SourceSlotNumber = i;
                 ApplyWaferCassettePosition(wafer, ResolveSlotPosition(slotPositions, i));
-                wafer.CurrentLocation = MaterialLocation.Cassette(MaterialLocationKind.InputCassette, role, i);
+                wafer.CurrentLocation = MaterialLocation.Cassette(
+                    role == CassetteMaterialRole.Input1 || role == CassetteMaterialRole.Input2
+                        ? MaterialLocationKind.InputCassette
+                        : MaterialLocationKind.OutputCassette,
+                    role,
+                    i);
                 wafer.State = WaferMaterialState.Ready;
                 wafer.TapeFrameSpecName = tapeFrameSpecName ?? "";
                 wafer.UpdatedAt = DateTime.Now;

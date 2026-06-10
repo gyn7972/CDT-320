@@ -5,11 +5,31 @@ using QMC.CDT320.Materials;
 
 namespace QMC.CDT320.Sequencing
 {
-    internal enum OutputFeederUnloadToCassetteStep { Idle, CheckUnit, CheckReady, MoveCassetteUnloadPosition, LiftUp, Unclamp, LiftDown, VerifyRingClear, MoveMaterialDataToCassette, Complete, Error }
+    internal enum OutputFeederUnloadToCassetteStep
+    {
+        Idle,
+        CheckUnit,
+        CheckTransferReady,
+        CheckFeederBinData,
+        CheckCassetteTargetSlot,
+        MoveFeederCassetteUnloadPosition,
+        PrepareFeederLiftUp,
+        PrepareFeederUnclamp,
+        PrepareFeederLiftDown,
+        VerifyBinReleasedToCassette,
+        MoveMaterialDataToCassette,
+        UpdateCassetteData,
+        Complete,
+        Error
+    }
 
     internal sealed class OutputFeederUnloadToCassetteSequence : OutputFeederSequenceBase<OutputFeederUnloadToCassetteStep>
     {
-        public OutputFeederUnloadToCassetteSequence(MachineSequenceContext context) : base(context, OutputFeederSequenceKind.UnloadToCassette, "OutputFeederUnloadToCassetteSequence") { }
+        public OutputFeederUnloadToCassetteSequence(MachineSequenceContext context)
+            : base(context, OutputFeederSequenceKind.UnloadToCassette, "OutputFeederUnloadToCassetteSequence")
+        {
+        }
+
         protected override OutputFeederUnloadToCassetteStep IdleStep { get { return OutputFeederUnloadToCassetteStep.Idle; } }
         protected override OutputFeederUnloadToCassetteStep InitialStep { get { return OutputFeederUnloadToCassetteStep.CheckUnit; } }
         protected override OutputFeederUnloadToCassetteStep CompleteStep { get { return OutputFeederUnloadToCassetteStep.Complete; } }
@@ -22,79 +42,174 @@ namespace QMC.CDT320.Sequencing
                 ct.ThrowIfCancellationRequested();
                 switch (CurrentStep)
                 {
-                    case OutputFeederUnloadToCassetteStep.CheckUnit: return Task.FromResult(CheckUnit(OutputFeederUnloadToCassetteStep.CheckReady));
-                    case OutputFeederUnloadToCassetteStep.CheckReady: return Task.FromResult(CheckReady());
-                    case OutputFeederUnloadToCassetteStep.MoveCassetteUnloadPosition: return MoveCassetteUnloadPositionAsync(ct);
-                    case OutputFeederUnloadToCassetteStep.LiftUp: return LiftUpAsync(ct);
-                    case OutputFeederUnloadToCassetteStep.Unclamp: return UnclampAsync(ct);
-                    case OutputFeederUnloadToCassetteStep.LiftDown: return LiftDownAsync(ct);
-                    case OutputFeederUnloadToCassetteStep.VerifyRingClear: return VerifyRingClearAsync(ct);
-                    case OutputFeederUnloadToCassetteStep.MoveMaterialDataToCassette: return Task.FromResult(MoveMaterialDataToCassette());
-                    default: return Task.FromResult(FailUnsupportedStep());
+                    case OutputFeederUnloadToCassetteStep.CheckUnit:
+                        return Task.FromResult(CheckUnit(OutputFeederUnloadToCassetteStep.CheckTransferReady));
+
+                    case OutputFeederUnloadToCassetteStep.CheckTransferReady:
+                        return Task.FromResult(CheckTransferReady());
+
+                    case OutputFeederUnloadToCassetteStep.CheckFeederBinData:
+                        return Task.FromResult(CheckFeederBinData());
+
+                    case OutputFeederUnloadToCassetteStep.CheckCassetteTargetSlot:
+                        return Task.FromResult(CheckCassetteTargetSlot());
+
+                    case OutputFeederUnloadToCassetteStep.MoveFeederCassetteUnloadPosition:
+                        return MoveFeederCassetteUnloadPositionAsync(ct);
+
+                    case OutputFeederUnloadToCassetteStep.PrepareFeederLiftUp:
+                        return PrepareFeederLiftUpAsync(ct);
+
+                    case OutputFeederUnloadToCassetteStep.PrepareFeederUnclamp:
+                        return PrepareFeederUnclampAsync(ct);
+
+                    case OutputFeederUnloadToCassetteStep.PrepareFeederLiftDown:
+                        return PrepareFeederLiftDownAsync(ct);
+
+                    case OutputFeederUnloadToCassetteStep.VerifyBinReleasedToCassette:
+                        return VerifyBinReleasedToCassetteAsync(ct);
+
+                    case OutputFeederUnloadToCassetteStep.MoveMaterialDataToCassette:
+                        return Task.FromResult(MoveMaterialDataToCassette());
+
+                    case OutputFeederUnloadToCassetteStep.UpdateCassetteData:
+                        return Task.FromResult(UpdateCassetteData());
+
+                    default:
+                        return Task.FromResult(FailUnsupportedStep());
                 }
             }
-            catch (Exception ex) { return Task.FromResult(Fail("OUT-FEEDER-CST-UNLOAD-EX", Name, "Unload to cassette step failed: " + ex.Message)); }
+            catch (Exception ex)
+            {
+                return Task.FromResult(Fail("OUT-FEEDER-CST-UNLOAD-EX", Name, "Unload to cassette step failed: " + ex.Message));
+            }
+            finally
+            {
+            }
         }
 
-        private int CheckReady()
+        private int CheckTransferReady()
         {
             if (!Feeder.CheckFeederCassetteReady(Options.Side, Options.SlotIndex, TransferMode.Unload))
                 return Fail("OUT-FEEDER-CST-UNLOAD-READY", Feeder.Name, "Output feeder cassette unload is not ready.");
-            CurrentStep = OutputFeederUnloadToCassetteStep.MoveCassetteUnloadPosition;
+
+            CurrentStep = OutputFeederUnloadToCassetteStep.CheckFeederBinData;
             return 0;
         }
 
-        private async Task<int> MoveCassetteUnloadPositionAsync(CancellationToken ct)
+        private int CheckFeederBinData()
+        {
+            return CheckCassetteSlotReadyForUnload(OutputFeederUnloadToCassetteStep.CheckCassetteTargetSlot);
+        }
+
+        private int CheckCassetteTargetSlot()
+        {
+            if (ResolveCassetteWafer() != null)
+                return Fail("OUT-FEEDER-CST-SLOT-OCCUPIED", "Material", "Output cassette target slot became occupied before unload. role=" + ResolveOutputCassetteRole() + ", slot=" + Options.SlotIndex);
+
+            CurrentStep = OutputFeederUnloadToCassetteStep.MoveFeederCassetteUnloadPosition;
+            return 0;
+        }
+
+        private async Task<int> MoveFeederCassetteUnloadPositionAsync(CancellationToken ct)
         {
             int result = await MoveFeederYCommandAsync(Feeder.MoveToFeederCassetteUnloadPosition(Options.Side, Options.SlotIndex, Options.FineMove), "cassette unload", ct).ConfigureAwait(false);
-            if (result != 0) return result;
+            if (result != 0)
+                return result;
+
             result = await WaitFeederYDoneAsync(() => Feeder.IsBinFeederYInCassetteUnloadPosition(Options.Side), "cassette unload", ct).ConfigureAwait(false);
-            if (result != 0) return result;
-            CurrentStep = OutputFeederUnloadToCassetteStep.LiftUp;
+            if (result != 0)
+                return result;
+
+            CurrentStep = OutputFeederUnloadToCassetteStep.PrepareFeederLiftUp;
             return 0;
         }
 
-        private async Task<int> LiftUpAsync(CancellationToken ct)
+        private async Task<int> PrepareFeederLiftUpAsync(CancellationToken ct)
         {
             int result = await AwaitStepWithCancellationAsync(Feeder.SetFeederUpDownAsync(true, ResolveTimeout()), ct).ConfigureAwait(false);
-            if (result != 0 || !Feeder.IsFeederUp()) return Fail("OUT-FEEDER-UP", Feeder.Name, "Output feeder lift up failed. result=" + result);
-            CurrentStep = OutputFeederUnloadToCassetteStep.Unclamp;
+            if (result != 0)
+                return Fail("OUT-FEEDER-UP", Feeder.Name, "Output feeder lift up command failed. result=" + result);
+
+            if (!Feeder.IsFeederUp())
+                return Fail("OUT-FEEDER-UP", Feeder.Name, "Output feeder lift up failed. result=" + result);
+
+            CurrentStep = OutputFeederUnloadToCassetteStep.PrepareFeederUnclamp;
             return 0;
         }
 
-        private async Task<int> UnclampAsync(CancellationToken ct)
+        private async Task<int> PrepareFeederUnclampAsync(CancellationToken ct)
         {
             int result = await AwaitStepWithCancellationAsync(Feeder.SetFeederClampAsync(false, ResolveTimeout()), ct).ConfigureAwait(false);
-            if (result != 0 || !Feeder.IsFeederUnclamped()) return Fail("OUT-FEEDER-UNCLAMP", Feeder.Name, "Output feeder unclamp failed. result=" + result);
-            CurrentStep = OutputFeederUnloadToCassetteStep.LiftDown;
+            if (result != 0)
+                return Fail("OUT-FEEDER-UNCLAMP", Feeder.Name, "Output feeder unclamp command failed. result=" + result);
+
+            if (!Feeder.IsFeederUnclamped())
+                return Fail("OUT-FEEDER-UNCLAMP", Feeder.Name, "Output feeder unclamp failed. result=" + result);
+
+            CurrentStep = OutputFeederUnloadToCassetteStep.PrepareFeederLiftDown;
             return 0;
         }
 
-        private async Task<int> LiftDownAsync(CancellationToken ct)
+        private async Task<int> PrepareFeederLiftDownAsync(CancellationToken ct)
         {
             int result = await AwaitStepWithCancellationAsync(Feeder.SetFeederUpDownAsync(false, ResolveTimeout()), ct).ConfigureAwait(false);
-            if (result != 0 || !Feeder.IsFeederDown()) return Fail("OUT-FEEDER-DOWN", Feeder.Name, "Output feeder lift down failed. result=" + result);
-            CurrentStep = OutputFeederUnloadToCassetteStep.VerifyRingClear;
+            if (result != 0)
+                return Fail("OUT-FEEDER-DOWN", Feeder.Name, "Output feeder lift down command failed. result=" + result);
+
+            if (!Feeder.IsFeederDown())
+                return Fail("OUT-FEEDER-DOWN", Feeder.Name, "Output feeder lift down failed. result=" + result);
+
+            CurrentStep = OutputFeederUnloadToCassetteStep.VerifyBinReleasedToCassette;
             return 0;
         }
 
-        private async Task<int> VerifyRingClearAsync(CancellationToken ct)
+        private async Task<int> VerifyBinReleasedToCassetteAsync(CancellationToken ct)
         {
+            WaferMaterial wafer = ResolveFeederWafer();
+            if (wafer == null)
+                return Fail("OUT-FEEDER-DATA-MISSING", "Material", "Output feeder data disappeared before cassette material move.");
+
             if (!IsHardwareBypass())
             {
                 bool cleared = await AwaitStepWithCancellationAsync(Feeder.WaitFeederRingState(false, ResolveTimeout()), ct).ConfigureAwait(false);
-                if (!cleared) return Fail("OUT-FEEDER-CST-RING", Feeder.Name, "Output feeder ring remained after cassette unload.");
+                if (!cleared)
+                    return Fail("OUT-FEEDER-CST-RING", Feeder.Name, "Output feeder ring remained after cassette unload. waferId=" + wafer.WaferId);
             }
+
             CurrentStep = OutputFeederUnloadToCassetteStep.MoveMaterialDataToCassette;
             return 0;
         }
 
         private int MoveMaterialDataToCassette()
         {
-            WaferMaterial wafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputFeeder);
-            if (wafer != null)
-                MaterialStateService.PutWaferInCassette(wafer.WaferId, ResolveOutputCassetteRole(), Options.SlotIndex, wafer.CassetteLotId, wafer.SourceCassetteSlotPosition);
+            WaferMaterial wafer = ResolveFeederWafer();
+            if (wafer == null)
+                return Fail("OUT-FEEDER-MATERIAL-MOVE", "Material", "Output feeder wafer data was not found for cassette material move.");
+
+            MaterialStateService.PutWaferInCassette(
+                wafer.WaferId,
+                ResolveOutputCassetteRole(),
+                Options.SlotIndex,
+                wafer.CassetteLotId,
+                wafer.SourceCassetteSlotPosition,
+                WaferMaterialState.Finish);
             Feeder.ClearFeederMaterialState();
+            CurrentStep = OutputFeederUnloadToCassetteStep.UpdateCassetteData;
+            return 0;
+        }
+
+        private int UpdateCassetteData()
+        {
+            WaferMaterial cassetteWafer = ResolveCassetteWafer();
+            if (cassetteWafer == null)
+                return Fail("OUT-FEEDER-CST-DATA-MISSING", "Material", "Output cassette data was not created after feeder unload. role=" + ResolveOutputCassetteRole() + ", slot=" + Options.SlotIndex);
+
+            if (ResolveFeederWafer() != null)
+                return Fail("OUT-FEEDER-DATA-CLEAR", "Material", "Output feeder data was not cleared after cassette unload. waferId=" + cassetteWafer.WaferId);
+
+            Context.Bus.Set("OutputFeederEmpty");
+            Context.Bus.Set("OutputCassetteSlotUpdated");
             CurrentStep = OutputFeederUnloadToCassetteStep.Complete;
             return 0;
         }

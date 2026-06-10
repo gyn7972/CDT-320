@@ -92,13 +92,13 @@ namespace QMC.CDT320.Ajin
         private static BaseDigitalOutput CreateOutput(string name, DioMap map)
         {
             if (map == null) return new SimDigitalOutput(name);
-            return new AjinDigitalOutput(name, map.Module, map.Bit);
+            return AjinFactory.CreateSharedDigitalOutput(name, map, false);
         }
 
         private static BaseDigitalInput CreateInput(string name, DioMap map)
         {
             if (map == null) return new SimDigitalInput(name);
-            return new AjinDigitalInput(name, map.Module, map.Bit);
+            return AjinFactory.CreateSharedDigitalInput(name, map, false);
         }
 
         private static DioMap Map((int mod, int bit) value)

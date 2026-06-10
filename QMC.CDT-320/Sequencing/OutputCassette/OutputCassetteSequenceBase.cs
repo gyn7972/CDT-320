@@ -1,0 +1,652 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using QMC.CDT320.Lots;
+using QMC.CDT320.Materials;
+using QMC.Common;
+using QMC.Common.Alarms;
+
+namespace QMC.CDT320.Sequencing
+{
+    internal abstract class OutputCassetteSequenceBase<TStep> where TStep : struct
+    {
+        private const string SequenceNamePrefix = "OutputCassetteSequence";
+
+        protected OutputCassetteSequenceBase(
+            MachineSequenceContext context,
+            OutputCassetteSequenceKind kind,
+            string name)
+        {
+            Context = context ?? throw new ArgumentNullException("context");
+            Kind = kind;
+            Name = name ?? kind.ToString();
+            CurrentStep = IdleStep;
+        }
+
+        protected MachineSequenceContext Context { get; private set; }
+        protected OutputCassetteSequenceKind Kind { get; private set; }
+        protected string Name { get; private set; }
+        protected OutputCassetteSequenceOptions Options { get; private set; }
+        protected TStep CurrentStep { get; set; }
+        protected abstract TStep IdleStep { get; }
+        protected abstract TStep InitialStep { get; }
+        protected abstract TStep CompleteStep { get; }
+        protected abstract TStep ErrorStep { get; }
+
+        protected OutputCassetteUnit Cassette
+        {
+            get { return Context != null && Context.Machine != null ? Context.Machine.OutputCassetteUnit : null; }
+        }
+
+        protected OutputFeederUnit Feeder
+        {
+            get { return Context != null && Context.Machine != null ? Context.Machine.OutputFeederUnit : null; }
+        }
+
+        public async Task<int> RunAsync(CancellationToken ct, OutputCassetteSequenceOptions options)
+        {
+            try
+            {
+                Options = options ?? OutputCassetteSequenceOptions.Default();
+                CurrentStep = ResolveStartStep(InitialStep);
+                SequenceResumeStore.MarkRunning(SequenceStateName, CurrentStep.ToString());
+
+                while (!IsStep(CurrentStep, CompleteStep) && !IsStep(CurrentStep, ErrorStep))
+                {
+                    ct.ThrowIfCancellationRequested();
+                    Context.LogPublic("[OUTPUT-CASSETTE] " + Options.RunMode + " " + Kind + " step=" + CurrentStep);
+
+                    TStep executingStep = CurrentStep;
+                    int result = await AwaitStepWithCancellationAsync(ExecuteCurrentStepAsync(ct), ct).ConfigureAwait(false);
+                    ct.ThrowIfCancellationRequested();
+                    if (result != 0)
+                        return result;
+
+                    if (!IsStep(CurrentStep, ErrorStep))
+                        SequenceResumeStore.MarkStepCompleted(SequenceStateName, executingStep.ToString(), CurrentStep.ToString());
+                }
+
+                Context.LogPublic("[OUTPUT-CASSETTE] " + Options.RunMode + " " + Kind + " complete");
+                WriteLog("RunAsync", "Output cassette " + Kind + " sequence completed. - Ok");
+                SequenceResumeStore.MarkCompleted(SequenceStateName);
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                WriteLog("RunAsync", "Output cassette " + Kind + " sequence canceled at step=" + CurrentStep + ". - Failed");
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("OUT-CST-EXCEPTION", Name, "Output cassette " + Kind + " sequence exception at step=" + CurrentStep + ": " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        protected abstract Task<int> ExecuteCurrentStepAsync(CancellationToken ct);
+
+        protected int CheckLot(TStep nextStep)
+        {
+            try
+            {
+                if (Options.RequireActiveLot && LotStorage.ActiveLot == null)
+                    return Fail("OUT-CST-NO-LOT", Name, "Active lot is required for output cassette mapping.");
+
+                CurrentStep = nextStep;
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return Fail("OUT-CST-LOT-EX", Name, "Lot check failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        protected int CheckCassetteDetected(TStep nextStep)
+        {
+            try
+            {
+                var cassette = Cassette;
+                if (cassette == null)
+                    return Fail("OUT-CST-MISSING", "OutputCassette", "Output cassette unit is not available.");
+
+                int size = ResolveCassetteSize(cassette);
+                bool goodDetected = cassette.IsBinCassetteExist(TargetCassette.Good1, size);
+                bool ngDetected = cassette.IsBinCassetteExist(TargetCassette.Ng, size);
+                if (!IsHardwareBypassed() && (!goodDetected || !ngDetected))
+                    return Fail("OUT-CST-MISSING", cassette.Name, "Output good/ng cassette is not detected.");
+                if (IsHardwareBypassed() && (!goodDetected || !ngDetected))
+                    Context.LogPublic("[OUTPUT-CASSETTE] Hardware bypass: cassette detect sensor check skipped.");
+
+                CurrentStep = nextStep;
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return Fail("OUT-CST-DETECT-EX", Name, "Cassette detect check failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        protected int CheckCassetteMaterial(TStep nextStep)
+        {
+            try
+            {
+                var cassette = Cassette;
+                if (cassette == null)
+                    return Fail("OUT-CST-MISSING", "OutputCassette", "Output cassette unit is not available.");
+                if (cassette.Config == null || cassette.Config.SlotCount <= 0)
+                    return Fail("OUT-CST-MATERIAL-SLOT", cassette.Name, "Output cassette slot config is invalid.");
+
+                CurrentStep = nextStep;
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return Fail("OUT-CST-MATERIAL-EX", Name, "Output cassette material check failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        protected int CheckMappingStartCondition(TStep nextStep)
+        {
+            try
+            {
+                var cassette = Cassette;
+                if (cassette == null)
+                    return Fail("OUT-CST-MISSING", "OutputCassette", "Output cassette unit is not available.");
+                if (!IsHardwareBypassed() && !cassette.CheckBinCassetteMappingReady(TargetCassette.Good1))
+                    return Fail("OUT-CST-MAP-GOOD-READY", cassette.Name, "Good cassette is not ready for mapping.");
+                if (!IsHardwareBypassed() && !cassette.CheckBinCassetteMappingReady(TargetCassette.Ng))
+                    return Fail("OUT-CST-MAP-NG-READY", cassette.Name, "NG cassette is not ready for mapping.");
+
+                CurrentStep = nextStep;
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return Fail("OUT-CST-MAP-READY-EX", Name, "Mapping start condition check failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        protected int CheckFeederPosition(TStep nextStep)
+        {
+            try
+            {
+                var feeder = Feeder;
+                bool ready = feeder != null &&
+                             (feeder.IsBinFeederYInAvoidPosition() ||
+                              feeder.IsBinFeederYInExchangePosition(BinSide.Good) ||
+                              feeder.IsBinFeederYInExchangePosition(BinSide.Ng));
+                if (!IsHardwareBypassed() && !ready)
+                    return Fail("OUT-CST-FEEDER-POS", feeder != null ? feeder.Name : "OutputFeeder", "Output feeder must be in avoid or exchange position.");
+                if (IsHardwareBypassed() && !ready)
+                    Context.LogPublic("[OUTPUT-CASSETTE] Hardware bypass: feeder position sensor check skipped.");
+
+                CurrentStep = nextStep;
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return Fail("OUT-CST-FEEDER-EX", Name, "Feeder position check failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        protected async Task<int> MoveLoadingPositionAsync(CancellationToken ct)
+        {
+            try
+            {
+                double target = ResolveLoadingPosition();
+                int result = await MoveLifterZAndVerifyAsync(target, "loading", ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                CurrentStep = CompleteStep;
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return Fail("OUT-CST-LOAD-EX", Name, "Move loading position exception: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        protected async Task<int> MoveUnloadingPositionAsync(CancellationToken ct)
+        {
+            try
+            {
+                double target = ResolveUnloadingPosition();
+                int result = await MoveLifterZAndVerifyAsync(target, "unloading", ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                CurrentStep = CompleteStep;
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return Fail("OUT-CST-UNLOAD-EX", Name, "Move unloading position exception: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        protected async Task<int> MoveMappingStartPositionAsync(TStep nextStep, CancellationToken ct)
+        {
+            double target = Cassette.Recipe.MappingStartPosition;
+            int result = await MoveLifterZAndVerifyAsync(target, "mapping start", ct).ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            CurrentStep = nextStep;
+            return 0;
+        }
+
+        protected async Task<int> MoveMappingEndPositionAsync(TStep nextStep, CancellationToken ct)
+        {
+            double target = Cassette.Recipe.MappingEndPosition;
+            int result = await MoveLifterZAndVerifyAsync(target, "mapping end", ct).ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            CurrentStep = nextStep;
+            return 0;
+        }
+
+        protected async Task<int> ScanSlotsAsync(TStep nextStep, CancellationToken ct)
+        {
+            try
+            {
+                var cassette = Cassette;
+                if (cassette == null)
+                    return Fail("OUT-CST-MISSING", "OutputCassette", "Output cassette unit is not available.");
+
+                bool ok = await AwaitStepWithCancellationAsync(cassette.ScanAllCassettesAsync(), ct).ConfigureAwait(false);
+                if (!ok)
+                    return Fail("OUT-CST-SCAN", cassette.Name, "Output cassette scan failed.");
+
+                CurrentStep = nextStep;
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return Fail("OUT-CST-SCAN-EX", Name, "Scan slots exception: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        protected int BuildBinInfo(TStep nextStep)
+        {
+            try
+            {
+                var cassette = Cassette;
+                int result = RegisterMappingResult(cassette);
+                if (result != 0)
+                    return Fail("OUT-CST-BUILD-BIN", cassette != null ? cassette.Name : "OutputCassette", "Output cassette material mapping registration failed. result=" + result);
+
+                CurrentStep = nextStep;
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return Fail("OUT-CST-BUILD-BIN-EX", Name, "Build bin information exception: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        protected async Task<int> MoveFirstEmptySlotAsync(CancellationToken ct)
+        {
+            try
+            {
+                var cassette = Cassette;
+                if (cassette == null)
+                    return Fail("OUT-CST-MISSING", "OutputCassette", "Output cassette unit is not available.");
+
+                TargetCassette target = ResolveFirstAvailableOutputCassette(cassette);
+                int slot = cassette.FindFirstFullSlot(target);
+                if (slot < 0)
+                    slot = cassette.FindFirstEmptySlot(target);
+                if (slot >= 0)
+                {
+                    double targetPosition = cassette.CalculateBinCassetteSlotTargetPosition(target, slot);
+                    int result = await MoveLifterZAndVerifyAsync(targetPosition, target + " first slot", ct).ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+                }
+
+                CurrentStep = CompleteStep;
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return Fail("OUT-CST-FIRST-SLOT-EX", Name, "Move first output slot exception: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        protected async Task<int> MoveConfiguredSlotAsync(CancellationToken ct)
+        {
+            try
+            {
+                var cassette = Cassette;
+                if (cassette == null)
+                    return Fail("OUT-CST-MISSING", "OutputCassette", "Output cassette unit is not available.");
+                if (cassette.Config == null || cassette.Config.SlotCount <= 0)
+                    return Fail("OUT-CST-SLOT-CONFIG", cassette.Name, "Output cassette slot config is invalid.");
+                if (Options.SlotIndex < 0 || Options.SlotIndex >= cassette.Config.SlotCount)
+                    return Fail("OUT-CST-SLOT-INDEX", cassette.Name, "Output cassette slot index is out of range. slot=" + Options.SlotIndex);
+
+                double targetPosition = cassette.CalculateBinCassetteSlotTargetPosition(Options.TargetCassette, Options.SlotIndex);
+                int result = await MoveLifterZAndVerifyAsync(targetPosition, Options.TargetCassette + " slot " + (Options.SlotIndex + 1), ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                CurrentStep = CompleteStep;
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return Fail("OUT-CST-SLOT-MOVE-EX", Name, "Move output cassette slot exception: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        protected int FailUnsupportedStep()
+        {
+            return Fail("OUT-CST-STEP", Name, "Unsupported output cassette step: " + CurrentStep);
+        }
+
+        protected int Fail(string alarmCode, string source, string message)
+        {
+            try
+            {
+                TStep failedStep = CurrentStep;
+                CurrentStep = ErrorStep;
+                SequenceResumeStore.MarkAlarm(SequenceStateName, failedStep.ToString(), message);
+                SequenceFailureStore.Record(SequenceStateName, Kind.ToString(), failedStep.ToString(), alarmCode, source, message);
+                WriteLog(source, message + " - Failed");
+                AlarmManager.Raise(AlarmSeverity.Warning, alarmCode, source, message);
+                Context.LogPublic("[OUTPUT-CASSETTE] FAIL " + alarmCode + " - " + message);
+            }
+            catch (Exception ex)
+            {
+                WriteLog(source, "Failure handling failed: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+
+            return -1;
+        }
+
+        private async Task<int> MoveLifterZAndVerifyAsync(double target, string description, CancellationToken ct)
+        {
+            try
+            {
+                var cassette = Cassette;
+                if (cassette == null)
+                    return Fail("OUT-CST-MISSING", "OutputCassette", "Output cassette unit is not available.");
+                if (!cassette.CheckBinLifterZMoveReady())
+                    return Fail("OUT-CST-MOVE-READY", cassette.Name, "Output cassette is not ready to move.");
+
+                ct.ThrowIfCancellationRequested();
+                await AwaitStepWithCancellationAsync(MoveLifterZCommandAsync(cassette, target), ct).ConfigureAwait(false);
+                ct.ThrowIfCancellationRequested();
+
+                bool done = await AwaitStepWithCancellationAsync(cassette.WaitBinLifterZMoveDone(ResolveMoveTimeout(cassette)), ct).ConfigureAwait(false);
+                if (!done)
+                    return Fail("OUT-CST-MOVE-WAIT", cassette.Name, description + " move timeout.");
+
+                if (!cassette.IsBinLifterZInPosition(target))
+                    return Fail("OUT-CST-MOVE-CHECK", cassette.Name, description + " final position check failed. target=" + target);
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return Fail("OUT-CST-MOVE-EX", Name, description + " move exception: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> MoveLifterZCommandAsync(OutputCassetteUnit cassette, double target)
+        {
+            await cassette.MoveBinLifterZ(target, Options.FineMove).ConfigureAwait(false);
+            return 0;
+        }
+
+        private int RegisterMappingResult(OutputCassetteUnit cassette)
+        {
+            try
+            {
+                if (cassette == null)
+                    return -1;
+
+                int slotCount = cassette.Config != null ? cassette.Config.SlotCount : 0;
+                MaterialStateService.UpdateOutputCassetteMapping(
+                    ResolveGoodLevelCount(cassette),
+                    slotCount,
+                    ResolveSlotMap(cassette, TargetCassette.Good1),
+                    ResolveSlotMap(cassette, TargetCassette.Good2),
+                    ResolveSlotMap(cassette, TargetCassette.Ng),
+                    BuildSlotPositions(cassette, TargetCassette.Good1),
+                    BuildSlotPositions(cassette, TargetCassette.Good2),
+                    BuildSlotPositions(cassette, TargetCassette.Ng),
+                    LotStorage.ActiveLot != null ? LotStorage.ActiveLot.LotID : "",
+                    MaterialStateService.ResolveRecipeTapeFrameSpecName(cassette.Config != null ? cassette.Config.InchSelect : 0));
+                WriteLog("RegisterMappingResult", "Output cassette mapping result registered. - Ok");
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                WriteLog("RegisterMappingResult", "Output cassette mapping result registration exception: " + ex.Message + " - Failed");
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        private static IReadOnlyList<bool> ResolveSlotMap(OutputCassetteUnit cassette, TargetCassette target)
+        {
+            if (cassette == null || cassette.SlotMap == null)
+                return null;
+
+            bool[] map;
+            if (cassette.SlotMap.TryGetValue(target, out map))
+                return map;
+            return null;
+        }
+
+        private static double[] BuildSlotPositions(OutputCassetteUnit cassette, TargetCassette target)
+        {
+            int count = cassette != null && cassette.Config != null ? cassette.Config.SlotCount : 0;
+            if (count < 0)
+                count = 0;
+
+            var positions = new double[count];
+            for (int i = 0; i < positions.Length; i++)
+                positions[i] = cassette.CalculateBinCassetteSlotTargetPosition(target, i);
+            return positions;
+        }
+
+        private TargetCassette ResolveFirstAvailableOutputCassette(OutputCassetteUnit cassette)
+        {
+            if (Options.TargetCassette == TargetCassette.Ng ||
+                Options.TargetCassette == TargetCassette.Good1 ||
+                Options.TargetCassette == TargetCassette.Good2)
+                return Options.TargetCassette;
+
+            return cassette != null && cassette.FindFirstEmptySlot(TargetCassette.Good1) >= 0
+                ? TargetCassette.Good1
+                : TargetCassette.Good2;
+        }
+
+        private double ResolveLoadingPosition()
+        {
+            return Options.TargetCassette == TargetCassette.Ng
+                ? Cassette.Recipe.NGLoaingPosition
+                : Cassette.Recipe.GoodLoaingPosition;
+        }
+
+        private double ResolveUnloadingPosition()
+        {
+            return Options.TargetCassette == TargetCassette.Ng
+                ? Cassette.Recipe.NGUnloadingPosition
+                : Cassette.Recipe.GoodUnloadingPosition;
+        }
+
+        private int ResolveCassetteSize(OutputCassetteUnit cassette)
+        {
+            if (Options.RequiredCassetteSize == 8 || Options.RequiredCassetteSize == 12)
+                return Options.RequiredCassetteSize;
+            return cassette.Config.InchSelect == 0 ? 8 : 12;
+        }
+
+        private int ResolveGoodLevelCount(OutputCassetteUnit cassette)
+        {
+            int configured = Options.GoodLevelCount > 0
+                ? Options.GoodLevelCount
+                : cassette != null && cassette.Config != null ? cassette.Config.SelectedCassetteLevel : 2;
+            return configured >= 2 ? 2 : 1;
+        }
+
+        private bool IsHardwareBypassed()
+        {
+            AppSettings settings = AppSettingsStore.Current;
+            return (settings != null && settings.BypassHardware) ||
+                   (Context.Controller != null && Context.Controller.GlobalDryRun) ||
+                   (Cassette != null && Cassette.Setup != null && Cassette.Setup.IsSimulationMode) ||
+                   (Cassette != null && Cassette.Config != null && Cassette.Config.bDryRun);
+        }
+
+        private int ResolveMoveTimeout(OutputCassetteUnit cassette)
+        {
+            if (Options.MoveTimeoutMs > 0)
+                return Options.MoveTimeoutMs;
+
+            return cassette != null && cassette.OutputLifterZ != null && cassette.OutputLifterZ.Setup != null && cassette.OutputLifterZ.Setup.MoveTimeoutMs > 0
+                ? cassette.OutputLifterZ.Setup.MoveTimeoutMs
+                : 10000;
+        }
+
+        private TStep ResolveStartStep(TStep defaultStep)
+        {
+            try
+            {
+                if (Options.StartMode == SequenceStartMode.Restart)
+                {
+                    SequenceResumeStore.Clear(SequenceStateName);
+                    WriteLog("ResolveStartStep", "Output cassette " + Kind + " sequence forced restart from step=" + defaultStep + ". - Ok");
+                    return defaultStep;
+                }
+
+                string stepText = SequenceResumeStore.ResolveStartStep(SequenceStateName, defaultStep.ToString());
+                TStep parsed;
+                if (Enum.TryParse(stepText, out parsed) &&
+                    !IsStep(parsed, IdleStep) &&
+                    !IsStep(parsed, CompleteStep) &&
+                    !IsStep(parsed, ErrorStep))
+                {
+                    WriteLog("ResolveStartStep", "Output cassette " + Kind + " sequence resume step=" + parsed + ". - Ok");
+                    return parsed;
+                }
+
+                return defaultStep;
+            }
+            catch (Exception ex)
+            {
+                WriteLog("ResolveStartStep", "Output cassette " + Kind + " sequence resume step resolve failed: " + ex.Message + " - Failed");
+                return defaultStep;
+            }
+            finally
+            {
+            }
+        }
+
+        private string SequenceStateName
+        {
+            get { return SequenceNamePrefix + "." + Kind; }
+        }
+
+        protected static async Task<int> AwaitStepWithCancellationAsync(Task<int> stepTask, CancellationToken ct)
+        {
+            if (stepTask == null)
+                return -1;
+
+            if (stepTask.IsCompleted)
+                return await stepTask.ConfigureAwait(false);
+
+            Task cancelTask = Task.Delay(Timeout.Infinite, ct);
+            Task completed = await Task.WhenAny(stepTask, cancelTask).ConfigureAwait(false);
+            if (!ReferenceEquals(completed, stepTask))
+                ct.ThrowIfCancellationRequested();
+
+            return await stepTask.ConfigureAwait(false);
+        }
+
+        protected static async Task<bool> AwaitStepWithCancellationAsync(Task<bool> stepTask, CancellationToken ct)
+        {
+            if (stepTask == null)
+                return false;
+
+            if (stepTask.IsCompleted)
+                return await stepTask.ConfigureAwait(false);
+
+            Task cancelTask = Task.Delay(Timeout.Infinite, ct);
+            Task completed = await Task.WhenAny(stepTask, cancelTask).ConfigureAwait(false);
+            if (!ReferenceEquals(completed, stepTask))
+                ct.ThrowIfCancellationRequested();
+
+            return await stepTask.ConfigureAwait(false);
+        }
+
+        private static bool IsStep(TStep left, TStep right)
+        {
+            return object.Equals(left, right);
+        }
+
+        protected static void WriteLog(string source, string message)
+        {
+            try
+            {
+                Log.Write("Main", "SYSTEM", source, message);
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+    }
+}

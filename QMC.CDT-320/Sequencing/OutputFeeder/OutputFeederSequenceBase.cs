@@ -90,6 +90,78 @@ namespace QMC.CDT320.Sequencing
             return 0;
         }
 
+        protected int CheckCassetteSlotReadyForLoad(TStep nextStep)
+        {
+            WaferMaterial wafer = ResolveCassetteWafer();
+            if (wafer == null)
+                return Fail("OUT-FEEDER-CST-DATA", "Material", "Output cassette source slot data was not found. role=" + ResolveOutputCassetteRole() + ", slot=" + Options.SlotIndex);
+
+            WaferMaterialState state = WaferMaterialStateText.Normalize(wafer.State);
+            if (state != WaferMaterialState.Ready && state != WaferMaterialState.WorkReady)
+                return Fail("OUT-FEEDER-CST-STATE", "Material", "Output cassette source slot is not ready. waferId=" + wafer.WaferId + ", state=" + state);
+
+            WaferMaterial feederWafer = ResolveFeederWafer();
+            if (feederWafer != null)
+                return Fail("OUT-FEEDER-DATA-OCCUPIED", "Material", "Output feeder data must be empty before cassette load. waferId=" + feederWafer.WaferId);
+
+            if (!IsHardwareBypass() && !Feeder.IsFeederEmpty())
+                return Fail("OUT-FEEDER-SENSOR-OCCUPIED", Feeder.Name, "Output feeder sensor must be empty before cassette load.");
+
+            CurrentStep = nextStep;
+            return 0;
+        }
+
+        protected int CheckFeederReadyForStageLoad(TStep nextStep)
+        {
+            WaferMaterial feederWafer = ResolveFeederWafer();
+            if (feederWafer == null)
+                return Fail("OUT-FEEDER-DATA-MISSING", "Material", "Output feeder data was not found before stage load.");
+
+            WaferMaterial stageWafer = ResolveStageWafer();
+            if (stageWafer != null)
+                return Fail("OUT-STAGE-DATA-OCCUPIED", "Material", "Output stage must be empty before feeder to stage load. side=" + Options.Side + ", waferId=" + stageWafer.WaferId);
+
+            if (!IsHardwareBypass() && !Feeder.IsFeederOccupied())
+                return Fail("OUT-FEEDER-SENSOR-EMPTY", Feeder.Name, "Output feeder sensor/data mismatch before stage load. waferId=" + feederWafer.WaferId);
+
+            CurrentStep = nextStep;
+            return 0;
+        }
+
+        protected int CheckStageReadyForFeederUnload(TStep nextStep)
+        {
+            WaferMaterial stageWafer = ResolveStageWafer();
+            if (stageWafer == null)
+                return Fail("OUT-STAGE-DATA-MISSING", "Material", "Output stage data was not found before stage unload. side=" + Options.Side);
+
+            WaferMaterial feederWafer = ResolveFeederWafer();
+            if (feederWafer != null)
+                return Fail("OUT-FEEDER-DATA-OCCUPIED", "Material", "Output feeder data must be empty before stage unload. waferId=" + feederWafer.WaferId);
+
+            if (!IsHardwareBypass() && !Feeder.IsFeederEmpty())
+                return Fail("OUT-FEEDER-SENSOR-OCCUPIED", Feeder.Name, "Output feeder sensor must be empty before stage unload.");
+
+            CurrentStep = nextStep;
+            return 0;
+        }
+
+        protected int CheckCassetteSlotReadyForUnload(TStep nextStep)
+        {
+            WaferMaterial feederWafer = ResolveFeederWafer();
+            if (feederWafer == null)
+                return Fail("OUT-FEEDER-DATA-MISSING", "Material", "Output feeder data was not found before cassette unload.");
+
+            WaferMaterial cassetteWafer = ResolveCassetteWafer();
+            if (cassetteWafer != null && WaferMaterialStateText.Normalize(cassetteWafer.State) != WaferMaterialState.Empty)
+                return Fail("OUT-FEEDER-CST-SLOT-OCCUPIED", "Material", "Output cassette target slot must be empty before unload. role=" + ResolveOutputCassetteRole() + ", slot=" + Options.SlotIndex + ", waferId=" + cassetteWafer.WaferId);
+
+            if (!IsHardwareBypass() && !Feeder.IsFeederOccupied())
+                return Fail("OUT-FEEDER-SENSOR-EMPTY", Feeder.Name, "Output feeder sensor/data mismatch before cassette unload. waferId=" + feederWafer.WaferId);
+
+            CurrentStep = nextStep;
+            return 0;
+        }
+
         protected async Task<int> MoveFeederYCommandAsync(Task<int> moveTask, string description, CancellationToken ct)
         {
             int result = await AwaitStepWithCancellationAsync(moveTask, ct).ConfigureAwait(false);
@@ -130,6 +202,32 @@ namespace QMC.CDT320.Sequencing
         protected MaterialLocationKind ResolveOutputStageLocation()
         {
             return Options.Side == BinSide.Ng ? MaterialLocationKind.OutputStageNg : MaterialLocationKind.OutputStageGood;
+        }
+
+        protected WaferMaterial ResolveCassetteWafer()
+        {
+            return MaterialStateService.GetWaferInCassette(ResolveOutputCassetteRole(), Options.SlotIndex);
+        }
+
+        protected WaferMaterial ResolveFeederWafer()
+        {
+            return MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputFeeder);
+        }
+
+        protected WaferMaterial ResolveStageWafer()
+        {
+            return MaterialStateService.GetWaferAtLocation(ResolveOutputStageLocation());
+        }
+
+        protected int VerifyFeederRingSensor(bool expected, string alarmCode, string description)
+        {
+            if (IsHardwareBypass())
+                return 0;
+
+            if (Feeder.IsFeederRingDetected(expected))
+                return 0;
+
+            return Fail(alarmCode, Feeder.Name, description + " sensor=" + (Feeder.IsFeederRingDetected(true) ? "ON" : "OFF") + ", expected=" + (expected ? "ON" : "OFF"));
         }
 
         protected int FailUnsupportedStep()

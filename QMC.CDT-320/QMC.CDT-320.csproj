@@ -346,6 +346,23 @@
     <Compile Include="Sequencing\InputStage\InputStagePrepareUnloadSequence.cs" />
     <Compile Include="Sequencing\InputStage\InputStageMoveAvoidSequence.cs" />
     <Compile Include="Sequencing\InputSequence.cs" />
+    <Compile Include="Sequencing\OutputCassette\OutputSlotPlanner.cs" />
+    <Compile Include="Sequencing\OutputCassette\OutputCassetteSequenceKind.cs" />
+    <Compile Include="Sequencing\OutputCassette\OutputCassetteSequenceOptions.cs" />
+    <Compile Include="Sequencing\OutputCassette\OutputCassetteSequence.cs" />
+    <Compile Include="Sequencing\OutputCassette\OutputCassetteSequenceBase.cs" />
+    <Compile Include="Sequencing\OutputCassette\OutputCassetteLoadingSequence.cs" />
+    <Compile Include="Sequencing\OutputCassette\OutputCassetteMappingSequence.cs" />
+    <Compile Include="Sequencing\OutputCassette\OutputCassetteMoveSlotSequence.cs" />
+    <Compile Include="Sequencing\OutputCassette\OutputCassetteUnloadingSequence.cs" />
+    <Compile Include="Sequencing\OutputStage\OutputStageSequenceKind.cs" />
+    <Compile Include="Sequencing\OutputStage\OutputStageSequenceOptions.cs" />
+    <Compile Include="Sequencing\OutputStage\OutputStageSequence.cs" />
+    <Compile Include="Sequencing\OutputStage\OutputStageSequenceBase.cs" />
+    <Compile Include="Sequencing\OutputStage\OutputStagePrepareLoadSequence.cs" />
+    <Compile Include="Sequencing\OutputStage\OutputStagePrepareUnloadSequence.cs" />
+    <Compile Include="Sequencing\OutputStage\OutputStageMoveAvoidSequence.cs" />
+    <Compile Include="Sequencing\OutputStage\OutputStageMoveProcessSequence.cs" />
     <Compile Include="Sequencing\OutputFeeder\OutputFeederSequenceKind.cs" />
     <Compile Include="Sequencing\OutputFeeder\OutputFeederSequenceOptions.cs" />
     <Compile Include="Sequencing\OutputFeeder\OutputFeederSequence.cs" />
@@ -964,6 +981,12 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\WorkInfo\OperationPanelStatusPage.resx">
       <DependentUpon>OperationPanelStatusPage.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\WorkInfo\OutputCassettePage.resx">
+      <DependentUpon>OutputCassettePage.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\WorkInfo\OutputFeederPage.resx">
+      <DependentUpon>OutputFeederPage.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\Work\MapTransferPage.resx">
       <DependentUpon>MapTransferPage.cs</DependentUpon>

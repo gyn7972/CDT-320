@@ -11,6 +11,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private Label lblHeader;
         private TableLayoutPanel contentLayout;
         private GroupBox grpStatus;
+        private MaterialDetailView materialDetailView;
         private TableLayoutPanel statusLayout;
         private TableLayoutPanel actionPanel;
         private Label lblStageZCaption;
@@ -28,6 +29,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblHeader = new Label();
             this.contentLayout = new TableLayoutPanel();
             this.grpStatus = new GroupBox();
+            this.materialDetailView = new MaterialDetailView();
             this.statusLayout = new TableLayoutPanel();
             this.actionPanel = new TableLayoutPanel();
             this.lblStageZCaption = new Label();
@@ -64,8 +66,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.contentLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 480F));
             this.contentLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
             this.contentLayout.Controls.Add(this.grpStatus, 0, 0);
-            this.contentLayout.Dock = DockStyle.Top;
-            this.contentLayout.Height = 260;
+            this.contentLayout.Controls.Add(this.materialDetailView, 1, 0);
+            this.contentLayout.Dock = DockStyle.Fill;
             this.contentLayout.Padding = new Padding(8);
             this.contentLayout.RowCount = 1;
             this.contentLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
@@ -75,6 +77,12 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.grpStatus.Dock = DockStyle.Fill;
             this.grpStatus.Font = UiTheme.SectionFont;
             this.grpStatus.Text = Lang.T("common.info");
+
+            this.materialDetailView.BackColor = UiTheme.OptionPanelBg;
+            this.materialDetailView.Dock = DockStyle.Fill;
+            this.materialDetailView.Margin = new Padding(4);
+            this.materialDetailView.Name = "materialDetailView";
+            this.materialDetailView.Visible = true;
 
             this.statusLayout.ColumnCount = 2;
             this.statusLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 45F));

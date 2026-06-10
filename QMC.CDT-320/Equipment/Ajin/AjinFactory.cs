@@ -25,6 +25,11 @@ namespace QMC.CDT320.Ajin
         public static bool IsRealBoardReady => Ready;
         private static AjinConfig Cfg => AjinConfigStore.Current;
         private static readonly object AxisGate = new object();
+        private static readonly object IoGate = new object();
+        private static readonly Dictionary<string, BaseDigitalInput> SharedInputs =
+            new Dictionary<string, BaseDigitalInput>(StringComparer.OrdinalIgnoreCase);
+        private static readonly Dictionary<string, BaseDigitalOutput> SharedOutputs =
+            new Dictionary<string, BaseDigitalOutput>(StringComparer.OrdinalIgnoreCase);
         private static bool _configuredAxesRegistered;
 
         static AjinFactory()
@@ -327,14 +332,7 @@ namespace QMC.CDT320.Ajin
             string name = catalog.Name;
             DioMap m = ResolveInputMap(catalog);
             bool simMode = IoSettingsStore.InputSimulation(name, !Ready);
-            if (Ready)
-            {
-                BaseDigitalInput input = new AjinDigitalInput(name, m.Module, m.Bit, m.Nc);
-                input.Config.IsSimulationMode = simMode;
-                return input;
-            }
-
-            return ConfigureSimInput(new SimDigitalInput(name), m.Module, m.Bit, m.Nc);
+            return CreateSharedDigitalInput(name, m, simMode);
         }
 
         [Obsolete("Use AjinFactory.CreateDigitalOutput(AjinIoCatalog.Outputs.xxx). I/O must be registered only in AjinIoCatalog.", true)]
@@ -355,14 +353,62 @@ namespace QMC.CDT320.Ajin
             string name = catalog.Name;
             DioMap m = ResolveOutputMap(catalog);
             bool simMode = IoSettingsStore.OutputSimulation(name, !Ready);
-            if (Ready)
+            return CreateSharedDigitalOutput(name, m, simMode);
+        }
+
+        internal static BaseDigitalInput CreateSharedDigitalInput(string name, DioMap map, bool simulationMode)
+        {
+            if (map == null)
+                return ConfigureSimInput(new SimDigitalInput(string.IsNullOrWhiteSpace(name) ? "UnregisteredInput" : name), 0, 0, false);
+
+            string key = IoKey(false, map.Module, map.Bit, map.Nc);
+            lock (IoGate)
             {
-                BaseDigitalOutput output = new AjinDigitalOutput(name, m.Module, m.Bit, m.Nc);
-                output.Config.IsSimulationMode = simMode;
+                BaseDigitalInput input;
+                if (SharedInputs.TryGetValue(key, out input) && input != null)
+                {
+                    input.Config.IsSimulationMode = input.Config.IsSimulationMode || simulationMode || !Ready || input is SimDigitalInput;
+                    return input;
+                }
+
+                input = Ready
+                    ? (BaseDigitalInput)new AjinDigitalInput(name, map.Module, map.Bit, map.Nc)
+                    : new SimDigitalInput(name);
+                ConfigureSimInput(input, map.Module, map.Bit, map.Nc);
+                input.Config.IsSimulationMode = simulationMode || !Ready || input is SimDigitalInput;
+                SharedInputs[key] = input;
+                return input;
+            }
+        }
+
+        internal static BaseDigitalOutput CreateSharedDigitalOutput(string name, DioMap map, bool simulationMode)
+        {
+            if (map == null)
+                return ConfigureSimOutput(new SimDigitalOutput(string.IsNullOrWhiteSpace(name) ? "UnregisteredOutput" : name), 0, 0, false);
+
+            string key = IoKey(true, map.Module, map.Bit, map.Nc);
+            lock (IoGate)
+            {
+                BaseDigitalOutput output;
+                if (SharedOutputs.TryGetValue(key, out output) && output != null)
+                {
+                    output.Config.IsSimulationMode = output.Config.IsSimulationMode || simulationMode || !Ready || output is SimDigitalOutput;
+                    return output;
+                }
+
+                output = Ready
+                    ? (BaseDigitalOutput)new AjinDigitalOutput(name, map.Module, map.Bit, map.Nc)
+                    : new SimDigitalOutput(name);
+                ConfigureSimOutput(output, map.Module, map.Bit, map.Nc);
+                output.Config.IsSimulationMode = simulationMode || !Ready || output is SimDigitalOutput;
+                SharedOutputs[key] = output;
                 return output;
             }
+        }
 
-            return ConfigureSimOutput(new SimDigitalOutput(name), m.Module, m.Bit, m.Nc);
+        private static string IoKey(bool output, int module, int bit, bool nc)
+        {
+            return (output ? "DO" : "DI") + ":" + module + ":" + bit + ":" + (nc ? "NC" : "NO");
         }
 
         private static DioMap ResolveInputMap(DioDefault catalog)

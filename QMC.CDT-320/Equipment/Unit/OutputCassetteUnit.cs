@@ -80,6 +80,7 @@ namespace QMC.CDT320
         [DataMember] public double GoodUnloadingPosition { get; set; }
         [DataMember] public double GoodFirstSlotPosition { get; set; }
         [DataMember] public double[] GoodSlotPosition { get; private set; }
+        [DataMember] public double[] Good2SlotPosition { get; private set; }
         [DataMember] public double NGLoaingPosition { get; set; }
         [DataMember] public double NGUnloadingPosition { get; set; }
         [DataMember] public double NGFirstSlotPosition { get; set; }
@@ -96,10 +97,12 @@ namespace QMC.CDT320
         {
             int count = Math.Max(0, slotCount);
             GoodSlotPosition = new double[count];
+            Good2SlotPosition = new double[count];
             NGSlotPosition = new double[count];
             for (int i = 0; i < count; i++)
             {
                 GoodSlotPosition[i] = double.NaN;
+                Good2SlotPosition[i] = double.NaN;
                 NGSlotPosition[i] = double.NaN;
             }
         }
@@ -108,6 +111,7 @@ namespace QMC.CDT320
         {
             int count = Math.Max(0, slotCount);
             if (GoodSlotPosition == null || GoodSlotPosition.Length != count ||
+                Good2SlotPosition == null || Good2SlotPosition.Length != count ||
                 NGSlotPosition == null || NGSlotPosition.Length != count)
                 ResizeSlotPositions(count);
         }
@@ -120,6 +124,8 @@ namespace QMC.CDT320
             EnsureSlotPositionBuffers(slotIndex + 1);
             if (cassette == TargetCassette.Ng)
                 NGSlotPosition[slotIndex] = position;
+            else if (cassette == TargetCassette.Good2)
+                Good2SlotPosition[slotIndex] = position;
             else
                 GoodSlotPosition[slotIndex] = position;
         }
@@ -139,6 +145,7 @@ namespace QMC.CDT320
             MappingStartPosition = 5.0;
             MappingEndPosition = 304.0;
             GoodSlotPosition = Array.Empty<double>();
+            Good2SlotPosition = Array.Empty<double>();
             NGSlotPosition = Array.Empty<double>();
         }
     }
@@ -513,7 +520,10 @@ namespace QMC.CDT320
 
         public async Task<bool> ScanCassetteAsync(TargetCassette cassette, int maxSlots, double slotPitch)
         {
-            if (!IsAnyCassetteSensorOn(cassette))
+            bool hardwareBypassed = Config.bDryRun ||
+                                    Setup.IsSimulationMode ||
+                                    (OutputLifterZ != null && OutputLifterZ.Config != null && OutputLifterZ.Config.IsSimulationMode);
+            if (!hardwareBypassed && !IsAnyCassetteSensorOn(cassette))
             {
                 Console.WriteLine("[ALARM] '" + Name + "' ScanCassette: cassette not detected. cassette=" + cassette);
                 _slotMap[cassette] = new bool[0];
@@ -546,7 +556,7 @@ namespace QMC.CDT320
                     }
 
                     await Task.Delay(Config.ScanSettleTimeMs).ContinueWith(_ => { });
-                    map[i] = Config.bDryRun || OutputLifterZ.Config.IsSimulationMode ? true : BinMappingSensor.IsOn;
+                    map[i] = hardwareBypassed ? true : BinMappingSensor.IsOn;
                     Recipe.UpdateSlotPosition(cassette, i, OutputLifterZ.ActualPosition);
                 }
             }
@@ -953,7 +963,9 @@ namespace QMC.CDT320
         private double GetMappedSlotPosition(TargetCassette cassette, int slotIndex)
         {
             Recipe.EnsureSlotPositionBuffers(Config.SlotCount);
-            double[] slots = cassette == TargetCassette.Ng ? Recipe.NGSlotPosition : Recipe.GoodSlotPosition;
+            double[] slots = cassette == TargetCassette.Ng
+                ? Recipe.NGSlotPosition
+                : cassette == TargetCassette.Good2 ? Recipe.Good2SlotPosition : Recipe.GoodSlotPosition;
             if (slots != null && slotIndex >= 0 && slotIndex < slots.Length)
                 return slots[slotIndex];
             return double.NaN;
