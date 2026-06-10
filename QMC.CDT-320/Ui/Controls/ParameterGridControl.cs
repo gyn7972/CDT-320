@@ -10,6 +10,7 @@ namespace QMC.CDT_320.Ui.Controls
     public partial class ParameterGridControl : UserControl
     {
         private readonly List<ParameterGridItem> _items = new List<ParameterGridItem>();
+        private readonly HashSet<string> _collapsedGroups = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private bool _isRefreshing;
 
         public event EventHandler<ParameterGridChangedEventArgs> ParameterValueChanged;
@@ -60,6 +61,14 @@ namespace QMC.CDT_320.Ui.Controls
                 if (items != null)
                     _items.AddRange(items);
 
+                // 처음 표시할 때는 모든 접이식 그룹을 접은 상태로 시작
+                _collapsedGroups.Clear();
+                foreach (var headerItem in _items)
+                {
+                    if (headerItem != null && headerItem.IsGroupHeader && !string.IsNullOrEmpty(headerItem.GroupKey))
+                        _collapsedGroups.Add(headerItem.GroupKey);
+                }
+
                 RebuildRows();
             }
             catch (Exception ex)
@@ -81,7 +90,7 @@ namespace QMC.CDT_320.Ui.Controls
                 foreach (DataGridViewRow row in grid.Rows)
                 {
                     var item = row.Tag as ParameterGridItem;
-                    if (item == null)
+                    if (item == null || item.IsGroupHeader)
                         continue;
 
                     SetValueCellText(row, item, FormatValue(item));
@@ -112,6 +121,7 @@ namespace QMC.CDT_320.Ui.Controls
                     AddParameterRow(item);
 
                 ApplyScopeStyles();
+                ApplyGroupVisibility();
             }
             catch
             {
@@ -131,6 +141,12 @@ namespace QMC.CDT_320.Ui.Controls
                 if (item == null)
                     return;
 
+                if (item.IsGroupHeader)
+                {
+                    AddGroupHeaderRow(item);
+                    return;
+                }
+
                 index = grid.Rows.Add();
                 DataGridViewRow row = grid.Rows[index];
                 row.Tag = item;
@@ -139,7 +155,9 @@ namespace QMC.CDT_320.Ui.Controls
                 row.Cells[colValue.Index].ReadOnly = item.ValueType != ParameterGridValueType.Selection;
                 row.Cells[colScope.Index].ReadOnly = true;
                 row.Cells[colUnit.Index].ReadOnly = true;
-                row.Cells[colName.Index].Value = item.DisplayName;
+                // 접이식 그룹에 속한 멤버는 들여쓰기 + 글머리 기호 → 그룹 없는(원래) 항목과 명확히 구분
+                bool isGroupMember = !string.IsNullOrEmpty(item.GroupKey);
+                row.Cells[colName.Index].Value = isGroupMember ? "     ·   " + item.DisplayName : item.DisplayName;
                 row.Cells[colUnit.Index].Value = item.Unit ?? string.Empty;
                 row.Cells[colScope.Index].Value = item.Scope.ToString();
                 SetValueCellText(row, item, FormatValue(item));
@@ -153,6 +171,127 @@ namespace QMC.CDT_320.Ui.Controls
                 string message = "Parameter row add failed: " + name + Environment.NewLine + ex.Message;
                 EventLogger.Write(EventKind.Alarm, "UI", "PARAM-GRID", message);
                 QMC.Common.MessageDialog.Show(this, message, "Parameter Grid", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
+        }
+
+        private string BuildHeaderText(ParameterGridItem header, bool collapsed)
+        {
+            int count = 0;
+            if (header != null)
+            {
+                foreach (var it in _items)
+                {
+                    if (it != null && !it.IsGroupHeader && string.Equals(it.GroupKey, header.GroupKey, StringComparison.OrdinalIgnoreCase))
+                        count++;
+                }
+            }
+
+            string arrow = collapsed ? "▶" : "▼";
+            string name = header != null ? (header.DisplayName ?? string.Empty) : string.Empty;
+            return arrow + " " + name + " (" + count + ")";
+        }
+
+        private void AddGroupHeaderRow(ParameterGridItem item)
+        {
+            int index = -1;
+            try
+            {
+                index = grid.Rows.Add();
+                DataGridViewRow row = grid.Rows[index];
+                row.Tag = item;
+
+                bool collapsed = !string.IsNullOrEmpty(item.GroupKey) && _collapsedGroups.Contains(item.GroupKey);
+                row.Cells[colValue.Index] = new DataGridViewTextBoxCell();
+                row.Cells[colName.Index].Value = BuildHeaderText(item, collapsed);
+                row.Cells[colValue.Index].Value = string.Empty;
+                row.Cells[colUnit.Index].Value = string.Empty;
+                row.Cells[colScope.Index].Value = collapsed ? "펼치기 ▾" : "접기 ▴";
+                foreach (DataGridViewCell cell in row.Cells)
+                    cell.ReadOnly = true;
+
+                Color headerBg = Color.FromArgb(208, 220, 236);
+                Color headerFg = Color.FromArgb(35, 55, 85);
+                row.DefaultCellStyle.BackColor = headerBg;
+                row.DefaultCellStyle.ForeColor = headerFg;
+                row.DefaultCellStyle.SelectionBackColor = headerBg;
+                row.DefaultCellStyle.SelectionForeColor = headerFg;
+                row.DefaultCellStyle.Font = new Font(grid.Font.FontFamily, Math.Max(7F, grid.Font.Size - 0.5F), FontStyle.Bold);
+                row.Cells[colScope.Index].Style.Font = new Font(grid.Font.FontFamily, Math.Max(7F, grid.Font.Size - 1F), FontStyle.Bold);
+            }
+            catch (Exception ex)
+            {
+                if (index >= 0 && index < grid.Rows.Count)
+                    grid.Rows.RemoveAt(index);
+                EventLogger.Write(EventKind.Alarm, "UI", "PARAM-GRID", "Group header add failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private void ApplyGroupVisibility()
+        {
+            try
+            {
+                foreach (DataGridViewRow row in grid.Rows)
+                {
+                    var item = row.Tag as ParameterGridItem;
+                    if (item == null || item.IsGroupHeader || string.IsNullOrEmpty(item.GroupKey))
+                        continue;
+
+                    bool collapsed = _collapsedGroups.Contains(item.GroupKey);
+                    if (collapsed && grid.CurrentCell != null && grid.CurrentCell.RowIndex == row.Index)
+                        grid.CurrentCell = null;
+                    row.Visible = !collapsed;
+                }
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "PARAM-GRID", "ApplyGroupVisibility failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private void ToggleGroup(string groupKey)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(groupKey))
+                    return;
+
+                bool nowCollapsed = !_collapsedGroups.Contains(groupKey);
+                if (nowCollapsed)
+                    _collapsedGroups.Add(groupKey);
+                else
+                    _collapsedGroups.Remove(groupKey);
+
+                foreach (DataGridViewRow row in grid.Rows)
+                {
+                    var item = row.Tag as ParameterGridItem;
+                    if (item == null || !string.Equals(item.GroupKey, groupKey, StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    if (item.IsGroupHeader)
+                    {
+                        row.Cells[colName.Index].Value = BuildHeaderText(item, nowCollapsed);
+                        row.Cells[colScope.Index].Value = nowCollapsed ? "펼치기 ▾" : "접기 ▴";
+                    }
+                    else
+                    {
+                        if (nowCollapsed && grid.CurrentCell != null && grid.CurrentCell.RowIndex == row.Index)
+                            grid.CurrentCell = null;
+                        row.Visible = !nowCollapsed;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "PARAM-GRID", "ToggleGroup failed: " + ex.Message);
             }
             finally
             {
@@ -249,7 +388,7 @@ namespace QMC.CDT_320.Ui.Controls
                 foreach (DataGridViewRow row in grid.Rows)
                 {
                     var item = row.Tag as ParameterGridItem;
-                    if (item == null)
+                    if (item == null || item.IsGroupHeader)
                         continue;
 
                     Color scopeColor = Color.FromArgb(241, 243, 246);
@@ -570,7 +709,17 @@ namespace QMC.CDT_320.Ui.Controls
         {
             try
             {
-                if (e.RowIndex < 0 || e.ColumnIndex != colValue.Index)
+                if (e.RowIndex < 0)
+                    return;
+
+                var headerItem = grid.Rows[e.RowIndex].Tag as ParameterGridItem;
+                if (headerItem != null && headerItem.IsGroupHeader)
+                {
+                    ToggleGroup(headerItem.GroupKey);
+                    return;
+                }
+
+                if (e.ColumnIndex != colValue.Index)
                     return;
 
                 var item = grid.Rows[e.RowIndex].Tag as ParameterGridItem;
@@ -596,6 +745,10 @@ namespace QMC.CDT_320.Ui.Controls
             try
             {
                 if (e.RowIndex < 0)
+                    return;
+
+                var headerItem = grid.Rows[e.RowIndex].Tag as ParameterGridItem;
+                if (headerItem != null && headerItem.IsGroupHeader)
                     return;
 
                 if (e.ColumnIndex == colValue.Index)
@@ -680,7 +833,7 @@ namespace QMC.CDT_320.Ui.Controls
                     return;
 
                 var item = grid.Rows[e.RowIndex].Tag as ParameterGridItem;
-                if (item == null || e.Value == null)
+                if (item == null || item.IsGroupHeader || e.Value == null)
                     return;
 
                 e.Value = item.Scope.ToString().ToUpperInvariant();

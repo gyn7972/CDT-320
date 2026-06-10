@@ -85,7 +85,7 @@ namespace QMC.CDT_320.Ui.Controls
             nameStyle.SelectionBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(221)))), ((int)(((byte)(235)))), ((int)(((byte)(255)))));
             nameStyle.SelectionForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(25)))), ((int)(((byte)(33)))), ((int)(((byte)(44)))));
             this.colName.DefaultCellStyle = nameStyle;
-            this.colName.FillWeight = 46F;
+            this.colName.FillWeight = 52F;
             this.colName.HeaderText = "PARAMETER";
             this.colName.Name = "colName";
             this.colName.ReadOnly = true;
@@ -100,7 +100,7 @@ namespace QMC.CDT_320.Ui.Controls
             valueStyle.SelectionBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(221)))), ((int)(((byte)(235)))), ((int)(((byte)(255)))));
             valueStyle.SelectionForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(25)))), ((int)(((byte)(29)))), ((int)(((byte)(34)))));
             this.colValue.DefaultCellStyle = valueStyle;
-            this.colValue.FillWeight = 29F;
+            this.colValue.FillWeight = 23F;
             this.colValue.HeaderText = "VALUE";
             this.colValue.Name = "colValue";
             this.colValue.ReadOnly = true;
