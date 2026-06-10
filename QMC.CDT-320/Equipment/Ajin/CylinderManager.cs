@@ -23,6 +23,7 @@ namespace QMC.CDT320.Ajin
                 {
                     if (item == null || string.IsNullOrWhiteSpace(item.Name)) continue;
                     BaseCylinder cylinder = AjinFactory.CreateCylinder(item);
+                    ApplyMappingToCylinder(item.Name, cylinder);
                     CylinderSettingsStore.Apply(cylinder);
                     _items[item.Name] = cylinder;
                 }
@@ -66,6 +67,7 @@ namespace QMC.CDT320.Ajin
 
                 CylinderDefault catalog = AjinIoCatalog.FindCylinder(name);
                 cylinder = catalog == null ? new SimCylinder(name) : AjinFactory.CreateCylinder(catalog);
+                ApplyMappingToCylinder(name, cylinder);
                 CylinderSettingsStore.Apply(cylinder);
                 _items[name] = cylinder;
                 return cylinder;
@@ -100,27 +102,8 @@ namespace QMC.CDT320.Ajin
             {
                 foreach (var pair in _items)
                 {
-                    BaseCylinder cylinder = pair.Value;
-                    if (cylinder == null)
-                        continue;
-
-                    CylMap map;
-                    if (!AjinConfigStore.Current.Cylinders.TryGetValue(pair.Key, out map) || map == null)
-                        continue;
-
-                    RebindCylinder(
-                        cylinder,
-                        map.OutFwd,
-                        map.OutBwd,
-                        map.UseFwdInput ? map.InFwd : null,
-                        map.UseBwdInput ? map.InBwd : null);
-                    CylinderSettingsStore.Apply(cylinder);
-                    EventLogger.Write(EventKind.Event, "QMC", "CYL-MAP-APPLY",
-                        "Cylinder mapping applied. name=" + pair.Key
-                        + ", fwdDO=" + Format(map.OutFwd, true)
-                        + ", bwdDO=" + Format(map.OutBwd, true)
-                        + ", fwdDI=" + Format(map.UseFwdInput ? map.InFwd : null, false)
-                        + ", bwdDI=" + Format(map.UseBwdInput ? map.InBwd : null, false));
+                    ApplyMappingToCylinder(pair.Key, pair.Value);
+                    CylinderSettingsStore.Apply(pair.Value);
                 }
             }
             catch (Exception ex)
@@ -132,6 +115,37 @@ namespace QMC.CDT320.Ajin
             finally
             {
             }
+        }
+
+        private static void ApplyMappingToCylinder(string name, BaseCylinder cylinder)
+        {
+            if (cylinder == null || string.IsNullOrWhiteSpace(name))
+                return;
+
+            CylMap map;
+            if (AjinConfigStore.Current == null ||
+                AjinConfigStore.Current.Cylinders == null ||
+                !AjinConfigStore.Current.Cylinders.TryGetValue(name, out map) ||
+                map == null)
+            {
+                EventLogger.Write(EventKind.Warning, "QMC", "CYL-MAP-APPLY",
+                    "Cylinder mapping not found. Default catalog may be used. name=" + name);
+                return;
+            }
+
+            RebindCylinder(
+                cylinder,
+                map.OutFwd,
+                map.OutBwd,
+                map.UseFwdInput ? map.InFwd : null,
+                map.UseBwdInput ? map.InBwd : null);
+
+            EventLogger.Write(EventKind.Event, "QMC", "CYL-MAP-APPLY",
+                "Cylinder mapping applied. name=" + name
+                + ", fwdDO=" + Format(map.OutFwd, true)
+                + ", bwdDO=" + Format(map.OutBwd, true)
+                + ", fwdDI=" + Format(map.UseFwdInput ? map.InFwd : null, false)
+                + ", bwdDI=" + Format(map.UseBwdInput ? map.InBwd : null, false));
         }
 
         private static void RebindCylinder(
