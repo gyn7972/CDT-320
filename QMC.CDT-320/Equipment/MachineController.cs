@@ -1873,7 +1873,7 @@ namespace QMC.CDT320
                     case "RearPickerX":
                         return await PrepareRearPickerXHomeAsync(axis).ConfigureAwait(false);
                     case "OutputVisionX":
-                        return await PrepareSharedRailXAxisHomeAsync(axis).ConfigureAwait(false);
+                        return await PrepareOutputVisionXHomeAsync(axis).ConfigureAwait(false);
                     case "InputExpandingZ":
                         return await PrepareInputExpandingZHomeAsync(axis).ConfigureAwait(false);
                     case "InputStageY":
@@ -1991,10 +1991,9 @@ namespace QMC.CDT320
             return await PrepareInputLifterHomeAsync().ConfigureAwait(false);
         }
 
-        private Task<int> PrepareOutputLifterZHomeAsync(BaseAxis axis)
+        private async Task<int> PrepareOutputLifterZHomeAsync(BaseAxis axis)
         {
-            // TODO: OutputLifterZ HOME 전 필요한 실린더/피더/도어 조건을 현장 기준으로 추가하세요.
-            return Task.FromResult(0);
+            return await PrepareOutputLifterHomeAsync().ConfigureAwait(false);
         }
 
         private async Task<int> PrepareInputFeederYHomeByAxisAsync(BaseAxis axis)
@@ -2258,6 +2257,32 @@ namespace QMC.CDT320
                 return result;
 
             return 0;
+        }
+
+        private async Task<int> PrepareOutputVisionXHomeAsync(BaseAxis axis)
+        {
+            return await PrepareOutputVisionXHomeConditionAsync().ConfigureAwait(false);
+        }
+
+        private Task<int> PrepareOutputVisionXHomeConditionAsync()
+        {
+            Log("[INIT] Check OutputVisionX home condition: FrontPickerX / RearPickerX Avoid.");
+
+            var front = _machine.PickerFrontUnit;
+            if (front != null && !front.IsPickerAxisInTeachingPosition(PickerAxis.PickerX, "AvoidPosition"))
+            {
+                return Task.FromResult(FailInitializePreparation(
+                    "OutputVisionX HOME 불가: FrontPickerX가 Avoid 위치에 있지 않습니다."));
+            }
+
+            var rear = _machine.PickerRearUnit;
+            if (rear != null && !rear.IsPickerAxisInTeachingPosition(PickerAxis.PickerX, "AvoidPosition"))
+            {
+                return Task.FromResult(FailInitializePreparation(
+                    "OutputVisionX HOME 불가: RearPickerX가 Avoid 위치에 있지 않습니다."));
+            }
+
+            return Task.FromResult(0);
         }
 
         private async Task<int> PrepareFrontPickerTHomeAsync(BaseAxis axis)
@@ -3257,6 +3282,24 @@ namespace QMC.CDT320
             return Task.FromResult(0);
         }
 
+        private Task<int> PrepareOutputLifterHomeAsync()
+        {
+            Log("[INIT] Prepare OutputLifter home: check output cassette bin protrusion.");
+
+            var outputCassette = _machine.OutputCassetteUnit;
+            if (outputCassette == null)
+                return Task.FromResult(0);
+
+            if (outputCassette.IsBinProtrusionDetected())
+            {
+                // Todo: Protrusion 감지 시 초기화 방법 재확인
+                return Task.FromResult(FailInitializePreparation(
+                    "OutputLifter HOME 불가: Output Cassette Bin 돌출(Protrusion)이 감지되었습니다."));
+            }
+
+            return Task.FromResult(0);
+        }
+
         private Task<int> PrepareInputExpandingHomeAsync()
         {
             Log("[INIT] Prepare InputExpanding home: check wafer stage touch sensor.");
@@ -3350,7 +3393,7 @@ namespace QMC.CDT320
 
         private async Task<int> PrepareInputFeederHomeAsync()
         {
-            Log("[INIT] Prepare InputFeeder home: InputLifterZ Avoid check, feeder unclamp/up.");
+            Log("[INIT] Prepare InputFeeder home: InputLifterZ Avoid / unclamp / overload / ring check.");
 
             var cassette = _machine.InputCassetteUnit;
             if (cassette != null && !cassette.IsWaferLifterZInAvoidPosition())
@@ -3363,6 +3406,12 @@ namespace QMC.CDT320
             if (feeder == null)
                 return 0;
 
+            if (!feeder.IsWaferFeederOverload())
+            {
+                return FailInitializePreparation(
+                    "InputFeeder HOME 불가: Overload 센서가 감지되었습니다.");
+            }
+
             int result;
             if (!feeder.IsWaferFeederUnclamp())
             {
@@ -3371,7 +3420,7 @@ namespace QMC.CDT320
                     return FailInitializePreparation("InputFeeder unclamp failed. result=" + result);
             }
 
-            if (feeder.IsWaferFeederUp())
+            if (!feeder.IsWaferFeederDown())
             {
                 result = await feeder.SetWaferFeederUpDown(false).ConfigureAwait(false);
                 if (result != 0)
@@ -3389,16 +3438,26 @@ namespace QMC.CDT320
 
         private async Task<int> PrepareOutputFeederHomeAsync()
         {
-            Log("[INIT] Prepare OutputFeeder home: OutputStage/Vision Avoid, feeder unclamp/up.");
+            Log("[INIT] Prepare OutputFeeder home: OutputLifterZ Avoid check, feeder unclamp/up.");
 
-            int result = await MoveOutputStageToAvoidForFeederHomeAsync().ConfigureAwait(false);
-            if (result != 0)
-                return result;
+            var cassette = _machine.OutputCassetteUnit;
+            if (cassette != null && !cassette.IsBinLifterZInAvoidPosition())
+            {
+                return FailInitializePreparation(
+                    "OutputFeeder HOME 불가: OutputLifterZ가 Avoid 위치에 있지 않습니다.");
+            }
 
             var feeder = _machine.OutputFeederUnit;
             if (feeder == null)
                 return 0;
 
+            if (!feeder.IsFeederOverload())
+            {
+                return FailInitializePreparation(
+                    "OutputFeeder HOME 불가: Overload 센서가 감지되었습니다.");
+            }
+
+            int result;
             if (!feeder.IsFeederUnclamped())
             {
                 result = await feeder.SetBinFeederClamp(false).ConfigureAwait(false);
@@ -3406,11 +3465,17 @@ namespace QMC.CDT320
                     return FailInitializePreparation("OutputFeeder unclamp failed. result=" + result);
             }
 
-            if (!feeder.IsFeederUp())
+            if (!feeder.IsFeederDown())
             {
-                result = await feeder.SetBinFeederUpDown(true).ConfigureAwait(false);
+                result = await feeder.SetBinFeederUpDown(false).ConfigureAwait(false);
                 if (result != 0)
                     return FailInitializePreparation("OutputFeeder lift up failed. result=" + result);
+            }
+
+            if (feeder.IsBinFeederRingCheck())
+            {
+                // Todo: Ring 감지 시 초기화 방법 재확인
+                return FailInitializePreparation("OutputFeeder Ring Check.");
             }
 
             return 0;
