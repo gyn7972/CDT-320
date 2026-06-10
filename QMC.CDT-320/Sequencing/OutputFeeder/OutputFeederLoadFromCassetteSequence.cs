@@ -16,9 +16,9 @@ namespace QMC.CDT320.Sequencing
         PrepareFeederLiftDown,
         MoveFeederCassetteLoadPosition,
         VerifyFeederEmpty,
-        LiftFeederUp,
-        ClampFeederBin,
         VerifyBinDetected,
+        ClampFeederBin,
+        MoveFeederAvoidPosition,
         MoveMaterialDataToFeeder,
         UpdateCassetteData,
         Complete,
@@ -68,14 +68,14 @@ namespace QMC.CDT320.Sequencing
                     case OutputFeederLoadFromCassetteStep.VerifyFeederEmpty:
                         return Task.FromResult(VerifyFeederEmpty());
 
-                    case OutputFeederLoadFromCassetteStep.LiftFeederUp:
-                        return LiftFeederUpAsync(ct);
+                    case OutputFeederLoadFromCassetteStep.VerifyBinDetected:
+                        return VerifyBinDetectedAsync(ct);
 
                     case OutputFeederLoadFromCassetteStep.ClampFeederBin:
                         return ClampFeederBinAsync(ct);
 
-                    case OutputFeederLoadFromCassetteStep.VerifyBinDetected:
-                        return VerifyBinDetectedAsync(ct);
+                    case OutputFeederLoadFromCassetteStep.MoveFeederAvoidPosition:
+                        return MoveFeederAvoidPositionAsync(ct);
 
                     case OutputFeederLoadFromCassetteStep.MoveMaterialDataToFeeder:
                         return Task.FromResult(MoveMaterialDataToFeeder());
@@ -168,10 +168,10 @@ namespace QMC.CDT320.Sequencing
 
         private int VerifyFeederEmpty()
         {
-            if (!IsHardwareBypass() && !Feeder.IsFeederEmpty())
-                return Fail("OUT-FEEDER-PREP-OCCUPIED", Feeder.Name, "Output feeder must be empty after cassette load preparation.");
+            if (ResolveFeederWafer() != null)
+                return Fail("OUT-FEEDER-DATA-OCCUPIED", "Material", "Output feeder data must still be empty before cassette bin detect.");
 
-            CurrentStep = OutputFeederLoadFromCassetteStep.LiftFeederUp;
+            CurrentStep = OutputFeederLoadFromCassetteStep.VerifyBinDetected;
             return 0;
         }
 
@@ -189,26 +189,27 @@ namespace QMC.CDT320.Sequencing
             return 0;
         }
 
-        private async Task<int> LiftFeederUpAsync(CancellationToken ct)
-        {
-            int result = await AwaitStepWithCancellationAsync(Feeder.SetFeederUpDownAsync(true, ResolveTimeout()), ct).ConfigureAwait(false);
-            if (result != 0)
-                return Fail("OUT-FEEDER-LIFT-UP", Feeder.Name, "Output feeder lift up command failed. result=" + result);
-
-            if (!Feeder.IsFeederUp())
-                return Fail("OUT-FEEDER-LIFT-UP", Feeder.Name, "Output feeder lift up failed. result=" + result);
-
-            CurrentStep = OutputFeederLoadFromCassetteStep.ClampFeederBin;
-            return 0;
-        }
-
         private async Task<int> ClampFeederBinAsync(CancellationToken ct)
         {
             int result = await AwaitStepWithCancellationAsync(Feeder.SetFeederClampAsync(true, ResolveTimeout()), ct).ConfigureAwait(false);
             if (result != 0)
                 return Fail("OUT-FEEDER-CLAMP", Feeder.Name, "Output feeder clamp failed. result=" + result);
 
-            CurrentStep = OutputFeederLoadFromCassetteStep.VerifyBinDetected;
+            CurrentStep = OutputFeederLoadFromCassetteStep.MoveFeederAvoidPosition;
+            return 0;
+        }
+
+        private async Task<int> MoveFeederAvoidPositionAsync(CancellationToken ct)
+        {
+            int result = await MoveFeederYCommandAsync(Feeder.MoveToFeederAvoidPosition(Options.FineMove), "cassette load avoid", ct).ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            result = await WaitFeederYDoneAsync(() => Feeder.IsBinFeederInAvoidPosition(), "cassette load avoid", ct).ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            CurrentStep = OutputFeederLoadFromCassetteStep.MoveMaterialDataToFeeder;
             return 0;
         }
 
@@ -225,7 +226,7 @@ namespace QMC.CDT320.Sequencing
                     return Fail("OUT-FEEDER-RING", Feeder.Name, "Output feeder ring was not detected after cassette load. waferId=" + wafer.WaferId);
             }
 
-            CurrentStep = OutputFeederLoadFromCassetteStep.MoveMaterialDataToFeeder;
+            CurrentStep = OutputFeederLoadFromCassetteStep.ClampFeederBin;
             return 0;
         }
 

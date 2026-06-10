@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
 using QMC.CDT320.Materials;
@@ -13,9 +13,8 @@ namespace QMC.CDT320.Sequencing
         CheckFeederBinData,
         CheckCassetteTargetSlot,
         MoveFeederCassetteUnloadPosition,
-        PrepareFeederLiftUp,
         PrepareFeederUnclamp,
-        PrepareFeederLiftDown,
+        MoveFeederAvoidPosition,
         VerifyBinReleasedToCassette,
         MoveMaterialDataToCassette,
         UpdateCassetteData,
@@ -57,14 +56,11 @@ namespace QMC.CDT320.Sequencing
                     case OutputFeederUnloadToCassetteStep.MoveFeederCassetteUnloadPosition:
                         return MoveFeederCassetteUnloadPositionAsync(ct);
 
-                    case OutputFeederUnloadToCassetteStep.PrepareFeederLiftUp:
-                        return PrepareFeederLiftUpAsync(ct);
-
                     case OutputFeederUnloadToCassetteStep.PrepareFeederUnclamp:
                         return PrepareFeederUnclampAsync(ct);
 
-                    case OutputFeederUnloadToCassetteStep.PrepareFeederLiftDown:
-                        return PrepareFeederLiftDownAsync(ct);
+                    case OutputFeederUnloadToCassetteStep.MoveFeederAvoidPosition:
+                        return MoveFeederAvoidPositionAsync(ct);
 
                     case OutputFeederUnloadToCassetteStep.VerifyBinReleasedToCassette:
                         return VerifyBinReleasedToCassetteAsync(ct);
@@ -121,19 +117,6 @@ namespace QMC.CDT320.Sequencing
             if (result != 0)
                 return result;
 
-            CurrentStep = OutputFeederUnloadToCassetteStep.PrepareFeederLiftUp;
-            return 0;
-        }
-
-        private async Task<int> PrepareFeederLiftUpAsync(CancellationToken ct)
-        {
-            int result = await AwaitStepWithCancellationAsync(Feeder.SetFeederUpDownAsync(true, ResolveTimeout()), ct).ConfigureAwait(false);
-            if (result != 0)
-                return Fail("OUT-FEEDER-UP", Feeder.Name, "Output feeder lift up command failed. result=" + result);
-
-            if (!Feeder.IsFeederUp())
-                return Fail("OUT-FEEDER-UP", Feeder.Name, "Output feeder lift up failed. result=" + result);
-
             CurrentStep = OutputFeederUnloadToCassetteStep.PrepareFeederUnclamp;
             return 0;
         }
@@ -147,18 +130,19 @@ namespace QMC.CDT320.Sequencing
             if (!Feeder.IsFeederUnclamped())
                 return Fail("OUT-FEEDER-UNCLAMP", Feeder.Name, "Output feeder unclamp failed. result=" + result);
 
-            CurrentStep = OutputFeederUnloadToCassetteStep.PrepareFeederLiftDown;
+            CurrentStep = OutputFeederUnloadToCassetteStep.MoveFeederAvoidPosition;
             return 0;
         }
 
-        private async Task<int> PrepareFeederLiftDownAsync(CancellationToken ct)
+        private async Task<int> MoveFeederAvoidPositionAsync(CancellationToken ct)
         {
-            int result = await AwaitStepWithCancellationAsync(Feeder.SetFeederUpDownAsync(false, ResolveTimeout()), ct).ConfigureAwait(false);
+            int result = await MoveFeederYCommandAsync(Feeder.MoveToFeederAvoidPosition(Options.FineMove), "cassette unload avoid", ct).ConfigureAwait(false);
             if (result != 0)
-                return Fail("OUT-FEEDER-DOWN", Feeder.Name, "Output feeder lift down command failed. result=" + result);
+                return result;
 
-            if (!Feeder.IsFeederDown())
-                return Fail("OUT-FEEDER-DOWN", Feeder.Name, "Output feeder lift down failed. result=" + result);
+            result = await WaitFeederYDoneAsync(() => Feeder.IsBinFeederInAvoidPosition(), "cassette unload avoid", ct).ConfigureAwait(false);
+            if (result != 0)
+                return result;
 
             CurrentStep = OutputFeederUnloadToCassetteStep.VerifyBinReleasedToCassette;
             return 0;

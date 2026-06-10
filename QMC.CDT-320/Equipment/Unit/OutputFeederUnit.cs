@@ -1,4 +1,5 @@
 ﻿using QMC.CDT320.Ajin;
+using QMC.CDT320.Materials;
 using QMC.Common;
 using QMC.Common.Alarms;
 using QMC.Common.IO;
@@ -320,19 +321,70 @@ namespace QMC.CDT320
         public bool IsBinFeederYInBarcodePosition(BinSide side) { return IsBinFeederYInPosition(GetSidePosition(side, FeederPositionType.Barcode), ResolveBinFeederYInPositionTolerance()); }
         public bool IsBinFeederYInExchangePosition(BinSide side) { return IsBinFeederYInPosition(GetSidePosition(side, FeederPositionType.Exchange), ResolveBinFeederYInPositionTolerance()); }
 
-        public bool IsFeederUp() { return BinFeederUpSensor.IsOn; }
-        public bool IsFeederDown() { return BinFeederDownSensor.IsOn; }
-        public bool IsFeederUnclamped() { return BinFeederUnclampSensor.IsOn; }
-        public bool IsFeederOverload() { return BinFeederOverloadSensor.IsOn; }
-        public bool IsFeederRingDetected(bool expected = true) { return BinFeederRingCheckSensor.IsOn == expected; }
-        public bool IsFeederEmpty() { return IsFeederRingDetected(false); }
-        public bool IsFeederOccupied() { return IsFeederRingDetected(true); }
+        public bool IsFeederUp()
+        {
+            if (ShouldReadCylinderStateForSimulation(FeederUpDownCyl))
+                return FeederUpDownCyl.IsFwd;
+
+            return BinFeederUpSensor != null && BinFeederUpSensor.IsOn;
+        }
+
+        public bool IsFeederDown()
+        {
+            if (ShouldReadCylinderStateForSimulation(FeederUpDownCyl))
+                return FeederUpDownCyl.IsBwd;
+
+            return BinFeederDownSensor != null && BinFeederDownSensor.IsOn;
+        }
+
+        public bool IsFeederUnclamped()
+        {
+            if (ShouldReadCylinderStateForSimulation(FeederClampCyl))
+                return FeederClampCyl.IsBwd;
+
+            return BinFeederUnclampSensor != null && BinFeederUnclampSensor.IsOn;
+        }
+
+        public bool IsFeederOverload()
+        {
+            if (IsOutputFeederSimulationOrDryRun())
+                return false;
+
+            return BinFeederOverloadSensor != null && !BinFeederOverloadSensor.IsOn;
+        }
+
+        public bool IsFeederRingDetected(bool expected = true)
+        {
+            if (IsOutputFeederSimulationOrDryRun())
+                return IsFeederTransferDataOccupied() == expected;
+
+            return BinFeederRingCheckSensor != null && BinFeederRingCheckSensor.IsOn == expected;
+        }
+
+        public bool IsFeederEmpty()
+        {
+            if (IsOutputFeederSimulationOrDryRun())
+                return IsFeederTransferDataEmpty();
+
+            return IsFeederTransferDataEmpty() && IsFeederRingDetected(false);
+        }
+
+        public bool IsFeederOccupied()
+        {
+            return HasWaferOnFeeder();
+        }
         public bool IsBinFeederUp() { return IsFeederUp(); }
         public bool IsBinFeederDown() { return IsFeederDown(); }
         public bool IsBinFeederUnclamp() { return IsFeederUnclamped(); }
-        public bool IsBinFeederRingCheck() { return BinFeederRingCheckSensor.IsOn; }
-        public bool IsBinFeederClamp() { return !IsFeederUnclamped() || IsFeederRingDetected(true); }
-        public bool HasWaferOnFeeder() { return IsFeederOccupied(); }
+        public bool IsBinFeederRingCheck() { return IsFeederRingDetected(true); }
+        public bool IsBinFeederClamp() { return !IsFeederUnclamped(); }
+        public bool HasWaferOnFeeder()
+        {
+            if (IsOutputFeederSimulationOrDryRun())
+                return IsFeederTransferDataOccupied();
+
+            return IsFeederTransferDataOccupied() && IsFeederRingDetected(true);
+        }
 
         public void TeachBinFeederYPosition(string positionName)
         {
@@ -394,18 +446,30 @@ namespace QMC.CDT320
 
         public async Task<int> SetFeederUpDownAsync(bool up, int timeoutMs)
         {
-            if (IsFeederOverload())
-                return RaiseFeederAlarm("BF-LIFT-OVERLOAD", "OutputFeeder overload is on.");
+            try
+            {
+                if (IsFeederOverload())
+                    return RaiseFeederAlarm("BF-LIFT-OVERLOAD", "OutputFeeder overload is detected.");
 
-            bool ok = up ? await FeederUpDownCyl.MoveFwdAsync() : await FeederUpDownCyl.MoveBwdAsync();
-            if (!ok)
-                return RaiseFeederAlarm(up ? "BF-LIFT-UP" : "BF-LIFT-DOWN", "OutputFeeder lift cylinder move failed.");
+                bool ok = up ? await FeederUpDownCyl.MoveFwdAsync() : await FeederUpDownCyl.MoveBwdAsync();
+                if (!ok)
+                    return RaiseFeederAlarm(up ? "BF-LIFT-UP" : "BF-LIFT-DOWN", "OutputFeeder lift cylinder move failed.");
 
-            bool sensorOk = up ? await WaitFeederUp(timeoutMs) : await WaitFeederDown(timeoutMs);
-            if (!sensorOk)
-                return RaiseFeederAlarm(up ? "BF-LIFT-UP-TIMEOUT" : "BF-LIFT-DOWN-TIMEOUT", "OutputFeeder lift sensor timeout.");
+                ApplyOutputFeederLiftSensorSimulation(up);
 
-            return 0;
+                bool sensorOk = up ? await WaitFeederUp(timeoutMs) : await WaitFeederDown(timeoutMs);
+                if (!sensorOk)
+                    return RaiseFeederAlarm(up ? "BF-LIFT-UP-TIMEOUT" : "BF-LIFT-DOWN-TIMEOUT", "OutputFeeder lift sensor timeout.");
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return RaiseFeederAlarm("BF-LIFT-EX", "OutputFeeder lift exception: " + ex.Message);
+            }
+            finally
+            {
+            }
         }
 
         public Task<int> SetBinFeederClamp(bool clamp) { return SetFeederClampAsync(clamp, ResolveClampTimeoutMs(clamp)); }
@@ -416,27 +480,122 @@ namespace QMC.CDT320
 
         public async Task<int> SetFeederClampAsync(bool clamp, int timeoutMs)
         {
-            bool ok = clamp ? await FeederClampCyl.MoveFwdAsync() : await FeederClampCyl.MoveBwdAsync();
-            if (!ok)
-                return RaiseFeederAlarm(clamp ? "BF-CLAMP" : "BF-UNCLAMP", "OutputFeeder clamp cylinder move failed.");
+            try
+            {
+                bool ok = clamp ? await FeederClampCyl.MoveFwdAsync() : await FeederClampCyl.MoveBwdAsync();
+                if (!ok)
+                    return RaiseFeederAlarm(clamp ? "BF-CLAMP" : "BF-UNCLAMP", "OutputFeeder clamp cylinder move failed.");
 
-            bool sensorOk = clamp ? await WaitFeederRingState(true, timeoutMs) : await WaitFeederUnclamped(timeoutMs);
-            if (!sensorOk)
-                return RaiseFeederAlarm(clamp ? "BF-CLAMP-TIMEOUT" : "BF-UNCLAMP-TIMEOUT", "OutputFeeder clamp sensor timeout.");
+                ApplyOutputFeederClampSensorSimulation(clamp);
 
-            return 0;
+                bool sensorOk = clamp ? await WaitFeederClamped(timeoutMs) : await WaitFeederUnclamped(timeoutMs);
+                if (!sensorOk)
+                    return RaiseFeederAlarm(clamp ? "BF-CLAMP-TIMEOUT" : "BF-UNCLAMP-TIMEOUT", "OutputFeeder clamp sensor timeout.");
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return RaiseFeederAlarm("BF-CLAMP-EX", "OutputFeeder clamp exception: " + ex.Message);
+            }
+            finally
+            {
+            }
         }
 
-        public async Task<bool> WaitFeederUp(int timeoutMs) { return await BinFeederUpSensor.WaitUntilStateAsync(true, timeoutMs); }
-        public async Task<bool> WaitFeederDown(int timeoutMs) { return await BinFeederDownSensor.WaitUntilStateAsync(true, timeoutMs); }
-        public async Task<bool> WaitFeederUnclamped(int timeoutMs) { return await BinFeederUnclampSensor.WaitUntilStateAsync(true, timeoutMs); }
-        public async Task<bool> WaitFeederRingState(bool expected, int timeoutMs) { return await BinFeederRingCheckSensor.WaitUntilStateAsync(expected, timeoutMs); }
+        public async Task<bool> WaitFeederUp(int timeoutMs)
+        {
+            if (ShouldBypassInputWaitInSimulation(BinFeederUpSensor))
+                return true;
+            return await BinFeederUpSensor.WaitUntilStateAsync(true, timeoutMs);
+        }
+
+        public async Task<bool> WaitFeederDown(int timeoutMs)
+        {
+            if (ShouldBypassInputWaitInSimulation(BinFeederDownSensor))
+                return true;
+            return await BinFeederDownSensor.WaitUntilStateAsync(true, timeoutMs);
+        }
+
+        public async Task<bool> WaitFeederClamped(int timeoutMs)
+        {
+            if (ShouldBypassInputWaitInSimulation(BinFeederUnclampSensor))
+                return true;
+            return await BinFeederUnclampSensor.WaitUntilStateAsync(false, timeoutMs);
+        }
+
+        public async Task<bool> WaitFeederUnclamped(int timeoutMs)
+        {
+            if (ShouldBypassInputWaitInSimulation(BinFeederUnclampSensor))
+                return true;
+            return await BinFeederUnclampSensor.WaitUntilStateAsync(true, timeoutMs);
+        }
+
+        public async Task<bool> WaitFeederRingState(bool expected, int timeoutMs)
+        {
+            if (ShouldBypassInputWaitInSimulation(BinFeederRingCheckSensor))
+                return IsFeederTransferDataOccupied() == expected;
+            return await BinFeederRingCheckSensor.WaitUntilStateAsync(expected, timeoutMs);
+        }
         public async Task<bool> WaitBinFeederUp(int timeoutMs) { return await WaitFeederUp(timeoutMs); }
         public async Task<bool> WaitBinFeederDown(int timeoutMs) { return await WaitFeederDown(timeoutMs); }
         public async Task<bool> WaitBinFeederUnclamp(int timeoutMs) { return await WaitFeederUnclamped(timeoutMs); }
-        public async Task<bool> WaitBinFeederClamp(int timeoutMs) { return await WaitFeederRingState(true, timeoutMs); }
+        public async Task<bool> WaitBinFeederClamp(int timeoutMs) { return await WaitFeederClamped(timeoutMs); }
         public async Task<bool> WaitBinFeederRingClear(int timeoutMs) { return await WaitFeederRingState(false, timeoutMs); }
         public bool CheckFeederOverloadClear() { return !IsFeederOverload(); }
+
+        private void ApplyOutputFeederLiftSensorSimulation(bool up)
+        {
+            if (!ShouldApplyInputSimulation(BinFeederUpSensor) &&
+                !ShouldApplyInputSimulation(BinFeederDownSensor))
+                return;
+
+            SimulateInputIfAllowed(BinFeederUpSensor, up);
+            SimulateInputIfAllowed(BinFeederDownSensor, !up);
+        }
+
+        private void ApplyOutputFeederClampSensorSimulation(bool clamp)
+        {
+            if (!ShouldApplyInputSimulation(BinFeederUnclampSensor))
+                return;
+
+            SimulateInputIfAllowed(BinFeederUnclampSensor, !clamp);
+        }
+
+        private bool ShouldBypassInputWaitInSimulation(BaseDigitalInput input)
+        {
+            return IsOutputFeederSimulationOrDryRun() && !CanSimulateInput(input);
+        }
+
+        private bool ShouldApplyInputSimulation(BaseDigitalInput input)
+        {
+            return CanSimulateInput(input) &&
+                   (IsOutputFeederSimulationOrDryRun() ||
+                    IsCylinderSimulation(FeederUpDownCyl) ||
+                    IsCylinderSimulation(FeederClampCyl));
+        }
+
+        private bool ShouldReadCylinderStateForSimulation(BaseCylinder cylinder)
+        {
+            return IsOutputFeederSimulationOrDryRun() &&
+                   IsCylinderSimulation(cylinder);
+        }
+
+        private static bool CanSimulateInput(BaseDigitalInput input)
+        {
+            return input != null && input.Config != null && input.Config.IsSimulationMode;
+        }
+
+        private static bool IsCylinderSimulation(BaseCylinder cylinder)
+        {
+            return cylinder != null && cylinder.Config != null && cylinder.Config.IsSimulationMode;
+        }
+
+        private static void SimulateInputIfAllowed(BaseDigitalInput input, bool state)
+        {
+            if (CanSimulateInput(input))
+                input.SimulateInput(state);
+        }
 
         public void ManualMoveBinFeederYJog(Direction dir, double speed) { FeederY.MoveJogContinuous((int)dir, JogSpeedType.Custom, speed); }
         public void ManualMoveBinFeederYJog(int direction, double speed) { ManualMoveBinFeederYJog(direction < 0 ? Direction.Minus : Direction.Plus, speed); }
@@ -466,7 +625,7 @@ namespace QMC.CDT320
             if (result != 0) return result;
             result = await FeederClamp(timeoutMs);
             if (result != 0) return result;
-            if (!IsFeederRingDetected(true))
+            if (!IsOutputFeederSimulationOrDryRun() && !IsFeederRingDetected(true))
                 return RaiseFeederAlarm("BF-LOAD-RING", "OutputFeeder ring was not detected after cassette load.");
 
             UpdateFeederMaterialState(MaterialState.Occupied);
@@ -515,7 +674,7 @@ namespace QMC.CDT320
             if (result != 0) return result;
             result = await FeederLiftDown(timeoutMs);
             if (result != 0) return result;
-            if (!await WaitFeederRingState(false, timeoutMs))
+            if (!IsOutputFeederSimulationOrDryRun() && !await WaitFeederRingState(false, timeoutMs))
                 return RaiseFeederAlarm("BF-STAGE-LOAD-RING", "OutputFeeder ring remained after stage load.");
 
             ClearFeederMaterialState();
@@ -536,7 +695,7 @@ namespace QMC.CDT320
             if (result != 0) return result;
             result = await FeederClamp(timeoutMs);
             if (result != 0) return result;
-            if (!await WaitFeederRingState(true, timeoutMs))
+            if (!IsOutputFeederSimulationOrDryRun() && !await WaitFeederRingState(true, timeoutMs))
                 return RaiseFeederAlarm("BF-STAGE-UNLOAD-RING", "OutputFeeder ring was not detected after stage unload.");
 
             UpdateFeederMaterialState(MaterialState.Occupied);
@@ -559,7 +718,7 @@ namespace QMC.CDT320
             if (result != 0) return result;
             result = await FeederLiftDown(timeoutMs);
             if (result != 0) return result;
-            if (!await WaitFeederRingState(false, timeoutMs))
+            if (!IsOutputFeederSimulationOrDryRun() && !await WaitFeederRingState(false, timeoutMs))
                 return RaiseFeederAlarm("BF-CST-UNLOAD-RING", "OutputFeeder ring remained after cassette unload.");
 
             ClearFeederMaterialState();
@@ -622,6 +781,26 @@ namespace QMC.CDT320
 
         public bool CheckFeederMoveReady() { return CheckBinFeederYMoveReady(); }
         public bool CheckBinFeederMoveReady() { return CheckFeederMoveReady(); }
+
+        public bool IsFeederTransferDataEmpty()
+        {
+            return MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputFeeder) == null &&
+                   CurrentMaterialState == MaterialState.Empty;
+        }
+
+        public bool IsFeederTransferDataOccupied()
+        {
+            return MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputFeeder) != null ||
+                   CurrentMaterialState != MaterialState.Empty &&
+                   CurrentMaterialState != MaterialState.Error;
+        }
+
+        public bool IsOutputFeederSimulationOrDryRun()
+        {
+            bool simulation = Setup != null && Setup.IsSimulationMode;
+            bool dryRun = Config != null && Config.bDryRun;
+            return simulation || dryRun;
+        }
 
         public bool CheckFeederTransferReady(TransferMode mode)
         {

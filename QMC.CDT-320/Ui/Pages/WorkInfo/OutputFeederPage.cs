@@ -163,7 +163,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private async Task<bool> RunLoadFromCassetteAsync(Form1 host)
         {
             OutputSlotPlan plan;
-            if (!OutputSlotPlanner.TryResolveNextSupplySlot(BinSide.Good, out plan))
+            BinSide side = ResolveSelectedSide();
+            if (!OutputSlotPlanner.TryResolveNextSupplySlot(side, out plan))
                 return false;
 
             var options = BuildOptions(host, plan);
@@ -179,7 +180,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private async Task<bool> RunUnloadFromStageAsync(Form1 host)
         {
             BinSide side = ResolveStageUnloadSide();
-            var options = BuildOptions(host, side, side == BinSide.Ng ? CassetteMaterialRole.Ng1 : CassetteMaterialRole.Good1, 0);
+            var options = BuildOptions(host, side, ResolveRoleForSide(side), 0);
             return await CreateSequence(host).RunUnloadFromStageAsync(host.Controller.ManualOperationToken, options) == 0;
         }
 
@@ -229,20 +230,66 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             return OutputFeederSequenceOptions.Default().MoveTimeoutMs;
         }
 
-        private static BinSide ResolveStageUnloadSide()
+        private BinSide ResolveStageUnloadSide()
         {
             if (MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputStageNg) != null)
                 return BinSide.Ng;
+            if (MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputStageGood) != null)
+                return BinSide.Good;
+
+            return ResolveSelectedSide();
+        }
+
+        private BinSide ResolveSelectedSide()
+        {
+            return rbTargetNg != null && rbTargetNg.Checked ? BinSide.Ng : BinSide.Good;
+        }
+
+        private CassetteMaterialRole ResolveRoleForSide(BinSide side)
+        {
+            return side == BinSide.Ng ? CassetteMaterialRole.Ng1 : CassetteMaterialRole.Good1;
+        }
+
+        private string ResolveDisplaySideText(CassetteMaterialRole role)
+        {
+            if (role == CassetteMaterialRole.Ng1)
+                return "NG";
+
+            return "OK";
+        }
+
+        private Color ResolveTargetButtonColor(BinSide side)
+        {
+            return side == BinSide.Ng ? Color.FromArgb(255, 230, 230) : Color.FromArgb(230, 245, 255);
+        }
+
+        private void RefreshTargetSideDisplay(BinSide side)
+        {
+            if (targetSideLayout != null)
+                targetSideLayout.BackColor = ResolveTargetButtonColor(side);
+
+            if (rbTargetOk != null)
+                rbTargetOk.BackColor = ResolveTargetButtonColor(BinSide.Good);
+
+            if (rbTargetNg != null)
+                rbTargetNg.BackColor = ResolveTargetButtonColor(BinSide.Ng);
+        }
+
+        private BinSide ResolveDisplaySide(CassetteMaterialRole role)
+        {
+            if (role == CassetteMaterialRole.Ng1)
+                return BinSide.Ng;
+
             return BinSide.Good;
         }
 
-        private static BinSide ResolveFeederSide()
+        private BinSide ResolveFeederSide()
         {
             CassetteMaterialRole role = ResolveFeederRole();
             return role == CassetteMaterialRole.Ng1 ? BinSide.Ng : BinSide.Good;
         }
 
-        private static CassetteMaterialRole ResolveFeederRole()
+        private CassetteMaterialRole ResolveFeederRole()
         {
             WaferMaterial wafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputFeeder);
             if (wafer != null &&
@@ -251,10 +298,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                  wafer.SourceCassetteRole == CassetteMaterialRole.Ng1))
                 return wafer.SourceCassetteRole;
 
-            return CassetteMaterialRole.Good1;
+            return ResolveRoleForSide(ResolveSelectedSide());
         }
 
-        private static int ResolveFeederSlot()
+        private int ResolveFeederSlot()
         {
             WaferMaterial wafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputFeeder);
             if (wafer != null && wafer.SourceSlotNumber >= 0)
@@ -280,11 +327,13 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 : feeder.IsFeederOccupied();
             CassetteMaterialRole role = ResolveFeederRole();
             int slot = ResolveFeederSlot();
+            BinSide displaySide = ResolveDisplaySide(role);
 
             _lblFeederPos.Text = AxisUnitConverter.FormatDisplay(feeder.FeederY.ActualPosition, feeder.FeederY, "0.###", true);
             _lblExist.Text = hasFeederWafer ? "WAFER" : "--";
-            _lblSide.Text = role == CassetteMaterialRole.Ng1 ? "NG" : "GOOD";
+            _lblSide.Text = ResolveDisplaySideText(role);
             _lblSlot.Text = slot >= 0 ? (slot + 1).ToString("00") : "--";
+            RefreshTargetSideDisplay(hasFeederWaferData ? displaySide : ResolveSelectedSide());
             _lblClampState.Text = feeder.FeederClampCyl.IsFwd ? "CLAMP" : (feeder.FeederClampCyl.IsBwd ? "UNCLAMP" : "ERROR");
             _lblUpDownState.Text = feeder.FeederUpDownCyl.IsFwd ? "UP" : (feeder.FeederUpDownCyl.IsBwd ? "DOWN" : "--");
 
