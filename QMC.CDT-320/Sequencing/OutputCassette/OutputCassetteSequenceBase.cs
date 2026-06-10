@@ -158,6 +158,41 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        protected int CheckCassetteSize(TStep nextStep, bool allowMismatch)
+        {
+            try
+            {
+                var cassette = Cassette;
+                if (cassette == null)
+                    return Fail("OUT-CST-MISSING", "OutputCassette", "Output cassette unit is not available.");
+
+                int size = ResolveCassetteSize(cassette);
+                bool goodMatched = cassette.IsBinCassetteExist(TargetCassette.Good1, size);
+                bool ngMatched = cassette.IsBinCassetteExist(TargetCassette.Ng, size);
+                bool matched = goodMatched && ngMatched;
+                if (!IsHardwareBypassed() && !matched)
+                {
+                    if (!allowMismatch)
+                        return Fail("OUT-CST-SIZE", cassette.Name, "Output cassette size does not match recipe/config.");
+
+                    Context.LogPublic("[OUTPUT-CASSETTE] Unloading continues although cassette size does not match recipe/config.");
+                }
+
+                if (IsHardwareBypassed() && !matched)
+                    Context.LogPublic("[OUTPUT-CASSETTE] Hardware bypass: cassette size sensor check skipped.");
+
+                CurrentStep = nextStep;
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return Fail("OUT-CST-SIZE-EX", Name, "Output cassette size check failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
         protected int CheckMappingStartCondition(TStep nextStep)
         {
             try
@@ -280,7 +315,7 @@ namespace QMC.CDT320.Sequencing
                 if (cassette == null)
                     return Fail("OUT-CST-MISSING", "OutputCassette", "Output cassette unit is not available.");
 
-                bool ok = await AwaitStepWithCancellationAsync(cassette.ScanAllCassettesAsync(), ct).ConfigureAwait(false);
+                bool ok = await AwaitStepWithCancellationAsync(cassette.ScanAllCassettesFromCurrentStartAsync(), ct).ConfigureAwait(false);
                 if (!ok)
                     return Fail("OUT-CST-SCAN", cassette.Name, "Output cassette scan failed.");
 
@@ -325,14 +360,12 @@ namespace QMC.CDT320.Sequencing
                 if (cassette == null)
                     return Fail("OUT-CST-MISSING", "OutputCassette", "Output cassette unit is not available.");
 
-                TargetCassette target = ResolveFirstAvailableOutputCassette(cassette);
-                int slot = cassette.FindFirstFullSlot(target);
-                if (slot < 0)
-                    slot = cassette.FindFirstEmptySlot(target);
-                if (slot >= 0)
+                TargetCassette target = ResolveMappingReturnCassette();
+                int slotCount = cassette.Config != null ? cassette.Config.SlotCount : 0;
+                if (slotCount > 0)
                 {
-                    double targetPosition = cassette.CalculateBinCassetteSlotTargetPosition(target, slot);
-                    int result = await MoveLifterZAndVerifyAsync(targetPosition, target + " first slot", ct).ConfigureAwait(false);
+                    double targetPosition = cassette.CalculateBinCassetteSlotTargetPosition(target, 0);
+                    int result = await MoveLifterZAndVerifyAsync(targetPosition, target + " slot 1", ct).ConfigureAwait(false);
                     if (result != 0)
                         return result;
                 }
@@ -509,6 +542,16 @@ namespace QMC.CDT320.Sequencing
             return cassette != null && cassette.FindFirstEmptySlot(TargetCassette.Good1) >= 0
                 ? TargetCassette.Good1
                 : TargetCassette.Good2;
+        }
+
+        private TargetCassette ResolveMappingReturnCassette()
+        {
+            if (Options.TargetCassette == TargetCassette.Ng ||
+                Options.TargetCassette == TargetCassette.Good1 ||
+                Options.TargetCassette == TargetCassette.Good2)
+                return Options.TargetCassette;
+
+            return TargetCassette.Good1;
         }
 
         private double ResolveLoadingPosition()

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using QMC.Common.IO;
+using QMC.Common.Logging;
 
 namespace QMC.CDT320.Ajin
 {
@@ -99,27 +100,115 @@ namespace QMC.CDT320.Ajin
             {
                 foreach (var pair in _items)
                 {
-                    AjinCylinder cylinder = pair.Value as AjinCylinder;
-                    if (cylinder == null) continue;
+                    BaseCylinder cylinder = pair.Value;
+                    if (cylinder == null)
+                        continue;
 
                     CylMap map;
                     if (!AjinConfigStore.Current.Cylinders.TryGetValue(pair.Key, out map) || map == null)
                         continue;
 
-                    cylinder.Rebind(
+                    RebindCylinder(
+                        cylinder,
                         map.OutFwd,
                         map.OutBwd,
                         map.UseFwdInput ? map.InFwd : null,
                         map.UseBwdInput ? map.InBwd : null);
                     CylinderSettingsStore.Apply(cylinder);
+                    EventLogger.Write(EventKind.Event, "QMC", "CYL-MAP-APPLY",
+                        "Cylinder mapping applied. name=" + pair.Key
+                        + ", fwdDO=" + Format(map.OutFwd, true)
+                        + ", bwdDO=" + Format(map.OutBwd, true)
+                        + ", fwdDI=" + Format(map.UseFwdInput ? map.InFwd : null, false)
+                        + ", bwdDI=" + Format(map.UseBwdInput ? map.InBwd : null, false));
                 }
             }
-            catch
+            catch (Exception ex)
             {
+                EventLogger.Write(EventKind.Alarm, "QMC", "CYL-MAP-APPLY",
+                    "Cylinder mapping apply failed: " + ex.Message);
+                throw;
             }
             finally
             {
             }
+        }
+
+        private static void RebindCylinder(
+            BaseCylinder cylinder,
+            DioMap outFwd,
+            DioMap outBwd,
+            DioMap inFwd,
+            DioMap inBwd)
+        {
+            AjinCylinder ajinCylinder = cylinder as AjinCylinder;
+            if (ajinCylinder != null)
+            {
+                ajinCylinder.Rebind(outFwd, outBwd, inFwd, inBwd);
+                return;
+            }
+
+            ReplaceCylinderIo(cylinder, outFwd, outBwd, inFwd, inBwd);
+        }
+
+        private static void ReplaceCylinderIo(
+            BaseCylinder cylinder,
+            DioMap outFwd,
+            DioMap outBwd,
+            DioMap inFwd,
+            DioMap inBwd)
+        {
+            if (cylinder == null)
+                return;
+
+            AjinIoScanService scan = AjinIoScanService.Current;
+            if (scan != null)
+            {
+                scan.UnregisterOutput(cylinder.OutFwd as AjinDigitalOutput);
+                scan.UnregisterOutput(cylinder.OutBwd as AjinDigitalOutput);
+                scan.UnregisterInput(cylinder.InFwd as AjinDigitalInput);
+                scan.UnregisterInput(cylinder.InBwd as AjinDigitalInput);
+            }
+
+            var flags = System.Reflection.BindingFlags.Instance
+                        | System.Reflection.BindingFlags.Public
+                        | System.Reflection.BindingFlags.NonPublic;
+            var type = typeof(BaseCylinder);
+
+            type.GetProperty("OutFwd", flags).SetValue(
+                cylinder,
+                AjinFactory.CreateSharedDigitalOutput(cylinder.Name + "_OutFwd", outFwd, !AjinFactory.IsRealBoardReady));
+            type.GetProperty("OutBwd", flags).SetValue(
+                cylinder,
+                AjinFactory.CreateSharedDigitalOutput(cylinder.Name + "_OutBwd", outBwd, !AjinFactory.IsRealBoardReady));
+            type.GetProperty("InFwd", flags).SetValue(
+                cylinder,
+                AjinFactory.CreateSharedDigitalInput(cylinder.Name + "_InFwd", inFwd, !AjinFactory.IsRealBoardReady));
+            type.GetProperty("InBwd", flags).SetValue(
+                cylinder,
+                AjinFactory.CreateSharedDigitalInput(cylinder.Name + "_InBwd", inBwd, !AjinFactory.IsRealBoardReady));
+
+            cylinder.Setup.UseFwdSensor = inFwd != null;
+            cylinder.Setup.UseBwdSensor = inBwd != null;
+
+            if (scan != null)
+            {
+                scan.RegisterOutput(cylinder.OutFwd as AjinDigitalOutput);
+                scan.RegisterOutput(cylinder.OutBwd as AjinDigitalOutput);
+                scan.RegisterInput(cylinder.InFwd as AjinDigitalInput);
+                scan.RegisterInput(cylinder.InBwd as AjinDigitalInput);
+            }
+        }
+
+        private static string Format(DioMap map, bool output)
+        {
+            if (map == null)
+                return "-";
+
+            string address = output
+                ? AjinIoCatalog.OutputAddress(map.Module, map.Bit)
+                : AjinIoCatalog.InputAddress(map.Module, map.Bit);
+            return address + "(M" + map.Module + ",B" + map.Bit + ")";
         }
     }
 }

@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using QMC.CDT320.Ajin;
 using QMC.Common;
+using QMC.Common.Alarms;
 using QMC.Common.IO;
 using QMC.Common.Motion;
 
@@ -520,68 +521,483 @@ namespace QMC.CDT320
 
         public async Task<bool> ScanCassetteAsync(TargetCassette cassette, int maxSlots, double slotPitch)
         {
-            bool hardwareBypassed = Config.bDryRun ||
-                                    Setup.IsSimulationMode ||
-                                    (OutputLifterZ != null && OutputLifterZ.Config != null && OutputLifterZ.Config.IsSimulationMode);
-            if (!hardwareBypassed && !IsAnyCassetteSensorOn(cassette))
-            {
-                Console.WriteLine("[ALARM] '" + Name + "' ScanCassette: cassette not detected. cassette=" + cassette);
-                _slotMap[cassette] = new bool[0];
-                return false;
-            }
-
             if (maxSlots <= 0 || slotPitch <= 0.0)
                 return false;
 
-            Recipe.EnsureSlotPositionBuffers(maxSlots);
-            bool[] map = new bool[maxSlots];
-            double oldAcc = OutputLifterZ.Config.Acceleration;
-            double oldDec = OutputLifterZ.Config.Deceleration;
-
-            try
+            if (IsOutputCassetteHardwareBypassed())
             {
-                if (Config.ScanAcc > 0.0)
-                    OutputLifterZ.Config.Acceleration = Config.ScanAcc;
-                if (Config.ScanDec > 0.0)
-                    OutputLifterZ.Config.Deceleration = Config.ScanDec;
-
-                for (int i = 0; i < maxSlots; i++)
-                {
-                    double position = GetFirstSlotPosition(cassette) + (i * slotPitch);
-                    await MoveBinLifterZ(position, true);
-                    if (OutputLifterZ.IsAlarm)
-                    {
-                        Console.WriteLine("[ALARM] '" + Name + "' ScanCassette: OutputLifterZ move failed at slot " + i + ".");
-                        return false;
-                    }
-
-                    await Task.Delay(Config.ScanSettleTimeMs).ContinueWith(_ => { });
-                    map[i] = hardwareBypassed ? true : BinMappingSensor.IsOn;
-                    Recipe.UpdateSlotPosition(cassette, i, OutputLifterZ.ActualPosition);
-                }
-            }
-            finally
-            {
-                OutputLifterZ.Config.Acceleration = oldAcc;
-                OutputLifterZ.Config.Deceleration = oldDec;
+                BuildSimulatedBinMap(cassette, maxSlots, slotPitch);
+                return true;
             }
 
-            _slotMap[cassette] = map;
-            for (int i = 0; i < map.Length; i++)
-                UpdateCassetteSlotState(cassette, i, map[i] ? SlotPresence.Exist : SlotPresence.Empty, ProcessState.Ready);
+            List<double> detectedPositions = await CollectBinMappingSensorPositionsAsync(cassette, maxSlots, slotPitch, true);
+            if (detectedPositions == null)
+                return false;
 
+            bool[] slotMap;
+            double[] slotPositions;
+            if (!BuildBinMappingResultFromDetectedPositions(cassette, detectedPositions, maxSlots, slotPitch, out slotMap, out slotPositions))
+                return false;
+
+            ApplyBinMappingResult(cassette, slotMap, slotPositions);
             return true;
         }
 
         public async Task<bool> ScanAllCassettesAsync()
         {
             BeginMapping();
-            bool ok = true;
-            ok &= await ScanCassetteAsync(TargetCassette.Ng, Config.SlotCount, Config.SlotPitch);
-            ok &= await ScanCassetteAsync(TargetCassette.Good1, Config.SlotCount, Config.SlotPitch);
-            ok &= await ScanCassetteAsync(TargetCassette.Good2, Config.SlotCount, Config.SlotPitch);
+
+            int maxSlots = Config.SlotCount;
+            double slotPitch = Config.SlotPitch;
+            if (maxSlots <= 0 || slotPitch <= 0.0)
+            {
+                FailMappingScan("OUT-CST-MAP-CONFIG", "Output cassette mapping config is invalid.");
+                return false;
+            }
+
+            if (IsOutputCassetteHardwareBypassed())
+            {
+                BuildSimulatedBinMap(TargetCassette.Ng, maxSlots, slotPitch);
+                BuildSimulatedBinMap(TargetCassette.Good1, maxSlots, slotPitch);
+                BuildSimulatedBinMap(TargetCassette.Good2, maxSlots, slotPitch);
+                EndMapping();
+                return true;
+            }
+
+            if (!IsAnyCassetteSensorOn(TargetCassette.Good1))
+                return FailMappingScanBool("OUT-CST-MAP-GOOD-MISSING", "Good cassette is not detected.");
+
+            if (!IsAnyCassetteSensorOn(TargetCassette.Ng))
+                return FailMappingScanBool("OUT-CST-MAP-NG-MISSING", "NG cassette is not detected.");
+
+            List<double> detectedPositions = await CollectBinMappingSensorPositionsAsync(TargetCassette.Good1, maxSlots, slotPitch, true);
+            if (detectedPositions == null)
+                return false;
+
+            if (!ApplyDetectedBinMapping(TargetCassette.Ng, detectedPositions, maxSlots, slotPitch))
+                return false;
+
+            if (!ApplyDetectedBinMapping(TargetCassette.Good1, detectedPositions, maxSlots, slotPitch))
+                return false;
+
+            if (!ApplyDetectedBinMapping(TargetCassette.Good2, detectedPositions, maxSlots, slotPitch))
+                return false;
+
             EndMapping();
-            return ok;
+            return true;
+        }
+
+        public async Task<bool> ScanAllCassettesFromCurrentStartAsync()
+        {
+            BeginMapping();
+
+            int maxSlots = Config.SlotCount;
+            double slotPitch = Config.SlotPitch;
+            if (maxSlots <= 0 || slotPitch <= 0.0)
+            {
+                FailMappingScan("OUT-CST-MAP-CONFIG", "Output cassette mapping config is invalid.");
+                return false;
+            }
+
+            if (IsOutputCassetteHardwareBypassed())
+            {
+                BuildSimulatedBinMap(TargetCassette.Ng, maxSlots, slotPitch);
+                BuildSimulatedBinMap(TargetCassette.Good1, maxSlots, slotPitch);
+                BuildSimulatedBinMap(TargetCassette.Good2, maxSlots, slotPitch);
+                bool moved = await MoveToBinCassetteMappingEndAndVerifyAsync();
+                if (!moved)
+                    return false;
+
+                EndMapping();
+                return true;
+            }
+
+            if (!IsAnyCassetteSensorOn(TargetCassette.Good1))
+                return FailMappingScanBool("OUT-CST-MAP-GOOD-MISSING", "Good cassette is not detected.");
+
+            if (!IsAnyCassetteSensorOn(TargetCassette.Ng))
+                return FailMappingScanBool("OUT-CST-MAP-NG-MISSING", "NG cassette is not detected.");
+
+            List<double> detectedPositions = await CollectBinMappingSensorPositionsAsync(TargetCassette.Good1, maxSlots, slotPitch, false);
+            if (detectedPositions == null)
+                return false;
+
+            if (!ApplyDetectedBinMapping(TargetCassette.Ng, detectedPositions, maxSlots, slotPitch))
+                return false;
+
+            if (!ApplyDetectedBinMapping(TargetCassette.Good1, detectedPositions, maxSlots, slotPitch))
+                return false;
+
+            if (!ApplyDetectedBinMapping(TargetCassette.Good2, detectedPositions, maxSlots, slotPitch))
+                return false;
+
+            EndMapping();
+            return true;
+        }
+
+        private async Task<List<double>> CollectBinMappingSensorPositionsAsync(
+            TargetCassette referenceCassette,
+            int maxSlots,
+            double slotPitch,
+            bool moveToStart)
+        {
+            double originalAcc = 0.0;
+            double originalDec = 0.0;
+            bool restoreScanProfile = false;
+
+            try
+            {
+                if (!IsAnyCassetteSensorOn(referenceCassette))
+                    return FailMappingScanList("OUT-CST-MAP-CST-MISSING", "Output cassette is not detected. cassette=" + referenceCassette);
+
+                if (moveToStart)
+                {
+                    int startResult = await MoveToBinCassetteMappingStartAndVerifyAsync();
+                    if (startResult != 0)
+                        return null;
+                }
+
+                var detectedPositions = new List<double>();
+                bool previous = BinMappingSensor.IsOn;
+                if (previous)
+                    return FailMappingScanList("OUT-CST-MAP-SENSOR-ON", "Mapping sensor is ON at mapping start. Check mapping start position.");
+
+                double scanVelocity = Config.ScanVelocity > 0.0 ? Config.ScanVelocity : OutputLifterZ.Config.DefaultVelocity;
+                if (scanVelocity <= 0.0)
+                    scanVelocity = 1.0;
+
+                if (OutputLifterZ.Config != null && (Config.ScanAcc > 0.0 || Config.ScanDec > 0.0))
+                {
+                    originalAcc = OutputLifterZ.Config.Acceleration;
+                    originalDec = OutputLifterZ.Config.Deceleration;
+                    if (Config.ScanAcc > 0.0)
+                        OutputLifterZ.Config.Acceleration = Config.ScanAcc;
+                    if (Config.ScanDec > 0.0)
+                        OutputLifterZ.Config.Deceleration = Config.ScanDec;
+                    restoreScanProfile = true;
+                }
+
+                Task<int> moveTask = OutputLifterZ.MoveAbsoluteAsync(Recipe.MappingEndPosition, scanVelocity);
+                while (!moveTask.IsCompleted)
+                {
+                    if (IsBinProtrusionDetected())
+                    {
+                        OutputLifterZ.EStop();
+                        return FailMappingScanList("OUT-CST-MAP-PROTRUSION", "Bin protrusion detected during mapping scan.");
+                    }
+
+                    bool current = BinMappingSensor.IsOn;
+                    if (current && !previous)
+                        AddDetectedBinMappingPosition(detectedPositions, OutputLifterZ.ActualPosition, slotPitch);
+
+                    previous = current;
+                    await Task.Delay(5).ContinueWith(_ => { });
+                }
+
+                int moveResult = await moveTask;
+                if (moveResult != 0 || OutputLifterZ.IsAlarm)
+                    return FailMappingScanList("OUT-CST-MAP-END", "OutputLifterZ move failed during mapping scan.");
+
+                bool done = await WaitBinLifterZMoveDone(OutputLifterZ.Setup.MoveTimeoutMs);
+                if (!done)
+                    return FailMappingScanList("OUT-CST-MAP-END-WAIT", "OutputLifterZ mapping end move timeout.");
+
+                if (!IsBinLifterZInPosition(Recipe.MappingEndPosition))
+                    return FailMappingScanList("OUT-CST-MAP-END-CHECK", "OutputLifterZ mapping end final position check failed.");
+
+                return detectedPositions;
+            }
+            catch (Exception ex)
+            {
+                return FailMappingScanList("OUT-CST-MAP-COLLECT", "Mapping sensor position collect failed: " + ex.Message);
+            }
+            finally
+            {
+                if (restoreScanProfile && OutputLifterZ != null && OutputLifterZ.Config != null)
+                {
+                    OutputLifterZ.Config.Acceleration = originalAcc;
+                    OutputLifterZ.Config.Deceleration = originalDec;
+                }
+            }
+        }
+
+        private async Task<bool> MoveToBinCassetteMappingEndAndVerifyAsync()
+        {
+            try
+            {
+                await MoveToBinCassetteMappingEndPosition(true);
+
+                bool done = await WaitBinLifterZMoveDone(OutputLifterZ.Setup.MoveTimeoutMs);
+                if (!done)
+                {
+                    FailMappingScan("OUT-CST-MAP-END-WAIT", "OutputLifterZ mapping end move timeout.");
+                    return false;
+                }
+
+                if (!IsBinLifterZInPosition(Recipe.MappingEndPosition))
+                {
+                    FailMappingScan("OUT-CST-MAP-END-CHECK", "OutputLifterZ mapping end final position check failed.");
+                    return false;
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                FailMappingScan("OUT-CST-MAP-END", "OutputLifterZ move failed at mapping end: " + ex.Message);
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> MoveToBinCassetteMappingStartAndVerifyAsync()
+        {
+            try
+            {
+                await MoveToBinCassetteMappingStartPosition(true);
+
+                bool done = await WaitBinLifterZMoveDone(OutputLifterZ.Setup.MoveTimeoutMs);
+                if (!done)
+                    return FailMappingScan("OUT-CST-MAP-START-WAIT", "OutputLifterZ mapping start move timeout.");
+
+                if (!IsBinLifterZInPosition(Recipe.MappingStartPosition))
+                    return FailMappingScan("OUT-CST-MAP-START-CHECK", "OutputLifterZ mapping start final position check failed.");
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return FailMappingScan("OUT-CST-MAP-START", "OutputLifterZ move failed at mapping start: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private void AddDetectedBinMappingPosition(List<double> detectedPositions, double position, double slotPitch)
+        {
+            try
+            {
+                double minSpacing = slotPitch > 0.0 ? slotPitch * 0.5 : 0.0;
+                if (detectedPositions.Count > 0 && minSpacing > 0.0)
+                {
+                    double last = detectedPositions[detectedPositions.Count - 1];
+                    if (Math.Abs(position - last) < minSpacing)
+                        return;
+                }
+
+                detectedPositions.Add(position);
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        private bool ApplyDetectedBinMapping(
+            TargetCassette cassette,
+            IReadOnlyList<double> detectedPositions,
+            int maxSlots,
+            double slotPitch)
+        {
+            bool[] slotMap;
+            double[] slotPositions;
+            if (!BuildBinMappingResultFromDetectedPositions(cassette, detectedPositions, maxSlots, slotPitch, out slotMap, out slotPositions))
+                return false;
+
+            ApplyBinMappingResult(cassette, slotMap, slotPositions);
+            return true;
+        }
+
+        private bool BuildBinMappingResultFromDetectedPositions(
+            TargetCassette cassette,
+            IReadOnlyList<double> detectedPositions,
+            int maxSlots,
+            double slotPitch,
+            out bool[] slotMap,
+            out double[] slotPositions)
+        {
+            slotMap = new bool[maxSlots];
+            slotPositions = new double[maxSlots];
+            for (int i = 0; i < slotPositions.Length; i++)
+                slotPositions[i] = double.NaN;
+
+            try
+            {
+                double firstSlotPosition = GetFirstSlotPosition(cassette);
+                double tolerance = ResolveMappingPitchTolerance(slotPitch);
+                int previousSlot = -1;
+                double previousPosition = double.NaN;
+
+                foreach (double position in detectedPositions)
+                {
+                    int slotIndex = (int)Math.Round((position - firstSlotPosition) / slotPitch);
+                    if (slotIndex < 0 || slotIndex >= maxSlots)
+                        continue;
+
+                    double nominalPosition = firstSlotPosition + (slotPitch * slotIndex);
+                    double nominalError = Math.Abs(position - nominalPosition);
+                    if (nominalError > tolerance)
+                        continue;
+
+                    if (slotMap[slotIndex])
+                    {
+                        FailMappingScan("OUT-CST-MAP-DUPLICATE", "Duplicate bin detection matched to the same slot. cassette=" + cassette + ", slot=" + (slotIndex + 1));
+                        return false;
+                    }
+
+                    if (previousSlot >= 0)
+                    {
+                        int slotGap = Math.Abs(slotIndex - previousSlot);
+                        double actualGap = Math.Abs(position - previousPosition);
+                        double expectedGap = slotPitch * slotGap;
+                        double error = Math.Abs(actualGap - expectedGap);
+                        if (slotGap <= 0 || error > tolerance)
+                        {
+                            FailMappingScan(
+                                "OUT-CST-MAP-PITCH-CHECK",
+                                "Mapping pitch check failed. cassette=" + cassette +
+                                ", prevSlot=" + (previousSlot + 1) +
+                                ", slot=" + (slotIndex + 1) +
+                                ", actualGap=" + FormatPosition(actualGap) +
+                                ", expectedGap=" + FormatPosition(expectedGap) +
+                                ", error=" + FormatPosition(error));
+                            return false;
+                        }
+                    }
+
+                    slotMap[slotIndex] = true;
+                    slotPositions[slotIndex] = position;
+                    previousSlot = slotIndex;
+                    previousPosition = position;
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                FailMappingScan("OUT-CST-MAP-BUILD", "Mapping result build failed. cassette=" + cassette + ", error=" + ex.Message);
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private void ApplyBinMappingResult(TargetCassette cassette, bool[] slotMap, double[] slotPositions)
+        {
+            try
+            {
+                Recipe.EnsureSlotPositionBuffers(Config.SlotCount);
+                _slotMap[cassette] = slotMap;
+
+                for (int i = 0; i < slotMap.Length; i++)
+                {
+                    if (slotMap[i] && i < slotPositions.Length && !double.IsNaN(slotPositions[i]))
+                        Recipe.UpdateSlotPosition(cassette, i, slotPositions[i]);
+
+                    SlotPresence presence = slotMap[i] ? SlotPresence.Exist : SlotPresence.Empty;
+                    UpdateCassetteSlotState(cassette, i, presence, ProcessState.Ready);
+                }
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        private void BuildSimulatedBinMap(TargetCassette cassette, int maxSlots, double slotPitch)
+        {
+            try
+            {
+                Recipe.EnsureSlotPositionBuffers(maxSlots);
+                bool[] map = new bool[maxSlots];
+
+                for (int i = 0; i < maxSlots; i++)
+                {
+                    map[i] = true;
+                    double position = GetFirstSlotPosition(cassette) + (i * slotPitch);
+                    Recipe.UpdateSlotPosition(cassette, i, position);
+                    UpdateCassetteSlotState(cassette, i, SlotPresence.Exist, ProcessState.Ready);
+                }
+
+                _slotMap[cassette] = map;
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        private bool IsOutputCassetteHardwareBypassed()
+        {
+            return Config.bDryRun ||
+                   Setup.IsSimulationMode ||
+                   (OutputLifterZ != null && OutputLifterZ.Config != null && OutputLifterZ.Config.IsSimulationMode);
+        }
+
+        private double ResolveMappingPitchTolerance(double slotPitch)
+        {
+            try
+            {
+                double tolerance = OutputLifterZ != null && OutputLifterZ.Config != null
+                    ? OutputLifterZ.Config.InPositionTolerance
+                    : 0.0;
+                if (tolerance <= 0.0)
+                    tolerance = slotPitch * 0.1;
+                return Math.Max(tolerance, 0.001);
+            }
+            catch
+            {
+                return 0.001;
+            }
+            finally
+            {
+            }
+        }
+
+        private int FailMappingScan(string alarmCode, string message)
+        {
+            try
+            {
+                Log.Write("Main", "SYSTEM", "OutputCassetteMapping", message + " - Failed");
+                AlarmManager.Raise(AlarmSeverity.Warning, alarmCode, Name, message);
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+
+            return -1;
+        }
+
+        private bool FailMappingScanBool(string alarmCode, string message)
+        {
+            FailMappingScan(alarmCode, message);
+            return false;
+        }
+
+        private List<double> FailMappingScanList(string alarmCode, string message)
+        {
+            FailMappingScan(alarmCode, message);
+            return null;
+        }
+
+        private static string FormatPosition(double value)
+        {
+            return value.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
         }
 
         public async Task<bool> StoreFullWaferAsync(OutputFeederUnit feeder, TargetCassette target, int slotIndex)

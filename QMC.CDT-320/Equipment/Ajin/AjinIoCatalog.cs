@@ -287,14 +287,15 @@ namespace QMC.CDT320.Ajin
             public static readonly CylinderDefault ReticleLift = FindCylinder("ReticleLift");
             public static readonly CylinderDefault ReticleSideSlideFront = FindCylinder("ReticleSideSlideFront");
             public static readonly CylinderDefault ReticleSideSlideRear = FindCylinder("ReticleSideSlideRear");
-            public static readonly CylinderDefault NGBinGuideLift = FindCylinder("NGBinGuideLift");
-            public static readonly CylinderDefault NGBinGuideClampLift = FindCylinder("NGBinGuideClampLift");
-            public static readonly CylinderDefault NGBinGuideClamp = FindCylinder("NGBinGuideClamp");
             public static readonly CylinderDefault GoodBinGuideLift = FindCylinder("GoodBinGuideLift");
             public static readonly CylinderDefault GoodBinGuideClampLift = FindCylinder("GoodBinGuideClampLift");
             public static readonly CylinderDefault GoodBinGuideClamp = FindCylinder("GoodBinGuideClamp");
+            public static readonly CylinderDefault NGBinGuideLift = FindCylinder("NGBinGuideLift");
+            public static readonly CylinderDefault NGBinGuideClampLift = FindCylinder("NGBinGuideClampLift");
+            public static readonly CylinderDefault NGBinGuideClamp = FindCylinder("NGBinGuideClamp");
             public static readonly CylinderDefault OutputFeederLift = FindCylinder("OutputFeederLift");
             public static readonly CylinderDefault OutputFeederClamp = FindCylinder("OutputFeederClamp");
+
 
             public static readonly CylinderDefault WaferFeederUpDownCyl = InputFeederLift;
             public static readonly CylinderDefault WaferFeederClampCyl = InputFeederClamp;

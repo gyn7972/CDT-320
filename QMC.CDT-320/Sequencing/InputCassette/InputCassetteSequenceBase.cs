@@ -364,7 +364,7 @@ namespace QMC.CDT320.Sequencing
                 }
                 else
                 {
-                    int result = await cassette.WaferScan(ResolveMoveTimeout(cassette), Options.FineMove).ConfigureAwait(false);
+                    int result = await cassette.WaferScanFromCurrentStart(ResolveMoveTimeout(cassette), Options.FineMove).ConfigureAwait(false);
                     if (result != 0) return Fail("IN-CST-SCAN", cassette.Name, "Wafer scan failed. result=" + result);
                 }
 
@@ -409,13 +409,13 @@ namespace QMC.CDT320.Sequencing
                 if (cassette == null)
                     return Fail("IN-CST-MISSING", "InputCassette", "Input cassette unit is not available.");
 
-                int firstSlot = cassette.FindNextProcessWaferSlot();
-                if (firstSlot >= 0)
+                int slotCount = cassette.Config != null ? cassette.Config.SlotCount : 0;
+                if (slotCount > 0)
                 {
-                    int result = await cassette.MoveToWaferCassetteSlotPosition(firstSlot, Options.FineMove).ConfigureAwait(false);
-                    if (result != 0) return Fail("IN-CST-FIRST-SLOT", cassette.Name, "Move first wafer slot failed. result=" + result);
+                    int result = await cassette.MoveToWaferCassetteSlotPosition(0, Options.FineMove).ConfigureAwait(false);
+                    if (result != 0) return Fail("IN-CST-FIRST-SLOT", cassette.Name, "Move slot 1 failed. result=" + result);
                     result = await cassette.WaitWaferLifterZMoveDone(ResolveMoveTimeout(cassette)).ConfigureAwait(false);
-                    if (result != 0) return Fail("IN-CST-FIRST-SLOT-WAIT", cassette.Name, "First wafer slot move timeout.");
+                    if (result != 0) return Fail("IN-CST-FIRST-SLOT-WAIT", cassette.Name, "Slot 1 move timeout.");
                 }
 
                 CurrentStep = CompleteStep;
@@ -423,7 +423,7 @@ namespace QMC.CDT320.Sequencing
             }
             catch (Exception ex)
             {
-                return Fail("IN-CST-FIRST-SLOT-EX", Name, "Move first wafer slot exception: " + ex.Message);
+                return Fail("IN-CST-FIRST-SLOT-EX", Name, "Move slot 1 exception: " + ex.Message);
             }
             finally
             {
