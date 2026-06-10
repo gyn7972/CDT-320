@@ -66,7 +66,11 @@ namespace QMC.CDT320.Ajin
 
                 BaseCylinder cylinder;
                 if (_items.TryGetValue(name, out cylinder) && cylinder != null)
+                {
+                    ApplyMappingToCylinder(name, cylinder);
+                    CylinderSettingsStore.Apply(cylinder);
                     return cylinder;
+                }
 
                 CylinderDefault catalog = AjinIoCatalog.FindCylinder(name);
                 cylinder = catalog == null ? new SimCylinder(name) : AjinFactory.CreateCylinder(catalog);
@@ -148,7 +152,11 @@ namespace QMC.CDT320.Ajin
                 + ", fwdDO=" + Format(map.OutFwd, true)
                 + ", bwdDO=" + Format(map.OutBwd, true)
                 + ", fwdDI=" + Format(map.UseFwdInput ? map.InFwd : null, false)
-                + ", bwdDI=" + Format(map.UseBwdInput ? map.InBwd : null, false));
+                + ", bwdDI=" + Format(map.UseBwdInput ? map.InBwd : null, false)
+                + ", actualFwdDO=" + Format(cylinder.OutFwd, true)
+                + ", actualBwdDO=" + Format(cylinder.OutBwd, true)
+                + ", actualFwdDI=" + Format(cylinder.InFwd, false)
+                + ", actualBwdDI=" + Format(cylinder.InBwd, false));
         }
 
         private static void RebindCylinder(
@@ -226,6 +234,34 @@ namespace QMC.CDT320.Ajin
                 ? AjinIoCatalog.OutputAddress(map.Module, map.Bit)
                 : AjinIoCatalog.InputAddress(map.Module, map.Bit);
             return address + "(M" + map.Module + ",B" + map.Bit + ")";
+        }
+
+        private static string Format(BaseDigitalOutput output, bool isOutput)
+        {
+            if (output == null)
+                return "-";
+
+            int module = output.Setup.ModuleNo;
+            int bit = output.Setup.BitNo;
+            string address = isOutput
+                ? AjinIoCatalog.OutputAddress(module, bit)
+                : AjinIoCatalog.InputAddress(module, bit);
+
+            return output.Name + ":" + address + "(M" + module + ",B" + bit + ")";
+        }
+
+        private static string Format(BaseDigitalInput input, bool isOutput)
+        {
+            if (input == null)
+                return "-";
+
+            int module = input.Setup.ModuleNo;
+            int bit = input.Setup.BitNo;
+            string address = isOutput
+                ? AjinIoCatalog.OutputAddress(module, bit)
+                : AjinIoCatalog.InputAddress(module, bit);
+
+            return input.Name + ":" + address + "(M" + module + ",B" + bit + ")";
         }
     }
 }
