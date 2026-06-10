@@ -406,6 +406,38 @@ namespace QMC.CDT320.Ajin
             }
         }
 
+        internal static BaseDigitalInput CreateCylinderDigitalInput(string name, DioMap map, bool simulationMode)
+        {
+            if (map == null)
+                return ConfigureSimInput(new SimDigitalInput(string.IsNullOrWhiteSpace(name) ? "UnregisteredInput" : name), 0, 0, false);
+
+            BaseDigitalInput input = Ready
+                ? (BaseDigitalInput)new AjinDigitalInput(name, map.Module, map.Bit, map.Nc)
+                : new SimDigitalInput(name);
+
+            input.Setup.ModuleNo = map.Module;
+            input.Setup.BitNo = map.Bit;
+            input.Setup.IsNormallyClosed = map.Nc;
+            input.Config.IsSimulationMode = simulationMode || !Ready || input is SimDigitalInput;
+            return input;
+        }
+
+        internal static BaseDigitalOutput CreateCylinderDigitalOutput(string name, DioMap map, bool simulationMode)
+        {
+            if (map == null)
+                return ConfigureSimOutput(new SimDigitalOutput(string.IsNullOrWhiteSpace(name) ? "UnregisteredOutput" : name), 0, 0, false);
+
+            BaseDigitalOutput output = Ready
+                ? (BaseDigitalOutput)new AjinDigitalOutput(name, map.Module, map.Bit, map.Nc)
+                : new SimDigitalOutput(name);
+
+            output.Setup.ModuleNo = map.Module;
+            output.Setup.BitNo = map.Bit;
+            output.Setup.IsNormallyClosed = map.Nc;
+            output.Config.IsSimulationMode = simulationMode || !Ready || output is SimDigitalOutput;
+            return output;
+        }
+
         private static string IoKey(bool output, int module, int bit, bool nc)
         {
             return (output ? "DO" : "DI") + ":" + module + ":" + bit + ":" + (nc ? "NC" : "NO");

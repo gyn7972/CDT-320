@@ -202,16 +202,16 @@ namespace QMC.CDT320.Ajin
 
             type.GetProperty("OutFwd", flags).SetValue(
                 cylinder,
-                AjinFactory.CreateSharedDigitalOutput(cylinder.Name + "_OutFwd", outFwd, !AjinFactory.IsRealBoardReady));
+                AjinFactory.CreateCylinderDigitalOutput(cylinder.Name + "_OutFwd", outFwd, !AjinFactory.IsRealBoardReady));
             type.GetProperty("OutBwd", flags).SetValue(
                 cylinder,
-                AjinFactory.CreateSharedDigitalOutput(cylinder.Name + "_OutBwd", outBwd, !AjinFactory.IsRealBoardReady));
+                AjinFactory.CreateCylinderDigitalOutput(cylinder.Name + "_OutBwd", outBwd, !AjinFactory.IsRealBoardReady));
             type.GetProperty("InFwd", flags).SetValue(
                 cylinder,
-                AjinFactory.CreateSharedDigitalInput(cylinder.Name + "_InFwd", inFwd, !AjinFactory.IsRealBoardReady));
+                AjinFactory.CreateCylinderDigitalInput(cylinder.Name + "_InFwd", inFwd, !AjinFactory.IsRealBoardReady));
             type.GetProperty("InBwd", flags).SetValue(
                 cylinder,
-                AjinFactory.CreateSharedDigitalInput(cylinder.Name + "_InBwd", inBwd, !AjinFactory.IsRealBoardReady));
+                AjinFactory.CreateCylinderDigitalInput(cylinder.Name + "_InBwd", inBwd, !AjinFactory.IsRealBoardReady));
 
             cylinder.Setup.UseFwdSensor = inFwd != null;
             cylinder.Setup.UseBwdSensor = inBwd != null;
