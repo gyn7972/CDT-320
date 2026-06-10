@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using QMC.Common;
+using QMC.CDT320.DieMaps;
 using QMC.CDT320.Recipes;
 
 namespace QMC.CDT320.Materials
@@ -112,6 +113,44 @@ namespace QMC.CDT320.Materials
             catch (Exception ex)
             {
                 Log.Write("Main", "SYSTEM", "MaterialSpecSync", "Recipe tape frame spec sync failed: " + ex.Message + " - Failed");
+                return "";
+            }
+            finally
+            {
+            }
+        }
+
+        public static string ResolveRecipeDieSpecName()
+        {
+            var project = RecipeStore.LoadLastOrDefault();
+            if (project == null || project.Die == null)
+                return "Default";
+
+            string specName = string.IsNullOrWhiteSpace(project.Die.DieSpecName)
+                ? "Default"
+                : project.Die.DieSpecName.Trim();
+
+            EnsureDieSpecFromRecipe(project, specName);
+            return specName;
+        }
+
+        public static string SyncRecipeDieSpec(RecipeProject project)
+        {
+            try
+            {
+                if (project == null || project.Die == null)
+                    return "";
+
+                string specName = string.IsNullOrWhiteSpace(project.Die.DieSpecName)
+                    ? "Default"
+                    : project.Die.DieSpecName.Trim();
+
+                EnsureDieSpecFromRecipe(project, specName);
+                return specName;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialSpecSync", "Recipe die spec sync failed: " + ex.Message + " - Failed");
                 return "";
             }
             finally
@@ -399,6 +438,226 @@ namespace QMC.CDT320.Materials
             NotifyAndSave("MoveWafer");
         }
 
+        public static void SaveInputStageAlignResult(WaferMaterial wafer, double originX, double originY, double pitchX, double pitchY, double offsetX, double offsetY)
+        {
+            try
+            {
+                if (wafer == null)
+                    return;
+
+                wafer.HasInputStageAlignResult = true;
+                wafer.InputStageAlignOriginX = originX;
+                wafer.InputStageAlignOriginY = originY;
+                wafer.InputStageAlignPitchX = pitchX;
+                wafer.InputStageAlignPitchY = pitchY;
+                wafer.InputStageAlignOffsetX = offsetX;
+                wafer.InputStageAlignOffsetY = offsetY;
+                wafer.State = WaferMaterialStateText.Normalize(WaferMaterialState.Working);
+                wafer.UpdatedAt = DateTime.Now;
+                NotifyAndSave("InputStageAlignResult");
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "Input stage align result save failed: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        public static DieMap BuildInputDieMapFromStageWafer()
+        {
+            try
+            {
+                return BuildDieMapFromWafer(GetWaferAtLocation(MaterialLocationKind.InputStage));
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "Input die map rebuild from stage wafer failed: " + ex.Message + " - Failed");
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
+        public static DieMap BuildDieMapFromWafer(WaferMaterial wafer)
+        {
+            try
+            {
+                if (wafer == null || string.IsNullOrWhiteSpace(wafer.WaferId))
+                    return null;
+
+                List<DieMaterial> dies = ResolveWaferDies(wafer);
+                if (dies.Count == 0)
+                    return null;
+
+                int maxX = dies.Max(d => d.Wafer_IndexX);
+                int maxY = dies.Max(d => d.Wafer_IndexY);
+                if (maxX < 0 || maxY < 0)
+                    return null;
+
+                double pitchX = wafer.InputStageAlignPitchX > 0.0 ? wafer.InputStageAlignPitchX : ResolvePitch(dies, true);
+                double pitchY = wafer.InputStageAlignPitchY > 0.0 ? wafer.InputStageAlignPitchY : ResolvePitch(dies, false);
+                double originX = wafer.HasInputStageAlignResult ? wafer.InputStageAlignOriginX : ResolveOrigin(dies, true);
+                double originY = wafer.HasInputStageAlignResult ? wafer.InputStageAlignOriginY : ResolveOrigin(dies, false);
+
+                var map = new DieMap
+                {
+                    FrameObjId = string.IsNullOrWhiteSpace(wafer.DieMapFrameObjId) ? wafer.WaferId : wafer.DieMapFrameObjId,
+                    GridX = maxX + 1,
+                    GridY = maxY + 1,
+                    PitchX = pitchX,
+                    PitchY = pitchY,
+                    OriginX = originX,
+                    OriginY = originY,
+                    CreatedAt = wafer.UpdatedAt
+                };
+
+                int index = 0;
+                foreach (DieMaterial die in dies.OrderBy(d => d.Wafer_IndexY).ThenBy(d => d.Wafer_IndexX))
+                {
+                    if (die == null || die.Wafer_IndexX < 0 || die.Wafer_IndexY < 0)
+                        continue;
+
+                    map.Entries.Add(new DieMapEntry
+                    {
+                        Index = index++,
+                        GridX = die.Wafer_IndexX,
+                        GridY = die.Wafer_IndexY,
+                        IsTarget = die.Result != DieResult.NG,
+                        Result = die.Result,
+                        BinCode = die.Input_BinCode,
+                        X = die.WaferOffset != null && die.WaferOffset.IsValid ? die.WaferOffset.X : originX + pitchX * die.Wafer_IndexX,
+                        Y = die.WaferOffset != null && die.WaferOffset.IsValid ? die.WaferOffset.Y : originY + pitchY * die.Wafer_IndexY,
+                        DieUid = die.DieId
+                    });
+                }
+
+                return map;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "Die map rebuild from wafer failed: " + ex.Message + " - Failed");
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
+        public static WaferMapData BuildWaferMapDataFromWafer(WaferMaterial wafer)
+        {
+            try
+            {
+                DieMap dieMap = BuildDieMapFromWafer(wafer);
+                if (dieMap == null || dieMap.GridX <= 0 || dieMap.GridY <= 0)
+                    return null;
+
+                var map = new WaferMapData
+                {
+                    WaferId = wafer != null ? wafer.WaferId : "",
+                    ColumnCount = dieMap.GridX,
+                    RowCount = dieMap.GridY,
+                    DieMap = new bool[dieMap.GridY, dieMap.GridX],
+                    Ref1Row = dieMap.GridY / 2,
+                    Ref1Col = Math.Max(0, dieMap.GridX / 4),
+                    Ref2Row = dieMap.GridY / 2,
+                    Ref2Col = dieMap.GridX > 1 ? Math.Min(dieMap.GridX - 1, (dieMap.GridX * 3) / 4) : 0
+                };
+
+                foreach (DieMapEntry entry in dieMap.Entries)
+                {
+                    if (entry == null || entry.GridX < 0 || entry.GridY < 0 || entry.GridX >= map.ColumnCount || entry.GridY >= map.RowCount)
+                        continue;
+                    map.DieMap[entry.GridY, entry.GridX] = entry.IsTarget;
+                }
+
+                return map;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "Wafer map rebuild from wafer failed: " + ex.Message + " - Failed");
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
+        private static List<DieMaterial> ResolveWaferDies(WaferMaterial wafer)
+        {
+            if (wafer == null)
+                return new List<DieMaterial>();
+
+            IEnumerable<DieMaterial> query = State.Dies.Where(d =>
+                d != null &&
+                string.Equals(d.WaferID_Input, wafer.WaferId, StringComparison.OrdinalIgnoreCase) &&
+                d.Wafer_IndexX >= 0 &&
+                d.Wafer_IndexY >= 0);
+
+            if (wafer.DieIds != null && wafer.DieIds.Count > 0)
+            {
+                var dieIds = new HashSet<string>(wafer.DieIds.Where(id => !string.IsNullOrWhiteSpace(id)), StringComparer.OrdinalIgnoreCase);
+                query = query.Where(d => dieIds.Contains(d.DieId));
+            }
+
+            return query.ToList();
+        }
+
+        private static double ResolvePitch(List<DieMaterial> dies, bool xAxis)
+        {
+            try
+            {
+                var ordered = dies
+                    .Where(d => d != null && d.WaferOffset != null && d.WaferOffset.IsValid)
+                    .OrderBy(d => xAxis ? d.Wafer_IndexX : d.Wafer_IndexY)
+                    .ToList();
+                for (int i = 1; i < ordered.Count; i++)
+                {
+                    int indexDelta = xAxis ? ordered[i].Wafer_IndexX - ordered[i - 1].Wafer_IndexX : ordered[i].Wafer_IndexY - ordered[i - 1].Wafer_IndexY;
+                    if (indexDelta == 0)
+                        continue;
+                    double posDelta = xAxis ? ordered[i].WaferOffset.X - ordered[i - 1].WaferOffset.X : ordered[i].WaferOffset.Y - ordered[i - 1].WaferOffset.Y;
+                    if (Math.Abs(posDelta) > 1e-9)
+                        return Math.Abs(posDelta / indexDelta);
+                }
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+
+            return 0.0;
+        }
+
+        private static double ResolveOrigin(List<DieMaterial> dies, bool xAxis)
+        {
+            try
+            {
+                DieMaterial first = dies
+                    .Where(d => d != null && d.WaferOffset != null && d.WaferOffset.IsValid)
+                    .OrderBy(d => xAxis ? d.Wafer_IndexX : d.Wafer_IndexY)
+                    .FirstOrDefault();
+                if (first != null)
+                    return xAxis ? first.WaferOffset.X : first.WaferOffset.Y;
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+
+            return 0.0;
+        }
+
         public static void MoveDie(string dieId, MaterialLocation location)
         {
             var die = GetOrCreateDieMaterial(dieId);
@@ -606,6 +865,8 @@ namespace QMC.CDT320.Materials
             if (MaterialSpecs.Data == null)
                 return;
 
+            EnsureDieSpecFromRecipe(project, project.Die != null ? project.Die.DieSpecName : "");
+
             var frame = project.Frame;
             MaterialSpecs.UpsertFrame(
                 specName,
@@ -615,6 +876,29 @@ namespace QMC.CDT320.Materials
                 frame.PitchY,
                 frame.OuterDiameterMm,
                 project.Die != null ? project.Die.DieSpecName ?? "" : "");
+        }
+
+        private static void EnsureDieSpecFromRecipe(RecipeProject project, string specName)
+        {
+            if (project == null || project.Die == null)
+                return;
+
+            if (MaterialSpecs.Data == null)
+                return;
+
+            var die = project.Die;
+            MaterialSpecs.UpsertDie(
+                string.IsNullOrWhiteSpace(specName) ? die.DieSpecName : specName,
+                die.WidthMm,
+                die.HeightMm,
+                die.ThicknessMm,
+                die.ChipLowerSpecLimitWidth,
+                die.ChipUpperSpecLimitWidth,
+                die.ChipLowerSpecLimitHeight,
+                die.ChipUpperSpecLimitHeight,
+                die.ChippingDepthMax,
+                die.ChippingLengthMax,
+                die.ForeignSizeMax);
         }
 
         private static string ResolveCassetteTapeFrameSpecName(CassetteMaterial cassette)

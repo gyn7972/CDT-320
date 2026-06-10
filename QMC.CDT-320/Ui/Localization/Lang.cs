@@ -351,6 +351,7 @@ namespace QMC.CDT_320.Ui.Localization
             A("recipe.lowerVision",   "LOWER VISION",     "LOWER VISION");
             A("recipe.inputMapCreate","INPUT MAP CREATE", "INPUT MAP CREATE");
             A("recipe.outputMapCreate","OUTPUT MAP CREATE","OUTPUT MAP CREATE");
+            A("recipe.dieMapSetup",   "DIE MAP SETUP",    "DIE MAP SETUP");
 
             // 설정 서브
             A("set.general",          "GENERAL",          "GENERAL");

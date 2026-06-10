@@ -592,18 +592,16 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
                 ioCylinderPanel.SetItems(new[]
                 {
-                    // ===== INPUT (DI) =====
+                    // ===== 같은 기능의 입력(DI)/출력(DO)을 묶어서 =====
                     IoCylinderItem.Input("FEEDER UP CHECK", () => unit.IsFeederUp()),
-                    IoCylinderItem.Input("FEEDER DOWN CHECK", () => unit.IsFeederDown()),
-                    IoCylinderItem.Input("FEEDER UNCLAMP CHECK", () => unit.IsFeederUnclamped()),
-                    IoCylinderItem.Input("FEEDER RING CHECK", () => unit.IsBinFeederRingCheck()),
-                    IoCylinderItem.Input("FEEDER OVERLOAD CHECK", () => unit.IsFeederOverload()),
-
-                    // ===== OUTPUT (DO) — 개별 4개 =====
                     IoCylinderItem.Output("BIN FEEDER UP", () => unit.BinFeederUpOut.IsOn, on => WriteOutAsync(unit.BinFeederUpOut, on), "ON", "OFF"),
+                    IoCylinderItem.Input("FEEDER DOWN CHECK", () => unit.IsFeederDown()),
                     IoCylinderItem.Output("BIN FEEDER DOWN", () => unit.BinFeederDownOut.IsOn, on => WriteOutAsync(unit.BinFeederDownOut, on), "ON", "OFF"),
+                    IoCylinderItem.Input("FEEDER UNCLAMP CHECK", () => unit.IsFeederUnclamped()),
+                    IoCylinderItem.Output("BIN FEEDER UNCLAMP", () => unit.BinFeederUnclampOut.IsOn, on => WriteOutAsync(unit.BinFeederUnclampOut, on), "ON", "OFF"),
                     IoCylinderItem.Output("BIN FEEDER CLAMP", () => unit.BinFeederClampOut.IsOn, on => WriteOutAsync(unit.BinFeederClampOut, on), "ON", "OFF"),
-                    IoCylinderItem.Output("BIN FEEDER UNCLAMP", () => unit.BinFeederUnclampOut.IsOn, on => WriteOutAsync(unit.BinFeederUnclampOut, on), "ON", "OFF")
+                    IoCylinderItem.Input("FEEDER RING CHECK", () => unit.IsBinFeederRingCheck()),
+                    IoCylinderItem.Input("FEEDER OVERLOAD CHECK", () => unit.IsFeederOverload())
                 });
             }
             catch (Exception ex)

@@ -4,6 +4,7 @@ namespace QMC.CDT320.Sequencing
     {
         PrepareLoad,
         Align,
+        DieMapping,
         PrepareUnload,
         MoveAvoid
     }

@@ -16,6 +16,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
     {
         private System.Windows.Forms.Timer _timer;
         private ActionButton btnPrepareLoad;
+        private ActionButton btnDieMapping;
         private ActionButton btnPrepareUnload;
         private ActionButton btnMoveAvoid;
         private bool _manualSequenceRunning;
@@ -50,11 +51,14 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 actionsLayout.Controls.Remove(btnStop);
 
             btnPrepareLoad = CreateActionButton("PREP LOAD");
+            btnDieMapping = CreateActionButton("DIE MAPPING");
             btnPrepareUnload = CreateActionButton("PREP UNLOAD");
             btnMoveAvoid = CreateActionButton("AVOID");
+            actionsLayout.Controls.Add(btnDieMapping);
             actionsLayout.Controls.Add(btnPrepareLoad);
             actionsLayout.Controls.Add(btnPrepareUnload);
             actionsLayout.Controls.Add(btnMoveAvoid);
+            PlaceDieMappingAfterAlign();
             if (btnStop != null)
                 actionsLayout.Controls.Add(btnStop);
             EnsureStopButtonLast();
@@ -86,6 +90,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         {
             btnPrepareLoad.Click += async (s, e) => await RunSequenceAction("INPUT STAGE PREP LOAD", RunPrepareLoadAsync);
             btnWfAlign.Click += async (s, e) => await RunSequenceAction("INPUT STAGE ALIGN", RunAlignAsync);
+            btnDieMapping.Click += async (s, e) => await RunSequenceAction("INPUT STAGE DIE MAPPING", RunDieMappingAsync);
             btnWfBarcode.Click += async (s, e) => await RunSequenceAction("INPUT STAGE MAP LOAD", RunPrepareLoadAsync);
             btnPrepareUnload.Click += async (s, e) => await RunSequenceAction("INPUT STAGE PREP UNLOAD", RunPrepareUnloadAsync);
             btnMoveAvoid.Click += async (s, e) => await RunSequenceAction("INPUT STAGE AVOID", RunMoveAvoidAsync);
@@ -152,6 +157,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 _manualSequenceRunning = false;
                 SetSequenceButtonsEnabled(true);
                 RefreshFromMachine();
+                BeginRestoreSequenceButtons();
             }
         }
 
@@ -219,6 +225,29 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             }
         }
 
+        private void BeginRestoreSequenceButtons()
+        {
+            try
+            {
+                if (!IsHandleCreated)
+                    return;
+
+                BeginInvoke((Action)(() =>
+                {
+                    _manualSequenceRunning = false;
+                    SetSequenceButtonsEnabled(true);
+                    RefreshFromMachine();
+                }));
+            }
+            catch (Exception ex)
+            {
+                WriteAlarm("INPUT-STAGE-BUTTON-RESTORE-EX", "Manual action button restore failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
         private async Task StopManualActionAsync()
         {
             try
@@ -272,6 +301,27 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 actionsLayout.Controls.SetChildIndex(btnStop, lastIndex);
         }
 
+        private void PlaceDieMappingAfterAlign()
+        {
+            try
+            {
+                if (actionsLayout == null || btnWfAlign == null || btnDieMapping == null)
+                    return;
+                if (!actionsLayout.Controls.Contains(btnWfAlign) || !actionsLayout.Controls.Contains(btnDieMapping))
+                    return;
+
+                int alignIndex = actionsLayout.Controls.GetChildIndex(btnWfAlign);
+                actionsLayout.Controls.SetChildIndex(btnDieMapping, alignIndex + 1);
+            }
+            catch (Exception ex)
+            {
+                WriteAlarm("INPUT-STAGE-ACTION-ORDER-EX", "Input stage action button order failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
         private async Task<bool> RunPrepareLoadAsync(Form1 host)
         {
             return await CreateSequence(host).RunPrepareLoadAsync(host.Controller.ManualOperationToken, BuildOptions(host)) == 0;
@@ -280,6 +330,11 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private async Task<bool> RunAlignAsync(Form1 host)
         {
             return await CreateSequence(host).RunAlignAsync(host.Controller.ManualOperationToken, BuildOptions(host)) == 0;
+        }
+
+        private async Task<bool> RunDieMappingAsync(Form1 host)
+        {
+            return await CreateSequence(host).RunDieMappingAsync(host.Controller.ManualOperationToken, BuildOptions(host)) == 0;
         }
 
         private async Task<bool> RunPrepareUnloadAsync(Form1 host)
@@ -307,7 +362,40 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             options.RequireVisionAlign = false;
             options.RequireMapData = false;
             options.WaferId = ResolveWaferId(host);
+            ApplyInputStageUnitParameters(host, options);
             return options;
+        }
+
+        private static void ApplyInputStageUnitParameters(Form1 host, InputStageSequenceOptions options)
+        {
+            try
+            {
+                var stage = host != null && host.Machine != null ? host.Machine.InputStageUnit : null;
+                if (stage == null || stage.Config == null || options == null)
+                    return;
+
+                if (stage.Config.SequenceMoveTimeoutMs > 0)
+                    options.MoveTimeoutMs = stage.Config.SequenceMoveTimeoutMs;
+                if (stage.Config.AlignConvergenceThresholdDeg > 0.0)
+                    options.AlignThetaToleranceDeg = stage.Config.AlignConvergenceThresholdDeg;
+                if (stage.Config.MaxAlignIterations > 0)
+                    options.AlignRetryCount = stage.Config.MaxAlignIterations;
+                if (stage.Recipe != null && stage.Recipe.DieMap != null)
+                {
+                    if (!string.IsNullOrWhiteSpace(stage.Recipe.DieMap.VisionTargetId))
+                        options.DieMapVisionTargetId = stage.Recipe.DieMap.VisionTargetId;
+                    if (stage.Recipe.DieMap.VisionRetryCount > 0)
+                        options.DieMapVisionRetryCount = stage.Recipe.DieMap.VisionRetryCount;
+                }
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputStagePage",
+                    "InputStage sequence option parameter apply failed: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
         }
 
         private static string ResolveWaferId(Form1 host)

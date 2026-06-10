@@ -2,13 +2,31 @@
 using System.Threading;
 using System.Threading.Tasks;
 using QMC.CDT320.Bin;
+using QMC.CDT320.Materials;
 using QMC.Common;
 using QMC.Common.Alarms;
 
 namespace QMC.CDT320.Sequencing
 {
+    internal enum InputSequenceAutoStep
+    {
+        Mapping,
+        ResolveSlot,
+        PrepareStageLoad,
+        LoadFeederFromCassette,
+        LoadFeederToStage,
+        RecoverFeeder,
+        AlignStage,
+        DieMapping,
+        Complete
+    }
+
     public class InputSequence : UnitSequenceBase
     {
+        private InputSequenceAutoStep _autoStep = InputSequenceAutoStep.Mapping;
+        private int _autoSlotIndex = -1;
+        private string _autoWaferId = "";
+
         public InputSequence(MachineSequenceContext ctx)
             : base(ctx, SequenceUnitKind.InputLoader, "InputLoader")
         {
@@ -18,9 +36,13 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
-                int result = await ExecuteWaferLoadingAsync(ct).ConfigureAwait(false);
-                if (result != 0)
-                    throw new InvalidOperationException("Input auto sequence failed at wafer loading. result=" + result);
+                RestoreInputStepSessionFromRuntimeState();
+                while (_autoStep != InputSequenceAutoStep.Complete)
+                {
+                    int result = await ExecuteCurrentInputStepAsync(ct, false).ConfigureAwait(false);
+                    if (result != 0)
+                        throw new InvalidOperationException("Input auto sequence failed. step=" + _autoStep + ", result=" + result);
+                }
             }
             catch (OperationCanceledException)
             {
@@ -41,9 +63,12 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
-                int result = await ExecuteWaferLoadingAsync(ct, false, 0, SequenceStartMode.Resume, false).ConfigureAwait(false);
+                if (_autoStep == InputSequenceAutoStep.Complete)
+                    RestoreInputStepSessionFromRuntimeState();
+
+                int result = await ExecuteCurrentInputStepAsync(ct, false).ConfigureAwait(false);
                 if (result != 0)
-                    throw new InvalidOperationException("Input step sequence failed at wafer loading. result=" + result);
+                    throw new InvalidOperationException("Input step sequence failed. step=" + _autoStep + ", result=" + result);
             }
             catch (OperationCanceledException)
             {
@@ -54,6 +79,327 @@ namespace QMC.CDT320.Sequencing
             {
                 Fail("SEQ-IN-STEP-EX", "InputSequence", "Input step sequence failed: " + ex.Message);
                 throw;
+            }
+            finally
+            {
+            }
+        }
+
+        private void RestoreInputStepSessionFromRuntimeState()
+        {
+            try
+            {
+                _autoSlotIndex = -1;
+                _autoWaferId = "";
+
+                WaferMaterial stageWafer = ResolveStageWaferFromRuntimeState();
+                if (stageWafer != null)
+                {
+                    _autoSlotIndex = ResolveSlotIndexFromWafer(stageWafer);
+                    _autoWaferId = stageWafer.WaferId ?? "";
+                    _autoStep = ResolveStageWaferResumeStep(stageWafer);
+                    WriteLog("RestoreInputStepSession",
+                        "Input sequence restored from InputStage wafer. wafer=" + _autoWaferId +
+                        ", slot=" + _autoSlotIndex +
+                        ", step=" + _autoStep + " - Ok");
+                    return;
+                }
+
+                WaferMaterial feederWafer = ResolveFeederWaferFromRuntimeState();
+                if (feederWafer != null)
+                {
+                    _autoSlotIndex = ResolveSlotIndexFromWafer(feederWafer);
+                    _autoWaferId = feederWafer.WaferId ?? "";
+                    _autoStep = InputSequenceAutoStep.LoadFeederToStage;
+                    WriteLog("RestoreInputStepSession",
+                        "Input sequence restored from InputFeeder wafer. wafer=" + _autoWaferId +
+                        ", slot=" + _autoSlotIndex +
+                        ", step=" + _autoStep + " - Ok");
+                    return;
+                }
+
+                _autoStep = IsInputCassetteMappedInRuntimeState()
+                    ? InputSequenceAutoStep.ResolveSlot
+                    : InputSequenceAutoStep.Mapping;
+
+                WriteLog("RestoreInputStepSession",
+                    "Input sequence restored from cassette state. step=" + _autoStep + " - Ok");
+            }
+            catch (Exception ex)
+            {
+                _autoStep = InputSequenceAutoStep.Mapping;
+                _autoSlotIndex = -1;
+                _autoWaferId = "";
+                WriteLog("RestoreInputStepSession",
+                    "Input sequence runtime restore failed: " + ex.Message + ". Restart from mapping. - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        private WaferMaterial ResolveStageWaferFromRuntimeState()
+        {
+            try
+            {
+                var stage = Context != null && Context.Machine != null ? Context.Machine.InputStageUnit : null;
+                WaferMaterial wafer = stage != null ? stage.GetCurrentStageWaferMaterial() : null;
+                if (wafer == null)
+                    wafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
+                if (wafer != null && stage != null && stage.CurrentWaferMaterial == null)
+                    stage.SetCurrentWaferMaterial(wafer);
+                return wafer;
+            }
+            catch (Exception ex)
+            {
+                WriteLog("ResolveStageWaferFromRuntimeState", "Stage wafer runtime resolve failed: " + ex.Message + " - Failed");
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
+        private WaferMaterial ResolveFeederWaferFromRuntimeState()
+        {
+            try
+            {
+                var feeder = Context != null && Context.Machine != null ? Context.Machine.InputFeederUnit : null;
+                WaferMaterial wafer = feeder != null ? feeder.CurrentWaferMaterial : null;
+                if (wafer == null)
+                    wafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputFeeder);
+                if (wafer != null && feeder != null && feeder.CurrentWaferMaterial == null)
+                    feeder.SetCurrentWaferMaterial(wafer);
+                return wafer;
+            }
+            catch (Exception ex)
+            {
+                WriteLog("ResolveFeederWaferFromRuntimeState", "Feeder wafer runtime resolve failed: " + ex.Message + " - Failed");
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
+        private InputSequenceAutoStep ResolveStageWaferResumeStep(WaferMaterial wafer)
+        {
+            try
+            {
+                if (wafer != null &&
+                    wafer.DieIds != null &&
+                    wafer.DieIds.Count > 0 &&
+                    !string.IsNullOrWhiteSpace(wafer.DieMapFrameObjId))
+                {
+                    return InputSequenceAutoStep.Complete;
+                }
+
+                if (wafer != null && wafer.HasInputStageAlignResult)
+                    return InputSequenceAutoStep.DieMapping;
+
+                return InputSequenceAutoStep.AlignStage;
+            }
+            catch (Exception ex)
+            {
+                WriteLog("ResolveStageWaferResumeStep", "Stage wafer resume step resolve failed: " + ex.Message + " - Failed");
+                return InputSequenceAutoStep.AlignStage;
+            }
+            finally
+            {
+            }
+        }
+
+        private int ResolveSlotIndexFromWafer(WaferMaterial wafer)
+        {
+            try
+            {
+                if (wafer == null)
+                    return -1;
+
+                if (wafer.SourceSlotNumber >= 0)
+                    return wafer.SourceSlotNumber;
+
+                if (wafer.CurrentLocation != null &&
+                    wafer.CurrentLocation.Kind == MaterialLocationKind.InputCassette &&
+                    wafer.CurrentLocation.SlotNumber >= 0)
+                {
+                    return wafer.CurrentLocation.SlotNumber;
+                }
+            }
+            catch (Exception ex)
+            {
+                WriteLog("ResolveSlotIndexFromWafer", "Input slot resolve from wafer failed: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+
+            return -1;
+        }
+
+        private bool IsInputCassetteMappedInRuntimeState()
+        {
+            try
+            {
+                if (MaterialStateService.State != null && MaterialStateService.State.Cassettes != null)
+                {
+                    foreach (var cassette in MaterialStateService.State.Cassettes)
+                    {
+                        if (cassette != null &&
+                            cassette.Role == CassetteMaterialRole.Input1 &&
+                            cassette.IsMapped)
+                        {
+                            return true;
+                        }
+                    }
+                }
+
+                var inputCassette = Context != null && Context.Machine != null ? Context.Machine.InputCassetteUnit : null;
+                return inputCassette != null &&
+                       inputCassette.WaferMap != null &&
+                       inputCassette.WaferMap.Count > 0;
+            }
+            catch (Exception ex)
+            {
+                WriteLog("IsInputCassetteMappedInRuntimeState", "Input cassette mapped state resolve failed: " + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> ExecuteCurrentInputStepAsync(CancellationToken ct, bool requireVisionAlign)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                WriteLog("ExecuteCurrentInputStepAsync", "Input sequence step start. step=" + _autoStep + " - Start");
+
+                int result;
+                switch (_autoStep)
+                {
+                    case InputSequenceAutoStep.Mapping:
+                        result = await ExecuteMappingAsync(ct, false, 0, SequenceStartMode.Resume).ConfigureAwait(false);
+                        if (result != 0)
+                            return Fail("SEQ-IN-STEP-MAP", "InputSequence", "Input cassette mapping failed. result=" + result);
+                        Context.Bus.Set("InputCassetteMapped");
+                        _autoStep = InputSequenceAutoStep.ResolveSlot;
+                        break;
+
+                    case InputSequenceAutoStep.ResolveSlot:
+                        _autoSlotIndex = ResolveCurrentOrNextInputSlot();
+                        if (_autoSlotIndex < 0)
+                            return Fail("SEQ-IN-STEP-NEXT", "InputSequence", "No ready wafer slot exists in input cassette.");
+                        _autoWaferId = ResolveInputWaferId(_autoSlotIndex);
+                        _autoStep = InputSequenceAutoStep.PrepareStageLoad;
+                        break;
+
+                    case InputSequenceAutoStep.PrepareStageLoad:
+                    {
+                        var stageSequence = new InputStageSequence(Context);
+                        result = await stageSequence.RunPrepareLoadAsync(
+                            ct,
+                            BuildStageSequenceOptions(false, SequenceStartMode.Resume, false, _autoWaferId, false)).ConfigureAwait(false);
+                        if (result != 0)
+                            return Fail("SEQ-IN-STEP-STAGE-PREP", "InputSequence", "Input stage load prepare failed. result=" + result);
+                        _autoStep = InputSequenceAutoStep.LoadFeederFromCassette;
+                        break;
+                    }
+
+                    case InputSequenceAutoStep.LoadFeederFromCassette:
+                    {
+                        if (_autoSlotIndex < 0)
+                            _autoSlotIndex = ResolveCurrentOrNextInputSlot();
+                        if (_autoSlotIndex < 0)
+                            return Fail("SEQ-IN-STEP-SLOT", "InputSequence", "Input slot was not resolved before feeder cassette loading.");
+
+                        var feederSequence = new InputFeederSequence(Context);
+                        InputFeederSequenceOptions feederOptions =
+                            BuildFeederSequenceOptions(_autoSlotIndex, _autoSlotIndex, false, 0, SequenceStartMode.Resume);
+                        result = await feederSequence.RunLoadFromCassetteAsync(ct, feederOptions).ConfigureAwait(false);
+                        if (result != 0)
+                            return Fail("SEQ-IN-STEP-FEEDER-CST", "InputSequence", "Input feeder cassette loading failed. result=" + result);
+                        UpdateInputSlotState(_autoSlotIndex, SlotPresence.Exist, ProcessState.Processing);
+                        _autoStep = InputSequenceAutoStep.LoadFeederToStage;
+                        break;
+                    }
+
+                    case InputSequenceAutoStep.LoadFeederToStage:
+                    {
+                        if (_autoSlotIndex < 0)
+                            _autoSlotIndex = ResolveSlotIndexFromWafer(ResolveFeederWaferFromRuntimeState());
+
+                        var feederSequence = new InputFeederSequence(Context);
+                        InputFeederSequenceOptions feederOptions =
+                            BuildFeederSequenceOptions(_autoSlotIndex, _autoSlotIndex, false, 0, SequenceStartMode.Resume);
+                        result = await feederSequence.RunLoadToStageAsync(ct, feederOptions).ConfigureAwait(false);
+                        if (result != 0)
+                            return Fail("SEQ-IN-STEP-FEEDER-STAGE", "InputSequence", "Input feeder stage loading failed. result=" + result);
+                        _autoStep = InputSequenceAutoStep.RecoverFeeder;
+                        break;
+                    }
+
+                    case InputSequenceAutoStep.RecoverFeeder:
+                    {
+                        if (_autoSlotIndex < 0)
+                            _autoSlotIndex = ResolveSlotIndexFromWafer(ResolveStageWaferFromRuntimeState());
+
+                        var feederSequence = new InputFeederSequence(Context);
+                        InputFeederSequenceOptions feederOptions =
+                            BuildFeederSequenceOptions(_autoSlotIndex, _autoSlotIndex, false, 0, SequenceStartMode.Resume);
+                        result = await feederSequence.RunRecoverAsync(ct, feederOptions).ConfigureAwait(false);
+                        if (result != 0)
+                            return Fail("SEQ-IN-STEP-FEEDER-RECOVER", "InputSequence", "Input feeder recover failed. result=" + result);
+                        _autoStep = InputSequenceAutoStep.AlignStage;
+                        break;
+                    }
+
+                    case InputSequenceAutoStep.AlignStage:
+                    {
+                        var stageSequence = new InputStageSequence(Context);
+                        result = await stageSequence.RunAlignAsync(
+                            ct,
+                            BuildStageSequenceOptions(false, SequenceStartMode.Resume, requireVisionAlign, _autoWaferId, false)).ConfigureAwait(false);
+                        if (result != 0)
+                            return Fail("SEQ-IN-STEP-STAGE-ALIGN", "InputSequence", "Input stage align failed. result=" + result);
+                        _autoStep = InputSequenceAutoStep.DieMapping;
+                        break;
+                    }
+
+                    case InputSequenceAutoStep.DieMapping:
+                    {
+                        var stageSequence = new InputStageSequence(Context);
+                        result = await stageSequence.RunDieMappingAsync(
+                            ct,
+                            BuildStageSequenceOptions(false, SequenceStartMode.Resume, requireVisionAlign, _autoWaferId, false)).ConfigureAwait(false);
+                        if (result != 0)
+                            return Fail("SEQ-IN-STEP-STAGE-DIEMAP", "InputSequence", "Input stage die mapping failed. result=" + result);
+                        Context.Bus.Set("InputWaferLoaded");
+                        Context.Bus.Set("InputStageReady");
+                        _autoStep = InputSequenceAutoStep.Complete;
+                        break;
+                    }
+
+                    case InputSequenceAutoStep.Complete:
+                        LogPublic("[UNIT-INPUT] Input sequence already complete slot=" + _autoSlotIndex);
+                        break;
+
+                    default:
+                        return Fail("SEQ-IN-STEP-UNKNOWN", "InputSequence", "Unknown input sequence step. step=" + _autoStep);
+                }
+
+                WriteLog("ExecuteCurrentInputStepAsync", "Input sequence step complete. nextStep=" + _autoStep + " - Ok");
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                WriteLog("ExecuteCurrentInputStepAsync", "Input sequence step canceled. step=" + _autoStep + " - Failed");
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("SEQ-IN-STEP-EX", "InputSequence", "Input sequence step failed. step=" + _autoStep + ", error=" + ex.Message);
             }
             finally
             {
@@ -384,7 +730,32 @@ namespace QMC.CDT320.Sequencing
             options.RequireVisionAlign = requireVisionAlign;
             options.WaferId = waferId ?? "";
             options.RequireMapData = requireMapData;
+            ApplyInputStageUnitParameters(options);
             return options;
+        }
+
+        private void ApplyInputStageUnitParameters(InputStageSequenceOptions options)
+        {
+            try
+            {
+                var stage = Context != null && Context.Machine != null ? Context.Machine.InputStageUnit : null;
+                if (stage == null || stage.Config == null || options == null)
+                    return;
+
+                if (stage.Config.SequenceMoveTimeoutMs > 0)
+                    options.MoveTimeoutMs = stage.Config.SequenceMoveTimeoutMs;
+                if (stage.Config.AlignConvergenceThresholdDeg > 0.0)
+                    options.AlignThetaToleranceDeg = stage.Config.AlignConvergenceThresholdDeg;
+                if (stage.Config.MaxAlignIterations > 0)
+                    options.AlignRetryCount = stage.Config.MaxAlignIterations;
+            }
+            catch (Exception ex)
+            {
+                WriteLog("BuildStageSequenceOptions", "InputStage sequence option parameter apply failed: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
         }
 
         private string ResolveInputWaferId(int slotIndex)
@@ -448,6 +819,60 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        private int ResolveCurrentOrNextInputSlot()
+        {
+            try
+            {
+                int slotIndex = ResolveProcessingInputSlot();
+                if (slotIndex >= 0)
+                    return slotIndex;
+
+                return ResolveNextInputSlot();
+            }
+            catch (Exception ex)
+            {
+                WriteLog("ResolveCurrentOrNextInputSlot", "Input current/next slot resolve failed: " + ex.Message + " - Failed");
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        private int ResolveProcessingInputSlot()
+        {
+            try
+            {
+                var cassette = Context != null && Context.Machine != null ? Context.Machine.InputCassetteUnit : null;
+                if (cassette == null)
+                    return -1;
+
+                WaferCassetteMaterial material = cassette.GetWaferMaterialCassette();
+                if (material == null || material.Slots == null)
+                    return -1;
+
+                for (int i = 0; i < material.Slots.Count; i++)
+                {
+                    WaferSlotState state = material.Slots[i];
+                    if (state != null &&
+                        state.Presence == SlotPresence.Exist &&
+                        state.Process == ProcessState.Processing)
+                    {
+                        return i;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                WriteLog("ResolveProcessingInputSlot", "Input processing slot resolve failed: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+
+            return -1;
         }
 
         private int ResolveInputWaferSize()

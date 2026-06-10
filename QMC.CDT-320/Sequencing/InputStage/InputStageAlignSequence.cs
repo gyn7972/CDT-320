@@ -468,7 +468,10 @@ namespace QMC.CDT320.Sequencing
 
                 WaferMaterial wafer = Stage.CurrentWaferMaterial ?? MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
                 if (wafer != null)
-                    MaterialStateService.MoveWafer(wafer.WaferId, new MaterialLocation { Kind = MaterialLocationKind.InputStage }, WaferMaterialState.Working);
+                {
+                    wafer.CurrentLocation = new MaterialLocation { Kind = MaterialLocationKind.InputStage };
+                    MaterialStateService.SaveInputStageAlignResult(wafer, _originX, _originY, _pitchX, _pitchY, 0.0, 0.0);
+                }
 
                 Context.Bus.Set("InputStageAligned");
                 Context.Bus.Set("InputStageReady");

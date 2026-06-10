@@ -342,6 +342,7 @@
     <Compile Include="Sequencing\InputStage\InputStageSequenceBase.cs" />
     <Compile Include="Sequencing\InputStage\InputStagePrepareLoadSequence.cs" />
     <Compile Include="Sequencing\InputStage\InputStageAlignSequence.cs" />
+    <Compile Include="Sequencing\InputStage\InputStageDieMappingSequence.cs" />
     <Compile Include="Sequencing\InputStage\InputStagePrepareUnloadSequence.cs" />
     <Compile Include="Sequencing\InputStage\InputStageMoveAvoidSequence.cs" />
     <Compile Include="Sequencing\InputSequence.cs" />
@@ -547,6 +548,12 @@
     <Compile Include="Ui\Dialogs\SharedRailXSetupDialog.Designer.cs">
       <DependentUpon>SharedRailXSetupDialog.cs</DependentUpon>
     </Compile>
+    <Compile Include="Ui\Dialogs\InputStageDieMapSetupDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\InputStageDieMapSetupDialog.Designer.cs">
+      <DependentUpon>InputStageDieMapSetupDialog.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Dialogs\LoginDialog.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -724,6 +731,7 @@
     <Compile Include="Ui\Pages\Recipe\FrontPickerRecipePage.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="Ui\Pages\Recipe\ManualMoveGuard.cs" />
     <Compile Include="Ui\Pages\Recipe\RearPickerRecipePage.Designer.cs">
       <DependentUpon>RearPickerRecipePage.cs</DependentUpon>
     </Compile>
@@ -956,6 +964,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\WorkInfo\OperationPanelStatusPage.resx">
       <DependentUpon>OperationPanelStatusPage.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\Work\MapTransferPage.resx">
+      <DependentUpon>MapTransferPage.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Tabs\RecipeTab.resx">
       <DependentUpon>RecipeTab.cs</DependentUpon>
