@@ -58,11 +58,11 @@ namespace QMC.CDT320.Interlocks
             reason = string.Empty;
             OutputFeederUnit feeder = machine.OutputFeederUnit;
 
-            if (!IsOutputStageSafeForFeeder(machine.OutputStageUnit))
-                return MotionGuardRuleHelpers.Block(
-                    "OutputFeederY",
-                    "Output stages and OutputVisionX must be at Avoid position before OutputFeederY home.",
-                    out reason);
+            //if (!IsOutputStageSafeForFeeder(machine.OutputStageUnit))
+            //    return MotionGuardRuleHelpers.Block(
+            //        "OutputFeederY",
+            //        "Output stages and OutputVisionX must be at Avoid position before OutputFeederY home.",
+            //        out reason);
 
             if (!IsFeederUnclamp(feeder))
                 return MotionGuardRuleHelpers.Block(

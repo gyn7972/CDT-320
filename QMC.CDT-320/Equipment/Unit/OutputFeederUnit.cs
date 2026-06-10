@@ -394,7 +394,7 @@ namespace QMC.CDT320
 
         public async Task<int> SetFeederUpDownAsync(bool up, int timeoutMs)
         {
-            if (IsFeederOverload())
+            if (IsFeederOverload() == false)
                 return RaiseFeederAlarm("BF-LIFT-OVERLOAD", "OutputFeeder overload is on.");
 
             bool ok = up ? await FeederUpDownCyl.MoveFwdAsync() : await FeederUpDownCyl.MoveBwdAsync();

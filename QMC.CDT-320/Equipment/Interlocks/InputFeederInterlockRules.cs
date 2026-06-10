@@ -113,7 +113,7 @@ namespace QMC.CDT320.Interlocks
                     "InputFeeder must be unclamped before InputFeederY home.",
                     out reason);
 
-            if (IsFeederUp(feeder) == true)
+            if (IsFeederUp(feeder) == false)
                 return MotionGuardRuleHelpers.Block(
                     "InputFeederY",
                     "InputFeeder must be up before InputFeederY home.",

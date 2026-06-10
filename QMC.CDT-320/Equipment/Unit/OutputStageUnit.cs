@@ -587,6 +587,20 @@ namespace QMC.CDT320
             return Math.Abs(ResolveStageAxis(axis).ActualPosition - targetPos) <= tolerance;
         }
 
+        /// <summary>
+        /// OutputVisionX(OutputCameraX)가 Avoid 위치에 있는지 확인합니다.<br/>
+        /// OutputFeederY 등 Shared Rail 관련 HOME 전 간섭 확인에 사용합니다.
+        /// </summary>
+        public bool IsVisionXInAvoidPosition()
+        {
+            if (OutputCameraX == null || Recipe == null)
+                return true;
+
+            Recipe.EnsurePositionObjects();
+            double tolerance = OutputCameraX.Config != null ? OutputCameraX.Config.InPositionTolerance : 0.05;
+            return IsStageAxisInPosition(BinStageAxis.VisionX, Recipe.VisionX.AvoidPosition, tolerance);
+        }
+
         public async Task<bool> WaitStageAxisMoveDone(BinStageAxis axis, int timeoutMs)
         {
             BaseAxis item = ResolveStageAxis(axis);
