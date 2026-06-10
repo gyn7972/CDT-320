@@ -143,7 +143,7 @@ namespace QMC.CDT320.Ajin
             DI("WaferMapping", 0, 27),
             DI("WaferFeederUp", 0, 28),
             DI("WaferFeederDown", 0, 29),
-            DI("WaferFeederUpClamp", 0, 30),
+            DI("WaferFeederUnClamp", 0, 30),
             DI("WaferFeederRingCheck", 0, 31),
             DI("WaferFeederOverloadCheck", 1, 0),
             DI("WaferStage8RingCheck", 1, 1),
@@ -246,7 +246,7 @@ namespace QMC.CDT320.Ajin
             public static readonly DioDefault WaferMapping = FindInput("WaferMapping");
             public static readonly DioDefault WaferFeederUp = FindInput("WaferFeederUp");
             public static readonly DioDefault WaferFeederDown = FindInput("WaferFeederDown");
-            public static readonly DioDefault WaferFeederUpClamp = FindInput("WaferFeederUpClamp");
+            public static readonly DioDefault WaferFeederUnClamp = FindInput("WaferFeederUnClamp");
             public static readonly DioDefault WaferFeederRingCheck = FindInput("WaferFeederRingCheck");
             public static readonly DioDefault WaferFeederOverloadCheck = FindInput("WaferFeederOverloadCheck");
             public static readonly DioDefault WaferFeeder8RingCheck = FindInput("WaferStage8RingCheck");
