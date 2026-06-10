@@ -264,10 +264,134 @@ namespace QMC.CDT320.Ajin
 
                 NormalizeAxisKeys(c);
                 AjinIoCatalog.ApplyDefaults(c, false);
+                NormalizeDioMaps(c);
                 NormalizeCylinderMaps(c);
             }
             catch
             {
+            }
+            finally
+            {
+            }
+        }
+
+        private static void NormalizeDioMaps(AjinConfig c)
+        {
+            try
+            {
+                if (c == null)
+                    return;
+
+                if (c.DigitalInputs != null)
+                {
+                    foreach (DioMap map in c.DigitalInputs.Values)
+                        NormalizeDioMap(map, false);
+                }
+
+                if (c.DigitalOutputs != null)
+                {
+                    foreach (DioMap map in c.DigitalOutputs.Values)
+                        NormalizeDioMap(map, true);
+                }
+
+                if (c.Cylinders != null)
+                {
+                    foreach (CylMap cylinder in c.Cylinders.Values)
+                    {
+                        if (cylinder == null)
+                            continue;
+
+                        NormalizeDioMap(cylinder.OutFwd, true);
+                        NormalizeDioMap(cylinder.OutBwd, true);
+                        NormalizeDioMap(cylinder.InFwd, false);
+                        NormalizeDioMap(cylinder.InBwd, false);
+                    }
+                }
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        private static void NormalizeDioMap(DioMap map, bool isOutput)
+        {
+            try
+            {
+                if (map == null)
+                    return;
+
+                int module;
+                int bit;
+                if (TryParseDioAddress(map.Address, isOutput, out module, out bit))
+                {
+                    map.Module = module;
+                    map.Bit = bit;
+                }
+                else
+                {
+                    map.Address = isOutput
+                        ? AjinIoCatalog.OutputAddress(map.Module, map.Bit)
+                        : AjinIoCatalog.InputAddress(map.Module, map.Bit);
+                }
+
+                DioDefault catalog = isOutput
+                    ? AjinIoCatalog.FindOutput(map.Module, map.Bit)
+                    : AjinIoCatalog.FindInput(map.Module, map.Bit);
+
+                if (catalog != null)
+                {
+                    map.No = catalog.No;
+                    map.Address = catalog.Address;
+                    map.Nc = catalog.Nc;
+                }
+                else
+                {
+                    map.Address = isOutput
+                        ? AjinIoCatalog.OutputAddress(map.Module, map.Bit)
+                        : AjinIoCatalog.InputAddress(map.Module, map.Bit);
+                }
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool TryParseDioAddress(string address, bool isOutput, out int module, out int bit)
+        {
+            module = 0;
+            bit = 0;
+
+            try
+            {
+                if (string.IsNullOrWhiteSpace(address))
+                    return false;
+
+                string text = address.Trim();
+                char prefix = isOutput ? 'Y' : 'X';
+                if (char.ToUpperInvariant(text[0]) != prefix)
+                    return false;
+
+                int number;
+                if (!int.TryParse(text.Substring(1), out number))
+                    return false;
+
+                if (number < 0)
+                    return false;
+
+                int addressModule = number / 32;
+                bit = number % 32;
+                module = isOutput ? addressModule + 3 : addressModule;
+                return true;
+            }
+            catch
+            {
+                return false;
             }
             finally
             {
