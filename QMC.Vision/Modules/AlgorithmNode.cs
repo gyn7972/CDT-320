@@ -112,7 +112,7 @@ namespace QMC.Vision.Modules
             if (Recipe is InspectorAlgoRecipe r)
             {
                 if (r.InspectionRoi != null) _inspector.InspectionRoi = r.InspectionRoi.Clone();
-                if (_inspector is CognexInspector cog) cog.Threshold = (int)r.Threshold;
+                if (_inspector is CognexInspector cog) cog.Threshold = r.Threshold;   // int↔int (소실 제거)
             }
         }
 

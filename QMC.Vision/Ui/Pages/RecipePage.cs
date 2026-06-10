@@ -179,11 +179,12 @@ namespace QMC.Vision.Ui.Pages
         }
 
         // ── 상태(미설정/설정완료/변경됨) ──
-        private string SettingPath(Setting s)
-        {
-            string id = (s.Id ?? "x").Replace('/', '_');
-            return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "VisionRecipe", s.Module.AlgorithmKey ?? "Unknown", id + ".json");
-        }
+        // B — 새 BaseUnit 레시피 파일 경로: Recipes/default/<모듈StorageKey>.<id>.recipe.json (노드 TargetPath 와 일치).
+        private static string RecipeFilePath(IVisionModule module, string id)
+            => Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Recipes", "default",
+                            (module?.StorageKey ?? "Unknown") + "." + (id ?? "x") + ".recipe.json");
+
+        private string SettingPath(Setting s) => RecipeFilePath(s.Module, s.Id);
 
         private SidebarStatus SettingStatus(string key, Setting s)
         {
@@ -205,15 +206,13 @@ namespace QMC.Vision.Ui.Pages
             bool anyData = false;
             foreach (var kv in module.Finders)
             {
-                string p = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "VisionRecipe", module.AlgorithmKey ?? "Unknown", (kv.Key ?? "x").Replace('/', '_') + ".json");
-                if (File.Exists(p)) anyData = true;
+                if (File.Exists(RecipeFilePath(module, kv.Key))) anyData = true;
                 string k = "F:" + module.AlgorithmKey + ":" + kv.Key;
                 if (_cache.TryGetValue(k, out var pg) && pg is ITargetPage tp && tp.IsDirty) return SidebarStatus.Dirty;
             }
             foreach (var kv in module.Inspectors)
             {
-                string p = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "VisionRecipe", module.AlgorithmKey ?? "Unknown", (kv.Key ?? "x").Replace('/', '_') + ".json");
-                if (File.Exists(p)) anyData = true;
+                if (File.Exists(RecipeFilePath(module, kv.Key))) anyData = true;
                 string k = "I:" + module.AlgorithmKey + ":" + kv.Key;
                 if (_cache.TryGetValue(k, out var pg) && pg is ITargetPage tp && tp.IsDirty) return SidebarStatus.Dirty;
             }

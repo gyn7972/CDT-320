@@ -86,10 +86,10 @@ namespace QMC.Vision.Modules
         /// <summary>검사 ROI.</summary>
         [DataMember] public Roi InspectionRoi { get; set; }
 
-        /// <summary>합/불 판정 임계값.</summary>
-        [DataMember] public double Threshold { get; set; }
+        /// <summary>합/불 판정 임계값(Blob HardFixedThreshold, 0~255 그레이). 소비자(CognexInspector.Threshold)가 int.</summary>
+        [DataMember] public int Threshold { get; set; }
 
         [OnDeserializing] private void OnDeserializing(StreamingContext ctx) => SetDefaults();
-        private void SetDefaults() { Threshold = 0.5; }
+        private void SetDefaults() { Threshold = 128; }
     }
 }
