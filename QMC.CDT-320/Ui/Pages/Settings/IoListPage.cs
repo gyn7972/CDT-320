@@ -643,6 +643,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 }
                 else
                     IoSettingsStore.Save();
+
                 ApplyRuntimeIoSettings();
                 EventLogger.Write(EventKind.Event, "QMC", "IO-SIM-SAVE", "I/O simulation settings saved.");
             }
@@ -754,10 +755,10 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 if (!AjinConfigStore.Current.Cylinders.TryGetValue(name, out map) || map == null)
                     map = new CylMap();
 
-                map.OutFwd = ToDioMap(CellText(row, "FWD DO"), true);
-                map.OutBwd = ToDioMap(CellText(row, "BWD DO"), true);
-                map.InFwd = ToDioMap(CellText(row, "FWD DI"), false);
-                map.InBwd = ToDioMap(CellText(row, "BWD DI"), false);
+                map.OutFwd = ToDioMap(CellText(row, "FWD DO"), true, name, "FWD DO", true);
+                map.OutBwd = ToDioMap(CellText(row, "BWD DO"), true, name, "BWD DO", true);
+                map.InFwd = ToDioMap(CellText(row, "FWD DI"), false, name, "FWD DI", false);
+                map.InBwd = ToDioMap(CellText(row, "BWD DI"), false, name, "BWD DI", false);
                 map.UseFwdInput = map.InFwd != null;
                 map.UseBwdInput = map.InBwd != null;
 
@@ -770,7 +771,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             }
             catch (Exception ex)
             {
-                EventLogger.Write(EventKind.Warning, "QMC", "CYL-MAP-SAVE", "Cylinder mapping row save failed: " + ex.Message);
+                EventLogger.Write(EventKind.Alarm, "QMC", "CYL-MAP-SAVE", "Cylinder mapping row save failed: " + ex.Message);
+                throw;
             }
             finally
             {
@@ -796,10 +798,25 @@ namespace QMC.CDT_320.Ui.Pages.Settings
 
         private static DioMap ToDioMap(string text, bool isOutput)
         {
+            return ToDioMap(text, isOutput, string.Empty, string.Empty, false);
+        }
+
+        private static DioMap ToDioMap(string text, bool isOutput, string cylinderName, string columnName, bool required)
+        {
             try
             {
+                if (string.IsNullOrWhiteSpace(text))
+                {
+                    if (required)
+                        throw new InvalidOperationException(cylinderName + " " + columnName + " is empty.");
+
+                    return null;
+                }
+
                 DioDefault item = FindDioByDisplay(text, isOutput);
-                if (item == null) return null;
+                if (item == null)
+                    throw new InvalidOperationException(cylinderName + " " + columnName + " I/O not found: " + text);
+
                 return new DioMap
                 {
                     No = item.No,
@@ -811,7 +828,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             }
             catch
             {
-                return null;
+                throw;
             }
             finally
             {

@@ -23,7 +23,8 @@ namespace QMC.CDT320.Ajin
 
     public static class IoSettingsStore
     {
-        public static string Dir { get; } = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config");
+        public static string RootDir { get; } = @"D:\CDT-320";
+        public static string Dir { get; } = Path.Combine(RootDir, "Config");
         public static string Path_ { get; } = Path.Combine(Dir, "io_settings.json");
 
         public static IoSettings Current { get; private set; } = new IoSettings();

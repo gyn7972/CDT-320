@@ -175,7 +175,8 @@ namespace QMC.CDT320.Ajin
 
     public static class AjinConfigStore
     {
-        public static string Dir { get; } = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config");
+        public static string RootDir { get; } = @"D:\CDT-320";
+        public static string Dir { get; } = Path.Combine(RootDir, "Config");
         public static string Path_ { get; } = System.IO.Path.Combine(Dir, "ajin-map.json");
 
         public static AjinConfig Current { get; private set; } = new AjinConfig();
