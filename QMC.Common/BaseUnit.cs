@@ -151,5 +151,52 @@ namespace QMC.Common
             {
             }
         }
+        /// <summary>
+        /// Composite: 자신의 Setup / Config 저장 파일을 삭제한 뒤 모든 자식 Component로 위임.
+        /// </summary>
+        public override bool DeleteSettings()
+        {
+            try
+            {
+                bool ok = UnitDataStore.DeleteSetup(StorageKey);
+                ok &= UnitDataStore.DeleteConfig(StorageKey);
+
+                foreach (BaseEquipmentNode component in Components)
+                    ok &= component.DeleteSettings();
+
+                return ok;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        /// <summary>
+        /// Composite: 레시피 이름별 Recipe 저장 파일을 삭제한 뒤 모든 자식 Component로 위임.
+        /// </summary>
+        public override bool DeleteRecipe(string recipeName)
+        {
+            try
+            {
+                bool ok = UnitDataStore.DeleteRecipe(recipeName, StorageKey);
+
+                foreach (BaseEquipmentNode component in Components)
+                    ok &= component.DeleteRecipe(recipeName);
+
+                return ok;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
     }
 }

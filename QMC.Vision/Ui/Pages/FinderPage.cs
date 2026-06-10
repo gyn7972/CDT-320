@@ -19,7 +19,7 @@ namespace QMC.Vision.Ui.Pages
     /// </summary>
     public partial class FinderPage : UserControl
     {
-        private readonly VisionModule _module;
+        private readonly IVisionModule _module;
         private readonly IPatternFinder _finder;
 
         /// <summary>디자이너용 파라미터 없는 생성자.</summary>
@@ -30,7 +30,7 @@ namespace QMC.Vision.Ui.Pages
             BuildChildPanels();
         }
 
-        public FinderPage(VisionModule module, IPatternFinder finder)
+        public FinderPage(IVisionModule module, IPatternFinder finder)
         {
             _module = module; _finder = finder;
             InitializeComponent();

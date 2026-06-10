@@ -19,7 +19,7 @@ namespace QMC.Vision.Ui.Pages
     /// </summary>
     public partial class InspectorPage : UserControl
     {
-        private readonly VisionModule _module;
+        private readonly IVisionModule _module;
         private readonly IInspector   _inspector;
 
         /// <summary>디자이너용 파라미터 없는 생성자.</summary>
@@ -30,7 +30,7 @@ namespace QMC.Vision.Ui.Pages
             BuildChildPanels();
         }
 
-        public InspectorPage(VisionModule module, IInspector inspector)
+        public InspectorPage(IVisionModule module, IInspector inspector)
         {
             _module = module; _inspector = inspector;
             InitializeComponent();

@@ -1,13 +1,10 @@
-﻿using QMC.Vision.Core;
+using QMC.Vision.Core;
 
 namespace QMC.Vision.Modules
 {
-    /// <summary>
-    /// Stage 52 — RearSide Inspection Vision 모듈 (CDT-310 매뉴얼 사양, port 5106).<br/>
-    /// 다이의 뒤쪽 측면 검사 — 칩핑 + 스크래치 + 오염 검사.
-    /// (Stage 63 리네임: BottomSide → RearSide. inspector 내부 id 는 호환 위해 유지.)
-    /// </summary>
-    public class RearSideInspectionModule : VisionModule
+    /// <summary>RearSide Inspection 모듈 (port 5106) — 뒤쪽 측면 칩핑/스크래치/오염 검사.</summary>
+    public sealed class RearSideInspectionModule
+        : VisionModule<RearSideInspectionSetup, RearSideInspectionConfig, RearSideInspectionRecipe>
     {
         public override string AlgorithmKey => QMC.Common.Recipes.VisionAlgorithm.RearSide;
 
@@ -19,10 +16,10 @@ namespace QMC.Vision.Modules
         public RearSideInspectionModule(ICamera camera, IVisionBackend backend)
             : base("RearSideInspection", camera, backend)
         {
-            DieEdge   = AddFinder   ("DieEdgeFinder");
-            Surface   = AddInspector("BottomSurfaceInspector");
-            Chipping  = AddInspector("BottomChippingInspector");
-            Focus     = AddFinder   ("FocusFinder");
+            DieEdge   = AddFinder   <FinderAlgoSetup,    FinderAlgoConfig,    FinderAlgoRecipe>   ("DieEdgeFinder");
+            Surface   = AddInspector<InspectorAlgoSetup, InspectorAlgoConfig, InspectorAlgoRecipe>("BottomSurfaceInspector");
+            Chipping  = AddInspector<InspectorAlgoSetup, InspectorAlgoConfig, InspectorAlgoRecipe>("BottomChippingInspector");
+            Focus     = AddFinder   <FinderAlgoSetup,    FinderAlgoConfig,    FinderAlgoRecipe>   ("FocusFinder");
         }
     }
 }

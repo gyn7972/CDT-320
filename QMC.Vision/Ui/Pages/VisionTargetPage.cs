@@ -22,7 +22,7 @@ namespace QMC.Vision.Ui.Pages
     /// </summary>
     public partial class VisionTargetPage : UserControl, ITargetPage
     {
-        private readonly VisionModule _module;
+        private readonly IVisionModule _module;
         private readonly IPatternFinder _finder;
         private bool _dirty;
         private InspectionLightPanel _lightPanel;   // R2e — 편입 조명패널(통합 저장 대상)
@@ -41,7 +41,7 @@ namespace QMC.Vision.Ui.Pages
             WireCamera();
         }
 
-        public VisionTargetPage(VisionModule module, IPatternFinder finder)
+        public VisionTargetPage(IVisionModule module, IPatternFinder finder)
         {
             _module = module; _finder = finder;
             InitializeComponent();

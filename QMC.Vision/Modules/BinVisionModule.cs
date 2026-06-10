@@ -1,11 +1,10 @@
-﻿using QMC.Vision.Core;
+using QMC.Vision.Core;
 
 namespace QMC.Vision.Modules
 {
-    /// <summary>
-    /// Bin Vision 모듈 — Reticle/Die/Placement/Scale 포함.
-    /// </summary>
-    public class BinVisionModule : VisionModule
+    /// <summary>Bin Vision 모듈 — Reticle/Die/Placement/Scale 포함.</summary>
+    public sealed class BinVisionModule
+        : VisionModule<BinVisionSetup, BinVisionConfig, BinVisionRecipe>
     {
         public override string AlgorithmKey => QMC.Common.Recipes.VisionAlgorithm.Bin;
 
@@ -17,10 +16,10 @@ namespace QMC.Vision.Modules
         public BinVisionModule(ICamera camera, IVisionBackend backend)
             : base("BinVision", camera, backend)
         {
-            Reticle            = AddFinder   ("ReticleFinder");
-            Die                = AddFinder   ("DieFinder");
-            PlacementInspector = AddInspector("PlacementInspector");
-            Scale              = AddFinder   ("ScaleFinder");
+            Reticle            = AddFinder   <FinderAlgoSetup,    FinderAlgoConfig,    FinderAlgoRecipe>   ("ReticleFinder");
+            Die                = AddFinder   <FinderAlgoSetup,    FinderAlgoConfig,    FinderAlgoRecipe>   ("DieFinder");
+            PlacementInspector = AddInspector<InspectorAlgoSetup, InspectorAlgoConfig, InspectorAlgoRecipe>("PlacementInspector");
+            Scale              = AddFinder   <FinderAlgoSetup,    FinderAlgoConfig,    FinderAlgoRecipe>   ("ScaleFinder");
         }
     }
 }

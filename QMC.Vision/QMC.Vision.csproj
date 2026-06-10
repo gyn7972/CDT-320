@@ -109,6 +109,10 @@
     <Compile Include="Backends\Cognex\CognexHistogram.cs" />
     <Compile Include="Backends\Cognex\CognexColorMatch.cs" />
     <Compile Include="Core\IEdgeFinder.cs" />
+    <Compile Include="Modules\IVisionModule.cs" />
+    <Compile Include="Modules\AlgorithmNode.cs" />
+    <Compile Include="Modules\AlgorithmData.cs" />
+    <Compile Include="Modules\VisionModuleData.cs" />
     <Compile Include="Modules\VisionModule.cs" />
     <Compile Include="Modules\WaferVisionModule.cs" />
     <Compile Include="Modules\BinVisionModule.cs" />

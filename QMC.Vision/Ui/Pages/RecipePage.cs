@@ -20,14 +20,14 @@ namespace QMC.Vision.Ui.Pages
     {
         private sealed class Setting
         {
-            public VisionModule Module;
+            public IVisionModule Module;
             public string Id;
             public bool IsFinder;
             public IPatternFinder Finder;
             public IInspector Inspector;
         }
 
-        private readonly Dictionary<string, VisionModule> _algoModules = new Dictionary<string, VisionModule>();
+        private readonly Dictionary<string, IVisionModule> _algoModules = new Dictionary<string, IVisionModule>();
         private readonly Dictionary<string, SidebarButton> _algoBtns = new Dictionary<string, SidebarButton>();
         private readonly Dictionary<string, Setting> _settings = new Dictionary<string, Setting>();
         private readonly Dictionary<string, SidebarButton> _setBtns = new Dictionary<string, SidebarButton>();
@@ -69,7 +69,7 @@ namespace QMC.Vision.Ui.Pages
             foreach (var kv in _algoBtns) { SelectAlgorithm(kv.Key); break; }
         }
 
-        private void AddAlgoButton(VisionModule module)
+        private void AddAlgoButton(IVisionModule module)
         {
             if (module == null) return;
             string key = module.AlgorithmKey;
@@ -104,7 +104,7 @@ namespace QMC.Vision.Ui.Pages
         }
 
         // ── 세팅선택기: 현 알고리즘의 finder/inspector ──
-        private void BuildSettingSelector(VisionModule module)
+        private void BuildSettingSelector(IVisionModule module)
         {
             _setFlow.Controls.Clear();
             _settings.Clear();
@@ -200,7 +200,7 @@ namespace QMC.Vision.Ui.Pages
         }
 
         /// <summary>알고리즘 상태점 = 세팅 집계(any dirty→변경됨 / any 저장→설정완료 / 없음→미설정).</summary>
-        private SidebarStatus AlgoStatus(VisionModule module)
+        private SidebarStatus AlgoStatus(IVisionModule module)
         {
             bool anyData = false;
             foreach (var kv in module.Finders)
@@ -220,7 +220,7 @@ namespace QMC.Vision.Ui.Pages
             return anyData ? SidebarStatus.Done : SidebarStatus.Off;
         }
 
-        private void UpdateAlgoDot(VisionModule module)
+        private void UpdateAlgoDot(IVisionModule module)
         {
             if (module != null && _algoBtns.TryGetValue(module.AlgorithmKey, out var btn))
                 btn.Status = AlgoStatus(module);

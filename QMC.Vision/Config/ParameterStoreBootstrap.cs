@@ -26,11 +26,11 @@ namespace QMC.Vision.Config
         private static string OldRecipeDir { get; } =
             Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Recipes");
 
-        public static ParameterStore Build(IEnumerable<VisionModule> modules)
+        public static ParameterStore Build(IEnumerable<IVisionModule> modules)
         {
             var store = new ParameterStore { SetupFilePath = SetupPath };
 
-            var moduleList = modules != null ? new List<VisionModule>(modules) : new List<VisionModule>();
+            var moduleList = modules != null ? new List<IVisionModule>(modules) : new List<IVisionModule>();
 
             // ② 영속 인스턴스 — 레지스트리 단일 소스(G3). 인스펙터 등록 전 생성·주입.
             BottomParams      = (BottomInspectionParameters)  InspectionParamRegistry.ByTool("BottomInspection").Create();
