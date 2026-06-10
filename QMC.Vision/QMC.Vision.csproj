@@ -78,7 +78,6 @@
     <Compile Include="Core\MaterialTracker.cs" />
     <Compile Include="Core\ImageLogSaver.cs" />
     <Compile Include="Core\DataLogSaver.cs" />
-    <Compile Include="Core\Inspectors\InspectionParameters.cs" />
     <Compile Include="Cameras\Sim\SimCamera.cs" />
     <Compile Include="Cameras\Hik\HikMvsDll.cs" />
     <Compile Include="Cameras\Hik\HikGigECamera.cs" />
@@ -98,6 +97,10 @@
     <Compile Include="Backends\Cognex\CognexHistogram.cs" />
     <Compile Include="Backends\Cognex\CognexColorMatch.cs" />
     <Compile Include="Core\IEdgeFinder.cs" />
+    <Compile Include="Modules\IVisionModule.cs" />
+    <Compile Include="Modules\AlgorithmNode.cs" />
+    <Compile Include="Modules\AlgorithmData.cs" />
+    <Compile Include="Modules\VisionModuleData.cs" />
     <Compile Include="Modules\VisionModule.cs" />
     <Compile Include="Modules\WaferVisionModule.cs" />
     <Compile Include="Modules\BinVisionModule.cs" />
@@ -256,33 +259,6 @@
     <Compile Include="Ui\Pages\SpcChartPage.Designer.cs">
       <DependentUpon>SpcChartPage.cs</DependentUpon>
     </Compile>
-    <Compile Include="Ui\Editors\ParameterEditorBase.cs">
-      <SubType>UserControl</SubType>
-    </Compile>
-    <Compile Include="Ui\Editors\ParameterEditorBase.Designer.cs">
-      <DependentUpon>ParameterEditorBase.cs</DependentUpon>
-    </Compile>
-    <Compile Include="Ui\Editors\ParameterEditorHost.cs">
-      <SubType>UserControl</SubType>
-    </Compile>
-    <Compile Include="Ui\Editors\ParameterEditorHost.Designer.cs">
-      <DependentUpon>ParameterEditorHost.cs</DependentUpon>
-    </Compile>
-    <Compile Include="Ui\Editors\BottomInspectionParameterEditor.cs">
-      <SubType>UserControl</SubType>
-    </Compile>
-    <Compile Include="Ui\Editors\SideInspectionParameterEditor.cs">
-      <SubType>UserControl</SubType>
-    </Compile>
-    <Compile Include="Ui\Editors\DieGapInspectionParameterEditor.cs">
-      <SubType>UserControl</SubType>
-    </Compile>
-    <Compile Include="Ui\Editors\DistortionParameterEditor.cs">
-      <SubType>UserControl</SubType>
-    </Compile>
-    <Compile Include="Ui\Editors\VisionScaleParameterEditor.cs">
-      <SubType>UserControl</SubType>
-    </Compile>
     <Compile Include="Ui\Dialogs\ZoomDialog.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -307,8 +283,17 @@
     <EmbeddedResource Include="Ui\Pages\ConfigurationPage.resx">
       <DependentUpon>ConfigurationPage.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\DataLogPage.resx">
+      <DependentUpon>DataLogPage.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\InspectionLightPanel.resx">
       <DependentUpon>InspectionLightPanel.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\InspectionOverridePanel.resx">
+      <DependentUpon>InspectionOverridePanel.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\InspectorPage.resx">
+      <DependentUpon>InspectorPage.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\LightSystemSetupPage.resx">
       <DependentUpon>LightSystemSetupPage.cs</DependentUpon>
@@ -318,6 +303,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\SettingsPage.resx">
       <DependentUpon>SettingsPage.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\SpcChartPage.resx">
+      <DependentUpon>SpcChartPage.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\VisionTargetPage.resx">
       <DependentUpon>VisionTargetPage.cs</DependentUpon>

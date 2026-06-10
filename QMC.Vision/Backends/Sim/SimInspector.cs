@@ -27,8 +27,5 @@ namespace QMC.Vision.Backends.Sim
             r.Items.Add(new InspectionItem { Name = "Chipping",Value = (_rnd.NextDouble() * 0.3).ToString("F3"), IsPass = pass });
             return r;
         }
-
-        public void LoadParameters(string path) { }
-        public void SaveParameters(string path) { }
     }
 }

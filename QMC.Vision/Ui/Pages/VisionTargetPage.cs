@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
+using System.Linq;
 using System.Windows.Forms;
 using QMC.Vision.Config;
 using QMC.Vision.Core;
@@ -15,13 +16,15 @@ namespace QMC.Vision.Ui.Pages
     /// <summary>
     /// R2b — Handler VisionRecipePage 미러(3열 TLP). 좌 카메라+매치 / 중 ACTION 3×3 / 우 ParameterGridControl+JOG+SPEED.
     /// ROI 라디오 제거(세팅선택기는 RecipePage 영속 바). 액션 SAVE=이미지저장(상단바 SAVE=타깃 레시피저장).
-    /// dirty 추적(세팅 단위) + SaveTarget/LoadTarget(finder.SaveParameters/LoadParameters). JOG/SPEED inert.
+    /// dirty 추적(세팅 단위) + SaveTarget/LoadTarget(BaseUnit 노드 SaveRecipe/LoadRecipe). JOG/SPEED inert.
     /// 기능(Grab/Match/Train/Load/EditROI)은 FinderPage 동일.
     /// </summary>
     public partial class VisionTargetPage : UserControl, ITargetPage
     {
-        private readonly VisionModule _module;
+        private readonly IVisionModule _module;
         private readonly IPatternFinder _finder;
+        private QMC.Vision.Modules.IAlgorithmNode _node;   // B — BaseUnit 알고리즘 노드(저장/로드 위임)
+        private const string RecipeName = "default";       // 단일 product(선택기 후속)
         private bool _dirty;
         private InspectionLightPanel _lightPanel;   // R2e — 편입 조명패널(통합 저장 대상)
 
@@ -39,11 +42,12 @@ namespace QMC.Vision.Ui.Pages
             WireCamera();
         }
 
-        public VisionTargetPage(VisionModule module, IPatternFinder finder)
+        public VisionTargetPage(IVisionModule module, IPatternFinder finder)
         {
             _module = module; _finder = finder;
             InitializeComponent();
             if (LicenseManager.UsageMode == LicenseUsageMode.Designtime) return;
+            _node = _module?.Algorithms.FirstOrDefault(a => a.Finder == _finder);
             WireCamera();
             BuildParams();
             LoadTarget();
@@ -117,23 +121,26 @@ namespace QMC.Vision.Ui.Pages
                     { ControllerPort = s.ControllerPort, Channel = s.Channel, Level = s.Level };
         }
 
-        // ── 파라미터(우측 ParameterGridControl) = finder ROI 바인딩 ──
+        // ── 파라미터(우측 ParameterGridControl) = B 실 finder 직접 바인딩 ──
+        // 편집은 런타임 finder 속성에 직접 쓰고, 저장 시 노드(CollectFromRuntime)가 수집. SCOPE=계층.
         private void BuildParams()
         {
             if (_finder == null) return;
-            var items = new List<ParameterGridItem>
+            var items = new System.Collections.Generic.List<ParameterGridItem>
             {
-                ParameterGridItem.Double("Search X", "px", ParameterGridScope.Setup, () => _finder.SearchRoi.CenterX, v => { _finder.SearchRoi.CenterX = v; RefreshOverlay(); }),
-                ParameterGridItem.Double("Search Y", "px", ParameterGridScope.Setup, () => _finder.SearchRoi.CenterY, v => { _finder.SearchRoi.CenterY = v; RefreshOverlay(); }),
-                ParameterGridItem.Double("Search W", "px", ParameterGridScope.Setup, () => _finder.SearchRoi.Width,   v => { _finder.SearchRoi.Width = v;   RefreshOverlay(); }),
-                ParameterGridItem.Double("Search H", "px", ParameterGridScope.Setup, () => _finder.SearchRoi.Height,  v => { _finder.SearchRoi.Height = v;  RefreshOverlay(); }),
+                ParameterGridItem.Double("Search X", "px", ParameterGridScope.Recipe, () => _finder.SearchRoi.CenterX, v => { _finder.SearchRoi.CenterX = v; RefreshOverlay(); }),
+                ParameterGridItem.Double("Search Y", "px", ParameterGridScope.Recipe, () => _finder.SearchRoi.CenterY, v => { _finder.SearchRoi.CenterY = v; RefreshOverlay(); }),
+                ParameterGridItem.Double("Search W", "px", ParameterGridScope.Recipe, () => _finder.SearchRoi.Width,   v => { _finder.SearchRoi.Width = v;   RefreshOverlay(); }),
+                ParameterGridItem.Double("Search H", "px", ParameterGridScope.Recipe, () => _finder.SearchRoi.Height,  v => { _finder.SearchRoi.Height = v;  RefreshOverlay(); }),
                 ParameterGridItem.Double("Train X", "px", ParameterGridScope.Recipe, () => _finder.TrainRoi.CenterX, v => { _finder.TrainRoi.CenterX = v; }),
                 ParameterGridItem.Double("Train Y", "px", ParameterGridScope.Recipe, () => _finder.TrainRoi.CenterY, v => { _finder.TrainRoi.CenterY = v; }),
                 ParameterGridItem.Double("Train W", "px", ParameterGridScope.Recipe, () => _finder.TrainRoi.Width,   v => { _finder.TrainRoi.Width = v;   }),
                 ParameterGridItem.Double("Train H", "px", ParameterGridScope.Recipe, () => _finder.TrainRoi.Height,  v => { _finder.TrainRoi.Height = v;  }),
+                ParameterGridItem.Double("Accept Threshold", "", ParameterGridScope.Recipe, () => _finder.AcceptThreshold, v => { _finder.AcceptThreshold = v; }),
+                ParameterGridItem.Int("Max Instances", "", ParameterGridScope.Config, () => _finder.MaxInstances, v => { _finder.MaxInstances = v; }),
             };
             _params.SetItems(items);
-            _params.ParameterValueChanged += (s, e) => MarkDirty();
+            _params.ParameterValueChanged += (s, e) => { RefreshOverlay(); MarkDirty(); };
         }
 
         private void RefreshOverlay()
@@ -141,12 +148,12 @@ namespace QMC.Vision.Ui.Pages
             if (_finder != null) _cam.SetOverlay(_finder.SearchRoi, null);
         }
 
-        // ── dirty / 타깃 저장(상단바 SAVE 가 호출) ──
+        // ── dirty / 타깃 저장(상단바 SAVE 가 호출) — BaseUnit 노드 위임 ──
+        // 레시피 파일: Recipes/default/<모듈.알고>.recipe.json (HasSavedData/상태점 일치용).
         private string TargetPath()
         {
-            string alg = _module?.AlgorithmKey ?? "Unknown";
-            string id = (_finder?.Id ?? "x").Replace('/', '_');
-            return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "VisionRecipe", alg, id + ".json");
+            string key = _node?.StorageKey ?? ((_module?.StorageKey ?? "Unknown") + "." + (_finder?.Id ?? "x"));
+            return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Recipes", RecipeName, key + ".recipe.json");
         }
 
         private void MarkDirty()
@@ -156,35 +163,31 @@ namespace QMC.Vision.Ui.Pages
             DirtyChanged?.Invoke(this, EventArgs.Empty);
         }
 
-        /// <summary>타깃 레시피 저장 — finder 파라미터(ROI 등)를 Config/VisionRecipe/&lt;alg&gt;/&lt;id&gt;.json 으로.</summary>
+        /// <summary>타깃 저장 — 노드 SaveSettings(Config) + SaveRecipe(Recipe). Collect 가 런타임→POCO 수집.</summary>
         public void SaveTarget()
         {
-            if (_finder == null) { Status("저장 대상 없음"); return; }
+            if (_node == null) { Status("저장 대상 노드 없음"); return; }
             try
             {
-                string path = TargetPath();
-                Directory.CreateDirectory(Path.GetDirectoryName(path));
-                _finder.SaveParameters(path);
-                _lightPanel?.PersistLight();   // R2e — 통합 저장(ROI + 조명)
+                _node.SaveSettings();
+                _node.SaveRecipe(RecipeName);
+                _lightPanel?.PersistLight();   // R2e — 조명(별도 저장소) 유지
                 _dirty = false;
                 DirtyChanged?.Invoke(this, EventArgs.Empty);
-                Status("타깃 저장됨 — " + path);
+                Status("타깃 저장됨 — " + TargetPath());
             }
             catch (Exception ex) { Status("타깃 저장 실패: " + ex.Message); }
         }
 
         private void LoadTarget()
         {
-            if (_finder == null) return;
+            if (_node == null) return;
             try
             {
-                string path = TargetPath();
-                if (File.Exists(path))
-                {
-                    _finder.LoadParameters(path);
-                    _params.RefreshValues();
-                    RefreshOverlay();
-                }
+                _node.LoadSettings();
+                _node.LoadRecipe(RecipeName);   // Apply 가 POCO→런타임 finder 주입
+                _params.RefreshValues();
+                RefreshOverlay();
             }
             catch { }
         }

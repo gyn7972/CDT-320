@@ -152,5 +152,50 @@
             {
             }
         }
+        public static bool DeleteSetup(string storageKey)
+        {
+            try
+            {
+                return EquipmentDataStore.Delete(storageKey, "Setup").Success;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        public static bool DeleteConfig(string storageKey)
+        {
+            try
+            {
+                return EquipmentDataStore.Delete(storageKey, "Config").Success;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        public static bool DeleteRecipe(string recipeName, string storageKey)
+        {
+            try
+            {
+                return RecipeDataStore.DeleteNode(recipeName, storageKey).Success;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
     }
 }

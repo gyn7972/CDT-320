@@ -81,6 +81,28 @@ namespace QMC.Common.Data.Store
             }
         }
 
+        public static DataStoreResult DeleteFile(string path)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(path))
+                    return DataStoreResult.Fail(path, "Path is empty.");
+
+                if (!File.Exists(path))
+                    return DataStoreResult.Ok(path, "File does not exist.");
+
+                File.Delete(path);
+                return DataStoreResult.Ok(path);
+            }
+            catch (Exception ex)
+            {
+                return DataStoreResult.Fail(path, ex.Message, ex);
+            }
+            finally
+            {
+            }
+        }
+
         public static DataStoreResult DeleteDirectory(string path)
         {
             try

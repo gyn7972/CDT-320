@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using QMC.Vision.Core;
@@ -158,25 +159,5 @@ namespace QMC.Vision.Backends.Cognex
             }
         }
 
-        public void LoadParameters(string path)
-        {
-            // TODO: CogPMAlignTool 직렬화 — Cognex 자체 직렬화는 .vpp 포맷.
-            //   추후 별도 라운드에서 CogSerializer 사용 예정.
-        }
-
-        public void SaveParameters(string path)
-        {
-            try
-            {
-                Directory.CreateDirectory(Path.GetDirectoryName(path));
-                File.WriteAllText(path, "CognexPatternFinder: " + Id +
-                    "\nAcceptThreshold=" + AcceptThreshold +
-                    "\nMaxInstances=" + MaxInstances +
-                    "\nSearchRoi=" + (SearchRoi?.BoundingBox.ToString() ?? "") +
-                    "\nTrainRoi=" + (TrainRoi?.BoundingBox.ToString() ?? "") +
-                    "\nTrained=" + _trainSucceeded);
-            }
-            catch { }
-        }
     }
 }

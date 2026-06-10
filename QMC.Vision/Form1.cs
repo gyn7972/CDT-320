@@ -103,6 +103,11 @@ namespace QMC.Vision
             ApplyDelayFromMap(FrontSideMod,    map, VisionAlgorithm.FrontSide);
             ApplyDelayFromMap(RearSideMod, map, VisionAlgorithm.RearSide);
 
+            // 영속화 일원화 — Setup/Config/Recipe 는 BaseUnit Composite(SaveSettings/LoadSettings/SaveRecipe)로 관리한다.
+            // 기동 시 모듈 Setup/Config 로드(+알고리즘 노드 cascade → Apply 로 런타임 finder/inspector 주입).
+            foreach (var m in new IVisionModule[] { WaferMod, BinMod, BottomMod, FrontSideMod, RearSideMod })
+                try { m.LoadSettings(); } catch { }
+
             // ── TCP 서버 ──
             _svrWafer      = new VisionTcpServer(WaferMod,      cfg.WaferVisionPort);
             _svrBin        = new VisionTcpServer(BinMod,        cfg.BinVisionPort);
@@ -140,7 +145,7 @@ namespace QMC.Vision
             // Stage 88 — 카메라 자동 Open 결과 집계 + 상태바 표시 (조명 상태 옆). 알람은 CreateCameraForAlgorithm 이 이미 raise.
             {
                 int camOk = 0, camTotal = 5;
-                void Tally(VisionModule m) { if (m?.Camera != null && m.Camera.IsOpen) camOk++; }
+                void Tally(IVisionModule m) { if (m?.Camera != null && m.Camera.IsOpen) camOk++; }
                 Tally(WaferMod); Tally(BinMod); Tally(BottomMod); Tally(FrontSideMod); Tally(RearSideMod);
                 if (lblStatusR != null && !lblStatusR.Text.Contains("Camera:"))
                     lblStatusR.Text += $"  |  Camera: {camOk}/{camTotal} OK";
@@ -229,14 +234,14 @@ namespace QMC.Vision
             return cam;
         }
 
-        private static void ApplyDelayFromMap(VisionModule mod, AlgorithmCameraSubset map, string algorithm)
+        private static void ApplyDelayFromMap(IVisionModule mod, AlgorithmCameraSubset map, string algorithm)
         {
             var m = map?.Get(algorithm);
             if (mod != null && m != null) mod.DelayBeforeGrabMs = m.DelayBeforeGrabMs;
         }
 
         /// <summary>모듈별 원격 뷰어 서버 생성+Start. 소스(GrabImage/ScreenRegion)에 따라 프레임 provider 선택.</summary>
-        private GrabStreamServer MakeViewer(string name, int port, VisionModule mod, VisionSettings cfg)
+        private GrabStreamServer MakeViewer(string name, int port, IVisionModule mod, VisionSettings cfg)
         {
             Func<Bitmap> provider;
             if (string.Equals(cfg.RemoteViewerSource, "ScreenRegion", StringComparison.OrdinalIgnoreCase))
@@ -268,7 +273,7 @@ namespace QMC.Vision
         {
             error = null;
             if (mapping == null) { error = "mapping is null"; return false; }
-            VisionModule mod = ResolveModule(algorithm);
+            IVisionModule mod = ResolveModule(algorithm);
             if (mod == null) { error = "unknown algorithm: " + algorithm; return false; }
 
             mod.DelayBeforeGrabMs = mapping.DelayBeforeGrabMs;
@@ -315,7 +320,7 @@ namespace QMC.Vision
         public void RebindAlgorithmCamera(string algorithm, AlgorithmCameraMapping mapping)
             => RebindAlgorithmCamera(algorithm, mapping, out _);
 
-        internal VisionModule ResolveModule(string algorithm)
+        internal IVisionModule ResolveModule(string algorithm)
         {
             switch (algorithm)
             {
@@ -359,7 +364,7 @@ namespace QMC.Vision
             try { _svrFrontSide?.Dispose(); }    catch { }
             try { _svrRearSide?.Dispose(); } catch { }
 
-            // Stage 88 — 카메라 안전 정리 (TCP/뷰어 끊은 뒤, 조명/Backend 앞): 라이브 정지 → VisionModule.Dispose(내부 Camera.Dispose).
+            // Stage 88 — 카메라 안전 정리 (TCP/뷰어 끊은 뒤, 조명/Backend 앞): 라이브 정지 → IVisionModule.Dispose(내부 Camera.Dispose).
             //   미정리 시 카메라 핸들이 남아 다음 실행에서 port 점유 가능.
             try { WaferMod    ?.Camera?.StopLive(); } catch { }
             try { BinMod      ?.Camera?.StopLive(); } catch { }

@@ -1,11 +1,10 @@
-﻿using QMC.Vision.Core;
+using QMC.Vision.Core;
 
 namespace QMC.Vision.Modules
 {
-    /// <summary>
-    /// Bottom Inspection Vision 모듈 — Reticle/Collet/Die/Surface/Focus/Scale/Distortion.
-    /// </summary>
-    public class BottomInspectionModule : VisionModule
+    /// <summary>Bottom Inspection 모듈 — Reticle/Collet/Die/Surface/Focus/Scale/Distortion.</summary>
+    public sealed class BottomInspectionModule
+        : VisionModule<BottomInspectionSetup, BottomInspectionConfig, BottomInspectionRecipe>
     {
         public override string AlgorithmKey => QMC.Common.Recipes.VisionAlgorithm.BottomInspection;
 
@@ -20,13 +19,13 @@ namespace QMC.Vision.Modules
         public BottomInspectionModule(ICamera camera, IVisionBackend backend)
             : base("BottomInspection", camera, backend)
         {
-            Reticle        = AddFinder   ("ReticleFinder");
-            Collet         = AddFinder   ("ColletFinder");
-            Die            = AddFinder   ("DieFinder");
-            Surface        = AddInspector("SurfaceInspector");
-            Focus          = AddFinder   ("FocusFinder");
-            Scale          = AddFinder   ("ScaleFinder");
-            DistortionComp = AddFinder   ("DistortionCompensation");
+            Reticle        = AddFinder   <FinderAlgoSetup,    FinderAlgoConfig,    FinderAlgoRecipe>   ("ReticleFinder");
+            Collet         = AddFinder   <FinderAlgoSetup,    FinderAlgoConfig,    FinderAlgoRecipe>   ("ColletFinder");
+            Die            = AddFinder   <FinderAlgoSetup,    FinderAlgoConfig,    FinderAlgoRecipe>   ("DieFinder");
+            Surface        = AddInspector<InspectorAlgoSetup, InspectorAlgoConfig, InspectorAlgoRecipe>("SurfaceInspector");
+            Focus          = AddFinder   <FinderAlgoSetup,    FinderAlgoConfig,    FinderAlgoRecipe>   ("FocusFinder");
+            Scale          = AddFinder   <FinderAlgoSetup,    FinderAlgoConfig,    FinderAlgoRecipe>   ("ScaleFinder");
+            DistortionComp = AddFinder   <FinderAlgoSetup,    FinderAlgoConfig,    FinderAlgoRecipe>   ("DistortionCompensation");
         }
     }
 }
