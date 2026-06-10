@@ -4,7 +4,6 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
 using QMC.Vision.Core;
-using QMC.Vision.Core.Parameters;
 
 namespace QMC.Vision.Backends.OpenCv
 {
@@ -12,7 +11,7 @@ namespace QMC.Vision.Backends.OpenCv
     /// OpenCV Pattern Finder. EmguCV 로드 시 실제 matchTemplate/FeatureMatcher 사용.
     /// 미로드 시 System.Drawing 기반 SAD(Sum-of-Absolute-Differences) 단순 매칭으로 fallback.
     /// </summary>
-    public class OpenCvPatternFinder : IPatternFinder, IParameterProvider
+    public class OpenCvPatternFinder : IPatternFinder
     {
         public string Id { get; }
         public Roi SearchRoi { get; set; }
@@ -165,12 +164,5 @@ namespace QMC.Vision.Backends.OpenCv
             return result;
         }
 
-        // P2 — 스토어 위임(텍스트 스텁 폐기, G1). path 미사용.
-        public void LoadParameters(string path) => ParameterStoreHost.Current?.LoadTarget(ParameterTarget);
-        public void SaveParameters(string path) => ParameterStoreHost.Current?.SaveTarget(ParameterTarget);
-
-        // P1 — SSOT 디스크립터
-        public string ParameterTarget => Id;
-        public IEnumerable<ParameterDescriptor> DescribeParameters() => VisionParameterDescriptors.Finder(this);
     }
 }

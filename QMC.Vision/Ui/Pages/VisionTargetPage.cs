@@ -8,7 +8,6 @@ using System.Linq;
 using System.Windows.Forms;
 using QMC.Vision.Config;
 using QMC.Vision.Core;
-using QMC.Vision.Core.Parameters;
 using QMC.Vision.Modules;
 using QMC.Vision.Ui.Controls;
 
@@ -17,7 +16,7 @@ namespace QMC.Vision.Ui.Pages
     /// <summary>
     /// R2b — Handler VisionRecipePage 미러(3열 TLP). 좌 카메라+매치 / 중 ACTION 3×3 / 우 ParameterGridControl+JOG+SPEED.
     /// ROI 라디오 제거(세팅선택기는 RecipePage 영속 바). 액션 SAVE=이미지저장(상단바 SAVE=타깃 레시피저장).
-    /// dirty 추적(세팅 단위) + SaveTarget/LoadTarget(finder.SaveParameters/LoadParameters). JOG/SPEED inert.
+    /// dirty 추적(세팅 단위) + SaveTarget/LoadTarget(BaseUnit 노드 SaveRecipe/LoadRecipe). JOG/SPEED inert.
     /// 기능(Grab/Match/Train/Load/EditROI)은 FinderPage 동일.
     /// </summary>
     public partial class VisionTargetPage : UserControl, ITargetPage

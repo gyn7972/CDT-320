@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using QMC.Vision.Core.Parameters;
 
 namespace QMC.Vision.Ui.Controls
 {
@@ -132,52 +131,6 @@ namespace QMC.Vision.Ui.Controls
                 .ToList();
 
             return Selection(displayName, unit, scope, () => getter(), value => setter((TEnum)value), options);
-        }
-
-        // ── P4 — 디스크립터(SSOT) → UI 아이템 어댑터 ──
-        /// <summary>ParameterDescriptor 를 ParameterGridItem 으로. SCOPE=Layer(하드코딩 제거),
-        /// 편집은 store.SetValue 경유(계층·타깃 dirty 발생). 단위/스케일/Min·Max/Enum 옵션 디스크립터에서.</summary>
-        public static ParameterGridItem FromDescriptor(ParameterDescriptor d, ParameterStore store)
-        {
-            if (d == null) return null;
-            var it = new ParameterGridItem
-            {
-                Key = d.Target + "::" + d.Key,
-                DisplayName = d.DisplayName,
-                Unit = d.Unit ?? string.Empty,
-                DisplayScale = d.DisplayScale <= 0 ? 1.0 : d.DisplayScale,
-                Scope = MapScope(d.Layer),
-                ValueType = MapType(d.Type),
-                Getter = d.Getter,
-                Setter = store != null ? (value => store.SetValue(d.Target, d.Key, value)) : d.Setter,
-                Validator = d.Validator
-            };
-            if (d.Options != null)
-                foreach (var o in d.Options)
-                    it.Options.Add(new ParameterGridOption(o.Text, o.Value));
-            return it;
-        }
-
-        private static ParameterGridScope MapScope(ParameterLayer layer)
-        {
-            switch (layer)
-            {
-                case ParameterLayer.Setup:  return ParameterGridScope.Setup;
-                case ParameterLayer.Config: return ParameterGridScope.Config;
-                default:                    return ParameterGridScope.Recipe;
-            }
-        }
-
-        private static ParameterGridValueType MapType(ParameterType type)
-        {
-            switch (type)
-            {
-                case ParameterType.Int:  return ParameterGridValueType.Int;
-                case ParameterType.Bool: return ParameterGridValueType.Bool;
-                case ParameterType.Text: return ParameterGridValueType.Text;
-                case ParameterType.Enum: return ParameterGridValueType.Selection;
-                default:                 return ParameterGridValueType.Double;
-            }
         }
     }
 

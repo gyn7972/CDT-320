@@ -48,7 +48,7 @@ namespace QMC.Vision.Modules
         /// <summary>학습 ROI(패턴 추출 영역). 제품/패턴별로 변경되므로 Recipe.</summary>
         [DataMember] public Roi TrainRoi { get; set; }
 
-        /// <summary>학습된 패턴 모델 파일 경로(백엔드 SaveParameters 대상). 비어있으면 미학습. 제품별이므로 Recipe.</summary>
+        /// <summary>학습된 패턴 모델 파일 경로(향후 백엔드 모델 직렬화 연동용, 현재 POCO-only). 비어있으면 미학습. 제품별이므로 Recipe.</summary>
         [DataMember] public string TrainModelPath { get; set; }
 
         [OnDeserializing] private void OnDeserializing(StreamingContext ctx) => SetDefaults();

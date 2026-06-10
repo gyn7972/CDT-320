@@ -1,12 +1,10 @@
 using System;
-using System.Collections.Generic;
 using System.Drawing;
 using QMC.Vision.Core;
-using QMC.Vision.Core.Parameters;
 
 namespace QMC.Vision.Backends.Sim
 {
-    public class SimInspector : IInspector, IParameterProvider
+    public class SimInspector : IInspector
     {
         public string Id { get; }
         public Roi InspectionRoi { get; set; }
@@ -29,13 +27,5 @@ namespace QMC.Vision.Backends.Sim
             r.Items.Add(new InspectionItem { Name = "Chipping",Value = (_rnd.NextDouble() * 0.3).ToString("F3"), IsPass = pass });
             return r;
         }
-
-        // P2 — 스토어 위임(G1). path 미사용.
-        public void LoadParameters(string path) => ParameterStoreHost.Current?.LoadTarget(ParameterTarget);
-        public void SaveParameters(string path) => ParameterStoreHost.Current?.SaveTarget(ParameterTarget);
-
-        // P1 — SSOT 디스크립터 (InspectionRoi=Setup)
-        public string ParameterTarget => Id;
-        public IEnumerable<ParameterDescriptor> DescribeParameters() => VisionParameterDescriptors.InspectorRoi(this);
     }
 }

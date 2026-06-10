@@ -3,8 +3,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Drawing;
 using QMC.Vision.Core;
-using QMC.Vision.Core.Inspectors;
-using QMC.Vision.Core.Parameters;
 
 namespace QMC.Vision.Backends.Cognex
 {
@@ -14,23 +12,17 @@ namespace QMC.Vision.Backends.Cognex
     /// - Histogram: 평균/표준편차로 표면 균질성 평가 (가능 시)
     /// 미로드/실패 시 Sim fallback.
     /// </summary>
-    public class CognexInspector : IInspector, IParameterProvider
+    public class CognexInspector : IInspector
     {
         public string Id { get; }
         public Roi    InspectionRoi { get; set; }
 
-        /// <summary>Blob 임계값 (HardFixedThreshold).</summary>
+        /// <summary>Blob 임계값 (HardFixedThreshold). InspectorAlgoRecipe.Threshold 가 노드 Apply 로 주입.</summary>
         public int    Threshold        { get; set; } = 128;
         /// <summary>최소 결함 면적 (픽셀^2). 이 미만 blob 은 무시.</summary>
         public int    MinDefectArea    { get; set; } = 25;
         /// <summary>PASS 판정 기준: defect 영역 합계 ≤ 이 값.</summary>
         public double MaxTotalDefectArea { get; set; } = 500;
-
-        /// <summary>P3 (G2) — 부트스트랩이 주입하는 공유 ② 인스턴스. null 이 아니면 Threshold 단일 진실원.</summary>
-        public BottomInspectionParameters BottomParams { get; set; }
-
-        /// <summary>실효 Blob 임계값 — 주입된 ②.Threshold 우선, 없으면 inline.</summary>
-        private int EffectiveThreshold => BottomParams != null ? BottomParams.Threshold : Threshold;
 
         private readonly CognexBackend _be;
         private readonly Sim.SimInspector _fallback;
@@ -85,7 +77,7 @@ namespace QMC.Vision.Backends.Cognex
                     dynamic seg = rp.SegmentationParams;
                     // ColorMode
                     CognexInterop.TrySet(seg, "Mode", "HardFixedThreshold");
-                    CognexInterop.TrySet(seg, "HardFixedThreshold", (double)EffectiveThreshold);
+                    CognexInterop.TrySet(seg, "HardFixedThreshold", (double)Threshold);
                     CognexInterop.TrySet(seg, "Polarity", "DarkBlobs");
                     // Connectivity 최소 픽셀
                     CognexInterop.TrySet(rp, "ConnectivityMinPixels", MinDefectArea);
@@ -120,7 +112,7 @@ namespace QMC.Vision.Backends.Cognex
                 var inspResult = new InspectionResult { RoiName = Id, IsPass = pass };
                 inspResult.Items.Add(new InspectionItem { Name = "DefectCount",     Value = defects.Count.ToString(),    IsPass = pass });
                 inspResult.Items.Add(new InspectionItem { Name = "TotalDefectArea", Value = totalArea.ToString("F1"),    IsPass = pass });
-                inspResult.Items.Add(new InspectionItem { Name = "Threshold",       Value = EffectiveThreshold.ToString(), IsPass = true });
+                inspResult.Items.Add(new InspectionItem { Name = "Threshold",       Value = Threshold.ToString(), IsPass = true });
                 if (defects.Count > 0)
                 {
                     var biggest = defects[0];
@@ -141,20 +133,5 @@ namespace QMC.Vision.Backends.Cognex
             }
         }
 
-        // P2 — 스토어 위임(G1). path 미사용.
-        public void LoadParameters(string path) => ParameterStoreHost.Current?.LoadTarget(ParameterTarget);
-        public void SaveParameters(string path) => ParameterStoreHost.Current?.SaveTarget(ParameterTarget);
-
-        // P1 — SSOT 디스크립터: InspectionRoi(Setup) + Blob 임계(Recipe, #2)
-        public string ParameterTarget => Id;
-        public IEnumerable<ParameterDescriptor> DescribeParameters()
-        {
-            foreach (var d in VisionParameterDescriptors.InspectorRoi(this)) yield return d;
-            // P3 — Threshold 는 주입된 Bottom② 가 공급(단일 진실원). 미주입 시에만 inline 노출(back-compat).
-            if (BottomParams == null)
-                yield return ParameterDescriptor.Int(Id, "Threshold", "Threshold", "", ParameterLayer.Recipe, () => Threshold, v => Threshold = v, min: 0, max: 255);
-            yield return ParameterDescriptor.Int(Id, "MinDefectArea", "Min Defect Area", "px²", ParameterLayer.Recipe, () => MinDefectArea, v => MinDefectArea = v, min: 0);
-            yield return ParameterDescriptor.Double(Id, "MaxTotalDefectArea", "Max Total Defect Area", "px²", ParameterLayer.Recipe, () => MaxTotalDefectArea, v => MaxTotalDefectArea = v, min: 0);
-        }
     }
 }

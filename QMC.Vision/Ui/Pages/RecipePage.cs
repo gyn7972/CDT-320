@@ -232,16 +232,7 @@ namespace QMC.Vision.Ui.Pages
             try
             {
                 if (_cache.TryGetValue(_curSetKey, out var pg) && pg is ITargetPage tp)
-                {
-                    tp.SaveTarget();   // finder/inspector.SaveParameters + dirty clear (DirtyChanged→dot 갱신)
-                }
-                else
-                {
-                    string path = SettingPath(s);
-                    Directory.CreateDirectory(Path.GetDirectoryName(path));
-                    if (s.IsFinder) s.Finder?.SaveParameters(path);
-                    else s.Inspector?.SaveParameters(path);
-                }
+                    tp.SaveTarget();   // 노드 SaveSettings/SaveRecipe + dirty clear (DirtyChanged→dot 갱신)
                 UpdateSettingDot(_curSetKey);
                 UpdateAlgoDot(s.Module);
             }

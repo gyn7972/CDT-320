@@ -49,16 +49,16 @@ my $mt_ok = greps($mt, qr/class\s+DieRecord/) && greps($mt, qr/static\s+class\s+
 row("STATIC", "MaterialTracker — DieRecord + ApplyBottom/Side/DieGap",
     $mt_ok ? "PASS" : "FAIL", $mt);
 
-my $ip = "$VIS_ROOT/Core/Inspectors/InspectionParameters.cs";
-my $ip_ok = greps($ip, qr/class\s+BottomInspectionParameters/) &&
-            greps($ip, qr/class\s+SideInspectionParameters/) &&
-            greps($ip, qr/class\s+DieGapInspectionParameters/) &&
-            greps($ip, qr/class\s+DistortionParameters/) &&
-            greps($ip, qr/class\s+VisionScaleParameters/) &&
-            greps($ip, qr/enum\s+ChipType/) &&
-            greps($ip, qr/enum\s+SideSurface/);
-row("STATIC", "InspectionParameters — 5종 클래스 + ChipType + SideSurface enum",
-    $ip_ok ? "PASS" : "FAIL", $ip);
+# BaseUnit 일원화: 구 ② InspectionParameters 제거 → 모듈/알고리즘 데이터(VisionModuleData/AlgorithmData)로 대체.
+my $vmd = "$VIS_ROOT/Modules/VisionModuleData.cs";
+my $adp = "$VIS_ROOT/Modules/AlgorithmData.cs";
+my $ip_ok = (! -e "$VIS_ROOT/Core/Inspectors/InspectionParameters.cs") &&
+            greps($vmd, qr/class\s+VisionModuleConfigBase/) &&
+            greps($vmd, qr/class\s+WaferVisionRecipe/) &&
+            greps($adp, qr/class\s+FinderAlgoRecipe/) &&
+            greps($adp, qr/class\s+InspectorAlgoRecipe/);
+row("STATIC", "BaseUnit 데이터(VisionModuleData/AlgorithmData) + 구 InspectionParameters 제거",
+    $ip_ok ? "PASS" : "FAIL", $adp);
 
 my $vm = "$VIS_ROOT/Modules/VisionModule.cs";
 my $vm_ok = greps($vm, qr/event\s+Action<string>\s+ExposureDone/) &&

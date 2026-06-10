@@ -104,7 +104,7 @@ namespace QMC.Vision
             ApplyDelayFromMap(RearSideMod, map, VisionAlgorithm.RearSide);
 
             // 영속화 일원화 — Setup/Config/Recipe 는 BaseUnit Composite(SaveSettings/LoadSettings/SaveRecipe)로 관리한다.
-            // (구 ParameterStore/Snapshot 시스템은 사용하지 않음 — ParameterStoreBootstrap.Build 호출 제거.)
+            // 기동 시 모듈 Setup/Config 로드(+알고리즘 노드 cascade → Apply 로 런타임 finder/inspector 주입).
             foreach (var m in new IVisionModule[] { WaferMod, BinMod, BottomMod, FrontSideMod, RearSideMod })
                 try { m.LoadSettings(); } catch { }
 

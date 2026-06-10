@@ -31,9 +31,5 @@ namespace QMC.Vision.Core
 
         /// <summary>주어진 이미지에서 패턴을 찾고 결과 반환.</summary>
         MatchResult Match(Bitmap image);
-
-        /// <summary>백엔드별 파라미터 파일 로드/저장.</summary>
-        void LoadParameters(string path);
-        void SaveParameters(string path);
     }
 }

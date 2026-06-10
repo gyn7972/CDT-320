@@ -9,7 +9,6 @@ using System.Windows.Forms;
 using QMC.Vision.Backends.Cognex;
 using QMC.Vision.Config;
 using QMC.Vision.Core;
-using QMC.Vision.Core.Parameters;
 using QMC.Vision.Modules;
 using QMC.Vision.Ui.Controls;
 
@@ -19,7 +18,7 @@ namespace QMC.Vision.Ui.Pages
     /// R2d Step 2 — Inspector 타깃 3열 페이지(VisionTargetPage 병렬). 좌 CAMERA+검사결과+verdict /
     /// 중 ACTION(INSPECT 강조 + GRAB/LOAD/이미지저장/EDIT ROI) / 우 PARAMETERS(InspectionRoi)+검사조명+라이브튜닝.
     /// 세팅선택기에서 inspector 선택 시 본 페이지로 스왑(옛 InspectorPage 대체). InspectorPage public·주입·동작 보존.
-    /// dirty 추적(세팅 단위) + SaveTarget/LoadTarget(inspector.SaveParameters/LoadParameters). 기능=InspectorPage 동일.
+    /// dirty 추적(세팅 단위) + SaveTarget/LoadTarget(BaseUnit 노드 SaveRecipe/LoadRecipe). 기능=InspectorPage 동일.
     /// </summary>
     public partial class InspectorTargetPage : UserControl, ITargetPage
     {

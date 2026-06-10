@@ -11,7 +11,5 @@ namespace QMC.Vision.Core
         string Id { get; }
         Roi InspectionRoi { get; set; }
         InspectionResult Inspect(Bitmap image);
-        void LoadParameters(string path);
-        void SaveParameters(string path);
     }
 }

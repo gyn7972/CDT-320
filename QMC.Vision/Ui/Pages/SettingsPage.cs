@@ -1,13 +1,9 @@
 ﻿using System;
 using System.ComponentModel;
-using System.Drawing;
-using System.Linq;
 using System.Windows.Forms;
 using QMC.Common.Recipes;
 using QMC.Vision.Config;
-using QMC.Vision.Core.Parameters;
 using QMC.Vision.Ui;
-using QMC.Vision.Ui.Controls;
 
 namespace QMC.Vision.Ui.Pages
 {
@@ -22,12 +18,7 @@ namespace QMC.Vision.Ui.Pages
         private InspectionLightPanel    _lightPanel;      // Stage 69 — 검사별 조명
         private TabControl              _inspTabs;        // Stage 69 — [카메라][조명] 탭
         private LightSystemSetupPage    _lightSetupPage;  // Stage 69 — 조명 시스템 Setup
-        private Control                 _currentEditor;   // 검사 알고리즘 편집기 캐시
-        // P4 — ② 검사 파라미터 그리드(에디터 5종 흡수). 런타임 단일 패널 재사용.
-        private Panel                   _inspParamHost;
-        private ParameterGridControl    _inspParamGrid;
-        private Button                  _btnInspParamSave;
-        private string                  _inspParamTarget;
+        private Control                 _currentEditor;   // 검사 노드 편집기 캐시(카메라/조명)
 
         public SettingsPage()
         {
@@ -57,26 +48,7 @@ namespace QMC.Vision.Ui.Pages
             // Stage 69 — 조명 시스템 Setup 페이지
             _lightSetupPage = new LightSystemSetupPage { Dock = DockStyle.Fill, Visible = false };
             _detailHost.Controls.Add(_lightSetupPage);
-
-            // P4 — ② 검사 파라미터 통일 그리드(에디터 5종 흡수). 그리드 + 하단 저장 바.
-            _inspParamGrid = new ParameterGridControl { Dock = DockStyle.Fill };
-            _btnInspParamSave = new Button
-            {
-                Text = "저장", Dock = DockStyle.Right, Width = 120,
-                FlatStyle = FlatStyle.Flat, BackColor = UiTheme.Accent, ForeColor = Color.White, Font = UiTheme.SectionFont
-            };
-            _btnInspParamSave.Click += OnInspParamSave;
-            var inspBar = new Panel { Dock = DockStyle.Bottom, Height = 44, BackColor = UiTheme.MainBg };
-            inspBar.Controls.Add(_btnInspParamSave);
-            _inspParamHost = new Panel { Dock = DockStyle.Fill, Visible = false };
-            _inspParamHost.Controls.Add(_inspParamGrid);
-            _inspParamHost.Controls.Add(inspBar);
-            _detailHost.Controls.Add(_inspParamHost);
-        }
-
-        private void OnInspParamSave(object sender, EventArgs e)
-        {
-            if (!string.IsNullOrEmpty(_inspParamTarget)) ParameterStoreHost.Current?.SaveTarget(_inspParamTarget);
+            // 검사 파라미터(ROI/임계)는 RecipePage(InspectorTargetPage) 그리드에서 편집 — SettingsPage 는 카메라/조명만.
         }
 
         private void OnOverrideChanged(string alg, string insp) => RefreshInspectionNode(alg, insp);
@@ -96,18 +68,12 @@ namespace QMC.Vision.Ui.Pages
                     algNode.Nodes.Add("cam:" + alg + ":" + insp, InspNodeText(alg, insp));
             }
 
-            var inspRoot = _tree.Nodes.Add("insp-root", "■ 검사 알고리즘");
-            inspRoot.NodeFont = UiTheme.SectionFont;
-            foreach (var t in InspectionTools)
-                inspRoot.Nodes.Add("insp:" + t.Key, t.Value);
-
             // Stage 69 — 시스템 설정 그룹 + 조명 시스템 노드
             var sysRoot = _tree.Nodes.Add("sys-root", "■ 시스템 설정");
             sysRoot.NodeFont = UiTheme.SectionFont;
             sysRoot.Nodes.Add("sys:light", "조명 시스템");
 
             camRoot.Expand();
-            inspRoot.Expand();
             sysRoot.Expand();
             _tree.SelectedNode = camRoot.Nodes[0];
         }
@@ -131,16 +97,6 @@ namespace QMC.Vision.Ui.Pages
                 found[0].Text = InspNodeText(alg, insp);
         }
 
-        private static readonly System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<string, string>> InspectionTools
-            = new System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<string, string>>
-            {
-                new System.Collections.Generic.KeyValuePair<string, string>("BottomInspection", "바텀 검사 파라미터"),
-                new System.Collections.Generic.KeyValuePair<string, string>("SideInspection",   "측면 검사 파라미터"),
-                new System.Collections.Generic.KeyValuePair<string, string>("DieGapInspection", "다이 갭 검사"),
-                new System.Collections.Generic.KeyValuePair<string, string>("Distortion",       "왜곡 보정"),
-                new System.Collections.Generic.KeyValuePair<string, string>("VisionScale",      "비전 스케일 캘리브"),
-            };
-
         private void Tree_AfterSelect(object sender, TreeViewEventArgs e)
         {
             var key = e.Node?.Name;
@@ -154,11 +110,6 @@ namespace QMC.Vision.Ui.Pages
                     ShowCameraMapping(rest);
                 else
                     ShowInspectionOverride(rest.Substring(0, idx), rest.Substring(idx + 1));
-            }
-            else if (key.StartsWith("insp:"))
-            {
-                var tool = key.Substring("insp:".Length);
-                ShowInspectionEditor(tool);
             }
             else if (key == "sys:light")
             {
@@ -186,20 +137,6 @@ namespace QMC.Vision.Ui.Pages
             SwapEditor(_lightSetupPage);
         }
 
-        private void ShowInspectionEditor(string tool)
-        {
-            // P4 — 에디터 5종 → 통일 그리드 흡수. 레지스트리로 정규 target 해석 후 store 질의.
-            var entry = InspectionParamRegistry.ByTool(tool);
-            var store = ParameterStoreHost.Current;
-            if (entry == null || store == null) return;
-            _inspParamTarget = entry.Target;
-            _inspParamGrid.SetItems(store.GetByTarget(entry.Target)
-                .Where(d => d.Domain != ParameterDomain.Lighting)   // 조명=전용 패널 담당, 그리드 제외
-                .Select(d => ParameterGridItem.FromDescriptor(d, store))
-                .Where(x => x != null));
-            SwapEditor(_inspParamHost);
-        }
-
         private void SwapEditor(Control next)
         {
             foreach (Control c in _detailHost.Controls)
@@ -211,8 +148,7 @@ namespace QMC.Vision.Ui.Pages
             // 기존 inspection 편집기 메모리 정리 (새 인스턴스로 교체).
             // 영구 패널(_camPanel/_inspTabs/_lightSetupPage)은 dispose 대상에서 제외.
             if (_currentEditor != null && _currentEditor != next
-                && _currentEditor != _camPanel && _currentEditor != _inspTabs && _currentEditor != _lightSetupPage
-                && _currentEditor != _inspParamHost)
+                && _currentEditor != _camPanel && _currentEditor != _inspTabs && _currentEditor != _lightSetupPage)
             {
                 try { _detailHost.Controls.Remove(_currentEditor); _currentEditor.Dispose(); } catch { }
             }
