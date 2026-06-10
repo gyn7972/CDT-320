@@ -252,7 +252,7 @@
             0,
             0});
             this.nudFwdTimeout.Name = "nudFwdTimeout";
-            this.nudFwdTimeout.Size = new System.Drawing.Size(134, 30);
+            this.nudFwdTimeout.Size = new System.Drawing.Size(134, 25);
             this.nudFwdTimeout.TabIndex = 3;
             this.nudFwdTimeout.Value = new decimal(new int[] {
             3000,
@@ -292,7 +292,7 @@
             0,
             0});
             this.nudBwdTimeout.Name = "nudBwdTimeout";
-            this.nudBwdTimeout.Size = new System.Drawing.Size(144, 30);
+            this.nudBwdTimeout.Size = new System.Drawing.Size(144, 25);
             this.nudBwdTimeout.TabIndex = 5;
             this.nudBwdTimeout.Value = new decimal(new int[] {
             3000,
@@ -348,7 +348,7 @@
             this.txtFwdLabel.Location = new System.Drawing.Point(192, 93);
             this.txtFwdLabel.Margin = new System.Windows.Forms.Padding(4, 7, 4, 7);
             this.txtFwdLabel.Name = "txtFwdLabel";
-            this.txtFwdLabel.Size = new System.Drawing.Size(132, 30);
+            this.txtFwdLabel.Size = new System.Drawing.Size(132, 25);
             this.txtFwdLabel.TabIndex = 15;
             this.txtFwdLabel.Text = "FWD";
             // 
@@ -370,7 +370,7 @@
             this.txtBwdLabel.Location = new System.Drawing.Point(472, 93);
             this.txtBwdLabel.Margin = new System.Windows.Forms.Padding(4, 7, 4, 7);
             this.txtBwdLabel.Name = "txtBwdLabel";
-            this.txtBwdLabel.Size = new System.Drawing.Size(142, 30);
+            this.txtBwdLabel.Size = new System.Drawing.Size(142, 25);
             this.txtBwdLabel.TabIndex = 17;
             this.txtBwdLabel.Text = "BWD";
             // 
