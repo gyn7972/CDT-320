@@ -350,7 +350,7 @@ namespace QMC.CDT320
             if (IsOutputFeederSimulationOrDryRun())
                 return false;
 
-            return BinFeederOverloadSensor != null && !BinFeederOverloadSensor.IsOn;
+            return BinFeederOverloadSensor != null && BinFeederOverloadSensor.IsOn;
         }
 
         public bool IsFeederRingDetected(bool expected = true)

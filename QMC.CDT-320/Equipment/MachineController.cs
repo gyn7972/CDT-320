@@ -1888,6 +1888,10 @@ namespace QMC.CDT320
                         return await PrepareRearPickerXHomeAsync(axis).ConfigureAwait(false);
                     case "OutputVisionX":
                         return await PrepareOutputVisionXHomeAsync(axis).ConfigureAwait(false);
+                    case "OutputGoodStageY":
+                        return await PrepareOutputGoodStageYHomeAsync(axis).ConfigureAwait(false);
+                    case "OutputNGStageY":
+                        return await PrepareOutputNgStageYHomeAsync(axis).ConfigureAwait(false);
                     case "InputExpandingZ":
                         return await PrepareInputExpandingZHomeAsync(axis).ConfigureAwait(false);
                     case "InputStageY":
@@ -2210,7 +2214,7 @@ namespace QMC.CDT320
 
         private async Task<int> PrepareRearPickerYHomeConditionAsync()
         {
-            Log("[INIT] Check RearPickerY home condition: InputExpandingZ / FrontPickerY / RearPickerZ0~Z3 Avoid.");
+            Log("[INIT] Check RearPickerY home: InputExpandingZ / FrontPickerY / RearPickerZ0~Z3 Avoid.");
 
             var stage = _machine.InputStageUnit;
             if (stage != null && !stage.IsExpanderZInAvoidPosition())
@@ -2240,7 +2244,7 @@ namespace QMC.CDT320
 
         private async Task<int> PrepareRearPickerXHomeConditionAsync()
         {
-            Log("[INIT] Check RearPickerX home condition: InputVisionX / InputExpandingZ / FrontPickerY / RearPickerY / RearPickerZ0~Z3 Avoid.");
+            Log("[INIT] Check RearPickerX home: InputVisionX / InputExpandingZ / FrontPickerY / RearPickerY / RearPickerZ0~Z3 Avoid.");
 
             var stage = _machine.InputStageUnit;
             if (stage != null && !stage.IsVisionXInAvoidPosition())
@@ -2278,12 +2282,12 @@ namespace QMC.CDT320
 
         private async Task<int> PrepareOutputVisionXHomeAsync(BaseAxis axis)
         {
-            return await PrepareOutputVisionXHomeConditionAsync().ConfigureAwait(false);
+            return await PrepareOutputVisionHomeAsync().ConfigureAwait(false);
         }
 
-        private Task<int> PrepareOutputVisionXHomeConditionAsync()
+        private Task<int> PrepareOutputVisionHomeAsync()
         {
-            Log("[INIT] Check OutputVisionX home condition: FrontPickerX / RearPickerX Avoid.");
+            Log("[INIT] Check OutputVisionX home: FrontPickerX / RearPickerX Avoid.");
 
             var front = _machine.PickerFrontUnit;
             if (front != null && !front.IsPickerAxisInTeachingPosition(PickerAxis.PickerX, "AvoidPosition"))
@@ -2310,6 +2314,65 @@ namespace QMC.CDT320
             {
                 return Task.FromResult(FailInitializePreparation(
                     "OutputVisionX HOME 불가: OutputFeeder 실린더가 Down 위치에 있지 않습니다."));
+            }
+
+            return Task.FromResult(0);
+        }
+
+        private async Task<int> PrepareOutputGoodStageYHomeAsync(BaseAxis axis)
+        {
+            return await PrepareOutputGoodStageHomeAsync().ConfigureAwait(false);
+        }
+
+        private Task<int> PrepareOutputGoodStageHomeAsync()
+        {
+            Log("[INIT] Check OutputGoodStageY home: OutputGoodStageZ Avoid.");
+
+            var outputStage = _machine.OutputStageUnit;
+            if (outputStage != null && outputStage.GoodStage != null && !outputStage.GoodStage.IsAtAvoidPosition())
+            {
+                return Task.FromResult(FailInitializePreparation(
+                    "OutputGoodStageY HOME 불가: OutputGoodStageZ가 Avoid 위치에 있지 않습니다."));
+            }
+
+            return Task.FromResult(0);
+        }
+
+        private async Task<int> PrepareOutputNgStageYHomeAsync(BaseAxis axis)
+        {
+            return await PrepareOutputNgStageHomeAsync().ConfigureAwait(false);
+        }
+
+        private Task<int> PrepareOutputNgStageHomeAsync()
+        {
+            Log("[INIT] Check OutputNgStageY home: GoodBinZ Avoid / GoodBinGuide Down / NgBinGuide Down / NgBinClamp Up.");
+
+            var outputStage = _machine.OutputStageUnit;
+            if (outputStage == null)
+                return Task.FromResult(0);
+
+            if (outputStage.GoodStage != null && !outputStage.GoodStage.IsAtAvoidPosition())
+            {
+                return Task.FromResult(FailInitializePreparation(
+                    "OutputNgStageY HOME 불가: GoodBinZ(GoodStageZ)가 Avoid 위치에 있지 않습니다."));
+            }
+
+            if (outputStage.GoodBinGuideDownSensor != null && !outputStage.GoodBinGuideDownSensor.IsOn)
+            {
+                return Task.FromResult(FailInitializePreparation(
+                    "OutputNgStageY HOME 불가: Good Bin Guide 실린더가 Down 상태가 아닙니다."));
+            }
+
+            if (outputStage.NgBinGuideDownSensor != null && !outputStage.NgBinGuideDownSensor.IsOn)
+            {
+                return Task.FromResult(FailInitializePreparation(
+                    "OutputNgStageY HOME 불가: NG Bin Guide 실린더가 Down 상태가 아닙니다."));
+            }
+
+            if (outputStage.NgBinClampUpSensor != null && !outputStage.NgBinClampUpSensor.IsOn)
+            {
+                return Task.FromResult(FailInitializePreparation(
+                    "OutputNgStageY HOME 불가: NG Bin Clamp 실린더가 Up 상태가 아닙니다."));
             }
 
             return Task.FromResult(0);
