@@ -1,4 +1,5 @@
 using QMC.Common;
+using QMC.Vision.Backends.Cognex;
 using QMC.Vision.Core;
 
 namespace QMC.Vision.Modules
@@ -29,6 +30,17 @@ namespace QMC.Vision.Modules
         ISetupData  IAlgorithmNode.Setup  => Setup;
         IConfigData IAlgorithmNode.Config => Config;
         IRecipeData IAlgorithmNode.Recipe => Recipe;
+
+        // ── POCO ↔ 런타임 finder/inspector 동기화 (A) ──
+        /// <summary>POCO(Setup/Config/Recipe) → 런타임 finder/inspector 주입. Load 직후 호출.</summary>
+        protected virtual void ApplyToRuntime() { }
+        /// <summary>런타임 finder/inspector → POCO 수집. Save 직전 호출.</summary>
+        protected virtual void CollectFromRuntime() { }
+
+        public override void LoadSettings()       { base.LoadSettings();    ApplyToRuntime(); }
+        public override void LoadRecipe(string n) { base.LoadRecipe(n);     ApplyToRuntime(); }
+        public override bool SaveSettings()       { CollectFromRuntime();   return base.SaveSettings(); }
+        public override bool SaveRecipe(string n) { CollectFromRuntime();   return base.SaveRecipe(n); }
     }
 
     /// <summary>Finder 알고리즘 노드.</summary>
@@ -46,6 +58,34 @@ namespace QMC.Vision.Modules
         }
 
         public override IPatternFinder Finder => _finder;
+
+        // 직접: SearchRoi/TrainRoi(Recipe), AcceptThreshold(Recipe), MaxInstances(Config).
+        // POCO-only: TrainModelPath(Recipe, 문자열만), AngleEnabled(Config). 모델 직렬화는 후속.
+        protected override void ApplyToRuntime()
+        {
+            if (_finder == null) return;
+            if (Recipe is FinderAlgoRecipe r)
+            {
+                if (r.SearchRoi != null) _finder.SearchRoi = r.SearchRoi.Clone();
+                if (r.TrainRoi  != null) _finder.TrainRoi  = r.TrainRoi.Clone();
+                _finder.AcceptThreshold = r.AcceptThreshold;
+            }
+            if (Config is FinderAlgoConfig c)
+                _finder.MaxInstances = c.MaxInstances;
+        }
+
+        protected override void CollectFromRuntime()
+        {
+            if (_finder == null) return;
+            if (Recipe is FinderAlgoRecipe r)
+            {
+                r.SearchRoi = _finder.SearchRoi?.Clone();
+                r.TrainRoi  = _finder.TrainRoi?.Clone();
+                r.AcceptThreshold = _finder.AcceptThreshold;
+            }
+            if (Config is FinderAlgoConfig c)
+                c.MaxInstances = _finder.MaxInstances;
+        }
     }
 
     /// <summary>Inspector 알고리즘 노드.</summary>
@@ -63,5 +103,27 @@ namespace QMC.Vision.Modules
         }
 
         public override IInspector Inspector => _inspector;
+
+        // 직접: InspectionRoi(Recipe). 백엔드한정: Threshold↔Cognex.Threshold(int 변환).
+        // POCO-only: Enable(Config), CalibModelPath(Setup), Sim/OpenCv 의 Threshold.
+        protected override void ApplyToRuntime()
+        {
+            if (_inspector == null) return;
+            if (Recipe is InspectorAlgoRecipe r)
+            {
+                if (r.InspectionRoi != null) _inspector.InspectionRoi = r.InspectionRoi.Clone();
+                if (_inspector is CognexInspector cog) cog.Threshold = (int)r.Threshold;
+            }
+        }
+
+        protected override void CollectFromRuntime()
+        {
+            if (_inspector == null) return;
+            if (Recipe is InspectorAlgoRecipe r)
+            {
+                r.InspectionRoi = _inspector.InspectionRoi?.Clone();
+                if (_inspector is CognexInspector cog) r.Threshold = cog.Threshold;
+            }
+        }
     }
 }
