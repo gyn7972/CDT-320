@@ -91,9 +91,9 @@
             this.stepPresetLayout.SuspendLayout();
             this.jogLayout.SuspendLayout();
             this.SuspendLayout();
-            //
+            // 
             // rootLayout
-            //
+            // 
             this.rootLayout.ColumnCount = 2;
             this.rootLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 41.35338F));
             this.rootLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 58.64662F));
@@ -108,9 +108,9 @@
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.rootLayout.Size = new System.Drawing.Size(544, 361);
             this.rootLayout.TabIndex = 0;
-            //
+            // 
             // leftLayout
-            //
+            // 
             this.leftLayout.ColumnCount = 1;
             this.leftLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.leftLayout.Controls.Add(this.jogPositionListControl, 0, 0);
@@ -121,32 +121,32 @@
             this.leftLayout.RowCount = 2;
             this.leftLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 52F));
             this.leftLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.leftLayout.Size = new System.Drawing.Size(214, 343);
+            this.leftLayout.Size = new System.Drawing.Size(213, 343);
             this.leftLayout.TabIndex = 0;
-            //
+            // 
             // jogPositionListControl
-            //
+            // 
             this.jogPositionListControl.Dock = System.Windows.Forms.DockStyle.Fill;
             this.jogPositionListControl.Location = new System.Drawing.Point(3, 3);
             this.jogPositionListControl.Margin = new System.Windows.Forms.Padding(3, 3, 3, 4);
             this.jogPositionListControl.Name = "jogPositionListControl";
-            this.jogPositionListControl.Size = new System.Drawing.Size(208, 45);
+            this.jogPositionListControl.Size = new System.Drawing.Size(207, 45);
             this.jogPositionListControl.TabIndex = 0;
             this.jogPositionListControl.WrapColumnsWhenMany = true;
-            //
+            // 
             // grpSelectAxis
-            //
+            // 
             this.grpSelectAxis.Controls.Add(this.selectAxisList);
             this.grpSelectAxis.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpSelectAxis.Location = new System.Drawing.Point(3, 55);
             this.grpSelectAxis.Name = "grpSelectAxis";
-            this.grpSelectAxis.Size = new System.Drawing.Size(208, 285);
+            this.grpSelectAxis.Size = new System.Drawing.Size(207, 285);
             this.grpSelectAxis.TabIndex = 1;
             this.grpSelectAxis.TabStop = false;
             this.grpSelectAxis.Text = "Select Axis";
-            //
+            // 
             // selectAxisList
-            //
+            // 
             this.selectAxisList.BackColor = System.Drawing.Color.Black;
             this.selectAxisList.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.selectAxisList.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -156,24 +156,25 @@
             this.selectAxisList.ItemHeight = 15;
             this.selectAxisList.Location = new System.Drawing.Point(3, 19);
             this.selectAxisList.Name = "selectAxisList";
-            this.selectAxisList.Size = new System.Drawing.Size(202, 263);
+            this.selectAxisList.Size = new System.Drawing.Size(201, 263);
             this.selectAxisList.TabIndex = 0;
-            //
+            // 
             // rightLayout
-            //
+            // 
             this.rightLayout.ColumnCount = 1;
             this.rightLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.rightLayout.Controls.Add(this.jogAxisMoveControl, 0, 0);
             this.rightLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.rightLayout.Location = new System.Drawing.Point(229, 9);
+            this.rightLayout.Location = new System.Drawing.Point(228, 9);
             this.rightLayout.Name = "rightLayout";
             this.rightLayout.RowCount = 1;
             this.rightLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.rightLayout.Size = new System.Drawing.Size(306, 343);
+            this.rightLayout.Size = new System.Drawing.Size(307, 343);
             this.rightLayout.TabIndex = 1;
-            //
+            // 
             // jogAxisMoveControl
-            //
+            // 
+            this.jogAxisMoveControl.AxisColumnsPerRow = 0;
             this.jogAxisMoveControl.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(246)))), ((int)(((byte)(248)))));
             this.jogAxisMoveControl.ButtonAreaMaxHeight = 164;
             this.jogAxisMoveControl.ButtonAreaMaxWidth = 222;
@@ -185,12 +186,12 @@
             this.jogAxisMoveControl.Margin = new System.Windows.Forms.Padding(0);
             this.jogAxisMoveControl.Name = "jogAxisMoveControl";
             this.jogAxisMoveControl.ShowCurrentSpeedMode = false;
-            this.jogAxisMoveControl.Size = new System.Drawing.Size(306, 343);
+            this.jogAxisMoveControl.Size = new System.Drawing.Size(307, 343);
             this.jogAxisMoveControl.SpeedControl = null;
             this.jogAxisMoveControl.TabIndex = 1;
-            //
+            // 
             // lblPosition
-            //
+            // 
             this.lblPosition.BackColor = System.Drawing.Color.Black;
             this.lblPosition.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblPosition.Font = new System.Drawing.Font("Consolas", 16F, System.Drawing.FontStyle.Bold);
@@ -201,9 +202,9 @@
             this.lblPosition.TabIndex = 0;
             this.lblPosition.Text = "000.000";
             this.lblPosition.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            //
+            // 
             // grpMove
-            //
+            // 
             this.grpMove.Controls.Add(this.speedLayout);
             this.grpMove.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpMove.Location = new System.Drawing.Point(3, 3);
@@ -212,9 +213,9 @@
             this.grpMove.TabIndex = 0;
             this.grpMove.TabStop = false;
             this.grpMove.Text = "Move";
-            //
+            // 
             // speedLayout
-            //
+            // 
             this.speedLayout.Controls.Add(this.rdoFine);
             this.speedLayout.Controls.Add(this.rdoCoarse);
             this.speedLayout.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -223,27 +224,27 @@
             this.speedLayout.Padding = new System.Windows.Forms.Padding(8, 8, 0, 0);
             this.speedLayout.Size = new System.Drawing.Size(280, 44);
             this.speedLayout.TabIndex = 0;
-            //
+            // 
             // rdoFine
-            //
+            // 
             this.rdoFine.AutoSize = true;
             this.rdoFine.Location = new System.Drawing.Point(11, 11);
             this.rdoFine.Name = "rdoFine";
             this.rdoFine.Size = new System.Drawing.Size(47, 16);
             this.rdoFine.TabIndex = 0;
             this.rdoFine.Text = "Fine";
-            //
+            // 
             // rdoCoarse
-            //
+            // 
             this.rdoCoarse.AutoSize = true;
             this.rdoCoarse.Location = new System.Drawing.Point(64, 11);
             this.rdoCoarse.Name = "rdoCoarse";
             this.rdoCoarse.Size = new System.Drawing.Size(64, 16);
             this.rdoCoarse.TabIndex = 1;
             this.rdoCoarse.Text = "Coarse";
-            //
+            // 
             // grpMoveMode
-            //
+            // 
             this.grpMoveMode.Controls.Add(this.modeLayout);
             this.grpMoveMode.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpMoveMode.Location = new System.Drawing.Point(3, 73);
@@ -252,9 +253,9 @@
             this.grpMoveMode.TabIndex = 1;
             this.grpMoveMode.TabStop = false;
             this.grpMoveMode.Text = "Move Mode";
-            //
+            // 
             // modeLayout
-            //
+            // 
             this.modeLayout.ColumnCount = 1;
             this.modeLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.modeLayout.Controls.Add(this.moveModeRadioLayout, 0, 0);
@@ -270,9 +271,9 @@
             this.modeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.modeLayout.Size = new System.Drawing.Size(280, 100);
             this.modeLayout.TabIndex = 0;
-            //
+            // 
             // moveModeRadioLayout
-            //
+            // 
             this.moveModeRadioLayout.Controls.Add(this.rdoContinuous);
             this.moveModeRadioLayout.Controls.Add(this.rdoStep);
             this.moveModeRadioLayout.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -280,27 +281,27 @@
             this.moveModeRadioLayout.Name = "moveModeRadioLayout";
             this.moveModeRadioLayout.Size = new System.Drawing.Size(262, 24);
             this.moveModeRadioLayout.TabIndex = 0;
-            //
+            // 
             // rdoContinuous
-            //
+            // 
             this.rdoContinuous.AutoSize = true;
             this.rdoContinuous.Location = new System.Drawing.Point(3, 3);
             this.rdoContinuous.Name = "rdoContinuous";
             this.rdoContinuous.Size = new System.Drawing.Size(87, 16);
             this.rdoContinuous.TabIndex = 0;
             this.rdoContinuous.Text = "Continuous";
-            //
+            // 
             // rdoStep
-            //
+            // 
             this.rdoStep.AutoSize = true;
             this.rdoStep.Location = new System.Drawing.Point(96, 3);
             this.rdoStep.Name = "rdoStep";
             this.rdoStep.Size = new System.Drawing.Size(48, 16);
             this.rdoStep.TabIndex = 1;
             this.rdoStep.Text = "Step";
-            //
+            // 
             // nudStep
-            //
+            // 
             this.nudStep.Dock = System.Windows.Forms.DockStyle.Left;
             this.nudStep.Increment = new decimal(new int[] {
             1,
@@ -326,9 +327,9 @@
             0,
             0,
             0});
-            //
+            // 
             // stepPresetLayout
-            //
+            // 
             this.stepPresetLayout.Controls.Add(this.btnStep1);
             this.stepPresetLayout.Controls.Add(this.btnStep01);
             this.stepPresetLayout.Controls.Add(this.btnStep001);
@@ -340,54 +341,54 @@
             this.stepPresetLayout.Size = new System.Drawing.Size(262, 26);
             this.stepPresetLayout.TabIndex = 2;
             this.stepPresetLayout.WrapContents = false;
-            //
+            // 
             // btnStep1
-            //
+            // 
             this.btnStep1.Location = new System.Drawing.Point(2, 2);
             this.btnStep1.Margin = new System.Windows.Forms.Padding(2);
             this.btnStep1.Name = "btnStep1";
             this.btnStep1.Size = new System.Drawing.Size(48, 24);
             this.btnStep1.TabIndex = 0;
             this.btnStep1.Text = "1000";
-            //
+            // 
             // btnStep01
-            //
+            // 
             this.btnStep01.Location = new System.Drawing.Point(54, 2);
             this.btnStep01.Margin = new System.Windows.Forms.Padding(2);
             this.btnStep01.Name = "btnStep01";
             this.btnStep01.Size = new System.Drawing.Size(48, 24);
             this.btnStep01.TabIndex = 1;
             this.btnStep01.Text = "100";
-            //
+            // 
             // btnStep001
-            //
+            // 
             this.btnStep001.Location = new System.Drawing.Point(106, 2);
             this.btnStep001.Margin = new System.Windows.Forms.Padding(2);
             this.btnStep001.Name = "btnStep001";
             this.btnStep001.Size = new System.Drawing.Size(48, 24);
             this.btnStep001.TabIndex = 2;
             this.btnStep001.Text = "10";
-            //
+            // 
             // btnStep0001
-            //
+            // 
             this.btnStep0001.Location = new System.Drawing.Point(158, 2);
             this.btnStep0001.Margin = new System.Windows.Forms.Padding(2);
             this.btnStep0001.Name = "btnStep0001";
             this.btnStep0001.Size = new System.Drawing.Size(48, 24);
             this.btnStep0001.TabIndex = 3;
             this.btnStep0001.Text = "1um";
-            //
+            // 
             // btnStepZero
-            //
+            // 
             this.btnStepZero.Location = new System.Drawing.Point(210, 2);
             this.btnStepZero.Margin = new System.Windows.Forms.Padding(2);
             this.btnStepZero.Name = "btnStepZero";
             this.btnStepZero.Size = new System.Drawing.Size(48, 24);
             this.btnStepZero.TabIndex = 4;
             this.btnStepZero.Text = "0\'um";
-            //
+            // 
             // jogLayout
-            //
+            // 
             this.jogLayout.ColumnCount = 4;
             this.jogLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 25F));
             this.jogLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 25F));
@@ -414,9 +415,9 @@
             this.jogLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 33.333F));
             this.jogLayout.Size = new System.Drawing.Size(286, 210);
             this.jogLayout.TabIndex = 2;
-            //
+            // 
             // btnTMinus
-            //
+            // 
             this.btnTMinus.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnTMinus.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
             this.btnTMinus.Location = new System.Drawing.Point(7, 7);
@@ -426,9 +427,9 @@
             this.btnTMinus.TabIndex = 0;
             this.btnTMinus.Text = "T-";
             this.btnTMinus.UseVisualStyleBackColor = true;
-            //
+            // 
             // btnYPlus
-            //
+            // 
             this.btnYPlus.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnYPlus.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
             this.btnYPlus.Location = new System.Drawing.Point(77, 7);
@@ -438,9 +439,9 @@
             this.btnYPlus.TabIndex = 1;
             this.btnYPlus.Text = "Y+";
             this.btnYPlus.UseVisualStyleBackColor = true;
-            //
+            // 
             // btnTPlus
-            //
+            // 
             this.btnTPlus.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnTPlus.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
             this.btnTPlus.Location = new System.Drawing.Point(147, 7);
@@ -450,9 +451,9 @@
             this.btnTPlus.TabIndex = 2;
             this.btnTPlus.Text = "T+";
             this.btnTPlus.UseVisualStyleBackColor = true;
-            //
+            // 
             // btnZPlus
-            //
+            // 
             this.btnZPlus.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnZPlus.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
             this.btnZPlus.Location = new System.Drawing.Point(217, 7);
@@ -462,9 +463,9 @@
             this.btnZPlus.TabIndex = 3;
             this.btnZPlus.Text = "Z+";
             this.btnZPlus.UseVisualStyleBackColor = true;
-            //
+            // 
             // btnXMinus
-            //
+            // 
             this.btnXMinus.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnXMinus.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
             this.btnXMinus.Location = new System.Drawing.Point(7, 75);
@@ -474,9 +475,9 @@
             this.btnXMinus.TabIndex = 4;
             this.btnXMinus.Text = "X-";
             this.btnXMinus.UseVisualStyleBackColor = true;
-            //
+            // 
             // btnStop
-            //
+            // 
             this.btnStop.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnStop.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
             this.btnStop.Location = new System.Drawing.Point(77, 75);
@@ -486,9 +487,9 @@
             this.btnStop.TabIndex = 5;
             this.btnStop.Text = "STOP";
             this.btnStop.UseVisualStyleBackColor = true;
-            //
+            // 
             // btnXPlus
-            //
+            // 
             this.btnXPlus.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnXPlus.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
             this.btnXPlus.Location = new System.Drawing.Point(147, 75);
@@ -498,9 +499,9 @@
             this.btnXPlus.TabIndex = 6;
             this.btnXPlus.Text = "X+";
             this.btnXPlus.UseVisualStyleBackColor = true;
-            //
+            // 
             // btnZMinus
-            //
+            // 
             this.btnZMinus.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnZMinus.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
             this.btnZMinus.Location = new System.Drawing.Point(217, 75);
@@ -510,9 +511,9 @@
             this.btnZMinus.TabIndex = 7;
             this.btnZMinus.Text = "Z-";
             this.btnZMinus.UseVisualStyleBackColor = true;
-            //
+            // 
             // btnPrevIndex
-            //
+            // 
             this.btnPrevIndex.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnPrevIndex.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
             this.btnPrevIndex.Location = new System.Drawing.Point(7, 143);
@@ -522,9 +523,9 @@
             this.btnPrevIndex.TabIndex = 8;
             this.btnPrevIndex.Text = "Prev\r\nIndex";
             this.btnPrevIndex.UseVisualStyleBackColor = true;
-            //
+            // 
             // btnYMinus
-            //
+            // 
             this.btnYMinus.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnYMinus.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
             this.btnYMinus.Location = new System.Drawing.Point(77, 143);
@@ -534,9 +535,9 @@
             this.btnYMinus.TabIndex = 9;
             this.btnYMinus.Text = "Y-";
             this.btnYMinus.UseVisualStyleBackColor = true;
-            //
+            // 
             // btnNextIndex
-            //
+            // 
             this.jogLayout.SetColumnSpan(this.btnNextIndex, 2);
             this.btnNextIndex.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnNextIndex.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
@@ -547,9 +548,9 @@
             this.btnNextIndex.TabIndex = 10;
             this.btnNextIndex.Text = "Next\r\nIndex";
             this.btnNextIndex.UseVisualStyleBackColor = true;
-            //
+            // 
             // AxisJogPopup
-            //
+            // 
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
             this.ClientSize = new System.Drawing.Size(544, 361);
             this.Controls.Add(this.rootLayout);

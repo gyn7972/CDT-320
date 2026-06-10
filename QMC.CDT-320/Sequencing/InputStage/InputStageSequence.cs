@@ -23,6 +23,11 @@ namespace QMC.CDT320.Sequencing
             return new InputStageAlignSequence(_context).RunAsync(ct, options);
         }
 
+        public Task<int> RunDieMappingAsync(CancellationToken ct, InputStageSequenceOptions options)
+        {
+            return new InputStageDieMappingSequence(_context).RunAsync(ct, options);
+        }
+
         public Task<int> RunPrepareUnloadAsync(CancellationToken ct, InputStageSequenceOptions options)
         {
             return new InputStagePrepareUnloadSequence(_context).RunAsync(ct, options);

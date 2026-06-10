@@ -144,6 +144,40 @@ namespace QMC.CDT320
                 " ???쒖꽦 ?ㅼ씠 " + _inputPickupSequence.Count + "媛??쒖꽌 寃곗젙");
         }
 
+        public void ApplyInputDieMap(QMC.CDT320.DieMaps.DieMap map, string reason)
+        {
+            try
+            {
+                if (map == null)
+                    return;
+
+                _inputDieMap = map;
+                QMC.CDT320.Lots.LotStorage.ActiveInputDieMap = map;
+                RebuildPickupSequence();
+                int targetCount = 0;
+                if (map.Entries != null)
+                {
+                    foreach (var entry in map.Entries)
+                    {
+                        if (entry != null && entry.IsTarget)
+                            targetCount++;
+                    }
+                }
+
+                Log("[PICKSEQ] Input DieMap applied. reason=" + (reason ?? "") +
+                    ", frame=" + (map.FrameObjId ?? "") +
+                    ", target=" + targetCount +
+                    ", sequence=" + (_inputPickupSequence != null ? _inputPickupSequence.Count : 0));
+            }
+            catch (Exception ex)
+            {
+                Log("[PICKSEQ] Input DieMap apply failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
         /// <summary>Input/Output ?ㅼ씠留듭쓣 (?놁쑝硫? ?앹꽦. ?대? ?덉쑝硫??ъ궗??</summary>
         public void EnsureDieMaps()
         {
@@ -1640,17 +1674,20 @@ namespace QMC.CDT320
                 int result;
                 if (stepNo == 71 || stepNo == 72 || stepNo == 73 || stepNo == 74)
                 {
-                    var sequenceSteps = plan.Steps.Where(x => x != null && x.Enabled && (x.StepNo == 71 || x.StepNo == 72 || x.StepNo == 73 || x.StepNo == 74)).ToList();
+                    var sequenceSteps = plan.Steps.Where(x => x != null && x.Enabled && IsInputSharedRailInitializeStep(x)).ToList();
+                    ResetAxisInitializeStepProgressForRun(sequenceSteps);
                     result = await ExecuteConditionalInitializeSequenceAsync(
                         sequenceSteps,
                         71,
                         new[] { 72, 73, 74 },
                         ShouldRunSharedRailBeforeInputFeederHome,
-                        "InputFeeder/SharedRailX").ConfigureAwait(false);
+                        "InputFeeder/SharedRailX",
+                        new[] { 60 }).ConfigureAwait(false);
                 }
                 else if (stepNo == 91 || stepNo == 92)
                 {
                     var pairSteps = plan.Steps.Where(x => x != null && x.Enabled && (x.StepNo == 91 || x.StepNo == 92)).ToList();
+                    ResetAxisInitializeStepProgressForRun(pairSteps);
                     result = await ExecuteConditionalInitializePairAsync(
                         pairSteps,
                         91,
@@ -1660,10 +1697,12 @@ namespace QMC.CDT320
                 }
                 else if (steps.Count == 1)
                 {
+                    ResetAxisInitializeStepProgressForRun(steps);
                     result = await ExecuteInitializeSingleStepAsync(steps[0]).ConfigureAwait(false);
                 }
                 else
                 {
+                    ResetAxisInitializeStepProgressForRun(steps);
                     int[] results = await Task.WhenAll(steps.Select(ExecuteInitializeSingleStepAsync)).ConfigureAwait(false);
                     result = results.FirstOrDefault(x => x != 0);
                 }
@@ -1955,6 +1994,9 @@ namespace QMC.CDT320
                         return await MoveFrontPickerYToAvoidAfterHomeAsync().ConfigureAwait(false);
                     case "RearPickerY":
                         return await MoveRearPickerYToAvoidAfterHomeAsync().ConfigureAwait(false);
+                    case "InputFeederY":
+                    case "FeederY":
+                        return await MoveInputFeederLiftDownAfterHomeAsync().ConfigureAwait(false);
                     case "StageY":
                         return await MoveInputStageYToAvoidAfterHomeAsync().ConfigureAwait(false);
                     default:
@@ -2055,11 +2097,9 @@ namespace QMC.CDT320
                     "InputVisionX HOME 불가: InputFeederY가 Avoid 위치에 있지 않습니다.");
             }
 
-            if (feeder != null && !feeder.IsWaferFeederDown())
-            {
-                return FailInitializePreparation(
-                    "InputVisionX HOME 불가: InputFeeder 실린더가 Down 위치에 있지 않습니다.");
-            }
+            int downResult = await EnsureInputFeederLiftDownForSharedRailHomeAsync("InputVisionX").ConfigureAwait(false);
+            if (downResult != 0)
+                return downResult;
 
             return 0;
         }
@@ -2069,15 +2109,15 @@ namespace QMC.CDT320
             return await PrepareFrontPickerHomeAsync().ConfigureAwait(false);
         }
 
-        private Task<int> PrepareFrontPickerHomeAsync()
+        private async Task<int> PrepareFrontPickerHomeAsync()
         {
             Log("[INIT] Prepare FrontPickerX home: check InputVisionX/FrontPickerY/FrontPickerZ/InputFeederY Avoid and feeder cylinder down.");
 
             var stage = _machine.InputStageUnit;
             if (stage != null && !stage.IsVisionXInAvoidPosition())
             {
-                return Task.FromResult(FailInitializePreparation(
-                    "FrontPickerX HOME 불가: InputVisionX가 Avoid 위치에 있지 않습니다."));
+                return FailInitializePreparation(
+                    "FrontPickerX HOME 불가: InputVisionX가 Avoid 위치에 있지 않습니다.");
             }
 
             var front = _machine.PickerFrontUnit;
@@ -2085,8 +2125,8 @@ namespace QMC.CDT320
             {
                 if (!front.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition"))
                 {
-                    return Task.FromResult(FailInitializePreparation(
-                        "FrontPickerX HOME 불가: FrontPickerY가 Avoid 위치에 있지 않습니다."));
+                    return FailInitializePreparation(
+                        "FrontPickerX HOME 불가: FrontPickerY가 Avoid 위치에 있지 않습니다.");
                 }
 
                 PickerAxis[] zAxes = { PickerAxis.PickerZ0, PickerAxis.PickerZ1, PickerAxis.PickerZ2, PickerAxis.PickerZ3 };
@@ -2094,8 +2134,8 @@ namespace QMC.CDT320
                 {
                     if (!front.IsPickerAxisInTeachingPosition(zAxis, "AvoidPosition"))
                     {
-                        return Task.FromResult(FailInitializePreparation(
-                            "FrontPickerX HOME 불가: Front" + zAxis + "가 Avoid 위치에 있지 않습니다."));
+                        return FailInitializePreparation(
+                            "FrontPickerX HOME 불가: Front" + zAxis + "가 Avoid 위치에 있지 않습니다.");
                     }
                 }
             }
@@ -2105,18 +2145,16 @@ namespace QMC.CDT320
             {
                 if (!feeder.IsWaferFeederYInAvoidPosition())
                 {
-                    return Task.FromResult(FailInitializePreparation(
-                        "FrontPickerX HOME 불가: InputFeederY가 Avoid 위치에 있지 않습니다."));
-                }
-
-                if (!feeder.IsWaferFeederDown())
-                {
-                    return Task.FromResult(FailInitializePreparation(
-                        "FrontPickerX HOME 불가: InputFeeder 실린더가 Down 위치에 있지 않습니다."));
+                    return FailInitializePreparation(
+                        "FrontPickerX HOME 불가: InputFeederY가 Avoid 위치에 있지 않습니다.");
                 }
             }
 
-            return Task.FromResult(0);
+            int downResult = await EnsureInputFeederLiftDownForSharedRailHomeAsync("FrontPickerX").ConfigureAwait(false);
+            if (downResult != 0)
+                return downResult;
+
+            return 0;
         }
 
         private async Task<int> PrepareFrontPickerYHomeAsync(BaseAxis axis)
@@ -2321,11 +2359,12 @@ namespace QMC.CDT320
                     .Where(x => x != null && x.Enabled)
                     .OrderBy(x => x.StepNo)
                     .ToList();
+                ResetAxisInitializeStepProgressForRun(enabledSteps);
 
                 bool inputPairExecuted = false;
                 bool outputPairExecuted = false;
                 foreach (var batch in enabledSteps
-                    .Where(x => x.StepNo != 71 && x.StepNo != 72 && x.StepNo != 73 && x.StepNo != 74 && x.StepNo != 91 && x.StepNo != 92)
+                    .Where(x => !IsInputSharedRailInitializeStep(x) && x.StepNo != 91 && x.StepNo != 92)
                     .GroupBy(x => x.StepNo))
                 {
                     if (!inputPairExecuted && batch.Key >= 80)
@@ -2335,7 +2374,8 @@ namespace QMC.CDT320
                             71,
                             new[] { 72, 73, 74 },
                             ShouldRunSharedRailBeforeInputFeederHome,
-                            "InputFeeder/SharedRailX").ConfigureAwait(false);
+                            "InputFeeder/SharedRailX",
+                            new[] { 60 }).ConfigureAwait(false);
                         if (conditionalResult != 0)
                             return conditionalResult;
 
@@ -2388,7 +2428,8 @@ namespace QMC.CDT320
                         71,
                         new[] { 72, 73, 74 },
                         ShouldRunSharedRailBeforeInputFeederHome,
-                        "InputFeeder/SharedRailX").ConfigureAwait(false);
+                        "InputFeeder/SharedRailX",
+                        new[] { 60 }).ConfigureAwait(false);
                     if (result != 0)
                         return result;
                 }
@@ -2541,6 +2582,36 @@ namespace QMC.CDT320
             }
             finally
             {
+            }
+        }
+
+        private void ResetAxisInitializeStepProgressForRun(IEnumerable<AxisInitializeStep> steps)
+        {
+            if (steps == null)
+                return;
+
+            foreach (AxisInitializeStep step in steps.Where(x => x != null && x.Enabled))
+            {
+                AxisInitializeStepProgress progress = AxisInitializeStepProgress.Create(
+                    step,
+                    AxisInitializeStepStatus.Waiting,
+                    "");
+                SetAxisInitializeStepProgress(progress);
+
+                var handler = AxisInitializeStepProgressChanged;
+                if (handler == null)
+                    continue;
+
+                try
+                {
+                    handler(progress);
+                }
+                catch
+                {
+                }
+                finally
+                {
+                }
             }
         }
 
@@ -2912,12 +2983,25 @@ namespace QMC.CDT320
             return stepNo.ToString(System.Globalization.CultureInfo.InvariantCulture) + "|" + (groupName ?? "");
         }
 
+        private static bool IsInputSharedRailInitializeStep(AxisInitializeStep step)
+        {
+            if (step == null)
+                return false;
+
+            if (step.StepNo == 60 &&
+                string.Equals(step.GroupName, "InputFeederLift", StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            return step.StepNo == 71 || step.StepNo == 72 || step.StepNo == 73 || step.StepNo == 74;
+        }
+
         private async Task<int> ExecuteConditionalInitializeSequenceAsync(
             IList<AxisInitializeStep> steps,
             int firstStepNo,
             int[] orderedSecondStepNos,
             Func<bool> shouldRunSecondFirst,
-            string relationName)
+            string relationName,
+            int[] firstPreStepNos = null)
         {
             try
             {
@@ -2925,6 +3009,12 @@ namespace QMC.CDT320
                     return 0;
 
                 AxisInitializeStep first = steps.FirstOrDefault(x => x != null && x.Enabled && x.StepNo == firstStepNo);
+                var firstPreSteps = (firstPreStepNos ?? new int[0])
+                    .SelectMany(stepNo => steps
+                        .Where(x => x != null && x.Enabled && x.StepNo == stepNo)
+                        .OrderBy(x => x.GroupName)
+                        .ToList())
+                    .ToList();
                 var secondSteps = (orderedSecondStepNos ?? new int[0])
                     .SelectMany(stepNo => steps
                         .Where(x => x != null && x.Enabled && x.StepNo == stepNo)
@@ -2932,14 +3022,15 @@ namespace QMC.CDT320
                         .ToList())
                     .ToList();
 
-                if (first == null && secondSteps.Count == 0)
+                if (first == null && firstPreSteps.Count == 0 && secondSteps.Count == 0)
                     return 0;
 
                 bool secondFirst = shouldRunSecondFirst != null && shouldRunSecondFirst();
                 string secondOrder = string.Join("->", (orderedSecondStepNos ?? new int[0]).Select(x => x.ToString()).ToArray());
+                string firstOrder = string.Join("->", (firstPreStepNos ?? new int[0]).Concat(new[] { firstStepNo }).Select(x => x.ToString()).ToArray());
                 QMC.Common.Log.Write("Main", "SYSTEM", "ExecuteInitializeConditionalSequence",
                     "Conditional initialize sequence order selected. relation=" + relationName +
-                    ", order=" + (secondFirst ? secondOrder + "->" + firstStepNo : firstStepNo + "->" + secondOrder) +
+                    ", order=" + (secondFirst ? secondOrder + "->" + firstOrder : firstOrder + "->" + secondOrder) +
                     " - Start");
 
                 if (secondFirst)
@@ -2948,12 +3039,20 @@ namespace QMC.CDT320
                     if (secondResult != 0)
                         return secondResult;
 
+                    int preResult = await ExecuteInitializeOrderedStepsAsync(firstPreSteps).ConfigureAwait(false);
+                    if (preResult != 0)
+                        return preResult;
+
                     int firstResult = first != null ? await ExecuteInitializeSingleStepAsync(first).ConfigureAwait(false) : 0;
                     if (firstResult != 0)
                         return firstResult;
                 }
                 else
                 {
+                    int preResult = await ExecuteInitializeOrderedStepsAsync(firstPreSteps).ConfigureAwait(false);
+                    if (preResult != 0)
+                        return preResult;
+
                     int firstResult = first != null ? await ExecuteInitializeSingleStepAsync(first).ConfigureAwait(false) : 0;
                     if (firstResult != 0)
                         return firstResult;
@@ -3154,6 +3253,8 @@ namespace QMC.CDT320
                     return await MoveSharedRailAxesToAvoidAsync().ConfigureAwait(false);
                 if (string.Equals(groupName, "RearPickerX", StringComparison.OrdinalIgnoreCase))
                     return await MoveSharedRailAxesToAvoidAsync().ConfigureAwait(false);
+                if (string.Equals(groupName, "InputFeeder", StringComparison.OrdinalIgnoreCase))
+                    return await MoveInputFeederLiftDownAfterHomeAsync().ConfigureAwait(false);
                 if (string.Equals(groupName, "OutputStageZ", StringComparison.OrdinalIgnoreCase))
                     return await MoveOutputStageZToAvoidAsync().ConfigureAwait(false);
 
@@ -3305,9 +3406,9 @@ namespace QMC.CDT320
                     return FailInitializePreparation("InputFeeder unclamp failed. result=" + result);
             }
 
-            if (feeder.IsWaferFeederUp())
+            if (!feeder.IsWaferFeederUp())
             {
-                result = await feeder.SetWaferFeederUpDown(false).ConfigureAwait(false);
+                result = await feeder.SetWaferFeederUpDown(true).ConfigureAwait(false);
                 if (result != 0)
                     return FailInitializePreparation("InputFeeder lift up failed. result=" + result);
             }
@@ -3319,6 +3420,74 @@ namespace QMC.CDT320
             }
 
             return 0;
+        }
+
+        private async Task<int> MoveInputFeederLiftDownAfterHomeAsync()
+        {
+            try
+            {
+                Log("[INIT] Complete InputFeeder home: feeder lift down.");
+
+                var feeder = _machine != null ? _machine.InputFeederUnit : null;
+                if (feeder == null)
+                    return 0;
+
+                if (feeder.IsWaferFeederDown())
+                    return 0;
+
+                int result = await feeder.SetWaferFeederUpDown(false).ConfigureAwait(false);
+                if (result != 0)
+                    return FailInitializePreparation("InputFeeder lift down after home failed. result=" + result);
+
+                if (!feeder.IsWaferFeederDown())
+                    return FailInitializePreparation("InputFeeder lift down after home failed: Down sensor is not active.");
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return FailInitializePreparation("InputFeeder lift down after home exception: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> EnsureInputFeederLiftDownForSharedRailHomeAsync(string sourceName)
+        {
+            try
+            {
+                var feeder = _machine != null ? _machine.InputFeederUnit : null;
+                if (feeder == null)
+                    return 0;
+
+                if (feeder.IsWaferFeederDown())
+                    return 0;
+
+                Log("[INIT] Prepare " + sourceName + " home: feeder lift down command.");
+                int result = await feeder.SetWaferFeederUpDown(false).ConfigureAwait(false);
+                if (result != 0)
+                {
+                    return FailInitializePreparation(
+                        sourceName + " HOME 불가: InputFeeder 실린더 Down 이동 실패. result=" + result);
+                }
+
+                if (!feeder.IsWaferFeederDown())
+                {
+                    return FailInitializePreparation(
+                        sourceName + " HOME 불가: InputFeeder 실린더가 Down 위치에 있지 않습니다.");
+                }
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return FailInitializePreparation(
+                    sourceName + " HOME 불가: InputFeeder 실린더 Down 확인 중 예외 발생. " + ex.Message);
+            }
+            finally
+            {
+            }
         }
 
         private async Task<int> PrepareOutputFeederHomeAsync()
@@ -4517,6 +4686,82 @@ namespace QMC.CDT320
             }
 
             _coordinator.StepUnit(unit);
+        }
+
+        /// <summary>Work CYCLE RUN 버튼에서 Input 시퀀스를 1단계만 진행합니다.</summary>
+        public async Task<int> RunInputSequenceStepAsync()
+        {
+            try
+            {
+                LastActionFailureMessage = "";
+
+                if (_status == EquipmentStatus.Alarm)
+                {
+                    LastActionFailureMessage = "Alarm 상태에서는 CYCLE RUN을 수행할 수 없습니다.";
+                    QMC.Common.Log.Write("Main", "SYSTEM", "RunInputSequenceStep",
+                        "Input sequence step run failed: alarm status is active. - Failed");
+                    AlarmManager.Raise(AlarmSeverity.Warning, "SEQ-STEP-ALARM", "MachineController", LastActionFailureMessage);
+                    Log("[SEQ] Input step failed: alarm status is active");
+                    return -1;
+                }
+
+                if (!EnsureMachineInitializedForRun("RunInputSequenceStepAsync"))
+                    return -1;
+
+                if (IsSequenceRunning)
+                {
+                    if (ActiveSequenceRunMode == QMC.CDT320.Sequencing.SequenceRunMode.Auto)
+                    {
+                        LastActionFailureMessage = "Auto Sequence 실행 중에는 CYCLE RUN Step을 수행할 수 없습니다.";
+                        QMC.Common.Log.Write("Main", "SYSTEM", "RunInputSequenceStep",
+                            "Input sequence step run failed: auto sequence is running. - Failed");
+                        AlarmManager.Raise(AlarmSeverity.Warning, "SEQ-STEP-AUTO-RUNNING", "MachineController", LastActionFailureMessage);
+                        Log("[SEQ] Input step failed: auto sequence is running");
+                        return -1;
+                    }
+
+                    ManualStep(QMC.CDT320.Sequencing.SequenceUnitKind.InputLoader);
+                    QMC.Common.Log.Write("Main", "SYSTEM", "RunInputSequenceStep",
+                        "Input sequence step gate released. - Ok");
+                    return 0;
+                }
+
+                if (_status == EquipmentStatus.AutoRunning)
+                {
+                    LastActionFailureMessage = "Auto Running 상태에서는 CYCLE RUN Step을 시작할 수 없습니다.";
+                    QMC.Common.Log.Write("Main", "SYSTEM", "RunInputSequenceStep",
+                        "Input sequence step run failed: equipment auto running. - Failed");
+                    AlarmManager.Raise(AlarmSeverity.Warning, "SEQ-STEP-RUNNING", "MachineController", LastActionFailureMessage);
+                    Log("[SEQ] Input step failed: equipment auto running");
+                    return -1;
+                }
+
+                foreach (var ax in EnumerateAxes())
+                    ax.ServoOn();
+
+                await StartSingleUnitAsync(
+                    QMC.CDT320.Sequencing.SequenceUnitKind.InputLoader,
+                    QMC.CDT320.Sequencing.SequenceRunMode.Step).ConfigureAwait(false);
+
+                ManualStep(QMC.CDT320.Sequencing.SequenceUnitKind.InputLoader);
+                QMC.Common.Log.Write("Main", "SYSTEM", "RunInputSequenceStep",
+                    "Input sequence step mode started and first gate released. - Ok");
+                Log("[SEQ] Input step start");
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                LastActionFailureMessage = "Input sequence step run failed: " + ex.Message;
+                QMC.Common.Log.Write("Main", "SYSTEM", "RunInputSequenceStep",
+                    LastActionFailureMessage + " - Failed");
+                AlarmManager.Raise(AlarmSeverity.Error, "SEQ-STEP-EX", "MachineController", LastActionFailureMessage);
+                Log("[SEQ] Input step failed: " + ex.Message);
+                SetStatus(EquipmentStatus.Alarm);
+                return -1;
+            }
+            finally
+            {
+            }
         }
 
         public async Task CycleRunAsync(int totalDies = -1)

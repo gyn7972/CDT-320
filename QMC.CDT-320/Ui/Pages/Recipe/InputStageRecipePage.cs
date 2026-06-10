@@ -1,4 +1,5 @@
 ﻿using QMC.CDT_320.Ui.Controls;
+using QMC.CDT_320.Ui.Dialogs;
 using QMC.CDT_320.Ui.Localization;
 using QMC.CDT320;
 using QMC.Common.Logging;

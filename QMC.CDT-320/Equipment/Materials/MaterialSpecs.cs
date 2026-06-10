@@ -20,6 +20,9 @@ namespace QMC.CDT320.Materials
         [DataMember] public double HeightLower { get; set; } = 0;
         [DataMember] public double HeightUpper { get; set; } = 0;
         [DataMember] public double ThicknessMm { get; set; } = 0.1;
+        [DataMember] public double ChippingDepthMax { get; set; } = 0.05;
+        [DataMember] public double ChippingLengthMax { get; set; } = 0.20;
+        [DataMember] public double ForeignSizeMax { get; set; } = 0.005;
     }
 
     /// <summary>웨이퍼(테이프 프레임) 1종의 기준 사양 (310 의 TapeFrameSpec).</summary>
@@ -48,9 +51,9 @@ namespace QMC.CDT320.Materials
             {
                 Dies = new List<DieSpec>
                 {
-                    new DieSpec { Name="Default", WidthMm=1.0, HeightMm=1.0, WidthLower=-0.05, WidthUpper=0.05, HeightLower=-0.05, HeightUpper=0.05, ThicknessMm=0.1 },
-                    new DieSpec { Name="Small",   WidthMm=0.5, HeightMm=0.5, WidthLower=-0.02, WidthUpper=0.02, HeightLower=-0.02, HeightUpper=0.02, ThicknessMm=0.08 },
-                    new DieSpec { Name="Large",   WidthMm=3.0, HeightMm=3.0, WidthLower=-0.10, WidthUpper=0.10, HeightLower=-0.10, HeightUpper=0.10, ThicknessMm=0.20 },
+                    new DieSpec { Name="Default", WidthMm=1.0, HeightMm=1.0, WidthLower=-0.05, WidthUpper=0.05, HeightLower=-0.05, HeightUpper=0.05, ThicknessMm=0.1, ChippingDepthMax=0.05, ChippingLengthMax=0.20, ForeignSizeMax=0.005 },
+                    new DieSpec { Name="Small",   WidthMm=0.5, HeightMm=0.5, WidthLower=-0.02, WidthUpper=0.02, HeightLower=-0.02, HeightUpper=0.02, ThicknessMm=0.08, ChippingDepthMax=0.03, ChippingLengthMax=0.10, ForeignSizeMax=0.003 },
+                    new DieSpec { Name="Large",   WidthMm=3.0, HeightMm=3.0, WidthLower=-0.10, WidthUpper=0.10, HeightLower=-0.10, HeightUpper=0.10, ThicknessMm=0.20, ChippingDepthMax=0.08, ChippingLengthMax=0.30, ForeignSizeMax=0.010 },
                 },
                 Frames = new List<TapeFrameSpec>
                 {
@@ -108,6 +111,47 @@ namespace QMC.CDT320.Materials
 
         public static TapeFrameSpec FindFrame(string name)
             => _data.Frames?.FirstOrDefault(f => string.Equals(f.Name, name, StringComparison.OrdinalIgnoreCase));
+
+        public static DieSpec UpsertDie(
+            string name,
+            double widthMm,
+            double heightMm,
+            double thicknessMm,
+            double widthLower,
+            double widthUpper,
+            double heightLower,
+            double heightUpper,
+            double chippingDepthMax,
+            double chippingLengthMax,
+            double foreignSizeMax)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+                name = "Die_" + DateTime.Now.ToString("yyyyMMdd_HHmmss");
+
+            if (_data.Dies == null)
+                _data.Dies = new List<DieSpec>();
+
+            string specName = name.Trim();
+            var spec = _data.Dies.FirstOrDefault(d => string.Equals(d.Name, specName, StringComparison.OrdinalIgnoreCase));
+            if (spec == null)
+            {
+                spec = new DieSpec { Name = specName };
+                _data.Dies.Add(spec);
+            }
+
+            spec.WidthMm = widthMm > 0.0 ? widthMm : 1.0;
+            spec.HeightMm = heightMm > 0.0 ? heightMm : 1.0;
+            spec.ThicknessMm = thicknessMm > 0.0 ? thicknessMm : 0.1;
+            spec.WidthLower = widthLower;
+            spec.WidthUpper = widthUpper;
+            spec.HeightLower = heightLower;
+            spec.HeightUpper = heightUpper;
+            spec.ChippingDepthMax = chippingDepthMax;
+            spec.ChippingLengthMax = chippingLengthMax;
+            spec.ForeignSizeMax = foreignSizeMax;
+            Save();
+            return spec;
+        }
 
         public static TapeFrameSpec UpsertFrame(string name, int gridX, int gridY, double pitchX, double pitchY, double outerDiameterMm, string dieSpecName)
         {

@@ -41,6 +41,8 @@ namespace QMC.CDT_320.Ui.Controls
         private int _axisColumnsPerRow = 0;
         private bool _showCurrentSpeedMode = true;
         private bool _isJogging;
+        private bool _isContinuousJogStarting;
+        private bool _continuousStopRequested;
         private JogAxisMoveLayoutMode _layoutMode = JogAxisMoveLayoutMode.AxisColumns;
 
         public JogSpeedControl SpeedControl { get; set; }
@@ -441,6 +443,9 @@ namespace QMC.CDT_320.Ui.Controls
         {
             try
             {
+                if (_isContinuousJogStarting && !force)
+                    _continuousStopRequested = true;
+
                 if (!_isJogging && !force)
                     return 0;
 
@@ -453,6 +458,8 @@ namespace QMC.CDT_320.Ui.Controls
                 }
 
                 _isJogging = false;
+                if (!_isContinuousJogStarting)
+                    _continuousStopRequested = false;
                 ResetButtonColors();
                 return finalResult;
             }
@@ -2248,6 +2255,11 @@ namespace QMC.CDT_320.Ui.Controls
                 Button button = sender as Button;
                 if (button == null || !_buttonAxes.ContainsKey(button))
                     return;
+                if (!rdoStep.Checked && (_isContinuousJogStarting || _isJogging))
+                {
+                    await StopAllAsync(true);
+                    return;
+                }
 
                 SetButtonActive(button);
                 await StartJogAsync(_buttonAxes[button], _buttonDirections[button]);
@@ -2318,14 +2330,24 @@ namespace QMC.CDT_320.Ui.Controls
 
         private async Task StartJogAsync(JogAxisItem item, int direction)
         {
+            bool isStepMode = false;
             try
             {
                 if (item == null)
                     return;
 
-                await StopAllAsync(true);
+                isStepMode = rdoStep.Checked;
+                if (!isStepMode)
+                {
+                    _isContinuousJogStarting = true;
+                    _continuousStopRequested = false;
+                }
 
-                if (rdoStep.Checked)
+                await StopAllAsync(true);
+                if (!isStepMode && _continuousStopRequested)
+                    return;
+
+                if (isStepMode)
                 {
                     double axisStep = item.FromDisplayDistance(Convert.ToDouble(numStepDistance.Value, CultureInfo.InvariantCulture));
                     int stepResult = await item.ExecuteStepAsync(direction, GetJogSpeedType(), CurrentJogSpeed(item), axisStep);
@@ -2342,6 +2364,9 @@ namespace QMC.CDT_320.Ui.Controls
 
                 _isJogging = true;
                 EventLogger.Write(EventKind.Event, "UI", "JOG-AXIS", item.AxisName + " continuous jog start.");
+
+                if (_continuousStopRequested)
+                    await StopAllAsync(true);
             }
             catch
             {
@@ -2349,6 +2374,10 @@ namespace QMC.CDT_320.Ui.Controls
             }
             finally
             {
+                if (!isStepMode)
+                {
+                    _isContinuousJogStarting = false;
+                }
             }
         }
 

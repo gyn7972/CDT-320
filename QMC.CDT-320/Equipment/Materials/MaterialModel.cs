@@ -257,6 +257,13 @@ namespace QMC.CDT320.Materials
         [DataMember] public WaferMaterialState State { get; set; } = WaferMaterialState.Empty;
         [DataMember] public string TapeFrameSpecName { get; set; } = "";
         [DataMember] public string DieMapFrameObjId { get; set; } = "";
+        [DataMember] public bool HasInputStageAlignResult { get; set; }
+        [DataMember] public double InputStageAlignOriginX { get; set; }
+        [DataMember] public double InputStageAlignOriginY { get; set; }
+        [DataMember] public double InputStageAlignPitchX { get; set; }
+        [DataMember] public double InputStageAlignPitchY { get; set; }
+        [DataMember] public double InputStageAlignOffsetX { get; set; }
+        [DataMember] public double InputStageAlignOffsetY { get; set; }
         [DataMember] public List<string> DieIds { get; set; } = new List<string>();
         [DataMember] public DateTime CreatedAt { get; set; } = DateTime.Now;
         [DataMember] public DateTime UpdatedAt { get; set; } = DateTime.Now;

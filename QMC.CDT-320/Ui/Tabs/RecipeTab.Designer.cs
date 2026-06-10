@@ -20,6 +20,7 @@ namespace QMC.CDT_320.Ui.Tabs
         internal SidebarButton BtnSideVision;
         internal SidebarButton BtnInputMapCreate;
         internal SidebarButton BtnOutputMapCreate;
+        internal SidebarButton BtnDieMapSetup;
         internal SidebarButton BtnDieSubset;
         internal SidebarButton BtnTapeFrameSubset;
         internal SidebarButton BtnLoadFrame;
@@ -52,6 +53,7 @@ namespace QMC.CDT_320.Ui.Tabs
             this.BtnSideVision = new QMC.CDT_320.Ui.Controls.SidebarButton();
             this.BtnInputMapCreate = new QMC.CDT_320.Ui.Controls.SidebarButton();
             this.BtnOutputMapCreate = new QMC.CDT_320.Ui.Controls.SidebarButton();
+            this.BtnDieMapSetup = new QMC.CDT_320.Ui.Controls.SidebarButton();
             this.BtnDieSubset = new QMC.CDT_320.Ui.Controls.SidebarButton();
             this.BtnTapeFrameSubset = new QMC.CDT_320.Ui.Controls.SidebarButton();
             this.BtnLoadFrame = new QMC.CDT_320.Ui.Controls.SidebarButton();
@@ -273,112 +275,124 @@ namespace QMC.CDT_320.Ui.Tabs
             this.BtnOutputMapCreate.TabIndex = 17;
             this.BtnOutputMapCreate.Text = "OUTPUT MAP CREATE";
             //
+            // BtnDieMapSetup
+            //
+            this.BtnDieMapSetup.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.BtnDieMapSetup.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F);
+            this.BtnDieMapSetup.Location = new System.Drawing.Point(4, 802);
+            this.BtnDieMapSetup.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
+            this.BtnDieMapSetup.Name = "BtnDieMapSetup";
+            this.BtnDieMapSetup.Selected = false;
+            this.BtnDieMapSetup.Size = new System.Drawing.Size(184, 46);
+            this.BtnDieMapSetup.TabIndex = 18;
+            this.BtnDieMapSetup.Text = "DIE MAP SETUP";
+            //
             // BtnDieSubset
             //
             this.BtnDieSubset.Cursor = System.Windows.Forms.Cursors.Hand;
             this.BtnDieSubset.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F);
-            this.BtnDieSubset.Location = new System.Drawing.Point(4, 816);
+            this.BtnDieSubset.Location = new System.Drawing.Point(4, 864);
             this.BtnDieSubset.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
             this.BtnDieSubset.Name = "BtnDieSubset";
             this.BtnDieSubset.Selected = false;
             this.BtnDieSubset.Size = new System.Drawing.Size(184, 46);
-            this.BtnDieSubset.TabIndex = 19;
+            this.BtnDieSubset.TabIndex = 20;
             this.BtnDieSubset.Text = "DIE SUBSET";
             //
             // BtnTapeFrameSubset
             //
             this.BtnTapeFrameSubset.Cursor = System.Windows.Forms.Cursors.Hand;
             this.BtnTapeFrameSubset.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F);
-            this.BtnTapeFrameSubset.Location = new System.Drawing.Point(4, 864);
+            this.BtnTapeFrameSubset.Location = new System.Drawing.Point(4, 912);
             this.BtnTapeFrameSubset.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
             this.BtnTapeFrameSubset.Name = "BtnTapeFrameSubset";
             this.BtnTapeFrameSubset.Selected = false;
             this.BtnTapeFrameSubset.Size = new System.Drawing.Size(184, 46);
-            this.BtnTapeFrameSubset.TabIndex = 20;
+            this.BtnTapeFrameSubset.TabIndex = 21;
             this.BtnTapeFrameSubset.Text = "TAPE FRAME SUBSET";
             //
             // BtnLoadFrame
             //
             this.BtnLoadFrame.Cursor = System.Windows.Forms.Cursors.Hand;
             this.BtnLoadFrame.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F);
-            this.BtnLoadFrame.Location = new System.Drawing.Point(4, 912);
+            this.BtnLoadFrame.Location = new System.Drawing.Point(4, 960);
             this.BtnLoadFrame.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
             this.BtnLoadFrame.Name = "BtnLoadFrame";
             this.BtnLoadFrame.Selected = false;
             this.BtnLoadFrame.Size = new System.Drawing.Size(184, 46);
-            this.BtnLoadFrame.TabIndex = 21;
+            this.BtnLoadFrame.TabIndex = 22;
             this.BtnLoadFrame.Text = "LOAD FRAME";
             //
             // BtnUnloadFrame
             //
             this.BtnUnloadFrame.Cursor = System.Windows.Forms.Cursors.Hand;
             this.BtnUnloadFrame.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F);
-            this.BtnUnloadFrame.Location = new System.Drawing.Point(4, 960);
+            this.BtnUnloadFrame.Location = new System.Drawing.Point(4, 1008);
             this.BtnUnloadFrame.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
             this.BtnUnloadFrame.Name = "BtnUnloadFrame";
             this.BtnUnloadFrame.Selected = false;
             this.BtnUnloadFrame.Size = new System.Drawing.Size(184, 46);
-            this.BtnUnloadFrame.TabIndex = 22;
+            this.BtnUnloadFrame.TabIndex = 23;
             this.BtnUnloadFrame.Text = "UNLOAD FRAME";
             //
             // BtnBinCode
             //
             this.BtnBinCode.Cursor = System.Windows.Forms.Cursors.Hand;
             this.BtnBinCode.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F);
-            this.BtnBinCode.Location = new System.Drawing.Point(4, 1008);
+            this.BtnBinCode.Location = new System.Drawing.Point(4, 1056);
             this.BtnBinCode.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
             this.BtnBinCode.Name = "BtnBinCode";
             this.BtnBinCode.Selected = false;
             this.BtnBinCode.Size = new System.Drawing.Size(184, 46);
-            this.BtnBinCode.TabIndex = 23;
+            this.BtnBinCode.TabIndex = 24;
             this.BtnBinCode.Text = "BIN CODE";
             //
             // BtnModuleSubset
             //
             this.BtnModuleSubset.Cursor = System.Windows.Forms.Cursors.Hand;
             this.BtnModuleSubset.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F);
-            this.BtnModuleSubset.Location = new System.Drawing.Point(4, 1056);
+            this.BtnModuleSubset.Location = new System.Drawing.Point(4, 1104);
             this.BtnModuleSubset.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
             this.BtnModuleSubset.Name = "BtnModuleSubset";
             this.BtnModuleSubset.Selected = false;
             this.BtnModuleSubset.Size = new System.Drawing.Size(184, 46);
-            this.BtnModuleSubset.TabIndex = 24;
+            this.BtnModuleSubset.TabIndex = 25;
             this.BtnModuleSubset.Text = "MODULE SUBSET";
             //
             // BtnOutputSubset
             //
             this.BtnOutputSubset.Cursor = System.Windows.Forms.Cursors.Hand;
             this.BtnOutputSubset.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F);
-            this.BtnOutputSubset.Location = new System.Drawing.Point(4, 1104);
+            this.BtnOutputSubset.Location = new System.Drawing.Point(4, 1152);
             this.BtnOutputSubset.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
             this.BtnOutputSubset.Name = "BtnOutputSubset";
             this.BtnOutputSubset.Selected = false;
             this.BtnOutputSubset.Size = new System.Drawing.Size(184, 46);
-            this.BtnOutputSubset.TabIndex = 25;
+            this.BtnOutputSubset.TabIndex = 26;
             this.BtnOutputSubset.Text = "OUTPUT SUBSET";
             //
             // BtnPickupSubset
             //
             this.BtnPickupSubset.Cursor = System.Windows.Forms.Cursors.Hand;
             this.BtnPickupSubset.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F);
-            this.BtnPickupSubset.Location = new System.Drawing.Point(4, 1152);
+            this.BtnPickupSubset.Location = new System.Drawing.Point(4, 1200);
             this.BtnPickupSubset.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
             this.BtnPickupSubset.Name = "BtnPickupSubset";
             this.BtnPickupSubset.Selected = false;
             this.BtnPickupSubset.Size = new System.Drawing.Size(184, 46);
-            this.BtnPickupSubset.TabIndex = 26;
+            this.BtnPickupSubset.TabIndex = 27;
             this.BtnPickupSubset.Text = "PICKUP SUBSET";
             //
             // BtnForceControl
             //
             this.BtnForceControl.Cursor = System.Windows.Forms.Cursors.Hand;
             this.BtnForceControl.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F);
-            this.BtnForceControl.Location = new System.Drawing.Point(4, 1214);
+            this.BtnForceControl.Location = new System.Drawing.Point(4, 1262);
             this.BtnForceControl.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
             this.BtnForceControl.Name = "BtnForceControl";
             this.BtnForceControl.Selected = false;
             this.BtnForceControl.Size = new System.Drawing.Size(184, 46);
-            this.BtnForceControl.TabIndex = 28;
+            this.BtnForceControl.TabIndex = 29;
             this.BtnForceControl.Text = "FORCE CONTROL";
             //
             // PnlVisionSeparator
@@ -402,20 +416,20 @@ namespace QMC.CDT_320.Ui.Tabs
             // PnlSubsetSeparator
             //
             this.PnlSubsetSeparator.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(51)))), ((int)(((byte)(51)))), ((int)(((byte)(51)))));
-            this.PnlSubsetSeparator.Location = new System.Drawing.Point(4, 808);
+            this.PnlSubsetSeparator.Location = new System.Drawing.Point(4, 856);
             this.PnlSubsetSeparator.Margin = new System.Windows.Forms.Padding(0, 6, 0, 6);
             this.PnlSubsetSeparator.Name = "PnlSubsetSeparator";
             this.PnlSubsetSeparator.Size = new System.Drawing.Size(202, 2);
-            this.PnlSubsetSeparator.TabIndex = 18;
+            this.PnlSubsetSeparator.TabIndex = 19;
             //
             // PnlForceSeparator
             //
             this.PnlForceSeparator.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(51)))), ((int)(((byte)(51)))), ((int)(((byte)(51)))));
-            this.PnlForceSeparator.Location = new System.Drawing.Point(4, 1206);
+            this.PnlForceSeparator.Location = new System.Drawing.Point(4, 1254);
             this.PnlForceSeparator.Margin = new System.Windows.Forms.Padding(0, 6, 0, 6);
             this.PnlForceSeparator.Name = "PnlForceSeparator";
             this.PnlForceSeparator.Size = new System.Drawing.Size(202, 2);
-            this.PnlForceSeparator.TabIndex = 27;
+            this.PnlForceSeparator.TabIndex = 28;
             //
             // PnlSidebarButtons
             //
@@ -437,6 +451,7 @@ namespace QMC.CDT_320.Ui.Tabs
             this.PnlSidebarButtons.Controls.Add(this.PnlMapSeparator);
             this.PnlSidebarButtons.Controls.Add(this.BtnInputMapCreate);
             this.PnlSidebarButtons.Controls.Add(this.BtnOutputMapCreate);
+            this.PnlSidebarButtons.Controls.Add(this.BtnDieMapSetup);
             this.PnlSidebarButtons.Controls.Add(this.PnlSubsetSeparator);
             this.PnlSidebarButtons.Controls.Add(this.BtnDieSubset);
             this.PnlSidebarButtons.Controls.Add(this.BtnTapeFrameSubset);

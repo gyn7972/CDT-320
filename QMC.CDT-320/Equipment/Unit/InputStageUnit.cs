@@ -76,6 +76,54 @@ namespace QMC.CDT320
         [DataMember] public double[] DiePosition { get; set; } = new double[0];
     }
 
+    [DataContract]
+    public sealed class InputStageDieMapMarkPoint
+    {
+        [DataMember] public string Name { get; set; } = "";
+        [DataMember] public bool Enabled { get; set; } = true;
+        [DataMember] public double StageYPosition { get; set; }
+        [DataMember] public double VisionXPosition { get; set; }
+        [DataMember] public double VisionOffsetX { get; set; }
+        [DataMember] public double VisionOffsetY { get; set; }
+    }
+
+    [DataContract]
+    public sealed class InputStageDieMapRecipe
+    {
+        [DataMember] public InputStageDieMapMarkPoint Top { get; set; } = new InputStageDieMapMarkPoint { Name = "Top" };
+        [DataMember] public InputStageDieMapMarkPoint Bottom { get; set; } = new InputStageDieMapMarkPoint { Name = "Bottom" };
+        [DataMember] public InputStageDieMapMarkPoint Left { get; set; } = new InputStageDieMapMarkPoint { Name = "Left" };
+        [DataMember] public InputStageDieMapMarkPoint Right { get; set; } = new InputStageDieMapMarkPoint { Name = "Right" };
+        [DataMember] public string VisionTargetId { get; set; } = "DieMapMark";
+        [DataMember] public int VisionRetryCount { get; set; } = 3;
+
+        [OnDeserialized]
+        private void OnDeserialized(StreamingContext ctx)
+        {
+            EnsurePoints();
+        }
+
+        public void EnsurePoints()
+        {
+            if (Top == null) Top = new InputStageDieMapMarkPoint();
+            if (Bottom == null) Bottom = new InputStageDieMapMarkPoint();
+            if (Left == null) Left = new InputStageDieMapMarkPoint();
+            if (Right == null) Right = new InputStageDieMapMarkPoint();
+            if (string.IsNullOrWhiteSpace(Top.Name)) Top.Name = "Top";
+            if (string.IsNullOrWhiteSpace(Bottom.Name)) Bottom.Name = "Bottom";
+            if (string.IsNullOrWhiteSpace(Left.Name)) Left.Name = "Left";
+            if (string.IsNullOrWhiteSpace(Right.Name)) Right.Name = "Right";
+            if (VisionRetryCount <= 0) VisionRetryCount = 3;
+            if (string.IsNullOrWhiteSpace(VisionTargetId)) VisionTargetId = "DieMapMark";
+        }
+
+        public InputStageDieMapMarkPoint[] Points()
+        {
+            EnsurePoints();
+            return new[] { Top, Bottom, Left, Right };
+        }
+    }
+
     public class InputStageRecipe : IRecipeData
     {
         [DataMember] public StageAxisPositions WaferY { get; set; } = new StageAxisPositions();
@@ -85,6 +133,7 @@ namespace QMC.CDT320
         [DataMember] public StageAxisPositions NeedleX { get; set; } = new StageAxisPositions();
         [DataMember] public StageAxisPositions NeedleZ { get; set; } = new StageAxisPositions();
         [DataMember] public StageAxisPositions EjectPinZ { get; set; } = new StageAxisPositions();
+        [DataMember] public InputStageDieMapRecipe DieMap { get; set; } = new InputStageDieMapRecipe();
 
         [OnDeserialized]
         private void OnDeserialized(StreamingContext ctx)
@@ -101,6 +150,8 @@ namespace QMC.CDT320
             if (NeedleX == null) NeedleX = new StageAxisPositions();
             if (NeedleZ == null) NeedleZ = new StageAxisPositions();
             if (EjectPinZ == null) EjectPinZ = new StageAxisPositions();
+            if (DieMap == null) DieMap = new InputStageDieMapRecipe();
+            DieMap.EnsurePoints();
         }
     }
 
@@ -903,6 +954,39 @@ namespace QMC.CDT320
             {
                 RaiseStageAlarm(AlarmSeverity.Warning, "IS-ALIGN-APPLY", "InputStageUnit.ApplyWaferAlignResult",
                     "Align result apply failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        public void ApplyDieMappingResult(WaferMapData map, double originX, double originY, double pitchX, double pitchY)
+        {
+            try
+            {
+                if (map != null)
+                {
+                    NormalizeWaferMap(map, map.WaferId);
+                    CurrentWaferMap = map;
+                }
+
+                OriginX = originX;
+                OriginY = originY;
+                PitchX = pitchX;
+                PitchY = pitchY;
+                EventLogger.Write(EventKind.Event, "QMC", "IS-DIEMAP",
+                    "InputStage die mapping result applied. wafer=" + (map != null ? map.WaferId : "") +
+                    ", row=" + (map != null ? map.RowCount.ToString() : "0") +
+                    ", col=" + (map != null ? map.ColumnCount.ToString() : "0") +
+                    ", originX=" + OriginX.ToString("F4") +
+                    ", originY=" + OriginY.ToString("F4") +
+                    ", pitchX=" + PitchX.ToString("F4") +
+                    ", pitchY=" + PitchY.ToString("F4"));
+            }
+            catch (Exception ex)
+            {
+                RaiseStageAlarm(AlarmSeverity.Warning, "IS-DIEMAP-APPLY", "InputStageUnit.ApplyDieMappingResult",
+                    "Die mapping result apply failed: " + ex.Message);
             }
             finally
             {

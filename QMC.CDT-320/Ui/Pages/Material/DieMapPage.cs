@@ -2,8 +2,10 @@
 using System.Drawing;
 using System.Linq;
 using System.Windows.Forms;
+using QMC.CDT320;
 using QMC.CDT320.Bin;
 using QMC.CDT320.DieMaps;
+using QMC.CDT320.Lots;
 using QMC.CDT320.Materials;
 
 namespace QMC.CDT_320.Ui.Pages.Material
@@ -19,9 +21,11 @@ namespace QMC.CDT_320.Ui.Pages.Material
 
             if (!IsDesignerMode())
             {
-                _map = DieMapGenerator.Generate(MakeFrameFromInputs());
-                _view.Map = _map;
-                UpdateStats();
+                if (!LoadActiveStageMap(false))
+                {
+                    _map = DieMapGenerator.Generate(MakeFrameFromInputs());
+                    ApplyMapToView(_map, "Generated Demo Die Map");
+                }
             }
         }
 
@@ -30,6 +34,7 @@ namespace QMC.CDT_320.Ui.Pages.Material
             foreach (var r in Enum.GetNames(typeof(TapeFrameRotate))) _cbRotate.Items.Add(r);
             _cbRotate.SelectedIndex = 0;
             _view.CellClicked += OnCellClick;
+            btnLoadActive.Click += (s, e) => LoadActiveStageMap(true);
             btnGenerate.Click += (s, e) => DoGenerate();
             btnDemo.Click += (s, e) => DoFillDemo();
             btnLoad.Click += (s, e) => DoLoad();
@@ -54,8 +59,7 @@ namespace QMC.CDT_320.Ui.Pages.Material
         private void DoGenerate()
         {
             _map = DieMapGenerator.Generate(MakeFrameFromInputs());
-            _view.Map = _map;
-            UpdateStats();
+            ApplyMapToView(_map, "Generated Demo Die Map");
         }
 
         private void DoFillDemo()
@@ -79,7 +83,149 @@ namespace QMC.CDT_320.Ui.Pages.Material
             }
 
             _view.Invalidate();
+            RefreshEntryGrid();
             UpdateStats();
+        }
+
+        private bool LoadActiveStageMap(bool showMessage)
+        {
+            try
+            {
+                DieMap map = LotStorage.ActiveInputDieMap;
+                string caption = "Active Input Die Map";
+                if (map == null)
+                {
+                    var host = FindForm() as Form1;
+                    var stage = host != null && host.Machine != null ? host.Machine.InputStageUnit : null;
+                    if (stage != null && stage.CurrentWaferMap != null)
+                    {
+                        map = ConvertWaferMap(stage.CurrentWaferMap, stage.OriginX, stage.OriginY, stage.PitchX, stage.PitchY);
+                        caption = "InputStage Current Wafer Map";
+                    }
+                }
+
+                if (map == null)
+                {
+                    if (showMessage)
+                        QMC.Common.MessageDialog.Show(this, "현재 표시할 DieMap/WaferMap 데이터가 없습니다.", "DieMap", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return false;
+                }
+
+                ApplyMapToView(map, caption);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                if (showMessage)
+                    QMC.Common.MessageDialog.Show(this, "Active DieMap load failed:\n" + ex.Message, "DieMap", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private static DieMap ConvertWaferMap(WaferMapData waferMap, double originX, double originY, double pitchX, double pitchY)
+        {
+            if (waferMap == null)
+                return null;
+
+            int rows = waferMap.RowCount > 0 ? waferMap.RowCount : (waferMap.DieMap != null ? waferMap.DieMap.GetLength(0) : 0);
+            int cols = waferMap.ColumnCount > 0 ? waferMap.ColumnCount : (waferMap.DieMap != null ? waferMap.DieMap.GetLength(1) : 0);
+            if (rows <= 0 || cols <= 0)
+                return null;
+
+            var map = new DieMap
+            {
+                FrameObjId = waferMap.WaferId ?? "",
+                GridX = cols,
+                GridY = rows,
+                PitchX = pitchX,
+                PitchY = pitchY,
+                OriginX = originX,
+                OriginY = originY,
+                CreatedAt = DateTime.Now
+            };
+
+            int index = 0;
+            for (int row = 0; row < rows; row++)
+            {
+                for (int col = 0; col < cols; col++)
+                {
+                    bool target = waferMap.DieMap == null || waferMap.DieMap[row, col];
+                    map.Entries.Add(new DieMapEntry
+                    {
+                        Index = index,
+                        GridX = col,
+                        GridY = row,
+                        IsTarget = target,
+                        Result = target ? DieResult.Unknown : DieResult.NG,
+                        BinCode = target ? 0 : 255,
+                        X = originX + col * pitchX,
+                        Y = originY + row * pitchY,
+                        DieUid = BuildDisplayDieId(waferMap.WaferId, row, col)
+                    });
+                    index++;
+                }
+            }
+
+            return map;
+        }
+
+        private void ApplyMapToView(DieMap map, string caption)
+        {
+            _map = map;
+            _view.Caption = string.IsNullOrWhiteSpace(caption) ? "Die Map" : caption;
+            _view.Map = _map;
+            ApplyMapToInputs(_map);
+            RefreshEntryGrid();
+            UpdateStats();
+        }
+
+        private void ApplyMapToInputs(DieMap map)
+        {
+            if (map == null)
+                return;
+
+            _nGridX.Value = (decimal)Clamp(map.GridX, (double)_nGridX.Minimum, (double)_nGridX.Maximum);
+            _nGridY.Value = (decimal)Clamp(map.GridY, (double)_nGridY.Minimum, (double)_nGridY.Maximum);
+            _nPitchX.Value = (decimal)Clamp(map.PitchX, (double)_nPitchX.Minimum, (double)_nPitchX.Maximum);
+            _nPitchY.Value = (decimal)Clamp(map.PitchY, (double)_nPitchY.Minimum, (double)_nPitchY.Maximum);
+            _nOriginX.Value = (decimal)Clamp(map.OriginX, (double)_nOriginX.Minimum, (double)_nOriginX.Maximum);
+            _nOriginY.Value = (decimal)Clamp(map.OriginY, (double)_nOriginY.Minimum, (double)_nOriginY.Maximum);
+        }
+
+        private void RefreshEntryGrid()
+        {
+            try
+            {
+                _gridEntries.Rows.Clear();
+                if (_map == null || _map.Entries == null)
+                    return;
+
+                foreach (DieMapEntry entry in _map.Entries)
+                {
+                    if (entry == null)
+                        continue;
+
+                    _gridEntries.Rows.Add(
+                        entry.Index,
+                        entry.GridX,
+                        entry.GridY,
+                        entry.IsTarget ? "Y" : "N",
+                        entry.Result,
+                        entry.BinCode,
+                        entry.X.ToString("F4"),
+                        entry.Y.ToString("F4"),
+                        entry.DieUid ?? "");
+                }
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
         }
 
         private void DoLoad()
@@ -100,14 +246,7 @@ namespace QMC.CDT_320.Ui.Pages.Material
                 }
 
                 _map = loaded;
-                _view.Map = _map;
-                _nGridX.Value = _map.GridX;
-                _nGridY.Value = _map.GridY;
-                _nPitchX.Value = (decimal)Clamp(_map.PitchX, (double)_nPitchX.Minimum, (double)_nPitchX.Maximum);
-                _nPitchY.Value = (decimal)Clamp(_map.PitchY, (double)_nPitchY.Minimum, (double)_nPitchY.Maximum);
-                _nOriginX.Value = (decimal)Clamp(_map.OriginX, (double)_nOriginX.Minimum, (double)_nOriginX.Maximum);
-                _nOriginY.Value = (decimal)Clamp(_map.OriginY, (double)_nOriginY.Minimum, (double)_nOriginY.Maximum);
-                UpdateStats();
+                ApplyMapToView(_map, "Loaded Die Map");
             }
         }
 
@@ -151,6 +290,38 @@ namespace QMC.CDT_320.Ui.Pages.Material
         private void OnCellClick(DieMapEntry e)
         {
             _lblCellInfo.Text = $"[{e.GridX},{e.GridY}]  pos=({e.X:F2},{e.Y:F2})mm  result={e.Result}  bin={e.BinCode}  uid={e.DieUid}";
+            SelectEntryRow(e);
+        }
+
+        private void SelectEntryRow(DieMapEntry entry)
+        {
+            try
+            {
+                if (entry == null)
+                    return;
+
+                foreach (DataGridViewRow row in _gridEntries.Rows)
+                {
+                    if (row.Cells[0].Value != null && Convert.ToInt32(row.Cells[0].Value) == entry.Index)
+                    {
+                        row.Selected = true;
+                        _gridEntries.FirstDisplayedScrollingRowIndex = Math.Max(0, row.Index);
+                        break;
+                    }
+                }
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        private static string BuildDisplayDieId(string waferId, int row, int col)
+        {
+            string prefix = string.IsNullOrWhiteSpace(waferId) ? "WAFER" : waferId;
+            return prefix + "-D" + row.ToString("000") + "-" + col.ToString("000");
         }
     }
 }
