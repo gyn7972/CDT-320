@@ -5,6 +5,7 @@ using System.Runtime.Serialization;
 using System.Runtime.Serialization.Json;
 using System.Text;
 using System.Xml;
+using QMC.Common.Logging;
 
 namespace QMC.CDT320.Ajin
 {
@@ -188,7 +189,7 @@ namespace QMC.CDT320.Ajin
             if (!File.Exists(Path_))
             {
                 Current = Default();
-                Save();
+                SaveOrThrow();
                 return Current;
             }
 
@@ -199,13 +200,21 @@ namespace QMC.CDT320.Ajin
                     Current = ReadConfig(fs);
                     Normalize(Current);
                     EnsureDefaultAxes(Current);
-                    AjinIoCatalog.ApplyDefaults(Current, false);
-                    Save();
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                Current = Default();
+                EventLogger.Write(EventKind.Alarm, "QMC", "AJIN-MAP-LOAD",
+                    "Ajin map load failed. Existing file was not overwritten. path=" + Path_ + ", error=" + ex.Message);
+
+                if (Current == null ||
+                    Current.Axes == null ||
+                    Current.DigitalInputs == null ||
+                    Current.DigitalOutputs == null ||
+                    Current.Cylinders == null)
+                {
+                    Current = Default();
+                }
             }
 
             return Current;
@@ -263,7 +272,7 @@ namespace QMC.CDT320.Ajin
                 if (c.Cylinders == null) c.Cylinders = new Dictionary<string, CylMap>();
 
                 NormalizeAxisKeys(c);
-                AjinIoCatalog.ApplyDefaults(c, false);
+                EnsureMissingDefaults(c);
                 NormalizeDioMaps(c);
                 NormalizeCylinderMaps(c);
             }
@@ -273,6 +282,14 @@ namespace QMC.CDT320.Ajin
             finally
             {
             }
+        }
+
+        private static void EnsureMissingDefaults(AjinConfig c)
+        {
+            if (c == null)
+                return;
+
+            AjinIoCatalog.ApplyDefaults(c, false);
         }
 
         private static void NormalizeDioMaps(AjinConfig c)

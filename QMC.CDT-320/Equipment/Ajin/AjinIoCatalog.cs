@@ -208,18 +208,18 @@ namespace QMC.CDT320.Ajin
         public static readonly CylinderDefault[] Cylinders =
         {
             CYL("InputFeederLift", DORef(3, 16), DORef(3, 17), DIRef(0, 28), DIRef(0, 29)),
-            CYL("InputFeederClamp", DORef(3, 18), DORef(3, 19), DIRef(0, 30), DIRef(0, 31)),
+            CYL("InputFeederClamp", DORef(3, 18), DORef(3, 19), null, DIRef(0, 30)),
             CYL("ReticleLift", DORef(3, 20), DORef(3, 21), DIRef(1, 4), DIRef(1, 5)),
             CYL("ReticleSideSlideFront", DORef(3, 22), DORef(3, 23), DIRef(1, 6), DIRef(1, 7)),
             CYL("ReticleSideSlideRear", DORef(3, 24), DORef(3, 25), DIRef(1, 8), DIRef(1, 9)),
-            CYL("NGBinGuideLift", DORef(3, 26), DORef(3, 27), DIRef(1, 31), DIRef(2, 0)),
-            CYL("NGBinGuideClampLift", DORef(3, 28), DORef(3, 29), DIRef(2, 1), DIRef(2, 2)),
-            CYL("NGBinGuideClamp", DORef(3, 30), DORef(3, 31), DIRef(2, 1), DIRef(2, 2)),
-            CYL("GoodBinGuideLift", DORef(4, 0), DORef(4, 1), DIRef(2, 4), DIRef(2, 5)),
-            CYL("GoodBinGuideClampLift", DORef(4, 2), DORef(4, 3), DIRef(2, 6), DIRef(2, 7)),
-            CYL("GoodBinGuideClamp", DORef(4, 4), DORef(4, 5), DIRef(2, 6), DIRef(2, 7)),
+            CYL("NGBinGuideLift", DORef(4, 0), DORef(4, 1), DIRef(2, 4), DIRef(2, 5)),
+            CYL("NGBinGuideClampLift", DORef(4, 2), DORef(4, 3), DIRef(2, 6), null),
+            CYL("NGBinGuideClamp", DORef(4, 4), DORef(4, 5), DIRef(2, 7), null),
+            CYL("GoodBinGuideLift", DORef(3, 26), DORef(3, 27), DIRef(1, 31), DIRef(2, 0)),
+            CYL("GoodBinGuideClampLift", DORef(3, 28), DORef(3, 29), DIRef(2, 1), null),
+            CYL("GoodBinGuideClamp", DORef(3, 30), DORef(3, 31), null, DIRef(2, 2)),
             CYL("OutputFeederLift", DORef(4, 6), DORef(4, 7), DIRef(2, 9), DIRef(2, 10)),
-            CYL("OutputFeederClamp", DORef(4, 8), DORef(4, 9), DIRef(2, 11), DIRef(2, 12))
+            CYL("OutputFeederClamp", DORef(4, 8), DORef(4, 9), null, DIRef(2, 11))
         };
 
         public static class Inputs
