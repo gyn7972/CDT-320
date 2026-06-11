@@ -28,9 +28,6 @@ namespace QMC.Vision.Modules
         /// <summary>C3b-3 — 이 검사가 구동하는 (컨트롤러, 페이지) 지정. 채널 열거=컨트롤러 ChannelCount, 사용여부=레벨(Recipe).</summary>
         [DataMember] public List<LightPageRef> LightPages { get; set; } = new List<LightPageRef>();
 
-        /// <summary>(C3b-3 은퇴 예정) 구 결선 풀 사본 — write-only 죽음. Step 6 에서 LightPages 로 대체·제거.</summary>
-        [DataMember(EmitDefaultValue = false)] public List<ControllerChannels> LightWirings { get; set; }
-
         protected AlgoSetupBase() { LightPages = new List<LightPageRef>(); }
         [OnDeserializing] private void OnDeserializingLight(StreamingContext ctx)
         { LightPages = new List<LightPageRef>(); }
@@ -40,7 +37,7 @@ namespace QMC.Vision.Modules
     [DataContract]
     public abstract class AlgoRecipeBase : IRecipeData
     {
-        /// <summary>검사별 채널 레벨/점등/스트로브/페이지. 키 = (ControllerPort, Channel) ↔ LightWirings.</summary>
+        /// <summary>검사별 채널 레벨/점등/스트로브/페이지. 키 = (ControllerPort, Channel). 채널은 Setup.LightPages 지정 컨트롤러의 ChannelCount.</summary>
         [DataMember] public List<InspectionLightSetting> LightSettings { get; set; } = new List<InspectionLightSetting>();
 
         protected AlgoRecipeBase() { LightSettings = new List<InspectionLightSetting>(); }

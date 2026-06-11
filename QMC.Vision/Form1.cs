@@ -56,7 +56,6 @@ namespace QMC.Vision
                 if (migrated != null)
                 {
                     QMC.Common.Recipes.LightSystemMigrator.BackupLegacy(ioSet, DateTime.Now.ToString("yyyyMMdd"));
-                    migrated.EnsureWirings();
                     QMC.Common.Recipes.LightSystemSetupStore.SetCurrent(migrated);
                     QMC.Common.Recipes.LightSystemSetupStore.Save();
                     lightSetup = migrated;
