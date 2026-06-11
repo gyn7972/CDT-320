@@ -62,6 +62,10 @@ namespace QMC.Vision.Ui.Pages
             _cam.RoiEdited += OnCamRoiEdited;
         }
 
+        /// <summary>C3b-3 — 조명 지정(SettingsPage) 변경을 레벨 그리드에 반영. RecipePage 가 타깃 표시 시 호출(캐시 재바인딩).</summary>
+        public void RefreshLightAssignment()
+            => _lightPanel?.SelectInspection(_node, _module?.AlgorithmKey ?? "", _inspector?.Id ?? "");
+
         // ── 우측: 검사 조명(InspectionLightPanel) + 라이브튜닝(LightLiveTuningPanel) 주입(런타임) ──
         private void BuildChildPanels()
         {

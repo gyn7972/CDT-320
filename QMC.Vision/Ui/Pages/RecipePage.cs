@@ -173,6 +173,8 @@ namespace QMC.Vision.Ui.Pages
             }
             page.Visible = true;
             page.BringToFront();
+            // C3b-3 — SettingsPage 에서 바뀐 조명 지정(노드 LightPages)을 레벨 그리드에 반영(캐시 페이지 재바인딩).
+            (page as ITargetPage)?.RefreshLightAssignment();
 
             _hdr.Text = "Recipe — " + VisionAlgorithm.Label(_curAlgo) + " / " + InspectionLabel.Get(s.Module.AlgorithmKey, s.Id);
             UpdateSettingDot(key);
