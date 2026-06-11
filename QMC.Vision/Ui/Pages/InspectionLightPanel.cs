@@ -9,6 +9,7 @@ using QMC.Common.Alarms;
 using QMC.Common.Recipes;
 using QMC.Vision.Comm;
 using QMC.Vision.Config;
+using QMC.Vision.Modules;
 using QMC.Vision.Optics;
 
 namespace QMC.Vision.Ui.Pages
@@ -21,6 +22,9 @@ namespace QMC.Vision.Ui.Pages
     public partial class InspectionLightPanel : UserControl
     {
         private string _algorithm, _inspectionId;
+        // C2 — 조명 SSOT = 알고리즘 노드 BaseUnit(Setup.LightWirings 결선 / Recipe.LightSettings 레벨).
+        // null 이면 구 algorithm_camera.json fallback(호스트가 노드 미해결 시).
+        private IAlgorithmNode _node;
         // Stage 81 — 컨트롤러별 MaxPower / (port,ch) 보존값.
         private readonly Dictionary<string, int> _maxPowerByPort = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, InspectionLightSetting> _carry = new Dictionary<string, InspectionLightSetting>();
@@ -83,6 +87,22 @@ namespace QMC.Vision.Ui.Pages
             BindFields();
         }
 
+        /// <summary>C2 — 노드 컨텍스트 주입 버전. 호스트가 finder/inspector 참조(또는 GetAlgorithm)로 해석한 노드를 전달.</summary>
+        public void SelectInspection(IAlgorithmNode node, string algorithm, string inspectionId)
+        {
+            _node = node;
+            SelectInspection(algorithm, inspectionId);
+        }
+
+        /// <summary>저장된 레벨 출처 — 노드 Recipe.LightSettings(있으면) 또는 구 algorithm_camera.json fallback.</summary>
+        private List<InspectionLightSetting> SavedSettings()
+        {
+            var r = _node?.Recipe as AlgoRecipeBase;
+            if (r != null) return r.LightSettings ?? new List<InspectionLightSetting>();
+            var ov = AlgorithmCameraMapStore.Current?.Get(_algorithm)?.GetLightOverride(_inspectionId);
+            return ov?.Settings ?? new List<InspectionLightSetting>();
+        }
+
         // ── 이벤트 핸들러 (Designer 에서 named 연결) ──
         private void OnSaveClick(object sender, EventArgs e) => Save();
         private void OnApplyClick(object sender, EventArgs e) => Apply();
@@ -132,15 +152,13 @@ namespace QMC.Vision.Ui.Pages
                     return $"{cs.ControllerPort}{nm} [{string.Join(",", cs.Channels)}]";
                 })) + "   — 변경은 [설정 > 조명 시스템]";
 
-            // 저장 설정 (port,ch) → 설정
+            // 저장 설정 (port,ch) → 설정 (C2: 노드 Recipe.LightSettings 우선, 구 store fallback)
             var saved = new Dictionary<string, InspectionLightSetting>(StringComparer.OrdinalIgnoreCase);
-            var ov = AlgorithmCameraMapStore.Current?.Get(_algorithm)?.GetLightOverride(_inspectionId);
-            if (ov?.Settings != null)
-                foreach (var s in ov.Settings)
-                {
-                    string key = Key(s.ControllerPort, s.Channel);
-                    if (!saved.ContainsKey(key)) saved[key] = s;
-                }
+            foreach (var s in SavedSettings())
+            {
+                string key = Key(s.ControllerPort, s.Channel);
+                if (!saved.ContainsKey(key)) saved[key] = s;
+            }
 
             // Page 콤보 = 0 ~ maxPageCount-1
             var pgCol = (DataGridViewComboBoxColumn)_grid.Columns["Page"];
@@ -208,10 +226,32 @@ namespace QMC.Vision.Ui.Pages
 
         private void Save()
         {
-            var bm = AlgorithmCameraMapStore.Current?.Get(_algorithm);
-            if (bm == null) { SetStatus("알고리즘 매핑 없음", true); return; }
             var ov = Collect();
             ov.Settings.RemoveAll(s => s.Level <= 0 && s.StrobeTimeUs <= 0 && s.StabilizeDelayMs <= 0);
+
+            // C2 — 조명 SSOT = 노드 Recipe(레벨)/Setup(결선). 노드 미해결 시 구 store fallback.
+            var recipe = _node?.Recipe as AlgoRecipeBase;
+            if (recipe != null)
+            {
+                recipe.LightSettings = ov.Settings;
+                var setup = _node.Setup as AlgoSetupBase;
+                var w = Wiring();
+                if (setup != null && w?.ControllerSets != null)
+                {
+                    var ports = new HashSet<string>(
+                        ov.Settings.Select(s => s.ControllerPort ?? ""), StringComparer.OrdinalIgnoreCase);
+                    setup.LightWirings = w.ControllerSets
+                        .Where(cs => ports.Contains(cs.ControllerPort ?? ""))
+                        .Select(cs => cs.Clone()).ToList();
+                }
+                try { _node.SaveSettings(); _node.SaveRecipe("default"); }
+                catch (System.Exception ex) { SetStatus("저장 예외: " + ex.Message, true); return; }
+                SetStatus($"저장 완료 — 노드 [{_node.StorageKey}] 점등 {ov.Settings.Count(s => s.Level > 0)}채널", false);
+                return;
+            }
+
+            var bm = AlgorithmCameraMapStore.Current?.Get(_algorithm);
+            if (bm == null) { SetStatus("알고리즘 매핑 없음", true); return; }
             var existing = bm.GetOrCreateLightOverride(_inspectionId);
             existing.Settings = ov.Settings;
             if (existing.IsEmpty()) bm.InspectionLights?.RemoveAll(o => string.Equals(o.InspectionId, _inspectionId, StringComparison.OrdinalIgnoreCase));

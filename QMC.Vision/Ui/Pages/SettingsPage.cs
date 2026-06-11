@@ -128,8 +128,10 @@ namespace QMC.Vision.Ui.Pages
         {
             // Stage 69 — 검사 노드 = [카메라][조명] 탭. 두 패널에 같은 검사 컨텍스트 주입.
             SwapEditor(_inspTabs);
+            // C2 — 조명 SSOT=노드. SettingsPage 는 짧은 id(InspectionsOf) 사용 → GetAlgorithm 으로 노드 해석.
+            var node = (FindForm() as Form1)?.ResolveModule(algorithm)?.GetAlgorithm(inspectionId);
             _inspPanel .SelectInspection(algorithm, inspectionId);
-            _lightPanel.SelectInspection(algorithm, inspectionId);
+            _lightPanel.SelectInspection(node, algorithm, inspectionId);
         }
 
         private void ShowLightSystemSetup()

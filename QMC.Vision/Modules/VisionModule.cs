@@ -138,7 +138,13 @@ namespace QMC.Vision.Modules
                 if (recipe.LightSettings != null && recipe.LightSettings.Count > 0) continue;   // 이미 조명 있음 → 스킵
                 string fullId = node.Finder?.Id ?? node.Inspector?.Id;
                 if (string.IsNullOrEmpty(fullId)) continue;
+                // 구 시스템 키 이중 조회: 타깃 페이지=전체명("Module/Id"), SettingsPage=짧은id("Id").
                 var ov = legacy.GetLightOverride(fullId);
+                if (ov?.Settings == null || ov.Settings.Count == 0)
+                {
+                    string shortId = fullId.Contains("/") ? fullId.Substring(fullId.LastIndexOf('/') + 1) : fullId;
+                    ov = legacy.GetLightOverride(shortId);
+                }
                 if (ov?.Settings == null || ov.Settings.Count == 0) continue;
 
                 recipe.LightSettings = ov.Settings.Select(s => s.Clone()).ToList();
