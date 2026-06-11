@@ -61,32 +61,11 @@ namespace QMC.Common.Recipes
         public System.Drawing.Rectangle ToRectangle()
             => new System.Drawing.Rectangle(RoiOffsetX, RoiOffsetY, RoiWidth, RoiHeight);
 
-        // (C3b-1) 검사별 카메라 override(Inspections/InspectionCameraOverride)는 생산 미연결·참조 0 으로 제거.
-
-        // Stage 69 — 검사별 조명 매핑 (옵션 A: 카메라와 동일 파일 통합). null = 조명 미사용.
-        [DataMember(EmitDefaultValue = false)]
-        public List<InspectionLightOverride> InspectionLights { get; set; }
-
-        /// <summary>주어진 검사의 조명 override 를 찾거나 새로 만들어 반환.</summary>
-        public InspectionLightOverride GetOrCreateLightOverride(string inspectionId)
-        {
-            if (InspectionLights == null) InspectionLights = new List<InspectionLightOverride>();
-            var ov = InspectionLights.FirstOrDefault(o => string.Equals(o.InspectionId, inspectionId, StringComparison.OrdinalIgnoreCase));
-            if (ov == null)
-            {
-                ov = new InspectionLightOverride { InspectionId = inspectionId };
-                InspectionLights.Add(ov);
-            }
-            return ov;
-        }
-
-        /// <summary>주어진 검사의 조명 override (없으면 null).</summary>
-        public InspectionLightOverride GetLightOverride(string inspectionId)
-            => InspectionLights?.FirstOrDefault(o => string.Equals(o.InspectionId, inspectionId, StringComparison.OrdinalIgnoreCase));
+        // (C3b-1) 검사별 카메라 override 제거. (C3b-2) 검사별 조명(InspectionLights/InspectionLightOverride)도
+        // 노드 Recipe(LightSettings) SSOT 로 대체되어 제거 → AlgorithmCameraMapping = 순수 카메라 DTO.
 
         public AlgorithmCameraMapping Clone()
-        {
-            var c = new AlgorithmCameraMapping
+            => new AlgorithmCameraMapping
             {
                 Algorithm = Algorithm, CameraId = CameraId,
                 ExposureUs = ExposureUs, Gain = Gain, FrameRate = FrameRate,
@@ -95,13 +74,6 @@ namespace QMC.Common.Recipes
                 RoiOffsetX = RoiOffsetX, RoiOffsetY = RoiOffsetY,
                 RoiWidth = RoiWidth, RoiHeight = RoiHeight
             };
-            if (InspectionLights != null)
-            {
-                c.InspectionLights = new List<InspectionLightOverride>();
-                foreach (var o in InspectionLights) c.InspectionLights.Add(o.Clone());
-            }
-            return c;
-        }
     }
 
     /// <summary>Stage 64 — 검사 ID → 한글 라벨 (알고리즘 스코프).</summary>
@@ -248,57 +220,7 @@ namespace QMC.Common.Recipes
             return c;
         }
 
-        /// <summary>
-        /// Stage 70 — 구버전 AlgorithmLightWiring.Page → InspectionLightSetting.Page 마이그레이션.
-        /// setup 의 각 알고리즘 결선에 LegacyPage(!=0) 가 있으면, 그 알고리즘 검사들의 모든
-        /// Setting.Page 가 0 인 것에 한해 그 값으로 채움(덮어쓰기 아님). 변경 발생 시 true.
-        /// </summary>
-        public bool MigrateWiringPageToSettings(LightSystemSetup setup)
-        {
-            if (setup?.AlgorithmWirings == null || Items == null) return false;
-            bool changed = false;
-            foreach (var w in setup.AlgorithmWirings)
-            {
-                if (w.LegacyPage == 0) continue;
-                var alg = Items.FirstOrDefault(m => string.Equals(m.Algorithm, w.Algorithm, StringComparison.OrdinalIgnoreCase));
-                if (alg?.InspectionLights != null)
-                    foreach (var ov in alg.InspectionLights)
-                        if (ov.Settings != null)
-                            foreach (var s in ov.Settings)
-                                if (s.Page == 0) { s.Page = w.LegacyPage; changed = true; }
-                // 소비 후 0 으로 비움 → 다음 Save 에서 light_system.json 의 구 Page 키 소멸.
-                w.LegacyPage = 0;
-                changed = true;
-            }
-            return changed;
-        }
-
-        /// <summary>Stage 81 — 구버전 Recipe 의 InspectionLightSetting.ControllerPort 가 비어 있으면
-        /// 소속 알고리즘 결선의 ControllerSets 로 자동 채움. 단일 결선=그 포트, 다중=ControllerSets[0](사용자 Setup 검토 필요).
-        /// 변경 발생 시 true.</summary>
-        public bool FillRecipeControllerPorts(LightSystemSetup setup)
-        {
-            if (setup?.AlgorithmWirings == null || Items == null) return false;
-            bool changed = false;
-            foreach (var w in setup.AlgorithmWirings)
-            {
-                if (w.ControllerSets == null || w.ControllerSets.Count == 0) continue;
-                string defaultPort = w.ControllerSets[0].ControllerPort;
-                if (string.IsNullOrEmpty(defaultPort)) continue;
-                var alg = Items.FirstOrDefault(m => string.Equals(m.Algorithm, w.Algorithm, StringComparison.OrdinalIgnoreCase));
-                if (alg?.InspectionLights == null) continue;
-                foreach (var ov in alg.InspectionLights)
-                    if (ov.Settings != null)
-                        foreach (var s in ov.Settings)
-                            if (string.IsNullOrEmpty(s.ControllerPort))
-                            {
-                                // 채널이 특정 ControllerSet 풀에만 있으면 그 포트로, 아니면 첫 포트로.
-                                var owner = w.ControllerSets.FirstOrDefault(cs => cs.Channels != null && cs.Channels.Contains(s.Channel));
-                                s.ControllerPort = owner?.ControllerPort ?? defaultPort;
-                                changed = true;
-                            }
-            }
-            return changed;
-        }
+        // (C3b-2) Stage 70/81 구버전 조명 마이그(MigrateWiringPageToSettings/FillRecipeControllerPorts)는
+        // InspectionLights 의존·참조 0(C3a 가 Form1 호출 제거)으로 제거 — 조명 SSOT 는 노드 Recipe.
     }
 }

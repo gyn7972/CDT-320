@@ -213,10 +213,10 @@ namespace QMC.Vision.Ui.Pages
             SetStatus(wired ? "" : "결선 미설정 — [설정 > 조명 시스템]에서 결선 후 사용", !wired);
         }
 
-        /// <summary>UI → InspectionLightOverride. 행 = (Controller, Channel). On=Level&gt;0 파생, Strobe/Stab 보존.</summary>
-        private InspectionLightOverride Collect()
+        /// <summary>UI → 노드 Recipe 조명 리스트(List&lt;InspectionLightSetting&gt;). 행 = (Controller, Channel). On=Level&gt;0 파생, Strobe/Stab 보존.</summary>
+        private List<InspectionLightSetting> Collect()
         {
-            var ov = new InspectionLightOverride { InspectionId = _inspectionId };
+            var list = new List<InspectionLightSetting>();
             foreach (DataGridViewRow r in _grid.Rows)
             {
                 if (r.IsNewRow) continue;
@@ -227,13 +227,13 @@ namespace QMC.Vision.Ui.Pages
                 if (level < 0) level = 0; if (level > maxP) level = maxP;
                 int page = IntOf(r, "Page", 0);
                 _carry.TryGetValue(Key(port, ch), out var keep);
-                ov.Settings.Add(new InspectionLightSetting
+                list.Add(new InspectionLightSetting
                 {
                     ControllerPort = port, Channel = ch, Level = level, On = level > 0,
                     StrobeTimeUs = keep?.StrobeTimeUs ?? 0, StabilizeDelayMs = keep?.StabilizeDelayMs ?? 0, Page = page
                 });
             }
-            return ov;
+            return list;
         }
 
         private void Save()
@@ -242,22 +242,22 @@ namespace QMC.Vision.Ui.Pages
             var recipe = _node?.Recipe as AlgoRecipeBase;
             if (recipe == null) { SetStatus("저장 불가 — 검사 노드 미해결", true); return; }
 
-            var ov = Collect();
-            ov.Settings.RemoveAll(s => s.Level <= 0 && s.StrobeTimeUs <= 0 && s.StabilizeDelayMs <= 0);
-            recipe.LightSettings = ov.Settings;
+            var settings = Collect();
+            settings.RemoveAll(s => s.Level <= 0 && s.StrobeTimeUs <= 0 && s.StabilizeDelayMs <= 0);
+            recipe.LightSettings = settings;
             var setup = _node.Setup as AlgoSetupBase;
             var w = Wiring();
             if (setup != null && w?.ControllerSets != null)
             {
                 var ports = new HashSet<string>(
-                    ov.Settings.Select(s => s.ControllerPort ?? ""), StringComparer.OrdinalIgnoreCase);
+                    settings.Select(s => s.ControllerPort ?? ""), StringComparer.OrdinalIgnoreCase);
                 setup.LightWirings = w.ControllerSets
                     .Where(cs => ports.Contains(cs.ControllerPort ?? ""))
                     .Select(cs => cs.Clone()).ToList();
             }
             try { _node.SaveSettings(); _node.SaveRecipe("default"); }
             catch (System.Exception ex) { SetStatus("저장 예외: " + ex.Message, true); return; }
-            SetStatus($"저장 완료 — 노드 [{_node.StorageKey}] 점등 {ov.Settings.Count(s => s.Level > 0)}채널", false);
+            SetStatus($"저장 완료 — 노드 [{_node.StorageKey}] 점등 {settings.Count(s => s.Level > 0)}채널", false);
         }
 
         private async void Apply()
@@ -268,13 +268,13 @@ namespace QMC.Vision.Ui.Pages
                 AlarmManager.Raise(AlarmSeverity.Warning, "LIGHT-WIRING-MISS", "Light/" + _algorithm, $"{_algorithm} 결선 누락");
                 SetStatus("적용 거부 — 결선 누락", true); return;
             }
-            var ov = Collect();
+            var settings = Collect();
             try
             {
                 // Stage 81 — 컨트롤러별 group → 각 컨트롤러 batch Task → Task.WhenAll 병렬(독립 시리얼 포트).
                 var tasks = new List<Task<bool>>();
                 var ports = new List<string>();
-                foreach (var grp in ov.Settings.Where(s => !string.IsNullOrEmpty(s.ControllerPort)).GroupBy(s => s.ControllerPort))
+                foreach (var grp in settings.Where(s => !string.IsNullOrEmpty(s.ControllerPort)).GroupBy(s => s.ControllerPort))
                 {
                     var ctrl = LightHub.Get(grp.Key);
                     if (ctrl == null)
