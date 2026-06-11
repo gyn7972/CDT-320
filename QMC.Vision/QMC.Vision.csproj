@@ -112,7 +112,6 @@
     <Compile Include="Tools\UiOverlapAuditor.cs" />
     <Compile Include="Tools\CameraConnectTest.cs" />
     <Compile Include="Config\VisionConfig.cs" />
-    <Compile Include="Config\AlgorithmCameraMap.cs" />
     <Compile Include="Config\AlgorithmCameraBinder.cs" />
     <Compile Include="Optics\ILightController.cs" />
     <Compile Include="Optics\LightControllerFactory.cs" />

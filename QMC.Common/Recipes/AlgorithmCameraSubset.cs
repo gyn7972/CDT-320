@@ -61,9 +61,7 @@ namespace QMC.Common.Recipes
         public System.Drawing.Rectangle ToRectangle()
             => new System.Drawing.Rectangle(RoiOffsetX, RoiOffsetY, RoiWidth, RoiHeight);
 
-        // Stage 64 — 검사별 카메라 파라미터 오버라이드 (빈 리스트/null = 검사별 분기 없음, 알고리즘 기본값만 사용).
-        [DataMember(EmitDefaultValue = false)]
-        public List<InspectionCameraOverride> Inspections { get; set; }
+        // (C3b-1) 검사별 카메라 override(Inspections/InspectionCameraOverride)는 생산 미연결·참조 0 으로 제거.
 
         // Stage 69 — 검사별 조명 매핑 (옵션 A: 카메라와 동일 파일 통합). null = 조명 미사용.
         [DataMember(EmitDefaultValue = false)]
@@ -86,26 +84,6 @@ namespace QMC.Common.Recipes
         public InspectionLightOverride GetLightOverride(string inspectionId)
             => InspectionLights?.FirstOrDefault(o => string.Equals(o.InspectionId, inspectionId, StringComparison.OrdinalIgnoreCase));
 
-        /// <summary>주어진 검사의 override 를 찾거나 새로 만들어 반환 (Inspections 에 추가됨).</summary>
-        public InspectionCameraOverride GetOrCreateOverride(string inspectionId)
-        {
-            if (Inspections == null) Inspections = new List<InspectionCameraOverride>();
-            var ov = Inspections.FirstOrDefault(o => string.Equals(o.InspectionId, inspectionId, StringComparison.OrdinalIgnoreCase));
-            if (ov == null)
-            {
-                ov = new InspectionCameraOverride { InspectionId = inspectionId };
-                Inspections.Add(ov);
-            }
-            return ov;
-        }
-
-        /// <summary>검사에 대한 효과적 카메라 파라미터 — override 가 있으면 덮어쓴 사본, 없으면 알고리즘 기본값 사본.</summary>
-        public AlgorithmCameraMapping EffectiveFor(string inspectionId)
-        {
-            var ov = Inspections?.FirstOrDefault(o => string.Equals(o.InspectionId, inspectionId, StringComparison.OrdinalIgnoreCase));
-            return (ov == null || ov.IsEmpty()) ? Clone() : ov.ApplyOver(this);
-        }
-
         public AlgorithmCameraMapping Clone()
         {
             var c = new AlgorithmCameraMapping
@@ -117,80 +95,12 @@ namespace QMC.Common.Recipes
                 RoiOffsetX = RoiOffsetX, RoiOffsetY = RoiOffsetY,
                 RoiWidth = RoiWidth, RoiHeight = RoiHeight
             };
-            if (Inspections != null)
-            {
-                c.Inspections = new List<InspectionCameraOverride>();
-                foreach (var o in Inspections) c.Inspections.Add(o.Clone());
-            }
             if (InspectionLights != null)
             {
                 c.InspectionLights = new List<InspectionLightOverride>();
                 foreach (var o in InspectionLights) c.InspectionLights.Add(o.Clone());
             }
             return c;
-        }
-    }
-
-    /// <summary>
-    /// Stage 64 — 검사 1개의 카메라 파라미터 선택적 오버라이드.
-    /// null 필드 = 알고리즘 기본값 상속. 채워진 필드만 JSON 에 직렬화 (EmitDefaultValue=false).
-    /// ROI 는 4 필드 묶음 — X/Y/W/H 가 모두 채워졌을 때만 오버라이드 적용.
-    /// </summary>
-    [DataContract]
-    public class InspectionCameraOverride
-    {
-        [DataMember] public string InspectionId { get; set; } = "";
-
-        [DataMember(EmitDefaultValue = false)] public double? ExposureUs        { get; set; }
-        [DataMember(EmitDefaultValue = false)] public double? Gain              { get; set; }
-        [DataMember(EmitDefaultValue = false)] public double? FrameRate         { get; set; }
-        [DataMember(EmitDefaultValue = false)] public string  TriggerMode       { get; set; }
-        [DataMember(EmitDefaultValue = false)] public string  PixelFormat       { get; set; }
-        [DataMember(EmitDefaultValue = false)] public int?    DelayBeforeGrabMs { get; set; }
-        [DataMember(EmitDefaultValue = false)] public int?    RoiOffsetX        { get; set; }
-        [DataMember(EmitDefaultValue = false)] public int?    RoiOffsetY        { get; set; }
-        [DataMember(EmitDefaultValue = false)] public int?    RoiWidth          { get; set; }
-        [DataMember(EmitDefaultValue = false)] public int?    RoiHeight         { get; set; }
-
-        /// <summary>ROI 4 필드가 모두 채워졌는지 (묶음 오버라이드 판정).</summary>
-        public bool HasRoiOverride
-            => RoiOffsetX.HasValue && RoiOffsetY.HasValue && RoiWidth.HasValue && RoiHeight.HasValue;
-
-        /// <summary>InspectionId 외 모든 값이 null/공백 → 상속만 (직렬화 시 제거 대상).</summary>
-        public bool IsEmpty()
-            => !ExposureUs.HasValue && !Gain.HasValue && !FrameRate.HasValue
-               && string.IsNullOrEmpty(TriggerMode) && string.IsNullOrEmpty(PixelFormat)
-               && !DelayBeforeGrabMs.HasValue
-               && !RoiOffsetX.HasValue && !RoiOffsetY.HasValue && !RoiWidth.HasValue && !RoiHeight.HasValue;
-
-        public InspectionCameraOverride Clone()
-            => new InspectionCameraOverride
-            {
-                InspectionId = InspectionId,
-                ExposureUs = ExposureUs, Gain = Gain, FrameRate = FrameRate,
-                TriggerMode = TriggerMode, PixelFormat = PixelFormat,
-                DelayBeforeGrabMs = DelayBeforeGrabMs,
-                RoiOffsetX = RoiOffsetX, RoiOffsetY = RoiOffsetY,
-                RoiWidth = RoiWidth, RoiHeight = RoiHeight
-            };
-
-        /// <summary>base 위에 채워진 필드만 덮어쓴 효과적 매핑 생성 (null 은 base 유지).</summary>
-        public AlgorithmCameraMapping ApplyOver(AlgorithmCameraMapping baseDefaults)
-        {
-            var eff = baseDefaults.Clone();
-            eff.Inspections = null;   // 효과적 매핑에는 검사 목록 불필요
-            if (ExposureUs.HasValue)        eff.ExposureUs        = ExposureUs.Value;
-            if (Gain.HasValue)              eff.Gain              = Gain.Value;
-            if (FrameRate.HasValue)         eff.FrameRate         = FrameRate.Value;
-            if (!string.IsNullOrEmpty(TriggerMode)) eff.TriggerMode = TriggerMode;
-            if (!string.IsNullOrEmpty(PixelFormat)) eff.PixelFormat = PixelFormat;
-            if (DelayBeforeGrabMs.HasValue) eff.DelayBeforeGrabMs = DelayBeforeGrabMs.Value;
-            if (HasRoiOverride)
-            {
-                eff.RoiOffsetX = RoiOffsetX.Value; eff.RoiOffsetY = RoiOffsetY.Value;
-                eff.RoiWidth   = RoiWidth.Value;   eff.RoiHeight  = RoiHeight.Value;
-            }
-            return eff;
         }
     }
 
