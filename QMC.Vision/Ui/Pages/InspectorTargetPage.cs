@@ -137,8 +137,18 @@ namespace QMC.Vision.Ui.Pages
             };
             if (_inspector is CognexInspector cog)
                 items.Add(ParameterGridItem.Int("Threshold", "", ParameterGridScope.Recipe, () => cog.Threshold, v => { cog.Threshold = v; }));
+            AppendNodeParams(items);   // ② 검사 전용 POCO 필드 칸(인프라 — 현재 케이스 0)
             _params.SetItems(items);
             _params.ParameterValueChanged += (s, e) => { RefreshOverlay(); MarkDirty(); };
+        }
+
+        /// <summary>② per-algorithm 전용필드 칸 확장점 — 노드 구체 Recipe/Config 캐스트해 POCO 바인딩(저장=POCO).
+        /// 전용필드 추가 시 아래 패턴 1줄. (인프라: 현재 케이스 0 — 현 동작 불변.)</summary>
+        private void AppendNodeParams(System.Collections.Generic.List<ParameterGridItem> items)
+        {
+            // 예) if (_node?.Recipe is SurfaceInspectorRecipe r)
+            //         items.Add(ParameterGridItem.Double("Min Blob Area", "px²", ParameterGridScope.Recipe,
+            //                   () => r.MinBlobArea, v => { r.MinBlobArea = v; MarkDirty(); }));
         }
 
         private void RefreshOverlay()

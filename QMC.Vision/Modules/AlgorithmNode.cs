@@ -72,6 +72,8 @@ namespace QMC.Vision.Modules
             }
             if (Config is FinderAlgoConfig c)
                 _finder.MaxInstances = c.MaxInstances;
+            // ① per-algorithm 전용필드 — 백엔드 선택 구현. 미구현 = no-op.
+            if (_finder is IAlgoParamSync s) s.ApplyParams(Recipe, Config, Setup);
         }
 
         protected override void CollectFromRuntime()
@@ -85,6 +87,7 @@ namespace QMC.Vision.Modules
             }
             if (Config is FinderAlgoConfig c)
                 c.MaxInstances = _finder.MaxInstances;
+            if (_finder is IAlgoParamSync s) s.CollectParams(Recipe, Config, Setup);
         }
     }
 
@@ -114,6 +117,8 @@ namespace QMC.Vision.Modules
                 if (r.InspectionRoi != null) _inspector.InspectionRoi = r.InspectionRoi.Clone();
                 if (_inspector is CognexInspector cog) cog.Threshold = r.Threshold;   // int↔int (소실 제거)
             }
+            // ① per-algorithm 전용필드 — 백엔드 선택 구현. 미구현 = no-op.
+            if (_inspector is IAlgoParamSync s) s.ApplyParams(Recipe, Config, Setup);
         }
 
         protected override void CollectFromRuntime()
@@ -124,6 +129,7 @@ namespace QMC.Vision.Modules
                 r.InspectionRoi = _inspector.InspectionRoi?.Clone();
                 if (_inspector is CognexInspector cog) r.Threshold = cog.Threshold;
             }
+            if (_inspector is IAlgoParamSync s) s.CollectParams(Recipe, Config, Setup);
         }
     }
 }
