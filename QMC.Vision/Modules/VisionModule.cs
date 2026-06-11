@@ -61,24 +61,31 @@ namespace QMC.Vision.Modules
         /// <summary>Config.CameraId — Form1 이 카메라 생성에 사용(적용 아닌 생성 트리거).</summary>
         public string CameraId => (Config as VisionModuleConfigBase)?.CameraId;
 
+        /// <summary>모듈 Config/Recipe → AlgorithmCameraMapping(편집 UI/적용에서 재사용하는 스냅샷).</summary>
+        public AlgorithmCameraMapping ExportCameraMapping()
+        {
+            var c = Config as VisionModuleConfigBase;
+            var r = Recipe as VisionModuleRecipeBase;
+            var m = new AlgorithmCameraMapping { Algorithm = AlgorithmKey };
+            if (c != null)
+            {
+                m.CameraId = c.CameraId; m.Gain = c.Gain; m.FrameRate = c.FrameRate;
+                m.TriggerMode = c.TriggerMode; m.PixelFormat = c.PixelFormat;
+                m.DelayBeforeGrabMs = c.DelayBeforeGrabMs;
+                m.RoiOffsetX = c.RoiOffsetX; m.RoiOffsetY = c.RoiOffsetY;
+                m.RoiWidth = c.RoiWidth; m.RoiHeight = c.RoiHeight;
+            }
+            m.ExposureUs = r != null ? r.Exposure : 5000;
+            return m;
+        }
+
         /// <summary>Config/Recipe → Camera 적용(Binder 재활용). Camera null/미설정 시 no-op.</summary>
         public void ApplyCameraSettings()
         {
             if (Camera == null) return;
             var c = Config as VisionModuleConfigBase;
-            var r = Recipe as VisionModuleRecipeBase;
             if (c == null) return;
-            var m = new AlgorithmCameraMapping
-            {
-                Algorithm = AlgorithmKey, CameraId = c.CameraId,
-                ExposureUs = r != null ? r.Exposure : 5000,
-                Gain = c.Gain, FrameRate = c.FrameRate,
-                TriggerMode = c.TriggerMode, PixelFormat = c.PixelFormat,
-                DelayBeforeGrabMs = c.DelayBeforeGrabMs,
-                RoiOffsetX = c.RoiOffsetX, RoiOffsetY = c.RoiOffsetY,
-                RoiWidth = c.RoiWidth, RoiHeight = c.RoiHeight
-            };
-            AlgorithmCameraBinder.TryApplyParameters(Camera, m, out _);
+            AlgorithmCameraBinder.TryApplyParameters(Camera, ExportCameraMapping(), out _);
             DelayBeforeGrabMs = c.DelayBeforeGrabMs;
         }
 
