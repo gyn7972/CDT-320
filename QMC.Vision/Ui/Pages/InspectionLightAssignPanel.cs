@@ -53,13 +53,8 @@ namespace QMC.Vision.Ui.Pages
         private void OnCellEndEdit(object sender, DataGridViewCellEventArgs e)
         {
             if (_suspend) return;
-            // 컨트롤러를 바꾸면 페이지 0 으로 리셋(컨트롤러별 PageCount 다름).
-            if (e.RowIndex >= 0 && _grid.Columns[e.ColumnIndex].Name == "ControllerPort")
-            {
-                _suspend = true;
-                try { _grid.Rows[e.RowIndex].Cells["Page"].Value = 0; } catch { }
-                _suspend = false;
-            }
+            // (페이지 0 강제 리셋 제거 — 실 UI 에서 페이지 선택 뒤 이 리셋이 발화해 0 으로 떨어지던 버그.
+            //  컨트롤러별 PageCount 초과 페이지는 PersistAssign 의 클램프가 보정.)
             PersistAssign(false);
         }
         private void OnRowsRemoved(object sender, DataGridViewRowsRemovedEventArgs e)
@@ -144,7 +139,11 @@ namespace QMC.Vision.Ui.Pages
             var setup = _node?.Setup as AlgoSetupBase;
             if (setup == null) { SetStatus("저장 불가 — 검사 노드 미해결", true); return; }
 
-            try { _grid.EndEdit(); } catch { }   // 진행 중 콤보 편집을 셀 값으로 확정 후 수집
+            // 진행 중 콤보 편집을 셀 값으로 확정(미커밋 방지) 후 수집.
+            if (_grid.IsCurrentCellInEditMode && _grid.CurrentCell != null
+                && _grid.EditingControl is ComboBox ec && ec.SelectedItem != null)
+                try { _grid.CurrentCell.Value = ec.SelectedItem; } catch { }
+            try { _grid.EndEdit(); } catch { }
 
             var list = new List<LightPageRef>();
             foreach (DataGridViewRow r in _grid.Rows)
@@ -155,8 +154,8 @@ namespace QMC.Vision.Ui.Pages
                 int page = 0;
                 int.TryParse(r.Cells["Page"].Value?.ToString(), out page);
                 var ce = LightSystemSetupStore.Current?.GetController(port);
-                int pageCount = (ce != null && ce.PageCount > 0) ? ce.PageCount : 1;
-                if (page < 0) page = 0; if (page > pageCount - 1) page = pageCount - 1;
+                if (page < 0) page = 0;
+                if (ce != null && ce.PageCount > 0 && page > ce.PageCount - 1) page = ce.PageCount - 1;   // 컨트롤러 PageCount 초과만 보정(ce 없으면 콤보 신뢰)
                 // 중복 (port,page) 제거
                 if (!list.Any(x => string.Equals(x.ControllerPort, port, StringComparison.OrdinalIgnoreCase) && x.Page == page))
                     list.Add(new LightPageRef { ControllerPort = port, Page = page });
