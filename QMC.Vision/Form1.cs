@@ -84,29 +84,20 @@ namespace QMC.Vision
             lblStatusL.Text = $"Backend: {Backend.Name}   |   {Backend.VersionInfo}";
             lblStatusR.Text = $"TCP: Wafer={cfg.WaferVisionPort}  Bin={cfg.BinVisionPort}  Bottom={cfg.InspectionVisionPort}";
 
-            // ── 모듈별 카메라: 매핑 기반 ──
-            var camWafer      = CreateCameraForAlgorithm(map, VisionAlgorithm.Wafer,            "Sim/Wafer");
-            var camBin        = CreateCameraForAlgorithm(map, VisionAlgorithm.Bin,              "Sim/Bin");
-            var camBottom     = CreateCameraForAlgorithm(map, VisionAlgorithm.BottomInspection, "Sim/BottomInsp");
-            var camFrontSide    = CreateCameraForAlgorithm(map, VisionAlgorithm.FrontSide,          "Sim/FrontSide");
-            var camRearSide = CreateCameraForAlgorithm(map, VisionAlgorithm.RearSide,       "Sim/RearSide");
+            // ── C1: 카메라 SSOT = 모듈 BaseUnit Config. 모듈 먼저(카메라 없이) 생성 ──
+            WaferMod      = new WaferVisionModule       (null, Backend);
+            BinMod        = new BinVisionModule         (null, Backend);
+            BottomMod     = new BottomInspectionModule  (null, Backend);
+            FrontSideMod    = new FrontSideInspectionModule   (null, Backend);
+            RearSideMod = new RearSideInspectionModule(null, Backend);
 
-            WaferMod      = new WaferVisionModule       (camWafer,      Backend);
-            BinMod        = new BinVisionModule         (camBin,        Backend);
-            BottomMod     = new BottomInspectionModule  (camBottom,     Backend);
-            FrontSideMod    = new FrontSideInspectionModule   (camFrontSide,    Backend);
-            RearSideMod = new RearSideInspectionModule(camRearSide, Backend);
-
-            ApplyDelayFromMap(WaferMod,      map, VisionAlgorithm.Wafer);
-            ApplyDelayFromMap(BinMod,        map, VisionAlgorithm.Bin);
-            ApplyDelayFromMap(BottomMod,     map, VisionAlgorithm.BottomInspection);
-            ApplyDelayFromMap(FrontSideMod,    map, VisionAlgorithm.FrontSide);
-            ApplyDelayFromMap(RearSideMod, map, VisionAlgorithm.RearSide);
-
-            // 영속화 일원화 — Setup/Config/Recipe 는 BaseUnit Composite(SaveSettings/LoadSettings/SaveRecipe)로 관리한다.
-            // 기동 시 모듈 Setup/Config 로드(+알고리즘 노드 cascade → Apply 로 런타임 finder/inspector 주입).
-            foreach (var m in new IVisionModule[] { WaferMod, BinMod, BottomMod, FrontSideMod, RearSideMod })
-                try { m.LoadSettings(); } catch { }
+            // 모듈 Config 로드(+알고리즘 cascade) → CameraId 로 카메라 생성·SetCamera·Config/Recipe 적용.
+            // 최초 부팅(모듈 Config 없음) 시 algorithm_camera.json 카메라부 → 모듈 Config 마이그(구파일 보존).
+            InitModuleCamera(WaferMod,      map, VisionAlgorithm.Wafer,            "Sim/Wafer");
+            InitModuleCamera(BinMod,        map, VisionAlgorithm.Bin,              "Sim/Bin");
+            InitModuleCamera(BottomMod,     map, VisionAlgorithm.BottomInspection, "Sim/BottomInsp");
+            InitModuleCamera(FrontSideMod,    map, VisionAlgorithm.FrontSide,          "Sim/FrontSide");
+            InitModuleCamera(RearSideMod, map, VisionAlgorithm.RearSide,       "Sim/RearSide");
 
             // ── TCP 서버 ──
             _svrWafer      = new VisionTcpServer(WaferMod,      cfg.WaferVisionPort);
@@ -195,49 +186,37 @@ namespace QMC.Vision
                 lblStatusR.Text += suffix;
         }
 
-        private static ICamera CreateCameraForAlgorithm(AlgorithmCameraSubset map, string algorithm, string fallbackId)
+        /// <summary>C1 — 카메라 SSOT=모듈 BaseUnit Config: LoadSettings → (마이그) → CameraId 로 생성·SetCamera·적용.</summary>
+        private static void InitModuleCamera(IVisionModule mod, AlgorithmCameraSubset map, string algorithm, string fallbackId)
         {
-            var m = map?.Get(algorithm);
-            bool wasMissing = false;
-            if (m == null)
+            if (mod == null) return;
+            string cfgFile = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
+                                                    "EquipmentData", "Config", mod.StorageKey + ".json");
+            bool fresh = !System.IO.File.Exists(cfgFile);
+
+            try { mod.LoadSettings(); } catch { }   // Config/Recipe + 알고리즘 cascade (카메라 null → Apply no-op)
+
+            // 마이그레이션: 모듈 Config 없음 → algorithm_camera.json 카메라부 이전(구파일 보존)
+            if (fresh)
             {
-                wasMissing = true;
-                m = new AlgorithmCameraMapping { Algorithm = algorithm, CameraId = fallbackId };
-                AlgorithmCameraMapStore.Current.Items.Add(m);
-            }
-            if (string.IsNullOrEmpty(m.CameraId))
-            {
-                wasMissing = true;
-                m.CameraId = fallbackId;
+                var m = map?.Get(algorithm);
+                if (m == null) m = new AlgorithmCameraMapping { Algorithm = algorithm, CameraId = fallbackId };
+                if (string.IsNullOrEmpty(m.CameraId)) m.CameraId = fallbackId;
+                mod.ImportCameraMapping(m);
+                try { mod.SaveSettings(); mod.SaveRecipe("default"); } catch { }
             }
 
-            if (wasMissing)
-            {
-                AlarmManager.Raise(AlarmSeverity.Warning, "VISION-MAPMISS",
-                    "Vision/" + algorithm,
-                    $"매핑 누락 — fallback '{fallbackId}' 사용");
-            }
-
-            var cam = AlgorithmCameraBinder.CreateAndApply(m, out var openErr, out var applyErr);
-            if (!string.IsNullOrEmpty(openErr))
+            // 카메라 생성(CameraId=생성 트리거) → SetCamera → Open → Config/Recipe 적용
+            string camId = !string.IsNullOrEmpty(mod.CameraId) ? mod.CameraId : fallbackId;
+            var cam = CameraFactory.CreateById(camId);
+            mod.SetCamera(cam);
+            try { cam.Open(); }
+            catch (Exception ex)
             {
                 AlarmManager.Raise(AlarmSeverity.Error, "VISION-CAMOPEN",
-                    "Vision/" + algorithm,
-                    $"Camera.Open 실패 [{m.CameraId}]: {openErr}");
+                    "Vision/" + algorithm, $"Camera.Open 실패 [{camId}]: {ex.Message}");
             }
-            if (!string.IsNullOrEmpty(applyErr))
-            {
-                AlarmManager.Raise(AlarmSeverity.Warning, "VISION-PARAMFAIL",
-                    "Vision/" + algorithm,
-                    $"파라미터 적용 실패: {applyErr}");
-            }
-            return cam;
-        }
-
-        private static void ApplyDelayFromMap(IVisionModule mod, AlgorithmCameraSubset map, string algorithm)
-        {
-            var m = map?.Get(algorithm);
-            if (mod != null && m != null) mod.DelayBeforeGrabMs = m.DelayBeforeGrabMs;
+            mod.ApplyCameraSettings();
         }
 
         /// <summary>모듈별 원격 뷰어 서버 생성+Start. 소스(GrabImage/ScreenRegion)에 따라 프레임 provider 선택.</summary>

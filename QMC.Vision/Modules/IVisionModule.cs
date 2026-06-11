@@ -1,4 +1,5 @@
 using QMC.Common;
+using QMC.Common.Recipes;
 using QMC.Vision.Core;
 using System;
 using System.Collections.Generic;
@@ -22,6 +23,14 @@ namespace QMC.Vision.Modules
         // ── 구성 요소 ──
         ICamera Camera { get; }
         IVisionBackend Backend { get; }
+
+        // ── C1: 카메라 설정 SSOT(모듈 Config/Recipe) ──
+        /// <summary>Config.CameraId — Form1 이 카메라 생성에 사용.</summary>
+        string CameraId { get; }
+        /// <summary>모듈 Config/Recipe → 현재 Camera 적용.</summary>
+        void ApplyCameraSettings();
+        /// <summary>algorithm_camera.json 매핑 → 모듈 Config/Recipe(마이그레이션).</summary>
+        void ImportCameraMapping(AlgorithmCameraMapping m);
         IReadOnlyDictionary<string, IPatternFinder> Finders { get; }
         IReadOnlyDictionary<string, IInspector> Inspectors { get; }
 
