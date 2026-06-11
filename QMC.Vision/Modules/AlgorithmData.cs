@@ -1,5 +1,7 @@
 using QMC.Common;
+using QMC.Common.Recipes;
 using QMC.Vision.Core;
+using System.Collections.Generic;
 using System.Runtime.Serialization;
 
 namespace QMC.Vision.Modules
@@ -13,11 +15,41 @@ namespace QMC.Vision.Modules
     //  새 구체 타입을 만들어 AddFinder<...>/AddInspector<...> 에 지정한다.
     // ──────────────────────────────────────────────────────────────
 
+    // ── 공통 base (C2: 조명 흡수) ─────────────────────────────────
+    //  조명 결선(Setup)/레벨(Recipe)을 Finder/Inspector 노드에 1회 정의.
+    //  타입은 기존 QMC.Common.Recipes 재사용(Common 무수정). 직렬화는 노드 구체
+    //  타입(typeof(T))으로 수행되므로 base [DataMember] 가 자연 포함된다([KnownType] 불요).
+    //  구 JSON 에 키가 없으면 로드 시 null → [OnDeserializing] 으로 빈 리스트 초기화(비파괴).
+
+    /// <summary>알고리즘 Setup 공통 base — 검사 조명 결선(어느 컨트롤러/채널을 구동).</summary>
+    [DataContract]
+    public abstract class AlgoSetupBase : ISetupData
+    {
+        /// <summary>이 검사가 구동하는 컨트롤러/채널 풀(결선). 키 = (ControllerPort, Channel).</summary>
+        [DataMember] public List<ControllerChannels> LightWirings { get; set; } = new List<ControllerChannels>();
+
+        protected AlgoSetupBase() { LightWirings = new List<ControllerChannels>(); }
+        [OnDeserializing] private void OnDeserializingLight(StreamingContext ctx)
+        { LightWirings = new List<ControllerChannels>(); }
+    }
+
+    /// <summary>알고리즘 Recipe 공통 base — 검사 조명 레벨(제품별 값). 키 = (ControllerPort, Channel).</summary>
+    [DataContract]
+    public abstract class AlgoRecipeBase : IRecipeData
+    {
+        /// <summary>검사별 채널 레벨/점등/스트로브/페이지. 키 = (ControllerPort, Channel) ↔ LightWirings.</summary>
+        [DataMember] public List<InspectionLightSetting> LightSettings { get; set; } = new List<InspectionLightSetting>();
+
+        protected AlgoRecipeBase() { LightSettings = new List<InspectionLightSetting>(); }
+        [OnDeserializing] private void OnDeserializingLight(StreamingContext ctx)
+        { LightSettings = new List<InspectionLightSetting>(); }
+    }
+
     // ── Finder ────────────────────────────────────────────────────
 
-    /// <summary>Finder Setup — 전원 OFF 후 유지되는 기구적 설정. 현재 항목 없음(학습 ROI/모델은 Recipe 로 이동, 2026-06-09).</summary>
+    /// <summary>Finder Setup — 전원 OFF 후 유지되는 기구적 설정 + 조명 결선(base). 그 외 항목 없음(학습 ROI/모델은 Recipe, 2026-06-09).</summary>
     [DataContract]
-    public class FinderAlgoSetup : ISetupData
+    public class FinderAlgoSetup : AlgoSetupBase
     {
     }
 
@@ -35,9 +67,9 @@ namespace QMC.Vision.Modules
         private void SetDefaults() { MaxInstances = 1; AngleEnabled = false; }
     }
 
-    /// <summary>Finder Recipe — 제품/공정별 탐색·학습 파라미터(학습 ROI/모델 포함, 2026-06-09).</summary>
+    /// <summary>Finder Recipe — 제품/공정별 탐색·학습 파라미터(학습 ROI/모델 포함, 2026-06-09) + 조명 레벨(base).</summary>
     [DataContract]
-    public class FinderAlgoRecipe : IRecipeData
+    public class FinderAlgoRecipe : AlgoRecipeBase
     {
         /// <summary>최소 허용 score (0.0~1.0).</summary>
         [DataMember] public double AcceptThreshold { get; set; }
@@ -57,9 +89,9 @@ namespace QMC.Vision.Modules
 
     // ── Inspector ─────────────────────────────────────────────────
 
-    /// <summary>Inspector Setup — 전원 OFF 후 유지되는 캘리브.</summary>
+    /// <summary>Inspector Setup — 전원 OFF 후 유지되는 캘리브 + 조명 결선(base).</summary>
     [DataContract]
-    public class InspectorAlgoSetup : ISetupData
+    public class InspectorAlgoSetup : AlgoSetupBase
     {
         /// <summary>검사 캘리브 모델 경로. 비어있으면 미설정.</summary>
         [DataMember] public string CalibModelPath { get; set; }
@@ -79,9 +111,9 @@ namespace QMC.Vision.Modules
         private void SetDefaults() { Enable = true; }
     }
 
-    /// <summary>Inspector Recipe — 제품/공정별 검사 임계값.</summary>
+    /// <summary>Inspector Recipe — 제품/공정별 검사 임계값 + 조명 레벨(base).</summary>
     [DataContract]
-    public class InspectorAlgoRecipe : IRecipeData
+    public class InspectorAlgoRecipe : AlgoRecipeBase
     {
         /// <summary>검사 ROI.</summary>
         [DataMember] public Roi InspectionRoi { get; set; }

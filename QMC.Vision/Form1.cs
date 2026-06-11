@@ -99,6 +99,13 @@ namespace QMC.Vision
             InitModuleCamera(FrontSideMod,    map, VisionAlgorithm.FrontSide,          "Sim/FrontSide");
             InitModuleCamera(RearSideMod, map, VisionAlgorithm.RearSide,       "Sim/RearSide");
 
+            // ── C2: 조명 BaseUnit 마이그레이션 — 구 InspectionLights+결선 → 노드 Setup/Recipe(빈 것만, 구파일 보존) ──
+            MigrateModuleLights(WaferMod,     map, lightSetup, VisionAlgorithm.Wafer);
+            MigrateModuleLights(BinMod,       map, lightSetup, VisionAlgorithm.Bin);
+            MigrateModuleLights(BottomMod,    map, lightSetup, VisionAlgorithm.BottomInspection);
+            MigrateModuleLights(FrontSideMod, map, lightSetup, VisionAlgorithm.FrontSide);
+            MigrateModuleLights(RearSideMod,  map, lightSetup, VisionAlgorithm.RearSide);
+
             // ── TCP 서버 ──
             _svrWafer      = new VisionTcpServer(WaferMod,      cfg.WaferVisionPort);
             _svrBin        = new VisionTcpServer(BinMod,        cfg.BinVisionPort);
@@ -217,6 +224,22 @@ namespace QMC.Vision
                     "Vision/" + algorithm, $"Camera.Open 실패 [{camId}]: {ex.Message}");
             }
             mod.ApplyCameraSettings();
+        }
+
+        /// <summary>C2 — 조명 BaseUnit 마이그: 디스크 레시피(조명 포함 가능) 로드 후, 노드 조명 비어있는 것만
+        /// 구 algorithm_camera.json InspectionLights + LightSystemSetup 결선에서 채워 저장(구파일 보존).</summary>
+        private static void MigrateModuleLights(IVisionModule mod, AlgorithmCameraSubset map,
+                                                QMC.Common.Recipes.LightSystemSetup lightSetup, string algorithm)
+        {
+            if (mod == null) return;
+            try { mod.LoadRecipe("default"); } catch { }   // 기존 레시피 조명 보존(빈 것만 마이그)
+            try
+            {
+                var legacy = map?.Get(algorithm);
+                var wiring = lightSetup?.GetWiring(algorithm);
+                mod.MigrateLegacyLights(legacy, wiring);
+            }
+            catch { }
         }
 
         /// <summary>모듈별 원격 뷰어 서버 생성+Start. 소스(GrabImage/ScreenRegion)에 따라 프레임 provider 선택.</summary>

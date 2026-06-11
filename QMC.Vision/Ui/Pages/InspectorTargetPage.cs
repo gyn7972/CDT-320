@@ -65,7 +65,8 @@ namespace QMC.Vision.Ui.Pages
         // ── 우측: 검사 조명(InspectionLightPanel) + 라이브튜닝(LightLiveTuningPanel) 주입(런타임) ──
         private void BuildChildPanels()
         {
-            _lightPanel = new InspectionLightPanel(_module?.AlgorithmKey ?? "", _inspector?.Id ?? "") { Dock = DockStyle.Fill, EmbeddedMode = true };
+            _lightPanel = new InspectionLightPanel { Dock = DockStyle.Fill, EmbeddedMode = true };
+            _lightPanel.SelectInspection(_node, _module?.AlgorithmKey ?? "", _inspector?.Id ?? "");   // C2 — 조명 SSOT=노드
             _lightPanel.LightChanged += (s, e) => MarkDirty();   // R2e — 조명 변경 → 상태점 점등
             _lightHost.Controls.Add(_lightPanel);
 
@@ -114,9 +115,9 @@ namespace QMC.Vision.Ui.Pages
 
         private IEnumerable<LightLiveTuningPanel.TuningRow> CollectRowsForLiveTuning()
         {
-            var ov = AlgorithmCameraMapStore.Current?.Get(_module?.AlgorithmKey)?.GetLightOverride(_inspector?.Id);
-            if (ov?.Settings == null) yield break;
-            foreach (var s in ov.Settings)
+            var settings = (_node?.Recipe as AlgoRecipeBase)?.LightSettings;   // C2 — 노드 Recipe.LightSettings
+            if (settings == null) yield break;
+            foreach (var s in settings)
                 if (!string.IsNullOrEmpty(s.ControllerPort) && s.Channel > 0)
                     yield return new LightLiveTuningPanel.TuningRow
                     { ControllerPort = s.ControllerPort, Channel = s.Channel, Level = s.Level };

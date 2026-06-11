@@ -5,6 +5,7 @@ using QMC.Vision.Core;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Linq;
 
 namespace QMC.Vision.Modules
 {
@@ -121,6 +122,45 @@ namespace QMC.Vision.Modules
                 c.RoiWidth = m.RoiWidth; c.RoiHeight = m.RoiHeight;
             }
             if (r != null) r.Exposure = m.ExposureUs;
+        }
+
+        // ── C2: 조명 BaseUnit 마이그레이션 (algorithm_camera.json InspectionLights + 결선 → 노드 Setup/Recipe) ──
+        /// <summary>최초 부팅 마이그: 구 조명 데이터 → 노드 Setup(결선)/Recipe(레벨). 노드 조명 비어있는 것만 채우고 저장(구파일 보존).
+        /// 노드↔검사 매핑은 finder/inspector.Id(전체명) == 저장된 InspectionId(전체명) 기준. 변경 발생 시 true.</summary>
+        public bool MigrateLegacyLights(AlgorithmCameraMapping legacy, AlgorithmLightWiring wiring)
+        {
+            if (legacy?.InspectionLights == null || legacy.InspectionLights.Count == 0) return false;
+            bool any = false;
+            foreach (var node in Algorithms)
+            {
+                var recipe = node.Recipe as AlgoRecipeBase;
+                if (recipe == null) continue;
+                if (recipe.LightSettings != null && recipe.LightSettings.Count > 0) continue;   // 이미 조명 있음 → 스킵
+                string fullId = node.Finder?.Id ?? node.Inspector?.Id;
+                if (string.IsNullOrEmpty(fullId)) continue;
+                // 구 시스템 키 이중 조회: 타깃 페이지=전체명("Module/Id"), SettingsPage=짧은id("Id").
+                var ov = legacy.GetLightOverride(fullId);
+                if (ov?.Settings == null || ov.Settings.Count == 0)
+                {
+                    string shortId = fullId.Contains("/") ? fullId.Substring(fullId.LastIndexOf('/') + 1) : fullId;
+                    ov = legacy.GetLightOverride(shortId);
+                }
+                if (ov?.Settings == null || ov.Settings.Count == 0) continue;
+
+                recipe.LightSettings = ov.Settings.Select(s => s.Clone()).ToList();
+                var setup = node.Setup as AlgoSetupBase;
+                if (setup != null && wiring?.ControllerSets != null)
+                {
+                    var ports = new HashSet<string>(
+                        ov.Settings.Select(s => s.ControllerPort ?? ""), StringComparer.OrdinalIgnoreCase);
+                    setup.LightWirings = wiring.ControllerSets
+                        .Where(cs => ports.Contains(cs.ControllerPort ?? ""))
+                        .Select(cs => cs.Clone()).ToList();
+                }
+                try { node.SaveSettings(); node.SaveRecipe("default"); } catch { }
+                any = true;
+            }
+            return any;
         }
 
         public override void LoadSettings()       { base.LoadSettings();    ApplyCameraSettings(); }
