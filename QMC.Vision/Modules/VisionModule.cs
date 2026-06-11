@@ -1,4 +1,6 @@
 using QMC.Common;
+using QMC.Common.Recipes;
+using QMC.Vision.Config;
 using QMC.Vision.Core;
 using System;
 using System.Collections.Generic;
@@ -45,11 +47,86 @@ namespace QMC.Vision.Modules
         protected VisionModule(string name, ICamera camera, IVisionBackend backend)
             : base(name)
         {
-            Camera  = camera  ?? throw new ArgumentNullException(nameof(camera));
             Backend = backend ?? throw new ArgumentNullException(nameof(backend));
-            Camera.ExposureEnded += OnCameraExposureEnded;
-            Camera.FrameReceived += OnCameraFrameReceived;
+            // C1 — camera null 허용: 부팅 시 모듈 먼저 생성 → LoadSettings(Config.CameraId) → SetCamera.
+            Camera = camera;
+            if (Camera != null)
+            {
+                Camera.ExposureEnded += OnCameraExposureEnded;
+                Camera.FrameReceived += OnCameraFrameReceived;
+            }
         }
+
+        // ── C1: 모듈 Config/Recipe ↔ Camera 동기화 (SSOT) ──
+        /// <summary>Config.CameraId — Form1 이 카메라 생성에 사용(적용 아닌 생성 트리거).</summary>
+        public string CameraId => (Config as VisionModuleConfigBase)?.CameraId;
+
+        /// <summary>모듈 Config/Recipe → AlgorithmCameraMapping(편집 UI/적용에서 재사용하는 스냅샷).</summary>
+        public AlgorithmCameraMapping ExportCameraMapping()
+        {
+            var c = Config as VisionModuleConfigBase;
+            var r = Recipe as VisionModuleRecipeBase;
+            var m = new AlgorithmCameraMapping { Algorithm = AlgorithmKey };
+            if (c != null)
+            {
+                m.CameraId = c.CameraId; m.Gain = c.Gain; m.FrameRate = c.FrameRate;
+                m.TriggerMode = c.TriggerMode; m.PixelFormat = c.PixelFormat;
+                m.DelayBeforeGrabMs = c.DelayBeforeGrabMs;
+                m.RoiOffsetX = c.RoiOffsetX; m.RoiOffsetY = c.RoiOffsetY;
+                m.RoiWidth = c.RoiWidth; m.RoiHeight = c.RoiHeight;
+            }
+            m.ExposureUs = r != null ? r.Exposure : 5000;
+            return m;
+        }
+
+        /// <summary>Config/Recipe → Camera 적용(Binder 재활용). Camera null/미설정 시 no-op.</summary>
+        public void ApplyCameraSettings()
+        {
+            if (Camera == null) return;
+            var c = Config as VisionModuleConfigBase;
+            if (c == null) return;
+            AlgorithmCameraBinder.TryApplyParameters(Camera, ExportCameraMapping(), out _);
+            DelayBeforeGrabMs = c.DelayBeforeGrabMs;
+        }
+
+        /// <summary>Camera → Config/Recipe 수집(저장 직전). Camera null 시 no-op.</summary>
+        public void CollectCameraSettings()
+        {
+            if (Camera == null) return;
+            var c = Config as VisionModuleConfigBase;
+            var r = Recipe as VisionModuleRecipeBase;
+            if (c == null) return;
+            try { c.Gain        = Camera.Gain; } catch { }
+            try { c.FrameRate   = Camera.AcquisitionFrameRate; } catch { }
+            try { c.TriggerMode = Camera.TriggerMode.ToString(); } catch { }
+            try { c.PixelFormat = Camera.PixelFormat.ToString(); } catch { }
+            try { var roi = Camera.Roi; c.RoiOffsetX = roi.X; c.RoiOffsetY = roi.Y; c.RoiWidth = roi.Width; c.RoiHeight = roi.Height; } catch { }
+            c.DelayBeforeGrabMs = DelayBeforeGrabMs;
+            if (r != null) try { r.Exposure = Camera.ExposureUs; } catch { }
+            // CameraId 는 생성 트리거라 수집 안 함(UI 가 설정).
+        }
+
+        /// <summary>마이그레이션 — algorithm_camera.json 매핑 → 모듈 Config/Recipe(최초 부팅, 빈 경우).</summary>
+        public void ImportCameraMapping(AlgorithmCameraMapping m)
+        {
+            if (m == null) return;
+            var c = Config as VisionModuleConfigBase;
+            var r = Recipe as VisionModuleRecipeBase;
+            if (c != null)
+            {
+                c.CameraId = m.CameraId; c.Gain = m.Gain; c.FrameRate = m.FrameRate;
+                c.TriggerMode = m.TriggerMode; c.PixelFormat = m.PixelFormat;
+                c.DelayBeforeGrabMs = m.DelayBeforeGrabMs;
+                c.RoiOffsetX = m.RoiOffsetX; c.RoiOffsetY = m.RoiOffsetY;
+                c.RoiWidth = m.RoiWidth; c.RoiHeight = m.RoiHeight;
+            }
+            if (r != null) r.Exposure = m.ExposureUs;
+        }
+
+        public override void LoadSettings()       { base.LoadSettings();    ApplyCameraSettings(); }
+        public override void LoadRecipe(string n) { base.LoadRecipe(n);     ApplyCameraSettings(); }
+        public override bool SaveSettings()       { CollectCameraSettings(); return base.SaveSettings(); }
+        public override bool SaveRecipe(string n) { CollectCameraSettings(); return base.SaveRecipe(n); }
 
         // ── 알고리즘 등록 (자식 노드) ──
 
