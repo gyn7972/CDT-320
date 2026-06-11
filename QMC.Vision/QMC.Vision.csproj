@@ -97,6 +97,7 @@
     <Compile Include="Backends\Cognex\CognexHistogram.cs" />
     <Compile Include="Backends\Cognex\CognexColorMatch.cs" />
     <Compile Include="Core\IEdgeFinder.cs" />
+    <Compile Include="Core\IAlgoParamSync.cs" />
     <Compile Include="Modules\IVisionModule.cs" />
     <Compile Include="Modules\AlgorithmNode.cs" />
     <Compile Include="Modules\AlgorithmData.cs" />
