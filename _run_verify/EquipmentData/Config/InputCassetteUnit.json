@@ -1,0 +1,14 @@
+{
+  "InchSelect": 0,
+  "Level2PositionOffset": 0,
+  "LoadingPositionOffset": 0,
+  "ScanAcc": 0,
+  "ScanDec": 0,
+  "ScanSettleTimeMs": 0,
+  "ScanVelocity": 0,
+  "SelectedCassetteLevel": 0,
+  "SlotCount": 0,
+  "SlotPitch": 0,
+  "UnloadingPositionOffset": 0,
+  "bDryRun": false
+}

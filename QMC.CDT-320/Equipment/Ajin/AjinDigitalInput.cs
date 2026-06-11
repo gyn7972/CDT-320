@@ -25,7 +25,14 @@ namespace QMC.CDT320.Ajin
 
         public override void UpdateStatus()
         {
-            if (Config.IsSimulationMode) return;
+            if (Config.IsSimulationMode)
+            {
+                bool simulatedState;
+                if (AjinIoScanService.TryGetSimulatedState(this, out simulatedState))
+                    ApplyScannedState(simulatedState);
+                return;
+            }
+
             if (!AjinSystem.IsOpen)      return;
             AjinIoScanService service = AjinIoScanService.Current;
             if (service != null && service.TryApplyLatest(this)) return;

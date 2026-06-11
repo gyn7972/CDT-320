@@ -373,9 +373,9 @@ namespace QMC.CDT320.Initialization
                     "RearPickerX home after FrontPickerX.",
                     "RearPickerX");
 
-                AddKnownStep(plan, axisByName, used, 80, "InputCassette",
+                AddKnownStep(plan, axisByName, used, 45, "InputCassette",
                     AxisInitializeRunMode.Serial,
-                    "Input cassette lifter Z home after InputFeederY is safe.",
+                    "Input cassette lifter Z home before InputFeederY. Lifter moves to Avoid in axis post hook.",
                     "InputLifterZ");
 
                 AddKnownStep(plan, axisByName, used, 80, "InputStage",

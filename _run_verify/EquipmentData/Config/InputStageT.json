@@ -1,0 +1,22 @@
+{
+  "Acceleration": 1000,
+  "Deceleration": 1000,
+  "DefaultVelocity": 30,
+  "HomeFirstAcceleration": 500,
+  "HomeFirstDeceleration": 500,
+  "HomeFirstVelocity": 50,
+  "HomeIndexSearchVelocity": 5,
+  "HomeLastVelocity": 1,
+  "HomeSecondAcceleration": 200,
+  "HomeSecondDeceleration": 200,
+  "HomeSecondVelocity": 20,
+  "HomeThirdVelocity": 5,
+  "HomeVelocity": 200,
+  "InPositionTolerance": 0.01,
+  "IsSimulationMode": true,
+  "JogAcceleration": 100,
+  "JogCoarseVelocity": 50,
+  "JogDeceleration": 100,
+  "JogFineVelocity": 5,
+  "MaxVelocity": 0
+}

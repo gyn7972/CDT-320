@@ -168,15 +168,45 @@ namespace QMC.Common.IO
 
         /// <summary>
         /// 실린더가 완전히 전진한 상태인지 여부.<br/>
-        /// 전진 센서 ON + 후진 센서 OFF일 때 true.
+        /// 양쪽 센서가 있으면 전진 ON + 후진 OFF, 한쪽 센서만 있으면 해당 센서 기준으로 판단한다.
         /// </summary>
-        public bool IsFwd => InFwd.IsOn && !InBwd.IsOn;
+        public bool IsFwd
+        {
+            get
+            {
+                if (Setup.UseFwdSensor && Setup.UseBwdSensor)
+                    return InFwd.IsOn && !InBwd.IsOn;
+
+                if (Setup.UseFwdSensor)
+                    return InFwd.IsOn;
+
+                if (Setup.UseBwdSensor)
+                    return !InBwd.IsOn;
+
+                return false;
+            }
+        }
 
         /// <summary>
         /// 실린더가 완전히 후진(원점)한 상태인지 여부.<br/>
-        /// 후진 센서 ON + 전진 센서 OFF일 때 true.
+        /// 양쪽 센서가 있으면 후진 ON + 전진 OFF, 한쪽 센서만 있으면 해당 센서 기준으로 판단한다.
         /// </summary>
-        public bool IsBwd => InBwd.IsOn && !InFwd.IsOn;
+        public bool IsBwd
+        {
+            get
+            {
+                if (Setup.UseFwdSensor && Setup.UseBwdSensor)
+                    return InBwd.IsOn && !InFwd.IsOn;
+
+                if (Setup.UseBwdSensor)
+                    return InBwd.IsOn;
+
+                if (Setup.UseFwdSensor)
+                    return !InFwd.IsOn;
+
+                return false;
+            }
+        }
 
         // ──────────────────────────────────────────────────────────────────────
         //  §2. 구동 메서드

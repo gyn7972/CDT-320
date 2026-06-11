@@ -70,8 +70,14 @@ namespace QMC.CDT320.Sequencing
             _ctx.LogPublic("[SEQ] Run start (" + tasks.Count + " units)");
             try
             {
-                await Task.WhenAll(tasks).ConfigureAwait(false);
+                await WaitAllOrCancelOnFirstFailureAsync(tasks, _childrenCts.Token).ConfigureAwait(false);
                 _ctx.LogPublic("[SEQ] Run complete");
+            }
+            catch (SequenceStopException)
+            {
+                _ctx.LogPublic("[SEQ] Run stopped");
+                AbortChildren();
+                throw;
             }
             catch (OperationCanceledException)
             {
@@ -92,6 +98,70 @@ namespace QMC.CDT320.Sequencing
             }
 
             _ctx.LogPublic("[SEQ] StepUnit ignored: inactive unit=" + unit);
+        }
+
+        /// <summary>Manual 또는 Step 모드에서 활성 유닛 전체를 1단계 진행시킵니다.</summary>
+        public void StepAll()
+        {
+            if (_active.Count == 0)
+            {
+                _ctx.LogPublic("[SEQ] StepAll ignored: active unit 없음");
+                return;
+            }
+
+            foreach (var item in _active)
+            {
+                _ctx.LogPublic("[SEQ] StepAll gate release " + item.Key);
+                item.Value.StepUnit();
+            }
+        }
+
+        private async Task WaitAllOrCancelOnFirstFailureAsync(List<Task> tasks, CancellationToken ct)
+        {
+            var pending = new List<Task>(tasks);
+            while (pending.Count > 0)
+            {
+                ct.ThrowIfCancellationRequested();
+
+                Task completed = await Task.WhenAny(pending).ConfigureAwait(false);
+                pending.Remove(completed);
+
+                if (completed.IsCanceled)
+                {
+                    AbortChildren();
+                    await AwaitPendingAfterAbortAsync(pending).ConfigureAwait(false);
+                    throw new OperationCanceledException(ct);
+                }
+
+                if (completed.IsFaulted)
+                {
+                    AbortChildren();
+                    await AwaitPendingAfterAbortAsync(pending).ConfigureAwait(false);
+                    Exception ex = completed.Exception != null ? completed.Exception.GetBaseException() : null;
+                    if (ex != null)
+                        throw ex;
+                    throw new InvalidOperationException("Sequence unit failed.");
+                }
+
+                await completed.ConfigureAwait(false);
+            }
+        }
+
+        private static async Task AwaitPendingAfterAbortAsync(List<Task> pending)
+        {
+            if (pending == null || pending.Count == 0)
+                return;
+
+            try
+            {
+                await Task.WhenAll(pending).ConfigureAwait(false);
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
         }
 
         /// <summary>실행 중인 모든 하위 유닛 시퀀스를 중단합니다.</summary>

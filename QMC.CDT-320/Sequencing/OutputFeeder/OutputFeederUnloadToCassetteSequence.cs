@@ -12,6 +12,7 @@ namespace QMC.CDT320.Sequencing
         CheckTransferReady,
         CheckFeederBinData,
         CheckCassetteTargetSlot,
+        EnsureFeederClamped,
         MoveFeederCassetteUnloadPosition,
         PrepareFeederUnclamp,
         MoveFeederAvoidPosition,
@@ -52,6 +53,9 @@ namespace QMC.CDT320.Sequencing
 
                     case OutputFeederUnloadToCassetteStep.CheckCassetteTargetSlot:
                         return Task.FromResult(CheckCassetteTargetSlot());
+
+                    case OutputFeederUnloadToCassetteStep.EnsureFeederClamped:
+                        return EnsureFeederClampedAsync(ct);
 
                     case OutputFeederUnloadToCassetteStep.MoveFeederCassetteUnloadPosition:
                         return MoveFeederCassetteUnloadPositionAsync(ct);
@@ -102,6 +106,22 @@ namespace QMC.CDT320.Sequencing
         {
             if (ResolveCassetteWafer() != null)
                 return Fail("OUT-FEEDER-CST-SLOT-OCCUPIED", "Material", "Output cassette target slot became occupied before unload. role=" + ResolveOutputCassetteRole() + ", slot=" + Options.SlotIndex);
+
+            CurrentStep = OutputFeederUnloadToCassetteStep.EnsureFeederClamped;
+            return 0;
+        }
+
+        private async Task<int> EnsureFeederClampedAsync(CancellationToken ct)
+        {
+            if (Feeder.IsFeederUnclamped())
+            {
+                int result = await AwaitStepWithCancellationAsync(Feeder.SetFeederClampAsync(true, ResolveTimeout()), ct).ConfigureAwait(false);
+                if (result != 0)
+                    return Fail("OUT-FEEDER-CLAMP", Feeder.Name, "Output feeder clamp command failed before cassette unload. result=" + result);
+            }
+
+            if (Feeder.IsFeederUnclamped())
+                return Fail("OUT-FEEDER-CLAMP", Feeder.Name, "Output feeder must be clamped before cassette unload move. side=" + Options.Side);
 
             CurrentStep = OutputFeederUnloadToCassetteStep.MoveFeederCassetteUnloadPosition;
             return 0;

@@ -23,6 +23,16 @@ namespace QMC.CDT320.Sequencing
             return new OutputStagePrepareUnloadSequence(_context).RunAsync(ct, options);
         }
 
+        public Task<int> RunReceiveDieAsync(CancellationToken ct, OutputStageSequenceOptions options)
+        {
+            return new OutputStageReceiveDieSequence(_context).RunAsync(ct, options);
+        }
+
+        public Task<int> RunInspectBinAsync(CancellationToken ct, OutputStageSequenceOptions options)
+        {
+            return new OutputStageInspectBinSequence(_context).RunAsync(ct, options);
+        }
+
         public Task<int> RunMoveAvoidAsync(CancellationToken ct, OutputStageSequenceOptions options)
         {
             return new OutputStageMoveAvoidSequence(_context).RunAsync(ct, options);

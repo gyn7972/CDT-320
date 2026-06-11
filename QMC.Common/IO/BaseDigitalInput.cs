@@ -71,7 +71,13 @@ namespace QMC.Common.IO
         /// </summary>
         public virtual void UpdateStatus()
         {
-            if (Config.IsSimulationMode) return;
+            if (Config.IsSimulationMode)
+            {
+                bool simulatedState;
+                if (AjinIoScanService.TryGetSimulatedState(this, out simulatedState))
+                    ApplyScannedState(simulatedState);
+                return;
+            }
 
             // ── 실보드 모드: 하위 클래스에서 override하여 아래 패턴으로 구현 ──
             //
@@ -95,6 +101,7 @@ namespace QMC.Common.IO
             if (!Config.IsSimulationMode) return;
             bool changed = IsOn != state;
             IsOn = state;
+            AjinIoScanService.SetSimulatedState(this, state);
             if (changed) RaiseStateChanged(state);
         }
 

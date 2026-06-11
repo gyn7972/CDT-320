@@ -1,0 +1,115 @@
+{
+  "AlignConfirmEnable": true,
+  "AutoPositionDeviationLimit": 50,
+  "BinSortNumber": 1,
+  "BottomInsp": {
+    "ChippingDepthMaxMm": 0.05,
+    "ChippingLengthMaxMm": 0.1,
+    "ContaminationMaxMm2": 0.01,
+    "Enable": true,
+    "ExposureMs": 500,
+    "LightIntensity": 0.5,
+    "MinDieCenterScore": 0.7,
+    "ScratchAreaMaxMm2": 0.005
+  },
+  "BottomSideInsp": {
+    "ChippingDepthMaxMm": 0.05,
+    "ChippingLengthMaxMm": 0.1,
+    "ContaminationMaxMm2": 0.01,
+    "Enable": true,
+    "ExposureMs": 500,
+    "LightIntensity": 0.5,
+    "MinDieCenterScore": 0.7,
+    "ScratchAreaMaxMm2": 0.005
+  },
+  "CassetteFlow": "Mapping",
+  "ChipThickness": 200,
+  "ColletLotNum": null,
+  "ColletModelNum": null,
+  "Die": {
+    "ChipLowerSpecLimitHeight": -0.1,
+    "ChipLowerSpecLimitWidth": -0.1,
+    "ChipUpperSpecLimitHeight": 0.1,
+    "ChipUpperSpecLimitWidth": 0.1,
+    "ChippingDepthMax": 0.1,
+    "ChippingLengthMax": 0.4,
+    "DieSpecName": "Large-3mm",
+    "ForeignSizeMax": 0.02,
+    "HeightMm": 3,
+    "ThicknessMm": 0.2,
+    "WidthMm": 3
+  },
+  "DryRun": false,
+  "EbrMode": true,
+  "FileName": "LARGE-DIE-3mm",
+  "Frame": {
+    "FrameSpecName": "8inch_15x15",
+    "GridX": 15,
+    "GridY": 15,
+    "OuterDiameterMm": 200,
+    "PitchX": 3,
+    "PitchY": 3,
+    "Rotate": "None"
+  },
+  "GoodCassetteLevelCount": 1,
+  "InputCassetteId": null,
+  "InputCassetteLevelCount": 1,
+  "LoadFrame": {
+    "AlignmentPoints": 3,
+    "AutoAlignment": true,
+    "AutoBarcodeRead": true,
+    "Role": "Load"
+  },
+  "LotId": null,
+  "MachineNumber": "DS530",
+  "MapDirection": "표준(0도)",
+  "MapFormat": "SEC",
+  "MasterChipThickness": 150,
+  "Module": {
+    "BottomInspectionEnable": true,
+    "ColletCleanEnable": true,
+    "ColletCleanInterval": 1000,
+    "PickDelayMs": 80,
+    "PickRetryCount": 3,
+    "PlaceDelayMs": 60,
+    "PlacementInspectionEnable": true
+  },
+  "NeedleCheckMode": false,
+  "Output": {
+    "AlarmOnFull": true,
+    "AutoBinTransition": true,
+    "DefaultGoodCassette": "Good1",
+    "DiesPerWafer": 1400,
+    "GoodPlateMaxSlots": 25,
+    "NgPlateMaxSlots": 25,
+    "WafersPerOutputBatch": 0
+  },
+  "OutputCassetteId": null,
+  "PartId": null,
+  "Pickup": {
+    "Direction": 0,
+    "Pattern": 0,
+    "StartCorner": 0
+  },
+  "ReDt": false,
+  "StepRun": false,
+  "TapeThickness": 100,
+  "TopSideInsp": {
+    "ChippingDepthMaxMm": 0.05,
+    "ChippingLengthMaxMm": 0.1,
+    "ContaminationMaxMm2": 0.01,
+    "Enable": true,
+    "ExposureMs": 500,
+    "LightIntensity": 0.5,
+    "MinDieCenterScore": 0.7,
+    "ScratchAreaMaxMm2": 0.005
+  },
+  "UnloadFrame": {
+    "GapInspection": true,
+    "GapLowerLimit": 0.005,
+    "GapUpperLimit": 0.05,
+    "Role": "GoodUnload"
+  },
+  "XmlPath": null,
+  "XmlSave": true
+}

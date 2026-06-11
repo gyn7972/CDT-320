@@ -10,6 +10,7 @@ namespace QMC.CDT320.Materials
     public static class MaterialStateService
     {
         public static event Action<MaterialSnapshot> StateChanged;
+        private static readonly object _stateSync = new object();
 
         public static MaterialSnapshot State => MaterialStorage.State;
 
@@ -495,6 +496,491 @@ namespace QMC.CDT320.Materials
             wafer.State = WaferMaterialStateText.Normalize(state);
             wafer.UpdatedAt = DateTime.Now;
             NotifyAndSave("MoveWafer");
+        }
+
+        public static bool InitializeOutputStageReceivePlan(QMC.CDT320.BinSide side)
+        {
+            try
+            {
+                WaferMaterial outputWafer = GetWaferAtLocation(ResolveOutputStageLocation(side));
+                if (outputWafer == null)
+                    return false;
+
+                WaferMaterial sourceWafer = GetWaferAtLocation(MaterialLocationKind.InputStage);
+                DieMap sourceMap = BuildDieMapFromWafer(sourceWafer);
+                if (sourceWafer == null || sourceMap == null || sourceMap.GridX <= 0 || sourceMap.GridY <= 0)
+                {
+                    Log.Write("Main", "SYSTEM", "MaterialStateService",
+                        "Output receive plan initialize skipped: input stage die map is empty. side=" + side + " - Check");
+                    return false;
+                }
+
+                var project = RecipeStore.LoadLastOrDefault();
+                PickupSubset pickup = project != null && project.Pickup != null ? project.Pickup : new PickupSubset();
+                List<DieMapEntry> ordered = BuildOutputReceiveOrder(sourceMap, pickup);
+                if (ordered.Count == 0)
+                    return false;
+
+                outputWafer.OutputReceiveSourceWaferId = sourceWafer.WaferId;
+                outputWafer.OutputReceiveGridX = sourceMap.GridX;
+                outputWafer.OutputReceiveGridY = sourceMap.GridY;
+                outputWafer.OutputReceivePitchX = sourceMap.PitchX;
+                outputWafer.OutputReceivePitchY = sourceMap.PitchY;
+                outputWafer.OutputReceiveOriginX = 0.0;
+                outputWafer.OutputReceiveOriginY = 0.0;
+                outputWafer.OutputReceiveNextIndex = 0;
+                outputWafer.OutputReceiveTotalCount = ordered.Count;
+                outputWafer.OutputReceiveStartCorner = pickup.StartCorner.ToString();
+                outputWafer.OutputReceiveDirection = pickup.Direction.ToString();
+                outputWafer.OutputReceivePattern = pickup.Pattern.ToString();
+                if (outputWafer.DieIds == null)
+                    outputWafer.DieIds = new List<string>();
+                else
+                    outputWafer.DieIds.Clear();
+                outputWafer.State = WaferMaterialState.WorkReady;
+                outputWafer.UpdatedAt = DateTime.Now;
+
+                NotifyAndSave("OutputStageReceivePlanInitialize");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "Output receive plan initialize failed: " + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        public static OutputStageReceiveTarget ReserveNextOutputStageReceiveTarget(QMC.CDT320.BinSide side)
+        {
+            try
+            {
+                lock (_stateSync)
+                {
+                    WaferMaterial outputWafer = GetWaferAtLocation(ResolveOutputStageLocation(side));
+                    if (outputWafer == null)
+                        return null;
+
+                    if (IsOutputStageReceiveComplete(outputWafer))
+                        return null;
+
+                    if (outputWafer.OutputReceiveTotalCount <= 0 || string.IsNullOrWhiteSpace(outputWafer.OutputReceiveSourceWaferId))
+                    {
+                        if (!InitializeOutputStageReceivePlan(side))
+                            return null;
+
+                        outputWafer = GetWaferAtLocation(ResolveOutputStageLocation(side));
+                        if (outputWafer == null || outputWafer.OutputReceiveTotalCount <= 0)
+                            return null;
+                    }
+
+                    WaferMaterial sourceWafer = State.Wafers.FirstOrDefault(w =>
+                        w != null &&
+                        string.Equals(w.WaferId, outputWafer.OutputReceiveSourceWaferId, StringComparison.OrdinalIgnoreCase));
+                    DieMap sourceMap = BuildDieMapFromWafer(sourceWafer);
+                    var project = RecipeStore.LoadLastOrDefault();
+                    PickupSubset pickup = project != null && project.Pickup != null ? project.Pickup : new PickupSubset();
+                    List<DieMapEntry> ordered = BuildOutputReceiveOrder(sourceMap, pickup);
+                    if (ordered.Count == 0)
+                        return null;
+
+                    int index = outputWafer.DieIds != null
+                        ? outputWafer.DieIds.Count(id => !string.IsNullOrWhiteSpace(id))
+                        : 0;
+
+                    if (index >= ordered.Count)
+                        return null;
+
+                    DieMapEntry entry = ordered[index];
+                    double pitchX = outputWafer.OutputReceivePitchX > 0.0 ? outputWafer.OutputReceivePitchX : sourceMap.PitchX;
+                    double pitchY = outputWafer.OutputReceivePitchY > 0.0 ? outputWafer.OutputReceivePitchY : sourceMap.PitchY;
+
+                    var target = new OutputStageReceiveTarget
+                    {
+                        StageLocation = ResolveOutputStageLocation(side),
+                        OutputWaferId = outputWafer.WaferId,
+                        SourceWaferId = outputWafer.OutputReceiveSourceWaferId,
+                        OrderIndex = index,
+                        GridX = entry.GridX,
+                        GridY = entry.GridY,
+                        OffsetX = outputWafer.OutputReceiveOriginX + pitchX * entry.GridX,
+                        OffsetY = outputWafer.OutputReceiveOriginY + pitchY * entry.GridY
+                    };
+                    target.TargetX = target.OffsetX;
+                    target.TargetY = target.OffsetY;
+
+                    outputWafer.OutputReceiveNextIndex = index;
+                    outputWafer.UpdatedAt = DateTime.Now;
+                    NotifyAndSave("OutputStageReceiveTargetReserve");
+                    return target;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "Output receive target reserve failed: " + ex.Message + " - Failed");
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
+        public static bool MoveDieToOutputStage(string dieId, QMC.CDT320.BinSide side)
+        {
+            try
+            {
+                lock (_stateSync)
+                {
+                    if (string.IsNullOrWhiteSpace(dieId))
+                        return false;
+
+                    MaterialLocationKind stageLocation = ResolveOutputStageLocation(side);
+                    WaferMaterial outputWafer = GetWaferAtLocation(stageLocation);
+                    if (outputWafer == null)
+                    {
+                        Log.Write("Main", "SYSTEM", "MaterialStateService",
+                            "Move die to output stage failed: output wafer is missing. die=" + dieId + ", side=" + side + " - Failed");
+                        return false;
+                    }
+
+                    DieMaterial die = GetOrCreateDieMaterial(dieId);
+                    die.CurrentLocation = new MaterialLocation { Kind = stageLocation };
+                    die.Result = side == QMC.CDT320.BinSide.Ng ? DieResult.NG : DieResult.Good;
+                    die.WaferID_Output = outputWafer.WaferId;
+                    die.UpdatedAt = DateTime.Now;
+
+                    if (outputWafer.DieIds == null)
+                        outputWafer.DieIds = new List<string>();
+                    if (!outputWafer.DieIds.Any(id => string.Equals(id, dieId, StringComparison.OrdinalIgnoreCase)))
+                        outputWafer.DieIds.Add(dieId);
+
+                    outputWafer.OutputReceiveNextIndex = outputWafer.DieIds.Count(id => !string.IsNullOrWhiteSpace(id));
+                    outputWafer.OutputGrade = side == QMC.CDT320.BinSide.Ng ? DieResult.NG : DieResult.Good;
+                    outputWafer.State = IsOutputStageReceiveComplete(outputWafer)
+                        ? WaferMaterialState.Finish
+                        : WaferMaterialState.Working;
+                    outputWafer.UpdatedAt = DateTime.Now;
+                    NotifyAndSave("MoveDieToOutputStage");
+                    return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "Move die to output stage failed: " + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        public static bool IsOutputStageReceiveComplete(QMC.CDT320.BinSide side)
+        {
+            try
+            {
+                lock (_stateSync)
+                {
+                    return IsOutputStageReceiveComplete(GetWaferAtLocation(ResolveOutputStageLocation(side)));
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "Output stage receive complete check failed: " + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        public static bool IsOutputStageReceiveAvailable(QMC.CDT320.BinSide side)
+        {
+            try
+            {
+                lock (_stateSync)
+                {
+                    WaferMaterial outputWafer = GetWaferAtLocation(ResolveOutputStageLocation(side));
+                    WaferMaterialState state = outputWafer != null
+                        ? WaferMaterialStateText.Normalize(outputWafer.State)
+                        : WaferMaterialState.Empty;
+                    return outputWafer != null &&
+                           state != WaferMaterialState.Finish &&
+                           !IsOutputStageReceiveComplete(outputWafer);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "Output stage receive available check failed: " + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool IsOutputStageReceiveComplete(WaferMaterial outputWafer)
+        {
+            if (outputWafer == null)
+                return false;
+
+            if (WaferMaterialStateText.Normalize(outputWafer.State) == WaferMaterialState.Finish)
+                return true;
+
+            int total = outputWafer.OutputReceiveTotalCount;
+            if (total <= 0)
+                return false;
+
+            int placed = outputWafer.DieIds != null ? outputWafer.DieIds.Count(id => !string.IsNullOrWhiteSpace(id)) : 0;
+            return placed >= total;
+        }
+
+        private static MaterialLocationKind ResolveOutputStageLocation(QMC.CDT320.BinSide side)
+        {
+            return side == QMC.CDT320.BinSide.Ng ? MaterialLocationKind.OutputStageNg : MaterialLocationKind.OutputStageGood;
+        }
+
+        private static List<DieMapEntry> BuildOutputReceiveOrder(DieMap sourceMap, PickupSubset pickup)
+        {
+            var ordered = PickupSequenceGenerator.Build(sourceMap, pickup);
+            if (ordered != null && ordered.Count > 0)
+                return ordered;
+
+            if (sourceMap == null || sourceMap.Entries == null)
+                return new List<DieMapEntry>();
+
+            return sourceMap.Entries
+                .Where(e => e != null && e.GridX >= 0 && e.GridY >= 0)
+                .OrderBy(e => e.GridY)
+                .ThenBy(e => e.GridX)
+                .ToList();
+        }
+
+        public static InputStagePickTarget ReserveNextInputStagePickTarget(MaterialLocationKind pickerLocation, int pickerNo)
+        {
+            try
+            {
+                lock (_stateSync)
+                {
+                    if (pickerLocation != MaterialLocationKind.PickerFront &&
+                        pickerLocation != MaterialLocationKind.PickerRear)
+                    {
+                        Log.Write("Main", "SYSTEM", "MaterialStateService",
+                            "Input pick target reserve failed: invalid picker location=" + pickerLocation + " - Failed");
+                        return null;
+                    }
+
+                    WaferMaterial wafer = GetWaferAtLocation(MaterialLocationKind.InputStage);
+                    DieMap map = BuildDieMapFromWafer(wafer);
+                    if (wafer == null || map == null || map.Entries == null || map.Entries.Count == 0)
+                    {
+                        Log.Write("Main", "SYSTEM", "MaterialStateService",
+                            "Input pick target reserve skipped: input stage die map is empty. - Check");
+                        return null;
+                    }
+
+                    var project = RecipeStore.LoadLastOrDefault();
+                    PickupSubset pickup = project != null && project.Pickup != null ? project.Pickup : new PickupSubset();
+                    List<DieMapEntry> ordered = BuildOutputReceiveOrder(map, pickup);
+                    if (ordered == null || ordered.Count == 0)
+                        return null;
+
+                    for (int i = 0; i < ordered.Count; i++)
+                    {
+                        DieMapEntry entry = ordered[i];
+                        if (entry == null || string.IsNullOrWhiteSpace(entry.DieUid))
+                            continue;
+
+                        DieMaterial die = State.Dies.FirstOrDefault(d =>
+                            d != null &&
+                            string.Equals(d.DieId, entry.DieUid, StringComparison.OrdinalIgnoreCase));
+                        if (die == null)
+                            continue;
+
+                        if (die.Result == DieResult.NG)
+                            continue;
+
+                        if (die.CurrentLocation != null &&
+                            die.CurrentLocation.Kind != MaterialLocationKind.Unknown &&
+                            die.CurrentLocation.Kind != MaterialLocationKind.InputStage)
+                            continue;
+
+                        die.CurrentLocation = MaterialLocation.Picker(pickerLocation, pickerNo);
+                        die.UpdatedAt = DateTime.Now;
+
+                        var target = new InputStagePickTarget
+                        {
+                            WaferId = wafer.WaferId,
+                            DieId = die.DieId,
+                            OrderIndex = i,
+                            GridX = entry.GridX,
+                            GridY = entry.GridY,
+                            OffsetX = entry.X,
+                            OffsetY = entry.Y,
+                            TargetX = entry.X,
+                            TargetY = entry.Y,
+                            PickerNo = pickerNo,
+                            PickerLocation = pickerLocation
+                        };
+
+                        NotifyAndSave("ReserveInputStagePickTarget");
+                        return target;
+                    }
+
+                    return null;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "Input pick target reserve failed: " + ex.Message + " - Failed");
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
+        public static bool HasReadyInputStagePickTarget()
+        {
+            try
+            {
+                lock (_stateSync)
+                {
+                    WaferMaterial wafer = GetWaferAtLocation(MaterialLocationKind.InputStage);
+                    DieMap map = BuildDieMapFromWafer(wafer);
+                    if (wafer == null || map == null || map.Entries == null || map.Entries.Count == 0)
+                        return false;
+
+                    var project = RecipeStore.LoadLastOrDefault();
+                    PickupSubset pickup = project != null && project.Pickup != null ? project.Pickup : new PickupSubset();
+                    List<DieMapEntry> ordered = BuildOutputReceiveOrder(map, pickup);
+                    if (ordered == null || ordered.Count == 0)
+                        return false;
+
+                    for (int i = 0; i < ordered.Count; i++)
+                    {
+                        DieMapEntry entry = ordered[i];
+                        if (entry == null || string.IsNullOrWhiteSpace(entry.DieUid))
+                            continue;
+
+                        DieMaterial die = State.Dies.FirstOrDefault(d =>
+                            d != null &&
+                            string.Equals(d.DieId, entry.DieUid, StringComparison.OrdinalIgnoreCase));
+                        if (die == null)
+                            continue;
+
+                        if (die.Result == DieResult.NG)
+                            continue;
+
+                        if (die.CurrentLocation == null ||
+                            die.CurrentLocation.Kind == MaterialLocationKind.Unknown ||
+                            die.CurrentLocation.Kind == MaterialLocationKind.InputStage)
+                        {
+                            return true;
+                        }
+                    }
+
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "Input pick target ready check failed: " + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        public static bool IsInputStagePickComplete()
+        {
+            try
+            {
+                lock (_stateSync)
+                {
+                    WaferMaterial wafer = GetWaferAtLocation(MaterialLocationKind.InputStage);
+                    if (wafer == null || wafer.DieIds == null || wafer.DieIds.Count == 0)
+                        return false;
+
+                    for (int i = 0; i < wafer.DieIds.Count; i++)
+                    {
+                        string dieId = wafer.DieIds[i];
+                        if (string.IsNullOrWhiteSpace(dieId))
+                            continue;
+
+                        DieMaterial die = State.Dies.FirstOrDefault(d =>
+                            d != null &&
+                            string.Equals(d.DieId, dieId, StringComparison.OrdinalIgnoreCase));
+                        if (die == null || die.Result == DieResult.NG)
+                            continue;
+
+                        MaterialLocationKind kind = die.CurrentLocation != null
+                            ? die.CurrentLocation.Kind
+                            : MaterialLocationKind.Unknown;
+
+                        if (kind == MaterialLocationKind.Unknown ||
+                            kind == MaterialLocationKind.InputStage ||
+                            kind == MaterialLocationKind.PickerFront ||
+                            kind == MaterialLocationKind.PickerRear)
+                        {
+                            return false;
+                        }
+                    }
+
+                    return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "Input stage pick complete check failed: " + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        public static void ReleaseInputStagePickReservation(string dieId, MaterialLocationKind pickerLocation, int pickerNo)
+        {
+            try
+            {
+                lock (_stateSync)
+                {
+                    if (string.IsNullOrWhiteSpace(dieId))
+                        return;
+
+                    DieMaterial die = State.Dies.FirstOrDefault(d =>
+                        d != null &&
+                        string.Equals(d.DieId, dieId, StringComparison.OrdinalIgnoreCase));
+                    if (die == null || die.CurrentLocation == null)
+                        return;
+
+                    if (die.CurrentLocation.Kind != pickerLocation || die.CurrentLocation.PickerNo != pickerNo)
+                        return;
+
+                    die.CurrentLocation = new MaterialLocation { Kind = MaterialLocationKind.InputStage };
+                    die.UpdatedAt = DateTime.Now;
+                    NotifyAndSave("ReleaseInputStagePickReservation");
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "Input pick target reservation release failed: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
         }
 
         public static void SaveInputStageAlignResult(WaferMaterial wafer, double originX, double originY, double pitchX, double pitchY, double offsetX, double offsetY)

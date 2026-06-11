@@ -8,6 +8,7 @@ namespace QMC.CDT320.Sequencing
     {
         Idle,
         CheckUnit,
+        CheckExchangePlan,
         UnloadCurrentToCassette,
         LoadNextFromCassette,
         MoveExchangePosition,
@@ -35,7 +36,10 @@ namespace QMC.CDT320.Sequencing
                 switch (CurrentStep)
                 {
                     case OutputFeederExchangeStep.CheckUnit:
-                        return Task.FromResult(CheckUnit(OutputFeederExchangeStep.UnloadCurrentToCassette));
+                        return Task.FromResult(CheckUnit(OutputFeederExchangeStep.CheckExchangePlan));
+
+                    case OutputFeederExchangeStep.CheckExchangePlan:
+                        return Task.FromResult(CheckExchangePlan());
 
                     case OutputFeederExchangeStep.UnloadCurrentToCassette:
                         return UnloadCurrentToCassetteAsync(ct);
@@ -57,6 +61,21 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        private int CheckExchangePlan()
+        {
+            if (Options.SlotIndex < 0)
+                return Fail("OUT-FEEDER-EXCHANGE-SLOT", Feeder.Name, "Output feeder exchange current slot is invalid. slot=" + Options.SlotIndex);
+
+            if (Options.NextSlotIndex < 0)
+                return Fail("OUT-FEEDER-EXCHANGE-NEXT", Feeder.Name, "Output feeder exchange next slot is invalid. nextSlot=" + Options.NextSlotIndex);
+
+            if (Options.SlotIndex == Options.NextSlotIndex)
+                return Fail("OUT-FEEDER-EXCHANGE-SAME", Feeder.Name, "Output feeder exchange current/next slot must be different. slot=" + Options.SlotIndex);
+
+            CurrentStep = OutputFeederExchangeStep.UnloadCurrentToCassette;
+            return 0;
         }
 
         private async Task<int> UnloadCurrentToCassetteAsync(CancellationToken ct)

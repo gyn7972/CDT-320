@@ -7,9 +7,15 @@ namespace QMC.CDT320.Sequencing
     {
         /// <summary>지정한 컨트롤러와 신호 버스로 시퀀스 컨텍스트를 생성합니다.</summary>
         public MachineSequenceContext(MachineController controller, SequenceSignalBus bus)
+            : this(controller, bus, new SequenceResourceManager())
+        {
+        }
+
+        public MachineSequenceContext(MachineController controller, SequenceSignalBus bus, SequenceResourceManager resources)
         {
             Controller = controller ?? throw new ArgumentNullException(nameof(controller));
             Bus = bus ?? throw new ArgumentNullException(nameof(bus));
+            Resources = resources ?? new SequenceResourceManager();
         }
 
         /// <summary>시퀀스를 구동하는 장비 컨트롤러입니다.</summary>
@@ -20,6 +26,8 @@ namespace QMC.CDT320.Sequencing
 
         /// <summary>유닛 간 핸드오프 신호 버스입니다.</summary>
         public SequenceSignalBus Bus { get; private set; }
+
+        public SequenceResourceManager Resources { get; private set; }
 
         /// <summary>장비 컨트롤러의 공개 로그 브리지로 메시지를 출력합니다.</summary>
         public void LogPublic(string message)

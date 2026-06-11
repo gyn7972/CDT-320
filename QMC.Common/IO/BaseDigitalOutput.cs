@@ -72,6 +72,9 @@ namespace QMC.Common.IO
             // 논리 상태를 먼저 프로퍼티에 반영 (UI 바인딩 등 즉시 갱신)
             IsOn = state;
 
+            if (Config.IsSimulationMode)
+                AjinIoScanService.SetSimulatedState(this, state);
+
             if (changed) RaiseStateChanged(state);
 
             if (Config.IsSimulationMode) return;
@@ -135,7 +138,13 @@ namespace QMC.Common.IO
         /// </summary>
         public virtual void UpdateStatus()
         {
-            if (Config.IsSimulationMode) return;
+            if (Config.IsSimulationMode)
+            {
+                bool simulatedState;
+                if (AjinIoScanService.TryGetSimulatedState(this, out simulatedState))
+                    ApplyScannedState(simulatedState);
+                return;
+            }
 
             // ── 실보드 모드: 하위 클래스에서 override하여 아래 패턴으로 구현 ──
             //

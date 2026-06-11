@@ -409,7 +409,7 @@ namespace QMC.CDT320.Ajin
         internal static BaseDigitalInput CreateCylinderDigitalInput(string name, DioMap map, bool simulationMode)
         {
             if (map == null)
-                return ConfigureSimInput(new SimDigitalInput(string.IsNullOrWhiteSpace(name) ? "UnregisteredInput" : name), 0, 0, false);
+                return ConfigureSimInput(new SimDigitalInput(string.IsNullOrWhiteSpace(name) ? "UnregisteredInput" : name), -1, -1, false);
 
             BaseDigitalInput input = Ready
                 ? (BaseDigitalInput)new AjinDigitalInput(name, map.Module, map.Bit, map.Nc)
@@ -425,7 +425,7 @@ namespace QMC.CDT320.Ajin
         internal static BaseDigitalOutput CreateCylinderDigitalOutput(string name, DioMap map, bool simulationMode)
         {
             if (map == null)
-                return ConfigureSimOutput(new SimDigitalOutput(string.IsNullOrWhiteSpace(name) ? "UnregisteredOutput" : name), 0, 0, false);
+                return ConfigureSimOutput(new SimDigitalOutput(string.IsNullOrWhiteSpace(name) ? "UnregisteredOutput" : name), -1, -1, false);
 
             BaseDigitalOutput output = Ready
                 ? (BaseDigitalOutput)new AjinDigitalOutput(name, map.Module, map.Bit, map.Nc)

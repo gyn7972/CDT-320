@@ -1,0 +1,577 @@
+{
+  "Version": 1,
+  "Source": "CDT-320_Interlock_20260604_vertical_check.xlsx",
+  "GeneratedAt": "2026-06-11 17:28:45",
+  "Checks": [
+    {
+      "MovingName": "InputLifterZ",
+      "CheckName": "InputFeederY",
+      "SourceCell": "E8"
+    },
+    {
+      "MovingName": "InputLifterZ",
+      "CheckName": "Feeder Up\/Down",
+      "SourceCell": "F8"
+    },
+    {
+      "MovingName": "InputLifterZ",
+      "CheckName": "Feeder Clamp\/UnClamp",
+      "SourceCell": "G8"
+    },
+    {
+      "MovingName": "InputLifterZ",
+      "CheckName": "InputVisionX",
+      "SourceCell": "K8"
+    },
+    {
+      "MovingName": "InputFeederY",
+      "CheckName": "InputLifterZ",
+      "SourceCell": "D9"
+    },
+    {
+      "MovingName": "InputFeederY",
+      "CheckName": "Feeder Up\/Down",
+      "SourceCell": "F9"
+    },
+    {
+      "MovingName": "InputFeederY",
+      "CheckName": "Feeder Clamp\/UnClamp",
+      "SourceCell": "G9"
+    },
+    {
+      "MovingName": "InputFeederY",
+      "CheckName": "WaferY",
+      "SourceCell": "H9"
+    },
+    {
+      "MovingName": "InputFeederY",
+      "CheckName": "WaferT",
+      "SourceCell": "I9"
+    },
+    {
+      "MovingName": "InputFeederY",
+      "CheckName": "WaferExpandingZ",
+      "SourceCell": "J9"
+    },
+    {
+      "MovingName": "Feeder Up\/Down",
+      "CheckName": "InputLifterZ",
+      "SourceCell": "D10"
+    },
+    {
+      "MovingName": "Feeder Up\/Down",
+      "CheckName": "InputFeederY",
+      "SourceCell": "E10"
+    },
+    {
+      "MovingName": "Feeder Up\/Down",
+      "CheckName": "Feeder Clamp\/UnClamp",
+      "SourceCell": "G10"
+    },
+    {
+      "MovingName": "Feeder Up\/Down",
+      "CheckName": "WaferY",
+      "SourceCell": "H10"
+    },
+    {
+      "MovingName": "Feeder Up\/Down",
+      "CheckName": "WaferT",
+      "SourceCell": "I10"
+    },
+    {
+      "MovingName": "Feeder Up\/Down",
+      "CheckName": "WaferExpandingZ",
+      "SourceCell": "J10"
+    },
+    {
+      "MovingName": "Feeder Clamp\/UnClamp",
+      "CheckName": "InputLifterZ",
+      "SourceCell": "D11"
+    },
+    {
+      "MovingName": "Feeder Clamp\/UnClamp",
+      "CheckName": "InputFeederY",
+      "SourceCell": "E11"
+    },
+    {
+      "MovingName": "Feeder Clamp\/UnClamp",
+      "CheckName": "Feeder Up\/Down",
+      "SourceCell": "F11"
+    },
+    {
+      "MovingName": "Feeder Clamp\/UnClamp",
+      "CheckName": "WaferY",
+      "SourceCell": "H11"
+    },
+    {
+      "MovingName": "Feeder Clamp\/UnClamp",
+      "CheckName": "WaferExpandingZ",
+      "SourceCell": "J11"
+    },
+    {
+      "MovingName": "WaferY",
+      "CheckName": "InputFeederY",
+      "SourceCell": "E12"
+    },
+    {
+      "MovingName": "WaferY",
+      "CheckName": "Feeder Up\/Down",
+      "SourceCell": "F12"
+    },
+    {
+      "MovingName": "WaferY",
+      "CheckName": "Feeder Clamp\/UnClamp",
+      "SourceCell": "G12"
+    },
+    {
+      "MovingName": "WaferY",
+      "CheckName": "WaferExpandingZ",
+      "SourceCell": "J12"
+    },
+    {
+      "MovingName": "WaferY",
+      "CheckName": "NeedleX",
+      "SourceCell": "L12"
+    },
+    {
+      "MovingName": "WaferY",
+      "CheckName": "NeedleZ",
+      "SourceCell": "M12"
+    },
+    {
+      "MovingName": "WaferY",
+      "CheckName": "EjectPinZ",
+      "SourceCell": "N12"
+    },
+    {
+      "MovingName": "WaferT",
+      "CheckName": "InputFeederY",
+      "SourceCell": "E13"
+    },
+    {
+      "MovingName": "WaferT",
+      "CheckName": "Feeder Up\/Down",
+      "SourceCell": "F13"
+    },
+    {
+      "MovingName": "WaferExpandingZ",
+      "CheckName": "InputFeederY",
+      "SourceCell": "E14"
+    },
+    {
+      "MovingName": "WaferExpandingZ",
+      "CheckName": "Feeder Up\/Down",
+      "SourceCell": "F14"
+    },
+    {
+      "MovingName": "InputVisionX",
+      "CheckName": "InputFeederY",
+      "SourceCell": "E15"
+    },
+    {
+      "MovingName": "InputVisionX",
+      "CheckName": "FrontPickerX",
+      "SourceCell": "R15"
+    },
+    {
+      "MovingName": "InputVisionX",
+      "CheckName": "RearPickerX",
+      "SourceCell": "AD15"
+    },
+    {
+      "MovingName": "NeedleX",
+      "CheckName": "WaferY",
+      "SourceCell": "H16"
+    },
+    {
+      "MovingName": "NeedleX",
+      "CheckName": "NeedleZ",
+      "SourceCell": "M16"
+    },
+    {
+      "MovingName": "NeedleX",
+      "CheckName": "EjectPinZ",
+      "SourceCell": "N16"
+    },
+    {
+      "MovingName": "NeedleZ",
+      "CheckName": "WaferY",
+      "SourceCell": "H17"
+    },
+    {
+      "MovingName": "NeedleZ",
+      "CheckName": "NeedleX",
+      "SourceCell": "L17"
+    },
+    {
+      "MovingName": "EjectPinZ",
+      "CheckName": "WaferY",
+      "SourceCell": "H18"
+    },
+    {
+      "MovingName": "EjectPinZ",
+      "CheckName": "NeedleX",
+      "SourceCell": "L18"
+    },
+    {
+      "MovingName": "Reticle Up\/Down",
+      "CheckName": "Reticle Front FW\/BW",
+      "SourceCell": "P19"
+    },
+    {
+      "MovingName": "Reticle Up\/Down",
+      "CheckName": "Reticle Back FW\/BW",
+      "SourceCell": "Q19"
+    },
+    {
+      "MovingName": "Reticle Up\/Down",
+      "CheckName": "FrontPickerZ0",
+      "SourceCell": "U19"
+    },
+    {
+      "MovingName": "Reticle Up\/Down",
+      "CheckName": "FrontPickerZ1",
+      "SourceCell": "W19"
+    },
+    {
+      "MovingName": "Reticle Up\/Down",
+      "CheckName": "FrontPickerZ2",
+      "SourceCell": "Y19"
+    },
+    {
+      "MovingName": "Reticle Up\/Down",
+      "CheckName": "FrontPickerZ3",
+      "SourceCell": "AA19"
+    },
+    {
+      "MovingName": "Reticle Up\/Down",
+      "CheckName": "RearPickerZ0",
+      "SourceCell": "AG19"
+    },
+    {
+      "MovingName": "Reticle Up\/Down",
+      "CheckName": "RearPickerZ1",
+      "SourceCell": "AI19"
+    },
+    {
+      "MovingName": "Reticle Up\/Down",
+      "CheckName": "RearPickerZ2",
+      "SourceCell": "AK19"
+    },
+    {
+      "MovingName": "Reticle Up\/Down",
+      "CheckName": "RearPickerZ3",
+      "SourceCell": "AM19"
+    },
+    {
+      "MovingName": "Reticle Front FW\/BW",
+      "CheckName": "Reticle Up\/Down",
+      "SourceCell": "O20"
+    },
+    {
+      "MovingName": "Reticle Front FW\/BW",
+      "CheckName": "FrontPickerZ0",
+      "SourceCell": "U20"
+    },
+    {
+      "MovingName": "Reticle Front FW\/BW",
+      "CheckName": "FrontPickerZ1",
+      "SourceCell": "W20"
+    },
+    {
+      "MovingName": "Reticle Front FW\/BW",
+      "CheckName": "FrontPickerZ2",
+      "SourceCell": "Y20"
+    },
+    {
+      "MovingName": "Reticle Front FW\/BW",
+      "CheckName": "FrontPickerZ3",
+      "SourceCell": "AA20"
+    },
+    {
+      "MovingName": "Reticle Front FW\/BW",
+      "CheckName": "RearPickerZ0",
+      "SourceCell": "AG20"
+    },
+    {
+      "MovingName": "Reticle Front FW\/BW",
+      "CheckName": "RearPickerZ1",
+      "SourceCell": "AI20"
+    },
+    {
+      "MovingName": "Reticle Front FW\/BW",
+      "CheckName": "RearPickerZ2",
+      "SourceCell": "AK20"
+    },
+    {
+      "MovingName": "Reticle Front FW\/BW",
+      "CheckName": "RearPickerZ3",
+      "SourceCell": "AM20"
+    },
+    {
+      "MovingName": "Reticle Back FW\/BW",
+      "CheckName": "Reticle Up\/Down",
+      "SourceCell": "O21"
+    },
+    {
+      "MovingName": "Reticle Back FW\/BW",
+      "CheckName": "FrontPickerZ0",
+      "SourceCell": "U21"
+    },
+    {
+      "MovingName": "Reticle Back FW\/BW",
+      "CheckName": "FrontPickerZ1",
+      "SourceCell": "W21"
+    },
+    {
+      "MovingName": "Reticle Back FW\/BW",
+      "CheckName": "FrontPickerZ2",
+      "SourceCell": "Y21"
+    },
+    {
+      "MovingName": "Reticle Back FW\/BW",
+      "CheckName": "FrontPickerZ3",
+      "SourceCell": "AA21"
+    },
+    {
+      "MovingName": "Reticle Back FW\/BW",
+      "CheckName": "RearPickerZ0",
+      "SourceCell": "AG21"
+    },
+    {
+      "MovingName": "Reticle Back FW\/BW",
+      "CheckName": "RearPickerZ1",
+      "SourceCell": "AI21"
+    },
+    {
+      "MovingName": "Reticle Back FW\/BW",
+      "CheckName": "RearPickerZ2",
+      "SourceCell": "AK21"
+    },
+    {
+      "MovingName": "Reticle Back FW\/BW",
+      "CheckName": "RearPickerZ3",
+      "SourceCell": "AM21"
+    },
+    {
+      "MovingName": "FrontPickerX",
+      "CheckName": "InputFeederY",
+      "SourceCell": "E22"
+    },
+    {
+      "MovingName": "FrontPickerX",
+      "CheckName": "InputVisionX",
+      "SourceCell": "K22"
+    },
+    {
+      "MovingName": "FrontPickerX",
+      "CheckName": "Reticle Up\/Down",
+      "SourceCell": "O22"
+    },
+    {
+      "MovingName": "FrontPickerX",
+      "CheckName": "Reticle Front FW\/BW",
+      "SourceCell": "P22"
+    },
+    {
+      "MovingName": "FrontPickerX",
+      "CheckName": "Reticle Back FW\/BW",
+      "SourceCell": "Q22"
+    },
+    {
+      "MovingName": "FrontPickerX",
+      "CheckName": "RearPickerX",
+      "SourceCell": "AD22"
+    },
+    {
+      "MovingName": "FrontPickerY",
+      "CheckName": "Reticle Up\/Down",
+      "SourceCell": "O23"
+    },
+    {
+      "MovingName": "FrontPickerY",
+      "CheckName": "Reticle Front FW\/BW",
+      "SourceCell": "P23"
+    },
+    {
+      "MovingName": "FrontPickerY",
+      "CheckName": "Reticle Back FW\/BW",
+      "SourceCell": "Q23"
+    },
+    {
+      "MovingName": "FrontPickerY",
+      "CheckName": "RearPickerY",
+      "SourceCell": "AE23"
+    },
+    {
+      "MovingName": "NgBinY",
+      "CheckName": "FrontPickerZ0",
+      "SourceCell": "U46"
+    },
+    {
+      "MovingName": "NgBinY",
+      "CheckName": "FrontPickerZ1",
+      "SourceCell": "W46"
+    },
+    {
+      "MovingName": "NgBinY",
+      "CheckName": "FrontPickerZ2",
+      "SourceCell": "Y46"
+    },
+    {
+      "MovingName": "NgBinY",
+      "CheckName": "FrontPickerZ3",
+      "SourceCell": "AA46"
+    },
+    {
+      "MovingName": "NgBinY",
+      "CheckName": "RearPickerZ0",
+      "SourceCell": "AG46"
+    },
+    {
+      "MovingName": "NgBinY",
+      "CheckName": "RearPickerZ1",
+      "SourceCell": "AI46"
+    },
+    {
+      "MovingName": "NgBinY",
+      "CheckName": "RearPickerZ2",
+      "SourceCell": "AK46"
+    },
+    {
+      "MovingName": "NgBinY",
+      "CheckName": "RearPickerZ3",
+      "SourceCell": "AM46"
+    },
+    {
+      "MovingName": "NgBinY",
+      "CheckName": "GoodBinGuide Up\/Down",
+      "SourceCell": "AR46"
+    },
+    {
+      "MovingName": "NgBinY",
+      "CheckName": "GoodBinClamp Up\/Down",
+      "SourceCell": "AS46"
+    },
+    {
+      "MovingName": "NgBinY",
+      "CheckName": "GoodBin Clamp\/UnClamp",
+      "SourceCell": "AT46"
+    },
+    {
+      "MovingName": "NgBinY",
+      "CheckName": "NgBinGuide Up\/Down",
+      "SourceCell": "AU46"
+    },
+    {
+      "MovingName": "NgBinY",
+      "CheckName": "NgBinClamp Up\/Down",
+      "SourceCell": "AV46"
+    },
+    {
+      "MovingName": "NgBinY",
+      "CheckName": "NgBin Clamp\/UnClamp",
+      "SourceCell": "AW46"
+    },
+    {
+      "MovingName": "NgBinY",
+      "CheckName": "OutputFeederY",
+      "SourceCell": "AX46"
+    },
+    {
+      "MovingName": "NgBinY",
+      "CheckName": "OutputFeeder Up\/Down",
+      "SourceCell": "AY46"
+    },
+    {
+      "MovingName": "NgBinY",
+      "CheckName": "OutputFeeder Clamp\/UnClamp",
+      "SourceCell": "AZ46"
+    },
+    {
+      "MovingName": "OutputVisionX",
+      "CheckName": "FrontPickerX",
+      "SourceCell": "R47"
+    },
+    {
+      "MovingName": "OutputVisionX",
+      "CheckName": "RearPickerX",
+      "SourceCell": "AD47"
+    },
+    {
+      "MovingName": "OutputFeederY",
+      "CheckName": "FrontPickerX",
+      "SourceCell": "R54"
+    },
+    {
+      "MovingName": "OutputFeederY",
+      "CheckName": "RearPickerX",
+      "SourceCell": "AD54"
+    },
+    {
+      "MovingName": "OutputFeederY",
+      "CheckName": "OutputVisionX",
+      "SourceCell": "AQ54"
+    },
+    {
+      "MovingName": "OutputFeederY",
+      "CheckName": "OutputFeeder Up\/Down",
+      "SourceCell": "AY54"
+    },
+    {
+      "MovingName": "OutputFeederY",
+      "CheckName": "OutputFeeder Clamp\/UnClamp",
+      "SourceCell": "AZ54"
+    },
+    {
+      "MovingName": "OutputFeederY",
+      "CheckName": "OutputLifterZ",
+      "SourceCell": "BA54"
+    },
+    {
+      "MovingName": "OutputFeeder Up\/Down",
+      "CheckName": "OutputFeederY",
+      "SourceCell": "AX55"
+    },
+    {
+      "MovingName": "OutputFeeder Up\/Down",
+      "CheckName": "OutputFeeder Clamp\/UnClamp",
+      "SourceCell": "AZ55"
+    },
+    {
+      "MovingName": "OutputFeeder Up\/Down",
+      "CheckName": "OutputLifterZ",
+      "SourceCell": "BA55"
+    },
+    {
+      "MovingName": "OutputFeeder Clamp\/UnClamp",
+      "CheckName": "OutputFeederY",
+      "SourceCell": "AX56"
+    },
+    {
+      "MovingName": "OutputFeeder Clamp\/UnClamp",
+      "CheckName": "OutputFeeder Up\/Down",
+      "SourceCell": "AY56"
+    },
+    {
+      "MovingName": "OutputFeeder Clamp\/UnClamp",
+      "CheckName": "OutputLifterZ",
+      "SourceCell": "BA56"
+    },
+    {
+      "MovingName": "OutputLifterZ",
+      "CheckName": "OutputFeederY",
+      "SourceCell": "AX57"
+    },
+    {
+      "MovingName": "OutputLifterZ",
+      "CheckName": "OutputFeeder Up\/Down",
+      "SourceCell": "AY57"
+    },
+    {
+      "MovingName": "OutputLifterZ",
+      "CheckName": "OutputFeeder Clamp\/UnClamp",
+      "SourceCell": "AZ57"
+    }
+  ]
+}

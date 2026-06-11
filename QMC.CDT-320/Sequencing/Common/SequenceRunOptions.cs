@@ -21,6 +21,32 @@ namespace QMC.CDT320.Sequencing
             };
         }
 
+        /// <summary>현재 공정 자동 운전에 필요한 Input/Picker/Output 유닛을 자동 모드로 실행하는 옵션을 생성합니다.</summary>
+        public static SequenceRunOptions ProcessAuto()
+        {
+            return new SequenceRunOptions
+            {
+                Units = SequenceUnitKind.InputLoader |
+                        SequenceUnitKind.TpuLeft |
+                        SequenceUnitKind.TpuRight |
+                        SequenceUnitKind.OutputUnloader,
+                Mode = SequenceRunMode.Auto
+            };
+        }
+
+        /// <summary>현재 공정 자동 운전에 필요한 Input/Picker/Output 유닛을 Step 모드로 실행하는 옵션을 생성합니다.</summary>
+        public static SequenceRunOptions ProcessStep()
+        {
+            return new SequenceRunOptions
+            {
+                Units = SequenceUnitKind.InputLoader |
+                        SequenceUnitKind.TpuLeft |
+                        SequenceUnitKind.TpuRight |
+                        SequenceUnitKind.OutputUnloader,
+                Mode = SequenceRunMode.Step
+            };
+        }
+
         /// <summary>지정한 단일 유닛을 지정 모드로 실행하는 옵션을 생성합니다.</summary>
         public static SequenceRunOptions Single(SequenceUnitKind unit, SequenceRunMode mode)
         {

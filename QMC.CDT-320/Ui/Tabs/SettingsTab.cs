@@ -162,6 +162,29 @@ namespace QMC.CDT_320.Ui.Tabs
 
             private static string CylinderState(CylMap map, CylinderDefault item)
             {
+                try
+                {
+                    BaseCylinder cylinder = item != null ? CylinderManager.Get(item.Name) : null;
+                    if (cylinder != null)
+                    {
+                        string fwdLabel = "FWD";
+                        string bwdLabel = "BWD";
+                        CylinderItemSettings settings = CylinderSettingsStore.Get(item.Name);
+                        if (settings != null)
+                        {
+                            if (!string.IsNullOrWhiteSpace(settings.FwdLabel)) fwdLabel = settings.FwdLabel.Trim();
+                            if (!string.IsNullOrWhiteSpace(settings.BwdLabel)) bwdLabel = settings.BwdLabel.Trim();
+                        }
+
+                        if (cylinder.IsFwd && !cylinder.IsBwd) return fwdLabel;
+                        if (!cylinder.IsFwd && cylinder.IsBwd) return bwdLabel;
+                        if (cylinder.IsFwd && cylinder.IsBwd) return fwdLabel + "/" + bwdLabel;
+                    }
+                }
+                catch
+                {
+                }
+
                 bool fwd = IsOn(map != null && map.UseFwdInput ? map.InFwd : null, item != null ? item.InFwd : null, false);
                 bool bwd = IsOn(map != null && map.UseBwdInput ? map.InBwd : null, item != null ? item.InBwd : null, false);
                 if (fwd && !bwd) return "FWD";

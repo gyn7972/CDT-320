@@ -12,6 +12,13 @@ namespace QMC.CDT320.Sequencing
         CheckTransferReady,
         CheckOutputStageBinData,
         CheckFeederEmpty,
+        EnsureOutputVisionAvoid,
+        EnsurePickerAvoidPosition,
+        EnsureStageMutualInterlock,
+        MoveOutputStageUnloadPosition,
+        EnsureOutputStageGuideUp,
+        EnsureOutputStageClampLiftDown,
+        EnsureOutputStageUnclamp,
         MoveFeederStageUnloadPosition,
         PrepareFeederLiftUp,
         ClampFeederBin,
@@ -52,6 +59,27 @@ namespace QMC.CDT320.Sequencing
 
                     case OutputFeederUnloadFromStageStep.CheckFeederEmpty:
                         return Task.FromResult(CheckFeederEmpty());
+
+                    case OutputFeederUnloadFromStageStep.EnsureOutputVisionAvoid:
+                        return EnsureOutputVisionAvoidAsync(ct);
+
+                    case OutputFeederUnloadFromStageStep.EnsurePickerAvoidPosition:
+                        return EnsurePickerAvoidPositionAsync(ct);
+
+                    case OutputFeederUnloadFromStageStep.EnsureStageMutualInterlock:
+                        return EnsureStageMutualInterlockAsync(ct);
+
+                    case OutputFeederUnloadFromStageStep.MoveOutputStageUnloadPosition:
+                        return MoveOutputStageUnloadPositionAsync(ct);
+
+                    case OutputFeederUnloadFromStageStep.EnsureOutputStageGuideUp:
+                        return EnsureOutputStageGuideUpAsync(ct);
+
+                    case OutputFeederUnloadFromStageStep.EnsureOutputStageClampLiftDown:
+                        return EnsureOutputStageClampLiftDownAsync(ct);
+
+                    case OutputFeederUnloadFromStageStep.EnsureOutputStageUnclamp:
+                        return EnsureOutputStageUnclampAsync(ct);
 
                     case OutputFeederUnloadFromStageStep.MoveFeederStageUnloadPosition:
                         return MoveFeederStageUnloadPositionAsync(ct);
@@ -106,6 +134,124 @@ namespace QMC.CDT320.Sequencing
             if (!IsHardwareBypass() && !Feeder.IsFeederEmpty())
                 return Fail("OUT-FEEDER-SENSOR-OCCUPIED", Feeder.Name, "Output feeder sensor must be empty before stage unload.");
 
+            CurrentStep = OutputFeederUnloadFromStageStep.EnsureOutputVisionAvoid;
+            return 0;
+        }
+
+        private async Task<int> EnsureOutputVisionAvoidAsync(CancellationToken ct)
+        {
+            if (Stage == null)
+                return Fail("OUT-STAGE-MISSING", "OutputStage", "Output stage unit is not available. side=" + Options.Side);
+
+            if (!Stage.IsVisionXInAvoidPosition())
+            {
+                int result = await AwaitStepWithCancellationAsync(Stage.MoveVisionXToAvoidAndVerifyAsync(ResolveTimeout(), Options.FineMove), ct).ConfigureAwait(false);
+                if (result != 0)
+                    return Fail("OUT-STAGE-VISION-AVOID", Stage.Name, "OutputVisionX avoid move failed before stage unload. side=" + Options.Side + ", result=" + result);
+            }
+
+            if (!Stage.IsVisionXInAvoidPosition())
+                return Fail("OUT-STAGE-VISION-AVOID", Stage.Name, "OutputVisionX is not in avoid position before stage unload. side=" + Options.Side);
+
+            CurrentStep = OutputFeederUnloadFromStageStep.EnsurePickerAvoidPosition;
+            return 0;
+        }
+
+        private async Task<int> EnsurePickerAvoidPositionAsync(CancellationToken ct)
+        {
+            if (FrontPicker != null && !FrontPicker.IsFrontPickerInAvoidPosition())
+            {
+                int result = await AwaitStepWithCancellationAsync(FrontPicker.MoveToFrontPickerAvoidPosition(Options.FineMove), ct).ConfigureAwait(false);
+                if (result != 0)
+                    return Fail("OUT-FEEDER-FRONT-PICKER-AVOID", FrontPicker.Name, "FrontPicker avoid move command failed before stage unload. result=" + result);
+
+                bool arrived = await WaitUntilAsync(() => FrontPicker.IsFrontPickerInAvoidPosition(), ResolveTimeout(), ct).ConfigureAwait(false);
+                if (!arrived)
+                    return Fail("OUT-FEEDER-FRONT-PICKER-AVOID", FrontPicker.Name, "FrontPicker avoid position timeout before stage unload.");
+            }
+
+            if (RearPicker != null && !RearPicker.IsRearPickerInAvoidPosition())
+            {
+                int result = await AwaitStepWithCancellationAsync(RearPicker.MoveToRearPickerAvoidPosition(Options.FineMove), ct).ConfigureAwait(false);
+                if (result != 0)
+                    return Fail("OUT-FEEDER-REAR-PICKER-AVOID", RearPicker.Name, "RearPicker avoid move command failed before stage unload. result=" + result);
+
+                bool arrived = await WaitUntilAsync(() => RearPicker.IsRearPickerInAvoidPosition(), ResolveTimeout(), ct).ConfigureAwait(false);
+                if (!arrived)
+                    return Fail("OUT-FEEDER-REAR-PICKER-AVOID", RearPicker.Name, "RearPicker avoid position timeout before stage unload.");
+            }
+
+            CurrentStep = OutputFeederUnloadFromStageStep.EnsureStageMutualInterlock;
+            return 0;
+        }
+
+        private async Task<int> EnsureStageMutualInterlockAsync(CancellationToken ct)
+        {
+            int result = await AwaitStepWithCancellationAsync(Stage.EnsureStageMutualInterlockForLoadAsync(Options.Side, ResolveTimeout(), Options.FineMove), ct).ConfigureAwait(false);
+            if (result != 0)
+                return Fail("OUT-STAGE-UNLOAD-INTERLOCK", Stage.Name, "Output stage mutual interlock failed before stage unload. side=" + Options.Side + ", result=" + result);
+
+            if (!Stage.IsBinGuideClampLiftUp(BinSide.Ng))
+                return Fail("OUT-STAGE-NG-CLAMP-UP", Stage.Name, "NG stage clamp lift must be up before stage unload movement. side=" + Options.Side);
+
+            if (!Stage.IsGoodStageZInAvoidOrProcessPosition())
+                return Fail("OUT-STAGE-GOOD-Z-SAFE", Stage.Name, "Good stage Z must be avoid or process before stage unload movement. side=" + Options.Side);
+
+            if (Options.Side != BinSide.Ng && !Stage.IsNgStageInAvoidPosition())
+                return Fail("OUT-STAGE-NG-AVOID", Stage.Name, "NG stage must be avoid before GOOD stage unload.");
+
+            CurrentStep = OutputFeederUnloadFromStageStep.MoveOutputStageUnloadPosition;
+            return 0;
+        }
+
+        private async Task<int> MoveOutputStageUnloadPositionAsync(CancellationToken ct)
+        {
+            int result = await AwaitStepWithCancellationAsync(Stage.MoveToStageUnloadPositionAndVerifyAsync(Options.Side, ResolveTimeout(), Options.FineMove), ct).ConfigureAwait(false);
+            if (result != 0)
+                return Fail("OUT-STAGE-UNLOAD-POS", Stage.Name, "Output stage unload position move failed. side=" + Options.Side + ", result=" + result);
+
+            if (!Stage.IsStageInUnloadPosition(Options.Side))
+                return Fail("OUT-STAGE-UNLOAD-POS", Stage.Name, "Output stage is not in unload position after move. side=" + Options.Side);
+
+            CurrentStep = OutputFeederUnloadFromStageStep.EnsureOutputStageGuideUp;
+            return 0;
+        }
+
+        private async Task<int> EnsureOutputStageGuideUpAsync(CancellationToken ct)
+        {
+            int result = await AwaitStepWithCancellationAsync(Stage.EnsureBinGuideUpAsync(Options.Side, ResolveTimeout()), ct).ConfigureAwait(false);
+            if (result != 0)
+                return Fail("OUT-STAGE-GUIDE-UP", Stage.Name, "Output stage bin guide up failed before stage unload. side=" + Options.Side + ", result=" + result);
+
+            if (!Stage.IsBinGuideUp(Options.Side))
+                return Fail("OUT-STAGE-GUIDE-UP", Stage.Name, "Output stage bin guide is not up before stage unload. side=" + Options.Side);
+
+            CurrentStep = OutputFeederUnloadFromStageStep.EnsureOutputStageClampLiftDown;
+            return 0;
+        }
+
+        private async Task<int> EnsureOutputStageClampLiftDownAsync(CancellationToken ct)
+        {
+            int result = await AwaitStepWithCancellationAsync(Stage.EnsureBinGuideClampLiftDownAsync(Options.Side, ResolveTimeout()), ct).ConfigureAwait(false);
+            if (result != 0)
+                return Fail("OUT-STAGE-CLAMP-DOWN", Stage.Name, "Output stage bin clamp lift down failed before stage unload. side=" + Options.Side + ", result=" + result);
+
+            if (!Stage.IsBinGuideClampLiftDown(Options.Side))
+                return Fail("OUT-STAGE-CLAMP-DOWN", Stage.Name, "Output stage bin clamp lift is not down before stage unload. side=" + Options.Side);
+
+            CurrentStep = OutputFeederUnloadFromStageStep.EnsureOutputStageUnclamp;
+            return 0;
+        }
+
+        private async Task<int> EnsureOutputStageUnclampAsync(CancellationToken ct)
+        {
+            int result = await AwaitStepWithCancellationAsync(Stage.EnsureBinGuideUnclampedAsync(Options.Side, ResolveTimeout()), ct).ConfigureAwait(false);
+            if (result != 0)
+                return Fail("OUT-STAGE-UNCLAMP", Stage.Name, "Output stage bin guide unclamp failed before stage unload. side=" + Options.Side + ", result=" + result);
+
+            if (!Stage.IsBinGuideUnclamped(Options.Side))
+                return Fail("OUT-STAGE-UNCLAMP", Stage.Name, "Output stage bin guide is not unclamped before stage unload. side=" + Options.Side);
+
             CurrentStep = OutputFeederUnloadFromStageStep.MoveFeederStageUnloadPosition;
             return 0;
         }
@@ -142,6 +288,9 @@ namespace QMC.CDT320.Sequencing
             int result = await AwaitStepWithCancellationAsync(Feeder.SetFeederClampAsync(true, ResolveTimeout()), ct).ConfigureAwait(false);
             if (result != 0)
                 return Fail("OUT-FEEDER-CLAMP", Feeder.Name, "Output feeder clamp failed. result=" + result);
+
+            if (Feeder.IsFeederUnclamped())
+                return Fail("OUT-FEEDER-CLAMP", Feeder.Name, "Output feeder clamp final check failed. side=" + Options.Side);
 
             CurrentStep = OutputFeederUnloadFromStageStep.VerifyBinDetected;
             return 0;

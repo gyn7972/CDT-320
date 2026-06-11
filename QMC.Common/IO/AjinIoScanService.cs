@@ -20,6 +20,10 @@ namespace QMC.Common.IO
 
     public sealed class AjinIoScanService : IDisposable
     {
+        private static readonly object SimulationGate = new object();
+        private static readonly Dictionary<string, bool> SimulationStates =
+            new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+
         private readonly object _gate = new object();
         private readonly Dictionary<string, AjinIoSnapshot> _latest =
             new Dictionary<string, AjinIoSnapshot>(StringComparer.OrdinalIgnoreCase);
@@ -209,6 +213,115 @@ namespace QMC.Common.IO
             return true;
         }
 
+        public static void SetSimulatedState(BaseDigitalInput input, bool logicalState)
+        {
+            if (input == null) return;
+
+            SetSimulatedState(
+                input.Name,
+                input.Setup.ModuleNo,
+                input.Setup.BitNo,
+                false,
+                logicalState,
+                input.Setup.IsNormallyClosed);
+        }
+
+        public static void SetSimulatedInput(
+            string name,
+            int module,
+            int bit,
+            bool logicalState,
+            bool nc)
+        {
+            SetSimulatedState(name, module, bit, false, logicalState, nc);
+        }
+
+        public static void SetSimulatedState(BaseDigitalOutput output, bool logicalState)
+        {
+            if (output == null) return;
+
+            SetSimulatedState(
+                output.Name,
+                output.Setup.ModuleNo,
+                output.Setup.BitNo,
+                true,
+                logicalState,
+                output.Setup.IsNormallyClosed);
+        }
+
+        public static void SetSimulatedOutput(
+            string name,
+            int module,
+            int bit,
+            bool logicalState,
+            bool nc)
+        {
+            SetSimulatedState(name, module, bit, true, logicalState, nc);
+        }
+
+        public static bool TryGetSimulatedState(BaseDigitalInput input, out bool logicalState)
+        {
+            logicalState = false;
+            if (input == null) return false;
+
+            return TryGetSimulatedState(
+                input.Setup.ModuleNo,
+                input.Setup.BitNo,
+                false,
+                out logicalState);
+        }
+
+        public static bool TryGetSimulatedState(BaseDigitalOutput output, out bool logicalState)
+        {
+            logicalState = false;
+            if (output == null) return false;
+
+            return TryGetSimulatedState(
+                output.Setup.ModuleNo,
+                output.Setup.BitNo,
+                true,
+                out logicalState);
+        }
+
+        private static void SetSimulatedState(
+            string name,
+            int module,
+            int bit,
+            bool isOutput,
+            bool logicalState,
+            bool nc)
+        {
+            if (IsValidPoint(module, bit))
+            {
+                string key = MakeKey(module, bit, isOutput);
+                lock (SimulationGate)
+                {
+                    SimulationStates[key] = logicalState;
+                }
+            }
+
+            AjinIoScanService current = Current;
+            if (current != null)
+                current.UpdateCached(name, module, bit, isOutput, logicalState, nc, 0);
+        }
+
+        private static bool TryGetSimulatedState(
+            int module,
+            int bit,
+            bool isOutput,
+            out bool logicalState)
+        {
+            logicalState = false;
+            if (!IsValidPoint(module, bit))
+                return false;
+
+            string key = MakeKey(module, bit, isOutput);
+            lock (SimulationGate)
+            {
+                return SimulationStates.TryGetValue(key, out logicalState);
+            }
+        }
+
         public static int WriteOutput(BaseDigitalOutput output, bool logicalState)
         {
             if (output == null) return -1;
@@ -278,7 +391,16 @@ namespace QMC.Common.IO
             if (input == null) return BuildSnapshot(string.Empty, 0, 0, false, false, false, -1);
 
             if (input.Config.IsSimulationMode || !hardwareOpen)
-                return UpdateCached(input.Name, input.Setup.ModuleNo, input.Setup.BitNo, false, input.IsOn, input.Setup.IsNormallyClosed, 0);
+            {
+                bool simulatedLogical = input.IsOn;
+                bool hasSimulatedState = TryGetSimulatedState(input, out simulatedLogical);
+                if (hasSimulatedState)
+                    input.ApplyScannedState(simulatedLogical);
+                else
+                    SetSimulatedState(input, simulatedLogical);
+
+                return UpdateCached(input.Name, input.Setup.ModuleNo, input.Setup.BitNo, false, simulatedLogical, input.Setup.IsNormallyClosed, 0);
+            }
 
             bool raw = false;
             int ret;
@@ -297,7 +419,16 @@ namespace QMC.Common.IO
             if (output == null) return BuildSnapshot(string.Empty, 0, 0, true, false, false, -1);
 
             if (output.Config.IsSimulationMode || !hardwareOpen)
-                return UpdateCached(output.Name, output.Setup.ModuleNo, output.Setup.BitNo, true, output.IsOn, output.Setup.IsNormallyClosed, 0);
+            {
+                bool simulatedLogical = output.IsOn;
+                bool hasSimulatedState = TryGetSimulatedState(output, out simulatedLogical);
+                if (hasSimulatedState)
+                    output.ApplyScannedState(simulatedLogical);
+                else
+                    SetSimulatedState(output, simulatedLogical);
+
+                return UpdateCached(output.Name, output.Setup.ModuleNo, output.Setup.BitNo, true, simulatedLogical, output.Setup.IsNormallyClosed, 0);
+            }
 
             bool raw = false;
             int ret;
@@ -317,7 +448,8 @@ namespace QMC.Common.IO
             lock (_gate)
             {
                 _latest[name] = snapshot;
-                _latest[MakeKey(module, bit, isOutput)] = snapshot;
+                if (IsValidPoint(module, bit))
+                    _latest[MakeKey(module, bit, isOutput)] = snapshot;
             }
             return snapshot;
         }
@@ -340,6 +472,11 @@ namespace QMC.Common.IO
         private static string MakeKey(int module, int bit, bool isOutput)
         {
             return (isOutput ? "O:" : "I:") + module + ":" + bit;
+        }
+
+        private static bool IsValidPoint(int module, int bit)
+        {
+            return module >= 0 && bit >= 0;
         }
 
         private static bool HasSimulationPorts(IReadOnlyList<BaseDigitalInput> inputs, IReadOnlyList<BaseDigitalOutput> outputs)

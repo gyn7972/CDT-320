@@ -11,7 +11,7 @@ using QMC.CDT_320.Ui.Localization;
 
 namespace QMC.CDT_320.Ui.Pages.Work
 {
-    public partial class MapTransferPage : PageBase
+    public partial class InputStageMapTransferPage : PageBase
     {
         private Timer _refresh;
         private string _i18nTitle;
@@ -19,11 +19,11 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private DieMapEntry _selectedEntry;
         private bool _pickStatusDirty;
 
-        public MapTransferPage() : this("work.page.inputMap")
+        public InputStageMapTransferPage() : this("work.page.inputMap")
         {
         }
 
-        public MapTransferPage(string titleI18n)
+        public InputStageMapTransferPage(string titleI18n)
         {
             _i18nTitle = titleI18n;
             InitializeComponent();
@@ -166,7 +166,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                         LotStorage.ActiveInputDieMap = map;
                         var host = FindForm() as Form1;
                         if (host != null && host.Controller != null)
-                            host.Controller.ApplyInputDieMap(map, "MapTransferPage.RestoreSavedInputDieMap");
+                            host.Controller.ApplyInputDieMap(map, "InputStageMapTransferPage.RestoreSavedInputDieMap");
                     }
                 }
 
@@ -218,7 +218,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
             catch (Exception ex)
             {
-                QMC.Common.Log.Write("Main", "SYSTEM", "MapTransferPage",
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
                     "Input stage saved material restore failed: " + ex.Message + " - Failed");
             }
             finally
@@ -428,7 +428,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 PersistPickStatusToMaterialState(map);
                 var host = FindForm() as Form1;
                 if (host != null && host.Controller != null)
-                    host.Controller.ApplyInputDieMap(map, "MapTransferPage.SavePickStatus");
+                    host.Controller.ApplyInputDieMap(map, "InputStageMapTransferPage.SavePickStatus");
 
                 _pickStatusDirty = false;
                 RefreshDieGrid();
@@ -497,7 +497,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
             catch (Exception ex)
             {
-                QMC.Common.Log.Write("Main", "SYSTEM", "MapTransferPage",
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
                     "Pick status material save failed: " + ex.Message + " - Failed");
             }
             finally
@@ -542,7 +542,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
             catch (Exception ex)
             {
-                QMC.Common.Log.Write("Main", "SYSTEM", "MapTransferPage",
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
                     actionName + " failed: " + ex.Message + " - Failed");
                 QMC.Common.MessageDialog.Show(this, actionName + " 실패:\r\n" + ex.Message,
                     "Input Map", MessageBoxButtons.OK, MessageBoxIcon.Error);
@@ -575,14 +575,14 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 wafer.UpdatedAt = DateTime.Now;
                 MaterialStateService.NotifyAndSave("MapTransferManualAlignComplete");
                 lblBarcodeValue.Text = wafer.WaferId;
-                QMC.Common.Log.Write("Main", "SYSTEM", "MapTransferPage",
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
                     "Manual align complete saved. wafer=" + wafer.WaferId + " - Ok");
                 QMC.Common.MessageDialog.Show(this, "Manual Align Complete 저장 완료.",
                     "Input Map", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
-                QMC.Common.Log.Write("Main", "SYSTEM", "MapTransferPage",
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
                     "Manual align complete failed: " + ex.Message + " - Failed");
                 QMC.Common.MessageDialog.Show(this, "Manual Align Complete 실패:\r\n" + ex.Message,
                     "Input Map", MessageBoxButtons.OK, MessageBoxIcon.Error);
@@ -596,7 +596,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
         {
             try
             {
-                QMC.Common.Log.Write("Main", "SYSTEM", "MapTransferPage",
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
                     actionName + " blocked: " + message + " - Check");
                 QMC.Common.MessageDialog.Show(this, message,
                     "Input Map", MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -671,7 +671,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
             catch (Exception ex)
             {
-                QMC.Common.Log.Write("Main", "SYSTEM", "MapTransferPage",
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
                     "InputStage sequence option parameter apply failed: " + ex.Message + " - Failed");
             }
             finally
@@ -891,3 +891,4 @@ namespace QMC.CDT_320.Ui.Pages.Work
         }
     }
 }
+

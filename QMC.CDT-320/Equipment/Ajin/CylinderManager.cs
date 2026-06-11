@@ -10,6 +10,9 @@ namespace QMC.CDT320.Ajin
         private static readonly Dictionary<string, BaseCylinder> _items =
             new Dictionary<string, BaseCylinder>(StringComparer.OrdinalIgnoreCase);
 
+        private static readonly Dictionary<string, string> _appliedMappingKeys =
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
         public static IReadOnlyDictionary<string, BaseCylinder> Items { get { return _items; } }
 
         public static void Initialize()
@@ -17,13 +20,14 @@ namespace QMC.CDT320.Ajin
             try
             {
                 _items.Clear();
+                _appliedMappingKeys.Clear();
                 CylinderSettingsStore.Load();
 
                 foreach (CylinderDefault item in AjinIoCatalog.Cylinders)
                 {
                     if (item == null || string.IsNullOrWhiteSpace(item.Name)) continue;
                     BaseCylinder cylinder = AjinFactory.CreateCylinder(item);
-                    ApplyMappingToCylinder(item.Name, cylinder);
+                    ApplyMappingToCylinder(item.Name, cylinder, true);
                     CylinderSettingsStore.Apply(cylinder);
                     _items[item.Name] = cylinder;
                 }
@@ -67,14 +71,14 @@ namespace QMC.CDT320.Ajin
                 BaseCylinder cylinder;
                 if (_items.TryGetValue(name, out cylinder) && cylinder != null)
                 {
-                    ApplyMappingToCylinder(name, cylinder);
+                    ApplyMappingToCylinder(name, cylinder, false);
                     CylinderSettingsStore.Apply(cylinder);
                     return cylinder;
                 }
 
                 CylinderDefault catalog = AjinIoCatalog.FindCylinder(name);
                 cylinder = catalog == null ? new SimCylinder(name) : AjinFactory.CreateCylinder(catalog);
-                ApplyMappingToCylinder(name, cylinder);
+                ApplyMappingToCylinder(name, cylinder, true);
                 CylinderSettingsStore.Apply(cylinder);
                 _items[name] = cylinder;
                 return cylinder;
@@ -109,7 +113,7 @@ namespace QMC.CDT320.Ajin
             {
                 foreach (var pair in _items)
                 {
-                    ApplyMappingToCylinder(pair.Key, pair.Value);
+                    ApplyMappingToCylinder(pair.Key, pair.Value, true);
                     CylinderSettingsStore.Apply(pair.Value);
                 }
             }
@@ -124,7 +128,7 @@ namespace QMC.CDT320.Ajin
             }
         }
 
-        private static void ApplyMappingToCylinder(string name, BaseCylinder cylinder)
+        private static void ApplyMappingToCylinder(string name, BaseCylinder cylinder, bool force)
         {
             if (cylinder == null || string.IsNullOrWhiteSpace(name))
                 return;
@@ -140,12 +144,23 @@ namespace QMC.CDT320.Ajin
                 return;
             }
 
+            string mappingKey = BuildMappingKey(map);
+            string appliedKey;
+            if (!force &&
+                _appliedMappingKeys.TryGetValue(name, out appliedKey) &&
+                string.Equals(appliedKey, mappingKey, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
             RebindCylinder(
                 cylinder,
                 map.OutFwd,
                 map.OutBwd,
                 map.UseFwdInput ? map.InFwd : null,
                 map.UseBwdInput ? map.InBwd : null);
+
+            _appliedMappingKeys[name] = mappingKey;
 
             EventLogger.Write(EventKind.Event, "QMC", "CYL-MAP-APPLY",
                 "Cylinder mapping applied. name=" + name
@@ -157,6 +172,26 @@ namespace QMC.CDT320.Ajin
                 + ", actualBwdDO=" + Format(cylinder.OutBwd, true)
                 + ", actualFwdDI=" + Format(cylinder.InFwd, false)
                 + ", actualBwdDI=" + Format(cylinder.InBwd, false));
+        }
+
+        private static string BuildMappingKey(CylMap map)
+        {
+            if (map == null)
+                return string.Empty;
+
+            return FormatKey(map.OutFwd)
+                + "|" + FormatKey(map.OutBwd)
+                + "|" + (map.UseFwdInput ? "F1:" : "F0:") + FormatKey(map.InFwd)
+                + "|" + (map.UseBwdInput ? "B1:" : "B0:") + FormatKey(map.InBwd)
+                + "|" + (map.SingleSolenoid ? "S1" : "S0");
+        }
+
+        private static string FormatKey(DioMap map)
+        {
+            if (map == null)
+                return "-";
+
+            return map.Module + ":" + map.Bit + ":" + (map.Nc ? "NC" : "NO");
         }
 
         private static void RebindCylinder(

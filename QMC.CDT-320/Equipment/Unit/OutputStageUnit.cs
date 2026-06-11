@@ -515,11 +515,18 @@ namespace QMC.CDT320
 
         private BaseDigitalInput RegisterCylinderInput(string cylinderName, bool fwd, string fallbackCatalogName)
         {
+            BaseDigitalInput item = ResolveCylinderRuntimeInput(cylinderName, fwd);
             DioMap map = ResolveCylinderInputMap(cylinderName, fwd);
-            BaseDigitalInput item = map != null
-                ? AjinFactory.CreateSharedDigitalInput(cylinderName + (fwd ? "_InFwd" : "_InBwd"), map, !AjinFactory.IsRealBoardReady)
-                : AjinFactory.CreateDigitalInput(AjinIoCatalog.FindInput(fallbackCatalogName));
-            Components.Add(item);
+
+            if (item == null && map == null)
+                return null;
+
+            if (item == null)
+                item = AjinFactory.CreateDigitalInput(AjinIoCatalog.FindInput(fallbackCatalogName));
+
+            if (item != null)
+                Components.Add(item);
+
             LogCylinderIoBinding(cylinderName, fwd ? "InFwd" : "InBwd", map, false, fallbackCatalogName);
             return item;
         }
@@ -533,6 +540,32 @@ namespace QMC.CDT320
             Components.Add(item);
             LogCylinderIoBinding(cylinderName, fwd ? "OutFwd" : "OutBwd", map, true, fallbackCatalogName);
             return item;
+        }
+
+        private static BaseDigitalInput ResolveCylinderRuntimeInput(string cylinderName, bool fwd)
+        {
+            try
+            {
+                BaseCylinder cylinder = CylinderManager.Get(cylinderName);
+                if (cylinder == null)
+                    return null;
+
+                BaseDigitalInput input = fwd ? cylinder.InFwd : cylinder.InBwd;
+                if (input == null || input.Setup == null)
+                    return null;
+
+                if (input.Setup.ModuleNo < 0 || input.Setup.BitNo < 0)
+                    return null;
+
+                return input;
+            }
+            catch
+            {
+                return null;
+            }
+            finally
+            {
+            }
         }
 
         private static DioMap ResolveCylinderInputMap(string cylinderName, bool fwd)
@@ -746,6 +779,260 @@ namespace QMC.CDT320
             return await WaitUntilAsync(() => !item.IsMoving && item.IsInPosition && !item.IsAlarm, timeoutMs);
         }
 
+        public async Task<int> MoveToStageLoadPositionAndVerifyAsync(BinSide side, int timeoutMs, bool bFine = false)
+        {
+            try
+            {
+                BinStageAxis yAxis = side == BinSide.Ng ? BinStageAxis.NgBinY : BinStageAxis.GoodBinY;
+                BinStageAxis zAxis = side == BinSide.Ng ? BinStageAxis.NgBinZ : BinStageAxis.GoodBinZ;
+                double yTarget = side == BinSide.Ng ? Recipe.NGStageY.LoadPosition : Recipe.GoodStageY.LoadPosition;
+                double zTarget = side == BinSide.Ng ? NgStage.Recipe.WorkPositionZ : Recipe.GoodStageZ.LoadPosition;
+
+                int result = await MoveStageAxisAndVerifyAsync(yAxis, yTarget, timeoutMs, bFine);
+                if (result != 0)
+                    return result;
+
+                return await MoveStageAxisAndVerifyAsync(zAxis, zTarget, timeoutMs, bFine);
+            }
+            catch (Exception ex)
+            {
+                return RaiseOutputStageAlarm("OS-STAGE-LOAD-EX", "Output stage load position exception. side=" + side + ", " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        public bool IsStageInLoadPosition(BinSide side)
+        {
+            try
+            {
+                BinStageAxis yAxis = side == BinSide.Ng ? BinStageAxis.NgBinY : BinStageAxis.GoodBinY;
+                BinStageAxis zAxis = side == BinSide.Ng ? BinStageAxis.NgBinZ : BinStageAxis.GoodBinZ;
+                double yTarget = side == BinSide.Ng ? Recipe.NGStageY.LoadPosition : Recipe.GoodStageY.LoadPosition;
+                double zTarget = side == BinSide.Ng ? NgStage.Recipe.WorkPositionZ : Recipe.GoodStageZ.LoadPosition;
+
+                return CheckStageAxisInPosition(yAxis, yTarget) &&
+                       CheckStageAxisInPosition(zAxis, zTarget);
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        public async Task<int> MoveToStageUnloadPositionAndVerifyAsync(BinSide side, int timeoutMs, bool bFine = false)
+        {
+            try
+            {
+                Recipe.EnsurePositionObjects();
+                if (side == BinSide.Ng)
+                    return await MoveStageAxisAndVerifyAsync(BinStageAxis.NgBinY, Recipe.NGStageY.UnloadPosition, timeoutMs, bFine);
+
+                int result = await MoveStageAxisAndVerifyAsync(BinStageAxis.GoodBinY, Recipe.GoodStageY.UnloadPosition, timeoutMs, bFine);
+                if (result != 0)
+                    return result;
+
+                return await MoveStageAxisAndVerifyAsync(BinStageAxis.GoodBinZ, Recipe.GoodStageZ.UnloadPosition, timeoutMs, bFine);
+            }
+            catch (Exception ex)
+            {
+                return RaiseOutputStageAlarm("OS-STAGE-UNLOAD-EX", "Output stage unload position exception. side=" + side + ", " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        public bool IsStageInUnloadPosition(BinSide side)
+        {
+            try
+            {
+                Recipe.EnsurePositionObjects();
+                if (side == BinSide.Ng)
+                    return CheckStageAxisInPosition(BinStageAxis.NgBinY, Recipe.NGStageY.UnloadPosition);
+
+                return CheckStageAxisInPosition(BinStageAxis.GoodBinY, Recipe.GoodStageY.UnloadPosition) &&
+                       CheckStageAxisInPosition(BinStageAxis.GoodBinZ, Recipe.GoodStageZ.UnloadPosition);
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        public async Task<int> MoveVisionXToAvoidAndVerifyAsync(int timeoutMs, bool bFine = false)
+        {
+            try
+            {
+                Recipe.EnsurePositionObjects();
+                return await MoveStageAxisAndVerifyAsync(BinStageAxis.VisionX, Recipe.VisionX.AvoidPosition, timeoutMs, bFine);
+            }
+            catch (Exception ex)
+            {
+                return RaiseOutputStageAlarm("OS-VISION-AVOID-EX", "OutputVisionX avoid exception: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        public async Task<int> EnsureStageMutualInterlockForLoadAsync(BinSide side, int timeoutMs, bool bFine = false)
+        {
+            try
+            {
+                int result = await EnsureBinGuideClampLiftUpAsync(BinSide.Ng, timeoutMs);
+                if (result != 0)
+                    return result;
+
+                if (!IsBinGuideClampLiftUp(BinSide.Ng))
+                    return RaiseOutputStageAlarm("OS-NG-CLAMP-UP", "NG Bin Clamp Lift must be up before output stage load movement.");
+
+                if (!IsGoodStageZInAvoidOrProcessPosition())
+                {
+                    result = await MoveGoodStageZToAvoidAndVerifyAsync(timeoutMs, bFine);
+                    if (result != 0)
+                        return result;
+                }
+
+                if (side != BinSide.Ng && !IsNgStageInAvoidPosition())
+                {
+                    result = await MoveNgStageToAvoidAndVerifyAsync(timeoutMs, bFine);
+                    if (result != 0)
+                        return result;
+                }
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return RaiseOutputStageAlarm("OS-STAGE-LOAD-INTERLOCK-EX", "Output stage load interlock exception. side=" + side + ", " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        public bool IsGoodStageZInAvoidOrProcessPosition()
+        {
+            try
+            {
+                Recipe.EnsurePositionObjects();
+                return CheckStageAxisInPosition(BinStageAxis.GoodBinZ, Recipe.GoodStageZ.AvoidPosition) ||
+                       CheckStageAxisInPosition(BinStageAxis.GoodBinZ, Recipe.GoodStageZ.ProcessPosition);
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        public bool IsNgStageInAvoidPosition()
+        {
+            try
+            {
+                Recipe.EnsurePositionObjects();
+                return CheckStageAxisInPosition(BinStageAxis.NgBinY, Recipe.NGStageY.AvoidPosition) &&
+                       CheckStageAxisInPosition(BinStageAxis.NgBinZ, NgStage.Recipe.AvoidPositionZ);
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        public async Task<int> MoveGoodStageZToAvoidAndVerifyAsync(int timeoutMs, bool bFine = false)
+        {
+            try
+            {
+                Recipe.EnsurePositionObjects();
+                return await MoveStageAxisAndVerifyAsync(BinStageAxis.GoodBinZ, Recipe.GoodStageZ.AvoidPosition, timeoutMs, bFine);
+            }
+            catch (Exception ex)
+            {
+                return RaiseOutputStageAlarm("OS-GOOD-Z-AVOID-EX", "Good Stage Z avoid exception: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        public async Task<int> MoveNgStageToAvoidAndVerifyAsync(int timeoutMs, bool bFine = false)
+        {
+            try
+            {
+                Recipe.EnsurePositionObjects();
+                int result = await MoveStageAxisAndVerifyAsync(BinStageAxis.NgBinZ, NgStage.Recipe.AvoidPositionZ, timeoutMs, bFine);
+                if (result != 0)
+                    return result;
+
+                return await MoveStageAxisAndVerifyAsync(BinStageAxis.NgBinY, Recipe.NGStageY.AvoidPosition, timeoutMs, bFine);
+            }
+            catch (Exception ex)
+            {
+                return RaiseOutputStageAlarm("OS-NG-AVOID-EX", "NG Stage avoid exception: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        public async Task<int> EnsureBinGuideUpAsync(BinSide side, int timeoutMs)
+        {
+            return await EnsureCylinderStateAsync(ResolveBinGuideLiftCylinder(side), true, timeoutMs, ResolveSideName(side) + " Bin Guide Up");
+        }
+
+        public async Task<int> EnsureBinGuideClampLiftDownAsync(BinSide side, int timeoutMs)
+        {
+            return await EnsureCylinderStateAsync(ResolveBinGuideClampLiftCylinder(side), false, timeoutMs, ResolveSideName(side) + " Bin Clamp Lift Down");
+        }
+
+        public async Task<int> EnsureBinGuideClampLiftUpAsync(BinSide side, int timeoutMs)
+        {
+            return await EnsureCylinderStateAsync(ResolveBinGuideClampLiftCylinder(side), true, timeoutMs, ResolveSideName(side) + " Bin Clamp Lift Up");
+        }
+
+        public async Task<int> EnsureBinGuideUnclampedAsync(BinSide side, int timeoutMs)
+        {
+            return await EnsureCylinderStateAsync(ResolveBinGuideClampCylinder(side), false, timeoutMs, ResolveSideName(side) + " Bin Guide Unclamp");
+        }
+
+        public bool IsBinGuideUp(BinSide side)
+        {
+            BaseCylinder cylinder = ResolveBinGuideLiftCylinder(side);
+            return cylinder != null && cylinder.IsFwd;
+        }
+
+        public bool IsBinGuideClampLiftDown(BinSide side)
+        {
+            BaseCylinder cylinder = ResolveBinGuideClampLiftCylinder(side);
+            return cylinder != null && cylinder.IsBwd;
+        }
+
+        public bool IsBinGuideClampLiftUp(BinSide side)
+        {
+            BaseCylinder cylinder = ResolveBinGuideClampLiftCylinder(side);
+            return cylinder != null && cylinder.IsFwd;
+        }
+
+        public bool IsBinGuideUnclamped(BinSide side)
+        {
+            BaseCylinder cylinder = ResolveBinGuideClampCylinder(side);
+            return cylinder != null && cylinder.IsBwd;
+        }
+
         public void TeachStageAxisPosition(BinStageAxis axis, string positionName)
         {
             SetStageTeachingPosition(axis, positionName, ResolveStageAxis(axis).ActualPosition);
@@ -771,6 +1058,79 @@ namespace QMC.CDT320
             return y.LoadPosition != y.AvoidPosition &&
                    y.ProcessPosition != y.AvoidPosition &&
                    y.UnloadPosition != y.AvoidPosition;
+        }
+
+        private async Task<int> MoveStageAxisAndVerifyAsync(BinStageAxis axis, double targetPos, int timeoutMs, bool bFine)
+        {
+            int result = await MoveStageAxis(axis, targetPos, bFine);
+            if (result != 0)
+                return result;
+
+            bool done = await WaitStageAxisMoveDone(axis, timeoutMs);
+            if (!done)
+                return RaiseOutputStageAlarm("OS-MOVE-TIMEOUT", axis + " move done timeout. target=" + targetPos);
+
+            if (!CheckStageAxisInPosition(axis, targetPos))
+                return RaiseOutputStageAlarm("OS-MOVE-POSITION", axis + " final position check failed. target=" + targetPos + ", actual=" + ResolveStageAxis(axis).ActualPosition);
+
+            return 0;
+        }
+
+        private bool CheckStageAxisInPosition(BinStageAxis axis, double targetPos)
+        {
+            BaseAxis item = ResolveStageAxis(axis);
+            double tolerance = item.Config != null ? item.Config.InPositionTolerance : 0.05;
+            return Math.Abs(item.ActualPosition - targetPos) <= tolerance;
+        }
+
+        private async Task<int> EnsureCylinderStateAsync(BaseCylinder cylinder, bool fwd, int timeoutMs, string description)
+        {
+            try
+            {
+                if (cylinder == null)
+                    return RaiseOutputStageAlarm("OS-CYL-MISSING", description + " cylinder is null.");
+
+                bool already = fwd ? cylinder.IsFwd : cylinder.IsBwd;
+                if (already)
+                    return 0;
+
+                bool ok = fwd ? await cylinder.MoveFwdAsync() : await cylinder.MoveBwdAsync();
+                if (!ok)
+                    return RaiseOutputStageAlarm("OS-CYL-MOVE", description + " cylinder move failed.");
+
+                bool arrived = await WaitUntilAsync(() => fwd ? cylinder.IsFwd : cylinder.IsBwd, timeoutMs);
+                if (!arrived)
+                    return RaiseOutputStageAlarm("OS-CYL-TIMEOUT", description + " cylinder sensor timeout.");
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return RaiseOutputStageAlarm("OS-CYL-EX", description + " cylinder exception: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private static BaseCylinder ResolveBinGuideLiftCylinder(BinSide side)
+        {
+            return CylinderManager.Get(side == BinSide.Ng ? "NGBinGuideLift" : "GoodBinGuideLift");
+        }
+
+        private static BaseCylinder ResolveBinGuideClampLiftCylinder(BinSide side)
+        {
+            return CylinderManager.Get(side == BinSide.Ng ? "NGBinGuideClampLift" : "GoodBinGuideClampLift");
+        }
+
+        private static BaseCylinder ResolveBinGuideClampCylinder(BinSide side)
+        {
+            return CylinderManager.Get(side == BinSide.Ng ? "NGBinGuideClamp" : "GoodBinGuideClamp");
+        }
+
+        private static string ResolveSideName(BinSide side)
+        {
+            return side == BinSide.Ng ? "NG" : "GOOD";
         }
 
         private BaseAxis ResolveStageAxis(BinStageAxis axis)

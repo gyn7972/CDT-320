@@ -209,8 +209,8 @@ namespace QMC.CDT_320.Ui.Localization
 
             // 작업 서브 페이지
             A("work.page.main",       "메인 화면",          "Main");
-            A("work.page.inputMap",   "INPUT 맵",          "INPUT Map");
-            A("work.page.outputMap",  "OUTPUT 맵",         "OUTPUT Map");
+            A("work.page.inputMap",   "INPUT STAGE MAP",  "INPUT STAGE MAP");
+            A("work.page.outputMap",  "OUTPUT STAGE MAP", "OUTPUT STAGE MAP");
             A("work.sec.visionView",  "비전 화면",          "Vision View");
             A("work.sec.workMap",     "작업 맵",            "Work Map");
             A("work.sec.workInfo",    "작업 정보",          "Work Info");

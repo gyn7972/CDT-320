@@ -34,6 +34,21 @@ namespace QMC.CDT320.Sequencing
             get { return Context != null && Context.Machine != null ? Context.Machine.OutputFeederUnit : null; }
         }
 
+        protected OutputStageUnit Stage
+        {
+            get { return Context != null && Context.Machine != null ? Context.Machine.OutputStageUnit : null; }
+        }
+
+        protected PickerFrontUnit FrontPicker
+        {
+            get { return Context != null && Context.Machine != null ? Context.Machine.PickerFrontUnit : null; }
+        }
+
+        protected PickerRearUnit RearPicker
+        {
+            get { return Context != null && Context.Machine != null ? Context.Machine.PickerRearUnit : null; }
+        }
+
         public async Task<int> RunAsync(CancellationToken ct, OutputFeederSequenceOptions options)
         {
             try
@@ -83,7 +98,7 @@ namespace QMC.CDT320.Sequencing
             if (Feeder == null)
                 return Fail("OUT-FEEDER-MISSING", "OutputFeeder", "Output feeder unit is not available.");
 
-            if (!Feeder.CheckFeederOverloadClear())
+            if (Feeder.IsFeederOverload())
                 return Fail("OUT-FEEDER-OVERLOAD", Feeder.Name, "Output feeder overload is on.");
 
             CurrentStep = nextStep;
@@ -174,8 +189,16 @@ namespace QMC.CDT320.Sequencing
         protected async Task<int> WaitFeederYDoneAsync(Func<bool> inPosition, string description, CancellationToken ct)
         {
             bool done = await AwaitStepWithCancellationAsync(Feeder.WaitBinFeederYMoveDone(ResolveTimeout()), ct).ConfigureAwait(false);
-            if (!done || (inPosition != null && !inPosition()))
-                return Fail("OUT-FEEDER-Y-TIMEOUT", Feeder.Name, description + " move done timeout.");
+            bool finalInPosition = inPosition == null || inPosition();
+
+            if (!done || !finalInPosition)
+            {
+                string state = Feeder != null ? Feeder.DescribeBinFeederYMoveDoneState() : "Feeder=null";
+                return Fail("OUT-FEEDER-Y-TIMEOUT", Feeder.Name,
+                    description + " move done timeout. done=" + done +
+                    ", finalInPosition=" + finalInPosition +
+                    ", " + state);
+            }
 
             return 0;
         }
@@ -325,6 +348,21 @@ namespace QMC.CDT320.Sequencing
                 ct.ThrowIfCancellationRequested();
 
             return await stepTask.ConfigureAwait(false);
+        }
+
+        protected static async Task<bool> WaitUntilAsync(Func<bool> condition, int timeoutMs, CancellationToken ct)
+        {
+            DateTime until = DateTime.UtcNow.AddMilliseconds(timeoutMs > 0 ? timeoutMs : 1);
+            while (DateTime.UtcNow < until)
+            {
+                ct.ThrowIfCancellationRequested();
+                if (condition != null && condition())
+                    return true;
+
+                await Task.Delay(20, ct).ConfigureAwait(false);
+            }
+
+            return condition != null && condition();
         }
 
         private static bool IsStep(TStep left, TStep right)

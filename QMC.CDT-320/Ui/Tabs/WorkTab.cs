@@ -34,7 +34,7 @@ namespace QMC.CDT_320.Ui.Tabs
                 await c.StopSequenceAsync();
                 await c.StopAsync();
             }));
-            RegisterActionButton(BtnCycleRun,   "work.cycleRun",   op, () => RunSafe(async c => await c.RunInputSequenceStepAsync()));
+            RegisterActionButton(BtnCycleRun,   "work.cycleRun",   op, () => RunSafe(async c => await c.RunProcessSequenceStepAsync()));
             RegisterActionButton(BtnCycleStop,  "work.cycleStop",  op, () => RunSafe(async c => await c.StopSequenceAsync()));
             RegisterActionButton(BtnResetAlarm, "work.resetAlarm", en, () => RunSafe(async c => await c.ResetAlarmAsync()));
             RegisterActionButton(BtnShutdown,   "work.shutdown",   mt, () => RunSafe(async c => await c.ShutdownAsync()));
@@ -51,8 +51,8 @@ namespace QMC.CDT_320.Ui.Tabs
             RegisterModeButton(BtnPosCheck,        "work.posCheck",        en, () => new PositionCheckDialog());
             RegisterModeButton(BtnNeedlePosMode,   "work.needlePosMode",   en, () => new PositionCheckDialog());
 
-            RegisterSidebarButton(BtnInputMapTransfer,  "work.inputMapTransfer",  op, () => new MapTransferPage("work.page.inputMap"));
-            RegisterSidebarButton(BtnOutputMapTransfer, "work.outputMapTransfer", op, () => new MapTransferPage("work.page.outputMap"));
+            RegisterSidebarButton(BtnInputMapTransfer,  "work.inputMapTransfer",  op, () => new InputStageMapTransferPage("work.page.inputMap"));
+            RegisterSidebarButton(BtnOutputMapTransfer, "work.outputMapTransfer", op, () => new OutputStageMapTransferPage("work.page.outputMap"));
             RegisterSidebarButton(BtnVisionAlign,       "work.visionAlign",       en, () => new VisionAlignPage());
             RegisterSidebarButton(BtnWaferMapOpen,      "work.waferMapOpen",      en, () => new WaferMapOpenPage());
             RegisterSidebarButton(BtnDieMap,            "work.dieMap",            en, () => new DieMapPage());

@@ -206,7 +206,7 @@ namespace QMC.CDT320.Sequencing
             return -1;
         }
 
-        private async Task<int> MoveAxisAndVerifyAsync(BinStageAxis axis, double target, string description, CancellationToken ct)
+        protected async Task<int> MoveAxisAndVerifyAsync(BinStageAxis axis, double target, string description, CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
             int result = await AwaitStepWithCancellationAsync(Stage.MoveStageAxis(axis, target, Options.FineMove), ct).ConfigureAwait(false);
@@ -224,7 +224,7 @@ namespace QMC.CDT320.Sequencing
             return 0;
         }
 
-        private double ResolveTarget(BinStageAxis axis, string positionName)
+        protected double ResolveTarget(BinStageAxis axis, string positionName)
         {
             if (axis == BinStageAxis.NgBinZ)
             {
@@ -237,7 +237,7 @@ namespace QMC.CDT320.Sequencing
             return Stage.GetStageTeachingPosition(axis, positionName);
         }
 
-        private double ResolveTolerance(BinStageAxis axis)
+        protected double ResolveTolerance(BinStageAxis axis)
         {
             switch (axis)
             {
@@ -256,7 +256,7 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private int ResolveTimeout()
+        protected int ResolveTimeout()
         {
             return Options.MoveTimeoutMs > 0 ? Options.MoveTimeoutMs : 10000;
         }
@@ -318,6 +318,40 @@ namespace QMC.CDT320.Sequencing
         private static bool IsStep(TStep left, TStep right)
         {
             return object.Equals(left, right);
+        }
+
+        protected BinSide ResolveSideFromGrade()
+        {
+            if (Options != null && Options.Grade == DieGrade.Ng)
+                return BinSide.Ng;
+
+            return BinSide.Good;
+        }
+
+        protected BinStageAxis ResolveYAxis(BinSide side)
+        {
+            if (side == BinSide.Ng)
+                return BinStageAxis.NgBinY;
+
+            return BinStageAxis.GoodBinY;
+        }
+
+        protected BinStageAxis ResolveZAxis(BinSide side)
+        {
+            if (side == BinSide.Ng)
+                return BinStageAxis.NgBinZ;
+
+            return BinStageAxis.GoodBinZ;
+        }
+
+        protected double ResolveSideTarget(BinSide side, string positionName)
+        {
+            return ResolveTarget(ResolveYAxis(side), positionName);
+        }
+
+        protected double ResolveSideZTarget(BinSide side, string positionName)
+        {
+            return ResolveTarget(ResolveZAxis(side), positionName);
         }
 
         protected static void WriteLog(string source, string message)

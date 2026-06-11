@@ -315,6 +315,7 @@
     <Compile Include="Sequencing\Common\SequenceSignalBus.cs" />
     <Compile Include="Sequencing\Common\SequenceExecutionState.cs" />
     <Compile Include="Sequencing\Common\SequenceResumeStore.cs" />
+    <Compile Include="Sequencing\Common\SequenceStopException.cs" />
     <Compile Include="Sequencing\Common\SequenceFailureStore.cs" />
     <Compile Include="Sequencing\Common\MachineSequenceContext.cs" />
     <Compile Include="Sequencing\Common\UnitSequenceBase.cs" />
@@ -360,6 +361,8 @@
     <Compile Include="Sequencing\OutputStage\OutputStageSequence.cs" />
     <Compile Include="Sequencing\OutputStage\OutputStageSequenceBase.cs" />
     <Compile Include="Sequencing\OutputStage\OutputStagePrepareLoadSequence.cs" />
+    <Compile Include="Sequencing\OutputStage\OutputStageReceiveDieSequence.cs" />
+    <Compile Include="Sequencing\OutputStage\OutputStageInspectBinSequence.cs" />
     <Compile Include="Sequencing\OutputStage\OutputStagePrepareUnloadSequence.cs" />
     <Compile Include="Sequencing\OutputStage\OutputStageMoveAvoidSequence.cs" />
     <Compile Include="Sequencing\OutputStage\OutputStageMoveProcessSequence.cs" />
@@ -651,6 +654,19 @@
       <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="Ui\Pages\InfoRows.cs" />
+    <!-- Sequencing / Common -->
+    <Compile Include="Sequencing\Common\SequenceResourceKind.cs" />
+    <Compile Include="Sequencing\Common\SequenceResourceLease.cs" />
+    <Compile Include="Sequencing\Common\SequenceResourceManager.cs" />
+    <!-- Sequencing / Picker -->
+    <Compile Include="Sequencing\Picker\PickerSequenceSide.cs" />
+    <Compile Include="Sequencing\Picker\PickerSequenceKind.cs" />
+    <Compile Include="Sequencing\Picker\PickerSequenceOptions.cs" />
+    <Compile Include="Sequencing\Picker\PickerProcessStep.cs" />
+    <Compile Include="Sequencing\Picker\PickerSequenceBase.cs" />
+    <Compile Include="Sequencing\Picker\PickerProcessSequence.cs" />
+    <Compile Include="Sequencing\Picker\FrontPickerSequence.cs" />
+    <Compile Include="Sequencing\Picker\RearPickerSequence.cs" />
     <!-- UI / Pages / Work -->
     <Compile Include="Ui\Pages\Work\WorkMainPage.Designer.cs">
       <DependentUpon>WorkMainPage.cs</DependentUpon>
@@ -658,10 +674,16 @@
     <Compile Include="Ui\Pages\Work\WorkMainPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="Ui\Pages\Work\MapTransferPage.Designer.cs">
-      <DependentUpon>MapTransferPage.cs</DependentUpon>
+    <Compile Include="Ui\Pages\Work\InputStageMapTransferPage.Designer.cs">
+      <DependentUpon>InputStageMapTransferPage.cs</DependentUpon>
     </Compile>
-    <Compile Include="Ui\Pages\Work\MapTransferPage.cs">
+    <Compile Include="Ui\Pages\Work\InputStageMapTransferPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\Work\OutputStageMapTransferPage.Designer.cs">
+      <DependentUpon>OutputStageMapTransferPage.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Pages\Work\OutputStageMapTransferPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="Ui\Pages\Work\VisionAlignPage.Designer.cs">
@@ -988,8 +1010,11 @@
     <EmbeddedResource Include="Ui\Pages\WorkInfo\OutputFeederPage.resx">
       <DependentUpon>OutputFeederPage.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="Ui\Pages\Work\MapTransferPage.resx">
-      <DependentUpon>MapTransferPage.cs</DependentUpon>
+    <EmbeddedResource Include="Ui\Pages\Work\InputStageMapTransferPage.resx">
+      <DependentUpon>InputStageMapTransferPage.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\Work\OutputStageMapTransferPage.resx">
+      <DependentUpon>OutputStageMapTransferPage.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Tabs\RecipeTab.resx">
       <DependentUpon>RecipeTab.cs</DependentUpon>

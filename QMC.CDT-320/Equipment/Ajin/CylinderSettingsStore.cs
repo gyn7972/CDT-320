@@ -157,14 +157,59 @@ namespace QMC.CDT320.Ajin
                 if (cylinder == null) return;
                 CylinderItemSettings settings = Get(cylinder.Name);
                 cylinder.Setup.IsSingleSolenoid = settings.IsSingleSolenoid;
-                cylinder.Setup.UseFwdSensor = settings.UseFwdInput;
-                cylinder.Setup.UseBwdSensor = settings.UseBwdInput;
+                cylinder.Setup.UseFwdSensor = settings.UseFwdInput && HasValidInput(cylinder.InFwd);
+                cylinder.Setup.UseBwdSensor = settings.UseBwdInput && HasValidInput(cylinder.InBwd);
                 cylinder.Recipe.FwdTimeoutMs = settings.FwdTimeoutMs;
                 cylinder.Recipe.BwdTimeoutMs = settings.BwdTimeoutMs;
-                AjinFactory.ApplyCylinderSimulation(cylinder, settings.IsSimulationMode);
+
+                bool simulationMode = settings.IsSimulationMode;
+                if (IsApplicationSimulationMode())
+                    simulationMode = true;
+
+                AjinFactory.ApplyCylinderSimulation(cylinder, simulationMode);
             }
             catch
             {
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool HasValidInput(BaseDigitalInput input)
+        {
+            try
+            {
+                if (input == null || input.Setup == null)
+                    return false;
+
+                return input.Setup.ModuleNo >= 0 && input.Setup.BitNo >= 0;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool IsApplicationSimulationMode()
+        {
+            try
+            {
+                AppSettings settings = AppSettingsStore.Current;
+                if (settings == null)
+                    return false;
+
+                return settings.SimulationMode ||
+                       settings.DryRunMode ||
+                       !settings.UseAjin ||
+                       !AjinFactory.IsRealBoardReady;
+            }
+            catch
+            {
+                return !AjinFactory.IsRealBoardReady;
             }
             finally
             {

@@ -442,7 +442,11 @@ namespace QMC.CDT320
             if (IsWaferFeederSimulationOrDryRun())
                 return false;
 
-            return WaferFeederOverloadSensor != null && WaferFeederOverloadSensor.IsOn;
+            if (WaferFeederOverloadSensor == null)
+                return false;
+
+            // Overload input is NC: ON means normal, OFF means overload.
+            return !WaferFeederOverloadSensor.IsOn;
         }
 
         public bool IsWaferFeederUnclamped()
@@ -581,7 +585,7 @@ namespace QMC.CDT320
             {
                 ct.ThrowIfCancellationRequested();
 
-                if (IsWaferFeederOverload() == false)
+                if (IsWaferFeederOverload())
                     return RaiseFeederAlarm("WF-LIFT-OVERLOAD", "WaferFeeder overload is detected.");
 
                 if (up && !IsWaferFeederEmpty())

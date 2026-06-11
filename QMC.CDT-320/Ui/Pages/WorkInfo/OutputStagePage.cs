@@ -100,12 +100,20 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
         private static IEnumerable<MaterialDetailRow> BuildStageMaterialRows(WaferMaterial wafer, string stageSide)
         {
+            int receivedCount = wafer != null && wafer.DieIds != null ? wafer.DieIds.Count : 0;
+            int totalCount = wafer != null ? wafer.OutputReceiveTotalCount : 0;
+            int nextIndex = wafer != null ? wafer.OutputReceiveNextIndex : 0;
+
             return new[]
             {
                 Row("Unit", "Output Stage"),
                 Row("Side", stageSide),
                 Row("Wafer ID", wafer != null ? wafer.WaferId : ""),
                 Row("State", wafer != null ? WaferMaterialStateText.ToDisplayName(wafer.State) : "EMPTY"),
+                Row("Grade", wafer != null ? wafer.OutputGrade.ToString() : ""),
+                Row("Receive Progress", wafer != null ? receivedCount + " / " + totalCount : ""),
+                Row("Next Receive Index", wafer != null ? nextIndex.ToString() : ""),
+                Row("Source Wafer", wafer != null ? wafer.OutputReceiveSourceWaferId : ""),
                 Row("Source Cassette", wafer != null ? wafer.SourceCassetteRole.ToString() : ""),
                 Row("Source Slot", wafer != null && wafer.SourceSlotNumber >= 0 ? (wafer.SourceSlotNumber + 1).ToString("00") : ""),
                 Row("Current Loc", wafer != null && wafer.CurrentLocation != null ? wafer.CurrentLocation.ToString() : ""),

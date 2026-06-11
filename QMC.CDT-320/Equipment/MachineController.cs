@@ -1793,9 +1793,9 @@ namespace QMC.CDT320
                     return -1;
                 }
 
-                //int completeHomeResult = await CompleteAxisHomeConditionAsync(axis).ConfigureAwait(false);
-                //if (completeHomeResult != 0)
-                //    return completeHomeResult;
+                int completeHomeResult = await CompleteAxisHomeConditionAsync(axis).ConfigureAwait(false);
+                if (completeHomeResult != 0)
+                    return completeHomeResult;
 
                 QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAxisCore",
                     "Axis initialize completed. axis=" + axis.Name + " - Ok");
@@ -1970,6 +1970,8 @@ namespace QMC.CDT320
 
                 switch (axis.Name)
                 {
+                    case "InputLifterZ":
+                        return await MoveInputLifterZToAvoidAfterHomeAsync().ConfigureAwait(false);
                     case "GoodStage_StageZ":
                         return await MoveOutputStageZToAvoidAsync().ConfigureAwait(false);
                     case "FrontPickerY":
@@ -2005,6 +2007,41 @@ namespace QMC.CDT320
         {
             // TODO: 기본 축 HOME 후 안전 위치 이동/상태 확인이 있으면 여기에 채우면 됩니다.
             return Task.FromResult(0);
+        }
+
+        private async Task<int> MoveInputLifterZToAvoidAfterHomeAsync()
+        {
+            try
+            {
+                Log("[INIT] Complete InputLifterZ home: move lifter to Avoid.");
+
+                var cassette = _machine != null ? _machine.InputCassetteUnit : null;
+                if (cassette == null)
+                    return 0;
+
+                if (cassette.IsWaferLifterZInAvoidPosition())
+                    return 0;
+
+                int result = await cassette.MoveToWaferCassetteAvoidPosition().ConfigureAwait(false);
+                if (result != 0)
+                    return FailInitializePreparation("InputLifterZ avoid move failed. result=" + result);
+
+                result = await cassette.WaitWaferLifterZMoveDone(cassette.ResolveWaferLifterZMoveTimeoutMs()).ConfigureAwait(false);
+                if (result != 0)
+                    return FailInitializePreparation("InputLifterZ avoid move done timeout. result=" + result);
+
+                if (!cassette.IsWaferLifterZInAvoidPosition())
+                    return FailInitializePreparation("InputLifterZ avoid final position check failed.");
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return FailInitializePreparation("InputLifterZ avoid after home exception: " + ex.Message);
+            }
+            finally
+            {
+            }
         }
 
         private async Task<int> PrepareInputLifterZHomeAsync(BaseAxis axis)
@@ -3583,7 +3620,7 @@ namespace QMC.CDT320
             if (feeder == null)
                 return 0;
 
-            if (!feeder.IsWaferFeederOverload())
+            if (feeder.IsWaferFeederOverload())
             {
                 return FailInitializePreparation(
                     "InputFeeder HOME 불가: Overload 센서가 감지되었습니다.");
@@ -3709,7 +3746,7 @@ namespace QMC.CDT320
             if (feeder == null)
                 return 0;
 
-            if (!feeder.IsFeederOverload())
+            if (feeder.IsFeederOverload())
             {
                 return FailInitializePreparation(
                     "OutputFeeder HOME 불가: Overload 센서가 감지되었습니다.");
@@ -4430,12 +4467,11 @@ namespace QMC.CDT320
                 foreach (var ax in EnumerateAxes())
                     ax.ServoOn();
 
-                Log("[START] Servo ON complete. Input auto sequence start.");
-                QMC.Common.Log.Write("Main", "SYSTEM", "StartAsync", "Input auto sequence start requested. - Ok");
+                Log("[START] Servo ON complete. Process auto sequence start.");
+                QMC.Common.Log.Write("Main", "SYSTEM", "StartAsync", "Process auto sequence start requested. - Ok");
 
-                await StartSingleUnitAsync(
-                    QMC.CDT320.Sequencing.SequenceUnitKind.InputLoader,
-                    QMC.CDT320.Sequencing.SequenceRunMode.Auto).ConfigureAwait(false);
+                await StartSequenceAsync(
+                    QMC.CDT320.Sequencing.SequenceRunOptions.ProcessAuto()).ConfigureAwait(false);
 
                 return 0;
             }
@@ -4567,6 +4603,15 @@ namespace QMC.CDT320
                 _coordinator.Register(
                     QMC.CDT320.Sequencing.SequenceUnitKind.InputLoader,
                     () => new QMC.CDT320.Sequencing.InputSequence(_seqContext));
+                _coordinator.Register(
+                    QMC.CDT320.Sequencing.SequenceUnitKind.OutputUnloader,
+                    () => new QMC.CDT320.Sequencing.OutputSequence(_seqContext));
+                _coordinator.Register(
+                    QMC.CDT320.Sequencing.SequenceUnitKind.TpuLeft,
+                    () => new QMC.CDT320.Sequencing.FrontPickerSequence(_seqContext));
+                _coordinator.Register(
+                    QMC.CDT320.Sequencing.SequenceUnitKind.TpuRight,
+                    () => new QMC.CDT320.Sequencing.RearPickerSequence(_seqContext));
 
                 _coordinator.Configure(options);
                 ActiveSequenceRunMode = options.Mode;
@@ -4589,6 +4634,14 @@ namespace QMC.CDT320
                             Log("[SEQ] Complete");
                             SetStatus(EquipmentStatus.Ready);
                         }
+                    }
+                    catch (QMC.CDT320.Sequencing.SequenceStopException ex)
+                    {
+                        QMC.Common.Log.Write("Main", "SYSTEM", "StartSequenceAsync",
+                            "Sequence stopped: " + ex.Message + " - Stopped");
+                        Log("[SEQ] stopped: " + ex.Message);
+                        if (_status != EquipmentStatus.Alarm)
+                            SetStatus(EquipmentStatus.Stopped);
                     }
                     catch (OperationCanceledException)
                     {
@@ -4656,7 +4709,6 @@ namespace QMC.CDT320
             _coordinator = null;
             _seqContext = null;
             ActiveSequenceRunMode = null;
-            QMC.CDT320.Sequencing.SequenceResumeStore.ClearAll();
             if (_autoCts != null)
             {
                 _autoCts.Dispose();
@@ -4900,6 +4952,93 @@ namespace QMC.CDT320
             }
 
             _coordinator.StepUnit(unit);
+        }
+
+        /// <summary>Manual 또는 Step 모드에서 활성 유닛 전체를 1단계 진행합니다.</summary>
+        public void ManualStepAll()
+        {
+            if (_coordinator == null)
+            {
+                Log("[SEQ] ManualStepAll ignored: coordinator 없음");
+                return;
+            }
+
+            _coordinator.StepAll();
+        }
+
+        /// <summary>Work CYCLE RUN 버튼에서 공정 전체 시퀀스를 1단계 진행합니다.</summary>
+        public async Task<int> RunProcessSequenceStepAsync()
+        {
+            try
+            {
+                LastActionFailureMessage = "";
+
+                if (_status == EquipmentStatus.Alarm)
+                {
+                    LastActionFailureMessage = "Alarm 상태에서는 CYCLE RUN을 수행할 수 없습니다.";
+                    QMC.Common.Log.Write("Main", "SYSTEM", "RunProcessSequenceStep",
+                        "Process sequence step run failed: alarm status is active. - Failed");
+                    AlarmManager.Raise(AlarmSeverity.Warning, "SEQ-PROCESS-STEP-ALARM", "MachineController", LastActionFailureMessage);
+                    Log("[SEQ] Process step failed: alarm status is active");
+                    return -1;
+                }
+
+                if (!EnsureMachineInitializedForRun("RunProcessSequenceStepAsync"))
+                    return -1;
+
+                if (IsSequenceRunning)
+                {
+                    if (ActiveSequenceRunMode == QMC.CDT320.Sequencing.SequenceRunMode.Auto)
+                    {
+                        LastActionFailureMessage = "Auto Sequence 실행 중에는 CYCLE RUN Step을 수행할 수 없습니다.";
+                        QMC.Common.Log.Write("Main", "SYSTEM", "RunProcessSequenceStep",
+                            "Process sequence step run failed: auto sequence is running. - Failed");
+                        AlarmManager.Raise(AlarmSeverity.Warning, "SEQ-PROCESS-STEP-AUTO-RUNNING", "MachineController", LastActionFailureMessage);
+                        Log("[SEQ] Process step failed: auto sequence is running");
+                        return -1;
+                    }
+
+                    ManualStepAll();
+                    QMC.Common.Log.Write("Main", "SYSTEM", "RunProcessSequenceStep",
+                        "Process sequence step gate released. - Ok");
+                    return 0;
+                }
+
+                if (_status == EquipmentStatus.AutoRunning)
+                {
+                    LastActionFailureMessage = "Auto Running 상태에서는 CYCLE RUN Step을 시작할 수 없습니다.";
+                    QMC.Common.Log.Write("Main", "SYSTEM", "RunProcessSequenceStep",
+                        "Process sequence step run failed: equipment auto running. - Failed");
+                    AlarmManager.Raise(AlarmSeverity.Warning, "SEQ-PROCESS-STEP-RUNNING", "MachineController", LastActionFailureMessage);
+                    Log("[SEQ] Process step failed: equipment auto running");
+                    return -1;
+                }
+
+                foreach (var ax in EnumerateAxes())
+                    ax.ServoOn();
+
+                await StartSequenceAsync(
+                    QMC.CDT320.Sequencing.SequenceRunOptions.ProcessStep()).ConfigureAwait(false);
+
+                ManualStepAll();
+                QMC.Common.Log.Write("Main", "SYSTEM", "RunProcessSequenceStep",
+                    "Process sequence step mode started and first gate released. - Ok");
+                Log("[SEQ] Process step start");
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                LastActionFailureMessage = "Process sequence step run failed: " + ex.Message;
+                QMC.Common.Log.Write("Main", "SYSTEM", "RunProcessSequenceStep",
+                    LastActionFailureMessage + " - Failed");
+                AlarmManager.Raise(AlarmSeverity.Error, "SEQ-PROCESS-STEP-EX", "MachineController", LastActionFailureMessage);
+                Log("[SEQ] Process step failed: " + ex.Message);
+                SetStatus(EquipmentStatus.Alarm);
+                return -1;
+            }
+            finally
+            {
+            }
         }
 
         /// <summary>Work CYCLE RUN 버튼에서 Input 시퀀스를 1단계만 진행합니다.</summary>

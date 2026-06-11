@@ -8,6 +8,7 @@ namespace QMC.CDT320.Sequencing
     {
         Idle,
         CheckUnit,
+        CheckFeederEmpty,
         PrepareFeederUnclamp,
         PrepareFeederLiftDown,
         MoveFeederAvoidPosition,
@@ -35,7 +36,10 @@ namespace QMC.CDT320.Sequencing
                 switch (CurrentStep)
                 {
                     case OutputFeederRecoverStep.CheckUnit:
-                        return Task.FromResult(CheckUnit(OutputFeederRecoverStep.PrepareFeederUnclamp));
+                        return Task.FromResult(CheckUnit(OutputFeederRecoverStep.CheckFeederEmpty));
+
+                    case OutputFeederRecoverStep.CheckFeederEmpty:
+                        return Task.FromResult(CheckFeederEmpty());
 
                     case OutputFeederRecoverStep.PrepareFeederUnclamp:
                         return PrepareFeederUnclampAsync(ct);
@@ -57,6 +61,18 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        private int CheckFeederEmpty()
+        {
+            if (ResolveFeederWafer() != null)
+                return Fail("OUT-FEEDER-RECOVER-OCCUPIED", "Material", "Output feeder recover is not allowed while bin data exists. Use load-to-stage or unload-to-cassette sequence.");
+
+            if (!IsHardwareBypass() && !Feeder.IsFeederEmpty())
+                return Fail("OUT-FEEDER-RECOVER-SENSOR", Feeder.Name, "Output feeder recover is not allowed while feeder sensor is occupied.");
+
+            CurrentStep = OutputFeederRecoverStep.PrepareFeederUnclamp;
+            return 0;
         }
 
         private async Task<int> PrepareFeederUnclampAsync(CancellationToken ct)

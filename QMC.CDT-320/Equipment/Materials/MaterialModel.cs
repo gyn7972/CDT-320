@@ -264,6 +264,18 @@ namespace QMC.CDT320.Materials
         [DataMember] public double InputStageAlignPitchY { get; set; }
         [DataMember] public double InputStageAlignOffsetX { get; set; }
         [DataMember] public double InputStageAlignOffsetY { get; set; }
+        [DataMember] public string OutputReceiveSourceWaferId { get; set; } = "";
+        [DataMember] public int OutputReceiveGridX { get; set; }
+        [DataMember] public int OutputReceiveGridY { get; set; }
+        [DataMember] public double OutputReceivePitchX { get; set; }
+        [DataMember] public double OutputReceivePitchY { get; set; }
+        [DataMember] public double OutputReceiveOriginX { get; set; }
+        [DataMember] public double OutputReceiveOriginY { get; set; }
+        [DataMember] public int OutputReceiveNextIndex { get; set; }
+        [DataMember] public int OutputReceiveTotalCount { get; set; }
+        [DataMember] public string OutputReceiveStartCorner { get; set; } = "";
+        [DataMember] public string OutputReceiveDirection { get; set; } = "";
+        [DataMember] public string OutputReceivePattern { get; set; } = "";
         [DataMember] public List<string> DieIds { get; set; } = new List<string>();
         [DataMember] public DateTime CreatedAt { get; set; } = DateTime.Now;
         [DataMember] public DateTime UpdatedAt { get; set; } = DateTime.Now;
@@ -296,6 +308,35 @@ namespace QMC.CDT320.Materials
         [DataMember] public List<DieInspectionRecord> Inspections { get; set; } = new List<DieInspectionRecord>();
         [DataMember] public DateTime CreatedAt { get; set; } = DateTime.Now;
         [DataMember] public DateTime UpdatedAt { get; set; } = DateTime.Now;
+    }
+
+    public sealed class OutputStageReceiveTarget
+    {
+        public MaterialLocationKind StageLocation { get; set; }
+        public string OutputWaferId { get; set; } = "";
+        public string SourceWaferId { get; set; } = "";
+        public int OrderIndex { get; set; }
+        public int GridX { get; set; }
+        public int GridY { get; set; }
+        public double OffsetX { get; set; }
+        public double OffsetY { get; set; }
+        public double TargetX { get; set; }
+        public double TargetY { get; set; }
+    }
+
+    public sealed class InputStagePickTarget
+    {
+        public string WaferId { get; set; } = "";
+        public string DieId { get; set; } = "";
+        public int OrderIndex { get; set; }
+        public int GridX { get; set; }
+        public int GridY { get; set; }
+        public double OffsetX { get; set; }
+        public double OffsetY { get; set; }
+        public double TargetX { get; set; }
+        public double TargetY { get; set; }
+        public int PickerNo { get; set; }
+        public MaterialLocationKind PickerLocation { get; set; }
     }
 
     [DataContract]

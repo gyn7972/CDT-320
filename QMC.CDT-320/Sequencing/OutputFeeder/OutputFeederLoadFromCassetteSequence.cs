@@ -195,6 +195,9 @@ namespace QMC.CDT320.Sequencing
             if (result != 0)
                 return Fail("OUT-FEEDER-CLAMP", Feeder.Name, "Output feeder clamp failed. result=" + result);
 
+            if (Feeder.IsFeederUnclamped())
+                return Fail("OUT-FEEDER-CLAMP", Feeder.Name, "Output feeder clamp final check failed after cassette load. side=" + Options.Side);
+
             CurrentStep = OutputFeederLoadFromCassetteStep.MoveFeederAvoidPosition;
             return 0;
         }

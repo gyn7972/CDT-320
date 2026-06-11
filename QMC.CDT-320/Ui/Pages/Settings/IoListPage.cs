@@ -386,7 +386,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                         ? btnCylinderBwd.Text
                         : command;
                 lblCylinderResult.Text = display + (result == 0 ? " OK" : " FAIL");
-                LoadRows();
+                RefreshCylinderRuntimeState(name);
                 return result;
             }
             catch (Exception ex)
@@ -503,6 +503,14 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 if (IsCylinderPage() && e.RowIndex >= 0)
                     ScheduleSelectedCylinderPanelUpdate();
 
+                if (_stateColumnIndex >= 0 &&
+                    e.RowIndex >= 0 &&
+                    e.ColumnIndex == _stateColumnIndex)
+                {
+                    ToggleRuntimeIoState(e.RowIndex);
+                    return;
+                }
+
                 if (_simColumnIndex < 0 || e.RowIndex < 0 || e.ColumnIndex != _simColumnIndex)
                     return;
 
@@ -593,6 +601,261 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 if (row == null || _simColumnIndex < 0) return;
                 row.Cells[_simColumnIndex].Value = isOn ? "ON" : "OFF";
                 ApplySimCellStyle(row.Cells[_simColumnIndex], isOn);
+            }
+            finally
+            {
+            }
+        }
+
+        private void ToggleRuntimeIoState(int rowIndex)
+        {
+            try
+            {
+                if (IsCylinderPage())
+                {
+                    RefreshCylinderRuntimeState(SelectedCylinderName());
+                    return;
+                }
+
+                if (rowIndex < 0 || rowIndex >= _grid.Rows.Count)
+                    return;
+
+                DataGridViewRow row = _grid.Rows[rowIndex];
+                if (row == null || row.IsNewRow)
+                    return;
+
+                if (!IsSimOn(row))
+                {
+                    QMC.Common.MessageDialog.Show(
+                        this,
+                        "SIM ON 상태에서만 I/O STATE를 직접 변경할 수 있습니다.",
+                        "I/O SIM",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information);
+                    return;
+                }
+
+                string name = IoName(row);
+                bool outputRow = IsOutputRow(row);
+                bool current = string.Equals(Convert.ToString(row.Cells[_stateColumnIndex].Value), "ON", StringComparison.OrdinalIgnoreCase);
+                bool next = !current;
+                string target = outputRow ? "output" : "input";
+                string message = name + " " + target + " state를 " + (next ? "ON" : "OFF") + " 으로 변경할까요?";
+
+                if (QMC.Common.MessageDialog.Show(this, message, "I/O SIM", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+                    return;
+
+                if (outputRow)
+                    ApplyRuntimeOutputState(row, next);
+                else
+                    ApplyRuntimeInputState(row, next);
+
+                row.Cells[_stateColumnIndex].Value = next ? "ON" : "OFF";
+                EventLogger.Write(EventKind.Event, "QMC", "IO-SIM-STATE",
+                    "Runtime I/O state changed. name=" + name + ", state=" + (next ? "ON" : "OFF"));
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "QMC", "IO-SIM-STATE",
+                    "Runtime I/O state change failed: " + ex.Message);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "I/O SIM", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+            finally
+            {
+            }
+        }
+
+        private void ApplyRuntimeInputState(DataGridViewRow row, bool state)
+        {
+            BaseDigitalInput input = FindRuntimeInput(row);
+            int module;
+            int bit;
+            ResolveRowPoint(row, false, out module, out bit);
+
+            if (input == null)
+            {
+                if (module < 0 || bit < 0)
+                    throw new InvalidOperationException(IoName(row) + " input port is not ready.");
+
+                AjinIoScanService.SetSimulatedInput(IoName(row), module, bit, state, false);
+                return;
+            }
+
+            if (input.Config == null || !input.Config.IsSimulationMode)
+                input.Config.IsSimulationMode = true;
+
+            input.SimulateInput(state);
+        }
+
+        private void ApplyRuntimeOutputState(DataGridViewRow row, bool state)
+        {
+            BaseDigitalOutput output = FindRuntimeOutput(row);
+            int module;
+            int bit;
+            ResolveRowPoint(row, true, out module, out bit);
+
+            if (output == null)
+            {
+                if (module < 0 || bit < 0)
+                    throw new InvalidOperationException(IoName(row) + " output port is not ready.");
+
+                AjinIoScanService.SetSimulatedOutput(IoName(row), module, bit, state, false);
+                return;
+            }
+
+            if (output.Config == null || !output.Config.IsSimulationMode)
+                output.Config.IsSimulationMode = true;
+
+            output.Write(state);
+        }
+
+        private BaseDigitalInput FindRuntimeInput(DataGridViewRow row)
+        {
+            try
+            {
+                string name = IoName(row);
+                int module;
+                int bit;
+                ResolveRowPoint(row, false, out module, out bit);
+
+                var host = FindForm() as Form1;
+                if (host != null && host.Machine != null)
+                {
+                    var collector = new IoControlPage.IoCollector();
+                    collector.Scan(host.Machine);
+
+                    foreach (var item in collector.Inputs)
+                    {
+                        if (item == null || item.Port == null)
+                            continue;
+
+                        if (string.Equals(item.Name, name, StringComparison.OrdinalIgnoreCase))
+                            return item.Port;
+
+                        if (item.Module == module && item.Bit == bit)
+                            return item.Port;
+                    }
+                }
+
+                DioDefault catalog = AjinIoCatalog.FindInput(name);
+                if (catalog != null)
+                    return AjinFactory.CreateDigitalInput(catalog);
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+
+            return null;
+        }
+
+        private BaseDigitalOutput FindRuntimeOutput(DataGridViewRow row)
+        {
+            try
+            {
+                string name = IoName(row);
+                int module;
+                int bit;
+                ResolveRowPoint(row, true, out module, out bit);
+
+                var host = FindForm() as Form1;
+                if (host != null && host.Machine != null)
+                {
+                    var collector = new IoControlPage.IoCollector();
+                    collector.Scan(host.Machine);
+
+                    foreach (var item in collector.Outputs)
+                    {
+                        if (item == null || item.Port == null)
+                            continue;
+
+                        if (string.Equals(item.Name, name, StringComparison.OrdinalIgnoreCase))
+                            return item.Port;
+
+                        if (item.Module == module && item.Bit == bit)
+                            return item.Port;
+                    }
+                }
+
+                DioDefault catalog = AjinIoCatalog.FindOutput(name);
+                if (catalog != null)
+                    return AjinFactory.CreateDigitalOutput(catalog);
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+
+            return null;
+        }
+
+        private void ResolveRowPoint(DataGridViewRow row, bool output, out int module, out int bit)
+        {
+            module = -1;
+            bit = -1;
+
+            try
+            {
+                string name = IoName(row);
+                DioDefault catalog = output ? AjinIoCatalog.FindOutput(name) : AjinIoCatalog.FindInput(name);
+                if (catalog != null)
+                {
+                    module = catalog.Module;
+                    bit = catalog.Bit;
+                }
+
+                string pointText = output ? CellText(row, "DO") : CellText(row, "DI");
+                if (string.IsNullOrWhiteSpace(pointText))
+                    return;
+
+                DioMap map = ToDioMap(pointText, output);
+                if (map != null)
+                {
+                    module = map.Module;
+                    bit = map.Bit;
+                }
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        private void RefreshCylinderRuntimeState(string name)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(name))
+                    return;
+
+                string state = CylinderState(null, name);
+                lblCylinderResult.Text = "STATE : " + state;
+
+                if (_stateColumnIndex < 0)
+                    return;
+
+                foreach (DataGridViewRow row in _grid.Rows)
+                {
+                    if (row.IsNewRow)
+                        continue;
+
+                    if (!string.Equals(IoName(row), name, StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    row.Cells[_stateColumnIndex].Value = state;
+                    break;
+                }
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Warning, "QMC", "CYL-STATE-REFRESH",
+                    "Cylinder runtime state refresh failed: " + ex.Message);
             }
             finally
             {
@@ -878,7 +1141,17 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 string index = Convert.ToString(row.Cells[0].Value) ?? string.Empty;
                 if (index.StartsWith("DO-", StringComparison.OrdinalIgnoreCase)) return true;
                 if (index.StartsWith("DI-", StringComparison.OrdinalIgnoreCase)) return false;
-                return _columns.Length > 2 && string.Equals(_columns[2], "DO", StringComparison.OrdinalIgnoreCase);
+
+                for (int i = 0; i < _columns.Length; i++)
+                {
+                    if (string.Equals(_columns[i], "DO", StringComparison.OrdinalIgnoreCase))
+                        return true;
+
+                    if (string.Equals(_columns[i], "DI", StringComparison.OrdinalIgnoreCase))
+                        return false;
+                }
+
+                return false;
             }
             catch
             {
@@ -1132,34 +1405,6 @@ namespace QMC.CDT_320.Ui.Pages.Settings
 
         private static string CylinderState(CylMap item, string cylinderName)
         {
-            if (item == null) return "OFF";
-
-            bool hasFwd = item.UseFwdInput && item.InFwd != null;
-            bool hasBwd = item.UseBwdInput && item.InBwd != null;
-
-            // 둘 다 매핑이 없으면 상태 판단 불가.
-            if (!hasFwd && !hasBwd) return "OFF";
-
-            bool fwd;
-            bool bwd;
-            if (hasFwd && hasBwd)
-            {
-                fwd = IsOn(item.InFwd);
-                bwd = IsOn(item.InBwd);
-            }
-            else if (hasFwd)
-            {
-                // 후진 센서가 없으면 전진 센서의 역으로 후진 상태를 추정.
-                fwd = IsOn(item.InFwd);
-                bwd = !fwd;
-            }
-            else
-            {
-                // 전진 센서가 없으면 후진 센서의 역으로 전진 상태를 추정.
-                bwd = IsOn(item.InBwd);
-                fwd = !bwd;
-            }
-
             string fwdLabel = "FWD";
             string bwdLabel = "BWD";
             try
@@ -1176,6 +1421,45 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             }
             catch
             {
+            }
+
+            try
+            {
+                BaseCylinder cylinder = CylinderManager.Get(cylinderName);
+                if (cylinder != null)
+                {
+                    if (cylinder.IsFwd && !cylinder.IsBwd) return fwdLabel;
+                    if (!cylinder.IsFwd && cylinder.IsBwd) return bwdLabel;
+                    if (cylinder.IsFwd && cylinder.IsBwd) return fwdLabel + "/" + bwdLabel;
+                }
+            }
+            catch
+            {
+            }
+
+            if (item == null) return "OFF";
+
+            bool hasFwd = item.UseFwdInput && item.InFwd != null;
+            bool hasBwd = item.UseBwdInput && item.InBwd != null;
+
+            if (!hasFwd && !hasBwd) return "OFF";
+
+            bool fwd;
+            bool bwd;
+            if (hasFwd && hasBwd)
+            {
+                fwd = IsOn(item.InFwd);
+                bwd = IsOn(item.InBwd);
+            }
+            else if (hasFwd)
+            {
+                fwd = IsOn(item.InFwd);
+                bwd = !fwd;
+            }
+            else
+            {
+                bwd = IsOn(item.InBwd);
+                fwd = !bwd;
             }
 
             if (fwd && !bwd) return fwdLabel;

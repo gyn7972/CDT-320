@@ -6,7 +6,7 @@ using QMC.CDT_320.Ui.Localization;
 
 namespace QMC.CDT_320.Ui.Pages.Work
 {
-    partial class MapTransferPage
+    partial class OutputStageMapTransferPage
     {
         private TableLayoutPanel rootLayout;
         private Label lblHeader;
@@ -168,8 +168,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblHeader.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
             this.lblHeader.Size = new System.Drawing.Size(1669, 26);
             this.lblHeader.TabIndex = 0;
-            this.lblHeader.Tag = "i18n:work.page.inputMap";
-            this.lblHeader.Text = "INPUT 맵";
+            this.lblHeader.Tag = "i18n:work.page.outputMap";
+            this.lblHeader.Text = "OUTPUT STAGE MAP";
             this.lblHeader.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // statusLayout
@@ -314,8 +314,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblMapTitle.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
             this.lblMapTitle.Size = new System.Drawing.Size(1125, 24);
             this.lblMapTitle.TabIndex = 0;
-            this.lblMapTitle.Tag = "i18n:recipe.inputMapCreate";
-            this.lblMapTitle.Text = "INPUT MAP CREATE";
+            this.lblMapTitle.Tag = "i18n:work.page.outputMap";
+            this.lblMapTitle.Text = "OUTPUT STAGE RECEIVE MAP";
             this.lblMapTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // mapView
@@ -804,7 +804,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.rbStandard.Size = new System.Drawing.Size(244, 21);
             this.rbStandard.TabIndex = 0;
             this.rbStandard.TabStop = true;
-            this.rbStandard.Text = "STANDARD";
+            this.rbStandard.Text = "GOOD STAGE";
             this.rbStandard.UseVisualStyleBackColor = true;
             // 
             // rbStartIndex
@@ -816,7 +816,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.rbStartIndex.Name = "rbStartIndex";
             this.rbStartIndex.Size = new System.Drawing.Size(244, 21);
             this.rbStartIndex.TabIndex = 1;
-            this.rbStartIndex.Text = "START INDEX";
+            this.rbStartIndex.Text = "NG STAGE";
             // 
             // rbSelectPickStatus
             // 
@@ -827,7 +827,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.rbSelectPickStatus.Name = "rbSelectPickStatus";
             this.rbSelectPickStatus.Size = new System.Drawing.Size(244, 21);
             this.rbSelectPickStatus.TabIndex = 2;
-            this.rbSelectPickStatus.Text = "SELECT PICK STATUS";
+            this.rbSelectPickStatus.Text = "SOURCE ORDER";
             this.rbSelectPickStatus.UseVisualStyleBackColor = true;
             // 
             // rbDragPickStatus
@@ -839,7 +839,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.rbDragPickStatus.Name = "rbDragPickStatus";
             this.rbDragPickStatus.Size = new System.Drawing.Size(244, 21);
             this.rbDragPickStatus.TabIndex = 3;
-            this.rbDragPickStatus.Text = "DRAG PICK STATUS";
+            this.rbDragPickStatus.Text = "RECEIVED STATUS";
             // 
             // btnReloadActiveMap
             // 
@@ -853,7 +853,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.btnReloadActiveMap.Name = "btnReloadActiveMap";
             this.btnReloadActiveMap.Size = new System.Drawing.Size(242, 32);
             this.btnReloadActiveMap.TabIndex = 5;
-            this.btnReloadActiveMap.Text = "RELOAD ACTIVE MAP";
+            this.btnReloadActiveMap.Text = "RELOAD OUTPUT MAP";
             // 
             // btnPickStatusSave
             // 
@@ -867,7 +867,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.btnPickStatusSave.Name = "btnPickStatusSave";
             this.btnPickStatusSave.Size = new System.Drawing.Size(242, 80);
             this.btnPickStatusSave.TabIndex = 4;
-            this.btnPickStatusSave.Text = "SELECT PICK STATUS SAVE";
+            this.btnPickStatusSave.Text = "SELECTED PLAN INIT";
             // 
             // actionLayout
             // 
@@ -901,7 +901,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.btnManualAlignComplete.Name = "btnManualAlignComplete";
             this.btnManualAlignComplete.Size = new System.Drawing.Size(262, 41);
             this.btnManualAlignComplete.TabIndex = 0;
-            this.btnManualAlignComplete.Text = "MANUAL ALIGN COMPLETE";
+            this.btnManualAlignComplete.Text = "GOOD PLAN INIT";
             // 
             // btnNeedleBlockDown
             // 
@@ -915,7 +915,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.btnNeedleBlockDown.Name = "btnNeedleBlockDown";
             this.btnNeedleBlockDown.Size = new System.Drawing.Size(262, 41);
             this.btnNeedleBlockDown.TabIndex = 1;
-            this.btnNeedleBlockDown.Text = "NEEDLE BLOCK DOWN";
+            this.btnNeedleBlockDown.Text = "NG PLAN INIT";
             // 
             // btnThetaMatchMove
             // 
@@ -929,7 +929,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.btnThetaMatchMove.Name = "btnThetaMatchMove";
             this.btnThetaMatchMove.Size = new System.Drawing.Size(262, 41);
             this.btnThetaMatchMove.TabIndex = 2;
-            this.btnThetaMatchMove.Text = "THETA MATCH MOVE";
+            this.btnThetaMatchMove.Text = "SAVE MATERIAL STATE";
             // 
             // btnXyMatchMove
             // 
@@ -943,7 +943,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.btnXyMatchMove.Name = "btnXyMatchMove";
             this.btnXyMatchMove.Size = new System.Drawing.Size(262, 43);
             this.btnXyMatchMove.TabIndex = 3;
-            this.btnXyMatchMove.Text = "X_Y_MATCH MOVE";
+            this.btnXyMatchMove.Text = "REFRESH DISPLAY";
             // 
             // btnClose
             // 
@@ -959,11 +959,11 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.btnClose.Text = "CLOSE";
             this.btnClose.UseVisualStyleBackColor = false;
             // 
-            // MapTransferPage
+            // OutputStageMapTransferPage
             // 
             this.AutoScroll = false;
             this.Controls.Add(this.rootLayout);
-            this.Name = "MapTransferPage";
+            this.Name = "OutputStageMapTransferPage";
             this.Size = new System.Drawing.Size(1678, 900);
             this.rootLayout.ResumeLayout(false);
             this.statusLayout.ResumeLayout(false);
@@ -982,4 +982,5 @@ namespace QMC.CDT_320.Ui.Pages.Work
         }
     }
 }
+
 
