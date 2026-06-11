@@ -29,21 +29,6 @@ namespace QMC.Common.Recipes
             };
     }
 
-    /// <summary>Stage 69 — 검사 1개의 조명 매핑 (풀 내 N채널 동시).</summary>
-    [DataContract]
-    public class InspectionLightOverride
-    {
-        [DataMember] public string InspectionId { get; set; } = "";
-        [DataMember] public List<InspectionLightSetting> Settings { get; set; } = new List<InspectionLightSetting>();
-
-        /// <summary>설정이 하나도 없으면 조명 미사용 (직렬화 정리 대상).</summary>
-        public bool IsEmpty() => Settings == null || Settings.Count == 0;
-
-        public InspectionLightOverride Clone()
-        {
-            var c = new InspectionLightOverride { InspectionId = InspectionId, Settings = new List<InspectionLightSetting>() };
-            if (Settings != null) foreach (var s in Settings) c.Settings.Add(s.Clone());
-            return c;
-        }
-    }
+    // (C3b-2) InspectionLightOverride(검사 1개의 조명 묶음)는 노드 Recipe(List<InspectionLightSetting>)가
+    // SSOT 로 대체되어 제거. InspectionLightSetting(노드 Recipe 원소)은 유지.
 }
