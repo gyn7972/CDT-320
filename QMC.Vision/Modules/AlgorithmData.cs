@@ -21,16 +21,19 @@ namespace QMC.Vision.Modules
     //  타입(typeof(T))으로 수행되므로 base [DataMember] 가 자연 포함된다([KnownType] 불요).
     //  구 JSON 에 키가 없으면 로드 시 null → [OnDeserializing] 으로 빈 리스트 초기화(비파괴).
 
-    /// <summary>알고리즘 Setup 공통 base — 검사 조명 결선(어느 컨트롤러/채널을 구동).</summary>
+    /// <summary>알고리즘 Setup 공통 base — 검사가 구동하는 컨트롤러/페이지 지정(C3b-3, 결선 풀 대체).</summary>
     [DataContract]
     public abstract class AlgoSetupBase : ISetupData
     {
-        /// <summary>이 검사가 구동하는 컨트롤러/채널 풀(결선). 키 = (ControllerPort, Channel).</summary>
-        [DataMember] public List<ControllerChannels> LightWirings { get; set; } = new List<ControllerChannels>();
+        /// <summary>C3b-3 — 이 검사가 구동하는 (컨트롤러, 페이지) 지정. 채널 열거=컨트롤러 ChannelCount, 사용여부=레벨(Recipe).</summary>
+        [DataMember] public List<LightPageRef> LightPages { get; set; } = new List<LightPageRef>();
 
-        protected AlgoSetupBase() { LightWirings = new List<ControllerChannels>(); }
+        /// <summary>(C3b-3 은퇴 예정) 구 결선 풀 사본 — write-only 죽음. Step 6 에서 LightPages 로 대체·제거.</summary>
+        [DataMember(EmitDefaultValue = false)] public List<ControllerChannels> LightWirings { get; set; }
+
+        protected AlgoSetupBase() { LightPages = new List<LightPageRef>(); }
         [OnDeserializing] private void OnDeserializingLight(StreamingContext ctx)
-        { LightWirings = new List<ControllerChannels>(); }
+        { LightPages = new List<LightPageRef>(); }
     }
 
     /// <summary>알고리즘 Recipe 공통 base — 검사 조명 레벨(제품별 값). 키 = (ControllerPort, Channel).</summary>

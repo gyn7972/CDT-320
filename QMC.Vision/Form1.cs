@@ -183,6 +183,7 @@ namespace QMC.Vision
         {
             if (mod == null) return;
             try { mod.LoadSettings(); mod.LoadRecipe("default"); } catch { }   // Config/Recipe + 알고리즘 cascade
+            try { mod.MigrateLightPages(); } catch { }   // C3b-3 — 기존 조명 레벨 → 노드 LightPages 지정 도출
 
             // 카메라 생성(CameraId=생성 트리거) → SetCamera → Open → Config/Recipe 적용
             string camId = !string.IsNullOrEmpty(mod.CameraId) ? mod.CameraId : fallbackId;

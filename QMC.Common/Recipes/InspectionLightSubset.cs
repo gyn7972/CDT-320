@@ -31,4 +31,17 @@ namespace QMC.Common.Recipes
 
     // (C3b-2) InspectionLightOverride(검사 1개의 조명 묶음)는 노드 Recipe(List<InspectionLightSetting>)가
     // SSOT 로 대체되어 제거. InspectionLightSetting(노드 Recipe 원소)은 유지.
+
+    /// <summary>
+    /// C3b-3 — 검사가 구동하는 (컨트롤러, 페이지) 지정 (노드 Setup 원소). "결선(채널 풀)" 개념 대체.
+    /// 채널 열거 = 지정 컨트롤러의 LightControllerEntry.ChannelCount(1..N). 채널 사용 여부 = 레벨 0/양수(Recipe).
+    /// </summary>
+    [DataContract]
+    public class LightPageRef
+    {
+        [DataMember] public string ControllerPort { get; set; }   // LightControllerEntry.PortName FK
+        [DataMember] public int    Page           { get; set; }   // 0 ~ controller.PageCount-1
+
+        public LightPageRef Clone() => new LightPageRef { ControllerPort = ControllerPort, Page = Page };
+    }
 }
