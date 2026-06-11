@@ -17,7 +17,7 @@ namespace QMC.Vision.Backends.Cognex
         public string Id { get; }
         public Roi    InspectionRoi { get; set; }
 
-        /// <summary>Blob 임계값 (HardFixedThreshold).</summary>
+        /// <summary>Blob 임계값 (HardFixedThreshold). InspectorAlgoRecipe.Threshold 가 노드 Apply 로 주입.</summary>
         public int    Threshold        { get; set; } = 128;
         /// <summary>최소 결함 면적 (픽셀^2). 이 미만 blob 은 무시.</summary>
         public int    MinDefectArea    { get; set; } = 25;
@@ -112,7 +112,7 @@ namespace QMC.Vision.Backends.Cognex
                 var inspResult = new InspectionResult { RoiName = Id, IsPass = pass };
                 inspResult.Items.Add(new InspectionItem { Name = "DefectCount",     Value = defects.Count.ToString(),    IsPass = pass });
                 inspResult.Items.Add(new InspectionItem { Name = "TotalDefectArea", Value = totalArea.ToString("F1"),    IsPass = pass });
-                inspResult.Items.Add(new InspectionItem { Name = "Threshold",       Value = Threshold.ToString(),         IsPass = true });
+                inspResult.Items.Add(new InspectionItem { Name = "Threshold",       Value = Threshold.ToString(), IsPass = true });
                 if (defects.Count > 0)
                 {
                     var biggest = defects[0];
@@ -133,7 +133,5 @@ namespace QMC.Vision.Backends.Cognex
             }
         }
 
-        public void LoadParameters(string path) { /* 추후 JSON 파라미터 — Tier 3 */ }
-        public void SaveParameters(string path) { /* 추후 JSON 파라미터 — Tier 3 */ }
     }
 }

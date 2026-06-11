@@ -5,7 +5,7 @@ namespace QMC.Common.Recipes
 {
     /// <summary>
     /// Stage 69 — 검사 1개의 조명 채널 1개 설정 (Recipe 레이어).
-    /// Controller/Page 는 Setup 의 AlgorithmLightWiring 에서 추론 — 여기엔 값만 보관.
+    /// Controller/Page 는 노드 Setup.LightPages 지정 — 여기엔 채널 레벨 값만 보관(C3b-3).
     /// </summary>
     [DataContract]
     public class InspectionLightSetting
@@ -29,21 +29,19 @@ namespace QMC.Common.Recipes
             };
     }
 
-    /// <summary>Stage 69 — 검사 1개의 조명 매핑 (풀 내 N채널 동시).</summary>
+    // (C3b-2) InspectionLightOverride(검사 1개의 조명 묶음)는 노드 Recipe(List<InspectionLightSetting>)가
+    // SSOT 로 대체되어 제거. InspectionLightSetting(노드 Recipe 원소)은 유지.
+
+    /// <summary>
+    /// C3b-3 — 검사가 구동하는 (컨트롤러, 페이지) 지정 (노드 Setup 원소). "결선(채널 풀)" 개념 대체.
+    /// 채널 열거 = 지정 컨트롤러의 LightControllerEntry.ChannelCount(1..N). 채널 사용 여부 = 레벨 0/양수(Recipe).
+    /// </summary>
     [DataContract]
-    public class InspectionLightOverride
+    public class LightPageRef
     {
-        [DataMember] public string InspectionId { get; set; } = "";
-        [DataMember] public List<InspectionLightSetting> Settings { get; set; } = new List<InspectionLightSetting>();
+        [DataMember] public string ControllerPort { get; set; }   // LightControllerEntry.PortName FK
+        [DataMember] public int    Page           { get; set; }   // 0 ~ controller.PageCount-1
 
-        /// <summary>설정이 하나도 없으면 조명 미사용 (직렬화 정리 대상).</summary>
-        public bool IsEmpty() => Settings == null || Settings.Count == 0;
-
-        public InspectionLightOverride Clone()
-        {
-            var c = new InspectionLightOverride { InspectionId = InspectionId, Settings = new List<InspectionLightSetting>() };
-            if (Settings != null) foreach (var s in Settings) c.Settings.Add(s.Clone());
-            return c;
-        }
+        public LightPageRef Clone() => new LightPageRef { ControllerPort = ControllerPort, Page = Page };
     }
 }

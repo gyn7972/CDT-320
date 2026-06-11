@@ -4,7 +4,9 @@ using System.ComponentModel;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
+using System.Linq;
 using System.Windows.Forms;
+using QMC.Vision.Backends.Cognex;
 using QMC.Vision.Config;
 using QMC.Vision.Core;
 using QMC.Vision.Modules;
@@ -16,12 +18,14 @@ namespace QMC.Vision.Ui.Pages
     /// R2d Step 2 — Inspector 타깃 3열 페이지(VisionTargetPage 병렬). 좌 CAMERA+검사결과+verdict /
     /// 중 ACTION(INSPECT 강조 + GRAB/LOAD/이미지저장/EDIT ROI) / 우 PARAMETERS(InspectionRoi)+검사조명+라이브튜닝.
     /// 세팅선택기에서 inspector 선택 시 본 페이지로 스왑(옛 InspectorPage 대체). InspectorPage public·주입·동작 보존.
-    /// dirty 추적(세팅 단위) + SaveTarget/LoadTarget(inspector.SaveParameters/LoadParameters). 기능=InspectorPage 동일.
+    /// dirty 추적(세팅 단위) + SaveTarget/LoadTarget(BaseUnit 노드 SaveRecipe/LoadRecipe). 기능=InspectorPage 동일.
     /// </summary>
     public partial class InspectorTargetPage : UserControl, ITargetPage
     {
-        private readonly VisionModule _module;
+        private readonly IVisionModule _module;
         private readonly IInspector _inspector;
+        private IAlgorithmNode _node;                // B — BaseUnit 알고리즘 노드
+        private const string RecipeName = "default";
         private bool _dirty;
         private InspectionLightPanel _lightPanel;   // R2e — 편입 조명패널(통합 저장 대상)
 
@@ -39,11 +43,12 @@ namespace QMC.Vision.Ui.Pages
             WireCamera();
         }
 
-        public InspectorTargetPage(VisionModule module, IInspector inspector)
+        public InspectorTargetPage(IVisionModule module, IInspector inspector)
         {
             _module = module; _inspector = inspector;
             InitializeComponent();
             if (LicenseManager.UsageMode == LicenseUsageMode.Designtime) return;
+            _node = _module?.Algorithms.FirstOrDefault(a => a.Inspector == _inspector);
             WireCamera();
             BuildParams();
             LoadTarget();
@@ -57,10 +62,15 @@ namespace QMC.Vision.Ui.Pages
             _cam.RoiEdited += OnCamRoiEdited;
         }
 
+        /// <summary>C3b-3 — 조명 지정(SettingsPage) 변경을 레벨 그리드에 반영. RecipePage 가 타깃 표시 시 호출(캐시 재바인딩).</summary>
+        public void RefreshLightAssignment()
+            => _lightPanel?.SelectInspection(_node, _module?.AlgorithmKey ?? "", _inspector?.Id ?? "");
+
         // ── 우측: 검사 조명(InspectionLightPanel) + 라이브튜닝(LightLiveTuningPanel) 주입(런타임) ──
         private void BuildChildPanels()
         {
-            _lightPanel = new InspectionLightPanel(_module?.AlgorithmKey ?? "", _inspector?.Id ?? "") { Dock = DockStyle.Fill, EmbeddedMode = true };
+            _lightPanel = new InspectionLightPanel { Dock = DockStyle.Fill, EmbeddedMode = true };
+            _lightPanel.SelectInspection(_node, _module?.AlgorithmKey ?? "", _inspector?.Id ?? "");   // C2 — 조명 SSOT=노드
             _lightPanel.LightChanged += (s, e) => MarkDirty();   // R2e — 조명 변경 → 상태점 점등
             _lightHost.Controls.Add(_lightPanel);
 
@@ -109,27 +119,40 @@ namespace QMC.Vision.Ui.Pages
 
         private IEnumerable<LightLiveTuningPanel.TuningRow> CollectRowsForLiveTuning()
         {
-            var ov = AlgorithmCameraMapStore.Current?.Get(_module?.AlgorithmKey)?.GetLightOverride(_inspector?.Id);
-            if (ov?.Settings == null) yield break;
-            foreach (var s in ov.Settings)
+            var settings = (_node?.Recipe as AlgoRecipeBase)?.LightSettings;   // C2 — 노드 Recipe.LightSettings
+            if (settings == null) yield break;
+            foreach (var s in settings)
                 if (!string.IsNullOrEmpty(s.ControllerPort) && s.Channel > 0)
                     yield return new LightLiveTuningPanel.TuningRow
                     { ControllerPort = s.ControllerPort, Channel = s.Channel, Level = s.Level };
         }
 
-        // ── 파라미터(우측 ParameterGridControl) = inspector InspectionRoi 바인딩 ──
+        // ── 파라미터(우측 ParameterGridControl) = B 실 inspector 직접 바인딩 ──
+        // InspectionRoi(Recipe) + Threshold(Cognex 한정, Recipe). 저장 시 노드 Collect.
         private void BuildParams()
         {
             if (_inspector == null) return;
-            var items = new List<ParameterGridItem>
+            var items = new System.Collections.Generic.List<ParameterGridItem>
             {
-                ParameterGridItem.Double("Inspect X", "px", ParameterGridScope.Setup, () => _inspector.InspectionRoi.CenterX, v => { _inspector.InspectionRoi.CenterX = v; RefreshOverlay(); }),
-                ParameterGridItem.Double("Inspect Y", "px", ParameterGridScope.Setup, () => _inspector.InspectionRoi.CenterY, v => { _inspector.InspectionRoi.CenterY = v; RefreshOverlay(); }),
-                ParameterGridItem.Double("Inspect W", "px", ParameterGridScope.Setup, () => _inspector.InspectionRoi.Width,   v => { _inspector.InspectionRoi.Width = v;   RefreshOverlay(); }),
-                ParameterGridItem.Double("Inspect H", "px", ParameterGridScope.Setup, () => _inspector.InspectionRoi.Height,  v => { _inspector.InspectionRoi.Height = v;  RefreshOverlay(); }),
+                ParameterGridItem.Double("Inspect X", "px", ParameterGridScope.Recipe, () => _inspector.InspectionRoi.CenterX, v => { _inspector.InspectionRoi.CenterX = v; RefreshOverlay(); }),
+                ParameterGridItem.Double("Inspect Y", "px", ParameterGridScope.Recipe, () => _inspector.InspectionRoi.CenterY, v => { _inspector.InspectionRoi.CenterY = v; RefreshOverlay(); }),
+                ParameterGridItem.Double("Inspect W", "px", ParameterGridScope.Recipe, () => _inspector.InspectionRoi.Width,   v => { _inspector.InspectionRoi.Width = v;   RefreshOverlay(); }),
+                ParameterGridItem.Double("Inspect H", "px", ParameterGridScope.Recipe, () => _inspector.InspectionRoi.Height,  v => { _inspector.InspectionRoi.Height = v;  RefreshOverlay(); }),
             };
+            if (_inspector is CognexInspector cog)
+                items.Add(ParameterGridItem.Int("Threshold", "", ParameterGridScope.Recipe, () => cog.Threshold, v => { cog.Threshold = v; }));
+            AppendNodeParams(items);   // ② 검사 전용 POCO 필드 칸(인프라 — 현재 케이스 0)
             _params.SetItems(items);
-            _params.ParameterValueChanged += (s, e) => MarkDirty();
+            _params.ParameterValueChanged += (s, e) => { RefreshOverlay(); MarkDirty(); };
+        }
+
+        /// <summary>② per-algorithm 전용필드 칸 확장점 — 노드 구체 Recipe/Config 캐스트해 POCO 바인딩(저장=POCO).
+        /// 전용필드 추가 시 아래 패턴 1줄. (인프라: 현재 케이스 0 — 현 동작 불변.)</summary>
+        private void AppendNodeParams(System.Collections.Generic.List<ParameterGridItem> items)
+        {
+            // 예) if (_node?.Recipe is SurfaceInspectorRecipe r)
+            //         items.Add(ParameterGridItem.Double("Min Blob Area", "px²", ParameterGridScope.Recipe,
+            //                   () => r.MinBlobArea, v => { r.MinBlobArea = v; MarkDirty(); }));
         }
 
         private void RefreshOverlay()
@@ -137,12 +160,11 @@ namespace QMC.Vision.Ui.Pages
             if (_inspector != null) _cam.SetOverlay(_inspector.InspectionRoi, null);
         }
 
-        // ── dirty / 타깃 저장(상단바 SAVE 가 호출) ──
+        // ── dirty / 타깃 저장(상단바 SAVE 가 호출) — BaseUnit 노드 위임 ──
         private string TargetPath()
         {
-            string alg = _module?.AlgorithmKey ?? "Unknown";
-            string id = (_inspector?.Id ?? "x").Replace('/', '_');
-            return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "VisionRecipe", alg, id + ".json");
+            string key = _node?.StorageKey ?? ((_module?.StorageKey ?? "Unknown") + "." + (_inspector?.Id ?? "x"));
+            return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Recipes", RecipeName, key + ".recipe.json");
         }
 
         private void MarkDirty()
@@ -152,35 +174,31 @@ namespace QMC.Vision.Ui.Pages
             DirtyChanged?.Invoke(this, EventArgs.Empty);
         }
 
-        /// <summary>타깃 레시피 저장 — inspector 파라미터(InspectionRoi 등)를 Config/VisionRecipe/&lt;alg&gt;/&lt;id&gt;.json 으로.</summary>
+        /// <summary>타깃 저장 — 노드 SaveSettings + SaveRecipe. Collect 가 런타임→POCO 수집.</summary>
         public void SaveTarget()
         {
-            if (_inspector == null) { Status("저장 대상 없음"); return; }
+            if (_node == null) { Status("저장 대상 노드 없음"); return; }
             try
             {
-                string path = TargetPath();
-                Directory.CreateDirectory(Path.GetDirectoryName(path));
-                _inspector.SaveParameters(path);
-                _lightPanel?.PersistLight();   // R2e — 통합 저장(InspectionRoi + 조명)
+                _node.SaveSettings();
+                _node.SaveRecipe(RecipeName);
+                _lightPanel?.PersistLight();   // R2e — 조명(별도 저장소) 유지
                 _dirty = false;
                 DirtyChanged?.Invoke(this, EventArgs.Empty);
-                Status("타깃 저장됨 — " + path);
+                Status("타깃 저장됨 — " + TargetPath());
             }
             catch (Exception ex) { Status("타깃 저장 실패: " + ex.Message); }
         }
 
         private void LoadTarget()
         {
-            if (_inspector == null) return;
+            if (_node == null) return;
             try
             {
-                string path = TargetPath();
-                if (File.Exists(path))
-                {
-                    _inspector.LoadParameters(path);
-                    _params.RefreshValues();
-                    RefreshOverlay();
-                }
+                _node.LoadSettings();
+                _node.LoadRecipe(RecipeName);   // Apply 가 POCO→런타임 inspector 주입
+                _params.RefreshValues();
+                RefreshOverlay();
             }
             catch { }
         }

@@ -34,8 +34,5 @@ namespace QMC.Vision.Backends.OpenCv
             }
             return r;
         }
-
-        public void LoadParameters(string path) { }
-        public void SaveParameters(string path) { }
     }
 }

@@ -14,20 +14,20 @@ namespace QMC.Vision.Ui.Pages
     /// R2c — Handler VisionRecipePage 미러. 사이드바=검사 알고리즘 5개(평면, Handler SidebarButton 1:1) +
     /// 영속 세팅선택기 바=알고리즘의 finder/inspector. 상태점(미설정 회색/설정완료 녹/변경됨 주황) 페인트.
     /// 본문 스왑 finder→VisionTargetPage·inspector→InspectorTargetPage(R2d, 3열). 상단바 SAVE=타깃 레시피저장.
-    /// 무인자 ctor·ShowSpc/ShowParameterEditors 보존(SPC/파라미터 진입점은 불필요로 미노출).
+    /// 무인자 ctor·ShowSpc 보존(SPC 미노출). P4 — ② 파라미터는 타깃 페이지/SettingsPage 통일 그리드로 흡수(ParameterEditorHost 제거).
     /// </summary>
     public partial class RecipePage : UserControl
     {
         private sealed class Setting
         {
-            public VisionModule Module;
+            public IVisionModule Module;
             public string Id;
             public bool IsFinder;
             public IPatternFinder Finder;
             public IInspector Inspector;
         }
 
-        private readonly Dictionary<string, VisionModule> _algoModules = new Dictionary<string, VisionModule>();
+        private readonly Dictionary<string, IVisionModule> _algoModules = new Dictionary<string, IVisionModule>();
         private readonly Dictionary<string, SidebarButton> _algoBtns = new Dictionary<string, SidebarButton>();
         private readonly Dictionary<string, Setting> _settings = new Dictionary<string, Setting>();
         private readonly Dictionary<string, SidebarButton> _setBtns = new Dictionary<string, SidebarButton>();
@@ -48,11 +48,7 @@ namespace QMC.Vision.Ui.Pages
             _content.Controls.Clear();
             _content.Controls.Add(new SpcChartPage { Dock = DockStyle.Fill });
         }
-        private void ShowParameterEditors()
-        {
-            _content.Controls.Clear();
-            _content.Controls.Add(new Editors.ParameterEditorHost { Dock = DockStyle.Fill });
-        }
+        // P4 — ShowParameterEditors(ParameterEditorHost) 제거: ② 편집은 타깃 페이지/SettingsPage 통일 그리드로 흡수.
 
         // ── 사이드바: 검사 알고리즘 5개 평면(Handler SidebarButton) ──
         private void BuildSidebar()
@@ -73,7 +69,7 @@ namespace QMC.Vision.Ui.Pages
             foreach (var kv in _algoBtns) { SelectAlgorithm(kv.Key); break; }
         }
 
-        private void AddAlgoButton(VisionModule module)
+        private void AddAlgoButton(IVisionModule module)
         {
             if (module == null) return;
             string key = module.AlgorithmKey;
@@ -108,7 +104,7 @@ namespace QMC.Vision.Ui.Pages
         }
 
         // ── 세팅선택기: 현 알고리즘의 finder/inspector ──
-        private void BuildSettingSelector(VisionModule module)
+        private void BuildSettingSelector(IVisionModule module)
         {
             _setFlow.Controls.Clear();
             _settings.Clear();
@@ -177,17 +173,20 @@ namespace QMC.Vision.Ui.Pages
             }
             page.Visible = true;
             page.BringToFront();
+            // C3b-3 — SettingsPage 에서 바뀐 조명 지정(노드 LightPages)을 레벨 그리드에 반영(캐시 페이지 재바인딩).
+            (page as ITargetPage)?.RefreshLightAssignment();
 
             _hdr.Text = "Recipe — " + VisionAlgorithm.Label(_curAlgo) + " / " + InspectionLabel.Get(s.Module.AlgorithmKey, s.Id);
             UpdateSettingDot(key);
         }
 
         // ── 상태(미설정/설정완료/변경됨) ──
-        private string SettingPath(Setting s)
-        {
-            string id = (s.Id ?? "x").Replace('/', '_');
-            return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "VisionRecipe", s.Module.AlgorithmKey ?? "Unknown", id + ".json");
-        }
+        // B — 새 BaseUnit 레시피 파일 경로: Recipes/default/<모듈StorageKey>.<id>.recipe.json (노드 TargetPath 와 일치).
+        private static string RecipeFilePath(IVisionModule module, string id)
+            => Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Recipes", "default",
+                            (module?.StorageKey ?? "Unknown") + "." + (id ?? "x") + ".recipe.json");
+
+        private string SettingPath(Setting s) => RecipeFilePath(s.Module, s.Id);
 
         private SidebarStatus SettingStatus(string key, Setting s)
         {
@@ -204,27 +203,25 @@ namespace QMC.Vision.Ui.Pages
         }
 
         /// <summary>알고리즘 상태점 = 세팅 집계(any dirty→변경됨 / any 저장→설정완료 / 없음→미설정).</summary>
-        private SidebarStatus AlgoStatus(VisionModule module)
+        private SidebarStatus AlgoStatus(IVisionModule module)
         {
             bool anyData = false;
             foreach (var kv in module.Finders)
             {
-                string p = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "VisionRecipe", module.AlgorithmKey ?? "Unknown", (kv.Key ?? "x").Replace('/', '_') + ".json");
-                if (File.Exists(p)) anyData = true;
+                if (File.Exists(RecipeFilePath(module, kv.Key))) anyData = true;
                 string k = "F:" + module.AlgorithmKey + ":" + kv.Key;
                 if (_cache.TryGetValue(k, out var pg) && pg is ITargetPage tp && tp.IsDirty) return SidebarStatus.Dirty;
             }
             foreach (var kv in module.Inspectors)
             {
-                string p = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "VisionRecipe", module.AlgorithmKey ?? "Unknown", (kv.Key ?? "x").Replace('/', '_') + ".json");
-                if (File.Exists(p)) anyData = true;
+                if (File.Exists(RecipeFilePath(module, kv.Key))) anyData = true;
                 string k = "I:" + module.AlgorithmKey + ":" + kv.Key;
                 if (_cache.TryGetValue(k, out var pg) && pg is ITargetPage tp && tp.IsDirty) return SidebarStatus.Dirty;
             }
             return anyData ? SidebarStatus.Done : SidebarStatus.Off;
         }
 
-        private void UpdateAlgoDot(VisionModule module)
+        private void UpdateAlgoDot(IVisionModule module)
         {
             if (module != null && _algoBtns.TryGetValue(module.AlgorithmKey, out var btn))
                 btn.Status = AlgoStatus(module);
@@ -237,16 +234,7 @@ namespace QMC.Vision.Ui.Pages
             try
             {
                 if (_cache.TryGetValue(_curSetKey, out var pg) && pg is ITargetPage tp)
-                {
-                    tp.SaveTarget();   // finder/inspector.SaveParameters + dirty clear (DirtyChanged→dot 갱신)
-                }
-                else
-                {
-                    string path = SettingPath(s);
-                    Directory.CreateDirectory(Path.GetDirectoryName(path));
-                    if (s.IsFinder) s.Finder?.SaveParameters(path);
-                    else s.Inspector?.SaveParameters(path);
-                }
+                    tp.SaveTarget();   // 노드 SaveSettings/SaveRecipe + dirty clear (DirtyChanged→dot 갱신)
                 UpdateSettingDot(_curSetKey);
                 UpdateAlgoDot(s.Module);
             }

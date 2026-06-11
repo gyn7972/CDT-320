@@ -39,6 +39,21 @@ namespace QMC.Common.Data.Store
             }
         }
 
+        public static DataStoreResult Delete(string storageKey, string category)
+        {
+            try
+            {
+                return JsonDataStore.DeleteFile(PathOf(storageKey, category));
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
         public static string PathOf(string storageKey, string category)
         {
             try

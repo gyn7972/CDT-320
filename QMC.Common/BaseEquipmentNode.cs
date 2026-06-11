@@ -71,5 +71,23 @@
         public virtual void LoadRecipe(string recipeName)
         {
         }
+        /// <summary>
+        /// Setup / Config 저장 파일을 삭제한다. 하위 클래스에서 Composite 연쇄로 override.
+        /// 하나라도 실패하면 false 를 반환한다.
+        /// </summary>
+        public virtual bool DeleteSettings()
+        {
+            return true;
+        }
+
+        /// <summary>
+        /// 지정한 레시피 이름의 Recipe 저장 파일을 삭제한다. 하위 클래스에서 Composite 연쇄로 override.
+        /// 하나라도 실패하면 false 를 반환한다.
+        /// </summary>
+        public virtual bool DeleteRecipe(string recipeName)
+        {
+            return true;
+        }
+
     }
 }
