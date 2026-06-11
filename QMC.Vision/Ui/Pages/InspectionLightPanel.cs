@@ -97,10 +97,9 @@ namespace QMC.Vision.Ui.Pages
         /// <summary>저장된 레벨 출처 — 노드 Recipe.LightSettings(있으면) 또는 구 algorithm_camera.json fallback.</summary>
         private List<InspectionLightSetting> SavedSettings()
         {
+            // C3a — 조명 SSOT = 노드 Recipe.LightSettings (구 algorithm_camera.json fallback 폐지).
             var r = _node?.Recipe as AlgoRecipeBase;
-            if (r != null) return r.LightSettings ?? new List<InspectionLightSetting>();
-            var ov = AlgorithmCameraMapStore.Current?.Get(_algorithm)?.GetLightOverride(_inspectionId);
-            return ov?.Settings ?? new List<InspectionLightSetting>();
+            return r?.LightSettings ?? new List<InspectionLightSetting>();
         }
 
         // ── 이벤트 핸들러 (Designer 에서 named 연결) ──
@@ -127,6 +126,19 @@ namespace QMC.Vision.Ui.Pages
         {
             _carry.Clear();
             _maxPowerByPort.Clear();
+
+            // C3a — 검사 노드 미해결: 명시 메시지 + 입력 비활성(조용한 구경로 금지).
+            if (_node == null)
+            {
+                _grid.Rows.Clear();
+                _grid.Enabled = false;
+                _btnApply.Enabled = _btnSave.Enabled = _btnReset.Enabled = false;
+                _lblWiring.Text = "";
+                SetStatus("설정 불러올 수 없음 — 검사 노드 미해결", true);
+                System.Diagnostics.Debug.WriteLine("[InspectionLightPanel] 노드 미해결: " + _algorithm + "/" + _inspectionId);
+                return;
+            }
+
             var w = Wiring();
             var sets = (w?.ControllerSets ?? new List<ControllerChannels>())
                        .Where(cs => !string.IsNullOrEmpty(cs.ControllerPort)).ToList();
@@ -226,37 +238,26 @@ namespace QMC.Vision.Ui.Pages
 
         private void Save()
         {
+            // C3a — 조명 SSOT = 노드 Recipe(레벨)/Setup(결선). 노드 미해결 시 저장 불가(구 store fallback 폐지).
+            var recipe = _node?.Recipe as AlgoRecipeBase;
+            if (recipe == null) { SetStatus("저장 불가 — 검사 노드 미해결", true); return; }
+
             var ov = Collect();
             ov.Settings.RemoveAll(s => s.Level <= 0 && s.StrobeTimeUs <= 0 && s.StabilizeDelayMs <= 0);
-
-            // C2 — 조명 SSOT = 노드 Recipe(레벨)/Setup(결선). 노드 미해결 시 구 store fallback.
-            var recipe = _node?.Recipe as AlgoRecipeBase;
-            if (recipe != null)
+            recipe.LightSettings = ov.Settings;
+            var setup = _node.Setup as AlgoSetupBase;
+            var w = Wiring();
+            if (setup != null && w?.ControllerSets != null)
             {
-                recipe.LightSettings = ov.Settings;
-                var setup = _node.Setup as AlgoSetupBase;
-                var w = Wiring();
-                if (setup != null && w?.ControllerSets != null)
-                {
-                    var ports = new HashSet<string>(
-                        ov.Settings.Select(s => s.ControllerPort ?? ""), StringComparer.OrdinalIgnoreCase);
-                    setup.LightWirings = w.ControllerSets
-                        .Where(cs => ports.Contains(cs.ControllerPort ?? ""))
-                        .Select(cs => cs.Clone()).ToList();
-                }
-                try { _node.SaveSettings(); _node.SaveRecipe("default"); }
-                catch (System.Exception ex) { SetStatus("저장 예외: " + ex.Message, true); return; }
-                SetStatus($"저장 완료 — 노드 [{_node.StorageKey}] 점등 {ov.Settings.Count(s => s.Level > 0)}채널", false);
-                return;
+                var ports = new HashSet<string>(
+                    ov.Settings.Select(s => s.ControllerPort ?? ""), StringComparer.OrdinalIgnoreCase);
+                setup.LightWirings = w.ControllerSets
+                    .Where(cs => ports.Contains(cs.ControllerPort ?? ""))
+                    .Select(cs => cs.Clone()).ToList();
             }
-
-            var bm = AlgorithmCameraMapStore.Current?.Get(_algorithm);
-            if (bm == null) { SetStatus("알고리즘 매핑 없음", true); return; }
-            var existing = bm.GetOrCreateLightOverride(_inspectionId);
-            existing.Settings = ov.Settings;
-            if (existing.IsEmpty()) bm.InspectionLights?.RemoveAll(o => string.Equals(o.InspectionId, _inspectionId, StringComparison.OrdinalIgnoreCase));
-            AlgorithmCameraMapStore.Save();
-            SetStatus($"저장 완료 — 점등 {ov.Settings.Count(s => s.Level > 0)}채널", false);
+            try { _node.SaveSettings(); _node.SaveRecipe("default"); }
+            catch (System.Exception ex) { SetStatus("저장 예외: " + ex.Message, true); return; }
+            SetStatus($"저장 완료 — 노드 [{_node.StorageKey}] 점등 {ov.Settings.Count(s => s.Level > 0)}채널", false);
         }
 
         private async void Apply()

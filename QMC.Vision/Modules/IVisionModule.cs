@@ -33,9 +33,6 @@ namespace QMC.Vision.Modules
         void ImportCameraMapping(AlgorithmCameraMapping m);
         /// <summary>모듈 Config/Recipe → AlgorithmCameraMapping(편집 UI 로드 스냅샷).</summary>
         AlgorithmCameraMapping ExportCameraMapping();
-
-        /// <summary>C2 — 구 조명 데이터(InspectionLights+결선) → 노드 Setup/Recipe 마이그(빈 것만, 구파일 보존).</summary>
-        bool MigrateLegacyLights(AlgorithmCameraMapping legacy, AlgorithmLightWiring wiring);
         IReadOnlyDictionary<string, IPatternFinder> Finders { get; }
         IReadOnlyDictionary<string, IInspector> Inspectors { get; }
 

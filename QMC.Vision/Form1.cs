@@ -43,7 +43,8 @@ namespace QMC.Vision
         {
             // ── 설정 + 백엔드 ──
             var cfg = VisionConfigStore.Load();
-            var map = AlgorithmCameraMapStore.Load();   // 알고리즘-카메라 매핑 (없으면 defaults)
+            // C3a — algorithm_camera.json 완전 은퇴: 카메라=모듈 Config(C1), 조명=노드 Recipe(C2) SSOT.
+            //        구 store Load/Save·마이그 다리 제거(읽기·쓰기 0).
 
             // Stage 69 — 조명 시스템 Setup 로드 + LightHub 초기화 (Sim 백엔드면 Sim 컨트롤러).
             var lightSetup = QMC.Common.Recipes.LightSystemSetupStore.Load();
@@ -60,15 +61,6 @@ namespace QMC.Vision
                     QMC.Common.Recipes.LightSystemSetupStore.Save();
                     lightSetup = migrated;
                 }
-            }
-            // Stage 70 — 구버전 Wiring.Page → 검사 Setting.Page 마이그레이션 (1회).
-            bool recipeMigrated = map.MigrateWiringPageToSettings(lightSetup);
-            // Stage 81 — 구버전 Recipe Setting.ControllerPort 자동 채움 (다중 컨트롤러 모델).
-            recipeMigrated |= map.FillRecipeControllerPorts(lightSetup);
-            if (recipeMigrated)
-            {
-                AlgorithmCameraMapStore.Save();              // 검사 Setting.Page/ControllerPort 기록
-                QMC.Common.Recipes.LightSystemSetupStore.Save(); // 구 단일 결선 키 제거 — 새 스키마로 재저장
             }
 
             // Stage 73 — 조명 Sim 여부를 비전 Provider 와 분리(독립 config). 기본 true=안전(Sim).
@@ -91,20 +83,12 @@ namespace QMC.Vision
             FrontSideMod    = new FrontSideInspectionModule   (null, Backend);
             RearSideMod = new RearSideInspectionModule(null, Backend);
 
-            // 모듈 Config 로드(+알고리즘 cascade) → CameraId 로 카메라 생성·SetCamera·Config/Recipe 적용.
-            // 최초 부팅(모듈 Config 없음) 시 algorithm_camera.json 카메라부 → 모듈 Config 마이그(구파일 보존).
-            InitModuleCamera(WaferMod,      map, VisionAlgorithm.Wafer,            "Sim/Wafer");
-            InitModuleCamera(BinMod,        map, VisionAlgorithm.Bin,              "Sim/Bin");
-            InitModuleCamera(BottomMod,     map, VisionAlgorithm.BottomInspection, "Sim/BottomInsp");
-            InitModuleCamera(FrontSideMod,    map, VisionAlgorithm.FrontSide,          "Sim/FrontSide");
-            InitModuleCamera(RearSideMod, map, VisionAlgorithm.RearSide,       "Sim/RearSide");
-
-            // ── C2: 조명 BaseUnit 마이그레이션 — 구 InspectionLights+결선 → 노드 Setup/Recipe(빈 것만, 구파일 보존) ──
-            MigrateModuleLights(WaferMod,     map, lightSetup, VisionAlgorithm.Wafer);
-            MigrateModuleLights(BinMod,       map, lightSetup, VisionAlgorithm.Bin);
-            MigrateModuleLights(BottomMod,    map, lightSetup, VisionAlgorithm.BottomInspection);
-            MigrateModuleLights(FrontSideMod, map, lightSetup, VisionAlgorithm.FrontSide);
-            MigrateModuleLights(RearSideMod,  map, lightSetup, VisionAlgorithm.RearSide);
+            // 모듈 Config/Recipe 로드(+알고리즘 cascade) → CameraId 로 카메라 생성·SetCamera·적용. (C3a: 구파일 마이그 제거)
+            InitModuleCamera(WaferMod,      VisionAlgorithm.Wafer,            "Sim/Wafer");
+            InitModuleCamera(BinMod,        VisionAlgorithm.Bin,              "Sim/Bin");
+            InitModuleCamera(BottomMod,     VisionAlgorithm.BottomInspection, "Sim/BottomInsp");
+            InitModuleCamera(FrontSideMod,  VisionAlgorithm.FrontSide,        "Sim/FrontSide");
+            InitModuleCamera(RearSideMod,   VisionAlgorithm.RearSide,         "Sim/RearSide");
 
             // ── TCP 서버 ──
             _svrWafer      = new VisionTcpServer(WaferMod,      cfg.WaferVisionPort);
@@ -193,25 +177,12 @@ namespace QMC.Vision
                 lblStatusR.Text += suffix;
         }
 
-        /// <summary>C1 — 카메라 SSOT=모듈 BaseUnit Config: LoadSettings → (마이그) → CameraId 로 생성·SetCamera·적용.</summary>
-        private static void InitModuleCamera(IVisionModule mod, AlgorithmCameraSubset map, string algorithm, string fallbackId)
+        /// <summary>C1/C3a — 카메라 SSOT=모듈 BaseUnit Config: LoadSettings/LoadRecipe → CameraId 로 생성·SetCamera·적용.
+        /// 구 algorithm_camera.json 마이그 제거(C3a). 모듈 Config 없으면 fallbackId 카메라(저장은 사용자 편집 시).</summary>
+        private static void InitModuleCamera(IVisionModule mod, string algorithm, string fallbackId)
         {
             if (mod == null) return;
-            string cfgFile = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
-                                                    "EquipmentData", "Config", mod.StorageKey + ".json");
-            bool fresh = !System.IO.File.Exists(cfgFile);
-
-            try { mod.LoadSettings(); } catch { }   // Config/Recipe + 알고리즘 cascade (카메라 null → Apply no-op)
-
-            // 마이그레이션: 모듈 Config 없음 → algorithm_camera.json 카메라부 이전(구파일 보존)
-            if (fresh)
-            {
-                var m = map?.Get(algorithm);
-                if (m == null) m = new AlgorithmCameraMapping { Algorithm = algorithm, CameraId = fallbackId };
-                if (string.IsNullOrEmpty(m.CameraId)) m.CameraId = fallbackId;
-                mod.ImportCameraMapping(m);
-                try { mod.SaveSettings(); mod.SaveRecipe("default"); } catch { }
-            }
+            try { mod.LoadSettings(); mod.LoadRecipe("default"); } catch { }   // Config/Recipe + 알고리즘 cascade
 
             // 카메라 생성(CameraId=생성 트리거) → SetCamera → Open → Config/Recipe 적용
             string camId = !string.IsNullOrEmpty(mod.CameraId) ? mod.CameraId : fallbackId;
@@ -224,22 +195,6 @@ namespace QMC.Vision
                     "Vision/" + algorithm, $"Camera.Open 실패 [{camId}]: {ex.Message}");
             }
             mod.ApplyCameraSettings();
-        }
-
-        /// <summary>C2 — 조명 BaseUnit 마이그: 디스크 레시피(조명 포함 가능) 로드 후, 노드 조명 비어있는 것만
-        /// 구 algorithm_camera.json InspectionLights + LightSystemSetup 결선에서 채워 저장(구파일 보존).</summary>
-        private static void MigrateModuleLights(IVisionModule mod, AlgorithmCameraSubset map,
-                                                QMC.Common.Recipes.LightSystemSetup lightSetup, string algorithm)
-        {
-            if (mod == null) return;
-            try { mod.LoadRecipe("default"); } catch { }   // 기존 레시피 조명 보존(빈 것만 마이그)
-            try
-            {
-                var legacy = map?.Get(algorithm);
-                var wiring = lightSetup?.GetWiring(algorithm);
-                mod.MigrateLegacyLights(legacy, wiring);
-            }
-            catch { }
         }
 
         /// <summary>모듈별 원격 뷰어 서버 생성+Start. 소스(GrabImage/ScreenRegion)에 따라 프레임 provider 선택.</summary>

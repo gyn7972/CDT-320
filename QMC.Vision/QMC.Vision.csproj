@@ -234,12 +234,6 @@
     <Compile Include="Ui\Pages\CameraMappingPanel.Designer.cs">
       <DependentUpon>CameraMappingPanel.cs</DependentUpon>
     </Compile>
-    <Compile Include="Ui\Pages\InspectionOverridePanel.cs">
-      <SubType>UserControl</SubType>
-    </Compile>
-    <Compile Include="Ui\Pages\InspectionOverridePanel.Designer.cs">
-      <DependentUpon>InspectionOverridePanel.cs</DependentUpon>
-    </Compile>
     <Compile Include="Ui\Pages\FinderPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
@@ -288,9 +282,6 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\InspectionLightPanel.resx">
       <DependentUpon>InspectionLightPanel.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Ui\Pages\InspectionOverridePanel.resx">
-      <DependentUpon>InspectionOverridePanel.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\InspectorPage.resx">
       <DependentUpon>InspectorPage.cs</DependentUpon>
