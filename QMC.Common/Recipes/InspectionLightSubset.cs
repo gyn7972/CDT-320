@@ -5,7 +5,7 @@ namespace QMC.Common.Recipes
 {
     /// <summary>
     /// Stage 69 — 검사 1개의 조명 채널 1개 설정 (Recipe 레이어).
-    /// Controller/Page 는 Setup 의 AlgorithmLightWiring 에서 추론 — 여기엔 값만 보관.
+    /// Controller/Page 는 노드 Setup.LightPages 지정 — 여기엔 채널 레벨 값만 보관(C3b-3).
     /// </summary>
     [DataContract]
     public class InspectionLightSetting
