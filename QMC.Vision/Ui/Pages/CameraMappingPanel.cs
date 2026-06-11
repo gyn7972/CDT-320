@@ -92,29 +92,27 @@ namespace QMC.Vision.Ui.Pages
             return _buffer;
         }
 
-        /// <summary>모듈 Config/Recipe → 워킹 버퍼. 모듈 미해결 시 구 algorithm_camera.json fallback.</summary>
+        /// <summary>모듈 Config/Recipe → 워킹 버퍼. C3a — 모듈 미해결 시 null(구 algorithm_camera.json fallback 폐지).</summary>
         private AlgorithmCameraMapping LoadBuffer()
         {
             var mod = Module();
-            if (mod != null)
-            {
-                var m = mod.ExportCameraMapping();
-                m.Algorithm = _algorithm;
-                return m;
-            }
-            var s = AlgorithmCameraMapStore.Current.Get(_algorithm);
-            if (s == null)
-            {
-                s = new AlgorithmCameraMapping { Algorithm = _algorithm };
-                AlgorithmCameraMapStore.Current.Items.Add(s);
-            }
-            return s;
+            if (mod == null) return null;
+            var m = mod.ExportCameraMapping();
+            m.Algorithm = _algorithm;
+            return m;
         }
 
         private void BindFields()
         {
             var m = CurrentMapping();
-            if (m == null) return;
+            if (m == null)   // C3a — 운영 모듈 미해결: 명시 메시지 + 입력 비활성(조용한 구경로 금지)
+            {
+                if (_body != null) _body.Enabled = false;
+                if (_lblStatus != null) { _lblStatus.ForeColor = Color.Firebrick; _lblStatus.Text = "설정 불러올 수 없음 — 운영 모듈 미해결"; }
+                System.Diagnostics.Debug.WriteLine("[CameraMappingPanel] 모듈 미해결: " + _algorithm);
+                return;
+            }
+            if (_body != null) _body.Enabled = true;
             _suspendBinding = true;
             try
             {
@@ -234,30 +232,26 @@ namespace QMC.Vision.Ui.Pages
             OnFieldChanged();
             if (!Validate(out var err)) { _lblStatus.Text = "저장 거부 — " + err; _lblStatus.ForeColor = Color.Firebrick; return; }
             var mod = Module();
-            if (mod != null)
+            if (mod == null)   // C3a — 모듈 미해결: 저장 불가(구 store fallback 폐지)
             {
-                // 카메라 설정 SSOT = 모듈 Config/Recipe
-                mod.ImportCameraMapping(_buffer);
-                mod.SaveSettings();
-                mod.SaveRecipe("default");
+                _lblStatus.ForeColor = Color.Firebrick;
+                _lblStatus.Text = "저장 불가 — 운영 모듈 미해결";
+                return;
             }
-            else
-            {
-                AlgorithmCameraMapStore.Save();   // 모듈 미해결(테스트) fallback
-            }
+            // 카메라 설정 SSOT = 모듈 Config/Recipe
+            mod.ImportCameraMapping(_buffer);
+            mod.SaveSettings();
+            mod.SaveRecipe("default");
             OnMilFieldChanged();
             VisionConfigStore.Save();   // MIL DCF/System 등 전역 설정 영속
             _lblStatus.ForeColor = Color.DarkSlateGray;
-            _lblStatus.Text = mod != null
-                ? $"저장 완료 — 모듈 [{mod.StorageKey}] Config/Recipe"
-                : "저장 완료 — " + AlgorithmCameraMapStore.Path_;
+            _lblStatus.Text = $"저장 완료 — 모듈 [{mod.StorageKey}] Config/Recipe";
         }
 
         private void CancelChanges()
         {
             // 미저장 편집은 버퍼에만 존재 → 버퍼를 버리고 모듈 Config/Recipe 에서 재로드(라이브 카메라 무영향).
             _buffer = null;
-            if (Module() == null) AlgorithmCameraMapStore.Load();
             BindFields();
             _lblStatus.ForeColor = Color.DarkSlateGray;
             _lblStatus.Text = "취소됨 — 저장된 값으로 되돌림";
