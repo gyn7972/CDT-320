@@ -27,6 +27,13 @@ namespace QMC.Vision.Ui.Pages
             InitializeComponent();
             if (LicenseManager.UsageMode == LicenseUsageMode.Designtime) return;
             _grid.EditMode = DataGridViewEditMode.EditOnEnter;
+            // 콤보 선택을 즉시 셀 값으로 커밋(미커밋이면 OnCellEndEdit/Save 가 구 값 0 을 읽는 버그 방지).
+            _grid.CurrentCellDirtyStateChanged += OnGridCurrentCellDirtyStateChanged;
+        }
+
+        private void OnGridCurrentCellDirtyStateChanged(object sender, EventArgs e)
+        {
+            if (_grid.IsCurrentCellDirty) _grid.CommitEdit(DataGridViewDataErrorContexts.Commit);
         }
 
         /// <summary>검사 노드 컨텍스트 주입(호스트가 참조/GetAlgorithm 으로 해석).</summary>
@@ -136,6 +143,8 @@ namespace QMC.Vision.Ui.Pages
         {
             var setup = _node?.Setup as AlgoSetupBase;
             if (setup == null) { SetStatus("저장 불가 — 검사 노드 미해결", true); return; }
+
+            try { _grid.EndEdit(); } catch { }   // 진행 중 콤보 편집을 셀 값으로 확정 후 수집
 
             var list = new List<LightPageRef>();
             foreach (DataGridViewRow r in _grid.Rows)
