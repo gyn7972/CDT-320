@@ -109,11 +109,21 @@ namespace QMC.Vision.Ui.Pages
         private void OnCancelClick(object sender, EventArgs e) => BindFields();
         private void OnGridDataError(object sender, DataGridViewDataErrorEventArgs e) => e.ThrowException = false;
 
-        // ── Setup 결선 조회 ──
-        private AlgorithmLightWiring Wiring()
-            => LightSystemSetupStore.Current?.GetWiring(_algorithm);
+        // ── C3b-3: 검사가 구동하는 컨트롤러/페이지 지정(노드 Setup.LightPages, 결선 풀 대체) ──
+        private List<LightPageRef> ActivePages()
+        {
+            var setup = _node?.Setup as AlgoSetupBase;
+            var pages = setup?.LightPages;
+            if (pages != null && pages.Count > 0) return pages;
+            // 마이그 전 폴백(표시용) — Recipe 레벨에서 (Port,Page) 도출.
+            return SavedSettings()
+                .Where(s => !string.IsNullOrEmpty(s.ControllerPort))
+                .GroupBy(s => s.ControllerPort.ToUpperInvariant() + "/" + s.Page)
+                .Select(g => new LightPageRef { ControllerPort = g.First().ControllerPort, Page = g.First().Page })
+                .ToList();
+        }
 
-        private static string Key(string port, int ch) => (port ?? "") + "/" + ch;
+        private static string Key(string port, int page, int ch) => (port ?? "") + "/" + page + "/" + ch;
 
         private void BindFields()
         {
@@ -139,78 +149,74 @@ namespace QMC.Vision.Ui.Pages
                 return;
             }
 
-            var w = Wiring();
-            var sets = (w?.ControllerSets ?? new List<ControllerChannels>())
-                       .Where(cs => !string.IsNullOrEmpty(cs.ControllerPort)).ToList();
-            bool wired = w != null && w.IsWired;
+            // C3b-3 — 결선 풀 대신 노드 Setup.LightPages(검사가 구동하는 컨트롤러/페이지) 기반.
+            var pages = ActivePages();
+            bool assigned = pages.Count > 0;
 
-            // 컨트롤러 능력(MaxPower/PageCount) 수집
-            int maxPageCount = 1;
-            foreach (var cs in sets)
+            // 컨트롤러 능력(MaxPower) 수집
+            foreach (var pr in pages)
             {
-                var ce = LightSystemSetupStore.Current?.GetController(cs.ControllerPort);
-                _maxPowerByPort[cs.ControllerPort] = (ce != null && ce.MaxPower > 0) ? ce.MaxPower : 240;
-                if (ce != null && ce.PageCount > maxPageCount) maxPageCount = ce.PageCount;
+                var ce = LightSystemSetupStore.Current?.GetController(pr.ControllerPort);
+                _maxPowerByPort[pr.ControllerPort] = (ce != null && ce.MaxPower > 0) ? ce.MaxPower : 240;
             }
 
-            // 결선 헤더 (다중)
-            if (!wired)
-                _lblWiring.Text = "결선 없음 — [설정 > 조명 시스템]에서 이 알고리즘에 컨트롤러/채널을 배정하세요.";
+            // 지정 헤더
+            if (!assigned)
+                _lblWiring.Text = "컨트롤러/페이지 미지정 — [설정 > 검사]에서 이 검사에 컨트롤러/페이지를 지정하세요.";
             else
-                _lblWiring.Text = "결선: " + string.Join("    ", sets.Select(cs =>
+                _lblWiring.Text = "지정: " + string.Join("    ", pages.Select(pr =>
                 {
-                    var ce = LightSystemSetupStore.Current?.GetController(cs.ControllerPort);
+                    var ce = LightSystemSetupStore.Current?.GetController(pr.ControllerPort);
                     string nm = (ce != null && !string.IsNullOrEmpty(ce.Name)) ? $" ({ce.Name})" : "";
-                    return $"{cs.ControllerPort}{nm} [{string.Join(",", cs.Channels)}]";
-                })) + "   — 변경은 [설정 > 조명 시스템]";
+                    return $"{pr.ControllerPort}{nm} p{pr.Page}";
+                })) + "   — 지정 변경은 [설정 > 검사]";
 
-            // 저장 설정 (port,ch) → 설정 (C2: 노드 Recipe.LightSettings 우선, 구 store fallback)
+            // 저장 레벨 (port,page,ch) → 설정 (노드 Recipe.LightSettings)
             var saved = new Dictionary<string, InspectionLightSetting>(StringComparer.OrdinalIgnoreCase);
             foreach (var s in SavedSettings())
             {
-                string key = Key(s.ControllerPort, s.Channel);
+                string key = Key(s.ControllerPort, s.Page, s.Channel);
                 if (!saved.ContainsKey(key)) saved[key] = s;
             }
 
-            // Page 콤보 = 0 ~ maxPageCount-1
+            // Page 컬럼 = 지정에서 결정 → 읽기전용(표시만)
             var pgCol = (DataGridViewComboBoxColumn)_grid.Columns["Page"];
             pgCol.Items.Clear();
-            for (int p = 0; p < maxPageCount; p++) pgCol.Items.Add(p);
-            pgCol.ReadOnly = maxPageCount <= 1;
+            foreach (var p in pages.Select(pr => pr.Page).Distinct().OrderBy(x => x)) pgCol.Items.Add(p);
+            pgCol.ReadOnly = true;
 
-            // 행 자동 생성 — 각 ControllerSet 의 채널마다
+            // 행 생성 — 각 지정(컨트롤러/페이지)의 채널 1..ChannelCount (레벨 0=미사용)
             _grid.Rows.Clear();
-            foreach (var cs in sets)
+            foreach (var pr in pages)
             {
-                var ce = LightSystemSetupStore.Current?.GetController(cs.ControllerPort);
+                var ce = LightSystemSetupStore.Current?.GetController(pr.ControllerPort);
+                int channelCount = (ce != null && ce.ChannelCount > 0) ? ce.ChannelCount : 8;
                 var labelByCh = new Dictionary<int, string>();
                 if (ce?.ChannelLabels != null)
                     foreach (var l in ce.ChannelLabels)
                         if (!labelByCh.ContainsKey(l.Channel)) labelByCh[l.Channel] = l.Name ?? "";
-                string ctrlDisp = cs.ControllerPort + ((ce != null && !string.IsNullOrEmpty(ce.Name)) ? $" ({ce.Name})" : "");
+                string ctrlDisp = pr.ControllerPort + ((ce != null && !string.IsNullOrEmpty(ce.Name)) ? $" ({ce.Name})" : "");
 
-                foreach (var ch in (cs.Channels ?? new List<int>()))
+                for (int ch = 1; ch <= channelCount; ch++)
                 {
-                    string key = Key(cs.ControllerPort, ch);
+                    string key = Key(pr.ControllerPort, pr.Page, ch);
                     saved.TryGetValue(key, out var s);
                     int level = s?.Level ?? 0;
-                    int page  = s != null ? s.Page : 0;
-                    if (page < 0) page = 0; if (page > maxPageCount - 1) page = maxPageCount - 1;
                     labelByCh.TryGetValue(ch, out var nm);
-                    int idx = _grid.Rows.Add(ctrlDisp, ch, nm ?? "", level, page);
-                    _grid.Rows[idx].Cells["Page"].Value = page;
-                    _grid.Rows[idx].Tag = cs.ControllerPort;   // 저장용 실제 PortName
+                    int idx = _grid.Rows.Add(ctrlDisp, ch, nm ?? "", level, pr.Page);
+                    _grid.Rows[idx].Cells["Page"].Value = pr.Page;
+                    _grid.Rows[idx].Tag = pr.ControllerPort;   // 저장용 실제 PortName
                     _carry[key] = new InspectionLightSetting
                     {
-                        ControllerPort = cs.ControllerPort, Channel = ch,
+                        ControllerPort = pr.ControllerPort, Channel = ch, Page = pr.Page,
                         StrobeTimeUs = s?.StrobeTimeUs ?? 0, StabilizeDelayMs = s?.StabilizeDelayMs ?? 0
                     };
                 }
             }
 
-            _grid.Enabled = wired;
-            _btnApply.Enabled = _btnSave.Enabled = _btnReset.Enabled = wired;
-            SetStatus(wired ? "" : "결선 미설정 — [설정 > 조명 시스템]에서 결선 후 사용", !wired);
+            _grid.Enabled = assigned;
+            _btnApply.Enabled = _btnSave.Enabled = _btnReset.Enabled = assigned;
+            SetStatus(assigned ? "" : "컨트롤러/페이지 미지정 — [설정 > 검사]에서 지정 후 사용", !assigned);
         }
 
         /// <summary>UI → 노드 Recipe 조명 리스트(List&lt;InspectionLightSetting&gt;). 행 = (Controller, Channel). On=Level&gt;0 파생, Strobe/Stab 보존.</summary>
@@ -226,7 +232,7 @@ namespace QMC.Vision.Ui.Pages
                 int level = IntOf(r, "Level", 0);
                 if (level < 0) level = 0; if (level > maxP) level = maxP;
                 int page = IntOf(r, "Page", 0);
-                _carry.TryGetValue(Key(port, ch), out var keep);
+                _carry.TryGetValue(Key(port, page, ch), out var keep);
                 list.Add(new InspectionLightSetting
                 {
                     ControllerPort = port, Channel = ch, Level = level, On = level > 0,
@@ -238,35 +244,25 @@ namespace QMC.Vision.Ui.Pages
 
         private void Save()
         {
-            // C3a — 조명 SSOT = 노드 Recipe(레벨)/Setup(결선). 노드 미해결 시 저장 불가(구 store fallback 폐지).
+            // C3b-3 — 레벨만 저장(노드 Recipe). 컨트롤러/페이지 지정(Setup.LightPages)은 [설정>검사]에서 별도 편집.
             var recipe = _node?.Recipe as AlgoRecipeBase;
             if (recipe == null) { SetStatus("저장 불가 — 검사 노드 미해결", true); return; }
 
             var settings = Collect();
-            settings.RemoveAll(s => s.Level <= 0 && s.StrobeTimeUs <= 0 && s.StabilizeDelayMs <= 0);
+            settings.RemoveAll(s => s.Level <= 0 && s.StrobeTimeUs <= 0 && s.StabilizeDelayMs <= 0);   // 미사용(0) 정리
             recipe.LightSettings = settings;
-            var setup = _node.Setup as AlgoSetupBase;
-            var w = Wiring();
-            if (setup != null && w?.ControllerSets != null)
-            {
-                var ports = new HashSet<string>(
-                    settings.Select(s => s.ControllerPort ?? ""), StringComparer.OrdinalIgnoreCase);
-                setup.LightWirings = w.ControllerSets
-                    .Where(cs => ports.Contains(cs.ControllerPort ?? ""))
-                    .Select(cs => cs.Clone()).ToList();
-            }
-            try { _node.SaveSettings(); _node.SaveRecipe("default"); }
+            try { _node.SaveRecipe("default"); }
             catch (System.Exception ex) { SetStatus("저장 예외: " + ex.Message, true); return; }
             SetStatus($"저장 완료 — 노드 [{_node.StorageKey}] 점등 {settings.Count(s => s.Level > 0)}채널", false);
         }
 
         private async void Apply()
         {
-            var w = Wiring();
-            if (w == null || !w.IsWired)
+            // C3b-3 — 결선 풀 검증 폐기. 지정(LightPages) 없으면 거부, 있으면 페이지 전 채널 배열(미사용=0) 송신.
+            if (ActivePages().Count == 0)
             {
-                AlarmManager.Raise(AlarmSeverity.Warning, "LIGHT-WIRING-MISS", "Light/" + _algorithm, $"{_algorithm} 결선 누락");
-                SetStatus("적용 거부 — 결선 누락", true); return;
+                AlarmManager.Raise(AlarmSeverity.Warning, "LIGHT-PAGE-MISS", "Light/" + _algorithm, $"{_algorithm}/{_inspectionId} 컨트롤러/페이지 미지정");
+                SetStatus("적용 거부 — 컨트롤러/페이지 미지정", true); return;
             }
             var settings = Collect();
             try
@@ -282,14 +278,8 @@ namespace QMC.Vision.Ui.Pages
                         AlarmManager.Raise(AlarmSeverity.Warning, "LIGHT-MAP-INVALID", "Light/" + _algorithm, $"{grp.Key} not in LightHub");
                         continue;
                     }
-                    var cs = w.GetSet(grp.Key);
-                    if (cs == null)
-                    {
-                        AlarmManager.Raise(AlarmSeverity.Warning, "LIGHT-WIRING-MISS", "Light/" + _algorithm, $"{grp.Key} 결선 누락");
-                        continue;
-                    }
                     ports.Add(grp.Key);
-                    tasks.Add(ApplyControllerAsync(ctrl, cs, grp.ToList()));
+                    tasks.Add(ApplyControllerAsync(ctrl, grp.ToList()));
                 }
                 if (tasks.Count == 0) { SetStatus("적용 거부 — 등록된 컨트롤러 없음 (조명 연결 필요)", true); return; }
 
@@ -300,21 +290,17 @@ namespace QMC.Vision.Ui.Pages
             catch (Exception ex) { SetStatus("적용 예외: " + ex.Message, true); }
         }
 
-        /// <summary>한 컨트롤러의 settings 를 Page 별 batch 로 적용 (Level 0 = OFF). 모두 성공 시 true.</summary>
-        private async Task<bool> ApplyControllerAsync(ILightController ctrl, ControllerChannels cs, List<InspectionLightSetting> settings)
+        /// <summary>한 컨트롤러의 settings 를 Page 별 batch 로 적용 (Level 0 = OFF=미사용). 모두 성공 시 true.</summary>
+        private async Task<bool> ApplyControllerAsync(ILightController ctrl, List<InspectionLightSetting> settings)
         {
             bool allOk = true;
             foreach (var pgrp in settings.GroupBy(s => s.Page).OrderBy(g => g.Key))
             {
                 await ctrl.SwitchPageAsync(pgrp.Key);
-                int[] times = new int[ctrl.ChannelCount];   // 0 = OFF
+                int[] times = new int[ctrl.ChannelCount];   // 0 = OFF (미사용)
                 foreach (var s in pgrp)
                 {
-                    if (cs.Channels == null || !cs.Channels.Contains(s.Channel))
-                    {
-                        AlarmManager.Raise(AlarmSeverity.Warning, "LIGHT-CHANNEL-OUT-OF-POOL", "Light/" + ctrl.PortName, $"ch{s.Channel} not in pool");
-                        continue;
-                    }
+                    // 결선 풀 검증 폐기(C3b-3) — 컨트롤러의 전 채널이 유효, 레벨 0 = OFF(미사용).
                     if (s.Channel >= 1 && s.Channel <= ctrl.ChannelCount)
                         times[s.Channel - 1] = s.On ? s.Level : 0;
                 }

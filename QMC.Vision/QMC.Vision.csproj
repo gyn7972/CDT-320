@@ -148,6 +148,12 @@
     <Compile Include="Ui\Pages\InspectionLightPanel.Designer.cs">
       <DependentUpon>InspectionLightPanel.cs</DependentUpon>
     </Compile>
+    <Compile Include="Ui\Pages\InspectionLightAssignPanel.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\InspectionLightAssignPanel.Designer.cs">
+      <DependentUpon>InspectionLightAssignPanel.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\UiTheme.cs" />
     <Compile Include="Ui\Controls\SidebarButton.cs">
       <SubType>Component</SubType>

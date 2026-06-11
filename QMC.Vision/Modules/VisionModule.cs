@@ -124,6 +124,33 @@ namespace QMC.Vision.Modules
             if (r != null) r.Exposure = m.ExposureUs;
         }
 
+        // ── C3b-3: 결선 폐기 마이그 — 기존 Recipe.LightSettings 의 (Port,Page) → 노드 Setup.LightPages 지정 도출 ──
+        /// <summary>노드 LightPages 비어있고 Recipe 에 조명 레벨이 있으면, distinct (ControllerPort,Page) 로 지정 도출 후 저장.
+        /// 결선 풀(AlgorithmWirings) 없이 검사가 쓰는 컨트롤러/페이지를 노드 Setup 으로 일원화. 변경 시 true.</summary>
+        public bool MigrateLightPages()
+        {
+            bool any = false;
+            foreach (var node in Algorithms)
+            {
+                var setup  = node.Setup  as AlgoSetupBase;
+                var recipe = node.Recipe as AlgoRecipeBase;
+                if (setup == null || recipe == null) continue;
+                if (setup.LightPages != null && setup.LightPages.Count > 0) continue;            // 이미 지정됨 → 스킵
+                if (recipe.LightSettings == null || recipe.LightSettings.Count == 0) continue;   // 조명 없음 → 미사용
+
+                var pages = recipe.LightSettings
+                    .Where(s => !string.IsNullOrEmpty(s.ControllerPort))
+                    .GroupBy(s => s.ControllerPort.ToUpperInvariant() + "/" + s.Page)
+                    .Select(g => new LightPageRef { ControllerPort = g.First().ControllerPort, Page = g.First().Page })
+                    .ToList();
+                if (pages.Count == 0) continue;
+                setup.LightPages = pages;
+                try { node.SaveSettings(); } catch { }
+                any = true;
+            }
+            return any;
+        }
+
         public override void LoadSettings()       { base.LoadSettings();    ApplyCameraSettings(); }
         public override void LoadRecipe(string n) { base.LoadRecipe(n);     ApplyCameraSettings(); }
         public override bool SaveSettings()       { CollectCameraSettings(); return base.SaveSettings(); }

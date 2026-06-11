@@ -13,10 +13,10 @@ namespace QMC.Vision.Ui.Pages
     /// </summary>
     public partial class SettingsPage : UserControl
     {
-        private CameraMappingPanel      _camPanel;
-        private InspectionLightPanel    _lightPanel;      // Stage 69 — 검사별 조명 (C3a: 검사별 카메라 override 드롭, 조명만)
-        private LightSystemSetupPage    _lightSetupPage;  // Stage 69 — 조명 시스템 Setup
-        private Control                 _currentEditor;   // 검사 노드 편집기 캐시
+        private CameraMappingPanel        _camPanel;
+        private InspectionLightAssignPanel _lightAssignPanel;  // C3b-3 — 검사별 컨트롤러/페이지 지정(레벨은 RecipePage)
+        private LightSystemSetupPage      _lightSetupPage;     // Stage 69 — 조명 시스템 Setup(컨트롤러 정의)
+        private Control                   _currentEditor;      // 검사 노드 편집기 캐시
 
         public SettingsPage()
         {
@@ -32,9 +32,9 @@ namespace QMC.Vision.Ui.Pages
             _camPanel = new CameraMappingPanel { Dock = DockStyle.Fill, Visible = false };
             _detailHost.Controls.Add(_camPanel);
 
-            // C3a — 검사 노드 = 조명만(검사별 카메라 override 드롭). 카메라는 알고리즘 노드(상위) 매핑에서.
-            _lightPanel = new InspectionLightPanel { Dock = DockStyle.Fill, Visible = false };
-            _detailHost.Controls.Add(_lightPanel);
+            // C3b-3 — 검사 노드 = 컨트롤러/페이지 지정(Setup). 채널 레벨은 RecipePage(레벨 그리드).
+            _lightAssignPanel = new InspectionLightAssignPanel { Dock = DockStyle.Fill, Visible = false };
+            _detailHost.Controls.Add(_lightAssignPanel);
 
             // Stage 69 — 조명 시스템 Setup 페이지
             _lightSetupPage = new LightSystemSetupPage { Dock = DockStyle.Fill, Visible = false };
@@ -94,10 +94,10 @@ namespace QMC.Vision.Ui.Pages
 
         private void ShowInspectionLight(string algorithm, string inspectionId)
         {
-            // C2/C3a — 조명 SSOT=노드. 짧은 id(InspectionsOf) → GetAlgorithm 으로 노드 해석.
-            SwapEditor(_lightPanel);
+            // C3b-3 — SettingsPage 조명노드 = 컨트롤러/페이지 지정(Setup). 짧은 id → GetAlgorithm 노드 해석.
+            SwapEditor(_lightAssignPanel);
             var node = (FindForm() as Form1)?.ResolveModule(algorithm)?.GetAlgorithm(inspectionId);
-            _lightPanel.SelectInspection(node, algorithm, inspectionId);
+            _lightAssignPanel.SelectInspection(node, algorithm, inspectionId);
         }
 
         private void ShowLightSystemSetup()
@@ -113,9 +113,9 @@ namespace QMC.Vision.Ui.Pages
             next.Visible = true;
             next.BringToFront();
 
-            // 영구 패널(_camPanel/_lightPanel/_lightSetupPage)은 재사용 — dispose 대상에서 제외.
+            // 영구 패널(_camPanel/_lightAssignPanel/_lightSetupPage)은 재사용 — dispose 대상에서 제외.
             if (_currentEditor != null && _currentEditor != next
-                && _currentEditor != _camPanel && _currentEditor != _lightPanel && _currentEditor != _lightSetupPage)
+                && _currentEditor != _camPanel && _currentEditor != _lightAssignPanel && _currentEditor != _lightSetupPage)
             {
                 try { _detailHost.Controls.Remove(_currentEditor); _currentEditor.Dispose(); } catch { }
             }
