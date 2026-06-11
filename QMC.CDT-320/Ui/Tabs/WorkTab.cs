@@ -34,8 +34,8 @@ namespace QMC.CDT_320.Ui.Tabs
                 await c.StopSequenceAsync();
                 await c.StopAsync();
             }));
-            RegisterActionButton(BtnCycleRun,   "work.cycleRun",   op, () => RunSafe(async c => await c.CycleRunAsync()));
-            RegisterActionButton(BtnCycleStop,  "work.cycleStop",  op, () => RunSafe(async c => await c.CycleStopAsync()));
+            RegisterActionButton(BtnCycleRun,   "work.cycleRun",   op, () => RunSafe(async c => await c.RunInputSequenceStepAsync()));
+            RegisterActionButton(BtnCycleStop,  "work.cycleStop",  op, () => RunSafe(async c => await c.StopSequenceAsync()));
             RegisterActionButton(BtnResetAlarm, "work.resetAlarm", en, () => RunSafe(async c => await c.ResetAlarmAsync()));
             RegisterActionButton(BtnShutdown,   "work.shutdown",   mt, () => RunSafe(async c => await c.ShutdownAsync()));
             RegisterActionButton(BtnEStop,      "work.estop",      op, () => RunSafe(async c => await c.EmergencyStopAsync()));

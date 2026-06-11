@@ -10,6 +10,7 @@ using QMC.Common.Alarms;
 using QMC.Common.IO;
 using QMC.Common.Motion;
 using QMC.CDT320.Interlocks;
+using QMC.CDT320.Materials;
 
 namespace QMC.CDT320
 {
@@ -676,6 +677,27 @@ namespace QMC.CDT320
             }
         }
 
+        public async Task<int> WaferScanFromCurrentStart(int timeoutMs = 0, bool bFine = false)
+        {
+            try
+            {
+                if (!CheckWaferCassetteMappingReady())
+                    return -1;
+
+                BeginWaferMapping();
+                int result = await ScanCassetteFromCurrentStartAsync(Config.SlotCount, Config.SlotPitch, timeoutMs);
+                EndWaferMapping();
+                return result;
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
         public async Task<int> MoveToNextWaferSlot(bool bFine = false)
         {
             try
@@ -789,6 +811,91 @@ namespace QMC.CDT320
             return FindNextProcessWaferSlot() >= 0;
         }
 
+        public bool IsInputCassetteProcessComplete()
+        {
+            try
+            {
+                int slotCount = Config != null && Config.SlotCount > 0 ? Config.SlotCount : 0;
+                if (slotCount <= 0)
+                    return false;
+
+                bool hasProcessWafer = false;
+                var cassette = MaterialStateService.State != null && MaterialStateService.State.Cassettes != null
+                    ? MaterialStateService.State.Cassettes.FirstOrDefault(c => c.Role == CassetteMaterialRole.Input1)
+                    : null;
+
+                if (cassette != null && cassette.IsMapped)
+                {
+                    cassette.EnsureSlots();
+                    int count = Math.Min(slotCount, cassette.Slots.Count);
+                    for (int i = 0; i < count; i++)
+                    {
+                        WaferSlotState slotState;
+                        bool hasSlotState = slotStates.TryGetValue(i, out slotState);
+                        var slot = cassette.Slots[i];
+                        bool hasMaterialSlot = slot != null && slot.HasWafer && !string.IsNullOrWhiteSpace(slot.WaferId);
+
+                        if (!hasMaterialSlot &&
+                            (!hasSlotState || slotState.Presence != SlotPresence.Exist))
+                        {
+                            continue;
+                        }
+
+                        hasProcessWafer = true;
+
+                        if (hasSlotState &&
+                            slotState.Process != ProcessState.Done &&
+                            slotState.Process != ProcessState.Ng)
+                        {
+                            return false;
+                        }
+
+                        if (hasMaterialSlot)
+                        {
+                            WaferMaterial wafer = MaterialStateService.GetWaferInCassette(CassetteMaterialRole.Input1, i);
+                            if (wafer == null)
+                                return false;
+
+                            if (WaferMaterialStateText.Normalize(wafer.State) != WaferMaterialState.Finish)
+                                return false;
+                        }
+                    }
+
+                    return hasProcessWafer;
+                }
+
+                for (int i = 0; i < slotCount; i++)
+                {
+                    WaferSlotState state;
+                    if (!slotStates.TryGetValue(i, out state) || state.Presence != SlotPresence.Exist)
+                        continue;
+
+                    hasProcessWafer = true;
+                    if (state.Process != ProcessState.Done && state.Process != ProcessState.Ng)
+                        return false;
+                }
+
+                return hasProcessWafer;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "InputCassetteUnit",
+                    "Input cassette complete check failed: " + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        public void RaiseInputCassetteCompleteAlarm(string source)
+        {
+            const string code = "IN-CST-CHANGE";
+            const string message = "Input cassette processing is complete. Replace input cassette.";
+            AlarmManager.Raise(AlarmSeverity.Warning, code, string.IsNullOrWhiteSpace(source) ? Name : source, message);
+            Log.Write("Main", "ALARM", code, message + " - Check");
+        }
+
         public bool IsHaveMoreProcessWafer()
         {
             return HasMoreProcessWafer();
@@ -804,6 +911,61 @@ namespace QMC.CDT320
                     (state.Process == ProcessState.Ready || state.Process == ProcessState.Unknown))
                     return i;
             }
+
+            return FindNextProcessWaferSlotFromMaterialState();
+        }
+
+        private int FindNextProcessWaferSlotFromMaterialState()
+        {
+            try
+            {
+                int slotCount = Config != null && Config.SlotCount > 0 ? Config.SlotCount : 0;
+                if (slotCount <= 0)
+                    return -1;
+
+                var cassette = MaterialStateService.State != null && MaterialStateService.State.Cassettes != null
+                    ? MaterialStateService.State.Cassettes.FirstOrDefault(c => c.Role == CassetteMaterialRole.Input1)
+                    : null;
+                if (cassette == null || !cassette.IsMapped)
+                    return -1;
+
+                cassette.EnsureSlots();
+                int count = Math.Min(slotCount, cassette.Slots.Count);
+                for (int i = 0; i < count; i++)
+                {
+                    WaferSlotState slotState;
+                    if (slotStates.TryGetValue(i, out slotState) &&
+                        slotState.Process != ProcessState.Ready &&
+                        slotState.Process != ProcessState.Unknown)
+                    {
+                        continue;
+                    }
+
+                    var slot = cassette.Slots[i];
+                    if (slot == null || !slot.HasWafer || string.IsNullOrWhiteSpace(slot.WaferId))
+                        continue;
+
+                    WaferMaterial wafer = MaterialStateService.GetWaferInCassette(CassetteMaterialRole.Input1, i);
+                    if (wafer == null)
+                        continue;
+
+                    WaferMaterialState state = WaferMaterialStateText.Normalize(wafer.State);
+                    if (state == WaferMaterialState.Ready || state == WaferMaterialState.WorkReady)
+                    {
+                        UpdateWaferCassetteSlotState(i, SlotPresence.Exist, ProcessState.Ready);
+                        return i;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "InputCassetteUnit",
+                    "Find next process wafer slot from material state failed: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+
             return -1;
         }
 
@@ -894,14 +1056,43 @@ namespace QMC.CDT320
                     return FailMappingScan("IN-CST-MAP-PITCH", "Slot pitch is invalid.");
                 }
 
-                int startResult = await MoveToWaferCassetteMappingStartPosition();
-                if (startResult != 0 || InputLifterZ.IsAlarm)
+                int startResult = await MoveToWaferCassetteMappingStartAndVerifyAsync();
+                if (startResult != 0)
+                    return startResult;
+
+                return await ScanCassetteFromCurrentStartAsync(maxSlots, slotPitch);
+            }
+            catch (Exception ex)
+            {
+                FailMappingScan("IN-CST-MAP-EXCEPTION", "Mapping scan failed: " + ex.Message);
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        public async Task<int> ScanCassetteFromCurrentStartAsync(int maxSlots, double slotPitch, int timeoutMs = 0)
+        {
+            try
+            {
+                if (!IsAnyCassetteSensorOn())
                 {
-                    return FailMappingScan("IN-CST-MAP-START", "InputLifterZ move failed at mapping start.");
+                    return FailMappingScan("IN-CST-MAP-CST-MISSING", "Cassette is not detected.");
+                }
+
+                if (maxSlots <= 0)
+                {
+                    return FailMappingScan("IN-CST-MAP-SLOT-COUNT", "Slot count is invalid.");
+                }
+
+                if (slotPitch <= 0.0)
+                {
+                    return FailMappingScan("IN-CST-MAP-PITCH", "Slot pitch is invalid.");
                 }
 
                 if (Config.bDryRun || InputLifterZ.Config.IsSimulationMode)
-                    return await ScanCassetteByNominalPositionAsync(maxSlots);
+                    return await ScanCassetteByNominalPositionFromCurrentStartAsync(maxSlots, timeoutMs);
 
                 var detectedPositions = await CollectMappingSensorPositionsAsync();
                 if (detectedPositions == null)
@@ -937,23 +1128,28 @@ namespace QMC.CDT320
             }
         }
 
-        private async Task<int> ScanCassetteByNominalPositionAsync(int maxSlots)
+        private async Task<int> ScanCassetteByNominalPositionFromCurrentStartAsync(int maxSlots, int timeoutMs)
         {
             try
             {
                 var map = new List<bool>();
                 for (int i = 0; i < maxSlots; i++)
                 {
-                    int moveResult = await MoveWaferLifterZ(CalculateNominalSlotPosition(i));
-                    if (moveResult != 0 || InputLifterZ.IsAlarm)
-                    {
-                        return FailMappingScan("IN-CST-MAP-SIM-MOVE", "InputLifterZ simulation move failed at slot " + i + ".");
-                    }
-
-                    await Task.Delay(Config.ScanSettleTimeMs).ContinueWith(_ => { });
                     UpdateSlotPosition(i, CalculateNominalSlotPosition(i));
                     map.Add(true);
                 }
+
+                int endResult = await MoveToWaferCassetteMappingEndPosition();
+                if (endResult != 0 || InputLifterZ.IsAlarm)
+                    return FailMappingScan("IN-CST-MAP-SIM-END", "InputLifterZ simulation move failed at mapping end.");
+
+                int waitResult = await WaitWaferLifterZMoveDone(timeoutMs);
+                if (waitResult != 0)
+                    return FailMappingScan("IN-CST-MAP-SIM-END-WAIT", "InputLifterZ simulation mapping end move timeout.");
+
+                bool inPosition = IsWaferLifterZInPosition(Recipe.MappingEndPosition, ResolveWaferLifterZInPositionTolerance());
+                if (!inPosition)
+                    return FailMappingScan("IN-CST-MAP-SIM-END-CHECK", "InputLifterZ simulation mapping end final position check failed.");
 
                 WaferMap = map.AsReadOnly();
                 Log.Write("Main", "SYSTEM", "InputCassetteMapping", "Simulation mapping scan completed. slots=" + map.Count + " - Ok");
@@ -963,6 +1159,33 @@ namespace QMC.CDT320
             {
                 FailMappingScan("IN-CST-MAP-SIM-EXCEPTION", "Simulation mapping scan failed: " + ex.Message);
                 return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> MoveToWaferCassetteMappingStartAndVerifyAsync()
+        {
+            try
+            {
+                int startResult = await MoveToWaferCassetteMappingStartPosition();
+                if (startResult != 0 || InputLifterZ.IsAlarm)
+                    return FailMappingScan("IN-CST-MAP-START", "InputLifterZ move failed at mapping start.");
+
+                int waitResult = await WaitWaferLifterZMoveDone(ResolveWaferLifterZMoveTimeoutMs());
+                if (waitResult != 0)
+                    return FailMappingScan("IN-CST-MAP-START-WAIT", "InputLifterZ mapping start move timeout.");
+
+                bool inPosition = IsWaferLifterZInPosition(Recipe.MappingStartPosition, ResolveWaferLifterZInPositionTolerance());
+                if (!inPosition)
+                    return FailMappingScan("IN-CST-MAP-START-CHECK", "InputLifterZ mapping start final position check failed.");
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return FailMappingScan("IN-CST-MAP-START-EXCEPTION", "InputLifterZ mapping start move failed: " + ex.Message);
             }
             finally
             {
@@ -1020,6 +1243,14 @@ namespace QMC.CDT320
                 int moveResult = await moveTask;
                 if (moveResult != 0 || InputLifterZ.IsAlarm)
                     return FailMappingScanList("IN-CST-MAP-END", "InputLifterZ move failed during mapping scan.");
+
+                int waitResult = await WaitWaferLifterZMoveDone(ResolveWaferLifterZMoveTimeoutMs());
+                if (waitResult != 0)
+                    return FailMappingScanList("IN-CST-MAP-END-WAIT", "InputLifterZ mapping end move timeout.");
+
+                bool inPosition = IsWaferLifterZInPosition(Recipe.MappingEndPosition, ResolveWaferLifterZInPositionTolerance());
+                if (!inPosition)
+                    return FailMappingScanList("IN-CST-MAP-END-CHECK", "InputLifterZ mapping end final position check failed.");
 
                 return detectedPositions;
             }

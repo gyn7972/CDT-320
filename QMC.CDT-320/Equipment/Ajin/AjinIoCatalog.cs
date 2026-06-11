@@ -55,18 +55,18 @@ namespace QMC.CDT320.Ajin
             DO("ReticleFrontSideBw", 3, 23),
             DO("ReticleRearSideFw", 3, 24),
             DO("ReticleRearSideBw", 3, 25),
-            DO("NgBinGuideUp", 3, 26),
-            DO("NgBinGuideDown", 3, 27),
-            DO("NgBinClampUp", 3, 28),
-            DO("NgBinClampDown", 3, 29),
-            DO("NgBinClamp", 3, 30),
-            DO("NgBinUnclamp", 3, 31),
-            DO("GoodBinGuideUp", 4, 0),
-            DO("GoodBinGuideDown", 4, 1),
-            DO("GoodBinClampUp", 4, 2),
-            DO("GoodBinClampDown", 4, 3),
-            DO("GoodBinClamp", 4, 4),
-            DO("GoodBinUnclamp", 4, 5),
+            DO("GoodBinGuideUp", 3, 26),
+            DO("GoodBinGuideDown", 3, 27),
+            DO("GoodBinClampUp", 3, 28),
+            DO("GoodBinClampDown", 3, 29),
+            DO("GoodBinClamp", 3, 30),
+            DO("GoodBinUnclamp", 3, 31),
+            DO("NgBinGuideUp", 4, 0),
+            DO("NgBinGuideDown", 4, 1),
+            DO("NgBinClampUp", 4, 2),
+            DO("NgBinClampDown", 4, 3),
+            DO("NgBinClamp", 4, 4),
+            DO("NgBinUnclamp", 4, 5),
             DO("BinFeederUp", 4, 6),
             DO("BinFeederDown", 4, 7),
             DO("BinFeederClamp", 4, 8),
@@ -143,7 +143,7 @@ namespace QMC.CDT320.Ajin
             DI("WaferMapping", 0, 27),
             DI("WaferFeederUp", 0, 28),
             DI("WaferFeederDown", 0, 29),
-            DI("WaferFeederUpClamp", 0, 30),
+            DI("WaferFeederUnClamp", 0, 30),
             DI("WaferFeederRingCheck", 0, 31),
             DI("WaferFeederOverloadCheck", 1, 0),
             DI("WaferStage8RingCheck", 1, 1),
@@ -176,16 +176,16 @@ namespace QMC.CDT320.Ajin
             DI("RearPicker6Flow", 1, 28),
             DI("RearPicker7Flow", 1, 29),
             DI("RearPicker8Flow", 1, 30),
-            DI("NgBinGuideUp", 1, 31),
-            DI("NgBinGuideDown", 2, 0),
-            DI("NgBinClampUp", 2, 1),
-            DI("NgBinUnclamp", 2, 2),
-            DI("NgBinRing", 2, 3),
-            DI("GoodBinGuideUp", 2, 4),
-            DI("GoodBinGuideDown", 2, 5),
-            DI("GoodBinClampUp", 2, 6),
-            DI("GoodBinClamp", 2, 7), //DI("GoodBinUnclamp", 2, 7), // 명칭 수정. Unclamp -> Clamp
-            DI("GoodBinRing", 2, 8),
+            DI("GoodBinGuideUp", 1, 31),
+            DI("GoodBinGuideDown", 2, 0),
+            DI("GoodBinClampUp", 2, 1),
+            DI("GoodBinUnclamp", 2, 2),
+            DI("GoodBinRing", 2, 3),
+            DI("NgBinGuideUp", 2, 4),
+            DI("NgBinGuideDown", 2, 5),
+            DI("NgBinClampUp", 2, 6),
+            DI("NgBinClamp", 2, 7), //DI("GoodBinUnclamp", 2, 7), // 명칭 수정. Unclamp -> Clamp
+            DI("NgBinRing", 2, 8),
             DI("BinNFeederUp", 2, 9),
             DI("BinFeederDown", 2, 10),
             DI("BinFeederUnclamp", 2, 11),
@@ -208,18 +208,18 @@ namespace QMC.CDT320.Ajin
         public static readonly CylinderDefault[] Cylinders =
         {
             CYL("InputFeederLift", DORef(3, 16), DORef(3, 17), DIRef(0, 28), DIRef(0, 29)),
-            CYL("InputFeederClamp", DORef(3, 18), DORef(3, 19), DIRef(0, 30), DIRef(0, 31)),
+            CYL("InputFeederClamp", DORef(3, 18), DORef(3, 19), null, DIRef(0, 30)),
             CYL("ReticleLift", DORef(3, 20), DORef(3, 21), DIRef(1, 4), DIRef(1, 5)),
             CYL("ReticleSideSlideFront", DORef(3, 22), DORef(3, 23), DIRef(1, 6), DIRef(1, 7)),
             CYL("ReticleSideSlideRear", DORef(3, 24), DORef(3, 25), DIRef(1, 8), DIRef(1, 9)),
-            CYL("NGBinGuideLift", DORef(3, 26), DORef(3, 27), DIRef(1, 31), DIRef(2, 0)),
-            CYL("NGBinGuideClampLift", DORef(3, 28), DORef(3, 29), DIRef(2, 1), DIRef(2, 2)),
-            CYL("NGBinGuideClamp", DORef(3, 30), DORef(3, 31), DIRef(2, 1), DIRef(2, 2)),
-            CYL("GoodBinGuideLift", DORef(4, 0), DORef(4, 1), DIRef(2, 4), DIRef(2, 5)),
-            CYL("GoodBinGuideClampLift", DORef(4, 2), DORef(4, 3), DIRef(2, 6), DIRef(2, 7)),
-            CYL("GoodBinGuideClamp", DORef(4, 4), DORef(4, 5), DIRef(2, 6), DIRef(2, 7)),
+            CYL("NGBinGuideLift", DORef(4, 0), DORef(4, 1), DIRef(2, 4), DIRef(2, 5)),
+            CYL("NGBinGuideClampLift", DORef(4, 2), DORef(4, 3), DIRef(2, 6), null),
+            CYL("NGBinGuideClamp", DORef(4, 4), DORef(4, 5), DIRef(2, 7), null),
+            CYL("GoodBinGuideLift", DORef(3, 26), DORef(3, 27), DIRef(1, 31), DIRef(2, 0)),
+            CYL("GoodBinGuideClampLift", DORef(3, 28), DORef(3, 29), DIRef(2, 1), null),
+            CYL("GoodBinGuideClamp", DORef(3, 30), DORef(3, 31), null, DIRef(2, 2)),
             CYL("OutputFeederLift", DORef(4, 6), DORef(4, 7), DIRef(2, 9), DIRef(2, 10)),
-            CYL("OutputFeederClamp", DORef(4, 8), DORef(4, 9), DIRef(2, 11), DIRef(2, 12))
+            CYL("OutputFeederClamp", DORef(4, 8), DORef(4, 9), null, DIRef(2, 11))
         };
 
         public static class Inputs
@@ -246,11 +246,12 @@ namespace QMC.CDT320.Ajin
             public static readonly DioDefault WaferMapping = FindInput("WaferMapping");
             public static readonly DioDefault WaferFeederUp = FindInput("WaferFeederUp");
             public static readonly DioDefault WaferFeederDown = FindInput("WaferFeederDown");
-            public static readonly DioDefault WaferFeederUpClamp = FindInput("WaferFeederUpClamp");
+            public static readonly DioDefault WaferFeederUnClamp = FindInput("WaferFeederUnClamp");
             public static readonly DioDefault WaferFeederRingCheck = FindInput("WaferFeederRingCheck");
             public static readonly DioDefault WaferFeederOverloadCheck = FindInput("WaferFeederOverloadCheck");
             public static readonly DioDefault WaferFeeder8RingCheck = FindInput("WaferStage8RingCheck");
             public static readonly DioDefault WaferFeeder12RingCheck = FindInput("WaferStage12RingCheck");
+            public static readonly DioDefault WaferStageTouchSensor = FindInput("WaferStageTouchSensor");
             public static readonly DioDefault NgBin8CassetteCheck0 = FindInput("NgBin8CassetteCheck0");
             public static readonly DioDefault GoodBin8CassetteCheck0 = FindInput("GoodBin8CassetteCheck0");
             public static readonly DioDefault GoodBin8CassetteCheck1 = FindInput("GoodBin8CassetteCheck1");
@@ -275,6 +276,7 @@ namespace QMC.CDT320.Ajin
             public static readonly DioDefault WaferFeederClamp = FindOutput("WaferFeederClamp");
             public static readonly DioDefault WaferFeederUnclamp = FindOutput("WaferFeederUnclamp");
             public static readonly DioDefault NeedleVacuum = FindOutput("NeedleVacuum");
+            public static readonly DioDefault NeedleBlow = FindOutput("NeedleBlow");
             public static readonly DioDefault PostPnpVacuum = null;
         }
 
@@ -285,14 +287,15 @@ namespace QMC.CDT320.Ajin
             public static readonly CylinderDefault ReticleLift = FindCylinder("ReticleLift");
             public static readonly CylinderDefault ReticleSideSlideFront = FindCylinder("ReticleSideSlideFront");
             public static readonly CylinderDefault ReticleSideSlideRear = FindCylinder("ReticleSideSlideRear");
-            public static readonly CylinderDefault NGBinGuideLift = FindCylinder("NGBinGuideLift");
-            public static readonly CylinderDefault NGBinGuideClampLift = FindCylinder("NGBinGuideClampLift");
-            public static readonly CylinderDefault NGBinGuideClamp = FindCylinder("NGBinGuideClamp");
             public static readonly CylinderDefault GoodBinGuideLift = FindCylinder("GoodBinGuideLift");
             public static readonly CylinderDefault GoodBinGuideClampLift = FindCylinder("GoodBinGuideClampLift");
             public static readonly CylinderDefault GoodBinGuideClamp = FindCylinder("GoodBinGuideClamp");
+            public static readonly CylinderDefault NGBinGuideLift = FindCylinder("NGBinGuideLift");
+            public static readonly CylinderDefault NGBinGuideClampLift = FindCylinder("NGBinGuideClampLift");
+            public static readonly CylinderDefault NGBinGuideClamp = FindCylinder("NGBinGuideClamp");
             public static readonly CylinderDefault OutputFeederLift = FindCylinder("OutputFeederLift");
             public static readonly CylinderDefault OutputFeederClamp = FindCylinder("OutputFeederClamp");
+
 
             public static readonly CylinderDefault WaferFeederUpDownCyl = InputFeederLift;
             public static readonly CylinderDefault WaferFeederClampCyl = InputFeederClamp;

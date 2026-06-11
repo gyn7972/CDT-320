@@ -309,19 +309,71 @@
     </Compile>
     <Compile Include="Equipment\UnitData.cs" />
     <!-- Sequencing -->
-    <Compile Include="Sequencing\SequenceUnitKind.cs" />
-    <Compile Include="Sequencing\SequenceRunMode.cs" />
-    <Compile Include="Sequencing\SequenceRunOptions.cs" />
-    <Compile Include="Sequencing\SequenceSignalBus.cs" />
-    <Compile Include="Sequencing\SequenceExecutionState.cs" />
-    <Compile Include="Sequencing\SequenceResumeStore.cs" />
-    <Compile Include="Sequencing\MachineSequenceContext.cs" />
-    <Compile Include="Sequencing\UnitSequenceBase.cs" />
-    <Compile Include="Sequencing\AutoSequenceCoordinator.cs" />
-    <Compile Include="Sequencing\InputCassetteSequence.cs" />
-    <Compile Include="Sequencing\InputFeederSequence.cs" />
-    <Compile Include="Sequencing\InputStageSequence.cs" />
+    <Compile Include="Sequencing\Common\SequenceUnitKind.cs" />
+    <Compile Include="Sequencing\Common\SequenceRunMode.cs" />
+    <Compile Include="Sequencing\Common\SequenceRunOptions.cs" />
+    <Compile Include="Sequencing\Common\SequenceSignalBus.cs" />
+    <Compile Include="Sequencing\Common\SequenceExecutionState.cs" />
+    <Compile Include="Sequencing\Common\SequenceResumeStore.cs" />
+    <Compile Include="Sequencing\Common\SequenceFailureStore.cs" />
+    <Compile Include="Sequencing\Common\MachineSequenceContext.cs" />
+    <Compile Include="Sequencing\Common\UnitSequenceBase.cs" />
+    <Compile Include="Sequencing\Common\AutoSequenceCoordinator.cs" />
+    <Compile Include="Sequencing\InputCassette\InputCassetteSequenceKind.cs" />
+    <Compile Include="Sequencing\InputCassette\InputCassetteSequenceOptions.cs" />
+    <Compile Include="Sequencing\InputCassette\InputCassetteSequence.cs" />
+    <Compile Include="Sequencing\InputCassette\InputCassetteSequenceBase.cs" />
+    <Compile Include="Sequencing\InputCassette\InputCassetteLoadingSequence.cs" />
+    <Compile Include="Sequencing\InputCassette\InputCassetteMappingSequence.cs" />
+    <Compile Include="Sequencing\InputCassette\InputCassetteUnloadingSequence.cs" />
+    <Compile Include="Sequencing\InputFeeder\InputFeederSequenceKind.cs" />
+    <Compile Include="Sequencing\InputFeeder\InputFeederSequenceOptions.cs" />
+    <Compile Include="Sequencing\InputFeeder\InputFeederSequence.cs" />
+    <Compile Include="Sequencing\InputFeeder\InputFeederSequenceBase.cs" />
+    <Compile Include="Sequencing\InputFeeder\InputFeederLoadFromCassetteSequence.cs" />
+    <Compile Include="Sequencing\InputFeeder\InputFeederLoadToStageSequence.cs" />
+    <Compile Include="Sequencing\InputFeeder\InputFeederUnloadFromStageSequence.cs" />
+    <Compile Include="Sequencing\InputFeeder\InputFeederUnloadToCassetteSequence.cs" />
+    <Compile Include="Sequencing\InputFeeder\InputFeederExchangeSequence.cs" />
+    <Compile Include="Sequencing\InputFeeder\InputFeederRecoverSequence.cs" />
+    <Compile Include="Sequencing\InputStage\InputStageSequenceKind.cs" />
+    <Compile Include="Sequencing\InputStage\InputStageSequenceOptions.cs" />
+    <Compile Include="Sequencing\InputStage\InputStageSequence.cs" />
+    <Compile Include="Sequencing\InputStage\InputStageSequenceBase.cs" />
+    <Compile Include="Sequencing\InputStage\InputStagePrepareLoadSequence.cs" />
+    <Compile Include="Sequencing\InputStage\InputStageAlignSequence.cs" />
+    <Compile Include="Sequencing\InputStage\InputStageDieMappingSequence.cs" />
+    <Compile Include="Sequencing\InputStage\InputStagePrepareUnloadSequence.cs" />
+    <Compile Include="Sequencing\InputStage\InputStageMoveAvoidSequence.cs" />
     <Compile Include="Sequencing\InputSequence.cs" />
+    <Compile Include="Sequencing\OutputCassette\OutputSlotPlanner.cs" />
+    <Compile Include="Sequencing\OutputCassette\OutputCassetteSequenceKind.cs" />
+    <Compile Include="Sequencing\OutputCassette\OutputCassetteSequenceOptions.cs" />
+    <Compile Include="Sequencing\OutputCassette\OutputCassetteSequence.cs" />
+    <Compile Include="Sequencing\OutputCassette\OutputCassetteSequenceBase.cs" />
+    <Compile Include="Sequencing\OutputCassette\OutputCassetteLoadingSequence.cs" />
+    <Compile Include="Sequencing\OutputCassette\OutputCassetteMappingSequence.cs" />
+    <Compile Include="Sequencing\OutputCassette\OutputCassetteMoveSlotSequence.cs" />
+    <Compile Include="Sequencing\OutputCassette\OutputCassetteUnloadingSequence.cs" />
+    <Compile Include="Sequencing\OutputStage\OutputStageSequenceKind.cs" />
+    <Compile Include="Sequencing\OutputStage\OutputStageSequenceOptions.cs" />
+    <Compile Include="Sequencing\OutputStage\OutputStageSequence.cs" />
+    <Compile Include="Sequencing\OutputStage\OutputStageSequenceBase.cs" />
+    <Compile Include="Sequencing\OutputStage\OutputStagePrepareLoadSequence.cs" />
+    <Compile Include="Sequencing\OutputStage\OutputStagePrepareUnloadSequence.cs" />
+    <Compile Include="Sequencing\OutputStage\OutputStageMoveAvoidSequence.cs" />
+    <Compile Include="Sequencing\OutputStage\OutputStageMoveProcessSequence.cs" />
+    <Compile Include="Sequencing\OutputFeeder\OutputFeederSequenceKind.cs" />
+    <Compile Include="Sequencing\OutputFeeder\OutputFeederSequenceOptions.cs" />
+    <Compile Include="Sequencing\OutputFeeder\OutputFeederSequence.cs" />
+    <Compile Include="Sequencing\OutputFeeder\OutputFeederSequenceBase.cs" />
+    <Compile Include="Sequencing\OutputFeeder\OutputFeederLoadFromCassetteSequence.cs" />
+    <Compile Include="Sequencing\OutputFeeder\OutputFeederLoadToStageSequence.cs" />
+    <Compile Include="Sequencing\OutputFeeder\OutputFeederUnloadFromStageSequence.cs" />
+    <Compile Include="Sequencing\OutputFeeder\OutputFeederUnloadToCassetteSequence.cs" />
+    <Compile Include="Sequencing\OutputFeeder\OutputFeederExchangeSequence.cs" />
+    <Compile Include="Sequencing\OutputFeeder\OutputFeederRecoverSequence.cs" />
+    <Compile Include="Sequencing\OutputSequence.cs" />
     <!-- Equipment / Alarms -->
     <!-- Equipment / Logging -->
     <!-- Equipment / Recipes -->
@@ -513,6 +565,12 @@
     <Compile Include="Ui\Dialogs\SharedRailXSetupDialog.Designer.cs">
       <DependentUpon>SharedRailXSetupDialog.cs</DependentUpon>
     </Compile>
+    <Compile Include="Ui\Dialogs\InputStageDieMapSetupDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\InputStageDieMapSetupDialog.Designer.cs">
+      <DependentUpon>InputStageDieMapSetupDialog.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Dialogs\LoginDialog.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -690,6 +748,7 @@
     <Compile Include="Ui\Pages\Recipe\FrontPickerRecipePage.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="Ui\Pages\Recipe\ManualMoveGuard.cs" />
     <Compile Include="Ui\Pages\Recipe\RearPickerRecipePage.Designer.cs">
       <DependentUpon>RearPickerRecipePage.cs</DependentUpon>
     </Compile>
@@ -709,12 +768,6 @@
       <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="Ui\Pages\Recipe\Helper\RecipeLayoutHelpers.cs" />
-    <Compile Include="Ui\Pages\Recipe\StageRecipePage.Designer.cs">
-      <DependentUpon>StageRecipePage.cs</DependentUpon>
-    </Compile>
-    <Compile Include="Ui\Pages\Recipe\StageRecipePage.cs">
-      <SubType>UserControl</SubType>
-    </Compile>
     <Compile Include="Ui\Pages\Recipe\VisionRecipePage.Designer.cs">
       <DependentUpon>VisionRecipePage.cs</DependentUpon>
     </Compile>
@@ -851,6 +904,9 @@
     <EmbeddedResource Include="Ui\Pages\Recipe\DieSubsetPage.resx">
       <DependentUpon>DieSubsetPage.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\Recipe\FrontPickerRecipePage.resx">
+      <DependentUpon>FrontPickerRecipePage.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\Recipe\InputCassetteRecipePage.resx">
       <DependentUpon>InputCassetteRecipePage.cs</DependentUpon>
     </EmbeddedResource>
@@ -883,9 +939,6 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\Recipe\InputStageRecipePage.resx">
       <DependentUpon>InputStageRecipePage.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Ui\Pages\Recipe\StageRecipePage.resx">
-      <DependentUpon>StageRecipePage.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\Recipe\TapeFrameSubsetPage.resx">
       <DependentUpon>TapeFrameSubsetPage.cs</DependentUpon>
@@ -928,6 +981,15 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\WorkInfo\OperationPanelStatusPage.resx">
       <DependentUpon>OperationPanelStatusPage.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\WorkInfo\OutputCassettePage.resx">
+      <DependentUpon>OutputCassettePage.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\WorkInfo\OutputFeederPage.resx">
+      <DependentUpon>OutputFeederPage.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\Work\MapTransferPage.resx">
+      <DependentUpon>MapTransferPage.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Tabs\RecipeTab.resx">
       <DependentUpon>RecipeTab.cs</DependentUpon>

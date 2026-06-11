@@ -148,7 +148,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 BindParameterGridMenus();
 
                 jogAxisMoveControl.SpeedControl = jogSpeedControl;
-                jogAxisMoveControl.LayoutMode = JogAxisMoveLayoutMode.AxisColumns;
+                jogAxisMoveControl.LayoutMode = JogAxisMoveLayoutMode.OutputStagePad;
                 jogAxisMoveControl.AxisColumnsPerRow = 2;
                 jogAxisMoveControl.ShowCurrentSpeedMode = true;
                 jogAxisMoveControl.ButtonAreaMinHeight = 420;
@@ -156,35 +156,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 jogAxisMoveControl.ButtonAreaMinWidth = 170;
                 jogAxisMoveControl.ButtonAreaMaxWidth = 320;
 
-                // GOOD 스테이지
-                btnLoadingMove.Text = "GOOD LOAD POSITION";
-                btnCenterMove.Text = "GOOD PROCESS POSITION";
-                btnBarcodeMove.Text = "GOOD UNLOAD POSITION";
-                btnFirstDieMove.Text = "GOOD RETICLE POSITION";
-                btnLoadingMove.Click += async (s, e) => await ConfirmAndRunAsync(btnLoadingMove.Text, () => _outputStageUnit.MoveToStageLoadPosition(BinSide.Good));
-                btnCenterMove.Click += async (s, e) => await ConfirmAndRunAsync(btnCenterMove.Text, () => _outputStageUnit.MoveToStageProcessPosition(BinSide.Good));
-                btnBarcodeMove.Click += async (s, e) => await ConfirmAndRunAsync(btnBarcodeMove.Text, () => _outputStageUnit.MoveToStageUnloadPosition(BinSide.Good));
-                btnFirstDieMove.Click += async (s, e) => await ConfirmAndRunAsync(btnFirstDieMove.Text, () => _outputStageUnit.MoveStageAxisToTeachingPosition(BinStageAxis.GoodBinY, "Reticle"));
-                // NG 스테이지
-                btnNeedleUpMove.Text = "NG LOAD POSITION";
-                btnNeedleDownMove.Text = "NG PROCESS POSITION";
-                btnNeedleReadyMove.Text = "NG UNLOAD POSITION";
-                btnNeedleBlockReady.Text = "NG RETICLE POSITION";
-                btnNeedleUpMove.Click += async (s, e) => await ConfirmAndRunAsync(btnNeedleUpMove.Text, () => _outputStageUnit.MoveToStageLoadPosition(BinSide.Ng));
-                btnNeedleDownMove.Click += async (s, e) => await ConfirmAndRunAsync(btnNeedleDownMove.Text, () => _outputStageUnit.MoveToStageProcessPosition(BinSide.Ng));
-                btnNeedleReadyMove.Click += async (s, e) => await ConfirmAndRunAsync(btnNeedleReadyMove.Text, () => _outputStageUnit.MoveToStageUnloadPosition(BinSide.Ng));
-                btnNeedleBlockReady.Click += async (s, e) => await ConfirmAndRunAsync(btnNeedleBlockReady.Text, () => _outputStageUnit.MoveStageAxisToTeachingPosition(BinStageAxis.NgBinY, "Reticle"));
-                // 공통 / 비전 / Bin 카메라
-                btnNeedleBlockWork.Text = "AVOID ALL POSITION";
-                btnExpandWorkMove.Text = "VISION AVOID POSITION";
-                btnPickUpTest.Text = "VISION PROCESS POSITION";
-                btnAutoSettingMove.Text = "BIN CAM WORK POSITION";
-                btnInputConversion.Text = "BIN CAM RETRACT POSITION";
-                btnNeedleBlockWork.Click += async (s, e) => await ConfirmAndRunAsync(btnNeedleBlockWork.Text, () => _outputStageUnit.MoveToStageAvoidPosition());
-                btnExpandWorkMove.Click += async (s, e) => await ConfirmAndRunAsync(btnExpandWorkMove.Text, () => _outputStageUnit.MoveStageAxisToTeachingPosition(BinStageAxis.VisionX, "Avoid"));
-                btnPickUpTest.Click += async (s, e) => await ConfirmAndRunAsync(btnPickUpTest.Text, () => _outputStageUnit.MoveStageAxisToTeachingPosition(BinStageAxis.VisionX, "Process"));
-                btnAutoSettingMove.Click += async (s, e) => await ConfirmAndRunAsync(btnAutoSettingMove.Text, () => _outputStageUnit.MoveStageAxisToTeachingPosition(BinStageAxis.VisionX, "Process"));
-                btnInputConversion.Click += async (s, e) => await ConfirmAndRunAsync(btnInputConversion.Text, () => _outputStageUnit.MoveStageAxisToTeachingPosition(BinStageAxis.VisionX, "Avoid"));
+                // 매뉴얼 액션 버튼 — 옵션 그룹과 매칭, GOOD/NG 분리
+                BuildManualButtons();
             }
             catch (Exception ex)
             {
@@ -298,11 +271,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 var unit = _outputStageUnit;
                 var items = new List<ParameterGridItem>();
 
-                // Recipe 위치 (Good/Ng/Vision) — avoid/load/process/unload/reticle 순
-                AddStagePositions(items, "GOOD Y", () => unit.Recipe.GoodStageY, true, true, true, true, false);
-                AddStagePositions(items, "GOOD Z", () => unit.Recipe.GoodStageZ, true, true, true, true, false);
-                AddStagePositions(items, "NG Y", () => unit.Recipe.NGStageY, true, true, true, true, false);
-                AddStagePositions(items, "VISION X", () => unit.Recipe.VisionX, true, false, true, false, true);
+                // Recipe 위치 — 위치 종류별 접이식 그룹 (멤버 = GOOD Y/Z, NG Y, VISION X)
+                AddKindGroup(items, "AVOID POSITION", "Avoid", true, true, true, true);
+                AddKindGroup(items, "LOAD POSITION", "Load", true, true, true, false);
+                AddKindGroup(items, "PROCESS POSITION", "Process", true, true, true, true);
+                AddKindGroup(items, "UNLOAD POSITION", "Unload", true, true, true, false);
+                AddKindGroup(items, "RETICLE POSITION", "Reticle", false, false, false, true);
 
                 items.Add(ParameterGridItem.Bool("SIMULATION MODE", ParameterGridScope.Setup, () => unit.Setup.IsSimulationMode, v => unit.Setup.IsSimulationMode = v));
                 items.Add(ParameterGridItem.Bool("DRY RUN", ParameterGridScope.Config, () => unit.Config.bDryRun, v => unit.Config.bDryRun = v));
@@ -321,14 +295,109 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
         }
 
-        private static void AddStagePositions(List<ParameterGridItem> items, string axisLabel, Func<StageAxisPositions> set,
-            bool avoid, bool load, bool process, bool unload, bool reticle)
+        // 한 위치 종류(kind)를 헤더로 묶고, 그 종류를 가진 축들을 멤버로 추가
+        private void AddKindGroup(List<ParameterGridItem> items, string kindLabel, string kind, bool goodY, bool goodZ, bool ng, bool vision)
         {
-            if (avoid) items.Add(ParameterGridItem.Micron(axisLabel + " AVOID POSITION", ParameterGridScope.Recipe, () => set().AvoidPosition, v => set().AvoidPosition = v));
-            if (load) items.Add(ParameterGridItem.Micron(axisLabel + " LOAD POSITION", ParameterGridScope.Recipe, () => set().LoadPosition, v => set().LoadPosition = v));
-            if (process) items.Add(ParameterGridItem.Micron(axisLabel + " PROCESS POSITION", ParameterGridScope.Recipe, () => set().ProcessPosition, v => set().ProcessPosition = v));
-            if (unload) items.Add(ParameterGridItem.Micron(axisLabel + " UNLOAD POSITION", ParameterGridScope.Recipe, () => set().UnloadPosition, v => set().UnloadPosition = v));
-            if (reticle) items.Add(ParameterGridItem.Micron(axisLabel + " RETICLE POSITION", ParameterGridScope.Recipe, () => set().ReticlePosition, v => set().ReticlePosition = v));
+            string groupKey = "K_" + kind.ToUpperInvariant();
+            items.Add(ParameterGridItem.Header(kindLabel, groupKey));
+
+            var recipe = _outputStageUnit.Recipe;
+            if (goodY) items.Add(StageMember("GOOD Y", groupKey, kindLabel, kind, () => recipe.GoodStageY));
+            if (goodZ) items.Add(StageMember("GOOD Z", groupKey, kindLabel, kind, () => recipe.GoodStageZ));
+            if (ng) items.Add(StageMember("NG Y", groupKey, kindLabel, kind, () => recipe.NGStageY));
+            if (vision) items.Add(StageMember("VISION X", groupKey, kindLabel, kind, () => recipe.VisionX));
+        }
+
+        private static ParameterGridItem StageMember(string axisLabel, string groupKey, string kindLabel, string kind, Func<StageAxisPositions> set)
+        {
+            Func<double> getter;
+            Action<double> setter;
+            switch (kind)
+            {
+                case "Avoid": getter = () => set().AvoidPosition; setter = v => set().AvoidPosition = v; break;
+                case "Load": getter = () => set().LoadPosition; setter = v => set().LoadPosition = v; break;
+                case "Process": getter = () => set().ProcessPosition; setter = v => set().ProcessPosition = v; break;
+                case "Unload": getter = () => set().UnloadPosition; setter = v => set().UnloadPosition = v; break;
+                case "Reticle": getter = () => set().ReticlePosition; setter = v => set().ReticlePosition = v; break;
+                default: getter = () => 0.0; setter = v => { }; break;
+            }
+
+            var item = ParameterGridItem.Micron(axisLabel, ParameterGridScope.Recipe, getter, setter);
+            item.Key = axisLabel + " " + kindLabel;   // 이동/티칭 조회는 전체 이름(Key)으로 파싱
+            item.GroupKey = groupKey;
+            return item;
+        }
+
+        // 매뉴얼 액션 버튼을 옵션 그룹과 매칭해 구성 (GOOD/NG는 무조건 분리)
+        private void BuildManualButtons()
+        {
+            manualLayout.SuspendLayout();
+            try
+            {
+                manualLayout.Controls.Clear();
+                manualLayout.RowStyles.Clear();
+                manualLayout.RowCount = 0;
+                manualLayout.ColumnCount = 2;
+
+                // 좌측 = GOOD, 우측 = NG
+                AddManualButton("GOOD AVOID POSITION", 0, 0, () => MoveStageAxesAsync("Avoid", BinStageAxis.GoodBinY, BinStageAxis.GoodBinZ));
+                AddManualButton("NG AVOID POSITION", 1, 0, () => MoveStageAxesAsync("Avoid", BinStageAxis.NgBinY));
+                AddManualButton("GOOD LOAD POSITION", 0, 1, () => _outputStageUnit.MoveToStageLoadPosition(BinSide.Good));
+                AddManualButton("NG LOAD POSITION", 1, 1, () => _outputStageUnit.MoveToStageLoadPosition(BinSide.Ng));
+                AddManualButton("GOOD PROCESS POSITION", 0, 2, () => _outputStageUnit.MoveToStageProcessPosition(BinSide.Good));
+                AddManualButton("NG PROCESS POSITION", 1, 2, () => _outputStageUnit.MoveToStageProcessPosition(BinSide.Ng));
+                AddManualButton("GOOD UNLOAD POSITION", 0, 3, () => _outputStageUnit.MoveToStageUnloadPosition(BinSide.Good));
+                AddManualButton("NG UNLOAD POSITION", 1, 3, () => _outputStageUnit.MoveToStageUnloadPosition(BinSide.Ng));
+
+                // VISION 축 (별도)
+                AddManualButton("VISION AVOID POSITION", 0, 4, () => MoveStageAxesAsync("Avoid", BinStageAxis.VisionX));
+                AddManualButton("VISION PROCESS POSITION", 1, 4, () => MoveStageAxesAsync("Process", BinStageAxis.VisionX));
+                AddManualButton("VISION RETICLE POSITION", 0, 5, () => MoveStageAxesAsync("Reticle", BinStageAxis.VisionX));
+            }
+            finally
+            {
+                manualLayout.ResumeLayout(true);
+            }
+        }
+
+        private void AddManualButton(string text, int column, int row, Func<Task<int>> command)
+        {
+            QMC.CDT_320.Ui.Controls.ActionButton button = new QMC.CDT_320.Ui.Controls.ActionButton();
+            button.Text = text;
+            button.Dock = DockStyle.Fill;
+            button.Margin = new Padding(2);
+            button.BackColor = Color.FromArgb(128, 128, 128);
+            button.ForeColor = Color.White;
+            button.Font = new Font("Malgun Gothic", 9F, FontStyle.Bold);
+            button.Cursor = Cursors.Hand;
+            button.Click += async delegate { await ConfirmAndRunAsync(text, command); };
+
+            while (manualLayout.RowStyles.Count <= row)
+                manualLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 45F));
+            if (manualLayout.RowCount <= row)
+                manualLayout.RowCount = row + 1;
+
+            manualLayout.Controls.Add(button, column, row);
+        }
+
+        // 지정한 축들을 같은 위치명으로 동시 이동
+        private async Task<int> MoveStageAxesAsync(string positionName, params BinStageAxis[] axes)
+        {
+            if (_outputStageUnit == null || axes == null || axes.Length == 0)
+                return -1;
+
+            List<Task<int>> tasks = new List<Task<int>>();
+            foreach (BinStageAxis ax in axes)
+                tasks.Add(_outputStageUnit.MoveStageAxisToTeachingPosition(ax, positionName));
+
+            int[] results = await Task.WhenAll(tasks);
+            int finalResult = 0;
+            foreach (int r in results)
+            {
+                if (r != 0)
+                    finalResult = r;
+            }
+            return finalResult;
         }
 
         private void BindParameterGridMenus()
@@ -416,26 +485,35 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 var unit = _outputStageUnit;
                 ioCylinderPanel.SetItems(new[]
                 {
-                    // ===== INPUT (DI) =====
+                    // ===== NG BIN : 같은 항목의 입력(DI)/출력(DO)을 묶어서 =====
                     IoCylinderItem.Input("NG BIN GUIDE UP", () => unit.NgBinGuideUpSensor.IsOn),
+                    IoCylinderItem.Output("NG BIN GUIDE UP", () => unit.NgBinGuideUpOut.IsOn, on => WriteOutAsync(unit.NgBinGuideUpOut, on), "ON", "OFF"),
                     IoCylinderItem.Input("NG BIN GUIDE DOWN", () => unit.NgBinGuideDownSensor.IsOn),
+                    IoCylinderItem.Output("NG BIN GUIDE DOWN", () => unit.NgBinGuideDownOut.IsOn, on => WriteOutAsync(unit.NgBinGuideDownOut, on), "ON", "OFF"),
                     IoCylinderItem.Input("NG BIN CLAMP UP", () => unit.NgBinClampUpSensor.IsOn),
+                    IoCylinderItem.Output("NG BIN CLAMP UP", () => unit.NgBinClampUpOut.IsOn, on => WriteOutAsync(unit.NgBinClampUpOut, on), "ON", "OFF"),
+                    IoCylinderItem.Output("NG BIN CLAMP DOWN", () => unit.NgBinClampDownOut.IsOn, on => WriteOutAsync(unit.NgBinClampDownOut, on), "ON", "OFF"),
+                    IoCylinderItem.Output("NG BIN CLAMP", () => unit.NgBinClampOut.IsOn, on => WriteOutAsync(unit.NgBinClampOut, on), "ON", "OFF"),
                     IoCylinderItem.Input("NG BIN UNCLAMP", () => unit.NgBinUnclampSensor.IsOn),
+                    IoCylinderItem.Output("NG BIN UNCLAMP", () => unit.NgBinUnclampOut.IsOn, on => WriteOutAsync(unit.NgBinUnclampOut, on), "ON", "OFF"),
                     IoCylinderItem.Input("NG BIN RING CHECK", () => unit.NgBinRingSensor.IsOn),
+
+                    // ===== GOOD BIN : 같은 항목의 입력(DI)/출력(DO)을 묶어서 =====
                     IoCylinderItem.Input("GOOD BIN GUIDE UP", () => unit.GoodBinGuideUpSensor.IsOn),
+                    IoCylinderItem.Output("GOOD BIN GUIDE UP", () => unit.GoodBinGuideUpOut.IsOn, on => WriteOutAsync(unit.GoodBinGuideUpOut, on), "ON", "OFF"),
                     IoCylinderItem.Input("GOOD BIN GUIDE DOWN", () => unit.GoodBinGuideDownSensor.IsOn),
+                    IoCylinderItem.Output("GOOD BIN GUIDE DOWN", () => unit.GoodBinGuideDownOut.IsOn, on => WriteOutAsync(unit.GoodBinGuideDownOut, on), "ON", "OFF"),
                     IoCylinderItem.Input("GOOD BIN CLAMP UP", () => unit.GoodBinClampUpSensor.IsOn),
+                    IoCylinderItem.Output("GOOD BIN CLAMP UP", () => unit.GoodBinClampUpOut.IsOn, on => WriteOutAsync(unit.GoodBinClampUpOut, on), "ON", "OFF"),
+                    IoCylinderItem.Output("GOOD BIN CLAMP DOWN", () => unit.GoodBinClampDownOut.IsOn, on => WriteOutAsync(unit.GoodBinClampDownOut, on), "ON", "OFF"),
+                    IoCylinderItem.Output("GOOD BIN CLAMP", () => unit.GoodBinClampOut.IsOn, on => WriteOutAsync(unit.GoodBinClampOut, on), "ON", "OFF"),
                     IoCylinderItem.Input("GOOD BIN UNCLAMP", () => unit.GoodBinUnclampSensor.IsOn),
+                    IoCylinderItem.Output("GOOD BIN UNCLAMP", () => unit.GoodBinUnclampOut.IsOn, on => WriteOutAsync(unit.GoodBinUnclampOut, on), "ON", "OFF"),
                     IoCylinderItem.Input("GOOD BIN RING CHECK", () => unit.GoodBinRingSensor.IsOn),
 
-                    // ===== OUTPUT (DO) =====
-                    IoCylinderItem.Output("NG BIN GUIDE", () => unit.NgBinGuideUpOut.IsOn, on => WritePairOut(unit.NgBinGuideUpOut, unit.NgBinGuideDownOut, on), "UP", "DOWN"),
-                    IoCylinderItem.Output("NG BIN CLAMP LIFT", () => unit.NgBinClampUpOut.IsOn, on => WritePairOut(unit.NgBinClampUpOut, unit.NgBinClampDownOut, on), "UP", "DOWN"),
-                    IoCylinderItem.Output("NG BIN CLAMP", () => unit.NgBinClampOut.IsOn, on => WritePairOut(unit.NgBinClampOut, unit.NgBinUnclampOut, on), "CLAMP", "UNCLAMP"),
-                    IoCylinderItem.Output("GOOD BIN GUIDE", () => unit.GoodBinGuideUpOut.IsOn, on => WritePairOut(unit.GoodBinGuideUpOut, unit.GoodBinGuideDownOut, on), "UP", "DOWN"),
-                    IoCylinderItem.Output("GOOD BIN CLAMP LIFT", () => unit.GoodBinClampUpOut.IsOn, on => WritePairOut(unit.GoodBinClampUpOut, unit.GoodBinClampDownOut, on), "UP", "DOWN"),
-                    IoCylinderItem.Output("GOOD BIN CLAMP", () => unit.GoodBinClampOut.IsOn, on => WritePairOut(unit.GoodBinClampOut, unit.GoodBinUnclampOut, on), "CLAMP", "UNCLAMP"),
-                    IoCylinderItem.Output("BOTTOM VISION BLOW", () => unit.BottomVisionBlowOnOut.IsOn, on => WritePairOut(unit.BottomVisionBlowOnOut, unit.BottomVisionBlowOffOut, on), "ON", "OFF")
+                    // ===== BOTTOM VISION (출력) =====
+                    IoCylinderItem.Output("BOTTOM VISION BLOW ON", () => unit.BottomVisionBlowOnOut.IsOn, on => WriteOutAsync(unit.BottomVisionBlowOnOut, on), "ON", "OFF"),
+                    IoCylinderItem.Output("BOTTOM VISION BLOW OFF", () => unit.BottomVisionBlowOffOut.IsOn, on => WriteOutAsync(unit.BottomVisionBlowOffOut, on), "ON", "OFF")
                 });
             }
             catch (Exception ex)
@@ -460,6 +538,22 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             {
                 WriteOut(forward, forwardOn);
                 WriteOut(backward, !forwardOn);
+                return Task.FromResult(0);
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        private static Task<int> WriteOutAsync(QMC.Common.IO.BaseDigitalOutput output, bool on)
+        {
+            try
+            {
+                WriteOut(output, on);
                 return Task.FromResult(0);
             }
             catch
@@ -518,6 +612,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             try
             {
                 if (_outputStageUnit == null || action == null)
+                    return;
+
+                if (ManualMoveGuard.BlockIfNotReady(this, "Output Stage"))
                     return;
 
                 DialogResult confirm = QMC.Common.MessageDialog.Show(this, actionName + " 진행하시겠습니까?", "Output Stage", MessageBoxButtons.YesNo, MessageBoxIcon.Question);

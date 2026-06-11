@@ -1,4 +1,5 @@
 ﻿using QMC.CDT_320.Ui.Controls;
+using QMC.CDT_320.Ui.Dialogs;
 using QMC.CDT_320.Ui.Localization;
 using QMC.CDT320;
 using QMC.Common.Logging;
@@ -316,7 +317,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 waitParameterGrid.ParameterValueChanged += ParameterGrid_ParameterValueChanged;
 
                 jogAxisMoveControl.SpeedControl = jogSpeedControl;
-                jogAxisMoveControl.LayoutMode = JogAxisMoveLayoutMode.Stage;
+                jogAxisMoveControl.LayoutMode = JogAxisMoveLayoutMode.InputStagePad;
                 jogAxisMoveControl.ShowCurrentSpeedMode = true;
                 jogAxisMoveControl.ButtonAreaMinHeight = 520;
                 jogAxisMoveControl.ButtonAreaMaxHeight = 620;
@@ -371,8 +372,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 manualLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
                 manualLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
 
-                foreach (StageTeachingPosition position in TeachingPositions)
-                    AddManualButton(CreateManualActionButton(position.DisplayName, () => MoveByTeachingPositionAsync(position)));
+                foreach (StagePositionKind kind in OptionKindOrder)
+                {
+                    StagePositionKind capturedKind = kind;
+                    AddManualButton(CreateManualActionButton(GetPositionLabel(kind), () => MoveByKindAsync(capturedKind)));
+                }
 
                 AddManualButton(CreateManualActionButton("PICK TEST", PickTestAsync));
                 manualScrollPanel.Controls.Add(manualLayout);
@@ -657,6 +661,44 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
         }
 
+        private async Task<int> MoveByKindAsync(StagePositionKind kind)
+        {
+            try
+            {
+                if (_InputStageUnit == null)
+                    return -1;
+
+                var tasks = new List<Task<int>>();
+                foreach (StageTeachingPosition position in TeachingPositions)
+                {
+                    if (position.Kind != kind)
+                        continue;
+
+                    tasks.Add(MoveByTeachingPositionAsync(position));
+                }
+
+                if (tasks.Count == 0)
+                    return 0;
+
+                int[] results = await Task.WhenAll(tasks);
+                int finalResult = 0;
+                foreach (int result in results)
+                {
+                    if (result != 0)
+                        finalResult = result;
+                }
+
+                return finalResult;
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
         private void TeachPosition(StageTeachingPosition position)
         {
             try
@@ -731,14 +773,36 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
         }
 
+        private static readonly StagePositionKind[] OptionKindOrder =
+        {
+            StagePositionKind.Avoid,
+            StagePositionKind.Load,
+            StagePositionKind.Unload,
+            StagePositionKind.Ready,
+            StagePositionKind.Process,
+            StagePositionKind.Reticle
+        };
+
         private static void AddStagePositions(List<ParameterGridItem> items, InputStageUnit unit)
         {
-            foreach (StageTeachingPosition position in TeachingPositions)
+            foreach (StagePositionKind kind in OptionKindOrder)
             {
-                StageTeachingPosition captured = position;
-                items.Add(ParameterGridItem.Micron(captured.DisplayName, ParameterGridScope.Recipe,
-                    () => captured.Getter(captured.PositionSetGetter(unit)),
-                    v => captured.Setter(captured.PositionSetGetter(unit), v)));
+                string groupKey = "POS_" + kind;
+                items.Add(ParameterGridItem.Header(GetPositionLabel(kind), groupKey));
+
+                foreach (StageTeachingPosition position in TeachingPositions)
+                {
+                    if (position.Kind != kind)
+                        continue;
+
+                    StageTeachingPosition captured = position;
+                    ParameterGridItem item = ParameterGridItem.Micron(captured.AxisLabel, ParameterGridScope.Recipe,
+                        () => captured.Getter(captured.PositionSetGetter(unit)),
+                        v => captured.Setter(captured.PositionSetGetter(unit), v));
+                    item.Key = captured.DisplayName;   // 더블클릭/메뉴 티칭 조회는 원래 이름(DisplayName)으로 매칭
+                    item.GroupKey = groupKey;
+                    items.Add(item);
+                }
             }
         }
 
@@ -766,7 +830,15 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
                 ioCylinderPanel.SetItems(new[]
                 {
-                    IoCylinderItem.Output("NEEDLE VACUUM", () => _InputStageUnit.NeedleVacuum != null && _InputStageUnit.NeedleVacuum.IsOn, WriteNeedleVacuumAsync)
+                    // ===== INPUT (DI) — 3개 =====
+                    IoCylinderItem.Input("WAFER STAGE 8\" RING CHECK", () => _InputStageUnit.WaferStage8RingCheckSensor != null && _InputStageUnit.WaferStage8RingCheckSensor.IsOn),
+                    IoCylinderItem.Input("WAFER STAGE 12\" RING CHECK", () => _InputStageUnit.WaferStage12RingCheckSensor != null && _InputStageUnit.WaferStage12RingCheckSensor.IsOn),
+                    IoCylinderItem.Input("WAFER STAGE TOUCH SENSOR", () => _InputStageUnit.WaferStageTouchSensor != null && _InputStageUnit.WaferStageTouchSensor.IsOn),
+
+                    // ===== OUTPUT (DO) — 3개 =====
+                    IoCylinderItem.Output("IONIZER ON", () => _InputStageUnit.Ionizer != null && _InputStageUnit.Ionizer.IsOn, WriteIonizerAsync),
+                    IoCylinderItem.Output("NEEDLE VACUUM", () => _InputStageUnit.NeedleVacuum != null && _InputStageUnit.NeedleVacuum.IsOn, WriteNeedleVacuumAsync),
+                    IoCylinderItem.Output("NEEDLE BLOW", () => _InputStageUnit.NeedleBlow != null && _InputStageUnit.NeedleBlow.IsOn, WriteNeedleBlowAsync)
                 });
             }
             catch (Exception ex)
@@ -840,6 +912,48 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
         }
 
+        private async Task<int> WriteNeedleBlowAsync(bool value)
+        {
+            try
+            {
+                if (_InputStageUnit == null || _InputStageUnit.NeedleBlow == null)
+                    return -1;
+
+                _InputStageUnit.NeedleBlow.Write(value);
+                await Task.CompletedTask;
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "INPUT-STAGE", "Needle blow write failed: " + ex.Message);
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> WriteIonizerAsync(bool value)
+        {
+            try
+            {
+                if (_InputStageUnit == null || _InputStageUnit.Ionizer == null)
+                    return -1;
+
+                _InputStageUnit.Ionizer.Write(value);
+                await Task.CompletedTask;
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "INPUT-STAGE", "Ionizer write failed: " + ex.Message);
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
         private void ParameterGrid_ParameterValueChanged(object sender, ParameterGridChangedEventArgs e)
         {
             try
@@ -863,11 +977,15 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
         }
 
+        
         private async Task ConfirmAndRunAsync(string actionName, Func<Task<int>> action)
         {
             try
             {
                 if (_InputStageUnit == null || action == null)
+                    return;
+
+                if (ManualMoveGuard.BlockIfNotReady(this, "Input Stage"))
                     return;
 
                 DialogResult confirm = QMC.Common.MessageDialog.Show(this, actionName + " 진행하시겠습니까?", "Input Stage", MessageBoxButtons.YesNo, MessageBoxIcon.Question);

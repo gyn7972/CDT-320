@@ -1,4 +1,5 @@
 using QMC.Common.IO;
+using QMC.Common.Logging;
 
 namespace QMC.CDT320.Ajin
 {
@@ -21,9 +22,40 @@ namespace QMC.CDT320.Ajin
         public override void Write(bool state)
         {
             base.Write(state);
+
+            if (IsBinOutput(Name))
+            {
+                EventLogger.Write(EventKind.Event, "QMC", "AJIN-DO-WRITE",
+                    "DO write. name=" + Name
+                    + ", module=" + Setup.ModuleNo
+                    + ", bit=" + Setup.BitNo
+                    + ", state=" + (state ? "ON" : "OFF")
+                    + ", sim=" + Config.IsSimulationMode);
+            }
+
             if (Config.IsSimulationMode) return;
             if (!AjinSystem.IsOpen) return;
             AjinIoScanService.WriteOutput(this, state);
+        }
+
+        private static bool IsBinOutput(string name)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(name))
+                    return false;
+
+                return name.IndexOf("BinGuide", System.StringComparison.OrdinalIgnoreCase) >= 0
+                    || name.IndexOf("BinClamp", System.StringComparison.OrdinalIgnoreCase) >= 0
+                    || name.IndexOf("BinUnclamp", System.StringComparison.OrdinalIgnoreCase) >= 0;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
         }
 
         public override void UpdateStatus()

@@ -119,6 +119,26 @@ namespace QMC.CDT320
             if (DieSidePosition == null) DieSidePosition = new double[0];
             if (DiePlacePosition == null) DiePlacePosition = new double[0];
         }
+
+        public PickerAxisPositionSet Clone()
+        {
+            PickerAxisPositionSet copy = new PickerAxisPositionSet
+            {
+                InputAvoidPosition = InputAvoidPosition,
+                OutputAvoidPosition = OutputAvoidPosition,
+                AvoidPosition = AvoidPosition,
+                PickPosition = PickPosition,
+                BottomPosition = BottomPosition,
+                SidePosition = SidePosition,
+                PlacePosition = PlacePosition,
+                DiePickPosition = (double[])(DiePickPosition ?? new double[0]).Clone(),
+                DieBottomPosition = (double[])(DieBottomPosition ?? new double[0]).Clone(),
+                DieSidePosition = (double[])(DieSidePosition ?? new double[0]).Clone(),
+                DiePlacePosition = (double[])(DiePlacePosition ?? new double[0]).Clone()
+            };
+            copy.EnsureArrays();
+            return copy;
+        }
     }
 
     [DataContract]
@@ -128,6 +148,12 @@ namespace QMC.CDT320
         [DataMember] public PickerAxisPositionSet PickerY { get; set; } = new PickerAxisPositionSet();
         [DataMember] public PickerAxisPositionSet PickerT0 { get; set; } = new PickerAxisPositionSet();
         [DataMember] public PickerAxisPositionSet PickerZ0 { get; set; } = new PickerAxisPositionSet();
+        [DataMember] public PickerAxisPositionSet PickerT1 { get; set; } = new PickerAxisPositionSet();
+        [DataMember] public PickerAxisPositionSet PickerZ1 { get; set; } = new PickerAxisPositionSet();
+        [DataMember] public PickerAxisPositionSet PickerT2 { get; set; } = new PickerAxisPositionSet();
+        [DataMember] public PickerAxisPositionSet PickerZ2 { get; set; } = new PickerAxisPositionSet();
+        [DataMember] public PickerAxisPositionSet PickerT3 { get; set; } = new PickerAxisPositionSet();
+        [DataMember] public PickerAxisPositionSet PickerZ3 { get; set; } = new PickerAxisPositionSet();
         [DataMember] public int MoveTimeoutMs { get; set; } = 5000;
         [DataMember] public int IoTimeoutMs { get; set; } = 1000;
         [DataMember] public int BlowTimeMs { get; set; } = 100;
@@ -152,10 +178,23 @@ namespace QMC.CDT320
             if (PickerY == null) PickerY = new PickerAxisPositionSet();
             if (PickerT0 == null) PickerT0 = new PickerAxisPositionSet();
             if (PickerZ0 == null) PickerZ0 = new PickerAxisPositionSet();
+            // 구버전 레시피 호환: 개별 T/Z 세트가 없으면 기존 T0/Z0 값을 복제해 동작을 보존한다.
+            if (PickerT1 == null) PickerT1 = PickerT0.Clone();
+            if (PickerT2 == null) PickerT2 = PickerT0.Clone();
+            if (PickerT3 == null) PickerT3 = PickerT0.Clone();
+            if (PickerZ1 == null) PickerZ1 = PickerZ0.Clone();
+            if (PickerZ2 == null) PickerZ2 = PickerZ0.Clone();
+            if (PickerZ3 == null) PickerZ3 = PickerZ0.Clone();
             PickerX.EnsureArrays();
             PickerY.EnsureArrays();
             PickerT0.EnsureArrays();
             PickerZ0.EnsureArrays();
+            PickerT1.EnsureArrays();
+            PickerT2.EnsureArrays();
+            PickerT3.EnsureArrays();
+            PickerZ1.EnsureArrays();
+            PickerZ2.EnsureArrays();
+            PickerZ3.EnsureArrays();
         }
     }
 
@@ -875,6 +914,10 @@ namespace QMC.CDT320
             else if (positionName == "BottomPosition") set.BottomPosition = position;
             else if (positionName == "SidePosition") set.SidePosition = position;
             else if (positionName == "PlacePosition") set.PlacePosition = position;
+            else if (positionName.StartsWith("DiePickPosition", StringComparison.OrdinalIgnoreCase)) set.DiePickPosition = SetIndexedPosition(set.DiePickPosition, ExtractIndex(positionName), position);
+            else if (positionName.StartsWith("DieBottomPosition", StringComparison.OrdinalIgnoreCase)) set.DieBottomPosition = SetIndexedPosition(set.DieBottomPosition, ExtractIndex(positionName), position);
+            else if (positionName.StartsWith("DieSidePosition", StringComparison.OrdinalIgnoreCase)) set.DieSidePosition = SetIndexedPosition(set.DieSidePosition, ExtractIndex(positionName), position);
+            else if (positionName.StartsWith("DiePlacePosition", StringComparison.OrdinalIgnoreCase)) set.DiePlacePosition = SetIndexedPosition(set.DiePlacePosition, ExtractIndex(positionName), position);
         }
 
         private PickerAxisPositionSet GetPositionSet(PickerAxis axis)
@@ -882,7 +925,13 @@ namespace QMC.CDT320
             Recipe.EnsurePositionObjects();
             if (axis == PickerAxis.PickerX) return Recipe.PickerX;
             if (axis == PickerAxis.PickerY) return Recipe.PickerY;
-            if (axis == PickerAxis.PickerT0 || axis == PickerAxis.PickerT1 || axis == PickerAxis.PickerT2 || axis == PickerAxis.PickerT3) return Recipe.PickerT0;
+            if (axis == PickerAxis.PickerT0) return Recipe.PickerT0;
+            if (axis == PickerAxis.PickerT1) return Recipe.PickerT1;
+            if (axis == PickerAxis.PickerT2) return Recipe.PickerT2;
+            if (axis == PickerAxis.PickerT3) return Recipe.PickerT3;
+            if (axis == PickerAxis.PickerZ1) return Recipe.PickerZ1;
+            if (axis == PickerAxis.PickerZ2) return Recipe.PickerZ2;
+            if (axis == PickerAxis.PickerZ3) return Recipe.PickerZ3;
             return Recipe.PickerZ0;
         }
 

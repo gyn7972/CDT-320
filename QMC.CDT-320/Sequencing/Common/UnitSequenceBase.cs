@@ -8,6 +8,7 @@ namespace QMC.CDT320.Sequencing
     public abstract class UnitSequenceBase
     {
         private readonly SemaphoreSlim _stepGate = new SemaphoreSlim(0, int.MaxValue);
+        private int _stepBusyOrQueued;
 
         /// <summary>지정한 컨텍스트, 유닛 종류, 이름으로 유닛 시퀀스를 생성합니다.</summary>
         protected UnitSequenceBase(MachineSequenceContext ctx, SequenceUnitKind kind, string name)
@@ -50,14 +51,27 @@ namespace QMC.CDT320.Sequencing
             {
                 await _stepGate.WaitAsync(ct).ConfigureAwait(false);
                 ct.ThrowIfCancellationRequested();
-                await ExecuteStepAsync(ct).ConfigureAwait(false);
+                try
+                {
+                    await ExecuteStepAsync(ct).ConfigureAwait(false);
+                }
+                finally
+                {
+                    Interlocked.Exchange(ref _stepBusyOrQueued, 0);
+                }
             }
         }
 
         /// <summary>Manual 또는 Step 모드에서 유닛 1단계 실행 신호를 입력합니다.</summary>
         public void StepUnit()
         {
-            _stepGate.Release();
+            if (Interlocked.CompareExchange(ref _stepBusyOrQueued, 1, 0) == 0)
+            {
+                _stepGate.Release();
+                return;
+            }
+
+            Context.LogPublic("[SEQ] " + Name + " step ignored: previous step is still running or queued");
         }
 
         /// <summary>Auto 모드에서 유닛이 수행할 비동기 작업입니다.</summary>

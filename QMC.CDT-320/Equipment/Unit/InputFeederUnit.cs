@@ -122,7 +122,7 @@ namespace QMC.CDT320
             FeederY = AjinFactory.CreateAxis("FeederY");
             WaferFeederUpSensor = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.WaferFeederUp);
             WaferFeederDownSensor = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.WaferFeederDown);
-            WaferFeederClampSensor = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.WaferFeederUpClamp);
+            WaferFeederClampSensor = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.WaferFeederUnClamp);
             WaferFeederRingCheckSensor = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.WaferFeederRingCheck);
             WaferFeederOverloadSensor = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.WaferFeederOverloadCheck);
             WaferFeeder8RingCheckSensor = AjinFactory.CreateDigitalInput(AjinIoCatalog.Inputs.WaferFeeder8RingCheck);
@@ -439,7 +439,10 @@ namespace QMC.CDT320
 
         public bool IsWaferFeederOverload()
         {
-            return WaferFeederOverloadSensor.IsOn;
+            if (IsWaferFeederSimulationOrDryRun())
+                return false;
+
+            return WaferFeederOverloadSensor != null && WaferFeederOverloadSensor.IsOn;
         }
 
         public bool IsWaferFeederUnclamped()
@@ -578,8 +581,8 @@ namespace QMC.CDT320
             {
                 ct.ThrowIfCancellationRequested();
 
-                if (!IsWaferFeederOverload())
-                    return RaiseFeederAlarm("WF-LIFT-OVERLOAD", "WaferFeeder overload is on.");
+                if (IsWaferFeederOverload() == false)
+                    return RaiseFeederAlarm("WF-LIFT-OVERLOAD", "WaferFeeder overload is detected.");
 
                 if (up && !IsWaferFeederEmpty())
                     return RaiseFeederAlarm("WF-LIFT-UP-WAFER-DETECTED", "WaferFeeder wafer is already detected before lift up.");
@@ -820,7 +823,7 @@ namespace QMC.CDT320
 
         public bool CheckWaferFeederOverloadClear()
         {
-            return !WaferFeederOverloadSensor.IsOn;
+            return !IsWaferFeederOverload();
         }
 
         public void ManualMoveWaferFeederYJog(Direction dir, double speed)
@@ -1160,7 +1163,7 @@ namespace QMC.CDT320
 
         public bool CheckWaferFeederMoveReady()
         {
-            return !FeederY.IsAlarm && !WaferFeederOverloadSensor.IsOn;
+            return !FeederY.IsAlarm && CheckWaferFeederOverloadClear();
         }
 
         public bool CheckWaferFeederYMoveReady()
@@ -1171,7 +1174,7 @@ namespace QMC.CDT320
                        FeederY.IsServoOn &&
                        !FeederY.IsAlarm &&
                        !FeederY.IsMoving &&
-                       !WaferFeederOverloadSensor.IsOn;
+                       CheckWaferFeederOverloadClear();
             }
             catch
             {
@@ -1218,12 +1221,15 @@ namespace QMC.CDT320
 
         public bool IsWaferFeederTransferDataEmpty()
         {
-            return CurrentWaferMaterial == null && CurrentMaterialState == MaterialState.Empty;
+            return CurrentWaferMaterial == null &&
+                   MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputFeeder) == null &&
+                   CurrentMaterialState == MaterialState.Empty;
         }
 
         public bool IsWaferFeederTransferDataOccupied()
         {
             return CurrentWaferMaterial != null ||
+                   MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputFeeder) != null ||
                    CurrentMaterialState != MaterialState.Empty &&
                    CurrentMaterialState != MaterialState.Error;
         }
@@ -1287,7 +1293,7 @@ namespace QMC.CDT320
 
         public WaferFeederProcessState GetWaferFeederProcessState()
         {
-            if (FeederY.IsAlarm || WaferFeederOverloadSensor.IsOn)
+            if (FeederY.IsAlarm || IsWaferFeederOverload())
                 return WaferFeederProcessState.Alarm;
             if (FeederY.IsMoving)
                 return WaferFeederProcessState.Moving;
@@ -1306,7 +1312,7 @@ namespace QMC.CDT320
 
         public bool IsWaferFeederSafe()
         {
-            return !WaferFeederOverloadSensor.IsOn && !FeederY.IsAlarm;
+            return CheckWaferFeederOverloadClear() && !FeederY.IsAlarm;
         }
 
         public bool InterlockBeforeJog()
@@ -1364,7 +1370,7 @@ namespace QMC.CDT320
             return HasWaferOnFeeder();
         }
 
-        private bool IsWaferFeederSimulationOrDryRun()
+        public bool IsWaferFeederSimulationOrDryRun()
         {
             bool simulation = Setup != null && Setup.IsSimulationMode;
             bool dryRun = Config != null && Config.bDryRun;
@@ -1502,7 +1508,7 @@ namespace QMC.CDT320
                 case FeederAlarmCode.Interlock:
                     return "WaferFeeder interlock condition is not satisfied.";
                 case FeederAlarmCode.Overload:
-                    return "WaferFeeder overload input is on.";
+                    return "WaferFeeder overload is detected.";
                 case FeederAlarmCode.RingMissing:
                     return "WaferFeeder ring was not detected.";
                 default:

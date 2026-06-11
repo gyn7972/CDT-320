@@ -3,7 +3,9 @@ using QMC.Common;
 using QMC.Common.Alarms;
 using QMC.Common.Motion.Ajin;
 using QMC.CDT320.Interlocks;
+using QMC.CDT320.Motion.SharedRailX;
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace QMC.CDT320.Ajin
@@ -14,6 +16,7 @@ namespace QMC.CDT320.Ajin
         private const double ForcedTestBoardVelocity = 5.0;
 
         private readonly object _sync = new object();
+        private static int _sharedRailXHomeSearchCount;
         private int _motionDirection;
         private bool _isHomeSearching;
 
@@ -34,6 +37,38 @@ namespace QMC.CDT320.Ajin
         private bool UseSimulation
         {
             get { return Config != null && Config.IsSimulationMode; }
+        }
+
+        private bool IsSharedRailXHomeAxis()
+        {
+            return string.Equals(Name, "InputVisionX", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(Name, "CameraX", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(Name, "FrontPickerX", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(Name, "RearPickerX", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(Name, "OutputVisionX", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(Name, "OutVisionX", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private bool BeginSharedRailXHomeLimitSuppress()
+        {
+            if (!IsSharedRailXHomeAxis())
+                return false;
+
+            Interlocked.Increment(ref _sharedRailXHomeSearchCount);
+            return true;
+        }
+
+        private void EndSharedRailXHomeLimitSuppress()
+        {
+            int value = Interlocked.Decrement(ref _sharedRailXHomeSearchCount);
+            if (value < 0)
+                Interlocked.Exchange(ref _sharedRailXHomeSearchCount, 0);
+        }
+
+        private bool IsSharedRailXHomeLimitSuppressed()
+        {
+            return IsSharedRailXHomeAxis() &&
+                   Volatile.Read(ref _sharedRailXHomeSearchCount) > 0;
         }
 
         private double AxisHomeTarget()
@@ -122,7 +157,8 @@ namespace QMC.CDT320.Ajin
                     return await base.MoveAbsoluteAsync(targetPos, velocity);
 
                 string interlockReason;
-                if (!MotionGuardRuntime.VerifyAxisMove(this, targetPos, out interlockReason))
+                if (!SharedRailXMotionRuntime.IsInternalDispatch &&
+                    !MotionGuardRuntime.VerifyAxisMove(this, targetPos, out interlockReason))
                     return FailMotion(-11, "ABS MOVE", interlockReason, targetPos, true);
 
                 if (!IsServoOn || IsAlarm || !AjinSystem.IsOpen)
@@ -300,10 +336,14 @@ namespace QMC.CDT320.Ajin
 
         public override async Task<int> HomeSearchAsync()
         {
+            bool sharedRailXHomeLimitSuppress = false;
             try
             {
                 if (UseSimulation)
+                {
+                    sharedRailXHomeLimitSuppress = BeginSharedRailXHomeLimitSuppress();
                     return await base.HomeSearchAsync();
+                }
 
                 string interlockReason;
                 if (!MotionGuardRuntime.VerifyAxisHome(this, out interlockReason))
@@ -317,6 +357,7 @@ namespace QMC.CDT320.Ajin
                 IsInPosition = false;
                 _motionDirection = 0;
                 _isHomeSearching = true;
+                sharedRailXHomeLimitSuppress = BeginSharedRailXHomeLimitSuppress();
 
                 int ret;
                 lock (_sync)
@@ -385,6 +426,8 @@ namespace QMC.CDT320.Ajin
                 finally
                 {
                     _isHomeSearching = false;
+                    if (sharedRailXHomeLimitSuppress)
+                        EndSharedRailXHomeLimitSuppress();
                 }
             }
         }
@@ -425,7 +468,8 @@ namespace QMC.CDT320.Ajin
 
                 double jogTarget = direction > 0 ? Setup.SoftLimitPlus : Setup.SoftLimitMinus;
                 string interlockReason;
-                if (!MotionGuardRuntime.VerifyAxisMove(this, jogTarget, out interlockReason))
+                if (!SharedRailXMotionRuntime.IsInternalDispatch &&
+                    !MotionGuardRuntime.VerifyAxisMove(this, jogTarget, out interlockReason))
                 {
                     RecordMotionFailure(-11, "JOG", interlockReason, jogTarget, true);
                     return;
@@ -664,13 +708,14 @@ namespace QMC.CDT320.Ajin
                 RaiseMoveCompleted();
             }
 
+            bool limitAlarmSuppressed = _isHomeSearching || IsSharedRailXHomeLimitSuppressed();
             bool wasAlarm = IsAlarm;
-            bool softLimitPositive = Setup != null && Setup.SoftLimitEnabled &&
+            bool softLimitPositive = !limitAlarmSuppressed && Setup != null && Setup.SoftLimitEnabled &&
                 ActualPosition >= Setup.SoftLimitPlus && _motionDirection > 0;
-            bool softLimitNegative = Setup != null && Setup.SoftLimitEnabled &&
+            bool softLimitNegative = !limitAlarmSuppressed && Setup != null && Setup.SoftLimitEnabled &&
                 ActualPosition <= Setup.SoftLimitMinus && _motionDirection < 0;
-            bool hardLimitPositive = !_isHomeSearching && pel && _motionDirection > 0;
-            bool hardLimitNegative = !_isHomeSearching && mel && _motionDirection < 0;
+            bool hardLimitPositive = !limitAlarmSuppressed && pel && _motionDirection > 0;
+            bool hardLimitNegative = !limitAlarmSuppressed && mel && _motionDirection < 0;
 
             IsAlarm = fault || softLimitPositive || softLimitNegative || hardLimitPositive || hardLimitNegative;
             if (IsAlarm)
@@ -704,7 +749,7 @@ namespace QMC.CDT320.Ajin
             Sensor_PEL = pel;
             Sensor_MEL = mel;
             Sensor_ORG = org;
-            if (!_isHomeSearching && ((Sensor_PEL && !wasPel) || (Sensor_MEL && !wasMel)))
+            if (!limitAlarmSuppressed && ((Sensor_PEL && !wasPel) || (Sensor_MEL && !wasMel)))
             {
                 string side = Sensor_PEL ? "PEL(+)" : "MEL(-)";
                 AlarmManager.Raise(

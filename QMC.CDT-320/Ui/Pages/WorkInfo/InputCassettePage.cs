@@ -76,6 +76,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 btnUnload.Click += async (s, e) => await RunSequenceAction("LIFT WAFER UNLOADING", UnloadAsync);
                 btnStop.Click += async (s, e) => await StopManualActionAsync();
                 actionsLayout.Resize += (s, e) => AlignStopButton();
+                actionsLayout.WrapContents = false;
+                EnsureStopButtonLast();
                 AlignStopButton();
 
                 if (cassetteSlotView != null)
@@ -117,6 +119,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 _manualSequenceRunning = true;
                 SetActionButtonsEnabled(false);
                 manualScope = host.Controller.EnterManualOperation();
+                SequenceFailureStore.Clear();
                 WriteEvent("INPUT-CST-ACTION", actionName + " start");
                 bool ok = await action(host);
                 WriteEvent("INPUT-CST-ACTION", actionName + " result=" + ok);
@@ -125,7 +128,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     RaiseWarning("INPUT-CST-CONDITION", actionName + " condition failed.");
                     QMC.Common.MessageDialog.Show(
                         this,
-                        "Input Cassette 조건이 맞지 않아 동작을 중단했습니다.\nAlarm/Event Log를 확인하세요.",
+                        SequenceFailureStore.BuildManualFailureMessage(actionName, "Input Cassette 조건이 맞지 않아 동작을 중단했습니다.\nAlarm/Event Log를 확인하세요."),
                         "Input Cassette",
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Warning);
@@ -166,13 +169,15 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 _manualSequenceRunning = true;
                 SetActionButtonsEnabled(false);
                 manualScope = host.Controller.EnterManualOperation();
+                SequenceFailureStore.Clear();
                 WriteEvent("INPUT-CST-MOTION", actionName + " start");
                 int result = await action(host);
                 WriteEvent("INPUT-CST-MOTION", actionName + " result=" + result);
                 if (result != 0)
                 {
                     RaiseWarning("INPUT-CST-MOTION-FAIL", actionName + " result=" + result);
-                    QMC.Common.MessageDialog.Show(this, actionName + " 실패\nAlarm/Event Log를 확인하세요.", "Input Cassette", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    string message = SequenceFailureStore.BuildManualFailureMessage(actionName, actionName + " failed. result=" + result + "\nAlarm/Event Log를 확인하세요.");
+                    QMC.Common.MessageDialog.Show(this, message, "Input Cassette", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 }
             }
             catch (OperationCanceledException)
@@ -227,7 +232,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 if (btnStop != null)
                 {
                     btnStop.Enabled = true;
-                    btnStop.BringToFront();
+                    EnsureStopButtonLast();
+                    AlignStopButton();
                 }
             }
             catch (Exception ex)
@@ -264,6 +270,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             if (actionsLayout == null || btnStop == null)
                 return;
 
+            EnsureStopButtonLast();
+
             int usedWidth = actionsLayout.Padding.Left + actionsLayout.Padding.Right;
             foreach (Control control in actionsLayout.Controls)
             {
@@ -275,6 +283,16 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             int stopWidth = btnStop.Width + 6;
             int leftMargin = Math.Max(6, actionsLayout.ClientSize.Width - usedWidth - stopWidth - btnStop.Margin.Right);
             btnStop.Margin = new Padding(leftMargin, 6, 6, 6);
+        }
+
+        private void EnsureStopButtonLast()
+        {
+            if (actionsLayout == null || btnStop == null || !actionsLayout.Controls.Contains(btnStop))
+                return;
+
+            int lastIndex = actionsLayout.Controls.Count - 1;
+            if (actionsLayout.Controls.GetChildIndex(btnStop) != lastIndex)
+                actionsLayout.Controls.SetChildIndex(btnStop, lastIndex);
         }
 
         private async Task<int> LifterInitAsync(Form1 host)

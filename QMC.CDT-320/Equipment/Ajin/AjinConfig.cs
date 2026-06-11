@@ -5,6 +5,7 @@ using System.Runtime.Serialization;
 using System.Runtime.Serialization.Json;
 using System.Text;
 using System.Xml;
+using QMC.Common.Logging;
 
 namespace QMC.CDT320.Ajin
 {
@@ -175,7 +176,8 @@ namespace QMC.CDT320.Ajin
 
     public static class AjinConfigStore
     {
-        public static string Dir { get; } = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config");
+        public static string RootDir { get; } = @"D:\CDT-320";
+        public static string Dir { get; } = Path.Combine(RootDir, "Config");
         public static string Path_ { get; } = System.IO.Path.Combine(Dir, "ajin-map.json");
 
         public static AjinConfig Current { get; private set; } = new AjinConfig();
@@ -187,7 +189,7 @@ namespace QMC.CDT320.Ajin
             if (!File.Exists(Path_))
             {
                 Current = Default();
-                Save();
+                SaveOrThrow();
                 return Current;
             }
 
@@ -198,13 +200,27 @@ namespace QMC.CDT320.Ajin
                     Current = ReadConfig(fs);
                     Normalize(Current);
                     EnsureDefaultAxes(Current);
-                    AjinIoCatalog.ApplyDefaults(Current, false);
-                    Save();
                 }
+
+                EventLogger.Write(EventKind.Event, "QMC", "AJIN-MAP-LOAD",
+                    "Ajin map loaded. path=" + Path_
+                    + ", cylinders=" + (Current.Cylinders != null ? Current.Cylinders.Count : 0)
+                    + ", NGBinGuideLift=" + FormatCylinderMap(Current, "NGBinGuideLift")
+                    + ", GoodBinGuideLift=" + FormatCylinderMap(Current, "GoodBinGuideLift"));
             }
-            catch
+            catch (Exception ex)
             {
-                Current = Default();
+                EventLogger.Write(EventKind.Alarm, "QMC", "AJIN-MAP-LOAD",
+                    "Ajin map load failed. Existing file was not overwritten. path=" + Path_ + ", error=" + ex.Message);
+
+                if (Current == null ||
+                    Current.Axes == null ||
+                    Current.DigitalInputs == null ||
+                    Current.DigitalOutputs == null ||
+                    Current.Cylinders == null)
+                {
+                    Current = Default();
+                }
             }
 
             return Current;
@@ -214,23 +230,31 @@ namespace QMC.CDT320.Ajin
         {
             try
             {
-                if (Current == null)
-                    Current = Default();
-
-                Normalize(Current);
-                using (var fs = File.Create(Path_))
-                {
-                    var ser = new DataContractJsonSerializer(typeof(AjinConfig), CreateSettings(true));
-                    using (XmlDictionaryWriter writer = JsonReaderWriterFactory.CreateJsonWriter(fs, Encoding.UTF8, true, true, "  "))
-                    {
-                        ser.WriteObject(writer, Current);
-                        writer.Flush();
-                    }
-                }
+                SaveOrThrow();
             }
-            catch { }
+            catch
+            {
+            }
             finally
             {
+            }
+        }
+
+        public static void SaveOrThrow()
+        {
+            if (Current == null)
+                Current = Default();
+
+            Normalize(Current);
+            Directory.CreateDirectory(Dir);
+            using (var fs = File.Create(Path_))
+            {
+                var ser = new DataContractJsonSerializer(typeof(AjinConfig), CreateSettings(true));
+                using (XmlDictionaryWriter writer = JsonReaderWriterFactory.CreateJsonWriter(fs, Encoding.UTF8, true, true, "  "))
+                {
+                    ser.WriteObject(writer, Current);
+                    writer.Flush();
+                }
             }
         }
 
@@ -240,6 +264,55 @@ namespace QMC.CDT320.Ajin
             EnsureDefaultAxes(c);
             AjinIoCatalog.ApplyDefaults(c, true);
             return c;
+        }
+
+        private static string FormatCylinderMap(AjinConfig config, string name)
+        {
+            try
+            {
+                if (config == null || config.Cylinders == null || string.IsNullOrWhiteSpace(name))
+                    return "-";
+
+                CylMap map;
+                if (!config.Cylinders.TryGetValue(name, out map) || map == null)
+                    return "-";
+
+                return "FWD=" + FormatDio(map.OutFwd, true)
+                    + ",BWD=" + FormatDio(map.OutBwd, true)
+                    + ",InFwd=" + FormatDio(map.UseFwdInput ? map.InFwd : null, false)
+                    + ",InBwd=" + FormatDio(map.UseBwdInput ? map.InBwd : null, false);
+            }
+            catch
+            {
+                return "-";
+            }
+            finally
+            {
+            }
+        }
+
+        private static string FormatDio(DioMap map, bool output)
+        {
+            try
+            {
+                if (map == null)
+                    return "-";
+
+                string address = !string.IsNullOrWhiteSpace(map.Address)
+                    ? map.Address
+                    : output
+                        ? AjinIoCatalog.OutputAddress(map.Module, map.Bit)
+                        : AjinIoCatalog.InputAddress(map.Module, map.Bit);
+
+                return address + "(M" + map.Module + ",B" + map.Bit + ",No" + map.No + ")";
+            }
+            catch
+            {
+                return "-";
+            }
+            finally
+            {
+            }
         }
 
         private static void Normalize(AjinConfig c)
@@ -254,11 +327,143 @@ namespace QMC.CDT320.Ajin
                 if (c.Cylinders == null) c.Cylinders = new Dictionary<string, CylMap>();
 
                 NormalizeAxisKeys(c);
-                AjinIoCatalog.ApplyDefaults(c, false);
+                EnsureMissingDefaults(c);
+                NormalizeDioMaps(c);
                 NormalizeCylinderMaps(c);
             }
             catch
             {
+            }
+            finally
+            {
+            }
+        }
+
+        private static void EnsureMissingDefaults(AjinConfig c)
+        {
+            if (c == null)
+                return;
+
+            AjinIoCatalog.ApplyDefaults(c, false);
+        }
+
+        private static void NormalizeDioMaps(AjinConfig c)
+        {
+            try
+            {
+                if (c == null)
+                    return;
+
+                if (c.DigitalInputs != null)
+                {
+                    foreach (DioMap map in c.DigitalInputs.Values)
+                        NormalizeDioMap(map, false);
+                }
+
+                if (c.DigitalOutputs != null)
+                {
+                    foreach (DioMap map in c.DigitalOutputs.Values)
+                        NormalizeDioMap(map, true);
+                }
+
+                if (c.Cylinders != null)
+                {
+                    foreach (CylMap cylinder in c.Cylinders.Values)
+                    {
+                        if (cylinder == null)
+                            continue;
+
+                        NormalizeDioMap(cylinder.OutFwd, true);
+                        NormalizeDioMap(cylinder.OutBwd, true);
+                        NormalizeDioMap(cylinder.InFwd, false);
+                        NormalizeDioMap(cylinder.InBwd, false);
+                    }
+                }
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        private static void NormalizeDioMap(DioMap map, bool isOutput)
+        {
+            try
+            {
+                if (map == null)
+                    return;
+
+                int module;
+                int bit;
+                if (TryParseDioAddress(map.Address, isOutput, out module, out bit))
+                {
+                    map.Module = module;
+                    map.Bit = bit;
+                }
+                else
+                {
+                    map.Address = isOutput
+                        ? AjinIoCatalog.OutputAddress(map.Module, map.Bit)
+                        : AjinIoCatalog.InputAddress(map.Module, map.Bit);
+                }
+
+                DioDefault catalog = isOutput
+                    ? AjinIoCatalog.FindOutput(map.Module, map.Bit)
+                    : AjinIoCatalog.FindInput(map.Module, map.Bit);
+
+                if (catalog != null)
+                {
+                    map.No = catalog.No;
+                    map.Address = catalog.Address;
+                    map.Nc = catalog.Nc;
+                }
+                else
+                {
+                    map.Address = isOutput
+                        ? AjinIoCatalog.OutputAddress(map.Module, map.Bit)
+                        : AjinIoCatalog.InputAddress(map.Module, map.Bit);
+                }
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool TryParseDioAddress(string address, bool isOutput, out int module, out int bit)
+        {
+            module = 0;
+            bit = 0;
+
+            try
+            {
+                if (string.IsNullOrWhiteSpace(address))
+                    return false;
+
+                string text = address.Trim();
+                char prefix = isOutput ? 'Y' : 'X';
+                if (char.ToUpperInvariant(text[0]) != prefix)
+                    return false;
+
+                int number;
+                if (!int.TryParse(text.Substring(1), out number))
+                    return false;
+
+                if (number < 0)
+                    return false;
+
+                int addressModule = number / 32;
+                bit = number % 32;
+                module = isOutput ? addressModule + 3 : addressModule;
+                return true;
+            }
+            catch
+            {
+                return false;
             }
             finally
             {

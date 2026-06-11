@@ -31,7 +31,7 @@ namespace QMC.CDT320.VisionComm
         public async Task<VisionAlignResult> TriggerAlignAsync(string alignTargetId)
         {
             var c = VisionHub.Wafer;
-            if (c == null || !c.IsConnected) return new VisionAlignResult();
+            if (c == null || !c.IsConnected) return null;
 
             // 타겟별 매핑
             string finder;

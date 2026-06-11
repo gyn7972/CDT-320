@@ -11,6 +11,16 @@ namespace QMC.CDT_320.Ui.Pages.Material
         private Label lblHeader;
         private TableLayoutPanel contentLayout;
         private DieMapView _view;
+        private DataGridView _gridEntries;
+        private DataGridViewTextBoxColumn colIndex;
+        private DataGridViewTextBoxColumn colGridX;
+        private DataGridViewTextBoxColumn colGridY;
+        private DataGridViewTextBoxColumn colTarget;
+        private DataGridViewTextBoxColumn colResult;
+        private DataGridViewTextBoxColumn colBin;
+        private DataGridViewTextBoxColumn colX;
+        private DataGridViewTextBoxColumn colY;
+        private DataGridViewTextBoxColumn colUid;
         private TableLayoutPanel rightLayout;
         private GroupBox grpParams;
         private TableLayoutPanel paramLayout;
@@ -30,6 +40,7 @@ namespace QMC.CDT_320.Ui.Pages.Material
         private Label lblRotate;
         private GroupBox grpActions;
         private TableLayoutPanel actionLayout;
+        private Button btnLoadActive;
         private Button btnGenerate;
         private Button btnDemo;
         private Button btnLoad;
@@ -43,6 +54,16 @@ namespace QMC.CDT_320.Ui.Pages.Material
             this.lblHeader = new System.Windows.Forms.Label();
             this.contentLayout = new System.Windows.Forms.TableLayoutPanel();
             this._view = new QMC.CDT320.Ui.Controls.DieMapView();
+            this._gridEntries = new System.Windows.Forms.DataGridView();
+            this.colIndex = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.colGridX = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.colGridY = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.colTarget = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.colResult = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.colBin = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.colX = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.colY = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.colUid = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.rightLayout = new System.Windows.Forms.TableLayoutPanel();
             this.grpParams = new System.Windows.Forms.GroupBox();
             this.paramLayout = new System.Windows.Forms.TableLayoutPanel();
@@ -62,6 +83,7 @@ namespace QMC.CDT_320.Ui.Pages.Material
             this._cbRotate = new System.Windows.Forms.ComboBox();
             this.grpActions = new System.Windows.Forms.GroupBox();
             this.actionLayout = new System.Windows.Forms.TableLayoutPanel();
+            this.btnLoadActive = new System.Windows.Forms.Button();
             this.btnGenerate = new System.Windows.Forms.Button();
             this.btnDemo = new System.Windows.Forms.Button();
             this.btnLoad = new System.Windows.Forms.Button();
@@ -70,6 +92,7 @@ namespace QMC.CDT_320.Ui.Pages.Material
             this._lblCellInfo = new System.Windows.Forms.Label();
             this.rootLayout.SuspendLayout();
             this.contentLayout.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this._gridEntries)).BeginInit();
             this.rightLayout.SuspendLayout();
             this.grpParams.SuspendLayout();
             this.paramLayout.SuspendLayout();
@@ -95,7 +118,7 @@ namespace QMC.CDT_320.Ui.Pages.Material
             this.rootLayout.RowCount = 2;
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.rootLayout.Size = new System.Drawing.Size(1400, 900);
+            this.rootLayout.Size = new System.Drawing.Size(1678, 900);
             this.rootLayout.TabIndex = 0;
             // 
             // lblHeader
@@ -107,7 +130,7 @@ namespace QMC.CDT_320.Ui.Pages.Material
             this.lblHeader.Location = new System.Drawing.Point(3, 0);
             this.lblHeader.Name = "lblHeader";
             this.lblHeader.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
-            this.lblHeader.Size = new System.Drawing.Size(1394, 30);
+            this.lblHeader.Size = new System.Drawing.Size(1672, 30);
             this.lblHeader.TabIndex = 0;
             this.lblHeader.Tag = "i18n:material.diemap";
             this.lblHeader.Text = "다이 맵";
@@ -119,14 +142,16 @@ namespace QMC.CDT_320.Ui.Pages.Material
             this.contentLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 66F));
             this.contentLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 34F));
             this.contentLayout.Controls.Add(this._view, 0, 0);
+            this.contentLayout.Controls.Add(this._gridEntries, 0, 1);
             this.contentLayout.Controls.Add(this.rightLayout, 1, 0);
             this.contentLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.contentLayout.Location = new System.Drawing.Point(3, 33);
             this.contentLayout.Name = "contentLayout";
             this.contentLayout.Padding = new System.Windows.Forms.Padding(10);
-            this.contentLayout.RowCount = 1;
-            this.contentLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.contentLayout.Size = new System.Drawing.Size(1394, 864);
+            this.contentLayout.RowCount = 2;
+            this.contentLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 62F));
+            this.contentLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 38F));
+            this.contentLayout.Size = new System.Drawing.Size(1672, 864);
             this.contentLayout.TabIndex = 1;
             // 
             // _view
@@ -138,8 +163,100 @@ namespace QMC.CDT_320.Ui.Pages.Material
             this._view.Map = null;
             this._view.Margin = new System.Windows.Forms.Padding(0, 0, 10, 0);
             this._view.Name = "_view";
-            this._view.Size = new System.Drawing.Size(896, 844);
+            this._view.Size = new System.Drawing.Size(1080, 523);
             this._view.TabIndex = 0;
+            // 
+            // _gridEntries
+            // 
+            this._gridEntries.AllowUserToAddRows = false;
+            this._gridEntries.AllowUserToDeleteRows = false;
+            this._gridEntries.AutoSizeColumnsMode = System.Windows.Forms.DataGridViewAutoSizeColumnsMode.Fill;
+            this._gridEntries.BackgroundColor = System.Drawing.Color.White;
+            this._gridEntries.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
+            this._gridEntries.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
+            this.colIndex,
+            this.colGridX,
+            this.colGridY,
+            this.colTarget,
+            this.colResult,
+            this.colBin,
+            this.colX,
+            this.colY,
+            this.colUid});
+            this._gridEntries.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._gridEntries.Location = new System.Drawing.Point(10, 543);
+            this._gridEntries.Margin = new System.Windows.Forms.Padding(0, 10, 10, 0);
+            this._gridEntries.MultiSelect = false;
+            this._gridEntries.Name = "_gridEntries";
+            this._gridEntries.ReadOnly = true;
+            this._gridEntries.RowHeadersVisible = false;
+            this._gridEntries.RowTemplate.Height = 24;
+            this._gridEntries.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
+            this._gridEntries.Size = new System.Drawing.Size(1080, 311);
+            this._gridEntries.TabIndex = 2;
+            // 
+            // colIndex
+            // 
+            this.colIndex.FillWeight = 45F;
+            this.colIndex.HeaderText = "No";
+            this.colIndex.Name = "colIndex";
+            this.colIndex.ReadOnly = true;
+            // 
+            // colGridX
+            // 
+            this.colGridX.FillWeight = 55F;
+            this.colGridX.HeaderText = "GridX";
+            this.colGridX.Name = "colGridX";
+            this.colGridX.ReadOnly = true;
+            // 
+            // colGridY
+            // 
+            this.colGridY.FillWeight = 55F;
+            this.colGridY.HeaderText = "GridY";
+            this.colGridY.Name = "colGridY";
+            this.colGridY.ReadOnly = true;
+            // 
+            // colTarget
+            // 
+            this.colTarget.FillWeight = 65F;
+            this.colTarget.HeaderText = "Target";
+            this.colTarget.Name = "colTarget";
+            this.colTarget.ReadOnly = true;
+            // 
+            // colResult
+            // 
+            this.colResult.FillWeight = 80F;
+            this.colResult.HeaderText = "Result";
+            this.colResult.Name = "colResult";
+            this.colResult.ReadOnly = true;
+            // 
+            // colBin
+            // 
+            this.colBin.FillWeight = 55F;
+            this.colBin.HeaderText = "Bin";
+            this.colBin.Name = "colBin";
+            this.colBin.ReadOnly = true;
+            // 
+            // colX
+            // 
+            this.colX.FillWeight = 80F;
+            this.colX.HeaderText = "X(mm)";
+            this.colX.Name = "colX";
+            this.colX.ReadOnly = true;
+            // 
+            // colY
+            // 
+            this.colY.FillWeight = 80F;
+            this.colY.HeaderText = "Y(mm)";
+            this.colY.Name = "colY";
+            this.colY.ReadOnly = true;
+            // 
+            // colUid
+            // 
+            this.colUid.FillWeight = 180F;
+            this.colUid.HeaderText = "Die UID";
+            this.colUid.Name = "colUid";
+            this.colUid.ReadOnly = true;
             // 
             // rightLayout
             // 
@@ -148,13 +265,14 @@ namespace QMC.CDT_320.Ui.Pages.Material
             this.rightLayout.Controls.Add(this.grpParams, 0, 0);
             this.rightLayout.Controls.Add(this.grpActions, 0, 1);
             this.rightLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.rightLayout.Location = new System.Drawing.Point(919, 13);
+            this.rightLayout.Location = new System.Drawing.Point(1103, 13);
             this.rightLayout.Name = "rightLayout";
             this.rightLayout.RowCount = 3;
-            this.rightLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 330F));
-            this.rightLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 220F));
+            this.contentLayout.SetRowSpan(this.rightLayout, 2);
+            this.rightLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 324F));
+            this.rightLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 269F));
             this.rightLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.rightLayout.Size = new System.Drawing.Size(462, 838);
+            this.rightLayout.Size = new System.Drawing.Size(556, 838);
             this.rightLayout.TabIndex = 1;
             // 
             // grpParams
@@ -165,7 +283,7 @@ namespace QMC.CDT_320.Ui.Pages.Material
             this.grpParams.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
             this.grpParams.Location = new System.Drawing.Point(3, 3);
             this.grpParams.Name = "grpParams";
-            this.grpParams.Size = new System.Drawing.Size(456, 324);
+            this.grpParams.Size = new System.Drawing.Size(550, 318);
             this.grpParams.TabIndex = 0;
             this.grpParams.TabStop = false;
             this.grpParams.Text = "TapeFrame parameters";
@@ -190,7 +308,7 @@ namespace QMC.CDT_320.Ui.Pages.Material
             this.paramLayout.Controls.Add(this.lblRotate, 0, 6);
             this.paramLayout.Controls.Add(this._cbRotate, 1, 6);
             this.paramLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.paramLayout.Location = new System.Drawing.Point(3, 28);
+            this.paramLayout.Location = new System.Drawing.Point(3, 23);
             this.paramLayout.Name = "paramLayout";
             this.paramLayout.Padding = new System.Windows.Forms.Padding(18, 18, 18, 12);
             this.paramLayout.RowCount = 8;
@@ -202,7 +320,7 @@ namespace QMC.CDT_320.Ui.Pages.Material
             this.paramLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 36F));
             this.paramLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 36F));
             this.paramLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.paramLayout.Size = new System.Drawing.Size(450, 293);
+            this.paramLayout.Size = new System.Drawing.Size(544, 292);
             this.paramLayout.TabIndex = 0;
             // 
             // lblGridX
@@ -232,7 +350,7 @@ namespace QMC.CDT_320.Ui.Pages.Material
             0,
             0});
             this._nGridX.Name = "_nGridX";
-            this._nGridX.Size = new System.Drawing.Size(258, 27);
+            this._nGridX.Size = new System.Drawing.Size(352, 23);
             this._nGridX.TabIndex = 1;
             this._nGridX.Value = new decimal(new int[] {
             5,
@@ -267,7 +385,7 @@ namespace QMC.CDT_320.Ui.Pages.Material
             0,
             0});
             this._nGridY.Name = "_nGridY";
-            this._nGridY.Size = new System.Drawing.Size(258, 27);
+            this._nGridY.Size = new System.Drawing.Size(352, 23);
             this._nGridY.TabIndex = 3;
             this._nGridY.Value = new decimal(new int[] {
             5,
@@ -303,7 +421,7 @@ namespace QMC.CDT_320.Ui.Pages.Material
             0,
             196608});
             this._nPitchX.Name = "_nPitchX";
-            this._nPitchX.Size = new System.Drawing.Size(258, 27);
+            this._nPitchX.Size = new System.Drawing.Size(352, 23);
             this._nPitchX.TabIndex = 5;
             this._nPitchX.Value = new decimal(new int[] {
             1,
@@ -339,7 +457,7 @@ namespace QMC.CDT_320.Ui.Pages.Material
             0,
             196608});
             this._nPitchY.Name = "_nPitchY";
-            this._nPitchY.Size = new System.Drawing.Size(258, 27);
+            this._nPitchY.Size = new System.Drawing.Size(352, 23);
             this._nPitchY.TabIndex = 7;
             this._nPitchY.Value = new decimal(new int[] {
             1,
@@ -375,7 +493,7 @@ namespace QMC.CDT_320.Ui.Pages.Material
             0,
             0});
             this._nOriginX.Name = "_nOriginX";
-            this._nOriginX.Size = new System.Drawing.Size(258, 27);
+            this._nOriginX.Size = new System.Drawing.Size(352, 23);
             this._nOriginX.TabIndex = 9;
             // 
             // lblOriginY
@@ -406,7 +524,7 @@ namespace QMC.CDT_320.Ui.Pages.Material
             0,
             0});
             this._nOriginY.Name = "_nOriginY";
-            this._nOriginY.Size = new System.Drawing.Size(258, 27);
+            this._nOriginY.Size = new System.Drawing.Size(352, 23);
             this._nOriginY.TabIndex = 11;
             // 
             // lblRotate
@@ -427,7 +545,7 @@ namespace QMC.CDT_320.Ui.Pages.Material
             this._cbRotate.Font = new System.Drawing.Font("Consolas", 10F);
             this._cbRotate.Location = new System.Drawing.Point(171, 237);
             this._cbRotate.Name = "_cbRotate";
-            this._cbRotate.Size = new System.Drawing.Size(258, 28);
+            this._cbRotate.Size = new System.Drawing.Size(352, 23);
             this._cbRotate.TabIndex = 13;
             // 
             // grpActions
@@ -436,9 +554,9 @@ namespace QMC.CDT_320.Ui.Pages.Material
             this.grpActions.Controls.Add(this.actionLayout);
             this.grpActions.Dock = System.Windows.Forms.DockStyle.Fill;
             this.grpActions.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
-            this.grpActions.Location = new System.Drawing.Point(3, 333);
+            this.grpActions.Location = new System.Drawing.Point(3, 327);
             this.grpActions.Name = "grpActions";
-            this.grpActions.Size = new System.Drawing.Size(456, 214);
+            this.grpActions.Size = new System.Drawing.Size(550, 263);
             this.grpActions.TabIndex = 1;
             this.grpActions.TabStop = false;
             this.grpActions.Text = "Actions";
@@ -448,23 +566,40 @@ namespace QMC.CDT_320.Ui.Pages.Material
             this.actionLayout.ColumnCount = 2;
             this.actionLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
             this.actionLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
-            this.actionLayout.Controls.Add(this.btnGenerate, 0, 0);
-            this.actionLayout.Controls.Add(this.btnDemo, 1, 0);
-            this.actionLayout.Controls.Add(this.btnLoad, 0, 1);
-            this.actionLayout.Controls.Add(this.btnSave, 1, 1);
-            this.actionLayout.Controls.Add(this._lblStats, 0, 2);
-            this.actionLayout.Controls.Add(this._lblCellInfo, 0, 3);
+            this.actionLayout.Controls.Add(this.btnLoadActive, 0, 0);
+            this.actionLayout.Controls.Add(this.btnGenerate, 0, 1);
+            this.actionLayout.Controls.Add(this.btnDemo, 1, 1);
+            this.actionLayout.Controls.Add(this.btnLoad, 0, 2);
+            this.actionLayout.Controls.Add(this.btnSave, 1, 2);
+            this.actionLayout.Controls.Add(this._lblStats, 0, 3);
+            this.actionLayout.Controls.Add(this._lblCellInfo, 0, 4);
             this.actionLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.actionLayout.Location = new System.Drawing.Point(3, 28);
+            this.actionLayout.Location = new System.Drawing.Point(3, 23);
             this.actionLayout.Name = "actionLayout";
             this.actionLayout.Padding = new System.Windows.Forms.Padding(10, 18, 10, 10);
-            this.actionLayout.RowCount = 4;
+            this.actionLayout.RowCount = 5;
+            this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 44F));
             this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 44F));
             this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 44F));
             this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
             this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
-            this.actionLayout.Size = new System.Drawing.Size(450, 183);
+            this.actionLayout.Size = new System.Drawing.Size(544, 237);
             this.actionLayout.TabIndex = 0;
+            // 
+            // btnLoadActive
+            // 
+            this.btnLoadActive.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(232)))), ((int)(((byte)(93)))), ((int)(((byte)(26)))));
+            this.actionLayout.SetColumnSpan(this.btnLoadActive, 2);
+            this.btnLoadActive.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnLoadActive.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnLoadActive.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.btnLoadActive.ForeColor = System.Drawing.Color.White;
+            this.btnLoadActive.Location = new System.Drawing.Point(13, 21);
+            this.btnLoadActive.Name = "btnLoadActive";
+            this.btnLoadActive.Size = new System.Drawing.Size(518, 38);
+            this.btnLoadActive.TabIndex = 6;
+            this.btnLoadActive.Text = "LOAD ACTIVE / STAGE MAP";
+            this.btnLoadActive.UseVisualStyleBackColor = false;
             // 
             // btnGenerate
             // 
@@ -473,9 +608,9 @@ namespace QMC.CDT_320.Ui.Pages.Material
             this.btnGenerate.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnGenerate.Font = new System.Drawing.Font("맑은 고딕", 11F);
             this.btnGenerate.ForeColor = System.Drawing.Color.White;
-            this.btnGenerate.Location = new System.Drawing.Point(13, 21);
+            this.btnGenerate.Location = new System.Drawing.Point(13, 65);
             this.btnGenerate.Name = "btnGenerate";
-            this.btnGenerate.Size = new System.Drawing.Size(209, 38);
+            this.btnGenerate.Size = new System.Drawing.Size(256, 38);
             this.btnGenerate.TabIndex = 0;
             this.btnGenerate.Text = "GENERATE";
             this.btnGenerate.UseVisualStyleBackColor = false;
@@ -487,9 +622,9 @@ namespace QMC.CDT_320.Ui.Pages.Material
             this.btnDemo.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnDemo.Font = new System.Drawing.Font("맑은 고딕", 11F);
             this.btnDemo.ForeColor = System.Drawing.Color.Black;
-            this.btnDemo.Location = new System.Drawing.Point(228, 21);
+            this.btnDemo.Location = new System.Drawing.Point(275, 65);
             this.btnDemo.Name = "btnDemo";
-            this.btnDemo.Size = new System.Drawing.Size(209, 38);
+            this.btnDemo.Size = new System.Drawing.Size(256, 38);
             this.btnDemo.TabIndex = 1;
             this.btnDemo.Text = "FILL DEMO RESULTS";
             this.btnDemo.UseVisualStyleBackColor = false;
@@ -501,9 +636,9 @@ namespace QMC.CDT_320.Ui.Pages.Material
             this.btnLoad.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnLoad.Font = new System.Drawing.Font("맑은 고딕", 11F);
             this.btnLoad.ForeColor = System.Drawing.Color.Black;
-            this.btnLoad.Location = new System.Drawing.Point(13, 65);
+            this.btnLoad.Location = new System.Drawing.Point(13, 109);
             this.btnLoad.Name = "btnLoad";
-            this.btnLoad.Size = new System.Drawing.Size(209, 38);
+            this.btnLoad.Size = new System.Drawing.Size(256, 38);
             this.btnLoad.TabIndex = 2;
             this.btnLoad.Text = "LOAD JSON/CSV";
             this.btnLoad.UseVisualStyleBackColor = false;
@@ -515,9 +650,9 @@ namespace QMC.CDT_320.Ui.Pages.Material
             this.btnSave.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnSave.Font = new System.Drawing.Font("맑은 고딕", 11F);
             this.btnSave.ForeColor = System.Drawing.Color.Black;
-            this.btnSave.Location = new System.Drawing.Point(228, 65);
+            this.btnSave.Location = new System.Drawing.Point(275, 109);
             this.btnSave.Name = "btnSave";
-            this.btnSave.Size = new System.Drawing.Size(209, 38);
+            this.btnSave.Size = new System.Drawing.Size(256, 38);
             this.btnSave.TabIndex = 3;
             this.btnSave.Text = "SAVE CSV+JSON";
             this.btnSave.UseVisualStyleBackColor = false;
@@ -529,10 +664,10 @@ namespace QMC.CDT_320.Ui.Pages.Material
             this.actionLayout.SetColumnSpan(this._lblStats, 2);
             this._lblStats.Dock = System.Windows.Forms.DockStyle.Fill;
             this._lblStats.Font = new System.Drawing.Font("Consolas", 10F);
-            this._lblStats.Location = new System.Drawing.Point(13, 106);
+            this._lblStats.Location = new System.Drawing.Point(13, 150);
             this._lblStats.Name = "_lblStats";
             this._lblStats.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
-            this._lblStats.Size = new System.Drawing.Size(424, 34);
+            this._lblStats.Size = new System.Drawing.Size(518, 34);
             this._lblStats.TabIndex = 4;
             this._lblStats.Text = "(stats)";
             this._lblStats.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -544,10 +679,10 @@ namespace QMC.CDT_320.Ui.Pages.Material
             this.actionLayout.SetColumnSpan(this._lblCellInfo, 2);
             this._lblCellInfo.Dock = System.Windows.Forms.DockStyle.Fill;
             this._lblCellInfo.Font = new System.Drawing.Font("Consolas", 10F);
-            this._lblCellInfo.Location = new System.Drawing.Point(13, 140);
+            this._lblCellInfo.Location = new System.Drawing.Point(13, 184);
             this._lblCellInfo.Name = "_lblCellInfo";
             this._lblCellInfo.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
-            this._lblCellInfo.Size = new System.Drawing.Size(424, 34);
+            this._lblCellInfo.Size = new System.Drawing.Size(518, 43);
             this._lblCellInfo.TabIndex = 5;
             this._lblCellInfo.Text = "(click a cell to inspect)";
             this._lblCellInfo.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -559,6 +694,7 @@ namespace QMC.CDT_320.Ui.Pages.Material
             this.Size = new System.Drawing.Size(1678, 900);
             this.rootLayout.ResumeLayout(false);
             this.contentLayout.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)(this._gridEntries)).EndInit();
             this.rightLayout.ResumeLayout(false);
             this.grpParams.ResumeLayout(false);
             this.paramLayout.ResumeLayout(false);

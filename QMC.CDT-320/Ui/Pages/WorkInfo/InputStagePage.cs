@@ -16,6 +16,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
     {
         private System.Windows.Forms.Timer _timer;
         private ActionButton btnPrepareLoad;
+        private ActionButton btnDieMapping;
         private ActionButton btnPrepareUnload;
         private ActionButton btnMoveAvoid;
         private bool _manualSequenceRunning;
@@ -25,6 +26,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         public InputStagePage()
         {
             InitializeComponent();
+            ConfigureInfoLayoutForReadableText();
             CreateSequenceButtons();
             WireEvents();
 
@@ -38,35 +40,57 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
         private void CreateSequenceButtons()
         {
+            if (actionsLayout != null)
+                actionsLayout.WrapContents = false;
+
+            ConfigureActionButtonSize(btnWfAlign, 180, 64);
+            ConfigureActionButtonSize(btnWfBarcode, 180, 64);
+            ConfigureActionButtonSize(btnStop, 140, 64);
+
             if (btnStop != null && actionsLayout.Controls.Contains(btnStop))
                 actionsLayout.Controls.Remove(btnStop);
 
             btnPrepareLoad = CreateActionButton("PREP LOAD");
+            btnDieMapping = CreateActionButton("DIE MAPPING");
             btnPrepareUnload = CreateActionButton("PREP UNLOAD");
             btnMoveAvoid = CreateActionButton("AVOID");
+            actionsLayout.Controls.Add(btnDieMapping);
             actionsLayout.Controls.Add(btnPrepareLoad);
             actionsLayout.Controls.Add(btnPrepareUnload);
             actionsLayout.Controls.Add(btnMoveAvoid);
+            PlaceDieMappingAfterAlign();
             if (btnStop != null)
                 actionsLayout.Controls.Add(btnStop);
+            EnsureStopButtonLast();
             AlignStopButton();
+        }
+
+        private static void ConfigureActionButtonSize(ActionButton button, int width, int height)
+        {
+            if (button == null)
+                return;
+
+            button.Width = width;
+            button.Height = height;
+            button.Margin = new Padding(6);
         }
 
         private static ActionButton CreateActionButton(string text)
         {
-            return new ActionButton
+            var button = new ActionButton
             {
                 Text = text,
-                Width = 160,
-                Height = 44,
                 Margin = new Padding(6)
             };
+            ConfigureActionButtonSize(button, 180, 64);
+            return button;
         }
 
         private void WireEvents()
         {
             btnPrepareLoad.Click += async (s, e) => await RunSequenceAction("INPUT STAGE PREP LOAD", RunPrepareLoadAsync);
             btnWfAlign.Click += async (s, e) => await RunSequenceAction("INPUT STAGE ALIGN", RunAlignAsync);
+            btnDieMapping.Click += async (s, e) => await RunSequenceAction("INPUT STAGE DIE MAPPING", RunDieMappingAsync);
             btnWfBarcode.Click += async (s, e) => await RunSequenceAction("INPUT STAGE MAP LOAD", RunPrepareLoadAsync);
             btnPrepareUnload.Click += async (s, e) => await RunSequenceAction("INPUT STAGE PREP UNLOAD", RunPrepareUnloadAsync);
             btnMoveAvoid.Click += async (s, e) => await RunSequenceAction("INPUT STAGE AVOID", RunMoveAvoidAsync);
@@ -74,6 +98,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             materialDetailView.CreateDataRequested += MaterialDetailView_CreateDataRequested;
             materialDetailView.ClearDataRequested += MaterialDetailView_ClearDataRequested;
             actionsLayout.Resize += (s, e) => AlignStopButton();
+            actionsLayout.WrapContents = false;
+            EnsureStopButtonLast();
             AlignStopButton();
         }
 
@@ -93,13 +119,26 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 _manualSequenceRunning = true;
                 SetSequenceButtonsEnabled(false);
                 manualScope = host.Controller.EnterManualOperation();
+                CancellationToken manualToken = host.Controller.ManualOperationToken;
+                SequenceFailureStore.Clear();
                 WriteEvent("INPUT-STAGE-ACTION", actionName + " start");
-                bool ok = await action(host);
+                Task<bool> actionTask = action(host);
+                Task cancelTask = WaitForCancellationAsync(manualToken);
+                Task completed = await Task.WhenAny(actionTask, cancelTask).ConfigureAwait(true);
+                if (completed == cancelTask)
+                {
+                    ObserveManualActionTask(actionTask, actionName);
+                    WriteEvent("INPUT-STAGE-CANCEL", actionName + " canceled by stop.");
+                    return;
+                }
+
+                bool ok = await actionTask.ConfigureAwait(true);
                 WriteEvent("INPUT-STAGE-ACTION", actionName + " result=" + ok);
                 if (!ok)
                 {
                     RaiseWarning("INPUT-STAGE-FAIL", actionName + " failed.");
-                    QMC.Common.MessageDialog.Show(this, actionName + " 실패\nAlarm/Event Log를 확인하세요.", "Input Stage", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    string message = SequenceFailureStore.BuildManualFailureMessage(actionName, actionName + " failed. Alarm/Event Log를 확인하세요.");
+                    QMC.Common.MessageDialog.Show(this, message, "Input Stage", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 }
             }
             catch (OperationCanceledException)
@@ -118,7 +157,48 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 _manualSequenceRunning = false;
                 SetSequenceButtonsEnabled(true);
                 RefreshFromMachine();
+                BeginRestoreSequenceButtons();
             }
+        }
+
+        private static Task WaitForCancellationAsync(CancellationToken ct)
+        {
+            if (!ct.CanBeCanceled)
+                return Task.Delay(Timeout.Infinite);
+            if (ct.IsCancellationRequested)
+                return Task.FromResult(0);
+
+            var tcs = new TaskCompletionSource<int>();
+            ct.Register(() => tcs.TrySetResult(0));
+            return tcs.Task;
+        }
+
+        private void ObserveManualActionTask(Task<bool> task, string actionName)
+        {
+            if (task == null)
+                return;
+
+            task.ContinueWith(t =>
+            {
+                try
+                {
+                    if (t.IsFaulted)
+                    {
+                        Exception ex = t.Exception != null ? t.Exception.GetBaseException() : null;
+                        WriteAlarm("INPUT-STAGE-ACTION-LATE-EX", actionName + " finished after stop: " + (ex != null ? ex.Message : "unknown"));
+                    }
+                    else if (t.IsCanceled)
+                    {
+                        WriteEvent("INPUT-STAGE-ACTION-LATE-CANCEL", actionName + " canceled after stop.");
+                    }
+                }
+                catch
+                {
+                }
+                finally
+                {
+                }
+            });
         }
 
         private bool ConfirmAction(string actionName)
@@ -140,7 +220,31 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             if (btnStop != null)
             {
                 btnStop.Enabled = true;
-                btnStop.BringToFront();
+                EnsureStopButtonLast();
+                AlignStopButton();
+            }
+        }
+
+        private void BeginRestoreSequenceButtons()
+        {
+            try
+            {
+                if (!IsHandleCreated)
+                    return;
+
+                BeginInvoke((Action)(() =>
+                {
+                    _manualSequenceRunning = false;
+                    SetSequenceButtonsEnabled(true);
+                    RefreshFromMachine();
+                }));
+            }
+            catch (Exception ex)
+            {
+                WriteAlarm("INPUT-STAGE-BUTTON-RESTORE-EX", "Manual action button restore failed: " + ex.Message);
+            }
+            finally
+            {
             }
         }
 
@@ -154,6 +258,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
                 WriteEvent("INPUT-STAGE-STOP", "Manual action stop requested.");
                 await host.Controller.StopAsync();
+                _manualSequenceRunning = false;
+                SetSequenceButtonsEnabled(true);
+                RefreshFromMachine();
             }
             catch (Exception ex)
             {
@@ -169,6 +276,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             if (actionsLayout == null || btnStop == null)
                 return;
 
+            EnsureStopButtonLast();
+
             int usedWidth = actionsLayout.Padding.Left + actionsLayout.Padding.Right;
             foreach (Control control in actionsLayout.Controls)
             {
@@ -182,6 +291,37 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             btnStop.Margin = new Padding(leftMargin, 6, 6, 6);
         }
 
+        private void EnsureStopButtonLast()
+        {
+            if (actionsLayout == null || btnStop == null || !actionsLayout.Controls.Contains(btnStop))
+                return;
+
+            int lastIndex = actionsLayout.Controls.Count - 1;
+            if (actionsLayout.Controls.GetChildIndex(btnStop) != lastIndex)
+                actionsLayout.Controls.SetChildIndex(btnStop, lastIndex);
+        }
+
+        private void PlaceDieMappingAfterAlign()
+        {
+            try
+            {
+                if (actionsLayout == null || btnWfAlign == null || btnDieMapping == null)
+                    return;
+                if (!actionsLayout.Controls.Contains(btnWfAlign) || !actionsLayout.Controls.Contains(btnDieMapping))
+                    return;
+
+                int alignIndex = actionsLayout.Controls.GetChildIndex(btnWfAlign);
+                actionsLayout.Controls.SetChildIndex(btnDieMapping, alignIndex + 1);
+            }
+            catch (Exception ex)
+            {
+                WriteAlarm("INPUT-STAGE-ACTION-ORDER-EX", "Input stage action button order failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
         private async Task<bool> RunPrepareLoadAsync(Form1 host)
         {
             return await CreateSequence(host).RunPrepareLoadAsync(host.Controller.ManualOperationToken, BuildOptions(host)) == 0;
@@ -190,6 +330,11 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private async Task<bool> RunAlignAsync(Form1 host)
         {
             return await CreateSequence(host).RunAlignAsync(host.Controller.ManualOperationToken, BuildOptions(host)) == 0;
+        }
+
+        private async Task<bool> RunDieMappingAsync(Form1 host)
+        {
+            return await CreateSequence(host).RunDieMappingAsync(host.Controller.ManualOperationToken, BuildOptions(host)) == 0;
         }
 
         private async Task<bool> RunPrepareUnloadAsync(Form1 host)
@@ -217,7 +362,40 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             options.RequireVisionAlign = false;
             options.RequireMapData = false;
             options.WaferId = ResolveWaferId(host);
+            ApplyInputStageUnitParameters(host, options);
             return options;
+        }
+
+        private static void ApplyInputStageUnitParameters(Form1 host, InputStageSequenceOptions options)
+        {
+            try
+            {
+                var stage = host != null && host.Machine != null ? host.Machine.InputStageUnit : null;
+                if (stage == null || stage.Config == null || options == null)
+                    return;
+
+                if (stage.Config.SequenceMoveTimeoutMs > 0)
+                    options.MoveTimeoutMs = stage.Config.SequenceMoveTimeoutMs;
+                if (stage.Config.AlignConvergenceThresholdDeg > 0.0)
+                    options.AlignThetaToleranceDeg = stage.Config.AlignConvergenceThresholdDeg;
+                if (stage.Config.MaxAlignIterations > 0)
+                    options.AlignRetryCount = stage.Config.MaxAlignIterations;
+                if (stage.Recipe != null && stage.Recipe.DieMap != null)
+                {
+                    if (!string.IsNullOrWhiteSpace(stage.Recipe.DieMap.VisionTargetId))
+                        options.DieMapVisionTargetId = stage.Recipe.DieMap.VisionTargetId;
+                    if (stage.Recipe.DieMap.VisionRetryCount > 0)
+                        options.DieMapVisionRetryCount = stage.Recipe.DieMap.VisionRetryCount;
+                }
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputStagePage",
+                    "InputStage sequence option parameter apply failed: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
         }
 
         private static string ResolveWaferId(Form1 host)
@@ -235,18 +413,24 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 if (stage == null)
                     return;
 
-                lblStageExistValue.Text = stage.CurrentWaferMap != null ? "WAFER" : "EMPTY";
+                WaferMaterial currentWafer = stage.GetCurrentStageWaferMaterial();
+                bool hasWafer = stage.HasWaferOnStage();
+
+                lblStageExistValue.Text = hasWafer ? "WAFER" : "EMPTY";
                 lblStageAlignValue.Text = stage.PitchX != 0.0 || stage.PitchY != 0.0 ? "COMPLETE" : "INCOMPLETE";
-                lblStageBarcodeValue.Text = stage.CurrentWaferMap != null && !string.IsNullOrWhiteSpace(stage.CurrentWaferMap.WaferId) ? stage.CurrentWaferMap.WaferId : "INCOMPLETE";
+                lblStageBarcodeValue.Text = ResolveStageWaferId(stage, currentWafer);
                 lblStageChipAlignValue.Text = stage.OriginX != 0.0 || stage.OriginY != 0.0 ? "COMPLETE" : "INCOMPLETE";
 
-                lblStageAxisXValue.Text = AxisUnitConverter.FormatDisplay(stage.CameraX.ActualPosition, stage.CameraX, "0.###", true);
+                lblVisionAxisXValue.Text = AxisUnitConverter.FormatDisplay(stage.CameraX.ActualPosition, stage.CameraX, "0.###", true);
                 lblStageAxisTValue.Text = AxisUnitConverter.FormatDisplay(stage.StageT.ActualPosition, stage.StageT, "0.###", true);
                 lblStageAxisYValue.Text = AxisUnitConverter.FormatDisplay(stage.StageY.ActualPosition, stage.StageY, "0.###", true);
+                lblStageAxisZValue.Text = AxisUnitConverter.FormatDisplay(stage.ExpanderZ.ActualPosition, stage.ExpanderZ, "0.###", true);
+                label2.Text = AxisUnitConverter.FormatDisplay(stage.NeedleBlockX.ActualPosition, stage.NeedleBlockX, "0.###", true);
                 lblNeedleAxisZValue.Text = AxisUnitConverter.FormatDisplay(stage.NeedleZ.ActualPosition, stage.NeedleZ, "0.###", true);
+                label4.Text = AxisUnitConverter.FormatDisplay(stage.EjectPinZ.ActualPosition, stage.EjectPinZ, "0.###", true);
                 lblExpendingValue.Text = AxisUnitConverter.FormatDisplay(stage.ExpanderZ.ActualPosition, stage.ExpanderZ, "0.###", true);
                 lblNeedleUpDownValue.Text = stage.NeedleZ.IsMoving ? "MOVING" : "STOP";
-                dotNeedleVacuum.IsOn = stage.NeedleVacuum.IsOn;
+                dotNeedleVacuum.IsOn = stage.IsInputStageSimulationOrDryRun() ? hasWafer : stage.NeedleVacuum.IsOn;
                 RefreshMaterialDetail(false);
             }
             catch (Exception ex)
@@ -286,10 +470,105 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         {
             var host = GetHost();
             var stage = host != null && host.Machine != null ? host.Machine.InputStageUnit : null;
-            if (stage != null && stage.CurrentWaferMaterial != null)
-                return stage.CurrentWaferMaterial;
+            if (stage != null)
+                return stage.GetCurrentStageWaferMaterial();
 
             return MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
+        }
+
+        private void ConfigureInfoLayoutForReadableText()
+        {
+            try
+            {
+                ConfigureAxisPanel(stageAxisYPanel, lblStageAxisYTitle, lblStageAxisYValue);
+                ConfigureAxisPanel(stageAxisTPanel, lblStageAxisTTitle, lblStageAxisTValue);
+                ConfigureAxisPanel(tableLayoutPanel1, lblStageAxisZTitle, lblStageAxisZValue);
+                ConfigureAxisPanel(stageAxisXPanel, lblStageAxisXTitle, lblVisionAxisXValue);
+                ConfigureAxisPanel(tableLayoutPanel2, label1, label2);
+                ConfigureAxisPanel(needleAxisZPanel, lblNeedleAxisZTitle, lblNeedleAxisZValue);
+                ConfigureAxisPanel(tableLayoutPanel3, label3, label4);
+                ConfigureStatusValueLabels();
+
+                if (infoLayout != null)
+                {
+                    infoLayout.SuspendLayout();
+                    infoLayout.RowStyles.Clear();
+                    infoLayout.RowCount = 8;
+                    for (int i = 0; i < 4; i++)
+                        infoLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 64F));
+                    for (int i = 4; i < 8; i++)
+                        infoLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 25F));
+                    infoLayout.ResumeLayout();
+                }
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        private static void ConfigureAxisPanel(TableLayoutPanel panel, Label title, Label value)
+        {
+            if (panel != null)
+            {
+                panel.RowStyles.Clear();
+                panel.RowCount = 2;
+                panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 26F));
+                panel.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+                panel.MinimumSize = new System.Drawing.Size(0, 56);
+                panel.Margin = new Padding(4, 4, 4, 4);
+            }
+
+            if (title != null)
+            {
+                title.AutoSize = false;
+                title.AutoEllipsis = true;
+                title.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+                title.Padding = new Padding(6, 0, 0, 0);
+                title.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            }
+
+            if (value != null)
+            {
+                value.AutoSize = false;
+                value.AutoEllipsis = true;
+                value.Font = new System.Drawing.Font("Consolas", 9.5F, System.Drawing.FontStyle.Bold);
+                value.Padding = new Padding(0, 0, 6, 0);
+                value.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+            }
+        }
+
+        private void ConfigureStatusValueLabels()
+        {
+            ConfigureCompactValueLabel(lblStageExistValue);
+            ConfigureCompactValueLabel(lblStageAlignValue);
+            ConfigureCompactValueLabel(lblStageBarcodeValue);
+            ConfigureCompactValueLabel(lblStageChipAlignValue);
+            ConfigureCompactValueLabel(lblStageFinishValue);
+            ConfigureCompactValueLabel(lblExpendingValue);
+            ConfigureCompactValueLabel(lblNeedleUpDownValue);
+        }
+
+        private static void ConfigureCompactValueLabel(Label label)
+        {
+            if (label == null)
+                return;
+
+            label.AutoSize = false;
+            label.AutoEllipsis = true;
+            label.Font = new System.Drawing.Font("Consolas", 9F, System.Drawing.FontStyle.Bold);
+            label.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+        }
+
+        private static string ResolveStageWaferId(QMC.CDT320.InputStageUnit stage, WaferMaterial currentWafer)
+        {
+            if (stage != null && stage.CurrentWaferMap != null && !string.IsNullOrWhiteSpace(stage.CurrentWaferMap.WaferId))
+                return stage.CurrentWaferMap.WaferId;
+            if (currentWafer != null && !string.IsNullOrWhiteSpace(currentWafer.WaferId))
+                return currentWafer.WaferId;
+            return "INCOMPLETE";
         }
 
         private void MaterialDetailView_CreateDataRequested(object sender, EventArgs e)

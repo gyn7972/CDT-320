@@ -13,7 +13,10 @@ namespace QMC.CDT_320.Ui.Controls
     public enum JogAxisMoveLayoutMode
     {
         AxisColumns,
-        Stage
+        Stage,
+        PickerTabbed,
+        InputStagePad,
+        OutputStagePad
     }
 
     public partial class JogAxisMoveControl : UserControl
@@ -38,6 +41,8 @@ namespace QMC.CDT_320.Ui.Controls
         private int _axisColumnsPerRow = 0;
         private bool _showCurrentSpeedMode = true;
         private bool _isJogging;
+        private bool _isContinuousJogStarting;
+        private bool _continuousStopRequested;
         private JogAxisMoveLayoutMode _layoutMode = JogAxisMoveLayoutMode.AxisColumns;
 
         public JogSpeedControl SpeedControl { get; set; }
@@ -314,6 +319,52 @@ namespace QMC.CDT_320.Ui.Controls
                 if (LicenseManager.UsageMode != LicenseUsageMode.Designtime || _items.Count > 0)
                     return;
 
+                if (_layoutMode == JogAxisMoveLayoutMode.OutputStagePad)
+                {
+                    SetItems(new[]
+                    {
+                        JogAxisItem.Single("GOOD Y", null, AxisUnitConverter.Micrometer, 1.0, "Y+", "Y-"),
+                        JogAxisItem.Single("GOOD Z", null, AxisUnitConverter.Micrometer, 1.0, "Z+", "Z-"),
+                        JogAxisItem.Single("NG Y", null, AxisUnitConverter.Micrometer, 1.0, "Y+", "Y-"),
+                        JogAxisItem.Single("NG Z", null, AxisUnitConverter.Micrometer, 1.0, "Z+", "Z-"),
+                        JogAxisItem.Single("VISION X", null, AxisUnitConverter.Micrometer, 1.0, "X+", "X-")
+                    });
+                    return;
+                }
+
+                if (_layoutMode == JogAxisMoveLayoutMode.InputStagePad)
+                {
+                    SetItems(new[]
+                    {
+                        JogAxisItem.Single("StageY", null, AxisUnitConverter.Micrometer, 1.0, "Y+", "Y-"),
+                        JogAxisItem.Single("StageT", null, AxisUnitConverter.Degree, 1.0, "T+", "T-"),
+                        JogAxisItem.Single("ExpanderZ", null, AxisUnitConverter.Micrometer, 1.0, "Z+", "Z-"),
+                        JogAxisItem.Single("CameraX", null, AxisUnitConverter.Micrometer, 1.0, "X+", "X-"),
+                        JogAxisItem.Single("NeedleX", null, AxisUnitConverter.Micrometer, 1.0, "X+", "X-"),
+                        JogAxisItem.Single("NeedleZ", null, AxisUnitConverter.Micrometer, 1.0, "Z+", "Z-"),
+                        JogAxisItem.Single("EjectPinZ", null, AxisUnitConverter.Micrometer, 1.0, "Z+", "Z-")
+                    });
+                    return;
+                }
+
+                if (_layoutMode == JogAxisMoveLayoutMode.PickerTabbed)
+                {
+                    SetItems(new[]
+                    {
+                        JogAxisItem.Single("PICKER X", null, AxisUnitConverter.Micrometer, 1.0, "X+", "X-"),
+                        JogAxisItem.Single("PICKER Y", null, AxisUnitConverter.Micrometer, 1.0, "Y+", "Y-"),
+                        JogAxisItem.Single("PICKER T0", null, AxisUnitConverter.Degree, 1.0, "T+", "T-"),
+                        JogAxisItem.Single("PICKER Z0", null, AxisUnitConverter.Micrometer, 1.0, "Z+", "Z-"),
+                        JogAxisItem.Single("PICKER T1", null, AxisUnitConverter.Degree, 1.0, "T+", "T-"),
+                        JogAxisItem.Single("PICKER Z1", null, AxisUnitConverter.Micrometer, 1.0, "Z+", "Z-"),
+                        JogAxisItem.Single("PICKER T2", null, AxisUnitConverter.Degree, 1.0, "T+", "T-"),
+                        JogAxisItem.Single("PICKER Z2", null, AxisUnitConverter.Micrometer, 1.0, "Z+", "Z-"),
+                        JogAxisItem.Single("PICKER T3", null, AxisUnitConverter.Degree, 1.0, "T+", "T-"),
+                        JogAxisItem.Single("PICKER Z3", null, AxisUnitConverter.Micrometer, 1.0, "Z+", "Z-")
+                    });
+                    return;
+                }
+
                 if (_layoutMode == JogAxisMoveLayoutMode.Stage)
                 {
                     SetItems(new[]
@@ -392,6 +443,9 @@ namespace QMC.CDT_320.Ui.Controls
         {
             try
             {
+                if (_isContinuousJogStarting && !force)
+                    _continuousStopRequested = true;
+
                 if (!_isJogging && !force)
                     return 0;
 
@@ -404,6 +458,8 @@ namespace QMC.CDT_320.Ui.Controls
                 }
 
                 _isJogging = false;
+                if (!_isContinuousJogStarting)
+                    _continuousStopRequested = false;
                 ResetButtonColors();
                 return finalResult;
             }
@@ -444,7 +500,12 @@ namespace QMC.CDT_320.Ui.Controls
 
                 int requiredStageHeight = 0;
                 int requiredStageWidth = 0;
-                if (_layoutMode == JogAxisMoveLayoutMode.Stage && _items.Count > 1)
+                if ((_layoutMode == JogAxisMoveLayoutMode.PickerTabbed || _layoutMode == JogAxisMoveLayoutMode.InputStagePad || _layoutMode == JogAxisMoveLayoutMode.OutputStagePad) && _items.Count > 1)
+                {
+                    requiredStageHeight = Math.Max(_buttonAreaMinHeight, availableHeight - axisHost.Padding.Top - axisHost.Padding.Bottom);
+                    requiredStageWidth = availableWidth;
+                }
+                else if (_layoutMode == JogAxisMoveLayoutMode.Stage && _items.Count > 1)
                 {
                     int zAxisCount = CountStageVerticalAxes();
                     int horizontalAxisCount = CountStageHorizontalExtraAxes();
@@ -511,6 +572,24 @@ namespace QMC.CDT_320.Ui.Controls
         {
             try
             {
+                if (_layoutMode == JogAxisMoveLayoutMode.OutputStagePad && _items.Count > 1)
+                {
+                    BuildOutputStagePadButtons();
+                    return;
+                }
+
+                if (_layoutMode == JogAxisMoveLayoutMode.InputStagePad && _items.Count > 1)
+                {
+                    BuildInputStagePadButtons();
+                    return;
+                }
+
+                if (_layoutMode == JogAxisMoveLayoutMode.PickerTabbed && _items.Count > 1)
+                {
+                    BuildPickerTabbedButtons();
+                    return;
+                }
+
                 if (_layoutMode == JogAxisMoveLayoutMode.Stage && _items.Count > 1)
                 {
                     BuildStageButtons();
@@ -706,6 +785,648 @@ namespace QMC.CDT_320.Ui.Controls
                 axisButtonLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
                 axisButtonLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
                 axisButtonLayout.Controls.Add(CreateStageSlotLayout(cameraXItem, yItem, tItem, zItems, horizontalExtraItems), 0, 0);
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        private void BuildPickerTabbedButtons()
+        {
+            try
+            {
+                // 항목 순서 계약: [0]=X, [1]=Y, 이후 (T,Z) 쌍이 피커 순서대로 (T0,Z0,T1,Z1,...)
+                JogAxisItem xItem = _items.Count > 0 ? _items[0] : null;
+                JogAxisItem yItem = _items.Count > 1 ? _items[1] : null;
+
+                TableLayoutPanel container = new TableLayoutPanel();
+                container.ColumnCount = 1;
+                container.RowCount = 2;
+                container.Dock = DockStyle.Fill;
+                container.Margin = new Padding(0);
+                container.Padding = new Padding(0);
+                container.BackColor = Color.Transparent;
+                container.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+                container.RowStyles.Add(new RowStyle(SizeType.Percent, 50F));
+                container.RowStyles.Add(new RowStyle(SizeType.Percent, 50F));
+
+                container.Controls.Add(CreateXyPad(xItem, yItem), 0, 0);
+
+                TabControl tabs = new TabControl();
+                tabs.Dock = DockStyle.Fill;
+                tabs.Margin = new Padding(0);
+                tabs.Font = new Font("Malgun Gothic", 9F, FontStyle.Bold);
+                tabs.SizeMode = TabSizeMode.Fixed;
+                tabs.ItemSize = new Size(60, 26);
+
+                int pickerCount = Math.Max(0, (_items.Count - 2)) / 2;
+                for (int p = 0; p < pickerCount; p++)
+                {
+                    int baseIdx = 2 + p * 2;
+                    JogAxisItem tItem = _items.Count > baseIdx ? _items[baseIdx] : null;
+                    JogAxisItem zItem = _items.Count > baseIdx + 1 ? _items[baseIdx + 1] : null;
+
+                    TabPage page = new TabPage("PICKER " + (p + 1));
+                    page.BackColor = Color.FromArgb(207, 211, 216);
+                    page.UseVisualStyleBackColor = false;
+                    page.Margin = new Padding(0);
+
+                    TableLayoutPanel tzHost = new TableLayoutPanel();
+                    tzHost.Dock = DockStyle.Fill;
+                    tzHost.ColumnCount = 1;
+                    tzHost.RowCount = 1;
+                    tzHost.Margin = new Padding(0);
+                    tzHost.BackColor = Color.Transparent;
+                    tzHost.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+                    tzHost.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+                    tzHost.Controls.Add(CreateTzPad(tItem, zItem, "PICKER T" + (p + 1), "PICKER Z" + (p + 1)), 0, 0);
+
+                    page.Controls.Add(tzHost);
+                    tabs.TabPages.Add(page);
+                }
+
+                int tabCount = tabs.TabPages.Count;
+                if (tabCount > 0)
+                {
+                    bool[] resizing = { false };
+                    EventHandler sizeTabs = delegate
+                    {
+                        if (resizing[0] || !tabs.IsHandleCreated)
+                            return;
+
+                        int avail = tabs.ClientSize.Width;
+                        if (avail <= tabCount + 4)
+                            return;
+
+                        int w = Math.Max(16, (avail - 4) / tabCount);
+                        if (tabs.ItemSize.Width == w)
+                            return;
+
+                        resizing[0] = true;
+                        try { tabs.ItemSize = new Size(w, 26); }
+                        catch { }
+                        finally { resizing[0] = false; }
+                    };
+                    tabs.SizeChanged += sizeTabs;
+                    tabs.HandleCreated += sizeTabs;
+                }
+
+                container.Controls.Add(tabs, 0, 1);
+
+                axisButtonLayout.ColumnCount = 1;
+                axisButtonLayout.RowCount = 1;
+                axisButtonLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+                axisButtonLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+                axisButtonLayout.Controls.Add(container, 0, 0);
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        private Control CreateXyPad(JogAxisItem xItem, JogAxisItem yItem)
+        {
+            try
+            {
+                TableLayoutPanel layout = CreatePadGrid();
+                Control labels = CreateAxisLabelStrip(new[] { xItem != null ? xItem.AxisName : "X", yItem != null ? yItem.AxisName : "Y" });
+                layout.Controls.Add(labels, 0, 0);
+                layout.SetColumnSpan(labels, 3);
+                layout.Controls.Add(CreateBlankCell(), 0, 1);
+                layout.Controls.Add(CreateStagePadButton(yItem, 1, yItem != null ? yItem.PlusText : "Y+"), 1, 1);
+                layout.Controls.Add(CreateBlankCell(), 2, 1);
+                layout.Controls.Add(CreateStagePadButton(xItem, -1, xItem != null ? xItem.MinusText : "X-"), 0, 2);
+                layout.Controls.Add(CreateStopAllButton(), 1, 2);
+                layout.Controls.Add(CreateStagePadButton(xItem, 1, xItem != null ? xItem.PlusText : "X+"), 2, 2);
+                layout.Controls.Add(CreateBlankCell(), 0, 3);
+                layout.Controls.Add(CreateStagePadButton(yItem, -1, yItem != null ? yItem.MinusText : "Y-"), 1, 3);
+                layout.Controls.Add(CreateBlankCell(), 2, 3);
+                return layout;
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        private Control CreateTzPad(JogAxisItem tItem, JogAxisItem zItem, string tLabel, string zLabel)
+        {
+            try
+            {
+                TableLayoutPanel layout = CreatePadGrid();
+                Control labels = CreateAxisLabelStrip(new[] { tLabel, zLabel });
+                layout.Controls.Add(labels, 0, 0);
+                layout.SetColumnSpan(labels, 3);
+                layout.Controls.Add(CreateStagePadButton(tItem, -1, tItem != null ? tItem.MinusText : "T-"), 0, 1);
+                layout.Controls.Add(CreateStagePadButton(zItem, 1, zItem != null ? zItem.PlusText : "Z+"), 1, 1);
+                layout.Controls.Add(CreateStagePadButton(tItem, 1, tItem != null ? tItem.PlusText : "T+"), 2, 1);
+                layout.Controls.Add(CreateBlankCell(), 0, 2);
+                layout.Controls.Add(CreateStopAllButton(), 1, 2);
+                layout.Controls.Add(CreateBlankCell(), 2, 2);
+                layout.Controls.Add(CreateBlankCell(), 0, 3);
+                layout.Controls.Add(CreateStagePadButton(zItem, -1, zItem != null ? zItem.MinusText : "Z-"), 1, 3);
+                layout.Controls.Add(CreateBlankCell(), 2, 3);
+                return layout;
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        private TableLayoutPanel CreatePadGrid()
+        {
+            TableLayoutPanel layout = new TableLayoutPanel();
+            layout.ColumnCount = 3;
+            layout.RowCount = 4;
+            layout.Dock = DockStyle.None;
+            layout.Anchor = AnchorStyles.None;
+            layout.Width = StageJogButtonWidth * 3;
+            layout.Height = StageAxisColumnHeight;
+            layout.Margin = new Padding(0);
+            layout.Padding = new Padding(0);
+            layout.BackColor = Color.Transparent;
+            for (int i = 0; i < 3; i++)
+                layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, StageJogButtonWidth));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, StageAxisLabelHeight));
+            for (int i = 0; i < 3; i++)
+                layout.RowStyles.Add(new RowStyle(SizeType.Absolute, StageJogButtonHeight));
+            return layout;
+        }
+
+        private void BuildInputStagePadButtons()
+        {
+            try
+            {
+                JogAxisItem cameraX = FirstAxisByName("CameraX");
+                JogAxisItem stageY = FirstAxisByName("StageY");
+                JogAxisItem stageT = FirstAxisByName("StageT");
+                JogAxisItem expanderZ = FirstAxisByName("ExpanderZ");
+                JogAxisItem needleX = FirstAxisByName("NeedleX");
+                JogAxisItem needleZ = FirstAxisByName("NeedleZ");
+                JogAxisItem ejectPinZ = FirstAxisByName("EjectPinZ");
+
+                TableLayoutPanel container = new TableLayoutPanel();
+                container.ColumnCount = 1;
+                container.RowCount = 2;
+                container.Dock = DockStyle.Fill;
+                container.Margin = new Padding(0);
+                container.Padding = new Padding(0);
+                container.BackColor = Color.Transparent;
+                container.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+                container.RowStyles.Add(new RowStyle(SizeType.Percent, 50F));
+                container.RowStyles.Add(new RowStyle(SizeType.Percent, 50F));
+
+                container.Controls.Add(CreateStageTopSection(cameraX, expanderZ, stageY, stageT), 0, 0);
+                container.Controls.Add(CreateStageBottomSection(needleX, needleZ, ejectPinZ), 0, 1);
+
+                axisButtonLayout.ColumnCount = 1;
+                axisButtonLayout.RowCount = 1;
+                axisButtonLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+                axisButtonLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+                axisButtonLayout.Controls.Add(container, 0, 0);
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        private const int InputPadBtnW = 60;
+        private const int InputPadBtnH = 48;
+        private const int InputVPadW = 80;
+
+        private Control SizedJogButton(JogAxisItem item, int direction, string text)
+        {
+            Control b = CreateStagePadButton(item, direction, text);
+            b.Width = InputPadBtnW;
+            b.Height = InputPadBtnH;
+            return b;
+        }
+
+        private Control SizedStopButton()
+        {
+            Control s = CreateStopAllButton();
+            s.Width = InputPadBtnW;
+            s.Height = InputPadBtnH;
+            return s;
+        }
+
+        // 가로 1축 패드: [라벨] / [-][STOP][+]
+        private Control CreateHPad(JogAxisItem item, string label)
+        {
+            TableLayoutPanel layout = new TableLayoutPanel();
+            layout.ColumnCount = 3;
+            layout.RowCount = 2;
+            layout.Dock = DockStyle.None;
+            layout.Anchor = AnchorStyles.None;
+            layout.Width = InputPadBtnW * 3;
+            layout.Height = StageAxisLabelHeight + InputPadBtnH;
+            layout.Margin = new Padding(0);
+            layout.Padding = new Padding(0);
+            layout.BackColor = Color.Transparent;
+            for (int i = 0; i < 3; i++)
+                layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, InputPadBtnW));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, StageAxisLabelHeight));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, InputPadBtnH));
+
+            Label header = CreateStageAxisLabel(label);
+            layout.Controls.Add(header, 0, 0);
+            layout.SetColumnSpan(header, 3);
+            layout.Controls.Add(SizedJogButton(item, -1, item != null ? item.MinusText : "X-"), 0, 1);
+            layout.Controls.Add(SizedStopButton(), 1, 1);
+            layout.Controls.Add(SizedJogButton(item, 1, item != null ? item.PlusText : "X+"), 2, 1);
+            return layout;
+        }
+
+        // 세로 1축 패드: [라벨(넓게)] / [+] / [STOP] / [-]
+        private Control CreateVPad(JogAxisItem item, string label)
+        {
+            TableLayoutPanel layout = new TableLayoutPanel();
+            layout.ColumnCount = 1;
+            layout.RowCount = 2;
+            layout.Dock = DockStyle.None;
+            layout.Anchor = AnchorStyles.None;
+            layout.Width = InputVPadW;
+            layout.Height = StageAxisLabelHeight + InputPadBtnH * 3;
+            layout.Margin = new Padding(0);
+            layout.Padding = new Padding(0);
+            layout.BackColor = Color.Transparent;
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, InputVPadW));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, StageAxisLabelHeight));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, InputPadBtnH * 3));
+
+            // 라벨은 넓게(InputVPadW), 버튼 묶음은 기존 폭(InputPadBtnW)으로 가운데 정렬
+            layout.Controls.Add(CreateStageAxisLabel(label), 0, 0);
+
+            TableLayoutPanel buttons = new TableLayoutPanel();
+            buttons.ColumnCount = 1;
+            buttons.RowCount = 3;
+            buttons.Dock = DockStyle.None;
+            buttons.Anchor = AnchorStyles.None;
+            buttons.Width = InputPadBtnW;
+            buttons.Height = InputPadBtnH * 3;
+            buttons.Margin = new Padding(0);
+            buttons.Padding = new Padding(0);
+            buttons.BackColor = Color.Transparent;
+            buttons.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, InputPadBtnW));
+            for (int i = 0; i < 3; i++)
+                buttons.RowStyles.Add(new RowStyle(SizeType.Absolute, InputPadBtnH));
+            buttons.Controls.Add(SizedJogButton(item, 1, item != null ? item.PlusText : "Z+"), 0, 0);
+            buttons.Controls.Add(SizedStopButton(), 0, 1);
+            buttons.Controls.Add(SizedJogButton(item, -1, item != null ? item.MinusText : "Z-"), 0, 2);
+            layout.Controls.Add(buttons, 0, 1);
+            return layout;
+        }
+
+        // Y(세로) + T(상단 모서리) 크로스 패드
+        private Control CreateYtPad(JogAxisItem yItem, JogAxisItem tItem)
+        {
+            TableLayoutPanel layout = new TableLayoutPanel();
+            layout.ColumnCount = 3;
+            layout.RowCount = 4;
+            layout.Dock = DockStyle.None;
+            layout.Anchor = AnchorStyles.None;
+            layout.Width = InputPadBtnW * 3;
+            layout.Height = StageAxisLabelHeight + InputPadBtnH * 3;
+            layout.Margin = new Padding(0);
+            layout.Padding = new Padding(0);
+            layout.BackColor = Color.Transparent;
+            for (int i = 0; i < 3; i++)
+                layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, InputPadBtnW));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, StageAxisLabelHeight));
+            for (int i = 0; i < 3; i++)
+                layout.RowStyles.Add(new RowStyle(SizeType.Absolute, InputPadBtnH));
+
+            Control labels = CreateAxisLabelStrip(new[] { "Stage Y", "Stage T" });
+            layout.Controls.Add(labels, 0, 0);
+            layout.SetColumnSpan(labels, 3);
+            layout.Controls.Add(SizedJogButton(tItem, -1, tItem != null ? tItem.MinusText : "T-"), 0, 1);
+            layout.Controls.Add(SizedJogButton(yItem, 1, yItem != null ? yItem.PlusText : "Y+"), 1, 1);
+            layout.Controls.Add(SizedJogButton(tItem, 1, tItem != null ? tItem.PlusText : "T+"), 2, 1);
+            layout.Controls.Add(CreateBlankCell(), 0, 2);
+            layout.Controls.Add(SizedStopButton(), 1, 2);
+            layout.Controls.Add(CreateBlankCell(), 2, 2);
+            layout.Controls.Add(CreateBlankCell(), 0, 3);
+            layout.Controls.Add(SizedJogButton(yItem, -1, yItem != null ? yItem.MinusText : "Y-"), 1, 3);
+            layout.Controls.Add(CreateBlankCell(), 2, 3);
+            return layout;
+        }
+
+        // 상단: 좌측(Camera X 가로 + Expander Z 세로) | 우측(Stage Y/T 크로스)
+        private Control CreateStageTopSection(JogAxisItem cameraX, JogAxisItem expanderZ, JogAxisItem stageY, JogAxisItem stageT)
+        {
+            int padWidth = InputPadBtnW * 3;
+            int camHeight = StageAxisLabelHeight + InputPadBtnH;
+            int gapV = 16;
+            int expHeight = StageAxisLabelHeight + InputPadBtnH * 3;
+
+            TableLayoutPanel leftStack = new TableLayoutPanel();
+            leftStack.ColumnCount = 1;
+            leftStack.RowCount = 3;
+            leftStack.Dock = DockStyle.None;
+            leftStack.Anchor = AnchorStyles.None;
+            leftStack.Width = padWidth;
+            leftStack.Height = camHeight + gapV + expHeight;
+            leftStack.Margin = new Padding(0);
+            leftStack.Padding = new Padding(0);
+            leftStack.BackColor = Color.Transparent;
+            leftStack.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, padWidth));
+            leftStack.RowStyles.Add(new RowStyle(SizeType.Absolute, camHeight));
+            leftStack.RowStyles.Add(new RowStyle(SizeType.Absolute, gapV));
+            leftStack.RowStyles.Add(new RowStyle(SizeType.Absolute, expHeight));
+            leftStack.Controls.Add(CreateHPad(cameraX, "Camera X"), 0, 0);
+            leftStack.Controls.Add(CreateBlankCell(), 0, 1);
+            leftStack.Controls.Add(CreateVPad(expanderZ, "Expander Z"), 0, 2);
+
+            int gapH = 16;
+            TableLayoutPanel section = new TableLayoutPanel();
+            section.ColumnCount = 3;
+            section.RowCount = 1;
+            section.Dock = DockStyle.None;
+            section.Anchor = AnchorStyles.None;
+            section.Width = padWidth + gapH + padWidth;
+            section.Height = leftStack.Height;
+            section.Margin = new Padding(0);
+            section.Padding = new Padding(0);
+            section.BackColor = Color.Transparent;
+            section.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, padWidth));
+            section.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, gapH));
+            section.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, padWidth));
+            section.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            section.Controls.Add(leftStack, 0, 0);
+
+            Control cross = CreateYtPad(stageY, stageT);
+            cross.Anchor = AnchorStyles.Top;   // Camera X 라벨과 Stage Y/T 라벨을 동일선상(상단)에 맞춤
+            section.Controls.Add(cross, 2, 0);
+            return section;
+        }
+
+        // 하단: Needle X(가로) | Needle Z(세로) | EjectPin Z(세로)
+        private Control CreateStageBottomSection(JogAxisItem needleX, JogAxisItem needleZ, JogAxisItem ejectPinZ)
+        {
+            int padWidth = InputPadBtnW * 3;
+            int gap = 16;
+            TableLayoutPanel section = new TableLayoutPanel();
+            section.ColumnCount = 5;
+            section.RowCount = 1;
+            section.Dock = DockStyle.None;
+            section.Anchor = AnchorStyles.None;
+            section.Width = padWidth + gap + InputVPadW + gap + InputVPadW;
+            section.Height = StageAxisLabelHeight + InputPadBtnH * 3;
+            section.Margin = new Padding(0);
+            section.Padding = new Padding(0);
+            section.BackColor = Color.Transparent;
+            section.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, padWidth));
+            section.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, gap));
+            section.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, InputVPadW));
+            section.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, gap));
+            section.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, InputVPadW));
+            section.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+
+            Control nxPad = CreateHPad(needleX, "Needle X");
+            nxPad.Anchor = AnchorStyles.Top;   // Needle X 라벨을 Needle Z / EjectPin Z 라벨과 동일선상(상단)에 맞춤
+            section.Controls.Add(nxPad, 0, 0);
+            section.Controls.Add(CreateVPad(needleZ, "Needle Z"), 2, 0);
+            section.Controls.Add(CreateVPad(ejectPinZ, "EjectPin Z"), 4, 0);
+            return section;
+        }
+
+        private Control CreateAxisLabelStrip(string[] names)
+        {
+            try
+            {
+                TableLayoutPanel strip = new TableLayoutPanel();
+                strip.ColumnCount = names.Length;
+                strip.RowCount = 1;
+                strip.Dock = DockStyle.Fill;
+                strip.Margin = new Padding(0);
+                strip.Padding = new Padding(0);
+                strip.BackColor = Color.Transparent;
+                for (int i = 0; i < names.Length; i++)
+                    strip.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F / names.Length));
+                strip.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+                for (int i = 0; i < names.Length; i++)
+                    strip.Controls.Add(CreateStageAxisLabel(names[i]), i, 0);
+                return strip;
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        private void BuildOutputStagePadButtons()
+        {
+            try
+            {
+                JogAxisItem goodY = FirstAxisByName("GOOD Y");
+                JogAxisItem goodZ = FirstAxisByName("GOOD Z");
+                JogAxisItem ngY = FirstAxisByName("NG Y");
+                JogAxisItem visionX = FirstAxisByName("VISION X");
+
+                TableLayoutPanel container = new TableLayoutPanel();
+                container.ColumnCount = 1;
+                container.RowCount = 2;
+                container.Dock = DockStyle.Fill;
+                container.Margin = new Padding(0);
+                container.Padding = new Padding(0);
+                container.BackColor = Color.Transparent;
+                container.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+                container.RowStyles.Add(new RowStyle(SizeType.Percent, 50F));
+                container.RowStyles.Add(new RowStyle(SizeType.Percent, 50F));
+
+                container.Controls.Add(CreateOutputTopPads(goodY, goodZ), 0, 0);
+                container.Controls.Add(CreateOutputBottomPads(visionX, ngY), 0, 1);
+
+                axisButtonLayout.ColumnCount = 1;
+                axisButtonLayout.RowCount = 1;
+                axisButtonLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+                axisButtonLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+                axisButtonLayout.Controls.Add(container, 0, 0);
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        // 하단: Camera X(가로 패드) | NG Y(세로 패드, 넓은 라벨)
+        private Control CreateOutputBottomPads(JogAxisItem visionX, JogAxisItem ngY)
+        {
+            try
+            {
+                int gap = 40;
+                TableLayoutPanel section = new TableLayoutPanel();
+                section.ColumnCount = 3;
+                section.RowCount = 1;
+                section.Dock = DockStyle.None;
+                section.Anchor = AnchorStyles.None;
+                section.Width = StageJogButtonWidth * 3 + gap + OutputColumnWidth;
+                section.Height = OutputColumnLabelHeight + OutputColumnLabelGap + StageJogButtonHeight * 3;
+                section.Margin = new Padding(0);
+                section.Padding = new Padding(0);
+                section.BackColor = Color.Transparent;
+                section.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, StageJogButtonWidth * 3));
+                section.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, gap));
+                section.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, OutputColumnWidth));
+                section.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+
+                Control cam = CreateOutputHPad(visionX, "Camera X");
+                cam.Anchor = AnchorStyles.Top;   // Camera X 라벨을 Ng Y 라벨과 동일선상(상단)에 맞춤
+                section.Controls.Add(cam, 0, 0);
+                section.Controls.Add(CreateOutputColumn(ngY, "Ng Y"), 2, 0);
+                return section;
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        // 가로 1축 패드: [라벨(버튼 폭 전체)] / [-][STOP][+]
+        private Control CreateOutputHPad(JogAxisItem item, string label)
+        {
+            try
+            {
+                TableLayoutPanel layout = new TableLayoutPanel();
+                layout.ColumnCount = 3;
+                layout.RowCount = 2;
+                layout.Dock = DockStyle.None;
+                layout.Anchor = AnchorStyles.None;
+                layout.Width = StageJogButtonWidth * 3;
+                layout.Height = StageAxisLabelHeight + StageJogButtonHeight;
+                layout.Margin = new Padding(0);
+                layout.Padding = new Padding(0);
+                layout.BackColor = Color.Transparent;
+                for (int i = 0; i < 3; i++)
+                    layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, StageJogButtonWidth));
+                layout.RowStyles.Add(new RowStyle(SizeType.Absolute, StageAxisLabelHeight));
+                layout.RowStyles.Add(new RowStyle(SizeType.Absolute, StageJogButtonHeight));
+
+                Label header = CreateStageAxisLabel(label);
+                layout.Controls.Add(header, 0, 0);
+                layout.SetColumnSpan(header, 3);
+                layout.Controls.Add(CreateStagePadButton(item, -1, item != null ? item.MinusText : "X-"), 0, 1);
+                layout.Controls.Add(CreateStopAllButton(), 1, 1);
+                layout.Controls.Add(CreateStagePadButton(item, 1, item != null ? item.PlusText : "X+"), 2, 1);
+                return layout;
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        private Control CreateOutputTopPads(JogAxisItem firstItem, JogAxisItem secondItem)
+        {
+            try
+            {
+                int gapColumn = 40;
+                TableLayoutPanel layout = new TableLayoutPanel();
+                layout.ColumnCount = 3;
+                layout.RowCount = 1;
+                layout.Dock = DockStyle.None;
+                layout.Anchor = AnchorStyles.None;
+                layout.Width = OutputColumnWidth * 2 + gapColumn;
+                layout.Height = OutputColumnLabelHeight + OutputColumnLabelGap + StageJogButtonHeight * 3;
+                layout.Margin = new Padding(0);
+                layout.Padding = new Padding(0);
+                layout.BackColor = Color.Transparent;
+                layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, OutputColumnWidth));
+                layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, gapColumn));
+                layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, OutputColumnWidth));
+                layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+                layout.Controls.Add(CreateOutputColumn(firstItem, "Good Y"), 0, 0);
+                layout.Controls.Add(CreateOutputColumn(secondItem, "Good Z"), 2, 0);
+                return layout;
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        private const int OutputColumnLabelHeight = StageAxisLabelHeight;
+        private const int OutputColumnLabelGap = 0;
+        private const int OutputColumnWidth = StageJogButtonWidth + 16;
+
+        private Control CreateOutputColumn(JogAxisItem item, string label)
+        {
+            try
+            {
+                TableLayoutPanel layout = new TableLayoutPanel();
+                layout.ColumnCount = 1;
+                layout.RowCount = 3;
+                layout.Dock = DockStyle.None;
+                layout.Anchor = AnchorStyles.None;
+                layout.Width = OutputColumnWidth;
+                layout.Height = OutputColumnLabelHeight + OutputColumnLabelGap + StageJogButtonHeight * 3;
+                layout.Margin = new Padding(0);
+                layout.Padding = new Padding(0);
+                layout.BackColor = Color.Transparent;
+                layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, OutputColumnWidth));
+                layout.RowStyles.Add(new RowStyle(SizeType.Absolute, OutputColumnLabelHeight));
+                layout.RowStyles.Add(new RowStyle(SizeType.Absolute, OutputColumnLabelGap));
+                layout.RowStyles.Add(new RowStyle(SizeType.Absolute, StageJogButtonHeight * 3));
+
+                // 좌우로 넓힌 라벨 (높이/폰트는 하단 Camera X 라벨과 동일)
+                layout.Controls.Add(CreateStageAxisLabel(label), 0, 0);
+
+                layout.Controls.Add(CreateBlankCell(), 0, 1);
+
+                // 버튼 묶음(폭은 기존 그대로, 가운데 정렬)
+                TableLayoutPanel buttons = new TableLayoutPanel();
+                buttons.ColumnCount = 1;
+                buttons.RowCount = 3;
+                buttons.Dock = DockStyle.None;
+                buttons.Anchor = AnchorStyles.None;
+                buttons.Width = StageJogButtonWidth;
+                buttons.Height = StageJogButtonHeight * 3;
+                buttons.Margin = new Padding(0);
+                buttons.Padding = new Padding(0);
+                buttons.BackColor = Color.Transparent;
+                buttons.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, StageJogButtonWidth));
+                for (int i = 0; i < 3; i++)
+                    buttons.RowStyles.Add(new RowStyle(SizeType.Absolute, StageJogButtonHeight));
+                buttons.Controls.Add(CreateStagePadButton(item, 1, item != null ? item.PlusText : "+"), 0, 0);
+                buttons.Controls.Add(CreateStopAllButton(), 0, 1);
+                buttons.Controls.Add(CreateStagePadButton(item, -1, item != null ? item.MinusText : "-"), 0, 2);
+                layout.Controls.Add(buttons, 0, 2);
+
+                return layout;
             }
             catch
             {
@@ -1629,6 +2350,11 @@ namespace QMC.CDT_320.Ui.Controls
                 Button button = sender as Button;
                 if (button == null || !_buttonAxes.ContainsKey(button))
                     return;
+                if (!rdoStep.Checked && (_isContinuousJogStarting || _isJogging))
+                {
+                    await StopAllAsync(true);
+                    return;
+                }
 
                 SetButtonActive(button);
                 await StartJogAsync(_buttonAxes[button], _buttonDirections[button]);
@@ -1699,14 +2425,24 @@ namespace QMC.CDT_320.Ui.Controls
 
         private async Task StartJogAsync(JogAxisItem item, int direction)
         {
+            bool isStepMode = false;
             try
             {
                 if (item == null)
                     return;
 
-                await StopAllAsync(true);
+                isStepMode = rdoStep.Checked;
+                if (!isStepMode)
+                {
+                    _isContinuousJogStarting = true;
+                    _continuousStopRequested = false;
+                }
 
-                if (rdoStep.Checked)
+                await StopAllAsync(true);
+                if (!isStepMode && _continuousStopRequested)
+                    return;
+
+                if (isStepMode)
                 {
                     double axisStep = item.FromDisplayDistance(Convert.ToDouble(numStepDistance.Value, CultureInfo.InvariantCulture));
                     int stepResult = await item.ExecuteStepAsync(direction, GetJogSpeedType(), CurrentJogSpeed(item), axisStep);
@@ -1723,6 +2459,9 @@ namespace QMC.CDT_320.Ui.Controls
 
                 _isJogging = true;
                 EventLogger.Write(EventKind.Event, "UI", "JOG-AXIS", item.AxisName + " continuous jog start.");
+
+                if (_continuousStopRequested)
+                    await StopAllAsync(true);
             }
             catch
             {
@@ -1730,6 +2469,10 @@ namespace QMC.CDT_320.Ui.Controls
             }
             finally
             {
+                if (!isStepMode)
+                {
+                    _isContinuousJogStarting = false;
+                }
             }
         }
 
