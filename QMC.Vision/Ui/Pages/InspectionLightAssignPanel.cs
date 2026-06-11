@@ -53,8 +53,22 @@ namespace QMC.Vision.Ui.Pages
         private void OnCellEndEdit(object sender, DataGridViewCellEventArgs e)
         {
             if (_suspend) return;
-            // (페이지 0 강제 리셋 제거 — 실 UI 에서 페이지 선택 뒤 이 리셋이 발화해 0 으로 떨어지던 버그.
-            //  컨트롤러별 PageCount 초과 페이지는 PersistAssign 의 클램프가 보정.)
+            // 컨트롤러 변경 시: 그 행 Page 셀의 콤보 items 를 새 컨트롤러 PageCount 로 재구성(표시 정합).
+            // 현재 page 가 새 범위 밖이면만 0 으로(범위 내면 보존).
+            if (e.RowIndex >= 0 && !_grid.Rows[e.RowIndex].IsNewRow
+                && _grid.Columns[e.ColumnIndex].Name == "ControllerPort")
+            {
+                _suspend = true;
+                try
+                {
+                    string port = _grid.Rows[e.RowIndex].Cells["ControllerPort"].Value as string;
+                    int pc = SetPageCellItems(e.RowIndex, port);
+                    int cur = 0; int.TryParse(_grid.Rows[e.RowIndex].Cells["Page"].Value?.ToString(), out cur);
+                    _grid.Rows[e.RowIndex].Cells["Page"].Value = ((cur >= 0 && cur <= pc - 1) ? cur : 0).ToString();
+                }
+                catch { }
+                _suspend = false;
+            }
             PersistAssign(false);
         }
         private void OnRowsRemoved(object sender, DataGridViewRowsRemovedEventArgs e)
@@ -63,18 +77,19 @@ namespace QMC.Vision.Ui.Pages
             PersistAssign(false);
         }
 
-        /// <summary>페이지 콤보 = 선택 컨트롤러의 PageCount(편집 컨트롤만 좁힘 — 셀 Items 비조작).</summary>
-        private void OnEditingControlShowing(object sender, DataGridViewEditingControlShowingEventArgs e)
+        /// <summary>그 행 Page 셀(콤보)의 items 를 컨트롤러 PageCount(0..N-1)로 설정 — 셀이 자기 값을 항상 표시하도록(표시 버그 방지).
+        /// items 는 string("0".."N-1") — DataGridViewComboBox 는 int items 시 FormattedValue 표시가 깨짐(값은 맞아도 화면 0). PageCount 반환.</summary>
+        private int SetPageCellItems(int rowIndex, string port)
         {
-            if (_grid.CurrentCell == null) return;
-            if (_grid.Columns[_grid.CurrentCell.ColumnIndex].Name != "Page") return;
-            var combo = e.Control as ComboBox;
-            if (combo == null) return;
-            string port = _grid.Rows[_grid.CurrentCell.RowIndex].Cells["ControllerPort"].Value as string;
+            var cell = _grid.Rows[rowIndex].Cells["Page"] as DataGridViewComboBoxCell;
             var ce = LightSystemSetupStore.Current?.GetController(port);
-            int pageCount = (ce != null && ce.PageCount > 0) ? ce.PageCount : 1;
-            combo.Items.Clear();
-            for (int p = 0; p < pageCount; p++) combo.Items.Add(p);
+            int pc = (ce != null && ce.PageCount > 0) ? ce.PageCount : 1;
+            if (cell != null)
+            {
+                cell.Items.Clear();
+                for (int p = 0; p < pc; p++) cell.Items.Add(p.ToString());
+            }
+            return pc;
         }
 
         // ── 바인딩 ──
@@ -105,7 +120,8 @@ namespace QMC.Vision.Ui.Pages
                     EnsureCtrlItem(pr.ControllerPort);
                     int idx = _grid.Rows.Add();
                     _grid.Rows[idx].Cells["ControllerPort"].Value = pr.ControllerPort;
-                    _grid.Rows[idx].Cells["Page"].Value = pr.Page;
+                    SetPageCellItems(idx, pr.ControllerPort);   // 셀 콤보 items = 컨트롤러 페이지(표시 정합)
+                    _grid.Rows[idx].Cells["Page"].Value = pr.Page.ToString();
                 }
             }
             finally { _suspend = false; }
@@ -124,7 +140,7 @@ namespace QMC.Vision.Ui.Pages
                 if (c.PageCount > maxPage) maxPage = c.PageCount;
             }
             _colPage.Items.Clear();
-            for (int p = 0; p < maxPage; p++) _colPage.Items.Add(p);
+            for (int p = 0; p < maxPage; p++) _colPage.Items.Add(p.ToString());
         }
 
         private void EnsureCtrlItem(string port)
