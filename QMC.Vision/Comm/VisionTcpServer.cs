@@ -46,16 +46,16 @@ namespace QMC.Vision.Comm
         private TcpListener _listener;
         private CancellationTokenSource _cts;
         private readonly List<TcpClient> _clients = new List<TcpClient>();
-        private readonly Dictionary<string, VisionModule> _modules = new Dictionary<string, VisionModule>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, IVisionModule> _modules = new Dictionary<string, IVisionModule>(StringComparer.OrdinalIgnoreCase);
         private VisionSettings _cfg;
 
         public int  Port      { get; }
         public bool IsRunning { get; private set; }
         public string ModuleName { get; }
-        public VisionModule Module { get; }
+        public IVisionModule Module { get; }
 
         /// <summary>1 포트 = 1 모듈 전담 (매뉴얼 기준).</summary>
-        public VisionTcpServer(VisionModule module, int port)
+        public VisionTcpServer(IVisionModule module, int port)
         {
             Module     = module;
             ModuleName = module.Name;
@@ -179,13 +179,13 @@ namespace QMC.Vision.Comm
 
         // ── 명령 핸들러 ────────────────────────────
 
-        private string DoExpose(VisionModule m)
+        private string DoExpose(IVisionModule m)
         {
             using (var g = m.Grab())
                 return g.IsSuccess ? $"w={g.Width};h={g.Height};frame={g.FrameNumber}" : "fail:" + g.ErrorMessage;
         }
 
-        private string DoMatch(VisionModule m, string[] parts)
+        private string DoMatch(IVisionModule m, string[] parts)
         {
             if (parts.Length < 3) return "fail:no finder";
             string finder = parts[2];
@@ -217,7 +217,7 @@ namespace QMC.Vision.Comm
             }
         }
 
-        private string DoInspect(VisionModule m, string[] parts)
+        private string DoInspect(IVisionModule m, string[] parts)
         {
             if (parts.Length < 3) return "fail:no inspector";
             string insp = parts[2];
@@ -255,7 +255,7 @@ namespace QMC.Vision.Comm
             }
         }
 
-        private static string DoTrain(VisionModule m, string[] parts)
+        private static string DoTrain(IVisionModule m, string[] parts)
         {
             if (parts.Length < 3) return "fail:no finder";
             string finder = parts[2];
@@ -268,7 +268,7 @@ namespace QMC.Vision.Comm
             }
         }
 
-        private string DoScale(VisionModule m, string[] parts)
+        private string DoScale(IVisionModule m, string[] parts)
         {
             if (parts.Length < 4) return "fail:need chipWmm chipHmm";
             if (!double.TryParse(parts[2], out var wMm)) return "fail:bad width";
@@ -281,7 +281,7 @@ namespace QMC.Vision.Comm
             return $"OK;scaleX={sx:F6};scaleY={sy:F6}";
         }
 
-        private static string DoRotCenter(VisionModule m)
+        private static string DoRotCenter(IVisionModule m)
         {
             if (!m.MeasureRotationalCenter(out var corners, out var err))
                 return "fail:" + err;
@@ -291,14 +291,14 @@ namespace QMC.Vision.Comm
             return sb.ToString();
         }
 
-        private static string DoDistort(VisionModule m)
+        private static string DoDistort(IVisionModule m)
         {
             if (!m.LearnDistortion(out var err))
                 return "fail:" + err;
             return "OK";
         }
 
-        private static string DoCamSwitch(VisionModule m, string[] parts)
+        private static string DoCamSwitch(IVisionModule m, string[] parts)
         {
             if (parts.Length < 4) return "fail:need toolName liveOn";
             string toolName = parts[2];
@@ -307,7 +307,7 @@ namespace QMC.Vision.Comm
             return $"OK;tool={toolName};live={liveOn}";
         }
 
-        private static string DoFocusVal(VisionModule m)
+        private static string DoFocusVal(IVisionModule m)
         {
             if (!m.MeasureFocus(out var rois, out var err))
                 return "fail:" + err;

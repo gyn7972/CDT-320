@@ -13,7 +13,7 @@ namespace QMC.CDT320.Ajin
     public class AjinAxis : BaseAxis
     {
         private const bool ForceTestBoard = true;
-        private const double ForcedTestBoardVelocity = 5.0;
+        private const double ForcedTestBoardVelocity = 10.0;
 
         private readonly object _sync = new object();
         private static int _sharedRailXHomeSearchCount;

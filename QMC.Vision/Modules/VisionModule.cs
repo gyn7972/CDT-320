@@ -1,28 +1,203 @@
-﻿using System;
+using QMC.Common;
+using QMC.Common.Recipes;
+using QMC.Vision.Config;
+using QMC.Vision.Core;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
-using QMC.Vision.Core;
+using System.Linq;
 
 namespace QMC.Vision.Modules
 {
     /// <summary>
     /// 비전 모듈 베이스 — 카메라 + 이미지 처리 백엔드 + Finder/Inspector 를 한 단위로 묶음.
-    /// <para>
-    /// 설계 원칙: 비즈니스 로직은 <see cref="Camera"/> 를 통해서만 이미지를 얻는다.
-    /// Backend 는 Finder/Inspector 생성에만 사용.
-    /// </para>
+    /// 영속화는 BaseUnit Composite 구조 사용. 모듈 자신의 Setup/Config/Recipe 는 모듈별 고유 타입,
+    /// 알고리즘(Finder/Inspector)은 AlgorithmNode 자식 노드로 등록되어 Save/Load/Delete 가 연쇄된다.
     /// </summary>
-    public abstract class VisionModule : IDisposable
+    public abstract class VisionModule<TSetup, TConfig, TRecipe>
+        : BaseUnit<TSetup, TConfig, TRecipe>, IVisionModule
+        where TSetup  : ISetupData,  new()
+        where TConfig : IConfigData, new()
+        where TRecipe : IRecipeData, new()
     {
-        public string          Name    { get; }
         public ICamera         Camera  { get; private set; }
         public IVisionBackend  Backend { get; }
 
-        /// <summary>Stage 70 — VisionAlgorithm 상수 키 (조명/카메라 결선 조회용). 5 모듈이 override.</summary>
+        /// <summary>VisionAlgorithm 상수 키 (조명/카메라 결선 조회용). 5 모듈이 override.</summary>
         public virtual string  AlgorithmKey => "";
 
-        /// <summary>설정 페이지에서 알고리즘에 매핑된 카메라가 변경됐을 때 런타임 교체.
-        /// 기존 카메라 Dispose 는 호출자가 책임진다 (이 메서드는 참조만 바꿈).</summary>
+        public Dictionary<string, IPatternFinder> Finders    { get; } = new Dictionary<string, IPatternFinder>();
+        public Dictionary<string, IInspector>     Inspectors { get; } = new Dictionary<string, IInspector>();
+
+        private readonly List<IAlgorithmNode> _algorithms = new List<IAlgorithmNode>();
+        private readonly Dictionary<string, IAlgorithmNode> _algoById =
+            new Dictionary<string, IAlgorithmNode>(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>그랩 직전 지연 (ms).</summary>
+        public int DelayBeforeGrabMs { get; set; } = 0;
+
+        public event Action<string> ExposureDone;
+        public event Action<string, string> Alarmed;
+
+        private volatile bool _exposureEndFired;
+
+        private readonly object _tapLock = new object();
+        private Bitmap _lastFrame;
+        private long   _frameSeq;
+
+        protected VisionModule(string name, ICamera camera, IVisionBackend backend)
+            : base(name)
+        {
+            Backend = backend ?? throw new ArgumentNullException(nameof(backend));
+            // C1 — camera null 허용: 부팅 시 모듈 먼저 생성 → LoadSettings(Config.CameraId) → SetCamera.
+            Camera = camera;
+            if (Camera != null)
+            {
+                Camera.ExposureEnded += OnCameraExposureEnded;
+                Camera.FrameReceived += OnCameraFrameReceived;
+            }
+        }
+
+        // ── C1: 모듈 Config/Recipe ↔ Camera 동기화 (SSOT) ──
+        /// <summary>Config.CameraId — Form1 이 카메라 생성에 사용(적용 아닌 생성 트리거).</summary>
+        public string CameraId => (Config as VisionModuleConfigBase)?.CameraId;
+
+        /// <summary>모듈 Config/Recipe → AlgorithmCameraMapping(편집 UI/적용에서 재사용하는 스냅샷).</summary>
+        public AlgorithmCameraMapping ExportCameraMapping()
+        {
+            var c = Config as VisionModuleConfigBase;
+            var r = Recipe as VisionModuleRecipeBase;
+            var m = new AlgorithmCameraMapping { Algorithm = AlgorithmKey };
+            if (c != null)
+            {
+                m.CameraId = c.CameraId; m.Gain = c.Gain; m.FrameRate = c.FrameRate;
+                m.TriggerMode = c.TriggerMode; m.PixelFormat = c.PixelFormat;
+                m.DelayBeforeGrabMs = c.DelayBeforeGrabMs;
+                m.RoiOffsetX = c.RoiOffsetX; m.RoiOffsetY = c.RoiOffsetY;
+                m.RoiWidth = c.RoiWidth; m.RoiHeight = c.RoiHeight;
+            }
+            m.ExposureUs = r != null ? r.Exposure : 5000;
+            return m;
+        }
+
+        /// <summary>Config/Recipe → Camera 적용(Binder 재활용). Camera null/미설정 시 no-op.</summary>
+        public void ApplyCameraSettings()
+        {
+            if (Camera == null) return;
+            var c = Config as VisionModuleConfigBase;
+            if (c == null) return;
+            AlgorithmCameraBinder.TryApplyParameters(Camera, ExportCameraMapping(), out _);
+            DelayBeforeGrabMs = c.DelayBeforeGrabMs;
+        }
+
+        /// <summary>Camera → Config/Recipe 수집(저장 직전). Camera null 시 no-op.</summary>
+        public void CollectCameraSettings()
+        {
+            if (Camera == null) return;
+            var c = Config as VisionModuleConfigBase;
+            var r = Recipe as VisionModuleRecipeBase;
+            if (c == null) return;
+            try { c.Gain        = Camera.Gain; } catch { }
+            try { c.FrameRate   = Camera.AcquisitionFrameRate; } catch { }
+            try { c.TriggerMode = Camera.TriggerMode.ToString(); } catch { }
+            try { c.PixelFormat = Camera.PixelFormat.ToString(); } catch { }
+            try { var roi = Camera.Roi; c.RoiOffsetX = roi.X; c.RoiOffsetY = roi.Y; c.RoiWidth = roi.Width; c.RoiHeight = roi.Height; } catch { }
+            c.DelayBeforeGrabMs = DelayBeforeGrabMs;
+            if (r != null) try { r.Exposure = Camera.ExposureUs; } catch { }
+            // CameraId 는 생성 트리거라 수집 안 함(UI 가 설정).
+        }
+
+        /// <summary>마이그레이션 — algorithm_camera.json 매핑 → 모듈 Config/Recipe(최초 부팅, 빈 경우).</summary>
+        public void ImportCameraMapping(AlgorithmCameraMapping m)
+        {
+            if (m == null) return;
+            var c = Config as VisionModuleConfigBase;
+            var r = Recipe as VisionModuleRecipeBase;
+            if (c != null)
+            {
+                c.CameraId = m.CameraId; c.Gain = m.Gain; c.FrameRate = m.FrameRate;
+                c.TriggerMode = m.TriggerMode; c.PixelFormat = m.PixelFormat;
+                c.DelayBeforeGrabMs = m.DelayBeforeGrabMs;
+                c.RoiOffsetX = m.RoiOffsetX; c.RoiOffsetY = m.RoiOffsetY;
+                c.RoiWidth = m.RoiWidth; c.RoiHeight = m.RoiHeight;
+            }
+            if (r != null) r.Exposure = m.ExposureUs;
+        }
+
+        // ── C3b-3: 결선 폐기 마이그 — 기존 Recipe.LightSettings 의 (Port,Page) → 노드 Setup.LightPages 지정 도출 ──
+        /// <summary>노드 LightPages 비어있고 Recipe 에 조명 레벨이 있으면, distinct (ControllerPort,Page) 로 지정 도출 후 저장.
+        /// 결선 풀(AlgorithmWirings) 없이 검사가 쓰는 컨트롤러/페이지를 노드 Setup 으로 일원화. 변경 시 true.</summary>
+        public bool MigrateLightPages()
+        {
+            bool any = false;
+            foreach (var node in Algorithms)
+            {
+                var setup  = node.Setup  as AlgoSetupBase;
+                var recipe = node.Recipe as AlgoRecipeBase;
+                if (setup == null || recipe == null) continue;
+                if (setup.LightPages != null && setup.LightPages.Count > 0) continue;            // 이미 지정됨 → 스킵
+                if (recipe.LightSettings == null || recipe.LightSettings.Count == 0) continue;   // 조명 없음 → 미사용
+
+                var pages = recipe.LightSettings
+                    .Where(s => !string.IsNullOrEmpty(s.ControllerPort))
+                    .GroupBy(s => s.ControllerPort.ToUpperInvariant() + "/" + s.Page)
+                    .Select(g => new LightPageRef { ControllerPort = g.First().ControllerPort, Page = g.First().Page })
+                    .ToList();
+                if (pages.Count == 0) continue;
+                setup.LightPages = pages;
+                try { node.SaveSettings(); } catch { }
+                any = true;
+            }
+            return any;
+        }
+
+        public override void LoadSettings()       { base.LoadSettings();    ApplyCameraSettings(); }
+        public override void LoadRecipe(string n) { base.LoadRecipe(n);     ApplyCameraSettings(); }
+        public override bool SaveSettings()       { CollectCameraSettings(); return base.SaveSettings(); }
+        public override bool SaveRecipe(string n) { CollectCameraSettings(); return base.SaveRecipe(n); }
+
+        // ── 알고리즘 등록 (자식 노드) ──
+
+        protected IPatternFinder AddFinder<TAlgoSetup, TAlgoConfig, TAlgoRecipe>(string id)
+            where TAlgoSetup  : ISetupData,  new()
+            where TAlgoConfig : IConfigData, new()
+            where TAlgoRecipe : IRecipeData, new()
+        {
+            var finder = Backend.CreatePatternFinder(Name + "/" + id);
+            Finders[id] = finder;
+            RegisterAlgorithm(id, new FinderAlgorithm<TAlgoSetup, TAlgoConfig, TAlgoRecipe>(StorageKey + "." + id, finder));
+            return finder;
+        }
+
+        protected IInspector AddInspector<TAlgoSetup, TAlgoConfig, TAlgoRecipe>(string id)
+            where TAlgoSetup  : ISetupData,  new()
+            where TAlgoConfig : IConfigData, new()
+            where TAlgoRecipe : IRecipeData, new()
+        {
+            var inspector = Backend.CreateInspector(Name + "/" + id);
+            Inspectors[id] = inspector;
+            RegisterAlgorithm(id, new InspectorAlgorithm<TAlgoSetup, TAlgoConfig, TAlgoRecipe>(StorageKey + "." + id, inspector));
+            return inspector;
+        }
+
+        private void RegisterAlgorithm(string id, IAlgorithmNode node)
+        {
+            _algorithms.Add(node);
+            _algoById[id] = node;
+            Components.Add((BaseEquipmentNode)node);
+        }
+
+        public IReadOnlyList<IAlgorithmNode> Algorithms => _algorithms;
+
+        public IAlgorithmNode GetAlgorithm(string id)
+        {
+            if (string.IsNullOrEmpty(id)) return null;
+            return _algoById.TryGetValue(id, out var node) ? node : null;
+        }
+
+        IReadOnlyDictionary<string, IPatternFinder> IVisionModule.Finders    => Finders;
+        IReadOnlyDictionary<string, IInspector>     IVisionModule.Inspectors => Inspectors;
+
         public void SetCamera(ICamera newCamera)
         {
             if (newCamera == null) throw new ArgumentNullException(nameof(newCamera));
@@ -32,48 +207,17 @@ namespace QMC.Vision.Modules
             Camera.FrameReceived += OnCameraFrameReceived;
         }
 
-        public Dictionary<string, IPatternFinder> Finders    { get; } = new Dictionary<string, IPatternFinder>();
-        public Dictionary<string, IInspector>     Inspectors { get; } = new Dictionary<string, IInspector>();
-
-        /// <summary>그랩 직전 지연 (ms). VisionTcpServer 가 Config 에서 설정.</summary>
-        public int DelayBeforeGrabMs { get; set; } = 0;
-
-        /// <summary>그랩 시점 (EPD 비동기 이벤트 발화). string=ModuleName.</summary>
-        public event Action<string> ExposureDone;
-        /// <summary>실패 시 (ARM 비동기 이벤트 발화). args=(ModuleName, reason).</summary>
-        public event Action<string, string> Alarmed;
-
-        /// <summary>현재 Grab 사이클에서 카메라 HW ExposureEnd 로 이미 EPD 를 쐈는지 여부.</summary>
-        private volatile bool _exposureEndFired;
-
-        // ── 원격 뷰어용 frame tap (실제 그랩/라이브 프레임만 수동적으로 보관) ──
-        private readonly object _tapLock = new object();
-        private Bitmap _lastFrame;                       // clone 소유
-        private long   _frameSeq;                        // TapFrame 마다 증가 (뷰어 새 프레임 판단용)
-
-        protected VisionModule(string name, ICamera camera, IVisionBackend backend)
-        {
-            Name    = name;
-            Camera  = camera  ?? throw new ArgumentNullException(nameof(camera));
-            Backend = backend ?? throw new ArgumentNullException(nameof(backend));
-            Camera.ExposureEnded += OnCameraExposureEnded;
-            Camera.FrameReceived += OnCameraFrameReceived;
-        }
-
-        /// <summary>카메라 HW 노출 종료 이벤트 → 즉시 EPD 발화 (전송 완료를 기다리지 않음).</summary>
         private void OnCameraExposureEnded()
         {
             _exposureEndFired = true;
             try { ExposureDone?.Invoke(Name); } catch { }
         }
 
-        /// <summary>라이브 프레임 수신 → 뷰어용으로 tap.</summary>
         private void OnCameraFrameReceived(GrabResult r)
         {
             if (r != null && r.IsSuccess && r.Image != null) TapFrame(r.Image);
         }
 
-        /// <summary>최신 프레임을 clone 하여 보관 (이전 프레임 Dispose).</summary>
         private void TapFrame(Bitmap src)
         {
             Bitmap clone;
@@ -86,8 +230,6 @@ namespace QMC.Vision.Modules
             }
         }
 
-        /// <summary>원격 뷰어용 프레임 1장(clone, 호출자가 Dispose). 실제 그랩/라이브로 tap 된 최신 프레임만 반환.
-        /// 자체 그랩은 하지 않는다 — 테스트 그랩/실제 운행/라이브가 없으면 null.</summary>
         public Bitmap AcquireViewerFrame()
         {
             lock (_tapLock)
@@ -95,24 +237,8 @@ namespace QMC.Vision.Modules
             return null;
         }
 
-        /// <summary>tap 시퀀스 — TapFrame(실제 그랩/라이브) 마다 증가. 뷰어 서버가 "새 프레임" 판단에 사용.</summary>
         public long ViewerFrameSeq { get { lock (_tapLock) return _frameSeq; } }
 
-        protected IPatternFinder AddFinder(string id)
-        {
-            var f = Backend.CreatePatternFinder(Name + "/" + id);
-            Finders[id] = f;
-            return f;
-        }
-
-        protected IInspector AddInspector(string id)
-        {
-            var i = Backend.CreateInspector(Name + "/" + id);
-            Inspectors[id] = i;
-            return i;
-        }
-
-        /// <summary>카메라 1장 촬영 — 비즈니스 로직의 유일한 이미지 획득 경로.</summary>
         public GrabResult Grab(int timeoutMs = 3000)
         {
             if (!Camera.IsOpen) try { Camera.Open(); } catch { }
@@ -121,9 +247,7 @@ namespace QMC.Vision.Modules
             var g = Camera.Grab(timeoutMs);
             if (g.IsSuccess)
             {
-                if (g.Image != null) TapFrame(g.Image);   // 원격 뷰어용 tap
-                // HW ExposureEnd 가 이미 EPD 를 쐈으면(노출 종료 시점) 중복 발화하지 않는다.
-                // 미지원 카메라(Sim 등)는 여기서 fallback 으로 발화 → 전송 완료 시점 EPD.
+                if (g.Image != null) TapFrame(g.Image);
                 if (!_exposureEndFired) try { ExposureDone?.Invoke(Name); } catch { }
             }
             else try { Alarmed?.Invoke(Name, g.ErrorMessage); } catch { }
@@ -135,15 +259,7 @@ namespace QMC.Vision.Modules
             try { Alarmed?.Invoke(Name, reason); } catch { }
         }
 
-        // ─────────────────────────────────────────
-        //  310 이식 — 추가 비전 명령
-        // ─────────────────────────────────────────
-
-        /// <summary>
-        /// VisionScale 캘리브레이션. 알려진 chip 크기(mm) 와 그랩 이미지의 다이 픽셀 크기를 비교해
-        /// scaleX/Y (mm/pixel) 산출. 간이 구현 — 백엔드의 ScaleFinder 가 있으면 그 결과를, 없으면
-        /// 이미지 전체의 70% 를 칩으로 가정.
-        /// </summary>
+        /// <summary>VisionScale 캘리브레이션 — 간이 구현.</summary>
         public bool Calibrate(double chipWidthMm, double chipHeightMm,
                               out double scaleX, out double scaleY, out string err)
         {
@@ -155,14 +271,11 @@ namespace QMC.Vision.Modules
                 double pxW = g.Width  * 0.7;
                 double pxH = g.Height * 0.7;
 
-                // 실 백엔드 — Scale finder 가 있을 경우 사용
                 if (Finders.TryGetValue("ScaleFinder", out var sf))
                 {
                     var r = sf.Match(g.Image);
                     if (r.Success && r.Best != null)
                     {
-                        // Scale finder 가 chip 외곽 사각형 크기를 score 가 아닌
-                        // CenterX/Y 로 반환한다고 가정
                         pxW = r.Best.CenterX;
                         pxH = r.Best.CenterY;
                     }
@@ -184,7 +297,6 @@ namespace QMC.Vision.Modules
             {
                 if (!g.IsSuccess) { err = g.ErrorMessage; return false; }
                 int w = g.Width, h = g.Height;
-                // 간이: 이미지 4 corner 의 80% 위치
                 corners.Add(new PointF(w * 0.1f, h * 0.1f));
                 corners.Add(new PointF(w * 0.9f, h * 0.1f));
                 corners.Add(new PointF(w * 0.9f, h * 0.9f));
@@ -210,7 +322,7 @@ namespace QMC.Vision.Modules
             }
         }
 
-        /// <summary>4 ROI 별 포커스 값 측정. 간이 구현 — Sobel-like 분산 근사.</summary>
+        /// <summary>4 ROI 별 포커스 값 측정. 간이 구현.</summary>
         public bool MeasureFocus(out List<KeyValuePair<string, double>> roiFocus, out string err)
         {
             roiFocus = new List<KeyValuePair<string, double>>();
@@ -219,11 +331,10 @@ namespace QMC.Vision.Modules
             {
                 if (!g.IsSuccess) { err = g.ErrorMessage; return false; }
                 int w = g.Width, h = g.Height;
-                // 4 ROI: 좌상/우상/좌하/우하
-                roiFocus.Add(new KeyValuePair<string, double>("Left top",     ApproxFocus(g.Image, 0,        0,        w/2, h/2)));
-                roiFocus.Add(new KeyValuePair<string, double>("Right top",    ApproxFocus(g.Image, w/2,      0,        w/2, h/2)));
-                roiFocus.Add(new KeyValuePair<string, double>("Left bottom",  ApproxFocus(g.Image, 0,        h/2,      w/2, h/2)));
-                roiFocus.Add(new KeyValuePair<string, double>("Right bottom", ApproxFocus(g.Image, w/2,      h/2,      w/2, h/2)));
+                roiFocus.Add(new KeyValuePair<string, double>("Left top",     ApproxFocus(g.Image, 0,   0,   w/2, h/2)));
+                roiFocus.Add(new KeyValuePair<string, double>("Right top",    ApproxFocus(g.Image, w/2, 0,   w/2, h/2)));
+                roiFocus.Add(new KeyValuePair<string, double>("Left bottom",  ApproxFocus(g.Image, 0,   h/2, w/2, h/2)));
+                roiFocus.Add(new KeyValuePair<string, double>("Right bottom", ApproxFocus(g.Image, w/2, h/2, w/2, h/2)));
                 return true;
             }
         }

@@ -1,9 +1,9 @@
-using System;
+﻿using System;
 using System.ComponentModel;
 using System.Windows.Forms;
 using QMC.Common.Recipes;
 using QMC.Vision.Config;
-using QMC.Vision.Ui.Editors;
+using QMC.Vision.Ui;
 
 namespace QMC.Vision.Ui.Pages
 {
@@ -13,12 +13,10 @@ namespace QMC.Vision.Ui.Pages
     /// </summary>
     public partial class SettingsPage : UserControl
     {
-        private CameraMappingPanel      _camPanel;
-        private InspectionOverridePanel _inspPanel;       // Stage 64 — 검사별 카메라 오버라이드
-        private InspectionLightPanel    _lightPanel;      // Stage 69 — 검사별 조명
-        private TabControl              _inspTabs;        // Stage 69 — [카메라][조명] 탭
-        private LightSystemSetupPage    _lightSetupPage;  // Stage 69 — 조명 시스템 Setup
-        private Control                 _currentEditor;   // 검사 알고리즘 편집기 캐시
+        private CameraMappingPanel        _camPanel;
+        private InspectionLightAssignPanel _lightAssignPanel;  // C3b-3 — 검사별 컨트롤러/페이지 지정(레벨은 RecipePage)
+        private LightSystemSetupPage      _lightSetupPage;     // Stage 69 — 조명 시스템 Setup(컨트롤러 정의)
+        private Control                   _currentEditor;      // 검사 노드 편집기 캐시
 
         public SettingsPage()
         {
@@ -34,43 +32,28 @@ namespace QMC.Vision.Ui.Pages
             _camPanel = new CameraMappingPanel { Dock = DockStyle.Fill, Visible = false };
             _detailHost.Controls.Add(_camPanel);
 
-            // Stage 69 — 검사 노드용 [카메라][조명] 탭
-            _inspPanel = new InspectionOverridePanel { Dock = DockStyle.Fill };
-            _inspPanel.OverrideChanged += OnOverrideChanged;
-            _lightPanel = new InspectionLightPanel { Dock = DockStyle.Fill };
-            _inspTabs = new TabControl { Dock = DockStyle.Fill, Visible = false };
-            var tabCam   = new TabPage("카메라"); tabCam.Controls.Add(_inspPanel);
-            var tabLight = new TabPage("조명");   tabLight.Controls.Add(_lightPanel);
-            _inspTabs.TabPages.Add(tabCam);
-            _inspTabs.TabPages.Add(tabLight);
-            _detailHost.Controls.Add(_inspTabs);
+            // C3b-3 — 검사 노드 = 컨트롤러/페이지 지정(Setup). 채널 레벨은 RecipePage(레벨 그리드).
+            _lightAssignPanel = new InspectionLightAssignPanel { Dock = DockStyle.Fill, Visible = false };
+            _detailHost.Controls.Add(_lightAssignPanel);
 
             // Stage 69 — 조명 시스템 Setup 페이지
             _lightSetupPage = new LightSystemSetupPage { Dock = DockStyle.Fill, Visible = false };
             _detailHost.Controls.Add(_lightSetupPage);
+            // 검사 파라미터(ROI/임계)는 RecipePage(InspectorTargetPage) 그리드에서 편집 — SettingsPage 는 카메라/조명만.
         }
-
-        private void OnOverrideChanged(string alg, string insp) => RefreshInspectionNode(alg, insp);
 
         private void LoadAlgorithms()
         {
-            AlgorithmCameraMapStore.Load();
-
             _tree.Nodes.Clear();
             var camRoot = _tree.Nodes.Add("camera-root", "■ 카메라 매핑");
             camRoot.NodeFont = UiTheme.SectionFont;
             foreach (var alg in VisionAlgorithm.All)
             {
                 var algNode = camRoot.Nodes.Add("cam:" + alg, VisionAlgorithm.Label(alg));
-                // Stage 64 — 알고리즘 아래 검사 자식 노드 (cam:<alg>:<inspectionId>)
+                // 알고리즘 아래 검사 자식 노드 (cam:<alg>:<inspectionId>) — 선택 시 조명 편집.
                 foreach (var insp in InspectionLabel.InspectionsOf(alg))
-                    algNode.Nodes.Add("cam:" + alg + ":" + insp, InspNodeText(alg, insp));
+                    algNode.Nodes.Add("cam:" + alg + ":" + insp, InspectionLabel.Get(alg, insp));
             }
-
-            var inspRoot = _tree.Nodes.Add("insp-root", "■ 검사 알고리즘");
-            inspRoot.NodeFont = UiTheme.SectionFont;
-            foreach (var t in InspectionTools)
-                inspRoot.Nodes.Add("insp:" + t.Key, t.Value);
 
             // Stage 69 — 시스템 설정 그룹 + 조명 시스템 노드
             var sysRoot = _tree.Nodes.Add("sys-root", "■ 시스템 설정");
@@ -78,39 +61,9 @@ namespace QMC.Vision.Ui.Pages
             sysRoot.Nodes.Add("sys:light", "조명 시스템");
 
             camRoot.Expand();
-            inspRoot.Expand();
             sysRoot.Expand();
             _tree.SelectedNode = camRoot.Nodes[0];
         }
-
-        /// <summary>검사 노드 라벨 — override 존재 시 " ●" 접미사.</summary>
-        private static string InspNodeText(string alg, string insp)
-        {
-            string label = InspectionLabel.Get(alg, insp);
-            var bm = AlgorithmCameraMapStore.Current?.Get(alg);
-            bool hasOv = bm?.Inspections != null &&
-                         bm.Inspections.Exists(o =>
-                             string.Equals(o.InspectionId, insp, StringComparison.OrdinalIgnoreCase) && !o.IsEmpty());
-            return hasOv ? label + "  ●" : label;
-        }
-
-        /// <summary>override 변경 후 해당 검사 노드의 ● 표시 갱신.</summary>
-        private void RefreshInspectionNode(string alg, string insp)
-        {
-            var found = _tree.Nodes.Find("cam:" + alg + ":" + insp, true);
-            if (found != null && found.Length > 0)
-                found[0].Text = InspNodeText(alg, insp);
-        }
-
-        private static readonly System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<string, string>> InspectionTools
-            = new System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<string, string>>
-            {
-                new System.Collections.Generic.KeyValuePair<string, string>("BottomInspection", "바텀 검사 파라미터"),
-                new System.Collections.Generic.KeyValuePair<string, string>("SideInspection",   "측면 검사 파라미터"),
-                new System.Collections.Generic.KeyValuePair<string, string>("DieGapInspection", "다이 갭 검사"),
-                new System.Collections.Generic.KeyValuePair<string, string>("Distortion",       "왜곡 보정"),
-                new System.Collections.Generic.KeyValuePair<string, string>("VisionScale",      "비전 스케일 캘리브"),
-            };
 
         private void Tree_AfterSelect(object sender, TreeViewEventArgs e)
         {
@@ -124,12 +77,7 @@ namespace QMC.Vision.Ui.Pages
                 if (idx < 0)
                     ShowCameraMapping(rest);
                 else
-                    ShowInspectionOverride(rest.Substring(0, idx), rest.Substring(idx + 1));
-            }
-            else if (key.StartsWith("insp:"))
-            {
-                var tool = key.Substring("insp:".Length);
-                ShowInspectionEditor(tool);
+                    ShowInspectionLight(rest.Substring(0, idx), rest.Substring(idx + 1));
             }
             else if (key == "sys:light")
             {
@@ -144,33 +92,17 @@ namespace QMC.Vision.Ui.Pages
             _camPanel.SelectAlgorithm(algorithm);
         }
 
-        private void ShowInspectionOverride(string algorithm, string inspectionId)
+        private void ShowInspectionLight(string algorithm, string inspectionId)
         {
-            // Stage 69 — 검사 노드 = [카메라][조명] 탭. 두 패널에 같은 검사 컨텍스트 주입.
-            SwapEditor(_inspTabs);
-            _inspPanel .SelectInspection(algorithm, inspectionId);
-            _lightPanel.SelectInspection(algorithm, inspectionId);
+            // C3b-3 — SettingsPage 조명노드 = 컨트롤러/페이지 지정(Setup). 짧은 id → GetAlgorithm 노드 해석.
+            SwapEditor(_lightAssignPanel);
+            var node = (FindForm() as Form1)?.ResolveModule(algorithm)?.GetAlgorithm(inspectionId);
+            _lightAssignPanel.SelectInspection(node, algorithm, inspectionId);
         }
 
         private void ShowLightSystemSetup()
         {
             SwapEditor(_lightSetupPage);
-        }
-
-        private void ShowInspectionEditor(string tool)
-        {
-            UserControl ed;
-            switch (tool)
-            {
-                case "BottomInspection": ed = new BottomInspectionParameterEditor(); break;
-                case "SideInspection":   ed = new SideInspectionParameterEditor();   break;
-                case "DieGapInspection": ed = new DieGapInspectionParameterEditor(); break;
-                case "Distortion":       ed = new DistortionParameterEditor();       break;
-                case "VisionScale":      ed = new VisionScaleParameterEditor();      break;
-                default: return;
-            }
-            ed.Dock = DockStyle.Fill;
-            SwapEditor(ed);
         }
 
         private void SwapEditor(Control next)
@@ -181,10 +113,9 @@ namespace QMC.Vision.Ui.Pages
             next.Visible = true;
             next.BringToFront();
 
-            // 기존 inspection 편집기 메모리 정리 (새 인스턴스로 교체).
-            // 영구 패널(_camPanel/_inspTabs/_lightSetupPage)은 dispose 대상에서 제외.
+            // 영구 패널(_camPanel/_lightAssignPanel/_lightSetupPage)은 재사용 — dispose 대상에서 제외.
             if (_currentEditor != null && _currentEditor != next
-                && _currentEditor != _camPanel && _currentEditor != _inspTabs && _currentEditor != _lightSetupPage)
+                && _currentEditor != _camPanel && _currentEditor != _lightAssignPanel && _currentEditor != _lightSetupPage)
             {
                 try { _detailHost.Controls.Remove(_currentEditor); _currentEditor.Dispose(); } catch { }
             }

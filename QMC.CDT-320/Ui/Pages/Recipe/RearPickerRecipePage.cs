@@ -1,4 +1,4 @@
-using QMC.CDT_320.Ui.Controls;
+﻿using QMC.CDT_320.Ui.Controls;
 using QMC.CDT_320.Ui.Localization;
 using QMC.CDT320;
 using QMC.Common.IO;
@@ -173,6 +173,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             optionItems.Add(ParameterGridItem.Header("AVOID POSITION", "K_AVOID"));
             AddPositionItem(optionItems, PickerAxis.PickerX, "PICKER X", "INPUT AVOID POSITION", "InputAvoidPosition", "um", "PICKER X INPUT", "K_AVOID");
             AddPositionItem(optionItems, PickerAxis.PickerX, "PICKER X", "OUTPUT AVOID POSITION", "OutputAvoidPosition", "um", "PICKER X OUTPUT", "K_AVOID");
+            AddPositionItem(optionItems, PickerAxis.PickerX, "PICKER X", "AVOID POSITION", "AvoidPosition", "um", "PICKER X", "K_AVOID");
             AddPositionItem(optionItems, PickerAxis.PickerY, "PICKER Y", "AVOID POSITION", "AvoidPosition", "um", "PICKER Y", "K_AVOID");
             for (int i = 0; i < tzKeys.Length; i++)
                 AddPositionItem(optionItems, tzKeys[i], tzNames[i], "AVOID POSITION", "AvoidPosition", tzUnits[i], tzNames[i], "K_AVOID");

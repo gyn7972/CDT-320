@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
@@ -163,7 +164,5 @@ namespace QMC.Vision.Backends.OpenCv
             return result;
         }
 
-        public void LoadParameters(string path) { }
-        public void SaveParameters(string path) { try { File.WriteAllText(path, "OpenCvPatternFinder: " + Id); } catch { } }
     }
 }

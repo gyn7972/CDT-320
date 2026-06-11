@@ -3595,12 +3595,12 @@ namespace QMC.CDT320
         {
             Log("[INIT] Prepare InputFeeder home: InputLifterZ Avoid / unclamp / overload / ring check.");
 
-            var cassette = _machine.InputCassetteUnit;
-            if (cassette != null && !cassette.IsWaferLifterZInAvoidPosition())
-            {
-                return FailInitializePreparation(
-                    "InputFeeder HOME 불가: InputLifterZ가 Avoid 위치에 있지 않습니다.");
-            }
+            //var cassette = _machine.InputCassetteUnit;
+            //if (cassette != null && !cassette.IsWaferLifterZInAvoidPosition())
+            //{
+            //    return FailInitializePreparation(
+            //        "InputFeeder HOME 불가: InputLifterZ가 Avoid 위치에 있지 않습니다.");
+            //}
 
             var front = _machine.PickerFrontUnit;
             if (front != null && !front.IsPickerAxisInTeachingPosition(PickerAxis.PickerX, "AvoidPosition"))
@@ -3631,10 +3631,10 @@ namespace QMC.CDT320
                 return FailInitializePreparation("InputFeeder unclamp failed.");
             }
 
-            if (!feeder.IsWaferFeederUp())
-            {
-                return FailInitializePreparation("InputFeeder lift up failed.");
-            }
+            //if (!feeder.IsWaferFeederUp())
+            //{
+            //    return FailInitializePreparation("InputFeeder lift up failed.");
+            //}
 
             if (feeder.IsWaferFeederRingCheck())
             {
@@ -4441,6 +4441,7 @@ namespace QMC.CDT320
         {
             try
             {
+                return -1;
                 LastActionFailureMessage = "";
 
                 if (_status == EquipmentStatus.Alarm)
@@ -5046,6 +5047,8 @@ namespace QMC.CDT320
         {
             try
             {
+                return -1;
+
                 LastActionFailureMessage = "";
 
                 if (_status == EquipmentStatus.Alarm)

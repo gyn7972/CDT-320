@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Drawing;
-using System.IO;
 using QMC.Vision.Core;
 
 namespace QMC.Vision.Backends.Sim
@@ -56,12 +55,6 @@ namespace QMC.Vision.Backends.Sim
                 });
             }
             return r;
-        }
-
-        public void LoadParameters(string path) { /* sim: no-op */ }
-        public void SaveParameters(string path)
-        {
-            try { File.WriteAllText(path, "SimPatternFinder: " + Id); } catch { }
         }
     }
 }

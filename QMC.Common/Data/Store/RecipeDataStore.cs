@@ -119,6 +119,25 @@ namespace QMC.Common.Data.Store
             }
         }
 
+        /// <summary>특정 레시피 안의 단일 노드 파일만 삭제합니다 (레시피 디렉토리는 유지).</summary>
+        public static DataStoreResult DeleteNode(string recipeName, string storageKey)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(recipeName))
+                    return DataStoreResult.Fail(string.Empty, "Recipe name is empty.");
+
+                return JsonDataStore.DeleteFile(PathOf(recipeName, storageKey));
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
         public static string DirOf(string recipeName)
         {
             try

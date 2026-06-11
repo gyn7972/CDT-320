@@ -201,7 +201,7 @@ namespace QMC.CDT320.Interlocks
                 return true;
 
             StageAxisPositions waferZ = stage.Recipe != null ? stage.Recipe.WaferZ : null;
-            return waferZ != null && IsAt(stage.ExpanderZ, waferZ.ReadyPosition);
+            return waferZ != null && (IsAt(stage.ExpanderZ, waferZ.LoadPosition) || IsAt(stage.ExpanderZ, waferZ.UnloadPosition));
         }
 
         private static bool IsInputVisionXInAvoidPosition(InputStageUnit stage)

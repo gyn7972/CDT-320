@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
@@ -19,7 +20,7 @@ namespace QMC.Vision.Ui.Pages
     /// </summary>
     public partial class FinderPage : UserControl
     {
-        private readonly VisionModule _module;
+        private readonly IVisionModule _module;
         private readonly IPatternFinder _finder;
 
         /// <summary>디자이너용 파라미터 없는 생성자.</summary>
@@ -30,7 +31,7 @@ namespace QMC.Vision.Ui.Pages
             BuildChildPanels();
         }
 
-        public FinderPage(VisionModule module, IPatternFinder finder)
+        public FinderPage(IVisionModule module, IPatternFinder finder)
         {
             _module = module; _finder = finder;
             InitializeComponent();
@@ -42,9 +43,9 @@ namespace QMC.Vision.Ui.Pages
         /// <summary>런타임 의존 자식 패널(주입 _module/_finder 기반) — Designer 직렬화 불가라 Code 유지.</summary>
         private void BuildChildPanels()
         {
-            // Stage 70 E — 검사별 InspectionLightPanel (좌하단). 주입 알고리즘/검사 컨텍스트로 생성.
-            var illum = new InspectionLightPanel(_module?.AlgorithmKey ?? "", _finder?.Id ?? "")
-            { Location = new Point(6, 544), Size = new Size(440, 280) };
+            // Stage 70 E — 검사별 InspectionLightPanel (좌하단). C2: 조명 SSOT=노드, 참조로 해석해 주입.
+            var illum = new InspectionLightPanel { Location = new Point(6, 544), Size = new Size(440, 280) };
+            illum.SelectInspection(LightNode(), _module?.AlgorithmKey ?? "", _finder?.Id ?? "");
             Controls.Add(illum);
 
             // Stage 87 — 라이브 튜닝 패널 우측 빈 공간 (720, 560). 카메라 라이브 + 조명 펄스 통합.
@@ -120,12 +121,14 @@ namespace QMC.Vision.Ui.Pages
             return 333;
         }
 
-        /// <summary>Stage 87 — 현재 검사(algorithm+id)의 저장된 조명 설정을 TuningRow 로 변환 (라이브 튜닝 송신 소스).</summary>
+        /// <summary>C2 — 현재 검사 노드의 조명 레벨(Recipe.LightSettings)을 TuningRow 로 변환 (라이브 튜닝 송신 소스).</summary>
+        private IAlgorithmNode LightNode() => _module?.Algorithms.FirstOrDefault(a => a.Finder == _finder);
+
         private IEnumerable<LightLiveTuningPanel.TuningRow> CollectRowsForLiveTuning()
         {
-            var ov = AlgorithmCameraMapStore.Current?.Get(_module?.AlgorithmKey)?.GetLightOverride(_finder?.Id);
-            if (ov?.Settings == null) yield break;
-            foreach (var s in ov.Settings)
+            var settings = (LightNode()?.Recipe as AlgoRecipeBase)?.LightSettings;
+            if (settings == null) yield break;
+            foreach (var s in settings)
                 if (!string.IsNullOrEmpty(s.ControllerPort) && s.Channel > 0)
                     yield return new LightLiveTuningPanel.TuningRow
                     { ControllerPort = s.ControllerPort, Channel = s.Channel, Level = s.Level };
