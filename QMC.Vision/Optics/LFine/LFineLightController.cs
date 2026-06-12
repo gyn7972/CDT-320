@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO.Ports;
 using System.Threading;
 using System.Threading.Tasks;
@@ -19,15 +18,13 @@ namespace QMC.Vision.Optics.LFine
         private readonly object _txLock = new object();
         private SerialPort _port;
 
-        private readonly int[] _power;       // 1-기반 — 채널별 on-time 캐시 (밝기 = strobe on-time)
+        private readonly int[] _power;       // 1-기반 — 채널별 on-time 상태(GetPowerAsync 표시용; 밝기 = strobe on-time)
         private readonly int[] _lastOnPower; // On/Off 복원용 직전 on-time
         private int _currentPage;            // 현재 페이지 (SC/SP 명령마다 포함; 레퍼런스에 별도 전환 명령 없음)
-        private readonly Dictionary<int, int[]> _lastPageTimes = new Dictionary<int, int[]>();  // batch 캐시(page→times)
 
         public bool   IsConnected { get; private set; }
         public string PortName    => _cfg.PortName;
         public int    ChannelCount => _cfg.ChannelCount;
-        public LightControllerMode Mode => _cfg.Mode;
 
         public LFineLightController(LFineLightConfig cfg)
         {
@@ -119,20 +116,16 @@ namespace QMC.Vision.Optics.LFine
             return Task.FromResult(true);
         }
 
-        /// <summary>Stage 79 — 페이지 채널 일괄 적용 = SP 1프레임. StrobeOnCommand 면 무조건 송신,
-        /// 그 외 모드는 직전 times 와 동일하면 skip(트리거 아님이라 안전).</summary>
+        /// <summary>Stage 79 — 페이지 채널 일괄 적용 = SP 1프레임. 항상 송신(SP 는 데이터 설정일 뿐 발사 아님 —
+        /// 발사는 트리거 HW/ST. 캐시 skip 잔재 제거).</summary>
         public Task<bool> SetChannelBatchAsync(int page, int[] times)
         {
             if (times == null || times.Length != ChannelCount) return Task.FromResult(false);
-            if (Mode != LightControllerMode.StrobeOnCommand
-                && _lastPageTimes.TryGetValue(page, out var prev) && SeqEqual(prev, times))
-                return Task.FromResult(true);   // skip — 값 동일 + 발사 트리거 아님
 
             bool ok = SendFrame(LFineProtocol.PageOnTimeFrame(page, times));   // 페이지 전체 1프레임
             if (ok)
             {
                 _currentPage = page;
-                _lastPageTimes[page] = (int[])times.Clone();
                 for (int i = 0; i < times.Length; i++)
                 {
                     _power[i + 1] = times[i];
@@ -142,12 +135,9 @@ namespace QMC.Vision.Optics.LFine
             return Task.FromResult(ok);
         }
 
-        private static bool SeqEqual(int[] a, int[] b)
-        {
-            if (a == null || b == null || a.Length != b.Length) return false;
-            for (int i = 0; i < a.Length; i++) if (a[i] != b[i]) return false;
-            return true;
-        }
+        /// <summary>실 하드웨어 모드(SM 0~3) 런타임 설정 — @SM0000;{mode} 송신. 영속 아님.</summary>
+        public Task<bool> SetHardwareModeAsync(LFineHardwareMode mode)
+            => Task.FromResult(SendFrame(LFineProtocol.SetModeFrame((int)mode)));
 
         /// <summary>Stage 75 — 시리얼에서 응답 1프레임 수신 (적용 후 검증용). 무응답/타임아웃이면 null.
         /// 백그라운드 스레드에서 동기 읽기 수행 (UI 비차단).</summary>

@@ -22,7 +22,11 @@ namespace QMC.CDT320.Sequencing
                     .RunAsync(ct, options)
                     .ConfigureAwait(false);
                 if (result != 0)
-                    throw new System.InvalidOperationException("FrontPicker sequence failed. result=" + result);
+                    throw new System.InvalidOperationException(
+                        SequenceFailureStore.AppendRecentDetail(
+                            "FrontPicker sequence failed. result=" + result,
+                            "FrontPicker",
+                            "FRONT-PICKER-SEQUENCE"));
             }
         }
 
@@ -40,7 +44,11 @@ namespace QMC.CDT320.Sequencing
         {
             int result = await _stepSequence.RunAsync(ct, options).ConfigureAwait(false);
             if (result != 0)
-                throw new System.InvalidOperationException("FrontPicker step sequence failed. result=" + result);
+                throw new System.InvalidOperationException(
+                    SequenceFailureStore.AppendRecentDetail(
+                        "FrontPicker step sequence failed. result=" + result,
+                        "FrontPicker",
+                        "FRONT-PICKER-STEP"));
 
             if (_stepSequence.IsComplete)
                 _stepSequence = null;

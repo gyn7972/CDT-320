@@ -13,12 +13,6 @@ namespace QMC.Vision.Ui.Pages
         private Button _btnSave, _btnApply, _btnReset, _btnCancel;
         private Label  _lblStatus;
         private DataGridView _grid;
-        private DataGridViewTextBoxColumn  _colCtrl;
-        private DataGridViewTextBoxColumn  _colCh;
-        private DataGridViewTextBoxColumn  _colName;
-        private DataGridViewTextBoxColumn  _colLvl;
-        private DataGridViewComboBoxColumn _colPg;
-
         protected override void Dispose(bool disposing)
         {
             if (disposing && (components != null)) components.Dispose();
@@ -43,7 +37,7 @@ namespace QMC.Vision.Ui.Pages
             this.Channel = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.ColName = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.Level = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.Page = new System.Windows.Forms.DataGridViewComboBoxColumn();
+            this.Page = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this._bar.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this._grid)).BeginInit();
             this.SuspendLayout();
@@ -235,6 +229,6 @@ namespace QMC.Vision.Ui.Pages
         private DataGridViewTextBoxColumn Channel;
         private DataGridViewTextBoxColumn ColName;
         private DataGridViewTextBoxColumn Level;
-        private DataGridViewComboBoxColumn Page;
+        private DataGridViewTextBoxColumn Page;
     }
 }

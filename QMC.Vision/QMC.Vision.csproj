@@ -117,6 +117,7 @@
     <Compile Include="Optics\ILightController.cs" />
     <Compile Include="Optics\LightControllerFactory.cs" />
     <Compile Include="Optics\Sim\SimLightController.cs" />
+    <Compile Include="Optics\LFine\LFineHardwareMode.cs" />
     <Compile Include="Optics\LFine\LFineLightConfig.cs" />
     <Compile Include="Optics\LFine\LFineProtocol.cs" />
     <Compile Include="Optics\LFine\LFineLightController.cs" />
@@ -149,12 +150,6 @@
     <Compile Include="Ui\Pages\InspectionLightPanel.Designer.cs">
       <DependentUpon>InspectionLightPanel.cs</DependentUpon>
     </Compile>
-    <Compile Include="Ui\Pages\InspectionLightAssignPanel.cs">
-      <SubType>UserControl</SubType>
-    </Compile>
-    <Compile Include="Ui\Pages\InspectionLightAssignPanel.Designer.cs">
-      <DependentUpon>InspectionLightAssignPanel.cs</DependentUpon>
-    </Compile>
     <Compile Include="Ui\UiTheme.cs" />
     <Compile Include="Ui\Controls\SidebarButton.cs">
       <SubType>Component</SubType>
@@ -179,12 +174,6 @@
     </Compile>
     <Compile Include="Ui\Controls\BottomMenuButton.Designer.cs">
       <DependentUpon>BottomMenuButton.cs</DependentUpon>
-    </Compile>
-    <Compile Include="Ui\Controls\LightLiveTuningPanel.cs">
-      <SubType>UserControl</SubType>
-    </Compile>
-    <Compile Include="Ui\Controls\LightLiveTuningPanel.Designer.cs">
-      <DependentUpon>LightLiveTuningPanel.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Controls\CameraView.cs">
       <SubType>Component</SubType>
@@ -274,9 +263,6 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="Ui\Controls\LightLiveTuningPanel.resx">
-      <DependentUpon>LightLiveTuningPanel.cs</DependentUpon>
-    </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\CameraMappingPanel.resx">
       <DependentUpon>CameraMappingPanel.cs</DependentUpon>
     </EmbeddedResource>

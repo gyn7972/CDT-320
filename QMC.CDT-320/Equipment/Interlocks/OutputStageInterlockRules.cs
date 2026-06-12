@@ -1,4 +1,4 @@
-using QMC.Common.Motion;
+﻿using QMC.Common.Motion;
 
 namespace QMC.CDT320.Interlocks
 {
@@ -28,6 +28,18 @@ namespace QMC.CDT320.Interlocks
         private static bool VerifyBinGoodY(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
+
+            switch (request.MoveKind)
+            {
+                case MotionGuardMoveKind.AxisMove:
+                case MotionGuardMoveKind.AxisTeachingMove:
+                    break;
+                case MotionGuardMoveKind.AxisHome:
+                    return VerifyOutputGoodStageYHome(request.Machine, out reason);
+                default:
+                    return true;
+            }
+
             OutputStageUnit stage = request.Machine.OutputStageUnit;
             if (!VerifyOutputTransportClear(request.Machine, "OutputGoodStageY", out reason))
                 return false;
@@ -44,6 +56,18 @@ namespace QMC.CDT320.Interlocks
         private static bool VerifyBinGoodZ(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
+
+            switch (request.MoveKind)
+            {
+                case MotionGuardMoveKind.AxisMove:
+                case MotionGuardMoveKind.AxisTeachingMove:
+                    break;
+                case MotionGuardMoveKind.AxisHome:
+                    return true;
+                default:
+                    return true;
+            }
+
             if (!VerifyOutputTransportClear(request.Machine, "OutputGoodStageZ", out reason))
                 return false;
 
@@ -53,6 +77,18 @@ namespace QMC.CDT320.Interlocks
         private static bool VerifyBinNgY(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
+
+            switch (request.MoveKind)
+            {
+                case MotionGuardMoveKind.AxisMove:
+                case MotionGuardMoveKind.AxisTeachingMove:
+                    break;
+                case MotionGuardMoveKind.AxisHome:
+                    return VerifyOutputNgStageYHome(request.Machine, out reason);
+                default:
+                    return true;
+            }
+
             OutputStageUnit stage = request.Machine.OutputStageUnit;
             if (!VerifyOutputTransportClear(request.Machine, "OutputNGStageY", out reason))
                 return false;
@@ -69,10 +105,159 @@ namespace QMC.CDT320.Interlocks
         private static bool VerifyBinVisionX(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
+
+            switch (request.MoveKind)
+            {
+                case MotionGuardMoveKind.AxisMove:
+                case MotionGuardMoveKind.AxisTeachingMove:
+                    break;
+                case MotionGuardMoveKind.AxisHome:
+                    return VerifyOutputVisionXHome(request.Machine, out reason);
+                default:
+                    return true;
+            }
+
             if (!VerifyOutputTransportClear(request.Machine, "OutputVisionX", out reason))
                 return false;
 
             return VerifyOutputStageNotBusy(request.Machine.OutputStageUnit, "OutputVisionX", out reason);
+        }
+
+        private static bool VerifyOutputVisionXHome(CDT320_Machine machine, out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                PickerFrontUnit front = machine != null ? machine.PickerFrontUnit : null;
+                if (front != null && !IsPickerXHomeDoneOrInputAvoid(
+                        front.PickerX,
+                        delegate { return front.IsPickerAxisInTeachingPosition(PickerAxis.PickerX, "InputAvoidPosition"); },
+                        "FrontPickerX",
+                        out reason))
+                {
+                    return MotionGuardRuleHelpers.Block(
+                        "OutputVisionX",
+                        "OutputVisionX HOME blocked. FrontPickerX must be HomeDone or InputAvoid. " + reason,
+                        out reason);
+                }
+
+                PickerRearUnit rear = machine != null ? machine.PickerRearUnit : null;
+                if (rear != null && !IsPickerXHomeDoneOrInputAvoid(
+                        rear.PickerX,
+                        delegate { return rear.IsPickerAxisInTeachingPosition(PickerAxis.PickerX, "InputAvoidPosition"); },
+                        "RearPickerX",
+                        out reason))
+                {
+                    return MotionGuardRuleHelpers.Block(
+                        "OutputVisionX",
+                        "OutputVisionX HOME blocked. RearPickerX must be HomeDone or InputAvoid. " + reason,
+                        out reason);
+                }
+
+                OutputFeederUnit outputFeeder = machine != null ? machine.OutputFeederUnit : null;
+                if (outputFeeder != null && !outputFeeder.IsBinFeederYInAvoidPosition())
+                    return MotionGuardRuleHelpers.Block(
+                        "OutputVisionX",
+                        "OutputVisionX HOME blocked. OutputFeederY must be at Avoid position.",
+                        out reason);
+
+                if (outputFeeder != null && !outputFeeder.IsFeederDown())
+                    return MotionGuardRuleHelpers.Block(
+                        "OutputVisionX",
+                        "OutputVisionX HOME blocked. OutputFeeder lift cylinder must be down.",
+                        out reason);
+
+                return true;
+            }
+            catch (System.Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "OutputVisionX",
+                    "Exception occurred while verifying OutputVisionX home rules: " + ex.Message,
+                    out reason);
+            }
+            finally
+            {
+                LogBlockedReason(reason);
+            }
+        }
+
+        private static bool VerifyOutputGoodStageYHome(CDT320_Machine machine, out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                OutputStageUnit outputStage = machine != null ? machine.OutputStageUnit : null;
+                if (outputStage != null && outputStage.GoodStage != null && !outputStage.GoodStage.IsAtAvoidPosition())
+                    return MotionGuardRuleHelpers.Block(
+                        "OutputGoodStageY",
+                        "OutputGoodStageY HOME blocked. OutputGoodStageZ must be at Avoid position.",
+                        out reason);
+
+                return true;
+            }
+            catch (System.Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "OutputGoodStageY",
+                    "Exception occurred while verifying OutputGoodStageY home rules: " + ex.Message,
+                    out reason);
+            }
+            finally
+            {
+                LogBlockedReason(reason);
+            }
+        }
+
+        private static bool VerifyOutputNgStageYHome(CDT320_Machine machine, out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                OutputStageUnit outputStage = machine != null ? machine.OutputStageUnit : null;
+                if (outputStage == null)
+                    return true;
+
+                if (outputStage.GoodStage != null && !outputStage.GoodStage.IsAtAvoidPosition())
+                    return MotionGuardRuleHelpers.Block(
+                        "OutputNGStageY",
+                        "OutputNGStageY HOME blocked. GoodBinZ(GoodStageZ) must be at Avoid position.",
+                        out reason);
+
+                if (outputStage.GoodBinGuideDownSensor != null && !outputStage.GoodBinGuideDownSensor.IsOn)
+                    return MotionGuardRuleHelpers.Block(
+                        "OutputNGStageY",
+                        "OutputNGStageY HOME blocked. Good Bin Guide cylinder must be down.",
+                        out reason);
+
+                if (outputStage.NgBinGuideDownSensor != null && !outputStage.NgBinGuideDownSensor.IsOn)
+                    return MotionGuardRuleHelpers.Block(
+                        "OutputNGStageY",
+                        "OutputNGStageY HOME blocked. NG Bin Guide cylinder must be down.",
+                        out reason);
+
+                if (outputStage.NgBinClampUpSensor != null && !outputStage.NgBinClampUpSensor.IsOn)
+                    return MotionGuardRuleHelpers.Block(
+                        "OutputNGStageY",
+                        "OutputNGStageY HOME blocked. NG Bin Clamp cylinder must be up.",
+                        out reason);
+
+                return true;
+            }
+            catch (System.Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "OutputNGStageY",
+                    "Exception occurred while verifying OutputNGStageY home rules: " + ex.Message,
+                    out reason);
+            }
+            finally
+            {
+                LogBlockedReason(reason);
+            }
         }
 
         private static bool VerifyOutputTransportClear(CDT320_Machine machine, string movingName, out string reason)
@@ -122,6 +307,64 @@ namespace QMC.CDT320.Interlocks
             }
 
             return true;
+        }
+
+        private static bool IsPickerXHomeDoneOrInputAvoid(
+            BaseAxis axis,
+            System.Func<bool> isInputAvoid,
+            string axisName,
+            out string reason)
+        {
+            reason = string.Empty;
+
+            if (axis == null)
+            {
+                reason = axisName + " axis is null.";
+                return false;
+            }
+
+            bool homeDone = axis.IsHomeDone;
+            bool inputAvoid = false;
+            string inputAvoidError = string.Empty;
+
+            try
+            {
+                inputAvoid = isInputAvoid != null && isInputAvoid();
+            }
+            catch (System.Exception ex)
+            {
+                inputAvoidError = ex.Message;
+            }
+            finally
+            {
+            }
+
+            if (homeDone || inputAvoid)
+                return true;
+
+            reason = "homeDone=" + homeDone +
+                     ", inputAvoid=" + inputAvoid +
+                     ", actual=" + axis.ActualPosition;
+
+            if (!string.IsNullOrEmpty(inputAvoidError))
+                reason += ", inputAvoidCheckError=" + inputAvoidError;
+
+            return false;
+        }
+
+        private static void LogBlockedReason(string reason)
+        {
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(reason))
+                    QMC.Common.Log.Write("Main", "INTERLOCK", "OutputStageInterlock", reason + " - Blocked");
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
         }
     }
 }

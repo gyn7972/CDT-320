@@ -1126,6 +1126,33 @@ namespace QMC.CDT320
             return cylinder != null && cylinder.IsBwd;
         }
 
+        public string DescribeOutputStageInterlockState(BinSide side)
+        {
+            return "side=" + side +
+                   ", guideUp=" + IsBinGuideUp(side) +
+                   ", clampLiftUp=" + IsBinGuideClampLiftUp(side) +
+                   ", clampLiftDown=" + IsBinGuideClampLiftDown(side) +
+                   ", unclamp=" + IsBinGuideUnclamped(side) +
+                   ", ngClampLiftUp=" + IsBinGuideClampLiftUp(BinSide.Ng) +
+                   ", goodZSafe=" + IsGoodStageZInAvoidOrProcessPosition() +
+                   ", ngStageAvoid=" + IsNgStageInAvoidPosition() +
+                   ", goodY=" + FormatAxisState(GoodStage != null ? GoodStage.StageY : null) +
+                   ", goodZ=" + FormatAxisState(GoodStage != null ? GoodStage.StageZ : null) +
+                   ", ngY=" + FormatAxisState(NgStage != null ? NgStage.StageY : null);
+        }
+
+        private static string FormatAxisState(BaseAxis axis)
+        {
+            if (axis == null)
+                return "null";
+
+            return axis.Name +
+                   "(servo=" + axis.IsServoOn +
+                   ", alarm=" + axis.IsAlarm +
+                   ", moving=" + axis.IsMoving +
+                   ", actual=" + axis.ActualPosition + ")";
+        }
+
         public void TeachStageAxisPosition(BinStageAxis axis, string positionName)
         {
             SetStageTeachingPosition(axis, positionName, ResolveStageAxis(axis).ActualPosition);
@@ -1263,6 +1290,23 @@ namespace QMC.CDT320
                 case BinStageAxis.VisionX: return OutputCameraX;
                 default: throw new ArgumentOutOfRangeException("axis");
             }
+        }
+
+        /// <summary>해당 스테이지 축의 원점복귀(IsHomeDone) 완료 여부. (수동버튼 홈게이트용)</summary>
+        public bool IsStageAxisHomeDone(BinStageAxis axis)
+        {
+            BaseAxis item = ResolveStageAxis(axis);
+            return item != null && item.IsHomeDone;
+        }
+
+        /// <summary>해당 스테이지 축이 목표 위치에 있는지(축 InPositionTolerance 기준) 확인. (수동버튼 Z안전 확인용)</summary>
+        public bool IsStageAxisAtPosition(BinStageAxis axis, double targetPos)
+        {
+            BaseAxis item = ResolveStageAxis(axis);
+            if (item == null)
+                return false;
+            double tol = (item.Config != null && item.Config.InPositionTolerance >= 0.0) ? item.Config.InPositionTolerance : 0.05;
+            return Math.Abs(item.ActualPosition - targetPos) <= tol && !item.IsAlarm;
         }
 
         private bool TryResolveStageAxis(BaseAxis axis, out BinStageAxis stageAxis)

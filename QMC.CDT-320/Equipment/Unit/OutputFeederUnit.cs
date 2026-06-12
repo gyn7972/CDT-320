@@ -340,6 +340,17 @@ namespace QMC.CDT320
                    ", error=" + error;
         }
 
+        public string DescribeFeederCylinderState()
+        {
+            return "liftUp=" + IsFeederUp() +
+                   ", liftDown=" + IsFeederDown() +
+                   ", unclamp=" + IsFeederUnclamped() +
+                   ", clamp=" + (!IsFeederUnclamped()) +
+                   ", ringOn=" + IsFeederRingDetected(true) +
+                   ", ringOff=" + IsFeederRingDetected(false) +
+                   ", overload=" + IsFeederOverload();
+        }
+
         public async Task<bool> WaitBinFeederYInPosition(string positionName, int timeoutMs)
         {
             double target = GetTeachingPosition(positionName);

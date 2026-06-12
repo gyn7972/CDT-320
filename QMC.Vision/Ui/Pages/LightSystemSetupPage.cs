@@ -47,7 +47,66 @@ namespace QMC.Vision.Ui.Pages
         private void OnConnectLightsClick(object sender, EventArgs e) => ConnectLights();
         private void OnDisconnectLightsClick(object sender, EventArgs e) => DisconnectLights();
         private void OnGridDataError(object sender, DataGridViewDataErrorEventArgs e) => e.ThrowException = false;
-        private void OnGridCtrlSelectionChanged(object sender, EventArgs e) => BindLabelsForSelectedController();
+        private void OnGridCtrlSelectionChanged(object sender, EventArgs e)
+        {
+            BindLabelsForSelectedController();
+            UpdateHwModePanel();
+        }
+
+        // ── LFine 하드웨어 모드(SM 0~3) — 런타임 송신(영속 아님). 콤보 노출 = 현 사용 모드 0·3 만 ──
+        private void OnHwModeApplyClick(object sender, EventArgs e) => ApplyHardwareMode();
+
+        /// <summary>선택 컨트롤러 벤더에 따라 모드 컨트롤 토글 — LFine 활성 / Leesos 비활성(모드 없음) / 무선택 비활성.</summary>
+        private void UpdateHwModePanel()
+        {
+            if (_cbHwMode == null || _btnHwModeApply == null || _lblHwModeState == null) return;
+            var row = _gridCtrl.CurrentRow;
+            string vendor = row?.Cells["Vendor"].Value?.ToString();
+            bool isLFine = row != null && !row.IsNewRow
+                && (string.IsNullOrEmpty(vendor) || string.Equals(vendor, "LFine", StringComparison.OrdinalIgnoreCase));
+            _cbHwMode.Enabled = isLFine;
+            _btnHwModeApply.Enabled = isLFine;
+            if (row == null || row.IsNewRow)
+                _lblHwModeState.Text = "";
+            else if (!isLFine)
+                _lblHwModeState.Text = "Leesos — Continuous PWM, no hardware mode";
+            else if (_cbHwMode.SelectedIndex < 0)
+            {
+                _cbHwMode.SelectedIndex = 0;   // 기본 Page Trigger (0)
+                _lblHwModeState.Text = "";
+            }
+        }
+
+        /// <summary>콤보 라벨("... (n)") → 모드 번호 → LightHub 의 선택 포트 컨트롤러에 SM 송신.</summary>
+        private async void ApplyHardwareMode()
+        {
+            try
+            {
+                string port = SelectedControllerPort();
+                if (string.IsNullOrEmpty(port)) { SetStatus("모드 적용 불가 — 컨트롤러 행을 선택하세요.", true); return; }
+                var ctrl = QMC.Vision.Comm.LightHub.Get(port);
+                if (ctrl == null || !ctrl.IsConnected)
+                { SetStatus($"모드 적용 불가 — [{port}] 미연결. [조명 연결] 먼저.", true); return; }
+
+                var mode = SelectedHwMode();
+                bool ok = await ctrl.SetHardwareModeAsync(mode);
+                if (ok)
+                {
+                    _lblHwModeState.Text = $"last sent: {HwModeLabel(mode)}";
+                    SetStatus($"[{port}] SM 모드 송신 — {HwModeLabel(mode)}", false);
+                }
+                else SetStatus($"[{port}] SM 모드 송신 실패", true);
+            }
+            catch (Exception ex) { SetStatus("모드 적용 예외: " + ex.Message, true); }
+        }
+
+        /// <summary>콤보 선택 → enum. 노출 항목은 0·3 뿐(1·2 는 enum 정의만).</summary>
+        private Optics.LFine.LFineHardwareMode SelectedHwMode()
+            => _cbHwMode.SelectedIndex == 1 ? Optics.LFine.LFineHardwareMode.SoftwareTrigger
+                                            : Optics.LFine.LFineHardwareMode.PageTrigger;
+
+        private static string HwModeLabel(Optics.LFine.LFineHardwareMode m)
+            => m == Optics.LFine.LFineHardwareMode.SoftwareTrigger ? "Software Trigger (3)" : "Page Trigger (0)";
         private void OnGridCtrlKeyDown(object sender, KeyEventArgs e)
         {
             if (e.KeyCode == Keys.Delete) { DeleteController(); e.Handled = true; }
@@ -85,7 +144,7 @@ namespace QMC.Vision.Ui.Pages
             foreach (var c in setup.Controllers)
             {
                 _gridCtrl.Rows.Add(c.PortName, c.Name, c.BaudRate, c.ChannelCount, c.PageCount, c.MaxPower,
-                                   string.IsNullOrEmpty(c.Vendor) ? "LFine" : c.Vendor, c.Mode.ToString());
+                                   string.IsNullOrEmpty(c.Vendor) ? "LFine" : c.Vendor);
                 if (!string.IsNullOrEmpty(c.PortName))
                     _labelCache[c.PortName] = CloneLabels(c.ChannelLabels);
             }
@@ -267,11 +326,9 @@ namespace QMC.Vision.Ui.Pages
                 if (cached == null) cached = LightSystemSetupStore.Current.GetController(port)?.ChannelLabels;
                 string vendor = r.Cells["Vendor"].Value?.ToString()?.Trim();
                 if (string.IsNullOrEmpty(vendor)) vendor = "LFine";
-                if (!Enum.TryParse(r.Cells["Mode"].Value?.ToString(), out LightControllerMode mode))
-                    mode = LightControllerMode.StrobeOnCommand;
                 setup.Controllers.Add(new LightControllerEntry
                 {
-                    PortName = port, Vendor = vendor, Mode = mode, Name = Str(r, 1),
+                    PortName = port, Vendor = vendor, Name = Str(r, 1),
                     BaudRate = IntOf(r, 2, 9600), ChannelCount = chCount,
                     PageCount = IntOf(r, 4, 1), MaxPower = IntOf(r, 5, 240),
                     ChannelLabels = SanitizeLabels(cached, chCount)
@@ -291,42 +348,33 @@ namespace QMC.Vision.Ui.Pages
             SetStatus("저장 완료 — " + LightSystemSetupStore.Path_, false);
         }
 
-        /// <summary>Stage 77/79 — Vendor 변경 시 벤더 특성에 맞춰 Mode/PageCount/MaxPower 보정.</summary>
+        /// <summary>Stage 77 — Vendor 변경 시 벤더 특성에 맞춰 PageCount/MaxPower 보정. (Mode 컬럼 잔재 제거)</summary>
         private void GridCtrl_VendorCellEndEdit(object sender, DataGridViewCellEventArgs e)
         {
             if (e.RowIndex < 0) return;
             string col = _gridCtrl.Columns[e.ColumnIndex].Name;
-            if (col == "Mode") { ApplyModeLabel(_gridCtrl.Rows[e.RowIndex]); return; }
             if (col != "Vendor") return;
             var row = _gridCtrl.Rows[e.RowIndex];
             string vendor = row.Cells["Vendor"].Value?.ToString();
             if (string.Equals(vendor, "Leesos", StringComparison.OrdinalIgnoreCase))
             {
-                // Leesos: Page 미지원(1), Mode=Continuous 고정(readonly), Volume 12-bit(0~4095)
+                // Leesos: Page 미지원(1), Volume 12-bit(0~4095)
                 row.Cells["PageCount"].Value = 1;
-                row.Cells["Mode"].Value = "Continuous";
-                row.Cells["Mode"].ReadOnly = true;
                 if (!int.TryParse(row.Cells["MaxPower"].Value?.ToString(), out int mp) || mp <= 0 || mp > 4095 || mp == 240)
                     row.Cells["MaxPower"].Value = 4095;
-                SetStatus("Vendor=Leesos — Page 미지원(1) / Mode=Continuous 고정 / MaxPwr 0~4095 (12-bit, Strobe 미사용)", false);
+                SetStatus("Vendor=Leesos — Page 미지원(1) / MaxPwr 0~4095 (12-bit, Strobe 미사용)", false);
             }
             else if (string.Equals(vendor, "LFine", StringComparison.OrdinalIgnoreCase))
             {
-                row.Cells["Mode"].ReadOnly = false;
                 if (!int.TryParse(row.Cells["MaxPower"].Value?.ToString(), out int mp) || mp <= 0)
                     row.Cells["MaxPower"].Value = 240;
             }
-        }
-
-        private void ApplyModeLabel(DataGridViewRow row)
-        {
-            if (string.Equals(row.Cells["Mode"].Value?.ToString(), "StrobeOnCommand", StringComparison.OrdinalIgnoreCase))
-                SetStatus("Mode=StrobeOnCommand — 캐시 skip 안 함(매 호출이 발사 트리거). 같은 검사 반복 시 매번 송신.", false);
+            UpdateHwModePanel();
         }
 
         private void AddController()
         {
-            _gridCtrl.Rows.Add("COM?", "Illuminator", 9600, 8, 1, 240, "LFine", "StrobeOnCommand");   // Stage 77/79 — 기본 Vendor/Mode
+            _gridCtrl.Rows.Add("COM?", "Illuminator", 9600, 8, 1, 240, "LFine");   // Stage 77 — 기본 Vendor
             SetStatus("컨트롤러 행 추가 — PortName 수정 후 저장", false);
         }
 

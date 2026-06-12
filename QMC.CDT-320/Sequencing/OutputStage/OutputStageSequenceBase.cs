@@ -82,8 +82,13 @@ namespace QMC.CDT320.Sequencing
                 var stage = Stage;
                 if (stage == null)
                     return Fail("OUT-STAGE-MISSING", "OutputStage", "Output stage unit is not available.");
-                if (stage.GoodStage == null || stage.NgStage == null || stage.OutputCameraX == null)
-                    return Fail("OUT-STAGE-AXIS-MISSING", stage.Name, "Output stage axis is not available.");
+                string axisReason = BuildRequiredAxisReason();
+                if (!string.IsNullOrEmpty(axisReason))
+                    return Fail("OUT-STAGE-AXIS-MISSING", stage.Name, "Output stage axis is not available. " + axisReason);
+
+                axisReason = BuildAxisServoAlarmReason();
+                if (!string.IsNullOrEmpty(axisReason))
+                    return Fail("OUT-STAGE-AXIS-READY", stage.Name, "Output stage axis is not ready. " + axisReason);
 
                 CurrentStep = nextStep;
                 return 0;
@@ -202,20 +207,32 @@ namespace QMC.CDT320.Sequencing
             ct.ThrowIfCancellationRequested();
             if (Stage != null && !Stage.HasStageAxis(axis))
             {
-                WriteLog(Name, description + " skipped because axis does not exist. axis=" + axis + " - Ok");
-                return 0;
+                if (axis == BinStageAxis.NgBinZ)
+                {
+                    WriteLog(Name, description + " skipped because NG stage has no Z axis. axis=" + axis + " - Ok");
+                    return 0;
+                }
+
+                return Fail("OUT-STAGE-AXIS-MISSING", Stage.Name,
+                    description + " axis does not exist. axis=" + axis);
             }
 
             int result = await AwaitStepWithCancellationAsync(Stage.MoveStageAxis(axis, target, Options.FineMove), ct).ConfigureAwait(false);
             if (result != 0)
-                return Fail("OUT-STAGE-MOVE", Stage.Name, description + " move command failed. axis=" + axis + ", target=" + target + ", result=" + result);
+                return Fail("OUT-STAGE-MOVE", Stage.Name,
+                    description + " move command failed. axis=" + axis + ", target=" + target +
+                    ", result=" + result + ". " + BuildAxisState(axis, target));
 
             bool done = await AwaitStepWithCancellationAsync(Stage.WaitStageAxisMoveDone(axis, ResolveTimeout()), ct).ConfigureAwait(false);
             if (!done)
-                return Fail("OUT-STAGE-MOVE-WAIT", Stage.Name, description + " move done timeout. axis=" + axis + ", target=" + target);
+                return Fail("OUT-STAGE-MOVE-WAIT", Stage.Name,
+                    description + " move done timeout. axis=" + axis + ", target=" + target +
+                    ". " + BuildAxisState(axis, target));
 
             if (!Stage.IsStageAxisInPosition(axis, target, ResolveTolerance(axis)))
-                return Fail("OUT-STAGE-MOVE-CHECK", Stage.Name, description + " final position check failed. axis=" + axis + ", target=" + target);
+                return Fail("OUT-STAGE-MOVE-CHECK", Stage.Name,
+                    description + " final position check failed. axis=" + axis + ", target=" + target +
+                    ". " + BuildAxisState(axis, target));
 
             ct.ThrowIfCancellationRequested();
             return 0;
@@ -247,6 +264,92 @@ namespace QMC.CDT320.Sequencing
                     return Stage.OutputCameraX.Config != null ? Stage.OutputCameraX.Config.InPositionTolerance : 0.01;
                 default:
                     return 0.01;
+            }
+        }
+
+        protected string BuildAxisState(BinStageAxis axis, double target)
+        {
+            QMC.Common.Motion.BaseAxis item = ResolveAxisOrNull(axis);
+            if (item == null)
+                return axis + "=null";
+
+            double tolerance = ResolveTolerance(axis);
+            return axis +
+                   "[name=" + item.Name +
+                   ", servo=" + (item.IsServoOn ? "ON" : "OFF") +
+                   ", alarm=" + (item.IsAlarm ? "ON" : "OFF") +
+                   ", moving=" + (item.IsMoving ? "Y" : "N") +
+                   ", actual=" + item.ActualPosition +
+                   ", target=" + target +
+                   ", tolerance=" + tolerance +
+                   "]";
+        }
+
+        private string BuildRequiredAxisReason()
+        {
+            string reason = string.Empty;
+            AppendMissingAxis(ref reason, "GoodStage", Stage.GoodStage);
+            AppendMissingAxis(ref reason, "NgStage", Stage.NgStage);
+            AppendMissingAxis(ref reason, "GoodStageY", Stage.GoodStage != null ? Stage.GoodStage.StageY : null);
+            AppendMissingAxis(ref reason, "GoodStageZ", Stage.GoodStage != null ? Stage.GoodStage.StageZ : null);
+            AppendMissingAxis(ref reason, "NgStageY", Stage.NgStage != null ? Stage.NgStage.StageY : null);
+            AppendMissingAxis(ref reason, "OutputCameraX", Stage.OutputCameraX);
+            return reason;
+        }
+
+        private string BuildAxisServoAlarmReason()
+        {
+            string reason = string.Empty;
+            AppendAxisReadyState(ref reason, BinStageAxis.GoodBinY);
+            AppendAxisReadyState(ref reason, BinStageAxis.GoodBinZ);
+            AppendAxisReadyState(ref reason, BinStageAxis.NgBinY);
+            AppendAxisReadyState(ref reason, BinStageAxis.VisionX);
+            return reason;
+        }
+
+        private void AppendAxisReadyState(ref string reason, BinStageAxis axis)
+        {
+            QMC.Common.Motion.BaseAxis item = ResolveAxisOrNull(axis);
+            if (item == null)
+                return;
+
+            if (item.IsServoOn && !item.IsAlarm)
+                return;
+
+            if (reason.Length > 0)
+                reason += " ";
+            reason += BuildAxisState(axis, item.ActualPosition) + ";";
+        }
+
+        private static void AppendMissingAxis(ref string reason, string label, object item)
+        {
+            if (item != null)
+                return;
+
+            if (reason.Length > 0)
+                reason += " ";
+            reason += label + "=null;";
+        }
+
+        private QMC.Common.Motion.BaseAxis ResolveAxisOrNull(BinStageAxis axis)
+        {
+            if (Stage == null)
+                return null;
+
+            switch (axis)
+            {
+                case BinStageAxis.NgBinY:
+                    return Stage.NgStage != null ? Stage.NgStage.StageY : null;
+                case BinStageAxis.NgBinZ:
+                    return Stage.NgStage != null ? Stage.NgStage.StageZ : null;
+                case BinStageAxis.GoodBinY:
+                    return Stage.GoodStage != null ? Stage.GoodStage.StageY : null;
+                case BinStageAxis.GoodBinZ:
+                    return Stage.GoodStage != null ? Stage.GoodStage.StageZ : null;
+                case BinStageAxis.VisionX:
+                    return Stage.OutputCameraX;
+                default:
+                    return null;
             }
         }
 

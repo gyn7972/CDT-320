@@ -178,7 +178,9 @@ namespace QMC.CDT320.Sequencing
                 double target = ResolveSideZTarget(opposite, "Avoid");
 
                 if (!Stage.IsStageAxisInPosition(axis, target, ResolveTolerance(axis)))
-                    return Fail("OUT-STAGE-RECEIVE-OPP-Z-CHECK", Stage.Name, opposite + " Z avoid final check failed. target=" + target);
+                    return Fail("OUT-STAGE-RECEIVE-OPP-Z-CHECK", Stage.Name,
+                        opposite + " Z avoid final check failed. target=" + target + ". " +
+                        BuildAxisState(axis, target));
 
                 CurrentStep = OutputStageReceiveDieStep.MoveTargetStageZToLoad;
                 return 0;
@@ -237,7 +239,9 @@ namespace QMC.CDT320.Sequencing
                 double target = ResolveSideZTarget(_targetSide, "Load");
 
                 if (!Stage.IsStageAxisInPosition(axis, target, ResolveTolerance(axis)))
-                    return Fail("OUT-STAGE-RECEIVE-Z-CHECK", Stage.Name, _targetSide + " Z receive/load final check failed. target=" + target);
+                    return Fail("OUT-STAGE-RECEIVE-Z-CHECK", Stage.Name,
+                        _targetSide + " Z receive/load final check failed. target=" + target + ". " +
+                        BuildAxisState(axis, target));
 
                 CurrentStep = OutputStageReceiveDieStep.MoveTargetStageYToReceive;
                 return 0;
@@ -282,7 +286,9 @@ namespace QMC.CDT320.Sequencing
             {
                 BinStageAxis axis = ResolveYAxis(_targetSide);
                 if (!Stage.IsStageAxisInPosition(axis, _targetY, ResolveTolerance(axis)))
-                    return Fail("OUT-STAGE-RECEIVE-Y-CHECK", Stage.Name, _targetSide + " Y receive final check failed. target=" + _targetY);
+                    return Fail("OUT-STAGE-RECEIVE-Y-CHECK", Stage.Name,
+                        _targetSide + " Y receive final check failed. target=" + _targetY + ". " +
+                        BuildAxisState(axis, _targetY));
 
                 CurrentStep = OutputStageReceiveDieStep.NotifyTpuPlaceReady;
                 return 0;

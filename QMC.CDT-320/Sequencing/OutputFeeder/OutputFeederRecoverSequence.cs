@@ -66,10 +66,12 @@ namespace QMC.CDT320.Sequencing
         private int CheckFeederEmpty()
         {
             if (ResolveFeederWafer() != null)
-                return Fail("OUT-FEEDER-RECOVER-OCCUPIED", "Material", "Output feeder recover is not allowed while bin data exists. Use load-to-stage or unload-to-cassette sequence.");
+                return Fail("OUT-FEEDER-RECOVER-OCCUPIED", "Material",
+                    "Output feeder recover is not allowed while bin data exists. Use load-to-stage or unload-to-cassette sequence. " + Feeder.DescribeFeederCylinderState());
 
             if (!IsHardwareBypass() && !Feeder.IsFeederEmpty())
-                return Fail("OUT-FEEDER-RECOVER-SENSOR", Feeder.Name, "Output feeder recover is not allowed while feeder sensor is occupied.");
+                return Fail("OUT-FEEDER-RECOVER-SENSOR", Feeder.Name,
+                    "Output feeder recover is not allowed while feeder sensor is occupied. " + Feeder.DescribeFeederCylinderState());
 
             CurrentStep = OutputFeederRecoverStep.PrepareFeederUnclamp;
             return 0;
@@ -79,10 +81,12 @@ namespace QMC.CDT320.Sequencing
         {
             int result = await AwaitStepWithCancellationAsync(Feeder.SetFeederClampAsync(false, ResolveTimeout()), ct).ConfigureAwait(false);
             if (result != 0)
-                return Fail("OUT-FEEDER-RECOVER-UNCLAMP", Feeder.Name, "Output feeder recover unclamp command failed. result=" + result);
+                return Fail("OUT-FEEDER-RECOVER-UNCLAMP", Feeder.Name,
+                    "Output feeder recover unclamp command failed. result=" + result + ", " + Feeder.DescribeFeederCylinderState());
 
             if (!Feeder.IsFeederUnclamped())
-                return Fail("OUT-FEEDER-RECOVER-UNCLAMP", Feeder.Name, "Output feeder recover unclamp failed. result=" + result);
+                return Fail("OUT-FEEDER-RECOVER-UNCLAMP", Feeder.Name,
+                    "Output feeder recover unclamp failed. result=" + result + ", " + Feeder.DescribeFeederCylinderState());
 
             CurrentStep = OutputFeederRecoverStep.PrepareFeederLiftDown;
             return 0;
@@ -92,10 +96,12 @@ namespace QMC.CDT320.Sequencing
         {
             int result = await AwaitStepWithCancellationAsync(Feeder.SetFeederUpDownAsync(false, ResolveTimeout()), ct).ConfigureAwait(false);
             if (result != 0)
-                return Fail("OUT-FEEDER-RECOVER-DOWN", Feeder.Name, "Output feeder recover lift down command failed. result=" + result);
+                return Fail("OUT-FEEDER-RECOVER-DOWN", Feeder.Name,
+                    "Output feeder recover lift down command failed. result=" + result + ", " + Feeder.DescribeFeederCylinderState());
 
             if (!Feeder.IsFeederDown())
-                return Fail("OUT-FEEDER-RECOVER-DOWN", Feeder.Name, "Output feeder recover lift down failed. result=" + result);
+                return Fail("OUT-FEEDER-RECOVER-DOWN", Feeder.Name,
+                    "Output feeder recover lift down failed. result=" + result + ", " + Feeder.DescribeFeederCylinderState());
 
             CurrentStep = OutputFeederRecoverStep.MoveFeederAvoidPosition;
             return 0;

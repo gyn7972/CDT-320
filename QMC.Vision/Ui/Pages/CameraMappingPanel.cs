@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
+using System.Linq;
 using System.Threading;
 using System.Windows.Forms;
 using QMC.Common.Recipes;
@@ -23,7 +24,7 @@ namespace QMC.Vision.Ui.Pages
         // 워킹 버퍼로만 쓰고, 로드는 module.ExportCameraMapping / 저장은 module.ImportCameraMapping+SaveSettings.
         private AlgorithmCameraMapping _buffer;
 
-        /// <summary>현재 알고리즘의 운영 모듈(Form1) — 없으면 null(테스트/디자인 시 구 store fallback).</summary>
+        /// <summary>현재 알고리즘의 운영 모듈(Form1) — 미해결(테스트/디자인 등) 시 null.</summary>
         private Modules.IVisionModule Module()
             => string.IsNullOrEmpty(_algorithm) ? null : (FindForm() as Form1)?.ResolveModule(_algorithm);
 
@@ -42,6 +43,7 @@ namespace QMC.Vision.Ui.Pages
             _uiCtx = SynchronizationContext.Current ?? new WindowsFormsSynchronizationContext();
             BuildCombos();
             UpdateConnectButtons();
+            WireLightGrid();
         }
 
         /// <summary>콤보 Items(enum) 동적 채움 — 런타임.</summary>
@@ -65,12 +67,162 @@ namespace QMC.Vision.Ui.Pages
         private void OnLiveStartClick(object sender, EventArgs e) => LiveStart();
         private void OnLiveStopClick(object sender, EventArgs e) => LiveStop();
 
+        // ── 조명 컨트롤러/페이지 지정 (모듈 Setup.LightPages) ──
+        // 카메라=조명 1:1 하드웨어이므로 모듈 노드(이 패널)에서 지정. 채널 레벨은 검사별([레시피]).
+        // 편집은 그리드에만 반영, 저장(SaveAll)/취소(CancelChanges)와 함께 영속/되돌림.
+        private bool _suspendLight;
+
+        private void WireLightGrid()
+        {
+            if (_gridLightAssign == null) return;
+            _gridLightAssign.EditMode = DataGridViewEditMode.EditOnEnter;
+            // 콤보 선택 즉시 셀 값 커밋(미커밋이면 수집 시 구 값 0 을 읽는 버그 방지).
+            _gridLightAssign.CurrentCellDirtyStateChanged += OnLightGridDirty;
+        }
+
+        private void OnLightGridDirty(object sender, EventArgs e)
+        {
+            if (_gridLightAssign.IsCurrentCellDirty) _gridLightAssign.CommitEdit(DataGridViewDataErrorContexts.Commit);
+        }
+
+        private void OnLightGridDataError(object sender, DataGridViewDataErrorEventArgs e) => e.ThrowException = false;
+
+        private void OnLightCellEndEdit(object sender, DataGridViewCellEventArgs e)
+        {
+            if (_suspendLight) return;
+            // 컨트롤러 변경 시: 그 행 Page 셀 콤보 items 를 새 컨트롤러 PageCount 로 재구성(표시 정합). 범위 밖 page 만 0.
+            if (e.RowIndex >= 0 && !_gridLightAssign.Rows[e.RowIndex].IsNewRow
+                && _gridLightAssign.Columns[e.ColumnIndex].Name == "ControllerPort")
+            {
+                _suspendLight = true;
+                try
+                {
+                    string port = _gridLightAssign.Rows[e.RowIndex].Cells["ControllerPort"].Value as string;
+                    int pc = SetLightPageCellItems(e.RowIndex, port);
+                    int cur = 0; int.TryParse(_gridLightAssign.Rows[e.RowIndex].Cells["Page"].Value?.ToString(), out cur);
+                    _gridLightAssign.Rows[e.RowIndex].Cells["Page"].Value = ((cur >= 0 && cur <= pc - 1) ? cur : 0).ToString();
+                }
+                catch { }
+                _suspendLight = false;
+            }
+        }
+
+        private void OnLightRowsRemoved(object sender, DataGridViewRowsRemovedEventArgs e)
+        {
+            if (_suspendLight) return;
+            SetLightStatus("지정 변경됨 — [저장] 클릭 시 모듈에 반영.", false);
+        }
+
+        /// <summary>그 행 Page 셀(콤보) items = 컨트롤러 PageCount("0".."N-1", string). int items 는 FormattedValue 표시가 깨짐. PageCount 반환.</summary>
+        private int SetLightPageCellItems(int rowIndex, string port)
+        {
+            var cell = _gridLightAssign.Rows[rowIndex].Cells["Page"] as DataGridViewComboBoxCell;
+            var ce = LightSystemSetupStore.Current?.GetController(port);
+            int pc = (ce != null && ce.PageCount > 0) ? ce.PageCount : 1;
+            if (cell != null)
+            {
+                cell.Items.Clear();
+                for (int p = 0; p < pc; p++) cell.Items.Add(p.ToString());
+            }
+            return pc;
+        }
+
+        /// <summary>컨트롤러 콤보 = 인벤토리 PortName, 페이지 콤보 = 0 ~ (전 컨트롤러 최대 PageCount-1) superset(string).</summary>
+        private void RefreshLightCombos()
+        {
+            _colLightCtrl.Items.Clear();
+            int maxPage = 1;
+            var ctrls = LightSystemSetupStore.Current?.Controllers ?? new List<LightControllerEntry>();
+            foreach (var c in ctrls)
+            {
+                if (!string.IsNullOrEmpty(c.PortName)) _colLightCtrl.Items.Add(c.PortName);
+                if (c.PageCount > maxPage) maxPage = c.PageCount;
+            }
+            _colLightPage.Items.Clear();
+            for (int p = 0; p < maxPage; p++) _colLightPage.Items.Add(p.ToString());
+        }
+
+        private void EnsureLightCtrlItem(string port)
+        {
+            if (string.IsNullOrEmpty(port)) return;
+            if (!_colLightCtrl.Items.Contains(port)) _colLightCtrl.Items.Add(port);
+        }
+
+        /// <summary>모듈 Setup.LightPages → 그리드 행 바인딩.</summary>
+        private void BindLightAssign()
+        {
+            var mod = Module();
+            var msetup = mod?.Setup as Modules.VisionModuleSetupBase;
+            if (msetup == null)   // 모듈 미해결: 비활성 + 명시 메시지
+            {
+                _suspendLight = true;
+                try { _gridLightAssign.Rows.Clear(); } catch { }
+                _suspendLight = false;
+                _gridLightAssign.Enabled = false;
+                SetLightStatus("조명 지정 불러올 수 없음 — 운영 모듈 미해결", true);
+                return;
+            }
+            _gridLightAssign.Enabled = true;
+            RefreshLightCombos();
+
+            var pages = msetup.LightPages ?? new List<LightPageRef>();
+            _suspendLight = true;
+            try
+            {
+                _gridLightAssign.Rows.Clear();
+                foreach (var pr in pages)
+                {
+                    EnsureLightCtrlItem(pr.ControllerPort);
+                    int idx = _gridLightAssign.Rows.Add();
+                    _gridLightAssign.Rows[idx].Cells["ControllerPort"].Value = pr.ControllerPort;
+                    SetLightPageCellItems(idx, pr.ControllerPort);
+                    _gridLightAssign.Rows[idx].Cells["Page"].Value = pr.Page.ToString();
+                }
+            }
+            finally { _suspendLight = false; }
+            SetLightStatus(pages.Count == 0 ? "지정 없음 — 행을 추가해 컨트롤러/페이지를 지정하세요." : "", false);
+        }
+
+        /// <summary>그리드 → LightPageRef 목록(컨트롤러 PageCount 초과 page 보정, (port,page) 중복 제거).</summary>
+        private List<LightPageRef> CollectLightPages()
+        {
+            // 진행 중 콤보 편집 확정.
+            if (_gridLightAssign.IsCurrentCellInEditMode && _gridLightAssign.CurrentCell != null
+                && _gridLightAssign.EditingControl is ComboBox ec && ec.SelectedItem != null)
+                try { _gridLightAssign.CurrentCell.Value = ec.SelectedItem; } catch { }
+            try { _gridLightAssign.EndEdit(); } catch { }
+
+            var list = new List<LightPageRef>();
+            foreach (DataGridViewRow r in _gridLightAssign.Rows)
+            {
+                if (r.IsNewRow) continue;
+                string port = r.Cells["ControllerPort"].Value as string;
+                if (string.IsNullOrEmpty(port)) continue;
+                int page = 0;
+                int.TryParse(r.Cells["Page"].Value?.ToString(), out page);
+                var ce = LightSystemSetupStore.Current?.GetController(port);
+                if (page < 0) page = 0;
+                if (ce != null && ce.PageCount > 0 && page > ce.PageCount - 1) page = ce.PageCount - 1;
+                if (!list.Any(x => string.Equals(x.ControllerPort, port, StringComparison.OrdinalIgnoreCase) && x.Page == page))
+                    list.Add(new LightPageRef { ControllerPort = port, Page = page });
+            }
+            return list;
+        }
+
+        private void SetLightStatus(string msg, bool err)
+        {
+            if (_lblLightStatus == null) return;
+            _lblLightStatus.ForeColor = err ? Color.Firebrick : Color.DarkSlateGray;
+            _lblLightStatus.Text = msg;
+        }
+
         public void SelectAlgorithm(string algorithm)
         {
             _algorithm = algorithm;
             _buffer    = null;   // 모듈 Config/Recipe 에서 새로 로드
             _lblAlgorithm.Text = "카메라 매핑 — " + VisionAlgorithm.Label(algorithm) + "  (" + algorithm + ")";
             BindFields();
+            BindLightAssign();
             ResetScrollAsync();
         }
 
@@ -240,12 +392,17 @@ namespace QMC.Vision.Ui.Pages
             }
             // 카메라 설정 SSOT = 모듈 Config/Recipe
             mod.ImportCameraMapping(_buffer);
+            // 조명 지정(컨트롤러/페이지) = 모듈 Setup.LightPages — 카메라와 함께 영속.
+            int lightCount = -1;
+            var msetup = mod.Setup as Modules.VisionModuleSetupBase;
+            if (msetup != null) { msetup.LightPages = CollectLightPages(); lightCount = msetup.LightPages.Count; }
             mod.SaveSettings();
             mod.SaveRecipe("default");
             OnMilFieldChanged();
             VisionConfigStore.Save();   // MIL DCF/System 등 전역 설정 영속
             _lblStatus.ForeColor = Color.DarkSlateGray;
             _lblStatus.Text = $"저장 완료 — 모듈 [{mod.StorageKey}] Config/Recipe";
+            if (lightCount >= 0) SetLightStatus($"조명 지정 {lightCount}건 저장됨.", false);
         }
 
         private void CancelChanges()
@@ -253,6 +410,7 @@ namespace QMC.Vision.Ui.Pages
             // 미저장 편집은 버퍼에만 존재 → 버퍼를 버리고 모듈 Config/Recipe 에서 재로드(라이브 카메라 무영향).
             _buffer = null;
             BindFields();
+            BindLightAssign();   // 조명 지정도 모듈 저장값으로 되돌림
             _lblStatus.ForeColor = Color.DarkSlateGray;
             _lblStatus.Text = "취소됨 — 저장된 값으로 되돌림";
         }

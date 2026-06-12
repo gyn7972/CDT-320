@@ -90,10 +90,45 @@ namespace QMC.CDT320.Sequencing
             return builder.ToString();
         }
 
+        public static string AppendRecentDetail(
+            string message,
+            string currentSequenceName,
+            string currentAlarmCode)
+        {
+            SequenceFailureInfo failure = GetLast();
+            if (failure == null)
+                return message ?? "";
+
+            if ((DateTime.Now - failure.Timestamp).TotalSeconds > 30.0)
+                return message ?? "";
+
+            if (string.Equals(failure.SequenceName, currentSequenceName, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(failure.AlarmCode, currentAlarmCode, StringComparison.OrdinalIgnoreCase))
+            {
+                return message ?? "";
+            }
+
+            var builder = new StringBuilder(message ?? "");
+            builder.Append(" Detail: ");
+            AppendInline(builder, "Sequence", failure.SequenceName);
+            AppendInline(builder, "Kind", failure.SequenceKind);
+            AppendInline(builder, "Step", failure.StepName);
+            AppendInline(builder, "Alarm Code", failure.AlarmCode);
+            AppendInline(builder, "Source", failure.Source);
+            AppendInline(builder, "Cause", failure.Message);
+            return builder.ToString().TrimEnd(' ', '|');
+        }
+
         private static void AppendLine(StringBuilder builder, string name, string value)
         {
             if (!string.IsNullOrWhiteSpace(value))
                 builder.AppendLine(name + ": " + value);
+        }
+
+        private static void AppendInline(StringBuilder builder, string name, string value)
+        {
+            if (!string.IsNullOrWhiteSpace(value))
+                builder.Append(name + "=" + value + " | ");
         }
     }
 }

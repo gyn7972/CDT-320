@@ -37,6 +37,18 @@ namespace QMC.CDT320.Interlocks
         private static bool VerifyWaferStageY(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
+
+            switch (request.MoveKind)
+            {
+                case MotionGuardMoveKind.AxisMove:
+                case MotionGuardMoveKind.AxisTeachingMove:
+                    break;
+                case MotionGuardMoveKind.AxisHome:
+                    return VerifyWaferStageYHome(request.Machine, out reason);
+                default:
+                    return true;
+            }
+
             if (!VerifyInputFeederClear(request.Machine, "WaferStageY", out reason))
                 return false;
 
@@ -46,6 +58,18 @@ namespace QMC.CDT320.Interlocks
         private static bool VerifyWaferStageT(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
+
+            switch (request.MoveKind)
+            {
+                case MotionGuardMoveKind.AxisMove:
+                case MotionGuardMoveKind.AxisTeachingMove:
+                    break;
+                case MotionGuardMoveKind.AxisHome:
+                    return VerifyWaferStageTHome(request.Machine, out reason);
+                default:
+                    return true;
+            }
+
             if (!VerifyInputFeederClear(request.Machine, "WaferStageT", out reason))
                 return false;
 
@@ -55,6 +79,18 @@ namespace QMC.CDT320.Interlocks
         private static bool VerifyWaferExpandingZ(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
+
+            switch (request.MoveKind)
+            {
+                case MotionGuardMoveKind.AxisMove:
+                case MotionGuardMoveKind.AxisTeachingMove:
+                    break;
+                case MotionGuardMoveKind.AxisHome:
+                    return true;
+                default:
+                    return true;
+            }
+
             if (!VerifyInputFeederClear(request.Machine, "ExpanderZ", out reason))
                 return false;
 
@@ -64,6 +100,18 @@ namespace QMC.CDT320.Interlocks
         private static bool VerifyWaferVisionX(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
+
+            switch (request.MoveKind)
+            {
+                case MotionGuardMoveKind.AxisMove:
+                case MotionGuardMoveKind.AxisTeachingMove:
+                    break;
+                case MotionGuardMoveKind.AxisHome:
+                    return VerifyInputVisionXHome(request.Machine, out reason);
+                default:
+                    return true;
+            }
+
             if (!VerifyInputFeederClear(request.Machine, "InputVisionX", out reason))
                 return false;
 
@@ -73,15 +121,176 @@ namespace QMC.CDT320.Interlocks
         private static bool VerifyNeedleX(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
+
+            switch (request.MoveKind)
+            {
+                case MotionGuardMoveKind.AxisMove:
+                case MotionGuardMoveKind.AxisTeachingMove:
+                    break;
+                case MotionGuardMoveKind.AxisHome:
+                    return VerifyNeedleXHome(request.Machine, out reason);
+                default:
+                    return true;
+            }
+
             if (!VerifyInputFeederClear(request.Machine, "NeedleX", out reason))
                 return false;
 
             return VerifyInputStageNotBusy(request.Machine.InputStageUnit, "NeedleX", out reason);
         }
 
+        private static bool VerifyInputVisionXHome(CDT320_Machine machine, out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                InputFeederUnit feeder = machine != null ? machine.InputFeederUnit : null;
+                if (feeder != null && !feeder.IsWaferFeederInAvoidPosition())
+                    return MotionGuardRuleHelpers.Block(
+                        "InputVisionX",
+                        "InputVisionX HOME blocked. InputFeederY must be at Avoid position.",
+                        out reason);
+
+                if (feeder != null && !feeder.IsWaferFeederDown())
+                    return MotionGuardRuleHelpers.Block(
+                        "InputVisionX",
+                        "InputVisionX HOME blocked. InputFeeder lift cylinder must be down.",
+                        out reason);
+
+                return true;
+            }
+            catch (System.Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "InputVisionX",
+                    "Exception occurred while verifying InputVisionX home rules: " + ex.Message,
+                    out reason);
+            }
+            finally
+            {
+                LogBlockedReason(reason);
+            }
+        }
+
+        private static bool VerifyWaferStageYHome(CDT320_Machine machine, out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                InputStageUnit stage = machine != null ? machine.InputStageUnit : null;
+                if (stage != null && !stage.IsNeedleZInSafePosition())
+                    return MotionGuardRuleHelpers.Block(
+                        "InputStageY",
+                        "InputStageY HOME blocked. NeedleZ must be at Avoid position.",
+                        out reason);
+
+                InputFeederUnit feeder = machine != null ? machine.InputFeederUnit : null;
+                if (feeder != null && !feeder.IsWaferFeederInAvoidPosition())
+                    return MotionGuardRuleHelpers.Block(
+                        "InputStageY",
+                        "InputStageY HOME blocked. InputFeederY must be at Avoid position.",
+                        out reason);
+
+                if (!VerifyPickerZAxesAvoid(machine != null ? machine.PickerFrontUnit : null, "InputStageY", "Front", out reason))
+                    return false;
+
+                if (!VerifyPickerZAxesAvoid(machine != null ? machine.PickerRearUnit : null, "InputStageY", "Rear", out reason))
+                    return false;
+
+                return true;
+            }
+            catch (System.Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "InputStageY",
+                    "Exception occurred while verifying InputStageY home rules: " + ex.Message,
+                    out reason);
+            }
+            finally
+            {
+                LogBlockedReason(reason);
+            }
+        }
+
+        private static bool VerifyWaferStageTHome(CDT320_Machine machine, out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                InputStageUnit stage = machine != null ? machine.InputStageUnit : null;
+                if (stage != null && !stage.IsNeedleZInSafePosition())
+                    return MotionGuardRuleHelpers.Block(
+                        "InputStageT",
+                        "InputStageT HOME blocked. NeedleZ must be at Avoid position.",
+                        out reason);
+
+                if (!VerifyPickerZAxesAvoid(machine != null ? machine.PickerFrontUnit : null, "InputStageT", "Front", out reason))
+                    return false;
+
+                if (!VerifyPickerZAxesAvoid(machine != null ? machine.PickerRearUnit : null, "InputStageT", "Rear", out reason))
+                    return false;
+
+                return true;
+            }
+            catch (System.Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "InputStageT",
+                    "Exception occurred while verifying InputStageT home rules: " + ex.Message,
+                    out reason);
+            }
+            finally
+            {
+                LogBlockedReason(reason);
+            }
+        }
+
+        private static bool VerifyNeedleXHome(CDT320_Machine machine, out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                InputStageUnit stage = machine != null ? machine.InputStageUnit : null;
+                if (stage != null && !stage.IsNeedleZInSafePosition())
+                    return MotionGuardRuleHelpers.Block(
+                        "NeedleX",
+                        "NeedleX HOME blocked. NeedleZ must be at Avoid position.",
+                        out reason);
+
+                return true;
+            }
+            catch (System.Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "NeedleX",
+                    "Exception occurred while verifying NeedleX home rules: " + ex.Message,
+                    out reason);
+            }
+            finally
+            {
+                LogBlockedReason(reason);
+            }
+        }
+
         private static bool VerifyNeedleZ(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
+
+            switch (request.MoveKind)
+            {
+                case MotionGuardMoveKind.AxisMove:
+                case MotionGuardMoveKind.AxisTeachingMove:
+                    break;
+                case MotionGuardMoveKind.AxisHome:
+                    return true;
+                default:
+                    return true;
+            }
+
             if (!VerifyInputFeederClear(request.Machine, "NeedleZ", out reason))
                 return false;
 
@@ -91,6 +300,18 @@ namespace QMC.CDT320.Interlocks
         private static bool VerifyEjectPinZ(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
+
+            switch (request.MoveKind)
+            {
+                case MotionGuardMoveKind.AxisMove:
+                case MotionGuardMoveKind.AxisTeachingMove:
+                    break;
+                case MotionGuardMoveKind.AxisHome:
+                    return true;
+                default:
+                    return true;
+            }
+
             if (!VerifyInputFeederClear(request.Machine, "EjectPinZ", out reason))
                 return false;
 
@@ -156,6 +377,61 @@ namespace QMC.CDT320.Interlocks
             }
 
             return true;
+        }
+
+        private static bool VerifyPickerZAxesAvoid(PickerFrontUnit picker, string movingName, string prefix, out string reason)
+        {
+            reason = string.Empty;
+            if (picker == null)
+                return true;
+
+            PickerAxis[] zAxes = { PickerAxis.PickerZ0, PickerAxis.PickerZ1, PickerAxis.PickerZ2, PickerAxis.PickerZ3 };
+            for (int i = 0; i < zAxes.Length; i++)
+            {
+                PickerAxis zAxis = zAxes[i];
+                if (!picker.IsPickerAxisInTeachingPosition(zAxis, "AvoidPosition"))
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        movingName + " HOME blocked. " + prefix + zAxis + " must be at Avoid position.",
+                        out reason);
+            }
+
+            return true;
+        }
+
+        private static bool VerifyPickerZAxesAvoid(PickerRearUnit picker, string movingName, string prefix, out string reason)
+        {
+            reason = string.Empty;
+            if (picker == null)
+                return true;
+
+            PickerAxis[] zAxes = { PickerAxis.PickerZ0, PickerAxis.PickerZ1, PickerAxis.PickerZ2, PickerAxis.PickerZ3 };
+            for (int i = 0; i < zAxes.Length; i++)
+            {
+                PickerAxis zAxis = zAxes[i];
+                if (!picker.IsPickerAxisInTeachingPosition(zAxis, "AvoidPosition"))
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        movingName + " HOME blocked. " + prefix + zAxis + " must be at Avoid position.",
+                        out reason);
+            }
+
+            return true;
+        }
+
+        private static void LogBlockedReason(string reason)
+        {
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(reason))
+                    QMC.Common.Log.Write("Main", "INTERLOCK", "InputStageInterlock", reason + " - Blocked");
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
         }
     }
 }

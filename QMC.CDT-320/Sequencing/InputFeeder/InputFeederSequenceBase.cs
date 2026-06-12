@@ -86,8 +86,9 @@ namespace QMC.CDT320.Sequencing
             if (Feeder == null)
                 return Fail("IN-FEEDER-MISSING", "InputFeeder", "Input feeder unit is not available.");
 
-            if (!Feeder.IsWaferFeederSafe())
-                return Fail("IN-FEEDER-UNSAFE", Feeder.Name, "Input feeder is not safe. state=" + Feeder.GetWaferFeederTransferState());
+            string readyReason;
+            if (!Feeder.CheckWaferFeederMoveReady(out readyReason))
+                return Fail("IN-FEEDER-UNSAFE", Feeder.Name, "Input feeder is not safe. " + readyReason);
 
             CurrentStep = nextStep;
             return 0;
@@ -95,8 +96,9 @@ namespace QMC.CDT320.Sequencing
 
         protected int CheckCassetteTransferReady(TStep nextStep)
         {
-            if (!Feeder.CheckWaferCassetteReady(Options.SlotIndex, QMC.CDT320.TransferMode.Load))
-                return Fail("IN-FEEDER-CST-READY", Feeder.Name, "Input feeder cassette load condition is not ready.");
+            string readyReason;
+            if (!Feeder.CheckWaferCassetteReady(Options.SlotIndex, QMC.CDT320.TransferMode.Load, out readyReason))
+                return Fail("IN-FEEDER-CST-READY", Feeder.Name, "Input feeder cassette load condition is not ready. " + readyReason);
 
             CurrentStep = nextStep;
             return 0;
@@ -104,8 +106,9 @@ namespace QMC.CDT320.Sequencing
 
         protected int CheckStageTransferReady(QMC.CDT320.TransferMode mode, TStep nextStep)
         {
-            if (!Feeder.CheckWaferStageReady(Options.WaferSize, mode))
-                return Fail("IN-FEEDER-STAGE-READY", Feeder.Name, "Input feeder stage transfer condition is not ready.");
+            string readyReason;
+            if (!Feeder.CheckWaferStageReady(Options.WaferSize, mode, out readyReason))
+                return Fail("IN-FEEDER-STAGE-READY", Feeder.Name, "Input feeder stage transfer condition is not ready. " + readyReason);
 
             CurrentStep = nextStep;
             return 0;
@@ -122,7 +125,8 @@ namespace QMC.CDT320.Sequencing
                 ct).ConfigureAwait(false);
 
             if (result != 0)
-                return Fail("IN-FEEDER-CST-LOAD", Feeder.Name, "Cassette to feeder transfer failed. result=" + result);
+                return Fail("IN-FEEDER-CST-LOAD", Feeder.Name,
+                    "Cassette to feeder transfer failed. result=" + result + ". " + Feeder.GetWaferFeederTransferState());
 
             Context.Bus.Set("InputFeederOccupied");
             CurrentStep = CompleteStep;
@@ -139,7 +143,8 @@ namespace QMC.CDT320.Sequencing
                 ct).ConfigureAwait(false);
 
             if (result != 0)
-                return Fail("IN-FEEDER-STAGE-LOAD", Feeder.Name, "Feeder to input stage transfer failed. result=" + result);
+                return Fail("IN-FEEDER-STAGE-LOAD", Feeder.Name,
+                    "Feeder to input stage transfer failed. result=" + result + ". " + Feeder.GetWaferFeederTransferState());
 
             if (Context.Machine.InputStageUnit != null)
                 Context.Machine.InputStageUnit.SetCurrentWaferMaterial(
@@ -159,7 +164,8 @@ namespace QMC.CDT320.Sequencing
                 ct).ConfigureAwait(false);
 
             if (result != 0)
-                return Fail("IN-FEEDER-STAGE-UNLOAD", Feeder.Name, "Input stage to feeder transfer failed. result=" + result);
+                return Fail("IN-FEEDER-STAGE-UNLOAD", Feeder.Name,
+                    "Input stage to feeder transfer failed. result=" + result + ". " + Feeder.GetWaferFeederTransferState());
 
             if (Context.Machine.InputStageUnit != null)
                 Context.Machine.InputStageUnit.ClearCurrentWaferMaterial();
@@ -178,7 +184,8 @@ namespace QMC.CDT320.Sequencing
                 ct).ConfigureAwait(false);
 
             if (result != 0)
-                return Fail("IN-FEEDER-CST-UNLOAD", Feeder.Name, "Feeder to cassette transfer failed. result=" + result);
+                return Fail("IN-FEEDER-CST-UNLOAD", Feeder.Name,
+                    "Feeder to cassette transfer failed. result=" + result + ". " + Feeder.GetWaferFeederTransferState());
 
             Context.Bus.Set("InputFeederEmpty");
             CurrentStep = CompleteStep;
@@ -195,7 +202,8 @@ namespace QMC.CDT320.Sequencing
                 ct).ConfigureAwait(false);
 
             if (result != 0)
-                return Fail("IN-FEEDER-EXCHANGE", Feeder.Name, "Input feeder exchange failed. result=" + result);
+                return Fail("IN-FEEDER-EXCHANGE", Feeder.Name,
+                    "Input feeder exchange failed. result=" + result + ". " + Feeder.GetWaferFeederTransferState());
 
             Context.Bus.Set("InputFeederExchanged");
             CurrentStep = CompleteStep;
@@ -206,7 +214,8 @@ namespace QMC.CDT320.Sequencing
         {
             int result = await Feeder.RecoverWaferFeederToSafeState(ResolveTimeout(), true, ct).ConfigureAwait(false);
             if (result != 0)
-                return Fail("IN-FEEDER-RECOVER", Feeder.Name, "Input feeder recovery failed. result=" + result);
+                return Fail("IN-FEEDER-RECOVER", Feeder.Name,
+                    "Input feeder recovery failed. result=" + result + ". " + Feeder.GetWaferFeederTransferState());
 
             Context.Bus.Set("InputFeederRecovered");
             CurrentStep = CompleteStep;

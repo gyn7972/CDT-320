@@ -21,16 +21,12 @@ namespace QMC.Vision.Modules
     //  타입(typeof(T))으로 수행되므로 base [DataMember] 가 자연 포함된다([KnownType] 불요).
     //  구 JSON 에 키가 없으면 로드 시 null → [OnDeserializing] 으로 빈 리스트 초기화(비파괴).
 
-    /// <summary>알고리즘 Setup 공통 base — 검사가 구동하는 컨트롤러/페이지 지정(C3b-3, 결선 풀 대체).</summary>
+    /// <summary>알고리즘 Setup 공통 base — 검사 노드 고정 설정. (조명 컨트롤러/페이지 지정은 모듈 Setup 으로 이전)</summary>
     [DataContract]
     public abstract class AlgoSetupBase : ISetupData
     {
-        /// <summary>C3b-3 — 이 검사가 구동하는 (컨트롤러, 페이지) 지정. 채널 열거=컨트롤러 ChannelCount, 사용여부=레벨(Recipe).</summary>
-        [DataMember] public List<LightPageRef> LightPages { get; set; } = new List<LightPageRef>();
-
-        protected AlgoSetupBase() { LightPages = new List<LightPageRef>(); }
-        [OnDeserializing] private void OnDeserializingLight(StreamingContext ctx)
-        { LightPages = new List<LightPageRef>(); }
+        // 조명 컨트롤러/페이지 지정(LightPages)은 모듈 Setup(VisionModuleSetupBase)으로 이전 — 카메라=조명 1:1 하드웨어 계층.
+        // 검사 노드는 조명 레벨(Recipe.LightSettings)만 보유. 구 노드 json 의 LightPages 키는 로드 시 무시(비파괴, 구 파일 보존).
     }
 
     /// <summary>알고리즘 Recipe 공통 base — 검사 조명 레벨(제품별 값). 키 = (ControllerPort, Channel).</summary>

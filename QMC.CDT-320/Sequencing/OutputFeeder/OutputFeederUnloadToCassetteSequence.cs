@@ -90,8 +90,9 @@ namespace QMC.CDT320.Sequencing
 
         private int CheckTransferReady()
         {
-            if (!Feeder.CheckFeederCassetteReady(Options.Side, Options.SlotIndex, TransferMode.Unload))
-                return Fail("OUT-FEEDER-CST-UNLOAD-READY", Feeder.Name, "Output feeder cassette unload is not ready.");
+            string readyReason;
+            if (!Feeder.CheckFeederCassetteReady(Options.Side, Options.SlotIndex, TransferMode.Unload, out readyReason))
+                return Fail("OUT-FEEDER-CST-UNLOAD-READY", Feeder.Name, "Output feeder cassette unload is not ready. " + readyReason);
 
             CurrentStep = OutputFeederUnloadToCassetteStep.CheckFeederBinData;
             return 0;
@@ -104,8 +105,12 @@ namespace QMC.CDT320.Sequencing
 
         private int CheckCassetteTargetSlot()
         {
-            if (ResolveCassetteWafer() != null)
-                return Fail("OUT-FEEDER-CST-SLOT-OCCUPIED", "Material", "Output cassette target slot became occupied before unload. role=" + ResolveOutputCassetteRole() + ", slot=" + Options.SlotIndex);
+            WaferMaterial cassetteWafer = ResolveCassetteWafer();
+            if (cassetteWafer != null)
+                return Fail("OUT-FEEDER-CST-SLOT-OCCUPIED", "Material",
+                    "Output cassette target slot became occupied before unload. role=" + ResolveOutputCassetteRole() +
+                    ", slot=" + Options.SlotIndex + ", waferId=" + cassetteWafer.WaferId +
+                    ", state=" + cassetteWafer.State + ", loc=" + cassetteWafer.CurrentLocation);
 
             CurrentStep = OutputFeederUnloadToCassetteStep.EnsureFeederClamped;
             return 0;
@@ -145,10 +150,12 @@ namespace QMC.CDT320.Sequencing
         {
             int result = await AwaitStepWithCancellationAsync(Feeder.SetFeederClampAsync(false, ResolveTimeout()), ct).ConfigureAwait(false);
             if (result != 0)
-                return Fail("OUT-FEEDER-UNCLAMP", Feeder.Name, "Output feeder unclamp command failed. result=" + result);
+                return Fail("OUT-FEEDER-UNCLAMP", Feeder.Name,
+                    "Output feeder unclamp command failed. result=" + result + ", " + Feeder.DescribeFeederCylinderState());
 
             if (!Feeder.IsFeederUnclamped())
-                return Fail("OUT-FEEDER-UNCLAMP", Feeder.Name, "Output feeder unclamp failed. result=" + result);
+                return Fail("OUT-FEEDER-UNCLAMP", Feeder.Name,
+                    "Output feeder unclamp failed. result=" + result + ", " + Feeder.DescribeFeederCylinderState());
 
             CurrentStep = OutputFeederUnloadToCassetteStep.MoveFeederAvoidPosition;
             return 0;

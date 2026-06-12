@@ -1044,6 +1044,7 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
+                message = SequenceFailureStore.AppendRecentDetail(message, "InputSequence", alarmCode);
                 SequenceFailureStore.Record("InputSequence", Kind.ToString(), "", alarmCode, source, message);
                 WriteLog(source, message + " - Failed");
                 AlarmManager.Raise(AlarmSeverity.Warning, alarmCode, source, message);

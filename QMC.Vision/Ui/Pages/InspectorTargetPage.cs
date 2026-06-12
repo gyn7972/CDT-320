@@ -66,21 +66,17 @@ namespace QMC.Vision.Ui.Pages
         public void RefreshLightAssignment()
             => _lightPanel?.SelectInspection(_node, _module?.AlgorithmKey ?? "", _inspector?.Id ?? "");
 
-        // ── 우측: 검사 조명(InspectionLightPanel) + 라이브튜닝(LightLiveTuningPanel) 주입(런타임) ──
+        // ── 우측: 검사 조명(InspectionLightPanel) 주입(런타임). 라이브튜닝 패널은 제거(중복) —
+        //    레벨+점등 = InspectionLightPanel(Apply), 실물 확인 = Settings 라이브/그랩. ──
         private void BuildChildPanels()
         {
             _lightPanel = new InspectionLightPanel { Dock = DockStyle.Fill, EmbeddedMode = true };
             _lightPanel.SelectInspection(_node, _module?.AlgorithmKey ?? "", _inspector?.Id ?? "");   // C2 — 조명 SSOT=노드
             _lightPanel.LightChanged += (s, e) => MarkDirty();   // R2e — 조명 변경 → 상태점 점등
             _lightHost.Controls.Add(_lightPanel);
-
-            var live = new LightLiveTuningPanel { Dock = DockStyle.Fill };
-            live.Initialize(CollectRowsForLiveTuning);
-            live.BindCameraLive(() => StartLive(0), () => StopLive());
-            _liveHost.Controls.Add(live);
         }
 
-        // ── 카메라 라이브 grab loop (라이브튜닝 패널 start/stop 트리거) — InspectorPage 동일 ──
+        // ── 카메라 라이브 grab loop ──
         private System.Windows.Forms.Timer _liveTimer;
         private bool _liveOn;
 
@@ -115,16 +111,6 @@ namespace QMC.Vision.Ui.Pages
             string key = (_module?.Name ?? string.Empty).ToLowerInvariant();
             if (key.Contains("bottom") || key.Contains("btm")) return 667;
             return 333;
-        }
-
-        private IEnumerable<LightLiveTuningPanel.TuningRow> CollectRowsForLiveTuning()
-        {
-            var settings = (_node?.Recipe as AlgoRecipeBase)?.LightSettings;   // C2 — 노드 Recipe.LightSettings
-            if (settings == null) yield break;
-            foreach (var s in settings)
-                if (!string.IsNullOrEmpty(s.ControllerPort) && s.Channel > 0)
-                    yield return new LightLiveTuningPanel.TuningRow
-                    { ControllerPort = s.ControllerPort, Channel = s.Channel, Level = s.Level };
         }
 
         // ── 파라미터(우측 ParameterGridControl) = B 실 inspector 직접 바인딩 ──

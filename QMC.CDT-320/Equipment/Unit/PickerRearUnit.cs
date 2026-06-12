@@ -168,6 +168,9 @@ namespace QMC.CDT320
         public BaseAxis ArmY { get { return PickerY; } }
         public BaseAxis SideVisionY { get { return PickerY; } }
         public PickerRuntimeTool[] Pickers { get; private set; }
+        public int[] ColletUseCounts { get; private set; } = new int[MaxPickerCount];
+        public int PickFailCount { get; private set; }
+        public int PlaceFailCount { get; private set; }
 
         public PickerRearUnit() : base("PickerRearUnit")
         {
@@ -489,6 +492,40 @@ namespace QMC.CDT320
             return IsPickerGroupInPosition("AvoidPosition");
         }
 
+        /// <summary>해당 픽커 축의 원점복귀(IsHomeDone) 완료 여부. (AVOID 홈게이트용)</summary>
+        public bool IsPickerAxisHomeDone(PickerAxis axis)
+        {
+            BaseAxis item;
+            return axes.TryGetValue(axis, out item) && item != null && item.IsHomeDone;
+        }
+
+        /// <summary>
+        /// 스테이지 평면 이동 간섭 기준: Picker Z(0~3)가 모두 Avoid(상승)인지 확인한다.
+        /// 막는 첫 Z축과 사유를 돌려준다(진단용). 모두 상승+정상이면 null.
+        /// (X/Y/T는 보지 않음 — 픽커가 Z만 상승해 있으면 평면 이동에 간섭 없음)
+        /// </summary>
+        public string GetPickerZClearBlockReason()
+        {
+            PickerAxis[] zAxes = { PickerAxis.PickerZ0, PickerAxis.PickerZ1, PickerAxis.PickerZ2, PickerAxis.PickerZ3 };
+            foreach (PickerAxis axis in zAxes)
+            {
+                BaseAxis item;
+                if (!axes.TryGetValue(axis, out item) || item == null)
+                    continue;
+
+                string label = axis.ToString().Replace("Picker", "");
+                if (item.IsAlarm)
+                    return label + " Alarm";
+
+                double target = GetPickerTeachingPosition(axis, "AvoidPosition");
+                double tol = item.Config != null ? item.Config.InPositionTolerance : 0.05;
+                if (System.Math.Abs(item.ActualPosition - target) > tol)
+                    return label + " 안 올라감(목표 " + target.ToString("F3") + ", 현재 " + item.ActualPosition.ToString("F3") + ")";
+            }
+
+            return null;
+        }
+
         public bool IsPickerInLoadPosition()
         {
             return IsPickerGroupInPosition("InputAvoidPosition");
@@ -706,6 +743,29 @@ namespace QMC.CDT320
         public string BuildPickerAlarmMessage(StageAlarmCode code)
         {
             return side + " picker alarm: " + code;
+        }
+
+        public void RecordColletUse(int pickerNo)
+        {
+            int index = NormalizePickerIndex(pickerNo, MaxPickerCount);
+            ColletUseCounts[index]++;
+        }
+
+        public void RecordPickFail()
+        {
+            PickFailCount++;
+        }
+
+        public void RecordPlaceFail()
+        {
+            PlaceFailCount++;
+        }
+
+        public void ResetWorkCounters()
+        {
+            ColletUseCounts = new int[MaxPickerCount];
+            PickFailCount = 0;
+            PlaceFailCount = 0;
         }
 
         protected BaseAxis GetAxis(PickerAxis axis)

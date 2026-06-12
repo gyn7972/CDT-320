@@ -126,8 +126,9 @@ namespace QMC.CDT320.Sequencing
 
         private int CheckTransferReady()
         {
-            if (!Feeder.CheckFeederStageReady(Options.Side, TransferMode.Load))
-                return Fail("OUT-FEEDER-STAGE-LOAD-READY", Feeder.Name, "Output feeder stage load is not ready.");
+            string readyReason;
+            if (!Feeder.CheckFeederStageReady(Options.Side, TransferMode.Load, out readyReason))
+                return Fail("OUT-FEEDER-STAGE-LOAD-READY", Feeder.Name, "Output feeder stage load is not ready. " + readyReason);
 
             CurrentStep = OutputFeederLoadToStageStep.CheckFeederBinData;
             return 0;
@@ -175,7 +176,7 @@ namespace QMC.CDT320.Sequencing
             {
                 int result = await AwaitStepWithCancellationAsync(FrontPicker.MoveToFrontPickerAvoidPosition(Options.FineMove), ct).ConfigureAwait(false);
                 if (result != 0)
-                    return Fail("OUT-FEEDER-FRONT-PICKER-AVOID", FrontPicker.Name, "FrontPicker avoid move command failed. result=" + result);
+                    return Fail("OUT-FEEDER-FRONT-PICKER-AVOID", FrontPicker.Name, "FrontPicker avoid move command failed. result=" + result + ", pickerX=" + FrontPicker.PickerX.ActualPosition);
 
                 bool arrived = await WaitUntilAsync(() => FrontPicker.IsFrontPickerInAvoidPosition(), ResolveTimeout(), ct).ConfigureAwait(false);
                 if (!arrived)
@@ -186,7 +187,7 @@ namespace QMC.CDT320.Sequencing
             {
                 int result = await AwaitStepWithCancellationAsync(RearPicker.MoveToRearPickerAvoidPosition(Options.FineMove), ct).ConfigureAwait(false);
                 if (result != 0)
-                    return Fail("OUT-FEEDER-REAR-PICKER-AVOID", RearPicker.Name, "RearPicker avoid move command failed. result=" + result);
+                    return Fail("OUT-FEEDER-REAR-PICKER-AVOID", RearPicker.Name, "RearPicker avoid move command failed. result=" + result + ", pickerX=" + RearPicker.PickerX.ActualPosition);
 
                 bool arrived = await WaitUntilAsync(() => RearPicker.IsRearPickerInAvoidPosition(), ResolveTimeout(), ct).ConfigureAwait(false);
                 if (!arrived)
@@ -201,16 +202,16 @@ namespace QMC.CDT320.Sequencing
         {
             int result = await AwaitStepWithCancellationAsync(Stage.EnsureStageMutualInterlockForLoadAsync(Options.Side, ResolveTimeout(), Options.FineMove), ct).ConfigureAwait(false);
             if (result != 0)
-                return Fail("OUT-STAGE-LOAD-INTERLOCK", Stage.Name, "Output stage mutual interlock failed before feeder to stage load. side=" + Options.Side + ", result=" + result);
+                return Fail("OUT-STAGE-LOAD-INTERLOCK", Stage.Name, "Output stage mutual interlock failed before feeder to stage load. side=" + Options.Side + ", result=" + result + ", " + Stage.DescribeOutputStageInterlockState(Options.Side));
 
             if (!Stage.IsBinGuideClampLiftUp(BinSide.Ng))
-                return Fail("OUT-STAGE-NG-CLAMP-UP", Stage.Name, "NG stage clamp lift must be up before stage load movement. side=" + Options.Side);
+                return Fail("OUT-STAGE-NG-CLAMP-UP", Stage.Name, "NG stage clamp lift must be up before stage load movement. " + Stage.DescribeOutputStageInterlockState(Options.Side));
 
             if (!Stage.IsGoodStageZInAvoidOrProcessPosition())
-                return Fail("OUT-STAGE-GOOD-Z-SAFE", Stage.Name, "Good stage Z must be avoid or process before stage load movement. side=" + Options.Side);
+                return Fail("OUT-STAGE-GOOD-Z-SAFE", Stage.Name, "Good stage Z must be avoid or process before stage load movement. " + Stage.DescribeOutputStageInterlockState(Options.Side));
 
             if (Options.Side != BinSide.Ng && !Stage.IsNgStageInAvoidPosition())
-                return Fail("OUT-STAGE-NG-AVOID", Stage.Name, "NG stage must be avoid before GOOD stage receives bin.");
+                return Fail("OUT-STAGE-NG-AVOID", Stage.Name, "NG stage must be avoid before GOOD stage receives bin. " + Stage.DescribeOutputStageInterlockState(Options.Side));
 
             CurrentStep = OutputFeederLoadToStageStep.MoveOutputStageLoadPosition;
             return 0;
@@ -233,10 +234,10 @@ namespace QMC.CDT320.Sequencing
         {
             int result = await AwaitStepWithCancellationAsync(Stage.EnsureBinGuideUpAsync(Options.Side, ResolveTimeout()), ct).ConfigureAwait(false);
             if (result != 0)
-                return Fail("OUT-STAGE-GUIDE-UP", Stage.Name, "Output stage bin guide up failed. side=" + Options.Side + ", result=" + result);
+                return Fail("OUT-STAGE-GUIDE-UP", Stage.Name, "Output stage bin guide up failed. side=" + Options.Side + ", result=" + result + ", " + Stage.DescribeOutputStageInterlockState(Options.Side));
 
             if (!Stage.IsBinGuideUp(Options.Side))
-                return Fail("OUT-STAGE-GUIDE-UP", Stage.Name, "Output stage bin guide is not up. side=" + Options.Side);
+                return Fail("OUT-STAGE-GUIDE-UP", Stage.Name, "Output stage bin guide is not up. " + Stage.DescribeOutputStageInterlockState(Options.Side));
 
             CurrentStep = OutputFeederLoadToStageStep.EnsureOutputStageClampLiftDown;
             return 0;
@@ -246,10 +247,10 @@ namespace QMC.CDT320.Sequencing
         {
             int result = await AwaitStepWithCancellationAsync(Stage.EnsureBinGuideClampLiftDownAsync(Options.Side, ResolveTimeout()), ct).ConfigureAwait(false);
             if (result != 0)
-                return Fail("OUT-STAGE-CLAMP-DOWN", Stage.Name, "Output stage bin clamp lift down failed. side=" + Options.Side + ", result=" + result);
+                return Fail("OUT-STAGE-CLAMP-DOWN", Stage.Name, "Output stage bin clamp lift down failed. side=" + Options.Side + ", result=" + result + ", " + Stage.DescribeOutputStageInterlockState(Options.Side));
 
             if (!Stage.IsBinGuideClampLiftDown(Options.Side))
-                return Fail("OUT-STAGE-CLAMP-DOWN", Stage.Name, "Output stage bin clamp lift is not down. side=" + Options.Side);
+                return Fail("OUT-STAGE-CLAMP-DOWN", Stage.Name, "Output stage bin clamp lift is not down. " + Stage.DescribeOutputStageInterlockState(Options.Side));
 
             CurrentStep = OutputFeederLoadToStageStep.EnsureOutputStageUnclamp;
             return 0;
@@ -259,10 +260,10 @@ namespace QMC.CDT320.Sequencing
         {
             int result = await AwaitStepWithCancellationAsync(Stage.EnsureBinGuideUnclampedAsync(Options.Side, ResolveTimeout()), ct).ConfigureAwait(false);
             if (result != 0)
-                return Fail("OUT-STAGE-UNCLAMP", Stage.Name, "Output stage bin guide unclamp failed. side=" + Options.Side + ", result=" + result);
+                return Fail("OUT-STAGE-UNCLAMP", Stage.Name, "Output stage bin guide unclamp failed. side=" + Options.Side + ", result=" + result + ", " + Stage.DescribeOutputStageInterlockState(Options.Side));
 
             if (!Stage.IsBinGuideUnclamped(Options.Side))
-                return Fail("OUT-STAGE-UNCLAMP", Stage.Name, "Output stage bin guide is not unclamped. side=" + Options.Side);
+                return Fail("OUT-STAGE-UNCLAMP", Stage.Name, "Output stage bin guide is not unclamped. " + Stage.DescribeOutputStageInterlockState(Options.Side));
 
             CurrentStep = OutputFeederLoadToStageStep.MoveFeederStageUnloadPosition;
             return 0;
@@ -286,10 +287,10 @@ namespace QMC.CDT320.Sequencing
         {
             int result = await AwaitStepWithCancellationAsync(Feeder.SetFeederClampAsync(false, ResolveTimeout()), ct).ConfigureAwait(false);
             if (result != 0)
-                return Fail("OUT-FEEDER-UNCLAMP", Feeder.Name, "Output feeder unclamp command failed. result=" + result);
+                return Fail("OUT-FEEDER-UNCLAMP", Feeder.Name, "Output feeder unclamp command failed. result=" + result + ", " + Feeder.DescribeFeederCylinderState());
 
             if (!Feeder.IsFeederUnclamped())
-                return Fail("OUT-FEEDER-UNCLAMP", Feeder.Name, "Output feeder unclamp failed. result=" + result);
+                return Fail("OUT-FEEDER-UNCLAMP", Feeder.Name, "Output feeder unclamp failed. result=" + result + ", " + Feeder.DescribeFeederCylinderState());
 
             CurrentStep = OutputFeederLoadToStageStep.MoveFeederStageUnloadAvoidPosition;
             return 0;
@@ -313,10 +314,10 @@ namespace QMC.CDT320.Sequencing
         {
             int result = await AwaitStepWithCancellationAsync(Stage.EnsureBinGuideClampLiftUpAsync(Options.Side, ResolveTimeout()), ct).ConfigureAwait(false);
             if (result != 0)
-                return Fail("OUT-STAGE-CLAMP-UP", Stage.Name, "Output stage bin clamp lift up failed. side=" + Options.Side + ", result=" + result);
+                return Fail("OUT-STAGE-CLAMP-UP", Stage.Name, "Output stage bin clamp lift up failed. side=" + Options.Side + ", result=" + result + ", " + Stage.DescribeOutputStageInterlockState(Options.Side));
 
             if (!Stage.IsBinGuideClampLiftUp(Options.Side))
-                return Fail("OUT-STAGE-CLAMP-UP", Stage.Name, "Output stage bin clamp lift is not up after feeder unload avoid. side=" + Options.Side);
+                return Fail("OUT-STAGE-CLAMP-UP", Stage.Name, "Output stage bin clamp lift is not up after feeder unload avoid. " + Stage.DescribeOutputStageInterlockState(Options.Side));
 
             CurrentStep = OutputFeederLoadToStageStep.MoveFeederAvoidPosition;
             return 0;

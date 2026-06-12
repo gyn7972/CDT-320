@@ -85,11 +85,13 @@ namespace QMC.CDT320.Sequencing
             if (Stage == null)
                 return Fail("IN-STAGE-MISSING", "InputStage", "Input stage unit is not available.");
 
-            if (Stage.StageY == null || Stage.StageT == null || Stage.ExpanderZ == null || Stage.CameraX == null)
-                return Fail("IN-STAGE-AXIS", Stage.Name, "Input stage axis is not available.");
+            string axisReason = BuildRequiredAxisAvailabilityReason();
+            if (!string.IsNullOrEmpty(axisReason))
+                return Fail("IN-STAGE-AXIS", Stage.Name, "Input stage axis is not available. " + axisReason);
 
-            if (Stage.StageY.IsAlarm || Stage.StageT.IsAlarm || Stage.ExpanderZ.IsAlarm || Stage.CameraX.IsAlarm)
-                return Fail("IN-STAGE-ALARM", Stage.Name, "Input stage axis alarm exists.");
+            axisReason = BuildRequiredAxisAlarmReason();
+            if (!string.IsNullOrEmpty(axisReason))
+                return Fail("IN-STAGE-ALARM", Stage.Name, "Input stage axis alarm exists. " + axisReason);
 
             CurrentStep = nextStep;
             return 0;
@@ -207,7 +209,9 @@ namespace QMC.CDT320.Sequencing
         {
             bool arrived = await WaitAxisInPositionAsync(axis, target, ResolveTimeout()).ConfigureAwait(false);
             if (!arrived)
-                return Fail("IN-STAGE-MOVE-TIMEOUT", Stage.Name, "Input stage axis move done timeout. axis=" + axis + ", target=" + target);
+                return Fail("IN-STAGE-MOVE-TIMEOUT", Stage.Name,
+                    "Input stage axis move done timeout. axis=" + axis + ", target=" + target + ". " +
+                    BuildAxisState(axis, target));
 
             return 0;
         }
@@ -243,6 +247,71 @@ namespace QMC.CDT320.Sequencing
                 case QMC.CDT320.WaferStageAxis.EjectPinZ: return Stage.EjectPinZ;
                 default: return null;
             }
+        }
+
+        protected string BuildAxisState(QMC.CDT320.WaferStageAxis axis, double target)
+        {
+            return BuildAxisState(axis.ToString(), ResolveStageAxis(axis), target);
+        }
+
+        protected static string BuildAxisState(string label, QMC.Common.Motion.BaseAxis axis, double target)
+        {
+            if (axis == null)
+                return label + "=null";
+
+            double tolerance = axis.Config != null && axis.Config.InPositionTolerance > 0.0
+                ? axis.Config.InPositionTolerance
+                : 0.05;
+
+            return label +
+                "[name=" + axis.Name +
+                ", servo=" + (axis.IsServoOn ? "ON" : "OFF") +
+                ", alarm=" + (axis.IsAlarm ? "ON" : "OFF") +
+                ", moving=" + (axis.IsMoving ? "Y" : "N") +
+                ", actual=" + axis.ActualPosition +
+                ", target=" + target +
+                ", tolerance=" + tolerance +
+                "]";
+        }
+
+        private string BuildRequiredAxisAvailabilityReason()
+        {
+            string reason = string.Empty;
+            AppendMissingAxis(ref reason, "StageY", Stage.StageY);
+            AppendMissingAxis(ref reason, "StageT", Stage.StageT);
+            AppendMissingAxis(ref reason, "ExpanderZ", Stage.ExpanderZ);
+            AppendMissingAxis(ref reason, "CameraX", Stage.CameraX);
+            return reason;
+        }
+
+        private string BuildRequiredAxisAlarmReason()
+        {
+            string reason = string.Empty;
+            AppendAlarmAxis(ref reason, "StageY", Stage.StageY);
+            AppendAlarmAxis(ref reason, "StageT", Stage.StageT);
+            AppendAlarmAxis(ref reason, "ExpanderZ", Stage.ExpanderZ);
+            AppendAlarmAxis(ref reason, "CameraX", Stage.CameraX);
+            return reason;
+        }
+
+        private static void AppendMissingAxis(ref string reason, string label, QMC.Common.Motion.BaseAxis axis)
+        {
+            if (axis != null)
+                return;
+
+            if (reason.Length > 0)
+                reason += " ";
+            reason += label + "=null;";
+        }
+
+        private static void AppendAlarmAxis(ref string reason, string label, QMC.Common.Motion.BaseAxis axis)
+        {
+            if (axis == null || !axis.IsAlarm)
+                return;
+
+            if (reason.Length > 0)
+                reason += " ";
+            reason += BuildAxisState(label, axis, axis.ActualPosition) + ";";
         }
 
         private static bool IsAxisInPosition(QMC.Common.Motion.BaseAxis axis, double target)

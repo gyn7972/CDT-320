@@ -155,9 +155,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 jogAxisMoveControl.ButtonAreaMaxHeight = 460;
                 jogAxisMoveControl.ButtonAreaMinWidth = 170;
                 jogAxisMoveControl.ButtonAreaMaxWidth = 320;
-
-                // 매뉴얼 액션 버튼 — 옵션 그룹과 매칭, GOOD/NG 분리
-                BuildManualButtons();
             }
             catch (Exception ex)
             {
@@ -328,76 +325,217 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             return item;
         }
 
-        // 매뉴얼 액션 버튼을 옵션 그룹과 매칭해 구성 (GOOD/NG는 무조건 분리)
-        private void BuildManualButtons()
+        // 매뉴얼 액션 버튼(Designer 배치)의 Click 핸들러 — 좌측 GOOD / 우측 NG, 인터락 시퀀스로 이동
+        private async void btnGoodAvoidPosition_Click(object sender, EventArgs e)
         {
-            manualLayout.SuspendLayout();
-            try
-            {
-                manualLayout.Controls.Clear();
-                manualLayout.RowStyles.Clear();
-                manualLayout.RowCount = 0;
-                manualLayout.ColumnCount = 2;
-
-                // 좌측 = GOOD, 우측 = NG
-                AddManualButton("GOOD AVOID POSITION", 0, 0, () => MoveStageAxesAsync("Avoid", BinStageAxis.GoodBinY, BinStageAxis.GoodBinZ));
-                AddManualButton("NG AVOID POSITION", 1, 0, () => MoveStageAxesAsync("Avoid", BinStageAxis.NgBinY));
-                AddManualButton("GOOD LOAD POSITION", 0, 1, () => _outputStageUnit.MoveToStageLoadPosition(BinSide.Good));
-                AddManualButton("NG LOAD POSITION", 1, 1, () => _outputStageUnit.MoveToStageLoadPosition(BinSide.Ng));
-                AddManualButton("GOOD PROCESS POSITION", 0, 2, () => _outputStageUnit.MoveToStageProcessPosition(BinSide.Good));
-                AddManualButton("NG PROCESS POSITION", 1, 2, () => _outputStageUnit.MoveToStageProcessPosition(BinSide.Ng));
-                AddManualButton("GOOD UNLOAD POSITION", 0, 3, () => _outputStageUnit.MoveToStageUnloadPosition(BinSide.Good));
-                AddManualButton("NG UNLOAD POSITION", 1, 3, () => _outputStageUnit.MoveToStageUnloadPosition(BinSide.Ng));
-
-                // VISION 축 (별도)
-                AddManualButton("VISION AVOID POSITION", 0, 4, () => MoveStageAxesAsync("Avoid", BinStageAxis.VisionX));
-                AddManualButton("VISION PROCESS POSITION", 1, 4, () => MoveStageAxesAsync("Process", BinStageAxis.VisionX));
-                AddManualButton("VISION RETICLE POSITION", 0, 5, () => MoveStageAxesAsync("Reticle", BinStageAxis.VisionX));
-            }
-            finally
-            {
-                manualLayout.ResumeLayout(true);
-            }
+            await ConfirmAndRunAsync("GOOD AVOID POSITION", () => MoveBinSequenceAsync(BinSide.Good, "Avoid"));
         }
 
-        private void AddManualButton(string text, int column, int row, Func<Task<int>> command)
+        private async void btnNgAvoidPosition_Click(object sender, EventArgs e)
         {
-            QMC.CDT_320.Ui.Controls.ActionButton button = new QMC.CDT_320.Ui.Controls.ActionButton();
-            button.Text = text;
-            button.Dock = DockStyle.Fill;
-            button.Margin = new Padding(2);
-            button.BackColor = Color.FromArgb(128, 128, 128);
-            button.ForeColor = Color.White;
-            button.Font = new Font("Malgun Gothic", 9F, FontStyle.Bold);
-            button.Cursor = Cursors.Hand;
-            button.Click += async delegate { await ConfirmAndRunAsync(text, command); };
-
-            while (manualLayout.RowStyles.Count <= row)
-                manualLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 45F));
-            if (manualLayout.RowCount <= row)
-                manualLayout.RowCount = row + 1;
-
-            manualLayout.Controls.Add(button, column, row);
+            await ConfirmAndRunAsync("NG AVOID POSITION", () => MoveBinSequenceAsync(BinSide.Ng, "Avoid"));
         }
 
-        // 지정한 축들을 같은 위치명으로 동시 이동
-        private async Task<int> MoveStageAxesAsync(string positionName, params BinStageAxis[] axes)
+        private async void btnGoodLoadPosition_Click(object sender, EventArgs e)
         {
-            if (_outputStageUnit == null || axes == null || axes.Length == 0)
+            await ConfirmAndRunAsync("GOOD LOAD POSITION", () => MoveBinSequenceAsync(BinSide.Good, "Load"));
+        }
+
+        private async void btnNgLoadPosition_Click(object sender, EventArgs e)
+        {
+            await ConfirmAndRunAsync("NG LOAD POSITION", () => MoveBinSequenceAsync(BinSide.Ng, "Load"));
+        }
+
+        private async void btnGoodProcessPosition_Click(object sender, EventArgs e)
+        {
+            await ConfirmAndRunAsync("GOOD PROCESS POSITION", () => MoveBinSequenceAsync(BinSide.Good, "Process"));
+        }
+
+        private async void btnNgProcessPosition_Click(object sender, EventArgs e)
+        {
+            await ConfirmAndRunAsync("NG PROCESS POSITION", () => MoveBinSequenceAsync(BinSide.Ng, "Process"));
+        }
+
+        private async void btnGoodUnloadPosition_Click(object sender, EventArgs e)
+        {
+            await ConfirmAndRunAsync("GOOD UNLOAD POSITION", () => MoveBinSequenceAsync(BinSide.Good, "Unload"));
+        }
+
+        private async void btnNgUnloadPosition_Click(object sender, EventArgs e)
+        {
+            await ConfirmAndRunAsync("NG UNLOAD POSITION", () => MoveBinSequenceAsync(BinSide.Ng, "Unload"));
+        }
+
+        private async void btnVisionAvoidPosition_Click(object sender, EventArgs e)
+        {
+            await ConfirmAndRunAsync("VISION AVOID POSITION", () => MoveVisionSequenceAsync("Avoid"));
+        }
+
+        private async void btnVisionProcessPosition_Click(object sender, EventArgs e)
+        {
+            await ConfirmAndRunAsync("VISION PROCESS POSITION", () => MoveVisionSequenceAsync("Process"));
+        }
+
+        private async void btnVisionReticlePosition_Click(object sender, EventArgs e)
+        {
+            await ConfirmAndRunAsync("VISION RETICLE POSITION", () => MoveVisionSequenceAsync("Reticle"));
+        }
+
+        // ===================== 인터락 시퀀스 (OutputStage) =====================
+        // 규칙: Y 이동 전 해당 빈 Z = Avoid · C(해당 빈 클램프리프트 Up) · P(Front/Rear 픽커 Z 전부 상승)
+        // 홈게이트 = AVOID/LOAD/UNLOAD (PROCESS 제외) · 공유레일/알람은 이동 메서드 내부 자동검사
+        // PROCESS는 VisionX 동반 이동 유지. NG의 Z 교시는 NgStage.Recipe(Work/AvoidPositionZ) 사용.
+
+        // 인터락 진단/테스트 토글
+        private static readonly bool RequireHomingForHomeLikeButtons = true;  // AVOID/LOAD/UNLOAD 홈게이트
+
+        // 마지막 시퀀스 중단 사유 — 실행 래퍼(ConfirmAndRunAsync)의 실패 팝업에 합쳐서 표시
+        private string _lastAbortReason;
+
+        private int AbortSeq(string title, string message)
+        {
+            // 상세 사유는 로그(EventLogger Alarm)에 기록하고, 팝업은 래퍼의 실패 팝업 하나로 합쳐 표시한다.
+            EventLogger.Write(EventKind.Alarm, "UI", "OUTPUT-STAGE", title + " 시퀀스 중단: " + message);
+            _lastAbortReason = message;
+            return -1;
+        }
+
+        private static BinStageAxis BinYAxis(BinSide side) { return side == BinSide.Ng ? BinStageAxis.NgBinY : BinStageAxis.GoodBinY; }
+        private static BinStageAxis BinZAxis(BinSide side) { return side == BinSide.Ng ? BinStageAxis.NgBinZ : BinStageAxis.GoodBinZ; }
+
+        private double GetBinZAvoidTarget(BinSide side)
+        {
+            return side == BinSide.Ng
+                ? _outputStageUnit.NgStage.Recipe.AvoidPositionZ
+                : _outputStageUnit.GetStageTeachingPosition(BinStageAxis.GoodBinZ, "Avoid");
+        }
+
+        // C: 해당 빈 클램프리프트 Up
+        private bool CheckClampUp(BinSide side, out string reason)
+        {
+            reason = string.Empty;
+            if (_outputStageUnit.IsBinGuideClampLiftUp(side))
+                return true;
+            reason = (side == BinSide.Ng ? "NG" : "GOOD") + " 클램프리프트 Up 미완료";
+            return false;
+        }
+
+        // P: Front/Rear 픽커 Z 전부 상승(빈 위 간섭 차단)
+        private bool CheckPickerZClear(out string reason)
+        {
+            reason = string.Empty;
+            var machine = FindMachine();
+            if (machine == null)
+                return true;
+
+            string block = machine.PickerFrontUnit != null ? machine.PickerFrontUnit.GetPickerZClearBlockReason() : null;
+            if (block != null) { reason = "Front 픽커 " + block; return false; }
+
+            block = machine.PickerRearUnit != null ? machine.PickerRearUnit.GetPickerZClearBlockReason() : null;
+            if (block != null) { reason = "Rear 픽커 " + block; return false; }
+            return true;
+        }
+
+        // 홈게이트: 해당 빈 Y/Z 원점복귀 완료
+        private bool CheckBinAxesHomed(BinSide side, out string reason)
+        {
+            reason = string.Empty;
+            if (!_outputStageUnit.IsStageAxisHomeDone(BinYAxis(side))) { reason = BinYAxis(side) + " 원점복귀 필요"; return false; }
+            if (!_outputStageUnit.IsStageAxisHomeDone(BinZAxis(side))) { reason = BinZAxis(side) + " 원점복귀 필요"; return false; }
+            return true;
+        }
+
+        // GOOD/NG 빈 공통 시퀀스: 게이트 → Z→Avoid → Z확인 → Y→종류 → (종류별 Z) → (Process면 VisionX)
+        private async Task<int> MoveBinSequenceAsync(BinSide side, string kind)
+        {
+            if (_outputStageUnit == null)
                 return -1;
 
-            List<Task<int>> tasks = new List<Task<int>>();
-            foreach (BinStageAxis ax in axes)
-                tasks.Add(_outputStageUnit.MoveStageAxisToTeachingPosition(ax, positionName));
+            string title = (side == BinSide.Ng ? "NG " : "GOOD ") + kind.ToUpperInvariant();
+            string reason;
 
-            int[] results = await Task.WhenAll(tasks);
-            int finalResult = 0;
-            foreach (int r in results)
+            // 게이트: 홈(AVOID/LOAD/UNLOAD만) + C + P
+            bool homeLike = !string.Equals(kind, "Process", StringComparison.OrdinalIgnoreCase);
+            if (homeLike && RequireHomingForHomeLikeButtons && !CheckBinAxesHomed(side, out reason))
+                return AbortSeq(title, reason);
+            if (!CheckClampUp(side, out reason))
+                return AbortSeq(title, reason);
+            if (!CheckPickerZClear(out reason))
+                return AbortSeq(title, reason);
+
+            // 1) Z → Avoid (Y 이동 전 안전높이)
+            double zAvoid = GetBinZAvoidTarget(side);
+            int r = await _outputStageUnit.MoveStageAxis(BinZAxis(side), zAvoid);
+            if (r != 0) return AbortSeq(title, "Z Avoid 이동 실패");
+
+            // 2) Z=Avoid 확인
+            if (!_outputStageUnit.IsStageAxisAtPosition(BinZAxis(side), zAvoid))
+                return AbortSeq(title, "Y 이동 전 Z Avoid 미확인");
+
+            // 3) Y → 종류 위치
+            r = await _outputStageUnit.MoveStageAxisToTeachingPosition(BinYAxis(side), kind);
+            if (r != 0) return AbortSeq(title, "Y 이동 실패");
+
+            // 4) 종류별 Z 마무리
+            if (string.Equals(kind, "Load", StringComparison.OrdinalIgnoreCase))
             {
-                if (r != 0)
-                    finalResult = r;
+                double zTarget = side == BinSide.Ng
+                    ? _outputStageUnit.NgStage.Recipe.WorkPositionZ
+                    : _outputStageUnit.GetStageTeachingPosition(BinStageAxis.GoodBinZ, "Load");
+                r = await _outputStageUnit.MoveStageAxis(BinZAxis(side), zTarget);
+                if (r != 0) return AbortSeq(title, "Z Load/Work 이동 실패");
             }
-            return finalResult;
+            else if (side == BinSide.Good &&
+                     (string.Equals(kind, "Process", StringComparison.OrdinalIgnoreCase) ||
+                      string.Equals(kind, "Unload", StringComparison.OrdinalIgnoreCase)))
+            {
+                r = await _outputStageUnit.MoveStageAxisToTeachingPosition(BinStageAxis.GoodBinZ, kind);
+                if (r != 0) return AbortSeq(title, "Z " + kind + " 이동 실패");
+            }
+
+            // 5) PROCESS: VisionX 동반 이동
+            if (string.Equals(kind, "Process", StringComparison.OrdinalIgnoreCase))
+            {
+                r = await _outputStageUnit.MoveStageAxisToTeachingPosition(BinStageAxis.VisionX, "Process");
+                if (r != 0) return AbortSeq(title, "VISION X 이동 실패 (공유레일 확인)");
+            }
+
+            return 0;
+        }
+
+        // VISION 단독: AVOID/PROCESS는 바로, RETICLE은 레티클 실린더 Clear 선행
+        private async Task<int> MoveVisionSequenceAsync(string kind)
+        {
+            if (_outputStageUnit == null)
+                return -1;
+
+            string title = "VISION " + kind.ToUpperInvariant();
+
+            if (string.Equals(kind, "Reticle", StringComparison.OrdinalIgnoreCase))
+            {
+                string reason;
+                if (!IsReticleClear(out reason))
+                    return AbortSeq(title, "VISION X 전 레티클 " + reason);
+            }
+
+            int r = await _outputStageUnit.MoveStageAxisToTeachingPosition(BinStageAxis.VisionX, kind);
+            if (r != 0) return AbortSeq(title, "VISION X 이동 실패 (공유레일 확인)");
+            return 0;
+        }
+
+        // 레티클 실린더(승강/사이드슬라이드 전·후)가 모두 후퇴(Clear)인지 — 인풋스테이지와 동일 기준(공유 스테이션)
+        private bool IsReticleClear(out string reason)
+        {
+            reason = string.Empty;
+            var machine = FindMachine();
+            if (machine == null || machine.VisionUnit == null)
+                return true;
+
+            var v = machine.VisionUnit;
+            if (v.ReticleLift != null && v.ReticleLift.IsFwd) { reason = "ReticleLift 전개됨"; return false; }
+            if (v.ReticleFrontSideSlide != null && v.ReticleFrontSideSlide.IsFwd) { reason = "ReticleSideSlideFront 전개됨"; return false; }
+            if (v.ReticleRearSideSlide != null && v.ReticleRearSideSlide.IsFwd) { reason = "ReticleSideSlideRear 전개됨"; return false; }
+            return true;
         }
 
         private void BindParameterGridMenus()
@@ -631,10 +769,14 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     return;
 
                 Cursor = Cursors.WaitCursor;
+                _lastAbortReason = null;
                 int result = await action();
                 EventLogger.Write(EventKind.Event, "UI", "OUTPUT-STAGE", actionName + " result=" + result);
                 if (result != 0)
-                    QMC.Common.MessageDialog.Show(this, actionName + " 실패", "Output Stage", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                {
+                    string detail = string.IsNullOrEmpty(_lastAbortReason) ? "" : Environment.NewLine + "사유: " + _lastAbortReason;
+                    QMC.Common.MessageDialog.Show(this, actionName + " 실패" + detail, "Output Stage", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
             }
             catch (Exception ex)
             {

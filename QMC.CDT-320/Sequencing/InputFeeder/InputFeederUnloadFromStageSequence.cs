@@ -100,8 +100,9 @@ namespace QMC.CDT320.Sequencing
 
         private int CheckTransferReady()
         {
-            if (!Feeder.CheckWaferFeederMoveReady())
-                return Fail("IN-FEEDER-STAGE-READY", Feeder.Name, "Input feeder is not move ready. state=" + Feeder.GetWaferFeederTransferState());
+            string readyReason;
+            if (!Feeder.CheckWaferFeederMoveReady(out readyReason))
+                return Fail("IN-FEEDER-STAGE-READY", Feeder.Name, "Input feeder is not move ready. " + readyReason);
 
             if (!Feeder.IsWaferFeederEmpty())
                 return Fail("IN-FEEDER-OCCUPIED", Feeder.Name, "InputFeeder must be empty before stage to feeder unload.");
@@ -192,7 +193,9 @@ namespace QMC.CDT320.Sequencing
             {
                 int result = await AwaitStepWithCancellationAsync(front.MoveToFrontPickerAvoidPosition(Options.FineMove), ct).ConfigureAwait(false);
                 if (result != 0)
-                    return Fail("IN-FEEDER-FRONT-PICKER-AVOID", front.Name, "FrontPicker avoid move command failed. result=" + result);
+                    return Fail("IN-FEEDER-FRONT-PICKER-AVOID", front.Name,
+                        "FrontPicker avoid move command failed. result=" + result +
+                        ", pickerX=" + BuildPickerXAxisState(front.PickerX));
 
                 bool arrived = await WaitUntilAsync(() => front.IsFrontPickerInAvoidPosition(), ResolveTimeout(), ct).ConfigureAwait(false);
                 if (!arrived)
@@ -204,7 +207,9 @@ namespace QMC.CDT320.Sequencing
             {
                 int result = await AwaitStepWithCancellationAsync(rear.MoveToRearPickerAvoidPosition(Options.FineMove), ct).ConfigureAwait(false);
                 if (result != 0)
-                    return Fail("IN-FEEDER-REAR-PICKER-AVOID", rear.Name, "RearPicker avoid move command failed. result=" + result);
+                    return Fail("IN-FEEDER-REAR-PICKER-AVOID", rear.Name,
+                        "RearPicker avoid move command failed. result=" + result +
+                        ", pickerX=" + BuildPickerXAxisState(rear.PickerX));
 
                 bool arrived = await WaitUntilAsync(() => rear.IsRearPickerInAvoidPosition(), ResolveTimeout(), ct).ConfigureAwait(false);
                 if (!arrived)
@@ -223,7 +228,8 @@ namespace QMC.CDT320.Sequencing
                 Feeder.SetWaferFeederUpDownAsync(true, ResolveTimeout(), ct),
                 ct).ConfigureAwait(false);
             if (result != 0 || !Feeder.IsWaferFeederUp())
-                return Fail("IN-FEEDER-LIFT-UP", Feeder.Name, "WaferFeeder lift up command failed. result=" + result);
+                return Fail("IN-FEEDER-LIFT-UP", Feeder.Name,
+                    "WaferFeeder lift up command failed. result=" + result + ". " + Feeder.GetWaferFeederTransferState());
 
             CurrentStep = InputFeederUnloadFromStageStep.PrepareFeederUnclamp;
             return 0;
@@ -237,7 +243,8 @@ namespace QMC.CDT320.Sequencing
                 Feeder.SetWaferFeederClampAsync(false, ResolveTimeout(), ct),
                 ct).ConfigureAwait(false);
             if (result != 0 || !Feeder.IsWaferFeederUnclamp())
-                return Fail("IN-FEEDER-UNCLAMP", Feeder.Name, "WaferFeeder unclamp command failed. result=" + result);
+                return Fail("IN-FEEDER-UNCLAMP", Feeder.Name,
+                    "WaferFeeder unclamp command failed. result=" + result + ". " + Feeder.GetWaferFeederTransferState());
 
             CurrentStep = InputFeederUnloadFromStageStep.VerifyStageWaferBeforeTransfer;
             return 0;
@@ -288,7 +295,8 @@ namespace QMC.CDT320.Sequencing
                 Feeder.SetWaferFeederUpDownAsync(false, ResolveTimeout(), ct),
                 ct).ConfigureAwait(false);
             if (result != 0 || !Feeder.IsWaferFeederDown())
-                return Fail("IN-FEEDER-LIFT-DOWN", Feeder.Name, "WaferFeeder lift down command failed. result=" + result);
+                return Fail("IN-FEEDER-LIFT-DOWN", Feeder.Name,
+                    "WaferFeeder lift down command failed. result=" + result + ". " + Feeder.GetWaferFeederTransferState());
 
             CurrentStep = InputFeederUnloadFromStageStep.MoveFeederUnloadPosition;
             return 0;
@@ -302,11 +310,13 @@ namespace QMC.CDT320.Sequencing
                 Feeder.MoveToWaferFeederStageUnloadPosition(Options.FineMove),
                 ct).ConfigureAwait(false);
             if (result != 0)
-                return Fail("IN-FEEDER-STAGE-UNLOAD-POS", Feeder.Name, "WaferFeeder stage unload position move command failed. result=" + result);
+                return Fail("IN-FEEDER-STAGE-UNLOAD-POS", Feeder.Name,
+                    "WaferFeeder stage unload position move command failed. result=" + result + ". " + Feeder.GetWaferFeederTransferState());
 
             bool done = await AwaitStepWithCancellationAsync(Feeder.WaitWaferFeederYMoveDone(ResolveTimeout()), ct).ConfigureAwait(false);
             if (!done || !Feeder.IsWaferFeederInStageUnloadPosition())
-                return Fail("IN-FEEDER-STAGE-UNLOAD-POS-TIMEOUT", Feeder.Name, "WaferFeeder stage unload position timeout.");
+                return Fail("IN-FEEDER-STAGE-UNLOAD-POS-TIMEOUT", Feeder.Name,
+                    "WaferFeeder stage unload position timeout. done=" + done + ". " + Feeder.GetWaferFeederTransferState());
 
             CurrentStep = InputFeederUnloadFromStageStep.ClampFeederWafer;
             return 0;
@@ -320,7 +330,8 @@ namespace QMC.CDT320.Sequencing
                 Feeder.SetWaferFeederClampAsync(true, ResolveTimeout(), ct),
                 ct).ConfigureAwait(false);
             if (result != 0 || !Feeder.IsWaferFeederClamp())
-                return Fail("IN-FEEDER-CLAMP", Feeder.Name, "WaferFeeder clamp command failed. result=" + result);
+                return Fail("IN-FEEDER-CLAMP", Feeder.Name,
+                    "WaferFeeder clamp command failed. result=" + result + ". " + Feeder.GetWaferFeederTransferState());
 
             CurrentStep = InputFeederUnloadFromStageStep.VerifyFeederWaferDetected;
             return 0;
@@ -407,7 +418,7 @@ namespace QMC.CDT320.Sequencing
 
             int result = await AwaitStepWithCancellationAsync(stage.MoveInputStageAxis(axis, target, Options.FineMove), ct).ConfigureAwait(false);
             if (result != 0)
-                return Fail("IN-FEEDER-STAGE-MOVE", stage.Name, description + " move failed. result=" + result);
+                return Fail("IN-FEEDER-STAGE-MOVE", stage.Name, description + " move failed. result=" + result + ", " + BuildStageAxisState(stage, axis, target));
 
             ct.ThrowIfCancellationRequested();
             return 0;
@@ -417,7 +428,7 @@ namespace QMC.CDT320.Sequencing
         {
             int result = await AwaitStepWithCancellationAsync(stage.WaitInputStageAxisInPosition(axis, target, ResolveTimeout()), ct).ConfigureAwait(false);
             if (result != 0)
-                return Fail("IN-FEEDER-STAGE-MOVE-TIMEOUT", stage.Name, description + " move done timeout.");
+                return Fail("IN-FEEDER-STAGE-MOVE-TIMEOUT", stage.Name, description + " move done timeout. waitResult=" + result + ", " + BuildStageAxisState(stage, axis, target));
 
             return 0;
         }
@@ -426,10 +437,10 @@ namespace QMC.CDT320.Sequencing
         {
             QMC.Common.Motion.BaseAxis item = ResolveStageAxis(stage, axis);
             if (item == null)
-                return Fail("IN-FEEDER-STAGE-AXIS", stage != null ? stage.Name : "InputStage", description + " axis is not available.");
+                return Fail("IN-FEEDER-STAGE-AXIS", stage != null ? stage.Name : "InputStage", description + " axis is not available. " + BuildStageAxisState(stage, axis, target));
 
             if (!IsStageAxisInPosition(item, target))
-                return Fail("IN-FEEDER-STAGE-POSITION", stage.Name, description + " final position check failed.");
+                return Fail("IN-FEEDER-STAGE-POSITION", stage.Name, description + " final position check failed. " + BuildStageAxisState(stage, axis, target));
 
             return 0;
         }
@@ -461,6 +472,39 @@ namespace QMC.CDT320.Sequencing
                 ? item.Config.InPositionTolerance
                 : 0.05;
             return Math.Abs(item.ActualPosition - target) <= tolerance;
+        }
+
+        private string BuildPickerXAxisState(QMC.Common.Motion.BaseAxis axis)
+        {
+            if (axis == null)
+                return "axis=null";
+
+            return "name=" + axis.Name +
+                   ", servo=" + (axis.IsServoOn ? "ON" : "OFF") +
+                   ", alarm=" + (axis.IsAlarm ? "ON" : "OFF") +
+                   ", moving=" + (axis.IsMoving ? "Y" : "N") +
+                   ", actual=" + axis.ActualPosition +
+                   ", command=" + axis.CommandPosition;
+        }
+
+        private string BuildStageAxisState(InputStageUnit stage, WaferStageAxis axis, double target)
+        {
+            QMC.Common.Motion.BaseAxis item = ResolveStageAxis(stage, axis);
+            if (item == null)
+                return "axis=" + axis + ", target=" + target + ", state=axis-not-found";
+
+            double tolerance = item.Config != null && item.Config.InPositionTolerance > 0.0
+                ? item.Config.InPositionTolerance
+                : 0.05;
+
+            return "axis=" + axis +
+                   ", name=" + item.Name +
+                   ", servo=" + (item.IsServoOn ? "ON" : "OFF") +
+                   ", alarm=" + (item.IsAlarm ? "ON" : "OFF") +
+                   ", moving=" + (item.IsMoving ? "Y" : "N") +
+                   ", actual=" + item.ActualPosition +
+                   ", target=" + target +
+                   ", tolerance=" + tolerance;
         }
 
         private static async Task<bool> WaitUntilAsync(Func<bool> condition, int timeoutMs, CancellationToken ct)

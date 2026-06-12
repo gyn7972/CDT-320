@@ -31,7 +31,11 @@ namespace QMC.CDT320.Sequencing
             {
                 int result = await ExecuteNextOutputStepAsync(ct, false, 0, SequenceStartMode.Resume).ConfigureAwait(false);
                 if (result != 0)
-                    throw new InvalidOperationException("Output auto sequence failed. result=" + result);
+                    throw new InvalidOperationException(
+                        SequenceFailureStore.AppendRecentDetail(
+                            "Output auto sequence failed. result=" + result,
+                            "OutputSequence",
+                            "OUTPUT-AUTO"));
             }
         }
 
@@ -39,7 +43,11 @@ namespace QMC.CDT320.Sequencing
         {
             int result = await ExecuteNextOutputStepAsync(ct, false, 0, SequenceStartMode.Resume).ConfigureAwait(false);
             if (result != 0)
-                throw new InvalidOperationException("Output step sequence failed. result=" + result);
+                throw new InvalidOperationException(
+                    SequenceFailureStore.AppendRecentDetail(
+                        "Output step sequence failed. result=" + result,
+                        "OutputSequence",
+                        "OUTPUT-STEP"));
         }
 
         public async Task<int> ExecuteNextOutputStepAsync(CancellationToken ct, bool bFine = false, int moveTimeoutMs = 0, SequenceStartMode startMode = SequenceStartMode.Resume)
@@ -689,6 +697,7 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
+                message = SequenceFailureStore.AppendRecentDetail(message, "OutputSequence", alarmCode);
                 SequenceFailureStore.Record("OutputSequence", Kind.ToString(), "", alarmCode, source, message);
                 Log.Write("Main", "SYSTEM", source, message + " - Failed");
                 AlarmManager.Raise(AlarmSeverity.Warning, alarmCode, source, message);

@@ -30,12 +30,36 @@ namespace QMC.CDT320.Interlocks
         private static bool VerifyFrontPickerX(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
+
+            switch (request.MoveKind)
+            {
+                case MotionGuardMoveKind.AxisMove:
+                case MotionGuardMoveKind.AxisTeachingMove:
+                    break;
+                case MotionGuardMoveKind.AxisHome:
+                    return VerifyFrontPickerXHome(request.Machine, out reason);
+                default:
+                    return true;
+            }
+
             return VerifyFrontPickerNotBusy(request.Machine.PickerFrontUnit, "FrontPickerX", out reason);
         }
 
         private static bool VerifyFrontPickerY(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
+
+            switch (request.MoveKind)
+            {
+                case MotionGuardMoveKind.AxisMove:
+                case MotionGuardMoveKind.AxisTeachingMove:
+                    break;
+                case MotionGuardMoveKind.AxisHome:
+                    return VerifyFrontPickerYHome(request.Machine, out reason);
+                default:
+                    return true;
+            }
+
             if (!VerifyReticleCylinderClear(request.Machine, "FrontPickerY", out reason))
                 return false;
             if (request.Machine.PickerRearUnit != null &&
@@ -48,12 +72,163 @@ namespace QMC.CDT320.Interlocks
         private static bool VerifyFrontPickerT(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
+
+            switch (request.MoveKind)
+            {
+                case MotionGuardMoveKind.AxisMove:
+                case MotionGuardMoveKind.AxisTeachingMove:
+                    break;
+                case MotionGuardMoveKind.AxisHome:
+                    return VerifyFrontPickerTHome(request.Machine, request.MovingName, out reason);
+                default:
+                    return true;
+            }
+
             return VerifyFrontPickerNotBusy(request.Machine.PickerFrontUnit, request.MovingName, out reason);
+        }
+
+        private static bool VerifyFrontPickerXHome(CDT320_Machine machine, out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                InputStageUnit stage = machine != null ? machine.InputStageUnit : null;
+                if (stage != null && !stage.IsVisionXInAvoidPosition())
+                    return MotionGuardRuleHelpers.Block(
+                        "FrontPickerX",
+                        "FrontPickerX HOME blocked. InputVisionX must be at Avoid position.",
+                        out reason);
+
+                if (stage != null && !stage.IsExpanderZInAvoidPosition())
+                    return MotionGuardRuleHelpers.Block(
+                        "FrontPickerX",
+                        "FrontPickerX HOME blocked. InputExpandingZ must be at Avoid position.",
+                        out reason);
+
+                PickerFrontUnit front = machine != null ? machine.PickerFrontUnit : null;
+                if (front != null && !front.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition"))
+                    return MotionGuardRuleHelpers.Block(
+                        "FrontPickerX",
+                        "FrontPickerX HOME blocked. FrontPickerY must be at Avoid position.",
+                        out reason);
+
+                if (!VerifyFrontPickerZAxesAvoid(front, "FrontPickerX", out reason))
+                    return false;
+
+                InputFeederUnit feeder = machine != null ? machine.InputFeederUnit : null;
+                if (feeder != null && !feeder.IsWaferFeederYInAvoidPosition())
+                    return MotionGuardRuleHelpers.Block(
+                        "FrontPickerX",
+                        "FrontPickerX HOME blocked. InputFeederY must be at Avoid position.",
+                        out reason);
+
+                if (feeder != null && !feeder.IsWaferFeederDown())
+                    return MotionGuardRuleHelpers.Block(
+                        "FrontPickerX",
+                        "FrontPickerX HOME blocked. InputFeeder lift cylinder must be down.",
+                        out reason);
+
+                return true;
+            }
+            catch (System.Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "FrontPickerX",
+                    "Exception occurred while verifying FrontPickerX home rules: " + ex.Message,
+                    out reason);
+            }
+            finally
+            {
+                LogBlockedReason(reason);
+            }
+        }
+
+        private static bool VerifyFrontPickerYHome(CDT320_Machine machine, out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                InputStageUnit stage = machine != null ? machine.InputStageUnit : null;
+                if (stage != null && !stage.IsExpanderZInAvoidPosition())
+                    return MotionGuardRuleHelpers.Block(
+                        "FrontPickerY",
+                        "FrontPickerY HOME blocked. InputExpandingZ must be at Avoid position.",
+                        out reason);
+
+                if (!VerifyFrontPickerZAxesAvoid(machine != null ? machine.PickerFrontUnit : null, "FrontPickerY", out reason))
+                    return false;
+
+                InputFeederUnit feeder = machine != null ? machine.InputFeederUnit : null;
+                if (feeder != null && !feeder.IsWaferFeederYInAvoidPosition())
+                    return MotionGuardRuleHelpers.Block(
+                        "FrontPickerY",
+                        "FrontPickerY HOME blocked. InputFeederY must be at Avoid position.",
+                        out reason);
+
+                return true;
+            }
+            catch (System.Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "FrontPickerY",
+                    "Exception occurred while verifying FrontPickerY home rules: " + ex.Message,
+                    out reason);
+            }
+            finally
+            {
+                LogBlockedReason(reason);
+            }
+        }
+
+        private static bool VerifyFrontPickerTHome(CDT320_Machine machine, string movingName, out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                PickerAxis zAxis;
+                if (!TryResolvePairedZAxis(movingName, out zAxis))
+                    return true;
+
+                PickerFrontUnit front = machine != null ? machine.PickerFrontUnit : null;
+                if (front != null && !front.IsPickerAxisInTeachingPosition(zAxis, "AvoidPosition"))
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        movingName + " HOME blocked. Front" + zAxis + " must be at Avoid position.",
+                        out reason);
+
+                return true;
+            }
+            catch (System.Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    "Exception occurred while verifying " + movingName + " home rules: " + ex.Message,
+                    out reason);
+            }
+            finally
+            {
+                LogBlockedReason(reason);
+            }
         }
 
         private static bool VerifyFrontPickerZ(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
+
+            switch (request.MoveKind)
+            {
+                case MotionGuardMoveKind.AxisMove:
+                case MotionGuardMoveKind.AxisTeachingMove:
+                    break;
+                case MotionGuardMoveKind.AxisHome:
+                    return true;
+                default:
+                    return true;
+            }
+
             return VerifyFrontPickerNotBusy(request.Machine.PickerFrontUnit, request.MovingName, out reason);
         }
 
@@ -124,6 +299,64 @@ namespace QMC.CDT320.Interlocks
             }
 
             return true;
+        }
+
+        private static bool VerifyFrontPickerZAxesAvoid(PickerFrontUnit picker, string movingName, out string reason)
+        {
+            reason = string.Empty;
+            if (picker == null)
+                return true;
+
+            PickerAxis[] zAxes = { PickerAxis.PickerZ0, PickerAxis.PickerZ1, PickerAxis.PickerZ2, PickerAxis.PickerZ3 };
+            for (int i = 0; i < zAxes.Length; i++)
+            {
+                PickerAxis zAxis = zAxes[i];
+                if (!picker.IsPickerAxisInTeachingPosition(zAxis, "AvoidPosition"))
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        movingName + " HOME blocked. Front" + zAxis + " must be at Avoid position.",
+                        out reason);
+            }
+
+            return true;
+        }
+
+        private static bool TryResolvePairedZAxis(string movingName, out PickerAxis zAxis)
+        {
+            zAxis = PickerAxis.PickerZ0;
+
+            switch (movingName)
+            {
+                case "FrontPickerT0":
+                    zAxis = PickerAxis.PickerZ0;
+                    return true;
+                case "FrontPickerT1":
+                    zAxis = PickerAxis.PickerZ1;
+                    return true;
+                case "FrontPickerT2":
+                    zAxis = PickerAxis.PickerZ2;
+                    return true;
+                case "FrontPickerT3":
+                    zAxis = PickerAxis.PickerZ3;
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        private static void LogBlockedReason(string reason)
+        {
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(reason))
+                    QMC.Common.Log.Write("Main", "INTERLOCK", "PickerFrontInterlock", reason + " - Blocked");
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
         }
     }
 }

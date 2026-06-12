@@ -85,7 +85,8 @@ namespace QMC.CDT320.Sequencing
             unloadOptions.StartMode = SequenceStartMode.Restart;
             int result = await new OutputFeederUnloadToCassetteSequence(Context).RunAsync(ct, unloadOptions).ConfigureAwait(false);
             if (result != 0)
-                return Fail("OUT-FEEDER-EXCHANGE-UNLOAD", Feeder.Name, "Output feeder exchange unload failed. result=" + result);
+                return Fail("OUT-FEEDER-EXCHANGE-UNLOAD", Feeder.Name,
+                    "Output feeder exchange unload failed. result=" + result + ", side=" + Options.Side + ", " + Feeder.DescribeFeederCylinderState());
 
             CurrentStep = OutputFeederExchangeStep.LoadNextFromCassette;
             return 0;
@@ -98,7 +99,8 @@ namespace QMC.CDT320.Sequencing
             loadOptions.StartMode = SequenceStartMode.Restart;
             int result = await new OutputFeederLoadFromCassetteSequence(Context).RunAsync(ct, loadOptions).ConfigureAwait(false);
             if (result != 0)
-                return Fail("OUT-FEEDER-EXCHANGE-LOAD", Feeder.Name, "Output feeder exchange load failed. result=" + result);
+                return Fail("OUT-FEEDER-EXCHANGE-LOAD", Feeder.Name,
+                    "Output feeder exchange load failed. result=" + result + ", side=" + Options.Side + ", " + Feeder.DescribeFeederCylinderState());
 
             CurrentStep = OutputFeederExchangeStep.MoveExchangePosition;
             return 0;

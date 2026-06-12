@@ -94,8 +94,9 @@ namespace QMC.CDT320.Sequencing
 
         private int CheckTransferReady()
         {
-            if (!Feeder.CheckWaferFeederMoveReady())
-                return Fail("IN-FEEDER-CST-UNLOAD-READY", Feeder.Name, "Input feeder is not move ready. state=" + Feeder.GetWaferFeederTransferState());
+            string feederReason;
+            if (!Feeder.CheckWaferFeederMoveReady(out feederReason))
+                return Fail("IN-FEEDER-CST-UNLOAD-READY", Feeder.Name, "Input feeder is not move ready. " + feederReason);
 
             if (!Feeder.HasWaferOnFeeder())
                 return Fail("IN-FEEDER-WAFER-MISSING", Feeder.Name, "InputFeeder must have wafer before cassette unload.");
@@ -104,11 +105,12 @@ namespace QMC.CDT320.Sequencing
             if (cassette == null)
                 return Fail("IN-FEEDER-CST-MISSING", "InputCassette", "Input cassette unit is not available.");
 
-            if (!IsHardwareBypass() && !cassette.CheckWaferCassetteTransferReady(TransferMode.Unload))
-                return Fail("IN-FEEDER-CST-SENSOR", cassette.Name, "Input cassette is not detected or not ready for unload.");
+            string cassetteReason;
+            if (!IsHardwareBypass() && !cassette.CheckWaferCassetteTransferReady(TransferMode.Unload, out cassetteReason))
+                return Fail("IN-FEEDER-CST-SENSOR", cassette.Name, "Input cassette is not detected or not ready for unload. " + cassetteReason);
 
-            if (!cassette.CheckWaferCassetteMoveReady())
-                return Fail("IN-FEEDER-CST-MOVE-READY", cassette.Name, "Input cassette lifter is not move ready.");
+            if (!cassette.CheckWaferCassetteMoveReady(out cassetteReason))
+                return Fail("IN-FEEDER-CST-MOVE-READY", cassette.Name, "Input cassette lifter is not move ready. " + cassetteReason);
 
             CurrentStep = InputFeederUnloadToCassetteStep.CheckFeederWaferData;
             return 0;
@@ -161,7 +163,8 @@ namespace QMC.CDT320.Sequencing
                 Feeder.SetWaferFeederClampAsync(true, ResolveTimeout(), ct),
                 ct).ConfigureAwait(false);
             if (result != 0 || !Feeder.IsWaferFeederClamp())
-                return Fail("IN-FEEDER-CLAMP", Feeder.Name, "WaferFeeder clamp command failed. result=" + result);
+                return Fail("IN-FEEDER-CLAMP", Feeder.Name,
+                    "WaferFeeder clamp command failed. result=" + result + ". " + Feeder.GetWaferFeederTransferState());
 
             CurrentStep = InputFeederUnloadToCassetteStep.VerifyFeederLiftDown;
             return 0;
@@ -177,7 +180,8 @@ namespace QMC.CDT320.Sequencing
                     Feeder.SetWaferFeederUpDownAsync(false, ResolveTimeout(), ct),
                     ct).ConfigureAwait(false);
                 if (result != 0 || !Feeder.IsWaferFeederDown())
-                    return Fail("IN-FEEDER-LIFT-DOWN", Feeder.Name, "WaferFeeder lift down command failed. result=" + result);
+                    return Fail("IN-FEEDER-LIFT-DOWN", Feeder.Name,
+                        "WaferFeeder lift down command failed. result=" + result + ". " + Feeder.GetWaferFeederTransferState());
             }
 
             CurrentStep = InputFeederUnloadToCassetteStep.VerifyWaferDetected;
@@ -211,12 +215,14 @@ namespace QMC.CDT320.Sequencing
                 Feeder.MoveToWaferFeederCassetteUnloadPosition(ResolveUnloadSlotIndex(), Options.FineMove),
                 ct).ConfigureAwait(false);
             if (result != 0)
-                return Fail("IN-FEEDER-CST-UNLOAD-POS", Feeder.Name, "WaferFeeder cassette unload position move command failed. result=" + result);
+                return Fail("IN-FEEDER-CST-UNLOAD-POS", Feeder.Name,
+                    "WaferFeeder cassette unload position move command failed. result=" + result + ". " + Feeder.GetWaferFeederTransferState());
 
             bool done = await AwaitStepWithCancellationAsync(Feeder.WaitWaferFeederYMoveDone(ResolveTimeout()), ct).ConfigureAwait(false);
             int unloadSlot = ResolveUnloadSlotIndex();
             if (!done || !Feeder.IsWaferFeederInCassetteUnloadPosition(unloadSlot))
-                return Fail("IN-FEEDER-CST-UNLOAD-POS-TIMEOUT", Feeder.Name, "WaferFeeder cassette unload position timeout. slot=" + unloadSlot);
+                return Fail("IN-FEEDER-CST-UNLOAD-POS-TIMEOUT", Feeder.Name,
+                    "WaferFeeder cassette unload position timeout. slot=" + unloadSlot + ", done=" + done + ". " + Feeder.GetWaferFeederTransferState());
 
             CurrentStep = InputFeederUnloadToCassetteStep.PrepareFeederUnclamp;
             return 0;
@@ -230,7 +236,8 @@ namespace QMC.CDT320.Sequencing
                 Feeder.SetWaferFeederClampAsync(false, ResolveTimeout(), ct),
                 ct).ConfigureAwait(false);
             if (result != 0 || !Feeder.IsWaferFeederUnclamp())
-                return Fail("IN-FEEDER-UNCLAMP", Feeder.Name, "WaferFeeder unclamp command failed. result=" + result);
+                return Fail("IN-FEEDER-UNCLAMP", Feeder.Name,
+                    "WaferFeeder unclamp command failed. result=" + result + ". " + Feeder.GetWaferFeederTransferState());
 
             CurrentStep = InputFeederUnloadToCassetteStep.VerifyWaferCleared;
             return 0;
@@ -300,12 +307,14 @@ namespace QMC.CDT320.Sequencing
                     : Feeder.MoveToWaferFeederAvoidPosition(Options.FineMove),
                 ct).ConfigureAwait(false);
             if (result != 0)
-                return Fail("IN-FEEDER-POST-UNLOAD-MOVE", Feeder.Name, "WaferFeeder post unload position move command failed. result=" + result);
+                return Fail("IN-FEEDER-POST-UNLOAD-MOVE", Feeder.Name,
+                    "WaferFeeder post unload position move command failed. result=" + result + ". " + Feeder.GetWaferFeederTransferState());
 
             bool done = await AwaitStepWithCancellationAsync(Feeder.WaitWaferFeederYMoveDone(ResolveTimeout()), ct).ConfigureAwait(false);
             bool arrived = exchange ? Feeder.IsWaferFeederInExchangePosition() : Feeder.IsWaferFeederInAvoidPosition();
             if (!done || !arrived)
-                return Fail("IN-FEEDER-POST-UNLOAD-TIMEOUT", Feeder.Name, "WaferFeeder post unload position timeout. target=" + Options.PostUnloadMove);
+                return Fail("IN-FEEDER-POST-UNLOAD-TIMEOUT", Feeder.Name,
+                    "WaferFeeder post unload position timeout. target=" + Options.PostUnloadMove + ", done=" + done + ", arrived=" + arrived + ". " + Feeder.GetWaferFeederTransferState());
 
             CurrentStep = InputFeederUnloadToCassetteStep.MoveCassetteToSlotPosition;
             return 0;
@@ -353,16 +362,37 @@ namespace QMC.CDT320.Sequencing
 
             int result = await AwaitStepWithCancellationAsync(cassette.MoveWaferLifterZ(target, Options.FineMove), ct).ConfigureAwait(false);
             if (result != 0)
-                return Fail("IN-FEEDER-CST-Z-MOVE", cassette.Name, description + " move failed. target=" + target + ", result=" + result);
+                return Fail("IN-FEEDER-CST-Z-MOVE", cassette.Name,
+                    description + " move failed. target=" + target + ", result=" + result + ". " + BuildCassetteZState(cassette, target));
 
             result = await AwaitStepWithCancellationAsync(cassette.WaitWaferLifterZMoveDone(ResolveTimeout()), ct).ConfigureAwait(false);
             if (result != 0)
-                return Fail("IN-FEEDER-CST-Z-TIMEOUT", cassette.Name, description + " move done timeout. target=" + target);
+                return Fail("IN-FEEDER-CST-Z-TIMEOUT", cassette.Name,
+                    description + " move done timeout. target=" + target + ", waitResult=" + result + ". " + BuildCassetteZState(cassette, target));
 
             if (!cassette.IsWaferLifterZInPosition(target, cassette.ResolveWaferLifterZInPositionTolerance()))
-                return Fail("IN-FEEDER-CST-Z-POSITION", cassette.Name, description + " final position check failed. target=" + target);
+                return Fail("IN-FEEDER-CST-Z-POSITION", cassette.Name,
+                    description + " final position check failed. target=" + target + ". " + BuildCassetteZState(cassette, target));
 
             return 0;
+        }
+
+        private string BuildCassetteZState(InputCassetteUnit cassette, double target)
+        {
+            if (cassette == null || cassette.InputLifterZ == null)
+                return "CassetteZ=null, target=" + target;
+
+            double tolerance = cassette.ResolveWaferLifterZInPositionTolerance();
+            return "CassetteZ name=" + cassette.InputLifterZ.Name +
+                   ", servo=" + cassette.InputLifterZ.IsServoOn +
+                   ", alarm=" + cassette.InputLifterZ.IsAlarm +
+                   ", alarmCode=" + cassette.InputLifterZ.AlarmCode +
+                   ", moving=" + cassette.InputLifterZ.IsMoving +
+                   ", actual=" + cassette.InputLifterZ.ActualPosition +
+                   ", command=" + cassette.InputLifterZ.CommandPosition +
+                   ", target=" + target +
+                   ", tolerance=" + tolerance +
+                   ", inPosition=" + cassette.IsWaferLifterZInPosition(target, tolerance);
         }
 
         private bool IsUnloadSlotEmpty(InputCassetteUnit cassette, int slotIndex)

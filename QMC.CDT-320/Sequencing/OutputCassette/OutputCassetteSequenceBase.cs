@@ -120,7 +120,12 @@ namespace QMC.CDT320.Sequencing
                 bool goodDetected = cassette.IsBinCassetteExist(TargetCassette.Good1, size);
                 bool ngDetected = cassette.IsBinCassetteExist(TargetCassette.Ng, size);
                 if (!IsHardwareBypassed() && (!goodDetected || !ngDetected))
-                    return Fail("OUT-CST-MISSING", cassette.Name, "Output good/ng cassette is not detected.");
+                    return Fail("OUT-CST-MISSING", cassette.Name,
+                        "Output good/ng cassette is not detected. size=" + size +
+                        ", goodDetected=" + goodDetected + ", ngDetected=" + ngDetected +
+                        ", good1Sensor=" + cassette.IsBinCassetteExist(TargetCassette.Good1, size) +
+                        ", good2Sensor=" + cassette.IsBinCassetteExist(TargetCassette.Good2, size) +
+                        ", ngSensor=" + cassette.IsBinCassetteExist(TargetCassette.Ng, size));
                 if (IsHardwareBypassed() && (!goodDetected || !ngDetected))
                     Context.LogPublic("[OUTPUT-CASSETTE] Hardware bypass: cassette detect sensor check skipped.");
 
@@ -173,7 +178,10 @@ namespace QMC.CDT320.Sequencing
                 if (!IsHardwareBypassed() && !matched)
                 {
                     if (!allowMismatch)
-                        return Fail("OUT-CST-SIZE", cassette.Name, "Output cassette size does not match recipe/config.");
+                        return Fail("OUT-CST-SIZE", cassette.Name,
+                            "Output cassette size does not match recipe/config. size=" + size +
+                            ", goodMatched=" + goodMatched + ", ngMatched=" + ngMatched +
+                            ", allowMismatch=" + allowMismatch);
 
                     Context.LogPublic("[OUTPUT-CASSETTE] Unloading continues although cassette size does not match recipe/config.");
                 }
@@ -200,10 +208,11 @@ namespace QMC.CDT320.Sequencing
                 var cassette = Cassette;
                 if (cassette == null)
                     return Fail("OUT-CST-MISSING", "OutputCassette", "Output cassette unit is not available.");
-                if (!IsHardwareBypassed() && !cassette.CheckBinCassetteMappingReady(TargetCassette.Good1))
-                    return Fail("OUT-CST-MAP-GOOD-READY", cassette.Name, "Good cassette is not ready for mapping.");
-                if (!IsHardwareBypassed() && !cassette.CheckBinCassetteMappingReady(TargetCassette.Ng))
-                    return Fail("OUT-CST-MAP-NG-READY", cassette.Name, "NG cassette is not ready for mapping.");
+                string readyReason;
+                if (!IsHardwareBypassed() && !cassette.CheckBinCassetteMappingReady(TargetCassette.Good1, out readyReason))
+                    return Fail("OUT-CST-MAP-GOOD-READY", cassette.Name, "Good cassette is not ready for mapping. " + readyReason);
+                if (!IsHardwareBypassed() && !cassette.CheckBinCassetteMappingReady(TargetCassette.Ng, out readyReason))
+                    return Fail("OUT-CST-MAP-NG-READY", cassette.Name, "NG cassette is not ready for mapping. " + readyReason);
 
                 CurrentStep = nextStep;
                 return 0;
@@ -227,7 +236,14 @@ namespace QMC.CDT320.Sequencing
                               feeder.IsBinFeederYInExchangePosition(BinSide.Good) ||
                               feeder.IsBinFeederYInExchangePosition(BinSide.Ng));
                 if (!IsHardwareBypassed() && !ready)
-                    return Fail("OUT-CST-FEEDER-POS", feeder != null ? feeder.Name : "OutputFeeder", "Output feeder must be in avoid or exchange position.");
+                    return Fail("OUT-CST-FEEDER-POS", feeder != null ? feeder.Name : "OutputFeeder",
+                        "Output feeder must be in avoid or exchange position. feederNull=" + (feeder == null) +
+                        (feeder != null
+                            ? ", avoid=" + feeder.IsBinFeederYInAvoidPosition() +
+                              ", goodExchange=" + feeder.IsBinFeederYInExchangePosition(BinSide.Good) +
+                              ", ngExchange=" + feeder.IsBinFeederYInExchangePosition(BinSide.Ng) +
+                              ", feederY=" + feeder.DescribeBinFeederYMoveDoneState()
+                            : ""));
                 if (IsHardwareBypassed() && !ready)
                     Context.LogPublic("[OUTPUT-CASSETTE] Hardware bypass: feeder position sensor check skipped.");
 
@@ -446,8 +462,9 @@ namespace QMC.CDT320.Sequencing
                 var cassette = Cassette;
                 if (cassette == null)
                     return Fail("OUT-CST-MISSING", "OutputCassette", "Output cassette unit is not available.");
-                if (!cassette.CheckBinLifterZMoveReady())
-                    return Fail("OUT-CST-MOVE-READY", cassette.Name, "Output cassette is not ready to move.");
+                string readyReason;
+                if (!cassette.CheckBinLifterZMoveReady(out readyReason))
+                    return Fail("OUT-CST-MOVE-READY", cassette.Name, "Output cassette is not ready to move. " + readyReason);
 
                 ct.ThrowIfCancellationRequested();
                 await AwaitStepWithCancellationAsync(MoveLifterZCommandAsync(cassette, target), ct).ConfigureAwait(false);
@@ -455,10 +472,14 @@ namespace QMC.CDT320.Sequencing
 
                 bool done = await AwaitStepWithCancellationAsync(cassette.WaitBinLifterZMoveDone(ResolveMoveTimeout(cassette)), ct).ConfigureAwait(false);
                 if (!done)
-                    return Fail("OUT-CST-MOVE-WAIT", cassette.Name, description + " move timeout.");
+                    return Fail("OUT-CST-MOVE-WAIT", cassette.Name,
+                        description + " move timeout. target=" + target +
+                        ", actual=" + (cassette.OutputLifterZ != null ? cassette.OutputLifterZ.ActualPosition.ToString() : "null"));
 
                 if (!cassette.IsBinLifterZInPosition(target))
-                    return Fail("OUT-CST-MOVE-CHECK", cassette.Name, description + " final position check failed. target=" + target);
+                    return Fail("OUT-CST-MOVE-CHECK", cassette.Name,
+                        description + " final position check failed. target=" + target +
+                        ", actual=" + (cassette.OutputLifterZ != null ? cassette.OutputLifterZ.ActualPosition.ToString() : "null"));
 
                 return 0;
             }

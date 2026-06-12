@@ -61,7 +61,8 @@ namespace QMC.CDT320.Sequencing
                 Feeder.SetWaferFeederClampAsync(false, ResolveTimeout(), ct),
                 ct).ConfigureAwait(false);
             if (result != 0 || !Feeder.IsWaferFeederUnclamp())
-                return Fail("IN-FEEDER-RECOVER-UNCLAMP", Feeder.Name, "WaferFeeder recover unclamp failed. result=" + result);
+                return Fail("IN-FEEDER-RECOVER-UNCLAMP", Feeder.Name,
+                    "WaferFeeder recover unclamp failed. result=" + result + ". " + Feeder.GetWaferFeederTransferState());
 
             CurrentStep = InputFeederRecoverStep.PrepareFeederLiftDown;
             return 0;
@@ -73,7 +74,8 @@ namespace QMC.CDT320.Sequencing
                 Feeder.SetWaferFeederUpDownAsync(false, ResolveTimeout(), ct),
                 ct).ConfigureAwait(false);
             if (result != 0 || !Feeder.IsWaferFeederDown())
-                return Fail("IN-FEEDER-RECOVER-DOWN", Feeder.Name, "WaferFeeder recover lift down failed. result=" + result);
+                return Fail("IN-FEEDER-RECOVER-DOWN", Feeder.Name,
+                    "WaferFeeder recover lift down failed. result=" + result + ". " + Feeder.GetWaferFeederTransferState());
 
             CurrentStep = InputFeederRecoverStep.MoveFeederAvoidPosition;
             return 0;
@@ -87,11 +89,13 @@ namespace QMC.CDT320.Sequencing
                 Feeder.MoveToWaferFeederAvoidPosition(Options.FineMove),
                 ct).ConfigureAwait(false);
             if (result != 0)
-                return Fail("IN-FEEDER-RECOVER-AVOID", Feeder.Name, "WaferFeeder recover avoid move command failed. result=" + result);
+                return Fail("IN-FEEDER-RECOVER-AVOID", Feeder.Name,
+                    "WaferFeeder recover avoid move command failed. result=" + result + ". " + Feeder.GetWaferFeederTransferState());
 
             bool done = await AwaitStepWithCancellationAsync(Feeder.WaitWaferFeederYMoveDone(ResolveTimeout()), ct).ConfigureAwait(false);
             if (!done || !Feeder.IsWaferFeederInAvoidPosition())
-                return Fail("IN-FEEDER-RECOVER-AVOID-TIMEOUT", Feeder.Name, "WaferFeeder recover avoid position timeout.");
+                return Fail("IN-FEEDER-RECOVER-AVOID-TIMEOUT", Feeder.Name,
+                    "WaferFeeder recover avoid position timeout. done=" + done + ". " + Feeder.GetWaferFeederTransferState());
 
             Context.Bus.Set("InputFeederRecovered");
             CurrentStep = InputFeederRecoverStep.Complete;

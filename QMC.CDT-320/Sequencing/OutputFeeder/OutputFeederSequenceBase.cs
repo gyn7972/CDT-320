@@ -98,8 +98,9 @@ namespace QMC.CDT320.Sequencing
             if (Feeder == null)
                 return Fail("OUT-FEEDER-MISSING", "OutputFeeder", "Output feeder unit is not available.");
 
-            if (Feeder.IsFeederOverload())
-                return Fail("OUT-FEEDER-OVERLOAD", Feeder.Name, "Output feeder overload is on.");
+            string readyReason;
+            if (!Feeder.CheckBinFeederYMoveReady(out readyReason))
+                return Fail("OUT-FEEDER-MOVE-READY", Feeder.Name, "Output feeder is not ready. " + readyReason);
 
             CurrentStep = nextStep;
             return 0;
@@ -109,7 +110,9 @@ namespace QMC.CDT320.Sequencing
         {
             WaferMaterial wafer = ResolveCassetteWafer();
             if (wafer == null)
-                return Fail("OUT-FEEDER-CST-DATA", "Material", "Output cassette source slot data was not found. role=" + ResolveOutputCassetteRole() + ", slot=" + Options.SlotIndex);
+                return Fail("OUT-FEEDER-CST-DATA", "Material",
+                    "Output cassette source slot data was not found. role=" + ResolveOutputCassetteRole() +
+                    ", slot=" + Options.SlotIndex + ", side=" + Options.Side);
 
             WaferMaterialState state = WaferMaterialStateText.Normalize(wafer.State);
             if (state != WaferMaterialState.Ready && state != WaferMaterialState.WorkReady)
@@ -117,10 +120,14 @@ namespace QMC.CDT320.Sequencing
 
             WaferMaterial feederWafer = ResolveFeederWafer();
             if (feederWafer != null)
-                return Fail("OUT-FEEDER-DATA-OCCUPIED", "Material", "Output feeder data must be empty before cassette load. waferId=" + feederWafer.WaferId);
+                return Fail("OUT-FEEDER-DATA-OCCUPIED", "Material",
+                    "Output feeder data must be empty before cassette load. waferId=" + feederWafer.WaferId +
+                    ", state=" + feederWafer.State + ", loc=" + feederWafer.CurrentLocation);
 
             if (!IsHardwareBypass() && !Feeder.IsFeederEmpty())
-                return Fail("OUT-FEEDER-SENSOR-OCCUPIED", Feeder.Name, "Output feeder sensor must be empty before cassette load.");
+                return Fail("OUT-FEEDER-SENSOR-OCCUPIED", Feeder.Name,
+                    "Output feeder sensor must be empty before cassette load. sensorOccupied=" + Feeder.IsFeederOccupied() +
+                    ", sensorEmpty=" + Feeder.IsFeederEmpty());
 
             CurrentStep = nextStep;
             return 0;
@@ -130,14 +137,21 @@ namespace QMC.CDT320.Sequencing
         {
             WaferMaterial feederWafer = ResolveFeederWafer();
             if (feederWafer == null)
-                return Fail("OUT-FEEDER-DATA-MISSING", "Material", "Output feeder data was not found before stage load.");
+                return Fail("OUT-FEEDER-DATA-MISSING", "Material",
+                    "Output feeder data was not found before stage load. side=" + Options.Side +
+                    ", location=OutputFeeder empty.");
 
             WaferMaterial stageWafer = ResolveStageWafer();
             if (stageWafer != null)
-                return Fail("OUT-STAGE-DATA-OCCUPIED", "Material", "Output stage must be empty before feeder to stage load. side=" + Options.Side + ", waferId=" + stageWafer.WaferId);
+                return Fail("OUT-STAGE-DATA-OCCUPIED", "Material",
+                    "Output " + Options.Side + " stage must be empty before feeder to stage load. side=" + Options.Side +
+                    ", waferId=" + stageWafer.WaferId + ", state=" + stageWafer.State +
+                    ", loc=" + stageWafer.CurrentLocation);
 
             if (!IsHardwareBypass() && !Feeder.IsFeederOccupied())
-                return Fail("OUT-FEEDER-SENSOR-EMPTY", Feeder.Name, "Output feeder sensor/data mismatch before stage load. waferId=" + feederWafer.WaferId);
+                return Fail("OUT-FEEDER-SENSOR-EMPTY", Feeder.Name,
+                    "Output feeder sensor/data mismatch before stage load. waferId=" + feederWafer.WaferId +
+                    ", sensorOccupied=" + Feeder.IsFeederOccupied() + ", sensorEmpty=" + Feeder.IsFeederEmpty());
 
             CurrentStep = nextStep;
             return 0;
@@ -147,14 +161,20 @@ namespace QMC.CDT320.Sequencing
         {
             WaferMaterial stageWafer = ResolveStageWafer();
             if (stageWafer == null)
-                return Fail("OUT-STAGE-DATA-MISSING", "Material", "Output stage data was not found before stage unload. side=" + Options.Side);
+                return Fail("OUT-STAGE-DATA-MISSING", "Material",
+                    "Output " + Options.Side + " stage data was not found before stage unload. location=" +
+                    ResolveOutputStageLocation());
 
             WaferMaterial feederWafer = ResolveFeederWafer();
             if (feederWafer != null)
-                return Fail("OUT-FEEDER-DATA-OCCUPIED", "Material", "Output feeder data must be empty before stage unload. waferId=" + feederWafer.WaferId);
+                return Fail("OUT-FEEDER-DATA-OCCUPIED", "Material",
+                    "Output feeder data must be empty before stage unload. waferId=" + feederWafer.WaferId +
+                    ", state=" + feederWafer.State + ", loc=" + feederWafer.CurrentLocation);
 
             if (!IsHardwareBypass() && !Feeder.IsFeederEmpty())
-                return Fail("OUT-FEEDER-SENSOR-OCCUPIED", Feeder.Name, "Output feeder sensor must be empty before stage unload.");
+                return Fail("OUT-FEEDER-SENSOR-OCCUPIED", Feeder.Name,
+                    "Output feeder sensor must be empty before stage unload. sensorOccupied=" + Feeder.IsFeederOccupied() +
+                    ", sensorEmpty=" + Feeder.IsFeederEmpty());
 
             CurrentStep = nextStep;
             return 0;
@@ -164,14 +184,20 @@ namespace QMC.CDT320.Sequencing
         {
             WaferMaterial feederWafer = ResolveFeederWafer();
             if (feederWafer == null)
-                return Fail("OUT-FEEDER-DATA-MISSING", "Material", "Output feeder data was not found before cassette unload.");
+                return Fail("OUT-FEEDER-DATA-MISSING", "Material",
+                    "Output feeder data was not found before cassette unload. location=OutputFeeder empty.");
 
             WaferMaterial cassetteWafer = ResolveCassetteWafer();
             if (cassetteWafer != null && WaferMaterialStateText.Normalize(cassetteWafer.State) != WaferMaterialState.Empty)
-                return Fail("OUT-FEEDER-CST-SLOT-OCCUPIED", "Material", "Output cassette target slot must be empty before unload. role=" + ResolveOutputCassetteRole() + ", slot=" + Options.SlotIndex + ", waferId=" + cassetteWafer.WaferId);
+                return Fail("OUT-FEEDER-CST-SLOT-OCCUPIED", "Material",
+                    "Output cassette target slot must be empty before unload. role=" + ResolveOutputCassetteRole() +
+                    ", slot=" + Options.SlotIndex + ", waferId=" + cassetteWafer.WaferId +
+                    ", state=" + cassetteWafer.State + ", loc=" + cassetteWafer.CurrentLocation);
 
             if (!IsHardwareBypass() && !Feeder.IsFeederOccupied())
-                return Fail("OUT-FEEDER-SENSOR-EMPTY", Feeder.Name, "Output feeder sensor/data mismatch before cassette unload. waferId=" + feederWafer.WaferId);
+                return Fail("OUT-FEEDER-SENSOR-EMPTY", Feeder.Name,
+                    "Output feeder sensor/data mismatch before cassette unload. waferId=" + feederWafer.WaferId +
+                    ", sensorOccupied=" + Feeder.IsFeederOccupied() + ", sensorEmpty=" + Feeder.IsFeederEmpty());
 
             CurrentStep = nextStep;
             return 0;
@@ -181,7 +207,9 @@ namespace QMC.CDT320.Sequencing
         {
             int result = await AwaitStepWithCancellationAsync(moveTask, ct).ConfigureAwait(false);
             if (result != 0)
-                return Fail("OUT-FEEDER-Y-MOVE", Feeder.Name, description + " move command failed. result=" + result);
+                return Fail("OUT-FEEDER-Y-MOVE", Feeder.Name,
+                    description + " move command failed. result=" + result + ", " +
+                    (Feeder != null ? Feeder.DescribeBinFeederYMoveDoneState() : "Feeder=null"));
 
             return 0;
         }

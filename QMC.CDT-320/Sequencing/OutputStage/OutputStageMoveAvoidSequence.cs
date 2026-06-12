@@ -120,7 +120,9 @@ namespace QMC.CDT320.Sequencing
             {
                 double target = ResolveTarget(axis, positionName);
                 if (!Stage.IsStageAxisInPosition(axis, target, ResolveTolerance(axis)))
-                    return Fail("OUT-STAGE-AVOID-CHECK", Stage.Name, description + " final check failed. target=" + target);
+                    return Fail("OUT-STAGE-AVOID-CHECK", Stage.Name,
+                        description + " final check failed. target=" + target + ". " +
+                        BuildAxisState(axis, target));
 
                 CurrentStep = nextStep;
                 return 0;

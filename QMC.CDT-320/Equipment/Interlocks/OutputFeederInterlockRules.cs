@@ -1,4 +1,4 @@
-using QMC.Common.IO;
+﻿using QMC.Common.IO;
 
 namespace QMC.CDT320.Interlocks
 {
@@ -27,22 +27,27 @@ namespace QMC.CDT320.Interlocks
             reason = string.Empty;
             CDT320_Machine machine = request.Machine;
 
+            switch (request.MoveKind)
+            {
+                case MotionGuardMoveKind.AxisMove:
+                    break;
+                case MotionGuardMoveKind.AxisTeachingMove:
+                    if (MotionGuardRuleHelpers.IsSafeTeachingTarget(request.TargetName))
+                        return true;
+                    break;
+                case MotionGuardMoveKind.AxisHome:
+                    return VerifyOutputFeederYHome(machine, out reason);
+                default:
+                    return true;
+            }
+
             if (machine.OutputCassetteUnit != null &&
                 machine.OutputCassetteUnit.OutputLifterZ != null &&
                 machine.OutputCassetteUnit.OutputLifterZ.IsMoving)
                 return MotionGuardRuleHelpers.Block(
                     "OutputFeederY",
-                    request.MoveKind == MotionGuardMoveKind.AxisHome
-                        ? "OutputLifterZ is moving. OutputFeederY home is blocked."
-                        : "OutputLifterZ is moving. OutputFeederY move is blocked.",
+                    "OutputLifterZ is moving. OutputFeederY move is blocked.",
                     out reason);
-
-            if (request.MoveKind == MotionGuardMoveKind.AxisHome)
-                return VerifyOutputFeederYHome(machine, out reason);
-
-            if (request.MoveKind == MotionGuardMoveKind.AxisTeachingMove &&
-                MotionGuardRuleHelpers.IsSafeTeachingTarget(request.TargetName))
-                return true;
 
             if (!IsOutputStageSafeForFeeder(machine.OutputStageUnit))
                 return MotionGuardRuleHelpers.Block(
@@ -56,27 +61,85 @@ namespace QMC.CDT320.Interlocks
         private static bool VerifyOutputFeederYHome(CDT320_Machine machine, out string reason)
         {
             reason = string.Empty;
-            OutputFeederUnit feeder = machine.OutputFeederUnit;
 
-            //if (!IsOutputStageSafeForFeeder(machine.OutputStageUnit))
-            //    return MotionGuardRuleHelpers.Block(
-            //        "OutputFeederY",
-            //        "Output stages and OutputVisionX must be at Avoid position before OutputFeederY home.",
-            //        out reason);
+            try
+            {
+                if (machine == null)
+                    return true;
 
-            if (!IsFeederUnclamp(feeder))
+                OutputCassetteUnit cassette = machine.OutputCassetteUnit;
+                if (cassette != null && cassette.OutputLifterZ != null && cassette.OutputLifterZ.IsMoving)
+                    return MotionGuardRuleHelpers.Block(
+                        "OutputFeederY",
+                        "OutputLifterZ is moving. OutputFeederY home is blocked.",
+                        out reason);
+
+                if (cassette != null && !cassette.IsBinLifterZInAvoidPosition())
+                    return MotionGuardRuleHelpers.Block(
+                        "OutputFeederY",
+                        "OutputFeederY HOME blocked. OutputLifterZ must be at Avoid position.",
+                        out reason);
+
+                OutputStageUnit outputStage = machine.OutputStageUnit;
+                if (outputStage != null && !outputStage.IsVisionXInAvoidPosition())
+                    return MotionGuardRuleHelpers.Block(
+                        "OutputFeederY",
+                        "OutputFeederY HOME blocked. OutputVisionX must be at Avoid position.",
+                        out reason);
+
+                if (outputStage != null && outputStage.GoodStage != null && !outputStage.GoodStage.IsAtAvoidPosition())
+                    return MotionGuardRuleHelpers.Block(
+                        "OutputFeederY",
+                        "OutputFeederY HOME blocked. GoodBinZ(GoodStageZ) must be at Avoid position.",
+                        out reason);
+
+                if (outputStage != null && outputStage.GoodBinGuideDownSensor != null && !outputStage.GoodBinGuideDownSensor.IsOn)
+                    return MotionGuardRuleHelpers.Block(
+                        "OutputFeederY",
+                        "OutputFeederY HOME blocked. Good Bin Guide must be down.",
+                        out reason);
+
+                OutputFeederUnit feeder = machine.OutputFeederUnit;
+                if (feeder == null)
+                    return true;
+
+                if (feeder.IsFeederOverload())
+                    return MotionGuardRuleHelpers.Block(
+                        "OutputFeederY",
+                        "OutputFeederY HOME blocked. OutputFeeder overload sensor is detected.",
+                        out reason);
+
+                if (!IsFeederUnclamp(feeder))
+                    return MotionGuardRuleHelpers.Block(
+                        "OutputFeederY",
+                        "OutputFeederY HOME blocked. OutputFeeder must be unclamped.",
+                        out reason);
+
+                if (!IsFeederUp(feeder))
+                    return MotionGuardRuleHelpers.Block(
+                        "OutputFeederY",
+                        "OutputFeederY HOME blocked. OutputFeeder must be up.",
+                        out reason);
+
+                if (feeder.IsBinFeederRingCheck())
+                    return MotionGuardRuleHelpers.Block(
+                        "OutputFeederY",
+                        "OutputFeederY HOME blocked. OutputFeeder ring check is detected.",
+                        out reason);
+
+                return true;
+            }
+            catch (System.Exception ex)
+            {
                 return MotionGuardRuleHelpers.Block(
                     "OutputFeederY",
-                    "OutputFeeder must be unclamped before OutputFeederY home.",
+                    "Exception occurred while verifying OutputFeederY home rules: " + ex.Message,
                     out reason);
-
-            if (!IsFeederUp(feeder))
-                return MotionGuardRuleHelpers.Block(
-                    "OutputFeederY",
-                    "OutputFeeder must be up before OutputFeederY home.",
-                    out reason);
-
-            return true;
+            }
+            finally
+            {
+                LogBlockedReason(reason);
+            }
         }
 
         private static bool VerifyOutputFeederLift(MotionGuardRuleContext request, out string reason)
@@ -120,9 +183,7 @@ namespace QMC.CDT320.Interlocks
             if (stage == null)
                 return true;
 
-            return IsStageModuleAtAvoid(stage.GoodStage)
-                && IsStageModuleAtAvoid(stage.NgStage)
-                && MotionGuardRuleHelpers.IsAt(stage.OutputCameraX, stage.Recipe.VisionX.AvoidPosition);
+            return MotionGuardRuleHelpers.IsAt(stage.OutputCameraX, stage.Recipe.VisionX.AvoidPosition);
         }
 
         private static bool IsStageModuleAtAvoid(StageModule stage)
@@ -152,6 +213,21 @@ namespace QMC.CDT320.Interlocks
 
             BaseCylinder cylinder = feeder.FeederClampCyl;
             return cylinder != null && cylinder.IsBwd;
+        }
+
+        private static void LogBlockedReason(string reason)
+        {
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(reason))
+                    QMC.Common.Log.Write("Main", "INTERLOCK", "OutputFeederInterlock", reason + " - Blocked");
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
         }
     }
 }

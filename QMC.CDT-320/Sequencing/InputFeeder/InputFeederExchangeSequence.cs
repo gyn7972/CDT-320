@@ -68,11 +68,12 @@ namespace QMC.CDT320.Sequencing
             if (cassette == null)
                 return Fail("IN-FEEDER-EXCHANGE-CST-MISSING", "InputCassette", "Input cassette unit is not available.");
 
-            if (!IsHardwareBypass() && !cassette.CheckWaferCassetteTransferReady(TransferMode.Load))
-                return Fail("IN-FEEDER-EXCHANGE-CST-SENSOR", cassette.Name, "Input cassette is not detected or not ready for exchange.");
+            string cassetteReason;
+            if (!IsHardwareBypass() && !cassette.CheckWaferCassetteTransferReady(TransferMode.Load, out cassetteReason))
+                return Fail("IN-FEEDER-EXCHANGE-CST-SENSOR", cassette.Name, "Input cassette is not detected or not ready for exchange. " + cassetteReason);
 
-            if (!cassette.CheckWaferCassetteMoveReady())
-                return Fail("IN-FEEDER-EXCHANGE-CST-MOVE", cassette.Name, "Input cassette lifter is not move ready.");
+            if (!cassette.CheckWaferCassetteMoveReady(out cassetteReason))
+                return Fail("IN-FEEDER-EXCHANGE-CST-MOVE", cassette.Name, "Input cassette lifter is not move ready. " + cassetteReason);
 
             if (ResolveFeederWafer() == null)
                 return Fail("IN-FEEDER-EXCHANGE-FEEDER-DATA", "Material", "InputFeeder wafer data was not found before exchange unload.");
@@ -135,10 +136,12 @@ namespace QMC.CDT320.Sequencing
 
             int result = await new InputFeederUnloadToCassetteSequence(Context).RunAsync(ct, unloadOptions).ConfigureAwait(false);
             if (result != 0)
-                return Fail("IN-FEEDER-EXCHANGE-UNLOAD", Feeder.Name, "Exchange unload current wafer failed. result=" + result);
+                return Fail("IN-FEEDER-EXCHANGE-UNLOAD", Feeder.Name,
+                    "Exchange unload current wafer failed. result=" + result + ". " + Feeder.GetWaferFeederTransferState());
 
             if (!Feeder.IsWaferFeederInExchangePosition())
-                return Fail("IN-FEEDER-EXCHANGE-POS", Feeder.Name, "WaferFeeder is not in exchange position after unload.");
+                return Fail("IN-FEEDER-EXCHANGE-POS", Feeder.Name,
+                    "WaferFeeder is not in exchange position after unload. " + Feeder.GetWaferFeederTransferState());
 
             CurrentStep = InputFeederExchangeStep.MoveCassetteToNextWaferSlot;
             return 0;
@@ -168,7 +171,8 @@ namespace QMC.CDT320.Sequencing
 
             int result = await new InputFeederLoadFromCassetteSequence(Context).RunAsync(ct, loadOptions).ConfigureAwait(false);
             if (result != 0)
-                return Fail("IN-FEEDER-EXCHANGE-LOAD", Feeder.Name, "Exchange load next wafer failed. result=" + result);
+                return Fail("IN-FEEDER-EXCHANGE-LOAD", Feeder.Name,
+                    "Exchange load next wafer failed. result=" + result + ". " + Feeder.GetWaferFeederTransferState());
 
             Context.Bus.Set("InputFeederExchanged");
             CurrentStep = InputFeederExchangeStep.Complete;
@@ -181,16 +185,37 @@ namespace QMC.CDT320.Sequencing
 
             int result = await AwaitStepWithCancellationAsync(cassette.MoveWaferLifterZ(target, Options.FineMove), ct).ConfigureAwait(false);
             if (result != 0)
-                return Fail("IN-FEEDER-EXCHANGE-CST-Z-MOVE", cassette.Name, description + " move failed. target=" + target + ", result=" + result);
+                return Fail("IN-FEEDER-EXCHANGE-CST-Z-MOVE", cassette.Name,
+                    description + " move failed. target=" + target + ", result=" + result + ". " + BuildCassetteZState(cassette, target));
 
             result = await AwaitStepWithCancellationAsync(cassette.WaitWaferLifterZMoveDone(ResolveTimeout()), ct).ConfigureAwait(false);
             if (result != 0)
-                return Fail("IN-FEEDER-EXCHANGE-CST-Z-TIMEOUT", cassette.Name, description + " move done timeout. target=" + target);
+                return Fail("IN-FEEDER-EXCHANGE-CST-Z-TIMEOUT", cassette.Name,
+                    description + " move done timeout. target=" + target + ", waitResult=" + result + ". " + BuildCassetteZState(cassette, target));
 
             if (!cassette.IsWaferLifterZInPosition(target, cassette.ResolveWaferLifterZInPositionTolerance()))
-                return Fail("IN-FEEDER-EXCHANGE-CST-Z-POSITION", cassette.Name, description + " final position check failed. target=" + target);
+                return Fail("IN-FEEDER-EXCHANGE-CST-Z-POSITION", cassette.Name,
+                    description + " final position check failed. target=" + target + ". " + BuildCassetteZState(cassette, target));
 
             return 0;
+        }
+
+        private string BuildCassetteZState(InputCassetteUnit cassette, double target)
+        {
+            if (cassette == null || cassette.InputLifterZ == null)
+                return "CassetteZ=null, target=" + target;
+
+            double tolerance = cassette.ResolveWaferLifterZInPositionTolerance();
+            return "CassetteZ name=" + cassette.InputLifterZ.Name +
+                   ", servo=" + cassette.InputLifterZ.IsServoOn +
+                   ", alarm=" + cassette.InputLifterZ.IsAlarm +
+                   ", alarmCode=" + cassette.InputLifterZ.AlarmCode +
+                   ", moving=" + cassette.InputLifterZ.IsMoving +
+                   ", actual=" + cassette.InputLifterZ.ActualPosition +
+                   ", command=" + cassette.InputLifterZ.CommandPosition +
+                   ", target=" + target +
+                   ", tolerance=" + tolerance +
+                   ", inPosition=" + cassette.IsWaferLifterZInPosition(target, tolerance);
         }
 
         private bool IsSelectedSlotProcessReady(InputCassetteUnit cassette, int slotIndex)

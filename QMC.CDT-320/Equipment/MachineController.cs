@@ -1855,9 +1855,17 @@ namespace QMC.CDT320
                 QMC.Common.Log.Write("Main", "SYSTEM", "PrepareAxisHome",
                     "Prepare axis home condition. axis=" + axis.Name + " - Start");
 
+                string interlockReason;
+                if (!MotionGuardRuntime.VerifyAxisHome(axis, out interlockReason))
+                {
+                    return FailInitializePreparation(
+                        "축 HOME 사전 인터락 실패. axis=" + axis.Name +
+                        ", reason=" + interlockReason);
+                }
+
                 switch (axis.Name)
                 {
-                    case "InputLifterZ":
+                    case "InputLifterZ": //확인후 제거
                         return await PrepareInputLifterZHomeAsync(axis).ConfigureAwait(false);
                     case "OutputLifterZ":
                         return await PrepareOutputLifterZHomeAsync(axis).ConfigureAwait(false);
@@ -3507,6 +3515,11 @@ namespace QMC.CDT320
             {
             }
         }
+
+
+
+        //CanHomeWaferLifterZ 옮겨서 InputCassetteInterlockRules로 이동
+        //이 함수 확인 후 지워야함.
         private Task<int> PrepareInputLifterHomeAsync()
         {
             Log("[INIT] Prepare InputLifter home: check input cassette wafer protrusion.");
@@ -3515,16 +3528,11 @@ namespace QMC.CDT320
             if (inputCassette == null)
                 return Task.FromResult(0);
 
-            if (inputCassette.IsWaferProtrusionDetected())
-            {
-                // Todo: Jut 감지 시 초기화 방법 재확인
-                return Task.FromResult(FailInitializePreparation(
-                    "InputLifter HOME 불가: Input Cassette 웨이퍼 돌출(Jut)이 감지되었습니다."));
-            }
-
             return Task.FromResult(0);
         }
 
+        //CanMoveBinLifterZ 옮겨서 OutputCassetteInterlockRules로 이동
+        //이 함수 확인 후 지워야함.
         private Task<int> PrepareOutputLifterHomeAsync()
         {
             Log("[INIT] Prepare OutputLifter home: check output cassette bin protrusion.");
@@ -3532,13 +3540,6 @@ namespace QMC.CDT320
             var outputCassette = _machine.OutputCassetteUnit;
             if (outputCassette == null)
                 return Task.FromResult(0);
-
-            if (outputCassette.IsBinProtrusionDetected())
-            {
-                // Todo: Protrusion 감지 시 초기화 방법 재확인
-                return Task.FromResult(FailInitializePreparation(
-                    "OutputLifter HOME 불가: Output Cassette Bin 돌출(Protrusion)이 감지되었습니다."));
-            }
 
             return Task.FromResult(0);
         }
@@ -3792,7 +3793,7 @@ namespace QMC.CDT320
             if (outputStage != null && outputStage.GoodBinGuideDownSensor != null && !outputStage.GoodBinGuideDownSensor.IsOn)
             {
                 return FailInitializePreparation(
-                    "OutputFeeder HOME 불가: NG Bin Guide Lift가 Down 상태가 아닙니다.");
+                    "OutputFeeder HOME 불가: Good Bin Guide 실린더가 Down 상태가 아닙니다.");
             }
 
             var feeder = _machine.OutputFeederUnit;

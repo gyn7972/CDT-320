@@ -11,7 +11,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
     internal static class ManualMoveGuard
     {
         // 인터락 정의 완료 시 true 로 변경 → 모든 페이지의 매뉴얼 이동 허용
-        public static readonly bool InterlockReady = false;
+        public static readonly bool InterlockReady = true;
 
         /// <summary>
         /// 차단 중이면 안내 메시지를 띄우고 true 를 반환한다. 호출부는 true 일 때 즉시 return 한다.

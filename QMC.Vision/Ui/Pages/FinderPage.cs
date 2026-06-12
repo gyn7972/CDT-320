@@ -47,15 +47,7 @@ namespace QMC.Vision.Ui.Pages
             var illum = new InspectionLightPanel { Location = new Point(6, 544), Size = new Size(440, 280) };
             illum.SelectInspection(LightNode(), _module?.AlgorithmKey ?? "", _finder?.Id ?? "");
             Controls.Add(illum);
-
-            // Stage 87 — 라이브 튜닝 패널 우측 빈 공간 (720, 560). 카메라 라이브 + 조명 펄스 통합.
-            var liveTuning = new LightLiveTuningPanel
-            {
-                Location = new Point(720, 560), Size = new Size(540, 264), Name = "_liveTuning"
-            };
-            liveTuning.Initialize(CollectRowsForLiveTuning);
-            liveTuning.BindCameraLive(() => StartLive(0), () => StopLive());
-            Controls.Add(liveTuning);
+            // (LightLiveTuningPanel 은 제거 — 레벨+점등은 InspectionLightPanel, 실물 확인은 Settings 라이브.)
         }
 
         // ── 이벤트 핸들러 (Designer 에서 named 연결) ──
@@ -121,18 +113,8 @@ namespace QMC.Vision.Ui.Pages
             return 333;
         }
 
-        /// <summary>C2 — 현재 검사 노드의 조명 레벨(Recipe.LightSettings)을 TuningRow 로 변환 (라이브 튜닝 송신 소스).</summary>
+        /// <summary>C2 — 현재 finder 의 검사 노드 해석(조명 패널 주입용).</summary>
         private IAlgorithmNode LightNode() => _module?.Algorithms.FirstOrDefault(a => a.Finder == _finder);
-
-        private IEnumerable<LightLiveTuningPanel.TuningRow> CollectRowsForLiveTuning()
-        {
-            var settings = (LightNode()?.Recipe as AlgoRecipeBase)?.LightSettings;
-            if (settings == null) yield break;
-            foreach (var s in settings)
-                if (!string.IsNullOrEmpty(s.ControllerPort) && s.Channel > 0)
-                    yield return new LightLiveTuningPanel.TuningRow
-                    { ControllerPort = s.ControllerPort, Channel = s.Channel, Level = s.Level };
-        }
 
         private GrabResult _lastGrab;
         private Bitmap    _loadedImage;     // LOAD 로 가져온 이미지 (GrabResult 가 아님)

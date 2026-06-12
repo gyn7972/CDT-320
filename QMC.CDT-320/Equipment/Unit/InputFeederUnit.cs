@@ -194,8 +194,9 @@ namespace QMC.CDT320
         {
             try
             {
-                if (!CheckWaferFeederYMoveReady())
-                    return RaiseFeederAlarm("WF-Y-READY", "InputFeederY is not ready to move.");
+                string readyReason;
+                if (!CheckWaferFeederYMoveReady(out readyReason))
+                    return RaiseFeederAlarm("WF-Y-READY", "InputFeederY is not ready to move. " + readyReason);
 
                 if (!ValidateWaferFeederYTargetPosition(targetPos))
                     return RaiseFeederAlarm("WF-Y-SOFT-LIMIT", "InputFeederY target is out of soft limit. target=" + targetPos);
@@ -532,14 +533,47 @@ namespace QMC.CDT320
 
         public bool ValidateWaferFeederTeachingComplete()
         {
-            return Recipe.CassetteLoadPosition != Recipe.AvoidPosition &&
-                   Recipe.CassetteUnloadPosition != Recipe.AvoidPosition &&
-                   Recipe.WaferLoadPosition != Recipe.WaferUnloadPosition;
+            string reason;
+            return ValidateWaferFeederTeachingComplete(out reason);
+        }
+
+        public bool ValidateWaferFeederTeachingComplete(out string reason)
+        {
+            reason = string.Empty;
+            var reasons = new List<string>();
+
+            if (Recipe == null)
+            {
+                reasons.Add("Recipe is null.");
+            }
+            else
+            {
+                if (Recipe.CassetteLoadPosition == Recipe.AvoidPosition)
+                    reasons.Add("CassetteLoadPosition equals AvoidPosition. value=" + Recipe.CassetteLoadPosition);
+
+                if (Recipe.CassetteUnloadPosition == Recipe.AvoidPosition)
+                    reasons.Add("CassetteUnloadPosition equals AvoidPosition. value=" + Recipe.CassetteUnloadPosition);
+
+                if (Recipe.WaferLoadPosition == Recipe.WaferUnloadPosition)
+                    reasons.Add("WaferLoadPosition equals WaferUnloadPosition. value=" + Recipe.WaferLoadPosition);
+            }
+
+            if (reasons.Count == 0)
+                return true;
+
+            reason = string.Join(" ", reasons.ToArray());
+            return false;
         }
 
         public bool ValidateWaferFeederYTeachingComplete()
         {
-            return ValidateWaferFeederTeachingComplete();
+            string reason;
+            return ValidateWaferFeederTeachingComplete(out reason);
+        }
+
+        public bool ValidateWaferFeederYTeachingComplete(out string reason)
+        {
+            return ValidateWaferFeederTeachingComplete(out reason);
         }
 
         public double GetWaferFeederYTeachingPosition(string positionName)
@@ -1167,21 +1201,77 @@ namespace QMC.CDT320
 
         public bool CheckWaferFeederMoveReady()
         {
-            return !FeederY.IsAlarm && CheckWaferFeederOverloadClear();
+            string reason;
+            return CheckWaferFeederMoveReady(out reason);
+        }
+
+        public bool CheckWaferFeederMoveReady(out string reason)
+        {
+            reason = string.Empty;
+            var reasons = new List<string>();
+
+            if (FeederY == null)
+            {
+                reasons.Add("FeederY axis is null.");
+            }
+            else
+            {
+                if (FeederY.IsAlarm)
+                    reasons.Add("FeederY alarm is ON. alarmCode=" + FeederY.AlarmCode);
+            }
+
+            if (!CheckWaferFeederOverloadClear())
+                reasons.Add("WaferFeeder overload is detected. " + FormatInputState("Overload", WaferFeederOverloadSensor));
+
+            if (reasons.Count == 0)
+                return true;
+
+            reason = string.Join(" ", reasons.ToArray()) + " " + GetWaferFeederTransferState();
+            EventLogger.Write(EventKind.Warning, "QMC", "WF-MOVE-READY", reason);
+            return false;
         }
 
         public bool CheckWaferFeederYMoveReady()
         {
+            string reason;
+            return CheckWaferFeederYMoveReady(out reason);
+        }
+
+        public bool CheckWaferFeederYMoveReady(out string reason)
+        {
+            reason = string.Empty;
             try
             {
-                return FeederY != null &&
-                       FeederY.IsServoOn &&
-                       !FeederY.IsAlarm &&
-                       !FeederY.IsMoving &&
-                       CheckWaferFeederOverloadClear();
+                var reasons = new List<string>();
+
+                if (FeederY == null)
+                {
+                    reasons.Add("FeederY axis is null.");
+                }
+                else
+                {
+                    if (!FeederY.IsServoOn)
+                        reasons.Add("FeederY servo is OFF.");
+                    if (FeederY.IsAlarm)
+                        reasons.Add("FeederY alarm is ON. alarmCode=" + FeederY.AlarmCode);
+                    if (FeederY.IsMoving)
+                        reasons.Add("FeederY is moving.");
+                }
+
+                if (!CheckWaferFeederOverloadClear())
+                    reasons.Add("WaferFeeder overload is detected. " + FormatInputState("Overload", WaferFeederOverloadSensor));
+
+                if (reasons.Count == 0)
+                    return true;
+
+                reason = string.Join(" ", reasons.ToArray()) + " " + GetWaferFeederTransferState();
+                EventLogger.Write(EventKind.Warning, "QMC", "WF-Y-MOVE-READY", reason);
+                return false;
             }
-            catch
+            catch (Exception ex)
             {
+                reason = "InputFeederY move ready check failed: " + ex.Message;
+                EventLogger.Write(EventKind.Warning, "QMC", "WF-Y-MOVE-READY", reason);
                 return false;
             }
             finally
@@ -1191,12 +1281,55 @@ namespace QMC.CDT320
 
         public bool CheckWaferFeederTransferReady(TransferMode mode)
         {
-            if (!CheckWaferFeederMoveReady())
+            string reason;
+            return CheckWaferFeederTransferReady(mode, out reason);
+        }
+
+        public bool CheckWaferFeederTransferReady(TransferMode mode, out string reason)
+        {
+            reason = string.Empty;
+
+            if (!CheckWaferFeederMoveReady(out reason))
                 return false;
+
             if (mode == TransferMode.Load)
-                return IsWaferFeederTransferDataEmpty() && IsWaferFeederEmpty();
+            {
+                if (!IsWaferFeederTransferDataEmpty())
+                {
+                    reason = "WaferFeeder data is not empty before load. " + BuildWaferFeederDataSummary();
+                    EventLogger.Write(EventKind.Warning, "QMC", "WF-TRANSFER-READY", reason);
+                    return false;
+                }
+
+                if (!IsWaferFeederEmpty())
+                {
+                    reason = "WaferFeeder sensor/data is not empty before load. " + GetWaferFeederTransferState();
+                    EventLogger.Write(EventKind.Warning, "QMC", "WF-TRANSFER-READY", reason);
+                    return false;
+                }
+
+                return true;
+            }
+
             if (mode == TransferMode.Unload)
-                return IsWaferFeederTransferDataOccupied() && HasWaferOnFeeder();
+            {
+                if (!IsWaferFeederTransferDataOccupied())
+                {
+                    reason = "WaferFeeder data is empty before unload. " + BuildWaferFeederDataSummary();
+                    EventLogger.Write(EventKind.Warning, "QMC", "WF-TRANSFER-READY", reason);
+                    return false;
+                }
+
+                if (!HasWaferOnFeeder())
+                {
+                    reason = "WaferFeeder wafer sensor/data does not indicate wafer before unload. " + GetWaferFeederTransferState();
+                    EventLogger.Write(EventKind.Warning, "QMC", "WF-TRANSFER-READY", reason);
+                    return false;
+                }
+
+                return true;
+            }
+
             return true;
         }
 
@@ -1240,20 +1373,96 @@ namespace QMC.CDT320
 
         public bool CheckWaferCassetteReady(int slotIndex, TransferMode mode)
         {
+            string reason;
+            return CheckWaferCassetteReady(slotIndex, mode, out reason);
+        }
+
+        public bool CheckWaferCassetteReady(int slotIndex, TransferMode mode, out string reason)
+        {
+            reason = string.Empty;
+
             if (slotIndex < 0)
+            {
+                reason = "Slot index is invalid. slotIndex=" + slotIndex;
+                EventLogger.Write(EventKind.Warning, "QMC", "WF-CST-READY", reason);
                 return false;
-            return CheckWaferFeederTransferReady(mode) && ValidateWaferFeederYTeachingComplete();
+            }
+
+            if (!CheckWaferFeederTransferReady(mode, out reason))
+            {
+                reason = "WaferFeeder transfer ready check failed. mode=" + mode + ". " + reason;
+                EventLogger.Write(EventKind.Warning, "QMC", "WF-CST-READY", reason);
+                return false;
+            }
+
+            if (!ValidateWaferFeederYTeachingComplete(out reason))
+            {
+                reason = "WaferFeederY teaching check failed. " + reason;
+                EventLogger.Write(EventKind.Warning, "QMC", "WF-CST-READY", reason);
+                return false;
+            }
+
+            return true;
         }
 
         public bool CheckWaferStageReady(int size, TransferMode mode)
         {
+            string reason;
+            return CheckWaferStageReady(size, mode, out reason);
+        }
+
+        public bool CheckWaferStageReady(int size, TransferMode mode, out string reason)
+        {
+            reason = string.Empty;
+
             if (size != 8 && size != 12)
+            {
+                reason = "Wafer size is invalid. size=" + size;
+                EventLogger.Write(EventKind.Warning, "QMC", "WF-STAGE-READY", reason);
                 return false;
+            }
+
             if (mode == TransferMode.Load)
-                return IsWaferFeederOccupied() && IsWaferFeederRingDetected(size, false);
+            {
+                if (!IsWaferFeederOccupied())
+                {
+                    reason = "WaferFeeder must be occupied before stage load. " + GetWaferFeederTransferState();
+                    EventLogger.Write(EventKind.Warning, "QMC", "WF-STAGE-READY", reason);
+                    return false;
+                }
+
+                if (!IsWaferFeederRingDetected(size, false))
+                {
+                    reason = "WaferFeeder size ring sensor state is invalid before stage load. expected size=" + size +
+                             ", expectedState=OFF. " + BuildWaferFeederRingSensorSummary();
+                    EventLogger.Write(EventKind.Warning, "QMC", "WF-STAGE-READY", reason);
+                    return false;
+                }
+
+                return true;
+            }
+
             if (mode == TransferMode.Unload)
-                return IsWaferFeederEmpty() && IsWaferFeederRingDetected(size, true);
-            return CheckWaferFeederMoveReady();
+            {
+                if (!IsWaferFeederEmpty())
+                {
+                    reason = "WaferFeeder must be empty before stage unload. " + GetWaferFeederTransferState();
+                    EventLogger.Write(EventKind.Warning, "QMC", "WF-STAGE-READY", reason);
+                    return false;
+                }
+
+                if (!IsWaferFeederRingDetected(size, true))
+                {
+                    reason = "WaferFeeder size ring sensor state is invalid before stage unload. expected size=" + size +
+                             ", expectedState=ON. " + BuildWaferFeederRingSensorSummary();
+                    EventLogger.Write(EventKind.Warning, "QMC", "WF-STAGE-READY", reason);
+                    return false;
+                }
+
+                return true;
+            }
+
+            return CheckWaferFeederMoveReady(out reason);
         }
 
         public bool ValidateWaferFeederPosition(FeederPositionType type)
@@ -1345,11 +1554,12 @@ namespace QMC.CDT320
                 return "Up=" + IsWaferFeederUp()
                     + ", Down=" + IsWaferFeederDown()
                     + ", Unclamp=" + IsWaferFeederUnclamp()
+                    + ", Clamp=" + IsWaferFeederClamp()
                     + ", Data=" + CurrentMaterialState
                     + ", Wafer=" + CurrentWaferId
                     + ", Ring=" + IsWaferFeederRingCheck()
                     + ", Overload=" + IsWaferFeederOverload()
-                    + ", MoveReady=" + CheckWaferFeederYMoveReady();
+                    + ", FeederY=" + BuildFeederYAxisSummary();
             }
             catch (Exception ex)
             {
@@ -1359,6 +1569,56 @@ namespace QMC.CDT320
             finally
             {
             }
+        }
+
+        private string BuildFeederYAxisSummary()
+        {
+            if (FeederY == null)
+                return "null";
+
+            return "name=" + FeederY.Name +
+                   ", servo=" + FeederY.IsServoOn +
+                   ", alarm=" + FeederY.IsAlarm +
+                   ", alarmCode=" + FeederY.AlarmCode +
+                   ", moving=" + FeederY.IsMoving +
+                   ", actual=" + FeederY.ActualPosition +
+                   ", command=" + FeederY.CommandPosition +
+                   ", inPosition=" + FeederY.IsInPosition;
+        }
+
+        private string BuildWaferFeederDataSummary()
+        {
+            try
+            {
+                WaferMaterial serviceWafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputFeeder);
+                return "Data: currentState=" + CurrentMaterialState +
+                       ", currentWafer=" + (CurrentWaferMaterial != null ? CurrentWaferMaterial.WaferId : "-") +
+                       ", serviceWafer=" + (serviceWafer != null ? serviceWafer.WaferId : "-") +
+                       ", simOrDryRun=" + IsWaferFeederSimulationOrDryRun() + ".";
+            }
+            catch (Exception ex)
+            {
+                return "Data summary failed: " + ex.Message;
+            }
+            finally
+            {
+            }
+        }
+
+        private string BuildWaferFeederRingSensorSummary()
+        {
+            return "Sensors: ring=" + FormatInputState("Ring", WaferFeederRingCheckSensor) +
+                   ", ring8=" + FormatInputState("Ring8", WaferFeeder8RingCheckSensor) +
+                   ", ring12=" + FormatInputState("Ring12", WaferFeeder12RingCheckSensor) +
+                   ", overload=" + FormatInputState("Overload", WaferFeederOverloadSensor) + ".";
+        }
+
+        private static string FormatInputState(string name, BaseDigitalInput input)
+        {
+            if (input == null)
+                return name + "=NULL";
+
+            return name + "=" + (input.IsOn ? "ON" : "OFF");
         }
 
         public bool IsWaferFeederEmpty()

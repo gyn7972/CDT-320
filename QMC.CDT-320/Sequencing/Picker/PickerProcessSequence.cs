@@ -177,6 +177,10 @@ namespace QMC.CDT320.Sequencing
             if (Side == PickerSequenceSide.Rear && RearPicker == null)
                 return Fail("PICKER-REAR-NO-UNIT", Name, "RearPickerUnit is null.");
 
+            string axisReason = BuildRequiredPickerAxesReason();
+            if (!string.IsNullOrWhiteSpace(axisReason))
+                return Fail("PICKER-AXIS-NOT-READY", Name, "Picker axis is not ready. side=" + Side + ", reason=" + axisReason);
+
             CurrentStep = PickerProcessStep.CheckPickerSafe;
             return 0;
         }
@@ -253,7 +257,7 @@ namespace QMC.CDT320.Sequencing
                     return Fail("PICKER-INPUT-STAGE-MISSING", "InputStageUnit", "InputStageUnit is null.");
 
                 if (_pickTarget == null || string.IsNullOrWhiteSpace(_pickTarget.DieId))
-                    return Fail("PICKER-INPUT-DIE-MISSING", "Material", "Reserved input die target is missing.");
+                    return Fail("PICKER-INPUT-DIE-MISSING", "Material", "Reserved input die target is missing. picker=" + Name + ", location=" + PickerLocationKind);
 
                 double targetY = _pickTarget.TargetY;
                 double targetX = _pickTarget.TargetX;
@@ -329,6 +333,7 @@ namespace QMC.CDT320.Sequencing
                 await Task.Delay(ResolveVacuumSettleMs(), ct).ConfigureAwait(false);
 
                 MaterialStateService.MoveDie(_currentDieId, MaterialLocation.Picker(PickerLocationKind, pickerNo));
+                RecordColletUse(pickerNo);
                 _diePhysicallyPicked = true;
                 WriteLog("PickerProcessSequence", Name + " picked die. die=" + _currentDieId + ", pickerNo=" + pickerNo + " - Ok");
 
@@ -341,6 +346,7 @@ namespace QMC.CDT320.Sequencing
             }
             catch (Exception ex)
             {
+                RecordPickFail();
                 return Fail("PICKER-PICK-EX", Name, "Input die pick failed: " + ex.Message);
             }
             finally
@@ -512,7 +518,10 @@ namespace QMC.CDT320.Sequencing
                 SetPickerVacuum(pickerNo, false);
                 await PickerBlowAsync(pickerNo, ct).ConfigureAwait(false);
                 if (!MaterialStateService.MoveDieToOutputStage(_currentDieId, outputSide))
+                {
+                    RecordPlaceFail();
                     return Fail("PICKER-PLACE-DATA", "Material", "Output die material update failed. die=" + _currentDieId + ", side=" + outputSide);
+                }
 
                 _diePlaced = true;
                 Context.Bus.Set("InputStageReady");
@@ -527,6 +536,7 @@ namespace QMC.CDT320.Sequencing
             }
             catch (Exception ex)
             {
+                RecordPlaceFail();
                 return Fail("PICKER-PLACE-EX", Name, "Output die place failed: " + ex.Message);
             }
             finally
@@ -652,6 +662,30 @@ namespace QMC.CDT320.Sequencing
             return 50;
         }
 
+        private void RecordColletUse(int pickerNo)
+        {
+            if (Side == PickerSequenceSide.Front && FrontPicker != null)
+                FrontPicker.RecordColletUse(pickerNo);
+            if (Side == PickerSequenceSide.Rear && RearPicker != null)
+                RearPicker.RecordColletUse(pickerNo);
+        }
+
+        private void RecordPickFail()
+        {
+            if (Side == PickerSequenceSide.Front && FrontPicker != null)
+                FrontPicker.RecordPickFail();
+            if (Side == PickerSequenceSide.Rear && RearPicker != null)
+                RearPicker.RecordPickFail();
+        }
+
+        private void RecordPlaceFail()
+        {
+            if (Side == PickerSequenceSide.Front && FrontPicker != null)
+                FrontPicker.RecordPlaceFail();
+            if (Side == PickerSequenceSide.Rear && RearPicker != null)
+                RearPicker.RecordPlaceFail();
+        }
+
         private async Task<int> MoveInputStageAxisCommandAsync(
             InputStageUnit stage,
             WaferStageAxis axis,
@@ -668,7 +702,7 @@ namespace QMC.CDT320.Sequencing
                     ct).ConfigureAwait(false);
 
                 if (result != 0)
-                    return Fail("PICKER-INPUT-STAGE-MOVE", stage.Name, description + " move command failed. axis=" + axis + ", target=" + target + ", result=" + result);
+                    return Fail("PICKER-INPUT-STAGE-MOVE", stage.Name, description + " move command failed. result=" + result + ", " + BuildInputStageAxisState(stage, axis, target));
 
                 ct.ThrowIfCancellationRequested();
                 return 0;
@@ -702,7 +736,7 @@ namespace QMC.CDT320.Sequencing
                     ct).ConfigureAwait(false);
 
                 if (result != 0)
-                    return Fail("PICKER-INPUT-STAGE-MOVE-TIMEOUT", stage.Name, description + " move done timeout. axis=" + axis + ", target=" + target);
+                    return Fail("PICKER-INPUT-STAGE-MOVE-TIMEOUT", stage.Name, description + " move done timeout. waitResult=" + result + ", " + BuildInputStageAxisState(stage, axis, target));
 
                 ct.ThrowIfCancellationRequested();
                 return 0;
@@ -726,10 +760,10 @@ namespace QMC.CDT320.Sequencing
             {
                 QMC.Common.Motion.BaseAxis item = ResolveInputStageAxis(stage, axis);
                 if (item == null)
-                    return Fail("PICKER-INPUT-STAGE-AXIS", stage != null ? stage.Name : "InputStageUnit", description + " axis is not available. axis=" + axis);
+                    return Fail("PICKER-INPUT-STAGE-AXIS", stage != null ? stage.Name : "InputStageUnit", description + " axis is not available. " + BuildInputStageAxisState(stage, axis, target));
 
                 if (item.IsMoving || item.IsAlarm || !IsInputStageAxisInPosition(item, target))
-                    return Fail("PICKER-INPUT-STAGE-POSITION", stage.Name, description + " final position check failed. axis=" + axis + ", target=" + target + ", actual=" + item.ActualPosition);
+                    return Fail("PICKER-INPUT-STAGE-POSITION", stage.Name, description + " final position check failed. " + BuildInputStageAxisState(stage, axis, target));
 
                 return 0;
             }
@@ -756,6 +790,26 @@ namespace QMC.CDT320.Sequencing
                 default:
                     return null;
             }
+        }
+
+        private static string BuildInputStageAxisState(InputStageUnit stage, WaferStageAxis axis, double target)
+        {
+            QMC.Common.Motion.BaseAxis item = ResolveInputStageAxis(stage, axis);
+            if (item == null)
+                return "axis=" + axis + ", target=" + target + ", state=axis-not-found";
+
+            double tolerance = item.Config != null && item.Config.InPositionTolerance > 0.0
+                ? item.Config.InPositionTolerance
+                : 0.05;
+
+            return "axis=" + axis +
+                   ", name=" + item.Name +
+                   ", servo=" + (item.IsServoOn ? "ON" : "OFF") +
+                   ", alarm=" + (item.IsAlarm ? "ON" : "OFF") +
+                   ", moving=" + (item.IsMoving ? "Y" : "N") +
+                   ", actual=" + item.ActualPosition +
+                   ", target=" + target +
+                   ", tolerance=" + tolerance;
         }
 
         private static bool IsInputStageAxisInPosition(QMC.Common.Motion.BaseAxis axis, double target)

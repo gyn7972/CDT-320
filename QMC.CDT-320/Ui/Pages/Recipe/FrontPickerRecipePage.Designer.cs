@@ -23,6 +23,15 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private System.Windows.Forms.GroupBox grpManual;
         private System.Windows.Forms.Panel manualPanel;
         private System.Windows.Forms.TableLayoutPanel manualLayout;
+        private QMC.CDT_320.Ui.Controls.ActionButton btnAvoidPosition;
+        private QMC.CDT_320.Ui.Controls.ActionButton btnPickPosition;
+        private QMC.CDT_320.Ui.Controls.ActionButton btnBottomPosition;
+        private QMC.CDT_320.Ui.Controls.ActionButton btnSidePosition;
+        private QMC.CDT_320.Ui.Controls.ActionButton btnPlacePosition;
+        private QMC.CDT_320.Ui.Controls.ActionButton btnDiePickPosition;
+        private QMC.CDT_320.Ui.Controls.ActionButton btnDieBottomPosition;
+        private QMC.CDT_320.Ui.Controls.ActionButton btnDieSidePosition;
+        private QMC.CDT_320.Ui.Controls.ActionButton btnDiePlacePosition;
         private System.Windows.Forms.GroupBox grpOptions;
         private ParameterGridControl optionParameterGrid;
         private System.Windows.Forms.GroupBox grpWait;
@@ -61,6 +70,15 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.grpManual = new System.Windows.Forms.GroupBox();
             this.manualPanel = new System.Windows.Forms.Panel();
             this.manualLayout = new System.Windows.Forms.TableLayoutPanel();
+            this.btnAvoidPosition = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.btnPickPosition = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.btnBottomPosition = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.btnSidePosition = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.btnPlacePosition = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.btnDiePickPosition = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.btnDieBottomPosition = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.btnDieSidePosition = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.btnDiePlacePosition = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.leftLayout = new System.Windows.Forms.TableLayoutPanel();
             this.grpOptions = new System.Windows.Forms.GroupBox();
             this.optionParameterGrid = new QMC.CDT_320.Ui.Controls.ParameterGridControl();
@@ -86,6 +104,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.sideLayout.SuspendLayout();
             this.grpManual.SuspendLayout();
             this.manualPanel.SuspendLayout();
+            this.manualLayout.SuspendLayout();
             this.leftLayout.SuspendLayout();
             this.grpOptions.SuspendLayout();
             this.grpWait.SuspendLayout();
@@ -310,14 +329,144 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.manualLayout.ColumnCount = 2;
             this.manualLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
             this.manualLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this.manualLayout.Controls.Add(this.btnAvoidPosition, 0, 0);
+            this.manualLayout.Controls.Add(this.btnPickPosition, 1, 0);
+            this.manualLayout.Controls.Add(this.btnBottomPosition, 0, 1);
+            this.manualLayout.Controls.Add(this.btnSidePosition, 1, 1);
+            this.manualLayout.Controls.Add(this.btnPlacePosition, 0, 2);
+            this.manualLayout.Controls.Add(this.btnDiePickPosition, 1, 2);
+            this.manualLayout.Controls.Add(this.btnDieBottomPosition, 0, 3);
+            this.manualLayout.Controls.Add(this.btnDieSidePosition, 1, 3);
+            this.manualLayout.Controls.Add(this.btnDiePlacePosition, 0, 4);
             this.manualLayout.Dock = System.Windows.Forms.DockStyle.Top;
             this.manualLayout.Location = new System.Drawing.Point(0, 0);
             this.manualLayout.Name = "manualLayout";
             this.manualLayout.Padding = new System.Windows.Forms.Padding(3);
-            this.manualLayout.RowCount = 1;
+            this.manualLayout.RowCount = 5;
             this.manualLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 45F));
-            this.manualLayout.Size = new System.Drawing.Size(669, 51);
+            this.manualLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 45F));
+            this.manualLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 45F));
+            this.manualLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 45F));
+            this.manualLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 45F));
+            this.manualLayout.Size = new System.Drawing.Size(669, 231);
             this.manualLayout.TabIndex = 0;
+            //
+            // btnAvoidPosition
+            //
+            this.btnAvoidPosition.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnAvoidPosition.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnAvoidPosition.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnAvoidPosition.Font = new System.Drawing.Font("Malgun Gothic", 9F, System.Drawing.FontStyle.Bold);
+            this.btnAvoidPosition.ForeColor = System.Drawing.Color.White;
+            this.btnAvoidPosition.Margin = new System.Windows.Forms.Padding(2);
+            this.btnAvoidPosition.Name = "btnAvoidPosition";
+            this.btnAvoidPosition.TabIndex = 0;
+            this.btnAvoidPosition.Text = "AVOID POSITION";
+            this.btnAvoidPosition.Click += new System.EventHandler(this.btnAvoidPosition_Click);
+            //
+            // btnPickPosition
+            //
+            this.btnPickPosition.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnPickPosition.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnPickPosition.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnPickPosition.Font = new System.Drawing.Font("Malgun Gothic", 9F, System.Drawing.FontStyle.Bold);
+            this.btnPickPosition.ForeColor = System.Drawing.Color.White;
+            this.btnPickPosition.Margin = new System.Windows.Forms.Padding(2);
+            this.btnPickPosition.Name = "btnPickPosition";
+            this.btnPickPosition.TabIndex = 1;
+            this.btnPickPosition.Text = "PICK POSITION";
+            this.btnPickPosition.Click += new System.EventHandler(this.btnPickPosition_Click);
+            //
+            // btnBottomPosition
+            //
+            this.btnBottomPosition.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnBottomPosition.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnBottomPosition.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnBottomPosition.Font = new System.Drawing.Font("Malgun Gothic", 9F, System.Drawing.FontStyle.Bold);
+            this.btnBottomPosition.ForeColor = System.Drawing.Color.White;
+            this.btnBottomPosition.Margin = new System.Windows.Forms.Padding(2);
+            this.btnBottomPosition.Name = "btnBottomPosition";
+            this.btnBottomPosition.TabIndex = 2;
+            this.btnBottomPosition.Text = "BOTTOM POSITION";
+            this.btnBottomPosition.Click += new System.EventHandler(this.btnBottomPosition_Click);
+            //
+            // btnSidePosition
+            //
+            this.btnSidePosition.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnSidePosition.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnSidePosition.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnSidePosition.Font = new System.Drawing.Font("Malgun Gothic", 9F, System.Drawing.FontStyle.Bold);
+            this.btnSidePosition.ForeColor = System.Drawing.Color.White;
+            this.btnSidePosition.Margin = new System.Windows.Forms.Padding(2);
+            this.btnSidePosition.Name = "btnSidePosition";
+            this.btnSidePosition.TabIndex = 3;
+            this.btnSidePosition.Text = "SIDE POSITION";
+            this.btnSidePosition.Click += new System.EventHandler(this.btnSidePosition_Click);
+            //
+            // btnPlacePosition
+            //
+            this.btnPlacePosition.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnPlacePosition.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnPlacePosition.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnPlacePosition.Font = new System.Drawing.Font("Malgun Gothic", 9F, System.Drawing.FontStyle.Bold);
+            this.btnPlacePosition.ForeColor = System.Drawing.Color.White;
+            this.btnPlacePosition.Margin = new System.Windows.Forms.Padding(2);
+            this.btnPlacePosition.Name = "btnPlacePosition";
+            this.btnPlacePosition.TabIndex = 4;
+            this.btnPlacePosition.Text = "PLACE POSITION";
+            this.btnPlacePosition.Click += new System.EventHandler(this.btnPlacePosition_Click);
+            //
+            // btnDiePickPosition
+            //
+            this.btnDiePickPosition.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnDiePickPosition.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnDiePickPosition.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnDiePickPosition.Font = new System.Drawing.Font("Malgun Gothic", 9F, System.Drawing.FontStyle.Bold);
+            this.btnDiePickPosition.ForeColor = System.Drawing.Color.White;
+            this.btnDiePickPosition.Margin = new System.Windows.Forms.Padding(2);
+            this.btnDiePickPosition.Name = "btnDiePickPosition";
+            this.btnDiePickPosition.TabIndex = 5;
+            this.btnDiePickPosition.Text = "DIE PICK POSITION";
+            this.btnDiePickPosition.Click += new System.EventHandler(this.btnDiePickPosition_Click);
+            //
+            // btnDieBottomPosition
+            //
+            this.btnDieBottomPosition.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnDieBottomPosition.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnDieBottomPosition.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnDieBottomPosition.Font = new System.Drawing.Font("Malgun Gothic", 9F, System.Drawing.FontStyle.Bold);
+            this.btnDieBottomPosition.ForeColor = System.Drawing.Color.White;
+            this.btnDieBottomPosition.Margin = new System.Windows.Forms.Padding(2);
+            this.btnDieBottomPosition.Name = "btnDieBottomPosition";
+            this.btnDieBottomPosition.TabIndex = 6;
+            this.btnDieBottomPosition.Text = "DIE BOTTOM POSITION";
+            this.btnDieBottomPosition.Click += new System.EventHandler(this.btnDieBottomPosition_Click);
+            //
+            // btnDieSidePosition
+            //
+            this.btnDieSidePosition.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnDieSidePosition.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnDieSidePosition.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnDieSidePosition.Font = new System.Drawing.Font("Malgun Gothic", 9F, System.Drawing.FontStyle.Bold);
+            this.btnDieSidePosition.ForeColor = System.Drawing.Color.White;
+            this.btnDieSidePosition.Margin = new System.Windows.Forms.Padding(2);
+            this.btnDieSidePosition.Name = "btnDieSidePosition";
+            this.btnDieSidePosition.TabIndex = 7;
+            this.btnDieSidePosition.Text = "DIE SIDE POSITION";
+            this.btnDieSidePosition.Click += new System.EventHandler(this.btnDieSidePosition_Click);
+            //
+            // btnDiePlacePosition
+            //
+            this.btnDiePlacePosition.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnDiePlacePosition.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnDiePlacePosition.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnDiePlacePosition.Font = new System.Drawing.Font("Malgun Gothic", 9F, System.Drawing.FontStyle.Bold);
+            this.btnDiePlacePosition.ForeColor = System.Drawing.Color.White;
+            this.btnDiePlacePosition.Margin = new System.Windows.Forms.Padding(2);
+            this.btnDiePlacePosition.Name = "btnDiePlacePosition";
+            this.btnDiePlacePosition.TabIndex = 8;
+            this.btnDiePlacePosition.Text = "DIE PLACE POSITION";
+            this.btnDiePlacePosition.Click += new System.EventHandler(this.btnDiePlacePosition_Click);
             // 
             // leftLayout
             // 
@@ -526,6 +675,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.grpManual.ResumeLayout(false);
             this.manualPanel.ResumeLayout(false);
             this.manualPanel.PerformLayout();
+            this.manualLayout.ResumeLayout(false);
             this.leftLayout.ResumeLayout(false);
             this.grpOptions.ResumeLayout(false);
             this.grpWait.ResumeLayout(false);

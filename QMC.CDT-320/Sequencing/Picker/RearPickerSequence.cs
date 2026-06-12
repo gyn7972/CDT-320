@@ -22,7 +22,11 @@ namespace QMC.CDT320.Sequencing
                     .RunAsync(ct, options)
                     .ConfigureAwait(false);
                 if (result != 0)
-                    throw new System.InvalidOperationException("RearPicker sequence failed. result=" + result);
+                    throw new System.InvalidOperationException(
+                        SequenceFailureStore.AppendRecentDetail(
+                            "RearPicker sequence failed. result=" + result,
+                            "RearPicker",
+                            "REAR-PICKER-SEQUENCE"));
             }
         }
 
@@ -40,7 +44,11 @@ namespace QMC.CDT320.Sequencing
         {
             int result = await _stepSequence.RunAsync(ct, options).ConfigureAwait(false);
             if (result != 0)
-                throw new System.InvalidOperationException("RearPicker step sequence failed. result=" + result);
+                throw new System.InvalidOperationException(
+                    SequenceFailureStore.AppendRecentDetail(
+                        "RearPicker step sequence failed. result=" + result,
+                        "RearPicker",
+                        "REAR-PICKER-STEP"));
 
             if (_stepSequence.IsComplete)
                 _stepSequence = null;
