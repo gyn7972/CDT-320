@@ -173,8 +173,10 @@ namespace QMC.Vision.Modules
 
         public override void LoadSettings()       { base.LoadSettings();    ApplyCameraSettings(); }
         public override void LoadRecipe(string n) { base.LoadRecipe(n);     ApplyCameraSettings(); }
-        public override bool SaveSettings()       { CollectCameraSettings(); return base.SaveSettings(); }
-        public override bool SaveRecipe(string n) { CollectCameraSettings(); return base.SaveRecipe(n); }
+        // 저장 = Config/Recipe(SSOT)를 그대로 영속. CollectCameraSettings(라이브 카메라→Config) 호출은
+        // UI 편집값을 카메라 현재값으로 덮어쓰던 버그(연결 시에만 저장 손실)라 제거 — 카메라 반영은 Apply 가 담당.
+        public override bool SaveSettings()       { return base.SaveSettings(); }
+        public override bool SaveRecipe(string n) { return base.SaveRecipe(n); }
 
         // ── 알고리즘 등록 (자식 노드) ──
 
