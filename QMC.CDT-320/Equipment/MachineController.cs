@@ -2456,7 +2456,7 @@ namespace QMC.CDT320
                     "OutputNgStageY HOME 불가: NG Bin Guide 실린더가 Down 상태가 아닙니다."));
             }
 
-            if (outputStage.NgBinClampUpSensor != null && !outputStage.NgBinClampUpSensor.IsOn)
+            if (outputStage.NgBinClampUpSensor != null && outputStage.NgBinClampUpSensor.IsOn)
             {
                 return Task.FromResult(FailInitializePreparation(
                     "OutputNgStageY HOME 불가: NG Bin Clamp 실린더가 Up 상태가 아닙니다."));
