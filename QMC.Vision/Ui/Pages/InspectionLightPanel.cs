@@ -22,8 +22,8 @@ namespace QMC.Vision.Ui.Pages
     public partial class InspectionLightPanel : UserControl
     {
         private string _algorithm, _inspectionId;
-        // C2 — 조명 SSOT = 알고리즘 노드 BaseUnit(Setup.LightWirings 결선 / Recipe.LightSettings 레벨).
-        // null 이면 구 algorithm_camera.json fallback(호스트가 노드 미해결 시).
+        // C2/C3b-3 — 조명 SSOT = 알고리즘 노드 BaseUnit(Setup.LightPages 지정 / Recipe.LightSettings 레벨).
+        // null 이면 호스트가 노드 미해결(조명 설정 비활성).
         private IAlgorithmNode _node;
         // Stage 81 — 컨트롤러별 MaxPower / (port,ch) 보존값.
         private readonly Dictionary<string, int> _maxPowerByPort = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
@@ -94,7 +94,7 @@ namespace QMC.Vision.Ui.Pages
             SelectInspection(algorithm, inspectionId);
         }
 
-        /// <summary>저장된 레벨 출처 — 노드 Recipe.LightSettings(있으면) 또는 구 algorithm_camera.json fallback.</summary>
+        /// <summary>저장된 레벨 출처 — 노드 Recipe.LightSettings(없으면 빈 목록).</summary>
         private List<InspectionLightSetting> SavedSettings()
         {
             // C3a — 조명 SSOT = 노드 Recipe.LightSettings (구 algorithm_camera.json fallback 폐지).

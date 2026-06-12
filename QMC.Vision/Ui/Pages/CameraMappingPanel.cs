@@ -23,7 +23,7 @@ namespace QMC.Vision.Ui.Pages
         // 워킹 버퍼로만 쓰고, 로드는 module.ExportCameraMapping / 저장은 module.ImportCameraMapping+SaveSettings.
         private AlgorithmCameraMapping _buffer;
 
-        /// <summary>현재 알고리즘의 운영 모듈(Form1) — 없으면 null(테스트/디자인 시 구 store fallback).</summary>
+        /// <summary>현재 알고리즘의 운영 모듈(Form1) — 미해결(테스트/디자인 등) 시 null.</summary>
         private Modules.IVisionModule Module()
             => string.IsNullOrEmpty(_algorithm) ? null : (FindForm() as Form1)?.ResolveModule(_algorithm);
 

@@ -29,7 +29,7 @@ namespace QMC.Vision.Modules
         string CameraId { get; }
         /// <summary>모듈 Config/Recipe → 현재 Camera 적용.</summary>
         void ApplyCameraSettings();
-        /// <summary>algorithm_camera.json 매핑 → 모듈 Config/Recipe(마이그레이션·UI 편집 반영).</summary>
+        /// <summary>CameraMappingPanel 워킹버퍼(AlgorithmCameraMapping) → 모듈 Config/Recipe 반영(UI 편집 저장).</summary>
         void ImportCameraMapping(AlgorithmCameraMapping m);
         /// <summary>모듈 Config/Recipe → AlgorithmCameraMapping(편집 UI 로드 스냅샷).</summary>
         AlgorithmCameraMapping ExportCameraMapping();
