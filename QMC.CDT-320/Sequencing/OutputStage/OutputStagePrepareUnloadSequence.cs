@@ -132,7 +132,9 @@ namespace QMC.CDT320.Sequencing
                 double target = ResolveSideZTarget(Options.Side, "Avoid");
 
                 if (!Stage.IsStageAxisInPosition(axis, target, ResolveTolerance(axis)))
-                    return Fail("OUT-STAGE-Z-AVOID-CHECK", Stage.Name, Options.Side + " Z avoid final check failed. target=" + target);
+                    return Fail("OUT-STAGE-Z-AVOID-CHECK", Stage.Name,
+                        Options.Side + " Z avoid final check failed. target=" + target + ". " +
+                        BuildAxisState(axis, target));
 
                 CurrentStep = OutputStagePrepareUnloadStep.MoveTargetStageYToUnload;
                 return 0;
@@ -179,7 +181,9 @@ namespace QMC.CDT320.Sequencing
                 double target = ResolveSideTarget(Options.Side, "Unload");
 
                 if (!Stage.IsStageAxisInPosition(axis, target, ResolveTolerance(axis)))
-                    return Fail("OUT-STAGE-Y-UNLOAD-CHECK", Stage.Name, Options.Side + " Y unload final check failed. target=" + target);
+                    return Fail("OUT-STAGE-Y-UNLOAD-CHECK", Stage.Name,
+                        Options.Side + " Y unload final check failed. target=" + target + ". " +
+                        BuildAxisState(axis, target));
 
                 CurrentStep = OutputStagePrepareUnloadStep.Complete;
                 return 0;

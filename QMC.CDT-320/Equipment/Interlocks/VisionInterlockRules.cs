@@ -32,6 +32,18 @@ namespace QMC.CDT320.Interlocks
         private static bool VerifyFrontSideVisionY(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
+
+            switch (request.MoveKind)
+            {
+                case MotionGuardMoveKind.AxisMove:
+                case MotionGuardMoveKind.AxisTeachingMove:
+                    break;
+                case MotionGuardMoveKind.AxisHome:
+                    return true;
+                default:
+                    return true;
+            }
+
             if (!VerifyInputStageClear(request.Machine, "FrontSideVisionY", out reason))
                 return false;
 
@@ -41,6 +53,18 @@ namespace QMC.CDT320.Interlocks
         private static bool VerifyRearSideVisionY(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
+
+            switch (request.MoveKind)
+            {
+                case MotionGuardMoveKind.AxisMove:
+                case MotionGuardMoveKind.AxisTeachingMove:
+                    break;
+                case MotionGuardMoveKind.AxisHome:
+                    return true;
+                default:
+                    return true;
+            }
+
             if (!VerifyInputStageClear(request.Machine, "RearSideVisionY", out reason))
                 return false;
 

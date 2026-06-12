@@ -30,12 +30,36 @@ namespace QMC.CDT320.Interlocks
         private static bool VerifyRearPickerX(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
+
+            switch (request.MoveKind)
+            {
+                case MotionGuardMoveKind.AxisMove:
+                case MotionGuardMoveKind.AxisTeachingMove:
+                    break;
+                case MotionGuardMoveKind.AxisHome:
+                    return VerifyRearPickerXHome(request.Machine, out reason);
+                default:
+                    return true;
+            }
+
             return VerifyRearPickerNotBusy(request.Machine.PickerRearUnit, "RearPickerX", out reason);
         }
 
         private static bool VerifyRearPickerY(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
+
+            switch (request.MoveKind)
+            {
+                case MotionGuardMoveKind.AxisMove:
+                case MotionGuardMoveKind.AxisTeachingMove:
+                    break;
+                case MotionGuardMoveKind.AxisHome:
+                    return VerifyRearPickerYHome(request.Machine, out reason);
+                default:
+                    return true;
+            }
+
             if (!VerifyReticleCylinderClear(request.Machine, "RearPickerY", out reason))
                 return false;
             if (request.Machine.PickerFrontUnit != null &&
@@ -48,12 +72,157 @@ namespace QMC.CDT320.Interlocks
         private static bool VerifyRearPickerT(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
+
+            switch (request.MoveKind)
+            {
+                case MotionGuardMoveKind.AxisMove:
+                case MotionGuardMoveKind.AxisTeachingMove:
+                    break;
+                case MotionGuardMoveKind.AxisHome:
+                    return VerifyRearPickerTHome(request.Machine, request.MovingName, out reason);
+                default:
+                    return true;
+            }
+
             return VerifyRearPickerNotBusy(request.Machine.PickerRearUnit, request.MovingName, out reason);
+        }
+
+        private static bool VerifyRearPickerXHome(CDT320_Machine machine, out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                InputStageUnit stage = machine != null ? machine.InputStageUnit : null;
+                if (stage != null && !stage.IsVisionXInAvoidPosition())
+                    return MotionGuardRuleHelpers.Block(
+                        "RearPickerX",
+                        "RearPickerX HOME blocked. InputVisionX must be at Avoid position.",
+                        out reason);
+
+                if (stage != null && !stage.IsExpanderZInAvoidPosition())
+                    return MotionGuardRuleHelpers.Block(
+                        "RearPickerX",
+                        "RearPickerX HOME blocked. InputExpandingZ must be at Avoid position.",
+                        out reason);
+
+                PickerFrontUnit front = machine != null ? machine.PickerFrontUnit : null;
+                if (front != null && !front.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition"))
+                    return MotionGuardRuleHelpers.Block(
+                        "RearPickerX",
+                        "RearPickerX HOME blocked. FrontPickerY must be at Avoid position.",
+                        out reason);
+
+                PickerRearUnit rear = machine != null ? machine.PickerRearUnit : null;
+                if (rear != null && !rear.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition"))
+                    return MotionGuardRuleHelpers.Block(
+                        "RearPickerX",
+                        "RearPickerX HOME blocked. RearPickerY must be at Avoid position.",
+                        out reason);
+
+                if (!VerifyRearPickerZAxesAvoid(rear, "RearPickerX", out reason))
+                    return false;
+
+                return true;
+            }
+            catch (System.Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "RearPickerX",
+                    "Exception occurred while verifying RearPickerX home rules: " + ex.Message,
+                    out reason);
+            }
+            finally
+            {
+                LogBlockedReason(reason);
+            }
+        }
+
+        private static bool VerifyRearPickerYHome(CDT320_Machine machine, out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                InputStageUnit stage = machine != null ? machine.InputStageUnit : null;
+                if (stage != null && !stage.IsExpanderZInAvoidPosition())
+                    return MotionGuardRuleHelpers.Block(
+                        "RearPickerY",
+                        "RearPickerY HOME blocked. InputExpandingZ must be at Avoid position.",
+                        out reason);
+
+                PickerFrontUnit front = machine != null ? machine.PickerFrontUnit : null;
+                if (front != null && !front.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition"))
+                    return MotionGuardRuleHelpers.Block(
+                        "RearPickerY",
+                        "RearPickerY HOME blocked. FrontPickerY must be at Avoid position.",
+                        out reason);
+
+                if (!VerifyRearPickerZAxesAvoid(machine != null ? machine.PickerRearUnit : null, "RearPickerY", out reason))
+                    return false;
+
+                return true;
+            }
+            catch (System.Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "RearPickerY",
+                    "Exception occurred while verifying RearPickerY home rules: " + ex.Message,
+                    out reason);
+            }
+            finally
+            {
+                LogBlockedReason(reason);
+            }
+        }
+
+        private static bool VerifyRearPickerTHome(CDT320_Machine machine, string movingName, out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                PickerAxis zAxis;
+                if (!TryResolvePairedZAxis(movingName, out zAxis))
+                    return true;
+
+                PickerRearUnit rear = machine != null ? machine.PickerRearUnit : null;
+                if (rear != null && !rear.IsPickerAxisInTeachingPosition(zAxis, "AvoidPosition"))
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        movingName + " HOME blocked. Rear" + zAxis + " must be at Avoid position.",
+                        out reason);
+
+                return true;
+            }
+            catch (System.Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    "Exception occurred while verifying " + movingName + " home rules: " + ex.Message,
+                    out reason);
+            }
+            finally
+            {
+                LogBlockedReason(reason);
+            }
         }
 
         private static bool VerifyRearPickerZ(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
+
+            switch (request.MoveKind)
+            {
+                case MotionGuardMoveKind.AxisMove:
+                case MotionGuardMoveKind.AxisTeachingMove:
+                    break;
+                case MotionGuardMoveKind.AxisHome:
+                    return true;
+                default:
+                    return true;
+            }
+
             return VerifyRearPickerNotBusy(request.Machine.PickerRearUnit, request.MovingName, out reason);
         }
 
@@ -120,6 +289,64 @@ namespace QMC.CDT320.Interlocks
             }
 
             return true;
+        }
+
+        private static bool VerifyRearPickerZAxesAvoid(PickerRearUnit picker, string movingName, out string reason)
+        {
+            reason = string.Empty;
+            if (picker == null)
+                return true;
+
+            PickerAxis[] zAxes = { PickerAxis.PickerZ0, PickerAxis.PickerZ1, PickerAxis.PickerZ2, PickerAxis.PickerZ3 };
+            for (int i = 0; i < zAxes.Length; i++)
+            {
+                PickerAxis zAxis = zAxes[i];
+                if (!picker.IsPickerAxisInTeachingPosition(zAxis, "AvoidPosition"))
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        movingName + " HOME blocked. Rear" + zAxis + " must be at Avoid position.",
+                        out reason);
+            }
+
+            return true;
+        }
+
+        private static bool TryResolvePairedZAxis(string movingName, out PickerAxis zAxis)
+        {
+            zAxis = PickerAxis.PickerZ0;
+
+            switch (movingName)
+            {
+                case "RearPickerT0":
+                    zAxis = PickerAxis.PickerZ0;
+                    return true;
+                case "RearPickerT1":
+                    zAxis = PickerAxis.PickerZ1;
+                    return true;
+                case "RearPickerT2":
+                    zAxis = PickerAxis.PickerZ2;
+                    return true;
+                case "RearPickerT3":
+                    zAxis = PickerAxis.PickerZ3;
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        private static void LogBlockedReason(string reason)
+        {
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(reason))
+                    QMC.Common.Log.Write("Main", "INTERLOCK", "PickerRearInterlock", reason + " - Blocked");
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
         }
     }
 }

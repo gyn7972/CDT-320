@@ -1096,26 +1096,88 @@ namespace QMC.CDT320
 
         public bool CheckBinLifterZMoveReady()
         {
-            return OutputLifterZ != null &&
-                   OutputLifterZ.IsServoOn &&
-                   !OutputLifterZ.IsAlarm &&
-                   !OutputLifterZ.IsMoving &&
-                   !IsBinProtrusionDetected();
+            string reason;
+            return CheckBinLifterZMoveReady(out reason);
+        }
+
+        public bool CheckBinLifterZMoveReady(out string reason)
+        {
+            reason = string.Empty;
+
+            if (OutputLifterZ == null)
+            {
+                reason = "OutputLifterZ is null.";
+                return false;
+            }
+
+            if (!OutputLifterZ.IsServoOn)
+            {
+                reason = "OutputLifterZ servo is OFF. " + BuildOutputLifterZState();
+                return false;
+            }
+
+            if (OutputLifterZ.IsAlarm)
+            {
+                reason = "OutputLifterZ alarm is ON. " + BuildOutputLifterZState();
+                return false;
+            }
+
+            if (OutputLifterZ.IsMoving)
+            {
+                reason = "OutputLifterZ is moving. " + BuildOutputLifterZState();
+                return false;
+            }
+
+            if (IsBinProtrusionDetected())
+            {
+                reason = "Bin protrusion sensor is detected. " + BuildOutputCassetteSensorSummary();
+                return false;
+            }
+
+            return true;
         }
 
         public bool CheckBinCassetteMoveReady() { return CheckBinLifterZMoveReady(); }
+
+        public bool CheckBinCassetteMoveReady(out string reason) { return CheckBinLifterZMoveReady(out reason); }
 
         public bool CheckCassetteTransferReady(TransferMode mode)
         {
             return CheckBinCassetteTransferReady(ResolveActiveCassette(), mode);
         }
 
+        public bool CheckCassetteTransferReady(TransferMode mode, out string reason)
+        {
+            return CheckBinCassetteTransferReady(ResolveActiveCassette(), mode, out reason);
+        }
+
         public bool CheckBinCassetteTransferReady(TargetCassette cassette, TransferMode mode)
         {
-            if (!CheckBinLifterZMoveReady())
+            string reason;
+            return CheckBinCassetteTransferReady(cassette, mode, out reason);
+        }
+
+        public bool CheckBinCassetteTransferReady(TargetCassette cassette, TransferMode mode, out string reason)
+        {
+            reason = string.Empty;
+
+            string moveReason;
+            if (!CheckBinLifterZMoveReady(out moveReason))
+            {
+                reason = moveReason;
                 return false;
+            }
+
             if (mode == TransferMode.Load || mode == TransferMode.Unload)
-                return IsAnyCassetteSensorOn(cassette);
+            {
+                if (!IsAnyCassetteSensorOn(cassette))
+                {
+                    reason = "Output cassette sensor is not detected. cassette=" + cassette + ", mode=" + mode + ". " +
+                             BuildOutputCassetteSensorSummary();
+                    return false;
+                }
+            }
+
             return true;
         }
 
@@ -1126,14 +1188,85 @@ namespace QMC.CDT320
 
         public bool CheckBinCassetteMappingReady(TargetCassette cassette)
         {
-            return CheckBinLifterZMoveReady() &&
-                   IsAnyCassetteSensorOn(cassette) &&
-                   ValidateBinLifterZTeachingComplete();
+            string reason;
+            return CheckBinCassetteMappingReady(cassette, out reason);
+        }
+
+        public bool CheckBinCassetteMappingReady(TargetCassette cassette, out string reason)
+        {
+            reason = string.Empty;
+
+            string moveReason;
+            if (!CheckBinLifterZMoveReady(out moveReason))
+            {
+                reason = moveReason;
+                return false;
+            }
+
+            if (!IsAnyCassetteSensorOn(cassette))
+            {
+                reason = "Output cassette sensor is not detected for mapping. cassette=" + cassette + ". " +
+                         BuildOutputCassetteSensorSummary();
+                return false;
+            }
+
+            if (!ValidateBinLifterZTeachingComplete())
+            {
+                reason = Recipe == null
+                    ? "Output cassette recipe is null."
+                    : "Output cassette lifter teaching is not complete. " +
+                      "Avoid=" + Recipe.AvoidPosition +
+                      ", MappingStart=" + Recipe.MappingStartPosition +
+                      ", MappingEnd=" + Recipe.MappingEndPosition +
+                      ", SlotPitch=" + (Config != null ? Config.SlotPitch.ToString() : "config-null");
+                return false;
+            }
+
+            return true;
         }
 
         public bool CheckCassetteDirectionReady()
         {
             return !IsNgBinBW();
+        }
+
+        private string BuildOutputLifterZState()
+        {
+            if (OutputLifterZ == null)
+                return "OutputLifterZ=null";
+
+            return "OutputLifterZ[name=" + OutputLifterZ.Name +
+                   ", servo=" + (OutputLifterZ.IsServoOn ? "ON" : "OFF") +
+                   ", alarm=" + (OutputLifterZ.IsAlarm ? "ON" : "OFF") +
+                   ", moving=" + (OutputLifterZ.IsMoving ? "Y" : "N") +
+                   ", actual=" + OutputLifterZ.ActualPosition +
+                   "]";
+        }
+
+        private string BuildOutputCassetteSensorSummary()
+        {
+            return "Sensors[" +
+                   "Good8-0=" + FormatInputState(GoodBin8CassetteCheck0) +
+                   ", Good8-1=" + FormatInputState(GoodBin8CassetteCheck1) +
+                   ", Good12-0=" + FormatInputState(GoodBin12CassetteCheck0) +
+                   ", Good12-1=" + FormatInputState(GoodBin12CassetteCheck1) +
+                   ", Ng8-0=" + FormatInputState(NgBin8CassetteCheck0) +
+                   ", Ng8-1=" + FormatInputState(NgBin8CassetteCheck1) +
+                   ", Ng12-0=" + FormatInputState(NgBin12CassetteCheck0) +
+                   ", Ng12-1=" + FormatInputState(NgBin12CassetteCheck1) +
+                   ", NgBW=" + FormatInputState(NgBinCassetteBw) +
+                   ", NgLock=" + FormatInputState(NgBinCassetteLock) +
+                   ", Protrusion=" + FormatInputState(BinRingJutCheck) +
+                   ", Mapping=" + FormatInputState(BinMappingSensor) +
+                   "]";
+        }
+
+        private static string FormatInputState(QMC.Common.IO.BaseDigitalInput input)
+        {
+            if (input == null)
+                return "null";
+
+            return input.Name + "=" + (input.IsOn ? "ON" : "OFF");
         }
 
         public BinCassetteSensorState GetCassettePresenceState(int recipeSize)

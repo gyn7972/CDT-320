@@ -150,7 +150,9 @@ namespace QMC.CDT320.Sequencing
                 double target = ResolveSideZTarget(opposite, "Avoid");
 
                 if (!Stage.IsStageAxisInPosition(axis, target, ResolveTolerance(axis)))
-                    return Fail("OUT-STAGE-OPP-Z-CHECK", Stage.Name, opposite + " Z avoid final check failed. target=" + target);
+                    return Fail("OUT-STAGE-OPP-Z-CHECK", Stage.Name,
+                        opposite + " Z avoid final check failed. target=" + target + ". " +
+                        BuildAxisState(axis, target));
 
                 CurrentStep = OutputStageMoveProcessStep.MoveTargetStageYToProcess;
                 return 0;
@@ -255,7 +257,9 @@ namespace QMC.CDT320.Sequencing
             {
                 double target = ResolveTarget(axis, positionName);
                 if (!Stage.IsStageAxisInPosition(axis, target, ResolveTolerance(axis)))
-                    return Fail("OUT-STAGE-PROCESS-CHECK", Stage.Name, description + " final check failed. target=" + target);
+                    return Fail("OUT-STAGE-PROCESS-CHECK", Stage.Name,
+                        description + " final check failed. target=" + target + ". " +
+                        BuildAxisState(axis, target));
 
                 CurrentStep = nextStep;
                 return 0;

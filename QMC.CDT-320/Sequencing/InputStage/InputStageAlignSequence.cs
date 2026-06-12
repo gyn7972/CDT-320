@@ -116,23 +116,21 @@ namespace QMC.CDT320.Sequencing
                 if (Stage.Recipe == null)
                     return Fail("IN-STAGE-ALIGN-RECIPE", Stage.Name, "Input stage recipe is not available.");
 
-                if (Stage.StageY == null || Stage.StageT == null || Stage.ExpanderZ == null || Stage.CameraX == null)
-                    return Fail("IN-STAGE-ALIGN-AXIS", Stage.Name, "Input stage required axis is not available.");
-
-                if (!Stage.StageY.IsServoOn || !Stage.StageT.IsServoOn || !Stage.ExpanderZ.IsServoOn || !Stage.CameraX.IsServoOn)
-                    return Fail("IN-STAGE-ALIGN-SERVO", Stage.Name, "Input stage servo is not on.");
-
-                if (Stage.StageY.IsAlarm || Stage.StageT.IsAlarm || Stage.ExpanderZ.IsAlarm || Stage.CameraX.IsAlarm)
-                    return Fail("IN-STAGE-ALIGN-ALARM", Stage.Name, "Input stage axis alarm exists.");
+                string servoReason = BuildAlignServoReason();
+                if (!string.IsNullOrEmpty(servoReason))
+                    return Fail("IN-STAGE-ALIGN-SERVO", Stage.Name, "Input stage servo is not on. " + servoReason);
 
                 _wafer = Stage.CurrentWaferMaterial ?? MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
                 if (_wafer == null)
-                    return Fail("IN-STAGE-ALIGN-WAFER", "Material", "InputStage wafer data was not found.");
+                    return Fail("IN-STAGE-ALIGN-WAFER", "Material",
+                        "InputStage wafer data was not found. CurrentWaferMaterial=null, MaterialLocation=InputStage empty.");
 
                 string waferId = !string.IsNullOrWhiteSpace(Options.WaferId) ? Options.WaferId : _wafer.WaferId;
                 _map = Stage.EnsureWaferMapForAlign(waferId, Options.AllowFallbackMap);
                 if (_map == null)
-                    return Fail("IN-STAGE-ALIGN-MAP", Stage.Name, "InputStage wafer map was not found.");
+                    return Fail("IN-STAGE-ALIGN-MAP", Stage.Name,
+                        "InputStage wafer map was not found. waferId=" + waferId +
+                        ", allowFallbackMap=" + Options.AllowFallbackMap);
 
                 _frameSpec = ResolveFrameSpecForWafer(_wafer);
                 ApplyFrameSpecToMap(_map, _frameSpec);
@@ -854,7 +852,9 @@ namespace QMC.CDT320.Sequencing
 
                 int result = await AwaitStepWithCancellationAsync(Stage.MoveInputStageAxis(axis, target, Options.FineMove), ct).ConfigureAwait(false);
                 if (result != 0)
-                    return Fail("IN-STAGE-ALIGN-MOVE", Stage.Name, description + " move command failed. axis=" + axis + ", target=" + target + ", result=" + result);
+                    return Fail("IN-STAGE-ALIGN-MOVE", Stage.Name,
+                        description + " move command failed. axis=" + axis + ", target=" + target +
+                        ", result=" + result + ". " + BuildAxisState(axis, target));
 
                 ct.ThrowIfCancellationRequested();
                 return 0;
@@ -907,7 +907,9 @@ namespace QMC.CDT320.Sequencing
                 ct.ThrowIfCancellationRequested();
                 int result = await AwaitStepWithCancellationAsync(Stage.WaitInputStageAxisInPosition(axis, target, ResolveTimeout()), ct).ConfigureAwait(false);
                 if (result != 0)
-                    return Fail("IN-STAGE-ALIGN-MOVE-TIMEOUT", Stage.Name, description + " move done timeout. axis=" + axis + ", target=" + target);
+                    return Fail("IN-STAGE-ALIGN-MOVE-TIMEOUT", Stage.Name,
+                        description + " move done timeout. axis=" + axis + ", target=" + target +
+                        ", waitResult=" + result + ". " + BuildAxisState(axis, target));
 
                 return 0;
             }
@@ -930,10 +932,13 @@ namespace QMC.CDT320.Sequencing
             {
                 QMC.Common.Motion.BaseAxis item = ResolveStageAxis(axis);
                 if (item == null)
-                    return Fail("IN-STAGE-ALIGN-AXIS", Stage.Name, description + " axis is not available. axis=" + axis);
+                    return Fail("IN-STAGE-ALIGN-AXIS", Stage.Name,
+                        description + " axis is not available. " + BuildAxisState(axis, target));
 
                 if (item.IsMoving || item.IsAlarm || !IsAxisInPosition(item, target))
-                    return Fail("IN-STAGE-ALIGN-POSITION", Stage.Name, description + " final position check failed. axis=" + axis + ", target=" + target);
+                    return Fail("IN-STAGE-ALIGN-POSITION", Stage.Name,
+                        description + " final position check failed. axis=" + axis + ", target=" + target +
+                        ". " + BuildAxisState(axis, target));
 
                 return 0;
             }
@@ -969,6 +974,26 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        private string BuildAlignServoReason()
+        {
+            string reason = string.Empty;
+            AppendServoOff(ref reason, WaferStageAxis.WaferY, Stage.StageY);
+            AppendServoOff(ref reason, WaferStageAxis.WaferT, Stage.StageT);
+            AppendServoOff(ref reason, WaferStageAxis.WaferExpandingZ, Stage.ExpanderZ);
+            AppendServoOff(ref reason, WaferStageAxis.VisionX, Stage.CameraX);
+            return reason;
+        }
+
+        private void AppendServoOff(ref string reason, WaferStageAxis axis, QMC.Common.Motion.BaseAxis item)
+        {
+            if (item == null || item.IsServoOn)
+                return;
+
+            if (reason.Length > 0)
+                reason += " ";
+            reason += BuildAxisState(axis, item.ActualPosition) + ";";
         }
 
         private static bool IsAxisInPosition(QMC.Common.Motion.BaseAxis axis, double target)

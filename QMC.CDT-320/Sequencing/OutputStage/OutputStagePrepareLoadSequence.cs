@@ -142,7 +142,9 @@ namespace QMC.CDT320.Sequencing
                 double target = ResolveSideZTarget(opposite, "Avoid");
 
                 if (!Stage.IsStageAxisInPosition(axis, target, ResolveTolerance(axis)))
-                    return Fail("OUT-STAGE-OPP-Z-CHECK", Stage.Name, opposite + " Z avoid final check failed. target=" + target);
+                    return Fail("OUT-STAGE-OPP-Z-CHECK", Stage.Name,
+                        opposite + " Z avoid final check failed. target=" + target + ". " +
+                        BuildAxisState(axis, target));
 
                 CurrentStep = OutputStagePrepareLoadStep.MoveTargetStageYToLoad;
                 return 0;
@@ -189,7 +191,9 @@ namespace QMC.CDT320.Sequencing
                 double target = ResolveSideTarget(Options.Side, "Load");
 
                 if (!Stage.IsStageAxisInPosition(axis, target, ResolveTolerance(axis)))
-                    return Fail("OUT-STAGE-Y-LOAD-CHECK", Stage.Name, Options.Side + " Y load final check failed. target=" + target);
+                    return Fail("OUT-STAGE-Y-LOAD-CHECK", Stage.Name,
+                        Options.Side + " Y load final check failed. target=" + target + ". " +
+                        BuildAxisState(axis, target));
 
                 CurrentStep = OutputStagePrepareLoadStep.MoveTargetStageZToLoad;
                 return 0;
@@ -248,7 +252,9 @@ namespace QMC.CDT320.Sequencing
                 double target = ResolveSideZTarget(Options.Side, "Load");
 
                 if (!Stage.IsStageAxisInPosition(axis, target, ResolveTolerance(axis)))
-                    return Fail("OUT-STAGE-Z-LOAD-CHECK", Stage.Name, Options.Side + " Z load final check failed. target=" + target);
+                    return Fail("OUT-STAGE-Z-LOAD-CHECK", Stage.Name,
+                        Options.Side + " Z load final check failed. target=" + target + ". " +
+                        BuildAxisState(axis, target));
 
                 CurrentStep = OutputStagePrepareLoadStep.Complete;
                 return 0;

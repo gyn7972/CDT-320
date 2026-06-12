@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using QMC.Common.Alarms;
 using QMC.Common.Logging;
+using QMC.CDT320;
 using QMC.CDT320.Materials;
 using QMC.CDT320.Sequencing;
 using QMC.CDT_320.Ui.Controls;
@@ -453,24 +454,107 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
         private static bool ValidateInputCassetteManualCondition(Form1 host, bool mapping)
         {
-            var cassette = host != null && host.Machine != null ? host.Machine.InputCassetteUnit : null;
-            if (cassette == null || cassette.Config == null || cassette.Recipe == null)
+            string reason;
+            if (ValidateInputCassetteManualCondition(host, mapping, out reason))
+                return true;
+
+            string kind = mapping ? "Mapping" : "ManualMove";
+            string message = "Input Cassette manual condition failed. kind=" + kind + ". " + reason;
+            WriteAlarm("INPUT-CST-MANUAL-CONDITION", message);
+            SequenceFailureStore.Record(
+                "InputCassettePage.Manual",
+                kind,
+                "ValidateInputCassetteManualCondition",
+                "INPUT-CST-MANUAL-CONDITION",
+                LogSource,
+                message);
+            return false;
+        }
+
+        private static bool ValidateInputCassetteManualCondition(Form1 host, bool mapping, out string reason)
+        {
+            reason = string.Empty;
+
+            if (host == null)
+            {
+                reason = "Form host is null.";
                 return false;
+            }
+
+            if (host.Machine == null)
+            {
+                reason = "Machine is null.";
+                return false;
+            }
+
+            var cassette = host != null && host.Machine != null ? host.Machine.InputCassetteUnit : null;
+            if (cassette == null)
+            {
+                reason = "InputCassetteUnit is null.";
+                return false;
+            }
+
+            if (cassette.Config == null)
+            {
+                reason = "InputCassette config is null.";
+                return false;
+            }
+
+            if (cassette.Recipe == null)
+            {
+                reason = "InputCassette recipe is null.";
+                return false;
+            }
 
             if (cassette.Config.SlotCount <= 0)
+            {
+                reason = "InputCassette SlotCount is invalid. slotCount=" + cassette.Config.SlotCount;
                 return false;
+            }
 
-            if (!cassette.CheckWaferCassetteMoveReady())
+            if (!cassette.CheckWaferCassetteMoveReady(out reason))
+            {
+                reason = "InputCassette move ready check failed. " + reason;
                 return false;
+            }
 
             if (IsHardwareBypassed(host))
                 return true;
 
             int cassetteSize = cassette.Config.InchSelect == 0 ? 8 : 12;
             if (!cassette.IsWaferCassetteExist(cassetteSize))
+            {
+                reason = "Input cassette is not detected. cassetteSize=" + cassetteSize + ". " + BuildCassetteSensorSummary(cassette);
                 return false;
+            }
 
-            return !mapping || cassette.CheckWaferCassetteMappingReady();
+            if (mapping && !cassette.CheckWaferCassetteMappingReady(out reason))
+            {
+                reason = "InputCassette mapping ready check failed. " + reason;
+                return false;
+            }
+
+            return true;
+        }
+
+        private static string BuildCassetteSensorSummary(InputCassetteUnit cassette)
+        {
+            if (cassette == null)
+                return "Sensors: cassette=NULL.";
+
+            return "Sensors: 8inch[0]=" + FormatInputState(cassette.Wafer8CassetteCheck0) +
+                   ", 8inch[1]=" + FormatInputState(cassette.Wafer8CassetteCheck1) +
+                   ", 12inch[0]=" + FormatInputState(cassette.Wafer12CassetteCheck0) +
+                   ", 12inch[1]=" + FormatInputState(cassette.Wafer12CassetteCheck1) +
+                   ", protrusion=" + FormatInputState(cassette.WaferRingJutCheck) + ".";
+        }
+
+        private static string FormatInputState(QMC.Common.IO.BaseDigitalInput input)
+        {
+            if (input == null)
+                return "NULL";
+
+            return input.IsOn ? "ON" : "OFF";
         }
 
         private static int ResolveManualMoveTimeoutMs(Form1 host)

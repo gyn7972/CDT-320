@@ -139,7 +139,9 @@ namespace QMC.CDT320.Sequencing
             {
                 double target = ResolveTarget(BinStageAxis.VisionX, positionName);
                 if (!Stage.IsStageAxisInPosition(BinStageAxis.VisionX, target, ResolveTolerance(BinStageAxis.VisionX)))
-                    return Fail("OUT-STAGE-INSPECT-VISION-CHECK", Stage.Name, description + " final check failed. target=" + target);
+                    return Fail("OUT-STAGE-INSPECT-VISION-CHECK", Stage.Name,
+                        description + " final check failed. target=" + target + ". " +
+                        BuildAxisState(BinStageAxis.VisionX, target));
 
                 CurrentStep = nextStep;
                 return 0;

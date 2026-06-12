@@ -1126,6 +1126,33 @@ namespace QMC.CDT320
             return cylinder != null && cylinder.IsBwd;
         }
 
+        public string DescribeOutputStageInterlockState(BinSide side)
+        {
+            return "side=" + side +
+                   ", guideUp=" + IsBinGuideUp(side) +
+                   ", clampLiftUp=" + IsBinGuideClampLiftUp(side) +
+                   ", clampLiftDown=" + IsBinGuideClampLiftDown(side) +
+                   ", unclamp=" + IsBinGuideUnclamped(side) +
+                   ", ngClampLiftUp=" + IsBinGuideClampLiftUp(BinSide.Ng) +
+                   ", goodZSafe=" + IsGoodStageZInAvoidOrProcessPosition() +
+                   ", ngStageAvoid=" + IsNgStageInAvoidPosition() +
+                   ", goodY=" + FormatAxisState(GoodStage != null ? GoodStage.StageY : null) +
+                   ", goodZ=" + FormatAxisState(GoodStage != null ? GoodStage.StageZ : null) +
+                   ", ngY=" + FormatAxisState(NgStage != null ? NgStage.StageY : null);
+        }
+
+        private static string FormatAxisState(BaseAxis axis)
+        {
+            if (axis == null)
+                return "null";
+
+            return axis.Name +
+                   "(servo=" + axis.IsServoOn +
+                   ", alarm=" + axis.IsAlarm +
+                   ", moving=" + axis.IsMoving +
+                   ", actual=" + axis.ActualPosition + ")";
+        }
+
         public void TeachStageAxisPosition(BinStageAxis axis, string positionName)
         {
             SetStageTeachingPosition(axis, positionName, ResolveStageAxis(axis).ActualPosition);

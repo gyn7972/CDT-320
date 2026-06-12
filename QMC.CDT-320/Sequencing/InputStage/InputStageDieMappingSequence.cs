@@ -106,6 +106,10 @@ namespace QMC.CDT320.Sequencing
                 if (Stage.Recipe == null)
                     return Fail("IN-STAGE-DIEMAP-RECIPE", Stage.Name, "Input stage recipe is not available.");
 
+                string servoReason = BuildDieMappingServoReason();
+                if (!string.IsNullOrEmpty(servoReason))
+                    return Fail("IN-STAGE-DIEMAP-SERVO", Stage.Name, "Input stage servo is not on. " + servoReason);
+
                 Stage.Recipe.EnsurePositionObjects();
                 if (Stage.Recipe.DieMap == null)
                     return Fail("IN-STAGE-DIEMAP-RECIPE", Stage.Name, "Input stage die map recipe is not available.");
@@ -121,22 +125,31 @@ namespace QMC.CDT320.Sequencing
                 if (result != 0) return result;
 
                 if (!Stage.HasWaferOnStage())
-                    return Fail("IN-STAGE-DIEMAP-WAFER", "Material", "InputStage wafer data was not found.");
+                    return Fail("IN-STAGE-DIEMAP-WAFER", "Material",
+                        "InputStage wafer data was not found. HasWaferOnStage=false, CurrentWaferMaterial=" +
+                        (Stage.CurrentWaferMaterial != null ? Stage.CurrentWaferMaterial.WaferId : "null"));
 
                 _wafer = Stage.GetCurrentStageWaferMaterial();
                 if (_wafer == null)
                     _wafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
                 if (_wafer == null)
-                    return Fail("IN-STAGE-DIEMAP-WAFER", "Material", "InputStage wafer material is not available.");
+                    return Fail("IN-STAGE-DIEMAP-WAFER", "Material",
+                        "InputStage wafer material is not available. CurrentWaferMaterial=null, MaterialLocation=InputStage empty.");
 
                 if (Stage.PitchX == 0.0 || Stage.PitchY == 0.0)
-                    return Fail("IN-STAGE-DIEMAP-ALIGN", Stage.Name, "InputStage align result is not available. Run align before die mapping.");
+                    return Fail("IN-STAGE-DIEMAP-ALIGN", Stage.Name,
+                        "InputStage align result is not available. Run align before die mapping. PitchX=" +
+                        Stage.PitchX + ", PitchY=" + Stage.PitchY);
 
                 _frameSpec = ResolveFrameSpecForWafer(_wafer);
                 if (_frameSpec == null)
-                    return Fail("IN-STAGE-DIEMAP-SPEC", "Material", "TapeFrame spec was not found.");
+                    return Fail("IN-STAGE-DIEMAP-SPEC", "Material",
+                        "TapeFrame spec was not found. waferId=" + _wafer.WaferId +
+                        ", specName=" + _wafer.TapeFrameSpecName);
                 if (_frameSpec.GridX <= 0 || _frameSpec.GridY <= 0)
-                    return Fail("IN-STAGE-DIEMAP-SPEC", "Material", "TapeFrame grid is invalid.");
+                    return Fail("IN-STAGE-DIEMAP-SPEC", "Material",
+                        "TapeFrame grid is invalid. specName=" + _frameSpec.Name +
+                        ", gridX=" + _frameSpec.GridX + ", gridY=" + _frameSpec.GridY);
 
                 if (Options.RequireVisionAlign && Stage.Vision == null && !IsSimulationOrDryRun())
                     return Fail("IN-STAGE-DIEMAP-VISION", Stage.Name, "Vision client is required but not available.");
@@ -578,7 +591,9 @@ namespace QMC.CDT320.Sequencing
 
                 int result = await AwaitStepWithCancellationAsync(Stage.MoveInputStageAxis(axis, target, Options.FineMove), ct).ConfigureAwait(false);
                 if (result != 0)
-                    return Fail("IN-STAGE-DIEMAP-MOVE", Stage.Name, description + " move command failed. axis=" + axis + ", target=" + target + ", result=" + result);
+                    return Fail("IN-STAGE-DIEMAP-MOVE", Stage.Name,
+                        description + " move command failed. axis=" + axis + ", target=" + target +
+                        ", result=" + result + ". " + BuildAxisState(axis, target));
 
                 ct.ThrowIfCancellationRequested();
                 return 0;
@@ -603,7 +618,9 @@ namespace QMC.CDT320.Sequencing
                 ct.ThrowIfCancellationRequested();
                 int result = await AwaitStepWithCancellationAsync(Stage.WaitInputStageAxisInPosition(axis, target, ResolveTimeout()), ct).ConfigureAwait(false);
                 if (result != 0)
-                    return Fail("IN-STAGE-DIEMAP-MOVE-TIMEOUT", Stage.Name, description + " move done timeout. axis=" + axis + ", target=" + target);
+                    return Fail("IN-STAGE-DIEMAP-MOVE-TIMEOUT", Stage.Name,
+                        description + " move done timeout. axis=" + axis + ", target=" + target +
+                        ", waitResult=" + result + ". " + BuildAxisState(axis, target));
 
                 return 0;
             }
@@ -626,10 +643,13 @@ namespace QMC.CDT320.Sequencing
             {
                 QMC.Common.Motion.BaseAxis item = ResolveStageAxis(axis);
                 if (item == null)
-                    return Fail("IN-STAGE-DIEMAP-AXIS", Stage.Name, description + " axis is not available. axis=" + axis);
+                    return Fail("IN-STAGE-DIEMAP-AXIS", Stage.Name,
+                        description + " axis is not available. " + BuildAxisState(axis, target));
 
                 if (item.IsMoving || item.IsAlarm || !IsAxisInPosition(item, target))
-                    return Fail("IN-STAGE-DIEMAP-POSITION", Stage.Name, description + " final position check failed. axis=" + axis + ", target=" + target);
+                    return Fail("IN-STAGE-DIEMAP-POSITION", Stage.Name,
+                        description + " final position check failed. axis=" + axis + ", target=" + target +
+                        ". " + BuildAxisState(axis, target));
 
                 return 0;
             }
@@ -693,6 +713,24 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        private string BuildDieMappingServoReason()
+        {
+            string reason = string.Empty;
+            AppendServoOff(ref reason, WaferStageAxis.WaferY, Stage.StageY);
+            AppendServoOff(ref reason, WaferStageAxis.VisionX, Stage.CameraX);
+            return reason;
+        }
+
+        private void AppendServoOff(ref string reason, WaferStageAxis axis, QMC.Common.Motion.BaseAxis item)
+        {
+            if (item == null || item.IsServoOn)
+                return;
+
+            if (reason.Length > 0)
+                reason += " ";
+            reason += BuildAxisState(axis, item.ActualPosition) + ";";
         }
 
         private static bool IsAxisInPosition(QMC.Common.Motion.BaseAxis axis, double target)

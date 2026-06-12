@@ -105,8 +105,9 @@ namespace QMC.CDT320.Sequencing
             if (!Feeder.ValidateBinFeederYTeachingComplete(Options.Side, out teachingReason))
                 return Fail("OUT-FEEDER-TEACHING", Feeder.Name, "OutputFeederY teaching is not complete. " + teachingReason);
 
-            if (!Feeder.CheckFeederMoveReady())
-                return Fail("OUT-FEEDER-MOVE-READY", Feeder.Name, "OutputFeederY is not ready to move.");
+            string moveReason;
+            if (!Feeder.CheckBinFeederYMoveReady(out moveReason))
+                return Fail("OUT-FEEDER-MOVE-READY", Feeder.Name, "OutputFeederY is not ready to move. " + moveReason);
 
             CurrentStep = OutputFeederLoadFromCassetteStep.CheckOutputStageEmpty;
             return 0;
@@ -126,7 +127,9 @@ namespace QMC.CDT320.Sequencing
                     "OUT-STAGE-DATA-OCCUPIED",
                     "Material",
                     stageName + " must be empty before cassette to feeder load. side=" + Options.Side +
-                    ", waferId=" + targetStageWafer.WaferId);
+                    ", waferId=" + targetStageWafer.WaferId +
+                    ", state=" + targetStageWafer.State +
+                    ", loc=" + targetStageWafer.CurrentLocation);
             }
 
             CurrentStep = OutputFeederLoadFromCassetteStep.CheckCassetteBinData;
@@ -146,10 +149,10 @@ namespace QMC.CDT320.Sequencing
             {
                 int unclamp = await AwaitStepWithCancellationAsync(Feeder.SetFeederClampAsync(false, ResolveTimeout()), ct).ConfigureAwait(false);
                 if (unclamp != 0)
-                    return Fail("OUT-FEEDER-PREP-UNCLAMP", Feeder.Name, "Output feeder unclamp preparation command failed. result=" + unclamp);
+                    return Fail("OUT-FEEDER-PREP-UNCLAMP", Feeder.Name, "Output feeder unclamp preparation command failed. result=" + unclamp + ", " + Feeder.DescribeFeederCylinderState());
 
                 if (!Feeder.IsFeederUnclamped())
-                    return Fail("OUT-FEEDER-PREP-UNCLAMP", Feeder.Name, "Output feeder unclamp preparation failed. result=" + unclamp);
+                    return Fail("OUT-FEEDER-PREP-UNCLAMP", Feeder.Name, "Output feeder unclamp preparation failed. result=" + unclamp + ", " + Feeder.DescribeFeederCylinderState());
             }
 
             CurrentStep = OutputFeederLoadFromCassetteStep.PrepareFeederLiftDown;
@@ -164,10 +167,10 @@ namespace QMC.CDT320.Sequencing
             {
                 int down = await AwaitStepWithCancellationAsync(Feeder.SetFeederUpDownAsync(false, ResolveTimeout()), ct).ConfigureAwait(false);
                 if (down != 0)
-                    return Fail("OUT-FEEDER-PREP-DOWN", Feeder.Name, "Output feeder lift down preparation command failed. result=" + down);
+                    return Fail("OUT-FEEDER-PREP-DOWN", Feeder.Name, "Output feeder lift down preparation command failed. result=" + down + ", " + Feeder.DescribeFeederCylinderState());
 
                 if (!Feeder.IsFeederDown())
-                    return Fail("OUT-FEEDER-PREP-DOWN", Feeder.Name, "Output feeder lift down preparation failed. result=" + down);
+                    return Fail("OUT-FEEDER-PREP-DOWN", Feeder.Name, "Output feeder lift down preparation failed. result=" + down + ", " + Feeder.DescribeFeederCylinderState());
             }
 
             CurrentStep = OutputFeederLoadFromCassetteStep.MoveFeederCassetteLoadPosition;
@@ -201,10 +204,10 @@ namespace QMC.CDT320.Sequencing
         {
             int result = await AwaitStepWithCancellationAsync(Feeder.SetFeederClampAsync(true, ResolveTimeout()), ct).ConfigureAwait(false);
             if (result != 0)
-                return Fail("OUT-FEEDER-CLAMP", Feeder.Name, "Output feeder clamp failed. result=" + result);
+                return Fail("OUT-FEEDER-CLAMP", Feeder.Name, "Output feeder clamp failed. result=" + result + ", " + Feeder.DescribeFeederCylinderState());
 
             if (Feeder.IsFeederUnclamped())
-                return Fail("OUT-FEEDER-CLAMP", Feeder.Name, "Output feeder clamp final check failed after cassette load. side=" + Options.Side);
+                return Fail("OUT-FEEDER-CLAMP", Feeder.Name, "Output feeder clamp final check failed after cassette load. side=" + Options.Side + ", " + Feeder.DescribeFeederCylinderState());
 
             CurrentStep = OutputFeederLoadFromCassetteStep.MoveFeederAvoidPosition;
             return 0;

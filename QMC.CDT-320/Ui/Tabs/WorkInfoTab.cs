@@ -18,8 +18,8 @@ namespace QMC.CDT_320.Ui.Tabs
             RegisterSidebarButton(BtnInputCassette,        "wi.inputCassette",     op, () => new InputCassettePage());
             RegisterSidebarButton(BtnInputFeeder,          "wi.inputFeeder",       op, () => new InputFeederPage());
             RegisterSidebarButton(BtnInputStage,           "wi.inputStage",        op, () => new InputStagePage());
-            RegisterSidebarButton(BtnFrontHead,            "wi.frontHead",         op, () => new HeadPage("wi.frontHead"));
-            RegisterSidebarButton(BtnRearHead,             "wi.rearHead",          op, () => new HeadPage("wi.rearHead"));
+            RegisterSidebarButton(BtnFrontHead,            "wi.frontHead",         op, () => new FrontPickerPage());
+            RegisterSidebarButton(BtnRearHead,             "wi.rearHead",          op, () => new RearPickerPage());
             RegisterSidebarButton(BtnOutputStage,          "wi.outputStage",       op, () => new OutputStagePage());
             RegisterSidebarButton(BtnOutputFeeder,         "wi.outputFeeder",      op, () => new OutputFeederPage());
             RegisterSidebarButton(BtnOutputCassette,       "wi.outputCassette",    op, () => new OutputCassettePage());

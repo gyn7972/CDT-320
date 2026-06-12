@@ -1,5 +1,5 @@
-﻿using System;
-using QMC.Common.IO;
+﻿using QMC.Common.IO;
+using System;
 
 namespace QMC.CDT320.Interlocks
 {
@@ -24,36 +24,69 @@ namespace QMC.CDT320.Interlocks
             out string reason)
         {
             reason = string.Empty;
-            if (machine == null)
-                return true;
 
-            InputCassetteUnit Cassette = machine.InputCassetteUnit;
-            InputFeederUnit feeder = machine.InputFeederUnit;
-
-            if (feeder == null)
-                return true;
-
-            if (moveKind == MotionGuardMoveKind.AxisHome)
+            try
             {
-                return CanHomeWaferLifterZ(Cassette, feeder, out reason);
+                if (machine == null)
+                    return true;
+
+                InputCassetteUnit Cassette = machine.InputCassetteUnit;
+                InputFeederUnit feeder = machine.InputFeederUnit;
+
+                switch (moveKind)
+                {
+                    case MotionGuardMoveKind.AxisHome:
+                        return CanHomeWaferLifterZ(Cassette, feeder, out reason);
+                    case MotionGuardMoveKind.AxisMove:
+                    case MotionGuardMoveKind.AxisTeachingMove:
+                        if (feeder == null)
+                            return true;
+
+                        return CanMoveWaferLifterZToPosition(feeder, out reason);
+                    default:
+                        return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "InputLifterZ",
+                    $"Exception occurred while evaluating InputLifterZ motion guard rules: {ex.Message}",
+                    out reason);
+            }
+            finally
+            {
+                LogBlockedReason(reason);
             }
 
-            return CanMoveWaferLifterZToPosition(feeder, out reason);
+
         }
 
         private static bool CanHomeWaferLifterZ(InputCassetteUnit Cassette, InputFeederUnit feeder, out string reason)
         {
             reason = string.Empty;
+
+            if (Cassette != null && Cassette.IsWaferProtrusionDetected())
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "InputLifterZ",
+                    "InputCassette Jut detected. InputLifterZ home is blocked.",
+                    out reason);
+            }
+
             if (feeder == null)
                 return true;
 
             if (feeder.FeederY != null && feeder.FeederY.IsMoving)
+            {
                 return MotionGuardRuleHelpers.Block(
                     "InputLifterZ",
                     "InputFeederY is moving. InputLifterZ home is blocked.",
                     out reason);
+            }
 
-            if (Cassette.IsWaferCassetteExist(8) || Cassette.IsWaferCassetteExist(12))
+            if (Cassette != null &&
+                (Cassette.IsWaferCassetteExist(8) || Cassette.IsWaferCassetteExist(12)))
             {
                 if (!IsWaferFeederYSafeForWaferLifterZ(feeder))
                     return MotionGuardRuleHelpers.Block(
@@ -122,6 +155,21 @@ namespace QMC.CDT320.Interlocks
 
             BaseCylinder cylinder = feeder.InputFeederClamp;
             return cylinder != null && cylinder.IsFwd;
+        }
+
+        private static void LogBlockedReason(string reason)
+        {
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(reason))
+                    QMC.Common.Log.Write("Main", "INTERLOCK", "InputCassetteInterlock", reason + " - Blocked");
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
         }
 
     }

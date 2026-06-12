@@ -207,8 +207,12 @@ namespace QMC.CDT320
         {
             try
             {
-                if (!ValidateWaferLifterZTargetPosition(targetPos))
+                string targetReason;
+                if (!ValidateWaferLifterZTargetPosition(targetPos, out targetReason))
+                {
+                    RaiseWaferCassetteConditionAlarm("IN-CST-LIFTER-TARGET", targetReason);
                     return -1;
+                }
 
                 string interlockReason;
                 if (!CheckWaferLifterZInterlock(targetPos, MotionGuardMoveKind.AxisMove, out interlockReason))
@@ -231,8 +235,12 @@ namespace QMC.CDT320
         {
             try
             {
-                if (!ValidateWaferLifterZTargetPosition(targetPos))
+                string targetReason;
+                if (!ValidateWaferLifterZTargetPosition(targetPos, out targetReason))
+                {
+                    RaiseWaferCassetteConditionAlarm("IN-CST-LIFTER-TARGET", targetReason);
                     return -1;
+                }
 
                 string interlockReason;
                 if (!CheckWaferLifterZInterlock(targetPos, MotionGuardMoveKind.AxisMove, out interlockReason))
@@ -426,7 +434,41 @@ namespace QMC.CDT320
 
         public bool ValidateWaferLifterZTeachingComplete()
         {
-            return Config.SlotCount > 0 && Config.SlotPitch > 0.0 && Recipe.MappingEndPosition != Recipe.MappingStartPosition;
+            string reason;
+            return ValidateWaferLifterZTeachingComplete(out reason);
+        }
+
+        public bool ValidateWaferLifterZTeachingComplete(out string reason)
+        {
+            reason = string.Empty;
+            var reasons = new List<string>();
+
+            if (Config == null)
+            {
+                reasons.Add("Config is null.");
+            }
+            else
+            {
+                if (Config.SlotCount <= 0)
+                    reasons.Add("SlotCount is invalid. slotCount=" + Config.SlotCount);
+                if (Config.SlotPitch <= 0.0)
+                    reasons.Add("SlotPitch is invalid. slotPitch=" + Config.SlotPitch);
+            }
+
+            if (Recipe == null)
+            {
+                reasons.Add("Recipe is null.");
+            }
+            else if (Recipe.MappingEndPosition == Recipe.MappingStartPosition)
+            {
+                reasons.Add("MappingStartPosition and MappingEndPosition are same. position=" + Recipe.MappingStartPosition);
+            }
+
+            if (reasons.Count == 0)
+                return true;
+
+            reason = string.Join(" ", reasons.ToArray());
+            return false;
         }
 
         public async Task<int> MoveToTeachingPositionAndVerify(string positionName, bool bFine = false)
@@ -660,8 +702,12 @@ namespace QMC.CDT320
         {
             try
             {
-                if (!CheckWaferCassetteMappingReady())
+                string readyReason;
+                if (!CheckWaferCassetteMappingReady(out readyReason))
+                {
+                    RaiseWaferCassetteConditionAlarm("IN-CST-SCAN-READY", "Wafer scan ready check failed. " + readyReason);
                     return -1;
+                }
 
                 BeginWaferMapping();
                 int result = await ScanCassetteAsync(Config.SlotCount, Config.SlotPitch);
@@ -681,8 +727,12 @@ namespace QMC.CDT320
         {
             try
             {
-                if (!CheckWaferCassetteMappingReady())
+                string readyReason;
+                if (!CheckWaferCassetteMappingReady(out readyReason))
+                {
+                    RaiseWaferCassetteConditionAlarm("IN-CST-SCAN-READY", "Wafer scan from current start ready check failed. " + readyReason);
                     return -1;
+                }
 
                 BeginWaferMapping();
                 int result = await ScanCassetteFromCurrentStartAsync(Config.SlotCount, Config.SlotPitch, timeoutMs);
@@ -704,7 +754,10 @@ namespace QMC.CDT320
             {
                 int slot = FindNextProcessWaferSlot();
                 if (slot < 0)
+                {
+                    RaiseWaferCassetteConditionAlarm("IN-CST-NEXT-SLOT", "No next process wafer slot was found.");
                     return -1;
+                }
 
                 int result = await MoveToWaferCassetteSlotPosition(slot, bFine);
                 if (result != 0)
@@ -725,8 +778,12 @@ namespace QMC.CDT320
         {
             try
             {
-                if (!CheckWaferCassetteMoveReady())
+                string readyReason;
+                if (!CheckWaferCassetteMoveReady(out readyReason))
+                {
+                    RaiseWaferCassetteConditionAlarm("IN-CST-FEEDER-LOAD-READY", "Prepare cassette for feeder load ready check failed. " + readyReason);
                     return -1;
+                }
 
                 int result = await MoveToWaferCassetteSlotPosition(slotIndex, bFine);
                 if (result != 0)
@@ -772,25 +829,90 @@ namespace QMC.CDT320
 
         public bool CheckWaferCassetteMoveReady()
         {
-            return InputLifterZ != null &&
-                   InputLifterZ.IsServoOn &&
-                   !InputLifterZ.IsAlarm &&
-                   !InputLifterZ.IsMoving &&
-                   !IsWaferProtrusionDetected();
+            string reason;
+            return CheckWaferCassetteMoveReady(out reason);
+        }
+
+        public bool CheckWaferCassetteMoveReady(out string reason)
+        {
+            reason = string.Empty;
+            var reasons = new List<string>();
+
+            if (InputLifterZ == null)
+            {
+                reasons.Add("InputLifterZ axis is null.");
+            }
+            else
+            {
+                if (!InputLifterZ.IsServoOn)
+                    reasons.Add("InputLifterZ servo is OFF.");
+                if (InputLifterZ.IsAlarm)
+                    reasons.Add("InputLifterZ alarm is ON. alarmCode=" + InputLifterZ.AlarmCode);
+                if (InputLifterZ.IsMoving)
+                    reasons.Add("InputLifterZ is moving.");
+            }
+
+            if (IsWaferProtrusionDetected())
+                reasons.Add("Wafer protrusion sensor is ON.");
+
+            if (reasons.Count == 0)
+                return true;
+
+            reason = string.Join(" ", reasons.ToArray()) + " " + BuildCassetteSensorSummary();
+            Log.Write("Main", "SYSTEM", "InputCassetteUnit", "Move ready check failed: " + reason + " - Check");
+            return false;
         }
 
         public bool CheckWaferCassetteTransferReady(TransferMode mode)
         {
-            if (!CheckWaferCassetteMoveReady())
+            string reason;
+            return CheckWaferCassetteTransferReady(mode, out reason);
+        }
+
+        public bool CheckWaferCassetteTransferReady(TransferMode mode, out string reason)
+        {
+            reason = string.Empty;
+            if (!CheckWaferCassetteMoveReady(out reason))
                 return false;
             if (mode == TransferMode.Load || mode == TransferMode.Unload)
-                return IsAnyCassetteSensorOn();
+            {
+                if (!IsAnyCassetteSensorOn())
+                {
+                    reason = "Input cassette is not detected for transfer. mode=" + mode + ". " + BuildCassetteSensorSummary();
+                    Log.Write("Main", "SYSTEM", "InputCassetteUnit", "Transfer ready check failed: " + reason + " - Check");
+                    return false;
+                }
+            }
             return true;
         }
 
         public bool CheckWaferCassetteMappingReady()
         {
-            return CheckWaferCassetteMoveReady() && IsAnyCassetteSensorOn() && ValidateWaferLifterZTeachingComplete();
+            string reason;
+            return CheckWaferCassetteMappingReady(out reason);
+        }
+
+        public bool CheckWaferCassetteMappingReady(out string reason)
+        {
+            reason = string.Empty;
+            if (!CheckWaferCassetteMoveReady(out reason))
+                return false;
+
+            if (!IsAnyCassetteSensorOn())
+            {
+                reason = "Input cassette is not detected for mapping. " + BuildCassetteSensorSummary();
+                Log.Write("Main", "SYSTEM", "InputCassetteUnit", "Mapping ready check failed: " + reason + " - Check");
+                return false;
+            }
+
+            if (!ValidateWaferLifterZTeachingComplete(out reason))
+            {
+                reason = "Input cassette teaching data is not complete. " + reason;
+                Log.Write("Main", "SYSTEM", "InputCassetteUnit", "Mapping ready check failed: " + reason + " - Check");
+                return false;
+            }
+
+            return true;
         }
 
         public WaferCassetteMaterial GetWaferMaterialCassette()
@@ -1474,19 +1596,79 @@ namespace QMC.CDT320
 
         private bool ValidateWaferLifterZTargetPosition(double targetPos)
         {
+            string reason;
+            return ValidateWaferLifterZTargetPosition(targetPos, out reason);
+        }
+
+        private bool ValidateWaferLifterZTargetPosition(double targetPos, out string reason)
+        {
+            reason = string.Empty;
             try
             {
                 if (InputLifterZ == null || InputLifterZ.Setup == null)
+                {
+                    reason = "InputLifterZ axis/setup is null. target=" + targetPos;
                     return false;
+                }
                 if (!InputLifterZ.Setup.SoftLimitEnabled)
                     return true;
 
-                return targetPos <= InputLifterZ.Setup.SoftLimitPlus &&
-                       targetPos >= InputLifterZ.Setup.SoftLimitMinus;
+                bool inRange = targetPos <= InputLifterZ.Setup.SoftLimitPlus &&
+                               targetPos >= InputLifterZ.Setup.SoftLimitMinus;
+                if (inRange)
+                    return true;
+
+                reason = "InputLifterZ target is out of soft limit. target=" + targetPos +
+                         ", softMinus=" + InputLifterZ.Setup.SoftLimitMinus +
+                         ", softPlus=" + InputLifterZ.Setup.SoftLimitPlus;
+                return false;
+            }
+            catch (Exception ex)
+            {
+                reason = "InputLifterZ target validation failed: " + ex.Message + ". target=" + targetPos;
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private string BuildCassetteSensorSummary()
+        {
+            try
+            {
+                return "Sensors: 8inch[0]=" + FormatInputState(Wafer8CassetteCheck0) +
+                       ", 8inch[1]=" + FormatInputState(Wafer8CassetteCheck1) +
+                       ", 12inch[0]=" + FormatInputState(Wafer12CassetteCheck0) +
+                       ", 12inch[1]=" + FormatInputState(Wafer12CassetteCheck1) +
+                       ", protrusion=" + FormatInputState(WaferRingJutCheck) + ".";
+            }
+            catch (Exception ex)
+            {
+                return "Sensor summary failed: " + ex.Message;
+            }
+            finally
+            {
+            }
+        }
+
+        private static string FormatInputState(BaseDigitalInput input)
+        {
+            if (input == null)
+                return "NULL";
+
+            return input.IsOn ? "ON" : "OFF";
+        }
+
+        private void RaiseWaferCassetteConditionAlarm(string code, string message)
+        {
+            try
+            {
+                Log.Write("Main", "ALARM", code, message + " - Failed");
+                AlarmManager.Raise(AlarmSeverity.Warning, code, Name, message);
             }
             catch
             {
-                return false;
             }
             finally
             {

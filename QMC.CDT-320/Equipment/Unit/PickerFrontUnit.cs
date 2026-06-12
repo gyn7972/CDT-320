@@ -226,6 +226,9 @@ namespace QMC.CDT320
         public BaseAxis ArmY { get { return PickerY; } }
         public BaseAxis SideVisionY { get { return PickerY; } }
         public PickerRuntimeTool[] Pickers { get; private set; }
+        public int[] ColletUseCounts { get; private set; } = new int[MaxPickerCount];
+        public int PickFailCount { get; private set; }
+        public int PlaceFailCount { get; private set; }
 
         public PickerFrontUnit() : base("PickerFrontUnit")
         {
@@ -764,6 +767,29 @@ namespace QMC.CDT320
         public string BuildPickerAlarmMessage(StageAlarmCode code)
         {
             return side + " picker alarm: " + code;
+        }
+
+        public void RecordColletUse(int pickerNo)
+        {
+            int index = NormalizePickerIndex(pickerNo, MaxPickerCount);
+            ColletUseCounts[index]++;
+        }
+
+        public void RecordPickFail()
+        {
+            PickFailCount++;
+        }
+
+        public void RecordPlaceFail()
+        {
+            PlaceFailCount++;
+        }
+
+        public void ResetWorkCounters()
+        {
+            ColletUseCounts = new int[MaxPickerCount];
+            PickFailCount = 0;
+            PlaceFailCount = 0;
         }
 
         protected BaseAxis GetAxis(PickerAxis axis)

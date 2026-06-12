@@ -699,6 +699,19 @@
     <Compile Include="Ui\Pages\WorkInfo\HeadPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="Ui\Pages\WorkInfo\Common\PickerWorkInfoPageRuntime.cs" />
+    <Compile Include="Ui\Pages\WorkInfo\FrontPickerPage.Designer.cs">
+      <DependentUpon>FrontPickerPage.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Pages\WorkInfo\FrontPickerPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\WorkInfo\RearPickerPage.Designer.cs">
+      <DependentUpon>RearPickerPage.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Pages\WorkInfo\RearPickerPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
     <Compile Include="Ui\Pages\WorkInfo\InputFeederPage.Designer.cs">
       <DependentUpon>InputFeederPage.cs</DependentUpon>
     </Compile>
@@ -992,6 +1005,9 @@
     <EmbeddedResource Include="Ui\Pages\Settings\VisionLinkPage.resx">
       <DependentUpon>VisionLinkPage.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\WorkInfo\FrontPickerPage.resx">
+      <DependentUpon>FrontPickerPage.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\WorkInfo\InputCassettePage.resx">
       <DependentUpon>InputCassettePage.cs</DependentUpon>
     </EmbeddedResource>
@@ -1009,6 +1025,12 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\WorkInfo\OutputFeederPage.resx">
       <DependentUpon>OutputFeederPage.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\WorkInfo\OutputStagePage.resx">
+      <DependentUpon>OutputStagePage.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\WorkInfo\RearPickerPage.resx">
+      <DependentUpon>RearPickerPage.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\Work\InputStageMapTransferPage.resx">
       <DependentUpon>InputStageMapTransferPage.cs</DependentUpon>

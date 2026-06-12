@@ -107,14 +107,14 @@ namespace QMC.CDT320.Sequencing
 
                 int result = await MovePickerAxisCommandAsync(axis, target).ConfigureAwait(false);
                 if (result != 0)
-                    return Fail("PICKER-MOVE-CMD", Name, description + " move command failed. axis=" + axis + ", target=" + target + ", result=" + result);
+                    return Fail("PICKER-MOVE-CMD", Name, description + " move command failed. result=" + result + ", " + BuildPickerAxisState(axis, target));
 
                 bool done = await WaitPickerAxisMoveDoneAsync(axis, ResolveTimeout(), ct).ConfigureAwait(false);
                 if (!done)
-                    return Fail("PICKER-MOVE-TIMEOUT", Name, description + " move done timeout. axis=" + axis + ", target=" + target);
+                    return Fail("PICKER-MOVE-TIMEOUT", Name, description + " move done timeout. " + BuildPickerAxisState(axis, target));
 
                 if (!IsPickerAxisInPosition(axis, target))
-                    return Fail("PICKER-MOVE-CHECK", Name, description + " final position check failed. axis=" + axis + ", target=" + target);
+                    return Fail("PICKER-MOVE-CHECK", Name, description + " final position check failed. " + BuildPickerAxisState(axis, target));
 
                 ct.ThrowIfCancellationRequested();
                 return 0;
@@ -153,7 +153,7 @@ namespace QMC.CDT320.Sequencing
                 foreach (KeyValuePair<PickerAxis, double> pair in targets)
                 {
                     if (commandResults[commandIndex] != 0)
-                        return Fail("PICKER-MOVE-CMD", Name, description + " move command failed. axis=" + pair.Key + ", target=" + pair.Value + ", result=" + commandResults[commandIndex]);
+                        return Fail("PICKER-MOVE-CMD", Name, description + " move command failed. result=" + commandResults[commandIndex] + ", " + BuildPickerAxisState(pair.Key, pair.Value));
                     commandIndex++;
                 }
 
@@ -166,14 +166,14 @@ namespace QMC.CDT320.Sequencing
                 foreach (KeyValuePair<PickerAxis, double> pair in targets)
                 {
                     if (!waitResults[waitIndex])
-                        return Fail("PICKER-MOVE-TIMEOUT", Name, description + " move done timeout. axis=" + pair.Key + ", target=" + pair.Value);
+                        return Fail("PICKER-MOVE-TIMEOUT", Name, description + " move done timeout. " + BuildPickerAxisState(pair.Key, pair.Value));
                     waitIndex++;
                 }
 
                 foreach (KeyValuePair<PickerAxis, double> pair in targets)
                 {
                     if (!IsPickerAxisInPosition(pair.Key, pair.Value))
-                        return Fail("PICKER-MOVE-CHECK", Name, description + " final position check failed. axis=" + pair.Key + ", target=" + pair.Value);
+                        return Fail("PICKER-MOVE-CHECK", Name, description + " final position check failed. " + BuildPickerAxisState(pair.Key, pair.Value));
                 }
 
                 ct.ThrowIfCancellationRequested();
@@ -295,7 +295,60 @@ namespace QMC.CDT320.Sequencing
             return RearPicker.IsPickerAxisInPosition(axis, target, tolerance);
         }
 
-        private BaseAxis GetPickerAxis(PickerAxis axis)
+        protected string BuildPickerAxisState(PickerAxis axis, double target)
+        {
+            BaseAxis item = GetPickerAxis(axis);
+            if (item == null)
+                return "axis=" + axis + ", target=" + target + ", state=axis-not-found";
+
+            double tolerance = item.Config != null && item.Config.InPositionTolerance > 0.0
+                ? item.Config.InPositionTolerance
+                : 0.001;
+
+            return "axis=" + axis +
+                   ", name=" + item.Name +
+                   ", servo=" + (item.IsServoOn ? "ON" : "OFF") +
+                   ", alarm=" + (item.IsAlarm ? "ON" : "OFF") +
+                   ", moving=" + (item.IsMoving ? "Y" : "N") +
+                   ", actual=" + item.ActualPosition +
+                   ", target=" + target +
+                   ", tolerance=" + tolerance;
+        }
+
+        protected string BuildRequiredPickerAxesReason()
+        {
+            PickerAxis[] axes =
+            {
+                PickerAxis.PickerX,
+                PickerAxis.PickerY,
+                PickerAxis.PickerT0,
+                PickerAxis.PickerT1,
+                PickerAxis.PickerT2,
+                PickerAxis.PickerT3,
+                PickerAxis.PickerZ0,
+                PickerAxis.PickerZ1,
+                PickerAxis.PickerZ2,
+                PickerAxis.PickerZ3
+            };
+
+            var failures = new List<string>();
+            foreach (PickerAxis axis in axes)
+            {
+                BaseAxis item = GetPickerAxis(axis);
+                if (item == null)
+                {
+                    failures.Add(axis + "=missing");
+                    continue;
+                }
+
+                if (!item.IsServoOn || item.IsAlarm)
+                    failures.Add(BuildPickerAxisState(axis, item.ActualPosition));
+            }
+
+            return failures.Count == 0 ? string.Empty : string.Join("; ", failures);
+        }
+
+        protected BaseAxis GetPickerAxis(PickerAxis axis)
         {
             if (Side == PickerSequenceSide.Front && FrontPicker != null && FrontPicker.Axes.ContainsKey(axis))
                 return FrontPicker.Axes[axis];
