@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Drawing;
 using System.Windows.Forms;
 
@@ -32,9 +32,10 @@ namespace QMC.Vision.Ui.Pages
         private DataGridViewComboBoxColumn _colLightCtrl;
         private DataGridViewComboBoxColumn _colLightPage;
         private Label    _lblLightStatus;
-        // 우측 컬럼 — 반응형 docking 스택: 버튼 플로우(Top, 줄바꿈) + 상태(Top) + 미리보기(Fill)
+        // 우측 컬럼 — docking 스택: 버튼 고정 2행(기능별 그룹) + 상태(Top) + 미리보기(Fill)
         private Panel    _rightPanel;
-        private FlowLayoutPanel _flowButtons;
+        private FlowLayoutPanel _flowRow1;   // 저장·취소·기본값복원·실행모듈적용 (편집/저장 그룹)
+        private FlowLayoutPanel _flowRow2;   // Connect·테스트그랩·LiveStart·LiveStop (카메라 그룹)
         private Button   _btnSave, _btnCancel, _btnReset, _btnApply, _btnTestGrab;
         private Button   _btnConnect, _btnLiveStart, _btnLiveStop;
         private Label    _lblStatus;
@@ -87,7 +88,8 @@ namespace QMC.Vision.Ui.Pages
             this._colLightPage = new System.Windows.Forms.DataGridViewComboBoxColumn();
             this._lblLightStatus = new System.Windows.Forms.Label();
             this._rightPanel = new System.Windows.Forms.Panel();
-            this._flowButtons = new System.Windows.Forms.FlowLayoutPanel();
+            this._flowRow1 = new System.Windows.Forms.FlowLayoutPanel();
+            this._flowRow2 = new System.Windows.Forms.FlowLayoutPanel();
             this._btnSave = new System.Windows.Forms.Button();
             this._btnCancel = new System.Windows.Forms.Button();
             this._btnReset = new System.Windows.Forms.Button();
@@ -100,7 +102,8 @@ namespace QMC.Vision.Ui.Pages
             this._picPreview = new System.Windows.Forms.PictureBox();
             this._body.SuspendLayout();
             this._rightPanel.SuspendLayout();
-            this._flowButtons.SuspendLayout();
+            this._flowRow1.SuspendLayout();
+            this._flowRow2.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this._numExposure)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this._numGain)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this._numFps)).BeginInit();
@@ -557,31 +560,44 @@ namespace QMC.Vision.Ui.Pages
             | System.Windows.Forms.AnchorStyles.Right)));
             this._rightPanel.Controls.Add(this._picPreview);
             this._rightPanel.Controls.Add(this._lblStatus);
-            this._rightPanel.Controls.Add(this._flowButtons);
+            this._rightPanel.Controls.Add(this._flowRow2);
+            this._rightPanel.Controls.Add(this._flowRow1);
             this._rightPanel.Location = new System.Drawing.Point(700, 36);
             this._rightPanel.Name = "_rightPanel";
             this._rightPanel.Size = new System.Drawing.Size(430, 549);
             this._rightPanel.TabIndex = 30;
             //
-            // _flowButtons — 버튼 가로 플로우(폭 부족 시 자동 줄바꿈)
+            // _flowRow1 — 1행: 저장·취소·기본값 복원·실행 모듈에 적용 (고정, 줄바꿈 없음)
             //
-            this._flowButtons.AutoSize = true;
-            this._flowButtons.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
-            this._flowButtons.Controls.Add(this._btnSave);
-            this._flowButtons.Controls.Add(this._btnCancel);
-            this._flowButtons.Controls.Add(this._btnReset);
-            this._flowButtons.Controls.Add(this._btnApply);
-            this._flowButtons.Controls.Add(this._btnTestGrab);
-            this._flowButtons.Controls.Add(this._btnConnect);
-            this._flowButtons.Controls.Add(this._btnLiveStart);
-            this._flowButtons.Controls.Add(this._btnLiveStop);
-            this._flowButtons.Dock = System.Windows.Forms.DockStyle.Top;
-            this._flowButtons.FlowDirection = System.Windows.Forms.FlowDirection.LeftToRight;
-            this._flowButtons.Location = new System.Drawing.Point(0, 0);
-            this._flowButtons.Name = "_flowButtons";
-            this._flowButtons.Size = new System.Drawing.Size(430, 76);
-            this._flowButtons.TabIndex = 0;
-            this._flowButtons.WrapContents = true;
+            this._flowRow1.AutoSize = true;
+            this._flowRow1.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
+            this._flowRow1.Controls.Add(this._btnSave);
+            this._flowRow1.Controls.Add(this._btnCancel);
+            this._flowRow1.Controls.Add(this._btnReset);
+            this._flowRow1.Controls.Add(this._btnApply);
+            this._flowRow1.Dock = System.Windows.Forms.DockStyle.Top;
+            this._flowRow1.FlowDirection = System.Windows.Forms.FlowDirection.LeftToRight;
+            this._flowRow1.Location = new System.Drawing.Point(0, 0);
+            this._flowRow1.Name = "_flowRow1";
+            this._flowRow1.Size = new System.Drawing.Size(430, 36);
+            this._flowRow1.TabIndex = 0;
+            this._flowRow1.WrapContents = false;
+            //
+            // _flowRow2 — 2행: Connect·테스트 그랩·Live Start·Live Stop (고정, 줄바꿈 없음)
+            //
+            this._flowRow2.AutoSize = true;
+            this._flowRow2.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
+            this._flowRow2.Controls.Add(this._btnConnect);
+            this._flowRow2.Controls.Add(this._btnTestGrab);
+            this._flowRow2.Controls.Add(this._btnLiveStart);
+            this._flowRow2.Controls.Add(this._btnLiveStop);
+            this._flowRow2.Dock = System.Windows.Forms.DockStyle.Top;
+            this._flowRow2.FlowDirection = System.Windows.Forms.FlowDirection.LeftToRight;
+            this._flowRow2.Location = new System.Drawing.Point(0, 36);
+            this._flowRow2.Name = "_flowRow2";
+            this._flowRow2.Size = new System.Drawing.Size(430, 36);
+            this._flowRow2.TabIndex = 1;
+            this._flowRow2.WrapContents = false;
             //
             // _btnSave
             //
@@ -710,7 +726,7 @@ namespace QMC.Vision.Ui.Pages
             this._picPreview.BackColor = System.Drawing.Color.Black;
             this._picPreview.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this._picPreview.Dock = System.Windows.Forms.DockStyle.Fill;
-            this._picPreview.MaximumSize = new System.Drawing.Size(800, 600);
+            this._picPreview.MaximumSize = new System.Drawing.Size(640, 480);
             this._picPreview.Location = new System.Drawing.Point(0, 100);
             this._picPreview.Name = "_picPreview";
             this._picPreview.Size = new System.Drawing.Size(430, 449);
@@ -725,7 +741,8 @@ namespace QMC.Vision.Ui.Pages
             this.Controls.Add(this._body);
             this.Name = "CameraMappingPanel";
             this.Size = new System.Drawing.Size(1140, 595);
-            this._flowButtons.ResumeLayout(false);
+            this._flowRow1.ResumeLayout(false);
+            this._flowRow2.ResumeLayout(false);
             this._rightPanel.ResumeLayout(false);
             this._rightPanel.PerformLayout();
             this._body.ResumeLayout(false);

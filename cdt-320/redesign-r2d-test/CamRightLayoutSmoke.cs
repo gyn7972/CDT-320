@@ -30,31 +30,39 @@ class CamRightLayoutSmoke
         Application.DoEvents();
 
         var right = Field<Panel>(panel, "_rightPanel");
-        var flow  = Field<FlowLayoutPanel>(panel, "_flowButtons");
+        var row1  = Field<FlowLayoutPanel>(panel, "_flowRow1");
+        var row2  = Field<FlowLayoutPanel>(panel, "_flowRow2");
         var pic   = Field<PictureBox>(panel, "_picPreview");
 
-        // ① 넓은 창 (1400) — 우측 컬럼 폭 확대 → 버튼 줄 수 감소 + 미리보기 = min(잔여, 상한 800×600)
+        // ① 고정 2행 그룹 — 1행 = 저장/취소/복원/적용, 2행 = Connect/그랩/LiveStart/LiveStop
         Application.DoEvents();
-        int rowsWide = FlowRows(flow);
-        int remainWide = right.Height - flow.Height - 24;
-        int picHWide = pic.Height;
-        Ok($"넓은창 — 우측폭 {right.Width} > 430(앵커 확장)", right.Width > 430, $"(got {right.Width})");
-        Ok($"넓은창 — 버튼 {rowsWide}줄(2줄 이하)", rowsWide <= 2, $"(got {rowsWide})");
-        Ok("넓은창 — 미리보기 높이 = min(잔여, 600) (상한 동작)", picHWide == Math.Min(remainWide, 600),
-            $"(pic {picHWide} vs min({remainWide},600))");
-        Ok("넓은창 — 미리보기 폭 = min(우측폭, 800)", pic.Width == Math.Min(right.Width, 800),
-            $"(pic {pic.Width} vs min({right.Width},800))");
+        Ok("우측폭 > 430 (앵커 확장)", right.Width > 430, $"(got {right.Width})");
+        Ok("1행 = 4버튼(저장 그룹), 줄바꿈 없음", row1.Controls.Count == 4 && !row1.WrapContents && FlowRows(row1) == 1);
+        Ok("2행 = 4버튼(카메라 그룹), 줄바꿈 없음", row2.Controls.Count == 4 && !row2.WrapContents && FlowRows(row2) == 1);
+        Ok("1행 버튼 순서 = 저장·취소·기본값 복원·실행 모듈에 적용",
+            row1.Controls[0].Text == "저장" && row1.Controls[1].Text == "취소"
+            && row1.Controls[2].Text == "기본값 복원" && row1.Controls[3].Text == "실행 모듈에 적용");
+        Ok("2행 버튼 순서 = Connect·테스트 그랩·Live Start·Live Stop",
+            row2.Controls[0].Text == "Connect" && row2.Controls[1].Text == "테스트 그랩"
+            && row2.Controls[2].Text == "Live Start" && row2.Controls[3].Text == "Live Stop");
+        Ok("2행이 1행 아래", row2.Top >= row1.Bottom);
 
-        // ② 좁은 창 (1000) — 버튼 줄 수 증가(접힘) + 미리보기 = min(잔여, 600) 그대로(작아지면 같이 축소)
-        form.Width = 1000;
+        // ② 미리보기 = min(잔여, 상한 640×480)
+        int remainWide = right.Height - row1.Height - row2.Height - 24;
+        int picHWide = pic.Height;
+        Ok("넓은창 — 미리보기 높이 = min(잔여, 480) (상한 동작)", picHWide == Math.Min(remainWide, 480),
+            $"(pic {picHWide} vs min({remainWide},480))");
+        Ok("넓은창 — 미리보기 폭 = min(우측폭, 640)", pic.Width == Math.Min(right.Width, 640),
+            $"(pic {pic.Width} vs min({right.Width},640))");
+
+        // ③ 작은 창 — 고정 2행 유지 + 미리보기 반응형 축소(높이 줄여 잔여<480 유도)
+        form.Width = 1000; form.Height = 580;
         Application.DoEvents();
-        int rowsNarrow = FlowRows(flow);
-        int remainNarrow = right.Height - flow.Height - 24;
-        int picHNarrow = pic.Height;
-        Ok($"좁은창 — 버튼 줄 증가({rowsWide}→{rowsNarrow})", rowsNarrow > rowsWide, $"(got {rowsNarrow})");
-        Ok("좁은창 — 미리보기 높이 = min(잔여, 600)", picHNarrow == Math.Min(remainNarrow, 600),
-            $"(pic {picHNarrow} vs min({remainNarrow},600))");
-        Ok("좁은창 — 미리보기 높이 감소(반응형 유지)", picHNarrow < picHWide, $"({picHWide}→{picHNarrow})");
+        int remainSmall = right.Height - row1.Height - row2.Height - 24;
+        int picHSmall = pic.Height;
+        Ok("작은창 — 여전히 고정 2행", FlowRows(row1) == 1 && FlowRows(row2) == 1);
+        Ok("작은창 — 미리보기 = min(잔여, 480) 반응형 축소", picHSmall == Math.Min(remainSmall, 480) && picHSmall < picHWide,
+            $"(pic {picHSmall} vs min({remainSmall},480), wide {picHWide})");
 
         // 스냅샷 PNG (육안 확인용)
         string dir = AppDomain.CurrentDomain.BaseDirectory;
