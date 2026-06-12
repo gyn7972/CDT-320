@@ -20,8 +20,7 @@ namespace QMC.Vision.Optics.LFine
         [DataMember] public int    MaxPower     { get; set; } = 240;
         [DataMember] public int    MaxOnTimeUs  { get; set; } = 999;
         [DataMember] public int    ChannelCount { get; set; } = 8;
-        // Stage 79 — 동작 모드(캐시 정책). 어댑터가 entry.Mode 를 주입.
-        [DataMember] public QMC.Common.Recipes.LightControllerMode Mode { get; set; } = QMC.Common.Recipes.LightControllerMode.StrobeOnCommand;
+        // (LightControllerMode 캐시 정책 잔재 제거 — 항상 송신. 구 JSON 의 Mode 키는 로드 시 무시.)
         [DataMember] public List<LFineChannel> Channels { get; set; } = new List<LFineChannel>();
 
         public LFineLightConfig Clone()
@@ -31,7 +30,7 @@ namespace QMC.Vision.Optics.LFine
                 PortName = PortName, BaudRate = BaudRate, DataBits = DataBits,
                 StopBits = StopBits, Parity = Parity, Handshake = Handshake,
                 TimeoutMs = TimeoutMs, MaxPower = MaxPower, MaxOnTimeUs = MaxOnTimeUs,
-                Mode = Mode, ChannelCount = ChannelCount, Channels = new List<LFineChannel>()
+                ChannelCount = ChannelCount, Channels = new List<LFineChannel>()
             };
             if (Channels != null) foreach (var ch in Channels) c.Channels.Add(ch.Clone());
             return c;

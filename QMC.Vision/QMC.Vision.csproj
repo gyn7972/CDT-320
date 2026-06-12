@@ -117,6 +117,7 @@
     <Compile Include="Optics\ILightController.cs" />
     <Compile Include="Optics\LightControllerFactory.cs" />
     <Compile Include="Optics\Sim\SimLightController.cs" />
+    <Compile Include="Optics\LFine\LFineHardwareMode.cs" />
     <Compile Include="Optics\LFine\LFineLightConfig.cs" />
     <Compile Include="Optics\LFine\LFineProtocol.cs" />
     <Compile Include="Optics\LFine\LFineLightController.cs" />

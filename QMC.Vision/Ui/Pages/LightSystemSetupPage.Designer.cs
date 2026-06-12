@@ -19,9 +19,16 @@ namespace QMC.Vision.Ui.Pages
         private Label _lblSecCtrl, _lblSecLabel;
         // 그리드는 Code 측 partial 에 이미 선언됨 (_gridCtrl, _gridLabel)
 
+        // LFine 하드웨어 모드(SM) — 런타임 송신 (LightControllerMode 잔재의 Mode 컬럼 대체)
+        private Panel    _pnlHwMode;
+        private Label    _lblHwMode;
+        private ComboBox _cbHwMode;
+        private Button   _btnHwModeApply;
+        private Label    _lblHwModeState;
+
         // 컬럼 (정적 구조)
         private DataGridViewTextBoxColumn  _colPort, _colName, _colBaud, _colChCount, _colPageCount, _colMaxPower;
-        private DataGridViewComboBoxColumn _colVendor, _colMode;
+        private DataGridViewComboBoxColumn _colVendor;
         private DataGridViewTextBoxColumn  _colLblCh, _colLblName, _colLblColor;
 
         protected override void Dispose(bool disposing)
@@ -46,9 +53,14 @@ namespace QMC.Vision.Ui.Pages
             this._colPort = new DataGridViewTextBoxColumn(); this._colName = new DataGridViewTextBoxColumn();
             this._colBaud = new DataGridViewTextBoxColumn(); this._colChCount = new DataGridViewTextBoxColumn();
             this._colPageCount = new DataGridViewTextBoxColumn(); this._colMaxPower = new DataGridViewTextBoxColumn();
-            this._colVendor = new DataGridViewComboBoxColumn(); this._colMode = new DataGridViewComboBoxColumn();
+            this._colVendor = new DataGridViewComboBoxColumn();
             this._colLblCh = new DataGridViewTextBoxColumn(); this._colLblName = new DataGridViewTextBoxColumn();
             this._colLblColor = new DataGridViewTextBoxColumn();
+            this._pnlHwMode = new Panel();
+            this._lblHwMode = new Label();
+            this._cbHwMode = new ComboBox();
+            this._btnHwModeApply = new Button();
+            this._lblHwModeState = new Label();
 
             this._bar.SuspendLayout();
             this._body.SuspendLayout();
@@ -107,10 +119,11 @@ namespace QMC.Vision.Ui.Pages
             // ── 본문: 컨트롤러 인벤토리 + 채널 라벨 (C3b-3: 결선 섹션 제거) ──
             this._body.Dock = DockStyle.Fill;
             this._body.ColumnCount = 1;
-            this._body.RowCount = 4;
+            this._body.RowCount = 5;
             this._body.BackColor = UiTheme.MainBg;
             this._body.RowStyles.Add(new RowStyle(SizeType.Absolute, 24f));
             this._body.RowStyles.Add(new RowStyle(SizeType.Percent, 50f));
+            this._body.RowStyles.Add(new RowStyle(SizeType.Absolute, 36f));
             this._body.RowStyles.Add(new RowStyle(SizeType.Absolute, 24f));
             this._body.RowStyles.Add(new RowStyle(SizeType.Percent, 50f));
 
@@ -135,10 +148,6 @@ namespace QMC.Vision.Ui.Pages
             this._colVendor.Items.Add("LFine"); this._colVendor.Items.Add("Leesos");
             this._gridCtrl.Columns.Add(this._colVendor);
             this._colVendor.DisplayIndex = 1;
-            this._colMode.Name = "Mode"; this._colMode.HeaderText = "Mode"; this._colMode.FlatStyle = FlatStyle.Flat;
-            this._colMode.Items.Add("Continuous"); this._colMode.Items.Add("StrobeExternal"); this._colMode.Items.Add("StrobeOnCommand");
-            this._gridCtrl.Columns.Add(this._colMode);
-            this._colMode.DisplayIndex = 2;
             this._gridCtrl.DataError       += new DataGridViewDataErrorEventHandler(this.OnGridDataError);
             this._gridCtrl.CellEndEdit     += new DataGridViewCellEventHandler(this.GridCtrl_VendorCellEndEdit);
             this._gridCtrl.SelectionChanged += new System.EventHandler(this.OnGridCtrlSelectionChanged);
@@ -158,10 +167,44 @@ namespace QMC.Vision.Ui.Pages
             this._gridLabel.RowsRemoved  += new DataGridViewRowsRemovedEventHandler(this.OnGridLabelRowsRemoved);
             this._gridLabel.CellEndEdit  += new DataGridViewCellEventHandler(this.OnGridLabelCellEndEdit);
 
+            // ── LFine 하드웨어 모드(SM) 행 — 선택 컨트롤러가 LFine 일 때만 활성 (런타임 송신, 영속 아님) ──
+            this._pnlHwMode.Dock = DockStyle.Fill;
+            this._pnlHwMode.BackColor = Color.WhiteSmoke;
+            this._lblHwMode.Location = new Point(8, 8);
+            this._lblHwMode.Size = new Size(170, 22);
+            this._lblHwMode.Font = UiTheme.ButtonFont;
+            this._lblHwMode.ForeColor = Color.Black;
+            this._lblHwMode.Text = "LFine HW Mode (SM)";
+            this._lblHwMode.TextAlign = ContentAlignment.MiddleLeft;
+            this._cbHwMode.DropDownStyle = ComboBoxStyle.DropDownList;
+            this._cbHwMode.Font = UiTheme.ValueFont;
+            this._cbHwMode.Location = new Point(182, 7);
+            this._cbHwMode.Size = new Size(180, 24);
+            this._cbHwMode.Items.Add("Page Trigger (0)");
+            this._cbHwMode.Items.Add("Software Trigger (3)");
+            this._btnHwModeApply.Location = new Point(372, 4);
+            this._btnHwModeApply.Size = new Size(80, 28);
+            this._btnHwModeApply.Text = "적용";
+            this._btnHwModeApply.FlatStyle = FlatStyle.Flat;
+            this._btnHwModeApply.Font = UiTheme.ButtonFont;
+            this._btnHwModeApply.BackColor = Color.White;
+            this._btnHwModeApply.ForeColor = Color.Black;
+            this._btnHwModeApply.Click += new System.EventHandler(this.OnHwModeApplyClick);
+            this._lblHwModeState.Location = new Point(462, 8);
+            this._lblHwModeState.Size = new Size(560, 22);
+            this._lblHwModeState.Font = UiTheme.ValueFont;
+            this._lblHwModeState.ForeColor = Color.DarkSlateGray;
+            this._lblHwModeState.TextAlign = ContentAlignment.MiddleLeft;
+            this._pnlHwMode.Controls.Add(this._lblHwMode);
+            this._pnlHwMode.Controls.Add(this._cbHwMode);
+            this._pnlHwMode.Controls.Add(this._btnHwModeApply);
+            this._pnlHwMode.Controls.Add(this._lblHwModeState);
+
             this._body.Controls.Add(this._lblSecCtrl, 0, 0);
             this._body.Controls.Add(this._gridCtrl, 0, 1);
-            this._body.Controls.Add(this._lblSecLabel, 0, 2);
-            this._body.Controls.Add(this._gridLabel, 0, 3);
+            this._body.Controls.Add(this._pnlHwMode, 0, 2);
+            this._body.Controls.Add(this._lblSecLabel, 0, 3);
+            this._body.Controls.Add(this._gridLabel, 0, 4);
 
             // ── 최상위 컨트롤 추가 ──
             this.Controls.Add(this._hdr);
