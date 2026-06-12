@@ -60,10 +60,10 @@ namespace QMC.CDT320.Sequencing
                         return Task.FromResult(CheckTargetAxis(ResolveYAxis(Options.Side), "Process", Options.Side + " Y process", OutputStageMoveProcessStep.MoveTargetStageZToProcess));
 
                     case OutputStageMoveProcessStep.MoveTargetStageZToProcess:
-                        return MoveTargetAxisAsync(ResolveZAxis(Options.Side), "Process", Options.Side + " Z process", OutputStageMoveProcessStep.CheckTargetStageZProcess, ct);
+                        return MoveTargetStageZToProcessAsync(ct);
 
                     case OutputStageMoveProcessStep.CheckTargetStageZProcess:
-                        return Task.FromResult(CheckTargetAxis(ResolveZAxis(Options.Side), "Process", Options.Side + " Z process", OutputStageMoveProcessStep.MoveVisionXToProcess));
+                        return Task.FromResult(CheckTargetStageZProcess());
 
                     case OutputStageMoveProcessStep.MoveVisionXToProcess:
                         return MoveTargetAxisAsync(BinStageAxis.VisionX, "Process", "VisionX process", OutputStageMoveProcessStep.CheckVisionXProcess, ct);
@@ -108,6 +108,12 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 BinSide opposite = Options.Side == BinSide.Ng ? BinSide.Good : BinSide.Ng;
+                if (SkipMissingSideZAxis(opposite, opposite + " Z avoid before process"))
+                {
+                    CurrentStep = OutputStageMoveProcessStep.MoveTargetStageYToProcess;
+                    return 0;
+                }
+
                 int result = await MoveAxisAndVerifyAsync(
                     ResolveZAxis(opposite),
                     ResolveSideZTarget(opposite, "Avoid"),
@@ -134,6 +140,12 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 BinSide opposite = Options.Side == BinSide.Ng ? BinSide.Good : BinSide.Ng;
+                if (SkipMissingSideZAxis(opposite, opposite + " Z avoid final check before process"))
+                {
+                    CurrentStep = OutputStageMoveProcessStep.MoveTargetStageYToProcess;
+                    return 0;
+                }
+
                 BinStageAxis axis = ResolveZAxis(opposite);
                 double target = ResolveSideZTarget(opposite, "Avoid");
 
@@ -176,6 +188,57 @@ namespace QMC.CDT320.Sequencing
             catch (Exception ex)
             {
                 return Fail("OUT-STAGE-PROCESS-MOVE-EX", Name, description + " move failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> MoveTargetStageZToProcessAsync(CancellationToken ct)
+        {
+            try
+            {
+                if (SkipMissingSideZAxis(Options.Side, Options.Side + " Z process"))
+                {
+                    CurrentStep = OutputStageMoveProcessStep.MoveVisionXToProcess;
+                    return 0;
+                }
+
+                return await MoveTargetAxisAsync(
+                    ResolveZAxis(Options.Side),
+                    "Process",
+                    Options.Side + " Z process",
+                    OutputStageMoveProcessStep.CheckTargetStageZProcess,
+                    ct).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                return Fail("OUT-STAGE-PROCESS-Z-EX", Name, "Target stage Z process move failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private int CheckTargetStageZProcess()
+        {
+            try
+            {
+                if (SkipMissingSideZAxis(Options.Side, Options.Side + " Z process final check"))
+                {
+                    CurrentStep = OutputStageMoveProcessStep.MoveVisionXToProcess;
+                    return 0;
+                }
+
+                return CheckTargetAxis(
+                    ResolveZAxis(Options.Side),
+                    "Process",
+                    Options.Side + " Z process",
+                    OutputStageMoveProcessStep.MoveVisionXToProcess);
+            }
+            catch (Exception ex)
+            {
+                return Fail("OUT-STAGE-PROCESS-Z-CHECK-EX", Name, "Target stage Z process check failed: " + ex.Message);
             }
             finally
             {

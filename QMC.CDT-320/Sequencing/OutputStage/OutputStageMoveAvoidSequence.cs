@@ -10,8 +10,6 @@ namespace QMC.CDT320.Sequencing
         CheckUnit,
         MoveGoodStageZToAvoid,
         CheckGoodStageZAvoid,
-        MoveNgStageZToAvoid,
-        CheckNgStageZAvoid,
         MoveGoodStageYToAvoid,
         CheckGoodStageYAvoid,
         MoveNgStageYToAvoid,
@@ -49,13 +47,7 @@ namespace QMC.CDT320.Sequencing
                         return MoveAxisAsync(BinStageAxis.GoodBinZ, "Avoid", "Good Z avoid", OutputStageMoveAvoidStep.CheckGoodStageZAvoid, ct);
 
                     case OutputStageMoveAvoidStep.CheckGoodStageZAvoid:
-                        return Task.FromResult(CheckAxis(BinStageAxis.GoodBinZ, "Avoid", "Good Z avoid", OutputStageMoveAvoidStep.MoveNgStageZToAvoid));
-
-                    case OutputStageMoveAvoidStep.MoveNgStageZToAvoid:
-                        return MoveAxisAsync(BinStageAxis.NgBinZ, "Avoid", "NG Z avoid", OutputStageMoveAvoidStep.CheckNgStageZAvoid, ct);
-
-                    case OutputStageMoveAvoidStep.CheckNgStageZAvoid:
-                        return Task.FromResult(CheckAxis(BinStageAxis.NgBinZ, "Avoid", "NG Z avoid", OutputStageMoveAvoidStep.MoveGoodStageYToAvoid));
+                        return Task.FromResult(CheckAxis(BinStageAxis.GoodBinZ, "Avoid", "Good Z avoid", OutputStageMoveAvoidStep.MoveGoodStageYToAvoid));
 
                     case OutputStageMoveAvoidStep.MoveGoodStageYToAvoid:
                         return MoveAxisAsync(BinStageAxis.GoodBinY, "Avoid", "Good Y avoid", OutputStageMoveAvoidStep.CheckGoodStageYAvoid, ct);

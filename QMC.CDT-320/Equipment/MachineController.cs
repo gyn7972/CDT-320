@@ -3626,19 +3626,22 @@ namespace QMC.CDT320
                     "InputFeeder HOME 불가: Overload 센서가 감지되었습니다.");
             }
 
-            if (!feeder.IsWaferFeederUnclamp())
+            if(feeder.Setup.IsSimulationMode == false)
             {
-                return FailInitializePreparation("InputFeeder unclamp failed.");
-            }
+                if (!feeder.IsWaferFeederUnclamp())
+                {
+                    return FailInitializePreparation("InputFeeder unclamp failed.");
+                }
 
-            //if (!feeder.IsWaferFeederUp())
-            //{
-            //    return FailInitializePreparation("InputFeeder lift up failed.");
-            //}
+                if (feeder.IsWaferFeederRingCheck())
+                {
+                    return FailInitializePreparation("InputFeeder Ring Check.");
+                }
 
-            if (feeder.IsWaferFeederRingCheck())
-            {
-                return FailInitializePreparation("InputFeeder Ring Check.");
+                //if (!feeder.IsWaferFeederUp())
+                //{
+                //    return FailInitializePreparation("InputFeeder lift up failed.");
+                //}
             }
 
             return 0;
@@ -5810,15 +5813,10 @@ namespace QMC.CDT320
             {
                 try
                 {
-                    // GoodStage Z 異⑸룎 ?뚰뵾濡??섍컯, NgStage Z ?묒뾽 ?꾩튂濡??곸듅
-                    await Task.WhenAll(
-                        _machine.OutputStageUnit.GoodStage.StageZ.MoveAbsoluteAsync(
-                            _machine.OutputStageUnit.GoodStage.Recipe.AvoidPositionZ,
-                            ResolveAxisDefaultVelocity(_machine.OutputStageUnit.GoodStage.StageZ)),
-                        _machine.OutputStageUnit.NgStage.StageZ.MoveAbsoluteAsync(
-                            _machine.OutputStageUnit.NgStage.Recipe.WorkPositionZ,
-                            ResolveAxisDefaultVelocity(_machine.OutputStageUnit.NgStage.StageZ))
-                    );
+                    // NG Stage has no Z axis. Only GoodStage Z must be moved to avoid before NG place.
+                    await _machine.OutputStageUnit.GoodStage.StageZ.MoveAbsoluteAsync(
+                        _machine.OutputStageUnit.GoodStage.Recipe.AvoidPositionZ,
+                        ResolveAxisDefaultVelocity(_machine.OutputStageUnit.GoodStage.StageZ));
                 }
                 catch (Exception ex) { Log("[PLACE] Bin ?꾪솚 ex: " + ex.Message); }
 

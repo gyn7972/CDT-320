@@ -10,7 +10,6 @@ namespace QMC.CDT320
         public BinStageUnit() : base("BinStageUnit")
         {
             RegisterAxis(BinStageAxis.NgBinY, "NgBinY");
-            RegisterAxis(BinStageAxis.NgBinZ, "NgBinZ");
             RegisterAxis(BinStageAxis.GoodBinY, "GoodBinY");
             RegisterAxis(BinStageAxis.GoodBinZ, "GoodBinZ");
             RegisterAxis(BinStageAxis.VisionX, "BinStageVisionX");
@@ -263,14 +262,29 @@ namespace QMC.CDT320
         {
             var targets = new Dictionary<BinStageAxis, double>();
             foreach (BinStageAxis axis in System.Enum.GetValues(typeof(BinStageAxis)))
+            {
+                if (!HasPhysicalStageAxis(axis))
+                    continue;
+
                 targets[axis] = GetTeachingPosition(axis, positionName);
+            }
             return MoveAxesAsync(targets, bFine);
         }
 
         private void TeachStageGroup(string positionName)
         {
             foreach (BinStageAxis axis in System.Enum.GetValues(typeof(BinStageAxis)))
+            {
+                if (!HasPhysicalStageAxis(axis))
+                    continue;
+
                 TeachAxisPosition(axis, positionName);
+            }
+        }
+
+        private static bool HasPhysicalStageAxis(BinStageAxis axis)
+        {
+            return axis != BinStageAxis.NgBinZ;
         }
 
         private static BinStageAxis ResolveSideAxis(BinSide side)

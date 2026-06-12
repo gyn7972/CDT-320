@@ -455,12 +455,112 @@ namespace QMC.CDT320
             return Recipe.GoodCassetteLoadPosition;
         }
 
-        public bool ValidateBinFeederTeachingComplete() { return ValidateBinFeederYTeachingComplete(BinSide.Good) && ValidateBinFeederYTeachingComplete(BinSide.Ng); }
+        public bool ValidateBinFeederTeachingComplete()
+        {
+            string reason;
+            bool complete = ValidateBinFeederTeachingComplete(out reason);
+            if (!complete)
+            {
+                EventLogger.Write(EventKind.Warning, "QMC", "BF-TEACH-CHECK",
+                    "OutputFeeder teaching check failed. " + reason);
+            }
+
+            return complete;
+        }
+
+        public bool ValidateBinFeederTeachingComplete(out string reason)
+        {
+            string goodReason;
+            if (!ValidateBinFeederYTeachingComplete(BinSide.Good, out goodReason))
+            {
+                reason = goodReason;
+                return false;
+            }
+
+            string ngReason;
+            if (!ValidateBinFeederYTeachingComplete(BinSide.Ng, out ngReason))
+            {
+                reason = ngReason;
+                return false;
+            }
+
+            reason = string.Empty;
+            return true;
+        }
+
         public bool ValidateBinFeederYTeachingComplete(BinSide side)
         {
-            return GetSidePosition(side, FeederPositionType.CassetteLoad) != Recipe.AvoidPosition &&
-                   GetSidePosition(side, FeederPositionType.CassetteUnload) != Recipe.AvoidPosition &&
-                   GetSidePosition(side, FeederPositionType.StageLoad) != GetSidePosition(side, FeederPositionType.StageUnload);
+            string reason;
+            bool complete = ValidateBinFeederYTeachingComplete(side, out reason);
+            if (!complete)
+            {
+                EventLogger.Write(EventKind.Warning, "QMC", "BF-TEACH-CHECK",
+                    "OutputFeederY teaching check failed. " + reason);
+            }
+
+            return complete;
+        }
+
+        public bool ValidateBinFeederYTeachingComplete(BinSide side, out string reason)
+        {
+            reason = string.Empty;
+
+            if (Recipe == null)
+            {
+                reason = "Recipe is null. side=" + side;
+                return false;
+            }
+
+            double avoidPosition = Recipe.AvoidPosition;
+            double cassetteLoad = GetSidePosition(side, FeederPositionType.CassetteLoad);
+            double cassetteUnload = GetSidePosition(side, FeederPositionType.CassetteUnload);
+            double stageLoad = GetSidePosition(side, FeederPositionType.StageLoad);
+            double stageUnload = GetSidePosition(side, FeederPositionType.StageUnload);
+
+            if (cassetteLoad == avoidPosition)
+            {
+                reason = "CassetteLoad teaching position is same as AvoidPosition. " +
+                         BuildTeachingPositionText(side, cassetteLoad, cassetteUnload, stageLoad, stageUnload, avoidPosition);
+                return false;
+            }
+
+            if (cassetteUnload == avoidPosition)
+            {
+                reason = "CassetteUnload teaching position is same as AvoidPosition. " +
+                         BuildTeachingPositionText(side, cassetteLoad, cassetteUnload, stageLoad, stageUnload, avoidPosition);
+                return false;
+            }
+
+            //이건 같아도 된다. 
+            //if (stageLoad == stageUnload)
+            //{
+            //    reason = "StageLoad teaching position is same as StageUnload teaching position. " +
+            //             BuildTeachingPositionText(side, cassetteLoad, cassetteUnload, stageLoad, stageUnload, avoidPosition);
+            //    return false;
+            //}
+
+            return true;
+        }
+
+        private static string BuildTeachingPositionText(
+            BinSide side,
+            double cassetteLoad,
+            double cassetteUnload,
+            double stageLoad,
+            double stageUnload,
+            double avoidPosition)
+        {
+            return "side=" + side +
+                   ", CassetteLoad=" + FormatTeachingPosition(cassetteLoad) +
+                   ", CassetteUnload=" + FormatTeachingPosition(cassetteUnload) +
+                   ", StageLoad=" + FormatTeachingPosition(stageLoad) +
+                   ", StageUnload=" + FormatTeachingPosition(stageUnload) +
+                   ", Avoid=" + FormatTeachingPosition(avoidPosition);
+        }
+
+        private static string FormatTeachingPosition(double position)
+        {
+            return position.ToString("0.###", CultureInfo.InvariantCulture);
         }
 
         public double GetBinFeederYTeachingPosition(string positionName) { return GetTeachingPosition(positionName); }
@@ -893,12 +993,62 @@ namespace QMC.CDT320
 
         public bool CheckFeederTransferReady(TransferMode mode)
         {
-            if (!CheckFeederMoveReady())
+            string reason;
+            bool ready = CheckFeederTransferReady(mode, out reason);
+            if (!ready)
+            {
+                EventLogger.Write(EventKind.Warning, "QMC", "BF-TRANSFER-READY",
+                    "OutputFeeder transfer ready check failed. " + reason);
+            }
+
+            return ready;
+        }
+
+        public bool CheckFeederTransferReady(TransferMode mode, out string reason)
+        {
+            reason = string.Empty;
+
+            string moveReason;
+            if (!CheckBinFeederYMoveReady(out moveReason))
+            {
+                reason = moveReason;
                 return false;
+            }
+
             if (mode == TransferMode.Load)
-                return IsFeederDown() && IsFeederUnclamped() && IsFeederEmpty();
+            {
+                if (!IsFeederDown())
+                {
+                    reason = "OutputFeeder lift is not DOWN.";
+                    return false;
+                }
+
+                if (!IsFeederUnclamped())
+                {
+                    reason = "OutputFeeder clamp is not UNCLAMP.";
+                    return false;
+                }
+
+                if (!IsFeederEmpty())
+                {
+                    reason = "OutputFeeder is not empty.";
+                    return false;
+                }
+
+                return true;
+            }
+
             if (mode == TransferMode.Unload)
-                return IsFeederOccupied();
+            {
+                if (!IsFeederOccupied())
+                {
+                    reason = "OutputFeeder does not have bin/material.";
+                    return false;
+                }
+
+                return true;
+            }
+
             return true;
         }
 
@@ -906,9 +1056,42 @@ namespace QMC.CDT320
 
         public bool CheckFeederCassetteReady(BinSide side, int slotIndex, TransferMode mode)
         {
+            string reason;
+            bool ready = CheckFeederCassetteReady(side, slotIndex, mode, out reason);
+            if (!ready)
+            {
+                EventLogger.Write(EventKind.Warning, "QMC", "BF-CST-READY",
+                    "OutputFeeder cassette ready check failed. " + reason);
+            }
+
+            return ready;
+        }
+
+        public bool CheckFeederCassetteReady(BinSide side, int slotIndex, TransferMode mode, out string reason)
+        {
+            reason = string.Empty;
+
             if (slotIndex < 0)
+            {
+                reason = "Slot index is invalid. side=" + side + ", slotIndex=" + slotIndex + ", mode=" + mode;
                 return false;
-            return ValidateBinFeederYTeachingComplete(side) && CheckFeederTransferReady(mode);
+            }
+
+            string teachingReason;
+            if (!ValidateBinFeederYTeachingComplete(side, out teachingReason))
+            {
+                reason = teachingReason;
+                return false;
+            }
+
+            string transferReason;
+            if (!CheckFeederTransferReady(mode, out transferReason))
+            {
+                reason = transferReason;
+                return false;
+            }
+
+            return true;
         }
 
         public bool CheckBinCassetteLoadReady(int slotIndex, TransferMode mode)
@@ -918,13 +1101,58 @@ namespace QMC.CDT320
 
         public bool CheckFeederStageReady(BinSide side, TransferMode mode)
         {
-            if (!ValidateBinFeederYTeachingComplete(side))
+            string reason;
+            bool ready = CheckFeederStageReady(side, mode, out reason);
+            if (!ready)
+            {
+                EventLogger.Write(EventKind.Warning, "QMC", "BF-STAGE-READY",
+                    "OutputFeeder stage ready check failed. " + reason);
+            }
+
+            return ready;
+        }
+
+        public bool CheckFeederStageReady(BinSide side, TransferMode mode, out string reason)
+        {
+            reason = string.Empty;
+
+            string teachingReason;
+            if (!ValidateBinFeederYTeachingComplete(side, out teachingReason))
+            {
+                reason = teachingReason;
                 return false;
+            }
+
             if (mode == TransferMode.Load)
-                return IsFeederOccupied();
+            {
+                if (!IsFeederOccupied())
+                {
+                    reason = "OutputFeeder does not have bin/material for stage load. side=" + side;
+                    return false;
+                }
+
+                return true;
+            }
+
             if (mode == TransferMode.Unload)
-                return IsFeederEmpty();
-            return CheckFeederMoveReady();
+            {
+                if (!IsFeederEmpty())
+                {
+                    reason = "OutputFeeder is not empty for stage unload. side=" + side;
+                    return false;
+                }
+
+                return true;
+            }
+
+            string moveReason;
+            if (!CheckBinFeederYMoveReady(out moveReason))
+            {
+                reason = moveReason;
+                return false;
+            }
+
+            return true;
         }
 
         public FeederTransferState GetFeederTransferState()

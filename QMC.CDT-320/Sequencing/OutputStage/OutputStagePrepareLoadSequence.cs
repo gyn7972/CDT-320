@@ -100,6 +100,12 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 BinSide opposite = Options.Side == BinSide.Ng ? BinSide.Good : BinSide.Ng;
+                if (SkipMissingSideZAxis(opposite, opposite + " Z avoid before load"))
+                {
+                    CurrentStep = OutputStagePrepareLoadStep.MoveTargetStageYToLoad;
+                    return 0;
+                }
+
                 int result = await MoveAxisAndVerifyAsync(
                     ResolveZAxis(opposite),
                     ResolveSideZTarget(opposite, "Avoid"),
@@ -126,6 +132,12 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 BinSide opposite = Options.Side == BinSide.Ng ? BinSide.Good : BinSide.Ng;
+                if (SkipMissingSideZAxis(opposite, opposite + " Z avoid final check before load"))
+                {
+                    CurrentStep = OutputStagePrepareLoadStep.MoveTargetStageYToLoad;
+                    return 0;
+                }
+
                 BinStageAxis axis = ResolveZAxis(opposite);
                 double target = ResolveSideZTarget(opposite, "Avoid");
 
@@ -195,6 +207,12 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
+                if (SkipMissingSideZAxis(Options.Side, Options.Side + " Z load"))
+                {
+                    CurrentStep = OutputStagePrepareLoadStep.Complete;
+                    return 0;
+                }
+
                 int result = await MoveAxisAndVerifyAsync(
                     ResolveZAxis(Options.Side),
                     ResolveSideZTarget(Options.Side, "Load"),
@@ -220,6 +238,12 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
+                if (SkipMissingSideZAxis(Options.Side, Options.Side + " Z load final check"))
+                {
+                    CurrentStep = OutputStagePrepareLoadStep.Complete;
+                    return 0;
+                }
+
                 BinStageAxis axis = ResolveZAxis(Options.Side);
                 double target = ResolveSideZTarget(Options.Side, "Load");
 

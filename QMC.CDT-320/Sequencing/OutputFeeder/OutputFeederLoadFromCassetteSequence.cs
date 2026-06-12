@@ -51,7 +51,7 @@ namespace QMC.CDT320.Sequencing
                         return Task.FromResult(CheckTransferReady());
 
                     case OutputFeederLoadFromCassetteStep.CheckOutputStageEmpty:
-                        return Task.FromResult(CheckOutputStagesEmpty());
+                        return Task.FromResult(CheckTargetOutputStageEmpty());
 
                     case OutputFeederLoadFromCassetteStep.CheckCassetteBinData:
                         return Task.FromResult(CheckCassetteBinData());
@@ -101,8 +101,9 @@ namespace QMC.CDT320.Sequencing
             if (Options.SlotIndex < 0)
                 return Fail("OUT-FEEDER-CST-SLOT", Feeder.Name, "Output cassette source slot is invalid. slot=" + Options.SlotIndex);
 
-            if (!Feeder.ValidateBinFeederYTeachingComplete(Options.Side))
-                return Fail("OUT-FEEDER-TEACHING", Feeder.Name, "OutputFeederY teaching is not complete. side=" + Options.Side);
+            string teachingReason;
+            if (!Feeder.ValidateBinFeederYTeachingComplete(Options.Side, out teachingReason))
+                return Fail("OUT-FEEDER-TEACHING", Feeder.Name, "OutputFeederY teaching is not complete. " + teachingReason);
 
             if (!Feeder.CheckFeederMoveReady())
                 return Fail("OUT-FEEDER-MOVE-READY", Feeder.Name, "OutputFeederY is not ready to move.");
@@ -111,15 +112,22 @@ namespace QMC.CDT320.Sequencing
             return 0;
         }
 
-        private int CheckOutputStagesEmpty()
+        private int CheckTargetOutputStageEmpty()
         {
-            WaferMaterial goodStageWafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputStageGood);
-            if (goodStageWafer != null)
-                return Fail("OUT-STAGE-DATA-OCCUPIED", "Material", "Output GoodStage must be empty before cassette to feeder load. waferId=" + goodStageWafer.WaferId);
+            MaterialLocationKind targetLocation = Options.Side == BinSide.Ng
+                ? MaterialLocationKind.OutputStageNg
+                : MaterialLocationKind.OutputStageGood;
 
-            WaferMaterial ngStageWafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputStageNg);
-            if (ngStageWafer != null)
-                return Fail("OUT-STAGE-DATA-OCCUPIED", "Material", "Output NGStage must be empty before cassette to feeder load. waferId=" + ngStageWafer.WaferId);
+            WaferMaterial targetStageWafer = MaterialStateService.GetWaferAtLocation(targetLocation);
+            if (targetStageWafer != null)
+            {
+                string stageName = Options.Side == BinSide.Ng ? "Output NGStage" : "Output GoodStage";
+                return Fail(
+                    "OUT-STAGE-DATA-OCCUPIED",
+                    "Material",
+                    stageName + " must be empty before cassette to feeder load. side=" + Options.Side +
+                    ", waferId=" + targetStageWafer.WaferId);
+            }
 
             CurrentStep = OutputFeederLoadFromCassetteStep.CheckCassetteBinData;
             return 0;
