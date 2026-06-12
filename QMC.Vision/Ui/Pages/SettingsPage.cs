@@ -13,8 +13,7 @@ namespace QMC.Vision.Ui.Pages
     /// </summary>
     public partial class SettingsPage : UserControl
     {
-        private CameraMappingPanel        _camPanel;
-        private InspectionLightAssignPanel _lightAssignPanel;  // C3b-3 — 검사별 컨트롤러/페이지 지정(레벨은 RecipePage)
+        private CameraMappingPanel        _camPanel;           // 카메라 매핑 + 조명 컨트롤러/페이지 지정(모듈)
         private LightSystemSetupPage      _lightSetupPage;     // Stage 69 — 조명 시스템 Setup(컨트롤러 정의)
         private Control                   _currentEditor;      // 검사 노드 편집기 캐시
 
@@ -29,12 +28,9 @@ namespace QMC.Vision.Ui.Pages
         /// <summary>우측 디테일 호스트에 들어가는 서브패널(다른 UserControl) 인스턴스화 — 런타임.</summary>
         private void BuildDetailPanels()
         {
+            // 모듈 노드 = 카메라 매핑 + 조명 컨트롤러/페이지 지정(모듈 Setup.LightPages). 채널 레벨은 RecipePage(레벨 그리드).
             _camPanel = new CameraMappingPanel { Dock = DockStyle.Fill, Visible = false };
             _detailHost.Controls.Add(_camPanel);
-
-            // C3b-3 — 검사 노드 = 컨트롤러/페이지 지정(Setup). 채널 레벨은 RecipePage(레벨 그리드).
-            _lightAssignPanel = new InspectionLightAssignPanel { Dock = DockStyle.Fill, Visible = false };
-            _detailHost.Controls.Add(_lightAssignPanel);
 
             // Stage 69 — 조명 시스템 Setup 페이지
             _lightSetupPage = new LightSystemSetupPage { Dock = DockStyle.Fill, Visible = false };
@@ -48,12 +44,7 @@ namespace QMC.Vision.Ui.Pages
             var camRoot = _tree.Nodes.Add("camera-root", "■ 카메라 매핑");
             camRoot.NodeFont = UiTheme.SectionFont;
             foreach (var alg in VisionAlgorithm.All)
-            {
-                var algNode = camRoot.Nodes.Add("cam:" + alg, VisionAlgorithm.Label(alg));
-                // 알고리즘 아래 검사 자식 노드 (cam:<alg>:<inspectionId>) — 선택 시 조명 편집.
-                foreach (var insp in InspectionLabel.InspectionsOf(alg))
-                    algNode.Nodes.Add("cam:" + alg + ":" + insp, InspectionLabel.Get(alg, insp));
-            }
+                camRoot.Nodes.Add("cam:" + alg, VisionAlgorithm.Label(alg));   // 모듈 노드 = 카메라+조명 지정(검사 하위노드 없음)
 
             // Stage 69 — 시스템 설정 그룹 + 조명 시스템 노드
             var sysRoot = _tree.Nodes.Add("sys-root", "■ 시스템 설정");
@@ -72,12 +63,7 @@ namespace QMC.Vision.Ui.Pages
 
             if (key.StartsWith("cam:"))
             {
-                var rest = key.Substring("cam:".Length);   // "<alg>" 또는 "<alg>:<inspectionId>"
-                int idx = rest.IndexOf(':');
-                if (idx < 0)
-                    ShowCameraMapping(rest);
-                else
-                    ShowInspectionLight(rest.Substring(0, idx), rest.Substring(idx + 1));
+                ShowCameraMapping(key.Substring("cam:".Length));   // 모듈 노드 = 카메라+조명 지정
             }
             else if (key == "sys:light")
             {
@@ -90,14 +76,6 @@ namespace QMC.Vision.Ui.Pages
         {
             SwapEditor(_camPanel);
             _camPanel.SelectAlgorithm(algorithm);
-        }
-
-        private void ShowInspectionLight(string algorithm, string inspectionId)
-        {
-            // C3b-3 — SettingsPage 조명노드 = 컨트롤러/페이지 지정(Setup). 짧은 id → GetAlgorithm 노드 해석.
-            SwapEditor(_lightAssignPanel);
-            var node = (FindForm() as Form1)?.ResolveModule(algorithm)?.GetAlgorithm(inspectionId);
-            _lightAssignPanel.SelectInspection(node, algorithm, inspectionId);
         }
 
         private void ShowLightSystemSetup()
@@ -113,9 +91,9 @@ namespace QMC.Vision.Ui.Pages
             next.Visible = true;
             next.BringToFront();
 
-            // 영구 패널(_camPanel/_lightAssignPanel/_lightSetupPage)은 재사용 — dispose 대상에서 제외.
+            // 영구 패널(_camPanel/_lightSetupPage)은 재사용 — dispose 대상에서 제외.
             if (_currentEditor != null && _currentEditor != next
-                && _currentEditor != _camPanel && _currentEditor != _lightAssignPanel && _currentEditor != _lightSetupPage)
+                && _currentEditor != _camPanel && _currentEditor != _lightSetupPage)
             {
                 try { _detailHost.Controls.Remove(_currentEditor); _currentEditor.Dispose(); } catch { }
             }

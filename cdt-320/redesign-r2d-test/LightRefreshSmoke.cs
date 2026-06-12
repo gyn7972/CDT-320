@@ -9,8 +9,9 @@ using QMC.Vision.Modules;
 using QMC.Vision.Backends.Sim;
 using QMC.Vision.Ui.Pages;
 
-// C3b-3 버그수정 — 조명 지정(LightPages) 변경 후 레벨 그리드 재바인딩(RefreshLightAssignment 효과)이
-// 새 컨트롤러/채널을 불러오는지. (RecipePage 가 캐시 타깃 표시 시 SelectInspection 재호출)
+// 조명 지정 모듈 이전 후 — 레벨 그리드 재바인딩(RefreshLightAssignment 효과)이 지정 변화에 따라 채널을 다시 불러오는지.
+//  지정(LightPages)은 모듈 Setup(런타임 Form1 해석). 헤드리스에선 ActivePages 가 검사 Recipe 레벨로 폴백 →
+//  노드 Recipe 레벨 (Port,Page) 유무로 재바인딩 검증(SelectInspection 재호출 = RefreshLightAssignment 효과).
 class LightRefreshSmoke
 {
     static int _fail = 0;
@@ -37,18 +38,19 @@ class LightRefreshSmoke
         var mod = new WaferVisionModule(null, new SimBackend());
         mod.LoadSettings(); mod.LoadRecipe("default");
         var node = mod.Algorithms.FirstOrDefault(a => a.Finder != null);
-        var sb = node.Setup as AlgoSetupBase;
-        sb.LightPages = new List<LightPageRef>();   // 초기: 지정 없음
+        var rec = node.Recipe as AlgoRecipeBase;
+        rec.LightSettings = new List<InspectionLightSetting>();   // 초기: 지정/레벨 없음
 
-        // 레벨 패널(레시피쪽) — 최초 바인딩(지정 없음 → 빈 그리드)
+        // 레벨 패널 — 최초 바인딩(지정 없음 → 빈 그리드)
         var panel = new InspectionLightPanel { EmbeddedMode = true };
         panel.SelectInspection(node, "Wafer", node.Finder.Id);
         var grid = (DataGridView)typeof(InspectionLightPanel)
             .GetField("_grid", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(panel);
         Ok("초기 지정 없음 → 그리드 빈", Rows(grid) == 0, $"(got {Rows(grid)})");
 
-        // SettingsPage 에서 지정 추가 모사 (노드 LightPages 갱신)
-        sb.LightPages = new List<LightPageRef> { new LightPageRef { ControllerPort = "COM-A", Page = 0 } };
+        // 지정 추가 모사(노드 Recipe 레벨 (COM-A,page0) → ActivePages 폴백이 채널 열거)
+        rec.LightSettings = new List<InspectionLightSetting> {
+            new InspectionLightSetting { ControllerPort = "COM-A", Page = 0, Channel = 1, Level = 0 } };
 
         // RefreshLightAssignment 효과 = SelectInspection 재호출(재바인딩)
         panel.SelectInspection(node, "Wafer", node.Finder.Id);
@@ -57,7 +59,7 @@ class LightRefreshSmoke
         Ok("행 컨트롤러=COM-A", (ch1.Cells["Ctrl"].Value as string ?? "").StartsWith("COM-A"));
 
         // 지정 제거 → 재바인딩 → 다시 빈
-        sb.LightPages = new List<LightPageRef>();
+        rec.LightSettings = new List<InspectionLightSetting>();
         panel.SelectInspection(node, "Wafer", node.Finder.Id);
         Ok("지정 제거 후 재바인딩 → 빈", Rows(grid) == 0, $"(got {Rows(grid)})");
 

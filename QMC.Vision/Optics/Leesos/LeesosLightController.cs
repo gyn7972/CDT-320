@@ -27,7 +27,6 @@ namespace QMC.Vision.Optics.Leesos
         public bool   IsConnected { get; private set; }
         public string PortName    => _cfg.PortName;
         public int    ChannelCount => _cfg.ChannelCount;
-        public LightControllerMode Mode => LightControllerMode.Continuous;   // PWM only
 
         public LeesosLightController(LeesosLightConfig cfg)
         {
@@ -79,8 +78,6 @@ namespace QMC.Vision.Optics.Leesos
                     "Light/" + _cfg.PortName, $"Volume 범위 초과 ch={channel} v={power} (max={_cfg.MaxPower})");
                 return false;
             }
-            if (_power[channel] == power) return true;   // Continuous — 동일값 skip 안전
-
             string resp = await SendReceiveAsync(LeesosProtocol.BuildVolumeCommand(channel, power)).ConfigureAwait(false);
             if (resp == null)                       { RaiseTimeout("LC"); return false; }
             if (LeesosProtocol.IsErrorResponse(resp)) { RaiseNak(resp);   return false; }
@@ -117,7 +114,7 @@ namespace QMC.Vision.Optics.Leesos
         /// <summary>LeesOS 는 Page 미지원 — no-op + true.</summary>
         public Task<bool> SwitchPageAsync(int page) => Task.FromResult(true);
 
-        /// <summary>Stage 79 — 일괄 적용. 전체 동일값이면 LCT 1프레임, 그 외는 변경분만 LC loop(캐시 skip).</summary>
+        /// <summary>Stage 79 — 일괄 적용. 전체 동일값이면 LCT 1프레임, 그 외 전 채널 LC loop(항상 송신 — 캐시 skip 잔재 제거).</summary>
         public async Task<bool> SetChannelBatchAsync(int page, int[] values)
         {
             if (values == null || values.Length != ChannelCount) return false;
@@ -133,15 +130,16 @@ namespace QMC.Vision.Optics.Leesos
                 return true;
             }
 
-            // 그 외: 변경된 채널만 LC (SetPowerAsync 가 캐시 skip + 검증)
+            // 그 외: 전 채널 LC (SetPowerAsync 가 송신 + 에코 검증)
             for (int i = 0; i < values.Length; i++)
             {
-                int ch = i + 1, v = Clamp(values[i]);
-                if (_power[ch] == v) continue;
-                if (!await SetPowerAsync(ch, v).ConfigureAwait(false)) return false;
+                if (!await SetPowerAsync(i + 1, Clamp(values[i])).ConfigureAwait(false)) return false;
             }
             return true;
         }
+
+        /// <summary>Leesos 는 Continuous PWM — 하드웨어 모드 개념 없음. no-op + true.</summary>
+        public Task<bool> SetHardwareModeAsync(LFine.LFineHardwareMode mode) => Task.FromResult(true);
 
         /// <summary>응답 1프레임 수신 (적용 후 검증용). NAK 이면 LIGHT-NAK + null.</summary>
         public Task<string> ReceiveResponseAsync(int timeoutMs = 0)

@@ -75,7 +75,6 @@
     <Compile Include="Alarms\AlarmSeverity.cs" />
     <Compile Include="Recipes\AlgorithmCameraSubset.cs" />
     <Compile Include="Recipes\InspectionLightSubset.cs" />
-    <Compile Include="Recipes\LightControllerMode.cs" />
     <Compile Include="Recipes\LightSystemSetup.cs" />
     <Compile Include="Recipes\LightSystemMigrator.cs" />
     <Compile Include="BaseComponent.cs" />

@@ -29,13 +29,17 @@ namespace QMC.Vision.Modules
         string CameraId { get; }
         /// <summary>모듈 Config/Recipe → 현재 Camera 적용.</summary>
         void ApplyCameraSettings();
-        /// <summary>algorithm_camera.json 매핑 → 모듈 Config/Recipe(마이그레이션·UI 편집 반영).</summary>
+        /// <summary>CameraMappingPanel 워킹버퍼(AlgorithmCameraMapping) → 모듈 Config/Recipe 반영(UI 편집 저장).</summary>
         void ImportCameraMapping(AlgorithmCameraMapping m);
         /// <summary>모듈 Config/Recipe → AlgorithmCameraMapping(편집 UI 로드 스냅샷).</summary>
         AlgorithmCameraMapping ExportCameraMapping();
 
-        /// <summary>C3b-3 — 기존 Recipe.LightSettings(Port,Page) → 노드 Setup.LightPages 지정 마이그(빈 노드만).</summary>
+        /// <summary>조명 지정 모듈 이전 — 구 노드 LightPages/Recipe 레벨의 (Port,Page) → 모듈 Setup.LightPages 합집합(빈 모듈만).</summary>
         bool MigrateLightPages();
+
+        /// <summary>모듈 Setup(조명 LightPages 등 카메라=조명 하드웨어 지정 포함) — 비형식화 접근.</summary>
+        ISetupData Setup { get; }
+
         IReadOnlyDictionary<string, IPatternFinder> Finders { get; }
         IReadOnlyDictionary<string, IInspector> Inspectors { get; }
 

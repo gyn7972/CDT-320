@@ -1,4 +1,6 @@
 using QMC.Common;
+using QMC.Common.Recipes;
+using System.Collections.Generic;
 using System.Runtime.Serialization;
 
 namespace QMC.Vision.Modules
@@ -16,8 +18,11 @@ namespace QMC.Vision.Modules
     {
         [DataMember] public bool IsSimulationMode { get; set; }
 
+        /// <summary>이 모듈(카메라=조명 1:1)이 구동하는 조명 (컨트롤러, 페이지) 지정. 채널 열거=ChannelCount, 사용여부=레벨(검사 Recipe).</summary>
+        [DataMember] public List<LightPageRef> LightPages { get; set; } = new List<LightPageRef>();
+
         [OnDeserializing] private void OnDeserializing(StreamingContext ctx) => SetDefaults();
-        protected virtual void SetDefaults() { IsSimulationMode = false; }
+        protected virtual void SetDefaults() { IsSimulationMode = false; LightPages = new List<LightPageRef>(); }
     }
 
     /// <summary>모듈 Config 공통 — 카메라/그랩 고정 사양.</summary>

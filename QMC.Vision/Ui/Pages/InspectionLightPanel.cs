@@ -22,8 +22,8 @@ namespace QMC.Vision.Ui.Pages
     public partial class InspectionLightPanel : UserControl
     {
         private string _algorithm, _inspectionId;
-        // C2 — 조명 SSOT = 알고리즘 노드 BaseUnit(Setup.LightWirings 결선 / Recipe.LightSettings 레벨).
-        // null 이면 구 algorithm_camera.json fallback(호스트가 노드 미해결 시).
+        // C2/C3b-3 — 조명 SSOT = 알고리즘 노드 BaseUnit(Setup.LightPages 지정 / Recipe.LightSettings 레벨).
+        // null 이면 호스트가 노드 미해결(조명 설정 비활성).
         private IAlgorithmNode _node;
         // Stage 81 — 컨트롤러별 MaxPower / (port,ch) 보존값.
         private readonly Dictionary<string, int> _maxPowerByPort = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
@@ -94,7 +94,7 @@ namespace QMC.Vision.Ui.Pages
             SelectInspection(algorithm, inspectionId);
         }
 
-        /// <summary>저장된 레벨 출처 — 노드 Recipe.LightSettings(있으면) 또는 구 algorithm_camera.json fallback.</summary>
+        /// <summary>저장된 레벨 출처 — 노드 Recipe.LightSettings(없으면 빈 목록).</summary>
         private List<InspectionLightSetting> SavedSettings()
         {
             // C3a — 조명 SSOT = 노드 Recipe.LightSettings (구 algorithm_camera.json fallback 폐지).
@@ -109,13 +109,13 @@ namespace QMC.Vision.Ui.Pages
         private void OnCancelClick(object sender, EventArgs e) => BindFields();
         private void OnGridDataError(object sender, DataGridViewDataErrorEventArgs e) => e.ThrowException = false;
 
-        // ── C3b-3: 검사가 구동하는 컨트롤러/페이지 지정(노드 Setup.LightPages, 결선 풀 대체) ──
+        // ── 검사가 구동하는 컨트롤러/페이지 지정 = 소속 모듈 Setup.LightPages(카메라=조명 1:1 하드웨어) ──
         private List<LightPageRef> ActivePages()
         {
-            var setup = _node?.Setup as AlgoSetupBase;
-            var pages = setup?.LightPages;
+            var mod = (FindForm() as Form1)?.ResolveModule(_algorithm);
+            var pages = (mod?.Setup as VisionModuleSetupBase)?.LightPages;
             if (pages != null && pages.Count > 0) return pages;
-            // 마이그 전 폴백(표시용) — Recipe 레벨에서 (Port,Page) 도출.
+            // 마이그 전 폴백(표시용) — 검사 Recipe 레벨에서 (Port,Page) 도출.
             return SavedSettings()
                 .Where(s => !string.IsNullOrEmpty(s.ControllerPort))
                 .GroupBy(s => s.ControllerPort.ToUpperInvariant() + "/" + s.Page)
@@ -179,11 +179,8 @@ namespace QMC.Vision.Ui.Pages
                 if (!saved.ContainsKey(key)) saved[key] = s;
             }
 
-            // Page 컬럼 = 지정에서 결정 → 읽기전용(표시만)
-            var pgCol = (DataGridViewComboBoxColumn)_grid.Columns["Page"];
-            pgCol.Items.Clear();
-            foreach (var p in pages.Select(pr => pr.Page).Distinct().OrderBy(x => x)) pgCol.Items.Add(p);
-            pgCol.ReadOnly = true;
+            // Page 컬럼 = 모듈 Setup.LightPages 에서 고정 → 읽기전용 텍스트 표시(콤보 Items 불필요).
+            _grid.Columns["Page"].ReadOnly = true;
 
             // 행 생성 — 각 지정(컨트롤러/페이지)의 채널 1..ChannelCount (레벨 0=미사용)
             _grid.Rows.Clear();

@@ -18,7 +18,7 @@ namespace QMC.Vision.Optics
         public static ILightController Create(LightControllerEntry entry, bool useSim)
         {
             if (useSim || entry == null)
-                return new SimLightController(entry?.ChannelCount ?? 8, entry?.Mode ?? LightControllerMode.StrobeOnCommand);
+                return new SimLightController(entry?.ChannelCount ?? 8);
 
             string vendor = string.IsNullOrEmpty(entry.Vendor) ? "LFine" : entry.Vendor;
             switch (vendor)
@@ -30,7 +30,7 @@ namespace QMC.Vision.Optics
                 default:
                     AlarmManager.Raise(AlarmSeverity.Warning, "LIGHT-MAP-INVALID", "LightControllerFactory",
                         $"알 수 없는 Vendor '{entry.Vendor}' — Sim 으로 대체");
-                    return new SimLightController(entry.ChannelCount, entry.Mode);
+                    return new SimLightController(entry.ChannelCount);
             }
         }
 
@@ -50,8 +50,7 @@ namespace QMC.Vision.Optics
                 BaudRate     = e.BaudRate,
                 MaxPower     = e.MaxPower,
                 MaxOnTimeUs  = e.MaxOnTimeUs,
-                ChannelCount = e.ChannelCount,
-                Mode         = e.Mode            // Stage 79 — 캐시 정책
+                ChannelCount = e.ChannelCount
                 // DataBits/StopBits/Parity/Handshake/TimeoutMs 는 LFineLightConfig 기본값 사용
             };
 
