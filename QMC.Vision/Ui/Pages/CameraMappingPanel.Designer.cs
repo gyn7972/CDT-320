@@ -32,6 +32,9 @@ namespace QMC.Vision.Ui.Pages
         private DataGridViewComboBoxColumn _colLightCtrl;
         private DataGridViewComboBoxColumn _colLightPage;
         private Label    _lblLightStatus;
+        // 우측 컬럼 — 반응형 docking 스택: 버튼 플로우(Top, 줄바꿈) + 상태(Top) + 미리보기(Fill)
+        private Panel    _rightPanel;
+        private FlowLayoutPanel _flowButtons;
         private Button   _btnSave, _btnCancel, _btnReset, _btnApply, _btnTestGrab;
         private Button   _btnConnect, _btnLiveStart, _btnLiveStop;
         private Label    _lblStatus;
@@ -83,6 +86,8 @@ namespace QMC.Vision.Ui.Pages
             this._colLightCtrl = new System.Windows.Forms.DataGridViewComboBoxColumn();
             this._colLightPage = new System.Windows.Forms.DataGridViewComboBoxColumn();
             this._lblLightStatus = new System.Windows.Forms.Label();
+            this._rightPanel = new System.Windows.Forms.Panel();
+            this._flowButtons = new System.Windows.Forms.FlowLayoutPanel();
             this._btnSave = new System.Windows.Forms.Button();
             this._btnCancel = new System.Windows.Forms.Button();
             this._btnReset = new System.Windows.Forms.Button();
@@ -94,6 +99,8 @@ namespace QMC.Vision.Ui.Pages
             this._lblStatus = new System.Windows.Forms.Label();
             this._picPreview = new System.Windows.Forms.PictureBox();
             this._body.SuspendLayout();
+            this._rightPanel.SuspendLayout();
+            this._flowButtons.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this._numExposure)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this._numGain)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this._numFps)).BeginInit();
@@ -154,16 +161,7 @@ namespace QMC.Vision.Ui.Pages
             this._body.Controls.Add(this._lblLightAssign);
             this._body.Controls.Add(this._gridLightAssign);
             this._body.Controls.Add(this._lblLightStatus);
-            this._body.Controls.Add(this._btnSave);
-            this._body.Controls.Add(this._btnCancel);
-            this._body.Controls.Add(this._btnReset);
-            this._body.Controls.Add(this._btnApply);
-            this._body.Controls.Add(this._btnTestGrab);
-            this._body.Controls.Add(this._btnConnect);
-            this._body.Controls.Add(this._btnLiveStart);
-            this._body.Controls.Add(this._btnLiveStop);
-            this._body.Controls.Add(this._lblStatus);
-            this._body.Controls.Add(this._picPreview);
+            this._body.Controls.Add(this._rightPanel);
             this._body.Dock = System.Windows.Forms.DockStyle.Fill;
             this._body.Location = new System.Drawing.Point(0, 0);
             this._body.Name = "_body";
@@ -552,16 +550,49 @@ namespace QMC.Vision.Ui.Pages
             this._lblLightStatus.Size = new System.Drawing.Size(640, 22);
             this._lblLightStatus.TabIndex = 29;
             //
+            // _rightPanel — 우측 반응형 컬럼 (버튼 플로우 + 상태 + 미리보기 채움)
+            //
+            this._rightPanel.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom)
+            | System.Windows.Forms.AnchorStyles.Left)
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this._rightPanel.Controls.Add(this._picPreview);
+            this._rightPanel.Controls.Add(this._lblStatus);
+            this._rightPanel.Controls.Add(this._flowButtons);
+            this._rightPanel.Location = new System.Drawing.Point(700, 36);
+            this._rightPanel.Name = "_rightPanel";
+            this._rightPanel.Size = new System.Drawing.Size(430, 549);
+            this._rightPanel.TabIndex = 30;
+            //
+            // _flowButtons — 버튼 가로 플로우(폭 부족 시 자동 줄바꿈)
+            //
+            this._flowButtons.AutoSize = true;
+            this._flowButtons.AutoSizeMode = System.Windows.Forms.AutoSizeMode.GrowAndShrink;
+            this._flowButtons.Controls.Add(this._btnSave);
+            this._flowButtons.Controls.Add(this._btnCancel);
+            this._flowButtons.Controls.Add(this._btnReset);
+            this._flowButtons.Controls.Add(this._btnApply);
+            this._flowButtons.Controls.Add(this._btnTestGrab);
+            this._flowButtons.Controls.Add(this._btnConnect);
+            this._flowButtons.Controls.Add(this._btnLiveStart);
+            this._flowButtons.Controls.Add(this._btnLiveStop);
+            this._flowButtons.Dock = System.Windows.Forms.DockStyle.Top;
+            this._flowButtons.FlowDirection = System.Windows.Forms.FlowDirection.LeftToRight;
+            this._flowButtons.Location = new System.Drawing.Point(0, 0);
+            this._flowButtons.Name = "_flowButtons";
+            this._flowButtons.Size = new System.Drawing.Size(430, 76);
+            this._flowButtons.TabIndex = 0;
+            this._flowButtons.WrapContents = true;
+            //
             // _btnSave
             //
             this._btnSave.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(232)))), ((int)(((byte)(93)))), ((int)(((byte)(26)))));
             this._btnSave.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this._btnSave.Font = new System.Drawing.Font("맑은 고딕", 11F);
             this._btnSave.ForeColor = System.Drawing.Color.White;
-            this._btnSave.Location = new System.Drawing.Point(700, 40);
+            this._btnSave.Margin = new System.Windows.Forms.Padding(0, 0, 4, 4);
             this._btnSave.Name = "_btnSave";
             this._btnSave.Size = new System.Drawing.Size(100, 32);
-            this._btnSave.TabIndex = 30;
+            this._btnSave.TabIndex = 0;
             this._btnSave.Text = "저장";
             this._btnSave.UseVisualStyleBackColor = false;
             this._btnSave.Click += new System.EventHandler(this.OnSaveClick);
@@ -572,10 +603,10 @@ namespace QMC.Vision.Ui.Pages
             this._btnCancel.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this._btnCancel.Font = new System.Drawing.Font("맑은 고딕", 11F);
             this._btnCancel.ForeColor = System.Drawing.Color.Black;
-            this._btnCancel.Location = new System.Drawing.Point(804, 40);
+            this._btnCancel.Margin = new System.Windows.Forms.Padding(0, 0, 4, 4);
             this._btnCancel.Name = "_btnCancel";
             this._btnCancel.Size = new System.Drawing.Size(90, 32);
-            this._btnCancel.TabIndex = 31;
+            this._btnCancel.TabIndex = 1;
             this._btnCancel.Text = "취소";
             this._btnCancel.UseVisualStyleBackColor = false;
             this._btnCancel.Click += new System.EventHandler(this.OnCancelClick);
@@ -586,10 +617,10 @@ namespace QMC.Vision.Ui.Pages
             this._btnReset.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this._btnReset.Font = new System.Drawing.Font("맑은 고딕", 11F);
             this._btnReset.ForeColor = System.Drawing.Color.Black;
-            this._btnReset.Location = new System.Drawing.Point(898, 40);
+            this._btnReset.Margin = new System.Windows.Forms.Padding(0, 0, 4, 4);
             this._btnReset.Name = "_btnReset";
             this._btnReset.Size = new System.Drawing.Size(120, 32);
-            this._btnReset.TabIndex = 32;
+            this._btnReset.TabIndex = 2;
             this._btnReset.Text = "기본값 복원";
             this._btnReset.UseVisualStyleBackColor = false;
             this._btnReset.Click += new System.EventHandler(this.OnResetClick);
@@ -600,10 +631,10 @@ namespace QMC.Vision.Ui.Pages
             this._btnApply.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this._btnApply.Font = new System.Drawing.Font("맑은 고딕", 11F);
             this._btnApply.ForeColor = System.Drawing.Color.Black;
-            this._btnApply.Location = new System.Drawing.Point(700, 78);
+            this._btnApply.Margin = new System.Windows.Forms.Padding(0, 0, 4, 4);
             this._btnApply.Name = "_btnApply";
             this._btnApply.Size = new System.Drawing.Size(150, 32);
-            this._btnApply.TabIndex = 33;
+            this._btnApply.TabIndex = 3;
             this._btnApply.Text = "실행 모듈에 적용";
             this._btnApply.UseVisualStyleBackColor = false;
             this._btnApply.Click += new System.EventHandler(this.OnApplyClick);
@@ -614,10 +645,10 @@ namespace QMC.Vision.Ui.Pages
             this._btnTestGrab.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this._btnTestGrab.Font = new System.Drawing.Font("맑은 고딕", 11F);
             this._btnTestGrab.ForeColor = System.Drawing.Color.Black;
-            this._btnTestGrab.Location = new System.Drawing.Point(856, 78);
+            this._btnTestGrab.Margin = new System.Windows.Forms.Padding(0, 0, 4, 4);
             this._btnTestGrab.Name = "_btnTestGrab";
             this._btnTestGrab.Size = new System.Drawing.Size(120, 32);
-            this._btnTestGrab.TabIndex = 34;
+            this._btnTestGrab.TabIndex = 4;
             this._btnTestGrab.Text = "테스트 그랩";
             this._btnTestGrab.UseVisualStyleBackColor = false;
             this._btnTestGrab.Click += new System.EventHandler(this.OnTestGrabClick);
@@ -628,10 +659,10 @@ namespace QMC.Vision.Ui.Pages
             this._btnConnect.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this._btnConnect.Font = new System.Drawing.Font("맑은 고딕", 11F);
             this._btnConnect.ForeColor = System.Drawing.Color.White;
-            this._btnConnect.Location = new System.Drawing.Point(700, 116);
+            this._btnConnect.Margin = new System.Windows.Forms.Padding(0, 0, 4, 4);
             this._btnConnect.Name = "_btnConnect";
             this._btnConnect.Size = new System.Drawing.Size(104, 32);
-            this._btnConnect.TabIndex = 35;
+            this._btnConnect.TabIndex = 5;
             this._btnConnect.Text = "Connect";
             this._btnConnect.UseVisualStyleBackColor = false;
             this._btnConnect.Click += new System.EventHandler(this.OnConnectClick);
@@ -642,10 +673,10 @@ namespace QMC.Vision.Ui.Pages
             this._btnLiveStart.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this._btnLiveStart.Font = new System.Drawing.Font("맑은 고딕", 11F);
             this._btnLiveStart.ForeColor = System.Drawing.Color.Black;
-            this._btnLiveStart.Location = new System.Drawing.Point(808, 116);
+            this._btnLiveStart.Margin = new System.Windows.Forms.Padding(0, 0, 4, 4);
             this._btnLiveStart.Name = "_btnLiveStart";
             this._btnLiveStart.Size = new System.Drawing.Size(104, 32);
-            this._btnLiveStart.TabIndex = 36;
+            this._btnLiveStart.TabIndex = 6;
             this._btnLiveStart.Text = "Live Start";
             this._btnLiveStart.UseVisualStyleBackColor = false;
             this._btnLiveStart.Click += new System.EventHandler(this.OnLiveStartClick);
@@ -656,32 +687,34 @@ namespace QMC.Vision.Ui.Pages
             this._btnLiveStop.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this._btnLiveStop.Font = new System.Drawing.Font("맑은 고딕", 11F);
             this._btnLiveStop.ForeColor = System.Drawing.Color.Black;
-            this._btnLiveStop.Location = new System.Drawing.Point(916, 116);
+            this._btnLiveStop.Margin = new System.Windows.Forms.Padding(0, 0, 4, 4);
             this._btnLiveStop.Name = "_btnLiveStop";
             this._btnLiveStop.Size = new System.Drawing.Size(104, 32);
-            this._btnLiveStop.TabIndex = 37;
+            this._btnLiveStop.TabIndex = 7;
             this._btnLiveStop.Text = "Live Stop";
             this._btnLiveStop.UseVisualStyleBackColor = false;
             this._btnLiveStop.Click += new System.EventHandler(this.OnLiveStopClick);
             //
             // _lblStatus
             //
+            this._lblStatus.Dock = System.Windows.Forms.DockStyle.Top;
             this._lblStatus.Font = new System.Drawing.Font("Consolas", 10F);
             this._lblStatus.ForeColor = System.Drawing.Color.DarkSlateGray;
-            this._lblStatus.Location = new System.Drawing.Point(700, 158);
+            this._lblStatus.Location = new System.Drawing.Point(0, 76);
             this._lblStatus.Name = "_lblStatus";
             this._lblStatus.Size = new System.Drawing.Size(430, 24);
-            this._lblStatus.TabIndex = 38;
+            this._lblStatus.TabIndex = 1;
             //
-            // _picPreview
+            // _picPreview — 남는 공간 전부 채움
             //
             this._picPreview.BackColor = System.Drawing.Color.Black;
             this._picPreview.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this._picPreview.Location = new System.Drawing.Point(700, 188);
+            this._picPreview.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._picPreview.Location = new System.Drawing.Point(0, 100);
             this._picPreview.Name = "_picPreview";
-            this._picPreview.Size = new System.Drawing.Size(430, 242);
+            this._picPreview.Size = new System.Drawing.Size(430, 449);
             this._picPreview.SizeMode = System.Windows.Forms.PictureBoxSizeMode.Zoom;
-            this._picPreview.TabIndex = 39;
+            this._picPreview.TabIndex = 2;
             this._picPreview.TabStop = false;
             //
             // CameraMappingPanel
@@ -691,6 +724,9 @@ namespace QMC.Vision.Ui.Pages
             this.Controls.Add(this._body);
             this.Name = "CameraMappingPanel";
             this.Size = new System.Drawing.Size(1140, 595);
+            this._flowButtons.ResumeLayout(false);
+            this._rightPanel.ResumeLayout(false);
+            this._rightPanel.PerformLayout();
             this._body.ResumeLayout(false);
             this._body.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this._numExposure)).EndInit();
