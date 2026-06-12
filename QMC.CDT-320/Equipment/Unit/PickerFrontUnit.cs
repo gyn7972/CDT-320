@@ -13,6 +13,13 @@ using System.Threading.Tasks;
 namespace QMC.CDT320
 {
     [DataContract]
+    public enum PickerRunOrderMode
+    {
+        [EnumMember] Descending = 0,
+        [EnumMember] Ascending = 1
+    }
+
+    [DataContract]
     public sealed class PickerFrontSetup : ISetupData
     {
         [DataMember] public bool IsSimulationMode { get; set; }
@@ -35,11 +42,15 @@ namespace QMC.CDT320
         [DataMember] public double AlignOffsetX { get; set; }
         [DataMember] public double AlignOffsetY { get; set; }
         [DataMember] public double AlignOffsetT { get; set; }
+        [DataMember] public double InputVisionToPickerXOffset { get; set; }
+        [DataMember] public double OutputVisionToPickerXOffset { get; set; }
     }
 
     [DataContract]
     public sealed class PickerFrontConfig : IConfigData
     {
+        [DataMember] public bool UseUnit { get; set; } = true;
+        [DataMember] public PickerRunOrderMode RunOrderMode { get; set; } = PickerRunOrderMode.Descending;
         [DataMember] public bool bDryRun { get; set; }
         [DataMember] public bool[] UsePicker { get; set; } = new bool[] { true, true, true, true };
         [DataMember] public PickerAlignOffset[] Picker { get; set; } = CreatePickerOffsets();

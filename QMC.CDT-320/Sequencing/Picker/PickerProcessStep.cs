@@ -4,6 +4,10 @@ namespace QMC.CDT320.Sequencing
     {
         Idle,
         CheckUnit,
+        RunPickUp,
+        RunBottomInspection,
+        RunSideInspection,
+        RunPlace,
         CheckPickerSafe,
         WaitInputReady,
         AcquireInputArea,

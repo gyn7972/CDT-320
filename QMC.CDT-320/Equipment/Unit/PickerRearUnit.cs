@@ -32,6 +32,8 @@ namespace QMC.CDT320
     [DataContract]
     public sealed class PickerRearConfig : IConfigData
     {
+        [DataMember] public bool UseUnit { get; set; } = true;
+        [DataMember] public PickerRunOrderMode RunOrderMode { get; set; } = PickerRunOrderMode.Descending;
         [DataMember] public bool bDryRun { get; set; }
         [DataMember] public bool[] UsePicker { get; set; } = new bool[] { true, true, true, true };
         [DataMember] public PickerAlignOffset[] Picker { get; set; } = CreatePickerOffsets();

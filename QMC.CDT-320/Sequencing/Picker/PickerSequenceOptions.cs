@@ -8,6 +8,8 @@ namespace QMC.CDT320.Sequencing
         public int MoveTimeoutMs { get; set; }
         public int ResourceTimeoutMs { get; set; }
         public int PickerNo { get; set; }
+        public int VisionRetryCount { get; set; }
+        public bool SimulateVisionResult { get; set; }
 
         public static PickerSequenceOptions Default()
         {
@@ -18,7 +20,9 @@ namespace QMC.CDT320.Sequencing
                 FineMove = false,
                 MoveTimeoutMs = 30000,
                 ResourceTimeoutMs = 30000,
-                PickerNo = 0
+                PickerNo = 0,
+                VisionRetryCount = 3,
+                SimulateVisionResult = false
             };
         }
     }

@@ -114,6 +114,18 @@ namespace QMC.CDT320.Sequencing
                 case PickerProcessStep.CheckUnit:
                     return Task.FromResult(CheckUnit());
 
+                case PickerProcessStep.RunPickUp:
+                    return RunPickUpAsync(ct);
+
+                case PickerProcessStep.RunBottomInspection:
+                    return RunBottomInspectionAsync(ct);
+
+                case PickerProcessStep.RunSideInspection:
+                    return RunSideInspectionAsync(ct);
+
+                case PickerProcessStep.RunPlace:
+                    return RunPlaceAsync(ct);
+
                 case PickerProcessStep.CheckPickerSafe:
                     return CheckPickerSafeAsync(ct);
 
@@ -181,8 +193,76 @@ namespace QMC.CDT320.Sequencing
             if (!string.IsNullOrWhiteSpace(axisReason))
                 return Fail("PICKER-AXIS-NOT-READY", Name, "Picker axis is not ready. side=" + Side + ", reason=" + axisReason);
 
-            CurrentStep = PickerProcessStep.CheckPickerSafe;
+            CurrentStep = PickerProcessStep.RunPickUp;
             return 0;
+        }
+
+        private async Task<int> RunPickUpAsync(CancellationToken ct)
+        {
+            int result = await new PickerPickUpSequence(Context, Side)
+                .RunAsync(ct, BuildChildSequenceOptions())
+                .ConfigureAwait(false);
+
+            if (result != 0)
+                return result;
+
+            CurrentStep = PickerProcessStep.RunBottomInspection;
+            return 0;
+        }
+
+        private async Task<int> RunBottomInspectionAsync(CancellationToken ct)
+        {
+            int result = await new PickerBottomInspectionSequence(Context, Side)
+                .RunAsync(ct, BuildChildSequenceOptions())
+                .ConfigureAwait(false);
+
+            if (result != 0)
+                return result;
+
+            CurrentStep = PickerProcessStep.RunSideInspection;
+            return 0;
+        }
+
+        private async Task<int> RunSideInspectionAsync(CancellationToken ct)
+        {
+            int result = await new PickerSideInspectionSequence(Context, Side)
+                .RunAsync(ct, BuildChildSequenceOptions())
+                .ConfigureAwait(false);
+
+            if (result != 0)
+                return result;
+
+            CurrentStep = PickerProcessStep.RunPlace;
+            return 0;
+        }
+
+        private async Task<int> RunPlaceAsync(CancellationToken ct)
+        {
+            int result = await new PickerPlaceSequence(Context, Side)
+                .RunAsync(ct, BuildChildSequenceOptions())
+                .ConfigureAwait(false);
+
+            if (result != 0)
+                return result;
+
+            CurrentStep = PickerProcessStep.Complete;
+            return 0;
+        }
+
+        private PickerSequenceOptions BuildChildSequenceOptions()
+        {
+            PickerSequenceOptions source = Options ?? PickerSequenceOptions.Default();
+            return new PickerSequenceOptions
+            {
+                RunMode = SequenceRunMode.Auto,
+                StartMode = source.StartMode,
+                FineMove = source.FineMove,
+                MoveTimeoutMs = source.MoveTimeoutMs,
+                ResourceTimeoutMs = source.ResourceTimeoutMs,
+                PickerNo = source.PickerNo,
+                VisionRetryCount = source.VisionRetryCount,
+                SimulateVisionResult = source.SimulateVisionResult
+            };
         }
 
         private async Task<int> CheckPickerSafeAsync(CancellationToken ct)

@@ -58,6 +58,70 @@ namespace QMC.CDT320.Materials
             return die;
         }
 
+        public static DieMaterial GetDieAtPicker(MaterialLocationKind pickerLocation, int pickerNo)
+        {
+            try
+            {
+                lock (_stateSync)
+                {
+                    return State.Dies.FirstOrDefault(d =>
+                        d != null &&
+                        d.CurrentLocation != null &&
+                        d.CurrentLocation.Kind == pickerLocation &&
+                        d.CurrentLocation.PickerNo == pickerNo);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "Get die at picker failed: pickerLocation=" + pickerLocation +
+                    ", pickerNo=" + pickerNo +
+                    ", error=" + ex.Message + " - Failed");
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
+        public static void ApplyDieInspectionResult(string dieId, DieResult result, string ngCode, string reason)
+        {
+            try
+            {
+                lock (_stateSync)
+                {
+                    DieMaterial die = State.Dies.FirstOrDefault(d =>
+                        d != null &&
+                        string.Equals(d.DieId, dieId, StringComparison.OrdinalIgnoreCase));
+
+                    if (die == null)
+                        return;
+
+                    die.Result = result;
+                    if (result == DieResult.NG && !string.IsNullOrWhiteSpace(ngCode))
+                    {
+                        if (die.NgCodes == null)
+                            die.NgCodes = new List<string>();
+                        if (!die.NgCodes.Contains(ngCode))
+                            die.NgCodes.Add(ngCode);
+                    }
+
+                    die.UpdatedAt = DateTime.Now;
+                    NotifyAndSave(reason);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "Apply die inspection result failed: dieId=" + dieId +
+                    ", result=" + result +
+                    ", error=" + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
         public static void UpdateInputCassetteMapping(
             int levelCount,
             int slotCount,

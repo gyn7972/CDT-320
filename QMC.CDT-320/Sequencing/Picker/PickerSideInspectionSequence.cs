@@ -1,0 +1,449 @@
+using System;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+using QMC.CDT320.Materials;
+
+namespace QMC.CDT320.Sequencing
+{
+    internal sealed class PickerSideInspectionSequence : PickerSequenceBase<PickerSideInspectionStep>
+    {
+        private static readonly object SimVisionRandomLock = new object();
+        private static readonly Random SimVisionRandom = new Random();
+
+        private readonly List<int> _pickedPickerIndexes = new List<int>();
+        private int _pickerCursor;
+        private int _currentPickerIndex = -1;
+        private int _currentPickerNo;
+        private DieMaterial _currentDie;
+        private SideVisionResult _side0Result;
+        private SideVisionResult _side90Result;
+        private double _targetPickerX;
+        private double _targetPickerY;
+        private double _targetPickerZ;
+        private double _targetPickerT0;
+        private double _targetPickerT90;
+
+        public PickerSideInspectionSequence(MachineSequenceContext context, PickerSequenceSide side)
+            : base(context, side, PickerSequenceKind.Inspect, side == PickerSequenceSide.Front ? "FrontPickerSideInspectionSequence" : "RearPickerSideInspectionSequence")
+        {
+            CurrentStep = PickerSideInspectionStep.CheckUnit;
+        }
+
+        public bool IsComplete
+        {
+            get { return CurrentStep == PickerSideInspectionStep.Complete; }
+        }
+
+        protected override async Task<int> ExecuteAsync(CancellationToken ct)
+        {
+            try
+            {
+                while (CurrentStep != PickerSideInspectionStep.Complete)
+                {
+                    ct.ThrowIfCancellationRequested();
+
+                    int result = await ExecuteStepAsync(ct).ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+                }
+
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-SIDE-EX", Name, "Picker side inspection failed. step=" + CurrentStep + ", error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private Task<int> ExecuteStepAsync(CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+
+            switch (CurrentStep)
+            {
+                case PickerSideInspectionStep.CheckUnit:
+                    return Task.FromResult(CheckUnit());
+
+                case PickerSideInspectionStep.BuildPickedPickerList:
+                    return Task.FromResult(BuildPickedPickerList());
+
+                case PickerSideInspectionStep.MoveAllPickerZToAvoid:
+                    return MoveAllPickerZToAvoidAsync(ct);
+
+                case PickerSideInspectionStep.SelectNextPicker:
+                    return Task.FromResult(SelectNextPicker());
+
+                case PickerSideInspectionStep.MoveSideXY:
+                    return MoveSideXYAsync(ct);
+
+                case PickerSideInspectionStep.MoveSideZ:
+                    return MoveSideZAsync(ct);
+
+                case PickerSideInspectionStep.MoveSideT0:
+                    return MoveSideT0Async(ct);
+
+                case PickerSideInspectionStep.RequestSide0Inspection:
+                    return RequestSide0InspectionAsync(ct);
+
+                case PickerSideInspectionStep.MoveSideT90:
+                    return MoveSideT90Async(ct);
+
+                case PickerSideInspectionStep.RequestSide90Inspection:
+                    return RequestSide90InspectionAsync(ct);
+
+                case PickerSideInspectionStep.ApplySideInspectionResult:
+                    return Task.FromResult(ApplySideInspectionResult());
+
+                case PickerSideInspectionStep.MoveSideZToAvoid:
+                    return MoveSideZToAvoidAsync(ct);
+
+                case PickerSideInspectionStep.MoveSideTToSafe:
+                    return MoveSideTToSafeAsync(ct);
+
+                case PickerSideInspectionStep.MoveSideXYToAvoid:
+                    return MoveSideXYToAvoidAsync(ct);
+
+                case PickerSideInspectionStep.SelectNextPickerOrComplete:
+                    return Task.FromResult(SelectNextPickerOrComplete());
+
+                default:
+                    return Task.FromResult(Fail("PICKER-SIDE-STEP", Name, "Unsupported picker side inspection step. step=" + CurrentStep));
+            }
+        }
+
+        private int CheckUnit()
+        {
+            if (!IsPickerSideEnabled())
+            {
+                WriteLog("PickerSideInspectionSequence", Name + " skipped because picker side is disabled. side=" + Side + " - Check");
+                CurrentStep = PickerSideInspectionStep.Complete;
+                return 0;
+            }
+
+            string axisReason = BuildRequiredPickerAxesReason();
+            if (!string.IsNullOrWhiteSpace(axisReason))
+                return Fail("PICKER-SIDE-AXIS-NOT-READY", Name, "Picker axis is not ready. side=" + Side + ", reason=" + axisReason);
+
+            CurrentStep = PickerSideInspectionStep.BuildPickedPickerList;
+            return 0;
+        }
+
+        private int BuildPickedPickerList()
+        {
+            _pickedPickerIndexes.Clear();
+
+            List<int> enabled = BuildEnabledPickerIndexes();
+            for (int i = 0; i < enabled.Count; i++)
+            {
+                int index = enabled[i];
+                int pickerNo = ToPickerNo(index);
+                DieMaterial die = MaterialStateService.GetDieAtPicker(PickerLocationKind, pickerNo);
+                if (die != null)
+                    _pickedPickerIndexes.Add(index);
+            }
+
+            _pickerCursor = 0;
+
+            if (_pickedPickerIndexes.Count == 0)
+            {
+                WriteLog("PickerSideInspectionSequence", Name + " skipped because no die exists on picker. - Check");
+                CurrentStep = PickerSideInspectionStep.Complete;
+                return 0;
+            }
+
+            CurrentStep = PickerSideInspectionStep.MoveAllPickerZToAvoid;
+            return 0;
+        }
+
+        private async Task<int> MoveAllPickerZToAvoidAsync(CancellationToken ct)
+        {
+            int result = await MoveAllPickerZToAvoidAndVerifyAsync("side inspection pre all picker Z avoid", ct).ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            CurrentStep = PickerSideInspectionStep.SelectNextPicker;
+            return 0;
+        }
+
+        private int SelectNextPicker()
+        {
+            if (_pickerCursor >= _pickedPickerIndexes.Count)
+            {
+                CurrentStep = PickerSideInspectionStep.Complete;
+                return 0;
+            }
+
+            _currentPickerIndex = _pickedPickerIndexes[_pickerCursor];
+            _currentPickerNo = ToPickerNo(_currentPickerIndex);
+            _currentDie = MaterialStateService.GetDieAtPicker(PickerLocationKind, _currentPickerNo);
+            _side0Result = null;
+            _side90Result = null;
+
+            if (_currentDie == null)
+            {
+                CurrentStep = PickerSideInspectionStep.SelectNextPickerOrComplete;
+                return 0;
+            }
+
+            _targetPickerX = GetPickerTeachingPosition(PickerAxis.PickerX, "DieSidePosition[" + _currentPickerIndex + "]") +
+                ResolvePickerAlignOffsetX(_currentPickerIndex);
+            _targetPickerY = GetPickerTeachingPosition(PickerAxis.PickerY, "DieSidePosition[" + _currentPickerIndex + "]") +
+                ResolvePickerAlignOffsetY(_currentPickerIndex);
+            _targetPickerZ = GetPickerTeachingPosition(GetPickerZAxis(_currentPickerIndex), "SidePosition");
+            _targetPickerT0 = GetPickerTeachingPosition(GetPickerTAxis(_currentPickerIndex), "SidePosition") +
+                ResolvePickerAlignOffsetT(_currentPickerIndex);
+            _targetPickerT90 = _targetPickerT0 + 90.0;
+
+            CurrentStep = PickerSideInspectionStep.MoveSideXY;
+            return 0;
+        }
+
+        private async Task<int> MoveSideXYAsync(CancellationToken ct)
+        {
+            var targets = new Dictionary<PickerAxis, double>();
+            targets[PickerAxis.PickerX] = _targetPickerX;
+            targets[PickerAxis.PickerY] = _targetPickerY;
+
+            int result = await MovePickerAxesAndVerifyAsync(targets, "side inspection XY", ct).ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            CurrentStep = PickerSideInspectionStep.MoveSideZ;
+            return 0;
+        }
+
+        private async Task<int> MoveSideZAsync(CancellationToken ct)
+        {
+            int result = await MovePickerAxisAndVerifyAsync(GetPickerZAxis(_currentPickerIndex), _targetPickerZ, "side inspection Z", ct).ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            CurrentStep = PickerSideInspectionStep.MoveSideT0;
+            return 0;
+        }
+
+        private async Task<int> MoveSideT0Async(CancellationToken ct)
+        {
+            int result = await MovePickerAxisAndVerifyAsync(GetPickerTAxis(_currentPickerIndex), _targetPickerT0, "side inspection T 0deg", ct).ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            CurrentStep = PickerSideInspectionStep.RequestSide0Inspection;
+            return 0;
+        }
+
+        private async Task<int> RequestSide0InspectionAsync(CancellationToken ct)
+        {
+            _side0Result = await RequestSideResultAsync(0, ct).ConfigureAwait(false);
+            if (_side0Result == null)
+                return Fail("PICKER-SIDE-VISION0-NG", "Vision", "Side 0deg inspection failed. die=" + _currentDie.DieId + ", pickerNo=" + _currentPickerNo);
+
+            CurrentStep = PickerSideInspectionStep.MoveSideT90;
+            return 0;
+        }
+
+        private async Task<int> MoveSideT90Async(CancellationToken ct)
+        {
+            int result = await MovePickerAxisAndVerifyAsync(GetPickerTAxis(_currentPickerIndex), _targetPickerT90, "side inspection T 90deg", ct).ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            CurrentStep = PickerSideInspectionStep.RequestSide90Inspection;
+            return 0;
+        }
+
+        private async Task<int> RequestSide90InspectionAsync(CancellationToken ct)
+        {
+            _side90Result = await RequestSideResultAsync(90, ct).ConfigureAwait(false);
+            if (_side90Result == null)
+                return Fail("PICKER-SIDE-VISION90-NG", "Vision", "Side 90deg inspection failed. die=" + _currentDie.DieId + ", pickerNo=" + _currentPickerNo);
+
+            CurrentStep = PickerSideInspectionStep.ApplySideInspectionResult;
+            return 0;
+        }
+
+        private int ApplySideInspectionResult()
+        {
+            bool ok0 = _side0Result != null && _side0Result.IsAllOk;
+            bool ok90 = _side90Result != null && _side90Result.IsAllOk;
+            bool ok = ok0 && ok90;
+
+            MaterialStateService.UpsertInspection(_currentDie.DieId, new DieInspectionRecord
+            {
+                InspectionType = "Side0",
+                Result = ok0 ? MaterialInspectionResult.Ok : MaterialInspectionResult.Ng
+            });
+
+            MaterialStateService.UpsertInspection(_currentDie.DieId, new DieInspectionRecord
+            {
+                InspectionType = "Side90",
+                Result = ok90 ? MaterialInspectionResult.Ok : MaterialInspectionResult.Ng
+            });
+
+            MaterialStateService.ApplyDieInspectionResult(
+                _currentDie.DieId,
+                ok ? DieResult.Good : DieResult.NG,
+                ok ? "" : "SIDE_NG",
+                "SideInspection");
+
+            WriteLog("PickerSideInspectionSequence",
+                Name + " side inspection result. die=" + _currentDie.DieId +
+                ", pickerNo=" + _currentPickerNo +
+                ", ok0=" + ok0 +
+                ", ok90=" + ok90 + " - Ok");
+
+            CurrentStep = PickerSideInspectionStep.MoveSideZToAvoid;
+            return 0;
+        }
+
+        private async Task<int> MoveSideZToAvoidAsync(CancellationToken ct)
+        {
+            PickerAxis zAxis = GetPickerZAxis(_currentPickerIndex);
+            double avoid = GetPickerTeachingPosition(zAxis, "AvoidPosition");
+            int result = await MovePickerAxisAndVerifyAsync(zAxis, avoid, "side inspection Z avoid", ct).ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            CurrentStep = PickerSideInspectionStep.MoveSideTToSafe;
+            return 0;
+        }
+
+        private async Task<int> MoveSideTToSafeAsync(CancellationToken ct)
+        {
+            PickerAxis tAxis = GetPickerTAxis(_currentPickerIndex);
+            double target = GetPickerTeachingPosition(tAxis, "PickPosition") + ResolvePickerAlignOffsetT(_currentPickerIndex);
+            int result = await MovePickerAxisAndVerifyAsync(tAxis, target, "side inspection T safe", ct).ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            CurrentStep = PickerSideInspectionStep.MoveSideXYToAvoid;
+            return 0;
+        }
+
+        private async Task<int> MoveSideXYToAvoidAsync(CancellationToken ct)
+        {
+            var targets = new Dictionary<PickerAxis, double>();
+            targets[PickerAxis.PickerX] = GetPickerTeachingPosition(PickerAxis.PickerX, "AvoidPosition");
+            targets[PickerAxis.PickerY] = GetPickerTeachingPosition(PickerAxis.PickerY, "AvoidPosition");
+
+            int result = await MovePickerAxesAndVerifyAsync(targets, "side inspection XY avoid", ct).ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            CurrentStep = PickerSideInspectionStep.SelectNextPickerOrComplete;
+            return 0;
+        }
+
+        private int SelectNextPickerOrComplete()
+        {
+            _pickerCursor++;
+
+            if (_pickerCursor >= _pickedPickerIndexes.Count)
+            {
+                CurrentStep = PickerSideInspectionStep.Complete;
+                return 0;
+            }
+
+            CurrentStep = PickerSideInspectionStep.SelectNextPicker;
+            return 0;
+        }
+
+        private async Task<SideVisionResult> RequestSideResultAsync(int angleDeg, CancellationToken ct)
+        {
+            try
+            {
+                int retryCount = Options != null && Options.VisionRetryCount > 0 ? Options.VisionRetryCount : 3;
+                for (int attempt = 1; attempt <= retryCount; attempt++)
+                {
+                    ct.ThrowIfCancellationRequested();
+
+                    SideVisionResult result = await RequestSideResultCoreAsync(angleDeg, ct).ConfigureAwait(false);
+                    if (result != null)
+                        return result;
+
+                    WriteLog("PickerSideInspectionSequence",
+                        Name + " side inspection retry. die=" + _currentDie.DieId +
+                        ", pickerNo=" + _currentPickerNo +
+                        ", angle=" + angleDeg +
+                        ", attempt=" + attempt + " - Check");
+                }
+
+                return null;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Fail("PICKER-SIDE-VISION-EX", "Vision", "Side inspection exception. angle=" + angleDeg + ", error=" + ex.Message);
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<SideVisionResult> RequestSideResultCoreAsync(int angleDeg, CancellationToken ct)
+        {
+            if (IsSimulationOrDryRun())
+                return SimulateSideResult();
+
+            ct.ThrowIfCancellationRequested();
+
+            Tuple<BottomVisionOffset[], SideVisionResult[]> inspection = Side == PickerSequenceSide.Front
+                ? await FrontPicker.InspectBottomAndSideAsync(0, 0).ConfigureAwait(false)
+                : await RearPicker.InspectBottomAndSideAsync(0, 0).ConfigureAwait(false);
+
+            SideVisionResult[] results = inspection != null ? inspection.Item2 : null;
+            if (results == null)
+                return null;
+
+            for (int i = 0; i < results.Length; i++)
+            {
+                if (results[i] != null && results[i].PickerNo == _currentPickerNo)
+                    return results[i];
+            }
+
+            return null;
+        }
+
+        private SideVisionResult SimulateSideResult()
+        {
+            lock (SimVisionRandomLock)
+            {
+                bool ok = !Options.SimulateVisionResult || SimVisionRandom.Next(0, 20) != 0;
+                return new SideVisionResult
+                {
+                    PickerNo = _currentPickerNo,
+                    Side1Ok = ok,
+                    Side2Ok = ok,
+                    Side3Ok = ok,
+                    Side4Ok = ok
+                };
+            }
+        }
+
+        private bool IsSimulationOrDryRun()
+        {
+            if (Options != null && Options.SimulateVisionResult)
+                return true;
+
+            if (Side == PickerSequenceSide.Front && FrontPicker != null && FrontPicker.Config != null)
+                return FrontPicker.Config.bDryRun;
+
+            if (Side == PickerSequenceSide.Rear && RearPicker != null && RearPicker.Config != null)
+                return RearPicker.Config.bDryRun;
+
+            return false;
+        }
+    }
+}
