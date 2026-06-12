@@ -161,17 +161,17 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // ===== RECIPE (teaching positions) — 위치 종류별 접이식 그룹 =====
             PickerAxis[] tzKeys = { PickerAxis.PickerT0, PickerAxis.PickerZ0, PickerAxis.PickerT1, PickerAxis.PickerZ1, PickerAxis.PickerT2, PickerAxis.PickerZ2, PickerAxis.PickerT3, PickerAxis.PickerZ3 };
             string[] tzNames = { "PICKER T1", "PICKER Z1", "PICKER T2", "PICKER Z2", "PICKER T3", "PICKER Z3", "PICKER T4", "PICKER Z4" };
-            string[] tzUnits = { "deg", "um", "deg", "um", "deg", "um", "deg", "um" };
+            string[] tzUnits = { AxisUnitConverter.Degree, AxisUnitConverter.Millimeter, AxisUnitConverter.Degree, AxisUnitConverter.Millimeter, AxisUnitConverter.Degree, AxisUnitConverter.Millimeter, AxisUnitConverter.Degree, AxisUnitConverter.Millimeter };
 
             PickerAxis[] dieKeys = { PickerAxis.PickerX, PickerAxis.PickerY };
             string[] dieNames = { "PICKER X", "PICKER Y" };
 
             // AVOID — 전체 축의 avoid 위치
             optionItems.Add(ParameterGridItem.Header("AVOID POSITION", "K_AVOID"));
-            AddPositionItem(optionItems, PickerAxis.PickerX, "PICKER X", "INPUT AVOID POSITION", "InputAvoidPosition", "um", "PICKER X INPUT", "K_AVOID");
-            AddPositionItem(optionItems, PickerAxis.PickerX, "PICKER X", "OUTPUT AVOID POSITION", "OutputAvoidPosition", "um", "PICKER X OUTPUT", "K_AVOID");
-            AddPositionItem(optionItems, PickerAxis.PickerX, "PICKER X", "AVOID POSITION", "AvoidPosition", "um", "PICKER X", "K_AVOID");
-            AddPositionItem(optionItems, PickerAxis.PickerY, "PICKER Y", "AVOID POSITION", "AvoidPosition", "um", "PICKER Y", "K_AVOID");
+            AddPositionItem(optionItems, PickerAxis.PickerX, "PICKER X", "INPUT AVOID POSITION", "InputAvoidPosition", AxisUnitConverter.Millimeter, "PICKER X INPUT", "K_AVOID");
+            AddPositionItem(optionItems, PickerAxis.PickerX, "PICKER X", "OUTPUT AVOID POSITION", "OutputAvoidPosition", AxisUnitConverter.Millimeter, "PICKER X OUTPUT", "K_AVOID");
+            AddPositionItem(optionItems, PickerAxis.PickerX, "PICKER X", "AVOID POSITION", "AvoidPosition", AxisUnitConverter.Millimeter, "PICKER X", "K_AVOID");
+            AddPositionItem(optionItems, PickerAxis.PickerY, "PICKER Y", "AVOID POSITION", "AvoidPosition", AxisUnitConverter.Millimeter, "PICKER Y", "K_AVOID");
             for (int i = 0; i < tzKeys.Length; i++)
                 AddPositionItem(optionItems, tzKeys[i], tzNames[i], "AVOID POSITION", "AvoidPosition", tzUnits[i], tzNames[i], "K_AVOID");
 
@@ -195,7 +195,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 optionItems.Add(ParameterGridItem.Header(dieKinds[k] + " POSITION", gk));
                 for (int a = 0; a < dieKeys.Length; a++)
                     for (int i = 0; i < 4; i++)
-                        AddPositionItem(optionItems, dieKeys[a], dieNames[a], "P" + (i + 1) + " " + dieKinds[k] + " POSITION", dieKindPos[k] + "[" + i + "]", "um", dieNames[a] + " P" + (i + 1), gk);
+                        AddPositionItem(optionItems, dieKeys[a], dieNames[a], "P" + (i + 1) + " " + dieKinds[k] + " POSITION", dieKindPos[k] + "[" + i + "]", AxisUnitConverter.Millimeter, dieNames[a] + " P" + (i + 1), gk);
             }
 
             // ===== CONFIG (그룹 없이 펼친 상태로 표시) =====
@@ -204,8 +204,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
             // ===== SETUP (그룹 없이 펼친 상태로 표시) =====
             optionItems.Add(ParameterGridItem.Bool("SIMULATION MODE", ParameterGridScope.Setup, () => unit.Setup.IsSimulationMode, v => unit.Setup.IsSimulationMode = v));
-            optionItems.Add(ParameterGridItem.Double("INPUT SAFETY OFFSET", "um", ParameterGridScope.Setup, () => unit.Setup.InputSafetyOffset * 1000.0, v => unit.Setup.InputSafetyOffset = v / 1000.0));
-            optionItems.Add(ParameterGridItem.Double("OUTPUT SAFETY OFFSET", "um", ParameterGridScope.Setup, () => unit.Setup.OutputSafetyOffset * 1000.0, v => unit.Setup.OutputSafetyOffset = v / 1000.0));
+            optionItems.Add(AxisDouble("INPUT SAFETY OFFSET", PickerAxis.PickerX, AxisUnitConverter.Millimeter, ParameterGridScope.Setup, () => unit.Setup.InputSafetyOffset, v => unit.Setup.InputSafetyOffset = v));
+            optionItems.Add(AxisDouble("OUTPUT SAFETY OFFSET", PickerAxis.PickerX, AxisUnitConverter.Millimeter, ParameterGridScope.Setup, () => unit.Setup.OutputSafetyOffset, v => unit.Setup.OutputSafetyOffset = v));
 
             optionParameterGrid.SetItems(optionItems);
 
@@ -217,11 +217,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 ParameterGridItem.Int("VACUUM SETTLE", "ms", ParameterGridScope.Recipe, () => unit.Recipe.VacuumSettleMs, v => unit.Recipe.VacuumSettleMs = Math.Max(0, v)),
                 ParameterGridItem.Int("PICK LIFT WAIT", "ms", ParameterGridScope.Recipe, () => unit.Recipe.PickLiftWaitMs, v => unit.Recipe.PickLiftWaitMs = Math.Max(0, v)),
                 ParameterGridItem.Int("PLACE DELAY", "ms", ParameterGridScope.Recipe, () => unit.Recipe.PlaceDelayMs, v => unit.Recipe.PlaceDelayMs = Math.Max(0, v)),
-                ParameterGridItem.Double("ARM X VELOCITY", "um/s", ParameterGridScope.Recipe, () => unit.Recipe.ArmXVelocity * 1000.0, v => unit.Recipe.ArmXVelocity = v / 1000.0),
-                ParameterGridItem.Double("ARM Y VELOCITY", "um/s", ParameterGridScope.Recipe, () => unit.Recipe.ArmYVelocity * 1000.0, v => unit.Recipe.ArmYVelocity = v / 1000.0),
-                ParameterGridItem.Double("PICKER Z VELOCITY", "um/s", ParameterGridScope.Recipe, () => unit.Recipe.PickerZVelocity * 1000.0, v => unit.Recipe.PickerZVelocity = v / 1000.0),
+                AxisDouble("ARM X VELOCITY", PickerAxis.PickerX, AxisUnitConverter.Millimeter, ParameterGridScope.Recipe, () => unit.Recipe.ArmXVelocity, v => unit.Recipe.ArmXVelocity = v, "/s"),
+                AxisDouble("ARM Y VELOCITY", PickerAxis.PickerY, AxisUnitConverter.Millimeter, ParameterGridScope.Recipe, () => unit.Recipe.ArmYVelocity, v => unit.Recipe.ArmYVelocity = v, "/s"),
+                AxisDouble("PICKER Z VELOCITY", PickerAxis.PickerZ0, AxisUnitConverter.Millimeter, ParameterGridScope.Recipe, () => unit.Recipe.PickerZVelocity, v => unit.Recipe.PickerZVelocity = v, "/s"),
                 ParameterGridItem.Double("PICKER T VELOCITY", "deg/s", ParameterGridScope.Recipe, () => unit.Recipe.PickerTVelocity, v => unit.Recipe.PickerTVelocity = v),
-                ParameterGridItem.Double("PICK LIFT POSITION", "um", ParameterGridScope.Recipe, () => unit.Recipe.PickLiftPosition * 1000.0, v => unit.Recipe.PickLiftPosition = v / 1000.0)
+                AxisDouble("PICK LIFT POSITION", PickerAxis.PickerZ0, AxisUnitConverter.Millimeter, ParameterGridScope.Recipe, () => unit.Recipe.PickLiftPosition, v => unit.Recipe.PickLiftPosition = v)
             });
         }
 
@@ -232,8 +232,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 int index = i;
                 string name = "PICKER " + (index + 1);
                 items.Add(ParameterGridItem.Bool(name + " USE", ParameterGridScope.Config, () => unit.Config.UsePicker[index], v => unit.Config.UsePicker[index] = v));
-                items.Add(ParameterGridItem.Double(name + " OFFSET X", "um", ParameterGridScope.Config, () => unit.Config.Picker[index].AlignOffsetX * 1000.0, v => unit.Config.Picker[index].AlignOffsetX = v / 1000.0));
-                items.Add(ParameterGridItem.Double(name + " OFFSET Y", "um", ParameterGridScope.Config, () => unit.Config.Picker[index].AlignOffsetY * 1000.0, v => unit.Config.Picker[index].AlignOffsetY = v / 1000.0));
+                items.Add(AxisDouble(name + " OFFSET X", PickerAxis.PickerX, AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => unit.Config.Picker[index].AlignOffsetX, v => unit.Config.Picker[index].AlignOffsetX = v));
+                items.Add(AxisDouble(name + " OFFSET Y", PickerAxis.PickerY, AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => unit.Config.Picker[index].AlignOffsetY, v => unit.Config.Picker[index].AlignOffsetY = v));
                 items.Add(ParameterGridItem.Double(name + " OFFSET T", "deg", ParameterGridScope.Config, () => unit.Config.Picker[index].AlignOffsetT, v => unit.Config.Picker[index].AlignOffsetT = v));
             }
         }
@@ -252,15 +252,27 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
             groupList.Add(posItem);
 
-            ParameterGridItem item;
-            if (displayUnit == "deg")
-                item = ParameterGridItem.Double(memberDisplay, "deg", ParameterGridScope.Recipe, () => unit.GetPickerTeachingPosition(axis, positionName), v => SetPosition(axis, positionName, v));
-            else
-                item = ParameterGridItem.Double(memberDisplay, "um", ParameterGridScope.Recipe, () => unit.GetPickerTeachingPosition(axis, positionName) * 1000.0, v => SetPosition(axis, positionName, v / 1000.0));
+            string unitName = DisplayUnitFor(axis, displayUnit);
+            ParameterGridItem item = ParameterGridItem.Double(memberDisplay, unitName, ParameterGridScope.Recipe,
+                () => ToAxisDisplay(unit.GetPickerTeachingPosition(axis, positionName), axis),
+                v => SetPosition(axis, positionName, FromAxisDisplay(v, axis)));
+            item.UnitGetter = () => DisplayUnitFor(axis, displayUnit);
 
             item.Key = display;                     // 이동/티칭 조회는 전체 이름(positionItems 키)으로 매칭
             item.GroupKey = groupKey;
             items.Add(item);
+        }
+
+        private ParameterGridItem AxisDouble(string displayName, PickerAxis axis, string fallbackUnit, ParameterGridScope scope, Func<double> getter, Action<double> setter, string unitSuffix = "")
+        {
+            ParameterGridItem item = ParameterGridItem.Double(
+                displayName,
+                DisplayUnitFor(axis, fallbackUnit) + unitSuffix,
+                scope,
+                () => ToAxisDisplay(getter(), axis),
+                v => setter(FromAxisDisplay(v, axis)));
+            item.UnitGetter = () => DisplayUnitFor(axis, fallbackUnit) + unitSuffix;
+            return item;
         }
 
         private void BindIoPanel()
@@ -318,7 +330,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 return;
 
             bool theta = IsTheta(axisKey);
-            JogAxisItem item = JogAxisItem.Single(name, axis, theta ? "deg" : "um", theta ? 1.0 : 1000.0, plus, minus).WithControlKind(kind);
+            JogAxisItem item = JogAxisItem.Single(name, axis, theta ? AxisUnitConverter.Degree : AxisUnitConverter.Millimeter, 1.0, plus, minus).WithControlKind(kind);
             item.StepMoveAsync = (jogItem, direction, speedType, customSpeed, axisStepDistance) => unit.JogStepAsync(axis, direction, speedType, customSpeed, axisStepDistance);
             item.ContinuousMoveAsync = (jogItem, direction, speedType, customSpeed) => unit.JogContinuousAsync(axis, direction, speedType, customSpeed);
             item.StopAsync = jogItem => unit.StopJogAsync(axis);
@@ -719,7 +731,25 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         {
             if (axis == null)
                 return "-";
-            return theta ? axis.ActualPosition.ToString("0.###") + " deg" : (axis.ActualPosition * 1000.0).ToString("0.###") + " um";
+            return AxisUnitConverter.FormatDisplay(axis.ActualPosition, axis, "0.###", true);
+        }
+
+        private string DisplayUnitFor(PickerAxis axis, string fallbackUnit)
+        {
+            BaseAxis item = GetAxis(axis);
+            return item != null ? AxisUnitConverter.DisplayUnitFor(item) : AxisUnitConverter.Normalize(fallbackUnit);
+        }
+
+        private double ToAxisDisplay(double nativeValue, PickerAxis axis)
+        {
+            BaseAxis item = GetAxis(axis);
+            return item != null ? AxisUnitConverter.ToDisplay(nativeValue, item) : AxisUnitConverter.ToDisplay(nativeValue, DisplayUnitFor(axis, AxisUnitConverter.Millimeter));
+        }
+
+        private double FromAxisDisplay(double displayValue, PickerAxis axis)
+        {
+            BaseAxis item = GetAxis(axis);
+            return item != null ? AxisUnitConverter.FromDisplay(displayValue, item) : AxisUnitConverter.FromDisplay(displayValue, DisplayUnitFor(axis, AxisUnitConverter.Millimeter));
         }
 
         private static string OnOff(bool value)

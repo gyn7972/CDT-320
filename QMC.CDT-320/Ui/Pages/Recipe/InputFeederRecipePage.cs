@@ -491,7 +491,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 foreach (var position in TeachingPositions)
                 {
                     FeederTeachingPosition captured = position;
-                    items.Add(ParameterGridItem.Micron(captured.DisplayName, ParameterGridScope.Recipe, () => captured.Getter(_inputFeederUnit), v => captured.Setter(_inputFeederUnit, v)));
+                    items.Add(AxisDouble(captured.DisplayName, ParameterGridScope.Recipe, () => captured.Getter(_inputFeederUnit), v => captured.Setter(_inputFeederUnit, v)));
                 }
 
                 items.Add(ParameterGridItem.Bool("SIMULATION MODE", ParameterGridScope.Setup, () => _inputFeederUnit.Setup.IsSimulationMode, v => _inputFeederUnit.Setup.IsSimulationMode = v));
@@ -576,7 +576,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (_inputFeederUnit == null)
                     return;
 
-                JogAxisItem axisItem = JogAxisItem.Single("FEEDER Y", _inputFeederUnit.FeederY, "um", 1000.0, "Y+", "Y-").WithControlKind(JogAxisControlKind.Vertical);
+                JogAxisItem axisItem = JogAxisItem.Single("FEEDER Y", _inputFeederUnit.FeederY, AxisUnitConverter.DisplayUnitFor(_inputFeederUnit.FeederY), 1.0, "Y+", "Y-").WithControlKind(JogAxisControlKind.Vertical);
                 axisItem.StepMoveAsync = async (item, direction, speedType, customSpeed, axisStepDistance) =>
                 {
                     try
@@ -645,6 +645,18 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             finally
             {
             }
+        }
+
+        private ParameterGridItem AxisDouble(string displayName, ParameterGridScope scope, Func<double> getter, Action<double> setter)
+        {
+            ParameterGridItem item = ParameterGridItem.Double(
+                displayName,
+                AxisUnitConverter.DisplayUnitFor(_inputFeederUnit.FeederY),
+                scope,
+                () => AxisUnitConverter.ToDisplay(getter(), _inputFeederUnit.FeederY),
+                v => setter(AxisUnitConverter.FromDisplay(v, _inputFeederUnit.FeederY)));
+            item.UnitGetter = () => AxisUnitConverter.DisplayUnitFor(_inputFeederUnit.FeederY);
+            return item;
         }
 
         private void ParameterGrid_ParameterValueChanged(object sender, ParameterGridChangedEventArgs e)

@@ -299,13 +299,13 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             items.Add(ParameterGridItem.Header(kindLabel, groupKey));
 
             var recipe = _outputStageUnit.Recipe;
-            if (goodY) items.Add(StageMember("GOOD Y", groupKey, kindLabel, kind, () => recipe.GoodStageY));
-            if (goodZ) items.Add(StageMember("GOOD Z", groupKey, kindLabel, kind, () => recipe.GoodStageZ));
-            if (ng) items.Add(StageMember("NG Y", groupKey, kindLabel, kind, () => recipe.NGStageY));
-            if (vision) items.Add(StageMember("VISION X", groupKey, kindLabel, kind, () => recipe.VisionX));
+            if (goodY) items.Add(StageMember("GOOD Y", groupKey, kindLabel, kind, _outputStageUnit.GoodStage.StageY, () => recipe.GoodStageY));
+            if (goodZ) items.Add(StageMember("GOOD Z", groupKey, kindLabel, kind, _outputStageUnit.GoodStage.StageZ, () => recipe.GoodStageZ));
+            if (ng) items.Add(StageMember("NG Y", groupKey, kindLabel, kind, _outputStageUnit.NgStage.StageY, () => recipe.NGStageY));
+            if (vision) items.Add(StageMember("VISION X", groupKey, kindLabel, kind, _outputStageUnit.OutputCameraX, () => recipe.VisionX));
         }
 
-        private static ParameterGridItem StageMember(string axisLabel, string groupKey, string kindLabel, string kind, Func<StageAxisPositions> set)
+        private ParameterGridItem StageMember(string axisLabel, string groupKey, string kindLabel, string kind, BaseAxis axis, Func<StageAxisPositions> set)
         {
             Func<double> getter;
             Action<double> setter;
@@ -319,7 +319,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 default: getter = () => 0.0; setter = v => { }; break;
             }
 
-            var item = ParameterGridItem.Micron(axisLabel, ParameterGridScope.Recipe, getter, setter);
+            var item = AxisDouble(axisLabel, ParameterGridScope.Recipe, axis, getter, setter);
             item.Key = axisLabel + " " + kindLabel;   // 이동/티칭 조회는 전체 이름(Key)으로 파싱
             item.GroupKey = groupKey;
             return item;
@@ -745,7 +745,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
         private JogAxisItem BuildJogAxis(string name, BaseAxis axis, string plus, string minus, JogAxisControlKind kind)
         {
-            JogAxisItem item = JogAxisItem.Single(name, axis, "um", 1000.0, plus, minus).WithControlKind(kind);
+            JogAxisItem item = JogAxisItem.Single(name, axis, AxisUnitConverter.DisplayUnitFor(axis), 1.0, plus, minus).WithControlKind(kind);
             item.StepMoveAsync = (it, direction, speedType, customSpeed, axisStepDistance) =>
                 _outputStageUnit.JogStepAsync(axis, direction, speedType, customSpeed, axisStepDistance);
             item.ContinuousMoveAsync = (it, direction, speedType, customSpeed) =>
@@ -859,10 +859,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
                 lblVisionInfo.Text =
                     "OUTPUT STAGE" + Environment.NewLine +
-                    "GOOD Y : " + FormatMm(unit.GoodStage.StageY.ActualPosition) + Environment.NewLine +
-                    "GOOD Z : " + FormatMm(unit.GoodStage.StageZ.ActualPosition) + Environment.NewLine +
-                    "NG Y   : " + FormatMm(unit.NgStage.StageY.ActualPosition) + Environment.NewLine +
-                    "BIN X  : " + FormatMm(unit.OutputCameraX.ActualPosition) + Environment.NewLine +
+                    "GOOD Y : " + FormatAxis(unit.GoodStage.StageY.ActualPosition, unit.GoodStage.StageY) + Environment.NewLine +
+                    "GOOD Z : " + FormatAxis(unit.GoodStage.StageZ.ActualPosition, unit.GoodStage.StageZ) + Environment.NewLine +
+                    "NG Y   : " + FormatAxis(unit.NgStage.StageY.ActualPosition, unit.NgStage.StageY) + Environment.NewLine +
+                    "BIN X  : " + FormatAxis(unit.OutputCameraX.ActualPosition, unit.OutputCameraX) + Environment.NewLine +
                     "G-AVOID: " + OnOff(unit.GoodStage.IsAtAvoidPosition()) + Environment.NewLine +
                     "N-AVOID: " + OnOff(unit.NgStage.IsAtAvoidPosition());
             }
@@ -874,15 +874,27 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
         }
 
-        private static string FormatMm(double value)
+        private ParameterGridItem AxisDouble(string displayName, ParameterGridScope scope, BaseAxis axis, Func<double> getter, Action<double> setter)
+        {
+            ParameterGridItem item = ParameterGridItem.Double(
+                displayName,
+                AxisUnitConverter.DisplayUnitFor(axis),
+                scope,
+                () => AxisUnitConverter.ToDisplay(getter(), axis),
+                v => setter(AxisUnitConverter.FromDisplay(v, axis)));
+            item.UnitGetter = () => AxisUnitConverter.DisplayUnitFor(axis);
+            return item;
+        }
+
+        private static string FormatAxis(double value, BaseAxis axis)
         {
             try
             {
-                return value.ToString("0.###", CultureInfo.InvariantCulture) + " mm";
+                return AxisUnitConverter.FormatDisplay(value, axis, "0.###", true);
             }
             catch
             {
-                return "0 mm";
+                return "0 " + AxisUnitConverter.DisplayUnitFor(axis);
             }
             finally
             {

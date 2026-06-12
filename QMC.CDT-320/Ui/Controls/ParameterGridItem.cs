@@ -25,6 +25,7 @@ namespace QMC.CDT_320.Ui.Controls
         public string Key { get; set; }
         public string DisplayName { get; set; }
         public string Unit { get; set; }
+        public Func<string> UnitGetter { get; set; }
         public ParameterGridValueType ValueType { get; set; }
         public ParameterGridScope Scope { get; set; }
         public double DisplayScale { get; set; }
@@ -69,25 +70,17 @@ namespace QMC.CDT_320.Ui.Controls
             }
         }
 
-        public static ParameterGridItem Micron(string displayName, ParameterGridScope scope, Func<double> getter, Action<double> setter)
+        public string GetUnit()
         {
             try
             {
-                return new ParameterGridItem
-                {
-                    Key = displayName,
-                    DisplayName = displayName,
-                    Unit = "um",
-                    Scope = scope,
-                    ValueType = ParameterGridValueType.Double,
-                    DisplayScale = 1000.0,
-                    Getter = () => getter(),
-                    Setter = value => setter(Convert.ToDouble(value) / 1000.0)
-                };
+                if (UnitGetter != null)
+                    return UnitGetter() ?? string.Empty;
+                return Unit ?? string.Empty;
             }
             catch
             {
-                throw;
+                return Unit ?? string.Empty;
             }
             finally
             {

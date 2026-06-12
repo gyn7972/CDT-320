@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Runtime.Serialization;
@@ -84,7 +85,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
 
         private void MultiplyStep(double factor)
         {
-            if (!double.TryParse(_jogStepBox.Text, out double v) || v <= 0) v = 1.0;
+            if (!TryParseDisplayDouble(_jogStepBox.Text, out double v) || v <= 0) v = 1.0;
             v *= factor;
             // 자릿수 자동 (소수점 너무 길지 않게)
             _jogStepBox.Text = v.ToString("0.######");
@@ -215,8 +216,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
         private async System.Threading.Tasks.Task DoJogAsync(int sign)
         {
             if (_jogCurrentAxis == null) return;
-            if (!double.TryParse(_jogSpeedBox.Text, out double speed) || speed <= 0) speed = 100;
-            if (!double.TryParse(_jogStepBox.Text,  out double step)  || step  <= 0) step  = 1.0;
+            if (!TryParseDisplayDouble(_jogSpeedBox.Text, out double speed) || speed <= 0) speed = 100;
+            if (!TryParseDisplayDouble(_jogStepBox.Text, out double step) || step <= 0) step = 1.0;
             try
             {
                 if (!_jogCurrentAxis.IsServoOn) _jogCurrentAxis.ServoOn();
@@ -408,7 +409,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             if (e.RowIndex < 0 || e.RowIndex >= _items.Count) return;
             if (_grid.Columns[e.ColumnIndex].Name != "VALUE") return;
             string txt = (_grid.Rows[e.RowIndex].Cells["VALUE"].Value as string) ?? "0";
-            if (double.TryParse(txt, out double v))
+            if (TryParseDisplayDouble(txt, out double v))
             {
                 TeachItem item = _items[e.RowIndex];
                 BaseAxis axis = ResolveTeachAxis(item);
@@ -467,6 +468,36 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             catch
             {
                 return item != null ? item.Value.ToString("F3") : "0.000";
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool TryParseDisplayDouble(string text, out double value)
+        {
+            try
+            {
+                text = (text ?? string.Empty)
+                    .Replace("mm/s2", string.Empty)
+                    .Replace("um/s2", string.Empty)
+                    .Replace("deg/s2", string.Empty)
+                    .Replace("mm/s", string.Empty)
+                    .Replace("um/s", string.Empty)
+                    .Replace("deg/s", string.Empty)
+                    .Replace("um", string.Empty)
+                    .Replace("mm", string.Empty)
+                    .Replace("deg", string.Empty)
+                    .Replace("ms", string.Empty)
+                    .Trim();
+
+                return double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out value) ||
+                       double.TryParse(text, NumberStyles.Float, CultureInfo.CurrentCulture, out value);
+            }
+            catch
+            {
+                value = 0.0;
+                return false;
             }
             finally
             {
