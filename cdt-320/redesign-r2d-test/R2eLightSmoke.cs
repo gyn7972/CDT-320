@@ -25,14 +25,7 @@ class R2eLightSmoke
         }
         catch (Exception ex) { _fail++; Console.WriteLine("  [FAIL] InspectionLightPanel : " + (ex.InnerException ?? ex).Message); }
 
-        // 라이브튜닝: 무인자 ctor(통일 헤더)
-        try
-        {
-            var t = asm.GetType("QMC.Vision.Ui.Controls.LightLiveTuningPanel");
-            var ctrl = (Control)Activator.CreateInstance(t);
-            RenderCtrl(ctrl, new Size(375, 200), dir + @"\R2e_LivePanel.png", "LightLiveTuningPanel");
-        }
-        catch (Exception ex) { _fail++; Console.WriteLine("  [FAIL] LightLiveTuningPanel : " + (ex.InnerException ?? ex).Message); }
+        // (LightLiveTuningPanel 렌더 단언은 패널 제거와 함께 삭제 — 조명 워크플로는 InspectionLightPanel 이 담당)
 
         Console.WriteLine(_fail == 0 ? "RESULT: ALL PASS" : ("RESULT: " + _fail + " FAIL"));
         return _fail == 0 ? 0 : 1;
