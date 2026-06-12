@@ -1,7 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Threading.Tasks;
-using QMC.Common.Recipes;
+using QMC.Vision.Optics.LFine;
 
 namespace QMC.Vision.Optics.Sim
 {
@@ -15,26 +14,23 @@ namespace QMC.Vision.Optics.Sim
         private readonly int[] _strobeUs;
         private readonly int[] _lastOnPower; // On/Off 복원용
         private int _lastPage;               // 마지막 SwitchPage (합성 응답용)
-        private readonly LightControllerMode _mode;
-        private readonly Dictionary<int, int[]> _lastBatch = new Dictionary<int, int[]>();
 
         public bool   IsConnected  { get; private set; }
         public string PortName     => "Sim";
         public int    ChannelCount { get; }
-        public LightControllerMode Mode => _mode;
 
-        /// <summary>Stage 79 — 실제 송신(비-skip) 횟수 (테스트 검증용).</summary>
+        /// <summary>Stage 79 — 배치 송신 횟수 (테스트 검증용). 항상 송신이므로 매 호출 증가.</summary>
         public int BatchSendCount { get; private set; }
+
+        /// <summary>마지막 SetHardwareModeAsync 값 (테스트 검증용). null = 미송신.</summary>
+        public LFineHardwareMode? LastHardwareMode { get; private set; }
 
         /// <summary>채널별 마지막 명령 로그 (테스트 검증용).</summary>
         public event Action<string> Log;
 
-        public SimLightController(int channels = 8) : this(channels, LightControllerMode.StrobeOnCommand) { }
-
-        public SimLightController(int channels, LightControllerMode mode)
+        public SimLightController(int channels = 8)
         {
             ChannelCount = channels <= 0 ? 8 : channels;
-            _mode        = mode;
             _power       = new int[ChannelCount + 1];
             _strobeUs    = new int[ChannelCount + 1];
             _lastOnPower = new int[ChannelCount + 1];
@@ -78,25 +74,22 @@ namespace QMC.Vision.Optics.Sim
 
         public Task<bool> SwitchPageAsync(int page) { _lastPage = page; Emit($"SwitchPage page={page}"); return Task.FromResult(true); }
 
-        /// <summary>Stage 79 — 일괄 적용. StrobeOnCommand 면 무조건 송신, 그 외는 동일값 skip. 송신 시 BatchSendCount++.</summary>
+        /// <summary>Stage 79 — 일괄 적용. 항상 송신(캐시 skip 잔재 제거) — 매 호출 BatchSendCount++.</summary>
         public Task<bool> SetChannelBatchAsync(int page, int[] values)
         {
             if (values == null || values.Length != ChannelCount) return Task.FromResult(false);
-            if (_mode != LightControllerMode.StrobeOnCommand
-                && _lastBatch.TryGetValue(page, out var prev) && SeqEqual(prev, values))
-            { Emit($"BatchSkip page={page}"); return Task.FromResult(true); }
             BatchSendCount++;
-            _lastBatch[page] = (int[])values.Clone();
             for (int i = 0; i < values.Length; i++) { _power[i + 1] = values[i]; if (values[i] > 0) _lastOnPower[i + 1] = values[i]; }
             Emit($"BatchSend page={page} [{string.Join(",", values)}]");
             return Task.FromResult(true);
         }
 
-        private static bool SeqEqual(int[] a, int[] b)
+        /// <summary>하드웨어 모드(SM) — Sim 은 기록만 (테스트 검증용).</summary>
+        public Task<bool> SetHardwareModeAsync(LFineHardwareMode mode)
         {
-            if (a == null || b == null || a.Length != b.Length) return false;
-            for (int i = 0; i < a.Length; i++) if (a[i] != b[i]) return false;
-            return true;
+            LastHardwareMode = mode;
+            Emit($"SetHardwareMode mode={(int)mode}({mode})");
+            return Task.FromResult(true);
         }
 
         /// <summary>Stage 75 — 합성 응답. 실장비 receive 대체 — 현재 페이지에서 점등(power&gt;0) 채널 수를 echo.</summary>

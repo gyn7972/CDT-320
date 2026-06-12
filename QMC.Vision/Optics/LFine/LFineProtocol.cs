@@ -22,9 +22,10 @@ namespace QMC.Vision.Optics.LFine
         public const byte Etx1 = 0x0D;
         public const byte Etx2 = 0x0A;
 
-        // 명령 prefix — 레퍼런스 PageOnTime="SP", ChannelOnTime="SC".
+        // 명령 prefix — 레퍼런스 PageOnTime="SP", ChannelOnTime="SC". SM = 하드웨어 모드 설정(0~3).
         public const string PageOnTimeText    = "SP";
         public const string ChannelOnTimeText = "SC";
+        public const string SetModeText       = "SM";
 
         /// <summary>단일 채널 on-time 명령 payload — 예 page=1,ch=3,time=50 → "SC0103;050", 채널 번호(“00” ~ “15”).
         /// (레퍼런스 GetChannelOnTimeCommand 와 동일: time 은 그대로 3자리.)</summary>
@@ -65,6 +66,15 @@ namespace QMC.Vision.Optics.LFine
             int len = end - start;
             return len > 0 ? Encoding.ASCII.GetString(raw, start, len) : "";
         }
+
+        /// <summary>하드웨어 모드 설정 명령 payload — 예 mode=0 → "SM0000;0" (프레임 = @SM0000;0\r\n).
+        /// 모드 0 순차 / 1 임의 / 2 채널 개별(page0) / 3 SW 트리거. 전면 패널은 표시만 — 설정은 이 명령뿐.</summary>
+        public static string SetModeCommand(int mode)
+            => string.Format("{0}0000;{1}", SetModeText, mode);
+
+        /// <summary>하드웨어 모드 설정 프레임 (SM 명령 단축).</summary>
+        public static byte[] SetModeFrame(int mode)
+            => WrapFrame(SetModeCommand(mode));
 
         /// <summary>단일 채널 on-time 프레임 (SC 명령 단축).</summary>
         public static byte[] ChannelOnTimeFrame(int page, int channel, int time)
