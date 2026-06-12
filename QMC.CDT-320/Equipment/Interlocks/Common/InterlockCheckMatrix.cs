@@ -66,7 +66,6 @@ namespace QMC.CDT320.Interlocks
                 { "OutputGoodStageY", "OutputGoodStageY" },
                 { "OutputGoodStageZ", "OutputGoodStageZ" },
                 { "OutputNGStageY", "OutputNGStageY" },
-                { "NgStage_StageZ", "BinNgZ" },
                 { "OutputVisionX", "OutputVisionX" },
                 { "FrontSideVisionY0", "FrontSideVisionY" },
                 { "RearSideVisionY0", "RearSideVisionY" },

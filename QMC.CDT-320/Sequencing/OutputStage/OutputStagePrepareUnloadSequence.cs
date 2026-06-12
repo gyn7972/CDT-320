@@ -91,6 +91,12 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
+                if (SkipMissingSideZAxis(Options.Side, Options.Side + " Z avoid before unload"))
+                {
+                    CurrentStep = OutputStagePrepareUnloadStep.MoveTargetStageYToUnload;
+                    return 0;
+                }
+
                 int result = await MoveAxisAndVerifyAsync(
                     ResolveZAxis(Options.Side),
                     ResolveSideZTarget(Options.Side, "Avoid"),
@@ -116,6 +122,12 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
+                if (SkipMissingSideZAxis(Options.Side, Options.Side + " Z avoid final check before unload"))
+                {
+                    CurrentStep = OutputStagePrepareUnloadStep.MoveTargetStageYToUnload;
+                    return 0;
+                }
+
                 BinStageAxis axis = ResolveZAxis(Options.Side);
                 double target = ResolveSideZTarget(Options.Side, "Avoid");
 

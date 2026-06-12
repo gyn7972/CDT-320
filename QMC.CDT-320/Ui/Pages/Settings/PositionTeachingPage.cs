@@ -563,15 +563,13 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                         case "OutputFeeder.CassetteInsertPositionY":   m.OutputFeederUnit.Recipe.GoodCassetteExchangePosition = it.Value; m.OutputFeederUnit.Recipe.NGCassetteExchangePosition = it.Value; applied++; break;
 
                         // Stage 60 R-teach — 추가 매핑 (이전 16개 미적용 항목 보강)
-                        // OutputStage 의 두 StageModule (Good + Ng) 모두 동일 값 적용
+                        // OutputStage Z exists only on GoodStage.
                         case "OutputStage.WorkPositionZ":
                             m.OutputStageUnit.GoodStage.Recipe.WorkPositionZ  = it.Value;
-                            m.OutputStageUnit.NgStage  .Recipe.WorkPositionZ  = it.Value;
-                            applied += 2; break;
+                            applied++; break;
                         case "OutputStage.AvoidPositionZ":
                             m.OutputStageUnit.GoodStage.Recipe.AvoidPositionZ = it.Value;
-                            m.OutputStageUnit.NgStage  .Recipe.AvoidPositionZ = it.Value;
-                            applied += 2; break;
+                            applied++; break;
 
                         // (Per-picker Z teaching 은 switch 진입 전에 ApplyPerPickerZ 에서 처리)
 

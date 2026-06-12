@@ -2324,20 +2324,29 @@ namespace QMC.CDT320
 
         private Task<int> PrepareOutputVisionHomeAsync()
         {
-            Log("[INIT] Check OutputVisionX home: FrontPickerX / RearPickerX Avoid.");
+            Log("[INIT] Check OutputVisionX home: FrontPickerX / RearPickerX HomeDone or InputAvoid.");
 
             var front = _machine.PickerFrontUnit;
-            if (front != null && !front.IsPickerAxisInTeachingPosition(PickerAxis.PickerX, "AvoidPosition"))
+            string reason;
+            if (front != null && !IsPickerXHomeDoneOrInputAvoid(
+                    front.PickerX,
+                    () => front.IsPickerAxisInTeachingPosition(PickerAxis.PickerX, "InputAvoidPosition"),
+                    "FrontPickerX",
+                    out reason))
             {
                 return Task.FromResult(FailInitializePreparation(
-                    "OutputVisionX HOME 불가: FrontPickerX가 Avoid 위치에 있지 않습니다."));
+                    "OutputVisionX HOME 불가: FrontPickerX가 HomeDone 또는 InputAvoid 위치가 아닙니다. " + reason));
             }
 
             var rear = _machine.PickerRearUnit;
-            if (rear != null && !rear.IsPickerAxisInTeachingPosition(PickerAxis.PickerX, "AvoidPosition"))
+            if (rear != null && !IsPickerXHomeDoneOrInputAvoid(
+                    rear.PickerX,
+                    () => rear.IsPickerAxisInTeachingPosition(PickerAxis.PickerX, "InputAvoidPosition"),
+                    "RearPickerX",
+                    out reason))
             {
                 return Task.FromResult(FailInitializePreparation(
-                    "OutputVisionX HOME 불가: RearPickerX가 Avoid 위치에 있지 않습니다."));
+                    "OutputVisionX HOME 불가: RearPickerX가 HomeDone 또는 InputAvoid 위치가 아닙니다. " + reason));
             }
 
             var outputFeeder = _machine.OutputFeederUnit;
@@ -2354,6 +2363,47 @@ namespace QMC.CDT320
             }
 
             return Task.FromResult(0);
+        }
+
+        private bool IsPickerXHomeDoneOrInputAvoid(BaseAxis axis, Func<bool> isInputAvoid, string axisName, out string reason)
+        {
+            reason = string.Empty;
+
+            if (axis == null)
+            {
+                reason = axisName + " axis is null.";
+                Log("[INIT] " + axisName + " home/input avoid check failed. " + reason);
+                return false;
+            }
+
+            bool homeDone = axis.IsHomeDone;
+            bool inputAvoid = false;
+            string inputAvoidError = string.Empty;
+
+            try
+            {
+                inputAvoid = isInputAvoid != null && isInputAvoid();
+            }
+            catch (Exception ex)
+            {
+                inputAvoidError = ex.Message;
+            }
+
+            Log("[INIT] " + axisName + " home/input avoid check. homeDone=" + homeDone +
+                ", inputAvoid=" + inputAvoid +
+                ", actual=" + axis.ActualPosition);
+
+            if (homeDone || inputAvoid)
+                return true;
+
+            reason = "homeDone=" + homeDone +
+                     ", inputAvoid=" + inputAvoid +
+                     ", actual=" + axis.ActualPosition;
+
+            if (!string.IsNullOrEmpty(inputAvoidError))
+                reason += ", inputAvoidCheckError=" + inputAvoidError;
+
+            return false;
         }
 
         private async Task<int> PrepareOutputGoodStageYHomeAsync(BaseAxis axis)
@@ -3626,19 +3676,22 @@ namespace QMC.CDT320
                     "InputFeeder HOME 불가: Overload 센서가 감지되었습니다.");
             }
 
-            if (!feeder.IsWaferFeederUnclamp())
+            if(feeder.Setup.IsSimulationMode == false)
             {
-                return FailInitializePreparation("InputFeeder unclamp failed.");
-            }
+                if (!feeder.IsWaferFeederUnclamp())
+                {
+                    return FailInitializePreparation("InputFeeder unclamp failed.");
+                }
 
-            //if (!feeder.IsWaferFeederUp())
-            //{
-            //    return FailInitializePreparation("InputFeeder lift up failed.");
-            //}
+                if (feeder.IsWaferFeederRingCheck())
+                {
+                    return FailInitializePreparation("InputFeeder Ring Check.");
+                }
 
-            if (feeder.IsWaferFeederRingCheck())
-            {
-                return FailInitializePreparation("InputFeeder Ring Check.");
+                //if (!feeder.IsWaferFeederUp())
+                //{
+                //    return FailInitializePreparation("InputFeeder lift up failed.");
+                //}
             }
 
             return 0;
@@ -5810,15 +5863,10 @@ namespace QMC.CDT320
             {
                 try
                 {
-                    // GoodStage Z 異⑸룎 ?뚰뵾濡??섍컯, NgStage Z ?묒뾽 ?꾩튂濡??곸듅
-                    await Task.WhenAll(
-                        _machine.OutputStageUnit.GoodStage.StageZ.MoveAbsoluteAsync(
-                            _machine.OutputStageUnit.GoodStage.Recipe.AvoidPositionZ,
-                            ResolveAxisDefaultVelocity(_machine.OutputStageUnit.GoodStage.StageZ)),
-                        _machine.OutputStageUnit.NgStage.StageZ.MoveAbsoluteAsync(
-                            _machine.OutputStageUnit.NgStage.Recipe.WorkPositionZ,
-                            ResolveAxisDefaultVelocity(_machine.OutputStageUnit.NgStage.StageZ))
-                    );
+                    // NG Stage has no Z axis. Only GoodStage Z must be moved to avoid before NG place.
+                    await _machine.OutputStageUnit.GoodStage.StageZ.MoveAbsoluteAsync(
+                        _machine.OutputStageUnit.GoodStage.Recipe.AvoidPositionZ,
+                        ResolveAxisDefaultVelocity(_machine.OutputStageUnit.GoodStage.StageZ));
                 }
                 catch (Exception ex) { Log("[PLACE] Bin ?꾪솚 ex: " + ex.Message); }
 

@@ -486,34 +486,34 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 ioCylinderPanel.SetItems(new[]
                 {
                     // ===== NG BIN : 같은 항목의 입력(DI)/출력(DO)을 묶어서 =====
-                    IoCylinderItem.Input("NG BIN GUIDE UP", () => unit.NgBinGuideUpSensor.IsOn),
-                    IoCylinderItem.Output("NG BIN GUIDE UP", () => unit.NgBinGuideUpOut.IsOn, on => WriteOutAsync(unit.NgBinGuideUpOut, on), "ON", "OFF"),
-                    IoCylinderItem.Input("NG BIN GUIDE DOWN", () => unit.NgBinGuideDownSensor.IsOn),
-                    IoCylinderItem.Output("NG BIN GUIDE DOWN", () => unit.NgBinGuideDownOut.IsOn, on => WriteOutAsync(unit.NgBinGuideDownOut, on), "ON", "OFF"),
-                    IoCylinderItem.Input("NG BIN CLAMP UP", () => unit.NgBinClampUpSensor.IsOn),
-                    IoCylinderItem.Output("NG BIN CLAMP UP", () => unit.NgBinClampUpOut.IsOn, on => WriteOutAsync(unit.NgBinClampUpOut, on), "ON", "OFF"),
-                    IoCylinderItem.Output("NG BIN CLAMP DOWN", () => unit.NgBinClampDownOut.IsOn, on => WriteOutAsync(unit.NgBinClampDownOut, on), "ON", "OFF"),
-                    IoCylinderItem.Output("NG BIN CLAMP", () => unit.NgBinClampOut.IsOn, on => WriteOutAsync(unit.NgBinClampOut, on), "ON", "OFF"),
-                    IoCylinderItem.Input("NG BIN UNCLAMP", () => unit.NgBinUnclampSensor.IsOn),
-                    IoCylinderItem.Output("NG BIN UNCLAMP", () => unit.NgBinUnclampOut.IsOn, on => WriteOutAsync(unit.NgBinUnclampOut, on), "ON", "OFF"),
-                    IoCylinderItem.Input("NG BIN RING CHECK", () => unit.NgBinRingSensor.IsOn),
+                    IoCylinderItem.Input("NG BIN GUIDE UP", () => IsOn(unit.NgBinGuideUpSensor)),
+                    IoCylinderItem.Output("NG BIN GUIDE UP", () => IsOn(unit.NgBinGuideUpOut), on => WriteOutAsync(unit.NgBinGuideUpOut, on), "ON", "OFF"),
+                    IoCylinderItem.Input("NG BIN GUIDE DOWN", () => IsOn(unit.NgBinGuideDownSensor)),
+                    IoCylinderItem.Output("NG BIN GUIDE DOWN", () => IsOn(unit.NgBinGuideDownOut), on => WriteOutAsync(unit.NgBinGuideDownOut, on), "ON", "OFF"),
+                    IoCylinderItem.Input("NG BIN CLAMP UP", () => IsOn(unit.NgBinClampUpSensor)),
+                    IoCylinderItem.Output("NG BIN CLAMP UP", () => IsOn(unit.NgBinClampUpOut), on => WriteOutAsync(unit.NgBinClampUpOut, on), "ON", "OFF"),
+                    IoCylinderItem.Output("NG BIN CLAMP DOWN", () => IsOn(unit.NgBinClampDownOut), on => WriteOutAsync(unit.NgBinClampDownOut, on), "ON", "OFF"),
+                    IoCylinderItem.Output("NG BIN CLAMP", () => IsOn(unit.NgBinClampOut), on => WriteOutAsync(unit.NgBinClampOut, on), "ON", "OFF"),
+                    IoCylinderItem.Input("NG BIN UNCLAMP", () => IsOn(unit.NgBinUnclampSensor)),
+                    IoCylinderItem.Output("NG BIN UNCLAMP", () => IsOn(unit.NgBinUnclampOut), on => WriteOutAsync(unit.NgBinUnclampOut, on), "ON", "OFF"),
+                    IoCylinderItem.Input("NG BIN RING CHECK", () => IsOn(unit.NgBinRingSensor)),
 
                     // ===== GOOD BIN : 같은 항목의 입력(DI)/출력(DO)을 묶어서 =====
-                    IoCylinderItem.Input("GOOD BIN GUIDE UP", () => unit.GoodBinGuideUpSensor.IsOn),
-                    IoCylinderItem.Output("GOOD BIN GUIDE UP", () => unit.GoodBinGuideUpOut.IsOn, on => WriteOutAsync(unit.GoodBinGuideUpOut, on), "ON", "OFF"),
-                    IoCylinderItem.Input("GOOD BIN GUIDE DOWN", () => unit.GoodBinGuideDownSensor.IsOn),
-                    IoCylinderItem.Output("GOOD BIN GUIDE DOWN", () => unit.GoodBinGuideDownOut.IsOn, on => WriteOutAsync(unit.GoodBinGuideDownOut, on), "ON", "OFF"),
-                    IoCylinderItem.Input("GOOD BIN CLAMP UP", () => unit.GoodBinClampUpSensor.IsOn),
-                    IoCylinderItem.Output("GOOD BIN CLAMP UP", () => unit.GoodBinClampUpOut.IsOn, on => WriteOutAsync(unit.GoodBinClampUpOut, on), "ON", "OFF"),
-                    IoCylinderItem.Output("GOOD BIN CLAMP DOWN", () => unit.GoodBinClampDownOut.IsOn, on => WriteOutAsync(unit.GoodBinClampDownOut, on), "ON", "OFF"),
-                    IoCylinderItem.Output("GOOD BIN CLAMP", () => unit.GoodBinClampOut.IsOn, on => WriteOutAsync(unit.GoodBinClampOut, on), "ON", "OFF"),
-                    IoCylinderItem.Input("GOOD BIN UNCLAMP", () => unit.GoodBinUnclampSensor.IsOn),
-                    IoCylinderItem.Output("GOOD BIN UNCLAMP", () => unit.GoodBinUnclampOut.IsOn, on => WriteOutAsync(unit.GoodBinUnclampOut, on), "ON", "OFF"),
-                    IoCylinderItem.Input("GOOD BIN RING CHECK", () => unit.GoodBinRingSensor.IsOn),
+                    IoCylinderItem.Input("GOOD BIN GUIDE UP", () => IsOn(unit.GoodBinGuideUpSensor)),
+                    IoCylinderItem.Output("GOOD BIN GUIDE UP", () => IsOn(unit.GoodBinGuideUpOut), on => WriteOutAsync(unit.GoodBinGuideUpOut, on), "ON", "OFF"),
+                    IoCylinderItem.Input("GOOD BIN GUIDE DOWN", () => IsOn(unit.GoodBinGuideDownSensor)),
+                    IoCylinderItem.Output("GOOD BIN GUIDE DOWN", () => IsOn(unit.GoodBinGuideDownOut), on => WriteOutAsync(unit.GoodBinGuideDownOut, on), "ON", "OFF"),
+                    IoCylinderItem.Input("GOOD BIN CLAMP UP", () => IsOn(unit.GoodBinClampUpSensor)),
+                    IoCylinderItem.Output("GOOD BIN CLAMP UP", () => IsOn(unit.GoodBinClampUpOut), on => WriteOutAsync(unit.GoodBinClampUpOut, on), "ON", "OFF"),
+                    IoCylinderItem.Output("GOOD BIN CLAMP DOWN", () => IsOn(unit.GoodBinClampDownOut), on => WriteOutAsync(unit.GoodBinClampDownOut, on), "ON", "OFF"),
+                    IoCylinderItem.Output("GOOD BIN CLAMP", () => IsOn(unit.GoodBinClampOut), on => WriteOutAsync(unit.GoodBinClampOut, on), "ON", "OFF"),
+                    IoCylinderItem.Input("GOOD BIN UNCLAMP", () => IsOn(unit.GoodBinUnclampSensor)),
+                    IoCylinderItem.Output("GOOD BIN UNCLAMP", () => IsOn(unit.GoodBinUnclampOut), on => WriteOutAsync(unit.GoodBinUnclampOut, on), "ON", "OFF"),
+                    IoCylinderItem.Input("GOOD BIN RING CHECK", () => IsOn(unit.GoodBinRingSensor)),
 
                     // ===== BOTTOM VISION (출력) =====
-                    IoCylinderItem.Output("BOTTOM VISION BLOW ON", () => unit.BottomVisionBlowOnOut.IsOn, on => WriteOutAsync(unit.BottomVisionBlowOnOut, on), "ON", "OFF"),
-                    IoCylinderItem.Output("BOTTOM VISION BLOW OFF", () => unit.BottomVisionBlowOffOut.IsOn, on => WriteOutAsync(unit.BottomVisionBlowOffOut, on), "ON", "OFF")
+                    IoCylinderItem.Output("BOTTOM VISION BLOW ON", () => IsOn(unit.BottomVisionBlowOnOut), on => WriteOutAsync(unit.BottomVisionBlowOnOut, on), "ON", "OFF"),
+                    IoCylinderItem.Output("BOTTOM VISION BLOW OFF", () => IsOn(unit.BottomVisionBlowOffOut), on => WriteOutAsync(unit.BottomVisionBlowOffOut, on), "ON", "OFF")
                 });
             }
             catch (Exception ex)
@@ -524,6 +524,16 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             finally
             {
             }
+        }
+
+        private static bool IsOn(QMC.Common.IO.BaseDigitalInput input)
+        {
+            return input != null && input.IsOn;
+        }
+
+        private static bool IsOn(QMC.Common.IO.BaseDigitalOutput output)
+        {
+            return output != null && output.IsOn;
         }
 
         private static void WriteOut(QMC.Common.IO.BaseDigitalOutput output, bool on)
@@ -573,13 +583,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     return;
 
                 var unit = _outputStageUnit;
-                // 축 순서: GoodY/Z, NgY/Z, VisionX
+                // 축 순서: GoodY/Z, NgY, VisionX
                 var items = new List<JogAxisItem>
                 {
                     BuildJogAxis("GOOD Y", unit.GoodStage.StageY, "Y+", "Y-", JogAxisControlKind.Vertical),
                     BuildJogAxis("GOOD Z", unit.GoodStage.StageZ, "Z+", "Z-", JogAxisControlKind.Vertical),
                     BuildJogAxis("NG Y", unit.NgStage.StageY, "Y+", "Y-", JogAxisControlKind.Vertical),
-                    BuildJogAxis("NG Z", unit.NgStage.StageZ, "Z+", "Z-", JogAxisControlKind.Vertical),
                     BuildJogAxis("VISION X", unit.OutputCameraX, "X+", "X-", JogAxisControlKind.Vertical)
                 };
 
@@ -711,7 +720,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     "GOOD Y : " + FormatMm(unit.GoodStage.StageY.ActualPosition) + Environment.NewLine +
                     "GOOD Z : " + FormatMm(unit.GoodStage.StageZ.ActualPosition) + Environment.NewLine +
                     "NG Y   : " + FormatMm(unit.NgStage.StageY.ActualPosition) + Environment.NewLine +
-                    "NG Z   : " + FormatMm(unit.NgStage.StageZ.ActualPosition) + Environment.NewLine +
                     "BIN X  : " + FormatMm(unit.OutputCameraX.ActualPosition) + Environment.NewLine +
                     "G-AVOID: " + OnOff(unit.GoodStage.IsAtAvoidPosition()) + Environment.NewLine +
                     "N-AVOID: " + OnOff(unit.NgStage.IsAtAvoidPosition());

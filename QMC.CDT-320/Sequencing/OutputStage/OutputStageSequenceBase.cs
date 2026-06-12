@@ -110,13 +110,6 @@ namespace QMC.CDT320.Sequencing
                     int result = await MoveAxisAndVerifyAsync(BinStageAxis.NgBinY, ResolveTarget(BinStageAxis.NgBinY, positionName), positionName + " NG Y", ct).ConfigureAwait(false);
                     if (result != 0) return result;
 
-                    if (string.Equals(positionName, "Avoid", StringComparison.OrdinalIgnoreCase) ||
-                        string.Equals(positionName, "Load", StringComparison.OrdinalIgnoreCase))
-                    {
-                        result = await MoveAxisAndVerifyAsync(BinStageAxis.NgBinZ, ResolveTarget(BinStageAxis.NgBinZ, positionName), positionName + " NG Z", ct).ConfigureAwait(false);
-                        if (result != 0) return result;
-                    }
-
                     CurrentStep = nextStep;
                     return 0;
                 }
@@ -143,8 +136,6 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 int result = await MoveAxisAndVerifyAsync(BinStageAxis.GoodBinZ, ResolveTarget(BinStageAxis.GoodBinZ, "Avoid"), "Good Z avoid", ct).ConfigureAwait(false);
-                if (result != 0) return result;
-                result = await MoveAxisAndVerifyAsync(BinStageAxis.NgBinZ, ResolveTarget(BinStageAxis.NgBinZ, "Avoid"), "NG Z avoid", ct).ConfigureAwait(false);
                 if (result != 0) return result;
                 result = await MoveAxisAndVerifyAsync(BinStageAxis.GoodBinY, ResolveTarget(BinStageAxis.GoodBinY, "Avoid"), "Good Y avoid", ct).ConfigureAwait(false);
                 if (result != 0) return result;
@@ -209,6 +200,12 @@ namespace QMC.CDT320.Sequencing
         protected async Task<int> MoveAxisAndVerifyAsync(BinStageAxis axis, double target, string description, CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
+            if (Stage != null && !Stage.HasStageAxis(axis))
+            {
+                WriteLog(Name, description + " skipped because axis does not exist. axis=" + axis + " - Ok");
+                return 0;
+            }
+
             int result = await AwaitStepWithCancellationAsync(Stage.MoveStageAxis(axis, target, Options.FineMove), ct).ConfigureAwait(false);
             if (result != 0)
                 return Fail("OUT-STAGE-MOVE", Stage.Name, description + " move command failed. axis=" + axis + ", target=" + target + ", result=" + result);
@@ -228,10 +225,7 @@ namespace QMC.CDT320.Sequencing
         {
             if (axis == BinStageAxis.NgBinZ)
             {
-                if (string.Equals(positionName, "Load", StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(positionName, "Process", StringComparison.OrdinalIgnoreCase))
-                    return Stage.NgStage.Recipe.WorkPositionZ;
-                return Stage.NgStage.Recipe.AvoidPositionZ;
+                return 0.0;
             }
 
             return Stage.GetStageTeachingPosition(axis, positionName);
@@ -244,7 +238,7 @@ namespace QMC.CDT320.Sequencing
                 case BinStageAxis.NgBinY:
                     return Stage.NgStage.StageY.Config != null ? Stage.NgStage.StageY.Config.InPositionTolerance : 0.01;
                 case BinStageAxis.NgBinZ:
-                    return Stage.NgStage.StageZ.Config != null ? Stage.NgStage.StageZ.Config.InPositionTolerance : 0.01;
+                    return 0.01;
                 case BinStageAxis.GoodBinY:
                     return Stage.GoodStage.StageY.Config != null ? Stage.GoodStage.StageY.Config.InPositionTolerance : 0.01;
                 case BinStageAxis.GoodBinZ:
@@ -342,6 +336,23 @@ namespace QMC.CDT320.Sequencing
                 return BinStageAxis.NgBinZ;
 
             return BinStageAxis.GoodBinZ;
+        }
+
+        protected bool HasSideZAxis(BinSide side)
+        {
+            if (Stage == null)
+                return false;
+
+            return Stage.HasStageAxis(ResolveZAxis(side));
+        }
+
+        protected bool SkipMissingSideZAxis(BinSide side, string description)
+        {
+            if (HasSideZAxis(side))
+                return false;
+
+            WriteLog(Name, description + " skipped because " + side + " stage has no Z axis. - Ok");
+            return true;
         }
 
         protected double ResolveSideTarget(BinSide side, string positionName)

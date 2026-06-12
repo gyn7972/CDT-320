@@ -19,9 +19,6 @@ namespace QMC.CDT320.Interlocks
             if (MotionGuardRuleHelpers.IsMoving(request, "OutputNGStageY", "NgBinY", "NgStage_StageY"))
                 return VerifyBinNgY(request, out reason);
 
-            if (MotionGuardRuleHelpers.IsMoving(request, "BinNgZ", "NgBinZ", "NgStage_StageZ"))
-                return VerifyBinNgZ(request, out reason);
-
             if (MotionGuardRuleHelpers.IsMoving(request, "OutputVisionX", "OutputVisionX"))
                 return VerifyBinVisionX(request, out reason);
 
@@ -38,7 +35,7 @@ namespace QMC.CDT320.Interlocks
             if (stage != null && stage.NgStage != null && !stage.NgStage.IsAtAvoidPosition())
                 return MotionGuardRuleHelpers.Block(
                     "OutputGoodStageY",
-                    "NgStage Z must be at Avoid position before GoodStage Y move.",
+                    "NgStage must be at Avoid position before GoodStage Y move.",
                     out reason);
 
             return VerifyOutputStageNotBusy(stage, "OutputGoodStageY", out reason);
@@ -67,15 +64,6 @@ namespace QMC.CDT320.Interlocks
                     out reason);
 
             return VerifyOutputStageNotBusy(stage, "OutputNGStageY", out reason);
-        }
-
-        private static bool VerifyBinNgZ(MotionGuardRuleContext request, out string reason)
-        {
-            reason = string.Empty;
-            if (!VerifyOutputTransportClear(request.Machine, "OutputNGStageZ", out reason))
-                return false;
-
-            return VerifyOutputStageNotBusy(request.Machine.OutputStageUnit, "OutputNGStageZ", out reason);
         }
 
         private static bool VerifyBinVisionX(MotionGuardRuleContext request, out string reason)
@@ -116,8 +104,6 @@ namespace QMC.CDT320.Interlocks
                 return MotionGuardRuleHelpers.Block(movingName, "GoodStage Z is moving.", out reason);
             if (IsMovingExcept(stage.NgStage != null ? stage.NgStage.StageY : null, movingName, "OutputNGStageY", "NgBinY", "NgStage_StageY"))
                 return MotionGuardRuleHelpers.Block(movingName, "NgStage Y is moving.", out reason);
-            if (IsMovingExcept(stage.NgStage != null ? stage.NgStage.StageZ : null, movingName, "OutputNGStageZ", "BinNgZ", "NgBinZ", "NgStage_StageZ"))
-                return MotionGuardRuleHelpers.Block(movingName, "NgStage Z is moving.", out reason);
             if (IsMovingExcept(stage.OutputCameraX, movingName, "OutputVisionX"))
                 return MotionGuardRuleHelpers.Block(movingName, "OutputVisionX is moving.", out reason);
 

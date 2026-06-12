@@ -136,6 +136,12 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 BinSide opposite = _targetSide == BinSide.Ng ? BinSide.Good : BinSide.Ng;
+                if (SkipMissingSideZAxis(opposite, opposite + " Z avoid before receive"))
+                {
+                    CurrentStep = OutputStageReceiveDieStep.MoveTargetStageZToLoad;
+                    return 0;
+                }
+
                 int result = await MoveAxisAndVerifyAsync(
                     ResolveZAxis(opposite),
                     ResolveSideZTarget(opposite, "Avoid"),
@@ -162,6 +168,12 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 BinSide opposite = _targetSide == BinSide.Ng ? BinSide.Good : BinSide.Ng;
+                if (SkipMissingSideZAxis(opposite, opposite + " Z avoid final check before receive"))
+                {
+                    CurrentStep = OutputStageReceiveDieStep.MoveTargetStageZToLoad;
+                    return 0;
+                }
+
                 BinStageAxis axis = ResolveZAxis(opposite);
                 double target = ResolveSideZTarget(opposite, "Avoid");
 
@@ -184,6 +196,12 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
+                if (SkipMissingSideZAxis(_targetSide, _targetSide + " Z receive/load"))
+                {
+                    CurrentStep = OutputStageReceiveDieStep.MoveTargetStageYToReceive;
+                    return 0;
+                }
+
                 int result = await MoveAxisAndVerifyAsync(
                     ResolveZAxis(_targetSide),
                     ResolveSideZTarget(_targetSide, "Load"),
@@ -209,6 +227,12 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
+                if (SkipMissingSideZAxis(_targetSide, _targetSide + " Z receive/load final check"))
+                {
+                    CurrentStep = OutputStageReceiveDieStep.MoveTargetStageYToReceive;
+                    return 0;
+                }
+
                 BinStageAxis axis = ResolveZAxis(_targetSide);
                 double target = ResolveSideZTarget(_targetSide, "Load");
 

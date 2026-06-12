@@ -107,18 +107,21 @@ namespace QMC.CDT320.Interlocks
             //        out reason);
 
             InputFeederUnit feeder = machine.InputFeederUnit;
-            if (!IsFeederUnclamp(feeder))
-                return MotionGuardRuleHelpers.Block(
-                    "InputFeederY",
-                    "InputFeeder must be unclamped before InputFeederY home.",
-                    out reason);
 
-            if (IsFeederUp(feeder) == false)
-                return MotionGuardRuleHelpers.Block(
-                    "InputFeederY",
-                    "InputFeeder must be up before InputFeederY home.",
-                    out reason);
+            if (feeder.Setup.IsSimulationMode == false)
+            {
+                if (!IsFeederUnclamp(feeder))
+                    return MotionGuardRuleHelpers.Block(
+                        "InputFeederY",
+                        "InputFeeder must be unclamped before InputFeederY home.",
+                        out reason);
 
+                if (IsFeederUp(feeder) == false)
+                    return MotionGuardRuleHelpers.Block(
+                        "InputFeederY",
+                        "InputFeeder must be up before InputFeederY home.",
+                        out reason);
+            }
             return true;
         }
 
