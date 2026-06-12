@@ -55,7 +55,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             BindParameterGrids();
             BindIoPanel();
             BindJogPanel();
-            BindActions();
             RefreshView();
             refreshTimer.Start();
         }
@@ -102,52 +101,50 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             unit.Recipe.EnsurePositionObjects();
         }
 
-        private void BindActions()
+        // 매뉴얼 액션 버튼(Designer 배치)의 Click 핸들러 — 버튼은 옵션 그룹과 1:1, 인터락 시퀀스로 이동
+        private async void btnAvoidPosition_Click(object sender, EventArgs e)
         {
-            manualLayout.SuspendLayout();
-            try
-            {
-                manualLayout.Controls.Clear();
-                manualLayout.RowStyles.Clear();
-                manualLayout.RowCount = 0;
-
-                // 옵션 파라미터 그룹과 1:1 매칭 — 버튼 하나가 해당 그룹 항목 전체를 이동
-                AddActionButton("AVOID POSITION", delegate { return MoveGroupAsync("K_AVOID"); });
-                AddActionButton("PICK POSITION", delegate { return MoveGroupAsync("K_PICK"); });
-                AddActionButton("BOTTOM POSITION", delegate { return MoveGroupAsync("K_BOTTOM"); });
-                AddActionButton("SIDE POSITION", delegate { return MoveGroupAsync("K_SIDE"); });
-                AddActionButton("PLACE POSITION", delegate { return MoveGroupAsync("K_PLACE"); });
-                AddActionButton("DIE PICK POSITION", delegate { return MoveGroupAsync("K_DiePickPosition"); });
-                AddActionButton("DIE BOTTOM POSITION", delegate { return MoveGroupAsync("K_DieBottomPosition"); });
-                AddActionButton("DIE SIDE POSITION", delegate { return MoveGroupAsync("K_DieSidePosition"); });
-                AddActionButton("DIE PLACE POSITION", delegate { return MoveGroupAsync("K_DiePlacePosition"); });
-            }
-            finally
-            {
-                manualLayout.ResumeLayout(true);
-            }
+            await ConfirmMoveAsync("AVOID POSITION", MoveAvoidSequenceAsync);
         }
 
-        private void AddActionButton(string text, Func<Task<int>> command)
+        private async void btnPickPosition_Click(object sender, EventArgs e)
         {
-            ActionButton button = new ActionButton();
-            button.Text = text;
-            button.Dock = DockStyle.Fill;
-            button.Margin = new Padding(2);
-            button.BackColor = Color.FromArgb(128, 128, 128);
-            button.ForeColor = Color.White;
-            button.Font = new Font("Malgun Gothic", 9F, FontStyle.Bold);
-            button.Cursor = Cursors.Hand;
-            button.Click += async delegate { await ConfirmMoveAsync(text, command); };
+            await ConfirmMoveAsync("PICK POSITION", () => MoveHeadKindSequenceAsync("PICK"));
+        }
 
-            int index = manualLayout.Controls.Count;
-            int column = index % manualLayout.ColumnCount;
-            int targetRow = index / manualLayout.ColumnCount;
-            while (manualLayout.RowStyles.Count <= targetRow)
-                manualLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 45F));
+        private async void btnBottomPosition_Click(object sender, EventArgs e)
+        {
+            await ConfirmMoveAsync("BOTTOM POSITION", () => MoveHeadKindSequenceAsync("BOTTOM"));
+        }
 
-            manualLayout.Controls.Add(button, column, targetRow);
-            manualLayout.RowCount = targetRow + 1;
+        private async void btnSidePosition_Click(object sender, EventArgs e)
+        {
+            await ConfirmMoveAsync("SIDE POSITION", () => MoveHeadKindSequenceAsync("SIDE"));
+        }
+
+        private async void btnPlacePosition_Click(object sender, EventArgs e)
+        {
+            await ConfirmMoveAsync("PLACE POSITION", () => MoveHeadKindSequenceAsync("PLACE"));
+        }
+
+        private async void btnDiePickPosition_Click(object sender, EventArgs e)
+        {
+            await ConfirmMoveAsync("DIE PICK POSITION", () => MoveDieKindSequenceAsync("DIE PICK", "DiePickPosition"));
+        }
+
+        private async void btnDieBottomPosition_Click(object sender, EventArgs e)
+        {
+            await ConfirmMoveAsync("DIE BOTTOM POSITION", () => MoveDieKindSequenceAsync("DIE BOTTOM", "DieBottomPosition"));
+        }
+
+        private async void btnDieSidePosition_Click(object sender, EventArgs e)
+        {
+            await ConfirmMoveAsync("DIE SIDE POSITION", () => MoveDieKindSequenceAsync("DIE SIDE", "DieSidePosition"));
+        }
+
+        private async void btnDiePlacePosition_Click(object sender, EventArgs e)
+        {
+            await ConfirmMoveAsync("DIE PLACE POSITION", () => MoveDieKindSequenceAsync("DIE PLACE", "DiePlacePosition"));
         }
 
         private void BindParameterGrids()
@@ -297,14 +294,14 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             List<JogAxisItem> items = new List<JogAxisItem>();
             AddJogItem(items, "PICKER X", PickerAxis.PickerX, "X+", "X-", JogAxisControlKind.Vertical);
             AddJogItem(items, "PICKER Y", PickerAxis.PickerY, "Y+", "Y-", JogAxisControlKind.Vertical);
-            AddJogItem(items, "PICKER T0", PickerAxis.PickerT0, "T+", "T-", JogAxisControlKind.Vertical);
-            AddJogItem(items, "PICKER Z0", PickerAxis.PickerZ0, "Z+", "Z-", JogAxisControlKind.Vertical);
-            AddJogItem(items, "PICKER T1", PickerAxis.PickerT1, "T+", "T-", JogAxisControlKind.Vertical);
-            AddJogItem(items, "PICKER Z1", PickerAxis.PickerZ1, "Z+", "Z-", JogAxisControlKind.Vertical);
-            AddJogItem(items, "PICKER T2", PickerAxis.PickerT2, "T+", "T-", JogAxisControlKind.Vertical);
-            AddJogItem(items, "PICKER Z2", PickerAxis.PickerZ2, "Z+", "Z-", JogAxisControlKind.Vertical);
-            AddJogItem(items, "PICKER T3", PickerAxis.PickerT3, "T+", "T-", JogAxisControlKind.Vertical);
-            AddJogItem(items, "PICKER Z3", PickerAxis.PickerZ3, "Z+", "Z-", JogAxisControlKind.Vertical);
+            AddJogItem(items, "PICKER T1", PickerAxis.PickerT0, "T+", "T-", JogAxisControlKind.Vertical);
+            AddJogItem(items, "PICKER Z1", PickerAxis.PickerZ0, "Z+", "Z-", JogAxisControlKind.Vertical);
+            AddJogItem(items, "PICKER T2", PickerAxis.PickerT1, "T+", "T-", JogAxisControlKind.Vertical);
+            AddJogItem(items, "PICKER Z2", PickerAxis.PickerZ1, "Z+", "Z-", JogAxisControlKind.Vertical);
+            AddJogItem(items, "PICKER T3", PickerAxis.PickerT2, "T+", "T-", JogAxisControlKind.Vertical);
+            AddJogItem(items, "PICKER Z3", PickerAxis.PickerZ2, "Z+", "Z-", JogAxisControlKind.Vertical);
+            AddJogItem(items, "PICKER T4", PickerAxis.PickerT3, "T+", "T-", JogAxisControlKind.Vertical);
+            AddJogItem(items, "PICKER Z4", PickerAxis.PickerZ3, "Z+", "Z-", JogAxisControlKind.Vertical);
             jogAxisMoveControl.SpeedControl = jogSpeedControl;
             jogAxisMoveControl.LayoutMode = JogAxisMoveLayoutMode.PickerTabbed;
             jogAxisMoveControl.ShowCurrentSpeedMode = true;
@@ -359,54 +356,172 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             await ConfirmMoveAsync(item.DisplayName, delegate { return unit.MovePickerAxisToTeachingPosition(item.Axis, item.PositionName, IsFineMove()); });
         }
 
-        private async Task<int> MoveGroupAsync(string groupKey)
+        // ===================== 인터락 시퀀스 (RearPicker — FrontPicker와 동일 규칙) =====================
+        // 순서 규칙: 하강 = Z→T / 상승 = T→Z(Z 마지막) / 수평 = Y→X
+        // I1 X/Y 이동 전 Z 전부 상승  · I3 CDA/알람(이동 메서드 내부 검사)
+        // I4 Z 하강 전 갠트리(X/Y) 짝 DIE 위치 정렬 · 홈게이트는 AVOID 전용
+        private static readonly PickerAxis[] PickerZAxes = { PickerAxis.PickerZ0, PickerAxis.PickerZ1, PickerAxis.PickerZ2, PickerAxis.PickerZ3 };
+        private static readonly PickerAxis[] PickerTAxes = { PickerAxis.PickerT0, PickerAxis.PickerT1, PickerAxis.PickerT2, PickerAxis.PickerT3 };
+
+        // 인터락 진단/테스트 토글
+        private static readonly bool RequireHomingForAvoid = true;     // AVOID 홈복귀 게이트
+
+        // 마지막 시퀀스 중단 사유 — 실행 래퍼(RunSafeAsync)의 실패 팝업에 합쳐서 표시
+        private string lastAbortReason;
+
+        private List<PositionItem> GroupMembersByAxes(string groupKey, params PickerAxis[] axisFilter)
         {
-            if (unit == null || string.IsNullOrEmpty(groupKey) || !groupMoves.ContainsKey(groupKey))
-                return -1;
+            List<PositionItem> result = new List<PositionItem>();
+            if (string.IsNullOrEmpty(groupKey) || !groupMoves.ContainsKey(groupKey))
+                return result;
 
-            List<PositionItem> members = groupMoves[groupKey];
-            if (members == null || members.Count == 0)
-                return 0;
-
-            bool fine = IsFineMove();
-
-            // 같은 축에 위치가 여러 개면(예: PICKER X INPUT/OUTPUT AVOID) 순차 실행, 서로 다른 축은 병렬 실행
-            Dictionary<PickerAxis, List<PositionItem>> byAxis = new Dictionary<PickerAxis, List<PositionItem>>();
-            foreach (PositionItem m in members)
-            {
-                List<PositionItem> list;
-                if (!byAxis.TryGetValue(m.Axis, out list))
-                {
-                    list = new List<PositionItem>();
-                    byAxis[m.Axis] = list;
-                }
-                list.Add(m);
-            }
-
-            List<Task<int>> tasks = new List<Task<int>>();
-            foreach (KeyValuePair<PickerAxis, List<PositionItem>> pair in byAxis)
-                tasks.Add(MoveAxisSequentialAsync(pair.Value, fine));
-
-            int[] results = await Task.WhenAll(tasks);
-            int finalResult = 0;
-            foreach (int r in results)
-            {
-                if (r != 0)
-                    finalResult = r;
-            }
-            return finalResult;
+            HashSet<PickerAxis> set = new HashSet<PickerAxis>(axisFilter);
+            foreach (PositionItem m in groupMoves[groupKey])
+                if (set.Contains(m.Axis))
+                    result.Add(m);
+            return result;
         }
 
-        private async Task<int> MoveAxisSequentialAsync(List<PositionItem> moves, bool fine)
+        // 목록을 순차 이동, 첫 실패에서 즉시 중단(코드 반환). CDA/공유레일/알람은 이동 메서드 내부에서 검사됨.
+        private async Task<int> MoveMembersAsync(List<PositionItem> moves, bool fine)
         {
-            int last = 0;
             foreach (PositionItem m in moves)
             {
                 int r = await unit.MovePickerAxisToTeachingPosition(m.Axis, m.PositionName, fine);
                 if (r != 0)
-                    last = r;
+                    return r;
             }
-            return last;
+            return 0;
+        }
+
+        private int AbortSeq(string title, string message)
+        {
+            // 상세 사유는 로그(EventLogger Alarm)에 기록하고, 팝업은 래퍼의 실패 팝업 하나로 합쳐 표시한다.
+            EventLogger.Write(EventKind.Alarm, "UI", "REAR-PICKER", title + " 시퀀스 중단: " + message);
+            lastAbortReason = message;
+            return -1;
+        }
+
+        // AVOID 홈게이트: 픽커 전 축 원점복귀(IsHomeDone) 완료 확인
+        private bool CheckPickerHomedForAvoid(out string reason)
+        {
+            reason = string.Empty;
+            PickerAxis[] all =
+            {
+                PickerAxis.PickerX, PickerAxis.PickerY,
+                PickerAxis.PickerT0, PickerAxis.PickerT1, PickerAxis.PickerT2, PickerAxis.PickerT3,
+                PickerAxis.PickerZ0, PickerAxis.PickerZ1, PickerAxis.PickerZ2, PickerAxis.PickerZ3
+            };
+            foreach (PickerAxis a in all)
+            {
+                if (!unit.IsPickerAxisHomeDone(a))
+                {
+                    reason = a.ToString().Replace("Picker", "") + " 원점복귀 필요";
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        // I4: 헤드(Z/T) 하강 전, 갠트리 X/Y가 짝 DIE 위치(P1~4 중 동일 인덱스)에 정렬됐는지
+        private bool CheckGantryAlignedForKind(string kind, out string reason)
+        {
+            reason = string.Empty;
+            string baseName;
+            switch (kind)
+            {
+                case "PICK": baseName = "DiePickPosition"; break;
+                case "BOTTOM": baseName = "DieBottomPosition"; break;
+                case "SIDE": baseName = "DieSidePosition"; break;
+                case "PLACE": baseName = "DiePlacePosition"; break;
+                default: reason = "알 수 없는 종류(" + kind + ")"; return false;
+            }
+            for (int i = 0; i < 4; i++)
+            {
+                string pos = baseName + "[" + i + "]";
+                if (unit.IsPickerAxisInTeachingPosition(PickerAxis.PickerX, pos) &&
+                    unit.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, pos))
+                    return true;
+            }
+            reason = "갠트리(X/Y)가 DIE " + kind + " 위치에 정렬되지 않음";
+            return false;
+        }
+
+        // ① AVOID — T복귀 → Z상승 → Y → X(일반 Avoid)
+        private async Task<int> MoveAvoidSequenceAsync()
+        {
+            const string title = "AVOID";
+            if (unit == null)
+                return -1;
+
+            bool fine = IsFineMove();
+            string reason;
+
+            if (RequireHomingForAvoid && !CheckPickerHomedForAvoid(out reason))
+                return AbortSeq(title, reason);
+
+            int r = await MoveMembersAsync(GroupMembersByAxes("K_AVOID", PickerTAxes), fine);
+            if (r != 0) return AbortSeq(title, "T 복귀 실패 (CDA/알람 확인)");
+
+            r = await MoveMembersAsync(GroupMembersByAxes("K_AVOID", PickerZAxes), fine);
+            if (r != 0) return AbortSeq(title, "Z 상승 실패 (CDA/알람 확인)");
+
+            string zblock = unit.GetPickerZClearBlockReason();
+            if (zblock != null) return AbortSeq(title, "Y/X 전 Z 상승 미완료: " + zblock);
+
+            r = await MoveMembersAsync(GroupMembersByAxes("K_AVOID", PickerAxis.PickerY), fine);
+            if (r != 0) return AbortSeq(title, "Y 회피 실패");
+
+            // AVOID의 X는 일반 AvoidPosition만 (Input/Output Avoid 제외)
+            List<PositionItem> xMoves = GroupMembersByAxes("K_AVOID", PickerAxis.PickerX)
+                .FindAll(m => string.Equals(m.PositionName, "AvoidPosition", StringComparison.OrdinalIgnoreCase));
+            r = await MoveMembersAsync(xMoves, fine);
+            if (r != 0) return AbortSeq(title, "X 회피 실패 (공유레일 확인)");
+
+            return 0;
+        }
+
+        // ② DIE PICK/BOTTOM/SIDE/PLACE — Z 전부 상승 확인 후 Y → X
+        private async Task<int> MoveDieKindSequenceAsync(string title, string kindPos)
+        {
+            if (unit == null)
+                return -1;
+
+            bool fine = IsFineMove();
+            string groupKey = "K_" + kindPos;
+
+            string zblock = unit.GetPickerZClearBlockReason();
+            if (zblock != null) return AbortSeq(title, "X/Y 이동 전 Z 상승 미완료: " + zblock);
+
+            int r = await MoveMembersAsync(GroupMembersByAxes(groupKey, PickerAxis.PickerY), fine);
+            if (r != 0) return AbortSeq(title, "Y 이동 실패 (CDA/공유레일/알람 확인)");
+
+            r = await MoveMembersAsync(GroupMembersByAxes(groupKey, PickerAxis.PickerX), fine);
+            if (r != 0) return AbortSeq(title, "X 이동 실패 (CDA/공유레일/알람 확인)");
+
+            return 0;
+        }
+
+        // ③ PICK/BOTTOM/SIDE/PLACE — 갠트리 정렬 확인 후 Z 하강 → T 회전
+        private async Task<int> MoveHeadKindSequenceAsync(string kind)
+        {
+            if (unit == null)
+                return -1;
+
+            bool fine = IsFineMove();
+            string groupKey = "K_" + kind;
+            string reason;
+
+            if (!CheckGantryAlignedForKind(kind, out reason))
+                return AbortSeq(kind, "Z 하강 전 " + reason);
+
+            int r = await MoveMembersAsync(GroupMembersByAxes(groupKey, PickerZAxes), fine);
+            if (r != 0) return AbortSeq(kind, "Z 하강 실패 (CDA/알람 확인)");
+
+            r = await MoveMembersAsync(GroupMembersByAxes(groupKey, PickerTAxes), fine);
+            if (r != 0) return AbortSeq(kind, "T 회전 실패 (CDA/알람 확인)");
+
+            return 0;
         }
 
         private void TeachSelectedPosition(string key)
@@ -440,9 +555,16 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             try
             {
                 Cursor = Cursors.WaitCursor;
+                lastAbortReason = null;
                 int result = await action();
+                EventLogger.Write(EventKind.Event, "UI", "REAR-PICKER", actionName + " result=" + result);
                 if (result != 0)
-                    QMC.Common.MessageDialog.Show(this, actionName + " failed. result=" + result, "Rear Picker", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                {
+                    string detail = string.IsNullOrEmpty(lastAbortReason)
+                        ? " failed. result=" + result
+                        : " 실패" + Environment.NewLine + "사유: " + lastAbortReason;
+                    QMC.Common.MessageDialog.Show(this, actionName + detail, "Rear Picker", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
             }
             catch (Exception ex)
             {

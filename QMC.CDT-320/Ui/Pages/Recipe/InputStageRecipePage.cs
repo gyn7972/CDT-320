@@ -351,76 +351,42 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             manualScrollPanel.HorizontalScroll.Visible = false;
 
             manualLayout.Dock = DockStyle.Top;
-            BuildManualActionButtons();
         }
 
-        private void BuildManualActionButtons()
+        // 매뉴얼 액션 버튼(Designer 배치)의 Click 핸들러 — 각 위치 종류의 인터락 시퀀스로 이동
+        private async void btnAvoidPosition_Click(object sender, EventArgs e)
         {
-            manualScrollPanel.SuspendLayout();
-            try
-            {
-                manualScrollPanel.Controls.Clear();
-                manualLayout.Controls.Clear();
-                manualLayout.RowStyles.Clear();
-                manualLayout.ColumnStyles.Clear();
-                manualLayout.ColumnCount = 2;
-                manualLayout.RowCount = 0;
-                manualLayout.AutoSize = true;
-                manualLayout.AutoSizeMode = AutoSizeMode.GrowAndShrink;
-                manualLayout.Dock = DockStyle.Top;
-                manualLayout.Padding = new Padding(8, 18, 8, 8);
-                manualLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
-                manualLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
-
-                foreach (StagePositionKind kind in OptionKindOrder)
-                {
-                    StagePositionKind capturedKind = kind;
-                    AddManualButton(CreateManualActionButton(GetPositionLabel(kind), () => MoveByKindAsync(capturedKind)));
-                }
-
-                AddManualButton(CreateManualActionButton("PICK TEST", PickTestAsync));
-                manualScrollPanel.Controls.Add(manualLayout);
-            }
-            finally
-            {
-                manualScrollPanel.ResumeLayout(true);
-            }
+            await ConfirmAndRunAsync("AVOID POSITION", MoveAvoidSequenceAsync);
         }
 
-        private ActionButton CreateManualActionButton(string text, Func<Task<int>> action)
+        private async void btnLoadPosition_Click(object sender, EventArgs e)
         {
-            var button = new ActionButton
-            {
-                BackColor = Color.FromArgb(0x80, 0x80, 0x80),
-                Cursor = Cursors.Hand,
-                Dock = DockStyle.Fill,
-                Font = new Font("Malgun Gothic", 9F, FontStyle.Bold),
-                ForeColor = Color.White,
-                Margin = new Padding(4),
-                Size = new Size(150, 39),
-                Text = text
-            };
-
-            button.Click += async (s, e) => await ConfirmAndRunAsync(text, action);
-            return button;
+            await ConfirmAndRunAsync("LOAD POSITION", () => MoveLoadUnloadSequenceAsync(StagePositionKind.Load));
         }
 
-        private void AddManualButton(ActionButton button)
+        private async void btnUnloadPosition_Click(object sender, EventArgs e)
         {
-            if (button == null)
-                return;
+            await ConfirmAndRunAsync("UNLOAD POSITION", () => MoveLoadUnloadSequenceAsync(StagePositionKind.Unload));
+        }
 
-            int index = manualLayout.Controls.Count;
-            int column = index % manualLayout.ColumnCount;
-            int targetRow = index / manualLayout.ColumnCount;
+        private async void btnReadyPosition_Click(object sender, EventArgs e)
+        {
+            await ConfirmAndRunAsync("READY POSITION", MoveReadySequenceAsync);
+        }
 
-            while (manualLayout.RowStyles.Count <= targetRow)
-                manualLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 45F));
+        private async void btnProcessPosition_Click(object sender, EventArgs e)
+        {
+            await ConfirmAndRunAsync("PROCESS POSITION", MoveProcessSequenceAsync);
+        }
 
-            button.Visible = true;
-            button.Dock = DockStyle.Fill;
-            manualLayout.Controls.Add(button, column, targetRow);
-            manualLayout.RowCount = targetRow + 1;
+        private async void btnReticlePosition_Click(object sender, EventArgs e)
+        {
+            await ConfirmAndRunAsync("RETICLE POSITION", MoveReticleSequenceAsync);
+        }
+
+        private async void btnPickTest_Click(object sender, EventArgs e)
+        {
+            await ConfirmAndRunAsync("PICK TEST", PickTestAsync);
         }
 
         private void BindTeachingActionButton(ActionButton button, string displayName)
@@ -697,6 +663,447 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             finally
             {
             }
+        }
+
+        // ===== AVOID 순차 이동 (단계별 인터락 확인, 실패 시 전체 중단 + 알람) =====
+        // TODO(인터락): 픽커-인풋스테이지 XY 간섭영역 임계값. 우선 0(placeholder)로 두고 추후 실측값 반영.
+        private const double PickerStageInterferenceZone = 0.0;
+
+        private async Task<int> MoveAvoidSequenceAsync()
+        {
+            try
+            {
+                if (_InputStageUnit == null)
+                    return -1;
+
+                CDT320_Machine machine = FindMachine();
+                string reason;
+
+                // 원점복귀(homing) 완료 전에는 절대좌표 이동 금지 → 시작하지 않음 (RequireHomingForHomeLikeButtons로 on/off)
+                if (RequireHomingForHomeLikeButtons && !CheckStageAxesHomed(out reason))
+                    return AbortAvoid(reason);
+
+                // 1) NEEDLE Z 하강(후퇴)
+                if (await StepMoveAvoidAsync("NEEDLE Z") != 0)
+                    return AbortAvoid("NEEDLE Z 이동 실패");
+
+                // 2) EJECT PIN Z 하강(후퇴)
+                if (await StepMoveAvoidAsync("EJECT PIN Z") != 0)
+                    return AbortAvoid("EJECT PIN Z 이동 실패");
+
+                // 3) VISION X (공유레일 충돌검증은 이동 경로에서 자동 적용)
+                if (await StepMoveAvoidAsync("VISION X") != 0)
+                    return AbortAvoid("VISION X 이동 실패");
+
+                // 4) EXPANDER Z — 니들/이젝트핀 후퇴 완료 선행
+                if (!IsNeedleRetracted(out reason))
+                    return AbortAvoid("EXPANDER Z 전 " + reason);
+                if (await StepMoveAvoidAsync("EXPANDER Z") != 0)
+                    return AbortAvoid("EXPANDER Z 이동 실패");
+
+                // 5) NEEDLE X — 니들/이젝트핀 후퇴 완료 선행
+                if (!IsNeedleRetracted(out reason))
+                    return AbortAvoid("NEEDLE X 전 " + reason);
+                if (await StepMoveAvoidAsync("NEEDLE X") != 0)
+                    return AbortAvoid("NEEDLE X 이동 실패");
+
+                // 6) WAFER Y — 니들후퇴 + Front/Rear 픽커 Clear + 피더 Clear
+                if (!CheckStagePlaneInterlock(machine, true, out reason))
+                    return AbortAvoid("WAFER Y 전 " + reason);
+                if (await StepMoveAvoidAsync("WAFER Y") != 0)
+                    return AbortAvoid("WAFER Y 이동 실패");
+
+                // 7) WAFER T — 6번과 동일 선행조건
+                if (!CheckStagePlaneInterlock(machine, true, out reason))
+                    return AbortAvoid("WAFER T 전 " + reason);
+                if (await StepMoveAvoidAsync("WAFER T") != 0)
+                    return AbortAvoid("WAFER T 이동 실패");
+
+                return 0;
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> StepMoveAvoidAsync(string axisLabel)
+        {
+            StageTeachingPosition position = FindAvoidPosition(axisLabel);
+            if (position == null)
+                return -1;
+
+            return await MoveByTeachingPositionAsync(position);
+        }
+
+        private static StageTeachingPosition FindAvoidPosition(string axisLabel)
+        {
+            foreach (StageTeachingPosition position in TeachingPositions)
+            {
+                if (position.Kind == StagePositionKind.Avoid &&
+                    string.Equals(position.AxisLabel, axisLabel, StringComparison.OrdinalIgnoreCase))
+                    return position;
+            }
+
+            return null;
+        }
+
+        // 니들 Z / 이젝트핀 Z 가 "상승(Process/이젝트) 위치가 아님" = 후퇴(하강) 상태인지 판정.
+        // Avoid/Load/Unload/Ready/Reticle 의 니들 위치는 모두 '하강'이라 kind마다 값이 달라도 통과한다.
+        // 실제 위험은 "니들이 올라가(이젝트) 있음"뿐이므로, Process 위치에만 있지 않으면 후퇴로 본다.
+        private bool IsNeedleRetracted(out string reason)
+        {
+            reason = string.Empty;
+            if (_InputStageUnit == null)
+                return true;
+
+            var u = _InputStageUnit;
+            u.Recipe.EnsurePositionObjects();
+
+            if (IsAxisAtPosition(u.NeedleZ, u.Recipe.NeedleZ.ProcessPosition))
+            {
+                reason = "NEEDLE Z 후퇴 미완료(상승/이젝트 위치)";
+                return false;
+            }
+            if (IsAxisAtPosition(u.EjectPinZ, u.Recipe.EjectPinZ.ProcessPosition))
+            {
+                reason = "EJECT PIN Z 후퇴 미완료(상승/이젝트 위치)";
+                return false;
+            }
+
+            return true;
+        }
+
+        private static bool IsAxisAtPosition(BaseAxis axis, double target)
+        {
+            if (axis == null)
+                return false;
+            double tol = (axis.Config != null && axis.Config.InPositionTolerance >= 0.0) ? axis.Config.InPositionTolerance : 0.05;
+            return System.Math.Abs(axis.ActualPosition - target) <= tol;
+        }
+
+        // 스테이지 평면 이동(Wafer Y/T) 선행 인터락: 니들후퇴 + Front/Rear 픽커 Clear + 피더 Clear
+        private bool CheckStagePlaneInterlock(CDT320_Machine machine, bool checkPicker, out string reason)
+        {
+            if (!IsNeedleRetracted(out reason))
+                return false;
+
+            if (machine != null)
+            {
+                // 픽커 Clear = Picker Z(0~3)가 상승(Avoid) + 정상. (X/Y/T는 보지 않음)
+                // (B) 픽커 XY 간섭영역 임계값 = PickerStageInterferenceZone(0, placeholder) — 추후 실측값 반영 예정
+                // 막는 첫 Z축과 사유(위치/알람)를 받아 메시지에 표시. (PROCESS/RETICLE은 픽커 미적용)
+                if (checkPicker)
+                {
+                    if (machine.PickerFrontUnit != null)
+                    {
+                        string block = machine.PickerFrontUnit.GetPickerZClearBlockReason();
+                        if (block != null)
+                        {
+                            reason = "Front 픽커 Clear 아님 — " + block;
+                            return false;
+                        }
+                    }
+                    if (machine.PickerRearUnit != null)
+                    {
+                        string block = machine.PickerRearUnit.GetPickerZClearBlockReason();
+                        if (block != null)
+                        {
+                            reason = "Rear 픽커 Clear 아님 — " + block;
+                            return false;
+                        }
+                    }
+                }
+
+                InputFeederUnit feeder = machine.InputFeederUnit;
+                if (feeder != null &&
+                    !feeder.IsWaferFeederYInAvoidPosition() &&
+                    !feeder.IsWaferFeederYInExchangePosition() &&
+                    !feeder.IsWaferFeederYInHomePosition())
+                {
+                    reason = "Input Feeder Y Clear 아님(Avoid/Exchange/Home 아님)";
+                    return false;
+                }
+            }
+
+            reason = string.Empty;
+            return true;
+        }
+
+        private int AbortAvoid(string message)
+        {
+            return AbortStage("AVOID", message);
+        }
+
+        // ===== 공통 순차 스텝 / 헬퍼 =====
+        private async Task<int> StepMoveKindAsync(StagePositionKind kind, string axisLabel)
+        {
+            StageTeachingPosition position = FindKindPosition(kind, axisLabel);
+            if (position == null)
+                return -1;
+            return await MoveByTeachingPositionAsync(position);
+        }
+
+        private static StageTeachingPosition FindKindPosition(StagePositionKind kind, string axisLabel)
+        {
+            foreach (StageTeachingPosition position in TeachingPositions)
+            {
+                if (position.Kind == kind &&
+                    string.Equals(position.AxisLabel, axisLabel, StringComparison.OrdinalIgnoreCase))
+                    return position;
+            }
+            return null;
+        }
+
+        private static bool IsAxisSettled(BaseAxis axis)
+        {
+            return axis != null && !axis.IsMoving && axis.IsInPosition;
+        }
+
+        // 원점복귀(homing) 완료 여부 — 미완료 축이 있으면 절대좌표 이동을 막는다.
+        private static bool IsAxisHomed(BaseAxis axis, string label, out string reason)
+        {
+            reason = string.Empty;
+            if (axis != null && !axis.IsHomeDone)
+            {
+                reason = label + " 원점복귀 필요";
+                return false;
+            }
+            return true;
+        }
+
+        // 7축(AVOID/READY/PROCESS/RETICLE) 원점복귀 완료 확인
+        private bool CheckStageAxesHomed(out string reason)
+        {
+            reason = string.Empty;
+            if (_InputStageUnit == null)
+                return true;
+            var u = _InputStageUnit;
+            return IsAxisHomed(u.NeedleZ, "NEEDLE Z", out reason)
+                && IsAxisHomed(u.EjectPinZ, "EJECT PIN Z", out reason)
+                && IsAxisHomed(u.ExpanderZ, "EXPANDER Z", out reason)
+                && IsAxisHomed(u.CameraX, "VISION X", out reason)
+                && IsAxisHomed(u.NeedleBlockX, "NEEDLE X", out reason)
+                && IsAxisHomed(u.StageY, "WAFER Y", out reason)
+                && IsAxisHomed(u.StageT, "WAFER T", out reason);
+        }
+
+        // LOAD/UNLOAD 4축 원점복귀 완료 확인
+        private bool CheckLoadUnloadAxesHomed(out string reason)
+        {
+            reason = string.Empty;
+            if (_InputStageUnit == null)
+                return true;
+            var u = _InputStageUnit;
+            return IsAxisHomed(u.NeedleZ, "NEEDLE Z", out reason)
+                && IsAxisHomed(u.ExpanderZ, "EXPANDER Z", out reason)
+                && IsAxisHomed(u.StageT, "WAFER T", out reason)
+                && IsAxisHomed(u.StageY, "WAFER Y", out reason);
+        }
+
+        // PROCESS 니들 상승 전제: 스테이지 정렬(WaferY/T·NeedleX) + Expander 고정(In-Position)
+        private bool CheckProcessNeedleUpReady(out string reason)
+        {
+            reason = string.Empty;
+            if (_InputStageUnit == null)
+                return true;
+            if (!IsAxisSettled(_InputStageUnit.StageY)) { reason = "WAFER Y 정렬 미완료"; return false; }
+            if (!IsAxisSettled(_InputStageUnit.StageT)) { reason = "WAFER T 정렬 미완료"; return false; }
+            if (!IsAxisSettled(_InputStageUnit.NeedleBlockX)) { reason = "NEEDLE X 정렬 미완료"; return false; }
+            if (!IsAxisSettled(_InputStageUnit.ExpanderZ)) { reason = "EXPANDER Z 고정 미완료"; return false; }
+            return true;
+        }
+
+        // RETICLE: 레티클 실린더가 전개(Fwd)돼 있으면 VISION X 충돌 → 후퇴(Clear) 상태여야 함
+        private bool IsReticleClear(CDT320_Machine machine, out string reason)
+        {
+            reason = string.Empty;
+            if (machine == null || machine.VisionUnit == null)
+                return true;
+            var v = machine.VisionUnit;
+            if (IsCylinderDeployed(v.ReticleLift)) { reason = "ReticleLift 전개됨"; return false; }
+            if (IsCylinderDeployed(v.ReticleFrontSideSlide)) { reason = "ReticleSideSlideFront 전개됨"; return false; }
+            if (IsCylinderDeployed(v.ReticleRearSideSlide)) { reason = "ReticleSideSlideRear 전개됨"; return false; }
+            return true;
+        }
+
+        private static bool IsCylinderDeployed(QMC.Common.IO.BaseCylinder cylinder)
+        {
+            return cylinder != null && cylinder.IsFwd;
+        }
+
+        // 원점복귀(homing) 확인 on/off. 테스트 시 false 로 두면 AVOID/LOAD/UNLOAD가 원점복귀 미완료여도 진행. 운영 시 true.
+        private static readonly bool RequireHomingForHomeLikeButtons = true;
+
+        // 마지막 시퀀스 중단 사유 — 실행 래퍼(ConfirmAndRunAsync)의 실패 팝업에 합쳐서 표시
+        private string _lastAbortReason;
+
+        private int AbortStage(string title, string message)
+        {
+            // 상세 사유는 로그(EventLogger Alarm)에 기록하고, 팝업은 래퍼의 실패 팝업 하나로 합쳐 표시한다.
+            EventLogger.Write(EventKind.Alarm, "UI", "INPUT-STAGE", title + " 시퀀스 중단: " + message);
+            _lastAbortReason = message;
+            return -1;
+        }
+
+        // ===== LOAD / UNLOAD (4축: NeedleZ → ExpanderZ → WaferT → WaferY) =====
+        private async Task<int> MoveLoadUnloadSequenceAsync(StagePositionKind kind)
+        {
+            try
+            {
+                if (_InputStageUnit == null)
+                    return -1;
+                CDT320_Machine machine = FindMachine();
+                string title = GetPositionLabel(kind);
+                string reason;
+
+                if (RequireHomingForHomeLikeButtons && !CheckLoadUnloadAxesHomed(out reason))
+                    return AbortStage(title, reason);
+
+                // 1) NEEDLE Z
+                if (await StepMoveKindAsync(kind, "NEEDLE Z") != 0)
+                    return AbortStage(title, "NEEDLE Z 이동 실패");
+
+                // 2) EXPANDER Z — 니들후퇴 선행
+                if (!IsNeedleRetracted(out reason))
+                    return AbortStage(title, "EXPANDER Z 전 " + reason);
+                if (await StepMoveKindAsync(kind, "EXPANDER Z") != 0)
+                    return AbortStage(title, "EXPANDER Z 이동 실패");
+
+                // 3) WAFER T — 니들후퇴 + 픽커Clear + 피더
+                if (!CheckStagePlaneInterlock(machine, true, out reason))
+                    return AbortStage(title, "WAFER T 전 " + reason);
+                if (await StepMoveKindAsync(kind, "WAFER T") != 0)
+                    return AbortStage(title, "WAFER T 이동 실패");
+
+                // 4) WAFER Y — 동일
+                if (!CheckStagePlaneInterlock(machine, true, out reason))
+                    return AbortStage(title, "WAFER Y 전 " + reason);
+                if (await StepMoveKindAsync(kind, "WAFER Y") != 0)
+                    return AbortStage(title, "WAFER Y 이동 실패");
+
+                return 0;
+            }
+            catch { throw; }
+            finally { }
+        }
+
+        // ===== READY (7축, AVOID와 동일 틀) =====
+        private async Task<int> MoveReadySequenceAsync()
+        {
+            try
+            {
+                if (_InputStageUnit == null)
+                    return -1;
+                CDT320_Machine machine = FindMachine();
+                const StagePositionKind kind = StagePositionKind.Ready;
+                string title = GetPositionLabel(kind);
+                string reason;
+
+                if (await StepMoveKindAsync(kind, "NEEDLE Z") != 0) return AbortStage(title, "NEEDLE Z 이동 실패");
+                if (await StepMoveKindAsync(kind, "EJECT PIN Z") != 0) return AbortStage(title, "EJECT PIN Z 이동 실패");
+                if (await StepMoveKindAsync(kind, "VISION X") != 0) return AbortStage(title, "VISION X 이동 실패");
+
+                if (!IsNeedleRetracted(out reason)) return AbortStage(title, "EXPANDER Z 전 " + reason);
+                if (await StepMoveKindAsync(kind, "EXPANDER Z") != 0) return AbortStage(title, "EXPANDER Z 이동 실패");
+
+                if (!IsNeedleRetracted(out reason)) return AbortStage(title, "NEEDLE X 전 " + reason);
+                if (await StepMoveKindAsync(kind, "NEEDLE X") != 0) return AbortStage(title, "NEEDLE X 이동 실패");
+
+                if (!CheckStagePlaneInterlock(machine, true, out reason)) return AbortStage(title, "WAFER Y 전 " + reason);
+                if (await StepMoveKindAsync(kind, "WAFER Y") != 0) return AbortStage(title, "WAFER Y 이동 실패");
+
+                if (!CheckStagePlaneInterlock(machine, true, out reason)) return AbortStage(title, "WAFER T 전 " + reason);
+                if (await StepMoveKindAsync(kind, "WAFER T") != 0) return AbortStage(title, "WAFER T 이동 실패");
+
+                return 0;
+            }
+            catch { throw; }
+            finally { }
+        }
+
+        // ===== PROCESS (7축, 수평 먼저 → 니들 상승 마지막) =====
+        private async Task<int> MoveProcessSequenceAsync()
+        {
+            try
+            {
+                if (_InputStageUnit == null)
+                    return -1;
+                CDT320_Machine machine = FindMachine();
+                const StagePositionKind kind = StagePositionKind.Process;
+                string title = GetPositionLabel(kind);
+                string reason;
+
+                // 1) WAFER Y — 니들후퇴 + 피더 (픽커 미적용)
+                if (!CheckStagePlaneInterlock(machine, false, out reason)) return AbortStage(title, "WAFER Y 전 " + reason);
+                if (await StepMoveKindAsync(kind, "WAFER Y") != 0) return AbortStage(title, "WAFER Y 이동 실패");
+
+                // 2) WAFER T — Wafer Y 정렬 완료 선행
+                if (!CheckStagePlaneInterlock(machine, false, out reason)) return AbortStage(title, "WAFER T 전 " + reason);
+                if (!IsAxisSettled(_InputStageUnit.StageY)) return AbortStage(title, "WAFER T 전 WAFER Y 정렬 미완료");
+                if (await StepMoveKindAsync(kind, "WAFER T") != 0) return AbortStage(title, "WAFER T 이동 실패");
+
+                // 3) NEEDLE X
+                if (!IsNeedleRetracted(out reason)) return AbortStage(title, "NEEDLE X 전 " + reason);
+                if (await StepMoveKindAsync(kind, "NEEDLE X") != 0) return AbortStage(title, "NEEDLE X 이동 실패");
+
+                // 4) VISION X
+                if (await StepMoveKindAsync(kind, "VISION X") != 0) return AbortStage(title, "VISION X 이동 실패");
+
+                // 5) EXPANDER Z (하강/고정)
+                if (await StepMoveKindAsync(kind, "EXPANDER Z") != 0) return AbortStage(title, "EXPANDER Z 이동 실패");
+
+                // 6) NEEDLE Z 상승 — 스테이지 정렬 + Expander 고정 선행
+                if (!CheckProcessNeedleUpReady(out reason)) return AbortStage(title, "NEEDLE Z 상승 전 " + reason);
+                if (await StepMoveKindAsync(kind, "NEEDLE Z") != 0) return AbortStage(title, "NEEDLE Z 이동 실패");
+
+                // 7) EJECT PIN Z 상승 — 동일
+                if (!CheckProcessNeedleUpReady(out reason)) return AbortStage(title, "EJECT PIN Z 상승 전 " + reason);
+                if (await StepMoveKindAsync(kind, "EJECT PIN Z") != 0) return AbortStage(title, "EJECT PIN Z 이동 실패");
+
+                return 0;
+            }
+            catch { throw; }
+            finally { }
+        }
+
+        // ===== RETICLE (7축, VISION X 마지막) =====
+        private async Task<int> MoveReticleSequenceAsync()
+        {
+            try
+            {
+                if (_InputStageUnit == null)
+                    return -1;
+                CDT320_Machine machine = FindMachine();
+                const StagePositionKind kind = StagePositionKind.Reticle;
+                string title = GetPositionLabel(kind);
+                string reason;
+
+                if (await StepMoveKindAsync(kind, "NEEDLE Z") != 0) return AbortStage(title, "NEEDLE Z 이동 실패");
+                if (await StepMoveKindAsync(kind, "EJECT PIN Z") != 0) return AbortStage(title, "EJECT PIN Z 이동 실패");
+                if (await StepMoveKindAsync(kind, "EXPANDER Z") != 0) return AbortStage(title, "EXPANDER Z 이동 실패");
+
+                if (!CheckStagePlaneInterlock(machine, false, out reason)) return AbortStage(title, "WAFER Y 전 " + reason);
+                if (await StepMoveKindAsync(kind, "WAFER Y") != 0) return AbortStage(title, "WAFER Y 이동 실패");
+
+                if (!CheckStagePlaneInterlock(machine, false, out reason)) return AbortStage(title, "WAFER T 전 " + reason);
+                if (await StepMoveKindAsync(kind, "WAFER T") != 0) return AbortStage(title, "WAFER T 이동 실패");
+
+                if (!IsNeedleRetracted(out reason)) return AbortStage(title, "NEEDLE X 전 " + reason);
+                if (await StepMoveKindAsync(kind, "NEEDLE X") != 0) return AbortStage(title, "NEEDLE X 이동 실패");
+
+                // 7) VISION X — 레티클 실린더 Clear + Wafer Y 경로 클리어 완료
+                if (!IsReticleClear(machine, out reason)) return AbortStage(title, "VISION X 전 레티클 " + reason);
+                if (!IsAxisSettled(_InputStageUnit.StageY)) return AbortStage(title, "VISION X 전 WAFER Y 경로클리어 미완료");
+                if (await StepMoveKindAsync(kind, "VISION X") != 0) return AbortStage(title, "VISION X 이동 실패");
+
+                return 0;
+            }
+            catch { throw; }
+            finally { }
         }
 
         private void TeachPosition(StageTeachingPosition position)
@@ -993,10 +1400,14 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     return;
 
                 Cursor = Cursors.WaitCursor;
+                _lastAbortReason = null;
                 int result = await action();
                 EventLogger.Write(EventKind.Event, "UI", "INPUT-STAGE", actionName + " result=" + result);
                 if (result != 0)
-                    QMC.Common.MessageDialog.Show(this, actionName + " 실패", "Input Stage", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                {
+                    string detail = string.IsNullOrEmpty(_lastAbortReason) ? "" : Environment.NewLine + "사유: " + _lastAbortReason;
+                    QMC.Common.MessageDialog.Show(this, actionName + " 실패" + detail, "Input Stage", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
             }
             catch (Exception ex)
             {
@@ -1156,7 +1567,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (result != 0)
                     return result;
 
-                await Task.Delay(50).ContinueWith(_ => { });
+                await Task.Delay(100).ContinueWith(_ => { });
                 return await MoveAxisAsync(_InputStageUnit.NeedleZ, _InputStageUnit.Recipe.NeedleZ.LoadPosition, false);
             }
             catch

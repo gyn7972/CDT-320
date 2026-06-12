@@ -1292,6 +1292,23 @@ namespace QMC.CDT320
             }
         }
 
+        /// <summary>해당 스테이지 축의 원점복귀(IsHomeDone) 완료 여부. (수동버튼 홈게이트용)</summary>
+        public bool IsStageAxisHomeDone(BinStageAxis axis)
+        {
+            BaseAxis item = ResolveStageAxis(axis);
+            return item != null && item.IsHomeDone;
+        }
+
+        /// <summary>해당 스테이지 축이 목표 위치에 있는지(축 InPositionTolerance 기준) 확인. (수동버튼 Z안전 확인용)</summary>
+        public bool IsStageAxisAtPosition(BinStageAxis axis, double targetPos)
+        {
+            BaseAxis item = ResolveStageAxis(axis);
+            if (item == null)
+                return false;
+            double tol = (item.Config != null && item.Config.InPositionTolerance >= 0.0) ? item.Config.InPositionTolerance : 0.05;
+            return Math.Abs(item.ActualPosition - targetPos) <= tol && !item.IsAlarm;
+        }
+
         private bool TryResolveStageAxis(BaseAxis axis, out BinStageAxis stageAxis)
         {
             stageAxis = BinStageAxis.NgBinY;
