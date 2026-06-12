@@ -409,3 +409,6 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+# Vision 스모크 샌드박스 (run_smoke.ps1 작업폴더 — 실데이터 보호)
+cdt-320/smoke-sandbox/
