@@ -1,4 +1,5 @@
 using QMC.Common;
+using QMC.Common.Data.Store;
 using QMC.Common.Recipes;
 using QMC.Vision.Config;
 using QMC.Vision.Core;
@@ -124,31 +125,50 @@ namespace QMC.Vision.Modules
             if (r != null) r.Exposure = m.ExposureUs;
         }
 
-        // ── C3b-3: 결선 폐기 마이그 — 기존 Recipe.LightSettings 의 (Port,Page) → 노드 Setup.LightPages 지정 도출 ──
-        /// <summary>노드 LightPages 비어있고 Recipe 에 조명 레벨이 있으면, distinct (ControllerPort,Page) 로 지정 도출 후 저장.
-        /// 결선 풀(AlgorithmWirings) 없이 검사가 쓰는 컨트롤러/페이지를 노드 Setup 으로 일원화. 변경 시 true.</summary>
+        // ── 조명 지정 모듈 이전 마이그 — 구 검사 노드 LightPages + Recipe 레벨의 (Port,Page) → 모듈 Setup.LightPages 합집합 ──
+        /// <summary>모듈 Setup.LightPages 가 비어 있으면, 소속 검사 노드들의 구 Setup json(LightPages 직독)과
+        /// Recipe.LightSettings 의 (ControllerPort,Page)를 합집합 dedupe(키=Port+Page) 하여 모듈 지정 도출 후 저장.
+        /// 카메라=조명 1:1 이라 보통 1건 수렴(다르면 전부 보존). 빈 모듈만 처리, 구 노드 파일 보존. 변경 시 true.</summary>
         public bool MigrateLightPages()
         {
-            bool any = false;
+            var msetup = Setup as VisionModuleSetupBase;
+            if (msetup == null) return false;
+            if (msetup.LightPages != null && msetup.LightPages.Count > 0) return false;   // 이미 모듈 지정 있음 → 스킵
+
+            var collected = new List<LightPageRef>();
             foreach (var node in Algorithms)
             {
-                var setup  = node.Setup  as AlgoSetupBase;
+                // (a) 구 노드 Setup json 의 LightPages 직독(프로퍼티는 모듈로 이전됨 — 미지 멤버라 DTO 로 raw 로드)
+                try
+                {
+                    var dto = UnitDataStore.LoadSetup<NodeLightPagesDto>(node.StorageKey);
+                    if (dto?.LightPages != null) collected.AddRange(dto.LightPages);
+                }
+                catch { }
+                // (b) 노드 Recipe 레벨의 (Port,Page) 보강(지정-only 가 아닌 레벨 데이터 흡수)
                 var recipe = node.Recipe as AlgoRecipeBase;
-                if (setup == null || recipe == null) continue;
-                if (setup.LightPages != null && setup.LightPages.Count > 0) continue;            // 이미 지정됨 → 스킵
-                if (recipe.LightSettings == null || recipe.LightSettings.Count == 0) continue;   // 조명 없음 → 미사용
-
-                var pages = recipe.LightSettings
-                    .Where(s => !string.IsNullOrEmpty(s.ControllerPort))
-                    .GroupBy(s => s.ControllerPort.ToUpperInvariant() + "/" + s.Page)
-                    .Select(g => new LightPageRef { ControllerPort = g.First().ControllerPort, Page = g.First().Page })
-                    .ToList();
-                if (pages.Count == 0) continue;
-                setup.LightPages = pages;
-                try { node.SaveSettings(); } catch { }
-                any = true;
+                if (recipe?.LightSettings != null)
+                    collected.AddRange(recipe.LightSettings
+                        .Select(s => new LightPageRef { ControllerPort = s.ControllerPort, Page = s.Page }));
             }
-            return any;
+
+            var pages = collected
+                .Where(p => p != null && !string.IsNullOrEmpty(p.ControllerPort))
+                .GroupBy(p => p.ControllerPort.ToUpperInvariant() + "/" + p.Page)
+                .Select(g => new LightPageRef { ControllerPort = g.First().ControllerPort, Page = g.First().Page })
+                .ToList();
+            if (pages.Count == 0) return false;
+
+            msetup.LightPages = pages;
+            try { SaveSettings(); } catch { }
+            return true;
+        }
+
+        /// <summary>마이그 전용 — 구 검사 노드 Setup json 의 LightPages 배열만 raw 직독(나머지 멤버 무시).</summary>
+        [System.Runtime.Serialization.DataContract]
+        internal sealed class NodeLightPagesDto
+        {
+            [System.Runtime.Serialization.DataMember] public List<LightPageRef> LightPages { get; set; }
         }
 
         public override void LoadSettings()       { base.LoadSettings();    ApplyCameraSettings(); }
@@ -194,6 +214,9 @@ namespace QMC.Vision.Modules
             if (string.IsNullOrEmpty(id)) return null;
             return _algoById.TryGetValue(id, out var node) ? node : null;
         }
+
+        /// <summary>비형식화 모듈 Setup 접근(IVisionModule) — 형식화 Setup(TSetup)을 ISetupData 로 노출.</summary>
+        ISetupData IVisionModule.Setup => Setup;
 
         IReadOnlyDictionary<string, IPatternFinder> IVisionModule.Finders    => Finders;
         IReadOnlyDictionary<string, IInspector>     IVisionModule.Inspectors => Inspectors;
