@@ -22,14 +22,12 @@ namespace QMC.Vision.Ui.Pages
         private Button _btnGrab, _btnMatch, _btnTrain, _btnLoad, _btnSaveImg, _btnEditSearch, _btnEditTrain;
         private Label _secMatch;
         private DataGridView _result;
-        // 우 (PARAMETERS + 조명 + 라이브튜닝)
+        // 우 (PARAMETERS + 조명)
         private TableLayoutPanel _right;
         private Label _secParam;
         private ParameterGridControl _params;
         private Label _secLight;
         private Panel _lightHost;
-        private Label _secLive;
-        private Panel _liveHost;
 
         protected override void Dispose(bool disposing)
         {
@@ -57,8 +55,6 @@ namespace QMC.Vision.Ui.Pages
             this._params = new ParameterGridControl();
             this._secLight = new Label();
             this._lightHost = new Panel();
-            this._secLive = new Label();
-            this._liveHost = new Panel();
             this._root.SuspendLayout();
             this._main.SuspendLayout();
             this._left.SuspendLayout();
@@ -76,7 +72,6 @@ namespace QMC.Vision.Ui.Pages
             this._secMatch.Dock = DockStyle.Fill; this._secMatch.Text = "MATCH RESULT"; this._secMatch.BackColor = UiTheme.StatusBarBg; this._secMatch.ForeColor = Color.White; this._secMatch.Font = UiTheme.SectionFont; this._secMatch.TextAlign = ContentAlignment.MiddleLeft; this._secMatch.Padding = new Padding(8, 0, 0, 0);
             this._secParam.Dock = DockStyle.Fill; this._secParam.Text = "PARAMETERS"; this._secParam.BackColor = UiTheme.StatusBarBg; this._secParam.ForeColor = Color.White; this._secParam.Font = UiTheme.SectionFont; this._secParam.TextAlign = ContentAlignment.MiddleLeft; this._secParam.Padding = new Padding(8, 0, 0, 0);
             this._secLight.Dock = DockStyle.Fill; this._secLight.Text = "검사 조명"; this._secLight.BackColor = UiTheme.StatusBarBg; this._secLight.ForeColor = Color.White; this._secLight.Font = UiTheme.SectionFont; this._secLight.TextAlign = ContentAlignment.MiddleLeft; this._secLight.Padding = new Padding(8, 0, 0, 0);
-            this._secLive.Dock = DockStyle.Fill; this._secLive.Text = "라이브 튜닝"; this._secLive.BackColor = UiTheme.StatusBarBg; this._secLive.ForeColor = Color.White; this._secLive.Font = UiTheme.SectionFont; this._secLive.TextAlign = ContentAlignment.MiddleLeft; this._secLive.Padding = new Padding(8, 0, 0, 0);
 
             // ── 좌 (카메라 전용) ──
             this._cam.Dock = DockStyle.Fill; this._cam.BackColor = Color.Black;
@@ -142,25 +137,20 @@ namespace QMC.Vision.Ui.Pages
             this._center.Controls.Add(this._secMatch, 0, 2);
             this._center.Controls.Add(this._result, 0, 3);
 
-            // ── 우 (PARAMETERS + 조명 + 라이브튜닝) ──
+            // ── 우 (PARAMETERS + 조명) — 라이브튜닝 제거, 조명 240→440 확대 ──
             this._params.Dock = DockStyle.Fill;
             this._lightHost.Dock = DockStyle.Fill; this._lightHost.BackColor = UiTheme.MainBg;
-            this._liveHost.Dock = DockStyle.Fill; this._liveHost.BackColor = UiTheme.MainBg;
             this._right.Dock = DockStyle.Fill;
-            this._right.ColumnCount = 1; this._right.RowCount = 6; this._right.Margin = Padding.Empty;
+            this._right.ColumnCount = 1; this._right.RowCount = 4; this._right.Margin = Padding.Empty;
             this._right.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
             this._right.RowStyles.Add(new RowStyle(SizeType.Absolute, 24f));
             this._right.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
             this._right.RowStyles.Add(new RowStyle(SizeType.Absolute, 24f));
-            this._right.RowStyles.Add(new RowStyle(SizeType.Absolute, 240f));
-            this._right.RowStyles.Add(new RowStyle(SizeType.Absolute, 24f));
-            this._right.RowStyles.Add(new RowStyle(SizeType.Absolute, 200f));
+            this._right.RowStyles.Add(new RowStyle(SizeType.Absolute, 440f));
             this._right.Controls.Add(this._secParam, 0, 0);
             this._right.Controls.Add(this._params, 0, 1);
             this._right.Controls.Add(this._secLight, 0, 2);
             this._right.Controls.Add(this._lightHost, 0, 3);
-            this._right.Controls.Add(this._secLive, 0, 4);
-            this._right.Controls.Add(this._liveHost, 0, 5);
 
             // ── _main (3열) ──
             this._main.Dock = DockStyle.Fill;
