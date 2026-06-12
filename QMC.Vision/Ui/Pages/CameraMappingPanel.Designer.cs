@@ -710,6 +710,7 @@ namespace QMC.Vision.Ui.Pages
             this._picPreview.BackColor = System.Drawing.Color.Black;
             this._picPreview.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this._picPreview.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._picPreview.MaximumSize = new System.Drawing.Size(800, 600);
             this._picPreview.Location = new System.Drawing.Point(0, 100);
             this._picPreview.Name = "_picPreview";
             this._picPreview.Size = new System.Drawing.Size(430, 449);
