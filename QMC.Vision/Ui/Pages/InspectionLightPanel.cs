@@ -179,11 +179,8 @@ namespace QMC.Vision.Ui.Pages
                 if (!saved.ContainsKey(key)) saved[key] = s;
             }
 
-            // Page 컬럼 = 지정에서 결정 → 읽기전용(표시만)
-            var pgCol = (DataGridViewComboBoxColumn)_grid.Columns["Page"];
-            pgCol.Items.Clear();
-            foreach (var p in pages.Select(pr => pr.Page).Distinct().OrderBy(x => x)) pgCol.Items.Add(p);
-            pgCol.ReadOnly = true;
+            // Page 컬럼 = 모듈 Setup.LightPages 에서 고정 → 읽기전용 텍스트 표시(콤보 Items 불필요).
+            _grid.Columns["Page"].ReadOnly = true;
 
             // 행 생성 — 각 지정(컨트롤러/페이지)의 채널 1..ChannelCount (레벨 0=미사용)
             _grid.Rows.Clear();
