@@ -109,13 +109,13 @@ namespace QMC.Vision.Ui.Pages
         private void OnCancelClick(object sender, EventArgs e) => BindFields();
         private void OnGridDataError(object sender, DataGridViewDataErrorEventArgs e) => e.ThrowException = false;
 
-        // ── C3b-3: 검사가 구동하는 컨트롤러/페이지 지정(노드 Setup.LightPages, 결선 풀 대체) ──
+        // ── 검사가 구동하는 컨트롤러/페이지 지정 = 소속 모듈 Setup.LightPages(카메라=조명 1:1 하드웨어) ──
         private List<LightPageRef> ActivePages()
         {
-            var setup = _node?.Setup as AlgoSetupBase;
-            var pages = setup?.LightPages;
+            var mod = (FindForm() as Form1)?.ResolveModule(_algorithm);
+            var pages = (mod?.Setup as VisionModuleSetupBase)?.LightPages;
             if (pages != null && pages.Count > 0) return pages;
-            // 마이그 전 폴백(표시용) — Recipe 레벨에서 (Port,Page) 도출.
+            // 마이그 전 폴백(표시용) — 검사 Recipe 레벨에서 (Port,Page) 도출.
             return SavedSettings()
                 .Where(s => !string.IsNullOrEmpty(s.ControllerPort))
                 .GroupBy(s => s.ControllerPort.ToUpperInvariant() + "/" + s.Page)
