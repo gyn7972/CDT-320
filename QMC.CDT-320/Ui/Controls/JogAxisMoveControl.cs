@@ -280,7 +280,7 @@ namespace QMC.CDT_320.Ui.Controls
             try
             {
                 InitializeComponent();
-                cboStepPreset.SelectedIndex = 0;
+                ApplyStepPresetItems();
                 SizeChanged += JogAxisMoveControl_SizeChanged;
                 ApplyCurrentSpeedModeVisibility();
                 ApplyModeButtonStyles();
@@ -425,6 +425,7 @@ namespace QMC.CDT_320.Ui.Controls
                     _items.AddRange(items);
 
                 lblStepUnit.Text = _items.Count > 0 ? _items[0].DisplayUnit : string.Empty;
+                ApplyStepPresetItems();
                 BuildAxisButtons();
                 UpdateAxisButtonAreaSize();
             }
@@ -2514,6 +2515,53 @@ namespace QMC.CDT_320.Ui.Controls
             }
             finally
             {
+            }
+        }
+
+        private void ApplyStepPresetItems()
+        {
+            try
+            {
+                if (cboStepPreset == null || numStepDistance == null)
+                    return;
+
+                string unit = _items.Count > 0 ? _items[0].DisplayUnit : AxisUnitConverter.Millimeter;
+                bool isMicrometer = string.Equals(unit, AxisUnitConverter.Micrometer, StringComparison.OrdinalIgnoreCase);
+                string[] presets = isMicrometer
+                    ? new[] { "1000", "100", "10", "1" }
+                    : new[] { "1", "0.1", "0.01", "0.001" };
+
+                numStepDistance.DecimalPlaces = isMicrometer ? 0 : 3;
+                numStepDistance.Increment = isMicrometer ? 1m : 0.001m;
+                numStepDistance.Minimum = isMicrometer ? 1m : 0.001m;
+
+                string current = cboStepPreset.SelectedItem != null ? cboStepPreset.SelectedItem.ToString() : string.Empty;
+                cboStepPreset.SelectedIndexChanged -= cboStepPreset_SelectedIndexChanged;
+                cboStepPreset.Items.Clear();
+                cboStepPreset.Items.AddRange(presets);
+
+                int selectedIndex = Array.IndexOf(presets, current);
+                if (selectedIndex < 0)
+                    selectedIndex = 0;
+                cboStepPreset.SelectedIndex = selectedIndex;
+
+                decimal value;
+                if (!decimal.TryParse(presets[selectedIndex], NumberStyles.Number, CultureInfo.InvariantCulture, out value))
+                    value = numStepDistance.Minimum;
+                if (value < numStepDistance.Minimum)
+                    value = numStepDistance.Minimum;
+                if (value > numStepDistance.Maximum)
+                    value = numStepDistance.Maximum;
+                numStepDistance.Value = value;
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Warning, "UI", "JOG-AXIS", "Step preset rebuild failed: " + ex.Message);
+            }
+            finally
+            {
+                if (cboStepPreset != null)
+                    cboStepPreset.SelectedIndexChanged += cboStepPreset_SelectedIndexChanged;
             }
         }
 

@@ -96,8 +96,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 grpIo.ContextMenuStrip = new ContextMenuStrip();
                 grpIo.ContextMenuStrip.Items.Add("Input cassette DI 상태를 다시 읽습니다.", null, IoRefresh_Click);
 
-                _toolTip.SetToolTip(lblRecipeLoadingVal, "더블 클릭하면 값을 um 단위로 변경합니다.");
-                _toolTip.SetToolTip(lblRecipeUnloadingVal, "더블 클릭하면 값을 um 단위로 변경합니다.");
+                _toolTip.SetToolTip(lblRecipeLoadingVal, "더블 클릭하면 현재 축 표시 단위로 값을 변경합니다.");
+                _toolTip.SetToolTip(lblRecipeUnloadingVal, "더블 클릭하면 현재 축 표시 단위로 값을 변경합니다.");
                 _toolTip.SetToolTip(lblConfigSlotCountVal, "더블 클릭하면 슬롯 개수를 변경하고 SlotPosition 버퍼를 다시 맞춥니다.");
             }
             catch (Exception ex)
@@ -538,23 +538,23 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
                 optionParameterGrid.SetItems(new[]
                 {
-                    ParameterGridItem.Micron("LOADING Z POSITION", ParameterGridScope.Recipe, () => _InputCassetteUnit.Recipe.LoaingPosition, v => _InputCassetteUnit.Recipe.LoaingPosition = v),
-                    ParameterGridItem.Micron("UNLOADING Z POSITION", ParameterGridScope.Recipe, () => _InputCassetteUnit.Recipe.UnloadingPosition, v => _InputCassetteUnit.Recipe.UnloadingPosition = v),
-                    ParameterGridItem.Micron("READY POSITION", ParameterGridScope.Recipe, () => _InputCassetteUnit.Recipe.AvoidPosition, v => _InputCassetteUnit.Recipe.AvoidPosition = v),
-                    ParameterGridItem.Micron("FIRST SLOT POSITION", ParameterGridScope.Recipe, () => _InputCassetteUnit.Recipe.FirstSlotPosition, v => _InputCassetteUnit.Recipe.FirstSlotPosition = v),
-                    ParameterGridItem.Micron("MAPPING START Z POSITION", ParameterGridScope.Recipe, () => _InputCassetteUnit.Recipe.MappingStartPosition, v => _InputCassetteUnit.Recipe.MappingStartPosition = v),
-                    ParameterGridItem.Micron("MAPPING END Z POSITION", ParameterGridScope.Recipe, () => _InputCassetteUnit.Recipe.MappingEndPosition, v => _InputCassetteUnit.Recipe.MappingEndPosition = v),
-                    ParameterGridItem.Micron("LOADING OFFSET", ParameterGridScope.Config, () => _InputCassetteUnit.Config.LoadingPositionOffset, v => _InputCassetteUnit.Config.LoadingPositionOffset = v),
-                    ParameterGridItem.Micron("UNLOADING OFFSET", ParameterGridScope.Config, () => _InputCassetteUnit.Config.UnloadingPositionOffset, v => _InputCassetteUnit.Config.UnloadingPositionOffset = v),
-                    ParameterGridItem.Micron("LEVEL 2 OFFSET", ParameterGridScope.Config, () => _InputCassetteUnit.Config.Level2PositionOffset, v => _InputCassetteUnit.Config.Level2PositionOffset = Math.Max(0.0, v)),
-                    ParameterGridItem.Micron("SLOT PITCH", ParameterGridScope.Config, () => _InputCassetteUnit.Config.SlotPitch, v => _InputCassetteUnit.Config.SlotPitch = Math.Max(0.0, v)),
+                    AxisDouble("LOADING Z POSITION", ParameterGridScope.Recipe, () => _InputCassetteUnit.Recipe.LoaingPosition, v => _InputCassetteUnit.Recipe.LoaingPosition = v),
+                    AxisDouble("UNLOADING Z POSITION", ParameterGridScope.Recipe, () => _InputCassetteUnit.Recipe.UnloadingPosition, v => _InputCassetteUnit.Recipe.UnloadingPosition = v),
+                    AxisDouble("READY POSITION", ParameterGridScope.Recipe, () => _InputCassetteUnit.Recipe.AvoidPosition, v => _InputCassetteUnit.Recipe.AvoidPosition = v),
+                    AxisDouble("FIRST SLOT POSITION", ParameterGridScope.Recipe, () => _InputCassetteUnit.Recipe.FirstSlotPosition, v => _InputCassetteUnit.Recipe.FirstSlotPosition = v),
+                    AxisDouble("MAPPING START Z POSITION", ParameterGridScope.Recipe, () => _InputCassetteUnit.Recipe.MappingStartPosition, v => _InputCassetteUnit.Recipe.MappingStartPosition = v),
+                    AxisDouble("MAPPING END Z POSITION", ParameterGridScope.Recipe, () => _InputCassetteUnit.Recipe.MappingEndPosition, v => _InputCassetteUnit.Recipe.MappingEndPosition = v),
+                    AxisDouble("LOADING OFFSET", ParameterGridScope.Config, () => _InputCassetteUnit.Config.LoadingPositionOffset, v => _InputCassetteUnit.Config.LoadingPositionOffset = v),
+                    AxisDouble("UNLOADING OFFSET", ParameterGridScope.Config, () => _InputCassetteUnit.Config.UnloadingPositionOffset, v => _InputCassetteUnit.Config.UnloadingPositionOffset = v),
+                    AxisDouble("LEVEL 2 OFFSET", ParameterGridScope.Config, () => _InputCassetteUnit.Config.Level2PositionOffset, v => _InputCassetteUnit.Config.Level2PositionOffset = Math.Max(0.0, v)),
+                    AxisDouble("SLOT PITCH", ParameterGridScope.Config, () => _InputCassetteUnit.Config.SlotPitch, v => _InputCassetteUnit.Config.SlotPitch = Math.Max(0.0, v)),
                     ParameterGridItem.Int("SLOT COUNT", "ea", ParameterGridScope.Config, () => _InputCassetteUnit.Config.SlotCount, v =>
                     {
                         _InputCassetteUnit.Config.SlotCount = Math.Max(0, v);
                         _InputCassetteUnit.EnsureSlotPositionBuffer();
                     }),
-                    ParameterGridItem.Double("SCAN/JOG VELOCITY", "mm/s", ParameterGridScope.Config, () => _InputCassetteUnit.Config.ScanVelocity, v => _InputCassetteUnit.Config.ScanVelocity = Math.Max(0.1, v)),
-                    ParameterGridItem.Micron("IN POSITION TOL.", ParameterGridScope.Config, () => _InputCassetteUnit.ResolveWaferLifterZInPositionTolerance(), v => _InputCassetteUnit.InputLifterZ.Config.InPositionTolerance = Math.Max(0.0, v)),
+                    AxisDouble("SCAN/JOG VELOCITY", ParameterGridScope.Config, () => _InputCassetteUnit.Config.ScanVelocity, v => _InputCassetteUnit.Config.ScanVelocity = Math.Max(0.1, v), "/s"),
+                    AxisDouble("IN POSITION TOL.", ParameterGridScope.Config, () => _InputCassetteUnit.ResolveWaferLifterZInPositionTolerance(), v => _InputCassetteUnit.InputLifterZ.Config.InPositionTolerance = Math.Max(0.0, v)),
                     ParameterGridItem.Selection("INCH SELECT", "Inch", ParameterGridScope.Config, () => _InputCassetteUnit.Config.InchSelect, v => _InputCassetteUnit.Config.InchSelect = Convert.ToInt32(v), new[]
                     {
                         new ParameterGridOption("8", 8),
@@ -617,7 +617,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (_InputCassetteUnit == null)
                     return;
 
-                JogAxisItem axisItem = JogAxisItem.Single("AXIS Z", _InputCassetteUnit.InputLifterZ, "um", 1000.0, "Z+", "Z-").WithControlKind(JogAxisControlKind.Vertical);
+                JogAxisItem axisItem = JogAxisItem.Single("AXIS Z", _InputCassetteUnit.InputLifterZ, AxisUnitConverter.DisplayUnitFor(_InputCassetteUnit.InputLifterZ), 1.0, "Z+", "Z-").WithControlKind(JogAxisControlKind.Vertical);
                 axisItem.StepMoveAsync = async (item, direction, speedType, customSpeed, axisStepDistance) =>
                 {
                     try
@@ -785,18 +785,18 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (_InputCassetteUnit == null)
                     return;
 
-                lblRecipeLoadingVal.Text = FormatUm(_InputCassetteUnit.Recipe.LoaingPosition);
-                lblRecipeUnloadingVal.Text = FormatUm(_InputCassetteUnit.Recipe.UnloadingPosition);
-                lblRecipeAvoidVal.Text = FormatUm(_InputCassetteUnit.Recipe.AvoidPosition);
-                lblRecipeFirstSlotVal.Text = FormatUm(_InputCassetteUnit.Recipe.FirstSlotPosition);
-                lblRecipeMappingStartVal.Text = FormatUm(_InputCassetteUnit.Recipe.MappingStartPosition);
-                lblRecipeMappingEndVal.Text = FormatUm(_InputCassetteUnit.Recipe.MappingEndPosition);
-                lblConfigLoadingOffsetVal.Text = FormatUm(_InputCassetteUnit.Config.LoadingPositionOffset);
-                lblConfigUnloadingOffsetVal.Text = FormatUm(_InputCassetteUnit.Config.UnloadingPositionOffset);
-                lblConfigSlotPitchVal.Text = FormatUm(_InputCassetteUnit.Config.SlotPitch);
+                lblRecipeLoadingVal.Text = FormatAxis(_InputCassetteUnit.Recipe.LoaingPosition);
+                lblRecipeUnloadingVal.Text = FormatAxis(_InputCassetteUnit.Recipe.UnloadingPosition);
+                lblRecipeAvoidVal.Text = FormatAxis(_InputCassetteUnit.Recipe.AvoidPosition);
+                lblRecipeFirstSlotVal.Text = FormatAxis(_InputCassetteUnit.Recipe.FirstSlotPosition);
+                lblRecipeMappingStartVal.Text = FormatAxis(_InputCassetteUnit.Recipe.MappingStartPosition);
+                lblRecipeMappingEndVal.Text = FormatAxis(_InputCassetteUnit.Recipe.MappingEndPosition);
+                lblConfigLoadingOffsetVal.Text = FormatAxis(_InputCassetteUnit.Config.LoadingPositionOffset);
+                lblConfigUnloadingOffsetVal.Text = FormatAxis(_InputCassetteUnit.Config.UnloadingPositionOffset);
+                lblConfigSlotPitchVal.Text = FormatAxis(_InputCassetteUnit.Config.SlotPitch);
                 lblConfigSlotCountVal.Text = _InputCassetteUnit.Config.SlotCount.ToString(CultureInfo.InvariantCulture);
-                lblConfigScanVelocityVal.Text = FormatNumber(_InputCassetteUnit.Config.ScanVelocity) + " mm/s";
-                lblSetupToleranceVal.Text = FormatUm(_InputCassetteUnit.ResolveWaferLifterZInPositionTolerance());
+                lblConfigScanVelocityVal.Text = FormatAxis(_InputCassetteUnit.Config.ScanVelocity, "/s");
+                lblSetupToleranceVal.Text = FormatAxis(_InputCassetteUnit.ResolveWaferLifterZInPositionTolerance());
                 lblConfigInchVal.Text = _InputCassetteUnit.Config.InchSelect.ToString(CultureInfo.InvariantCulture);
                 lblConfigLevelVal.Text = _InputCassetteUnit.Config.SelectedCassetteLevel.ToString(CultureInfo.InvariantCulture);
                 lblSetupSimulationVal.Text = _InputCassetteUnit.Setup.IsSimulationMode.ToString();
@@ -836,15 +836,27 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
         }
 
-        private static string FormatUm(double value)
+        private ParameterGridItem AxisDouble(string displayName, ParameterGridScope scope, Func<double> getter, Action<double> setter, string unitSuffix = "")
+        {
+            ParameterGridItem item = ParameterGridItem.Double(
+                displayName,
+                AxisUnitConverter.DisplayUnitFor(_InputCassetteUnit.InputLifterZ) + unitSuffix,
+                scope,
+                () => AxisUnitConverter.ToDisplay(getter(), _InputCassetteUnit.InputLifterZ),
+                v => setter(AxisUnitConverter.FromDisplay(v, _InputCassetteUnit.InputLifterZ)));
+            item.UnitGetter = () => AxisUnitConverter.DisplayUnitFor(_InputCassetteUnit.InputLifterZ) + unitSuffix;
+            return item;
+        }
+
+        private string FormatAxis(double value, string unitSuffix = "")
         {
             try
             {
-                return FormatNumber(value * 1000.0) + " um";
+                return AxisUnitConverter.FormatDisplay(value, _InputCassetteUnit.InputLifterZ, "0.###", true) + unitSuffix;
             }
             catch
             {
-                return "0 um";
+                return "0 " + AxisUnitConverter.DisplayUnitFor(_InputCassetteUnit != null ? _InputCassetteUnit.InputLifterZ : null) + unitSuffix;
             }
             finally
             {

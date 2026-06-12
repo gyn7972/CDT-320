@@ -1159,14 +1159,14 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 var items = new List<ParameterGridItem>();
                 AddStagePositions(items, unit);
                 
-                items.Add(ParameterGridItem.Micron("SAFETY RADIUS", ParameterGridScope.Setup, () => unit.Setup.SafetyRadius, v => unit.Setup.SafetyRadius = Math.Max(0.0, v)));
+                items.Add(AxisDouble("SAFETY RADIUS", ParameterGridScope.Setup, unit.StageY, () => unit.Setup.SafetyRadius, v => unit.Setup.SafetyRadius = Math.Max(0.0, v)));
                 items.Add(ParameterGridItem.Int("BARCODE READ TIMEOUT", "ms", ParameterGridScope.Setup, () => unit.Setup.BarcodeReadTimeoutMs, v => unit.Setup.BarcodeReadTimeoutMs = Math.Max(0, v)));
                 items.Add(ParameterGridItem.Int("ALIGN ITERATIONS", "count", ParameterGridScope.Config, () => unit.Config.MaxAlignIterations, v => unit.Config.MaxAlignIterations = Math.Max(1, v)));
                 items.Add(ParameterGridItem.Double("ALIGN THRESHOLD", "deg", ParameterGridScope.Config, () => unit.Config.AlignConvergenceThresholdDeg, v => unit.Config.AlignConvergenceThresholdDeg = Math.Max(0.0, v)));
-                items.Add(ParameterGridItem.Micron("PICK UP EJECT PIN OFFSET", ParameterGridScope.Config, () => unit.Config.PickUpEjectPinOffset, v => unit.Config.PickUpEjectPinOffset = v));
-                items.Add(ParameterGridItem.Double("PICK UP EJECT PIN SPEED", "mm/s", ParameterGridScope.Config, () => unit.Config.PickUpEjectPinSpeed, v => unit.Config.PickUpEjectPinSpeed = Math.Max(0.0, v)));
-                items.Add(ParameterGridItem.Double("PICK UP EJECT PIN ACC", "mm/s2", ParameterGridScope.Config, () => unit.Config.PickUpEjectPinAcc, v => unit.Config.PickUpEjectPinAcc = Math.Max(0.0, v)));
-                items.Add(ParameterGridItem.Double("PICK UP EJECT PIN DEC", "mm/s2", ParameterGridScope.Config, () => unit.Config.PickUpEjectPinDec, v => unit.Config.PickUpEjectPinDec = Math.Max(0.0, v)));
+                items.Add(AxisDouble("PICK UP EJECT PIN OFFSET", ParameterGridScope.Config, unit.EjectPinZ, () => unit.Config.PickUpEjectPinOffset, v => unit.Config.PickUpEjectPinOffset = v));
+                items.Add(AxisDouble("PICK UP EJECT PIN SPEED", ParameterGridScope.Config, unit.EjectPinZ, () => unit.Config.PickUpEjectPinSpeed, v => unit.Config.PickUpEjectPinSpeed = Math.Max(0.0, v), "/s"));
+                items.Add(AxisDouble("PICK UP EJECT PIN ACC", ParameterGridScope.Config, unit.EjectPinZ, () => unit.Config.PickUpEjectPinAcc, v => unit.Config.PickUpEjectPinAcc = Math.Max(0.0, v), "/s2"));
+                items.Add(AxisDouble("PICK UP EJECT PIN DEC", ParameterGridScope.Config, unit.EjectPinZ, () => unit.Config.PickUpEjectPinDec, v => unit.Config.PickUpEjectPinDec = Math.Max(0.0, v), "/s2"));
                 items.Add(ParameterGridItem.Bool("CONFIG DRY RUN", ParameterGridScope.Config, () => unit.Config.bDryRun, v => unit.Config.bDryRun = v));
                 items.Add(ParameterGridItem.Bool("SETUP SIMULATION MODE", ParameterGridScope.Setup, () => unit.Setup.IsSimulationMode, v => unit.Setup.IsSimulationMode = v));
                 return items;
@@ -1190,7 +1190,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             StagePositionKind.Reticle
         };
 
-        private static void AddStagePositions(List<ParameterGridItem> items, InputStageUnit unit)
+        private void AddStagePositions(List<ParameterGridItem> items, InputStageUnit unit)
         {
             foreach (StagePositionKind kind in OptionKindOrder)
             {
@@ -1203,7 +1203,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                         continue;
 
                     StageTeachingPosition captured = position;
-                    ParameterGridItem item = ParameterGridItem.Micron(captured.AxisLabel, ParameterGridScope.Recipe,
+                    BaseAxis axis = captured.AxisGetter(unit);
+                    ParameterGridItem item = AxisDouble(captured.AxisLabel, ParameterGridScope.Recipe, axis,
                         () => captured.Getter(captured.PositionSetGetter(unit)),
                         v => captured.Setter(captured.PositionSetGetter(unit), v));
                     item.Key = captured.DisplayName;   // 더블클릭/메뉴 티칭 조회는 원래 이름(DisplayName)으로 매칭
@@ -1628,12 +1629,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
                 lblVisionInfo.Text =
                     "VISION VIEW" + Environment.NewLine +
-                    "Origin X : " + FormatUm(_InputStageUnit.OriginX) + Environment.NewLine +
-                    "Origin Y : " + FormatUm(_InputStageUnit.OriginY) + Environment.NewLine +
-                    "Pitch X  : " + FormatUm(_InputStageUnit.PitchX) + Environment.NewLine +
-                    "Pitch Y  : " + FormatUm(_InputStageUnit.PitchY) + Environment.NewLine +
-                    "Align X  : " + FormatUm(_InputStageUnit.WaferAlignOffsetX) + Environment.NewLine +
-                    "Align Y  : " + FormatUm(_InputStageUnit.WaferAlignOffsetY) + Environment.NewLine +
+                    "Origin X : " + FormatAxis(_InputStageUnit.OriginX, _InputStageUnit.CameraX) + Environment.NewLine +
+                    "Origin Y : " + FormatAxis(_InputStageUnit.OriginY, _InputStageUnit.StageY) + Environment.NewLine +
+                    "Pitch X  : " + FormatAxis(_InputStageUnit.PitchX, _InputStageUnit.CameraX) + Environment.NewLine +
+                    "Pitch Y  : " + FormatAxis(_InputStageUnit.PitchY, _InputStageUnit.StageY) + Environment.NewLine +
+                    "Align X  : " + FormatAxis(_InputStageUnit.WaferAlignOffsetX, _InputStageUnit.CameraX) + Environment.NewLine +
+                    "Align Y  : " + FormatAxis(_InputStageUnit.WaferAlignOffsetY, _InputStageUnit.StageY) + Environment.NewLine +
                     "Needle Vacuum : " + OnOff(_InputStageUnit.NeedleVacuum != null && _InputStageUnit.NeedleVacuum.IsOn);
             }
             catch
@@ -1644,15 +1645,27 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
         }
 
-        private static string FormatUm(double value)
+        private ParameterGridItem AxisDouble(string displayName, ParameterGridScope scope, BaseAxis axis, Func<double> getter, Action<double> setter, string unitSuffix = "")
+        {
+            ParameterGridItem item = ParameterGridItem.Double(
+                displayName,
+                AxisUnitConverter.DisplayUnitFor(axis) + unitSuffix,
+                scope,
+                () => AxisUnitConverter.ToDisplay(getter(), axis),
+                v => setter(AxisUnitConverter.FromDisplay(v, axis)));
+            item.UnitGetter = () => AxisUnitConverter.DisplayUnitFor(axis) + unitSuffix;
+            return item;
+        }
+
+        private static string FormatAxis(double value, BaseAxis axis)
         {
             try
             {
-                return (value * 1000.0).ToString("0.###", CultureInfo.InvariantCulture) + " um";
+                return AxisUnitConverter.FormatDisplay(value, axis, "0.###", true);
             }
             catch
             {
-                return "0 um";
+                return "0 " + AxisUnitConverter.DisplayUnitFor(axis);
             }
             finally
             {

@@ -56,10 +56,10 @@ namespace QMC.CDT_320.Ui.Controls
         {
             _axisSelector.SelectedIndexChanged += (s, e) => UpdateDirectionHighlight();
 
-            _btnStep1.Click += (s, e) => SetStep(1000u);
-            _btnStep01.Click += (s, e) => SetStep(100u);
-            _btnStep001.Click += (s, e) => SetStep(10u);
-            _btnStep0001.Click += (s, e) => SetStep(1u);
+            _btnStep1.Click += (s, e) => SetStep(1.0m);
+            _btnStep01.Click += (s, e) => SetStep(0.1m);
+            _btnStep001.Click += (s, e) => SetStep(0.01m);
+            _btnStep0001.Click += (s, e) => SetStep(0.001m);
             _btnStepZero.Click += (s, e) => SetStep(0u);
             BindJogButton(_btnXMinus, () => _axisX, -1);
             BindJogButton(_btnXPlus, () => _axisX, +1);

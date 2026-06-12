@@ -1793,9 +1793,12 @@ namespace QMC.CDT320
                     return -1;
                 }
 
-                int completeHomeResult = await CompleteAxisHomeConditionAsync(axis).ConfigureAwait(false);
-                if (completeHomeResult != 0)
-                    return completeHomeResult;
+
+                // 홈 잡고 Avoid로 움직이는 부분 막자.
+                // 홈 시컨스에서 제어 하도록 하고 메뉴얼로 할떄는 홈잡고 멈춰야한다!
+                //int completeHomeResult = await CompleteAxisHomeConditionAsync(axis).ConfigureAwait(false);
+                //if (completeHomeResult != 0)
+                //    return completeHomeResult;
 
                 QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAxisCore",
                     "Axis initialize completed. axis=" + axis.Name + " - Ok");
@@ -1978,8 +1981,8 @@ namespace QMC.CDT320
 
                 switch (axis.Name)
                 {
-                    case "InputLifterZ":
-                        return await MoveInputLifterZToAvoidAfterHomeAsync().ConfigureAwait(false);
+                    //case "InputLifterZ":
+                    //    return await MoveInputLifterZToAvoidAfterHomeAsync().ConfigureAwait(false);
                     case "GoodStage_StageZ":
                         return await MoveOutputStageZToAvoidAsync().ConfigureAwait(false);
                     case "FrontPickerY":
@@ -2464,7 +2467,7 @@ namespace QMC.CDT320
                     "OutputNgStageY HOME 불가: NG Bin Guide 실린더가 Down 상태가 아닙니다."));
             }
 
-            if (outputStage.NgBinClampUpSensor != null && !outputStage.NgBinClampUpSensor.IsOn)
+            if (outputStage.NgBinClampUpSensor != null && outputStage.NgBinClampUpSensor.IsOn)
             {
                 return Task.FromResult(FailInitializePreparation(
                     "OutputNgStageY HOME 불가: NG Bin Clamp 실린더가 Up 상태가 아닙니다."));

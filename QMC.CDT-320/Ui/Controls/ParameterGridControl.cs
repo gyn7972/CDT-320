@@ -94,7 +94,7 @@ namespace QMC.CDT_320.Ui.Controls
                         continue;
 
                     SetValueCellText(row, item, FormatValue(item));
-                    row.Cells[colUnit.Index].Value = item.Unit ?? string.Empty;
+                    row.Cells[colUnit.Index].Value = item.GetUnit();
                     row.Cells[colScope.Index].Value = item.Scope.ToString();
                 }
             }
@@ -158,7 +158,7 @@ namespace QMC.CDT_320.Ui.Controls
                 // 접이식 그룹에 속한 멤버는 들여쓰기 + 글머리 기호 → 그룹 없는(원래) 항목과 명확히 구분
                 bool isGroupMember = !string.IsNullOrEmpty(item.GroupKey);
                 row.Cells[colName.Index].Value = isGroupMember ? "     ·   " + item.DisplayName : item.DisplayName;
-                row.Cells[colUnit.Index].Value = item.Unit ?? string.Empty;
+                row.Cells[colUnit.Index].Value = item.GetUnit();
                 row.Cells[colScope.Index].Value = item.Scope.ToString();
                 SetValueCellText(row, item, FormatValue(item));
             }
@@ -658,7 +658,7 @@ namespace QMC.CDT_320.Ui.Controls
                     return;
 
                 string currentText = FormatValue(item);
-                using (var dialog = new NumericKeypadDialog(item.DisplayName, currentText, item.Unit))
+                using (var dialog = new NumericKeypadDialog(item.DisplayName, currentText, item.GetUnit()))
                 {
                     if (dialog.ShowDialog(this) != DialogResult.OK)
                         return;
