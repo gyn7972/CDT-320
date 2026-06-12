@@ -107,7 +107,7 @@ namespace QMC.Vision.Modules
             // CameraId 는 생성 트리거라 수집 안 함(UI 가 설정).
         }
 
-        /// <summary>마이그레이션 — algorithm_camera.json 매핑 → 모듈 Config/Recipe(최초 부팅, 빈 경우).</summary>
+        /// <summary>CameraMappingPanel 워킹버퍼(AlgorithmCameraMapping) → 모듈 Config/Recipe 반영(UI 편집 저장).</summary>
         public void ImportCameraMapping(AlgorithmCameraMapping m)
         {
             if (m == null) return;
