@@ -2324,20 +2324,29 @@ namespace QMC.CDT320
 
         private Task<int> PrepareOutputVisionHomeAsync()
         {
-            Log("[INIT] Check OutputVisionX home: FrontPickerX / RearPickerX Avoid.");
+            Log("[INIT] Check OutputVisionX home: FrontPickerX / RearPickerX HomeDone or InputAvoid.");
 
             var front = _machine.PickerFrontUnit;
-            if (front != null && !front.IsPickerAxisInTeachingPosition(PickerAxis.PickerX, "AvoidPosition"))
+            string reason;
+            if (front != null && !IsPickerXHomeDoneOrInputAvoid(
+                    front.PickerX,
+                    () => front.IsPickerAxisInTeachingPosition(PickerAxis.PickerX, "InputAvoidPosition"),
+                    "FrontPickerX",
+                    out reason))
             {
                 return Task.FromResult(FailInitializePreparation(
-                    "OutputVisionX HOME 불가: FrontPickerX가 Avoid 위치에 있지 않습니다."));
+                    "OutputVisionX HOME 불가: FrontPickerX가 HomeDone 또는 InputAvoid 위치가 아닙니다. " + reason));
             }
 
             var rear = _machine.PickerRearUnit;
-            if (rear != null && !rear.IsPickerAxisInTeachingPosition(PickerAxis.PickerX, "AvoidPosition"))
+            if (rear != null && !IsPickerXHomeDoneOrInputAvoid(
+                    rear.PickerX,
+                    () => rear.IsPickerAxisInTeachingPosition(PickerAxis.PickerX, "InputAvoidPosition"),
+                    "RearPickerX",
+                    out reason))
             {
                 return Task.FromResult(FailInitializePreparation(
-                    "OutputVisionX HOME 불가: RearPickerX가 Avoid 위치에 있지 않습니다."));
+                    "OutputVisionX HOME 불가: RearPickerX가 HomeDone 또는 InputAvoid 위치가 아닙니다. " + reason));
             }
 
             var outputFeeder = _machine.OutputFeederUnit;
@@ -2354,6 +2363,47 @@ namespace QMC.CDT320
             }
 
             return Task.FromResult(0);
+        }
+
+        private bool IsPickerXHomeDoneOrInputAvoid(BaseAxis axis, Func<bool> isInputAvoid, string axisName, out string reason)
+        {
+            reason = string.Empty;
+
+            if (axis == null)
+            {
+                reason = axisName + " axis is null.";
+                Log("[INIT] " + axisName + " home/input avoid check failed. " + reason);
+                return false;
+            }
+
+            bool homeDone = axis.IsHomeDone;
+            bool inputAvoid = false;
+            string inputAvoidError = string.Empty;
+
+            try
+            {
+                inputAvoid = isInputAvoid != null && isInputAvoid();
+            }
+            catch (Exception ex)
+            {
+                inputAvoidError = ex.Message;
+            }
+
+            Log("[INIT] " + axisName + " home/input avoid check. homeDone=" + homeDone +
+                ", inputAvoid=" + inputAvoid +
+                ", actual=" + axis.ActualPosition);
+
+            if (homeDone || inputAvoid)
+                return true;
+
+            reason = "homeDone=" + homeDone +
+                     ", inputAvoid=" + inputAvoid +
+                     ", actual=" + axis.ActualPosition;
+
+            if (!string.IsNullOrEmpty(inputAvoidError))
+                reason += ", inputAvoidCheckError=" + inputAvoidError;
+
+            return false;
         }
 
         private async Task<int> PrepareOutputGoodStageYHomeAsync(BaseAxis axis)
