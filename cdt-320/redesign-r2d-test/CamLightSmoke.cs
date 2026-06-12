@@ -38,8 +38,12 @@ class CamLightSmoke
         var grid = Field<DataGridView>(panel, "_gridLightAssign");
         Ok("_gridLightAssign 존재", grid != null);
         Ok("_lblLightAssign 존재", Field<Label>(panel, "_lblLightAssign") != null);
-        Ok("페이지 프리뷰 우측 이동(700,188)",
-            Field<PictureBox>(panel, "_picPreview").Location == new Point(700, 188));
+        // 우측 반응형 컬럼 — _rightPanel(앵커 4방향) 안에 버튼 플로우(Top,Wrap) + 미리보기(Fill)
+        var right = Field<Panel>(panel, "_rightPanel");
+        var flow = Field<FlowLayoutPanel>(panel, "_flowButtons");
+        Ok("_rightPanel 4방향 앵커", right != null && right.Anchor == (AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right));
+        Ok("버튼 플로우 = Top + Wrap + 버튼 8개", flow != null && flow.Dock == DockStyle.Top && flow.WrapContents && flow.Controls.Count == 8);
+        Ok("미리보기 = Dock Fill(남는 공간 채움)", Field<PictureBox>(panel, "_picPreview").Dock == DockStyle.Fill);
 
         // 컨트롤러 콤보 = 인벤토리 PortName
         Call(panel, "RefreshLightCombos");
