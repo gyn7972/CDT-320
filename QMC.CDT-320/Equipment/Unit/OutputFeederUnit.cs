@@ -737,7 +737,7 @@ namespace QMC.CDT320
         private bool ShouldReadCylinderStateForSimulation(BaseCylinder cylinder)
         {
             return IsOutputFeederSimulationOrDryRun() &&
-                   IsCylinderSimulation(cylinder);
+                   (IsCylinderSimulation(cylinder) || IsCylinderInputWaitIgnored(cylinder));
         }
 
         private static bool CanSimulateInput(BaseDigitalInput input)
@@ -748,6 +748,11 @@ namespace QMC.CDT320
         private static bool IsCylinderSimulation(BaseCylinder cylinder)
         {
             return cylinder != null && cylinder.Config != null && cylinder.Config.IsSimulationMode;
+        }
+
+        private static bool IsCylinderInputWaitIgnored(BaseCylinder cylinder)
+        {
+            return cylinder != null && cylinder.Config != null && cylinder.Config.IgnoreInputWaits;
         }
 
         private static void SimulateInputIfAllowed(BaseDigitalInput input, bool state)

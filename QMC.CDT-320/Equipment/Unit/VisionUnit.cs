@@ -712,6 +712,9 @@ namespace QMC.CDT320
 
         private bool IsReticleStateConflict()
         {
+            if (Config.IsSimulationMode || Setup.IsSimulationMode)
+                return false;
+
             return (ReticleUpSensor.IsOn && ReticleDownSensor.IsOn) ||
                    (ReticleFrontSideFwSensor.IsOn && ReticleFrontSideBwSensor.IsOn) ||
                    (ReticleRearSideFwSensor.IsOn && ReticleRearSideBwSensor.IsOn);

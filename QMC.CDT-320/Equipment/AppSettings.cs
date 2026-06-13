@@ -51,7 +51,7 @@ namespace QMC.CDT320
         // ── Simulator link — auto connect ──
         [DataMember] public bool   SimulatorAutoConnect { get; set; } = false;
 
-        public bool BypassHardware => SimulationMode && DryRunMode;
+        public bool BypassHardware => SimulationMode;
     }
 
     /// <summary>

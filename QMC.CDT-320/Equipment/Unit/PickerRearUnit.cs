@@ -670,6 +670,9 @@ namespace QMC.CDT320
 
         public bool IsPickerFlowDetected(int pickerNo, bool expected = true)
         {
+            if (Config.IsSimulationMode || Setup.IsSimulationMode)
+                return true;
+
             return FlowChecks[NormalizePickerIndex(pickerNo, MaxIoPickerCount)].IsOn == expected;
         }
 

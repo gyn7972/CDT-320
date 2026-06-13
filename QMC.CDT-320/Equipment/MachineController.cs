@@ -809,7 +809,7 @@ namespace QMC.CDT320
             var feeder = _machine.InputFeederUnit;
 
             // 移댁꽭???덉갑 ?뺤씤
-            if (!cassette.CassetteExistSensor.IsOn)
+            if (!DryRun && !cassette.CassetteExistSensor.IsOn)
             {
                 AlarmManager.Raise(AlarmSeverity.Warning, "LOT-NOCASS",
                     cassette.Name, "Input cassette is not detected.");
@@ -2455,19 +2455,19 @@ namespace QMC.CDT320
                     "OutputNgStageY HOME 불가: GoodBinZ(GoodStageZ)가 Avoid 위치에 있지 않습니다."));
             }
 
-            if (outputStage.GoodBinGuideDownSensor != null && !outputStage.GoodBinGuideDownSensor.IsOn)
+            if (!DryRun && outputStage.GoodBinGuideDownSensor != null && !outputStage.GoodBinGuideDownSensor.IsOn)
             {
                 return Task.FromResult(FailInitializePreparation(
                     "OutputNgStageY HOME 불가: Good Bin Guide 실린더가 Down 상태가 아닙니다."));
             }
 
-            if (outputStage.NgBinGuideDownSensor != null && !outputStage.NgBinGuideDownSensor.IsOn)
+            if (!DryRun && outputStage.NgBinGuideDownSensor != null && !outputStage.NgBinGuideDownSensor.IsOn)
             {
                 return Task.FromResult(FailInitializePreparation(
                     "OutputNgStageY HOME 불가: NG Bin Guide 실린더가 Down 상태가 아닙니다."));
             }
 
-            if (outputStage.NgBinClampUpSensor != null && outputStage.NgBinClampUpSensor.IsOn)
+            if (!DryRun && outputStage.NgBinClampUpSensor != null && outputStage.NgBinClampUpSensor.IsOn)
             {
                 return Task.FromResult(FailInitializePreparation(
                     "OutputNgStageY HOME 불가: NG Bin Clamp 실린더가 Up 상태가 아닙니다."));
@@ -3680,7 +3680,7 @@ namespace QMC.CDT320
                     "InputFeeder HOME 불가: Overload 센서가 감지되었습니다.");
             }
 
-            if(feeder.Setup.IsSimulationMode == false)
+            if (!feeder.IsWaferFeederSimulationOrDryRun())
             {
                 if (!feeder.IsWaferFeederUnclamp())
                 {
@@ -3793,7 +3793,7 @@ namespace QMC.CDT320
                     "OutputFeeder HOME 불가: GoodBinZ(GoodStageZ)가 Avoid 위치에 있지 않습니다.");
             }
 
-            if (outputStage != null && outputStage.GoodBinGuideDownSensor != null && !outputStage.GoodBinGuideDownSensor.IsOn)
+            if (!DryRun && outputStage != null && outputStage.GoodBinGuideDownSensor != null && !outputStage.GoodBinGuideDownSensor.IsOn)
             {
                 return FailInitializePreparation(
                     "OutputFeeder HOME 불가: Good Bin Guide 실린더가 Down 상태가 아닙니다.");

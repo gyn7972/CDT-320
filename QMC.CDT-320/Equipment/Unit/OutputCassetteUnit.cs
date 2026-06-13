@@ -411,6 +411,10 @@ namespace QMC.CDT320
 
         public bool IsGoodBin(int nSize)
         {
+            if (IsDryRunInput(GoodBin8CassetteCheck0) ||
+                IsDryRunInput(GoodBin12CassetteCheck0))
+                return true;
+
             if (nSize == 8) return GoodBin8CassetteCheck0.IsOn || GoodBin8CassetteCheck1.IsOn;
             if (nSize == 12) return GoodBin12CassetteCheck0.IsOn || GoodBin12CassetteCheck1.IsOn;
             return IsAnyCassetteSensorOn(TargetCassette.Good1);
@@ -418,6 +422,10 @@ namespace QMC.CDT320
 
         public bool IsNgBin(int nSize)
         {
+            if (IsDryRunInput(NgBin8CassetteCheck0) ||
+                IsDryRunInput(NgBin12CassetteCheck0))
+                return true;
+
             if (nSize == 8) return NgBin8CassetteCheck0.IsOn || NgBin8CassetteCheck1.IsOn;
             if (nSize == 12) return NgBin12CassetteCheck0.IsOn || NgBin12CassetteCheck1.IsOn;
             return IsAnyCassetteSensorOn(TargetCassette.Ng);
@@ -430,6 +438,14 @@ namespace QMC.CDT320
 
         public bool IsBinCassettePresentAll(TargetCassette cassette, int recipeSize)
         {
+            if (cassette == TargetCassette.Ng &&
+                (IsDryRunInput(NgBin8CassetteCheck0) || IsDryRunInput(NgBin12CassetteCheck0)))
+                return true;
+
+            if (cassette != TargetCassette.Ng &&
+                (IsDryRunInput(GoodBin8CassetteCheck0) || IsDryRunInput(GoodBin12CassetteCheck0)))
+                return true;
+
             if (cassette == TargetCassette.Ng)
             {
                 if (recipeSize == 8) return NgBin8CassetteCheck0.IsOn && NgBin8CassetteCheck1.IsOn;
@@ -444,11 +460,16 @@ namespace QMC.CDT320
             return IsAnyCassetteSensorOn(cassette);
         }
 
-        public bool IsNgBinBW() { return NgBinCassetteBw.IsOn; }
-        public bool IsNgBinLock() { return NgBinCassetteLock.IsOn; }
+        public bool IsNgBinBW() { return IsDryRunInput(NgBinCassetteBw) || NgBinCassetteBw.IsOn; }
+        public bool IsNgBinLock() { return IsDryRunInput(NgBinCassetteLock) || NgBinCassetteLock.IsOn; }
         public bool IsBinProtrusionDetectionSensor() { return IsBinProtrusionDetected(); }
-        public bool IsBinProtrusionDetected() { return BinRingJutCheck.IsOn; }
-        public bool IsBinMapping() { return BinMappingSensor.IsOn; }
+        public bool IsBinProtrusionDetected() { return !IsDryRunInput(BinRingJutCheck) && BinRingJutCheck.IsOn; }
+        public bool IsBinMapping() { return !IsDryRunInput(BinMappingSensor) && BinMappingSensor.IsOn; }
+
+        private static bool IsDryRunInput(BaseDigitalInput input)
+        {
+            return input != null && input.Config != null && input.Config.IgnoreWaits;
+        }
 
         public async Task<bool> WaitNgBinLock(int timeoutMs)
         {
@@ -1522,6 +1543,9 @@ namespace QMC.CDT320
 
         private bool IsAnyCassetteSensorOn(TargetCassette cassette)
         {
+            if (IsOutputCassetteHardwareBypassed())
+                return true;
+
             if (cassette == TargetCassette.Ng)
             {
                 return NgBin8CassetteCheck0.IsOn || NgBin8CassetteCheck1.IsOn ||

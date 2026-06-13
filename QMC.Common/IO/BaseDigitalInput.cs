@@ -153,6 +153,15 @@ namespace QMC.Common.IO
                                                             int timeoutMs,
                                                             CancellationToken ct)
         {
+            if (Config.IgnoreWaits)
+            {
+                ApplyScannedState(targetState);
+                AjinIoScanService.SetSimulatedState(this, targetState);
+                if (Recipe.SettleTimeMs > 0)
+                    await Task.Delay(Recipe.SettleTimeMs, ct);
+                return true;
+            }
+
             Stopwatch sw = Stopwatch.StartNew();
 
             while (IsOn != targetState)

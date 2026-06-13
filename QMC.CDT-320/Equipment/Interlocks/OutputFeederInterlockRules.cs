@@ -93,7 +93,10 @@ namespace QMC.CDT320.Interlocks
                         "OutputFeederY HOME blocked. GoodBinZ(GoodStageZ) must be at Avoid position.",
                         out reason);
 
-                if (outputStage != null && outputStage.GoodBinGuideDownSensor != null && !outputStage.GoodBinGuideDownSensor.IsOn)
+                if (outputStage != null &&
+                    outputStage.GoodBinGuideDownSensor != null &&
+                    !IsDryRunInput(outputStage.GoodBinGuideDownSensor) &&
+                    !outputStage.GoodBinGuideDownSensor.IsOn)
                     return MotionGuardRuleHelpers.Block(
                         "OutputFeederY",
                         "OutputFeederY HOME blocked. Good Bin Guide must be down.",
@@ -109,19 +112,19 @@ namespace QMC.CDT320.Interlocks
                         "OutputFeederY HOME blocked. OutputFeeder overload sensor is detected.",
                         out reason);
 
-                if (!IsFeederUnclamp(feeder))
+                if (!feeder.IsOutputFeederSimulationOrDryRun() && !IsFeederUnclamp(feeder))
                     return MotionGuardRuleHelpers.Block(
                         "OutputFeederY",
                         "OutputFeederY HOME blocked. OutputFeeder must be unclamped.",
                         out reason);
 
-                if (!IsFeederUp(feeder))
+                if (!feeder.IsOutputFeederSimulationOrDryRun() && !IsFeederUp(feeder))
                     return MotionGuardRuleHelpers.Block(
                         "OutputFeederY",
                         "OutputFeederY HOME blocked. OutputFeeder must be up.",
                         out reason);
 
-                if (feeder.IsBinFeederRingCheck())
+                if (!feeder.IsOutputFeederSimulationOrDryRun() && feeder.IsBinFeederRingCheck())
                     return MotionGuardRuleHelpers.Block(
                         "OutputFeederY",
                         "OutputFeederY HOME blocked. OutputFeeder ring check is detected.",
@@ -213,6 +216,11 @@ namespace QMC.CDT320.Interlocks
 
             BaseCylinder cylinder = feeder.FeederClampCyl;
             return cylinder != null && cylinder.IsBwd;
+        }
+
+        private static bool IsDryRunInput(BaseDigitalInput input)
+        {
+            return input != null && input.Config != null && input.Config.IgnoreWaits;
         }
 
         private static void LogBlockedReason(string reason)

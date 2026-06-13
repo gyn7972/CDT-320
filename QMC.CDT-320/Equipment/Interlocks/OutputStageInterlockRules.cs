@@ -1,5 +1,7 @@
 ﻿using QMC.Common.Motion;
 
+using QMC.Common.IO;
+
 namespace QMC.CDT320.Interlocks
 {
     public static class OutputStageInterlockRules
@@ -227,19 +229,25 @@ namespace QMC.CDT320.Interlocks
                         "OutputNGStageY HOME blocked. GoodBinZ(GoodStageZ) must be at Avoid position.",
                         out reason);
 
-                if (outputStage.GoodBinGuideDownSensor != null && !outputStage.GoodBinGuideDownSensor.IsOn)
+                if (outputStage.GoodBinGuideDownSensor != null &&
+                    !IsDryRunInput(outputStage.GoodBinGuideDownSensor) &&
+                    !outputStage.GoodBinGuideDownSensor.IsOn)
                     return MotionGuardRuleHelpers.Block(
                         "OutputNGStageY",
                         "OutputNGStageY HOME blocked. Good Bin Guide cylinder must be down.",
                         out reason);
 
-                if (outputStage.NgBinGuideDownSensor != null && !outputStage.NgBinGuideDownSensor.IsOn)
+                if (outputStage.NgBinGuideDownSensor != null &&
+                    !IsDryRunInput(outputStage.NgBinGuideDownSensor) &&
+                    !outputStage.NgBinGuideDownSensor.IsOn)
                     return MotionGuardRuleHelpers.Block(
                         "OutputNGStageY",
                         "OutputNGStageY HOME blocked. NG Bin Guide cylinder must be down.",
                         out reason);
 
-                if (outputStage.NgBinClampUpSensor != null && !outputStage.NgBinClampUpSensor.IsOn)
+                if (outputStage.NgBinClampUpSensor != null &&
+                    !IsDryRunInput(outputStage.NgBinClampUpSensor) &&
+                    !outputStage.NgBinClampUpSensor.IsOn)
                     return MotionGuardRuleHelpers.Block(
                         "OutputNGStageY",
                         "OutputNGStageY HOME blocked. NG Bin Clamp cylinder must be up.",
@@ -293,6 +301,11 @@ namespace QMC.CDT320.Interlocks
                 return MotionGuardRuleHelpers.Block(movingName, "OutputVisionX is moving.", out reason);
 
             return true;
+        }
+
+        private static bool IsDryRunInput(BaseDigitalInput input)
+        {
+            return input != null && input.Config != null && input.Config.IgnoreWaits;
         }
 
         private static bool IsMovingExcept(BaseAxis axis, string movingName, params string[] names)

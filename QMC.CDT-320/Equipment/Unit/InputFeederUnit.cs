@@ -410,31 +410,49 @@ namespace QMC.CDT320
 
         public bool IsWaferFeederUp()
         {
+            if (ShouldReadCylinderStateForDryRun(InputFeederLift))
+                return InputFeederLift.IsFwd;
+
             return WaferFeederUpSensor.IsOn;
         }
 
         public bool IsWaferFeederDown()
         {
+            if (ShouldReadCylinderStateForDryRun(InputFeederLift))
+                return InputFeederLift.IsBwd;
+
             return WaferFeederDownSensor.IsOn;
         }
 
         public bool IsWaferFeederClamp()
         {
+            if (ShouldReadCylinderStateForDryRun(InputFeederClamp))
+                return InputFeederClamp.IsFwd;
+
             return !WaferFeederClampSensor.IsOn;
         }
 
         public bool IsWaferFeederUnclamp()
         {
+            if (ShouldReadCylinderStateForDryRun(InputFeederClamp))
+                return InputFeederClamp.IsBwd;
+
             return WaferFeederClampSensor.IsOn;
         }
 
         public bool IsWaferFeederRingCheck()
         {
+            if (IsWaferFeederSimulationOrDryRun())
+                return HasWaferOnFeeder();
+
             return WaferFeederRingCheckSensor.IsOn;
         }
 
         public bool IsWaferFeederRingDetected(bool expected = true)
         {
+            if (IsWaferFeederSimulationOrDryRun())
+                return HasWaferOnFeeder() == expected;
+
             return WaferFeederRingCheckSensor.IsOn == expected;
         }
 
@@ -452,6 +470,9 @@ namespace QMC.CDT320
 
         public bool IsWaferFeederUnclamped()
         {
+            if (ShouldReadCylinderStateForDryRun(InputFeederClamp))
+                return InputFeederClamp.IsBwd;
+
             return WaferFeederClampSensor.IsOn;
         }
 
@@ -460,6 +481,8 @@ namespace QMC.CDT320
             try
             {
                 BaseDigitalInput sensor = size <= 8 ? WaferFeeder8RingCheckSensor : WaferFeeder12RingCheckSensor;
+                if (IsWaferFeederSimulationOrDryRun())
+                    return HasWaferOnFeeder() == expected;
                 return sensor != null && sensor.IsOn == expected;
             }
             catch
@@ -790,6 +813,12 @@ namespace QMC.CDT320
             return cylinder != null && cylinder.Config != null && cylinder.Config.IsSimulationMode;
         }
 
+        private static bool ShouldReadCylinderStateForDryRun(BaseCylinder cylinder)
+        {
+            return cylinder != null && cylinder.Config != null &&
+                   (cylinder.Config.IsSimulationMode || cylinder.Config.IgnoreInputWaits);
+        }
+
         private static void SimulateInputIfAllowed(BaseDigitalInput input, bool state)
         {
             if (CanSimulateInput(input))
@@ -987,7 +1016,7 @@ namespace QMC.CDT320
             if (!await AwaitWithCancellation(WaitWaferFeederClamp(timeoutMs), ct))
                 return RaiseFeederAlarm("WF-LOAD-CLAMP-TIMEOUT", "WaferFeeder clamp sensor timeout.");
 
-            if(Setup.IsSimulationMode == false)
+            if (!IsWaferFeederSimulationOrDryRun())
             {
                 if (!IsWaferFeederRingDetected(true))
                     return RaiseFeederAlarm("WF-LOAD-RING", "WaferFeeder ring was not detected after cassette load.");

@@ -70,6 +70,7 @@ namespace QMC.CDT320.Ajin
             {
                 MotionAxisStore store = MotionAxisStore.LoadOrCreate(MotionAxisStore.DefaultPath);
                 if (store == null || store.Items == null || store.Items.Count == 0) return;
+                bool forceRealAxisInDryRun = IsApplicationDryRunMode();
 
                 foreach (BaseAxis axis in axes ?? Enumerable.Empty<BaseAxis>())
                 {
@@ -116,7 +117,9 @@ namespace QMC.CDT320.Ajin
                     {
                         AxisConfig c = axis.Config;
                         AxisConfig src = saved.Config;
-                        c.IsSimulationMode = (!Ready || axis is SimAxis) ? true : src.IsSimulationMode;
+                        c.IsSimulationMode = (!Ready || axis is SimAxis)
+                            ? true
+                            : forceRealAxisInDryRun ? false : src.IsSimulationMode;
                         if (src.DefaultVelocity > 0) c.DefaultVelocity = src.DefaultVelocity;
                         if (src.MaxVelocity > 0) c.MaxVelocity = src.MaxVelocity;
                         if (src.Acceleration > 0) c.Acceleration = src.Acceleration;
@@ -144,6 +147,26 @@ namespace QMC.CDT320.Ajin
         private static void ApplyPersistedAxisValues()
         {
             ApplyPersistedAxisValues(AxisManager.GetAll());
+        }
+
+        private static bool IsApplicationDryRunMode()
+        {
+            try
+            {
+                QMC.CDT320.AppSettings settings = QMC.CDT320.AppSettingsStore.Current;
+                if (settings == null)
+                    settings = QMC.CDT320.AppSettingsStore.Load();
+
+                return settings != null &&
+                       settings.DryRunMode &&
+                       !settings.SimulationMode &&
+                       settings.UseAjin &&
+                       Ready;
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         public static void ReloadConfiguredAxes()
@@ -538,6 +561,21 @@ namespace QMC.CDT320.Ajin
         {
             if (input == null) return;
             input.Config.IsSimulationMode = simulationMode || !Ready || input is SimDigitalInput;
+            input.Config.IgnoreWaits = false;
+        }
+
+        public static void ApplyInputDryRun(BaseDigitalInput input, bool dryRun)
+        {
+            if (input == null) return;
+            input.Config.IsSimulationMode = dryRun || !Ready || input is SimDigitalInput;
+            input.Config.IgnoreWaits = dryRun && Ready && !(input is SimDigitalInput);
+        }
+
+        public static void ApplyInputPersistedSimulation(BaseDigitalInput input)
+        {
+            if (input == null) return;
+            bool simulationMode = IoSettingsStore.InputSimulation(input.Name, !Ready);
+            ApplyInputSimulation(input, simulationMode);
         }
 
         public static void ApplyOutputSimulation(BaseDigitalOutput output, bool simulationMode)
@@ -546,17 +584,45 @@ namespace QMC.CDT320.Ajin
             output.Config.IsSimulationMode = simulationMode || !Ready || output is SimDigitalOutput;
         }
 
+        public static void ApplyOutputPersistedSimulation(BaseDigitalOutput output)
+        {
+            if (output == null) return;
+            bool simulationMode = IoSettingsStore.OutputSimulation(output.Name, !Ready);
+            ApplyOutputSimulation(output, simulationMode);
+        }
+
         public static void ApplyCylinderSimulation(BaseCylinder cylinder, bool simulationMode)
         {
             if (cylinder == null) return;
 
             bool sim = simulationMode || !Ready || cylinder is SimCylinder;
             cylinder.Config.IsSimulationMode = sim;
+            cylinder.Config.IgnoreInputWaits = false;
 
             ApplyOutputSimulation(cylinder.OutFwd, sim);
             ApplyOutputSimulation(cylinder.OutBwd, sim);
             ApplyInputSimulation(cylinder.InFwd, sim);
             ApplyInputSimulation(cylinder.InBwd, sim);
+        }
+
+        public static void ApplyCylinderDryRun(BaseCylinder cylinder, bool dryRun)
+        {
+            if (cylinder == null || cylinder.Config == null) return;
+
+            bool forceSimulation = !Ready || cylinder is SimCylinder;
+            if (forceSimulation)
+            {
+                ApplyCylinderSimulation(cylinder, true);
+                return;
+            }
+
+            cylinder.Config.IsSimulationMode = false;
+            cylinder.Config.IgnoreInputWaits = dryRun;
+
+            ApplyOutputSimulation(cylinder.OutFwd, false);
+            ApplyOutputSimulation(cylinder.OutBwd, false);
+            ApplyInputDryRun(cylinder.InFwd, dryRun);
+            ApplyInputDryRun(cylinder.InBwd, dryRun);
         }
 
         private static bool TryFindDio(string name, out DioMap m)

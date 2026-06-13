@@ -124,8 +124,7 @@ namespace QMC.CDT320.Interlocks
                         "InputFeederY HOME blocked. InputFeeder overload sensor is detected.",
                         out reason);
 
-                bool isSimulationMode = feeder.Setup != null && feeder.Setup.IsSimulationMode;
-                if (!isSimulationMode)
+                if (!feeder.IsWaferFeederSimulationOrDryRun())
                 {
                     if (!IsFeederUnclamp(feeder))
                         return MotionGuardRuleHelpers.Block(

@@ -162,11 +162,15 @@ namespace QMC.CDT320.Ajin
                 cylinder.Recipe.FwdTimeoutMs = settings.FwdTimeoutMs;
                 cylinder.Recipe.BwdTimeoutMs = settings.BwdTimeoutMs;
 
+                bool dryRunMode = IsApplicationDryRunMode();
                 bool simulationMode = settings.IsSimulationMode;
                 if (IsApplicationSimulationMode())
                     simulationMode = true;
 
-                AjinFactory.ApplyCylinderSimulation(cylinder, simulationMode);
+                if (dryRunMode)
+                    AjinFactory.ApplyCylinderDryRun(cylinder, true);
+                else
+                    AjinFactory.ApplyCylinderSimulation(cylinder, simulationMode);
             }
             catch
             {
@@ -203,13 +207,34 @@ namespace QMC.CDT320.Ajin
                     return false;
 
                 return settings.SimulationMode ||
-                       settings.DryRunMode ||
                        !settings.UseAjin ||
                        !AjinFactory.IsRealBoardReady;
             }
             catch
             {
                 return !AjinFactory.IsRealBoardReady;
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool IsApplicationDryRunMode()
+        {
+            try
+            {
+                AppSettings settings = AppSettingsStore.Current;
+                if (settings == null)
+                    return false;
+
+                return settings.DryRunMode &&
+                       !settings.SimulationMode &&
+                       settings.UseAjin &&
+                       AjinFactory.IsRealBoardReady;
+            }
+            catch
+            {
+                return false;
             }
             finally
             {

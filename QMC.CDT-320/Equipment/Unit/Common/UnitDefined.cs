@@ -403,7 +403,11 @@ namespace QMC.CDT320
         /// <summary>입력이 기대 상태가 될 때까지 대기합니다.</summary>
         public async Task<bool> WaitInputState(string key, bool expected, int timeoutMs)
         {
-            return await WaitUntilAsync(() => IsInputOn(key) == expected, timeoutMs);
+            BaseDigitalInput input;
+            if (_inputs.TryGetValue(key, out input) && input != null)
+                return await input.WaitUntilStateAsync(expected, timeoutMs);
+
+            return false;
         }
 
         /// <summary>축을 수동 조그 이동합니다.</summary>

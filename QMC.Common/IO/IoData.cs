@@ -47,6 +47,11 @@ namespace QMC.Common.IO
         /// false이면 실제 I/O 보드 API 호출 경로를 사용한다.
         /// </summary>
         public bool IsSimulationMode { get; set; } = true;
+
+        /// <summary>
+        /// true이면 센서 대기 시 목표 상태를 소프트로 반영하고 즉시 통과한다.
+        /// </summary>
+        public bool IgnoreWaits { get; set; } = false;
     }
 
     // ──────────────────────────────────────────────────────────────────────────

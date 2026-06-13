@@ -492,6 +492,10 @@ namespace QMC.CDT320
 
         public bool IsWaferCassetteExist(int nSize)
         {
+            if (IsDryRunInput(Wafer8CassetteCheck0) ||
+                IsDryRunInput(Wafer12CassetteCheck0))
+                return true;
+
             if (nSize == 8)
                 return Wafer8CassetteCheck0.IsOn || Wafer8CassetteCheck1.IsOn;
             if (nSize == 12)
@@ -506,6 +510,10 @@ namespace QMC.CDT320
 
         public bool IsWaferCassettePresentAll(int recipeSize)
         {
+            if (IsDryRunInput(Wafer8CassetteCheck0) ||
+                IsDryRunInput(Wafer12CassetteCheck0))
+                return true;
+
             if (recipeSize == 8)
                 return Wafer8CassetteCheck0.IsOn && Wafer8CassetteCheck1.IsOn;
             if (recipeSize == 12)
@@ -515,6 +523,9 @@ namespace QMC.CDT320
 
         public bool IsWaferProtrusionDetected()
         {
+            if (IsDryRunInput(WaferRingJutCheck))
+                return false;
+
             return WaferRingJutCheck.IsOn;
         }
 
@@ -525,7 +536,15 @@ namespace QMC.CDT320
 
         public bool IsWaferMapping()
         {
+            if (IsDryRunInput(WaferMappingSensor))
+                return false;
+
             return WaferMappingSensor.IsOn;
+        }
+
+        private static bool IsDryRunInput(BaseDigitalInput input)
+        {
+            return input != null && input.Config != null && input.Config.IgnoreWaits;
         }
 
         public async Task<int> WaitWaferJutClear(int timeoutMs)
@@ -1787,6 +1806,12 @@ namespace QMC.CDT320
 
         private bool IsAnyCassetteSensorOn()
         {
+            if (IsDryRunInput(Wafer8CassetteCheck0) ||
+                IsDryRunInput(Wafer12CassetteCheck0) ||
+                Config.bDryRun ||
+                (InputLifterZ != null && InputLifterZ.Config != null && InputLifterZ.Config.IsSimulationMode))
+                return true;
+
             return Wafer8CassetteCheck0.IsOn || Wafer8CassetteCheck1.IsOn ||
                    Wafer12CassetteCheck0.IsOn || Wafer12CassetteCheck1.IsOn;
         }

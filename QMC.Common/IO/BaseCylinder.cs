@@ -43,6 +43,11 @@ namespace QMC.Common.IO
         /// false이면 실제 하드웨어 I/O를 사용한다.
         /// </summary>
         public bool IsSimulationMode { get; set; } = true;
+
+        /// <summary>
+        /// true이면 밸브 DO는 실제로 제어하되 완료 DI 대기는 소프트 상태로 통과한다.
+        /// </summary>
+        public bool IgnoreInputWaits { get; set; } = false;
     }
 
     /// <summary>
@@ -240,7 +245,7 @@ namespace QMC.Common.IO
                 OutBwd.Off();
 
             // ── 시뮬레이션 모드: 지연 후 센서 강제 주입 ────────────────────
-            if (Config.IsSimulationMode)
+            if (Config.IsSimulationMode || Config.IgnoreInputWaits)
             {
                 await Task.Delay(SimulationDelayMs, ct);
                 ct.ThrowIfCancellationRequested();
@@ -298,7 +303,7 @@ namespace QMC.Common.IO
             }
 
             // ── 시뮬레이션 모드: 지연 후 센서 강제 주입 ────────────────────
-            if (Config.IsSimulationMode)
+            if (Config.IsSimulationMode || Config.IgnoreInputWaits)
             {
                 await Task.Delay(SimulationDelayMs, ct);
                 ct.ThrowIfCancellationRequested();

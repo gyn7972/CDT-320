@@ -39,6 +39,8 @@ namespace QMC.CDT_320
         internal OperationPanelMonitorService OpPanelMonitor { get; private set; }
         internal QMC.CDT320.Alarms.AlarmResponseService AlarmResponse { get; private set; }
         internal string CurrentRecipeName { get; private set; }
+        private QMC.CDT320.Recipes.RecipeProject _currentRecipe;
+        private readonly Dictionary<object, bool> _unitDryRunOverrides = new Dictionary<object, bool>();
         private bool _materialSnapshotRestored;
         private bool _applicationExitRequested;
         private bool _topDoorClosed = true;
@@ -117,9 +119,13 @@ namespace QMC.CDT_320
                     AjinSystem.Open(cfg.AjinIrqNo);
 
                 bool forceSimulation = bypassHardware || !AjinFactory.IsRealBoardReady;
+                bool dryRun = cfg.DryRunMode && !forceSimulation;
+                bool dataBypass = cfg.DryRunMode || forceSimulation;
 
                 if (Machine != null)
                 {
+                    ApplyUnitDryRunMode(Machine, dataBypass);
+
                     List<BaseAxis> axes = CurrentAxes();
                     if (forceSimulation)
                     {
@@ -135,19 +141,41 @@ namespace QMC.CDT_320
                     }
 
                     foreach (BaseDigitalInput input in EnumerateInputs(Machine))
-                        AjinFactory.ApplyInputSimulation(input, forceSimulation);
+                    {
+                        if (forceSimulation)
+                            AjinFactory.ApplyInputSimulation(input, true);
+                        else if (dryRun)
+                            AjinFactory.ApplyInputDryRun(input, true);
+                        else
+                            AjinFactory.ApplyInputPersistedSimulation(input);
+                    }
 
                     foreach (BaseDigitalOutput output in EnumerateOutputs(Machine))
-                        AjinFactory.ApplyOutputSimulation(output, forceSimulation);
+                    {
+                        if (forceSimulation || dryRun)
+                            AjinFactory.ApplyOutputSimulation(output, forceSimulation);
+                        else
+                            AjinFactory.ApplyOutputPersistedSimulation(output);
+                    }
 
                     foreach (BaseCylinder cylinder in EnumerateCylinders(Machine))
-                        AjinFactory.ApplyCylinderSimulation(cylinder, forceSimulation);
+                    {
+                        if (forceSimulation)
+                            AjinFactory.ApplyCylinderSimulation(cylinder, true);
+                        else if (dryRun)
+                            AjinFactory.ApplyCylinderDryRun(cylinder, true);
+                        else
+                            QMC.CDT320.Ajin.CylinderSettingsStore.Apply(cylinder);
+                    }
+
+                    if (!forceSimulation && !dryRun)
+                        ApplyUnitLocalRuntimeModes(Machine);
                 }
 
                 if (Controller != null)
                 {
-                    Controller.GlobalDryRun = cfg.DryRunMode;
-                    if (cfg.DryRunMode) Controller.DryRun = true;
+                    Controller.GlobalDryRun = dataBypass;
+                    Controller.DryRun = dataBypass || (_currentRecipe != null && _currentRecipe.DryRun);
                 }
 
                 QMC.Common.Logging.EventLogger.Write(
@@ -175,6 +203,7 @@ namespace QMC.CDT_320
 
                 CurrentRecipeName = NormalizeRecipeName(recipeName);
                 Machine.LoadRecipe(recipeName);
+                _currentRecipe = QMC.CDT320.Recipes.RecipeStore.Load(CurrentRecipeName);
             }
             catch (Exception ex)
             {
@@ -612,6 +641,7 @@ namespace QMC.CDT_320
                 if (last != null)
                 {
                     LoadMachineRecipe(last.FileName);
+                    _currentRecipe = last;
                     Controller.ApplyRecipeMode(last);
                     if (!_materialSnapshotRestored)
                         InitializeMaterialStateFromRecipe(last);
@@ -1144,6 +1174,128 @@ namespace QMC.CDT_320
             }
         }
 
+        private void ApplyUnitLocalRuntimeModes(CDT320_Machine machine)
+        {
+            try
+            {
+                if (machine == null || machine.Units == null)
+                    return;
+
+                foreach (var unit in machine.Units)
+                    ApplyNodeLocalRuntimeMode(unit, false, false);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Warning,
+                    UserSession.Name,
+                    "RUNTIME-MODE",
+                    "Unit local mode apply failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private void ApplyNodeLocalRuntimeMode(BaseEquipmentNode node, bool parentSimulation, bool parentDryRun)
+        {
+            if (node == null)
+                return;
+
+            var binding = System.Reflection.BindingFlags.Instance |
+                          System.Reflection.BindingFlags.Public |
+                          System.Reflection.BindingFlags.NonPublic;
+
+            object setup = GetPropertyValue(node, "Setup", binding);
+            object config = GetPropertyValue(node, "Config", binding);
+            bool hasDryRun = HasBoolProperty(config, "bDryRun", binding);
+            bool localSimulation = GetBoolProperty(setup, "IsSimulationMode", binding) ||
+                                   (!hasDryRun && GetBoolProperty(config, "IsSimulationMode", binding));
+            bool localDryRun = GetBoolProperty(config, "bDryRun", binding);
+
+            bool simulation = parentSimulation || localSimulation;
+            bool dryRun = parentDryRun || localDryRun;
+
+            BaseAxis axis = node as BaseAxis;
+            if (axis != null)
+            {
+                if (axis.Config != null && (simulation || dryRun))
+                    axis.Config.IsSimulationMode = simulation || axis is QMC.CDT320.SimAxis;
+                return;
+            }
+
+            BaseDigitalInput input = node as BaseDigitalInput;
+            if (input != null)
+            {
+                if (simulation)
+                    AjinFactory.ApplyInputSimulation(input, true);
+                else if (dryRun)
+                    AjinFactory.ApplyInputDryRun(input, true);
+                return;
+            }
+
+            BaseDigitalOutput output = node as BaseDigitalOutput;
+            if (output != null)
+            {
+                if (simulation)
+                    AjinFactory.ApplyOutputSimulation(output, true);
+                else if (dryRun)
+                    AjinFactory.ApplyOutputSimulation(output, false);
+                return;
+            }
+
+            BaseCylinder cylinder = node as BaseCylinder;
+            if (cylinder != null)
+            {
+                if (simulation)
+                    AjinFactory.ApplyCylinderSimulation(cylinder, true);
+                else if (dryRun)
+                    AjinFactory.ApplyCylinderDryRun(cylinder, true);
+                return;
+            }
+
+            var components = GetPropertyValue(node, "Components", binding) as System.Collections.IEnumerable;
+            if (components == null)
+                return;
+
+            foreach (object child in components)
+            {
+                BaseEquipmentNode childNode = child as BaseEquipmentNode;
+                if (childNode != null)
+                    ApplyNodeLocalRuntimeMode(childNode, simulation, dryRun);
+            }
+        }
+
+        private static object GetPropertyValue(object source, string propertyName, System.Reflection.BindingFlags binding)
+        {
+            if (source == null)
+                return null;
+
+            var prop = source.GetType().GetProperty(propertyName, binding);
+            return prop != null ? prop.GetValue(source, null) : null;
+        }
+
+        private static bool HasBoolProperty(object source, string propertyName, System.Reflection.BindingFlags binding)
+        {
+            if (source == null)
+                return false;
+
+            var prop = source.GetType().GetProperty(propertyName, binding);
+            return prop != null && prop.PropertyType == typeof(bool);
+        }
+
+        private static bool GetBoolProperty(object source, string propertyName, System.Reflection.BindingFlags binding)
+        {
+            if (source == null)
+                return false;
+
+            var prop = source.GetType().GetProperty(propertyName, binding);
+            if (prop == null || prop.PropertyType != typeof(bool) || !prop.CanRead)
+                return false;
+
+            return (bool)prop.GetValue(source, null);
+        }
+
         private static IEnumerable<BaseAxis> EnumerateAxes(CDT320_Machine machine)
         {
             if (machine == null) yield break;
@@ -1174,6 +1326,74 @@ namespace QMC.CDT_320
             foreach (var unit in machine.Units)
                 foreach (var input in EnumerateInputs(unit))
                     yield return input;
+        }
+
+        private void ApplyUnitDryRunMode(CDT320_Machine machine, bool dryRun)
+        {
+            try
+            {
+                if (machine == null || machine.Units == null)
+                    return;
+
+                foreach (var unit in machine.Units)
+                    ApplyNodeDryRunMode(unit, dryRun);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Warning,
+                    UserSession.Name,
+                    "RUNTIME-MODE",
+                    "Unit dry-run apply failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private void ApplyNodeDryRunMode(BaseEquipmentNode node, bool dryRun)
+        {
+            if (node == null) return;
+
+            var binding = System.Reflection.BindingFlags.Instance |
+                          System.Reflection.BindingFlags.Public |
+                          System.Reflection.BindingFlags.NonPublic;
+            var configProp = node.GetType().GetProperty("Config", binding);
+            object config = configProp != null ? configProp.GetValue(node, null) : null;
+            if (config != null)
+            {
+                var dryRunProp = config.GetType().GetProperty("bDryRun", binding);
+                if (dryRunProp != null && dryRunProp.CanWrite && dryRunProp.PropertyType == typeof(bool))
+                {
+                    if (dryRun)
+                    {
+                        if (!_unitDryRunOverrides.ContainsKey(config))
+                            _unitDryRunOverrides[config] = (bool)dryRunProp.GetValue(config, null);
+                        dryRunProp.SetValue(config, true, null);
+                    }
+                    else
+                    {
+                        bool original;
+                        if (_unitDryRunOverrides.TryGetValue(config, out original))
+                        {
+                            dryRunProp.SetValue(config, original, null);
+                            _unitDryRunOverrides.Remove(config);
+                        }
+                    }
+                }
+            }
+
+            var componentsProp = node.GetType().GetProperty("Components", binding);
+            var components = componentsProp != null ? componentsProp.GetValue(node, null) as System.Collections.IEnumerable : null;
+            if (components == null)
+                return;
+
+            foreach (object child in components)
+            {
+                BaseEquipmentNode childNode = child as BaseEquipmentNode;
+                if (childNode != null)
+                    ApplyNodeDryRunMode(childNode, dryRun);
+            }
         }
 
         private static IEnumerable<BaseDigitalOutput> EnumerateOutputs(CDT320_Machine machine)
