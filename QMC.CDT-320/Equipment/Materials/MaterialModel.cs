@@ -301,6 +301,8 @@ namespace QMC.CDT320.Materials
         [DataMember] public int Bin_IndexX { get; set; } = -1;
         [DataMember] public int Bin_IndexY { get; set; } = -1;
         [DataMember] public MaterialLocation CurrentLocation { get; set; } = MaterialLocation.Unknown();
+        [DataMember] public MaterialLocationKind ReservedPickerLocation { get; set; } = MaterialLocationKind.Unknown;
+        [DataMember] public int ReservedPickerNo { get; set; } = -1;
         [DataMember] public DieResult Result { get; set; } = DieResult.Unknown;
         [DataMember] public List<string> NgCodes { get; set; } = new List<string>();
         [DataMember] public VisionOffset WaferOffset { get; set; } = new VisionOffset();

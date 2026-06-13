@@ -1,5 +1,6 @@
 using System.Threading;
 using System.Threading.Tasks;
+using QMC.CDT320.Materials;
 
 namespace QMC.CDT320.Sequencing
 {
@@ -16,6 +17,8 @@ namespace QMC.CDT320.Sequencing
         {
             while (!ct.IsCancellationRequested)
             {
+                await WaitForPickerWorkAsync(ct).ConfigureAwait(false);
+
                 var options = PickerSequenceOptions.Default();
                 options.RunMode = Mode;
                 int result = await new PickerProcessSequence(Context, PickerSequenceSide.Rear)
@@ -52,6 +55,30 @@ namespace QMC.CDT320.Sequencing
 
             if (_stepSequence.IsComplete)
                 _stepSequence = null;
+        }
+
+        private async Task WaitForPickerWorkAsync(CancellationToken ct)
+        {
+            while (!HasPickerWork())
+            {
+                ct.ThrowIfCancellationRequested();
+
+                await Task.Delay(200, ct).ConfigureAwait(false);
+            }
+        }
+
+        private static bool HasPickerWork()
+        {
+            if (MaterialStateService.HasReadyInputStagePickTarget())
+                return true;
+
+            for (int pickerNo = 1; pickerNo <= 4; pickerNo++)
+            {
+                if (MaterialStateService.GetDieAtPicker(MaterialLocationKind.PickerRear, pickerNo) != null)
+                    return true;
+            }
+
+            return false;
         }
     }
 }

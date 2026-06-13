@@ -111,7 +111,11 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             _timer = new System.Windows.Forms.Timer { Interval = 200 };
             _timer.Tick += (s, e) => Refresh();
             _owner.HandleCreated += (s, e) => _timer.Start();
-            _owner.HandleDestroyed += (s, e) => _timer.Stop();
+            _owner.HandleDestroyed += (s, e) =>
+            {
+                _timer.Stop();
+                ResetStepSequence();
+            };
             Refresh();
         }
 
@@ -413,7 +417,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     return stepResult == 0;
                 }
 
-                _stepSequence = null;
+                ResetStepSequence();
                 int result = await new PickerProcessSequence(context, _side).RunAsync(ct, options).ConfigureAwait(false);
                 return result == 0;
             }
@@ -533,6 +537,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             try
             {
                 host.Controller.CancelManualOperation();
+                ResetStepSequence();
                 CDT320_Machine machine = host.Machine;
                 if (machine != null)
                 {
@@ -550,6 +555,23 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             {
                 await Task.Delay(50).ConfigureAwait(true);
                 SetButtonsEnabled(true);
+            }
+        }
+
+        private void ResetStepSequence()
+        {
+            try
+            {
+                if (_stepSequence != null)
+                    _stepSequence.Abort();
+            }
+            catch (Exception ex)
+            {
+                WriteAlarm("Step sequence reset failed: " + ex.Message);
+            }
+            finally
+            {
+                _stepSequence = null;
             }
         }
 

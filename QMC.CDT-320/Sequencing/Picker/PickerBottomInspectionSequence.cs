@@ -21,6 +21,7 @@ namespace QMC.CDT320.Sequencing
         private double _targetPickerY;
         private double _targetPickerZ;
         private double _targetPickerT;
+        private SequenceResourceLease _inspectionAreaLease;
 
         public PickerBottomInspectionSequence(MachineSequenceContext context, PickerSequenceSide side)
             : base(context, side, PickerSequenceKind.Inspect, side == PickerSequenceSide.Front ? "FrontPickerBottomInspectionSequence" : "RearPickerBottomInspectionSequence")
@@ -33,10 +34,35 @@ namespace QMC.CDT320.Sequencing
             get { return CurrentStep == PickerBottomInspectionStep.Complete; }
         }
 
-        protected override async Task<int> ExecuteAsync(CancellationToken ct)
+        public void Abort()
         {
             try
             {
+                ReleaseInspectionArea();
+                CurrentStep = PickerBottomInspectionStep.Complete;
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        protected override async Task<int> ExecuteAsync(CancellationToken ct)
+        {
+            bool keepCurrentState = false;
+
+            try
+            {
+                if (Options != null && Options.RunMode != SequenceRunMode.Auto)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    int stepResult = await ExecuteStepAsync(ct).ConfigureAwait(false);
+                    keepCurrentState = stepResult == 0 && CurrentStep != PickerBottomInspectionStep.Complete;
+                    return stepResult;
+                }
+
                 while (CurrentStep != PickerBottomInspectionStep.Complete)
                 {
                     ct.ThrowIfCancellationRequested();
@@ -58,6 +84,8 @@ namespace QMC.CDT320.Sequencing
             }
             finally
             {
+                if (!keepCurrentState)
+                    ReleaseInspectionArea();
             }
         }
 
@@ -157,6 +185,13 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> MoveAllPickerZToAvoidAsync(CancellationToken ct)
         {
+            if (_inspectionAreaLease == null)
+            {
+                _inspectionAreaLease = await AcquireResourceAsync(SequenceResourceKind.InspectionArea, Name + ":Bottom", ct).ConfigureAwait(false);
+                if (_inspectionAreaLease == null)
+                    return -1;
+            }
+
             int result = await MoveAllPickerZToAvoidAndVerifyAsync("bottom inspection pre all picker Z avoid", ct).ConfigureAwait(false);
             if (result != 0)
                 return result;
@@ -170,6 +205,7 @@ namespace QMC.CDT320.Sequencing
             if (_pickerCursor >= _pickedPickerIndexes.Count)
             {
                 CurrentStep = PickerBottomInspectionStep.Complete;
+                ReleaseInspectionArea();
                 return 0;
             }
 
@@ -252,7 +288,9 @@ namespace QMC.CDT320.Sequencing
                         ", attempt=" + attempt + " - Check");
                 }
 
-                return Fail("PICKER-BOTTOM-VISION-NG", "Vision", "Bottom inspection failed. die=" + _currentDie.DieId + ", pickerNo=" + _currentPickerNo);
+                return Fail("PICKER-BOTTOM-VISION-FAIL", "Vision",
+                    "Bottom inspection communication/result failed after retry. die=" +
+                    _currentDie.DieId + ", pickerNo=" + _currentPickerNo);
             }
             catch (OperationCanceledException)
             {
@@ -273,7 +311,7 @@ namespace QMC.CDT320.Sequencing
                 ? MaterialInspectionResult.Ok
                 : MaterialInspectionResult.Ng;
 
-            DieResult dieResult = _bottomResult.IsOk
+            DieResult dieResult = _bottomResult.IsOk && _currentDie.Result != DieResult.NG
                 ? DieResult.Good
                 : DieResult.NG;
 
@@ -365,22 +403,40 @@ namespace QMC.CDT320.Sequencing
 
             ct.ThrowIfCancellationRequested();
 
-            Tuple<BottomVisionOffset[], SideVisionResult[]> inspection = Side == PickerSequenceSide.Front
-                ? await FrontPicker.InspectBottomAndSideAsync(0, 0).ConfigureAwait(false)
-                : await RearPicker.InspectBottomAndSideAsync(0, 0).ConfigureAwait(false);
+            int timeoutMs = ResolveTimeout();
+            WriteLog("PickerBottomInspectionSequence",
+                Name + " request bottom vision. die=" + _currentDie.DieId +
+                ", pickerNo=" + _currentPickerNo +
+                ", pickerX=" + _targetPickerX +
+                ", pickerY=" + _targetPickerY +
+                ", pickerZ=" + _targetPickerZ +
+                ", pickerT=" + _targetPickerT +
+                ", timeoutMs=" + timeoutMs + " - Start");
 
-            BottomVisionOffset[] results = inspection != null ? inspection.Item1 : null;
-
-            if (results == null)
-                return null;
-
-            for (int i = 0; i < results.Length; i++)
+            BottomVisionOffset result;
+            if (Side == PickerSequenceSide.Front)
             {
-                if (results[i] != null && results[i].PickerNo == _currentPickerNo)
-                    return results[i];
+                result = await FrontPicker.RequestBottomInspectionAsync(_currentPickerNo, timeoutMs).ConfigureAwait(false);
+            }
+            else
+            {
+                result = await RearPicker.RequestBottomInspectionAsync(_currentPickerNo, timeoutMs).ConfigureAwait(false);
             }
 
-            return null;
+            if (result == null)
+                return null;
+
+            if (!result.IsOk)
+            {
+                WriteLog("PickerBottomInspectionSequence",
+                    Name + " bottom vision returned NG. die=" + _currentDie.DieId +
+                    ", pickerNo=" + _currentPickerNo +
+                    ", offsetX=" + result.OffsetX +
+                    ", offsetY=" + result.OffsetY +
+                    ", offsetT=" + result.OffsetT + " - Check");
+            }
+
+            return result;
         }
 
         private BottomVisionOffset SimulateBottomResult()
@@ -410,6 +466,25 @@ namespace QMC.CDT320.Sequencing
                 return RearPicker.Config.bDryRun;
 
             return false;
+        }
+
+        private void ReleaseInspectionArea()
+        {
+            try
+            {
+                if (_inspectionAreaLease == null)
+                    return;
+
+                _inspectionAreaLease.Dispose();
+                _inspectionAreaLease = null;
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PickerBottomInspectionSequence", "InspectionArea lease release failed: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
         }
     }
 }

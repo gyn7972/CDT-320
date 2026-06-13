@@ -61,6 +61,13 @@ namespace QMC.CDT320
             set { bDryRun = value; }
         }
 
+        [OnDeserializing]
+        private void OnDeserializing(StreamingContext ctx)
+        {
+            UseUnit = true;
+            RunOrderMode = PickerRunOrderMode.Descending;
+        }
+
         [OnDeserialized]
         private void OnDeserialized(StreamingContext ctx)
         {
@@ -216,6 +223,7 @@ namespace QMC.CDT320
 
         private readonly Dictionary<PickerAxis, BaseAxis> axes = new Dictionary<PickerAxis, BaseAxis>();
         private readonly string side;
+        private readonly IVisionTpuClient vision;
 
         public BaseAxis PickerX { get; private set; }
         public BaseAxis PickerY { get; private set; }
@@ -244,6 +252,7 @@ namespace QMC.CDT320
         public PickerFrontUnit() : base("PickerFrontUnit")
         {
             side = "Front";
+            vision = new QMC.CDT320.VisionComm.TpuVisionAdapter();
 
             PickerX = RegisterAxis(PickerAxis.PickerX, side + "PickerX");
             PickerY = RegisterAxis(PickerAxis.PickerY, side + "PickerY");
@@ -332,24 +341,112 @@ namespace QMC.CDT320
             };
         }
 
-        public Task<Tuple<BottomVisionOffset[], SideVisionResult[]>> InspectBottomAndSideAsync(double dieSizeX, double dieSizeY)
+        public async Task<Tuple<BottomVisionOffset[], SideVisionResult[]>> InspectBottomAndSideAsync(double dieSizeX, double dieSizeY)
         {
             BottomVisionOffset[] bottom = new BottomVisionOffset[MaxPickerCount];
             SideVisionResult[] sideResults = new SideVisionResult[MaxPickerCount];
             for (int i = 0; i < MaxPickerCount; i++)
             {
-                bottom[i] = new BottomVisionOffset { PickerNo = i + 1, IsOk = true };
-                sideResults[i] = new SideVisionResult
-                {
-                    PickerNo = i + 1,
-                    Side1Ok = true,
-                    Side2Ok = true,
-                    Side3Ok = true,
-                    Side4Ok = true
-                };
+                int pickerNo = i + 1;
+                bottom[i] = await RequestBottomInspectionAsync(pickerNo, Recipe != null ? Recipe.IoTimeoutMs : 5000).ConfigureAwait(false);
+                sideResults[i] = await RequestSideInspectionAsync(pickerNo, 0, Recipe != null ? Recipe.IoTimeoutMs : 5000).ConfigureAwait(false);
             }
 
-            return Task.FromResult(Tuple.Create(bottom, sideResults));
+            return Tuple.Create(bottom, sideResults);
+        }
+
+        public async Task<BottomVisionOffset> RequestBottomInspectionAsync(int pickerNo, int timeoutMs)
+        {
+            try
+            {
+                if (vision == null)
+                {
+                    Log.Write("Main", "VISION", "PickerBottomInspect",
+                        Name + " bottom vision client is null. pickerNo=" + pickerNo + " - Failed");
+                    return null;
+                }
+
+                bool triggered = await vision.TriggerBottomExposeAsync(pickerNo, timeoutMs).ConfigureAwait(false);
+                if (!triggered)
+                {
+                    Log.Write("Main", "VISION", "PickerBottomInspect",
+                        Name + " bottom vision trigger failed. pickerNo=" + pickerNo + ", timeoutMs=" + timeoutMs + " - Failed");
+                    return null;
+                }
+
+                BottomVisionOffset[] results = await vision.GetBottomResultsAsync(timeoutMs).ConfigureAwait(false);
+                if (results == null)
+                {
+                    Log.Write("Main", "VISION", "PickerBottomInspect",
+                        Name + " bottom vision result is null. pickerNo=" + pickerNo + ", timeoutMs=" + timeoutMs + " - Failed");
+                    return null;
+                }
+
+                for (int i = 0; i < results.Length; i++)
+                {
+                    if (results[i] != null && results[i].PickerNo == pickerNo)
+                        return results[i];
+                }
+
+                Log.Write("Main", "VISION", "PickerBottomInspect",
+                    Name + " bottom vision result missing picker. pickerNo=" + pickerNo + ", resultCount=" + results.Length + " - Failed");
+                return null;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "VISION", "PickerBottomInspect",
+                    Name + " bottom vision exception. pickerNo=" + pickerNo + ", error=" + ex.Message + " - Failed");
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
+        public async Task<SideVisionResult> RequestSideInspectionAsync(int pickerNo, int angleDeg, int timeoutMs)
+        {
+            try
+            {
+                if (vision == null)
+                {
+                    Log.Write("Main", "VISION", "PickerSideInspect",
+                        Name + " side vision client is null. pickerNo=" + pickerNo + ", angleDeg=" + angleDeg + " - Failed");
+                    return null;
+                }
+
+                int sideNo = angleDeg == 90 ? 2 : 1;
+                bool triggered = await vision.TriggerSideExposeAsync(pickerNo, sideNo, timeoutMs).ConfigureAwait(false);
+                if (!triggered)
+                {
+                    Log.Write("Main", "VISION", "PickerSideInspect",
+                        Name + " side vision trigger failed. pickerNo=" + pickerNo +
+                        ", sideNo=" + sideNo + ", angleDeg=" + angleDeg +
+                        ", timeoutMs=" + timeoutMs + " - Failed");
+                    return null;
+                }
+
+                SideVisionResult result = await vision.GetSideResultAsync(pickerNo, timeoutMs).ConfigureAwait(false);
+                if (result == null)
+                {
+                    Log.Write("Main", "VISION", "PickerSideInspect",
+                        Name + " side vision result is null. pickerNo=" + pickerNo +
+                        ", sideNo=" + sideNo + ", angleDeg=" + angleDeg +
+                        ", timeoutMs=" + timeoutMs + " - Failed");
+                    return null;
+                }
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "VISION", "PickerSideInspect",
+                    Name + " side vision exception. pickerNo=" + pickerNo +
+                    ", angleDeg=" + angleDeg + ", error=" + ex.Message + " - Failed");
+                return null;
+            }
+            finally
+            {
+            }
         }
 
         public IReadOnlyDictionary<PickerAxis, BaseAxis> Axes { get { return axes; } }
