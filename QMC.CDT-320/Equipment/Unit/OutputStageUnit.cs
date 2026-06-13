@@ -1278,6 +1278,40 @@ namespace QMC.CDT320
             }
         }
 
+        public string BuildStageAxisState(BinStageAxis axis, double target)
+        {
+            try
+            {
+                if (!HasStageAxis(axis))
+                    return axis + "[state=not-mounted-or-null, target=" + target + "]";
+
+                BaseAxis item = ResolveStageAxis(axis);
+                if (item == null)
+                    return axis + "[state=null, target=" + target + "]";
+
+                double tolerance = item.Config != null && item.Config.InPositionTolerance > 0.0
+                    ? item.Config.InPositionTolerance
+                    : 0.001;
+
+                return axis +
+                       "[name=" + item.Name +
+                       ", servo=" + (item.IsServoOn ? "ON" : "OFF") +
+                       ", alarm=" + (item.IsAlarm ? "ON" : "OFF") +
+                       ", moving=" + (item.IsMoving ? "Y" : "N") +
+                       ", actual=" + item.ActualPosition +
+                       ", target=" + target +
+                       ", tolerance=" + tolerance +
+                       "]";
+            }
+            catch (Exception ex)
+            {
+                return axis + "[state=exception, target=" + target + ", error=" + ex.Message + "]";
+            }
+            finally
+            {
+            }
+        }
+
         private BaseAxis ResolveStageAxis(BinStageAxis axis)
         {
             switch (axis)

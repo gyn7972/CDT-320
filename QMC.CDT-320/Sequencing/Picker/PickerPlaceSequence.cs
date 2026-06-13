@@ -20,6 +20,8 @@ namespace QMC.CDT320.Sequencing
         private double _targetPickerT;
         private double _targetPickerZ;
         private double _targetOutputStageY;
+        private SequenceResourceLease _outputPlaceLease;
+        private SequenceResourceLease _outputStageLease;
 
         public PickerPlaceSequence(MachineSequenceContext context, PickerSequenceSide side)
             : base(context, side, PickerSequenceKind.UnloadToOutput, side == PickerSequenceSide.Front ? "FrontPickerPlaceSequence" : "RearPickerPlaceSequence")
@@ -32,6 +34,22 @@ namespace QMC.CDT320.Sequencing
             get { return CurrentStep == PickerPlaceStep.Complete; }
         }
 
+        public void Abort()
+        {
+            try
+            {
+                ReleaseOutputPlaceArea();
+                ReleaseOutputStageArea();
+                CurrentStep = PickerPlaceStep.Complete;
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
         private OutputStageUnit OutputStage
         {
             get { return Context != null && Context.Machine != null ? Context.Machine.OutputStageUnit : null; }
@@ -39,8 +57,18 @@ namespace QMC.CDT320.Sequencing
 
         protected override async Task<int> ExecuteAsync(CancellationToken ct)
         {
+            bool keepCurrentState = false;
+
             try
             {
+                if (Options != null && Options.RunMode != SequenceRunMode.Auto)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    int stepResult = await ExecuteStepAsync(ct).ConfigureAwait(false);
+                    keepCurrentState = stepResult == 0 && CurrentStep != PickerPlaceStep.Complete;
+                    return stepResult;
+                }
+
                 while (CurrentStep != PickerPlaceStep.Complete)
                 {
                     ct.ThrowIfCancellationRequested();
@@ -62,6 +90,11 @@ namespace QMC.CDT320.Sequencing
             }
             finally
             {
+                if (!keepCurrentState)
+                {
+                    ReleaseOutputPlaceArea();
+                    ReleaseOutputStageArea();
+                }
             }
         }
 
@@ -244,6 +277,24 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> MoveOutputStageLoadPositionAsync(CancellationToken ct)
         {
+            if (_outputPlaceLease == null)
+            {
+                _outputPlaceLease = await AcquireResourceAsync(SequenceResourceKind.OutputPlaceArea, Name + ":Place", ct).ConfigureAwait(false);
+                if (_outputPlaceLease == null)
+                    return -1;
+            }
+
+            if (_outputStageLease == null)
+            {
+                SequenceResourceKind resource = _currentOutputSide == BinSide.Ng
+                    ? SequenceResourceKind.OutputNgStageArea
+                    : SequenceResourceKind.OutputGoodStageArea;
+
+                _outputStageLease = await AcquireResourceAsync(resource, Name + ":Place:" + _currentOutputSide, ct).ConfigureAwait(false);
+                if (_outputStageLease == null)
+                    return -1;
+            }
+
             int result = await AwaitStepWithCancellationAsync(
                 OutputStage.MoveToStageLoadPositionAndVerifyAsync(_currentOutputSide, ResolveTimeout(), Options.FineMove),
                 ct).ConfigureAwait(false);
@@ -305,13 +356,26 @@ namespace QMC.CDT320.Sequencing
         private int VerifyPlaceTarget()
         {
             if (!IsPickerAxisInPosition(PickerAxis.PickerX, _targetPickerX))
-                return Fail("PICKER-PLACE-POSITION-CHECK", Name, "PickerX final position check failed before place.");
+            {
+                return Fail("PICKER-PLACE-POSITION-CHECK", Name,
+                    "PickerX final position check failed before place. " +
+                    BuildPickerAxisState(PickerAxis.PickerX, _targetPickerX));
+            }
 
             if (!IsPickerAxisInPosition(PickerAxis.PickerY, _targetPickerY))
-                return Fail("PICKER-PLACE-POSITION-CHECK", Name, "PickerY final position check failed before place.");
+            {
+                return Fail("PICKER-PLACE-POSITION-CHECK", Name,
+                    "PickerY final position check failed before place. " +
+                    BuildPickerAxisState(PickerAxis.PickerY, _targetPickerY));
+            }
 
             if (!IsPickerAxisInPosition(GetPickerTAxis(_currentPickerIndex), _targetPickerT))
-                return Fail("PICKER-PLACE-POSITION-CHECK", Name, "PickerT final position check failed before place. pickerNo=" + _currentPickerNo);
+            {
+                PickerAxis tAxis = GetPickerTAxis(_currentPickerIndex);
+                return Fail("PICKER-PLACE-POSITION-CHECK", Name,
+                    "PickerT final position check failed before place. pickerNo=" + _currentPickerNo +
+                    ", " + BuildPickerAxisState(tAxis, _targetPickerT));
+            }
 
             CurrentStep = PickerPlaceStep.MovePickerZPlace;
             return 0;
@@ -399,8 +463,45 @@ namespace QMC.CDT320.Sequencing
                 ", outputWafer=" + (_receiveTarget != null ? _receiveTarget.OutputWaferId : "-") +
                 ", order=" + (_receiveTarget != null ? _receiveTarget.OrderIndex.ToString() : "-") + " - Ok");
 
+            NotifySequenceProgressAfterPlace();
+
             CurrentStep = PickerPlaceStep.SelectNextPickerOrComplete;
+            ReleaseOutputPlaceArea();
+            ReleaseOutputStageArea();
             return 0;
+        }
+
+        private void NotifySequenceProgressAfterPlace()
+        {
+            try
+            {
+                if (MaterialStateService.IsInputStagePickComplete())
+                {
+                    Context.Bus.Set("InputStageDieComplete");
+                    WriteLog("PickerPlaceSequence",
+                        Name + " input stage die complete signal set after place. - Ok");
+                }
+
+                if (MaterialStateService.IsOutputStageReceiveComplete(_currentOutputSide))
+                {
+                    string signal = _currentOutputSide == BinSide.Ng
+                        ? "OutputNgStageReceiveComplete"
+                        : "OutputGoodStageReceiveComplete";
+
+                    Context.Bus.Set(signal);
+                    WriteLog("PickerPlaceSequence",
+                        Name + " output stage receive complete signal set. side=" +
+                        _currentOutputSide + ", signal=" + signal + " - Ok");
+                }
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PickerPlaceSequence",
+                    Name + " sequence progress notify failed: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
         }
 
         private int SelectNextPickerOrComplete()
@@ -410,6 +511,8 @@ namespace QMC.CDT320.Sequencing
             if (_pickerCursor >= _pickedPickerIndexes.Count)
             {
                 CurrentStep = PickerPlaceStep.Complete;
+                ReleaseOutputPlaceArea();
+                ReleaseOutputStageArea();
                 return 0;
             }
 
@@ -425,14 +528,26 @@ namespace QMC.CDT320.Sequencing
 
                 int result = await AwaitStepWithCancellationAsync(OutputStage.MoveStageAxis(axis, target, Options.FineMove), ct).ConfigureAwait(false);
                 if (result != 0)
-                    return Fail("PICKER-PLACE-STAGE-MOVE", "OutputStage", description + " move command failed. axis=" + axis + ", target=" + target + ", result=" + result);
+                {
+                    return Fail("PICKER-PLACE-STAGE-MOVE", "OutputStage",
+                        description + " move command failed. result=" + result + ". " +
+                        OutputStage.BuildStageAxisState(axis, target));
+                }
 
                 bool done = await AwaitStepWithCancellationAsync(OutputStage.WaitStageAxisMoveDone(axis, ResolveTimeout()), ct).ConfigureAwait(false);
                 if (!done)
-                    return Fail("PICKER-PLACE-STAGE-TIMEOUT", "OutputStage", description + " move done timeout. axis=" + axis + ", target=" + target);
+                {
+                    return Fail("PICKER-PLACE-STAGE-TIMEOUT", "OutputStage",
+                        description + " move done timeout. " +
+                        OutputStage.BuildStageAxisState(axis, target));
+                }
 
                 if (!OutputStage.IsStageAxisInPosition(axis, target, 0.001))
-                    return Fail("PICKER-PLACE-STAGE-CHECK", "OutputStage", description + " final position check failed. axis=" + axis + ", target=" + target);
+                {
+                    return Fail("PICKER-PLACE-STAGE-CHECK", "OutputStage",
+                        description + " final position check failed. " +
+                        OutputStage.BuildStageAxisState(axis, target));
+                }
 
                 return 0;
             }
@@ -468,6 +583,44 @@ namespace QMC.CDT320.Sequencing
                 return RearPicker.Recipe.VacuumSettleMs;
 
             return 100;
+        }
+
+        private void ReleaseOutputStageArea()
+        {
+            try
+            {
+                if (_outputStageLease == null)
+                    return;
+
+                _outputStageLease.Dispose();
+                _outputStageLease = null;
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PickerPlaceSequence", "OutputStageArea lease release failed: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        private void ReleaseOutputPlaceArea()
+        {
+            try
+            {
+                if (_outputPlaceLease == null)
+                    return;
+
+                _outputPlaceLease.Dispose();
+                _outputPlaceLease = null;
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PickerPlaceSequence", "OutputPlaceArea lease release failed: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
         }
     }
 }

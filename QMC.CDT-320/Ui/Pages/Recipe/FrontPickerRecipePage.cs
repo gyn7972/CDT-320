@@ -199,6 +199,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
 
             // ===== CONFIG (그룹 없이 펼친 상태로 표시) =====
+            optionItems.Add(ParameterGridItem.Bool("FRONT PICKER USE", ParameterGridScope.Config, () => unit.Config.UseUnit, v => unit.Config.UseUnit = v));
+            optionItems.Add(ParameterGridItem.Selection("RUN ORDER MODE", "mode", ParameterGridScope.Config, () => unit.Config.RunOrderMode, v => unit.Config.RunOrderMode = v));
             optionItems.Add(ParameterGridItem.Bool("DRY RUN", ParameterGridScope.Config, () => unit.Config.bDryRun, v => unit.Config.bDryRun = v));
             AddPickerConfigItems(optionItems);
 
@@ -235,6 +237,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 items.Add(AxisDouble(name + " OFFSET X", PickerAxis.PickerX, AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => unit.Config.Picker[index].AlignOffsetX, v => unit.Config.Picker[index].AlignOffsetX = v));
                 items.Add(AxisDouble(name + " OFFSET Y", PickerAxis.PickerY, AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => unit.Config.Picker[index].AlignOffsetY, v => unit.Config.Picker[index].AlignOffsetY = v));
                 items.Add(ParameterGridItem.Double(name + " OFFSET T", "deg", ParameterGridScope.Config, () => unit.Config.Picker[index].AlignOffsetT, v => unit.Config.Picker[index].AlignOffsetT = v));
+                items.Add(AxisDouble(name + " INPUT VISION X -> PICKER X", PickerAxis.PickerX, AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => unit.Config.Picker[index].InputVisionToPickerXOffset, v => unit.Config.Picker[index].InputVisionToPickerXOffset = v));
+                items.Add(AxisDouble(name + " OUTPUT VISION X -> PICKER X", PickerAxis.PickerX, AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => unit.Config.Picker[index].OutputVisionToPickerXOffset, v => unit.Config.Picker[index].OutputVisionToPickerXOffset = v));
             }
         }
 

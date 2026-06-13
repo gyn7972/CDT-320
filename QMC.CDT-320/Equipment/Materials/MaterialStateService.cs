@@ -870,12 +870,16 @@ namespace QMC.CDT320.Materials
                         if (die.Result == DieResult.NG)
                             continue;
 
+                        if (IsDieReservedForPicker(die))
+                            continue;
+
                         if (die.CurrentLocation != null &&
                             die.CurrentLocation.Kind != MaterialLocationKind.Unknown &&
                             die.CurrentLocation.Kind != MaterialLocationKind.InputStage)
                             continue;
 
-                        die.CurrentLocation = MaterialLocation.Picker(pickerLocation, pickerNo);
+                        die.ReservedPickerLocation = pickerLocation;
+                        die.ReservedPickerNo = pickerNo;
                         die.UpdatedAt = DateTime.Now;
 
                         var target = new InputStagePickTarget
@@ -941,6 +945,9 @@ namespace QMC.CDT320.Materials
                             continue;
 
                         if (die.Result == DieResult.NG)
+                            continue;
+
+                        if (IsDieReservedForPicker(die))
                             continue;
 
                         if (die.CurrentLocation == null ||
@@ -1029,10 +1036,21 @@ namespace QMC.CDT320.Materials
                     if (die == null || die.CurrentLocation == null)
                         return;
 
-                    if (die.CurrentLocation.Kind != pickerLocation || die.CurrentLocation.PickerNo != pickerNo)
+                    bool reservedByPicker =
+                        die.ReservedPickerLocation == pickerLocation &&
+                        die.ReservedPickerNo == pickerNo;
+                    bool legacyReservedLocation =
+                        die.CurrentLocation.Kind == pickerLocation &&
+                        die.CurrentLocation.PickerNo == pickerNo;
+
+                    if (!reservedByPicker && !legacyReservedLocation)
                         return;
 
-                    die.CurrentLocation = new MaterialLocation { Kind = MaterialLocationKind.InputStage };
+                    if (legacyReservedLocation)
+                        die.CurrentLocation = new MaterialLocation { Kind = MaterialLocationKind.InputStage };
+
+                    die.ReservedPickerLocation = MaterialLocationKind.Unknown;
+                    die.ReservedPickerNo = -1;
                     die.UpdatedAt = DateTime.Now;
                     NotifyAndSave("ReleaseInputStagePickReservation");
                 }
@@ -1271,8 +1289,20 @@ namespace QMC.CDT320.Materials
         {
             var die = GetOrCreateDieMaterial(dieId);
             die.CurrentLocation = location ?? MaterialLocation.Unknown();
+            die.ReservedPickerLocation = MaterialLocationKind.Unknown;
+            die.ReservedPickerNo = -1;
             die.UpdatedAt = DateTime.Now;
             NotifyAndSave("MoveDie");
+        }
+
+        private static bool IsDieReservedForPicker(DieMaterial die)
+        {
+            if (die == null)
+                return false;
+
+            return (die.ReservedPickerLocation == MaterialLocationKind.PickerFront ||
+                    die.ReservedPickerLocation == MaterialLocationKind.PickerRear) &&
+                   die.ReservedPickerNo > 0;
         }
 
         public static void UpsertInspection(string dieId, DieInspectionRecord record)

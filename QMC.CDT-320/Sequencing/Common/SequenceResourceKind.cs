@@ -5,6 +5,7 @@ namespace QMC.CDT320.Sequencing
         InputStageArea,
         InputFeederArea,
         InspectionArea,
+        OutputPlaceArea,
         OutputGoodStageArea,
         OutputNgStageArea,
         OutputFeederArea,

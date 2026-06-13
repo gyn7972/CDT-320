@@ -23,6 +23,7 @@ namespace QMC.CDT320.Sequencing
         private double _targetPickerT;
         private double _targetPickerZ;
         private bool _diePicked;
+        private SequenceResourceLease _inputStageLease;
 
         public PickerPickUpSequence(MachineSequenceContext context, PickerSequenceSide side)
             : base(context, side, PickerSequenceKind.PickUp, side == PickerSequenceSide.Front ? "FrontPickerPickUpSequence" : "RearPickerPickUpSequence")
@@ -35,10 +36,36 @@ namespace QMC.CDT320.Sequencing
             get { return CurrentStep == PickerPickUpStep.Complete; }
         }
 
-        protected override async Task<int> ExecuteAsync(CancellationToken ct)
+        public void Abort()
         {
             try
             {
+                ReleaseInputReservationIfNeeded();
+                ReleaseInputStageArea();
+                CurrentStep = PickerPickUpStep.Complete;
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        protected override async Task<int> ExecuteAsync(CancellationToken ct)
+        {
+            bool keepCurrentState = false;
+
+            try
+            {
+                if (Options != null && Options.RunMode != SequenceRunMode.Auto)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    int stepResult = await ExecuteStepAsync(ct).ConfigureAwait(false);
+                    keepCurrentState = stepResult == 0 && CurrentStep != PickerPickUpStep.Complete;
+                    return stepResult;
+                }
+
                 while (CurrentStep != PickerPickUpStep.Complete)
                 {
                     ct.ThrowIfCancellationRequested();
@@ -60,7 +87,11 @@ namespace QMC.CDT320.Sequencing
             }
             finally
             {
-                ReleaseInputReservationIfNeeded();
+                if (!keepCurrentState)
+                {
+                    ReleaseInputReservationIfNeeded();
+                    ReleaseInputStageArea();
+                }
             }
         }
 
@@ -203,6 +234,13 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> MoveAllPickerZToAvoidAsync(CancellationToken ct)
         {
+            if (_inputStageLease == null)
+            {
+                _inputStageLease = await AcquireResourceAsync(SequenceResourceKind.InputStageArea, Name + ":PickUp", ct).ConfigureAwait(false);
+                if (_inputStageLease == null)
+                    return -1;
+            }
+
             int result = await MoveAllPickerZToAvoidAndVerifyAsync("pickup pre all picker Z avoid", ct).ConfigureAwait(false);
             if (result != 0)
                 return result;
@@ -552,6 +590,7 @@ namespace QMC.CDT320.Sequencing
                 !MaterialStateService.HasReadyInputStagePickTarget())
             {
                 CurrentStep = PickerPickUpStep.Complete;
+                ReleaseInputStageArea();
                 return 0;
             }
 
@@ -860,6 +899,25 @@ namespace QMC.CDT320.Sequencing
             catch (Exception ex)
             {
                 WriteLog("PickerPickUpSequence", "Input die reservation release failed: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        private void ReleaseInputStageArea()
+        {
+            try
+            {
+                if (_inputStageLease == null)
+                    return;
+
+                _inputStageLease.Dispose();
+                _inputStageLease = null;
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PickerPickUpSequence", "InputStageArea lease release failed: " + ex.Message + " - Failed");
             }
             finally
             {
