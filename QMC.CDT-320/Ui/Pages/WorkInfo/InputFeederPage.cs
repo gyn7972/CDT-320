@@ -233,7 +233,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         {
             var options = InputFeederSequenceOptions.Default();
             options.RunMode = SequenceRunMode.Manual;
-            options.StartMode = SequenceStartMode.Restart;
+            options.StartMode = SequenceStartMode.Resume;
             options.SlotIndex = ResolveInputSlot(host);
             options.NextSlotIndex = options.SlotIndex;
             options.WaferSize = ResolveInputWaferSize(host);
@@ -274,7 +274,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private static int ResolveInputWaferSize(Form1 host)
         {
             var cassette = host != null && host.Machine != null ? host.Machine.InputCassetteUnit : null;
-            return cassette != null && cassette.Config != null && cassette.Config.InchSelect == 0 ? 8 : 12;
+            return MaterialStateService.ResolveWaferSizeInch(cassette != null && cassette.Config != null ? cassette.Config.InchSelect : 8);
         }
 
         private static int ResolveMoveTimeoutMs(Form1 host)
@@ -292,10 +292,15 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             var loader = host.Machine.InputFeederUnit;
 
             _lblFeederPos.Text = AxisUnitConverter.FormatDisplay(loader.FeederY.ActualPosition, loader.FeederY, "0.###", true);
-            _lblClampState.Text = loader.FeederClampCyl.IsFwd ? "CLAMP" : (loader.FeederClampCyl.IsBwd ? "UNCLAMP" : "ERROR");
-            _lblClampState.ForeColor = loader.FeederClampCyl.IsFwd || loader.FeederClampCyl.IsBwd ? Color.Black : Color.Red;
-            _lblUpDownState.Text = loader.FeederUpDownCyl.IsFwd ? "DOWN" : (loader.FeederUpDownCyl.IsBwd ? "UP" : "--");
-            _lblUpDownState.ForeColor = Color.Black;
+            bool clamp = loader.IsWaferFeederClamp();
+            bool unclamp = loader.IsWaferFeederUnclamp();
+            _lblClampState.Text = clamp ? "CLAMP" : (unclamp ? "UNCLAMP" : "ERROR");
+            _lblClampState.ForeColor = clamp || unclamp ? Color.Black : Color.Red;
+
+            bool up = loader.IsWaferFeederUp();
+            bool down = loader.IsWaferFeederDown();
+            _lblUpDownState.Text = down ? "DOWN" : (up ? "UP" : "--");
+            _lblUpDownState.ForeColor = up || down ? Color.Black : Color.Red;
             bool hasFeederWaferData = HasDisplayFeederWafer();
             bool hasFeederWafer = loader.IsWaferFeederSimulationOrDryRun()
                 ? hasFeederWaferData

@@ -638,7 +638,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
         {
             var options = InputStageSequenceOptions.Default();
             options.RunMode = SequenceRunMode.Manual;
-            options.StartMode = SequenceStartMode.Restart;
+            options.StartMode = SequenceStartMode.Resume;
             options.FineMove = false;
             options.RequireVisionAlign = false;
             options.RequireMapData = false;

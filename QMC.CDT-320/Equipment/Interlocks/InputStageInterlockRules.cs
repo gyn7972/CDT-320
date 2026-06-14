@@ -42,17 +42,20 @@ namespace QMC.CDT320.Interlocks
             {
                 case MotionGuardMoveKind.AxisMove:
                 case MotionGuardMoveKind.AxisTeachingMove:
-                    break;
+                    return CanMoveWaferStageY(request.Machine, out reason);
                 case MotionGuardMoveKind.AxisHome:
-                    return VerifyWaferStageYHome(request.Machine, out reason);
+                    return CanHomeWaferStageY(request.Machine, out reason);
                 default:
-                    return true;
+                    return MotionGuardRuleHelpers.BlockUnsupportedMoveKind(request, out reason);
             }
+        }
 
-            if (!VerifyInputFeederClear(request.Machine, "WaferStageY", out reason))
+        private static bool CanMoveWaferStageY(CDT320_Machine machine, out string reason)
+        {
+            if (!VerifyInputFeederClear(machine, "WaferStageY", out reason))
                 return false;
 
-            return VerifyInputStageNotBusy(request.Machine.InputStageUnit, "WaferStageY", out reason);
+            return VerifyInputStageNotBusy(machine != null ? machine.InputStageUnit : null, "WaferStageY", out reason);
         }
 
         private static bool VerifyWaferStageT(MotionGuardRuleContext request, out string reason)
@@ -63,17 +66,20 @@ namespace QMC.CDT320.Interlocks
             {
                 case MotionGuardMoveKind.AxisMove:
                 case MotionGuardMoveKind.AxisTeachingMove:
-                    break;
+                    return CanMoveWaferStageT(request.Machine, out reason);
                 case MotionGuardMoveKind.AxisHome:
-                    return VerifyWaferStageTHome(request.Machine, out reason);
+                    return CanHomeWaferStageT(request.Machine, out reason);
                 default:
-                    return true;
+                    return MotionGuardRuleHelpers.BlockUnsupportedMoveKind(request, out reason);
             }
+        }
 
-            if (!VerifyInputFeederClear(request.Machine, "WaferStageT", out reason))
+        private static bool CanMoveWaferStageT(CDT320_Machine machine, out string reason)
+        {
+            if (!VerifyInputFeederClear(machine, "WaferStageT", out reason))
                 return false;
 
-            return VerifyInputStageNotBusy(request.Machine.InputStageUnit, "WaferStageT", out reason);
+            return VerifyInputStageNotBusy(machine != null ? machine.InputStageUnit : null, "WaferStageT", out reason);
         }
 
         private static bool VerifyWaferExpandingZ(MotionGuardRuleContext request, out string reason)
@@ -84,17 +90,26 @@ namespace QMC.CDT320.Interlocks
             {
                 case MotionGuardMoveKind.AxisMove:
                 case MotionGuardMoveKind.AxisTeachingMove:
-                    break;
+                    return CanMoveWaferExpandingZ(request.Machine, out reason);
                 case MotionGuardMoveKind.AxisHome:
-                    return true;
+                    return CanHomeWaferExpandingZ(request.Machine, out reason);
                 default:
-                    return true;
+                    return MotionGuardRuleHelpers.BlockUnsupportedMoveKind(request, out reason);
             }
+        }
 
-            if (!VerifyInputFeederClear(request.Machine, "ExpanderZ", out reason))
+        private static bool CanHomeWaferExpandingZ(CDT320_Machine machine, out string reason)
+        {
+            reason = string.Empty;
+            return true;
+        }
+
+        private static bool CanMoveWaferExpandingZ(CDT320_Machine machine, out string reason)
+        {
+            if (!VerifyInputFeederClear(machine, "ExpanderZ", out reason))
                 return false;
 
-            return VerifyInputStageNotBusy(request.Machine.InputStageUnit, "ExpanderZ", out reason);
+            return VerifyInputStageNotBusy(machine != null ? machine.InputStageUnit : null, "ExpanderZ", out reason);
         }
 
         private static bool VerifyWaferVisionX(MotionGuardRuleContext request, out string reason)
@@ -105,17 +120,20 @@ namespace QMC.CDT320.Interlocks
             {
                 case MotionGuardMoveKind.AxisMove:
                 case MotionGuardMoveKind.AxisTeachingMove:
-                    break;
+                    return CanMoveInputVisionX(request.Machine, out reason);
                 case MotionGuardMoveKind.AxisHome:
-                    return VerifyInputVisionXHome(request.Machine, out reason);
+                    return CanHomeInputVisionX(request.Machine, out reason);
                 default:
-                    return true;
+                    return MotionGuardRuleHelpers.BlockUnsupportedMoveKind(request, out reason);
             }
+        }
 
-            if (!VerifyInputFeederClear(request.Machine, "InputVisionX", out reason))
+        private static bool CanMoveInputVisionX(CDT320_Machine machine, out string reason)
+        {
+            if (!VerifyInputFeederClear(machine, "InputVisionX", out reason))
                 return false;
 
-            return VerifyInputStageNotBusy(request.Machine.InputStageUnit, "InputVisionX", out reason);
+            return VerifyInputStageNotBusy(machine != null ? machine.InputStageUnit : null, "InputVisionX", out reason);
         }
 
         private static bool VerifyNeedleX(MotionGuardRuleContext request, out string reason)
@@ -126,20 +144,23 @@ namespace QMC.CDT320.Interlocks
             {
                 case MotionGuardMoveKind.AxisMove:
                 case MotionGuardMoveKind.AxisTeachingMove:
-                    break;
+                    return CanMoveNeedleX(request.Machine, out reason);
                 case MotionGuardMoveKind.AxisHome:
-                    return VerifyNeedleXHome(request.Machine, out reason);
+                    return CanHomeNeedleX(request.Machine, out reason);
                 default:
-                    return true;
+                    return MotionGuardRuleHelpers.BlockUnsupportedMoveKind(request, out reason);
             }
-
-            if (!VerifyInputFeederClear(request.Machine, "NeedleX", out reason))
-                return false;
-
-            return VerifyInputStageNotBusy(request.Machine.InputStageUnit, "NeedleX", out reason);
         }
 
-        private static bool VerifyInputVisionXHome(CDT320_Machine machine, out string reason)
+        private static bool CanMoveNeedleX(CDT320_Machine machine, out string reason)
+        {
+            if (!VerifyInputFeederClear(machine, "NeedleX", out reason))
+                return false;
+
+            return VerifyInputStageNotBusy(machine != null ? machine.InputStageUnit : null, "NeedleX", out reason);
+        }
+
+        private static bool CanHomeInputVisionX(CDT320_Machine machine, out string reason)
         {
             reason = string.Empty;
 
@@ -173,7 +194,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
-        private static bool VerifyWaferStageYHome(CDT320_Machine machine, out string reason)
+        private static bool CanHomeWaferStageY(CDT320_Machine machine, out string reason)
         {
             reason = string.Empty;
 
@@ -214,7 +235,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
-        private static bool VerifyWaferStageTHome(CDT320_Machine machine, out string reason)
+        private static bool CanHomeWaferStageT(CDT320_Machine machine, out string reason)
         {
             reason = string.Empty;
 
@@ -248,7 +269,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
-        private static bool VerifyNeedleXHome(CDT320_Machine machine, out string reason)
+        private static bool CanHomeNeedleX(CDT320_Machine machine, out string reason)
         {
             reason = string.Empty;
 
@@ -284,17 +305,26 @@ namespace QMC.CDT320.Interlocks
             {
                 case MotionGuardMoveKind.AxisMove:
                 case MotionGuardMoveKind.AxisTeachingMove:
-                    break;
+                    return CanMoveNeedleZ(request.Machine, out reason);
                 case MotionGuardMoveKind.AxisHome:
-                    return true;
+                    return CanHomeNeedleZ(request.Machine, out reason);
                 default:
-                    return true;
+                    return MotionGuardRuleHelpers.BlockUnsupportedMoveKind(request, out reason);
             }
+        }
 
-            if (!VerifyInputFeederClear(request.Machine, "NeedleZ", out reason))
+        private static bool CanHomeNeedleZ(CDT320_Machine machine, out string reason)
+        {
+            reason = string.Empty;
+            return true;
+        }
+
+        private static bool CanMoveNeedleZ(CDT320_Machine machine, out string reason)
+        {
+            if (!VerifyInputFeederClear(machine, "NeedleZ", out reason))
                 return false;
 
-            return VerifyInputStageNotBusy(request.Machine.InputStageUnit, "NeedleZ", out reason);
+            return VerifyInputStageNotBusy(machine != null ? machine.InputStageUnit : null, "NeedleZ", out reason);
         }
 
         private static bool VerifyEjectPinZ(MotionGuardRuleContext request, out string reason)
@@ -305,17 +335,26 @@ namespace QMC.CDT320.Interlocks
             {
                 case MotionGuardMoveKind.AxisMove:
                 case MotionGuardMoveKind.AxisTeachingMove:
-                    break;
+                    return CanMoveEjectPinZ(request.Machine, out reason);
                 case MotionGuardMoveKind.AxisHome:
-                    return true;
+                    return CanHomeEjectPinZ(request.Machine, out reason);
                 default:
-                    return true;
+                    return MotionGuardRuleHelpers.BlockUnsupportedMoveKind(request, out reason);
             }
+        }
 
-            if (!VerifyInputFeederClear(request.Machine, "EjectPinZ", out reason))
+        private static bool CanHomeEjectPinZ(CDT320_Machine machine, out string reason)
+        {
+            reason = string.Empty;
+            return true;
+        }
+
+        private static bool CanMoveEjectPinZ(CDT320_Machine machine, out string reason)
+        {
+            if (!VerifyInputFeederClear(machine, "EjectPinZ", out reason))
                 return false;
 
-            return VerifyInputStageNotBusy(request.Machine.InputStageUnit, "EjectPinZ", out reason);
+            return VerifyInputStageNotBusy(machine != null ? machine.InputStageUnit : null, "EjectPinZ", out reason);
         }
 
         private static bool VerifyInputFeederClear(CDT320_Machine machine, string movingName, out string reason)
@@ -327,14 +366,6 @@ namespace QMC.CDT320.Interlocks
 
             if (MotionGuardRuleHelpers.IsAxisMoving(feeder.FeederY))
                 return MotionGuardRuleHelpers.Block(movingName, "InputFeederY is moving.", out reason);
-
-            if (!feeder.IsWaferFeederYInAvoidPosition() &&
-                !feeder.IsWaferFeederYInExchangePosition() &&
-                !feeder.IsWaferFeederYInHomePosition())
-                return MotionGuardRuleHelpers.Block(
-                    movingName,
-                    "InputFeederY must be at Avoid, Exchange, or Home position.",
-                    out reason);
 
             return true;
         }

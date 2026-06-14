@@ -37,17 +37,29 @@ namespace QMC.CDT320.Interlocks
             {
                 case MotionGuardMoveKind.AxisMove:
                 case MotionGuardMoveKind.AxisTeachingMove:
-                    break;
+                    return CanMoveFrontSideVisionY(request.Machine, out reason);
                 case MotionGuardMoveKind.AxisHome:
-                    return true;
+                    return CanHomeFrontSideVisionY(request.Machine, out reason);
                 default:
-                    return true;
+                    return MotionGuardRuleHelpers.BlockUnsupportedMoveKind(request, out reason);
             }
+        }
 
-            if (!VerifyInputStageClear(request.Machine, "FrontSideVisionY", out reason))
+        private static bool CanHomeFrontSideVisionY(CDT320_Machine machine, out string reason)
+        {
+            reason = string.Empty;
+            return true;
+        }
+
+        private static bool CanMoveFrontSideVisionY(CDT320_Machine machine, out string reason)
+        {
+            if (!CanHomeFrontSideVisionY(machine, out reason))
                 return false;
 
-            return VerifyVisionNotBusy(request.Machine.VisionUnit, "FrontSideVisionY", out reason);
+            if (!VerifyInputStageClear(machine, "FrontSideVisionY", out reason))
+                return false;
+
+            return VerifyVisionNotBusy(machine != null ? machine.VisionUnit : null, "FrontSideVisionY", out reason);
         }
 
         private static bool VerifyRearSideVisionY(MotionGuardRuleContext request, out string reason)
@@ -58,38 +70,92 @@ namespace QMC.CDT320.Interlocks
             {
                 case MotionGuardMoveKind.AxisMove:
                 case MotionGuardMoveKind.AxisTeachingMove:
-                    break;
+                    return CanMoveRearSideVisionY(request.Machine, out reason);
                 case MotionGuardMoveKind.AxisHome:
-                    return true;
+                    return CanHomeRearSideVisionY(request.Machine, out reason);
                 default:
-                    return true;
+                    return MotionGuardRuleHelpers.BlockUnsupportedMoveKind(request, out reason);
             }
+        }
 
-            if (!VerifyInputStageClear(request.Machine, "RearSideVisionY", out reason))
+        private static bool CanHomeRearSideVisionY(CDT320_Machine machine, out string reason)
+        {
+            reason = string.Empty;
+            return true;
+        }
+
+        private static bool CanMoveRearSideVisionY(CDT320_Machine machine, out string reason)
+        {
+            if (!CanHomeRearSideVisionY(machine, out reason))
                 return false;
 
-            return VerifyVisionNotBusy(request.Machine.VisionUnit, "RearSideVisionY", out reason);
+            if (!VerifyInputStageClear(machine, "RearSideVisionY", out reason))
+                return false;
+
+            return VerifyVisionNotBusy(machine != null ? machine.VisionUnit : null, "RearSideVisionY", out reason);
         }
 
         private static bool VerifyReticleLift(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
-            if (!VerifyInputStageClear(request.Machine, "ReticleLift", out reason))
+            return CanMoveReticleLift(request.Machine, out reason);
+        }
+
+        private static bool CanHomeReticleLift(CDT320_Machine machine, out string reason)
+        {
+            reason = string.Empty;
+            return true;
+        }
+
+        private static bool CanMoveReticleLift(CDT320_Machine machine, out string reason)
+        {
+            if (!CanHomeReticleLift(machine, out reason))
                 return false;
 
-            return VerifyVisionNotBusy(request.Machine.VisionUnit, "ReticleLift", out reason);
+            if (!VerifyInputStageClear(machine, "ReticleLift", out reason))
+                return false;
+
+            return VerifyVisionNotBusy(machine != null ? machine.VisionUnit : null, "ReticleLift", out reason);
         }
 
         private static bool VerifyReticleFrontSlide(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
-            return VerifyVisionNotBusy(request.Machine.VisionUnit, "ReticleSideSlideFront", out reason);
+            return CanMoveReticleFrontSlide(request.Machine, out reason);
+        }
+
+        private static bool CanHomeReticleFrontSlide(CDT320_Machine machine, out string reason)
+        {
+            reason = string.Empty;
+            return true;
+        }
+
+        private static bool CanMoveReticleFrontSlide(CDT320_Machine machine, out string reason)
+        {
+            if (!CanHomeReticleFrontSlide(machine, out reason))
+                return false;
+
+            return VerifyVisionNotBusy(machine != null ? machine.VisionUnit : null, "ReticleSideSlideFront", out reason);
         }
 
         private static bool VerifyReticleRearSlide(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
-            return VerifyVisionNotBusy(request.Machine.VisionUnit, "ReticleSideSlideRear", out reason);
+            return CanMoveReticleRearSlide(request.Machine, out reason);
+        }
+
+        private static bool CanHomeReticleRearSlide(CDT320_Machine machine, out string reason)
+        {
+            reason = string.Empty;
+            return true;
+        }
+
+        private static bool CanMoveReticleRearSlide(CDT320_Machine machine, out string reason)
+        {
+            if (!CanHomeReticleRearSlide(machine, out reason))
+                return false;
+
+            return VerifyVisionNotBusy(machine != null ? machine.VisionUnit : null, "ReticleSideSlideRear", out reason);
         }
 
         private static bool VerifyInputStageClear(CDT320_Machine machine, string movingName, out string reason)

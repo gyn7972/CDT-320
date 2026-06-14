@@ -13,12 +13,12 @@ namespace QMC.CDT320.Interlocks
                 return true;
 
             if (MotionGuardRuleHelpers.IsMoving(request, "OutputLifterZ", "ElevatorZ_Output", "OutputLifterZ"))
-                return CanMoveBinLifterZ(request, out reason);
+                return VerifyBinLifterZ(request, out reason);
 
             return true;
         }
 
-        private static bool CanMoveBinLifterZ(MotionGuardRuleContext request, out string reason)
+        private static bool VerifyBinLifterZ(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
 
@@ -33,9 +33,9 @@ namespace QMC.CDT320.Interlocks
                         return CanHomeBinLifterZ(Cassette, feeder, out reason);
                     case MotionGuardMoveKind.AxisMove:
                     case MotionGuardMoveKind.AxisTeachingMove:
-                        return CanMoveBinLifterZToPosition(Cassette, feeder, out reason);
+                        return CanMoveBinLifterZ(Cassette, feeder, out reason);
                     default:
-                        return true;
+                        return MotionGuardRuleHelpers.BlockUnsupportedMoveKind(request, out reason);
                 }
             }
             catch(Exception ex)
@@ -75,18 +75,18 @@ namespace QMC.CDT320.Interlocks
                     out reason);
             }
 
-            if (feeder.IsFeederOccupied() && !IsOutputFeederYSafeForOutputLifterZ(feeder))
+            if (!IsOutputFeederYSafeForOutputLifterZ(feeder))
             {
                 return MotionGuardRuleHelpers.Block(
                     "OutputLifterZ",
-                    "OutputFeederY must be at Avoid or Exchange position before OutputLifterZ home when feeder has a wafer.",
+                    "OutputFeederY must be at a cassette-safe position before OutputLifterZ home.",
                     out reason);
             }
 
             return true;
         }
 
-        private static bool CanMoveBinLifterZToPosition(OutputCassetteUnit cassette, OutputFeederUnit feeder, out string reason)
+        private static bool CanMoveBinLifterZ(OutputCassetteUnit cassette, OutputFeederUnit feeder, out string reason)
         {
             reason = string.Empty;
 
@@ -109,11 +109,11 @@ namespace QMC.CDT320.Interlocks
                     out reason);
             }
 
-            if (feeder.IsFeederOccupied() && !IsOutputFeederYSafeForOutputLifterZ(feeder))
+            if (!IsOutputFeederYSafeForOutputLifterZ(feeder))
             {
                 return MotionGuardRuleHelpers.Block(
                     "OutputLifterZ",
-                    "OutputFeederY must be at Avoid or Exchange position before OutputLifterZ move when feeder has a wafer.",
+                    "OutputFeederY must be at a cassette-safe position before OutputLifterZ move.",
                     out reason);
             }
 
@@ -125,9 +125,21 @@ namespace QMC.CDT320.Interlocks
             if (feeder == null || feeder.FeederY == null)
                 return true;
 
-            return feeder.IsBinFeederYInAvoidPosition()
-                || feeder.IsBinFeederYInExchangePosition(BinSide.Good)
-                || feeder.IsBinFeederYInExchangePosition(BinSide.Ng);
+            if (feeder.IsBinFeederYInAvoidPosition())
+                return true;
+
+            return IsOutputFeederYSafeForOutputLifterZ(feeder, BinSide.Good) ||
+                   IsOutputFeederYSafeForOutputLifterZ(feeder, BinSide.Ng);
+        }
+
+        private static bool IsOutputFeederYSafeForOutputLifterZ(OutputFeederUnit feeder, BinSide side)
+        {
+            return feeder.IsBinFeederYInCassetteLoadPosition(side) ||
+                   feeder.IsBinFeederYInCassetteUnloadPosition(side) ||
+                   feeder.IsBinFeederYInStageLoadPosition(side) ||
+                   feeder.IsBinFeederYInStageLoadAvoidPosition(side) ||
+                   feeder.IsBinFeederYInStageUnloadPosition(side) ||
+                   feeder.IsBinFeederYInStageUnloadAvoidPosition(side);
         }
 
         private static void LogBlockedReason(string reason)

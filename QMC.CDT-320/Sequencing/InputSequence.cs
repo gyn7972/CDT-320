@@ -1028,7 +1028,7 @@ namespace QMC.CDT320.Sequencing
             {
                 var cassette = Context != null && Context.Machine != null ? Context.Machine.InputCassetteUnit : null;
                 if (cassette != null && cassette.Config != null)
-                    return cassette.Config.InchSelect == 0 ? 8 : 12;
+                    return MaterialStateService.ResolveWaferSizeInch(cassette.Config.InchSelect);
             }
             catch
             {

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -221,12 +221,11 @@ namespace QMC.CDT320.Sequencing
                 if (result != 0)
                     return Fail("PICKER-MOVE-CMD", Name, description + " move command failed. result=" + result + ", " + BuildPickerAxisState(axis, target));
 
-                bool done = await WaitPickerAxisMoveDoneAsync(axis, ResolveTimeout(), ct).ConfigureAwait(false);
-                if (!done)
-                    return Fail("PICKER-MOVE-TIMEOUT", Name, description + " move done timeout. " + BuildPickerAxisState(axis, target));
-
-                if (!IsPickerAxisInPosition(axis, target))
-                    return Fail("PICKER-MOVE-CHECK", Name, description + " final position check failed. " + BuildPickerAxisState(axis, target));
+                AxisMoveWaitResult waitResult = await WaitPickerAxisMoveDoneAsync(axis, target, ResolveTimeout(), ct).ConfigureAwait(false);
+                if (waitResult == null || !waitResult.Success)
+                    return Fail(ResolveAxisMoveWaitAlarmCode("PICKER-MOVE", waitResult), Name,
+                        description + " move/in-position wait failed. " +
+                        FormatAxisMoveWaitResult(waitResult, BuildPickerAxisState(axis, target)));
 
                 ct.ThrowIfCancellationRequested();
                 return 0;
@@ -269,23 +268,19 @@ namespace QMC.CDT320.Sequencing
                     commandIndex++;
                 }
 
-                var waitTasks = new List<Task<bool>>();
+                var waitTasks = new List<Task<AxisMoveWaitResult>>();
                 foreach (KeyValuePair<PickerAxis, double> pair in targets)
-                    waitTasks.Add(WaitPickerAxisMoveDoneAsync(pair.Key, ResolveTimeout(), ct));
+                    waitTasks.Add(WaitPickerAxisMoveDoneAsync(pair.Key, pair.Value, ResolveTimeout(), ct));
 
-                bool[] waitResults = await Task.WhenAll(waitTasks).ConfigureAwait(false);
+                AxisMoveWaitResult[] waitResults = await Task.WhenAll(waitTasks).ConfigureAwait(false);
                 int waitIndex = 0;
                 foreach (KeyValuePair<PickerAxis, double> pair in targets)
                 {
-                    if (!waitResults[waitIndex])
-                        return Fail("PICKER-MOVE-TIMEOUT", Name, description + " move done timeout. " + BuildPickerAxisState(pair.Key, pair.Value));
+                    if (waitResults[waitIndex] == null || !waitResults[waitIndex].Success)
+                        return Fail(ResolveAxisMoveWaitAlarmCode("PICKER-MOVE", waitResults[waitIndex]), Name,
+                            description + " move/in-position wait failed. " +
+                            FormatAxisMoveWaitResult(waitResults[waitIndex], BuildPickerAxisState(pair.Key, pair.Value)));
                     waitIndex++;
-                }
-
-                foreach (KeyValuePair<PickerAxis, double> pair in targets)
-                {
-                    if (!IsPickerAxisInPosition(pair.Key, pair.Value))
-                        return Fail("PICKER-MOVE-CHECK", Name, description + " final position check failed. " + BuildPickerAxisState(pair.Key, pair.Value));
                 }
 
                 ct.ThrowIfCancellationRequested();
@@ -385,17 +380,27 @@ namespace QMC.CDT320.Sequencing
             return RearPicker.MovePickerAxis(axis, target, fine);
         }
 
-        protected async Task<bool> WaitPickerAxisMoveDoneAsync(PickerAxis axis, int timeoutMs, CancellationToken ct)
+        protected async Task<AxisMoveWaitResult> WaitPickerAxisMoveDoneAsync(PickerAxis axis, double target, int timeoutMs, CancellationToken ct)
         {
-            Task<bool> waitTask = Side == PickerSequenceSide.Front
-                ? FrontPicker.WaitPickerAxisMoveDone(axis, timeoutMs)
-                : RearPicker.WaitPickerAxisMoveDone(axis, timeoutMs);
+            Task<AxisMoveWaitResult> waitTask = Side == PickerSequenceSide.Front
+                ? FrontPicker.WaitPickerAxisMoveDoneInPosition(axis, target, timeoutMs)
+                : RearPicker.WaitPickerAxisMoveDoneInPosition(axis, target, timeoutMs);
 
             Task cancelTask = Task.Delay(Timeout.Infinite, ct);
             Task completed = await Task.WhenAny(waitTask, cancelTask).ConfigureAwait(false);
             if (completed == cancelTask)
                 ct.ThrowIfCancellationRequested();
             return await waitTask.ConfigureAwait(false);
+        }
+
+        protected static string ResolveAxisMoveWaitAlarmCode(string prefix, AxisMoveWaitResult waitResult)
+        {
+            return AxisMoveWaiter.ResolveAlarmCode(prefix, waitResult);
+        }
+
+        protected static string FormatAxisMoveWaitResult(AxisMoveWaitResult waitResult, string fallbackState)
+        {
+            return AxisMoveWaiter.FormatResult(waitResult, fallbackState);
         }
 
         protected bool IsPickerAxisInPosition(PickerAxis axis, double target)

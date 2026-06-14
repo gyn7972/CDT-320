@@ -12,12 +12,12 @@ namespace QMC.CDT320.Interlocks
                 return true;
 
             if (MotionGuardRuleHelpers.IsMoving(request, "InputLifterZ"))
-                return CanMoveWaferLifterZ(request.Machine, request.TargetValue, request.MoveKind, out reason);
+                return VerifyWaferLifterZ(request.Machine, request.TargetValue, request.MoveKind, out reason);
 
             return true;
         }
 
-        public static bool CanMoveWaferLifterZ(
+        public static bool VerifyWaferLifterZ(
             CDT320_Machine machine,
             double targetPosition,
             MotionGuardMoveKind moveKind,
@@ -42,9 +42,11 @@ namespace QMC.CDT320.Interlocks
                         if (feeder == null)
                             return true;
 
-                        return CanMoveWaferLifterZToPosition(feeder, out reason);
+                        return CanMoveWaferLifterZ(Cassette, feeder, out reason);
                     default:
-                        return true;
+                        return MotionGuardRuleHelpers.BlockUnsupportedMoveKind(
+                            new MotionGuardRuleContext("InputLifterZ", "InputLifterZ", targetPosition, moveKind, string.Empty, null, null),
+                            out reason);
                 }
             }
             catch (Exception ex)
@@ -98,9 +100,17 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
-        private static bool CanMoveWaferLifterZToPosition(InputFeederUnit feeder, out string reason)
+        private static bool CanMoveWaferLifterZ(InputCassetteUnit Cassette, InputFeederUnit feeder, out string reason)
         {
             reason = string.Empty;
+            if (Cassette != null && Cassette.IsWaferProtrusionDetected())
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "InputLifterZ",
+                    "InputCassette Jut detected. InputLifterZ move is blocked.",
+                    out reason);
+            }
+
             if (feeder == null)
                 return true;
 

@@ -185,6 +185,21 @@ namespace QMC.CDT320.Materials
             return specName;
         }
 
+        public static int ResolveWaferSizeInch(int inchSelect)
+        {
+            switch (inchSelect)
+            {
+                case 0:
+                case 8:
+                    return 8;
+                case 1:
+                case 12:
+                    return 12;
+                default:
+                    return inchSelect > 0 ? inchSelect : 8;
+            }
+        }
+
         public static string SyncRecipeTapeFrameSpec(RecipeProject project)
         {
             try
@@ -432,6 +447,56 @@ namespace QMC.CDT320.Materials
             return true;
         }
 
+        public static bool ClearInputCassetteAllSlotData()
+        {
+            bool processed = false;
+            ClearInputCassetteAllSlotData(CassetteMaterialRole.Input1, ref processed);
+            ClearInputCassetteAllSlotData(CassetteMaterialRole.Input2, ref processed);
+
+            if (!processed)
+                return false;
+
+            NotifyAndSave("ClearInputCassetteAllSlotData");
+            return true;
+        }
+
+        private static void ClearInputCassetteAllSlotData(CassetteMaterialRole cassetteRole, ref bool processed)
+        {
+            var cassette = State.Cassettes.FirstOrDefault(c => c.Role == cassetteRole);
+            if (cassette == null)
+                return;
+
+            cassette.EnsureSlots();
+            processed = true;
+
+            var slotWaferIds = cassette.Slots
+                .Where(s => s != null && !string.IsNullOrWhiteSpace(s.WaferId))
+                .Select(s => s.WaferId)
+                .ToList();
+
+            var targetWafers = State.Wafers.Where(w =>
+                w != null &&
+                ((slotWaferIds.Count > 0 && slotWaferIds.Contains(w.WaferId)) ||
+                 w.SourceCassetteRole == cassetteRole))
+                .ToList();
+
+            foreach (var wafer in targetWafers)
+            {
+                wafer.State = WaferMaterialState.Empty;
+                wafer.CurrentLocation = MaterialLocation.Unknown();
+                wafer.UpdatedAt = DateTime.Now;
+            }
+
+            foreach (var slot in cassette.Slots)
+            {
+                if (slot == null)
+                    continue;
+
+                slot.WaferId = "";
+                slot.HasWafer = false;
+            }
+        }
+
         public static bool ClearOutputCassetteSlotData(CassetteMaterialRole cassetteRole, int slotNumber)
         {
             if (cassetteRole != CassetteMaterialRole.Good1 &&
@@ -465,6 +530,61 @@ namespace QMC.CDT320.Materials
             slot.HasWafer = false;
             NotifyAndSave("ClearOutputCassetteSlotData");
             return true;
+        }
+
+        public static bool ClearOutputCassetteAllSlotData()
+        {
+            bool processed = false;
+            ClearOutputCassetteAllSlotData(CassetteMaterialRole.Good1, ref processed);
+            ClearOutputCassetteAllSlotData(CassetteMaterialRole.Good2, ref processed);
+            ClearOutputCassetteAllSlotData(CassetteMaterialRole.Ng1, ref processed);
+
+            if (!processed)
+                return false;
+
+            NotifyAndSave("ClearOutputCassetteAllSlotData");
+            return true;
+        }
+
+        private static void ClearOutputCassetteAllSlotData(CassetteMaterialRole cassetteRole, ref bool processed)
+        {
+            var cassette = State.Cassettes.FirstOrDefault(c => c.Role == cassetteRole);
+            if (cassette == null)
+                return;
+
+            cassette.EnsureSlots();
+            processed = true;
+
+            var slotWaferIds = cassette.Slots
+                .Where(s => s != null && !string.IsNullOrWhiteSpace(s.WaferId))
+                .Select(s => s.WaferId)
+                .ToList();
+
+            var targetWafers = State.Wafers.Where(w =>
+                w != null &&
+                ((slotWaferIds.Count > 0 && slotWaferIds.Contains(w.WaferId)) ||
+                 (w.CurrentLocation != null &&
+                  w.CurrentLocation.Kind == MaterialLocationKind.OutputCassette &&
+                  w.CurrentLocation.CassetteRole == cassetteRole) ||
+                 w.OutputCassetteRole == cassetteRole ||
+                 w.SourceCassetteRole == cassetteRole))
+                .ToList();
+
+            foreach (var wafer in targetWafers)
+            {
+                wafer.State = WaferMaterialState.Empty;
+                wafer.CurrentLocation = MaterialLocation.Unknown();
+                wafer.UpdatedAt = DateTime.Now;
+            }
+
+            foreach (var slot in cassette.Slots)
+            {
+                if (slot == null)
+                    continue;
+
+                slot.WaferId = "";
+                slot.HasWafer = false;
+            }
         }
 
         public static void MoveWaferToInputFeeder(WaferMaterial wafer)

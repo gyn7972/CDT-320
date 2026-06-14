@@ -27,6 +27,7 @@ namespace QMC.CDT_320.Ui.Controls
         public event EventHandler<MaterialDetailEditEventArgs> EditRequested;
         public event EventHandler CreateDataRequested;
         public event EventHandler ClearDataRequested;
+        public event EventHandler ClearAllDataRequested;
 
         public MaterialDetailView()
         {
@@ -114,6 +115,13 @@ namespace QMC.CDT_320.Ui.Controls
         private void btnClearData_Click(object sender, EventArgs e)
         {
             var handler = ClearDataRequested;
+            if (handler != null)
+                handler(this, EventArgs.Empty);
+        }
+
+        private void btnClearAllData_Click(object sender, EventArgs e)
+        {
+            var handler = ClearAllDataRequested;
             if (handler != null)
                 handler(this, EventArgs.Empty);
         }

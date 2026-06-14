@@ -93,6 +93,13 @@ namespace QMC.CDT320.Interlocks
         public static bool Verify(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
+
+            if (request == null)
+                return MotionGuardRuleHelpers.BlockUnsupportedMoveKind(request, out reason);
+
+            if (!MotionGuardRuleHelpers.IsKnownMoveKind(request.MoveKind))
+                return MotionGuardRuleHelpers.BlockUnsupportedMoveKind(request, out reason);
+
             MotionGuardRule[] snapshot;
             lock (Sync)
                 snapshot = Rules.ToArray();

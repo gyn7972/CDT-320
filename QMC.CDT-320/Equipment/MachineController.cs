@@ -1328,7 +1328,24 @@ namespace QMC.CDT320
                 Log($"[DRYRUN] skip move {axis.Name} target={position:F1} (vel={velocity:F0})");
                 return true;
             }
-            await SharedRailXMotionRuntime.MoveAxisAsync(axis, position, velocity);
+            int moveResult = await SharedRailXMotionRuntime.MoveAxisAsync(axis, position, velocity).ConfigureAwait(false);
+            if (moveResult != 0 || axis.IsAlarm)
+            {
+                string message = BuildAxisMotionFailureMessage(axis, "Move failed", moveResult);
+                AlarmManager.Raise(AlarmSeverity.Warning, "MOVE-AXIS", axis.Name, message);
+                Log("[MOVE] " + message);
+                return false;
+            }
+
+            AxisMoveWaitResult waitResult = await WaitAxisMoveDoneInPositionAsync(axis, position).ConfigureAwait(false);
+            if (!waitResult.Success)
+            {
+                string message = "Move wait/in-position failed. " + AxisMoveWaiter.FormatResult(waitResult, axis.Name);
+                AlarmManager.Raise(AlarmSeverity.Warning, AxisMoveWaiter.ResolveAlarmCode("MOVE-AXIS", waitResult), axis.Name, message);
+                Log("[MOVE] " + message);
+                return false;
+            }
+
             return true;
         }
 
@@ -2037,12 +2054,13 @@ namespace QMC.CDT320
                 if (result != 0)
                     return FailInitializePreparation("InputLifterZ avoid move failed. result=" + result);
 
-                result = await cassette.WaitWaferLifterZMoveDone(cassette.ResolveWaferLifterZMoveTimeoutMs()).ConfigureAwait(false);
-                if (result != 0)
-                    return FailInitializePreparation("InputLifterZ avoid move done timeout. result=" + result);
-
-                if (!cassette.IsWaferLifterZInAvoidPosition())
-                    return FailInitializePreparation("InputLifterZ avoid final position check failed.");
+                AxisMoveWaitResult waitResult = await cassette.WaitWaferLifterZMoveDoneInPosition(
+                    cassette.Recipe.AvoidPosition,
+                    cassette.ResolveWaferLifterZMoveTimeoutMs()).ConfigureAwait(false);
+                if (!waitResult.Success)
+                    return FailInitializePreparation(
+                        "InputLifterZ avoid move/in-position wait failed. " +
+                        AxisMoveWaiter.FormatResult(waitResult, "InputLifterZ avoid"));
 
                 return 0;
             }
@@ -4008,6 +4026,14 @@ namespace QMC.CDT320
                         string message = BuildAxisMotionFailureMessage(axis, "Avoid 이동 실패", result);
                         return FailInitializePreparation(message);
                     }
+
+                    AxisMoveWaitResult waitResult = await WaitAxisMoveDoneInPositionAsync(axis, targetPosition).ConfigureAwait(false);
+                    if (!waitResult.Success)
+                    {
+                        string message = targetName + " move wait/in-position failed. " +
+                            AxisMoveWaiter.FormatResult(waitResult, axis.Name);
+                        return FailInitializePreparation(message);
+                    }
                 }
 
                 return 0;
@@ -5381,6 +5407,60 @@ namespace QMC.CDT320
                 : 100.0;
         }
 
+        private static int ResolveAxisMoveTimeout(BaseAxis axis)
+        {
+            return axis != null && axis.Setup != null && axis.Setup.MoveTimeoutMs > 0
+                ? axis.Setup.MoveTimeoutMs
+                : 10000;
+        }
+
+        private static double ResolveAxisInPositionTolerance(BaseAxis axis)
+        {
+            return axis != null && axis.Config != null && axis.Config.InPositionTolerance > 0.0
+                ? axis.Config.InPositionTolerance
+                : 0.05;
+        }
+
+        private static Task<AxisMoveWaitResult> WaitAxisMoveDoneInPositionAsync(BaseAxis axis, double target)
+        {
+            return AxisMoveWaiter.WaitMoveDoneInPositionAsync(
+                axis,
+                target,
+                ResolveAxisInPositionTolerance(axis),
+                ResolveAxisMoveTimeout(axis),
+                0);
+        }
+
+        private async Task<bool> MoveAxisCommandAndWaitAsync(BaseAxis axis, double target, double velocity, bool useSharedRailX)
+        {
+            if (axis == null)
+                return false;
+
+            if (DryRun)
+            {
+                Log($"[DRYRUN] skip move {axis.Name} target={target:F3} (vel={velocity:F0})");
+                return true;
+            }
+
+            int moveResult = useSharedRailX
+                ? await SharedRailXMotionRuntime.MoveAxisAsync(axis, target, velocity).ConfigureAwait(false)
+                : await axis.MoveAbsoluteAsync(target, velocity).ConfigureAwait(false);
+            if (moveResult != 0 || axis.IsAlarm)
+            {
+                Log("[MOVE] " + BuildAxisMotionFailureMessage(axis, "Move failed", moveResult));
+                return false;
+            }
+
+            AxisMoveWaitResult waitResult = await WaitAxisMoveDoneInPositionAsync(axis, target).ConfigureAwait(false);
+            if (!waitResult.Success)
+            {
+                Log("[MOVE] Move wait/in-position failed. " + AxisMoveWaiter.FormatResult(waitResult, axis.Name));
+                return false;
+            }
+
+            return true;
+        }
+
         private async Task<(double X, double Y)[]> CaptureWaferForCycleAsync(
             int cycleIdx, int pickers, CancellationToken ct)
         {
@@ -5421,8 +5501,8 @@ namespace QMC.CDT320
                 try
                 {
                     await Task.WhenAll(
-                        SharedRailXMotionRuntime.MoveAxisAsync(stage.CameraX, camXTarget, ResolveAxisDefaultVelocity(stage.CameraX)),
-                        stage.StageY.MoveAbsoluteAsync(stageYTarget, ResolveAxisDefaultVelocity(stage.StageY))
+                        MoveAxisCommandAndWaitAsync(stage.CameraX, camXTarget, ResolveAxisDefaultVelocity(stage.CameraX), true),
+                        MoveAxisCommandAndWaitAsync(stage.StageY, stageYTarget, ResolveAxisDefaultVelocity(stage.StageY), false)
                     );
                 }
                 catch (Exception ex) { Log($"[CAPTURE-XY p{p}] ex: " + ex.Message); }
@@ -5587,9 +5667,11 @@ namespace QMC.CDT320
             //   4) ArmY ??PickupPosition + ArmX ??ArmInputPositionX ?숈떆 吏꾩엯
             try
             {
-                await front.ArmY.MoveAbsoluteAsync(
+                await MoveAxisCommandAndWaitAsync(
+                    front.ArmY,
                     front.GetPickerTeachingPosition(PickerAxis.PickerY, "AvoidPosition"),
-                    front.Recipe.ArmYVelocity);
+                    front.Recipe.ArmYVelocity,
+                    false);
             }
             catch (Exception ex) { Log("[ARM-Y avoid] ex: " + ex.Message); }
 
@@ -5620,8 +5702,8 @@ namespace QMC.CDT320
             try
             {
                 await Task.WhenAll(
-                    SharedRailXMotionRuntime.MoveAxisAsync(front.ArmX, pickX, front.Recipe?.ArmXVelocity ?? 2000.0),
-                    front.ArmY.MoveAbsoluteAsync(pickY, front.Recipe.ArmYVelocity)
+                    MoveAxisCommandAndWaitAsync(front.ArmX, pickX, front.Recipe?.ArmXVelocity ?? 2000.0, true),
+                    MoveAxisCommandAndWaitAsync(front.ArmY, pickY, front.Recipe.ArmYVelocity, false)
                 );
             }
             catch (Exception ex)
@@ -5665,14 +5747,14 @@ namespace QMC.CDT320
                         + vo.X;
 
                     await Task.WhenAll(
-                        SharedRailXMotionRuntime.MoveAxisAsync(front.ArmX, armXTarget, front.Recipe.ArmXVelocity),
-                        stage.StageY.MoveAbsoluteAsync(stageYTarget, ResolveAxisDefaultVelocity(stage.StageY)),
-                        stage.NeedleBlockX.MoveAbsoluteAsync(needleXTarget, ResolveAxisDefaultVelocity(stage.NeedleBlockX))
+                        MoveAxisCommandAndWaitAsync(front.ArmX, armXTarget, front.Recipe.ArmXVelocity, true),
+                        MoveAxisCommandAndWaitAsync(stage.StageY, stageYTarget, ResolveAxisDefaultVelocity(stage.StageY), false),
+                        MoveAxisCommandAndWaitAsync(stage.NeedleBlockX, needleXTarget, ResolveAxisDefaultVelocity(stage.NeedleBlockX), false)
                     );
 
                     // ??Picker Z??(PickupPosition) / Needle Cap Vacuum ON / Picker Vacuum ON ?숈떆
-                    var pickerZTask = picker.PickerZ.MoveAbsoluteAsync(
-                        picker.Setup.PickupPosition, picker.Recipe.ZVelocity);
+                    var pickerZTask = MoveAxisCommandAndWaitAsync(
+                        picker.PickerZ, picker.Setup.PickupPosition, picker.Recipe.ZVelocity, false);
                     stage.NeedleVacuum?.On();
                     picker.VacuumOn();
                     await pickerZTask;
@@ -5682,8 +5764,8 @@ namespace QMC.CDT320
                     double needleUpPos = stage.Recipe.EjectPinZ.ReadyPosition + picker.Recipe.PickLiftPosition;
                     double pickerUpPos = picker.Setup.PickupPosition + picker.Recipe.PickLiftPosition;
                     await Task.WhenAll(
-                        ej.MoveAbsoluteAsync(needleUpPos, ResolveAxisDefaultVelocity(ej)),
-                        picker.PickerZ.MoveAbsoluteAsync(pickerUpPos, picker.Recipe.ZVelocity)
+                        MoveAxisCommandAndWaitAsync(ej, needleUpPos, ResolveAxisDefaultVelocity(ej), false),
+                        MoveAxisCommandAndWaitAsync(picker.PickerZ, pickerUpPos, picker.Recipe.ZVelocity, false)
                     );
 
                     // ??PickLiftWaitMs ?湲?
@@ -5691,8 +5773,8 @@ namespace QMC.CDT320
 
                     // ??Picker Wait (WaitPosition) / Needle Down (NeedleDownPosition) ?숈떆
                     await Task.WhenAll(
-                        picker.PickerZ.MoveAbsoluteAsync(picker.Setup.WaitPosition, picker.Recipe.ZVelocity),
-                        ej.MoveAbsoluteAsync(stage.Recipe.EjectPinZ.ReadyPosition, ResolveAxisDefaultVelocity(ej))
+                        MoveAxisCommandAndWaitAsync(picker.PickerZ, picker.Setup.WaitPosition, picker.Recipe.ZVelocity, false),
+                        MoveAxisCommandAndWaitAsync(ej, stage.Recipe.EjectPinZ.ReadyPosition, ResolveAxisDefaultVelocity(ej), false)
                     );
 
                     pickupOk[p] = !picker.PickerZ.IsAlarm && !ej.IsAlarm;
@@ -5798,12 +5880,15 @@ namespace QMC.CDT320
             try
             {
                 var move19 = new System.Collections.Generic.List<Task>();
-                move19.Add(SharedRailXMotionRuntime.MoveAxisAsync(front.ArmX, placeArmX,
-                                                                  front.Recipe?.ArmXVelocity ?? 2000.0));
+                move19.Add(MoveAxisCommandAndWaitAsync(front.ArmX, placeArmX,
+                                                       front.Recipe?.ArmXVelocity ?? 2000.0,
+                                                       true));
                 for (int p = 0; p < pickers; p++)
-                    move19.Add(front.Pickers[p].PickerZ.MoveAbsoluteAsync(
+                    move19.Add(MoveAxisCommandAndWaitAsync(
+                        front.Pickers[p].PickerZ,
                         front.Pickers[p].Setup.WaitPosition,
-                        front.Pickers[p].Recipe.ZVelocity));
+                        front.Pickers[p].Recipe.ZVelocity,
+                        false));
                 await Task.WhenAll(move19);
             }
             catch (Exception ex) { Log("[PLACE] 19) move ex: " + ex.Message); }
@@ -5820,16 +5905,21 @@ namespace QMC.CDT320
 
                 // ??ArmX (PlaceX + Bottom OffsetX) / Stage Y (HomeY + Bottom OffsetY) / PickerT (Bottom OffsetT) ?숈떆
                 await Task.WhenAll(
-                    SharedRailXMotionRuntime.MoveAxisAsync(front.ArmX, placeArmX + offX,
-                                                           front.Recipe?.ArmXVelocity ?? 2000.0),
-                    outStage.StageY.MoveAbsoluteAsync(outStage.Recipe.HomePositionY + offY,
-                                                     ResolveAxisDefaultVelocity(outStage.StageY)),
-                    picker.PickerT.MoveAbsoluteAsync(offT, picker.Recipe.ThetaVelocity)
+                    MoveAxisCommandAndWaitAsync(front.ArmX, placeArmX + offX,
+                                                front.Recipe?.ArmXVelocity ?? 2000.0,
+                                                true),
+                    MoveAxisCommandAndWaitAsync(outStage.StageY, outStage.Recipe.HomePositionY + offY,
+                                                ResolveAxisDefaultVelocity(outStage.StageY),
+                                                false),
+                    MoveAxisCommandAndWaitAsync(picker.PickerT, offT, picker.Recipe.ThetaVelocity, false)
                 );
 
                 // ??Picker Z ?ㅼ슫 (PlacePosition)
-                await picker.PickerZ.MoveAbsoluteAsync(picker.Setup.PlacePosition,
-                                                       picker.Recipe.ZVelocity);
+                await MoveAxisCommandAndWaitAsync(
+                    picker.PickerZ,
+                    picker.Setup.PlacePosition,
+                    picker.Recipe.ZVelocity,
+                    false);
 
                 // ??Vacuum Off + Blow On
                 picker.VacuumOff();
@@ -5842,8 +5932,11 @@ namespace QMC.CDT320
                 picker.BlowOff();
 
                 // ??Picker Up (WaitPosition)
-                await picker.PickerZ.MoveAbsoluteAsync(picker.Setup.WaitPosition,
-                                                       picker.Recipe.ZVelocity);
+                await MoveAxisCommandAndWaitAsync(
+                    picker.PickerZ,
+                    picker.Setup.WaitPosition,
+                    picker.Recipe.ZVelocity,
+                    false);
             }
 
             // 20) Good ?ㅼ씠 癒쇱? Place (GoodStage)
@@ -5871,9 +5964,11 @@ namespace QMC.CDT320
                 try
                 {
                     // NG Stage has no Z axis. Only GoodStage Z must be moved to avoid before NG place.
-                    await _machine.OutputStageUnit.GoodStage.StageZ.MoveAbsoluteAsync(
+                    await MoveAxisCommandAndWaitAsync(
+                        _machine.OutputStageUnit.GoodStage.StageZ,
                         _machine.OutputStageUnit.GoodStage.Recipe.AvoidPositionZ,
-                        ResolveAxisDefaultVelocity(_machine.OutputStageUnit.GoodStage.StageZ));
+                        ResolveAxisDefaultVelocity(_machine.OutputStageUnit.GoodStage.StageZ),
+                        false);
                 }
                 catch (Exception ex) { Log("[PLACE] Bin ?꾪솚 ex: " + ex.Message); }
 
@@ -5897,9 +5992,11 @@ namespace QMC.CDT320
             // ?? Stage 61 ??Place 醫낅즺 ??ArmY ??AvoidPosition ?뚰뵾 (?ㅼ쓬 ?ъ씠??capture ?덉쟾 ?곸뿭) ??
             try
             {
-                await front.ArmY.MoveAbsoluteAsync(
+                await MoveAxisCommandAndWaitAsync(
+                    front.ArmY,
                     front.GetPickerTeachingPosition(PickerAxis.PickerY, "AvoidPosition"),
-                    front.Recipe.ArmYVelocity);
+                    front.Recipe.ArmYVelocity,
+                    false);
                 Log($"[ARM-Y] Cycle {cycleIdx + 1}: Place complete. Return to Avoid position.");
             }
             catch (Exception ex) { Log("[ARM-Y avoid after PLACE] ex: " + ex.Message); }

@@ -333,7 +333,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         {
             OutputStageSequenceOptions options = OutputStageSequenceOptions.Default();
             options.RunMode = SequenceRunMode.Manual;
-            options.StartMode = SequenceStartMode.Restart;
+            options.StartMode = SequenceStartMode.Resume;
             options.Side = side;
             options.Grade = grade;
             options.FineMove = false;
@@ -376,10 +376,24 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 if (stage != null && stage.OutputCameraX != null)
                     lblVisionXValue.Text = AxisUnitConverter.FormatDisplay(stage.OutputCameraX.ActualPosition, stage.OutputCameraX, "0.###", true);
 
-                lblGoodGuideValue.Text = ResolveGuideState(stage != null ? stage.GoodBinGuideUpSensor : null, stage != null ? stage.GoodBinGuideDownSensor : null);
-                lblGoodClampValue.Text = ResolveClampState(stage != null ? stage.GoodBinClampUpSensor : null, stage != null ? stage.GoodBinUnclampSensor : null);
-                lblNgGuideValue.Text = ResolveGuideState(stage != null ? stage.NgBinGuideUpSensor : null, stage != null ? stage.NgBinGuideDownSensor : null);
-                lblNgClampValue.Text = ResolveClampState(stage != null ? stage.NgBinClampUpSensor : null, stage != null ? stage.NgBinUnclampSensor : null);
+                lblGoodGuideValue.Text = ResolveUpDownState(
+                    stage != null && stage.IsBinGuideUp(BinSide.Good),
+                    stage != null && stage.IsBinGuideDown(BinSide.Good));
+                lblGoodClampValue.Text = ResolveUpDownState(
+                    stage != null && stage.IsBinGuideClampLiftUp(BinSide.Good),
+                    stage != null && stage.IsBinGuideClampLiftDown(BinSide.Good));
+                lblGoodClampStateValue.Text = ResolveClampState(
+                    stage != null && stage.IsBinGuideClamped(BinSide.Good),
+                    stage != null && stage.IsBinGuideUnclamped(BinSide.Good));
+                lblNgGuideValue.Text = ResolveUpDownState(
+                    stage != null && stage.IsBinGuideUp(BinSide.Ng),
+                    stage != null && stage.IsBinGuideDown(BinSide.Ng));
+                lblNgClampValue.Text = ResolveUpDownState(
+                    stage != null && stage.IsBinGuideClampLiftUp(BinSide.Ng),
+                    stage != null && stage.IsBinGuideClampLiftDown(BinSide.Ng));
+                lblNgClampStateValue.Text = ResolveClampState(
+                    stage != null && stage.IsBinGuideClamped(BinSide.Ng),
+                    stage != null && stage.IsBinGuideUnclamped(BinSide.Ng));
 
                 WaferMaterial good = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputStageGood);
                 WaferMaterial ng = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputStageNg);
@@ -532,11 +546,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 : MaterialLocationKind.OutputStageGood;
         }
 
-        private static string ResolveGuideState(BaseDigitalInput up, BaseDigitalInput down)
+        private static string ResolveUpDownState(bool isUp, bool isDown)
         {
-            bool isUp = up != null && up.IsOn;
-            bool isDown = down != null && down.IsOn;
-
             if (isUp && !isDown)
                 return "UP";
             if (!isUp && isDown)
@@ -546,16 +557,13 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             return "--";
         }
 
-        private static string ResolveClampState(BaseDigitalInput clampUp, BaseDigitalInput unclamp)
+        private static string ResolveClampState(bool isClamp, bool isUnclamp)
         {
-            bool isClampUp = clampUp != null && clampUp.IsOn;
-            bool isUnclamp = unclamp != null && unclamp.IsOn;
-
-            if (isClampUp && !isUnclamp)
-                return "UP";
-            if (!isClampUp && isUnclamp)
+            if (isClamp && !isUnclamp)
+                return "CLAMP";
+            if (!isClamp && isUnclamp)
                 return "UNCLAMP";
-            if (isClampUp && isUnclamp)
+            if (isClamp && isUnclamp)
                 return "BOTH";
             return "--";
         }

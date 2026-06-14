@@ -223,6 +223,16 @@ namespace QMC.CDT320
                 if (result != 0 || item.IsAlarm)
                     return RaiseVisionAlarm("VS-MOVE", axis + " move failed. result=" + result + ", alarm=" + item.IsAlarm);
 
+                AxisMoveWaitResult waitResult = await WaitVisionAxisMoveDoneInPosition(
+                    axis,
+                    targetPos,
+                    Recipe != null && Recipe.MoveTimeoutMs > 0 ? Recipe.MoveTimeoutMs : 5000).ConfigureAwait(false);
+                if (!waitResult.Success)
+                    return RaiseVisionAlarm(
+                        AxisMoveWaiter.ResolveAlarmCode("VS-MOVE", waitResult),
+                        axis + " move/in-position wait failed. target=" + targetPos + ". " +
+                        AxisMoveWaiter.FormatResult(waitResult, axis.ToString()));
+
                 return 0;
             }
             catch (Exception ex)
@@ -320,25 +330,49 @@ namespace QMC.CDT320
 
         public async Task<bool> WaitVisionAxisMoveDone(VisionAxis axis, int timeoutMs)
         {
-            return await WaitUntilAsync(() =>
-            {
-                BaseAxis item = ResolveVisionAxis(axis);
-                return !item.IsMoving && item.IsInPosition && !item.IsAlarm;
-            }, timeoutMs);
+            AxisMoveWaitResult waitResult = await WaitVisionAxisMoveDoneInPosition(axis, timeoutMs).ConfigureAwait(false);
+            return waitResult.Success;
+        }
+
+        public async Task<AxisMoveWaitResult> WaitVisionAxisMoveDoneInPosition(VisionAxis axis, int timeoutMs)
+        {
+            BaseAxis item = ResolveVisionAxis(axis);
+            return await WaitVisionAxisMoveDoneInPosition(axis, item.CommandPosition, timeoutMs).ConfigureAwait(false);
+        }
+
+        public async Task<AxisMoveWaitResult> WaitVisionAxisMoveDoneInPosition(VisionAxis axis, double targetPos, int timeoutMs)
+        {
+            BaseAxis item = ResolveVisionAxis(axis);
+            double tolerance = item.Config != null && item.Config.InPositionTolerance > 0.0
+                ? item.Config.InPositionTolerance
+                : 0.05;
+            return await AxisMoveWaiter.WaitMoveDoneInPositionAsync(
+                item,
+                targetPos,
+                tolerance,
+                timeoutMs,
+                0).ConfigureAwait(false);
         }
 
         public async Task<bool> WaitVisionAxesMoveDone(IEnumerable<VisionAxis> targetAxes, int timeoutMs)
         {
-            return await WaitUntilAsync(() =>
+            AxisMoveWaitResult waitResult = await WaitVisionAxesMoveDoneInPosition(targetAxes, timeoutMs).ConfigureAwait(false);
+            return waitResult.Success;
+        }
+
+        public async Task<AxisMoveWaitResult> WaitVisionAxesMoveDoneInPosition(IEnumerable<VisionAxis> targetAxes, int timeoutMs)
+        {
+            if (targetAxes == null)
+                return new AxisMoveWaitResult(AxisMoveWaitFailure.AxisMissing, "Vision target axis collection is null.", "axes=null");
+
+            foreach (VisionAxis axis in targetAxes)
             {
-                foreach (VisionAxis axis in targetAxes)
-                {
-                    BaseAxis item = ResolveVisionAxis(axis);
-                    if (item.IsMoving || !item.IsInPosition || item.IsAlarm)
-                        return false;
-                }
-                return true;
-            }, timeoutMs);
+                AxisMoveWaitResult waitResult = await WaitVisionAxisMoveDoneInPosition(axis, timeoutMs).ConfigureAwait(false);
+                if (!waitResult.Success)
+                    return waitResult;
+            }
+
+            return new AxisMoveWaitResult(AxisMoveWaitFailure.None, "All vision axes reached target position.", "axes=ok");
         }
 
         public bool IsVisionAxisInTeachingPosition(VisionAxis axis, string positionName)

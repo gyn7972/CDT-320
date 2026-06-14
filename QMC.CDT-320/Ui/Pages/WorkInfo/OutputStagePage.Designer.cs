@@ -43,10 +43,14 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private Label lblGoodGuideValue;
         private Label lblGoodClampTitle;
         private Label lblGoodClampValue;
+        private Label lblGoodClampStateTitle;
+        private Label lblGoodClampStateValue;
         private Label lblNgGuideTitle;
         private Label lblNgGuideValue;
         private Label lblNgClampTitle;
         private Label lblNgClampValue;
+        private Label lblNgClampStateTitle;
+        private Label lblNgClampStateValue;
         private TableLayoutPanel goodYPanel;
         private Label lblGoodYTitle;
         private Label lblGoodYValue;
@@ -101,10 +105,14 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblGoodGuideValue = new System.Windows.Forms.Label();
             this.lblGoodClampTitle = new System.Windows.Forms.Label();
             this.lblGoodClampValue = new System.Windows.Forms.Label();
+            this.lblGoodClampStateTitle = new System.Windows.Forms.Label();
+            this.lblGoodClampStateValue = new System.Windows.Forms.Label();
             this.lblNgGuideTitle = new System.Windows.Forms.Label();
             this.lblNgGuideValue = new System.Windows.Forms.Label();
             this.lblNgClampTitle = new System.Windows.Forms.Label();
             this.lblNgClampValue = new System.Windows.Forms.Label();
+            this.lblNgClampStateTitle = new System.Windows.Forms.Label();
+            this.lblNgClampStateValue = new System.Windows.Forms.Label();
             this.grpInfo = new System.Windows.Forms.GroupBox();
             this.infoLayout = new System.Windows.Forms.TableLayoutPanel();
             this.goodYPanel = new System.Windows.Forms.TableLayoutPanel();
@@ -218,7 +226,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.leftLayout.Location = new System.Drawing.Point(11, 11);
             this.leftLayout.Name = "leftLayout";
             this.leftLayout.RowCount = 2;
-            this.leftLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 220F));
+            this.leftLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 260F));
             this.leftLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.leftLayout.Size = new System.Drawing.Size(987, 752);
             this.leftLayout.TabIndex = 0;
@@ -510,10 +518,14 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.cylinderLayout.Controls.Add(this.lblGoodGuideValue, 1, 0);
             this.cylinderLayout.Controls.Add(this.lblGoodClampTitle, 0, 1);
             this.cylinderLayout.Controls.Add(this.lblGoodClampValue, 1, 1);
-            this.cylinderLayout.Controls.Add(this.lblNgGuideTitle, 0, 2);
-            this.cylinderLayout.Controls.Add(this.lblNgGuideValue, 1, 2);
-            this.cylinderLayout.Controls.Add(this.lblNgClampTitle, 0, 3);
-            this.cylinderLayout.Controls.Add(this.lblNgClampValue, 1, 3);
+            this.cylinderLayout.Controls.Add(this.lblGoodClampStateTitle, 0, 2);
+            this.cylinderLayout.Controls.Add(this.lblGoodClampStateValue, 1, 2);
+            this.cylinderLayout.Controls.Add(this.lblNgGuideTitle, 0, 3);
+            this.cylinderLayout.Controls.Add(this.lblNgGuideValue, 1, 3);
+            this.cylinderLayout.Controls.Add(this.lblNgClampTitle, 0, 4);
+            this.cylinderLayout.Controls.Add(this.lblNgClampValue, 1, 4);
+            this.cylinderLayout.Controls.Add(this.lblNgClampStateTitle, 0, 5);
+            this.cylinderLayout.Controls.Add(this.lblNgClampStateValue, 1, 5);
             this.cylinderLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.cylinderLayout.Location = new System.Drawing.Point(3, 23);
             this.cylinderLayout.Name = "cylinderLayout";
@@ -566,7 +578,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblGoodClampTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
             this.lblGoodClampTitle.Size = new System.Drawing.Size(202, 32);
             this.lblGoodClampTitle.TabIndex = 2;
-            this.lblGoodClampTitle.Text = "GOOD CLAMP";
+            this.lblGoodClampTitle.Text = "GOOD CLAMP LIFT";
             this.lblGoodClampTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // lblGoodClampValue
@@ -582,17 +594,44 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblGoodClampValue.Text = "--";
             this.lblGoodClampValue.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
+            // lblGoodClampStateTitle
+            // 
+            this.lblGoodClampStateTitle.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
+            this.lblGoodClampStateTitle.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.lblGoodClampStateTitle.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblGoodClampStateTitle.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblGoodClampStateTitle.Location = new System.Drawing.Point(15, 82);
+            this.lblGoodClampStateTitle.Name = "lblGoodClampStateTitle";
+            this.lblGoodClampStateTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
+            this.lblGoodClampStateTitle.Size = new System.Drawing.Size(202, 32);
+            this.lblGoodClampStateTitle.TabIndex = 8;
+            this.lblGoodClampStateTitle.Text = "GOOD CLAMP";
+            this.lblGoodClampStateTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // lblGoodClampStateValue
+            // 
+            this.lblGoodClampStateValue.BackColor = System.Drawing.Color.White;
+            this.lblGoodClampStateValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.lblGoodClampStateValue.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblGoodClampStateValue.Font = new System.Drawing.Font("Consolas", 10F);
+            this.lblGoodClampStateValue.Location = new System.Drawing.Point(223, 82);
+            this.lblGoodClampStateValue.Name = "lblGoodClampStateValue";
+            this.lblGoodClampStateValue.Size = new System.Drawing.Size(146, 32);
+            this.lblGoodClampStateValue.TabIndex = 9;
+            this.lblGoodClampStateValue.Text = "--";
+            this.lblGoodClampStateValue.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            // 
             // lblNgGuideTitle
             // 
             this.lblNgGuideTitle.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
             this.lblNgGuideTitle.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblNgGuideTitle.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblNgGuideTitle.Font = new System.Drawing.Font("맑은 고딕", 11F);
-            this.lblNgGuideTitle.Location = new System.Drawing.Point(15, 82);
+            this.lblNgGuideTitle.Location = new System.Drawing.Point(15, 114);
             this.lblNgGuideTitle.Name = "lblNgGuideTitle";
             this.lblNgGuideTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
             this.lblNgGuideTitle.Size = new System.Drawing.Size(202, 32);
-            this.lblNgGuideTitle.TabIndex = 4;
+            this.lblNgGuideTitle.TabIndex = 10;
             this.lblNgGuideTitle.Text = "NG GUIDE";
             this.lblNgGuideTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
@@ -602,10 +641,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblNgGuideValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblNgGuideValue.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblNgGuideValue.Font = new System.Drawing.Font("Consolas", 10F);
-            this.lblNgGuideValue.Location = new System.Drawing.Point(223, 82);
+            this.lblNgGuideValue.Location = new System.Drawing.Point(223, 114);
             this.lblNgGuideValue.Name = "lblNgGuideValue";
             this.lblNgGuideValue.Size = new System.Drawing.Size(146, 32);
-            this.lblNgGuideValue.TabIndex = 5;
+            this.lblNgGuideValue.TabIndex = 11;
             this.lblNgGuideValue.Text = "--";
             this.lblNgGuideValue.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
@@ -615,12 +654,12 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblNgClampTitle.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblNgClampTitle.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblNgClampTitle.Font = new System.Drawing.Font("맑은 고딕", 11F);
-            this.lblNgClampTitle.Location = new System.Drawing.Point(15, 114);
+            this.lblNgClampTitle.Location = new System.Drawing.Point(15, 146);
             this.lblNgClampTitle.Name = "lblNgClampTitle";
             this.lblNgClampTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
             this.lblNgClampTitle.Size = new System.Drawing.Size(202, 32);
-            this.lblNgClampTitle.TabIndex = 6;
-            this.lblNgClampTitle.Text = "NG CLAMP";
+            this.lblNgClampTitle.TabIndex = 12;
+            this.lblNgClampTitle.Text = "NG CLAMP LIFT";
             this.lblNgClampTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // lblNgClampValue
@@ -629,12 +668,39 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblNgClampValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblNgClampValue.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblNgClampValue.Font = new System.Drawing.Font("Consolas", 10F);
-            this.lblNgClampValue.Location = new System.Drawing.Point(223, 114);
+            this.lblNgClampValue.Location = new System.Drawing.Point(223, 146);
             this.lblNgClampValue.Name = "lblNgClampValue";
             this.lblNgClampValue.Size = new System.Drawing.Size(146, 32);
-            this.lblNgClampValue.TabIndex = 7;
+            this.lblNgClampValue.TabIndex = 13;
             this.lblNgClampValue.Text = "--";
             this.lblNgClampValue.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            // 
+            // lblNgClampStateTitle
+            // 
+            this.lblNgClampStateTitle.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
+            this.lblNgClampStateTitle.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.lblNgClampStateTitle.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblNgClampStateTitle.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblNgClampStateTitle.Location = new System.Drawing.Point(15, 178);
+            this.lblNgClampStateTitle.Name = "lblNgClampStateTitle";
+            this.lblNgClampStateTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
+            this.lblNgClampStateTitle.Size = new System.Drawing.Size(202, 32);
+            this.lblNgClampStateTitle.TabIndex = 14;
+            this.lblNgClampStateTitle.Text = "NG CLAMP";
+            this.lblNgClampStateTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // lblNgClampStateValue
+            // 
+            this.lblNgClampStateValue.BackColor = System.Drawing.Color.White;
+            this.lblNgClampStateValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.lblNgClampStateValue.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblNgClampStateValue.Font = new System.Drawing.Font("Consolas", 10F);
+            this.lblNgClampStateValue.Location = new System.Drawing.Point(223, 178);
+            this.lblNgClampStateValue.Name = "lblNgClampStateValue";
+            this.lblNgClampStateValue.Size = new System.Drawing.Size(146, 32);
+            this.lblNgClampStateValue.TabIndex = 15;
+            this.lblNgClampStateValue.Text = "--";
+            this.lblNgClampStateValue.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
             // grpInfo
             // 

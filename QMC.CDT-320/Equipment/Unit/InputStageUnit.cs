@@ -5,6 +5,7 @@ using QMC.Common;
 using QMC.Common.IO;
 using QMC.Common.Motion;
 using QMC.CDT320.Ajin;
+using QMC.CDT320.Interlocks;
 using QMC.CDT320.Motion.SharedRailX;
 using QMC.Common.Alarms;
 using QMC.Common.Logging;
@@ -240,6 +241,8 @@ namespace QMC.CDT320
         /// 다이 픽업 시 테이프 아래에서 핀을 밀어올려 다이를 분리.
         /// </summary>
         public BaseAxis EjectPinZ   { get; private set; }
+
+        public string LastStageMoveFailureMessage { get; private set; }
 
         /// <summary>
         /// 니들 진공 흡착 DO.<br/>
@@ -546,13 +549,57 @@ namespace QMC.CDT320
             try
             {
                 BaseAxis item = ResolveInputStageAxis(axis);
+                string interlockReason;
+                if (!MotionGuardRuntime.VerifyAxisMove(item, targetPos, out interlockReason))
+                {
+                    string message = axis + " move blocked by interlock. target=" + targetPos + ". " + interlockReason;
+                    LastStageMoveFailureMessage = message;
+                    return RaiseStageAlarm(
+                        AlarmSeverity.Error,
+                        "IN-STAGE-MOVE-INTERLOCK",
+                        Name,
+                        message);
+                }
+
                 double velocity = ResolveInputStageMoveVelocity(axis, bFine);
-                return await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, velocity);
+                int result = await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, velocity).ConfigureAwait(false);
+                if (result != 0 || item.IsAlarm)
+                {
+                    string message = axis + " move failed. result=" + result +
+                        ", alarm=" + item.IsAlarm +
+                        ", alarmCode=" + item.AlarmCode +
+                        ", servo=" + item.IsServoOn +
+                        ", moving=" + item.IsMoving +
+                        ", actual=" + item.ActualPosition +
+                        ", target=" + targetPos +
+                        FormatAxisLastMotionFailure(item);
+                    LastStageMoveFailureMessage = message;
+                    return RaiseStageAlarm(AlarmSeverity.Error, "IN-STAGE-MOVE", Name, message);
+                }
+
+                AxisMoveWaitResult waitResult = await WaitInputStageAxisInPositionResult(
+                    axis,
+                    targetPos,
+                    ResolveSequenceMoveTimeout()).ConfigureAwait(false);
+                if (!waitResult.Success)
+                {
+                    string message = axis + " move/in-position wait failed. target=" + targetPos + ". " +
+                        AxisMoveWaiter.FormatResult(waitResult, axis.ToString());
+                    LastStageMoveFailureMessage = message;
+                    return RaiseStageAlarm(
+                        AlarmSeverity.Error,
+                        AxisMoveWaiter.ResolveAlarmCode("IN-STAGE-MOVE", waitResult),
+                        Name,
+                        message);
+                }
+
+                LastStageMoveFailureMessage = string.Empty;
+                return 0;
             }
             catch (Exception ex)
             {
-                AlarmManager.Raise(AlarmSeverity.Warning, "IN-STAGE-MOVE", Name, ex.Message);
-                return -1;
+                LastStageMoveFailureMessage = axis + " move exception. target=" + targetPos + ". " + ex.Message;
+                return RaiseStageAlarm(AlarmSeverity.Warning, "IN-STAGE-MOVE", Name, LastStageMoveFailureMessage);
             }
             finally
             {
@@ -563,13 +610,16 @@ namespace QMC.CDT320
         {
             try
             {
-                BaseAxis item = ResolveInputStageAxis(axis);
-                bool arrived = await WaitAxisInPositionAsync(item, targetPos, timeoutMs).ConfigureAwait(false);
-                if (arrived)
+                AxisMoveWaitResult waitResult = await WaitInputStageAxisInPositionResult(axis, targetPos, timeoutMs).ConfigureAwait(false);
+                if (waitResult.Success)
                     return 0;
 
-                return RaiseStageAlarm(AlarmSeverity.Error, "IN-STAGE-MOVE-TIMEOUT", Name,
-                    axis + " move done timeout. target=" + targetPos);
+                return RaiseStageAlarm(
+                    AlarmSeverity.Error,
+                    AxisMoveWaiter.ResolveAlarmCode("IN-STAGE-MOVE", waitResult),
+                    Name,
+                    axis + " move/in-position wait failed. " +
+                    AxisMoveWaiter.FormatResult(waitResult, axis.ToString()));
             }
             catch (Exception ex)
             {
@@ -579,6 +629,28 @@ namespace QMC.CDT320
             finally
             {
             }
+        }
+
+        private static string FormatAxisLastMotionFailure(BaseAxis axis)
+        {
+            if (axis == null || string.IsNullOrWhiteSpace(axis.LastMotionFailureMessage))
+                return string.Empty;
+
+            return ", lastMotionFailure=" + axis.LastMotionFailureMessage;
+        }
+
+        public async Task<AxisMoveWaitResult> WaitInputStageAxisInPositionResult(WaferStageAxis axis, double targetPos, int timeoutMs)
+        {
+            BaseAxis item = ResolveInputStageAxis(axis);
+            double tolerance = item.Config != null && item.Config.InPositionTolerance > 0.0
+                ? item.Config.InPositionTolerance
+                : 0.05;
+            return await AxisMoveWaiter.WaitMoveDoneInPositionAsync(
+                item,
+                targetPos,
+                tolerance,
+                timeoutMs > 0 ? timeoutMs : 10000,
+                0).ConfigureAwait(false);
         }
 
         public void ManualMoveInputStageAxisJog(WaferStageAxis axis, Direction dir, double speed)
@@ -1495,23 +1567,6 @@ namespace QMC.CDT320
             if (ref1Result != null && ref1Result.PitchY > 0.0)
                 return ref1Result.PitchY;
             return DefaultEstimatedPitchY;
-        }
-
-        private async Task<bool> WaitAxisInPositionAsync(BaseAxis axis, double target, int timeoutMs)
-        {
-            if (axis == null)
-                return false;
-
-            DateTime deadline = DateTime.Now.AddMilliseconds(timeoutMs > 0 ? timeoutMs : 10000);
-            while (DateTime.Now <= deadline)
-            {
-                if (!axis.IsMoving && IsAxisInPosition(axis, target))
-                    return true;
-
-                await Task.Delay(20).ConfigureAwait(false);
-            }
-
-            return !axis.IsMoving && IsAxisInPosition(axis, target);
         }
 
         private static bool IsAxisInPosition(BaseAxis axis, double target)

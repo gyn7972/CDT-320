@@ -1,5 +1,6 @@
 using System;
 using QMC.Common.IO;
+using QMC.Common.Logging;
 using QMC.Common.Motion;
 
 namespace QMC.CDT320.Interlocks
@@ -32,6 +33,38 @@ namespace QMC.CDT320.Interlocks
         {
             reason = "Interlock blocked. moving=" + movingName + ". " + message;
             return false;
+        }
+
+        public static bool IsKnownMoveKind(MotionGuardMoveKind moveKind)
+        {
+            return moveKind == MotionGuardMoveKind.AxisMove
+                || moveKind == MotionGuardMoveKind.AxisHome
+                || moveKind == MotionGuardMoveKind.AxisTeachingMove
+                || moveKind == MotionGuardMoveKind.CylinderMove;
+        }
+
+        public static bool BlockUnsupportedMoveKind(MotionGuardRuleContext request, out string reason)
+        {
+            string movingName = request != null ? request.MovingName : string.Empty;
+            string moveKind = request != null ? request.MoveKind.ToString() : "<null>";
+            bool result = Block(
+                movingName,
+                "Unsupported motion guard move kind. moveKind=" + moveKind + ". Motion is blocked for safety.",
+                out reason);
+
+            WriteUnsupportedMoveKindAlarm(reason);
+            return result;
+        }
+
+        private static void WriteUnsupportedMoveKindAlarm(string reason)
+        {
+            try
+            {
+                EventLogger.Write(EventKind.Alarm, "INTERLOCK", "MOTION-GUARD", reason);
+            }
+            catch
+            {
+            }
         }
 
         public static bool IsAt(BaseAxis axis, double target)

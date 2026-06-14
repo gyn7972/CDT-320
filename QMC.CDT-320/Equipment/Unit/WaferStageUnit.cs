@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Threading.Tasks;
+using QMC.Common.Motion;
 
 namespace QMC.CDT320
 {
@@ -79,12 +80,33 @@ namespace QMC.CDT320
         /// <summary>WaferStage 축 이동 완료를 대기합니다.</summary>
         public Task<bool> WaitWaferStageAxisMoveDone(WaferStageAxis axis, int timeoutMs) => WaitAxisMoveDone(axis, timeoutMs);
 
+        /// <summary>WaferStage 축 이동 완료와 목표 위치 도착을 상세 결과로 대기합니다.</summary>
+        public Task<AxisMoveWaitResult> WaitWaferStageAxisMoveDoneInPosition(WaferStageAxis axis, int timeoutMs) => WaitAxisMoveDoneInPosition(axis, timeoutMs);
+
+        /// <summary>WaferStage 축 이동 완료와 지정 목표 위치 도착을 상세 결과로 대기합니다.</summary>
+        public Task<AxisMoveWaitResult> WaitWaferStageAxisMoveDoneInPosition(WaferStageAxis axis, double targetPos, int timeoutMs) => WaitAxisMoveDoneInPosition(axis, targetPos, timeoutMs);
+
         /// <summary>WaferStage 복수 축 이동 완료를 대기합니다.</summary>
         public async Task<bool> WaitWaferStageAxesMoveDone(IEnumerable<WaferStageAxis> axes, int timeoutMs)
         {
+            AxisMoveWaitResult waitResult = await WaitWaferStageAxesMoveDoneInPosition(axes, timeoutMs).ConfigureAwait(false);
+            return waitResult.Success;
+        }
+
+        /// <summary>WaferStage 복수 축 이동 완료와 목표 위치 도착을 상세 결과로 대기합니다.</summary>
+        public async Task<AxisMoveWaitResult> WaitWaferStageAxesMoveDoneInPosition(IEnumerable<WaferStageAxis> axes, int timeoutMs)
+        {
+            if (axes == null)
+                return new AxisMoveWaitResult(AxisMoveWaitFailure.AxisMissing, "WaferStage axis list is null.", "axes=null");
+
             foreach (var axis in axes)
-                if (!await WaitAxisMoveDone(axis, timeoutMs)) return false;
-            return true;
+            {
+                AxisMoveWaitResult waitResult = await WaitAxisMoveDoneInPosition(axis, timeoutMs).ConfigureAwait(false);
+                if (!waitResult.Success)
+                    return waitResult;
+            }
+
+            return AxisMoveWaitResult.Ok();
         }
 
         /// <summary>WaferStage 축이 티칭 위치에 있는지 확인합니다.</summary>

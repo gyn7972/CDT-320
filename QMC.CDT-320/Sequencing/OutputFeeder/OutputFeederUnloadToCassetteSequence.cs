@@ -12,7 +12,10 @@ namespace QMC.CDT320.Sequencing
         CheckTransferReady,
         CheckFeederBinData,
         CheckCassetteTargetSlot,
-        EnsureFeederClamped,
+        VerifyFeederClamped,
+        VerifyFeederLiftDown,
+        VerifyBinDetected,
+        MoveCassetteToBinSlot,
         MoveFeederCassetteUnloadPosition,
         PrepareFeederUnclamp,
         MoveFeederAvoidPosition,
@@ -54,8 +57,17 @@ namespace QMC.CDT320.Sequencing
                     case OutputFeederUnloadToCassetteStep.CheckCassetteTargetSlot:
                         return Task.FromResult(CheckCassetteTargetSlot());
 
-                    case OutputFeederUnloadToCassetteStep.EnsureFeederClamped:
-                        return EnsureFeederClampedAsync(ct);
+                    case OutputFeederUnloadToCassetteStep.VerifyFeederClamped:
+                        return Task.FromResult(VerifyFeederClamped());
+
+                    case OutputFeederUnloadToCassetteStep.VerifyFeederLiftDown:
+                        return Task.FromResult(VerifyFeederLiftDown());
+
+                    case OutputFeederUnloadToCassetteStep.VerifyBinDetected:
+                        return VerifyBinDetectedAsync(ct);
+
+                    case OutputFeederUnloadToCassetteStep.MoveCassetteToBinSlot:
+                        return MoveCassetteToBinSlotAsync(ct);
 
                     case OutputFeederUnloadToCassetteStep.MoveFeederCassetteUnloadPosition:
                         return MoveFeederCassetteUnloadPositionAsync(ct);
@@ -112,21 +124,86 @@ namespace QMC.CDT320.Sequencing
                     ", slot=" + Options.SlotIndex + ", waferId=" + cassetteWafer.WaferId +
                     ", state=" + cassetteWafer.State + ", loc=" + cassetteWafer.CurrentLocation);
 
-            CurrentStep = OutputFeederUnloadToCassetteStep.EnsureFeederClamped;
+            CurrentStep = OutputFeederUnloadToCassetteStep.VerifyFeederClamped;
             return 0;
         }
 
-        private async Task<int> EnsureFeederClampedAsync(CancellationToken ct)
+        private int VerifyFeederClamped()
         {
             if (Feeder.IsFeederUnclamped())
+                return Fail("OUT-FEEDER-CLAMP-CHECK", Feeder.Name,
+                    "Output feeder must already be clamped before cassette unload move. side=" + Options.Side + ", " +
+                    Feeder.DescribeFeederCylinderState());
+
+            CurrentStep = OutputFeederUnloadToCassetteStep.VerifyFeederLiftDown;
+            return 0;
+        }
+
+        private int VerifyFeederLiftDown()
+        {
+            if (!Feeder.IsFeederDown())
+                return Fail("OUT-FEEDER-LIFT-DOWN-CHECK", Feeder.Name,
+                    "Output feeder must already be down before cassette unload. side=" + Options.Side + ", " +
+                    Feeder.DescribeFeederCylinderState());
+
+            CurrentStep = OutputFeederUnloadToCassetteStep.VerifyBinDetected;
+            return 0;
+        }
+
+        private async Task<int> VerifyBinDetectedAsync(CancellationToken ct)
+        {
+            WaferMaterial wafer = ResolveFeederWafer();
+            if (wafer == null)
+                return Fail("OUT-FEEDER-DATA-MISSING", "Material", "Output feeder data disappeared before cassette unload.");
+
+            if (!IsHardwareBypass())
             {
-                int result = await AwaitStepWithCancellationAsync(Feeder.SetFeederClampAsync(true, ResolveTimeout()), ct).ConfigureAwait(false);
-                if (result != 0)
-                    return Fail("OUT-FEEDER-CLAMP", Feeder.Name, "Output feeder clamp command failed before cassette unload. result=" + result);
+                bool detected = await AwaitStepWithCancellationAsync(Feeder.WaitFeederRingState(true, ResolveTimeout()), ct).ConfigureAwait(false);
+                if (!detected)
+                    return Fail("OUT-FEEDER-CST-UNLOAD-RING-DETECT", Feeder.Name, "Output feeder ring was not detected before cassette unload. waferId=" + wafer.WaferId);
             }
 
-            if (Feeder.IsFeederUnclamped())
-                return Fail("OUT-FEEDER-CLAMP", Feeder.Name, "Output feeder must be clamped before cassette unload move. side=" + Options.Side);
+            CurrentStep = OutputFeederUnloadToCassetteStep.MoveCassetteToBinSlot;
+            return 0;
+        }
+
+        private async Task<int> MoveCassetteToBinSlotAsync(CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+
+            if (Cassette == null)
+                return Fail("OUT-FEEDER-CST-MISSING", "OutputCassette", "Output cassette unit is not available.");
+
+            TargetCassette targetCassette = ResolveOutputTargetCassette();
+            double targetPosition = Cassette.CalculateBinCassetteSlotTargetPosition(targetCassette, Options.SlotIndex);
+
+            string readyReason;
+            if (!Cassette.CheckBinLifterZMoveReady(out readyReason))
+                return Fail("OUT-FEEDER-CST-MOVE-READY", Cassette.Name,
+                    "Output cassette is not ready to move before feeder unload. role=" + ResolveOutputCassetteRole() +
+                    ", slot=" + Options.SlotIndex + ", target=" + targetCassette +
+                    ", targetPosition=" + targetPosition +
+                    ". " + readyReason);
+
+            try
+            {
+                bool prepared = await AwaitStepWithCancellationAsync(
+                    Cassette.PrepareBinCassetteForFeederLoad(targetCassette, Options.SlotIndex, ResolveTimeout(), Options.FineMove),
+                    ct).ConfigureAwait(false);
+                if (!prepared)
+                    return Fail("OUT-FEEDER-CST-SLOT-MOVE", Cassette.Name,
+                        "Output cassette slot move failed before feeder unload. role=" + ResolveOutputCassetteRole() +
+                        ", slot=" + Options.SlotIndex + ", target=" + targetCassette +
+                        ", targetPosition=" + targetPosition + ". " + Cassette.DescribeOutputLifterZState(targetPosition));
+            }
+            catch (Exception ex)
+            {
+                return Fail("OUT-FEEDER-CST-SLOT-MOVE", Cassette.Name,
+                    "Output cassette slot move exception before feeder unload. role=" + ResolveOutputCassetteRole() +
+                    ", slot=" + Options.SlotIndex + ", target=" + targetCassette +
+                    ", targetPosition=" + targetPosition +
+                    ", message=" + ex.Message + ". " + Cassette.DescribeOutputLifterZState(targetPosition));
+            }
 
             CurrentStep = OutputFeederUnloadToCassetteStep.MoveFeederCassetteUnloadPosition;
             return 0;

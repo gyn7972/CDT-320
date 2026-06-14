@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Threading.Tasks;
+using QMC.Common.Motion;
 
 namespace QMC.CDT320
 {
@@ -69,6 +70,12 @@ namespace QMC.CDT320
 
         /// <summary>BinStage 축 이동 완료를 대기합니다.</summary>
         public Task<bool> WaitStageAxisMoveDone(BinStageAxis axis, int timeoutMs) => WaitAxisMoveDone(axis, timeoutMs);
+
+        /// <summary>BinStage 축 이동 완료와 목표 위치 도착을 상세 결과로 대기합니다.</summary>
+        public Task<AxisMoveWaitResult> WaitStageAxisMoveDoneInPosition(BinStageAxis axis, int timeoutMs) => WaitAxisMoveDoneInPosition(axis, timeoutMs);
+
+        /// <summary>BinStage 축 이동 완료와 지정 목표 위치 도착을 상세 결과로 대기합니다.</summary>
+        public Task<AxisMoveWaitResult> WaitStageAxisMoveDoneInPosition(BinStageAxis axis, double targetPos, int timeoutMs) => WaitAxisMoveDoneInPosition(axis, targetPos, timeoutMs);
 
         /// <summary>BinStage 축 티칭 위치 도착 여부를 확인합니다.</summary>
         public bool IsStageAxisInTeachingPosition(BinStageAxis axis, string positionName) => IsAxisInTeachingPosition(axis, positionName);

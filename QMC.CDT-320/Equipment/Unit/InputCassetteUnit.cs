@@ -264,7 +264,7 @@ namespace QMC.CDT320
             MotionGuardMoveKind moveKind,
             out string reason)
         {
-            if (InputCassetteInterlockRules.CanMoveWaferLifterZ(Machine, targetPos, moveKind, out reason))
+            if (InputCassetteInterlockRules.VerifyWaferLifterZ(Machine, targetPos, moveKind, out reason))
                 return true;
 
             Log.Write("Main", "INTERLOCK", "InputCassette", reason + " - Blocked");
@@ -356,7 +356,28 @@ namespace QMC.CDT320
         {
             try
             {
-                return await WaitUntilAsync(() => !InputLifterZ.IsMoving && InputLifterZ.IsInPosition && !InputLifterZ.IsAlarm, timeoutMs);
+                AxisMoveWaitResult waitResult = await WaitWaferLifterZMoveDoneInPosition(InputLifterZ.CommandPosition, timeoutMs).ConfigureAwait(false);
+                return waitResult.Code;
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        public async Task<AxisMoveWaitResult> WaitWaferLifterZMoveDoneInPosition(double targetPos, int timeoutMs)
+        {
+            try
+            {
+                return await AxisMoveWaiter.WaitMoveDoneInPositionAsync(
+                    InputLifterZ,
+                    targetPos,
+                    ResolveWaferLifterZInPositionTolerance(),
+                    timeoutMs,
+                    Config != null ? Config.ScanSettleTimeMs : 0).ConfigureAwait(false);
             }
             catch
             {
@@ -372,7 +393,8 @@ namespace QMC.CDT320
             try
             {
                 double target = GetTeachingPosition(positionName);
-                return await WaitUntilAsync(() => IsWaferLifterZInPosition(target, ResolveWaferLifterZInPositionTolerance()), timeoutMs);
+                AxisMoveWaitResult waitResult = await WaitWaferLifterZMoveDoneInPosition(target, timeoutMs).ConfigureAwait(false);
+                return waitResult.Success ? 0 : waitResult.Code;
             }
             catch
             {
@@ -719,6 +741,7 @@ namespace QMC.CDT320
 
         public async Task<int> WaferScan(int timeoutMs = 0, bool bFine = false)
         {
+            bool mappingStarted = false;
             try
             {
                 string readyReason;
@@ -729,9 +752,8 @@ namespace QMC.CDT320
                 }
 
                 BeginWaferMapping();
-                int result = await ScanCassetteAsync(Config.SlotCount, Config.SlotPitch);
-                EndWaferMapping();
-                return result;
+                mappingStarted = true;
+                return await ScanCassetteAsync(ResolveMappingSlotCount(), Config.SlotPitch).ConfigureAwait(false);
             }
             catch
             {
@@ -739,11 +761,14 @@ namespace QMC.CDT320
             }
             finally
             {
+                if (mappingStarted)
+                    EndWaferMapping();
             }
         }
 
         public async Task<int> WaferScanFromCurrentStart(int timeoutMs = 0, bool bFine = false)
         {
+            bool mappingStarted = false;
             try
             {
                 string readyReason;
@@ -754,9 +779,8 @@ namespace QMC.CDT320
                 }
 
                 BeginWaferMapping();
-                int result = await ScanCassetteFromCurrentStartAsync(Config.SlotCount, Config.SlotPitch, timeoutMs);
-                EndWaferMapping();
-                return result;
+                mappingStarted = true;
+                return await ScanCassetteFromCurrentStartAsync(ResolveMappingSlotCount(), Config.SlotPitch, timeoutMs).ConfigureAwait(false);
             }
             catch
             {
@@ -764,6 +788,8 @@ namespace QMC.CDT320
             }
             finally
             {
+                if (mappingStarted)
+                    EndWaferMapping();
             }
         }
 
@@ -808,7 +834,18 @@ namespace QMC.CDT320
                 if (result != 0)
                     return result;
 
-                return await WaitWaferLifterZMoveDone(timeoutMs);
+                double target = CalculateWaferCassetteSlotTargetPosition(slotIndex);
+                AxisMoveWaitResult waitResult = await WaitWaferLifterZMoveDoneInPosition(target, timeoutMs).ConfigureAwait(false);
+                if (!waitResult.Success)
+                {
+                    RaiseWaferCassetteConditionAlarm(
+                        ResolveWaferLifterZMoveWaitAlarmCode("IN-CST-FEEDER-LOAD", waitResult.Failure),
+                        "Prepare cassette for feeder load move/in-position wait failed. waitResult=" + waitResult.Code +
+                        ", reason=" + waitResult.Reason + ". " + waitResult.AxisState);
+                    return waitResult.Code;
+                }
+
+                return 0;
             }
             catch
             {
@@ -832,7 +869,17 @@ namespace QMC.CDT320
                     if (moveResult != 0)
                         return moveResult;
 
-                    return await WaitWaferLifterZMoveDone(timeoutMs);
+                    AxisMoveWaitResult waitResult = await WaitWaferLifterZMoveDoneInPosition(Recipe.AvoidPosition, timeoutMs).ConfigureAwait(false);
+                    if (!waitResult.Success)
+                    {
+                        RaiseWaferCassetteConditionAlarm(
+                            ResolveWaferLifterZMoveWaitAlarmCode("IN-CST-RECOVER-AVOID", waitResult.Failure),
+                            "Recover cassette to avoid position move/in-position wait failed. waitResult=" + waitResult.Code +
+                            ", reason=" + waitResult.Reason + ". " + waitResult.AxisState);
+                        return waitResult.Code;
+                    }
+
+                    return 0;
                 }
 
                 return 0;
@@ -1120,13 +1167,14 @@ namespace QMC.CDT320
         {
             slotStates.Clear();
             WaferMap = new List<bool>().AsReadOnly();
-            Recipe.ResizeSlotPositions(Config.SlotCount);
+            Recipe.ResizeSlotPositions(ResolveMappingSlotCount());
         }
 
         public void EndWaferMapping()
         {
             var map = new List<bool>(WaferMap);
-            for (int i = 0; i < map.Count; i++)
+            int count = Math.Min(Config != null ? Config.SlotCount : 0, map.Count);
+            for (int i = 0; i < count; i++)
                 UpdateWaferCassetteSlotState(i, map[i] ? SlotPresence.Exist : SlotPresence.Empty, ProcessState.Ready);
         }
 
@@ -1134,12 +1182,12 @@ namespace QMC.CDT320
         {
             BeginWaferMapping();
 
-            int count = Config != null && Config.SlotCount > 0 ? Config.SlotCount : 25;
+            int count = Config != null && Config.SlotCount > 0 ? ResolveMappingSlotCount() : 25;
             var map = new List<bool>(count);
             for (int i = 0; i < count; i++)
             {
                 map.Add(true);
-                UpdateSlotPosition(i, CalculateNominalSlotPosition(i));
+                UpdateSlotPosition(i, CalculateMappingSlotPosition(i));
             }
 
             WaferMap = map.AsReadOnly();
@@ -1232,9 +1280,6 @@ namespace QMC.CDT320
                     return FailMappingScan("IN-CST-MAP-PITCH", "Slot pitch is invalid.");
                 }
 
-                if (Config.bDryRun || InputLifterZ.Config.IsSimulationMode)
-                    return await ScanCassetteByNominalPositionFromCurrentStartAsync(maxSlots, timeoutMs);
-
                 var detectedPositions = await CollectMappingSensorPositionsAsync();
                 if (detectedPositions == null)
                     return -1;
@@ -1269,43 +1314,6 @@ namespace QMC.CDT320
             }
         }
 
-        private async Task<int> ScanCassetteByNominalPositionFromCurrentStartAsync(int maxSlots, int timeoutMs)
-        {
-            try
-            {
-                var map = new List<bool>();
-                for (int i = 0; i < maxSlots; i++)
-                {
-                    UpdateSlotPosition(i, CalculateNominalSlotPosition(i));
-                    map.Add(true);
-                }
-
-                int endResult = await MoveToWaferCassetteMappingEndPosition();
-                if (endResult != 0 || InputLifterZ.IsAlarm)
-                    return FailMappingScan("IN-CST-MAP-SIM-END", "InputLifterZ simulation move failed at mapping end.");
-
-                int waitResult = await WaitWaferLifterZMoveDone(timeoutMs);
-                if (waitResult != 0)
-                    return FailMappingScan("IN-CST-MAP-SIM-END-WAIT", "InputLifterZ simulation mapping end move timeout.");
-
-                bool inPosition = IsWaferLifterZInPosition(Recipe.MappingEndPosition, ResolveWaferLifterZInPositionTolerance());
-                if (!inPosition)
-                    return FailMappingScan("IN-CST-MAP-SIM-END-CHECK", "InputLifterZ simulation mapping end final position check failed.");
-
-                WaferMap = map.AsReadOnly();
-                Log.Write("Main", "SYSTEM", "InputCassetteMapping", "Simulation mapping scan completed. slots=" + map.Count + " - Ok");
-                return 0;
-            }
-            catch (Exception ex)
-            {
-                FailMappingScan("IN-CST-MAP-SIM-EXCEPTION", "Simulation mapping scan failed: " + ex.Message);
-                return -1;
-            }
-            finally
-            {
-            }
-        }
-
         private async Task<int> MoveToWaferCassetteMappingStartAndVerifyAsync()
         {
             try
@@ -1314,13 +1322,12 @@ namespace QMC.CDT320
                 if (startResult != 0 || InputLifterZ.IsAlarm)
                     return FailMappingScan("IN-CST-MAP-START", "InputLifterZ move failed at mapping start.");
 
-                int waitResult = await WaitWaferLifterZMoveDone(ResolveWaferLifterZMoveTimeoutMs());
-                if (waitResult != 0)
-                    return FailMappingScan("IN-CST-MAP-START-WAIT", "InputLifterZ mapping start move timeout.");
-
-                bool inPosition = IsWaferLifterZInPosition(Recipe.MappingStartPosition, ResolveWaferLifterZInPositionTolerance());
-                if (!inPosition)
-                    return FailMappingScan("IN-CST-MAP-START-CHECK", "InputLifterZ mapping start final position check failed.");
+                AxisMoveWaitResult waitResult = await WaitWaferLifterZMoveDoneInPosition(Recipe.MappingStartPosition, ResolveWaferLifterZMoveTimeoutMs()).ConfigureAwait(false);
+                if (!waitResult.Success)
+                    return FailMappingScan(
+                        ResolveWaferLifterZMoveWaitAlarmCode("IN-CST-MAP-START", waitResult.Failure),
+                        "InputLifterZ mapping start move/in-position wait failed. waitResult=" + waitResult.Code +
+                        ", reason=" + waitResult.Reason + ". " + waitResult.AxisState);
 
                 return 0;
             }
@@ -1341,8 +1348,11 @@ namespace QMC.CDT320
             try
             {
                 var detectedPositions = new List<double>();
-                bool previous = WaferMappingSensor.IsOn;
-                if (previous)
+                bool virtualSensor = IsVirtualMappingSensorMode();
+                double scanStartPosition = InputLifterZ.ActualPosition;
+                bool[] virtualDetected = virtualSensor ? new bool[ResolveMappingSlotCount()] : null;
+                bool previous = virtualSensor ? false : WaferMappingSensor.IsOn;
+                if (!virtualSensor && previous)
                     return FailMappingScanList("IN-CST-MAP-SENSOR-ON", "Mapping sensor is ON at mapping start. Check mapping start position.");
 
                 double scanVelocity = Config.ScanVelocity > 0.0 ? Config.ScanVelocity : InputLifterZ.Config.DefaultVelocity;
@@ -1373,11 +1383,23 @@ namespace QMC.CDT320
                         return FailMappingScanList("IN-CST-MAP-PROTRUSION", "Wafer protrusion detected during mapping scan.");
                     }
 
-                    bool current = WaferMappingSensor.IsOn;
-                    if (current && !previous)
-                        AddDetectedMappingPosition(detectedPositions, InputLifterZ.ActualPosition);
+                    if (virtualSensor)
+                    {
+                        AddVirtualMappingDetections(
+                            detectedPositions,
+                            virtualDetected,
+                            scanStartPosition,
+                            Recipe.MappingEndPosition,
+                            InputLifterZ.ActualPosition);
+                    }
+                    else
+                    {
+                        bool current = WaferMappingSensor.IsOn;
+                        if (current && !previous)
+                            AddDetectedMappingPosition(detectedPositions, InputLifterZ.ActualPosition);
 
-                    previous = current;
+                        previous = current;
+                    }
                     await Task.Delay(5).ContinueWith(_ => { });
                 }
 
@@ -1385,13 +1407,20 @@ namespace QMC.CDT320
                 if (moveResult != 0 || InputLifterZ.IsAlarm)
                     return FailMappingScanList("IN-CST-MAP-END", "InputLifterZ move failed during mapping scan.");
 
-                int waitResult = await WaitWaferLifterZMoveDone(ResolveWaferLifterZMoveTimeoutMs());
-                if (waitResult != 0)
-                    return FailMappingScanList("IN-CST-MAP-END-WAIT", "InputLifterZ mapping end move timeout.");
+                if (virtualSensor)
+                    AddVirtualMappingDetections(
+                        detectedPositions,
+                        virtualDetected,
+                        scanStartPosition,
+                        Recipe.MappingEndPosition,
+                        Recipe.MappingEndPosition);
 
-                bool inPosition = IsWaferLifterZInPosition(Recipe.MappingEndPosition, ResolveWaferLifterZInPositionTolerance());
-                if (!inPosition)
-                    return FailMappingScanList("IN-CST-MAP-END-CHECK", "InputLifterZ mapping end final position check failed.");
+                AxisMoveWaitResult waitResult = await WaitWaferLifterZMoveDoneInPosition(Recipe.MappingEndPosition, ResolveWaferLifterZMoveTimeoutMs()).ConfigureAwait(false);
+                if (!waitResult.Success)
+                    return FailMappingScanList(
+                        ResolveWaferLifterZMoveWaitAlarmCode("IN-CST-MAP-END", waitResult.Failure),
+                        "InputLifterZ mapping end move/in-position wait failed. waitResult=" + waitResult.Code +
+                        ", reason=" + waitResult.Reason + ". " + waitResult.AxisState);
 
                 return detectedPositions;
             }
@@ -1431,6 +1460,56 @@ namespace QMC.CDT320
             }
         }
 
+        private bool IsVirtualMappingSensorMode()
+        {
+            return Config != null && Config.bDryRun ||
+                   InputLifterZ != null &&
+                   InputLifterZ.Config != null &&
+                   InputLifterZ.Config.IsSimulationMode;
+        }
+
+        private void AddVirtualMappingDetections(
+            List<double> detectedPositions,
+            bool[] virtualDetected,
+            double scanStartPosition,
+            double scanEndPosition,
+            double currentPosition)
+        {
+            if (detectedPositions == null || virtualDetected == null)
+                return;
+
+            int count = Math.Min(virtualDetected.Length, ResolveMappingSlotCount());
+            double tolerance = ResolveMappingPitchTolerance(Config != null ? Config.SlotPitch : 0.0);
+            for (int i = 0; i < count; i++)
+            {
+                if (virtualDetected[i])
+                    continue;
+
+                double nominal = CalculateMappingSlotPosition(i);
+                if (!IsPositionPassed(scanStartPosition, scanEndPosition, currentPosition, nominal, tolerance))
+                    continue;
+
+                AddDetectedMappingPosition(detectedPositions, nominal);
+                virtualDetected[i] = true;
+            }
+        }
+
+        private static bool IsPositionPassed(double start, double end, double current, double target, double tolerance)
+        {
+            if (tolerance < 0.0)
+                tolerance = 0.0;
+
+            double min = Math.Min(start, end);
+            double max = Math.Max(start, end);
+            if (target < min - tolerance || target > max + tolerance)
+                return false;
+
+            if (end >= start)
+                return current + tolerance >= target;
+
+            return current - tolerance <= target;
+        }
+
         private bool BuildMappingResultFromDetectedPositions(
             IReadOnlyList<double> detectedPositions,
             int maxSlots,
@@ -1445,17 +1524,17 @@ namespace QMC.CDT320
 
             try
             {
-                double firstSlotPosition = CalculateNominalSlotPosition(0);
                 double tolerance = ResolveMappingPitchTolerance(slotPitch);
                 int previousSlot = -1;
                 double previousPosition = double.NaN;
 
                 foreach (double position in detectedPositions)
                 {
-                    int slotIndex = (int)Math.Round((position - firstSlotPosition) / slotPitch);
+                    int slotIndex = ResolveNearestMappingSlotIndex(position, maxSlots, tolerance);
                     if (slotIndex < 0 || slotIndex >= maxSlots)
                     {
-                        FailMappingScan("IN-CST-MAP-SLOT-MATCH", "Detected wafer position is outside slot range. position=" + FormatPosition(position));
+                        FailMappingScan("IN-CST-MAP-SLOT-MATCH", "Detected wafer position is outside slot pitch tolerance. position=" + FormatPosition(position) +
+                            ", tolerance=" + FormatPosition(tolerance));
                         return false;
                     }
 
@@ -1469,7 +1548,7 @@ namespace QMC.CDT320
                     {
                         int slotGap = Math.Abs(slotIndex - previousSlot);
                         double actualGap = Math.Abs(position - previousPosition);
-                        double expectedGap = slotPitch * slotGap;
+                        double expectedGap = Math.Abs(CalculateMappingSlotPosition(slotIndex) - CalculateMappingSlotPosition(previousSlot));
                         double error = Math.Abs(actualGap - expectedGap);
                         if (slotGap <= 0 || error > tolerance)
                         {
@@ -1509,6 +1588,9 @@ namespace QMC.CDT320
                 double tolerance = ResolveWaferLifterZInPositionTolerance();
                 if (tolerance <= 0.0)
                     tolerance = slotPitch * 0.1;
+                double pitchTolerance = slotPitch > 0.0 ? slotPitch * 0.45 : 0.0;
+                if (pitchTolerance > 0.0)
+                    return Math.Max(tolerance, pitchTolerance);
                 return Math.Max(tolerance, 0.001);
             }
             catch
@@ -1518,6 +1600,30 @@ namespace QMC.CDT320
             finally
             {
             }
+        }
+
+        private int ResolveNearestMappingSlotIndex(double position, int maxSlots, double tolerance)
+        {
+            int matchedSlot = -1;
+            double bestError = double.MaxValue;
+
+            for (int i = 0; i < maxSlots; i++)
+            {
+                double nominal = CalculateMappingSlotPosition(i);
+                double error = Math.Abs(position - nominal);
+                if (error <= tolerance && error < bestError)
+                {
+                    matchedSlot = i;
+                    bestError = error;
+                }
+            }
+
+            return matchedSlot;
+        }
+
+        private static string ResolveWaferLifterZMoveWaitAlarmCode(string prefix, AxisMoveWaitFailure failure)
+        {
+            return AxisMoveWaiter.ResolveAlarmCode(prefix, failure);
         }
 
         private int FailMappingScan(string alarmCode, string message)
@@ -1753,6 +1859,11 @@ namespace QMC.CDT320
                 if (moveResult != 0 || InputLifterZ.IsAlarm)
                     throw new InvalidOperationException("'" + Name + "' Move: InputLifterZ alarm.");
 
+                AxisMoveWaitResult waitResult = await WaitWaferLifterZMoveDoneInPosition(targetPosition, ResolveWaferLifterZMoveTimeoutMs()).ConfigureAwait(false);
+                if (!waitResult.Success)
+                    throw new InvalidOperationException("'" + Name + "' Move: InputLifterZ wait/in-position failed. " +
+                        AxisMoveWaiter.FormatResult(waitResult, "InputLifterZ"));
+
                 return 0;
             }
             catch
@@ -1822,22 +1933,39 @@ namespace QMC.CDT320
                 throw new ArgumentOutOfRangeException("slotIndex", "Slot index is out of cassette range.");
         }
 
+        private void ValidateMappingSlotIndex(int slotIndex)
+        {
+            if (slotIndex < 0 || slotIndex >= ResolveMappingSlotCount())
+                throw new ArgumentOutOfRangeException("slotIndex", "Slot index is out of cassette mapping range.");
+        }
+
+        public int ResolveCassetteLevelCount()
+        {
+            return Config != null && Config.SelectedCassetteLevel >= 2 ? 2 : 1;
+        }
+
+        public int ResolveMappingSlotCount()
+        {
+            int slotCount = Config != null && Config.SlotCount > 0 ? Config.SlotCount : 0;
+            return slotCount * ResolveCassetteLevelCount();
+        }
+
         /// <summary>Config.SlotCount??留욎떠 Recipe.SlotPosition 踰꾪띁瑜?蹂댁옣?⑸땲??</summary>
         public void EnsureSlotPositionBuffer()
         {
-            Recipe.EnsureSlotPositionBuffer(Config.SlotCount);
+            Recipe.EnsureSlotPositionBuffer(ResolveMappingSlotCount());
         }
 
         /// <summary>Mapping ??SlotPosition 踰꾪띁瑜?珥덇린?뷀빀?덈떎.</summary>
         public void ResetSlotPositionsForMapping()
         {
-            Recipe.ResizeSlotPositions(Config.SlotCount);
+            Recipe.ResizeSlotPositions(ResolveMappingSlotCount());
         }
 
         /// <summary>吏??Slot??Mapping ?꾩튂瑜?媛깆떊?⑸땲??</summary>
         public void UpdateSlotPosition(int slotIndex, double position)
         {
-            ValidateSlotIndex(slotIndex);
+            ValidateMappingSlotIndex(slotIndex);
             EnsureSlotPositionBuffer();
             Recipe.UpdateSlotPosition(slotIndex, position);
         }
@@ -1846,16 +1974,26 @@ namespace QMC.CDT320
         public double CalculateNominalSlotPosition(int slotIndex)
         {
             ValidateSlotIndex(slotIndex);
-            return Recipe.FirstSlotPosition + Config.LoadingPositionOffset + (Config.SlotPitch * slotIndex);
+            return Recipe.MappingStartPosition + Recipe.FirstSlotPosition + Config.LoadingPositionOffset + (Config.SlotPitch * slotIndex);
+        }
+
+        public double CalculateMappingSlotPosition(int mappingSlotIndex)
+        {
+            ValidateMappingSlotIndex(mappingSlotIndex);
+
+            int slotCount = Config.SlotCount;
+            int level = mappingSlotIndex / slotCount + 1;
+            int localSlotIndex = mappingSlotIndex % slotCount;
+            return CalculateCassetteLevelSlotPosition(level, localSlotIndex);
         }
 
         public double CalculateCassetteLevelSlotPosition(int level, int slotIndex)
         {
             ValidateSlotIndex(slotIndex);
             if (level < 2)
-                return CalculateWaferCassetteSlotTargetPosition(slotIndex);
+                return Recipe.MappingStartPosition + Recipe.FirstSlotPosition + Config.LoadingPositionOffset + (Config.SlotPitch * slotIndex);
 
-            double level1LastPosition = CalculateWaferCassetteSlotTargetPosition(Config.SlotCount - 1);
+            double level1LastPosition = Recipe.MappingStartPosition + Recipe.FirstSlotPosition + Config.LoadingPositionOffset + (Config.SlotPitch * (Config.SlotCount - 1));
             double levelGap = Config.Level2PositionOffset;
             if (levelGap <= 0.0)
                 levelGap = Config.SlotPitch > 0.0 ? Config.SlotPitch : 0.001;

@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using QMC.Common;
 using QMC.Common.Alarms;
+using QMC.Common.Motion;
 
 namespace QMC.CDT320.Sequencing
 {
@@ -221,18 +222,16 @@ namespace QMC.CDT320.Sequencing
             if (result != 0)
                 return Fail("OUT-STAGE-MOVE", Stage.Name,
                     description + " move command failed. axis=" + axis + ", target=" + target +
-                    ", result=" + result + ". " + BuildAxisState(axis, target));
+                    ", result=" + result + ". " + BuildAxisState(axis, target) + ". " +
+                    Stage.DescribeOutputStageInterlockState(Options.Side));
 
-            bool done = await AwaitStepWithCancellationAsync(Stage.WaitStageAxisMoveDone(axis, ResolveTimeout()), ct).ConfigureAwait(false);
-            if (!done)
-                return Fail("OUT-STAGE-MOVE-WAIT", Stage.Name,
-                    description + " move done timeout. axis=" + axis + ", target=" + target +
-                    ". " + BuildAxisState(axis, target));
-
-            if (!Stage.IsStageAxisInPosition(axis, target, ResolveTolerance(axis)))
-                return Fail("OUT-STAGE-MOVE-CHECK", Stage.Name,
-                    description + " final position check failed. axis=" + axis + ", target=" + target +
-                    ". " + BuildAxisState(axis, target));
+            AxisMoveWaitResult waitResult = await AwaitStepWithCancellationAsync(
+                Stage.WaitStageAxisMoveDoneInPosition(axis, target, ResolveTimeout()),
+                ct).ConfigureAwait(false);
+            if (waitResult == null || !waitResult.Success)
+                return Fail(ResolveAxisMoveWaitAlarmCode("OUT-STAGE-MOVE", waitResult), Stage.Name,
+                    description + " move/in-position wait failed. axis=" + axis + ", target=" + target +
+                    ". " + FormatAxisMoveWaitResult(waitResult, BuildAxisState(axis, target)));
 
             ct.ThrowIfCancellationRequested();
             return 0;
@@ -283,6 +282,16 @@ namespace QMC.CDT320.Sequencing
                    ", target=" + target +
                    ", tolerance=" + tolerance +
                    "]";
+        }
+
+        protected static string ResolveAxisMoveWaitAlarmCode(string prefix, AxisMoveWaitResult waitResult)
+        {
+            return AxisMoveWaiter.ResolveAlarmCode(prefix, waitResult);
+        }
+
+        protected static string FormatAxisMoveWaitResult(AxisMoveWaitResult waitResult, string fallbackState)
+        {
+            return AxisMoveWaiter.FormatResult(waitResult, fallbackState);
         }
 
         private string BuildRequiredAxisReason()
@@ -405,6 +414,16 @@ namespace QMC.CDT320.Sequencing
         protected static async Task<bool> AwaitStepWithCancellationAsync(Task<bool> stepTask, CancellationToken ct)
         {
             if (stepTask == null) return false;
+            if (stepTask.IsCompleted) return await stepTask.ConfigureAwait(false);
+            Task cancelTask = Task.Delay(Timeout.Infinite, ct);
+            Task completed = await Task.WhenAny(stepTask, cancelTask).ConfigureAwait(false);
+            if (!ReferenceEquals(completed, stepTask)) ct.ThrowIfCancellationRequested();
+            return await stepTask.ConfigureAwait(false);
+        }
+
+        protected static async Task<AxisMoveWaitResult> AwaitStepWithCancellationAsync(Task<AxisMoveWaitResult> stepTask, CancellationToken ct)
+        {
+            if (stepTask == null) return null;
             if (stepTask.IsCompleted) return await stepTask.ConfigureAwait(false);
             Task cancelTask = Task.Delay(Timeout.Infinite, ct);
             Task completed = await Task.WhenAny(stepTask, cancelTask).ConfigureAwait(false);

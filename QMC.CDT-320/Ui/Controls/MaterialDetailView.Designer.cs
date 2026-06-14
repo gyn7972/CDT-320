@@ -12,6 +12,7 @@ namespace QMC.CDT_320.Ui.Controls
         private FlowLayoutPanel materialButtonLayout;
         private Button btnCreateData;
         private Button btnClearData;
+        private Button btnClearAllData;
         private DataGridViewTextBoxColumn colName;
         private DataGridViewTextBoxColumn colValue;
 
@@ -38,6 +39,7 @@ namespace QMC.CDT_320.Ui.Controls
             this.materialButtonLayout = new System.Windows.Forms.FlowLayoutPanel();
             this.btnCreateData = new System.Windows.Forms.Button();
             this.btnClearData = new System.Windows.Forms.Button();
+            this.btnClearAllData = new System.Windows.Forms.Button();
             this.grpMaterialDetail.SuspendLayout();
             this.materialLayout.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.gridMaterial)).BeginInit();
@@ -104,6 +106,7 @@ namespace QMC.CDT_320.Ui.Controls
             // 
             this.materialButtonLayout.Controls.Add(this.btnCreateData);
             this.materialButtonLayout.Controls.Add(this.btnClearData);
+            this.materialButtonLayout.Controls.Add(this.btnClearAllData);
             this.materialButtonLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.materialButtonLayout.FlowDirection = System.Windows.Forms.FlowDirection.RightToLeft;
             this.materialButtonLayout.Location = new System.Drawing.Point(3, 443);
@@ -142,6 +145,21 @@ namespace QMC.CDT_320.Ui.Controls
             this.btnClearData.Text = "DATA CLEAR";
             this.btnClearData.UseVisualStyleBackColor = false;
             this.btnClearData.Click += new System.EventHandler(this.btnClearData_Click);
+            // 
+            // btnClearAllData
+            // 
+            this.btnClearAllData.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(120)))), ((int)(((byte)(32)))), ((int)(((byte)(32)))));
+            this.btnClearAllData.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnClearAllData.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnClearAllData.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
+            this.btnClearAllData.ForeColor = System.Drawing.Color.White;
+            this.btnClearAllData.Margin = new System.Windows.Forms.Padding(6, 0, 0, 0);
+            this.btnClearAllData.Name = "btnClearAllData";
+            this.btnClearAllData.Size = new System.Drawing.Size(135, 30);
+            this.btnClearAllData.TabIndex = 2;
+            this.btnClearAllData.Text = "DATA ALL CLEAR";
+            this.btnClearAllData.UseVisualStyleBackColor = false;
+            this.btnClearAllData.Click += new System.EventHandler(this.btnClearAllData_Click);
             // 
             // colName
             // 

@@ -192,12 +192,12 @@ namespace QMC.CDT320.Ajin
                     IsAlarm = true;
                     AlarmCode = (uint)ret;
                     _motionDirection = 0;
-                    AlarmManager.Raise(
-                        AlarmSeverity.Error,
-                        "AX-MOVE-ABS",
-                        Name,
-                        "AXM.MovePosition failed. ret=0x" + ret.ToString("X4"));
-                    return ret;
+                    return FailMotion(
+                        ret,
+                        "ABS MOVE",
+                        "AXM.MovePosition failed. ret=0x" + ret.ToString("X4"),
+                        targetPos,
+                        true);
                 }
 
                 RaiseMoveStarted();
@@ -216,12 +216,7 @@ namespace QMC.CDT320.Ajin
                 IsMoving = false;
                 IsAlarm = true;
                 _motionDirection = 0;
-                AlarmManager.Raise(
-                    AlarmSeverity.Error,
-                    "AX-MOVE-ABS",
-                    Name,
-                    ex.Message);
-                return -1;
+                return FailMotion(-1, "ABS MOVE", ex.Message, targetPos, true);
             }
             finally
             {
@@ -772,14 +767,12 @@ namespace QMC.CDT320.Ajin
 
                 if (targetPos > Setup.SoftLimitPlus)
                 {
-                    RaiseSoftLimitAlarm(10, "positive", targetPos, Setup.SoftLimitPlus);
-                    return 10;
+                    return FailSoftLimit(10, "positive", targetPos, Setup.SoftLimitPlus);
                 }
 
                 if (targetPos < Setup.SoftLimitMinus)
                 {
-                    RaiseSoftLimitAlarm(11, "negative", targetPos, Setup.SoftLimitMinus);
-                    return 11;
+                    return FailSoftLimit(11, "negative", targetPos, Setup.SoftLimitMinus);
                 }
 
                 return 0;
@@ -822,6 +815,18 @@ namespace QMC.CDT320.Ajin
             finally
             {
             }
+        }
+
+        private int FailSoftLimit(int alarmCode, string side, double position, double limit)
+        {
+            string message = "Soft limit reached (" + side + "). Position=" +
+                position.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) +
+                ", Limit=" +
+                limit.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) +
+                ", AxisNo=" + AxisNo;
+
+            RaiseSoftLimitAlarm((uint)alarmCode, side, position, limit);
+            return FailMotion(alarmCode, "ABS MOVE", message, position, true);
         }
 
         private void RaiseAxisAlarmForCurrentStatus(

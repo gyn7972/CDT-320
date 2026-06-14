@@ -12,6 +12,7 @@ namespace QMC.CDT320.Sequencing
         CheckTransferReady,
         CheckOutputStageEmpty,
         CheckCassetteBinData,
+        MoveCassetteToBinSlot,
         PrepareFeederUnclamp,
         PrepareFeederLiftDown,
         MoveFeederCassetteLoadPosition,
@@ -55,6 +56,9 @@ namespace QMC.CDT320.Sequencing
 
                     case OutputFeederLoadFromCassetteStep.CheckCassetteBinData:
                         return Task.FromResult(CheckCassetteBinData());
+
+                    case OutputFeederLoadFromCassetteStep.MoveCassetteToBinSlot:
+                        return MoveCassetteToBinSlotAsync(ct);
 
                     case OutputFeederLoadFromCassetteStep.PrepareFeederUnclamp:
                         return PrepareFeederUnclampAsync(ct);
@@ -138,7 +142,26 @@ namespace QMC.CDT320.Sequencing
 
         private int CheckCassetteBinData()
         {
-            return CheckCassetteSlotReadyForLoad(OutputFeederLoadFromCassetteStep.PrepareFeederUnclamp);
+            return CheckCassetteSlotReadyForLoad(OutputFeederLoadFromCassetteStep.MoveCassetteToBinSlot);
+        }
+
+        private async Task<int> MoveCassetteToBinSlotAsync(CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+
+            if (Cassette == null)
+                return Fail("OUT-FEEDER-CST-MISSING", "OutputCassette", "Output cassette unit is not available.");
+
+            bool prepared = await AwaitStepWithCancellationAsync(
+                Cassette.PrepareBinCassetteForFeederLoad(ResolveOutputTargetCassette(), Options.SlotIndex, ResolveTimeout(), Options.FineMove),
+                ct).ConfigureAwait(false);
+            if (!prepared)
+                return Fail("OUT-FEEDER-CST-SLOT-MOVE", Cassette.Name,
+                    "Output cassette slot move failed before feeder load. role=" + ResolveOutputCassetteRole() +
+                    ", slot=" + Options.SlotIndex + ", target=" + ResolveOutputTargetCassette());
+
+            CurrentStep = OutputFeederLoadFromCassetteStep.PrepareFeederUnclamp;
+            return 0;
         }
 
         private async Task<int> PrepareFeederUnclampAsync(CancellationToken ct)

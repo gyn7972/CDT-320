@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using QMC.Common;
 using QMC.Common.Alarms;
+using QMC.Common.Motion;
 
 namespace QMC.CDT320.Sequencing
 {
@@ -207,31 +208,15 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> WaitAxisInPositionResultAsync(QMC.CDT320.WaferStageAxis axis, double target)
         {
-            bool arrived = await WaitAxisInPositionAsync(axis, target, ResolveTimeout()).ConfigureAwait(false);
-            if (!arrived)
-                return Fail("IN-STAGE-MOVE-TIMEOUT", Stage.Name,
-                    "Input stage axis move done timeout. axis=" + axis + ", target=" + target + ". " +
-                    BuildAxisState(axis, target));
+            AxisMoveWaitResult waitResult = await AwaitStepWithCancellationAsync(
+                Stage.WaitInputStageAxisInPositionResult(axis, target, ResolveTimeout()),
+                CancellationToken.None).ConfigureAwait(false);
+            if (waitResult == null || !waitResult.Success)
+                return Fail(ResolveAxisMoveWaitAlarmCode("IN-STAGE-MOVE", waitResult), Stage.Name,
+                    "Input stage axis move/in-position wait failed. axis=" + axis + ", target=" + target + ". " +
+                    FormatAxisMoveWaitResult(waitResult, BuildAxisState(axis, target)));
 
             return 0;
-        }
-
-        private async Task<bool> WaitAxisInPositionAsync(QMC.CDT320.WaferStageAxis axis, double target, int timeoutMs)
-        {
-            QMC.Common.Motion.BaseAxis item = ResolveStageAxis(axis);
-            if (item == null)
-                return false;
-
-            DateTime deadline = DateTime.Now.AddMilliseconds(timeoutMs > 0 ? timeoutMs : 10000);
-            while (DateTime.Now <= deadline)
-            {
-                if (!item.IsMoving && IsAxisInPosition(item, target))
-                    return true;
-
-                await Task.Delay(20).ConfigureAwait(false);
-            }
-
-            return !item.IsMoving && IsAxisInPosition(item, target);
         }
 
         private QMC.Common.Motion.BaseAxis ResolveStageAxis(QMC.CDT320.WaferStageAxis axis)
@@ -272,6 +257,16 @@ namespace QMC.CDT320.Sequencing
                 ", target=" + target +
                 ", tolerance=" + tolerance +
                 "]";
+        }
+
+        protected static string ResolveAxisMoveWaitAlarmCode(string prefix, AxisMoveWaitResult waitResult)
+        {
+            return AxisMoveWaiter.ResolveAlarmCode(prefix, waitResult);
+        }
+
+        protected static string FormatAxisMoveWaitResult(AxisMoveWaitResult waitResult, string fallbackState)
+        {
+            return AxisMoveWaiter.FormatResult(waitResult, fallbackState);
         }
 
         private string BuildRequiredAxisAvailabilityReason()
@@ -373,6 +368,22 @@ namespace QMC.CDT320.Sequencing
         {
             if (stepTask == null)
                 return -1;
+
+            if (stepTask.IsCompleted)
+                return await stepTask.ConfigureAwait(false);
+
+            Task cancelTask = Task.Delay(Timeout.Infinite, ct);
+            Task completed = await Task.WhenAny(stepTask, cancelTask).ConfigureAwait(false);
+            if (!ReferenceEquals(completed, stepTask))
+                ct.ThrowIfCancellationRequested();
+
+            return await stepTask.ConfigureAwait(false);
+        }
+
+        private static async Task<AxisMoveWaitResult> AwaitStepWithCancellationAsync(Task<AxisMoveWaitResult> stepTask, CancellationToken ct)
+        {
+            if (stepTask == null)
+                return null;
 
             if (stepTask.IsCompleted)
                 return await stepTask.ConfigureAwait(false);

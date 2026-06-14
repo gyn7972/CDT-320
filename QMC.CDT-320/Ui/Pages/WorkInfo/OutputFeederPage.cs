@@ -41,6 +41,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             btnStop.Click += async (s, e) => await StopManualActionAsync();
             materialDetailView.CreateDataRequested += MaterialDetailView_CreateDataRequested;
             materialDetailView.ClearDataRequested += MaterialDetailView_ClearDataRequested;
+            rbTargetOk.CheckedChanged += (s, e) => RefreshTargetSideDisplay(ResolveSelectedSide());
+            rbTargetNg.CheckedChanged += (s, e) => RefreshTargetSideDisplay(ResolveSelectedSide());
+            ConfigureTargetButtonVisuals();
             actionPanel.Resize += (s, e) => AlignStopButton();
             EnsureStopButtonLast();
             AlignStopButton();
@@ -215,7 +218,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         {
             var options = OutputFeederSequenceOptions.Default();
             options.RunMode = SequenceRunMode.Manual;
-            options.StartMode = SequenceStartMode.Restart;
+            options.StartMode = SequenceStartMode.Resume;
             options.Side = side;
             options.CassetteRole = role;
             options.SlotIndex = Math.Max(0, slotIndex);
@@ -232,12 +235,21 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
         private BinSide ResolveStageUnloadSide()
         {
-            if (MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputStageNg) != null)
-                return BinSide.Ng;
-            if (MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputStageGood) != null)
-                return BinSide.Good;
+            BinSide selected = ResolveSelectedSide();
+            WaferMaterial good = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputStageGood);
+            WaferMaterial ng = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputStageNg);
 
-            return ResolveSelectedSide();
+            if (selected == BinSide.Good && good != null)
+                return BinSide.Good;
+            if (selected == BinSide.Ng && ng != null)
+                return BinSide.Ng;
+
+            if (good != null && ng == null)
+                return BinSide.Good;
+            if (ng != null && good == null)
+                return BinSide.Ng;
+
+            return selected;
         }
 
         private BinSide ResolveSelectedSide()
@@ -263,16 +275,59 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             return side == BinSide.Ng ? Color.FromArgb(255, 230, 230) : Color.FromArgb(230, 245, 255);
         }
 
+        private Color ResolveSelectedTargetButtonColor(BinSide side)
+        {
+            return side == BinSide.Ng ? Color.FromArgb(190, 32, 42) : Color.FromArgb(0, 113, 188);
+        }
+
+        private void ConfigureTargetButtonVisuals()
+        {
+            ConfigureTargetButtonVisual(rbTargetOk);
+            ConfigureTargetButtonVisual(rbTargetNg);
+            RefreshTargetSideDisplay(ResolveSelectedSide());
+        }
+
+        private static void ConfigureTargetButtonVisual(RadioButton button)
+        {
+            if (button == null)
+                return;
+
+            button.UseVisualStyleBackColor = false;
+            button.FlatStyle = FlatStyle.Flat;
+            button.FlatAppearance.BorderSize = 2;
+            button.FlatAppearance.MouseOverBackColor = Color.FromArgb(230, 230, 230);
+            button.FlatAppearance.MouseDownBackColor = Color.FromArgb(210, 210, 210);
+        }
+
         private void RefreshTargetSideDisplay(BinSide side)
         {
             if (targetSideLayout != null)
                 targetSideLayout.BackColor = ResolveTargetButtonColor(side);
 
             if (rbTargetOk != null)
-                rbTargetOk.BackColor = ResolveTargetButtonColor(BinSide.Good);
+                ApplyTargetButtonStyle(rbTargetOk, rbTargetOk.Checked, BinSide.Good);
 
             if (rbTargetNg != null)
-                rbTargetNg.BackColor = ResolveTargetButtonColor(BinSide.Ng);
+                ApplyTargetButtonStyle(rbTargetNg, rbTargetNg.Checked, BinSide.Ng);
+        }
+
+        private void ApplyTargetButtonStyle(RadioButton button, bool selected, BinSide side)
+        {
+            if (button == null)
+                return;
+
+            if (selected)
+            {
+                button.BackColor = ResolveSelectedTargetButtonColor(side);
+                button.ForeColor = Color.White;
+                button.FlatAppearance.BorderColor = Color.Black;
+            }
+            else
+            {
+                button.BackColor = Color.FromArgb(225, 225, 225);
+                button.ForeColor = Color.FromArgb(70, 70, 70);
+                button.FlatAppearance.BorderColor = Color.FromArgb(160, 160, 160);
+            }
         }
 
         private BinSide ResolveDisplaySide(CassetteMaterialRole role)
@@ -334,16 +389,21 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             _lblSide.Text = ResolveDisplaySideText(role);
             _lblSlot.Text = slot >= 0 ? (slot + 1).ToString("00") : "--";
             RefreshTargetSideDisplay(hasFeederWaferData ? displaySide : ResolveSelectedSide());
-            _lblClampState.Text = feeder.FeederClampCyl.IsFwd ? "CLAMP" : (feeder.FeederClampCyl.IsBwd ? "UNCLAMP" : "ERROR");
-            _lblUpDownState.Text = feeder.FeederUpDownCyl.IsFwd ? "UP" : (feeder.FeederUpDownCyl.IsBwd ? "DOWN" : "--");
+            bool unclamp = feeder.IsBinFeederUnclamp();
+            bool clamp = feeder.IsBinFeederClamp();
+            ApplyFeederStateLabel(_lblClampState, clamp ? "CLAMP" : (unclamp ? "UNCLAMP" : "ERROR"), clamp || unclamp);
+
+            bool up = feeder.IsBinFeederUp();
+            bool down = feeder.IsBinFeederDown();
+            ApplyFeederStateLabel(_lblUpDownState, down ? "DOWN" : (up ? "UP" : "--"), up || down);
 
             _markRing.BackColor = IsOutputFeederSimulationOrDryRun(feeder)
                 ? (hasFeederWaferData ? Color.LimeGreen : Color.Black)
                 : (feeder.BinFeederRingCheckSensor.IsOn ? Color.LimeGreen : Color.Black);
             _markOverload.BackColor = feeder.IsFeederOverload() ? Color.Red : Color.Black;
-            _markUp.BackColor = feeder.BinFeederUpSensor.IsOn ? Color.LimeGreen : Color.Black;
-            _markDown.BackColor = feeder.BinFeederDownSensor.IsOn ? Color.LimeGreen : Color.Black;
-            _markUnclamp.BackColor = feeder.BinFeederUnclampSensor.IsOn ? Color.LimeGreen : Color.Black;
+            _markUp.BackColor = up ? Color.LimeGreen : Color.Black;
+            _markDown.BackColor = down ? Color.LimeGreen : Color.Black;
+            _markUnclamp.BackColor = unclamp ? Color.LimeGreen : Color.Black;
 
             _markGood1.BackColor = IsGoodCassette1Detected(cassette) ? Color.LimeGreen : Color.Black;
             _markGood2.BackColor = IsGoodCassette2Detected(cassette) ? Color.LimeGreen : Color.Black;
@@ -354,6 +414,15 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             _markNgLock.BackColor = cassette.IsNgBinLock() ? Color.LimeGreen : Color.Black;
 
             RefreshMaterialDetail(false);
+        }
+
+        private static void ApplyFeederStateLabel(Label label, string text, bool normal)
+        {
+            if (label == null)
+                return;
+
+            label.Text = text;
+            label.ForeColor = normal ? Color.Black : Color.Red;
         }
 
         private static bool IsOutputFeederSimulationOrDryRun(OutputFeederUnit feeder)

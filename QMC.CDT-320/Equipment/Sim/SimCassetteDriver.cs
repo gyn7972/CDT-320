@@ -146,13 +146,25 @@ namespace QMC.CDT320.Sim
                 return;
             }
             // Good2 카세트
-            slot = (int)Math.Round((pos - (_outputCassette.Recipe.GoodFirstSlotPosition + _outputCassette.Config.GOODNGPositionOffset)) / pitch);
+            double good2FirstSlotPosition = _outputCassette.Recipe.GoodFirstSlotPosition +
+                                            -ResolveOutputLevel2Offset(pitch) -
+                                            (pitch * Math.Max(0, _outputCassette.Config.SlotCount - 1));
+            slot = (int)Math.Round((pos - good2FirstSlotPosition) / pitch);
             if (slot >= 0 && slot < OutputGood2Slots.Length)
             {
                 _outputCassette.WaferDetectSensor.SimulateInput(OutputGood2Slots[slot]);
                 return;
             }
             _outputCassette.WaferDetectSensor.SimulateInput(false);
+        }
+
+        private double ResolveOutputLevel2Offset(double pitch)
+        {
+            double levelGap = _outputCassette.Config.Level2PositionOffset;
+            if (levelGap <= 0.0)
+                levelGap = pitch > 0.0 ? pitch : 0.001;
+
+            return levelGap;
         }
 
         // ─── 외부 제어 API ─────────────────────────────────────────────

@@ -588,7 +588,14 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                         // OutputCassette / OutputFeeder
                         case "OutputCassette.NgFirstSlotPositionZ":    m.OutputCassetteUnit.Recipe.NGFirstSlotPosition = it.Value; applied++; break;
                         case "OutputCassette.Good1FirstSlotPositionZ": m.OutputCassetteUnit.Recipe.GoodFirstSlotPosition = it.Value; applied++; break;
-                        case "OutputCassette.Good2FirstSlotPositionZ": m.OutputCassetteUnit.Config.GOODNGPositionOffset = it.Value - m.OutputCassetteUnit.Recipe.GoodFirstSlotPosition; applied++; break;
+                        case "OutputCassette.Good2FirstSlotPositionZ":
+                            m.OutputCassetteUnit.Config.Level2PositionOffset = Math.Max(
+                                0.0,
+                                m.OutputCassetteUnit.Recipe.GoodFirstSlotPosition -
+                                (m.OutputCassetteUnit.Config.SlotPitch * Math.Max(0, m.OutputCassetteUnit.Config.SlotCount - 1)) -
+                                it.Value);
+                            applied++;
+                            break;
                         case "OutputCassette.SlotPitchZ":              m.OutputCassetteUnit.Config.SlotPitch = it.Value; applied++; break;
                         case "OutputFeeder.NgStageExchangePositionY":  m.OutputFeederUnit.Recipe.NGWaferLoadPosition = it.Value; m.OutputFeederUnit.Recipe.NGWaferUnloadPosition = it.Value; applied++; break;
                         case "OutputFeeder.GoodStageExchangePositionY":m.OutputFeederUnit.Recipe.GoodWaferLoadPosition = it.Value; m.OutputFeederUnit.Recipe.GoodWaferUnloadPosition = it.Value; applied++; break;

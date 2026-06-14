@@ -11,10 +11,17 @@ namespace QMC.CDT_320.Ui.Controls
     {
         private Label[] _slotStateLabels = new Label[0];
         private int _slotCount;
+        private readonly ContextMenuStrip _slotContextMenu;
+        private readonly ToolStripMenuItem _moveSlotMenuItem;
+        private int _contextSlotIndex = -1;
 
         public CassetteSlotView()
         {
             InitializeComponent();
+            _slotContextMenu = new ContextMenuStrip();
+            _moveSlotMenuItem = new ToolStripMenuItem("MOVE");
+            _moveSlotMenuItem.Click += MoveSlotMenuItem_Click;
+            _slotContextMenu.Items.Add(_moveSlotMenuItem);
             ConfigureDesignSurface();
             SetSlotCount(0);
         }
@@ -22,6 +29,7 @@ namespace QMC.CDT_320.Ui.Controls
         public int SlotCount { get { return _slotCount; } }
 
         public event EventHandler<CassetteSlotSelectedEventArgs> SlotSelected;
+        public event EventHandler<CassetteSlotSelectedEventArgs> SlotMoveRequested;
 
         public Color EmptyColor { get; set; } = Color.LightGray;
 
@@ -139,6 +147,8 @@ namespace QMC.CDT_320.Ui.Controls
 
                 no.Click += SlotLabel_Click;
                 state.Click += SlotLabel_Click;
+                no.MouseDown += SlotLabel_MouseDown;
+                state.MouseDown += SlotLabel_MouseDown;
 
                 _slotStateLabels[i] = state;
                 slotLayout.Controls.Add(no, 0, i);
@@ -230,6 +240,37 @@ namespace QMC.CDT_320.Ui.Controls
             var handler = SlotSelected;
             if (handler != null)
                 handler(this, new CassetteSlotSelectedEventArgs((int)control.Tag));
+        }
+
+        private void SlotLabel_MouseDown(object sender, MouseEventArgs e)
+        {
+            if (e.Button != MouseButtons.Right)
+                return;
+
+            var control = sender as Control;
+            if (control == null || !(control.Tag is int))
+                return;
+
+            _contextSlotIndex = (int)control.Tag;
+            var selectedHandler = SlotSelected;
+            if (selectedHandler != null)
+                selectedHandler(this, new CassetteSlotSelectedEventArgs(_contextSlotIndex));
+
+            if (SlotMoveRequested == null)
+                return;
+
+            _moveSlotMenuItem.Text = "MOVE SLOT " + (_contextSlotIndex + 1).ToString("00");
+            _slotContextMenu.Show(control, e.Location);
+        }
+
+        private void MoveSlotMenuItem_Click(object sender, EventArgs e)
+        {
+            if (_contextSlotIndex < 0 || _contextSlotIndex >= _slotCount)
+                return;
+
+            var handler = SlotMoveRequested;
+            if (handler != null)
+                handler(this, new CassetteSlotSelectedEventArgs(_contextSlotIndex));
         }
 
         private static Color ResolveStateColor(WaferMaterialState state)

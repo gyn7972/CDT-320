@@ -82,7 +82,7 @@ namespace QMC.CDT320.Sequencing
         {
             OutputFeederSequenceOptions unloadOptions = CloneOptions();
             unloadOptions.SlotIndex = Options.SlotIndex;
-            unloadOptions.StartMode = SequenceStartMode.Restart;
+            unloadOptions.StartMode = Options.StartMode;
             int result = await new OutputFeederUnloadToCassetteSequence(Context).RunAsync(ct, unloadOptions).ConfigureAwait(false);
             if (result != 0)
                 return Fail("OUT-FEEDER-EXCHANGE-UNLOAD", Feeder.Name,
@@ -96,7 +96,7 @@ namespace QMC.CDT320.Sequencing
         {
             OutputFeederSequenceOptions loadOptions = CloneOptions();
             loadOptions.SlotIndex = Options.NextSlotIndex;
-            loadOptions.StartMode = SequenceStartMode.Restart;
+            loadOptions.StartMode = Options.StartMode;
             int result = await new OutputFeederLoadFromCassetteSequence(Context).RunAsync(ct, loadOptions).ConfigureAwait(false);
             if (result != 0)
                 return Fail("OUT-FEEDER-EXCHANGE-LOAD", Feeder.Name,

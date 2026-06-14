@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using QMC.Common.Motion;
 using QMC.CDT320.Materials;
 
 namespace QMC.CDT320.Sequencing
@@ -318,14 +319,6 @@ namespace QMC.CDT320.Sequencing
                     return waitResults[0];
                 if (waitResults[1] != 0)
                     return waitResults[1];
-
-                int result = CheckInputStageAxisInPosition(stage, WaferStageAxis.WaferY, targetY, "input die StageY");
-                if (result != 0)
-                    return result;
-
-                result = CheckInputStageAxisInPosition(stage, WaferStageAxis.VisionX, targetX, "input die VisionX");
-                if (result != 0)
-                    return result;
 
                 CurrentStep = PickerPickUpStep.RequestInputDieVisionInspection;
                 return 0;
@@ -713,12 +706,14 @@ namespace QMC.CDT320.Sequencing
             {
                 ct.ThrowIfCancellationRequested();
 
-                int result = await AwaitStepWithCancellationAsync(
-                    stage.WaitInputStageAxisInPosition(axis, target, ResolveTimeout()),
+                AxisMoveWaitResult waitResult = await AwaitStepWithCancellationAsync(
+                    stage.WaitInputStageAxisInPositionResult(axis, target, ResolveTimeout()),
                     ct).ConfigureAwait(false);
 
-                if (result != 0)
-                    return Fail("PICKER-PICKUP-STAGE-TIMEOUT", stage.Name, description + " move done timeout. waitResult=" + result + ", " + BuildInputStageAxisState(stage, axis, target));
+                if (waitResult == null || !waitResult.Success)
+                    return Fail(ResolveAxisMoveWaitAlarmCode("PICKER-PICKUP-STAGE", waitResult), stage.Name,
+                        description + " move/in-position wait failed. " +
+                        FormatAxisMoveWaitResult(waitResult, BuildInputStageAxisState(stage, axis, target)));
 
                 ct.ThrowIfCancellationRequested();
                 return 0;
@@ -788,12 +783,11 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
-                bool done = await WaitPickerAxisMoveDoneAsync(axis, ResolveTimeout(), ct).ConfigureAwait(false);
-                if (!done)
-                    return Fail("PICKER-PICKUP-MOVE-TIMEOUT", Name, description + " move done timeout. " + BuildPickerAxisState(axis, target));
-
-                if (!IsPickerAxisInPosition(axis, target))
-                    return Fail("PICKER-PICKUP-MOVE-CHECK", Name, description + " final position check failed. " + BuildPickerAxisState(axis, target));
+                AxisMoveWaitResult waitResult = await WaitPickerAxisMoveDoneAsync(axis, target, ResolveTimeout(), ct).ConfigureAwait(false);
+                if (waitResult == null || !waitResult.Success)
+                    return Fail(ResolveAxisMoveWaitAlarmCode("PICKER-PICKUP-MOVE", waitResult), Name,
+                        description + " move/in-position wait failed. " +
+                        FormatAxisMoveWaitResult(waitResult, BuildPickerAxisState(axis, target)));
 
                 return 0;
             }

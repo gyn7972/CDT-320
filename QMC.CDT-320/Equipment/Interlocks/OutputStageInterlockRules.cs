@@ -1,6 +1,7 @@
 ﻿using QMC.Common.Motion;
 
 using QMC.Common.IO;
+using QMC.CDT320.Materials;
 
 namespace QMC.CDT320.Interlocks
 {
@@ -35,15 +36,21 @@ namespace QMC.CDT320.Interlocks
             {
                 case MotionGuardMoveKind.AxisMove:
                 case MotionGuardMoveKind.AxisTeachingMove:
-                    break;
+                    return CanMoveOutputGoodStageY(request.Machine, out reason);
                 case MotionGuardMoveKind.AxisHome:
-                    return VerifyOutputGoodStageYHome(request.Machine, out reason);
+                    return CanHomeOutputGoodStageY(request.Machine, out reason);
                 default:
-                    return true;
+                    return MotionGuardRuleHelpers.BlockUnsupportedMoveKind(request, out reason);
             }
+        }
 
-            OutputStageUnit stage = request.Machine.OutputStageUnit;
-            if (!VerifyOutputTransportClear(request.Machine, "OutputGoodStageY", out reason))
+        private static bool CanMoveOutputGoodStageY(CDT320_Machine machine, out string reason)
+        {
+            if (!CanHomeOutputGoodStageY(machine, out reason))
+                return false;
+
+            OutputStageUnit stage = machine != null ? machine.OutputStageUnit : null;
+            if (!VerifyOutputTransportClear(machine, "OutputGoodStageY", out reason))
                 return false;
 
             if (stage != null && stage.NgStage != null && !stage.NgStage.IsAtAvoidPosition())
@@ -63,17 +70,44 @@ namespace QMC.CDT320.Interlocks
             {
                 case MotionGuardMoveKind.AxisMove:
                 case MotionGuardMoveKind.AxisTeachingMove:
-                    break;
+                    return CanMoveOutputGoodStageZ(request, out reason);
                 case MotionGuardMoveKind.AxisHome:
-                    return true;
+                    return CanHomeOutputGoodStageZ(request.Machine, out reason);
                 default:
-                    return true;
+                    return MotionGuardRuleHelpers.BlockUnsupportedMoveKind(request, out reason);
             }
+        }
 
-            if (!VerifyOutputTransportClear(request.Machine, "OutputGoodStageZ", out reason))
+        private static bool CanHomeOutputGoodStageZ(CDT320_Machine machine, out string reason)
+        {
+            reason = string.Empty;
+            if (!VerifyNgClampLiftUpForGoodStageMove(machine != null ? machine.OutputStageUnit : null, "OutputGoodStageZ", out reason))
                 return false;
 
-            return VerifyOutputStageNotBusy(request.Machine.OutputStageUnit, "OutputGoodStageZ", out reason);
+            return true;
+        }
+
+        private static bool CanMoveOutputGoodStageZ(MotionGuardRuleContext request, out string reason)
+        {
+            CDT320_Machine machine = request != null ? request.Machine : null;
+            if (!CanHomeOutputGoodStageZ(machine, out reason))
+                return false;
+
+            if (!VerifyOutputTransportClear(machine, "OutputGoodStageZ", out reason))
+                return false;
+
+            OutputStageUnit stage = machine != null ? machine.OutputStageUnit : null;
+            if (IsGoodStageZLoadOrUnloadTarget(stage, request != null ? request.TargetValue : 0.0) &&
+                stage != null &&
+                !stage.IsNgStageInAvoidPosition())
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "OutputGoodStageZ",
+                    "GoodStageZ load/unload move blocked. NgStage must be at Avoid position.",
+                    out reason);
+            }
+
+            return VerifyOutputStageNotBusy(machine != null ? machine.OutputStageUnit : null, "OutputGoodStageZ", out reason);
         }
 
         private static bool VerifyBinNgY(MotionGuardRuleContext request, out string reason)
@@ -84,21 +118,30 @@ namespace QMC.CDT320.Interlocks
             {
                 case MotionGuardMoveKind.AxisMove:
                 case MotionGuardMoveKind.AxisTeachingMove:
-                    break;
+                    return CanMoveOutputNgStageY(request, out reason);
                 case MotionGuardMoveKind.AxisHome:
-                    return VerifyOutputNgStageYHome(request.Machine, out reason);
+                    return CanHomeOutputNgStageY(request.Machine, out reason);
                 default:
-                    return true;
+                    return MotionGuardRuleHelpers.BlockUnsupportedMoveKind(request, out reason);
             }
+        }
 
-            OutputStageUnit stage = request.Machine.OutputStageUnit;
-            if (!VerifyOutputTransportClear(request.Machine, "OutputNGStageY", out reason))
+        private static bool CanMoveOutputNgStageY(MotionGuardRuleContext request, out string reason)
+        {
+            CDT320_Machine machine = request != null ? request.Machine : null;
+            OutputStageUnit stage = machine != null ? machine.OutputStageUnit : null;
+            if (!VerifyOutputNgStageYMechanicalClear(request, "OutputNGStageY", out reason))
                 return false;
 
-            if (stage != null && stage.GoodStage != null && !stage.GoodStage.IsAtAvoidPosition())
+            if (!VerifyOutputTransportClear(machine, "OutputNGStageY", out reason))
+                return false;
+
+            if (stage != null &&
+                stage.GoodStage != null &&
+                !stage.GoodStage.IsAtAvoidPosition())
                 return MotionGuardRuleHelpers.Block(
                     "OutputNGStageY",
-                    "GoodStage Z must be at Avoid position before NgStage Y move.",
+                    "OutputNGStageY move blocked. GoodStageZ must be at Avoid position.",
                     out reason);
 
             return VerifyOutputStageNotBusy(stage, "OutputNGStageY", out reason);
@@ -112,20 +155,26 @@ namespace QMC.CDT320.Interlocks
             {
                 case MotionGuardMoveKind.AxisMove:
                 case MotionGuardMoveKind.AxisTeachingMove:
-                    break;
+                    return CanMoveOutputVisionX(request.Machine, out reason);
                 case MotionGuardMoveKind.AxisHome:
-                    return VerifyOutputVisionXHome(request.Machine, out reason);
+                    return CanHomeOutputVisionX(request.Machine, out reason);
                 default:
-                    return true;
+                    return MotionGuardRuleHelpers.BlockUnsupportedMoveKind(request, out reason);
             }
-
-            if (!VerifyOutputTransportClear(request.Machine, "OutputVisionX", out reason))
-                return false;
-
-            return VerifyOutputStageNotBusy(request.Machine.OutputStageUnit, "OutputVisionX", out reason);
         }
 
-        private static bool VerifyOutputVisionXHome(CDT320_Machine machine, out string reason)
+        private static bool CanMoveOutputVisionX(CDT320_Machine machine, out string reason)
+        {
+            if (!CanHomeOutputVisionX(machine, out reason))
+                return false;
+
+            if (!VerifyOutputTransportClear(machine, "OutputVisionX", out reason))
+                return false;
+
+            return VerifyOutputStageNotBusy(machine != null ? machine.OutputStageUnit : null, "OutputVisionX", out reason);
+        }
+
+        private static bool CanHomeOutputVisionX(CDT320_Machine machine, out string reason)
         {
             reason = string.Empty;
 
@@ -185,7 +234,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
-        private static bool VerifyOutputGoodStageYHome(CDT320_Machine machine, out string reason)
+        private static bool CanHomeOutputGoodStageY(CDT320_Machine machine, out string reason)
         {
             reason = string.Empty;
 
@@ -197,6 +246,9 @@ namespace QMC.CDT320.Interlocks
                         "OutputGoodStageY",
                         "OutputGoodStageY HOME blocked. OutputGoodStageZ must be at Avoid position.",
                         out reason);
+
+                if (!VerifyNgClampLiftUpForGoodStageMove(outputStage, "OutputGoodStageY", out reason))
+                    return false;
 
                 return true;
             }
@@ -213,7 +265,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
-        private static bool VerifyOutputNgStageYHome(CDT320_Machine machine, out string reason)
+        private static bool CanHomeOutputNgStageY(CDT320_Machine machine, out string reason)
         {
             reason = string.Empty;
 
@@ -283,6 +335,84 @@ namespace QMC.CDT320.Interlocks
                 return MotionGuardRuleHelpers.Block(movingName, "OutputLifterZ is moving.", out reason);
 
             return true;
+        }
+
+        private static bool VerifyNgClampLiftUpForGoodStageMove(OutputStageUnit outputStage, string movingName, out string reason)
+        {
+            reason = string.Empty;
+            if (outputStage == null)
+                return true;
+
+            if (!outputStage.IsBinGuideClampLiftUp(BinSide.Ng))
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    movingName + " move blocked. NG Bin Clamp Lift must be up before GoodStage movement.",
+                    out reason);
+
+            return true;
+        }
+
+        private static bool VerifyOutputNgStageYMechanicalClear(MotionGuardRuleContext request, string movingName, out string reason)
+        {
+            reason = string.Empty;
+            OutputStageUnit outputStage = request != null && request.Machine != null ? request.Machine.OutputStageUnit : null;
+            if (outputStage == null)
+                return true;
+
+            bool ngAvoidTarget = IsNgStageYAvoidTarget(outputStage, request != null ? request.TargetValue : 0.0);
+
+            if (outputStage.GoodBinGuideDownSensor != null &&
+                !IsDryRunInput(outputStage.GoodBinGuideDownSensor) &&
+                !outputStage.GoodBinGuideDownSensor.IsOn)
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    movingName + " move blocked. Good Bin Guide cylinder must be down.",
+                    out reason);
+
+            if (outputStage.NgBinGuideDownSensor != null &&
+                !ngAvoidTarget &&
+                !IsDryRunInput(outputStage.NgBinGuideDownSensor) &&
+                !outputStage.NgBinGuideDownSensor.IsOn)
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    movingName + " move blocked. NG Bin Guide cylinder must be down.",
+                    out reason);
+
+            if (outputStage.NgBinClampUpSensor != null &&
+                !IsDryRunInput(outputStage.NgBinClampUpSensor) &&
+                !outputStage.NgBinClampUpSensor.IsOn)
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    movingName + " move blocked. NG Bin Clamp cylinder must be up.",
+                    out reason);
+
+            return true;
+        }
+
+        private static bool IsNgStageYAvoidTarget(OutputStageUnit outputStage, double target)
+        {
+            if (outputStage == null || outputStage.Recipe == null || outputStage.Recipe.NGStageY == null)
+                return false;
+
+            return System.Math.Abs(target - outputStage.Recipe.NGStageY.AvoidPosition) <= 0.001;
+        }
+
+        private static bool IsGoodStageZLoadOrUnloadTarget(OutputStageUnit stage, double target)
+        {
+            if (stage == null || stage.Recipe == null || stage.GoodStage == null || stage.GoodStage.StageZ == null)
+                return false;
+
+            return IsTargetPosition(stage.GoodStage.StageZ, target, stage.Recipe.GoodStageZ.LoadPosition) ||
+                   IsTargetPosition(stage.GoodStage.StageZ, target, stage.Recipe.GoodStageZ.UnloadPosition);
+        }
+
+        private static bool IsTargetPosition(BaseAxis axis, double target, double position)
+        {
+            double tolerance = axis != null && axis.Config != null && axis.Config.InPositionTolerance > 0.0
+                ? axis.Config.InPositionTolerance
+                : 0.01;
+
+            return System.Math.Abs(target - position) <= tolerance;
         }
 
         private static bool VerifyOutputStageNotBusy(OutputStageUnit stage, string movingName, out string reason)

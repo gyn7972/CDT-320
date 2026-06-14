@@ -306,15 +306,28 @@ namespace QMC.CDT320
 
         public async Task<bool> WaitBinLifterZMoveDone(int timeoutMs)
         {
+            AxisMoveWaitResult waitResult = await WaitBinLifterZMoveDoneInPosition(OutputLifterZ.CommandPosition, timeoutMs).ConfigureAwait(false);
+            return waitResult.Success;
+        }
+
+        public async Task<AxisMoveWaitResult> WaitBinLifterZMoveDoneInPosition(double targetPos, int timeoutMs)
+        {
             int timeout = timeoutMs > 0 ? timeoutMs : OutputLifterZ.Setup.MoveTimeoutMs;
-            return await WaitUntilAsync(() => !OutputLifterZ.IsMoving && OutputLifterZ.IsInPosition && !OutputLifterZ.IsAlarm, timeout);
+            double tolerance = OutputLifterZ != null && OutputLifterZ.Config != null ? OutputLifterZ.Config.InPositionTolerance : 0.05;
+            return await AxisMoveWaiter.WaitMoveDoneInPositionAsync(
+                OutputLifterZ,
+                targetPos,
+                tolerance,
+                timeout,
+                Config != null ? Config.ScanSettleTimeMs : 0).ConfigureAwait(false);
         }
 
         public async Task<bool> WaitBinLifterZInPosition(string positionName, int timeoutMs)
         {
             double target = GetTeachingPosition(positionName);
             int timeout = timeoutMs > 0 ? timeoutMs : OutputLifterZ.Setup.MoveTimeoutMs;
-            return await WaitUntilAsync(() => IsBinLifterZInPosition(target), timeout);
+            AxisMoveWaitResult waitResult = await WaitBinLifterZMoveDoneInPosition(target, timeout).ConfigureAwait(false);
+            return waitResult.Success;
         }
 
         public bool IsBinLifterZInAvoidPosition()
@@ -369,9 +382,94 @@ namespace QMC.CDT320
 
         public bool ValidateBinLifterZTeachingComplete()
         {
-            return Config.SlotCount > 0 &&
-                   Config.SlotPitch > 0.0 &&
-                   Recipe.MappingEndPosition != Recipe.MappingStartPosition;
+            string reason;
+            return ValidateBinLifterZTeachingComplete(out reason);
+        }
+
+        public bool ValidateBinLifterZTeachingComplete(out string reason)
+        {
+            reason = string.Empty;
+
+            if (Config == null)
+            {
+                reason = "Output cassette config is null.";
+                return false;
+            }
+
+            if (Recipe == null)
+            {
+                reason = "Output cassette recipe is null.";
+                return false;
+            }
+
+            if (Config.SlotCount <= 0)
+            {
+                reason = "SlotCount is invalid. SlotCount=" + Config.SlotCount;
+                return false;
+            }
+
+            if (Config.SlotPitch <= 0.0)
+            {
+                reason = "SlotPitch is invalid. SlotPitch=" + Config.SlotPitch;
+                return false;
+            }
+
+            if (Recipe.MappingEndPosition <= Recipe.MappingStartPosition)
+            {
+                reason = "MappingEndPosition must be greater than MappingStartPosition because OutputLifterZ encoder increases upward. MappingStart=" +
+                         Recipe.MappingStartPosition + ", MappingEnd=" + Recipe.MappingEndPosition;
+                return false;
+            }
+
+            if (Recipe.NGFirstSlotPosition <= Recipe.GoodFirstSlotPosition)
+            {
+                reason = "NG first slot must have a larger encoder value than Good first slot because NG cassette is physically below Good cassette. NGFirstSlot=" +
+                         Recipe.NGFirstSlotPosition + ", GoodFirstSlot=" + Recipe.GoodFirstSlotPosition;
+                return false;
+            }
+
+            double slotSpan = Config.SlotPitch * Math.Max(0, Config.SlotCount - 1);
+            double lowestSlotPosition = Math.Min(Recipe.NGFirstSlotPosition, Recipe.GoodFirstSlotPosition);
+            double highestSlotPosition = Math.Max(Recipe.NGFirstSlotPosition + slotSpan, Recipe.GoodFirstSlotPosition + slotSpan);
+
+            if (Config.SelectedCassetteLevel >= 2)
+            {
+                double good2FirstSlotPosition = GetGood2FirstSlotPosition();
+                double good2LastSlotPosition = good2FirstSlotPosition + slotSpan;
+                if (good2LastSlotPosition >= Recipe.GoodFirstSlotPosition)
+                {
+                    reason = "Good2 cassette must be above Good1 cassette, so Good2 last slot encoder must be smaller than Good1 first slot encoder. Good2LastSlot=" +
+                             good2LastSlotPosition + ", Good1FirstSlot=" + Recipe.GoodFirstSlotPosition +
+                             ", Good2FirstSlot=" + good2FirstSlotPosition +
+                             ", Level2Offset=" + Config.Level2PositionOffset;
+                    return false;
+                }
+
+                lowestSlotPosition = Math.Min(lowestSlotPosition, good2FirstSlotPosition);
+                highestSlotPosition = Math.Max(highestSlotPosition, good2LastSlotPosition);
+            }
+
+            if (Recipe.MappingStartPosition > lowestSlotPosition)
+            {
+                reason = "MappingStartPosition is above the lowest output cassette slot. MappingStart=" +
+                         Recipe.MappingStartPosition + ", lowestSlot=" + lowestSlotPosition +
+                         ", NGFirstSlot=" + Recipe.NGFirstSlotPosition + ", GoodFirstSlot=" + Recipe.GoodFirstSlotPosition;
+                return false;
+            }
+
+            if (Recipe.MappingEndPosition < highestSlotPosition)
+            {
+                Log.Write(
+                    "Main",
+                    "SYSTEM",
+                    "OutputCassetteMapping",
+                    "MappingEndPosition is below the highest output cassette slot, but mapping will continue due to output lifter stroke limit. MappingEnd=" +
+                    Recipe.MappingEndPosition + ", highestSlot=" + highestSlotPosition +
+                    ", SlotCount=" + Config.SlotCount + ", SlotPitch=" + Config.SlotPitch +
+                    ", GoodLevel=" + Config.SelectedCassetteLevel + " - Check");
+            }
+
+            return true;
         }
 
         public async Task<bool> MoveToTeachingPositionAndVerify(string positionName, bool bFine = false)
@@ -567,93 +665,101 @@ namespace QMC.CDT320
         public async Task<bool> ScanAllCassettesAsync()
         {
             BeginMapping();
-
-            int maxSlots = Config.SlotCount;
-            double slotPitch = Config.SlotPitch;
-            if (maxSlots <= 0 || slotPitch <= 0.0)
+            try
             {
-                FailMappingScan("OUT-CST-MAP-CONFIG", "Output cassette mapping config is invalid.");
-                return false;
-            }
+                int maxSlots = Config.SlotCount;
+                double slotPitch = Config.SlotPitch;
+                if (maxSlots <= 0 || slotPitch <= 0.0)
+                {
+                    FailMappingScan("OUT-CST-MAP-CONFIG", "Output cassette mapping config is invalid.");
+                    return false;
+                }
 
-            if (IsOutputCassetteHardwareBypassed())
-            {
-                BuildSimulatedBinMap(TargetCassette.Ng, maxSlots, slotPitch);
-                BuildSimulatedBinMap(TargetCassette.Good1, maxSlots, slotPitch);
-                BuildSimulatedBinMap(TargetCassette.Good2, maxSlots, slotPitch);
-                EndMapping();
+                if (IsOutputCassetteHardwareBypassed())
+                {
+                    BuildSimulatedBinMap(TargetCassette.Ng, maxSlots, slotPitch);
+                    BuildSimulatedBinMap(TargetCassette.Good1, maxSlots, slotPitch);
+                    BuildSimulatedBinMap(TargetCassette.Good2, maxSlots, slotPitch);
+                    return true;
+                }
+
+                if (!IsAnyCassetteSensorOn(TargetCassette.Good1))
+                    return FailMappingScanBool("OUT-CST-MAP-GOOD-MISSING", "Good cassette is not detected.");
+
+                if (!IsAnyCassetteSensorOn(TargetCassette.Ng))
+                    return FailMappingScanBool("OUT-CST-MAP-NG-MISSING", "NG cassette is not detected.");
+
+                List<double> detectedPositions = await CollectBinMappingSensorPositionsAsync(TargetCassette.Good1, maxSlots, slotPitch, true).ConfigureAwait(false);
+                if (detectedPositions == null)
+                    return false;
+
+                if (!ApplyDetectedBinMapping(TargetCassette.Ng, detectedPositions, maxSlots, slotPitch))
+                    return false;
+
+                if (!ApplyDetectedBinMapping(TargetCassette.Good1, detectedPositions, maxSlots, slotPitch))
+                    return false;
+
+                if (!ApplyDetectedBinMapping(TargetCassette.Good2, detectedPositions, maxSlots, slotPitch))
+                    return false;
+
                 return true;
             }
-
-            if (!IsAnyCassetteSensorOn(TargetCassette.Good1))
-                return FailMappingScanBool("OUT-CST-MAP-GOOD-MISSING", "Good cassette is not detected.");
-
-            if (!IsAnyCassetteSensorOn(TargetCassette.Ng))
-                return FailMappingScanBool("OUT-CST-MAP-NG-MISSING", "NG cassette is not detected.");
-
-            List<double> detectedPositions = await CollectBinMappingSensorPositionsAsync(TargetCassette.Good1, maxSlots, slotPitch, true);
-            if (detectedPositions == null)
-                return false;
-
-            if (!ApplyDetectedBinMapping(TargetCassette.Ng, detectedPositions, maxSlots, slotPitch))
-                return false;
-
-            if (!ApplyDetectedBinMapping(TargetCassette.Good1, detectedPositions, maxSlots, slotPitch))
-                return false;
-
-            if (!ApplyDetectedBinMapping(TargetCassette.Good2, detectedPositions, maxSlots, slotPitch))
-                return false;
-
-            EndMapping();
-            return true;
+            finally
+            {
+                EndMapping();
+            }
         }
 
         public async Task<bool> ScanAllCassettesFromCurrentStartAsync()
         {
             BeginMapping();
-
-            int maxSlots = Config.SlotCount;
-            double slotPitch = Config.SlotPitch;
-            if (maxSlots <= 0 || slotPitch <= 0.0)
+            try
             {
-                FailMappingScan("OUT-CST-MAP-CONFIG", "Output cassette mapping config is invalid.");
-                return false;
-            }
+                int maxSlots = Config.SlotCount;
+                double slotPitch = Config.SlotPitch;
+                if (maxSlots <= 0 || slotPitch <= 0.0)
+                {
+                    FailMappingScan("OUT-CST-MAP-CONFIG", "Output cassette mapping config is invalid.");
+                    return false;
+                }
 
-            if (IsOutputCassetteHardwareBypassed())
-            {
-                BuildSimulatedBinMap(TargetCassette.Ng, maxSlots, slotPitch);
-                BuildSimulatedBinMap(TargetCassette.Good1, maxSlots, slotPitch);
-                BuildSimulatedBinMap(TargetCassette.Good2, maxSlots, slotPitch);
-                bool moved = await MoveToBinCassetteMappingEndAndVerifyAsync();
-                if (!moved)
+                if (IsOutputCassetteHardwareBypassed())
+                {
+                    BuildSimulatedBinMap(TargetCassette.Ng, maxSlots, slotPitch);
+                    BuildSimulatedBinMap(TargetCassette.Good1, maxSlots, slotPitch);
+                    BuildSimulatedBinMap(TargetCassette.Good2, maxSlots, slotPitch);
+                    bool moved = await MoveToBinCassetteMappingEndAndVerifyAsync().ConfigureAwait(false);
+                    if (!moved)
+                        return false;
+
+                    return true;
+                }
+
+                if (!IsAnyCassetteSensorOn(TargetCassette.Good1))
+                    return FailMappingScanBool("OUT-CST-MAP-GOOD-MISSING", "Good cassette is not detected.");
+
+                if (!IsAnyCassetteSensorOn(TargetCassette.Ng))
+                    return FailMappingScanBool("OUT-CST-MAP-NG-MISSING", "NG cassette is not detected.");
+
+                List<double> detectedPositions = await CollectBinMappingSensorPositionsAsync(TargetCassette.Good1, maxSlots, slotPitch, false).ConfigureAwait(false);
+                if (detectedPositions == null)
                     return false;
 
-                EndMapping();
+                if (!ApplyDetectedBinMapping(TargetCassette.Ng, detectedPositions, maxSlots, slotPitch))
+                    return false;
+
+                if (!ApplyDetectedBinMapping(TargetCassette.Good1, detectedPositions, maxSlots, slotPitch))
+                    return false;
+
+                if (!ApplyDetectedBinMapping(TargetCassette.Good2, detectedPositions, maxSlots, slotPitch))
+                    return false;
+
                 return true;
             }
-
-            if (!IsAnyCassetteSensorOn(TargetCassette.Good1))
-                return FailMappingScanBool("OUT-CST-MAP-GOOD-MISSING", "Good cassette is not detected.");
-
-            if (!IsAnyCassetteSensorOn(TargetCassette.Ng))
-                return FailMappingScanBool("OUT-CST-MAP-NG-MISSING", "NG cassette is not detected.");
-
-            List<double> detectedPositions = await CollectBinMappingSensorPositionsAsync(TargetCassette.Good1, maxSlots, slotPitch, false);
-            if (detectedPositions == null)
-                return false;
-
-            if (!ApplyDetectedBinMapping(TargetCassette.Ng, detectedPositions, maxSlots, slotPitch))
-                return false;
-
-            if (!ApplyDetectedBinMapping(TargetCassette.Good1, detectedPositions, maxSlots, slotPitch))
-                return false;
-
-            if (!ApplyDetectedBinMapping(TargetCassette.Good2, detectedPositions, maxSlots, slotPitch))
-                return false;
-
-            EndMapping();
-            return true;
+            finally
+            {
+                EndMapping();
+            }
         }
 
         private async Task<List<double>> CollectBinMappingSensorPositionsAsync(
@@ -719,12 +825,12 @@ namespace QMC.CDT320
                 if (moveResult != 0 || OutputLifterZ.IsAlarm)
                     return FailMappingScanList("OUT-CST-MAP-END", "OutputLifterZ move failed during mapping scan.");
 
-                bool done = await WaitBinLifterZMoveDone(OutputLifterZ.Setup.MoveTimeoutMs);
-                if (!done)
-                    return FailMappingScanList("OUT-CST-MAP-END-WAIT", "OutputLifterZ mapping end move timeout.");
-
-                if (!IsBinLifterZInPosition(Recipe.MappingEndPosition))
-                    return FailMappingScanList("OUT-CST-MAP-END-CHECK", "OutputLifterZ mapping end final position check failed.");
+                AxisMoveWaitResult waitResult = await WaitBinLifterZMoveDoneInPosition(Recipe.MappingEndPosition, OutputLifterZ.Setup.MoveTimeoutMs).ConfigureAwait(false);
+                if (!waitResult.Success)
+                    return FailMappingScanList(
+                        ResolveBinLifterZMoveWaitAlarmCode("OUT-CST-MAP-END", waitResult.Failure),
+                        "OutputLifterZ mapping end move/in-position wait failed. waitResult=" + waitResult.Code +
+                        ", reason=" + waitResult.Reason + ". " + waitResult.AxisState);
 
                 return detectedPositions;
             }
@@ -748,18 +854,12 @@ namespace QMC.CDT320
             {
                 await MoveToBinCassetteMappingEndPosition(true);
 
-                bool done = await WaitBinLifterZMoveDone(OutputLifterZ.Setup.MoveTimeoutMs);
-                if (!done)
-                {
-                    FailMappingScan("OUT-CST-MAP-END-WAIT", "OutputLifterZ mapping end move timeout.");
-                    return false;
-                }
-
-                if (!IsBinLifterZInPosition(Recipe.MappingEndPosition))
-                {
-                    FailMappingScan("OUT-CST-MAP-END-CHECK", "OutputLifterZ mapping end final position check failed.");
-                    return false;
-                }
+                AxisMoveWaitResult waitResult = await WaitBinLifterZMoveDoneInPosition(Recipe.MappingEndPosition, OutputLifterZ.Setup.MoveTimeoutMs).ConfigureAwait(false);
+                if (!waitResult.Success)
+                    return FailMappingScanBool(
+                        ResolveBinLifterZMoveWaitAlarmCode("OUT-CST-MAP-END", waitResult.Failure),
+                        "OutputLifterZ mapping end move/in-position wait failed. waitResult=" + waitResult.Code +
+                        ", reason=" + waitResult.Reason + ". " + waitResult.AxisState);
 
                 return true;
             }
@@ -779,12 +879,12 @@ namespace QMC.CDT320
             {
                 await MoveToBinCassetteMappingStartPosition(true);
 
-                bool done = await WaitBinLifterZMoveDone(OutputLifterZ.Setup.MoveTimeoutMs);
-                if (!done)
-                    return FailMappingScan("OUT-CST-MAP-START-WAIT", "OutputLifterZ mapping start move timeout.");
-
-                if (!IsBinLifterZInPosition(Recipe.MappingStartPosition))
-                    return FailMappingScan("OUT-CST-MAP-START-CHECK", "OutputLifterZ mapping start final position check failed.");
+                AxisMoveWaitResult waitResult = await WaitBinLifterZMoveDoneInPosition(Recipe.MappingStartPosition, OutputLifterZ.Setup.MoveTimeoutMs).ConfigureAwait(false);
+                if (!waitResult.Success)
+                    return FailMappingScan(
+                        ResolveBinLifterZMoveWaitAlarmCode("OUT-CST-MAP-START", waitResult.Failure),
+                        "OutputLifterZ mapping start move/in-position wait failed. waitResult=" + waitResult.Code +
+                        ", reason=" + waitResult.Reason + ". " + waitResult.AxisState);
 
                 return 0;
             }
@@ -987,6 +1087,11 @@ namespace QMC.CDT320
             }
         }
 
+        private static string ResolveBinLifterZMoveWaitAlarmCode(string prefix, AxisMoveWaitFailure failure)
+        {
+            return AxisMoveWaiter.ResolveAlarmCode(prefix, failure);
+        }
+
         private int FailMappingScan(string alarmCode, string message)
         {
             try
@@ -1093,7 +1198,14 @@ namespace QMC.CDT320
                 return false;
 
             await MoveToBinCassetteSlotPosition(cassette, slotIndex, bFine);
-            return await WaitBinLifterZMoveDone(timeoutMs);
+            AxisMoveWaitResult waitResult = await WaitBinLifterZMoveDoneInPosition(CalculateBinCassetteSlotTargetPosition(cassette, slotIndex), timeoutMs).ConfigureAwait(false);
+            if (!waitResult.Success)
+                return FailMappingScanBool(
+                    ResolveBinLifterZMoveWaitAlarmCode("OUT-CST-FEEDER-LOAD", waitResult.Failure),
+                    "Prepare bin cassette for feeder load move/in-position wait failed. waitResult=" + waitResult.Code +
+                    ", reason=" + waitResult.Reason + ". " + waitResult.AxisState);
+
+            return true;
         }
 
         public Task<bool> RecoverCassetteToSafeState(int timeoutMs, bool moveAvoid = true)
@@ -1109,7 +1221,14 @@ namespace QMC.CDT320
             if (moveAvoid)
             {
                 await MoveToBinCassetteAvoidPosition();
-                return await WaitBinLifterZMoveDone(timeoutMs);
+                AxisMoveWaitResult waitResult = await WaitBinLifterZMoveDoneInPosition(Recipe.AvoidPosition, timeoutMs).ConfigureAwait(false);
+                if (!waitResult.Success)
+                    return FailMappingScanBool(
+                        ResolveBinLifterZMoveWaitAlarmCode("OUT-CST-RECOVER-AVOID", waitResult.Failure),
+                        "Recover bin cassette to avoid position move/in-position wait failed. waitResult=" + waitResult.Code +
+                        ", reason=" + waitResult.Reason + ". " + waitResult.AxisState);
+
+                return true;
             }
 
             return true;
@@ -1224,6 +1343,13 @@ namespace QMC.CDT320
                 return false;
             }
 
+            if (IsBinProtrusionDetected())
+            {
+                reason = "Output cassette product/protrusion sensor is detected before mapping. " +
+                         BuildOutputCassetteSensorSummary();
+                return false;
+            }
+
             if (!IsAnyCassetteSensorOn(cassette))
             {
                 reason = "Output cassette sensor is not detected for mapping. cassette=" + cassette + ". " +
@@ -1231,15 +1357,10 @@ namespace QMC.CDT320
                 return false;
             }
 
-            if (!ValidateBinLifterZTeachingComplete())
+            string teachingReason;
+            if (!ValidateBinLifterZTeachingComplete(out teachingReason))
             {
-                reason = Recipe == null
-                    ? "Output cassette recipe is null."
-                    : "Output cassette lifter teaching is not complete. " +
-                      "Avoid=" + Recipe.AvoidPosition +
-                      ", MappingStart=" + Recipe.MappingStartPosition +
-                      ", MappingEnd=" + Recipe.MappingEndPosition +
-                      ", SlotPitch=" + (Config != null ? Config.SlotPitch.ToString() : "config-null");
+                reason = "Output cassette lifter teaching is not complete. " + teachingReason;
                 return false;
             }
 
@@ -1251,17 +1372,44 @@ namespace QMC.CDT320
             return !IsNgBinBW();
         }
 
+        public string DescribeOutputLifterZState()
+        {
+            return BuildOutputLifterZState();
+        }
+
+        public string DescribeOutputLifterZState(double targetPosition)
+        {
+            return BuildOutputLifterZState(targetPosition);
+        }
+
         private string BuildOutputLifterZState()
+        {
+            return BuildOutputLifterZState(double.NaN);
+        }
+
+        private string BuildOutputLifterZState(double targetPosition)
         {
             if (OutputLifterZ == null)
                 return "OutputLifterZ=null";
 
-            return "OutputLifterZ[name=" + OutputLifterZ.Name +
-                   ", servo=" + (OutputLifterZ.IsServoOn ? "ON" : "OFF") +
-                   ", alarm=" + (OutputLifterZ.IsAlarm ? "ON" : "OFF") +
-                   ", moving=" + (OutputLifterZ.IsMoving ? "Y" : "N") +
-                   ", actual=" + OutputLifterZ.ActualPosition +
-                   "]";
+            string state = "OutputLifterZ[name=" + OutputLifterZ.Name +
+                           ", servo=" + (OutputLifterZ.IsServoOn ? "ON" : "OFF") +
+                           ", alarm=" + (OutputLifterZ.IsAlarm ? "ON" : "OFF") +
+                           ", alarmCode=" + OutputLifterZ.AlarmCode +
+                           ", moving=" + (OutputLifterZ.IsMoving ? "Y" : "N") +
+                           ", actual=" + OutputLifterZ.ActualPosition +
+                           ", command=" + OutputLifterZ.CommandPosition;
+
+            if (!double.IsNaN(targetPosition))
+                state += ", target=" + targetPosition;
+
+            if (OutputLifterZ.Config != null)
+                state += ", tolerance=" + OutputLifterZ.Config.InPositionTolerance;
+
+            if (!string.IsNullOrWhiteSpace(OutputLifterZ.LastMotionFailureMessage))
+                state += ", lastMotionFailure=" + OutputLifterZ.LastMotionFailureMessage;
+
+            return state + "]";
         }
 
         private string BuildOutputCassetteSensorSummary()
@@ -1444,9 +1592,10 @@ namespace QMC.CDT320
                 throw new InvalidOperationException("'" + Name + "' Move: protrusion sensor is ON.");
             }
 
+            int moveResult;
             using (var cts = new CancellationTokenSource())
             {
-                Task moveTask = OutputLifterZ.MoveAbsoluteAsync(targetPosition, velocity);
+                Task<int> moveTask = OutputLifterZ.MoveAbsoluteAsync(targetPosition, velocity);
                 Task<bool> watchTask = Task.Run(async () =>
                 {
                     while (!cts.Token.IsCancellationRequested)
@@ -1463,6 +1612,7 @@ namespace QMC.CDT320
                 {
                     cts.Cancel();
                     await watchTask.ContinueWith(_ => { });
+                    moveResult = await moveTask.ConfigureAwait(false);
                 }
                 else
                 {
@@ -1473,8 +1623,16 @@ namespace QMC.CDT320
                 }
             }
 
-            if (OutputLifterZ.IsAlarm)
-                throw new InvalidOperationException("'" + Name + "' Move: OutputLifterZ alarm.");
+            if (moveResult != 0 || OutputLifterZ.IsAlarm)
+                throw new InvalidOperationException("'" + Name + "' Move: OutputLifterZ move command failed. result=" +
+                    moveResult + ", velocity=" + velocity + ". " + BuildOutputLifterZState(targetPosition));
+
+            AxisMoveWaitResult waitResult = await WaitBinLifterZMoveDoneInPosition(
+                targetPosition,
+                OutputLifterZ.Setup != null ? OutputLifterZ.Setup.MoveTimeoutMs : 10000).ConfigureAwait(false);
+            if (!waitResult.Success)
+                throw new InvalidOperationException("'" + Name + "' Move: OutputLifterZ wait/in-position failed. " +
+                    AxisMoveWaiter.FormatResult(waitResult, "OutputLifterZ"));
         }
 
         private double GetTeachingPosition(string positionName)
@@ -1485,7 +1643,7 @@ namespace QMC.CDT320
             if (string.Equals(positionName, "NgFirstSlot", StringComparison.OrdinalIgnoreCase)) return Recipe.NGFirstSlotPosition;
             if (string.Equals(positionName, "GoodFirstSlot", StringComparison.OrdinalIgnoreCase)) return Recipe.GoodFirstSlotPosition;
             if (string.Equals(positionName, "Good1FirstSlot", StringComparison.OrdinalIgnoreCase)) return Recipe.GoodFirstSlotPosition;
-            if (string.Equals(positionName, "Good2FirstSlot", StringComparison.OrdinalIgnoreCase)) return Recipe.GoodFirstSlotPosition + Config.GOODNGPositionOffset;
+            if (string.Equals(positionName, "Good2FirstSlot", StringComparison.OrdinalIgnoreCase)) return GetGood2FirstSlotPosition();
             throw new ArgumentException("Unknown OutputLifterZ teaching position: " + positionName, "positionName");
         }
 
@@ -1497,7 +1655,7 @@ namespace QMC.CDT320
             else if (string.Equals(positionName, "NgFirstSlot", StringComparison.OrdinalIgnoreCase)) Recipe.NGFirstSlotPosition = position;
             else if (string.Equals(positionName, "GoodFirstSlot", StringComparison.OrdinalIgnoreCase)) Recipe.GoodFirstSlotPosition = position;
             else if (string.Equals(positionName, "Good1FirstSlot", StringComparison.OrdinalIgnoreCase)) Recipe.GoodFirstSlotPosition = position;
-            else if (string.Equals(positionName, "Good2FirstSlot", StringComparison.OrdinalIgnoreCase)) Recipe.GoodFirstSlotPosition = position - Config.GOODNGPositionOffset;
+            else if (string.Equals(positionName, "Good2FirstSlot", StringComparison.OrdinalIgnoreCase)) SetGood2FirstSlotPosition(position);
             else throw new ArgumentException("Unknown OutputLifterZ teaching position: " + positionName, "positionName");
         }
 
@@ -1507,7 +1665,7 @@ namespace QMC.CDT320
             {
                 case TargetCassette.Ng: return Recipe.NGFirstSlotPosition;
                 case TargetCassette.Good1: return Recipe.GoodFirstSlotPosition;
-                case TargetCassette.Good2: return Recipe.GoodFirstSlotPosition + Config.GOODNGPositionOffset;
+                case TargetCassette.Good2: return GetGood2FirstSlotPosition();
                 default: throw new ArgumentOutOfRangeException("cassette");
             }
         }
@@ -1523,11 +1681,28 @@ namespace QMC.CDT320
                     Recipe.GoodFirstSlotPosition = position;
                     break;
                 case TargetCassette.Good2:
-                    Recipe.GoodFirstSlotPosition = position - Config.GOODNGPositionOffset;
+                    SetGood2FirstSlotPosition(position);
                     break;
                 default:
                     throw new ArgumentOutOfRangeException("cassette");
             }
+        }
+
+        private double GetGood2FirstSlotPosition()
+        {
+            double level1FirstPosition = Recipe.GoodFirstSlotPosition;
+            double slotSpan = Config.SlotPitch * Math.Max(0, Config.SlotCount - 1);
+            double levelGap = Config.Level2PositionOffset;
+            if (levelGap <= 0.0)
+                levelGap = Config.SlotPitch > 0.0 ? Config.SlotPitch : 0.001;
+
+            return level1FirstPosition - levelGap - slotSpan;
+        }
+
+        private void SetGood2FirstSlotPosition(double position)
+        {
+            double slotSpan = Config.SlotPitch * Math.Max(0, Config.SlotCount - 1);
+            Config.Level2PositionOffset = Math.Max(0.0, Recipe.GoodFirstSlotPosition - slotSpan - position);
         }
 
         private double GetMappedSlotPosition(TargetCassette cassette, int slotIndex)

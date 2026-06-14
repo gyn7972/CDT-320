@@ -85,11 +85,16 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     cassetteSlotView.SlotSelected += (s, e) => SelectMaterialSlot(CassetteMaterialRole.Input1, e.SlotIndex);
                 if (cassetteSlotViewLevel2 != null)
                     cassetteSlotViewLevel2.SlotSelected += (s, e) => SelectMaterialSlot(CassetteMaterialRole.Input2, e.SlotIndex);
+                if (cassetteSlotView != null)
+                    cassetteSlotView.SlotMoveRequested += async (s, e) => await MoveSlotFromContextMenuAsync(CassetteMaterialRole.Input1, e.SlotIndex);
+                if (cassetteSlotViewLevel2 != null)
+                    cassetteSlotViewLevel2.SlotMoveRequested += async (s, e) => await MoveSlotFromContextMenuAsync(CassetteMaterialRole.Input2, e.SlotIndex);
                 if (materialDetailView != null)
                 {
                     materialDetailView.EditRequested += MaterialDetailView_EditRequested;
                     materialDetailView.CreateDataRequested += MaterialDetailView_CreateDataRequested;
                     materialDetailView.ClearDataRequested += MaterialDetailView_ClearDataRequested;
+                    materialDetailView.ClearAllDataRequested += MaterialDetailView_ClearAllDataRequested;
                 }
             }
             catch (Exception ex)
@@ -356,7 +361,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     return false;
 
                 var sequence = CreateInputCassetteSequence(host);
-                return await sequence.RunMappingAsync(host.Controller.ManualOperationToken, BuildCassetteOptions(host, SequenceStartMode.Restart)) == 0;
+                return await sequence.RunMappingAsync(host.Controller.ManualOperationToken, BuildCassetteOptions(host, SequenceStartMode.Resume)) == 0;
             }
             catch (Exception ex)
             {
@@ -376,7 +381,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     return false;
 
                 var sequence = CreateInputCassetteSequence(host);
-                return await sequence.RunLoadingAsync(host.Controller.ManualOperationToken, BuildCassetteOptions(host, SequenceStartMode.Restart)) == 0;
+                return await sequence.RunLoadingAsync(host.Controller.ManualOperationToken, BuildCassetteOptions(host, SequenceStartMode.Resume)) == 0;
             }
             catch (Exception ex)
             {
@@ -396,7 +401,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     return false;
 
                 var sequence = CreateInputCassetteSequence(host);
-                return await sequence.RunUnloadingAsync(host.Controller.ManualOperationToken, BuildCassetteOptions(host, SequenceStartMode.Restart)) == 0;
+                return await sequence.RunUnloadingAsync(host.Controller.ManualOperationToken, BuildCassetteOptions(host, SequenceStartMode.Resume)) == 0;
             }
             catch (Exception ex)
             {
@@ -450,6 +455,13 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             finally
             {
             }
+        }
+
+        private async Task MoveSlotFromContextMenuAsync(CassetteMaterialRole role, int slotIndex)
+        {
+            SelectMaterialSlot(role, slotIndex);
+            string actionName = "LIFT WAFER MOVE " + GetCassetteRoleDisplay(role) + " / " + (slotIndex + 1).ToString("00");
+            await RunMotionAction(actionName, host => MoveSpecificSlotAsync(host, role, slotIndex));
         }
 
         private static bool ValidateInputCassetteManualCondition(Form1 host, bool mapping)
@@ -521,7 +533,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             if (IsHardwareBypassed(host))
                 return true;
 
-            int cassetteSize = cassette.Config.InchSelect == 0 ? 8 : 12;
+            int cassetteSize = MaterialStateService.ResolveWaferSizeInch(cassette.Config.InchSelect);
             if (!cassette.IsWaferCassetteExist(cassetteSize))
             {
                 reason = "Input cassette is not detected. cassetteSize=" + cassetteSize + ". " + BuildCassetteSensorSummary(cassette);
@@ -735,6 +747,24 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             }
         }
 
+        private void MaterialDetailView_ClearAllDataRequested(object sender, EventArgs e)
+        {
+            try
+            {
+                if (!ConfirmMaterialDataAction("Input Cassette의 모든 Material Data를 초기화하시겠습니까?"))
+                    return;
+
+                bool ok = MaterialStateService.ClearInputCassetteAllSlotData();
+                WriteEvent("INPUT-CST-DATA-ALL-CLEAR", "result=" + ok);
+                RefreshSelectedMaterialDetail();
+                RefreshFromMachine();
+            }
+            catch (Exception ex)
+            {
+                WriteAlarm("INPUT-CST-DATA-ALL-CLEAR-EX", "Material data all clear failed: " + ex.Message);
+            }
+        }
+
         private bool ConfirmMaterialDataAction(string message)
         {
             return QMC.Common.MessageDialog.Show(this, message, "Material Data", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes;
@@ -802,21 +832,51 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 if (targetSlot == currentSlot)
                     return 0;
 
+                return await MoveSpecificSlotAsync(host, _selectedCassetteRole, targetSlot);
+            }
+            catch (Exception ex)
+            {
+                WriteAlarm("INPUT-CST-SLOT-MOVE", "Slot move failed: " + ex.Message);
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> MoveSpecificSlotAsync(Form1 host, CassetteMaterialRole role, int slotIndex)
+        {
+            try
+            {
+                var loader = host != null && host.Machine != null ? host.Machine.InputCassetteUnit : null;
+                if (loader == null || loader.Config == null)
+                    return -1;
+
+                if (slotIndex < 0 || slotIndex >= loader.Config.SlotCount)
+                    return -1;
+
                 double targetPosition;
-                if (!MaterialStateService.TryGetCassetteSlotPosition(_selectedCassetteRole, targetSlot, out targetPosition))
+                if (!MaterialStateService.TryGetCassetteSlotPosition(role, slotIndex, out targetPosition))
                 {
-                    RaiseWarning("INPUT-CST-SLOT-POS", "Cassette slot position data is missing. role=" + _selectedCassetteRole + ", slot=" + targetSlot);
+                    RaiseWarning("INPUT-CST-SLOT-POS", "Cassette slot position data is missing. role=" + role + ", slot=" + slotIndex);
                     return -1;
                 }
 
-                _selectedMaterialSlot = targetSlot;
+                SelectMaterialSlot(role, slotIndex);
                 int moveResult = await loader.MoveWaferLifterZ(targetPosition, false);
                 if (moveResult != 0)
                     return moveResult;
 
-                int waitResult = await loader.WaitWaferLifterZMoveDone(ResolveManualMoveTimeoutMs(host));
+                AxisMoveWaitResult waitResult = await loader.WaitWaferLifterZMoveDoneInPosition(targetPosition, ResolveManualMoveTimeoutMs(host));
                 RefreshSelectedMaterialDetail();
-                return waitResult;
+                if (waitResult.Success)
+                    return 0;
+
+                RaiseWarning("INPUT-CST-SLOT-WAIT", "Slot move/in-position wait failed. role=" + role +
+                    ", slot=" + (slotIndex + 1).ToString("00") +
+                    ", waitResult=" + waitResult.Code +
+                    ", reason=" + waitResult.Reason + ". " + waitResult.AxisState);
+                return -1;
             }
             catch (Exception ex)
             {

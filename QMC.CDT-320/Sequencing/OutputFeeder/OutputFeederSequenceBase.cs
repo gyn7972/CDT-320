@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using QMC.CDT320.Materials;
 using QMC.Common;
 using QMC.Common.Alarms;
+using QMC.Common.Motion;
 
 namespace QMC.CDT320.Sequencing
 {
@@ -47,6 +48,11 @@ namespace QMC.CDT320.Sequencing
         protected PickerRearUnit RearPicker
         {
             get { return Context != null && Context.Machine != null ? Context.Machine.PickerRearUnit : null; }
+        }
+
+        protected OutputCassetteUnit Cassette
+        {
+            get { return Context != null && Context.Machine != null ? Context.Machine.OutputCassetteUnit : null; }
         }
 
         public async Task<int> RunAsync(CancellationToken ct, OutputFeederSequenceOptions options)
@@ -216,19 +222,32 @@ namespace QMC.CDT320.Sequencing
 
         protected async Task<int> WaitFeederYDoneAsync(Func<bool> inPosition, string description, CancellationToken ct)
         {
-            bool done = await AwaitStepWithCancellationAsync(Feeder.WaitBinFeederYMoveDone(ResolveTimeout()), ct).ConfigureAwait(false);
+            AxisMoveWaitResult waitResult = await AwaitStepWithCancellationAsync(
+                Feeder.WaitBinFeederYMoveDoneInPosition(Feeder.FeederY.CommandPosition, ResolveTimeout()),
+                ct).ConfigureAwait(false);
             bool finalInPosition = inPosition == null || inPosition();
 
-            if (!done || !finalInPosition)
+            if (waitResult == null || !waitResult.Success || !finalInPosition)
             {
                 string state = Feeder != null ? Feeder.DescribeBinFeederYMoveDoneState() : "Feeder=null";
-                return Fail("OUT-FEEDER-Y-TIMEOUT", Feeder.Name,
-                    description + " move done timeout. done=" + done +
+                return Fail(ResolveAxisMoveWaitAlarmCode("OUT-FEEDER-Y", waitResult), Feeder.Name,
+                    description + " move/in-position wait failed. " +
+                    FormatAxisMoveWaitResult(waitResult, state) +
                     ", finalInPosition=" + finalInPosition +
                     ", " + state);
             }
 
             return 0;
+        }
+
+        protected static string ResolveAxisMoveWaitAlarmCode(string prefix, AxisMoveWaitResult waitResult)
+        {
+            return AxisMoveWaiter.ResolveAlarmCode(prefix, waitResult);
+        }
+
+        protected static string FormatAxisMoveWaitResult(AxisMoveWaitResult waitResult, string fallbackState)
+        {
+            return AxisMoveWaiter.FormatResult(waitResult, fallbackState);
         }
 
         protected bool IsHardwareBypass()
@@ -248,6 +267,16 @@ namespace QMC.CDT320.Sequencing
                 return Options.CassetteRole;
 
             return Options.Side == BinSide.Ng ? CassetteMaterialRole.Ng1 : CassetteMaterialRole.Good1;
+        }
+
+        protected TargetCassette ResolveOutputTargetCassette()
+        {
+            CassetteMaterialRole role = ResolveOutputCassetteRole();
+            if (role == CassetteMaterialRole.Ng1)
+                return TargetCassette.Ng;
+            if (role == CassetteMaterialRole.Good2)
+                return TargetCassette.Good2;
+            return TargetCassette.Good1;
         }
 
         protected MaterialLocationKind ResolveOutputStageLocation()
@@ -367,6 +396,21 @@ namespace QMC.CDT320.Sequencing
         {
             if (stepTask == null)
                 return false;
+            if (stepTask.IsCompleted)
+                return await stepTask.ConfigureAwait(false);
+
+            Task cancelTask = Task.Delay(Timeout.Infinite, ct);
+            Task completed = await Task.WhenAny(stepTask, cancelTask).ConfigureAwait(false);
+            if (!ReferenceEquals(completed, stepTask))
+                ct.ThrowIfCancellationRequested();
+
+            return await stepTask.ConfigureAwait(false);
+        }
+
+        protected static async Task<AxisMoveWaitResult> AwaitStepWithCancellationAsync(Task<AxisMoveWaitResult> stepTask, CancellationToken ct)
+        {
+            if (stepTask == null)
+                return null;
             if (stepTask.IsCompleted)
                 return await stepTask.ConfigureAwait(false);
 

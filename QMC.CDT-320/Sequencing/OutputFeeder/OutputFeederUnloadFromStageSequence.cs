@@ -17,11 +17,18 @@ namespace QMC.CDT320.Sequencing
         EnsureStageMutualInterlock,
         MoveOutputStageUnloadPosition,
         EnsureOutputStageGuideUp,
-        EnsureOutputStageClampLiftDown,
         EnsureOutputStageUnclamp,
-        MoveFeederStageUnloadPosition,
+        EnsureOutputStageClampLiftDown,
+        VerifyOutputStageUnloadReady,
+        VerifyFeederReadyAtAvoid,
+        PrepareFeederUnclamp,
         PrepareFeederLiftUp,
+        MoveFeederStageUnloadAvoidPosition,
+        PrepareFeederLiftDown,
+        MoveFeederStageUnloadPosition,
         ClampFeederBin,
+        UnclampOutputStageBin,
+        LowerOutputStageClamp,
         VerifyBinDetected,
         MoveMaterialDataToFeeder,
         UpdateStageData,
@@ -75,20 +82,41 @@ namespace QMC.CDT320.Sequencing
                     case OutputFeederUnloadFromStageStep.EnsureOutputStageGuideUp:
                         return EnsureOutputStageGuideUpAsync(ct);
 
-                    case OutputFeederUnloadFromStageStep.EnsureOutputStageClampLiftDown:
-                        return EnsureOutputStageClampLiftDownAsync(ct);
-
                     case OutputFeederUnloadFromStageStep.EnsureOutputStageUnclamp:
                         return EnsureOutputStageUnclampAsync(ct);
 
-                    case OutputFeederUnloadFromStageStep.MoveFeederStageUnloadPosition:
-                        return MoveFeederStageUnloadPositionAsync(ct);
+                    case OutputFeederUnloadFromStageStep.EnsureOutputStageClampLiftDown:
+                        return EnsureOutputStageClampLiftDownAsync(ct);
+
+                    case OutputFeederUnloadFromStageStep.VerifyOutputStageUnloadReady:
+                        return Task.FromResult(VerifyOutputStageUnloadReady());
+
+                    case OutputFeederUnloadFromStageStep.VerifyFeederReadyAtAvoid:
+                        return Task.FromResult(VerifyFeederReadyAtAvoid());
+
+                    case OutputFeederUnloadFromStageStep.PrepareFeederUnclamp:
+                        return PrepareFeederUnclampAsync(ct);
 
                     case OutputFeederUnloadFromStageStep.PrepareFeederLiftUp:
                         return PrepareFeederLiftUpAsync(ct);
 
+                    case OutputFeederUnloadFromStageStep.MoveFeederStageUnloadAvoidPosition:
+                        return MoveFeederStageUnloadAvoidPositionAsync(ct);
+
+                    case OutputFeederUnloadFromStageStep.PrepareFeederLiftDown:
+                        return PrepareFeederLiftDownAsync(ct);
+
+                    case OutputFeederUnloadFromStageStep.MoveFeederStageUnloadPosition:
+                        return MoveFeederStageUnloadPositionAsync(ct);
+
                     case OutputFeederUnloadFromStageStep.ClampFeederBin:
                         return ClampFeederBinAsync(ct);
+
+                    case OutputFeederUnloadFromStageStep.UnclampOutputStageBin:
+                        return UnclampOutputStageBinAsync(ct);
+
+                    case OutputFeederUnloadFromStageStep.LowerOutputStageClamp:
+                        return LowerOutputStageClampAsync(ct);
 
                     case OutputFeederUnloadFromStageStep.VerifyBinDetected:
                         return VerifyBinDetectedAsync(ct);
@@ -235,6 +263,19 @@ namespace QMC.CDT320.Sequencing
             if (!Stage.IsBinGuideUp(Options.Side))
                 return Fail("OUT-STAGE-GUIDE-UP", Stage.Name, "Output stage bin guide is not up before stage unload. " + Stage.DescribeOutputStageInterlockState(Options.Side));
 
+            CurrentStep = OutputFeederUnloadFromStageStep.EnsureOutputStageUnclamp;
+            return 0;
+        }
+
+        private async Task<int> EnsureOutputStageUnclampAsync(CancellationToken ct)
+        {
+            int result = await AwaitStepWithCancellationAsync(Stage.EnsureBinGuideUnclampedAsync(Options.Side, ResolveTimeout()), ct).ConfigureAwait(false);
+            if (result != 0)
+                return Fail("OUT-STAGE-UNCLAMP", Stage.Name, "Output stage bin guide unclamp failed before stage unload. side=" + Options.Side + ", result=" + result + ", " + Stage.DescribeOutputStageInterlockState(Options.Side));
+
+            if (!Stage.IsBinGuideUnclamped(Options.Side))
+                return Fail("OUT-STAGE-UNCLAMP", Stage.Name, "Output stage bin guide is not unclamped before stage unload. " + Stage.DescribeOutputStageInterlockState(Options.Side));
+
             CurrentStep = OutputFeederUnloadFromStageStep.EnsureOutputStageClampLiftDown;
             return 0;
         }
@@ -248,18 +289,107 @@ namespace QMC.CDT320.Sequencing
             if (!Stage.IsBinGuideClampLiftDown(Options.Side))
                 return Fail("OUT-STAGE-CLAMP-DOWN", Stage.Name, "Output stage bin clamp lift is not down before stage unload. " + Stage.DescribeOutputStageInterlockState(Options.Side));
 
-            CurrentStep = OutputFeederUnloadFromStageStep.EnsureOutputStageUnclamp;
+            CurrentStep = OutputFeederUnloadFromStageStep.VerifyOutputStageUnloadReady;
             return 0;
         }
 
-        private async Task<int> EnsureOutputStageUnclampAsync(CancellationToken ct)
+        private int VerifyOutputStageUnloadReady()
         {
-            int result = await AwaitStepWithCancellationAsync(Stage.EnsureBinGuideUnclampedAsync(Options.Side, ResolveTimeout()), ct).ConfigureAwait(false);
-            if (result != 0)
-                return Fail("OUT-STAGE-UNCLAMP", Stage.Name, "Output stage bin guide unclamp failed before stage unload. side=" + Options.Side + ", result=" + result + ", " + Stage.DescribeOutputStageInterlockState(Options.Side));
+            if (IsHardwareBypass() && ResolveStageWafer() != null)
+            {
+                CurrentStep = OutputFeederUnloadFromStageStep.VerifyFeederReadyAtAvoid;
+                return 0;
+            }
+
+            if (!Stage.IsBinGuideUp(Options.Side))
+                return Fail("OUT-STAGE-UNLOAD-GUIDE-UP", Stage.Name,
+                    "Output stage bin guide must be up before feeder starts stage unload. side=" + Options.Side + ", " +
+                    Stage.DescribeOutputStageInterlockState(Options.Side));
+
+            if (!Stage.IsBinGuideClampLiftDown(Options.Side))
+                return Fail("OUT-STAGE-UNLOAD-CLAMP-DOWN", Stage.Name,
+                    "Output stage bin clamp lift must be down before feeder starts stage unload. side=" + Options.Side + ", " +
+                    Stage.DescribeOutputStageInterlockState(Options.Side));
 
             if (!Stage.IsBinGuideUnclamped(Options.Side))
-                return Fail("OUT-STAGE-UNCLAMP", Stage.Name, "Output stage bin guide is not unclamped before stage unload. " + Stage.DescribeOutputStageInterlockState(Options.Side));
+                return Fail("OUT-STAGE-UNLOAD-UNCLAMP", Stage.Name,
+                    "Output stage bin guide must be unclamped before feeder starts stage unload. side=" + Options.Side + ", " +
+                    Stage.DescribeOutputStageInterlockState(Options.Side));
+
+            CurrentStep = OutputFeederUnloadFromStageStep.VerifyFeederReadyAtAvoid;
+            return 0;
+        }
+
+        private int VerifyFeederReadyAtAvoid()
+        {
+            if (!Feeder.IsBinFeederInAvoidPosition())
+                return Fail("OUT-FEEDER-AVOID-CHECK", Feeder.Name,
+                    "Output feeder must already be at avoid position before stage unload. side=" + Options.Side + ", " +
+                    Feeder.DescribeBinFeederYMoveDoneState());
+
+            if (!Feeder.IsFeederDown())
+                return Fail("OUT-FEEDER-LIFT-DOWN-CHECK", Feeder.Name,
+                    "Output feeder must already be down before stage unload. side=" + Options.Side + ", " +
+                    Feeder.DescribeFeederCylinderState());
+
+            CurrentStep = Feeder.IsFeederUnclamped()
+                ? OutputFeederUnloadFromStageStep.PrepareFeederLiftUp
+                : OutputFeederUnloadFromStageStep.PrepareFeederUnclamp;
+            return 0;
+        }
+
+        private async Task<int> PrepareFeederUnclampAsync(CancellationToken ct)
+        {
+            int result = await AwaitStepWithCancellationAsync(Feeder.SetFeederClampAsync(false, ResolveTimeout()), ct).ConfigureAwait(false);
+            if (result != 0)
+                return Fail("OUT-FEEDER-UNCLAMP", Feeder.Name,
+                    "Output feeder unclamp command failed before stage unload. result=" + result + ", " +
+                    Feeder.DescribeFeederCylinderState());
+
+            if (!Feeder.IsFeederUnclamped())
+                return Fail("OUT-FEEDER-UNCLAMP", Feeder.Name,
+                    "Output feeder unclamp failed before stage unload. result=" + result + ", " +
+                    Feeder.DescribeFeederCylinderState());
+
+            CurrentStep = OutputFeederUnloadFromStageStep.PrepareFeederLiftUp;
+            return 0;
+        }
+
+        private async Task<int> PrepareFeederLiftUpAsync(CancellationToken ct)
+        {
+            int result = await AwaitStepWithCancellationAsync(Feeder.SetFeederUpDownAsync(true, ResolveTimeout()), ct).ConfigureAwait(false);
+            if (result != 0)
+                return Fail("OUT-FEEDER-UP", Feeder.Name, "Output feeder lift up before stage unload avoid failed. result=" + result + ", " + Feeder.DescribeFeederCylinderState());
+
+            if (!Feeder.IsFeederUp())
+                return Fail("OUT-FEEDER-UP", Feeder.Name, "Output feeder lift is not up before stage unload avoid. " + Feeder.DescribeFeederCylinderState());
+
+            CurrentStep = OutputFeederUnloadFromStageStep.MoveFeederStageUnloadAvoidPosition;
+            return 0;
+        }
+
+        private async Task<int> MoveFeederStageUnloadAvoidPositionAsync(CancellationToken ct)
+        {
+            int result = await MoveFeederYCommandAsync(Feeder.MoveToFeederStageUnloadAvoidPosition(Options.Side, Options.FineMove), "stage unload avoid", ct).ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            result = await WaitFeederYDoneAsync(() => Feeder.IsBinFeederYInStageUnloadAvoidPosition(Options.Side), "stage unload avoid", ct).ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            CurrentStep = OutputFeederUnloadFromStageStep.PrepareFeederLiftDown;
+            return 0;
+        }
+
+        private async Task<int> PrepareFeederLiftDownAsync(CancellationToken ct)
+        {
+            int result = await AwaitStepWithCancellationAsync(Feeder.SetFeederUpDownAsync(false, ResolveTimeout()), ct).ConfigureAwait(false);
+            if (result != 0)
+                return Fail("OUT-FEEDER-DOWN", Feeder.Name, "Output feeder lift down before stage unload failed. result=" + result + ", " + Feeder.DescribeFeederCylinderState());
+
+            if (!Feeder.IsFeederDown())
+                return Fail("OUT-FEEDER-DOWN", Feeder.Name, "Output feeder lift is not down before stage unload. " + Feeder.DescribeFeederCylinderState());
 
             CurrentStep = OutputFeederUnloadFromStageStep.MoveFeederStageUnloadPosition;
             return 0;
@@ -275,19 +405,6 @@ namespace QMC.CDT320.Sequencing
             if (result != 0)
                 return result;
 
-            CurrentStep = OutputFeederUnloadFromStageStep.PrepareFeederLiftUp;
-            return 0;
-        }
-
-        private async Task<int> PrepareFeederLiftUpAsync(CancellationToken ct)
-        {
-            int result = await AwaitStepWithCancellationAsync(Feeder.SetFeederUpDownAsync(true, ResolveTimeout()), ct).ConfigureAwait(false);
-            if (result != 0)
-                return Fail("OUT-FEEDER-UP", Feeder.Name, "Output feeder lift up command failed. result=" + result + ", " + Feeder.DescribeFeederCylinderState());
-
-            if (!Feeder.IsFeederUp())
-                return Fail("OUT-FEEDER-UP", Feeder.Name, "Output feeder lift up failed. result=" + result + ", " + Feeder.DescribeFeederCylinderState());
-
             CurrentStep = OutputFeederUnloadFromStageStep.ClampFeederBin;
             return 0;
         }
@@ -300,6 +417,32 @@ namespace QMC.CDT320.Sequencing
 
             if (Feeder.IsFeederUnclamped())
                 return Fail("OUT-FEEDER-CLAMP", Feeder.Name, "Output feeder clamp final check failed. side=" + Options.Side + ", " + Feeder.DescribeFeederCylinderState());
+
+            CurrentStep = OutputFeederUnloadFromStageStep.UnclampOutputStageBin;
+            return 0;
+        }
+
+        private async Task<int> UnclampOutputStageBinAsync(CancellationToken ct)
+        {
+            int result = await AwaitStepWithCancellationAsync(Stage.EnsureBinGuideUnclampedAsync(Options.Side, ResolveTimeout()), ct).ConfigureAwait(false);
+            if (result != 0)
+                return Fail("OUT-STAGE-UNCLAMP", Stage.Name, "Output stage bin guide unclamp failed after feeder clamped bin. side=" + Options.Side + ", result=" + result + ", " + Stage.DescribeOutputStageInterlockState(Options.Side));
+
+            if (!Stage.IsBinGuideUnclamped(Options.Side))
+                return Fail("OUT-STAGE-UNCLAMP", Stage.Name, "Output stage bin guide unclamp final check failed after feeder clamped bin. " + Stage.DescribeOutputStageInterlockState(Options.Side));
+
+            CurrentStep = OutputFeederUnloadFromStageStep.LowerOutputStageClamp;
+            return 0;
+        }
+
+        private async Task<int> LowerOutputStageClampAsync(CancellationToken ct)
+        {
+            int result = await AwaitStepWithCancellationAsync(Stage.EnsureBinGuideClampLiftDownAsync(Options.Side, ResolveTimeout()), ct).ConfigureAwait(false);
+            if (result != 0)
+                return Fail("OUT-STAGE-CLAMP-DOWN", Stage.Name, "Output stage bin clamp lift down failed after stage unload. side=" + Options.Side + ", result=" + result + ", " + Stage.DescribeOutputStageInterlockState(Options.Side));
+
+            if (!Stage.IsBinGuideClampLiftDown(Options.Side))
+                return Fail("OUT-STAGE-CLAMP-DOWN", Stage.Name, "Output stage bin clamp lift down final check failed after stage unload. " + Stage.DescribeOutputStageInterlockState(Options.Side));
 
             CurrentStep = OutputFeederUnloadFromStageStep.VerifyBinDetected;
             return 0;

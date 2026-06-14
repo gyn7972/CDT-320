@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
+using QMC.CDT320.Interlocks;
 using QMC.CDT320.Materials;
+using QMC.Common.Motion;
 
 namespace QMC.CDT320.Sequencing
 {
@@ -180,28 +182,36 @@ namespace QMC.CDT320.Sequencing
                 return Fail("IN-FEEDER-STAGE-RECIPE", stage.Name, "Input stage recipe is not available.");
 
             int result = await MoveStageAxisAndVerifyAsync(stage, WaferStageAxis.VisionX, stage.Recipe.VisionX.AvoidPosition, "VisionX avoid", ct).ConfigureAwait(false);
-            if (result != 0) return result;
+            if (result != 0)
+                return result;
 
             Task<int> needleZMove = MoveStageAxisCommandAsync(stage, WaferStageAxis.NeedleZ, stage.Recipe.NeedleZ.AvoidPosition, "NeedleZ avoid", ct);
             Task<int> ejectPinZMove = MoveStageAxisCommandAsync(stage, WaferStageAxis.EjectPinZ, stage.Recipe.EjectPinZ.AvoidPosition, "EjectPinZ avoid", ct);
             int[] zResults = await Task.WhenAll(needleZMove, ejectPinZMove).ConfigureAwait(false);
-            if (zResults[0] != 0) return zResults[0];
-            if (zResults[1] != 0) return zResults[1];
+            if (zResults[0] != 0)
+                return zResults[0];
+            if (zResults[1] != 0)
+                return zResults[1];
 
             Task<int> needleZWait = WaitStageAxisInPositionResultAsync(stage, WaferStageAxis.NeedleZ, stage.Recipe.NeedleZ.AvoidPosition, "NeedleZ avoid", ct);
             Task<int> ejectPinZWait = WaitStageAxisInPositionResultAsync(stage, WaferStageAxis.EjectPinZ, stage.Recipe.EjectPinZ.AvoidPosition, "EjectPinZ avoid", ct);
             int[] zWaitResults = await Task.WhenAll(needleZWait, ejectPinZWait).ConfigureAwait(false);
-            if (zWaitResults[0] != 0) return zWaitResults[0];
-            if (zWaitResults[1] != 0) return zWaitResults[1];
+            if (zWaitResults[0] != 0)
+                return zWaitResults[0];
+            if (zWaitResults[1] != 0)
+                return zWaitResults[1];
 
             result = CheckStageAxisInPosition(stage, WaferStageAxis.NeedleZ, stage.Recipe.NeedleZ.AvoidPosition, "NeedleZ avoid");
-            if (result != 0) return result;
+            if (result != 0)
+                return result;
 
             result = CheckStageAxisInPosition(stage, WaferStageAxis.EjectPinZ, stage.Recipe.EjectPinZ.AvoidPosition, "EjectPinZ avoid");
-            if (result != 0) return result;
+            if (result != 0)
+                return result;
 
             result = await MoveStageAxisAndVerifyAsync(stage, WaferStageAxis.NeedleX, stage.Recipe.NeedleX.AvoidPosition, "NeedleX avoid", ct).ConfigureAwait(false);
-            if (result != 0) return result;
+            if (result != 0)
+                return result;
 
             CurrentStep = InputFeederLoadFromCassetteStep.MoveStageToLoadPosition;
             return 0;
@@ -300,10 +310,12 @@ namespace QMC.CDT320.Sequencing
                 return Fail("IN-FEEDER-LOAD-POS", Feeder.Name,
                     "WaferFeeder cassette load position move command failed. result=" + result + ". " + Feeder.GetWaferFeederTransferState());
 
-            bool done = await AwaitStepWithCancellationAsync(Feeder.WaitWaferFeederYMoveDone(ResolveTimeout()), ct).ConfigureAwait(false);
-            if (!done)
-                return Fail("IN-FEEDER-LOAD-POS-TIMEOUT", Feeder.Name,
-                    "WaferFeeder cassette load position timeout. done=" + done + ". " + Feeder.GetWaferFeederTransferState());
+            result = await WaitFeederYDoneAsync(
+                () => Feeder.IsWaferFeederInCassetteLoadPosition(Options.SlotIndex),
+                "WaferFeeder cassette load position",
+                ct).ConfigureAwait(false);
+            if (result != 0)
+                return result;
 
             CurrentStep = InputFeederLoadFromCassetteStep.VerifyWaferDetected;
             return 0;
@@ -377,6 +389,13 @@ namespace QMC.CDT320.Sequencing
         {
             ct.ThrowIfCancellationRequested();
 
+            QMC.Common.Motion.BaseAxis item = ResolveStageAxis(stage, axis);
+            string interlockReason;
+            if (!MotionGuardRuntime.VerifyAxisMove(item, target, out interlockReason))
+                return Fail("IN-FEEDER-STAGE-INTERLOCK", stage.Name,
+                    description + " move blocked by interlock. " + interlockReason + ". " +
+                    BuildStageAxisState(stage, axis, target));
+
             int result = await AwaitStepWithCancellationAsync(stage.MoveInputStageAxis(axis, target, Options.FineMove), ct).ConfigureAwait(false);
             if (result != 0)
                 return Fail("IN-FEEDER-STAGE-MOVE", stage.Name, description + " move failed. result=" + result + ", " + BuildStageAxisState(stage, axis, target));
@@ -391,18 +410,16 @@ namespace QMC.CDT320.Sequencing
             if (result != 0)
                 return result;
 
-            result = await WaitStageAxisInPositionResultAsync(stage, axis, target, description, ct).ConfigureAwait(false);
-            if (result != 0)
-                return result;
-
-            return CheckStageAxisInPosition(stage, axis, target, description);
+            return await WaitStageAxisInPositionResultAsync(stage, axis, target, description, ct).ConfigureAwait(false);
         }
 
         private async Task<int> WaitStageAxisInPositionResultAsync(InputStageUnit stage, WaferStageAxis axis, double target, string description, CancellationToken ct)
         {
-            bool arrived = await WaitStageAxisInPositionAsync(stage, axis, target, ResolveTimeout(), ct).ConfigureAwait(false);
-            if (!arrived)
-                return Fail("IN-FEEDER-STAGE-MOVE-TIMEOUT", stage.Name, description + " move done timeout. " + BuildStageAxisState(stage, axis, target));
+            AxisMoveWaitResult waitResult = await AwaitStepWithCancellationAsync(stage.WaitInputStageAxisInPositionResult(axis, target, ResolveTimeout()), ct).ConfigureAwait(false);
+            if (waitResult == null || !waitResult.Success)
+                return Fail(ResolveAxisMoveWaitAlarmCode("IN-FEEDER-STAGE-MOVE", waitResult), stage.Name,
+                    description + " move/in-position wait failed. " +
+                    FormatAxisMoveWaitResult(waitResult, BuildStageAxisState(stage, axis, target)));
 
             return 0;
         }
@@ -487,7 +504,25 @@ namespace QMC.CDT320.Sequencing
                    ", moving=" + (item.IsMoving ? "Y" : "N") +
                    ", actual=" + item.ActualPosition +
                    ", target=" + target +
-                   ", tolerance=" + tolerance;
+                   ", tolerance=" + tolerance +
+                   FormatAxisLastMotionFailure(item) +
+                   FormatStageLastMoveFailure(stage);
+        }
+
+        private static string FormatAxisLastMotionFailure(QMC.Common.Motion.BaseAxis item)
+        {
+            if (item == null || string.IsNullOrWhiteSpace(item.LastMotionFailureMessage))
+                return string.Empty;
+
+            return ", lastMotionFailure=" + item.LastMotionFailureMessage;
+        }
+
+        private static string FormatStageLastMoveFailure(InputStageUnit stage)
+        {
+            if (stage == null || string.IsNullOrWhiteSpace(stage.LastStageMoveFailureMessage))
+                return string.Empty;
+
+            return ", lastStageMoveFailure=" + stage.LastStageMoveFailureMessage;
         }
 
         private QMC.Common.Motion.BaseAxis ResolveStageAxis(InputStageUnit stage, WaferStageAxis axis)

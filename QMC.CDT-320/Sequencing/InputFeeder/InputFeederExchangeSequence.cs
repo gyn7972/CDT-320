@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using QMC.CDT320.Materials;
+using QMC.Common.Motion;
 
 namespace QMC.CDT320.Sequencing
 {
@@ -130,7 +131,7 @@ namespace QMC.CDT320.Sequencing
         {
             InputFeederSequenceOptions unloadOptions = CloneOptions();
             unloadOptions.SlotIndex = Options.SlotIndex;
-            unloadOptions.StartMode = SequenceStartMode.Restart;
+            unloadOptions.StartMode = Options.StartMode;
             unloadOptions.PostUnloadMove = InputFeederPostUnloadMove.Exchange;
             unloadOptions.ReturnCassetteToUnloadSlotAfterUnload = false;
 
@@ -165,7 +166,7 @@ namespace QMC.CDT320.Sequencing
         {
             InputFeederSequenceOptions loadOptions = CloneOptions();
             loadOptions.SlotIndex = Options.NextSlotIndex;
-            loadOptions.StartMode = SequenceStartMode.Restart;
+            loadOptions.StartMode = Options.StartMode;
             loadOptions.PostUnloadMove = InputFeederPostUnloadMove.Avoid;
             loadOptions.ReturnCassetteToUnloadSlotAfterUnload = true;
 
@@ -188,14 +189,13 @@ namespace QMC.CDT320.Sequencing
                 return Fail("IN-FEEDER-EXCHANGE-CST-Z-MOVE", cassette.Name,
                     description + " move failed. target=" + target + ", result=" + result + ". " + BuildCassetteZState(cassette, target));
 
-            result = await AwaitStepWithCancellationAsync(cassette.WaitWaferLifterZMoveDone(ResolveTimeout()), ct).ConfigureAwait(false);
-            if (result != 0)
-                return Fail("IN-FEEDER-EXCHANGE-CST-Z-TIMEOUT", cassette.Name,
-                    description + " move done timeout. target=" + target + ", waitResult=" + result + ". " + BuildCassetteZState(cassette, target));
-
-            if (!cassette.IsWaferLifterZInPosition(target, cassette.ResolveWaferLifterZInPositionTolerance()))
-                return Fail("IN-FEEDER-EXCHANGE-CST-Z-POSITION", cassette.Name,
-                    description + " final position check failed. target=" + target + ". " + BuildCassetteZState(cassette, target));
+            AxisMoveWaitResult waitResult = await AwaitStepWithCancellationAsync(
+                cassette.WaitWaferLifterZMoveDoneInPosition(target, ResolveTimeout()),
+                ct).ConfigureAwait(false);
+            if (waitResult == null || !waitResult.Success)
+                return Fail(ResolveAxisMoveWaitAlarmCode("IN-FEEDER-EXCHANGE-CST-Z", waitResult), cassette.Name,
+                    description + " move/in-position wait failed. " +
+                    FormatAxisMoveWaitResult(waitResult, BuildCassetteZState(cassette, target)));
 
             return 0;
         }

@@ -35,14 +35,20 @@ namespace QMC.CDT320.Interlocks
             {
                 case MotionGuardMoveKind.AxisMove:
                 case MotionGuardMoveKind.AxisTeachingMove:
-                    break;
+                    return CanMoveRearPickerX(request.Machine, out reason);
                 case MotionGuardMoveKind.AxisHome:
-                    return VerifyRearPickerXHome(request.Machine, out reason);
+                    return CanHomeRearPickerX(request.Machine, out reason);
                 default:
-                    return true;
+                    return MotionGuardRuleHelpers.BlockUnsupportedMoveKind(request, out reason);
             }
+        }
 
-            return VerifyRearPickerNotBusy(request.Machine.PickerRearUnit, "RearPickerX", out reason);
+        private static bool CanMoveRearPickerX(CDT320_Machine machine, out string reason)
+        {
+            if (!CanHomeRearPickerX(machine, out reason))
+                return false;
+
+            return VerifyRearPickerNotBusy(machine != null ? machine.PickerRearUnit : null, "RearPickerX", out reason);
         }
 
         private static bool VerifyRearPickerY(MotionGuardRuleContext request, out string reason)
@@ -53,20 +59,26 @@ namespace QMC.CDT320.Interlocks
             {
                 case MotionGuardMoveKind.AxisMove:
                 case MotionGuardMoveKind.AxisTeachingMove:
-                    break;
+                    return CanMoveRearPickerY(request.Machine, out reason);
                 case MotionGuardMoveKind.AxisHome:
-                    return VerifyRearPickerYHome(request.Machine, out reason);
+                    return CanHomeRearPickerY(request.Machine, out reason);
                 default:
-                    return true;
+                    return MotionGuardRuleHelpers.BlockUnsupportedMoveKind(request, out reason);
             }
+        }
 
-            if (!VerifyReticleCylinderClear(request.Machine, "RearPickerY", out reason))
+        private static bool CanMoveRearPickerY(CDT320_Machine machine, out string reason)
+        {
+            if (!CanHomeRearPickerY(machine, out reason))
                 return false;
-            if (request.Machine.PickerFrontUnit != null &&
-                MotionGuardRuleHelpers.IsAxisMoving(request.Machine.PickerFrontUnit.PickerY))
+
+            if (!VerifyReticleCylinderClear(machine, "RearPickerY", out reason))
+                return false;
+            if (machine != null && machine.PickerFrontUnit != null &&
+                MotionGuardRuleHelpers.IsAxisMoving(machine.PickerFrontUnit.PickerY))
                 return MotionGuardRuleHelpers.Block("RearPickerY", "FrontPickerY is moving.", out reason);
 
-            return VerifyRearPickerNotBusy(request.Machine.PickerRearUnit, "RearPickerY", out reason);
+            return VerifyRearPickerNotBusy(machine != null ? machine.PickerRearUnit : null, "RearPickerY", out reason);
         }
 
         private static bool VerifyRearPickerT(MotionGuardRuleContext request, out string reason)
@@ -77,17 +89,23 @@ namespace QMC.CDT320.Interlocks
             {
                 case MotionGuardMoveKind.AxisMove:
                 case MotionGuardMoveKind.AxisTeachingMove:
-                    break;
+                    return CanMoveRearPickerT(request.Machine, request.MovingName, out reason);
                 case MotionGuardMoveKind.AxisHome:
-                    return VerifyRearPickerTHome(request.Machine, request.MovingName, out reason);
+                    return CanHomeRearPickerT(request.Machine, request.MovingName, out reason);
                 default:
-                    return true;
+                    return MotionGuardRuleHelpers.BlockUnsupportedMoveKind(request, out reason);
             }
-
-            return VerifyRearPickerNotBusy(request.Machine.PickerRearUnit, request.MovingName, out reason);
         }
 
-        private static bool VerifyRearPickerXHome(CDT320_Machine machine, out string reason)
+        private static bool CanMoveRearPickerT(CDT320_Machine machine, string movingName, out string reason)
+        {
+            if (!CanHomeRearPickerT(machine, movingName, out reason))
+                return false;
+
+            return VerifyRearPickerNotBusy(machine != null ? machine.PickerRearUnit : null, movingName, out reason);
+        }
+
+        private static bool CanHomeRearPickerX(CDT320_Machine machine, out string reason)
         {
             reason = string.Empty;
 
@@ -138,7 +156,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
-        private static bool VerifyRearPickerYHome(CDT320_Machine machine, out string reason)
+        private static bool CanHomeRearPickerY(CDT320_Machine machine, out string reason)
         {
             reason = string.Empty;
 
@@ -176,7 +194,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
-        private static bool VerifyRearPickerTHome(CDT320_Machine machine, string movingName, out string reason)
+        private static bool CanHomeRearPickerT(CDT320_Machine machine, string movingName, out string reason)
         {
             reason = string.Empty;
 
@@ -216,14 +234,26 @@ namespace QMC.CDT320.Interlocks
             {
                 case MotionGuardMoveKind.AxisMove:
                 case MotionGuardMoveKind.AxisTeachingMove:
-                    break;
+                    return CanMoveRearPickerZ(request.Machine, request.MovingName, out reason);
                 case MotionGuardMoveKind.AxisHome:
-                    return true;
+                    return CanHomeRearPickerZ(request.Machine, request.MovingName, out reason);
                 default:
-                    return true;
+                    return MotionGuardRuleHelpers.BlockUnsupportedMoveKind(request, out reason);
             }
+        }
 
-            return VerifyRearPickerNotBusy(request.Machine.PickerRearUnit, request.MovingName, out reason);
+        private static bool CanHomeRearPickerZ(CDT320_Machine machine, string movingName, out string reason)
+        {
+            reason = string.Empty;
+            return true;
+        }
+
+        private static bool CanMoveRearPickerZ(CDT320_Machine machine, string movingName, out string reason)
+        {
+            if (!CanHomeRearPickerZ(machine, movingName, out reason))
+                return false;
+
+            return VerifyRearPickerNotBusy(machine != null ? machine.PickerRearUnit : null, movingName, out reason);
         }
 
         private static bool VerifyReticleCylinderClear(CDT320_Machine machine, string movingName, out string reason)

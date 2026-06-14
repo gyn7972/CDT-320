@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using QMC.CDT320.Materials;
 using QMC.CDT320.Motion.SharedRailX;
+using QMC.Common.Motion;
 
 namespace QMC.CDT320.Sequencing
 {
@@ -794,12 +795,6 @@ namespace QMC.CDT320.Sequencing
                 if (waitResults[0] != 0) return waitResults[0];
                 if (waitResults[1] != 0) return waitResults[1];
 
-                int result = CheckStageAxisInPosition(WaferStageAxis.WaferY, targetY, description + " StageY");
-                if (result != 0) return result;
-
-                result = CheckStageAxisInPosition(WaferStageAxis.VisionX, targetX, description + " VisionX");
-                if (result != 0) return result;
-
                 return 0;
             }
             catch (OperationCanceledException)
@@ -822,10 +817,7 @@ namespace QMC.CDT320.Sequencing
                 int result = await MoveAxisCommandAsync(axis, target, description, ct).ConfigureAwait(false);
                 if (result != 0) return result;
 
-                result = await WaitAxisInPositionResultAsync(axis, target, description, ct).ConfigureAwait(false);
-                if (result != 0) return result;
-
-                return CheckStageAxisInPosition(axis, target, description);
+                return await WaitAxisInPositionResultAsync(axis, target, description, ct).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -905,11 +897,13 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 ct.ThrowIfCancellationRequested();
-                int result = await AwaitStepWithCancellationAsync(Stage.WaitInputStageAxisInPosition(axis, target, ResolveTimeout()), ct).ConfigureAwait(false);
-                if (result != 0)
-                    return Fail("IN-STAGE-ALIGN-MOVE-TIMEOUT", Stage.Name,
-                        description + " move done timeout. axis=" + axis + ", target=" + target +
-                        ", waitResult=" + result + ". " + BuildAxisState(axis, target));
+                AxisMoveWaitResult waitResult = await AwaitStepWithCancellationAsync(
+                    Stage.WaitInputStageAxisInPositionResult(axis, target, ResolveTimeout()),
+                    ct).ConfigureAwait(false);
+                if (waitResult == null || !waitResult.Success)
+                    return Fail(ResolveAxisMoveWaitAlarmCode("IN-STAGE-ALIGN-MOVE", waitResult), Stage.Name,
+                        description + " move/in-position wait failed. axis=" + axis + ", target=" + target +
+                        ". " + FormatAxisMoveWaitResult(waitResult, BuildAxisState(axis, target)));
 
                 return 0;
             }
@@ -1088,6 +1082,36 @@ namespace QMC.CDT320.Sequencing
             catch
             {
                 return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        private static async Task<AxisMoveWaitResult> AwaitStepWithCancellationAsync(Task<AxisMoveWaitResult> stepTask, CancellationToken ct)
+        {
+            try
+            {
+                if (stepTask == null)
+                    return null;
+
+                if (stepTask.IsCompleted)
+                    return await stepTask.ConfigureAwait(false);
+
+                Task cancelTask = Task.Delay(Timeout.Infinite, ct);
+                Task completed = await Task.WhenAny(stepTask, cancelTask).ConfigureAwait(false);
+                if (!ReferenceEquals(completed, stepTask))
+                    ct.ThrowIfCancellationRequested();
+
+                return await stepTask.ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch
+            {
+                return null;
             }
             finally
             {

@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using QMC.CDT320.Materials;
 using QMC.Common;
 using QMC.Common.Alarms;
+using QMC.Common.Motion;
 
 namespace QMC.CDT320.Sequencing
 {
@@ -250,6 +251,36 @@ namespace QMC.CDT320.Sequencing
             return -1;
         }
 
+        protected static string ResolveAxisMoveWaitAlarmCode(string prefix, AxisMoveWaitResult waitResult)
+        {
+            return AxisMoveWaiter.ResolveAlarmCode(prefix, waitResult);
+        }
+
+        protected static string FormatAxisMoveWaitResult(AxisMoveWaitResult waitResult, string fallbackState)
+        {
+            return AxisMoveWaiter.FormatResult(waitResult, fallbackState);
+        }
+
+        protected async Task<int> WaitFeederYDoneAsync(Func<bool> inPosition, string description, CancellationToken ct)
+        {
+            AxisMoveWaitResult waitResult = await AwaitStepWithCancellationAsync(
+                Feeder.WaitWaferFeederYMoveDoneInPosition(Feeder.FeederY.CommandPosition, ResolveTimeout()),
+                ct).ConfigureAwait(false);
+            bool finalInPosition = inPosition == null || inPosition();
+
+            if (waitResult == null || !waitResult.Success || !finalInPosition)
+            {
+                string state = Feeder != null ? Feeder.GetWaferFeederTransferState() : "Feeder=null";
+                return Fail(ResolveAxisMoveWaitAlarmCode("IN-FEEDER-Y", waitResult), Feeder.Name,
+                    description + " move/in-position wait failed. " +
+                    FormatAxisMoveWaitResult(waitResult, state) +
+                    ", finalInPosition=" + finalInPosition +
+                    ". " + state);
+            }
+
+            return 0;
+        }
+
         private TStep ResolveStartStep(TStep initialStep)
         {
             try
@@ -314,6 +345,22 @@ namespace QMC.CDT320.Sequencing
         {
             if (stepTask == null)
                 return false;
+
+            if (stepTask.IsCompleted)
+                return await stepTask.ConfigureAwait(false);
+
+            Task cancelTask = Task.Delay(Timeout.Infinite, ct);
+            Task completed = await Task.WhenAny(stepTask, cancelTask).ConfigureAwait(false);
+            if (!ReferenceEquals(completed, stepTask))
+                ct.ThrowIfCancellationRequested();
+
+            return await stepTask.ConfigureAwait(false);
+        }
+
+        protected static async Task<AxisMoveWaitResult> AwaitStepWithCancellationAsync(Task<AxisMoveWaitResult> stepTask, CancellationToken ct)
+        {
+            if (stepTask == null)
+                return null;
 
             if (stepTask.IsCompleted)
                 return await stepTask.ConfigureAwait(false);

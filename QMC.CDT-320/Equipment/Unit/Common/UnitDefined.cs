@@ -337,11 +337,30 @@ namespace QMC.CDT320
         /// <summary>축 이동 완료를 대기합니다.</summary>
         public async Task<bool> WaitAxisMoveDone(TAxis axis, int timeoutMs)
         {
-            return await WaitUntilAsync(() =>
-            {
-                var item = GetAxis(axis);
-                return !item.IsMoving && item.IsInPosition && !item.IsAlarm;
-            }, timeoutMs);
+            AxisMoveWaitResult waitResult = await WaitAxisMoveDoneInPosition(axis, timeoutMs).ConfigureAwait(false);
+            return waitResult.Success;
+        }
+
+        /// <summary>축 이동 완료와 목표 위치 도착을 상세 결과로 대기합니다.</summary>
+        public async Task<AxisMoveWaitResult> WaitAxisMoveDoneInPosition(TAxis axis, int timeoutMs)
+        {
+            var item = GetAxis(axis);
+            return await WaitAxisMoveDoneInPosition(axis, item.CommandPosition, timeoutMs).ConfigureAwait(false);
+        }
+
+        /// <summary>축 이동 완료와 지정 목표 위치 도착을 상세 결과로 대기합니다.</summary>
+        public async Task<AxisMoveWaitResult> WaitAxisMoveDoneInPosition(TAxis axis, double targetPos, int timeoutMs)
+        {
+            var item = GetAxis(axis);
+            double tolerance = item.Config != null && item.Config.InPositionTolerance > 0.0
+                ? item.Config.InPositionTolerance
+                : Setup.InPositionTolerance;
+            return await AxisMoveWaiter.WaitMoveDoneInPositionAsync(
+                item,
+                targetPos,
+                tolerance,
+                timeoutMs,
+                0).ConfigureAwait(false);
         }
 
         /// <summary>축이 티칭 위치에 도착했는지 확인합니다.</summary>
@@ -353,7 +372,11 @@ namespace QMC.CDT320
         /// <summary>축이 티칭 위치에 도착할 때까지 대기합니다.</summary>
         public async Task<bool> WaitAxisInTeachingPosition(TAxis axis, string positionName, int timeoutMs)
         {
-            return await WaitUntilAsync(() => IsAxisInTeachingPosition(axis, positionName), timeoutMs);
+            AxisMoveWaitResult waitResult = await WaitAxisMoveDoneInPosition(
+                axis,
+                GetTeachingPosition(axis, positionName),
+                timeoutMs).ConfigureAwait(false);
+            return waitResult.Success;
         }
 
         /// <summary>현재 축 위치를 티칭 위치로 저장합니다.</summary>

@@ -6,6 +6,7 @@ using QMC.Common;
 using QMC.Common.Motion;
 using QMC.Common.IO;
 using QMC.CDT320.Ajin;
+using QMC.CDT320.Materials;
 using QMC.CDT320.Motion.SharedRailX;
 using QMC.Common.Alarms;
 using QMC.Common.Logging;
@@ -261,6 +262,17 @@ namespace QMC.CDT320
                 return false;
             }
 
+            AxisMoveWaitResult waitResult = await WaitAxisMoveDoneInPositionAsync(StageZ, Recipe.AvoidPositionZ).ConfigureAwait(false);
+            if (!waitResult.Success)
+            {
+                AlarmManager.Raise(
+                    AlarmSeverity.Error,
+                    AxisMoveWaiter.ResolveAlarmCode("OS-AVOIDZ", waitResult),
+                    source: Name + ".MoveToAvoidPositionAsync",
+                    message: "StageZ avoid position wait failed. " + AxisMoveWaiter.FormatResult(waitResult, StageZ.Name));
+                return false;
+            }
+
             return true;
         }
 
@@ -285,6 +297,17 @@ namespace QMC.CDT320
                     "OS-WORKZ",
                     source: Name + ".MoveToWorkPositionAsync",
                     message: "StageZ 작업 위치 이동 실패 (axis code=" + StageZ.AlarmCode + ")");
+                return false;
+            }
+
+            AxisMoveWaitResult waitResult = await WaitAxisMoveDoneInPositionAsync(StageZ, Recipe.WorkPositionZ).ConfigureAwait(false);
+            if (!waitResult.Success)
+            {
+                AlarmManager.Raise(
+                    AlarmSeverity.Error,
+                    AxisMoveWaiter.ResolveAlarmCode("OS-WORKZ", waitResult),
+                    source: Name + ".MoveToWorkPositionAsync",
+                    message: "StageZ work position wait failed. " + AxisMoveWaiter.FormatResult(waitResult, StageZ.Name));
                 return false;
             }
 
@@ -314,6 +337,18 @@ namespace QMC.CDT320
                 return false;
             }
 
+            AxisMoveWaitResult waitResult = await WaitAxisMoveDoneInPositionAsync(StageY, targetY).ConfigureAwait(false);
+            if (!waitResult.Success)
+            {
+                AlarmManager.Raise(
+                    AlarmSeverity.Error,
+                    AxisMoveWaiter.ResolveAlarmCode("OS-MOVEY", waitResult),
+                    source: Name + ".MoveYAsync",
+                    message: "StageY move wait failed. target=" + targetY.ToString("F3") + ". " +
+                             AxisMoveWaiter.FormatResult(waitResult, StageY.Name));
+                return false;
+            }
+
             return true;
         }
 
@@ -333,6 +368,30 @@ namespace QMC.CDT320
                 return axis.Config.DefaultVelocity;
 
             return 100.0;
+        }
+
+        private static int ResolveAxisMoveTimeout(BaseAxis axis)
+        {
+            return axis != null && axis.Setup != null && axis.Setup.MoveTimeoutMs > 0
+                ? axis.Setup.MoveTimeoutMs
+                : 10000;
+        }
+
+        private static double ResolveAxisInPositionTolerance(BaseAxis axis)
+        {
+            return axis != null && axis.Config != null && axis.Config.InPositionTolerance > 0.0
+                ? axis.Config.InPositionTolerance
+                : 0.05;
+        }
+
+        private static Task<AxisMoveWaitResult> WaitAxisMoveDoneInPositionAsync(BaseAxis axis, double target)
+        {
+            return AxisMoveWaiter.WaitMoveDoneInPositionAsync(
+                axis,
+                target,
+                ResolveAxisInPositionTolerance(axis),
+                ResolveAxisMoveTimeout(axis),
+                0);
         }
     }
 
@@ -773,6 +832,17 @@ namespace QMC.CDT320
                 int result = await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, velocity);
                 if (result != 0 || item.IsAlarm)
                     return RaiseOutputStageAlarm("OS-MOVE", axis + " move failed. result=" + result + ", alarm=" + item.IsAlarm);
+
+                AxisMoveWaitResult waitResult = await WaitStageAxisMoveDoneInPosition(
+                    axis,
+                    targetPos,
+                    item.Setup != null && item.Setup.MoveTimeoutMs > 0 ? item.Setup.MoveTimeoutMs : 10000).ConfigureAwait(false);
+                if (!waitResult.Success)
+                    return RaiseOutputStageAlarm(
+                        AxisMoveWaiter.ResolveAlarmCode("OS-MOVE", waitResult),
+                        axis + " move/in-position wait failed. target=" + targetPos + ". " +
+                        AxisMoveWaiter.FormatResult(waitResult, axis.ToString()));
+
                 return 0;
             }
             catch (Exception ex)
@@ -865,11 +935,34 @@ namespace QMC.CDT320
 
         public async Task<bool> WaitStageAxisMoveDone(BinStageAxis axis, int timeoutMs)
         {
+            AxisMoveWaitResult waitResult = await WaitStageAxisMoveDoneInPosition(axis, timeoutMs).ConfigureAwait(false);
+            return waitResult.Success;
+        }
+
+        public async Task<AxisMoveWaitResult> WaitStageAxisMoveDoneInPosition(BinStageAxis axis, int timeoutMs)
+        {
             if (!HasStageAxis(axis))
-                return true;
+                return new AxisMoveWaitResult(AxisMoveWaitFailure.None, axis + " axis does not exist.", string.Empty);
 
             BaseAxis item = ResolveStageAxis(axis);
-            return await WaitUntilAsync(() => !item.IsMoving && item.IsInPosition && !item.IsAlarm, timeoutMs);
+            return await WaitStageAxisMoveDoneInPosition(axis, item.CommandPosition, timeoutMs).ConfigureAwait(false);
+        }
+
+        public async Task<AxisMoveWaitResult> WaitStageAxisMoveDoneInPosition(BinStageAxis axis, double targetPos, int timeoutMs)
+        {
+            if (!HasStageAxis(axis))
+                return new AxisMoveWaitResult(AxisMoveWaitFailure.None, axis + " axis does not exist.", string.Empty);
+
+            BaseAxis item = ResolveStageAxis(axis);
+            double tolerance = item.Config != null && item.Config.InPositionTolerance > 0.0
+                ? item.Config.InPositionTolerance
+                : 0.05;
+            return await AxisMoveWaiter.WaitMoveDoneInPositionAsync(
+                item,
+                targetPos,
+                tolerance,
+                timeoutMs,
+                0).ConfigureAwait(false);
         }
 
         public async Task<int> MoveToStageLoadPositionAndVerifyAsync(BinSide side, int timeoutMs, bool bFine = false)
@@ -991,7 +1084,21 @@ namespace QMC.CDT320
                 if (!IsBinGuideClampLiftUp(BinSide.Ng))
                     return RaiseOutputStageAlarm("OS-NG-CLAMP-UP", "NG Bin Clamp Lift must be up before output stage load movement.");
 
-                if (!IsGoodStageZInAvoidOrProcessPosition())
+                result = await EnsureBinGuideDownAsync(BinSide.Good, timeoutMs);
+                if (result != 0)
+                    return result;
+
+                if (!IsBinGuideDown(BinSide.Good))
+                    return RaiseOutputStageAlarm("OS-GOOD-GUIDE-DOWN", "Good Bin Guide must be down before output stage movement.");
+
+                result = await EnsureBinGuideDownAsync(BinSide.Ng, timeoutMs);
+                if (result != 0)
+                    return result;
+
+                if (!IsBinGuideDown(BinSide.Ng))
+                    return RaiseOutputStageAlarm("OS-NG-GUIDE-DOWN", "NG Bin Guide must be down before output stage movement.");
+
+                if (!IsGoodStageZInAvoidPosition())
                 {
                     result = await MoveGoodStageZToAvoidAndVerifyAsync(timeoutMs, bFine);
                     if (result != 0)
@@ -1023,6 +1130,22 @@ namespace QMC.CDT320
                 Recipe.EnsurePositionObjects();
                 return CheckStageAxisInPosition(BinStageAxis.GoodBinZ, Recipe.GoodStageZ.AvoidPosition) ||
                        CheckStageAxisInPosition(BinStageAxis.GoodBinZ, Recipe.GoodStageZ.ProcessPosition);
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        public bool IsGoodStageZInAvoidPosition()
+        {
+            try
+            {
+                Recipe.EnsurePositionObjects();
+                return CheckStageAxisInPosition(BinStageAxis.GoodBinZ, Recipe.GoodStageZ.AvoidPosition);
             }
             catch
             {
@@ -1087,6 +1210,11 @@ namespace QMC.CDT320
             return await EnsureCylinderStateAsync(ResolveBinGuideLiftCylinder(side), true, timeoutMs, ResolveSideName(side) + " Bin Guide Up");
         }
 
+        public async Task<int> EnsureBinGuideDownAsync(BinSide side, int timeoutMs)
+        {
+            return await EnsureCylinderStateAsync(ResolveBinGuideLiftCylinder(side), false, timeoutMs, ResolveSideName(side) + " Bin Guide Down");
+        }
+
         public async Task<int> EnsureBinGuideClampLiftDownAsync(BinSide side, int timeoutMs)
         {
             return await EnsureCylinderStateAsync(ResolveBinGuideClampLiftCylinder(side), false, timeoutMs, ResolveSideName(side) + " Bin Clamp Lift Down");
@@ -1102,36 +1230,91 @@ namespace QMC.CDT320
             return await EnsureCylinderStateAsync(ResolveBinGuideClampCylinder(side), false, timeoutMs, ResolveSideName(side) + " Bin Guide Unclamp");
         }
 
+        public async Task<int> EnsureBinGuideClampedAsync(BinSide side, int timeoutMs)
+        {
+            return await EnsureCylinderStateAsync(ResolveBinGuideClampCylinder(side), true, timeoutMs, ResolveSideName(side) + " Bin Guide Clamp");
+        }
+
         public bool IsBinGuideUp(BinSide side)
         {
             BaseCylinder cylinder = ResolveBinGuideLiftCylinder(side);
-            return cylinder != null && cylinder.IsFwd;
+            return ResolveCylinderState(cylinder, side == BinSide.Ng ? NgBinGuideUpSensor : GoodBinGuideUpSensor, true, IsStageMaterialPresent(side));
+        }
+
+        public bool IsBinGuideDown(BinSide side)
+        {
+            BaseCylinder cylinder = ResolveBinGuideLiftCylinder(side);
+            return ResolveCylinderState(cylinder, side == BinSide.Ng ? NgBinGuideDownSensor : GoodBinGuideDownSensor, false, !IsStageMaterialPresent(side));
         }
 
         public bool IsBinGuideClampLiftDown(BinSide side)
         {
             BaseCylinder cylinder = ResolveBinGuideClampLiftCylinder(side);
-            return cylinder != null && cylinder.IsBwd;
+            return ResolveCylinderState(cylinder, null, false, !IsStageMaterialPresent(side));
         }
 
         public bool IsBinGuideClampLiftUp(BinSide side)
         {
             BaseCylinder cylinder = ResolveBinGuideClampLiftCylinder(side);
-            return cylinder != null && cylinder.IsFwd;
+            return ResolveCylinderState(cylinder, side == BinSide.Ng ? NgBinClampUpSensor : GoodBinClampUpSensor, true, IsStageMaterialPresent(side));
         }
 
         public bool IsBinGuideUnclamped(BinSide side)
         {
             BaseCylinder cylinder = ResolveBinGuideClampCylinder(side);
-            return cylinder != null && cylinder.IsBwd;
+            return ResolveCylinderState(cylinder, side == BinSide.Ng ? NgBinUnclampSensor : GoodBinUnclampSensor, false, !IsStageMaterialPresent(side));
+        }
+
+        public bool IsBinGuideClamped(BinSide side)
+        {
+            BaseCylinder cylinder = ResolveBinGuideClampCylinder(side);
+            return ResolveCylinderState(cylinder, null, true, IsStageMaterialPresent(side));
+        }
+
+        public bool IsOutputStageSimulationOrDryRun()
+        {
+            AppSettings settings = AppSettingsStore.Current;
+            bool simulation = Setup != null && Setup.IsSimulationMode;
+            bool dryRun = Config != null && Config.bDryRun;
+            bool globalDryRun = settings != null && (settings.BypassHardware || settings.DryRunMode);
+            return globalDryRun || simulation || dryRun;
+        }
+
+        private bool ResolveCylinderState(BaseCylinder cylinder, BaseDigitalInput input, bool fwd, bool dryRunDefaultWhenUnknown)
+        {
+            if (input != null && input.IsOn)
+                return true;
+
+            if (cylinder != null && (fwd ? cylinder.IsFwd : cylinder.IsBwd))
+                return true;
+
+            if (IsOutputStageSimulationOrDryRun() && IsCylinderStateUnknown(cylinder))
+                return dryRunDefaultWhenUnknown;
+
+            return false;
+        }
+
+        private static bool IsCylinderStateUnknown(BaseCylinder cylinder)
+        {
+            return cylinder == null || (!cylinder.IsFwd && !cylinder.IsBwd);
+        }
+
+        private static bool IsStageMaterialPresent(BinSide side)
+        {
+            MaterialLocationKind location = side == BinSide.Ng
+                ? MaterialLocationKind.OutputStageNg
+                : MaterialLocationKind.OutputStageGood;
+            return MaterialStateService.GetWaferAtLocation(location) != null;
         }
 
         public string DescribeOutputStageInterlockState(BinSide side)
         {
             return "side=" + side +
                    ", guideUp=" + IsBinGuideUp(side) +
+                   ", guideDown=" + IsBinGuideDown(side) +
                    ", clampLiftUp=" + IsBinGuideClampLiftUp(side) +
                    ", clampLiftDown=" + IsBinGuideClampLiftDown(side) +
+                   ", clamp=" + IsBinGuideClamped(side) +
                    ", unclamp=" + IsBinGuideUnclamped(side) +
                    ", ngClampLiftUp=" + IsBinGuideClampLiftUp(BinSide.Ng) +
                    ", goodZSafe=" + IsGoodStageZInAvoidOrProcessPosition() +
@@ -1189,12 +1372,12 @@ namespace QMC.CDT320
             if (result != 0)
                 return result;
 
-            bool done = await WaitStageAxisMoveDone(axis, timeoutMs);
-            if (!done)
-                return RaiseOutputStageAlarm("OS-MOVE-TIMEOUT", axis + " move done timeout. target=" + targetPos);
-
-            if (!CheckStageAxisInPosition(axis, targetPos))
-                return RaiseOutputStageAlarm("OS-MOVE-POSITION", axis + " final position check failed. target=" + targetPos + ", actual=" + ResolveStageAxis(axis).ActualPosition);
+            AxisMoveWaitResult waitResult = await WaitStageAxisMoveDoneInPosition(axis, targetPos, timeoutMs).ConfigureAwait(false);
+            if (!waitResult.Success)
+                return RaiseOutputStageAlarm(
+                    AxisMoveWaiter.ResolveAlarmCode("OS-MOVE", waitResult),
+                    axis + " move/in-position wait failed. target=" + targetPos + ". " +
+                    AxisMoveWaiter.FormatResult(waitResult, axis.ToString()));
 
             return 0;
         }
@@ -1636,10 +1819,13 @@ namespace QMC.CDT320
             Console.WriteLine("[INFO]  '" + Name + "' -> TPU 후퇴 확인. BinCamera 진입 중...");
 
             // 구현 보조 주석입니다.
-            await SharedRailXMotionRuntime.MoveAxisAsync(OutputCameraX,
-                Recipe.VisionX.ProcessPosition, ResolveStageAxisVelocity(OutputCameraX, false));
+            int moveResult = await MoveStageAxisAndVerifyAsync(
+                BinStageAxis.VisionX,
+                Recipe.VisionX.ProcessPosition,
+                OutputCameraX != null && OutputCameraX.Setup != null ? OutputCameraX.Setup.MoveTimeoutMs : 10000,
+                false).ConfigureAwait(false);
 
-            if (OutputCameraX.IsAlarm)
+            if (moveResult != 0)
             {
                 Console.WriteLine(
                     "[ALARM] '" + Name + "' -> InspectBin: BinCameraX 진입 실패.");
@@ -1662,10 +1848,13 @@ namespace QMC.CDT320
 
             // 구현 보조 주석입니다.
             // 구현 보조 주석입니다.
-            await SharedRailXMotionRuntime.MoveAxisAsync(OutputCameraX,
-                Recipe.VisionX.AvoidPosition, ResolveStageAxisVelocity(OutputCameraX, false));
+            moveResult = await MoveStageAxisAndVerifyAsync(
+                BinStageAxis.VisionX,
+                Recipe.VisionX.AvoidPosition,
+                OutputCameraX != null && OutputCameraX.Setup != null ? OutputCameraX.Setup.MoveTimeoutMs : 10000,
+                false).ConfigureAwait(false);
 
-            if (OutputCameraX.IsAlarm)
+            if (moveResult != 0)
             {
                 Console.WriteLine(
                     "[ALARM] '" + Name + "' -> InspectBin: BinCameraX 후퇴 실패.");

@@ -1,5 +1,7 @@
 ﻿using QMC.Common.IO;
 
+using System;
+
 namespace QMC.CDT320.Interlocks
 {
     public static class OutputFeederInterlockRules
@@ -30,16 +32,22 @@ namespace QMC.CDT320.Interlocks
             switch (request.MoveKind)
             {
                 case MotionGuardMoveKind.AxisMove:
-                    break;
+                    return CanMoveOutputFeederY(request, out reason);
                 case MotionGuardMoveKind.AxisTeachingMove:
-                    if (MotionGuardRuleHelpers.IsSafeTeachingTarget(request.TargetName))
-                        return true;
-                    break;
+                    return CanMoveOutputFeederY(request, out reason);
                 case MotionGuardMoveKind.AxisHome:
-                    return VerifyOutputFeederYHome(machine, out reason);
+                    return CanHomeOutputFeederY(machine, out reason);
                 default:
-                    return true;
+                    return MotionGuardRuleHelpers.BlockUnsupportedMoveKind(request, out reason);
             }
+        }
+
+        private static bool CanMoveOutputFeederY(MotionGuardRuleContext request, out string reason)
+        {
+            reason = string.Empty;
+            CDT320_Machine machine = request != null ? request.Machine : null;
+            if (machine == null)
+                return true;
 
             if (machine.OutputCassetteUnit != null &&
                 machine.OutputCassetteUnit.OutputLifterZ != null &&
@@ -49,16 +57,39 @@ namespace QMC.CDT320.Interlocks
                     "OutputLifterZ is moving. OutputFeederY move is blocked.",
                     out reason);
 
-            if (!IsOutputStageSafeForFeeder(machine.OutputStageUnit))
+            OutputStageUnit outputStage = machine.OutputStageUnit;
+            if (!IsOutputVisionXInAvoidPosition(outputStage))
                 return MotionGuardRuleHelpers.Block(
                     "OutputFeederY",
-                    "Output stages and OutputVisionX must be at Avoid position before OutputFeederY move.",
+                    "OutputFeederY move blocked. OutputVisionX must be at Avoid position.",
+                    out reason);
+
+            if (!IsFrontPickerInAvoidPosition(machine.PickerFrontUnit))
+                return MotionGuardRuleHelpers.Block(
+                    "OutputFeederY",
+                    "OutputFeederY move blocked. FrontPicker must be at Avoid position.",
+                    out reason);
+
+            if (!IsRearPickerInAvoidPosition(machine.PickerRearUnit))
+                return MotionGuardRuleHelpers.Block(
+                    "OutputFeederY",
+                    "OutputFeederY move blocked. RearPicker must be at Avoid position.",
+                    out reason);
+
+            OutputFeederUnit feeder = machine.OutputFeederUnit;
+            if (feeder == null)
+                return true;
+
+            if (feeder.IsFeederOverload())
+                return MotionGuardRuleHelpers.Block(
+                    "OutputFeederY",
+                    "OutputFeederY move blocked. OutputFeeder overload sensor is detected.",
                     out reason);
 
             return true;
         }
 
-        private static bool VerifyOutputFeederYHome(CDT320_Machine machine, out string reason)
+        private static bool CanHomeOutputFeederY(CDT320_Machine machine, out string reason)
         {
             reason = string.Empty;
 
@@ -85,6 +116,18 @@ namespace QMC.CDT320.Interlocks
                     return MotionGuardRuleHelpers.Block(
                         "OutputFeederY",
                         "OutputFeederY HOME blocked. OutputVisionX must be at Avoid position.",
+                        out reason);
+
+                if (!IsFrontPickerInAvoidPosition(machine.PickerFrontUnit))
+                    return MotionGuardRuleHelpers.Block(
+                        "OutputFeederY",
+                        "OutputFeederY HOME blocked. FrontPicker must be at Avoid position.",
+                        out reason);
+
+                if (!IsRearPickerInAvoidPosition(machine.PickerRearUnit))
+                    return MotionGuardRuleHelpers.Block(
+                        "OutputFeederY",
+                        "OutputFeederY HOME blocked. RearPicker must be at Avoid position.",
                         out reason);
 
                 if (outputStage != null && outputStage.GoodStage != null && !outputStage.GoodStage.IsAtAvoidPosition())
@@ -148,7 +191,14 @@ namespace QMC.CDT320.Interlocks
         private static bool VerifyOutputFeederLift(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
-            CDT320_Machine machine = request.Machine;
+            return CanMoveOutputFeederLift(request.Machine, out reason);
+        }
+
+        private static bool CanMoveOutputFeederLift(CDT320_Machine machine, out string reason)
+        {
+            reason = string.Empty;
+            if (machine == null)
+                return true;
 
             if (machine.OutputCassetteUnit != null &&
                 machine.OutputCassetteUnit.OutputLifterZ != null &&
@@ -160,13 +210,28 @@ namespace QMC.CDT320.Interlocks
                 machine.OutputFeederUnit.FeederY.IsMoving)
                 return MotionGuardRuleHelpers.Block("OutputFeederLift", "OutputFeederY is moving.", out reason);
 
+            if (machine.OutputFeederUnit != null &&
+                IsFeederUnclamp(machine.OutputFeederUnit) &&
+                !machine.OutputFeederUnit.IsFeederTransferDataEmpty())
+                return MotionGuardRuleHelpers.Block(
+                    "OutputFeederLift",
+                    "OutputFeederLift move blocked. OutputFeeder is unclamped, so feeder is assumed to be holding material.",
+                    out reason);
+
             return true;
         }
 
         private static bool VerifyOutputFeederClamp(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
-            CDT320_Machine machine = request.Machine;
+            return CanMoveOutputFeederClamp(request.Machine, out reason);
+        }
+
+        private static bool CanMoveOutputFeederClamp(CDT320_Machine machine, out string reason)
+        {
+            reason = string.Empty;
+            if (machine == null)
+                return true;
 
             if (machine.OutputCassetteUnit != null &&
                 machine.OutputCassetteUnit.OutputLifterZ != null &&
@@ -181,12 +246,28 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
-        private static bool IsOutputStageSafeForFeeder(OutputStageUnit stage)
+        private static bool IsOutputVisionXInAvoidPosition(OutputStageUnit stage)
         {
             if (stage == null)
                 return true;
 
             return MotionGuardRuleHelpers.IsAt(stage.OutputCameraX, stage.Recipe.VisionX.AvoidPosition);
+        }
+
+        private static bool IsFrontPickerInAvoidPosition(PickerFrontUnit picker)
+        {
+            if (picker == null)
+                return true;
+
+            return picker.IsFrontPickerInAvoidPosition();
+        }
+
+        private static bool IsRearPickerInAvoidPosition(PickerRearUnit picker)
+        {
+            if (picker == null)
+                return true;
+
+            return picker.IsRearPickerInAvoidPosition();
         }
 
         private static bool IsStageModuleAtAvoid(StageModule stage)

@@ -92,10 +92,12 @@ namespace QMC.CDT320.Sequencing
                 return Fail("IN-FEEDER-RECOVER-AVOID", Feeder.Name,
                     "WaferFeeder recover avoid move command failed. result=" + result + ". " + Feeder.GetWaferFeederTransferState());
 
-            bool done = await AwaitStepWithCancellationAsync(Feeder.WaitWaferFeederYMoveDone(ResolveTimeout()), ct).ConfigureAwait(false);
-            if (!done || !Feeder.IsWaferFeederInAvoidPosition())
-                return Fail("IN-FEEDER-RECOVER-AVOID-TIMEOUT", Feeder.Name,
-                    "WaferFeeder recover avoid position timeout. done=" + done + ". " + Feeder.GetWaferFeederTransferState());
+            result = await WaitFeederYDoneAsync(
+                () => Feeder.IsWaferFeederInAvoidPosition(),
+                "WaferFeeder recover avoid position",
+                ct).ConfigureAwait(false);
+            if (result != 0)
+                return result;
 
             Context.Bus.Set("InputFeederRecovered");
             CurrentStep = InputFeederRecoverStep.Complete;

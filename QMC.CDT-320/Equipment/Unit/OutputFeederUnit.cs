@@ -1,4 +1,5 @@
 ﻿using QMC.CDT320.Ajin;
+using QMC.CDT320.Interlocks;
 using QMC.CDT320.Materials;
 using QMC.Common;
 using QMC.Common.Alarms;
@@ -9,6 +10,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Runtime.Serialization;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace QMC.CDT320
@@ -215,10 +217,24 @@ namespace QMC.CDT320
                 if (!ValidateBinFeederYTargetPosition(targetPos))
                     return RaiseFeederAlarm("BF-Y-SOFT-LIMIT", "OutputFeederY target is out of soft limit. target=" + targetPos);
 
+                if (IsBinFeederYInPosition(targetPos, ResolveBinFeederYInPositionTolerance()))
+                {
+                    EventLogger.Write(EventKind.Event, "QMC", "BF-Y-MOVE",
+                        "OutputFeederY already in position. target=" + targetPos + ", " + DescribeBinFeederYMoveDoneState());
+                    return 0;
+                }
+
                 EventLogger.Write(EventKind.Event, "QMC", "BF-Y-MOVE", "Move OutputFeederY target=" + targetPos);
                 int result = await FeederY.MoveAbsoluteAsync(targetPos, ResolveBinFeederYMoveVelocity(bFine));
                 if (result != 0 || FeederY.IsAlarm)
                     return RaiseFeederAlarm("BF-Y-MOVE", "OutputFeederY move failed. result=" + result + ", alarm=" + FeederY.IsAlarm);
+
+                AxisMoveWaitResult waitResult = await WaitBinFeederYMoveDoneInPosition(targetPos, ResolveBinFeederYMoveTimeoutMs()).ConfigureAwait(false);
+                if (!waitResult.Success)
+                    return RaiseFeederAlarm(
+                        AxisMoveWaiter.ResolveAlarmCode("BF-Y-MOVE", waitResult),
+                        "OutputFeederY move/in-position wait failed. target=" + targetPos + ". " +
+                        AxisMoveWaiter.FormatResult(waitResult, DescribeBinFeederYMoveDoneState()));
 
                 return 0;
             }
@@ -230,16 +246,16 @@ namespace QMC.CDT320
 
         public Task<int> MoveBinFeederYToTeachingPosition(string positionName, bool bFine = false)
         {
-            return MoveBinFeederY(GetTeachingPosition(positionName), bFine);
+            return MoveBinFeederYNamedPositionAsync(GetTeachingPosition(positionName), "OutputFeederY." + positionName, bFine);
         }
 
-        public Task<int> MoveToFeederAvoidPosition(bool bFine = false) { return MoveBinFeederY(Recipe.AvoidPosition, bFine); }
+        public Task<int> MoveToFeederAvoidPosition(bool bFine = false) { return MoveBinFeederYNamedPositionAsync(Recipe.AvoidPosition, "OutputFeederY.AvoidPosition", bFine); }
         public Task<int> MoveToBinFeederAvoidPosition(bool bFine = false) { return MoveToFeederAvoidPosition(bFine); }
 
         public Task<int> MoveToFeederCassetteLoadPosition(BinSide side, int slotIndex, bool bFine = false)
         {
             ValidateSlotIndex(slotIndex);
-            return MoveBinFeederY(GetSidePosition(side, FeederPositionType.CassetteLoad), bFine);
+            return MoveBinFeederYNamedPositionAsync(GetSidePosition(side, FeederPositionType.CassetteLoad), BuildFeederTargetName(side, "CassetteLoadPosition"), bFine);
         }
 
         public Task<int> MoveToBinFeederCassetteLoadPosition(int slotIndex, bool bFine = false)
@@ -250,32 +266,32 @@ namespace QMC.CDT320
         public Task<int> MoveToFeederCassetteUnloadPosition(BinSide side, int slotIndex, bool bFine = false)
         {
             ValidateSlotIndex(slotIndex);
-            return MoveBinFeederY(GetSidePosition(side, FeederPositionType.CassetteUnload), bFine);
+            return MoveBinFeederYNamedPositionAsync(GetSidePosition(side, FeederPositionType.CassetteUnload), BuildFeederTargetName(side, "CassetteUnloadPosition"), bFine);
         }
 
         public Task<int> MoveToFeederBarcodePosition(BinSide side, bool bFine = false)
         {
-            return MoveBinFeederY(GetSidePosition(side, FeederPositionType.Barcode), bFine);
+            return MoveBinFeederYNamedPositionAsync(GetSidePosition(side, FeederPositionType.Barcode), BuildFeederTargetName(side, "WaferBarcodePosition"), bFine);
         }
 
         public Task<int> MoveToFeederStageLoadPosition(BinSide side, bool bFine = false)
         {
-            return MoveBinFeederY(GetSidePosition(side, FeederPositionType.StageLoad), bFine);
+            return MoveBinFeederYNamedPositionAsync(GetSidePosition(side, FeederPositionType.StageLoad), BuildFeederTargetName(side, "WaferLoadPosition"), bFine);
         }
 
         public Task<int> MoveToFeederStageLoadAvoidPosition(BinSide side, bool bFine = false)
         {
-            return MoveBinFeederY(GetStageLoadAvoidPosition(side), bFine);
+            return MoveBinFeederYNamedPositionAsync(GetStageLoadAvoidPosition(side), BuildFeederTargetName(side, "WaferLoadAvoidPosition"), bFine);
         }
 
         public Task<int> MoveToFeederStageUnloadPosition(BinSide side, bool bFine = false)
         {
-            return MoveBinFeederY(GetSidePosition(side, FeederPositionType.StageUnload), bFine);
+            return MoveBinFeederYNamedPositionAsync(GetSidePosition(side, FeederPositionType.StageUnload), BuildFeederTargetName(side, "WaferUnloadPosition"), bFine);
         }
 
         public Task<int> MoveToFeederStageUnloadAvoidPosition(BinSide side, bool bFine = false)
         {
-            return MoveBinFeederY(GetStageUnloadAvoidPosition(side), bFine);
+            return MoveBinFeederYNamedPositionAsync(GetStageUnloadAvoidPosition(side), BuildFeederTargetName(side, "WaferUnloadAvoidPosition"), bFine);
         }
 
         public Task<int> MoveToFeederExchangePosition(BinSide side, bool bFine = false)
@@ -283,7 +299,7 @@ namespace QMC.CDT320
             double position = GetSidePosition(side, FeederPositionType.Exchange);
             if (Math.Abs(position) <= double.Epsilon)
                 position = Recipe.AvoidPosition;
-            return MoveBinFeederY(position, bFine);
+            return MoveBinFeederYNamedPositionAsync(position, BuildFeederTargetName(side, "CassetteExchangePosition"), bFine);
         }
 
         public Task<int> MoveToBinFeederCassetteInsertPosition(bool bFine = false)
@@ -306,10 +322,43 @@ namespace QMC.CDT320
             return MoveToFeederStageLoadPosition(ToBinSide(cassette), bFine);
         }
 
+        private async Task<int> MoveBinFeederYNamedPositionAsync(double targetPosition, string targetName, bool bFine)
+        {
+            using (MotionGuardRuntime.BeginAxisTeachingMove(FeederY, targetPosition, targetName))
+            {
+                return await MoveBinFeederYAsync(targetPosition, bFine).ConfigureAwait(false);
+            }
+        }
+
+        private static string BuildFeederTargetName(BinSide side, string suffix)
+        {
+            return "OutputFeederY." + (side == BinSide.Ng ? "NG" : "Good") + suffix;
+        }
+
         public async Task<bool> WaitBinFeederYMoveDone(int timeoutMs)
         {
-            int timeout = timeoutMs > 0 ? timeoutMs : ResolveBinFeederYMoveTimeoutMs();
-            return await WaitUntilAsync(IsBinFeederYMoveDone, timeout);
+            AxisMoveWaitResult waitResult = await WaitBinFeederYMoveDoneInPosition(FeederY.CommandPosition, timeoutMs).ConfigureAwait(false);
+            return waitResult.Success;
+        }
+
+        public async Task<AxisMoveWaitResult> WaitBinFeederYMoveDoneInPosition(double targetPos, int timeoutMs)
+        {
+            AxisMoveWaitResult waitResult = await AxisMoveWaiter.WaitMoveDoneInPositionAsync(
+                FeederY,
+                targetPos,
+                ResolveBinFeederYInPositionTolerance(),
+                timeoutMs > 0 ? timeoutMs : ResolveBinFeederYMoveTimeoutMs(),
+                0).ConfigureAwait(false);
+            if (!waitResult.Success)
+                return waitResult;
+
+            if (IsFeederOverload())
+                return new AxisMoveWaitResult(
+                    AxisMoveWaitFailure.Alarm,
+                    "BinFeeder overload is detected.",
+                    waitResult.AxisState + ", overload=True");
+
+            return waitResult;
         }
 
         public bool IsBinFeederYMoveDone()
@@ -355,7 +404,8 @@ namespace QMC.CDT320
         {
             double target = GetTeachingPosition(positionName);
             int timeout = timeoutMs > 0 ? timeoutMs : ResolveBinFeederYMoveTimeoutMs();
-            return await WaitUntilAsync(() => IsBinFeederYInPosition(target, ResolveBinFeederYInPositionTolerance()), timeout);
+            AxisMoveWaitResult waitResult = await WaitBinFeederYMoveDoneInPosition(target, timeout).ConfigureAwait(false);
+            return waitResult.Success;
         }
 
         public bool IsBinFeederYInPosition(double targetPos, double tolerance)
@@ -386,7 +436,7 @@ namespace QMC.CDT320
         public bool IsFeederDown()
         {
             if (ShouldReadCylinderStateForSimulation(FeederUpDownCyl))
-                return FeederUpDownCyl.IsBwd;
+                return FeederUpDownCyl.IsBwd || IsCylinderStateUnknown(FeederUpDownCyl);
 
             return BinFeederDownSensor != null && BinFeederDownSensor.IsOn;
         }
@@ -394,13 +444,16 @@ namespace QMC.CDT320
         public bool IsFeederUnclamped()
         {
             if (ShouldReadCylinderStateForSimulation(FeederClampCyl))
-                return FeederClampCyl.IsBwd;
+                return FeederClampCyl.IsBwd || (IsCylinderStateUnknown(FeederClampCyl) && IsFeederTransferDataEmpty());
 
             return BinFeederUnclampSensor != null && BinFeederUnclampSensor.IsOn;
         }
 
         public bool IsFeederOverload()
         {
+            if (IsOutputFeederSimulationOrDryRun())
+                return false;
+
             if (BinFeederOverloadSensor == null)
                 return false;
 
@@ -750,6 +803,11 @@ namespace QMC.CDT320
             return cylinder != null && cylinder.Config != null && cylinder.Config.IsSimulationMode;
         }
 
+        private static bool IsCylinderStateUnknown(BaseCylinder cylinder)
+        {
+            return cylinder == null || (!cylinder.IsFwd && !cylinder.IsBwd);
+        }
+
         private static bool IsCylinderInputWaitIgnored(BaseCylinder cylinder)
         {
             return cylinder != null && cylinder.Config != null && cylinder.Config.IgnoreInputWaits;
@@ -780,13 +838,21 @@ namespace QMC.CDT320
             if (!CheckFeederCassetteReady(side, slotIndex, TransferMode.Load))
                 return RaiseFeederAlarm("BF-LOAD-READY", "OutputFeeder load transfer is not ready.");
 
-            int result = await MoveToFeederCassetteLoadPosition(side, slotIndex, bFine);
+            int result = await FeederUnclamp(timeoutMs);
             if (result != 0) return result;
-            if (!await WaitBinFeederYMoveDone(timeoutMs))
-                return RaiseFeederAlarm("BF-LOAD-Y-TIMEOUT", "OutputFeeder cassette load position timeout.");
+            result = await FeederLiftDown(timeoutMs);
+            if (result != 0) return result;
 
-            result = await FeederLiftUp(timeoutMs);
+            result = await MoveToFeederCassetteLoadPosition(side, slotIndex, bFine);
             if (result != 0) return result;
+            result = await WaitBinFeederYMoveDoneInPositionOrAlarm(
+                GetSidePosition(side, FeederPositionType.CassetteLoad),
+                timeoutMs,
+                "BF-LOAD-Y",
+                "OutputFeeder cassette load position",
+                CancellationToken.None).ConfigureAwait(false);
+            if (result != 0) return result;
+
             result = await FeederClamp(timeoutMs);
             if (result != 0) return result;
             if (!IsOutputFeederSimulationOrDryRun() && !IsFeederRingDetected(true))
@@ -815,9 +881,14 @@ namespace QMC.CDT320
             if (result != 0)
                 return string.Empty;
 
-            if (!await WaitBinFeederYMoveDone(timeoutMs))
+            result = await WaitBinFeederYMoveDoneInPositionOrAlarm(
+                GetSidePosition(side, FeederPositionType.Barcode),
+                timeoutMs,
+                "BF-BARCODE",
+                "OutputFeeder barcode position",
+                CancellationToken.None).ConfigureAwait(false);
+            if (result != 0)
             {
-                RaiseFeederAlarm("BF-BARCODE-TIMEOUT", "OutputFeeder barcode position timeout.");
                 return string.Empty;
             }
 
@@ -829,17 +900,52 @@ namespace QMC.CDT320
             if (!CheckFeederStageReady(side, TransferMode.Load))
                 return RaiseFeederAlarm("BF-STAGE-LOAD-READY", "OutputStage load transfer is not ready.");
 
+            if (IsFeederUnclamped())
+                return RaiseFeederAlarm("BF-STAGE-LOAD-CLAMP", "OutputFeeder must already be clamped before stage load.");
+            if (!IsFeederDown())
+                return RaiseFeederAlarm("BF-STAGE-LOAD-DOWN", "OutputFeeder must already be down before stage load.");
+
             int result = await MoveToFeederStageLoadPosition(side, bFine);
             if (result != 0) return result;
-            if (!await WaitBinFeederYMoveDone(timeoutMs))
-                return RaiseFeederAlarm("BF-STAGE-LOAD-Y-TIMEOUT", "OutputFeeder stage load position timeout.");
+            result = await WaitBinFeederYMoveDoneInPositionOrAlarm(
+                GetSidePosition(side, FeederPositionType.StageLoad),
+                timeoutMs,
+                "BF-STAGE-LOAD-Y",
+                "OutputFeeder stage load position",
+                CancellationToken.None).ConfigureAwait(false);
+            if (result != 0) return result;
 
             result = await FeederUnclamp(timeoutMs);
             if (result != 0) return result;
-            result = await FeederLiftDown(timeoutMs);
+
+            result = await MoveToFeederStageLoadAvoidPosition(side, bFine);
             if (result != 0) return result;
+            result = await WaitBinFeederYMoveDoneInPositionOrAlarm(
+                GetStageLoadAvoidPosition(side),
+                timeoutMs,
+                "BF-STAGE-LOAD-AVOID-Y",
+                "OutputFeeder stage load avoid position",
+                CancellationToken.None).ConfigureAwait(false);
+            if (result != 0) return result;
+
             if (!IsOutputFeederSimulationOrDryRun() && !await WaitFeederRingState(false, timeoutMs))
                 return RaiseFeederAlarm("BF-STAGE-LOAD-RING", "OutputFeeder ring remained after stage load.");
+
+            result = await FeederLiftUp(timeoutMs);
+            if (result != 0) return result;
+
+            result = await MoveToFeederAvoidPosition(bFine);
+            if (result != 0) return result;
+            result = await WaitBinFeederYMoveDoneInPositionOrAlarm(
+                Recipe.AvoidPosition,
+                timeoutMs,
+                "BF-STAGE-LOAD-FEEDER-AVOID-Y",
+                "OutputFeeder avoid position after stage load",
+                CancellationToken.None).ConfigureAwait(false);
+            if (result != 0) return result;
+
+            result = await FeederLiftDown(timeoutMs);
+            if (result != 0) return result;
 
             ClearFeederMaterialState();
             return 0;
@@ -850,13 +956,44 @@ namespace QMC.CDT320
             if (!CheckFeederStageReady(side, TransferMode.Unload))
                 return RaiseFeederAlarm("BF-STAGE-UNLOAD-READY", "OutputStage unload transfer is not ready.");
 
-            int result = await MoveToFeederStageUnloadPosition(side, bFine);
-            if (result != 0) return result;
-            if (!await WaitBinFeederYMoveDone(timeoutMs))
-                return RaiseFeederAlarm("BF-STAGE-UNLOAD-Y-TIMEOUT", "OutputFeeder stage unload position timeout.");
+            if (!IsFeederUnclamped())
+            {
+                int unclamp = await FeederUnclamp(timeoutMs);
+                if (unclamp != 0) return unclamp;
+            }
 
-            result = await FeederLiftUp(timeoutMs);
+            if (!IsFeederDown())
+            {
+                int down = await FeederLiftDown(timeoutMs);
+                if (down != 0) return down;
+            }
+
+            int result = await FeederLiftUp(timeoutMs);
             if (result != 0) return result;
+
+            result = await MoveToFeederStageUnloadAvoidPosition(side, bFine);
+            if (result != 0) return result;
+            result = await WaitBinFeederYMoveDoneInPositionOrAlarm(
+                GetStageUnloadAvoidPosition(side),
+                timeoutMs,
+                "BF-STAGE-UNLOAD-AVOID-Y",
+                "OutputFeeder stage unload avoid position",
+                CancellationToken.None).ConfigureAwait(false);
+            if (result != 0) return result;
+
+            result = await FeederLiftDown(timeoutMs);
+            if (result != 0) return result;
+
+            result = await MoveToFeederStageUnloadPosition(side, bFine);
+            if (result != 0) return result;
+            result = await WaitBinFeederYMoveDoneInPositionOrAlarm(
+                GetSidePosition(side, FeederPositionType.StageUnload),
+                timeoutMs,
+                "BF-STAGE-UNLOAD-Y",
+                "OutputFeeder stage unload position",
+                CancellationToken.None).ConfigureAwait(false);
+            if (result != 0) return result;
+
             result = await FeederClamp(timeoutMs);
             if (result != 0) return result;
             if (!IsOutputFeederSimulationOrDryRun() && !await WaitFeederRingState(true, timeoutMs))
@@ -871,17 +1008,38 @@ namespace QMC.CDT320
             if (!CheckFeederCassetteReady(side, slotIndex, TransferMode.Unload))
                 return RaiseFeederAlarm("BF-CST-UNLOAD-READY", "OutputFeeder cassette unload transfer is not ready.");
 
+            if (IsFeederUnclamped())
+                return RaiseFeederAlarm("BF-CST-UNLOAD-CLAMP", "OutputFeeder must already be clamped before cassette unload.");
+
+            if (!IsFeederDown())
+                return RaiseFeederAlarm("BF-CST-UNLOAD-DOWN", "OutputFeeder must already be down before cassette unload.");
+
+            if (!IsOutputFeederSimulationOrDryRun() && !await WaitFeederRingState(true, timeoutMs))
+                return RaiseFeederAlarm("BF-CST-UNLOAD-RING-DETECT", "OutputFeeder ring was not detected before cassette unload.");
+
             int result = await MoveToFeederCassetteUnloadPosition(side, slotIndex, bFine);
             if (result != 0) return result;
-            if (!await WaitBinFeederYMoveDone(timeoutMs))
-                return RaiseFeederAlarm("BF-CST-UNLOAD-Y-TIMEOUT", "OutputFeeder cassette unload position timeout.");
-
-            result = await FeederLiftUp(timeoutMs);
+            result = await WaitBinFeederYMoveDoneInPositionOrAlarm(
+                GetSidePosition(side, FeederPositionType.CassetteUnload),
+                timeoutMs,
+                "BF-CST-UNLOAD-Y",
+                "OutputFeeder cassette unload position",
+                CancellationToken.None).ConfigureAwait(false);
             if (result != 0) return result;
+
             result = await FeederUnclamp(timeoutMs);
             if (result != 0) return result;
-            result = await FeederLiftDown(timeoutMs);
+
+            result = await MoveToFeederAvoidPosition(bFine);
             if (result != 0) return result;
+            result = await WaitBinFeederYMoveDoneInPositionOrAlarm(
+                Recipe.AvoidPosition,
+                timeoutMs,
+                "BF-CST-UNLOAD-AVOID-Y",
+                "OutputFeeder cassette unload avoid position",
+                CancellationToken.None).ConfigureAwait(false);
+            if (result != 0) return result;
+
             if (!IsOutputFeederSimulationOrDryRun() && !await WaitFeederRingState(false, timeoutMs))
                 return RaiseFeederAlarm("BF-CST-UNLOAD-RING", "OutputFeeder ring remained after cassette unload.");
 
@@ -897,7 +1055,16 @@ namespace QMC.CDT320
         public async Task<bool> MoveBinFeederToStageExchangePosition(TargetCassette cassette, int timeoutMs, bool bFine = false)
         {
             int result = await MoveToFeederStageLoadPosition(ToBinSide(cassette), bFine);
-            return result == 0 && await WaitBinFeederYMoveDone(timeoutMs);
+            if (result != 0)
+                return false;
+
+            result = await WaitBinFeederYMoveDoneInPositionOrAlarm(
+                GetSidePosition(ToBinSide(cassette), FeederPositionType.StageLoad),
+                timeoutMs,
+                "BF-STAGE-EXCHANGE-Y",
+                "OutputFeeder stage exchange position",
+                CancellationToken.None).ConfigureAwait(false);
+            return result == 0;
         }
 
         public async Task<int> ExchangeFeederRingForNextSlot(BinSide side, int currentSlotIndex, int nextSlotIndex, int timeoutMs, bool bFine = false)
@@ -922,8 +1089,13 @@ namespace QMC.CDT320
             {
                 result = await MoveToFeederAvoidPosition();
                 if (result != 0) return result;
-                if (!await WaitBinFeederYMoveDone(timeoutMs))
-                    return RaiseFeederAlarm("BF-RECOVER-TIMEOUT", "OutputFeeder avoid position timeout.");
+                result = await WaitBinFeederYMoveDoneInPositionOrAlarm(
+                    Recipe.AvoidPosition,
+                    timeoutMs,
+                    "BF-RECOVER",
+                    "OutputFeeder avoid position",
+                    CancellationToken.None).ConfigureAwait(false);
+                if (result != 0) return result;
             }
 
             return 0;
@@ -977,7 +1149,7 @@ namespace QMC.CDT320
 
             if (IsFeederOverload())
             {
-                reason = "OutputFeeder overload is detected.";
+                reason = "OutputFeeder overload is detected. " + FormatInputState("Overload", BinFeederOverloadSensor);
                 return false;
             }
 
@@ -1002,9 +1174,19 @@ namespace QMC.CDT320
 
         public bool IsOutputFeederSimulationOrDryRun()
         {
+            AppSettings settings = AppSettingsStore.Current;
             bool simulation = Setup != null && Setup.IsSimulationMode;
             bool dryRun = Config != null && Config.bDryRun;
-            return simulation || dryRun;
+            bool globalDryRun = settings != null && (settings.BypassHardware || settings.DryRunMode);
+            return globalDryRun || simulation || dryRun;
+        }
+
+        private static string FormatInputState(string name, BaseDigitalInput input)
+        {
+            if (input == null)
+                return name + "=NULL";
+
+            return name + "=" + (input.IsOn ? "ON" : "OFF");
         }
 
         public bool CheckFeederTransferReady(TransferMode mode)
@@ -1287,7 +1469,7 @@ namespace QMC.CDT320
                 case FeederAlarmCode.MoveTimeout: return "OutputFeederY move timeout.";
                 case FeederAlarmCode.TeachingMissing: return "OutputFeeder teaching position is missing.";
                 case FeederAlarmCode.Interlock: return "OutputFeeder interlock condition is not satisfied.";
-                case FeederAlarmCode.Overload: return "OutputFeeder overload input is on.";
+                case FeederAlarmCode.Overload: return "OutputFeeder overload input is OFF (NC input).";
                 case FeederAlarmCode.RingMissing: return "OutputFeeder ring was not detected.";
                 default: return "OutputFeeder alarm.";
             }
@@ -1348,6 +1530,25 @@ namespace QMC.CDT320
             AlarmManager.Raise(AlarmSeverity.Error, code, Name, message);
             Console.WriteLine("[ALARM] '" + Name + "' " + message);
             return -1;
+        }
+
+        private async Task<int> WaitBinFeederYMoveDoneInPositionOrAlarm(
+            double target,
+            int timeoutMs,
+            string alarmPrefix,
+            string description,
+            CancellationToken ct)
+        {
+            AxisMoveWaitResult waitResult = await WaitBinFeederYMoveDoneInPosition(target, timeoutMs).ConfigureAwait(false);
+            ct.ThrowIfCancellationRequested();
+
+            if (waitResult.Success)
+                return 0;
+
+            return RaiseFeederAlarm(
+                AxisMoveWaiter.ResolveAlarmCode(alarmPrefix, waitResult),
+                description + " move/in-position wait failed. " +
+                AxisMoveWaiter.FormatResult(waitResult, DescribeBinFeederYMoveDoneState()));
         }
 
         private void SetExclusiveOutput(BaseDigitalOutput onOutput, BaseDigitalOutput oppositeOutput, bool on, string code)

@@ -16,6 +16,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
     /// <summary>Output Stage 레시피에서 OutputStageUnit(Good/Ng 스테이지)을 조작하는 화면입니다.</summary>
     public partial class OutputStageRecipePage : PageBase
     {
+        private const int ManualCylinderTimeoutMs = 5000;
         private readonly string _titleI18n;
         private readonly Timer _refreshTimer = new Timer();
         private OutputStageUnit _outputStageUnit;
@@ -623,31 +624,17 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 var unit = _outputStageUnit;
                 ioCylinderPanel.SetItems(new[]
                 {
-                    // ===== NG BIN : 같은 항목의 입력(DI)/출력(DO)을 묶어서 =====
-                    IoCylinderItem.Input("NG BIN GUIDE UP", () => IsOn(unit.NgBinGuideUpSensor)),
-                    IoCylinderItem.Output("NG BIN GUIDE UP", () => IsOn(unit.NgBinGuideUpOut), on => WriteOutAsync(unit.NgBinGuideUpOut, on), "ON", "OFF"),
-                    IoCylinderItem.Input("NG BIN GUIDE DOWN", () => IsOn(unit.NgBinGuideDownSensor)),
-                    IoCylinderItem.Output("NG BIN GUIDE DOWN", () => IsOn(unit.NgBinGuideDownOut), on => WriteOutAsync(unit.NgBinGuideDownOut, on), "ON", "OFF"),
-                    IoCylinderItem.Input("NG BIN CLAMP UP", () => IsOn(unit.NgBinClampUpSensor)),
-                    IoCylinderItem.Output("NG BIN CLAMP UP", () => IsOn(unit.NgBinClampUpOut), on => WriteOutAsync(unit.NgBinClampUpOut, on), "ON", "OFF"),
-                    IoCylinderItem.Output("NG BIN CLAMP DOWN", () => IsOn(unit.NgBinClampDownOut), on => WriteOutAsync(unit.NgBinClampDownOut, on), "ON", "OFF"),
-                    IoCylinderItem.Output("NG BIN CLAMP", () => IsOn(unit.NgBinClampOut), on => WriteOutAsync(unit.NgBinClampOut, on), "ON", "OFF"),
-                    IoCylinderItem.Input("NG BIN UNCLAMP", () => IsOn(unit.NgBinUnclampSensor)),
-                    IoCylinderItem.Output("NG BIN UNCLAMP", () => IsOn(unit.NgBinUnclampOut), on => WriteOutAsync(unit.NgBinUnclampOut, on), "ON", "OFF"),
-                    IoCylinderItem.Input("NG BIN RING CHECK", () => IsOn(unit.NgBinRingSensor)),
-
-                    // ===== GOOD BIN : 같은 항목의 입력(DI)/출력(DO)을 묶어서 =====
-                    IoCylinderItem.Input("GOOD BIN GUIDE UP", () => IsOn(unit.GoodBinGuideUpSensor)),
-                    IoCylinderItem.Output("GOOD BIN GUIDE UP", () => IsOn(unit.GoodBinGuideUpOut), on => WriteOutAsync(unit.GoodBinGuideUpOut, on), "ON", "OFF"),
-                    IoCylinderItem.Input("GOOD BIN GUIDE DOWN", () => IsOn(unit.GoodBinGuideDownSensor)),
-                    IoCylinderItem.Output("GOOD BIN GUIDE DOWN", () => IsOn(unit.GoodBinGuideDownOut), on => WriteOutAsync(unit.GoodBinGuideDownOut, on), "ON", "OFF"),
-                    IoCylinderItem.Input("GOOD BIN CLAMP UP", () => IsOn(unit.GoodBinClampUpSensor)),
-                    IoCylinderItem.Output("GOOD BIN CLAMP UP", () => IsOn(unit.GoodBinClampUpOut), on => WriteOutAsync(unit.GoodBinClampUpOut, on), "ON", "OFF"),
-                    IoCylinderItem.Output("GOOD BIN CLAMP DOWN", () => IsOn(unit.GoodBinClampDownOut), on => WriteOutAsync(unit.GoodBinClampDownOut, on), "ON", "OFF"),
-                    IoCylinderItem.Output("GOOD BIN CLAMP", () => IsOn(unit.GoodBinClampOut), on => WriteOutAsync(unit.GoodBinClampOut, on), "ON", "OFF"),
-                    IoCylinderItem.Input("GOOD BIN UNCLAMP", () => IsOn(unit.GoodBinUnclampSensor)),
-                    IoCylinderItem.Output("GOOD BIN UNCLAMP", () => IsOn(unit.GoodBinUnclampOut), on => WriteOutAsync(unit.GoodBinUnclampOut, on), "ON", "OFF"),
+                    // ===== GOOD BIN : 실린더 단위 ON/OFF 제어 =====
+                    IoCylinderItem.Output("GOOD BIN GUIDE", () => unit.IsBinGuideUp(BinSide.Good), on => SetBinGuideAsync(BinSide.Good, on), "ON", "OFF"),
+                    IoCylinderItem.Output("GOOD BIN CLAMP LIFT", () => unit.IsBinGuideClampLiftUp(BinSide.Good), on => SetBinClampLiftAsync(BinSide.Good, on), "ON", "OFF"),
+                    IoCylinderItem.Output("GOOD BIN CLAMP", () => unit.IsBinGuideClamped(BinSide.Good), on => SetBinClampAsync(BinSide.Good, on), "ON", "OFF"),
                     IoCylinderItem.Input("GOOD BIN RING CHECK", () => IsOn(unit.GoodBinRingSensor)),
+
+                    // ===== NG BIN : 실린더 단위 ON/OFF 제어 =====
+                    IoCylinderItem.Output("NG BIN GUIDE", () => unit.IsBinGuideUp(BinSide.Ng), on => SetBinGuideAsync(BinSide.Ng, on), "ON", "OFF"),
+                    IoCylinderItem.Output("NG BIN CLAMP LIFT", () => unit.IsBinGuideClampLiftUp(BinSide.Ng), on => SetBinClampLiftAsync(BinSide.Ng, on), "ON", "OFF"),
+                    IoCylinderItem.Output("NG BIN CLAMP", () => unit.IsBinGuideClamped(BinSide.Ng), on => SetBinClampAsync(BinSide.Ng, on), "ON", "OFF"),
+                    IoCylinderItem.Input("NG BIN RING CHECK", () => IsOn(unit.NgBinRingSensor)),
 
                     // ===== BOTTOM VISION (출력) =====
                     IoCylinderItem.Output("BOTTOM VISION BLOW ON", () => IsOn(unit.BottomVisionBlowOnOut), on => WriteOutAsync(unit.BottomVisionBlowOnOut, on), "ON", "OFF"),
@@ -711,6 +698,36 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             finally
             {
             }
+        }
+
+        private Task<int> SetBinGuideAsync(BinSide side, bool on)
+        {
+            if (_outputStageUnit == null)
+                return Task.FromResult(-1);
+
+            return on
+                ? _outputStageUnit.EnsureBinGuideUpAsync(side, ManualCylinderTimeoutMs)
+                : _outputStageUnit.EnsureBinGuideDownAsync(side, ManualCylinderTimeoutMs);
+        }
+
+        private Task<int> SetBinClampLiftAsync(BinSide side, bool on)
+        {
+            if (_outputStageUnit == null)
+                return Task.FromResult(-1);
+
+            return on
+                ? _outputStageUnit.EnsureBinGuideClampLiftUpAsync(side, ManualCylinderTimeoutMs)
+                : _outputStageUnit.EnsureBinGuideClampLiftDownAsync(side, ManualCylinderTimeoutMs);
+        }
+
+        private Task<int> SetBinClampAsync(BinSide side, bool on)
+        {
+            if (_outputStageUnit == null)
+                return Task.FromResult(-1);
+
+            return on
+                ? _outputStageUnit.EnsureBinGuideClampedAsync(side, ManualCylinderTimeoutMs)
+                : _outputStageUnit.EnsureBinGuideUnclampedAsync(side, ManualCylinderTimeoutMs);
         }
 
         private void BindJogPanel()

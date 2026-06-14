@@ -53,6 +53,9 @@ namespace QMC.CDT320.Interlocks
             new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
                 { "FeederY", "InputFeederY" },
+                { "InputStageY", "WaferStageY" },
+                { "InputStageT", "WaferStageT" },
+                { "InputExpandingZ", "WaferExpandingZ" },
                 { "StageY", "WaferStageY" },
                 { "StageT", "WaferStageT" },
                 { "ExpanderZ", "WaferExpandingZ" },

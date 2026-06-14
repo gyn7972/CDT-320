@@ -1,4 +1,4 @@
-﻿using QMC.CDT320.Ajin;
+using QMC.CDT320.Ajin;
 using QMC.CDT320.Motion.SharedRailX;
 using QMC.Common;
 using QMC.Common.Alarms;
@@ -536,6 +536,16 @@ namespace QMC.CDT320
                 if (result != 0 || item.IsAlarm)
                     return RaisePickerAlarm("PK-MOVE", axis + " move failed. result=" + result + ", alarm=" + item.IsAlarm);
 
+                AxisMoveWaitResult waitResult = await WaitPickerAxisMoveDoneInPosition(
+                    axis,
+                    targetPos,
+                    Recipe != null && Recipe.MoveTimeoutMs > 0 ? Recipe.MoveTimeoutMs : 5000).ConfigureAwait(false);
+                if (!waitResult.Success)
+                    return RaisePickerAlarm(
+                        AxisMoveWaiter.ResolveAlarmCode("PK-MOVE", waitResult),
+                        axis + " move/in-position wait failed. target=" + targetPos + ". " +
+                        AxisMoveWaiter.FormatResult(waitResult, axis.ToString()));
+
                 return 0;
             }
             catch (Exception ex)
@@ -564,6 +574,20 @@ namespace QMC.CDT320
                 if (results[i] != 0)
                     return results[i];
             }
+
+            foreach (KeyValuePair<PickerAxis, double> pair in targets)
+            {
+                AxisMoveWaitResult waitResult = await WaitPickerAxisMoveDoneInPosition(
+                    pair.Key,
+                    pair.Value,
+                    Recipe != null && Recipe.MoveTimeoutMs > 0 ? Recipe.MoveTimeoutMs : 5000).ConfigureAwait(false);
+                if (!waitResult.Success)
+                    return RaisePickerAlarm(
+                        AxisMoveWaiter.ResolveAlarmCode("PK-MOVE", waitResult),
+                        pair.Key + " move/in-position wait failed. target=" + pair.Value + ". " +
+                        AxisMoveWaiter.FormatResult(waitResult, pair.Key.ToString()));
+            }
+
             return 0;
         }
 
@@ -634,25 +658,49 @@ namespace QMC.CDT320
 
         public async Task<bool> WaitPickerAxisMoveDone(PickerAxis axis, int timeoutMs)
         {
-            return await WaitUntilAsync(() =>
-            {
-                BaseAxis item = GetAxis(axis);
-                return !item.IsMoving && item.IsInPosition && !item.IsAlarm;
-            }, timeoutMs);
+            AxisMoveWaitResult waitResult = await WaitPickerAxisMoveDoneInPosition(axis, timeoutMs).ConfigureAwait(false);
+            return waitResult.Success;
+        }
+
+        public async Task<AxisMoveWaitResult> WaitPickerAxisMoveDoneInPosition(PickerAxis axis, int timeoutMs)
+        {
+            BaseAxis item = GetAxis(axis);
+            return await WaitPickerAxisMoveDoneInPosition(axis, item.CommandPosition, timeoutMs).ConfigureAwait(false);
+        }
+
+        public async Task<AxisMoveWaitResult> WaitPickerAxisMoveDoneInPosition(PickerAxis axis, double targetPos, int timeoutMs)
+        {
+            BaseAxis item = GetAxis(axis);
+            double tolerance = item.Config != null && item.Config.InPositionTolerance > 0.0
+                ? item.Config.InPositionTolerance
+                : 0.05;
+            return await AxisMoveWaiter.WaitMoveDoneInPositionAsync(
+                item,
+                targetPos,
+                tolerance,
+                timeoutMs,
+                0).ConfigureAwait(false);
         }
 
         public async Task<bool> WaitPickerAxesMoveDone(IEnumerable<PickerAxis> targetAxes, int timeoutMs)
         {
-            return await WaitUntilAsync(() =>
+            AxisMoveWaitResult waitResult = await WaitPickerAxesMoveDoneInPosition(targetAxes, timeoutMs).ConfigureAwait(false);
+            return waitResult.Success;
+        }
+
+        public async Task<AxisMoveWaitResult> WaitPickerAxesMoveDoneInPosition(IEnumerable<PickerAxis> targetAxes, int timeoutMs)
+        {
+            if (targetAxes == null)
+                return new AxisMoveWaitResult(AxisMoveWaitFailure.AxisMissing, "Picker target axis collection is null.", "axes=null");
+
+            foreach (PickerAxis axis in targetAxes)
             {
-                foreach (PickerAxis axis in targetAxes)
-                {
-                    BaseAxis item = GetAxis(axis);
-                    if (item.IsMoving || !item.IsInPosition || item.IsAlarm)
-                        return false;
-                }
-                return true;
-            }, timeoutMs);
+                AxisMoveWaitResult waitResult = await WaitPickerAxisMoveDoneInPosition(axis, timeoutMs).ConfigureAwait(false);
+                if (!waitResult.Success)
+                    return waitResult;
+            }
+
+            return new AxisMoveWaitResult(AxisMoveWaitFailure.None, "All picker axes reached target position.", "axes=ok");
         }
 
         public bool IsPickerAxisInTeachingPosition(PickerAxis axis, string positionName)

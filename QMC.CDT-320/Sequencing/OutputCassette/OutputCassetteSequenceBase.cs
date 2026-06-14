@@ -7,6 +7,7 @@ using QMC.CDT320.Lots;
 using QMC.CDT320.Materials;
 using QMC.Common;
 using QMC.Common.Alarms;
+using QMC.Common.Motion;
 
 namespace QMC.CDT320.Sequencing
 {
@@ -209,10 +210,21 @@ namespace QMC.CDT320.Sequencing
                 if (cassette == null)
                     return Fail("OUT-CST-MISSING", "OutputCassette", "Output cassette unit is not available.");
                 string readyReason;
+                if (!cassette.CheckBinLifterZMoveReady(out readyReason))
+                    return Fail("OUT-CST-MAP-MOVE-READY", cassette.Name, "Output cassette is not ready for mapping move. " + readyReason);
+
+                if (!IsHardwareBypassed() && cassette.IsBinProtrusionDetected())
+                    return Fail("OUT-CST-MAP-PROTRUSION", cassette.Name, "Output cassette product/protrusion sensor must be OFF before mapping.");
+
+                if (!cassette.ValidateBinLifterZTeachingComplete(out readyReason))
+                    return Fail("OUT-CST-MAP-TEACHING", cassette.Name, "Output cassette teaching data is not complete. " + readyReason);
+
                 if (!IsHardwareBypassed() && !cassette.CheckBinCassetteMappingReady(TargetCassette.Good1, out readyReason))
                     return Fail("OUT-CST-MAP-GOOD-READY", cassette.Name, "Good cassette is not ready for mapping. " + readyReason);
                 if (!IsHardwareBypassed() && !cassette.CheckBinCassetteMappingReady(TargetCassette.Ng, out readyReason))
                     return Fail("OUT-CST-MAP-NG-READY", cassette.Name, "NG cassette is not ready for mapping. " + readyReason);
+                if (IsHardwareBypassed())
+                    Context.LogPublic("[OUTPUT-CASSETTE] Hardware bypass: cassette mapping sensor checks skipped, teaching/move readiness validated.");
 
                 CurrentStep = nextStep;
                 return 0;
@@ -231,17 +243,12 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 var feeder = Feeder;
-                bool ready = feeder != null &&
-                             (feeder.IsBinFeederYInAvoidPosition() ||
-                              feeder.IsBinFeederYInExchangePosition(BinSide.Good) ||
-                              feeder.IsBinFeederYInExchangePosition(BinSide.Ng));
+                bool ready = feeder != null && feeder.IsBinFeederYInAvoidPosition();
                 if (!IsHardwareBypassed() && !ready)
                     return Fail("OUT-CST-FEEDER-POS", feeder != null ? feeder.Name : "OutputFeeder",
-                        "Output feeder must be in avoid or exchange position. feederNull=" + (feeder == null) +
+                        "Output feeder must be in avoid position before output cassette mapping/move. feederNull=" + (feeder == null) +
                         (feeder != null
                             ? ", avoid=" + feeder.IsBinFeederYInAvoidPosition() +
-                              ", goodExchange=" + feeder.IsBinFeederYInExchangePosition(BinSide.Good) +
-                              ", ngExchange=" + feeder.IsBinFeederYInExchangePosition(BinSide.Ng) +
                               ", feederY=" + feeder.DescribeBinFeederYMoveDoneState()
                             : ""));
                 if (IsHardwareBypassed() && !ready)
@@ -470,16 +477,13 @@ namespace QMC.CDT320.Sequencing
                 await AwaitStepWithCancellationAsync(MoveLifterZCommandAsync(cassette, target), ct).ConfigureAwait(false);
                 ct.ThrowIfCancellationRequested();
 
-                bool done = await AwaitStepWithCancellationAsync(cassette.WaitBinLifterZMoveDone(ResolveMoveTimeout(cassette)), ct).ConfigureAwait(false);
-                if (!done)
-                    return Fail("OUT-CST-MOVE-WAIT", cassette.Name,
-                        description + " move timeout. target=" + target +
-                        ", actual=" + (cassette.OutputLifterZ != null ? cassette.OutputLifterZ.ActualPosition.ToString() : "null"));
-
-                if (!cassette.IsBinLifterZInPosition(target))
-                    return Fail("OUT-CST-MOVE-CHECK", cassette.Name,
-                        description + " final position check failed. target=" + target +
-                        ", actual=" + (cassette.OutputLifterZ != null ? cassette.OutputLifterZ.ActualPosition.ToString() : "null"));
+                AxisMoveWaitResult waitResult = await AwaitStepWithCancellationAsync(
+                    cassette.WaitBinLifterZMoveDoneInPosition(target, ResolveMoveTimeout(cassette)),
+                    ct).ConfigureAwait(false);
+                if (!waitResult.Success)
+                    return Fail(ResolveAxisMoveWaitAlarmCode("OUT-CST-MOVE", waitResult.Failure), cassette.Name,
+                        description + " move/in-position wait failed. waitResult=" + waitResult.Code +
+                        ", reason=" + waitResult.Reason + ". " + waitResult.AxisState);
 
                 return 0;
             }
@@ -496,6 +500,11 @@ namespace QMC.CDT320.Sequencing
         {
             await cassette.MoveBinLifterZ(target, Options.FineMove).ConfigureAwait(false);
             return 0;
+        }
+
+        private static string ResolveAxisMoveWaitAlarmCode(string prefix, AxisMoveWaitFailure failure)
+        {
+            return AxisMoveWaiter.ResolveAlarmCode(prefix, failure);
         }
 
         private int RegisterMappingResult(OutputCassetteUnit cassette)
@@ -593,7 +602,7 @@ namespace QMC.CDT320.Sequencing
         {
             if (Options.RequiredCassetteSize == 8 || Options.RequiredCassetteSize == 12)
                 return Options.RequiredCassetteSize;
-            return cassette.Config.InchSelect == 0 ? 8 : 12;
+            return MaterialStateService.ResolveWaferSizeInch(cassette.Config.InchSelect);
         }
 
         private int ResolveGoodLevelCount(OutputCassetteUnit cassette)
@@ -682,6 +691,22 @@ namespace QMC.CDT320.Sequencing
         {
             if (stepTask == null)
                 return false;
+
+            if (stepTask.IsCompleted)
+                return await stepTask.ConfigureAwait(false);
+
+            Task cancelTask = Task.Delay(Timeout.Infinite, ct);
+            Task completed = await Task.WhenAny(stepTask, cancelTask).ConfigureAwait(false);
+            if (!ReferenceEquals(completed, stepTask))
+                ct.ThrowIfCancellationRequested();
+
+            return await stepTask.ConfigureAwait(false);
+        }
+
+        protected static async Task<AxisMoveWaitResult> AwaitStepWithCancellationAsync(Task<AxisMoveWaitResult> stepTask, CancellationToken ct)
+        {
+            if (stepTask == null)
+                return new AxisMoveWaitResult(AxisMoveWaitFailure.AxisMissing, "Step task is null.", string.Empty);
 
             if (stepTask.IsCompleted)
                 return await stepTask.ConfigureAwait(false);
