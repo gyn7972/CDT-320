@@ -102,6 +102,38 @@ namespace QMC.CDT320.Sequencing
             return RearPicker != null && RearPicker.Config != null && RearPicker.Config.UseUnit;
         }
 
+        protected bool IsPickerSimulationOrDryRun()
+        {
+            AppSettings settings = AppSettingsStore.Current;
+            if (settings != null && (settings.BypassHardware || settings.DryRunMode))
+                return true;
+
+            if (Context != null && Context.Controller != null && Context.Controller.GlobalDryRun)
+                return true;
+
+            if (Side == PickerSequenceSide.Front)
+                return IsFrontPickerSimulationOrDryRun();
+
+            if (Side == PickerSequenceSide.Rear)
+                return IsRearPickerSimulationOrDryRun();
+
+            return false;
+        }
+
+        protected bool IsFrontPickerSimulationOrDryRun()
+        {
+            return FrontPicker != null &&
+                   ((FrontPicker.Setup != null && FrontPicker.Setup.IsSimulationMode) ||
+                    (FrontPicker.Config != null && FrontPicker.Config.bDryRun));
+        }
+
+        protected bool IsRearPickerSimulationOrDryRun()
+        {
+            return RearPicker != null &&
+                   ((RearPicker.Setup != null && RearPicker.Setup.IsSimulationMode) ||
+                    (RearPicker.Config != null && RearPicker.Config.bDryRun));
+        }
+
         protected List<int> BuildEnabledPickerIndexes()
         {
             var result = new List<int>();
