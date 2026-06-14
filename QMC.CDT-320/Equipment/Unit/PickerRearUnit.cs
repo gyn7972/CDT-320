@@ -292,6 +292,9 @@ namespace QMC.CDT320
         {
             try
             {
+                if (IsPickerSimulationOrDryRun())
+                    return SimulateBottomInspectionResult(pickerNo);
+
                 if (vision == null)
                 {
                     Log.Write("Main", "VISION", "PickerBottomInspect",
@@ -340,6 +343,9 @@ namespace QMC.CDT320
         {
             try
             {
+                if (IsPickerSimulationOrDryRun())
+                    return SimulateSideInspectionResult(pickerNo);
+
                 if (vision == null)
                 {
                     Log.Write("Main", "VISION", "PickerSideInspect",
@@ -767,7 +773,7 @@ namespace QMC.CDT320
 
         public bool IsPickerFlowDetected(int pickerNo, bool expected = true)
         {
-            if (Config.IsSimulationMode || Setup.IsSimulationMode)
+            if (IsPickerSimulationOrDryRun())
                 return true;
 
             return FlowChecks[NormalizePickerIndex(pickerNo, MaxIoPickerCount)].IsOn == expected;
@@ -775,12 +781,12 @@ namespace QMC.CDT320
 
         public bool IsPickerCdaPressureOk()
         {
-            return CdaTankPressureCheck.IsOn || Config.IsSimulationMode || Setup.IsSimulationMode;
+            return CdaTankPressureCheck.IsOn || IsPickerSimulationOrDryRun();
         }
 
         public bool IsPickerVacuumPressureOk()
         {
-            return VacuumTankPressureCheck.IsOn || Config.IsSimulationMode || Setup.IsSimulationMode;
+            return VacuumTankPressureCheck.IsOn || IsPickerSimulationOrDryRun();
         }
 
         public Task<bool> WaitPickerFlowState(int pickerNo, bool expected, int timeoutMs)
@@ -822,6 +828,38 @@ namespace QMC.CDT320
         public bool CheckPickerMoveReady()
         {
             return IsPickerCdaPressureOk();
+        }
+
+        private bool IsPickerSimulationOrDryRun()
+        {
+            AppSettings settings = AppSettingsStore.Current;
+            return (settings != null && (settings.BypassHardware || settings.DryRunMode)) ||
+                   (Config != null && Config.IsSimulationMode) ||
+                   (Setup != null && Setup.IsSimulationMode);
+        }
+
+        private BottomVisionOffset SimulateBottomInspectionResult(int pickerNo)
+        {
+            return new BottomVisionOffset
+            {
+                PickerNo = pickerNo,
+                OffsetX = 0.0,
+                OffsetY = 0.0,
+                OffsetT = 0.0,
+                IsOk = true
+            };
+        }
+
+        private SideVisionResult SimulateSideInspectionResult(int pickerNo)
+        {
+            return new SideVisionResult
+            {
+                PickerNo = pickerNo,
+                Side1Ok = true,
+                Side2Ok = true,
+                Side3Ok = true,
+                Side4Ok = true
+            };
         }
 
         public bool CheckPickerAxisMoveReady(PickerAxis axis)

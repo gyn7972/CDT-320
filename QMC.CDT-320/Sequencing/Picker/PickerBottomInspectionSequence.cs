@@ -459,13 +459,7 @@ namespace QMC.CDT320.Sequencing
             if (Options != null && Options.SimulateVisionResult)
                 return true;
 
-            if (Side == PickerSequenceSide.Front && FrontPicker != null && FrontPicker.Config != null)
-                return FrontPicker.Config.bDryRun;
-
-            if (Side == PickerSequenceSide.Rear && RearPicker != null && RearPicker.Config != null)
-                return RearPicker.Config.bDryRun;
-
-            return false;
+            return IsPickerSimulationOrDryRun();
         }
 
         private void ReleaseInspectionArea()
