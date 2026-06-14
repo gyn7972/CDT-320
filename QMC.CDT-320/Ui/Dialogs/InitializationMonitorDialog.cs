@@ -157,6 +157,9 @@ namespace QMC.CDT_320.Ui.Dialogs
             if (_running || action == null || _controller == null)
                 return;
 
+            string warningMessage = null;
+            string errorMessage = null;
+
             try
             {
                 _running = true;
@@ -165,27 +168,43 @@ namespace QMC.CDT_320.Ui.Dialogs
                 ApplyStoredStatuses();
                 if (result != 0)
                 {
-                    string message = string.IsNullOrEmpty(_controller.LastActionFailureMessage)
+                    warningMessage = string.IsNullOrEmpty(_controller.LastActionFailureMessage)
                         ? "Initialize execution failed."
                         : _controller.LastActionFailureMessage;
-                    QMC.Common.MessageDialog.Show(this, message, "Init Monitor",
-                        MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 }
             }
             catch (Exception ex)
             {
-                QMC.Common.MessageDialog.Show(this, "Initialize execution error:\n" + ex.Message,
-                    "Init Monitor", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                errorMessage = "Initialize execution error:\n" + ex.Message;
             }
             finally
             {
                 _running = false;
                 SetButtonsEnabled(true);
             }
+
+            if (!string.IsNullOrWhiteSpace(errorMessage))
+            {
+                QMC.Common.MessageDialog.Show(this, errorMessage,
+                    "Init Monitor", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(warningMessage))
+            {
+                QMC.Common.MessageDialog.Show(this, warningMessage,
+                    "Init Monitor", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
         }
 
         private void SetButtonsEnabled(bool enabled)
         {
+            if (InvokeRequired)
+            {
+                BeginInvoke(new Action<bool>(SetButtonsEnabled), enabled);
+                return;
+            }
+
             btnRunSelected.Enabled = enabled;
             btnRunAll.Enabled = enabled;
             btnRefresh.Enabled = enabled;

@@ -2797,12 +2797,14 @@ namespace QMC.CDT320
                     return postActionResult;
                 }
 
-                int completeResult = await CompleteInitializeStepAsync(step).ConfigureAwait(false);
-                if (completeResult != 0)
-                {
-                    RaiseAxisInitializeStepProgress(step, AxisInitializeStepStatus.Failed, LastActionFailureMessage);
-                    return completeResult;
-                }
+                // 제거 요망 함수.
+                // 개별 축에서 문제된다고 판단. AxisInitializenPlan에 이동 함수 만들어서 사용.
+                //int completeResult = await CompleteInitializeStepAsync(step).ConfigureAwait(false);
+                //if (completeResult != 0)
+                //{
+                //    RaiseAxisInitializeStepProgress(step, AxisInitializeStepStatus.Failed, LastActionFailureMessage);
+                //    return completeResult;
+                //}
 
                 QMC.Common.Log.Write("Main", "SYSTEM", "ExecuteInitializeStep",
                     "Axis initialize step completed. step=" + step.StepNo +
@@ -3510,16 +3512,7 @@ namespace QMC.CDT320
         {
             try
             {
-                string groupName = step != null ? step.GroupName : "";
-                if (string.Equals(groupName, "SharedRailX", StringComparison.OrdinalIgnoreCase))
-                    return await MoveSharedRailAxesToAvoidAsync().ConfigureAwait(false);
-                if (string.Equals(groupName, "RearPickerX", StringComparison.OrdinalIgnoreCase))
-                    return await MoveSharedRailAxesToAvoidAsync().ConfigureAwait(false);
-                if (string.Equals(groupName, "InputFeeder", StringComparison.OrdinalIgnoreCase))
-                    return await MoveInputFeederLiftDownAfterHomeAsync().ConfigureAwait(false);
-                if (string.Equals(groupName, "OutputStageZ", StringComparison.OrdinalIgnoreCase))
-                    return await MoveOutputStageZToAvoidAsync().ConfigureAwait(false);
-
+                await Task.Yield();
                 return 0;
             }
             catch (Exception ex)
@@ -4188,6 +4181,10 @@ namespace QMC.CDT320
                 if (string.Equals(targetType, AxisInitializeInterlockTarget.Cylinder, StringComparison.OrdinalIgnoreCase))
                     return await ExecuteInitializeCylinderActionAsync(action).ConfigureAwait(false);
 
+                if (string.Equals(targetType, AxisInitializeInterlockTarget.Axis, StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(command, AxisInitializeActionCommand.AxisTeachingMove, StringComparison.OrdinalIgnoreCase))
+                    return await ExecuteInitializeAxisTeachingActionAsync(action).ConfigureAwait(false);
+
                 if (string.Equals(command, AxisInitializeActionCommand.CustomHook, StringComparison.OrdinalIgnoreCase))
                     return await ExecuteCustomInitializeActionAsync(step, action, phase).ConfigureAwait(false);
 
@@ -4199,6 +4196,51 @@ namespace QMC.CDT320
                 return FailInitializePreparation("초기화 Action 예외. target=" +
                     (action != null ? action.TargetType + ":" + action.Name : "-") +
                     ", error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> ExecuteInitializeAxisTeachingActionAsync(AxisInitializeAction action)
+        {
+            try
+            {
+                if (action == null)
+                    return FailInitializePreparation("축 티칭 이동 Action 정보가 없습니다.");
+
+                BaseAxis axis = FindInitializeActionAxis(action.Name);
+                if (axis == null)
+                    return FailInitializePreparation("초기화 축 티칭 이동 대상을 찾을 수 없습니다. axis=" + action.Name);
+
+                double targetPosition;
+                string targetName;
+                if (!TryResolveInitializeAxisTeachingPosition(axis, action, out targetPosition, out targetName))
+                {
+                    return FailInitializePreparation("초기화 축 티칭 위치를 찾을 수 없습니다. axis=" +
+                        action.Name + ", position=" + action.PositionName);
+                }
+
+                QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAxisTeachingAction",
+                    "Initialize axis teaching action start. axis=" + axis.Name +
+                    ", requested=" + action.Name +
+                    ", position=" + targetName +
+                    ", target=" + targetPosition.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) +
+                    " - Start");
+
+                int result = await MoveAxisTeachingAsync(axis, targetPosition, targetName).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAxisTeachingAction",
+                    "Initialize axis teaching action completed. axis=" + axis.Name +
+                    ", position=" + targetName + " - Ok");
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return FailInitializePreparation("축 티칭 이동 Action 예외. axis=" +
+                    (action != null ? action.Name : "-") + ", error=" + ex.Message);
             }
             finally
             {
@@ -4237,6 +4279,248 @@ namespace QMC.CDT320
             finally
             {
             }
+        }
+
+        private BaseAxis FindInitializeActionAxis(string axisName)
+        {
+            try
+            {
+                BaseAxis axis = FindAxisByName(axisName);
+                if (axis != null)
+                    return axis;
+
+                string alias = ResolveInitializeAxisAlias(axisName);
+                if (!string.IsNullOrWhiteSpace(alias))
+                    return FindAxisByName(alias);
+
+                return null;
+            }
+            catch
+            {
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
+        private static string ResolveInitializeAxisAlias(string axisName)
+        {
+            if (string.IsNullOrWhiteSpace(axisName))
+                return null;
+
+            switch (axisName.Trim())
+            {
+                case "InputStageY":
+                    return "StageY";
+                case "InputStageT":
+                    return "StageT";
+                case "InputVisionX":
+                    return "CameraX";
+                case "OutputGoodStageY":
+                    return "GoodStage_StageY";
+                case "OutputGoodStageZ":
+                    return "GoodStage_StageZ";
+                case "GoodStage_StageZ":
+                    return "OutputGoodStageZ";
+                case "OutputNGStageY":
+                    return "NgStage_StageY";
+                case "NgStage_StageY":
+                    return "OutputNGStageY";
+                case "GoodStage_StageY":
+                    return "OutputGoodStageY";
+                default:
+                    return null;
+            }
+        }
+
+        private bool TryResolveInitializeAxisTeachingPosition(
+            BaseAxis axis,
+            AxisInitializeAction action,
+            out double targetPosition,
+            out string targetName)
+        {
+            targetPosition = 0.0;
+            targetName = "";
+
+            try
+            {
+                if (axis == null || action == null)
+                    return false;
+
+                string positionName = NormalizeInitializePositionName(action.PositionName);
+                if (!string.Equals(positionName, "AvoidPosition", StringComparison.OrdinalIgnoreCase))
+                    return false;
+
+                string requestedName = !string.IsNullOrWhiteSpace(action.Name) ? action.Name.Trim() : axis.Name;
+                string axisName = axis.Name ?? "";
+
+                if (IsInitializeAxisName(requestedName, axisName, "FrontPickerY"))
+                {
+                    if (_machine.PickerFrontUnit == null ||
+                        _machine.PickerFrontUnit.Recipe == null ||
+                        _machine.PickerFrontUnit.Recipe.PickerY == null)
+                        return false;
+
+                    targetPosition = _machine.PickerFrontUnit.Recipe.PickerY.AvoidPosition;
+                    targetName = "FrontPickerY.Avoid";
+                    return true;
+                }
+
+                if (IsInitializeAxisName(requestedName, axisName, "RearPickerY"))
+                {
+                    if (_machine.PickerRearUnit == null ||
+                        _machine.PickerRearUnit.Recipe == null ||
+                        _machine.PickerRearUnit.Recipe.PickerY == null)
+                        return false;
+
+                    targetPosition = _machine.PickerRearUnit.Recipe.PickerY.AvoidPosition;
+                    targetName = "RearPickerY.Avoid";
+                    return true;
+                }
+
+                if (IsInitializeAxisName(requestedName, axisName, "FrontPickerX"))
+                {
+                    if (_machine.PickerFrontUnit == null ||
+                        _machine.PickerFrontUnit.Recipe == null ||
+                        _machine.PickerFrontUnit.Recipe.PickerX == null)
+                        return false;
+
+                    targetPosition = _machine.PickerFrontUnit.Recipe.PickerX.AvoidPosition;
+                    targetName = "FrontPickerX.Avoid";
+                    return true;
+                }
+
+                if (IsInitializeAxisName(requestedName, axisName, "RearPickerX"))
+                {
+                    if (_machine.PickerRearUnit == null ||
+                        _machine.PickerRearUnit.Recipe == null ||
+                        _machine.PickerRearUnit.Recipe.PickerX == null)
+                        return false;
+
+                    targetPosition = _machine.PickerRearUnit.Recipe.PickerX.AvoidPosition;
+                    targetName = "RearPickerX.Avoid";
+                    return true;
+                }
+
+                if (IsInitializeAxisName(requestedName, axisName, "InputStageY", "StageY"))
+                {
+                    if (_machine.InputStageUnit == null ||
+                        _machine.InputStageUnit.Recipe == null ||
+                        _machine.InputStageUnit.Recipe.WaferY == null)
+                        return false;
+
+                    targetPosition = _machine.InputStageUnit.Recipe.WaferY.AvoidPosition;
+                    targetName = "InputStageY.Avoid";
+                    return true;
+                }
+
+                if (IsInitializeAxisName(requestedName, axisName, "InputVisionX", "CameraX"))
+                {
+                    if (_machine.InputStageUnit == null ||
+                        _machine.InputStageUnit.Recipe == null ||
+                        _machine.InputStageUnit.Recipe.VisionX == null)
+                        return false;
+
+                    targetPosition = _machine.InputStageUnit.Recipe.VisionX.AvoidPosition;
+                    targetName = "InputVisionX.Avoid";
+                    return true;
+                }
+
+                if (IsInitializeAxisName(requestedName, axisName, "OutputVisionX"))
+                {
+                    if (_machine.OutputStageUnit == null ||
+                        _machine.OutputStageUnit.Recipe == null ||
+                        _machine.OutputStageUnit.Recipe.VisionX == null)
+                        return false;
+
+                    targetPosition = _machine.OutputStageUnit.Recipe.VisionX.AvoidPosition;
+                    targetName = "OutputVisionX.Avoid";
+                    return true;
+                }
+
+                if (IsInitializeAxisName(requestedName, axisName, "OutputGoodStageY", "GoodStage_StageY"))
+                {
+                    if (_machine.OutputStageUnit == null ||
+                        _machine.OutputStageUnit.Recipe == null ||
+                        _machine.OutputStageUnit.Recipe.GoodStageY == null)
+                        return false;
+
+                    targetPosition = _machine.OutputStageUnit.Recipe.GoodStageY.AvoidPosition;
+                    targetName = "OutputGoodStageY.Avoid";
+                    return true;
+                }
+
+                if (IsInitializeAxisName(requestedName, axisName, "OutputGoodStageZ", "GoodStage_StageZ"))
+                {
+                    if (_machine.OutputStageUnit == null ||
+                        _machine.OutputStageUnit.Recipe == null ||
+                        _machine.OutputStageUnit.Recipe.GoodStageZ == null)
+                        return false;
+
+                    targetPosition = _machine.OutputStageUnit.Recipe.GoodStageZ.AvoidPosition;
+                    targetName = "OutputGoodStageZ.Avoid";
+                    return true;
+                }
+
+                if (IsInitializeAxisName(requestedName, axisName, "OutputNGStageY", "NgStage_StageY"))
+                {
+                    if (_machine.OutputStageUnit == null ||
+                        _machine.OutputStageUnit.Recipe == null ||
+                        _machine.OutputStageUnit.Recipe.NGStageY == null)
+                        return false;
+
+                    targetPosition = _machine.OutputStageUnit.Recipe.NGStageY.AvoidPosition;
+                    targetName = "OutputNGStageY.Avoid";
+                    return true;
+                }
+
+                return false;
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "InitializeAxisTeachingAction",
+                    "Initialize axis teaching position resolve failed. axis=" +
+                    (axis != null ? axis.Name : "-") +
+                    ", action=" + (action != null ? action.Name : "-") +
+                    ", error=" + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool IsInitializeAxisName(string requestedName, string actualName, params string[] names)
+        {
+            if (names == null)
+                return false;
+
+            foreach (string name in names)
+            {
+                if (string.IsNullOrWhiteSpace(name))
+                    continue;
+
+                if (string.Equals(requestedName, name, StringComparison.OrdinalIgnoreCase))
+                    return true;
+
+                if (string.Equals(actualName, name, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+
+            return false;
+        }
+
+        private static string NormalizeInitializePositionName(string positionName)
+        {
+            if (string.IsNullOrWhiteSpace(positionName))
+                return "AvoidPosition";
+
+            string value = positionName.Trim();
+            if (string.Equals(value, "Avoid", StringComparison.OrdinalIgnoreCase))
+                return "AvoidPosition";
+
+            return value;
         }
 
         private Task<int> ExecuteCustomInitializeActionAsync(
