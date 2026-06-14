@@ -1568,12 +1568,19 @@ namespace QMC.CDT320
         {
             switch (code)
             {
+                // 카세트 미감지 알람 메시지
                 case CassetteAlarmCode.CassetteMissing: return "Bin cassette is missing.";
+                // 카세트 사이즈 불일치 알람 메시지
                 case CassetteAlarmCode.SizeMismatch: return "Bin cassette size mismatch.";
+                // BIN 돌출 감지 알람 메시지
                 case CassetteAlarmCode.ProtrusionDetected: return "Bin protrusion detected.";
+                // 맵핑 타임아웃 알람 메시지
                 case CassetteAlarmCode.MappingTimeout: return "Bin mapping timeout.";
+                // 리프터 Z축 이동 타임아웃 알람 메시지
                 case CassetteAlarmCode.MoveTimeout: return "Bin lifter Z move timeout.";
+                // 리프터 Z축 티칭 누락 알람 메시지
                 case CassetteAlarmCode.TeachingMissing: return "Bin lifter Z teaching data is missing.";
+                // NG 카세트 잠금 타임아웃 알람 메시지
                 case CassetteAlarmCode.LockTimeout: return "NG bin cassette lock timeout.";
                 default: return "No bin cassette alarm.";
             }
@@ -1663,8 +1670,11 @@ namespace QMC.CDT320
         {
             switch (cassette)
             {
+                // NG 카세트 첫 슬롯 위치 반환
                 case TargetCassette.Ng: return Recipe.NGFirstSlotPosition;
+                // GOOD 1단 첫 슬롯 위치 반환
                 case TargetCassette.Good1: return Recipe.GoodFirstSlotPosition;
+                // GOOD 2단 첫 슬롯 위치 반환
                 case TargetCassette.Good2: return GetGood2FirstSlotPosition();
                 default: throw new ArgumentOutOfRangeException("cassette");
             }
@@ -1674,12 +1684,15 @@ namespace QMC.CDT320
         {
             switch (cassette)
             {
+                // NG 카세트 첫 슬롯 위치 저장
                 case TargetCassette.Ng:
                     Recipe.NGFirstSlotPosition = position;
                     break;
+                // GOOD 1단 첫 슬롯 위치 저장
                 case TargetCassette.Good1:
                     Recipe.GoodFirstSlotPosition = position;
                     break;
+                // GOOD 2단 첫 슬롯 위치 저장
                 case TargetCassette.Good2:
                     SetGood2FirstSlotPosition(position);
                     break;

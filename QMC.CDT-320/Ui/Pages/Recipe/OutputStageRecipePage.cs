@@ -312,10 +312,15 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             Action<double> setter;
             switch (kind)
             {
+                // Avoid 위치 레시피 연결
                 case "Avoid": getter = () => set().AvoidPosition; setter = v => set().AvoidPosition = v; break;
+                // Load 위치 레시피 연결
                 case "Load": getter = () => set().LoadPosition; setter = v => set().LoadPosition = v; break;
+                // Process 위치 레시피 연결
                 case "Process": getter = () => set().ProcessPosition; setter = v => set().ProcessPosition = v; break;
+                // Unload 위치 레시피 연결
                 case "Unload": getter = () => set().UnloadPosition; setter = v => set().UnloadPosition = v; break;
+                // Reticle 위치 레시피 연결
                 case "Reticle": getter = () => set().ReticlePosition; setter = v => set().ReticlePosition = v; break;
                 default: getter = () => 0.0; setter = v => { }; break;
             }

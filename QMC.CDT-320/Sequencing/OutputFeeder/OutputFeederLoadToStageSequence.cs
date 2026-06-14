@@ -57,81 +57,107 @@ namespace QMC.CDT320.Sequencing
                 ct.ThrowIfCancellationRequested();
                 switch (CurrentStep)
                 {
+                    // 유닛 확인
                     case OutputFeederLoadToStageStep.CheckUnit:
                         return Task.FromResult(CheckUnit(OutputFeederLoadToStageStep.CheckTransferReady));
 
+                    // 이송 준비 확인
                     case OutputFeederLoadToStageStep.CheckTransferReady:
                         return Task.FromResult(CheckTransferReady());
 
+                    // 피더 BIN 데이터 확인
                     case OutputFeederLoadToStageStep.CheckFeederBinData:
                         return Task.FromResult(CheckFeederBinData());
 
+                    // 아웃풋 스테이지 비어있음 확인
                     case OutputFeederLoadToStageStep.CheckOutputStageEmpty:
                         return Task.FromResult(CheckOutputStageEmpty());
 
+                    // 아웃풋 비전 어보이드 확보
                     case OutputFeederLoadToStageStep.EnsureOutputVisionAvoid:
                         return EnsureOutputVisionAvoidAsync(ct);
 
+                    // 피커 어보이드 위치 확보
                     case OutputFeederLoadToStageStep.EnsurePickerAvoidPosition:
                         return EnsurePickerAvoidPositionAsync(ct);
 
+                    // 스테이지 상호 인터락 확보
                     case OutputFeederLoadToStageStep.EnsureStageMutualInterlock:
                         return EnsureStageMutualInterlockAsync(ct);
 
+                    // 아웃풋 스테이지 로드 위치 이동
                     case OutputFeederLoadToStageStep.MoveOutputStageLoadPosition:
                         return MoveOutputStageLoadPositionAsync(ct);
 
+                    // 아웃풋 스테이지 가이드 업 확보
                     case OutputFeederLoadToStageStep.EnsureOutputStageGuideUp:
                         return EnsureOutputStageGuideUpAsync(ct);
 
+                    // 아웃풋 스테이지 클램프 리프트 다운 확보
                     case OutputFeederLoadToStageStep.EnsureOutputStageClampLiftDown:
                         return EnsureOutputStageClampLiftDownAsync(ct);
 
+                    // 아웃풋 스테이지 언클램프 확보
                     case OutputFeederLoadToStageStep.EnsureOutputStageUnclamp:
                         return EnsureOutputStageUnclampAsync(ct);
 
+                    // 아웃풋 스테이지 수령 준비 검증
                     case OutputFeederLoadToStageStep.VerifyOutputStageReceiveReady:
                         return Task.FromResult(VerifyOutputStageReceiveReady());
 
+                    // 피더 보유 BIN 검증
                     case OutputFeederLoadToStageStep.VerifyFeederHoldingBin:
                         return Task.FromResult(VerifyFeederHoldingBin());
 
+                    // 피더 스테이지 로드 위치 이동
                     case OutputFeederLoadToStageStep.MoveFeederStageLoadPosition:
                         return MoveFeederStageLoadPositionAsync(ct);
 
+                    // 피더 BIN 언클램프
                     case OutputFeederLoadToStageStep.UnclampFeederBin:
                         return UnclampFeederBinAsync(ct);
 
+                    // 피더 스테이지 로드 어보이드 위치 이동
                     case OutputFeederLoadToStageStep.MoveFeederStageLoadAvoidPosition:
                         return MoveFeederStageLoadAvoidPositionAsync(ct);
 
+                    // 아웃풋 스테이지 클램프 리프트 업
                     case OutputFeederLoadToStageStep.LiftOutputStageClamp:
                         return LiftOutputStageClampAsync(ct);
 
+                    // 아웃풋 스테이지 BIN 클램프
                     case OutputFeederLoadToStageStep.ClampOutputStageBin:
                         return ClampOutputStageBinAsync(ct);
 
+                    // 자재 데이터를 스테이지로 이동
                     case OutputFeederLoadToStageStep.MoveMaterialDataToStage:
                         return Task.FromResult(MoveMaterialDataToStage());
 
+                    // 피더 리프트 업 준비
                     case OutputFeederLoadToStageStep.PrepareFeederLiftUp:
                         return PrepareFeederLiftUpAsync(ct);
 
+                    // 피더 어보이드 위치 이동
                     case OutputFeederLoadToStageStep.MoveFeederAvoidPosition:
                         return MoveFeederAvoidPositionAsync(ct);
 
+                    // 피더 리프트 다운 후 어보이드 준비
                     case OutputFeederLoadToStageStep.PrepareFeederLiftDownAfterAvoid:
                         return PrepareFeederLiftDownAfterAvoidAsync(ct);
 
+                    // NG 스테이지 어보이드 후 로드 이동
                     case OutputFeederLoadToStageStep.MoveNgStageAvoidAfterLoad:
                         return MoveNgStageAvoidAfterLoadAsync(ct);
 
+                    // NG 스테이지 어보이드 후 가이드 다운
                     case OutputFeederLoadToStageStep.LowerNgStageGuideAfterAvoid:
                         return LowerNgStageGuideAfterAvoidAsync(ct);
 
+                    // 스테이지 BIN 전달 검증
                     case OutputFeederLoadToStageStep.VerifyBinTransferredToStage:
                         return VerifyBinTransferredToStageAsync(ct);
 
+                    // 피더 데이터 갱신
                     case OutputFeederLoadToStageStep.UpdateFeederData:
                         return Task.FromResult(UpdateFeederData());
 
@@ -526,3 +552,4 @@ namespace QMC.CDT320.Sequencing
         }
     }
 }
+

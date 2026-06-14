@@ -682,10 +682,15 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             string txt = Convert.ToString(value) ?? "";
             switch (col)
             {
+                // 축 Stroke 값 적용
                 case "STROKE": if (TryReadDouble(txt, out var v1)) it.Stroke = AxisUnitConverter.FromDisplay(v1, it.Unit); break;
+                // 축 Simulation 사용 여부 적용
                 case "SIM": it.SimulationMode = ToBool(value); break;
+                // 축 Minus Soft Limit 적용
                 case "SLN": if (TryReadDouble(txt, out var v2)) it.SoftLimitNeg = AxisUnitConverter.FromDisplay(v2, it.Unit); break;
+                // 축 Plus Soft Limit 적용
                 case "SLP": if (TryReadDouble(txt, out var v3)) it.SoftLimitPos = AxisUnitConverter.FromDisplay(v3, it.Unit); break;
+                // 축 표시 단위 적용
                 case "UNIT":
                     ApplyUnitValue(it, txt);
                     break;

@@ -436,9 +436,13 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             string baseName;
             switch (kind)
             {
+                // Pick 위치 기준 확인
                 case "PICK": baseName = "PickPosition"; break;
+                // Bottom 검사 위치 기준 확인
                 case "BOTTOM": baseName = "BottomPosition"; break;
+                // Side 검사 위치 기준 확인
                 case "SIDE": baseName = "SidePosition"; break;
+                // Place 위치 기준 확인
                 case "PLACE": baseName = "PlacePosition"; break;
                 default: reason = "알 수 없는 종류(" + kind + ")"; return false;
             }

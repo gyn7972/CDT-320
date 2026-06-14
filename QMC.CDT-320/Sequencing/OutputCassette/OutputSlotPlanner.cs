@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq;
 using QMC.CDT320.Materials;
 
@@ -195,14 +195,17 @@ namespace QMC.CDT320.Sequencing
         {
             switch (role)
             {
+                // GOOD 1단 카세트 처리
                 case CassetteMaterialRole.Good1:
                     target = TargetCassette.Good1;
                     side = BinSide.Good;
                     return true;
+                // GOOD 2단 카세트 처리
                 case CassetteMaterialRole.Good2:
                     target = TargetCassette.Good2;
                     side = BinSide.Good;
                     return true;
+                // NG 1단 카세트 처리
                 case CassetteMaterialRole.Ng1:
                     target = TargetCassette.Ng;
                     side = BinSide.Ng;

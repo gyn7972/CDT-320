@@ -37,8 +37,11 @@ namespace QMC.CDT320.VisionComm
             string finder;
             switch (alignTargetId)
             {
+                // 중앙 정렬 Finder 선택
                 case "Center": finder = "AlignDieFinder";        break;
+                // 첫 번째 Reference Finder 선택
                 case "Ref1":   finder = "FirstReferenceFinder";  break;
+                // 두 번째 Reference Finder 선택
                 case "Ref2":   finder = "SecondReferenceFinder"; break;
                 default:       finder = alignTargetId;           break;
             }

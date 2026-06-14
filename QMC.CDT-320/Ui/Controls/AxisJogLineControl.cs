@@ -6,13 +6,13 @@ using System.Windows.Forms;
 
 namespace QMC.CDT_320.Ui.Controls
 {
-    /// <summary>구현 설명 주석입니다.</summary>
+    /// <summary>단일 축 조그 이동을 위한 라인형 컨트롤입니다.</summary>
     public partial class AxisJogLineControl : UserControl
     {
         private BaseAxis _axis;
         private string _axisCaption = "AXIS\r\nNAME";
 
-        /// <summary>구현 설명 주석입니다.</summary>
+        /// <summary>화면에 표시할 축 이름입니다.</summary>
         public string AxisCaption
         {
             get { return _axisCaption; }
@@ -23,17 +23,16 @@ namespace QMC.CDT_320.Ui.Controls
             }
         }
 
-        /// <summary>구현 설명 주석입니다.</summary>
+        /// <summary>조그 모드와 이동 단위를 제공하는 옵션 컨트롤입니다.</summary>
         [Browsable(false)]
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public JogMoveOptionsControl MoveOptions { get; set; }
 
-        /// <summary>구현 설명 주석입니다.</summary>
+        /// <summary>현재 조그 속도를 제공하는 콜백입니다.</summary>
         [Browsable(false)]
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public Func<double> SpeedProvider { get; set; }
 
-        /// <summary>구현 설명 주석입니다.</summary>
         public AxisJogLineControl()
         {
             InitializeComponent();
@@ -41,7 +40,7 @@ namespace QMC.CDT_320.Ui.Controls
             UpdateEnabledState();
         }
 
-        /// <summary>구현 설명 주석입니다.</summary>
+        /// <summary>조작할 축 객체와 표시 이름을 연결합니다.</summary>
         public void BindAxis(string axisName, BaseAxis axis)
         {
             _axis = axis;
@@ -49,7 +48,7 @@ namespace QMC.CDT_320.Ui.Controls
             UpdateEnabledState();
         }
 
-        /// <summary>구현 설명 주석입니다.</summary>
+        /// <summary>연결된 축의 조그 이동을 정지합니다.</summary>
         public void StopJog()
         {
             try { _axis?.StopJog(); } catch { }

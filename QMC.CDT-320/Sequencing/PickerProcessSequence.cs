@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -107,18 +107,23 @@ namespace QMC.CDT320.Sequencing
 
             switch (CurrentStep)
             {
+                // 유닛 확인
                 case PickerProcessStep.CheckUnit:
                     return Task.FromResult(CheckUnit());
 
+                // 픽업 업 실행
                 case PickerProcessStep.RunPickUp:
                     return RunPickUpAsync(ct);
 
+                // 하단 검사 실행
                 case PickerProcessStep.RunBottomInspection:
                     return RunBottomInspectionAsync(ct);
 
+                // 사이드 검사 실행
                 case PickerProcessStep.RunSideInspection:
                     return RunSideInspectionAsync(ct);
 
+                // 플레이스 실행
                 case PickerProcessStep.RunPlace:
                     return RunPlaceAsync(ct);
 
@@ -251,3 +256,4 @@ namespace QMC.CDT320.Sequencing
         }
     }
 }
+

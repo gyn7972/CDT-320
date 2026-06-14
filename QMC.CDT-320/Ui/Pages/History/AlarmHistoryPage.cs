@@ -71,8 +71,11 @@ namespace QMC.CDT_320.Ui.Pages.History
                     Color bg;
                     switch (a.Severity)
                     {
+                        // Critical 알람 배경색
                         case AlarmSeverity.Critical: bg = Color.FromArgb(0xFF, 0xC0, 0xC0); break;
+                        // Error 알람 배경색
                         case AlarmSeverity.Error: bg = Color.FromArgb(0xFF, 0xDD, 0xDD); break;
+                        // Warning 알람 배경색
                         case AlarmSeverity.Warning: bg = Color.FromArgb(0xFF, 0xF7, 0xCC); break;
                         default: bg = Color.White; break;
                     }

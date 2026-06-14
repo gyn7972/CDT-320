@@ -224,8 +224,10 @@ namespace QMC.CDT320.Motion.SharedRailX
         {
             switch (plan.Mode)
             {
+                // Ajin 동기 다축 이동 모드
                 case SharedRailXMoveMode.AjinMultiPosition:
                     return MoveAjinMultiPositionOrFallbackAsync(plan, targets, settings);
+                // 소프트웨어 병렬 이동 모드
                 case SharedRailXMoveMode.SoftwareParallel:
                 default:
                     return MoveSoftwareParallelAsync(plan, targets, settings);

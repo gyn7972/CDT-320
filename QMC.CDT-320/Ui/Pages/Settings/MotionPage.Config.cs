@@ -341,29 +341,53 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             AxisConfig c = axis.Config;
             switch (name)
             {
+                // Pulse 출력 모드 표시
                 case "OUTPUT MODE":   return s.PulseOutput.ToString();
+                // Encoder 입력 모드 표시
                 case "INPUT MODE":    return s.EncoderInput.ToString();
+                // Encoder 입력 소스 표시
                 case "INPUT SOURCE":  return s.InputSource.ToString();
+                // Servo ON 레벨 표시
                 case "SERVO LEVEL":   return s.ServoOnLevel.ToString();
+                // 최대 속도 표시
                 case "MAX VELOCITY":  return FormatAxisValue(c.MaxVelocity, axis, "0.###");
+                // 단위당 Pulse 표시
                 case "PULSES/UNIT":   return FormatPulsesPerDisplayUnit(s.PulsesPerUnit, axis);
+                // InPosition 설정 표시
                 case "INPOSITION":    return s.InPosition.ToString();
+                // InPosition 허용오차 표시
                 case "TOLERANCE":     return FormatAxisValue(c.InPositionTolerance, axis, "0.####");
+                // Plus Limit 레벨 표시
                 case "POS LEVEL":     return s.PositiveLimitLevel.ToString();
+                // Minus Limit 레벨 표시
                 case "NEG LEVEL":     return s.NegativeLimitLevel.ToString();
+                // Plus Soft Limit 표시
                 case "SW POSITIVE":   return FormatAxisValue(s.SoftLimitPlus, axis, "0.###");
+                // Minus Soft Limit 표시
                 case "SW NEGATIVE":   return FormatAxisValue(s.SoftLimitMinus, axis, "0.###");
+                // Soft Limit 사용 여부 표시
                 case "SW ENABLED":    return s.SoftLimitEnabled ? "ON" : "OFF";
+                // Alarm 레벨 표시
                 case "ALARM LEVEL":   return s.AlarmLevel.ToString();
+                // Emergency 레벨 표시
                 case "EMG LEVEL":     return s.EmergencyLevel.ToString();
+                // 정지 모드 표시
                 case "STOP MODE":     return s.StopMode.ToString();
+                // Home 방향 표시
                 case "DIRECTION":     return s.HomeDirection.ToString();
+                // Home 신호 표시
                 case "SIGNAL":        return s.HomeSignal.ToString();
+                // Home Offset 표시
                 case "OFFSET":        return FormatAxisValue(s.HomeOffset, axis, "0.###");
+                // Home Timeout 표시
                 case "TIMEOUT(ms)":   return s.HomeTimeoutMs.ToString(CultureInfo.InvariantCulture);
+                // Alarm Reset 레벨 표시
                 case "RESET LEVEL":   return s.AlarmResetLevel.ToString();
+                // Profile 모드 표시
                 case "PROFILE":       return s.ProfileMode.ToString();
+                // 가속 Jerk 표시
                 case "ACC JERK %":    return s.AccJerkPercent.ToString(CultureInfo.InvariantCulture);
+                // 감속 Jerk 표시
                 case "DEC JERK %":    return s.DecJerkPercent.ToString(CultureInfo.InvariantCulture);
             }
             return string.Empty;
@@ -378,19 +402,33 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             AxisSetup s = axis.Setup;
             switch (name)
             {
+                // Pulse 출력 모드 저장
                 case "OUTPUT MODE":   s.PulseOutput = (PulseOutput)v; break;
+                // Encoder 입력 모드 저장
                 case "INPUT MODE":    s.EncoderInput = (EncoderInput)v; break;
+                // Encoder 입력 소스 저장
                 case "INPUT SOURCE":  s.InputSource = (InputSource)v; break;
+                // Servo ON 레벨 저장
                 case "SERVO LEVEL":   s.ServoOnLevel = (ActiveLevel)v; break;
+                // InPosition 방식 저장
                 case "INPOSITION":    s.InPosition = (InPosition)v; break;
+                // Plus Limit 레벨 저장
                 case "POS LEVEL":     s.PositiveLimitLevel = (ActiveLevel)v; break;
+                // Minus Limit 레벨 저장
                 case "NEG LEVEL":     s.NegativeLimitLevel = (ActiveLevel)v; break;
+                // Alarm 레벨 저장
                 case "ALARM LEVEL":   s.AlarmLevel = (ActiveLevel)v; break;
+                // Emergency 레벨 저장
                 case "EMG LEVEL":     s.EmergencyLevel = (ActiveLevel)v; break;
+                // 정지 모드 저장
                 case "STOP MODE":     s.StopMode = (StopMode)v; break;
+                // Home 방향 저장
                 case "DIRECTION":     s.HomeDirection = (HomeDirection)v; break;
+                // Home 신호 저장
                 case "SIGNAL":        s.HomeSignal = (HomeSignal)v; break;
+                // Alarm Reset 레벨 저장
                 case "RESET LEVEL":   s.AlarmResetLevel = (ActiveLevel)v; break;
+                // Profile 모드 저장
                 case "PROFILE":       s.ProfileMode = (AxisProfileMode)v; break;
             }
         }
@@ -401,33 +439,43 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             AxisConfig c = axis.Config;
             switch (name)
             {
+                // 최대 속도 저장
                 case "MAX VELOCITY":
                     if (TryParseDouble(text, out var maxVel)) c.MaxVelocity = AxisUnitConverter.FromDisplay(maxVel, axis);
                     break;
+                // 단위당 Pulse 저장
                 case "PULSES/UNIT":
                     if (TryParseDouble(text, out var ppu)) s.PulsesPerUnit = FromDisplayPulsesPerUnit(ppu, axis);
                     break;
+                // InPosition 허용오차 저장
                 case "TOLERANCE":
                     if (TryParseDouble(text, out var tol)) c.InPositionTolerance = AxisUnitConverter.FromDisplay(tol, axis);
                     break;
+                // Plus Soft Limit 저장
                 case "SW POSITIVE":
                     if (TryParseDouble(text, out var swP)) s.SoftLimitPlus = AxisUnitConverter.FromDisplay(swP, axis);
                     break;
+                // Minus Soft Limit 저장
                 case "SW NEGATIVE":
                     if (TryParseDouble(text, out var swN)) s.SoftLimitMinus = AxisUnitConverter.FromDisplay(swN, axis);
                     break;
+                // Soft Limit 사용 여부 저장
                 case "SW ENABLED":
                     s.SoftLimitEnabled = ParseOnOff(text, s.SoftLimitEnabled);
                     break;
+                // Home Offset 저장
                 case "OFFSET":
                     if (TryParseDouble(text, out var off)) s.HomeOffset = AxisUnitConverter.FromDisplay(off, axis);
                     break;
+                // Home Timeout 저장
                 case "TIMEOUT(ms)":
                     if (int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var to)) s.HomeTimeoutMs = to;
                     break;
+                // 가속 Jerk 저장
                 case "ACC JERK %":
                     if (int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var aj)) s.AccJerkPercent = aj;
                     break;
+                // 감속 Jerk 저장
                 case "DEC JERK %":
                     if (int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var dj)) s.DecJerkPercent = dj;
                     break;

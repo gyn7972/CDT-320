@@ -33,9 +33,12 @@ namespace QMC.CDT320.Interlocks
 
             switch (request.MoveKind)
             {
+                // 일반 이동 인터락 확인
                 case MotionGuardMoveKind.AxisMove:
+                // 티칭 이동 인터락 확인
                 case MotionGuardMoveKind.AxisTeachingMove:
                     return CanMoveRearPickerX(request.Machine, out reason);
+                // 홈 이동 인터락 확인
                 case MotionGuardMoveKind.AxisHome:
                     return CanHomeRearPickerX(request.Machine, out reason);
                 default:
@@ -57,9 +60,12 @@ namespace QMC.CDT320.Interlocks
 
             switch (request.MoveKind)
             {
+                // 일반 이동 인터락 확인
                 case MotionGuardMoveKind.AxisMove:
+                // 티칭 이동 인터락 확인
                 case MotionGuardMoveKind.AxisTeachingMove:
                     return CanMoveRearPickerY(request.Machine, out reason);
+                // 홈 이동 인터락 확인
                 case MotionGuardMoveKind.AxisHome:
                     return CanHomeRearPickerY(request.Machine, out reason);
                 default:
@@ -87,9 +93,12 @@ namespace QMC.CDT320.Interlocks
 
             switch (request.MoveKind)
             {
+                // 일반 이동 인터락 확인
                 case MotionGuardMoveKind.AxisMove:
+                // 티칭 이동 인터락 확인
                 case MotionGuardMoveKind.AxisTeachingMove:
                     return CanMoveRearPickerT(request.Machine, request.MovingName, out reason);
+                // 홈 이동 인터락 확인
                 case MotionGuardMoveKind.AxisHome:
                     return CanHomeRearPickerT(request.Machine, request.MovingName, out reason);
                 default:
@@ -232,9 +241,12 @@ namespace QMC.CDT320.Interlocks
 
             switch (request.MoveKind)
             {
+                // 일반 이동 인터락 확인
                 case MotionGuardMoveKind.AxisMove:
+                // 티칭 이동 인터락 확인
                 case MotionGuardMoveKind.AxisTeachingMove:
                     return CanMoveRearPickerZ(request.Machine, request.MovingName, out reason);
+                // 홈 이동 인터락 확인
                 case MotionGuardMoveKind.AxisHome:
                     return CanHomeRearPickerZ(request.Machine, request.MovingName, out reason);
                 default:
@@ -347,15 +359,19 @@ namespace QMC.CDT320.Interlocks
 
             switch (movingName)
             {
+                // 리어 피커 T0축 처리
                 case "RearPickerT0":
                     zAxis = PickerAxis.PickerZ0;
                     return true;
+                // 리어 피커 T1축 처리
                 case "RearPickerT1":
                     zAxis = PickerAxis.PickerZ1;
                     return true;
+                // 리어 피커 T2축 처리
                 case "RearPickerT2":
                     zAxis = PickerAxis.PickerZ2;
                     return true;
+                // 리어 피커 T3축 처리
                 case "RearPickerT3":
                     zAxis = PickerAxis.PickerZ3;
                     return true;

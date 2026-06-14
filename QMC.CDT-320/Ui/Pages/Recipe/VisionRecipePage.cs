@@ -95,6 +95,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 var wafer = VisionHub.Wafer;
                 switch (actionName)
                 {
+                    // Wafer Vision GRAB 실행
                     case "GRAB":
                         if (wafer != null && wafer.IsConnected)
                         {
@@ -110,6 +111,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                             return -1;
                         }
 
+                    // Wafer Vision MATCH 실행
                     case "MATCH":
                         if (wafer != null && wafer.IsConnected)
                         {
@@ -132,6 +134,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                             return -1;
                         }
 
+                    // 빠른 셔터 액션 안내
                     case "FAST SHUTTER":
                         QMC.Common.MessageDialog.Show("FAST SHUTTER will call the Vision PC exposure API in a later stage.",
                             "FAST SHUTTER", MessageBoxButtons.OK, MessageBoxIcon.Information);

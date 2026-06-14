@@ -589,6 +589,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 return;
             }
 
+            if (IsMotFileSaveDisabledDuringSetup())
             {
                 QMC.Common.MessageDialog.Show("현재 잔비 Setup중에는 mot 파일 저장 불가.");
                 return;
@@ -608,6 +609,11 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                     QMC.Common.MessageDialog.Show("Parameter save failed. 0x" + r.ToString("X4"));
                 }
             }
+        }
+
+        private static bool IsMotFileSaveDisabledDuringSetup()
+        {
+            return true;
         }
 
         private static string StateText(BaseAxis ax)

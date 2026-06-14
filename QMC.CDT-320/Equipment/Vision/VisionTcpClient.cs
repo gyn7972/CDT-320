@@ -229,9 +229,13 @@ namespace QMC.CDT320.VisionComm
                 string k = s.Substring(0, eq), v = s.Substring(eq + 1);
                 switch (k)
                 {
+                    // Vision 결과 X 좌표 파싱
                     case "x":     double.TryParse(v, out var xx);  r.X        = xx; break;
+                    // Vision 결과 Y 좌표 파싱
                     case "y":     double.TryParse(v, out var yy);  r.Y        = yy; break;
+                    // Vision 결과 회전각 파싱
                     case "r":     double.TryParse(v, out var rr);  r.AngleDeg = rr; break;
+                    // Vision 결과 Score 파싱
                     case "score": double.TryParse(v, out var ss);  r.Score    = ss; break;
                 }
             }

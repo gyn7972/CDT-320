@@ -54,12 +54,16 @@ namespace QMC.CDT320.Materials
         {
             switch (Normalize(state))
             {
+                // EMPTY 표시명 반환
                 case WaferMaterialState.Empty:
                     return "EMPTY";
+                // WORKING 표시명 반환
                 case WaferMaterialState.Working:
                     return "WORKING";
+                // FINISH 표시명 반환
                 case WaferMaterialState.Finish:
                     return "FINISH";
+                // WORK READY 표시명 반환
                 case WaferMaterialState.WorkReady:
                     return "WORK READY";
                 default:
@@ -71,16 +75,21 @@ namespace QMC.CDT320.Materials
         {
             switch ((int)state)
             {
+                // Empty 상태 코드 정규화
                 case 0:
                     return WaferMaterialState.Empty;
+                // Ready 상태 코드 정규화
                 case 1:
                     return WaferMaterialState.Ready;
+                // WorkReady 계열 상태 코드 정규화
                 case 2:
                 case 3:
                 case 4:
                     return WaferMaterialState.WorkReady;
+                // Working 상태 코드 정규화
                 case 5:
                     return WaferMaterialState.Working;
+                // Finish 계열 상태 코드 정규화
                 case 6:
                 case 7:
                     return WaferMaterialState.Finish;

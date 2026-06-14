@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -105,54 +105,71 @@ namespace QMC.CDT320.Sequencing
 
             switch (CurrentStep)
             {
+                // 유닛 확인
                 case PickerPlaceStep.CheckUnit:
                     return Task.FromResult(CheckUnit());
 
+                // 픽업 피커 목록 생성
                 case PickerPlaceStep.BuildPickedPickerList:
                     return Task.FromResult(BuildPickedPickerList());
 
+                // 전체 피커 Z로 어보이드 이동
                 case PickerPlaceStep.MoveAllPickerZToAvoid:
                     return MoveAllPickerZToAvoidAsync(ct);
 
+                // 다음 피커 선택
                 case PickerPlaceStep.SelectNextPicker:
                     return Task.FromResult(SelectNextPicker());
 
+                // 아웃풋 사이드 결정
                 case PickerPlaceStep.ResolveOutputSide:
                     return Task.FromResult(ResolveOutputSide());
 
+                // 아웃풋 스테이지 대상 예약
                 case PickerPlaceStep.ReserveOutputStageTarget:
                     return Task.FromResult(ReserveOutputStageTarget());
 
+                // 아웃풋 스테이지 로드 위치 이동
                 case PickerPlaceStep.MoveOutputStageLoadPosition:
                     return MoveOutputStageLoadPositionAsync(ct);
 
+                // 아웃풋 스테이지 수령 위치 이동
                 case PickerPlaceStep.MoveOutputStageReceivePosition:
                     return MoveOutputStageReceivePositionAsync(ct);
 
+                // 플레이스 대상 계산
                 case PickerPlaceStep.CalculatePlaceTarget:
                     return Task.FromResult(CalculatePlaceTarget());
 
+                // 피커 XY 픽업 T 이동
                 case PickerPlaceStep.MovePickerXYPickT:
                     return MovePickerXYPickTAsync(ct);
 
+                // 플레이스 대상 검증
                 case PickerPlaceStep.VerifyPlaceTarget:
                     return Task.FromResult(VerifyPlaceTarget());
 
+                // 피커 Z 플레이스 이동
                 case PickerPlaceStep.MovePickerZPlace:
                     return MovePickerZPlaceAsync(ct);
 
+                // 진공 OFF 처리
                 case PickerPlaceStep.VacuumOff:
                     return VacuumOffAsync(ct);
 
+                // 블로우 OFF 처리
                 case PickerPlaceStep.BlowOff:
                     return BlowOffAsync(ct);
 
+                // 피커 Z로 어보이드 이동
                 case PickerPlaceStep.MovePickerZToAvoid:
                     return MovePickerZToAvoidAsync(ct);
 
+                // 자재로 아웃풋 스테이지 갱신
                 case PickerPlaceStep.UpdateMaterialToOutputStage:
                     return Task.FromResult(UpdateMaterialToOutputStage());
 
+                // 다음 피커 또는 완료 선택
                 case PickerPlaceStep.SelectNextPickerOrComplete:
                     return Task.FromResult(SelectNextPickerOrComplete());
 
@@ -619,3 +636,4 @@ namespace QMC.CDT320.Sequencing
         }
     }
 }
+

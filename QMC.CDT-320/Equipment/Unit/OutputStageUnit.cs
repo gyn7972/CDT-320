@@ -14,124 +14,82 @@ using QMC.Common.Logging;
 namespace QMC.CDT320
 {
     // ==========================================================================
-    // 구현 보조 주석입니다.
 
-    /// <summary>
-    ///
-    /// </summary>
+    /// <summary>출력 스테이지에 배출할 다이 등급입니다.</summary>
     public enum DieGrade
     {
-        /// <summary>구현 설명 주석입니다.</summary>
+        /// <summary>양품 다이입니다.</summary>
         Good,
 
-        /// <summary>구현 설명 주석입니다.</summary>
+        /// <summary>불량 다이입니다.</summary>
         Ng
     }
 
-    /// <summary>
-    ///
-    ///
-    /// </summary>
+    /// <summary>TPU에서 출력 스테이지로 다이를 넘길 때 사용하는 요청 정보입니다.</summary>
     public class ReceiveDieRequest
     {
-        /// <summary>구현 설명 주석입니다.</summary>
+        /// <summary>다이 등급입니다.</summary>
         public DieGrade Grade { get; set; }
 
-        /// <summary>
-        ///
-        ///
-        /// </summary>
+        /// <summary>TPU 기준 X 보정값입니다.</summary>
         public double TpuOffsetX { get; set; }
 
-        /// <summary>
-        ///
-        ///
-        /// </summary>
+        /// <summary>TPU 기준 Y 보정값입니다.</summary>
         public double TpuOffsetY { get; set; }
 
-        /// <summary>
-        ///
-        ///
-        /// </summary>
+        /// <summary>비전 기준 X 보정값입니다.</summary>
         public double VisionOffsetX { get; set; }
 
-        /// <summary>
-        ///
-        ///
-        /// </summary>
+        /// <summary>비전 기준 Y 보정값입니다.</summary>
         public double VisionOffsetY { get; set; }
     }
 
     // --------------------------------------------------------------------------
 
-    /// <summary>
-    ///
-    ///
-    /// </summary>
+    /// <summary>TPU와 출력 스테이지 사이의 수동/시퀀스 연동 인터페이스입니다.</summary>
     public interface ITpuUnit
     {
-        /// <summary>
-        ///
-        ///
-        /// </summary>
+        /// <summary>출력 스테이지가 Place 받을 준비가 되었음을 TPU에 알립니다.</summary>
         void NotifyPlaceReady();
 
-        /// <summary>
-        ///
-        ///
-        /// </summary>
-        /// <param name="value">입력 값입니다.</param>
+        /// <summary>TPU Place 완료를 대기합니다.</summary>
+        /// <param name="timeoutMs">대기 시간입니다.</param>
         /// <returns>처리 결과입니다.</returns>
         Task<bool> WaitPlaceDoneAsync(int timeoutMs = 3000);
 
-        /// <summary>
-        ///
-        ///
-        /// </summary>
+        /// <summary>다음 다이를 받을 준비가 되었음을 TPU에 알립니다.</summary>
         void NotifyReadyForNextDie();
 
-        /// <summary>
-        ///
-        ///
-        /// </summary>
-        /// <param name="value">입력 값입니다.</param>
+        /// <summary>콜렛 클리닝을 TPU에 요청합니다.</summary>
+        /// <param name="timeoutMs">대기 시간입니다.</param>
         /// <returns>처리 결과입니다.</returns>
         Task<bool> RequestColletCleaningAsync(int timeoutMs = 10000);
     }
 
-    /// <summary>
-    ///
-    ///
-    /// </summary>
+    /// <summary>출력 카세트/피더로 bin 교체를 요청하는 인터페이스입니다.</summary>
     public interface IOutputUnloaderUnit
     {
-        /// <summary>
-        ///
-        ///
-        /// </summary>
-        /// <param name="value">입력 값입니다.</param>
-        /// <param name="value">입력 값입니다.</param>
+        /// <summary>지정 등급 카세트로 bin 교체를 요청합니다.</summary>
+        /// <param name="grade">다이 등급입니다.</param>
+        /// <param name="timeoutMs">대기 시간입니다.</param>
         /// <returns>처리 결과입니다.</returns>
         Task<bool> RequestWaferChangeAsync(DieGrade grade, int timeoutMs = 0);
     }
 
     // ==========================================================================
-    // 구현 보조 주석입니다.
-    /// <summary>
-    ///
-    /// </summary>
+    /// <summary>개별 StageModule 설정 데이터입니다.</summary>
     public class StageModuleSetup : ISetupData
     {
         
     }
 
-    /// <summary>구현 설명 주석입니다.</summary>
+    /// <summary>개별 StageModule 구성 데이터입니다.</summary>
     public class StageModuleConfig : IConfigData
     {
       
     }
 
-    /// <summary>구현 설명 주석입니다.</summary>
+    /// <summary>개별 StageModule 위치 레시피입니다.</summary>
     public class StageModuleRecipe : IRecipeData
     {
         public double WorkPositionZ { get; set; } = 10.0;
@@ -143,13 +101,13 @@ namespace QMC.CDT320
 
     // --------------------------------------------------------------------------
 
-    /// <summary>구현 설명 주석입니다.</summary>
+    /// <summary>출력 스테이지 설정 데이터입니다.</summary>
     public class OutputStageSetup : ISetupData
     {
         [DataMember] public bool IsSimulationMode { get; set; }
     }
 
-    /// <summary>구현 설명 주석입니다.</summary>
+    /// <summary>출력 스테이지 구성 데이터입니다.</summary>
     public class OutputStageConfig : IConfigData
     {
         [DataMember] public bool bDryRun { get; set; }
@@ -159,11 +117,11 @@ namespace QMC.CDT320
             get { return bDryRun; }
             set { bDryRun = value; }
         }
-        /// <summary>구현 설명 주석입니다.</summary>
+        /// <summary>콜렛 클리닝 대기 시간입니다.</summary>
         [DataMember] public int ColletCleaningTimeoutMs { get; set; } = 10000;
     }
 
-    /// <summary>구현 설명 주석입니다.</summary>
+    /// <summary>출력 스테이지 축별 위치 레시피입니다.</summary>
     public class OutputStageRecipe : IRecipeData
     {
         [DataMember] public StageAxisPositions GoodStageY { get; set; } = new StageAxisPositions();
@@ -187,23 +145,19 @@ namespace QMC.CDT320
     }
 
     // ==========================================================================
-    // 구현 보조 주석입니다.
     // ==========================================================================
-    /// <summary>
-    ///
-    /// </summary>
+    /// <summary>GOOD/NG 개별 스테이지 모듈입니다.</summary>
     public class StageModule : BaseUnit<StageModuleSetup, StageModuleConfig, StageModuleRecipe>
     {
         // ----------------------------------------------------------------------
-        // 구현 보조 주석입니다.
         // ----------------------------------------------------------------------
         public BaseAxis StageY { get; private set; }
         public BaseAxis StageZ { get; private set; }
         public bool HasStageZ { get; private set; }
 
         // ----------------------------------------------------------------------
-        // 구현 보조 주석입니다.
-        /// <param name="value">입력 값입니다.</param>
+        /// <summary>StageZ가 있는 스테이지 모듈을 생성합니다.</summary>
+        /// <param name="moduleName">모듈 이름입니다.</param>
         public StageModule(string moduleName) : this(moduleName, true)
         {
         }
@@ -222,13 +176,8 @@ namespace QMC.CDT320
         }
 
         // ----------------------------------------------------------------------
-        // 구현 보조 주석입니다.
 
-        /// <summary>
-        ///
-        ///
-        ///
-        /// </summary>
+        /// <summary>StageZ가 Avoid 위치에 있는지 확인합니다.</summary>
         /// <returns>처리 결과입니다.</returns>
         public bool IsAtAvoidPosition()
         {
@@ -240,10 +189,7 @@ namespace QMC.CDT320
             return diff <= tolerance;
         }
 
-        /// <summary>
-        ///
-        ///
-        /// </summary>
+        /// <summary>StageZ를 Avoid 위치로 이동합니다.</summary>
         /// <returns>처리 결과입니다.</returns>
         public async Task<bool> MoveToAvoidPositionAsync()
         {
@@ -276,10 +222,7 @@ namespace QMC.CDT320
             return true;
         }
 
-        /// <summary>
-        ///
-        ///
-        /// </summary>
+        /// <summary>StageZ를 Work 위치로 이동합니다.</summary>
         /// <returns>처리 결과입니다.</returns>
         public async Task<bool> MoveToWorkPositionAsync()
         {
@@ -314,10 +257,8 @@ namespace QMC.CDT320
             return true;
         }
 
-        /// <summary>
-        ///
-        /// </summary>
-        /// <param name="value">입력 값입니다.</param>
+        /// <summary>StageY를 지정 위치로 이동합니다.</summary>
+        /// <param name="targetY">목표 Y 위치입니다.</param>
         /// <returns>처리 결과입니다.</returns>
         public async Task<bool> MoveYAsync(double targetY)
         {
@@ -352,10 +293,7 @@ namespace QMC.CDT320
             return true;
         }
 
-        /// <summary>
-        ///
-        ///
-        /// </summary>
+        /// <summary>StageY를 Home 위치로 이동합니다.</summary>
         /// <returns>처리 결과입니다.</returns>
         public async Task<bool> MoveToHomeAsync()
         {
@@ -396,16 +334,12 @@ namespace QMC.CDT320
     }
 
     // ==========================================================================
-    // 구현 보조 주석입니다.
     // ==========================================================================
 
-    /// <summary>
-    //
-    /// </summary>
+    /// <summary>GOOD/NG 출력 스테이지와 BinCamera 축을 관리하는 유닛입니다.</summary>
     public class OutputStageUnit : BaseUnit<OutputStageSetup, OutputStageConfig, OutputStageRecipe>, IUnitJogController
     {
         // ----------------------------------------------------------------------
-        // 구현 보조 주석입니다.
         // ----------------------------------------------------------------------
 
         public StageModule GoodStage { get; private set; }
@@ -446,28 +380,18 @@ namespace QMC.CDT320
         public BaseDigitalOutput BottomVisionBlowOffOut { get; private set; }
 
         // ----------------------------------------------------------------------
-        // 구현 보조 주석입니다.
 
-        /// <summary>
-        ///
-        ///
-        /// </summary>
+        /// <summary>TPU 연동 인터페이스입니다.</summary>
         public ITpuUnit Tpu { get; private set; }
 
-        /// <summary>
-        ///
-        ///
-        /// </summary>
+        /// <summary>출력 Unloader 연동 인터페이스입니다.</summary>
         public IOutputUnloaderUnit Unloader { get; private set; }
 
         // ----------------------------------------------------------------------
-        // 구현 보조 주석입니다.
 
-        /// <summary>
-        ///
-        /// </summary>
-        /// <param name="value">입력 값입니다.</param>
-        /// <param name="value">입력 값입니다.</param>
+        /// <summary>출력 스테이지 유닛을 생성하고 GOOD/NG 스테이지와 I/O를 등록합니다.</summary>
+        /// <param name="tpu">TPU 연동 인터페이스입니다.</param>
+        /// <param name="unloader">출력 Unloader 연동 인터페이스입니다.</param>
         public OutputStageUnit(ITpuUnit tpu, IOutputUnloaderUnit unloader)
             : base("OutputStageUnit")
         {
@@ -509,7 +433,6 @@ namespace QMC.CDT320
             BottomVisionBlowOnOut  = RegisterOutput("BottomVisionBlow");
             BottomVisionBlowOffOut = RegisterOutput("BottomVisionBlowOff");
 
-            // 구현 보조 주석입니다.
             Components.Add(GoodStage);
             Components.Add(NgStage);
             Components.Add(OutputCameraX);
@@ -1446,14 +1369,19 @@ namespace QMC.CDT320
         {
             switch (axis)
             {
+                // NG 스테이지 Y축 장착 여부 확인
                 case BinStageAxis.NgBinY:
                     return NgStage != null && NgStage.StageY != null;
+                // NG 스테이지 Z축 장착 여부 확인
                 case BinStageAxis.NgBinZ:
                     return NgStage != null && NgStage.HasStageZ && NgStage.StageZ != null;
+                // GOOD 스테이지 Y축 장착 여부 확인
                 case BinStageAxis.GoodBinY:
                     return GoodStage != null && GoodStage.StageY != null;
+                // GOOD 스테이지 Z축 장착 여부 확인
                 case BinStageAxis.GoodBinZ:
                     return GoodStage != null && GoodStage.HasStageZ && GoodStage.StageZ != null;
+                // 아웃풋 비전 X축 장착 여부 확인
                 case BinStageAxis.VisionX:
                     return OutputCameraX != null;
                 default:
@@ -1499,11 +1427,16 @@ namespace QMC.CDT320
         {
             switch (axis)
             {
+                // NG 스테이지 Y축 반환
                 case BinStageAxis.NgBinY: return NgStage.StageY;
+                // NG 스테이지 Z축은 별도 StageModuleRecipe 영역
                 case BinStageAxis.NgBinZ:
                     throw new InvalidOperationException("NG Stage does not have Z axis.");
+                // GOOD 스테이지 Y축 반환
                 case BinStageAxis.GoodBinY: return GoodStage.StageY;
+                // GOOD 스테이지 Z축 반환
                 case BinStageAxis.GoodBinZ: return GoodStage.StageZ;
+                // 아웃풋 비전 X축 반환
                 case BinStageAxis.VisionX: return OutputCameraX;
                 default: throw new ArgumentOutOfRangeException("axis");
             }
@@ -1581,14 +1514,19 @@ namespace QMC.CDT320
             Recipe.EnsurePositionObjects();
             switch (axis)
             {
+                // NG 스테이지 Y축 레시피 포지션 반환
                 case BinStageAxis.NgBinY:
                     return Recipe.NGStageY;
+                // NG 스테이지 Z축 레시피 포지션은 StageModuleRecipe 사용
                 case BinStageAxis.NgBinZ:
                     throw new InvalidOperationException("NgStage Z teaching positions are defined in StageModuleRecipe, not OutputStageRecipe.");
+                // GOOD 스테이지 Y축 레시피 포지션 반환
                 case BinStageAxis.GoodBinY:
                     return Recipe.GoodStageY;
+                // GOOD 스테이지 Z축 레시피 포지션 반환
                 case BinStageAxis.GoodBinZ:
                     return Recipe.GoodStageZ;
+                // 아웃풋 비전 X축 레시피 포지션 반환
                 case BinStageAxis.VisionX:
                     return Recipe.VisionX;
                 default:
@@ -1629,29 +1567,17 @@ namespace QMC.CDT320
         }
 
         // ======================================================================
-        // 구현 보조 주석입니다.
 
-        /// <summary>
-        ///
-        /// </summary>
-        /// <param name="value">입력 값입니다.</param>
+        /// <summary>대상 스테이지의 반대쪽 스테이지를 반환합니다.</summary>
+        /// <param name="target">기준 스테이지입니다.</param>
         /// <returns>처리 결과입니다.</returns>
         private StageModule GetOppositeStage(StageModule target)
         {
             return ReferenceEquals(target, GoodStage) ? NgStage : GoodStage;
         }
 
-        /// <summary>
-        ///
-        ///
-        ///
-        ///
-        /// <para>
-        ///
-        ///
-        /// </para>
-        /// </summary>
-        /// <param name="value">입력 값입니다.</param>
+        /// <summary>대상 StageY 이동 전 반대쪽 스테이지 Z가 Avoid 위치인지 보장합니다.</summary>
+        /// <param name="targetStage">이동 대상 스테이지입니다.</param>
         /// <returns>처리 결과입니다.</returns>
         private async Task<bool> EnsureOppositeStageAvoidedAsync(StageModule targetStage)
         {
@@ -1704,20 +1630,10 @@ namespace QMC.CDT320
         }
 
         // ======================================================================
-        // 구현 보조 주석입니다.
         // ======================================================================
 
-        /// <summary>
-        ///
-        /// <para>
-        ///
-        ///
-        ///
-        ///
-        ///
-        /// </para>
-        /// </summary>
-        /// <param name="value">입력 값입니다.</param>
+        /// <summary>TPU에서 받은 다이를 등급에 맞는 GOOD/NG 스테이지로 수신합니다.</summary>
+        /// <param name="request">다이 수신 요청입니다.</param>
         /// <returns>처리 결과입니다.</returns>
         public async Task<bool> ReceiveDieAsync(ReceiveDieRequest request)
         {
@@ -1730,9 +1646,6 @@ namespace QMC.CDT320
                 ", TpuOffsetY=" + request.TpuOffsetY.ToString("F3") +
                 ", VisionOffsetY=" + request.VisionOffsetY.ToString("F3"));
 
-            // 구현 보조 주석입니다.
-            // 구현 보조 주석입니다.
-            // 구현 보조 주석입니다.
             bool interlockOk = await EnsureOppositeStageAvoidedAsync(target);
             if (!interlockOk)
                 return false;
@@ -1754,7 +1667,6 @@ namespace QMC.CDT320
                     "' has no StageZ. StageZ work move skipped.");
             }
 
-            // 구현 보조 주석입니다.
             // Final Y = base position + TPU offset + bottom vision offset.
             double baseY = target.Recipe.HomePositionY;
             double finalY = baseY
@@ -1772,8 +1684,6 @@ namespace QMC.CDT320
             if (!moveYOk)
                 return false;
 
-            // 구현 보조 주석입니다.
-            // 구현 보조 주석입니다.
             Tpu.NotifyPlaceReady();
             Console.WriteLine(
                 "[INFO]  '" + Name + "' -> TPU에 Place 준비 완료 신호 전송 완료.");
@@ -1782,27 +1692,14 @@ namespace QMC.CDT320
         }
 
         // ======================================================================
-        // 구현 보조 주석입니다.
         // ======================================================================
 
-        /// <summary>
-        ///
-        /// <para>
-        ///
-        ///
-        ///
-        ///
-        ///
-        ///
-        /// </para>
-        /// </summary>
+        /// <summary>TPU Place 완료 후 BinCamera로 안착 상태를 검사합니다.</summary>
         /// <returns>처리 결과입니다.</returns>
         public async Task<bool> InspectBinPositionAsync()
         {
             Console.WriteLine("[INFO]  '" + Name + "' -> Bin 검사 시작. TPU Place 완료 대기 중...");
 
-            // 구현 보조 주석입니다.
-            // 구현 보조 주석입니다.
             bool placeDone = await Tpu.WaitPlaceDoneAsync();
             if (!placeDone)
             {
@@ -1818,7 +1715,6 @@ namespace QMC.CDT320
 
             Console.WriteLine("[INFO]  '" + Name + "' -> TPU 후퇴 확인. BinCamera 진입 중...");
 
-            // 구현 보조 주석입니다.
             int moveResult = await MoveStageAxisAndVerifyAsync(
                 BinStageAxis.VisionX,
                 Recipe.VisionX.ProcessPosition,
@@ -1838,16 +1734,11 @@ namespace QMC.CDT320
                 return false;
             }
 
-            // 구현 보조 주석입니다.
-            // 구현 보조 주석입니다.
-            // 구현 보조 주석입니다.
             Console.WriteLine("[INFO]  '" + Name + "' -> BinCamera 안착 검사 수행 중...");
             SimulatorBridge.Instance?.CameraExposeFlash("BIN");
             await Task.Delay(20).ContinueWith(_ => { }); // 촬상 소요 시간 시뮬레이션
             Console.WriteLine("[INFO]  '" + Name + "' -> BinCamera 검사 완료. 즉시 후퇴.");
 
-            // 구현 보조 주석입니다.
-            // 구현 보조 주석입니다.
             moveResult = await MoveStageAxisAndVerifyAsync(
                 BinStageAxis.VisionX,
                 Recipe.VisionX.AvoidPosition,
@@ -1867,8 +1758,6 @@ namespace QMC.CDT320
                 return false;
             }
 
-            // 구현 보조 주석입니다.
-            // 구현 보조 주석입니다.
             Tpu.NotifyReadyForNextDie();
             Console.WriteLine(
                 "[INFO]  '" + Name + "' -> TPU에 다음 다이 수신 가능 통보 완료.");
@@ -1877,21 +1766,10 @@ namespace QMC.CDT320
         }
 
         // ======================================================================
-        // 구현 보조 주석입니다.
         // ======================================================================
 
-        /// <summary>
-        ///
-        ///
-        /// <para>
-        ///
-        ///
-        ///
-        ///
-        ///
-        /// </para>
-        /// </summary>
-        /// <param name="value">입력 값입니다.</param>
+        /// <summary>지정 등급의 출력 bin이 가득 찼을 때 교체 위치로 이동하고 Unloader에 교체를 요청합니다.</summary>
+        /// <param name="grade">교체 대상 다이 등급입니다.</param>
         /// <returns>처리 결과입니다.</returns>
         public async Task<bool> RequestWaferChangeAsync(DieGrade grade)
         {
@@ -1901,14 +1779,10 @@ namespace QMC.CDT320
                 "[INFO]  '" + Name + "' -> WaferChange: Grade=" + grade +
                 " Bin Full. 교체 위치 이동 시작.");
 
-            // 구현 보조 주석입니다.
             bool interlockOk = await EnsureOppositeStageAvoidedAsync(target);
             if (!interlockOk)
                 return false;
 
-            // 구현 보조 주석입니다.
-            // 구현 보조 주석입니다.
-            // 구현 보조 주석입니다.
             if (target.HasStageZ && target.StageZ != null)
             {
                 Console.WriteLine(
@@ -1926,7 +1800,6 @@ namespace QMC.CDT320
                     "' has no StageZ. StageZ avoid move skipped.");
             }
 
-            // 구현 보조 주석입니다.
             Console.WriteLine(
                 "[INFO]  '" + Name + "' -> '" + target.Name +
                 "' 교체 위치(Y=" + target.Recipe.UnloadPositionY.ToString("F1") +
@@ -1940,8 +1813,6 @@ namespace QMC.CDT320
                 "[INFO]  '" + Name + "' -> '" + target.Name +
                 "' 교체 위치 도달. Unloader에 체인지 요청 전송 (Suspend 시작).");
 
-            // 구현 보조 주석입니다.
-            // 구현 보조 주석입니다.
             bool changeOk = await Unloader.RequestWaferChangeAsync(grade);
 
             if (!changeOk)
@@ -1957,25 +1828,9 @@ namespace QMC.CDT320
         }
 
         // ======================================================================
-        // 구현 보조 주석입니다.
         // ======================================================================
 
-        /// <summary>
-        ///
-        /// <para>
-        ///
-        /// </para>
-        /// <para>
-        ///
-        ///
-        ///
-        ///
-        ///
-        ///
-        ///
-        ///
-        /// </para>
-        /// </summary>
+        /// <summary>NG 스테이지를 클리닝 위치로 이동시킨 뒤 TPU 콜렛 클리닝을 요청합니다.</summary>
         /// <returns>처리 결과입니다.</returns>
         public async Task<bool> PerformColletCleaningAsync()
         {
@@ -2028,7 +1883,6 @@ namespace QMC.CDT320
             Console.WriteLine(
                 "[INFO]  '" + Name + "' -> 콜렛 클리닝 시퀀스 완료. NgStage 원위치.");
 
-            // 구현 보조 주석입니다.
             return cleaningOk;
         }
     }

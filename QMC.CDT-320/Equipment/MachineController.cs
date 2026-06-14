@@ -1885,47 +1885,65 @@ namespace QMC.CDT320
 
                 switch (axis.Name)
                 {
+                    // 인풋 리프터 Z축 HOME 준비
                     case "InputLifterZ": //확인후 제거
                         return await PrepareInputLifterZHomeAsync(axis).ConfigureAwait(false);
+                    // 아웃풋 리프터 Z축 HOME 준비
                     case "OutputLifterZ":
                         return await PrepareOutputLifterZHomeAsync(axis).ConfigureAwait(false);
+                    // 인풋 피더 Y축 HOME 준비
                     case "InputFeederY":
                         return await PrepareInputFeederYHomeByAxisAsync(axis).ConfigureAwait(false);
+                    // 아웃풋 피더 Y축 HOME 준비
                     case "OutputFeederY":
                         return await PrepareOutputFeederYHomeByAxisAsync(axis).ConfigureAwait(false);
+                    // 인풋 비전 X축 HOME 준비
                     case "CameraX":
                     case "InputVisionX":
                         return await PrepareInputVisionXHomeAsync(axis).ConfigureAwait(false);
+                    // 프론트 피커 X축 HOME 준비
                     case "FrontPickerX":
                         return await PrepareFrontPickerXHomeAsync(axis).ConfigureAwait(false);
+                    // 프론트 피커 Y축 HOME 준비
                     case "FrontPickerY":
                         return await PrepareFrontPickerYHomeAsync(axis).ConfigureAwait(false);
+                    // 프론트 피커 T축 HOME 준비
                     case "FrontPickerT0":
                     case "FrontPickerT1":
                     case "FrontPickerT2":
                     case "FrontPickerT3":
                         return await PrepareFrontPickerTHomeAsync(axis).ConfigureAwait(false);
+                    // 리어 피커 T축 HOME 준비
                     case "RearPickerT0":
                     case "RearPickerT1":
                     case "RearPickerT2":
                     case "RearPickerT3":
                         return await PrepareRearPickerTHomeAsync(axis).ConfigureAwait(false);
+                    // 리어 피커 Y축 HOME 준비
                     case "RearPickerY":
                         return await PrepareRearPickerYHomeAsync(axis).ConfigureAwait(false);
+                    // 리어 피커 X축 HOME 준비
                     case "RearPickerX":
                         return await PrepareRearPickerXHomeAsync(axis).ConfigureAwait(false);
+                    // 아웃풋 비전 X축 HOME 준비
                     case "OutputVisionX":
                         return await PrepareOutputVisionXHomeAsync(axis).ConfigureAwait(false);
+                    // GOOD 스테이지 Y축 HOME 준비
                     case "OutputGoodStageY":
                         return await PrepareOutputGoodStageYHomeAsync(axis).ConfigureAwait(false);
+                    // NG 스테이지 Y축 HOME 준비
                     case "OutputNGStageY":
                         return await PrepareOutputNgStageYHomeAsync(axis).ConfigureAwait(false);
+                    // 인풋 확장 Z축 HOME 준비
                     case "InputExpandingZ":
                         return await PrepareInputExpandingZHomeAsync(axis).ConfigureAwait(false);
+                    // 인풋 스테이지 Y축 HOME 준비
                     case "InputStageY":
                         return await PrepareInputStageYHomeAsync(axis).ConfigureAwait(false);
+                    // 인풋 스테이지 T축 HOME 준비
                     case "InputStageT":
                         return await PrepareInputStageTHomeAsync(axis).ConfigureAwait(false);
+                    // 니들 X축 HOME 준비
                     case "NeedleX":
                         return await PrepareNeedleXHomeAsync(axis).ConfigureAwait(false);
                     default:
@@ -2000,15 +2018,20 @@ namespace QMC.CDT320
                 {
                     //case "InputLifterZ":
                     //    return await MoveInputLifterZToAvoidAfterHomeAsync().ConfigureAwait(false);
+                    // 아웃풋 스테이지 Z축 HOME 후 Avoid 이동
                     case "GoodStage_StageZ":
                         return await MoveOutputStageZToAvoidAsync().ConfigureAwait(false);
+                    // 프론트 피커 Y축 HOME 후 Avoid 이동
                     case "FrontPickerY":
                         return await MoveFrontPickerYToAvoidAfterHomeAsync().ConfigureAwait(false);
+                    // 리어 피커 Y축 HOME 후 Avoid 이동
                     case "RearPickerY":
                         return await MoveRearPickerYToAvoidAfterHomeAsync().ConfigureAwait(false);
+                    // 인풋 피더 HOME 후 리프트 다운
                     case "InputFeederY":
                     case "FeederY":
                         return await MoveInputFeederLiftDownAfterHomeAsync().ConfigureAwait(false);
+                    // 인풋 스테이지 Y축 HOME 후 Avoid 이동
                     case "StageY":
                         return await MoveInputStageYToAvoidAfterHomeAsync().ConfigureAwait(false);
                     default:
@@ -2114,18 +2137,18 @@ namespace QMC.CDT320
             return await PrepareNeedleHomeAsync().ConfigureAwait(false);
         }
 
-        private async Task<int> PrepareNeedleHomeAsync()
+        private Task<int> PrepareNeedleHomeAsync()
         {
             Log("[INIT] Prepare NeedleX home: NeedleZ Avoid check.");
 
             var stage = _machine.InputStageUnit;
             if (stage != null && !stage.IsNeedleZInSafePosition())
             {
-                return FailInitializePreparation(
-                    "NeedleX HOME 불가: NeedleZ가 Avoid 위치에 있지 않습니다.");
+                return Task.FromResult(FailInitializePreparation(
+                    "NeedleX HOME 불가: NeedleZ가 Avoid 위치에 있지 않습니다."));
             }
 
-            return 0;
+            return Task.FromResult(0);
         }
 
         private async Task<int> PrepareInputVisionXHomeAsync(BaseAxis axis)
@@ -2133,24 +2156,24 @@ namespace QMC.CDT320
             return await PrepareInputVisionHomeAsync().ConfigureAwait(false);
         }
 
-        private async Task<int> PrepareInputVisionHomeAsync()
+        private Task<int> PrepareInputVisionHomeAsync()
         {
             Log("[INIT] Prepare InputVisionX home: InputFeederY Avoid check, feeder cylinder down.");
 
             var feeder = _machine.InputFeederUnit;
             if (feeder != null && !feeder.IsWaferFeederInAvoidPosition())
             {
-                return FailInitializePreparation(
-                    "InputVisionX HOME 불가: InputFeederY가 Avoid 위치에 있지 않습니다.");
+                return Task.FromResult(FailInitializePreparation(
+                    "InputVisionX HOME 불가: InputFeederY가 Avoid 위치에 있지 않습니다."));
             }
 
             if (feeder != null && !feeder.IsWaferFeederDown())
             {
-                return FailInitializePreparation(
-                    "InputVisionX HOME 불가: InputFeeder 실린더가 Down 위치에 있지 않습니다.");
+                return Task.FromResult(FailInitializePreparation(
+                    "InputVisionX HOME 불가: InputFeeder 실린더가 Down 위치에 있지 않습니다."));
             }
 
-            return 0;
+            return Task.FromResult(0);
         }
 
         private async Task<int> PrepareFrontPickerXHomeAsync(BaseAxis axis)
@@ -2510,9 +2533,13 @@ namespace QMC.CDT320
             PickerAxis zAxis;
             switch (axis.Name)
             {
+                // 프론트 T0축과 Z0축 Avoid 상태 연결
                 case "FrontPickerT0": zAxis = PickerAxis.PickerZ0; break;
+                // 프론트 T1축과 Z1축 Avoid 상태 연결
                 case "FrontPickerT1": zAxis = PickerAxis.PickerZ1; break;
+                // 프론트 T2축과 Z2축 Avoid 상태 연결
                 case "FrontPickerT2": zAxis = PickerAxis.PickerZ2; break;
+                // 프론트 T3축과 Z3축 Avoid 상태 연결
                 case "FrontPickerT3": zAxis = PickerAxis.PickerZ3; break;
                 default: return Task.FromResult(0);
             }
@@ -2542,9 +2569,13 @@ namespace QMC.CDT320
             PickerAxis zAxis;
             switch (axis.Name)
             {
+                // 리어 T0축과 Z0축 Avoid 상태 연결
                 case "RearPickerT0": zAxis = PickerAxis.PickerZ0; break;
+                // 리어 T1축과 Z1축 Avoid 상태 연결
                 case "RearPickerT1": zAxis = PickerAxis.PickerZ1; break;
+                // 리어 T2축과 Z2축 Avoid 상태 연결
                 case "RearPickerT2": zAxis = PickerAxis.PickerZ2; break;
+                // 리어 T3축과 Z3축 Avoid 상태 연결
                 case "RearPickerT3": zAxis = PickerAxis.PickerZ3; break;
                 default: return Task.FromResult(0);
             }
@@ -3663,7 +3694,7 @@ namespace QMC.CDT320
                 "InputFeederY.Avoid").ConfigureAwait(false);
         }
 
-        private async Task<int> PrepareInputFeederHomeAsync()
+        private Task<int> PrepareInputFeederHomeAsync()
         {
             Log("[INIT] Prepare InputFeeder home: InputLifterZ Avoid / unclamp / overload / ring check.");
 
@@ -3677,37 +3708,37 @@ namespace QMC.CDT320
             var front = _machine.PickerFrontUnit;
             if (front != null && !front.IsPickerAxisInTeachingPosition(PickerAxis.PickerX, "AvoidPosition"))
             {
-                return FailInitializePreparation(
-                    "InputFeeder HOME 불가: FrontPickerX가 Avoid 위치에 있지 않습니다.");
+                return Task.FromResult(FailInitializePreparation(
+                    "InputFeeder HOME 불가: FrontPickerX가 Avoid 위치에 있지 않습니다."));
             }
 
             var rear = _machine.PickerRearUnit;
             if (rear != null && !rear.IsPickerAxisInTeachingPosition(PickerAxis.PickerX, "AvoidPosition"))
             {
-                return FailInitializePreparation(
-                    "InputFeeder HOME 불가: RearPickerX가 Avoid 위치에 있지 않습니다.");
+                return Task.FromResult(FailInitializePreparation(
+                    "InputFeeder HOME 불가: RearPickerX가 Avoid 위치에 있지 않습니다."));
             }
 
             var feeder = _machine.InputFeederUnit;
             if (feeder == null)
-                return 0;
+                return Task.FromResult(0);
 
             if (feeder.IsWaferFeederOverload())
             {
-                return FailInitializePreparation(
-                    "InputFeeder HOME 불가: Overload 센서가 감지되었습니다.");
+                return Task.FromResult(FailInitializePreparation(
+                    "InputFeeder HOME 불가: Overload 센서가 감지되었습니다."));
             }
 
             if (!feeder.IsWaferFeederSimulationOrDryRun())
             {
                 if (!feeder.IsWaferFeederUnclamp())
                 {
-                    return FailInitializePreparation("InputFeeder unclamp failed.");
+                    return Task.FromResult(FailInitializePreparation("InputFeeder unclamp failed."));
                 }
 
                 if (feeder.IsWaferFeederRingCheck())
                 {
-                    return FailInitializePreparation("InputFeeder Ring Check.");
+                    return Task.FromResult(FailInitializePreparation("InputFeeder Ring Check."));
                 }
 
                 //if (!feeder.IsWaferFeederUp())
@@ -3716,7 +3747,7 @@ namespace QMC.CDT320
                 //}
             }
 
-            return 0;
+            return Task.FromResult(0);
         }
 
         private async Task<int> MoveInputFeederLiftDownAfterHomeAsync()
@@ -3787,62 +3818,62 @@ namespace QMC.CDT320
             }
         }
 
-        private async Task<int> PrepareOutputFeederHomeAsync()
+        private Task<int> PrepareOutputFeederHomeAsync()
         {
             Log("[INIT] Prepare OutputFeeder home: OutputLifterZ / OutputVisionX Avoid check, feeder unclamp/up.");
 
             var cassette = _machine.OutputCassetteUnit;
             if (cassette != null && !cassette.IsBinLifterZInAvoidPosition())
             {
-                return FailInitializePreparation(
-                    "OutputFeeder HOME 불가: OutputLifterZ가 Avoid 위치에 있지 않습니다.");
+                return Task.FromResult(FailInitializePreparation(
+                    "OutputFeeder HOME 불가: OutputLifterZ가 Avoid 위치에 있지 않습니다."));
             }
 
             var outputStage = _machine.OutputStageUnit;
             if (outputStage != null && !outputStage.IsVisionXInAvoidPosition())
             {
-                return FailInitializePreparation(
-                    "OutputFeeder HOME 불가: OutputVisionX가 Avoid 위치에 있지 않습니다.");
+                return Task.FromResult(FailInitializePreparation(
+                    "OutputFeeder HOME 불가: OutputVisionX가 Avoid 위치에 있지 않습니다."));
             }
 
             if (outputStage != null && outputStage.GoodStage != null && !outputStage.GoodStage.IsAtAvoidPosition())
             {
-                return FailInitializePreparation(
-                    "OutputFeeder HOME 불가: GoodBinZ(GoodStageZ)가 Avoid 위치에 있지 않습니다.");
+                return Task.FromResult(FailInitializePreparation(
+                    "OutputFeeder HOME 불가: GoodBinZ(GoodStageZ)가 Avoid 위치에 있지 않습니다."));
             }
 
             if (!DryRun && outputStage != null && outputStage.GoodBinGuideDownSensor != null && !outputStage.GoodBinGuideDownSensor.IsOn)
             {
-                return FailInitializePreparation(
-                    "OutputFeeder HOME 불가: Good Bin Guide 실린더가 Down 상태가 아닙니다.");
+                return Task.FromResult(FailInitializePreparation(
+                    "OutputFeeder HOME 불가: Good Bin Guide 실린더가 Down 상태가 아닙니다."));
             }
 
             var feeder = _machine.OutputFeederUnit;
             if (feeder == null)
-                return 0;
+                return Task.FromResult(0);
 
             if (feeder.IsFeederOverload())
             {
-                return FailInitializePreparation(
-                    "OutputFeeder HOME 불가: Overload 센서가 감지되었습니다.");
+                return Task.FromResult(FailInitializePreparation(
+                    "OutputFeeder HOME 불가: Overload 센서가 감지되었습니다."));
             }
 
             if (!feeder.IsFeederUnclamped())
             {
-                return FailInitializePreparation("OutputFeeder unclamp failed.");
+                return Task.FromResult(FailInitializePreparation("OutputFeeder unclamp failed."));
             }
 
             if (!feeder.IsFeederUp())
             {
-                return FailInitializePreparation("OutputFeeder lift up failed.");
+                return Task.FromResult(FailInitializePreparation("OutputFeeder lift up failed."));
             }
 
             if (feeder.IsBinFeederRingCheck())
             {
-                return FailInitializePreparation("OutputFeeder Ring Check.");
+                return Task.FromResult(FailInitializePreparation("OutputFeeder Ring Check."));
             }
 
-            return 0;
+            return Task.FromResult(0);
         }
 
         private async Task<int> MoveSharedRailAxesToAvoidAsync()
@@ -4519,12 +4550,19 @@ namespace QMC.CDT320
             }
         }
 
+        private static bool IsAutomaticStartTemporarilyDisabled()
+        {
+            return true;
+        }
+
         /// <summary>장비 START: Servo ON 후 현재 구성된 자동 시퀀스를 시작합니다.</summary>
         public async Task<int> StartAsync()
         {
             try
             {
-                return -1;
+                if (IsAutomaticStartTemporarilyDisabled())
+                    return -1;
+
                 LastActionFailureMessage = "";
 
                 if (_status == EquipmentStatus.Alarm)
@@ -5130,7 +5168,8 @@ namespace QMC.CDT320
         {
             try
             {
-                return -1;
+                if (IsAutomaticStartTemporarilyDisabled())
+                    return -1;
 
                 LastActionFailureMessage = "";
 

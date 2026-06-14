@@ -667,12 +667,19 @@ namespace QMC.CDT320
         {
             switch (axis)
             {
+                // 웨이퍼 스테이지 Y축 반환
                 case WaferStageAxis.WaferY: return StageY;
+                // 웨이퍼 스테이지 T축 반환
                 case WaferStageAxis.WaferT: return StageT;
+                // 웨이퍼 확장 Z축 반환
                 case WaferStageAxis.WaferExpandingZ: return ExpanderZ;
+                // 인풋 비전 X축 반환
                 case WaferStageAxis.VisionX: return CameraX;
+                // 니들 블록 X축 반환
                 case WaferStageAxis.NeedleX: return NeedleBlockX;
+                // 니들 Z축 반환
                 case WaferStageAxis.NeedleZ: return NeedleZ;
+                // 이젝트 핀 Z축 반환
                 case WaferStageAxis.EjectPinZ: return EjectPinZ;
                 default: throw new ArgumentOutOfRangeException("axis");
             }

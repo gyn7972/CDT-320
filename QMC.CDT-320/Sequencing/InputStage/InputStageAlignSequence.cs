@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
 using QMC.CDT320.Materials;
@@ -65,28 +65,40 @@ namespace QMC.CDT320.Sequencing
                 ct.ThrowIfCancellationRequested();
                 switch (CurrentStep)
                 {
+                    // 유닛 확인
                     case InputStageAlignStep.CheckUnit:
                         return Task.FromResult(CheckAlignUnit());
+                    // 비전 프로세스 위치 이동
                     case InputStageAlignStep.MoveVisionProcessPosition:
                         return MoveVisionProcessPositionAsync(ct);
+                    // 센터 마크 위치 이동
                     case InputStageAlignStep.MoveCenterMarkPosition:
                         return MoveCenterMarkPositionAsync(ct);
+                    // 센터 마크 찾기
                     case InputStageAlignStep.FindCenterMark:
                         return FindCenterMarkAsync(ct);
+                    // 세타 보정
                     case InputStageAlignStep.CorrectTheta:
                         return CorrectThetaAsync(ct);
+                    // 세타 허용오차 검증
                     case InputStageAlignStep.VerifyThetaTolerance:
                         return VerifyThetaToleranceAsync(ct);
+                    // 기준 1 위치 이동
                     case InputStageAlignStep.MoveRef1Position:
                         return MoveRef1PositionAsync(ct);
+                    // 기준 1 마크 찾기
                     case InputStageAlignStep.FindRef1Mark:
                         return FindRef1MarkAsync(ct);
+                    // 기준 2 위치 이동
                     case InputStageAlignStep.MoveRef2Position:
                         return MoveRef2PositionAsync(ct);
+                    // 기준 2 마크 찾기
                     case InputStageAlignStep.FindRef2Mark:
                         return FindRef2MarkAsync(ct);
+                    // 얼라인 결과 계산
                     case InputStageAlignStep.CalculateAlignResult:
                         return Task.FromResult(CalculateAlignResult());
+                    // 얼라인 결과 적용
                     case InputStageAlignStep.ApplyAlignResult:
                         return Task.FromResult(ApplyAlignResult());
                     default:
@@ -951,12 +963,19 @@ namespace QMC.CDT320.Sequencing
             {
                 switch (axis)
                 {
+                    // 웨이퍼 Y축 반환
                     case WaferStageAxis.WaferY: return Stage.StageY;
+                    // 웨이퍼 T축 반환
                     case WaferStageAxis.WaferT: return Stage.StageT;
+                    // 웨이퍼 확장 Z축 반환
                     case WaferStageAxis.WaferExpandingZ: return Stage.ExpanderZ;
+                    // 비전 X축 반환
                     case WaferStageAxis.VisionX: return Stage.CameraX;
+                    // 니들 X축 반환
                     case WaferStageAxis.NeedleX: return Stage.NeedleBlockX;
+                    // 니들 Z축 반환
                     case WaferStageAxis.NeedleZ: return Stage.NeedleZ;
+                    // 이젝트 핀 Z축 반환
                     case WaferStageAxis.EjectPinZ: return Stage.EjectPinZ;
                     default: return null;
                 }
@@ -1119,3 +1138,4 @@ namespace QMC.CDT320.Sequencing
         }
     }
 }
+

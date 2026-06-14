@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -32,8 +32,10 @@ namespace QMC.CDT320.Sequencing
                 ct.ThrowIfCancellationRequested();
                 switch (CurrentStep)
                 {
+                    // 피더 위치 확인
                     case InputCassetteLoadingStep.CheckFeederPosition:
                         return Task.FromResult(CheckFeederPosition(InputCassetteLoadingStep.MoveLoadingPosition));
+                    // 로딩 위치 이동
                     case InputCassetteLoadingStep.MoveLoadingPosition:
                         return MoveLoadingPositionAsync();
                     default:
@@ -50,3 +52,4 @@ namespace QMC.CDT320.Sequencing
         }
     }
 }
+

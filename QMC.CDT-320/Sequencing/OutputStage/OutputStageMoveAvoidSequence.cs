@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -40,30 +40,39 @@ namespace QMC.CDT320.Sequencing
 
                 switch (CurrentStep)
                 {
+                    // 유닛 확인
                     case OutputStageMoveAvoidStep.CheckUnit:
                         return Task.FromResult(CheckUnit(OutputStageMoveAvoidStep.MoveGoodStageZToAvoid));
 
+                    // GOOD 스테이지 Z로 어보이드 이동
                     case OutputStageMoveAvoidStep.MoveGoodStageZToAvoid:
                         return MoveAxisAsync(BinStageAxis.GoodBinZ, "Avoid", "Good Z avoid", OutputStageMoveAvoidStep.CheckGoodStageZAvoid, ct);
 
+                    // GOOD 스테이지 Z 어보이드 확인
                     case OutputStageMoveAvoidStep.CheckGoodStageZAvoid:
                         return Task.FromResult(CheckAxis(BinStageAxis.GoodBinZ, "Avoid", "Good Z avoid", OutputStageMoveAvoidStep.MoveGoodStageYToAvoid));
 
+                    // GOOD 스테이지 Y로 어보이드 이동
                     case OutputStageMoveAvoidStep.MoveGoodStageYToAvoid:
                         return MoveAxisAsync(BinStageAxis.GoodBinY, "Avoid", "Good Y avoid", OutputStageMoveAvoidStep.CheckGoodStageYAvoid, ct);
 
+                    // GOOD 스테이지 Y 어보이드 확인
                     case OutputStageMoveAvoidStep.CheckGoodStageYAvoid:
                         return Task.FromResult(CheckAxis(BinStageAxis.GoodBinY, "Avoid", "Good Y avoid", OutputStageMoveAvoidStep.MoveNgStageYToAvoid));
 
+                    // NG 스테이지 Y로 어보이드 이동
                     case OutputStageMoveAvoidStep.MoveNgStageYToAvoid:
                         return MoveAxisAsync(BinStageAxis.NgBinY, "Avoid", "NG Y avoid", OutputStageMoveAvoidStep.CheckNgStageYAvoid, ct);
 
+                    // NG 스테이지 Y 어보이드 확인
                     case OutputStageMoveAvoidStep.CheckNgStageYAvoid:
                         return Task.FromResult(CheckAxis(BinStageAxis.NgBinY, "Avoid", "NG Y avoid", OutputStageMoveAvoidStep.MoveVisionXToAvoid));
 
+                    // 비전 X로 어보이드 이동
                     case OutputStageMoveAvoidStep.MoveVisionXToAvoid:
                         return MoveAxisAsync(BinStageAxis.VisionX, "Avoid", "VisionX avoid", OutputStageMoveAvoidStep.CheckVisionXAvoid, ct);
 
+                    // 비전 X 어보이드 확인
                     case OutputStageMoveAvoidStep.CheckVisionXAvoid:
                         return Task.FromResult(CheckAxis(BinStageAxis.VisionX, "Avoid", "VisionX avoid", OutputStageMoveAvoidStep.Complete));
 
@@ -137,3 +146,4 @@ namespace QMC.CDT320.Sequencing
         }
     }
 }
+

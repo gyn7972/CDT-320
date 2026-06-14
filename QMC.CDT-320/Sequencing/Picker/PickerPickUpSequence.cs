@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -102,60 +102,79 @@ namespace QMC.CDT320.Sequencing
 
             switch (CurrentStep)
             {
+                // 유닛 확인
                 case PickerPickUpStep.CheckUnit:
                     return Task.FromResult(CheckUnit());
 
+                // 피커 사이드 사용 확인
                 case PickerPickUpStep.CheckPickerSideEnabled:
                     return Task.FromResult(CheckPickerSideEnabled());
 
+                // 사용 피커 목록 생성
                 case PickerPickUpStep.BuildEnabledPickerList:
                     return Task.FromResult(BuildEnabledPickerList());
 
+                // 인풋 스테이지 준비 확인
                 case PickerPickUpStep.CheckInputStageReady:
                     return Task.FromResult(CheckInputStageReady());
 
+                // 전체 피커 Z로 어보이드 이동
                 case PickerPickUpStep.MoveAllPickerZToAvoid:
                     return MoveAllPickerZToAvoidAsync(ct);
 
+                // 다음 피커 선택
                 case PickerPickUpStep.SelectNextPicker:
                     return Task.FromResult(SelectNextPicker());
 
+                // 다음 인풋 다이 예약
                 case PickerPickUpStep.ReserveNextInputDie:
                     return Task.FromResult(ReserveNextInputDie());
 
+                // 인풋 스테이지와 비전을 다이 위치로 이동
                 case PickerPickUpStep.MoveInputStageAndVisionToDie:
                     return MoveInputStageAndVisionToDieAsync(ct);
 
+                // 인풋 다이 비전 검사 요청
                 case PickerPickUpStep.RequestInputDieVisionInspection:
                     return RequestInputDieVisionInspectionAsync(ct);
 
+                // 인풋 다이 비전 오프셋 적용
                 case PickerPickUpStep.ApplyInputDieVisionOffset:
                     return Task.FromResult(ApplyInputDieVisionOffset());
 
+                // 픽업 대상 계산
                 case PickerPickUpStep.CalculatePickTarget:
                     return Task.FromResult(CalculatePickTarget());
 
+                // 피커 X 스테이지 Y 피커 T 이동
                 case PickerPickUpStep.MovePickerXStageYPickerT:
                     return MovePickerXStageYPickerTAsync(ct);
 
+                // 픽업 대상 검증
                 case PickerPickUpStep.VerifyPickTarget:
                     return Task.FromResult(VerifyPickTarget());
 
+                // 피커 Z 픽업 이동
                 case PickerPickUpStep.MovePickerZPick:
                     return MovePickerZPickAsync(ct);
 
+                // 진공 ON 처리
                 case PickerPickUpStep.VacuumOn:
                     return VacuumOnAsync(ct);
 
+                // 다이 픽업 검증
                 case PickerPickUpStep.VerifyDiePicked:
                     return Task.FromResult(VerifyDiePicked());
 
+                // 피커 Z로 어보이드 이동
                 case PickerPickUpStep.MovePickerZToAvoid:
                     return MovePickerZToAvoidAsync(ct);
 
+                // 자재로 피커 갱신
                 case PickerPickUpStep.UpdateMaterialToPicker:
                     return Task.FromResult(UpdateMaterialToPicker());
 
+                // 다음 피커 또는 완료 선택
                 case PickerPickUpStep.SelectNextPickerOrComplete:
                     return Task.FromResult(SelectNextPickerOrComplete());
 
@@ -819,8 +838,10 @@ namespace QMC.CDT320.Sequencing
 
             switch (axis)
             {
+                // 웨이퍼 Y축 반환
                 case WaferStageAxis.WaferY:
                     return stage.StageY;
+                // 비전 X축 반환
                 case WaferStageAxis.VisionX:
                     return stage.CameraX;
                 default:
@@ -913,3 +934,4 @@ namespace QMC.CDT320.Sequencing
         }
     }
 }
+

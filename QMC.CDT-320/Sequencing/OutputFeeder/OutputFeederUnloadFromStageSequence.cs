@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
 using QMC.CDT320.Materials;
@@ -55,75 +55,99 @@ namespace QMC.CDT320.Sequencing
                 ct.ThrowIfCancellationRequested();
                 switch (CurrentStep)
                 {
+                    // 유닛 확인
                     case OutputFeederUnloadFromStageStep.CheckUnit:
                         return Task.FromResult(CheckUnit(OutputFeederUnloadFromStageStep.CheckTransferReady));
 
+                    // 이송 준비 확인
                     case OutputFeederUnloadFromStageStep.CheckTransferReady:
                         return Task.FromResult(CheckTransferReady());
 
+                    // 아웃풋 스테이지 BIN 데이터 확인
                     case OutputFeederUnloadFromStageStep.CheckOutputStageBinData:
                         return Task.FromResult(CheckOutputStageBinData());
 
+                    // 피더 비어있음 확인
                     case OutputFeederUnloadFromStageStep.CheckFeederEmpty:
                         return Task.FromResult(CheckFeederEmpty());
 
+                    // 아웃풋 비전 어보이드 확보
                     case OutputFeederUnloadFromStageStep.EnsureOutputVisionAvoid:
                         return EnsureOutputVisionAvoidAsync(ct);
 
+                    // 피커 어보이드 위치 확보
                     case OutputFeederUnloadFromStageStep.EnsurePickerAvoidPosition:
                         return EnsurePickerAvoidPositionAsync(ct);
 
+                    // 스테이지 상호 인터락 확보
                     case OutputFeederUnloadFromStageStep.EnsureStageMutualInterlock:
                         return EnsureStageMutualInterlockAsync(ct);
 
+                    // 아웃풋 스테이지 언로드 위치 이동
                     case OutputFeederUnloadFromStageStep.MoveOutputStageUnloadPosition:
                         return MoveOutputStageUnloadPositionAsync(ct);
 
+                    // 아웃풋 스테이지 가이드 업 확보
                     case OutputFeederUnloadFromStageStep.EnsureOutputStageGuideUp:
                         return EnsureOutputStageGuideUpAsync(ct);
 
+                    // 아웃풋 스테이지 언클램프 확보
                     case OutputFeederUnloadFromStageStep.EnsureOutputStageUnclamp:
                         return EnsureOutputStageUnclampAsync(ct);
 
+                    // 아웃풋 스테이지 클램프 리프트 다운 확보
                     case OutputFeederUnloadFromStageStep.EnsureOutputStageClampLiftDown:
                         return EnsureOutputStageClampLiftDownAsync(ct);
 
+                    // 아웃풋 스테이지 언로드 준비 검증
                     case OutputFeederUnloadFromStageStep.VerifyOutputStageUnloadReady:
                         return Task.FromResult(VerifyOutputStageUnloadReady());
 
+                    // 피더 어보이드 준비 검증
                     case OutputFeederUnloadFromStageStep.VerifyFeederReadyAtAvoid:
                         return Task.FromResult(VerifyFeederReadyAtAvoid());
 
+                    // 피더 언클램프 준비
                     case OutputFeederUnloadFromStageStep.PrepareFeederUnclamp:
                         return PrepareFeederUnclampAsync(ct);
 
+                    // 피더 리프트 업 준비
                     case OutputFeederUnloadFromStageStep.PrepareFeederLiftUp:
                         return PrepareFeederLiftUpAsync(ct);
 
+                    // 피더 스테이지 언로드 어보이드 위치 이동
                     case OutputFeederUnloadFromStageStep.MoveFeederStageUnloadAvoidPosition:
                         return MoveFeederStageUnloadAvoidPositionAsync(ct);
 
+                    // 피더 리프트 다운 준비
                     case OutputFeederUnloadFromStageStep.PrepareFeederLiftDown:
                         return PrepareFeederLiftDownAsync(ct);
 
+                    // 피더 스테이지 언로드 위치 이동
                     case OutputFeederUnloadFromStageStep.MoveFeederStageUnloadPosition:
                         return MoveFeederStageUnloadPositionAsync(ct);
 
+                    // 피더 BIN 클램프
                     case OutputFeederUnloadFromStageStep.ClampFeederBin:
                         return ClampFeederBinAsync(ct);
 
+                    // 아웃풋 스테이지 BIN 언클램프
                     case OutputFeederUnloadFromStageStep.UnclampOutputStageBin:
                         return UnclampOutputStageBinAsync(ct);
 
+                    // 아웃풋 스테이지 클램프 리프트 다운
                     case OutputFeederUnloadFromStageStep.LowerOutputStageClamp:
                         return LowerOutputStageClampAsync(ct);
 
+                    // BIN 감지 검증
                     case OutputFeederUnloadFromStageStep.VerifyBinDetected:
                         return VerifyBinDetectedAsync(ct);
 
+                    // 자재 데이터를 피더로 이동
                     case OutputFeederUnloadFromStageStep.MoveMaterialDataToFeeder:
                         return Task.FromResult(MoveMaterialDataToFeeder());
 
+                    // 스테이지 데이터 갱신
                     case OutputFeederUnloadFromStageStep.UpdateStageData:
                         return Task.FromResult(UpdateStageData());
 
@@ -494,3 +518,4 @@ namespace QMC.CDT320.Sequencing
         }
     }
 }
+

@@ -529,19 +529,23 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
             switch (kind)
             {
+                // 수동 픽업 시퀀스 실행
                 case PickerManualSequenceKind.PickUp:
                     return await new PickerPickUpSequence(context, _side)
                         .RunAsync(ct, options)
                         .ConfigureAwait(false);
 
+                // 수동 검사 시퀀스 실행
                 case PickerManualSequenceKind.Inspect:
                     return await RunInspectionSequenceAsync(context, options, ct).ConfigureAwait(false);
 
+                // 수동 플레이스 시퀀스 실행
                 case PickerManualSequenceKind.Place:
                     return await new PickerPlaceSequence(context, _side)
                         .RunAsync(ct, options)
                         .ConfigureAwait(false);
 
+                // 수동 복구 시퀀스 실행
                 case PickerManualSequenceKind.Recover:
                     return await RunRecoverSequenceAsync(context, options, ct).ConfigureAwait(false);
 
@@ -560,14 +564,17 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         {
             switch (kind)
             {
+                // 픽업 스텝 시퀀스 이어서 실행
                 case PickerManualSequenceKind.PickUp:
                     if (_pickUpStepSequence == null || _pickUpStepSequence.IsComplete)
                         _pickUpStepSequence = new PickerPickUpSequence(context, _side);
                     return await RunPickUpStepAsync(options, ct).ConfigureAwait(false);
 
+                // 검사 스텝 시퀀스 이어서 실행
                 case PickerManualSequenceKind.Inspect:
                     return await RunInspectionStepAsync(context, options, ct).ConfigureAwait(false);
 
+                // 플레이스 스텝 시퀀스 이어서 실행
                 case PickerManualSequenceKind.Place:
                     if (_placeStepSequence == null || _placeStepSequence.IsComplete)
                         _placeStepSequence = new PickerPlaceSequence(context, _side);
@@ -948,22 +955,27 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
             switch (_lblHeadZoneValue.Text)
             {
+                // 인풋 영역 표시
                 case "INPUT":
                     _lblHeadZoneValue.BackColor = Color.FromArgb(0, 128, 192);
                     break;
+                // 작업 영역 표시
                 case "PICK":
                 case "INSPECT":
                 case "PLACE":
                 case "OUTPUT":
                     _lblHeadZoneValue.BackColor = Color.FromArgb(217, 119, 6);
                     break;
+                // Avoid 영역 표시
                 case "AVOID":
                     _lblHeadZoneValue.BackColor = Color.FromArgb(0, 176, 80);
                     break;
+                // 이동 중 상태 표시
                 case "MOVING":
                     _lblHeadZoneValue.BackColor = Color.FromArgb(255, 192, 0);
                     _lblHeadZoneValue.ForeColor = Color.Black;
                     break;
+                // 위치 미확인 상태 표시
                 case "UNKNOWN":
                     _lblHeadZoneValue.BackColor = Color.FromArgb(160, 160, 160);
                     break;

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -39,27 +39,35 @@ namespace QMC.CDT320.Sequencing
 
                 switch (CurrentStep)
                 {
+                    // 유닛 확인
                     case OutputStageInspectBinStep.CheckUnit:
                         return Task.FromResult(CheckUnit(OutputStageInspectBinStep.WaitTpuPlaceDone));
 
+                    // TPU 플레이스 완료 대기
                     case OutputStageInspectBinStep.WaitTpuPlaceDone:
                         return WaitTpuPlaceDoneAsync(ct);
 
+                    // 비전 X로 프로세스 이동
                     case OutputStageInspectBinStep.MoveVisionXToProcess:
                         return MoveVisionXAsync("Process", "VisionX process for bin inspect", OutputStageInspectBinStep.CheckVisionXProcess, ct);
 
+                    // 비전 X 프로세스 확인
                     case OutputStageInspectBinStep.CheckVisionXProcess:
                         return Task.FromResult(CheckVisionX("Process", "VisionX process for bin inspect", OutputStageInspectBinStep.TriggerInspection));
 
+                    // 검사 트리거
                     case OutputStageInspectBinStep.TriggerInspection:
                         return TriggerInspectionAsync(ct);
 
+                    // 비전 X로 어보이드 이동
                     case OutputStageInspectBinStep.MoveVisionXToAvoid:
                         return MoveVisionXAsync("Avoid", "VisionX avoid after bin inspect", OutputStageInspectBinStep.CheckVisionXAvoid, ct);
 
+                    // 비전 X 어보이드 확인
                     case OutputStageInspectBinStep.CheckVisionXAvoid:
                         return Task.FromResult(CheckVisionX("Avoid", "VisionX avoid after bin inspect", OutputStageInspectBinStep.NotifyTpuReadyForNextDie));
 
+                    // TPU 준비 위한 다음 다이 알림
                     case OutputStageInspectBinStep.NotifyTpuReadyForNextDie:
                         return Task.FromResult(NotifyTpuReadyForNextDie());
 
@@ -199,3 +207,4 @@ namespace QMC.CDT320.Sequencing
         }
     }
 }
+

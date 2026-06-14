@@ -7,7 +7,7 @@ using System.Windows.Forms;
 
 namespace QMC.CDT_320.Ui.Controls
 {
-    /// <summary>구현 설명 주석입니다.</summary>
+    /// <summary>4축 조그 이동을 위한 수동 조작 컨트롤입니다.</summary>
     public partial class AxisJogControl : UserControl
     {
         private BaseAxis _axisX;
@@ -16,16 +16,11 @@ namespace QMC.CDT_320.Ui.Controls
         private BaseAxis _axisT;
         private bool _updatingAxisSelector;
 
-        /// <summary>구현 설명 주석입니다.</summary>
+        /// <summary>현재 조그 속도를 제공하는 콜백입니다.</summary>
         [Browsable(false)]
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public Func<double> SpeedProvider { get; set; }
 
-        /// <summary>구현 설명 주석입니다.</summary>
-
-        /// <summary>구현 설명 주석입니다.</summary>
-
-        /// <summary>구현 설명 주석입니다.</summary>
         public AxisJogControl()
         {
             InitializeComponent();
@@ -33,7 +28,7 @@ namespace QMC.CDT_320.Ui.Controls
             UpdateAxisBindings();
         }
 
-        /// <summary>구현 설명 주석입니다.</summary>
+        /// <summary>X/Y/Z/T 축 객체를 컨트롤에 연결합니다.</summary>
         public void BindAxes(BaseAxis x, BaseAxis y, BaseAxis z, BaseAxis t)
         {
             _axisX = x;
@@ -43,7 +38,7 @@ namespace QMC.CDT_320.Ui.Controls
             UpdateAxisBindings();
         }
 
-        /// <summary>구현 설명 주석입니다.</summary>
+        /// <summary>연결된 모든 축의 조그 이동을 정지합니다.</summary>
         public void StopJog()
         {
             StopAxis(_axisX);

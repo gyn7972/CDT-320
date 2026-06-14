@@ -350,6 +350,7 @@ namespace QMC.CDT320.Sequencing
                 int result;
                 switch (_autoStep)
                 {
+                    // 맵핑 처리
                     case InputSequenceAutoStep.Mapping:
                         result = await ExecuteMappingAsync(ct, false, 0, SequenceStartMode.Resume).ConfigureAwait(false);
                         if (result != 0)
@@ -358,6 +359,7 @@ namespace QMC.CDT320.Sequencing
                         _autoStep = InputSequenceAutoStep.ResolveSlot;
                         break;
 
+                    // 슬롯 결정
                     case InputSequenceAutoStep.ResolveSlot:
                         _autoSlotIndex = ResolveCurrentOrNextInputSlot();
                         if (_autoSlotIndex < 0)
@@ -366,6 +368,7 @@ namespace QMC.CDT320.Sequencing
                         _autoStep = InputSequenceAutoStep.PrepareStageLoad;
                         break;
 
+                    // 스테이지 로드 준비
                     case InputSequenceAutoStep.PrepareStageLoad:
                     {
                         using (SequenceResourceLease lease = await AcquireInputStageAreaAsync("InputPrepareLoad", ct).ConfigureAwait(false))
@@ -384,6 +387,7 @@ namespace QMC.CDT320.Sequencing
                         break;
                     }
 
+                    // 피더에서 카세트 로드
                     case InputSequenceAutoStep.LoadFeederFromCassette:
                     {
                         if (_autoSlotIndex < 0)
@@ -402,6 +406,7 @@ namespace QMC.CDT320.Sequencing
                         break;
                     }
 
+                    // 피더로 스테이지 로드
                     case InputSequenceAutoStep.LoadFeederToStage:
                     {
                         if (_autoSlotIndex < 0)
@@ -423,6 +428,7 @@ namespace QMC.CDT320.Sequencing
                         break;
                     }
 
+                    // 복구 피더 처리
                     case InputSequenceAutoStep.RecoverFeeder:
                     {
                         if (_autoSlotIndex < 0)
@@ -438,6 +444,7 @@ namespace QMC.CDT320.Sequencing
                         break;
                     }
 
+                    // 얼라인 스테이지 처리
                     case InputSequenceAutoStep.AlignStage:
                     {
                         using (SequenceResourceLease lease = await AcquireInputStageAreaAsync("InputAlign", ct).ConfigureAwait(false))
@@ -456,6 +463,7 @@ namespace QMC.CDT320.Sequencing
                         break;
                     }
 
+                    // 다이 맵핑 처리
                     case InputSequenceAutoStep.DieMapping:
                     {
                         using (SequenceResourceLease lease = await AcquireInputStageAreaAsync("InputDieMapping", ct).ConfigureAwait(false))
@@ -476,6 +484,7 @@ namespace QMC.CDT320.Sequencing
                         break;
                     }
 
+                    // 시퀀스 완료 처리
                     case InputSequenceAutoStep.Complete:
                         LogPublic("[UNIT-INPUT] Input sequence already complete slot=" + _autoSlotIndex);
                         break;
@@ -1107,3 +1116,4 @@ namespace QMC.CDT320.Sequencing
         }
     }
 }
+

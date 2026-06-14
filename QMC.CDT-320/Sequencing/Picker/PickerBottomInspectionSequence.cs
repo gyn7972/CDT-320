@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -95,42 +95,55 @@ namespace QMC.CDT320.Sequencing
 
             switch (CurrentStep)
             {
+                // 유닛 확인
                 case PickerBottomInspectionStep.CheckUnit:
                     return Task.FromResult(CheckUnit());
 
+                // 픽업 피커 목록 생성
                 case PickerBottomInspectionStep.BuildPickedPickerList:
                     return Task.FromResult(BuildPickedPickerList());
 
+                // 전체 피커 Z로 어보이드 이동
                 case PickerBottomInspectionStep.MoveAllPickerZToAvoid:
                     return MoveAllPickerZToAvoidAsync(ct);
 
+                // 다음 피커 선택
                 case PickerBottomInspectionStep.SelectNextPicker:
                     return Task.FromResult(SelectNextPicker());
 
+                // 하단 XY 이동
                 case PickerBottomInspectionStep.MoveBottomXY:
                     return MoveBottomXYAsync(ct);
 
+                // 하단 Z 이동
                 case PickerBottomInspectionStep.MoveBottomZ:
                     return MoveBottomZAsync(ct);
 
+                // 하단 T 이동
                 case PickerBottomInspectionStep.MoveBottomT:
                     return MoveBottomTAsync(ct);
 
+                // 하단 검사 요청
                 case PickerBottomInspectionStep.RequestBottomInspection:
                     return RequestBottomInspectionAsync(ct);
 
+                // 하단 검사 결과 적용
                 case PickerBottomInspectionStep.ApplyBottomInspectionResult:
                     return Task.FromResult(ApplyBottomInspectionResult());
 
+                // 하단 Z로 어보이드 이동
                 case PickerBottomInspectionStep.MoveBottomZToAvoid:
                     return MoveBottomZToAvoidAsync(ct);
 
+                // 하단 T로 안전 이동
                 case PickerBottomInspectionStep.MoveBottomTToSafe:
                     return MoveBottomTToSafeAsync(ct);
 
+                // 하단 XY로 어보이드 이동
                 case PickerBottomInspectionStep.MoveBottomXYToAvoid:
                     return MoveBottomXYToAvoidAsync(ct);
 
+                // 다음 피커 또는 완료 선택
                 case PickerBottomInspectionStep.SelectNextPickerOrComplete:
                     return Task.FromResult(SelectNextPickerOrComplete());
 
@@ -480,3 +493,4 @@ namespace QMC.CDT320.Sequencing
         }
     }
 }
+

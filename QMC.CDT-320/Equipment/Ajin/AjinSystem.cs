@@ -98,11 +98,17 @@ namespace QMC.CDT320.Ajin
         {
             switch (code)
             {
+                // AXL 네트워크 에러
                 case 1152: return "AXT_RT_NETWORK_ERROR";
+                // AXL 네트워크 Lock 불일치
                 case 1153: return "AXT_RT_NETWORK_LOCK_MISMATCH";
+                // 모션 모듈 미장착
                 case 4051: return "AXT_RT_MOTION_NOT_MODULE";
+                // 초기 축 번호 오류
                 case 4053: return "AXT_RT_MOTION_NOT_INITIAL_AXIS_NO";
+                // 모션 파라미터 읽기 실패
                 case 4055: return "AXT_RT_MOTION_NOT_PARA_READ";
+                // 모션 파라미터 파일 로드 실패
                 case 4111: return "AXT_RT_MOTION_INVALID_FILE_LOAD";
                 default: return "AXL/AXM error";
             }

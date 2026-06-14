@@ -78,6 +78,7 @@ namespace QMC.CDT320.Secs
         {
             switch (Format)
             {
+                // SECS List item 인코딩
                 case SecsItemFormat.List:
                     {
                         // List: 길이 = child 수. body = child 들의 인코딩 concat.
@@ -89,25 +90,32 @@ namespace QMC.CDT320.Secs
                             return ms.ToArray();
                         }
                     }
+                // SECS ASCII item 인코딩
                 case SecsItemFormat.Ascii:
                     return Encoding.ASCII.GetBytes((string)(Value ?? ""));
+                // SECS Binary item 인코딩
                 case SecsItemFormat.Binary:
                     return (byte[])(Value ?? new byte[0]);
+                // SECS Boolean item 인코딩
                 case SecsItemFormat.Bool:
                     return new[] { (byte)(((bool)(Value ?? false)) ? 1 : 0) };
+                // SECS 1-byte 정수 item 인코딩
                 case SecsItemFormat.U1: case SecsItemFormat.I1:
                     return new[] { (byte)((long)(Value ?? 0L) & 0xFF) };
+                // SECS 2-byte 정수 item 인코딩
                 case SecsItemFormat.U2: case SecsItemFormat.I2:
                     {
                         long v = (long)(Value ?? 0L);
                         return new[] { (byte)((v >> 8) & 0xFF), (byte)(v & 0xFF) };
                     }
+                // SECS 4-byte 정수 item 인코딩
                 case SecsItemFormat.U4: case SecsItemFormat.I4:
                     {
                         long v = (long)(Value ?? 0L);
                         return new[] { (byte)((v >> 24) & 0xFF), (byte)((v >> 16) & 0xFF),
                                        (byte)((v >> 8) & 0xFF), (byte)(v & 0xFF) };
                     }
+                // SECS 4-byte float item 인코딩
                 case SecsItemFormat.F4:
                     {
                         float f = (float)(double)(Value ?? 0.0);
@@ -115,6 +123,7 @@ namespace QMC.CDT320.Secs
                         if (BitConverter.IsLittleEndian) Array.Reverse(b);
                         return b;
                     }
+                // SECS 8-byte float item 인코딩
                 case SecsItemFormat.F8:
                     {
                         double d = (double)(Value ?? 0.0);
@@ -155,6 +164,7 @@ namespace QMC.CDT320.Secs
 
             switch (item.Format)
             {
+                // SECS List item 디코딩
                 case SecsItemFormat.List:
                     while (pos < end)
                     {
@@ -163,10 +173,12 @@ namespace QMC.CDT320.Secs
                         item.Children.Add(child);
                     }
                     break;
+                // SECS ASCII item 디코딩
                 case SecsItemFormat.Ascii:
                     item.Value = Encoding.ASCII.GetString(d, pos, len);
                     pos += len;
                     break;
+                // SECS Binary item 디코딩
                 case SecsItemFormat.Binary:
                     {
                         var bin = new byte[len];
@@ -175,10 +187,12 @@ namespace QMC.CDT320.Secs
                         pos += len;
                     }
                     break;
+                // SECS Boolean item 디코딩
                 case SecsItemFormat.Bool:
                     item.Value = (len > 0 && d[pos] != 0);
                     pos += len;
                     break;
+                // SECS 1-byte 정수 item 디코딩
                 case SecsItemFormat.U1: case SecsItemFormat.I1:
                     {
                         long v = 0;
@@ -188,6 +202,7 @@ namespace QMC.CDT320.Secs
                         pos += len;
                     }
                     break;
+                // SECS 2-byte 정수 item 디코딩
                 case SecsItemFormat.U2: case SecsItemFormat.I2:
                     {
                         long v = 0;
@@ -197,6 +212,7 @@ namespace QMC.CDT320.Secs
                         pos += len;
                     }
                     break;
+                // SECS 4-byte 정수 item 디코딩
                 case SecsItemFormat.U4: case SecsItemFormat.I4:
                     {
                         long v = 0;
@@ -207,6 +223,7 @@ namespace QMC.CDT320.Secs
                         pos += len;
                     }
                     break;
+                // SECS 4-byte float item 디코딩
                 case SecsItemFormat.F4:
                     if (len >= 4)
                     {
@@ -217,6 +234,7 @@ namespace QMC.CDT320.Secs
                     }
                     pos += len;
                     break;
+                // SECS 8-byte float item 디코딩
                 case SecsItemFormat.F8:
                     if (len >= 8)
                     {
@@ -238,8 +256,11 @@ namespace QMC.CDT320.Secs
         {
             switch (Format)
             {
+                // List item 표시 문자열
                 case SecsItemFormat.List:  return $"L[{Children.Count}]";
+                // ASCII item 표시 문자열
                 case SecsItemFormat.Ascii: return $"A[\"{Value}\"]";
+                // Binary item 표시 문자열
                 case SecsItemFormat.Binary:
                     var bin = (byte[])Value;
                     return $"B[{bin?.Length ?? 0}]";

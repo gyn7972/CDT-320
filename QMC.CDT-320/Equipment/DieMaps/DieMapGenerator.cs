@@ -180,16 +180,20 @@ namespace QMC.CDT320.DieMaps
             double by = gy * pitchY;
             switch (rot)
             {
+                // 회전 없음 좌표 적용
                 case TapeFrameRotate.None:
                     mx = bx; my = by; break;
+                // 90도 회전 좌표 적용
                 case TapeFrameRotate.R90:
                     mx = by;
                     my = (totalX - 1) * pitchX - bx;
                     break;
+                // 180도 회전 좌표 적용
                 case TapeFrameRotate.R180:
                     mx = (totalX - 1) * pitchX - bx;
                     my = (totalY - 1) * pitchY - by;
                     break;
+                // 270도 회전 좌표 적용
                 case TapeFrameRotate.R270:
                     mx = (totalY - 1) * pitchY - by;
                     my = bx;

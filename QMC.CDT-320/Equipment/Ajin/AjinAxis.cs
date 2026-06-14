@@ -12,7 +12,7 @@ namespace QMC.CDT320.Ajin
 {
     public class AjinAxis : BaseAxis
     {
-        private const bool ForceTestBoard = true;
+        private static readonly bool ForceTestBoard = true;
         private const double ForcedTestBoardVelocity = 20.0;
 
         private readonly object _sync = new object();
@@ -623,22 +623,9 @@ namespace QMC.CDT320.Ajin
             //    - [20000h]Bit 17, MODE 터미널 신호 상태
             const uint PlustLimitMask = 0x00001;
             const uint MinusLimitMask = 0x00002;
-            const uint PlustDecelStopMask = 0x00004;
-            const uint MinusDecelStopMask = 0x00008;
             const uint AlarmMask = 0x00010;
             const uint InPositionMask = 0x00020;
-            const uint EstopMask = 0x00040;
             const uint OriginMask = 0x00080;
-            const uint ZPhaseMask = 0x00100;
-            const uint EcupMask = 0x00200;
-            const uint EcdnMask = 0x00400;
-            const uint ExppMask = 0x00800;
-            const uint ExmpMask = 0x01000;
-            const uint Sqstr1Mask = 0x02000;
-            const uint Sqstr2Mask = 0x04000;
-            const uint Sqstp1Mask = 0x08000;
-            const uint Sqstp2Mask = 0x10000;
-            const uint ModeMask = 0x20000;
 
 
 
@@ -1357,7 +1344,9 @@ namespace QMC.CDT320.Ajin
         {
             switch (m)
             {
+                // 프로젝트 High CCW/CW 출력을 AXL High TwoPulse로 변환
                 case PulseOutput.TwoPulse_High_CCW_CW: return AXM.MotorOutputMethod.TwoCcwCwHigh;
+                // 프로젝트 Low CCW/CW 출력을 AXL Low TwoPulse로 변환
                 case PulseOutput.TwoPulse_Low_CCW_CW: return AXM.MotorOutputMethod.TwoCcwCwLow;
                 default: return AXM.MotorOutputMethod.OneHighLowHigh; // AB_Phase 등은 1펄스 대표값
             }
@@ -1370,7 +1359,9 @@ namespace QMC.CDT320.Ajin
         {
             switch (m)
             {
+                // 프로젝트 Normal 엔코더를 AXL 정방향 SQR4로 변환
                 case EncoderInput.Normal: return AXM.EncoderInputMethod.ObverseSqr4Mode;
+                // 프로젝트 Reverse SQR4 엔코더를 AXL 역방향 SQR4로 변환
                 case EncoderInput.Reverse_SQR4: return AXM.EncoderInputMethod.ReverseSqr4Mode;
                 default: return AXM.EncoderInputMethod.ReverseUpDownMode;
             }
@@ -1384,9 +1375,11 @@ namespace QMC.CDT320.Ajin
         {
             switch (m)
             {
+                // AXL High TwoPulse 계열을 프로젝트 High CCW/CW로 축약
                 case AXM.MotorOutputMethod.TwoCcwCwHigh:
                 case AXM.MotorOutputMethod.TwoCwCcwHigh:
                     return PulseOutput.TwoPulse_High_CCW_CW;
+                // AXL Low TwoPulse 계열을 프로젝트 Low CCW/CW로 축약
                 case AXM.MotorOutputMethod.TwoCcwCwLow:
                 case AXM.MotorOutputMethod.TwoCwCcwLow:
                     return PulseOutput.TwoPulse_Low_CCW_CW;
@@ -1402,11 +1395,13 @@ namespace QMC.CDT320.Ajin
         {
             switch (m)
             {
+                // AXL 정방향 엔코더 계열을 프로젝트 Normal로 축약
                 case AXM.EncoderInputMethod.ObverseUpDownMode:
                 case AXM.EncoderInputMethod.ObverseSqr1Mode:
                 case AXM.EncoderInputMethod.ObverseSqr2Mode:
                 case AXM.EncoderInputMethod.ObverseSqr4Mode:
                     return EncoderInput.Normal;
+                // AXL 역방향 SQR4를 프로젝트 Reverse_SQR4로 축약
                 case AXM.EncoderInputMethod.ReverseSqr4Mode:
                     return EncoderInput.Reverse_SQR4;
                 default:

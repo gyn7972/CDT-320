@@ -6,10 +6,7 @@ using QMC.Common.Alarms;
 
 namespace QMC.CDT_320.Ui.Controls
 {
-    /// <summary>
-    ///
-    ///
-    /// </summary>
+    /// <summary>활성 알람을 상단에 표시하고 Clear 요청을 전달하는 배너입니다.</summary>
     public class AlarmBanner : Panel
     {
         private readonly Label  _icon;
@@ -116,11 +113,14 @@ namespace QMC.CDT_320.Ui.Controls
                 return;
             }
 
-            // 구현 보조 주석입니다.
+            // 활성 알람 severity에 따라 배너 색상을 적용합니다.
             switch (sev.Value)
             {
+                // Warning 배너 색상
                 case AlarmSeverity.Warning:  BackColor = Color.FromArgb(0xD9, 0x77, 0x06); _btnClear.BackColor = Color.FromArgb(0x99, 0x54, 0x04); break;
+                // Error 배너 색상
                 case AlarmSeverity.Error:    BackColor = Color.FromArgb(0xC0, 0x39, 0x2B); _btnClear.BackColor = Color.FromArgb(0x7A, 0x1F, 0x1A); break;
+                // Critical 배너 색상
                 case AlarmSeverity.Critical: BackColor = Color.FromArgb(0xC0, 0x39, 0x2B); _btnClear.BackColor = Color.FromArgb(0x7A, 0x1F, 0x1A); break;
             }
 

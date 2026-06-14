@@ -54,16 +54,20 @@ namespace QMC.CDT_320.Ui.Pages.History
             var row = _grid.Rows[idx];
             switch (r.Kind)
             {
+                // 알람 로그 강조 표시
                 case EventKind.Alarm:
                     row.DefaultCellStyle.ForeColor = Color.IndianRed;
                     row.DefaultCellStyle.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
                     break;
+                // 경고 로그 표시
                 case EventKind.Warning:
                     row.DefaultCellStyle.ForeColor = Color.DarkOrange;
                     break;
+                // 데이터 로그 표시
                 case EventKind.Data:
                     row.DefaultCellStyle.ForeColor = Color.SteelBlue;
                     break;
+                // 작업 로그 표시
                 case EventKind.Work:
                     row.DefaultCellStyle.ForeColor = Color.Teal;
                     break;

@@ -1393,12 +1393,19 @@ namespace QMC.CDT320
             string prefix = side == BinSide.Ng ? "NG" : "Good";
             switch (type)
             {
+                // 피더 Avoid 위치명 반환
                 case FeederPositionType.Avoid: return "35_BinFeederY.AvoidPos";
+                // 카세트 로드 위치명 반환
                 case FeederPositionType.CassetteLoad: return prefix + "CassetteLoadPosition";
+                // 카세트 언로드 위치명 반환
                 case FeederPositionType.CassetteUnload: return prefix + "CassetteUnloadPosition";
+                // 바코드 위치명 반환
                 case FeederPositionType.Barcode: return prefix + "WaferBarcodePosition";
+                // 스테이지 로드 위치명 반환
                 case FeederPositionType.StageLoad: return prefix + "WaferLoadPosition";
+                // 스테이지 언로드 위치명 반환
                 case FeederPositionType.StageUnload: return prefix + "WaferUnloadPosition";
+                // 카세트 교체 위치명 반환
                 case FeederPositionType.Exchange: return prefix + "CassetteExchangePosition";
                 default: throw new ArgumentOutOfRangeException("type");
             }
@@ -1446,10 +1453,12 @@ namespace QMC.CDT320
         {
             switch (policy)
             {
+                // 클램프 유지 안전 출력
                 case FeederSafePolicy.HoldClamp:
                     SetFeederLiftUpOutput(false);
                     SetFeederLiftDownOutput(true);
                     break;
+                // 현재 출력 상태 유지
                 case FeederSafePolicy.HoldCurrent:
                     break;
                 default:
@@ -1465,11 +1474,17 @@ namespace QMC.CDT320
         {
             switch (code)
             {
+                // 피더 Y축 알람 메시지
                 case FeederAlarmCode.AxisAlarm: return "OutputFeederY axis alarm.";
+                // 피더 Y축 이동 타임아웃 메시지
                 case FeederAlarmCode.MoveTimeout: return "OutputFeederY move timeout.";
+                // 피더 티칭 누락 메시지
                 case FeederAlarmCode.TeachingMissing: return "OutputFeeder teaching position is missing.";
+                // 피더 인터락 메시지
                 case FeederAlarmCode.Interlock: return "OutputFeeder interlock condition is not satisfied.";
+                // 피더 오버로드 메시지
                 case FeederAlarmCode.Overload: return "OutputFeeder overload input is OFF (NC input).";
+                // 피더 링 감지 누락 메시지
                 case FeederAlarmCode.RingMissing: return "OutputFeeder ring was not detected.";
                 default: return "OutputFeeder alarm.";
             }
@@ -1630,11 +1645,17 @@ namespace QMC.CDT320
             bool ng = side == BinSide.Ng;
             switch (type)
             {
+                // OK/NG 카세트 로드 위치 반환
                 case FeederPositionType.CassetteLoad: return ng ? Recipe.NGCassetteLoadPosition : Recipe.GoodCassetteLoadPosition;
+                // OK/NG 카세트 언로드 위치 반환
                 case FeederPositionType.CassetteUnload: return ng ? Recipe.NGCassetteUnloadPosition : Recipe.GoodCassetteUnloadPosition;
+                // OK/NG 바코드 위치 반환
                 case FeederPositionType.Barcode: return ng ? Recipe.NGWaferBarcodePosition : Recipe.GoodWaferBarcodePosition;
+                // OK/NG 스테이지 로드 위치 반환
                 case FeederPositionType.StageLoad: return ng ? Recipe.NGWaferLoadPosition : Recipe.GoodWaferLoadPosition;
+                // OK/NG 스테이지 언로드 위치 반환
                 case FeederPositionType.StageUnload: return ng ? Recipe.NGWaferUnloadPosition : Recipe.GoodWaferUnloadPosition;
+                // OK/NG 카세트 교체 위치 반환
                 case FeederPositionType.Exchange: return ng ? Recipe.NGCassetteExchangePosition : Recipe.GoodCassetteExchangePosition;
                 default: throw new ArgumentOutOfRangeException("type");
             }
@@ -1655,21 +1676,27 @@ namespace QMC.CDT320
             bool ng = side == BinSide.Ng;
             switch (type)
             {
+                // OK/NG 카세트 로드 위치 저장
                 case FeederPositionType.CassetteLoad:
                     if (ng) Recipe.NGCassetteLoadPosition = position; else Recipe.GoodCassetteLoadPosition = position;
                     break;
+                // OK/NG 카세트 언로드 위치 저장
                 case FeederPositionType.CassetteUnload:
                     if (ng) Recipe.NGCassetteUnloadPosition = position; else Recipe.GoodCassetteUnloadPosition = position;
                     break;
+                // OK/NG 바코드 위치 저장
                 case FeederPositionType.Barcode:
                     if (ng) Recipe.NGWaferBarcodePosition = position; else Recipe.GoodWaferBarcodePosition = position;
                     break;
+                // OK/NG 스테이지 로드 위치 저장
                 case FeederPositionType.StageLoad:
                     if (ng) Recipe.NGWaferLoadPosition = position; else Recipe.GoodWaferLoadPosition = position;
                     break;
+                // OK/NG 스테이지 언로드 위치 저장
                 case FeederPositionType.StageUnload:
                     if (ng) Recipe.NGWaferUnloadPosition = position; else Recipe.GoodWaferUnloadPosition = position;
                     break;
+                // OK/NG 카세트 교체 위치 저장
                 case FeederPositionType.Exchange:
                     if (ng) Recipe.NGCassetteExchangePosition = position; else Recipe.GoodCassetteExchangePosition = position;
                     break;

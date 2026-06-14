@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -35,18 +35,23 @@ namespace QMC.CDT320.Sequencing
                 ct.ThrowIfCancellationRequested();
                 switch (CurrentStep)
                 {
+                    // 유닛 확인
                     case OutputFeederRecoverStep.CheckUnit:
                         return Task.FromResult(CheckUnit(OutputFeederRecoverStep.CheckFeederEmpty));
 
+                    // 피더 비어있음 확인
                     case OutputFeederRecoverStep.CheckFeederEmpty:
                         return Task.FromResult(CheckFeederEmpty());
 
+                    // 피더 언클램프 준비
                     case OutputFeederRecoverStep.PrepareFeederUnclamp:
                         return PrepareFeederUnclampAsync(ct);
 
+                    // 피더 리프트 다운 준비
                     case OutputFeederRecoverStep.PrepareFeederLiftDown:
                         return PrepareFeederLiftDownAsync(ct);
 
+                    // 피더 어보이드 위치 이동
                     case OutputFeederRecoverStep.MoveFeederAvoidPosition:
                         return MoveFeederAvoidPositionAsync(ct);
 
@@ -122,3 +127,4 @@ namespace QMC.CDT320.Sequencing
         }
     }
 }
+

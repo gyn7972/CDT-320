@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -40,24 +40,34 @@ namespace QMC.CDT320.Sequencing
                 ct.ThrowIfCancellationRequested();
                 switch (CurrentStep)
                 {
+                    // LOT 확인
                     case OutputCassetteMappingStep.CheckLot:
                         return Task.FromResult(CheckLot(OutputCassetteMappingStep.CheckCassetteDetected));
+                    // 카세트 감지 확인
                     case OutputCassetteMappingStep.CheckCassetteDetected:
                         return Task.FromResult(CheckCassetteDetected(OutputCassetteMappingStep.CheckCassetteSize));
+                    // 카세트 사이즈 확인
                     case OutputCassetteMappingStep.CheckCassetteSize:
                         return Task.FromResult(CheckCassetteSize(OutputCassetteMappingStep.CheckCassetteMaterial, false));
+                    // 카세트 자재 확인
                     case OutputCassetteMappingStep.CheckCassetteMaterial:
                         return Task.FromResult(CheckCassetteMaterial(OutputCassetteMappingStep.CheckMappingStartCondition));
+                    // 맵핑 시작 조건 확인
                     case OutputCassetteMappingStep.CheckMappingStartCondition:
                         return Task.FromResult(CheckMappingStartCondition(OutputCassetteMappingStep.CheckFeederPosition));
+                    // 피더 위치 확인
                     case OutputCassetteMappingStep.CheckFeederPosition:
                         return Task.FromResult(CheckFeederPosition(OutputCassetteMappingStep.MoveMappingStartPosition));
+                    // 맵핑 시작 위치 이동
                     case OutputCassetteMappingStep.MoveMappingStartPosition:
                         return MoveMappingStartPositionAsync(OutputCassetteMappingStep.ScanSlots, ct);
+                    // 슬롯 스캔
                     case OutputCassetteMappingStep.ScanSlots:
                         return ScanSlotsAsync(OutputCassetteMappingStep.BuildBinInfo, ct);
+                    // BIN 정보 생성
                     case OutputCassetteMappingStep.BuildBinInfo:
                         return Task.FromResult(BuildBinInfo(OutputCassetteMappingStep.MoveFirstEmptySlot));
+                    // 첫번째 비어있음 슬롯 이동
                     case OutputCassetteMappingStep.MoveFirstEmptySlot:
                         return MoveFirstEmptySlotAsync(ct);
                     default:
@@ -74,3 +84,4 @@ namespace QMC.CDT320.Sequencing
         }
     }
 }
+

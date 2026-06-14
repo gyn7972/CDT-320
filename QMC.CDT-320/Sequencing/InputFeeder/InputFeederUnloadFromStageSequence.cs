@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
 using QMC.CDT320.Interlocks;
@@ -51,40 +51,58 @@ namespace QMC.CDT320.Sequencing
                 ct.ThrowIfCancellationRequested();
                 switch (CurrentStep)
                 {
+                    // 유닛 확인
                     case InputFeederUnloadFromStageStep.CheckUnit:
                         return Task.FromResult(CheckUnit(InputFeederUnloadFromStageStep.CheckTransferReady));
+                    // 이송 준비 확인
                     case InputFeederUnloadFromStageStep.CheckTransferReady:
                         return Task.FromResult(CheckTransferReady());
+                    // 스테이지 웨이퍼 데이터 확인
                     case InputFeederUnloadFromStageStep.CheckStageWaferData:
                         return Task.FromResult(CheckStageWaferData());
+                    // 스테이지 위치 확인
                     case InputFeederUnloadFromStageStep.CheckStagePosition:
                         return Task.FromResult(CheckStagePosition());
+                    // 스테이지 어보이드 위치 이동
                     case InputFeederUnloadFromStageStep.MoveStageToAvoidPosition:
                         return MoveStageToAvoidPositionAsync(ct);
+                    // 스테이지 언로드 위치 이동
                     case InputFeederUnloadFromStageStep.MoveStageToUnloadPosition:
                         return MoveStageToUnloadPositionAsync(ct);
+                    // 피더 어보이드 준비 검증
                     case InputFeederUnloadFromStageStep.VerifyFeederReadyAtAvoid:
                         return Task.FromResult(VerifyFeederReadyAtAvoid());
+                    // 피더 언클램프 준비
                     case InputFeederUnloadFromStageStep.PrepareFeederUnclamp:
                         return PrepareFeederUnclampAsync(ct);
+                    // 피더 리프트 업 준비
                     case InputFeederUnloadFromStageStep.PrepareFeederLiftUp:
                         return PrepareFeederLiftUpAsync(ct);
+                    // 피더 스테이지 언로드 어보이드 위치 이동
                     case InputFeederUnloadFromStageStep.MoveFeederStageUnloadAvoidPosition:
                         return MoveFeederStageUnloadAvoidPositionAsync(ct);
+                    // 피더 리프트 다운 준비
                     case InputFeederUnloadFromStageStep.PrepareFeederLiftDown:
                         return PrepareFeederLiftDownAsync(ct);
+                    // 피더 스테이지 언로드 위치 이동
                     case InputFeederUnloadFromStageStep.MoveFeederStageUnloadPosition:
                         return MoveFeederStageUnloadPositionAsync(ct);
+                    // 스테이지 웨이퍼 전 이송 검증
                     case InputFeederUnloadFromStageStep.VerifyStageWaferBeforeTransfer:
                         return Task.FromResult(VerifyStageWaferBeforeTransfer());
+                    // 피더 웨이퍼 클램프
                     case InputFeederUnloadFromStageStep.ClampFeederWafer:
                         return ClampFeederWaferAsync(ct);
+                    // 스테이지 진공 OFF 처리
                     case InputFeederUnloadFromStageStep.StageVacuumOff:
                         return Task.FromResult(StageVacuumOff());
+                    // 피더 웨이퍼 감지 검증
                     case InputFeederUnloadFromStageStep.VerifyFeederWaferDetected:
                         return VerifyFeederWaferDetectedAsync(ct);
+                    // 자재 데이터를 피더로 이동
                     case InputFeederUnloadFromStageStep.MoveMaterialDataToFeeder:
                         return Task.FromResult(MoveMaterialDataToFeeder());
+                    // 이송 데이터 검증
                     case InputFeederUnloadFromStageStep.VerifyTransferData:
                         return Task.FromResult(VerifyTransferData());
                     default:
@@ -527,12 +545,19 @@ namespace QMC.CDT320.Sequencing
 
             switch (axis)
             {
+                // 웨이퍼 Y축 반환
                 case WaferStageAxis.WaferY: return stage.StageY;
+                // 웨이퍼 T축 반환
                 case WaferStageAxis.WaferT: return stage.StageT;
+                // 웨이퍼 확장 Z축 반환
                 case WaferStageAxis.WaferExpandingZ: return stage.ExpanderZ;
+                // 비전 X축 반환
                 case WaferStageAxis.VisionX: return stage.CameraX;
+                // 니들 X축 반환
                 case WaferStageAxis.NeedleX: return stage.NeedleBlockX;
+                // 니들 Z축 반환
                 case WaferStageAxis.NeedleZ: return stage.NeedleZ;
+                // 이젝트 핀 Z축 반환
                 case WaferStageAxis.EjectPinZ: return stage.EjectPinZ;
                 default: return null;
             }
@@ -621,3 +646,4 @@ namespace QMC.CDT320.Sequencing
         }
     }
 }
+

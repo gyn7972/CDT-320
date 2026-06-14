@@ -147,21 +147,27 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         {
             switch (kind)
             {
+                // Avoid 위치 레시피 항목 추가
                 case StagePositionKind.Avoid:
                     AddTeachingPosition(positions, axis, kind, set => set.AvoidPosition, (set, value) => set.AvoidPosition = value);
                     break;
+                // Load 위치 레시피 항목 추가
                 case StagePositionKind.Load:
                     AddTeachingPosition(positions, axis, kind, set => set.LoadPosition, (set, value) => set.LoadPosition = value);
                     break;
+                // Process 위치 레시피 항목 추가
                 case StagePositionKind.Process:
                     AddTeachingPosition(positions, axis, kind, set => set.ProcessPosition, (set, value) => set.ProcessPosition = value);
                     break;
+                // Unload 위치 레시피 항목 추가
                 case StagePositionKind.Unload:
                     AddTeachingPosition(positions, axis, kind, set => set.UnloadPosition, (set, value) => set.UnloadPosition = value);
                     break;
+                // Ready 위치 레시피 항목 추가
                 case StagePositionKind.Ready:
                     AddTeachingPosition(positions, axis, kind, set => set.ReadyPosition, (set, value) => set.ReadyPosition = value);
                     break;
+                // Reticle 위치 레시피 항목 추가
                 case StagePositionKind.Reticle:
                     AddTeachingPosition(positions, axis, kind, set => set.ReticlePosition, (set, value) => set.ReticlePosition = value);
                     break;
@@ -172,16 +178,22 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         {
             switch (kind)
             {
+                // Avoid 위치 라벨 반환
                 case StagePositionKind.Avoid:
                     return "AVOID POSITION";
+                // Load 위치 라벨 반환
                 case StagePositionKind.Load:
                     return "LOAD POSITION";
+                // Process 위치 라벨 반환
                 case StagePositionKind.Process:
                     return "PROCESS POSITION";
+                // Unload 위치 라벨 반환
                 case StagePositionKind.Unload:
                     return "UNLOAD POSITION";
+                // Ready 위치 라벨 반환
                 case StagePositionKind.Ready:
                     return "READY POSITION";
+                // Reticle 위치 라벨 반환
                 case StagePositionKind.Reticle:
                     return "RETICLE POSITION";
                 default:
