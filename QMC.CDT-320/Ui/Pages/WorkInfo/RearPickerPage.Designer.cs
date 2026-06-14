@@ -1329,7 +1329,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.btnInput.Name = "btnInput";
             this.btnInput.Size = new System.Drawing.Size(160, 64);
             this.btnInput.TabIndex = 2;
-            this.btnInput.Text = "INPUT POS";
+            this.btnInput.Text = "PICK UP";
             // 
             // btnInspect
             // 
@@ -1342,7 +1342,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.btnInspect.Name = "btnInspect";
             this.btnInspect.Size = new System.Drawing.Size(160, 64);
             this.btnInspect.TabIndex = 3;
-            this.btnInspect.Text = "INSPECT POS";
+            this.btnInspect.Text = "INSPECT";
             // 
             // btnOutput
             // 
@@ -1355,7 +1355,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.btnOutput.Name = "btnOutput";
             this.btnOutput.Size = new System.Drawing.Size(160, 64);
             this.btnOutput.TabIndex = 4;
-            this.btnOutput.Text = "OUTPUT POS";
+            this.btnOutput.Text = "PLACE";
             // 
             // btnAvoid
             // 
@@ -1368,7 +1368,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.btnAvoid.Name = "btnAvoid";
             this.btnAvoid.Size = new System.Drawing.Size(160, 64);
             this.btnAvoid.TabIndex = 5;
-            this.btnAvoid.Text = "AVOID";
+            this.btnAvoid.Text = "RECOVER";
             // 
             // actionSpacer
             // 

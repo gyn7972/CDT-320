@@ -14,6 +14,15 @@ using QMC.Common.Motion;
 
 namespace QMC.CDT_320.Ui.Pages.WorkInfo
 {
+    internal enum PickerManualSequenceKind
+    {
+        Process,
+        PickUp,
+        Inspect,
+        Place,
+        Recover
+    }
+
     internal sealed class PickerWorkInfoPageRuntime
     {
         private readonly PageBase _owner;
@@ -46,6 +55,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private readonly Control.ControlCollection _actionControls;
         private readonly System.Windows.Forms.Timer _timer;
         private PickerProcessSequence _stepSequence;
+        private PickerPickUpSequence _pickUpStepSequence;
+        private PickerBottomInspectionSequence _bottomInspectStepSequence;
+        private PickerSideInspectionSequence _sideInspectStepSequence;
+        private PickerPlaceSequence _placeStepSequence;
         private bool _manualSequenceRunning;
 
         public PickerWorkInfoPageRuntime(
@@ -133,10 +146,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         {
             _btnProcess.Click += async (s, e) => await RunSequenceAction(SideName + " PROCESS", SequenceRunMode.Auto);
             _btnStep.Click += async (s, e) => await RunSequenceAction(SideName + " STEP", SequenceRunMode.Step);
-            _btnInput.Click += async (s, e) => await RunMoveAction(SideName + " INPUT POSITION", "InputAvoidPosition");
-            _btnInspect.Click += async (s, e) => await RunMoveAction(SideName + " INSPECT POSITION", "BottomPosition");
-            _btnOutput.Click += async (s, e) => await RunMoveAction(SideName + " OUTPUT POSITION", "OutputAvoidPosition");
-            _btnAvoid.Click += async (s, e) => await RunMoveAction(SideName + " AVOID POSITION", "AvoidPosition");
+            _btnInput.Click += async (s, e) => await RunSequenceAction(SideName + " PICK UP", SequenceRunMode.Auto, PickerManualSequenceKind.PickUp);
+            _btnInspect.Click += async (s, e) => await RunSequenceAction(SideName + " INSPECT", SequenceRunMode.Auto, PickerManualSequenceKind.Inspect);
+            _btnOutput.Click += async (s, e) => await RunSequenceAction(SideName + " PLACE", SequenceRunMode.Auto, PickerManualSequenceKind.Place);
+            _btnAvoid.Click += async (s, e) => await RunSequenceAction(SideName + " RECOVER", SequenceRunMode.Auto, PickerManualSequenceKind.Recover);
             _btnStop.Click += async (s, e) => await StopManualActionAsync();
             if (_btnCountClear != null)
                 _btnCountClear.Click += (s, e) => ClearCounters();
@@ -347,12 +360,18 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
         private async Task RunSequenceAction(string actionName, SequenceRunMode mode)
         {
+            await RunSequenceAction(actionName, mode, PickerManualSequenceKind.Process).ConfigureAwait(true);
+        }
+
+        private async Task RunSequenceAction(string actionName, SequenceRunMode mode, PickerManualSequenceKind kind)
+        {
             IDisposable manualScope = null;
             try
             {
                 Form1 host = _getHost();
-                if (host == null || host.Controller == null)
+                if (!ValidateManualSequenceHost(host, actionName))
                     return;
+
                 if (_manualSequenceRunning)
                     return;
                 if (!ConfirmAction(actionName))
@@ -365,7 +384,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 SequenceFailureStore.Clear();
                 WriteEvent(actionName + " start");
 
-                Task<bool> actionTask = RunPickerSequenceTask(CreateContext(host), mode, manualToken);
+                Task<bool> actionTask = RunPickerSequenceTask(CreateContext(host), mode, kind, manualToken);
                 Task cancelTask = WaitForCancellationAsync(manualToken);
                 Task completed = await Task.WhenAny(actionTask, cancelTask).ConfigureAwait(true);
                 if (completed == cancelTask)
@@ -399,26 +418,39 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             }
         }
 
-        private async Task<bool> RunPickerSequenceTask(MachineSequenceContext context, SequenceRunMode mode, CancellationToken ct)
+        private bool ValidateManualSequenceHost(Form1 host, string actionName)
+        {
+            if (host == null)
+                return ShowManualSequenceHostError(actionName, "Form host is null.");
+
+            if (host.Controller == null)
+                return ShowManualSequenceHostError(actionName, "MachineController is null.");
+
+            if (host.Machine == null)
+                return ShowManualSequenceHostError(actionName, "Machine is null.");
+
+            return true;
+        }
+
+        private bool ShowManualSequenceHostError(string actionName, string reason)
+        {
+            string message = actionName + " 실행 불가: " + reason;
+            WriteAlarm(message);
+            QMC.Common.MessageDialog.Show(_owner, message, SideName, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return false;
+        }
+
+        private async Task<bool> RunPickerSequenceTask(
+            MachineSequenceContext context,
+            SequenceRunMode mode,
+            PickerManualSequenceKind kind,
+            CancellationToken ct)
         {
             try
             {
-                PickerSequenceOptions options = PickerSequenceOptions.Default();
-                options.RunMode = mode;
+                PickerSequenceOptions options = BuildManualSequenceOptions(context, mode);
 
-                if (mode == SequenceRunMode.Step)
-                {
-                    if (_stepSequence == null || _stepSequence.IsComplete)
-                        _stepSequence = new PickerProcessSequence(context, _side);
-
-                    int stepResult = await _stepSequence.RunAsync(ct, options).ConfigureAwait(false);
-                    if (_stepSequence.IsComplete)
-                        _stepSequence = null;
-                    return stepResult == 0;
-                }
-
-                ResetStepSequence();
-                int result = await new PickerProcessSequence(context, _side).RunAsync(ct, options).ConfigureAwait(false);
+                int result = await RunManualPickerSequenceAsync(context, kind, options, ct).ConfigureAwait(false);
                 return result == 0;
             }
             catch (OperationCanceledException)
@@ -435,46 +467,215 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             }
         }
 
-        private async Task RunMoveAction(string actionName, string positionName)
+        private PickerSequenceOptions BuildManualSequenceOptions(MachineSequenceContext context, SequenceRunMode mode)
         {
-            IDisposable manualScope = null;
+            PickerSequenceOptions options = PickerSequenceOptions.Default();
+            options.RunMode = mode;
+            options.SimulateVisionResult = IsSimulationOrDryRun(context);
+            return options;
+        }
+
+        private bool IsSimulationOrDryRun(MachineSequenceContext context)
+        {
             try
             {
-                Form1 host = _getHost();
-                if (host == null || host.Controller == null || host.Machine == null)
-                    return;
-                if (_manualSequenceRunning)
-                    return;
-                if (!ConfirmAction(actionName))
-                    return;
+                if (AppSettingsStore.Current != null &&
+                    (AppSettingsStore.Current.SimulationMode || AppSettingsStore.Current.DryRunMode))
+                    return true;
 
-                _manualSequenceRunning = true;
-                SetButtonsEnabled(false);
-                manualScope = host.Controller.EnterManualOperation();
-                CancellationToken token = host.Controller.ManualOperationToken;
-                WriteEvent(actionName + " start");
-                int result = await MoveGroupToPositionAsync(host.Machine, positionName, token).ConfigureAwait(true);
-                WriteEvent(actionName + " result=" + result);
-                if (result != 0)
-                    QMC.Common.MessageDialog.Show(_owner, actionName + " 실패. result=" + result, SideName, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                if (context != null && context.Controller != null && context.Controller.GlobalDryRun)
+                    return true;
+
+                CDT320_Machine machine = context != null ? context.Machine : null;
+                if (machine == null)
+                    return false;
+
+                if (machine.InputStageUnit != null && machine.InputStageUnit.IsInputStageSimulationOrDryRun())
+                    return true;
+
+                if (_side == PickerSequenceSide.Front &&
+                    machine.PickerFrontUnit != null &&
+                    machine.PickerFrontUnit.Config != null &&
+                    machine.PickerFrontUnit.Config.bDryRun)
+                    return true;
+
+                if (_side == PickerSequenceSide.Rear &&
+                    machine.PickerRearUnit != null &&
+                    machine.PickerRearUnit.Config != null &&
+                    machine.PickerRearUnit.Config.bDryRun)
+                    return true;
+
+                return false;
             }
-            catch (OperationCanceledException)
+            catch
             {
-                WriteEvent(actionName + " canceled.");
-            }
-            catch (Exception ex)
-            {
-                WriteAlarm(actionName + " failed: " + ex.Message);
-                QMC.Common.MessageDialog.Show(_owner, ex.Message, SideName, MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return false;
             }
             finally
             {
-                if (manualScope != null)
-                    manualScope.Dispose();
-                _manualSequenceRunning = false;
-                SetButtonsEnabled(true);
-                Refresh();
             }
+        }
+
+        private async Task<int> RunManualPickerSequenceAsync(
+            MachineSequenceContext context,
+            PickerManualSequenceKind kind,
+            PickerSequenceOptions options,
+            CancellationToken ct)
+        {
+            if (options != null && options.RunMode == SequenceRunMode.Step)
+                return await RunManualPickerStepSequenceAsync(context, kind, options, ct).ConfigureAwait(false);
+
+            ResetStepSequence();
+
+            switch (kind)
+            {
+                case PickerManualSequenceKind.PickUp:
+                    return await new PickerPickUpSequence(context, _side)
+                        .RunAsync(ct, options)
+                        .ConfigureAwait(false);
+
+                case PickerManualSequenceKind.Inspect:
+                    return await RunInspectionSequenceAsync(context, options, ct).ConfigureAwait(false);
+
+                case PickerManualSequenceKind.Place:
+                    return await new PickerPlaceSequence(context, _side)
+                        .RunAsync(ct, options)
+                        .ConfigureAwait(false);
+
+                case PickerManualSequenceKind.Recover:
+                    return await RunRecoverSequenceAsync(context, options, ct).ConfigureAwait(false);
+
+                default:
+                    return await new PickerProcessSequence(context, _side)
+                        .RunAsync(ct, options)
+                        .ConfigureAwait(false);
+            }
+        }
+
+        private async Task<int> RunManualPickerStepSequenceAsync(
+            MachineSequenceContext context,
+            PickerManualSequenceKind kind,
+            PickerSequenceOptions options,
+            CancellationToken ct)
+        {
+            switch (kind)
+            {
+                case PickerManualSequenceKind.PickUp:
+                    if (_pickUpStepSequence == null || _pickUpStepSequence.IsComplete)
+                        _pickUpStepSequence = new PickerPickUpSequence(context, _side);
+                    return await RunPickUpStepAsync(options, ct).ConfigureAwait(false);
+
+                case PickerManualSequenceKind.Inspect:
+                    return await RunInspectionStepAsync(context, options, ct).ConfigureAwait(false);
+
+                case PickerManualSequenceKind.Place:
+                    if (_placeStepSequence == null || _placeStepSequence.IsComplete)
+                        _placeStepSequence = new PickerPlaceSequence(context, _side);
+                    return await RunPlaceStepAsync(options, ct).ConfigureAwait(false);
+
+                default:
+                    if (_stepSequence == null || _stepSequence.IsComplete)
+                        _stepSequence = new PickerProcessSequence(context, _side);
+                    return await RunProcessStepAsync(options, ct).ConfigureAwait(false);
+            }
+        }
+
+        private async Task<int> RunProcessStepAsync(PickerSequenceOptions options, CancellationToken ct)
+        {
+            int result = await _stepSequence.RunAsync(ct, options).ConfigureAwait(false);
+            if (_stepSequence.IsComplete)
+                _stepSequence = null;
+            return result;
+        }
+
+        private async Task<int> RunPickUpStepAsync(PickerSequenceOptions options, CancellationToken ct)
+        {
+            int result = await _pickUpStepSequence.RunAsync(ct, options).ConfigureAwait(false);
+            if (_pickUpStepSequence.IsComplete)
+                _pickUpStepSequence = null;
+            return result;
+        }
+
+        private async Task<int> RunInspectionStepAsync(
+            MachineSequenceContext context,
+            PickerSequenceOptions options,
+            CancellationToken ct)
+        {
+            if (_bottomInspectStepSequence == null && _sideInspectStepSequence == null)
+                _bottomInspectStepSequence = new PickerBottomInspectionSequence(context, _side);
+
+            if (_bottomInspectStepSequence != null)
+            {
+                int bottomResult = await _bottomInspectStepSequence.RunAsync(ct, options).ConfigureAwait(false);
+                if (bottomResult != 0)
+                    return bottomResult;
+
+                if (!_bottomInspectStepSequence.IsComplete)
+                    return 0;
+
+                _bottomInspectStepSequence = null;
+                _sideInspectStepSequence = new PickerSideInspectionSequence(context, _side);
+            }
+
+            int sideResult = await _sideInspectStepSequence.RunAsync(ct, options).ConfigureAwait(false);
+            if (_sideInspectStepSequence.IsComplete)
+                _sideInspectStepSequence = null;
+            return sideResult;
+        }
+
+        private async Task<int> RunPlaceStepAsync(PickerSequenceOptions options, CancellationToken ct)
+        {
+            int result = await _placeStepSequence.RunAsync(ct, options).ConfigureAwait(false);
+            if (_placeStepSequence.IsComplete)
+                _placeStepSequence = null;
+            return result;
+        }
+
+        private async Task<int> RunInspectionSequenceAsync(
+            MachineSequenceContext context,
+            PickerSequenceOptions options,
+            CancellationToken ct)
+        {
+            int bottomResult = await new PickerBottomInspectionSequence(context, _side)
+                .RunAsync(ct, options)
+                .ConfigureAwait(false);
+            if (bottomResult != 0)
+                return bottomResult;
+
+            return await new PickerSideInspectionSequence(context, _side)
+                .RunAsync(ct, options)
+                .ConfigureAwait(false);
+        }
+
+        private async Task<int> RunRecoverSequenceAsync(
+            MachineSequenceContext context,
+            PickerSequenceOptions options,
+            CancellationToken ct)
+        {
+            int placeResult = await new PickerPlaceSequence(context, _side)
+                .RunAsync(ct, BuildRecoverOptions(options))
+                .ConfigureAwait(false);
+            if (placeResult != 0)
+                return placeResult;
+
+            return await MoveGroupToPositionAsync(
+                context.Machine,
+                "AvoidPosition",
+                ct).ConfigureAwait(false);
+        }
+
+        private PickerSequenceOptions BuildRecoverOptions(PickerSequenceOptions source)
+        {
+            PickerSequenceOptions options = PickerSequenceOptions.Default();
+            options.RunMode = source != null ? source.RunMode : SequenceRunMode.Auto;
+            options.StartMode = source != null ? source.StartMode : SequenceStartMode.Resume;
+            options.FineMove = true;
+            options.MoveTimeoutMs = source != null ? source.MoveTimeoutMs : 30000;
+            options.ResourceTimeoutMs = source != null ? source.ResourceTimeoutMs : 30000;
+            options.PickerNo = source != null ? source.PickerNo : 0;
+            options.VisionRetryCount = source != null ? source.VisionRetryCount : 3;
+            options.SimulateVisionResult = source != null && source.SimulateVisionResult;
+            return options;
         }
 
         private async Task<int> MoveGroupToPositionAsync(CDT320_Machine machine, string positionName, CancellationToken ct)
@@ -564,6 +765,14 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             {
                 if (_stepSequence != null)
                     _stepSequence.Abort();
+                if (_pickUpStepSequence != null)
+                    _pickUpStepSequence.Abort();
+                if (_bottomInspectStepSequence != null)
+                    _bottomInspectStepSequence.Abort();
+                if (_sideInspectStepSequence != null)
+                    _sideInspectStepSequence.Abort();
+                if (_placeStepSequence != null)
+                    _placeStepSequence.Abort();
             }
             catch (Exception ex)
             {
@@ -572,6 +781,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             finally
             {
                 _stepSequence = null;
+                _pickUpStepSequence = null;
+                _bottomInspectStepSequence = null;
+                _sideInspectStepSequence = null;
+                _placeStepSequence = null;
             }
         }
 

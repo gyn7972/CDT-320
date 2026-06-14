@@ -300,24 +300,25 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 }
             }
 
-            L.Add(new TeachItem { Group="TPU.Front",   Key="ArmInputX",           Name="Arm X — Input",         Axis="#09 FrontPickerX",    Value=300.0,  Unit="mm", Desc="Pickup 위치" });
-            L.Add(new TeachItem { Group="TPU.Front",   Key="ArmInspectX",         Name="Arm X — Inspection",    Axis="#09 FrontPickerX",    Value=750.0,  Unit="mm", Desc="Bottom/Side Vision 위치" });
-            L.Add(new TeachItem { Group="TPU.Front",   Key="ArmOutputX",          Name="Arm X — Output",        Axis="#09 FrontPickerX",    Value=1200.0, Unit="mm", Desc="Place 위치" });
-            // Stage 61 — Front Arm Y Pickup / Avoid
-            L.Add(new TeachItem { Group="TPU.Front",   Key="ArmYPickup",          Name="Arm Y — Pickup",        Axis="#10 FrontPickerY",    Value=100.0,  Unit="mm", Desc="다이 픽업 시 ArmY 위치" });
-            L.Add(new TeachItem { Group="TPU.Front",   Key="ArmYAvoid",           Name="Arm Y — Avoid",         Axis="#10 FrontPickerY",    Value=50.0,   Unit="mm", Desc="이동 중 간섭 회피 ArmY" });
-            L.Add(new TeachItem { Group="TPU.Front",   Key="SideVision1X",        Name="Side1 X (회전 전)",     Axis="#09 FrontPickerX",    Value=720.0,  Unit="mm", Desc="Side 1번 면 촬상 X" });
-            L.Add(new TeachItem { Group="TPU.Front",   Key="SideVision1Y",        Name="Side1 Y",               Axis="#10 FrontPickerY",    Value=200.0,  Unit="mm", Desc="Side 1번 면 촬상 Y" });
-            L.Add(new TeachItem { Group="TPU.Front",   Key="PickerPitchX",        Name="Picker 간 피치 X",      Axis="#09 FrontPickerX",    Value=8.0,    Unit="mm", Desc="4 picker 사이 X 거리" });
-            L.Add(new TeachItem { Group="TPU.Front",   Key="SideY0",              Name="Side Vision Y0",        Axis="#19 FrontSideVisionY0", Value=0.0, Unit="mm", Desc="Side 카메라 베이스 위치" });
+            L.Add(new TeachItem { Group="TPU.Front",   Key="PickX",              Name="Front Pick X",          Axis="#09 FrontPickerX",    Value=300.0,  Unit="mm", Desc="Recipe.PickerX.PickPosition" });
+            L.Add(new TeachItem { Group="TPU.Front",   Key="PickY",              Name="Front Pick Y",          Axis="#10 FrontPickerY",    Value=100.0,  Unit="mm", Desc="Recipe.PickerY.PickPosition" });
+            L.Add(new TeachItem { Group="TPU.Front",   Key="BottomX",            Name="Front Bottom X",        Axis="#09 FrontPickerX",    Value=750.0,  Unit="mm", Desc="Recipe.PickerX.BottomPosition" });
+            L.Add(new TeachItem { Group="TPU.Front",   Key="BottomY",            Name="Front Bottom Y",        Axis="#10 FrontPickerY",    Value=100.0,  Unit="mm", Desc="Recipe.PickerY.BottomPosition" });
+            L.Add(new TeachItem { Group="TPU.Front",   Key="SideX",              Name="Front Side X",          Axis="#09 FrontPickerX",    Value=720.0,  Unit="mm", Desc="Recipe.PickerX.SidePosition" });
+            L.Add(new TeachItem { Group="TPU.Front",   Key="SideY",              Name="Front Side Y",          Axis="#10 FrontPickerY",    Value=200.0,  Unit="mm", Desc="Recipe.PickerY.SidePosition" });
+            L.Add(new TeachItem { Group="TPU.Front",   Key="PlaceX",             Name="Front Place X",         Axis="#09 FrontPickerX",    Value=1200.0, Unit="mm", Desc="Recipe.PickerX.PlacePosition" });
+            L.Add(new TeachItem { Group="TPU.Front",   Key="PlaceY",             Name="Front Place Y",         Axis="#10 FrontPickerY",    Value=100.0,  Unit="mm", Desc="Recipe.PickerY.PlacePosition" });
+            L.Add(new TeachItem { Group="TPU.Front",   Key="AvoidY",             Name="Front Avoid Y",         Axis="#10 FrontPickerY",    Value=50.0,   Unit="mm", Desc="Recipe.PickerY.AvoidPosition" });
 
-            L.Add(new TeachItem { Group="TPU.Rear",    Key="ArmInputX",           Name="Rear Arm X — Input",    Axis="#21 RearPickerX",     Value=300.0,  Unit="mm", Desc="Pickup" });
-            L.Add(new TeachItem { Group="TPU.Rear",    Key="ArmInspectX",         Name="Rear Arm X — Inspect",  Axis="#21 RearPickerX",     Value=750.0,  Unit="mm", Desc="Inspection" });
-            L.Add(new TeachItem { Group="TPU.Rear",    Key="ArmOutputX",          Name="Rear Arm X — Output",   Axis="#21 RearPickerX",     Value=1200.0, Unit="mm", Desc="Place" });
-            // Stage 61 — Rear Arm Y Pickup / Avoid
-            L.Add(new TeachItem { Group="TPU.Rear",    Key="ArmYPickup",          Name="Rear Arm Y — Pickup",   Axis="#22 RearPickerY",     Value=100.0,  Unit="mm", Desc="다이 픽업 시 ArmY 위치" });
-            L.Add(new TeachItem { Group="TPU.Rear",    Key="ArmYAvoid",           Name="Rear Arm Y — Avoid",    Axis="#22 RearPickerY",     Value=50.0,   Unit="mm", Desc="이동 중 간섭 회피 ArmY" });
-            L.Add(new TeachItem { Group="TPU.Rear",    Key="SideY0",              Name="Rear Side Vision Y0",   Axis="#20 RearSideVisionY0",  Value=0.0, Unit="mm", Desc="Rear Side 카메라 베이스" });
+            L.Add(new TeachItem { Group="TPU.Rear",    Key="PickX",              Name="Rear Pick X",           Axis="#21 RearPickerX",     Value=300.0,  Unit="mm", Desc="Recipe.PickerX.PickPosition" });
+            L.Add(new TeachItem { Group="TPU.Rear",    Key="PickY",              Name="Rear Pick Y",           Axis="#22 RearPickerY",     Value=100.0,  Unit="mm", Desc="Recipe.PickerY.PickPosition" });
+            L.Add(new TeachItem { Group="TPU.Rear",    Key="BottomX",            Name="Rear Bottom X",         Axis="#21 RearPickerX",     Value=750.0,  Unit="mm", Desc="Recipe.PickerX.BottomPosition" });
+            L.Add(new TeachItem { Group="TPU.Rear",    Key="BottomY",            Name="Rear Bottom Y",         Axis="#22 RearPickerY",     Value=100.0,  Unit="mm", Desc="Recipe.PickerY.BottomPosition" });
+            L.Add(new TeachItem { Group="TPU.Rear",    Key="SideX",              Name="Rear Side X",           Axis="#21 RearPickerX",     Value=720.0,  Unit="mm", Desc="Recipe.PickerX.SidePosition" });
+            L.Add(new TeachItem { Group="TPU.Rear",    Key="SideY",              Name="Rear Side Y",           Axis="#22 RearPickerY",     Value=200.0,  Unit="mm", Desc="Recipe.PickerY.SidePosition" });
+            L.Add(new TeachItem { Group="TPU.Rear",    Key="PlaceX",             Name="Rear Place X",          Axis="#21 RearPickerX",     Value=1200.0, Unit="mm", Desc="Recipe.PickerX.PlacePosition" });
+            L.Add(new TeachItem { Group="TPU.Rear",    Key="PlaceY",             Name="Rear Place Y",          Axis="#22 RearPickerY",     Value=100.0,  Unit="mm", Desc="Recipe.PickerY.PlacePosition" });
+            L.Add(new TeachItem { Group="TPU.Rear",    Key="AvoidY",             Name="Rear Avoid Y",          Axis="#22 RearPickerY",     Value=50.0,   Unit="mm", Desc="Recipe.PickerY.AvoidPosition" });
 
             // ── OutputStage ────────────────────────────────────────────
             L.Add(new TeachItem { Group="OutputStage", Key="StageBasePositionY",     Name="StageY 기준 Y",       Axis="#31 OutputGoodStageY / #33 OutputNGStageY", Value=200.0, Unit="mm", Desc="Place 시 StageY 기준" });
@@ -545,7 +546,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             catch (Exception ex) { QMC.Common.MessageDialog.Show("이동 실패: " + ex.Message); }
         }
 
-        /// <summary>티칭 데이터를 각 Unit 의 Setup 객체에 반영 (런타임 적용).</summary>
+        /// <summary>티칭 데이터를 각 Unit 의 Recipe/Config/Setup 객체에 반영하고 저장한다.</summary>
         private void ApplyToSetup()
         {
             var host = FindForm() as Form1;
@@ -604,45 +605,65 @@ namespace QMC.CDT_320.Ui.Pages.Settings
 
                         // (Per-picker Z teaching 은 switch 진입 전에 ApplyPerPickerZ 에서 처리)
 
-                        // TpuArmSetup — Front
+                        // Picker position teaching is stored in Recipe. Old TPU.* Arm/Side keys are mapped here
+                        // for compatibility with existing position_teaching JSON files.
                         case "TPU.Front.ArmInputX":
-                            m.PickerFrontUnit.Setup.ArmInputPositionX      = it.Value; applied++; break;
-                        case "TPU.Front.ArmInspectX":
-                            m.PickerFrontUnit.Setup.ArmInspectionPositionX = it.Value; applied++; break;
-                        case "TPU.Front.ArmOutputX":
-                            m.PickerFrontUnit.Setup.ArmOutputPositionX     = it.Value; applied++; break;
-                        case "TPU.Front.SideVision1X":
-                            m.PickerFrontUnit.Setup.SideVision1X = it.Value; applied++; break;
-                        case "TPU.Front.SideVision1Y":
-                            m.PickerFrontUnit.Setup.SideVision1Y = it.Value; applied++; break;
-                        case "TPU.Front.PickerPitchX":
-                            m.PickerFrontUnit.Setup.PickerPitchX = it.Value; applied++; break;
-                        case "TPU.Front.SideY0":
-                            m.PickerFrontUnit.Setup.SideVisionY0 = it.Value; applied++; break;
+                        case "TPU.Front.PickX":
+                            m.PickerFrontUnit.Recipe.PickerX.PickPosition = it.Value; applied++; break;
                         case "TPU.Front.ArmYPickup":
-                            m.PickerFrontUnit.Setup.ArmYPickupPosition = it.Value; applied++; break;
+                        case "TPU.Front.PickY":
+                            m.PickerFrontUnit.Recipe.PickerY.PickPosition = it.Value; applied++; break;
+                        case "TPU.Front.ArmInspectX":
+                        case "TPU.Front.BottomX":
+                            m.PickerFrontUnit.Recipe.PickerX.BottomPosition = it.Value; applied++; break;
+                        case "TPU.Front.BottomY":
+                            m.PickerFrontUnit.Recipe.PickerY.BottomPosition = it.Value; applied++; break;
+                        case "TPU.Front.ArmOutputX":
+                        case "TPU.Front.PlaceX":
+                            m.PickerFrontUnit.Recipe.PickerX.PlacePosition = it.Value; applied++; break;
+                        case "TPU.Front.PlaceY":
+                            m.PickerFrontUnit.Recipe.PickerY.PlacePosition = it.Value; applied++; break;
+                        case "TPU.Front.SideVision1X":
+                        case "TPU.Front.SideX":
+                            m.PickerFrontUnit.Recipe.PickerX.SidePosition = it.Value; applied++; break;
+                        case "TPU.Front.SideVision1Y":
+                        case "TPU.Front.SideY":
+                            m.PickerFrontUnit.Recipe.PickerY.SidePosition = it.Value; applied++; break;
+                        case "TPU.Front.PickerPitchX":
+                        case "TPU.Front.SideY0":
+                            applied++; break;
                         case "TPU.Front.ArmYAvoid":
-                            m.PickerFrontUnit.Setup.ArmYAvoidPosition  = it.Value; applied++; break;
+                        case "TPU.Front.AvoidY":
+                            m.PickerFrontUnit.Recipe.PickerY.AvoidPosition = it.Value; applied++; break;
 
-                        // TpuArmSetup — Rear (대칭)
                         case "TPU.Rear.ArmInputX":
-                            m.PickerRearUnit.Setup.ArmInputPositionX      = it.Value; applied++; break;
-                        case "TPU.Rear.ArmInspectX":
-                            m.PickerRearUnit.Setup.ArmInspectionPositionX = it.Value; applied++; break;
-                        case "TPU.Rear.ArmOutputX":
-                            m.PickerRearUnit.Setup.ArmOutputPositionX     = it.Value; applied++; break;
-                        case "TPU.Rear.SideVision1X":
-                            m.PickerRearUnit.Setup.SideVision1X = it.Value; applied++; break;
-                        case "TPU.Rear.SideVision1Y":
-                            m.PickerRearUnit.Setup.SideVision1Y = it.Value; applied++; break;
-                        case "TPU.Rear.PickerPitchX":
-                            m.PickerRearUnit.Setup.PickerPitchX = it.Value; applied++; break;
-                        case "TPU.Rear.SideY0":
-                            m.PickerRearUnit.Setup.SideVisionY0 = it.Value; applied++; break;
+                        case "TPU.Rear.PickX":
+                            m.PickerRearUnit.Recipe.PickerX.PickPosition = it.Value; applied++; break;
                         case "TPU.Rear.ArmYPickup":
-                            m.PickerRearUnit.Setup.ArmYPickupPosition = it.Value; applied++; break;
+                        case "TPU.Rear.PickY":
+                            m.PickerRearUnit.Recipe.PickerY.PickPosition = it.Value; applied++; break;
+                        case "TPU.Rear.ArmInspectX":
+                        case "TPU.Rear.BottomX":
+                            m.PickerRearUnit.Recipe.PickerX.BottomPosition = it.Value; applied++; break;
+                        case "TPU.Rear.BottomY":
+                            m.PickerRearUnit.Recipe.PickerY.BottomPosition = it.Value; applied++; break;
+                        case "TPU.Rear.ArmOutputX":
+                        case "TPU.Rear.PlaceX":
+                            m.PickerRearUnit.Recipe.PickerX.PlacePosition = it.Value; applied++; break;
+                        case "TPU.Rear.PlaceY":
+                            m.PickerRearUnit.Recipe.PickerY.PlacePosition = it.Value; applied++; break;
+                        case "TPU.Rear.SideVision1X":
+                        case "TPU.Rear.SideX":
+                            m.PickerRearUnit.Recipe.PickerX.SidePosition = it.Value; applied++; break;
+                        case "TPU.Rear.SideVision1Y":
+                        case "TPU.Rear.SideY":
+                            m.PickerRearUnit.Recipe.PickerY.SidePosition = it.Value; applied++; break;
+                        case "TPU.Rear.PickerPitchX":
+                        case "TPU.Rear.SideY0":
+                            applied++; break;
                         case "TPU.Rear.ArmYAvoid":
-                            m.PickerRearUnit.Setup.ArmYAvoidPosition  = it.Value; applied++; break;
+                        case "TPU.Rear.AvoidY":
+                            m.PickerRearUnit.Recipe.PickerY.AvoidPosition = it.Value; applied++; break;
 
                         default:
                             // 매핑 미지원 항목 — JSON 저장은 되지만 Setup 미반영. 디버그용 로그.
@@ -667,7 +688,27 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                     catch { }
                 }
             }
-            QMC.Common.MessageDialog.Show($"Setup 반영 완료: {applied} 항목\n\n" +
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(host.CurrentRecipeName))
+                    host.SaveMachineRecipe(host.CurrentRecipeName);
+
+                host.SaveMachineSettings();
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Alarm,
+                    QMC.CDT_320.Ui.Security.UserSession.Name,
+                    "TEACH-SAVE-FAIL",
+                    "Position teaching apply save failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+
+            QMC.Common.MessageDialog.Show($"티칭 반영 완료: {applied} 항목\n\n" +
+                            "Picker 위치 티칭은 Recipe에 저장됩니다.\n" +
                             "(미반영 항목은 JSON 에만 저장됨 — EventLog TEACH-NOAPPLY 참조)",
                             "Apply", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }

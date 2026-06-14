@@ -280,8 +280,8 @@ namespace QMC.CDT320.Sequencing
                 return result;
 
             var xyTargets = new Dictionary<PickerAxis, double>();
-            xyTargets[PickerAxis.PickerX] = GetPickerTeachingPosition(PickerAxis.PickerX, positionArrayName + "[" + index + "]") + ResolvePickerAlignOffsetX(index);
-            xyTargets[PickerAxis.PickerY] = GetPickerTeachingPosition(PickerAxis.PickerY, positionArrayName + "[" + index + "]") + ResolvePickerAlignOffsetY(index);
+            xyTargets[PickerAxis.PickerX] = ResolvePickerZoneX(positionArrayName, index);
+            xyTargets[PickerAxis.PickerY] = ResolvePickerZoneY(positionArrayName, index);
             xyTargets[GetPickerTAxis(index)] = ResolveTPosition(positionArrayName) + ResolvePickerAlignOffsetT(index);
 
             result = await MovePickerAxesAndVerifyAsync(xyTargets, description + " XYT", ct).ConfigureAwait(false);
@@ -442,6 +442,29 @@ namespace QMC.CDT320.Sequencing
             if (Side == PickerSequenceSide.Front)
                 return FrontPicker.GetPickerTeachingPosition(axis, positionName);
             return RearPicker.GetPickerTeachingPosition(axis, positionName);
+        }
+
+        protected double ResolvePickerZoneX(string positionArrayName, int pickerIndex)
+        {
+            return GetPickerTeachingPosition(PickerAxis.PickerX, ResolveZonePositionName(positionArrayName)) +
+                   ResolvePickerAlignOffsetX(pickerIndex);
+        }
+
+        protected double ResolvePickerZoneY(string positionArrayName, int pickerIndex)
+        {
+            return GetPickerTeachingPosition(PickerAxis.PickerY, ResolveZonePositionName(positionArrayName)) +
+                   ResolvePickerAlignOffsetY(pickerIndex);
+        }
+
+        protected string ResolveZonePositionName(string positionArrayName)
+        {
+            if (string.Equals(positionArrayName, "DieBottomPosition", StringComparison.OrdinalIgnoreCase))
+                return "BottomPosition";
+            if (string.Equals(positionArrayName, "DieSidePosition", StringComparison.OrdinalIgnoreCase))
+                return "SidePosition";
+            if (string.Equals(positionArrayName, "DiePlacePosition", StringComparison.OrdinalIgnoreCase))
+                return "PlacePosition";
+            return "PickPosition";
         }
 
         protected PickerAxis GetPickerZAxis(int index)

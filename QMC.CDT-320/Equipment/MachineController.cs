@@ -5588,7 +5588,8 @@ namespace QMC.CDT320
             try
             {
                 await front.ArmY.MoveAbsoluteAsync(
-                    front.Setup.ArmYAvoidPosition, front.Recipe.ArmYVelocity);
+                    front.GetPickerTeachingPosition(PickerAxis.PickerY, "AvoidPosition"),
+                    front.Recipe.ArmYVelocity);
             }
             catch (Exception ex) { Log("[ARM-Y avoid] ex: " + ex.Message); }
 
@@ -5614,13 +5615,13 @@ namespace QMC.CDT320
             }
 
             // 8) ArmY pickup + ArmX input position.
-            double pickX = front.Setup?.ArmInputPositionX ?? 300.0;
+            double pickX = front.GetPickerTeachingPosition(PickerAxis.PickerX, "PickPosition");
+            double pickY = front.GetPickerTeachingPosition(PickerAxis.PickerY, "PickPosition");
             try
             {
                 await Task.WhenAll(
                     SharedRailXMotionRuntime.MoveAxisAsync(front.ArmX, pickX, front.Recipe?.ArmXVelocity ?? 2000.0),
-                    front.ArmY.MoveAbsoluteAsync(front.Setup.ArmYPickupPosition,
-                                                 front.Recipe.ArmYVelocity)
+                    front.ArmY.MoveAbsoluteAsync(pickY, front.Recipe.ArmYVelocity)
                 );
             }
             catch (Exception ex)
@@ -5642,10 +5643,12 @@ namespace QMC.CDT320
                 var vo = visionOffsets[p];
                 try
                 {
+                    front.Config.EnsureArrays();
+
                     // ??3異??숈떆 ?대룞
                     double armXTarget =
-                        front.Setup.ArmInputPositionX
-                        + p * front.Setup.PickerPitchX
+                        front.GetPickerTeachingPosition(PickerAxis.PickerX, "PickPosition")
+                        + front.Config.Picker[p].AlignOffsetX
                         + stage.WaferAlignOffsetX
                         + picker.Setup.ColletOffsetX
                         + d.X;
@@ -5791,7 +5794,7 @@ namespace QMC.CDT320
             catch (Exception ex) { Log("[VISION] Bottom+Side ex: " + ex.Message); }
 
             // 19) PLACE ?꾩튂 ?대룞 ??ArmX ?숈떆??4 picker Z ???湲??꾩튂 (Side 寃?????ㅼ뼱 ?щ┝)
-            double placeArmX = front.Setup?.ArmOutputPositionX ?? 1200.0;
+            double placeArmX = front.GetPickerTeachingPosition(PickerAxis.PickerX, "PlacePosition");
             try
             {
                 var move19 = new System.Collections.Generic.List<Task>();
@@ -5895,7 +5898,8 @@ namespace QMC.CDT320
             try
             {
                 await front.ArmY.MoveAbsoluteAsync(
-                    front.Setup.ArmYAvoidPosition, front.Recipe.ArmYVelocity);
+                    front.GetPickerTeachingPosition(PickerAxis.PickerY, "AvoidPosition"),
+                    front.Recipe.ArmYVelocity);
                 Log($"[ARM-Y] Cycle {cycleIdx + 1}: Place complete. Return to Avoid position.");
             }
             catch (Exception ex) { Log("[ARM-Y avoid after PLACE] ex: " + ex.Message); }

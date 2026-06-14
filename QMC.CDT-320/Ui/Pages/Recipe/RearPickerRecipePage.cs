@@ -163,8 +163,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             string[] tzNames = { "PICKER T1", "PICKER Z1", "PICKER T2", "PICKER Z2", "PICKER T3", "PICKER Z3", "PICKER T4", "PICKER Z4" };
             string[] tzUnits = { AxisUnitConverter.Degree, AxisUnitConverter.Millimeter, AxisUnitConverter.Degree, AxisUnitConverter.Millimeter, AxisUnitConverter.Degree, AxisUnitConverter.Millimeter, AxisUnitConverter.Degree, AxisUnitConverter.Millimeter };
 
-            PickerAxis[] dieKeys = { PickerAxis.PickerX, PickerAxis.PickerY };
-            string[] dieNames = { "PICKER X", "PICKER Y" };
+            PickerAxis[] xyKeys = { PickerAxis.PickerX, PickerAxis.PickerY };
+            string[] xyNames = { "PICKER X", "PICKER Y" };
 
             // AVOID — 전체 축의 avoid 위치
             optionItems.Add(ParameterGridItem.Header("AVOID POSITION", "K_AVOID"));
@@ -175,27 +175,17 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             for (int i = 0; i < tzKeys.Length; i++)
                 AddPositionItem(optionItems, tzKeys[i], tzNames[i], "AVOID POSITION", "AvoidPosition", tzUnits[i], tzNames[i], "K_AVOID");
 
-            // T/Z 모션 종류 — PICK / BOTTOM / SIDE / PLACE
-            string[] tzKinds = { "PICK", "BOTTOM", "SIDE", "PLACE" };
-            string[] tzKindPos = { "PickPosition", "BottomPosition", "SidePosition", "PlacePosition" };
-            for (int k = 0; k < tzKinds.Length; k++)
+            // Zone position: X/Y is taught by picker #4 base. Picker #1~#4 use Config offset X/Y inside each zone.
+            string[] zoneKinds = { "PICK", "BOTTOM", "SIDE", "PLACE" };
+            string[] zoneKindPos = { "PickPosition", "BottomPosition", "SidePosition", "PlacePosition" };
+            for (int k = 0; k < zoneKinds.Length; k++)
             {
-                string gk = "K_" + tzKinds[k];
-                optionItems.Add(ParameterGridItem.Header(tzKinds[k] + " POSITION", gk));
+                string gk = "K_" + zoneKinds[k];
+                optionItems.Add(ParameterGridItem.Header(zoneKinds[k] + " POSITION", gk));
+                for (int i = 0; i < xyKeys.Length; i++)
+                    AddPositionItem(optionItems, xyKeys[i], xyNames[i], zoneKinds[k] + " POSITION", zoneKindPos[k], AxisUnitConverter.Millimeter, xyNames[i], gk);
                 for (int i = 0; i < tzKeys.Length; i++)
-                    AddPositionItem(optionItems, tzKeys[i], tzNames[i], tzKinds[k] + " POSITION", tzKindPos[k], tzUnits[i], tzNames[i], gk);
-            }
-
-            // X/Y 다이 어레이 종류 — DIE PICK / DIE BOTTOM / DIE SIDE / DIE PLACE (P1~4)
-            string[] dieKinds = { "DIE PICK", "DIE BOTTOM", "DIE SIDE", "DIE PLACE" };
-            string[] dieKindPos = { "DiePickPosition", "DieBottomPosition", "DieSidePosition", "DiePlacePosition" };
-            for (int k = 0; k < dieKinds.Length; k++)
-            {
-                string gk = "K_" + dieKindPos[k];
-                optionItems.Add(ParameterGridItem.Header(dieKinds[k] + " POSITION", gk));
-                for (int a = 0; a < dieKeys.Length; a++)
-                    for (int i = 0; i < 4; i++)
-                        AddPositionItem(optionItems, dieKeys[a], dieNames[a], "P" + (i + 1) + " " + dieKinds[k] + " POSITION", dieKindPos[k] + "[" + i + "]", AxisUnitConverter.Millimeter, dieNames[a] + " P" + (i + 1), gk);
+                    AddPositionItem(optionItems, tzKeys[i], tzNames[i], zoneKinds[k] + " POSITION", zoneKindPos[k], tzUnits[i], tzNames[i], gk);
             }
 
             // ===== CONFIG (그룹 없이 펼친 상태로 표시) =====
@@ -439,27 +429,25 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             return true;
         }
 
-        // I4: 헤드(Z/T) 하강 전, 갠트리 X/Y가 짝 DIE 위치(P1~4 중 동일 인덱스)에 정렬됐는지
+        // I4: 헤드(Z/T) 하강 전, 갠트리 X/Y가 zone base 위치에 정렬됐는지 확인한다.
         private bool CheckGantryAlignedForKind(string kind, out string reason)
         {
             reason = string.Empty;
             string baseName;
             switch (kind)
             {
-                case "PICK": baseName = "DiePickPosition"; break;
-                case "BOTTOM": baseName = "DieBottomPosition"; break;
-                case "SIDE": baseName = "DieSidePosition"; break;
-                case "PLACE": baseName = "DiePlacePosition"; break;
+                case "PICK": baseName = "PickPosition"; break;
+                case "BOTTOM": baseName = "BottomPosition"; break;
+                case "SIDE": baseName = "SidePosition"; break;
+                case "PLACE": baseName = "PlacePosition"; break;
                 default: reason = "알 수 없는 종류(" + kind + ")"; return false;
             }
-            for (int i = 0; i < 4; i++)
-            {
-                string pos = baseName + "[" + i + "]";
-                if (unit.IsPickerAxisInTeachingPosition(PickerAxis.PickerX, pos) &&
-                    unit.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, pos))
-                    return true;
-            }
-            reason = "갠트리(X/Y)가 DIE " + kind + " 위치에 정렬되지 않음";
+
+            if (unit.IsPickerAxisInTeachingPosition(PickerAxis.PickerX, baseName) &&
+                unit.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, baseName))
+                return true;
+
+            reason = "갠트리(X/Y)가 " + kind + " zone 위치에 정렬되지 않음";
             return false;
         }
 
@@ -504,7 +492,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 return -1;
 
             bool fine = IsFineMove();
-            string groupKey = "K_" + kindPos;
+            string groupKey = "K_" + ResolveZoneGroupKind(kindPos);
 
             string zblock = unit.GetPickerZClearBlockReason();
             if (zblock != null) return AbortSeq(title, "X/Y 이동 전 Z 상승 미완료: " + zblock);
@@ -516,6 +504,17 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             if (r != 0) return AbortSeq(title, "X 이동 실패 (CDA/공유레일/알람 확인)");
 
             return 0;
+        }
+
+        private static string ResolveZoneGroupKind(string kindPos)
+        {
+            if (string.Equals(kindPos, "DieBottomPosition", StringComparison.OrdinalIgnoreCase))
+                return "BOTTOM";
+            if (string.Equals(kindPos, "DieSidePosition", StringComparison.OrdinalIgnoreCase))
+                return "SIDE";
+            if (string.Equals(kindPos, "DiePlacePosition", StringComparison.OrdinalIgnoreCase))
+                return "PLACE";
+            return "PICK";
         }
 
         // ③ PICK/BOTTOM/SIDE/PLACE — 갠트리 정렬 확인 후 Z 하강 → T 회전

@@ -239,26 +239,30 @@ namespace QMC.CDT320
         private PickerRuntimeToolSetup CreateRuntimeToolSetup(int index)
         {
             Config.EnsureArrays();
+            PickerAxisPositionSet zPosition = GetPositionSet(GetPickerZAxis(index));
+
             return new PickerRuntimeToolSetup
             {
                 ColletOffsetX = Config.Picker[index].AlignOffsetX,
                 ColletOffsetY = Config.Picker[index].AlignOffsetY,
-                PickupPosition = Recipe.PickerZ0.PickPosition,
-                WaitPosition = Recipe.PickerZ0.AvoidPosition,
-                PlacePosition = Recipe.PickerZ0.PlacePosition
+                PickupPosition = zPosition.PickPosition,
+                WaitPosition = zPosition.AvoidPosition,
+                PlacePosition = zPosition.PlacePosition
             };
         }
 
         public void SetRuntimePickerZPosition(int pickerIndex, string positionName, double position)
         {
+            PickerAxisPositionSet zPosition = GetPositionSet(GetPickerZAxis(pickerIndex));
+
             if (string.Equals(positionName, "PickPosition", StringComparison.OrdinalIgnoreCase))
-                Recipe.PickerZ0.PickPosition = position;
+                zPosition.PickPosition = position;
             else if (string.Equals(positionName, "PlacePosition", StringComparison.OrdinalIgnoreCase))
-                Recipe.PickerZ0.PlacePosition = position;
+                zPosition.PlacePosition = position;
             else if (string.Equals(positionName, "FocusPosition", StringComparison.OrdinalIgnoreCase))
-                Recipe.PickerZ0.BottomPosition = position;
+                zPosition.BottomPosition = position;
             else if (string.Equals(positionName, "WaitPosition", StringComparison.OrdinalIgnoreCase))
-                Recipe.PickerZ0.AvoidPosition = position;
+                zPosition.AvoidPosition = position;
         }
 
         private PickerRuntimeToolRecipe CreateRuntimeToolRecipe()
@@ -532,18 +536,21 @@ namespace QMC.CDT320
 
         public Task<int> MovePickerZToPickHeight(int pickerNo, bool bFine = false)
         {
-            return MovePickerAxis(GetPickerZAxis(pickerNo), Recipe.PickerZ0.PickPosition, bFine);
+            PickerAxis axis = GetPickerZAxis(pickerNo);
+            return MovePickerAxis(axis, GetPickerTeachingPosition(axis, "PickPosition"), bFine);
         }
 
         public Task<int> MovePickerZToSafeHeight(int pickerNo, bool bFine = false)
         {
-            return MovePickerAxis(GetPickerZAxis(pickerNo), Recipe.PickerZ0.AvoidPosition, bFine);
+            PickerAxis axis = GetPickerZAxis(pickerNo);
+            return MovePickerAxis(axis, GetPickerTeachingPosition(axis, "AvoidPosition"), bFine);
         }
 
         public Task<int> MovePickerTToOffset(int pickerNo, bool bFine = false)
         {
             int index = NormalizePickerIndex(pickerNo, MaxPickerCount);
-            return MovePickerAxis(GetPickerTAxis(index), Recipe.PickerT0.PickPosition + Config.Picker[index].AlignOffsetT, bFine);
+            PickerAxis axis = GetPickerTAxis(index);
+            return MovePickerAxis(axis, GetPickerTeachingPosition(axis, "PickPosition") + Config.Picker[index].AlignOffsetT, bFine);
         }
 
         public bool IsPickerAxisInPosition(PickerAxis axis, double targetPos, double tolerance)
@@ -695,7 +702,8 @@ namespace QMC.CDT320
         {
             int index = NormalizePickerIndex(pickerNo, MaxPickerCount);
             Config.EnsureArrays();
-            Config.Picker[index].AlignOffsetT = GetAxis(GetPickerTAxis(index)).ActualPosition - Recipe.PickerT0.PickPosition;
+            PickerAxis axis = GetPickerTAxis(index);
+            Config.Picker[index].AlignOffsetT = GetAxis(axis).ActualPosition - GetPickerTeachingPosition(axis, "PickPosition");
         }
 
         public double GetPickerTeachingPosition(PickerAxis axis, string positionName)
@@ -949,27 +957,49 @@ namespace QMC.CDT320
             Config.EnsureArrays();
 
             Dictionary<PickerAxis, double> targets = new Dictionary<PickerAxis, double>();
-            targets[PickerAxis.PickerX] = GetPickerTeachingPosition(PickerAxis.PickerX, positionArrayName + "[" + index + "]") + Config.Picker[index].AlignOffsetX;
-            targets[PickerAxis.PickerY] = GetPickerTeachingPosition(PickerAxis.PickerY, positionArrayName + "[" + index + "]") + Config.Picker[index].AlignOffsetY;
-            targets[GetPickerTAxis(index)] = ResolveTPosition(positionArrayName) + Config.Picker[index].AlignOffsetT;
-            targets[GetPickerZAxis(index)] = ResolveZPosition(positionArrayName);
+            targets[PickerAxis.PickerX] = ResolvePickerZoneX(positionArrayName, index);
+            targets[PickerAxis.PickerY] = ResolvePickerZoneY(positionArrayName, index);
+            targets[GetPickerTAxis(index)] = ResolveTPosition(positionArrayName, index) + Config.Picker[index].AlignOffsetT;
+            targets[GetPickerZAxis(index)] = ResolveZPosition(positionArrayName, index);
             return await MovePickerAxes(targets, bFine);
         }
 
-        private double ResolveTPosition(string positionArrayName)
+        private double ResolvePickerZoneX(string positionArrayName, int index)
         {
-            if (positionArrayName == "DieBottomPosition") return Recipe.PickerT0.BottomPosition;
-            if (positionArrayName == "DieSidePosition") return Recipe.PickerT0.SidePosition;
-            if (positionArrayName == "DiePlacePosition") return Recipe.PickerT0.PlacePosition;
-            return Recipe.PickerT0.PickPosition;
+            return GetPickerTeachingPosition(PickerAxis.PickerX, ResolveZonePositionName(positionArrayName)) +
+                   Config.Picker[index].AlignOffsetX;
         }
 
-        private double ResolveZPosition(string positionArrayName)
+        private double ResolvePickerZoneY(string positionArrayName, int index)
         {
-            if (positionArrayName == "DieBottomPosition") return Recipe.PickerZ0.BottomPosition;
-            if (positionArrayName == "DieSidePosition") return Recipe.PickerZ0.SidePosition;
-            if (positionArrayName == "DiePlacePosition") return Recipe.PickerZ0.PlacePosition;
-            return Recipe.PickerZ0.PickPosition;
+            return GetPickerTeachingPosition(PickerAxis.PickerY, ResolveZonePositionName(positionArrayName)) +
+                   Config.Picker[index].AlignOffsetY;
+        }
+
+        private static string ResolveZonePositionName(string positionArrayName)
+        {
+            if (positionArrayName == "DieBottomPosition") return "BottomPosition";
+            if (positionArrayName == "DieSidePosition") return "SidePosition";
+            if (positionArrayName == "DiePlacePosition") return "PlacePosition";
+            return "PickPosition";
+        }
+
+        private double ResolveTPosition(string positionArrayName, int index)
+        {
+            PickerAxisPositionSet position = GetPositionSet(GetPickerTAxis(index));
+            if (positionArrayName == "DieBottomPosition") return position.BottomPosition;
+            if (positionArrayName == "DieSidePosition") return position.SidePosition;
+            if (positionArrayName == "DiePlacePosition") return position.PlacePosition;
+            return position.PickPosition;
+        }
+
+        private double ResolveZPosition(string positionArrayName, int index)
+        {
+            PickerAxisPositionSet position = GetPositionSet(GetPickerZAxis(index));
+            if (positionArrayName == "DieBottomPosition") return position.BottomPosition;
+            if (positionArrayName == "DieSidePosition") return position.SidePosition;
+            if (positionArrayName == "DiePlacePosition") return position.PlacePosition;
+            return position.PickPosition;
         }
 
         private bool IsPickerGroupInPosition(string positionName)
@@ -989,10 +1019,10 @@ namespace QMC.CDT320
             BaseAxis y = GetAxis(PickerAxis.PickerY);
             BaseAxis t = GetAxis(GetPickerTAxis(index));
             BaseAxis z = GetAxis(GetPickerZAxis(index));
-            return IsPickerAxisInPosition(PickerAxis.PickerX, GetPickerTeachingPosition(PickerAxis.PickerX, positionArrayName + "[" + index + "]") + Config.Picker[index].AlignOffsetX, x.Config.InPositionTolerance)
-                && IsPickerAxisInPosition(PickerAxis.PickerY, GetPickerTeachingPosition(PickerAxis.PickerY, positionArrayName + "[" + index + "]") + Config.Picker[index].AlignOffsetY, y.Config.InPositionTolerance)
-                && IsPickerAxisInPosition(GetPickerTAxis(index), ResolveTPosition(positionArrayName) + Config.Picker[index].AlignOffsetT, t.Config.InPositionTolerance)
-                && IsPickerAxisInPosition(GetPickerZAxis(index), ResolveZPosition(positionArrayName), z.Config.InPositionTolerance);
+            return IsPickerAxisInPosition(PickerAxis.PickerX, ResolvePickerZoneX(positionArrayName, index), x.Config.InPositionTolerance)
+                && IsPickerAxisInPosition(PickerAxis.PickerY, ResolvePickerZoneY(positionArrayName, index), y.Config.InPositionTolerance)
+                && IsPickerAxisInPosition(GetPickerTAxis(index), ResolveTPosition(positionArrayName, index) + Config.Picker[index].AlignOffsetT, t.Config.InPositionTolerance)
+                && IsPickerAxisInPosition(GetPickerZAxis(index), ResolveZPosition(positionArrayName, index), z.Config.InPositionTolerance);
         }
 
         private void TeachPickerGroup(string positionName)
@@ -1004,8 +1034,20 @@ namespace QMC.CDT320
         private void TeachPickerDiePosition(int pickerNo, string positionArrayName)
         {
             int index = NormalizePickerIndex(pickerNo, MaxPickerCount);
-            SetIndexedPosition(GetPositionSet(PickerAxis.PickerX), positionArrayName, index, PickerX.ActualPosition);
-            SetIndexedPosition(GetPositionSet(PickerAxis.PickerY), positionArrayName, index, PickerY.ActualPosition);
+            Config.EnsureArrays();
+            string zonePositionName = ResolveZonePositionName(positionArrayName);
+
+            if (index == 3)
+            {
+                SetPickerTeachingPosition(PickerAxis.PickerX, zonePositionName, PickerX.ActualPosition);
+                SetPickerTeachingPosition(PickerAxis.PickerY, zonePositionName, PickerY.ActualPosition);
+                Config.Picker[index].AlignOffsetX = 0.0;
+                Config.Picker[index].AlignOffsetY = 0.0;
+                return;
+            }
+
+            Config.Picker[index].AlignOffsetX = PickerX.ActualPosition - GetPickerTeachingPosition(PickerAxis.PickerX, zonePositionName);
+            Config.Picker[index].AlignOffsetY = PickerY.ActualPosition - GetPickerTeachingPosition(PickerAxis.PickerY, zonePositionName);
         }
 
         private void SetPickerTeachingPosition(PickerAxis axis, string positionName, double position)
@@ -1091,7 +1133,7 @@ namespace QMC.CDT320
             foreach (KeyValuePair<PickerAxis, double> pair in targets)
             {
                 if (IsZAxis(pair.Key) && GetAxis(pair.Key).ActualPosition != pair.Value)
-                    tasks.Add(MovePickerAxis(pair.Key, Recipe.PickerZ0.AvoidPosition, bFine));
+                    tasks.Add(MovePickerAxis(pair.Key, GetPickerTeachingPosition(pair.Key, "AvoidPosition"), bFine));
             }
         }
 

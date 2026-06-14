@@ -220,10 +220,8 @@ namespace QMC.CDT320.Sequencing
                 return 0;
             }
 
-            _targetPickerX = GetPickerTeachingPosition(PickerAxis.PickerX, "DieBottomPosition[" + _currentPickerIndex + "]") +
-                ResolvePickerAlignOffsetX(_currentPickerIndex);
-            _targetPickerY = GetPickerTeachingPosition(PickerAxis.PickerY, "DieBottomPosition[" + _currentPickerIndex + "]") +
-                ResolvePickerAlignOffsetY(_currentPickerIndex);
+            _targetPickerX = ResolvePickerZoneX("DieBottomPosition", _currentPickerIndex);
+            _targetPickerY = ResolvePickerZoneY("DieBottomPosition", _currentPickerIndex);
             _targetPickerZ = GetPickerTeachingPosition(GetPickerZAxis(_currentPickerIndex), "BottomPosition");
             _targetPickerT = GetPickerTeachingPosition(GetPickerTAxis(_currentPickerIndex), "BottomPosition") +
                 ResolvePickerAlignOffsetT(_currentPickerIndex);
