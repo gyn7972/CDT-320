@@ -183,19 +183,23 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             // _jogButtonArea = 274×260 (inner)
             switch (dir)
             {
+                // X축 조그 버튼 배치
                 case 'X':
                     // 좌우 배치: [− ◀]   [▶ +]
                     area.Controls.Add(MkBtn("◀  −X",  new Point(12,  90), new Size(120, 80), -1));
                     area.Controls.Add(MkBtn("+X  ▶",  new Point(140, 90), new Size(120, 80), +1));
                     break;
+                // Y축 조그 버튼 배치
                 case 'Y':
                     area.Controls.Add(MkBtn("▲  +Y",  new Point(76, 20),  new Size(120, 80), +1));
                     area.Controls.Add(MkBtn("−Y  ▼",  new Point(76, 160), new Size(120, 80), -1));
                     break;
+                // Z축 조그 버튼 배치
                 case 'Z':
                     area.Controls.Add(MkBtn("▲  +Z",  new Point(76, 20),  new Size(120, 80), +1));
                     area.Controls.Add(MkBtn("−Z  ▼",  new Point(76, 160), new Size(120, 80), -1));
                     break;
+                // T축 조그 버튼 배치
                 case 'T':
                     area.Controls.Add(MkBtn("↺ CCW",  new Point(12,  90), new Size(120, 80), -1));
                     area.Controls.Add(MkBtn("CW ↻",   new Point(140, 90), new Size(120, 80), +1));
@@ -570,24 +574,35 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                         //case "InputLoader.FirstSlotPosition":   m.InputLoader.Setup.FirstSlotPosition  = it.Value; applied++; break;
                         //case "InputLoader.ExchangePositionY":   m.InputLoader.Setup.ExchangePositionY  = it.Value; applied++; break;
 
+                        // 인풋 스테이지 Expander Down 티칭 적용
                         case "InputStage.ExpanderDownPosition": m.InputStageUnit.Recipe.WaferZ.LoadPosition    = it.Value; applied++; break;
+                        // 인풋 스테이지 Expander Up 티칭 적용
                         case "InputStage.ExpanderUpPosition":   m.InputStageUnit.Recipe.WaferZ.ReadyPosition   = it.Value; applied++; break;
+                        // 인풋 스테이지 언로드 Y 티칭 적용
                         case "InputStage.UnloadPositionY":      m.InputStageUnit.Recipe.WaferY.UnloadPosition  = it.Value; applied++; break;
+                        // 인풋 스테이지 니들 이젝트 티칭 적용
                         case "InputStage.NeedleEjectPosition":  m.InputStageUnit.Recipe.NeedleZ.ProcessPosition = it.Value; applied++; break;
+                        // 인풋 스테이지 니들 다운 티칭 적용
                         case "InputStage.NeedleDownPosition":   m.InputStageUnit.Recipe.NeedleZ.LoadPosition   = it.Value; applied++; break;
                         // PickerOffsetX/Y are not declared in InputStageSetup/Config/Recipe.
 
                         // OutputStage (Stage 59 round 11)
+                        // 아웃풋 GOOD/NG 스테이지 기준 Y 티칭 적용
                         case "OutputStage.StageBasePositionY":
                             m.OutputStageUnit.GoodStage.Recipe.HomePositionY = it.Value;
                             m.OutputStageUnit.NgStage.Recipe.HomePositionY = it.Value;
                             applied += 2; break;
+                        // 아웃풋 비전 작업 X 티칭 적용
                         case "OutputStage.BinCameraWorkPositionX":  m.OutputStageUnit.Recipe.VisionX.ProcessPosition = it.Value; applied++; break;
+                        // 아웃풋 비전 후퇴 X 티칭 적용
                         case "OutputStage.BinCameraRetractX":       m.OutputStageUnit.Recipe.VisionX.AvoidPosition = it.Value; applied++; break;
 
                         // OutputCassette / OutputFeeder
+                        // 아웃풋 NG 카세트 첫 슬롯 Z 티칭 적용
                         case "OutputCassette.NgFirstSlotPositionZ":    m.OutputCassetteUnit.Recipe.NGFirstSlotPosition = it.Value; applied++; break;
+                        // 아웃풋 GOOD 1단 첫 슬롯 Z 티칭 적용
                         case "OutputCassette.Good1FirstSlotPositionZ": m.OutputCassetteUnit.Recipe.GoodFirstSlotPosition = it.Value; applied++; break;
+                        // 아웃풋 GOOD 2단 첫 슬롯 Z 티칭 적용
                         case "OutputCassette.Good2FirstSlotPositionZ":
                             m.OutputCassetteUnit.Config.Level2PositionOffset = Math.Max(
                                 0.0,
@@ -596,16 +611,22 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                                 it.Value);
                             applied++;
                             break;
+                        // 아웃풋 카세트 슬롯 피치 Z 티칭 적용
                         case "OutputCassette.SlotPitchZ":              m.OutputCassetteUnit.Config.SlotPitch = it.Value; applied++; break;
+                        // 아웃풋 피더 NG 스테이지 교환 Y 티칭 적용
                         case "OutputFeeder.NgStageExchangePositionY":  m.OutputFeederUnit.Recipe.NGWaferLoadPosition = it.Value; m.OutputFeederUnit.Recipe.NGWaferUnloadPosition = it.Value; applied++; break;
+                        // 아웃풋 피더 GOOD 스테이지 교환 Y 티칭 적용
                         case "OutputFeeder.GoodStageExchangePositionY":m.OutputFeederUnit.Recipe.GoodWaferLoadPosition = it.Value; m.OutputFeederUnit.Recipe.GoodWaferUnloadPosition = it.Value; applied++; break;
+                        // 아웃풋 피더 카세트 삽입 Y 티칭 적용
                         case "OutputFeeder.CassetteInsertPositionY":   m.OutputFeederUnit.Recipe.GoodCassetteExchangePosition = it.Value; m.OutputFeederUnit.Recipe.NGCassetteExchangePosition = it.Value; applied++; break;
 
                         // Stage 60 R-teach — 추가 매핑 (이전 16개 미적용 항목 보강)
                         // OutputStage Z exists only on GoodStage.
+                        // 아웃풋 GOOD 스테이지 작업 Z 티칭 적용
                         case "OutputStage.WorkPositionZ":
                             m.OutputStageUnit.GoodStage.Recipe.WorkPositionZ  = it.Value;
                             applied++; break;
+                        // 아웃풋 GOOD 스테이지 Avoid Z 티칭 적용
                         case "OutputStage.AvoidPositionZ":
                             m.OutputStageUnit.GoodStage.Recipe.AvoidPositionZ = it.Value;
                             applied++; break;
@@ -614,60 +635,80 @@ namespace QMC.CDT_320.Ui.Pages.Settings
 
                         // Picker position teaching is stored in Recipe. Old TPU.* Arm/Side keys are mapped here
                         // for compatibility with existing position_teaching JSON files.
+                        // 프론트 피커 Pick X 티칭 적용
                         case "TPU.Front.ArmInputX":
                         case "TPU.Front.PickX":
                             m.PickerFrontUnit.Recipe.PickerX.PickPosition = it.Value; applied++; break;
+                        // 프론트 피커 Pick Y 티칭 적용
                         case "TPU.Front.ArmYPickup":
                         case "TPU.Front.PickY":
                             m.PickerFrontUnit.Recipe.PickerY.PickPosition = it.Value; applied++; break;
+                        // 프론트 피커 Bottom X 티칭 적용
                         case "TPU.Front.ArmInspectX":
                         case "TPU.Front.BottomX":
                             m.PickerFrontUnit.Recipe.PickerX.BottomPosition = it.Value; applied++; break;
+                        // 프론트 피커 Bottom Y 티칭 적용
                         case "TPU.Front.BottomY":
                             m.PickerFrontUnit.Recipe.PickerY.BottomPosition = it.Value; applied++; break;
+                        // 프론트 피커 Place X 티칭 적용
                         case "TPU.Front.ArmOutputX":
                         case "TPU.Front.PlaceX":
                             m.PickerFrontUnit.Recipe.PickerX.PlacePosition = it.Value; applied++; break;
+                        // 프론트 피커 Place Y 티칭 적용
                         case "TPU.Front.PlaceY":
                             m.PickerFrontUnit.Recipe.PickerY.PlacePosition = it.Value; applied++; break;
+                        // 프론트 피커 Side X 티칭 적용
                         case "TPU.Front.SideVision1X":
                         case "TPU.Front.SideX":
                             m.PickerFrontUnit.Recipe.PickerX.SidePosition = it.Value; applied++; break;
+                        // 프론트 피커 Side Y 티칭 적용
                         case "TPU.Front.SideVision1Y":
                         case "TPU.Front.SideY":
                             m.PickerFrontUnit.Recipe.PickerY.SidePosition = it.Value; applied++; break;
+                        // 프론트 피커 Pitch/SideY0 호환 항목 카운트
                         case "TPU.Front.PickerPitchX":
                         case "TPU.Front.SideY0":
                             applied++; break;
+                        // 프론트 피커 Avoid Y 티칭 적용
                         case "TPU.Front.ArmYAvoid":
                         case "TPU.Front.AvoidY":
                             m.PickerFrontUnit.Recipe.PickerY.AvoidPosition = it.Value; applied++; break;
 
+                        // 리어 피커 Pick X 티칭 적용
                         case "TPU.Rear.ArmInputX":
                         case "TPU.Rear.PickX":
                             m.PickerRearUnit.Recipe.PickerX.PickPosition = it.Value; applied++; break;
+                        // 리어 피커 Pick Y 티칭 적용
                         case "TPU.Rear.ArmYPickup":
                         case "TPU.Rear.PickY":
                             m.PickerRearUnit.Recipe.PickerY.PickPosition = it.Value; applied++; break;
+                        // 리어 피커 Bottom X 티칭 적용
                         case "TPU.Rear.ArmInspectX":
                         case "TPU.Rear.BottomX":
                             m.PickerRearUnit.Recipe.PickerX.BottomPosition = it.Value; applied++; break;
+                        // 리어 피커 Bottom Y 티칭 적용
                         case "TPU.Rear.BottomY":
                             m.PickerRearUnit.Recipe.PickerY.BottomPosition = it.Value; applied++; break;
+                        // 리어 피커 Place X 티칭 적용
                         case "TPU.Rear.ArmOutputX":
                         case "TPU.Rear.PlaceX":
                             m.PickerRearUnit.Recipe.PickerX.PlacePosition = it.Value; applied++; break;
+                        // 리어 피커 Place Y 티칭 적용
                         case "TPU.Rear.PlaceY":
                             m.PickerRearUnit.Recipe.PickerY.PlacePosition = it.Value; applied++; break;
+                        // 리어 피커 Side X 티칭 적용
                         case "TPU.Rear.SideVision1X":
                         case "TPU.Rear.SideX":
                             m.PickerRearUnit.Recipe.PickerX.SidePosition = it.Value; applied++; break;
+                        // 리어 피커 Side Y 티칭 적용
                         case "TPU.Rear.SideVision1Y":
                         case "TPU.Rear.SideY":
                             m.PickerRearUnit.Recipe.PickerY.SidePosition = it.Value; applied++; break;
+                        // 리어 피커 Pitch/SideY0 호환 항목 카운트
                         case "TPU.Rear.PickerPitchX":
                         case "TPU.Rear.SideY0":
                             applied++; break;
+                        // 리어 피커 Avoid Y 티칭 적용
                         case "TPU.Rear.ArmYAvoid":
                         case "TPU.Rear.AvoidY":
                             m.PickerRearUnit.Recipe.PickerY.AvoidPosition = it.Value; applied++; break;
@@ -746,9 +787,13 @@ namespace QMC.CDT_320.Ui.Pages.Settings
 
                 switch (it.Key)
                 {
+                    // Picker Z Pick 위치 저장 인정
                     case "PickPosition":
+                    // Picker Z Place 위치 저장 인정
                     case "PlacePosition":
+                    // Picker Z Focus 위치 저장 인정
                     case "FocusPosition":
+                    // Picker Z Wait 위치 저장 인정
                     case "WaitPosition":
                         return 1;
                     default:

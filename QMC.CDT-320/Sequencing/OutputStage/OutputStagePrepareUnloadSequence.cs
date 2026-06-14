@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -37,21 +37,27 @@ namespace QMC.CDT320.Sequencing
 
                 switch (CurrentStep)
                 {
+                    // 유닛 확인
                     case OutputStagePrepareUnloadStep.CheckUnit:
                         return Task.FromResult(CheckUnit(OutputStagePrepareUnloadStep.CheckTargetSide));
 
+                    // 대상 사이드 확인
                     case OutputStagePrepareUnloadStep.CheckTargetSide:
                         return Task.FromResult(CheckTargetSide());
 
+                    // 대상 스테이지 Z로 어보이드 이동
                     case OutputStagePrepareUnloadStep.MoveTargetStageZToAvoid:
                         return MoveTargetStageZToAvoidAsync(ct);
 
+                    // 대상 스테이지 Z 어보이드 확인
                     case OutputStagePrepareUnloadStep.CheckTargetStageZAvoid:
                         return Task.FromResult(CheckTargetStageZAvoid());
 
+                    // 대상 스테이지 Y로 언로드 이동
                     case OutputStagePrepareUnloadStep.MoveTargetStageYToUnload:
                         return MoveTargetStageYToUnloadAsync(ct);
 
+                    // 대상 스테이지 Y 언로드 확인
                     case OutputStagePrepareUnloadStep.CheckTargetStageYUnload:
                         return Task.FromResult(CheckTargetStageYUnload());
 
@@ -198,3 +204,4 @@ namespace QMC.CDT320.Sequencing
         }
     }
 }
+

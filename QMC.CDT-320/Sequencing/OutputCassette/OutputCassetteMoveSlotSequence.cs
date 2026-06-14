@@ -1,4 +1,4 @@
-using System.Threading;
+﻿using System.Threading;
 using System.Threading.Tasks;
 
 namespace QMC.CDT320.Sequencing
@@ -30,12 +30,16 @@ namespace QMC.CDT320.Sequencing
         {
             switch (CurrentStep)
             {
+                // 카세트 감지 확인
                 case OutputCassetteMoveSlotStep.CheckCassetteDetected:
                     return Task.FromResult(CheckCassetteDetected(OutputCassetteMoveSlotStep.CheckCassetteMaterial));
+                // 카세트 자재 확인
                 case OutputCassetteMoveSlotStep.CheckCassetteMaterial:
                     return Task.FromResult(CheckCassetteMaterial(OutputCassetteMoveSlotStep.CheckFeederPosition));
+                // 피더 위치 확인
                 case OutputCassetteMoveSlotStep.CheckFeederPosition:
                     return Task.FromResult(CheckFeederPosition(OutputCassetteMoveSlotStep.MoveSlotPosition));
+                // 슬롯 위치 이동
                 case OutputCassetteMoveSlotStep.MoveSlotPosition:
                     return MoveConfiguredSlotAsync(ct);
                 default:
@@ -44,3 +48,4 @@ namespace QMC.CDT320.Sequencing
         }
     }
 }
+

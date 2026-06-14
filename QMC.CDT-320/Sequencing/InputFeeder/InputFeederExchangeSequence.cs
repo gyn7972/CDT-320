@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
 using QMC.CDT320.Materials;
@@ -38,16 +38,22 @@ namespace QMC.CDT320.Sequencing
                 ct.ThrowIfCancellationRequested();
                 switch (CurrentStep)
                 {
+                    // 유닛 확인
                     case InputFeederExchangeStep.CheckUnit:
                         return Task.FromResult(CheckUnit(InputFeederExchangeStep.CheckExchangeReady));
+                    // 교환 준비 확인
                     case InputFeederExchangeStep.CheckExchangeReady:
                         return Task.FromResult(CheckExchangeReady());
+                    // 다음 웨이퍼 데이터 확인
                     case InputFeederExchangeStep.CheckNextWaferData:
                         return Task.FromResult(CheckNextWaferData());
+                    // 현재 웨이퍼 카세트 언로드
                     case InputFeederExchangeStep.UnloadCurrentWaferToCassette:
                         return UnloadCurrentWaferToCassetteAsync(ct);
+                    // 카세트로 다음 웨이퍼 슬롯 이동
                     case InputFeederExchangeStep.MoveCassetteToNextWaferSlot:
                         return MoveCassetteToNextWaferSlotAsync(ct);
+                    // 다음 웨이퍼 카세트 로드
                     case InputFeederExchangeStep.LoadNextWaferFromCassette:
                         return LoadNextWaferFromCassetteAsync(ct);
                     default:
@@ -276,3 +282,4 @@ namespace QMC.CDT320.Sequencing
         }
     }
 }
+

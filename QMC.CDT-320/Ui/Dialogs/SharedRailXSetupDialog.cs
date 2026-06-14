@@ -202,8 +202,10 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             switch (columnName)
             {
+                // 속도 컬럼 단위 표시
                 case "colVelocity":
                     return DisplayUnitForAxis(axis) + "/sec";
+                // Scale 컬럼은 단위 없음
                 case "colScale":
                     return "";
                 default:
@@ -891,12 +893,16 @@ namespace QMC.CDT_320.Ui.Dialogs
             CDT320_Machine machine = _controller.Machine;
             switch (axis)
             {
+                // 인풋 비전 X축 객체 반환
                 case SharedRailXAxis.InputVisionX:
                     return machine.InputStageUnit != null ? machine.InputStageUnit.CameraX : null;
+                // 프론트 피커 X축 객체 반환
                 case SharedRailXAxis.FrontPickerX:
                     return machine.PickerFrontUnit != null ? machine.PickerFrontUnit.PickerX : null;
+                // 리어 피커 X축 객체 반환
                 case SharedRailXAxis.RearPickerX:
                     return machine.PickerRearUnit != null ? machine.PickerRearUnit.PickerX : null;
+                // 아웃풋 비전 X축 객체 반환
                 case SharedRailXAxis.OutputVisionX:
                     return machine.OutputStageUnit != null ? machine.OutputStageUnit.OutputCameraX : null;
                 default:
@@ -949,9 +955,13 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             switch (axis)
             {
+                // 인풋 비전 X축 표시명
                 case SharedRailXAxis.InputVisionX: return "InputVisionX";
+                // 프론트 피커 X축 표시명
                 case SharedRailXAxis.FrontPickerX: return "FrontPickerX";
+                // 리어 피커 X축 표시명
                 case SharedRailXAxis.RearPickerX: return "RearPickerX";
+                // 아웃풋 비전 X축 표시명
                 case SharedRailXAxis.OutputVisionX: return "OutputVisionX";
                 default: return axis.ToString();
             }
@@ -997,13 +1007,16 @@ namespace QMC.CDT_320.Ui.Dialogs
 
             switch (head)
             {
+                // 비전축 기준 서브축 허용 범위
                 case SharedRailXAxis.InputVisionX:
                 case SharedRailXAxis.OutputVisionX:
                     return sub == SharedRailXAxis.FrontPickerX || sub == SharedRailXAxis.RearPickerX;
+                // 프론트 피커 기준 서브축 허용 범위
                 case SharedRailXAxis.FrontPickerX:
                     return sub == SharedRailXAxis.InputVisionX ||
                         sub == SharedRailXAxis.RearPickerX ||
                         sub == SharedRailXAxis.OutputVisionX;
+                // 리어 피커 기준 서브축 허용 범위
                 case SharedRailXAxis.RearPickerX:
                     return sub == SharedRailXAxis.InputVisionX ||
                         sub == SharedRailXAxis.FrontPickerX ||

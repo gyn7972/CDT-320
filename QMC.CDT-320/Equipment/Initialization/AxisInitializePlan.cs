@@ -1094,48 +1094,70 @@ namespace QMC.CDT320.Initialization
         {
             switch (name)
             {
+                // 구 FeederY 이름을 InputFeederY로 연결
                 case "FeederY":
                     return new[] { "InputFeederY" };
+                // InputFeederY 이름을 구 FeederY로 연결
                 case "InputFeederY":
                     return new[] { "FeederY" };
+                // 구 CameraX 이름을 InputVisionX로 연결
                 case "CameraX":
                     return new[] { "InputVisionX" };
+                // InputVisionX 이름을 구 CameraX로 연결
                 case "InputVisionX":
                     return new[] { "CameraX" };
+                // 구 ExpanderZ 이름을 InputExpandingZ로 연결
                 case "ExpanderZ":
                     return new[] { "InputExpandingZ" };
+                // InputExpandingZ 이름을 구 ExpanderZ로 연결
                 case "InputExpandingZ":
                     return new[] { "ExpanderZ" };
+                // 구 StageY 이름을 InputStageY로 연결
                 case "StageY":
                     return new[] { "InputStageY" };
+                // InputStageY 이름을 구 StageY로 연결
                 case "InputStageY":
                     return new[] { "StageY" };
+                // 구 StageT 이름을 InputStageT로 연결
                 case "StageT":
                     return new[] { "InputStageT" };
+                // InputStageT 이름을 구 StageT로 연결
                 case "InputStageT":
                     return new[] { "StageT" };
+                // 구 NeedleBlockX 이름을 NeedleX로 연결
                 case "NeedleBlockX":
                     return new[] { "NeedleX" };
+                // NeedleX 이름을 구 NeedleBlockX로 연결
                 case "NeedleX":
                     return new[] { "NeedleBlockX" };
+                // 구 FrontSideVisionY 이름을 FrontSideVisionY0로 연결
                 case "FrontSideVisionY":
                     return new[] { "FrontSideVisionY0" };
+                // FrontSideVisionY0 이름을 구 FrontSideVisionY로 연결
                 case "FrontSideVisionY0":
                     return new[] { "FrontSideVisionY" };
+                // 구 RearSideVisionY 이름을 RearSideVisionY0로 연결
                 case "RearSideVisionY":
                     return new[] { "RearSideVisionY0" };
+                // RearSideVisionY0 이름을 구 RearSideVisionY로 연결
                 case "RearSideVisionY0":
                     return new[] { "RearSideVisionY" };
+                // 구 GoodStage Z 이름을 OutputGoodStageZ로 연결
                 case "GoodStage_StageZ":
                     return new[] { "OutputGoodStageZ" };
+                // OutputGoodStageZ 이름을 구 GoodStage Z로 연결
                 case "OutputGoodStageZ":
                     return new[] { "GoodStage_StageZ" };
+                // 구 GoodStage Y 이름을 OutputGoodStageY로 연결
                 case "GoodStage_StageY":
                     return new[] { "OutputGoodStageY" };
+                // OutputGoodStageY 이름을 구 GoodStage Y로 연결
                 case "OutputGoodStageY":
                     return new[] { "GoodStage_StageY" };
+                // 구 NG Stage Y 이름을 OutputNGStageY로 연결
                 case "NgStage_StageY":
                     return new[] { "OutputNGStageY" };
+                // OutputNGStageY 이름을 구 NG Stage Y로 연결
                 case "OutputNGStageY":
                     return new[] { "NgStage_StageY" };
                 default:

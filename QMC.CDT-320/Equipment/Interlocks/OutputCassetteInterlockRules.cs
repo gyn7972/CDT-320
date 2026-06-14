@@ -29,9 +29,12 @@ namespace QMC.CDT320.Interlocks
 
                 switch (request.MoveKind)
                 {
+                    // 홈 이동 인터락 확인
                     case MotionGuardMoveKind.AxisHome:
                         return CanHomeBinLifterZ(Cassette, feeder, out reason);
+                    // 일반 이동 인터락 확인
                     case MotionGuardMoveKind.AxisMove:
+                    // 티칭 이동 인터락 확인
                     case MotionGuardMoveKind.AxisTeachingMove:
                         return CanMoveBinLifterZ(Cassette, feeder, out reason);
                     default:

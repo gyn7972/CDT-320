@@ -7,24 +7,23 @@ using System.Windows.Forms;
 
 namespace QMC.CDT_320.Ui.Controls
 {
-    /// <summary>구현 설명 주석입니다.</summary>
+    /// <summary>X/Y/T 축 조그 이동을 위한 패드형 컨트롤입니다.</summary>
     public partial class AxisJogPadControl : UserControl
     {
         private BaseAxis _axisX;
         private BaseAxis _axisY;
         private BaseAxis _axisT;
 
-        /// <summary>구현 설명 주석입니다.</summary>
+        /// <summary>조그 모드와 이동 단위를 제공하는 옵션 컨트롤입니다.</summary>
         [Browsable(false)]
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public JogMoveOptionsControl MoveOptions { get; set; }
 
-        /// <summary>구현 설명 주석입니다.</summary>
+        /// <summary>현재 조그 속도를 제공하는 콜백입니다.</summary>
         [Browsable(false)]
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public Func<double> SpeedProvider { get; set; }
 
-        /// <summary>구현 설명 주석입니다.</summary>
         public AxisJogPadControl()
         {
             InitializeComponent();
@@ -32,7 +31,7 @@ namespace QMC.CDT_320.Ui.Controls
             UpdateEnabledState();
         }
 
-        /// <summary>구현 설명 주석입니다.</summary>
+        /// <summary>X/Y/T 축 객체를 컨트롤에 연결합니다.</summary>
         public void BindAxes(BaseAxis x, BaseAxis y, BaseAxis t)
         {
             _axisX = x;
@@ -41,7 +40,7 @@ namespace QMC.CDT_320.Ui.Controls
             UpdateEnabledState();
         }
 
-        /// <summary>구현 설명 주석입니다.</summary>
+        /// <summary>연결된 모든 축의 조그 이동을 정지합니다.</summary>
         public void StopJog()
         {
             StopAxis(_axisX);

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
 using QMC.CDT320.Materials;
@@ -46,33 +46,43 @@ namespace QMC.CDT320.Sequencing
 
                 switch (CurrentStep)
                 {
+                    // 유닛 확인
                     case OutputStageReceiveDieStep.CheckUnit:
                         return Task.FromResult(CheckUnit(OutputStageReceiveDieStep.ResolveTargetSide));
 
+                    // 대상 사이드 결정
                     case OutputStageReceiveDieStep.ResolveTargetSide:
                         return Task.FromResult(ResolveTargetSide());
 
+                    // 수령 대상 예약
                     case OutputStageReceiveDieStep.ReserveReceiveTarget:
                         return Task.FromResult(ReserveReceiveTarget());
 
+                    // 반대쪽 스테이지 Z로 어보이드 이동
                     case OutputStageReceiveDieStep.MoveOppositeStageZToAvoid:
                         return MoveOppositeStageZToAvoidAsync(ct);
 
+                    // 반대쪽 스테이지 Z 어보이드 확인
                     case OutputStageReceiveDieStep.CheckOppositeStageZAvoid:
                         return Task.FromResult(CheckOppositeStageZAvoid());
 
+                    // 대상 스테이지 Z로 로드 이동
                     case OutputStageReceiveDieStep.MoveTargetStageZToLoad:
                         return MoveTargetStageZToLoadAsync(ct);
 
+                    // 대상 스테이지 Z 로드 확인
                     case OutputStageReceiveDieStep.CheckTargetStageZLoad:
                         return Task.FromResult(CheckTargetStageZLoad());
 
+                    // 대상 스테이지 Y로 수령 이동
                     case OutputStageReceiveDieStep.MoveTargetStageYToReceive:
                         return MoveTargetStageYToReceiveAsync(ct);
 
+                    // 대상 스테이지 Y 수령 확인
                     case OutputStageReceiveDieStep.CheckTargetStageYReceive:
                         return Task.FromResult(CheckTargetStageYReceive());
 
+                    // TPU 플레이스 준비 알림
                     case OutputStageReceiveDieStep.NotifyTpuPlaceReady:
                         return Task.FromResult(NotifyTpuPlaceReady());
 
@@ -323,3 +333,4 @@ namespace QMC.CDT320.Sequencing
         }
     }
 }
+

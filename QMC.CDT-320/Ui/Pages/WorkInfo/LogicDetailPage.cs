@@ -141,11 +141,17 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         {
             switch (unitIndex)
             {
+                // FEED 단계명
                 case 0: return "FEED";
+                // ALIGN 단계명
                 case 1: return "ALIGN";
+                // PICK 단계명
                 case 2: return "PICK";
+                // INSPECT 단계명
                 case 3: return "INSPECT";
+                // PLACE 단계명
                 case 4: return "PLACE";
+                // STORE 단계명
                 case 5: return "STORE";
                 default: return "-";
             }

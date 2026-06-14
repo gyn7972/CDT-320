@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
 using QMC.CDT320.Materials;
@@ -61,6 +61,7 @@ namespace QMC.CDT320.Sequencing
 
                 switch (action)
                 {
+                    // NG 스테이지 완료품을 카세트로 배출
                     case OutputSequenceAutoAction.StoreNgStageToCassette:
                         return await ExecuteCompletedStageStoreAsync(
                             ct,
@@ -70,6 +71,7 @@ namespace QMC.CDT320.Sequencing
                             moveTimeoutMs,
                             startMode).ConfigureAwait(false);
 
+                    // GOOD 스테이지 완료품을 카세트로 배출
                     case OutputSequenceAutoAction.StoreGoodStageToCassette:
                         return await ExecuteCompletedStageStoreAsync(
                             ct,
@@ -79,6 +81,7 @@ namespace QMC.CDT320.Sequencing
                             moveTimeoutMs,
                             startMode).ConfigureAwait(false);
 
+                    // 피더 보유품 상태를 이어서 처리
                     case OutputSequenceAutoAction.ResumeOccupiedFeeder:
                         return await ExecuteOccupiedFeederActionAsync(
                             ct,
@@ -86,6 +89,7 @@ namespace QMC.CDT320.Sequencing
                             moveTimeoutMs,
                             startMode).ConfigureAwait(false);
 
+                    // GOOD 카세트에서 스테이지로 공급
                     case OutputSequenceAutoAction.SupplyGoodCassetteToStage:
                         return await ExecuteSupplyCassetteToStageAsync(
                             ct,
@@ -94,6 +98,7 @@ namespace QMC.CDT320.Sequencing
                             moveTimeoutMs,
                             startMode).ConfigureAwait(false);
 
+                    // NG 카세트에서 스테이지로 공급
                     case OutputSequenceAutoAction.SupplyNgCassetteToStage:
                         return await ExecuteSupplyCassetteToStageAsync(
                             ct,
@@ -102,6 +107,7 @@ namespace QMC.CDT320.Sequencing
                             moveTimeoutMs,
                             startMode).ConfigureAwait(false);
 
+                    // 아웃풋 스테이지 수령 완료 대기
                     case OutputSequenceAutoAction.WaitOutputStageReceiveComplete:
                         SetOutputStageReadySignals();
                         await WaitAnyOutputReceiveCompleteAsync(ct).ConfigureAwait(false);
@@ -640,14 +646,17 @@ namespace QMC.CDT320.Sequencing
 
             switch (candidate)
             {
+                // GOOD 1단 카세트 처리
                 case CassetteMaterialRole.Good1:
                     role = CassetteMaterialRole.Good1;
                     target = TargetCassette.Good1;
                     return side == BinSide.Good;
+                // GOOD 2단 카세트 처리
                 case CassetteMaterialRole.Good2:
                     role = CassetteMaterialRole.Good2;
                     target = TargetCassette.Good2;
                     return side == BinSide.Good;
+                // NG 1단 카세트 처리
                 case CassetteMaterialRole.Ng1:
                     role = CassetteMaterialRole.Ng1;
                     target = TargetCassette.Ng;

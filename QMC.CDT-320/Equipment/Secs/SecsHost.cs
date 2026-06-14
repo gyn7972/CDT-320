@@ -15,11 +15,7 @@ using QMC.Common.Data.Store;
 
 namespace QMC.CDT320.Secs
 {
-    /// <summary>
-    ///
-    ///
-    ///
-    /// </summary>
+    /// <summary>SECS/HSMS 또는 라인 기반 TCP Host 통신을 처리합니다.</summary>
     public class SecsHost : IDisposable
     {
         public event Action<string> Log;
@@ -28,18 +24,16 @@ namespace QMC.CDT320.Secs
         public int Port { get; }
         public bool IsRunning { get; private set; }
 
-        /// <summary>구현 설명 주석입니다.</summary>
+        /// <summary>HSMS 프레임 모드 사용 여부입니다.</summary>
         public bool UseHsms { get; set; } = false;
-        /// <summary>구현 설명 주석입니다.</summary>
+        /// <summary>현재 활성 HSMS 연결 상태입니다.</summary>
         public HsmsConnection HsmsActive { get; private set; }
 
-        // 구현 보조 주석입니다.
         private readonly Dictionary<string, Func<string[], int>> _remoteCommands
             = new Dictionary<string, Func<string[], int>>(StringComparer.OrdinalIgnoreCase);
 
         public IReadOnlyDictionary<string, Func<string[], int>> RemoteCommands => _remoteCommands;
 
-        // 구현 보조 주석입니다.
         private readonly ConcurrentQueue<string> _eventQueue = new ConcurrentQueue<string>();
 
         // ?? TCP ??
@@ -51,7 +45,6 @@ namespace QMC.CDT320.Secs
         {
             Port = port;
             RegisterStandardCommands();
-            // 구현 보조 주석입니다.
             try { QMC.Common.Alarms.AlarmManager.AlarmRaised += OnAlarmRaised; } catch { }
         }
 
@@ -66,9 +59,7 @@ namespace QMC.CDT320.Secs
             catch { }
         }
 
-        // ?????????????????????????????????????????
-        // 구현 보조 주석입니다.
-        // ?????????????????????????????????????????
+        // 표준 Remote Command를 등록합니다.
         private void RegisterStandardCommands()
         {
             _remoteCommands["ProceedWithTapeFrame"] = args =>
@@ -119,9 +110,7 @@ namespace QMC.CDT320.Secs
             _remoteCommands[name] = handler;
         }
 
-        // ?????????????????????????????????????????
-        // 구현 보조 주석입니다.
-        // ?????????????????????????????????????????
+        // Host로 보낼 이벤트를 큐에 적재하고 연결된 클라이언트로 전송합니다.
         public void RaiseEvent(string eventName, params string[] data)
         {
             string line = $"EVT|{eventName}|{(data == null ? 0 : data.Length)}" +
@@ -139,9 +128,7 @@ namespace QMC.CDT320.Secs
         public void RaiseJobOrderStateChanged(string uid, string type, string state)
             => RaiseEvent("JobOrderStateChanged", uid, type, state);
 
-        // ?????????????????????????????????????????
-        // 구현 보조 주석입니다.
-        // ?????????????????????????????????????????
+        // 레시피를 GZip+Base64 문자열로 직렬화합니다.
         public static string SerializeZipBase64(RecipeProject recipe)
         {
             if (recipe == null) return null;
@@ -171,9 +158,7 @@ namespace QMC.CDT320.Secs
             catch { return null; }
         }
 
-        // ?????????????????????????????????????????
-        // 구현 보조 주석입니다.
-        // ?????????????????????????????????????????
+        // TCP Listener를 시작하고 클라이언트 접속을 대기합니다.
         public void Start()
         {
             if (IsRunning) return;
@@ -189,11 +174,9 @@ namespace QMC.CDT320.Secs
             catch (Exception ex) { LogMsg("[SECS] start failed: " + ex.Message); }
         }
 
-        /// <summary>구현 설명 주석입니다.</summary>
+        /// <summary>HSMS 클라이언트 프레임을 읽고 메시지를 처리합니다.</summary>
         private void HandleHsmsClient(TcpClient client)
         {
-            // 구현 보조 주석입니다.
-            // 구현 보조 주석입니다.
             try
             {
                 var stream = client.GetStream();
@@ -237,7 +220,7 @@ namespace QMC.CDT320.Secs
 
         private void HandleHsmsMessage(NetworkStream stream, SecsMessage msg)
         {
-            // S1F1 ??S1F2 (PING/PONG)
+            // S1F1 -> S1F2 (PING/PONG)
             if (msg.Stream == 1 && msg.Function == 1)
             {
                 var reply = new SecsMessage { Stream = 1, Function = 2, ReplyExpected = false, SystemBytes = msg.SystemBytes };
@@ -245,8 +228,7 @@ namespace QMC.CDT320.Secs
                 return;
             }
 
-            // 구현 보조 주석입니다.
-            // 구현 보조 주석입니다.
+            // S2F41 Remote Command 요청 처리
             if (msg.Stream == 2 && msg.Function == 41 && msg.ReplyExpected)
             {
                 string text = msg.TextPayload ?? "";
@@ -363,9 +345,7 @@ namespace QMC.CDT320.Secs
         private void ProcessLine(NetworkStream stream, string line)
         {
             LogMsg($"[SECS] RX: {line}");
-            // 구현 보조 주석입니다.
-            //               or       RECIPE_PUT|<base64-zip>
-            //               or       PING
+            // 지원 형식: PING, RC|..., RECIPE_PUT|<base64-zip>
             try
             {
                 var parts = line.Split('|');

@@ -34,3 +34,4 @@ namespace QMC.CDT320.Sequencing
         All = InputLoader | InputFeeder | InputStage | TpuLeft | TpuRight | OutputStage | OutputUnloader
     }
 }
+

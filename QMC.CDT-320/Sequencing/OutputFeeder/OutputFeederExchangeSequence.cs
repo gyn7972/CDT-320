@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -35,18 +35,23 @@ namespace QMC.CDT320.Sequencing
                 ct.ThrowIfCancellationRequested();
                 switch (CurrentStep)
                 {
+                    // 유닛 확인
                     case OutputFeederExchangeStep.CheckUnit:
                         return Task.FromResult(CheckUnit(OutputFeederExchangeStep.CheckExchangePlan));
 
+                    // 교환 계획 확인
                     case OutputFeederExchangeStep.CheckExchangePlan:
                         return Task.FromResult(CheckExchangePlan());
 
+                    // 현재 자재 카세트 언로드
                     case OutputFeederExchangeStep.UnloadCurrentToCassette:
                         return UnloadCurrentToCassetteAsync(ct);
 
+                    // 다음 자재 카세트 로드
                     case OutputFeederExchangeStep.LoadNextFromCassette:
                         return LoadNextFromCassetteAsync(ct);
 
+                    // 교환 위치 이동
                     case OutputFeederExchangeStep.MoveExchangePosition:
                         return MoveExchangePositionAsync(ct);
 
@@ -138,3 +143,4 @@ namespace QMC.CDT320.Sequencing
         }
     }
 }
+

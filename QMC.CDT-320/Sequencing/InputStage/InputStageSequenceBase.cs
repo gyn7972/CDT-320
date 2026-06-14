@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
 using QMC.Common;
@@ -223,12 +223,19 @@ namespace QMC.CDT320.Sequencing
         {
             switch (axis)
             {
+                // 웨이퍼 Y축 반환
                 case QMC.CDT320.WaferStageAxis.WaferY: return Stage.StageY;
+                // 웨이퍼 T축 반환
                 case QMC.CDT320.WaferStageAxis.WaferT: return Stage.StageT;
+                // 웨이퍼 확장 Z축 반환
                 case QMC.CDT320.WaferStageAxis.WaferExpandingZ: return Stage.ExpanderZ;
+                // 비전 X축 반환
                 case QMC.CDT320.WaferStageAxis.VisionX: return Stage.CameraX;
+                // 니들 X축 반환
                 case QMC.CDT320.WaferStageAxis.NeedleX: return Stage.NeedleBlockX;
+                // 니들 Z축 반환
                 case QMC.CDT320.WaferStageAxis.NeedleZ: return Stage.NeedleZ;
+                // 이젝트 핀 Z축 반환
                 case QMC.CDT320.WaferStageAxis.EjectPinZ: return Stage.EjectPinZ;
                 default: return null;
             }

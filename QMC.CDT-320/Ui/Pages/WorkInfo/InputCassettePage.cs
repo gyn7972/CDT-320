@@ -1239,12 +1239,16 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             {
                 switch (WaferMaterialStateText.Normalize(state))
                 {
+                    // READY 슬롯 색상
                     case WaferMaterialState.Ready:
                         return Color.Cyan;
+                    // WORK READY 슬롯 색상
                     case WaferMaterialState.WorkReady:
                         return Color.Navy;
+                    // WORKING 슬롯 색상
                     case WaferMaterialState.Working:
                         return Color.Orange;
+                    // FINISH 슬롯 색상
                     case WaferMaterialState.Finish:
                         return Color.Red;
                     default:

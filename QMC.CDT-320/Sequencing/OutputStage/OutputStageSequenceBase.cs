@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
 using QMC.Common;
@@ -251,14 +251,19 @@ namespace QMC.CDT320.Sequencing
         {
             switch (axis)
             {
+                // NG 스테이지 Y축 허용오차 반환
                 case BinStageAxis.NgBinY:
                     return Stage.NgStage.StageY.Config != null ? Stage.NgStage.StageY.Config.InPositionTolerance : 0.01;
+                // NG 스테이지 Z축 허용오차 반환
                 case BinStageAxis.NgBinZ:
                     return 0.01;
+                // GOOD 스테이지 Y축 허용오차 반환
                 case BinStageAxis.GoodBinY:
                     return Stage.GoodStage.StageY.Config != null ? Stage.GoodStage.StageY.Config.InPositionTolerance : 0.01;
+                // GOOD 스테이지 Z축 허용오차 반환
                 case BinStageAxis.GoodBinZ:
                     return Stage.GoodStage.StageZ.Config != null ? Stage.GoodStage.StageZ.Config.InPositionTolerance : 0.01;
+                // 비전 X축 허용오차 반환
                 case BinStageAxis.VisionX:
                     return Stage.OutputCameraX.Config != null ? Stage.OutputCameraX.Config.InPositionTolerance : 0.01;
                 default:
@@ -347,14 +352,19 @@ namespace QMC.CDT320.Sequencing
 
             switch (axis)
             {
+                // NG 스테이지 Y축 반환
                 case BinStageAxis.NgBinY:
                     return Stage.NgStage != null ? Stage.NgStage.StageY : null;
+                // NG 스테이지 Z축 반환
                 case BinStageAxis.NgBinZ:
                     return Stage.NgStage != null ? Stage.NgStage.StageZ : null;
+                // GOOD 스테이지 Y축 반환
                 case BinStageAxis.GoodBinY:
                     return Stage.GoodStage != null ? Stage.GoodStage.StageY : null;
+                // GOOD 스테이지 Z축 반환
                 case BinStageAxis.GoodBinZ:
                     return Stage.GoodStage != null ? Stage.GoodStage.StageZ : null;
+                // 비전 X축 반환
                 case BinStageAxis.VisionX:
                     return Stage.OutputCameraX;
                 default:

@@ -1634,18 +1634,25 @@ namespace QMC.CDT320
         {
             switch (type)
             {
+                // 피더 Avoid 위치명 반환
                 case FeederPositionType.Avoid:
                     return "1_WaferFeederY.AvoidPos";
+                // 카세트 로드 위치명 반환
                 case FeederPositionType.CassetteLoad:
                     return "1_WaferFeederY.CassetteLoadPos";
+                // 카세트 언로드 위치명 반환
                 case FeederPositionType.CassetteUnload:
                     return "1_WaferFeederY.CassetteUnloadPos";
+                // 바코드 위치명 반환
                 case FeederPositionType.Barcode:
                     return "1_WaferFeederY.StageBarcodePos";
+                // 스테이지 로드 위치명 반환
                 case FeederPositionType.StageLoad:
                     return "1_WaferFeederY.StageLoadPos";
+                // 스테이지 언로드 위치명 반환
                 case FeederPositionType.StageUnload:
                     return "1_WaferFeederY.StageUnloadPos";
+                // 카세트 교체 위치명 반환
                 case FeederPositionType.Exchange:
                     return "1_WaferFeederY.CassetteExchangePos";
                 default:
@@ -1887,10 +1894,12 @@ namespace QMC.CDT320
             {
                 switch (policy)
                 {
+                    // 클램프 유지 안전 출력
                     case FeederSafePolicy.HoldClamp:
                         SetWaferFeederLiftUpOutput(false);
                         SetWaferFeederLiftDownOutput(true);
                         break;
+                    // 현재 출력 상태 유지
                     case FeederSafePolicy.HoldCurrent:
                         break;
                     default:
@@ -1914,16 +1923,22 @@ namespace QMC.CDT320
         {
             switch (code)
             {
+                // 피더 Y축 알람 메시지
                 case FeederAlarmCode.AxisAlarm:
                     return "InputFeederY axis alarm.";
+                // 피더 Y축 이동 타임아웃 메시지
                 case FeederAlarmCode.MoveTimeout:
                     return "InputFeederY move timeout.";
+                // 피더 티칭 누락 메시지
                 case FeederAlarmCode.TeachingMissing:
                     return "WaferFeeder teaching position is missing.";
+                // 피더 인터락 메시지
                 case FeederAlarmCode.Interlock:
                     return "WaferFeeder interlock condition is not satisfied.";
+                // 피더 오버로드 메시지
                 case FeederAlarmCode.Overload:
                     return "WaferFeeder overload is detected.";
+                // 피더 링 감지 누락 메시지
                 case FeederAlarmCode.RingMissing:
                     return "WaferFeeder ring was not detected.";
                 default:

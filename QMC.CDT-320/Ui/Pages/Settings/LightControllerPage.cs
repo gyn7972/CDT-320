@@ -184,10 +184,15 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             string txt = (_grid.Rows[e.RowIndex].Cells[col].Value as string) ?? "";
             switch (col)
             {
+                // 조명 컨트롤러 COM 포트 적용
                 case "COM": it.ComPort = txt.Trim(); break;
+                // 조명 밝기 레벨 적용
                 case "LEVEL": if (int.TryParse(txt, out var v)) it.Level = Math.Max(0, Math.Min(255, v)); break;
+                // 조명 모드 적용
                 case "MODE": it.Mode = txt.Trim(); break;
+                // 조명 색상 적용
                 case "COLOR": it.Color = txt.Trim(); break;
+                // 조명 활성 여부 적용
                 case "ACTIVE": it.Active = txt.Trim().ToUpper().StartsWith("ON"); break;
             }
             FillGrid();

@@ -18,7 +18,7 @@ using QMC.CDT_320.Ui.Tabs;
 
 namespace QMC.CDT_320
 {
-    /// <summary>구현 설명 주석입니다.</summary>
+    /// <summary>하단 메인 탭 종류입니다.</summary>
     public enum MainTab
     {
         Work      = 0,
@@ -45,8 +45,7 @@ namespace QMC.CDT_320
         private bool _applicationExitRequested;
         private bool _topDoorClosed = true;
 
-        /// <summary>구현 설명 주석입니다.</summary>
-        ///
+        /// <summary>상단 프로젝트명을 현재 레시피 파일명으로 갱신합니다.</summary>
         public void RefreshProjectName(string fileName)
         {
             try
@@ -330,9 +329,9 @@ namespace QMC.CDT_320
             }
         }
 
-        /// <summary>구현 설명 주석입니다.</summary>
+        /// <summary>시뮬레이션 카세트 드라이버입니다.</summary>
         internal QMC.CDT320.Sim.SimCassetteDriver CassetteDriver { get; private set; }
-        /// <summary>구현 설명 주석입니다.</summary>
+        /// <summary>SECS/HSMS Host 통신 객체입니다.</summary>
         internal QMC.CDT320.Secs.SecsHost SecsHost { get; private set; }
 
         private WorkTab     _workTab;
@@ -487,12 +486,10 @@ namespace QMC.CDT_320
             if (DesignMode || LicenseManager.UsageMode == LicenseUsageMode.Designtime)
                 return;
 
-            // 구현 보조 주석입니다.
             var cfg = AppSettingsStore.Load();
             if (!string.IsNullOrEmpty(cfg.Language)) Lang.SetLanguage(cfg.Language);
             QMC.Common.Alarms.AlarmManager.LanguageProvider = () => Lang.Current ?? "ko";
 
-            // 구현 보조 주석입니다.
             QMC.CDT320.Ajin.AjinConfigStore.Load();
             QMC.CDT320.Ajin.AjinFactory.UseRealBoard = cfg.UseAjin && !cfg.BypassHardware;
             if (QMC.CDT320.Ajin.AjinFactory.UseRealBoard) 
@@ -502,7 +499,6 @@ namespace QMC.CDT_320
 
             QMC.CDT320.Ajin.AjinFactory.RegisterConfiguredAxes();
 
-            // 구현 보조 주석입니다.
             // Stage 43 ??6 梨꾨꼸: Wafer/Inspection/Bin + Main/TopSide/BottomSide
             if (cfg.VisionAutoConnect)
             {
@@ -513,7 +509,6 @@ namespace QMC.CDT_320
             }
             QMC.CDT320.VisionComm.VisionHub.ConnectionChanged += OnVisionHubChanged;
 
-            // 구현 보조 주석입니다.
             Machine    = new CDT320_Machine();
             LoadMachineSettings();
             ApplyRuntimeMode();
@@ -551,7 +546,6 @@ namespace QMC.CDT_320
             ApplyDoorSimulationState(_topDoorClosed);
             UpdateTopCommandButtons();
 
-            // 구현 보조 주석입니다.
             try
             {
                 SecsHost = new QMC.CDT320.Secs.SecsHost(5000);
@@ -559,7 +553,6 @@ namespace QMC.CDT_320
             }
             catch { /* Optional startup failure ignored. */ }
 
-            // 구현 보조 주석입니다.
             if (!cfg.UseAjin)
             {
                 CassetteDriver = new QMC.CDT320.Sim.SimCassetteDriver(
@@ -570,11 +563,9 @@ namespace QMC.CDT_320
             }
             Controller.StatusChanged += OnEquipmentStatusChanged;
             Controller.LogMessage    += s => QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, UserSession.Name, "CTRL", s);
-            // 구현 보조 주석입니다.
             if (Program.AutoCycleCount > 0)
                 Controller.LogMessage += s => Console.WriteLine("[CTRL] " + s);
 
-            // 구현 보조 주석입니다.
             _workTab     = new WorkTab     { Dock = DockStyle.Fill, Visible = false };
             _workInfoTab = new WorkInfoTab { Dock = DockStyle.Fill, Visible = false };
             _historyTab  = new HistoryTab  { Dock = DockStyle.Fill, Visible = false };
@@ -619,22 +610,17 @@ namespace QMC.CDT_320
             lblUserCaption    .Tag = "i18n:header.user";
             lblTimeCaption    .Tag = "i18n:header.time";
 
-            // 구현 보조 주석입니다.
             Lang.LanguageChanged    += OnLocalizationChanged;
             UserSession.UserChanged += OnUserChanged;
 
-            // 구현 보조 주석입니다.
             OnLocalizationChanged();
 
-            // 구현 보조 주석입니다.
-            // 구현 보조 주석입니다.
 #if DEBUG
             QMC.CDT_320.Ui.Security.UserSession.ForceSet(
                 "admin", QMC.CDT_320.Ui.Security.UserLevel.Admin);
 #endif
             OnUserChanged();
 
-            // 구현 보조 주석입니다.
             try
             {
                 var last = QMC.CDT320.Recipes.RecipeStore.LoadLastOrDefault();
@@ -645,7 +631,6 @@ namespace QMC.CDT_320
                     Controller.ApplyRecipeMode(last);
                     if (!_materialSnapshotRestored)
                         InitializeMaterialStateFromRecipe(last);
-                    // 구현 보조 주석입니다.
                     RefreshProjectName(last.FileName);
                     QMC.Common.Logging.EventLogger.Write(
                         QMC.Common.Logging.EventKind.Event,
@@ -659,14 +644,12 @@ namespace QMC.CDT_320
             if (!_materialSnapshotRestored && MaterialStorage.State.Cassettes.Count == 0)
                 MaterialStateService.InitializeForRecipe(1, 1, 25, 25);
 
-            // 구현 보조 주석입니다.
             timerClock.Start();
             UpdateClock();
 
             // Default page.
             ShowTab(MainTab.Work);
 
-            // 구현 보조 주석입니다.
             if (!string.IsNullOrEmpty(Program.StartPage))
             {
                 BeginInvoke(new Action(() =>
@@ -688,14 +671,10 @@ namespace QMC.CDT_320
                             return;
                         }
                     }
-                    // 구현 보조 주석입니다.
                     ShowTab(MainTab.Settings);
                 }));
             }
 
-            // 구현 보조 주석입니다.
-            // 구현 보조 주석입니다.
-            // 구현 보조 주석입니다.
             if (Program.AuditAll)
             {
                 BeginInvoke(new Action(() =>
@@ -719,7 +698,6 @@ namespace QMC.CDT_320
 
                     if (Program.ClickTestAll)
                     {
-                        // 구현 보조 주석입니다.
                         int tt = 0, ss = 0, ff = 0;
                         foreach (var p in pairs)
                         {
@@ -746,7 +724,6 @@ namespace QMC.CDT_320
                 }));
             }
 
-            // 구현 보조 주석입니다.
             if (Program.AutoCycleCount > 0 || Program.AutoInitOnly)
             {
                 int n = Program.AutoCycleCount;
@@ -926,9 +903,7 @@ namespace QMC.CDT_320
             MaterialStateService.NotifyAndSave("InitializeFromRecipe");
         }
 
-        /// <summary>
-        ///
-        /// </summary>
+        /// <summary>선택한 메인 탭을 화면에 표시합니다.</summary>
         public void ShowTab(MainTab tab)
         {
             _currentTab = tab;
@@ -951,11 +926,17 @@ namespace QMC.CDT_320
             Control active = null;
             switch (tab)
             {
+                // 작업 탭 활성화
                 case MainTab.Work:     active = _workTab;     break;
+                // 작업 정보 탭 활성화
                 case MainTab.WorkInfo: active = _workInfoTab; break;
+                // 이력 탭 활성화
                 case MainTab.History:  active = _historyTab;  break;
+                // 레시피 탭 활성화
                 case MainTab.Recipe:   active = _recipeTab;   break;
+                // 설정 탭 활성화
                 case MainTab.Settings: active = _settingsTab; break;
+                // 사용자 탭 활성화
                 case MainTab.User:     active = _userTab;     break;
             }
             if (active != null)
@@ -1025,7 +1006,7 @@ namespace QMC.CDT_320
         private void OnLocalizationChanged()
         {
             Lang.Apply(this);
-            // 구현 보조 주석입니다.
+            // 언어 변경 후 메인 폼 전체 표시 문구를 다시 적용합니다.
         }
 
         private void OnUserChanged()
@@ -1046,7 +1027,7 @@ namespace QMC.CDT_320
         private void OnVisionHubChanged()
         {
             if (InvokeRequired) { BeginInvoke(new Action(OnVisionHubChanged)); return; }
-            // 구현 보조 주석입니다.
+            // VisionHub 연결 상태를 상단 VIS 표시로 반영합니다.
             var h = QMC.CDT320.VisionComm.VisionHub.AllConnected ? "O" : "X";
             lblBarcodeValue.Text = "VIS " + h;
             lblBarcodeValue.ForeColor = QMC.CDT320.VisionComm.VisionHub.AllConnected
@@ -1061,11 +1042,17 @@ namespace QMC.CDT_320
             System.Drawing.Color c;
             switch (ms)
             {
+                // Ready 상태 색상
                 case QMC.CDT320.EquipmentStatus.Ready:       c = System.Drawing.Color.LightGreen;  break;
+                // ManualRunning 상태 색상
                 case QMC.CDT320.EquipmentStatus.ManualRunning:     c = System.Drawing.Color.DeepSkyBlue; break;
+                // AutoRunning 상태 색상
                 case QMC.CDT320.EquipmentStatus.AutoRunning:     c = UiTheme.LogoOrange;              break;
+                // Initializing 상태 색상
                 case QMC.CDT320.EquipmentStatus.Initializing:c = System.Drawing.Color.Gold;        break;
+                // Alarm 상태 색상
                 case QMC.CDT320.EquipmentStatus.Alarm:       c = System.Drawing.Color.IndianRed;   break;
+                // Stopped 상태 색상
                 case QMC.CDT320.EquipmentStatus.Stopped:     c = System.Drawing.Color.Silver;      break;
                 default:                                   c = System.Drawing.Color.White;       break;
             }

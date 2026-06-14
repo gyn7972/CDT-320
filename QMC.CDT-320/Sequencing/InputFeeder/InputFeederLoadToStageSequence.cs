@@ -47,36 +47,52 @@ namespace QMC.CDT320.Sequencing
                 ct.ThrowIfCancellationRequested();
                 switch (CurrentStep)
                 {
+                    // 유닛 확인
                     case InputFeederLoadToStageStep.CheckUnit:
                         return Task.FromResult(CheckUnit(InputFeederLoadToStageStep.CheckTransferReady));
+                    // 이송 준비 확인
                     case InputFeederLoadToStageStep.CheckTransferReady:
                         return Task.FromResult(CheckTransferReady());
+                    // 바코드 시퀀스 실행
                     case InputFeederLoadToStageStep.RunBarcodeSequence:
                         return Task.FromResult(RunBarcodeSequence());
+                    // 스테이지 로드 위치 확인
                     case InputFeederLoadToStageStep.CheckStageLoadPosition:
                         return Task.FromResult(CheckStageLoadPosition());
+                    // 피더 보유 웨이퍼 검증
                     case InputFeederLoadToStageStep.VerifyFeederHoldingWafer:
                         return Task.FromResult(VerifyFeederHoldingWafer());
+                    // 피더 스테이지 로드 위치 이동
                     case InputFeederLoadToStageStep.MoveFeederStageLoadPosition:
                         return MoveFeederStageLoadPositionAsync(ct);
+                    // 웨이퍼 전 이송 검증
                     case InputFeederLoadToStageStep.VerifyWaferBeforeTransfer:
                         return VerifyWaferBeforeTransferAsync(ct);
+                    // 스테이지 진공 ON 처리
                     case InputFeederLoadToStageStep.StageVacuumOn:
                         return Task.FromResult(StageVacuumOn());
+                    // 피더 언클램프 준비
                     case InputFeederLoadToStageStep.PrepareFeederUnclamp:
                         return PrepareFeederUnclampAsync(ct);
+                    // 피더 스테이지 로드 어보이드 위치 이동
                     case InputFeederLoadToStageStep.MoveFeederStageLoadAvoidPosition:
                         return MoveFeederStageLoadAvoidPositionAsync(ct);
+                    // 자재 데이터를 스테이지로 이동
                     case InputFeederLoadToStageStep.MoveMaterialDataToStage:
                         return Task.FromResult(MoveMaterialDataToStage());
+                    // 피더 데이터 클리어
                     case InputFeederLoadToStageStep.ClearFeederData:
                         return Task.FromResult(ClearFeederData());
+                    // 피더 리프트 업 준비
                     case InputFeederLoadToStageStep.PrepareFeederLiftUp:
                         return PrepareFeederLiftUpAsync(ct);
+                    // 피더 어보이드 위치 이동
                     case InputFeederLoadToStageStep.MoveFeederAvoidPosition:
                         return MoveFeederAvoidPositionAsync(ct);
+                    // 피더 리프트 다운 후 어보이드 준비
                     case InputFeederLoadToStageStep.PrepareFeederLiftDownAfterAvoid:
                         return PrepareFeederLiftDownAsync(ct, InputFeederLoadToStageStep.VerifyInputStageData);
+                    // 인풋 스테이지 데이터 검증
                     case InputFeederLoadToStageStep.VerifyInputStageData:
                         return Task.FromResult(VerifyInputStageData());
                     default:
@@ -415,12 +431,19 @@ namespace QMC.CDT320.Sequencing
 
             switch (axis)
             {
+                // 웨이퍼 Y축 반환
                 case WaferStageAxis.WaferY: return stage.StageY;
+                // 웨이퍼 T축 반환
                 case WaferStageAxis.WaferT: return stage.StageT;
+                // 웨이퍼 확장 Z축 반환
                 case WaferStageAxis.WaferExpandingZ: return stage.ExpanderZ;
+                // 비전 X축 반환
                 case WaferStageAxis.VisionX: return stage.CameraX;
+                // 니들 X축 반환
                 case WaferStageAxis.NeedleX: return stage.NeedleBlockX;
+                // 니들 Z축 반환
                 case WaferStageAxis.NeedleZ: return stage.NeedleZ;
+                // 이젝트 핀 Z축 반환
                 case WaferStageAxis.EjectPinZ: return stage.EjectPinZ;
                 default: return null;
             }
@@ -516,3 +539,5 @@ namespace QMC.CDT320.Sequencing
         }
     }
 }
+
+

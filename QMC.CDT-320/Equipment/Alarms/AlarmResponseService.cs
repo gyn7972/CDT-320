@@ -129,18 +129,22 @@ namespace QMC.CDT320.Alarms
 
                 switch (policy.StopScope)
                 {
+                    // 알람 발생 축만 정지
                     case AlarmStopScope.SourceAxisOnly:
                         return await _controller.StopAxesAsync(new[] { sourceAxis }, policy.UseEmergencyStop).ConfigureAwait(false);
 
+                    // 간섭 그룹 축 정지
                     case AlarmStopScope.InterferenceGroup:
                         if (string.IsNullOrWhiteSpace(sourceAxis))
                             return await _controller.StopAllAxesAsync(policy.UseEmergencyStop).ConfigureAwait(false);
                         return await _controller.StopInterferenceGroupAsync(sourceAxis, policy.UseEmergencyStop).ConfigureAwait(false);
 
+                    // 유닛/장비 범위는 전체 축 정지
                     case AlarmStopScope.Unit:
                     case AlarmStopScope.Equipment:
                         return await _controller.StopAllAxesAsync(policy.UseEmergencyStop).ConfigureAwait(false);
 
+                    // 시퀀스/없음 범위는 축 정지 없음
                     case AlarmStopScope.Sequence:
                     case AlarmStopScope.None:
                     default:

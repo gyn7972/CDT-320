@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -97,48 +97,63 @@ namespace QMC.CDT320.Sequencing
 
             switch (CurrentStep)
             {
+                // 유닛 확인
                 case PickerSideInspectionStep.CheckUnit:
                     return Task.FromResult(CheckUnit());
 
+                // 픽업 피커 목록 생성
                 case PickerSideInspectionStep.BuildPickedPickerList:
                     return Task.FromResult(BuildPickedPickerList());
 
+                // 전체 피커 Z로 어보이드 이동
                 case PickerSideInspectionStep.MoveAllPickerZToAvoid:
                     return MoveAllPickerZToAvoidAsync(ct);
 
+                // 다음 피커 선택
                 case PickerSideInspectionStep.SelectNextPicker:
                     return Task.FromResult(SelectNextPicker());
 
+                // 사이드 XY 이동
                 case PickerSideInspectionStep.MoveSideXY:
                     return MoveSideXYAsync(ct);
 
+                // 사이드 Z 이동
                 case PickerSideInspectionStep.MoveSideZ:
                     return MoveSideZAsync(ct);
 
+                // 사이드 T 0 이동
                 case PickerSideInspectionStep.MoveSideT0:
                     return MoveSideT0Async(ct);
 
+                // 사이드 0 검사 요청
                 case PickerSideInspectionStep.RequestSide0Inspection:
                     return RequestSide0InspectionAsync(ct);
 
+                // 사이드 T 90 이동
                 case PickerSideInspectionStep.MoveSideT90:
                     return MoveSideT90Async(ct);
 
+                // 사이드 90 검사 요청
                 case PickerSideInspectionStep.RequestSide90Inspection:
                     return RequestSide90InspectionAsync(ct);
 
+                // 사이드 검사 결과 적용
                 case PickerSideInspectionStep.ApplySideInspectionResult:
                     return Task.FromResult(ApplySideInspectionResult());
 
+                // 사이드 Z로 어보이드 이동
                 case PickerSideInspectionStep.MoveSideZToAvoid:
                     return MoveSideZToAvoidAsync(ct);
 
+                // 사이드 T로 안전 이동
                 case PickerSideInspectionStep.MoveSideTToSafe:
                     return MoveSideTToSafeAsync(ct);
 
+                // 사이드 XY로 어보이드 이동
                 case PickerSideInspectionStep.MoveSideXYToAvoid:
                     return MoveSideXYToAvoidAsync(ct);
 
+                // 다음 피커 또는 완료 선택
                 case PickerSideInspectionStep.SelectNextPickerOrComplete:
                     return Task.FromResult(SelectNextPickerOrComplete());
 
@@ -524,3 +539,4 @@ namespace QMC.CDT320.Sequencing
         }
     }
 }
+

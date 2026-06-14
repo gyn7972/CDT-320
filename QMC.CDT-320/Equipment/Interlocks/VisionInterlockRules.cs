@@ -35,9 +35,12 @@ namespace QMC.CDT320.Interlocks
 
             switch (request.MoveKind)
             {
+                // 일반 이동 인터락 확인
                 case MotionGuardMoveKind.AxisMove:
+                // 티칭 이동 인터락 확인
                 case MotionGuardMoveKind.AxisTeachingMove:
                     return CanMoveFrontSideVisionY(request.Machine, out reason);
+                // 홈 이동 인터락 확인
                 case MotionGuardMoveKind.AxisHome:
                     return CanHomeFrontSideVisionY(request.Machine, out reason);
                 default:
@@ -68,9 +71,12 @@ namespace QMC.CDT320.Interlocks
 
             switch (request.MoveKind)
             {
+                // 일반 이동 인터락 확인
                 case MotionGuardMoveKind.AxisMove:
+                // 티칭 이동 인터락 확인
                 case MotionGuardMoveKind.AxisTeachingMove:
                     return CanMoveRearSideVisionY(request.Machine, out reason);
+                // 홈 이동 인터락 확인
                 case MotionGuardMoveKind.AxisHome:
                     return CanHomeRearSideVisionY(request.Machine, out reason);
                 default:

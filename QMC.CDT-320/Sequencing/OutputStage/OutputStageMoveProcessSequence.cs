@@ -44,42 +44,55 @@ namespace QMC.CDT320.Sequencing
 
                 switch (CurrentStep)
                 {
+                    // 유닛 확인
                     case OutputStageMoveProcessStep.CheckUnit:
                         return Task.FromResult(CheckUnit(OutputStageMoveProcessStep.CheckTargetSide));
 
+                    // 대상 사이드 확인
                     case OutputStageMoveProcessStep.CheckTargetSide:
                         return Task.FromResult(CheckTargetSide());
 
+                    // 반대쪽 스테이지 Z로 어보이드 이동
                     case OutputStageMoveProcessStep.MoveOppositeStageZToAvoid:
                         return MoveOppositeStageZToAvoidAsync(ct);
 
+                    // 반대쪽 스테이지 Z 어보이드 확인
                     case OutputStageMoveProcessStep.CheckOppositeStageZAvoid:
                         return Task.FromResult(CheckOppositeStageZAvoid());
 
+                    // NG 스테이지 Y로 어보이드 이동
                     case OutputStageMoveProcessStep.MoveNgStageYToAvoid:
                         return MoveNgStageYToAvoidAsync(ct);
 
+                    // NG 스테이지 Y 어보이드 확인
                     case OutputStageMoveProcessStep.CheckNgStageYAvoid:
                         return Task.FromResult(CheckNgStageYAvoid());
 
+                    // NG 클램프 리프트 업 확보
                     case OutputStageMoveProcessStep.EnsureNgClampLiftUp:
                         return EnsureNgClampLiftUpAsync(ct);
 
+                    // 대상 스테이지 Y로 프로세스 이동
                     case OutputStageMoveProcessStep.MoveTargetStageYToProcess:
                         return MoveTargetAxisAsync(ResolveYAxis(Options.Side), "Process", Options.Side + " Y process", OutputStageMoveProcessStep.CheckTargetStageYProcess, ct);
 
+                    // 대상 스테이지 Y 프로세스 확인
                     case OutputStageMoveProcessStep.CheckTargetStageYProcess:
                         return Task.FromResult(CheckTargetAxis(ResolveYAxis(Options.Side), "Process", Options.Side + " Y process", OutputStageMoveProcessStep.MoveTargetStageZToProcess));
 
+                    // 대상 스테이지 Z로 프로세스 이동
                     case OutputStageMoveProcessStep.MoveTargetStageZToProcess:
                         return MoveTargetStageZToProcessAsync(ct);
 
+                    // 대상 스테이지 Z 프로세스 확인
                     case OutputStageMoveProcessStep.CheckTargetStageZProcess:
                         return Task.FromResult(CheckTargetStageZProcess());
 
+                    // 비전 X로 프로세스 이동
                     case OutputStageMoveProcessStep.MoveVisionXToProcess:
                         return MoveTargetAxisAsync(BinStageAxis.VisionX, "Process", "VisionX process", OutputStageMoveProcessStep.CheckVisionXProcess, ct);
 
+                    // 비전 X 프로세스 확인
                     case OutputStageMoveProcessStep.CheckVisionXProcess:
                         return Task.FromResult(CheckTargetAxis(BinStageAxis.VisionX, "Process", "VisionX process", OutputStageMoveProcessStep.Complete));
 
@@ -381,3 +394,4 @@ namespace QMC.CDT320.Sequencing
         }
     }
 }
+

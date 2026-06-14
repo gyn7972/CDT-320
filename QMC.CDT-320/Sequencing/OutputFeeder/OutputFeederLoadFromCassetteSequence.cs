@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
 using QMC.CDT320.Materials;
@@ -45,45 +45,59 @@ namespace QMC.CDT320.Sequencing
                 ct.ThrowIfCancellationRequested();
                 switch (CurrentStep)
                 {
+                    // 유닛 확인
                     case OutputFeederLoadFromCassetteStep.CheckUnit:
                         return Task.FromResult(CheckUnit(OutputFeederLoadFromCassetteStep.CheckTransferReady));
 
+                    // 이송 준비 확인
                     case OutputFeederLoadFromCassetteStep.CheckTransferReady:
                         return Task.FromResult(CheckTransferReady());
 
+                    // 아웃풋 스테이지 비어있음 확인
                     case OutputFeederLoadFromCassetteStep.CheckOutputStageEmpty:
                         return Task.FromResult(CheckTargetOutputStageEmpty());
 
+                    // 카세트 BIN 데이터 확인
                     case OutputFeederLoadFromCassetteStep.CheckCassetteBinData:
                         return Task.FromResult(CheckCassetteBinData());
 
+                    // 카세트 BIN 슬롯 이동
                     case OutputFeederLoadFromCassetteStep.MoveCassetteToBinSlot:
                         return MoveCassetteToBinSlotAsync(ct);
 
+                    // 피더 언클램프 준비
                     case OutputFeederLoadFromCassetteStep.PrepareFeederUnclamp:
                         return PrepareFeederUnclampAsync(ct);
 
+                    // 피더 리프트 다운 준비
                     case OutputFeederLoadFromCassetteStep.PrepareFeederLiftDown:
                         return PrepareFeederLiftDownAsync(ct);
 
+                    // 피더 카세트 로드 위치 이동
                     case OutputFeederLoadFromCassetteStep.MoveFeederCassetteLoadPosition:
                         return MoveFeederCassetteLoadPositionAsync(ct);
 
+                    // 피더 비어있음 검증
                     case OutputFeederLoadFromCassetteStep.VerifyFeederEmpty:
                         return Task.FromResult(VerifyFeederEmpty());
 
+                    // BIN 감지 검증
                     case OutputFeederLoadFromCassetteStep.VerifyBinDetected:
                         return VerifyBinDetectedAsync(ct);
 
+                    // 피더 BIN 클램프
                     case OutputFeederLoadFromCassetteStep.ClampFeederBin:
                         return ClampFeederBinAsync(ct);
 
+                    // 피더 어보이드 위치 이동
                     case OutputFeederLoadFromCassetteStep.MoveFeederAvoidPosition:
                         return MoveFeederAvoidPositionAsync(ct);
 
+                    // 자재 데이터를 피더로 이동
                     case OutputFeederLoadFromCassetteStep.MoveMaterialDataToFeeder:
                         return Task.FromResult(MoveMaterialDataToFeeder());
 
+                    // 카세트 데이터 갱신
                     case OutputFeederLoadFromCassetteStep.UpdateCassetteData:
                         return Task.FromResult(UpdateCassetteData());
 
@@ -297,3 +311,4 @@ namespace QMC.CDT320.Sequencing
         }
     }
 }
+

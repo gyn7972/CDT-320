@@ -34,9 +34,12 @@ namespace QMC.CDT320.Interlocks
 
             switch (request.MoveKind)
             {
+                // 일반 이동 인터락 확인
                 case MotionGuardMoveKind.AxisMove:
+                // 티칭 이동 인터락 확인
                 case MotionGuardMoveKind.AxisTeachingMove:
                     return CanMoveOutputGoodStageY(request.Machine, out reason);
+                // 홈 이동 인터락 확인
                 case MotionGuardMoveKind.AxisHome:
                     return CanHomeOutputGoodStageY(request.Machine, out reason);
                 default:
@@ -68,9 +71,12 @@ namespace QMC.CDT320.Interlocks
 
             switch (request.MoveKind)
             {
+                // 일반 이동 인터락 확인
                 case MotionGuardMoveKind.AxisMove:
+                // 티칭 이동 인터락 확인
                 case MotionGuardMoveKind.AxisTeachingMove:
                     return CanMoveOutputGoodStageZ(request, out reason);
+                // 홈 이동 인터락 확인
                 case MotionGuardMoveKind.AxisHome:
                     return CanHomeOutputGoodStageZ(request.Machine, out reason);
                 default:
@@ -116,9 +122,12 @@ namespace QMC.CDT320.Interlocks
 
             switch (request.MoveKind)
             {
+                // 일반 이동 인터락 확인
                 case MotionGuardMoveKind.AxisMove:
+                // 티칭 이동 인터락 확인
                 case MotionGuardMoveKind.AxisTeachingMove:
                     return CanMoveOutputNgStageY(request, out reason);
+                // 홈 이동 인터락 확인
                 case MotionGuardMoveKind.AxisHome:
                     return CanHomeOutputNgStageY(request.Machine, out reason);
                 default:
@@ -153,9 +162,12 @@ namespace QMC.CDT320.Interlocks
 
             switch (request.MoveKind)
             {
+                // 일반 이동 인터락 확인
                 case MotionGuardMoveKind.AxisMove:
+                // 티칭 이동 인터락 확인
                 case MotionGuardMoveKind.AxisTeachingMove:
                     return CanMoveOutputVisionX(request.Machine, out reason);
+                // 홈 이동 인터락 확인
                 case MotionGuardMoveKind.AxisHome:
                     return CanHomeOutputVisionX(request.Machine, out reason);
                 default:

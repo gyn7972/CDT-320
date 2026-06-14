@@ -137,13 +137,21 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             string txt = (_grid.Rows[e.RowIndex].Cells[col].Value as string) ?? "";
             switch (col)
             {
+                // 카메라 Host 설정 적용
                 case "HOST": it.Host = txt.Trim(); break;
+                // 카메라 Port 설정 적용
                 case "PORT": if (int.TryParse(txt, out var p)) it.Port = p; break;
+                // 카메라 Width 설정 적용
                 case "W": if (int.TryParse(txt, out var w)) it.Width = w; break;
+                // 카메라 Height 설정 적용
                 case "H": if (int.TryParse(txt, out var h)) it.Height = h; break;
+                // 카메라 Exposure 설정 적용
                 case "EXP": if (int.TryParse(txt, out var x)) it.ExposureMs = x; break;
+                // 카메라 Light Level 설정 적용
                 case "LIGHT": if (double.TryParse(txt, out var l)) it.LightLevel = Math.Max(0, Math.Min(1, l)); break;
+                // 카메라 Trigger 설정 적용
                 case "TRG": it.Trigger = txt.Trim(); break;
+                // 카메라 Auto Connect 설정 적용
                 case "AUTO": it.AutoConnect = txt.Trim().ToUpper().StartsWith("ON"); break;
             }
             FillGrid();
@@ -192,11 +200,17 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 {
                     switch (it.Channel)
                     {
+                        // Wafer 카메라 AppSettings 적용
                         case "Wafer": cfg.VisionWaferPort = it.Port; cfg.VisionHost = it.Host; break;
+                        // Bottom Inspection 카메라 AppSettings 적용
                         case "BottomInspection": cfg.VisionInspectionPort = it.Port; break;
+                        // Bin 카메라 AppSettings 적용
                         case "Bin": cfg.VisionBinPort = it.Port; break;
+                        // Main 카메라 AppSettings 적용
                         case "Main": cfg.VisionMainPort = it.Port; break;
+                        // Top Side 카메라 AppSettings 적용
                         case "TopSide": cfg.VisionTopSidePort = it.Port; break;
+                        // Bottom Side 카메라 AppSettings 적용
                         case "BottomSide": cfg.VisionBottomSidePort = it.Port; break;
                     }
                 }

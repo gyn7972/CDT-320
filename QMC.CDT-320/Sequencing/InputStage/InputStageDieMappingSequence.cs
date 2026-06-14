@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -57,26 +57,37 @@ namespace QMC.CDT320.Sequencing
                 ct.ThrowIfCancellationRequested();
                 switch (CurrentStep)
                 {
+                    // 유닛 확인
                     case InputStageDieMappingStep.CheckUnit:
                         return Task.FromResult(CheckDieMappingUnit());
+                    // 상단 포인트 이동
                     case InputStageDieMappingStep.MoveTopPoint:
                         return MoveMarkPointAsync(Stage.Recipe.DieMap.Top, InputStageDieMappingStep.FindTopPoint, ct);
+                    // 상단 포인트 찾기
                     case InputStageDieMappingStep.FindTopPoint:
                         return FindMarkPointAsync(Stage.Recipe.DieMap.Top, InputStageDieMappingStep.MoveBottomPoint, ct);
+                    // 하단 포인트 이동
                     case InputStageDieMappingStep.MoveBottomPoint:
                         return MoveMarkPointAsync(Stage.Recipe.DieMap.Bottom, InputStageDieMappingStep.FindBottomPoint, ct);
+                    // 하단 포인트 찾기
                     case InputStageDieMappingStep.FindBottomPoint:
                         return FindMarkPointAsync(Stage.Recipe.DieMap.Bottom, InputStageDieMappingStep.MoveLeftPoint, ct);
+                    // 좌측 포인트 이동
                     case InputStageDieMappingStep.MoveLeftPoint:
                         return MoveMarkPointAsync(Stage.Recipe.DieMap.Left, InputStageDieMappingStep.FindLeftPoint, ct);
+                    // 좌측 포인트 찾기
                     case InputStageDieMappingStep.FindLeftPoint:
                         return FindMarkPointAsync(Stage.Recipe.DieMap.Left, InputStageDieMappingStep.MoveRightPoint, ct);
+                    // 우측 포인트 이동
                     case InputStageDieMappingStep.MoveRightPoint:
                         return MoveMarkPointAsync(Stage.Recipe.DieMap.Right, InputStageDieMappingStep.FindRightPoint, ct);
+                    // 우측 포인트 찾기
                     case InputStageDieMappingStep.FindRightPoint:
                         return FindMarkPointAsync(Stage.Recipe.DieMap.Right, InputStageDieMappingStep.CalculateDieMap, ct);
+                    // 다이 맵 계산
                     case InputStageDieMappingStep.CalculateDieMap:
                         return Task.FromResult(CalculateDieMap());
+                    // 다이 맵 적용
                     case InputStageDieMappingStep.ApplyDieMap:
                         return Task.FromResult(ApplyDieMap());
                     default:
@@ -694,12 +705,19 @@ namespace QMC.CDT320.Sequencing
             {
                 switch (axis)
                 {
+                    // 웨이퍼 Y축 반환
                     case WaferStageAxis.WaferY: return Stage.StageY;
+                    // 웨이퍼 T축 반환
                     case WaferStageAxis.WaferT: return Stage.StageT;
+                    // 웨이퍼 확장 Z축 반환
                     case WaferStageAxis.WaferExpandingZ: return Stage.ExpanderZ;
+                    // 비전 X축 반환
                     case WaferStageAxis.VisionX: return Stage.CameraX;
+                    // 니들 X축 반환
                     case WaferStageAxis.NeedleX: return Stage.NeedleBlockX;
+                    // 니들 Z축 반환
                     case WaferStageAxis.NeedleZ: return Stage.NeedleZ;
+                    // 이젝트 핀 Z축 반환
                     case WaferStageAxis.EjectPinZ: return Stage.EjectPinZ;
                     default: return null;
                 }
@@ -983,3 +1001,4 @@ namespace QMC.CDT320.Sequencing
         }
     }
 }
+

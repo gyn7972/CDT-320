@@ -189,9 +189,11 @@ namespace QMC.CDT320.Materials
         {
             switch (inchSelect)
             {
+                // 0 또는 8은 8인치로 해석
                 case 0:
                 case 8:
                     return 8;
+                // 1 또는 12는 12인치로 해석
                 case 1:
                 case 12:
                     return 12;

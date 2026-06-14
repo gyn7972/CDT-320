@@ -27,6 +27,7 @@ namespace QMC.CDT320.Sim
 
             switch (grade)
             {
+                // Good bin은 Good1 슬롯을 먼저 사용하고 가득 차면 Good2로 전환
                 case DieGrade.Good:
                     if (_nextGood1Slot < _cassette.Config.SlotCount)
                     {
@@ -40,6 +41,7 @@ namespace QMC.CDT320.Sim
                     }
                     break;
 
+                // NG 또는 알 수 없는 등급은 NG 카세트 슬롯 사용
                 case DieGrade.Ng:
                 default:
                     target = TargetCassette.Ng;

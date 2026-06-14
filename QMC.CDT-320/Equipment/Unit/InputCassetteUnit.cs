@@ -1216,11 +1216,17 @@ namespace QMC.CDT320
         {
             switch (code)
             {
+                // 카세트 미감지 알람 메시지
                 case WaferCassetteAlarmCode.CassetteMissing: return "Wafer cassette is missing.";
+                // 카세트 사이즈 불일치 알람 메시지
                 case WaferCassetteAlarmCode.SizeMismatch: return "Wafer cassette size mismatch.";
+                // 웨이퍼 돌출 감지 알람 메시지
                 case WaferCassetteAlarmCode.ProtrusionDetected: return "Wafer protrusion detected.";
+                // 맵핑 타임아웃 알람 메시지
                 case WaferCassetteAlarmCode.MappingTimeout: return "Wafer mapping timeout.";
+                // 리프터 Z축 이동 타임아웃 알람 메시지
                 case WaferCassetteAlarmCode.MoveTimeout: return "Wafer lifter Z move timeout.";
+                // 리프터 Z축 티칭 누락 알람 메시지
                 case WaferCassetteAlarmCode.TeachingMissing: return "Wafer lifter Z teaching data is missing.";
                 default: return "No wafer cassette alarm.";
             }
