@@ -40,7 +40,8 @@ namespace QMC.CDT320.Interlocks
             return moveKind == MotionGuardMoveKind.AxisMove
                 || moveKind == MotionGuardMoveKind.AxisHome
                 || moveKind == MotionGuardMoveKind.AxisTeachingMove
-                || moveKind == MotionGuardMoveKind.CylinderMove;
+                || moveKind == MotionGuardMoveKind.CylinderMove
+                || moveKind == MotionGuardMoveKind.CylinderInitialize;
         }
 
         public static bool BlockUnsupportedMoveKind(MotionGuardRuleContext request, out string reason)

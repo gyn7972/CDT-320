@@ -25,6 +25,24 @@ namespace QMC.CDT320.Interlocks
             if (MotionGuardRuleHelpers.IsMoving(request, "OutputVisionX", "OutputVisionX"))
                 return VerifyBinVisionX(request, out reason);
 
+            if (MotionGuardRuleHelpers.IsMoving(request, "GoodBinGuideLift"))
+                return VerifyOutputStageCylinder(request, "GoodBinGuideLift", out reason);
+
+            if (MotionGuardRuleHelpers.IsMoving(request, "GoodBinGuideClampLift"))
+                return VerifyOutputStageCylinder(request, "GoodBinGuideClampLift", out reason);
+
+            if (MotionGuardRuleHelpers.IsMoving(request, "GoodBinGuideClamp"))
+                return VerifyOutputStageCylinder(request, "GoodBinGuideClamp", out reason);
+
+            if (MotionGuardRuleHelpers.IsMoving(request, "NGBinGuideLift"))
+                return VerifyOutputStageCylinder(request, "NGBinGuideLift", out reason);
+
+            if (MotionGuardRuleHelpers.IsMoving(request, "NGBinGuideClampLift"))
+                return VerifyOutputStageCylinder(request, "NGBinGuideClampLift", out reason);
+
+            if (MotionGuardRuleHelpers.IsMoving(request, "NGBinGuideClamp"))
+                return VerifyOutputStageCylinder(request, "NGBinGuideClamp", out reason);
+
             return true;
         }
 
@@ -103,7 +121,9 @@ namespace QMC.CDT320.Interlocks
                 return false;
 
             OutputStageUnit stage = machine != null ? machine.OutputStageUnit : null;
-            if (IsGoodStageZLoadOrUnloadTarget(stage, request != null ? request.TargetValue : 0.0) &&
+            double target = request != null ? request.TargetValue : 0.0;
+            if (!IsGoodStageZAvoidTarget(stage, target) &&
+                IsGoodStageZLoadOrUnloadTarget(stage, target) &&
                 stage != null &&
                 !stage.IsNgStageInAvoidPosition())
             {
@@ -332,6 +352,77 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        private static bool VerifyOutputStageCylinder(MotionGuardRuleContext request, string movingName, out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                switch (request.MoveKind)
+                {
+                    case MotionGuardMoveKind.CylinderInitialize:
+                        return CanInitializeOutputStageCylinder(request.Machine, movingName, request.TargetValue, out reason);
+                    case MotionGuardMoveKind.CylinderMove:
+                        return CanMoveOutputStageCylinder(request.Machine, movingName, request.TargetValue, out reason);
+                    default:
+                        return MotionGuardRuleHelpers.BlockUnsupportedMoveKind(request, out reason);
+                }
+            }
+            catch (System.Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    "Exception occurred while verifying " + movingName + " cylinder rules: " + ex.Message,
+                    out reason);
+            }
+            finally
+            {
+                LogBlockedReason(reason);
+            }
+        }
+
+        private static bool CanInitializeOutputStageCylinder(
+            CDT320_Machine machine,
+            string movingName,
+            double targetValue,
+            out string reason)
+        {
+            reason = string.Empty;
+            string direction = ResolveCylinderDirection(targetValue, "Fwd", "Bwd");
+
+            if (!VerifyOutputTransportClear(machine, movingName, out reason))
+            {
+                reason = movingName + " initialize " + direction + " blocked. " + reason;
+                return false;
+            }
+
+            return VerifyOutputStageNotBusy(
+                machine != null ? machine.OutputStageUnit : null,
+                movingName,
+                out reason);
+        }
+
+        private static bool CanMoveOutputStageCylinder(
+            CDT320_Machine machine,
+            string movingName,
+            double targetValue,
+            out string reason)
+        {
+            reason = string.Empty;
+            string direction = ResolveCylinderDirection(targetValue, "Fwd", "Bwd");
+
+            if (!VerifyOutputTransportClear(machine, movingName, out reason))
+            {
+                reason = movingName + " move " + direction + " blocked. " + reason;
+                return false;
+            }
+
+            return VerifyOutputStageNotBusy(
+                machine != null ? machine.OutputStageUnit : null,
+                movingName,
+                out reason);
+        }
+
         private static bool VerifyOutputTransportClear(CDT320_Machine machine, string movingName, out string reason)
         {
             reason = string.Empty;
@@ -347,6 +438,11 @@ namespace QMC.CDT320.Interlocks
                 return MotionGuardRuleHelpers.Block(movingName, "OutputLifterZ is moving.", out reason);
 
             return true;
+        }
+
+        private static string ResolveCylinderDirection(double targetValue, string fwdText, string bwdText)
+        {
+            return targetValue >= 0.5 ? fwdText : bwdText;
         }
 
         private static bool VerifyNgClampLiftUpForGoodStageMove(OutputStageUnit outputStage, string movingName, out string reason)
@@ -407,6 +503,15 @@ namespace QMC.CDT320.Interlocks
                 return false;
 
             return System.Math.Abs(target - outputStage.Recipe.NGStageY.AvoidPosition) <= 0.001;
+        }
+
+        private static bool IsGoodStageZAvoidTarget(OutputStageUnit stage, double target)
+        {
+            if (stage == null || stage.Recipe == null || stage.Recipe.GoodStageZ == null)
+                return false;
+
+            BaseAxis axis = stage.GoodStage != null ? stage.GoodStage.StageZ : null;
+            return IsTargetPosition(axis, target, stage.Recipe.GoodStageZ.AvoidPosition);
         }
 
         private static bool IsGoodStageZLoadOrUnloadTarget(OutputStageUnit stage, double target)

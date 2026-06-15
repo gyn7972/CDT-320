@@ -104,22 +104,56 @@ namespace QMC.CDT320.Interlocks
         private static bool VerifyReticleLift(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
-            return CanMoveReticleLift(request.Machine, out reason);
+
+            try
+            {
+                switch (request.MoveKind)
+                {
+                    case MotionGuardMoveKind.CylinderInitialize:
+                        return CanInitializeReticleLift(request.Machine, request.TargetValue, out reason);
+                    case MotionGuardMoveKind.CylinderMove:
+                        return CanMoveReticleLift(request.Machine, request.TargetValue, out reason);
+                    default:
+                        return MotionGuardRuleHelpers.BlockUnsupportedMoveKind(request, out reason);
+                }
+            }
+            catch (System.Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "ReticleLift",
+                    "Exception occurred while verifying ReticleLift cylinder rules: " + ex.Message,
+                    out reason);
+            }
+            finally
+            {
+                LogBlockedReason(reason);
+            }
         }
 
-        private static bool CanHomeReticleLift(CDT320_Machine machine, out string reason)
+        private static bool CanInitializeReticleLift(CDT320_Machine machine, double targetValue, out string reason)
         {
             reason = string.Empty;
-            return true;
-        }
-
-        private static bool CanMoveReticleLift(CDT320_Machine machine, out string reason)
-        {
-            if (!CanHomeReticleLift(machine, out reason))
-                return false;
+            string direction = ResolveCylinderDirection(targetValue, "Fwd/Up", "Bwd/Down");
 
             if (!VerifyInputStageClear(machine, "ReticleLift", out reason))
+            {
+                reason = "ReticleLift initialize " + direction + " blocked. " + reason;
                 return false;
+            }
+
+            return VerifyVisionNotBusy(machine != null ? machine.VisionUnit : null, "ReticleLift", out reason);
+        }
+
+        private static bool CanMoveReticleLift(CDT320_Machine machine, double targetValue, out string reason)
+        {
+            reason = string.Empty;
+            string direction = ResolveCylinderDirection(targetValue, "Fwd/Up", "Bwd/Down");
+
+            if (!VerifyInputStageClear(machine, "ReticleLift", out reason))
+            {
+                reason = "ReticleLift move " + direction + " blocked. " + reason;
+                return false;
+            }
 
             return VerifyVisionNotBusy(machine != null ? machine.VisionUnit : null, "ReticleLift", out reason);
         }
@@ -127,19 +161,41 @@ namespace QMC.CDT320.Interlocks
         private static bool VerifyReticleFrontSlide(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
-            return CanMoveReticleFrontSlide(request.Machine, out reason);
+
+            try
+            {
+                switch (request.MoveKind)
+                {
+                    case MotionGuardMoveKind.CylinderInitialize:
+                        return CanInitializeReticleFrontSlide(request.Machine, request.TargetValue, out reason);
+                    case MotionGuardMoveKind.CylinderMove:
+                        return CanMoveReticleFrontSlide(request.Machine, request.TargetValue, out reason);
+                    default:
+                        return MotionGuardRuleHelpers.BlockUnsupportedMoveKind(request, out reason);
+                }
+            }
+            catch (System.Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "ReticleSideSlideFront",
+                    "Exception occurred while verifying ReticleSideSlideFront cylinder rules: " + ex.Message,
+                    out reason);
+            }
+            finally
+            {
+                LogBlockedReason(reason);
+            }
         }
 
-        private static bool CanHomeReticleFrontSlide(CDT320_Machine machine, out string reason)
+        private static bool CanInitializeReticleFrontSlide(CDT320_Machine machine, double targetValue, out string reason)
         {
             reason = string.Empty;
-            return true;
+            return VerifyVisionNotBusy(machine != null ? machine.VisionUnit : null, "ReticleSideSlideFront", out reason);
         }
 
-        private static bool CanMoveReticleFrontSlide(CDT320_Machine machine, out string reason)
+        private static bool CanMoveReticleFrontSlide(CDT320_Machine machine, double targetValue, out string reason)
         {
-            if (!CanHomeReticleFrontSlide(machine, out reason))
-                return false;
+            reason = string.Empty;
 
             return VerifyVisionNotBusy(machine != null ? machine.VisionUnit : null, "ReticleSideSlideFront", out reason);
         }
@@ -147,19 +203,41 @@ namespace QMC.CDT320.Interlocks
         private static bool VerifyReticleRearSlide(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
-            return CanMoveReticleRearSlide(request.Machine, out reason);
+
+            try
+            {
+                switch (request.MoveKind)
+                {
+                    case MotionGuardMoveKind.CylinderInitialize:
+                        return CanInitializeReticleRearSlide(request.Machine, request.TargetValue, out reason);
+                    case MotionGuardMoveKind.CylinderMove:
+                        return CanMoveReticleRearSlide(request.Machine, request.TargetValue, out reason);
+                    default:
+                        return MotionGuardRuleHelpers.BlockUnsupportedMoveKind(request, out reason);
+                }
+            }
+            catch (System.Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "ReticleSideSlideRear",
+                    "Exception occurred while verifying ReticleSideSlideRear cylinder rules: " + ex.Message,
+                    out reason);
+            }
+            finally
+            {
+                LogBlockedReason(reason);
+            }
         }
 
-        private static bool CanHomeReticleRearSlide(CDT320_Machine machine, out string reason)
+        private static bool CanInitializeReticleRearSlide(CDT320_Machine machine, double targetValue, out string reason)
         {
             reason = string.Empty;
-            return true;
+            return VerifyVisionNotBusy(machine != null ? machine.VisionUnit : null, "ReticleSideSlideRear", out reason);
         }
 
-        private static bool CanMoveReticleRearSlide(CDT320_Machine machine, out string reason)
+        private static bool CanMoveReticleRearSlide(CDT320_Machine machine, double targetValue, out string reason)
         {
-            if (!CanHomeReticleRearSlide(machine, out reason))
-                return false;
+            reason = string.Empty;
 
             return VerifyVisionNotBusy(machine != null ? machine.VisionUnit : null, "ReticleSideSlideRear", out reason);
         }
@@ -231,6 +309,26 @@ namespace QMC.CDT320.Interlocks
             }
 
             return true;
+        }
+
+        private static string ResolveCylinderDirection(double targetValue, string fwdText, string bwdText)
+        {
+            return targetValue >= 0.5 ? fwdText : bwdText;
+        }
+
+        private static void LogBlockedReason(string reason)
+        {
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(reason))
+                    QMC.Common.Log.Write("Main", "INTERLOCK", "VisionInterlock", reason + " - Blocked");
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
         }
     }
 }

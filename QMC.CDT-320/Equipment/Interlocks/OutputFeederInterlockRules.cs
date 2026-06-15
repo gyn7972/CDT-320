@@ -101,6 +101,20 @@ namespace QMC.CDT320.Interlocks
                 if (machine == null)
                     return true;
 
+                // 홈 잡을때 picker 위치 봐야 하는데 이거 잡기전에 이미 이 둘은 잡혀 있어야함.
+                // 근데.. 홈이 잡혔는지를 확인하고.. output쪽에 위치 하는지를 봐야함.
+                //if (!IsFrontPickerInAvoidPosition(machine.PickerFrontUnit))
+                //    return MotionGuardRuleHelpers.Block(
+                //        "OutputFeederY",
+                //        "OutputFeederY HOME blocked. FrontPicker must be at Avoid position.",
+                //        out reason);
+
+                //if (!IsRearPickerInAvoidPosition(machine.PickerRearUnit))
+                //    return MotionGuardRuleHelpers.Block(
+                //        "OutputFeederY",
+                //        "OutputFeederY HOME blocked. RearPicker must be at Avoid position.",
+                //        out reason);
+
                 OutputCassetteUnit cassette = machine.OutputCassetteUnit;
                 if (cassette != null && cassette.OutputLifterZ != null && cassette.OutputLifterZ.IsMoving)
                     return MotionGuardRuleHelpers.Block(
@@ -115,23 +129,13 @@ namespace QMC.CDT320.Interlocks
                         out reason);
 
                 OutputStageUnit outputStage = machine.OutputStageUnit;
-                if (outputStage != null && !outputStage.IsVisionXInAvoidPosition())
-                    return MotionGuardRuleHelpers.Block(
-                        "OutputFeederY",
-                        "OutputFeederY HOME blocked. OutputVisionX must be at Avoid position.",
-                        out reason);
 
-                if (!IsFrontPickerInAvoidPosition(machine.PickerFrontUnit))
-                    return MotionGuardRuleHelpers.Block(
-                        "OutputFeederY",
-                        "OutputFeederY HOME blocked. FrontPicker must be at Avoid position.",
-                        out reason);
-
-                if (!IsRearPickerInAvoidPosition(machine.PickerRearUnit))
-                    return MotionGuardRuleHelpers.Block(
-                        "OutputFeederY",
-                        "OutputFeederY HOME blocked. RearPicker must be at Avoid position.",
-                        out reason);
+                // 근데.. 홈이 잡혔는지를 확인하고.. output쪽에 위치 하는지를 봐야함.
+                //if (outputStage != null && !outputStage.IsVisionXInAvoidPosition())
+                //    return MotionGuardRuleHelpers.Block(
+                //        "OutputFeederY",
+                //        "OutputFeederY HOME blocked. OutputVisionX must be at Avoid position.",
+                //        out reason);
 
                 if (outputStage != null && outputStage.GoodStage != null && !outputStage.GoodStage.IsAtAvoidPosition())
                     return MotionGuardRuleHelpers.Block(
@@ -194,24 +198,82 @@ namespace QMC.CDT320.Interlocks
         private static bool VerifyOutputFeederLift(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
-            return CanMoveOutputFeederLift(request.Machine, out reason);
+
+            try
+            {
+                switch (request.MoveKind)
+                {
+                    case MotionGuardMoveKind.CylinderInitialize:
+                        return CanInitializeOutputFeederLift(request.Machine, request.TargetValue, out reason);
+                    case MotionGuardMoveKind.CylinderMove:
+                        return CanMoveOutputFeederLift(request.Machine, request.TargetValue, out reason);
+                    default:
+                        return MotionGuardRuleHelpers.BlockUnsupportedMoveKind(request, out reason);
+                }
+            }
+            catch (Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "OutputFeederLift",
+                    "Exception occurred while verifying OutputFeederLift cylinder rules: " + ex.Message,
+                    out reason);
+            }
+            finally
+            {
+                LogBlockedReason(reason);
+            }
         }
 
-        private static bool CanMoveOutputFeederLift(CDT320_Machine machine, out string reason)
+        private static bool CanInitializeOutputFeederLift(CDT320_Machine machine, double targetValue, out string reason)
         {
             reason = string.Empty;
+            string direction = ResolveCylinderDirection(targetValue, "Fwd/Up", "Bwd/Down");
+
             if (machine == null)
                 return true;
 
             if (machine.OutputCassetteUnit != null &&
                 machine.OutputCassetteUnit.OutputLifterZ != null &&
                 machine.OutputCassetteUnit.OutputLifterZ.IsMoving)
-                return MotionGuardRuleHelpers.Block("OutputFeederLift", "OutputLifterZ is moving.", out reason);
+                return MotionGuardRuleHelpers.Block(
+                    "OutputFeederLift",
+                    "OutputFeederLift initialize " + direction + " blocked. OutputLifterZ is moving.",
+                    out reason);
 
             if (machine.OutputFeederUnit != null &&
                 machine.OutputFeederUnit.FeederY != null &&
                 machine.OutputFeederUnit.FeederY.IsMoving)
-                return MotionGuardRuleHelpers.Block("OutputFeederLift", "OutputFeederY is moving.", out reason);
+                return MotionGuardRuleHelpers.Block(
+                    "OutputFeederLift",
+                    "OutputFeederLift initialize " + direction + " blocked. OutputFeederY is moving.",
+                    out reason);
+
+            return true;
+        }
+
+        private static bool CanMoveOutputFeederLift(CDT320_Machine machine, double targetValue, out string reason)
+        {
+            reason = string.Empty;
+            string direction = ResolveCylinderDirection(targetValue, "Fwd/Up", "Bwd/Down");
+
+            if (machine == null)
+                return true;
+
+            if (machine.OutputCassetteUnit != null &&
+                machine.OutputCassetteUnit.OutputLifterZ != null &&
+                machine.OutputCassetteUnit.OutputLifterZ.IsMoving)
+                return MotionGuardRuleHelpers.Block(
+                    "OutputFeederLift",
+                    "OutputFeederLift move " + direction + " blocked. OutputLifterZ is moving.",
+                    out reason);
+
+            if (machine.OutputFeederUnit != null &&
+                machine.OutputFeederUnit.FeederY != null &&
+                machine.OutputFeederUnit.FeederY.IsMoving)
+                return MotionGuardRuleHelpers.Block(
+                    "OutputFeederLift",
+                    "OutputFeederLift move " + direction + " blocked. OutputFeederY is moving.",
+                    out reason);
 
             if (machine.OutputFeederUnit != null &&
                 IsFeederUnclamp(machine.OutputFeederUnit) &&
@@ -227,26 +289,67 @@ namespace QMC.CDT320.Interlocks
         private static bool VerifyOutputFeederClamp(MotionGuardRuleContext request, out string reason)
         {
             reason = string.Empty;
-            return CanMoveOutputFeederClamp(request.Machine, out reason);
+
+            try
+            {
+                switch (request.MoveKind)
+                {
+                    case MotionGuardMoveKind.CylinderInitialize:
+                        return CanInitializeOutputFeederClamp(request.Machine, request.TargetValue, out reason);
+                    case MotionGuardMoveKind.CylinderMove:
+                        return CanMoveOutputFeederClamp(request.Machine, request.TargetValue, out reason);
+                    default:
+                        return MotionGuardRuleHelpers.BlockUnsupportedMoveKind(request, out reason);
+                }
+            }
+            catch (Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "OutputFeederClamp",
+                    "Exception occurred while verifying OutputFeederClamp cylinder rules: " + ex.Message,
+                    out reason);
+            }
+            finally
+            {
+                LogBlockedReason(reason);
+            }
         }
 
-        private static bool CanMoveOutputFeederClamp(CDT320_Machine machine, out string reason)
+        private static bool CanInitializeOutputFeederClamp(CDT320_Machine machine, double targetValue, out string reason)
+        {
+            return CanMoveOutputFeederClamp(machine, targetValue, out reason);
+        }
+
+        private static bool CanMoveOutputFeederClamp(CDT320_Machine machine, double targetValue, out string reason)
         {
             reason = string.Empty;
+            string direction = ResolveCylinderDirection(targetValue, "Fwd/Clamp", "Bwd/Unclamp");
+
             if (machine == null)
                 return true;
 
             if (machine.OutputCassetteUnit != null &&
                 machine.OutputCassetteUnit.OutputLifterZ != null &&
                 machine.OutputCassetteUnit.OutputLifterZ.IsMoving)
-                return MotionGuardRuleHelpers.Block("OutputFeederClamp", "OutputLifterZ is moving.", out reason);
+                return MotionGuardRuleHelpers.Block(
+                    "OutputFeederClamp",
+                    "OutputFeederClamp move " + direction + " blocked. OutputLifterZ is moving.",
+                    out reason);
 
             if (machine.OutputFeederUnit != null &&
                 machine.OutputFeederUnit.FeederY != null &&
                 machine.OutputFeederUnit.FeederY.IsMoving)
-                return MotionGuardRuleHelpers.Block("OutputFeederClamp", "OutputFeederY is moving.", out reason);
+                return MotionGuardRuleHelpers.Block(
+                    "OutputFeederClamp",
+                    "OutputFeederClamp move " + direction + " blocked. OutputFeederY is moving.",
+                    out reason);
 
             return true;
+        }
+
+        private static string ResolveCylinderDirection(double targetValue, string fwdText, string bwdText)
+        {
+            return targetValue >= 0.5 ? fwdText : bwdText;
         }
 
         private static bool IsOutputVisionXInAvoidPosition(OutputStageUnit stage)

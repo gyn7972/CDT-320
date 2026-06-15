@@ -249,10 +249,6 @@ namespace QMC.CDT320
         /// <summary>Mean Time To Recovery (rolling).</summary>
         public TimeSpan Mttr { get; internal set; } = TimeSpan.Zero;
 
-        // ??????????????????????????????????????????
-        //  濡쒗듃?ы듃 (Input Cassette) 吏꾪뻾 ?곹깭
-        // ??????????????????????????????????????????
-
         /// <summary>?꾩옱 InputLoader 媛 泥섎━ 以묒씤 ?щ’ ?몃뜳??(0-base). -1 = 誘몄옣李??몃줈???곹깭.</summary>
         public int CurrentInputSlot { get; private set; } = -1;
         /// <summary>?꾩옱 ?щ’???⑥씠?쇨? InputStage 援먰솚 ?꾩튂源뚯? ?댁넚?섏뿀?붿? ?щ?.</summary>
@@ -1026,14 +1022,6 @@ namespace QMC.CDT320
             return true;
         }
 
-        // ??????????????????????????????????????????
-        //  Stage 27 - Output cassette/feeder transfer support.
-        // ??????????????????????????????????????????
-
-        /// <summary>?꾩옱 Output 移댁꽭?몃퀎 ?ㅼ쓬 ?곸옱 ?щ’ ?몃뜳??(0-base).</summary>
-        public int OutputSlotNg { get; private set; } = 0;
-        public int OutputSlotGood1 { get; private set; } = 0;
-        public int OutputSlotGood2 { get; private set; } = 0;
         /// <summary>Completed wafer store request delegated to OutputCassette/OutputFeeder.</summary>
         /// 0 = EnsureDieMaps ?먯꽌 OutputDieMap ?щ’ ?섎줈 ?먮룞 ?ㅼ젙.</summary>
         public int WafersPerOutputBatch { get; set; } = 0;
@@ -1406,6 +1394,8 @@ namespace QMC.CDT320
 
         // Common equipment button actions.
 
+
+        // 홈잡을때 사용함.!
         public async Task<int> InitializeAxisAsync(string axisName)
         {
             try
@@ -1513,6 +1503,8 @@ namespace QMC.CDT320
             }
         }
 
+
+        // 여기 사용함
         public async Task<int> InitializeAllAxesAsync(bool markMachineReady)
         {
             try
@@ -1588,6 +1580,8 @@ namespace QMC.CDT320
             }
         }
 
+
+        //홈잡을때 사용.
         public AxisInitializePlan GetAxisInitializePlan()
         {
             try
@@ -1664,30 +1658,7 @@ namespace QMC.CDT320
                 }
 
                 int result;
-                if (stepNo == 71 || stepNo == 72 || stepNo == 73 || stepNo == 74)
-                {
-                    var sequenceSteps = plan.Steps.Where(x => x != null && x.Enabled && IsInputSharedRailInitializeStep(x)).ToList();
-                    ResetAxisInitializeStepProgressForRun(sequenceSteps);
-                    result = await ExecuteConditionalInitializeSequenceAsync(
-                        sequenceSteps,
-                        71,
-                        new[] { 72, 73, 74 },
-                        ShouldRunSharedRailBeforeInputFeederHome,
-                        "InputFeeder/SharedRailX",
-                        new[] { 60 }).ConfigureAwait(false);
-                }
-                else if (stepNo == 91 || stepNo == 92)
-                {
-                    var pairSteps = plan.Steps.Where(x => x != null && x.Enabled && (x.StepNo == 91 || x.StepNo == 92)).ToList();
-                    ResetAxisInitializeStepProgressForRun(pairSteps);
-                    result = await ExecuteConditionalInitializePairAsync(
-                        pairSteps,
-                        91,
-                        92,
-                        ShouldRunSharedRailBeforeOutputFeederHome,
-                        "OutputFeeder/SharedRailX").ConfigureAwait(false);
-                }
-                else if (steps.Count == 1)
+                if (steps.Count == 1)
                 {
                     ResetAxisInitializeStepProgressForRun(steps);
                     result = await ExecuteInitializeSingleStepAsync(steps[0]).ConfigureAwait(false);
@@ -1695,8 +1666,16 @@ namespace QMC.CDT320
                 else
                 {
                     ResetAxisInitializeStepProgressForRun(steps);
-                    int[] results = await Task.WhenAll(steps.Select(ExecuteInitializeSingleStepAsync)).ConfigureAwait(false);
-                    result = results.FirstOrDefault(x => x != 0);
+                    result = 0;
+                    foreach (AxisInitializeStep step in steps.OrderBy(x => x.GroupName))
+                    {
+                        int stepResult = await ExecuteInitializeSingleStepAsync(step).ConfigureAwait(false);
+                        if (stepResult != 0)
+                        {
+                            result = stepResult;
+                            break;
+                        }
+                    }
                 }
 
                 SaveMachineRuntimeState("InitializePlanStep:" + stepNo);
@@ -1724,6 +1703,7 @@ namespace QMC.CDT320
             return await InitializeAllAxesAsync(true).ConfigureAwait(false);
         }
 
+        //홈잡을때 사용함.!
         private async Task<int> InitializeAxisCoreAsync(BaseAxis axis)
         {
             try
@@ -1775,10 +1755,6 @@ namespace QMC.CDT320
                     AlarmManager.Raise(AlarmSeverity.Error, "INIT-SERVO-" + axis.Name, axis.Name, LastActionFailureMessage);
                     return -1;
                 }
-
-                int prepareHomeResult = await PrepareAxisHomeConditionAsync(axis).ConfigureAwait(false);
-                if (prepareHomeResult != 0)
-                    return prepareHomeResult;
 
                 int homeResult = await axis.HomeSearchAsync().ConfigureAwait(false);
                 if (homeResult != 0)
@@ -1863,105 +1839,6 @@ namespace QMC.CDT320
                    ", servo=" + (axis.IsServoOn ? "ON" : "OFF") +
                    ", alarm=" + (axis.IsAlarm ? "ON" : "OFF") +
                    ", pos=" + axis.ActualPosition.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) + " " + unit;
-        }
-
-        private async Task<int> PrepareAxisHomeConditionAsync(BaseAxis axis)
-        {
-            try
-            {
-                if (axis == null)
-                    return 0;
-
-                QMC.Common.Log.Write("Main", "SYSTEM", "PrepareAxisHome",
-                    "Prepare axis home condition. axis=" + axis.Name + " - Start");
-
-                string interlockReason;
-                if (!MotionGuardRuntime.VerifyAxisHome(axis, out interlockReason))
-                {
-                    return FailInitializePreparation(
-                        "축 HOME 사전 인터락 실패. axis=" + axis.Name +
-                        ", reason=" + interlockReason);
-                }
-
-                switch (axis.Name)
-                {
-                    // 인풋 리프터 Z축 HOME 준비
-                    case "InputLifterZ": //확인후 제거
-                        return await PrepareInputLifterZHomeAsync(axis).ConfigureAwait(false);
-                    // 아웃풋 리프터 Z축 HOME 준비
-                    case "OutputLifterZ":
-                        return await PrepareOutputLifterZHomeAsync(axis).ConfigureAwait(false);
-                    // 인풋 피더 Y축 HOME 준비
-                    case "InputFeederY":
-                        return await PrepareInputFeederYHomeByAxisAsync(axis).ConfigureAwait(false);
-                    // 아웃풋 피더 Y축 HOME 준비
-                    case "OutputFeederY":
-                        return await PrepareOutputFeederYHomeByAxisAsync(axis).ConfigureAwait(false);
-                    // 인풋 비전 X축 HOME 준비
-                    case "CameraX":
-                    case "InputVisionX":
-                        return await PrepareInputVisionXHomeAsync(axis).ConfigureAwait(false);
-                    // 프론트 피커 X축 HOME 준비
-                    case "FrontPickerX":
-                        return await PrepareFrontPickerXHomeAsync(axis).ConfigureAwait(false);
-                    // 프론트 피커 Y축 HOME 준비
-                    case "FrontPickerY":
-                        return await PrepareFrontPickerYHomeAsync(axis).ConfigureAwait(false);
-                    // 프론트 피커 T축 HOME 준비
-                    case "FrontPickerT0":
-                    case "FrontPickerT1":
-                    case "FrontPickerT2":
-                    case "FrontPickerT3":
-                        return await PrepareFrontPickerTHomeAsync(axis).ConfigureAwait(false);
-                    // 리어 피커 T축 HOME 준비
-                    case "RearPickerT0":
-                    case "RearPickerT1":
-                    case "RearPickerT2":
-                    case "RearPickerT3":
-                        return await PrepareRearPickerTHomeAsync(axis).ConfigureAwait(false);
-                    // 리어 피커 Y축 HOME 준비
-                    case "RearPickerY":
-                        return await PrepareRearPickerYHomeAsync(axis).ConfigureAwait(false);
-                    // 리어 피커 X축 HOME 준비
-                    case "RearPickerX":
-                        return await PrepareRearPickerXHomeAsync(axis).ConfigureAwait(false);
-                    // 아웃풋 비전 X축 HOME 준비
-                    case "OutputVisionX":
-                        return await PrepareOutputVisionXHomeAsync(axis).ConfigureAwait(false);
-                    // GOOD 스테이지 Y축 HOME 준비
-                    case "OutputGoodStageY":
-                        return await PrepareOutputGoodStageYHomeAsync(axis).ConfigureAwait(false);
-                    // NG 스테이지 Y축 HOME 준비
-                    case "OutputNGStageY":
-                        return await PrepareOutputNgStageYHomeAsync(axis).ConfigureAwait(false);
-                    // 인풋 확장 Z축 HOME 준비
-                    case "InputExpandingZ":
-                        return await PrepareInputExpandingZHomeAsync(axis).ConfigureAwait(false);
-                    // 인풋 스테이지 Y축 HOME 준비
-                    case "InputStageY":
-                        return await PrepareInputStageYHomeAsync(axis).ConfigureAwait(false);
-                    // 인풋 스테이지 T축 HOME 준비
-                    case "InputStageT":
-                        return await PrepareInputStageTHomeAsync(axis).ConfigureAwait(false);
-                    // 니들 X축 HOME 준비
-                    case "NeedleX":
-                        return await PrepareNeedleXHomeAsync(axis).ConfigureAwait(false);
-                    default:
-                        return await PrepareDefaultAxisHomeAsync(axis).ConfigureAwait(false);
-                }
-            }
-            catch (Exception ex)
-            {
-                return FailInitializePreparation("축 HOME 사전 조건 준비 실패. axis=" +
-                    (axis != null ? axis.Name : "-") + ", error=" + ex.Message);
-            }
-            finally
-            {
-                lock (_initializeHomedAxisLock)
-                {
-                    _initializeHomedAxisNames = null;
-                }
-            }
         }
 
         private bool IsAxisAlreadyHomedInCurrentInitialize(BaseAxis axis)
@@ -2654,41 +2531,8 @@ namespace QMC.CDT320
                     .ToList();
                 ResetAxisInitializeStepProgressForRun(enabledSteps);
 
-                bool inputPairExecuted = false;
-                bool outputPairExecuted = false;
-                foreach (var batch in enabledSteps
-                    .Where(x => !IsInputSharedRailInitializeStep(x) && x.StepNo != 91 && x.StepNo != 92)
-                    .GroupBy(x => x.StepNo))
+                foreach (var batch in enabledSteps.GroupBy(x => x.StepNo))
                 {
-                    if (!inputPairExecuted && batch.Key >= 80)
-                    {
-                        int conditionalResult = await ExecuteConditionalInitializeSequenceAsync(
-                            enabledSteps,
-                            71,
-                            new[] { 72, 73, 74 },
-                            ShouldRunSharedRailBeforeInputFeederHome,
-                            "InputFeeder/SharedRailX",
-                            new[] { 60 }).ConfigureAwait(false);
-                        if (conditionalResult != 0)
-                            return conditionalResult;
-
-                        inputPairExecuted = true;
-                    }
-
-                    if (!outputPairExecuted && batch.Key >= 100)
-                    {
-                        int conditionalResult = await ExecuteConditionalInitializePairAsync(
-                            enabledSteps,
-                            91,
-                            92,
-                            ShouldRunSharedRailBeforeOutputFeederHome,
-                            "OutputFeeder/SharedRailX").ConfigureAwait(false);
-                        if (conditionalResult != 0)
-                            return conditionalResult;
-
-                        outputPairExecuted = true;
-                    }
-
                     var batchSteps = batch.ToList();
                     if (batchSteps.Count == 1)
                     {
@@ -2699,44 +2543,19 @@ namespace QMC.CDT320
                     else
                     {
                         QMC.Common.Log.Write("Main", "SYSTEM", "ExecuteInitializeSteps",
-                            "Axis initialize parallel batch start. step=" + batch.Key +
+                            "Axis initialize same-step serial batch start. step=" + batch.Key +
                             ", groups=" + string.Join(",", batchSteps.Select(x => x.GroupName).ToArray()) + " - Start");
 
-                        int[] results = await Task.WhenAll(batchSteps.Select(ExecuteInitializeSingleStepAsync)).ConfigureAwait(false);
-                        for (int i = 0; i < results.Length; i++)
+                        foreach (AxisInitializeStep batchStep in batchSteps)
                         {
-                            if (results[i] != 0)
-                                return results[i];
+                            int serialResult = await ExecuteInitializeSingleStepAsync(batchStep).ConfigureAwait(false);
+                            if (serialResult != 0)
+                                return serialResult;
                         }
 
                         QMC.Common.Log.Write("Main", "SYSTEM", "ExecuteInitializeSteps",
-                            "Axis initialize parallel batch completed. step=" + batch.Key + " - Ok");
+                            "Axis initialize same-step serial batch completed. step=" + batch.Key + " - Ok");
                     }
-                }
-
-                if (!inputPairExecuted)
-                {
-                    int result = await ExecuteConditionalInitializeSequenceAsync(
-                        enabledSteps,
-                        71,
-                        new[] { 72, 73, 74 },
-                        ShouldRunSharedRailBeforeInputFeederHome,
-                        "InputFeeder/SharedRailX",
-                        new[] { 60 }).ConfigureAwait(false);
-                    if (result != 0)
-                        return result;
-                }
-
-                if (!outputPairExecuted)
-                {
-                    int result = await ExecuteConditionalInitializePairAsync(
-                        enabledSteps,
-                        91,
-                        92,
-                        ShouldRunSharedRailBeforeOutputFeederHome,
-                        "OutputFeeder/SharedRailX").ConfigureAwait(false);
-                    if (result != 0)
-                        return result;
                 }
 
                 return 0;
@@ -3514,6 +3333,7 @@ namespace QMC.CDT320
 
         private async Task<int> PrepareInitializeStepAsync(AxisInitializeStep step)
         {
+            return 0;
             try
             {
                 string groupName = step != null ? step.GroupName : "";
@@ -3698,18 +3518,26 @@ namespace QMC.CDT320
             //        "InputFeeder HOME 불가: InputLifterZ가 Avoid 위치에 있지 않습니다.");
             //}
 
-            var front = _machine.PickerFrontUnit;
-            if (front != null && !front.IsPickerAxisInTeachingPosition(PickerAxis.PickerX, "AvoidPosition"))
+            string axisReason;
+            var stage = _machine.InputStageUnit;
+            if (stage != null && !IsAxisNotHomedOrAtHomePosition(stage.CameraX, "InputVisionX", out axisReason))
             {
                 return Task.FromResult(FailInitializePreparation(
-                    "InputFeeder HOME 불가: FrontPickerX가 Avoid 위치에 있지 않습니다."));
+                    "InputFeeder HOME 불가: InputVisionX가 Home 전 상태가 아니고 Home 위치에도 없습니다. " + axisReason));
+            }
+
+            var front = _machine.PickerFrontUnit;
+            if (front != null && !IsAxisNotHomedOrAtHomePosition(front.PickerX, "FrontPickerX", out axisReason))
+            {
+                return Task.FromResult(FailInitializePreparation(
+                    "InputFeeder HOME 불가: FrontPickerX가 Home 전 상태가 아니고 Home 위치에도 없습니다. " + axisReason));
             }
 
             var rear = _machine.PickerRearUnit;
-            if (rear != null && !rear.IsPickerAxisInTeachingPosition(PickerAxis.PickerX, "AvoidPosition"))
+            if (rear != null && !IsAxisNotHomedOrAtHomePosition(rear.PickerX, "RearPickerX", out axisReason))
             {
                 return Task.FromResult(FailInitializePreparation(
-                    "InputFeeder HOME 불가: RearPickerX가 Avoid 위치에 있지 않습니다."));
+                    "InputFeeder HOME 불가: RearPickerX가 Home 전 상태가 아니고 Home 위치에도 없습니다. " + axisReason));
             }
 
             var feeder = _machine.InputFeederUnit;
@@ -3733,11 +3561,6 @@ namespace QMC.CDT320
                 {
                     return Task.FromResult(FailInitializePreparation("InputFeeder Ring Check."));
                 }
-
-                //if (!feeder.IsWaferFeederUp())
-                //{
-                //    return FailInitializePreparation("InputFeeder lift up failed.");
-                //}
             }
 
             return Task.FromResult(0);
@@ -4289,13 +4112,21 @@ namespace QMC.CDT320
                 string command = action.Command ?? "";
                 if (string.Equals(command, AxisInitializeActionCommand.CylinderFwd, StringComparison.OrdinalIgnoreCase))
                 {
-                    bool ok = await cylinder.MoveFwdAsync().ConfigureAwait(false);
+                    bool ok;
+                    using (MotionGuardRuntime.BeginCylinderInitializeMove(cylinder, true, command))
+                    {
+                        ok = await cylinder.MoveFwdAsync().ConfigureAwait(false);
+                    }
                     return ok ? 0 : FailInitializePreparation("실린더 전진 실패. cylinder=" + cylinder.Name);
                 }
 
                 if (string.Equals(command, AxisInitializeActionCommand.CylinderBwd, StringComparison.OrdinalIgnoreCase))
                 {
-                    bool ok = await cylinder.MoveBwdAsync().ConfigureAwait(false);
+                    bool ok;
+                    using (MotionGuardRuntime.BeginCylinderInitializeMove(cylinder, false, command))
+                    {
+                        ok = await cylinder.MoveBwdAsync().ConfigureAwait(false);
+                    }
                     return ok ? 0 : FailInitializePreparation("실린더 후진 실패. cylinder=" + cylinder.Name);
                 }
 
@@ -5742,6 +5573,33 @@ namespace QMC.CDT320
             return axis != null && axis.Config != null && axis.Config.InPositionTolerance > 0.0
                 ? axis.Config.InPositionTolerance
                 : 0.05;
+        }
+
+        private static bool IsAxisNotHomedOrAtHomePosition(BaseAxis axis, string axisName, out string reason)
+        {
+            reason = string.Empty;
+            if (axis == null)
+                return true;
+
+            if (axis.IsMoving)
+            {
+                reason = axisName + " is moving. actual=" + axis.ActualPosition.ToString("0.###");
+                return false;
+            }
+
+            if (!axis.IsHomeDone)
+                return true;
+
+            const double homePosition = 0.0;
+            double tolerance = ResolveAxisInPositionTolerance(axis);
+            if (Math.Abs(axis.ActualPosition - homePosition) <= tolerance)
+                return true;
+
+            reason = axisName +
+                     " homeDone=ON but not at Home position. target=0, actual=" +
+                     axis.ActualPosition.ToString("0.###") +
+                     ", tolerance=" + tolerance.ToString("0.###");
+            return false;
         }
 
         private static Task<AxisMoveWaitResult> WaitAxisMoveDoneInPositionAsync(BaseAxis axis, double target)

@@ -11,7 +11,8 @@ namespace QMC.CDT320.Interlocks
         AxisMove,
         AxisHome,
         AxisTeachingMove,
-        CylinderMove
+        CylinderMove,
+        CylinderInitialize
     }
 
     public sealed class MotionGuardResult
@@ -117,6 +118,13 @@ namespace QMC.CDT320.Interlocks
             string movingName = cylinder != null ? cylinder.Name : string.Empty;
             double targetValue = moveFwd ? 1.0 : 0.0;
             return VerifyMove(movingName, targetValue, MotionGuardMoveKind.CylinderMove, context);
+        }
+
+        public MotionGuardResult VerifyCylinderInitialize(BaseCylinder cylinder, bool moveFwd, MotionGuardContext context)
+        {
+            string movingName = cylinder != null ? cylinder.Name : string.Empty;
+            double targetValue = moveFwd ? 1.0 : 0.0;
+            return VerifyMove(movingName, targetValue, MotionGuardMoveKind.CylinderInitialize, context);
         }
 
         public MotionGuardResult VerifyMove(string movingName, double targetValue, MotionGuardContext context)
