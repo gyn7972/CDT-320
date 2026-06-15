@@ -302,6 +302,12 @@ namespace QMC.CDT320.Sequencing
         {
             ct.ThrowIfCancellationRequested();
 
+            if (Feeder.IsWaferFeederDown())
+            {
+                CurrentStep = InputFeederLoadFromCassetteStep.MoveFeederLoadPosition;
+                return 0;
+            }
+
             int result = await AwaitStepWithCancellationAsync(
                 Feeder.SetWaferFeederUpDownAsync(false, ResolveTimeout(), ct),
                 ct).ConfigureAwait(false);

@@ -17,6 +17,19 @@ namespace QMC.CDT320.Interlocks
             string targetName,
             IReadOnlyList<InterlockCheckPair> requiredChecks,
             MotionGuardContext context)
+            : this(movingName, movingKey, targetValue, moveKind, targetName, requiredChecks, context, false)
+        {
+        }
+
+        public MotionGuardRuleContext(
+            string movingName,
+            string movingKey,
+            double targetValue,
+            MotionGuardMoveKind moveKind,
+            string targetName,
+            IReadOnlyList<InterlockCheckPair> requiredChecks,
+            MotionGuardContext context,
+            bool skipSharedRailXRule)
         {
             MovingName = movingName ?? string.Empty;
             MovingKey = movingKey ?? string.Empty;
@@ -25,6 +38,7 @@ namespace QMC.CDT320.Interlocks
             TargetName = targetName ?? string.Empty;
             RequiredChecks = requiredChecks ?? new List<InterlockCheckPair>();
             Context = context;
+            SkipSharedRailXRule = skipSharedRailXRule;
         }
 
         public string MovingName { get; private set; }
@@ -34,6 +48,7 @@ namespace QMC.CDT320.Interlocks
         public string TargetName { get; private set; }
         public IReadOnlyList<InterlockCheckPair> RequiredChecks { get; private set; }
         public MotionGuardContext Context { get; private set; }
+        public bool SkipSharedRailXRule { get; private set; }
 
         public CDT320_Machine Machine
         {

@@ -449,6 +449,13 @@ namespace QMC.CDT320.Ajin
         {
             try
             {
+                if (!SharedRailXMotionRuntime.IsInternalDispatch &&
+                    SharedRailXMotionRuntime.IsSharedRailAxis(this))
+                {
+                    SharedRailXMotionRuntime.MoveJogContinuous(this, direction, ResolveJogSpeed(speedType, customVel));
+                    return;
+                }
+
                 if (UseSimulation)
                 {
                     base.MoveJogContinuous(direction, speedType, customVel);
@@ -519,11 +526,27 @@ namespace QMC.CDT320.Ajin
             }
         }
 
+        private double ResolveJogSpeed(JogSpeedType speedType, double customVel)
+        {
+            return GetJogVelocity(speedType, customVel);
+        }
+
         public override async Task<int> MoveJogStepAsync(int direction, JogSpeedType speedType,
                                                          double stepDistance, double customVel = 0)
         {
             try
             {
+                if (!SharedRailXMotionRuntime.IsInternalDispatch &&
+                    SharedRailXMotionRuntime.IsSharedRailAxis(this))
+                {
+                    return await SharedRailXMotionRuntime.MoveJogStepAsync(
+                        this,
+                        direction,
+                        speedType,
+                        stepDistance,
+                        customVel).ConfigureAwait(false);
+                }
+
                 if (UseSimulation)
                     return await base.MoveJogStepAsync(direction, speedType, stepDistance, customVel);
 

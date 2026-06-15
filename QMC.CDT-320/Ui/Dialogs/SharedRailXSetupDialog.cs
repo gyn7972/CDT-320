@@ -24,6 +24,8 @@ namespace QMC.CDT_320.Ui.Dialogs
         private bool _stopping;
         private SharedRailXConfigDocument _document;
         private bool _running;
+        private DataGridView _pairGrid;
+        private Label _pairRuleLabel;
 
         public SharedRailXSetupDialog(MachineController controller)
         {
@@ -97,6 +99,36 @@ namespace QMC.CDT_320.Ui.Dialogs
             _settingGrid.Columns.Add(CreateTextColumn("colOrigin", "Rail Origin", 85F, false, DataGridViewContentAlignment.MiddleRight));
             _settingGrid.Columns.Add(CreateTextColumn("colScale", "Scale", 60F, false, DataGridViewContentAlignment.MiddleRight));
             _settingGrid.Columns.Add(CreateTextColumn("colSafety", "Safety", 70F, false, DataGridViewContentAlignment.MiddleRight));
+
+            _pairRuleLabel = new Label();
+            _pairRuleLabel.BackColor = Color.FromArgb(238, 242, 246);
+            _pairRuleLabel.Dock = DockStyle.Fill;
+            _pairRuleLabel.Font = new Font("Malgun Gothic", 9F, FontStyle.Bold);
+            _pairRuleLabel.Location = new Point(0, 0);
+            _pairRuleLabel.Name = "lblPairRule";
+            _pairRuleLabel.Padding = new Padding(6, 0, 0, 0);
+            _pairRuleLabel.Text = "PAIR CLEARANCE RULE";
+            _pairRuleLabel.TextAlign = ContentAlignment.MiddleLeft;
+
+            _pairGrid = new DataGridView();
+            ConfigureGridBase(_pairGrid);
+            _pairGrid.SelectionMode = DataGridViewSelectionMode.CellSelect;
+            _pairGrid.EditMode = DataGridViewEditMode.EditProgrammatically;
+            _pairGrid.CellClick += pairGrid_CellClick;
+            _pairGrid.Columns.Add(CreateTextColumn("colPair", "Pair", 150F, true, DataGridViewContentAlignment.MiddleLeft));
+            _pairGrid.Columns.Add(CreateTextColumn("colHomeClearance", "Home Gap", 80F, false, DataGridViewContentAlignment.MiddleRight));
+            _pairGrid.Columns.Add(CreateTextColumn("colAxisASign", "A Sign", 60F, false, DataGridViewContentAlignment.MiddleRight));
+            _pairGrid.Columns.Add(CreateTextColumn("colAxisBSign", "B Sign", 60F, false, DataGridViewContentAlignment.MiddleRight));
+            _pairGrid.Columns.Add(CreateTextColumn("colPairSafety", "Safety", 70F, false, DataGridViewContentAlignment.MiddleRight));
+
+            _gridGroups.ColumnStyles.Clear();
+            _gridGroups.ColumnCount = 4;
+            _gridGroups.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 30F));
+            _gridGroups.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 20F));
+            _gridGroups.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25F));
+            _gridGroups.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25F));
+            _gridGroups.Controls.Add(_pairRuleLabel, 3, 0);
+            _gridGroups.Controls.Add(_pairGrid, 3, 1);
 
             _activeGrid = grid;
         }
@@ -195,6 +227,48 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
             finally
             {
+            }
+        }
+
+        private void pairGrid_CellClick(object sender, DataGridViewCellEventArgs e)
+        {
+            try
+            {
+                if (_running || e.RowIndex < 0 || e.ColumnIndex < 0)
+                    return;
+
+                DataGridView view = sender as DataGridView;
+                if (view == null)
+                    return;
+
+                DataGridViewColumn column = view.Columns[e.ColumnIndex];
+                if (column == null || column.ReadOnly)
+                    return;
+
+                DataGridViewRow row = view.Rows[e.RowIndex];
+                SharedRailXCollisionPairRow pair = row.Tag as SharedRailXCollisionPairRow;
+                if (pair == null)
+                    return;
+
+                view.CurrentCell = row.Cells[e.ColumnIndex];
+                string title = Convert.ToString(row.Cells["colPair"].Value) + " / " + column.HeaderText;
+                string current = Convert.ToString(row.Cells[e.ColumnIndex].Value);
+                string unit = column.Name == "colAxisASign" || column.Name == "colAxisBSign" ? "" : "mm";
+                using (var dlg = new NumericKeypadDialog(title, current, unit))
+                {
+                    if (dlg.ShowDialog(this) != DialogResult.OK)
+                        return;
+
+                    double value = ReadDouble(dlg.ValueText, 0.0);
+                    if (column.Name == "colAxisASign" || column.Name == "colAxisBSign")
+                        value = NormalizeSign(value);
+                    row.Cells[e.ColumnIndex].Value = FormatDouble(value);
+                }
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.MessageDialog.Show(this, "Pair rule input failed:\n" + ex.Message,
+                    "SharedRailX", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
 
@@ -382,6 +456,8 @@ namespace QMC.CDT_320.Ui.Dialogs
                 _testGrid.ShowCellToolTips = true;
             if (_settingGrid != null)
                 _settingGrid.ShowCellToolTips = true;
+            if (_pairGrid != null)
+                _pairGrid.ShowCellToolTips = true;
 
             GetColumn(_settingGrid, "colBodyMin").ToolTipText = "Axis body negative side size from rail center position.";
             GetColumn(_settingGrid, "colBodyMax").ToolTipText = "Axis body positive side size from rail center position.";
@@ -389,6 +465,10 @@ namespace QMC.CDT_320.Ui.Dialogs
             GetColumn(_settingGrid, "colScale").ToolTipText = "Scale used when converting axis position to SharedRail position.";
             GetColumn(_settingGrid, "colSafety").ToolTipText = "Axis-specific minimum safety distance. Empty uses Default Safety.";
             GetColumn(_testGrid, "colVelocity").ToolTipText = "Test move velocity used by this setup dialog.";
+            GetColumn(_pairGrid, "colHomeClearance").ToolTipText = "Distance between the two axes at home position before they approach each other.";
+            GetColumn(_pairGrid, "colAxisASign").ToolTipText = "+1 means AxisA positive direction approaches AxisB, -1 means negative direction approaches.";
+            GetColumn(_pairGrid, "colAxisBSign").ToolTipText = "+1 means AxisB positive direction approaches AxisA, -1 means negative direction approaches.";
+            GetColumn(_pairGrid, "colPairSafety").ToolTipText = "Pair-specific minimum clearance. Empty uses Default Safety.";
 
             colBodyMin.ToolTipText = "축의 실제 몸체가 Rail 좌표에서 축 중심보다 얼마나 왼쪽/마이너스 방향으로 더 차지하는지(mm)입니다.";
             colBodyMax.ToolTipText = "축의 실제 몸체가 Rail 좌표에서 축 중심보다 얼마나 오른쪽/플러스 방향으로 더 차지하는지(mm)입니다.";
@@ -433,6 +513,12 @@ namespace QMC.CDT_320.Ui.Dialogs
             ApplyColumnGroup(GetColumn(_settingGrid, "colOrigin"), "Rail Origin", settingColor, false);
             ApplyColumnGroup(GetColumn(_settingGrid, "colScale"), "Scale", settingColor, false);
             ApplyColumnGroup(GetColumn(_settingGrid, "colSafety"), "Safety", settingColor, false);
+
+            ApplyColumnGroup(GetColumn(_pairGrid, "colPair"), "Pair", Color.White, true);
+            ApplyColumnGroup(GetColumn(_pairGrid, "colHomeClearance"), "Home Gap", settingColor, false);
+            ApplyColumnGroup(GetColumn(_pairGrid, "colAxisASign"), "A Sign", settingColor, false);
+            ApplyColumnGroup(GetColumn(_pairGrid, "colAxisBSign"), "B Sign", settingColor, false);
+            ApplyColumnGroup(GetColumn(_pairGrid, "colPairSafety"), "Safety", settingColor, false);
         }
 
         private static void ApplyColumnGroup(DataGridViewColumn column, string headerText, Color backColor, bool readOnly)
@@ -496,7 +582,12 @@ namespace QMC.CDT_320.Ui.Dialogs
                 "- 몸체 점유 범위 = Rail 중심 좌표 + Body Min ~ Rail 중심 좌표 + Body Max\r\n" +
                 "- 두 축의 몸체 점유 범위가 Safety 거리보다 가까우면 이동을 막습니다.\r\n\r\n" +
                 "주의\r\n" +
-                "- 이 값은 충돌 인터락 계산 기준입니다. 실제 기구 치수와 축 좌표 방향이 맞지 않으면 정상 이동도 막히거나, 위험한 이동이 허용될 수 있습니다.";
+                "- 이 값은 충돌 인터락 계산 기준입니다. 실제 기구 치수와 축 좌표 방향이 맞지 않으면 정상 이동도 막히거나, 위험한 이동이 허용될 수 있습니다.\r\n\r\n" +
+                "Pair Clearance Rule\r\n" +
+                "- Pair Clearance Rule은 두 축 사이의 실제 간섭 거리 계산을 우선 적용합니다.\r\n" +
+                "- Home Gap은 두 축이 홈 위치일 때의 실제 여유거리입니다.\r\n" +
+                "- A/B Sign은 각 축이 상대 축 쪽으로 가까워지는 엔코더 방향입니다. +방향 접근은 1, -방향 접근은 -1입니다.\r\n" +
+                "- Clearance = Home Gap - A Sign*A Pos - B Sign*B Pos 로 계산하며 Safety 이하이면 이동을 막습니다.";
 
             QMC.Common.MessageDialog.Show(this, message, "SharedRailX 설정값 설명",
                 MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -520,6 +611,8 @@ namespace QMC.CDT_320.Ui.Dialogs
                 _testGrid.Rows.Clear();
             if (_settingGrid != null)
                 _settingGrid.Rows.Clear();
+            if (_pairGrid != null)
+                _pairGrid.Rows.Clear();
 
             if (_document == null || _document.Axes == null)
                 return;
@@ -553,6 +646,23 @@ namespace QMC.CDT_320.Ui.Dialogs
                     FormatDouble(item.PositionScale),
                     item.SafetyDistance.HasValue ? FormatAxisDisplayValue(axis, item.SafetyDistance.Value) : "");
                 _settingGrid.Rows[settingIndex].Tag = item;
+            }
+
+            if (_document.CollisionPairs != null && _pairGrid != null)
+            {
+                foreach (SharedRailXCollisionPairRow pair in _document.CollisionPairs)
+                {
+                    if (pair == null)
+                        continue;
+
+                    int pairIndex = _pairGrid.Rows.Add(
+                        pair.AxisA + " <-> " + pair.AxisB,
+                        FormatDouble(pair.HomeClearance),
+                        FormatDouble(pair.AxisATowardSign),
+                        FormatDouble(pair.AxisBTowardSign),
+                        pair.SafetyDistance.HasValue ? FormatDouble(pair.SafetyDistance.Value) : "");
+                    _pairGrid.Rows[pairIndex].Tag = pair;
+                }
             }
 
             if (grid.Rows.Count > 0)
@@ -594,6 +704,25 @@ namespace QMC.CDT_320.Ui.Dialogs
                     item.SafetyDistance = string.IsNullOrWhiteSpace(safetyText)
                         ? (double?)null
                         : ReadAxisDisplayText(safetyText, axis, _document.DefaultSafetyDistance);
+                }
+
+                if (_pairGrid != null)
+                {
+                    foreach (DataGridViewRow row in _pairGrid.Rows)
+                    {
+                        SharedRailXCollisionPairRow pair = row.Tag as SharedRailXCollisionPairRow;
+                        if (pair == null)
+                            continue;
+
+                        pair.HomeClearance = ReadDouble(GetCellValue(row, "colHomeClearance"), pair.HomeClearance);
+                        pair.AxisATowardSign = NormalizeSign(ReadDouble(GetCellValue(row, "colAxisASign"), pair.AxisATowardSign));
+                        pair.AxisBTowardSign = NormalizeSign(ReadDouble(GetCellValue(row, "colAxisBSign"), pair.AxisBTowardSign));
+
+                        string pairSafetyText = Convert.ToString(GetCellValue(row, "colPairSafety"));
+                        pair.SafetyDistance = string.IsNullOrWhiteSpace(pairSafetyText)
+                            ? (double?)null
+                            : ReadDouble(pairSafetyText, _document.DefaultSafetyDistance);
+                    }
                 }
 
                 return true;
@@ -972,6 +1101,9 @@ namespace QMC.CDT_320.Ui.Dialogs
             axis = SharedRailXAxis.InputVisionX;
             if (row == null)
                 return false;
+            if (row.DataGridView == null || !row.DataGridView.Columns.Contains("colAxis"))
+                return false;
+
             object value = row.Cells["colAxis"].Value;
             return value != null && Enum.TryParse(value.ToString(), true, out axis);
         }
@@ -1131,6 +1263,15 @@ namespace QMC.CDT_320.Ui.Dialogs
             if (double.TryParse(text, NumberStyles.Float, CultureInfo.CurrentCulture, out parsed))
                 return true;
             return false;
+        }
+
+        private static int NormalizeSign(double value)
+        {
+            if (value > 0.0)
+                return 1;
+            if (value < 0.0)
+                return -1;
+            return 0;
         }
 
         private static string FormatDouble(double value)

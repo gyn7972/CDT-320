@@ -290,227 +290,179 @@ namespace QMC.CDT320.Initialization
                 var used = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
                 // Z/T/Y/X 초기화는 우선 전부 축 단위 순차 스텝으로 표시/실행한다.
-                AddKnownStep(plan, axisByName, used, 10, "FrontPickerZ0",
-                    AxisInitializeRunMode.Serial,
-                    "FrontPickerZ0 home first to secure vertical clearance.",
-                    "FrontPickerZ0");
-
-                AddKnownStep(plan, axisByName, used, 20, "FrontPickerZ1",
-                    AxisInitializeRunMode.Serial,
-                    "FrontPickerZ1 home first to secure vertical clearance.",
-                    "FrontPickerZ1");
-
-                AddKnownStep(plan, axisByName, used, 30, "FrontPickerZ2",
-                    AxisInitializeRunMode.Serial,
-                    "FrontPickerZ2 home first to secure vertical clearance.",
-                    "FrontPickerZ2");
-
-                AddKnownStep(plan, axisByName, used, 40, "FrontPickerZ3",
-                    AxisInitializeRunMode.Serial,
-                    "FrontPickerZ3 home first to secure vertical clearance.",
+                AddKnownStep(plan, axisByName, used, 10, "FrontPickerZ",
+                    AxisInitializeRunMode.Parallel,
+                    "FrontPickerZ0~Z3 home together to secure vertical clearance.",
+                    "FrontPickerZ0",
+                    "FrontPickerZ1",
+                    "FrontPickerZ2",
                     "FrontPickerZ3");
 
-                AddKnownStep(plan, axisByName, used, 50, "RearPickerZ0",
-                    AxisInitializeRunMode.Serial,
-                    "RearPickerZ0 home first to secure vertical clearance.",
-                    "RearPickerZ0");
-
-                AddKnownStep(plan, axisByName, used, 60, "RearPickerZ1",
-                    AxisInitializeRunMode.Serial,
-                    "RearPickerZ1 home first to secure vertical clearance.",
-                    "RearPickerZ1");
-
-                AddKnownStep(plan, axisByName, used, 70, "RearPickerZ2",
-                    AxisInitializeRunMode.Serial,
-                    "RearPickerZ2 home first to secure vertical clearance.",
-                    "RearPickerZ2");
-
-                AddKnownStep(plan, axisByName, used, 80, "RearPickerZ3",
-                    AxisInitializeRunMode.Serial,
-                    "RearPickerZ3 home first to secure vertical clearance.",
+                AddKnownStep(plan, axisByName, used, 20, "RearPickerZ",
+                    AxisInitializeRunMode.Parallel,
+                    "RearPickerZ0~Z3 home together to secure vertical clearance.",
+                    "RearPickerZ0",
+                    "RearPickerZ1",
+                    "RearPickerZ2",
                     "RearPickerZ3");
 
-                AddKnownStep(plan, axisByName, used, 90, "NeedleZ",
-                    AxisInitializeRunMode.Serial,
-                    "NeedleZ home first with vertical clearance.",
+                AddKnownStep(plan, axisByName, used, 30, "NeedleZ",
+                    AxisInitializeRunMode.Parallel,
+                    "NeedleZ home together to secure vertical clearance.",
+                    "NeedleZ",
+                    "EjectPinZ",
                     "NeedleZ");
 
-                AddKnownStep(plan, axisByName, used, 100, "EjectPinZ",
-                    AxisInitializeRunMode.Serial,
-                    "EjectPinZ home first with vertical clearance.",
-                    "EjectPinZ");
-
-                AddActionOnlyStep(plan, 110, "OutputStageZClampLift", "NGBinGuideClampLift", AxisInitializeActionCommand.CylinderFwd,
+                AddActionOnlyStep(plan, 40, "OutputStageZClampLift", "NGBinGuideClampLift", AxisInitializeActionCommand.CylinderFwd,
                     "NG bin clamp lift moves up before OutputGoodStageZ home.");
 
-                AddKnownSingleStep(plan, axisByName, used, 120, "OutputStageZ",
+                AddKnownSingleStep(plan, axisByName, used, 50, "OutputStageZ",
                     AxisInitializeRunMode.Serial,
                     "Output good stage Z home before Y axes. NG stage has Y axis only.",
                     "OutputGoodStageZ", "GoodStage_StageZ");
 
-                AddKnownSingleStep(plan, axisByName, used, 130, "InputStageZ",
+                AddKnownSingleStep(plan, axisByName, used, 60, "InputStageZ",
                     AxisInitializeRunMode.Serial,
                     "InputExpandingZ home after needle vertical axes.",
                     "InputExpandingZ", "ExpanderZ");
 
-                AddKnownStep(plan, axisByName, used, 140, "FrontPickerT0",
-                    AxisInitializeRunMode.Serial,
-                    "FrontPickerT0 home after Picker Z clearance.",
-                    "FrontPickerT0");
-
-                AddKnownStep(plan, axisByName, used, 150, "FrontPickerT1",
-                    AxisInitializeRunMode.Serial,
-                    "FrontPickerT1 home after Picker Z clearance.",
-                    "FrontPickerT1");
-
-                AddKnownStep(plan, axisByName, used, 160, "FrontPickerT2",
-                    AxisInitializeRunMode.Serial,
-                    "FrontPickerT2 home after Picker Z clearance.",
-                    "FrontPickerT2");
-
-                AddKnownStep(plan, axisByName, used, 170, "FrontPickerT3",
-                    AxisInitializeRunMode.Serial,
-                    "FrontPickerT3 home after Picker Z clearance.",
+                AddKnownStep(plan, axisByName, used, 70, "FrontPickerT",
+                    AxisInitializeRunMode.Parallel,
+                    "FrontPickerT0~T3 home together to secure vertical clearance.",
+                    "FrontPickerT0",
+                    "FrontPickerT1",
+                    "FrontPickerT2",
                     "FrontPickerT3");
 
-                AddKnownStep(plan, axisByName, used, 180, "RearPickerT0",
-                    AxisInitializeRunMode.Serial,
-                    "RearPickerT0 home after Picker Z clearance.",
-                    "RearPickerT0");
-
-                AddKnownStep(plan, axisByName, used, 190, "RearPickerT1",
-                    AxisInitializeRunMode.Serial,
-                    "RearPickerT1 home after Picker Z clearance.",
-                    "RearPickerT1");
-
-                AddKnownStep(plan, axisByName, used, 200, "RearPickerT2",
-                    AxisInitializeRunMode.Serial,
-                    "RearPickerT2 home after Picker Z clearance.",
-                    "RearPickerT2");
-
-                AddKnownStep(plan, axisByName, used, 210, "RearPickerT3",
-                    AxisInitializeRunMode.Serial,
-                    "RearPickerT3 home after Picker Z clearance.",
+                AddKnownStep(plan, axisByName, used, 80, "RearPickerT",
+                    AxisInitializeRunMode.Parallel,
+                    "RearPickerT0~T3 home together to secure vertical clearance.",
+                    "RearPickerT0",
+                    "RearPickerT1",
+                    "RearPickerT2",
                     "RearPickerT3");
 
-                AddKnownStep(plan, axisByName, used, 220, "FrontPickerY",
-                    AxisInitializeRunMode.Serial,
-                    "FrontPickerY home, then move to Avoid in axis post hook.",
-                    "FrontPickerY");
-
-                AddAxisTeachingActionOnlyStep(plan, 230, "FrontPickerYAvoid", "FrontPickerY", "AvoidPosition",
-                    "FrontPickerY moves to Avoid after home.");
-
-                AddKnownStep(plan, axisByName, used, 240, "RearPickerY",
-                    AxisInitializeRunMode.Serial,
-                    "RearPickerY home, then move to Avoid in axis post hook.",
-                    "RearPickerY");
-
-                AddAxisTeachingActionOnlyStep(plan, 250, "RearPickerYAvoid", "RearPickerY", "AvoidPosition",
-                    "RearPickerY moves to Avoid after home.");
-
-                AddKnownSingleStep(plan, axisByName, used, 260, "FrontSideVisionY",
+                AddKnownSingleStep(plan, axisByName, used, 90, "FrontSideVisionY",
                     AxisInitializeRunMode.Serial,
                     "Front side vision Y home.",
                     "FrontSideVisionY0", "FrontSideVisionY");
 
-                AddKnownSingleStep(plan, axisByName, used, 270, "RearSideVisionY",
+                AddKnownSingleStep(plan, axisByName, used, 100, "RearSideVisionY",
                     AxisInitializeRunMode.Serial,
                     "Rear side vision Y home.",
                     "RearSideVisionY0", "RearSideVisionY");
 
                 //Reticle 순서 뒤로 빠지고 다운해야함.
-                AddActionOnlyStep(plan, 280, "ReticleSideSlideRear", "ReticleSideSlideRear", AxisInitializeActionCommand.CylinderBwd,
+                AddActionOnlyStep(plan, 110, "ReticleSideSlideRear", "ReticleSideSlideRear", AxisInitializeActionCommand.CylinderBwd,
                     "Reticle side slide rear moves backward before shared rail/input feeder initialize.");
 
-                AddActionOnlyStep(plan, 290, "ReticleSideSlideFront", "ReticleSideSlideFront", AxisInitializeActionCommand.CylinderBwd,
+                AddActionOnlyStep(plan, 120, "ReticleSideSlideFront", "ReticleSideSlideFront", AxisInitializeActionCommand.CylinderBwd,
                     "Reticle side slide front moves backward before shared rail/input feeder initialize.");
 
-                AddActionOnlyStep(plan, 300, "ReticleLift", "ReticleLift", AxisInitializeActionCommand.CylinderBwd,
+                AddActionOnlyStep(plan, 130, "ReticleLift", "ReticleLift", AxisInitializeActionCommand.CylinderBwd,
                     "Reticle lift moves backward before shared rail/input feeder initialize.");
 
-                AddKnownSingleStep(plan, axisByName, used, 310, "InputStageY",
+                AddKnownSingleStep(plan, axisByName, used, 140, "InputStageY",
                     AxisInitializeRunMode.Serial,
                     "InputStageY home. InputStageY moves to Avoid before NeedleX.",
                     "InputStageY", "StageY");
 
-                AddAxisTeachingActionOnlyStep(plan, 320, "InputStageYAvoid", "InputStageY", "AvoidPosition",
-                    "InputStageY moves to Avoid after home.");
+                //AddAxisTeachingActionOnlyStep(plan, 320, "InputStageYAvoid", "InputStageY", "AvoidPosition",
+                //    "InputStageY moves to Avoid after home.");
 
-                AddKnownSingleStep(plan, axisByName, used, 330, "InputStageT",
+                AddKnownSingleStep(plan, axisByName, used, 150, "InputStageT",
                     AxisInitializeRunMode.Serial,
                     "InputStageT home after InputStageY home.",
                     "InputStageT", "StageT");
 
-                AddKnownSingleStep(plan, axisByName, used, 340, "InputStageNeedleX",
+                AddKnownSingleStep(plan, axisByName, used, 160, "InputStageNeedleX",
                     AxisInitializeRunMode.Serial,
                     "NeedleX home after InputStageY home and Avoid move.",
                     "NeedleX", "NeedleBlockX");
 
-                AddActionOnlyStep(plan, 350, "InputFeederClamp", "InputFeederClamp", AxisInitializeActionCommand.CylinderBwd,
+                AddActionOnlyStep(plan, 170, "InputFeederClamp", "InputFeederClamp", AxisInitializeActionCommand.CylinderBwd,
                     "Input feeder must be unclamped before InputFeederY home.");
 
-                AddActionOnlyStep(plan, 360, "InputFeederLift", "InputFeederLift", AxisInitializeActionCommand.CylinderBwd,
+                AddActionOnlyStep(plan, 180, "InputFeederLift", "InputFeederLift", AxisInitializeActionCommand.CylinderBwd,
                     "Input feeder must be Down before InputFeederY home.");
 
-                AddKnownSingleStep(plan, axisByName, used, 370, "InputFeeder",
+                AddKnownSingleStep(plan, axisByName, used, 190, "InputFeeder",
                     AxisInitializeRunMode.Serial,
                     "InputFeederY home. SharedRailX/InputFeeder relation is checked in prepare hook.",
                     "InputFeederY", "FeederY");
 
-                AddActionOnlyStep(plan, 380, "InputFeederLiftDown", "InputFeederLift", AxisInitializeActionCommand.CylinderBwd,
+                AddActionOnlyStep(plan, 200, "InputFeederLiftDown", "InputFeederLift", AxisInitializeActionCommand.CylinderBwd,
                     "Input feeder lift moves down after InputFeederY home.");
 
-                AddKnownStep(plan, axisByName, used, 390, "InputCassette",
+                //AddAxisTeachingActionOnlyStep(plan, 390, "InputFeederYAvoid", "InputFeederY", "AvoidPosition",
+                //    "InputFeederY moves to Avoid after home.");
+
+                AddKnownStep(plan, axisByName, used, 210, "FrontPickerY",
+                    AxisInitializeRunMode.Serial,
+                    "FrontPickerY home after InputFeederY is at Avoid.",
+                    "FrontPickerY");
+
+                //AddAxisTeachingActionOnlyStep(plan, 410, "FrontPickerYAvoid", "FrontPickerY", "AvoidPosition",
+                //    "FrontPickerY moves to Avoid after home.");
+
+                AddKnownStep(plan, axisByName, used, 220, "RearPickerY",
+                    AxisInitializeRunMode.Serial,
+                    "RearPickerY home after FrontPickerY and InputFeederY are at Avoid.",
+                    "RearPickerY");
+
+                //AddAxisTeachingActionOnlyStep(plan, 430, "RearPickerYAvoid", "RearPickerY", "AvoidPosition",
+                //    "RearPickerY moves to Avoid after home.");
+
+                AddKnownStep(plan, axisByName, used, 230, "InputCassette",
                     AxisInitializeRunMode.Serial,
                     "Input cassette lifter Z home before InputFeederY. Lifter moves to Avoid in axis post hook.",
                     "InputLifterZ");
 
-                AddKnownSingleStep(plan, axisByName, used, 400, "InputVisionX",
+                AddKnownSingleStep(plan, axisByName, used, 240, "InputVisionX",
                     AxisInitializeRunMode.Serial,
                     "InputVisionX home after InputFeederY home and lift down.",
                     "InputVisionX", "CameraX");
 
-                AddKnownStep(plan, axisByName, used, 410, "FrontPickerX",
+                AddKnownStep(plan, axisByName, used, 250, "FrontPickerX",
                     AxisInitializeRunMode.Serial,
                     "FrontPickerX home after InputVisionX.",
                     "FrontPickerX");
 
-                AddKnownStep(plan, axisByName, used, 420, "RearPickerX",
+                AddKnownStep(plan, axisByName, used, 260, "RearPickerX",
                     AxisInitializeRunMode.Serial,
                     "RearPickerX home after FrontPickerX.",
                     "RearPickerX");
 
-                AddActionOnlyStep(plan, 430, "OutputFeederClamp", "OutputFeederClamp", AxisInitializeActionCommand.CylinderBwd,
+                AddActionOnlyStep(plan, 270, "OutputFeederClamp", "OutputFeederClamp", AxisInitializeActionCommand.CylinderBwd,
                     "Output feeder must be unclamped before OutputFeederY home.");
 
-                AddActionOnlyStep(plan, 440, "OutputFeederLift", "OutputFeederLift", AxisInitializeActionCommand.CylinderFwd,
+                AddActionOnlyStep(plan, 280, "OutputFeederLift", "OutputFeederLift", AxisInitializeActionCommand.CylinderFwd,
                     "Output feeder must be up before OutputFeederY home.");
 
-                AddKnownStep(plan, axisByName, used, 450, "OutputFeeder",
+                AddKnownStep(plan, axisByName, used, 290, "OutputFeeder",
                     AxisInitializeRunMode.Serial,
                     "OutputFeederY home. SharedRailX/OutputFeeder relation is checked in prepare hook.",
                     "OutputFeederY");
 
-                AddActionOnlyStep(plan, 460, "OutputFeederLiftDown", "OutputFeederLift", AxisInitializeActionCommand.CylinderBwd,
+                AddActionOnlyStep(plan, 300, "OutputFeederLiftDown", "OutputFeederLift", AxisInitializeActionCommand.CylinderBwd,
                     "Output feeder must be down after OutputFeederY home.");
 
-                AddKnownStep(plan, axisByName, used, 470, "SharedRailXOutput",
+                AddKnownStep(plan, axisByName, used, 310, "SharedRailXOutput",
                     AxisInitializeRunMode.Serial,
                     "OutputVisionX home after OutputFeederY home and lift down.",
                     "OutputVisionX");
 
-                AddKnownSingleStep(plan, axisByName, used, 480, "OutputGoodStageY",
+                AddKnownSingleStep(plan, axisByName, used, 320, "OutputGoodStageY",
                     AxisInitializeRunMode.Serial,
                     "Output good stage Y home after feeder relation.",
                     "OutputGoodStageY", "GoodStage_StageY");
 
-                AddKnownSingleStep(plan, axisByName, used, 490, "OutputNGStageY",
+                AddKnownSingleStep(plan, axisByName, used, 330, "OutputNGStageY",
                     AxisInitializeRunMode.Serial,
                     "Output NG stage Y home after good stage Y.",
                     "OutputNGStageY", "NgStage_StageY");
 
-                AddKnownStep(plan, axisByName, used, 500, "OutputCassette",
+                AddKnownStep(plan, axisByName, used, 340, "OutputCassette",
                     AxisInitializeRunMode.Serial,
                     "Output cassette lifter Z home after OutputFeederY is safe.",
                     "OutputLifterZ");

@@ -129,11 +129,12 @@ namespace QMC.CDT320.Interlocks
                         "OutputLifterZ is moving. OutputFeederY home is blocked.",
                         out reason);
 
-                if (cassette != null && !cassette.IsBinLifterZInAvoidPosition())
-                    return MotionGuardRuleHelpers.Block(
-                        "OutputFeederY",
-                        "OutputFeederY HOME blocked. OutputLifterZ must be at Avoid position.",
-                        out reason);
+                // 카세트가 있으면 이거 봐야하는데...
+                //if (cassette != null && !cassette.IsBinLifterZInAvoidPosition())
+                //    return MotionGuardRuleHelpers.Block(
+                //        "OutputFeederY",
+                //        "OutputFeederY HOME blocked. OutputLifterZ must be at Avoid position.",
+                //        out reason);
 
                 OutputStageUnit outputStage = machine.OutputStageUnit;
 

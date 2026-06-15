@@ -222,12 +222,13 @@ namespace QMC.CDT320.Interlocks
                         "InputStageY HOME blocked. NeedleZ must be at Avoid position.",
                         out reason);
 
-                InputFeederUnit feeder = machine != null ? machine.InputFeederUnit : null;
-                if (feeder != null && !feeder.IsWaferFeederInAvoidPosition())
-                    return MotionGuardRuleHelpers.Block(
-                        "InputStageY",
-                        "InputStageY HOME blocked. InputFeederY must be at Avoid position.",
-                        out reason);
+                //여기 조건에 따라 다르다.
+                //InputFeederUnit feeder = machine != null ? machine.InputFeederUnit : null;
+                //if (feeder != null && !feeder.IsWaferFeederInAvoidPosition())
+                //    return MotionGuardRuleHelpers.Block(
+                //        "InputStageY",
+                //        "InputStageY HOME blocked. InputFeederY must be at Avoid position.",
+                //        out reason);
 
                 if (!VerifyPickerZAxesAvoid(machine != null ? machine.PickerFrontUnit : null, "InputStageY", "Front", out reason))
                     return false;

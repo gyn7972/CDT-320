@@ -212,31 +212,7 @@ namespace QMC.CDT320.Interlocks
 
             try
             {
-                PickerFrontUnit front = machine != null ? machine.PickerFrontUnit : null;
-                if (front != null && !IsPickerXHomeDoneOrInputAvoid(
-                        front.PickerX,
-                        delegate { return front.IsPickerAxisInTeachingPosition(PickerAxis.PickerX, "InputAvoidPosition"); },
-                        "FrontPickerX",
-                        out reason))
-                {
-                    return MotionGuardRuleHelpers.Block(
-                        "OutputVisionX",
-                        "OutputVisionX HOME blocked. FrontPickerX must be HomeDone or InputAvoid. " + reason,
-                        out reason);
-                }
-
-                PickerRearUnit rear = machine != null ? machine.PickerRearUnit : null;
-                if (rear != null && !IsPickerXHomeDoneOrInputAvoid(
-                        rear.PickerX,
-                        delegate { return rear.IsPickerAxisInTeachingPosition(PickerAxis.PickerX, "InputAvoidPosition"); },
-                        "RearPickerX",
-                        out reason))
-                {
-                    return MotionGuardRuleHelpers.Block(
-                        "OutputVisionX",
-                        "OutputVisionX HOME blocked. RearPickerX must be HomeDone or InputAvoid. " + reason,
-                        out reason);
-                }
+                // PickerX와 OutputVisionX 간 거리는 SharedRailX Pair Clearance 룰에서 판단한다.
 
                 OutputFeederUnit outputFeeder = machine != null ? machine.OutputFeederUnit : null;
                 if (outputFeeder != null && !outputFeeder.IsBinFeederYInAvoidPosition())

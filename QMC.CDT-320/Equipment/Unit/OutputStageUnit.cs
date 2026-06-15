@@ -1014,12 +1014,13 @@ namespace QMC.CDT320
                 if (!IsBinGuideDown(BinSide.Good))
                     return RaiseOutputStageAlarm("OS-GOOD-GUIDE-DOWN", "Good Bin Guide must be down before output stage movement.");
 
-                result = await EnsureBinGuideDownAsync(BinSide.Ng, timeoutMs);
-                if (result != 0)
-                    return result;
+                // OK Stage 로딩 전에는 NG Stage를 Avoid로 보낸 뒤 필요 시 가이드를 내린다.
+                //result = await EnsureBinGuideDownAsync(BinSide.Ng, timeoutMs);
+                //if (result != 0)
+                //    return result;
 
-                if (!IsBinGuideDown(BinSide.Ng))
-                    return RaiseOutputStageAlarm("OS-NG-GUIDE-DOWN", "NG Bin Guide must be down before output stage movement.");
+                //if (!IsBinGuideDown(BinSide.Ng))
+                //    return RaiseOutputStageAlarm("OS-NG-GUIDE-DOWN", "NG Bin Guide must be down before output stage movement.");
 
                 if (!IsGoodStageZInAvoidPosition())
                 {

@@ -131,10 +131,10 @@ namespace QMC.CDT320.Interlocks
                         out reason);
                 }
 
-                if (stage != null && !stage.IsExpanderZInAvoidPosition())
+                if (stage != null && !IsExpanderZHomeAvoidOrProcess(stage))
                     return MotionGuardRuleHelpers.Block(
                         "RearPickerX",
-                        "RearPickerX HOME blocked. InputExpandingZ must be at Avoid position.",
+                        "RearPickerX HOME blocked. InputExpandingZ must be at Home(0), Avoid, or Process position.",
                         out reason);
 
                 PickerFrontUnit front = machine != null ? machine.PickerFrontUnit : null;
@@ -175,21 +175,7 @@ namespace QMC.CDT320.Interlocks
 
             try
             {
-                InputStageUnit stage = machine != null ? machine.InputStageUnit : null;
-                if (stage != null && !stage.IsExpanderZInAvoidPosition())
-                    return MotionGuardRuleHelpers.Block(
-                        "RearPickerY",
-                        "RearPickerY HOME blocked. InputExpandingZ must be at Avoid position.",
-                        out reason);
-
-                PickerFrontUnit front = machine != null ? machine.PickerFrontUnit : null;
-                if (front != null && !front.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition"))
-                    return MotionGuardRuleHelpers.Block(
-                        "RearPickerY",
-                        "RearPickerY HOME blocked. FrontPickerY must be at Avoid position.",
-                        out reason);
-
-                if (!VerifyRearPickerZAxesAvoid(machine != null ? machine.PickerRearUnit : null, "RearPickerY", out reason))
+                if (!VerifyRearPickerZAxesHomeOrAvoid(machine != null ? machine.PickerRearUnit : null, "RearPickerY", out reason))
                     return false;
 
                 return true;
@@ -355,6 +341,84 @@ namespace QMC.CDT320.Interlocks
             }
 
             return true;
+        }
+
+        private static bool VerifyRearPickerZAxesHomeOrAvoid(PickerRearUnit picker, string movingName, out string reason)
+        {
+            reason = string.Empty;
+            if (picker == null)
+                return true;
+
+            PickerAxis[] zAxes = { PickerAxis.PickerZ0, PickerAxis.PickerZ1, PickerAxis.PickerZ2, PickerAxis.PickerZ3 };
+            for (int i = 0; i < zAxes.Length; i++)
+            {
+                PickerAxis zAxis = zAxes[i];
+                BaseAxis axis = ResolveRearPickerAxis(picker, zAxis);
+                if (!IsAxisAtHomeOrTeachingAvoid(axis, () => picker.IsPickerAxisInTeachingPosition(zAxis, "AvoidPosition")))
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        movingName + " HOME blocked. Rear" + zAxis + " must be at Home(0) or Avoid position.",
+                        out reason);
+            }
+
+            return true;
+        }
+
+        private static bool IsAxisAtHomeOrTeachingAvoid(BaseAxis axis, System.Func<bool> isTeachingAvoid)
+        {
+            if (axis == null)
+                return true;
+
+            double tolerance = axis.Config != null && axis.Config.InPositionTolerance > 0.0
+                ? axis.Config.InPositionTolerance
+                : 0.05;
+
+            if (System.Math.Abs(axis.ActualPosition) <= tolerance)
+                return true;
+
+            return isTeachingAvoid != null && isTeachingAvoid();
+        }
+
+        private static bool IsExpanderZHomeAvoidOrProcess(InputStageUnit stage)
+        {
+            if (stage == null || stage.ExpanderZ == null)
+                return true;
+
+            double tolerance = stage.ExpanderZ.Config != null && stage.ExpanderZ.Config.InPositionTolerance > 0.0
+                ? stage.ExpanderZ.Config.InPositionTolerance
+                : 0.05;
+
+            double actual = stage.ExpanderZ.ActualPosition;
+            if (System.Math.Abs(actual) <= tolerance)
+                return true;
+
+            StageAxisPositions waferZ = stage.Recipe != null ? stage.Recipe.WaferZ : null;
+            if (waferZ == null)
+                return false;
+
+            return System.Math.Abs(actual - waferZ.AvoidPosition) <= tolerance ||
+                   System.Math.Abs(actual - waferZ.ProcessPosition) <= tolerance;
+        }
+
+        private static BaseAxis ResolveRearPickerAxis(PickerRearUnit picker, PickerAxis axis)
+        {
+            if (picker == null)
+                return null;
+
+            switch (axis)
+            {
+                case PickerAxis.PickerZ0: return picker.PickerZ0;
+                case PickerAxis.PickerZ1: return picker.PickerZ1;
+                case PickerAxis.PickerZ2: return picker.PickerZ2;
+                case PickerAxis.PickerZ3: return picker.PickerZ3;
+                case PickerAxis.PickerX: return picker.PickerX;
+                case PickerAxis.PickerY: return picker.PickerY;
+                case PickerAxis.PickerT0: return picker.PickerT0;
+                case PickerAxis.PickerT1: return picker.PickerT1;
+                case PickerAxis.PickerT2: return picker.PickerT2;
+                case PickerAxis.PickerT3: return picker.PickerT3;
+                default: return null;
+            }
         }
 
         private static bool TryResolvePairedZAxis(string movingName, out PickerAxis zAxis)

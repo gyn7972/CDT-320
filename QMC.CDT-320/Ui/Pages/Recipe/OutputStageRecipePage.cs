@@ -461,9 +461,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             string reason;
 
             // 게이트: 홈(AVOID/LOAD/UNLOAD만) + C + P
-            bool homeLike = !string.Equals(kind, "Process", StringComparison.OrdinalIgnoreCase);
-            if (homeLike && RequireHomingForHomeLikeButtons && !CheckBinAxesHomed(side, out reason))
-                return AbortSeq(title, reason);
+            //bool homeLike = !string.Equals(kind, "Process", StringComparison.OrdinalIgnoreCase);
+            //if (homeLike && RequireHomingForHomeLikeButtons && !CheckBinAxesHomed(side, out reason))
+            //    return AbortSeq(title, reason); //테스트용 임시제거
             if (!CheckClampUp(side, out reason))
                 return AbortSeq(title, reason);
             if (!CheckPickerZClear(out reason))

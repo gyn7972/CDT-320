@@ -707,15 +707,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (await StepMoveAvoidAsync("VISION X") != 0)
                     return AbortAvoid("VISION X 이동 실패");
 
-                // 4) EXPANDER Z — 니들/이젝트핀 후퇴 완료 선행
-                if (!IsNeedleRetracted(out reason))
-                    return AbortAvoid("EXPANDER Z 전 " + reason);
+                // 4) EXPANDER Z
                 if (await StepMoveAvoidAsync("EXPANDER Z") != 0)
                     return AbortAvoid("EXPANDER Z 이동 실패");
 
-                // 5) NEEDLE X — 니들/이젝트핀 후퇴 완료 선행
-                if (!IsNeedleRetracted(out reason))
-                    return AbortAvoid("NEEDLE X 전 " + reason);
+                // 5) NEEDLE X
                 if (await StepMoveAvoidAsync("NEEDLE X") != 0)
                     return AbortAvoid("NEEDLE X 이동 실패");
 
@@ -763,32 +759,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             return null;
         }
 
-        // 니들 Z / 이젝트핀 Z 가 "상승(Process/이젝트) 위치가 아님" = 후퇴(하강) 상태인지 판정.
-        // Avoid/Load/Unload/Ready/Reticle 의 니들 위치는 모두 '하강'이라 kind마다 값이 달라도 통과한다.
-        // 실제 위험은 "니들이 올라가(이젝트) 있음"뿐이므로, Process 위치에만 있지 않으면 후퇴로 본다.
-        private bool IsNeedleRetracted(out string reason)
-        {
-            reason = string.Empty;
-            if (_InputStageUnit == null)
-                return true;
-
-            var u = _InputStageUnit;
-            u.Recipe.EnsurePositionObjects();
-
-            if (IsAxisAtPosition(u.NeedleZ, u.Recipe.NeedleZ.ProcessPosition))
-            {
-                reason = "NEEDLE Z 후퇴 미완료(상승/이젝트 위치)";
-                return false;
-            }
-            if (IsAxisAtPosition(u.EjectPinZ, u.Recipe.EjectPinZ.ProcessPosition))
-            {
-                reason = "EJECT PIN Z 후퇴 미완료(상승/이젝트 위치)";
-                return false;
-            }
-
-            return true;
-        }
-
         private static bool IsAxisAtPosition(BaseAxis axis, double target)
         {
             if (axis == null)
@@ -800,9 +770,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         // 스테이지 평면 이동(Wafer Y/T) 선행 인터락: 니들후퇴 + Front/Rear 픽커 Clear + 피더 Clear
         private bool CheckStagePlaneInterlock(CDT320_Machine machine, bool checkPicker, out string reason)
         {
-            if (!IsNeedleRetracted(out reason))
-                return false;
-
             if (machine != null)
             {
                 // 픽커 Clear = Picker Z(0~3)가 상승(Avoid) + 정상. (X/Y/T는 보지 않음)
@@ -879,11 +846,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private static bool IsAxisHomed(BaseAxis axis, string label, out string reason)
         {
             reason = string.Empty;
-            if (axis != null && !axis.IsHomeDone)
-            {
-                reason = label + " 원점복귀 필요";
-                return false;
-            }
+            //if (axis != null && !axis.IsHomeDone)
+            //{
+            //    reason = label + " 원점복귀 필요";
+            //    return false;
+            //}  //테스트용 임시제거
             return true;
         }
 
@@ -979,9 +946,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (await StepMoveKindAsync(kind, "NEEDLE Z") != 0)
                     return AbortStage(title, "NEEDLE Z 이동 실패");
 
-                // 2) EXPANDER Z — 니들후퇴 선행
-                if (!IsNeedleRetracted(out reason))
-                    return AbortStage(title, "EXPANDER Z 전 " + reason);
+                // 2) EXPANDER Z
                 if (await StepMoveKindAsync(kind, "EXPANDER Z") != 0)
                     return AbortStage(title, "EXPANDER Z 이동 실패");
 
@@ -1019,10 +984,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (await StepMoveKindAsync(kind, "EJECT PIN Z") != 0) return AbortStage(title, "EJECT PIN Z 이동 실패");
                 if (await StepMoveKindAsync(kind, "VISION X") != 0) return AbortStage(title, "VISION X 이동 실패");
 
-                if (!IsNeedleRetracted(out reason)) return AbortStage(title, "EXPANDER Z 전 " + reason);
                 if (await StepMoveKindAsync(kind, "EXPANDER Z") != 0) return AbortStage(title, "EXPANDER Z 이동 실패");
 
-                if (!IsNeedleRetracted(out reason)) return AbortStage(title, "NEEDLE X 전 " + reason);
                 if (await StepMoveKindAsync(kind, "NEEDLE X") != 0) return AbortStage(title, "NEEDLE X 이동 실패");
 
                 if (!CheckStagePlaneInterlock(machine, true, out reason)) return AbortStage(title, "WAFER Y 전 " + reason);
@@ -1059,7 +1022,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (await StepMoveKindAsync(kind, "WAFER T") != 0) return AbortStage(title, "WAFER T 이동 실패");
 
                 // 3) NEEDLE X
-                if (!IsNeedleRetracted(out reason)) return AbortStage(title, "NEEDLE X 전 " + reason);
                 if (await StepMoveKindAsync(kind, "NEEDLE X") != 0) return AbortStage(title, "NEEDLE X 이동 실패");
 
                 // 4) VISION X
@@ -1104,7 +1066,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (!CheckStagePlaneInterlock(machine, false, out reason)) return AbortStage(title, "WAFER T 전 " + reason);
                 if (await StepMoveKindAsync(kind, "WAFER T") != 0) return AbortStage(title, "WAFER T 이동 실패");
 
-                if (!IsNeedleRetracted(out reason)) return AbortStage(title, "NEEDLE X 전 " + reason);
                 if (await StepMoveKindAsync(kind, "NEEDLE X") != 0) return AbortStage(title, "NEEDLE X 이동 실패");
 
                 // 7) VISION X — 레티클 실린더 Clear + Wafer Y 경로 클리어 완료

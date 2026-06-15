@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -42,10 +42,25 @@ namespace QMC.CDT320.Motion.SharedRailX
                 {
                     SharedRailXAxisState a = states[i];
                     SharedRailXAxisState b = states[j];
-                    if (!_config.IsCollisionPairEnabled(a.Axis, b.Axis))
+                    if (!a.Moving && !b.Moving)
                         continue;
 
-                    SharedRailXValidationResult current = ValidateDistance(a, b, false);
+                    SharedRailXAxisPair pair;
+                    if (!_config.TryGetCollisionPair(a.Axis, b.Axis, out pair))
+                        continue;
+
+                    if (IsInputVisionMovingNegative(a) || IsInputVisionMovingNegative(b))
+                        continue;
+
+                    if (pair.HasClearanceRule)
+                    {
+                        SharedRailXValidationResult clearance = ValidatePairClearance(a, b, pair);
+                        if (!clearance.Allowed)
+                            return clearance;
+                        continue;
+                    }
+
+                    SharedRailXValidationResult current = ValidateCurrentDistance(a, b);
                     if (!current.Allowed)
                         return current;
 
@@ -72,6 +87,95 @@ namespace QMC.CDT320.Motion.SharedRailX
             return SharedRailXValidationResult.Allow();
         }
 
+        private static bool IsInputVisionMovingNegative(SharedRailXAxisState state)
+        {
+            return state != null &&
+                   state.Axis == SharedRailXAxis.InputVisionX &&
+                   state.Moving &&
+                   state.TargetAxis < state.CurrentAxis;
+        }
+
+        private static SharedRailXValidationResult ValidatePairClearance(
+            SharedRailXAxisState a,
+            SharedRailXAxisState b,
+            SharedRailXAxisPair pair)
+        {
+            int aSign;
+            int bSign;
+            ResolvePairSigns(a.Axis, b.Axis, pair, out aSign, out bSign);
+
+            double required = pair.SafetyDistance.HasValue
+                ? pair.SafetyDistance.Value
+                : Math.Max(a.SafetyDistance, b.SafetyDistance);
+
+            double currentClearance = CalculatePairClearance(pair.HomeClearance, aSign, a.CurrentAxis, bSign, b.CurrentAxis);
+            double targetClearance = CalculatePairClearance(pair.HomeClearance, aSign, a.TargetAxis, bSign, b.TargetAxis);
+            double minimumClearance = Math.Min(currentClearance, targetClearance);
+
+            if (currentClearance < required && targetClearance <= currentClearance)
+            {
+                return BlockPairClearance("current", a, b, currentClearance, targetClearance, minimumClearance, required, pair);
+            }
+
+            if (targetClearance < required)
+            {
+                return BlockPairClearance("target", a, b, currentClearance, targetClearance, minimumClearance, required, pair);
+            }
+
+            return SharedRailXValidationResult.Allow();
+        }
+
+        private static void ResolvePairSigns(
+            SharedRailXAxis axisA,
+            SharedRailXAxis axisB,
+            SharedRailXAxisPair pair,
+            out int signA,
+            out int signB)
+        {
+            if (pair.AxisA == axisA && pair.AxisB == axisB)
+            {
+                signA = pair.AxisATowardSign;
+                signB = pair.AxisBTowardSign;
+                return;
+            }
+
+            signA = pair.AxisBTowardSign;
+            signB = pair.AxisATowardSign;
+        }
+
+        private static double CalculatePairClearance(
+            double homeClearance,
+            int aTowardSign,
+            double aPosition,
+            int bTowardSign,
+            double bPosition)
+        {
+            return homeClearance - (aTowardSign * aPosition) - (bTowardSign * bPosition);
+        }
+
+        private static SharedRailXValidationResult BlockPairClearance(
+            string state,
+            SharedRailXAxisState a,
+            SharedRailXAxisState b,
+            double currentClearance,
+            double targetClearance,
+            double minimumClearance,
+            double required,
+            SharedRailXAxisPair pair)
+        {
+            return SharedRailXValidationResult.Block(
+                "SharedRailX pair clearance is too close. state=" + state +
+                ", " + a.Name + " axis " + a.CurrentAxis.ToString("F3") + "->" + a.TargetAxis.ToString("F3") +
+                ", " + b.Name + " axis " + b.CurrentAxis.ToString("F3") + "->" + b.TargetAxis.ToString("F3") +
+                ", currentClearance=" + currentClearance.ToString("F3") +
+                ", targetClearance=" + targetClearance.ToString("F3") +
+                ", minClearance=" + minimumClearance.ToString("F3") +
+                ", required=" + required.ToString("F3") +
+                ", homeClearance=" + pair.HomeClearance.ToString("F3") +
+                ", signs=" + pair.AxisA + ":" + pair.AxisATowardSign + "," +
+                pair.AxisB + ":" + pair.AxisBTowardSign);
+        }
+
         private SharedRailXAxisState BuildState(SharedRailXAxisSetting setting, SharedRailXMovePlan plan)
         {
             double target;
@@ -91,6 +195,43 @@ namespace QMC.CDT320.Motion.SharedRailX
                 BodyOffsetMax = setting.BodyOffsetMax,
                 SafetyDistance = setting.SafetyDistance
             };
+        }
+
+        private static SharedRailXValidationResult ValidateCurrentDistance(
+            SharedRailXAxisState a,
+            SharedRailXAxisState b)
+        {
+            double currentGap = CalculateGap(a, a.Current, b, b.Current);
+            double requiredGap = Math.Max(a.SafetyDistance, b.SafetyDistance);
+            bool currentDistanceIsSafe = currentGap >= requiredGap;
+            if (currentDistanceIsSafe)
+                return SharedRailXValidationResult.Allow();
+
+            bool aIsMoving = a.Moving;
+            bool bIsMoving = b.Moving;
+            bool anyAxisMoving = aIsMoving || bIsMoving;
+
+            double targetGap = CalculateGap(a, a.Target, b, b.Target);
+            bool targetGapIsIncreasing = targetGap > currentGap;
+            bool movingAwayFromCollision = anyAxisMoving && targetGapIsIncreasing;
+            if (movingAwayFromCollision)
+                return SharedRailXValidationResult.Allow();
+
+            string movingState =
+                "moving=" +
+                a.Name + ":" + (aIsMoving ? "Y" : "N") + "," +
+                b.Name + ":" + (bIsMoving ? "Y" : "N");
+
+            return SharedRailXValidationResult.Block(
+                "SharedRailX current distance is too close. " +
+                a.Name + " axis=" + a.CurrentAxis.ToString("F3") +
+                " rail=" + a.Current.ToString("F3") + ", " +
+                b.Name + " axis=" + b.CurrentAxis.ToString("F3") +
+                " rail=" + b.Current.ToString("F3") +
+                ", currentGap=" + currentGap.ToString("F3") +
+                ", targetGap=" + targetGap.ToString("F3") +
+                ", required=" + requiredGap.ToString("F3") +
+                ", " + movingState);
         }
 
         private static SharedRailXValidationResult ValidateDistance(
@@ -137,6 +278,9 @@ namespace QMC.CDT320.Motion.SharedRailX
             bool sameDirection = Math.Sign(a.Target - a.Current) == Math.Sign(b.Target - b.Current);
             double currentGap = CalculateGap(a, a.Current, b, b.Current);
             double targetGap = CalculateGap(a, a.Target, b, b.Target);
+            if ((a.Moving || b.Moving) && targetGap > currentGap)
+                return SharedRailXValidationResult.Allow();
+
             if (a.Moving && b.Moving && sameDirection && currentGap >= required && targetGap >= required)
                 return SharedRailXValidationResult.Allow();
 

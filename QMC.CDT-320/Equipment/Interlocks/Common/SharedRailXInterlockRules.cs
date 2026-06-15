@@ -11,6 +11,8 @@ namespace QMC.CDT320.Interlocks
                 (request.MoveKind != MotionGuardMoveKind.AxisMove &&
                  request.MoveKind != MotionGuardMoveKind.AxisTeachingMove))
                 return true;
+            if (request.SkipSharedRailXRule)
+                return true;
             if (SharedRailXMotionRuntime.IsInternalDispatch)
                 return true;
 

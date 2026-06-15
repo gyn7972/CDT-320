@@ -1,9 +1,10 @@
-using System;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Threading;
 using System.Threading.Tasks;
 using QMC.Common.Alarms;
 using QMC.Common.Motion;
+using QMC.CDT320.Interlocks;
 
 namespace QMC.CDT320.Motion.SharedRailX
 {
@@ -54,6 +55,10 @@ namespace QMC.CDT320.Motion.SharedRailX
             if (service != null && service.IsSharedRailAxis(axis))
             {
                 string reason;
+                double guardTarget = ResolveJogGuardTarget(axis, direction);
+                if (!MotionGuardRuntime.VerifyAxisMoveWithoutSharedRailX(axis, guardTarget, out reason))
+                    return;
+
                 if (!service.VerifyJogMove(axis, direction, out reason))
                 {
                     AlarmManager.Raise(AlarmSeverity.Warning, "SHARED-RAIL-X", "SharedRailX", reason);
@@ -66,6 +71,46 @@ namespace QMC.CDT320.Motion.SharedRailX
 
             if (service != null && service.IsSharedRailAxis(axis))
                 StartJogGuard(axis, direction, service);
+        }
+
+        public static Task<int> MoveJogStepAsync(
+            BaseAxis axis,
+            int direction,
+            JogSpeedType speedType,
+            double stepDistance,
+            double customSpeed)
+        {
+            if (axis == null)
+                return Task.FromResult(-1);
+
+            double velocity = ResolveJogVelocity(axis, speedType, customSpeed);
+            double target = axis.ActualPosition + ((direction < 0 ? -1.0 : 1.0) * Math.Abs(stepDistance));
+            return MoveAxisAsync(axis, target, velocity);
+        }
+
+        private static double ResolveJogVelocity(BaseAxis axis, JogSpeedType speedType, double customSpeed)
+        {
+            if (axis == null || axis.Config == null)
+                return customSpeed > 0 ? customSpeed : 1.0;
+
+            switch (speedType)
+            {
+                case JogSpeedType.Coarse:
+                    return axis.Config.JogCoarseVelocity;
+                case JogSpeedType.Custom:
+                    return customSpeed > 0 ? customSpeed : axis.Config.JogFineVelocity;
+                case JogSpeedType.Fine:
+                default:
+                    return axis.Config.JogFineVelocity;
+            }
+        }
+
+        private static double ResolveJogGuardTarget(BaseAxis axis, int direction)
+        {
+            if (axis == null || axis.Setup == null)
+                return axis != null ? axis.ActualPosition : 0.0;
+
+            return direction > 0 ? axis.Setup.SoftLimitPlus : axis.Setup.SoftLimitMinus;
         }
 
         public static SharedRailXMotionService ResolveService(CDT320_Machine machine)

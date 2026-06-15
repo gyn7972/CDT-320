@@ -93,8 +93,17 @@ namespace QMC.CDT320.Interlocks
 
         public MotionGuardResult VerifyAxisMove(BaseAxis axis, double targetPosition, MotionGuardContext context)
         {
+            return VerifyAxisMove(axis, targetPosition, context, false);
+        }
+
+        public MotionGuardResult VerifyAxisMove(
+            BaseAxis axis,
+            double targetPosition,
+            MotionGuardContext context,
+            bool skipSharedRailXRule)
+        {
             string movingName = axis != null ? axis.Name : string.Empty;
-            return VerifyMove(movingName, targetPosition, MotionGuardMoveKind.AxisMove, context);
+            return VerifyMove(movingName, targetPosition, MotionGuardMoveKind.AxisMove, string.Empty, context, skipSharedRailXRule);
         }
 
         public MotionGuardResult VerifyAxisHome(BaseAxis axis, double homeTargetPosition, MotionGuardContext context)
@@ -148,6 +157,17 @@ namespace QMC.CDT320.Interlocks
             string targetName,
             MotionGuardContext context)
         {
+            return VerifyMove(movingName, targetValue, moveKind, targetName, context, false);
+        }
+
+        public MotionGuardResult VerifyMove(
+            string movingName,
+            double targetValue,
+            MotionGuardMoveKind moveKind,
+            string targetName,
+            MotionGuardContext context,
+            bool skipSharedRailXRule)
+        {
             string movingKey = InterlockCheckMatrix.NormalizeName(movingName);
             IReadOnlyList<InterlockCheckPair> checks = _matrix.GetChecksFor(movingKey);
 
@@ -158,7 +178,15 @@ namespace QMC.CDT320.Interlocks
                 RequiredChecks = checks
             };
 
-            var request = new MotionGuardRuleContext(movingName, movingKey, targetValue, moveKind, targetName, checks, context);
+            var request = new MotionGuardRuleContext(
+                movingName,
+                movingKey,
+                targetValue,
+                moveKind,
+                targetName,
+                checks,
+                context,
+                skipSharedRailXRule);
             string ruleReason;
             if (!MotionGuardRuleRegistry.Verify(request, out ruleReason))
             {

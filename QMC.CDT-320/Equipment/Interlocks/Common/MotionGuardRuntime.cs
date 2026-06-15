@@ -18,6 +18,20 @@ namespace QMC.CDT320.Interlocks
 
         public static bool VerifyAxisMove(BaseAxis axis, double targetPosition, out string reason)
         {
+            return VerifyAxisMove(axis, targetPosition, false, out reason);
+        }
+
+        public static bool VerifyAxisMoveWithoutSharedRailX(BaseAxis axis, double targetPosition, out string reason)
+        {
+            return VerifyAxisMove(axis, targetPosition, true, out reason);
+        }
+
+        private static bool VerifyAxisMove(
+            BaseAxis axis,
+            double targetPosition,
+            bool skipSharedRailXRule,
+            out string reason)
+        {
             reason = "";
             try
             {
@@ -29,7 +43,7 @@ namespace QMC.CDT320.Interlocks
                 AxisMoveScope scope = CurrentAxisMoveScope.Value;
                 MotionGuardResult result = IsMatchingScope(scope, axis, targetPosition)
                     ? service.VerifyAxisTeachingMove(axis, targetPosition, scope.TargetName, context)
-                    : service.VerifyAxisMove(axis, targetPosition, context);
+                    : service.VerifyAxisMove(axis, targetPosition, context, skipSharedRailXRule);
                 if (result == null)
                     return true;
 

@@ -298,11 +298,13 @@ namespace QMC.CDT320.Interlocks
                     out reason);
             }
 
-            if (machine.InputFeederUnit != null && IsFeederUnclamp(machine.InputFeederUnit))
+            if (machine.InputFeederUnit != null &&
+                IsFeederUnclamp(machine.InputFeederUnit) &&
+                IsFeederHoldingMaterial(machine.InputFeederUnit))
             {
                 return MotionGuardRuleHelpers.Block(
                     "InputFeederLift",
-                    "InputFeederLift move blocked. InputFeeder is unclamped, so feeder is assumed to be holding material. direction=" + direction,
+                    "InputFeederLift move blocked. InputFeeder is unclamped and material is still detected. direction=" + direction,
                     out reason);
             }
 
@@ -400,6 +402,20 @@ namespace QMC.CDT320.Interlocks
 
             StageAxisPositions visionX = stage.Recipe != null ? stage.Recipe.VisionX : null;
             return visionX != null && IsAt(stage.CameraX, visionX.AvoidPosition);
+        }
+
+        private static bool IsFeederHoldingMaterial(InputFeederUnit feeder)
+        {
+            if (feeder == null)
+                return false;
+
+            if (feeder.IsWaferFeederTransferDataOccupied())
+                return true;
+
+            if (!feeder.IsWaferFeederSimulationOrDryRun() && feeder.IsWaferFeederRingCheck())
+                return true;
+
+            return false;
         }
 
         private static bool IsInputVisionXHomeReadyForInputFeederHome(InputStageUnit stage, out string reason)

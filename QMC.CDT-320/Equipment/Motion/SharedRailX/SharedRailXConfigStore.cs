@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Runtime.Serialization;
@@ -41,6 +41,10 @@ namespace QMC.CDT320.Motion.SharedRailX
     {
         [DataMember(Order = 0)] public string AxisA { get; set; }
         [DataMember(Order = 1)] public string AxisB { get; set; }
+        [DataMember(Order = 2)] public double HomeClearance { get; set; }
+        [DataMember(Order = 3)] public int AxisATowardSign { get; set; }
+        [DataMember(Order = 4)] public int AxisBTowardSign { get; set; }
+        [DataMember(Order = 5)] public double? SafetyDistance { get; set; }
     }
 
     public static class SharedRailXConfigStore
@@ -138,7 +142,13 @@ namespace QMC.CDT320.Motion.SharedRailX
                     !Enum.TryParse(row.AxisB, true, out axisB))
                     continue;
 
-                pairs.Add(new SharedRailXAxisPair(axisA, axisB));
+                pairs.Add(new SharedRailXAxisPair(
+                    axisA,
+                    axisB,
+                    row.HomeClearance,
+                    NormalizeSign(row.AxisATowardSign),
+                    NormalizeSign(row.AxisBTowardSign),
+                    row.SafetyDistance));
             }
 
             config.SetCollisionPairs(pairs);
@@ -177,7 +187,13 @@ namespace QMC.CDT320.Motion.SharedRailX
             if (config.CollisionPairs != null)
             {
                 foreach (SharedRailXAxisPair pair in config.CollisionPairs)
-                    document.CollisionPairs.Add(CreatePairRow(pair.AxisA, pair.AxisB));
+                    document.CollisionPairs.Add(CreatePairRow(
+                        pair.AxisA,
+                        pair.AxisB,
+                        pair.HomeClearance,
+                        pair.AxisATowardSign,
+                        pair.AxisBTowardSign,
+                        pair.SafetyDistance));
             }
 
             return document;
@@ -196,10 +212,10 @@ namespace QMC.CDT320.Motion.SharedRailX
             document.Axes.Add(CreateRow(SharedRailXAxis.FrontPickerX, -100.0, 100.0, 300.0, 1.0, null, 0.0, 5.0));
             document.Axes.Add(CreateRow(SharedRailXAxis.RearPickerX, -100.0, 100.0, 600.0, 1.0, null, 0.0, 5.0));
             document.Axes.Add(CreateRow(SharedRailXAxis.OutputVisionX, -100.0, 100.0, 900.0, 1.0, null, 0.0, 5.0));
-            document.CollisionPairs.Add(CreatePairRow(SharedRailXAxis.InputVisionX, SharedRailXAxis.FrontPickerX));
-            document.CollisionPairs.Add(CreatePairRow(SharedRailXAxis.InputVisionX, SharedRailXAxis.RearPickerX));
-            document.CollisionPairs.Add(CreatePairRow(SharedRailXAxis.OutputVisionX, SharedRailXAxis.FrontPickerX));
-            document.CollisionPairs.Add(CreatePairRow(SharedRailXAxis.OutputVisionX, SharedRailXAxis.RearPickerX));
+            document.CollisionPairs.Add(CreatePairRow(SharedRailXAxis.InputVisionX, SharedRailXAxis.FrontPickerX, 19.0, 1, -1, 10.0));
+            document.CollisionPairs.Add(CreatePairRow(SharedRailXAxis.InputVisionX, SharedRailXAxis.RearPickerX, 19.0, 1, -1, 10.0));
+            document.CollisionPairs.Add(CreatePairRow(SharedRailXAxis.OutputVisionX, SharedRailXAxis.FrontPickerX, 500.0, -1, 1, 10.0));
+            document.CollisionPairs.Add(CreatePairRow(SharedRailXAxis.OutputVisionX, SharedRailXAxis.RearPickerX, 500.0, -1, 1, 10.0));
             return document;
         }
 
@@ -228,11 +244,65 @@ namespace QMC.CDT320.Motion.SharedRailX
 
         private static SharedRailXCollisionPairRow CreatePairRow(SharedRailXAxis axisA, SharedRailXAxis axisB)
         {
-            return new SharedRailXCollisionPairRow
+            SharedRailXCollisionPairRow defaults = CreateDefaultPairRow(axisA, axisB);
+            return defaults ?? new SharedRailXCollisionPairRow
             {
                 AxisA = axisA.ToString(),
                 AxisB = axisB.ToString()
             };
+        }
+
+        private static SharedRailXCollisionPairRow CreatePairRow(
+            SharedRailXAxis axisA,
+            SharedRailXAxis axisB,
+            double homeClearance,
+            int axisATowardSign,
+            int axisBTowardSign,
+            double? safetyDistance)
+        {
+            return new SharedRailXCollisionPairRow
+            {
+                AxisA = axisA.ToString(),
+                AxisB = axisB.ToString(),
+                HomeClearance = homeClearance,
+                AxisATowardSign = NormalizeSign(axisATowardSign),
+                AxisBTowardSign = NormalizeSign(axisBTowardSign),
+                SafetyDistance = safetyDistance
+            };
+        }
+
+        private static SharedRailXCollisionPairRow CreateDefaultPairRow(SharedRailXAxis axisA, SharedRailXAxis axisB)
+        {
+            if (MatchesPair(axisA, axisB, SharedRailXAxis.InputVisionX, SharedRailXAxis.FrontPickerX))
+                return CreatePairRow(axisA, axisB, 19.0, SignForAxis(axisA, SharedRailXAxis.InputVisionX, 1, -1), SignForAxis(axisB, SharedRailXAxis.InputVisionX, 1, -1), 10.0);
+            if (MatchesPair(axisA, axisB, SharedRailXAxis.InputVisionX, SharedRailXAxis.RearPickerX))
+                return CreatePairRow(axisA, axisB, 19.0, SignForAxis(axisA, SharedRailXAxis.InputVisionX, 1, -1), SignForAxis(axisB, SharedRailXAxis.InputVisionX, 1, -1), 10.0);
+            if (MatchesPair(axisA, axisB, SharedRailXAxis.OutputVisionX, SharedRailXAxis.FrontPickerX))
+                return CreatePairRow(axisA, axisB, 500.0, SignForAxis(axisA, SharedRailXAxis.OutputVisionX, -1, 1), SignForAxis(axisB, SharedRailXAxis.OutputVisionX, -1, 1), 10.0);
+            if (MatchesPair(axisA, axisB, SharedRailXAxis.OutputVisionX, SharedRailXAxis.RearPickerX))
+                return CreatePairRow(axisA, axisB, 500.0, SignForAxis(axisA, SharedRailXAxis.OutputVisionX, -1, 1), SignForAxis(axisB, SharedRailXAxis.OutputVisionX, -1, 1), 10.0);
+
+            return null;
+        }
+
+        private static bool MatchesPair(SharedRailXAxis axisA, SharedRailXAxis axisB, SharedRailXAxis expectedA, SharedRailXAxis expectedB)
+        {
+            return (axisA == expectedA && axisB == expectedB) ||
+                   (axisA == expectedB && axisB == expectedA);
+        }
+
+        private static int SignForAxis(SharedRailXAxis axis, SharedRailXAxis primaryAxis, int primarySign, int otherSign)
+        {
+            return axis == primaryAxis ? primarySign : otherSign;
+        }
+
+        private static int NormalizeSign(int sign)
+        {
+            if (sign > 0)
+                return 1;
+            if (sign < 0)
+                return -1;
+            return 0;
         }
 
         private static void Normalize(SharedRailXConfigDocument document)
@@ -252,6 +322,7 @@ namespace QMC.CDT320.Motion.SharedRailX
             EnsureRow(document, SharedRailXAxis.RearPickerX);
             EnsureRow(document, SharedRailXAxis.OutputVisionX);
             EnsureDefaultCollisionPairs(document);
+            RemoveInputOutputVisionCollisionPairs(document);
             NormalizeLegacyZeroGeometry(document);
 
             foreach (SharedRailXAxisGeometryRow row in document.Axes)
@@ -263,6 +334,42 @@ namespace QMC.CDT320.Motion.SharedRailX
                 if (row.TestVelocity <= 0.0)
                     row.TestVelocity = 5.0;
             }
+
+            foreach (SharedRailXCollisionPairRow row in document.CollisionPairs)
+                NormalizeCollisionPairRule(row);
+        }
+
+        private static void NormalizeCollisionPairRule(SharedRailXCollisionPairRow row)
+        {
+            if (row == null)
+                return;
+
+            SharedRailXAxis axisA;
+            SharedRailXAxis axisB;
+            if (!Enum.TryParse(row.AxisA, true, out axisA) ||
+                !Enum.TryParse(row.AxisB, true, out axisB))
+            {
+                return;
+            }
+
+            row.AxisATowardSign = NormalizeSign(row.AxisATowardSign);
+            row.AxisBTowardSign = NormalizeSign(row.AxisBTowardSign);
+            if (row.HomeClearance > 0.0 &&
+                row.AxisATowardSign != 0 &&
+                row.AxisBTowardSign != 0)
+            {
+                return;
+            }
+
+            SharedRailXCollisionPairRow defaults = CreateDefaultPairRow(axisA, axisB);
+            if (defaults == null)
+                return;
+
+            row.HomeClearance = defaults.HomeClearance;
+            row.AxisATowardSign = defaults.AxisATowardSign;
+            row.AxisBTowardSign = defaults.AxisBTowardSign;
+            if (!row.SafetyDistance.HasValue)
+                row.SafetyDistance = defaults.SafetyDistance;
         }
 
         private static void EnsureDefaultCollisionPairs(SharedRailXConfigDocument document)
@@ -278,6 +385,29 @@ namespace QMC.CDT320.Motion.SharedRailX
             document.CollisionPairs.Add(CreatePairRow(SharedRailXAxis.InputVisionX, SharedRailXAxis.RearPickerX));
             document.CollisionPairs.Add(CreatePairRow(SharedRailXAxis.OutputVisionX, SharedRailXAxis.FrontPickerX));
             document.CollisionPairs.Add(CreatePairRow(SharedRailXAxis.OutputVisionX, SharedRailXAxis.RearPickerX));
+        }
+
+        private static void RemoveInputOutputVisionCollisionPairs(SharedRailXConfigDocument document)
+        {
+            if (document == null || document.CollisionPairs == null)
+                return;
+
+            document.CollisionPairs.RemoveAll(IsInputOutputVisionPair);
+        }
+
+        private static bool IsInputOutputVisionPair(SharedRailXCollisionPairRow row)
+        {
+            if (row == null)
+                return false;
+
+            SharedRailXAxis axisA;
+            SharedRailXAxis axisB;
+            if (!Enum.TryParse(row.AxisA, true, out axisA) ||
+                !Enum.TryParse(row.AxisB, true, out axisB))
+                return false;
+
+            return (axisA == SharedRailXAxis.InputVisionX && axisB == SharedRailXAxis.OutputVisionX) ||
+                   (axisA == SharedRailXAxis.OutputVisionX && axisB == SharedRailXAxis.InputVisionX);
         }
 
         private static void NormalizeLegacyZeroGeometry(SharedRailXConfigDocument document)
