@@ -232,6 +232,8 @@ namespace QMC.CDT320.Recipes
         [DataMember] public string PartId             { get; set; }
         [DataMember] public string InputCassetteId    { get; set; }
         [DataMember] public string OutputCassetteId   { get; set; }
+        [DataMember] public string InputDieMapFileName { get; set; } = "";
+        [DataMember] public string OutputDieMapFileName { get; set; } = "";
         [DataMember] public int    InputCassetteLevelCount { get; set; } = 1;
         [DataMember] public int    GoodCassetteLevelCount  { get; set; } = 1;
         [DataMember] public string ColletModelNum     { get; set; }
@@ -328,6 +330,8 @@ namespace QMC.CDT320.Recipes
         [DataMember] public double PitchY { get; set; } = 1.0;
         [DataMember] public string Rotate { get; set; } = "None";
         [DataMember] public double OuterDiameterMm { get; set; } = 200;
+        [DataMember] public int    SideEdgeSkip { get; set; } = 0;
+        [DataMember] public int    TopBottomEdgeSkip { get; set; } = 0;
     }
 
     /// <summary>로드 웨이퍼 (310 의 LoadDieTapeFrameSubsetRecipe).</summary>

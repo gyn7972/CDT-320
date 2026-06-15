@@ -13,13 +13,17 @@ namespace QMC.CDT320.Sequencing
         CheckUnit,
         MoveVisionProcessPosition,
         MoveCenterMarkPosition,
-        FindCenterMark,
+        RequestCenterMark,
+        WaitCenterMarkResult,
         CorrectTheta,
-        VerifyThetaTolerance,
+        RequestThetaVerify,
+        WaitThetaVerifyResult,
         MoveRef1Position,
-        FindRef1Mark,
+        RequestRef1Mark,
+        WaitRef1MarkResult,
         MoveRef2Position,
-        FindRef2Mark,
+        RequestRef2Mark,
+        WaitRef2MarkResult,
         CalculateAlignResult,
         ApplyAlignResult,
         Complete,
@@ -47,6 +51,10 @@ namespace QMC.CDT320.Sequencing
         private double _pitchY;
         private double _thetaFromTwoPoint;
         private int _thetaRetryCount;
+        private Task<VisionAlignResult> _pendingVisionTask;
+        private CancellationTokenSource _pendingVisionCts;
+        private string _pendingVisionStepName;
+        private string _pendingVisionTargetId;
 
         public InputStageAlignSequence(MachineSequenceContext context)
             : base(context, InputStageSequenceKind.Align, "InputStageAlignSequence")
@@ -63,6 +71,10 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 ct.ThrowIfCancellationRequested();
+                int stateResult = EnsureAlignRuntimeState();
+                if (stateResult != 0)
+                    return Task.FromResult(stateResult);
+
                 switch (CurrentStep)
                 {
                     // 유닛 확인
@@ -74,27 +86,39 @@ namespace QMC.CDT320.Sequencing
                     // 센터 마크 위치 이동
                     case InputStageAlignStep.MoveCenterMarkPosition:
                         return MoveCenterMarkPositionAsync(ct);
-                    // 센터 마크 찾기
-                    case InputStageAlignStep.FindCenterMark:
-                        return FindCenterMarkAsync(ct);
+                    // 센터 마크 찾기 요청
+                    case InputStageAlignStep.RequestCenterMark:
+                        return Task.FromResult(RequestCenterMark());
+                    // 센터 마크 결과 대기
+                    case InputStageAlignStep.WaitCenterMarkResult:
+                        return WaitCenterMarkResultAsync(ct);
                     // 세타 보정
                     case InputStageAlignStep.CorrectTheta:
                         return CorrectThetaAsync(ct);
-                    // 세타 허용오차 검증
-                    case InputStageAlignStep.VerifyThetaTolerance:
-                        return VerifyThetaToleranceAsync(ct);
+                    // 세타 검증 마크 찾기 요청
+                    case InputStageAlignStep.RequestThetaVerify:
+                        return Task.FromResult(RequestThetaVerify());
+                    // 세타 검증 결과 대기
+                    case InputStageAlignStep.WaitThetaVerifyResult:
+                        return WaitThetaVerifyResultAsync(ct);
                     // 기준 1 위치 이동
                     case InputStageAlignStep.MoveRef1Position:
                         return MoveRef1PositionAsync(ct);
-                    // 기준 1 마크 찾기
-                    case InputStageAlignStep.FindRef1Mark:
-                        return FindRef1MarkAsync(ct);
+                    // 기준 1 마크 찾기 요청
+                    case InputStageAlignStep.RequestRef1Mark:
+                        return Task.FromResult(RequestRef1Mark());
+                    // 기준 1 마크 결과 대기
+                    case InputStageAlignStep.WaitRef1MarkResult:
+                        return WaitRef1MarkResultAsync(ct);
                     // 기준 2 위치 이동
                     case InputStageAlignStep.MoveRef2Position:
                         return MoveRef2PositionAsync(ct);
-                    // 기준 2 마크 찾기
-                    case InputStageAlignStep.FindRef2Mark:
-                        return FindRef2MarkAsync(ct);
+                    // 기준 2 마크 찾기 요청
+                    case InputStageAlignStep.RequestRef2Mark:
+                        return Task.FromResult(RequestRef2Mark());
+                    // 기준 2 마크 결과 대기
+                    case InputStageAlignStep.WaitRef2MarkResult:
+                        return WaitRef2MarkResultAsync(ct);
                     // 얼라인 결과 계산
                     case InputStageAlignStep.CalculateAlignResult:
                         return Task.FromResult(CalculateAlignResult());
@@ -118,10 +142,31 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        private int EnsureAlignRuntimeState()
+        {
+            if (CurrentStep == InputStageAlignStep.Idle ||
+                CurrentStep == InputStageAlignStep.CheckUnit ||
+                CurrentStep == InputStageAlignStep.Complete ||
+                CurrentStep == InputStageAlignStep.Error)
+            {
+                return 0;
+            }
+
+            if (_map != null)
+                return 0;
+
+            WriteLog("InputStageAlignSequence",
+                "Align volatile runtime state was not initialized. Restart from CheckUnit. step=" + CurrentStep + " - Retry");
+            CurrentStep = InputStageAlignStep.CheckUnit;
+            return 0;
+        }
+
         private int CheckAlignUnit()
         {
             try
             {
+                ResetAlignRuntimeState();
+
                 int result = CheckUnit(InputStageAlignStep.MoveVisionProcessPosition);
                 if (result != 0)
                     return result;
@@ -167,6 +212,28 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        private void ResetAlignRuntimeState()
+        {
+            _map = null;
+            _wafer = null;
+            _frameSpec = null;
+            _centerResult = null;
+            _verifyCenterResult = null;
+            _ref1Result = null;
+            _ref2Result = null;
+            _ref1X = 0.0;
+            _ref1Y = 0.0;
+            _ref2X = 0.0;
+            _ref2Y = 0.0;
+            _originX = 0.0;
+            _originY = 0.0;
+            _pitchX = 0.0;
+            _pitchY = 0.0;
+            _thetaFromTwoPoint = 0.0;
+            _thetaRetryCount = 0;
+            ClearPendingVisionRequest();
+        }
+
         private async Task<int> MoveVisionProcessPositionAsync(CancellationToken ct)
         {
             try
@@ -210,7 +277,7 @@ namespace QMC.CDT320.Sequencing
                     if (result != 0) return result;
                 }
 
-                CurrentStep = InputStageAlignStep.FindCenterMark;
+                CurrentStep = InputStageAlignStep.RequestCenterMark;
                 return 0;
             }
             catch (OperationCanceledException)
@@ -226,12 +293,35 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private async Task<int> FindCenterMarkAsync(CancellationToken ct)
+        private int RequestCenterMark()
+        {
+            try
+            {
+                StartVisionMarkRequest(ResolveTargetId(Options.CenterAlignTargetId, "Center"), "Center");
+                CurrentStep = InputStageAlignStep.WaitCenterMarkResult;
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return Fail("IN-STAGE-ALIGN-CENTER-REQ-EX", "Vision", "Center align mark request exception: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> WaitCenterMarkResultAsync(CancellationToken ct)
         {
             try
             {
                 ct.ThrowIfCancellationRequested();
-                _centerResult = await RequestVisionPcOffsetWithRetryAsync(ResolveTargetId(Options.CenterAlignTargetId, "Center"), "Center", ct).ConfigureAwait(false);
+                if (_pendingVisionTask == null)
+                {
+                    CurrentStep = InputStageAlignStep.RequestCenterMark;
+                    return 0;
+                }
+
+                _centerResult = await WaitPendingVisionResultAsync(ct).ConfigureAwait(false);
                 if (_centerResult == null)
                     return Fail("IN-STAGE-ALIGN-CENTER", "Vision", "Center vision offset receive failed.");
 
@@ -244,7 +334,7 @@ namespace QMC.CDT320.Sequencing
             }
             catch (Exception ex)
             {
-                return Fail("IN-STAGE-ALIGN-CENTER-EX", "Vision", "Center align mark find exception: " + ex.Message);
+                return Fail("IN-STAGE-ALIGN-CENTER-EX", "Vision", "Center align mark wait exception: " + ex.Message);
             }
             finally
             {
@@ -258,7 +348,7 @@ namespace QMC.CDT320.Sequencing
                 ct.ThrowIfCancellationRequested();
                 if (!Options.EnableMotion)
                 {
-                    CurrentStep = InputStageAlignStep.VerifyThetaTolerance;
+                    CurrentStep = InputStageAlignStep.RequestThetaVerify;
                     return 0;
                 }
 
@@ -267,7 +357,7 @@ namespace QMC.CDT320.Sequencing
                 int result = await MoveAxisAndVerifyAsync(WaferStageAxis.WaferT, targetT, "StageT theta correction", ct).ConfigureAwait(false);
                 if (result != 0) return result;
 
-                CurrentStep = InputStageAlignStep.VerifyThetaTolerance;
+                CurrentStep = InputStageAlignStep.RequestThetaVerify;
                 return 0;
             }
             catch (OperationCanceledException)
@@ -283,12 +373,35 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private async Task<int> VerifyThetaToleranceAsync(CancellationToken ct)
+        private int RequestThetaVerify()
+        {
+            try
+            {
+                StartVisionMarkRequest(ResolveTargetId(Options.CenterAlignTargetId, "Center"), "CenterVerify");
+                CurrentStep = InputStageAlignStep.WaitThetaVerifyResult;
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return Fail("IN-STAGE-ALIGN-THETA-REQ-EX", "Vision", "Theta verify mark request exception: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> WaitThetaVerifyResultAsync(CancellationToken ct)
         {
             try
             {
                 ct.ThrowIfCancellationRequested();
-                _verifyCenterResult = await RequestVisionPcOffsetWithRetryAsync(ResolveTargetId(Options.CenterAlignTargetId, "Center"), "CenterVerify", ct).ConfigureAwait(false);
+                if (_pendingVisionTask == null)
+                {
+                    CurrentStep = InputStageAlignStep.RequestThetaVerify;
+                    return 0;
+                }
+
+                _verifyCenterResult = await WaitPendingVisionResultAsync(ct).ConfigureAwait(false);
                 if (_verifyCenterResult == null)
                     return Fail("IN-STAGE-ALIGN-THETA-VERIFY", "Vision", "Center verify vision offset receive failed.");
 
@@ -336,7 +449,7 @@ namespace QMC.CDT320.Sequencing
                     if (result != 0) return result;
                 }
 
-                CurrentStep = InputStageAlignStep.FindRef1Mark;
+                CurrentStep = InputStageAlignStep.RequestRef1Mark;
                 return 0;
             }
             catch (OperationCanceledException)
@@ -352,12 +465,35 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private async Task<int> FindRef1MarkAsync(CancellationToken ct)
+        private int RequestRef1Mark()
+        {
+            try
+            {
+                StartVisionMarkRequest(ResolveTargetId(Options.Ref1AlignTargetId, "Ref1"), "Ref1");
+                CurrentStep = InputStageAlignStep.WaitRef1MarkResult;
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return Fail("IN-STAGE-ALIGN-REF1-REQ-EX", "Vision", "Ref1 align mark request exception: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> WaitRef1MarkResultAsync(CancellationToken ct)
         {
             try
             {
                 ct.ThrowIfCancellationRequested();
-                _ref1Result = await RequestVisionPcOffsetWithRetryAsync(ResolveTargetId(Options.Ref1AlignTargetId, "Ref1"), "Ref1", ct).ConfigureAwait(false);
+                if (_pendingVisionTask == null)
+                {
+                    CurrentStep = InputStageAlignStep.RequestRef1Mark;
+                    return 0;
+                }
+
+                _ref1Result = await WaitPendingVisionResultAsync(ct).ConfigureAwait(false);
                 if (_ref1Result == null)
                     return Fail("IN-STAGE-ALIGN-REF1", "Vision", "Ref1 vision offset receive failed.");
 
@@ -372,7 +508,7 @@ namespace QMC.CDT320.Sequencing
             }
             catch (Exception ex)
             {
-                return Fail("IN-STAGE-ALIGN-REF1-EX", "Vision", "Ref1 align mark find exception: " + ex.Message);
+                return Fail("IN-STAGE-ALIGN-REF1-EX", "Vision", "Ref1 align mark wait exception: " + ex.Message);
             }
             finally
             {
@@ -390,7 +526,7 @@ namespace QMC.CDT320.Sequencing
                     if (result != 0) return result;
                 }
 
-                CurrentStep = InputStageAlignStep.FindRef2Mark;
+                CurrentStep = InputStageAlignStep.RequestRef2Mark;
                 return 0;
             }
             catch (OperationCanceledException)
@@ -406,12 +542,35 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private async Task<int> FindRef2MarkAsync(CancellationToken ct)
+        private int RequestRef2Mark()
+        {
+            try
+            {
+                StartVisionMarkRequest(ResolveTargetId(Options.Ref2AlignTargetId, "Ref2"), "Ref2");
+                CurrentStep = InputStageAlignStep.WaitRef2MarkResult;
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return Fail("IN-STAGE-ALIGN-REF2-REQ-EX", "Vision", "Ref2 align mark request exception: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> WaitRef2MarkResultAsync(CancellationToken ct)
         {
             try
             {
                 ct.ThrowIfCancellationRequested();
-                _ref2Result = await RequestVisionPcOffsetWithRetryAsync(ResolveTargetId(Options.Ref2AlignTargetId, "Ref2"), "Ref2", ct).ConfigureAwait(false);
+                if (_pendingVisionTask == null)
+                {
+                    CurrentStep = InputStageAlignStep.RequestRef2Mark;
+                    return 0;
+                }
+
+                _ref2Result = await WaitPendingVisionResultAsync(ct).ConfigureAwait(false);
                 if (_ref2Result == null)
                     return Fail("IN-STAGE-ALIGN-REF2", "Vision", "Ref2 vision offset receive failed.");
 
@@ -426,7 +585,7 @@ namespace QMC.CDT320.Sequencing
             }
             catch (Exception ex)
             {
-                return Fail("IN-STAGE-ALIGN-REF2-EX", "Vision", "Ref2 align mark find exception: " + ex.Message);
+                return Fail("IN-STAGE-ALIGN-REF2-EX", "Vision", "Ref2 align mark wait exception: " + ex.Message);
             }
             finally
             {
@@ -437,6 +596,16 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
+                if (_map == null || _ref1Result == null || _ref2Result == null)
+                {
+                    WriteLog("InputStageAlignSequence",
+                        "Align calculation state is incomplete. Restart from CheckUnit. map=" + (_map != null) +
+                        ", ref1=" + (_ref1Result != null) +
+                        ", ref2=" + (_ref2Result != null) + " - Retry");
+                    CurrentStep = InputStageAlignStep.CheckUnit;
+                    return 0;
+                }
+
                 int colSpan = _map.Ref2Col - _map.Ref1Col;
                 int rowSpan = _map.Ref2Row - _map.Ref1Row;
 
@@ -448,14 +617,15 @@ namespace QMC.CDT320.Sequencing
                     : ResolveAlignPitchY(_ref1Result, _ref2Result);
 
                 if (Math.Abs(_pitchX) <= 1e-9 || Math.Abs(_pitchY) <= 1e-9)
-                    return Fail("IN-STAGE-ALIGN-PITCH", Stage.Name, "Calculated align pitch is invalid. pitchX=" + _pitchX + ", pitchY=" + _pitchY);
+                    return FailAndResetAlignRuntimeState("IN-STAGE-ALIGN-PITCH", Stage.Name,
+                        "Calculated align pitch is invalid. pitchX=" + _pitchX + ", pitchY=" + _pitchY);
 
                 _originX = _ref1X - (_map.Ref1Col * _pitchX);
                 _originY = _ref1Y - (_map.Ref1Row * _pitchY);
 
                 _thetaFromTwoPoint = Math.Atan2(_ref2Y - _ref1Y, _ref2X - _ref1X) * 180.0 / Math.PI;
                 if (Math.Abs(_thetaFromTwoPoint) > ResolveThetaTolerance())
-                    return Fail("IN-STAGE-ALIGN-REF-THETA", Stage.Name,
+                    return FailAndResetAlignRuntimeState("IN-STAGE-ALIGN-REF-THETA", Stage.Name,
                         "Two point theta is out of tolerance. theta=" + _thetaFromTwoPoint.ToString("F6") +
                         ", tolerance=" + ResolveThetaTolerance().ToString("F6"));
 
@@ -464,11 +634,17 @@ namespace QMC.CDT320.Sequencing
             }
             catch (Exception ex)
             {
-                return Fail("IN-STAGE-ALIGN-CALC-EX", Stage.Name, "Align result calculation failed: " + ex.Message);
+                return FailAndResetAlignRuntimeState("IN-STAGE-ALIGN-CALC-EX", Stage.Name, "Align result calculation failed: " + ex.Message);
             }
             finally
             {
             }
+        }
+
+        private int FailAndResetAlignRuntimeState(string alarmCode, string source, string message)
+        {
+            ResetAlignRuntimeState();
+            return Fail(alarmCode, source, message);
         }
 
         private int ApplyAlignResult()
@@ -496,6 +672,78 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        private void StartVisionMarkRequest(string targetId, string stepName)
+        {
+            ClearPendingVisionRequest();
+            _pendingVisionCts = new CancellationTokenSource();
+            _pendingVisionTargetId = targetId;
+            _pendingVisionStepName = stepName;
+            _pendingVisionTask = RequestVisionPcOffsetWithRetryAsync(targetId, stepName, _pendingVisionCts.Token);
+            WriteLog("InputStageAlignSequence",
+                "Vision PC mark request started. step=" + stepName +
+                ", target=" + targetId + " - Start");
+        }
+
+        private async Task<VisionAlignResult> WaitPendingVisionResultAsync(CancellationToken ct)
+        {
+            try
+            {
+                if (_pendingVisionTask == null)
+                    return null;
+
+                VisionAlignResult result = await AwaitVisionTaskWithCancellationAsync(_pendingVisionTask, ct).ConfigureAwait(false);
+                WriteLog("InputStageAlignSequence",
+                    "Vision PC mark request completed. step=" + _pendingVisionStepName +
+                    ", target=" + _pendingVisionTargetId +
+                    ", result=" + (result != null ? "OK" : "NG") + " - Done");
+                return result;
+            }
+            finally
+            {
+                ClearPendingVisionRequest();
+            }
+        }
+
+        private void ClearPendingVisionRequest()
+        {
+            if (_pendingVisionCts != null)
+            {
+                try
+                {
+                    if (_pendingVisionTask != null && !_pendingVisionTask.IsCompleted)
+                        _pendingVisionCts.Cancel();
+                }
+                catch
+                {
+                }
+                finally
+                {
+                    _pendingVisionCts.Dispose();
+                    _pendingVisionCts = null;
+                }
+            }
+
+            _pendingVisionTask = null;
+            _pendingVisionStepName = string.Empty;
+            _pendingVisionTargetId = string.Empty;
+        }
+
+        private static async Task<VisionAlignResult> AwaitVisionTaskWithCancellationAsync(Task<VisionAlignResult> task, CancellationToken ct)
+        {
+            if (task == null)
+                return null;
+
+            if (task.IsCompleted)
+                return await task.ConfigureAwait(false);
+
+            Task cancelTask = Task.Delay(Timeout.Infinite, ct);
+            Task completed = await Task.WhenAny(task, cancelTask).ConfigureAwait(false);
+            if (!ReferenceEquals(completed, task))
+                ct.ThrowIfCancellationRequested();
+
+            return await task.ConfigureAwait(false);
         }
 
         private async Task<VisionAlignResult> RequestVisionPcOffsetWithRetryAsync(string targetId, string stepName, CancellationToken ct)
@@ -587,20 +835,18 @@ namespace QMC.CDT320.Sequencing
             {
                 await Task.Delay(120, ct).ConfigureAwait(false);
 
-                bool ok;
                 double dx;
                 double dy;
                 double dt;
                 lock (SimVisionRandomLock)
                 {
-                    ok = SimVisionRandom.Next(0, 100) >= 25;
-                    dx = (SimVisionRandom.NextDouble() - 0.5) * 0.02;
-                    dy = (SimVisionRandom.NextDouble() - 0.5) * 0.02;
+                    bool referenceMark =
+                        string.Equals(stepName, "Ref1", StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(stepName, "Ref2", StringComparison.OrdinalIgnoreCase);
+                    dx = referenceMark ? 0.0 : (SimVisionRandom.NextDouble() - 0.5) * 0.002;
+                    dy = referenceMark ? 0.0 : (SimVisionRandom.NextDouble() - 0.5) * 0.002;
                     dt = ResolveSimThetaOffset(stepName);
                 }
-
-                if (!ok)
-                    return null;
 
                 return new VisionAlignResult
                 {
@@ -631,12 +877,12 @@ namespace QMC.CDT320.Sequencing
             {
                 double tolerance = ResolveThetaTolerance();
                 if (string.Equals(stepName, "CenterVerify", StringComparison.OrdinalIgnoreCase))
-                    return (SimVisionRandom.NextDouble() - 0.5) * tolerance;
+                    return 0.0;
 
                 if (string.Equals(stepName, "Center", StringComparison.OrdinalIgnoreCase))
-                    return (SimVisionRandom.NextDouble() - 0.5) * tolerance * 3.0;
+                    return tolerance * 0.2;
 
-                return (SimVisionRandom.NextDouble() - 0.5) * tolerance;
+                return 0.0;
             }
             catch
             {

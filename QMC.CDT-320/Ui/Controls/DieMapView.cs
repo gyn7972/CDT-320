@@ -169,6 +169,9 @@ namespace QMC.CDT320.Ui.Controls
 
         private void OnMouseClick(object s, MouseEventArgs e)
         {
+            if (e.Button != MouseButtons.Left)
+                return;
+
             var hit = HitTest(e.X, e.Y);
             if (hit != null) try { CellClicked?.Invoke(hit); } catch { }
         }

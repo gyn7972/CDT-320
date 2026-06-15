@@ -6,6 +6,7 @@ using QMC.CDT320.DieMaps;
 using QMC.CDT320.Lots;
 using QMC.CDT320.Materials;
 using QMC.CDT320.Motion.SharedRailX;
+using QMC.CDT320.Recipes;
 using QMC.Common.Motion;
 
 namespace QMC.CDT320.Sequencing
@@ -300,14 +301,21 @@ namespace QMC.CDT320.Sequencing
                     return Fail("IN-STAGE-DIEMAP-POINTS", "Vision", "Die mapping requires Top/Bottom/Left/Right mark results.");
                 }
 
-                int gridX = Math.Max(1, _frameSpec.GridX);
-                int gridY = Math.Max(1, _frameSpec.GridY);
+                DieMap sourceMap = ResolveSourceInputDieMap(_wafer);
+                if (!IsUsableSourceMap(sourceMap))
+                {
+                    return Fail("IN-STAGE-DIEMAP-SOURCE-MAP", "InputStageDieMappingSequence",
+                        "Input die map is not available. Create and save an input wafer map from Recipe > INPUT MAP CREATE first.");
+                }
+
+                int gridX = sourceMap != null && sourceMap.GridX > 0 ? sourceMap.GridX : Math.Max(1, _frameSpec.GridX);
+                int gridY = sourceMap != null && sourceMap.GridY > 0 ? sourceMap.GridY : Math.Max(1, _frameSpec.GridY);
                 double pitchX = gridX > 1 ? Math.Abs(right.X - left.X) / (gridX - 1) : ResolvePitchX();
                 double pitchY = gridY > 1 ? Math.Abs(bottom.Y - top.Y) / (gridY - 1) : ResolvePitchY();
                 if (pitchX <= 0.0)
-                    pitchX = ResolvePitchX();
+                    pitchX = sourceMap != null && sourceMap.PitchX > 0.0 ? sourceMap.PitchX : ResolvePitchX();
                 if (pitchY <= 0.0)
-                    pitchY = ResolvePitchY();
+                    pitchY = sourceMap != null && sourceMap.PitchY > 0.0 ? sourceMap.PitchY : ResolvePitchY();
                 if (pitchX <= 0.0 || pitchY <= 0.0)
                     return Fail("IN-STAGE-DIEMAP-PITCH", "InputStageDieMappingSequence", "Die map pitch is invalid.");
 
@@ -315,6 +323,9 @@ namespace QMC.CDT320.Sequencing
                 double signY = bottom.Y >= top.Y ? 1.0 : -1.0;
                 double originX = left.X;
                 double originY = top.Y;
+                double centerX = (left.X + right.X) / 2.0;
+                double centerY = (top.Y + bottom.Y) / 2.0;
+                double waferRadius = ResolveWaferRadiusFromSpecOrMarks(_frameSpec, left, right, top, bottom);
 
                 _dieMap = new DieMap
                 {
@@ -341,13 +352,20 @@ namespace QMC.CDT320.Sequencing
                 };
 
                 int index = 0;
+                int targetCount = 0;
                 for (int row = 0; row < gridY; row++)
                 {
                     for (int col = 0; col < gridX; col++)
                     {
                         double x = originX + signX * pitchX * col;
                         double y = originY + signY * pitchY * row;
-                        bool target = IsInsideMappedArea(x, y, left, right, top, bottom);
+                        DieMapEntry sourceEntry = sourceMap != null ? sourceMap.GetCell(col, row) : null;
+                        bool target = sourceEntry != null
+                            ? sourceEntry.IsTarget
+                            : IsInsideWaferCircle(x, y, centerX, centerY, waferRadius);
+                        if (target)
+                            targetCount++;
+
                         _waferMap.DieMap[row, col] = target;
                         _dieMap.Entries.Add(new DieMapEntry
                         {
@@ -355,14 +373,27 @@ namespace QMC.CDT320.Sequencing
                             GridX = col,
                             GridY = row,
                             IsTarget = target,
-                            Result = DieResult.Unknown,
-                            BinCode = 0,
+                            Result = sourceEntry != null ? sourceEntry.Result : DieResult.Unknown,
+                            BinCode = sourceEntry != null ? sourceEntry.BinCode : 0,
                             X = x,
                             Y = y,
-                            DieUid = BuildDieId(_wafer, row, col)
+                            DieUid = sourceEntry != null && !string.IsNullOrWhiteSpace(sourceEntry.DieUid)
+                                ? sourceEntry.DieUid
+                                : BuildDieId(_wafer, row, col)
                         });
                     }
                 }
+
+                WriteLog("InputStageDieMappingSequence",
+                    "Die map coordinate mapping calculated. grid=" + gridX + "x" + gridY +
+                    ", sourceMap=" + (sourceMap != null ? sourceMap.FrameObjId : "none") +
+                    ", pitchX=" + pitchX.ToString("F6") +
+                    ", pitchY=" + pitchY.ToString("F6") +
+                    ", centerX=" + centerX.ToString("F6") +
+                    ", centerY=" + centerY.ToString("F6") +
+                    ", radius=" + waferRadius.ToString("F6") +
+                    ", outerDiameter=" + (_frameSpec != null ? _frameSpec.OuterDiameterMm.ToString("F6") : "0") +
+                    ", targetCount=" + targetCount + " - Ok");
 
                 CurrentStep = InputStageDieMappingStep.ApplyDieMap;
                 return 0;
@@ -416,6 +447,80 @@ namespace QMC.CDT320.Sequencing
             catch (Exception ex)
             {
                 return Fail("IN-STAGE-DIEMAP-APPLY-EX", "InputStageDieMappingSequence", "Die map apply failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private static DieMap ResolveSourceInputDieMap(WaferMaterial wafer)
+        {
+            try
+            {
+                DieMap activeMap = LotStorage.ActiveInputDieMap;
+                if (IsUsableSourceMap(activeMap))
+                    return activeMap;
+
+                DieMap materialMap = MaterialStateService.BuildDieMapFromWafer(wafer);
+                if (IsUsableSourceMap(materialMap))
+                    return materialMap;
+
+                DieMap recipeMap = LoadRecipeInputDieMap();
+                if (IsUsableSourceMap(recipeMap))
+                    return recipeMap;
+
+                return null;
+            }
+            catch (Exception ex)
+            {
+                WriteLog("InputStageDieMappingSequence", "Source input die map resolve failed: " + ex.Message + " - Failed");
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
+        private static DieMap LoadRecipeInputDieMap()
+        {
+            try
+            {
+                RecipeProject project = RecipeStore.LoadLastOrDefault();
+                if (project == null || string.IsNullOrWhiteSpace(project.InputDieMapFileName))
+                    return null;
+
+                string path = project.InputDieMapFileName;
+                if (!System.IO.Path.IsPathRooted(path))
+                    path = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, path);
+
+                DieMap map = DieMapGenerator.Load(path);
+                if (map != null)
+                    WriteLog("InputStageDieMappingSequence", "Recipe input die map loaded. path=" + path + " - Ok");
+                return map;
+            }
+            catch (Exception ex)
+            {
+                WriteLog("InputStageDieMappingSequence", "Recipe input die map load failed: " + ex.Message + " - Failed");
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool IsUsableSourceMap(DieMap map)
+        {
+            try
+            {
+                return map != null &&
+                       map.GridX > 0 &&
+                       map.GridY > 0 &&
+                       map.Entries != null &&
+                       map.Entries.Count > 0;
+            }
+            catch
+            {
+                return false;
             }
             finally
             {
@@ -900,15 +1005,39 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private static bool IsInsideMappedArea(double x, double y, MappedMarkPoint left, MappedMarkPoint right, MappedMarkPoint top, MappedMarkPoint bottom)
+        private static double ResolveWaferRadiusFromSpecOrMarks(TapeFrameSpec spec, MappedMarkPoint left, MappedMarkPoint right, MappedMarkPoint top, MappedMarkPoint bottom)
         {
             try
             {
-                double minX = Math.Min(left.X, right.X);
-                double maxX = Math.Max(left.X, right.X);
-                double minY = Math.Min(top.Y, bottom.Y);
-                double maxY = Math.Max(top.Y, bottom.Y);
-                return x >= minX - 0.0001 && x <= maxX + 0.0001 && y >= minY - 0.0001 && y <= maxY + 0.0001;
+                if (spec != null && spec.OuterDiameterMm > 0.0)
+                    return spec.OuterDiameterMm / 2.0;
+
+                double radiusX = Math.Abs(right.X - left.X) / 2.0;
+                double radiusY = Math.Abs(bottom.Y - top.Y) / 2.0;
+                double radius = (radiusX + radiusY) / 2.0;
+                return radius > 0.0 ? radius : 0.0;
+            }
+            catch
+            {
+                return 0.0;
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool IsInsideWaferCircle(double x, double y, double centerX, double centerY, double radius)
+        {
+            try
+            {
+                if (radius <= 0.0)
+                    return true;
+
+                double dx = x - centerX;
+                double dy = y - centerY;
+                double distanceSquared = (dx * dx) + (dy * dy);
+                double radiusWithTolerance = radius + 0.0001;
+                return distanceSquared <= radiusWithTolerance * radiusWithTolerance;
             }
             catch
             {

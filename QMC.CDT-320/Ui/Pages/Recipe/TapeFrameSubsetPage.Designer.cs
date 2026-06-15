@@ -92,13 +92,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.editorLayout.Controls.Add(this._nDiameter, 1, 7);
             this.editorLayout.Controls.Add(this.lblRotate, 0, 8);
             this.editorLayout.Controls.Add(this._cbRotate, 1, 8);
-            this.editorLayout.SetColumnSpan(this._tbName, 3);
-            this.editorLayout.SetColumnSpan(this._nGridX, 3);
-            this.editorLayout.SetColumnSpan(this._nGridY, 3);
-            this.editorLayout.SetColumnSpan(this._nPitchX, 3);
-            this.editorLayout.SetColumnSpan(this._nPitchY, 3);
-            this.editorLayout.SetColumnSpan(this._nDiameter, 3);
-            this.editorLayout.SetColumnSpan(this._cbRotate, 3);
             this.editorLayout.Dock = System.Windows.Forms.DockStyle.Top;
             this.editorLayout.Location = new System.Drawing.Point(8, 12);
             this.editorLayout.Margin = new System.Windows.Forms.Padding(0);
@@ -157,6 +150,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // btnLoadSpec
             // 
             this.btnLoadSpec.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnLoadSpec.Enabled = false;
             this.btnLoadSpec.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnLoadSpec.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.btnLoadSpec.Location = new System.Drawing.Point(831, 43);
@@ -171,6 +165,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // 
             this.btnSaveSpec.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(230)))), ((int)(((byte)(88)))), ((int)(((byte)(31)))));
             this.btnSaveSpec.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnSaveSpec.Enabled = false;
             this.btnSaveSpec.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnSaveSpec.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.btnSaveSpec.ForeColor = System.Drawing.Color.White;
@@ -186,7 +181,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // 
             this.lblName.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblName.Font = new System.Drawing.Font("맑은 고딕", 11F);
-            this.lblName.Location = new System.Drawing.Point(13, 40);
+            this.lblName.Location = new System.Drawing.Point(13, 74);
             this.lblName.Name = "lblName";
             this.lblName.Size = new System.Drawing.Size(214, 34);
             this.lblName.TabIndex = 1;
@@ -195,9 +190,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // 
             // _tbName
             // 
+            this.editorLayout.SetColumnSpan(this._tbName, 3);
             this._tbName.Dock = System.Windows.Forms.DockStyle.Fill;
             this._tbName.Font = new System.Drawing.Font("Consolas", 10F);
-            this._tbName.Location = new System.Drawing.Point(233, 43);
+            this._tbName.Location = new System.Drawing.Point(233, 77);
             this._tbName.Name = "_tbName";
             this._tbName.Size = new System.Drawing.Size(832, 23);
             this._tbName.TabIndex = 2;
@@ -206,7 +202,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // 
             this.lblGridX.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblGridX.Font = new System.Drawing.Font("맑은 고딕", 11F);
-            this.lblGridX.Location = new System.Drawing.Point(13, 74);
+            this.lblGridX.Location = new System.Drawing.Point(13, 108);
             this.lblGridX.Name = "lblGridX";
             this.lblGridX.Size = new System.Drawing.Size(214, 34);
             this.lblGridX.TabIndex = 3;
@@ -215,9 +211,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // 
             // _nGridX
             // 
+            this.editorLayout.SetColumnSpan(this._nGridX, 3);
             this._nGridX.Dock = System.Windows.Forms.DockStyle.Fill;
             this._nGridX.Font = new System.Drawing.Font("Consolas", 10F);
-            this._nGridX.Location = new System.Drawing.Point(233, 77);
+            this._nGridX.Location = new System.Drawing.Point(233, 111);
             this._nGridX.Maximum = new decimal(new int[] {
             200,
             0,
@@ -241,7 +238,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // 
             this.lblGridY.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblGridY.Font = new System.Drawing.Font("맑은 고딕", 11F);
-            this.lblGridY.Location = new System.Drawing.Point(13, 108);
+            this.lblGridY.Location = new System.Drawing.Point(13, 142);
             this.lblGridY.Name = "lblGridY";
             this.lblGridY.Size = new System.Drawing.Size(214, 34);
             this.lblGridY.TabIndex = 5;
@@ -250,9 +247,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // 
             // _nGridY
             // 
+            this.editorLayout.SetColumnSpan(this._nGridY, 3);
             this._nGridY.Dock = System.Windows.Forms.DockStyle.Fill;
             this._nGridY.Font = new System.Drawing.Font("Consolas", 10F);
-            this._nGridY.Location = new System.Drawing.Point(233, 111);
+            this._nGridY.Location = new System.Drawing.Point(233, 145);
             this._nGridY.Maximum = new decimal(new int[] {
             200,
             0,
@@ -276,7 +274,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // 
             this.lblPitchX.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblPitchX.Font = new System.Drawing.Font("맑은 고딕", 11F);
-            this.lblPitchX.Location = new System.Drawing.Point(13, 142);
+            this.lblPitchX.Location = new System.Drawing.Point(13, 176);
             this.lblPitchX.Name = "lblPitchX";
             this.lblPitchX.Size = new System.Drawing.Size(214, 34);
             this.lblPitchX.TabIndex = 7;
@@ -285,10 +283,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // 
             // _nPitchX
             // 
+            this.editorLayout.SetColumnSpan(this._nPitchX, 3);
             this._nPitchX.DecimalPlaces = 3;
             this._nPitchX.Dock = System.Windows.Forms.DockStyle.Fill;
             this._nPitchX.Font = new System.Drawing.Font("Consolas", 10F);
-            this._nPitchX.Location = new System.Drawing.Point(233, 145);
+            this._nPitchX.Location = new System.Drawing.Point(233, 179);
             this._nPitchX.Minimum = new decimal(new int[] {
             1,
             0,
@@ -307,7 +306,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // 
             this.lblPitchY.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblPitchY.Font = new System.Drawing.Font("맑은 고딕", 11F);
-            this.lblPitchY.Location = new System.Drawing.Point(13, 176);
+            this.lblPitchY.Location = new System.Drawing.Point(13, 210);
             this.lblPitchY.Name = "lblPitchY";
             this.lblPitchY.Size = new System.Drawing.Size(214, 34);
             this.lblPitchY.TabIndex = 9;
@@ -316,10 +315,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // 
             // _nPitchY
             // 
+            this.editorLayout.SetColumnSpan(this._nPitchY, 3);
             this._nPitchY.DecimalPlaces = 3;
             this._nPitchY.Dock = System.Windows.Forms.DockStyle.Fill;
             this._nPitchY.Font = new System.Drawing.Font("Consolas", 10F);
-            this._nPitchY.Location = new System.Drawing.Point(233, 179);
+            this._nPitchY.Location = new System.Drawing.Point(233, 213);
             this._nPitchY.Minimum = new decimal(new int[] {
             1,
             0,
@@ -338,7 +338,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // 
             this.lblDiameter.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblDiameter.Font = new System.Drawing.Font("맑은 고딕", 11F);
-            this.lblDiameter.Location = new System.Drawing.Point(13, 210);
+            this.lblDiameter.Location = new System.Drawing.Point(13, 244);
             this.lblDiameter.Name = "lblDiameter";
             this.lblDiameter.Size = new System.Drawing.Size(214, 34);
             this.lblDiameter.TabIndex = 11;
@@ -347,10 +347,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // 
             // _nDiameter
             // 
+            this.editorLayout.SetColumnSpan(this._nDiameter, 3);
             this._nDiameter.DecimalPlaces = 1;
             this._nDiameter.Dock = System.Windows.Forms.DockStyle.Fill;
             this._nDiameter.Font = new System.Drawing.Font("Consolas", 10F);
-            this._nDiameter.Location = new System.Drawing.Point(233, 213);
+            this._nDiameter.Location = new System.Drawing.Point(233, 247);
             this._nDiameter.Maximum = new decimal(new int[] {
             500,
             0,
@@ -374,7 +375,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // 
             this.lblRotate.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblRotate.Font = new System.Drawing.Font("맑은 고딕", 11F);
-            this.lblRotate.Location = new System.Drawing.Point(13, 244);
+            this.lblRotate.Location = new System.Drawing.Point(13, 278);
             this.lblRotate.Name = "lblRotate";
             this.lblRotate.Size = new System.Drawing.Size(214, 38);
             this.lblRotate.TabIndex = 13;
@@ -383,6 +384,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // 
             // _cbRotate
             // 
+            this.editorLayout.SetColumnSpan(this._cbRotate, 3);
             this._cbRotate.Dock = System.Windows.Forms.DockStyle.Fill;
             this._cbRotate.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this._cbRotate.Font = new System.Drawing.Font("Consolas", 10F);
@@ -391,7 +393,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             "R90",
             "R180",
             "R270"});
-            this._cbRotate.Location = new System.Drawing.Point(233, 247);
+            this._cbRotate.Location = new System.Drawing.Point(233, 281);
             this._cbRotate.Name = "_cbRotate";
             this._cbRotate.Size = new System.Drawing.Size(832, 23);
             this._cbRotate.TabIndex = 14;

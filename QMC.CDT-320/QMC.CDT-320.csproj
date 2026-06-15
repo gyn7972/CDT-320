@@ -958,6 +958,9 @@
     <EmbeddedResource Include="Ui\Pages\Recipe\LoadTapeFrameSubsetPage.resx">
       <DependentUpon>LoadTapeFrameSubsetPage.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\Recipe\MapCreatePage.resx">
+      <DependentUpon>MapCreatePage.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\Recipe\ModuleSubsetPage.resx">
       <DependentUpon>ModuleSubsetPage.cs</DependentUpon>
     </EmbeddedResource>
