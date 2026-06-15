@@ -27,8 +27,8 @@ namespace QMC.CDT320.Sequencing
             return new SequenceRunOptions
             {
                 Units = SequenceUnitKind.InputLoader |
-                        SequenceUnitKind.TpuLeft |
-                        SequenceUnitKind.TpuRight |
+                        SequenceUnitKind.PickerFront |
+                        SequenceUnitKind.PickerRear |
                         SequenceUnitKind.OutputUnloader,
                 Mode = SequenceRunMode.Auto
             };
@@ -40,8 +40,8 @@ namespace QMC.CDT320.Sequencing
             return new SequenceRunOptions
             {
                 Units = SequenceUnitKind.InputLoader |
-                        SequenceUnitKind.TpuLeft |
-                        SequenceUnitKind.TpuRight |
+                        SequenceUnitKind.PickerFront |
+                        SequenceUnitKind.PickerRear |
                         SequenceUnitKind.OutputUnloader,
                 Mode = SequenceRunMode.Step
             };

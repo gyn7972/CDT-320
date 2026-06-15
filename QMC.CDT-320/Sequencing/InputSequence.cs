@@ -28,7 +28,7 @@ namespace QMC.CDT320.Sequencing
         private string _autoWaferId = "";
 
         public InputSequence(MachineSequenceContext ctx)
-            : base(ctx, SequenceUnitKind.InputLoader, "InputLoader")
+            : base(ctx, SequenceUnitKind.InputLoader, "Input")
         {
         }
 
@@ -774,7 +774,7 @@ namespace QMC.CDT320.Sequencing
                 ct.ThrowIfCancellationRequested();
 
                 if (result != 0)
-                    return Fail("SEQ-IN-MAPPING", "InputLoaderSequence", "Input cassette mapping failed. result=" + result);
+                    return Fail("SEQ-IN-MAPPING", "InputSequence", "Input cassette mapping failed. result=" + result);
 
                 Context.Bus.Set("InputCassetteMapped");
                 LogPublic("[UNIT-INPUT-LOADER] Input cassette mapping complete");
@@ -788,7 +788,7 @@ namespace QMC.CDT320.Sequencing
             }
             catch (Exception ex)
             {
-                return Fail("SEQ-IN-MAPPING-EX", "InputLoaderSequence", "Input cassette mapping exception: " + ex.Message);
+                return Fail("SEQ-IN-MAPPING-EX", "InputSequence", "Input cassette mapping exception: " + ex.Message);
             }
             finally
             {
@@ -807,7 +807,7 @@ namespace QMC.CDT320.Sequencing
                 ct.ThrowIfCancellationRequested();
 
                 if (!ok)
-                    return Fail("SEQ-INLOAD", "InputLoaderSequence", "InputLoader failed to load next wafer.");
+                    return Fail("SEQ-INLOAD", "InputSequence", "Input sequence failed to load next wafer.");
 
                 Context.Bus.Set("InputStageReady");
                 LogPublic("[UNIT-INPUT-LOADER] LoadNextWafer complete");
@@ -821,7 +821,7 @@ namespace QMC.CDT320.Sequencing
             }
             catch (Exception ex)
             {
-                return Fail("SEQ-INLOAD-EX", "InputLoaderSequence", "LoadNextWafer exception: " + ex.Message);
+                return Fail("SEQ-INLOAD-EX", "InputSequence", "LoadNextWafer exception: " + ex.Message);
             }
             finally
             {

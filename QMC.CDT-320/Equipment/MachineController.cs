@@ -5013,10 +5013,10 @@ namespace QMC.CDT320
                     QMC.CDT320.Sequencing.SequenceUnitKind.OutputUnloader,
                     () => new QMC.CDT320.Sequencing.OutputSequence(_seqContext));
                 _coordinator.Register(
-                    QMC.CDT320.Sequencing.SequenceUnitKind.TpuLeft,
+                    QMC.CDT320.Sequencing.SequenceUnitKind.PickerFront,
                     () => new QMC.CDT320.Sequencing.FrontPickerSequence(_seqContext));
                 _coordinator.Register(
-                    QMC.CDT320.Sequencing.SequenceUnitKind.TpuRight,
+                    QMC.CDT320.Sequencing.SequenceUnitKind.PickerRear,
                     () => new QMC.CDT320.Sequencing.RearPickerSequence(_seqContext));
 
                 _coordinator.Configure(options);
