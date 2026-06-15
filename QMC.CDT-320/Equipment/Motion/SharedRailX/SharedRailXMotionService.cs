@@ -1,11 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
-using QMC.CDT320.Ajin;
 using QMC.CDT320.Interlocks;
 using QMC.Common.Alarms;
-using QMC.Common.Motion.Ajin;
 using QMC.Common.Motion;
 
 namespace QMC.CDT320.Motion.SharedRailX
@@ -123,7 +122,20 @@ namespace QMC.CDT320.Motion.SharedRailX
             if (targets.Count == 0)
                 return RaiseBlocked("SharedRailX move target is empty.");
 
-            return await DispatchMoveAsync(plan, targets, settings);
+            SharedRailXAutoMoveGuard moveGuard = StartAutoMoveGuard(plan, targets, settings);
+            try
+            {
+                int result = await DispatchMoveAsync(plan, targets, settings).ConfigureAwait(false);
+                if (moveGuard != null && moveGuard.Blocked)
+                    return -11;
+
+                return result;
+            }
+            finally
+            {
+                if (moveGuard != null)
+                    moveGuard.Dispose();
+            }
         }
 
         private static SharedRailXValidationResult VerifyMotionGuardTargets(
@@ -184,7 +196,6 @@ namespace QMC.CDT320.Motion.SharedRailX
             double velocity)
         {
             return MoveAsync(SharedRailXMovePlan.Create("InputVisionX+FrontPickerX", velocity)
-                .UseMode(SharedRailXMoveMode.AjinMultiPosition)
                 .Add(SharedRailXAxis.InputVisionX, waferVisionTarget)
                 .Add(SharedRailXAxis.FrontPickerX, frontPickerTarget));
         }
@@ -195,7 +206,6 @@ namespace QMC.CDT320.Motion.SharedRailX
             double velocity)
         {
             return MoveAsync(SharedRailXMovePlan.Create("InputVisionX+RearPickerX", velocity)
-                .UseMode(SharedRailXMoveMode.AjinMultiPosition)
                 .Add(SharedRailXAxis.InputVisionX, waferVisionTarget)
                 .Add(SharedRailXAxis.RearPickerX, rearPickerTarget));
         }
@@ -206,7 +216,6 @@ namespace QMC.CDT320.Motion.SharedRailX
             double velocity)
         {
             return MoveAsync(SharedRailXMovePlan.Create("OutputVisionX+FrontPickerX", velocity)
-                .UseMode(SharedRailXMoveMode.AjinMultiPosition)
                 .Add(SharedRailXAxis.OutputVisionX, binVisionTarget)
                 .Add(SharedRailXAxis.FrontPickerX, frontPickerTarget));
         }
@@ -217,7 +226,6 @@ namespace QMC.CDT320.Motion.SharedRailX
             double velocity)
         {
             return MoveAsync(SharedRailXMovePlan.Create("OutputVisionX+RearPickerX", velocity)
-                .UseMode(SharedRailXMoveMode.AjinMultiPosition)
                 .Add(SharedRailXAxis.OutputVisionX, binVisionTarget)
                 .Add(SharedRailXAxis.RearPickerX, rearPickerTarget));
         }
@@ -228,7 +236,6 @@ namespace QMC.CDT320.Motion.SharedRailX
             double velocity)
         {
             return MoveAsync(SharedRailXMovePlan.Create("FrontPickerX+RearPickerX", velocity)
-                .UseMode(SharedRailXMoveMode.AjinMultiPosition)
                 .Add(SharedRailXAxis.FrontPickerX, frontPickerTarget)
                 .Add(SharedRailXAxis.RearPickerX, rearPickerTarget));
         }
@@ -241,7 +248,6 @@ namespace QMC.CDT320.Motion.SharedRailX
             double velocity)
         {
             return MoveAsync(SharedRailXMovePlan.Create("SharedRailX-All", velocity)
-                .UseMode(SharedRailXMoveMode.AjinMultiPosition)
                 .Add(SharedRailXAxis.InputVisionX, waferVisionTarget)
                 .Add(SharedRailXAxis.OutputVisionX, binVisionTarget)
                 .Add(SharedRailXAxis.FrontPickerX, frontPickerTarget)
@@ -253,112 +259,9 @@ namespace QMC.CDT320.Motion.SharedRailX
             IReadOnlyList<SharedRailXTarget> targets,
             IReadOnlyList<SharedRailXAxisSetting> settings)
         {
-            switch (plan.Mode)
-            {
-                // Ajin 동기 다축 이동 모드
-                case SharedRailXMoveMode.AjinMultiPosition:
-                    return MoveAjinMultiPositionOrFallbackAsync(plan, targets, settings);
-                // 소프트웨어 병렬 이동 모드
-                case SharedRailXMoveMode.SoftwareParallel:
-                default:
-                    return MoveSoftwareParallelAsync(plan, targets, settings);
-            }
-        }
-
-        private Task<int> MoveAjinMultiPositionOrFallbackAsync(
-            SharedRailXMovePlan plan,
-            IReadOnlyList<SharedRailXTarget> targets,
-            IReadOnlyList<SharedRailXAxisSetting> settings)
-        {
-            if (targets.Count < 2)
-                return MoveSoftwareParallelAsync(plan, targets, settings);
-
-            Dictionary<SharedRailXAxis, SharedRailXAxisSetting> settingMap =
-                settings.ToDictionary(x => x.RailAxis);
-            var ajinAxes = new List<AjinAxis>();
-            var positions = new List<double>();
-            var velocities = new List<double>();
-            var accelerations = new List<double>();
-            var decelerations = new List<double>();
-
-            foreach (SharedRailXTarget target in targets)
-            {
-                SharedRailXAxisSetting setting;
-                settingMap.TryGetValue(target.Axis, out setting);
-                AjinAxis ajinAxis = setting != null ? setting.Axis as AjinAxis : null;
-                if (ajinAxis == null || !ajinAxis.CanUseSynchronizedAbsoluteMove)
-                    return MoveSoftwareParallelAsync(plan, targets, settings);
-
-                double velocity = target.Velocity.HasValue ? target.Velocity.Value : plan.Velocity;
-                double resolvedVelocity;
-                int ready = ajinAxis.ValidateSynchronizedAbsoluteMove(target.TargetPosition, velocity, out resolvedVelocity);
-                if (ready != 0)
-                    return Task.FromResult(ready);
-
-                ajinAxes.Add(ajinAxis);
-                positions.Add(target.TargetPosition);
-                velocities.Add(resolvedVelocity);
-                accelerations.Add(target.Acceleration.HasValue ? target.Acceleration.Value : ajinAxis.Config.Acceleration);
-                decelerations.Add(target.Deceleration.HasValue ? target.Deceleration.Value : ajinAxis.Config.Deceleration);
-            }
-
-            return MoveAjinMultiPositionAsync(ajinAxes, positions, velocities, accelerations, decelerations);
-        }
-
-        private async Task<int> MoveAjinMultiPositionAsync(
-            IReadOnlyList<AjinAxis> ajinAxes,
-            IReadOnlyList<double> positions,
-            IReadOnlyList<double> velocities,
-            IReadOnlyList<double> accelerations,
-            IReadOnlyList<double> decelerations)
-        {
-            int[] axisNos = ajinAxes.Select(x => x.AxisNo).ToArray();
-            double[] targetPositions = ajinAxes
-                .Select((axis, index) => axis.ToBoardPosition(positions[index]))
-                .ToArray();
-            double[] targetVelocities = ajinAxes
-                .Select((axis, index) => axis.ToBoardVelocity(velocities[index]))
-                .ToArray();
-            double[] targetAccelerations = ajinAxes
-                .Select((axis, index) => axis.ToBoardAcceleration(accelerations[index]))
-                .ToArray();
-            double[] targetDecelerations = ajinAxes
-                .Select((axis, index) => axis.ToBoardAcceleration(decelerations[index]))
-                .ToArray();
-
-            using (SharedRailXMotionRuntime.EnterInternalDispatch())
-            {
-                foreach (AjinAxis axis in ajinAxes)
-                {
-                    int modeRet = AXM.SetAbsRelMode(axis.AxisNo, true);
-                    if (modeRet != 0)
-                    {
-                        foreach (AjinAxis failAxis in ajinAxes)
-                            failAxis.FailSynchronizedAbsoluteMove(modeRet);
-                        return modeRet;
-                    }
-                }
-
-                int ret = AXM.MoveMultiplePosition(
-                    axisNos,
-                    targetPositions,
-                    targetVelocities,
-                    targetAccelerations,
-                    targetDecelerations);
-
-                if (ret != 0)
-                {
-                    foreach (AjinAxis axis in ajinAxes)
-                        axis.FailSynchronizedAbsoluteMove(ret);
-                    return ret;
-                }
-
-                for (int i = 0; i < ajinAxes.Count; i++)
-                    ajinAxes[i].BeginSynchronizedAbsoluteMove(positions[i], velocities[i]);
-
-                int[] waitResults = await Task.WhenAll(ajinAxes.Select(x => x.WaitSynchronizedMoveDoneAsync()));
-                return waitResults.FirstOrDefault(x => x != 0);
-            }
+            // SharedRailX is intentionally commanded by individual absolute moves.
+            // AXM.MoveMultiplePosition is not used until its equipment behavior is fully verified.
+            return MoveSoftwareParallelAsync(plan, targets, settings);
         }
 
         private async Task<int> MoveSoftwareParallelAsync(
@@ -372,21 +275,21 @@ namespace QMC.CDT320.Motion.SharedRailX
 
             using (SharedRailXMotionRuntime.EnterInternalDispatch())
             {
-            foreach (SharedRailXTarget target in targets)
-            {
+                foreach (SharedRailXTarget target in targets)
+                {
                     SharedRailXAxisSetting setting;
                     settingMap.TryGetValue(target.Axis, out setting);
-                if (setting == null || setting.Axis == null)
-                    return RaiseBlocked("SharedRailX target axis is not mapped. axis=" + target.Axis);
+                    if (setting == null || setting.Axis == null)
+                        return RaiseBlocked("SharedRailX target axis is not mapped. axis=" + target.Axis);
 
-                double velocity = target.Velocity.HasValue ? target.Velocity.Value : plan.Velocity;
-                tasks.Add(setting.Axis.MoveAbsoluteAsync(target.TargetPosition, velocity));
+                    double velocity = target.Velocity.HasValue ? target.Velocity.Value : plan.Velocity;
+                    tasks.Add(setting.Axis.MoveAbsoluteAsync(target.TargetPosition, velocity));
+                }
+
+                int[] results = await Task.WhenAll(tasks);
+                int fail = results.FirstOrDefault(x => x != 0);
+                return fail;
             }
-
-            int[] results = await Task.WhenAll(tasks);
-            int fail = results.FirstOrDefault(x => x != 0);
-            return fail;
-        }
         }
 
         private void Add(List<SharedRailXAxisSetting> list, SharedRailXAxis railAxis, BaseAxis axis)
@@ -394,19 +297,9 @@ namespace QMC.CDT320.Motion.SharedRailX
             if (axis == null)
                 return;
 
-            SharedRailXAxisGeometry geometry;
-            if (!_config.Geometry.TryGetValue(railAxis, out geometry) || geometry == null)
-                geometry = new SharedRailXAxisGeometry();
-
             list.Add(new SharedRailXAxisSetting(railAxis, axis)
             {
-                BodyOffsetMin = geometry.BodyOffsetMin,
-                BodyOffsetMax = geometry.BodyOffsetMax,
-                RailOriginOffset = geometry.RailOriginOffset,
-                PositionScale = geometry.PositionScale,
-                SafetyDistance = geometry.SafetyDistance.HasValue
-                    ? geometry.SafetyDistance.Value
-                    : _config.DefaultSafetyDistance
+                SafetyDistance = _config.DefaultSafetyDistance
             });
         }
 
@@ -423,13 +316,6 @@ namespace QMC.CDT320.Motion.SharedRailX
             if (moving == null)
                 return SharedRailXValidationResult.Block("SharedRailX jog axis is not mapped. axis=" + movingRailAxis);
 
-            if (movingRailAxis == SharedRailXAxis.InputVisionX && direction < 0)
-                return SharedRailXValidationResult.Allow();
-
-            double movingMin = moving.GetMinAt(moving.Axis.ActualPosition);
-            double movingMax = moving.GetMaxAt(moving.Axis.ActualPosition);
-            double railDirection = (direction < 0 ? -1.0 : 1.0) * moving.PositionScale;
-
             foreach (SharedRailXAxisSetting other in settings)
             {
                 if (other == null || other.Axis == null || other.RailAxis == movingRailAxis)
@@ -438,41 +324,24 @@ namespace QMC.CDT320.Motion.SharedRailX
                     continue;
 
                 SharedRailXAxisPair pair;
-                if (_config.TryGetCollisionPair(movingRailAxis, other.RailAxis, out pair) && pair.HasClearanceRule)
-                {
-                    SharedRailXValidationResult clearance = ValidateJogPairClearance(
-                        moving,
-                        other,
-                        pair,
-                        direction,
-                        stopAtLimit);
-                    if (!clearance.Allowed)
-                        return clearance;
+                if (!_config.TryGetCollisionPair(movingRailAxis, other.RailAxis, out pair))
                     continue;
-                }
 
-                double otherMin = other.GetMinAt(other.Axis.ActualPosition);
-                double otherMax = other.GetMaxAt(other.Axis.ActualPosition);
-                double required = Math.Max(moving.SafetyDistance, other.SafetyDistance);
-                double gap = CalculateCurrentGap(movingMin, movingMax, otherMin, otherMax);
-                bool movingTowardOther = IsMovingTowardOther(
-                    movingMin,
-                    movingMax,
-                    otherMin,
-                    otherMax,
-                    railDirection);
-
-                if ((gap < required && (stopAtLimit || movingTowardOther)) ||
-                    (stopAtLimit && movingTowardOther && gap <= required))
+                if (!pair.HasClearanceRule)
                 {
                     return SharedRailXValidationResult.Block(
-                        "SharedRailX jog distance is too close. " +
-                        moving.Axis.Name + " rail=" + moving.ToRailPosition(moving.Axis.ActualPosition).ToString("F3") +
-                        ", " + other.Axis.Name + " rail=" + other.ToRailPosition(other.Axis.ActualPosition).ToString("F3") +
-                        ", direction=" + (direction < 0 ? "-" : "+") +
-                        ", gap=" + gap.ToString("F3") +
-                        ", required=" + required.ToString("F3"));
+                        "SharedRailX jog pair clearance rule is not configured. pair=" +
+                        movingRailAxis + "<->" + other.RailAxis);
                 }
+
+                SharedRailXValidationResult clearance = ValidateJogPairClearance(
+                    moving,
+                    other,
+                    pair,
+                    direction,
+                    stopAtLimit);
+                if (!clearance.Allowed)
+                    return clearance;
             }
 
             return SharedRailXValidationResult.Allow();
@@ -545,44 +414,240 @@ namespace QMC.CDT320.Motion.SharedRailX
             return homeClearance - (aTowardSign * aPosition) - (bTowardSign * bPosition);
         }
 
-        private static bool IsMovingTowardOther(
-            double movingMin,
-            double movingMax,
-            double otherMin,
-            double otherMax,
-            double railDirection)
+        private SharedRailXAutoMoveGuard StartAutoMoveGuard(
+            SharedRailXMovePlan plan,
+            IReadOnlyList<SharedRailXTarget> targets,
+            IReadOnlyList<SharedRailXAxisSetting> settings)
         {
-            if (railDirection == 0.0)
-                return true;
+            if (plan == null || targets == null || settings == null)
+                return null;
 
-            if (movingMax <= otherMin)
-                return railDirection > 0.0;
-            if (otherMax <= movingMin)
-                return railDirection < 0.0;
+            Dictionary<SharedRailXAxis, SharedRailXAxisSetting> settingMap = settings
+                .Where(x => x != null && x.Axis != null)
+                .ToDictionary(x => x.RailAxis);
+            Dictionary<SharedRailXAxis, double> targetMap = targets
+                .GroupBy(x => x.Axis)
+                .ToDictionary(x => x.Key, x => x.Last().TargetPosition);
 
-            double movingCenter = (movingMin + movingMax) / 2.0;
-            double otherCenter = (otherMin + otherMax) / 2.0;
-            if (otherCenter > movingCenter)
-                return railDirection > 0.0;
-            if (otherCenter < movingCenter)
-                return railDirection < 0.0;
+            var guardPairs = new List<SharedRailXGuardPair>();
+            foreach (SharedRailXAxisPair pair in _config.CollisionPairs)
+            {
+                if (!targetMap.ContainsKey(pair.AxisA) && !targetMap.ContainsKey(pair.AxisB))
+                    continue;
+                if (!pair.HasClearanceRule)
+                    continue;
 
-            return false;
-        }
+                SharedRailXAxisSetting settingA;
+                SharedRailXAxisSetting settingB;
+                if (!settingMap.TryGetValue(pair.AxisA, out settingA) ||
+                    !settingMap.TryGetValue(pair.AxisB, out settingB))
+                {
+                    continue;
+                }
 
-        private static double CalculateCurrentGap(double aMin, double aMax, double bMin, double bMax)
-        {
-            if (aMax <= bMin)
-                return bMin - aMax;
-            if (bMax <= aMin)
-                return aMin - bMax;
-            return 0.0;
+                double targetA = targetMap.ContainsKey(pair.AxisA)
+                    ? targetMap[pair.AxisA]
+                    : settingA.Axis.ActualPosition;
+                double targetB = targetMap.ContainsKey(pair.AxisB)
+                    ? targetMap[pair.AxisB]
+                    : settingB.Axis.ActualPosition;
+                double initialClearance = CalculatePairClearance(
+                    pair.HomeClearance,
+                    pair.AxisATowardSign,
+                    settingA.Axis.ActualPosition,
+                    pair.AxisBTowardSign,
+                    settingB.Axis.ActualPosition);
+                double targetClearance = CalculatePairClearance(
+                    pair.HomeClearance,
+                    pair.AxisATowardSign,
+                    targetA,
+                    pair.AxisBTowardSign,
+                    targetB);
+                double required = pair.SafetyDistance.HasValue
+                    ? pair.SafetyDistance.Value
+                    : Math.Max(settingA.SafetyDistance, settingB.SafetyDistance);
+
+                guardPairs.Add(new SharedRailXGuardPair(
+                    pair,
+                    settingA,
+                    settingB,
+                    required,
+                    initialClearance,
+                    targetClearance));
+            }
+
+            if (guardPairs.Count == 0)
+                return null;
+
+            return new SharedRailXAutoMoveGuard(plan.Name, settings, guardPairs);
         }
 
         private static int RaiseBlocked(string reason)
         {
             AlarmManager.Raise(AlarmSeverity.Warning, "SHARED-RAIL-X", "SharedRailX", reason);
             return -11;
+        }
+
+        private sealed class SharedRailXGuardPair
+        {
+            private const double Epsilon = 0.001;
+
+            public readonly SharedRailXAxisPair Pair;
+            public readonly SharedRailXAxisSetting SettingA;
+            public readonly SharedRailXAxisSetting SettingB;
+            public readonly double RequiredClearance;
+            public readonly double InitialClearance;
+            public readonly double TargetClearance;
+            private double _previousClearance;
+
+            public SharedRailXGuardPair(
+                SharedRailXAxisPair pair,
+                SharedRailXAxisSetting settingA,
+                SharedRailXAxisSetting settingB,
+                double requiredClearance,
+                double initialClearance,
+                double targetClearance)
+            {
+                Pair = pair;
+                SettingA = settingA;
+                SettingB = settingB;
+                RequiredClearance = requiredClearance;
+                InitialClearance = initialClearance;
+                TargetClearance = targetClearance;
+                _previousClearance = initialClearance;
+            }
+
+            public bool IsUnsafe(out string reason)
+            {
+                reason = string.Empty;
+                double clearance = CalculatePairClearance(
+                    Pair.HomeClearance,
+                    Pair.AxisATowardSign,
+                    SettingA.Axis.ActualPosition,
+                    Pair.AxisBTowardSign,
+                    SettingB.Axis.ActualPosition);
+
+                bool startedUnsafe = InitialClearance <= RequiredClearance;
+                bool targetMovesAway = TargetClearance > InitialClearance + Epsilon;
+                bool clearanceImproving = clearance + Epsilon >= _previousClearance;
+                _previousClearance = clearance;
+
+                if (clearance > RequiredClearance)
+                    return false;
+
+                if (startedUnsafe && targetMovesAway && clearanceImproving)
+                    return false;
+
+                reason =
+                    "SharedRailX real-time clearance guard stopped motion. pair=" +
+                    Pair.AxisA + "<->" + Pair.AxisB +
+                    ", " + SettingA.Axis.Name + "=" + SettingA.Axis.ActualPosition.ToString("F3") +
+                    ", " + SettingB.Axis.Name + "=" + SettingB.Axis.ActualPosition.ToString("F3") +
+                    ", clearance=" + clearance.ToString("F3") +
+                    ", required=" + RequiredClearance.ToString("F3") +
+                    ", initialClearance=" + InitialClearance.ToString("F3") +
+                    ", targetClearance=" + TargetClearance.ToString("F3") +
+                    ", homeClearance=" + Pair.HomeClearance.ToString("F3") +
+                    ", signs=" + Pair.AxisA + ":" + Pair.AxisATowardSign + "," +
+                    Pair.AxisB + ":" + Pair.AxisBTowardSign;
+                return true;
+            }
+        }
+
+        private sealed class SharedRailXAutoMoveGuard : IDisposable
+        {
+            private readonly string _planName;
+            private readonly IReadOnlyList<SharedRailXAxisSetting> _settings;
+            private readonly IReadOnlyList<SharedRailXGuardPair> _pairs;
+            private readonly CancellationTokenSource _cts;
+            private readonly Task _task;
+            private int _blocked;
+
+            public SharedRailXAutoMoveGuard(
+                string planName,
+                IReadOnlyList<SharedRailXAxisSetting> settings,
+                IReadOnlyList<SharedRailXGuardPair> pairs)
+            {
+                _planName = string.IsNullOrWhiteSpace(planName) ? "SharedRailX" : planName;
+                _settings = settings;
+                _pairs = pairs;
+                _cts = new CancellationTokenSource();
+                _task = Task.Run(() => MonitorAsync(_cts.Token), _cts.Token);
+            }
+
+            public bool Blocked
+            {
+                get { return _blocked != 0; }
+            }
+
+            public void Dispose()
+            {
+                try { _cts.Cancel(); } catch { }
+                _cts.Dispose();
+            }
+
+            private async Task MonitorAsync(CancellationToken ct)
+            {
+                bool movementSeen = false;
+
+                try
+                {
+                    while (!ct.IsCancellationRequested)
+                    {
+                        await Task.Delay(20, ct).ConfigureAwait(false);
+
+                        bool anyMoving = _settings.Any(x => x != null && x.Axis != null && x.Axis.IsMoving);
+                        if (!anyMoving)
+                        {
+                            if (movementSeen)
+                                break;
+                            continue;
+                        }
+
+                        movementSeen = true;
+                        foreach (SharedRailXGuardPair pair in _pairs)
+                        {
+                            string reason;
+                            if (pair.IsUnsafe(out reason))
+                            {
+                                Interlocked.Exchange(ref _blocked, 1);
+                                StopSharedRailAxes();
+                                AlarmManager.Raise(
+                                    AlarmSeverity.Warning,
+                                    "SHARED-RAIL-X-MOVE-GUARD",
+                                    "SharedRailX",
+                                    "plan=" + _planName + ". " + reason);
+                                return;
+                            }
+                        }
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                }
+                catch (Exception ex)
+                {
+                    AlarmManager.Raise(
+                        AlarmSeverity.Warning,
+                        "SHARED-RAIL-X-MOVE-GUARD",
+                        "SharedRailX",
+                        "SharedRailX real-time guard exception. plan=" + _planName + ", message=" + ex.Message);
+                }
+            }
+
+            private void StopSharedRailAxes()
+            {
+                using (SharedRailXMotionRuntime.EnterInternalDispatch())
+                {
+                    foreach (SharedRailXAxisSetting setting in _settings)
+                    {
+                        if (setting == null || setting.Axis == null)
+                            continue;
+
+                        try { setting.Axis.Stop(); } catch { }
+                    }
+                }
+            }
         }
     }
 }

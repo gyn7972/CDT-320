@@ -87,19 +87,6 @@ namespace QMC.CDT_320.Ui.Dialogs
             _testGrid.Columns.Add(CreateTextColumn("colTarget", "Move Target", 90F, false, DataGridViewContentAlignment.MiddleRight));
             _testGrid.Columns.Add(CreateTextColumn("colVelocity", "Velocity", 80F, false, DataGridViewContentAlignment.MiddleRight));
 
-            _settingGrid.Columns.Clear();
-            ConfigureGridBase(_settingGrid);
-            _settingGrid.SelectionMode = DataGridViewSelectionMode.CellSelect;
-            _settingGrid.EditMode = DataGridViewEditMode.EditProgrammatically;
-            _settingGrid.CellClick += editableGrid_CellClick;
-            _settingGrid.Columns.Add(CreateTextColumn("colAxis", "Axis", 90F, true, DataGridViewContentAlignment.MiddleLeft));
-            _settingGrid.Columns.Add(CreateTextColumn("colUnit", "Unit", 45F, true, DataGridViewContentAlignment.MiddleCenter));
-            _settingGrid.Columns.Add(CreateTextColumn("colBodyMin", "Body Min", 75F, false, DataGridViewContentAlignment.MiddleRight));
-            _settingGrid.Columns.Add(CreateTextColumn("colBodyMax", "Body Max", 75F, false, DataGridViewContentAlignment.MiddleRight));
-            _settingGrid.Columns.Add(CreateTextColumn("colOrigin", "Rail Origin", 85F, false, DataGridViewContentAlignment.MiddleRight));
-            _settingGrid.Columns.Add(CreateTextColumn("colScale", "Scale", 60F, false, DataGridViewContentAlignment.MiddleRight));
-            _settingGrid.Columns.Add(CreateTextColumn("colSafety", "Safety", 70F, false, DataGridViewContentAlignment.MiddleRight));
-
             _pairRuleLabel = new Label();
             _pairRuleLabel.BackColor = Color.FromArgb(238, 242, 246);
             _pairRuleLabel.Dock = DockStyle.Fill;
@@ -122,13 +109,14 @@ namespace QMC.CDT_320.Ui.Dialogs
             _pairGrid.Columns.Add(CreateTextColumn("colPairSafety", "Safety", 70F, false, DataGridViewContentAlignment.MiddleRight));
 
             _gridGroups.ColumnStyles.Clear();
-            _gridGroups.ColumnCount = 4;
-            _gridGroups.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 30F));
-            _gridGroups.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 20F));
-            _gridGroups.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25F));
-            _gridGroups.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 25F));
-            _gridGroups.Controls.Add(_pairRuleLabel, 3, 0);
-            _gridGroups.Controls.Add(_pairGrid, 3, 1);
+            _gridGroups.ColumnCount = 3;
+            _gridGroups.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 36F));
+            _gridGroups.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 24F));
+            _gridGroups.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 40F));
+            _gridGroups.Controls.Add(_pairRuleLabel, 2, 0);
+            _gridGroups.Controls.Add(_pairGrid, 2, 1);
+
+            chkSameVelocity.Location = new Point(0, chkSameVelocity.Location.Y);
 
             _activeGrid = grid;
         }
@@ -279,9 +267,6 @@ namespace QMC.CDT_320.Ui.Dialogs
                 // 속도 컬럼 단위 표시
                 case "colVelocity":
                     return DisplayUnitForAxis(axis) + "/sec";
-                // Scale 컬럼은 단위 없음
-                case "colScale":
-                    return "";
                 default:
                     return DisplayUnitForAxis(axis);
             }
@@ -299,7 +284,6 @@ namespace QMC.CDT_320.Ui.Dialogs
                 _syncingGridSelection = true;
                 SelectGridAxis(grid, axis, source == grid);
                 SelectGridAxis(_testGrid, axis, source == _testGrid);
-                SelectGridAxis(_settingGrid, axis, source == _settingGrid);
             }
             finally
             {
@@ -454,27 +438,15 @@ namespace QMC.CDT_320.Ui.Dialogs
             grid.ShowCellToolTips = true;
             if (_testGrid != null)
                 _testGrid.ShowCellToolTips = true;
-            if (_settingGrid != null)
-                _settingGrid.ShowCellToolTips = true;
             if (_pairGrid != null)
                 _pairGrid.ShowCellToolTips = true;
 
-            GetColumn(_settingGrid, "colBodyMin").ToolTipText = "Axis body negative side size from rail center position.";
-            GetColumn(_settingGrid, "colBodyMax").ToolTipText = "Axis body positive side size from rail center position.";
-            GetColumn(_settingGrid, "colOrigin").ToolTipText = "SharedRail coordinate offset for this axis zero position.";
-            GetColumn(_settingGrid, "colScale").ToolTipText = "Scale used when converting axis position to SharedRail position.";
-            GetColumn(_settingGrid, "colSafety").ToolTipText = "Axis-specific minimum safety distance. Empty uses Default Safety.";
             GetColumn(_testGrid, "colVelocity").ToolTipText = "Test move velocity used by this setup dialog.";
             GetColumn(_pairGrid, "colHomeClearance").ToolTipText = "Distance between the two axes at home position before they approach each other.";
             GetColumn(_pairGrid, "colAxisASign").ToolTipText = "+1 means AxisA positive direction approaches AxisB, -1 means negative direction approaches.";
             GetColumn(_pairGrid, "colAxisBSign").ToolTipText = "+1 means AxisB positive direction approaches AxisA, -1 means negative direction approaches.";
-            GetColumn(_pairGrid, "colPairSafety").ToolTipText = "Pair-specific minimum clearance. Empty uses Default Safety.";
+            GetColumn(_pairGrid, "colPairSafety").ToolTipText = "Pair-specific minimum clearance. Empty uses 10 mm.";
 
-            colBodyMin.ToolTipText = "축의 실제 몸체가 Rail 좌표에서 축 중심보다 얼마나 왼쪽/마이너스 방향으로 더 차지하는지(mm)입니다.";
-            colBodyMax.ToolTipText = "축의 실제 몸체가 Rail 좌표에서 축 중심보다 얼마나 오른쪽/플러스 방향으로 더 차지하는지(mm)입니다.";
-            colOrigin.ToolTipText = "축 좌표 0이 SharedRail 기준 좌표에서 어디에 있는지 나타내는 기준 오프셋(mm)입니다.";
-            colScale.ToolTipText = "축 좌표를 SharedRail 좌표로 환산할 때 곱하는 배율입니다. 일반 X축은 보통 1입니다.";
-            colSafety.ToolTipText = "이 축에만 적용할 최소 이격 거리(mm)입니다. 비우면 Default Safety 값을 사용합니다.";
             colVelocity.ToolTipText = "이 창에서 테스트 이동할 때 사용할 속도(mm/sec)입니다. 저장하면 파일에 기록되고 이동 실행 시 이 값을 사용합니다.";
 
             _toolTip.SetToolTip(cboHeadAxis, "주 축입니다. Move Head/Sub 실행 시 항상 이동 대상에 포함됩니다.");
@@ -493,7 +465,6 @@ namespace QMC.CDT_320.Ui.Dialogs
 
             grid.ColumnHeadersHeight = 42;
             _testGrid.ColumnHeadersHeight = 42;
-            _settingGrid.ColumnHeadersHeight = 42;
 
             ApplyColumnGroup(GetColumn(grid, "colAxis"), "Axis", Color.White, true);
             ApplyColumnGroup(GetColumn(grid, "colUnit"), "Unit", statusColor, true);
@@ -505,14 +476,6 @@ namespace QMC.CDT_320.Ui.Dialogs
             ApplyColumnGroup(GetColumn(_testGrid, "colUnit"), "Unit", testColor, true);
             ApplyColumnGroup(GetColumn(_testGrid, "colTarget"), "Move Target", testColor, false);
             ApplyColumnGroup(GetColumn(_testGrid, "colVelocity"), "Velocity", testColor, false);
-
-            ApplyColumnGroup(GetColumn(_settingGrid, "colAxis"), "Axis", Color.White, true);
-            ApplyColumnGroup(GetColumn(_settingGrid, "colUnit"), "Unit", settingColor, true);
-            ApplyColumnGroup(GetColumn(_settingGrid, "colBodyMin"), "Body Min", settingColor, false);
-            ApplyColumnGroup(GetColumn(_settingGrid, "colBodyMax"), "Body Max", settingColor, false);
-            ApplyColumnGroup(GetColumn(_settingGrid, "colOrigin"), "Rail Origin", settingColor, false);
-            ApplyColumnGroup(GetColumn(_settingGrid, "colScale"), "Scale", settingColor, false);
-            ApplyColumnGroup(GetColumn(_settingGrid, "colSafety"), "Safety", settingColor, false);
 
             ApplyColumnGroup(GetColumn(_pairGrid, "colPair"), "Pair", Color.White, true);
             ApplyColumnGroup(GetColumn(_pairGrid, "colHomeClearance"), "Home Gap", settingColor, false);
@@ -560,32 +523,12 @@ namespace QMC.CDT_320.Ui.Dialogs
         {
             string message =
                 "SharedRailX 설정값 설명\r\n\r\n" +
-                "Body Min\r\n" +
-                "- 축의 중심 위치 기준으로 장비 몸체가 마이너스 방향으로 얼마나 튀어나와 있는지 나타냅니다.\r\n" +
-                "- 예: Body Min = -100 이면, 축 중심보다 왼쪽/마이너스 방향으로 100mm까지 몸체가 있다고 봅니다.\r\n\r\n" +
-                "Body Max\r\n" +
-                "- 축의 중심 위치 기준으로 장비 몸체가 플러스 방향으로 얼마나 튀어나와 있는지 나타냅니다.\r\n" +
-                "- 예: Body Max = 100 이면, 축 중심보다 오른쪽/플러스 방향으로 100mm까지 몸체가 있다고 봅니다.\r\n\r\n" +
-                "Rail Origin\r\n" +
-                "- 해당 축의 0 위치가 SharedRail 공통 좌표에서 어디에 있는지 나타내는 기준 위치입니다.\r\n" +
-                "- 같은 축 좌표 0이라도 Rail Origin이 다르면 SharedRail 위 실제 위치는 다르게 계산됩니다.\r\n" +
-                "- 예: FrontPickerX Rail Origin = 300 이면 FrontPickerX 축 0은 SharedRail 좌표 300mm 위치로 봅니다.\r\n\r\n" +
-                "Scale\r\n" +
-                "- 축 좌표를 SharedRail 공통 좌표로 변환할 때 곱하는 값입니다.\r\n" +
-                "- 일반적으로 mm 단위 X축은 1을 사용합니다.\r\n" +
-                "- 축 방향이 반대라면 -1 같은 값이 필요할 수 있지만, 실제 장비 좌표계 확인 후 설정해야 합니다.\r\n\r\n" +
                 "Velocity\r\n" +
                 "- 이 창에서 테스트 이동할 때 사용할 속도입니다. 단위는 mm/sec입니다.\r\n" +
                 "- 저장하면 shared_rail_x.json 파일에 남고, 이동 버튼을 누를 때도 먼저 파일에 저장한 뒤 이 값을 사용합니다.\r\n\r\n" +
-                "계산 개념\r\n" +
-                "- Rail 중심 좌표 = Rail Origin + (축 위치 * Scale)\r\n" +
-                "- 몸체 점유 범위 = Rail 중심 좌표 + Body Min ~ Rail 중심 좌표 + Body Max\r\n" +
-                "- 두 축의 몸체 점유 범위가 Safety 거리보다 가까우면 이동을 막습니다.\r\n\r\n" +
-                "주의\r\n" +
-                "- 이 값은 충돌 인터락 계산 기준입니다. 실제 기구 치수와 축 좌표 방향이 맞지 않으면 정상 이동도 막히거나, 위험한 이동이 허용될 수 있습니다.\r\n\r\n" +
                 "Pair Clearance Rule\r\n" +
-                "- Pair Clearance Rule은 두 축 사이의 실제 간섭 거리 계산을 우선 적용합니다.\r\n" +
-                "- Home Gap은 두 축이 홈 위치일 때의 실제 여유거리입니다.\r\n" +
+                "- 이 화면의 충돌 인터락 기준입니다.\r\n" +
+                "- Home Gap은 두 축이 홈 위치일 때 기준 간격입니다.\r\n" +
                 "- A/B Sign은 각 축이 상대 축 쪽으로 가까워지는 엔코더 방향입니다. +방향 접근은 1, -방향 접근은 -1입니다.\r\n" +
                 "- Clearance = Home Gap - A Sign*A Pos - B Sign*B Pos 로 계산하며 Safety 이하이면 이동을 막습니다.";
 
@@ -596,9 +539,7 @@ namespace QMC.CDT_320.Ui.Dialogs
         private void ReloadDocument()
         {
             _document = SharedRailXConfigStore.LoadDocumentOrCreateDefault();
-            chkPathCheck.Checked = _document.EnablePathCheck;
             chkSameVelocity.Checked = _document.RequireSameVelocityForGroupMove;
-            txtDefaultSafety.Text = FormatDouble(_document.DefaultSafetyDistance);
             LoadGrid();
             lblPath.Text = SharedRailXConfigStore.Path_;
             lblStatus.Text = "Loaded.";
@@ -609,15 +550,13 @@ namespace QMC.CDT_320.Ui.Dialogs
             grid.Rows.Clear();
             if (_testGrid != null)
                 _testGrid.Rows.Clear();
-            if (_settingGrid != null)
-                _settingGrid.Rows.Clear();
             if (_pairGrid != null)
                 _pairGrid.Rows.Clear();
 
             if (_document == null || _document.Axes == null)
                 return;
 
-            foreach (SharedRailXAxisGeometryRow item in _document.Axes.OrderBy(x => AxisOrder(x.Axis)))
+            foreach (SharedRailXAxisTestRow item in _document.Axes.OrderBy(x => AxisOrder(x.Axis)))
             {
                 SharedRailXAxis axis;
                 Enum.TryParse(item.Axis, true, out axis);
@@ -637,15 +576,6 @@ namespace QMC.CDT_320.Ui.Dialogs
                     FormatAxisDisplayValue(axis, item.TestVelocity));
                 _testGrid.Rows[testIndex].Tag = item;
 
-                int settingIndex = _settingGrid.Rows.Add(
-                    item.Axis,
-                    unit,
-                    FormatAxisDisplayValue(axis, item.BodyOffsetMin),
-                    FormatAxisDisplayValue(axis, item.BodyOffsetMax),
-                    FormatAxisDisplayValue(axis, item.RailOriginOffset),
-                    FormatDouble(item.PositionScale),
-                    item.SafetyDistance.HasValue ? FormatAxisDisplayValue(axis, item.SafetyDistance.Value) : "");
-                _settingGrid.Rows[settingIndex].Tag = item;
             }
 
             if (_document.CollisionPairs != null && _pairGrid != null)
@@ -680,30 +610,21 @@ namespace QMC.CDT_320.Ui.Dialogs
                 if (_document == null)
                     _document = SharedRailXConfigStore.CreateDefaultDocument();
 
-                _document.EnablePathCheck = chkPathCheck.Checked;
                 _document.RequireSameVelocityForGroupMove = chkSameVelocity.Checked;
-                _document.DefaultSafetyDistance = ReadDouble(txtDefaultSafety.Text, 10.0);
+                _document.DefaultSafetyDistance = 10.0;
 
-                foreach (DataGridViewRow row in _settingGrid.Rows)
+                foreach (DataGridViewRow row in _testGrid.Rows)
                 {
-                    SharedRailXAxisGeometryRow item = row.Tag as SharedRailXAxisGeometryRow;
+                    SharedRailXAxisTestRow item = row.Tag as SharedRailXAxisTestRow;
                     if (item == null)
                         continue;
 
                     SharedRailXAxis axis;
-                    DataGridViewRow testRow = TryGetRowAxis(row, out axis) ? FindRow(_testGrid, axis) : null;
+                    if (!TryGetRowAxis(row, out axis))
+                        continue;
 
-                    item.TestTargetPosition = ReadAxisDisplayCell(testRow, "colTarget", axis, item.TestTargetPosition);
-                    item.TestVelocity = ReadAxisDisplayCell(testRow, "colVelocity", axis, item.TestVelocity);
-                    item.BodyOffsetMin = ReadAxisDisplayCell(row, "colBodyMin", axis, item.BodyOffsetMin);
-                    item.BodyOffsetMax = ReadAxisDisplayCell(row, "colBodyMax", axis, item.BodyOffsetMax);
-                    item.RailOriginOffset = ReadAxisDisplayCell(row, "colOrigin", axis, item.RailOriginOffset);
-                    item.PositionScale = ReadDouble(GetCellValue(row, "colScale"), item.PositionScale);
-
-                    string safetyText = Convert.ToString(GetCellValue(row, "colSafety"));
-                    item.SafetyDistance = string.IsNullOrWhiteSpace(safetyText)
-                        ? (double?)null
-                        : ReadAxisDisplayText(safetyText, axis, _document.DefaultSafetyDistance);
+                    item.TestTargetPosition = ReadAxisDisplayCell(row, "colTarget", axis, item.TestTargetPosition);
+                    item.TestVelocity = ReadAxisDisplayCell(row, "colVelocity", axis, item.TestVelocity);
                 }
 
                 if (_pairGrid != null)
@@ -812,8 +733,7 @@ namespace QMC.CDT_320.Ui.Dialogs
                     return 0;
                 }
 
-                var plan = SharedRailXMovePlan.Create("SharedRailX setup dialog move Head/Sub", ReadDefaultVelocity())
-                    .UseMode(rows.Count >= 2 ? SharedRailXMoveMode.AjinMultiPosition : SharedRailXMoveMode.SoftwareParallel);
+                var plan = SharedRailXMovePlan.Create("SharedRailX setup dialog move Head/Sub", ReadDefaultVelocity());
 
                 foreach (DataGridViewRow row in rows)
                 {

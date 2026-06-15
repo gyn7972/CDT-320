@@ -545,49 +545,6 @@ namespace QMC.CDT320.Interlocks
             return true;
         }
 
-        private static bool IsPickerXHomeDoneOrInputAvoid(
-            BaseAxis axis,
-            System.Func<bool> isInputAvoid,
-            string axisName,
-            out string reason)
-        {
-            reason = string.Empty;
-
-            if (axis == null)
-            {
-                reason = axisName + " axis is null.";
-                return false;
-            }
-
-            bool homeDone = axis.IsHomeDone;
-            bool inputAvoid = false;
-            string inputAvoidError = string.Empty;
-
-            try
-            {
-                inputAvoid = isInputAvoid != null && isInputAvoid();
-            }
-            catch (System.Exception ex)
-            {
-                inputAvoidError = ex.Message;
-            }
-            finally
-            {
-            }
-
-            if (homeDone || inputAvoid)
-                return true;
-
-            reason = "homeDone=" + homeDone +
-                     ", inputAvoid=" + inputAvoid +
-                     ", actual=" + axis.ActualPosition;
-
-            if (!string.IsNullOrEmpty(inputAvoidError))
-                reason += ", inputAvoidCheckError=" + inputAvoidError;
-
-            return false;
-        }
-
         private static void LogBlockedReason(string reason)
         {
             try

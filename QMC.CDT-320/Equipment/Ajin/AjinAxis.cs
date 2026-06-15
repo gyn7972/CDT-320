@@ -91,11 +91,6 @@ namespace QMC.CDT320.Ajin
             return FailMotion(-2, action, reason, targetPosition, hasTarget);
         }
 
-        public bool CanUseSynchronizedAbsoluteMove
-        {
-            get { return !UseSimulation && AjinSystem.IsOpen; }
-        }
-
         public AjinAxis(string name, int axisNo) : base(name)
         {
             AxisNo = axisNo;
@@ -153,6 +148,13 @@ namespace QMC.CDT320.Ajin
         {
             try
             {
+                // SharedRailX axes must pass the centralized pair-clearance guard.
+                if (!SharedRailXMotionRuntime.IsInternalDispatch &&
+                    SharedRailXMotionRuntime.IsSharedRailAxis(this))
+                {
+                    return await SharedRailXMotionRuntime.MoveAxisAsync(this, targetPos, velocity).ConfigureAwait(false);
+                }
+
                 if (UseSimulation)
                     return await base.MoveAbsoluteAsync(targetPos, velocity);
 
@@ -250,51 +252,6 @@ namespace QMC.CDT320.Ajin
             {
                 UpdateStatus();
             }
-        }
-
-        public int ValidateSynchronizedAbsoluteMove(double targetPos, double velocity, out double resolvedVelocity)
-        {
-            resolvedVelocity = velocity > 0 ? velocity : Config.DefaultVelocity;
-
-            if (!CanUseSynchronizedAbsoluteMove)
-                return FailAjinAxisNotReady("SYNC ABS MOVE", targetPos, true);
-            if (!IsServoOn || IsAlarm)
-                return FailAjinAxisNotReady("SYNC ABS MOVE", targetPos, true);
-
-            UpdateStatus();
-            return CheckSoftLimitTarget(targetPos);
-        }
-
-        public void BeginSynchronizedAbsoluteMove(double targetPos, double velocity)
-        {
-            double resolvedVelocity = velocity > 0 ? velocity : Config.DefaultVelocity;
-            CommandPosition = targetPos;
-            CurrentVelocity = resolvedVelocity;
-            IsMoving = true;
-            IsInPosition = false;
-            _motionDirection = targetPos > ActualPosition ? 1 : targetPos < ActualPosition ? -1 : 0;
-            RaiseMoveStarted();
-        }
-
-        public void FailSynchronizedAbsoluteMove(int ret)
-        {
-            IsMoving = false;
-            IsAlarm = true;
-            AlarmCode = (uint)ret;
-            _motionDirection = 0;
-            AlarmManager.Raise(
-                AlarmSeverity.Error,
-                "AX-MOVE-MULTI",
-                Name,
-                "AXM.MoveMultiplePosition failed. ret=0x" + ret.ToString("X4"));
-        }
-
-        public async Task<int> WaitSynchronizedMoveDoneAsync()
-        {
-            int waitRet = await WaitUntilMoveDone();
-            if (waitRet == 0 && !IsAlarm)
-                _motionDirection = 0;
-            return IsAlarm ? (int)AlarmCode : waitRet;
         }
 
         public override void Stop()

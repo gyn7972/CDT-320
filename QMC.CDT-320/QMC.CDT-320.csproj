@@ -92,7 +92,6 @@
     <Compile Include="Equipment\IStageInterfaces.cs" />
     <Compile Include="Equipment\MachineController.cs" />
     <Compile Include="Equipment\Motion\SharedRailX\SharedRailXAxis.cs" />
-    <Compile Include="Equipment\Motion\SharedRailX\SharedRailXMoveMode.cs" />
     <Compile Include="Equipment\Motion\SharedRailX\SharedRailXAxisSetting.cs" />
     <Compile Include="Equipment\Motion\SharedRailX\SharedRailXConfig.cs" />
     <Compile Include="Equipment\Motion\SharedRailX\SharedRailXTarget.cs" />

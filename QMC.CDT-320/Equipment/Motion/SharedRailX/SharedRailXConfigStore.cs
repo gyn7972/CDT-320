@@ -11,27 +11,21 @@ namespace QMC.CDT320.Motion.SharedRailX
     public sealed class SharedRailXConfigDocument
     {
         [DataMember(Order = 0)] public double DefaultSafetyDistance { get; set; }
-        [DataMember(Order = 1)] public bool EnablePathCheck { get; set; }
         [DataMember(Order = 2)] public bool RequireSameVelocityForGroupMove { get; set; }
-        [DataMember(Order = 3)] public List<SharedRailXAxisGeometryRow> Axes { get; set; }
+        [DataMember(Order = 3)] public List<SharedRailXAxisTestRow> Axes { get; set; }
         [DataMember(Order = 4)] public List<SharedRailXCollisionPairRow> CollisionPairs { get; set; }
 
         public SharedRailXConfigDocument()
         {
-            Axes = new List<SharedRailXAxisGeometryRow>();
+            Axes = new List<SharedRailXAxisTestRow>();
             CollisionPairs = new List<SharedRailXCollisionPairRow>();
         }
     }
 
     [DataContract]
-    public sealed class SharedRailXAxisGeometryRow
+    public sealed class SharedRailXAxisTestRow
     {
         [DataMember(Order = 0)] public string Axis { get; set; }
-        [DataMember(Order = 1)] public double BodyOffsetMin { get; set; }
-        [DataMember(Order = 2)] public double BodyOffsetMax { get; set; }
-        [DataMember(Order = 3)] public double RailOriginOffset { get; set; }
-        [DataMember(Order = 4)] public double PositionScale { get; set; }
-        [DataMember(Order = 5)] public double? SafetyDistance { get; set; }
         [DataMember(Order = 6)] public double TestTargetPosition { get; set; }
         [DataMember(Order = 7)] public double TestVelocity { get; set; }
     }
@@ -112,23 +106,7 @@ namespace QMC.CDT320.Motion.SharedRailX
             Normalize(document);
             SharedRailXConfig config = SharedRailXConfig.CreateDefault();
             config.DefaultSafetyDistance = document.DefaultSafetyDistance;
-            config.EnablePathCheck = document.EnablePathCheck;
             config.RequireSameVelocityForGroupMove = document.RequireSameVelocityForGroupMove;
-
-            foreach (SharedRailXAxisGeometryRow row in document.Axes)
-            {
-                SharedRailXAxis axis;
-                if (!Enum.TryParse(row.Axis, true, out axis))
-                    continue;
-
-                config.SetGeometry(
-                    axis,
-                    row.BodyOffsetMin,
-                    row.BodyOffsetMax,
-                    row.SafetyDistance,
-                    row.RailOriginOffset,
-                    row.PositionScale);
-            }
 
             var pairs = new List<SharedRailXAxisPair>();
             foreach (SharedRailXCollisionPairRow row in document.CollisionPairs)
@@ -163,26 +141,8 @@ namespace QMC.CDT320.Motion.SharedRailX
                 return document;
 
             document.DefaultSafetyDistance = config.DefaultSafetyDistance;
-            document.EnablePathCheck = config.EnablePathCheck;
             document.RequireSameVelocityForGroupMove = config.RequireSameVelocityForGroupMove;
             document.CollisionPairs.Clear();
-
-            foreach (SharedRailXAxisGeometryRow row in document.Axes)
-            {
-                SharedRailXAxis axis;
-                if (!Enum.TryParse(row.Axis, true, out axis))
-                    continue;
-
-                SharedRailXAxisGeometry geometry;
-                if (!config.Geometry.TryGetValue(axis, out geometry) || geometry == null)
-                    continue;
-
-                row.BodyOffsetMin = geometry.BodyOffsetMin;
-                row.BodyOffsetMax = geometry.BodyOffsetMax;
-                row.RailOriginOffset = geometry.RailOriginOffset;
-                row.PositionScale = geometry.PositionScale;
-                row.SafetyDistance = geometry.SafetyDistance;
-            }
 
             if (config.CollisionPairs != null)
             {
@@ -204,14 +164,13 @@ namespace QMC.CDT320.Motion.SharedRailX
             var document = new SharedRailXConfigDocument
             {
                 DefaultSafetyDistance = 10.0,
-                EnablePathCheck = true,
                 RequireSameVelocityForGroupMove = true
             };
 
-            document.Axes.Add(CreateRow(SharedRailXAxis.InputVisionX, -100.0, 100.0, 0.0, 1.0, null, 0.0, 5.0));
-            document.Axes.Add(CreateRow(SharedRailXAxis.FrontPickerX, -100.0, 100.0, 300.0, 1.0, null, 0.0, 5.0));
-            document.Axes.Add(CreateRow(SharedRailXAxis.RearPickerX, -100.0, 100.0, 600.0, 1.0, null, 0.0, 5.0));
-            document.Axes.Add(CreateRow(SharedRailXAxis.OutputVisionX, -100.0, 100.0, 900.0, 1.0, null, 0.0, 5.0));
+            document.Axes.Add(CreateRow(SharedRailXAxis.InputVisionX, 0.0, 5.0));
+            document.Axes.Add(CreateRow(SharedRailXAxis.FrontPickerX, 0.0, 5.0));
+            document.Axes.Add(CreateRow(SharedRailXAxis.RearPickerX, 0.0, 5.0));
+            document.Axes.Add(CreateRow(SharedRailXAxis.OutputVisionX, 0.0, 5.0));
             document.CollisionPairs.Add(CreatePairRow(SharedRailXAxis.InputVisionX, SharedRailXAxis.FrontPickerX, 19.0, 1, -1, 10.0));
             document.CollisionPairs.Add(CreatePairRow(SharedRailXAxis.InputVisionX, SharedRailXAxis.RearPickerX, 19.0, 1, -1, 10.0));
             document.CollisionPairs.Add(CreatePairRow(SharedRailXAxis.OutputVisionX, SharedRailXAxis.FrontPickerX, 500.0, -1, 1, 10.0));
@@ -219,24 +178,14 @@ namespace QMC.CDT320.Motion.SharedRailX
             return document;
         }
 
-        private static SharedRailXAxisGeometryRow CreateRow(
+        private static SharedRailXAxisTestRow CreateRow(
             SharedRailXAxis axis,
-            double bodyMin,
-            double bodyMax,
-            double origin,
-            double scale,
-            double? safety,
             double target,
             double velocity)
         {
-            return new SharedRailXAxisGeometryRow
+            return new SharedRailXAxisTestRow
             {
                 Axis = axis.ToString(),
-                BodyOffsetMin = bodyMin,
-                BodyOffsetMax = bodyMax,
-                RailOriginOffset = origin,
-                PositionScale = scale,
-                SafetyDistance = safety,
                 TestTargetPosition = target,
                 TestVelocity = velocity
             };
@@ -313,7 +262,7 @@ namespace QMC.CDT320.Motion.SharedRailX
             if (document.DefaultSafetyDistance <= 0.0)
                 document.DefaultSafetyDistance = 10.0;
             if (document.Axes == null)
-                document.Axes = new List<SharedRailXAxisGeometryRow>();
+                document.Axes = new List<SharedRailXAxisTestRow>();
             if (document.CollisionPairs == null)
                 document.CollisionPairs = new List<SharedRailXCollisionPairRow>();
 
@@ -323,14 +272,11 @@ namespace QMC.CDT320.Motion.SharedRailX
             EnsureRow(document, SharedRailXAxis.OutputVisionX);
             EnsureDefaultCollisionPairs(document);
             RemoveInputOutputVisionCollisionPairs(document);
-            NormalizeLegacyZeroGeometry(document);
 
-            foreach (SharedRailXAxisGeometryRow row in document.Axes)
+            foreach (SharedRailXAxisTestRow row in document.Axes)
             {
                 if (row == null)
                     continue;
-                if (row.PositionScale == 0.0)
-                    row.PositionScale = 1.0;
                 if (row.TestVelocity <= 0.0)
                     row.TestVelocity = 5.0;
             }
@@ -410,71 +356,16 @@ namespace QMC.CDT320.Motion.SharedRailX
                    (axisA == SharedRailXAxis.OutputVisionX && axisB == SharedRailXAxis.InputVisionX);
         }
 
-        private static void NormalizeLegacyZeroGeometry(SharedRailXConfigDocument document)
-        {
-            if (document == null || document.Axes == null)
-                return;
-
-            SharedRailXConfigDocument defaults = CreateDefaultDocument();
-            double? firstOrigin = null;
-            bool allKnownOriginsEqual = true;
-            bool anyKnownAxis = false;
-            foreach (SharedRailXAxisGeometryRow row in document.Axes)
-            {
-                if (row == null)
-                    continue;
-
-                SharedRailXAxis parsedAxis;
-                if (!Enum.TryParse(row.Axis, true, out parsedAxis))
-                    continue;
-
-                anyKnownAxis = true;
-                if (!firstOrigin.HasValue)
-                    firstOrigin = row.RailOriginOffset;
-                else if (Math.Abs(firstOrigin.Value - row.RailOriginOffset) > 0.000001)
-                {
-                    allKnownOriginsEqual = false;
-                    break;
-                }
-            }
-
-            if (!anyKnownAxis ||
-                !allKnownOriginsEqual ||
-                !firstOrigin.HasValue ||
-                Math.Abs(firstOrigin.Value) > 0.000001)
-            {
-                return;
-            }
-
-            foreach (SharedRailXAxisGeometryRow row in document.Axes)
-            {
-                if (row == null)
-                    continue;
-
-                SharedRailXAxisGeometryRow defaultRow = defaults.Axes.Find(x =>
-                    x != null && string.Equals(x.Axis, row.Axis, StringComparison.OrdinalIgnoreCase));
-                if (defaultRow == null)
-                    continue;
-
-                row.BodyOffsetMin = defaultRow.BodyOffsetMin;
-                row.BodyOffsetMax = defaultRow.BodyOffsetMax;
-                row.RailOriginOffset = defaultRow.RailOriginOffset;
-                row.PositionScale = defaultRow.PositionScale;
-                if (!row.SafetyDistance.HasValue)
-                    row.SafetyDistance = defaultRow.SafetyDistance;
-            }
-        }
-
         private static void EnsureRow(SharedRailXConfigDocument document, SharedRailXAxis axis)
         {
-            foreach (SharedRailXAxisGeometryRow row in document.Axes)
+            foreach (SharedRailXAxisTestRow row in document.Axes)
             {
                 if (row != null && string.Equals(row.Axis, axis.ToString(), StringComparison.OrdinalIgnoreCase))
                     return;
             }
 
             SharedRailXConfigDocument defaults = CreateDefaultDocument();
-            foreach (SharedRailXAxisGeometryRow row in defaults.Axes)
+            foreach (SharedRailXAxisTestRow row in defaults.Axes)
             {
                 if (string.Equals(row.Axis, axis.ToString(), StringComparison.OrdinalIgnoreCase))
                 {

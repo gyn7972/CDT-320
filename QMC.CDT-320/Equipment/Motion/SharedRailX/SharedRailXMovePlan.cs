@@ -9,7 +9,6 @@ namespace QMC.CDT320.Motion.SharedRailX
 
         public string Name { get; set; }
         public double Velocity { get; set; }
-        public SharedRailXMoveMode Mode { get; set; } = SharedRailXMoveMode.SoftwareParallel;
         public IReadOnlyList<SharedRailXTarget> Targets { get { return _targets; } }
 
         public static SharedRailXMovePlan Create(string name, double velocity)
@@ -30,12 +29,6 @@ namespace QMC.CDT320.Motion.SharedRailX
         public SharedRailXMovePlan Add(SharedRailXAxis axis, double targetPosition, double velocity)
         {
             _targets.Add(new SharedRailXTarget(axis, targetPosition) { Velocity = velocity });
-            return this;
-        }
-
-        public SharedRailXMovePlan UseMode(SharedRailXMoveMode mode)
-        {
-            Mode = mode;
             return this;
         }
 

@@ -6,9 +6,6 @@
         private System.Windows.Forms.TableLayoutPanel layoutRoot;
         private System.Windows.Forms.Label lblTitle;
         private System.Windows.Forms.Panel pnlTop;
-        private System.Windows.Forms.Label lblDefaultSafety;
-        private System.Windows.Forms.TextBox txtDefaultSafety;
-        private System.Windows.Forms.CheckBox chkPathCheck;
         private System.Windows.Forms.CheckBox chkSameVelocity;
         private System.Windows.Forms.Label lblHeadAxis;
         private System.Windows.Forms.ComboBox cboHeadAxis;
@@ -20,10 +17,8 @@
         private System.Windows.Forms.TableLayoutPanel _gridGroups;
         private System.Windows.Forms.Label lblStatusParameter;
         private System.Windows.Forms.Label lblTestParameter;
-        private System.Windows.Forms.Label lblSettingParameter;
         private System.Windows.Forms.DataGridView grid;
         private System.Windows.Forms.DataGridView _testGrid;
-        private System.Windows.Forms.DataGridView _settingGrid;
         private System.Windows.Forms.TableLayoutPanel pnlButtons;
         private System.Windows.Forms.Button btnReload;
         private System.Windows.Forms.Button btnSave;
@@ -43,11 +38,6 @@
         private System.Windows.Forms.DataGridViewTextBoxColumn colCurrent;
         private System.Windows.Forms.DataGridViewTextBoxColumn colTarget;
         private System.Windows.Forms.DataGridViewTextBoxColumn colVelocity;
-        private System.Windows.Forms.DataGridViewTextBoxColumn colBodyMin;
-        private System.Windows.Forms.DataGridViewTextBoxColumn colBodyMax;
-        private System.Windows.Forms.DataGridViewTextBoxColumn colOrigin;
-        private System.Windows.Forms.DataGridViewTextBoxColumn colScale;
-        private System.Windows.Forms.DataGridViewTextBoxColumn colSafety;
         private System.Windows.Forms.DataGridViewTextBoxColumn colStatus;
         private System.Windows.Forms.DataGridViewTextBoxColumn colMessage;
 
@@ -68,9 +58,6 @@
             this.layoutRoot = new System.Windows.Forms.TableLayoutPanel();
             this.lblTitle = new System.Windows.Forms.Label();
             this.pnlTop = new System.Windows.Forms.Panel();
-            this.lblDefaultSafety = new System.Windows.Forms.Label();
-            this.txtDefaultSafety = new System.Windows.Forms.TextBox();
-            this.chkPathCheck = new System.Windows.Forms.CheckBox();
             this.chkSameVelocity = new System.Windows.Forms.CheckBox();
             this.lblHeadAxis = new System.Windows.Forms.Label();
             this.cboHeadAxis = new System.Windows.Forms.ComboBox();
@@ -82,19 +69,12 @@
             this._gridGroups = new System.Windows.Forms.TableLayoutPanel();
             this.lblStatusParameter = new System.Windows.Forms.Label();
             this.lblTestParameter = new System.Windows.Forms.Label();
-            this.lblSettingParameter = new System.Windows.Forms.Label();
             this.grid = new System.Windows.Forms.DataGridView();
             this._testGrid = new System.Windows.Forms.DataGridView();
-            this._settingGrid = new System.Windows.Forms.DataGridView();
             this.colAxis = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.colCurrent = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.colTarget = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.colVelocity = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.colBodyMin = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.colBodyMax = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.colOrigin = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.colScale = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.colSafety = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.colStatus = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.colMessage = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.pnlButtons = new System.Windows.Forms.TableLayoutPanel();
@@ -117,7 +97,6 @@
             this._gridGroups.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.grid)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this._testGrid)).BeginInit();
-            ((System.ComponentModel.ISupportInitialize)(this._settingGrid)).BeginInit();
             this.pnlButtons.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -157,9 +136,6 @@
             // 
             // pnlTop
             // 
-            this.pnlTop.Controls.Add(this.lblDefaultSafety);
-            this.pnlTop.Controls.Add(this.txtDefaultSafety);
-            this.pnlTop.Controls.Add(this.chkPathCheck);
             this.pnlTop.Controls.Add(this.chkSameVelocity);
             this.pnlTop.Controls.Add(this.lblHeadAxis);
             this.pnlTop.Controls.Add(this.cboHeadAxis);
@@ -173,43 +149,12 @@
             this.pnlTop.Name = "pnlTop";
             this.pnlTop.Size = new System.Drawing.Size(1154, 70);
             this.pnlTop.TabIndex = 1;
-            // 
-            // lblDefaultSafety
-            // 
-            this.lblDefaultSafety.Location = new System.Drawing.Point(0, 8);
-            this.lblDefaultSafety.Name = "lblDefaultSafety";
-            this.lblDefaultSafety.Size = new System.Drawing.Size(164, 22);
-            this.lblDefaultSafety.TabIndex = 0;
-            this.lblDefaultSafety.Text = "Default Safety (mm)";
-            this.lblDefaultSafety.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // txtDefaultSafety
-            // 
-            this.txtDefaultSafety.Location = new System.Drawing.Point(170, 7);
-            this.txtDefaultSafety.Name = "txtDefaultSafety";
-            this.txtDefaultSafety.Size = new System.Drawing.Size(90, 23);
-            this.txtDefaultSafety.TabIndex = 1;
-            this.txtDefaultSafety.Text = "10";
-            this.txtDefaultSafety.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
-            // 
-            // chkPathCheck
-            // 
-            this.chkPathCheck.AutoSize = true;
-            this.chkPathCheck.Checked = true;
-            this.chkPathCheck.CheckState = System.Windows.Forms.CheckState.Checked;
-            this.chkPathCheck.Location = new System.Drawing.Point(286, 9);
-            this.chkPathCheck.Name = "chkPathCheck";
-            this.chkPathCheck.Size = new System.Drawing.Size(125, 19);
-            this.chkPathCheck.TabIndex = 2;
-            this.chkPathCheck.Text = "Enable Path Check";
-            this.chkPathCheck.UseVisualStyleBackColor = true;
-            // 
             // chkSameVelocity
             // 
             this.chkSameVelocity.AutoSize = true;
             this.chkSameVelocity.Checked = true;
             this.chkSameVelocity.CheckState = System.Windows.Forms.CheckState.Checked;
-            this.chkSameVelocity.Location = new System.Drawing.Point(433, 9);
+            this.chkSameVelocity.Location = new System.Drawing.Point(0, 9);
             this.chkSameVelocity.Name = "chkSameVelocity";
             this.chkSameVelocity.Size = new System.Drawing.Size(182, 19);
             this.chkSameVelocity.TabIndex = 3;
@@ -297,10 +242,8 @@
             this._gridGroups.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 38F));
             this._gridGroups.Controls.Add(this.lblStatusParameter, 0, 0);
             this._gridGroups.Controls.Add(this.lblTestParameter, 1, 0);
-            this._gridGroups.Controls.Add(this.lblSettingParameter, 2, 0);
             this._gridGroups.Controls.Add(this.grid, 0, 1);
             this._gridGroups.Controls.Add(this._testGrid, 1, 1);
-            this._gridGroups.Controls.Add(this._settingGrid, 2, 1);
             this._gridGroups.Dock = System.Windows.Forms.DockStyle.Fill;
             this._gridGroups.Location = new System.Drawing.Point(3, 113);
             this._gridGroups.Name = "_gridGroups";
@@ -335,20 +278,6 @@
             this.lblTestParameter.TabIndex = 1;
             this.lblTestParameter.Text = "TEST PARAMETER";
             this.lblTestParameter.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
-            // lblSettingParameter
-            //
-            this.lblSettingParameter.BackColor = System.Drawing.Color.FromArgb(238, 242, 246);
-            this.lblSettingParameter.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblSettingParameter.Font = new System.Drawing.Font("Malgun Gothic", 9F, System.Drawing.FontStyle.Bold);
-            this.lblSettingParameter.Location = new System.Drawing.Point(717, 0);
-            this.lblSettingParameter.Name = "lblSettingParameter";
-            this.lblSettingParameter.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblSettingParameter.Size = new System.Drawing.Size(434, 24);
-            this.lblSettingParameter.TabIndex = 2;
-            this.lblSettingParameter.Text = "SETTING PARAMETER";
-            this.lblSettingParameter.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            //
             // grid
             //
             this.grid.AllowUserToAddRows = false;
@@ -372,11 +301,6 @@
             this.colCurrent,
             this.colTarget,
             this.colVelocity,
-            this.colBodyMin,
-            this.colBodyMax,
-            this.colOrigin,
-            this.colScale,
-            this.colSafety,
             this.colStatus,
             this.colMessage});
             this.grid.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -411,29 +335,6 @@
             this._testGrid.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.CellSelect;
             this._testGrid.Size = new System.Drawing.Size(270, 331);
             this._testGrid.TabIndex = 3;
-            //
-            // _settingGrid
-            //
-            this._settingGrid.AllowUserToAddRows = false;
-            this._settingGrid.AllowUserToDeleteRows = false;
-            this._settingGrid.AllowUserToOrderColumns = false;
-            this._settingGrid.AllowUserToResizeRows = false;
-            this._settingGrid.AutoSizeColumnsMode = System.Windows.Forms.DataGridViewAutoSizeColumnsMode.Fill;
-            this._settingGrid.BackgroundColor = System.Drawing.Color.White;
-            this._settingGrid.BorderStyle = System.Windows.Forms.BorderStyle.Fixed3D;
-            this._settingGrid.ColumnHeadersDefaultCellStyle = headerStyle;
-            this._settingGrid.ColumnHeadersHeight = 34;
-            this._settingGrid.Dock = System.Windows.Forms.DockStyle.Fill;
-            this._settingGrid.EnableHeadersVisualStyles = false;
-            this._settingGrid.Location = new System.Drawing.Point(717, 27);
-            this._settingGrid.MultiSelect = false;
-            this._settingGrid.Name = "_settingGrid";
-            this._settingGrid.RowHeadersVisible = false;
-            this._settingGrid.RowTemplate.Height = 30;
-            this._settingGrid.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.CellSelect;
-            this._settingGrid.Size = new System.Drawing.Size(434, 331);
-            this._settingGrid.TabIndex = 4;
-            // 
             // colAxis
             // 
             this.colAxis.FillWeight = 105F;
@@ -466,47 +367,6 @@
             this.colVelocity.HeaderText = "Velocity";
             this.colVelocity.Name = "colVelocity";
             this.colVelocity.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
-            // 
-            // colBodyMin
-            // 
-            this.colBodyMin.DefaultCellStyle = rightStyle;
-            this.colBodyMin.FillWeight = 75F;
-            this.colBodyMin.HeaderText = "Body Min";
-            this.colBodyMin.Name = "colBodyMin";
-            this.colBodyMin.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
-            // 
-            // colBodyMax
-            // 
-            this.colBodyMax.DefaultCellStyle = rightStyle;
-            this.colBodyMax.FillWeight = 75F;
-            this.colBodyMax.HeaderText = "Body Max";
-            this.colBodyMax.Name = "colBodyMax";
-            this.colBodyMax.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
-            // 
-            // colOrigin
-            // 
-            this.colOrigin.DefaultCellStyle = rightStyle;
-            this.colOrigin.FillWeight = 80F;
-            this.colOrigin.HeaderText = "Rail Origin";
-            this.colOrigin.Name = "colOrigin";
-            this.colOrigin.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
-            // 
-            // colScale
-            // 
-            this.colScale.DefaultCellStyle = rightStyle;
-            this.colScale.FillWeight = 65F;
-            this.colScale.HeaderText = "Scale";
-            this.colScale.Name = "colScale";
-            this.colScale.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
-            // 
-            // colSafety
-            // 
-            this.colSafety.DefaultCellStyle = rightStyle;
-            this.colSafety.FillWeight = 70F;
-            this.colSafety.HeaderText = "Safety";
-            this.colSafety.Name = "colSafety";
-            this.colSafety.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
-            // 
             // colStatus
             // 
             this.colStatus.DefaultCellStyle = centerStyle;
@@ -703,7 +563,6 @@
             this._gridGroups.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.grid)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this._testGrid)).EndInit();
-            ((System.ComponentModel.ISupportInitialize)(this._settingGrid)).EndInit();
             this.pnlButtons.ResumeLayout(false);
             this.ResumeLayout(false);
         }

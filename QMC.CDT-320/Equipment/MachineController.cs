@@ -2275,47 +2275,6 @@ namespace QMC.CDT320
             return Task.FromResult(0);
         }
 
-        private bool IsPickerXHomeDoneOrInputAvoid(BaseAxis axis, Func<bool> isInputAvoid, string axisName, out string reason)
-        {
-            reason = string.Empty;
-
-            if (axis == null)
-            {
-                reason = axisName + " axis is null.";
-                Log("[INIT] " + axisName + " home/input avoid check failed. " + reason);
-                return false;
-            }
-
-            bool homeDone = axis.IsHomeDone;
-            bool inputAvoid = false;
-            string inputAvoidError = string.Empty;
-
-            try
-            {
-                inputAvoid = isInputAvoid != null && isInputAvoid();
-            }
-            catch (Exception ex)
-            {
-                inputAvoidError = ex.Message;
-            }
-
-            Log("[INIT] " + axisName + " home/input avoid check. homeDone=" + homeDone +
-                ", inputAvoid=" + inputAvoid +
-                ", actual=" + axis.ActualPosition);
-
-            if (homeDone || inputAvoid)
-                return true;
-
-            reason = "homeDone=" + homeDone +
-                     ", inputAvoid=" + inputAvoid +
-                     ", actual=" + axis.ActualPosition;
-
-            if (!string.IsNullOrEmpty(inputAvoidError))
-                reason += ", inputAvoidCheckError=" + inputAvoidError;
-
-            return false;
-        }
-
         private async Task<int> PrepareOutputGoodStageYHomeAsync(BaseAxis axis)
         {
             return await PrepareOutputGoodStageHomeAsync().ConfigureAwait(false);
