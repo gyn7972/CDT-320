@@ -1,4 +1,4 @@
-using System.Threading;
+﻿using System.Threading;
 using System.Threading.Tasks;
 using QMC.CDT320.Materials;
 
@@ -9,7 +9,7 @@ namespace QMC.CDT320.Sequencing
         private PickerProcessSequence _stepSequence;
 
         public FrontPickerSequence(MachineSequenceContext ctx)
-            : base(ctx, SequenceUnitKind.TpuLeft, "FrontPicker")
+            : base(ctx, SequenceUnitKind.PickerFront, "FrontPicker")
         {
         }
 

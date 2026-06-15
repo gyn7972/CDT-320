@@ -21,7 +21,7 @@ namespace QMC.CDT320.Sequencing
     public class OutputSequence : UnitSequenceBase
     {
         public OutputSequence(MachineSequenceContext ctx)
-            : base(ctx, SequenceUnitKind.OutputUnloader, "OutputUnloader")
+            : base(ctx, SequenceUnitKind.OutputUnloader, "Output")
         {
         }
 
