@@ -1,6 +1,8 @@
 ﻿using QMC.Common.IO;
 
 using System;
+using QMC.Common.Motion;
+using QMC.CDT320.Materials;
 
 namespace QMC.CDT320.Interlocks
 {
@@ -101,19 +103,24 @@ namespace QMC.CDT320.Interlocks
                 if (machine == null)
                     return true;
 
-                // 홈 잡을때 picker 위치 봐야 하는데 이거 잡기전에 이미 이 둘은 잡혀 있어야함.
-                // 근데.. 홈이 잡혔는지를 확인하고.. output쪽에 위치 하는지를 봐야함.
-                //if (!IsFrontPickerInAvoidPosition(machine.PickerFrontUnit))
-                //    return MotionGuardRuleHelpers.Block(
-                //        "OutputFeederY",
-                //        "OutputFeederY HOME blocked. FrontPicker must be at Avoid position.",
-                //        out reason);
+                string axisReason;
+                if (!IsOutputVisionXHomeReadyForOutputFeederHome(machine.OutputStageUnit, out axisReason))
+                    return MotionGuardRuleHelpers.Block(
+                        "OutputFeederY",
+                        "OutputFeederY HOME blocked. OutputVisionX must be not homed yet or at Home position. " + axisReason,
+                        out reason);
 
-                //if (!IsRearPickerInAvoidPosition(machine.PickerRearUnit))
-                //    return MotionGuardRuleHelpers.Block(
-                //        "OutputFeederY",
-                //        "OutputFeederY HOME blocked. RearPicker must be at Avoid position.",
-                //        out reason);
+                if (!IsFrontPickerXHomeReadyForOutputFeederHome(machine.PickerFrontUnit, out axisReason))
+                    return MotionGuardRuleHelpers.Block(
+                        "OutputFeederY",
+                        "OutputFeederY HOME blocked. FrontPickerX must be not homed yet or at Home position. " + axisReason,
+                        out reason);
+
+                if (!IsRearPickerXHomeReadyForOutputFeederHome(machine.PickerRearUnit, out axisReason))
+                    return MotionGuardRuleHelpers.Block(
+                        "OutputFeederY",
+                        "OutputFeederY HOME blocked. RearPickerX must be not homed yet or at Home position. " + axisReason,
+                        out reason);
 
                 OutputCassetteUnit cassette = machine.OutputCassetteUnit;
                 if (cassette != null && cassette.OutputLifterZ != null && cassette.OutputLifterZ.IsMoving)
@@ -129,13 +136,6 @@ namespace QMC.CDT320.Interlocks
                         out reason);
 
                 OutputStageUnit outputStage = machine.OutputStageUnit;
-
-                // 근데.. 홈이 잡혔는지를 확인하고.. output쪽에 위치 하는지를 봐야함.
-                //if (outputStage != null && !outputStage.IsVisionXInAvoidPosition())
-                //    return MotionGuardRuleHelpers.Block(
-                //        "OutputFeederY",
-                //        "OutputFeederY HOME blocked. OutputVisionX must be at Avoid position.",
-                //        out reason);
 
                 if (outputStage != null && outputStage.GoodStage != null && !outputStage.GoodStage.IsAtAvoidPosition())
                     return MotionGuardRuleHelpers.Block(
@@ -155,6 +155,9 @@ namespace QMC.CDT320.Interlocks
                 OutputFeederUnit feeder = machine.OutputFeederUnit;
                 if (feeder == null)
                     return true;
+
+                if (!VerifyOutputFeederEmptyForHome(feeder, out reason))
+                    return false;
 
                 if (feeder.IsFeederOverload())
                     return MotionGuardRuleHelpers.Block(
@@ -246,6 +249,29 @@ namespace QMC.CDT320.Interlocks
                 return MotionGuardRuleHelpers.Block(
                     "OutputFeederLift",
                     "OutputFeederLift initialize " + direction + " blocked. OutputFeederY is moving.",
+                    out reason);
+
+            if (machine.OutputFeederUnit != null && IsFeederUnclamp(machine.OutputFeederUnit) == false)
+                return MotionGuardRuleHelpers.Block(
+                    "OutputFeederLift",
+                    "OutputFeederLift initialize " + direction + " blocked. OutputFeeder must be unclamped before lift initialize.",
+                    out reason);
+
+            if (targetValue >= 0.5 &&
+                machine.OutputFeederUnit != null &&
+                machine.OutputFeederUnit.IsFeederTransferDataOccupied())
+                return MotionGuardRuleHelpers.Block(
+                    "OutputFeederLift",
+                    "OutputFeederLift initialize Fwd/Up blocked. OutputFeeder material data exists before lift up.",
+                    out reason);
+
+            if (targetValue >= 0.5 &&
+                machine.OutputFeederUnit != null &&
+                !machine.OutputFeederUnit.IsOutputFeederSimulationOrDryRun() &&
+                machine.OutputFeederUnit.IsBinFeederRingCheck())
+                return MotionGuardRuleHelpers.Block(
+                    "OutputFeederLift",
+                    "OutputFeederLift initialize Fwd/Up blocked. OutputFeeder bin detect sensor is ON before lift up.",
                     out reason);
 
             return true;
@@ -350,6 +376,73 @@ namespace QMC.CDT320.Interlocks
         private static string ResolveCylinderDirection(double targetValue, string fwdText, string bwdText)
         {
             return targetValue >= 0.5 ? fwdText : bwdText;
+        }
+
+        private static bool IsOutputVisionXHomeReadyForOutputFeederHome(OutputStageUnit stage, out string reason)
+        {
+            reason = string.Empty;
+            if (stage == null)
+                return true;
+
+            return MotionGuardRuleHelpers.IsAxisNotHomedOrAtHomePosition(stage.OutputCameraX, "OutputVisionX", out reason);
+        }
+
+        private static bool IsFrontPickerXHomeReadyForOutputFeederHome(PickerFrontUnit picker, out string reason)
+        {
+            reason = string.Empty;
+            if (picker == null)
+                return true;
+
+            return MotionGuardRuleHelpers.IsAxisNotHomedOrAtHomePosition(picker.PickerX, "FrontPickerX", out reason);
+        }
+
+        private static bool IsRearPickerXHomeReadyForOutputFeederHome(PickerRearUnit picker, out string reason)
+        {
+            reason = string.Empty;
+            if (picker == null)
+                return true;
+
+            return MotionGuardRuleHelpers.IsAxisNotHomedOrAtHomePosition(picker.PickerX, "RearPickerX", out reason);
+        }
+
+        private static bool VerifyOutputFeederEmptyForHome(OutputFeederUnit feeder, out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                WaferMaterial wafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputFeeder);
+                if (wafer != null)
+                {
+                    return MotionGuardRuleHelpers.Block(
+                        "OutputFeederY",
+                        "OutputFeederY HOME blocked. OutputFeeder material data exists. waferId=" +
+                        wafer.WaferId + ", state=" + wafer.State,
+                        out reason);
+                }
+
+                if (feeder != null &&
+                    !feeder.IsOutputFeederSimulationOrDryRun() &&
+                    feeder.IsBinFeederRingCheck())
+                {
+                    return MotionGuardRuleHelpers.Block(
+                        "OutputFeederY",
+                        "OutputFeederY HOME blocked. OutputFeeder bin detect sensor is ON while material data is empty.",
+                        out reason);
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "OutputFeederY",
+                    "Exception occurred while checking OutputFeeder material before home: " + ex.Message,
+                    out reason);
+            }
+            finally
+            {
+            }
         }
 
         private static bool IsOutputVisionXInAvoidPosition(OutputStageUnit stage)

@@ -1,6 +1,7 @@
 ﻿using System;
 using QMC.Common.IO;
 using QMC.Common.Motion;
+using QMC.CDT320.Materials;
 
 namespace QMC.CDT320.Interlocks
 {
@@ -142,6 +143,9 @@ namespace QMC.CDT320.Interlocks
                 if (feeder == null)
                     return true;
 
+                if (!VerifyInputFeederEmptyForHome(feeder, out reason))
+                    return false;
+
                 if (feeder.IsWaferFeederOverload())
                     return MotionGuardRuleHelpers.Block(
                         "InputFeederY",
@@ -238,7 +242,28 @@ namespace QMC.CDT320.Interlocks
             {
                 return MotionGuardRuleHelpers.Block(
                     "InputFeederLift",
-                    "InputFeederLift move blocked. InputFeeder is unclamped, so feeder is assumed to be holding material. direction=" + direction,
+                    "InputFeederLift initialize move blocked. InputFeeder must be unclamped before lift initialize. direction=" + direction,
+                    out reason);
+            }
+
+            if (targetValue >= 0.5 &&
+                machine.InputFeederUnit != null &&
+                machine.InputFeederUnit.IsWaferFeederTransferDataOccupied())
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "InputFeederLift",
+                    "InputFeederLift initialize Fwd/Up blocked. InputFeeder material data exists before lift up.",
+                    out reason);
+            }
+
+            if (targetValue >= 0.5 &&
+                machine.InputFeederUnit != null &&
+                !machine.InputFeederUnit.IsWaferFeederSimulationOrDryRun() &&
+                machine.InputFeederUnit.IsWaferFeederRingCheck())
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "InputFeederLift",
+                    "InputFeederLift initialize Fwd/Up blocked. InputFeeder wafer detect sensor is ON before lift up.",
                     out reason);
             }
 
@@ -406,28 +431,47 @@ namespace QMC.CDT320.Interlocks
 
         private static bool IsAxisNotHomedOrAtHomePosition(BaseAxis axis, string axisName, out string reason)
         {
+            return MotionGuardRuleHelpers.IsAxisNotHomedOrAtHomePosition(axis, axisName, out reason);
+        }
+
+        private static bool VerifyInputFeederEmptyForHome(InputFeederUnit feeder, out string reason)
+        {
             reason = string.Empty;
-            if (axis == null)
-                return true;
 
-            if (axis.IsMoving)
+            try
             {
-                reason = axisName + " is moving. actual=" + axis.ActualPosition.ToString("0.###");
-                return false;
+                WaferMaterial wafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputFeeder);
+                if (wafer != null)
+                {
+                    return MotionGuardRuleHelpers.Block(
+                        "InputFeederY",
+                        "InputFeederY HOME blocked. InputFeeder material data exists. waferId=" +
+                        wafer.WaferId + ", state=" + wafer.State,
+                        out reason);
+                }
+
+                if (feeder != null &&
+                    !feeder.IsWaferFeederSimulationOrDryRun() &&
+                    feeder.IsWaferFeederRingCheck())
+                {
+                    return MotionGuardRuleHelpers.Block(
+                        "InputFeederY",
+                        "InputFeederY HOME blocked. InputFeeder wafer detect sensor is ON while material data is empty.",
+                        out reason);
+                }
+
+                return true;
             }
-
-            if (!axis.IsHomeDone)
-                return true;
-
-            const double homePosition = 0.0;
-            if (IsAt(axis, homePosition))
-                return true;
-
-            reason = axisName +
-                     " homeDone=ON but not at Home position. target=0, actual=" +
-                     axis.ActualPosition.ToString("0.###") +
-                     ", tolerance=" + PositionTolerance.ToString("0.###");
-            return false;
+            catch (Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "InputFeederY",
+                    "Exception occurred while checking InputFeeder material before home: " + ex.Message,
+                    out reason);
+            }
+            finally
+            {
+            }
         }
 
         private static bool IsFrontPickerInAvoidPosition(PickerFrontUnit picker)

@@ -81,6 +81,33 @@ namespace QMC.CDT320.Interlocks
             return Math.Abs(axis.ActualPosition - target) <= tolerance;
         }
 
+        public static bool IsAxisNotHomedOrAtHomePosition(BaseAxis axis, string axisName, out string reason)
+        {
+            reason = string.Empty;
+            if (axis == null)
+                return true;
+
+            if (axis.IsMoving)
+            {
+                reason = axisName + " is moving. actual=" + axis.ActualPosition.ToString("0.###");
+                return false;
+            }
+
+            if (!axis.IsHomeDone)
+                return true;
+
+            const double homePosition = 0.0;
+            double tolerance = ResolveTolerance(axis);
+            if (IsAt(axis, homePosition, tolerance))
+                return true;
+
+            reason = axisName +
+                     " homeDone=ON but not at Home position. target=0, actual=" +
+                     axis.ActualPosition.ToString("0.###") +
+                     ", tolerance=" + tolerance.ToString("0.###");
+            return false;
+        }
+
         public static bool IsAxisMoving(BaseAxis axis)
         {
             return axis != null && axis.IsMoving;

@@ -121,11 +121,15 @@ namespace QMC.CDT320.Interlocks
             try
             {
                 InputStageUnit stage = machine != null ? machine.InputStageUnit : null;
-                if (stage != null && !stage.IsVisionXInAvoidPosition())
+                string axisReason;
+                if (stage != null &&
+                    !MotionGuardRuleHelpers.IsAxisNotHomedOrAtHomePosition(stage.CameraX, "InputVisionX", out axisReason))
+                {
                     return MotionGuardRuleHelpers.Block(
                         "RearPickerX",
-                        "RearPickerX HOME blocked. InputVisionX must be at Avoid position.",
+                        "RearPickerX HOME blocked. InputVisionX must be not homed yet or at Home position. " + axisReason,
                         out reason);
+                }
 
                 if (stage != null && !stage.IsExpanderZInAvoidPosition())
                     return MotionGuardRuleHelpers.Block(
