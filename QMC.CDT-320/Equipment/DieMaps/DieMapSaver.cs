@@ -70,11 +70,11 @@ namespace QMC.CDT320.DieMaps
         }
 
         /// <summary>특정 다이 결과를 맵에 반영.</summary>
-        public static void Apply(DieMap map, int gridX, int gridY, DieResult result, int binCode, string dieUid = "")
+        public static void Apply(DieMap map, int dieMapX, int dieMapY, DieResult result, int binCode, string dieUid = "")
         {
             if (map == null) return;
             DieMapGenerator.Normalize(map);
-            var cell = map.GetCell(gridX, gridY);
+            var cell = map.GetCell(dieMapX, dieMapY);
             if (cell == null) return;
             cell.Result  = result;
             cell.BinCode = binCode;

@@ -561,7 +561,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 Row("State", wafer != null ? WaferMaterialStateText.ToDisplayName(wafer.State) : ""),
                 Row("TapeFrame Spec", specName),
                 Row("Frame Size", spec != null ? spec.OuterDiameterMm.ToString("0.###") + " mm" : ""),
-                Row("Grid", spec != null ? spec.GridX + " x " + spec.GridY : ""),
+                Row("Grid", spec != null ? spec.DieMapX + " x " + spec.DieMapY : ""),
                 Row("Die Spec", spec != null ? spec.DieSpecName : ""),
                 Row("Lot ID", wafer != null ? wafer.CassetteLotId : ""),
                 Row("Source Cassette", wafer != null ? wafer.SourceCassetteRole.ToString() : ""),

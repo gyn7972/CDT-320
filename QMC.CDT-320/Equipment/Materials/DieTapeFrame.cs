@@ -64,8 +64,8 @@ namespace QMC.CDT320.Materials
         [DataMember] public TapeFrameRotate Rotate { get; set; } = TapeFrameRotate.None;
 
         /// <summary>격자 (X 다이 수, Y 다이 수).</summary>
-        [DataMember] public int    GridX  { get; set; } = 1;
-        [DataMember] public int    GridY  { get; set; } = 1;
+        [DataMember] public int    DieMapX  { get; set; } = 1;
+        [DataMember] public int    DieMapY  { get; set; } = 1;
         /// <summary>다이 간격 (mm).</summary>
         [DataMember] public double PitchX { get; set; } = 1.0;
         [DataMember] public double PitchY { get; set; } = 1.0;
@@ -88,8 +88,8 @@ namespace QMC.CDT320.Materials
         }
         [DataMember] public RepeatabilityInformation Repeatability { get; set; } = new RepeatabilityInformation();
 
-        public int  TotalDieCount => GridX * GridY;
+        public int  TotalDieCount => DieMapX * DieMapY;
         public override string ToString()
-            => $"TapeFrame[{ObjId}] role={Role} grid={GridX}x{GridY} pitch=({PitchX:F3},{PitchY:F3}) origin=({OriginX:F2},{OriginY:F2}) rot={Rotate}";
+            => $"TapeFrame[{ObjId}] role={Role} grid={DieMapX}x{DieMapY} pitch=({PitchX:F3},{PitchY:F3}) origin=({OriginX:F2},{OriginY:F2}) rot={Rotate}";
     }
 }

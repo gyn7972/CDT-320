@@ -63,8 +63,8 @@ namespace QMC.CDT_320.Ui.Controls
             }
 
             // 격자 크기 — 다이맵이 있으면 그 grid 사용, 없으면 default 5x5
-            int gx = Math.Max(1, (dmap != null) ? dmap.GridX : _gridX);
-            int gy = Math.Max(1, (dmap != null) ? dmap.GridY : _gridY);
+            int gx = Math.Max(1, (dmap != null) ? dmap.DieMapX : _gridX);
+            int gy = Math.Max(1, (dmap != null) ? dmap.DieMapY : _gridY);
             int margin = 8;
             int top    = 22;
             int availW = Math.Max(50, Width  - margin * 2);
@@ -85,8 +85,8 @@ namespace QMC.CDT_320.Ui.Controls
                         if (entry == null || !entry.IsTarget)
                             continue;
 
-                        int x = x0 + entry.GridX * cell;
-                        int y = y0 + entry.GridY * cell;
+                        int x = x0 + entry.DieMapX * cell;
+                        int y = y0 + entry.DieMapY * cell;
                         Color c = ResolveEntryColor(entry);
 
                         using (var br = new SolidBrush(c))

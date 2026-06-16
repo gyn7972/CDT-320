@@ -302,7 +302,7 @@ namespace QMC.CDT320.Sequencing
             WriteLog("PickerPickUpSequence",
                 Name + " reserved input die. die=" + _currentDieId +
                 ", pickerNo=" + _currentPickerNo +
-                ", grid=(" + _pickTarget.GridX + "," + _pickTarget.GridY + ")" +
+                ", grid=(" + _pickTarget.DieMapX + "," + _pickTarget.DieMapY + ")" +
                 ", inputVisionX=" + _pickTarget.TargetX +
                 ", inputStageY=" + _pickTarget.TargetY + " - Ok");
 

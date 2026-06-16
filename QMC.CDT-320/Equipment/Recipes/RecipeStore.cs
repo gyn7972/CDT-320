@@ -48,7 +48,7 @@ namespace QMC.CDT320.Recipes
                     Frame = new TapeFrameSubset
                     {
                         FrameSpecName = "8inch_50x50",
-                        GridX = 50, GridY = 50, PitchX = 1.0, PitchY = 1.0,
+                        DieMapX = 50, DieMapY = 50, PitchX = 1.0, PitchY = 1.0,
                         OuterDiameterMm = 200, Rotate = "None",
                     }
                 });
@@ -70,7 +70,7 @@ namespace QMC.CDT320.Recipes
                     Frame = new TapeFrameSubset
                     {
                         FrameSpecName = "12inch_100x100",
-                        GridX = 100, GridY = 100, PitchX = 0.5, PitchY = 0.5,
+                        DieMapX = 100, DieMapY = 100, PitchX = 0.5, PitchY = 0.5,
                         OuterDiameterMm = 300, Rotate = "None",
                     }
                 });
@@ -92,7 +92,7 @@ namespace QMC.CDT320.Recipes
                     Frame = new TapeFrameSubset
                     {
                         FrameSpecName = "8inch_15x15",
-                        GridX = 15, GridY = 15, PitchX = 3.0, PitchY = 3.0,
+                        DieMapX = 15, DieMapY = 15, PitchX = 3.0, PitchY = 3.0,
                         OuterDiameterMm = 200, Rotate = "None",
                     }
                 });
@@ -102,7 +102,7 @@ namespace QMC.CDT320.Recipes
                 {
                     FileName = "SAMPLE-DEMO",
                     Die = new DieSubset { DieSpecName = "Default", WidthMm = 1.0, HeightMm = 1.0 },
-                    Frame = new TapeFrameSubset { FrameSpecName = "Demo_5x5", GridX = 5, GridY = 5, PitchX = 1.0, PitchY = 1.0 },
+                    Frame = new TapeFrameSubset { FrameSpecName = "Demo_5x5", DieMapX = 5, DieMapY = 5, PitchX = 1.0, PitchY = 1.0 },
                 });
             }
         }
@@ -355,8 +355,8 @@ namespace QMC.CDT320.Recipes
     public class TapeFrameSubset
     {
         [DataMember] public string FrameSpecName { get; set; } = "8inch_5x5";
-        [DataMember] public int    GridX  { get; set; } = 5;
-        [DataMember] public int    GridY  { get; set; } = 5;
+        [DataMember] public int    DieMapX  { get; set; } = 5;
+        [DataMember] public int    DieMapY  { get; set; } = 5;
         [DataMember] public double PitchX { get; set; } = 1.0;
         [DataMember] public double PitchY { get; set; } = 1.0;
         [DataMember] public string Rotate { get; set; } = "None";

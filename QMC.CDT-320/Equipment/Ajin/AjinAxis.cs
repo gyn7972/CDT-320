@@ -158,6 +158,21 @@ namespace QMC.CDT320.Ajin
                 if (UseSimulation)
                     return await base.MoveAbsoluteAsync(targetPos, velocity);
 
+                UpdateStatus();
+                double tolerance = Config != null && Config.InPositionTolerance > 0.0
+                    ? Config.InPositionTolerance
+                    : 0.01;
+                if (!IsAlarm && !IsMoving && Math.Abs(ActualPosition - targetPos) <= tolerance)
+                {
+                    CommandPosition = targetPos;
+                    CurrentVelocity = 0.0;
+                    IsMoving = false;
+                    IsInPosition = true;
+                    _motionDirection = 0;
+                    ClearMotionFailure();
+                    return 0;
+                }
+
                 string interlockReason;
                 if (!SharedRailXMotionRuntime.IsInternalDispatch &&
                     !MotionGuardRuntime.VerifyAxisMove(this, targetPos, out interlockReason))
@@ -166,7 +181,6 @@ namespace QMC.CDT320.Ajin
                 if (!IsServoOn || IsAlarm || !AjinSystem.IsOpen)
                     return FailAjinAxisNotReady("ABS MOVE", targetPos, true);
 
-                UpdateStatus();
                 int limitCheck = CheckSoftLimitTarget(targetPos);
                 if (limitCheck != 0)
                     return limitCheck;

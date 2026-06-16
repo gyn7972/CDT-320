@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using QMC.CDT320.Recipes;
+using System.Linq;
 
 namespace QMC.CDT320.DieMaps
 {
@@ -22,8 +23,8 @@ namespace QMC.CDT320.DieMaps
             if (map == null || map.Entries == null || map.Entries.Count == 0) return result;
             if (options == null) options = new PickupSubset();
 
-            int gx = map.GridX;
-            int gy = map.GridY;
+            int gx = map.DieMapX;
+            int gy = map.DieMapY;
             if (gx <= 0 || gy <= 0) return result;
 
             // 빠른 셀 조회를 위해 grid → entry 인덱스
@@ -31,80 +32,139 @@ namespace QMC.CDT320.DieMaps
             var cell = new DieMapEntry[gx, gy];
             foreach (var e in map.Entries)
             {
-                if (e.GridX >= 0 && e.GridX < gx && e.GridY >= 0 && e.GridY < gy)
-                    cell[e.GridX, e.GridY] = e;
+                if (e.DieMapX >= 0 && e.DieMapX < gx && e.DieMapY >= 0 && e.DieMapY < gy)
+                    cell[e.DieMapX, e.DieMapY] = e;
             }
 
-            // 시작 코너에 따른 outer/inner 초기값/증가 부호
-            //   TopLeft     : col 0  →  gx-1,  row 0  →  gy-1
-            //   TopRight    : col gx-1 → 0,    row 0  →  gy-1
-            //   BottomLeft  : col 0  →  gx-1,  row gy-1 → 0
-            //   BottomRight : col gx-1 → 0,    row gy-1 → 0
+            var targets = map.Entries.Where(e => e != null && e.IsTarget).ToList();
+            if (targets.Count == 0)
+                return result;
+
+            // Top/Bottom/Left/Right 는 화면에 표시되는 DieMapX/Y 기준이다.
+            // 원형 맵에서는 전체 격자 외곽이 아니라 활성 target 영역의 코너에서 시작해야 한다.
             bool startRight  = options.StartCorner == PickupStartCorner.TopRight    ||
                                options.StartCorner == PickupStartCorner.BottomRight;
             bool startBottom = options.StartCorner == PickupStartCorner.BottomLeft  ||
                                options.StartCorner == PickupStartCorner.BottomRight;
 
-            int colStart = startRight  ? gx - 1 : 0;
-            int colEnd   = startRight  ? -1     : gx;   // exclusive 종점
-            int colStep  = startRight  ? -1     : +1;
-
-            int rowStart = startBottom ? gy - 1 : 0;
-            int rowEnd   = startBottom ? -1     : gy;
-            int rowStep  = startBottom ? -1     : +1;
+            List<int> rows = BuildOrderedGridIndexes(targets, false, startBottom);
+            List<int> cols = options.Direction == PickupDirection.Vertical
+                ? BuildVerticalColumnOrder(targets, rows, startRight)
+                : BuildOrderedGridIndexes(targets, true, startRight);
+            if (cols.Count == 0 || rows.Count == 0)
+                return result;
 
             bool zigzag = options.Pattern == PickupPattern.ZigZag;
 
             if (options.Direction == PickupDirection.Horizontal)
             {
                 // outer = row, inner = col
-                int innerDir = colStep;
-                int innerStart = colStart;
-                int innerEnd   = colEnd;
+                bool innerForward = true;
 
-                for (int r = rowStart; r != rowEnd; r += rowStep)
+                foreach (int r in rows)
                 {
-                    for (int c = innerStart; c != innerEnd; c += innerDir)
+                    bool addedInLine = false;
+                    List<int> innerCols = innerForward ? cols : ReverseCopy(cols);
+                    foreach (int c in innerCols)
                     {
                         var e = cell[c, r];
-                        if (e != null && e.IsTarget) result.Add(e);
+                        if (e != null && e.IsTarget)
+                        {
+                            result.Add(e);
+                            addedInLine = true;
+                        }
                     }
-                    if (zigzag)
-                    {
-                        // 다음 row 는 반대 방향으로
-                        innerDir   = -innerDir;
-                        int tmp    = innerStart;
-                        innerStart = (innerEnd == gx ? gx - 1 : 0);  // 양 끝값 토글
-                        // 위 단순 토글 대신 명확히:
-                        if (innerDir > 0) { innerStart = 0;        innerEnd = gx; }
-                        else              { innerStart = gx - 1;   innerEnd = -1; }
-                    }
+                    if (zigzag && addedInLine) innerForward = !innerForward;
                 }
             }
             else // Vertical
             {
                 // outer = col, inner = row
-                int innerDir = rowStep;
-                int innerStart = rowStart;
-                int innerEnd   = rowEnd;
+                bool innerForward = true;
 
-                for (int c = colStart; c != colEnd; c += colStep)
+                foreach (int c in cols)
                 {
-                    for (int r = innerStart; r != innerEnd; r += innerDir)
+                    bool addedInLine = false;
+                    List<int> innerRows = innerForward ? rows : ReverseCopy(rows);
+                    foreach (int r in innerRows)
                     {
                         var e = cell[c, r];
-                        if (e != null && e.IsTarget) result.Add(e);
+                        if (e != null && e.IsTarget)
+                        {
+                            result.Add(e);
+                            addedInLine = true;
+                        }
                     }
-                    if (zigzag)
-                    {
-                        innerDir = -innerDir;
-                        if (innerDir > 0) { innerStart = 0;        innerEnd = gy; }
-                        else              { innerStart = gy - 1;   innerEnd = -1; }
-                    }
+                    if (zigzag && addedInLine) innerForward = !innerForward;
                 }
             }
 
             return result;
+        }
+
+        private static List<int> BuildOrderedGridIndexes(IEnumerable<DieMapEntry> entries, bool xAxis, bool descending)
+        {
+            var indexes = entries
+                .Where(e => e != null)
+                .Select(e => xAxis ? e.DieMapX : e.DieMapY)
+                .Distinct();
+
+            if (descending)
+                return indexes.OrderByDescending(i => i).ToList();
+
+            return indexes.OrderBy(i => i).ToList();
+        }
+
+        private static List<int> BuildVerticalColumnOrder(List<DieMapEntry> targets, List<int> orderedRows, bool startRight)
+        {
+            if (targets == null || targets.Count == 0)
+                return new List<int>();
+
+            if (orderedRows == null || orderedRows.Count == 0)
+                return BuildOrderedGridIndexes(targets, true, startRight);
+
+            int startRow = orderedRows[0];
+            var startRowTargets = targets.Where(e => e != null && e.DieMapY == startRow).ToList();
+            if (startRowTargets.Count == 0)
+                return BuildOrderedGridIndexes(targets, true, startRight);
+
+            int startCol = startRight
+                ? startRowTargets.Max(e => e.DieMapX)
+                : startRowTargets.Min(e => e.DieMapX);
+
+            List<int> allCols = targets
+                .Where(e => e != null)
+                .Select(e => e.DieMapX)
+                .Distinct()
+                .OrderBy(i => i)
+                .ToList();
+
+            var result = new List<int>();
+            if (allCols.Contains(startCol))
+                result.Add(startCol);
+
+            int maxDistance = 0;
+            foreach (int col in allCols)
+                maxDistance = System.Math.Max(maxDistance, System.Math.Abs(col - startCol));
+
+            for (int distance = 1; distance <= maxDistance; distance++)
+            {
+                int first = startRight ? startCol - distance : startCol + distance;
+                int second = startRight ? startCol + distance : startCol - distance;
+                if (allCols.Contains(first))
+                    result.Add(first);
+                if (allCols.Contains(second))
+                    result.Add(second);
+            }
+
+            return result;
+        }
+
+        private static List<int> ReverseCopy(List<int> source)
+        {
+            var copy = new List<int>(source);
+            copy.Reverse();
+            return copy;
         }
 
         /// <summary>PickupSubset 옵션 기준으로 활성 다이에 1-base 순번을 부여한다.</summary>

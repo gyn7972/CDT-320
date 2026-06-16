@@ -414,12 +414,25 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     return;
 
                 WaferMaterial currentWafer = stage.GetCurrentStageWaferMaterial();
+                RestoreStageRuntimeFromSavedWafer(stage, currentWafer);
                 bool hasWafer = stage.HasWaferOnStage();
+                bool alignComplete = currentWafer != null
+                    ? currentWafer.HasInputStageAlignResult
+                    : (stage.PitchX != 0.0 || stage.PitchY != 0.0);
+                bool dieMapComplete = currentWafer != null
+                    ? currentWafer.HasInputStageDieMappingResult
+                    : stage.CurrentWaferMap != null;
 
                 lblStageExistValue.Text = hasWafer ? "WAFER" : "EMPTY";
-                lblStageAlignValue.Text = stage.PitchX != 0.0 || stage.PitchY != 0.0 ? "COMPLETE" : "INCOMPLETE";
+                lblStageAlignValue.Text = alignComplete ? "COMPLETE" : "INCOMPLETE";
+                lblStageAlignOffsetValue.Text = currentWafer != null && currentWafer.HasInputStageAlignResult
+                    ? FormatOffset(currentWafer.InputStageAlignOffsetX, currentWafer.InputStageAlignOffsetY)
+                    : FormatOffset(stage.WaferAlignOffsetX, stage.WaferAlignOffsetY);
                 lblStageBarcodeValue.Text = ResolveStageWaferId(stage, currentWafer);
-                lblStageChipAlignValue.Text = stage.OriginX != 0.0 || stage.OriginY != 0.0 ? "COMPLETE" : "INCOMPLETE";
+                lblStageChipAlignValue.Text = dieMapComplete ? "COMPLETE" : "INCOMPLETE";
+                lblStageChipAlignOffsetValue.Text = currentWafer != null && currentWafer.HasInputStageDieMappingResult
+                    ? FormatOffset(currentWafer.InputStageDieMappingOffsetX, currentWafer.InputStageDieMappingOffsetY)
+                    : FormatOffset(stage.DieMappingOffsetX, stage.DieMappingOffsetY);
 
                 lblVisionAxisXValue.Text = AxisUnitConverter.FormatDisplay(stage.CameraX.ActualPosition, stage.CameraX, "0.###", true);
                 lblStageAxisTValue.Text = AxisUnitConverter.FormatDisplay(stage.StageT.ActualPosition, stage.StageT, "0.###", true);
@@ -440,6 +453,53 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             finally
             {
             }
+        }
+
+        private static void RestoreStageRuntimeFromSavedWafer(QMC.CDT320.InputStageUnit stage, WaferMaterial wafer)
+        {
+            try
+            {
+                if (stage == null || wafer == null)
+                    return;
+
+                stage.SetCurrentWaferMaterial(wafer);
+                if (wafer.HasInputStageAlignResult)
+                {
+                    stage.ApplyWaferAlignResult(
+                        wafer.InputStageAlignOriginX,
+                        wafer.InputStageAlignOriginY,
+                        wafer.InputStageAlignPitchX,
+                        wafer.InputStageAlignPitchY,
+                        wafer.InputStageAlignOffsetX,
+                        wafer.InputStageAlignOffsetY);
+                }
+
+                if (wafer.HasInputStageDieMappingResult)
+                {
+                    var waferMap = MaterialStateService.BuildWaferMapDataFromWafer(wafer);
+                    var dieMap = MaterialStateService.BuildDieMapFromWafer(wafer);
+                    if (waferMap != null && dieMap != null)
+                        stage.ApplyDieMappingResult(
+                            waferMap,
+                            dieMap.OriginX,
+                            dieMap.OriginY,
+                            dieMap.PitchX,
+                            dieMap.PitchY,
+                            wafer.InputStageDieMappingOffsetX,
+                            wafer.InputStageDieMappingOffsetY);
+                }
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        private static string FormatOffset(double x, double y)
+        {
+            return "X" + x.ToString("0.###") + "/Y" + y.ToString("0.###");
         }
 
         private void RefreshMaterialDetail(bool force)
@@ -544,8 +604,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         {
             ConfigureCompactValueLabel(lblStageExistValue);
             ConfigureCompactValueLabel(lblStageAlignValue);
+            ConfigureCompactValueLabel(lblStageAlignOffsetValue);
             ConfigureCompactValueLabel(lblStageBarcodeValue);
             ConfigureCompactValueLabel(lblStageChipAlignValue);
+            ConfigureCompactValueLabel(lblStageChipAlignOffsetValue);
             ConfigureCompactValueLabel(lblStageFinishValue);
             ConfigureCompactValueLabel(lblExpendingValue);
             ConfigureCompactValueLabel(lblNeedleUpDownValue);
@@ -637,7 +699,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 Row("State", wafer != null ? WaferMaterialStateText.ToDisplayName(wafer.State) : "", "", false),
                 Row("TapeFrame Spec", specName, "", false),
                 Row("Frame Size", spec != null ? spec.OuterDiameterMm.ToString("0.###") + " mm" : "", "", false),
-                Row("Grid", spec != null ? spec.GridX + " x " + spec.GridY : "", "", false),
+                Row("Grid", spec != null ? spec.DieMapX + " x " + spec.DieMapY : "", "", false),
                 Row("Die Spec", spec != null ? spec.DieSpecName : "", "", false),
                 Row("Lot ID", wafer != null ? wafer.CassetteLotId : "", "", false),
                 Row("Source Cassette", wafer != null ? wafer.SourceCassetteRole.ToString() : "", "", false),
@@ -645,6 +707,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 Row("Source Pos", wafer != null && !double.IsNaN(wafer.SourceCassetteSlotPosition) ? wafer.SourceCassetteSlotPosition.ToString("0.###") : "", "", false),
                 Row("Current Loc", location, "", false),
                 Row("DieMap ObjId", wafer != null ? wafer.DieMapFrameObjId : "", "", false),
+                Row("Align Offset", wafer != null ? FormatOffset(wafer.InputStageAlignOffsetX, wafer.InputStageAlignOffsetY) : "", "", false),
+                Row("DieMap Offset", wafer != null ? FormatOffset(wafer.InputStageDieMappingOffsetX, wafer.InputStageDieMappingOffsetY) : "", "", false),
+                Row("Align Complete", wafer != null && wafer.HasInputStageAlignResult ? "Y" : "N", "", false),
+                Row("DieMap Complete", wafer != null && wafer.HasInputStageDieMappingResult ? "Y" : "N", "", false),
                 Row("Updated", wafer != null ? wafer.UpdatedAt.ToString("yyyy-MM-dd HH:mm:ss") : "", "", false)
             };
         }
@@ -664,6 +730,12 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 wafer.SourceSlotNumber.ToString(),
                 location,
                 wafer.DieMapFrameObjId ?? "",
+                wafer.HasInputStageAlignResult.ToString(),
+                wafer.InputStageAlignOffsetX.ToString("0.######"),
+                wafer.InputStageAlignOffsetY.ToString("0.######"),
+                wafer.HasInputStageDieMappingResult.ToString(),
+                wafer.InputStageDieMappingOffsetX.ToString("0.######"),
+                wafer.InputStageDieMappingOffsetY.ToString("0.######"),
                 wafer.UpdatedAt.Ticks.ToString());
         }
 

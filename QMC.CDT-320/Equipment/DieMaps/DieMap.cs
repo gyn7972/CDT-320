@@ -12,15 +12,15 @@ namespace QMC.CDT320.DieMaps
         [DataMember] public int       Index    { get; set; }
         /// <summary>픽업/공정 순번. 1부터 시작, 0이면 순번 미지정 또는 비대상.</summary>
         [DataMember] public int       SequenceNo { get; set; }
-        [DataMember] public int       GridX    { get; set; }
-        [DataMember] public int       GridY    { get; set; }
+        [DataMember] public int       DieMapX    { get; set; }
+        [DataMember] public int       DieMapY    { get; set; }
         /// <summary>true 면 이 위치는 처리 대상 (good die candidate).</summary>
         [DataMember] public bool      IsTarget { get; set; } = true;
         [DataMember] public DieResult Result   { get; set; } = DieResult.Unknown;
         [DataMember] public int       BinCode  { get; set; } = 0;
         /// <summary>모터 좌표 (mm).</summary>
-        [DataMember] public double    X        { get; set; }
-        [DataMember] public double    Y        { get; set; }
+        [DataMember] public double    PosX        { get; set; }
+        [DataMember] public double    PosY        { get; set; }
         /// <summary>해당 셀에 매핑된 Die.Uid (없으면 빈 문자열).</summary>
         [DataMember] public string    DieUid   { get; set; } = "";
     }
@@ -30,8 +30,8 @@ namespace QMC.CDT320.DieMaps
     public class DieMap
     {
         [DataMember] public string FrameObjId { get; set; } = "";
-        [DataMember] public int    GridX      { get; set; }
-        [DataMember] public int    GridY      { get; set; }
+        [DataMember] public int    DieMapX      { get; set; }
+        [DataMember] public int    DieMapY      { get; set; }
         [DataMember] public double PitchX     { get; set; }
         [DataMember] public double PitchY     { get; set; }
         [DataMember] public double OriginX    { get; set; }
@@ -39,13 +39,13 @@ namespace QMC.CDT320.DieMaps
         [DataMember] public List<DieMapEntry> Entries { get; set; } = new List<DieMapEntry>();
         [DataMember] public DateTime CreatedAt { get; set; } = DateTime.Now;
 
-        public int TotalCells => GridX * GridY;
+        public int TotalCells => DieMapX * DieMapY;
 
         /// <summary>(gx, gy) 셀을 가져옴 (없으면 null).</summary>
         public DieMapEntry GetCell(int gx, int gy)
         {
             foreach (var e in Entries)
-                if (e.GridX == gx && e.GridY == gy) return e;
+                if (e.DieMapX == gx && e.DieMapY == gy) return e;
             return null;
         }
 

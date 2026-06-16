@@ -27,10 +27,14 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private Label lblStageExistValue;
         private Label lblStageAlignTitle;
         private Label lblStageAlignValue;
+        private Label lblStageAlignOffsetTitle;
+        private Label lblStageAlignOffsetValue;
         private Label lblStageBarcodeTitle;
         private Label lblStageBarcodeValue;
         private Label lblStageChipAlignTitle;
         private Label lblStageChipAlignValue;
+        private Label lblStageChipAlignOffsetTitle;
+        private Label lblStageChipAlignOffsetValue;
         private Label lblStageFinishTitle;
         private Label lblStageFinishValue;
         private Label lblNeedleUsingTitle;
@@ -53,10 +57,14 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblStageExistValue = new System.Windows.Forms.Label();
             this.lblStageAlignTitle = new System.Windows.Forms.Label();
             this.lblStageAlignValue = new System.Windows.Forms.Label();
+            this.lblStageAlignOffsetTitle = new System.Windows.Forms.Label();
+            this.lblStageAlignOffsetValue = new System.Windows.Forms.Label();
             this.lblStageBarcodeTitle = new System.Windows.Forms.Label();
             this.lblStageBarcodeValue = new System.Windows.Forms.Label();
             this.lblStageChipAlignTitle = new System.Windows.Forms.Label();
             this.lblStageChipAlignValue = new System.Windows.Forms.Label();
+            this.lblStageChipAlignOffsetTitle = new System.Windows.Forms.Label();
+            this.lblStageChipAlignOffsetValue = new System.Windows.Forms.Label();
             this.lblStageFinishTitle = new System.Windows.Forms.Label();
             this.lblStageFinishValue = new System.Windows.Forms.Label();
             this.grpCounters = new System.Windows.Forms.GroupBox();
@@ -187,7 +195,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.leftLayout.Location = new System.Drawing.Point(11, 11);
             this.leftLayout.Name = "leftLayout";
             this.leftLayout.RowCount = 2;
-            this.leftLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 220F));
+            this.leftLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 280F));
             this.leftLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.leftLayout.Size = new System.Drawing.Size(987, 752);
             this.leftLayout.TabIndex = 0;
@@ -200,7 +208,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.grpState.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
             this.grpState.Location = new System.Drawing.Point(3, 3);
             this.grpState.Name = "grpState";
-            this.grpState.Size = new System.Drawing.Size(319, 214);
+            this.grpState.Size = new System.Drawing.Size(319, 274);
             this.grpState.TabIndex = 0;
             this.grpState.TabStop = false;
             this.grpState.Text = "WORK INFO";
@@ -214,24 +222,29 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.stateLayout.Controls.Add(this.lblStageExistValue, 1, 0);
             this.stateLayout.Controls.Add(this.lblStageAlignTitle, 0, 1);
             this.stateLayout.Controls.Add(this.lblStageAlignValue, 1, 1);
-            this.stateLayout.Controls.Add(this.lblStageBarcodeTitle, 0, 2);
-            this.stateLayout.Controls.Add(this.lblStageBarcodeValue, 1, 2);
-            this.stateLayout.Controls.Add(this.lblStageChipAlignTitle, 0, 3);
-            this.stateLayout.Controls.Add(this.lblStageChipAlignValue, 1, 3);
-            this.stateLayout.Controls.Add(this.lblStageFinishTitle, 0, 4);
-            this.stateLayout.Controls.Add(this.lblStageFinishValue, 1, 4);
+            this.stateLayout.Controls.Add(this.lblStageAlignOffsetTitle, 0, 2);
+            this.stateLayout.Controls.Add(this.lblStageAlignOffsetValue, 1, 2);
+            this.stateLayout.Controls.Add(this.lblStageBarcodeTitle, 0, 3);
+            this.stateLayout.Controls.Add(this.lblStageBarcodeValue, 1, 3);
+            this.stateLayout.Controls.Add(this.lblStageChipAlignTitle, 0, 4);
+            this.stateLayout.Controls.Add(this.lblStageChipAlignValue, 1, 4);
+            this.stateLayout.Controls.Add(this.lblStageChipAlignOffsetTitle, 0, 5);
+            this.stateLayout.Controls.Add(this.lblStageChipAlignOffsetValue, 1, 5);
+            this.stateLayout.Controls.Add(this.lblStageFinishTitle, 0, 6);
+            this.stateLayout.Controls.Add(this.lblStageFinishValue, 1, 6);
             this.stateLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.stateLayout.Location = new System.Drawing.Point(3, 23);
             this.stateLayout.Name = "stateLayout";
             this.stateLayout.Padding = new System.Windows.Forms.Padding(12, 18, 12, 12);
-            this.stateLayout.RowCount = 6;
+            this.stateLayout.RowCount = 7;
             this.stateLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
             this.stateLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
             this.stateLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
             this.stateLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
             this.stateLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
             this.stateLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
-            this.stateLayout.Size = new System.Drawing.Size(313, 188);
+            this.stateLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 32F));
+            this.stateLayout.Size = new System.Drawing.Size(313, 248);
             this.stateLayout.TabIndex = 0;
             // 
             // lblStageExistTitle
@@ -288,17 +301,44 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblStageAlignValue.Text = "INCOMPLETE";
             this.lblStageAlignValue.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
+            // lblStageAlignOffsetTitle
+            // 
+            this.lblStageAlignOffsetTitle.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
+            this.lblStageAlignOffsetTitle.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.lblStageAlignOffsetTitle.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblStageAlignOffsetTitle.Font = new System.Drawing.Font("맑은 고딕", 10F);
+            this.lblStageAlignOffsetTitle.Location = new System.Drawing.Point(15, 82);
+            this.lblStageAlignOffsetTitle.Name = "lblStageAlignOffsetTitle";
+            this.lblStageAlignOffsetTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
+            this.lblStageAlignOffsetTitle.Size = new System.Drawing.Size(167, 32);
+            this.lblStageAlignOffsetTitle.TabIndex = 4;
+            this.lblStageAlignOffsetTitle.Text = "ALIGN OFFSET";
+            this.lblStageAlignOffsetTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // lblStageAlignOffsetValue
+            // 
+            this.lblStageAlignOffsetValue.BackColor = System.Drawing.Color.White;
+            this.lblStageAlignOffsetValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.lblStageAlignOffsetValue.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblStageAlignOffsetValue.Font = new System.Drawing.Font("Consolas", 8.5F);
+            this.lblStageAlignOffsetValue.Location = new System.Drawing.Point(188, 82);
+            this.lblStageAlignOffsetValue.Name = "lblStageAlignOffsetValue";
+            this.lblStageAlignOffsetValue.Size = new System.Drawing.Size(110, 32);
+            this.lblStageAlignOffsetValue.TabIndex = 5;
+            this.lblStageAlignOffsetValue.Text = "X0/Y0";
+            this.lblStageAlignOffsetValue.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            // 
             // lblStageBarcodeTitle
             // 
             this.lblStageBarcodeTitle.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
             this.lblStageBarcodeTitle.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblStageBarcodeTitle.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblStageBarcodeTitle.Font = new System.Drawing.Font("맑은 고딕", 11F);
-            this.lblStageBarcodeTitle.Location = new System.Drawing.Point(15, 82);
+            this.lblStageBarcodeTitle.Location = new System.Drawing.Point(15, 114);
             this.lblStageBarcodeTitle.Name = "lblStageBarcodeTitle";
             this.lblStageBarcodeTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
             this.lblStageBarcodeTitle.Size = new System.Drawing.Size(167, 32);
-            this.lblStageBarcodeTitle.TabIndex = 4;
+            this.lblStageBarcodeTitle.TabIndex = 6;
             this.lblStageBarcodeTitle.Text = "STAGE BARCODE";
             this.lblStageBarcodeTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
@@ -308,10 +348,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblStageBarcodeValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblStageBarcodeValue.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblStageBarcodeValue.Font = new System.Drawing.Font("Consolas", 10F);
-            this.lblStageBarcodeValue.Location = new System.Drawing.Point(188, 82);
+            this.lblStageBarcodeValue.Location = new System.Drawing.Point(188, 114);
             this.lblStageBarcodeValue.Name = "lblStageBarcodeValue";
             this.lblStageBarcodeValue.Size = new System.Drawing.Size(110, 32);
-            this.lblStageBarcodeValue.TabIndex = 5;
+            this.lblStageBarcodeValue.TabIndex = 7;
             this.lblStageBarcodeValue.Text = "INCOMPLETE";
             this.lblStageBarcodeValue.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
@@ -321,11 +361,11 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblStageChipAlignTitle.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblStageChipAlignTitle.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblStageChipAlignTitle.Font = new System.Drawing.Font("맑은 고딕", 11F);
-            this.lblStageChipAlignTitle.Location = new System.Drawing.Point(15, 114);
+            this.lblStageChipAlignTitle.Location = new System.Drawing.Point(15, 146);
             this.lblStageChipAlignTitle.Name = "lblStageChipAlignTitle";
             this.lblStageChipAlignTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
             this.lblStageChipAlignTitle.Size = new System.Drawing.Size(167, 32);
-            this.lblStageChipAlignTitle.TabIndex = 6;
+            this.lblStageChipAlignTitle.TabIndex = 8;
             this.lblStageChipAlignTitle.Text = "STAGE CHIP ALIGN";
             this.lblStageChipAlignTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
@@ -335,12 +375,39 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblStageChipAlignValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblStageChipAlignValue.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblStageChipAlignValue.Font = new System.Drawing.Font("Consolas", 10F);
-            this.lblStageChipAlignValue.Location = new System.Drawing.Point(188, 114);
+            this.lblStageChipAlignValue.Location = new System.Drawing.Point(188, 146);
             this.lblStageChipAlignValue.Name = "lblStageChipAlignValue";
             this.lblStageChipAlignValue.Size = new System.Drawing.Size(110, 32);
-            this.lblStageChipAlignValue.TabIndex = 7;
+            this.lblStageChipAlignValue.TabIndex = 9;
             this.lblStageChipAlignValue.Text = "INCOMPLETE";
             this.lblStageChipAlignValue.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            // 
+            // lblStageChipAlignOffsetTitle
+            // 
+            this.lblStageChipAlignOffsetTitle.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(208)))), ((int)(((byte)(208)))), ((int)(((byte)(208)))));
+            this.lblStageChipAlignOffsetTitle.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.lblStageChipAlignOffsetTitle.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblStageChipAlignOffsetTitle.Font = new System.Drawing.Font("맑은 고딕", 10F);
+            this.lblStageChipAlignOffsetTitle.Location = new System.Drawing.Point(15, 178);
+            this.lblStageChipAlignOffsetTitle.Name = "lblStageChipAlignOffsetTitle";
+            this.lblStageChipAlignOffsetTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
+            this.lblStageChipAlignOffsetTitle.Size = new System.Drawing.Size(167, 32);
+            this.lblStageChipAlignOffsetTitle.TabIndex = 10;
+            this.lblStageChipAlignOffsetTitle.Text = "DIE MAP OFFSET";
+            this.lblStageChipAlignOffsetTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // lblStageChipAlignOffsetValue
+            // 
+            this.lblStageChipAlignOffsetValue.BackColor = System.Drawing.Color.White;
+            this.lblStageChipAlignOffsetValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.lblStageChipAlignOffsetValue.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblStageChipAlignOffsetValue.Font = new System.Drawing.Font("Consolas", 8.5F);
+            this.lblStageChipAlignOffsetValue.Location = new System.Drawing.Point(188, 178);
+            this.lblStageChipAlignOffsetValue.Name = "lblStageChipAlignOffsetValue";
+            this.lblStageChipAlignOffsetValue.Size = new System.Drawing.Size(110, 32);
+            this.lblStageChipAlignOffsetValue.TabIndex = 11;
+            this.lblStageChipAlignOffsetValue.Text = "X0/Y0";
+            this.lblStageChipAlignOffsetValue.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
             // lblStageFinishTitle
             // 
@@ -348,11 +415,11 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblStageFinishTitle.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblStageFinishTitle.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblStageFinishTitle.Font = new System.Drawing.Font("맑은 고딕", 11F);
-            this.lblStageFinishTitle.Location = new System.Drawing.Point(15, 146);
+            this.lblStageFinishTitle.Location = new System.Drawing.Point(15, 210);
             this.lblStageFinishTitle.Name = "lblStageFinishTitle";
             this.lblStageFinishTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
             this.lblStageFinishTitle.Size = new System.Drawing.Size(167, 32);
-            this.lblStageFinishTitle.TabIndex = 8;
+            this.lblStageFinishTitle.TabIndex = 12;
             this.lblStageFinishTitle.Text = "STAGE FINISH";
             this.lblStageFinishTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
@@ -362,10 +429,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblStageFinishValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblStageFinishValue.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblStageFinishValue.Font = new System.Drawing.Font("Consolas", 10F);
-            this.lblStageFinishValue.Location = new System.Drawing.Point(188, 146);
+            this.lblStageFinishValue.Location = new System.Drawing.Point(188, 210);
             this.lblStageFinishValue.Name = "lblStageFinishValue";
             this.lblStageFinishValue.Size = new System.Drawing.Size(110, 32);
-            this.lblStageFinishValue.TabIndex = 9;
+            this.lblStageFinishValue.TabIndex = 13;
             this.lblStageFinishValue.Text = "INCOMPLETE";
             this.lblStageFinishValue.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 

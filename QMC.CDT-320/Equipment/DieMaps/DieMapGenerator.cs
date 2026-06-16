@@ -45,8 +45,8 @@ namespace QMC.CDT320.DieMaps
             var map = new DieMap
             {
                 FrameObjId = frameObjId,
-                GridX  = gx,
-                GridY  = gy,
+                DieMapX  = gx,
+                DieMapY  = gy,
                 PitchX = pitchX,
                 PitchY = pitchY,
                 OriginX = originX,
@@ -68,13 +68,13 @@ namespace QMC.CDT320.DieMaps
                     map.Entries.Add(new DieMapEntry
                     {
                         Index    = idx++,
-                        GridX    = x,
-                        GridY    = y,
+                        DieMapX    = x,
+                        DieMapY    = y,
                         IsTarget = isTarget,
                         Result   = DieResult.Unknown,
                         BinCode  = 0,
-                        X        = cx,
-                        Y        = cy
+                        PosX        = cx,
+                        PosY        = cy
                     });
                 }
             }
@@ -84,23 +84,23 @@ namespace QMC.CDT320.DieMaps
         /// <summary>
         /// 사각 트레이 다이맵 생성 (Output BIN 용). 원 판정 없이 모든 셀 활성.
         /// </summary>
-        public static DieMap GenerateRect(int gridX, int gridY,
+        public static DieMap GenerateRect(int dieMapX, int dieMapY,
                                           double dieSizeXMm, double dieSizeYMm,
                                           double gapXMm, double gapYMm,
                                           string frameObjId = "RECT")
         {
             double pitchX = dieSizeXMm + gapXMm;
             double pitchY = dieSizeYMm + gapYMm;
-            if (gridX < 1) gridX = 1;
-            if (gridY < 1) gridY = 1;
-            double originX = -gridX * pitchX / 2.0;
-            double originY = -gridY * pitchY / 2.0;
+            if (dieMapX < 1) dieMapX = 1;
+            if (dieMapY < 1) dieMapY = 1;
+            double originX = -dieMapX * pitchX / 2.0;
+            double originY = -dieMapY * pitchY / 2.0;
 
             var map = new DieMap
             {
                 FrameObjId = frameObjId,
-                GridX  = gridX,
-                GridY  = gridY,
+                DieMapX  = dieMapX,
+                DieMapY  = dieMapY,
                 PitchX = pitchX,
                 PitchY = pitchY,
                 OriginX = originX,
@@ -108,22 +108,22 @@ namespace QMC.CDT320.DieMaps
             };
 
             int idx = 0;
-            for (int y = 0; y < gridY; y++)
+            for (int y = 0; y < dieMapY; y++)
             {
-                for (int x = 0; x < gridX; x++)
+                for (int x = 0; x < dieMapX; x++)
                 {
                     double cx = originX + (x + 0.5) * pitchX;
                     double cy = originY + (y + 0.5) * pitchY;
                     map.Entries.Add(new DieMapEntry
                     {
                         Index    = idx++,
-                        GridX    = x,
-                        GridY    = y,
+                        DieMapX    = x,
+                        DieMapY    = y,
                         IsTarget = true,
                         Result   = DieResult.Unknown,
                         BinCode  = 0,
-                        X        = cx,
-                        Y        = cy
+                        PosX        = cx,
+                        PosY        = cy
                     });
                 }
             }
@@ -138,14 +138,14 @@ namespace QMC.CDT320.DieMaps
         public static DieMap Generate(DieTapeFrame frame)
         {
             if (frame == null) throw new ArgumentNullException(nameof(frame));
-            int gx = Math.Max(1, frame.GridX);
-            int gy = Math.Max(1, frame.GridY);
+            int gx = Math.Max(1, frame.DieMapX);
+            int gy = Math.Max(1, frame.DieMapY);
 
             var map = new DieMap
             {
                 FrameObjId = frame.ObjId,
-                GridX  = gx,
-                GridY  = gy,
+                DieMapX  = gx,
+                DieMapY  = gy,
                 PitchX = frame.PitchX,
                 PitchY = frame.PitchY,
                 OriginX= frame.OriginX,
@@ -162,13 +162,13 @@ namespace QMC.CDT320.DieMaps
                     map.Entries.Add(new DieMapEntry
                     {
                         Index    = idx++,
-                        GridX    = x,
-                        GridY    = y,
+                        DieMapX    = x,
+                        DieMapY    = y,
                         IsTarget = true,
                         Result   = DieResult.Unknown,
                         BinCode  = 0,
-                        X        = frame.OriginX + mx,
-                        Y        = frame.OriginY + my
+                        PosX        = frame.OriginX + mx,
+                        PosY        = frame.OriginY + my
                     });
                 }
             return map;
@@ -222,12 +222,12 @@ namespace QMC.CDT320.DieMaps
             if (map.CreatedAt == default(DateTime))
                 map.CreatedAt = DateTime.Now;
 
-            if ((map.GridX <= 0 || map.GridY <= 0) && map.Entries.Count > 0)
+            if ((map.DieMapX <= 0 || map.DieMapY <= 0) && map.Entries.Count > 0)
             {
-                int maxX = map.Entries.Where(e => e != null).Select(e => e.GridX).DefaultIfEmpty(0).Max();
-                int maxY = map.Entries.Where(e => e != null).Select(e => e.GridY).DefaultIfEmpty(0).Max();
-                if (map.GridX <= 0) map.GridX = Math.Max(1, maxX + 1);
-                if (map.GridY <= 0) map.GridY = Math.Max(1, maxY + 1);
+                int maxX = map.Entries.Where(e => e != null).Select(e => e.DieMapX).DefaultIfEmpty(0).Max();
+                int maxY = map.Entries.Where(e => e != null).Select(e => e.DieMapY).DefaultIfEmpty(0).Max();
+                if (map.DieMapX <= 0) map.DieMapX = Math.Max(1, maxX + 1);
+                if (map.DieMapY <= 0) map.DieMapY = Math.Max(1, maxY + 1);
             }
 
             var usedDieIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -238,8 +238,8 @@ namespace QMC.CDT320.DieMaps
                     continue;
 
                 entry.Index = i;
-                if (entry.GridX < 0) entry.GridX = 0;
-                if (entry.GridY < 0) entry.GridY = 0;
+                if (entry.DieMapX < 0) entry.DieMapX = 0;
+                if (entry.DieMapY < 0) entry.DieMapY = 0;
 
                 if (string.IsNullOrWhiteSpace(entry.DieUid))
                     entry.DieUid = BuildDefaultDieUid(map, entry);
@@ -268,8 +268,8 @@ namespace QMC.CDT320.DieMaps
         private static string BuildDefaultDieUid(DieMap map, DieMapEntry entry)
         {
             string frameId = SanitizeId(map != null ? map.FrameObjId : "DIEMAP");
-            int row = entry != null ? entry.GridY : 0;
-            int col = entry != null ? entry.GridX : 0;
+            int row = entry != null ? entry.DieMapY : 0;
+            int col = entry != null ? entry.DieMapX : 0;
             return frameId + "-D" + row.ToString("000", CultureInfo.InvariantCulture) + "-" + col.ToString("000", CultureInfo.InvariantCulture);
         }
 
@@ -294,22 +294,22 @@ namespace QMC.CDT320.DieMaps
                 using (var sw = new StreamWriter(path, false, new UTF8Encoding(false)))
                 {
                     sw.WriteLine("FrameObjId," + map.FrameObjId);
-                    sw.WriteLine($"GridX,{map.GridX}");
-                    sw.WriteLine($"GridY,{map.GridY}");
+                    sw.WriteLine($"DieMapX,{map.DieMapX}");
+                    sw.WriteLine($"DieMapY,{map.DieMapY}");
                     sw.WriteLine($"PitchX,{map.PitchX.ToString(CultureInfo.InvariantCulture)}");
                     sw.WriteLine($"PitchY,{map.PitchY.ToString(CultureInfo.InvariantCulture)}");
                     sw.WriteLine($"OriginX,{map.OriginX.ToString(CultureInfo.InvariantCulture)}");
                     sw.WriteLine($"OriginY,{map.OriginY.ToString(CultureInfo.InvariantCulture)}");
                     sw.WriteLine($"CreatedAt,{map.CreatedAt:yyyy-MM-dd HH:mm:ss}");
                     sw.WriteLine();
-                    sw.WriteLine("Index,SequenceNo,GridX,GridY,IsTarget,Result,BinCode,X,Y,DieUid");
+                    sw.WriteLine("Index,SequenceNo,DieMapX,DieMapY,IsTarget,Result,BinCode,X,Y,DieUid");
                     foreach (var e in map.Entries)
                     {
                         sw.WriteLine(string.Join(",",
-                            e.Index, e.SequenceNo, e.GridX, e.GridY, e.IsTarget, e.Result,
+                            e.Index, e.SequenceNo, e.DieMapX, e.DieMapY, e.IsTarget, e.Result,
                             e.BinCode,
-                            e.X.ToString(CultureInfo.InvariantCulture),
-                            e.Y.ToString(CultureInfo.InvariantCulture),
+                            e.PosX.ToString(CultureInfo.InvariantCulture),
+                            e.PosY.ToString(CultureInfo.InvariantCulture),
                             e.DieUid));
                     }
                 }
@@ -350,7 +350,7 @@ namespace QMC.CDT320.DieMaps
 
         /// <summary>
         /// CSV 임포트 (Stage 22) — SaveCsv 가 만든 형식 또는 표준 SECS map CSV 둘 다 지원.
-        /// 표준 형식: header section (key,value) + 빈 줄 + entries (Index,SequenceNo,GridX,GridY,IsTarget,Result,BinCode,X,Y,DieUid).
+        /// 표준 형식: header section (key,value) + 빈 줄 + entries (Index,SequenceNo,DieMapX,DieMapY,IsTarget,Result,BinCode,X,Y,DieUid).
         /// </summary>
         public static DieMap LoadCsv(string path)
         {
@@ -369,8 +369,8 @@ namespace QMC.CDT320.DieMaps
                     if (parts.Length < 2) continue;
                     string k = parts[0].Trim(), v = parts[1].Trim();
                     if (k.Equals("FrameObjId",  StringComparison.OrdinalIgnoreCase)) map.FrameObjId = v;
-                    else if (k.Equals("GridX",  StringComparison.OrdinalIgnoreCase)) map.GridX   = int.Parse(v, CultureInfo.InvariantCulture);
-                    else if (k.Equals("GridY",  StringComparison.OrdinalIgnoreCase)) map.GridY   = int.Parse(v, CultureInfo.InvariantCulture);
+                    else if (k.Equals("DieMapX",  StringComparison.OrdinalIgnoreCase)) map.DieMapX   = int.Parse(v, CultureInfo.InvariantCulture);
+                    else if (k.Equals("DieMapY",  StringComparison.OrdinalIgnoreCase)) map.DieMapY   = int.Parse(v, CultureInfo.InvariantCulture);
                     else if (k.Equals("PitchX", StringComparison.OrdinalIgnoreCase)) map.PitchX  = double.Parse(v, CultureInfo.InvariantCulture);
                     else if (k.Equals("PitchY", StringComparison.OrdinalIgnoreCase)) map.PitchY  = double.Parse(v, CultureInfo.InvariantCulture);
                     else if (k.Equals("OriginX",StringComparison.OrdinalIgnoreCase)) map.OriginX = double.Parse(v, CultureInfo.InvariantCulture);
@@ -406,13 +406,13 @@ namespace QMC.CDT320.DieMaps
                     {
                         Index    = int.TryParse(p[0], out var idx) ? idx : 0,
                         SequenceNo = sequenceNo,
-                        GridX    = int.TryParse(p[1 + offset], out var gx) ? gx : 0,
-                        GridY    = int.TryParse(p[2 + offset], out var gy) ? gy : 0,
+                        DieMapX    = int.TryParse(p[1 + offset], out var gx) ? gx : 0,
+                        DieMapY    = int.TryParse(p[2 + offset], out var gy) ? gy : 0,
                         IsTarget = bool.TryParse(p[3 + offset], out var isT) ? isT : true,
                         Result   = Enum.TryParse<QMC.CDT320.Materials.DieResult>(p[4 + offset], out var rr) ? rr : QMC.CDT320.Materials.DieResult.Unknown,
                         BinCode  = int.TryParse(p[5 + offset], out var bc) ? bc : 0,
-                        X        = double.TryParse(p[6 + offset], NumberStyles.Any, CultureInfo.InvariantCulture, out var x) ? x : 0,
-                        Y        = double.TryParse(p[7 + offset], NumberStyles.Any, CultureInfo.InvariantCulture, out var y) ? y : 0,
+                        PosX        = double.TryParse(p[6 + offset], NumberStyles.Any, CultureInfo.InvariantCulture, out var x) ? x : 0,
+                        PosY        = double.TryParse(p[7 + offset], NumberStyles.Any, CultureInfo.InvariantCulture, out var y) ? y : 0,
                         DieUid   = p.Length >= 9 + offset ? p[8 + offset] : ""
                     };
                     map.Entries.Add(entry);

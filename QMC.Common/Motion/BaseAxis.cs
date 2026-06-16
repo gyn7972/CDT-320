@@ -326,6 +326,20 @@ namespace QMC.Common.Motion
                 if (!IsServoOn || IsAlarm)
                     return FailAxisNotReady("ABS MOVE", targetPos, true);
 
+                double tolerance = Config != null && Config.InPositionTolerance > 0.0
+                    ? Config.InPositionTolerance
+                    : 0.01;
+                if (!IsMoving && Math.Abs(ActualPosition - targetPos) <= tolerance)
+                {
+                    ClearMotionFailure();
+                    CommandPosition = targetPos;
+                    CurrentVelocity = 0.0;
+                    IsMoving = false;
+                    IsInPosition = true;
+                    _currentMode = MotionMode.None;
+                    return 0;
+                }
+
                 if (!VerifyMotionGuard(targetPos, AxisMotionGuardKind.Absolute))
                     return -11;
 

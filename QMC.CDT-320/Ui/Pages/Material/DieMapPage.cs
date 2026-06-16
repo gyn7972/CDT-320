@@ -46,8 +46,8 @@ namespace QMC.CDT_320.Ui.Pages.Material
             return new DieTapeFrame
             {
                 ObjId = "DEMO",
-                GridX = (int)_nGridX.Value,
-                GridY = (int)_nGridY.Value,
+                DieMapX = (int)_nGridX.Value,
+                DieMapY = (int)_nGridY.Value,
                 PitchX = (double)_nPitchX.Value,
                 PitchY = (double)_nPitchY.Value,
                 OriginX = (double)_nOriginX.Value,
@@ -138,8 +138,8 @@ namespace QMC.CDT_320.Ui.Pages.Material
             var map = new DieMap
             {
                 FrameObjId = waferMap.WaferId ?? "",
-                GridX = cols,
-                GridY = rows,
+                DieMapX = cols,
+                DieMapY = rows,
                 PitchX = pitchX,
                 PitchY = pitchY,
                 OriginX = originX,
@@ -156,13 +156,13 @@ namespace QMC.CDT_320.Ui.Pages.Material
                     map.Entries.Add(new DieMapEntry
                     {
                         Index = index,
-                        GridX = col,
-                        GridY = row,
+                        DieMapX = col,
+                        DieMapY = row,
                         IsTarget = target,
                         Result = target ? DieResult.Unknown : DieResult.NG,
                         BinCode = target ? 0 : 255,
-                        X = originX + col * pitchX,
-                        Y = originY + row * pitchY,
+                        PosX = originX + col * pitchX,
+                        PosY = originY + row * pitchY,
                         DieUid = BuildDisplayDieId(waferMap.WaferId, row, col)
                     });
                     index++;
@@ -187,8 +187,8 @@ namespace QMC.CDT_320.Ui.Pages.Material
             if (map == null)
                 return;
 
-            _nGridX.Value = (decimal)Clamp(map.GridX, (double)_nGridX.Minimum, (double)_nGridX.Maximum);
-            _nGridY.Value = (decimal)Clamp(map.GridY, (double)_nGridY.Minimum, (double)_nGridY.Maximum);
+            _nGridX.Value = (decimal)Clamp(map.DieMapX, (double)_nGridX.Minimum, (double)_nGridX.Maximum);
+            _nGridY.Value = (decimal)Clamp(map.DieMapY, (double)_nGridY.Minimum, (double)_nGridY.Maximum);
             _nPitchX.Value = (decimal)Clamp(map.PitchX, (double)_nPitchX.Minimum, (double)_nPitchX.Maximum);
             _nPitchY.Value = (decimal)Clamp(map.PitchY, (double)_nPitchY.Minimum, (double)_nPitchY.Maximum);
             _nOriginX.Value = (decimal)Clamp(map.OriginX, (double)_nOriginX.Minimum, (double)_nOriginX.Maximum);
@@ -210,13 +210,13 @@ namespace QMC.CDT_320.Ui.Pages.Material
 
                     _gridEntries.Rows.Add(
                         entry.Index,
-                        entry.GridX,
-                        entry.GridY,
+                        entry.DieMapX,
+                        entry.DieMapY,
                         entry.IsTarget ? "Y" : "N",
                         entry.Result,
                         entry.BinCode,
-                        entry.X.ToString("F4"),
-                        entry.Y.ToString("F4"),
+                        entry.PosX.ToString("F4"),
+                        entry.PosY.ToString("F4"),
                         entry.DieUid ?? "");
                 }
             }
@@ -289,7 +289,7 @@ namespace QMC.CDT_320.Ui.Pages.Material
 
         private void OnCellClick(DieMapEntry e)
         {
-            _lblCellInfo.Text = $"[{e.GridX},{e.GridY}]  pos=({e.X:F2},{e.Y:F2})mm  result={e.Result}  bin={e.BinCode}  uid={e.DieUid}";
+            _lblCellInfo.Text = $"[{e.DieMapX},{e.DieMapY}]  pos=({e.PosX:F2},{e.PosY:F2})mm  result={e.Result}  bin={e.BinCode}  uid={e.DieUid}";
             SelectEntryRow(e);
         }
 

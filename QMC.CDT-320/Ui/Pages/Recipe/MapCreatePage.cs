@@ -100,8 +100,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
                 _tbFrameSpecName.Text = frame.FrameSpecName ?? "";
                 _currentFrameSpecName = MaterialSpecs.FindFrame(frame.FrameSpecName) != null ? frame.FrameSpecName : "";
-                _nGridX.Value = ClampDecimal(frame.GridX, _nGridX.Minimum, _nGridX.Maximum);
-                _nGridY.Value = ClampDecimal(frame.GridY, _nGridY.Minimum, _nGridY.Maximum);
+                _nGridX.Value = ClampDecimal(frame.DieMapX, _nGridX.Minimum, _nGridX.Maximum);
+                _nGridY.Value = ClampDecimal(frame.DieMapY, _nGridY.Minimum, _nGridY.Maximum);
                 _nPitchX.Value = ClampDecimal(frame.PitchX, _nPitchX.Minimum, _nPitchX.Maximum);
                 _nPitchY.Value = ClampDecimal(frame.PitchY, _nPitchY.Minimum, _nPitchY.Maximum);
                 _nDiameter.Value = ClampDecimal(frame.OuterDiameterMm, _nDiameter.Minimum, _nDiameter.Maximum);
@@ -126,8 +126,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     _project.Frame = new TapeFrameSubset();
 
                 _project.Frame.FrameSpecName = string.IsNullOrWhiteSpace(_tbFrameSpecName.Text) ? "RecipeFrame" : _tbFrameSpecName.Text.Trim();
-                _project.Frame.GridX = (int)_nGridX.Value;
-                _project.Frame.GridY = (int)_nGridY.Value;
+                _project.Frame.DieMapX = (int)_nGridX.Value;
+                _project.Frame.DieMapY = (int)_nGridY.Value;
                 _project.Frame.PitchX = (double)_nPitchX.Value;
                 _project.Frame.PitchY = (double)_nPitchY.Value;
                 _project.Frame.OuterDiameterMm = (double)_nDiameter.Value;
@@ -248,8 +248,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         {
             TapeFrameSubset frame = BuildFrameFromControls();
 
-            int gridX = Math.Max(1, frame.GridX);
-            int gridY = Math.Max(1, frame.GridY);
+            int gridX = Math.Max(1, frame.DieMapX);
+            int gridY = Math.Max(1, frame.DieMapY);
             double pitchX = frame.PitchX > 0.0 ? frame.PitchX : 1.0;
             double pitchY = frame.PitchY > 0.0 ? frame.PitchY : 1.0;
             double originX = -((gridX - 1) * pitchX) / 2.0;
@@ -261,8 +261,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             var map = new DieMap
             {
                 FrameObjId = BuildRecipeMapId(project, outputMap),
-                GridX = gridX,
-                GridY = gridY,
+                DieMapX = gridX,
+                DieMapY = gridY,
                 PitchX = pitchX,
                 PitchY = pitchY,
                 OriginX = originX,
@@ -292,13 +292,13 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     map.Entries.Add(new DieMapEntry
                     {
                         Index = index++,
-                        GridX = col,
-                        GridY = row,
+                        DieMapX = col,
+                        DieMapY = row,
                         IsTarget = target,
                         Result = target ? DieResult.Unknown : DieResult.NG,
                         BinCode = target ? 0 : 255,
-                        X = x,
-                        Y = y,
+                        PosX = x,
+                        PosY = y,
                         DieUid = BuildDieId(project, row, col)
                     });
                 }
@@ -365,8 +365,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             TapeFrameSubset frame = BuildFrameFromControls();
 
             var map = DieMapGenerator.GenerateRect(
-                Math.Max(1, frame.GridX),
-                Math.Max(1, frame.GridY),
+                Math.Max(1, frame.DieMapX),
+                Math.Max(1, frame.DieMapY),
                 frame.PitchX > 0.0 ? frame.PitchX : 1.0,
                 frame.PitchY > 0.0 ? frame.PitchY : 1.0,
                 0.0,
@@ -377,7 +377,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             {
                 if (entry == null)
                     continue;
-                entry.DieUid = BuildDieId(project, entry.GridY, entry.GridX);
+                entry.DieUid = BuildDieId(project, entry.DieMapY, entry.DieMapX);
             }
 
             return ApplyPickupSequence(map, true);
@@ -404,6 +404,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private void ApplyMap(DieMap map, string caption)
         {
             _map = DieMapGenerator.Normalize(map);
+            ApplyPickupSequence(_map, _isOutputMap);
             ApplyMapToControls(_map);
             _mapView.Caption = caption ?? "Recipe Die Map";
             _mapView.Map = _map;
@@ -415,8 +416,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             return new TapeFrameSubset
             {
                 FrameSpecName = string.IsNullOrWhiteSpace(_tbFrameSpecName.Text) ? "RecipeFrame" : _tbFrameSpecName.Text.Trim(),
-                GridX = Math.Max(1, (int)_nGridX.Value),
-                GridY = Math.Max(1, (int)_nGridY.Value),
+                DieMapX = Math.Max(1, (int)_nGridX.Value),
+                DieMapY = Math.Max(1, (int)_nGridY.Value),
                 PitchX = (double)_nPitchX.Value > 0.0 ? (double)_nPitchX.Value : 1.0,
                 PitchY = (double)_nPitchY.Value > 0.0 ? (double)_nPitchY.Value : 1.0,
                 OuterDiameterMm = (double)_nDiameter.Value > 0.0 ? (double)_nDiameter.Value : 0.0,
@@ -430,8 +431,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             if (map == null)
                 return;
 
-            _nGridX.Value = ClampDecimal(map.GridX, _nGridX.Minimum, _nGridX.Maximum);
-            _nGridY.Value = ClampDecimal(map.GridY, _nGridY.Minimum, _nGridY.Maximum);
+            _nGridX.Value = ClampDecimal(map.DieMapX, _nGridX.Minimum, _nGridX.Maximum);
+            _nGridY.Value = ClampDecimal(map.DieMapY, _nGridY.Minimum, _nGridY.Maximum);
             _nPitchX.Value = ClampDecimal(map.PitchX, _nPitchX.Minimum, _nPitchX.Maximum);
             _nPitchY.Value = ClampDecimal(map.PitchY, _nPitchY.Minimum, _nPitchY.Maximum);
         }
@@ -772,8 +773,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
             _tbFrameSpecName.Text = spec.Name ?? "";
             _currentFrameSpecName = spec.Name ?? "";
-            _nGridX.Value = ClampDecimal(spec.GridX, _nGridX.Minimum, _nGridX.Maximum);
-            _nGridY.Value = ClampDecimal(spec.GridY, _nGridY.Minimum, _nGridY.Maximum);
+            _nGridX.Value = ClampDecimal(spec.DieMapX, _nGridX.Minimum, _nGridX.Maximum);
+            _nGridY.Value = ClampDecimal(spec.DieMapY, _nGridY.Minimum, _nGridY.Maximum);
             _nPitchX.Value = ClampDecimal(spec.PitchX, _nPitchX.Minimum, _nPitchX.Maximum);
             _nPitchY.Value = ClampDecimal(spec.PitchY, _nPitchY.Minimum, _nPitchY.Maximum);
             _nDiameter.Value = ClampDecimal(spec.OuterDiameterMm, _nDiameter.Minimum, _nDiameter.Maximum);
@@ -1153,8 +1154,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
 
             target.Name = newName;
-            target.GridX = (int)_nGridX.Value;
-            target.GridY = (int)_nGridY.Value;
+            target.DieMapX = (int)_nGridX.Value;
+            target.DieMapY = (int)_nGridY.Value;
             target.PitchX = (double)_nPitchX.Value;
             target.PitchY = (double)_nPitchY.Value;
             target.OuterDiameterMm = (double)_nDiameter.Value;
@@ -1163,8 +1164,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             if (_project.Frame == null)
                 _project.Frame = new TapeFrameSubset();
             _project.Frame.FrameSpecName = newName;
-            _project.Frame.GridX = target.GridX;
-            _project.Frame.GridY = target.GridY;
+            _project.Frame.DieMapX = target.DieMapX;
+            _project.Frame.DieMapY = target.DieMapY;
             _project.Frame.PitchX = target.PitchX;
             _project.Frame.PitchY = target.PitchY;
             _project.Frame.OuterDiameterMm = target.OuterDiameterMm;
