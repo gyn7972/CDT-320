@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Runtime.Serialization;
 
@@ -273,9 +273,12 @@ namespace QMC.CDT320.Materials
         [DataMember] public double InputStageAlignPitchY { get; set; }
         [DataMember] public double InputStageAlignOffsetX { get; set; }
         [DataMember] public double InputStageAlignOffsetY { get; set; }
+        [DataMember] public bool HasInputStageDieMappingResult { get; set; }
+        [DataMember] public double InputStageDieMappingOffsetX { get; set; }
+        [DataMember] public double InputStageDieMappingOffsetY { get; set; }
         [DataMember] public string OutputReceiveSourceWaferId { get; set; } = "";
-        [DataMember] public int OutputReceiveGridX { get; set; }
-        [DataMember] public int OutputReceiveGridY { get; set; }
+        [DataMember] public int OutputReceiveDieMapX { get; set; }
+        [DataMember] public int OutputReceiveDieMapY { get; set; }
         [DataMember] public double OutputReceivePitchX { get; set; }
         [DataMember] public double OutputReceivePitchY { get; set; }
         [DataMember] public double OutputReceiveOriginX { get; set; }
@@ -304,9 +307,11 @@ namespace QMC.CDT320.Materials
         [DataMember] public string WaferID_Input { get; set; } = "";
         [DataMember] public string WaferID_Output { get; set; } = "";
         [DataMember] public int Input_BinCode { get; set; }
+        [DataMember] public bool IsInputTarget { get; set; } = true;
         [DataMember] public int Output_BinCode { get; set; }
         [DataMember] public int Wafer_IndexX { get; set; } = -1;
         [DataMember] public int Wafer_IndexY { get; set; } = -1;
+        [DataMember] public int InputSequenceNo { get; set; }
         [DataMember] public int Bin_IndexX { get; set; } = -1;
         [DataMember] public int Bin_IndexY { get; set; } = -1;
         [DataMember] public MaterialLocation CurrentLocation { get; set; } = MaterialLocation.Unknown();
@@ -327,8 +332,8 @@ namespace QMC.CDT320.Materials
         public string OutputWaferId { get; set; } = "";
         public string SourceWaferId { get; set; } = "";
         public int OrderIndex { get; set; }
-        public int GridX { get; set; }
-        public int GridY { get; set; }
+        public int DieMapX { get; set; }
+        public int DieMapY { get; set; }
         public double OffsetX { get; set; }
         public double OffsetY { get; set; }
         public double TargetX { get; set; }
@@ -340,8 +345,8 @@ namespace QMC.CDT320.Materials
         public string WaferId { get; set; } = "";
         public string DieId { get; set; } = "";
         public int OrderIndex { get; set; }
-        public int GridX { get; set; }
-        public int GridY { get; set; }
+        public int DieMapX { get; set; }
+        public int DieMapY { get; set; }
         public double OffsetX { get; set; }
         public double OffsetY { get; set; }
         public double TargetX { get; set; }

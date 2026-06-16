@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows.Forms;
@@ -244,8 +244,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
             var clone = new DieMap
             {
                 FrameObjId = source.FrameObjId,
-                GridX = source.GridX,
-                GridY = source.GridY,
+                DieMapX = source.DieMapX,
+                DieMapY = source.DieMapY,
                 PitchX = source.PitchX,
                 PitchY = source.PitchY,
                 OriginX = source.OriginX,
@@ -261,13 +261,13 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 {
                     Index = entry.Index,
                     SequenceNo = entry.SequenceNo,
-                    GridX = entry.GridX,
-                    GridY = entry.GridY,
+                    DieMapX = entry.DieMapX,
+                    DieMapY = entry.DieMapY,
                     IsTarget = entry.IsTarget,
                     Result = entry.Result,
                     BinCode = entry.BinCode,
-                    X = entry.X,
-                    Y = entry.Y,
+                    PosX = entry.PosX,
+                    PosY = entry.PosY,
                     DieUid = entry.DieUid
                 });
             }
@@ -292,7 +292,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
 
             return map != null && map.Entries != null
-                ? map.Entries.Where(e => e != null && e.IsTarget).OrderBy(e => e.GridY).ThenBy(e => e.GridX).ToList()
+                ? map.Entries.Where(e => e != null && e.IsTarget).OrderBy(e => e.DieMapY).ThenBy(e => e.DieMapX).ToList()
                 : new List<DieMapEntry>();
         }
 
@@ -310,8 +310,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 lblProjectValue.Text = GetCurrentProjectName();
                 lblBarcodeValue.Text = sourceWafer != null ? sourceWafer.WaferId : "-";
                 lblBinValue.Text = sideText;
-                lblChipW.Text = map != null ? map.GridX.ToString() : "0";
-                lblChipH.Text = map != null ? map.GridY.ToString() : "0";
+                lblChipW.Text = map != null ? map.DieMapX.ToString() : "0";
+                lblChipH.Text = map != null ? map.DieMapY.ToString() : "0";
                 lblPitchX.Text = outputWafer != null ? outputWafer.OutputReceivePitchX.ToString("F3") : "0";
                 lblPitchY.Text = outputWafer != null ? outputWafer.OutputReceivePitchY.ToString("F3") : "0";
                 lblWaferDia.Text = BuildProgressText(outputWafer, map);
@@ -381,7 +381,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 return "COMPLETE";
 
             DieMapEntry next = ordered[index];
-            return string.Format("[{0},{1}] / {2}", next.GridX, next.GridY, ordered.Count);
+            return string.Format("[{0},{1}] / {2}", next.DieMapX, next.DieMapY, ordered.Count);
         }
 
         private void RefreshDieGrid()
@@ -405,13 +405,13 @@ namespace QMC.CDT_320.Ui.Pages.Work
                         : (entry.IsTarget ? "NEXT" : "WAIT");
                     gridDieList.Rows.Add(
                         i,
-                        entry.GridX,
-                        entry.GridY,
+                        entry.DieMapX,
+                        entry.DieMapY,
                         status,
                         entry.Result,
                         entry.BinCode,
-                        entry.X.ToString("F4"),
-                        entry.Y.ToString("F4"),
+                        entry.PosX.ToString("F4"),
+                        entry.PosY.ToString("F4"),
                         entry.DieUid ?? "");
                 }
             }
@@ -456,10 +456,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     return;
 
                 _selectedEntry = entry;
-                lblAxisX.Text = entry.X.ToString("F3");
-                lblAxisY.Text = entry.Y.ToString("F3");
+                lblAxisX.Text = entry.PosX.ToString("F3");
+                lblAxisY.Text = entry.PosY.ToString("F3");
                 lblBinRank.Text = entry.BinCode.ToString();
-                lblDieNum.Text = string.Format("[{0},{1}] / {2}", entry.GridX, entry.GridY,
+                lblDieNum.Text = string.Format("[{0},{1}] / {2}", entry.DieMapX, entry.DieMapY,
                     mapView.Map != null ? mapView.Map.TotalCells : 0);
             }
             catch

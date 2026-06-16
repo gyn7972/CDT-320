@@ -22,8 +22,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             var f = _project.Frame ?? new TapeFrameSubset();
             RefreshSpecList(f.FrameSpecName);
             _tbName.Text = f.FrameSpecName ?? "";
-            _nGridX.Value = ClampDecimal(f.GridX, _nGridX.Minimum, _nGridX.Maximum);
-            _nGridY.Value = ClampDecimal(f.GridY, _nGridY.Minimum, _nGridY.Maximum);
+            _nGridX.Value = ClampDecimal(f.DieMapX, _nGridX.Minimum, _nGridX.Maximum);
+            _nGridY.Value = ClampDecimal(f.DieMapY, _nGridY.Minimum, _nGridY.Maximum);
             _nPitchX.Value = ClampDecimal((decimal)f.PitchX, _nPitchX.Minimum, _nPitchX.Maximum);
             _nPitchY.Value = ClampDecimal((decimal)f.PitchY, _nPitchY.Minimum, _nPitchY.Maximum);
             _nDiameter.Value = ClampDecimal((decimal)f.OuterDiameterMm, _nDiameter.Minimum, _nDiameter.Maximum);
@@ -123,8 +123,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 return;
 
             _tbName.Text = spec.Name ?? "";
-            _nGridX.Value = ClampDecimal(spec.GridX, _nGridX.Minimum, _nGridX.Maximum);
-            _nGridY.Value = ClampDecimal(spec.GridY, _nGridY.Minimum, _nGridY.Maximum);
+            _nGridX.Value = ClampDecimal(spec.DieMapX, _nGridX.Minimum, _nGridX.Maximum);
+            _nGridY.Value = ClampDecimal(spec.DieMapY, _nGridY.Minimum, _nGridY.Maximum);
             _nPitchX.Value = ClampDecimal((decimal)spec.PitchX, _nPitchX.Minimum, _nPitchX.Maximum);
             _nPitchY.Value = ClampDecimal((decimal)spec.PitchY, _nPitchY.Minimum, _nPitchY.Maximum);
             _nDiameter.Value = ClampDecimal((decimal)spec.OuterDiameterMm, _nDiameter.Minimum, _nDiameter.Maximum);
@@ -136,8 +136,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 return;
 
             f.FrameSpecName = string.IsNullOrWhiteSpace(_tbName.Text) ? "8inch_5x5" : _tbName.Text.Trim();
-            f.GridX = (int)_nGridX.Value;
-            f.GridY = (int)_nGridY.Value;
+            f.DieMapX = (int)_nGridX.Value;
+            f.DieMapY = (int)_nGridY.Value;
             f.PitchX = (double)_nPitchX.Value;
             f.PitchY = (double)_nPitchY.Value;
             f.OuterDiameterMm = (double)_nDiameter.Value;

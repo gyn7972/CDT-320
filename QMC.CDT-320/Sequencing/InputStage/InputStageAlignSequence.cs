@@ -672,13 +672,15 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
-                Stage.ApplyWaferAlignResult(_originX, _originY, _pitchX, _pitchY, 0.0, 0.0);
+                double offsetX = _centerResult != null ? _centerResult.DeltaX : 0.0;
+                double offsetY = _centerResult != null ? _centerResult.DeltaY : 0.0;
+                Stage.ApplyWaferAlignResult(_originX, _originY, _pitchX, _pitchY, offsetX, offsetY);
 
                 WaferMaterial wafer = Stage.CurrentWaferMaterial ?? MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
                 if (wafer != null)
                 {
                     wafer.CurrentLocation = new MaterialLocation { Kind = MaterialLocationKind.InputStage };
-                    MaterialStateService.SaveInputStageAlignResult(wafer, _originX, _originY, _pitchX, _pitchY, 0.0, 0.0);
+                    MaterialStateService.SaveInputStageAlignResult(wafer, _originX, _originY, _pitchX, _pitchY, offsetX, offsetY);
                 }
 
                 Context.Bus.Set("InputStageAligned");
@@ -956,8 +958,8 @@ namespace QMC.CDT320.Sequencing
                 bool fallbackMap = map.RowCount <= 1 && map.ColumnCount <= 1;
                 if (fallbackMap)
                 {
-                    map.RowCount = Math.Max(1, spec.GridY);
-                    map.ColumnCount = Math.Max(1, spec.GridX);
+                    map.RowCount = Math.Max(1, spec.DieMapY);
+                    map.ColumnCount = Math.Max(1, spec.DieMapX);
                     map.DieMap = new bool[map.RowCount, map.ColumnCount];
                     for (int row = 0; row < map.RowCount; row++)
                     {
@@ -983,8 +985,8 @@ namespace QMC.CDT320.Sequencing
 
                 WriteLog("InputStageAlignSequence",
                     "Frame spec applied to align map. spec=" + spec.Name +
-                    ", gridX=" + spec.GridX +
-                    ", gridY=" + spec.GridY +
+                    ", dieMapX=" + spec.DieMapX +
+                    ", dieMapY=" + spec.DieMapY +
                     ", pitchX=" + spec.PitchX.ToString("F6") +
                     ", pitchY=" + spec.PitchY.ToString("F6") + " - Ok");
             }
@@ -1136,17 +1138,8 @@ namespace QMC.CDT320.Sequencing
                     ", targetX=" + targetX.ToString("F6") +
                     ", targetY=" + targetY.ToString("F6") + " - Start");
 
-                Task<int> moveY = MoveAxisCommandAsync(WaferStageAxis.WaferY, targetY, description + " StageY", ct);
-                Task<int> moveX = MoveAxisCommandAsync(WaferStageAxis.VisionX, targetX, description + " VisionX", ct);
-                int[] moveResults = await Task.WhenAll(moveY, moveX).ConfigureAwait(false);
-                if (moveResults[0] != 0) return moveResults[0];
-                if (moveResults[1] != 0) return moveResults[1];
-
-                Task<int> waitY = WaitAxisInPositionResultAsync(WaferStageAxis.WaferY, targetY, description + " StageY", ct);
-                Task<int> waitX = WaitAxisInPositionResultAsync(WaferStageAxis.VisionX, targetX, description + " VisionX", ct);
-                int[] waitResults = await Task.WhenAll(waitY, waitX).ConfigureAwait(false);
-                if (waitResults[0] != 0) return waitResults[0];
-                if (waitResults[1] != 0) return waitResults[1];
+                int result = await MoveVisionXYPointSafelyAsync(targetX, targetY, description, ct).ConfigureAwait(false);
+                if (result != 0) return result;
 
                 return 0;
             }
@@ -1161,6 +1154,36 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        private async Task<int> MoveVisionXYPointSafelyAsync(double targetX, double targetY, string description, CancellationToken ct)
+        {
+            double currentX = Stage.CameraX != null ? Stage.CameraX.ActualPosition : targetX;
+            double currentY = Stage.StageY != null ? Stage.StageY.ActualPosition : targetY;
+
+            string xFirstReason;
+            if (Stage.IsInputStageWorkPointInArea(targetX, currentY, out xFirstReason))
+            {
+                int result = await MoveAxisAndVerifyAsync(WaferStageAxis.VisionX, targetX, description + " VisionX", ct).ConfigureAwait(false);
+                if (result != 0) return result;
+                return await MoveAxisAndVerifyAsync(WaferStageAxis.WaferY, targetY, description + " StageY", ct).ConfigureAwait(false);
+            }
+
+            string yFirstReason;
+            if (Stage.IsInputStageWorkPointInArea(currentX, targetY, out yFirstReason))
+            {
+                int result = await MoveAxisAndVerifyAsync(WaferStageAxis.WaferY, targetY, description + " StageY", ct).ConfigureAwait(false);
+                if (result != 0) return result;
+                return await MoveAxisAndVerifyAsync(WaferStageAxis.VisionX, targetX, description + " VisionX", ct).ConfigureAwait(false);
+            }
+
+            return Fail("IN-STAGE-ALIGN-WORK-AREA-PATH", Stage.Name,
+                description + " has no safe L-path inside input stage work area. currentX=" + currentX.ToString("F3") +
+                ", currentY=" + currentY.ToString("F3") +
+                ", targetX=" + targetX.ToString("F3") +
+                ", targetY=" + targetY.ToString("F3") +
+                ", xFirst=" + xFirstReason +
+                ", yFirst=" + yFirstReason);
         }
 
         private WaferMapData ResolveWaferMapForAlign(string waferId)
@@ -1243,8 +1266,8 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 return map != null &&
-                       map.GridX > 0 &&
-                       map.GridY > 0 &&
+                       map.DieMapX > 0 &&
+                       map.DieMapY > 0 &&
                        map.Entries != null &&
                        map.Entries.Count > 0;
             }
@@ -1262,24 +1285,24 @@ namespace QMC.CDT320.Sequencing
             if (map == null)
                 return null;
 
-            int gridX = Math.Max(1, map.GridX);
-            int gridY = Math.Max(1, map.GridY);
+            int dieMapX = Math.Max(1, map.DieMapX);
+            int dieMapY = Math.Max(1, map.DieMapY);
             var waferMap = new WaferMapData
             {
                 WaferId = string.IsNullOrWhiteSpace(waferId) ? map.FrameObjId : waferId,
-                ColumnCount = gridX,
-                RowCount = gridY,
-                DieMap = new bool[gridY, gridX]
+                ColumnCount = dieMapX,
+                RowCount = dieMapY,
+                DieMap = new bool[dieMapY, dieMapX]
             };
 
             foreach (DieMapEntry entry in map.Entries)
             {
                 if (entry == null ||
-                    entry.GridX < 0 || entry.GridX >= gridX ||
-                    entry.GridY < 0 || entry.GridY >= gridY)
+                    entry.DieMapX < 0 || entry.DieMapX >= dieMapX ||
+                    entry.DieMapY < 0 || entry.DieMapY >= dieMapY)
                     continue;
 
-                waferMap.DieMap[entry.GridY, entry.GridX] = entry.IsTarget;
+                waferMap.DieMap[entry.DieMapY, entry.DieMapX] = entry.IsTarget;
             }
 
             ApplyDefaultRefPair(waferMap);
@@ -1366,7 +1389,7 @@ namespace QMC.CDT320.Sequencing
                 if (result != 0)
                     return Fail("IN-STAGE-ALIGN-MOVE", Stage.Name,
                         description + " move command failed. axis=" + axis + ", target=" + target +
-                        ", result=" + result + ". " + BuildAxisState(axis, target));
+                        ", result=" + result + ". " + BuildAxisState(axis, target) + FormatLastStageMoveFailure());
 
                 ct.ThrowIfCancellationRequested();
                 return 0;
@@ -1410,6 +1433,14 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        private string FormatLastStageMoveFailure()
+        {
+            if (Stage == null || string.IsNullOrWhiteSpace(Stage.LastStageMoveFailureMessage))
+                return string.Empty;
+
+            return ", lastStageMoveFailure=" + Stage.LastStageMoveFailureMessage;
         }
 
         private async Task<int> WaitAxisInPositionResultAsync(WaferStageAxis axis, double target, string description, CancellationToken ct)

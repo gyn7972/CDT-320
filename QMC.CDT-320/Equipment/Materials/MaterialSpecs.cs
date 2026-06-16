@@ -30,8 +30,8 @@ namespace QMC.CDT320.Materials
     public class TapeFrameSpec
     {
         [DataMember] public string Name    { get; set; } = "";
-        [DataMember] public int    GridX   { get; set; } = 1;
-        [DataMember] public int    GridY   { get; set; } = 1;
+        [DataMember] public int    DieMapX   { get; set; } = 1;
+        [DataMember] public int    DieMapY   { get; set; } = 1;
         [DataMember] public double PitchX  { get; set; } = 1.0;
         [DataMember] public double PitchY  { get; set; } = 1.0;
         [DataMember] public double OuterDiameterMm { get; set; } = 200; // 8inch=200, 12inch=300
@@ -57,8 +57,8 @@ namespace QMC.CDT320.Materials
                 },
                 Frames = new List<TapeFrameSpec>
                 {
-                    new TapeFrameSpec { Name="8inch_5x5",   GridX=5,   GridY=5,   PitchX=1.0, PitchY=1.0, OuterDiameterMm=200, DieSpecName="Default" },
-                    new TapeFrameSpec { Name="12inch_50x50",GridX=50,  GridY=50,  PitchX=1.0, PitchY=1.0, OuterDiameterMm=300, DieSpecName="Default" },
+                    new TapeFrameSpec { Name="8inch_5x5",   DieMapX=5,   DieMapY=5,   PitchX=1.0, PitchY=1.0, OuterDiameterMm=200, DieSpecName="Default" },
+                    new TapeFrameSpec { Name="12inch_50x50",DieMapX=50,  DieMapY=50,  PitchX=1.0, PitchY=1.0, OuterDiameterMm=300, DieSpecName="Default" },
                 }
             };
         }
@@ -153,7 +153,7 @@ namespace QMC.CDT320.Materials
             return spec;
         }
 
-        public static TapeFrameSpec UpsertFrame(string name, int gridX, int gridY, double pitchX, double pitchY, double outerDiameterMm, string dieSpecName)
+        public static TapeFrameSpec UpsertFrame(string name, int dieMapX, int dieMapY, double pitchX, double pitchY, double outerDiameterMm, string dieSpecName)
         {
             if (string.IsNullOrWhiteSpace(name))
                 name = "Frame_" + DateTime.Now.ToString("yyyyMMdd_HHmmss");
@@ -169,8 +169,8 @@ namespace QMC.CDT320.Materials
                 _data.Frames.Add(spec);
             }
 
-            spec.GridX = Math.Max(1, gridX);
-            spec.GridY = Math.Max(1, gridY);
+            spec.DieMapX = Math.Max(1, dieMapX);
+            spec.DieMapY = Math.Max(1, dieMapY);
             spec.PitchX = pitchX > 0.0 ? pitchX : 1.0;
             spec.PitchY = pitchY > 0.0 ? pitchY : 1.0;
             spec.OuterDiameterMm = outerDiameterMm > 0.0 ? outerDiameterMm : 200.0;

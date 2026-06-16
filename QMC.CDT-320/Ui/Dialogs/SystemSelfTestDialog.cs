@@ -116,7 +116,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             {
                 try
                 {
-                    var f = new DieTapeFrame { ObjId = "TST", GridX = 5, GridY = 5, PitchX = 1.0, PitchY = 1.0 };
+                    var f = new DieTapeFrame { ObjId = "TST", DieMapX = 5, DieMapY = 5, PitchX = 1.0, PitchY = 1.0 };
                     var m = DieMapGenerator.Generate(f);
                     bool ok = m != null && m.Entries.Count == 25;
                     return Task.FromResult((ok, $"5x5 entries={m?.Entries?.Count ?? 0}"));

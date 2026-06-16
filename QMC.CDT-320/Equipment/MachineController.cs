@@ -193,7 +193,7 @@ namespace QMC.CDT320
                 foreach (var e in _inputDieMap.Entries) if (e.IsTarget) active++;
                 Log("[DIEMAP] Input wafer " + WaferDiameterMm + "mm 쨌 die " +
                     DieSizeXMm + "x" + DieSizeYMm + " 쨌 gap " + InputGapMm +
-                    " ??grid " + _inputDieMap.GridX + "x" + _inputDieMap.GridY +
+                    " ??grid " + _inputDieMap.DieMapX + "x" + _inputDieMap.DieMapY +
                     " 쨌 active=" + active);
                 // UI ?쒓컖???꾪빐 LotStorage ???깅줉
                 QMC.CDT320.Lots.LotStorage.ActiveInputDieMap = _inputDieMap;
@@ -5690,10 +5690,10 @@ namespace QMC.CDT320
                 stage.Recipe.EnsurePositionObjects();
                 double camXTarget = stage.Recipe.VisionX.ReadyPosition
                                   + stage.WaferAlignOffsetX
-                                  + d.X;
+                                  + d.PosX;
                 double stageYTarget = stage.Recipe.WaferY.ReadyPosition
                                     + stage.WaferAlignOffsetY
-                                    + d.Y;
+                                    + d.PosY;
                 try
                 {
                     await Task.WhenAll(
@@ -5703,8 +5703,8 @@ namespace QMC.CDT320
                 }
                 catch (Exception ex) { Log($"[CAPTURE-XY p{p}] ex: " + ex.Message); }
 
-                Log($"[CAPTURE p{p}] Die seq#{seqIdx} grid({d.GridX},{d.GridY}) " +
-                    $"wafer({d.X:F2},{d.Y:F2}) ??CamX={camXTarget:F2}, StageY={stageYTarget:F2}");
+                Log($"[CAPTURE p{p}] Die seq#{seqIdx} grid({d.DieMapX},{d.DieMapY}) " +
+                    $"wafer({d.PosX:F2},{d.PosY:F2}) ??CamX={camXTarget:F2}, StageY={stageYTarget:F2}");
 
                 if (!wafer)
                 {
@@ -5816,10 +5816,10 @@ namespace QMC.CDT320
                     {
                         e.DieUid = dies[i].Uid;
                     }
-                    dies[i].WaferIndexX = e.GridX;
-                    dies[i].WaferIndeY = e.GridY;
-                    dies[i].X = e.X;
-                    dies[i].Y = e.Y;
+                    dies[i].WaferIndexX = e.DieMapX;
+                    dies[i].WaferIndeY = e.DieMapY;
+                    dies[i].X = e.PosX;
+                    dies[i].Y = e.PosY;
                 }
                 // InputStage ?대룞? ????ㅼ씠 (泥?picker) 湲곗?
                 row = dies[0].WaferIndeY;

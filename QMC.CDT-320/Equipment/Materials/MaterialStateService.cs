@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using QMC.Common;
@@ -694,7 +694,7 @@ namespace QMC.CDT320.Materials
 
                 WaferMaterial sourceWafer = GetWaferAtLocation(MaterialLocationKind.InputStage);
                 DieMap sourceMap = BuildDieMapFromWafer(sourceWafer);
-                if (sourceWafer == null || sourceMap == null || sourceMap.GridX <= 0 || sourceMap.GridY <= 0)
+                if (sourceWafer == null || sourceMap == null || sourceMap.DieMapX <= 0 || sourceMap.DieMapY <= 0)
                 {
                     Log.Write("Main", "SYSTEM", "MaterialStateService",
                         "Output receive plan initialize skipped: input stage die map is empty. side=" + side + " - Check");
@@ -708,8 +708,8 @@ namespace QMC.CDT320.Materials
                     return false;
 
                 outputWafer.OutputReceiveSourceWaferId = sourceWafer.WaferId;
-                outputWafer.OutputReceiveGridX = sourceMap.GridX;
-                outputWafer.OutputReceiveGridY = sourceMap.GridY;
+                outputWafer.OutputReceiveDieMapX = sourceMap.DieMapX;
+                outputWafer.OutputReceiveDieMapY = sourceMap.DieMapY;
                 outputWafer.OutputReceivePitchX = sourceMap.PitchX;
                 outputWafer.OutputReceivePitchY = sourceMap.PitchY;
                 outputWafer.OutputReceiveOriginX = 0.0;
@@ -790,10 +790,10 @@ namespace QMC.CDT320.Materials
                         OutputWaferId = outputWafer.WaferId,
                         SourceWaferId = outputWafer.OutputReceiveSourceWaferId,
                         OrderIndex = index,
-                        GridX = entry.GridX,
-                        GridY = entry.GridY,
-                        OffsetX = outputWafer.OutputReceiveOriginX + pitchX * entry.GridX,
-                        OffsetY = outputWafer.OutputReceiveOriginY + pitchY * entry.GridY
+                        DieMapX = entry.DieMapX,
+                        DieMapY = entry.DieMapY,
+                        OffsetX = outputWafer.OutputReceiveOriginX + pitchX * entry.DieMapX,
+                        OffsetY = outputWafer.OutputReceiveOriginY + pitchY * entry.DieMapY
                     };
                     target.TargetX = target.OffsetX;
                     target.TargetY = target.OffsetY;
@@ -942,9 +942,9 @@ namespace QMC.CDT320.Materials
                 return new List<DieMapEntry>();
 
             return sourceMap.Entries
-                .Where(e => e != null && e.IsTarget && e.GridX >= 0 && e.GridY >= 0)
-                .OrderBy(e => e.GridY)
-                .ThenBy(e => e.GridX)
+                .Where(e => e != null && e.IsTarget && e.DieMapX >= 0 && e.DieMapY >= 0)
+                .OrderBy(e => e.DieMapY)
+                .ThenBy(e => e.DieMapX)
                 .ToList();
         }
 
@@ -1025,12 +1025,12 @@ namespace QMC.CDT320.Materials
                             WaferId = wafer.WaferId,
                             DieId = die.DieId,
                             OrderIndex = i,
-                            GridX = entry.GridX,
-                            GridY = entry.GridY,
-                            OffsetX = entry.X,
-                            OffsetY = entry.Y,
-                            TargetX = entry.X,
-                            TargetY = entry.Y,
+                            DieMapX = entry.DieMapX,
+                            DieMapY = entry.DieMapY,
+                            OffsetX = entry.PosX,
+                            OffsetY = entry.PosY,
+                            TargetX = entry.PosX,
+                            TargetY = entry.PosY,
                             PickerNo = pickerNo,
                             PickerLocation = pickerLocation
                         };
@@ -1217,6 +1217,9 @@ namespace QMC.CDT320.Materials
                 wafer.InputStageAlignPitchY = pitchY;
                 wafer.InputStageAlignOffsetX = offsetX;
                 wafer.InputStageAlignOffsetY = offsetY;
+                wafer.HasInputStageDieMappingResult = false;
+                wafer.InputStageDieMappingOffsetX = 0.0;
+                wafer.InputStageDieMappingOffsetY = 0.0;
                 wafer.State = WaferMaterialStateText.Normalize(WaferMaterialState.Working);
                 wafer.UpdatedAt = DateTime.Now;
                 NotifyAndSave("InputStageAlignResult");
@@ -1272,8 +1275,8 @@ namespace QMC.CDT320.Materials
                 var map = new DieMap
                 {
                     FrameObjId = string.IsNullOrWhiteSpace(wafer.DieMapFrameObjId) ? wafer.WaferId : wafer.DieMapFrameObjId,
-                    GridX = maxX + 1,
-                    GridY = maxY + 1,
+                    DieMapX = maxX + 1,
+                    DieMapY = maxY + 1,
                     PitchX = pitchX,
                     PitchY = pitchY,
                     OriginX = originX,
@@ -1290,17 +1293,20 @@ namespace QMC.CDT320.Materials
                     map.Entries.Add(new DieMapEntry
                     {
                         Index = index++,
-                        GridX = die.Wafer_IndexX,
-                        GridY = die.Wafer_IndexY,
-                        IsTarget = die.Result != DieResult.NG,
+                        SequenceNo = die.InputSequenceNo,
+                        DieMapX = die.Wafer_IndexX,
+                        DieMapY = die.Wafer_IndexY,
+                        IsTarget = die.IsInputTarget,
                         Result = die.Result,
                         BinCode = die.Input_BinCode,
-                        X = die.WaferOffset != null && die.WaferOffset.IsValid ? die.WaferOffset.X : originX + pitchX * die.Wafer_IndexX,
-                        Y = die.WaferOffset != null && die.WaferOffset.IsValid ? die.WaferOffset.Y : originY + pitchY * die.Wafer_IndexY,
+                        PosX = die.WaferOffset != null && die.WaferOffset.IsValid ? die.WaferOffset.X : originX + pitchX * die.Wafer_IndexX,
+                        PosY = die.WaferOffset != null && die.WaferOffset.IsValid ? die.WaferOffset.Y : originY + pitchY * die.Wafer_IndexY,
                         DieUid = die.DieId
                     });
                 }
 
+                if (!HasCompleteInputSequence(map))
+                    PickupSequenceGenerator.ApplySequenceNumbers(map, ResolveInputPickup(RecipeStore.LoadLastOrDefault()));
                 return DieMapGenerator.Normalize(map);
             }
             catch (Exception ex)
@@ -1314,31 +1320,62 @@ namespace QMC.CDT320.Materials
             }
         }
 
+        private static bool HasCompleteInputSequence(DieMap map)
+        {
+            try
+            {
+                if (map == null || map.Entries == null)
+                    return false;
+
+                int targets = 0;
+                int sequenced = 0;
+                var used = new HashSet<int>();
+                foreach (DieMapEntry entry in map.Entries)
+                {
+                    if (entry == null || !entry.IsTarget)
+                        continue;
+
+                    targets++;
+                    if (entry.SequenceNo > 0 && used.Add(entry.SequenceNo))
+                        sequenced++;
+                }
+
+                return targets > 0 && sequenced == targets;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
         public static WaferMapData BuildWaferMapDataFromWafer(WaferMaterial wafer)
         {
             try
             {
                 DieMap dieMap = BuildDieMapFromWafer(wafer);
-                if (dieMap == null || dieMap.GridX <= 0 || dieMap.GridY <= 0)
+                if (dieMap == null || dieMap.DieMapX <= 0 || dieMap.DieMapY <= 0)
                     return null;
 
                 var map = new WaferMapData
                 {
                     WaferId = wafer != null ? wafer.WaferId : "",
-                    ColumnCount = dieMap.GridX,
-                    RowCount = dieMap.GridY,
-                    DieMap = new bool[dieMap.GridY, dieMap.GridX],
-                    Ref1Row = dieMap.GridY / 2,
-                    Ref1Col = Math.Max(0, dieMap.GridX / 4),
-                    Ref2Row = dieMap.GridY / 2,
-                    Ref2Col = dieMap.GridX > 1 ? Math.Min(dieMap.GridX - 1, (dieMap.GridX * 3) / 4) : 0
+                    ColumnCount = dieMap.DieMapX,
+                    RowCount = dieMap.DieMapY,
+                    DieMap = new bool[dieMap.DieMapY, dieMap.DieMapX],
+                    Ref1Row = dieMap.DieMapY / 2,
+                    Ref1Col = Math.Max(0, dieMap.DieMapX / 4),
+                    Ref2Row = dieMap.DieMapY / 2,
+                    Ref2Col = dieMap.DieMapX > 1 ? Math.Min(dieMap.DieMapX - 1, (dieMap.DieMapX * 3) / 4) : 0
                 };
 
                 foreach (DieMapEntry entry in dieMap.Entries)
                 {
-                    if (entry == null || entry.GridX < 0 || entry.GridY < 0 || entry.GridX >= map.ColumnCount || entry.GridY >= map.RowCount)
+                    if (entry == null || entry.DieMapX < 0 || entry.DieMapY < 0 || entry.DieMapX >= map.ColumnCount || entry.DieMapY >= map.RowCount)
                         continue;
-                    map.DieMap[entry.GridY, entry.GridX] = entry.IsTarget;
+                    map.DieMap[entry.DieMapY, entry.DieMapX] = entry.IsTarget;
                 }
 
                 return map;
@@ -1359,21 +1396,85 @@ namespace QMC.CDT320.Materials
             if (wafer == null)
                 return new List<DieMaterial>();
 
-            IEnumerable<DieMaterial> query = State.Dies.Where(d =>
+            List<DieMaterial> source = State.Dies.Where(d =>
                 d != null &&
                 string.Equals(d.WaferID_Input, wafer.WaferId, StringComparison.OrdinalIgnoreCase) &&
                 d.Wafer_IndexX >= 0 &&
-                d.Wafer_IndexY >= 0);
+                d.Wafer_IndexY >= 0).ToList();
 
             if (wafer.DieIds != null)
             {
-                var dieIds = new HashSet<string>(wafer.DieIds.Where(id => !string.IsNullOrWhiteSpace(id)), StringComparer.OrdinalIgnoreCase);
+                List<string> dieIds = wafer.DieIds
+                    .Where(id => !string.IsNullOrWhiteSpace(id))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
                 if (dieIds.Count == 0)
                     return new List<DieMaterial>();
-                query = query.Where(d => dieIds.Contains(d.DieId));
+
+                var byId = new Dictionary<string, DieMaterial>(StringComparer.OrdinalIgnoreCase);
+                foreach (DieMaterial die in source)
+                {
+                    if (die == null || string.IsNullOrWhiteSpace(die.DieId))
+                        continue;
+
+                    DieMaterial existing;
+                    if (!byId.TryGetValue(die.DieId, out existing) || IsBetterWaferDie(die, existing))
+                        byId[die.DieId] = die;
+                }
+
+                var ordered = new List<DieMaterial>();
+                foreach (string dieId in dieIds)
+                {
+                    DieMaterial die;
+                    if (byId.TryGetValue(dieId, out die))
+                        ordered.Add(die);
+                }
+
+                return DeduplicateWaferDiesByGrid(ordered);
             }
 
-            return query.ToList();
+            return DeduplicateWaferDiesByGrid(source);
+        }
+
+        private static List<DieMaterial> DeduplicateWaferDiesByGrid(IEnumerable<DieMaterial> dies)
+        {
+            var byGrid = new Dictionary<string, DieMaterial>(StringComparer.OrdinalIgnoreCase);
+            if (dies == null)
+                return new List<DieMaterial>();
+
+            foreach (DieMaterial die in dies)
+            {
+                if (die == null || die.Wafer_IndexX < 0 || die.Wafer_IndexY < 0)
+                    continue;
+
+                string key = die.Wafer_IndexY.ToString() + ":" + die.Wafer_IndexX.ToString();
+                DieMaterial existing;
+                if (!byGrid.TryGetValue(key, out existing) || IsBetterWaferDie(die, existing))
+                    byGrid[key] = die;
+            }
+
+            return byGrid.Values
+                .OrderBy(d => d.Wafer_IndexY)
+                .ThenBy(d => d.Wafer_IndexX)
+                .ToList();
+        }
+
+        private static bool IsBetterWaferDie(DieMaterial candidate, DieMaterial current)
+        {
+            if (candidate == null)
+                return false;
+            if (current == null)
+                return true;
+
+            bool candidateInStage = candidate.CurrentLocation != null && candidate.CurrentLocation.Kind == MaterialLocationKind.InputStage;
+            bool currentInStage = current.CurrentLocation != null && current.CurrentLocation.Kind == MaterialLocationKind.InputStage;
+            if (candidateInStage != currentInStage)
+                return candidateInStage;
+
+            if (candidate.IsInputTarget != current.IsInputTarget)
+                return candidate.IsInputTarget;
+
+            return candidate.UpdatedAt >= current.UpdatedAt;
         }
 
         private static double ResolvePitch(List<DieMaterial> dies, bool xAxis)
@@ -1654,8 +1755,8 @@ namespace QMC.CDT320.Materials
             var frame = project.Frame;
             MaterialSpecs.UpsertFrame(
                 specName,
-                frame.GridX,
-                frame.GridY,
+                frame.DieMapX,
+                frame.DieMapY,
                 frame.PitchX,
                 frame.PitchY,
                 frame.OuterDiameterMm,

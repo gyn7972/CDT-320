@@ -33,6 +33,7 @@ namespace QMC.CDT320.Sequencing
     {
         private static readonly object SimVisionRandomLock = new object();
         private static readonly Random SimVisionRandom = new Random();
+        private static string LastSourceInputDieMapFailure = "";
 
         private readonly Dictionary<string, MappedMarkPoint> _mappedPoints = new Dictionary<string, MappedMarkPoint>(StringComparer.OrdinalIgnoreCase);
         private WaferMaterial _wafer;
@@ -159,10 +160,10 @@ namespace QMC.CDT320.Sequencing
                     return Fail("IN-STAGE-DIEMAP-SPEC", "Material",
                         "TapeFrame spec was not found. waferId=" + _wafer.WaferId +
                         ", specName=" + _wafer.TapeFrameSpecName);
-                if (_frameSpec.GridX <= 0 || _frameSpec.GridY <= 0)
+                if (_frameSpec.DieMapX <= 0 || _frameSpec.DieMapY <= 0)
                     return Fail("IN-STAGE-DIEMAP-SPEC", "Material",
-                        "TapeFrame grid is invalid. specName=" + _frameSpec.Name +
-                        ", gridX=" + _frameSpec.GridX + ", gridY=" + _frameSpec.GridY);
+                        "TapeFrame die map is invalid. specName=" + _frameSpec.Name +
+                        ", dieMapX=" + _frameSpec.DieMapX + ", dieMapY=" + _frameSpec.DieMapY);
 
                 if (Options.RequireVisionAlign && Stage.Vision == null && !IsSimulationOrDryRun())
                     return Fail("IN-STAGE-DIEMAP-VISION", Stage.Name, "Vision client is required but not available.");
@@ -214,17 +215,12 @@ namespace QMC.CDT320.Sequencing
                         return Fail("IN-STAGE-DIEMAP-WORK-AREA", Stage.Name,
                             point.Name + " mark target is outside input stage work area. " + areaReason);
 
-                    Task<int> moveY = MoveAxisCommandAsync(WaferStageAxis.WaferY, point.StageYPosition, point.Name + " StageY", ct);
-                    Task<int> moveX = MoveAxisCommandAsync(WaferStageAxis.VisionX, point.VisionXPosition, point.Name + " VisionX", ct);
-                    int[] moveResults = await Task.WhenAll(moveY, moveX).ConfigureAwait(false);
-                    if (moveResults[0] != 0) return moveResults[0];
-                    if (moveResults[1] != 0) return moveResults[1];
-
-                    Task<int> waitY = WaitAxisInPositionResultAsync(WaferStageAxis.WaferY, point.StageYPosition, point.Name + " StageY", ct);
-                    Task<int> waitX = WaitAxisInPositionResultAsync(WaferStageAxis.VisionX, point.VisionXPosition, point.Name + " VisionX", ct);
-                    int[] waitResults = await Task.WhenAll(waitY, waitX).ConfigureAwait(false);
-                    if (waitResults[0] != 0) return waitResults[0];
-                    if (waitResults[1] != 0) return waitResults[1];
+                    int result = await MoveVisionXYPointSafelyAsync(
+                        point.VisionXPosition,
+                        point.StageYPosition,
+                        point.Name,
+                        ct).ConfigureAwait(false);
+                    if (result != 0) return result;
 
                 }
 
@@ -242,6 +238,45 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        private async Task<int> MoveVisionXYPointSafelyAsync(double targetX, double targetY, string description, CancellationToken ct)
+        {
+            double currentX = Stage.CameraX != null ? Stage.CameraX.ActualPosition : targetX;
+            double currentY = Stage.StageY != null ? Stage.StageY.ActualPosition : targetY;
+
+            string xFirstReason;
+            if (Stage.IsInputStageWorkPointInArea(targetX, currentY, out xFirstReason))
+            {
+                int result = await MoveAxisAndWaitAsync(WaferStageAxis.VisionX, targetX, description + " VisionX", ct).ConfigureAwait(false);
+                if (result != 0) return result;
+                return await MoveAxisAndWaitAsync(WaferStageAxis.WaferY, targetY, description + " StageY", ct).ConfigureAwait(false);
+            }
+
+            string yFirstReason;
+            if (Stage.IsInputStageWorkPointInArea(currentX, targetY, out yFirstReason))
+            {
+                int result = await MoveAxisAndWaitAsync(WaferStageAxis.WaferY, targetY, description + " StageY", ct).ConfigureAwait(false);
+                if (result != 0) return result;
+                return await MoveAxisAndWaitAsync(WaferStageAxis.VisionX, targetX, description + " VisionX", ct).ConfigureAwait(false);
+            }
+
+            return Fail("IN-STAGE-DIEMAP-WORK-AREA-PATH", Stage.Name,
+                description + " mark has no safe L-path inside input stage work area. currentX=" + currentX.ToString("F3") +
+                ", currentY=" + currentY.ToString("F3") +
+                ", targetX=" + targetX.ToString("F3") +
+                ", targetY=" + targetY.ToString("F3") +
+                ", xFirst=" + xFirstReason +
+                ", yFirst=" + yFirstReason);
+        }
+
+        private async Task<int> MoveAxisAndWaitAsync(WaferStageAxis axis, double target, string description, CancellationToken ct)
+        {
+            int result = await MoveAxisCommandAsync(axis, target, description, ct).ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            return await WaitAxisInPositionResultAsync(axis, target, description, ct).ConfigureAwait(false);
         }
 
         private async Task<int> FindMarkPointAsync(InputStageDieMapMarkPoint point, InputStageDieMappingStep nextStep, CancellationToken ct)
@@ -310,13 +345,14 @@ namespace QMC.CDT320.Sequencing
                 if (!IsUsableSourceMap(sourceMap))
                 {
                     return Fail("IN-STAGE-DIEMAP-SOURCE-MAP", "InputStageDieMappingSequence",
-                        "Input die map is not available. Create and save an input wafer map from Recipe > INPUT MAP CREATE first.");
+                        "Input die map is not available. Create and save an input wafer map from Recipe > INPUT MAP CREATE first. " +
+                        LastSourceInputDieMapFailure);
                 }
 
-                int gridX = sourceMap != null && sourceMap.GridX > 0 ? sourceMap.GridX : Math.Max(1, _frameSpec.GridX);
-                int gridY = sourceMap != null && sourceMap.GridY > 0 ? sourceMap.GridY : Math.Max(1, _frameSpec.GridY);
-                double pitchX = gridX > 1 ? Math.Abs(right.X - left.X) / (gridX - 1) : ResolvePitchX();
-                double pitchY = gridY > 1 ? Math.Abs(bottom.Y - top.Y) / (gridY - 1) : ResolvePitchY();
+                int dieMapX = sourceMap != null && sourceMap.DieMapX > 0 ? sourceMap.DieMapX : Math.Max(1, _frameSpec.DieMapX);
+                int dieMapY = sourceMap != null && sourceMap.DieMapY > 0 ? sourceMap.DieMapY : Math.Max(1, _frameSpec.DieMapY);
+                double pitchX = dieMapX > 1 ? Math.Abs(right.X - left.X) / (dieMapX - 1) : ResolvePitchX();
+                double pitchY = dieMapY > 1 ? Math.Abs(bottom.Y - top.Y) / (dieMapY - 1) : ResolvePitchY();
                 if (pitchX <= 0.0)
                     pitchX = sourceMap != null && sourceMap.PitchX > 0.0 ? sourceMap.PitchX : ResolvePitchX();
                 if (pitchY <= 0.0)
@@ -335,8 +371,8 @@ namespace QMC.CDT320.Sequencing
                 _dieMap = new DieMap
                 {
                     FrameObjId = BuildFrameObjId(_wafer),
-                    GridX = gridX,
-                    GridY = gridY,
+                    DieMapX = dieMapX,
+                    DieMapY = dieMapY,
                     PitchX = pitchX,
                     PitchY = pitchY,
                     OriginX = originX,
@@ -347,20 +383,20 @@ namespace QMC.CDT320.Sequencing
                 _waferMap = new WaferMapData
                 {
                     WaferId = _wafer != null ? _wafer.WaferId : "",
-                    ColumnCount = gridX,
-                    RowCount = gridY,
-                    DieMap = new bool[gridY, gridX],
-                    Ref1Row = gridY / 2,
-                    Ref1Col = Math.Max(0, gridX / 4),
-                    Ref2Row = gridY / 2,
-                    Ref2Col = gridX > 1 ? Math.Min(gridX - 1, (gridX * 3) / 4) : 0
+                    ColumnCount = dieMapX,
+                    RowCount = dieMapY,
+                    DieMap = new bool[dieMapY, dieMapX],
+                    Ref1Row = dieMapY / 2,
+                    Ref1Col = Math.Max(0, dieMapX / 4),
+                    Ref2Row = dieMapY / 2,
+                    Ref2Col = dieMapX > 1 ? Math.Min(dieMapX - 1, (dieMapX * 3) / 4) : 0
                 };
 
                 int index = 0;
                 int targetCount = 0;
-                for (int row = 0; row < gridY; row++)
+                for (int row = 0; row < dieMapY; row++)
                 {
-                    for (int col = 0; col < gridX; col++)
+                    for (int col = 0; col < dieMapX; col++)
                     {
                         double x = originX + signX * pitchX * col;
                         double y = originY + signY * pitchY * row;
@@ -376,13 +412,13 @@ namespace QMC.CDT320.Sequencing
                         {
                             Index = index++,
                             SequenceNo = sourceEntry != null ? sourceEntry.SequenceNo : 0,
-                            GridX = col,
-                            GridY = row,
+                            DieMapX = col,
+                            DieMapY = row,
                             IsTarget = target,
                             Result = sourceEntry != null ? sourceEntry.Result : DieResult.Unknown,
                             BinCode = sourceEntry != null ? sourceEntry.BinCode : 0,
-                            X = x,
-                            Y = y,
+                            PosX = x,
+                            PosY = y,
                             DieUid = sourceEntry != null && !string.IsNullOrWhiteSpace(sourceEntry.DieUid)
                                 ? sourceEntry.DieUid
                                 : BuildDieId(_wafer, row, col)
@@ -394,7 +430,7 @@ namespace QMC.CDT320.Sequencing
                 int orderedCount = CountSequencedTargets(_dieMap);
 
                 WriteLog("InputStageDieMappingSequence",
-                    "Die map coordinate mapping calculated. grid=" + gridX + "x" + gridY +
+                    "Die map coordinate mapping calculated. grid=" + dieMapX + "x" + dieMapY +
                     ", sourceMap=" + (sourceMap != null ? sourceMap.FrameObjId : "none") +
                     ", pitchX=" + pitchX.ToString("F6") +
                     ", pitchY=" + pitchY.ToString("F6") +
@@ -425,7 +461,9 @@ namespace QMC.CDT320.Sequencing
                     return Fail("IN-STAGE-DIEMAP-APPLY", "InputStageDieMappingSequence", "Die map result is not available.");
 
                 ApplyInputPickupSequence(_dieMap);
-                Stage.ApplyDieMappingResult(_waferMap, _dieMap.OriginX, _dieMap.OriginY, _dieMap.PitchX, _dieMap.PitchY);
+                double mappingOffsetX = _dieMap.OriginX - Stage.OriginX;
+                double mappingOffsetY = _dieMap.OriginY - Stage.OriginY;
+                Stage.ApplyDieMappingResult(_waferMap, _dieMap.OriginX, _dieMap.OriginY, _dieMap.PitchX, _dieMap.PitchY, mappingOffsetX, mappingOffsetY);
                 LotStorage.ActiveInputDieMap = _dieMap;
                 if (Context != null && Context.Controller != null)
                 {
@@ -444,6 +482,9 @@ namespace QMC.CDT320.Sequencing
                     _wafer.InputStageAlignPitchY = _dieMap.PitchY;
                     _wafer.InputStageAlignOffsetX = Stage.WaferAlignOffsetX;
                     _wafer.InputStageAlignOffsetY = Stage.WaferAlignOffsetY;
+                    _wafer.HasInputStageDieMappingResult = true;
+                    _wafer.InputStageDieMappingOffsetX = mappingOffsetX;
+                    _wafer.InputStageDieMappingOffsetY = mappingOffsetY;
                     _wafer.State = WaferMaterialState.Working;
                     _wafer.UpdatedAt = DateTime.Now;
                 }
@@ -453,8 +494,8 @@ namespace QMC.CDT320.Sequencing
                 Context.Bus.Set("InputStageReady");
                 WriteLog("InputStageDieMappingSequence",
                     "Input stage die mapping applied. wafer=" + (_wafer != null ? _wafer.WaferId : "") +
-                    ", gridX=" + _dieMap.GridX +
-                    ", gridY=" + _dieMap.GridY +
+                    ", dieMapX=" + _dieMap.DieMapX +
+                    ", dieMapY=" + _dieMap.DieMapY +
                     ", dieCount=" + _createdDieCount + " - Ok");
 
                 CurrentStep = InputStageDieMappingStep.Complete;
@@ -473,17 +514,22 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
-                DieMap activeMap = LotStorage.ActiveInputDieMap;
-                if (IsUsableSourceMap(activeMap))
-                    return ApplyInputPickupSequence(activeMap);
+                LastSourceInputDieMapFailure = "";
+                bool recipeMapConfigured = IsRecipeInputDieMapConfigured();
+                DieMap recipeMap = LoadRecipeInputDieMap();
+                if (IsUsableSourceMap(recipeMap))
+                    return ApplyInputPickupSequence(recipeMap);
+
+                if (recipeMapConfigured)
+                    return null;
 
                 DieMap materialMap = MaterialStateService.BuildDieMapFromWafer(wafer);
                 if (IsUsableSourceMap(materialMap))
                     return ApplyInputPickupSequence(materialMap);
 
-                DieMap recipeMap = LoadRecipeInputDieMap();
-                if (IsUsableSourceMap(recipeMap))
-                    return ApplyInputPickupSequence(recipeMap);
+                DieMap activeMap = LotStorage.ActiveInputDieMap;
+                if (IsUsableSourceMap(activeMap))
+                    return ApplyInputPickupSequence(activeMap);
 
                 return null;
             }
@@ -491,6 +537,22 @@ namespace QMC.CDT320.Sequencing
             {
                 WriteLog("InputStageDieMappingSequence", "Source input die map resolve failed: " + ex.Message + " - Failed");
                 return null;
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool IsRecipeInputDieMapConfigured()
+        {
+            try
+            {
+                RecipeProject project = RecipeStore.LoadLastOrDefault();
+                return project != null && !string.IsNullOrWhiteSpace(project.InputDieMapFileName);
+            }
+            catch
+            {
+                return false;
             }
             finally
             {
@@ -512,6 +574,9 @@ namespace QMC.CDT320.Sequencing
                 DieMap map = DieMapGenerator.Load(path);
                 if (map != null)
                 {
+                    if (!IsRecipeInputDieMapMatchedToFrame(project, map, path))
+                        return null;
+
                     ApplyInputPickupSequence(map);
                     WriteLog("InputStageDieMappingSequence", "Recipe input die map loaded. path=" + path + " - Ok");
                 }
@@ -532,8 +597,8 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 return map != null &&
-                       map.GridX > 0 &&
-                       map.GridY > 0 &&
+                       map.DieMapX > 0 &&
+                       map.DieMapY > 0 &&
                        map.Entries != null &&
                        map.Entries.Count > 0;
             }
@@ -627,37 +692,40 @@ namespace QMC.CDT320.Sequencing
                 int count = 0;
                 foreach (DieMapEntry entry in map.Entries)
                 {
-                    if (entry == null || !entry.IsTarget)
+                    if (entry == null)
                         continue;
 
-                    string dieId = string.IsNullOrWhiteSpace(entry.DieUid) ? BuildDieId(wafer, entry.GridY, entry.GridX) : entry.DieUid;
+                    string dieId = string.IsNullOrWhiteSpace(entry.DieUid) ? BuildDieId(wafer, entry.DieMapY, entry.DieMapX) : entry.DieUid;
                     entry.DieUid = dieId;
                     DieMaterial die = MaterialStateService.GetOrCreateDieMaterial(dieId);
                     die.WaferID_Input = wafer.WaferId;
                     die.WaferID_Output = "";
-                    die.Wafer_IndexX = entry.GridX;
-                    die.Wafer_IndexY = entry.GridY;
+                    die.Wafer_IndexX = entry.DieMapX;
+                    die.Wafer_IndexY = entry.DieMapY;
+                    die.InputSequenceNo = entry.SequenceNo;
                     die.Input_BinCode = entry.BinCode;
+                    die.IsInputTarget = entry.IsTarget;
                     die.Output_BinCode = 0;
                     die.Bin_IndexX = -1;
                     die.Bin_IndexY = -1;
-                    die.CurrentLocation = new MaterialLocation { Kind = MaterialLocationKind.InputStage };
+                    die.CurrentLocation = new MaterialLocation { Kind = entry.IsTarget ? MaterialLocationKind.InputStage : MaterialLocationKind.Unknown };
                     die.ReservedPickerLocation = MaterialLocationKind.Unknown;
                     die.ReservedPickerNo = -1;
-                    die.Result = DieResult.Unknown;
+                    die.Result = entry.IsTarget ? DieResult.Unknown : DieResult.NG;
                     if (die.NgCodes == null)
                         die.NgCodes = new List<string>();
                     else
                         die.NgCodes.Clear();
                     if (die.WaferOffset == null)
                         die.WaferOffset = new VisionOffset();
-                    die.WaferOffset.X = entry.X;
-                    die.WaferOffset.Y = entry.Y;
+                    die.WaferOffset.X = entry.PosX;
+                    die.WaferOffset.Y = entry.PosY;
                     die.WaferOffset.R = 0.0;
                     die.WaferOffset.IsValid = true;
                     die.UpdatedAt = DateTime.Now;
                     wafer.DieIds.Add(dieId);
-                    count++;
+                    if (entry.IsTarget)
+                        count++;
                 }
 
                 return count;
@@ -801,7 +869,7 @@ namespace QMC.CDT320.Sequencing
                 if (result != 0)
                     return Fail("IN-STAGE-DIEMAP-MOVE", Stage.Name,
                         description + " move command failed. axis=" + axis + ", target=" + target +
-                        ", result=" + result + ". " + BuildAxisState(axis, target));
+                        ", result=" + result + ". " + BuildAxisState(axis, target) + FormatLastStageMoveFailure());
 
                 ct.ThrowIfCancellationRequested();
                 return 0;
@@ -898,6 +966,54 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        private static bool IsRecipeInputDieMapMatchedToFrame(RecipeProject project, DieMap map, string path)
+        {
+            try
+            {
+                if (project == null || project.Frame == null || map == null)
+                    return true;
+
+                int frameDieMapX = Math.Max(1, project.Frame.DieMapX);
+                int frameDieMapY = Math.Max(1, project.Frame.DieMapY);
+                double framePitchX = project.Frame.PitchX;
+                double framePitchY = project.Frame.PitchY;
+                bool mismatch =
+                    map.DieMapX != frameDieMapX ||
+                    map.DieMapY != frameDieMapY ||
+                    (framePitchX > 0.0 && Math.Abs(map.PitchX - framePitchX) > 1e-6) ||
+                    (framePitchY > 0.0 && Math.Abs(map.PitchY - framePitchY) > 1e-6);
+
+                if (!mismatch)
+                    return true;
+
+                LastSourceInputDieMapFailure =
+                    "Recipe input die map does not match frame spec. path=" + path +
+                    ", mapDie=" + map.DieMapX + "x" + map.DieMapY +
+                    ", frameDieMap=" + frameDieMapX + "x" + frameDieMapY +
+                    ", mapPitch=(" + map.PitchX.ToString("F6") + "," + map.PitchY.ToString("F6") + ")" +
+                    ", framePitch=(" + framePitchX.ToString("F6") + "," + framePitchY.ToString("F6") + ").";
+                WriteLog("InputStageDieMappingSequence", LastSourceInputDieMapFailure + " - Failed");
+                return false;
+            }
+            catch (Exception ex)
+            {
+                LastSourceInputDieMapFailure = "Recipe input die map frame match check failed: " + ex.Message + ".";
+                WriteLog("InputStageDieMappingSequence", LastSourceInputDieMapFailure + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private string FormatLastStageMoveFailure()
+        {
+            if (Stage == null || string.IsNullOrWhiteSpace(Stage.LastStageMoveFailureMessage))
+                return string.Empty;
+
+            return ", lastStageMoveFailure=" + Stage.LastStageMoveFailureMessage;
         }
 
         private QMC.Common.Motion.BaseAxis ResolveStageAxis(WaferStageAxis axis)

@@ -53,7 +53,7 @@ namespace QMC.CDT320.Ui.Controls
             using (var f  = new Font("Consolas", 10F, FontStyle.Bold))
                 g.DrawString(Caption, f, br, 8, 6);
 
-            if (_map == null || _map.GridX <= 0 || _map.GridY <= 0)
+            if (_map == null || _map.DieMapX <= 0 || _map.DieMapY <= 0)
             {
                 using (var br = new SolidBrush(Color.Gray))
                 using (var f  = new Font("Segoe UI", 14F))
@@ -68,18 +68,18 @@ namespace QMC.CDT320.Ui.Controls
             int legendH = 28;
             int availableW = Width - margin * 2;
             int availableH = Height - titleH - legendH - margin;
-            int cellSize = Math.Max(2, Math.Min(availableW / _map.GridX, availableH / _map.GridY));
+            int cellSize = Math.Max(2, Math.Min(availableW / _map.DieMapX, availableH / _map.DieMapY));
 
-            int totalW = cellSize * _map.GridX;
-            int totalH = cellSize * _map.GridY;
+            int totalW = cellSize * _map.DieMapX;
+            int totalH = cellSize * _map.DieMapY;
             int x0 = (Width - totalW) / 2;
             int y0 = titleH + (availableH - totalH) / 2;
 
             // 셀 그리기
             foreach (var entry in _map.Entries)
             {
-                int x = x0 + entry.GridX * cellSize;
-                int y = y0 + entry.GridY * cellSize;
+                int x = x0 + entry.DieMapX * cellSize;
+                int y = y0 + entry.DieMapY * cellSize;
                 Color c = !entry.IsTarget
                     ? Color.FromArgb(60, 60, 60)
                     : (entry.BinCode > 0
@@ -103,8 +103,8 @@ namespace QMC.CDT320.Ui.Controls
             // hover 강조
             if (_hover != null)
             {
-                int x = x0 + _hover.GridX * cellSize;
-                int y = y0 + _hover.GridY * cellSize;
+                int x = x0 + _hover.DieMapX * cellSize;
+                int y = y0 + _hover.DieMapY * cellSize;
                 using (var pen = new Pen(Color.Yellow, 2f))
                     g.DrawRectangle(pen, x, y, cellSize - 1, cellSize - 1);
             }
@@ -113,11 +113,11 @@ namespace QMC.CDT320.Ui.Controls
             using (var br = new SolidBrush(Color.WhiteSmoke))
             using (var f  = new Font("Consolas", 9F))
             {
-                string info = $"{_map.GridX}×{_map.GridY}  pitch=({_map.PitchX:F2},{_map.PitchY:F2})mm  total={_map.TotalCells}";
+                string info = $"{_map.DieMapX}×{_map.DieMapY}  pitch=({_map.PitchX:F2},{_map.PitchY:F2})mm  total={_map.TotalCells}";
                 g.DrawString(info, f, br, 8, 24);
                 if (_hover != null)
                 {
-                    string h = $"seq={_hover.SequenceNo} [{_hover.GridX},{_hover.GridY}] xy=({_hover.X:F3},{_hover.Y:F3}) result={_hover.Result} bin={_hover.BinCode} uid={_hover.DieUid}";
+                    string h = $"seq={_hover.SequenceNo} [{_hover.DieMapX},{_hover.DieMapY}] xy=({_hover.PosX:F3},{_hover.PosY:F3}) result={_hover.Result} bin={_hover.BinCode} uid={_hover.DieUid}";
                     g.DrawString(h, f, br, 8, Height - 18);
                 }
             }
@@ -160,15 +160,15 @@ namespace QMC.CDT320.Ui.Controls
             int legendH = 28;
             int availableW = Width - margin * 2;
             int availableH = Height - titleH - legendH - margin;
-            int cellSize = Math.Max(2, Math.Min(availableW / _map.GridX, availableH / _map.GridY));
-            int totalW = cellSize * _map.GridX;
-            int totalH = cellSize * _map.GridY;
+            int cellSize = Math.Max(2, Math.Min(availableW / _map.DieMapX, availableH / _map.DieMapY));
+            int totalW = cellSize * _map.DieMapX;
+            int totalH = cellSize * _map.DieMapY;
             int x0 = (Width - totalW) / 2;
             int y0 = titleH + (availableH - totalH) / 2;
 
             int gx = (mouseX - x0) / cellSize;
             int gy = (mouseY - y0) / cellSize;
-            if (gx < 0 || gx >= _map.GridX || gy < 0 || gy >= _map.GridY) return null;
+            if (gx < 0 || gx >= _map.DieMapX || gy < 0 || gy >= _map.DieMapY) return null;
             return _map.GetCell(gx, gy);
         }
 

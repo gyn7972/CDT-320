@@ -1083,8 +1083,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 
                 items.Add(AxisDouble("WORK AREA RADIUS", ParameterGridScope.Setup, unit.StageY, () => unit.Setup.WorkAreaRadius, v => unit.Setup.WorkAreaRadius = Math.Max(0.0, v)));
                 items.Add(AxisDouble("NEEDLE WORK AREA RADIUS", ParameterGridScope.Setup, unit.StageY, () => unit.Setup.NeedleWorkAreaRadius, v => unit.Setup.NeedleWorkAreaRadius = Math.Max(0.0, v)));
-                items.Add(AxisDouble("WORK AREA CENTER X", ParameterGridScope.Setup, unit.CameraX, () => unit.Setup.WorkAreaCenterX, v => unit.Setup.WorkAreaCenterX = v));
-                items.Add(AxisDouble("WORK AREA CENTER Y", ParameterGridScope.Setup, unit.StageY, () => unit.Setup.WorkAreaCenterY, v => unit.Setup.WorkAreaCenterY = v));
+                items.Add(AxisDouble("VISION WORK AREA CENTER X", ParameterGridScope.Setup, unit.CameraX, () => unit.Setup.WorkAreaCenterX, v => unit.Setup.WorkAreaCenterX = v));
+                items.Add(AxisDouble("VISION WORK AREA CENTER Y", ParameterGridScope.Setup, unit.StageY, () => unit.Setup.WorkAreaCenterY, v => unit.Setup.WorkAreaCenterY = v));
+                items.Add(AxisDouble("NEEDLE WORK AREA CENTER X", ParameterGridScope.Setup, unit.NeedleBlockX, () => unit.Setup.NeedleWorkAreaCenterX, v => unit.Setup.NeedleWorkAreaCenterX = v));
+                items.Add(AxisDouble("NEEDLE WORK AREA CENTER Y", ParameterGridScope.Setup, unit.StageY, () => unit.Setup.NeedleWorkAreaCenterY, v => unit.Setup.NeedleWorkAreaCenterY = v));
                 items.Add(AxisDouble("NEEDLE X TO VISION X OFFSET", ParameterGridScope.Setup, unit.CameraX, () => unit.Setup.NeedleXToVisionXOffset, v => unit.Setup.NeedleXToVisionXOffset = v));
                 items.Add(ParameterGridItem.Int("BARCODE READ TIMEOUT", "ms", ParameterGridScope.Setup, () => unit.Setup.BarcodeReadTimeoutMs, v => unit.Setup.BarcodeReadTimeoutMs = Math.Max(0, v)));
                 items.Add(ParameterGridItem.Int("ALIGN ITERATIONS", "count", ParameterGridScope.Config, () => unit.Config.MaxAlignIterations, v => unit.Config.MaxAlignIterations = Math.Max(1, v)));

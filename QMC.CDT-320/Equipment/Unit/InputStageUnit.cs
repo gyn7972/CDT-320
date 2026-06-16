@@ -37,6 +37,10 @@ namespace QMC.CDT320
 
         [DataMember] public double WorkAreaCenterY { get; set; } = 0.0;
 
+        [DataMember] public double NeedleWorkAreaCenterX { get; set; } = 0.0;
+
+        [DataMember] public double NeedleWorkAreaCenterY { get; set; } = 0.0;
+
         [DataMember] public double NeedleXToVisionXOffset { get; set; } = 0.0;
 
         [DataMember] public int BarcodeReadTimeoutMs { get; set; } = 3000;
@@ -411,6 +415,10 @@ namespace QMC.CDT320
         /// PICK 시 StageY 절대 위치 계산에 사용.</summary>
         public double WaferAlignOffsetY { get; set; } = 0.0;
 
+        public double DieMappingOffsetX { get; set; } = 0.0;
+
+        public double DieMappingOffsetY { get; set; } = 0.0;
+
         /// <summary>
         /// NeedleZ가 Safe(Avoid) 위치에 있는지 확인합니다.<br/>
         /// InputStageY HOME 전, NeedleZ 간섭을 피하기 위한 안전 조건 확인에 사용합니다.
@@ -482,6 +490,22 @@ namespace QMC.CDT320
             return 125.0;
         }
 
+        public double ResolveNeedleWorkAreaCenterX()
+        {
+            if (Setup != null && Math.Abs(Setup.NeedleWorkAreaCenterX) > 1e-9)
+                return Setup.NeedleWorkAreaCenterX;
+
+            return ResolveWorkAreaCenterX() - (Setup != null ? Setup.NeedleXToVisionXOffset : 0.0);
+        }
+
+        public double ResolveNeedleWorkAreaCenterY()
+        {
+            if (Setup != null && Math.Abs(Setup.NeedleWorkAreaCenterY) > 1e-9)
+                return Setup.NeedleWorkAreaCenterY;
+
+            return ResolveWorkAreaCenterY();
+        }
+
         public double ConvertNeedleXToVisionX(double needleX)
         {
             return needleX + (Setup != null ? Setup.NeedleXToVisionXOffset : 0.0);
@@ -494,8 +518,7 @@ namespace QMC.CDT320
 
         public bool IsNeedleWorkPointInArea(double needleX, double stageY, out string reason)
         {
-            double visionX = ConvertNeedleXToVisionX(needleX);
-            return IsWorkPointInArea(visionX, stageY, ResolveNeedleWorkAreaRadius(), "Needle work area", out reason);
+            return IsNeedlePointInArea(needleX, stageY, ResolveNeedleWorkAreaRadius(), "Needle work area", out reason);
         }
 
         public bool IsInputStageAxisTargetAllowedInWorkArea(WaferStageAxis axis, double target, out string reason)
@@ -690,10 +713,8 @@ namespace QMC.CDT320
                 return false;
             }
 
-            double centerX = ResolveWorkAreaCenterX();
-            double centerY = ResolveWorkAreaCenterY();
-            double offset = Setup != null ? Setup.NeedleXToVisionXOffset : 0.0;
-            double actualVisionX = ConvertNeedleXToVisionX(needleActual);
+            double centerX = ResolveNeedleWorkAreaCenterX();
+            double centerY = ResolveNeedleWorkAreaCenterY();
             double yDelta = stageY - centerY;
             double remain = (radius * radius) - (yDelta * yDelta);
             if (remain < 0.0)
@@ -706,25 +727,25 @@ namespace QMC.CDT320
             }
 
             double span = Math.Sqrt(Math.Max(0.0, remain));
-            double minVisionX = centerX - span;
-            double maxVisionX = centerX + span;
+            double minNeedleX = centerX - span;
+            double maxNeedleX = centerX + span;
             const double boundaryTolerance = 0.0001;
-            bool outsidePlus = actualVisionX > maxVisionX + boundaryTolerance;
-            bool outsideMinus = actualVisionX < minVisionX - boundaryTolerance;
+            bool outsidePlus = needleActual > maxNeedleX + boundaryTolerance;
+            bool outsideMinus = needleActual < minNeedleX - boundaryTolerance;
 
             if (outsidePlus)
             {
                 if (direction != Direction.Minus)
                 {
                     reason = "Needle work area jog plus moves farther outside circular boundary. x=" +
-                        actualVisionX.ToString("F3") +
-                        ", max=" + maxVisionX.ToString("F3") +
+                        needleActual.ToString("F3") +
+                        ", max=" + maxNeedleX.ToString("F3") +
                         ", centerX=" + centerX.ToString("F3") +
                         ", radius=" + radius.ToString("F3");
                     return false;
                 }
 
-                target = ClampToSoftLimit(NeedleBlockX, maxVisionX - offset);
+                target = ClampToSoftLimit(NeedleBlockX, maxNeedleX);
                 return VerifyJogDirectionTarget(WaferStageAxis.NeedleX, direction, target, out reason);
             }
 
@@ -733,19 +754,18 @@ namespace QMC.CDT320
                 if (direction != Direction.Plus)
                 {
                     reason = "Needle work area jog minus moves farther outside circular boundary. x=" +
-                        actualVisionX.ToString("F3") +
-                        ", min=" + minVisionX.ToString("F3") +
+                        needleActual.ToString("F3") +
+                        ", min=" + minNeedleX.ToString("F3") +
                         ", centerX=" + centerX.ToString("F3") +
                         ", radius=" + radius.ToString("F3");
                     return false;
                 }
 
-                target = ClampToSoftLimit(NeedleBlockX, minVisionX - offset);
+                target = ClampToSoftLimit(NeedleBlockX, minNeedleX);
                 return VerifyJogDirectionTarget(WaferStageAxis.NeedleX, direction, target, out reason);
             }
 
-            double targetVisionX = direction == Direction.Plus ? maxVisionX : minVisionX;
-            target = ClampToSoftLimit(NeedleBlockX, targetVisionX - offset);
+            target = ClampToSoftLimit(NeedleBlockX, direction == Direction.Plus ? maxNeedleX : minNeedleX);
             return VerifyResolvedJogTarget(WaferStageAxis.NeedleX, direction, target, out reason);
         }
 
@@ -882,6 +902,29 @@ namespace QMC.CDT320
 
             reason = label +
                 " out of radius. x=" + visionX.ToString("F3") +
+                ", y=" + stageY.ToString("F3") +
+                ", centerX=" + centerX.ToString("F3") +
+                ", centerY=" + centerY.ToString("F3") +
+                ", distance=" + distance.ToString("F3") +
+                ", radius=" + radius.ToString("F3");
+            return false;
+        }
+
+        private bool IsNeedlePointInArea(double needleX, double stageY, double radius, string label, out string reason)
+        {
+            double centerX = ResolveNeedleWorkAreaCenterX();
+            double centerY = ResolveNeedleWorkAreaCenterY();
+            double dx = needleX - centerX;
+            double dy = stageY - centerY;
+            double distance = Math.Sqrt(dx * dx + dy * dy);
+            if (distance <= radius)
+            {
+                reason = string.Empty;
+                return true;
+            }
+
+            reason = label +
+                " out of radius. x=" + needleX.ToString("F3") +
                 ", y=" + stageY.ToString("F3") +
                 ", centerX=" + centerX.ToString("F3") +
                 ", centerY=" + centerY.ToString("F3") +
@@ -1116,6 +1159,19 @@ namespace QMC.CDT320
             try
             {
                 BaseAxis item = ResolveInputStageAxis(axis);
+                if (item == null)
+                {
+                    LastStageMoveFailureMessage = axis + " move failed. axis is null. target=" + targetPos;
+                    return RaiseStageAlarm(AlarmSeverity.Error, "IN-STAGE-MOVE", Name, LastStageMoveFailureMessage);
+                }
+
+                double tolerance = ResolveAxisPositionTolerance(item);
+                if (!item.IsMoving && Math.Abs(item.ActualPosition - targetPos) <= tolerance)
+                {
+                    LastStageMoveFailureMessage = string.Empty;
+                    return 0;
+                }
+
                 string interlockReason;
                 if (!MotionGuardRuntime.VerifyAxisMove(item, targetPos, out interlockReason))
                 {
@@ -1645,6 +1701,8 @@ namespace QMC.CDT320
             PitchY = 0.0;
             WaferAlignOffsetX = 0.0;
             WaferAlignOffsetY = 0.0;
+            DieMappingOffsetX = 0.0;
+            DieMappingOffsetY = 0.0;
         }
 
         public WaferMapData EnsureWaferMapForAlign(string waferId, bool allowFallback)
@@ -1726,7 +1784,7 @@ namespace QMC.CDT320
             }
         }
 
-        public void ApplyDieMappingResult(WaferMapData map, double originX, double originY, double pitchX, double pitchY)
+        public void ApplyDieMappingResult(WaferMapData map, double originX, double originY, double pitchX, double pitchY, double mappingOffsetX = 0.0, double mappingOffsetY = 0.0)
         {
             try
             {
@@ -1740,6 +1798,8 @@ namespace QMC.CDT320
                 OriginY = originY;
                 PitchX = pitchX;
                 PitchY = pitchY;
+                DieMappingOffsetX = mappingOffsetX;
+                DieMappingOffsetY = mappingOffsetY;
                 EventLogger.Write(EventKind.Event, "QMC", "IS-DIEMAP",
                     "InputStage die mapping result applied. wafer=" + (map != null ? map.WaferId : "") +
                     ", row=" + (map != null ? map.RowCount.ToString() : "0") +
@@ -1747,7 +1807,9 @@ namespace QMC.CDT320
                     ", originX=" + OriginX.ToString("F4") +
                     ", originY=" + OriginY.ToString("F4") +
                     ", pitchX=" + PitchX.ToString("F4") +
-                    ", pitchY=" + PitchY.ToString("F4"));
+                    ", pitchY=" + PitchY.ToString("F4") +
+                    ", offsetX=" + DieMappingOffsetX.ToString("F4") +
+                    ", offsetY=" + DieMappingOffsetY.ToString("F4"));
             }
             catch (Exception ex)
             {

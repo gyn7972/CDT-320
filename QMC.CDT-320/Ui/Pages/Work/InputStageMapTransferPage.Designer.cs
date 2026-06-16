@@ -22,15 +22,6 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private Label lblMapTitle;
         private DieMapView mapView;
         private DataGridView gridDieList;
-        private DataGridViewTextBoxColumn colIndex;
-        private DataGridViewTextBoxColumn colGridX;
-        private DataGridViewTextBoxColumn colGridY;
-        private DataGridViewTextBoxColumn colTarget;
-        private DataGridViewTextBoxColumn colResult;
-        private DataGridViewTextBoxColumn colBin;
-        private DataGridViewTextBoxColumn colAxisX;
-        private DataGridViewTextBoxColumn colAxisY;
-        private DataGridViewTextBoxColumn colDieUid;
         private TableLayoutPanel sideLayout;
         private GroupBox grpMapInfo;
         private TableLayoutPanel mapInfoLayout;
@@ -83,15 +74,6 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblMapTitle = new System.Windows.Forms.Label();
             this.mapView = new QMC.CDT320.Ui.Controls.DieMapView();
             this.gridDieList = new System.Windows.Forms.DataGridView();
-            this.colIndex = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.colGridX = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.colGridY = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.colTarget = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.colResult = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.colBin = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.colAxisX = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.colAxisY = new System.Windows.Forms.DataGridViewTextBoxColumn();
-            this.colDieUid = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.sideLayout = new System.Windows.Forms.TableLayoutPanel();
             this.grpMapInfo = new System.Windows.Forms.GroupBox();
             this.mapInfoLayout = new System.Windows.Forms.TableLayoutPanel();
@@ -127,6 +109,15 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.btnThetaMatchMove = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnXyMatchMove = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnClose = new System.Windows.Forms.Button();
+            this.colIndex = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.colGridX = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.colGridY = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.colTarget = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.colResult = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.colBin = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.colAxisX = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.colAxisY = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.colDieUid = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.rootLayout.SuspendLayout();
             this.statusLayout.SuspendLayout();
             this.bodyLayout.SuspendLayout();
@@ -154,7 +145,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 26F));
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 22F));
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.rootLayout.Size = new System.Drawing.Size(1675, 897);
+            this.rootLayout.Size = new System.Drawing.Size(1678, 900);
             this.rootLayout.TabIndex = 0;
             // 
             // lblHeader
@@ -166,7 +157,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblHeader.Location = new System.Drawing.Point(3, 0);
             this.lblHeader.Name = "lblHeader";
             this.lblHeader.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
-            this.lblHeader.Size = new System.Drawing.Size(1669, 26);
+            this.lblHeader.Size = new System.Drawing.Size(1672, 26);
             this.lblHeader.TabIndex = 0;
             this.lblHeader.Tag = "i18n:work.page.inputMap";
             this.lblHeader.Text = "INPUT STAGE DIE MAP";
@@ -195,7 +186,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.statusLayout.Name = "statusLayout";
             this.statusLayout.RowCount = 1;
             this.statusLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.statusLayout.Size = new System.Drawing.Size(1669, 16);
+            this.statusLayout.Size = new System.Drawing.Size(1672, 16);
             this.statusLayout.TabIndex = 1;
             // 
             // lblProjectCaption
@@ -205,7 +196,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblProjectCaption.ForeColor = System.Drawing.Color.White;
             this.lblProjectCaption.Location = new System.Drawing.Point(3, 0);
             this.lblProjectCaption.Name = "lblProjectCaption";
-            this.lblProjectCaption.Size = new System.Drawing.Size(74, 20);
+            this.lblProjectCaption.Size = new System.Drawing.Size(74, 16);
             this.lblProjectCaption.TabIndex = 0;
             this.lblProjectCaption.Text = "Project Name :";
             this.lblProjectCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -217,7 +208,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblProjectValue.ForeColor = System.Drawing.Color.White;
             this.lblProjectValue.Location = new System.Drawing.Point(83, 0);
             this.lblProjectValue.Name = "lblProjectValue";
-            this.lblProjectValue.Size = new System.Drawing.Size(254, 20);
+            this.lblProjectValue.Size = new System.Drawing.Size(254, 16);
             this.lblProjectValue.TabIndex = 1;
             this.lblProjectValue.Text = "--";
             this.lblProjectValue.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -229,7 +220,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblBarcodeCaption.ForeColor = System.Drawing.Color.White;
             this.lblBarcodeCaption.Location = new System.Drawing.Point(343, 0);
             this.lblBarcodeCaption.Name = "lblBarcodeCaption";
-            this.lblBarcodeCaption.Size = new System.Drawing.Size(84, 20);
+            this.lblBarcodeCaption.Size = new System.Drawing.Size(84, 16);
             this.lblBarcodeCaption.TabIndex = 2;
             this.lblBarcodeCaption.Text = "Barcode Name :";
             this.lblBarcodeCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -241,7 +232,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblBarcodeValue.ForeColor = System.Drawing.Color.White;
             this.lblBarcodeValue.Location = new System.Drawing.Point(433, 0);
             this.lblBarcodeValue.Name = "lblBarcodeValue";
-            this.lblBarcodeValue.Size = new System.Drawing.Size(214, 20);
+            this.lblBarcodeValue.Size = new System.Drawing.Size(214, 16);
             this.lblBarcodeValue.TabIndex = 3;
             this.lblBarcodeValue.Text = "--";
             this.lblBarcodeValue.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -253,7 +244,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblBinCaption.ForeColor = System.Drawing.Color.White;
             this.lblBinCaption.Location = new System.Drawing.Point(653, 0);
             this.lblBinCaption.Name = "lblBinCaption";
-            this.lblBinCaption.Size = new System.Drawing.Size(54, 20);
+            this.lblBinCaption.Size = new System.Drawing.Size(54, 16);
             this.lblBinCaption.TabIndex = 4;
             this.lblBinCaption.Text = "1Bin :";
             this.lblBinCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -265,7 +256,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblBinValue.ForeColor = System.Drawing.Color.White;
             this.lblBinValue.Location = new System.Drawing.Point(713, 0);
             this.lblBinValue.Name = "lblBinValue";
-            this.lblBinValue.Size = new System.Drawing.Size(114, 20);
+            this.lblBinValue.Size = new System.Drawing.Size(114, 16);
             this.lblBinValue.TabIndex = 5;
             this.lblBinValue.Text = "--";
             this.lblBinValue.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -283,7 +274,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.bodyLayout.Padding = new System.Windows.Forms.Padding(6);
             this.bodyLayout.RowCount = 1;
             this.bodyLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.bodyLayout.Size = new System.Drawing.Size(1669, 843);
+            this.bodyLayout.Size = new System.Drawing.Size(1672, 846);
             this.bodyLayout.TabIndex = 2;
             // 
             // mapLayout
@@ -294,13 +285,13 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.mapLayout.Controls.Add(this.mapView, 0, 1);
             this.mapLayout.Controls.Add(this.gridDieList, 0, 2);
             this.mapLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.mapLayout.Location = new System.Drawing.Point(11, 11);
+            this.mapLayout.Location = new System.Drawing.Point(9, 9);
             this.mapLayout.Name = "mapLayout";
             this.mapLayout.RowCount = 3;
             this.mapLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 24F));
             this.mapLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 58F));
             this.mapLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 42F));
-            this.mapLayout.Size = new System.Drawing.Size(1131, 825);
+            this.mapLayout.Size = new System.Drawing.Size(1134, 828);
             this.mapLayout.TabIndex = 0;
             // 
             // lblMapTitle
@@ -312,7 +303,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblMapTitle.Location = new System.Drawing.Point(3, 0);
             this.lblMapTitle.Name = "lblMapTitle";
             this.lblMapTitle.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
-            this.lblMapTitle.Size = new System.Drawing.Size(1125, 24);
+            this.lblMapTitle.Size = new System.Drawing.Size(1128, 24);
             this.lblMapTitle.TabIndex = 0;
             this.lblMapTitle.Tag = "i18n:recipe.inputMapCreate";
             this.lblMapTitle.Text = "INPUT DIE MAP CREATE";
@@ -326,7 +317,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.mapView.Location = new System.Drawing.Point(3, 27);
             this.mapView.Map = null;
             this.mapView.Name = "mapView";
-            this.mapView.Size = new System.Drawing.Size(1125, 458);
+            this.mapView.Size = new System.Drawing.Size(1128, 460);
             this.mapView.TabIndex = 1;
             // 
             // gridDieList
@@ -336,7 +327,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.gridDieList.AllowUserToResizeRows = false;
             this.gridDieList.AutoSizeColumnsMode = System.Windows.Forms.DataGridViewAutoSizeColumnsMode.Fill;
             this.gridDieList.BackgroundColor = System.Drawing.Color.White;
-            this.gridDieList.ColumnHeadersHeight = 22;
+            this.gridDieList.ColumnHeadersHeight = 25;
             this.gridDieList.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
             this.gridDieList.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
             this.colIndex,
@@ -349,87 +340,15 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.colAxisY,
             this.colDieUid});
             this.gridDieList.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.gridDieList.Location = new System.Drawing.Point(3, 491);
+            this.gridDieList.Location = new System.Drawing.Point(3, 493);
             this.gridDieList.MultiSelect = false;
             this.gridDieList.Name = "gridDieList";
             this.gridDieList.ReadOnly = true;
             this.gridDieList.RowHeadersVisible = false;
             this.gridDieList.RowTemplate.Height = 20;
             this.gridDieList.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
-            this.gridDieList.Size = new System.Drawing.Size(1125, 331);
+            this.gridDieList.Size = new System.Drawing.Size(1128, 332);
             this.gridDieList.TabIndex = 2;
-            // 
-            // colIndex
-            // 
-            this.colIndex.FillWeight = 45F;
-            this.colIndex.HeaderText = "No";
-            this.colIndex.Name = "colIndex";
-            this.colIndex.ReadOnly = true;
-            this.colIndex.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
-            // 
-            // colGridX
-            // 
-            this.colGridX.FillWeight = 55F;
-            this.colGridX.HeaderText = "GridX";
-            this.colGridX.Name = "colGridX";
-            this.colGridX.ReadOnly = true;
-            this.colGridX.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
-            // 
-            // colGridY
-            // 
-            this.colGridY.FillWeight = 55F;
-            this.colGridY.HeaderText = "GridY";
-            this.colGridY.Name = "colGridY";
-            this.colGridY.ReadOnly = true;
-            this.colGridY.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
-            // 
-            // colTarget
-            // 
-            this.colTarget.FillWeight = 65F;
-            this.colTarget.HeaderText = "Target";
-            this.colTarget.Name = "colTarget";
-            this.colTarget.ReadOnly = true;
-            this.colTarget.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
-            // 
-            // colResult
-            // 
-            this.colResult.FillWeight = 80F;
-            this.colResult.HeaderText = "Result";
-            this.colResult.Name = "colResult";
-            this.colResult.ReadOnly = true;
-            this.colResult.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
-            // 
-            // colBin
-            // 
-            this.colBin.FillWeight = 55F;
-            this.colBin.HeaderText = "Bin";
-            this.colBin.Name = "colBin";
-            this.colBin.ReadOnly = true;
-            this.colBin.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
-            // 
-            // colAxisX
-            // 
-            this.colAxisX.FillWeight = 80F;
-            this.colAxisX.HeaderText = "X(mm)";
-            this.colAxisX.Name = "colAxisX";
-            this.colAxisX.ReadOnly = true;
-            this.colAxisX.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
-            // 
-            // colAxisY
-            // 
-            this.colAxisY.FillWeight = 80F;
-            this.colAxisY.HeaderText = "Y(mm)";
-            this.colAxisY.Name = "colAxisY";
-            this.colAxisY.ReadOnly = true;
-            this.colAxisY.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
-            // 
-            // colDieUid
-            // 
-            this.colDieUid.FillWeight = 180F;
-            this.colDieUid.HeaderText = "Die UID";
-            this.colDieUid.Name = "colDieUid";
-            this.colDieUid.ReadOnly = true;
-            this.colDieUid.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             // 
             // sideLayout
             // 
@@ -440,13 +359,13 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.sideLayout.Controls.Add(this.grpMode, 1, 0);
             this.sideLayout.Controls.Add(this.actionLayout, 1, 1);
             this.sideLayout.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.sideLayout.Location = new System.Drawing.Point(1142, 9);
+            this.sideLayout.Location = new System.Drawing.Point(1149, 9);
             this.sideLayout.Name = "sideLayout";
             this.sideLayout.RowCount = 3;
             this.sideLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 260F));
             this.sideLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 190F));
             this.sideLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.sideLayout.Size = new System.Drawing.Size(520, 825);
+            this.sideLayout.Size = new System.Drawing.Size(514, 828);
             this.sideLayout.TabIndex = 1;
             // 
             // grpMapInfo
@@ -509,10 +428,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblChipWCaption.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblChipWCaption.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblChipWCaption.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.lblChipWCaption.Location = new System.Drawing.Point(7, 8);
+            this.lblChipWCaption.Location = new System.Drawing.Point(7, 6);
             this.lblChipWCaption.Name = "lblChipWCaption";
             this.lblChipWCaption.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblChipWCaption.Size = new System.Drawing.Size(93, 24);
+            this.lblChipWCaption.Size = new System.Drawing.Size(93, 22);
             this.lblChipWCaption.TabIndex = 0;
             this.lblChipWCaption.Text = "Chip Width";
             this.lblChipWCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -523,10 +442,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblChipW.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblChipW.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblChipW.Font = new System.Drawing.Font("Consolas", 9F);
-            this.lblChipW.Location = new System.Drawing.Point(106, 8);
+            this.lblChipW.Location = new System.Drawing.Point(106, 6);
             this.lblChipW.Name = "lblChipW";
             this.lblChipW.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
-            this.lblChipW.Size = new System.Drawing.Size(103, 24);
+            this.lblChipW.Size = new System.Drawing.Size(103, 22);
             this.lblChipW.TabIndex = 1;
             this.lblChipW.Text = "0";
             this.lblChipW.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
@@ -537,10 +456,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblChipHCaption.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblChipHCaption.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblChipHCaption.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.lblChipHCaption.Location = new System.Drawing.Point(7, 32);
+            this.lblChipHCaption.Location = new System.Drawing.Point(7, 28);
             this.lblChipHCaption.Name = "lblChipHCaption";
             this.lblChipHCaption.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblChipHCaption.Size = new System.Drawing.Size(93, 24);
+            this.lblChipHCaption.Size = new System.Drawing.Size(93, 22);
             this.lblChipHCaption.TabIndex = 2;
             this.lblChipHCaption.Text = "Chip Height";
             this.lblChipHCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -551,10 +470,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblChipH.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblChipH.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblChipH.Font = new System.Drawing.Font("Consolas", 9F);
-            this.lblChipH.Location = new System.Drawing.Point(106, 32);
+            this.lblChipH.Location = new System.Drawing.Point(106, 28);
             this.lblChipH.Name = "lblChipH";
             this.lblChipH.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
-            this.lblChipH.Size = new System.Drawing.Size(103, 24);
+            this.lblChipH.Size = new System.Drawing.Size(103, 22);
             this.lblChipH.TabIndex = 3;
             this.lblChipH.Text = "0";
             this.lblChipH.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
@@ -565,10 +484,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblPitchXCaption.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblPitchXCaption.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblPitchXCaption.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.lblPitchXCaption.Location = new System.Drawing.Point(7, 56);
+            this.lblPitchXCaption.Location = new System.Drawing.Point(7, 50);
             this.lblPitchXCaption.Name = "lblPitchXCaption";
             this.lblPitchXCaption.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblPitchXCaption.Size = new System.Drawing.Size(93, 24);
+            this.lblPitchXCaption.Size = new System.Drawing.Size(93, 22);
             this.lblPitchXCaption.TabIndex = 4;
             this.lblPitchXCaption.Text = "Pitch X";
             this.lblPitchXCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -579,10 +498,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblPitchX.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblPitchX.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblPitchX.Font = new System.Drawing.Font("Consolas", 9F);
-            this.lblPitchX.Location = new System.Drawing.Point(106, 56);
+            this.lblPitchX.Location = new System.Drawing.Point(106, 50);
             this.lblPitchX.Name = "lblPitchX";
             this.lblPitchX.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
-            this.lblPitchX.Size = new System.Drawing.Size(103, 24);
+            this.lblPitchX.Size = new System.Drawing.Size(103, 22);
             this.lblPitchX.TabIndex = 5;
             this.lblPitchX.Text = "0";
             this.lblPitchX.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
@@ -593,10 +512,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblPitchYCaption.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblPitchYCaption.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblPitchYCaption.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.lblPitchYCaption.Location = new System.Drawing.Point(7, 80);
+            this.lblPitchYCaption.Location = new System.Drawing.Point(7, 72);
             this.lblPitchYCaption.Name = "lblPitchYCaption";
             this.lblPitchYCaption.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblPitchYCaption.Size = new System.Drawing.Size(93, 24);
+            this.lblPitchYCaption.Size = new System.Drawing.Size(93, 22);
             this.lblPitchYCaption.TabIndex = 6;
             this.lblPitchYCaption.Text = "Pitch Y";
             this.lblPitchYCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -607,10 +526,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblPitchY.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblPitchY.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblPitchY.Font = new System.Drawing.Font("Consolas", 9F);
-            this.lblPitchY.Location = new System.Drawing.Point(106, 80);
+            this.lblPitchY.Location = new System.Drawing.Point(106, 72);
             this.lblPitchY.Name = "lblPitchY";
             this.lblPitchY.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
-            this.lblPitchY.Size = new System.Drawing.Size(103, 24);
+            this.lblPitchY.Size = new System.Drawing.Size(103, 22);
             this.lblPitchY.TabIndex = 7;
             this.lblPitchY.Text = "0";
             this.lblPitchY.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
@@ -621,10 +540,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblWaferDiaCaption.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblWaferDiaCaption.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblWaferDiaCaption.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.lblWaferDiaCaption.Location = new System.Drawing.Point(7, 104);
+            this.lblWaferDiaCaption.Location = new System.Drawing.Point(7, 94);
             this.lblWaferDiaCaption.Name = "lblWaferDiaCaption";
             this.lblWaferDiaCaption.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblWaferDiaCaption.Size = new System.Drawing.Size(93, 24);
+            this.lblWaferDiaCaption.Size = new System.Drawing.Size(93, 22);
             this.lblWaferDiaCaption.TabIndex = 8;
             this.lblWaferDiaCaption.Text = "Wafer Dia";
             this.lblWaferDiaCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -635,10 +554,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblWaferDia.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblWaferDia.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblWaferDia.Font = new System.Drawing.Font("Consolas", 9F);
-            this.lblWaferDia.Location = new System.Drawing.Point(106, 104);
+            this.lblWaferDia.Location = new System.Drawing.Point(106, 94);
             this.lblWaferDia.Name = "lblWaferDia";
             this.lblWaferDia.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
-            this.lblWaferDia.Size = new System.Drawing.Size(103, 24);
+            this.lblWaferDia.Size = new System.Drawing.Size(103, 22);
             this.lblWaferDia.TabIndex = 9;
             this.lblWaferDia.Text = "0";
             this.lblWaferDia.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
@@ -649,10 +568,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblAxisXCaption.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblAxisXCaption.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblAxisXCaption.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.lblAxisXCaption.Location = new System.Drawing.Point(7, 128);
+            this.lblAxisXCaption.Location = new System.Drawing.Point(7, 116);
             this.lblAxisXCaption.Name = "lblAxisXCaption";
             this.lblAxisXCaption.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblAxisXCaption.Size = new System.Drawing.Size(93, 24);
+            this.lblAxisXCaption.Size = new System.Drawing.Size(93, 22);
             this.lblAxisXCaption.TabIndex = 10;
             this.lblAxisXCaption.Text = "Axis X";
             this.lblAxisXCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -663,10 +582,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblAxisX.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblAxisX.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblAxisX.Font = new System.Drawing.Font("Consolas", 9F);
-            this.lblAxisX.Location = new System.Drawing.Point(106, 128);
+            this.lblAxisX.Location = new System.Drawing.Point(106, 116);
             this.lblAxisX.Name = "lblAxisX";
             this.lblAxisX.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
-            this.lblAxisX.Size = new System.Drawing.Size(103, 24);
+            this.lblAxisX.Size = new System.Drawing.Size(103, 22);
             this.lblAxisX.TabIndex = 11;
             this.lblAxisX.Text = "0";
             this.lblAxisX.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
@@ -677,10 +596,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblAxisYCaption.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblAxisYCaption.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblAxisYCaption.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.lblAxisYCaption.Location = new System.Drawing.Point(7, 152);
+            this.lblAxisYCaption.Location = new System.Drawing.Point(7, 138);
             this.lblAxisYCaption.Name = "lblAxisYCaption";
             this.lblAxisYCaption.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblAxisYCaption.Size = new System.Drawing.Size(93, 24);
+            this.lblAxisYCaption.Size = new System.Drawing.Size(93, 22);
             this.lblAxisYCaption.TabIndex = 12;
             this.lblAxisYCaption.Text = "Axis Y";
             this.lblAxisYCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -691,10 +610,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblAxisY.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblAxisY.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblAxisY.Font = new System.Drawing.Font("Consolas", 9F);
-            this.lblAxisY.Location = new System.Drawing.Point(106, 152);
+            this.lblAxisY.Location = new System.Drawing.Point(106, 138);
             this.lblAxisY.Name = "lblAxisY";
             this.lblAxisY.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
-            this.lblAxisY.Size = new System.Drawing.Size(103, 24);
+            this.lblAxisY.Size = new System.Drawing.Size(103, 22);
             this.lblAxisY.TabIndex = 13;
             this.lblAxisY.Text = "0";
             this.lblAxisY.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
@@ -705,10 +624,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblBinRankCaption.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblBinRankCaption.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblBinRankCaption.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.lblBinRankCaption.Location = new System.Drawing.Point(7, 176);
+            this.lblBinRankCaption.Location = new System.Drawing.Point(7, 160);
             this.lblBinRankCaption.Name = "lblBinRankCaption";
             this.lblBinRankCaption.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblBinRankCaption.Size = new System.Drawing.Size(93, 24);
+            this.lblBinRankCaption.Size = new System.Drawing.Size(93, 22);
             this.lblBinRankCaption.TabIndex = 14;
             this.lblBinRankCaption.Text = "BIN RANK";
             this.lblBinRankCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -719,10 +638,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblBinRank.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblBinRank.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblBinRank.Font = new System.Drawing.Font("Consolas", 9F);
-            this.lblBinRank.Location = new System.Drawing.Point(106, 176);
+            this.lblBinRank.Location = new System.Drawing.Point(106, 160);
             this.lblBinRank.Name = "lblBinRank";
             this.lblBinRank.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
-            this.lblBinRank.Size = new System.Drawing.Size(103, 24);
+            this.lblBinRank.Size = new System.Drawing.Size(103, 22);
             this.lblBinRank.TabIndex = 15;
             this.lblBinRank.Text = "0";
             this.lblBinRank.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
@@ -733,10 +652,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblDieNumCaption.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblDieNumCaption.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblDieNumCaption.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.lblDieNumCaption.Location = new System.Drawing.Point(7, 200);
+            this.lblDieNumCaption.Location = new System.Drawing.Point(7, 182);
             this.lblDieNumCaption.Name = "lblDieNumCaption";
             this.lblDieNumCaption.Padding = new System.Windows.Forms.Padding(6, 0, 0, 0);
-            this.lblDieNumCaption.Size = new System.Drawing.Size(93, 48);
+            this.lblDieNumCaption.Size = new System.Drawing.Size(93, 40);
             this.lblDieNumCaption.TabIndex = 16;
             this.lblDieNumCaption.Text = "Die Number";
             this.lblDieNumCaption.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -747,10 +666,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblDieNum.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblDieNum.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblDieNum.Font = new System.Drawing.Font("Consolas", 9F);
-            this.lblDieNum.Location = new System.Drawing.Point(106, 200);
+            this.lblDieNum.Location = new System.Drawing.Point(106, 182);
             this.lblDieNum.Name = "lblDieNum";
             this.lblDieNum.Padding = new System.Windows.Forms.Padding(0, 0, 6, 0);
-            this.lblDieNum.Size = new System.Drawing.Size(103, 48);
+            this.lblDieNum.Size = new System.Drawing.Size(103, 40);
             this.lblDieNum.TabIndex = 17;
             this.lblDieNum.Text = "0/0";
             this.lblDieNum.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
@@ -764,7 +683,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.grpMode.Location = new System.Drawing.Point(234, 4);
             this.grpMode.Margin = new System.Windows.Forms.Padding(4);
             this.grpMode.Name = "grpMode";
-            this.grpMode.Size = new System.Drawing.Size(286, 252);
+            this.grpMode.Size = new System.Drawing.Size(276, 252);
             this.grpMode.TabIndex = 1;
             this.grpMode.TabStop = false;
             this.grpMode.Text = "MODE";
@@ -790,7 +709,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.modeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 24F));
             this.modeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
             this.modeLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
-            this.modeLayout.Size = new System.Drawing.Size(280, 226);
+            this.modeLayout.Size = new System.Drawing.Size(270, 226);
             this.modeLayout.TabIndex = 0;
             // 
             // rbStandard
@@ -799,9 +718,9 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.rbStandard.Checked = true;
             this.rbStandard.Dock = System.Windows.Forms.DockStyle.Fill;
             this.rbStandard.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.rbStandard.Location = new System.Drawing.Point(13, 13);
+            this.rbStandard.Location = new System.Drawing.Point(13, 11);
             this.rbStandard.Name = "rbStandard";
-            this.rbStandard.Size = new System.Drawing.Size(244, 21);
+            this.rbStandard.Size = new System.Drawing.Size(244, 18);
             this.rbStandard.TabIndex = 0;
             this.rbStandard.TabStop = true;
             this.rbStandard.Text = "STANDARD";
@@ -812,9 +731,9 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.rbStartIndex.AutoSize = true;
             this.rbStartIndex.Dock = System.Windows.Forms.DockStyle.Fill;
             this.rbStartIndex.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.rbStartIndex.Location = new System.Drawing.Point(13, 40);
+            this.rbStartIndex.Location = new System.Drawing.Point(13, 35);
             this.rbStartIndex.Name = "rbStartIndex";
-            this.rbStartIndex.Size = new System.Drawing.Size(244, 21);
+            this.rbStartIndex.Size = new System.Drawing.Size(244, 18);
             this.rbStartIndex.TabIndex = 1;
             this.rbStartIndex.Text = "START INDEX";
             // 
@@ -823,9 +742,9 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.rbSelectPickStatus.AutoSize = true;
             this.rbSelectPickStatus.Dock = System.Windows.Forms.DockStyle.Fill;
             this.rbSelectPickStatus.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.rbSelectPickStatus.Location = new System.Drawing.Point(13, 67);
+            this.rbSelectPickStatus.Location = new System.Drawing.Point(13, 59);
             this.rbSelectPickStatus.Name = "rbSelectPickStatus";
-            this.rbSelectPickStatus.Size = new System.Drawing.Size(244, 21);
+            this.rbSelectPickStatus.Size = new System.Drawing.Size(244, 18);
             this.rbSelectPickStatus.TabIndex = 2;
             this.rbSelectPickStatus.Text = "SELECT PICK STATUS";
             this.rbSelectPickStatus.UseVisualStyleBackColor = true;
@@ -835,9 +754,9 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.rbDragPickStatus.AutoSize = true;
             this.rbDragPickStatus.Dock = System.Windows.Forms.DockStyle.Fill;
             this.rbDragPickStatus.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.rbDragPickStatus.Location = new System.Drawing.Point(13, 94);
+            this.rbDragPickStatus.Location = new System.Drawing.Point(13, 83);
             this.rbDragPickStatus.Name = "rbDragPickStatus";
-            this.rbDragPickStatus.Size = new System.Drawing.Size(244, 21);
+            this.rbDragPickStatus.Size = new System.Drawing.Size(244, 18);
             this.rbDragPickStatus.TabIndex = 3;
             this.rbDragPickStatus.Text = "DRAG PICK STATUS";
             // 
@@ -848,10 +767,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.btnReloadActiveMap.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnReloadActiveMap.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.btnReloadActiveMap.ForeColor = System.Drawing.Color.White;
-            this.btnReloadActiveMap.Location = new System.Drawing.Point(14, 122);
+            this.btnReloadActiveMap.Location = new System.Drawing.Point(14, 108);
             this.btnReloadActiveMap.Margin = new System.Windows.Forms.Padding(4);
             this.btnReloadActiveMap.Name = "btnReloadActiveMap";
-            this.btnReloadActiveMap.Size = new System.Drawing.Size(242, 32);
+            this.btnReloadActiveMap.Size = new System.Drawing.Size(242, 26);
             this.btnReloadActiveMap.TabIndex = 5;
             this.btnReloadActiveMap.Text = "RELOAD ACTIVE MAP";
             // 
@@ -862,10 +781,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.btnPickStatusSave.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnPickStatusSave.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.btnPickStatusSave.ForeColor = System.Drawing.Color.White;
-            this.btnPickStatusSave.Location = new System.Drawing.Point(14, 162);
+            this.btnPickStatusSave.Location = new System.Drawing.Point(14, 142);
             this.btnPickStatusSave.Margin = new System.Windows.Forms.Padding(4);
             this.btnPickStatusSave.Name = "btnPickStatusSave";
-            this.btnPickStatusSave.Size = new System.Drawing.Size(242, 80);
+            this.btnPickStatusSave.Size = new System.Drawing.Size(242, 76);
             this.btnPickStatusSave.TabIndex = 4;
             this.btnPickStatusSave.Text = "SELECT PICK STATUS SAVE";
             // 
@@ -886,7 +805,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 25F));
             this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 25F));
             this.actionLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 25F));
-            this.actionLayout.Size = new System.Drawing.Size(284, 184);
+            this.actionLayout.Size = new System.Drawing.Size(278, 184);
             this.actionLayout.TabIndex = 3;
             // 
             // btnManualAlignComplete
@@ -899,7 +818,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.btnManualAlignComplete.Location = new System.Drawing.Point(8, 10);
             this.btnManualAlignComplete.Margin = new System.Windows.Forms.Padding(4);
             this.btnManualAlignComplete.Name = "btnManualAlignComplete";
-            this.btnManualAlignComplete.Size = new System.Drawing.Size(262, 41);
+            this.btnManualAlignComplete.Size = new System.Drawing.Size(262, 35);
             this.btnManualAlignComplete.TabIndex = 0;
             this.btnManualAlignComplete.Text = "MANUAL ALIGN COMPLETE";
             // 
@@ -910,10 +829,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.btnNeedleBlockDown.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnNeedleBlockDown.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.btnNeedleBlockDown.ForeColor = System.Drawing.Color.White;
-            this.btnNeedleBlockDown.Location = new System.Drawing.Point(8, 59);
+            this.btnNeedleBlockDown.Location = new System.Drawing.Point(8, 53);
             this.btnNeedleBlockDown.Margin = new System.Windows.Forms.Padding(4);
             this.btnNeedleBlockDown.Name = "btnNeedleBlockDown";
-            this.btnNeedleBlockDown.Size = new System.Drawing.Size(262, 41);
+            this.btnNeedleBlockDown.Size = new System.Drawing.Size(262, 35);
             this.btnNeedleBlockDown.TabIndex = 1;
             this.btnNeedleBlockDown.Text = "NEEDLE BLOCK DOWN";
             // 
@@ -924,10 +843,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.btnThetaMatchMove.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnThetaMatchMove.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.btnThetaMatchMove.ForeColor = System.Drawing.Color.White;
-            this.btnThetaMatchMove.Location = new System.Drawing.Point(8, 108);
+            this.btnThetaMatchMove.Location = new System.Drawing.Point(8, 96);
             this.btnThetaMatchMove.Margin = new System.Windows.Forms.Padding(4);
             this.btnThetaMatchMove.Name = "btnThetaMatchMove";
-            this.btnThetaMatchMove.Size = new System.Drawing.Size(262, 41);
+            this.btnThetaMatchMove.Size = new System.Drawing.Size(262, 35);
             this.btnThetaMatchMove.TabIndex = 2;
             this.btnThetaMatchMove.Text = "THETA MATCH MOVE";
             // 
@@ -938,10 +857,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.btnXyMatchMove.Dock = System.Windows.Forms.DockStyle.Fill;
             this.btnXyMatchMove.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.btnXyMatchMove.ForeColor = System.Drawing.Color.White;
-            this.btnXyMatchMove.Location = new System.Drawing.Point(8, 157);
+            this.btnXyMatchMove.Location = new System.Drawing.Point(8, 139);
             this.btnXyMatchMove.Margin = new System.Windows.Forms.Padding(4);
             this.btnXyMatchMove.Name = "btnXyMatchMove";
-            this.btnXyMatchMove.Size = new System.Drawing.Size(262, 43);
+            this.btnXyMatchMove.Size = new System.Drawing.Size(262, 37);
             this.btnXyMatchMove.TabIndex = 3;
             this.btnXyMatchMove.Text = "X_Y_MATCH MOVE";
             // 
@@ -958,6 +877,78 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.btnClose.TabIndex = 4;
             this.btnClose.Text = "CLOSE";
             this.btnClose.UseVisualStyleBackColor = false;
+            // 
+            // colIndex
+            // 
+            this.colIndex.FillWeight = 45F;
+            this.colIndex.HeaderText = "No";
+            this.colIndex.Name = "colIndex";
+            this.colIndex.ReadOnly = true;
+            this.colIndex.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            // 
+            // colGridX
+            // 
+            this.colGridX.FillWeight = 55F;
+            this.colGridX.HeaderText = "DieMapX";
+            this.colGridX.Name = "colGridX";
+            this.colGridX.ReadOnly = true;
+            this.colGridX.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            // 
+            // colGridY
+            // 
+            this.colGridY.FillWeight = 55F;
+            this.colGridY.HeaderText = "DieMapY";
+            this.colGridY.Name = "colGridY";
+            this.colGridY.ReadOnly = true;
+            this.colGridY.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            // 
+            // colTarget
+            // 
+            this.colTarget.FillWeight = 65F;
+            this.colTarget.HeaderText = "Target";
+            this.colTarget.Name = "colTarget";
+            this.colTarget.ReadOnly = true;
+            this.colTarget.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            // 
+            // colResult
+            // 
+            this.colResult.FillWeight = 80F;
+            this.colResult.HeaderText = "Result";
+            this.colResult.Name = "colResult";
+            this.colResult.ReadOnly = true;
+            this.colResult.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            // 
+            // colBin
+            // 
+            this.colBin.FillWeight = 55F;
+            this.colBin.HeaderText = "Bin";
+            this.colBin.Name = "colBin";
+            this.colBin.ReadOnly = true;
+            this.colBin.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            // 
+            // colAxisX
+            // 
+            this.colAxisX.FillWeight = 80F;
+            this.colAxisX.HeaderText = "X(mm)";
+            this.colAxisX.Name = "colAxisX";
+            this.colAxisX.ReadOnly = true;
+            this.colAxisX.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            // 
+            // colAxisY
+            // 
+            this.colAxisY.FillWeight = 80F;
+            this.colAxisY.HeaderText = "Y(mm)";
+            this.colAxisY.Name = "colAxisY";
+            this.colAxisY.ReadOnly = true;
+            this.colAxisY.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            // 
+            // colDieUid
+            // 
+            this.colDieUid.FillWeight = 180F;
+            this.colDieUid.HeaderText = "Die UID";
+            this.colDieUid.Name = "colDieUid";
+            this.colDieUid.ReadOnly = true;
+            this.colDieUid.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             // 
             // InputStageMapTransferPage
             // 
@@ -980,6 +971,16 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.ResumeLayout(false);
 
         }
+
+        private DataGridViewTextBoxColumn colIndex;
+        private DataGridViewTextBoxColumn colGridX;
+        private DataGridViewTextBoxColumn colGridY;
+        private DataGridViewTextBoxColumn colTarget;
+        private DataGridViewTextBoxColumn colResult;
+        private DataGridViewTextBoxColumn colBin;
+        private DataGridViewTextBoxColumn colAxisX;
+        private DataGridViewTextBoxColumn colAxisY;
+        private DataGridViewTextBoxColumn colDieUid;
     }
 }
 
