@@ -1,4 +1,4 @@
-using QMC.CDT320.Ajin;
+﻿using QMC.CDT320.Ajin;
 using QMC.CDT320.Motion.SharedRailX;
 using QMC.Common;
 using QMC.Common.Alarms;
@@ -15,45 +15,38 @@ namespace QMC.CDT320
     [DataContract]
     public enum PickerRunOrderMode
     {
+        // Picker3 -> Picker2 -> Picker1 -> Picker0 순서로 작업합니다.
         [EnumMember] Descending = 0,
+        // Picker0 -> Picker1 -> Picker2 -> Picker3 순서로 작업합니다.
         [EnumMember] Ascending = 1
     }
 
     [DataContract]
     public sealed class PickerFrontSetup : ISetupData
     {
-        [DataMember] public bool IsSimulationMode { get; set; }
-        [DataMember] public double InputSafetyOffset { get; set; }
-        [DataMember] public double OutputSafetyOffset { get; set; }
-        [DataMember] public double ArmInputPositionX { get; set; } = 300.0;
-        [DataMember] public double ArmInspectionPositionX { get; set; } = 750.0;
-        [DataMember] public double ArmOutputPositionX { get; set; } = 1200.0;
-        [DataMember] public double ArmYPickupPosition { get; set; } = 100.0;
-        [DataMember] public double ArmYAvoidPosition { get; set; } = 50.0;
-        [DataMember] public double PickerPitchX { get; set; } = 50.0;
-        [DataMember] public double SideVision1X { get; set; } = 850.0;
-        [DataMember] public double SideVision1Y { get; set; } = 0.0;
-        [DataMember] public double SideVisionY0 { get; set; } = 0.0;
+        [DataMember] public bool IsSimulationMode { get; set; } // Front Picker 단위 동작을 시뮬레이션 기준으로 처리할지 여부입니다.
+        [DataMember] public double InputSafetyOffset { get; set; } // Input 영역 접근 시 간섭을 피하기 위해 적용하는 안전 보정 거리입니다.
+        [DataMember] public double OutputSafetyOffset { get; set; } // Output 영역 접근 시 간섭을 피하기 위해 적용하는 안전 보정 거리입니다.
     }
 
     [DataContract]
     public sealed class PickerAlignOffset
     {
-        [DataMember] public double AlignOffsetX { get; set; }
-        [DataMember] public double AlignOffsetY { get; set; }
-        [DataMember] public double AlignOffsetT { get; set; }
-        [DataMember] public double InputVisionToPickerXOffset { get; set; }
-        [DataMember] public double OutputVisionToPickerXOffset { get; set; }
+        [DataMember] public double AlignOffsetX { get; set; } // Pick 또는 Place 전 Vision 결과를 Picker X 좌표에 반영하는 보정값입니다.
+        [DataMember] public double AlignOffsetY { get; set; } // Pick 또는 Place 전 Stage/Picker Y 좌표에 반영하는 보정값입니다.
+        [DataMember] public double AlignOffsetT { get; set; } // Pick 또는 Place 전 Picker T축에 반영하는 회전 보정값입니다.
+        [DataMember] public double InputVisionToPickerXOffset { get; set; } // InputVisionX 좌표계를 FrontPickerX 좌표계로 변환할 때 사용하는 X 보정값입니다.
+        [DataMember] public double OutputVisionToPickerXOffset { get; set; } // OutputVisionX 좌표계를 FrontPickerX 좌표계로 변환할 때 사용하는 X 보정값입니다.
     }
 
     [DataContract]
     public sealed class PickerFrontConfig : IConfigData
     {
-        [DataMember] public bool UseUnit { get; set; } = true;
-        [DataMember] public PickerRunOrderMode RunOrderMode { get; set; } = PickerRunOrderMode.Descending;
-        [DataMember] public bool bDryRun { get; set; }
-        [DataMember] public bool[] UsePicker { get; set; } = new bool[] { true, true, true, true };
-        [DataMember] public PickerAlignOffset[] Picker { get; set; } = CreatePickerOffsets();
+        [DataMember] public bool UseUnit { get; set; } = true; // Front Picker Unit 전체를 자동/수동 시컨스에서 사용할지 여부입니다.
+        [DataMember] public PickerRunOrderMode RunOrderMode { get; set; } = PickerRunOrderMode.Descending; // Picker0~3 작업 순서를 선택하는 모드입니다.
+        [DataMember] public bool bDryRun { get; set; } // 실제 I/O 결과 대신 DryRun 조건으로 동작을 허용할지 여부입니다.
+        [DataMember] public bool[] UsePicker { get; set; } = new bool[] { true, true, true, true }; // Picker0~3 각각의 사용 여부를 저장합니다.
+        [DataMember] public PickerAlignOffset[] Picker { get; set; } = CreatePickerOffsets(); // Picker0~3 각각의 Vision/좌표 보정값을 저장합니다.
 
         public bool IsSimulationMode
         {
@@ -112,17 +105,17 @@ namespace QMC.CDT320
     [DataContract]
     public sealed class PickerAxisPositionSet
     {
-        [DataMember] public double InputAvoidPosition { get; set; }
-        [DataMember] public double OutputAvoidPosition { get; set; }
-        [DataMember] public double AvoidPosition { get; set; }
-        [DataMember] public double PickPosition { get; set; }
-        [DataMember] public double BottomPosition { get; set; }
-        [DataMember] public double SidePosition { get; set; }
-        [DataMember] public double PlacePosition { get; set; }
-        [DataMember] public double[] DiePickPosition { get; set; } = new double[0];
-        [DataMember] public double[] DieBottomPosition { get; set; } = new double[0];
-        [DataMember] public double[] DieSidePosition { get; set; } = new double[0];
-        [DataMember] public double[] DiePlacePosition { get; set; } = new double[0];
+        [DataMember] public double InputAvoidPosition { get; set; } // Input 영역에서 간섭을 피하기 위한 축별 회피 위치입니다.
+        [DataMember] public double OutputAvoidPosition { get; set; } // Output 영역에서 간섭을 피하기 위한 축별 회피 위치입니다.
+        [DataMember] public double AvoidPosition { get; set; } // 공통 회피 또는 대기 상태에서 사용하는 축별 기준 위치입니다.
+        [DataMember] public double PickPosition { get; set; } // InputStage에서 Die를 Pick할 때 사용하는 축별 기준 위치입니다.
+        [DataMember] public double BottomPosition { get; set; } // Bottom Vision 검사 위치로 이동할 때 사용하는 축별 기준 위치입니다.
+        [DataMember] public double SidePosition { get; set; } // Side Vision 검사 위치로 이동할 때 사용하는 축별 기준 위치입니다.
+        [DataMember] public double PlacePosition { get; set; } // OutputStage에 Die를 Place할 때 사용하는 축별 기준 위치입니다.
+        [DataMember] public double[] DiePickPosition { get; set; } = new double[0]; // Picker0~3별 Pick 위치 보정 또는 개별 티칭 위치 배열입니다.
+        [DataMember] public double[] DieBottomPosition { get; set; } = new double[0]; // Picker0~3별 Bottom 검사 위치 보정 또는 개별 티칭 위치 배열입니다.
+        [DataMember] public double[] DieSidePosition { get; set; } = new double[0]; // Picker0~3별 Side 검사 위치 보정 또는 개별 티칭 위치 배열입니다.
+        [DataMember] public double[] DiePlacePosition { get; set; } = new double[0]; // Picker0~3별 Place 위치 보정 또는 개별 티칭 위치 배열입니다.
 
         [OnDeserialized]
         private void OnDeserialized(StreamingContext ctx)
@@ -162,27 +155,27 @@ namespace QMC.CDT320
     [DataContract]
     public sealed class PickerFrontRecipe : IRecipeData
     {
-        [DataMember] public PickerAxisPositionSet PickerX { get; set; } = new PickerAxisPositionSet();
-        [DataMember] public PickerAxisPositionSet PickerY { get; set; } = new PickerAxisPositionSet();
-        [DataMember] public PickerAxisPositionSet PickerT0 { get; set; } = new PickerAxisPositionSet();
-        [DataMember] public PickerAxisPositionSet PickerZ0 { get; set; } = new PickerAxisPositionSet();
-        [DataMember] public PickerAxisPositionSet PickerT1 { get; set; } = new PickerAxisPositionSet();
-        [DataMember] public PickerAxisPositionSet PickerZ1 { get; set; } = new PickerAxisPositionSet();
-        [DataMember] public PickerAxisPositionSet PickerT2 { get; set; } = new PickerAxisPositionSet();
-        [DataMember] public PickerAxisPositionSet PickerZ2 { get; set; } = new PickerAxisPositionSet();
-        [DataMember] public PickerAxisPositionSet PickerT3 { get; set; } = new PickerAxisPositionSet();
-        [DataMember] public PickerAxisPositionSet PickerZ3 { get; set; } = new PickerAxisPositionSet();
-        [DataMember] public int MoveTimeoutMs { get; set; } = 5000;
-        [DataMember] public int IoTimeoutMs { get; set; } = 1000;
-        [DataMember] public int BlowTimeMs { get; set; } = 100;
-        [DataMember] public double ArmXVelocity { get; set; } = 2000.0;
-        [DataMember] public double ArmYVelocity { get; set; } = 500.0;
-        [DataMember] public double PickerZVelocity { get; set; } = 1000.0;
-        [DataMember] public double PickerTVelocity { get; set; } = 1000.0;
-        [DataMember] public int VacuumSettleMs { get; set; } = 50;
-        [DataMember] public double PickLiftPosition { get; set; } = 2.0;
-        [DataMember] public int PickLiftWaitMs { get; set; } = 50;
-        [DataMember] public int PlaceDelayMs { get; set; } = 50;
+        [DataMember] public PickerAxisPositionSet PickerX { get; set; } = new PickerAxisPositionSet(); // FrontPickerX 축의 Avoid/Pick/Inspect/Place 티칭 위치 세트입니다.
+        [DataMember] public PickerAxisPositionSet PickerY { get; set; } = new PickerAxisPositionSet(); // FrontPickerY 축의 Avoid/Pick/Inspect/Place 티칭 위치 세트입니다.
+        [DataMember] public PickerAxisPositionSet PickerT0 { get; set; } = new PickerAxisPositionSet(); // Picker0 T축의 Pick/검사/Place 회전 티칭 위치 세트입니다.
+        [DataMember] public PickerAxisPositionSet PickerZ0 { get; set; } = new PickerAxisPositionSet(); // Picker0 Z축의 Pick/검사/Place 높이 티칭 위치 세트입니다.
+        [DataMember] public PickerAxisPositionSet PickerT1 { get; set; } = new PickerAxisPositionSet(); // Picker1 T축의 Pick/검사/Place 회전 티칭 위치 세트입니다.
+        [DataMember] public PickerAxisPositionSet PickerZ1 { get; set; } = new PickerAxisPositionSet(); // Picker1 Z축의 Pick/검사/Place 높이 티칭 위치 세트입니다.
+        [DataMember] public PickerAxisPositionSet PickerT2 { get; set; } = new PickerAxisPositionSet(); // Picker2 T축의 Pick/검사/Place 회전 티칭 위치 세트입니다.
+        [DataMember] public PickerAxisPositionSet PickerZ2 { get; set; } = new PickerAxisPositionSet(); // Picker2 Z축의 Pick/검사/Place 높이 티칭 위치 세트입니다.
+        [DataMember] public PickerAxisPositionSet PickerT3 { get; set; } = new PickerAxisPositionSet(); // Picker3 T축의 Pick/검사/Place 회전 티칭 위치 세트입니다.
+        [DataMember] public PickerAxisPositionSet PickerZ3 { get; set; } = new PickerAxisPositionSet(); // Picker3 Z축의 Pick/검사/Place 높이 티칭 위치 세트입니다.
+        [DataMember] public int MoveTimeoutMs { get; set; } = 5000; // Picker 축 이동 완료를 기다리는 기본 타임아웃 시간입니다.
+        [DataMember] public int IoTimeoutMs { get; set; } = 1000; // Vacuum/Blow 등 I/O 상태 변경을 기다리는 기본 타임아웃 시간입니다.
+        [DataMember] public int BlowTimeMs { get; set; } = 100; // Place 후 Blow 출력을 유지하는 시간입니다.
+        [DataMember] public double ArmXVelocity { get; set; } = 2000.0; // FrontPickerX 이동 시 사용하는 기본 속도입니다.
+        [DataMember] public double ArmYVelocity { get; set; } = 500.0; // FrontPickerY 이동 시 사용하는 기본 속도입니다.
+        [DataMember] public double PickerZVelocity { get; set; } = 1000.0; // Picker0~3 Z축 이동 시 사용하는 기본 속도입니다.
+        [DataMember] public double PickerTVelocity { get; set; } = 1000.0; // Picker0~3 T축 이동 시 사용하는 기본 속도입니다.
+        [DataMember] public int VacuumSettleMs { get; set; } = 50; // Vacuum On 후 흡착 안정화를 위해 기다리는 시간입니다.
+        [DataMember] public double PickLiftPosition { get; set; } = 2.0; // Pick 후 Die를 들어 올릴 때 사용하는 Z축 상승 기준 위치입니다.
+        [DataMember] public int PickLiftWaitMs { get; set; } = 50; // Pick Lift 후 진동 안정화를 위해 기다리는 시간입니다.
+        [DataMember] public int PlaceDelayMs { get; set; } = 50; // Place 동작 후 다음 동작으로 넘어가기 전 대기 시간입니다.
 
         [OnDeserialized]
         private void OnDeserialized(StreamingContext ctx)
