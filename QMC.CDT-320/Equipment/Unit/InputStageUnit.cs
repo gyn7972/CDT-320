@@ -2311,6 +2311,64 @@ namespace QMC.CDT320
             return Config != null && Config.SequenceMoveTimeoutMs > 0 ? Config.SequenceMoveTimeoutMs : 10000;
         }
 
+        public async Task<int> MoveVisionPointSafelyAsync(double targetX, double targetY, bool bFine = true, string source = null)
+        {
+            try
+            {
+                string moveSource = string.IsNullOrWhiteSpace(source)
+                    ? "InputStageUnit.MoveVisionPointSafelyAsync"
+                    : source;
+
+                string areaReason;
+                if (!IsInputStageWorkPointInArea(targetX, targetY, out areaReason))
+                {
+                    return RaiseStageAlarm(AlarmSeverity.Error, "IN-STAGE-VISION-AREA", moveSource,
+                        "Vision target is outside input stage work area. targetX=" + targetX.ToString("F6") +
+                        ", targetY=" + targetY.ToString("F6") + ". " + areaReason);
+                }
+
+                double currentX = CameraX != null ? CameraX.ActualPosition : targetX;
+                double currentY = StageY != null ? StageY.ActualPosition : targetY;
+
+                string xFirstReason;
+                if (IsInputStageWorkPointInArea(targetX, currentY, out xFirstReason))
+                {
+                    int result = await MoveInputStageAxis(WaferStageAxis.VisionX, targetX, bFine).ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+
+                    return await MoveInputStageAxis(WaferStageAxis.WaferY, targetY, bFine).ConfigureAwait(false);
+                }
+
+                string yFirstReason;
+                if (IsInputStageWorkPointInArea(currentX, targetY, out yFirstReason))
+                {
+                    int result = await MoveInputStageAxis(WaferStageAxis.WaferY, targetY, bFine).ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+
+                    return await MoveInputStageAxis(WaferStageAxis.VisionX, targetX, bFine).ConfigureAwait(false);
+                }
+
+                return RaiseStageAlarm(AlarmSeverity.Error, "IN-STAGE-VISION-PATH", moveSource,
+                    "Vision point has no safe L-path inside input stage work area. currentX=" + currentX.ToString("F6") +
+                    ", currentY=" + currentY.ToString("F6") +
+                    ", targetX=" + targetX.ToString("F6") +
+                    ", targetY=" + targetY.ToString("F6") +
+                    ", xFirst=" + xFirstReason +
+                    ", yFirst=" + yFirstReason);
+            }
+            catch (Exception ex)
+            {
+                return RaiseStageAlarm(AlarmSeverity.Error, "IN-STAGE-VISION-EX",
+                    string.IsNullOrWhiteSpace(source) ? "InputStageUnit.MoveVisionPointSafelyAsync" : source,
+                    "Vision point safe move exception: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
         /// <summary>
         /// 지정한 다이 좌표로 StageY와 CameraX를 동시에 이동한다.
         /// </summary>
@@ -2337,20 +2395,7 @@ namespace QMC.CDT320
                     return RaiseStageAlarm(AlarmSeverity.Error, "IS-MOVE-DIE-AREA", "InputStageUnit.MoveToDieAsync",
                         "Die target is outside input stage work area. row=" + row + ", col=" + col + ". " + areaReason);
 
-                Task<int> moveY = MoveInputStageAxis(WaferStageAxis.WaferY, targetY, true);
-                Task<int> moveX = MoveInputStageAxis(WaferStageAxis.VisionX, targetX, true);
-                int[] results = await Task.WhenAll(moveY, moveX);
-
-                if (results[0] != 0 || results[1] != 0 || StageY.IsAlarm || CameraX.IsAlarm)
-                    return RaiseStageAlarm(AlarmSeverity.Error, "IS-MOVE-DIE", "InputStageUnit.MoveToDieAsync", $"Die 이동 실패 (row={row}, col={col}, StageY result={results[0]}, CameraX result={results[1]}, StageY.IsAlarm={StageY.IsAlarm}, CameraX.IsAlarm={CameraX.IsAlarm}).");
-
-                Task<int> waitY = WaitInputStageAxisInPosition(WaferStageAxis.WaferY, targetY, ResolveSequenceMoveTimeout());
-                Task<int> waitX = WaitInputStageAxisInPosition(WaferStageAxis.VisionX, targetX, ResolveSequenceMoveTimeout());
-                int[] waitResults = await Task.WhenAll(waitY, waitX);
-                if (waitResults[0] != 0 || waitResults[1] != 0)
-                    return RaiseStageAlarm(AlarmSeverity.Error, "IS-MOVE-DIE-WAIT", "InputStageUnit.MoveToDieAsync", $"Die 이동 완료 확인 실패 (row={row}, col={col}, StageY wait={waitResults[0]}, CameraX wait={waitResults[1]}).");
-
-                return 0;
+                return await MoveVisionPointSafelyAsync(targetX, targetY, true, "InputStageUnit.MoveToDieAsync").ConfigureAwait(false);
             }
             catch (Exception ex)
             {
