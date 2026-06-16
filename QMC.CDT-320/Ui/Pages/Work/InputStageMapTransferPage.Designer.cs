@@ -881,7 +881,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             // colIndex
             // 
             this.colIndex.FillWeight = 45F;
-            this.colIndex.HeaderText = "No";
+            this.colIndex.HeaderText = "Index";
             this.colIndex.Name = "colIndex";
             this.colIndex.ReadOnly = true;
             this.colIndex.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;

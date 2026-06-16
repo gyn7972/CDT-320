@@ -2,6 +2,7 @@
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using QMC.CDT320;
+using System.Linq;
 using QMC.CDT320.DieMaps;
 using QMC.CDT320.Lots;
 using QMC.CDT320.Materials;
@@ -19,6 +20,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private string _lastMapSignature = "";
         private DieMapEntry _selectedEntry;
         private bool _pickStatusDirty;
+        private ContextMenuStrip _gridMenu;
+        private ToolStripMenuItem _gridMoveMenuItem;
 
         public InputStageMapTransferPage() : this("work.page.inputMap")
         {
@@ -58,6 +61,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
         private void WireEvents()
         {
+            BuildGridContextMenu();
+
             mapView.CellClicked += entry =>
             {
                 if (entry == null) return;
@@ -77,8 +82,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (e.RowIndex < 0)
                     return;
                 SelectEntryByGridRow(e.RowIndex);
-                ToggleSelectedEntryTarget();
+                if (rbSelectPickStatus.Checked)
+                    ToggleSelectedEntryTarget();
             };
+            gridDieList.CellMouseDown += OnGridDieListCellMouseDown;
             btnReloadActiveMap.Click += (s, e) => ReloadMapFromActiveOrRecipe();
             btnPickStatusSave.Click += (s, e) => SavePickStatus();
             btnManualAlignComplete.Click += (s, e) => MarkManualAlignComplete();
@@ -105,6 +112,54 @@ namespace QMC.CDT_320.Ui.Pages.Work
             catch { }
 
             return "--";
+        }
+
+        private void BuildGridContextMenu()
+        {
+            try
+            {
+                _gridMoveMenuItem = new ToolStripMenuItem("MOVE");
+                _gridMoveMenuItem.Click += async (s, e) => await MoveSelectedDieAsync().ConfigureAwait(true);
+
+                _gridMenu = new ContextMenuStrip();
+                _gridMenu.Items.Add(_gridMoveMenuItem);
+                _gridMenu.Opening += (s, e) =>
+                {
+                    if (_gridMoveMenuItem != null)
+                        _gridMoveMenuItem.Enabled = _selectedEntry != null;
+                };
+
+                gridDieList.ContextMenuStrip = _gridMenu;
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        private void OnGridDieListCellMouseDown(object sender, DataGridViewCellMouseEventArgs e)
+        {
+            try
+            {
+                if (e.RowIndex < 0 || e.Button != MouseButtons.Right)
+                    return;
+
+                gridDieList.ClearSelection();
+                DataGridViewRow row = gridDieList.Rows[e.RowIndex];
+                row.Selected = true;
+                if (row.Cells.Count > 0)
+                    gridDieList.CurrentCell = row.Cells[0];
+
+                SelectEntryByGridRow(e.RowIndex);
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
         }
 
         private void BuildOrFetchMap()
@@ -615,8 +670,11 @@ namespace QMC.CDT_320.Ui.Pages.Work
             int good = lot.GoodCount;
             int filled = 0;
             int goodFilled = 0;
-            foreach (var entry in map.Entries)
+            foreach (var entry in BuildDisplayEntries(map))
             {
+                if (entry == null || !entry.IsTarget)
+                    continue;
+
                 if (filled < processed)
                 {
                     if (goodFilled < good)
@@ -888,6 +946,67 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
         }
 
+        private async Task MoveSelectedDieAsync()
+        {
+            try
+            {
+                DieMapEntry entry = _selectedEntry;
+                if (entry == null)
+                {
+                    QMC.Common.MessageDialog.Show(this, "이동할 다이가 선택되지 않았습니다.",
+                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                string indexText = entry.SequenceNo > 0
+                    ? entry.SequenceNo.ToString()
+                    : "[" + entry.DieMapX + "," + entry.DieMapY + "]";
+                DialogResult confirm = QMC.Common.MessageDialog.Show(this,
+                    "Die " + indexText + "의 X,Y 좌표로 이동하시겠습니까?\r\n" +
+                    "X=" + entry.PosX.ToString("F3") + " mm, Y=" + entry.PosY.ToString("F3") + " mm",
+                    "Input Die Map", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                if (confirm != DialogResult.Yes)
+                    return;
+
+                Form1 host = FindForm() as Form1;
+                if (host == null || host.Machine == null || host.Machine.InputStageUnit == null)
+                {
+                    QMC.Common.MessageDialog.Show(this, "InputStage 장비 정보를 찾을 수 없습니다.",
+                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                InputStageUnit stage = host.Machine.InputStageUnit;
+                SetActionButtonsEnabled(false);
+                Task<int> moveY = stage.MoveInputStageAxis(WaferStageAxis.WaferY, entry.PosY, true);
+                Task<int> moveX = stage.MoveInputStageAxis(WaferStageAxis.VisionX, entry.PosX, true);
+                int[] results = await Task.WhenAll(moveY, moveX).ConfigureAwait(true);
+                if (results[0] != 0 || results[1] != 0)
+                {
+                    QMC.Common.MessageDialog.Show(this,
+                        "선택 다이 좌표 이동 실패\r\nStageY result=" + results[0] +
+                        ", VisionX result=" + results[1] +
+                        "\r\nAlarm/Event Log를 확인하세요.",
+                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                lblAxisX.Text = entry.PosX.ToString("F3");
+                lblAxisY.Text = entry.PosY.ToString("F3");
+                QMC.Common.MessageDialog.Show(this, "선택 다이 좌표 이동 완료.",
+                    "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.MessageDialog.Show(this, "선택 다이 좌표 이동 실패:\r\n" + ex.Message,
+                    "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                SetActionButtonsEnabled(true);
+            }
+        }
+
         private void SetActionButtonsEnabled(bool enabled)
         {
             try
@@ -1004,12 +1123,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (mapView == null || mapView.Map == null || rowIndex < 0 || rowIndex >= gridDieList.Rows.Count)
                     return;
 
-                object value = gridDieList.Rows[rowIndex].Cells[0].Value;
-                int index;
-                if (value == null || !int.TryParse(value.ToString(), out index))
-                    return;
-
-                DieMapEntry entry = mapView.Map.GetByIndex(index);
+                DieMapEntry entry = gridDieList.Rows[rowIndex].Tag as DieMapEntry;
                 if (entry != null)
                     SelectEntry(entry);
             }
@@ -1040,6 +1154,9 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     _selectedEntry.BinCode = 0;
                 }
 
+                if (mapView != null && mapView.Map != null)
+                    PickupSequenceGenerator.ApplySequenceNumbers(mapView.Map, ResolveInputPickupSubsetFromRecipe());
+
                 _pickStatusDirty = true;
                 RefreshDieGrid();
                 SelectGridRow(_selectedEntry);
@@ -1069,13 +1186,13 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 try
                 {
                     gridDieList.Rows.Clear();
-                    foreach (DieMapEntry entry in map.Entries)
+                    foreach (DieMapEntry entry in BuildDisplayEntries(map))
                     {
                         if (entry == null)
                             continue;
 
-                        gridDieList.Rows.Add(
-                            entry.Index,
+                        int rowIndex = gridDieList.Rows.Add(
+                            entry.IsTarget && entry.SequenceNo > 0 ? (object)entry.SequenceNo : "",
                             entry.DieMapX,
                             entry.DieMapY,
                             entry.IsTarget ? "TARGET" : "SKIP",
@@ -1084,6 +1201,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                             entry.PosX.ToString("F4"),
                             entry.PosY.ToString("F4"),
                             entry.DieUid ?? "");
+                        gridDieList.Rows[rowIndex].Tag = entry;
                     }
                 }
                 finally
@@ -1138,6 +1256,31 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
         }
 
+        private System.Collections.Generic.List<DieMapEntry> BuildDisplayEntries(DieMap map)
+        {
+            try
+            {
+                if (map == null || map.Entries == null)
+                    return new System.Collections.Generic.List<DieMapEntry>();
+
+                return map.Entries
+                    .Where(entry => entry != null && entry.IsTarget)
+                    .OrderBy(entry => entry.SequenceNo <= 0 ? int.MaxValue : entry.SequenceNo)
+                    .ThenBy(entry => entry.DieMapY)
+                    .ThenBy(entry => entry.DieMapX)
+                    .ToList();
+            }
+            catch
+            {
+                return map != null && map.Entries != null
+                    ? map.Entries.Where(entry => entry != null && entry.IsTarget).ToList()
+                    : new System.Collections.Generic.List<DieMapEntry>();
+            }
+            finally
+            {
+            }
+        }
+
         private void SelectGridRow(DieMapEntry entry)
         {
             try
@@ -1147,9 +1290,11 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
                 foreach (DataGridViewRow row in gridDieList.Rows)
                 {
-                    object value = row.Cells[0].Value;
-                    int index;
-                    if (value != null && int.TryParse(value.ToString(), out index) && index == entry.Index)
+                    DieMapEntry rowEntry = row.Tag as DieMapEntry;
+                    if (rowEntry != null &&
+                        rowEntry.DieMapX == entry.DieMapX &&
+                        rowEntry.DieMapY == entry.DieMapY &&
+                        string.Equals(rowEntry.DieUid ?? "", entry.DieUid ?? "", StringComparison.OrdinalIgnoreCase))
                     {
                         gridDieList.ClearSelection();
                         row.Selected = true;
