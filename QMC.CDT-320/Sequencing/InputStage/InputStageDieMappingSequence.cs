@@ -415,8 +415,8 @@ namespace QMC.CDT320.Sequencing
                             DieMapX = col,
                             DieMapY = row,
                             IsTarget = target,
-                            Result = sourceEntry != null ? sourceEntry.Result : DieResult.Unknown,
-                            BinCode = sourceEntry != null ? sourceEntry.BinCode : 0,
+                            Result = target ? DieResult.Unknown : DieResult.NG,
+                            BinCode = target ? 0 : 255,
                             PosX = x,
                             PosY = y,
                             DieUid = sourceEntry != null && !string.IsNullOrWhiteSpace(sourceEntry.DieUid)
