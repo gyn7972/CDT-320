@@ -73,6 +73,7 @@ namespace QMC.CDT320.DieMaps
         public static void Apply(DieMap map, int gridX, int gridY, DieResult result, int binCode, string dieUid = "")
         {
             if (map == null) return;
+            DieMapGenerator.Normalize(map);
             var cell = map.GetCell(gridX, gridY);
             if (cell == null) return;
             cell.Result  = result;

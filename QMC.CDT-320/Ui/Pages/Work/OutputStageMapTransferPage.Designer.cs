@@ -169,7 +169,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblHeader.Size = new System.Drawing.Size(1669, 26);
             this.lblHeader.TabIndex = 0;
             this.lblHeader.Tag = "i18n:work.page.outputMap";
-            this.lblHeader.Text = "OUTPUT STAGE MAP";
+            this.lblHeader.Text = "OUTPUT STAGE DIE MAP";
             this.lblHeader.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // statusLayout
@@ -315,13 +315,13 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblMapTitle.Size = new System.Drawing.Size(1125, 24);
             this.lblMapTitle.TabIndex = 0;
             this.lblMapTitle.Tag = "i18n:work.page.outputMap";
-            this.lblMapTitle.Text = "OUTPUT STAGE RECEIVE MAP";
+            this.lblMapTitle.Text = "OUTPUT STAGE DIE MAP";
             this.lblMapTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // mapView
             // 
             this.mapView.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(30)))), ((int)(((byte)(30)))));
-            this.mapView.Caption = "Map Transfer";
+            this.mapView.Caption = "Output Stage Die Map";
             this.mapView.Dock = System.Windows.Forms.DockStyle.Fill;
             this.mapView.Location = new System.Drawing.Point(3, 27);
             this.mapView.Map = null;
@@ -461,7 +461,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.grpMapInfo.Size = new System.Drawing.Size(222, 252);
             this.grpMapInfo.TabIndex = 0;
             this.grpMapInfo.TabStop = false;
-            this.grpMapInfo.Text = "MAP INFO";
+            this.grpMapInfo.Text = "DIE MAP INFO";
             // 
             // mapInfoLayout
             // 
@@ -853,7 +853,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.btnReloadActiveMap.Name = "btnReloadActiveMap";
             this.btnReloadActiveMap.Size = new System.Drawing.Size(242, 32);
             this.btnReloadActiveMap.TabIndex = 5;
-            this.btnReloadActiveMap.Text = "RELOAD OUTPUT MAP";
+            this.btnReloadActiveMap.Text = "RELOAD OUTPUT DIE MAP";
             // 
             // btnPickStatusSave
             // 

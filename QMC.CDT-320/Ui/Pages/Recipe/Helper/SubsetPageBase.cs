@@ -162,7 +162,22 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (_project.UnloadFrame == null) _project.UnloadFrame = new UnloadTapeFrameSubset();
                 if (_project.Module      == null) _project.Module      = new ModuleSubset();
                 if (_project.Pickup      == null) _project.Pickup      = new PickupSubset();
+                if (_project.InputPickup == null) _project.InputPickup = ClonePickupSubset(_project.Pickup);
+                if (_project.OutputPickup == null) _project.OutputPickup = ClonePickupSubset(_project.Pickup);
             }
+        }
+
+        private static PickupSubset ClonePickupSubset(PickupSubset source)
+        {
+            if (source == null)
+                return new PickupSubset();
+
+            return new PickupSubset
+            {
+                StartCorner = source.StartCorner,
+                Direction = source.Direction,
+                Pattern = source.Pattern
+            };
         }
 
         private void DoSave()

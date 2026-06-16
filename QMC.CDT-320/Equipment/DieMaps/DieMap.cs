@@ -10,6 +10,8 @@ namespace QMC.CDT320.DieMaps
     public class DieMapEntry
     {
         [DataMember] public int       Index    { get; set; }
+        /// <summary>픽업/공정 순번. 1부터 시작, 0이면 순번 미지정 또는 비대상.</summary>
+        [DataMember] public int       SequenceNo { get; set; }
         [DataMember] public int       GridX    { get; set; }
         [DataMember] public int       GridY    { get; set; }
         /// <summary>true 면 이 위치는 처리 대상 (good die candidate).</summary>

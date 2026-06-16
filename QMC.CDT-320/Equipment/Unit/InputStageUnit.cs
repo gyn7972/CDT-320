@@ -29,7 +29,28 @@ namespace QMC.CDT320
 
         [DataMember] public double SafetyRadius { get; set; } = 0.0;
 
+        [DataMember] public double WorkAreaRadius { get; set; } = 150.0;
+
+        [DataMember] public double NeedleWorkAreaRadius { get; set; } = 125.0;
+
+        [DataMember] public double WorkAreaCenterX { get; set; } = 0.0;
+
+        [DataMember] public double WorkAreaCenterY { get; set; } = 0.0;
+
+        [DataMember] public double NeedleXToVisionXOffset { get; set; } = 0.0;
+
         [DataMember] public int BarcodeReadTimeoutMs { get; set; } = 3000;
+
+        [OnDeserialized]
+        private void OnDeserialized(StreamingContext ctx)
+        {
+            if (WorkAreaRadius <= 0.0 && SafetyRadius > 0.0)
+                WorkAreaRadius = SafetyRadius;
+            if (WorkAreaRadius <= 0.0)
+                WorkAreaRadius = 150.0;
+            if (NeedleWorkAreaRadius <= 0.0)
+                NeedleWorkAreaRadius = 125.0;
+        }
     }
 
     /// <summary>
@@ -195,6 +216,8 @@ namespace QMC.CDT320
     /// </summary>
     public partial class InputStageUnit : BaseUnit<InputStageSetup, InputStageConfig, InputStageRecipe>, IUnitJogController
     {
+        private const string ContinuousJogTargetName = "ContinuousJog";
+
         // ──────────────────────────────────────────────────────────────────────
         //  §1. 하드웨어 컴포넌트 선언
         // ──────────────────────────────────────────────────────────────────────
@@ -401,6 +424,550 @@ namespace QMC.CDT320
             return Math.Abs(NeedleZ.ActualPosition - Recipe.NeedleZ.AvoidPosition) <= ResolveNeedleZInPositionTolerance();
         }
 
+        public bool IsNeedleZInHomeOrSafePosition()
+        {
+            if (NeedleZ == null || Recipe == null)
+                return true;
+
+            Recipe.EnsurePositionObjects();
+            double tolerance = ResolveNeedleZInPositionTolerance();
+            return Math.Abs(NeedleZ.ActualPosition) <= tolerance ||
+                   Math.Abs(NeedleZ.ActualPosition - Recipe.NeedleZ.AvoidPosition) <= tolerance;
+        }
+
+        public double ResolveWorkAreaCenterX()
+        {
+            if (Setup != null && Math.Abs(Setup.WorkAreaCenterX) > 1e-9)
+                return Setup.WorkAreaCenterX;
+
+            if (Recipe != null)
+            {
+                Recipe.EnsurePositionObjects();
+                return Recipe.VisionX.ProcessPosition;
+            }
+
+            return 0.0;
+        }
+
+        public double ResolveWorkAreaCenterY()
+        {
+            if (Setup != null && Math.Abs(Setup.WorkAreaCenterY) > 1e-9)
+                return Setup.WorkAreaCenterY;
+
+            if (Recipe != null)
+            {
+                Recipe.EnsurePositionObjects();
+                return Recipe.WaferY.ProcessPosition;
+            }
+
+            return 0.0;
+        }
+
+        public double ResolveWorkAreaRadius()
+        {
+            if (Setup != null && Setup.WorkAreaRadius > 0.0)
+                return Setup.WorkAreaRadius;
+
+            if (Setup != null && Setup.SafetyRadius > 0.0)
+                return Setup.SafetyRadius;
+
+            return 150.0;
+        }
+
+        public double ResolveNeedleWorkAreaRadius()
+        {
+            if (Setup != null && Setup.NeedleWorkAreaRadius > 0.0)
+                return Setup.NeedleWorkAreaRadius;
+
+            return 125.0;
+        }
+
+        public double ConvertNeedleXToVisionX(double needleX)
+        {
+            return needleX + (Setup != null ? Setup.NeedleXToVisionXOffset : 0.0);
+        }
+
+        public bool IsInputStageWorkPointInArea(double visionX, double stageY, out string reason)
+        {
+            return IsWorkPointInArea(visionX, stageY, ResolveWorkAreaRadius(), "InputStage work area", out reason);
+        }
+
+        public bool IsNeedleWorkPointInArea(double needleX, double stageY, out string reason)
+        {
+            double visionX = ConvertNeedleXToVisionX(needleX);
+            return IsWorkPointInArea(visionX, stageY, ResolveNeedleWorkAreaRadius(), "Needle work area", out reason);
+        }
+
+        public bool IsInputStageAxisTargetAllowedInWorkArea(WaferStageAxis axis, double target, out string reason)
+        {
+            reason = string.Empty;
+            if (Recipe == null)
+                return true;
+
+            Recipe.EnsurePositionObjects();
+
+            if ((axis == WaferStageAxis.WaferY || axis == WaferStageAxis.VisionX) &&
+                IsStageTravelTeachingTarget(axis, target))
+            {
+                if (IsProcessTeachingTarget(axis, target))
+                    return true;
+
+                return VerifyNeedleZSafeForNonProcessTarget(axis, target, out reason);
+            }
+
+            if (IsSafeTeachingTarget(axis, target))
+                return VerifyNeedleZSafeForNonProcessTarget(axis, target, out reason);
+
+            if (axis == WaferStageAxis.WaferY)
+            {
+                double targetX = CameraX != null ? CameraX.ActualPosition : ResolveWorkAreaCenterX();
+                if (!IsInputStageWorkPointInArea(targetX, target, out reason))
+                    return false;
+
+                if (!IsNeedleZInSafePosition())
+                {
+                    double needleX = NeedleBlockX != null ? NeedleBlockX.ActualPosition : Recipe.NeedleX.ProcessPosition;
+                    return IsNeedleWorkPointInArea(needleX, target, out reason);
+                }
+
+                return true;
+            }
+
+            if (axis == WaferStageAxis.VisionX)
+            {
+                double targetY = StageY != null ? StageY.ActualPosition : ResolveWorkAreaCenterY();
+                return IsInputStageWorkPointInArea(target, targetY, out reason);
+            }
+
+            if (axis == WaferStageAxis.NeedleX)
+            {
+                if (IsNeedleZInHomeOrSafePosition())
+                    return true;
+
+                double targetY = StageY != null ? StageY.ActualPosition : ResolveWorkAreaCenterY();
+                return IsNeedleWorkPointInArea(target, targetY, out reason);
+            }
+
+            if (axis == WaferStageAxis.NeedleZ || axis == WaferStageAxis.EjectPinZ)
+            {
+                double needleX = NeedleBlockX != null ? NeedleBlockX.ActualPosition : Recipe.NeedleX.ProcessPosition;
+                double stageY = StageY != null ? StageY.ActualPosition : ResolveWorkAreaCenterY();
+                return IsNeedleWorkPointInArea(needleX, stageY, out reason);
+            }
+
+            if (axis == WaferStageAxis.WaferT || axis == WaferStageAxis.WaferExpandingZ)
+            {
+                double visionX = CameraX != null ? CameraX.ActualPosition : ResolveWorkAreaCenterX();
+                double stageY = StageY != null ? StageY.ActualPosition : ResolveWorkAreaCenterY();
+                return IsInputStageWorkPointInArea(visionX, stageY, out reason);
+            }
+
+            return true;
+        }
+
+        public bool IsInputStageJogAllowedInWorkArea(WaferStageAxis axis, Direction direction, out string reason)
+        {
+            reason = string.Empty;
+            BaseAxis motionAxis = ResolveInputStageAxis(axis);
+            if (motionAxis == null || motionAxis.Setup == null)
+                return true;
+
+            double target = direction == Direction.Plus
+                ? motionAxis.Setup.SoftLimitPlus
+                : motionAxis.Setup.SoftLimitMinus;
+
+            return IsInputStageAxisTargetAllowedInWorkArea(axis, target, out reason);
+        }
+
+        private bool TryResolveInputStageContinuousJogTarget(WaferStageAxis axis, Direction direction, out double target, out string reason)
+        {
+            reason = string.Empty;
+            BaseAxis motionAxis = ResolveInputStageAxis(axis);
+            target = motionAxis != null ? motionAxis.ActualPosition : 0.0;
+            if (motionAxis == null)
+            {
+                reason = "InputStage jog axis is null. axis=" + axis;
+                return false;
+            }
+
+            if (axis == WaferStageAxis.VisionX)
+            {
+                double stageY = StageY != null ? StageY.ActualPosition : ResolveWorkAreaCenterY();
+                double visionTarget;
+                if (!TryResolveCircularJogTarget(
+                    motionAxis.ActualPosition,
+                    stageY,
+                    ResolveWorkAreaCenterX(),
+                    ResolveWorkAreaCenterY(),
+                    ResolveWorkAreaRadius(),
+                    direction,
+                    "InputStage work area",
+                    out visionTarget,
+                    out reason))
+                    return false;
+
+                target = ClampToSoftLimit(motionAxis, visionTarget);
+                return VerifyResolvedJogTarget(axis, direction, target, out reason);
+            }
+
+            if (axis == WaferStageAxis.WaferY)
+            {
+                double visionX = CameraX != null ? CameraX.ActualPosition : ResolveWorkAreaCenterX();
+                double stageYTarget;
+                if (!TryResolveCircularJogTarget(
+                    motionAxis.ActualPosition,
+                    visionX,
+                    ResolveWorkAreaCenterY(),
+                    ResolveWorkAreaCenterX(),
+                    ResolveWorkAreaRadius(),
+                    direction,
+                    "InputStage work area",
+                    out stageYTarget,
+                    out reason))
+                    return false;
+
+                target = ClampToSoftLimit(motionAxis, stageYTarget);
+                return VerifyResolvedJogTarget(axis, direction, target, out reason);
+            }
+
+            if (axis == WaferStageAxis.NeedleX)
+            {
+                if (IsNeedleZInHomeOrSafePosition())
+                {
+                    target = ClampToSoftLimit(motionAxis, direction == Direction.Plus
+                        ? motionAxis.Setup.SoftLimitPlus
+                        : motionAxis.Setup.SoftLimitMinus);
+                    return VerifyResolvedJogTarget(axis, direction, target, out reason);
+                }
+
+                double stageY = StageY != null ? StageY.ActualPosition : ResolveWorkAreaCenterY();
+                if (!TryResolveNeedleXContinuousJogTarget(
+                    motionAxis.ActualPosition,
+                    stageY,
+                    direction,
+                    out target,
+                    out reason))
+                    return false;
+
+                return true;
+            }
+
+            if (axis == WaferStageAxis.NeedleZ || axis == WaferStageAxis.EjectPinZ)
+            {
+                double safeTarget = ResolveStagePositions(axis).AvoidPosition;
+                if (IsDirectionTowardTarget(motionAxis.ActualPosition, safeTarget, direction, ResolveAxisPositionTolerance(motionAxis)))
+                {
+                    target = ClampToSoftLimit(motionAxis, safeTarget);
+                    return VerifyJogDirectionTarget(axis, direction, target, out reason);
+                }
+
+                target = ClampToSoftLimit(motionAxis, direction == Direction.Plus
+                    ? motionAxis.Setup.SoftLimitPlus
+                    : motionAxis.Setup.SoftLimitMinus);
+                return VerifyJogDirectionTarget(axis, direction, target, out reason);
+            }
+
+            target = ClampToSoftLimit(motionAxis, direction == Direction.Plus
+                ? motionAxis.Setup.SoftLimitPlus
+                : motionAxis.Setup.SoftLimitMinus);
+            return VerifyResolvedJogTarget(axis, direction, target, out reason);
+        }
+
+        private bool TryResolveNeedleXContinuousJogTarget(
+            double needleActual,
+            double stageY,
+            Direction direction,
+            out double target,
+            out string reason)
+        {
+            target = needleActual;
+            reason = string.Empty;
+
+            double radius = ResolveNeedleWorkAreaRadius();
+            if (radius <= 0.0)
+            {
+                reason = "Needle work area radius is invalid. radius=" + radius.ToString("F3");
+                return false;
+            }
+
+            double centerX = ResolveWorkAreaCenterX();
+            double centerY = ResolveWorkAreaCenterY();
+            double offset = Setup != null ? Setup.NeedleXToVisionXOffset : 0.0;
+            double actualVisionX = ConvertNeedleXToVisionX(needleActual);
+            double yDelta = stageY - centerY;
+            double remain = (radius * radius) - (yDelta * yDelta);
+            if (remain < 0.0)
+            {
+                reason = "Needle work area Y is outside circular band. y=" + stageY.ToString("F3") +
+                    ", centerY=" + centerY.ToString("F3") +
+                    ", delta=" + yDelta.ToString("F3") +
+                    ", radius=" + radius.ToString("F3");
+                return false;
+            }
+
+            double span = Math.Sqrt(Math.Max(0.0, remain));
+            double minVisionX = centerX - span;
+            double maxVisionX = centerX + span;
+            const double boundaryTolerance = 0.0001;
+            bool outsidePlus = actualVisionX > maxVisionX + boundaryTolerance;
+            bool outsideMinus = actualVisionX < minVisionX - boundaryTolerance;
+
+            if (outsidePlus)
+            {
+                if (direction != Direction.Minus)
+                {
+                    reason = "Needle work area jog plus moves farther outside circular boundary. x=" +
+                        actualVisionX.ToString("F3") +
+                        ", max=" + maxVisionX.ToString("F3") +
+                        ", centerX=" + centerX.ToString("F3") +
+                        ", radius=" + radius.ToString("F3");
+                    return false;
+                }
+
+                target = ClampToSoftLimit(NeedleBlockX, maxVisionX - offset);
+                return VerifyJogDirectionTarget(WaferStageAxis.NeedleX, direction, target, out reason);
+            }
+
+            if (outsideMinus)
+            {
+                if (direction != Direction.Plus)
+                {
+                    reason = "Needle work area jog minus moves farther outside circular boundary. x=" +
+                        actualVisionX.ToString("F3") +
+                        ", min=" + minVisionX.ToString("F3") +
+                        ", centerX=" + centerX.ToString("F3") +
+                        ", radius=" + radius.ToString("F3");
+                    return false;
+                }
+
+                target = ClampToSoftLimit(NeedleBlockX, minVisionX - offset);
+                return VerifyJogDirectionTarget(WaferStageAxis.NeedleX, direction, target, out reason);
+            }
+
+            double targetVisionX = direction == Direction.Plus ? maxVisionX : minVisionX;
+            target = ClampToSoftLimit(NeedleBlockX, targetVisionX - offset);
+            return VerifyResolvedJogTarget(WaferStageAxis.NeedleX, direction, target, out reason);
+        }
+
+        private bool VerifyResolvedJogTarget(WaferStageAxis axis, Direction direction, double target, out string reason)
+        {
+            if (!VerifyJogDirectionTarget(axis, direction, target, out reason))
+                return false;
+
+            return IsInputStageAxisTargetAllowedInWorkArea(axis, target, out reason);
+        }
+
+        private bool VerifyJogDirectionTarget(WaferStageAxis axis, Direction direction, double target, out string reason)
+        {
+            BaseAxis motionAxis = ResolveInputStageAxis(axis);
+            double actual = motionAxis != null ? motionAxis.ActualPosition : target;
+            double tolerance = ResolveAxisPositionTolerance(motionAxis);
+            if (direction == Direction.Plus && target <= actual + tolerance)
+            {
+                reason = "Jog plus direction is blocked at work area boundary. axis=" + axis +
+                    ", actual=" + actual.ToString("F3") +
+                    ", target=" + target.ToString("F3") +
+                    ", tolerance=" + tolerance.ToString("F3");
+                return false;
+            }
+
+            if (direction == Direction.Minus && target >= actual - tolerance)
+            {
+                reason = "Jog minus direction is blocked at work area boundary. axis=" + axis +
+                    ", actual=" + actual.ToString("F3") +
+                    ", target=" + target.ToString("F3") +
+                    ", tolerance=" + tolerance.ToString("F3");
+                return false;
+            }
+
+            reason = string.Empty;
+            return true;
+        }
+
+        private static bool TryResolveCircularJogTarget(
+            double primaryActual,
+            double secondaryActual,
+            double primaryCenter,
+            double secondaryCenter,
+            double radius,
+            Direction direction,
+            string label,
+            out double target,
+            out string reason)
+        {
+            target = primaryActual;
+            reason = string.Empty;
+            if (radius <= 0.0)
+            {
+                reason = label + " radius is invalid. radius=" + radius.ToString("F3");
+                return false;
+            }
+
+            double secondaryDelta = secondaryActual - secondaryCenter;
+            double remain = (radius * radius) - (secondaryDelta * secondaryDelta);
+            if (remain < 0.0)
+            {
+                reason = label +
+                    " secondary axis is outside circular band. secondary=" + secondaryActual.ToString("F3") +
+                    ", center=" + secondaryCenter.ToString("F3") +
+                    ", delta=" + secondaryDelta.ToString("F3") +
+                    ", radius=" + radius.ToString("F3");
+                return false;
+            }
+
+            double span = Math.Sqrt(Math.Max(0.0, remain));
+            double min = primaryCenter - span;
+            double max = primaryCenter + span;
+            const double tolerance = 0.0001;
+
+            if (direction == Direction.Plus)
+            {
+                if (primaryActual > max + tolerance)
+                {
+                    reason = label +
+                        " jog plus moves farther outside circular boundary. actual=" + primaryActual.ToString("F3") +
+                        ", max=" + max.ToString("F3");
+                    return false;
+                }
+
+                target = max;
+                return true;
+            }
+
+            if (primaryActual < min - tolerance)
+            {
+                reason = label +
+                    " jog minus moves farther outside circular boundary. actual=" + primaryActual.ToString("F3") +
+                    ", min=" + min.ToString("F3");
+                return false;
+            }
+
+            target = min;
+            return true;
+        }
+
+        private static bool IsDirectionTowardTarget(double actual, double target, Direction direction, double tolerance)
+        {
+            double deadband = tolerance > 0.0 ? tolerance : 0.0001;
+            if (Math.Abs(actual - target) <= deadband)
+                return false;
+
+            return direction == Direction.Plus ? target > actual : target < actual;
+        }
+
+        private static double ClampToSoftLimit(BaseAxis axis, double target)
+        {
+            if (axis == null || axis.Setup == null || !axis.Setup.SoftLimitEnabled)
+                return target;
+
+            if (target > axis.Setup.SoftLimitPlus)
+                return axis.Setup.SoftLimitPlus;
+            if (target < axis.Setup.SoftLimitMinus)
+                return axis.Setup.SoftLimitMinus;
+            return target;
+        }
+
+        private bool IsWorkPointInArea(double visionX, double stageY, double radius, string label, out string reason)
+        {
+            double centerX = ResolveWorkAreaCenterX();
+            double centerY = ResolveWorkAreaCenterY();
+            double dx = visionX - centerX;
+            double dy = stageY - centerY;
+            double distance = Math.Sqrt(dx * dx + dy * dy);
+            if (distance <= radius)
+            {
+                reason = string.Empty;
+                return true;
+            }
+
+            reason = label +
+                " out of radius. x=" + visionX.ToString("F3") +
+                ", y=" + stageY.ToString("F3") +
+                ", centerX=" + centerX.ToString("F3") +
+                ", centerY=" + centerY.ToString("F3") +
+                ", distance=" + distance.ToString("F3") +
+                ", radius=" + radius.ToString("F3");
+            return false;
+        }
+
+        private bool IsStageTravelTeachingTarget(WaferStageAxis axis, double target)
+        {
+            StageAxisPositions positions = ResolveStagePositions(axis);
+            BaseAxis motionAxis = ResolveInputStageAxis(axis);
+            double tolerance = ResolveAxisPositionTolerance(motionAxis);
+            return IsNear(target, positions.ProcessPosition, tolerance) ||
+                   IsNear(target, positions.AvoidPosition, tolerance) ||
+                   IsNear(target, positions.ReadyPosition, tolerance) ||
+                   IsNear(target, positions.LoadPosition, tolerance) ||
+                   IsNear(target, positions.UnloadPosition, tolerance);
+        }
+
+        private bool IsProcessTeachingTarget(WaferStageAxis axis, double target)
+        {
+            StageAxisPositions positions = ResolveStagePositions(axis);
+            BaseAxis motionAxis = ResolveInputStageAxis(axis);
+            double tolerance = ResolveAxisPositionTolerance(motionAxis);
+            return IsNear(target, positions.ProcessPosition, tolerance);
+        }
+
+        private bool IsSafeTeachingTarget(WaferStageAxis axis, double target)
+        {
+            StageAxisPositions positions = ResolveStagePositions(axis);
+            BaseAxis motionAxis = ResolveInputStageAxis(axis);
+            double tolerance = ResolveAxisPositionTolerance(motionAxis);
+            return IsNear(target, positions.AvoidPosition, tolerance) ||
+                   IsNear(target, positions.ReadyPosition, tolerance) ||
+                   IsNear(target, positions.LoadPosition, tolerance) ||
+                   IsNear(target, positions.UnloadPosition, tolerance);
+        }
+
+        private bool VerifyNeedleZSafeForNonProcessTarget(WaferStageAxis axis, double target, out string reason)
+        {
+            reason = string.Empty;
+            if (axis == WaferStageAxis.NeedleZ && IsNear(target, Recipe.NeedleZ.AvoidPosition, ResolveNeedleZInPositionTolerance()))
+                return true;
+
+            if (IsNeedleZInSafePosition())
+                return true;
+
+            reason = "NeedleZ must be at Avoid position before moving to non-process position. " +
+                "axis=" + axis +
+                ", target=" + target.ToString("F3") +
+                ", needleZActual=" + (NeedleZ != null ? NeedleZ.ActualPosition.ToString("F3") : "null") +
+                ", needleZAvoid=" + (Recipe != null ? Recipe.NeedleZ.AvoidPosition.ToString("F3") : "null") +
+                ", tolerance=" + ResolveNeedleZInPositionTolerance().ToString("F3");
+            return false;
+        }
+
+        private StageAxisPositions ResolveStagePositions(WaferStageAxis axis)
+        {
+            Recipe.EnsurePositionObjects();
+            switch (axis)
+            {
+                case WaferStageAxis.WaferY: return Recipe.WaferY;
+                case WaferStageAxis.WaferT: return Recipe.WaferT;
+                case WaferStageAxis.WaferExpandingZ: return Recipe.WaferZ;
+                case WaferStageAxis.VisionX: return Recipe.VisionX;
+                case WaferStageAxis.NeedleX: return Recipe.NeedleX;
+                case WaferStageAxis.NeedleZ: return Recipe.NeedleZ;
+                case WaferStageAxis.EjectPinZ: return Recipe.EjectPinZ;
+                default: return new StageAxisPositions();
+            }
+        }
+
+        private static double ResolveAxisPositionTolerance(BaseAxis axis)
+        {
+            if (axis != null && axis.Config != null && axis.Config.InPositionTolerance > 0.0)
+                return axis.Config.InPositionTolerance;
+
+            return 0.05;
+        }
+
+        private static bool IsNear(double value, double target, double tolerance)
+        {
+            return Math.Abs(value - target) <= tolerance;
+        }
+
         private double ResolveNeedleZInPositionTolerance()
         {
             try
@@ -527,7 +1094,7 @@ namespace QMC.CDT320
 
             WaferStageAxis stageAxis;
             if (TryResolveInputStageAxis(axis, out stageAxis))
-                ManualMoveInputStageAxisJog(stageAxis, dir, speed);
+                return Task.FromResult(ManualMoveInputStageAxisJog(stageAxis, dir, speed));
 
             return Task.FromResult(0);
         }
@@ -653,9 +1220,91 @@ namespace QMC.CDT320
                 0).ConfigureAwait(false);
         }
 
-        public void ManualMoveInputStageAxisJog(WaferStageAxis axis, Direction dir, double speed)
+        public int ManualMoveInputStageAxisJog(WaferStageAxis axis, Direction dir, double speed)
         {
-            SharedRailXMotionRuntime.MoveJogContinuous(ResolveInputStageAxis(axis), (int)dir, speed);
+            BaseAxis item = ResolveInputStageAxis(axis);
+            if (axis == WaferStageAxis.NeedleZ || axis == WaferStageAxis.EjectPinZ)
+            {
+                StartContinuousJogVelocity(item, dir, speed);
+                LastStageMoveFailureMessage = string.Empty;
+                return 0;
+            }
+
+            double target;
+            string interlockReason;
+            if (!TryResolveInputStageContinuousJogTarget(axis, dir, out target, out interlockReason))
+            {
+                string message = axis + " jog blocked by work area interlock. direction=" + dir + ". " + interlockReason;
+                LastStageMoveFailureMessage = message;
+                AlarmManager.Raise(AlarmSeverity.Warning, "IN-STAGE-JOG-INTERLOCK", Name, message);
+                return -1;
+            }
+
+            StartBoundedJogMoveAsync(item, target, speed);
+            LastStageMoveFailureMessage = string.Empty;
+            return 0;
+        }
+
+        private void StartContinuousJogVelocity(BaseAxis axis, Direction direction, double speed)
+        {
+            try
+            {
+                if (axis == null)
+                    return;
+
+                double guardTarget = axis.Setup != null
+                    ? (direction == Direction.Plus ? axis.Setup.SoftLimitPlus : axis.Setup.SoftLimitMinus)
+                    : axis.ActualPosition;
+
+                // Needle/Eject Z continuous jog is a recovery/manual operation. Let the
+                // axis controller enforce the jog limit while motion guard skips work-area checks.
+                using (MotionGuardRuntime.BeginAxisTeachingMove(axis, guardTarget, ContinuousJogTargetName))
+                    axis.MoveJogContinuous((int)direction, JogSpeedType.Custom, speed);
+            }
+            catch (Exception ex)
+            {
+                AlarmManager.Raise(AlarmSeverity.Warning, "IN-STAGE-JOG-EX", Name, ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private void StartBoundedJogMoveAsync(BaseAxis axis, double target, double speed)
+        {
+            try
+            {
+                // Continuous jog is dispatched as an absolute bounded move, so tag it
+                // for interlock rules that must allow manual recovery movement.
+                Task<int> moveTask;
+                using (MotionGuardRuntime.BeginAxisTeachingMove(axis, target, ContinuousJogTargetName))
+                    moveTask = SharedRailXMotionRuntime.MoveAxisAsync(axis, target, speed);
+
+                moveTask.ContinueWith(t =>
+                {
+                    try
+                    {
+                        if (t.IsFaulted && t.Exception != null)
+                        {
+                            AlarmManager.Raise(
+                                AlarmSeverity.Warning,
+                                "IN-STAGE-JOG-EX",
+                                Name,
+                                "InputStage bounded jog exception: " + t.Exception.GetBaseException().Message);
+                        }
+                    }
+                    catch
+                    {
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                AlarmManager.Raise(AlarmSeverity.Warning, "IN-STAGE-JOG-EX", Name, ex.Message);
+            }
+            finally
+            {
+            }
         }
 
         public void ManualStopInputStageAxis(WaferStageAxis axis)
@@ -776,7 +1425,11 @@ namespace QMC.CDT320
             {
                 EnsurePositionObjectsForSequence();
 
-                int result = await MoveInputStageAxis(WaferStageAxis.WaferY, Recipe.WaferY.LoadPosition, bFine).ConfigureAwait(false);
+                int result = await MoveNeedleZAvoidForNonProcessMoveAsync(bFine, "InputStageUnit.LoadAndPrepareWaferAsync").ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await MoveInputStageAxis(WaferStageAxis.WaferY, Recipe.WaferY.LoadPosition, bFine).ConfigureAwait(false);
                 if (result != 0 || StageY.IsAlarm)
                     return RaiseStageAlarm(AlarmSeverity.Error, "IS-LOAD-Y", "InputStageUnit.LoadAndPrepareWaferAsync",
                         "StageY load position move failed. result=" + result + ", alarm=" + StageY.IsAlarm);
@@ -948,7 +1601,11 @@ namespace QMC.CDT320
             {
                 EnsurePositionObjectsForSequence();
 
-                int result = await MoveInputStageAxis(WaferStageAxis.WaferY, Recipe.WaferY.UnloadPosition, bFine).ConfigureAwait(false);
+                int result = await MoveNeedleZAvoidForNonProcessMoveAsync(bFine, "InputStageUnit.PrepareUnloadWaferAsync").ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await MoveInputStageAxis(WaferStageAxis.WaferY, Recipe.WaferY.UnloadPosition, bFine).ConfigureAwait(false);
                 if (result != 0 || StageY.IsAlarm)
                     return RaiseStageAlarm(AlarmSeverity.Error, "IS-UNLOAD-Y", "InputStageUnit.PrepareUnloadWaferAsync",
                         "StageY unload position move failed. result=" + result + ", alarm=" + StageY.IsAlarm);
@@ -1613,8 +2270,13 @@ namespace QMC.CDT320
                 double targetX = origX + col * pitchX;
                 double targetY = origY + row * pitchY;
 
-                Task<int> moveY = StageY.MoveAbsoluteAsync(targetY, ResolveAxisFineVelocity(StageY));
-                Task<int> moveX = SharedRailXMotionRuntime.MoveAxisAsync(CameraX, targetX, ResolveAxisFineVelocity(CameraX));
+                string areaReason;
+                if (!IsInputStageWorkPointInArea(targetX, targetY, out areaReason))
+                    return RaiseStageAlarm(AlarmSeverity.Error, "IS-MOVE-DIE-AREA", "InputStageUnit.MoveToDieAsync",
+                        "Die target is outside input stage work area. row=" + row + ", col=" + col + ". " + areaReason);
+
+                Task<int> moveY = MoveInputStageAxis(WaferStageAxis.WaferY, targetY, true);
+                Task<int> moveX = MoveInputStageAxis(WaferStageAxis.VisionX, targetX, true);
                 int[] results = await Task.WhenAll(moveY, moveX);
 
                 if (results[0] != 0 || results[1] != 0 || StageY.IsAlarm || CameraX.IsAlarm)
@@ -1634,6 +2296,34 @@ namespace QMC.CDT320
             }
             finally
             {
+            }
+        }
+
+        private async Task<int> MoveNeedleZAvoidForNonProcessMoveAsync(bool bFine, string source)
+        {
+            try
+            {
+                if (IsNeedleZInSafePosition())
+                    return 0;
+
+                int result = await MoveInputStageAxis(WaferStageAxis.NeedleZ, Recipe.NeedleZ.AvoidPosition, bFine).ConfigureAwait(false);
+                if (result != 0 || NeedleZ.IsAlarm)
+                    return RaiseStageAlarm(AlarmSeverity.Error, "IS-NEEDLEZ-AVOID", source,
+                        "NeedleZ avoid move before non-process move failed. result=" + result +
+                        ", alarm=" + NeedleZ.IsAlarm +
+                        ", actual=" + (NeedleZ != null ? NeedleZ.ActualPosition.ToString("F3") : "null") +
+                        ", target=" + Recipe.NeedleZ.AvoidPosition.ToString("F3"));
+
+                result = await WaitInputStageAxisInPosition(WaferStageAxis.NeedleZ, Recipe.NeedleZ.AvoidPosition, ResolveSequenceMoveTimeout()).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return RaiseStageAlarm(AlarmSeverity.Error, "IS-NEEDLEZ-AVOID-EX", source,
+                    "NeedleZ avoid move before non-process move exception: " + ex.Message);
             }
         }
 

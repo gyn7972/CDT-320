@@ -702,7 +702,7 @@ namespace QMC.CDT320.Materials
                 }
 
                 var project = RecipeStore.LoadLastOrDefault();
-                PickupSubset pickup = project != null && project.Pickup != null ? project.Pickup : new PickupSubset();
+                PickupSubset pickup = ResolveOutputPickup(project);
                 List<DieMapEntry> ordered = BuildOutputReceiveOrder(sourceMap, pickup);
                 if (ordered.Count == 0)
                     return false;
@@ -768,7 +768,7 @@ namespace QMC.CDT320.Materials
                         string.Equals(w.WaferId, outputWafer.OutputReceiveSourceWaferId, StringComparison.OrdinalIgnoreCase));
                     DieMap sourceMap = BuildDieMapFromWafer(sourceWafer);
                     var project = RecipeStore.LoadLastOrDefault();
-                    PickupSubset pickup = project != null && project.Pickup != null ? project.Pickup : new PickupSubset();
+                    PickupSubset pickup = ResolveOutputPickup(project);
                     List<DieMapEntry> ordered = BuildOutputReceiveOrder(sourceMap, pickup);
                     if (ordered.Count == 0)
                         return null;
@@ -942,10 +942,26 @@ namespace QMC.CDT320.Materials
                 return new List<DieMapEntry>();
 
             return sourceMap.Entries
-                .Where(e => e != null && e.GridX >= 0 && e.GridY >= 0)
+                .Where(e => e != null && e.IsTarget && e.GridX >= 0 && e.GridY >= 0)
                 .OrderBy(e => e.GridY)
                 .ThenBy(e => e.GridX)
                 .ToList();
+        }
+
+        private static PickupSubset ResolveInputPickup(RecipeProject project)
+        {
+            if (project == null)
+                return new PickupSubset();
+
+            return project.InputPickup ?? project.Pickup ?? new PickupSubset();
+        }
+
+        private static PickupSubset ResolveOutputPickup(RecipeProject project)
+        {
+            if (project == null)
+                return new PickupSubset();
+
+            return project.OutputPickup ?? project.Pickup ?? new PickupSubset();
         }
 
         public static InputStagePickTarget ReserveNextInputStagePickTarget(MaterialLocationKind pickerLocation, int pickerNo)
@@ -972,7 +988,7 @@ namespace QMC.CDT320.Materials
                     }
 
                     var project = RecipeStore.LoadLastOrDefault();
-                    PickupSubset pickup = project != null && project.Pickup != null ? project.Pickup : new PickupSubset();
+                    PickupSubset pickup = ResolveInputPickup(project);
                     List<DieMapEntry> ordered = BuildOutputReceiveOrder(map, pickup);
                     if (ordered == null || ordered.Count == 0)
                         return null;
@@ -1049,7 +1065,7 @@ namespace QMC.CDT320.Materials
                         return false;
 
                     var project = RecipeStore.LoadLastOrDefault();
-                    PickupSubset pickup = project != null && project.Pickup != null ? project.Pickup : new PickupSubset();
+                    PickupSubset pickup = ResolveInputPickup(project);
                     List<DieMapEntry> ordered = BuildOutputReceiveOrder(map, pickup);
                     if (ordered == null || ordered.Count == 0)
                         return false;
@@ -1285,7 +1301,7 @@ namespace QMC.CDT320.Materials
                     });
                 }
 
-                return map;
+                return DieMapGenerator.Normalize(map);
             }
             catch (Exception ex)
             {
@@ -1349,9 +1365,11 @@ namespace QMC.CDT320.Materials
                 d.Wafer_IndexX >= 0 &&
                 d.Wafer_IndexY >= 0);
 
-            if (wafer.DieIds != null && wafer.DieIds.Count > 0)
+            if (wafer.DieIds != null)
             {
                 var dieIds = new HashSet<string>(wafer.DieIds.Where(id => !string.IsNullOrWhiteSpace(id)), StringComparer.OrdinalIgnoreCase);
+                if (dieIds.Count == 0)
+                    return new List<DieMaterial>();
                 query = query.Where(d => dieIds.Contains(d.DieId));
             }
 

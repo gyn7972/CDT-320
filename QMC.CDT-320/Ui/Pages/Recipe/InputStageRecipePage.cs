@@ -1132,7 +1132,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 var items = new List<ParameterGridItem>();
                 AddStagePositions(items, unit);
                 
-                items.Add(AxisDouble("SAFETY RADIUS", ParameterGridScope.Setup, unit.StageY, () => unit.Setup.SafetyRadius, v => unit.Setup.SafetyRadius = Math.Max(0.0, v)));
+                items.Add(AxisDouble("WORK AREA RADIUS", ParameterGridScope.Setup, unit.StageY, () => unit.Setup.WorkAreaRadius, v => unit.Setup.WorkAreaRadius = Math.Max(0.0, v)));
+                items.Add(AxisDouble("NEEDLE WORK AREA RADIUS", ParameterGridScope.Setup, unit.StageY, () => unit.Setup.NeedleWorkAreaRadius, v => unit.Setup.NeedleWorkAreaRadius = Math.Max(0.0, v)));
+                items.Add(AxisDouble("WORK AREA CENTER X", ParameterGridScope.Setup, unit.CameraX, () => unit.Setup.WorkAreaCenterX, v => unit.Setup.WorkAreaCenterX = v));
+                items.Add(AxisDouble("WORK AREA CENTER Y", ParameterGridScope.Setup, unit.StageY, () => unit.Setup.WorkAreaCenterY, v => unit.Setup.WorkAreaCenterY = v));
+                items.Add(AxisDouble("NEEDLE X TO VISION X OFFSET", ParameterGridScope.Setup, unit.CameraX, () => unit.Setup.NeedleXToVisionXOffset, v => unit.Setup.NeedleXToVisionXOffset = v));
                 items.Add(ParameterGridItem.Int("BARCODE READ TIMEOUT", "ms", ParameterGridScope.Setup, () => unit.Setup.BarcodeReadTimeoutMs, v => unit.Setup.BarcodeReadTimeoutMs = Math.Max(0, v)));
                 items.Add(ParameterGridItem.Int("ALIGN ITERATIONS", "count", ParameterGridScope.Config, () => unit.Config.MaxAlignIterations, v => unit.Config.MaxAlignIterations = Math.Max(1, v)));
                 items.Add(ParameterGridItem.Double("ALIGN THRESHOLD", "deg", ParameterGridScope.Config, () => unit.Config.AlignConvergenceThresholdDeg, v => unit.Config.AlignConvergenceThresholdDeg = Math.Max(0.0, v)));

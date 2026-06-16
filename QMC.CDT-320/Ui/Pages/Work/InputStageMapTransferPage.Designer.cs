@@ -169,7 +169,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblHeader.Size = new System.Drawing.Size(1669, 26);
             this.lblHeader.TabIndex = 0;
             this.lblHeader.Tag = "i18n:work.page.inputMap";
-            this.lblHeader.Text = "INPUT 맵";
+            this.lblHeader.Text = "INPUT STAGE DIE MAP";
             this.lblHeader.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // statusLayout
@@ -315,13 +315,13 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.lblMapTitle.Size = new System.Drawing.Size(1125, 24);
             this.lblMapTitle.TabIndex = 0;
             this.lblMapTitle.Tag = "i18n:recipe.inputMapCreate";
-            this.lblMapTitle.Text = "INPUT MAP CREATE";
+            this.lblMapTitle.Text = "INPUT DIE MAP CREATE";
             this.lblMapTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // mapView
             // 
             this.mapView.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(30)))), ((int)(((byte)(30)))));
-            this.mapView.Caption = "Map Transfer";
+            this.mapView.Caption = "Input Die Map";
             this.mapView.Dock = System.Windows.Forms.DockStyle.Fill;
             this.mapView.Location = new System.Drawing.Point(3, 27);
             this.mapView.Map = null;
@@ -461,7 +461,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.grpMapInfo.Size = new System.Drawing.Size(222, 252);
             this.grpMapInfo.TabIndex = 0;
             this.grpMapInfo.TabStop = false;
-            this.grpMapInfo.Text = "MAP INFO";
+            this.grpMapInfo.Text = "DIE MAP INFO";
             // 
             // mapInfoLayout
             // 

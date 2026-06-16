@@ -40,6 +40,7 @@
         private System.Windows.Forms.NumericUpDown _nTopBottomEdgeSkip;
         private System.Windows.Forms.TableLayoutPanel modeSection;
         private System.Windows.Forms.Label lblModeTitle;
+        private System.Windows.Forms.CheckBox chkCircularMap;
         private System.Windows.Forms.RadioButton rbStandard;
         private System.Windows.Forms.RadioButton rbStartIndex;
         private System.Windows.Forms.RadioButton rbReference1;
@@ -101,6 +102,7 @@
             this._nTopBottomEdgeSkip = new System.Windows.Forms.NumericUpDown();
             this.modeSection = new System.Windows.Forms.TableLayoutPanel();
             this.lblModeTitle = new System.Windows.Forms.Label();
+            this.chkCircularMap = new System.Windows.Forms.CheckBox();
             this.rbStandard = new System.Windows.Forms.RadioButton();
             this.rbStartIndex = new System.Windows.Forms.RadioButton();
             this.rbReference1 = new System.Windows.Forms.RadioButton();
@@ -165,7 +167,7 @@
             this.lblHeader.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
             this.lblHeader.Size = new System.Drawing.Size(1678, 30);
             this.lblHeader.TabIndex = 0;
-            this.lblHeader.Text = "MAP CREATE";
+            this.lblHeader.Text = "DIE MAP CREATE";
             this.lblHeader.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // contentLayout
@@ -213,7 +215,7 @@
             this.lblMapTitle.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
             this.lblMapTitle.Size = new System.Drawing.Size(1234, 26);
             this.lblMapTitle.TabIndex = 0;
-            this.lblMapTitle.Text = "MAP";
+            this.lblMapTitle.Text = "DIE MAP";
             this.lblMapTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // mapPanel
@@ -431,7 +433,7 @@
             this.lblSettingTitle.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
             this.lblSettingTitle.Size = new System.Drawing.Size(420, 22);
             this.lblSettingTitle.TabIndex = 0;
-            this.lblSettingTitle.Text = "SETTING";
+            this.lblSettingTitle.Text = "DIE MAP SETTING";
             this.lblSettingTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // lblChipCountXKey
@@ -446,7 +448,7 @@
             this.lblChipCountXKey.Padding = new System.Windows.Forms.Padding(6, 0, 6, 0);
             this.lblChipCountXKey.Size = new System.Drawing.Size(174, 28);
             this.lblChipCountXKey.TabIndex = 1;
-            this.lblChipCountXKey.Text = "SPEC NAME";
+            this.lblChipCountXKey.Text = "FRAME SPEC NAME";
             this.lblChipCountXKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // _tbFrameSpecName
@@ -638,7 +640,7 @@
             this.lblAxisXKey.Padding = new System.Windows.Forms.Padding(6, 0, 6, 0);
             this.lblAxisXKey.Size = new System.Drawing.Size(174, 28);
             this.lblAxisXKey.TabIndex = 11;
-            this.lblAxisXKey.Text = "DIAMETER";
+            this.lblAxisXKey.Text = "WAFER DIAMETER";
             this.lblAxisXKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // _nDiameter
@@ -680,7 +682,7 @@
             this.lblAxisYKey.Padding = new System.Windows.Forms.Padding(6, 0, 6, 0);
             this.lblAxisYKey.Size = new System.Drawing.Size(174, 28);
             this.lblAxisYKey.TabIndex = 13;
-            this.lblAxisYKey.Text = "EDGE SKIP";
+            this.lblAxisYKey.Text = "EDGE SKIP L/R, T/B";
             this.lblAxisYKey.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // edgeSkipPanel
@@ -737,26 +739,28 @@
             this.modeSection.ColumnCount = 1;
             this.modeSection.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.modeSection.Controls.Add(this.lblModeTitle, 0, 0);
-            this.modeSection.Controls.Add(this.rbStandard, 0, 1);
-            this.modeSection.Controls.Add(this.rbStartIndex, 0, 2);
-            this.modeSection.Controls.Add(this.rbReference1, 0, 3);
-            this.modeSection.Controls.Add(this.rbReference2, 0, 4);
-            this.modeSection.Controls.Add(this.rbManualSelectPick, 0, 5);
-            this.modeSection.Controls.Add(this.rbAlignCheckIndex, 0, 6);
-            this.modeSection.Controls.Add(this.rbDragSelectPick, 0, 7);
+            this.modeSection.Controls.Add(this.chkCircularMap, 0, 1);
+            this.modeSection.Controls.Add(this.rbStandard, 0, 2);
+            this.modeSection.Controls.Add(this.rbStartIndex, 0, 3);
+            this.modeSection.Controls.Add(this.rbReference1, 0, 4);
+            this.modeSection.Controls.Add(this.rbReference2, 0, 5);
+            this.modeSection.Controls.Add(this.rbManualSelectPick, 0, 6);
+            this.modeSection.Controls.Add(this.rbAlignCheckIndex, 0, 7);
+            this.modeSection.Controls.Add(this.rbDragSelectPick, 0, 8);
             this.modeSection.Dock = System.Windows.Forms.DockStyle.Fill;
             this.modeSection.Location = new System.Drawing.Point(0, 248);
             this.modeSection.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
             this.modeSection.Name = "modeSection";
-            this.modeSection.RowCount = 8;
+            this.modeSection.RowCount = 9;
             this.modeSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 26F));
-            this.modeSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 14.285F));
-            this.modeSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 14.285F));
-            this.modeSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 14.285F));
-            this.modeSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 14.285F));
-            this.modeSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 14.285F));
-            this.modeSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 14.285F));
-            this.modeSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 14.285F));
+            this.modeSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 12.5F));
+            this.modeSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 12.5F));
+            this.modeSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 12.5F));
+            this.modeSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 12.5F));
+            this.modeSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 12.5F));
+            this.modeSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 12.5F));
+            this.modeSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 12.5F));
+            this.modeSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 12.5F));
             this.modeSection.Size = new System.Drawing.Size(420, 315);
             this.modeSection.TabIndex = 1;
             // 
@@ -775,16 +779,30 @@
             this.lblModeTitle.Text = "MODE";
             this.lblModeTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
+            // chkCircularMap
+            // 
+            this.chkCircularMap.Checked = true;
+            this.chkCircularMap.CheckState = System.Windows.Forms.CheckState.Checked;
+            this.chkCircularMap.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.chkCircularMap.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
+            this.chkCircularMap.Location = new System.Drawing.Point(12, 26);
+            this.chkCircularMap.Margin = new System.Windows.Forms.Padding(12, 0, 0, 0);
+            this.chkCircularMap.Name = "chkCircularMap";
+            this.chkCircularMap.Size = new System.Drawing.Size(408, 36);
+            this.chkCircularMap.TabIndex = 1;
+            this.chkCircularMap.Text = "CIRCLE DIE MAP";
+            this.chkCircularMap.UseVisualStyleBackColor = true;
+            // 
             // rbStandard
             // 
             this.rbStandard.Checked = true;
             this.rbStandard.Dock = System.Windows.Forms.DockStyle.Fill;
             this.rbStandard.Font = new System.Drawing.Font("Segoe UI", 9F);
-            this.rbStandard.Location = new System.Drawing.Point(12, 26);
+            this.rbStandard.Location = new System.Drawing.Point(12, 62);
             this.rbStandard.Margin = new System.Windows.Forms.Padding(12, 0, 0, 0);
             this.rbStandard.Name = "rbStandard";
-            this.rbStandard.Size = new System.Drawing.Size(408, 41);
-            this.rbStandard.TabIndex = 1;
+            this.rbStandard.Size = new System.Drawing.Size(408, 36);
+            this.rbStandard.TabIndex = 2;
             this.rbStandard.TabStop = true;
             this.rbStandard.Text = "STANDARD";
             // 
@@ -792,66 +810,66 @@
             // 
             this.rbStartIndex.Dock = System.Windows.Forms.DockStyle.Fill;
             this.rbStartIndex.Font = new System.Drawing.Font("Segoe UI", 9F);
-            this.rbStartIndex.Location = new System.Drawing.Point(12, 67);
+            this.rbStartIndex.Location = new System.Drawing.Point(12, 98);
             this.rbStartIndex.Margin = new System.Windows.Forms.Padding(12, 0, 0, 0);
             this.rbStartIndex.Name = "rbStartIndex";
-            this.rbStartIndex.Size = new System.Drawing.Size(408, 41);
-            this.rbStartIndex.TabIndex = 2;
+            this.rbStartIndex.Size = new System.Drawing.Size(408, 36);
+            this.rbStartIndex.TabIndex = 3;
             this.rbStartIndex.Text = "START INDEX";
             // 
             // rbReference1
             // 
             this.rbReference1.Dock = System.Windows.Forms.DockStyle.Fill;
             this.rbReference1.Font = new System.Drawing.Font("Segoe UI", 9F);
-            this.rbReference1.Location = new System.Drawing.Point(12, 108);
+            this.rbReference1.Location = new System.Drawing.Point(12, 134);
             this.rbReference1.Margin = new System.Windows.Forms.Padding(12, 0, 0, 0);
             this.rbReference1.Name = "rbReference1";
-            this.rbReference1.Size = new System.Drawing.Size(408, 41);
-            this.rbReference1.TabIndex = 3;
+            this.rbReference1.Size = new System.Drawing.Size(408, 36);
+            this.rbReference1.TabIndex = 4;
             this.rbReference1.Text = "1 REFERENCE INDEX";
             // 
             // rbReference2
             // 
             this.rbReference2.Dock = System.Windows.Forms.DockStyle.Fill;
             this.rbReference2.Font = new System.Drawing.Font("Segoe UI", 9F);
-            this.rbReference2.Location = new System.Drawing.Point(12, 149);
+            this.rbReference2.Location = new System.Drawing.Point(12, 170);
             this.rbReference2.Margin = new System.Windows.Forms.Padding(12, 0, 0, 0);
             this.rbReference2.Name = "rbReference2";
-            this.rbReference2.Size = new System.Drawing.Size(408, 41);
-            this.rbReference2.TabIndex = 4;
+            this.rbReference2.Size = new System.Drawing.Size(408, 36);
+            this.rbReference2.TabIndex = 5;
             this.rbReference2.Text = "2 REFERENCE INDEX";
             // 
             // rbManualSelectPick
             // 
             this.rbManualSelectPick.Dock = System.Windows.Forms.DockStyle.Fill;
             this.rbManualSelectPick.Font = new System.Drawing.Font("Segoe UI", 9F);
-            this.rbManualSelectPick.Location = new System.Drawing.Point(12, 190);
+            this.rbManualSelectPick.Location = new System.Drawing.Point(12, 206);
             this.rbManualSelectPick.Margin = new System.Windows.Forms.Padding(12, 0, 0, 0);
             this.rbManualSelectPick.Name = "rbManualSelectPick";
-            this.rbManualSelectPick.Size = new System.Drawing.Size(408, 41);
-            this.rbManualSelectPick.TabIndex = 5;
+            this.rbManualSelectPick.Size = new System.Drawing.Size(408, 36);
+            this.rbManualSelectPick.TabIndex = 6;
             this.rbManualSelectPick.Text = "MANUAL SELECT PICK";
             // 
             // rbAlignCheckIndex
             // 
             this.rbAlignCheckIndex.Dock = System.Windows.Forms.DockStyle.Fill;
             this.rbAlignCheckIndex.Font = new System.Drawing.Font("Segoe UI", 9F);
-            this.rbAlignCheckIndex.Location = new System.Drawing.Point(12, 231);
+            this.rbAlignCheckIndex.Location = new System.Drawing.Point(12, 242);
             this.rbAlignCheckIndex.Margin = new System.Windows.Forms.Padding(12, 0, 0, 0);
             this.rbAlignCheckIndex.Name = "rbAlignCheckIndex";
-            this.rbAlignCheckIndex.Size = new System.Drawing.Size(408, 41);
-            this.rbAlignCheckIndex.TabIndex = 6;
+            this.rbAlignCheckIndex.Size = new System.Drawing.Size(408, 36);
+            this.rbAlignCheckIndex.TabIndex = 7;
             this.rbAlignCheckIndex.Text = "ALIGN CHECK INDEX";
             // 
             // rbDragSelectPick
             // 
             this.rbDragSelectPick.Dock = System.Windows.Forms.DockStyle.Fill;
             this.rbDragSelectPick.Font = new System.Drawing.Font("Segoe UI", 9F);
-            this.rbDragSelectPick.Location = new System.Drawing.Point(12, 272);
+            this.rbDragSelectPick.Location = new System.Drawing.Point(12, 278);
             this.rbDragSelectPick.Margin = new System.Windows.Forms.Padding(12, 0, 0, 0);
             this.rbDragSelectPick.Name = "rbDragSelectPick";
-            this.rbDragSelectPick.Size = new System.Drawing.Size(408, 43);
-            this.rbDragSelectPick.TabIndex = 7;
+            this.rbDragSelectPick.Size = new System.Drawing.Size(408, 37);
+            this.rbDragSelectPick.TabIndex = 8;
             this.rbDragSelectPick.Text = "DRAG SELECT PICK";
             // 
             // actionSection

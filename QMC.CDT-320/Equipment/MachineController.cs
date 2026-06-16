@@ -116,7 +116,7 @@ namespace QMC.CDT320
         public bool UseDieMapMode { get; set; } = true;
 
         // Stage 61 ??Pickup sequence options + cached sequence
-        /// <summary>?⑥씠???ㅼ씠 ?쎌뾽 ?쒖꽌 ?듭뀡 (Recipe.Pickup ?먯꽌 set).</summary>
+        /// <summary>Input/Wafer die pickup sequence options.</summary>
         public QMC.CDT320.Recipes.PickupSubset PickupOptions { get; set; } =
             new QMC.CDT320.Recipes.PickupSubset();
 
@@ -137,6 +137,7 @@ namespace QMC.CDT320
         public void RebuildPickupSequence()
         {
             if (_inputDieMap == null) { _inputPickupSequence.Clear(); return; }
+            QMC.CDT320.DieMaps.PickupSequenceGenerator.ApplySequenceNumbers(_inputDieMap, PickupOptions);
             _inputPickupSequence = QMC.CDT320.DieMaps.PickupSequenceGenerator.Build(
                 _inputDieMap, PickupOptions);
             Log("[PICKSEQ] " + PickupOptions.StartCorner + " / " +
@@ -151,6 +152,8 @@ namespace QMC.CDT320
                 if (map == null)
                     return;
 
+                QMC.CDT320.DieMaps.PickupSequenceGenerator.ApplySequenceNumbers(map, PickupOptions);
+                QMC.CDT320.DieMaps.DieMapGenerator.Normalize(map);
                 _inputDieMap = map;
                 QMC.CDT320.Lots.LotStorage.ActiveInputDieMap = map;
                 RebuildPickupSequence();
@@ -1283,12 +1286,13 @@ namespace QMC.CDT320
                 if (p.Output.NgPlateMaxSlots > 0)
                     PlateRegistry.NgPlate.MaxSlots = p.Output.NgPlateMaxSlots;
             }
-            // Stage 61 ??Recipe.Pickup (StartCorner/Direction/Pattern) ?곸슜
-            if (p.Pickup != null)
+            // Stage 61 - Input/Wafer pickup sequence options.
+            QMC.CDT320.Recipes.PickupSubset inputPickup = p.InputPickup ?? p.Pickup;
+            if (inputPickup != null)
             {
-                PickupOptions = p.Pickup;
+                PickupOptions = inputPickup;
                 RebuildPickupSequence();
-                Log($"[MODE] Pickup={p.Pickup.StartCorner}/{p.Pickup.Direction}/{p.Pickup.Pattern}");
+                Log($"[MODE] InputPickup={inputPickup.StartCorner}/{inputPickup.Direction}/{inputPickup.Pattern}");
             }
             Log($"[MODE] DryRun={DryRun}  StepRun={StepRun}  EbrMode={p.EbrMode}  ColletEvery={DiesPerColletClean}  DiesPerWafer={DiesPerWafer}");
         }
@@ -5776,17 +5780,13 @@ namespace QMC.CDT320
             // ?? 4 ?ㅼ씠 媛앹껜 ?앹꽦 + 癒명꽣由ъ뼹 ?깅줉 + JobOrder ??
             var dies = new Die[pickers];
             var pickJobs = new JobOrder[pickers];
+            var mapEntries = new QMC.CDT320.DieMaps.DieMapEntry[pickers];
             for (int p = 0; p < pickers; p++)
             {
                 dies[p] = new Die { Uid = "DIE-" + DateTime.Now.Ticks + "-" + (dieBase + p) };
                 MaterialStorage.AddDie(dies[p]);
                 pickJobs[p] = new JobOrder { Type = JobType.Pick, DieUid = dies[p].Uid };
-                JobQueue.Enqueue(pickJobs[p]);
-                JobQueue.MarkRunning(pickJobs[p]);
             }
-            // ???1媛?(濡쒓렇/?듦퀎 ??
-            var die = dies[0];
-            var pickJob = pickJobs[0];
 
             // Stage 28/61 ??DieMap 紐⑤뱶 + ?쎌뾽 ?쒗???듭뀡 ?곸슜
             //   PickupSequenceGenerator 媛 留뚮뱺 ?뺣젹???쒗?ㅼ뿉??dieBase ~ dieBase+pickers-1 ?щ씪?댁뒪
@@ -5803,6 +5803,19 @@ namespace QMC.CDT320
                     int seqIdx = dieBase + i;
                     if (seqIdx < 0 || seqIdx >= seqLen) break;
                     var e = _inputPickupSequence[seqIdx];
+                    mapEntries[i] = e;
+                    if (!string.IsNullOrWhiteSpace(e.DieUid) &&
+                        !string.Equals(dies[i].Uid, e.DieUid, StringComparison.OrdinalIgnoreCase))
+                    {
+                        MaterialStorage.RemoveDie(dies[i].Uid);
+                        dies[i].Uid = e.DieUid;
+                        MaterialStorage.AddDie(dies[i]);
+                        pickJobs[i].DieUid = dies[i].Uid;
+                    }
+                    else if (string.IsNullOrWhiteSpace(e.DieUid))
+                    {
+                        e.DieUid = dies[i].Uid;
+                    }
                     dies[i].WaferIndexX = e.GridX;
                     dies[i].WaferIndeY = e.GridY;
                     dies[i].X = e.X;
@@ -5818,6 +5831,16 @@ namespace QMC.CDT320
                 row = dieBase / colsAssumed;
                 col = dieBase % colsAssumed;
             }
+
+            for (int p = 0; p < pickers; p++)
+            {
+                JobQueue.Enqueue(pickJobs[p]);
+                JobQueue.MarkRunning(pickJobs[p]);
+            }
+
+            // ???1媛?(濡쒓렇/?듦퀎 ??
+            var die = dies[0];
+            var pickJob = pickJobs[0];
             await MoveInputStageToDieAsync(row, col);
 
             // Stage 40 ??Dual Arm 모드: 짝수 idx ??LeftArm, ?�??idx ??RightArm
@@ -6217,6 +6240,12 @@ namespace QMC.CDT320
                     try { PlateRegistry.RecordNgDie(d.BinCode); } catch { }
                 }
                 LotStorage.ActiveLot?.RecordDie(d.BinCode, inspPass[p]);
+                if (mapEntries[p] != null)
+                {
+                    mapEntries[p].DieUid = d.Uid;
+                    mapEntries[p].Result = d.Result;
+                    mapEntries[p].BinCode = d.BinCode;
+                }
             }
 
             // Stage 27 ??留?WafersPerOutputBatch ?ㅼ씠留덈떎 Output 移댁꽭???곸옱

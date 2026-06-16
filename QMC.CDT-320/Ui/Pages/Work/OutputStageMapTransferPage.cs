@@ -52,8 +52,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
         {
             lblHeader.Tag = "i18n:" + _i18nTitle;
             lblHeader.Text = Lang.T(_i18nTitle);
-            lblMapTitle.Text = "OUTPUT STAGE RECEIVE MAP";
-            mapView.Caption = "OUTPUT STAGE RECEIVE MAP";
+            lblMapTitle.Text = "OUTPUT STAGE DIE MAP";
+            mapView.Caption = "OUTPUT STAGE DIE MAP";
 
             rbStandard.Text = "GOOD STAGE";
             rbStartIndex.Text = "NG STAGE";
@@ -71,7 +71,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             lblChipHCaption.Text = "Grid Y";
             lblWaferDiaCaption.Text = "Progress";
 
-            btnReloadActiveMap.Text = "RELOAD OUTPUT MAP";
+            btnReloadActiveMap.Text = "RELOAD OUTPUT DIE MAP";
             btnPickStatusSave.Text = "SELECTED PLAN INIT";
             btnManualAlignComplete.Text = "GOOD PLAN INIT";
             btnNeedleBlockDown.Text = "NG PLAN INIT";
@@ -240,6 +240,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
         private static DieMap CloneMap(DieMap source)
         {
+            DieMapGenerator.Normalize(source);
             var clone = new DieMap
             {
                 FrameObjId = source.FrameObjId,
@@ -259,6 +260,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 clone.Entries.Add(new DieMapEntry
                 {
                     Index = entry.Index,
+                    SequenceNo = entry.SequenceNo,
                     GridX = entry.GridX,
                     GridY = entry.GridY,
                     IsTarget = entry.IsTarget,
@@ -270,7 +272,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 });
             }
 
-            return clone;
+            return DieMapGenerator.Normalize(clone);
         }
 
         private static List<DieMapEntry> BuildReceiveOrder(DieMap map)
@@ -278,7 +280,9 @@ namespace QMC.CDT_320.Ui.Pages.Work
             try
             {
                 var project = RecipeStore.LoadLastOrDefault();
-                PickupSubset pickup = project != null && project.Pickup != null ? project.Pickup : new PickupSubset();
+                PickupSubset pickup = project != null && project.OutputPickup != null
+                    ? project.OutputPickup
+                    : (project != null && project.Pickup != null ? project.Pickup : new PickupSubset());
                 List<DieMapEntry> ordered = PickupSequenceGenerator.Build(map, pickup);
                 if (ordered != null && ordered.Count > 0)
                     return ordered;
@@ -288,7 +292,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
 
             return map != null && map.Entries != null
-                ? map.Entries.Where(e => e != null).OrderBy(e => e.GridY).ThenBy(e => e.GridX).ToList()
+                ? map.Entries.Where(e => e != null && e.IsTarget).OrderBy(e => e.GridY).ThenBy(e => e.GridX).ToList()
                 : new List<DieMapEntry>();
         }
 
@@ -297,6 +301,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             try
             {
                 string sideText = _selectedSide == BinSide.Ng ? "NG" : "GOOD";
+                DieMapGenerator.Normalize(map);
                 mapView.Caption = "OUTPUT " + sideText + " RECEIVE MAP";
                 mapView.Map = map;
                 _selectedEntry = null;
@@ -329,8 +334,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private void ApplyEmptyOutputMap(WaferMaterial outputWafer, WaferMaterial sourceWafer)
         {
             mapView.Map = null;
-            mapView.Caption = "OUTPUT STAGE RECEIVE MAP";
-            lblMapTitle.Text = "OUTPUT STAGE RECEIVE MAP";
+            mapView.Caption = "OUTPUT STAGE DIE MAP";
+            lblMapTitle.Text = "OUTPUT STAGE DIE MAP";
             lblProjectValue.Text = GetCurrentProjectName();
             lblBarcodeValue.Text = sourceWafer != null ? sourceWafer.WaferId : "-";
             lblBinValue.Text = _selectedSide == BinSide.Ng ? "NG" : "GOOD";

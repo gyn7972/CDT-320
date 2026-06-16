@@ -151,7 +151,13 @@ namespace QMC.CDT320.Sequencing
         {
             if (Options.EnableMotion)
             {
-                int result = await MoveAxisCommandAsync(QMC.CDT320.WaferStageAxis.WaferY, Stage.Recipe.WaferY.AvoidPosition).ConfigureAwait(false);
+                int result = await MoveAxisCommandAsync(QMC.CDT320.WaferStageAxis.NeedleZ, Stage.Recipe.NeedleZ.AvoidPosition).ConfigureAwait(false);
+                if (result != 0) return result;
+
+                result = await WaitAxisInPositionResultAsync(QMC.CDT320.WaferStageAxis.NeedleZ, Stage.Recipe.NeedleZ.AvoidPosition).ConfigureAwait(false);
+                if (result != 0) return result;
+
+                result = await MoveAxisCommandAsync(QMC.CDT320.WaferStageAxis.WaferY, Stage.Recipe.WaferY.AvoidPosition).ConfigureAwait(false);
                 if (result != 0) return result;
 
                 result = await WaitAxisInPositionResultAsync(QMC.CDT320.WaferStageAxis.WaferY, Stage.Recipe.WaferY.AvoidPosition).ConfigureAwait(false);
