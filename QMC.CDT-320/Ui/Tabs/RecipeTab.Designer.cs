@@ -261,7 +261,7 @@ namespace QMC.CDT_320.Ui.Tabs
             this.BtnInputMapCreate.Selected = false;
             this.BtnInputMapCreate.Size = new System.Drawing.Size(184, 46);
             this.BtnInputMapCreate.TabIndex = 16;
-            this.BtnInputMapCreate.Text = "INPUT MAP CREATE";
+            this.BtnInputMapCreate.Text = "INPUT DIE MAP CREATE";
             //
             // BtnOutputMapCreate
             //
@@ -273,7 +273,7 @@ namespace QMC.CDT_320.Ui.Tabs
             this.BtnOutputMapCreate.Selected = false;
             this.BtnOutputMapCreate.Size = new System.Drawing.Size(184, 46);
             this.BtnOutputMapCreate.TabIndex = 17;
-            this.BtnOutputMapCreate.Text = "OUTPUT MAP CREATE";
+            this.BtnOutputMapCreate.Text = "OUTPUT DIE MAP CREATE";
             //
             // BtnDieMapSetup
             //

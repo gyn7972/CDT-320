@@ -1,8 +1,11 @@
 ﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
+using QMC.CDT320.DieMaps;
+using QMC.CDT320.Lots;
 using QMC.CDT320.Materials;
 using QMC.CDT320.Motion.SharedRailX;
+using QMC.CDT320.Recipes;
 using QMC.Common.Motion;
 
 namespace QMC.CDT320.Sequencing
@@ -51,6 +54,11 @@ namespace QMC.CDT320.Sequencing
         private double _pitchY;
         private double _thetaFromTwoPoint;
         private int _thetaRetryCount;
+        private bool _alignAnchorReady;
+        private int _alignAnchorRow;
+        private int _alignAnchorCol;
+        private double _alignAnchorX;
+        private double _alignAnchorY;
         private Task<VisionAlignResult> _pendingVisionTask;
         private CancellationTokenSource _pendingVisionCts;
         private string _pendingVisionStepName;
@@ -183,14 +191,14 @@ namespace QMC.CDT320.Sequencing
                     return Fail("IN-STAGE-ALIGN-WAFER", "Material",
                         "InputStage wafer data was not found. CurrentWaferMaterial=null, MaterialLocation=InputStage empty.");
 
+                _frameSpec = ResolveFrameSpecForWafer(_wafer);
                 string waferId = !string.IsNullOrWhiteSpace(Options.WaferId) ? Options.WaferId : _wafer.WaferId;
-                _map = Stage.EnsureWaferMapForAlign(waferId, Options.AllowFallbackMap);
+                _map = ResolveWaferMapForAlign(waferId);
                 if (_map == null)
                     return Fail("IN-STAGE-ALIGN-MAP", Stage.Name,
                         "InputStage wafer map was not found. waferId=" + waferId +
                         ", allowFallbackMap=" + Options.AllowFallbackMap);
 
-                _frameSpec = ResolveFrameSpecForWafer(_wafer);
                 ApplyFrameSpecToMap(_map, _frameSpec);
 
                 if (Options.RequireVisionAlign && Stage.Vision == null)
@@ -231,6 +239,11 @@ namespace QMC.CDT320.Sequencing
             _pitchY = 0.0;
             _thetaFromTwoPoint = 0.0;
             _thetaRetryCount = 0;
+            _alignAnchorReady = false;
+            _alignAnchorRow = 0;
+            _alignAnchorCol = 0;
+            _alignAnchorX = 0.0;
+            _alignAnchorY = 0.0;
             ClearPendingVisionRequest();
         }
 
@@ -241,7 +254,10 @@ namespace QMC.CDT320.Sequencing
                 ct.ThrowIfCancellationRequested();
                 if (Options.EnableMotion)
                 {
-                    int result = await MoveAxisAndVerifyAsync(WaferStageAxis.VisionX, Stage.Recipe.VisionX.ProcessPosition, "VisionX process", ct).ConfigureAwait(false);
+                    int result = await MoveAxisAndVerifyAsync(WaferStageAxis.WaferY, Stage.Recipe.WaferY.ProcessPosition, "StageY process", ct).ConfigureAwait(false);
+                    if (result != 0) return result;
+
+                    result = await MoveAxisAndVerifyAsync(WaferStageAxis.VisionX, Stage.Recipe.VisionX.ProcessPosition, "VisionX process", ct).ConfigureAwait(false);
                     if (result != 0) return result;
 
                     result = await MoveAxisAndVerifyAsync(WaferStageAxis.WaferExpandingZ, Stage.Recipe.WaferZ.ProcessPosition, "StageZ process", ct).ConfigureAwait(false);
@@ -264,21 +280,24 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private async Task<int> MoveCenterMarkPositionAsync(CancellationToken ct)
+        private Task<int> MoveCenterMarkPositionAsync(CancellationToken ct)
         {
             try
             {
                 ct.ThrowIfCancellationRequested();
                 if (Options.EnableMotion)
                 {
+                    int result = CheckAlignProcessTeaching();
+                    if (result != 0)
+                        return Task.FromResult(result);
+
                     int centerRow = _map != null ? _map.RowCount / 2 : 0;
                     int centerCol = _map != null ? _map.ColumnCount / 2 : 0;
-                    int result = await MoveVisionPointAndVerifyAsync(centerRow, centerCol, "center mark", ct).ConfigureAwait(false);
-                    if (result != 0) return result;
+                    CaptureAlignAnchorFromCurrentPosition(centerRow, centerCol, "center mark");
                 }
 
                 CurrentStep = InputStageAlignStep.RequestCenterMark;
-                return 0;
+                return Task.FromResult(0);
             }
             catch (OperationCanceledException)
             {
@@ -286,7 +305,7 @@ namespace QMC.CDT320.Sequencing
             }
             catch (Exception ex)
             {
-                return Fail("IN-STAGE-ALIGN-CENTER-MOVE-EX", Stage.Name, "Center mark position move failed: " + ex.Message);
+                return Task.FromResult(Fail("IN-STAGE-ALIGN-CENTER-MOVE-EX", Stage.Name, "Center mark position move failed: " + ex.Message));
             }
             finally
             {
@@ -325,6 +344,7 @@ namespace QMC.CDT320.Sequencing
                 if (_centerResult == null)
                     return Fail("IN-STAGE-ALIGN-CENTER", "Vision", "Center vision offset receive failed.");
 
+                CaptureAlignAnchorFromVisionResult(_centerResult, "Center");
                 CurrentStep = InputStageAlignStep.CorrectTheta;
                 return 0;
             }
@@ -405,6 +425,7 @@ namespace QMC.CDT320.Sequencing
                 if (_verifyCenterResult == null)
                     return Fail("IN-STAGE-ALIGN-THETA-VERIFY", "Vision", "Center verify vision offset receive failed.");
 
+                CaptureAlignAnchorFromVisionResult(_verifyCenterResult, "CenterVerify");
                 double theta = Math.Abs(_verifyCenterResult.DeltaTheta);
                 double tolerance = ResolveThetaTolerance();
                 if (theta <= tolerance)
@@ -1033,13 +1054,87 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        private void CaptureAlignAnchorFromCurrentPosition(int row, int col, string description)
+        {
+            _alignAnchorRow = row;
+            _alignAnchorCol = col;
+            _alignAnchorX = Stage != null && Stage.CameraX != null ? Stage.CameraX.ActualPosition : 0.0;
+            _alignAnchorY = Stage != null && Stage.StageY != null ? Stage.StageY.ActualPosition : 0.0;
+            _alignAnchorReady = true;
+
+            WriteLog("InputStageAlignSequence",
+                "Align anchor captured from current motor position. description=" + description +
+                ", row=" + row +
+                ", col=" + col +
+                ", anchorX=" + _alignAnchorX.ToString("F6") +
+                ", anchorY=" + _alignAnchorY.ToString("F6") + " - Ok");
+        }
+
+        private void CaptureAlignAnchorFromVisionResult(VisionAlignResult result, string description)
+        {
+            if (result == null || Stage == null)
+                return;
+
+            if (!_alignAnchorReady)
+            {
+                int centerRow = _map != null ? _map.RowCount / 2 : 0;
+                int centerCol = _map != null ? _map.ColumnCount / 2 : 0;
+                CaptureAlignAnchorFromCurrentPosition(centerRow, centerCol, description);
+            }
+
+            _alignAnchorX = (Stage.CameraX != null ? Stage.CameraX.ActualPosition : 0.0) + result.DeltaX;
+            _alignAnchorY = (Stage.StageY != null ? Stage.StageY.ActualPosition : 0.0) + result.DeltaY;
+
+            WriteLog("InputStageAlignSequence",
+                "Align anchor updated from vision result. description=" + description +
+                ", row=" + _alignAnchorRow +
+                ", col=" + _alignAnchorCol +
+                ", anchorX=" + _alignAnchorX.ToString("F6") +
+                ", anchorY=" + _alignAnchorY.ToString("F6") +
+                ", dx=" + result.DeltaX.ToString("F6") +
+                ", dy=" + result.DeltaY.ToString("F6") + " - Ok");
+        }
+
+        private void ResolveVisionPointTarget(int row, int col, out double targetX, out double targetY)
+        {
+            double pitchX = ResolveAlignPitchX(null, null);
+            double pitchY = ResolveAlignPitchY(null, null);
+
+            if (!_alignAnchorReady)
+            {
+                int centerRow = _map != null ? _map.RowCount / 2 : row;
+                int centerCol = _map != null ? _map.ColumnCount / 2 : col;
+                CaptureAlignAnchorFromCurrentPosition(centerRow, centerCol, "fallback");
+            }
+
+            targetX = _alignAnchorX + ((double)col - _alignAnchorCol) * pitchX;
+            targetY = _alignAnchorY + ((double)row - _alignAnchorRow) * pitchY;
+        }
+
         private async Task<int> MoveVisionPointAndVerifyAsync(int row, int col, string description, CancellationToken ct)
         {
             try
             {
                 ct.ThrowIfCancellationRequested();
-                double targetY = row * ResolveAlignPitchY(null, null);
-                double targetX = col * ResolveAlignPitchX(null, null);
+                double targetX;
+                double targetY;
+                ResolveVisionPointTarget(row, col, out targetX, out targetY);
+
+                string areaReason;
+                if (!Stage.IsInputStageWorkPointInArea(targetX, targetY, out areaReason))
+                    return Fail("IN-STAGE-ALIGN-WORK-AREA", Stage.Name,
+                        description + " target is outside input stage work area. " + areaReason);
+
+                WriteLog("InputStageAlignSequence",
+                    "Move align vision point. description=" + description +
+                    ", row=" + row +
+                    ", col=" + col +
+                    ", anchorRow=" + _alignAnchorRow +
+                    ", anchorCol=" + _alignAnchorCol +
+                    ", anchorX=" + _alignAnchorX.ToString("F6") +
+                    ", anchorY=" + _alignAnchorY.ToString("F6") +
+                    ", targetX=" + targetX.ToString("F6") +
+                    ", targetY=" + targetY.ToString("F6") + " - Start");
 
                 Task<int> moveY = MoveAxisCommandAsync(WaferStageAxis.WaferY, targetY, description + " StageY", ct);
                 Task<int> moveX = MoveAxisCommandAsync(WaferStageAxis.VisionX, targetX, description + " VisionX", ct);
@@ -1062,6 +1157,173 @@ namespace QMC.CDT320.Sequencing
             catch (Exception ex)
             {
                 return Fail("IN-STAGE-ALIGN-POINT-MOVE-EX", Stage.Name, description + " move failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private WaferMapData ResolveWaferMapForAlign(string waferId)
+        {
+            try
+            {
+                DieMap sourceMap = ResolveSourceInputDieMap(_wafer);
+                if (IsUsableSourceMap(sourceMap))
+                    return ConvertDieMapToWaferMap(sourceMap, waferId);
+
+                return Stage.EnsureWaferMapForAlign(waferId, Options.AllowFallbackMap);
+            }
+            catch (Exception ex)
+            {
+                WriteLog("InputStageAlignSequence", "Align wafer map resolve failed: " + ex.Message + " - Failed");
+                return Stage.EnsureWaferMapForAlign(waferId, Options.AllowFallbackMap);
+            }
+            finally
+            {
+            }
+        }
+
+        private static DieMap ResolveSourceInputDieMap(WaferMaterial wafer)
+        {
+            try
+            {
+                DieMap activeMap = LotStorage.ActiveInputDieMap;
+                if (IsUsableSourceMap(activeMap))
+                    return activeMap;
+
+                DieMap materialMap = MaterialStateService.BuildDieMapFromWafer(wafer);
+                if (IsUsableSourceMap(materialMap))
+                    return materialMap;
+
+                DieMap recipeMap = LoadRecipeInputDieMap();
+                if (IsUsableSourceMap(recipeMap))
+                    return recipeMap;
+
+                return null;
+            }
+            catch (Exception ex)
+            {
+                WriteLog("InputStageAlignSequence", "Source input die map resolve failed: " + ex.Message + " - Failed");
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
+        private static DieMap LoadRecipeInputDieMap()
+        {
+            try
+            {
+                RecipeProject project = RecipeStore.LoadLastOrDefault();
+                if (project == null || string.IsNullOrWhiteSpace(project.InputDieMapFileName))
+                    return null;
+
+                string path = project.InputDieMapFileName;
+                if (!System.IO.Path.IsPathRooted(path))
+                    path = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, path);
+
+                DieMap map = DieMapGenerator.Load(path);
+                if (map != null)
+                    WriteLog("InputStageAlignSequence", "Recipe input die map loaded for align. path=" + path + " - Ok");
+                return map;
+            }
+            catch (Exception ex)
+            {
+                WriteLog("InputStageAlignSequence", "Recipe input die map load for align failed: " + ex.Message + " - Failed");
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool IsUsableSourceMap(DieMap map)
+        {
+            try
+            {
+                return map != null &&
+                       map.GridX > 0 &&
+                       map.GridY > 0 &&
+                       map.Entries != null &&
+                       map.Entries.Count > 0;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private static WaferMapData ConvertDieMapToWaferMap(DieMap map, string waferId)
+        {
+            if (map == null)
+                return null;
+
+            int gridX = Math.Max(1, map.GridX);
+            int gridY = Math.Max(1, map.GridY);
+            var waferMap = new WaferMapData
+            {
+                WaferId = string.IsNullOrWhiteSpace(waferId) ? map.FrameObjId : waferId,
+                ColumnCount = gridX,
+                RowCount = gridY,
+                DieMap = new bool[gridY, gridX]
+            };
+
+            foreach (DieMapEntry entry in map.Entries)
+            {
+                if (entry == null ||
+                    entry.GridX < 0 || entry.GridX >= gridX ||
+                    entry.GridY < 0 || entry.GridY >= gridY)
+                    continue;
+
+                waferMap.DieMap[entry.GridY, entry.GridX] = entry.IsTarget;
+            }
+
+            ApplyDefaultRefPair(waferMap);
+            return waferMap;
+        }
+
+        private static void ApplyDefaultRefPair(WaferMapData map)
+        {
+            if (map == null)
+                return;
+
+            int centerRow = map.RowCount > 0 ? map.RowCount / 2 : 0;
+            int leftCol = map.ColumnCount > 1 ? Math.Max(0, map.ColumnCount / 4) : 0;
+            int rightCol = map.ColumnCount > 1 ? Math.Min(map.ColumnCount - 1, (map.ColumnCount * 3) / 4) : 0;
+            if (rightCol == leftCol && map.ColumnCount > 1)
+                rightCol = map.ColumnCount - 1;
+
+            map.Ref1Row = centerRow;
+            map.Ref1Col = leftCol;
+            map.Ref2Row = centerRow;
+            map.Ref2Col = rightCol;
+        }
+
+        private int CheckAlignProcessTeaching()
+        {
+            try
+            {
+                double targetX = Stage != null && Stage.Recipe != null && Stage.Recipe.VisionX != null
+                    ? Stage.Recipe.VisionX.ProcessPosition
+                    : 0.0;
+                double targetY = Stage != null && Stage.Recipe != null && Stage.Recipe.WaferY != null
+                    ? Stage.Recipe.WaferY.ProcessPosition
+                    : 0.0;
+
+                if (Math.Abs(targetX) <= 1e-9 && Math.Abs(targetY) <= 1e-9)
+                    return Fail("IN-STAGE-ALIGN-PROCESS-TEACH", Stage.Name,
+                        "InputStage align process position is not taught. VisionX.ProcessPosition=0, WaferY.ProcessPosition=0.");
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return Fail("IN-STAGE-ALIGN-PROCESS-TEACH-EX", Stage.Name,
+                    "InputStage align process teaching check failed: " + ex.Message);
             }
             finally
             {

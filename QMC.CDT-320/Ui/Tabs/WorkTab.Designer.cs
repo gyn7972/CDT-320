@@ -323,7 +323,7 @@ namespace QMC.CDT_320.Ui.Tabs
             this.BtnInputMapTransfer.Selected = false;
             this.BtnInputMapTransfer.Size = new System.Drawing.Size(184, 46);
             this.BtnInputMapTransfer.TabIndex = 22;
-            this.BtnInputMapTransfer.Text = "INPUT MAP";
+            this.BtnInputMapTransfer.Text = "INPUT DIE MAP";
             //
             // BtnOutputMapTransfer
             //
@@ -334,7 +334,7 @@ namespace QMC.CDT_320.Ui.Tabs
             this.BtnOutputMapTransfer.Selected = false;
             this.BtnOutputMapTransfer.Size = new System.Drawing.Size(184, 46);
             this.BtnOutputMapTransfer.TabIndex = 23;
-            this.BtnOutputMapTransfer.Text = "OUTPUT MAP";
+            this.BtnOutputMapTransfer.Text = "OUTPUT DIE MAP";
             //
             // BtnVisionAlign
             //

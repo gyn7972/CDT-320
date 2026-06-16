@@ -106,5 +106,30 @@ namespace QMC.CDT320.DieMaps
 
             return result;
         }
+
+        /// <summary>PickupSubset 옵션 기준으로 활성 다이에 1-base 순번을 부여한다.</summary>
+        public static DieMap ApplySequenceNumbers(DieMap map, PickupSubset options)
+        {
+            if (map == null)
+                return null;
+
+            if (map.Entries != null)
+            {
+                foreach (var entry in map.Entries)
+                {
+                    if (entry != null)
+                        entry.SequenceNo = 0;
+                }
+            }
+
+            List<DieMapEntry> ordered = Build(map, options);
+            for (int i = 0; i < ordered.Count; i++)
+            {
+                if (ordered[i] != null)
+                    ordered[i].SequenceNo = i + 1;
+            }
+
+            return map;
+        }
     }
 }

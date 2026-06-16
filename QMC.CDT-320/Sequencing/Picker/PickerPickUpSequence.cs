@@ -321,6 +321,11 @@ namespace QMC.CDT320.Sequencing
                 double targetY = _pickTarget.TargetY;
                 double targetX = _pickTarget.TargetX;
 
+                string areaReason;
+                if (!stage.IsInputStageWorkPointInArea(targetX, targetY, out areaReason))
+                    return Fail("PICKER-PICKUP-STAGE-WORK-AREA", stage.Name,
+                        "Input die target is outside input stage work area. " + areaReason);
+
                 Task<int> moveY = MoveInputStageAxisCommandAsync(stage, WaferStageAxis.WaferY, targetY, "input die StageY", ct);
                 Task<int> moveX = MoveInputStageAxisCommandAsync(stage, WaferStageAxis.VisionX, targetX, "input die VisionX", ct);
                 int[] moveResults = await Task.WhenAll(moveY, moveX).ConfigureAwait(false);

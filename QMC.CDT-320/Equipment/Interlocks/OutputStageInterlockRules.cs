@@ -167,7 +167,7 @@ namespace QMC.CDT320.Interlocks
 
             if (stage != null &&
                 stage.GoodStage != null &&
-                !stage.GoodStage.IsAtAvoidPosition())
+                !stage.IsGoodStageZAtAvoid())
                 return MotionGuardRuleHelpers.Block(
                     "OutputNGStageY",
                     "OutputNGStageY move blocked. GoodStageZ must be at Avoid position.",
@@ -249,7 +249,7 @@ namespace QMC.CDT320.Interlocks
             try
             {
                 OutputStageUnit outputStage = machine != null ? machine.OutputStageUnit : null;
-                if (outputStage != null && outputStage.GoodStage != null && !outputStage.GoodStage.IsAtAvoidPosition())
+                if (outputStage != null && outputStage.GoodStage != null && !outputStage.IsGoodStageZAtAvoid())
                     return MotionGuardRuleHelpers.Block(
                         "OutputGoodStageY",
                         "OutputGoodStageY HOME blocked. OutputGoodStageZ must be at Avoid position.",
@@ -283,7 +283,7 @@ namespace QMC.CDT320.Interlocks
                 if (outputStage == null)
                     return true;
 
-                if (outputStage.GoodStage != null && !outputStage.GoodStage.IsAtAvoidPosition())
+                if (outputStage.GoodStage != null && !outputStage.IsGoodStageZAtAvoid())
                     return MotionGuardRuleHelpers.Block(
                         "OutputNGStageY",
                         "OutputNGStageY HOME blocked. GoodBinZ(GoodStageZ) must be at Avoid position.",

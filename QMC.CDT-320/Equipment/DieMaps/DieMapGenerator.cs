@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -203,12 +204,91 @@ namespace QMC.CDT320.DieMaps
             }
         }
 
+        /// <summary>
+        /// 저장/로드/화면 적용 전에 다이맵 엔트리 기본 정보를 정리한다.
+        /// </summary>
+        public static DieMap Normalize(DieMap map)
+        {
+            if (map == null)
+                return null;
+
+            if (map.Entries == null)
+                map.Entries = new List<DieMapEntry>();
+            else
+                map.Entries = map.Entries.Where(e => e != null).ToList();
+
+            if (string.IsNullOrWhiteSpace(map.FrameObjId))
+                map.FrameObjId = "DIEMAP";
+            if (map.CreatedAt == default(DateTime))
+                map.CreatedAt = DateTime.Now;
+
+            if ((map.GridX <= 0 || map.GridY <= 0) && map.Entries.Count > 0)
+            {
+                int maxX = map.Entries.Where(e => e != null).Select(e => e.GridX).DefaultIfEmpty(0).Max();
+                int maxY = map.Entries.Where(e => e != null).Select(e => e.GridY).DefaultIfEmpty(0).Max();
+                if (map.GridX <= 0) map.GridX = Math.Max(1, maxX + 1);
+                if (map.GridY <= 0) map.GridY = Math.Max(1, maxY + 1);
+            }
+
+            var usedDieIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            for (int i = 0; i < map.Entries.Count; i++)
+            {
+                DieMapEntry entry = map.Entries[i];
+                if (entry == null)
+                    continue;
+
+                entry.Index = i;
+                if (entry.GridX < 0) entry.GridX = 0;
+                if (entry.GridY < 0) entry.GridY = 0;
+
+                if (string.IsNullOrWhiteSpace(entry.DieUid))
+                    entry.DieUid = BuildDefaultDieUid(map, entry);
+
+                string dieUid = entry.DieUid;
+                if (usedDieIds.Contains(dieUid))
+                {
+                    dieUid = BuildDefaultDieUid(map, entry) + "-" + entry.Index.ToString("000000", CultureInfo.InvariantCulture);
+                    entry.DieUid = dieUid;
+                }
+                usedDieIds.Add(dieUid);
+
+                if (!entry.IsTarget)
+                {
+                    entry.SequenceNo = 0;
+                    if (entry.Result == DieResult.Unknown)
+                        entry.Result = DieResult.NG;
+                    if (entry.BinCode == 0)
+                        entry.BinCode = 255;
+                }
+            }
+
+            return map;
+        }
+
+        private static string BuildDefaultDieUid(DieMap map, DieMapEntry entry)
+        {
+            string frameId = SanitizeId(map != null ? map.FrameObjId : "DIEMAP");
+            int row = entry != null ? entry.GridY : 0;
+            int col = entry != null ? entry.GridX : 0;
+            return frameId + "-D" + row.ToString("000", CultureInfo.InvariantCulture) + "-" + col.ToString("000", CultureInfo.InvariantCulture);
+        }
+
+        private static string SanitizeId(string value)
+        {
+            string text = string.IsNullOrWhiteSpace(value) ? "DIEMAP" : value.Trim();
+            foreach (char c in Path.GetInvalidFileNameChars())
+                text = text.Replace(c, '_');
+            text = text.Replace(' ', '_');
+            return text;
+        }
+
         /// <summary>CSV 로 저장 (310 의 OutputDieMapDataSaver 동등).</summary>
         public static void SaveCsv(DieMap map, string path)
         {
             if (map == null) return;
             try
             {
+                Normalize(map);
                 var dir = Path.GetDirectoryName(path);
                 if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
                 using (var sw = new StreamWriter(path, false, new UTF8Encoding(false)))
@@ -222,11 +302,11 @@ namespace QMC.CDT320.DieMaps
                     sw.WriteLine($"OriginY,{map.OriginY.ToString(CultureInfo.InvariantCulture)}");
                     sw.WriteLine($"CreatedAt,{map.CreatedAt:yyyy-MM-dd HH:mm:ss}");
                     sw.WriteLine();
-                    sw.WriteLine("Index,GridX,GridY,IsTarget,Result,BinCode,X,Y,DieUid");
+                    sw.WriteLine("Index,SequenceNo,GridX,GridY,IsTarget,Result,BinCode,X,Y,DieUid");
                     foreach (var e in map.Entries)
                     {
                         sw.WriteLine(string.Join(",",
-                            e.Index, e.GridX, e.GridY, e.IsTarget, e.Result,
+                            e.Index, e.SequenceNo, e.GridX, e.GridY, e.IsTarget, e.Result,
                             e.BinCode,
                             e.X.ToString(CultureInfo.InvariantCulture),
                             e.Y.ToString(CultureInfo.InvariantCulture),
@@ -242,6 +322,7 @@ namespace QMC.CDT320.DieMaps
         {
             try
             {
+                Normalize(map);
                 var dir = Path.GetDirectoryName(path);
                 if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
                 using (var fs = File.Create(path))
@@ -261,7 +342,7 @@ namespace QMC.CDT320.DieMaps
                 using (var fs = File.OpenRead(path))
                 {
                     var ser = new DataContractJsonSerializer(typeof(DieMap));
-                    return (DieMap)ser.ReadObject(fs);
+                    return Normalize((DieMap)ser.ReadObject(fs));
                 }
             }
             catch { return null; }
@@ -269,7 +350,7 @@ namespace QMC.CDT320.DieMaps
 
         /// <summary>
         /// CSV 임포트 (Stage 22) — SaveCsv 가 만든 형식 또는 표준 SECS map CSV 둘 다 지원.
-        /// 표준 형식: header section (key,value) + 빈 줄 + entries (Index,GridX,GridY,IsTarget,Result,BinCode,X,Y,DieUid).
+        /// 표준 형식: header section (key,value) + 빈 줄 + entries (Index,SequenceNo,GridX,GridY,IsTarget,Result,BinCode,X,Y,DieUid).
         /// </summary>
         public static DieMap LoadCsv(string path)
         {
@@ -296,7 +377,13 @@ namespace QMC.CDT320.DieMaps
                     else if (k.Equals("OriginY",StringComparison.OrdinalIgnoreCase)) map.OriginY = double.Parse(v, CultureInfo.InvariantCulture);
                 }
                 // Skip column header
-                if (i < lines.Length && lines[i].StartsWith("Index", StringComparison.OrdinalIgnoreCase)) i++;
+                bool hasSequenceNo = false;
+                if (i < lines.Length && lines[i].StartsWith("Index", StringComparison.OrdinalIgnoreCase))
+                {
+                    string header = lines[i];
+                    hasSequenceNo = header.IndexOf("SequenceNo", StringComparison.OrdinalIgnoreCase) >= 0;
+                    i++;
+                }
 
                 // Entries
                 while (i < lines.Length)
@@ -304,22 +391,33 @@ namespace QMC.CDT320.DieMaps
                     var line = lines[i++].Trim();
                     if (string.IsNullOrEmpty(line)) continue;
                     var p = line.Split(',');
+                    for (int j = 0; j < p.Length; j++)
+                        p[j] = p[j] != null ? p[j].Trim() : "";
                     if (p.Length < 8) continue;
+                    if (hasSequenceNo && p.Length < 9) continue;
+                    int sequenceNo = 0;
+                    int offset = 0;
+                    if (hasSequenceNo)
+                    {
+                        sequenceNo = int.TryParse(p[1], out var seq) ? seq : 0;
+                        offset = 1;
+                    }
                     var entry = new DieMapEntry
                     {
                         Index    = int.TryParse(p[0], out var idx) ? idx : 0,
-                        GridX    = int.TryParse(p[1], out var gx) ? gx : 0,
-                        GridY    = int.TryParse(p[2], out var gy) ? gy : 0,
-                        IsTarget = bool.TryParse(p[3], out var isT) ? isT : true,
-                        Result   = Enum.TryParse<QMC.CDT320.Materials.DieResult>(p[4], out var rr) ? rr : QMC.CDT320.Materials.DieResult.Unknown,
-                        BinCode  = int.TryParse(p[5], out var bc) ? bc : 0,
-                        X        = double.TryParse(p[6], NumberStyles.Any, CultureInfo.InvariantCulture, out var x) ? x : 0,
-                        Y        = double.TryParse(p[7], NumberStyles.Any, CultureInfo.InvariantCulture, out var y) ? y : 0,
-                        DieUid   = p.Length >= 9 ? p[8] : ""
+                        SequenceNo = sequenceNo,
+                        GridX    = int.TryParse(p[1 + offset], out var gx) ? gx : 0,
+                        GridY    = int.TryParse(p[2 + offset], out var gy) ? gy : 0,
+                        IsTarget = bool.TryParse(p[3 + offset], out var isT) ? isT : true,
+                        Result   = Enum.TryParse<QMC.CDT320.Materials.DieResult>(p[4 + offset], out var rr) ? rr : QMC.CDT320.Materials.DieResult.Unknown,
+                        BinCode  = int.TryParse(p[5 + offset], out var bc) ? bc : 0,
+                        X        = double.TryParse(p[6 + offset], NumberStyles.Any, CultureInfo.InvariantCulture, out var x) ? x : 0,
+                        Y        = double.TryParse(p[7 + offset], NumberStyles.Any, CultureInfo.InvariantCulture, out var y) ? y : 0,
+                        DieUid   = p.Length >= 9 + offset ? p[8 + offset] : ""
                     };
                     map.Entries.Add(entry);
                 }
-                return map;
+                return Normalize(map);
             }
             catch { return null; }
         }

@@ -87,6 +87,17 @@ namespace QMC.CDT320.Ui.Controls
                         : Color.FromArgb(80, 80, 100));   // unknown
                 using (var br = new SolidBrush(c))
                     g.FillRectangle(br, x, y, cellSize - 1, cellSize - 1);
+
+                if (entry.IsTarget && entry.SequenceNo > 0 && cellSize >= 12)
+                {
+                    using (var br = new SolidBrush(Color.WhiteSmoke))
+                    using (var f = new Font("Consolas", Math.Max(6F, cellSize * 0.32F), FontStyle.Regular))
+                    {
+                        string seq = entry.SequenceNo.ToString();
+                        SizeF size = g.MeasureString(seq, f);
+                        g.DrawString(seq, f, br, x + (cellSize - size.Width) / 2.0F, y + (cellSize - size.Height) / 2.0F);
+                    }
+                }
             }
 
             // hover 강조
@@ -106,7 +117,7 @@ namespace QMC.CDT320.Ui.Controls
                 g.DrawString(info, f, br, 8, 24);
                 if (_hover != null)
                 {
-                    string h = $"[{_hover.GridX},{_hover.GridY}] result={_hover.Result} bin={_hover.BinCode}";
+                    string h = $"seq={_hover.SequenceNo} [{_hover.GridX},{_hover.GridY}] xy=({_hover.X:F3},{_hover.Y:F3}) result={_hover.Result} bin={_hover.BinCode} uid={_hover.DieUid}";
                     g.DrawString(h, f, br, 8, Height - 18);
                 }
             }

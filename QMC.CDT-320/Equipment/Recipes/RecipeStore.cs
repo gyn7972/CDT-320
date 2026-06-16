@@ -132,7 +132,7 @@ namespace QMC.CDT320.Recipes
                 using (var fs = File.OpenRead(path))
                 {
                     var ser = new DataContractJsonSerializer(typeof(RecipeProject));
-                    return (RecipeProject)ser.ReadObject(fs);
+                    return EnsureDefaults((RecipeProject)ser.ReadObject(fs));
                 }
             }
             catch { return null; }
@@ -141,6 +141,7 @@ namespace QMC.CDT320.Recipes
         public static void Save(RecipeProject p)
         {
             if (p == null || string.IsNullOrEmpty(p.FileName)) return;
+            EnsureDefaults(p);
             var name = p.FileName + ".Project";
             var path = Path.Combine(Dir, name);
             try
@@ -151,6 +152,33 @@ namespace QMC.CDT320.Recipes
                 }
             }
             catch { }
+        }
+
+        private static RecipeProject EnsureDefaults(RecipeProject project)
+        {
+            if (project == null)
+                return null;
+
+            if (project.Pickup == null)
+                project.Pickup = new PickupSubset();
+            if (project.InputPickup == null)
+                project.InputPickup = ClonePickupSubset(project.Pickup);
+            if (project.OutputPickup == null)
+                project.OutputPickup = ClonePickupSubset(project.Pickup);
+            return project;
+        }
+
+        private static PickupSubset ClonePickupSubset(PickupSubset source)
+        {
+            if (source == null)
+                return new PickupSubset();
+
+            return new PickupSubset
+            {
+                StartCorner = source.StartCorner,
+                Direction = source.Direction,
+                Pattern = source.Pattern
+            };
         }
 
         public static bool Delete(string fileName)
@@ -253,7 +281,10 @@ namespace QMC.CDT320.Recipes
         // Stage 54 — Output Subset (NG/Good Plate 사양)
         [DataMember] public OutputSubset          Output        { get; set; } = new OutputSubset();
         // Stage 61 — Pickup Sequence Subset (시작 코너 + 방향 + 지그재그/직선)
+        // Pickup은 기존 Recipe 호환용으로 유지하고, 실제 설정은 Input/Output으로 분리한다.
         [DataMember] public PickupSubset          Pickup        { get; set; } = new PickupSubset();
+        [DataMember] public PickupSubset          InputPickup   { get; set; } = new PickupSubset();
+        [DataMember] public PickupSubset          OutputPickup  { get; set; } = new PickupSubset();
     }
 
     // ─── Stage 61 — Pickup Sequence 옵션 enums ──────────────────────
@@ -265,9 +296,9 @@ namespace QMC.CDT320.Recipes
     [DataContract]
     public class PickupSubset
     {
-        [DataMember] public PickupStartCorner StartCorner { get; set; } = PickupStartCorner.TopLeft;
-        [DataMember] public PickupDirection   Direction   { get; set; } = PickupDirection.Horizontal;
-        [DataMember] public PickupPattern     Pattern     { get; set; } = PickupPattern.Straight;
+        [DataMember] public PickupStartCorner StartCorner { get; set; } = PickupStartCorner.TopRight;
+        [DataMember] public PickupDirection   Direction   { get; set; } = PickupDirection.Vertical;
+        [DataMember] public PickupPattern     Pattern     { get; set; } = PickupPattern.ZigZag;
     }
 
     /// <summary>Stage 54 — Output Plate / Cassette 사양 Subset.</summary>

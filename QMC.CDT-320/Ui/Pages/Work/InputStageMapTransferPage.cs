@@ -173,7 +173,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (map == null)
                     return false;
 
-                ApplyMap(map, "ACTIVE INPUT MAP");
+                ApplyMap(map, "ACTIVE INPUT DIE MAP");
                 return true;
             }
             catch
@@ -241,7 +241,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
                 string frameId = active.FrameObjId ?? "";
                 if (!ReferenceEquals(mapView.Map, active) || !string.Equals(_lastMapFrameObjId, frameId, StringComparison.Ordinal))
-                    ApplyMap(active, "ACTIVE INPUT MAP");
+                    ApplyMap(active, "ACTIVE INPUT DIE MAP");
             }
             catch
             {
@@ -255,6 +255,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
         {
             try
             {
+                DieMapGenerator.Normalize(map);
                 mapView.Caption = title;
                 mapView.Map = map;
                 _lastMapFrameObjId = map != null ? map.FrameObjId ?? "" : "";
@@ -387,7 +388,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 {
                     DialogResult result = QMC.Common.MessageDialog.Show(this,
                         "저장하지 않은 Pick Status 변경이 있습니다.\r\n다시 불러오시겠습니까?",
-                        "Input Map", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                        "Input Die Map", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
                     if (result != DialogResult.Yes)
                         return;
                 }
@@ -398,8 +399,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
             catch (Exception ex)
             {
-                QMC.Common.MessageDialog.Show(this, "Input Map reload failed:\r\n" + ex.Message,
-                    "Input Map", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, "Input Die Map reload failed:\r\n" + ex.Message,
+                    "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -413,14 +414,14 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 DieMap map = mapView != null ? mapView.Map : null;
                 if (map == null)
                 {
-                    QMC.Common.MessageDialog.Show(this, "저장할 Input Map 데이터가 없습니다.",
-                        "Input Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, "저장할 Input Die Map 데이터가 없습니다.",
+                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
                 DialogResult result = QMC.Common.MessageDialog.Show(this,
                     "현재 Pick Status를 저장하고 Pickup Sequence를 갱신하시겠습니까?",
-                    "Input Map", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                    "Input Die Map", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
                 if (result != DialogResult.Yes)
                     return;
 
@@ -434,12 +435,12 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 RefreshDieGrid();
                 mapView.Invalidate();
                 QMC.Common.MessageDialog.Show(this, "Pick Status 저장 완료.",
-                    "Input Map", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
                 QMC.Common.MessageDialog.Show(this, "Pick Status save failed:\r\n" + ex.Message,
-                    "Input Map", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -453,6 +454,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (map == null || map.Entries == null)
                     return;
 
+                DieMapGenerator.Normalize(map);
                 WaferMaterial wafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
                 if (wafer != null)
                 {
@@ -465,11 +467,13 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     wafer.UpdatedAt = DateTime.Now;
                     if (wafer.DieIds == null)
                         wafer.DieIds = new System.Collections.Generic.List<string>();
+                    else
+                        wafer.DieIds.Clear();
                 }
 
                 foreach (DieMapEntry entry in map.Entries)
                 {
-                    if (entry == null || string.IsNullOrWhiteSpace(entry.DieUid))
+                    if (entry == null || !entry.IsTarget || string.IsNullOrWhiteSpace(entry.DieUid))
                         continue;
 
                     DieMaterial die = MaterialStateService.GetOrCreateDieMaterial(entry.DieUid);
@@ -483,6 +487,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     die.Wafer_IndexX = entry.GridX;
                     die.Wafer_IndexY = entry.GridY;
                     die.Input_BinCode = entry.BinCode;
+                    if (die.CurrentLocation == null || die.CurrentLocation.Kind == MaterialLocationKind.Unknown)
+                        die.CurrentLocation = new MaterialLocation { Kind = MaterialLocationKind.InputStage };
                     die.Result = entry.Result;
                     if (die.WaferOffset == null)
                         die.WaferOffset = new VisionOffset();
@@ -513,13 +519,13 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (host == null || host.Controller == null || host.Machine == null || host.Machine.InputStageUnit == null)
                 {
                     QMC.Common.MessageDialog.Show(this, "InputStage 장비 정보를 찾을 수 없습니다.",
-                        "Input Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
                 DialogResult confirm = QMC.Common.MessageDialog.Show(this,
                     actionName + " 동작을 진행하시겠습니까?",
-                    "Input Map", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                    "Input Die Map", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
                 if (confirm != DialogResult.Yes)
                     return;
 
@@ -532,20 +538,20 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (result == 0)
                 {
                     QMC.Common.MessageDialog.Show(this, actionName + " 완료.",
-                        "Input Map", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     return;
                 }
 
                 QMC.Common.MessageDialog.Show(this,
                     actionName + " 실패\r\nresult=" + result + "\r\nAlarm/Event Log를 확인하세요.",
-                    "Input Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
             catch (Exception ex)
             {
                 QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
                     actionName + " failed: " + ex.Message + " - Failed");
                 QMC.Common.MessageDialog.Show(this, actionName + " 실패:\r\n" + ex.Message,
-                    "Input Map", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -559,7 +565,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             {
                 DialogResult confirm = QMC.Common.MessageDialog.Show(this,
                     "현재 InputStage wafer를 Manual Align Complete 상태로 저장하시겠습니까?",
-                    "Input Map", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                    "Input Die Map", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
                 if (confirm != DialogResult.Yes)
                     return;
 
@@ -567,7 +573,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (wafer == null)
                 {
                     QMC.Common.MessageDialog.Show(this, "InputStage 위에 wafer Data가 없습니다.",
-                        "Input Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -578,14 +584,14 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
                     "Manual align complete saved. wafer=" + wafer.WaferId + " - Ok");
                 QMC.Common.MessageDialog.Show(this, "Manual Align Complete 저장 완료.",
-                    "Input Map", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
                 QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
                     "Manual align complete failed: " + ex.Message + " - Failed");
                 QMC.Common.MessageDialog.Show(this, "Manual Align Complete 실패:\r\n" + ex.Message,
-                    "Input Map", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -599,7 +605,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
                     actionName + " blocked: " + message + " - Check");
                 QMC.Common.MessageDialog.Show(this, message,
-                    "Input Map", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch
             {

@@ -10,6 +10,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private static readonly Color RbChecked = Color.FromArgb(0x2E, 0x86, 0xDE);
         private static readonly Color RbCheckedFg = Color.White;
         private static readonly Color RbUncheckedFg = Color.FromArgb(0x33, 0x33, 0x33);
+        private bool _loading;
+        private bool _currentTargetIsOutput;
 
         public PickupSubsetPage() : base("recipe.pickupSubset")
         {
@@ -26,8 +28,25 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             ApplyRadioColorsToAll();
         }
 
+        private void PickupTarget_CheckedChanged(object sender, System.EventArgs e)
+        {
+            ApplyRadioColorsToAll();
+            if (_loading || _project == null)
+                return;
+
+            var rb = sender as RadioButton;
+            if (rb != null && !rb.Checked)
+                return;
+
+            SaveVisibleToPickupSubset(_currentTargetIsOutput ? _project.OutputPickup : _project.InputPickup);
+            _currentTargetIsOutput = _rbBin.Checked;
+            LoadSelectedTargetFromRecipe();
+        }
+
         private void ApplyRadioColorsToAll()
         {
+            ApplyRadioColors(_rbWafer);
+            ApplyRadioColors(_rbBin);
             ApplyRadioColors(_rbTL);
             ApplyRadioColors(_rbTR);
             ApplyRadioColors(_rbBL);
@@ -59,7 +78,19 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
         protected override void LoadFromRecipe()
         {
-            var p = _project.Pickup ?? new PickupSubset();
+            _loading = true;
+            EnsurePickupSubsets();
+            if (!_rbWafer.Checked && !_rbBin.Checked)
+                _rbWafer.Checked = true;
+            _currentTargetIsOutput = _rbBin.Checked;
+            LoadSelectedTargetFromRecipe();
+            _loading = false;
+            ApplyRadioColorsToAll();
+        }
+
+        private void LoadSelectedTargetFromRecipe()
+        {
+            var p = ResolveSelectedPickupSubset();
             _rbTL.Checked = p.StartCorner == PickupStartCorner.TopLeft;
             _rbTR.Checked = p.StartCorner == PickupStartCorner.TopRight;
             _rbBL.Checked = p.StartCorner == PickupStartCorner.BottomLeft;
@@ -73,24 +104,71 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
         protected override void SaveToRecipe()
         {
-            var p = _project.Pickup ?? (_project.Pickup = new PickupSubset());
-            if (_rbTL.Checked) p.StartCorner = PickupStartCorner.TopLeft;
-            else if (_rbTR.Checked) p.StartCorner = PickupStartCorner.TopRight;
-            else if (_rbBL.Checked) p.StartCorner = PickupStartCorner.BottomLeft;
-            else if (_rbBR.Checked) p.StartCorner = PickupStartCorner.BottomRight;
-            p.Direction = _rbVert.Checked ? PickupDirection.Vertical : PickupDirection.Horizontal;
-            p.Pattern = _rbZigZag.Checked ? PickupPattern.ZigZag : PickupPattern.Straight;
+            EnsurePickupSubsets();
+            var p = ResolveSelectedPickupSubset();
+            SaveVisibleToPickupSubset(p);
+
+            if (_rbWafer.Checked)
+                _project.Pickup = ClonePickupSubset(p);
 
             try
             {
                 var host = FindForm() as Form1;
                 if (host?.Controller != null)
                 {
-                    host.Controller.PickupOptions = p;
+                    host.Controller.PickupOptions = _project.InputPickup ?? p;
                     host.Controller.RebuildPickupSequence();
                 }
             }
             catch { }
+        }
+
+        private void SaveVisibleToPickupSubset(PickupSubset p)
+        {
+            if (p == null)
+                return;
+
+            if (_rbTL.Checked) p.StartCorner = PickupStartCorner.TopLeft;
+            else if (_rbTR.Checked) p.StartCorner = PickupStartCorner.TopRight;
+            else if (_rbBL.Checked) p.StartCorner = PickupStartCorner.BottomLeft;
+            else if (_rbBR.Checked) p.StartCorner = PickupStartCorner.BottomRight;
+            p.Direction = _rbVert.Checked ? PickupDirection.Vertical : PickupDirection.Horizontal;
+            p.Pattern = _rbZigZag.Checked ? PickupPattern.ZigZag : PickupPattern.Straight;
+        }
+
+        private void EnsurePickupSubsets()
+        {
+            if (_project == null)
+                return;
+
+            if (_project.Pickup == null)
+                _project.Pickup = new PickupSubset();
+            if (_project.InputPickup == null)
+                _project.InputPickup = ClonePickupSubset(_project.Pickup);
+            if (_project.OutputPickup == null)
+                _project.OutputPickup = ClonePickupSubset(_project.Pickup);
+        }
+
+        private PickupSubset ResolveSelectedPickupSubset()
+        {
+            EnsurePickupSubsets();
+            if (_project == null)
+                return new PickupSubset();
+
+            return _rbBin.Checked ? _project.OutputPickup : _project.InputPickup;
+        }
+
+        private static PickupSubset ClonePickupSubset(PickupSubset source)
+        {
+            if (source == null)
+                return new PickupSubset();
+
+            return new PickupSubset
+            {
+                StartCorner = source.StartCorner,
+                Direction = source.Direction,
+                Pattern = source.Pattern
+            };
         }
     }
 }

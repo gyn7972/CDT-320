@@ -6,12 +6,16 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
     partial class PickupSubsetPage
     {
         private TableLayoutPanel pickupLayout;
+        private Label lblTargetHeader;
         private Label lblCornerHeader;
         private Label lblDirectionHeader;
         private Label lblPatternHeader;
+        private TableLayoutPanel targetLayout;
         private TableLayoutPanel cornerLayout;
         private TableLayoutPanel directionLayout;
         private TableLayoutPanel patternLayout;
+        private RadioButton _rbWafer;
+        private RadioButton _rbBin;
         private RadioButton _rbTL;
         private RadioButton _rbTR;
         private RadioButton _rbBL;
@@ -24,12 +28,16 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private void InitializeComponent()
         {
             this.pickupLayout = new TableLayoutPanel();
+            this.lblTargetHeader = new Label();
             this.lblCornerHeader = new Label();
             this.lblDirectionHeader = new Label();
             this.lblPatternHeader = new Label();
+            this.targetLayout = new TableLayoutPanel();
             this.cornerLayout = new TableLayoutPanel();
             this.directionLayout = new TableLayoutPanel();
             this.patternLayout = new TableLayoutPanel();
+            this._rbWafer = new RadioButton();
+            this._rbBin = new RadioButton();
             this._rbTL = new RadioButton();
             this._rbTR = new RadioButton();
             this._rbBL = new RadioButton();
@@ -40,6 +48,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this._rbZigZag = new RadioButton();
             this._editorPanel.SuspendLayout();
             this.pickupLayout.SuspendLayout();
+            this.targetLayout.SuspendLayout();
             this.cornerLayout.SuspendLayout();
             this.directionLayout.SuspendLayout();
             this.patternLayout.SuspendLayout();
@@ -52,17 +61,27 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.pickupLayout.Dock = DockStyle.Top;
             this.pickupLayout.Margin = new Padding(0);
             this.pickupLayout.Padding = new Padding(10);
-            this.pickupLayout.RowCount = 6;
+            this.pickupLayout.RowCount = 8;
+            this.pickupLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
+            this.pickupLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 58F));
             this.pickupLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
             this.pickupLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 116F));
             this.pickupLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
             this.pickupLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 92F));
             this.pickupLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
             this.pickupLayout.RowStyles.Add(new RowStyle(SizeType.Absolute, 92F));
-            this.pickupLayout.Size = new Size(540, 410);
+            this.pickupLayout.Size = new Size(540, 500);
             // 
             // headers
             // 
+            this.lblTargetHeader.BackColor = Color.LightYellow;
+            this.lblTargetHeader.BorderStyle = BorderStyle.FixedSingle;
+            this.lblTargetHeader.Dock = DockStyle.Fill;
+            this.lblTargetHeader.Font = UiTheme.SectionFont;
+            this.lblTargetHeader.ForeColor = Color.DarkSlateGray;
+            this.lblTargetHeader.Padding = new Padding(8, 0, 0, 0);
+            this.lblTargetHeader.Text = "Pickup target";
+            this.lblTargetHeader.TextAlign = ContentAlignment.MiddleLeft;
             this.lblCornerHeader.BackColor = Color.LightYellow;
             this.lblCornerHeader.BorderStyle = BorderStyle.FixedSingle;
             this.lblCornerHeader.Dock = DockStyle.Fill;
@@ -87,6 +106,17 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblPatternHeader.Padding = new Padding(8, 0, 0, 0);
             this.lblPatternHeader.Text = "Pickup pattern";
             this.lblPatternHeader.TextAlign = ContentAlignment.MiddleLeft;
+            // 
+            // targetLayout
+            // 
+            this.targetLayout.ColumnCount = 2;
+            this.targetLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+            this.targetLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+            this.targetLayout.Dock = DockStyle.Fill;
+            this.targetLayout.RowCount = 1;
+            this.targetLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            this.targetLayout.Controls.Add(this._rbWafer, 0, 0);
+            this.targetLayout.Controls.Add(this._rbBin, 1, 0);
             // 
             // cornerLayout
             // 
@@ -126,6 +156,21 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // 
             // radio buttons
             // 
+            this._rbWafer.Appearance = Appearance.Button;
+            this._rbWafer.Checked = true;
+            this._rbWafer.Dock = DockStyle.Fill;
+            this._rbWafer.FlatStyle = FlatStyle.Flat;
+            this._rbWafer.Font = UiTheme.ButtonFont;
+            this._rbWafer.Text = "WAFER INPUT";
+            this._rbWafer.TextAlign = ContentAlignment.MiddleCenter;
+            this._rbWafer.CheckedChanged += new System.EventHandler(this.PickupTarget_CheckedChanged);
+            this._rbBin.Appearance = Appearance.Button;
+            this._rbBin.Dock = DockStyle.Fill;
+            this._rbBin.FlatStyle = FlatStyle.Flat;
+            this._rbBin.Font = UiTheme.ButtonFont;
+            this._rbBin.Text = "BIN OUTPUT";
+            this._rbBin.TextAlign = ContentAlignment.MiddleCenter;
+            this._rbBin.CheckedChanged += new System.EventHandler(this.PickupTarget_CheckedChanged);
             this._rbTL.Appearance = Appearance.Button;
             this._rbTL.Dock = DockStyle.Fill;
             this._rbTL.FlatStyle = FlatStyle.Flat;
@@ -190,18 +235,21 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // 
             // layout controls
             // 
-            this.pickupLayout.Controls.Add(this.lblCornerHeader, 0, 0);
-            this.pickupLayout.Controls.Add(this.cornerLayout, 0, 1);
-            this.pickupLayout.Controls.Add(this.lblDirectionHeader, 0, 2);
-            this.pickupLayout.Controls.Add(this.directionLayout, 0, 3);
-            this.pickupLayout.Controls.Add(this.lblPatternHeader, 0, 4);
-            this.pickupLayout.Controls.Add(this.patternLayout, 0, 5);
+            this.pickupLayout.Controls.Add(this.lblTargetHeader, 0, 0);
+            this.pickupLayout.Controls.Add(this.targetLayout, 0, 1);
+            this.pickupLayout.Controls.Add(this.lblCornerHeader, 0, 2);
+            this.pickupLayout.Controls.Add(this.cornerLayout, 0, 3);
+            this.pickupLayout.Controls.Add(this.lblDirectionHeader, 0, 4);
+            this.pickupLayout.Controls.Add(this.directionLayout, 0, 5);
+            this.pickupLayout.Controls.Add(this.lblPatternHeader, 0, 6);
+            this.pickupLayout.Controls.Add(this.patternLayout, 0, 7);
             this._editorPanel.Controls.Add(this.pickupLayout);
             this.Name = "PickupSubsetPage";
             this.Size = new Size(1094, 742);
             this.patternLayout.ResumeLayout(false);
             this.directionLayout.ResumeLayout(false);
             this.cornerLayout.ResumeLayout(false);
+            this.targetLayout.ResumeLayout(false);
             this.pickupLayout.ResumeLayout(false);
             this._editorPanel.ResumeLayout(false);
             this.ResumeLayout(false);

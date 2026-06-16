@@ -61,16 +61,19 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             _mapMenu = BuildMapContextMenu();
             _mapView.ContextMenuStrip = _mapMenu;
 
-            btnCreate.Text = "CREATE FROM SPEC";
-            btnSave.Text = "SAVE TO RECIPE";
-            btnFirstDieMoveComplete.Text = "LOAD SAVED";
-            btnAutoMatch.Text = "IMPORT FILE";
-            btnThetaMatchMove.Text = "EXPORT CSV";
-            btnXyMatchMove.Text = "INVERT MAP";
+            btnCreate.Text = "CREATE DIE MAP";
+            btnSave.Text = "SAVE DIE MAP";
+            btnFirstDieMoveComplete.Text = "LOAD RECIPE MAP";
+            btnAutoMatch.Text = "IMPORT DIE MAP";
+            btnThetaMatchMove.Text = "EXPORT DIE MAP";
+            btnXyMatchMove.Text = "INVERT TARGET";
             rbStandard.Text = "CLICK TOGGLE";
             rbManualSelectPick.Text = "CLICK TARGET";
             rbAlignCheckIndex.Text = "CLICK SKIP";
             rbDragSelectPick.Text = "RIGHT CLICK MENU";
+            chkCircularMap.Text = _isOutputMap ? "OUTPUT CIRCLE DIE MAP" : "INPUT CIRCLE DIE MAP";
+            chkCircularMap.Checked = true;
+            chkCircularMap.Enabled = _isOutputMap;
             rbStartIndex.Enabled = false;
             rbReference1.Enabled = false;
             rbReference2.Enabled = false;
@@ -144,12 +147,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             var menu = new ContextMenuStrip();
             menu.Items.Add("TARGET ALL", null, (s, e) => SetAllTargets(true));
             menu.Items.Add("SKIP ALL", null, (s, e) => SetAllTargets(false));
-            menu.Items.Add("INVERT MAP", null, (s, e) => InvertMapTargets());
+            menu.Items.Add("INVERT TARGET", null, (s, e) => InvertMapTargets());
             menu.Items.Add(new ToolStripSeparator());
-            menu.Items.Add("CREATE FROM SPEC", null, (s, e) => CreateMapFromRecipeSpec(true));
-            menu.Items.Add("LOAD SAVED", null, (s, e) => LoadSavedRecipeMap(true));
-            menu.Items.Add("IMPORT FILE", null, (s, e) => ImportMapFile());
-            menu.Items.Add("SAVE TO RECIPE", null, (s, e) => SaveMapToRecipe());
+            menu.Items.Add("CREATE DIE MAP", null, (s, e) => CreateMapFromRecipeSpec(true));
+            menu.Items.Add("LOAD RECIPE MAP", null, (s, e) => LoadSavedRecipeMap(true));
+            menu.Items.Add("IMPORT DIE MAP", null, (s, e) => ImportMapFile());
+            menu.Items.Add("SAVE DIE MAP", null, (s, e) => SaveMapToRecipe());
             return menu;
         }
 
@@ -160,7 +163,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 _project = RecipeStore.LoadLastOrDefault();
                 if (_project == null)
                 {
-                    QMC.Common.MessageDialog.Show(this, "로드된 Recipe가 없습니다.", "Map Create", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, "로드된 Recipe가 없습니다.", "Die Map Create", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -176,7 +179,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
             catch (Exception ex)
             {
-                QMC.Common.MessageDialog.Show(this, "Recipe map load failed:\r\n" + ex.Message, "Map Create", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, "Recipe die map load failed:\r\n" + ex.Message, "Die Map Create", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -190,38 +193,60 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 _project = _project ?? RecipeStore.LoadLastOrDefault();
                 if (_project == null)
                     return;
-                SaveEdgeSkipToRecipe();
-                SyncRecipeTapeFrameSpecIfNeeded();
+                if (!_isOutputMap)
+                {
+                    SaveEdgeSkipToRecipe();
+                    SyncRecipeTapeFrameSpecIfNeeded();
+                }
 
                 if (confirm && _map != null)
                 {
                     DialogResult result = QMC.Common.MessageDialog.Show(this,
-                        "현재 맵을 Recipe TapeFrame Spec 기준으로 다시 생성하시겠습니까?",
-                        "Map Create", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                        "현재 Die Map을 Frame Spec 기준으로 다시 생성하시겠습니까?",
+                        "Die Map Create", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
                     if (result != DialogResult.Yes)
                         return;
                 }
 
                 DieMap map = _isOutputMap
-                    ? CreateRectMapFromRecipe(_project)
-                    : CreateWaferMapFromRecipe(_project);
-                ApplyMap(map, "Generated From Recipe: " + (_project.Frame != null ? _project.Frame.FrameSpecName : ""));
+                    ? CreateOutputMapFromRecipe(_project)
+                    : CreateCircleDieMapFromRecipe(_project, false);
+                ApplyMap(map, BuildGeneratedCaption());
                 RefreshMapLibraryList();
             }
             catch (Exception ex)
             {
-                QMC.Common.MessageDialog.Show(this, "Map create failed:\r\n" + ex.Message, "Map Create", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, "Die map create failed:\r\n" + ex.Message, "Die Map Create", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
             }
         }
 
-        private DieMap CreateWaferMapFromRecipe(RecipeProject project)
+        private string BuildGeneratedCaption()
         {
-            TapeFrameSubset frame = project != null ? project.Frame : null;
-            if (frame == null)
-                frame = new TapeFrameSubset();
+            string specName = !string.IsNullOrWhiteSpace(_tbFrameSpecName.Text)
+                ? _tbFrameSpecName.Text.Trim()
+                : "";
+            if (!_isOutputMap)
+                return "Generated Input Circle Die Map: " + specName;
+
+            return chkCircularMap.Checked
+                ? "Generated Output Circle Die Map: " + specName
+                : "Generated Output Rect Die Map: " + specName;
+        }
+
+        private DieMap CreateOutputMapFromRecipe(RecipeProject project)
+        {
+            if (chkCircularMap.Checked)
+                return CreateCircleDieMapFromRecipe(project, true);
+
+            return CreateRectMapFromRecipe(project);
+        }
+
+        private DieMap CreateCircleDieMapFromRecipe(RecipeProject project, bool outputMap)
+        {
+            TapeFrameSubset frame = BuildFrameFromControls();
 
             int gridX = Math.Max(1, frame.GridX);
             int gridY = Math.Max(1, frame.GridY);
@@ -231,10 +256,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             double originY = -((gridY - 1) * pitchY) / 2.0;
             int sideEdgeSkip = ResolveEdgeSkip(_nSideEdgeSkip, gridX);
             int topBottomEdgeSkip = ResolveEdgeSkip(_nTopBottomEdgeSkip, gridY);
+            double diameterMm = frame.OuterDiameterMm > 0.0 ? frame.OuterDiameterMm : 0.0;
 
             var map = new DieMap
             {
-                FrameObjId = BuildRecipeMapId(project, false),
+                FrameObjId = BuildRecipeMapId(project, outputMap),
                 GridX = gridX,
                 GridY = gridY,
                 PitchX = pitchX,
@@ -251,7 +277,18 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 {
                     double x = originX + col * pitchX;
                     double y = originY + row * pitchY;
-                    bool target = IsInsideGridWaferCircle(col, row, gridX, gridY, sideEdgeSkip, topBottomEdgeSkip);
+                    bool target = IsInsideWaferCircle(
+                        col,
+                        row,
+                        gridX,
+                        gridY,
+                        sideEdgeSkip,
+                        topBottomEdgeSkip,
+                        x,
+                        y,
+                        pitchX,
+                        pitchY,
+                        diameterMm);
                     map.Entries.Add(new DieMapEntry
                     {
                         Index = index++,
@@ -267,7 +304,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 }
             }
 
-            return map;
+            return ApplyPickupSequence(map, outputMap);
         }
 
         private static int ResolveEdgeSkip(NumericUpDown control, int gridCount)
@@ -279,7 +316,18 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             return value;
         }
 
-        private static bool IsInsideGridWaferCircle(int col, int row, int gridX, int gridY, int sideEdgeSkip, int topBottomEdgeSkip)
+        private static bool IsInsideWaferCircle(
+            int col,
+            int row,
+            int gridX,
+            int gridY,
+            int sideEdgeSkip,
+            int topBottomEdgeSkip,
+            double x,
+            double y,
+            double pitchX,
+            double pitchY,
+            double diameterMm)
         {
             if (gridX <= 0 || gridY <= 0)
                 return false;
@@ -295,14 +343,26 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             double radiusY = Math.Max(0.5, (gridY - 1 - (topBottomEdgeSkip * 2)) / 2.0);
             double nx = (col - centerX) / radiusX;
             double ny = (row - centerY) / radiusY;
-            return (nx * nx) + (ny * ny) <= 1.0;
+            bool insideGridCircle = (nx * nx) + (ny * ny) <= 1.0;
+            if (!insideGridCircle)
+                return false;
+
+            if (diameterMm <= 0.0)
+                return true;
+
+            double activeSpanX = Math.Max(pitchX, (gridX - 1 - (sideEdgeSkip * 2)) * pitchX);
+            double activeSpanY = Math.Max(pitchY, (gridY - 1 - (topBottomEdgeSkip * 2)) * pitchY);
+            double activeDiameter = Math.Min(activeSpanX, activeSpanY);
+            if (diameterMm >= activeDiameter)
+                return true;
+
+            double radiusMm = diameterMm / 2.0;
+            return (x * x) + (y * y) <= radiusMm * radiusMm;
         }
 
         private DieMap CreateRectMapFromRecipe(RecipeProject project)
         {
-            TapeFrameSubset frame = project != null ? project.Frame : null;
-            if (frame == null)
-                frame = new TapeFrameSubset();
+            TapeFrameSubset frame = BuildFrameFromControls();
 
             var map = DieMapGenerator.GenerateRect(
                 Math.Max(1, frame.GridX),
@@ -320,27 +380,72 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 entry.DieUid = BuildDieId(project, entry.GridY, entry.GridX);
             }
 
-            return map;
+            return ApplyPickupSequence(map, true);
+        }
+
+        private DieMap ApplyPickupSequence(DieMap map, bool outputMap)
+        {
+            PickupSubset pickup = ResolvePickupSubsetForMap(outputMap);
+            return PickupSequenceGenerator.ApplySequenceNumbers(map, pickup);
+        }
+
+        private PickupSubset ResolvePickupSubsetForMap(bool outputMap)
+        {
+            RecipeProject project = _project ?? RecipeStore.LoadLastOrDefault();
+            if (project == null)
+                return new PickupSubset();
+
+            if (outputMap)
+                return project.OutputPickup ?? project.Pickup ?? new PickupSubset();
+
+            return project.InputPickup ?? project.Pickup ?? new PickupSubset();
         }
 
         private void ApplyMap(DieMap map, string caption)
         {
-            _map = map;
+            _map = DieMapGenerator.Normalize(map);
+            ApplyMapToControls(_map);
             _mapView.Caption = caption ?? "Recipe Die Map";
             _mapView.Map = _map;
             RefreshSettingLabels();
+        }
+
+        private TapeFrameSubset BuildFrameFromControls()
+        {
+            return new TapeFrameSubset
+            {
+                FrameSpecName = string.IsNullOrWhiteSpace(_tbFrameSpecName.Text) ? "RecipeFrame" : _tbFrameSpecName.Text.Trim(),
+                GridX = Math.Max(1, (int)_nGridX.Value),
+                GridY = Math.Max(1, (int)_nGridY.Value),
+                PitchX = (double)_nPitchX.Value > 0.0 ? (double)_nPitchX.Value : 1.0,
+                PitchY = (double)_nPitchY.Value > 0.0 ? (double)_nPitchY.Value : 1.0,
+                OuterDiameterMm = (double)_nDiameter.Value > 0.0 ? (double)_nDiameter.Value : 0.0,
+                SideEdgeSkip = (int)_nSideEdgeSkip.Value,
+                TopBottomEdgeSkip = (int)_nTopBottomEdgeSkip.Value
+            };
+        }
+
+        private void ApplyMapToControls(DieMap map)
+        {
+            if (map == null)
+                return;
+
+            _nGridX.Value = ClampDecimal(map.GridX, _nGridX.Minimum, _nGridX.Maximum);
+            _nGridY.Value = ClampDecimal(map.GridY, _nGridY.Minimum, _nGridY.Maximum);
+            _nPitchX.Value = ClampDecimal(map.PitchX, _nPitchX.Minimum, _nPitchX.Maximum);
+            _nPitchY.Value = ClampDecimal(map.PitchY, _nPitchY.Minimum, _nPitchY.Maximum);
         }
 
         private void RefreshSettingLabels()
         {
             if (_map == null)
             {
-                lblMapTitle.Text = "MAP";
+                lblMapTitle.Text = "DIE MAP";
                 return;
             }
 
             int targetCount = _map.Entries != null ? _map.Entries.Count(e => e != null && e.IsTarget) : 0;
-            lblMapTitle.Text = "MAP  TARGET " + targetCount + " / " + (_map.Entries != null ? _map.Entries.Count : 0);
+            lblMapTitle.Text = "DIE MAP  TARGET " + targetCount + " / " + (_map.Entries != null ? _map.Entries.Count : 0);
             _mapView.Invalidate();
         }
 
@@ -378,7 +483,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
                 DialogResult result = QMC.Common.MessageDialog.Show(this,
                     target ? "전체 다이를 TARGET으로 설정하시겠습니까?" : "전체 다이를 SKIP으로 설정하시겠습니까?",
-                    "Map Create", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                    "Die Map Create", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
                 if (result != DialogResult.Yes)
                     return;
 
@@ -430,7 +535,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
                 {
                     if (showMessage)
-                        QMC.Common.MessageDialog.Show(this, "Recipe에 연결된 맵 파일이 없습니다.", "Map Create", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        QMC.Common.MessageDialog.Show(this, "Recipe에 연결된 Die Map 파일이 없습니다.", "Die Map Create", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     return false;
                 }
 
@@ -438,11 +543,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (loaded == null)
                 {
                     if (showMessage)
-                        QMC.Common.MessageDialog.Show(this, "맵 파일을 읽을 수 없습니다.\r\n" + path, "Map Create", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        QMC.Common.MessageDialog.Show(this, "Die Map 파일을 읽을 수 없습니다.\r\n" + path, "Die Map Create", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return false;
                 }
 
-                ApplyMap(loaded, "Recipe Map: " + Path.GetFileName(path));
+                ApplyMap(loaded, "Recipe Die Map: " + Path.GetFileName(path));
                 _currentMapPath = path;
                 _currentFrameSpecName = "";
                 SelectLibraryPath(path);
@@ -451,7 +556,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             catch (Exception ex)
             {
                 if (showMessage)
-                    QMC.Common.MessageDialog.Show(this, "Saved map load failed:\r\n" + ex.Message, "Map Create", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    QMC.Common.MessageDialog.Show(this, "Saved die map load failed:\r\n" + ex.Message, "Die Map Create", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return false;
             }
             finally
@@ -480,10 +585,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 }
 
                 if (_map != null)
-                    AddMemoryMapToLibrary("[CURRENT] Editing Map", _map);
+                    AddMemoryMapToLibrary("[CURRENT] Editing Die Map", _map);
 
                 if (!_isOutputMap && LotStorage.ActiveInputDieMap != null)
-                    AddMemoryMapToLibrary("[CURRENT] Active Input Wafer Map", LotStorage.ActiveInputDieMap);
+                    AddMemoryMapToLibrary("[CURRENT] Active Input Die Map", LotStorage.ActiveInputDieMap);
 
                 string dir = GetDieMapDirectory();
                 Directory.CreateDirectory(dir);
@@ -627,7 +732,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 DieMap memoryMap;
                 if (!string.IsNullOrWhiteSpace(key) && _mapLibraryMemoryMaps.TryGetValue(key, out memoryMap))
                 {
-                    ApplyMap(memoryMap, "Current Wafer Map: " + key);
+                    ApplyMap(memoryMap, "Current Die Map: " + key);
                     _currentMapPath = "";
                     _currentFrameSpecName = "";
                     return;
@@ -636,24 +741,24 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 string path = GetSelectedLibraryPath();
                 if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
                 {
-                    QMC.Common.MessageDialog.Show(this, "선택된 맵 파일이 없습니다.", "Map Create", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    QMC.Common.MessageDialog.Show(this, "선택된 Die Map 파일이 없습니다.", "Die Map Create", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     return;
                 }
 
                 DieMap loaded = DieMapGenerator.Load(path);
                 if (loaded == null)
                 {
-                    QMC.Common.MessageDialog.Show(this, "맵 파일을 읽을 수 없습니다.\r\n" + path, "Map Create", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, "Die Map 파일을 읽을 수 없습니다.\r\n" + path, "Die Map Create", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
-                ApplyMap(loaded, "Library Map: " + Path.GetFileName(path));
+                ApplyMap(loaded, "Library Die Map: " + Path.GetFileName(path));
                 _currentMapPath = path;
                 _currentFrameSpecName = "";
             }
             catch (Exception ex)
             {
-                QMC.Common.MessageDialog.Show(this, "Map load failed:\r\n" + ex.Message, "Map Create", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, "Die map load failed:\r\n" + ex.Message, "Die Map Create", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -703,7 +808,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 _currentFrameSpecName = "";
                 if (File.Exists(_currentMapPath))
                 {
-                    QMC.Common.MessageDialog.Show(this, "이미 같은 이름의 맵이 있습니다.", "Map Create", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, "이미 같은 이름의 Die Map이 있습니다.", "Die Map Create", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -714,7 +819,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
             catch (Exception ex)
             {
-                QMC.Common.MessageDialog.Show(this, "New map failed:\r\n" + ex.Message, "Map Create", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, "New die map failed:\r\n" + ex.Message, "Die Map Create", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -736,27 +841,27 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (!string.IsNullOrWhiteSpace(key) && _mapLibraryMemoryMaps.ContainsKey(key))
                 {
                     QMC.Common.MessageDialog.Show(this,
-                        "현재 메모리 맵은 이름 변경 대상이 아닙니다.\r\nSPEC 항목 또는 저장된 맵 파일을 선택하세요.",
-                        "Map Create", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        "현재 메모리 Die Map은 이름 변경 대상이 아닙니다.\r\nFrame Spec 항목 또는 저장된 Die Map 파일을 선택하세요.",
+                        "Die Map Create", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     return;
                 }
 
                 string oldPath = GetSelectedLibraryPath();
                 if (string.IsNullOrWhiteSpace(oldPath) || !File.Exists(oldPath))
                 {
-                    QMC.Common.MessageDialog.Show(this, "이름을 바꿀 SPEC 또는 저장된 맵 파일을 선택하세요.", "Map Create", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    QMC.Common.MessageDialog.Show(this, "이름을 바꿀 Frame Spec 또는 저장된 Die Map 파일을 선택하세요.", "Die Map Create", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     return;
                 }
 
                 string oldName = Path.GetFileNameWithoutExtension(oldPath);
-                string newName = PromptText("맵 이름 변경", oldName);
+                string newName = PromptText("Die Map 이름 변경", oldName);
                 if (string.IsNullOrWhiteSpace(newName))
                     return;
 
                 string newPath = BuildMapPathByName(newName);
                 if (File.Exists(newPath))
                 {
-                    QMC.Common.MessageDialog.Show(this, "이미 같은 이름의 맵이 있습니다.", "Map Create", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, "이미 같은 이름의 Die Map이 있습니다.", "Die Map Create", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -773,7 +878,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
             catch (Exception ex)
             {
-                QMC.Common.MessageDialog.Show(this, "Map rename failed:\r\n" + ex.Message, "Map Create", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, "Die map rename failed:\r\n" + ex.Message, "Die Map Create", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -798,7 +903,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             if (MaterialSpecs.Data != null && MaterialSpecs.Data.Frames != null &&
                 MaterialSpecs.Data.Frames.Any(f => f != null && string.Equals(f.Name, newName, StringComparison.OrdinalIgnoreCase)))
             {
-                QMC.Common.MessageDialog.Show(this, "이미 같은 이름의 SPEC이 있습니다.", "Map Create", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                QMC.Common.MessageDialog.Show(this, "이미 같은 이름의 Frame Spec이 있습니다.", "Die Map Create", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
@@ -828,13 +933,13 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 string path = GetSelectedLibraryPath();
                 if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
                 {
-                    QMC.Common.MessageDialog.Show(this, "삭제할 맵을 선택하세요.", "Map Create", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    QMC.Common.MessageDialog.Show(this, "삭제할 Die Map을 선택하세요.", "Die Map Create", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     return;
                 }
 
                 DialogResult result = QMC.Common.MessageDialog.Show(this,
-                    "선택한 맵을 삭제하시겠습니까?\r\n" + Path.GetFileName(path),
-                    "Map Create", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+                    "선택한 Die Map을 삭제하시겠습니까?\r\n" + Path.GetFileName(path),
+                    "Die Map Create", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
                 if (result != DialogResult.Yes)
                     return;
 
@@ -861,7 +966,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
             catch (Exception ex)
             {
-                QMC.Common.MessageDialog.Show(this, "Map delete failed:\r\n" + ex.Message, "Map Create", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, "Die map delete failed:\r\n" + ex.Message, "Die Map Create", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -884,11 +989,11 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     DieMap loaded = DieMapGenerator.Load(dlg.FileName);
                     if (loaded == null)
                     {
-                        QMC.Common.MessageDialog.Show(this, "맵 파일을 읽을 수 없습니다.", "Map Create", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        QMC.Common.MessageDialog.Show(this, "Die Map 파일을 읽을 수 없습니다.", "Die Map Create", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                         return;
                     }
 
-                    ApplyMap(loaded, "Imported Map: " + Path.GetFileName(dlg.FileName));
+                    ApplyMap(loaded, "Imported Die Map: " + Path.GetFileName(dlg.FileName));
                     _currentMapPath = "";
                     _currentFrameSpecName = "";
                     _cbMapLibrary.SelectedIndex = -1;
@@ -897,7 +1002,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
             catch (Exception ex)
             {
-                QMC.Common.MessageDialog.Show(this, "Map import failed:\r\n" + ex.Message, "Map Create", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, "Die map import failed:\r\n" + ex.Message, "Die Map Create", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -910,7 +1015,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             {
                 if (_map == null)
                 {
-                    QMC.Common.MessageDialog.Show(this, "내보낼 맵이 없습니다.", "Map Create", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, "내보낼 Die Map이 없습니다.", "Die Map Create", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -929,12 +1034,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     else
                         DieMapGenerator.SaveCsv(_map, dlg.FileName);
 
-                    QMC.Common.MessageDialog.Show(this, "Map export 완료.\r\n" + dlg.FileName, "Map Create", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    QMC.Common.MessageDialog.Show(this, "Die Map export 완료.\r\n" + dlg.FileName, "Die Map Create", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
             }
             catch (Exception ex)
             {
-                QMC.Common.MessageDialog.Show(this, "Map export failed:\r\n" + ex.Message, "Map Create", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, "Die map export failed:\r\n" + ex.Message, "Die Map Create", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -957,12 +1062,16 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
                 if (_map == null)
                 {
-                    QMC.Common.MessageDialog.Show(this, "저장할 맵이 없습니다.", "Map Create", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    QMC.Common.MessageDialog.Show(this, "저장할 Die Map이 없습니다.", "Die Map Create", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
-                SaveEdgeSkipToRecipe();
-                SyncRecipeTapeFrameSpecIfNeeded();
+                if (!_isOutputMap)
+                {
+                    SaveEdgeSkipToRecipe();
+                    SyncRecipeTapeFrameSpecIfNeeded();
+                }
+                ApplyPickupSequence(_map, _isOutputMap);
                 string path = ResolveSaveMapPath();
                 _map.FrameObjId = Path.GetFileNameWithoutExtension(path);
                 DieMapGenerator.SaveJson(_map, path);
@@ -984,12 +1093,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 }
 
                 QMC.Common.MessageDialog.Show(this,
-                    "Map 저장 및 Recipe 연결 완료.\r\n" + path,
-                    "Map Create", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    "Die Map 저장 및 Recipe 연결 완료.\r\n" + path,
+                    "Die Map Create", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
-                QMC.Common.MessageDialog.Show(this, "Map save failed:\r\n" + ex.Message, "Map Create", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, "Die map save failed:\r\n" + ex.Message, "Die Map Create", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -1016,7 +1125,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
             if (string.IsNullOrWhiteSpace(newName))
             {
-                QMC.Common.MessageDialog.Show(this, "저장할 SPEC 이름이 없습니다.", "Map Create", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                QMC.Common.MessageDialog.Show(this, "저장할 Frame Spec 이름이 없습니다.", "Die Map Create", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
@@ -1033,7 +1142,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 string.Equals(f.Name, newName, StringComparison.OrdinalIgnoreCase));
             if (duplicate != null)
             {
-                QMC.Common.MessageDialog.Show(this, "이미 같은 이름의 SPEC이 있습니다.", "Map Create", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                QMC.Common.MessageDialog.Show(this, "이미 같은 이름의 Frame Spec이 있습니다.", "Die Map Create", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
@@ -1071,8 +1180,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             SelectFrameSpecName(newName);
 
             QMC.Common.MessageDialog.Show(this,
-                "SPEC 수정 저장 완료.\r\n" + newName,
-                "Map Create", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                "Frame Spec 수정 저장 완료.\r\n" + newName,
+                "Die Map Create", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
         private static string ResolveRecipeMapPath(RecipeProject project, bool output)

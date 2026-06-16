@@ -209,8 +209,8 @@ namespace QMC.CDT_320.Ui.Localization
 
             // 작업 서브 페이지
             A("work.page.main",       "메인 화면",          "Main");
-            A("work.page.inputMap",   "INPUT STAGE MAP",  "INPUT STAGE MAP");
-            A("work.page.outputMap",  "OUTPUT STAGE MAP", "OUTPUT STAGE MAP");
+            A("work.page.inputMap",   "INPUT STAGE DIE MAP",  "INPUT STAGE DIE MAP");
+            A("work.page.outputMap",  "OUTPUT STAGE DIE MAP", "OUTPUT STAGE DIE MAP");
             A("work.sec.visionView",  "비전 화면",          "Vision View");
             A("work.sec.workMap",     "작업 맵",            "Work Map");
             A("work.sec.workInfo",    "작업 정보",          "Work Info");
@@ -238,8 +238,8 @@ namespace QMC.CDT_320.Ui.Localization
             A("work.workTime.lotId",  "작업중인 LOT ID",   "Active LOT ID");
             A("work.workTime.ccs",    "CCS 검수 확인",      "CCS Check");
 
-            A("work.inputMapTransfer","INPUT 맵 전환",      "INPUT Map Switch");
-            A("work.outputMapTransfer","OUTPUT 맵 전환",    "OUTPUT Map Switch");
+            A("work.inputMapTransfer","INPUT Die Map 전환",      "INPUT Die Map Switch");
+            A("work.outputMapTransfer","OUTPUT Die Map 전환",    "OUTPUT Die Map Switch");
             A("work.visionAlign",     "비전 얼라인",         "Vision Align");
             A("work.waferMapOpen",    "웨이퍼 맵 오픈",      "Wafer Map Open");
             A("work.dieMap",          "다이 맵",            "Die Map");
@@ -349,8 +349,8 @@ namespace QMC.CDT_320.Ui.Localization
 
             // 레시피 서브
             A("recipe.lowerVision",   "LOWER VISION",     "LOWER VISION");
-            A("recipe.inputMapCreate","INPUT MAP CREATE", "INPUT MAP CREATE");
-            A("recipe.outputMapCreate","OUTPUT MAP CREATE","OUTPUT MAP CREATE");
+            A("recipe.inputMapCreate","INPUT DIE MAP CREATE", "INPUT DIE MAP CREATE");
+            A("recipe.outputMapCreate","OUTPUT DIE MAP CREATE","OUTPUT DIE MAP CREATE");
             A("recipe.dieMapSetup",   "DIE MAP SETUP",    "DIE MAP SETUP");
 
             // 설정 서브

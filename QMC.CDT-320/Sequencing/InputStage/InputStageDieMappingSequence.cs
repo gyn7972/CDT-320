@@ -209,6 +209,11 @@ namespace QMC.CDT320.Sequencing
 
                 if (Options.EnableMotion)
                 {
+                    string areaReason;
+                    if (!Stage.IsInputStageWorkPointInArea(point.VisionXPosition, point.StageYPosition, out areaReason))
+                        return Fail("IN-STAGE-DIEMAP-WORK-AREA", Stage.Name,
+                            point.Name + " mark target is outside input stage work area. " + areaReason);
+
                     Task<int> moveY = MoveAxisCommandAsync(WaferStageAxis.WaferY, point.StageYPosition, point.Name + " StageY", ct);
                     Task<int> moveX = MoveAxisCommandAsync(WaferStageAxis.VisionX, point.VisionXPosition, point.Name + " VisionX", ct);
                     int[] moveResults = await Task.WhenAll(moveY, moveX).ConfigureAwait(false);
@@ -370,6 +375,7 @@ namespace QMC.CDT320.Sequencing
                         _dieMap.Entries.Add(new DieMapEntry
                         {
                             Index = index++,
+                            SequenceNo = sourceEntry != null ? sourceEntry.SequenceNo : 0,
                             GridX = col,
                             GridY = row,
                             IsTarget = target,
@@ -384,6 +390,9 @@ namespace QMC.CDT320.Sequencing
                     }
                 }
 
+                ApplyInputPickupSequence(_dieMap);
+                int orderedCount = CountSequencedTargets(_dieMap);
+
                 WriteLog("InputStageDieMappingSequence",
                     "Die map coordinate mapping calculated. grid=" + gridX + "x" + gridY +
                     ", sourceMap=" + (sourceMap != null ? sourceMap.FrameObjId : "none") +
@@ -393,7 +402,8 @@ namespace QMC.CDT320.Sequencing
                     ", centerY=" + centerY.ToString("F6") +
                     ", radius=" + waferRadius.ToString("F6") +
                     ", outerDiameter=" + (_frameSpec != null ? _frameSpec.OuterDiameterMm.ToString("F6") : "0") +
-                    ", targetCount=" + targetCount + " - Ok");
+                    ", targetCount=" + targetCount +
+                    ", orderedCount=" + orderedCount + " - Ok");
 
                 CurrentStep = InputStageDieMappingStep.ApplyDieMap;
                 return 0;
@@ -414,8 +424,14 @@ namespace QMC.CDT320.Sequencing
                 if (_dieMap == null || _waferMap == null)
                     return Fail("IN-STAGE-DIEMAP-APPLY", "InputStageDieMappingSequence", "Die map result is not available.");
 
+                ApplyInputPickupSequence(_dieMap);
                 Stage.ApplyDieMappingResult(_waferMap, _dieMap.OriginX, _dieMap.OriginY, _dieMap.PitchX, _dieMap.PitchY);
                 LotStorage.ActiveInputDieMap = _dieMap;
+                if (Context != null && Context.Controller != null)
+                {
+                    Context.Controller.PickupOptions = ResolveInputPickupSubset();
+                    Context.Controller.ApplyInputDieMap(_dieMap, "InputStageDieMappingSequence.ApplyDieMap");
+                }
 
                 _createdDieCount = ApplyDieMaterials(_dieMap, _wafer);
                 if (_wafer != null)
@@ -459,15 +475,15 @@ namespace QMC.CDT320.Sequencing
             {
                 DieMap activeMap = LotStorage.ActiveInputDieMap;
                 if (IsUsableSourceMap(activeMap))
-                    return activeMap;
+                    return ApplyInputPickupSequence(activeMap);
 
                 DieMap materialMap = MaterialStateService.BuildDieMapFromWafer(wafer);
                 if (IsUsableSourceMap(materialMap))
-                    return materialMap;
+                    return ApplyInputPickupSequence(materialMap);
 
                 DieMap recipeMap = LoadRecipeInputDieMap();
                 if (IsUsableSourceMap(recipeMap))
-                    return recipeMap;
+                    return ApplyInputPickupSequence(recipeMap);
 
                 return null;
             }
@@ -495,7 +511,10 @@ namespace QMC.CDT320.Sequencing
 
                 DieMap map = DieMapGenerator.Load(path);
                 if (map != null)
+                {
+                    ApplyInputPickupSequence(map);
                     WriteLog("InputStageDieMappingSequence", "Recipe input die map loaded. path=" + path + " - Ok");
+                }
                 return map;
             }
             catch (Exception ex)
@@ -527,6 +546,73 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        private static DieMap ApplyInputPickupSequence(DieMap map)
+        {
+            try
+            {
+                if (map == null)
+                    return null;
+
+                PickupSequenceGenerator.ApplySequenceNumbers(map, ResolveInputPickupSubset());
+                return DieMapGenerator.Normalize(map);
+            }
+            catch (Exception ex)
+            {
+                WriteLog("InputStageDieMappingSequence", "Input pickup sequence apply failed: " + ex.Message + " - Failed");
+                return map;
+            }
+            finally
+            {
+            }
+        }
+
+        private static PickupSubset ResolveInputPickupSubset()
+        {
+            try
+            {
+                RecipeProject project = RecipeStore.LoadLastOrDefault();
+                if (project == null)
+                    return new PickupSubset();
+
+                if (project.InputPickup != null)
+                    return project.InputPickup;
+                if (project.Pickup != null)
+                    return project.Pickup;
+                return new PickupSubset();
+            }
+            catch
+            {
+                return new PickupSubset();
+            }
+            finally
+            {
+            }
+        }
+
+        private static int CountSequencedTargets(DieMap map)
+        {
+            try
+            {
+                if (map == null || map.Entries == null)
+                    return 0;
+
+                int count = 0;
+                foreach (DieMapEntry entry in map.Entries)
+                {
+                    if (entry != null && entry.IsTarget && entry.SequenceNo > 0)
+                        count++;
+                }
+                return count;
+            }
+            catch
+            {
+                return 0;
+            }
+            finally
+            {
+            }
+        }
+
         private int ApplyDieMaterials(DieMap map, WaferMaterial wafer)
         {
             try
@@ -548,11 +634,21 @@ namespace QMC.CDT320.Sequencing
                     entry.DieUid = dieId;
                     DieMaterial die = MaterialStateService.GetOrCreateDieMaterial(dieId);
                     die.WaferID_Input = wafer.WaferId;
+                    die.WaferID_Output = "";
                     die.Wafer_IndexX = entry.GridX;
                     die.Wafer_IndexY = entry.GridY;
                     die.Input_BinCode = entry.BinCode;
-                    die.CurrentLocation = MaterialLocation.Unknown();
+                    die.Output_BinCode = 0;
+                    die.Bin_IndexX = -1;
+                    die.Bin_IndexY = -1;
+                    die.CurrentLocation = new MaterialLocation { Kind = MaterialLocationKind.InputStage };
+                    die.ReservedPickerLocation = MaterialLocationKind.Unknown;
+                    die.ReservedPickerNo = -1;
                     die.Result = DieResult.Unknown;
+                    if (die.NgCodes == null)
+                        die.NgCodes = new List<string>();
+                    else
+                        die.NgCodes.Clear();
                     if (die.WaferOffset == null)
                         die.WaferOffset = new VisionOffset();
                     die.WaferOffset.X = entry.X;

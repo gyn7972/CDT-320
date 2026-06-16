@@ -392,9 +392,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         // 홈게이트 = AVOID/LOAD/UNLOAD (PROCESS 제외) · 공유레일/알람은 이동 메서드 내부 자동검사
         // PROCESS는 VisionX 동반 이동 유지. NG의 Z 교시는 NgStage.Recipe(Work/AvoidPositionZ) 사용.
 
-        // 인터락 진단/테스트 토글
-        private static readonly bool RequireHomingForHomeLikeButtons = true;  // AVOID/LOAD/UNLOAD 홈게이트
-
         // 마지막 시퀀스 중단 사유 — 실행 래퍼(ConfirmAndRunAsync)의 실패 팝업에 합쳐서 표시
         private string _lastAbortReason;
 
@@ -442,12 +439,13 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             return true;
         }
 
-        // 홈게이트: 해당 빈 Y/Z 원점복귀 완료
+        // 홈게이트: 해당 빈 Y/Z 원점복귀 완료 (Z축이 없는 스테이지는 Z 생략 — 예: NG는 Y 전용)
         private bool CheckBinAxesHomed(BinSide side, out string reason)
         {
             reason = string.Empty;
             if (!_outputStageUnit.IsStageAxisHomeDone(BinYAxis(side))) { reason = BinYAxis(side) + " 원점복귀 필요"; return false; }
-            if (!_outputStageUnit.IsStageAxisHomeDone(BinZAxis(side))) { reason = BinZAxis(side) + " 원점복귀 필요"; return false; }
+            if (_outputStageUnit.HasStageAxis(BinZAxis(side)) && !_outputStageUnit.IsStageAxisHomeDone(BinZAxis(side)))
+            { reason = BinZAxis(side) + " 원점복귀 필요"; return false; }
             return true;
         }
 
@@ -460,30 +458,33 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             string title = (side == BinSide.Ng ? "NG " : "GOOD ") + kind.ToUpperInvariant();
             string reason;
 
-            // 게이트: 홈(AVOID/LOAD/UNLOAD만) + C + P
-            //bool homeLike = !string.Equals(kind, "Process", StringComparison.OrdinalIgnoreCase);
-            //if (homeLike && RequireHomingForHomeLikeButtons && !CheckBinAxesHomed(side, out reason))
-            //    return AbortSeq(title, reason); //테스트용 임시제거
             if (!CheckClampUp(side, out reason))
                 return AbortSeq(title, reason);
             if (!CheckPickerZClear(out reason))
                 return AbortSeq(title, reason);
 
-            // 1) Z → Avoid (Y 이동 전 안전높이)
-            double zAvoid = GetBinZAvoidTarget(side);
-            int r = await _outputStageUnit.MoveStageAxis(BinZAxis(side), zAvoid);
-            if (r != 0) return AbortSeq(title, "Z Avoid 이동 실패");
+            // 이 스테이지에 Z축이 있는지 (예: NG는 Y 전용이라 Z축 없음 → Z 단계 전부 생략)
+            bool hasZ = _outputStageUnit.HasStageAxis(BinZAxis(side));
 
-            // 2) Z=Avoid 확인
-            if (!_outputStageUnit.IsStageAxisAtPosition(BinZAxis(side), zAvoid))
-                return AbortSeq(title, "Y 이동 전 Z Avoid 미확인");
+            int r = 0;
+            if (hasZ)
+            {
+                // 1) Z → Avoid (Y 이동 전 안전높이)
+                double zAvoid = GetBinZAvoidTarget(side);
+                r = await _outputStageUnit.MoveStageAxis(BinZAxis(side), zAvoid);
+                if (r != 0) return AbortSeq(title, "Z Avoid 이동 실패");
+
+                // 2) Z=Avoid 확인
+                if (!_outputStageUnit.IsStageAxisAtPosition(BinZAxis(side), zAvoid))
+                    return AbortSeq(title, "Y 이동 전 Z Avoid 미확인");
+            }
 
             // 3) Y → 종류 위치
             r = await _outputStageUnit.MoveStageAxisToTeachingPosition(BinYAxis(side), kind);
             if (r != 0) return AbortSeq(title, "Y 이동 실패");
 
-            // 4) 종류별 Z 마무리
-            if (string.Equals(kind, "Load", StringComparison.OrdinalIgnoreCase))
+            // 4) 종류별 Z 마무리 (Z축 있을 때만)
+            if (hasZ && string.Equals(kind, "Load", StringComparison.OrdinalIgnoreCase))
             {
                 double zTarget = side == BinSide.Ng
                     ? _outputStageUnit.NgStage.Recipe.WorkPositionZ
@@ -796,7 +797,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 EventLogger.Write(EventKind.Event, "UI", "OUTPUT-STAGE", actionName + " result=" + result);
                 if (result != 0)
                 {
-                    string detail = string.IsNullOrEmpty(_lastAbortReason) ? "" : Environment.NewLine + "사유: " + _lastAbortReason;
+                    string detail = string.IsNullOrEmpty(_lastAbortReason) ? "" : Environment.NewLine + "사유 : " + _lastAbortReason;
                     QMC.Common.MessageDialog.Show(this, actionName + " 실패" + detail, "Output Stage", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 }
             }

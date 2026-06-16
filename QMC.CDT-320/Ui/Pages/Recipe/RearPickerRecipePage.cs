@@ -468,11 +468,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             if (RequireHomingForAvoid && !CheckPickerHomedForAvoid(out reason))
                 return AbortSeq(title, reason);
 
-            int r = await MoveMembersAsync(GroupMembersByAxes("K_AVOID", PickerTAxes), fine);
-            if (r != 0) return AbortSeq(title, "T 복귀 실패 (CDA/알람 확인)");
-
-            r = await MoveMembersAsync(GroupMembersByAxes("K_AVOID", PickerZAxes), fine);
+            // T 회전 인터락이 "짝 Z가 Avoid(상승)일 것"을 요구하므로, Z를 먼저 상승시킨 뒤 T를 복귀시킨다.
+            int r = await MoveMembersAsync(GroupMembersByAxes("K_AVOID", PickerZAxes), fine);
             if (r != 0) return AbortSeq(title, "Z 상승 실패 (CDA/알람 확인)");
+
+            r = await MoveMembersAsync(GroupMembersByAxes("K_AVOID", PickerTAxes), fine);
+            if (r != 0) return AbortSeq(title, "T 복귀 실패 (CDA/알람 확인)");
 
             string zblock = unit.GetPickerZClearBlockReason();
             if (zblock != null) return AbortSeq(title, "Y/X 전 Z 상승 미완료: " + zblock);
@@ -501,11 +502,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             string zblock = unit.GetPickerZClearBlockReason();
             if (zblock != null) return AbortSeq(title, "X/Y 이동 전 Z 상승 미완료: " + zblock);
 
-            int r = await MoveMembersAsync(GroupMembersByAxes(groupKey, PickerAxis.PickerY), fine);
-            if (r != 0) return AbortSeq(title, "Y 이동 실패 (CDA/공유레일/알람 확인)");
-
-            r = await MoveMembersAsync(GroupMembersByAxes(groupKey, PickerAxis.PickerX), fine);
+            // 공유레일 X 이동 인터락이 "PickerY가 Avoid일 것"을 요구하므로, Y가 Avoid인 상태에서 X를 먼저 옮긴다.
+            int r = await MoveMembersAsync(GroupMembersByAxes(groupKey, PickerAxis.PickerX), fine);
             if (r != 0) return AbortSeq(title, "X 이동 실패 (CDA/공유레일/알람 확인)");
+
+            r = await MoveMembersAsync(GroupMembersByAxes(groupKey, PickerAxis.PickerY), fine);
+            if (r != 0) return AbortSeq(title, "Y 이동 실패 (CDA/공유레일/알람 확인)");
 
             return 0;
         }
@@ -534,11 +536,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             if (!CheckGantryAlignedForKind(kind, out reason))
                 return AbortSeq(kind, "Z 하강 전 " + reason);
 
-            int r = await MoveMembersAsync(GroupMembersByAxes(groupKey, PickerZAxes), fine);
-            if (r != 0) return AbortSeq(kind, "Z 하강 실패 (CDA/알람 확인)");
-
-            r = await MoveMembersAsync(GroupMembersByAxes(groupKey, PickerTAxes), fine);
+            // T 회전 인터락이 "같은 헤드의 Z가 Avoid(상승)일 것"을 요구하므로, Z가 상승해 있는 상태에서 T를 먼저 돌린 뒤 Z를 내린다.
+            int r = await MoveMembersAsync(GroupMembersByAxes(groupKey, PickerTAxes), fine);
             if (r != 0) return AbortSeq(kind, "T 회전 실패 (CDA/알람 확인)");
+
+            r = await MoveMembersAsync(GroupMembersByAxes(groupKey, PickerZAxes), fine);
+            if (r != 0) return AbortSeq(kind, "Z 하강 실패 (CDA/알람 확인)");
 
             return 0;
         }
@@ -581,7 +584,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 {
                     string detail = string.IsNullOrEmpty(lastAbortReason)
                         ? " failed. result=" + result
-                        : " 실패" + Environment.NewLine + "사유: " + lastAbortReason;
+                        : " 실패" + Environment.NewLine + "사유 : " + lastAbortReason;
                     QMC.Common.MessageDialog.Show(this, actionName + detail, "Rear Picker", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 }
             }

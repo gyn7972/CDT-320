@@ -229,6 +229,10 @@ namespace QMC.CDT_320.Ui.Dialogs
                 double visionX = Parse(row.Cells["VisionX"].Value);
                 string pointName = Convert.ToString(row.Cells["Name"].Value);
 
+                string areaReason;
+                if (!_stage.IsInputStageWorkPointInArea(visionX, stageY, out areaReason))
+                    return Fail("IN-STAGE-DIEMAP-MOVE-AREA", pointName + " target is outside input stage work area. " + areaReason);
+
                 SetStatus(pointName + " move command...");
                 Task<int> moveY = _stage.MoveInputStageAxis(WaferStageAxis.WaferY, stageY, true);
                 Task<int> moveX = _stage.MoveInputStageAxis(WaferStageAxis.VisionX, visionX, true);
