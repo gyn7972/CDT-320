@@ -691,10 +691,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 CDT320_Machine machine = FindMachine();
                 string reason;
 
-                // 원점복귀(homing) 완료 전에는 절대좌표 이동 금지 → 시작하지 않음 (RequireHomingForHomeLikeButtons로 on/off)
-                if (RequireHomingForHomeLikeButtons && !CheckStageAxesHomed(out reason))
-                    return AbortAvoid(reason);
-
                 // 1) NEEDLE Z 하강(후퇴)
                 if (await StepMoveAvoidAsync("NEEDLE Z") != 0)
                     return AbortAvoid("NEEDLE Z 이동 실패");
@@ -842,47 +838,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             return axis != null && !axis.IsMoving && axis.IsInPosition;
         }
 
-        // 원점복귀(homing) 완료 여부 — 미완료 축이 있으면 절대좌표 이동을 막는다.
-        private static bool IsAxisHomed(BaseAxis axis, string label, out string reason)
-        {
-            reason = string.Empty;
-            //if (axis != null && !axis.IsHomeDone)
-            //{
-            //    reason = label + " 원점복귀 필요";
-            //    return false;
-            //}  //테스트용 임시제거
-            return true;
-        }
-
-        // 7축(AVOID/READY/PROCESS/RETICLE) 원점복귀 완료 확인
-        private bool CheckStageAxesHomed(out string reason)
-        {
-            reason = string.Empty;
-            if (_InputStageUnit == null)
-                return true;
-            var u = _InputStageUnit;
-            return IsAxisHomed(u.NeedleZ, "NEEDLE Z", out reason)
-                && IsAxisHomed(u.EjectPinZ, "EJECT PIN Z", out reason)
-                && IsAxisHomed(u.ExpanderZ, "EXPANDER Z", out reason)
-                && IsAxisHomed(u.CameraX, "VISION X", out reason)
-                && IsAxisHomed(u.NeedleBlockX, "NEEDLE X", out reason)
-                && IsAxisHomed(u.StageY, "WAFER Y", out reason)
-                && IsAxisHomed(u.StageT, "WAFER T", out reason);
-        }
-
-        // LOAD/UNLOAD 4축 원점복귀 완료 확인
-        private bool CheckLoadUnloadAxesHomed(out string reason)
-        {
-            reason = string.Empty;
-            if (_InputStageUnit == null)
-                return true;
-            var u = _InputStageUnit;
-            return IsAxisHomed(u.NeedleZ, "NEEDLE Z", out reason)
-                && IsAxisHomed(u.ExpanderZ, "EXPANDER Z", out reason)
-                && IsAxisHomed(u.StageT, "WAFER T", out reason)
-                && IsAxisHomed(u.StageY, "WAFER Y", out reason);
-        }
-
         // PROCESS 니들 상승 전제: 스테이지 정렬(WaferY/T·NeedleX) + Expander 고정(In-Position)
         private bool CheckProcessNeedleUpReady(out string reason)
         {
@@ -914,9 +869,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             return cylinder != null && cylinder.IsFwd;
         }
 
-        // 원점복귀(homing) 확인 on/off. 테스트 시 false 로 두면 AVOID/LOAD/UNLOAD가 원점복귀 미완료여도 진행. 운영 시 true.
-        private static readonly bool RequireHomingForHomeLikeButtons = true;
-
         // 마지막 시퀀스 중단 사유 — 실행 래퍼(ConfirmAndRunAsync)의 실패 팝업에 합쳐서 표시
         private string _lastAbortReason;
 
@@ -938,9 +890,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 CDT320_Machine machine = FindMachine();
                 string title = GetPositionLabel(kind);
                 string reason;
-
-                if (RequireHomingForHomeLikeButtons && !CheckLoadUnloadAxesHomed(out reason))
-                    return AbortStage(title, reason);
 
                 // 1) NEEDLE Z
                 if (await StepMoveKindAsync(kind, "NEEDLE Z") != 0)
@@ -1383,7 +1332,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 EventLogger.Write(EventKind.Event, "UI", "INPUT-STAGE", actionName + " result=" + result);
                 if (result != 0)
                 {
-                    string detail = string.IsNullOrEmpty(_lastAbortReason) ? "" : Environment.NewLine + "사유: " + _lastAbortReason;
+                    string detail = string.IsNullOrEmpty(_lastAbortReason) ? "" : Environment.NewLine + "사유 : " + _lastAbortReason;
                     QMC.Common.MessageDialog.Show(this, actionName + " 실패" + detail, "Input Stage", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 }
             }

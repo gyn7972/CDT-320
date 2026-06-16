@@ -1097,6 +1097,29 @@ namespace QMC.CDT320
             }
         }
 
+        /// <summary>
+        /// GOOD 스테이지 Z가 Avoid 위치인지 — 그리드 교시값(Recipe.GoodStageZ.AvoidPosition) 기준.
+        /// 시퀀스/이동이 Z를 보내는 값과 동일 소스를 써서, 인터락 판정과 실제 이동값이 항상 일치하도록 한다.
+        /// (StageModule.AvoidPositionZ와의 이중 저장 불일치를 방지)
+        /// </summary>
+        public bool IsGoodStageZAtAvoid()
+        {
+            try
+            {
+                if (GoodStage == null || GoodStage.StageZ == null)
+                    return true;
+                Recipe.EnsurePositionObjects();
+                return CheckStageAxisInPosition(BinStageAxis.GoodBinZ, Recipe.GoodStageZ.AvoidPosition);
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
         public async Task<int> MoveGoodStageZToAvoidAndVerifyAsync(int timeoutMs, bool bFine = false)
         {
             try
