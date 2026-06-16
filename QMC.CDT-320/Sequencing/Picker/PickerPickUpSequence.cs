@@ -431,7 +431,9 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
-                _targetStageY = _pickTarget.TargetY + _visionOffset.DeltaY;
+                _targetStageY = _pickTarget.TargetY +
+                    ResolveInputVisionToPickerYOffset(_currentPickerIndex) +
+                    _visionOffset.DeltaY;
                 _targetPickerX = _pickTarget.TargetX +
                     ResolveInputVisionToPickerXOffset(_currentPickerIndex) +
                     ResolvePickerAlignOffsetX(_currentPickerIndex) +

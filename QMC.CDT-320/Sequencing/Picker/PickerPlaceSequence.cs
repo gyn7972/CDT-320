@@ -331,7 +331,9 @@ namespace QMC.CDT320.Sequencing
                 ? OutputStage.Recipe.NGStageY.LoadPosition
                 : OutputStage.Recipe.GoodStageY.LoadPosition;
 
-            _targetOutputStageY = baseY + _receiveTarget.TargetY;
+            _targetOutputStageY = baseY +
+                _receiveTarget.TargetY +
+                ResolveOutputVisionToPickerYOffset(_currentPickerIndex);
 
             int result = await MoveOutputStageAxisAndVerifyAsync(yAxis, _targetOutputStageY, "output stage receive Y", ct).ConfigureAwait(false);
             if (result != 0)

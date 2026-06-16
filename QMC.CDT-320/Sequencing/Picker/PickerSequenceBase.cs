@@ -562,14 +562,70 @@ namespace QMC.CDT320.Sequencing
 
         protected double ResolveInputVisionToPickerXOffset(int index)
         {
-            PickerAlignOffset offset = ResolvePickerAlignOffset(index);
-            return offset != null ? offset.InputVisionToPickerXOffset : 0.0;
+            if (Side == PickerSequenceSide.Front && FrontPicker != null && FrontPicker.Setup != null)
+            {
+                FrontPicker.Setup.EnsureGeometryData();
+                return FrontPicker.Setup.InputVisionToPicker.GetOffsetX(index, FrontPicker.Setup.PickerPitchX);
+            }
+
+            if (Side == PickerSequenceSide.Rear && RearPicker != null && RearPicker.Setup != null)
+            {
+                RearPicker.Setup.EnsureGeometryData();
+                return RearPicker.Setup.InputVisionToPicker.GetOffsetX(index, RearPicker.Setup.PickerPitchX);
+            }
+
+            return 0.0;
+        }
+
+        protected double ResolveInputVisionToPickerYOffset(int index)
+        {
+            if (Side == PickerSequenceSide.Front && FrontPicker != null && FrontPicker.Setup != null)
+            {
+                FrontPicker.Setup.EnsureGeometryData();
+                return FrontPicker.Setup.InputVisionToPicker.GetOffsetY(index, FrontPicker.Setup.PickerPitchY);
+            }
+
+            if (Side == PickerSequenceSide.Rear && RearPicker != null && RearPicker.Setup != null)
+            {
+                RearPicker.Setup.EnsureGeometryData();
+                return RearPicker.Setup.InputVisionToPicker.GetOffsetY(index, RearPicker.Setup.PickerPitchY);
+            }
+
+            return 0.0;
         }
 
         protected double ResolveOutputVisionToPickerXOffset(int index)
         {
-            PickerAlignOffset offset = ResolvePickerAlignOffset(index);
-            return offset != null ? offset.OutputVisionToPickerXOffset : 0.0;
+            if (Side == PickerSequenceSide.Front && FrontPicker != null && FrontPicker.Setup != null)
+            {
+                FrontPicker.Setup.EnsureGeometryData();
+                return FrontPicker.Setup.OutputVisionToPicker.GetOffsetX(index, FrontPicker.Setup.PickerPitchX);
+            }
+
+            if (Side == PickerSequenceSide.Rear && RearPicker != null && RearPicker.Setup != null)
+            {
+                RearPicker.Setup.EnsureGeometryData();
+                return RearPicker.Setup.OutputVisionToPicker.GetOffsetX(index, RearPicker.Setup.PickerPitchX);
+            }
+
+            return 0.0;
+        }
+
+        protected double ResolveOutputVisionToPickerYOffset(int index)
+        {
+            if (Side == PickerSequenceSide.Front && FrontPicker != null && FrontPicker.Setup != null)
+            {
+                FrontPicker.Setup.EnsureGeometryData();
+                return FrontPicker.Setup.OutputVisionToPicker.GetOffsetY(index, FrontPicker.Setup.PickerPitchY);
+            }
+
+            if (Side == PickerSequenceSide.Rear && RearPicker != null && RearPicker.Setup != null)
+            {
+                RearPicker.Setup.EnsureGeometryData();
+                return RearPicker.Setup.OutputVisionToPicker.GetOffsetY(index, RearPicker.Setup.PickerPitchY);
+            }
+
+            return 0.0;
         }
 
         private PickerAlignOffset ResolvePickerAlignOffset(int index)

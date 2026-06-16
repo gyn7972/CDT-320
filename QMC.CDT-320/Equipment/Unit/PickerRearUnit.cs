@@ -15,9 +15,30 @@ namespace QMC.CDT320
     [DataContract]
     public sealed class PickerRearSetup : ISetupData
     {
-        [DataMember] public bool IsSimulationMode { get; set; }
-        [DataMember] public double InputSafetyOffset { get; set; }
-        [DataMember] public double OutputSafetyOffset { get; set; }
+        [DataMember] public bool IsSimulationMode { get; set; } // Rear Picker 단위 동작을 시뮬레이션 기준으로 처리할지 여부입니다.
+        [DataMember] public double InputSafetyOffset { get; set; } // Input 영역 접근 시 간섭을 피하기 위해 적용하는 안전 보정 거리입니다.
+        [DataMember] public double OutputSafetyOffset { get; set; } // Output 영역 접근 시 간섭을 피하기 위해 적용하는 안전 보정 거리입니다.
+        [DataMember] public PickerVisionCoordinateOffsets InputVisionToPicker { get; set; } = new PickerVisionCoordinateOffsets(); // InputVisionX/StageY 좌표계를 Picker 좌표계로 변환할 때 사용하는 Picker1~4별 기구 옵셋입니다.
+        [DataMember] public PickerVisionCoordinateOffsets OutputVisionToPicker { get; set; } = new PickerVisionCoordinateOffsets(); // OutputVisionX/OutputStageY 좌표계를 Picker 좌표계로 변환할 때 사용하는 Picker1~4별 기구 옵셋입니다.
+        [DataMember] public double PickerPitchX { get; set; } // Picker1~4 사이 X축 기구 피치입니다.
+        [DataMember] public double PickerPitchY { get; set; } // Picker1~4 사이 Y축 기구 피치입니다.
+
+        [OnDeserialized]
+        private void OnDeserialized(StreamingContext context)
+        {
+            EnsureGeometryData();
+        }
+
+        public void EnsureGeometryData()
+        {
+            if (InputVisionToPicker == null)
+                InputVisionToPicker = new PickerVisionCoordinateOffsets();
+            if (OutputVisionToPicker == null)
+                OutputVisionToPicker = new PickerVisionCoordinateOffsets();
+
+            InputVisionToPicker.EnsureArrays();
+            OutputVisionToPicker.EnsureArrays();
+        }
     }
 
     [DataContract]

@@ -13,6 +13,86 @@ using System.Threading.Tasks;
 namespace QMC.CDT320
 {
     [DataContract]
+    public sealed class PickerVisionCoordinateOffsets
+    {
+        private const int DefaultPickerCount = 4;
+
+        [DataMember] public double[] OffsetX { get; set; } = new double[DefaultPickerCount]; // Picker1~4 각각에 적용하는 X축 기구 옵셋입니다.
+        [DataMember] public double[] OffsetY { get; set; } = new double[DefaultPickerCount]; // Picker1~4 각각에 적용하는 Y축 기구 옵셋입니다.
+
+        [OnDeserialized]
+        private void OnDeserialized(StreamingContext context)
+        {
+            EnsureArrays();
+        }
+
+        public void EnsureArrays()
+        {
+            if (OffsetX == null || OffsetX.Length < DefaultPickerCount)
+            {
+                double[] next = new double[DefaultPickerCount];
+                if (OffsetX != null)
+                    Array.Copy(OffsetX, next, Math.Min(OffsetX.Length, next.Length));
+                OffsetX = next;
+            }
+
+            if (OffsetY == null || OffsetY.Length < DefaultPickerCount)
+            {
+                double[] next = new double[DefaultPickerCount];
+                if (OffsetY != null)
+                    Array.Copy(OffsetY, next, Math.Min(OffsetY.Length, next.Length));
+                OffsetY = next;
+            }
+        }
+
+        public double GetOffsetX(int pickerIndex, double pitchX)
+        {
+            EnsureArrays();
+            if (pickerIndex < 0)
+                return 0.0;
+            if (pickerIndex >= OffsetX.Length)
+                pickerIndex = OffsetX.Length - 1;
+
+            if (pickerIndex == 0)
+                return OffsetX[0];
+
+            if (Math.Abs(OffsetX[pickerIndex]) > double.Epsilon)
+                return OffsetX[pickerIndex];
+
+            return OffsetX[0] + pitchX * pickerIndex;
+        }
+
+        public double GetOffsetY(int pickerIndex, double pitchY)
+        {
+            EnsureArrays();
+            if (pickerIndex < 0)
+                return 0.0;
+            if (pickerIndex >= OffsetY.Length)
+                pickerIndex = OffsetY.Length - 1;
+
+            if (pickerIndex == 0)
+                return OffsetY[0];
+
+            if (Math.Abs(OffsetY[pickerIndex]) > double.Epsilon)
+                return OffsetY[pickerIndex];
+
+            return OffsetY[0] + pitchY * pickerIndex;
+        }
+
+        public bool IsAllZero()
+        {
+            EnsureArrays();
+            for (int i = 0; i < OffsetX.Length; i++)
+            {
+                if (Math.Abs(OffsetX[i]) > double.Epsilon || Math.Abs(OffsetY[i]) > double.Epsilon)
+                    return false;
+            }
+
+            return true;
+        }
+    }
+
+    [DataContract]
     public enum PickerRunOrderMode
     {
         // Picker3 -> Picker2 -> Picker1 -> Picker0 순서로 작업합니다.
@@ -27,6 +107,33 @@ namespace QMC.CDT320
         [DataMember] public bool IsSimulationMode { get; set; } // Front Picker 단위 동작을 시뮬레이션 기준으로 처리할지 여부입니다.
         [DataMember] public double InputSafetyOffset { get; set; } // Input 영역 접근 시 간섭을 피하기 위해 적용하는 안전 보정 거리입니다.
         [DataMember] public double OutputSafetyOffset { get; set; } // Output 영역 접근 시 간섭을 피하기 위해 적용하는 안전 보정 거리입니다.
+        [DataMember] public PickerVisionCoordinateOffsets InputVisionToPicker { get; set; } = new PickerVisionCoordinateOffsets(); // InputVisionX/StageY 좌표계를 Picker 좌표계로 변환할 때 사용하는 Picker1~4별 기구 옵셋입니다.
+        [DataMember] public PickerVisionCoordinateOffsets OutputVisionToPicker { get; set; } = new PickerVisionCoordinateOffsets(); // OutputVisionX/OutputStageY 좌표계를 Picker 좌표계로 변환할 때 사용하는 Picker1~4별 기구 옵셋입니다.
+        [DataMember] public double PickerPitchX { get; set; } // Picker1~4 사이 X축 기구 피치입니다.
+        [DataMember] public double PickerPitchY { get; set; } // Picker1~4 사이 Y축 기구 피치입니다.
+
+        [OnDeserialized]
+        private void OnDeserialized(StreamingContext context)
+        {
+            EnsureGeometryData();
+        }
+
+        public void EnsureGeometryData()
+        {
+            if (InputVisionToPicker == null)
+                InputVisionToPicker = new PickerVisionCoordinateOffsets();
+            if (OutputVisionToPicker == null)
+                OutputVisionToPicker = new PickerVisionCoordinateOffsets();
+
+            InputVisionToPicker.EnsureArrays();
+            OutputVisionToPicker.EnsureArrays();
+
+            if (InputVisionToPicker.IsAllZero())
+            {
+                InputVisionToPicker.OffsetX[0] = 250.0;
+                InputVisionToPicker.OffsetY[0] = 30.0;
+            }
+        }
     }
 
     [DataContract]
@@ -35,8 +142,6 @@ namespace QMC.CDT320
         [DataMember] public double AlignOffsetX { get; set; } // 현재 작업 중 Vision 결과를 Picker X 좌표에 반영하는 런타임 보정값입니다.
         [DataMember] public double AlignOffsetY { get; set; } // 현재 작업 중 Stage/Picker Y 좌표에 반영하는 런타임 보정값입니다.
         [DataMember] public double AlignOffsetT { get; set; } // 현재 작업 중 Picker T축에 반영하는 런타임 회전 보정값입니다.
-        [DataMember] public double InputVisionToPickerXOffset { get; set; } // 현재 작업 중 InputVisionX 좌표계를 PickerX 좌표계로 변환하는 런타임 보정값입니다.
-        [DataMember] public double OutputVisionToPickerXOffset { get; set; } // 현재 작업 중 OutputVisionX 좌표계를 PickerX 좌표계로 변환하는 런타임 보정값입니다.
 
         public PickerAlignOffset Clone()
         {
@@ -44,9 +149,7 @@ namespace QMC.CDT320
             {
                 AlignOffsetX = AlignOffsetX,
                 AlignOffsetY = AlignOffsetY,
-                AlignOffsetT = AlignOffsetT,
-                InputVisionToPickerXOffset = InputVisionToPickerXOffset,
-                OutputVisionToPickerXOffset = OutputVisionToPickerXOffset
+                AlignOffsetT = AlignOffsetT
             };
         }
 
