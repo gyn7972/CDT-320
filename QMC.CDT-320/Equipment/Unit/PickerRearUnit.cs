@@ -36,7 +36,6 @@ namespace QMC.CDT320
         [DataMember] public PickerRunOrderMode RunOrderMode { get; set; } = PickerRunOrderMode.Descending;
         [DataMember] public bool bDryRun { get; set; }
         [DataMember] public bool[] UsePicker { get; set; } = new bool[] { true, true, true, true };
-        [DataMember] public PickerAlignOffset[] Picker { get; set; } = CreatePickerOffsets();
 
         public bool IsSimulationMode
         {
@@ -70,25 +69,6 @@ namespace QMC.CDT320
                 UsePicker = next;
             }
 
-            if (Picker == null || Picker.Length < PickerRearUnit.MaxPickerCount)
-                Picker = CreatePickerOffsets();
-
-            for (int i = 0; i < Picker.Length; i++)
-            {
-                if (Picker[i] == null)
-                    Picker[i] = new PickerAlignOffset();
-            }
-        }
-
-        private static PickerAlignOffset[] CreatePickerOffsets()
-        {
-            return new PickerAlignOffset[]
-            {
-                new PickerAlignOffset(),
-                new PickerAlignOffset(),
-                new PickerAlignOffset(),
-                new PickerAlignOffset()
-            };
         }
     }
 
@@ -105,14 +85,6 @@ namespace QMC.CDT320
         [DataMember] public PickerAxisPositionSet PickerZ2 { get; set; } = new PickerAxisPositionSet();
         [DataMember] public PickerAxisPositionSet PickerT3 { get; set; } = new PickerAxisPositionSet();
         [DataMember] public PickerAxisPositionSet PickerZ3 { get; set; } = new PickerAxisPositionSet();
-        [DataMember] public int MoveTimeoutMs { get; set; } = 5000;
-        [DataMember] public int IoTimeoutMs { get; set; } = 1000;
-        [DataMember] public int BlowTimeMs { get; set; } = 100;
-        [DataMember] public double ArmXVelocity { get; set; } = 2000.0;
-        [DataMember] public double ArmYVelocity { get; set; } = 500.0;
-        [DataMember] public double PickerZVelocity { get; set; } = 1000.0;
-        [DataMember] public double PickerTVelocity { get; set; } = 1000.0;
-        [DataMember] public int VacuumSettleMs { get; set; } = 50;
         [DataMember] public double PickLiftPosition { get; set; } = 2.0;
         [DataMember] public int PickLiftWaitMs { get; set; } = 50;
         [DataMember] public int PlaceDelayMs { get; set; } = 50;
@@ -178,6 +150,7 @@ namespace QMC.CDT320
         public BaseAxis ArmY { get { return PickerY; } }
         public BaseAxis SideVisionY { get { return PickerY; } }
         public PickerRuntimeTool[] Pickers { get; private set; }
+        public PickerAlignOffset[] RuntimePickerOffsets { get; private set; }
         public int[] ColletUseCounts { get; private set; } = new int[MaxPickerCount];
         public int PickFailCount { get; private set; }
         public int PlaceFailCount { get; private set; }
@@ -212,7 +185,48 @@ namespace QMC.CDT320
                 Blows[i] = RegisterOutput(BuildBlowName(catalogNo));
             }
 
+            RuntimePickerOffsets = PickerAlignOffset.CreateArray(MaxPickerCount);
             Pickers = CreateRuntimePickers();
+        }
+
+        public void EnsureRuntimePickerOffsets()
+        {
+            if (RuntimePickerOffsets == null || RuntimePickerOffsets.Length < MaxPickerCount)
+            {
+                PickerAlignOffset[] next = PickerAlignOffset.CreateArray(MaxPickerCount);
+                if (RuntimePickerOffsets != null)
+                {
+                    for (int i = 0; i < Math.Min(RuntimePickerOffsets.Length, next.Length); i++)
+                    {
+                        if (RuntimePickerOffsets[i] != null)
+                            next[i] = RuntimePickerOffsets[i].Clone();
+                    }
+                }
+                RuntimePickerOffsets = next;
+            }
+
+            for (int i = 0; i < RuntimePickerOffsets.Length; i++)
+            {
+                if (RuntimePickerOffsets[i] == null)
+                    RuntimePickerOffsets[i] = new PickerAlignOffset();
+            }
+        }
+
+        public PickerAlignOffset GetRuntimePickerOffset(int pickerIndex)
+        {
+            EnsureRuntimePickerOffsets();
+            if (pickerIndex < 0 || pickerIndex >= RuntimePickerOffsets.Length)
+                return null;
+            return RuntimePickerOffsets[pickerIndex];
+        }
+
+        public void RestoreRuntimePickerOffset(int pickerIndex, PickerAlignOffset offset)
+        {
+            EnsureRuntimePickerOffsets();
+            if (pickerIndex < 0 || pickerIndex >= RuntimePickerOffsets.Length || offset == null)
+                return;
+
+            RuntimePickerOffsets[pickerIndex] = offset.Clone();
         }
 
         private PickerRuntimeTool[] CreateRuntimePickers()
@@ -226,7 +240,7 @@ namespace QMC.CDT320
                     GetAxis(GetPickerZAxis(index)),
                     GetAxis(GetPickerTAxis(index)),
                     () => CreateRuntimeToolSetup(index),
-                    () => CreateRuntimeToolRecipe(),
+                    () => CreateRuntimeToolRecipe(index),
                     () => PickerVacuumOn(pickerNo),
                     () => PickerVacuumOff(pickerNo),
                     () => SetPickerBlow(pickerNo, true),
@@ -238,13 +252,13 @@ namespace QMC.CDT320
 
         private PickerRuntimeToolSetup CreateRuntimeToolSetup(int index)
         {
-            Config.EnsureArrays();
             PickerAxisPositionSet zPosition = GetPositionSet(GetPickerZAxis(index));
+            PickerAlignOffset offset = GetRuntimePickerOffset(index) ?? new PickerAlignOffset();
 
             return new PickerRuntimeToolSetup
             {
-                ColletOffsetX = Config.Picker[index].AlignOffsetX,
-                ColletOffsetY = Config.Picker[index].AlignOffsetY,
+                ColletOffsetX = offset.AlignOffsetX,
+                ColletOffsetY = offset.AlignOffsetY,
                 PickupPosition = zPosition.PickPosition,
                 WaitPosition = zPosition.AvoidPosition,
                 PlacePosition = zPosition.PlacePosition
@@ -265,13 +279,14 @@ namespace QMC.CDT320
                 zPosition.AvoidPosition = position;
         }
 
-        private PickerRuntimeToolRecipe CreateRuntimeToolRecipe()
+        private PickerRuntimeToolRecipe CreateRuntimeToolRecipe(int index)
         {
+            int pickerNo = index + 1;
             return new PickerRuntimeToolRecipe
             {
-                ZVelocity = Recipe.PickerZVelocity,
-                ThetaVelocity = Recipe.PickerTVelocity,
-                VacuumSettleMs = Recipe.VacuumSettleMs,
+                ZVelocity = ResolvePickerAxisVelocity(GetPickerZAxis(index)),
+                ThetaVelocity = ResolvePickerAxisVelocity(GetPickerTAxis(index)),
+                VacuumSettleMs = ResolvePickerVacuumSettleMs(pickerNo),
                 PickLiftPosition = Recipe.PickLiftPosition,
                 PickLiftWaitMs = Recipe.PickLiftWaitMs,
                 PlaceDelayMs = Recipe.PlaceDelayMs
@@ -285,8 +300,8 @@ namespace QMC.CDT320
             for (int i = 0; i < MaxPickerCount; i++)
             {
                 int pickerNo = i + 1;
-                bottom[i] = await RequestBottomInspectionAsync(pickerNo, Recipe != null ? Recipe.IoTimeoutMs : 5000).ConfigureAwait(false);
-                sideResults[i] = await RequestSideInspectionAsync(pickerNo, 0, Recipe != null ? Recipe.IoTimeoutMs : 5000).ConfigureAwait(false);
+                bottom[i] = await RequestBottomInspectionAsync(pickerNo, ResolvePickerIoTimeoutMs(pickerNo)).ConfigureAwait(false);
+                sideResults[i] = await RequestSideInspectionAsync(pickerNo, 0, ResolvePickerIoTimeoutMs(pickerNo)).ConfigureAwait(false);
             }
 
             return Tuple.Create(bottom, sideResults);
@@ -472,7 +487,7 @@ namespace QMC.CDT320
                 AxisMoveWaitResult waitResult = await WaitPickerAxisMoveDoneInPosition(
                     axis,
                     targetPos,
-                    Recipe != null && Recipe.MoveTimeoutMs > 0 ? Recipe.MoveTimeoutMs : 5000).ConfigureAwait(false);
+                    ResolvePickerAxisMoveTimeoutMs(axis)).ConfigureAwait(false);
                 if (!waitResult.Success)
                     return RaisePickerAlarm(
                         AxisMoveWaiter.ResolveAlarmCode("PK-MOVE", waitResult),
@@ -513,7 +528,7 @@ namespace QMC.CDT320
                 AxisMoveWaitResult waitResult = await WaitPickerAxisMoveDoneInPosition(
                     pair.Key,
                     pair.Value,
-                    Recipe != null && Recipe.MoveTimeoutMs > 0 ? Recipe.MoveTimeoutMs : 5000).ConfigureAwait(false);
+                    ResolvePickerAxisMoveTimeoutMs(pair.Key)).ConfigureAwait(false);
                 if (!waitResult.Success)
                     return RaisePickerAlarm(
                         AxisMoveWaiter.ResolveAlarmCode("PK-MOVE", waitResult),
@@ -580,7 +595,8 @@ namespace QMC.CDT320
         {
             int index = NormalizePickerIndex(pickerNo, MaxPickerCount);
             PickerAxis axis = GetPickerTAxis(index);
-            return MovePickerAxis(axis, GetPickerTeachingPosition(axis, "PickPosition") + Config.Picker[index].AlignOffsetT, bFine);
+            PickerAlignOffset offset = GetRuntimePickerOffset(index) ?? new PickerAlignOffset();
+            return MovePickerAxis(axis, GetPickerTeachingPosition(axis, "PickPosition") + offset.AlignOffsetT, bFine);
         }
 
         public bool IsPickerAxisInPosition(PickerAxis axis, double targetPos, double tolerance)
@@ -755,9 +771,12 @@ namespace QMC.CDT320
         public void TeachPickerOffsetPosition(int pickerNo)
         {
             int index = NormalizePickerIndex(pickerNo, MaxPickerCount);
-            Config.EnsureArrays();
+            PickerAlignOffset offset = GetRuntimePickerOffset(index);
+            if (offset == null)
+                return;
+
             PickerAxis axis = GetPickerTAxis(index);
-            Config.Picker[index].AlignOffsetT = GetAxis(axis).ActualPosition - GetPickerTeachingPosition(axis, "PickPosition");
+            offset.AlignOffsetT = GetAxis(axis).ActualPosition - GetPickerTeachingPosition(axis, "PickPosition");
         }
 
         public double GetPickerTeachingPosition(PickerAxis axis, string positionName)
@@ -876,9 +895,55 @@ namespace QMC.CDT320
             if (await MoveToPickerDiePlacePosition(pickerNo, bFine) != 0)
                 return false;
             PickerVacuumOff(pickerNo);
-            await PickerBlowOn(pickerNo, timeoutMs > 0 ? timeoutMs : Recipe.BlowTimeMs);
+            await PickerBlowOn(pickerNo, timeoutMs > 0 ? timeoutMs : ResolvePickerBlowTimeMs(pickerNo));
             PickerBlowOff(pickerNo);
             return true;
+        }
+
+        public double ResolvePickerAxisVelocity(PickerAxis axis)
+        {
+            BaseAxis item = GetAxis(axis);
+            return item != null && item.Config != null && item.Config.DefaultVelocity > 0.0
+                ? item.Config.DefaultVelocity
+                : 1000.0;
+        }
+
+        public int ResolvePickerAxisMoveTimeoutMs(PickerAxis axis)
+        {
+            BaseAxis item = GetAxis(axis);
+            return item != null && item.Setup != null && item.Setup.MoveTimeoutMs > 0
+                ? item.Setup.MoveTimeoutMs
+                : 5000;
+        }
+
+        public int ResolvePickerIoTimeoutMs(int pickerNo)
+        {
+            int index = NormalizePickerIndex(pickerNo, MaxIoPickerCount);
+            BaseDigitalInput flow = FlowChecks != null && index < FlowChecks.Length ? FlowChecks[index] : null;
+            if (flow != null && flow.Recipe != null && flow.Recipe.SettleTimeMs > 0)
+                return Math.Max(flow.Recipe.SettleTimeMs, 1000);
+
+            return 5000;
+        }
+
+        public int ResolvePickerVacuumSettleMs(int pickerNo)
+        {
+            int index = NormalizePickerIndex(pickerNo, MaxIoPickerCount);
+            BaseDigitalOutput vacuum = Vacuums != null && index < Vacuums.Length ? Vacuums[index] : null;
+            if (vacuum != null && vacuum.Recipe != null && vacuum.Recipe.SettleTimeMs > 0)
+                return vacuum.Recipe.SettleTimeMs;
+
+            return 50;
+        }
+
+        public int ResolvePickerBlowTimeMs(int pickerNo)
+        {
+            int index = NormalizePickerIndex(pickerNo, MaxIoPickerCount);
+            BaseDigitalOutput blow = Blows != null && index < Blows.Length ? Blows[index] : null;
+            if (blow != null && blow.Recipe != null && blow.Recipe.SettleTimeMs > 0)
+                return blow.Recipe.SettleTimeMs;
+
+            return 100;
         }
 
         public bool CheckPickerMoveReady()
@@ -1040,26 +1105,28 @@ namespace QMC.CDT320
         private async Task<int> MoveToDiePosition(int pickerNo, string positionArrayName, bool bFine)
         {
             int index = NormalizePickerIndex(pickerNo, MaxPickerCount);
-            Config.EnsureArrays();
+            PickerAlignOffset offset = GetRuntimePickerOffset(index) ?? new PickerAlignOffset();
 
             Dictionary<PickerAxis, double> targets = new Dictionary<PickerAxis, double>();
             targets[PickerAxis.PickerX] = ResolvePickerZoneX(positionArrayName, index);
             targets[PickerAxis.PickerY] = ResolvePickerZoneY(positionArrayName, index);
-            targets[GetPickerTAxis(index)] = ResolveTPosition(positionArrayName, index) + Config.Picker[index].AlignOffsetT;
+            targets[GetPickerTAxis(index)] = ResolveTPosition(positionArrayName, index) + offset.AlignOffsetT;
             targets[GetPickerZAxis(index)] = ResolveZPosition(positionArrayName, index);
             return await MovePickerAxes(targets, bFine);
         }
 
         private double ResolvePickerZoneX(string positionArrayName, int index)
         {
+            PickerAlignOffset offset = GetRuntimePickerOffset(index) ?? new PickerAlignOffset();
             return GetPickerTeachingPosition(PickerAxis.PickerX, ResolveZonePositionName(positionArrayName)) +
-                   Config.Picker[index].AlignOffsetX;
+                   offset.AlignOffsetX;
         }
 
         private double ResolvePickerZoneY(string positionArrayName, int index)
         {
+            PickerAlignOffset offset = GetRuntimePickerOffset(index) ?? new PickerAlignOffset();
             return GetPickerTeachingPosition(PickerAxis.PickerY, ResolveZonePositionName(positionArrayName)) +
-                   Config.Picker[index].AlignOffsetY;
+                   offset.AlignOffsetY;
         }
 
         private static string ResolveZonePositionName(string positionArrayName)
@@ -1101,13 +1168,14 @@ namespace QMC.CDT320
         private bool IsPickerInDiePosition(int pickerNo, string positionArrayName)
         {
             int index = NormalizePickerIndex(pickerNo, MaxPickerCount);
+            PickerAlignOffset offset = GetRuntimePickerOffset(index) ?? new PickerAlignOffset();
             BaseAxis x = GetAxis(PickerAxis.PickerX);
             BaseAxis y = GetAxis(PickerAxis.PickerY);
             BaseAxis t = GetAxis(GetPickerTAxis(index));
             BaseAxis z = GetAxis(GetPickerZAxis(index));
             return IsPickerAxisInPosition(PickerAxis.PickerX, ResolvePickerZoneX(positionArrayName, index), x.Config.InPositionTolerance)
                 && IsPickerAxisInPosition(PickerAxis.PickerY, ResolvePickerZoneY(positionArrayName, index), y.Config.InPositionTolerance)
-                && IsPickerAxisInPosition(GetPickerTAxis(index), ResolveTPosition(positionArrayName, index) + Config.Picker[index].AlignOffsetT, t.Config.InPositionTolerance)
+                && IsPickerAxisInPosition(GetPickerTAxis(index), ResolveTPosition(positionArrayName, index) + offset.AlignOffsetT, t.Config.InPositionTolerance)
                 && IsPickerAxisInPosition(GetPickerZAxis(index), ResolveZPosition(positionArrayName, index), z.Config.InPositionTolerance);
         }
 
@@ -1120,20 +1188,23 @@ namespace QMC.CDT320
         private void TeachPickerDiePosition(int pickerNo, string positionArrayName)
         {
             int index = NormalizePickerIndex(pickerNo, MaxPickerCount);
-            Config.EnsureArrays();
+            PickerAlignOffset offset = GetRuntimePickerOffset(index);
+            if (offset == null)
+                return;
+
             string zonePositionName = ResolveZonePositionName(positionArrayName);
 
             if (index == 3)
             {
                 SetPickerTeachingPosition(PickerAxis.PickerX, zonePositionName, PickerX.ActualPosition);
                 SetPickerTeachingPosition(PickerAxis.PickerY, zonePositionName, PickerY.ActualPosition);
-                Config.Picker[index].AlignOffsetX = 0.0;
-                Config.Picker[index].AlignOffsetY = 0.0;
+                offset.AlignOffsetX = 0.0;
+                offset.AlignOffsetY = 0.0;
                 return;
             }
 
-            Config.Picker[index].AlignOffsetX = PickerX.ActualPosition - GetPickerTeachingPosition(PickerAxis.PickerX, zonePositionName);
-            Config.Picker[index].AlignOffsetY = PickerY.ActualPosition - GetPickerTeachingPosition(PickerAxis.PickerY, zonePositionName);
+            offset.AlignOffsetX = PickerX.ActualPosition - GetPickerTeachingPosition(PickerAxis.PickerX, zonePositionName);
+            offset.AlignOffsetY = PickerY.ActualPosition - GetPickerTeachingPosition(PickerAxis.PickerY, zonePositionName);
         }
 
         private void SetPickerTeachingPosition(PickerAxis axis, string positionName, double position)

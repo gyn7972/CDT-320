@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Threading;
@@ -60,6 +60,11 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private PickerSideInspectionSequence _sideInspectStepSequence;
         private PickerPlaceSequence _placeStepSequence;
         private bool _manualSequenceRunning;
+
+        private sealed class RuntimeOffsetRowTag
+        {
+            public int PickerIndex { get; set; }
+        }
 
         public PickerWorkInfoPageRuntime(
             PageBase owner,
@@ -317,12 +322,23 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 AddAxisRow("PICKER Z #3", PickerAxis.PickerZ2);
                 AddAxisRow("PICKER T #4", PickerAxis.PickerT3);
                 AddAxisRow("PICKER Z #4", PickerAxis.PickerZ3);
+                AddOffsetRow("PICKER #1 OFFSET", 0);
+                AddOffsetRow("PICKER #2 OFFSET", 1);
+                AddOffsetRow("PICKER #3 OFFSET", 2);
+                AddOffsetRow("PICKER #4 OFFSET", 3);
             }
 
             foreach (DataGridViewRow row in _axisGrid.Rows)
             {
                 if (row.Tag == null)
                     continue;
+
+                RuntimeOffsetRowTag offsetTag = row.Tag as RuntimeOffsetRowTag;
+                if (offsetTag != null)
+                {
+                    RefreshOffsetRow(machine, row, offsetTag.PickerIndex);
+                    continue;
+                }
 
                 PickerAxis axisKey = (PickerAxis)row.Tag;
                 BaseAxis axis = GetAxis(machine, axisKey);
@@ -356,6 +372,29 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         {
             int rowIndex = _axisGrid.Rows.Add(name, "", "", "", "", "");
             _axisGrid.Rows[rowIndex].Tag = axis;
+        }
+
+        private void AddOffsetRow(string name, int pickerIndex)
+        {
+            int rowIndex = _axisGrid.Rows.Add(name, "", "", "", "", "");
+            _axisGrid.Rows[rowIndex].Tag = new RuntimeOffsetRowTag { PickerIndex = pickerIndex };
+        }
+
+        private void RefreshOffsetRow(CDT320_Machine machine, DataGridViewRow row, int pickerIndex)
+        {
+            PickerAlignOffset offset = GetRuntimePickerOffset(machine, pickerIndex);
+            BaseAxis xAxis = GetAxis(machine, PickerAxis.PickerX);
+            BaseAxis yAxis = GetAxis(machine, PickerAxis.PickerY);
+
+            row.Cells["colCurrent"].Value = offset != null
+                ? "X=" + FormatAxisDisplay(offset.AlignOffsetX, xAxis) +
+                  " / Y=" + FormatAxisDisplay(offset.AlignOffsetY, yAxis) +
+                  " / T=" + offset.AlignOffsetT.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) + " deg"
+                : "-";
+            row.Cells["colServo"].Value = "-";
+            row.Cells["colHome"].Value = "-";
+            row.Cells["colAlarm"].Value = "-";
+            row.Cells["colMoving"].Value = "-";
         }
 
         private async Task RunSequenceAction(string actionName, SequenceRunMode mode)
@@ -1015,6 +1054,25 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             if (_side == PickerSequenceSide.Front)
                 return machine.PickerFrontUnit.GetPickerTeachingPosition(axis, positionName);
             return machine.PickerRearUnit.GetPickerTeachingPosition(axis, positionName);
+        }
+
+        private PickerAlignOffset GetRuntimePickerOffset(CDT320_Machine machine, int pickerIndex)
+        {
+            if (machine == null || pickerIndex < 0)
+                return null;
+
+            if (_side == PickerSequenceSide.Front)
+            {
+                if (machine.PickerFrontUnit == null)
+                    return null;
+
+                return machine.PickerFrontUnit.GetRuntimePickerOffset(pickerIndex);
+            }
+
+            if (machine.PickerRearUnit == null)
+                return null;
+
+            return machine.PickerRearUnit.GetRuntimePickerOffset(pickerIndex);
         }
 
         private bool UsePicker(CDT320_Machine machine, int pickerNo)

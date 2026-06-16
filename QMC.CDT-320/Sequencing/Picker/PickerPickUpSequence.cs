@@ -660,11 +660,11 @@ namespace QMC.CDT320.Sequencing
 
         private int ResolveVacuumSettleMs()
         {
-            if (Side == PickerSequenceSide.Front && FrontPicker != null && FrontPicker.Recipe != null)
-                return FrontPicker.Recipe.VacuumSettleMs;
+            if (Side == PickerSequenceSide.Front && FrontPicker != null)
+                return FrontPicker.ResolvePickerVacuumSettleMs(_currentPickerNo);
 
-            if (Side == PickerSequenceSide.Rear && RearPicker != null && RearPicker.Recipe != null)
-                return RearPicker.Recipe.VacuumSettleMs;
+            if (Side == PickerSequenceSide.Rear && RearPicker != null)
+                return RearPicker.ResolvePickerVacuumSettleMs(_currentPickerNo);
 
             return 50;
         }

@@ -45,6 +45,18 @@ namespace QMC.CDT320
     }
 
     [DataContract]
+    public class MachinePickerOffsetRuntimeState
+    {
+        [DataMember] public string Side { get; set; }
+        [DataMember] public int PickerIndex { get; set; }
+        [DataMember] public double AlignOffsetX { get; set; }
+        [DataMember] public double AlignOffsetY { get; set; }
+        [DataMember] public double AlignOffsetT { get; set; }
+        [DataMember] public double InputVisionToPickerXOffset { get; set; }
+        [DataMember] public double OutputVisionToPickerXOffset { get; set; }
+    }
+
+    [DataContract]
     public class MachineRuntimeState
     {
         [DataMember] public bool IsMachineInitialized { get; set; }
@@ -57,6 +69,8 @@ namespace QMC.CDT320
             new List<MachineAxisRuntimeState>();
         [DataMember] public List<MachineCylinderRuntimeState> Cylinders { get; set; } =
             new List<MachineCylinderRuntimeState>();
+        [DataMember] public List<MachinePickerOffsetRuntimeState> PickerOffsets { get; set; } =
+            new List<MachinePickerOffsetRuntimeState>();
         [DataMember] public List<MachineInitializeStepRuntimeState> InitializeSteps { get; set; } =
             new List<MachineInitializeStepRuntimeState>();
     }
@@ -114,6 +128,8 @@ namespace QMC.CDT320
                     state.Axes = new List<MachineAxisRuntimeState>();
                 if (state.Cylinders == null)
                     state.Cylinders = new List<MachineCylinderRuntimeState>();
+                if (state.PickerOffsets == null)
+                    state.PickerOffsets = new List<MachinePickerOffsetRuntimeState>();
                 if (state.InitializeSteps == null)
                     state.InitializeSteps = new List<MachineInitializeStepRuntimeState>();
 

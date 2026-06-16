@@ -359,10 +359,10 @@ namespace QMC.CDT320.Sequencing
         protected async Task PickerBlowAsync(int pickerNo, CancellationToken ct)
         {
             int waitMs = 100;
-            if (Side == PickerSequenceSide.Front && FrontPicker != null && FrontPicker.Recipe != null)
-                waitMs = FrontPicker.Recipe.BlowTimeMs;
-            if (Side == PickerSequenceSide.Rear && RearPicker != null && RearPicker.Recipe != null)
-                waitMs = RearPicker.Recipe.BlowTimeMs;
+            if (Side == PickerSequenceSide.Front && FrontPicker != null)
+                waitMs = FrontPicker.ResolvePickerBlowTimeMs(pickerNo);
+            if (Side == PickerSequenceSide.Rear && RearPicker != null)
+                waitMs = RearPicker.ResolvePickerBlowTimeMs(pickerNo);
 
             if (Side == PickerSequenceSide.Front)
                 await FrontPicker.PickerBlowOn(pickerNo, waitMs).ConfigureAwait(false);
@@ -544,29 +544,20 @@ namespace QMC.CDT320.Sequencing
 
         protected double ResolvePickerAlignOffsetX(int index)
         {
-            if (Side == PickerSequenceSide.Front && FrontPicker != null && FrontPicker.Config != null && FrontPicker.Config.Picker != null && index < FrontPicker.Config.Picker.Length)
-                return FrontPicker.Config.Picker[index].AlignOffsetX;
-            if (Side == PickerSequenceSide.Rear && RearPicker != null && RearPicker.Config != null && RearPicker.Config.Picker != null && index < RearPicker.Config.Picker.Length)
-                return RearPicker.Config.Picker[index].AlignOffsetX;
-            return 0.0;
+            PickerAlignOffset offset = ResolvePickerAlignOffset(index);
+            return offset != null ? offset.AlignOffsetX : 0.0;
         }
 
         protected double ResolvePickerAlignOffsetY(int index)
         {
-            if (Side == PickerSequenceSide.Front && FrontPicker != null && FrontPicker.Config != null && FrontPicker.Config.Picker != null && index < FrontPicker.Config.Picker.Length)
-                return FrontPicker.Config.Picker[index].AlignOffsetY;
-            if (Side == PickerSequenceSide.Rear && RearPicker != null && RearPicker.Config != null && RearPicker.Config.Picker != null && index < RearPicker.Config.Picker.Length)
-                return RearPicker.Config.Picker[index].AlignOffsetY;
-            return 0.0;
+            PickerAlignOffset offset = ResolvePickerAlignOffset(index);
+            return offset != null ? offset.AlignOffsetY : 0.0;
         }
 
         protected double ResolvePickerAlignOffsetT(int index)
         {
-            if (Side == PickerSequenceSide.Front && FrontPicker != null && FrontPicker.Config != null && FrontPicker.Config.Picker != null && index < FrontPicker.Config.Picker.Length)
-                return FrontPicker.Config.Picker[index].AlignOffsetT;
-            if (Side == PickerSequenceSide.Rear && RearPicker != null && RearPicker.Config != null && RearPicker.Config.Picker != null && index < RearPicker.Config.Picker.Length)
-                return RearPicker.Config.Picker[index].AlignOffsetT;
-            return 0.0;
+            PickerAlignOffset offset = ResolvePickerAlignOffset(index);
+            return offset != null ? offset.AlignOffsetT : 0.0;
         }
 
         protected double ResolveInputVisionToPickerXOffset(int index)
@@ -586,23 +577,11 @@ namespace QMC.CDT320.Sequencing
             if (index < 0)
                 return null;
 
-            if (Side == PickerSequenceSide.Front &&
-                FrontPicker != null &&
-                FrontPicker.Config != null &&
-                FrontPicker.Config.Picker != null &&
-                index < FrontPicker.Config.Picker.Length)
-            {
-                return FrontPicker.Config.Picker[index];
-            }
+            if (Side == PickerSequenceSide.Front && FrontPicker != null)
+                return FrontPicker.GetRuntimePickerOffset(index);
 
-            if (Side == PickerSequenceSide.Rear &&
-                RearPicker != null &&
-                RearPicker.Config != null &&
-                RearPicker.Config.Picker != null &&
-                index < RearPicker.Config.Picker.Length)
-            {
-                return RearPicker.Config.Picker[index];
-            }
+            if (Side == PickerSequenceSide.Rear && RearPicker != null)
+                return RearPicker.GetRuntimePickerOffset(index);
 
             return null;
         }

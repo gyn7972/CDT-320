@@ -203,16 +203,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
             waitParameterGrid.SetItems(new[]
             {
-                ParameterGridItem.Int("MOVE TIMEOUT", "ms", ParameterGridScope.Recipe, () => unit.Recipe.MoveTimeoutMs, v => unit.Recipe.MoveTimeoutMs = Math.Max(0, v)),
-                ParameterGridItem.Int("I/O TIMEOUT", "ms", ParameterGridScope.Recipe, () => unit.Recipe.IoTimeoutMs, v => unit.Recipe.IoTimeoutMs = Math.Max(0, v)),
-                ParameterGridItem.Int("BLOW TIME", "ms", ParameterGridScope.Recipe, () => unit.Recipe.BlowTimeMs, v => unit.Recipe.BlowTimeMs = Math.Max(0, v)),
-                ParameterGridItem.Int("VACUUM SETTLE", "ms", ParameterGridScope.Recipe, () => unit.Recipe.VacuumSettleMs, v => unit.Recipe.VacuumSettleMs = Math.Max(0, v)),
                 ParameterGridItem.Int("PICK LIFT WAIT", "ms", ParameterGridScope.Recipe, () => unit.Recipe.PickLiftWaitMs, v => unit.Recipe.PickLiftWaitMs = Math.Max(0, v)),
                 ParameterGridItem.Int("PLACE DELAY", "ms", ParameterGridScope.Recipe, () => unit.Recipe.PlaceDelayMs, v => unit.Recipe.PlaceDelayMs = Math.Max(0, v)),
-                AxisDouble("ARM X VELOCITY", PickerAxis.PickerX, AxisUnitConverter.Millimeter, ParameterGridScope.Recipe, () => unit.Recipe.ArmXVelocity, v => unit.Recipe.ArmXVelocity = v, "/s"),
-                AxisDouble("ARM Y VELOCITY", PickerAxis.PickerY, AxisUnitConverter.Millimeter, ParameterGridScope.Recipe, () => unit.Recipe.ArmYVelocity, v => unit.Recipe.ArmYVelocity = v, "/s"),
-                AxisDouble("PICKER Z VELOCITY", PickerAxis.PickerZ0, AxisUnitConverter.Millimeter, ParameterGridScope.Recipe, () => unit.Recipe.PickerZVelocity, v => unit.Recipe.PickerZVelocity = v, "/s"),
-                ParameterGridItem.Double("PICKER T VELOCITY", "deg/s", ParameterGridScope.Recipe, () => unit.Recipe.PickerTVelocity, v => unit.Recipe.PickerTVelocity = v),
                 AxisDouble("PICK LIFT POSITION", PickerAxis.PickerZ0, AxisUnitConverter.Millimeter, ParameterGridScope.Recipe, () => unit.Recipe.PickLiftPosition, v => unit.Recipe.PickLiftPosition = v)
             });
         }
@@ -224,11 +216,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 int index = i;
                 string name = "PICKER " + (index + 1);
                 items.Add(ParameterGridItem.Bool(name + " USE", ParameterGridScope.Config, () => unit.Config.UsePicker[index], v => unit.Config.UsePicker[index] = v));
-                items.Add(AxisDouble(name + " OFFSET X", PickerAxis.PickerX, AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => unit.Config.Picker[index].AlignOffsetX, v => unit.Config.Picker[index].AlignOffsetX = v));
-                items.Add(AxisDouble(name + " OFFSET Y", PickerAxis.PickerY, AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => unit.Config.Picker[index].AlignOffsetY, v => unit.Config.Picker[index].AlignOffsetY = v));
-                items.Add(ParameterGridItem.Double(name + " OFFSET T", "deg", ParameterGridScope.Config, () => unit.Config.Picker[index].AlignOffsetT, v => unit.Config.Picker[index].AlignOffsetT = v));
-                items.Add(AxisDouble(name + " INPUT VISION X -> PICKER X", PickerAxis.PickerX, AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => unit.Config.Picker[index].InputVisionToPickerXOffset, v => unit.Config.Picker[index].InputVisionToPickerXOffset = v));
-                items.Add(AxisDouble(name + " OUTPUT VISION X -> PICKER X", PickerAxis.PickerX, AxisUnitConverter.Millimeter, ParameterGridScope.Config, () => unit.Config.Picker[index].OutputVisionToPickerXOffset, v => unit.Config.Picker[index].OutputVisionToPickerXOffset = v));
             }
         }
 

@@ -307,6 +307,8 @@ namespace QMC.CDT320
                 settings = settings ?? AppSettingsStore.Current ?? AppSettingsStore.Load();
                 _isDeveloperReadyRestored = false;
                 var state = MachineRuntimeStateStore.Load();
+                if (state != null)
+                    RestorePickerOffsetRuntimeState(state);
 
                 if (!settings.DeveloperMode)
                 {
@@ -555,6 +557,7 @@ namespace QMC.CDT320
                 MaterialSnapshotPath = QMC.CDT320.Materials.MaterialSnapshotStore.SnapshotPath,
                 Axes = new List<MachineAxisRuntimeState>(),
                 Cylinders = new List<MachineCylinderRuntimeState>(),
+                PickerOffsets = CapturePickerOffsetRuntimeStates(),
                 InitializeSteps = CaptureAxisInitializeStepRuntimeStates()
             };
 
@@ -599,6 +602,122 @@ namespace QMC.CDT320
             }
 
             return state;
+        }
+
+        private List<MachinePickerOffsetRuntimeState> CapturePickerOffsetRuntimeStates()
+        {
+            var items = new List<MachinePickerOffsetRuntimeState>();
+            try
+            {
+                CapturePickerOffsetRuntimeStates(items, "Front", _machine != null ? _machine.PickerFrontUnit : null);
+                CapturePickerOffsetRuntimeStates(items, "Rear", _machine != null ? _machine.PickerRearUnit : null);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "MachineRuntimeStateSave",
+                    "Picker offset runtime state capture failed: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+
+            return items;
+        }
+
+        private static void CapturePickerOffsetRuntimeStates(
+            List<MachinePickerOffsetRuntimeState> items,
+            string side,
+            PickerFrontUnit unit)
+        {
+            if (items == null || unit == null)
+                return;
+
+            unit.EnsureRuntimePickerOffsets();
+            for (int i = 0; i < PickerFrontUnit.MaxPickerCount; i++)
+                AddPickerOffsetRuntimeState(items, side, i, unit.GetRuntimePickerOffset(i));
+        }
+
+        private static void CapturePickerOffsetRuntimeStates(
+            List<MachinePickerOffsetRuntimeState> items,
+            string side,
+            PickerRearUnit unit)
+        {
+            if (items == null || unit == null)
+                return;
+
+            unit.EnsureRuntimePickerOffsets();
+            for (int i = 0; i < PickerRearUnit.MaxPickerCount; i++)
+                AddPickerOffsetRuntimeState(items, side, i, unit.GetRuntimePickerOffset(i));
+        }
+
+        private static void AddPickerOffsetRuntimeState(
+            List<MachinePickerOffsetRuntimeState> items,
+            string side,
+            int pickerIndex,
+            PickerAlignOffset offset)
+        {
+            if (items == null || offset == null)
+                return;
+
+            items.Add(new MachinePickerOffsetRuntimeState
+            {
+                Side = side,
+                PickerIndex = pickerIndex,
+                AlignOffsetX = offset.AlignOffsetX,
+                AlignOffsetY = offset.AlignOffsetY,
+                AlignOffsetT = offset.AlignOffsetT,
+                InputVisionToPickerXOffset = offset.InputVisionToPickerXOffset,
+                OutputVisionToPickerXOffset = offset.OutputVisionToPickerXOffset
+            });
+        }
+
+        private void RestorePickerOffsetRuntimeState(MachineRuntimeState state)
+        {
+            try
+            {
+                if (state == null || state.PickerOffsets == null || state.PickerOffsets.Count == 0)
+                    return;
+
+                int restored = 0;
+                foreach (MachinePickerOffsetRuntimeState saved in state.PickerOffsets)
+                {
+                    if (saved == null)
+                        continue;
+
+                    PickerAlignOffset offset = new PickerAlignOffset
+                    {
+                        AlignOffsetX = saved.AlignOffsetX,
+                        AlignOffsetY = saved.AlignOffsetY,
+                        AlignOffsetT = saved.AlignOffsetT,
+                        InputVisionToPickerXOffset = saved.InputVisionToPickerXOffset,
+                        OutputVisionToPickerXOffset = saved.OutputVisionToPickerXOffset
+                    };
+
+                    if (string.Equals(saved.Side, "Front", StringComparison.OrdinalIgnoreCase) &&
+                        _machine != null && _machine.PickerFrontUnit != null)
+                    {
+                        _machine.PickerFrontUnit.RestoreRuntimePickerOffset(saved.PickerIndex, offset);
+                        restored++;
+                    }
+                    else if (string.Equals(saved.Side, "Rear", StringComparison.OrdinalIgnoreCase) &&
+                             _machine != null && _machine.PickerRearUnit != null)
+                    {
+                        _machine.PickerRearUnit.RestoreRuntimePickerOffset(saved.PickerIndex, offset);
+                        restored++;
+                    }
+                }
+
+                QMC.Common.Log.Write("Main", "SYSTEM", "MachineRuntimeRestore",
+                    "Picker offset runtime state restored. count=" + restored + " - Ok");
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "MachineRuntimeRestore",
+                    "Picker offset runtime state restore failed: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
         }
 
         private void RestoreBypassAxisRuntimeState(MachineRuntimeState state)
@@ -5885,7 +6004,7 @@ namespace QMC.CDT320
                 await MoveAxisCommandAndWaitAsync(
                     front.ArmY,
                     front.GetPickerTeachingPosition(PickerAxis.PickerY, "AvoidPosition"),
-                    front.Recipe.ArmYVelocity,
+                    ResolveAxisDefaultVelocity(front.ArmY),
                     false);
             }
             catch (Exception ex) { Log("[ARM-Y avoid] ex: " + ex.Message); }
@@ -5917,8 +6036,8 @@ namespace QMC.CDT320
             try
             {
                 await Task.WhenAll(
-                    MoveAxisCommandAndWaitAsync(front.ArmX, pickX, front.Recipe?.ArmXVelocity ?? 2000.0, true),
-                    MoveAxisCommandAndWaitAsync(front.ArmY, pickY, front.Recipe.ArmYVelocity, false)
+                    MoveAxisCommandAndWaitAsync(front.ArmX, pickX, ResolveAxisDefaultVelocity(front.ArmX), true),
+                    MoveAxisCommandAndWaitAsync(front.ArmY, pickY, ResolveAxisDefaultVelocity(front.ArmY), false)
                 );
             }
             catch (Exception ex)
@@ -5941,11 +6060,12 @@ namespace QMC.CDT320
                 try
                 {
                     front.Config.EnsureArrays();
+                    PickerAlignOffset pickerOffset = front.GetRuntimePickerOffset(p) ?? new PickerAlignOffset();
 
                     // ??3異??숈떆 ?대룞
                     double armXTarget =
                         front.GetPickerTeachingPosition(PickerAxis.PickerX, "PickPosition")
-                        + front.Config.Picker[p].AlignOffsetX
+                        + pickerOffset.AlignOffsetX
                         + stage.WaferAlignOffsetX
                         + picker.Setup.ColletOffsetX
                         + d.X;
@@ -5962,7 +6082,7 @@ namespace QMC.CDT320
                         + vo.X;
 
                     await Task.WhenAll(
-                        MoveAxisCommandAndWaitAsync(front.ArmX, armXTarget, front.Recipe.ArmXVelocity, true),
+                        MoveAxisCommandAndWaitAsync(front.ArmX, armXTarget, ResolveAxisDefaultVelocity(front.ArmX), true),
                         MoveAxisCommandAndWaitAsync(stage.StageY, stageYTarget, ResolveAxisDefaultVelocity(stage.StageY), false),
                         MoveAxisCommandAndWaitAsync(stage.NeedleBlockX, needleXTarget, ResolveAxisDefaultVelocity(stage.NeedleBlockX), false)
                     );
@@ -6096,7 +6216,7 @@ namespace QMC.CDT320
             {
                 var move19 = new System.Collections.Generic.List<Task>();
                 move19.Add(MoveAxisCommandAndWaitAsync(front.ArmX, placeArmX,
-                                                       front.Recipe?.ArmXVelocity ?? 2000.0,
+                                                       ResolveAxisDefaultVelocity(front.ArmX),
                                                        true));
                 for (int p = 0; p < pickers; p++)
                     move19.Add(MoveAxisCommandAndWaitAsync(
@@ -6121,7 +6241,7 @@ namespace QMC.CDT320
                 // ??ArmX (PlaceX + Bottom OffsetX) / Stage Y (HomeY + Bottom OffsetY) / PickerT (Bottom OffsetT) ?숈떆
                 await Task.WhenAll(
                     MoveAxisCommandAndWaitAsync(front.ArmX, placeArmX + offX,
-                                                front.Recipe?.ArmXVelocity ?? 2000.0,
+                                                ResolveAxisDefaultVelocity(front.ArmX),
                                                 true),
                     MoveAxisCommandAndWaitAsync(outStage.StageY, outStage.Recipe.HomePositionY + offY,
                                                 ResolveAxisDefaultVelocity(outStage.StageY),
@@ -6210,7 +6330,7 @@ namespace QMC.CDT320
                 await MoveAxisCommandAndWaitAsync(
                     front.ArmY,
                     front.GetPickerTeachingPosition(PickerAxis.PickerY, "AvoidPosition"),
-                    front.Recipe.ArmYVelocity,
+                    ResolveAxisDefaultVelocity(front.ArmY),
                     false);
                 Log($"[ARM-Y] Cycle {cycleIdx + 1}: Place complete. Return to Avoid position.");
             }
