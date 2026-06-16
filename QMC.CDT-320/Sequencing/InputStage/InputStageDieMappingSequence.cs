@@ -341,7 +341,7 @@ namespace QMC.CDT320.Sequencing
                     return Fail("IN-STAGE-DIEMAP-POINTS", "Vision", "Die mapping requires Top/Bottom/Left/Right mark results.");
                 }
 
-                DieMap sourceMap = ResolveSourceInputDieMap(_wafer);
+                DieMap sourceMap = ResolveSourceInputDieMap(_wafer, _frameSpec);
                 if (!IsUsableSourceMap(sourceMap))
                 {
                     return Fail("IN-STAGE-DIEMAP-SOURCE-MAP", "InputStageDieMappingSequence",
@@ -510,13 +510,13 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private static DieMap ResolveSourceInputDieMap(WaferMaterial wafer)
+        private DieMap ResolveSourceInputDieMap(WaferMaterial wafer, TapeFrameSpec frameSpec)
         {
             try
             {
                 LastSourceInputDieMapFailure = "";
                 bool recipeMapConfigured = IsRecipeInputDieMapConfigured();
-                DieMap recipeMap = LoadRecipeInputDieMap();
+                DieMap recipeMap = LoadRecipeInputDieMap(frameSpec);
                 if (IsUsableSourceMap(recipeMap))
                     return ApplyInputPickupSequence(recipeMap);
 
@@ -559,7 +559,7 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private static DieMap LoadRecipeInputDieMap()
+        private DieMap LoadRecipeInputDieMap(TapeFrameSpec frameSpec)
         {
             try
             {
@@ -574,7 +574,7 @@ namespace QMC.CDT320.Sequencing
                 DieMap map = DieMapGenerator.Load(path);
                 if (map != null)
                 {
-                    if (!IsRecipeInputDieMapMatchedToFrame(project, map, path))
+                    if (!IsRecipeInputDieMapMatchedToFrame(frameSpec, project, map, path))
                         return null;
 
                     ApplyInputPickupSequence(map);
@@ -968,17 +968,39 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private static bool IsRecipeInputDieMapMatchedToFrame(RecipeProject project, DieMap map, string path)
+        private static bool IsRecipeInputDieMapMatchedToFrame(TapeFrameSpec frameSpec, RecipeProject project, DieMap map, string path)
         {
             try
             {
-                if (project == null || project.Frame == null || map == null)
+                if (map == null)
                     return true;
 
-                int frameDieMapX = Math.Max(1, project.Frame.DieMapX);
-                int frameDieMapY = Math.Max(1, project.Frame.DieMapY);
-                double framePitchX = project.Frame.PitchX;
-                double framePitchY = project.Frame.PitchY;
+                int frameDieMapX = 0;
+                int frameDieMapY = 0;
+                double framePitchX = 0.0;
+                double framePitchY = 0.0;
+                string frameName = "";
+
+                if (frameSpec != null)
+                {
+                    frameDieMapX = Math.Max(1, frameSpec.DieMapX);
+                    frameDieMapY = Math.Max(1, frameSpec.DieMapY);
+                    framePitchX = frameSpec.PitchX;
+                    framePitchY = frameSpec.PitchY;
+                    frameName = frameSpec.Name ?? "";
+                }
+                else if (project != null && project.Frame != null)
+                {
+                    frameDieMapX = Math.Max(1, project.Frame.DieMapX);
+                    frameDieMapY = Math.Max(1, project.Frame.DieMapY);
+                    framePitchX = project.Frame.PitchX;
+                    framePitchY = project.Frame.PitchY;
+                    frameName = project.Frame.FrameSpecName ?? "";
+                }
+
+                if (frameDieMapX <= 0 || frameDieMapY <= 0)
+                    return true;
+
                 bool mismatch =
                     map.DieMapX != frameDieMapX ||
                     map.DieMapY != frameDieMapY ||
@@ -990,6 +1012,7 @@ namespace QMC.CDT320.Sequencing
 
                 LastSourceInputDieMapFailure =
                     "Recipe input die map does not match frame spec. path=" + path +
+                    ", frameSpecName=" + frameName +
                     ", mapDie=" + map.DieMapX + "x" + map.DieMapY +
                     ", frameDieMap=" + frameDieMapX + "x" + frameDieMapY +
                     ", mapPitch=(" + map.PitchX.ToString("F6") + "," + map.PitchY.ToString("F6") + ")" +

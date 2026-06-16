@@ -36,9 +36,14 @@ namespace QMC.Common.Motion
 
         public static AxisMoveWaitResult Ok(BaseAxis axis, double target, double tolerance)
         {
+            return Ok(axis, target, tolerance, "Axis reached target position.");
+        }
+
+        public static AxisMoveWaitResult Ok(BaseAxis axis, double target, double tolerance, string reason)
+        {
             return new AxisMoveWaitResult(
                 AxisMoveWaitFailure.None,
-                "Axis reached target position.",
+                reason,
                 AxisMoveWaiter.BuildAxisState(axis, target, tolerance));
         }
     }
@@ -89,6 +94,22 @@ namespace QMC.Common.Motion
                         }
 
                         return AxisMoveWaitResult.Ok(axis, target, tolerance);
+                    }
+
+                    if (IsMoveDoneByTolerance(axis, target, tolerance))
+                    {
+                        if (settle > 0)
+                        {
+                            await Task.Delay(settle, ct).ConfigureAwait(false);
+                            if (!IsMoveDoneByTolerance(axis, target, tolerance))
+                                continue;
+                        }
+
+                        return AxisMoveWaitResult.Ok(
+                            axis,
+                            target,
+                            tolerance,
+                            "Axis reached target position by command/actual tolerance. In-position signal is OFF.");
                     }
 
                     await Task.Delay(10, ct).ConfigureAwait(false);
@@ -166,6 +187,8 @@ namespace QMC.Common.Motion
                 return Fail(axis, target, tolerance, AxisMoveWaitFailure.Alarm, "Axis alarm is ON.");
             if (axis.IsMoving)
                 return Fail(axis, target, tolerance, AxisMoveWaitFailure.Moving, "Axis is still moving.");
+            if (IsMoveDoneByTolerance(axis, target, tolerance))
+                return AxisMoveWaitResult.Ok(axis, target, tolerance, "Axis reached target position by command/actual tolerance after timeout path. In-position signal is OFF.");
             if (!axis.IsInPosition)
                 return Fail(axis, target, tolerance, AxisMoveWaitFailure.InPositionSignalOff, "Axis in-position signal is OFF.");
             if (!IsTargetInTolerance(axis, target, tolerance))
@@ -191,12 +214,28 @@ namespace QMC.Common.Motion
                    !axis.IsAlarm &&
                    !axis.IsMoving &&
                    axis.IsInPosition &&
-                   IsTargetInTolerance(axis, target, tolerance);
+                   IsTargetInTolerance(axis, target, tolerance) &&
+                   IsCommandInTolerance(axis, target, tolerance);
+        }
+
+        private static bool IsMoveDoneByTolerance(BaseAxis axis, double target, double tolerance)
+        {
+            return axis != null &&
+                   axis.IsServoOn &&
+                   !axis.IsAlarm &&
+                   !axis.IsMoving &&
+                   IsTargetInTolerance(axis, target, tolerance) &&
+                   IsCommandInTolerance(axis, target, tolerance);
         }
 
         private static bool IsTargetInTolerance(BaseAxis axis, double target, double tolerance)
         {
             return axis != null && Math.Abs(axis.ActualPosition - target) <= tolerance;
+        }
+
+        private static bool IsCommandInTolerance(BaseAxis axis, double target, double tolerance)
+        {
+            return axis != null && Math.Abs(axis.CommandPosition - target) <= tolerance;
         }
     }
 }
