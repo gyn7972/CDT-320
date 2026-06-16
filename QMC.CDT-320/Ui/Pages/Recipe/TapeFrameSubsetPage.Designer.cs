@@ -150,7 +150,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // btnLoadSpec
             // 
             this.btnLoadSpec.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnLoadSpec.Enabled = false;
             this.btnLoadSpec.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnLoadSpec.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.btnLoadSpec.Location = new System.Drawing.Point(831, 43);
@@ -165,7 +164,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // 
             this.btnSaveSpec.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(230)))), ((int)(((byte)(88)))), ((int)(((byte)(31)))));
             this.btnSaveSpec.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnSaveSpec.Enabled = false;
             this.btnSaveSpec.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnSaveSpec.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.btnSaveSpec.ForeColor = System.Drawing.Color.White;

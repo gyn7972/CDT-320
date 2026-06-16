@@ -86,6 +86,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             LoadSelectedTargetFromRecipe();
             _loading = false;
             ApplyRadioColorsToAll();
+            LogPickupSetting("Load");
         }
 
         private void LoadSelectedTargetFromRecipe()
@@ -105,22 +106,30 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         protected override void SaveToRecipe()
         {
             EnsurePickupSubsets();
+            if (_project == null)
+                return;
+
             var p = ResolveSelectedPickupSubset();
             SaveVisibleToPickupSubset(p);
 
-            if (_rbWafer.Checked)
-                _project.Pickup = ClonePickupSubset(p);
+            _project.Pickup = ClonePickupSubset(_project.InputPickup);
+            RecipeStore.Save(_project);
+            RecipeStore.SaveLastProjectName(_project.FileName);
 
             try
             {
                 var host = FindForm() as Form1;
                 if (host?.Controller != null)
                 {
-                    host.Controller.PickupOptions = _project.InputPickup ?? p;
+                    host.Controller.PickupOptions = ClonePickupSubset(_project.InputPickup ?? p);
                     host.Controller.RebuildPickupSequence();
                 }
             }
             catch { }
+            finally
+            {
+                LogPickupSetting("Save");
+            }
         }
 
         private void SaveVisibleToPickupSubset(PickupSubset p)
@@ -169,6 +178,39 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 Direction = source.Direction,
                 Pattern = source.Pattern
             };
+        }
+
+        private void LogPickupSetting(string action)
+        {
+            try
+            {
+                if (_project == null)
+                    return;
+
+                PickupSubset input = _project.InputPickup;
+                PickupSubset output = _project.OutputPickup;
+                string inputText = FormatPickupSubset(input);
+                string outputText = FormatPickupSubset(output);
+                QMC.Common.Log.Write("Main", "RECIPE", "PickupSubset",
+                    "Pickup subset " + action +
+                    ". project=" + _project.FileName +
+                    ", input=" + inputText +
+                    ", output=" + outputText + " - Ok");
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        private static string FormatPickupSubset(PickupSubset pickup)
+        {
+            if (pickup == null)
+                return "-";
+
+            return pickup.StartCorner + "/" + pickup.Direction + "/" + pickup.Pattern;
         }
     }
 }

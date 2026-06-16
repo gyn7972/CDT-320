@@ -67,6 +67,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             btnAutoMatch.Text = "IMPORT DIE MAP";
             btnThetaMatchMove.Text = "EXPORT DIE MAP";
             btnXyMatchMove.Text = "INVERT TARGET";
+            _btnMapNew.Text = "SAVE AS";
             rbStandard.Text = "CLICK TOGGLE";
             rbManualSelectPick.Text = "CLICK TARGET";
             rbAlignCheckIndex.Text = "CLICK SKIP";
@@ -77,9 +78,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             rbStartIndex.Enabled = false;
             rbReference1.Enabled = false;
             rbReference2.Enabled = false;
+            HookClickModeEvents();
+            ClearMapClickModes();
+            UpdateMapInteractionMode();
 
             _btnMapLoad.Click += (s, e) => LoadSelectedLibraryMap();
-            _btnMapNew.Click += (s, e) => CreateNewLibraryMap();
+            _btnMapNew.Click += (s, e) => SaveMapAsLibraryMap();
             _btnMapRename.Click += (s, e) => RenameSelectedLibraryMap();
             _btnMapDelete.Click += (s, e) => DeleteSelectedLibraryMap();
             btnCreate.Click += (s, e) => CreateMapFromRecipeSpec(true);
@@ -116,35 +120,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
         }
 
-        private void SaveEdgeSkipToRecipe()
-        {
-            try
-            {
-                if (_project == null)
-                    return;
-                if (_project.Frame == null)
-                    _project.Frame = new TapeFrameSubset();
-
-                _project.Frame.FrameSpecName = string.IsNullOrWhiteSpace(_tbFrameSpecName.Text) ? "RecipeFrame" : _tbFrameSpecName.Text.Trim();
-                _project.Frame.DieMapX = (int)_nGridX.Value;
-                _project.Frame.DieMapY = (int)_nGridY.Value;
-                _project.Frame.PitchX = (double)_nPitchX.Value;
-                _project.Frame.PitchY = (double)_nPitchY.Value;
-                _project.Frame.OuterDiameterMm = (double)_nDiameter.Value;
-                _project.Frame.SideEdgeSkip = (int)_nSideEdgeSkip.Value;
-                _project.Frame.TopBottomEdgeSkip = (int)_nTopBottomEdgeSkip.Value;
-            }
-            catch
-            {
-            }
-            finally
-            {
-            }
-        }
-
         private ContextMenuStrip BuildMapContextMenu()
         {
             var menu = new ContextMenuStrip();
+            menu.Opening += OnMapContextMenuOpening;
             menu.Items.Add("TARGET ALL", null, (s, e) => SetAllTargets(true));
             menu.Items.Add("SKIP ALL", null, (s, e) => SetAllTargets(false));
             menu.Items.Add("INVERT TARGET", null, (s, e) => InvertMapTargets());
@@ -154,6 +133,88 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             menu.Items.Add("IMPORT DIE MAP", null, (s, e) => ImportMapFile());
             menu.Items.Add("SAVE DIE MAP", null, (s, e) => SaveMapToRecipe());
             return menu;
+        }
+
+        private void HookClickModeEvents()
+        {
+            try
+            {
+                rbStandard.CheckedChanged += OnMapClickModeChanged;
+                rbManualSelectPick.CheckedChanged += OnMapClickModeChanged;
+                rbAlignCheckIndex.CheckedChanged += OnMapClickModeChanged;
+                rbDragSelectPick.CheckedChanged += OnMapClickModeChanged;
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        private void ClearMapClickModes()
+        {
+            try
+            {
+                rbStandard.Checked = false;
+                rbManualSelectPick.Checked = false;
+                rbAlignCheckIndex.Checked = false;
+                rbDragSelectPick.Checked = false;
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        private void OnMapClickModeChanged(object sender, EventArgs e)
+        {
+            try
+            {
+                UpdateMapInteractionMode();
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        private void UpdateMapInteractionMode()
+        {
+            try
+            {
+                if (_mapView == null)
+                    return;
+
+                _mapView.ContextMenuStrip = rbDragSelectPick != null && rbDragSelectPick.Checked
+                    ? _mapMenu
+                    : null;
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        private void OnMapContextMenuOpening(object sender, System.ComponentModel.CancelEventArgs e)
+        {
+            try
+            {
+                e.Cancel = rbDragSelectPick == null || !rbDragSelectPick.Checked;
+            }
+            catch
+            {
+                e.Cancel = true;
+            }
+            finally
+            {
+            }
         }
 
         private void LoadRecipeMapOrCreatePreview()
@@ -167,7 +228,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     return;
                 }
 
-                SyncRecipeTapeFrameSpecIfNeeded();
                 LoadEdgeSkipFromRecipe();
                 RefreshMapLibraryList();
 
@@ -193,11 +253,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 _project = _project ?? RecipeStore.LoadLastOrDefault();
                 if (_project == null)
                     return;
-                if (!_isOutputMap)
-                {
-                    SaveEdgeSkipToRecipe();
-                    SyncRecipeTapeFrameSpecIfNeeded();
-                }
+
+                ApplySelectedFrameSpecToControlsIfNeeded();
 
                 if (confirm && _map != null)
                 {
@@ -386,12 +443,13 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private DieMap ApplyPickupSequence(DieMap map, bool outputMap)
         {
             PickupSubset pickup = ResolvePickupSubsetForMap(outputMap);
+            LogPickupSequenceSource(outputMap, pickup);
             return PickupSequenceGenerator.ApplySequenceNumbers(map, pickup);
         }
 
         private PickupSubset ResolvePickupSubsetForMap(bool outputMap)
         {
-            RecipeProject project = _project ?? RecipeStore.LoadLastOrDefault();
+            RecipeProject project = LoadLatestRecipeForPickup();
             if (project == null)
                 return new PickupSubset();
 
@@ -399,6 +457,53 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 return project.OutputPickup ?? project.Pickup ?? new PickupSubset();
 
             return project.InputPickup ?? project.Pickup ?? new PickupSubset();
+        }
+
+        private RecipeProject LoadLatestRecipeForPickup()
+        {
+            try
+            {
+                RecipeProject latest = null;
+                if (_project != null && !string.IsNullOrWhiteSpace(_project.FileName))
+                    latest = RecipeStore.Load(_project.FileName);
+
+                if (latest == null)
+                    latest = RecipeStore.LoadLastOrDefault();
+
+                if (latest != null)
+                    _project = latest;
+
+                return latest;
+            }
+            catch
+            {
+                return _project ?? RecipeStore.LoadLastOrDefault();
+            }
+            finally
+            {
+            }
+        }
+
+        private void LogPickupSequenceSource(bool outputMap, PickupSubset pickup)
+        {
+            try
+            {
+                string mapKind = outputMap ? "Output" : "Input";
+                string projectName = _project != null ? _project.FileName : "-";
+                string pickupText = pickup != null
+                    ? pickup.StartCorner + "/" + pickup.Direction + "/" + pickup.Pattern
+                    : "-";
+
+                QMC.Common.Log.Write("Main", "RECIPE", "DieMapPickup",
+                    "Apply " + mapKind + " die map pickup sequence. project=" +
+                    projectName + ", pickup=" + pickupText + " - Ok");
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
         }
 
         private void ApplyMap(DieMap map, string caption)
@@ -459,8 +564,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 ApplyEntryTarget(entry, true);
             else if (rbAlignCheckIndex.Checked)
                 ApplyEntryTarget(entry, false);
-            else
+            else if (rbStandard.Checked)
                 ApplyEntryTarget(entry, !entry.IsTarget);
+            else
+                return;
 
             RefreshSettingLabels();
         }
@@ -667,8 +774,16 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             if (string.IsNullOrWhiteSpace(dir) || !Directory.Exists(dir))
                 return Enumerable.Empty<string>();
 
-            return Directory.GetFiles(dir, "*.json")
-                .Concat(Directory.GetFiles(dir, "*.csv"))
+            string[] jsonFiles = Directory.GetFiles(dir, "*.json");
+            var jsonBaseNames = new HashSet<string>(
+                jsonFiles.Select(path => Path.GetFileNameWithoutExtension(path) ?? ""),
+                StringComparer.OrdinalIgnoreCase);
+
+            IEnumerable<string> standaloneCsvFiles = Directory.GetFiles(dir, "*.csv")
+                .Where(path => !jsonBaseNames.Contains(Path.GetFileNameWithoutExtension(path) ?? ""));
+
+            return jsonFiles
+                .Concat(standaloneCsvFiles)
                 .OrderBy(Path.GetFileName);
         }
 
@@ -723,7 +838,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (!string.IsNullOrWhiteSpace(key) && _mapLibraryFrameSpecs.TryGetValue(key, out frameSpec))
                 {
                     ApplyFrameSpecToControls(frameSpec);
-                    _currentMapPath = "";
+                    _currentMapPath = ResolveCurrentRecipeMapPathOrEmpty();
                     _currentFrameSpecName = frameSpec.Name ?? "";
                     CreateMapFromRecipeSpec(false);
                     SelectFrameSpecName(frameSpec.Name);
@@ -796,10 +911,19 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
         }
 
-        private void CreateNewLibraryMap()
+        private void SaveMapAsLibraryMap()
         {
             try
             {
+                _project = _project ?? RecipeStore.LoadLastOrDefault();
+                if (_project == null)
+                    return;
+
+                if (_map == null)
+                    CreateMapFromRecipeSpec(false);
+                if (_map == null)
+                    return;
+
                 string defaultName = BuildDefaultMapName();
                 string name = PromptText("새 맵 이름", defaultName);
                 if (string.IsNullOrWhiteSpace(name))
@@ -813,14 +937,13 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                     return;
                 }
 
-                SaveEdgeSkipToRecipe();
-                CreateMapFromRecipeSpec(false);
+                ApplyPickupSequence(_map, _isOutputMap);
                 _map.FrameObjId = Path.GetFileNameWithoutExtension(_currentMapPath);
-                SaveMapToRecipe();
+                SaveMapToRecipe(_currentMapPath);
             }
             catch (Exception ex)
             {
-                QMC.Common.MessageDialog.Show(this, "New die map failed:\r\n" + ex.Message, "Die Map Create", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(this, "Save as die map failed:\r\n" + ex.Message, "Die Map Create", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -835,7 +958,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 TapeFrameSpec selectedSpec;
                 if (!string.IsNullOrWhiteSpace(key) && _mapLibraryFrameSpecs.TryGetValue(key, out selectedSpec))
                 {
-                    RenameSelectedFrameSpec(selectedSpec);
+                    ShowSpecEditPageMessage();
                     return;
                 }
 
@@ -886,51 +1009,18 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
         }
 
-        private void RenameSelectedFrameSpec(TapeFrameSpec spec)
-        {
-            if (spec == null)
-                return;
-
-            string oldName = spec.Name ?? "";
-            string newName = PromptText("SPEC 이름 변경", oldName);
-            if (string.IsNullOrWhiteSpace(newName))
-                return;
-
-            newName = newName.Trim();
-            if (string.Equals(oldName, newName, StringComparison.OrdinalIgnoreCase))
-                return;
-
-            MaterialSpecs.Load();
-            if (MaterialSpecs.Data != null && MaterialSpecs.Data.Frames != null &&
-                MaterialSpecs.Data.Frames.Any(f => f != null && string.Equals(f.Name, newName, StringComparison.OrdinalIgnoreCase)))
-            {
-                QMC.Common.MessageDialog.Show(this, "이미 같은 이름의 Frame Spec이 있습니다.", "Die Map Create", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
-            TapeFrameSpec target = MaterialSpecs.FindFrame(oldName) ?? spec;
-            target.Name = newName;
-            MaterialSpecs.Save();
-
-            if (_project != null && _project.Frame != null &&
-                string.Equals(_project.Frame.FrameSpecName, oldName, StringComparison.OrdinalIgnoreCase))
-            {
-                _project.Frame.FrameSpecName = newName;
-                RecipeStore.Save(_project);
-            }
-
-            ApplyFrameSpecToControls(target);
-            _currentMapPath = "";
-            _currentFrameSpecName = newName;
-            CreateMapFromRecipeSpec(false);
-            RefreshMapLibraryList();
-            SelectFrameSpecName(newName);
-        }
-
         private void DeleteSelectedLibraryMap()
         {
             try
             {
+                string key = _cbMapLibrary.SelectedItem != null ? _cbMapLibrary.SelectedItem.ToString() : "";
+                TapeFrameSpec selectedSpec;
+                if (!string.IsNullOrWhiteSpace(key) && _mapLibraryFrameSpecs.TryGetValue(key, out selectedSpec))
+                {
+                    ShowSpecEditPageMessage();
+                    return;
+                }
+
                 string path = GetSelectedLibraryPath();
                 if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
                 {
@@ -1047,7 +1137,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
         }
 
-        private void SaveMapToRecipe()
+        private void SaveMapToRecipe(string explicitPath = "")
         {
             try
             {
@@ -1055,25 +1145,16 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 if (_project == null)
                     return;
 
-                if (ShouldSaveFrameSpecOnSave())
-                {
-                    SaveCurrentFrameSpec();
-                    return;
-                }
-
                 if (_map == null)
                 {
                     QMC.Common.MessageDialog.Show(this, "저장할 Die Map이 없습니다.", "Die Map Create", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
-                if (!_isOutputMap)
-                {
-                    SaveEdgeSkipToRecipe();
-                    SyncRecipeTapeFrameSpecIfNeeded();
-                }
                 ApplyPickupSequence(_map, _isOutputMap);
-                string path = ResolveSaveMapPath();
+                string path = !string.IsNullOrWhiteSpace(explicitPath)
+                    ? explicitPath
+                    : ResolveSaveMapPath();
                 _map.FrameObjId = Path.GetFileNameWithoutExtension(path);
                 DieMapGenerator.SaveJson(_map, path);
                 DieMapGenerator.SaveCsv(_map, Path.ChangeExtension(path, ".csv"));
@@ -1106,82 +1187,55 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
         }
 
-        private bool ShouldSaveFrameSpecOnSave()
+        private void ApplySelectedFrameSpecToControlsIfNeeded()
         {
-            return !_isOutputMap && !string.IsNullOrWhiteSpace(_currentFrameSpecName);
+            try
+            {
+                string key = _cbMapLibrary.SelectedItem != null ? _cbMapLibrary.SelectedItem.ToString() : "";
+                TapeFrameSpec frameSpec;
+                if (!string.IsNullOrWhiteSpace(key) && _mapLibraryFrameSpecs.TryGetValue(key, out frameSpec))
+                {
+                    if (!string.Equals(_currentFrameSpecName, frameSpec.Name ?? "", StringComparison.OrdinalIgnoreCase))
+                    {
+                        ApplyFrameSpecToControls(frameSpec);
+                        _currentFrameSpecName = frameSpec.Name ?? "";
+                    }
+                    if (string.IsNullOrWhiteSpace(_currentMapPath))
+                        _currentMapPath = ResolveCurrentRecipeMapPathOrEmpty();
+                }
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
         }
 
-        private void SyncRecipeTapeFrameSpecIfNeeded()
+        private string ResolveCurrentRecipeMapPathOrEmpty()
         {
-            if (!_isOutputMap)
-                MaterialStateService.SyncRecipeTapeFrameSpec(_project);
+            try
+            {
+                RecipeProject project = _project ?? RecipeStore.LoadLastOrDefault();
+                if (project == null)
+                    return "";
+
+                string path = ResolveRecipeMapPath(project, _isOutputMap);
+                return string.IsNullOrWhiteSpace(path) ? "" : path;
+            }
+            catch
+            {
+                return "";
+            }
+            finally
+            {
+            }
         }
 
-        private void SaveCurrentFrameSpec()
+        private void ShowSpecEditPageMessage()
         {
-            string oldName = _currentFrameSpecName ?? "";
-            string newName = string.IsNullOrWhiteSpace(_tbFrameSpecName.Text)
-                ? oldName
-                : _tbFrameSpecName.Text.Trim();
-
-            if (string.IsNullOrWhiteSpace(newName))
-            {
-                QMC.Common.MessageDialog.Show(this, "저장할 Frame Spec 이름이 없습니다.", "Die Map Create", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
-            MaterialSpecs.Load();
-            if (MaterialSpecs.Data == null)
-                return;
-            if (MaterialSpecs.Data.Frames == null)
-                MaterialSpecs.Data.Frames = new List<TapeFrameSpec>();
-
-            TapeFrameSpec target = MaterialSpecs.FindFrame(oldName);
-            TapeFrameSpec duplicate = MaterialSpecs.Data.Frames.FirstOrDefault(f =>
-                f != null &&
-                !ReferenceEquals(f, target) &&
-                string.Equals(f.Name, newName, StringComparison.OrdinalIgnoreCase));
-            if (duplicate != null)
-            {
-                QMC.Common.MessageDialog.Show(this, "이미 같은 이름의 Frame Spec이 있습니다.", "Die Map Create", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
-            if (target == null)
-            {
-                target = new TapeFrameSpec();
-                MaterialSpecs.Data.Frames.Add(target);
-            }
-
-            target.Name = newName;
-            target.DieMapX = (int)_nGridX.Value;
-            target.DieMapY = (int)_nGridY.Value;
-            target.PitchX = (double)_nPitchX.Value;
-            target.PitchY = (double)_nPitchY.Value;
-            target.OuterDiameterMm = (double)_nDiameter.Value;
-            MaterialSpecs.Save();
-
-            if (_project.Frame == null)
-                _project.Frame = new TapeFrameSubset();
-            _project.Frame.FrameSpecName = newName;
-            _project.Frame.DieMapX = target.DieMapX;
-            _project.Frame.DieMapY = target.DieMapY;
-            _project.Frame.PitchX = target.PitchX;
-            _project.Frame.PitchY = target.PitchY;
-            _project.Frame.OuterDiameterMm = target.OuterDiameterMm;
-            _project.Frame.SideEdgeSkip = (int)_nSideEdgeSkip.Value;
-            _project.Frame.TopBottomEdgeSkip = (int)_nTopBottomEdgeSkip.Value;
-            RecipeStore.Save(_project);
-            RecipeStore.SaveLastProjectName(_project.FileName);
-
-            _currentFrameSpecName = newName;
-            _currentMapPath = "";
-            CreateMapFromRecipeSpec(false);
-            RefreshMapLibraryList();
-            SelectFrameSpecName(newName);
-
             QMC.Common.MessageDialog.Show(this,
-                "Frame Spec 수정 저장 완료.\r\n" + newName,
+                "Wafer SPEC은 이 화면에서 수정하지 않습니다.\r\nSPEC 수정은 Wafer Spec 페이지에서 진행하세요.",
                 "Die Map Create", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
@@ -1208,12 +1262,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
         private string ResolveSaveMapPath()
         {
-            if (!string.IsNullOrWhiteSpace(_currentMapPath))
-                return _currentMapPath;
-
-            string selectedPath = GetSelectedLibraryPath();
-            if (!string.IsNullOrWhiteSpace(selectedPath))
-                return selectedPath;
+            string recipePath = _project != null ? ResolveRecipeMapPath(_project, _isOutputMap) : "";
+            if (!string.IsNullOrWhiteSpace(recipePath))
+                return recipePath;
 
             return BuildRecipeMapPath(_project, _isOutputMap);
         }

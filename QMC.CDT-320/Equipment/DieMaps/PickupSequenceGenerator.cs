@@ -48,9 +48,7 @@ namespace QMC.CDT320.DieMaps
                                options.StartCorner == PickupStartCorner.BottomRight;
 
             List<int> rows = BuildOrderedGridIndexes(targets, false, startBottom);
-            List<int> cols = options.Direction == PickupDirection.Vertical
-                ? BuildVerticalColumnOrder(targets, rows, startRight)
-                : BuildOrderedGridIndexes(targets, true, startRight);
+            List<int> cols = BuildOrderedGridIndexes(targets, true, startRight);
             if (cols.Count == 0 || rows.Count == 0)
                 return result;
 
@@ -113,51 +111,6 @@ namespace QMC.CDT320.DieMaps
                 return indexes.OrderByDescending(i => i).ToList();
 
             return indexes.OrderBy(i => i).ToList();
-        }
-
-        private static List<int> BuildVerticalColumnOrder(List<DieMapEntry> targets, List<int> orderedRows, bool startRight)
-        {
-            if (targets == null || targets.Count == 0)
-                return new List<int>();
-
-            if (orderedRows == null || orderedRows.Count == 0)
-                return BuildOrderedGridIndexes(targets, true, startRight);
-
-            int startRow = orderedRows[0];
-            var startRowTargets = targets.Where(e => e != null && e.DieMapY == startRow).ToList();
-            if (startRowTargets.Count == 0)
-                return BuildOrderedGridIndexes(targets, true, startRight);
-
-            int startCol = startRight
-                ? startRowTargets.Max(e => e.DieMapX)
-                : startRowTargets.Min(e => e.DieMapX);
-
-            List<int> allCols = targets
-                .Where(e => e != null)
-                .Select(e => e.DieMapX)
-                .Distinct()
-                .OrderBy(i => i)
-                .ToList();
-
-            var result = new List<int>();
-            if (allCols.Contains(startCol))
-                result.Add(startCol);
-
-            int maxDistance = 0;
-            foreach (int col in allCols)
-                maxDistance = System.Math.Max(maxDistance, System.Math.Abs(col - startCol));
-
-            for (int distance = 1; distance <= maxDistance; distance++)
-            {
-                int first = startRight ? startCol - distance : startCol + distance;
-                int second = startRight ? startCol + distance : startCol - distance;
-                if (allCols.Contains(first))
-                    result.Add(first);
-                if (allCols.Contains(second))
-                    result.Add(second);
-            }
-
-            return result;
         }
 
         private static List<int> ReverseCopy(List<int> source)

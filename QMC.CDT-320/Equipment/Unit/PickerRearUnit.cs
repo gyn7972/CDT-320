@@ -18,15 +18,6 @@ namespace QMC.CDT320
         [DataMember] public bool IsSimulationMode { get; set; }
         [DataMember] public double InputSafetyOffset { get; set; }
         [DataMember] public double OutputSafetyOffset { get; set; }
-        [DataMember] public double ArmInputPositionX { get; set; } = 300.0;
-        [DataMember] public double ArmInspectionPositionX { get; set; } = 750.0;
-        [DataMember] public double ArmOutputPositionX { get; set; } = 1200.0;
-        [DataMember] public double ArmYPickupPosition { get; set; } = 100.0;
-        [DataMember] public double ArmYAvoidPosition { get; set; } = 50.0;
-        [DataMember] public double PickerPitchX { get; set; } = 50.0;
-        [DataMember] public double SideVision1X { get; set; } = 850.0;
-        [DataMember] public double SideVision1Y { get; set; } = 0.0;
-        [DataMember] public double SideVisionY0 { get; set; } = 0.0;
     }
 
     [DataContract]

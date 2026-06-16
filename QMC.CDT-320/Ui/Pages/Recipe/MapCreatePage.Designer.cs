@@ -309,7 +309,7 @@
             this._btnMapNew.Name = "_btnMapNew";
             this._btnMapNew.Size = new System.Drawing.Size(68, 26);
             this._btnMapNew.TabIndex = 2;
-            this._btnMapNew.Text = "NEW";
+            this._btnMapNew.Text = "SAVE AS";
             this._btnMapNew.UseVisualStyleBackColor = false;
             // 
             // _btnMapRename
@@ -458,6 +458,7 @@
             this._tbFrameSpecName.Location = new System.Drawing.Point(177, 27);
             this._tbFrameSpecName.Margin = new System.Windows.Forms.Padding(1);
             this._tbFrameSpecName.Name = "_tbFrameSpecName";
+            this._tbFrameSpecName.ReadOnly = true;
             this._tbFrameSpecName.Size = new System.Drawing.Size(242, 23);
             this._tbFrameSpecName.TabIndex = 2;
             this._tbFrameSpecName.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
@@ -480,7 +481,9 @@
             // _nGridX
             // 
             this._nGridX.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._nGridX.Enabled = false;
             this._nGridX.Font = new System.Drawing.Font("Consolas", 10F);
+            this._nGridX.InterceptArrowKeys = false;
             this._nGridX.Location = new System.Drawing.Point(177, 57);
             this._nGridX.Margin = new System.Windows.Forms.Padding(1);
             this._nGridX.Maximum = new decimal(new int[] {
@@ -494,8 +497,10 @@
             0,
             0});
             this._nGridX.Name = "_nGridX";
+            this._nGridX.ReadOnly = true;
             this._nGridX.Size = new System.Drawing.Size(242, 23);
             this._nGridX.TabIndex = 4;
+            this._nGridX.TabStop = false;
             this._nGridX.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
             this._nGridX.Value = new decimal(new int[] {
             50,
@@ -521,7 +526,9 @@
             // _nGridY
             // 
             this._nGridY.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._nGridY.Enabled = false;
             this._nGridY.Font = new System.Drawing.Font("Consolas", 10F);
+            this._nGridY.InterceptArrowKeys = false;
             this._nGridY.Location = new System.Drawing.Point(177, 87);
             this._nGridY.Margin = new System.Windows.Forms.Padding(1);
             this._nGridY.Maximum = new decimal(new int[] {
@@ -535,8 +542,10 @@
             0,
             0});
             this._nGridY.Name = "_nGridY";
+            this._nGridY.ReadOnly = true;
             this._nGridY.Size = new System.Drawing.Size(242, 23);
             this._nGridY.TabIndex = 6;
+            this._nGridY.TabStop = false;
             this._nGridY.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
             this._nGridY.Value = new decimal(new int[] {
             50,
@@ -563,7 +572,9 @@
             // 
             this._nPitchX.DecimalPlaces = 3;
             this._nPitchX.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._nPitchX.Enabled = false;
             this._nPitchX.Font = new System.Drawing.Font("Consolas", 10F);
+            this._nPitchX.InterceptArrowKeys = false;
             this._nPitchX.Location = new System.Drawing.Point(177, 117);
             this._nPitchX.Margin = new System.Windows.Forms.Padding(1);
             this._nPitchX.Maximum = new decimal(new int[] {
@@ -577,8 +588,10 @@
             0,
             196608});
             this._nPitchX.Name = "_nPitchX";
+            this._nPitchX.ReadOnly = true;
             this._nPitchX.Size = new System.Drawing.Size(242, 23);
             this._nPitchX.TabIndex = 8;
+            this._nPitchX.TabStop = false;
             this._nPitchX.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
             this._nPitchX.Value = new decimal(new int[] {
             1,
@@ -605,7 +618,9 @@
             // 
             this._nPitchY.DecimalPlaces = 3;
             this._nPitchY.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._nPitchY.Enabled = false;
             this._nPitchY.Font = new System.Drawing.Font("Consolas", 10F);
+            this._nPitchY.InterceptArrowKeys = false;
             this._nPitchY.Location = new System.Drawing.Point(177, 147);
             this._nPitchY.Margin = new System.Windows.Forms.Padding(1);
             this._nPitchY.Maximum = new decimal(new int[] {
@@ -619,8 +634,10 @@
             0,
             196608});
             this._nPitchY.Name = "_nPitchY";
+            this._nPitchY.ReadOnly = true;
             this._nPitchY.Size = new System.Drawing.Size(242, 23);
             this._nPitchY.TabIndex = 10;
+            this._nPitchY.TabStop = false;
             this._nPitchY.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
             this._nPitchY.Value = new decimal(new int[] {
             1,
@@ -647,7 +664,9 @@
             // 
             this._nDiameter.DecimalPlaces = 1;
             this._nDiameter.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._nDiameter.Enabled = false;
             this._nDiameter.Font = new System.Drawing.Font("Consolas", 10F);
+            this._nDiameter.InterceptArrowKeys = false;
             this._nDiameter.Location = new System.Drawing.Point(177, 177);
             this._nDiameter.Margin = new System.Windows.Forms.Padding(1);
             this._nDiameter.Maximum = new decimal(new int[] {
@@ -661,8 +680,10 @@
             0,
             0});
             this._nDiameter.Name = "_nDiameter";
+            this._nDiameter.ReadOnly = true;
             this._nDiameter.Size = new System.Drawing.Size(242, 23);
             this._nDiameter.TabIndex = 12;
+            this._nDiameter.TabStop = false;
             this._nDiameter.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
             this._nDiameter.Value = new decimal(new int[] {
             200,
@@ -704,7 +725,9 @@
             // _nSideEdgeSkip
             // 
             this._nSideEdgeSkip.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._nSideEdgeSkip.Enabled = false;
             this._nSideEdgeSkip.Font = new System.Drawing.Font("Consolas", 10F);
+            this._nSideEdgeSkip.InterceptArrowKeys = false;
             this._nSideEdgeSkip.Location = new System.Drawing.Point(1, 1);
             this._nSideEdgeSkip.Margin = new System.Windows.Forms.Padding(1);
             this._nSideEdgeSkip.Maximum = new decimal(new int[] {
@@ -713,14 +736,18 @@
             0,
             0});
             this._nSideEdgeSkip.Name = "_nSideEdgeSkip";
+            this._nSideEdgeSkip.ReadOnly = true;
             this._nSideEdgeSkip.Size = new System.Drawing.Size(120, 23);
             this._nSideEdgeSkip.TabIndex = 0;
+            this._nSideEdgeSkip.TabStop = false;
             this._nSideEdgeSkip.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
             // 
             // _nTopBottomEdgeSkip
             // 
             this._nTopBottomEdgeSkip.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._nTopBottomEdgeSkip.Enabled = false;
             this._nTopBottomEdgeSkip.Font = new System.Drawing.Font("Consolas", 10F);
+            this._nTopBottomEdgeSkip.InterceptArrowKeys = false;
             this._nTopBottomEdgeSkip.Location = new System.Drawing.Point(123, 1);
             this._nTopBottomEdgeSkip.Margin = new System.Windows.Forms.Padding(1);
             this._nTopBottomEdgeSkip.Maximum = new decimal(new int[] {
@@ -729,8 +756,10 @@
             0,
             0});
             this._nTopBottomEdgeSkip.Name = "_nTopBottomEdgeSkip";
+            this._nTopBottomEdgeSkip.ReadOnly = true;
             this._nTopBottomEdgeSkip.Size = new System.Drawing.Size(120, 23);
             this._nTopBottomEdgeSkip.TabIndex = 1;
+            this._nTopBottomEdgeSkip.TabStop = false;
             this._nTopBottomEdgeSkip.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
             // 
             // modeSection
@@ -795,7 +824,6 @@
             // 
             // rbStandard
             // 
-            this.rbStandard.Checked = true;
             this.rbStandard.Dock = System.Windows.Forms.DockStyle.Fill;
             this.rbStandard.Font = new System.Drawing.Font("Segoe UI", 9F);
             this.rbStandard.Location = new System.Drawing.Point(12, 62);
