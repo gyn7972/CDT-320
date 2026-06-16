@@ -978,14 +978,15 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
                 InputStageUnit stage = host.Machine.InputStageUnit;
                 SetActionButtonsEnabled(false);
-                Task<int> moveY = stage.MoveInputStageAxis(WaferStageAxis.WaferY, entry.PosY, true);
-                Task<int> moveX = stage.MoveInputStageAxis(WaferStageAxis.VisionX, entry.PosX, true);
-                int[] results = await Task.WhenAll(moveY, moveX).ConfigureAwait(true);
-                if (results[0] != 0 || results[1] != 0)
+                int result = await stage.MoveVisionPointSafelyAsync(
+                    entry.PosX,
+                    entry.PosY,
+                    true,
+                    "InputStageMapTransferPage.MoveSelectedDieAsync").ConfigureAwait(true);
+                if (result != 0)
                 {
                     QMC.Common.MessageDialog.Show(this,
-                        "선택 다이 좌표 이동 실패\r\nStageY result=" + results[0] +
-                        ", VisionX result=" + results[1] +
+                        "선택 다이 좌표 이동 실패\r\nresult=" + result +
                         "\r\nAlarm/Event Log를 확인하세요.",
                         "Input Die Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
