@@ -632,16 +632,22 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 var unit = _outputStageUnit;
                 ioCylinderPanel.SetItems(new[]
                 {
-                    // ===== GOOD BIN : 실린더 단위 ON/OFF 제어 =====
-                    IoCylinderItem.Output("GOOD BIN GUIDE", () => unit.IsBinGuideUp(BinSide.Good), on => SetBinGuideAsync(BinSide.Good, on), "ON", "OFF"),
-                    IoCylinderItem.Output("GOOD BIN CLAMP LIFT", () => unit.IsBinGuideClampLiftUp(BinSide.Good), on => SetBinClampLiftAsync(BinSide.Good, on), "ON", "OFF"),
-                    IoCylinderItem.Output("GOOD BIN CLAMP", () => unit.IsBinGuideClamped(BinSide.Good), on => SetBinClampAsync(BinSide.Good, on), "ON", "OFF"),
+                    // ===== GOOD BIN : OutputStageUnit에 연결된 실린더 DO pair 직접 제어 =====
+                    IoCylinderItem.Output("GOOD BIN GUIDE", () => unit.IsBinGuideUp(BinSide.Good),
+                        on => WritePairOut(unit.GoodBinGuideUpOut, unit.GoodBinGuideDownOut, on), "UP", "DOWN"),
+                    IoCylinderItem.Output("GOOD BIN CLAMP LIFT", () => unit.IsBinGuideClampLiftUp(BinSide.Good),
+                        on => WritePairOut(unit.GoodBinClampUpOut, unit.GoodBinClampDownOut, on), "UP", "DOWN"),
+                    IoCylinderItem.Output("GOOD BIN CLAMP", () => IsOn(unit.GoodBinClampOut),
+                        on => WritePairOut(unit.GoodBinClampOut, unit.GoodBinUnclampOut, on), "CLAMP", "UNCLAMP"),
                     IoCylinderItem.Input("GOOD BIN RING CHECK", () => IsOn(unit.GoodBinRingSensor)),
 
-                    // ===== NG BIN : 실린더 단위 ON/OFF 제어 =====
-                    IoCylinderItem.Output("NG BIN GUIDE", () => unit.IsBinGuideUp(BinSide.Ng), on => SetBinGuideAsync(BinSide.Ng, on), "ON", "OFF"),
-                    IoCylinderItem.Output("NG BIN CLAMP LIFT", () => unit.IsBinGuideClampLiftUp(BinSide.Ng), on => SetBinClampLiftAsync(BinSide.Ng, on), "ON", "OFF"),
-                    IoCylinderItem.Output("NG BIN CLAMP", () => unit.IsBinGuideClamped(BinSide.Ng), on => SetBinClampAsync(BinSide.Ng, on), "ON", "OFF"),
+                    // ===== NG BIN : OutputStageUnit에 연결된 실린더 DO pair 직접 제어 =====
+                    IoCylinderItem.Output("NG BIN GUIDE", () => unit.IsBinGuideUp(BinSide.Ng),
+                        on => WritePairOut(unit.NgBinGuideUpOut, unit.NgBinGuideDownOut, on), "UP", "DOWN"),
+                    IoCylinderItem.Output("NG BIN CLAMP LIFT", () => unit.IsBinGuideClampLiftUp(BinSide.Ng),
+                        on => WritePairOut(unit.NgBinClampUpOut, unit.NgBinClampDownOut, on), "UP", "DOWN"),
+                    IoCylinderItem.Output("NG BIN CLAMP", () => IsOn(unit.NgBinClampOut),
+                        on => WritePairOut(unit.NgBinClampOut, unit.NgBinUnclampOut, on), "CLAMP", "UNCLAMP"),
                     IoCylinderItem.Input("NG BIN RING CHECK", () => IsOn(unit.NgBinRingSensor)),
 
                     // ===== BOTTOM VISION (출력) =====
