@@ -2142,12 +2142,19 @@ namespace QMC.CDT320.Materials
 
         public static void NotifyAndSave(string reason)
         {
+            TryNotifyAndSave(reason);
+        }
+
+        public static bool TryNotifyAndSave(string reason)
+        {
+            bool saved = false;
             try
             {
                 State.SaveReason = reason ?? "";
                 State.SavedAt = DateTime.Now;
                 NormalizeSnapshotHeader(State);
-                if (!MaterialSnapshotStore.Save(State))
+                saved = MaterialSnapshotStore.Save(State);
+                if (!saved)
                 {
                     int waferCount = State.Wafers != null ? State.Wafers.Count : 0;
                     int dieCount = State.Dies != null ? State.Dies.Count : 0;
@@ -2161,10 +2168,12 @@ namespace QMC.CDT320.Materials
                 }
 
                 try { StateChanged?.Invoke(State); } catch { }
+                return saved;
             }
             catch (Exception ex)
             {
                 Log.Write("Main", "SYSTEM", "MaterialStateSave", "Material state save failed: " + ex.Message + " - Failed");
+                return false;
             }
             finally
             {

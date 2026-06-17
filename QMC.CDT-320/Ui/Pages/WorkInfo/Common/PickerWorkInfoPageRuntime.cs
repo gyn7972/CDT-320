@@ -453,6 +453,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             {
                 if (manualScope != null)
                     manualScope.Dispose();
+                if (showFailure || !string.IsNullOrWhiteSpace(exceptionMessage))
+                    ResetStepSequence();
+                MaterialStateService.NotifyAndSave("PickerManualSequenceFinally:" + actionName);
                 _manualSequenceRunning = false;
                 SetButtonsEnabledSafe(true);
                 RefreshSafe();
