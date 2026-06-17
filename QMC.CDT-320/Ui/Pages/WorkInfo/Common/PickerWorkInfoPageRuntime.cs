@@ -454,8 +454,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 if (manualScope != null)
                     manualScope.Dispose();
                 _manualSequenceRunning = false;
-                SetButtonsEnabled(true);
-                Refresh();
+                SetButtonsEnabledSafe(true);
+                RefreshSafe();
             }
 
             if (showFailure)
@@ -809,7 +809,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             finally
             {
                 await Task.Delay(50).ConfigureAwait(true);
-                SetButtonsEnabled(true);
+                _manualSequenceRunning = false;
+                SetButtonsEnabledSafe(true);
+                RefreshSafe();
             }
         }
 
@@ -896,6 +898,54 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             }
 
             _btnStop.Enabled = !enabled || _manualSequenceRunning;
+        }
+
+        private void SetButtonsEnabledSafe(bool enabled)
+        {
+            try
+            {
+                if (_owner == null || _owner.IsDisposed)
+                    return;
+
+                if (_owner.InvokeRequired)
+                {
+                    _owner.BeginInvoke(new Action(() => SetButtonsEnabled(enabled)));
+                    return;
+                }
+
+                SetButtonsEnabled(enabled);
+            }
+            catch (Exception ex)
+            {
+                WriteAlarm("메뉴얼 시퀀스 버튼 상태 복구 실패: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private void RefreshSafe()
+        {
+            try
+            {
+                if (_owner == null || _owner.IsDisposed)
+                    return;
+
+                if (_owner.InvokeRequired)
+                {
+                    _owner.BeginInvoke(new Action(Refresh));
+                    return;
+                }
+
+                Refresh();
+            }
+            catch (Exception ex)
+            {
+                WriteAlarm("메뉴얼 시퀀스 화면 갱신 실패: " + ex.Message);
+            }
+            finally
+            {
+            }
         }
 
         private string ResolveHeadState(CDT320_Machine machine, int pickerNo, bool flow)

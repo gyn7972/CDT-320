@@ -124,6 +124,12 @@ namespace QMC.CDT320.Interlocks
                 BaseAxis ownY = GetPickerY(request.Machine, isFront);
                 PickerWorkZone currentZone = ResolveCurrentXZone(request.Machine, isFront);
                 PickerWorkZone targetZone = ResolveTargetXZone(request, isFront);
+                if (currentZone == PickerWorkZone.Unknown && targetZone != PickerWorkZone.Unknown)
+                {
+                    PickerWorkZone currentYZone = ResolveCurrentYZone(request.Machine, isFront);
+                    if (currentYZone == targetZone)
+                        currentZone = currentYZone;
+                }
 
                 if (!VerifyInputStageZSafeForInputZone(
                     request.Machine,
@@ -144,7 +150,7 @@ namespace QMC.CDT320.Interlocks
                         movingName,
                         BuildXBlockedMessage(
                             movingName,
-                            "Input pickup area is occupied by the opposite picker. owner=" + occupiedOwner,
+                            "Input 픽업 영역을 반대 픽커가 사용 중입니다. owner=" + occupiedOwner,
                             ownX,
                             ownY,
                             currentZone,
@@ -161,7 +167,7 @@ namespace QMC.CDT320.Interlocks
                         movingName,
                         BuildXBlockedMessage(
                             movingName,
-                            "Picker work area is occupied by the opposite picker. owner=" + occupiedOwner,
+                            targetZone + " 작업 영역을 반대 픽커가 사용 중입니다. owner=" + occupiedOwner,
                             ownX,
                             ownY,
                             currentZone,
@@ -176,7 +182,7 @@ namespace QMC.CDT320.Interlocks
 
                     return MotionGuardRuleHelpers.Block(
                         movingName,
-                        BuildXBlockedMessage(movingName, "X move to Avoid/InputAvoid/OutputAvoid requires own PickerY at Avoid.", ownX, ownY, currentZone, targetZone),
+                        BuildXBlockedMessage(movingName, "Avoid/InputAvoid/OutputAvoid 위치로 X축 이동하려면 자기 PickerY가 Avoid 또는 0 위치여야 합니다.", ownX, ownY, currentZone, targetZone),
                         out reason);
                 }
 
@@ -187,7 +193,7 @@ namespace QMC.CDT320.Interlocks
 
                     return MotionGuardRuleHelpers.Block(
                         movingName,
-                        BuildXBlockedMessage(movingName, "X target zone is unknown. PickerY must be at Avoid before free X move.", ownX, ownY, currentZone, targetZone),
+                        BuildXBlockedMessage(movingName, "X축 목표 존을 판단할 수 없습니다. 자유 X 이동 전 PickerY가 Avoid 또는 0 위치여야 합니다.", ownX, ownY, currentZone, targetZone),
                         out reason);
                 }
 
@@ -196,7 +202,7 @@ namespace QMC.CDT320.Interlocks
                 {
                     return MotionGuardRuleHelpers.Block(
                         movingName,
-                        BuildXBlockedMessage(movingName, "X zone crossing or unknown current zone requires own PickerY at Avoid.", ownX, ownY, currentZone, targetZone),
+                        BuildXBlockedMessage(movingName, "존 사이를 이동하거나 현재 존을 판단할 수 없을 때는 PickerY가 Avoid 또는 0 위치여야 합니다.", ownX, ownY, currentZone, targetZone),
                         out reason);
                 }
 
@@ -206,7 +212,7 @@ namespace QMC.CDT320.Interlocks
             {
                 return MotionGuardRuleHelpers.Block(
                     movingName,
-                    movingName + " zone interlock check failed. error=" + ex.Message,
+                    movingName + " 존 인터락 확인 중 예외가 발생했습니다. error=" + ex.Message,
                     out reason);
             }
         }
@@ -247,7 +253,7 @@ namespace QMC.CDT320.Interlocks
 
                     return MotionGuardRuleHelpers.Block(
                         movingName,
-                        movingName + " Y move blocked. Target zone is unknown. Use a named picker zone move or move Y to Avoid first. target=" +
+                        movingName + " Y축 이동 불가: 목표 존을 판단할 수 없습니다. 존 이름이 있는 이동을 사용하거나 먼저 Y축을 Avoid로 이동해야 합니다. target=" +
                         request.TargetValue.ToString("0.###") + ", targetName=" + request.TargetName,
                         out reason);
                 }
@@ -259,8 +265,8 @@ namespace QMC.CDT320.Interlocks
                     string otherActiveName = isFront ? "RearPicker" : "FrontPicker";
                     return MotionGuardRuleHelpers.Block(
                         movingName,
-                        movingName + " Y forward move blocked. Input pickup area is occupied by " +
-                        otherActiveName + ". owner=" + occupiedOwner +
+                        movingName + " Y축 전진 이동 불가: Input 픽업 영역을 " +
+                        otherActiveName + "가 사용 중입니다. owner=" + occupiedOwner +
                         ", targetZone=" + targetZone +
                         ", target=" + request.TargetValue.ToString("0.###") +
                         ", targetName=" + request.TargetName,
@@ -275,9 +281,9 @@ namespace QMC.CDT320.Interlocks
                     string otherActiveName = isFront ? "RearPicker" : "FrontPicker";
                     return MotionGuardRuleHelpers.Block(
                         movingName,
-                        movingName + " Y forward move blocked. " + targetZone +
-                        " work area is occupied by " + otherActiveName +
-                        ". owner=" + occupiedOwner +
+                        movingName + " Y축 전진 이동 불가: " + targetZone +
+                        " 작업 영역을 " + otherActiveName +
+                        "가 사용 중입니다. owner=" + occupiedOwner +
                         ", targetZone=" + targetZone +
                         ", target=" + request.TargetValue.ToString("0.###") +
                         ", targetName=" + request.TargetName,
@@ -294,8 +300,8 @@ namespace QMC.CDT320.Interlocks
                     string otherActiveName = isFront ? "RearPicker" : "FrontPicker";
                     return MotionGuardRuleHelpers.Block(
                         movingName,
-                        movingName + " Y forward move blocked. " + otherActiveName +
-                        "Y is moving to the same or unknown work zone. targetZone=" + targetZone +
+                        movingName + " Y축 전진 이동 불가: " + otherActiveName +
+                        "Y가 같은 존 또는 알 수 없는 존으로 이동 중입니다. targetZone=" + targetZone +
                         ", otherActiveTargetZone=" + otherActiveZone +
                         ", target=" + request.TargetValue.ToString("0.###") +
                         ", targetName=" + request.TargetName,
@@ -312,8 +318,8 @@ namespace QMC.CDT320.Interlocks
                 string otherName = isFront ? "RearPicker" : "FrontPicker";
                 return MotionGuardRuleHelpers.Block(
                     movingName,
-                    movingName + " Y forward move blocked. " + otherName +
-                    "Y is not at Avoid and zones are not compatible. targetZone=" + targetZone +
+                    movingName + " Y축 전진 이동 불가: " + otherName +
+                    "Y가 Avoid 위치가 아니고 두 픽커의 작업 존이 동시에 허용되는 조합이 아닙니다. targetZone=" + targetZone +
                     ", otherZone=" + otherZone +
                     ", target=" + request.TargetValue.ToString("0.###") +
                     ", targetName=" + request.TargetName,
@@ -323,7 +329,7 @@ namespace QMC.CDT320.Interlocks
             {
                 return MotionGuardRuleHelpers.Block(
                     movingName,
-                    movingName + " zone interlock check failed. error=" + ex.Message,
+                    movingName + " 존 인터락 확인 중 예외가 발생했습니다. error=" + ex.Message,
                     out reason);
             }
         }
@@ -363,7 +369,7 @@ namespace QMC.CDT320.Interlocks
             return MotionGuardRuleHelpers.Block(
                 movingName,
                 movingName + " " + moveAxisName +
-                " move blocked. Picker is in or moving to Input zone while InputExpandingZ is not at Avoid/Process position. " +
+                " 이동 불가: Picker가 Input 존에 있거나 Input 존으로 이동하려는데 InputExpandingZ가 Avoid/Process 위치가 아닙니다. " +
                 "currentZone=" + currentZone +
                 ", targetZone=" + targetZone +
                 ", xActual=" + FormatAxis(ownX) +
@@ -410,7 +416,7 @@ namespace QMC.CDT320.Interlocks
             PickerWorkZone currentZone,
             PickerWorkZone targetZone)
         {
-            return movingName + " move blocked. " + detail +
+            return movingName + " 이동 불가: " + detail +
                    " currentZone=" + currentZone +
                    ", targetZone=" + targetZone +
                    ", xActual=" + FormatAxis(ownX) +
@@ -463,6 +469,15 @@ namespace QMC.CDT320.Interlocks
             return ResolveXZoneByPosition(machine, isFront, x.ActualPosition);
         }
 
+        private static PickerWorkZone ResolveCurrentYZone(CDT320_Machine machine, bool isFront)
+        {
+            BaseAxis y = GetPickerY(machine, isFront);
+            if (y == null)
+                return PickerWorkZone.Unknown;
+
+            return ResolveYZoneByPosition(machine, isFront, y.ActualPosition);
+        }
+
         private static PickerWorkZone ResolveXZoneByPosition(CDT320_Machine machine, bool isFront, double position)
         {
             if (machine == null)
@@ -472,13 +487,13 @@ namespace QMC.CDT320.Interlocks
                 IsAtPickerPosition(machine, isFront, PickerAxis.PickerX, "InputAvoidPosition", position) ||
                 IsAtPickerPosition(machine, isFront, PickerAxis.PickerX, "OutputAvoidPosition", position))
                 return PickerWorkZone.Avoid;
-            if (IsAtPickerPosition(machine, isFront, PickerAxis.PickerX, "PickPosition", position))
+            if (IsAtPickerZonePosition(machine, isFront, PickerAxis.PickerX, "PickPosition", position))
                 return PickerWorkZone.Input;
-            if (IsAtPickerPosition(machine, isFront, PickerAxis.PickerX, "BottomPosition", position))
+            if (IsAtPickerZonePosition(machine, isFront, PickerAxis.PickerX, "BottomPosition", position))
                 return PickerWorkZone.Bottom;
-            if (IsAtPickerPosition(machine, isFront, PickerAxis.PickerX, "SidePosition", position))
+            if (IsAtPickerZonePosition(machine, isFront, PickerAxis.PickerX, "SidePosition", position))
                 return PickerWorkZone.Side;
-            if (IsAtPickerPosition(machine, isFront, PickerAxis.PickerX, "PlacePosition", position))
+            if (IsAtPickerZonePosition(machine, isFront, PickerAxis.PickerX, "PlacePosition", position))
                 return PickerWorkZone.Output;
 
             return PickerWorkZone.Unknown;
@@ -493,13 +508,13 @@ namespace QMC.CDT320.Interlocks
                 IsAtPickerPosition(machine, isFront, PickerAxis.PickerY, "InputAvoidPosition", position) ||
                 IsAtPickerPosition(machine, isFront, PickerAxis.PickerY, "OutputAvoidPosition", position))
                 return PickerWorkZone.Avoid;
-            if (IsAtPickerPosition(machine, isFront, PickerAxis.PickerY, "PickPosition", position))
+            if (IsAtPickerZonePosition(machine, isFront, PickerAxis.PickerY, "PickPosition", position))
                 return PickerWorkZone.Input;
-            if (IsAtPickerPosition(machine, isFront, PickerAxis.PickerY, "BottomPosition", position))
+            if (IsAtPickerZonePosition(machine, isFront, PickerAxis.PickerY, "BottomPosition", position))
                 return PickerWorkZone.Bottom;
-            if (IsAtPickerPosition(machine, isFront, PickerAxis.PickerY, "SidePosition", position))
+            if (IsAtPickerZonePosition(machine, isFront, PickerAxis.PickerY, "SidePosition", position))
                 return PickerWorkZone.Side;
-            if (IsAtPickerPosition(machine, isFront, PickerAxis.PickerY, "PlacePosition", position))
+            if (IsAtPickerZonePosition(machine, isFront, PickerAxis.PickerY, "PlacePosition", position))
                 return PickerWorkZone.Output;
 
             return PickerWorkZone.Unknown;
@@ -514,6 +529,7 @@ namespace QMC.CDT320.Interlocks
             {
                 PickerFrontUnit picker = machine.PickerFrontUnit;
                 return picker == null ||
+                       IsAxisAtHomePosition(picker.PickerY) ||
                        picker.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition") ||
                        picker.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "InputAvoidPosition") ||
                        picker.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "OutputAvoidPosition");
@@ -521,9 +537,19 @@ namespace QMC.CDT320.Interlocks
 
             PickerRearUnit rear = machine.PickerRearUnit;
             return rear == null ||
+                   IsAxisAtHomePosition(rear.PickerY) ||
                    rear.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "AvoidPosition") ||
                    rear.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "InputAvoidPosition") ||
                    rear.IsPickerAxisInTeachingPosition(PickerAxis.PickerY, "OutputAvoidPosition");
+        }
+
+        private static bool IsAxisAtHomePosition(BaseAxis axis)
+        {
+            if (axis == null)
+                return true;
+
+            double tolerance = ResolveTolerance(axis);
+            return Math.Abs(axis.ActualPosition) <= tolerance;
         }
 
         private static bool IsPickerYTargetAvoid(MotionGuardRuleContext request, bool isFront)
@@ -546,6 +572,57 @@ namespace QMC.CDT320.Interlocks
             double tolerance = ResolveTolerance(baseAxis);
             double target = GetPickerTeachingPosition(machine, isFront, axis, positionName);
             return Math.Abs(position - target) <= tolerance;
+        }
+
+        private static bool IsAtPickerZonePosition(
+            CDT320_Machine machine,
+            bool isFront,
+            PickerAxis axis,
+            string positionName,
+            double position)
+        {
+            if (IsAtPickerPosition(machine, isFront, axis, positionName, position))
+                return true;
+
+            BaseAxis baseAxis = axis == PickerAxis.PickerX ? GetPickerX(machine, isFront) : GetPickerY(machine, isFront);
+            double tolerance = ResolveTolerance(baseAxis);
+            double basePosition = GetPickerTeachingPosition(machine, isFront, axis, positionName);
+            for (int i = 0; i < 4; i++)
+            {
+                double offset = GetRuntimePickerZoneOffset(machine, isFront, axis, i);
+                if (Math.Abs(position - (basePosition + offset)) <= tolerance)
+                    return true;
+            }
+
+            return false;
+        }
+
+        private static double GetRuntimePickerZoneOffset(CDT320_Machine machine, bool isFront, PickerAxis axis, int pickerIndex)
+        {
+            if (machine == null)
+                return 0.0;
+
+            PickerAlignOffset offset = null;
+            if (isFront)
+            {
+                PickerFrontUnit picker = machine.PickerFrontUnit;
+                offset = picker != null ? picker.GetRuntimePickerOffset(pickerIndex) : null;
+            }
+            else
+            {
+                PickerRearUnit picker = machine.PickerRearUnit;
+                offset = picker != null ? picker.GetRuntimePickerOffset(pickerIndex) : null;
+            }
+
+            if (offset == null)
+                return 0.0;
+
+            if (axis == PickerAxis.PickerX)
+                return offset.AlignOffsetX;
+            if (axis == PickerAxis.PickerY)
+                return offset.AlignOffsetY;
+
+            return 0.0;
         }
 
         private static double GetPickerTeachingPosition(

@@ -804,7 +804,10 @@ namespace QMC.CDT_320
                 string savedAt = snapshot != null ? snapshot.SavedAt.ToString("yyyy-MM-dd HH:mm:ss") : "unknown";
                 string lot = ResolveMaterialSnapshotLotId(snapshot);
                 string recipe = ResolveMaterialSnapshotRecipeName(snapshot);
-                string snapshotFileName = System.IO.Path.GetFileName(MaterialSnapshotStore.SnapshotPath);
+                string snapshotPath = string.IsNullOrWhiteSpace(MaterialSnapshotStore.LastLoadedPath)
+                    ? MaterialSnapshotStore.SnapshotPath
+                    : MaterialSnapshotStore.LastLoadedPath;
+                string snapshotFileName = System.IO.Path.GetFileName(snapshotPath);
 
                 var message =
                     "이전에 저장된 Material 정보가 있습니다.\r\n\r\n" +
@@ -812,7 +815,7 @@ namespace QMC.CDT_320
                     "Recipe: " + (string.IsNullOrEmpty(recipe) ? "-" : recipe) + "\r\n" +
                     "Lot: " + (string.IsNullOrEmpty(lot) ? "-" : lot) + "\r\n" +
                     "File: " + (string.IsNullOrEmpty(snapshotFileName) ? "-" : snapshotFileName) + "\r\n" +
-                    "Path: " + MaterialSnapshotStore.SnapshotPath + "\r\n\r\n" +
+                    "Path: " + snapshotPath + "\r\n\r\n" +
                     "[예] 기존 Material 정보를 사용합니다.\r\n" +
                     "[아니오] 초기화 후 새 Material 상태로 시작합니다.";
 
@@ -832,7 +835,7 @@ namespace QMC.CDT_320
                         Log.Write("Main", UserSession.Name, "MaterialRecovery", "Material snapshot restore failed. New empty Material state will be created. - Failed");
                         QMC.Common.MessageDialog.Show(
                             this,
-                            "Material 정보 복구에 실패했습니다.\r\n새 Material 상태로 초기화합니다.\r\n\r\nFile: " + MaterialSnapshotStore.SnapshotPath,
+                            "Material 정보 복구에 실패했습니다.\r\n새 Material 상태로 초기화합니다.\r\n\r\nFile: " + snapshotPath,
                             "Material Recovery",
                             MessageBoxButtons.OK,
                             MessageBoxIcon.Warning);

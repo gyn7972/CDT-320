@@ -2149,7 +2149,15 @@ namespace QMC.CDT320.Materials
                 NormalizeSnapshotHeader(State);
                 if (!MaterialSnapshotStore.Save(State))
                 {
-                    Log.Write("Main", "SYSTEM", "MaterialStateSave", "Material state save failed. reason=" + State.SaveReason + ", file=" + MaterialSnapshotStore.SnapshotPath + " - Failed");
+                    int waferCount = State.Wafers != null ? State.Wafers.Count : 0;
+                    int dieCount = State.Dies != null ? State.Dies.Count : 0;
+                    int cassetteCount = State.Cassettes != null ? State.Cassettes.Count : 0;
+                    Log.Write("Main", "SYSTEM", "MaterialStateSave",
+                        "Material state save failed. reason=" + State.SaveReason +
+                        ", cassettes=" + cassetteCount +
+                        ", wafers=" + waferCount +
+                        ", dies=" + dieCount +
+                        ", file=" + MaterialSnapshotStore.SnapshotPath + " - Failed");
                 }
 
                 try { StateChanged?.Invoke(State); } catch { }
