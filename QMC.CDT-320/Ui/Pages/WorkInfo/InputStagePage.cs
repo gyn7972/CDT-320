@@ -422,6 +422,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 bool dieMapComplete = currentWafer != null
                     ? currentWafer.HasInputStageDieMappingResult
                     : stage.CurrentWaferMap != null;
+                string stageFinishReason;
+                bool stageFinishComplete = MaterialStateService.IsInputStageFinishComplete(out stageFinishReason);
 
                 lblStageExistValue.Text = hasWafer ? "WAFER" : "EMPTY";
                 lblStageAlignValue.Text = alignComplete ? "COMPLETE" : "INCOMPLETE";
@@ -433,6 +435,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 lblStageChipAlignOffsetValue.Text = currentWafer != null && currentWafer.HasInputStageDieMappingResult
                     ? FormatOffset(currentWafer.InputStageDieMappingOffsetX, currentWafer.InputStageDieMappingOffsetY)
                     : FormatOffset(stage.DieMappingOffsetX, stage.DieMappingOffsetY);
+                lblStageFinishValue.Text = stageFinishComplete ? "COMPLETE" : "INCOMPLETE";
 
                 lblVisionAxisXValue.Text = AxisUnitConverter.FormatDisplay(stage.CameraX.ActualPosition, stage.CameraX, "0.###", true);
                 lblStageAxisTValue.Text = AxisUnitConverter.FormatDisplay(stage.StageT.ActualPosition, stage.StageT, "0.###", true);

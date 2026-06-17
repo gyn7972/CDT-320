@@ -8,6 +8,7 @@ namespace QMC.CDT320.Sequencing
         MoveAllPickerZToAvoid,
         SelectNextPicker,
         ResolveOutputSide,
+        VerifyOutputStageReady,
         ReserveOutputStageTarget,
         MoveOutputStageLoadPosition,
         MoveOutputStageReceivePosition,

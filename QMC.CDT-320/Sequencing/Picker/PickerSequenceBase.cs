@@ -160,6 +160,48 @@ namespace QMC.CDT320.Sequencing
             return result;
         }
 
+        protected List<int> BuildLoadedPickerIndexesInRunOrder(string ownerName)
+        {
+            var result = new List<int>();
+
+            try
+            {
+                List<int> enabled = BuildEnabledPickerIndexes();
+                for (int i = 0; i < enabled.Count; i++)
+                {
+                    int index = enabled[i];
+                    int pickerNo = ToPickerNo(index);
+                    DieMaterial die = MaterialStateService.GetDieAtPicker(PickerLocationKind, pickerNo);
+                    if (die == null)
+                    {
+                        WriteLog(ownerName,
+                            Name + " picker has no die. pickerNo=" + pickerNo +
+                            ", pickerIndex=" + index + " - Check");
+                        continue;
+                    }
+
+                    result.Add(index);
+                    WriteLog(ownerName,
+                        Name + " picker loaded die selected. die=" + die.DieId +
+                        ", pickerNo=" + pickerNo +
+                        ", pickerIndex=" + index +
+                        ", result=" + die.Result +
+                        ", location=" + (die.CurrentLocation != null ? die.CurrentLocation.ToString() : "-") +
+                        " - Check");
+                }
+            }
+            catch (Exception ex)
+            {
+                WriteLog(ownerName,
+                    Name + " build loaded picker list failed: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+
+            return result;
+        }
+
         protected int ToPickerNo(int pickerIndex)
         {
             if (pickerIndex < 0)

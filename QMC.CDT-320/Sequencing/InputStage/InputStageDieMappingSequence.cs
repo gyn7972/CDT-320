@@ -491,6 +491,7 @@ namespace QMC.CDT320.Sequencing
 
                 MaterialStateService.NotifyAndSave("InputStageDieMapping");
                 Context.Bus.Set("InputStageDieMapped");
+                Context.Bus.Set("InputStageFinishComplete");
                 Context.Bus.Set("InputStageReady");
                 WriteLog("InputStageDieMappingSequence",
                     "Input stage die mapping applied. wafer=" + (_wafer != null ? _wafer.WaferId : "") +

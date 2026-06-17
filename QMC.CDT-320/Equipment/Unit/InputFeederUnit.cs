@@ -92,6 +92,7 @@ namespace QMC.CDT320
         public MaterialState CurrentMaterialState { get; private set; }
         public WaferMaterial CurrentWaferMaterial { get; private set; }
         public string CurrentWaferId { get { return CurrentWaferMaterial != null ? CurrentWaferMaterial.WaferId : ""; } }
+        public string LastWaferFeederMoveFailureMessage { get; private set; }
         public BaseAxis FeederY { get; private set; }
 
         public BaseDigitalInput WaferFeederUpSensor { get; private set; }
@@ -192,39 +193,74 @@ namespace QMC.CDT320
 
         public async Task<int> MoveWaferFeederYAsync(double targetPos, bool bFine = false)
         {
+            return await MoveWaferFeederYAsync(targetPos, bFine, string.Empty).ConfigureAwait(false);
+        }
+
+        private async Task<int> MoveWaferFeederYAsync(double targetPos, bool bFine, string targetName)
+        {
             try
             {
                 string readyReason;
                 if (!CheckWaferFeederYMoveReady(out readyReason))
-                    return RaiseFeederAlarm("WF-Y-READY", "InputFeederY is not ready to move. " + readyReason);
+                {
+                    LastWaferFeederMoveFailureMessage = "InputFeederY is not ready to move. target=" + targetPos +
+                        FormatTargetName(targetName) + ". " + readyReason;
+                    return RaiseFeederAlarm("WF-Y-READY", LastWaferFeederMoveFailureMessage);
+                }
 
                 if (!ValidateWaferFeederYTargetPosition(targetPos))
-                    return RaiseFeederAlarm("WF-Y-SOFT-LIMIT", "InputFeederY target is out of soft limit. target=" + targetPos);
+                {
+                    LastWaferFeederMoveFailureMessage = "InputFeederY target is out of soft limit. target=" + targetPos +
+                        FormatTargetName(targetName) + ". " + BuildFeederYAxisSummary();
+                    return RaiseFeederAlarm("WF-Y-SOFT-LIMIT", LastWaferFeederMoveFailureMessage);
+                }
 
                 if (IsWaferFeederYInPosition(targetPos, ResolveWaferFeederYInPositionTolerance()))
                 {
+                    LastWaferFeederMoveFailureMessage = string.Empty;
                     EventLogger.Write(EventKind.Event, "QMC", "WF-Y-MOVE",
-                        "InputFeederY already in position. target=" + targetPos + ". " + GetWaferFeederTransferState());
+                        "InputFeederY already in position. target=" + targetPos +
+                        FormatTargetName(targetName) + ". " + GetWaferFeederTransferState());
                     return 0;
                 }
 
-                EventLogger.Write(EventKind.Event, "QMC", "WF-Y-MOVE", "Move InputFeederY target=" + targetPos);
-                int result = await FeederY.MoveAbsoluteAsync(targetPos, ResolveWaferFeederYMoveVelocity(bFine));
+                double velocity = ResolveWaferFeederYMoveVelocity(bFine);
+                EventLogger.Write(EventKind.Event, "QMC", "WF-Y-MOVE",
+                    "Move InputFeederY target=" + targetPos + FormatTargetName(targetName) +
+                    ", velocity=" + velocity);
+
+                int result = await FeederY.MoveAbsoluteAsync(targetPos, velocity);
                 if (result != 0 || FeederY.IsAlarm)
-                    return RaiseFeederAlarm("WF-Y-MOVE", "InputFeederY move failed. result=" + result + ", alarm=" + FeederY.IsAlarm);
+                {
+                    LastWaferFeederMoveFailureMessage = "InputFeederY move command failed. result=" + result +
+                        ", target=" + targetPos +
+                        FormatTargetName(targetName) +
+                        ", velocity=" + velocity +
+                        ", alarm=" + FeederY.IsAlarm +
+                        FormatAxisLastMotionFailure(FeederY) +
+                        ". " + GetWaferFeederTransferState();
+                    return RaiseFeederAlarm("WF-Y-MOVE", LastWaferFeederMoveFailureMessage);
+                }
 
                 AxisMoveWaitResult waitResult = await WaitWaferFeederYMoveDoneInPosition(targetPos, ResolveWaferFeederYMoveTimeoutMs()).ConfigureAwait(false);
                 if (!waitResult.Success)
+                {
+                    LastWaferFeederMoveFailureMessage = "InputFeederY move/in-position wait failed. target=" + targetPos +
+                        FormatTargetName(targetName) + ". " +
+                        AxisMoveWaiter.FormatResult(waitResult, GetWaferFeederTransferState());
                     return RaiseFeederAlarm(
                         AxisMoveWaiter.ResolveAlarmCode("WF-Y-MOVE", waitResult),
-                        "InputFeederY move/in-position wait failed. target=" + targetPos + ". " +
-                        AxisMoveWaiter.FormatResult(waitResult, GetWaferFeederTransferState()));
+                        LastWaferFeederMoveFailureMessage);
+                }
 
+                LastWaferFeederMoveFailureMessage = string.Empty;
                 return 0;
             }
             catch (Exception ex)
             {
-                return RaiseFeederAlarm("WF-Y-MOVE-EX", "InputFeederY move exception: " + ex.Message);
+                LastWaferFeederMoveFailureMessage = "InputFeederY move exception. target=" + targetPos +
+                    FormatTargetName(targetName) + ", error=" + ex.Message;
+                return RaiseFeederAlarm("WF-Y-MOVE-EX", LastWaferFeederMoveFailureMessage);
             }
             finally
             {
@@ -347,7 +383,7 @@ namespace QMC.CDT320
         {
             using (MotionGuardRuntime.BeginAxisTeachingMove(FeederY, targetPosition, targetName))
             {
-                return await MoveWaferFeederYAsync(targetPosition, bFine);
+                return await MoveWaferFeederYAsync(targetPosition, bFine, targetName);
             }
         }
 
@@ -1739,7 +1775,33 @@ namespace QMC.CDT320
                    ", moving=" + FeederY.IsMoving +
                    ", actual=" + FeederY.ActualPosition +
                    ", command=" + FeederY.CommandPosition +
-                   ", inPosition=" + FeederY.IsInPosition;
+                   ", inPosition=" + FeederY.IsInPosition +
+                   FormatAxisLastMotionFailure(FeederY) +
+                   FormatWaferFeederLastMoveFailure();
+        }
+
+        private static string FormatTargetName(string targetName)
+        {
+            if (string.IsNullOrWhiteSpace(targetName))
+                return string.Empty;
+
+            return ", targetName=" + targetName;
+        }
+
+        private static string FormatAxisLastMotionFailure(BaseAxis axis)
+        {
+            if (axis == null || string.IsNullOrWhiteSpace(axis.LastMotionFailureMessage))
+                return string.Empty;
+
+            return ", lastMotionFailure=" + axis.LastMotionFailureMessage;
+        }
+
+        private string FormatWaferFeederLastMoveFailure()
+        {
+            if (string.IsNullOrWhiteSpace(LastWaferFeederMoveFailureMessage))
+                return string.Empty;
+
+            return ", lastWaferFeederMoveFailure=" + LastWaferFeederMoveFailureMessage;
         }
 
         private string BuildWaferFeederDataSummary()

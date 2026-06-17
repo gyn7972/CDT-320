@@ -59,6 +59,32 @@ namespace QMC.CDT320.Materials
             return die;
         }
 
+        public static DieMaterial GetDieMaterial(string dieId)
+        {
+            try
+            {
+                lock (_stateSync)
+                {
+                    if (string.IsNullOrWhiteSpace(dieId))
+                        return null;
+
+                    return State.Dies.FirstOrDefault(d =>
+                        d != null &&
+                        string.Equals(d.DieId, dieId, StringComparison.OrdinalIgnoreCase));
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "Get die material failed: dieId=" + dieId +
+                    ", error=" + ex.Message + " - Failed");
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
         public static DieMaterial GetDieAtPicker(MaterialLocationKind pickerLocation, int pickerNo)
         {
             try
@@ -822,6 +848,11 @@ namespace QMC.CDT320.Materials
 
         public static bool MoveDieToOutputStage(string dieId, QMC.CDT320.BinSide side)
         {
+            return MoveDieToOutputStage(dieId, side, null);
+        }
+
+        public static bool MoveDieToOutputStage(string dieId, QMC.CDT320.BinSide side, OutputStageReceiveTarget receiveTarget)
+        {
             try
             {
                 lock (_stateSync)
@@ -842,6 +873,17 @@ namespace QMC.CDT320.Materials
                     die.CurrentLocation = new MaterialLocation { Kind = stageLocation };
                     die.Result = side == QMC.CDT320.BinSide.Ng ? DieResult.NG : DieResult.Good;
                     die.WaferID_Output = outputWafer.WaferId;
+                    if (receiveTarget != null)
+                    {
+                        die.Bin_IndexX = receiveTarget.DieMapX;
+                        die.Bin_IndexY = receiveTarget.DieMapY;
+                        die.BinOffset = new VisionOffset
+                        {
+                            X = receiveTarget.TargetX,
+                            Y = receiveTarget.TargetY,
+                            IsValid = true
+                        };
+                    }
                     die.UpdatedAt = DateTime.Now;
 
                     if (outputWafer.DieIds == null)
@@ -892,23 +934,56 @@ namespace QMC.CDT320.Materials
 
         public static bool IsOutputStageReceiveAvailable(QMC.CDT320.BinSide side)
         {
+            string reason;
+            return IsOutputStageReceiveAvailable(side, out reason);
+        }
+
+        public static bool IsOutputStageReceiveAvailable(QMC.CDT320.BinSide side, out string reason)
+        {
+            reason = string.Empty;
+
             try
             {
                 lock (_stateSync)
                 {
                     WaferMaterial outputWafer = GetWaferAtLocation(ResolveOutputStageLocation(side));
+                    if (outputWafer == null)
+                    {
+                        reason = "Output stage material is missing. side=" + side;
+                        return false;
+                    }
+
                     WaferMaterialState state = outputWafer != null
                         ? WaferMaterialStateText.Normalize(outputWafer.State)
                         : WaferMaterialState.Empty;
-                    return outputWafer != null &&
-                           state != WaferMaterialState.Finish &&
-                           !IsOutputStageReceiveComplete(outputWafer);
+                    if (state == WaferMaterialState.Finish)
+                    {
+                        reason = "Output stage material is already finish. side=" + side +
+                                 ", waferId=" + outputWafer.WaferId;
+                        return false;
+                    }
+
+                    if (IsOutputStageReceiveComplete(outputWafer))
+                    {
+                        reason = "Output stage receive plan is complete. side=" + side +
+                                 ", waferId=" + outputWafer.WaferId +
+                                 ", placed=" + (outputWafer.DieIds != null ? outputWafer.DieIds.Count(id => !string.IsNullOrWhiteSpace(id)) : 0) +
+                                 ", total=" + outputWafer.OutputReceiveTotalCount;
+                        return false;
+                    }
+
+                    reason = "Output stage can receive. side=" + side +
+                             ", waferId=" + outputWafer.WaferId +
+                             ", placed=" + (outputWafer.DieIds != null ? outputWafer.DieIds.Count(id => !string.IsNullOrWhiteSpace(id)) : 0) +
+                             ", total=" + outputWafer.OutputReceiveTotalCount;
+                    return true;
                 }
             }
             catch (Exception ex)
             {
+                reason = "Output stage receive available check failed: " + ex.Message;
                 Log.Write("Main", "SYSTEM", "MaterialStateService",
-                    "Output stage receive available check failed: " + ex.Message + " - Failed");
+                    reason + " - Failed");
                 return false;
             }
             finally
@@ -1012,6 +1087,14 @@ namespace QMC.CDT320.Materials
                     }
 
                     WaferMaterial wafer = GetWaferAtLocation(MaterialLocationKind.InputStage);
+                    string readyReason;
+                    if (!IsInputStageFinishCompleteNoLock(wafer, out readyReason))
+                    {
+                        Log.Write("Main", "SYSTEM", "MaterialStateService",
+                            "Input pick target reserve blocked: InputStage is not finished. reason=" + readyReason + " - Blocked");
+                        return null;
+                    }
+
                     DieMap map = BuildDieMapFromWafer(wafer);
                     if (wafer == null || map == null || map.Entries == null || map.Entries.Count == 0)
                     {
@@ -1094,6 +1177,30 @@ namespace QMC.CDT320.Materials
             }
         }
 
+        public static bool IsInputStageFinishComplete(out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                lock (_stateSync)
+                {
+                    return IsInputStageFinishCompleteNoLock(
+                        GetWaferAtLocation(MaterialLocationKind.InputStage),
+                        out reason);
+                }
+            }
+            catch (Exception ex)
+            {
+                reason = "InputStage finish complete check failed: " + ex.Message;
+                Log.Write("Main", "SYSTEM", "MaterialStateService", reason + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
         public static bool HasReadyInputStagePickTarget()
         {
             try
@@ -1101,6 +1208,10 @@ namespace QMC.CDT320.Materials
                 lock (_stateSync)
                 {
                     WaferMaterial wafer = GetWaferAtLocation(MaterialLocationKind.InputStage);
+                    string readyReason;
+                    if (!IsInputStageFinishCompleteNoLock(wafer, out readyReason))
+                        return false;
+
                     DieMap map = BuildDieMapFromWafer(wafer);
                     if (wafer == null || map == null || map.Entries == null || map.Entries.Count == 0)
                         return false;
@@ -1150,6 +1261,46 @@ namespace QMC.CDT320.Materials
             finally
             {
             }
+        }
+
+        private static bool IsInputStageFinishCompleteNoLock(WaferMaterial wafer, out string reason)
+        {
+            reason = string.Empty;
+
+            if (wafer == null)
+            {
+                reason = "InputStage wafer material is not available.";
+                return false;
+            }
+
+            if (!wafer.HasInputStageAlignResult)
+            {
+                reason = "InputStage align is not complete. waferId=" + wafer.WaferId;
+                return false;
+            }
+
+            if (!wafer.HasInputStageDieMappingResult)
+            {
+                reason = "InputStage die mapping is not complete. waferId=" + wafer.WaferId;
+                return false;
+            }
+
+            if (wafer.DieIds == null || wafer.DieIds.Count == 0)
+            {
+                reason = "InputStage die data is empty. waferId=" + wafer.WaferId;
+                return false;
+            }
+
+            DieMap map = BuildDieMapFromWafer(wafer);
+            if (map == null || map.Entries == null || map.Entries.Count == 0)
+            {
+                reason = "InputStage die map is empty. waferId=" + wafer.WaferId;
+                return false;
+            }
+
+            reason = "InputStage finish complete. waferId=" + wafer.WaferId +
+                     ", dieCount=" + wafer.DieIds.Count;
+            return true;
         }
 
         public static bool IsInputStagePickComplete()
@@ -1648,6 +1799,128 @@ namespace QMC.CDT320.Materials
             die.ReservedPickerNo = -1;
             die.UpdatedAt = DateTime.Now;
             NotifyAndSave("MoveDie");
+        }
+
+        public static bool MarkDiePickedByPicker(string dieId, MaterialLocationKind pickerLocation, int pickerNo)
+        {
+            try
+            {
+                lock (_stateSync)
+                {
+                    if (string.IsNullOrWhiteSpace(dieId))
+                    {
+                        Log.Write("Main", "SYSTEM", "MaterialStateService",
+                            "Pick die state update failed: dieId is empty. - Failed");
+                        return false;
+                    }
+
+                    if (pickerLocation != MaterialLocationKind.PickerFront &&
+                        pickerLocation != MaterialLocationKind.PickerRear)
+                    {
+                        Log.Write("Main", "SYSTEM", "MaterialStateService",
+                            "Pick die state update failed: invalid pickerLocation=" + pickerLocation +
+                            ", dieId=" + dieId + " - Failed");
+                        return false;
+                    }
+
+                    if (pickerNo <= 0)
+                    {
+                        Log.Write("Main", "SYSTEM", "MaterialStateService",
+                            "Pick die state update failed: invalid pickerNo=" + pickerNo +
+                            ", dieId=" + dieId + " - Failed");
+                        return false;
+                    }
+
+                    DieMaterial die = State.Dies.FirstOrDefault(d =>
+                        d != null &&
+                        string.Equals(d.DieId, dieId, StringComparison.OrdinalIgnoreCase));
+                    if (die == null)
+                    {
+                        Log.Write("Main", "SYSTEM", "MaterialStateService",
+                            "Pick die state update failed: die material not found. dieId=" + dieId + " - Failed");
+                        return false;
+                    }
+
+                    die.CurrentLocation = MaterialLocation.Picker(pickerLocation, pickerNo);
+                    die.ReservedPickerLocation = MaterialLocationKind.Unknown;
+                    die.ReservedPickerNo = -1;
+                    die.PickedPickerLocation = pickerLocation;
+                    die.PickedPickerNo = pickerNo;
+                    die.PickedAt = DateTime.Now;
+                    die.UpdatedAt = DateTime.Now;
+                    NotifyAndSave("PickDie");
+                    return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "Pick die state update failed: dieId=" + dieId +
+                    ", pickerLocation=" + pickerLocation +
+                    ", pickerNo=" + pickerNo +
+                    ", error=" + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        public static string ResolveInputDieDisplayState(DieMapEntry entry)
+        {
+            try
+            {
+                if (entry == null)
+                    return "";
+
+                if (!entry.IsTarget)
+                    return "SKIP";
+
+                DieMaterial die = GetDieMaterial(entry.DieUid);
+                if (die == null)
+                    return "TARGET";
+
+                if (!die.IsInputTarget)
+                    return "SKIP";
+
+                if (die.Result == DieResult.NG)
+                    return "REJECT";
+
+                if (IsDieReservedForPicker(die))
+                    return die.ReservedPickerNo > 0 ? "RESERVE" + die.ReservedPickerNo : "RESERVE";
+
+                MaterialLocation location = die.CurrentLocation;
+                MaterialLocationKind kind = location != null ? location.Kind : MaterialLocationKind.Unknown;
+                switch (kind)
+                {
+                    case MaterialLocationKind.PickerFront:
+                    case MaterialLocationKind.PickerRear:
+                        return location != null && location.PickerNo > 0 ? "PICK" + location.PickerNo : "PICK";
+                    case MaterialLocationKind.OutputStageGood:
+                        return "GOOD STAGE";
+                    case MaterialLocationKind.OutputStageNg:
+                        return "NG STAGE";
+                    case MaterialLocationKind.OutputFeeder:
+                        return "OUT FEEDER";
+                    case MaterialLocationKind.OutputCassette:
+                        return "FINISH";
+                    case MaterialLocationKind.InputStage:
+                    case MaterialLocationKind.Unknown:
+                    default:
+                        return "TARGET";
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "Resolve input die display state failed: die=" +
+                    (entry != null ? entry.DieUid : "-") +
+                    ", error=" + ex.Message + " - Failed");
+                return "UNKNOWN";
+            }
+            finally
+            {
+            }
         }
 
         private static bool IsDieReservedForPicker(DieMaterial die)

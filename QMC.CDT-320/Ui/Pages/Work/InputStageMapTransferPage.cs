@@ -590,7 +590,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                         (entry.IsTarget ? 11 : 13) +
                         ((int)entry.Result * 17) +
                         entry.BinCode * 19 +
-                        entry.SequenceNo * 23;
+                        entry.SequenceNo * 23 +
+                        StableHash(MaterialStateService.ResolveInputDieDisplayState(entry));
                 }
 
                 return (map.FrameObjId ?? "") + "|" +
@@ -608,6 +609,30 @@ namespace QMC.CDT_320.Ui.Pages.Work
             catch
             {
                 return Guid.NewGuid().ToString("N");
+            }
+            finally
+            {
+            }
+        }
+
+        private static int StableHash(string value)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(value))
+                    return 0;
+
+                unchecked
+                {
+                    int hash = 23;
+                    for (int i = 0; i < value.Length; i++)
+                        hash = hash * 31 + value[i];
+                    return hash;
+                }
+            }
+            catch
+            {
+                return 0;
             }
             finally
             {
@@ -2020,7 +2045,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                             entry.IsTarget && entry.SequenceNo > 0 ? (object)entry.SequenceNo : "",
                             entry.DieMapX,
                             entry.DieMapY,
-                            entry.IsTarget ? "TARGET" : "SKIP",
+                            MaterialStateService.ResolveInputDieDisplayState(entry),
                             entry.Result,
                             entry.BinCode,
                             entry.PosX.ToString("F4"),

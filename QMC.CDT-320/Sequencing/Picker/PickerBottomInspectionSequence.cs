@@ -173,16 +173,7 @@ namespace QMC.CDT320.Sequencing
         private int BuildPickedPickerList()
         {
             _pickedPickerIndexes.Clear();
-
-            List<int> enabled = BuildEnabledPickerIndexes();
-            for (int i = 0; i < enabled.Count; i++)
-            {
-                int index = enabled[i];
-                int pickerNo = ToPickerNo(index);
-                DieMaterial die = MaterialStateService.GetDieAtPicker(PickerLocationKind, pickerNo);
-                if (die != null)
-                    _pickedPickerIndexes.Add(index);
-            }
+            _pickedPickerIndexes.AddRange(BuildLoadedPickerIndexesInRunOrder("PickerBottomInspectionSequence"));
 
             _pickerCursor = 0;
 

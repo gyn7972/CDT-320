@@ -281,6 +281,11 @@ namespace QMC.CDT320.Sequencing
             if (wafer == null)
                 return Fail("PICKER-PICKUP-NO-WAFER", "Material", "InputStage wafer material is not available.");
 
+            string finishReason;
+            if (!MaterialStateService.IsInputStageFinishComplete(out finishReason))
+                return Fail("PICKER-PICKUP-STAGE-NOT-FINISH", "InputStage",
+                    "InputStage finish must be complete before picker pickup. " + finishReason);
+
             if (wafer.DieIds == null || wafer.DieIds.Count == 0)
                 return Fail("PICKER-PICKUP-NO-DIE", "Material", "InputStage wafer has no die data. waferId=" + wafer.WaferId);
 
@@ -789,46 +794,45 @@ namespace QMC.CDT320.Sequencing
                         ", reason=" + areaReason);
                 }
 
-                Task<int> moveStageY = MoveInputStageYForPickerWorkPointCommandAsync(
+                int result = await MoveInputStageYForPickerWorkPointCommandAsync(
                     stage,
                     _pickTarget.TargetX,
                     _targetStageY,
                     "pick corrected StageY",
-                    ct);
-                Task<int> movePickerX = MovePickerAxisCommandResultAsync(PickerAxis.PickerX, _targetPickerX, "pick corrected PickerX", ct, targetName);
-                Task<int> movePickerT = MovePickerAxisCommandResultAsync(tAxis, _targetPickerT, "pick corrected PickerT", ct, targetName);
-                int[] moveResults = await Task.WhenAll(moveStageY, movePickerX, movePickerT).ConfigureAwait(false);
+                    ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
 
-                if (moveResults[0] != 0)
-                    return moveResults[0];
-                if (moveResults[1] != 0)
-                    return moveResults[1];
-                if (moveResults[2] != 0)
-                    return moveResults[2];
-
-                Task<int> waitStageY = WaitInputStageAxisInPositionResultAsync(stage, WaferStageAxis.WaferY, _targetStageY, "pick corrected StageY", ct);
-                Task<int> waitPickerX = WaitPickerAxisInPositionResultAsync(PickerAxis.PickerX, _targetPickerX, "pick corrected PickerX", ct);
-                Task<int> waitPickerT = WaitPickerAxisInPositionResultAsync(tAxis, _targetPickerT, "pick corrected PickerT", ct);
-                int[] waitResults = await Task.WhenAll(waitStageY, waitPickerX, waitPickerT).ConfigureAwait(false);
-
-                if (waitResults[0] != 0)
-                    return waitResults[0];
-                if (waitResults[1] != 0)
-                    return waitResults[1];
-                if (waitResults[2] != 0)
-                    return waitResults[2];
+                result = await WaitInputStageAxisInPositionResultAsync(
+                    stage,
+                    WaferStageAxis.WaferY,
+                    _targetStageY,
+                    "pick corrected StageY",
+                    ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
 
                 int finalCheck = CheckInputStageAxisInPosition(stage, WaferStageAxis.WaferY, _targetStageY, "pick corrected StageY");
                 if (finalCheck != 0)
                     return finalCheck;
 
-                finalCheck = CheckPickerAxisInPosition(PickerAxis.PickerX, _targetPickerX, "pick corrected PickerX");
-                if (finalCheck != 0)
-                    return finalCheck;
+                result = await MovePickerAxisAndVerifyAsync(
+                    PickerAxis.PickerX,
+                    _targetPickerX,
+                    "pick corrected PickerX",
+                    ct,
+                    targetName).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
 
-                finalCheck = CheckPickerAxisInPosition(tAxis, _targetPickerT, "pick corrected PickerT");
-                if (finalCheck != 0)
-                    return finalCheck;
+                result = await MovePickerAxisAndVerifyAsync(
+                    tAxis,
+                    _targetPickerT,
+                    "pick corrected PickerT",
+                    ct,
+                    targetName).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
 
                 CurrentStep = PickerPickUpStep.VerifyPickTarget;
                 return 0;
@@ -943,7 +947,10 @@ namespace QMC.CDT320.Sequencing
 
         private int UpdateMaterialToPicker()
         {
-            MaterialStateService.MoveDie(_currentDieId, MaterialLocation.Picker(PickerLocationKind, _currentPickerNo));
+            bool materialUpdated = MaterialStateService.MarkDiePickedByPicker(_currentDieId, PickerLocationKind, _currentPickerNo);
+            if (!materialUpdated)
+                return Fail("PICKER-PICKUP-MATERIAL", Name, "Picked die material state update failed. die=" + _currentDieId + ", pickerNo=" + _currentPickerNo);
+
             RecordColletUse(_currentPickerNo);
             WriteLog("PickerPickUpSequence", Name + " picked die. die=" + _currentDieId + ", pickerNo=" + _currentPickerNo + " - Ok");
 
