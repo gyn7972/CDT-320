@@ -238,6 +238,18 @@ namespace QMC.Vision
             // 카메라 ID 가 같으면 파라미터만 갱신, 다르면 카메라 교체
             if (string.Equals(mod.Camera?.Info?.Id, mapping.CameraId, StringComparison.OrdinalIgnoreCase))
             {
+                // 같은 카메라라도 닫혀 있으면 먼저 연다(앱 시작 시 startup Open 실패로 닫힌 상태 복구).
+                if (mod.Camera != null && !mod.Camera.IsOpen)
+                {
+                    try { mod.Camera.Open(); }
+                    catch (Exception ex)
+                    {
+                        error = ex.Message;
+                        AlarmManager.Raise(AlarmSeverity.Error, "VISION-CAMOPEN",
+                            "Vision/" + algorithm, $"카메라 재오픈 실패 [{mapping.CameraId}]: {ex.Message}");
+                        return false;
+                    }
+                }
                 if (!AlgorithmCameraBinder.TryApplyParameters(mod.Camera, mapping, out var applyErr))
                 {
                     error = applyErr;
@@ -336,6 +348,8 @@ namespace QMC.Vision
 
             try { QMC.Vision.Comm.LightHub.DisposeAll(); } catch { }
             try { Backend?.Dispose(); }        catch { }
+            // 카메라(digitizer) 정리 후 MIL System/App 완전 해제 — 그래버 점유 해제(다음 실행/Intellicam 즉시 사용 가능).
+            try { QMC.Vision.Cameras.Mil.MilSystem.Shutdown(); } catch { }
             base.OnFormClosing(e);
         }
     }

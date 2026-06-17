@@ -16,7 +16,8 @@ namespace QMC.Vision.Ui.Pages
         private Label    _lblExp;    private NumericUpDown _numExposure;
         private Label    _lblGain;   private NumericUpDown _numGain;
         private Label    _lblFps;    private NumericUpDown _numFps;
-        private Label    _lblTrig;   private ComboBox _cbTrigger;
+        private Label    _lblTrig;   private ComboBox _cbTrigger;       // Trigger Source (Software/Line0..)
+        private Label    _lblTrigMode; private ComboBox _cbTriggerMode; // Trigger Mode (On/Off)
         private Label    _lblPix;    private ComboBox _cbPixel;
         private Label    _lblDelay;  private NumericUpDown _numDelay;
         private Label    _lblRoi;
@@ -25,7 +26,7 @@ namespace QMC.Vision.Ui.Pages
         private Label    _lblW;      private NumericUpDown _numRoiW;
         private Label    _lblH;      private NumericUpDown _numRoiH;
         private CheckBox _chkMilDcf;
-        private Label    _lblMil;    private TextBox _txtMilDcf;
+        private Label    _lblMil;    private TextBox _txtMilDcf;   private Button _btnMilBrowse;
         // 조명 컨트롤러/페이지 지정(모듈 Setup.LightPages) — 좌하단 섹션
         private Label    _lblLightAssign;
         private DataGridView _gridLightAssign;
@@ -66,6 +67,8 @@ namespace QMC.Vision.Ui.Pages
             this._numFps = new System.Windows.Forms.NumericUpDown();
             this._lblTrig = new System.Windows.Forms.Label();
             this._cbTrigger = new System.Windows.Forms.ComboBox();
+            this._lblTrigMode = new System.Windows.Forms.Label();
+            this._cbTriggerMode = new System.Windows.Forms.ComboBox();
             this._lblPix = new System.Windows.Forms.Label();
             this._cbPixel = new System.Windows.Forms.ComboBox();
             this._lblDelay = new System.Windows.Forms.Label();
@@ -82,6 +85,7 @@ namespace QMC.Vision.Ui.Pages
             this._chkMilDcf = new System.Windows.Forms.CheckBox();
             this._lblMil = new System.Windows.Forms.Label();
             this._txtMilDcf = new System.Windows.Forms.TextBox();
+            this._btnMilBrowse = new System.Windows.Forms.Button();
             this._lblLightAssign = new System.Windows.Forms.Label();
             this._gridLightAssign = new System.Windows.Forms.DataGridView();
             this._colLightCtrl = new System.Windows.Forms.DataGridViewComboBoxColumn();
@@ -145,6 +149,8 @@ namespace QMC.Vision.Ui.Pages
             this._body.Controls.Add(this._numFps);
             this._body.Controls.Add(this._lblTrig);
             this._body.Controls.Add(this._cbTrigger);
+            this._body.Controls.Add(this._lblTrigMode);
+            this._body.Controls.Add(this._cbTriggerMode);
             this._body.Controls.Add(this._lblPix);
             this._body.Controls.Add(this._cbPixel);
             this._body.Controls.Add(this._lblDelay);
@@ -161,6 +167,7 @@ namespace QMC.Vision.Ui.Pages
             this._body.Controls.Add(this._chkMilDcf);
             this._body.Controls.Add(this._lblMil);
             this._body.Controls.Add(this._txtMilDcf);
+            this._body.Controls.Add(this._btnMilBrowse);
             this._body.Controls.Add(this._lblLightAssign);
             this._body.Controls.Add(this._gridLightAssign);
             this._body.Controls.Add(this._lblLightStatus);
@@ -312,7 +319,7 @@ namespace QMC.Vision.Ui.Pages
             this._lblTrig.Name = "_lblTrig";
             this._lblTrig.Size = new System.Drawing.Size(160, 22);
             this._lblTrig.TabIndex = 9;
-            this._lblTrig.Text = "Trigger mode";
+            this._lblTrig.Text = "Trigger Source";
             //
             // _cbTrigger
             //
@@ -323,6 +330,25 @@ namespace QMC.Vision.Ui.Pages
             this._cbTrigger.Size = new System.Drawing.Size(150, 23);
             this._cbTrigger.TabIndex = 10;
             this._cbTrigger.SelectedIndexChanged += new System.EventHandler(this.OnAnyFieldChanged);
+            //
+            // _lblTrigMode
+            //
+            this._lblTrigMode.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this._lblTrigMode.Location = new System.Drawing.Point(350, 174);
+            this._lblTrigMode.Name = "_lblTrigMode";
+            this._lblTrigMode.Size = new System.Drawing.Size(110, 22);
+            this._lblTrigMode.TabIndex = 30;
+            this._lblTrigMode.Text = "Trigger Mode";
+            //
+            // _cbTriggerMode
+            //
+            this._cbTriggerMode.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this._cbTriggerMode.Font = new System.Drawing.Font("Consolas", 10F);
+            this._cbTriggerMode.Location = new System.Drawing.Point(470, 172);
+            this._cbTriggerMode.Name = "_cbTriggerMode";
+            this._cbTriggerMode.Size = new System.Drawing.Size(110, 23);
+            this._cbTriggerMode.TabIndex = 31;
+            this._cbTriggerMode.SelectedIndexChanged += new System.EventHandler(this.OnTriggerModeUiChanged);
             //
             // _lblPix
             //
@@ -498,10 +524,26 @@ namespace QMC.Vision.Ui.Pages
             this._txtMilDcf.Font = new System.Drawing.Font("Consolas", 10F);
             this._txtMilDcf.Location = new System.Drawing.Point(345, 318);
             this._txtMilDcf.Name = "_txtMilDcf";
-            this._txtMilDcf.Size = new System.Drawing.Size(325, 23);
+            this._txtMilDcf.ReadOnly = true;
+            this._txtMilDcf.Size = new System.Drawing.Size(270, 23);
             this._txtMilDcf.TabIndex = 26;
             this._txtMilDcf.Visible = false;
             this._txtMilDcf.TextChanged += new System.EventHandler(this.OnMilTextChanged);
+            //
+            // _btnMilBrowse
+            //
+            this._btnMilBrowse.BackColor = System.Drawing.Color.White;
+            this._btnMilBrowse.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this._btnMilBrowse.Font = new System.Drawing.Font("맑은 고딕", 10F);
+            this._btnMilBrowse.ForeColor = System.Drawing.Color.Black;
+            this._btnMilBrowse.Location = new System.Drawing.Point(620, 317);
+            this._btnMilBrowse.Name = "_btnMilBrowse";
+            this._btnMilBrowse.Size = new System.Drawing.Size(50, 25);
+            this._btnMilBrowse.TabIndex = 27;
+            this._btnMilBrowse.Text = "찾기";
+            this._btnMilBrowse.UseVisualStyleBackColor = false;
+            this._btnMilBrowse.Visible = false;
+            this._btnMilBrowse.Click += new System.EventHandler(this.OnMilBrowseClick);
             //
             // _lblLightAssign
             //

@@ -49,8 +49,53 @@ namespace QMC.Vision.Ui.Pages
         /// <summary>콤보 Items(enum) 동적 채움 — 런타임.</summary>
         private void BuildCombos()
         {
-            foreach (var v in Enum.GetNames(typeof(CameraTriggerMode))) _cbTrigger.Items.Add(v);
+            // Trigger Source — 소스 값만 (Continuous 는 Trigger Mode=Off 로 표현하므로 제외).
+            foreach (var v in Enum.GetNames(typeof(CameraTriggerMode)))
+                if (v != nameof(CameraTriggerMode.Continuous)) _cbTrigger.Items.Add(v);
+            // Trigger Mode — On/Off (MVS TriggerMode 노드와 동일).
+            _cbTriggerMode.Items.Add("Off");
+            _cbTriggerMode.Items.Add("On");
             foreach (var v in Enum.GetNames(typeof(CameraPixelFormat))) _cbPixel.Items.Add(v);
+        }
+
+        /// <summary>저장된 TriggerMode 문자열(CameraTriggerMode 이름)을 UI(Mode On/Off + Source)로 분해.</summary>
+        private void ApplyTriggerToUi(string stored)
+        {
+            bool isOff = string.IsNullOrEmpty(stored)
+                         || stored == nameof(CameraTriggerMode.Continuous);
+            _cbTriggerMode.SelectedItem = isOff ? "Off" : "On";
+            if (_cbTriggerMode.SelectedIndex < 0) _cbTriggerMode.SelectedIndex = 0; // Off
+
+            // Source: On 이면 저장값, Off 이면 기본 Software (Off 일 때 Source 는 무의미).
+            string src = (!isOff && stored != null) ? stored : nameof(CameraTriggerMode.Software);
+            _cbTrigger.SelectedItem = src;
+            if (_cbTrigger.SelectedIndex < 0) _cbTrigger.SelectedItem = nameof(CameraTriggerMode.Software);
+            if (_cbTrigger.SelectedIndex < 0 && _cbTrigger.Items.Count > 0) _cbTrigger.SelectedIndex = 0;
+
+            UpdateTriggerSourceEnabled();
+        }
+
+        /// <summary>UI(Mode On/Off + Source)를 저장용 CameraTriggerMode 이름으로 합성.</summary>
+        private string ComposeTriggerStored()
+        {
+            bool isOn = (string)_cbTriggerMode.SelectedItem == "On";
+            if (!isOn) return nameof(CameraTriggerMode.Continuous);
+            return (string)_cbTrigger.SelectedItem ?? nameof(CameraTriggerMode.Software);
+        }
+
+        /// <summary>Trigger Mode=Off 면 Source 선택을 비활성(MVS 와 동일 동작).</summary>
+        private void UpdateTriggerSourceEnabled()
+        {
+            bool isOn = (string)_cbTriggerMode.SelectedItem == "On";
+            if (_cbTrigger != null) _cbTrigger.Enabled = isOn;
+            if (_lblTrig   != null) _lblTrig.Enabled   = isOn;
+        }
+
+        /// <summary>Trigger Mode 콤보 변경 — Source 활성/비활성 갱신 + 필드 반영.</summary>
+        private void OnTriggerModeUiChanged(object sender, EventArgs e)
+        {
+            UpdateTriggerSourceEnabled();
+            OnFieldChanged();
         }
 
         // ── 이벤트 핸들러 (Designer 에서 named 연결) ──
@@ -58,6 +103,28 @@ namespace QMC.Vision.Ui.Pages
         private void OnDiscoverClick(object sender, EventArgs e) => DiscoverCameras();
         private void OnMilDcfCheckedChanged(object sender, EventArgs e) { UpdateMilDcfVisibility(); OnMilFieldChanged(); }
         private void OnMilTextChanged(object sender, EventArgs e) => OnMilFieldChanged();
+        private void OnMilBrowseClick(object sender, EventArgs e)
+        {
+            using (var dlg = new OpenFileDialog())
+            {
+                dlg.Filter = "DCF 파일 (*.dcf)|*.dcf|모든 파일 (*.*)|*.*";
+                dlg.Title  = "MIL DCF 파일 선택";
+                try
+                {
+                    string cur = _txtMilDcf?.Text;
+                    if (!string.IsNullOrWhiteSpace(cur))
+                    {
+                        string dir = System.IO.Path.GetDirectoryName(cur);
+                        if (!string.IsNullOrEmpty(dir) && System.IO.Directory.Exists(dir))
+                            dlg.InitialDirectory = dir;
+                        if (System.IO.File.Exists(cur)) dlg.FileName = System.IO.Path.GetFileName(cur);
+                    }
+                }
+                catch { }
+                if (dlg.ShowDialog(this) == DialogResult.OK && _txtMilDcf != null)
+                    _txtMilDcf.Text = dlg.FileName;   // TextChanged → OnMilTextChanged → cfg.MilDcfPath 저장
+            }
+        }
         private void OnSaveClick(object sender, EventArgs e) => SaveAll();
         private void OnCancelClick(object sender, EventArgs e) => CancelChanges();
         private void OnResetClick(object sender, EventArgs e) => ResetToDefaults();
@@ -272,7 +339,7 @@ namespace QMC.Vision.Ui.Pages
                 _numExposure.Value = Clamp((decimal)m.ExposureUs, _numExposure.Minimum, _numExposure.Maximum);
                 _numGain    .Value = Clamp((decimal)m.Gain,       _numGain.Minimum,     _numGain.Maximum);
                 _numFps     .Value = Clamp((decimal)m.FrameRate,  _numFps.Minimum,      _numFps.Maximum);
-                _cbTrigger  .SelectedItem = m.TriggerMode ?? "Software"; if (_cbTrigger.SelectedIndex < 0) _cbTrigger.SelectedIndex = (int)CameraTriggerMode.Software;
+                ApplyTriggerToUi(m.TriggerMode);
                 _cbPixel    .SelectedItem = m.PixelFormat ?? "Mono8";    if (_cbPixel.SelectedIndex   < 0) _cbPixel.SelectedIndex   = (int)CameraPixelFormat.Mono8;
                 _numDelay   .Value = Clamp((decimal)m.DelayBeforeGrabMs, _numDelay.Minimum, _numDelay.Maximum);
                 _numRoiX    .Value = Clamp(m.RoiOffsetX, _numRoiX.Minimum, _numRoiX.Maximum);
@@ -302,8 +369,9 @@ namespace QMC.Vision.Ui.Pages
         private void UpdateMilDcfVisibility()
         {
             bool show = _chkMilDcf != null && _chkMilDcf.Visible && _chkMilDcf.Checked;
-            if (_lblMil    != null) _lblMil.Visible    = show;
-            if (_txtMilDcf != null) _txtMilDcf.Visible = show;
+            if (_lblMil       != null) _lblMil.Visible       = show;
+            if (_txtMilDcf    != null) _txtMilDcf.Visible    = show;
+            if (_btnMilBrowse != null) _btnMilBrowse.Visible = show;
         }
 
         /// <summary>MIL DCF 는 전역 VisionSettings 에 보관 (per-algorithm 아님). 체크 해제 시 비움 → enumerate 가 M_DEFAULT 사용.</summary>
@@ -328,7 +396,7 @@ namespace QMC.Vision.Ui.Pages
             m.ExposureUs        = (double)_numExposure.Value;
             m.Gain              = (double)_numGain.Value;
             m.FrameRate         = (double)_numFps.Value;
-            m.TriggerMode       = (string)_cbTrigger.SelectedItem ?? "Software";
+            m.TriggerMode       = ComposeTriggerStored();
             m.PixelFormat       = (string)_cbPixel.SelectedItem   ?? "Mono8";
             m.DelayBeforeGrabMs = (int)_numDelay.Value;
             m.RoiOffsetX        = (int)_numRoiX.Value;
