@@ -89,18 +89,15 @@ namespace QMC.CDT_320
             this.lblBarcodeValue = new System.Windows.Forms.Label();
             this.lblBinCaption = new System.Windows.Forms.Label();
             this.lblBinValue = new System.Windows.Forms.Label();
+            this.dotVision = new QMC.CDT_320.Ui.Controls.IndicatorDot();
             this.lblVision = new System.Windows.Forms.Label();
+            this.dotPick = new QMC.CDT_320.Ui.Controls.IndicatorDot();
             this.lblPick = new System.Windows.Forms.Label();
+            this.dotReference = new QMC.CDT_320.Ui.Controls.IndicatorDot();
             this.lblReference = new System.Windows.Forms.Label();
             this.pnlContent = new System.Windows.Forms.Panel();
-            this.pnlBottomBar = new System.Windows.Forms.Panel();
-            this.timerClock = new System.Windows.Forms.Timer(this.components);
             this.alarmBanner = new QMC.CDT_320.Ui.Controls.AlarmBanner();
-            this.lblMenuLeft = new QMC.CDT_320.Ui.Controls.VerticalLabel();
-            this.lblMenuRight = new QMC.CDT_320.Ui.Controls.VerticalLabel();
-            this.dotVision = new QMC.CDT_320.Ui.Controls.IndicatorDot();
-            this.dotPick = new QMC.CDT_320.Ui.Controls.IndicatorDot();
-            this.dotReference = new QMC.CDT_320.Ui.Controls.IndicatorDot();
+            this.pnlBottomBar = new System.Windows.Forms.Panel();
             this.btnTabWork = new QMC.CDT_320.Ui.Controls.BottomMenuButton();
             this.btnTabWorkInfo = new QMC.CDT_320.Ui.Controls.BottomMenuButton();
             this.btnTabHistory = new QMC.CDT_320.Ui.Controls.BottomMenuButton();
@@ -110,6 +107,9 @@ namespace QMC.CDT_320
             this.btnTabSettings = new QMC.CDT_320.Ui.Controls.BottomMenuButton();
             this.btnTabUser = new QMC.CDT_320.Ui.Controls.BottomMenuButton();
             this.btnTabExit = new QMC.CDT_320.Ui.Controls.BottomMenuButton();
+            this.timerClock = new System.Windows.Forms.Timer(this.components);
+            this.lblMenuLeft = new QMC.CDT_320.Ui.Controls.VerticalLabel();
+            this.lblMenuRight = new QMC.CDT_320.Ui.Controls.VerticalLabel();
             this.pnlHeader.SuspendLayout();
             this.pnlUserBox.SuspendLayout();
             this.pnlStatusBar.SuspendLayout();
@@ -401,6 +401,17 @@ namespace QMC.CDT_320
             this.lblBinValue.TabIndex = 6;
             this.lblBinValue.Text = "0";
             // 
+            // dotVision
+            // 
+            this.dotVision.BackColor = System.Drawing.Color.Transparent;
+            this.dotVision.IsOn = true;
+            this.dotVision.Location = new System.Drawing.Point(1560, 10);
+            this.dotVision.Name = "dotVision";
+            this.dotVision.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
+            this.dotVision.OnColor = System.Drawing.Color.FromArgb(((int)(((byte)(0)))), ((int)(((byte)(188)))), ((int)(((byte)(212)))));
+            this.dotVision.Size = new System.Drawing.Size(12, 12);
+            this.dotVision.TabIndex = 7;
+            // 
             // lblVision
             // 
             this.lblVision.BackColor = System.Drawing.Color.Transparent;
@@ -412,6 +423,17 @@ namespace QMC.CDT_320
             this.lblVision.TabIndex = 8;
             this.lblVision.Text = "VISION";
             // 
+            // dotPick
+            // 
+            this.dotPick.BackColor = System.Drawing.Color.Transparent;
+            this.dotPick.IsOn = true;
+            this.dotPick.Location = new System.Drawing.Point(1660, 10);
+            this.dotPick.Name = "dotPick";
+            this.dotPick.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
+            this.dotPick.OnColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(199)))), ((int)(((byte)(24)))));
+            this.dotPick.Size = new System.Drawing.Size(12, 12);
+            this.dotPick.TabIndex = 9;
+            // 
             // lblPick
             // 
             this.lblPick.BackColor = System.Drawing.Color.Transparent;
@@ -422,6 +444,16 @@ namespace QMC.CDT_320
             this.lblPick.Size = new System.Drawing.Size(60, 22);
             this.lblPick.TabIndex = 10;
             this.lblPick.Text = "PICK";
+            // 
+            // dotReference
+            // 
+            this.dotReference.BackColor = System.Drawing.Color.Transparent;
+            this.dotReference.Location = new System.Drawing.Point(1740, 10);
+            this.dotReference.Name = "dotReference";
+            this.dotReference.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
+            this.dotReference.OnColor = System.Drawing.Color.FromArgb(((int)(((byte)(189)))), ((int)(((byte)(189)))), ((int)(((byte)(189)))));
+            this.dotReference.Size = new System.Drawing.Size(12, 12);
+            this.dotReference.TabIndex = 11;
             // 
             // lblReference
             // 
@@ -446,6 +478,16 @@ namespace QMC.CDT_320
             this.pnlContent.Size = new System.Drawing.Size(1888, 900);
             this.pnlContent.TabIndex = 0;
             // 
+            // alarmBanner
+            // 
+            this.alarmBanner.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(192)))), ((int)(((byte)(57)))), ((int)(((byte)(43)))));
+            this.alarmBanner.Dock = System.Windows.Forms.DockStyle.Top;
+            this.alarmBanner.Location = new System.Drawing.Point(0, 0);
+            this.alarmBanner.Name = "alarmBanner";
+            this.alarmBanner.Size = new System.Drawing.Size(1888, 36);
+            this.alarmBanner.TabIndex = 0;
+            this.alarmBanner.Visible = false;
+            // 
             // pnlBottomBar
             // 
             this.pnlBottomBar.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left) 
@@ -464,79 +506,6 @@ namespace QMC.CDT_320
             this.pnlBottomBar.Name = "pnlBottomBar";
             this.pnlBottomBar.Size = new System.Drawing.Size(1920, 80);
             this.pnlBottomBar.TabIndex = 5;
-            // 
-            // timerClock
-            // 
-            this.timerClock.Interval = 1000;
-            this.timerClock.Tick += new System.EventHandler(this.TimerClock_Tick);
-            // 
-            // alarmBanner
-            // 
-            this.alarmBanner.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(192)))), ((int)(((byte)(57)))), ((int)(((byte)(43)))));
-            this.alarmBanner.Dock = System.Windows.Forms.DockStyle.Top;
-            this.alarmBanner.Location = new System.Drawing.Point(0, 0);
-            this.alarmBanner.Name = "alarmBanner";
-            this.alarmBanner.Size = new System.Drawing.Size(1888, 36);
-            this.alarmBanner.TabIndex = 0;
-            this.alarmBanner.Visible = false;
-            // 
-            // lblMenuLeft
-            // 
-            this.lblMenuLeft.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
-            | System.Windows.Forms.AnchorStyles.Left)));
-            this.lblMenuLeft.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(64)))), ((int)(((byte)(64)))));
-            this.lblMenuLeft.Font = new System.Drawing.Font("Segoe UI", 8F);
-            this.lblMenuLeft.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(144)))), ((int)(((byte)(144)))), ((int)(((byte)(144)))));
-            this.lblMenuLeft.Location = new System.Drawing.Point(0, 100);
-            this.lblMenuLeft.Name = "lblMenuLeft";
-            this.lblMenuLeft.Size = new System.Drawing.Size(16, 900);
-            this.lblMenuLeft.TabIndex = 1;
-            this.lblMenuLeft.Text = "MENU";
-            // 
-            // lblMenuRight
-            // 
-            this.lblMenuRight.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.lblMenuRight.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(64)))), ((int)(((byte)(64)))));
-            this.lblMenuRight.Font = new System.Drawing.Font("Segoe UI", 8F);
-            this.lblMenuRight.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(144)))), ((int)(((byte)(144)))), ((int)(((byte)(144)))));
-            this.lblMenuRight.Location = new System.Drawing.Point(1904, 100);
-            this.lblMenuRight.Name = "lblMenuRight";
-            this.lblMenuRight.Size = new System.Drawing.Size(16, 900);
-            this.lblMenuRight.TabIndex = 2;
-            this.lblMenuRight.Text = "MENU";
-            // 
-            // dotVision
-            // 
-            this.dotVision.BackColor = System.Drawing.Color.Transparent;
-            this.dotVision.IsOn = true;
-            this.dotVision.Location = new System.Drawing.Point(1560, 10);
-            this.dotVision.Name = "dotVision";
-            this.dotVision.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
-            this.dotVision.OnColor = System.Drawing.Color.FromArgb(((int)(((byte)(0)))), ((int)(((byte)(188)))), ((int)(((byte)(212)))));
-            this.dotVision.Size = new System.Drawing.Size(12, 12);
-            this.dotVision.TabIndex = 7;
-            // 
-            // dotPick
-            // 
-            this.dotPick.BackColor = System.Drawing.Color.Transparent;
-            this.dotPick.IsOn = true;
-            this.dotPick.Location = new System.Drawing.Point(1660, 10);
-            this.dotPick.Name = "dotPick";
-            this.dotPick.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
-            this.dotPick.OnColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(199)))), ((int)(((byte)(24)))));
-            this.dotPick.Size = new System.Drawing.Size(12, 12);
-            this.dotPick.TabIndex = 9;
-            // 
-            // dotReference
-            // 
-            this.dotReference.BackColor = System.Drawing.Color.Transparent;
-            this.dotReference.Location = new System.Drawing.Point(1740, 10);
-            this.dotReference.Name = "dotReference";
-            this.dotReference.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
-            this.dotReference.OnColor = System.Drawing.Color.FromArgb(((int)(((byte)(189)))), ((int)(((byte)(189)))), ((int)(((byte)(189)))));
-            this.dotReference.Size = new System.Drawing.Size(12, 12);
-            this.dotReference.TabIndex = 11;
             // 
             // btnTabWork
             // 
@@ -668,6 +637,37 @@ namespace QMC.CDT_320
             this.btnTabExit.Selected = false;
             this.btnTabExit.Size = new System.Drawing.Size(110, 70);
             this.btnTabExit.TabIndex = 8;
+            // 
+            // timerClock
+            // 
+            this.timerClock.Interval = 1000;
+            this.timerClock.Tick += new System.EventHandler(this.TimerClock_Tick);
+            // 
+            // lblMenuLeft
+            // 
+            this.lblMenuLeft.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            | System.Windows.Forms.AnchorStyles.Left)));
+            this.lblMenuLeft.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(64)))), ((int)(((byte)(64)))));
+            this.lblMenuLeft.Font = new System.Drawing.Font("Segoe UI", 8F);
+            this.lblMenuLeft.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(144)))), ((int)(((byte)(144)))), ((int)(((byte)(144)))));
+            this.lblMenuLeft.Location = new System.Drawing.Point(0, 100);
+            this.lblMenuLeft.Name = "lblMenuLeft";
+            this.lblMenuLeft.Size = new System.Drawing.Size(16, 900);
+            this.lblMenuLeft.TabIndex = 1;
+            this.lblMenuLeft.Text = "MENU";
+            // 
+            // lblMenuRight
+            // 
+            this.lblMenuRight.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.lblMenuRight.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(64)))), ((int)(((byte)(64)))));
+            this.lblMenuRight.Font = new System.Drawing.Font("Segoe UI", 8F);
+            this.lblMenuRight.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(144)))), ((int)(((byte)(144)))), ((int)(((byte)(144)))));
+            this.lblMenuRight.Location = new System.Drawing.Point(1904, 100);
+            this.lblMenuRight.Name = "lblMenuRight";
+            this.lblMenuRight.Size = new System.Drawing.Size(16, 900);
+            this.lblMenuRight.TabIndex = 2;
+            this.lblMenuRight.Text = "MENU";
             // 
             // Form1
             // 

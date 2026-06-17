@@ -63,8 +63,8 @@ namespace QMC.Vision.Ui.Pages
             AddAlgoButton(host.WaferMod);
             AddAlgoButton(host.BinMod);
             AddAlgoButton(host.BottomMod);
-            AddAlgoButton(host.FrontSideMod);
-            AddAlgoButton(host.RearSideMod);
+            AddAlgoButton(host.TopSideVisionMod);
+            AddAlgoButton(host.BottomSideVisionMod);
 
             foreach (var kv in _algoBtns) { SelectAlgorithm(kv.Key); break; }
         }

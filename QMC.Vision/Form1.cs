@@ -12,43 +12,61 @@ using QMC.Vision.Ui.Pages;
 
 namespace QMC.Vision
 {
-    /// <summary>하단 탭 식별자 — Handler 와 동일 구성: 4 좌측 + 3 우측 (Settings 추가).</summary>
-    public enum Tab { Operation, Configuration, Recipe, DataLog, Settings }
+    /// <summary>하단 탭 식별자 — 핸들러 정렬: 작업 · 레시피 · 이력 · 설정 · 사용자.
+    /// (환경설정은 별도 탭이 아니라 설정 탭의 GENERAL 페이지로 흡수)</summary>
+    public enum Tab { Work, Recipe, History, Settings, User }
 
     public partial class Form1 : Form
     {
         internal IVisionBackend Backend { get; private set; }
 
+        // 머신 루트 — 5개 모듈을 Components 로 소유(핸들러 CDT320Machine 정렬). Save/Recipe cascade 단일 진입점.
+        internal VisionMachine Machine { get; private set; }
+
         internal WaferVisionModule        WaferMod      { get; private set; }
         internal BinVisionModule          BinMod        { get; private set; }
         internal BottomInspectionModule   BottomMod     { get; private set; }
-        internal FrontSideInspectionModule    FrontSideMod    { get; private set; }
-        internal RearSideInspectionModule RearSideMod { get; private set; }
+        internal TopSideVisionModule    TopSideVisionMod    { get; private set; }
+        internal BottomSideVisionModule BottomSideVisionMod { get; private set; }
 
         private VisionTcpServer _svrWafer, _svrBin, _svrBottom;
-        private VisionTcpServer _svrFrontSide, _svrRearSide;
+        private VisionTcpServer _svrTopSideVision, _svrBottomSideVision;
+        private MainCommServer  _svrMain;   // 전역 통신(5104) — 레시피/전역 명령 수신
 
         // 원격 뷰어 (그랩 영상 송출) — 모듈별 5채널
         private GrabStreamServer _viewWafer, _viewBin, _viewBottom, _viewFrontSide, _viewRearSide;
 
-        private OperationPage     _pgOperation;
-        private ConfigurationPage _pgConfig;
-        private RecipePage        _pgRecipe;
-        private DataLogPage       _pgDataLog;
-        private SettingsPage      _pgSettings;
+        // 페이지 클래스명(OperationPage/DataLogPage)은 구현 그대로 유지, 탭 의미만 핸들러 정렬.
+        // 핸들러 정렬: Form1 → Tab(UserControl) → Page 3단. 각 탭이 자체 사이드바 + 콘텐츠 호스트.
+        private QMC.Vision.Ui.Tabs.WorkTab     _tabWork;
+        private QMC.Vision.Ui.Tabs.RecipeTab   _tabRecipe;
+        private QMC.Vision.Ui.Tabs.HistoryTab  _tabHistory;
+        private QMC.Vision.Ui.Tabs.SettingsTab _tabSettings;
+        private QMC.Vision.Ui.Tabs.UserTab     _tabUser;
 
         public Form1() { InitializeComponent(); }
 
+        // ── 수명주기: Load 는 조립만, 세부는 Initialize* 헬퍼로 분리(핸들러 정렬) ──
         private void Form1_Load(object sender, EventArgs e)
         {
-            // ── 설정 + 백엔드 ──
             var cfg = VisionConfigStore.Load();
-            // C3a — algorithm_camera.json 완전 은퇴: 카메라=모듈 Config(C1), 조명=노드 Recipe(C2) SSOT.
-            //        구 store Load/Save·마이그 다리 제거(읽기·쓰기 0).
+            InitializeLighting(cfg);
+            InitializeBackend(cfg);
+            InitializeModulesAndMachine();
+            InitializeServers(cfg);
+            InitializeTabs();
+            UpdateCameraStatusDot();
 
-            // Stage 69 — 조명 시스템 Setup 로드 + LightHub 초기화 (Sim 백엔드면 Sim 컨트롤러).
+            timerClock.Start();
+            UpdateClock();
+            ShowTab(Tab.Work);
+        }
+
+        /// <summary>조명 시스템 Setup 로드 + 1회 마이그레이션 + LightHub 초기화 + 시작 시 시리얼 Open(비차단).</summary>
+        private void InitializeLighting(VisionSettings cfg)
+        {
+            // Stage 69 — 조명 시스템 Setup 로드. 첫 기동 시 레거시 io_set 존재하면 1회 변환 + 백업.
             var lightSetup = QMC.Common.Recipes.LightSystemSetupStore.Load();
-            // 첫 기동 자동 마이그레이션: Setup 비어 있고 레거시 io_set 존재 시 1회 변환 + 백업.
             if (lightSetup.Controllers == null || lightSetup.Controllers.Count == 0)
             {
                 string ioSet = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "io_set.lightSource.json");
@@ -62,79 +80,95 @@ namespace QMC.Vision
                 }
             }
 
-            // Stage 73 — 조명 Sim 여부를 비전 Provider 와 분리(독립 config). 기본 true=안전(Sim).
-            //   실제 점등 테스트는 [설정>조명 시스템]의 '조명 연결' 버튼으로 실장비 재초기화+시리얼 Open.
-            bool lightUseSim = cfg.LightUseSim;
-            QMC.Vision.Comm.LightHub.Initialize(lightSetup, lightUseSim);
+            // Stage 73 — 조명 Sim 여부는 비전 Provider 와 독립(기본 true=Sim). 실점등은 [설정>조명]의 '조명 연결' 버튼.
+            QMC.Vision.Comm.LightHub.Initialize(lightSetup, cfg.LightUseSim);
 
-            // Stage 85 — 시작 시 자동 시리얼 Open (UI 비차단 fire-and-forget).
-            //   실패한 포트는 LightHub 내부에서 LIGHT-OPEN-FAIL 알람 raise. 재연결은 [설정>조명 시스템]의 '조명 연결' 버튼.
+            // Stage 85 — 시작 시 자동 시리얼 Open(비차단). 실패 포트는 LIGHT-OPEN-FAIL 알람.
             _ = ConnectLightsOnStartupAsync();
+        }
 
+        /// <summary>비전 백엔드 선택 + 상태바 텍스트 / VISION 연결 동그라미.</summary>
+        private void InitializeBackend(VisionSettings cfg)
+        {
             Backend = VisionFactory.Global;
-            lblStatusL.Text = $"Backend: {Backend.Name}   |   {Backend.VersionInfo}";
-            lblStatusR.Text = $"TCP: Wafer={cfg.WaferVisionPort}  Bin={cfg.BinVisionPort}  Bottom={cfg.InspectionVisionPort}";
+            lblStatusL.Text = $"Backend: {Backend.Name}   |   TCP: Wafer={cfg.WaferVisionPort}  Bin={cfg.BinVisionPort}  Bottom={cfg.InspectionVisionPort}";
+            dotVision.IsOn  = Backend != null;
+        }
 
-            // ── C1: 카메라 SSOT = 모듈 BaseUnit Config. 모듈 먼저(카메라 없이) 생성 ──
-            WaferMod      = new WaferVisionModule       (null, Backend);
-            BinMod        = new BinVisionModule         (null, Backend);
-            BottomMod     = new BottomInspectionModule  (null, Backend);
-            FrontSideMod    = new FrontSideInspectionModule   (null, Backend);
-            RearSideMod = new RearSideInspectionModule(null, Backend);
+        /// <summary>5개 모듈 생성(카메라 SSOT=모듈 Config) → Config/Recipe 로드+카메라 생성/적용 → 머신 루트 조립.</summary>
+        private void InitializeModulesAndMachine()
+        {
+            WaferMod            = new WaferVisionModule      (null, Backend);
+            BinMod              = new BinVisionModule        (null, Backend);
+            BottomMod           = new BottomInspectionModule (null, Backend);
+            TopSideVisionMod    = new TopSideVisionModule    (null, Backend);
+            BottomSideVisionMod = new BottomSideVisionModule (null, Backend);
 
-            // 모듈 Config/Recipe 로드(+알고리즘 cascade) → CameraId 로 카메라 생성·SetCamera·적용. (C3a: 구파일 마이그 제거)
-            InitModuleCamera(WaferMod,      VisionAlgorithm.Wafer,            "Sim/Wafer");
-            InitModuleCamera(BinMod,        VisionAlgorithm.Bin,              "Sim/Bin");
-            InitModuleCamera(BottomMod,     VisionAlgorithm.BottomInspection, "Sim/BottomInsp");
-            InitModuleCamera(FrontSideMod,  VisionAlgorithm.FrontSide,        "Sim/FrontSide");
-            InitModuleCamera(RearSideMod,   VisionAlgorithm.RearSide,         "Sim/RearSide");
+            InitModuleCamera(WaferMod,            VisionAlgorithm.Wafer,            "Sim/Wafer");
+            InitModuleCamera(BinMod,              VisionAlgorithm.Bin,              "Sim/Bin");
+            InitModuleCamera(BottomMod,           VisionAlgorithm.BottomInspection, "Sim/BottomInsp");
+            InitModuleCamera(TopSideVisionMod,    VisionAlgorithm.FrontSide,        "Sim/FrontSide");
+            InitModuleCamera(BottomSideVisionMod, VisionAlgorithm.RearSide,         "Sim/RearSide");
 
-            // ── TCP 서버 ──
-            _svrWafer      = new VisionTcpServer(WaferMod,      cfg.WaferVisionPort);
-            _svrBin        = new VisionTcpServer(BinMod,        cfg.BinVisionPort);
-            _svrBottom     = new VisionTcpServer(BottomMod,     cfg.InspectionVisionPort);
-            _svrFrontSide    = new VisionTcpServer(FrontSideMod,    cfg.FrontSideInspectionPort);
-            _svrRearSide = new VisionTcpServer(RearSideMod, cfg.RearSideInspectionPort);
-            try { _svrWafer     .Start(); } catch { }
-            try { _svrBin       .Start(); } catch { }
-            try { _svrBottom    .Start(); } catch { }
-            try { _svrFrontSide   .Start(); } catch { }
-            try { _svrRearSide.Start(); } catch { }
+            // 머신 루트 — 5개 모듈을 Units 로 소유(핸들러 CDT320Machine 정렬). Save/Recipe cascade 단일 진입점.
+            Machine = new VisionMachine(WaferMod, BinMod, BottomMod, TopSideVisionMod, BottomSideVisionMod);
+        }
 
-            // ── 원격 뷰어 서버 (모듈별 그랩 영상 송출) ──
+        /// <summary>모듈별 TCP 서버 + 전역 MainComm(5104) 서버 + 원격 뷰어 생성·시작.</summary>
+        private void InitializeServers(VisionSettings cfg)
+        {
+            _svrWafer            = new VisionTcpServer(WaferMod,            cfg.WaferVisionPort);
+            _svrBin              = new VisionTcpServer(BinMod,              cfg.BinVisionPort);
+            _svrBottom           = new VisionTcpServer(BottomMod,          cfg.InspectionVisionPort);
+            _svrTopSideVision    = new VisionTcpServer(TopSideVisionMod,    cfg.TopSideVisionPort);
+            _svrBottomSideVision = new VisionTcpServer(BottomSideVisionMod, cfg.BottomSideVisionPort);
+            try { _svrWafer            .Start(); } catch { }
+            try { _svrBin              .Start(); } catch { }
+            try { _svrBottom           .Start(); } catch { }
+            try { _svrTopSideVision    .Start(); } catch { }
+            try { _svrBottomSideVision .Start(); } catch { }
+
+            // 전역 통신(MainComm 5104) — 핸들러 레시피 변경 수신 → 전 모듈 LoadRecipe cascade.
+            try { _svrMain = new MainCommServer(Machine, cfg.MainCommPort); _svrMain.Start(); } catch { }
+
+            // 원격 뷰어(모듈별 그랩 영상 송출).
             if (cfg.RemoteViewerEnable)
             {
-                _viewWafer     = MakeViewer("Wafer",     cfg.WaferViewerPort,      WaferMod,     cfg);
-                _viewBottom    = MakeViewer("Bottom",    cfg.InspectionViewerPort, BottomMod,    cfg);
-                _viewBin       = MakeViewer("Bin",       cfg.BinViewerPort,        BinMod,       cfg);
-                _viewFrontSide = MakeViewer("FrontSide", cfg.FrontSideViewerPort,  FrontSideMod, cfg);
-                _viewRearSide  = MakeViewer("RearSide",  cfg.RearSideViewerPort,   RearSideMod,  cfg);
+                _viewWafer     = MakeViewer("Wafer",     cfg.WaferViewerPort,      WaferMod,            cfg);
+                _viewBottom    = MakeViewer("Bottom",    cfg.InspectionViewerPort, BottomMod,           cfg);
+                _viewBin       = MakeViewer("Bin",       cfg.BinViewerPort,        BinMod,              cfg);
+                _viewFrontSide = MakeViewer("FrontSide", cfg.FrontSideViewerPort,  TopSideVisionMod,    cfg);
+                _viewRearSide  = MakeViewer("RearSide",  cfg.RearSideViewerPort,   BottomSideVisionMod, cfg);
             }
+        }
 
-            // ── 5 탭 UserControl (Stage 65: Maintenance 통합 → Recipe) ──
-            _pgOperation = new OperationPage     { Dock = DockStyle.Fill, Visible = false };
-            _pgConfig    = new ConfigurationPage { Dock = DockStyle.Fill, Visible = false };
-            _pgRecipe    = new RecipePage        { Dock = DockStyle.Fill, Visible = false };
-            _pgDataLog   = new DataLogPage       { Dock = DockStyle.Fill, Visible = false };
-            _pgSettings  = new SettingsPage      { Dock = DockStyle.Fill, Visible = false };
-            pnlContent.Controls.Add(_pgOperation);
-            pnlContent.Controls.Add(_pgConfig);
-            pnlContent.Controls.Add(_pgRecipe);
-            pnlContent.Controls.Add(_pgDataLog);
-            pnlContent.Controls.Add(_pgSettings);
+        /// <summary>탭 UserControl 5개 생성 + 콘텐츠 호스트 등록 + Host(Form1) 연결.</summary>
+        private void InitializeTabs()
+        {
+            _tabWork     = new QMC.Vision.Ui.Tabs.WorkTab     { Dock = DockStyle.Fill, Visible = false };
+            _tabRecipe   = new QMC.Vision.Ui.Tabs.RecipeTab   { Dock = DockStyle.Fill, Visible = false };
+            _tabHistory  = new QMC.Vision.Ui.Tabs.HistoryTab  { Dock = DockStyle.Fill, Visible = false };
+            _tabSettings = new QMC.Vision.Ui.Tabs.SettingsTab { Dock = DockStyle.Fill, Visible = false };
+            _tabUser     = new QMC.Vision.Ui.Tabs.UserTab     { Dock = DockStyle.Fill, Visible = false };
+            pnlContent.Controls.Add(_tabWork);
+            pnlContent.Controls.Add(_tabRecipe);
+            pnlContent.Controls.Add(_tabHistory);
+            pnlContent.Controls.Add(_tabSettings);
+            pnlContent.Controls.Add(_tabUser);
+            _tabWork.AttachHost(this);
+            _tabRecipe.AttachHost(this);
+            _tabHistory.AttachHost(this);
+            _tabSettings.AttachHost(this);
+            _tabUser.AttachHost(this);
+        }
 
-            // Stage 88 — 카메라 자동 Open 결과 집계 + 상태바 표시 (조명 상태 옆). 알람은 CreateCameraForAlgorithm 이 이미 raise.
-            {
-                int camOk = 0, camTotal = 5;
-                void Tally(IVisionModule m) { if (m?.Camera != null && m.Camera.IsOpen) camOk++; }
-                Tally(WaferMod); Tally(BinMod); Tally(BottomMod); Tally(FrontSideMod); Tally(RearSideMod);
-                if (lblStatusR != null && !lblStatusR.Text.Contains("Camera:"))
-                    lblStatusR.Text += $"  |  Camera: {camOk}/{camTotal} OK";
-            }
-
-            timerClock.Start();
-            UpdateClock();
-            ShowTab(Tab.Operation);
+        /// <summary>카메라 자동 Open 결과 집계 → CAMERA 연결 동그라미.</summary>
+        private void UpdateCameraStatusDot()
+        {
+            int camOk = 0, camTotal = 5;
+            void Tally(IVisionModule m) { if (m?.Camera != null && m.Camera.IsOpen) camOk++; }
+            Tally(WaferMod); Tally(BinMod); Tally(BottomMod); Tally(TopSideVisionMod); Tally(BottomSideVisionMod);
+            dotCamera.IsOn = (camTotal > 0 && camOk == camTotal);
         }
 
         /// <summary>Stage 85 — Form1.Load 시점에 LightHub 의 모든 컨트롤러 시리얼 Open 시도(비차단).
@@ -163,17 +197,8 @@ namespace QMC.Vision
 
         private void UpdateLightStartupStatus(int ok, int total, System.Collections.Generic.List<string> fails)
         {
-            string suffix;
-            if (total == 0)
-                suffix = "  |  Light: (인벤토리 비어 있음)";
-            else if (fails.Count == 0)
-                suffix = $"  |  Light: {ok}/{total} OK";
-            else
-                suffix = $"  |  Light: {ok}/{total} (실패: {string.Join(",", fails)})";
-
-            // 기존 상태바 텍스트에 덧붙임 (덮어쓰기 X)
-            if (lblStatusR != null && !lblStatusR.Text.Contains("Light:"))
-                lblStatusR.Text += suffix;
+            // LIGHT 연결 동그라미 — 인벤토리가 있고 전부 연결 성공이면 ON.
+            if (dotLight != null) dotLight.IsOn = (total > 0 && fails.Count == 0);
         }
 
         /// <summary>C1/C3a — 카메라 SSOT=모듈 BaseUnit Config: LoadSettings/LoadRecipe → CameraId 로 생성·SetCamera·적용.
@@ -296,29 +321,59 @@ namespace QMC.Vision
                 case VisionAlgorithm.Wafer:            return WaferMod;
                 case VisionAlgorithm.Bin:              return BinMod;
                 case VisionAlgorithm.BottomInspection: return BottomMod;
-                case VisionAlgorithm.FrontSide:          return FrontSideMod;
-                case VisionAlgorithm.RearSide:       return RearSideMod;
+                case VisionAlgorithm.FrontSide:          return TopSideVisionMod;
+                case VisionAlgorithm.RearSide:       return BottomSideVisionMod;
                 default:                               return null;
             }
         }
 
         private void ShowTab(Tab t)
         {
-            _pgOperation.Visible = t == Tab.Operation;
-            _pgConfig   .Visible = t == Tab.Configuration;
-            _pgRecipe   .Visible = t == Tab.Recipe;
-            _pgDataLog  .Visible = t == Tab.DataLog;
-            _pgSettings .Visible = t == Tab.Settings;
+            _tabWork    .Visible = t == Tab.Work;
+            _tabRecipe  .Visible = t == Tab.Recipe;
+            _tabHistory .Visible = t == Tab.History;
+            _tabSettings.Visible = t == Tab.Settings;
+            _tabUser    .Visible = t == Tab.User;
 
-            btnOperation    .Selected = t == Tab.Operation;
-            btnConfiguration.Selected = t == Tab.Configuration;
-            btnRecipe       .Selected = t == Tab.Recipe;
-            btnDataLog      .Selected = t == Tab.DataLog;
-            btnSettings     .Selected = t == Tab.Settings;
+            btnWork    .Selected = t == Tab.Work;
+            btnRecipe  .Selected = t == Tab.Recipe;
+            btnHistory .Selected = t == Tab.History;
+            btnSettings.Selected = t == Tab.Settings;
+            btnUser    .Selected = t == Tab.User;
+        }
+
+        // ── 하단 메뉴 네비게이션 (Designer 명명 핸들러) ──
+        private void btnWork_Click(object sender, EventArgs e)     => ShowTab(Tab.Work);
+        private void btnRecipe_Click(object sender, EventArgs e)   => ShowTab(Tab.Recipe);
+        private void btnHistory_Click(object sender, EventArgs e)  => ShowTab(Tab.History);
+        private void btnSettings_Click(object sender, EventArgs e) => ShowTab(Tab.Settings);
+        private void btnUser_Click(object sender, EventArgs e)     => ShowTab(Tab.User);
+        private void btnExit_Click(object sender, EventArgs e)     => this.Close();
+
+        // ── 하단바 우측 버튼 런타임 배치 ──
+        private void Form1_Shown(object sender, EventArgs e)              => LayoutBottomBar();
+        private void pnlBottomBar_SizeChanged(object sender, EventArgs e) => LayoutBottomBar();
+
+        /// <summary>하단바 우측 버튼(설정/사용자/종료)을 패널 실제 너비 기준으로 배치.
+        /// Anchor=Top|Right 가 Maximized 전 폭을 기록해 밀려나는 문제 회피 — SizeChanged/Shown 에서 재배치.</summary>
+        private void LayoutBottomBar()
+        {
+            if (pnlBottomBar == null || btnExit == null || btnSettings == null || btnUser == null) return;
+            int w      = pnlBottomBar.ClientSize.Width;
+            int btnW   = btnExit.Width > 0 ? btnExit.Width : 110;
+            int gap    = 10;
+            int margin = 20;
+            int y      = (UiTheme.BottomBarHeight - (btnExit.Height > 0 ? btnExit.Height : 70)) / 2;
+
+            // 우측 끝부터 역순: 종료 → 사용자 → 설정
+            int x = w - margin - btnW;
+            btnExit    .Location = new Point(x, y); x -= (btnW + gap);
+            btnUser    .Location = new Point(x, y); x -= (btnW + gap);
+            btnSettings.Location = new Point(x, y);
         }
 
         private void TimerClock_Tick(object sender, EventArgs e) => UpdateClock();
-        private void UpdateClock() => lblClock.Text = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+        private void UpdateClock() => lblTimeValue.Text = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
 
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
@@ -327,24 +382,25 @@ namespace QMC.Vision
             try { _viewBottom?.Dispose(); }    catch { }
             try { _viewFrontSide?.Dispose(); } catch { }
             try { _viewRearSide?.Dispose(); }  catch { }
+            try { _svrMain?.Dispose(); }       catch { }
             try { _svrWafer?.Dispose(); }      catch { }
             try { _svrBin?.Dispose(); }        catch { }
             try { _svrBottom?.Dispose(); }     catch { }
-            try { _svrFrontSide?.Dispose(); }    catch { }
-            try { _svrRearSide?.Dispose(); } catch { }
+            try { _svrTopSideVision?.Dispose(); }    catch { }
+            try { _svrBottomSideVision?.Dispose(); } catch { }
 
             // Stage 88 — 카메라 안전 정리 (TCP/뷰어 끊은 뒤, 조명/Backend 앞): 라이브 정지 → IVisionModule.Dispose(내부 Camera.Dispose).
             //   미정리 시 카메라 핸들이 남아 다음 실행에서 port 점유 가능.
             try { WaferMod    ?.Camera?.StopLive(); } catch { }
             try { BinMod      ?.Camera?.StopLive(); } catch { }
             try { BottomMod   ?.Camera?.StopLive(); } catch { }
-            try { FrontSideMod?.Camera?.StopLive(); } catch { }
-            try { RearSideMod ?.Camera?.StopLive(); } catch { }
+            try { TopSideVisionMod?.Camera?.StopLive(); } catch { }
+            try { BottomSideVisionMod ?.Camera?.StopLive(); } catch { }
             try { WaferMod    ?.Dispose(); } catch { }
             try { BinMod      ?.Dispose(); } catch { }
             try { BottomMod   ?.Dispose(); } catch { }
-            try { FrontSideMod?.Dispose(); } catch { }
-            try { RearSideMod ?.Dispose(); } catch { }
+            try { TopSideVisionMod?.Dispose(); } catch { }
+            try { BottomSideVisionMod ?.Dispose(); } catch { }
 
             try { QMC.Vision.Comm.LightHub.DisposeAll(); } catch { }
             try { Backend?.Dispose(); }        catch { }

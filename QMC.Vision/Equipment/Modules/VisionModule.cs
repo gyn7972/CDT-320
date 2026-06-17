@@ -50,7 +50,13 @@ namespace QMC.Vision.Modules
             : base(name)
         {
             Backend = backend ?? throw new ArgumentNullException(nameof(backend));
-            // C1 — camera null 허용: 부팅 시 모듈 먼저 생성 → LoadSettings(Config.CameraId) → SetCamera.
+
+            // 카메라 Component(Leaf) 등록 — 핸들러 BaseComponent 계층 정렬.
+            // 카메라 설정(Setup/Config/Recipe) SSOT 는 이 노드이며 모듈 Components 로 Save/Load cascade.
+            CameraNode = new VisionCamera(StorageKey + ".Camera");
+            Components.Add(CameraNode);
+
+            // camera null 허용: 부팅 시 모듈 먼저 생성 → LoadSettings(CameraNode.Config.CameraId) → SetCamera.
             Camera = camera;
             if (Camera != null)
             {
@@ -59,70 +65,64 @@ namespace QMC.Vision.Modules
             }
         }
 
-        // ── C1: 모듈 Config/Recipe ↔ Camera 동기화 (SSOT) ──
-        /// <summary>Config.CameraId — Form1 이 카메라 생성에 사용(적용 아닌 생성 트리거).</summary>
-        public string CameraId => (Config as VisionModuleConfigBase)?.CameraId;
+        // ── Camera Component(Leaf) SSOT — 핸들러 BaseComponent 계층 정렬 ──
+        /// <summary>카메라 Component 노드 — 카메라 Setup/Config/Recipe 독립 영속(모듈 Components 등록).</summary>
+        public VisionCamera CameraNode { get; }
 
-        /// <summary>모듈 Config/Recipe → AlgorithmCameraMapping(편집 UI/적용에서 재사용하는 스냅샷).</summary>
+        /// <summary>CameraNode.Config.CameraId — Form1 이 카메라 생성에 사용(적용 아닌 생성 트리거).</summary>
+        public string CameraId => CameraNode.Config.CameraId;
+
+        /// <summary>Camera Config/Recipe → AlgorithmCameraMapping(편집 UI/적용에서 재사용하는 스냅샷).</summary>
         public AlgorithmCameraMapping ExportCameraMapping()
         {
-            var c = Config as VisionModuleConfigBase;
-            var r = Recipe as VisionModuleRecipeBase;
+            var c = CameraNode.Config;
+            var r = CameraNode.Recipe;
             var m = new AlgorithmCameraMapping { Algorithm = AlgorithmKey };
-            if (c != null)
-            {
-                m.CameraId = c.CameraId; m.Gain = c.Gain; m.FrameRate = c.FrameRate;
-                m.TriggerMode = c.TriggerMode; m.PixelFormat = c.PixelFormat;
-                m.DelayBeforeGrabMs = c.DelayBeforeGrabMs;
-                m.RoiOffsetX = c.RoiOffsetX; m.RoiOffsetY = c.RoiOffsetY;
-                m.RoiWidth = c.RoiWidth; m.RoiHeight = c.RoiHeight;
-            }
-            m.ExposureUs = r != null ? r.Exposure : 5000;
+            m.CameraId = c.CameraId; m.Gain = c.Gain; m.FrameRate = c.FrameRate;
+            m.TriggerMode = c.TriggerMode; m.PixelFormat = c.PixelFormat;
+            m.DelayBeforeGrabMs = c.DelayBeforeGrabMs;
+            m.RoiOffsetX = c.RoiOffsetX; m.RoiOffsetY = c.RoiOffsetY;
+            m.RoiWidth = c.RoiWidth; m.RoiHeight = c.RoiHeight;
+            m.ExposureUs = r.Exposure;
             return m;
         }
 
-        /// <summary>Config/Recipe → Camera 적용(Binder 재활용). Camera null/미설정 시 no-op.</summary>
+        /// <summary>Camera Config/Recipe → Camera 적용(Binder 재활용). Camera null 시 no-op.</summary>
         public void ApplyCameraSettings()
         {
             if (Camera == null) return;
-            var c = Config as VisionModuleConfigBase;
-            if (c == null) return;
             AlgorithmCameraBinder.TryApplyParameters(Camera, ExportCameraMapping(), out _);
-            DelayBeforeGrabMs = c.DelayBeforeGrabMs;
+            DelayBeforeGrabMs = CameraNode.Config.DelayBeforeGrabMs;
         }
 
-        /// <summary>Camera → Config/Recipe 수집(저장 직전). Camera null 시 no-op.</summary>
+        /// <summary>Camera → Camera Config/Recipe 수집(저장 직전). Camera null 시 no-op.</summary>
         public void CollectCameraSettings()
         {
             if (Camera == null) return;
-            var c = Config as VisionModuleConfigBase;
-            var r = Recipe as VisionModuleRecipeBase;
-            if (c == null) return;
+            var c = CameraNode.Config;
+            var r = CameraNode.Recipe;
             try { c.Gain        = Camera.Gain; } catch { }
             try { c.FrameRate   = Camera.AcquisitionFrameRate; } catch { }
             try { c.TriggerMode = Camera.TriggerMode.ToString(); } catch { }
             try { c.PixelFormat = Camera.PixelFormat.ToString(); } catch { }
             try { var roi = Camera.Roi; c.RoiOffsetX = roi.X; c.RoiOffsetY = roi.Y; c.RoiWidth = roi.Width; c.RoiHeight = roi.Height; } catch { }
             c.DelayBeforeGrabMs = DelayBeforeGrabMs;
-            if (r != null) try { r.Exposure = Camera.ExposureUs; } catch { }
+            try { r.Exposure = Camera.ExposureUs; } catch { }
             // CameraId 는 생성 트리거라 수집 안 함(UI 가 설정).
         }
 
-        /// <summary>CameraMappingPanel 워킹버퍼(AlgorithmCameraMapping) → 모듈 Config/Recipe 반영(UI 편집 저장).</summary>
+        /// <summary>CameraMappingPanel 워킹버퍼(AlgorithmCameraMapping) → Camera Config/Recipe 반영(UI 편집 저장).</summary>
         public void ImportCameraMapping(AlgorithmCameraMapping m)
         {
             if (m == null) return;
-            var c = Config as VisionModuleConfigBase;
-            var r = Recipe as VisionModuleRecipeBase;
-            if (c != null)
-            {
-                c.CameraId = m.CameraId; c.Gain = m.Gain; c.FrameRate = m.FrameRate;
-                c.TriggerMode = m.TriggerMode; c.PixelFormat = m.PixelFormat;
-                c.DelayBeforeGrabMs = m.DelayBeforeGrabMs;
-                c.RoiOffsetX = m.RoiOffsetX; c.RoiOffsetY = m.RoiOffsetY;
-                c.RoiWidth = m.RoiWidth; c.RoiHeight = m.RoiHeight;
-            }
-            if (r != null) r.Exposure = m.ExposureUs;
+            var c = CameraNode.Config;
+            var r = CameraNode.Recipe;
+            c.CameraId = m.CameraId; c.Gain = m.Gain; c.FrameRate = m.FrameRate;
+            c.TriggerMode = m.TriggerMode; c.PixelFormat = m.PixelFormat;
+            c.DelayBeforeGrabMs = m.DelayBeforeGrabMs;
+            c.RoiOffsetX = m.RoiOffsetX; c.RoiOffsetY = m.RoiOffsetY;
+            c.RoiWidth = m.RoiWidth; c.RoiHeight = m.RoiHeight;
+            r.Exposure = m.ExposureUs;
         }
 
         // ── 조명 지정 모듈 이전 마이그 — 구 검사 노드 LightPages + Recipe 레벨의 (Port,Page) → 모듈 Setup.LightPages 합집합 ──
