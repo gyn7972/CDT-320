@@ -98,20 +98,20 @@
     <Compile Include="Equipment\Backends\Cognex\CognexColorMatch.cs" />
     <Compile Include="Equipment\Core\IEdgeFinder.cs" />
     <Compile Include="Equipment\Core\IAlgoParamSync.cs" />
-    <Compile Include="Equipment\Modules\IVisionModule.cs" />
-    <Compile Include="Equipment\Modules\AlgorithmNode.cs" />
-    <Compile Include="Equipment\Modules\AlgorithmData.cs" />
-    <Compile Include="Equipment\Modules\VisionMachineData.cs" />
-    <Compile Include="Equipment\Modules\VisionMachine.cs" />
-    <Compile Include="Equipment\Modules\CameraData.cs" />
-    <Compile Include="Equipment\Modules\VisionCamera.cs" />
-    <Compile Include="Equipment\Modules\VisionModuleData.cs" />
-    <Compile Include="Equipment\Modules\VisionModule.cs" />
-    <Compile Include="Equipment\Modules\WaferVisionModule.cs" />
-    <Compile Include="Equipment\Modules\BinVisionModule.cs" />
-    <Compile Include="Equipment\Modules\BottomInspectionModule.cs" />
-    <Compile Include="Equipment\Modules\TopSideVisionModule.cs" />
-    <Compile Include="Equipment\Modules\BottomSideVisionModule.cs" />
+    <Compile Include="Equipment\Unit\IVisionModule.cs" />
+    <Compile Include="Equipment\Unit\AlgorithmNode.cs" />
+    <Compile Include="Equipment\Unit\AlgorithmData.cs" />
+    <Compile Include="Equipment\Unit\VisionMachineData.cs" />
+    <Compile Include="Equipment\Unit\VisionMachine.cs" />
+    <Compile Include="Equipment\Unit\CameraData.cs" />
+    <Compile Include="Equipment\Unit\VisionCamera.cs" />
+    <Compile Include="Equipment\Unit\VisionModuleData.cs" />
+    <Compile Include="Equipment\Unit\VisionModule.cs" />
+    <Compile Include="Equipment\Unit\WaferVisionModule.cs" />
+    <Compile Include="Equipment\Unit\BinVisionModule.cs" />
+    <Compile Include="Equipment\Unit\BottomInspectionModule.cs" />
+    <Compile Include="Equipment\Unit\TopSideVisionModule.cs" />
+    <Compile Include="Equipment\Unit\BottomSideVisionModule.cs" />
     <Compile Include="Equipment\Comm\VisionTcpServer.cs" />
     <Compile Include="Equipment\Comm\MainCommServer.cs" />
     <Compile Include="Equipment\Comm\GrabStreamServer.cs" />
@@ -187,6 +187,13 @@
       <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="Ui\Controls\GridTheme.cs" />
+    <Compile Include="Ui\Controls\ActionButton.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\PageBase.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\Recipe\Helper\RecipeLayout.cs" />
     <Compile Include="Ui\Controls\ParameterGridItem.cs" />
     <Compile Include="Ui\Controls\ParameterGridChangedEventArgs.cs" />
     <Compile Include="Ui\Controls\ParameterGridControl.cs">

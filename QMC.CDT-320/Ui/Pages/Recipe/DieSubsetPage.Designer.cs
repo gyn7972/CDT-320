@@ -134,8 +134,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.dieEditorLayout.Padding = new System.Windows.Forms.Padding(10);
             this.dieEditorLayout.RowCount = 15;
             this.dieEditorLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
-            this.dieEditorLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
-            this.dieEditorLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
+            this.dieEditorLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 33F));
+            this.dieEditorLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 35F));
             this.dieEditorLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
             this.dieEditorLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 34F));
             this.dieEditorLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
@@ -173,7 +173,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.lblSpecLibrary.Font = new System.Drawing.Font("맑은 고딕", 11F);
             this.lblSpecLibrary.Location = new System.Drawing.Point(13, 40);
             this.lblSpecLibrary.Name = "lblSpecLibrary";
-            this.lblSpecLibrary.Size = new System.Drawing.Size(214, 34);
+            this.lblSpecLibrary.Size = new System.Drawing.Size(214, 33);
             this.lblSpecLibrary.TabIndex = 25;
             this.lblSpecLibrary.Text = "Spec library";
             this.lblSpecLibrary.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -195,7 +195,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.btnLoadSpec.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.btnLoadSpec.Location = new System.Drawing.Point(831, 43);
             this.btnLoadSpec.Name = "btnLoadSpec";
-            this.btnLoadSpec.Size = new System.Drawing.Size(114, 28);
+            this.btnLoadSpec.Size = new System.Drawing.Size(114, 27);
             this.btnLoadSpec.TabIndex = 27;
             this.btnLoadSpec.Text = "Load Spec";
             this.btnLoadSpec.UseVisualStyleBackColor = true;
@@ -207,7 +207,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.btnSaveSpec.Font = new System.Drawing.Font("맑은 고딕", 9F);
             this.btnSaveSpec.Location = new System.Drawing.Point(951, 43);
             this.btnSaveSpec.Name = "btnSaveSpec";
-            this.btnSaveSpec.Size = new System.Drawing.Size(114, 28);
+            this.btnSaveSpec.Size = new System.Drawing.Size(114, 27);
             this.btnSaveSpec.TabIndex = 28;
             this.btnSaveSpec.Text = "Save Spec";
             this.btnSaveSpec.UseVisualStyleBackColor = true;
@@ -217,9 +217,9 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             // 
             this.lblName.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblName.Font = new System.Drawing.Font("맑은 고딕", 11F);
-            this.lblName.Location = new System.Drawing.Point(13, 74);
+            this.lblName.Location = new System.Drawing.Point(13, 73);
             this.lblName.Name = "lblName";
-            this.lblName.Size = new System.Drawing.Size(214, 34);
+            this.lblName.Size = new System.Drawing.Size(214, 35);
             this.lblName.TabIndex = 1;
             this.lblName.Text = "Spec name";
             this.lblName.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -229,7 +229,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             this.dieEditorLayout.SetColumnSpan(this._tbName, 3);
             this._tbName.Dock = System.Windows.Forms.DockStyle.Fill;
             this._tbName.Font = new System.Drawing.Font("Consolas", 10F);
-            this._tbName.Location = new System.Drawing.Point(233, 77);
+            this._tbName.Location = new System.Drawing.Point(233, 76);
             this._tbName.Margin = new System.Windows.Forms.Padding(3, 3, 3, 4);
             this._tbName.Name = "_tbName";
             this._tbName.Size = new System.Drawing.Size(832, 23);

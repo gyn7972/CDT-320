@@ -109,24 +109,24 @@ namespace QMC.Vision
             // 
             // lblLogo
             // 
-            this.lblLogo.BackColor = System.Drawing.Color.Transparent;
-            this.lblLogo.Font = new System.Drawing.Font("Segoe UI Black", 28F, System.Drawing.FontStyle.Bold);
-            this.lblLogo.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(232)))), ((int)(((byte)(93)))), ((int)(((byte)(26)))));
-            this.lblLogo.Location = new System.Drawing.Point(18, 10);
+            this.lblLogo.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(232)))), ((int)(((byte)(93)))), ((int)(((byte)(26)))));
+            this.lblLogo.Font = new System.Drawing.Font("Segoe UI Black", 20F, System.Drawing.FontStyle.Bold);
+            this.lblLogo.ForeColor = System.Drawing.Color.White;
+            this.lblLogo.Location = new System.Drawing.Point(18, 12);
             this.lblLogo.Name = "lblLogo";
-            this.lblLogo.Size = new System.Drawing.Size(140, 50);
+            this.lblLogo.Size = new System.Drawing.Size(46, 46);
             this.lblLogo.TabIndex = 0;
-            this.lblLogo.Text = "QMC";
-            this.lblLogo.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.lblLogo.Text = "V";
+            this.lblLogo.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
             // lblTitle
             // 
             this.lblTitle.BackColor = System.Drawing.Color.Transparent;
             this.lblTitle.Font = new System.Drawing.Font("Segoe UI Light", 22F);
             this.lblTitle.ForeColor = System.Drawing.Color.White;
-            this.lblTitle.Location = new System.Drawing.Point(170, 12);
+            this.lblTitle.Location = new System.Drawing.Point(76, 8);
             this.lblTitle.Name = "lblTitle";
-            this.lblTitle.Size = new System.Drawing.Size(344, 46);
+            this.lblTitle.Size = new System.Drawing.Size(380, 34);
             this.lblTitle.TabIndex = 1;
             this.lblTitle.Text = "CDT-320  VISION";
             this.lblTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -135,24 +135,24 @@ namespace QMC.Vision
             // 
             this.lblVersion.BackColor = System.Drawing.Color.Transparent;
             this.lblVersion.Font = new System.Drawing.Font("맑은 고딕", 9F);
-            this.lblVersion.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(232)))), ((int)(((byte)(93)))), ((int)(((byte)(26)))));
-            this.lblVersion.Location = new System.Drawing.Point(410, 38);
+            this.lblVersion.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(184)))), ((int)(((byte)(184)))), ((int)(((byte)(188)))));
+            this.lblVersion.Location = new System.Drawing.Point(80, 42);
             this.lblVersion.Name = "lblVersion";
-            this.lblVersion.Size = new System.Drawing.Size(90, 18);
+            this.lblVersion.Size = new System.Drawing.Size(380, 18);
             this.lblVersion.TabIndex = 2;
-            this.lblVersion.Text = "v0.2.0";
+            this.lblVersion.Text = "듀얼 픽커 다이본더 비전 PC · v0.2.0";
             this.lblVersion.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // pnlUserBox
             // 
-            this.pnlUserBox.Anchor = System.Windows.Forms.AnchorStyles.Top;
+            this.pnlUserBox.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.pnlUserBox.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(64)))), ((int)(((byte)(64)))));
             this.pnlUserBox.Controls.Add(this.lblAvatar);
             this.pnlUserBox.Controls.Add(this.lblUserCaption);
             this.pnlUserBox.Controls.Add(this.lblUserValue);
             this.pnlUserBox.Controls.Add(this.lblTimeCaption);
             this.pnlUserBox.Controls.Add(this.lblTimeValue);
-            this.pnlUserBox.Location = new System.Drawing.Point(520, 10);
+            this.pnlUserBox.Location = new System.Drawing.Point(1544, 10);
             this.pnlUserBox.Name = "pnlUserBox";
             this.pnlUserBox.Size = new System.Drawing.Size(360, 50);
             this.pnlUserBox.TabIndex = 3;
@@ -229,6 +229,7 @@ namespace QMC.Vision
             this.lblStateBig.Size = new System.Drawing.Size(260, 70);
             this.lblStateBig.TabIndex = 4;
             this.lblStateBig.Text = "NONE";
+            this.lblStateBig.Visible = false;
             this.lblStateBig.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
             // 
             // pnlStatusBar

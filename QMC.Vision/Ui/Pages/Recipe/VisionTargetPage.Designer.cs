@@ -22,6 +22,8 @@ namespace QMC.Vision.Ui.Pages
         private Button _btnGrab, _btnMatch, _btnTrain, _btnLoad, _btnSaveImg, _btnEditSearch, _btnEditTrain;
         private Label _secMatch;
         private DataGridView _result;
+        private Label _secTrain;
+        private PictureBox _trainPic;
         // 우 (PARAMETERS + 조명)
         private TableLayoutPanel _right;
         private Label _secParam;
@@ -50,6 +52,8 @@ namespace QMC.Vision.Ui.Pages
             this._btnLoad = new Button(); this._btnSaveImg = new Button(); this._btnEditSearch = new Button(); this._btnEditTrain = new Button();
             this._secMatch = new Label();
             this._result = new DataGridView();
+            this._secTrain = new Label();
+            this._trainPic = new PictureBox();
             this._right = new TableLayoutPanel();
             this._secParam = new Label();
             this._params = new ParameterGridControl();
@@ -62,6 +66,7 @@ namespace QMC.Vision.Ui.Pages
             this._actionPanel.SuspendLayout();
             this._right.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)this._result).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)this._trainPic).BeginInit();
             this.SuspendLayout();
 
             this.BackColor = UiTheme.MainBg;
@@ -70,6 +75,7 @@ namespace QMC.Vision.Ui.Pages
             this._secCam.Dock = DockStyle.Fill; this._secCam.Text = "CAMERA"; this._secCam.BackColor = UiTheme.StatusBarBg; this._secCam.ForeColor = Color.White; this._secCam.Font = UiTheme.SectionFont; this._secCam.TextAlign = ContentAlignment.MiddleLeft; this._secCam.Padding = new Padding(8, 0, 0, 0);
             this._secAction.Dock = DockStyle.Fill; this._secAction.Text = "ACTION"; this._secAction.BackColor = UiTheme.StatusBarBg; this._secAction.ForeColor = Color.White; this._secAction.Font = UiTheme.SectionFont; this._secAction.TextAlign = ContentAlignment.MiddleLeft; this._secAction.Padding = new Padding(8, 0, 0, 0);
             this._secMatch.Dock = DockStyle.Fill; this._secMatch.Text = "MATCH RESULT"; this._secMatch.BackColor = UiTheme.StatusBarBg; this._secMatch.ForeColor = Color.White; this._secMatch.Font = UiTheme.SectionFont; this._secMatch.TextAlign = ContentAlignment.MiddleLeft; this._secMatch.Padding = new Padding(8, 0, 0, 0);
+            this._secTrain.Dock = DockStyle.Fill; this._secTrain.Text = "TRAINED PATTERN"; this._secTrain.BackColor = UiTheme.StatusBarBg; this._secTrain.ForeColor = Color.White; this._secTrain.Font = UiTheme.SectionFont; this._secTrain.TextAlign = ContentAlignment.MiddleLeft; this._secTrain.Padding = new Padding(8, 0, 0, 0);
             this._secParam.Dock = DockStyle.Fill; this._secParam.Text = "PARAMETERS"; this._secParam.BackColor = UiTheme.StatusBarBg; this._secParam.ForeColor = Color.White; this._secParam.Font = UiTheme.SectionFont; this._secParam.TextAlign = ContentAlignment.MiddleLeft; this._secParam.Padding = new Padding(8, 0, 0, 0);
             this._secLight.Dock = DockStyle.Fill; this._secLight.Text = "검사 조명"; this._secLight.BackColor = UiTheme.StatusBarBg; this._secLight.ForeColor = Color.White; this._secLight.Font = UiTheme.SectionFont; this._secLight.TextAlign = ContentAlignment.MiddleLeft; this._secLight.Padding = new Padding(8, 0, 0, 0);
 
@@ -125,17 +131,27 @@ namespace QMC.Vision.Ui.Pages
             this._result.Columns.Add("Angle", "Angle");
             this._result.Columns.Add("Score", "Score");
 
+            // 학습 패턴 미리보기
+            this._trainPic.Dock = DockStyle.Fill;
+            this._trainPic.BackColor = Color.Black;
+            this._trainPic.BorderStyle = BorderStyle.FixedSingle;
+            this._trainPic.SizeMode = PictureBoxSizeMode.Zoom;
+
             this._center.Dock = DockStyle.Fill;
-            this._center.ColumnCount = 1; this._center.RowCount = 4; this._center.Margin = Padding.Empty;
+            this._center.ColumnCount = 1; this._center.RowCount = 6; this._center.Margin = Padding.Empty;
             this._center.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
-            this._center.RowStyles.Add(new RowStyle(SizeType.Absolute, 24f));
-            this._center.RowStyles.Add(new RowStyle(SizeType.Absolute, 150f));
-            this._center.RowStyles.Add(new RowStyle(SizeType.Absolute, 24f));
-            this._center.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+            this._center.RowStyles.Add(new RowStyle(SizeType.Absolute, 24f));    // ACTION 헤더
+            this._center.RowStyles.Add(new RowStyle(SizeType.Absolute, 150f));   // 액션 3×3
+            this._center.RowStyles.Add(new RowStyle(SizeType.Absolute, 24f));    // MATCH RESULT 헤더
+            this._center.RowStyles.Add(new RowStyle(SizeType.Absolute, 132f));   // 결과 그리드(축소)
+            this._center.RowStyles.Add(new RowStyle(SizeType.Absolute, 24f));    // TRAINED PATTERN 헤더
+            this._center.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));    // 학습 이미지
             this._center.Controls.Add(this._secAction, 0, 0);
             this._center.Controls.Add(this._actionPanel, 0, 1);
             this._center.Controls.Add(this._secMatch, 0, 2);
             this._center.Controls.Add(this._result, 0, 3);
+            this._center.Controls.Add(this._secTrain, 0, 4);
+            this._center.Controls.Add(this._trainPic, 0, 5);
 
             // ── 우 (PARAMETERS + 조명) — 라이브튜닝 제거, 조명 240→440 확대 ──
             this._params.Dock = DockStyle.Fill;
@@ -182,6 +198,7 @@ namespace QMC.Vision.Ui.Pages
             this.Name = "VisionTargetPage";
             this.Size = new Size(1710, 832);
             ((System.ComponentModel.ISupportInitialize)this._result).EndInit();
+            ((System.ComponentModel.ISupportInitialize)this._trainPic).EndInit();
             this._right.ResumeLayout(false);
             this._actionPanel.ResumeLayout(false);
             this._center.ResumeLayout(false);

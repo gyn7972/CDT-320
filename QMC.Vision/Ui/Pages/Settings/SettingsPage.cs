@@ -14,7 +14,7 @@ namespace QMC.Vision.Ui.Pages
     /// 사이드바: GENERAL(환경설정) / 카메라 셋업(모듈별) / 조명 셋업.
     /// 정적 chrome 은 .Designer.cs, 서브패널 인스턴스화·버튼 구성·전환은 Code.
     /// </summary>
-    public partial class SettingsPage : UserControl
+    public partial class SettingsPage : PageBase
     {
         private ConfigurationPage    _configPanel;     // GENERAL — 환경설정(Provider/포트/로그 경로) 흡수
         private CameraMappingPanel   _camPanel;         // 카메라 셋업 + 조명 컨트롤러/페이지 지정(모듈)

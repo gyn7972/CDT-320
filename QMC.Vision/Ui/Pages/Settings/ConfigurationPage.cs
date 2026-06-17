@@ -5,12 +5,14 @@ using System.IO;
 using System.Windows.Forms;
 using QMC.Vision.Config;
 using QMC.Vision.Core;
+using QMC.Vision.Ui.Localization;
 
 namespace QMC.Vision.Ui.Pages
 {
-    /// <summary>Configuration — 백엔드 Provider 선택 + Image log saver 설정.
-    /// Stage 93 — Designer/Code 분리. 정적 shell 은 .Designer.cs, 런타임 데이터/진단은 Code.</summary>
-    public partial class ConfigurationPage : UserControl
+    /// <summary>Configuration — GENERAL: 언어 설정 + 백엔드 Provider + Cognex 진단 + Image log saver.
+    /// 핸들러 GeneralPage 정렬(헤더 + body TableLayoutPanel + GroupBox 별 TableLayoutPanel).
+    /// 정적 shell 은 .Designer.cs, 런타임 데이터/진단/이벤트는 Code.</summary>
+    public partial class ConfigurationPage : PageBase
     {
         private bool _initializing;   // 초기 데이터 세팅 중 핸들러 부작용(Switch/Save) 억제
 
@@ -18,7 +20,23 @@ namespace QMC.Vision.Ui.Pages
         {
             InitializeComponent();
             if (LicenseManager.UsageMode == LicenseUsageMode.Designtime) return;
+            ApplyRuntimeUi();
             LoadConfig();
+        }
+
+        /// <summary>i18n 태그 부여 + 현재 언어로 표시 문구 1회 반영. (언어 변경 시 Lang.Apply 가 재적용)</summary>
+        private void ApplyRuntimeUi()
+        {
+            _hdr.Tag           = "i18n:set.general";       _hdr.Text          = Lang.T("set.general");
+            _lblLanguage.Tag   = "i18n:set.gen.language";  _lblLanguage.Text  = Lang.T("set.gen.language");
+            _provGrp.Tag       = "i18n:set.gen.backend";   _provGrp.Text      = Lang.T("set.gen.backend");
+            _lblProvider.Tag   = "i18n:set.gen.provider";  _lblProvider.Text  = Lang.T("set.gen.provider");
+            _cgxGrp.Tag        = "i18n:set.gen.cgxDiag";   _cgxGrp.Text       = Lang.T("set.gen.cgxDiag");
+            _imgGrp.Tag        = "i18n:set.gen.imageLog";  _imgGrp.Text       = Lang.T("set.gen.imageLog");
+            _lblImgPath.Tag    = "i18n:set.gen.path";      _lblImgPath.Text   = Lang.T("set.gen.path");
+            _btnCgxRefresh.Tag = "i18n:common.refresh";    _btnCgxRefresh.Text= Lang.T("common.refresh");
+            _btnCgxTest.Tag    = "i18n:common.runTest";    _btnCgxTest.Text   = Lang.T("common.runTest");
+            _btnBrowse.Tag     = "i18n:common.browse";     _btnBrowse.Text    = Lang.T("common.browse");
         }
 
         private void LoadConfig()
@@ -26,6 +44,14 @@ namespace QMC.Vision.Ui.Pages
             _initializing = true;
             try
             {
+                // 언어 콤보 — 지원 언어 코드(ko/en/zh-CN/ja). 핸들러 GeneralPage 정렬.
+                _cbLang.Items.Clear();
+                foreach (var code in Lang.Supported) _cbLang.Items.Add(code);
+                string saved = VisionConfigStore.Current.Language;
+                if (string.IsNullOrEmpty(saved) || !Lang.HasLanguage(saved)) saved = Lang.Current;
+                Lang.SetLanguage(saved);   // Lang.Current 를 저장값과 일치(Form1 훅 부재 시에도 일관).
+                _cbLang.SelectedItem = saved;
+
                 foreach (var p in Enum.GetValues(typeof(VisionProvider))) _cbProvider.Items.Add(p);
                 _cbProvider.SelectedItem = VisionConfigStore.Current.Provider;
                 _lblBackendVer.Text = VisionFactory.Global.VersionInfo;
@@ -37,6 +63,30 @@ namespace QMC.Vision.Ui.Pages
         }
 
         // ── 이벤트 핸들러 (Designer 에서 named 연결) ──
+
+        /// <summary>언어 선택 — Lang 전환 + config 저장 + 최상위 폼 전체 표시 문구 재적용(라이브).</summary>
+        private void OnLanguageChanged(object sender, EventArgs e)
+        {
+            if (_initializing) return;
+            var code = _cbLang.SelectedItem as string;
+            if (string.IsNullOrWhiteSpace(code)) return;
+            try
+            {
+                Lang.SetLanguage(code);
+                VisionConfigStore.Current.Language = code;
+                VisionConfigStore.Save();
+
+                // 최상위 폼이 Lang.LanguageChanged 를 구독하지 않더라도 즉시 반영되도록 직접 Apply.
+                var root = (Control)FindForm() ?? this;
+                Lang.Apply(root);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("언어 변경 실패: " + ex.Message, "Language",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        }
+
         private void OnProviderChanged(object sender, EventArgs e)
         {
             if (_initializing) return;

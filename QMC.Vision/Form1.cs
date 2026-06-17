@@ -55,12 +55,37 @@ namespace QMC.Vision
             InitializeModulesAndMachine();
             InitializeServers(cfg);
             InitializeTabs();
+            InitializeLocalization(cfg);
             UpdateCameraStatusDot();
 
             timerClock.Start();
             UpdateClock();
             ShowTab(Tab.Work);
         }
+
+        /// <summary>저장 언어 적용 + 헤더/하단 탭 i18n 태그 + 언어 변경 시 전체 재번역(핸들러 Form1 정렬).
+        /// 언어는 [설정 > GENERAL > 언어 설정] 콤보에서 변경하며, 변경 시 LanguageChanged → Lang.Apply(this).</summary>
+        private void InitializeLocalization(VisionSettings cfg)
+        {
+            if (!string.IsNullOrEmpty(cfg.Language))
+                QMC.Vision.Ui.Localization.Lang.SetLanguage(cfg.Language);
+
+            lblTitle      .Tag = "i18n:app.title";
+            lblUserCaption.Tag = "i18n:header.user";
+            lblTimeCaption.Tag = "i18n:header.time";
+            btnWork    .Tag = "i18n:tab.work";
+            btnRecipe  .Tag = "i18n:tab.recipe";
+            btnHistory .Tag = "i18n:tab.history";
+            btnSettings.Tag = "i18n:tab.settings";
+            btnUser    .Tag = "i18n:tab.user";
+            btnExit    .Tag = "i18n:tab.exit";
+
+            QMC.Vision.Ui.Localization.Lang.LanguageChanged += OnLocalizationChanged;
+            OnLocalizationChanged();
+        }
+
+        /// <summary>언어 변경 후 메인 폼 전체 표시 문구를 다시 적용.</summary>
+        private void OnLocalizationChanged() => QMC.Vision.Ui.Localization.Lang.Apply(this);
 
         /// <summary>조명 시스템 Setup 로드 + 1회 마이그레이션 + LightHub 초기화 + 시작 시 시리얼 Open(비차단).</summary>
         private void InitializeLighting(VisionSettings cfg)
@@ -91,7 +116,9 @@ namespace QMC.Vision
         private void InitializeBackend(VisionSettings cfg)
         {
             Backend = VisionFactory.Global;
-            lblStatusL.Text = $"Backend: {Backend.Name}   |   TCP: Wafer={cfg.WaferVisionPort}  Bin={cfg.BinVisionPort}  Bottom={cfg.InspectionVisionPort}";
+            // 상태바 좌측: 운전상태/레시피/Lot(프로토타입) + 기존 Backend/TCP 병합 표시.
+            // 레시피·Lot 는 머신/운행에서 갱신될 때 UpdateStatusBar 로 다시 채운다(현재 placeholder).
+            lblStatusL.Text = $"● READY   |   Recipe: -   |   Backend: {Backend.Name}   |   Lot: -   |   TCP: Wafer={cfg.WaferVisionPort}  Bin={cfg.BinVisionPort}  Bottom={cfg.InspectionVisionPort}";
             dotVision.IsOn  = Backend != null;
         }
 

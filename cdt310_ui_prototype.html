@@ -1,0 +1,473 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CDT-310 Vision — 실제 구현 UI 프로토타입</title>
+<style>
+  :root{
+    --win:#f0f0f0; --winBorder:#a0a0a0; --grp:#dcdcdc; --grpText:#003a66;
+    --field:#fff; --fieldBorder:#7a7a7a; --btn:#e8e8e8; --btnBorder:#8a8a8a;
+    --accent:#1f6fc4; --cam:#000; --camFg:#39ff5e; --sel:#cfe3ff;
+    --titlebar:#0a3a66;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#5a6470;font-family:"Malgun Gothic","맑은 고딕",Tahoma,Segoe UI,sans-serif;
+    color:#1a1a1a;font-size:12px}
+  .note{color:#e3e8ef;text-align:center;padding:8px;font-size:12px}
+  .layout{display:flex;gap:14px;max-width:1320px;margin:0 auto;padding:0 12px 24px;align-items:flex-start}
+  /* screen selector */
+  .picker{flex:0 0 230px;background:#2c333c;border-radius:8px;padding:10px;color:#dfe5ee;position:sticky;top:10px}
+  .picker h3{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#7fb0e6;margin:4px 6px 8px}
+  .pitem{padding:9px 11px;border-radius:6px;cursor:pointer;margin:3px 0;border:1px solid transparent}
+  .pitem:hover{background:#39414c}
+  .pitem.sel{background:#143052;border-color:var(--accent)}
+  .pitem .nm{font-weight:600;font-size:12.5px}
+  .pitem .fp{font-size:10px;color:#8b97a6;margin-top:2px;font-family:Consolas,monospace;word-break:break-all}
+  .picker .legend{font-size:10.5px;color:#8b97a6;margin:12px 6px 2px;line-height:1.5}
+  /* window chrome */
+  .stage{flex:1;min-width:0;display:flex;justify-content:center}
+  .win{background:var(--win);border:1px solid #333;box-shadow:0 10px 40px rgba(0,0,0,.5);width:100%;max-width:1010px}
+  .titlebar{background:linear-gradient(180deg,#0a4d8c,#0a3a66);color:#fff;padding:6px 10px;display:flex;align-items:center;gap:8px;font-weight:600;font-size:12.5px}
+  .titlebar .ico{width:14px;height:14px;background:#cfe3ff;border-radius:2px}
+  .titlebar .wbtns{margin-left:auto;display:flex;gap:4px}
+  .titlebar .wb{width:20px;height:16px;background:#dfe7f0;border:1px solid #6b7c8c;border-radius:2px;color:#234;font-size:10px;text-align:center;line-height:14px}
+  .client{padding:10px;display:none}
+  .client.active{display:block}
+  /* generic winforms */
+  .grp{border:1px solid #b9b9b9;border-radius:3px;position:relative;padding:14px 10px 10px;margin:0}
+  .grp>.cap{position:absolute;top:-9px;left:9px;background:var(--win);padding:0 5px;font-weight:700;color:var(--grpText);font-size:11.5px}
+  .row{display:flex;align-items:center;gap:6px;margin:5px 0}
+  .lbl{color:#222}
+  .fld{background:var(--field);border:1px solid var(--fieldBorder);padding:3px 6px;font-family:Consolas,monospace;min-width:60px}
+  .fld.ro{background:#eee;color:#555}
+  .btn{background:linear-gradient(180deg,#fbfbfb,#e6e6e6);border:1px solid var(--btnBorder);border-radius:3px;
+    padding:5px 12px;cursor:pointer;font-size:12px;color:#1a1a1a}
+  .btn:hover{border-color:var(--accent);background:linear-gradient(180deg,#fff,#eef5ff)}
+  .btn.sq{min-width:34px;padding:5px 0;text-align:center}
+  .btn.pri{background:linear-gradient(180deg,#3a86d8,#1f6fc4);color:#fff;border-color:#155a9e;font-weight:600}
+  .radio,.chk{display:flex;align-items:center;gap:5px;cursor:pointer;margin:3px 0}
+  .radio i{width:12px;height:12px;border:1px solid #555;border-radius:50%;display:inline-block;position:relative;background:#fff}
+  .radio.on i:after{content:"";position:absolute;inset:3px;background:var(--accent);border-radius:50%}
+  .chk i{width:12px;height:12px;border:1px solid #555;display:inline-block;background:#fff;text-align:center;line-height:11px;font-size:10px;color:var(--accent)}
+  .chk.on i:after{content:"✔"}
+  .cam{background:var(--cam);position:relative;overflow:hidden;border:1px solid #000}
+  .cam .ov{position:absolute;left:6px;top:5px;color:var(--camFg);font-family:Consolas,monospace;font-size:11px;line-height:1.4;text-shadow:0 0 4px rgba(57,255,94,.4)}
+  .cam .cx{position:absolute;left:50%;top:0;width:1px;height:100%;background:rgba(255,70,70,.55);transform:translateX(-50%)}
+  .cam .cy{position:absolute;left:0;top:50%;width:100%;height:1px;background:rgba(255,70,70,.55);transform:translateY(-50%)}
+  .cam .box{position:absolute;border:1.5px solid #39d0ff}
+  .cam .box.train{border-color:#39ff5e}.cam .box.search{border-color:#ffcf3a;border-style:dashed}
+  .cam .box .t{position:absolute;top:-15px;left:0;font-size:9px;color:#000;background:#39d0ff;padding:0 3px;white-space:nowrap}
+  .cam .box.train .t{background:#39ff5e}.cam .box.search .t{background:#ffcf3a}
+  .cam .die{position:absolute;background:linear-gradient(135deg,#1d2228,#333b44);border:1px solid #4a5663}
+  .grid{width:100%;border-collapse:collapse;font-size:11px;background:#fff}
+  .grid th{background:#e6e6e6;border:1px solid #c4c4c4;padding:4px 6px;text-align:left;font-weight:700;color:#234}
+  .grid td{border:1px solid #dcdcdc;padding:3px 6px;font-family:Consolas,monospace}
+  .twocol{display:grid;grid-template-columns:1fr 250px;gap:10px}
+  .col{display:flex;flex-direction:column;gap:10px}
+  .vstack{display:flex;flex-direction:column;gap:6px}
+  .hbtns{display:flex;flex-direction:column;gap:6px;width:96px}
+  .jog{display:grid;grid-template-columns:repeat(3,34px);grid-auto-rows:34px;gap:3px;justify-content:center}
+  .jog .btn{padding:0;min-width:0}
+  .titleStrip{background:#e9eef4;border:1px solid #c9d4df;border-radius:3px;padding:5px 9px;font-weight:700;color:#1f4e79;margin-bottom:8px}
+  .small{font-size:10.5px;color:#666;margin-top:6px}
+  .statusbar{background:#e4e4e4;border-top:1px solid #c0c0c0;padding:4px 8px;font-size:11px;color:#333;margin-top:8px;font-family:Consolas,monospace}
+</style>
+</head>
+<body>
+<div class="note">CDT-310 Vision — 실제 구현된 화면 재현 프로토타입 · 왼쪽에서 화면을 클릭하세요 (실제 컨트롤/라벨·클래식 WinForms 톤 반영)</div>
+<div class="layout">
+  <!-- selector -->
+  <div class="picker">
+    <h3>CDT-310 비전 화면</h3>
+    <div class="pitem sel" data-s="popup"><div class="nm">Vision Popup</div><div class="fp">QMC System UI\frmVisionPopup</div></div>
+    <div class="pitem" data-s="calmaint"><div class="nm">Calibrator — Maint</div><div class="fp">QMC.Common.UI\FormVisionCalibratorMaint</div></div>
+    <div class="pitem" data-s="calcfg"><div class="nm">Calibrator — Config</div><div class="fp">QMC.Common.UI\FormVisionCalibratorConfig</div></div>
+    <div class="pitem" data-s="compmaint"><div class="nm">Compensator — Maint</div><div class="fp">QMC.Common.UI\FormVisionCompensatorMaint</div></div>
+    <div class="pitem" data-s="compcfg"><div class="nm">Compensator — Config</div><div class="fp">QMC.Common.UI\FormVisionCompensatorConfig</div></div>
+    <div class="legend">초록 = Train ROI · 노랑(점선) = Search ROI · 파랑 = 일반 ROI.<br>Maint = 라이브 작업 화면 · Config = 파라미터 설정 화면.</div>
+  </div>
+
+  <!-- stage -->
+  <div class="stage"><div class="win">
+    <div class="titlebar"><span class="ico"></span><span id="winTitle">Vision Popup</span>
+      <span class="wbtns"><span class="wb">_</span><span class="wb">▢</span><span class="wb">✕</span></span></div>
+
+    <!-- ===== MODULE → PART 선택 바 (flowLayoutPanelModule + flowpanelPart 재현) ===== -->
+    <div id="selbar" style="background:#d7dde4;border-bottom:1px solid #b6bfc8;padding:7px 10px;display:none">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <span style="font-size:10.5px;color:#5a6470;font-weight:700;width:46px">모듈</span>
+        <div id="modBar" style="display:flex;gap:5px;flex-wrap:wrap"></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap">
+        <span style="font-size:10.5px;color:#5a6470;font-weight:700;width:46px">Part</span>
+        <div id="partBar" style="display:flex;gap:5px;flex-wrap:wrap"></div>
+        <span id="modNote" style="font-size:10.5px;color:#777;margin-left:8px"></span>
+      </div>
+    </div>
+
+    <!-- ===== VISION POPUP (frmVisionPopup) ===== -->
+    <div class="client active" id="c-popup">
+      <div style="display:grid;grid-template-columns:420px 1fr 110px;gap:10px">
+        <!-- left: camera + teaching -->
+        <div class="col">
+          <div class="cam" style="height:300px">
+            <div class="cx"></div><div class="cy"></div>
+            <div class="ov">LOW MAG.&nbsp; LIVE<br>Scale 1.250 / 1.250 um/px<br>1280 x 1024</div>
+            <div class="box search" style="left:14%;top:14%;width:70%;height:68%"><span class="t">Search Box</span></div>
+            <div class="box train" style="left:40%;top:34%;width:96px;height:74px"><span class="t">Teaching Box</span></div>
+            <div class="die" style="left:43%;top:38%;width:80px;height:60px"></div>
+          </div>
+          <div class="grp"><span class="cap">Teaching Image</span>
+            <div style="display:flex;gap:8px">
+              <div style="width:150px;height:120px;background:#222;border:1px solid #000;position:relative">
+                <div class="die" style="left:30%;top:28%;width:62px;height:50px"></div></div>
+              <div class="vstack" style="flex:1">
+                <div class="lbl">Teaching Image File Name :</div>
+                <input class="fld" style="width:100%" value="4E1GA_LowMag_v3.bmp">
+                <div class="lbl" style="margin-top:6px">Teaching Image :</div>
+                <input class="fld ro" style="width:100%" value="VISION\4E1GA-200\Teach">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- middle: options -->
+        <div class="col">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="grp"><span class="cap">Camera Selection</span>
+              <div class="radio on"><i></i>Low Mag.</div>
+              <div class="radio"><i></i>High Mag.</div>
+            </div>
+            <div class="grp"><span class="cap">Display Mode</span>
+              <div class="radio on"><i></i>Live</div>
+              <div class="radio"><i></i>Capture</div>
+            </div>
+          </div>
+          <div class="grp"><span class="cap">Vision Scale(um/pixel) :</span>
+            <div class="row"><span class="lbl" style="width:54px">X Axis :</span><input class="fld" value="000.000"><span class="btn sq">#</span></div>
+            <div class="row"><span class="lbl" style="width:54px">Y Axis :</span><input class="fld" value="000.000"><span class="btn sq">#</span></div>
+          </div>
+          <div class="grp"><span class="cap">Illumination Brightness (%)</span>
+            <div class="row"><input class="fld" value="000" style="width:70px"><span class="btn sq">#</span>
+              <input type="range" value="55" style="flex:1"></div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="grp"><span class="cap">Display Items</span>
+              <div class="chk on"><i></i>Cross Line</div>
+              <div class="chk on"><i></i>Center Position</div>
+              <div class="chk on"><i></i>Search Box</div>
+              <div class="chk on"><i></i>Search Position</div>
+              <div class="chk"><i></i>Teaching Box</div>
+            </div>
+            <div class="grp"><span class="cap">Position</span>
+              <div class="row"><span class="lbl">Center Position X :</span><input class="fld ro" value="640.0"></div>
+              <div class="row"><span class="lbl">Center Position Y :</span><input class="fld ro" value="512.0"></div>
+              <div class="row"><span class="lbl">Search Position X :</span><input class="fld ro" value="638.4"></div>
+              <div class="row"><span class="lbl">Search Position Y :</span><input class="fld ro" value="509.7"></div>
+            </div>
+          </div>
+          <div class="grp"><span class="cap">Work Stage Switching Move</span>
+            <div style="display:flex;gap:16px">
+              <div class="grp" style="flex:0 0 120px;padding-top:14px"><span class="cap">Coordinate</span>
+                <div class="radio on"><i></i>Absolute</div><div class="radio"><i></i>Relative</div></div>
+              <div class="vstack" style="flex:1">
+                <div class="radio on"><i></i>to Low Mag.</div>
+                <div class="radio"><i></i>to High Mag.</div>
+                <div class="radio"><i></i>to Process</div>
+                <div class="radio"><i></i>to Calibration</div>
+                <div class="chk"><i></i>with Camera Selection</div>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px"><span class="btn pri">Image Teaching</span><span class="btn pri">Search</span></div>
+        </div>
+
+        <!-- right: file buttons -->
+        <div class="hbtns">
+          <span class="btn">New</span><span class="btn">Open</span><span class="btn pri">Apply</span>
+          <span class="btn">Save</span><span class="btn">Save As</span><span class="btn">Cancel</span>
+        </div>
+      </div>
+      <div class="statusbar">frmVisionPopup · ClientSize 1156×673 · 티칭 이미지 학습 + 패턴 Search + 스테이지 전환 통합 팝업</div>
+    </div>
+
+    <!-- ===== CALIBRATOR MAINT ===== -->
+    <div class="client" id="c-calmaint">
+      <div class="titleStrip">Vision Calibrator — Maintenance (라이브 캘리브레이션)</div>
+      <div class="twocol">
+        <div class="col">
+          <div class="cam" style="height:330px">
+            <div class="cx"></div><div class="cy"></div>
+            <div class="ov">CALIBRATOR&nbsp; LIVE<br>PatMax · Score 0.91<br>X 312.40  Y 198.22  R 0.18°</div>
+            <div class="box search" style="left:16%;top:14%;width:66%;height:70%"><span class="t">Inspect (Align) ROI</span></div>
+            <div class="box train" style="left:40%;top:36%;width:92px;height:72px"><span class="t">Train ROI</span></div>
+            <div class="die" style="left:43%;top:40%;width:74px;height:56px"></div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <span class="btn pri">Train</span><span class="btn pri">Search</span>
+            <span class="btn">Auto Scale...</span><span class="btn">ROI Train Save</span><span class="btn">ROI Inspect Save</span>
+          </div>
+          <div class="grp"><span class="cap">Search Result</span>
+            <table class="grid"><tr><th>#</th><th>X [mm]</th><th>Y [mm]</th><th>R [°]</th><th>Score</th></tr>
+              <tr><td>1</td><td>312.400</td><td>198.220</td><td>0.18</td><td>0.91</td></tr>
+              <tr><td>2</td><td>318.110</td><td>205.640</td><td>0.21</td><td>0.88</td></tr></table>
+          </div>
+        </div>
+        <div class="col">
+          <div class="grp"><span class="cap">Jog (Stage)</span>
+            <div class="jog">
+              <span></span><span class="btn">▲</span><span></span>
+              <span class="btn">◀</span><span class="btn">⊙</span><span class="btn">▶</span>
+              <span></span><span class="btn">▼</span><span></span>
+            </div>
+            <div class="row" style="justify-content:center"><span class="lbl">Step</span><input class="fld" value="0.010" style="width:64px"><span class="lbl">mm</span></div>
+          </div>
+          <div class="grp"><span class="cap">Train Image</span>
+            <div style="height:90px;background:#222;border:1px solid #000;position:relative">
+              <div class="die" style="left:30%;top:26%;width:54px;height:42px"></div></div>
+          </div>
+          <div class="grp"><span class="cap">ROI List</span>
+            <table class="grid"><tr><th>ROI</th><th>Type</th></tr><tr><td>Train</td><td>Rect</td></tr><tr><td>Inspect</td><td>Rect</td></tr></table>
+          </div>
+          <div class="grp"><span class="cap">Auto Focus</span>
+            <div class="row"><span class="lbl">Sharpness</span><input class="fld ro" value="0.842"></div>
+            <span class="btn">Auto Focus</span>
+          </div>
+        </div>
+      </div>
+      <div class="statusbar">FormVisionCalibratorMaint · VisionImageViewer + Jog + TrainImage + RoiList + SearchResult + AutoScale + StagePosition + AutoFocus</div>
+    </div>
+
+    <!-- ===== CALIBRATOR CONFIG ===== -->
+    <div class="client" id="c-calcfg">
+      <div class="titleStrip">Vision Calibrator — Config (VisionCalScaleControl)</div>
+      <div style="max-width:520px">
+        <div class="grp"><span class="cap">Vision Calibrator — Scale</span>
+          <div class="row"><span class="lbl" style="width:130px">X [mm/pixel] :</span><input class="fld" value="0.0012500"></div>
+          <div class="row"><span class="lbl" style="width:130px">Y [mm/pixel] :</span><input class="fld" value="0.0012500"></div>
+          <div class="row"><span class="lbl" style="width:130px">X Axis T [degree] :</span><input class="fld" value="0.000"></div>
+          <div class="row"><span class="lbl" style="width:130px">Y Axis T [degree] :</span><input class="fld" value="90.000"></div>
+          <div style="display:flex;gap:18px;margin-top:6px">
+            <div class="chk"><i></i>InvertedX</div><div class="chk on"><i></i>InvertedY</div><div class="chk on"><i></i>Enable</div>
+          </div>
+        </div>
+        <div class="grp" style="margin-top:12px"><span class="cap">Calibrator Position</span>
+          <table class="grid"><tr><th>Name</th><th>Type</th><th>X [mm]</th><th>Y [mm]</th></tr>
+            <tr><td>Origin</td><td>Ref</td><td>0.000</td><td>0.000</td></tr>
+            <tr><td>P1</td><td>Cal</td><td>10.000</td><td>0.000</td></tr>
+            <tr><td>P2</td><td>Cal</td><td>0.000</td><td>10.000</td></tr></table>
+        </div>
+        <div class="row" style="margin-top:10px"><span class="lbl">Move Distance [mm] :</span><input class="fld" value="10.000">
+          <span class="spacer" style="margin-left:auto"></span><span class="btn">Save</span><span class="btn">Load</span></div>
+      </div>
+      <div class="statusbar">FormVisionCalibratorConfig → VisionCalScaleControl · 스케일(mm/px)·축각도·반전·캘리브 위치 그리드</div>
+    </div>
+
+    <!-- ===== COMPENSATOR MAINT ===== -->
+    <div class="client" id="c-compmaint">
+      <div class="titleStrip">Vision Compensator — Maintenance (보정 측정/검증)</div>
+      <div class="twocol">
+        <div class="col">
+          <div class="cam" style="height:300px">
+            <div class="cx"></div><div class="cy"></div>
+            <div class="ov">COMPENSATOR&nbsp; LIVE (StretchImage)<br>Grid scan · pitch 5.000 mm</div>
+            <div class="box" style="left:12%;top:12%;width:24%;height:30%"></div>
+            <div class="box" style="left:42%;top:12%;width:24%;height:30%"></div>
+            <div class="box" style="left:12%;top:50%;width:24%;height:30%"></div>
+            <div class="box" style="left:42%;top:50%;width:24%;height:30%"></div>
+          </div>
+          <div class="grp"><span class="cap">General</span>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
+              <div class="row"><span class="lbl">Velocity</span><input class="fld" value="50"></div>
+              <div class="row"><span class="lbl">Acc</span><input class="fld" value="200"></div>
+              <div class="row"><span class="lbl">Dcc</span><input class="fld" value="200"></div>
+            </div>
+            <div class="row"><span class="lbl">Operator</span>
+              <select class="fld" style="flex:1"><option>PatternMatching</option><option>BlobCenter</option></select>
+              <div class="chk"><i></i>InvertedX</div><div class="chk on"><i></i>InvertedY</div></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px">
+              <div class="grp" style="padding-top:14px"><span class="cap">Measurement</span>
+                <div class="row"><span class="lbl">Pitch X</span><input class="fld" value="5.000"></div>
+                <div class="row"><span class="lbl">Pitch Y</span><input class="fld" value="5.000"></div></div>
+              <div class="grp" style="padding-top:14px"><span class="cap">Verification</span>
+                <div class="row"><span class="lbl">Pitch X</span><input class="fld" value="2.500"></div>
+                <div class="row"><span class="lbl">Pitch Y</span><input class="fld" value="2.500"></div></div>
+            </div>
+            <div style="margin-top:8px"><span class="btn pri">Run</span></div>
+          </div>
+        </div>
+        <div class="col">
+          <div class="grp"><span class="cap">Compensator Offset</span>
+            <table class="grid"><tr><th>Idx</th><th>dX [mm]</th><th>dY [mm]</th></tr>
+              <tr><td>0,0</td><td>0.0012</td><td>-0.0008</td></tr>
+              <tr><td>0,1</td><td>0.0015</td><td>-0.0005</td></tr>
+              <tr><td>1,0</td><td>0.0009</td><td>-0.0011</td></tr>
+              <tr><td>1,1</td><td>0.0013</td><td>-0.0007</td></tr></table>
+            <div style="display:flex;gap:6px;margin-top:6px"><span class="btn">Save</span><span class="btn">Load</span></div>
+          </div>
+          <div class="grp"><span class="cap">Jog / Illuminator</span>
+            <div class="jog">
+              <span></span><span class="btn">▲</span><span></span>
+              <span class="btn">◀</span><span class="btn">⊙</span><span class="btn">▶</span>
+              <span></span><span class="btn">▼</span><span></span></div>
+            <div class="row" style="margin-top:6px"><span class="lbl">Light</span><input type="range" value="50" style="flex:1"><span class="btn">All Off</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="statusbar">FormVisionCompensatorMaint · GeneralControl(Vel/Acc/Dcc·Operator·Inverted·Measure/Verify Pitch·Run) + OffsetControl + GridPosition + Jog + Illuminator + AutoFocus</div>
+    </div>
+
+    <!-- ===== COMPENSATOR CONFIG ===== -->
+    <div class="client" id="c-compcfg">
+      <div class="titleStrip">Vision Compensator — Config (Offset 테이블 + 조명 채널)</div>
+      <div class="twocol">
+        <div class="grp"><span class="cap">Compensator Offset</span>
+          <table class="grid">
+            <tr><th>Row\\Col</th><th>0</th><th>1</th><th>2</th><th>3</th></tr>
+            <tr><th>0</th><td>0.0012</td><td>0.0015</td><td>0.0011</td><td>0.0009</td></tr>
+            <tr><th>1</th><td>0.0009</td><td>0.0013</td><td>0.0010</td><td>0.0008</td></tr>
+            <tr><th>2</th><td>0.0007</td><td>0.0010</td><td>0.0012</td><td>0.0011</td></tr></table>
+          <div style="display:flex;gap:6px;margin-top:8px"><span class="btn">Import</span><span class="btn">Export</span></div>
+        </div>
+        <div class="col">
+          <div class="grp"><span class="cap">Illuminator Channel</span>
+            <div class="row"><span class="lbl" style="width:70px">Ch1</span><input type="range" value="60" style="flex:1"><span class="fld" style="width:46px">60</span></div>
+            <div class="row"><span class="lbl" style="width:70px">Ch2</span><input type="range" value="45" style="flex:1"><span class="fld" style="width:46px">45</span></div>
+            <div class="row"><span class="lbl" style="width:70px">Ch3</span><input type="range" value="30" style="flex:1"><span class="fld" style="width:46px">30</span></div>
+            <div class="row"><span class="lbl" style="width:70px">Ch4</span><input type="range" value="0" style="flex:1"><span class="fld" style="width:46px">0</span></div>
+          </div>
+          <div style="display:flex;gap:6px"><span class="btn pri">Save</span><span class="btn">Load</span></div>
+        </div>
+      </div>
+      <div class="statusbar">FormVisionCompensatorConfig → VisionCompensatorOffsetConfigControl(Offset Grid · Import/Export) + IlluminatorChannelControl</div>
+    </div>
+
+    <!-- ===== INSPECTOR (QMc.Vision.Inspector / SP_PixelShift 하니스) ===== -->
+    <div class="client" id="c-inspector">
+      <div class="titleStrip" id="inspTitle">Inspector — Bottom (CDTInspector.BottomInspect)</div>
+      <div class="twocol">
+        <div class="col">
+          <div class="cam" style="height:330px">
+            <div class="ov" id="inspOv">BOTTOM INSPECTION<br>12000 x 12000 · 0.00140 mm/px<br>PixelShift + CUDA</div>
+            <div class="box" style="left:18%;top:16%;width:64%;height:66%"><span class="t">Chip Outline</span></div>
+            <div class="die" style="left:24%;top:24%;width:50%;height:50%"></div>
+            <div style="position:absolute;left:30%;top:24%;width:20px;height:12px;background:#e74c3c;border-radius:2px"></div>
+            <div style="position:absolute;left:64%;top:70%;width:10px;height:10px;background:#f39c12;border-radius:50%"></div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <span class="btn">Open Folder...</span><span class="btn pri" id="inspRunBtn">Bottom Inspect</span>
+            <span class="lbl">ChipType</span><select class="fld"><option>White</option><option>Black</option></select>
+          </div>
+          <div class="grp"><span class="cap">Defect List</span>
+            <table class="grid" id="inspGrid"></table>
+          </div>
+        </div>
+        <div class="col">
+          <div class="grp"><span class="cap">Parameters</span>
+            <table class="grid" id="inspParam"></table>
+          </div>
+          <div class="grp"><span class="cap">Result</span>
+            <table class="grid" id="inspResult"></table>
+          </div>
+        </div>
+      </div>
+      <div class="statusbar" id="inspStatus">QMc.Vision.Inspector · 폴더 단위 오프라인 테스트(SP_PixelShift) 또는 핸들러 TCP 호출</div>
+    </div>
+
+  </div></div>
+</div>
+
+<script>
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+const titles={popup:"Vision Popup",calmaint:"Vision Calibrator [Maintenance]",calcfg:"Vision Calibrator [Config]",
+  compmaint:"Vision Compensator [Maintenance]",compcfg:"Vision Compensator [Config]",inspector:"Inspector"};
+
+/* 좌측 picker — 직접 화면 점프 (선택 바와 별개) */
+$$(".pitem").forEach(p=>p.onclick=()=>{
+  $$(".pitem").forEach(x=>x.classList.remove("sel"));p.classList.add("sel");
+  showClient(p.dataset.s);
+});
+function showClient(s){
+  $$(".client").forEach(c=>c.classList.remove("active"));
+  $("#c-"+s).classList.add("active");
+  $("#winTitle").textContent=titles[s]||"Vision";
+}
+
+/* ===== 실제 CDT-310 선택 방식: 모듈 → Part ===== */
+const PART_LABEL={popup:"Live/Teach",calibrator:"Calibrator",compensator:"Compensator",inspector:"Inspector"};
+const PART_CLIENT={popup:"popup",calibrator:"calmaint",compensator:"compmaint",inspector:"inspector"};
+const modules=[
+ {key:"Wafer",      name:"WaferVision",       parts:["popup","calibrator","compensator"],            note:"패턴 정렬(EjectPin/Reticle/AlignDie/Die/Scale) — Cognex PatMax"},
+ {key:"Bin",        name:"BinVision",         parts:["popup","calibrator","compensator","inspector"],note:"다이 위치 + 배치(Placement) 확인"},
+ {key:"Bottom",     name:"BottomInspection",  parts:["calibrator","compensator","inspector"],        note:"외관/칩핑/이물 — CDTInspector.BottomInspect (PixelShift+CUDA)"},
+ {key:"TopSide",    name:"TopSideVision",     parts:["calibrator","inspector"],                      note:"앞쪽 측면 칩핑 — SideChippingInspector (port 5105)"},
+ {key:"BottomSide", name:"BottomSideVision",  parts:["calibrator","inspector"],                      note:"뒤쪽 측면 칩핑 — SideChippingInspector (port 5106)"},
+];
+let curMod=modules[0], curPart="calibrator";
+
+function renderModBar(){
+  const bar=$("#modBar");bar.innerHTML="";
+  modules.forEach(m=>{
+    const b=document.createElement("span");
+    b.className="btn"+(m.key===curMod.key?" pri":"");b.textContent=m.name;b.style.fontSize="11px";
+    b.onclick=()=>{curMod=m; if(!m.parts.includes(curPart))curPart=m.parts[0]; renderPartBar(); applySel();};
+    bar.appendChild(b);
+  });
+  $("#modNote").textContent="▸ "+curMod.note;
+}
+function renderPartBar(){
+  const bar=$("#partBar");bar.innerHTML="";
+  curMod.parts.forEach(p=>{
+    const b=document.createElement("span");
+    b.className="btn"+(p===curPart?" pri":"");b.textContent=PART_LABEL[p];b.style.fontSize="11px";
+    b.onclick=()=>{curPart=p;renderPartBar();applySel();};
+    bar.appendChild(b);
+  });
+  $("#modNote").textContent="▸ "+curMod.note;
+}
+function applySel(){
+  if(curPart==="inspector"){ buildInspector(curMod); showClient("inspector"); }
+  else showClient(PART_CLIENT[curPart]);
+  $("#winTitle").textContent=curMod.name+" — "+PART_LABEL[curPart];
+}
+
+/* Inspector 화면 — 모듈에 따라 Bottom vs Side */
+function buildInspector(m){
+  const isSide = m.key==="TopSide"||m.key==="BottomSide";
+  const isBin  = m.key==="Bin";
+  $("#inspTitle").textContent = isSide
+    ? `Inspector — ${m.name} (SideChippingInspector.InspectChipping)`
+    : isBin ? `Inspector — Bin Placement`
+    : `Inspector — Bottom (CDTInspector.BottomInspect)`;
+  $("#inspOv").innerHTML = isSide
+    ? `${m.name.toUpperCase()}<br>5120 x 5120 · 0.003125 mm/px<br>Edge line + 임계 칩핑`
+    : isBin ? `BIN PLACEMENT<br>패턴 위치 + 배치 정확도`
+    : `BOTTOM INSPECTION<br>12000 x 12000 · 0.00140 mm/px<br>PixelShift + CUDA`;
+  $("#inspRunBtn").textContent = isSide?"Side Inspect": isBin?"Check Placement":"Bottom Inspect";
+
+  const params = isSide
+    ? [["Threshold","110"],["ChipThickness","0.250"],["ChippingDepth","0.030"],["ChippingLength","0.050"],["BladeWidth","0.048"]]
+    : isBin ? [["MinScore","0.70"],["PlacementTol","0.050"],["AngleTol","±3.0°"]]
+    : [["Threshold","130"],["ChippingDepth","0.030"],["ForeignSize","0.020"],["TopHatRadius","21"],["MinArea","36"]];
+  $("#inspParam").innerHTML = params.map(p=>`<tr><td>${p[0]}</td><td>${p[1]}</td></tr>`).join("");
+
+  const result = isSide
+    ? [["Max Chipping","0.042 mm"],["Length","0.061 mm"],["DefectCode","5 (Chipping)"]]
+    : isBin ? [["Offset X","0.012 mm"],["Offset Y","-0.008 mm"],["DefectCode","0 (Pass)"]]
+    : [["Width","1.482 mm"],["Height","1.479 mm"],["Max Chipping","0.042 mm"],["Foreign","none"],["DefectCode","5 (Chipping)"]];
+  $("#inspResult").innerHTML = result.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join("");
+
+  $("#inspGrid").innerHTML = `<tr><th>#</th><th>X</th><th>Y</th><th>Size(mm)</th></tr>`+
+    [[1,"312","198","0.042"],[2,"640","705","0.018"]].map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td></tr>`).join("");
+  $("#inspStatus").textContent = isSide
+    ? "QMc.Vision.Inspector · SideChippingInspector — 측면 카메라 영상 → 칩핑 깊이(mm)"
+    : "QMc.Vision.Inspector · 폴더 단위 오프라인 테스트(SP_PixelShift) 또는 핸들러 TCP 호출";
+}
+
+/* 선택 바는 popup/config 외 화면에서 표시 */
+function refreshSelbar(){ $("#selbar").style.display="block"; }
+refreshSelbar(); renderModBar(); renderPartBar(); applySel();
+</script>
+</body>
+</html>

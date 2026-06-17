@@ -20,12 +20,12 @@ namespace QMC.Vision.Ui.Pages
     /// 세팅선택기에서 inspector 선택 시 본 페이지로 스왑(옛 InspectorPage 대체). InspectorPage public·주입·동작 보존.
     /// dirty 추적(세팅 단위) + SaveTarget/LoadTarget(BaseUnit 노드 SaveRecipe/LoadRecipe). 기능=InspectorPage 동일.
     /// </summary>
-    public partial class InspectorTargetPage : UserControl, ITargetPage
+    public partial class InspectorTargetPage : PageBase, ITargetPage
     {
         private readonly IVisionModule _module;
         private readonly IInspector _inspector;
         private IAlgorithmNode _node;                // B — BaseUnit 알고리즘 노드
-        private const string RecipeName = "default";
+        private string RecipeName = "default";   // 핸들러 수신 레시피명(주입). 미주입 시 default
         private bool _dirty;
         private InspectionLightPanel _lightPanel;   // R2e — 편입 조명패널(통합 저장 대상)
 
@@ -43,9 +43,10 @@ namespace QMC.Vision.Ui.Pages
             WireCamera();
         }
 
-        public InspectorTargetPage(IVisionModule module, IInspector inspector)
+        public InspectorTargetPage(IVisionModule module, IInspector inspector, string recipeName = "default")
         {
             _module = module; _inspector = inspector;
+            RecipeName = string.IsNullOrWhiteSpace(recipeName) ? "default" : recipeName;
             InitializeComponent();
             if (LicenseManager.UsageMode == LicenseUsageMode.Designtime) return;
             _node = _module?.Algorithms.FirstOrDefault(a => a.Inspector == _inspector);
