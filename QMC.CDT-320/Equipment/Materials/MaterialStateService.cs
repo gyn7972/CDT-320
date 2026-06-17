@@ -813,9 +813,6 @@ namespace QMC.CDT320.Materials
                         return null;
 
                     DieMapEntry entry = ordered[index];
-                    double pitchX = outputWafer.OutputReceivePitchX > 0.0 ? outputWafer.OutputReceivePitchX : binMap.PitchX;
-                    double pitchY = outputWafer.OutputReceivePitchY > 0.0 ? outputWafer.OutputReceivePitchY : binMap.PitchY;
-
                     var target = new OutputStageReceiveTarget
                     {
                         StageLocation = ResolveOutputStageLocation(side),
@@ -824,8 +821,8 @@ namespace QMC.CDT320.Materials
                         OrderIndex = index,
                         DieMapX = entry.DieMapX,
                         DieMapY = entry.DieMapY,
-                        OffsetX = outputWafer.OutputReceiveOriginX + pitchX * entry.DieMapX,
-                        OffsetY = outputWafer.OutputReceiveOriginY + pitchY * entry.DieMapY
+                        OffsetX = entry.PosX,
+                        OffsetY = entry.PosY
                     };
                     target.TargetX = target.OffsetX;
                     target.TargetY = target.OffsetY;

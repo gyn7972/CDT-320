@@ -348,8 +348,8 @@ namespace QMC.CDT320.Sequencing
         {
             BinStageAxis yAxis = _currentOutputSide == BinSide.Ng ? BinStageAxis.NgBinY : BinStageAxis.GoodBinY;
             double baseY = _currentOutputSide == BinSide.Ng
-                ? OutputStage.Recipe.NGStageY.LoadPosition
-                : OutputStage.Recipe.GoodStageY.LoadPosition;
+                ? OutputStage.Recipe.NGStageY.ProcessPosition
+                : OutputStage.Recipe.GoodStageY.ProcessPosition;
 
             _targetOutputStageY = baseY +
                 _receiveTarget.TargetY +
@@ -365,7 +365,8 @@ namespace QMC.CDT320.Sequencing
 
         private int CalculatePlaceTarget()
         {
-            _targetPickerX = _receiveTarget.TargetX +
+            _targetPickerX = OutputStage.Recipe.VisionX.ProcessPosition +
+                _receiveTarget.TargetX +
                 ResolveOutputVisionToPickerXOffset(_currentPickerIndex) +
                 ResolvePickerAlignOffsetX(_currentPickerIndex);
             _targetPickerY = ResolvePickerZoneY("DiePlacePosition", _currentPickerIndex);

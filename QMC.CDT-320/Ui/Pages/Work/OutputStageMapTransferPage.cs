@@ -259,7 +259,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 RecipeMapKind kind = side == BinSide.Ng ? RecipeMapKind.NgBin : RecipeMapKind.GoodBin;
                 string path = RecipeMapPaths.ResolveConfigured(project, kind);
                 if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
-                    return null;
+                    return CreateOutputCircleMapFromRecipe(project, side);
 
                 return DieMapGenerator.Load(path);
             }
@@ -307,6 +307,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private DieMap BuildDisplayMap(DieMap sourceMap, WaferMaterial outputWafer)
         {
             DieMap display = CloneMap(sourceMap);
+            double processX = ResolveOutputVisionProcessX();
+            double processY = ResolveOutputStageProcessY(_selectedSide);
             List<DieMapEntry> ordered = BuildReceiveOrder(display);
             int nextIndex = outputWafer != null ? outputWafer.OutputReceiveNextIndex : 0;
             int total = ordered.Count;
@@ -338,7 +340,45 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 }
             }
 
+            foreach (DieMapEntry entry in display.Entries)
+            {
+                if (entry == null)
+                    continue;
+
+                entry.PosX = processX + entry.PosX;
+                entry.PosY = processY + entry.PosY;
+            }
+
             return display;
+        }
+
+        private double ResolveOutputVisionProcessX()
+        {
+            OutputStageUnit unit = GetOutputStageUnit();
+            return unit != null && unit.Recipe != null && unit.Recipe.VisionX != null
+                ? unit.Recipe.VisionX.ProcessPosition
+                : 0.0;
+        }
+
+        private double ResolveOutputStageProcessY(BinSide side)
+        {
+            OutputStageUnit unit = GetOutputStageUnit();
+            if (unit == null || unit.Recipe == null)
+                return 0.0;
+
+            return side == BinSide.Ng
+                ? unit.Recipe.NGStageY.ProcessPosition
+                : unit.Recipe.GoodStageY.ProcessPosition;
+        }
+
+        private double ToRelativeOutputX(double displayX)
+        {
+            return displayX - ResolveOutputVisionProcessX();
+        }
+
+        private double ToRelativeOutputY(double displayY)
+        {
+            return displayY - ResolveOutputStageProcessY(_selectedSide);
         }
 
         private static DieMap CloneMap(DieMap source)
@@ -639,6 +679,97 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
         }
 
+        private DieMap CreateOutputCircleMapFromRecipe(RecipeProject recipe, BinSide side)
+        {
+            if (recipe == null || recipe.Frame == null)
+                return null;
+
+            int gridX = Math.Max(1, recipe.Frame.DieMapX);
+            int gridY = Math.Max(1, recipe.Frame.DieMapY);
+            double pitchX = recipe.Frame.PitchX > 0.0 ? recipe.Frame.PitchX : 1.0;
+            double pitchY = recipe.Frame.PitchY > 0.0 ? recipe.Frame.PitchY : 1.0;
+            double originX = -((gridX - 1) * pitchX) / 2.0;
+            double originY = -((gridY - 1) * pitchY) / 2.0;
+            int sideEdgeSkip = Math.Max(0, recipe.Frame.SideEdgeSkip);
+            int topBottomEdgeSkip = Math.Max(0, recipe.Frame.TopBottomEdgeSkip);
+            double diameterMm = recipe.Frame.OuterDiameterMm > 0.0 ? recipe.Frame.OuterDiameterMm : 0.0;
+
+            var map = new DieMap
+            {
+                FrameObjId = (side == BinSide.Ng ? "NG" : "GOOD") + "_OUTPUT_CIRCLE",
+                DieMapX = gridX,
+                DieMapY = gridY,
+                PitchX = pitchX,
+                PitchY = pitchY,
+                OriginX = originX,
+                OriginY = originY,
+                CreatedAt = DateTime.Now
+            };
+
+            int index = 0;
+            int binCode = side == BinSide.Ng ? 255 : 1;
+            for (int row = 0; row < gridY; row++)
+            {
+                for (int col = 0; col < gridX; col++)
+                {
+                    double x = originX + col * pitchX;
+                    double y = originY + row * pitchY;
+                    bool target = IsInsideOutputCircle(col, row, gridX, gridY, sideEdgeSkip, topBottomEdgeSkip, x, y, pitchX, pitchY, diameterMm);
+                    map.Entries.Add(new DieMapEntry
+                    {
+                        Index = index++,
+                        DieMapX = col,
+                        DieMapY = row,
+                        IsTarget = target,
+                        Result = target ? DieResult.Unknown : DieResult.NG,
+                        BinCode = target ? binCode : 255,
+                        PosX = x,
+                        PosY = y,
+                        DieUid = (side == BinSide.Ng ? "NG" : "GOOD") + "-D" + row.ToString("000") + "-" + col.ToString("000")
+                    });
+                }
+            }
+
+            PickupSubset pickup = recipe.OutputPickup ?? recipe.Pickup ?? new PickupSubset();
+            return PickupSequenceGenerator.ApplySequenceNumbers(map, pickup);
+        }
+
+        private static bool IsInsideOutputCircle(
+            int col,
+            int row,
+            int gridX,
+            int gridY,
+            int sideEdgeSkip,
+            int topBottomEdgeSkip,
+            double x,
+            double y,
+            double pitchX,
+            double pitchY,
+            double diameterMm)
+        {
+            if (gridX <= 0 || gridY <= 0)
+                return false;
+            if (col < sideEdgeSkip || col >= gridX - sideEdgeSkip)
+                return false;
+            if (row < topBottomEdgeSkip || row >= gridY - topBottomEdgeSkip)
+                return false;
+
+            double centerX = (gridX - 1) / 2.0;
+            double centerY = (gridY - 1) / 2.0;
+            double radiusX = Math.Max(0.5, (gridX - 1 - (sideEdgeSkip * 2)) / 2.0);
+            double radiusY = Math.Max(0.5, (gridY - 1 - (topBottomEdgeSkip * 2)) / 2.0);
+            double nx = (col - centerX) / radiusX;
+            double ny = (row - centerY) / radiusY;
+            if ((nx * nx) + (ny * ny) > 1.0)
+                return false;
+
+            if (diameterMm <= 0.0)
+                return true;
+
+            double radiusMm = diameterMm / 2.0;
+            return (x * x) + (y * y) <= radiusMm * radiusMm;
+        }
+
         private void BuildGridContextMenu()
         {
             try
@@ -757,13 +888,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 }
                 unit.Recipe.EnsurePositionObjects();
 
-                // 원형 빈맵의 PosX/PosY는 ProcessPosition(센터) 기준 상대좌표 → 센터를 더해 절대 축 위치로 변환.
-                double baseX = unit.Recipe.VisionX.ProcessPosition;
-                double baseY = (_selectedSide == BinSide.Ng
-                    ? unit.Recipe.NGStageY
-                    : unit.Recipe.GoodStageY).ProcessPosition;
-                double absX = baseX + entry.PosX;
-                double absY = baseY + entry.PosY;
+                double absX = entry.PosX;
+                double absY = entry.PosY;
 
                 DialogResult confirm = QMC.Common.MessageDialog.Show(this,
                     "빈 슬롯 [" + entry.DieMapX + "," + entry.DieMapY + "]의 좌표로 이동하시겠습니까?\r\n" +
@@ -1091,19 +1217,13 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 double alignY = alignOffset != null ? alignOffset.AlignOffsetY : 0.0;
                 double alignT = alignOffset != null ? alignOffset.AlignOffsetT : 0.0;
 
-                OutputStageUnit unit = host.Machine.OutputStageUnit;
-                unit.Recipe.EnsurePositionObjects();
-                double baseY = outputSide == BinSide.Ng
-                    ? unit.Recipe.NGStageY.LoadPosition
-                    : unit.Recipe.GoodStageY.LoadPosition;
-
                 double pickerY = GetPickerTeachingPosition(host, side, PickerAxis.PickerY, "PlacePosition") + alignY;
                 PickerAxis tAxis = GetPickerTAxis(pickerIndex);
                 double pickerT = GetPickerTeachingPosition(host, side, tAxis, "PlacePosition") + alignT;
 
                 targets = new OutputPlaceManualTargets
                 {
-                    OutputStageY = baseY + entry.PosY + offsetY,
+                    OutputStageY = entry.PosY + offsetY,
                     PickerX = entry.PosX + offsetX + alignX,
                     PickerY = pickerY,
                     PickerT = pickerT
@@ -1507,6 +1627,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     if (entry == null)
                         continue;
 
+                    double relativeX = ToRelativeOutputX(entry.PosX);
+                    double relativeY = ToRelativeOutputY(entry.PosY);
                     wafer.OutputReceiveSlots.Add(new OutputReceiveSlotMaterial
                     {
                         OrderIndex = i,
@@ -1516,8 +1638,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                         IsTarget = entry.IsTarget,
                         Result = entry.Result,
                         BinCode = entry.BinCode,
-                        PosX = entry.PosX,
-                        PosY = entry.PosY,
+                        PosX = relativeX,
+                        PosY = relativeY,
                         DieUid = entry.DieUid ?? ""
                     });
                 }
