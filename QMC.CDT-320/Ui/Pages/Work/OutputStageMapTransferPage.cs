@@ -13,10 +13,18 @@ namespace QMC.CDT_320.Ui.Pages.Work
 {
     public partial class OutputStageMapTransferPage : PageBase
     {
+        // Output_BinCode 임시 상수 규칙 (BinCodeMap 미구현 — 추후 교체).
+        private const int GoodBinCode = 1;
+        private const int NgBinCode = 2;
+
         private Timer _refresh;
         private string _i18nTitle;
         private DieMapEntry _selectedEntry;
         private BinSide _selectedSide = BinSide.Good;
+        private bool _planDirty;
+        private string _lastMapSignature;
+        private ContextMenuStrip _gridMenu;
+        private ToolStripMenuItem _gridMoveMenuItem;
 
         public OutputStageMapTransferPage() : this("work.page.outputMap")
         {
@@ -72,7 +80,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             lblWaferDiaCaption.Text = "Progress";
 
             btnReloadActiveMap.Text = "RELOAD OUTPUT DIE MAP";
-            btnPickStatusSave.Text = "SELECTED PLAN INIT";
+            btnPickStatusSave.Text = "SELECTED PLAN SAVE";
             btnManualAlignComplete.Text = "GOOD PLAN INIT";
             btnNeedleBlockDown.Text = "NG PLAN INIT";
             btnThetaMatchMove.Text = "SAVE MATERIAL STATE";
@@ -119,7 +127,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             };
 
             btnReloadActiveMap.Click += (s, e) => ReloadOutputMap();
-            btnPickStatusSave.Click += (s, e) => InitializeSelectedReceivePlan();
+            btnPickStatusSave.Click += (s, e) => SaveReceivePlan(_selectedSide);
             btnManualAlignComplete.Click += (s, e) => InitializeReceivePlan(BinSide.Good);
             btnNeedleBlockDown.Click += (s, e) => InitializeReceivePlan(BinSide.Ng);
             btnThetaMatchMove.Click += (s, e) => SaveMaterialState();
@@ -151,20 +159,108 @@ namespace QMC.CDT_320.Ui.Pages.Work
             {
                 WaferMaterial outputWafer = GetSelectedOutputWafer();
                 WaferMaterial sourceWafer = ResolveSourceWafer(outputWafer);
-                DieMap sourceMap = MaterialStateService.BuildDieMapFromWafer(sourceWafer);
-                if (sourceMap == null)
+
+                // 빈 트레이 형상(레시피 BinTray + ProcessPosition 센터) 기준 맵 생성.
+                DieMap baseMap = BuildBinTrayMap(_selectedSide);
+                if (baseMap == null)
                 {
                     ApplyEmptyOutputMap(outputWafer, sourceWafer);
                     return;
                 }
 
-                DieMap displayMap = BuildDisplayMap(sourceMap, outputWafer);
+                DieMap displayMap = BuildDisplayMap(baseMap, outputWafer);
                 ApplyMap(displayMap, outputWafer, sourceWafer);
             }
             catch (Exception ex)
             {
                 QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
                     "Output stage map reload failed: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        private OutputStageUnit GetOutputStageUnit()
+        {
+            try
+            {
+                Form1 host = FindForm() as Form1;
+                return host != null && host.Machine != null ? host.Machine.OutputStageUnit : null;
+            }
+            catch
+            {
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
+        /// <summary>
+        /// 빈 트레이 형상(레시피) + ProcessPosition(센터) 기준으로 출력 수령 맵을 생성합니다.<br/>
+        /// 행=StageY, 열=VisionX 센터를 기준으로 부호 있는 상대 오프셋 좌표를 슬롯에 채웁니다.
+        /// </summary>
+        private DieMap BuildBinTrayMap(BinSide side)
+        {
+            try
+            {
+                OutputStageUnit unit = GetOutputStageUnit();
+                if (unit == null || unit.Recipe == null)
+                    return null;
+
+                unit.Recipe.EnsurePositionObjects();
+                BinTrayLayout tray = side == BinSide.Ng ? unit.Recipe.NgBinTray : unit.Recipe.GoodBinTray;
+                if (tray == null || tray.Columns <= 0 || tray.Rows <= 0)
+                    return null;
+
+                int cols = tray.Columns;
+                int rows = tray.Rows;
+                double pitchX = tray.PitchX;
+                double pitchY = tray.PitchY;
+                double centerX = unit.Recipe.VisionX.ProcessPosition;
+                double centerY = side == BinSide.Ng
+                    ? unit.Recipe.NGStageY.ProcessPosition
+                    : unit.Recipe.GoodStageY.ProcessPosition;
+
+                var map = new DieMap
+                {
+                    FrameObjId = (side == BinSide.Ng ? "NG" : "GOOD") + "_BIN_TRAY",
+                    DieMapX = cols,
+                    DieMapY = rows,
+                    PitchX = pitchX,
+                    PitchY = pitchY,
+                    OriginX = centerX,
+                    OriginY = centerY,
+                    CreatedAt = DateTime.Now
+                };
+
+                int index = 0;
+                for (int row = 0; row < rows; row++)
+                {
+                    for (int col = 0; col < cols; col++)
+                    {
+                        map.Entries.Add(new DieMapEntry
+                        {
+                            Index = index++,
+                            DieMapX = col,
+                            DieMapY = row,
+                            IsTarget = true,
+                            Result = DieResult.Unknown,
+                            BinCode = 0,
+                            PosX = centerX + pitchX * (col - (cols - 1) / 2.0),
+                            PosY = centerY + pitchY * (row - (rows - 1) / 2.0)
+                        });
+                    }
+                }
+
+                return DieMapGenerator.Normalize(map);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
+                    "Bin tray map build failed: " + ex.Message + " - Failed");
+                return null;
             }
             finally
             {
@@ -527,6 +623,93 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     "Output receive plan initialize failed: " + ex.Message + " - Failed");
                 QMC.Common.MessageDialog.Show(this, "Receive plan 초기화 실패:\r\n" + ex.Message,
                     "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
+        }
+
+        /// <summary>
+        /// 선택 side의 빈 트레이 수령 계획을 생성해 Material에 저장(persist)합니다.<br/>
+        /// die는 plan 메타만 기록(실제 die 배정은 플레이스 시 시퀀스에서 수행).
+        /// </summary>
+        private void SaveReceivePlan(BinSide side)
+        {
+            try
+            {
+                string sideText = side == BinSide.Ng ? "NG" : "GOOD";
+                DieMap map = BuildBinTrayMap(side);
+                if (map == null)
+                {
+                    QMC.Common.MessageDialog.Show(this,
+                        "Output " + sideText + " Bin Tray 레시피가 설정되지 않았습니다.\r\n(Columns/Rows/Pitch 확인)",
+                        "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                DialogResult confirm = QMC.Common.MessageDialog.Show(this,
+                    "Output " + sideText + " 빈 트레이 수령 계획(센터 기준 좌표)을 저장하시겠습니까?",
+                    "Output Stage Map", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                if (confirm != DialogResult.Yes)
+                    return;
+
+                PersistReceivePlanToMaterialState(side, map);
+                _planDirty = false;
+                ReloadOutputMap();
+
+                QMC.Common.MessageDialog.Show(this, "수령 계획 저장 완료.",
+                    "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
+                    "Output receive plan save failed: " + ex.Message + " - Failed");
+                QMC.Common.MessageDialog.Show(this, "수령 계획 저장 실패:\r\n" + ex.Message,
+                    "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
+        }
+
+        /// <summary>
+        /// 빈 트레이 맵의 형상/센터 좌표를 출력 웨이퍼 Material(plan 메타)에 기록합니다.<br/>
+        /// 빈 슬롯은 die가 아직 없으므로 OutputReceive* 메타로만 저장합니다(Q2: plan 메타만).
+        /// </summary>
+        private void PersistReceivePlanToMaterialState(BinSide side, DieMap map)
+        {
+            try
+            {
+                if (map == null)
+                    return;
+
+                DieMapGenerator.Normalize(map);
+                WaferMaterial outWafer = MaterialStateService.GetWaferAtLocation(
+                    side == BinSide.Ng ? MaterialLocationKind.OutputStageNg : MaterialLocationKind.OutputStageGood);
+                if (outWafer == null)
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
+                        "Output receive plan persist skipped: no output wafer. side=" + side + " - Check");
+                    return;
+                }
+
+                List<DieMapEntry> ordered = BuildReceiveOrder(map);
+
+                outWafer.OutputReceiveDieMapX = map.DieMapX;     // = 빈 트레이 열(Columns)
+                outWafer.OutputReceiveDieMapY = map.DieMapY;     // = 빈 트레이 행(Rows)
+                outWafer.OutputReceivePitchX = map.PitchX;
+                outWafer.OutputReceivePitchY = map.PitchY;
+                outWafer.OutputReceiveOriginX = map.OriginX;     // ProcessPosition 센터값(추적용)
+                outWafer.OutputReceiveOriginY = map.OriginY;
+                outWafer.OutputReceiveTotalCount = ordered.Count;
+                outWafer.UpdatedAt = DateTime.Now;
+
+                MaterialStateService.NotifyAndSave("OutputMapTransferReceivePlanSave");
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
+                    "Output receive plan persist failed: " + ex.Message + " - Failed");
             }
             finally
             {
