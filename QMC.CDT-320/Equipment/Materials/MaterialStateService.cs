@@ -724,6 +724,7 @@ namespace QMC.CDT320.Materials
                 outputWafer.OutputReceiveDirection = pickup.Direction.ToString();
                 outputWafer.OutputReceivePattern = pickup.Pattern.ToString();
                 outputWafer.DieMapFrameObjId = binMap.FrameObjId ?? "";
+                outputWafer.OutputReceiveSlots = BuildOutputReceiveSlots(ordered, side, binMap.PitchX, binMap.PitchY);
                 if (outputWafer.DieIds == null)
                     outputWafer.DieIds = new List<string>();
                 else
@@ -842,6 +843,7 @@ namespace QMC.CDT320.Materials
                     die.CurrentLocation = new MaterialLocation { Kind = stageLocation };
                     die.Result = side == QMC.CDT320.BinSide.Ng ? DieResult.NG : DieResult.Good;
                     die.WaferID_Output = outputWafer.WaferId;
+                    UpdateOutputReceiveSlot(outputWafer, die, side);
                     die.UpdatedAt = DateTime.Now;
 
                     if (outputWafer.DieIds == null)
@@ -951,6 +953,84 @@ namespace QMC.CDT320.Materials
                 .OrderBy(e => e.DieMapY)
                 .ThenBy(e => e.DieMapX)
                 .ToList();
+        }
+
+        private static List<OutputReceiveSlotMaterial> BuildOutputReceiveSlots(
+            List<DieMapEntry> ordered,
+            QMC.CDT320.BinSide side,
+            double pitchX,
+            double pitchY)
+        {
+            var slots = new List<OutputReceiveSlotMaterial>();
+            if (ordered == null)
+                return slots;
+
+            int binCode = side == QMC.CDT320.BinSide.Ng ? 255 : 1;
+            for (int i = 0; i < ordered.Count; i++)
+            {
+                DieMapEntry entry = ordered[i];
+                if (entry == null)
+                    continue;
+
+                slots.Add(new OutputReceiveSlotMaterial
+                {
+                    OrderIndex = i,
+                    SequenceNo = entry.SequenceNo,
+                    DieMapX = entry.DieMapX,
+                    DieMapY = entry.DieMapY,
+                    IsTarget = true,
+                    Result = DieResult.Unknown,
+                    BinCode = binCode,
+                    PosX = entry.PosX != 0.0 ? entry.PosX : pitchX * entry.DieMapX,
+                    PosY = entry.PosY != 0.0 ? entry.PosY : pitchY * entry.DieMapY,
+                    DieUid = ""
+                });
+            }
+
+            return slots;
+        }
+
+        private static void UpdateOutputReceiveSlot(WaferMaterial outputWafer, DieMaterial die, QMC.CDT320.BinSide side)
+        {
+            if (outputWafer == null || die == null)
+                return;
+
+            if (outputWafer.OutputReceiveSlots == null)
+                outputWafer.OutputReceiveSlots = new List<OutputReceiveSlotMaterial>();
+
+            int index = outputWafer.DieIds != null
+                ? outputWafer.DieIds.Count(id => !string.IsNullOrWhiteSpace(id))
+                : 0;
+
+            OutputReceiveSlotMaterial slot = outputWafer.OutputReceiveSlots
+                .FirstOrDefault(s => s != null && s.OrderIndex == index);
+
+            if (slot == null)
+            {
+                slot = new OutputReceiveSlotMaterial
+                {
+                    OrderIndex = index,
+                    SequenceNo = index,
+                    DieMapX = die.Bin_IndexX >= 0 ? die.Bin_IndexX : index,
+                    DieMapY = die.Bin_IndexY >= 0 ? die.Bin_IndexY : 0,
+                    IsTarget = true,
+                    BinCode = side == QMC.CDT320.BinSide.Ng ? 255 : 1
+                };
+                outputWafer.OutputReceiveSlots.Add(slot);
+            }
+
+            slot.DieUid = die.DieId;
+            slot.Result = side == QMC.CDT320.BinSide.Ng ? DieResult.NG : DieResult.Good;
+            slot.BinCode = side == QMC.CDT320.BinSide.Ng ? 255 : 1;
+            die.Bin_IndexX = slot.DieMapX;
+            die.Bin_IndexY = slot.DieMapY;
+            die.Output_BinCode = slot.BinCode;
+            if (die.BinOffset == null)
+                die.BinOffset = new VisionOffset();
+            die.BinOffset.X = slot.PosX;
+            die.BinOffset.Y = slot.PosY;
+            die.BinOffset.R = 0.0;
+            die.BinOffset.IsValid = true;
         }
 
         private static PickupSubset ResolveInputPickup(RecipeProject project)
@@ -1427,6 +1507,63 @@ namespace QMC.CDT320.Materials
             {
                 Log.Write("Main", "SYSTEM", "MaterialStateService",
                     "Die map rebuild from wafer failed: " + ex.Message + " - Failed");
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
+        public static DieMap BuildOutputReceiveDieMapFromWafer(WaferMaterial wafer)
+        {
+            try
+            {
+                if (wafer == null || wafer.OutputReceiveSlots == null || wafer.OutputReceiveSlots.Count == 0)
+                    return null;
+
+                int maxX = wafer.OutputReceiveSlots.Max(s => s != null ? s.DieMapX : -1);
+                int maxY = wafer.OutputReceiveSlots.Max(s => s != null ? s.DieMapY : -1);
+                if (maxX < 0 || maxY < 0)
+                    return null;
+
+                var map = new DieMap
+                {
+                    FrameObjId = string.IsNullOrWhiteSpace(wafer.DieMapFrameObjId) ? wafer.WaferId : wafer.DieMapFrameObjId,
+                    DieMapX = maxX + 1,
+                    DieMapY = maxY + 1,
+                    PitchX = wafer.OutputReceivePitchX,
+                    PitchY = wafer.OutputReceivePitchY,
+                    OriginX = wafer.OutputReceiveOriginX,
+                    OriginY = wafer.OutputReceiveOriginY,
+                    CreatedAt = wafer.UpdatedAt
+                };
+
+                foreach (OutputReceiveSlotMaterial slot in wafer.OutputReceiveSlots.OrderBy(s => s != null ? s.OrderIndex : int.MaxValue))
+                {
+                    if (slot == null || slot.DieMapX < 0 || slot.DieMapY < 0)
+                        continue;
+
+                    map.Entries.Add(new DieMapEntry
+                    {
+                        Index = slot.OrderIndex,
+                        SequenceNo = slot.SequenceNo,
+                        DieMapX = slot.DieMapX,
+                        DieMapY = slot.DieMapY,
+                        IsTarget = slot.IsTarget,
+                        Result = slot.Result,
+                        BinCode = slot.BinCode,
+                        PosX = slot.PosX,
+                        PosY = slot.PosY,
+                        DieUid = slot.DieUid ?? ""
+                    });
+                }
+
+                return DieMapGenerator.Normalize(map);
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "Output receive die map rebuild from wafer failed: " + ex.Message + " - Failed");
                 return null;
             }
             finally

@@ -462,6 +462,9 @@ namespace QMC.CDT320.Initialization
                     "Output NG stage Y home after good stage Y.",
                     "OutputNGStageY", "NgStage_StageY");
 
+                AddPreCylinderAction(plan, 330, "OutputNGStageY", "GoodBinGuideLift", AxisInitializeActionCommand.CylinderBwd,
+                    "Good bin guide must be down before OutputNGStageY home.");
+
                 AddKnownStep(plan, axisByName, used, 340, "OutputCassette",
                     AxisInitializeRunMode.Serial,
                     "Output cassette lifter Z home after OutputFeederY is safe.",

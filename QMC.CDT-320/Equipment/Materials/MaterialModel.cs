@@ -249,6 +249,21 @@ namespace QMC.CDT320.Materials
     }
 
     [DataContract]
+    public class OutputReceiveSlotMaterial
+    {
+        [DataMember] public int OrderIndex { get; set; }
+        [DataMember] public int SequenceNo { get; set; }
+        [DataMember] public int DieMapX { get; set; }
+        [DataMember] public int DieMapY { get; set; }
+        [DataMember] public bool IsTarget { get; set; } = true;
+        [DataMember] public DieResult Result { get; set; } = DieResult.Unknown;
+        [DataMember] public int BinCode { get; set; }
+        [DataMember] public double PosX { get; set; }
+        [DataMember] public double PosY { get; set; }
+        [DataMember] public string DieUid { get; set; } = "";
+    }
+
+    [DataContract]
     public class WaferMaterial
     {
         [DataMember] public string WaferId { get; set; } = "";
@@ -288,6 +303,7 @@ namespace QMC.CDT320.Materials
         [DataMember] public string OutputReceiveStartCorner { get; set; } = "";
         [DataMember] public string OutputReceiveDirection { get; set; } = "";
         [DataMember] public string OutputReceivePattern { get; set; } = "";
+        [DataMember] public List<OutputReceiveSlotMaterial> OutputReceiveSlots { get; set; } = new List<OutputReceiveSlotMaterial>();
         [DataMember] public List<string> DieIds { get; set; } = new List<string>();
         [DataMember] public DateTime CreatedAt { get; set; } = DateTime.Now;
         [DataMember] public DateTime UpdatedAt { get; set; } = DateTime.Now;

@@ -145,13 +145,36 @@ namespace QMC.CDT320.Sequencing
             if (MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputFeeder) != null)
                 return OutputSequenceAutoAction.ResumeOccupiedFeeder;
 
-            if (MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputStageGood) == null)
+            bool canSupplyGood = CanSupplyOutputStage(BinSide.Good);
+            bool canSupplyNg = CanSupplyOutputStage(BinSide.Ng);
+
+            if (canSupplyNg && (!canSupplyGood || AreBothOutputStagesEmpty()))
+                return OutputSequenceAutoAction.SupplyNgCassetteToStage;
+
+            if (canSupplyGood)
                 return OutputSequenceAutoAction.SupplyGoodCassetteToStage;
 
-            if (MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputStageNg) == null)
+            if (canSupplyNg)
                 return OutputSequenceAutoAction.SupplyNgCassetteToStage;
 
             return OutputSequenceAutoAction.WaitOutputStageReceiveComplete;
+        }
+
+        private static bool AreBothOutputStagesEmpty()
+        {
+            return MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputStageGood) == null &&
+                   MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputStageNg) == null;
+        }
+
+        private static bool CanSupplyOutputStage(BinSide side)
+        {
+            MaterialLocationKind location = side == BinSide.Ng
+                ? MaterialLocationKind.OutputStageNg
+                : MaterialLocationKind.OutputStageGood;
+
+            OutputSlotPlan plan;
+            return MaterialStateService.GetWaferAtLocation(location) == null &&
+                   OutputSlotPlanner.TryResolveNextSupplySlot(side, out plan);
         }
 
         private static bool IsStageReceiveComplete(BinSide side)

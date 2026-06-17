@@ -289,6 +289,8 @@ namespace QMC.CDT320.Interlocks
                         "OutputNGStageY HOME blocked. GoodBinZ(GoodStageZ) must be at Avoid position.",
                         out reason);
 
+                if (!RefreshRequiredHardwareInput(outputStage.GoodBinGuideDownSensor, "OutputNGStageY", "GoodBinGuideDown", out reason))
+                    return false;
                 if (outputStage.GoodBinGuideDownSensor != null &&
                     !IsDryRunInput(outputStage.GoodBinGuideDownSensor) &&
                     !outputStage.GoodBinGuideDownSensor.IsOn)
@@ -297,14 +299,8 @@ namespace QMC.CDT320.Interlocks
                         "OutputNGStageY HOME blocked. Good Bin Guide cylinder must be down.",
                         out reason);
 
-                if (outputStage.NgBinGuideDownSensor != null &&
-                    !IsDryRunInput(outputStage.NgBinGuideDownSensor) &&
-                    !outputStage.NgBinGuideDownSensor.IsOn)
-                    return MotionGuardRuleHelpers.Block(
-                        "OutputNGStageY",
-                        "OutputNGStageY HOME blocked. NG Bin Guide cylinder must be down.",
-                        out reason);
-
+                if (!RefreshRequiredHardwareInput(outputStage.NgBinClampUpSensor, "OutputNGStageY", "NgBinClampUp", out reason))
+                    return false;
                 if (outputStage.NgBinClampUpSensor != null &&
                     !IsDryRunInput(outputStage.NgBinClampUpSensor) &&
                     !outputStage.NgBinClampUpSensor.IsOn)
@@ -427,6 +423,9 @@ namespace QMC.CDT320.Interlocks
             if (outputStage == null)
                 return true;
 
+            if (!RefreshRequiredHardwareInput(outputStage.NgBinClampUpSensor, movingName, "NgBinClampUp", out reason))
+                return false;
+
             if (!outputStage.IsBinGuideClampLiftUp(BinSide.Ng))
                 return MotionGuardRuleHelpers.Block(
                     movingName,
@@ -443,8 +442,8 @@ namespace QMC.CDT320.Interlocks
             if (outputStage == null)
                 return true;
 
-            bool ngAvoidTarget = IsNgStageYAvoidTarget(outputStage, request != null ? request.TargetValue : 0.0);
-
+            if (!RefreshRequiredHardwareInput(outputStage.GoodBinGuideDownSensor, movingName, "GoodBinGuideDown", out reason))
+                return false;
             if (outputStage.GoodBinGuideDownSensor != null &&
                 !IsDryRunInput(outputStage.GoodBinGuideDownSensor) &&
                 !outputStage.GoodBinGuideDownSensor.IsOn)
@@ -453,15 +452,8 @@ namespace QMC.CDT320.Interlocks
                     movingName + " move blocked. Good Bin Guide cylinder must be down.",
                     out reason);
 
-            if (outputStage.NgBinGuideDownSensor != null &&
-                !ngAvoidTarget &&
-                !IsDryRunInput(outputStage.NgBinGuideDownSensor) &&
-                !outputStage.NgBinGuideDownSensor.IsOn)
-                return MotionGuardRuleHelpers.Block(
-                    movingName,
-                    movingName + " move blocked. NG Bin Guide cylinder must be down.",
-                    out reason);
-
+            if (!RefreshRequiredHardwareInput(outputStage.NgBinClampUpSensor, movingName, "NgBinClampUp", out reason))
+                return false;
             if (outputStage.NgBinClampUpSensor != null &&
                 !IsDryRunInput(outputStage.NgBinClampUpSensor) &&
                 !outputStage.NgBinClampUpSensor.IsOn)
@@ -529,6 +521,55 @@ namespace QMC.CDT320.Interlocks
         private static bool IsDryRunInput(BaseDigitalInput input)
         {
             return input != null && input.Config != null && input.Config.IgnoreWaits;
+        }
+
+        private static bool RefreshRequiredHardwareInput(BaseDigitalInput input, string movingName, string signalName, out string reason)
+        {
+            reason = string.Empty;
+
+            if (!IsStrictHardwareMode())
+                return true;
+
+            if (input == null)
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    signalName + " sensor is not registered in real hardware mode.",
+                    out reason);
+
+            if (input.Config != null && (input.Config.IsSimulationMode || input.Config.IgnoreWaits))
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    signalName + " sensor is still simulation/dry-run mode in real hardware mode. " +
+                    "Refresh DIO configuration before movement.",
+                    out reason);
+
+            int errorCode;
+            if (!AjinIoScanService.TryReadHardwareInput(input, out errorCode))
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    signalName + " hardware read failed in real hardware mode. error=" + errorCode,
+                    out reason);
+
+            return true;
+        }
+
+        private static bool IsStrictHardwareMode()
+        {
+            try
+            {
+                AppSettings settings = AppSettingsStore.Current ?? AppSettingsStore.Load();
+                return settings != null &&
+                       settings.UseAjin &&
+                       !settings.SimulationMode &&
+                       !settings.DryRunMode;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
         }
 
         private static bool IsMovingExcept(BaseAxis axis, string movingName, params string[] names)

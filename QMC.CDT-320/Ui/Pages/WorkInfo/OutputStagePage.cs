@@ -509,6 +509,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             int receivedCount = wafer != null && wafer.DieIds != null ? wafer.DieIds.Count : 0;
             int totalCount = wafer != null ? wafer.OutputReceiveTotalCount : 0;
             int nextIndex = wafer != null ? wafer.OutputReceiveNextIndex : 0;
+            int slotCount = wafer != null && wafer.OutputReceiveSlots != null ? wafer.OutputReceiveSlots.Count : 0;
 
             return new[]
             {
@@ -517,6 +518,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 Row("Wafer ID", wafer != null ? wafer.WaferId : ""),
                 Row("State", wafer != null ? WaferMaterialStateText.ToDisplayName(wafer.State) : "EMPTY"),
                 Row("Grade", wafer != null ? wafer.OutputGrade.ToString() : ""),
+                Row("DieMap ObjId", wafer != null ? wafer.DieMapFrameObjId : ""),
+                Row("DieMap Grid", wafer != null ? wafer.OutputReceiveDieMapX + " x " + wafer.OutputReceiveDieMapY : ""),
+                Row("DieMap Slots", wafer != null ? slotCount.ToString() : ""),
                 Row("Receive Progress", wafer != null ? receivedCount + " / " + totalCount : ""),
                 Row("Next Receive Index", wafer != null ? nextIndex.ToString() : ""),
                 Row("Source Wafer", wafer != null ? wafer.OutputReceiveSourceWaferId : ""),

@@ -33,6 +33,8 @@ namespace QMC.CDT320.Sequencing
         MoveNgStageAvoidAfterLoad,
         LowerNgStageGuideAfterAvoid,
         VerifyBinTransferredToStage,
+        LowerOutputStageGuideBeforeProcess,
+        MoveOutputStageProcessPosition,
         UpdateFeederData,
         Complete,
         Error
@@ -157,6 +159,14 @@ namespace QMC.CDT320.Sequencing
                     case OutputFeederLoadToStageStep.VerifyBinTransferredToStage:
                         return VerifyBinTransferredToStageAsync(ct);
 
+                    // 프로세스 이동 전 아웃풋 스테이지 가이드 다운
+                    case OutputFeederLoadToStageStep.LowerOutputStageGuideBeforeProcess:
+                        return LowerOutputStageGuideBeforeProcessAsync(ct);
+
+                    // 아웃풋 스테이지 프로세스 위치 이동
+                    case OutputFeederLoadToStageStep.MoveOutputStageProcessPosition:
+                        return MoveOutputStageProcessPositionAsync(ct);
+
                     // 피더 데이터 갱신
                     case OutputFeederLoadToStageStep.UpdateFeederData:
                         return Task.FromResult(UpdateFeederData());
@@ -263,7 +273,9 @@ namespace QMC.CDT320.Sequencing
             if (Options.Side != BinSide.Ng && !Stage.IsNgStageInAvoidPosition())
                 return Fail("OUT-STAGE-NG-AVOID", Stage.Name, "NG stage must be avoid before GOOD stage receives bin. " + Stage.DescribeOutputStageInterlockState(Options.Side));
 
-            CurrentStep = OutputFeederLoadToStageStep.MoveOutputStageLoadPosition;
+            CurrentStep = Options.Side == BinSide.Good
+                ? OutputFeederLoadToStageStep.EnsureOutputStageUnclamp
+                : OutputFeederLoadToStageStep.MoveOutputStageLoadPosition;
             return 0;
         }
 
@@ -276,7 +288,9 @@ namespace QMC.CDT320.Sequencing
             if (!Stage.IsStageInLoadPosition(Options.Side))
                 return Fail("OUT-STAGE-LOAD-POS", Stage.Name, "Output stage is not in load position after move. side=" + Options.Side);
 
-            CurrentStep = OutputFeederLoadToStageStep.EnsureOutputStageGuideUp;
+            CurrentStep = Options.Side == BinSide.Good
+                ? OutputFeederLoadToStageStep.VerifyOutputStageReceiveReady
+                : OutputFeederLoadToStageStep.EnsureOutputStageGuideUp;
             return 0;
         }
 
@@ -302,7 +316,9 @@ namespace QMC.CDT320.Sequencing
             if (!Stage.IsBinGuideClampLiftDown(Options.Side))
                 return Fail("OUT-STAGE-CLAMP-DOWN", Stage.Name, "Output stage bin clamp lift is not down. " + Stage.DescribeOutputStageInterlockState(Options.Side));
 
-            CurrentStep = OutputFeederLoadToStageStep.EnsureOutputStageUnclamp;
+            CurrentStep = Options.Side == BinSide.Good
+                ? OutputFeederLoadToStageStep.MoveOutputStageLoadPosition
+                : OutputFeederLoadToStageStep.EnsureOutputStageUnclamp;
             return 0;
         }
 
@@ -315,7 +331,9 @@ namespace QMC.CDT320.Sequencing
             if (!Stage.IsBinGuideUnclamped(Options.Side))
                 return Fail("OUT-STAGE-UNCLAMP", Stage.Name, "Output stage bin guide is not unclamped. " + Stage.DescribeOutputStageInterlockState(Options.Side));
 
-            CurrentStep = OutputFeederLoadToStageStep.VerifyOutputStageReceiveReady;
+            CurrentStep = Options.Side == BinSide.Good
+                ? OutputFeederLoadToStageStep.EnsureOutputStageGuideUp
+                : OutputFeederLoadToStageStep.VerifyOutputStageReceiveReady;
             return 0;
         }
 
@@ -460,9 +478,7 @@ namespace QMC.CDT320.Sequencing
         {
             if (Feeder.IsFeederDown())
             {
-                CurrentStep = Options.Side == BinSide.Ng
-                    ? OutputFeederLoadToStageStep.MoveNgStageAvoidAfterLoad
-                    : OutputFeederLoadToStageStep.VerifyBinTransferredToStage;
+                CurrentStep = OutputFeederLoadToStageStep.VerifyBinTransferredToStage;
                 return 0;
             }
 
@@ -473,9 +489,7 @@ namespace QMC.CDT320.Sequencing
             if (!Feeder.IsFeederDown())
                 return Fail("OUT-FEEDER-DOWN", Feeder.Name, "Output feeder lift is not down after feeder avoid. side=" + Options.Side + ", " + Feeder.DescribeFeederCylinderState());
 
-            CurrentStep = Options.Side == BinSide.Ng
-                ? OutputFeederLoadToStageStep.MoveNgStageAvoidAfterLoad
-                : OutputFeederLoadToStageStep.VerifyBinTransferredToStage;
+            CurrentStep = OutputFeederLoadToStageStep.VerifyBinTransferredToStage;
             return 0;
         }
 
@@ -517,6 +531,46 @@ namespace QMC.CDT320.Sequencing
                 if (!cleared)
                     return Fail("OUT-FEEDER-STAGE-RING", Feeder.Name, "Output feeder ring remained after stage load. waferId=" + wafer.WaferId);
             }
+
+            CurrentStep = OutputFeederLoadToStageStep.LowerOutputStageGuideBeforeProcess;
+            return 0;
+        }
+
+        private async Task<int> LowerOutputStageGuideBeforeProcessAsync(CancellationToken ct)
+        {
+            int result = await AwaitStepWithCancellationAsync(Stage.EnsureBinGuideDownAsync(Options.Side, ResolveTimeout()), ct).ConfigureAwait(false);
+            if (result != 0)
+                return Fail("OUT-STAGE-GUIDE-DOWN-BEFORE-PROCESS", Stage.Name,
+                    "Output stage guide down failed before process move. side=" + Options.Side + ", result=" + result + ", " +
+                    Stage.DescribeOutputStageInterlockState(Options.Side));
+
+            if (!Stage.IsBinGuideDown(Options.Side))
+                return Fail("OUT-STAGE-GUIDE-DOWN-BEFORE-PROCESS", Stage.Name,
+                    "Output stage guide is not down before process move. side=" + Options.Side + ", " +
+                    Stage.DescribeOutputStageInterlockState(Options.Side));
+
+            CurrentStep = OutputFeederLoadToStageStep.MoveOutputStageProcessPosition;
+            return 0;
+        }
+
+        private async Task<int> MoveOutputStageProcessPositionAsync(CancellationToken ct)
+        {
+            var stageOptions = OutputStageSequenceOptions.Default();
+            stageOptions.Side = Options.Side;
+            stageOptions.Grade = Options.Side == BinSide.Ng ? DieGrade.Ng : DieGrade.Good;
+            stageOptions.FineMove = Options.FineMove;
+            stageOptions.MoveTimeoutMs = ResolveTimeout();
+            stageOptions.RunMode = Options.RunMode;
+            stageOptions.StartMode = Options.StartMode;
+
+            int result = await new OutputStageSequence(Context)
+                .RunMoveProcessAsync(ct, stageOptions)
+                .ConfigureAwait(false);
+
+            if (result != 0)
+                return Fail("OUT-STAGE-PROCESS-AFTER-LOAD", "OutputStage",
+                    "Output stage process move failed after bin load. side=" + Options.Side + ", result=" + result + ", " +
+                    Stage.DescribeOutputStageInterlockState(Options.Side));
 
             CurrentStep = OutputFeederLoadToStageStep.UpdateFeederData;
             return 0;

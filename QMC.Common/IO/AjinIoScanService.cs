@@ -204,6 +204,35 @@ namespace QMC.Common.IO
             return true;
         }
 
+        public static bool TryReadHardwareInput(BaseDigitalInput input, out int errorCode)
+        {
+            errorCode = -1;
+            if (input == null) return false;
+
+            bool raw = false;
+            lock (AxdSyncRoot)
+                errorCode = AXD.Read(input.Setup.ModuleNo, input.Setup.BitNo, ref raw);
+
+            if (errorCode != 0)
+                return false;
+
+            bool logical = input.Setup.IsNormallyClosed ? !raw : raw;
+            input.ApplyScannedState(logical);
+
+            AjinIoScanService current = Current;
+            if (current != null)
+                current.UpdateCached(
+                    input.Name,
+                    input.Setup.ModuleNo,
+                    input.Setup.BitNo,
+                    false,
+                    logical,
+                    input.Setup.IsNormallyClosed,
+                    0);
+
+            return true;
+        }
+
         public bool TryApplyLatest(BaseDigitalOutput output)
         {
             if (output == null) return false;

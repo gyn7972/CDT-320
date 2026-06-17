@@ -161,8 +161,9 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 WaferMaterial outputWafer = GetSelectedOutputWafer();
                 WaferMaterial sourceWafer = ResolveSourceWafer(outputWafer);
 
-                // 레시피의 원형 빈맵(GOOD/NG)을 로드. 없으면 빈 맵 표시.
-                DieMap baseMap = LoadRecipeBinMap(_selectedSide);
+                DieMap materialMap = MaterialStateService.BuildOutputReceiveDieMapFromWafer(outputWafer);
+                // Material에 저장된 Output receive map을 우선 사용하고, 없으면 레시피 원형 빈맵으로 표시.
+                DieMap baseMap = materialMap ?? LoadRecipeBinMap(_selectedSide);
                 if (baseMap == null)
                 {
                     ApplyEmptyOutputMap(outputWafer, sourceWafer);
@@ -313,7 +314,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 {
                     entry.Result = DieResult.Unknown;
                     entry.BinCode = 0;
-                    entry.IsTarget = false;
+                    entry.IsTarget = true;
                 }
             }
 
@@ -484,7 +485,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
                     string status = entry.Result == DieResult.Good || entry.Result == DieResult.NG
                         ? "RECEIVED"
-                        : (entry.IsTarget ? "NEXT" : "WAIT");
+                        : (entry.BinCode != 0 && entry.IsTarget ? "NEXT" : "WAIT");
                     gridDieList.Rows.Add(
                         i,
                         entry.DieMapX,
@@ -1014,6 +1015,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (confirm != DialogResult.Yes)
                     return;
 
+                PersistOutputMapToMaterialState(mapView != null ? mapView.Map : null);
                 MaterialStateService.NotifyAndSave("OutputStageMapTransferSave");
                 QMC.Common.MessageDialog.Show(this, "Material 상태 저장 완료.",
                     "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Information);
@@ -1024,6 +1026,65 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     "Output material state save failed: " + ex.Message + " - Failed");
                 QMC.Common.MessageDialog.Show(this, "Material 상태 저장 실패:\r\n" + ex.Message,
                     "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
+        }
+
+        private void PersistOutputMapToMaterialState(DieMap map)
+        {
+            try
+            {
+                if (map == null || map.Entries == null)
+                    return;
+
+                WaferMaterial wafer = GetSelectedOutputWafer();
+                if (wafer == null)
+                    return;
+
+                DieMapGenerator.Normalize(map);
+                wafer.DieMapFrameObjId = map.FrameObjId ?? "";
+                wafer.OutputReceiveDieMapX = map.DieMapX;
+                wafer.OutputReceiveDieMapY = map.DieMapY;
+                wafer.OutputReceivePitchX = map.PitchX;
+                wafer.OutputReceivePitchY = map.PitchY;
+                wafer.OutputReceiveOriginX = map.OriginX;
+                wafer.OutputReceiveOriginY = map.OriginY;
+                wafer.OutputReceiveTotalCount = map.Entries.Count(e => e != null && e.IsTarget);
+                wafer.UpdatedAt = DateTime.Now;
+
+                List<DieMapEntry> ordered = BuildReceiveOrder(map);
+                if (wafer.OutputReceiveSlots == null)
+                    wafer.OutputReceiveSlots = new List<OutputReceiveSlotMaterial>();
+                else
+                    wafer.OutputReceiveSlots.Clear();
+
+                for (int i = 0; i < ordered.Count; i++)
+                {
+                    DieMapEntry entry = ordered[i];
+                    if (entry == null)
+                        continue;
+
+                    wafer.OutputReceiveSlots.Add(new OutputReceiveSlotMaterial
+                    {
+                        OrderIndex = i,
+                        SequenceNo = entry.SequenceNo,
+                        DieMapX = entry.DieMapX,
+                        DieMapY = entry.DieMapY,
+                        IsTarget = entry.IsTarget,
+                        Result = entry.Result,
+                        BinCode = entry.BinCode,
+                        PosX = entry.PosX,
+                        PosY = entry.PosY,
+                        DieUid = entry.DieUid ?? ""
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
+                    "Output map material persist failed: " + ex.Message + " - Failed");
             }
             finally
             {

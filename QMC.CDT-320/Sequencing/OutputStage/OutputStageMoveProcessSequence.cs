@@ -14,6 +14,8 @@ namespace QMC.CDT320.Sequencing
         MoveNgStageYToAvoid,
         CheckNgStageYAvoid,
         EnsureNgClampLiftUp,
+        MoveTargetStageZToAvoidBeforeY,
+        CheckTargetStageZAvoidBeforeY,
         MoveTargetStageYToProcess,
         CheckTargetStageYProcess,
         MoveTargetStageZToProcess,
@@ -71,6 +73,14 @@ namespace QMC.CDT320.Sequencing
                     // NG 클램프 리프트 업 확보
                     case OutputStageMoveProcessStep.EnsureNgClampLiftUp:
                         return EnsureNgClampLiftUpAsync(ct);
+
+                    // 대상 스테이지 Y 이동 전 대상 Z 어보이드 확보
+                    case OutputStageMoveProcessStep.MoveTargetStageZToAvoidBeforeY:
+                        return MoveTargetStageZToAvoidBeforeYAsync(ct);
+
+                    // 대상 스테이지 Y 이동 전 대상 Z 어보이드 확인
+                    case OutputStageMoveProcessStep.CheckTargetStageZAvoidBeforeY:
+                        return Task.FromResult(CheckTargetStageZAvoidBeforeY());
 
                     // 대상 스테이지 Y로 프로세스 이동
                     case OutputStageMoveProcessStep.MoveTargetStageYToProcess:
@@ -255,7 +265,7 @@ namespace QMC.CDT320.Sequencing
             {
                 if (Options.Side != BinSide.Good || Stage.IsBinGuideClampLiftUp(BinSide.Ng))
                 {
-                    CurrentStep = OutputStageMoveProcessStep.MoveTargetStageYToProcess;
+                    CurrentStep = OutputStageMoveProcessStep.MoveTargetStageZToAvoidBeforeY;
                     return 0;
                 }
 
@@ -273,13 +283,74 @@ namespace QMC.CDT320.Sequencing
                         "NG Bin Clamp Lift Up final check failed before Good process. " +
                         Stage.DescribeOutputStageInterlockState(BinSide.Good));
 
-                CurrentStep = OutputStageMoveProcessStep.MoveTargetStageYToProcess;
+                CurrentStep = OutputStageMoveProcessStep.MoveTargetStageZToAvoidBeforeY;
                 return 0;
             }
             catch (Exception ex)
             {
                 return Fail("OUT-STAGE-NG-CLAMP-UP-EX", Name,
                     "NG Bin Clamp Lift Up before Good process exception: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> MoveTargetStageZToAvoidBeforeYAsync(CancellationToken ct)
+        {
+            try
+            {
+                if (SkipMissingSideZAxis(Options.Side, Options.Side + " Z avoid before Y process"))
+                {
+                    CurrentStep = OutputStageMoveProcessStep.MoveTargetStageYToProcess;
+                    return 0;
+                }
+
+                int result = await MoveAxisAndVerifyAsync(
+                    ResolveZAxis(Options.Side),
+                    ResolveSideZTarget(Options.Side, "Avoid"),
+                    Options.Side + " Z avoid before Y process",
+                    ct).ConfigureAwait(false);
+
+                if (result != 0)
+                    return result;
+
+                CurrentStep = OutputStageMoveProcessStep.CheckTargetStageZAvoidBeforeY;
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return Fail("OUT-STAGE-TARGET-Z-AVOID-EX", Name, "Target stage Z avoid before Y process failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private int CheckTargetStageZAvoidBeforeY()
+        {
+            try
+            {
+                if (SkipMissingSideZAxis(Options.Side, Options.Side + " Z avoid final check before Y process"))
+                {
+                    CurrentStep = OutputStageMoveProcessStep.MoveTargetStageYToProcess;
+                    return 0;
+                }
+
+                BinStageAxis axis = ResolveZAxis(Options.Side);
+                double target = ResolveSideZTarget(Options.Side, "Avoid");
+
+                if (!Stage.IsStageAxisInPosition(axis, target, ResolveTolerance(axis)))
+                    return Fail("OUT-STAGE-TARGET-Z-AVOID-CHECK", Stage.Name,
+                        Options.Side + " Z avoid final check failed before Y process. target=" + target + ". " +
+                        BuildAxisState(axis, target));
+
+                CurrentStep = OutputStageMoveProcessStep.MoveTargetStageYToProcess;
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return Fail("OUT-STAGE-TARGET-Z-AVOID-CHECK-EX", Name, "Target stage Z avoid check before Y process failed: " + ex.Message);
             }
             finally
             {
