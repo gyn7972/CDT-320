@@ -809,12 +809,17 @@ namespace QMC.CDT_320
                     ? MaterialSnapshotStore.SnapshotPath
                     : MaterialSnapshotStore.LastLoadedPath;
                 string snapshotFileName = System.IO.Path.GetFileName(snapshotPath);
+                int waferCount = CountMaterialSnapshotWafers(snapshot);
+                int dieCount = CountMaterialSnapshotDies(snapshot);
+                int pickerDieCount = CountMaterialSnapshotPickerDies(snapshot);
 
                 var message =
                     "이전에 저장된 Material 정보가 있습니다.\r\n\r\n" +
                     "저장 시간: " + savedAt + "\r\n" +
                     "Recipe: " + (string.IsNullOrEmpty(recipe) ? "-" : recipe) + "\r\n" +
                     "Lot: " + (string.IsNullOrEmpty(lot) ? "-" : lot) + "\r\n" +
+                    "Wafer: " + waferCount + " / Die: " + dieCount + "\r\n" +
+                    "Picker 보유/예약 Die: " + pickerDieCount + "\r\n" +
                     "File: " + (string.IsNullOrEmpty(snapshotFileName) ? "-" : snapshotFileName) + "\r\n" +
                     "Path: " + snapshotPath + "\r\n\r\n" +
                     "[예] 기존 Material 정보를 사용합니다.\r\n" +
@@ -921,6 +926,71 @@ namespace QMC.CDT_320
             }
 
             return "";
+        }
+
+        private static int CountMaterialSnapshotWafers(MaterialSnapshot snapshot)
+        {
+            try
+            {
+                return snapshot != null && snapshot.Wafers != null ? snapshot.Wafers.Count : 0;
+            }
+            catch
+            {
+                return 0;
+            }
+            finally
+            {
+            }
+        }
+
+        private static int CountMaterialSnapshotDies(MaterialSnapshot snapshot)
+        {
+            try
+            {
+                return snapshot != null && snapshot.Dies != null ? snapshot.Dies.Count : 0;
+            }
+            catch
+            {
+                return 0;
+            }
+            finally
+            {
+            }
+        }
+
+        private static int CountMaterialSnapshotPickerDies(MaterialSnapshot snapshot)
+        {
+            try
+            {
+                if (snapshot == null || snapshot.Dies == null)
+                    return 0;
+
+                int count = 0;
+                foreach (var die in snapshot.Dies)
+                {
+                    if (die == null)
+                        continue;
+
+                    MaterialLocation location = die.CurrentLocation;
+                    MaterialLocationKind kind = location != null ? location.Kind : MaterialLocationKind.Unknown;
+                    if (kind == MaterialLocationKind.PickerFront ||
+                        kind == MaterialLocationKind.PickerRear ||
+                        die.PickedPickerNo > 0 ||
+                        die.ReservedPickerNo > 0)
+                    {
+                        count++;
+                    }
+                }
+
+                return count;
+            }
+            catch
+            {
+                return 0;
+            }
+            finally
+            {
+            }
         }
 
         private void InitializeMaterialStateFromRecipe(QMC.CDT320.Recipes.RecipeProject recipe)

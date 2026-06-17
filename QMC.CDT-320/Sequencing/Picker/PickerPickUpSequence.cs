@@ -951,6 +951,7 @@ namespace QMC.CDT320.Sequencing
                 return Fail("PICKER-PICKUP-MATERIAL", Name, "Picked die material state update failed. die=" + _currentDieId + ", pickerNo=" + _currentPickerNo);
 
             RecordColletUse(_currentPickerNo);
+            SaveRuntimeState(Name + ":PickUp:ColletUse:" + _currentPickerNo);
             WriteLog("PickerPickUpSequence", Name + " picked die. die=" + _currentDieId + ", pickerNo=" + _currentPickerNo + " - Ok");
 
             if (_currentBatchItem != null)

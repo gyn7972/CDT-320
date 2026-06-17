@@ -91,6 +91,24 @@ namespace QMC.CDT320.Sequencing
             return Options != null && Options.ResourceTimeoutMs > 0 ? Options.ResourceTimeoutMs : 30000;
         }
 
+        protected void SaveRuntimeState(string reason)
+        {
+            try
+            {
+                if (Context == null || Context.Controller == null)
+                    return;
+
+                Context.Controller.SaveMachineRuntimeState(reason);
+            }
+            catch (Exception ex)
+            {
+                WriteLog("SaveRuntimeState", Name + " runtime state save failed. reason=" + reason + ", error=" + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
         protected int ResolvePickerNo()
         {
             int pickerNo = Options != null && Options.PickerNo > 0 ? Options.PickerNo : 1;
@@ -276,7 +294,7 @@ namespace QMC.CDT320.Sequencing
 
                 int result = await MovePickerAxisCommandAsync(axis, target, targetName).ConfigureAwait(false);
                 if (result != 0)
-                    return Fail("PICKER-MOVE-CMD", Name, description + " move command failed. result=" + result + ", " + BuildPickerAxisState(axis, target));
+                    return Fail("PICKER-MOVE-CMD", Name, BuildPickerMoveCommandFailureMessage(axis, target, description, result));
 
                 AxisMoveWaitResult waitResult = await WaitPickerAxisMoveDoneAsync(axis, target, ResolveTimeout(), ct).ConfigureAwait(false);
                 if (waitResult == null || !waitResult.Success)
@@ -343,7 +361,7 @@ namespace QMC.CDT320.Sequencing
                     {
                         KeyValuePair<PickerAxis, double> pair = commandTargets[commandIndex];
                         if (commandResults[commandIndex] != 0)
-                            return Fail("PICKER-MOVE-CMD", Name, description + " move command failed. result=" + commandResults[commandIndex] + ", " + BuildPickerAxisState(pair.Key, pair.Value));
+                            return Fail("PICKER-MOVE-CMD", Name, BuildPickerMoveCommandFailureMessage(pair.Key, pair.Value, description, commandResults[commandIndex]));
                     }
 
                     var waitTasks = new List<Task<AxisMoveWaitResult>>();
@@ -755,6 +773,125 @@ namespace QMC.CDT320.Sequencing
                    ", actual=" + item.ActualPosition +
                    ", target=" + target +
                    ", tolerance=" + tolerance;
+        }
+
+        protected string BuildPickerMoveCommandFailureMessage(
+            PickerAxis axis,
+            double target,
+            string description,
+            int result)
+        {
+            string message =
+                TranslatePickerMoveDescription(description) +
+                " 이동 명령 실패. 결과=" + result +
+                ". " + BuildPickerAxisStateKorean(axis, target);
+
+            string failureReason = BuildPickerLastMotionFailureReason(axis, result);
+            if (!string.IsNullOrWhiteSpace(failureReason))
+                message += ". " + failureReason;
+
+            return message;
+        }
+
+        private string BuildPickerAxisStateKorean(PickerAxis axis, double target)
+        {
+            BaseAxis item = GetPickerAxis(axis);
+            if (item == null)
+                return "축=" + axis + ", 목표위치=" + target + ", 상태=축을 찾을 수 없음";
+
+            double tolerance = item.Config != null && item.Config.InPositionTolerance > 0.0
+                ? item.Config.InPositionTolerance
+                : 0.001;
+
+            return "축=" + axis +
+                   ", 축이름=" + item.Name +
+                   ", 서보=" + (item.IsServoOn ? "ON" : "OFF") +
+                   ", 알람=" + (item.IsAlarm ? "ON" : "OFF") +
+                   ", 이동중=" + (item.IsMoving ? "Y" : "N") +
+                   ", 현재위치=" + item.ActualPosition +
+                   ", 목표위치=" + target +
+                   ", 허용오차=" + tolerance;
+        }
+
+        private string BuildPickerLastMotionFailureReason(PickerAxis axis, int result)
+        {
+            BaseAxis item = GetPickerAxis(axis);
+            string lastFailure = item != null ? item.LastMotionFailureMessage : string.Empty;
+
+            if (!string.IsNullOrWhiteSpace(lastFailure))
+                return TranslateMotionFailureReason(lastFailure);
+
+            if (result == -11)
+            {
+                if (axis == PickerAxis.PickerX)
+                {
+                    return "상세 원인=인터락 차단입니다. PickerX는 공유 X 레일 축이라 이동 목표 위치 또는 이동 경로에서 " +
+                           "InputVisionX, OutputVisionX, FrontPickerX, RearPickerX 중 다른 축과 안전거리가 부족하면 이동이 차단됩니다. " +
+                           "방해 축을 Avoid 위치로 이동하거나 Side/Bottom/Place 티칭 위치와 공유 레일 안전거리 설정을 확인하세요.";
+                }
+
+                return "상세 원인=인터락 차단입니다. 해당 축의 이동 조건, 상대 축 위치, 실린더 상태를 확인하세요.";
+            }
+
+            if (result == -2)
+                return "상세 원인=축 이동 준비 조건이 맞지 않습니다. 서보 ON, 알람 OFF, 이동중 여부를 확인하세요.";
+
+            return string.Empty;
+        }
+
+        private static string TranslateMotionFailureReason(string failure)
+        {
+            if (string.IsNullOrWhiteSpace(failure))
+                return string.Empty;
+
+            if (failure.IndexOf("SharedRailX pair clearance is too close", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return "상세 원인=공유 X 레일 안전거리 인터락입니다. 이동 목표 위치에서 다른 X축과 안전거리가 부족하거나 경로가 겹칩니다. " +
+                       "InputVisionX, OutputVisionX, FrontPickerX, RearPickerX 위치를 확인하세요. 원문=" + failure;
+            }
+
+            if (failure.IndexOf("Interlock blocked", StringComparison.OrdinalIgnoreCase) >= 0)
+                return "상세 원인=인터락 차단입니다. 원문=" + failure;
+
+            if (failure.IndexOf("Servo is OFF", StringComparison.OrdinalIgnoreCase) >= 0)
+                return "상세 원인=서보가 OFF 상태입니다. 원문=" + failure;
+
+            if (failure.IndexOf("Axis alarm is ON", StringComparison.OrdinalIgnoreCase) >= 0)
+                return "상세 원인=축 알람이 ON 상태입니다. 원문=" + failure;
+
+            if (failure.IndexOf("Axis is already moving", StringComparison.OrdinalIgnoreCase) >= 0)
+                return "상세 원인=축이 이미 이동 중입니다. 원문=" + failure;
+
+            return "상세 원인=" + failure;
+        }
+
+        private static string TranslatePickerMoveDescription(string description)
+        {
+            if (string.IsNullOrWhiteSpace(description))
+                return "Picker 축";
+
+            if (description.IndexOf("side inspection X", StringComparison.OrdinalIgnoreCase) >= 0)
+                return "사이드 검사 X축";
+            if (description.IndexOf("side inspection Y", StringComparison.OrdinalIgnoreCase) >= 0)
+                return "사이드 검사 Y축";
+            if (description.IndexOf("side inspection Z", StringComparison.OrdinalIgnoreCase) >= 0)
+                return "사이드 검사 Z축";
+            if (description.IndexOf("side inspection T", StringComparison.OrdinalIgnoreCase) >= 0)
+                return "사이드 검사 T축";
+            if (description.IndexOf("bottom inspection X", StringComparison.OrdinalIgnoreCase) >= 0)
+                return "바텀 검사 X축";
+            if (description.IndexOf("bottom inspection Y", StringComparison.OrdinalIgnoreCase) >= 0)
+                return "바텀 검사 Y축";
+            if (description.IndexOf("bottom inspection Z", StringComparison.OrdinalIgnoreCase) >= 0)
+                return "바텀 검사 Z축";
+            if (description.IndexOf("bottom inspection T", StringComparison.OrdinalIgnoreCase) >= 0)
+                return "바텀 검사 T축";
+            if (description.IndexOf("pick", StringComparison.OrdinalIgnoreCase) >= 0)
+                return "픽업 " + description;
+            if (description.IndexOf("place", StringComparison.OrdinalIgnoreCase) >= 0)
+                return "플레이스 " + description;
+
+            return description;
         }
 
         protected string BuildRequiredPickerAxesReason()

@@ -55,6 +55,15 @@ namespace QMC.CDT320
     }
 
     [DataContract]
+    public class MachinePickerWorkCounterRuntimeState
+    {
+        [DataMember] public string Side { get; set; }
+        [DataMember] public int[] ColletUseCounts { get; set; }
+        [DataMember] public int PickFailCount { get; set; }
+        [DataMember] public int PlaceFailCount { get; set; }
+    }
+
+    [DataContract]
     public class MachineRuntimeState
     {
         [DataMember] public bool IsMachineInitialized { get; set; }
@@ -69,6 +78,8 @@ namespace QMC.CDT320
             new List<MachineCylinderRuntimeState>();
         [DataMember] public List<MachinePickerOffsetRuntimeState> PickerOffsets { get; set; } =
             new List<MachinePickerOffsetRuntimeState>();
+        [DataMember] public List<MachinePickerWorkCounterRuntimeState> PickerWorkCounters { get; set; } =
+            new List<MachinePickerWorkCounterRuntimeState>();
         [DataMember] public List<MachineInitializeStepRuntimeState> InitializeSteps { get; set; } =
             new List<MachineInitializeStepRuntimeState>();
     }
@@ -128,6 +139,8 @@ namespace QMC.CDT320
                     state.Cylinders = new List<MachineCylinderRuntimeState>();
                 if (state.PickerOffsets == null)
                     state.PickerOffsets = new List<MachinePickerOffsetRuntimeState>();
+                if (state.PickerWorkCounters == null)
+                    state.PickerWorkCounters = new List<MachinePickerWorkCounterRuntimeState>();
                 if (state.InitializeSteps == null)
                     state.InitializeSteps = new List<MachineInitializeStepRuntimeState>();
 
