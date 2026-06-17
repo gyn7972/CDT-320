@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
@@ -16,7 +16,7 @@ namespace QMC.Vision.Ui.Pages
     /// 본문 스왑 finder→VisionTargetPage·inspector→InspectorTargetPage(R2d, 3열). 상단바 SAVE=타깃 레시피저장.
     /// 무인자 ctor·ShowSpc 보존(SPC 미노출). P4 — ② 파라미터는 타깃 페이지/SettingsPage 통일 그리드로 흡수(ParameterEditorHost 제거).
     /// </summary>
-    public partial class RecipePage : UserControl
+    public partial class RecipePage : PageBase
     {
         private sealed class Setting
         {
@@ -41,6 +41,10 @@ namespace QMC.Vision.Ui.Pages
         }
 
         private void OnPageLoad(object sender, EventArgs e) => BuildSidebar();
+
+        /// <summary>현재 활성 레시피 명칭(핸들러 수신 = Machine.CurrentRecipeName). 타깃 페이지 생성 시 주입.</summary>
+        private string CurrentRecipeName()
+            => (FindForm() as Form1)?.Machine?.CurrentRecipeName ?? "default";
 
         // ── public 진입 보존(계약 — SPC/파라미터는 미노출이나 메서드/페이지 보존) ──
         private void ShowSpc()
@@ -80,10 +84,10 @@ namespace QMC.Vision.Ui.Pages
             {
                 Text = VisionAlgorithm.Label(key),
                 Tag = key,
-                Width = 200,
+                Width = UiTheme.SidebarWidth - 8,   // 설정 사이드바와 동일 폭
                 Height = 46,
-                Margin = new Padding(0),
-                Status = AlgoStatus(module)
+                ShowStatusDot = false,              // 설정 사이드바처럼 상태점 제거 → 깔끔
+                Margin = new Padding(0, 0, 0, 2)
             };
             btn.Click += new EventHandler(OnAlgorithmClick);
             _algoBtns[key] = btn;
@@ -129,9 +133,9 @@ namespace QMC.Vision.Ui.Pages
             {
                 Text = InspectionLabel.Get(s.Module.AlgorithmKey, s.Id),
                 Tag = key,
-                Width = 160,
-                Height = 32,
-                Margin = new Padding(0, 0, 4, 0),
+                Height = 36,
+                Width = 188,                          // 세로 레일 전체폭
+                Margin = new Padding(0, 0, 0, 3),
                 Status = SettingStatus(key, s)
             };
             btn.Click += new EventHandler(OnSettingClick);
@@ -158,13 +162,13 @@ namespace QMC.Vision.Ui.Pages
                 string k = key;
                 if (s.IsFinder)
                 {
-                    var vtp = new VisionTargetPage(s.Module, s.Finder) { Dock = DockStyle.Fill, Visible = false };
+                    var vtp = new VisionTargetPage(s.Module, s.Finder, CurrentRecipeName()) { Dock = DockStyle.Fill, Visible = false };
                     vtp.DirtyChanged += (snd, ev) => { UpdateSettingDot(k); UpdateAlgoDot(s.Module); };
                     page = vtp;
                 }
                 else
                 {
-                    var itp = new InspectorTargetPage(s.Module, s.Inspector) { Dock = DockStyle.Fill, Visible = false };
+                    var itp = new InspectorTargetPage(s.Module, s.Inspector, CurrentRecipeName()) { Dock = DockStyle.Fill, Visible = false };
                     itp.DirtyChanged += (snd, ev) => { UpdateSettingDot(k); UpdateAlgoDot(s.Module); };
                     page = itp;
                 }

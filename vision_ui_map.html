@@ -1,0 +1,469 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CDT-320 비전 이식 가이드 — CDT-310 UI · 데이터흐름 · 매핑</title>
+<style>
+  :root{
+    --bg:#0e1116; --panel:#171b22; --panel2:#1f242d; --line:#2b323d;
+    --txt:#dfe5ee; --dim:#8b95a4; --accent:#4ea1ff; --accent2:#7ee0b8;
+    --warn:#ffb454; --bad:#ff6b6b; --ok:#7ee0b8; --chip:#262d38;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Segoe UI",-apple-system,Roboto,"Malgun Gothic",sans-serif;
+    background:var(--bg);color:var(--txt);font-size:14px;line-height:1.5}
+  header{padding:14px 20px;border-bottom:1px solid var(--line);background:var(--panel);
+    display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  header h1{font-size:16px;margin:0;font-weight:600}
+  header .sub{color:var(--dim);font-size:12.5px}
+  .tabs{display:flex;gap:6px;margin-left:auto;flex-wrap:wrap}
+  .tab{padding:7px 14px;border:1px solid var(--line);border-radius:8px;background:var(--panel2);
+    cursor:pointer;color:var(--dim);font-weight:600;font-size:13px}
+  .tab.active{color:#fff;border-color:var(--accent);background:#1c2a3d}
+  .wrap{display:flex;min-height:calc(100vh - 58px)}
+  .left{width:42%;max-width:560px;border-right:1px solid var(--line);padding:16px;overflow:auto}
+  .right{flex:1;padding:20px 24px;overflow:auto}
+  .view{display:none}.view.active{display:block}
+  h2.section{font-size:13px;color:var(--accent);text-transform:uppercase;letter-spacing:.06em;margin:18px 0 8px}
+  h2.section:first-child{margin-top:0}
+  /* tree */
+  .node{margin:3px 0}
+  .node .row{display:flex;align-items:center;gap:7px;padding:6px 9px;border-radius:7px;cursor:pointer;
+    border:1px solid transparent}
+  .node .row:hover{background:var(--panel2)}
+  .node .row.sel{background:#1c2a3d;border-color:var(--accent)}
+  .tw{width:14px;color:var(--dim);font-size:11px;text-align:center;flex:0 0 14px}
+  .nlabel{font-weight:600}
+  .ntag{font-size:10.5px;color:var(--dim);background:var(--chip);border-radius:5px;padding:1px 6px;margin-left:4px}
+  .kids{margin-left:16px;border-left:1px dashed var(--line);padding-left:6px;display:none}
+  .kids.open{display:block}
+  .badge{font-size:10px;border-radius:5px;padding:1px 6px;margin-left:auto;font-weight:700}
+  .b-pm{background:#23344a;color:#9cc7ff}
+  .b-blob{background:#3a2f12;color:#ffcf85}
+  .b-edge{background:#13362b;color:#8be8c0}
+  .b-ui{background:#2e2438;color:#d3a7ff}
+  .b-stub{background:#3a1f1f;color:#ff9a9a}
+  .b-done{background:#163524;color:#8be8c0}
+  /* detail panel */
+  .d-title{font-size:18px;font-weight:700;margin:0 0 2px}
+  .d-path{font-family:"Cascadia Code",Consolas,monospace;font-size:11.5px;color:var(--accent2);
+    word-break:break-all;background:var(--panel);padding:6px 10px;border-radius:6px;border:1px solid var(--line);margin:8px 0 14px}
+  .d-sec{margin:14px 0}
+  .d-sec h3{font-size:12px;color:var(--accent);text-transform:uppercase;letter-spacing:.05em;margin:0 0 6px}
+  .pill{display:inline-block;font-size:11px;background:var(--chip);border:1px solid var(--line);
+    border-radius:6px;padding:3px 9px;margin:3px 4px 3px 0}
+  ul.clean{margin:6px 0;padding-left:18px}ul.clean li{margin:3px 0}
+  code{font-family:Consolas,monospace;background:#11151b;padding:1px 5px;border-radius:4px;color:#cfe3ff;font-size:12px}
+  .hint{color:var(--dim);font-size:13px}
+  .empty{color:var(--dim);padding:40px 10px;text-align:center}
+  /* flow */
+  .flowpick{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+  .flowpick .fp{padding:6px 12px;border:1px solid var(--line);border-radius:20px;cursor:pointer;font-size:12.5px;color:var(--dim);font-weight:600}
+  .flowpick .fp.active{background:#1c2a3d;color:#fff;border-color:var(--accent)}
+  .stage{display:flex;align-items:stretch;gap:0;flex-wrap:wrap;margin:10px 0 20px}
+  .stbox{flex:1;min-width:150px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;
+    padding:11px 13px;cursor:pointer;position:relative}
+  .stbox:hover{border-color:var(--accent)}
+  .stbox.sel{border-color:var(--accent);background:#1c2a3d}
+  .stbox .k{font-size:10.5px;color:var(--accent);text-transform:uppercase;letter-spacing:.05em}
+  .stbox .v{font-weight:600;margin-top:3px;font-size:13px}
+  .arrow{align-self:center;color:var(--dim);padding:0 6px;font-size:18px}
+  table{border-collapse:collapse;width:100%;font-size:12.5px;margin:8px 0}
+  th,td{border:1px solid var(--line);padding:7px 9px;text-align:left;vertical-align:top}
+  th{background:var(--panel2);color:var(--accent);font-size:11px;text-transform:uppercase;letter-spacing:.04em}
+  tr:nth-child(even) td{background:#13171d}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;margin:6px 0 14px;font-size:11.5px;color:var(--dim)}
+  .legend span b{font-weight:700}
+  .callout{background:#13202e;border:1px solid #244258;border-left:3px solid var(--accent);
+    padding:11px 14px;border-radius:8px;margin:12px 0}
+  .callout.warn{background:#241d10;border-color:#4a3a18;border-left-color:var(--warn)}
+  .step{counter-increment:s;display:flex;gap:11px;margin:9px 0;align-items:flex-start}
+  .step .n{flex:0 0 26px;height:26px;border-radius:50%;background:#1c2a3d;border:1px solid var(--accent);
+    color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;font-size:12px}
+  .step .b{flex:1}
+  .muted{color:var(--dim)}
+  a.codelink{color:var(--accent);text-decoration:none;border-bottom:1px dotted var(--accent)}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>CDT-320 비전 이식 가이드</h1>
+    <div class="sub">CDT-310 비전 UI 구성 · 전체 데이터 흐름 · CDT-320 매핑/다음 단계 &nbsp;|&nbsp; 클릭해서 탐색하세요</div>
+  </div>
+  <div class="tabs">
+    <div class="tab active" data-view="ui">① CDT-310 UI 맵</div>
+    <div class="tab" data-view="flow">② 데이터 흐름</div>
+    <div class="tab" data-view="map">③ CDT-320 매핑 · 할일</div>
+  </div>
+</header>
+
+<div class="wrap">
+  <!-- ============ LEFT: tree (UI view) ============ -->
+  <div class="left" id="leftPane">
+    <!-- UI tree -->
+    <div class="view active" id="ui-tree">
+      <h2 class="section">CDT-310 비전 화면 계층 (클릭)</h2>
+      <div id="tree"></div>
+      <div class="legend" style="margin-top:18px">
+        <span><b class="ntag" style="color:#d3a7ff">UI</b> Form / UserControl</span>
+        <span>▸ 클릭하면 오른쪽에 파일·역할·주요 컨트롤 표시</span>
+      </div>
+    </div>
+    <!-- flow picker -->
+    <div class="view" id="flow-tree">
+      <h2 class="section">검사 파이프라인 선택</h2>
+      <div class="flowpick" id="flowpick"></div>
+      <h2 class="section">단계 (클릭)</h2>
+      <div id="stageList"></div>
+    </div>
+    <!-- map left -->
+    <div class="view" id="map-tree">
+      <h2 class="section">CDT-320 비전 모듈 (클릭)</h2>
+      <div id="modTree"></div>
+      <div class="legend" style="margin-top:16px">
+        <span><b class="b-done badge">구현됨/골격</b></span>
+        <span><b class="b-stub badge">알고리즘 미구현</b></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ RIGHT: detail ============ -->
+  <div class="right">
+    <div class="view active" id="ui-detail"><div class="empty">왼쪽에서 화면을 선택하세요.</div></div>
+    <div class="view" id="flow-detail"><div class="empty">왼쪽에서 파이프라인 단계를 선택하세요.</div></div>
+    <div class="view" id="map-detail">
+      <h2 class="d-title">CDT-320 이식 전략 한눈에</h2>
+      <div class="callout">
+        CDT-320 <code>QMC.Vision</code>은 이미 <b>인터페이스 기반 골격</b>이 완성돼 있습니다. 5개 모듈
+        (Wafer / Bin / Bottom / TopSide / BottomSide)이 모두 <b>선언적 알고리즘 노드</b>
+        (<code>IPatternFinder</code> · <code>IInspector</code>)로 구성돼 있고, 백엔드(Cognex / OpenCV / Sim)가
+        그 인터페이스를 구현합니다. <b>비어 있는 것은 "알고리즘 본문"</b>입니다 — 그 본문이 CDT-310에 검증된 코드로 존재합니다.
+      </div>
+      <p class="hint">왼쪽에서 모듈을 클릭하면 각 노드가 CDT-310 어느 알고리즘에 대응하는지 봅니다. 아래는 전체 매핑표와 권장 순서입니다.</p>
+      <div id="mapTableHost"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ========================= DATA ========================= */
+const BASE310 = "C:\\Project\\CDT-310\\CDT-310_2\\";
+const INSP310 = "C:\\Project\\CDT-310\\CDT-310_1\\";
+
+/* ---- View 1: CDT-310 UI tree ---- */
+const uiTree = [
+ {id:"op", label:"Operation Page", tag:"FormOperationContentMain", kids:[
+   {id:"op-view", label:"OperationVisionImageViewControl", tag:"UI", badge:"b-ui",
+     path:BASE310+"QMC.Common.UI\\OperationVisionImageViewControl.cs",
+     purpose:"운전 화면의 라이브 비전 표시. 각 모듈 카메라 영상을 중앙 십자선과 함께 실시간 표출.",
+     controls:["baseGroupBoxMain (제목바, SteelBlue)","visionImageViewer 400×350 — OperatingType=Center, VisibleCrossLine, 160ms 갱신"]}
+ ]},
+ {id:"rc", label:"Recipe Page", tag:"FormRecipeContentMain", kids:[
+   {id:"rc-cal", label:"Vision Calibrator", tag:"부품", kids:[
+     {id:"rc-cal-cfg", label:"FormVisionCalibratorConfig", tag:"UI", badge:"b-ui",
+       path:BASE310+"QMC.Common.UI\\FormVisionCalibratorConfig.cs",
+       purpose:"비전 캘리브레이터의 스케일(mm/pixel) 파라미터를 설정/저장. VisionCalScaleControl 호스팅.",
+       controls:["Scale 그룹: X·Y [mm/pixel], X·Y Axis T [degree]","InvertedX/Y, Enable 체크박스","CalibratorPositionGrid: Name·Type·X[mm]·Y[mm]","Move Distance, Save/Load"]}
+   ]},
+   {id:"rc-comp", label:"Vision Compensator", tag:"부품", kids:[
+     {id:"rc-comp-cfg", label:"FormVisionCompensatorConfig", tag:"UI", badge:"b-ui",
+       path:BASE310+"QMC.Common.UI\\FormVisionCompensatorConfig.cs",
+       purpose:"보정 오프셋 테이블과 조명 채널 설정. 모션 보정맵의 정적 파라미터 관리.",
+       controls:["VisionCompensatorOffsetConfigControl: OffsetGrid (편집) + Import/Export","IlluminatorChannelControl: LED 채널","Save/Load"]}
+   ]}
+ ]},
+ {id:"mt", label:"Maintenance Page", tag:"FormMaintContentMain", kids:[
+   {id:"mt-cal", label:"FormVisionCalibratorMaint", tag:"UI", badge:"b-ui",
+     path:BASE310+"QMC.Common.UI\\FormVisionCalibratorMaint.cs",
+     purpose:"라이브 캘리브레이션 작업 화면 — 영상 보기, ROI 정의, 패턴 학습/탐색, 자동 스케일, 위치 티칭.",
+     controls:["VisionImageViewer (라이브)","JogControl (스테이지 조그)","TrainImageControl (패턴 학습 + Train 버튼)","RoiListControl (Train/Inspect ROI, 저장)","SearchResultControl (X·Y·R 결과 + Search)","AutoScaleControl (Auto Scale)","ModulePositionControl (위치 티칭)","AutoFocusControl"]},
+   {id:"mt-comp", label:"FormVisionCompensatorMaint", tag:"UI", badge:"b-ui",
+     path:BASE310+"QMC.Common.UI\\FormVisionCompensatorMaint.cs",
+     purpose:"라이브 보정 캘리브레이션/검증 — 모션 제어와 함께 오프셋맵 측정·검증.",
+     controls:["VisionImageViewer 640×540 (StretchImage)","VisionCompensatorGeneralControl: Velocity·Acc·Dcc, Operator, InvertedX/Y, Measurement/Verification Pitch, Parameter PropertyGrid, Run","VisionCompensatorOffsetControl: OffsetGrid + Save/Load","ModulePositionControl (Start Position)","Jog / Illuminator / AutoFocus"]}
+ ]},
+ {id:"pop", label:"Vision Popup (독립 팝업)", tag:"frmVisionPopup", badge:"b-ui",
+   path:BASE310+"QMC System UI\\frmVisionPopup.cs",
+   purpose:"메인 폼 계층과 독립된 비전 설정 팝업. 티칭 이미지 관리, 탐색, 스테이지 이동을 한 화면에서.",
+   controls:["pictureBox3 라이브 카메라 뷰 (400×400)","Teaching Image 그룹 (영상 + 파일명)","Camera Selection: Low/High Mag.","Display Mode: Live/Capture","Vision Scale(um/pixel) X·Y","Illumination Brightness(%)","Display Items: Cross Line·Center·Search Box·Search Position·Teaching Box","Work Stage Switching: to Low/High Mag./Process/Calibration","버튼: New·Open·Apply·Save·Save As·Cancel · Image Teaching · Search"]},
+ {id:"common", label:"공용 컨트롤 (재사용)", tag:"CommonControl", kids:[
+   {id:"c-viewer", label:"VisionImageViewerControl", tag:"UI", badge:"b-ui",
+     path:BASE310+"QMC.Common.UI\\CommonForms\\VisionImageViewerControl.cs",
+     purpose:"모듈 선택 버튼 + 영상 뷰어를 묶은 재사용 컨트롤.",
+     controls:["flowLayoutPanelModule (동적 모듈 버튼)","visionImageViewer 494×440 (StretchImage, CrossLine)"]},
+   {id:"c-menu", label:"VisionMenuControl", tag:"UI", badge:"b-ui",
+     path:BASE310+"QMC.Common.UI\\CommonControl\\VisionMenuControl.cs",
+     purpose:"비전 작업 선택용 가로 9칸 메뉴바 (동적 채움).",
+     controls:["tableLayoutVisionMenuPanel (9열)"]},
+   {id:"c-param", label:"VisionParameterComboControl", tag:"UI", badge:"b-ui",
+     path:BASE310+"QMC.Common.UI\\CommonControl\\VisionParameterComboControl.cs",
+     purpose:"파라미터 이름·기본값(Origin)·현재값 콤보 선택.",
+     controls:["baseLabelTitle / baseLabelOrigin / comboBoxParameter"]}
+ ]}
+];
+
+/* ---- View 2: data flow ---- */
+const flows = {
+ wafer:{name:"웨이퍼 비전", color:"#9cc7ff", stages:[
+   {k:"이미지 입력", v:"카메라 GrabSync → VisionImage", det:{
+     title:"이미지 입력 — 카메라 동기 그랩",
+     path:BASE310+"QMC.Common\\VisionPart\\PatternMatchingVisionPart.cs",
+     body:["<code>Camera.GrabSync(Purpose.Processing, out image)</code> 로 동기 캡처 (테스트 시 <code>TestImage</code>).",
+       "형식: <code>VisionImage</code> 추상 래퍼 → Cognex <code>CogImage8Grey</code> 구현.",
+       "백엔드 추상화: Cognex / Matrox(MIL) / OpenCV 교체 가능. 기본 Cognex VisionPro."]}},
+   {k:"파라미터/레시피", v:"PatternMatchingParameters", det:{
+     title:"패턴매칭 파라미터",
+     path:BASE310+"QMC.Common\\VisionPart\\PatternMatchingParameters.cs",
+     body:["MinScore (0~1) · MaxInstance · Min/MaxTolerance(각도)","MaskRegion(ROI) · UseMaskImage · DuplicateChecked","TrainImage = 기준 패턴 (학습 이미지)"]}},
+   {k:"알고리즘", v:"Cognex PatMax (CogPMAlign)", badge:"b-pm", det:{
+     title:"알고리즘 — 패턴매칭 (PatMax)",
+     path:BASE310+"QMC.Common\\Vision\\Cognex\\VisionProPatternMatchingVisionTool.cs",
+     body:["① ROI 추출: <code>m_RoiInspect.Run()</code>","② 파라미터 주입(Score/Instance/Angle)","③ <code>m_PatternMatchingTool.Run()</code> — Cognex 정규화상관/기하 매칭",
+       "EejctPin/Reticle/AlignDie/1st·2nd Reference/Die/Scale 등 여러 패턴을 같은 엔진으로 탐색."]}},
+   {k:"결과", v:"PatternMatchingResult", det:{
+     title:"결과 객체",
+     path:BASE310+"QMC.Common\\Vision\\Tools\\PatternMatchingVisionTool.cs",
+     body:["Values[] : 각 매치 X·Y(px) · R(각도) · Score","ResultOverlays : 시각화 오버레이"]}},
+   {k:"소비처", v:"VisionCompensator → 스테이지 보정", det:{
+     title:"소비 — 모션 보정",
+     path:BASE310+"QMC.Common\\VisionPart\\VisionCompensator.cs",
+     body:["X·Y·R 위치가 XY 스테이지 정렬 보정에 입력.","<code>RunSearchGridXy()</code> 로 그리드 스캔 → 보정맵 생성.","Score로 Pass/Fail 판정."]}}
+ ]},
+ bin:{name:"빈 비전", color:"#9cc7ff", stages:[
+   {k:"이미지 입력", v:"Bin 카메라 GrabSync", det:{title:"이미지 입력",path:BASE310+"QMC.Common\\VisionPart\\PatternMatchingVisionPart.cs",
+     body:["웨이퍼 비전과 동일한 패턴매칭 파트 재사용. 카메라/ROI만 빈(Bin)용으로 다름."]}},
+   {k:"파라미터/레시피", v:"PatternMatchingParameters", det:{title:"파라미터",path:BASE310+"QMC.Common\\VisionPart\\PatternMatchingParameters.cs",
+     body:["웨이퍼와 동일 구조. Die/Reticle/Scale 패턴 + Placement 확인용 ROI."]}},
+   {k:"알고리즘", v:"PatMax + Placement 확인", badge:"b-pm", det:{title:"알고리즘 — 패턴매칭 + 배치검사",path:BASE310+"QMC.Common\\Vision\\Cognex\\VisionProPatternMatchingVisionTool.cs",
+     body:["빈 트레이 내 다이 위치를 패턴매칭으로 검출.","배치(Placement) 정확도 확인은 ROI/Inspector 조합."]}},
+   {k:"결과", v:"PatternMatchingResult", det:{title:"결과",path:BASE310+"QMC.Common\\Vision\\Tools\\PatternMatchingVisionTool.cs",
+     body:["다이 좌표 X·Y·R·Score."]}},
+   {k:"소비처", v:"배치 위치 보정/판정", det:{title:"소비",path:BASE310+"QMC.Common\\VisionPart\\VisionCompensator.cs",
+     body:["빈 적재 위치 보정 및 Pass/Fail."]}}
+ ]},
+ bottom:{name:"바텀 검사", color:"#ffcf85", stages:[
+   {k:"이미지 입력", v:"byte[,] (픽셀시프트 영상)", det:{
+     title:"이미지 입력 — 고해상 픽셀시프트",
+     path:INSP310+"CDTInspector.cs  (BottomInspect, L499)",
+     body:["입력: <code>BottomInspectionParameter.Images[0]</code> (1D byte[]) → <code>byte[,]</code>.",
+       "<code>MakeSoftWareExpendImage()</code> 로 2× 업스케일(+옵션 Sobel).",
+       "캘리브레이션: <code>VisionConfig.BottomVision</code> ≈ 0.00140 mm/px, 12000×12000.",
+       "결과 mm = px × pixelSize ÷ 2 (2× 업스케일 보정)."]}},
+   {k:"파라미터/레시피", v:"BottomInspectionParameter", det:{
+     title:"파라미터",
+     path:INSP310+"BottomInspectionParameter.cs",
+     body:["ChippingDepth·ChippingLength·ForeignObjectSize","Threshold·FirstPeekValueThreshold(230)·PeekValueThreshold(40)","TopHatRadius(21)·TopHatThreshold(30) — 모폴로지 칩핑 마스크","MinForeignAreaFilterSize·LinkDistance·ChipLower/UpperSpecLimit"]}},
+   {k:"알고리즘", v:"칩 외곽 + Blob(칩핑/이물) + CUDA", badge:"b-blob", det:{
+     title:"알고리즘 — 외곽검출 → 칩핑/이물 Blob",
+     path:INSP310+"QMC_FindChippingNForeign.cs  (FindChipOutline, L404)",
+     body:["① 4변 라인 검출: FindTop/Bottom/Left/RightLineOfChip (병렬). CUDA <code>GetTopBottomLineCandidates()</code> + 강건 추세선 적합.",
+       "② 코너 교점: <code>line.GetCrossPoint()</code> ×4 → 폭/높이 산출.",
+       "③ 칩핑 마스크: <code>CudaWrapper.DetectChippingWithCuda()</code> (TopHat 모폴로지).",
+       "④ Blob 분석(<code>QMC_BlobTool</code>)으로 칩핑/이물 영역·크기 측정.",
+       "⑤ 스펙 비교 → DefectCode (0=양품, 5=칩핑, 11=이물, 10=검사실패 …)."]}},
+   {k:"결과", v:"BottomResult", det:{
+     title:"결과 객체",
+     path:INSP310+"BottomResult.cs",
+     body:["Offset·Angle·Width·Height·Corners[4]","ChippingInfos[] · Chpping(Top/Bottom/Left/Right)Size","MaxDefactSize · ForeingSize · DefectCode"]}},
+   {k:"소비처", v:"핸들러 결과 전달 + NG 영상 로그", det:{
+     title:"소비",
+     path:INSP310+"CDTInspector.cs",
+     body:["DefectCode/치수가 핸들러로 전달(인프로세스 DLL 호출 또는 비전 TCP).","NG 영상 저장·로그.","CDT-320에서는 모듈별 <code>VisionTcpServer</code> 로 결과 라인 송신."]}}
+ ]},
+ front:{name:"앞쪽 측면검사", color:"#8be8c0", stages:[
+   {k:"이미지 입력", v:"byte[,] (측면 카메라)", det:{
+     title:"이미지 입력",
+     path:INSP310+"CDTInspector.cs  (SideInspect, L193)",
+     body:["<code>MakeRoiImage(...)</code> → <code>byte[,]</code> 그레이.",
+       "캘리브레이션 <code>VisionConfig.SideVisionFront</code> ≈ 0.003125 mm/px, 5120×5120."]}},
+   {k:"파라미터/레시피", v:"SideInspectionParameter", det:{
+     title:"파라미터",
+     path:INSP310+"BottomInspectionParameter.cs  (SideInspectionParameter, L49)",
+     body:["Threshold(110) · ChippingDepth · ChippingLength","ChipThickness(0.25) · BladeWidth(0.048) · FirstBladeDepth(0.050)"]}},
+   {k:"알고리즘", v:"라인검출 + 회전정렬 + 임계 칩핑", badge:"b-edge", det:{
+     title:"알고리즘 — 에지 라인 + 칩핑 측정",
+     path:INSP310+"SideChippingInspector.cs  (InspectChipping, L27)",
+     body:["① <code>FindTopLineOfChip()</code> (FindLine.cs L61) — 상단 에지 라인 검출.",
+       "② 라인 각도로 <code>RotateImage()</code> — 칩을 수평 정렬.",
+       "③ 두께(ChipThickness/px)만큼 오프셋해 하단 라인 합성.",
+       "④ <code>InspectTopChipping()</code> / <code>InspectBottomChipping()</code> — 명암 전이 스캔으로 칩핑 깊이(mm) 측정.",
+       "⑤ MaxChippingSize > spec → IsDefect."]}},
+   {k:"결과", v:"SideResult / ChippingInfo", det:{
+     title:"결과",
+     path:INSP310+"BottomResult.cs  (SideResult, L47)",
+     body:["ChippingInfos[] : Contour · Depth(mm) · Length(mm)","MaxChippingDepth · DefectCode (0/5/10)"]}},
+   {k:"소비처", v:"핸들러 + NG 영상 저장", det:{
+     title:"소비",
+     path:INSP310+"CDTInspector.cs",
+     body:["DefectCode와 칩핑 치수 전달. NG 시 영상 저장(SaveImageSide)."]}}
+ ]},
+ back:{name:"뒤쪽 측면검사", color:"#8be8c0", stages:[
+   {k:"이미지 입력", v:"byte[,] (후면 측면 카메라)", det:{title:"이미지 입력",path:INSP310+"CDTInspector.cs (SideInspect)",
+     body:["앞쪽과 동일 입력 경로. 캘리브레이션만 <code>VisionConfig.SideVisionBack</code> 사용."]}},
+   {k:"파라미터/레시피", v:"SideInspectionParameter", det:{title:"파라미터",path:INSP310+"BottomInspectionParameter.cs (SideInspectionParameter)",
+     body:["앞쪽과 동일 클래스. 후면용 임계/스펙만 다른 값."]}},
+   {k:"알고리즘", v:"앞쪽과 동일 (SideChippingInspector)", badge:"b-edge", det:{title:"알고리즘",path:INSP310+"SideChippingInspector.cs",
+     body:["앞쪽 측면검사와 완전히 동일한 알고리즘.","후면 카메라 영상 + SideVisionBack 캘리브레이션만 차이."]}},
+   {k:"결과", v:"SideResult", det:{title:"결과",path:INSP310+"BottomResult.cs (SideResult)",
+     body:["앞쪽과 동일 구조."]}},
+   {k:"소비처", v:"핸들러 + 로그", det:{title:"소비",path:INSP310+"CDTInspector.cs",
+     body:["앞쪽과 동일."]}}
+ ]}
+};
+
+/* ---- View 3: CDT-320 module tree + mapping ---- */
+const BASE320 = "C:\\Project\\CDT-320\\QMC.Vision\\";
+const modTree = [
+ {id:"m-wafer", label:"WaferVisionModule", tag:"Wafer", path:BASE320+"Equipment\\Modules\\WaferVisionModule.cs",
+   nodes:[["EjectPin/Reticle/AlignDie/1st·2nd Ref/Die/Scale","IPatternFinder ×7","b-done"]],
+   src:"CDT-310 PatternMatchingVisionPart (Cognex PatMax)",
+   gap:"노드 골격 완성. <b>CognexPatternFinder</b> 본문에 PatMax 파라미터/실행을 연결만 하면 됨. (정렬 로직은 가장 이식 쉬움)"},
+ {id:"m-bin", label:"BinVisionModule", tag:"Bin", path:BASE320+"Equipment\\Modules\\BinVisionModule.cs",
+   nodes:[["Reticle/Die/Scale","IPatternFinder","b-done"],["PlacementInspector","IInspector","b-stub"]],
+   src:"CDT-310 PatternMatchingVisionPart + ROI 배치확인",
+   gap:"패턴 노드는 Wafer와 공유. PlacementInspector 본문(배치 정확도 판정)만 구현 필요."},
+ {id:"m-bottom", label:"BottomInspectionModule", tag:"Bottom", path:BASE320+"Equipment\\Modules\\BottomInspectionModule.cs",
+   nodes:[["Reticle/Collet/Die/Focus/Scale/DistortionComp","IPatternFinder","b-done"],["Surface","IInspector","b-stub"]],
+   src:"CDT-310 CDTInspector.BottomInspect + QMC_FindChippingNForeign + CudaWrapper",
+   gap:"<b>핵심 이식 대상.</b> Surface(외관/칩핑/이물) 알고리즘이 CDT-310에 CUDA 가속 버전으로 존재. CUDA DLL 포함 여부 결정 필요(없으면 OpenCV 폴백)."},
+ {id:"m-top", label:"TopSideVisionModule", tag:"FrontSide · port5105", path:BASE320+"Equipment\\Modules\\TopSideVisionModule.cs",
+   nodes:[["DieEdge/Focus","IPatternFinder","b-done"],["TopSurfaceInspector","IInspector","b-stub"],["TopChippingInspector","IInspector","b-stub"]],
+   src:"CDT-310 SideChippingInspector + FindLine",
+   gap:"Chipping 본문(에지라인→회전→임계 칩핑측정)이 핵심. SideChippingInspector를 IInspector 구현으로 포팅."},
+ {id:"m-back", label:"BottomSideVisionModule", tag:"RearSide · port5106", path:BASE320+"Equipment\\Modules\\BottomSideVisionModule.cs",
+   nodes:[["DieEdge/Focus","IPatternFinder","b-done"],["BottomSurfaceInspector","IInspector","b-stub"],["BottomChippingInspector","IInspector","b-stub"]],
+   src:"CDT-310 SideChippingInspector (앞쪽과 동일)",
+   gap:"TopSide와 알고리즘 동일 — 같은 IInspector 구현 재사용 + 캘리브레이션만 분리."}
+];
+
+const mapRows = [
+ ["웨이퍼/빈 정렬","PatternMatchingVisionPart / VisionProPatternMatchingVisionTool","WaferVisionModule · BinVisionModule 의 IPatternFinder 노드","CognexPatternFinder","골격 완성 · 본문 연결","b-done"],
+ ["바텀 외관/칩핑/이물","CDTInspector.BottomInspect · QMC_FindChippingNForeign · QMC_BlobTool · CudaWrapper","BottomInspectionModule.Surface (IInspector)","CognexInspector / OpenCvInspector","미구현 (TODO)","b-stub"],
+ ["측면 칩핑(앞/뒤)","SideChippingInspector.InspectChipping · FindLine.FindTopLineOfChip","Top/BottomSideVisionModule.Chipping (IInspector)","OpenCvInspector / 신규 EdgeChippingInspector","미구현 (TODO)","b-stub"],
+ ["에지/거리 측정","FindLine (라인적합)","IEdgeFinder (CogCaliper 추상)","CognexCaliper","골격 있음","b-done"],
+ ["픽셀↔mm 스케일","VisionConfig (Bottom/SideVisionFront/Back)","QMC.Vision Equipment\\Config\\VisionConfig.cs","-","이식 시 캘리브레이션값 매핑","b-done"]
+];
+</script>
+
+<script>
+/* ========================= RENDER ========================= */
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+
+/* tabs */
+$$(".tab").forEach(t=>t.onclick=()=>{
+  $$(".tab").forEach(x=>x.classList.remove("active")); t.classList.add("active");
+  const v=t.dataset.view;
+  $$("#leftPane .view").forEach(x=>x.classList.remove("active"));
+  $("#"+v+"-tree").classList.add("active");
+  $$(".right .view").forEach(x=>x.classList.remove("active"));
+  $("#"+v+"-detail").classList.add("active");
+});
+
+/* ---- UI tree render ---- */
+function renderTree(nodes, host){
+  nodes.forEach(n=>{
+    const wrap=document.createElement("div"); wrap.className="node";
+    const row=document.createElement("div"); row.className="row";
+    const hasKids=n.kids&&n.kids.length;
+    row.innerHTML=`<span class="tw">${hasKids?"▸":""}</span>
+      <span class="nlabel">${n.label}</span>${n.tag?`<span class="ntag">${n.tag}</span>`:""}`;
+    wrap.appendChild(row);
+    let kidsHost=null;
+    if(hasKids){
+      kidsHost=document.createElement("div"); kidsHost.className="kids"; wrap.appendChild(kidsHost);
+      renderTree(n.kids,kidsHost);
+    }
+    row.onclick=(e)=>{
+      e.stopPropagation();
+      if(hasKids){const tw=row.querySelector(".tw");const open=kidsHost.classList.toggle("open");tw.textContent=open?"▾":"▸";}
+      if(n.path){ $$("#tree .row").forEach(r=>r.classList.remove("sel")); row.classList.add("sel"); showUiDetail(n); }
+    };
+    host.appendChild(wrap);
+  });
+}
+function showUiDetail(n){
+  let h=`<h2 class="d-title">${n.label}</h2><div class="d-path">${n.path}</div>`;
+  if(n.purpose) h+=`<div class="d-sec"><h3>역할</h3><div>${n.purpose}</div></div>`;
+  if(n.controls) h+=`<div class="d-sec"><h3>주요 컨트롤</h3>`+n.controls.map(c=>`<span class="pill">${c}</span>`).join("")+`</div>`;
+  $("#ui-detail").innerHTML=h;
+}
+renderTree(uiTree, $("#tree"));
+
+/* ---- flow render ---- */
+let curFlow="bottom";
+function renderFlowPick(){
+  const host=$("#flowpick"); host.innerHTML="";
+  Object.keys(flows).forEach(k=>{
+    const b=document.createElement("div"); b.className="fp"+(k===curFlow?" active":"");
+    b.textContent=flows[k].name; b.onclick=()=>{curFlow=k;renderFlowPick();renderStages();$("#flow-detail").innerHTML='<div class="empty">단계를 선택하세요.</div>';};
+    host.appendChild(b);
+  });
+}
+function renderStages(){
+  const f=flows[curFlow], host=$("#stageList"); host.innerHTML="";
+  f.stages.forEach((s,i)=>{
+    const box=document.createElement("div"); box.className="node";
+    box.innerHTML=`<div class="row"><span class="tw">${i+1}</span>
+      <span class="nlabel">${s.k}</span>${s.badge?`<span class="badge ${s.badge}">ALGO</span>`:""}</div>
+      <div class="muted" style="margin-left:21px;font-size:12px">${s.v}</div>`;
+    box.querySelector(".row").onclick=()=>{ $$("#stageList .row").forEach(r=>r.classList.remove("sel"));
+      box.querySelector(".row").classList.add("sel"); showFlowDetail(s,f); };
+    host.appendChild(box);
+  });
+}
+function showFlowDetail(s,f){
+  const d=s.det;
+  let h=`<div style="color:${f.color};font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.05em">${f.name}</div>
+    <h2 class="d-title">${d.title}</h2><div class="d-path">${d.path}</div>
+    <div class="d-sec"><h3>세부</h3><ul class="clean">`+d.body.map(b=>`<li>${b}</li>`).join("")+`</ul></div>`;
+  $("#flow-detail").innerHTML=h;
+}
+renderFlowPick(); renderStages();
+
+/* ---- map render ---- */
+function renderModTree(){
+  const host=$("#modTree"); host.innerHTML="";
+  modTree.forEach(m=>{
+    const wrap=document.createElement("div"); wrap.className="node";
+    const row=document.createElement("div"); row.className="row";
+    const anyStub=m.nodes.some(n=>n[2]==="b-stub");
+    row.innerHTML=`<span class="tw">▸</span><span class="nlabel">${m.label}</span>
+      <span class="ntag">${m.tag}</span><span class="badge ${anyStub?'b-stub':'b-done'}">${anyStub?'할일':'OK'}</span>`;
+    row.onclick=()=>{ $$("#modTree .row").forEach(r=>r.classList.remove("sel")); row.classList.add("sel"); showModDetail(m); };
+    wrap.appendChild(row); host.appendChild(wrap);
+  });
+}
+function showModDetail(m){
+  let h=`<h2 class="d-title">${m.label}</h2><div class="d-path">${m.path}</div>
+    <div class="d-sec"><h3>구성 노드</h3><table><tr><th>노드</th><th>타입</th><th>상태</th></tr>`+
+    m.nodes.map(n=>`<tr><td>${n[0]}</td><td><code>${n[1]}</code></td><td><span class="badge ${n[2]}">${n[2]==='b-stub'?'알고리즘 미구현':'골격/구현'}</span></td></tr>`).join("")+`</table></div>
+    <div class="d-sec"><h3>CDT-310 대응 소스</h3><div>${m.src}</div></div>
+    <div class="d-sec"><h3>이식 포인트</h3><div class="callout">${m.gap}</div></div>`;
+  $("#map-detail-host")? null:null;
+  // show in right detail (replace mapTableHost area handled separately)
+  $("#mapDetailFloat").innerHTML=h;
+  $("#mapDetailFloat").scrollIntoView({behavior:"smooth",block:"start"});
+}
+function renderMapTable(){
+  let h=`<div class="d-sec"><h3>전체 매핑표 (CDT-310 → CDT-320)</h3>
+    <div class="legend"><span><b class="b-done badge">골격/구현</b> 인터페이스·노드 존재</span>
+    <span><b class="b-stub badge">미구현</b> 알고리즘 본문 비어있음</span></div>
+    <table><tr><th>검사 기능</th><th>CDT-310 소스 (검증된 알고리즘)</th><th>CDT-320 대상</th><th>구현할 백엔드</th><th>상태</th></tr>`+
+    mapRows.map(r=>`<tr><td><b>${r[0]}</b></td><td><code>${r[1]}</code></td><td>${r[2]}</td><td><code>${r[3]}</code></td><td><span class="badge ${r[5]}">${r[4]}</span></td></tr>`).join("")+`</table></div>`;
+
+  h+=`<div class="d-sec"><h3>권장 진행 순서</h3>
+    <div class="step"><div class="n">1</div><div class="b"><b>Sim 백엔드로 파이프라인 먼저 관통.</b> <code>SimInspector</code>/<code>SimPatternFinder</code>가 더미 결과를 반환하므로, 모듈→TCP→결과까지 배선이 맞는지 카메라 없이 검증.</div></div>
+    <div class="step"><div class="n">2</div><div class="b"><b>웨이퍼/빈 패턴매칭부터.</b> 가장 이식 쉬움. <code>CognexPatternFinder</code>에 PatMax 파라미터(Score/Instance/Angle/ROI)와 Run을 연결. CDT-310 <code>VisionProPatternMatchingVisionTool</code> 그대로 참고.</div></div>
+    <div class="step"><div class="n">3</div><div class="b"><b>측면 칩핑(Top/Bottom)을 한 번에.</b> 두 모듈이 동일 알고리즘이라 <code>IInspector</code> 구현 하나(에지라인→회전→임계 칩핑측정)를 만들고 양쪽에서 재사용. CDT-310 <code>SideChippingInspector</code>+<code>FindLine</code> 포팅. CUDA 불필요(순수 C# 가능).</div></div>
+    <div class="step"><div class="n">4</div><div class="b"><b>바텀 Surface(외관/칩핑/이물).</b> 가장 무거움. CDT-310은 CUDA 가속(<code>CudaWrapper</code>/<code>MakePixelShiftImage.dll</code>). 먼저 <code>OpenCvInspector</code>의 <code>// TODO</code>에 Canny/FindContours/TopHat로 CPU 버전 구현 → 성능 부족 시 CUDA DLL 이식.</div></div>
+    <div class="step"><div class="n">5</div><div class="b"><b>캘리브레이션 값 이관.</b> CDT-310 <code>VisionConfig</code>의 Bottom/SideVisionFront/Back mm/px를 CDT-320 <code>Config\\VisionConfig.cs</code>로. 바텀은 2× 업스케일 보정(÷2) 주의.</div></div>
+  </div>
+  <div class="callout warn"><b>핵심 메시지:</b> 새로 발명할 알고리즘은 거의 없습니다. CDT-320은 "어디에 꽂을지(노드)"가 이미 정해진 빈 소켓이고, "무엇을 꽂을지(알고리즘)"는 CDT-310에 검증된 채 존재합니다. 백엔드 인터페이스 본문을 채우는 작업이 본질입니다.</div>`;
+  $("#mapTableHost").innerHTML=`<div id="mapDetailFloat"></div>`+h;
+}
+renderModTree(); renderMapTable();
+</script>
+</body>
+</html>

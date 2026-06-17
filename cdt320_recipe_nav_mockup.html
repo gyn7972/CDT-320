@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CDT-320 Recipe — 2레벨 네비 목업 (모듈→탭→Finder→에디터)</title>
+<style>
+  :root{
+    --headerBg:#2D2D30; --headerFg:#fff; --statusBg:#D97706; --statusFg:#fff;
+    --mainBg:#BFBFBF; --optionBg:#F0F0F0; --accent:#E85D1A; --bottomBg:#2D2D30;
+    --rail:#3a3a3e; --railSel:#E85D1A; --tabBg:#dcdcdc; --tabSel:#fff; --line:#c4c4c4;
+    --vision:#000; --visionFg:#9be89b;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:#52585f;font-family:"Malgun Gothic","맑은 고딕",Segoe UI,sans-serif;color:#1d1d1d}
+  .note{color:#dfe5ee;text-align:center;padding:7px;font-size:12px}
+  .app{width:1320px;max-width:100%;height:860px;margin:6px auto;background:var(--mainBg);display:flex;flex-direction:column;
+    box-shadow:0 10px 40px rgba(0,0,0,.5);overflow:hidden}
+  /* header */
+  .header{height:60px;background:var(--headerBg);color:#fff;display:flex;align-items:center;padding:0 16px;gap:14px;flex:0 0 60px}
+  .logo{width:38px;height:38px;border-radius:7px;background:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px}
+  .htitle{font-size:17px;font-weight:700}.htitle small{font-size:11px;color:#b8b8bc;margin-left:8px;font-weight:400}
+  .hright{margin-left:auto;font-size:12px;color:#cfcfd4}
+  .statusbar{height:24px;background:var(--statusBg);color:#fff;display:flex;align-items:center;padding:0 14px;font-size:11.5px;font-weight:600;flex:0 0 24px}
+  /* body: content (left) + module rail (RIGHT, 고정) */
+  .body{flex:1;display:flex;min-height:0}
+  .content{flex:1;display:flex;flex-direction:column;min-width:0}
+  .rail{width:184px;flex:0 0 184px;background:#4a4a4f;display:flex;flex-direction:column;padding:8px 6px;gap:4px;order:2}
+  .rail .rh{color:#cfd4da;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;padding:4px 8px 6px}
+  .modbtn{color:#eaeaea;background:#3a3a3e;border:1px solid #55555c;border-radius:6px;padding:11px 12px;cursor:pointer;font-size:13px;font-weight:600}
+  .modbtn:hover{background:#55555c}
+  .modbtn.open{border-color:var(--accent)}
+  .modbtn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+  .modbtn .sub{display:block;font-size:10px;color:#a9adb4;font-weight:400;margin-top:2px}
+  .modbtn.active .sub{color:#ffe}
+  /* breadcrumb bar */
+  .crumb{height:30px;background:var(--statusBg);color:#fff;display:flex;align-items:center;padding:0 12px;font-weight:700;font-size:12.5px;gap:8px;flex:0 0 30px}
+  .crumb .sp{margin-left:auto;display:flex;gap:6px}
+  .crumb .b{background:var(--accent);border:1px solid #b8480f;color:#fff;border-radius:4px;padding:3px 12px;font-size:11.5px;cursor:pointer;font-weight:600}
+  /* module tab strip */
+  .tabstrip{display:flex;align-items:flex-end;gap:3px;background:#cfcfcf;padding:5px 6px 0;min-height:34px;flex:0 0 34px;overflow-x:auto}
+  .tab{display:flex;align-items:center;gap:7px;background:var(--tabBg);border:1px solid var(--line);border-bottom:none;border-radius:6px 6px 0 0;
+    padding:6px 10px;cursor:pointer;font-size:12.5px;font-weight:600;color:#444;white-space:nowrap}
+  .tab.sel{background:var(--tabSel);color:var(--accent)}
+  .tab .x{color:#999;font-weight:700;border-radius:3px;padding:0 3px}
+  .tab .x:hover{background:#e0b4a4;color:#a33}
+  .tabhint{color:#777;font-size:12px;padding:8px 12px}
+  /* tab content: finder list (left sub-rail) + editor */
+  .tabbody{flex:1;display:flex;min-height:0;background:var(--mainBg)}
+  .finderlist{width:188px;flex:0 0 188px;background:#6f6f74;padding:7px 5px;overflow:auto;border-left:1px solid #55555c;order:2}
+  .finderlist .fh{color:#e6e6e6;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;padding:3px 8px 6px}
+  .fbtn{display:flex;align-items:center;gap:7px;color:#f0f0f0;background:#56565b;border:1px solid #66666c;border-radius:5px;
+    padding:9px 10px;margin:2px 0;cursor:pointer;font-size:12.5px}
+  .fbtn:hover{background:#66666c}
+  .fbtn.sel{background:#fff;color:#222;border-color:#fff;font-weight:700}
+  .badge{font-size:9px;border-radius:4px;padding:1px 6px;margin-left:auto;font-weight:700}
+  .b-fin{background:#23344a;color:#9cc7ff}.b-ins{background:#3a2f12;color:#ffcf85}
+  .fbtn.sel .badge{opacity:.85}
+  /* editor */
+  .editor{flex:1;display:flex;min-width:0;padding:8px}
+  .camwrap{flex:1;display:flex;flex-direction:column;min-width:0}
+  .camtoolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding-bottom:8px}
+  .btn{display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid #cdd2d8;border-radius:8px;
+    padding:8px 14px;font-size:12px;cursor:pointer;font-weight:600;color:#3a4047;
+    box-shadow:0 1px 2px rgba(20,30,45,.07);transition:transform .1s ease,box-shadow .12s ease,border-color .12s ease,color .12s ease}
+  .btn i{font-style:normal;font-size:12px;line-height:1;opacity:.85}
+  .btn:hover{border-color:var(--accent);color:var(--accent);box-shadow:0 3px 8px rgba(232,93,26,.16);transform:translateY(-1px)}
+  .btn:active{transform:translateY(0);box-shadow:0 1px 2px rgba(20,30,45,.12)}
+  .btn.pri{background:linear-gradient(180deg,#f4793180,#E85D1A);background:linear-gradient(180deg,#f47931,#E85D1A);
+    border-color:#c64e12;color:#fff;box-shadow:0 2px 7px rgba(232,93,26,.34)}
+  .btn.pri i{opacity:1}
+  .btn.pri:hover{filter:brightness(1.06);color:#fff;border-color:#c64e12;box-shadow:0 4px 11px rgba(232,93,26,.42)}
+  .btn.ghost{background:#f4f6f8;border-color:#d7dce2;color:#5b626b;box-shadow:none;font-weight:600}
+  .btn.ghost:hover{background:#fff;border-color:var(--accent);color:var(--accent)}
+  .btn.cam{background:#eef1f4;border-color:#d2d7dd;color:#444}
+  .btn.cam:hover{border-color:var(--accent);color:var(--accent)}
+  .cam{flex:1;background:var(--vision);position:relative;overflow:hidden;border:1px solid #000;min-height:0}
+  .cam .ov{position:absolute;left:8px;top:6px;color:var(--visionFg);font-family:Consolas,monospace;font-size:11px;line-height:1.4}
+  .cx{position:absolute;left:50%;top:0;width:1px;height:100%;background:rgba(255,80,80,.5);transform:translateX(-50%)}
+  .cy{position:absolute;left:0;top:50%;width:100%;height:1px;background:rgba(255,80,80,.5);transform:translateY(-50%)}
+  .roi{position:absolute;border:2px solid #25c0d6}
+  .roi.train{border-color:#34d058}.roi.search{border-color:#f0a020;border-style:dashed}
+  .roi .t{position:absolute;top:-15px;left:0;font-size:9px;color:#000;padding:0 3px;white-space:nowrap}
+  .roi.train .t{background:#34d058}.roi.search .t{background:#f0a020}
+  .die{position:absolute;background:linear-gradient(135deg,#222a31,#39434d);border:1px solid #586472;border-radius:3px}
+  .statusline{font-size:11.5px;color:#333;padding:6px 2px 0;font-family:Consolas,monospace}
+  .rpanel{width:286px;flex:0 0 286px;background:var(--optionBg);border-left:1px solid var(--line);margin-left:8px;display:flex;flex-direction:column;overflow:auto}
+  .rsec{border-bottom:1px solid #d9d9d9}
+  .rsec .rh{background:#e2e2e2;font-weight:700;font-size:11px;letter-spacing:.04em;padding:6px 10px;color:#333;text-transform:uppercase}
+  .rsec .rb{padding:8px 10px}
+  .ptbl{width:100%;border-collapse:collapse;font-size:11.5px}
+  .ptbl td{border-bottom:1px solid #e2e2e2;padding:4px 6px}.ptbl td:first-child{color:#555}.ptbl td:last-child{text-align:right;font-family:Consolas,monospace;font-weight:600}
+  .res{font-size:11.5px;font-family:Consolas,monospace}.res .r{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px dotted #ddd}
+  .pass{color:#1f9d4d;font-weight:700}.fail{color:#c0392b;font-weight:700}
+  .lr{display:flex;align-items:center;gap:8px;margin:5px 0;font-size:12px}.lr input{flex:1}
+  /* bottom bar */
+  .bottombar{height:60px;background:var(--bottomBg);display:flex;flex:0 0 60px;padding:6px 8px;gap:6px}
+  .bbtn{flex:1;background:#3a3a3e;color:#fff;border-radius:6px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px;font-weight:600;border:1px solid #45454b}
+  .bbtn.sel{background:var(--accent);border-color:var(--accent)}
+  .empty{margin:auto;color:#777;text-align:center;font-size:13px}
+</style>
+</head>
+<body>
+<div class="note">CDT-320 Recipe — 2레벨 네비 목업 · 우측 모듈 레일에서 모듈 클릭 → Finder 목록 → 에디터 (상단 탭 없음, 저장은 에디터 '레시피(품목별)'에서)</div>
+<div class="app">
+  <div class="header">
+    <div class="logo">V</div>
+    <div class="htitle">CDT-320 VISION <small>레시피 — 2레벨 네비게이션</small></div>
+    <div class="hright">USER: Engineer&nbsp;&nbsp;|&nbsp;&nbsp;TIME: <span id="clk">--:--:--</span></div>
+  </div>
+  <div class="statusbar">● READY&nbsp; | &nbsp;Recipe: 4E1GA-200&nbsp; | &nbsp;Backend: Cognex VisionPro&nbsp; | &nbsp;Lot: —</div>
+
+  <div class="body">
+    <!-- content (left) -->
+    <div class="content">
+      <div class="crumb"><span id="crumb">레시피 — 모듈을 선택하세요</span></div>
+      <div class="tabbody" id="tabbody"><div class="empty">오른쪽 모듈 레일에서 모듈을 선택하세요.</div></div>
+    </div>
+    <!-- module rail (RIGHT, 고정) -->
+    <div class="rail" id="rail"><div class="rh">모듈 (Module)</div></div>
+  </div>
+
+  <div class="bottombar">
+    <div class="bbtn">▦ 작업</div>
+    <div class="bbtn sel">⚙ 레시피</div>
+    <div class="bbtn">🗎 이력</div>
+    <div class="bbtn">⛭ 설정</div>
+    <div class="bbtn">👤 사용자</div>
+  </div>
+</div>
+
+<script>
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+
+/* 액션 버튼 (스타일만, 아이콘 없음) */
+function actBtn(a){
+  let cls="btn";
+  if(a==="TRAIN"||a==="INSPECT") cls+=" pri";
+  else if(a.indexOf("EDIT")===0) cls+=" ghost";
+  return `<span class="${cls}">${a}</span>`;
+}
+function tick(){$("#clk").textContent=new Date().toLocaleTimeString('ko-KR',{hour12:false});}setInterval(tick,1000);tick();
+
+/* 모듈/노드 구조 (실제 CDT-320) */
+const modules=[
+ {key:"Wafer", name:"WaferVision", sub:"웨이퍼 비전", nodes:[
+   ["EjectPin","fin"],["Reticle","fin"],["AlignDie","fin"],["FirstReference","fin"],["SecondReference","fin"],["Die","fin"],["Scale","fin"]]},
+ {key:"Bin", name:"BinVision", sub:"빈 비전", nodes:[
+   ["Reticle","fin"],["Die","fin"],["Placement","ins"],["Scale","fin"]]},
+ {key:"Bottom", name:"BottomInspection", sub:"바텀 검사", nodes:[
+   ["Reticle","fin"],["Collet","fin"],["Die","fin"],["Surface","ins"],["Focus","fin"],["Scale","fin"],["DistortionComp","fin"]]},
+ {key:"TopSide", name:"TopSideVision", sub:"탑사이드 (5105)", nodes:[
+   ["DieEdge","fin"],["TopSurface","ins"],["TopChipping","ins"],["Focus","fin"]]},
+ {key:"BottomSide", name:"BottomSideVision", sub:"바텀사이드 (5106)", nodes:[
+   ["DieEdge","fin"],["BottomSurface","ins"],["BottomChipping","ins"],["Focus","fin"]]},
+];
+let activeMod=null, sel={}; // sel[modKey] = 선택 노드 index
+
+/* 모듈 레일 (우측 고정) — 클릭 시 탭 누적 없이 콘텐츠 직접 표시 */
+function renderRail(){
+  const r=$("#rail"); r.querySelectorAll(".modbtn").forEach(x=>x.remove());
+  modules.forEach(m=>{
+    const b=document.createElement("div");
+    b.className="modbtn"+(activeMod===m.key?" active":"");
+    b.innerHTML=`${m.name}<span class="sub">${m.sub} · ${m.nodes.length}개 노드</span>`;
+    b.onclick=()=>openModule(m.key);
+    r.appendChild(b);
+  });
+}
+function openModule(key){
+  if(sel[key]==null) sel[key]=0;
+  activeMod=key; renderRail(); renderBody();
+}
+/* 모듈 콘텐츠: Finder 목록 + 에디터 */
+function renderBody(){
+  const body=$("#tabbody");
+  if(!activeMod){ body.innerHTML='<div class="empty">열린 모듈이 없습니다.<br>오른쪽 모듈 레일에서 선택하세요.</div>'; $("#crumb").textContent="레시피 — 모듈을 선택하세요"; return; }
+  const m=modules.find(x=>x.key===activeMod);
+  const si=sel[m.key]||0; const node=m.nodes[si];
+  $("#crumb").textContent=`레시피 — ${m.name} ▸ ${node[0]}`;
+
+  const list=m.nodes.map((n,i)=>`<div class="fbtn ${i===si?'sel':''}" data-i="${i}">${n[0]}
+      <span class="badge ${n[1]==='fin'?'b-fin':'b-ins'}">${n[1]==='fin'?'FIND':'INSP'}</span></div>`).join("");
+
+  const isFin = node[1]==='fin';
+  const overlay = isFin
+    ? `<div class="roi search" style="left:16%;top:14%;width:66%;height:70%"><span class="t">SEARCH ROI</span></div>
+       <div class="roi train" style="left:40%;top:36%;width:92px;height:70px"><span class="t">TRAIN ROI</span></div>
+       <div class="die" style="left:43%;top:40%;width:74px;height:54px"></div>`
+    : `<div class="roi" style="left:22%;top:18%;width:58%;height:62%"><span class="t">INSPECTION ROI</span></div>
+       <div class="die" style="left:30%;top:28%;width:150px;height:104px"></div>`;
+  const actions = isFin ? ["GRAB","LOAD","TRAIN","MATCH","EDIT TRAIN ROI","EDIT SEARCH ROI"] : ["GRAB","LOAD","INSPECT","EDIT INSPECTION ROI"];
+  const params = isFin
+    ? [["MinScore","0.70"],["MaxInstance","8"],["AngleTolerance","±5.0°"],["Accept","0.50"],["Contrast","20"],["Algorithm","PatMax"]]
+    : [["Threshold","130"],["MinArea","36"],["ChippingDepth","0.030"],["ForeignSize","0.020"]];
+  const result = isFin
+    ? `<div class="r"><span>#1 X / Y</span><span>312.40 / 198.22</span></div>
+       <div class="r"><span>#1 Angle</span><span>0.18°</span></div>
+       <div class="r"><span>#1 Score</span><span class="pass">0.91</span></div>
+       <div class="r"><span>Found</span><span>3 inst.</span></div>`
+    : `<div class="r"><span>Result</span><span class="fail">NG</span></div>
+       <div class="r"><span>Max Chip</span><span>0.042 mm</span></div>`;
+
+  body.innerHTML=`
+    <div class="editor">
+      <div class="camwrap">
+        <div class="camtoolbar">${actions.map(actBtn).join("")}
+          <span style="margin-left:auto"></span><span class="btn cam">CAMERA <span style="opacity:.6">▾</span></span></div>
+        <div class="cam"><div class="cx"></div><div class="cy"></div>
+          <div class="ov">${m.name}<br>${node[0]} (${isFin?'PatternFinder':'Inspector'})<br>1280 x 1024 · 8bit</div>${overlay}</div>
+        <div class="statusline">Ready.&nbsp; ${isFin?'TRAIN → MATCH 로 패턴 학습/검색 (위치만 반환)':'INSPECTION ROI 드래그 후 INSPECT'}</div>
+      </div>
+      <div class="rpanel">
+        <div class="rsec"><div class="rh">Parameters</div><div class="rb"><table class="ptbl">${params.map(p=>`<tr><td>${p[0]}</td><td>${p[1]}</td></tr>`).join("")}</table></div></div>
+        <div class="rsec"><div class="rh">${isFin?'Match Result':'검사 결과'}</div><div class="rb"><div class="res">${result}</div></div></div>
+        <div class="rsec"><div class="rh">검사 조명 (라이브)</div><div class="rb">
+          <div class="lr">Coaxial <input type="range" value="60"></div><div class="lr">Ring <input type="range" value="40"></div></div></div>
+        <div class="rsec"><div class="rh">레시피 (품목별)</div><div class="rb camtoolbar">
+          <span class="btn">LOAD</span><span class="btn pri">SAVE</span></div></div>
+      </div>
+    </div>
+    <div class="finderlist">
+      <div class="fh">${m.name} · Finder / Inspector</div>${list}
+    </div>`;
+  body.querySelectorAll(".fbtn").forEach(b=>b.onclick=()=>{ sel[m.key]=+b.dataset.i; renderBody(); });
+}
+
+renderRail(); renderBody();
+/* 데모: WaferVision 자동 표시 */
+openModule("Wafer");
+</script>
+</body>
+</html>

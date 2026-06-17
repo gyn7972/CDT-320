@@ -6,8 +6,20 @@ namespace QMC.CDT320.VisionComm
     /// <summary>
     /// InputStageUnit 용 <see cref="IVisionTcpClient"/> 실구현 — Wafer vision 모듈과 통신.
     /// </summary>
+    /// <remarks>
+    /// [index↔chipUid] MATCH/INSPECT의 index 인자는 비전 서버가 chipUid(이미지로그·MaterialTracker 키)로 해석한다.
+    /// 현재는 dieIndex/pickerNo/slotIndex 숫자를 그대로 전달한다. 실제 칩 UID 추적이 필요하면
+    /// 호출부(Material 모델)에서 UID를 주입하도록 정리 필요. TODO: chipUid 소스 연결.
+    /// </remarks>
     public class WaferVisionAdapter : IVisionTcpClient
     {
+        // ── 임시 캘리브레이션 상수 (TODO: SCALE 레시피/실측값으로 교체) ──
+        private const double ImageCenterX        = 320.0;  // 이미지 중심 X [px] (TODO: 실제 해상도 기반)
+        private const double ImageCenterY        = 240.0;  // 이미지 중심 Y [px]
+        private const double PixelToMm           = 0.001;  // 픽셀→mm 임시 스케일 (TODO: SCALE 캘리브레이션 값)
+        private const double DiePitchMm          = 0.15;   // 다이 피치 [mm] (TODO: 레퍼런스 마크 실측 피치)
+        private const double MatchScoreThreshold = 0.7;    // 매칭 합격 스코어 임계값
+
         public Task<bool> TriggerExposeAsync(int dieIndex)
         {
             var c = VisionHub.Wafer;
@@ -23,7 +35,7 @@ namespace QMC.CDT320.VisionComm
             try
             {
                 var r = await c.MatchAsync("DieFinder", dieIndex, timeoutMs);
-                return r.Success && r.Score >= 0.7;
+                return r.Success && r.Score >= MatchScoreThreshold;
             }
             catch { return false; }
         }
@@ -50,14 +62,14 @@ namespace QMC.CDT320.VisionComm
             {
                 var r = await c.MatchAsync(finder);
                 if (!r.Success) return null;
-                // 이미지 중심(320/240)을 0으로 하는 Delta 변환
+                // 이미지 중심을 0으로 하는 Delta 변환 (임시 스케일 — TODO: SCALE 레시피 적용)
                 return new VisionAlignResult
                 {
-                    DeltaX     = (r.X - 320) * 0.001,   // 단순 스케일 (실제는 scale recipe 필요)
-                    DeltaY     = (r.Y - 240) * 0.001,
+                    DeltaX     = (r.X - ImageCenterX) * PixelToMm,
+                    DeltaY     = (r.Y - ImageCenterY) * PixelToMm,
                     DeltaTheta = r.AngleDeg,
-                    PitchX     = 0.15,
-                    PitchY     = 0.15
+                    PitchX     = DiePitchMm,
+                    PitchY     = DiePitchMm
                 };
             }
             catch { return null; }
@@ -69,8 +81,17 @@ namespace QMC.CDT320.VisionComm
     /// Bottom(Inspection) / Side(TopSide/BottomSide) vision 호출.
     /// 현재 Side 는 Bottom 과 같은 포트(Inspection) 공유 — 매뉴얼 기준.
     /// </summary>
+    /// <remarks>
+    /// [index↔chipUid] EXPOSE/MATCH/INSPECT의 index(=pickerNo, 또는 pickerNo*10+side)는
+    /// 비전 서버에서 chipUid(이미지로그·추적 키)로 해석된다. 실제 칩 UID 추적이 필요하면 호출부에서 UID 주입 정리 필요. TODO.
+    /// </remarks>
     public class TpuVisionAdapter : IVisionTpuClient
     {
+        // ── 임시 캘리브레이션 상수 (TODO: 실측값으로 교체) ──
+        private const double ImageCenterX        = 320.0;  // 이미지 중심 X [px]
+        private const double ImageCenterY        = 240.0;  // 이미지 중심 Y [px]
+        private const double MatchScoreThreshold = 0.7;    // 매칭 합격 스코어 임계값
+
         public Task<bool> TriggerBottomExposeAsync(int pickerNo, int timeoutMs = 1000)
         {
             var c = VisionHub.Inspection;
@@ -93,9 +114,9 @@ namespace QMC.CDT320.VisionComm
                     result[i] = new BottomVisionOffset
                     {
                         PickerNo = i + 1,
-                        OffsetX  = r.Success ? r.X - 320 : 0,
-                        OffsetY  = r.Success ? r.Y - 240 : 0,
-                        IsOk     = r.Success && r.Score >= 0.7
+                        OffsetX  = r.Success ? r.X - ImageCenterX : 0,
+                        OffsetY  = r.Success ? r.Y - ImageCenterY : 0,
+                        IsOk     = r.Success && r.Score >= MatchScoreThreshold
                     };
                 }
                 catch
@@ -119,17 +140,22 @@ namespace QMC.CDT320.VisionComm
             var c = VisionHub.Inspection;
             if (c == null || !c.IsConnected) return null;
 
-            // Surface inspector 호출 → 4면 모두 PASS/FAIL
+            // 4면 각각 SurfaceInspector 호출. index = pickerNo*10+side (TriggerSideExposeAsync 인코딩과 일치)
             try
             {
-                var r1 = await c.InspectAsync("SurfaceInspector", pickerNo,      timeoutMs);
+                bool[] ok = new bool[4];
+                for (int side = 1; side <= 4; side++)
+                {
+                    var ins = await c.InspectAsync("SurfaceInspector", pickerNo * 10 + side, timeoutMs);
+                    ok[side - 1] = ins.IsPass;
+                }
                 return new SideVisionResult
                 {
                     PickerNo = pickerNo,
-                    Side1Ok = r1.IsPass,
-                    Side2Ok = r1.IsPass,
-                    Side3Ok = r1.IsPass,
-                    Side4Ok = r1.IsPass
+                    Side1Ok = ok[0],
+                    Side2Ok = ok[1],
+                    Side3Ok = ok[2],
+                    Side4Ok = ok[3]
                 };
             }
             catch { return null; }

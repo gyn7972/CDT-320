@@ -18,7 +18,7 @@ namespace QMC.Vision.Ui.Pages
     /// Finder 공용 페이지 — 좌측 CameraView + JogBox + 검사별 조명, 우측 결과 테이블 + Train/Match.
     /// Stage 94 — Designer/Code 분리. 정적 shell 은 .Designer.cs, 그랩/오버레이/검색 로직·런타임 자식패널은 Code.
     /// </summary>
-    public partial class FinderPage : UserControl
+    public partial class FinderPage : PageBase
     {
         private readonly IVisionModule _module;
         private readonly IPatternFinder _finder;
@@ -44,9 +44,10 @@ namespace QMC.Vision.Ui.Pages
         private void BuildChildPanels()
         {
             // Stage 70 E — 검사별 InspectionLightPanel (좌하단). C2: 조명 SSOT=노드, 참조로 해석해 주입.
-            var illum = new InspectionLightPanel { Location = new Point(6, 544), Size = new Size(440, 280) };
+            // 도킹 레이아웃 전환: 절대좌표 대신 Designer 의 _illumHost 셀에 Fill 로 배치.
+            var illum = new InspectionLightPanel { Dock = DockStyle.Fill };
             illum.SelectInspection(LightNode(), _module?.AlgorithmKey ?? "", _finder?.Id ?? "");
-            Controls.Add(illum);
+            _illumHost.Controls.Add(illum);
             // (LightLiveTuningPanel 은 제거 — 레벨+점등은 InspectionLightPanel, 실물 확인은 Settings 라이브.)
         }
 

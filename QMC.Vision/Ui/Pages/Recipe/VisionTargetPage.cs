@@ -19,12 +19,12 @@ namespace QMC.Vision.Ui.Pages
     /// dirty 추적(세팅 단위) + SaveTarget/LoadTarget(BaseUnit 노드 SaveRecipe/LoadRecipe). JOG/SPEED inert.
     /// 기능(Grab/Match/Train/Load/EditROI)은 FinderPage 동일.
     /// </summary>
-    public partial class VisionTargetPage : UserControl, ITargetPage
+    public partial class VisionTargetPage : PageBase, ITargetPage
     {
         private readonly IVisionModule _module;
         private readonly IPatternFinder _finder;
         private QMC.Vision.Modules.IAlgorithmNode _node;   // B — BaseUnit 알고리즘 노드(저장/로드 위임)
-        private const string RecipeName = "default";       // 단일 product(선택기 후속)
+        private string RecipeName = "default";       // 핸들러 수신 레시피명(주입). 미주입 시 default
         private bool _dirty;
         private InspectionLightPanel _lightPanel;   // R2e — 편입 조명패널(통합 저장 대상)
 
@@ -42,9 +42,10 @@ namespace QMC.Vision.Ui.Pages
             WireCamera();
         }
 
-        public VisionTargetPage(IVisionModule module, IPatternFinder finder)
+        public VisionTargetPage(IVisionModule module, IPatternFinder finder, string recipeName = "default")
         {
             _module = module; _finder = finder;
+            RecipeName = string.IsNullOrWhiteSpace(recipeName) ? "default" : recipeName;
             InitializeComponent();
             if (LicenseManager.UsageMode == LicenseUsageMode.Designtime) return;
             _node = _module?.Algorithms.FirstOrDefault(a => a.Finder == _finder);
@@ -53,6 +54,7 @@ namespace QMC.Vision.Ui.Pages
             LoadTarget();
             BuildChildPanels();
             if (_finder != null) _cam.SetOverlay(_finder.SearchRoi, null);
+            ShowTrainImage();
             Status((module?.Name ?? "?") + " / " + (finder?.Id ?? "?"));
         }
 
@@ -294,9 +296,23 @@ namespace QMC.Vision.Ui.Pages
             {
                 _finder.Train(img);
                 MarkDirty();
+                ShowTrainImage();
                 Status($"TRAIN OK — pattern from rect[{_finder.TrainRoi.CenterX:F0},{_finder.TrainRoi.CenterY:F0} {_finder.TrainRoi.Width:F0}x{_finder.TrainRoi.Height:F0}]");
             }
             catch (Exception ex) { Status("TRAIN FAIL: " + ex.Message); }
+        }
+
+        /// <summary>학습된 패턴 이미지를 미리보기 PictureBox 에 표시(복제본).</summary>
+        private void ShowTrainImage()
+        {
+            try
+            {
+                var ti = _finder?.TrainImage;
+                var old = _trainPic.Image;
+                _trainPic.Image = (ti != null) ? new System.Drawing.Bitmap(ti) : null;
+                old?.Dispose();
+            }
+            catch { }
         }
 
         private void DoMatch()

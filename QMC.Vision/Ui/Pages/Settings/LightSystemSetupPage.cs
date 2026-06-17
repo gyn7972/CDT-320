@@ -15,7 +15,7 @@ namespace QMC.Vision.Ui.Pages
     /// 포트 일괄 변경 버튼 포함. 저장: Config\light_system.json.
     /// Stage 97 — Designer/Code 분리. 정적 shell 은 .Designer.cs, 결선그리드·TreeView·콤보 채움·바인딩 로직은 Code.
     /// </summary>
-    public partial class LightSystemSetupPage : UserControl
+    public partial class LightSystemSetupPage : PageBase
     {
         private DataGridView _gridCtrl;     // 컨트롤러 인벤토리
         private DataGridView _gridLabel;    // 선택 컨트롤러의 채널 라벨
