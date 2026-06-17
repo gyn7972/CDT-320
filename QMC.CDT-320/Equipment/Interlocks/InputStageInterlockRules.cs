@@ -426,6 +426,29 @@ namespace QMC.CDT320.Interlocks
                 return true;
 
             string areaReason;
+            double overrideWorkAreaX;
+            if (axis == WaferStageAxis.WaferY &&
+                TryResolveInputStageWorkAreaX(request, out overrideWorkAreaX))
+            {
+                double targetY = request != null ? request.TargetValue : 0.0;
+                if (stage.IsInputStageWorkPointInArea(overrideWorkAreaX, targetY, out areaReason))
+                {
+                    if (stage.IsNeedleZInSafePosition())
+                        return true;
+
+                    double needleX = stage.NeedleBlockX != null ? stage.NeedleBlockX.ActualPosition :
+                        stage.Recipe != null && stage.Recipe.NeedleX != null ? stage.Recipe.NeedleX.ProcessPosition : 0.0;
+                    if (stage.IsNeedleWorkPointInArea(needleX, targetY, out areaReason))
+                        return true;
+                }
+
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    movingName + " blocked by InputStage work area. " + areaReason +
+                    ", overrideWorkAreaX=" + overrideWorkAreaX.ToString("F3"),
+                    out reason);
+            }
+
             if (stage.IsInputStageAxisTargetAllowedInWorkArea(axis, request != null ? request.TargetValue : 0.0, out areaReason))
                 return true;
 
@@ -433,6 +456,41 @@ namespace QMC.CDT320.Interlocks
                 movingName,
                 movingName + " blocked by InputStage work area. " + areaReason,
                 out reason);
+        }
+
+        private static bool TryResolveInputStageWorkAreaX(MotionGuardRuleContext request, out double workAreaX)
+        {
+            workAreaX = 0.0;
+            try
+            {
+                if (request == null || string.IsNullOrWhiteSpace(request.TargetName))
+                    return false;
+
+                const string key = "InputStageWorkAreaX=";
+                int index = request.TargetName.IndexOf(key, System.StringComparison.OrdinalIgnoreCase);
+                if (index < 0)
+                    return false;
+
+                int valueStart = index + key.Length;
+                int valueEnd = request.TargetName.IndexOf(';', valueStart);
+                string value = valueEnd >= valueStart
+                    ? request.TargetName.Substring(valueStart, valueEnd - valueStart)
+                    : request.TargetName.Substring(valueStart);
+
+                return double.TryParse(
+                    value,
+                    System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    out workAreaX);
+            }
+            catch
+            {
+                workAreaX = 0.0;
+                return false;
+            }
+            finally
+            {
+            }
         }
 
         private static bool VerifyInputFeederClear(CDT320_Machine machine, string movingName, out string reason)

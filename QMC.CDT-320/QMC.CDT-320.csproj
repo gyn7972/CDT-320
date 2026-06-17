@@ -108,6 +108,7 @@
     <Compile Include="Equipment\Interlocks\Common\SharedRailXInterlockRules.cs" />
     <Compile Include="Equipment\Interlocks\InputStageInterlockRules.cs" />
     <Compile Include="Equipment\Interlocks\VisionInterlockRules.cs" />
+    <Compile Include="Equipment\Interlocks\PickerZoneInterlockRules.cs" />
     <Compile Include="Equipment\Interlocks\PickerFrontInterlockRules.cs" />
     <Compile Include="Equipment\Interlocks\PickerRearInterlockRules.cs" />
     <Compile Include="Equipment\Interlocks\OutputStageInterlockRules.cs" />

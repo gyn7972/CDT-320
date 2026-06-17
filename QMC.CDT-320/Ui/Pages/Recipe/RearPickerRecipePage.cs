@@ -97,6 +97,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             if (unit == null)
                 return;
 
+            unit.Setup.EnsureGeometryData();
             unit.Config.EnsureArrays();
             unit.Recipe.EnsurePositionObjects();
         }
@@ -198,6 +199,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             optionItems.Add(ParameterGridItem.Bool("SIMULATION MODE", ParameterGridScope.Setup, () => unit.Setup.IsSimulationMode, v => unit.Setup.IsSimulationMode = v));
             optionItems.Add(AxisDouble("INPUT SAFETY OFFSET", PickerAxis.PickerX, AxisUnitConverter.Millimeter, ParameterGridScope.Setup, () => unit.Setup.InputSafetyOffset, v => unit.Setup.InputSafetyOffset = v));
             optionItems.Add(AxisDouble("OUTPUT SAFETY OFFSET", PickerAxis.PickerX, AxisUnitConverter.Millimeter, ParameterGridScope.Setup, () => unit.Setup.OutputSafetyOffset, v => unit.Setup.OutputSafetyOffset = v));
+            optionItems.Add(AxisDouble("PICKER PITCH X", PickerAxis.PickerX, AxisUnitConverter.Millimeter, ParameterGridScope.Setup, () => unit.Setup.PickerPitchX, v => unit.Setup.PickerPitchX = v));
+            optionItems.Add(AxisDouble("PICKER PITCH Y", PickerAxis.PickerY, AxisUnitConverter.Millimeter, ParameterGridScope.Setup, () => unit.Setup.PickerPitchY, v => unit.Setup.PickerPitchY = v));
+            AddVisionPickerOffsetItems(optionItems, "INPUT VISION", unit.Setup.InputVisionToPicker, PickerAxis.PickerX, PickerAxis.PickerY);
+            AddVisionPickerOffsetItems(optionItems, "OUTPUT VISION", unit.Setup.OutputVisionToPicker, PickerAxis.PickerX, PickerAxis.PickerY);
 
             optionParameterGrid.SetItems(optionItems);
 
@@ -216,6 +221,36 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 int index = i;
                 string name = "PICKER " + (index + 1);
                 items.Add(ParameterGridItem.Bool(name + " USE", ParameterGridScope.Config, () => unit.Config.UsePicker[index], v => unit.Config.UsePicker[index] = v));
+            }
+        }
+
+        private void AddVisionPickerOffsetItems(
+            List<ParameterGridItem> items,
+            string prefix,
+            PickerVisionCoordinateOffsets offsets,
+            PickerAxis xAxis,
+            PickerAxis yAxis)
+        {
+            if (offsets == null)
+                return;
+
+            offsets.EnsureArrays();
+            for (int i = 0; i < 4; i++)
+            {
+                int index = i;
+                string pickerName = "PICKER " + (index + 1);
+                items.Add(AxisDouble(prefix + " -> " + pickerName + " X OFFSET",
+                    xAxis,
+                    AxisUnitConverter.Millimeter,
+                    ParameterGridScope.Setup,
+                    () => offsets.OffsetX[index],
+                    v => offsets.OffsetX[index] = v));
+                items.Add(AxisDouble(prefix + " -> " + pickerName + " Y OFFSET",
+                    yAxis,
+                    AxisUnitConverter.Millimeter,
+                    ParameterGridScope.Setup,
+                    () => offsets.OffsetY[index],
+                    v => offsets.OffsetY[index] = v));
             }
         }
 

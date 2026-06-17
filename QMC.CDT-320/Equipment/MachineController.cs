@@ -665,9 +665,7 @@ namespace QMC.CDT320
                 PickerIndex = pickerIndex,
                 AlignOffsetX = offset.AlignOffsetX,
                 AlignOffsetY = offset.AlignOffsetY,
-                AlignOffsetT = offset.AlignOffsetT,
-                InputVisionToPickerXOffset = offset.InputVisionToPickerXOffset,
-                OutputVisionToPickerXOffset = offset.OutputVisionToPickerXOffset
+                AlignOffsetT = offset.AlignOffsetT
             });
         }
 
@@ -688,9 +686,7 @@ namespace QMC.CDT320
                     {
                         AlignOffsetX = saved.AlignOffsetX,
                         AlignOffsetY = saved.AlignOffsetY,
-                        AlignOffsetT = saved.AlignOffsetT,
-                        InputVisionToPickerXOffset = saved.InputVisionToPickerXOffset,
-                        OutputVisionToPickerXOffset = saved.OutputVisionToPickerXOffset
+                        AlignOffsetT = saved.AlignOffsetT
                     };
 
                     if (string.Equals(saved.Side, "Front", StringComparison.OrdinalIgnoreCase) &&

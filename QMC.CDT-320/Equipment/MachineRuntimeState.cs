@@ -52,8 +52,6 @@ namespace QMC.CDT320
         [DataMember] public double AlignOffsetX { get; set; }
         [DataMember] public double AlignOffsetY { get; set; }
         [DataMember] public double AlignOffsetT { get; set; }
-        [DataMember] public double InputVisionToPickerXOffset { get; set; }
-        [DataMember] public double OutputVisionToPickerXOffset { get; set; }
     }
 
     [DataContract]
