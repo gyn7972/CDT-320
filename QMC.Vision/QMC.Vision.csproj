@@ -62,97 +62,129 @@
       <DependentUpon>Form1.cs</DependentUpon>
     </Compile>
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Core\GrabResult.cs" />
-    <Compile Include="Core\Roi.cs" />
-    <Compile Include="Core\MatchResult.cs" />
-    <Compile Include="Core\IPatternFinder.cs" />
-    <Compile Include="Core\IInspector.cs" />
-    <Compile Include="Core\IVisionBackend.cs" />
-    <Compile Include="Core\VisionFactory.cs" />
-    <Compile Include="Core\CameraInfo.cs" />
-    <Compile Include="Core\ICamera.cs" />
-    <Compile Include="Core\CameraBase.cs" />
-    <Compile Include="Core\CameraFactory.cs" />
-    <Compile Include="Core\CameraVector.cs" />
-    <Compile Include="Core\VisionScale.cs" />
-    <Compile Include="Core\MaterialTracker.cs" />
-    <Compile Include="Core\ImageLogSaver.cs" />
-    <Compile Include="Core\DataLogSaver.cs" />
-    <Compile Include="Cameras\Sim\SimCamera.cs" />
-    <Compile Include="Cameras\Hik\HikMvsDll.cs" />
-    <Compile Include="Cameras\Hik\HikGigECamera.cs" />
-    <Compile Include="Cameras\Mil\MilSystem.cs" />
-    <Compile Include="Cameras\Mil\MilCamera.cs" />
-    <Compile Include="Backends\Sim\SimBackend.cs" />
-    <Compile Include="Backends\Sim\SimPatternFinder.cs" />
-    <Compile Include="Backends\Sim\SimInspector.cs" />
-    <Compile Include="Backends\OpenCv\OpenCvBackend.cs" />
-    <Compile Include="Backends\OpenCv\OpenCvPatternFinder.cs" />
-    <Compile Include="Backends\OpenCv\OpenCvInspector.cs" />
-    <Compile Include="Backends\Cognex\CognexBackend.cs" />
-    <Compile Include="Backends\Cognex\CognexInterop.cs" />
-    <Compile Include="Backends\Cognex\CognexPatternFinder.cs" />
-    <Compile Include="Backends\Cognex\CognexInspector.cs" />
-    <Compile Include="Backends\Cognex\CognexCaliper.cs" />
-    <Compile Include="Backends\Cognex\CognexHistogram.cs" />
-    <Compile Include="Backends\Cognex\CognexColorMatch.cs" />
-    <Compile Include="Core\IEdgeFinder.cs" />
-    <Compile Include="Core\IAlgoParamSync.cs" />
-    <Compile Include="Modules\IVisionModule.cs" />
-    <Compile Include="Modules\AlgorithmNode.cs" />
-    <Compile Include="Modules\AlgorithmData.cs" />
-    <Compile Include="Modules\VisionModuleData.cs" />
-    <Compile Include="Modules\VisionModule.cs" />
-    <Compile Include="Modules\WaferVisionModule.cs" />
-    <Compile Include="Modules\BinVisionModule.cs" />
-    <Compile Include="Modules\BottomInspectionModule.cs" />
-    <Compile Include="Modules\FrontSideInspectionModule.cs" />
-    <Compile Include="Modules\RearSideInspectionModule.cs" />
-    <Compile Include="Comm\VisionTcpServer.cs" />
-    <Compile Include="Comm\GrabStreamServer.cs" />
-    <Compile Include="Tools\UiOverlapAuditor.cs" />
-    <Compile Include="Tools\CameraConnectTest.cs" />
-    <Compile Include="Config\VisionConfig.cs" />
-    <Compile Include="Config\AlgorithmCameraBinder.cs" />
-    <Compile Include="Optics\ILightController.cs" />
-    <Compile Include="Optics\LightControllerFactory.cs" />
-    <Compile Include="Optics\Sim\SimLightController.cs" />
-    <Compile Include="Optics\LFine\LFineHardwareMode.cs" />
-    <Compile Include="Optics\LFine\LFineLightConfig.cs" />
-    <Compile Include="Optics\LFine\LFineProtocol.cs" />
-    <Compile Include="Optics\LFine\LFineLightController.cs" />
-    <Compile Include="Optics\Leesos\LeesosLightConfig.cs" />
-    <Compile Include="Optics\Leesos\LeesosProtocol.cs" />
-    <Compile Include="Optics\Leesos\LeesosLightController.cs" />
-    <Compile Include="Comm\LightHub.cs" />
-    <Compile Include="Ui\Pages\VisionTargetPage.cs">
+    <Compile Include="Equipment\Core\GrabResult.cs" />
+    <Compile Include="Equipment\Core\Roi.cs" />
+    <Compile Include="Equipment\Core\MatchResult.cs" />
+    <Compile Include="Equipment\Core\IPatternFinder.cs" />
+    <Compile Include="Equipment\Core\IInspector.cs" />
+    <Compile Include="Equipment\Core\IVisionBackend.cs" />
+    <Compile Include="Equipment\Core\VisionFactory.cs" />
+    <Compile Include="Equipment\Core\CameraInfo.cs" />
+    <Compile Include="Equipment\Core\ICamera.cs" />
+    <Compile Include="Equipment\Core\CameraBase.cs" />
+    <Compile Include="Equipment\Core\CameraFactory.cs" />
+    <Compile Include="Equipment\Core\CameraVector.cs" />
+    <Compile Include="Equipment\Core\VisionScale.cs" />
+    <Compile Include="Equipment\Core\MaterialTracker.cs" />
+    <Compile Include="Equipment\Core\ImageLogSaver.cs" />
+    <Compile Include="Equipment\Core\DataLogSaver.cs" />
+    <Compile Include="Equipment\Cameras\Sim\SimCamera.cs" />
+    <Compile Include="Equipment\Cameras\Hik\HikMvsDll.cs" />
+    <Compile Include="Equipment\Cameras\Hik\HikGigECamera.cs" />
+    <Compile Include="Equipment\Cameras\Mil\MilSystem.cs" />
+    <Compile Include="Equipment\Cameras\Mil\MilCamera.cs" />
+    <Compile Include="Equipment\Backends\Sim\SimBackend.cs" />
+    <Compile Include="Equipment\Backends\Sim\SimPatternFinder.cs" />
+    <Compile Include="Equipment\Backends\Sim\SimInspector.cs" />
+    <Compile Include="Equipment\Backends\OpenCv\OpenCvBackend.cs" />
+    <Compile Include="Equipment\Backends\OpenCv\OpenCvPatternFinder.cs" />
+    <Compile Include="Equipment\Backends\OpenCv\OpenCvInspector.cs" />
+    <Compile Include="Equipment\Backends\Cognex\CognexBackend.cs" />
+    <Compile Include="Equipment\Backends\Cognex\CognexInterop.cs" />
+    <Compile Include="Equipment\Backends\Cognex\CognexPatternFinder.cs" />
+    <Compile Include="Equipment\Backends\Cognex\CognexInspector.cs" />
+    <Compile Include="Equipment\Backends\Cognex\CognexCaliper.cs" />
+    <Compile Include="Equipment\Backends\Cognex\CognexHistogram.cs" />
+    <Compile Include="Equipment\Backends\Cognex\CognexColorMatch.cs" />
+    <Compile Include="Equipment\Core\IEdgeFinder.cs" />
+    <Compile Include="Equipment\Core\IAlgoParamSync.cs" />
+    <Compile Include="Equipment\Modules\IVisionModule.cs" />
+    <Compile Include="Equipment\Modules\AlgorithmNode.cs" />
+    <Compile Include="Equipment\Modules\AlgorithmData.cs" />
+    <Compile Include="Equipment\Modules\VisionMachineData.cs" />
+    <Compile Include="Equipment\Modules\VisionMachine.cs" />
+    <Compile Include="Equipment\Modules\CameraData.cs" />
+    <Compile Include="Equipment\Modules\VisionCamera.cs" />
+    <Compile Include="Equipment\Modules\VisionModuleData.cs" />
+    <Compile Include="Equipment\Modules\VisionModule.cs" />
+    <Compile Include="Equipment\Modules\WaferVisionModule.cs" />
+    <Compile Include="Equipment\Modules\BinVisionModule.cs" />
+    <Compile Include="Equipment\Modules\BottomInspectionModule.cs" />
+    <Compile Include="Equipment\Modules\TopSideVisionModule.cs" />
+    <Compile Include="Equipment\Modules\BottomSideVisionModule.cs" />
+    <Compile Include="Equipment\Comm\VisionTcpServer.cs" />
+    <Compile Include="Equipment\Comm\MainCommServer.cs" />
+    <Compile Include="Equipment\Comm\GrabStreamServer.cs" />
+    <Compile Include="Equipment\Tools\UiOverlapAuditor.cs" />
+    <Compile Include="Equipment\Tools\CameraConnectTest.cs" />
+    <Compile Include="Equipment\Config\VisionConfig.cs" />
+    <Compile Include="Equipment\Config\AlgorithmCameraBinder.cs" />
+    <Compile Include="Equipment\Optics\ILightController.cs" />
+    <Compile Include="Equipment\Optics\LightControllerFactory.cs" />
+    <Compile Include="Equipment\Optics\Sim\SimLightController.cs" />
+    <Compile Include="Equipment\Optics\LFine\LFineHardwareMode.cs" />
+    <Compile Include="Equipment\Optics\LFine\LFineLightConfig.cs" />
+    <Compile Include="Equipment\Optics\LFine\LFineProtocol.cs" />
+    <Compile Include="Equipment\Optics\LFine\LFineLightController.cs" />
+    <Compile Include="Equipment\Optics\Leesos\LeesosLightConfig.cs" />
+    <Compile Include="Equipment\Optics\Leesos\LeesosProtocol.cs" />
+    <Compile Include="Equipment\Optics\Leesos\LeesosLightController.cs" />
+    <Compile Include="Equipment\Comm\LightHub.cs" />
+    <Compile Include="Ui\Pages\Recipe\VisionTargetPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="Ui\Pages\VisionTargetPage.Designer.cs">
+    <Compile Include="Ui\Pages\Recipe\VisionTargetPage.Designer.cs">
       <DependentUpon>VisionTargetPage.cs</DependentUpon>
     </Compile>
-    <Compile Include="Ui\Pages\ITargetPage.cs" />
-    <Compile Include="Ui\Pages\InspectorTargetPage.cs">
+    <Compile Include="Ui\Pages\Recipe\ITargetPage.cs" />
+    <Compile Include="Ui\Pages\Recipe\InspectorTargetPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="Ui\Pages\InspectorTargetPage.Designer.cs">
+    <Compile Include="Ui\Pages\Recipe\InspectorTargetPage.Designer.cs">
       <DependentUpon>InspectorTargetPage.cs</DependentUpon>
     </Compile>
-    <Compile Include="Ui\Pages\LightSystemSetupPage.cs">
+    <Compile Include="Ui\Pages\Settings\LightSystemSetupPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="Ui\Pages\LightSystemSetupPage.Designer.cs">
+    <Compile Include="Ui\Pages\Settings\LightSystemSetupPage.Designer.cs">
       <DependentUpon>LightSystemSetupPage.cs</DependentUpon>
     </Compile>
-    <Compile Include="Ui\Pages\InspectionLightPanel.cs">
+    <Compile Include="Ui\Pages\Recipe\InspectionLightPanel.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="Ui\Pages\InspectionLightPanel.Designer.cs">
+    <Compile Include="Ui\Pages\Recipe\InspectionLightPanel.Designer.cs">
       <DependentUpon>InspectionLightPanel.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\UiTheme.cs" />
     <Compile Include="Ui\Controls\SidebarButton.cs">
       <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Ui\Controls\IndicatorDot.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Ui\Localization\Lang.cs" />
+    <Compile Include="Ui\Security\AccessControl.cs" />
+    <Compile Include="Ui\Util\UiClickAuditor.cs" />
+    <Compile Include="Ui\Tabs\TabBase.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Tabs\TabBase.Designer.cs">
+      <DependentUpon>TabBase.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Tabs\WorkTab.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Tabs\RecipeTab.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Tabs\HistoryTab.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Tabs\SettingsTab.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Tabs\UserTab.cs">
+      <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="Ui\Controls\GridTheme.cs" />
     <Compile Include="Ui\Controls\ParameterGridItem.cs" />
@@ -193,59 +225,65 @@
     <Compile Include="Ui\Controls\JogBox.Designer.cs">
       <DependentUpon>JogBox.cs</DependentUpon>
     </Compile>
-    <Compile Include="Ui\Pages\OperationPage.cs">
+    <Compile Include="Ui\Pages\Work\OperationPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="Ui\Pages\OperationPage.Designer.cs">
+    <Compile Include="Ui\Pages\Work\OperationPage.Designer.cs">
       <DependentUpon>OperationPage.cs</DependentUpon>
     </Compile>
-    <Compile Include="Ui\Pages\ConfigurationPage.cs">
+    <Compile Include="Ui\Pages\User\UserPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="Ui\Pages\ConfigurationPage.Designer.cs">
+    <Compile Include="Ui\Pages\User\UserPage.Designer.cs">
+      <DependentUpon>UserPage.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Pages\Settings\ConfigurationPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\Settings\ConfigurationPage.Designer.cs">
       <DependentUpon>ConfigurationPage.cs</DependentUpon>
     </Compile>
-    <Compile Include="Ui\Pages\RecipePage.cs">
+    <Compile Include="Ui\Pages\Recipe\RecipePage.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="Ui\Pages\RecipePage.Designer.cs">
+    <Compile Include="Ui\Pages\Recipe\RecipePage.Designer.cs">
       <DependentUpon>RecipePage.cs</DependentUpon>
     </Compile>
-    <Compile Include="Ui\Pages\DataLogPage.cs">
+    <Compile Include="Ui\Pages\History\DataLogPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="Ui\Pages\DataLogPage.Designer.cs">
+    <Compile Include="Ui\Pages\History\DataLogPage.Designer.cs">
       <DependentUpon>DataLogPage.cs</DependentUpon>
     </Compile>
-    <Compile Include="Ui\Pages\SettingsPage.cs">
+    <Compile Include="Ui\Pages\Settings\SettingsPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="Ui\Pages\SettingsPage.Designer.cs">
+    <Compile Include="Ui\Pages\Settings\SettingsPage.Designer.cs">
       <DependentUpon>SettingsPage.cs</DependentUpon>
     </Compile>
-    <Compile Include="Ui\Pages\CameraMappingPanel.cs">
+    <Compile Include="Ui\Pages\Settings\CameraMappingPanel.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="Ui\Pages\CameraMappingPanel.Designer.cs">
+    <Compile Include="Ui\Pages\Settings\CameraMappingPanel.Designer.cs">
       <DependentUpon>CameraMappingPanel.cs</DependentUpon>
     </Compile>
-    <Compile Include="Ui\Pages\FinderPage.cs">
+    <Compile Include="Ui\Pages\Recipe\FinderPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="Ui\Pages\FinderPage.Designer.cs">
+    <Compile Include="Ui\Pages\Recipe\FinderPage.Designer.cs">
       <DependentUpon>FinderPage.cs</DependentUpon>
     </Compile>
-    <Compile Include="Ui\Pages\InspectorPage.cs">
+    <Compile Include="Ui\Pages\Recipe\InspectorPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="Ui\Pages\InspectorPage.Designer.cs">
+    <Compile Include="Ui\Pages\Recipe\InspectorPage.Designer.cs">
       <DependentUpon>InspectorPage.cs</DependentUpon>
     </Compile>
     <!-- Stage 2 — SPC + ParameterEditors + ZoomDialog -->
-    <Compile Include="Ui\Pages\SpcChartPage.cs">
+    <Compile Include="Ui\Pages\Recipe\SpcChartPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="Ui\Pages\SpcChartPage.Designer.cs">
+    <Compile Include="Ui\Pages\Recipe\SpcChartPage.Designer.cs">
       <DependentUpon>SpcChartPage.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Dialogs\ZoomDialog.cs">
@@ -263,35 +301,48 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="Ui\Pages\CameraMappingPanel.resx">
+    <EmbeddedResource Include="Form1.resx">
+      <DependentUpon>Form1.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\Settings\CameraMappingPanel.resx">
       <DependentUpon>CameraMappingPanel.cs</DependentUpon>
+      <LogicalName>QMC.Vision.Ui.Pages.CameraMappingPanel.resources</LogicalName>
     </EmbeddedResource>
-    <EmbeddedResource Include="Ui\Pages\ConfigurationPage.resx">
+    <EmbeddedResource Include="Ui\Pages\Settings\ConfigurationPage.resx">
       <DependentUpon>ConfigurationPage.cs</DependentUpon>
+      <LogicalName>QMC.Vision.Ui.Pages.ConfigurationPage.resources</LogicalName>
     </EmbeddedResource>
-    <EmbeddedResource Include="Ui\Pages\DataLogPage.resx">
+    <EmbeddedResource Include="Ui\Pages\History\DataLogPage.resx">
       <DependentUpon>DataLogPage.cs</DependentUpon>
+      <LogicalName>QMC.Vision.Ui.Pages.DataLogPage.resources</LogicalName>
     </EmbeddedResource>
-    <EmbeddedResource Include="Ui\Pages\InspectionLightPanel.resx">
+    <EmbeddedResource Include="Ui\Pages\Recipe\InspectionLightPanel.resx">
       <DependentUpon>InspectionLightPanel.cs</DependentUpon>
+      <LogicalName>QMC.Vision.Ui.Pages.InspectionLightPanel.resources</LogicalName>
     </EmbeddedResource>
-    <EmbeddedResource Include="Ui\Pages\InspectorPage.resx">
+    <EmbeddedResource Include="Ui\Pages\Recipe\InspectorPage.resx">
       <DependentUpon>InspectorPage.cs</DependentUpon>
+      <LogicalName>QMC.Vision.Ui.Pages.InspectorPage.resources</LogicalName>
     </EmbeddedResource>
-    <EmbeddedResource Include="Ui\Pages\LightSystemSetupPage.resx">
+    <EmbeddedResource Include="Ui\Pages\Settings\LightSystemSetupPage.resx">
       <DependentUpon>LightSystemSetupPage.cs</DependentUpon>
+      <LogicalName>QMC.Vision.Ui.Pages.LightSystemSetupPage.resources</LogicalName>
     </EmbeddedResource>
-    <EmbeddedResource Include="Ui\Pages\RecipePage.resx">
+    <EmbeddedResource Include="Ui\Pages\Recipe\RecipePage.resx">
       <DependentUpon>RecipePage.cs</DependentUpon>
+      <LogicalName>QMC.Vision.Ui.Pages.RecipePage.resources</LogicalName>
     </EmbeddedResource>
-    <EmbeddedResource Include="Ui\Pages\SettingsPage.resx">
+    <EmbeddedResource Include="Ui\Pages\Settings\SettingsPage.resx">
       <DependentUpon>SettingsPage.cs</DependentUpon>
+      <LogicalName>QMC.Vision.Ui.Pages.SettingsPage.resources</LogicalName>
     </EmbeddedResource>
-    <EmbeddedResource Include="Ui\Pages\SpcChartPage.resx">
+    <EmbeddedResource Include="Ui\Pages\Recipe\SpcChartPage.resx">
       <DependentUpon>SpcChartPage.cs</DependentUpon>
+      <LogicalName>QMC.Vision.Ui.Pages.SpcChartPage.resources</LogicalName>
     </EmbeddedResource>
-    <EmbeddedResource Include="Ui\Pages\VisionTargetPage.resx">
+    <EmbeddedResource Include="Ui\Pages\Recipe\VisionTargetPage.resx">
       <DependentUpon>VisionTargetPage.cs</DependentUpon>
+      <LogicalName>QMC.Vision.Ui.Pages.VisionTargetPage.resources</LogicalName>
     </EmbeddedResource>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

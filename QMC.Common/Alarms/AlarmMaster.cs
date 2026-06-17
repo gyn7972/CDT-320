@@ -296,6 +296,43 @@ namespace QMC.Common.Alarms
                     Title="TPU Place 실패", Cause="TPU PlaceDies 단계 실패 (Place 위치 또는 배출)", Action="픽커 콜렛 / 진공 점검 후 재시도",
                     TitleEn="TPU Place failed", CauseEn="TPU PlaceDies step failed (Place pos or discharge)", ActionEn="Check picker collet/vacuum and retry",
                     ManualName="CannotMove", ManualLocator="DieTransfer/PickAndPlaceDieTransfer/Tool/PickerN" },
+
+                // ── Vision PC 장비코드 (QMC.Vision 정렬 — 비전 PC 가 raise 하는 코드) ──
+                new AlarmDefinition { Code="VISION-CAMOPEN", Category=AlarmCategory.Vision, DefaultSeverity=AlarmSeverity.Error,
+                    Title="카메라 Open 실패", Cause="카메라 연결/드라이버 오류 또는 포트 점유", Action="카메라 케이블/전원 확인 후 앱 재기동",
+                    TitleEn="Camera open failed", CauseEn="Camera connection/driver error or port in use", ActionEn="Check camera cable/power and restart app" },
+                new AlarmDefinition { Code="VISION-PARAMFAIL", Category=AlarmCategory.Vision, DefaultSeverity=AlarmSeverity.Warning,
+                    Title="카메라 파라미터 적용 실패", Cause="Gain/Exposure/ROI 등 파라미터 설정 거부", Action="값 범위 확인 후 재적용",
+                    TitleEn="Camera parameter apply failed", CauseEn="Gain/Exposure/ROI parameter rejected", ActionEn="Check value range and re-apply" },
+                new AlarmDefinition { Code="VISION-RECIPE", Category=AlarmCategory.Communication, DefaultSeverity=AlarmSeverity.Warning,
+                    Title="레시피 전송 실패", Cause="Vision PC 미연결 또는 레시피 전송/적용 실패", Action="Vision PC 연결 확인 후 레시피 재전송",
+                    TitleEn="Recipe send failed", CauseEn="Vision PC not connected or recipe send/apply failed", ActionEn="Check Vision PC connection and resend recipe" },
+
+                // ── Light (조명 컨트롤러) 장비코드 ──
+                new AlarmDefinition { Code="LIGHT-OPEN-FAIL", Category=AlarmCategory.Communication, DefaultSeverity=AlarmSeverity.Error,
+                    Title="조명 컨트롤러 연결 실패", Cause="시리얼 포트 Open 실패 (포트 점유 또는 미연결)", Action="포트 번호/케이블 확인 후 [설정>조명 셋업]에서 재연결",
+                    TitleEn="Light controller connect failed", CauseEn="Serial port open failed (in use or disconnected)", ActionEn="Check port/cable and reconnect in Settings>Light Setup" },
+                new AlarmDefinition { Code="LIGHT-TIMEOUT", Category=AlarmCategory.Communication, DefaultSeverity=AlarmSeverity.Warning,
+                    Title="조명 응답 타임아웃", Cause="조명 컨트롤러 응답 미수신", Action="컨트롤러 전원/케이블 확인",
+                    TitleEn="Light response timeout", CauseEn="No response from light controller", ActionEn="Check controller power/cable" },
+                new AlarmDefinition { Code="LIGHT-TX-FAIL", Category=AlarmCategory.Communication, DefaultSeverity=AlarmSeverity.Warning,
+                    Title="조명 송신 실패", Cause="시리얼 쓰기 오류", Action="연결 상태 확인 후 재시도",
+                    TitleEn="Light send failed", CauseEn="Serial write error", ActionEn="Check connection and retry" },
+                new AlarmDefinition { Code="LIGHT-NAK", Category=AlarmCategory.Communication, DefaultSeverity=AlarmSeverity.Warning,
+                    Title="조명 NAK 응답", Cause="컨트롤러가 명령 거부 (NAK)", Action="명령/채널 설정 확인",
+                    TitleEn="Light NAK response", CauseEn="Controller rejected command (NAK)", ActionEn="Check command/channel settings" },
+                new AlarmDefinition { Code="LIGHT-INVALID-RESP", Category=AlarmCategory.Communication, DefaultSeverity=AlarmSeverity.Warning,
+                    Title="조명 응답 형식 오류", Cause="예상치 못한 형식의 응답 수신", Action="펌웨어/프로토콜 호환 확인",
+                    TitleEn="Light invalid response", CauseEn="Unexpected response format received", ActionEn="Check firmware/protocol compatibility" },
+                new AlarmDefinition { Code="LIGHT-MAP-INVALID", Category=AlarmCategory.IO, DefaultSeverity=AlarmSeverity.Warning,
+                    Title="조명 매핑 오류", Cause="컨트롤러/페이지 매핑이 유효하지 않음", Action="[설정>조명 셋업]에서 매핑 재구성",
+                    TitleEn="Light mapping invalid", CauseEn="Controller/page mapping is invalid", ActionEn="Reconfigure in Settings>Light Setup" },
+                new AlarmDefinition { Code="LIGHT-PAGE-MISS", Category=AlarmCategory.IO, DefaultSeverity=AlarmSeverity.Warning,
+                    Title="조명 페이지 누락", Cause="지정한 조명 페이지를 찾을 수 없음", Action="조명 페이지 지정 확인",
+                    TitleEn="Light page missing", CauseEn="Specified light page not found", ActionEn="Check light page assignment" },
+                new AlarmDefinition { Code="LIGHT-PWR-RANGE", Category=AlarmCategory.IO, DefaultSeverity=AlarmSeverity.Warning,
+                    Title="조명 밝기 범위 초과", Cause="설정 밝기가 허용 범위를 벗어남", Action="허용 범위(0~100)로 재설정",
+                    TitleEn="Light power out of range", CauseEn="Brightness setting out of allowed range", ActionEn="Reset within allowed range (0-100)" },
             };
         }
     }

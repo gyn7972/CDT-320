@@ -261,7 +261,10 @@ namespace QMC.CDT320.Recipes
         [DataMember] public string InputCassetteId    { get; set; }
         [DataMember] public string OutputCassetteId   { get; set; }
         [DataMember] public string InputDieMapFileName { get; set; } = "";
+        // 출력(빈) 맵은 원형 형상 + GOOD/NG 분리 관리. OutputDieMapFileName은 레거시 폴백으로 유지.
         [DataMember] public string OutputDieMapFileName { get; set; } = "";
+        [DataMember] public string GoodBinDieMapFileName { get; set; } = "";
+        [DataMember] public string NgBinDieMapFileName { get; set; } = "";
         [DataMember] public int    InputCassetteLevelCount { get; set; } = 1;
         [DataMember] public int    GoodCassetteLevelCount  { get; set; } = 1;
         [DataMember] public string ColletModelNum     { get; set; }

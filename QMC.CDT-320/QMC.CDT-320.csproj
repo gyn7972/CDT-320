@@ -380,6 +380,7 @@
     <!-- Equipment / Alarms -->
     <!-- Equipment / Logging -->
     <!-- Equipment / Recipes -->
+    <Compile Include="Equipment\Recipes\RecipeMapPaths.cs" />
     <Compile Include="Equipment\Recipes\RecipeStore.cs" />
     <!-- Equipment / Materials (310 ?�식) -->
     <Compile Include="Equipment\Materials\Die.cs" />

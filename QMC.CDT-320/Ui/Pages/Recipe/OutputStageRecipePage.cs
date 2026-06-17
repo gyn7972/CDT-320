@@ -276,6 +276,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 AddKindGroup(items, "UNLOAD POSITION", "Unload", true, true, true, false);
                 AddKindGroup(items, "RETICLE POSITION", "Reticle", false, false, false, true);
 
+                // 빈맵(원형) 형상은 BIN DIE MAP CREATE 페이지에서 레시피 맵으로 저장/관리한다.
+
                 items.Add(ParameterGridItem.Bool("SIMULATION MODE", ParameterGridScope.Setup, () => unit.Setup.IsSimulationMode, v => unit.Setup.IsSimulationMode = v));
                 items.Add(ParameterGridItem.Bool("DRY RUN", ParameterGridScope.Config, () => unit.Config.bDryRun, v => unit.Config.bDryRun = v));
 

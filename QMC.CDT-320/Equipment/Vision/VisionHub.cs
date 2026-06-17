@@ -1,19 +1,20 @@
-﻿using System;
+using System;
 using System.Threading.Tasks;
 using QMC.Common.Logging;
 
 namespace QMC.CDT320.VisionComm
 {
     /// <summary>
-    /// ?꾨줈?몄뒪 ?꾩뿭 Vision ?곌껐 ?덈툕. CDT-310 留ㅻ돱???ъ뼇 ??6 紐⑤뱢:
+    /// 프로세스 전역 Vision 연결 허브. CDT-310 매뉴얼 기준 6 모듈:
     /// Wafer (5100) / Inspection (5101) / Bin (5103) / Main (5104) / TopSide (5105) / BottomSide (5106)
+    /// 전역 명령(레시피 변경 등)은 Main(5104) 채널로 송신한다.
     /// </summary>
     public static class VisionHub
     {
         public static VisionTcpClient Wafer       { get; private set; }
         public static VisionTcpClient Inspection  { get; private set; }
         public static VisionTcpClient Bin         { get; private set; }
-        // Stage 43 ??留ㅻ돱???명솚 異붽? 梨꾨꼸
+        // Stage 43 — 매뉴얼 호환을 위해 추가된 전역/측면 채널
         public static VisionTcpClient Main        { get; private set; }
         public static VisionTcpClient TopSide     { get; private set; }
         public static VisionTcpClient BottomSide  { get; private set; }
@@ -46,13 +47,13 @@ namespace QMC.CDT320.VisionComm
             TopSide    = New("TopSideVision",    host, topSidePort);
             BottomSide = New("BottomSideVision", host, bottomSidePort);
 
-            // ?듭떖 3媛쒕쭔 await ???섎㉧吏 3媛쒕뒗 best-effort (?좏깮 ?곌껐)
+            // 핵심 3개만 await — 나머지 3개는 best-effort (선택 연결)
             var rs = await Task.WhenAll(
                 Wafer     .ConnectAsync(),
                 Inspection.ConnectAsync(),
                 Bin       .ConnectAsync());
 
-            // Stage 43 ??Main/Side ??蹂꾨룄 fire-and-forget (?ㅽ뙣?대룄 ?듭떖 ?듭떊 ?곹뼢 X)
+            // Stage 43 — Main/Side 등은 별도 fire-and-forget (실패해도 핵심 통신 영향 X)
             _ = Task.Run(async () =>
             {
                 try { await Main.ConnectAsync();       } catch { }
@@ -80,6 +81,42 @@ namespace QMC.CDT320.VisionComm
             RaiseChanged();
         }
 
+        /// <summary>
+        /// 활성 레시피 변경을 Vision 측에 통보한다. 전역 통신은 Main(5104) 채널로 보낸다.
+        /// Main 미연결 시에는 통보를 건너뛰며, 실패해도 예외를 밖으로 던지지 않는다.
+        /// </summary>
+        public static async Task<bool> BroadcastRecipeAsync(int recipeNo, string recipeName)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(recipeName))
+                {
+                    EventLogger.Write(EventKind.Alarm, "SYS", "VISION-RECIPE",
+                        $"skip (empty name): No={recipeNo}");
+                    return false;
+                }
+
+                var main = Main;
+                if (main == null || !main.IsConnected)
+                {
+                    EventLogger.Write(EventKind.Event, "SYS", "VISION-RECIPE",
+                        $"skip (Main not connected): No={recipeNo} Name={recipeName}");
+                    return false;
+                }
+
+                bool ok = await main.SendRecipeAsync(recipeNo, recipeName);
+                EventLogger.Write(ok ? EventKind.Event : EventKind.Alarm, "SYS", "VISION-RECIPE",
+                    $"send No={recipeNo} Name={recipeName} -> {(ok ? "ACK" : "no-ack")}");
+                return ok;
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "SYS", "VISION-RECIPE",
+                    $"send failed: No={recipeNo} Name={recipeName} / {ex.Message}");
+                return false;
+            }
+        }
+
         private static VisionTcpClient New(string module, string host, int port)
         {
             var c = new VisionTcpClient(module, host, port);
@@ -94,4 +131,3 @@ namespace QMC.CDT320.VisionComm
         }
     }
 }
-

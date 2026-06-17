@@ -48,6 +48,9 @@
         private System.Windows.Forms.RadioButton rbManualSelectPick;
         private System.Windows.Forms.RadioButton rbAlignCheckIndex;
         private System.Windows.Forms.RadioButton rbDragSelectPick;
+        private System.Windows.Forms.Panel binSidePanel;
+        private System.Windows.Forms.RadioButton rbBinGood;
+        private System.Windows.Forms.RadioButton rbBinNg;
         private System.Windows.Forms.TableLayoutPanel actionSection;
         private System.Windows.Forms.Label lblActionTitle;
         private QMC.CDT_320.Ui.Controls.ActionButton btnCreate;
@@ -110,6 +113,9 @@
             this.rbManualSelectPick = new System.Windows.Forms.RadioButton();
             this.rbAlignCheckIndex = new System.Windows.Forms.RadioButton();
             this.rbDragSelectPick = new System.Windows.Forms.RadioButton();
+            this.binSidePanel = new System.Windows.Forms.Panel();
+            this.rbBinGood = new System.Windows.Forms.RadioButton();
+            this.rbBinNg = new System.Windows.Forms.RadioButton();
             this.actionSection = new System.Windows.Forms.TableLayoutPanel();
             this.lblActionTitle = new System.Windows.Forms.Label();
             this.btnCreate = new QMC.CDT_320.Ui.Controls.ActionButton();
@@ -776,12 +782,14 @@
             this.modeSection.Controls.Add(this.rbManualSelectPick, 0, 6);
             this.modeSection.Controls.Add(this.rbAlignCheckIndex, 0, 7);
             this.modeSection.Controls.Add(this.rbDragSelectPick, 0, 8);
+            this.modeSection.Controls.Add(this.binSidePanel, 0, 9);
             this.modeSection.Dock = System.Windows.Forms.DockStyle.Fill;
             this.modeSection.Location = new System.Drawing.Point(0, 248);
             this.modeSection.Margin = new System.Windows.Forms.Padding(0, 0, 0, 8);
             this.modeSection.Name = "modeSection";
-            this.modeSection.RowCount = 9;
+            this.modeSection.RowCount = 10;
             this.modeSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 26F));
+            this.modeSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 12.5F));
             this.modeSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 12.5F));
             this.modeSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 12.5F));
             this.modeSection.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 12.5F));
@@ -866,7 +874,40 @@
             this.rbReference2.Size = new System.Drawing.Size(408, 36);
             this.rbReference2.TabIndex = 5;
             this.rbReference2.Text = "2 REFERENCE INDEX";
-            // 
+            //
+            // binSidePanel
+            //
+            this.binSidePanel.Controls.Add(this.rbBinGood);
+            this.binSidePanel.Controls.Add(this.rbBinNg);
+            this.binSidePanel.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.binSidePanel.Margin = new System.Windows.Forms.Padding(12, 0, 0, 0);
+            this.binSidePanel.Name = "binSidePanel";
+            this.binSidePanel.Size = new System.Drawing.Size(408, 36);
+            this.binSidePanel.TabIndex = 9;
+            this.binSidePanel.Visible = false;
+            //
+            // rbBinGood
+            //
+            this.rbBinGood.Dock = System.Windows.Forms.DockStyle.Left;
+            this.rbBinGood.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
+            this.rbBinGood.Location = new System.Drawing.Point(0, 0);
+            this.rbBinGood.Name = "rbBinGood";
+            this.rbBinGood.Size = new System.Drawing.Size(204, 36);
+            this.rbBinGood.TabIndex = 0;
+            this.rbBinGood.TabStop = true;
+            this.rbBinGood.Text = "GOOD BIN MAP";
+            //
+            // rbBinNg
+            //
+            this.rbBinNg.Dock = System.Windows.Forms.DockStyle.Right;
+            this.rbBinNg.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
+            this.rbBinNg.Location = new System.Drawing.Point(204, 0);
+            this.rbBinNg.Name = "rbBinNg";
+            this.rbBinNg.Size = new System.Drawing.Size(204, 36);
+            this.rbBinNg.TabIndex = 1;
+            this.rbBinNg.TabStop = true;
+            this.rbBinNg.Text = "NG BIN MAP";
+            //
             // rbManualSelectPick
             // 
             this.rbManualSelectPick.Dock = System.Windows.Forms.DockStyle.Fill;
