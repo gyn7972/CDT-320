@@ -225,6 +225,10 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> MoveFeederCassetteLoadPositionAsync(CancellationToken ct)
         {
+            int pickerClear = CheckPickersNotInOutputZone("before cassette to feeder load");
+            if (pickerClear != 0)
+                return pickerClear;
+
             int result = await MoveFeederYCommandAsync(Feeder.MoveToFeederCassetteLoadPosition(Options.Side, Options.SlotIndex, Options.FineMove), "cassette load", ct).ConfigureAwait(false);
             if (result != 0)
                 return result;

@@ -415,25 +415,31 @@ namespace QMC.CDT320.Sequencing
                 if (!OutputSlotPlanner.TryResolveNextStoreSlot(grade, out plan, out slotPlanReason))
                     return Fail("OUT-SLOT-UNAVAILABLE", "OutputSequence", "Output cassette same source slot is not available. grade=" + grade + ", reason=" + slotPlanReason);
 
-                using (SequenceResourceLease lease = await AcquireOutputStageAreaAsync(plan.Side, "OutputStore", ct).ConfigureAwait(false))
+                using (SequenceResourceLease placeLease = await AcquireOutputPlaceAreaAsync("OutputStore", ct).ConfigureAwait(false))
                 {
-                    if (lease == null)
-                        return Fail("OUT-RESOURCE-STAGE", "OutputSequence", "Output stage area resource acquire failed. side=" + plan.Side);
+                    if (placeLease == null)
+                        return Fail("OUT-RESOURCE-PLACE", "OutputSequence", "Output place area resource acquire failed. side=" + plan.Side);
 
-                    int result = await ExecuteStagePrepareUnloadAsync(ct, plan.Side, bFine, moveTimeoutMs, startMode).ConfigureAwait(false);
-                    if (result != 0) return result;
+                    using (SequenceResourceLease lease = await AcquireOutputStageAreaAsync(plan.Side, "OutputStore", ct).ConfigureAwait(false))
+                    {
+                        if (lease == null)
+                            return Fail("OUT-RESOURCE-STAGE", "OutputSequence", "Output stage area resource acquire failed. side=" + plan.Side);
 
-                    result = await ExecuteFeederUnloadFromStageAsync(ct, plan.Side, bFine, moveTimeoutMs, startMode).ConfigureAwait(false);
-                    if (result != 0) return result;
+                        int result = await ExecuteStagePrepareUnloadAsync(ct, plan.Side, bFine, moveTimeoutMs, startMode).ConfigureAwait(false);
+                        if (result != 0) return result;
 
-                    result = await ExecuteCassetteMoveToSlotAsync(ct, plan.TargetCassette, plan.SlotIndex, bFine, moveTimeoutMs, startMode).ConfigureAwait(false);
-                    if (result != 0) return result;
+                        result = await ExecuteFeederUnloadFromStageAsync(ct, plan.Side, bFine, moveTimeoutMs, startMode).ConfigureAwait(false);
+                        if (result != 0) return result;
 
-                    result = await ExecuteFeederUnloadToCassetteAsync(ct, plan.SlotIndex, plan.CassetteRole, bFine, moveTimeoutMs, startMode).ConfigureAwait(false);
-                    if (result != 0) return result;
+                        result = await ExecuteCassetteMoveToSlotAsync(ct, plan.TargetCassette, plan.SlotIndex, bFine, moveTimeoutMs, startMode).ConfigureAwait(false);
+                        if (result != 0) return result;
 
-                    result = await ExecuteStageMoveAvoidAsync(ct, plan.Side, bFine, moveTimeoutMs, startMode).ConfigureAwait(false);
-                    if (result != 0) return result;
+                        result = await ExecuteFeederUnloadToCassetteAsync(ct, plan.SlotIndex, plan.CassetteRole, bFine, moveTimeoutMs, startMode).ConfigureAwait(false);
+                        if (result != 0) return result;
+
+                        result = await ExecuteStageMoveAvoidAsync(ct, plan.Side, bFine, moveTimeoutMs, startMode).ConfigureAwait(false);
+                        if (result != 0) return result;
+                    }
                 }
 
                 return 0;
@@ -473,16 +479,22 @@ namespace QMC.CDT320.Sequencing
                 if (stageWafer != null)
                     return Fail("OUT-FEEDER-STAGE-OCCUPIED", "Material", "Output feeder has unfinished bin but target stage is occupied. side=" + side + ", feeder=" + feederWafer.WaferId + ", stage=" + stageWafer.WaferId);
 
-                using (SequenceResourceLease lease = await AcquireOutputStageAreaAsync(side, "OutputFeederResumeLoad", ct).ConfigureAwait(false))
+                using (SequenceResourceLease placeLease = await AcquireOutputPlaceAreaAsync("OutputFeederResumeLoad", ct).ConfigureAwait(false))
                 {
-                    if (lease == null)
-                        return Fail("OUT-RESOURCE-STAGE", "OutputSequence", "Output stage area resource acquire failed. side=" + side);
+                    if (placeLease == null)
+                        return Fail("OUT-RESOURCE-PLACE", "OutputSequence", "Output place area resource acquire failed. side=" + side);
 
-                    int result = await ExecuteStagePrepareLoadAsync(ct, side, bFine, moveTimeoutMs, startMode).ConfigureAwait(false);
-                    if (result != 0) return result;
+                    using (SequenceResourceLease lease = await AcquireOutputStageAreaAsync(side, "OutputFeederResumeLoad", ct).ConfigureAwait(false))
+                    {
+                        if (lease == null)
+                            return Fail("OUT-RESOURCE-STAGE", "OutputSequence", "Output stage area resource acquire failed. side=" + side);
 
-                    result = await ExecuteFeederLoadToStageAsync(ct, side, bFine, moveTimeoutMs, startMode).ConfigureAwait(false);
-                    if (result != 0) return result;
+                        int result = await ExecuteStagePrepareLoadAsync(ct, side, bFine, moveTimeoutMs, startMode).ConfigureAwait(false);
+                        if (result != 0) return result;
+
+                        result = await ExecuteFeederLoadToStageAsync(ct, side, bFine, moveTimeoutMs, startMode).ConfigureAwait(false);
+                        if (result != 0) return result;
+                    }
                 }
 
                 SetOutputStageReadySignals();
@@ -543,25 +555,31 @@ namespace QMC.CDT320.Sequencing
                 if (!OutputSlotPlanner.TryResolveNextSupplySlot(side, out plan))
                     return StopAutoSequence("Output cassette has no ready slot. side=" + side);
 
-                using (SequenceResourceLease lease = await AcquireOutputStageAreaAsync(plan.Side, "OutputSupply", ct).ConfigureAwait(false))
+                using (SequenceResourceLease placeLease = await AcquireOutputPlaceAreaAsync("OutputSupply", ct).ConfigureAwait(false))
                 {
-                    if (lease == null)
-                        return Fail("OUT-RESOURCE-STAGE", "OutputSequence", "Output stage area resource acquire failed. side=" + plan.Side);
+                    if (placeLease == null)
+                        return Fail("OUT-RESOURCE-PLACE", "OutputSequence", "Output place area resource acquire failed. side=" + plan.Side);
 
-                    int result = await ExecuteStagePrepareLoadAsync(ct, plan.Side, bFine, moveTimeoutMs, startMode).ConfigureAwait(false);
-                    if (result != 0) return result;
+                    using (SequenceResourceLease lease = await AcquireOutputStageAreaAsync(plan.Side, "OutputSupply", ct).ConfigureAwait(false))
+                    {
+                        if (lease == null)
+                            return Fail("OUT-RESOURCE-STAGE", "OutputSequence", "Output stage area resource acquire failed. side=" + plan.Side);
 
-                    result = await ExecuteCassetteMoveToSlotAsync(ct, plan.TargetCassette, plan.SlotIndex, bFine, moveTimeoutMs, startMode).ConfigureAwait(false);
-                    if (result != 0) return result;
+                        int result = await ExecuteStagePrepareLoadAsync(ct, plan.Side, bFine, moveTimeoutMs, startMode).ConfigureAwait(false);
+                        if (result != 0) return result;
 
-                    result = await ExecuteFeederLoadFromCassetteAsync(ct, plan.SlotIndex, plan.CassetteRole, bFine, moveTimeoutMs, startMode).ConfigureAwait(false);
-                    if (result != 0) return result;
+                        result = await ExecuteCassetteMoveToSlotAsync(ct, plan.TargetCassette, plan.SlotIndex, bFine, moveTimeoutMs, startMode).ConfigureAwait(false);
+                        if (result != 0) return result;
 
-                    result = await ExecuteFeederLoadToStageAsync(ct, plan.Side, bFine, moveTimeoutMs, startMode).ConfigureAwait(false);
-                    if (result != 0) return result;
+                        result = await ExecuteFeederLoadFromCassetteAsync(ct, plan.SlotIndex, plan.CassetteRole, bFine, moveTimeoutMs, startMode).ConfigureAwait(false);
+                        if (result != 0) return result;
 
-                    result = await ExecuteRecoverAsync(ct, plan.Side, bFine, moveTimeoutMs, startMode).ConfigureAwait(false);
-                    if (result != 0) return result;
+                        result = await ExecuteFeederLoadToStageAsync(ct, plan.Side, bFine, moveTimeoutMs, startMode).ConfigureAwait(false);
+                        if (result != 0) return result;
+
+                        result = await ExecuteRecoverAsync(ct, plan.Side, bFine, moveTimeoutMs, startMode).ConfigureAwait(false);
+                        if (result != 0) return result;
+                    }
                 }
 
                 SetOutputStageReadySignals();
@@ -697,6 +715,12 @@ namespace QMC.CDT320.Sequencing
 
             string safeHolder = string.IsNullOrWhiteSpace(holder) ? "OutputSequence" : holder;
             return Context.Resources.AcquireAsync(resource, safeHolder + ":" + side, 30000, ct);
+        }
+
+        private Task<SequenceResourceLease> AcquireOutputPlaceAreaAsync(string holder, CancellationToken ct)
+        {
+            string safeHolder = string.IsNullOrWhiteSpace(holder) ? "OutputSequence" : holder;
+            return Context.Resources.AcquireAsync(SequenceResourceKind.OutputPlaceArea, safeHolder, 30000, ct);
         }
 
         private OutputCassetteSequenceOptions BuildCassetteOptions(TargetCassette target, bool bFine, int moveTimeoutMs, SequenceStartMode startMode)
