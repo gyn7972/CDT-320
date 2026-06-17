@@ -39,7 +39,7 @@ namespace QMC.CDT_320.Ui.Tabs
             RegisterSidebarButton(BtnBottomVision,     "recipe.bottomVision",    en, () => new VisionRecipePage("recipe.bottomVision"));
             RegisterSidebarButton(BtnSideVision,       "recipe.sideVision",      en, () => new VisionRecipePage("recipe.sideVision"));
             RegisterSidebarButton(BtnInputMapCreate,   "recipe.inputMapCreate",  en, () => new MapCreatePage("recipe.inputMapCreate"));
-            RegisterSidebarButton(BtnOutputMapCreate,  "recipe.outputMapCreate", en, () => new MapCreatePage("recipe.outputMapCreate"));
+            RegisterSidebarButton(BtnOutputMapCreate,  "recipe.binMapCreate",    en, () => new MapCreatePage("recipe.binMapCreate"));
             RegisterSidebarActionButton(BtnDieMapSetup, "recipe.dieMapSetup",    en, OpenDieMapSetup);
             RegisterSidebarButton(BtnDieSubset,        "recipe.dieSubset",       en, () => new DieSubsetPage());
             RegisterSidebarButton(BtnTapeFrameSubset,  "recipe.tapeFrameSubset", en, () => new TapeFrameSubsetPage());

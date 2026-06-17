@@ -8,6 +8,7 @@ use strict; use warnings; use FindBin;
 my @stages = qw(
     stage2 stage6 stage52
     stage14 stage15 stage17 stage18
+    binmap
 );
 
 print "=" x 110, "\n";

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using QMC.Common;
 using QMC.CDT320.DieMaps;
@@ -692,26 +693,29 @@ namespace QMC.CDT320.Materials
                 if (outputWafer == null)
                     return false;
 
-                WaferMaterial sourceWafer = GetWaferAtLocation(MaterialLocationKind.InputStage);
-                DieMap sourceMap = BuildDieMapFromWafer(sourceWafer);
-                if (sourceWafer == null || sourceMap == null || sourceMap.DieMapX <= 0 || sourceMap.DieMapY <= 0)
+                // 출력 수령 계획은 레시피의 원형 빈맵(side별)에서 타겟 슬롯을 소스로 한다.
+                DieMap binMap = LoadRecipeBinMap(side);
+                if (binMap == null || binMap.DieMapX <= 0 || binMap.DieMapY <= 0)
                 {
                     Log.Write("Main", "SYSTEM", "MaterialStateService",
-                        "Output receive plan initialize skipped: input stage die map is empty. side=" + side + " - Check");
+                        "Output receive plan initialize skipped: recipe bin map is missing. side=" + side + " - Check");
                     return false;
                 }
 
                 var project = RecipeStore.LoadLastOrDefault();
                 PickupSubset pickup = ResolveOutputPickup(project);
-                List<DieMapEntry> ordered = BuildOutputReceiveOrder(sourceMap, pickup);
+                List<DieMapEntry> ordered = BuildOutputReceiveOrder(binMap, pickup);
                 if (ordered.Count == 0)
                     return false;
 
-                outputWafer.OutputReceiveSourceWaferId = sourceWafer.WaferId;
-                outputWafer.OutputReceiveDieMapX = sourceMap.DieMapX;
-                outputWafer.OutputReceiveDieMapY = sourceMap.DieMapY;
-                outputWafer.OutputReceivePitchX = sourceMap.PitchX;
-                outputWafer.OutputReceivePitchY = sourceMap.PitchY;
+                // 입력 웨이퍼는 추적용(있으면 기록). 없어도 빈맵 기반 계획은 성립한다.
+                WaferMaterial sourceWafer = GetWaferAtLocation(MaterialLocationKind.InputStage);
+                outputWafer.OutputReceiveSourceWaferId = sourceWafer != null ? sourceWafer.WaferId : "";
+                outputWafer.OutputReceiveDieMapX = binMap.DieMapX;
+                outputWafer.OutputReceiveDieMapY = binMap.DieMapY;
+                outputWafer.OutputReceivePitchX = binMap.PitchX;
+                outputWafer.OutputReceivePitchY = binMap.PitchY;
+                // 좌표 규약 유지: 모션 소비자가 LoadPosition + pitch*index(코너 상대)로 해석.
                 outputWafer.OutputReceiveOriginX = 0.0;
                 outputWafer.OutputReceiveOriginY = 0.0;
                 outputWafer.OutputReceiveNextIndex = 0;
@@ -719,6 +723,7 @@ namespace QMC.CDT320.Materials
                 outputWafer.OutputReceiveStartCorner = pickup.StartCorner.ToString();
                 outputWafer.OutputReceiveDirection = pickup.Direction.ToString();
                 outputWafer.OutputReceivePattern = pickup.Pattern.ToString();
+                outputWafer.DieMapFrameObjId = binMap.FrameObjId ?? "";
                 if (outputWafer.DieIds == null)
                     outputWafer.DieIds = new List<string>();
                 else
@@ -753,7 +758,7 @@ namespace QMC.CDT320.Materials
                     if (IsOutputStageReceiveComplete(outputWafer))
                         return null;
 
-                    if (outputWafer.OutputReceiveTotalCount <= 0 || string.IsNullOrWhiteSpace(outputWafer.OutputReceiveSourceWaferId))
+                    if (outputWafer.OutputReceiveTotalCount <= 0)
                     {
                         if (!InitializeOutputStageReceivePlan(side))
                             return null;
@@ -763,13 +768,13 @@ namespace QMC.CDT320.Materials
                             return null;
                     }
 
-                    WaferMaterial sourceWafer = State.Wafers.FirstOrDefault(w =>
-                        w != null &&
-                        string.Equals(w.WaferId, outputWafer.OutputReceiveSourceWaferId, StringComparison.OrdinalIgnoreCase));
-                    DieMap sourceMap = BuildDieMapFromWafer(sourceWafer);
+                    // 타겟 슬롯 순서는 레시피 원형 빈맵 + 출력 픽업 순서로 결정(계획 초기화와 동일).
+                    DieMap binMap = LoadRecipeBinMap(side);
+                    if (binMap == null)
+                        return null;
                     var project = RecipeStore.LoadLastOrDefault();
                     PickupSubset pickup = ResolveOutputPickup(project);
-                    List<DieMapEntry> ordered = BuildOutputReceiveOrder(sourceMap, pickup);
+                    List<DieMapEntry> ordered = BuildOutputReceiveOrder(binMap, pickup);
                     if (ordered.Count == 0)
                         return null;
 
@@ -781,8 +786,8 @@ namespace QMC.CDT320.Materials
                         return null;
 
                     DieMapEntry entry = ordered[index];
-                    double pitchX = outputWafer.OutputReceivePitchX > 0.0 ? outputWafer.OutputReceivePitchX : sourceMap.PitchX;
-                    double pitchY = outputWafer.OutputReceivePitchY > 0.0 ? outputWafer.OutputReceivePitchY : sourceMap.PitchY;
+                    double pitchX = outputWafer.OutputReceivePitchX > 0.0 ? outputWafer.OutputReceivePitchX : binMap.PitchX;
+                    double pitchY = outputWafer.OutputReceivePitchY > 0.0 ? outputWafer.OutputReceivePitchY : binMap.PitchY;
 
                     var target = new OutputStageReceiveTarget
                     {
@@ -962,6 +967,34 @@ namespace QMC.CDT320.Materials
                 return new PickupSubset();
 
             return project.OutputPickup ?? project.Pickup ?? new PickupSubset();
+        }
+
+        /// <summary>레시피에 저장된 원형 빈맵(GOOD/NG)을 로드합니다(BIN DIE MAP CREATE에서 저장한 맵).
+        /// 경로는 RecipeMapPaths 공용 규칙을 사용하며, 없으면 null.</summary>
+        private static DieMap LoadRecipeBinMap(QMC.CDT320.BinSide side)
+        {
+            try
+            {
+                RecipeProject project = RecipeStore.LoadLastOrDefault();
+                if (project == null)
+                    return null;
+
+                RecipeMapKind kind = side == QMC.CDT320.BinSide.Ng ? RecipeMapKind.NgBin : RecipeMapKind.GoodBin;
+                string path = RecipeMapPaths.ResolveConfigured(project, kind);
+                if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+                    return null;
+
+                return DieMapGenerator.Load(path);
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "Recipe bin map load failed: " + ex.Message + " - Failed");
+                return null;
+            }
+            finally
+            {
+            }
         }
 
         public static InputStagePickTarget ReserveNextInputStagePickTarget(MaterialLocationKind pickerLocation, int pickerNo)

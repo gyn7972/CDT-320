@@ -18,7 +18,27 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         private readonly string _titleI18n;
         private DieMap _map;
         private RecipeProject _project;
-        private bool _isOutputMap;
+
+        /// <summary>맵 에디터 모드. 입력 웨이퍼 맵 1종 + 출력(빈) 맵 GOOD/NG 2종.</summary>
+        private enum MapEditorMode { Input, OutputGood, OutputNg }
+        private MapEditorMode _mode = MapEditorMode.Input;
+
+        /// <summary>입력 맵이 아니면(=빈 맵이면) true. 기존 호출부 호환용 계산 속성.</summary>
+        private bool _isOutputMap { get { return _mode != MapEditorMode.Input; } }
+
+        /// <summary>현재 모드에 대응하는 레시피 맵 종류(경로/파일명 해석에 사용).</summary>
+        private RecipeMapKind CurrentMapKind
+        {
+            get
+            {
+                switch (_mode)
+                {
+                    case MapEditorMode.OutputGood: return RecipeMapKind.GoodBin;
+                    case MapEditorMode.OutputNg: return RecipeMapKind.NgBin;
+                    default: return RecipeMapKind.Input;
+                }
+            }
+        }
         private ContextMenuStrip _mapMenu;
         private string _currentMapPath;
         private string _currentFrameSpecName;
@@ -42,7 +62,12 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         {
             lblHeader.Tag = "i18n:" + _titleI18n;
             lblHeader.Text = Lang.T(_titleI18n);
-            _isOutputMap = string.Equals(_titleI18n, "recipe.outputMapCreate", StringComparison.OrdinalIgnoreCase);
+            // 빈 맵 진입(recipe.binMapCreate) 또는 레거시 출력 맵 진입(recipe.outputMapCreate) → 빈 GOOD 시작.
+            if (string.Equals(_titleI18n, "recipe.binMapCreate", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(_titleI18n, "recipe.outputMapCreate", StringComparison.OrdinalIgnoreCase))
+                _mode = MapEditorMode.OutputGood;
+            else
+                _mode = MapEditorMode.Input;
         }
 
         protected override void OnLoad(EventArgs e)
@@ -72,15 +97,17 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             rbManualSelectPick.Text = "CLICK TARGET";
             rbAlignCheckIndex.Text = "CLICK SKIP";
             rbDragSelectPick.Text = "RIGHT CLICK MENU";
-            chkCircularMap.Text = _isOutputMap ? "OUTPUT CIRCLE DIE MAP" : "INPUT CIRCLE DIE MAP";
+            // 입력/빈 모두 원형 형상 고정(직사각 미사용). 토글 비활성·체크 유지.
+            chkCircularMap.Text = _isOutputMap ? "BIN CIRCLE DIE MAP" : "INPUT CIRCLE DIE MAP";
             chkCircularMap.Checked = true;
-            chkCircularMap.Enabled = _isOutputMap;
+            chkCircularMap.Enabled = false;
             rbStartIndex.Enabled = false;
             rbReference1.Enabled = false;
             rbReference2.Enabled = false;
             HookClickModeEvents();
             ClearMapClickModes();
             UpdateMapInteractionMode();
+            ConfigureBinSideToggle();
 
             _btnMapLoad.Click += (s, e) => LoadSelectedLibraryMap();
             _btnMapNew.Click += (s, e) => SaveMapAsLibraryMap();
@@ -92,6 +119,77 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             btnAutoMatch.Click += (s, e) => ImportMapFile();
             btnThetaMatchMove.Click += (s, e) => ExportMapCsv();
             btnXyMatchMove.Click += (s, e) => InvertMapTargets();
+        }
+
+        /// <summary>빈 맵 모드에서만 GOOD/NG 토글을 노출하고 형상 파라미터 편집을 허용한다.</summary>
+        private void ConfigureBinSideToggle()
+        {
+            bool bin = _isOutputMap;
+            binSidePanel.Visible = bin;
+            rbBinGood.Visible = bin;
+            rbBinNg.Visible = bin;
+            if (!bin)
+                return;
+
+            rbBinGood.Text = "GOOD BIN MAP";
+            rbBinNg.Text = "NG BIN MAP";
+            rbBinGood.Checked = _mode != MapEditorMode.OutputNg;
+            rbBinNg.Checked = _mode == MapEditorMode.OutputNg;
+            rbBinGood.CheckedChanged += OnBinSideChanged;
+            rbBinNg.CheckedChanged += OnBinSideChanged;
+
+            // 빈 맵은 별도 SPEC 페이지가 없으므로 형상 파라미터를 이 화면에서 편집한다.
+            EnableBinAuthoringControls();
+        }
+
+        private void OnBinSideChanged(object sender, EventArgs e)
+        {
+            try
+            {
+                RadioButton rb = sender as RadioButton;
+                if (rb == null || !rb.Checked)
+                    return;
+
+                MapEditorMode next = rbBinNg.Checked ? MapEditorMode.OutputNg : MapEditorMode.OutputGood;
+                if (next == _mode)
+                    return;
+
+                _mode = next;
+                chkCircularMap.Text = "BIN CIRCLE DIE MAP";
+                _currentMapPath = "";
+                _currentFrameSpecName = "";
+                if (!LoadSavedRecipeMap(false))
+                    CreateMapFromRecipeSpec(false);
+                RefreshMapLibraryList();
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "RECIPE", "MapCreatePage",
+                    "Bin side toggle failed: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        private void EnableBinAuthoringControls()
+        {
+            SetNumericEditable(_nGridX);
+            SetNumericEditable(_nGridY);
+            SetNumericEditable(_nPitchX);
+            SetNumericEditable(_nPitchY);
+            SetNumericEditable(_nDiameter);
+            SetNumericEditable(_nSideEdgeSkip);
+            SetNumericEditable(_nTopBottomEdgeSkip);
+        }
+
+        private static void SetNumericEditable(NumericUpDown control)
+        {
+            if (control == null)
+                return;
+            control.Enabled = true;
+            control.ReadOnly = false;
+            control.TabStop = true;
         }
 
         private void LoadEdgeSkipFromRecipe()
@@ -288,17 +386,14 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             if (!_isOutputMap)
                 return "Generated Input Circle Die Map: " + specName;
 
-            return chkCircularMap.Checked
-                ? "Generated Output Circle Die Map: " + specName
-                : "Generated Output Rect Die Map: " + specName;
+            string sideTag = _mode == MapEditorMode.OutputNg ? "NG" : "GOOD";
+            return "Generated " + sideTag + " Bin Circle Die Map: " + specName;
         }
 
         private DieMap CreateOutputMapFromRecipe(RecipeProject project)
         {
-            if (chkCircularMap.Checked)
-                return CreateCircleDieMapFromRecipe(project, true);
-
-            return CreateRectMapFromRecipe(project);
+            // 빈 맵은 원형 형상 고정(직사각 미사용).
+            return CreateCircleDieMapFromRecipe(project, true);
         }
 
         private DieMap CreateCircleDieMapFromRecipe(RecipeProject project, bool outputMap)
@@ -415,29 +510,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
             double radiusMm = diameterMm / 2.0;
             return (x * x) + (y * y) <= radiusMm * radiusMm;
-        }
-
-        private DieMap CreateRectMapFromRecipe(RecipeProject project)
-        {
-            TapeFrameSubset frame = BuildFrameFromControls();
-
-            var map = DieMapGenerator.GenerateRect(
-                Math.Max(1, frame.DieMapX),
-                Math.Max(1, frame.DieMapY),
-                frame.PitchX > 0.0 ? frame.PitchX : 1.0,
-                frame.PitchY > 0.0 ? frame.PitchY : 1.0,
-                0.0,
-                0.0,
-                BuildRecipeMapId(project, true));
-
-            foreach (DieMapEntry entry in map.Entries)
-            {
-                if (entry == null)
-                    continue;
-                entry.DieUid = BuildDieId(project, entry.DieMapY, entry.DieMapX);
-            }
-
-            return ApplyPickupSequence(map, true);
         }
 
         private DieMap ApplyPickupSequence(DieMap map, bool outputMap)
@@ -761,12 +833,23 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             string name = Path.GetFileNameWithoutExtension(path) ?? "";
             bool isInputName = name.IndexOf("InputDieMap", StringComparison.OrdinalIgnoreCase) >= 0 ||
                                name.IndexOf("InputMap", StringComparison.OrdinalIgnoreCase) >= 0;
-            bool isOutputName = name.IndexOf("OutputDieMap", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                                name.IndexOf("OutputMap", StringComparison.OrdinalIgnoreCase) >= 0;
+            bool isLegacyOutputName = name.IndexOf("OutputDieMap", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                      name.IndexOf("OutputMap", StringComparison.OrdinalIgnoreCase) >= 0;
+            bool isGoodBinName = name.IndexOf("GoodBinDieMap", StringComparison.OrdinalIgnoreCase) >= 0;
+            bool isNgBinName = name.IndexOf("NgBinDieMap", StringComparison.OrdinalIgnoreCase) >= 0;
 
-            if (_isOutputMap)
-                return !isInputName;
-            return !isOutputName;
+            if (!_isOutputMap)
+            {
+                // 입력 모드: 빈 맵(레거시 출력/GOOD/NG) 숨김.
+                return !isLegacyOutputName && !isGoodBinName && !isNgBinName;
+            }
+
+            // 빈 모드: 입력 맵 숨김 + 반대 side 숨김. 해당 side 또는 레거시 출력 맵만 노출.
+            if (isInputName)
+                return false;
+            if (CurrentMapKind == RecipeMapKind.NgBin)
+                return isNgBinName || isLegacyOutputName;
+            return isGoodBinName || isLegacyOutputName;
         }
 
         private IEnumerable<string> EnumerateMapFiles(string dir)
@@ -1239,25 +1322,15 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 "Die Map Create", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
 
-        private static string ResolveRecipeMapPath(RecipeProject project, bool output)
+        // 경로/파일명 규칙은 RecipeMapPaths(공용)로 위임 — 입력/GOOD/NG 일관 처리, 중복 제거.
+        private string ResolveRecipeMapPath(RecipeProject project, bool output)
         {
-            string configured = output ? project.OutputDieMapFileName : project.InputDieMapFileName;
-            if (string.IsNullOrWhiteSpace(configured))
-                return "";
-
-            if (Path.IsPathRooted(configured))
-                return configured;
-
-            return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, configured);
+            return RecipeMapPaths.ResolveConfigured(project, CurrentMapKind);
         }
 
-        private static string BuildRecipeMapPath(RecipeProject project, bool output)
+        private string BuildRecipeMapPath(RecipeProject project, bool output)
         {
-            string dir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "DieMaps");
-            Directory.CreateDirectory(dir);
-            string recipeName = SanitizeFileName(project != null ? project.FileName : "Recipe");
-            string suffix = output ? "Output" : "Input";
-            return Path.Combine(dir, recipeName + "_" + suffix + "DieMap.json");
+            return RecipeMapPaths.BuildDefaultPath(project, CurrentMapKind);
         }
 
         private string ResolveSaveMapPath()
@@ -1271,25 +1344,17 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
         private static string GetDieMapDirectory()
         {
-            string dir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "DieMaps");
-            Directory.CreateDirectory(dir);
-            return dir;
+            return RecipeMapPaths.GetDieMapDirectory();
         }
 
         private string BuildMapPathByName(string name)
         {
-            string safeName = SanitizeFileName(name);
-            string suffix = _isOutputMap ? "OutputDieMap" : "InputDieMap";
-            if (!safeName.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
-                safeName += "_" + suffix;
-            return Path.Combine(GetDieMapDirectory(), safeName + ".json");
+            return RecipeMapPaths.BuildPathByName(name, CurrentMapKind);
         }
 
         private string BuildDefaultMapName()
         {
-            string recipeName = SanitizeFileName(_project != null ? _project.FileName : "Recipe");
-            string suffix = _isOutputMap ? "OutputDieMap" : "InputDieMap";
-            return recipeName + "_" + suffix;
+            return RecipeMapPaths.BuildDefaultName(_project, CurrentMapKind);
         }
 
         private void UpdateRecipeMapFileName(string path)
@@ -1297,11 +1362,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             if (_project == null)
                 return;
 
-            string relativePath = MakeConfigRelativePath(path);
-            if (_isOutputMap)
-                _project.OutputDieMapFileName = relativePath;
-            else
-                _project.InputDieMapFileName = relativePath;
+            string relativePath = RecipeMapPaths.MakeConfigRelativePath(path);
+            RecipeMapPaths.SetConfiguredFileName(_project, CurrentMapKind, relativePath);
         }
 
         private static void MoveSidecarCsv(string oldJsonPath, string newJsonPath)
@@ -1351,36 +1413,15 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
         }
 
-        private static string MakeConfigRelativePath(string path)
+        private string BuildRecipeMapId(RecipeProject project, bool output)
         {
-            string baseDir = AppDomain.CurrentDomain.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
-            if (!string.IsNullOrWhiteSpace(path) &&
-                path.StartsWith(baseDir, StringComparison.OrdinalIgnoreCase))
-            {
-                return path.Substring(baseDir.Length);
-            }
-
-            return path ?? "";
-        }
-
-        private static string BuildRecipeMapId(RecipeProject project, bool output)
-        {
-            string recipeName = SanitizeFileName(project != null ? project.FileName : "Recipe");
-            return recipeName + "-" + (output ? "OUTPUT" : "INPUT") + "-MAP";
+            return RecipeMapPaths.BuildMapId(project, CurrentMapKind);
         }
 
         private static string BuildDieId(RecipeProject project, int row, int col)
         {
-            string recipeName = SanitizeFileName(project != null ? project.FileName : "Recipe");
+            string recipeName = RecipeMapPaths.SanitizeFileName(project != null ? project.FileName : "Recipe");
             return recipeName + "-D" + row.ToString("000") + "-" + col.ToString("000");
-        }
-
-        private static string SanitizeFileName(string value)
-        {
-            string text = string.IsNullOrWhiteSpace(value) ? "Recipe" : value.Trim();
-            foreach (char c in Path.GetInvalidFileNameChars())
-                text = text.Replace(c, '_');
-            return text;
         }
 
         private static decimal ClampDecimal(int value, decimal min, decimal max)

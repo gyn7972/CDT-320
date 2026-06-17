@@ -276,9 +276,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 AddKindGroup(items, "UNLOAD POSITION", "Unload", true, true, true, false);
                 AddKindGroup(items, "RETICLE POSITION", "Reticle", false, false, false, true);
 
-                // 빈 트레이 형상(출력 적재) — side별 Columns/Rows/Pitch (BuildBinTrayMap / 수령 계획에 사용)
-                AddBinTrayGroup(items, "BIN TRAY (GOOD)", "K_BINTRAY_GOOD", () => unit.Recipe.GoodBinTray);
-                AddBinTrayGroup(items, "BIN TRAY (NG)", "K_BINTRAY_NG", () => unit.Recipe.NgBinTray);
+                // 빈맵(원형) 형상은 BIN DIE MAP CREATE 페이지에서 레시피 맵으로 저장/관리한다.
 
                 items.Add(ParameterGridItem.Bool("SIMULATION MODE", ParameterGridScope.Setup, () => unit.Setup.IsSimulationMode, v => unit.Setup.IsSimulationMode = v));
                 items.Add(ParameterGridItem.Bool("DRY RUN", ParameterGridScope.Config, () => unit.Config.bDryRun, v => unit.Config.bDryRun = v));
@@ -295,28 +293,6 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             finally
             {
             }
-        }
-
-        // 빈 트레이(출력 적재) 형상 입력 — Columns/Rows/PitchX/PitchY (side별)
-        private void AddBinTrayGroup(List<ParameterGridItem> items, string label, string groupKey, Func<BinTrayLayout> tray)
-        {
-            items.Add(ParameterGridItem.Header(label, groupKey));
-
-            var cols = ParameterGridItem.Int("COLUMNS (X)", "ea", ParameterGridScope.Recipe, () => tray().Columns, v => tray().Columns = v);
-            cols.GroupKey = groupKey;
-            items.Add(cols);
-
-            var rows = ParameterGridItem.Int("ROWS (Y)", "ea", ParameterGridScope.Recipe, () => tray().Rows, v => tray().Rows = v);
-            rows.GroupKey = groupKey;
-            items.Add(rows);
-
-            var pitchX = ParameterGridItem.Double("PITCH X", "mm", ParameterGridScope.Recipe, () => tray().PitchX, v => tray().PitchX = v);
-            pitchX.GroupKey = groupKey;
-            items.Add(pitchX);
-
-            var pitchY = ParameterGridItem.Double("PITCH Y", "mm", ParameterGridScope.Recipe, () => tray().PitchY, v => tray().PitchY = v);
-            pitchY.GroupKey = groupKey;
-            items.Add(pitchY);
         }
 
         // 한 위치 종류(kind)를 헤더로 묶고, 그 종류를 가진 축들을 멤버로 추가

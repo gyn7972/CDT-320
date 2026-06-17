@@ -121,20 +121,6 @@ namespace QMC.CDT320
         [DataMember] public int ColletCleaningTimeoutMs { get; set; } = 10000;
     }
 
-    /// <summary>
-    /// 빈 트레이(출력 적재) 형상 레시피입니다. side(Good/NG)별로 보유합니다.<br/>
-    /// 좌표는 ProcessPosition(센터) 기준으로 BuildBinTrayMap / InitializeOutputStageReceivePlan에서 사용합니다.
-    /// </summary>
-    public class BinTrayLayout
-    {
-        [DataMember] public int Columns { get; set; } = 1;        // 열 수 (X)
-        [DataMember] public int Rows { get; set; } = 1;           // 행 수 (Y)
-        [DataMember] public double PitchX { get; set; } = 0.0;    // 열 간격 (mm)
-        [DataMember] public double PitchY { get; set; } = 0.0;    // 행 간격 (mm)
-        [DataMember] public string StartCorner { get; set; } = "TopLeft";  // 채움 시작 코너
-        [DataMember] public string Direction { get; set; } = "RowMajor";   // 채움 방향
-    }
-
     /// <summary>출력 스테이지 축별 위치 레시피입니다.</summary>
     public class OutputStageRecipe : IRecipeData
     {
@@ -142,8 +128,6 @@ namespace QMC.CDT320
         [DataMember] public StageAxisPositions GoodStageZ { get; set; } = new StageAxisPositions();
         [DataMember] public StageAxisPositions NGStageY { get; set; } = new StageAxisPositions();
         [DataMember] public StageAxisPositions VisionX { get; set; } = new StageAxisPositions();
-        [DataMember] public BinTrayLayout GoodBinTray { get; set; } = new BinTrayLayout();
-        [DataMember] public BinTrayLayout NgBinTray { get; set; } = new BinTrayLayout();
 
         [OnDeserialized]
         private void OnDeserialized(StreamingContext ctx)
@@ -157,8 +141,6 @@ namespace QMC.CDT320
             if (GoodStageZ == null) GoodStageZ = new StageAxisPositions();
             if (NGStageY == null) NGStageY = new StageAxisPositions();
             if (VisionX == null) VisionX = new StageAxisPositions();
-            if (GoodBinTray == null) GoodBinTray = new BinTrayLayout();
-            if (NgBinTray == null) NgBinTray = new BinTrayLayout();
         }
     }
 
