@@ -43,6 +43,7 @@ namespace QMC.CDT_320
         private readonly Dictionary<object, bool> _unitDryRunOverrides = new Dictionary<object, bool>();
         private bool _materialSnapshotRestored;
         private bool _applicationExitRequested;
+        private bool _materialStateSavedForExit;
         private bool _topDoorClosed = true;
 
         /// <summary>상단 프로젝트명을 현재 레시피 파일명으로 갱신합니다.</summary>
@@ -1615,6 +1616,13 @@ namespace QMC.CDT_320
                 return;
             }
 
+            if (!SaveMaterialStateBeforeApplicationExit())
+            {
+                e.Cancel = true;
+                _applicationExitRequested = false;
+                return;
+            }
+
             try
             {
                 AppSettingsStore.Current.Language = Lang.Current;
@@ -1636,6 +1644,115 @@ namespace QMC.CDT_320
             UserSession.UserChanged -= OnUserChanged;
             base.OnFormClosing(e);
         }
+
+        private bool SaveMaterialStateBeforeApplicationExit()
+        {
+            try
+            {
+                if (_materialStateSavedForExit)
+                    return true;
+
+                bool saved = MaterialStateService.TryNotifyAndSave("ApplicationExit");
+                if (saved)
+                {
+                    _materialStateSavedForExit = true;
+                    Log.Write("Main", UserSession.Name, "ApplicationExit",
+                        "Material state saved before application exit. file=" + MaterialSnapshotStore.SnapshotPath + " - Ok");
+                    QMC.Common.Logging.EventLogger.Write(
+                        QMC.Common.Logging.EventKind.Event,
+                        UserSession.Name,
+                        "APP-EXIT-SAVE",
+                        "Material state saved before application exit.");
+                    return true;
+                }
+
+                string message =
+                    "Material 상태 저장에 실패했습니다.\r\n" +
+                    "저장되지 않은 작업 정보가 손실될 수 있습니다.\r\n\r\n" +
+                    "그래도 프로그램을 종료하시겠습니까?\r\n\r\n" +
+                    "파일: " + MaterialSnapshotStore.SnapshotPath;
+
+                Log.Write("Main", UserSession.Name, "ApplicationExit",
+                    "Material state save failed before application exit. file=" +
+                    MaterialSnapshotStore.SnapshotPath + " - Failed");
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Alarm,
+                    UserSession.Name,
+                    "APP-EXIT-SAVE-FAIL",
+                    "Material state save failed before application exit. file=" +
+                    MaterialSnapshotStore.SnapshotPath);
+
+                DialogResult result = QMC.Common.MessageDialog.Show(
+                    this,
+                    message,
+                    "종료",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Warning);
+
+                if (result == DialogResult.Yes)
+                {
+                    Log.Write("Main", UserSession.Name, "ApplicationExit",
+                        "Application exit continued by user after material state save failure. file=" +
+                        MaterialSnapshotStore.SnapshotPath + " - Check");
+                    QMC.Common.Logging.EventLogger.Write(
+                        QMC.Common.Logging.EventKind.Warning,
+                        UserSession.Name,
+                        "APP-EXIT-SAVE-SKIP",
+                        "Application exit continued by user after material state save failure. file=" +
+                        MaterialSnapshotStore.SnapshotPath);
+                    return true;
+                }
+
+                Log.Write("Main", UserSession.Name, "ApplicationExit",
+                    "Application exit canceled by user after material state save failure. file=" +
+                    MaterialSnapshotStore.SnapshotPath + " - Canceled");
+                return false;
+            }
+            catch (Exception ex)
+            {
+                string message =
+                    "Material 상태 저장 중 예외가 발생했습니다.\r\n" +
+                    "저장되지 않은 작업 정보가 손실될 수 있습니다.\r\n\r\n" +
+                    "그래도 프로그램을 종료하시겠습니까?\r\n\r\n" +
+                    "원인: " + ex.Message;
+
+                Log.Write("Main", UserSession.Name, "ApplicationExit",
+                    "Material state save exception before application exit: " + ex.Message + " - Failed");
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Alarm,
+                    UserSession.Name,
+                    "APP-EXIT-SAVE-EXCEPTION",
+                    "Material state save exception before application exit: " + ex.Message);
+
+                DialogResult result = QMC.Common.MessageDialog.Show(
+                    this,
+                    message,
+                    "종료",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Warning);
+
+                if (result == DialogResult.Yes)
+                {
+                    Log.Write("Main", UserSession.Name, "ApplicationExit",
+                        "Application exit continued by user after material state save exception: " +
+                        ex.Message + " - Check");
+                    QMC.Common.Logging.EventLogger.Write(
+                        QMC.Common.Logging.EventKind.Warning,
+                        UserSession.Name,
+                        "APP-EXIT-SAVE-EXCEPTION-SKIP",
+                        "Application exit continued by user after material state save exception: " +
+                        ex.Message);
+                    return true;
+                }
+
+                Log.Write("Main", UserSession.Name, "ApplicationExit",
+                    "Application exit canceled by user after material state save exception: " +
+                    ex.Message + " - Canceled");
+                return false;
+            }
+            finally
+            {
+            }
+        }
     }
 }
-

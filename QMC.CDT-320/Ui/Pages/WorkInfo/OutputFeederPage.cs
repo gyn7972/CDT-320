@@ -52,6 +52,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private async Task RunSequenceAction(string actionName, Func<Form1, Task<bool>> action)
         {
             IDisposable manualScope = null;
+            bool showFailure = false;
+            string exceptionMessage = null;
             try
             {
                 var host = GetHost();
@@ -71,8 +73,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 EventLogger.Write(EventKind.Event, "QMC", "OUTPUT-FEEDER-ACTION", actionName + " result=" + ok);
                 if (!ok)
                 {
-                    string message = SequenceFailureStore.BuildManualFailureMessage(actionName, actionName + " 실패\r\nAlarm/Event Log를 확인하세요.");
-                    QMC.Common.MessageDialog.Show(this, message, "Output Feeder", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    showFailure = true;
                 }
             }
             catch (OperationCanceledException)
@@ -82,7 +83,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             catch (Exception ex)
             {
                 EventLogger.Write(EventKind.Alarm, "QMC", "OUTPUT-FEEDER-ACTION-EX", actionName + " failed: " + ex.Message);
-                QMC.Common.MessageDialog.Show(this, ex.Message, "Output Feeder", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                exceptionMessage = ex.Message;
             }
             finally
             {
@@ -92,6 +93,17 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 SetSequenceButtonsEnabled(true);
                 RefreshData();
             }
+
+            if (showFailure)
+            {
+                string message = SequenceFailureStore.BuildManualFailureMessage(
+                    actionName,
+                    actionName + " 실패\r\nAlarm/Event Log를 확인하세요.");
+                QMC.Common.MessageDialog.Show(this, message, "Output Feeder", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+
+            if (!string.IsNullOrWhiteSpace(exceptionMessage))
+                QMC.Common.MessageDialog.Show(this, exceptionMessage, "Output Feeder", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
 
         private bool ConfirmAction(string actionName)

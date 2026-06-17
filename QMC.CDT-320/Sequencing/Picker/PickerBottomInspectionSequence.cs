@@ -113,8 +113,11 @@ namespace QMC.CDT320.Sequencing
                     return Task.FromResult(SelectNextPicker());
 
                 // 하단 XY 이동
-                case PickerBottomInspectionStep.MoveBottomXY:
-                    return MoveBottomXYAsync(ct);
+                case PickerBottomInspectionStep.MoveBottomXToInspection:
+                    return MoveBottomXToInspectionAsync(ct);
+
+                case PickerBottomInspectionStep.MoveBottomYToInspection:
+                    return MoveBottomYToInspectionAsync(ct);
 
                 // 하단 Z 이동
                 case PickerBottomInspectionStep.MoveBottomZ:
@@ -141,8 +144,11 @@ namespace QMC.CDT320.Sequencing
                     return MoveBottomTToSafeAsync(ct);
 
                 // 하단 XY로 어보이드 이동
-                case PickerBottomInspectionStep.MoveBottomXYToAvoid:
-                    return MoveBottomXYToAvoidAsync(ct);
+                case PickerBottomInspectionStep.MoveBottomYToAvoid:
+                    return MoveBottomYToAvoidAsync(ct);
+
+                case PickerBottomInspectionStep.MoveBottomXToAvoid:
+                    return MoveBottomXToAvoidAsync(ct);
 
                 // 다음 피커 또는 완료 선택
                 case PickerBottomInspectionStep.SelectNextPickerOrComplete:
@@ -233,19 +239,31 @@ namespace QMC.CDT320.Sequencing
             _targetPickerT = GetPickerTeachingPosition(GetPickerTAxis(_currentPickerIndex), "BottomPosition") +
                 ResolvePickerAlignOffsetT(_currentPickerIndex);
 
-            CurrentStep = PickerBottomInspectionStep.MoveBottomXY;
+            CurrentStep = PickerBottomInspectionStep.MoveBottomXToInspection;
             return 0;
         }
 
-        private async Task<int> MoveBottomXYAsync(CancellationToken ct)
+        private async Task<int> MoveBottomXToInspectionAsync(CancellationToken ct)
         {
-            var targets = new Dictionary<PickerAxis, double>();
-            targets[PickerAxis.PickerX] = _targetPickerX;
-            targets[PickerAxis.PickerY] = _targetPickerY;
+            int result = await MovePickerAxisAndVerifyAsync(
+                PickerAxis.PickerX,
+                _targetPickerX,
+                "bottom inspection X",
+                ct,
+                "DieBottomPosition[" + _currentPickerIndex + "]").ConfigureAwait(false);
+            if (result != 0)
+                return result;
 
-            int result = await MovePickerAxesAndVerifyAsync(
-                targets,
-                "bottom inspection XY",
+            CurrentStep = PickerBottomInspectionStep.MoveBottomYToInspection;
+            return 0;
+        }
+
+        private async Task<int> MoveBottomYToInspectionAsync(CancellationToken ct)
+        {
+            int result = await MovePickerAxisAndVerifyAsync(
+                PickerAxis.PickerY,
+                _targetPickerY,
+                "bottom inspection Y",
                 ct,
                 "DieBottomPosition[" + _currentPickerIndex + "]").ConfigureAwait(false);
             if (result != 0)
@@ -383,17 +401,35 @@ namespace QMC.CDT320.Sequencing
             if (result != 0)
                 return result;
 
-            CurrentStep = PickerBottomInspectionStep.MoveBottomXYToAvoid;
+            CurrentStep = PickerBottomInspectionStep.MoveBottomYToAvoid;
             return 0;
         }
 
-        private async Task<int> MoveBottomXYToAvoidAsync(CancellationToken ct)
+        private async Task<int> MoveBottomYToAvoidAsync(CancellationToken ct)
         {
-            var targets = new Dictionary<PickerAxis, double>();
-            targets[PickerAxis.PickerX] = GetPickerTeachingPosition(PickerAxis.PickerX, "AvoidPosition");
-            targets[PickerAxis.PickerY] = GetPickerTeachingPosition(PickerAxis.PickerY, "AvoidPosition");
+            double target = GetPickerTeachingPosition(PickerAxis.PickerY, "AvoidPosition");
+            int result = await MovePickerAxisAndVerifyAsync(
+                PickerAxis.PickerY,
+                target,
+                "bottom inspection Y avoid",
+                ct,
+                "AvoidPosition").ConfigureAwait(false);
+            if (result != 0)
+                return result;
 
-            int result = await MovePickerAxesAndVerifyAsync(targets, "bottom inspection XY avoid", ct, "AvoidPosition").ConfigureAwait(false);
+            CurrentStep = PickerBottomInspectionStep.MoveBottomXToAvoid;
+            return 0;
+        }
+
+        private async Task<int> MoveBottomXToAvoidAsync(CancellationToken ct)
+        {
+            double target = GetPickerTeachingPosition(PickerAxis.PickerX, "AvoidPosition");
+            int result = await MovePickerAxisAndVerifyAsync(
+                PickerAxis.PickerX,
+                target,
+                "bottom inspection X avoid",
+                ct,
+                "AvoidPosition").ConfigureAwait(false);
             if (result != 0)
                 return result;
 

@@ -439,6 +439,92 @@ namespace QMC.CDT320.Sequencing
             return MovePickerAxesAndVerifyAsync(targets, description, ct, positionName);
         }
 
+        protected async Task<int> MoveCurrentPickerToAvoidAndVerifyAsync(string description, CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                int result = await MoveAllPickerZToAvoidAndVerifyAsync(
+                    description + " Z축 Avoid",
+                    ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await MovePickerAxisAndVerifyAsync(
+                    PickerAxis.PickerY,
+                    GetPickerTeachingPosition(PickerAxis.PickerY, "AvoidPosition"),
+                    description + " Y축 Avoid",
+                    ct,
+                    "AvoidPosition;PickerPhase=SafeY").ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await MovePickerAxisAndVerifyAsync(
+                    PickerAxis.PickerX,
+                    GetPickerTeachingPosition(PickerAxis.PickerX, "AvoidPosition"),
+                    description + " X축 Avoid",
+                    ct,
+                    "AvoidPosition;PickerPhase=SafeX").ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                var tTargets = new Dictionary<PickerAxis, double>();
+                tTargets[PickerAxis.PickerT0] = GetPickerTeachingPosition(PickerAxis.PickerT0, "AvoidPosition");
+                tTargets[PickerAxis.PickerT1] = GetPickerTeachingPosition(PickerAxis.PickerT1, "AvoidPosition");
+                tTargets[PickerAxis.PickerT2] = GetPickerTeachingPosition(PickerAxis.PickerT2, "AvoidPosition");
+                tTargets[PickerAxis.PickerT3] = GetPickerTeachingPosition(PickerAxis.PickerT3, "AvoidPosition");
+
+                result = await MovePickerAxesAndVerifyAsync(
+                    tTargets,
+                    description + " T축 Avoid",
+                    ct,
+                    "AvoidPosition;PickerPhase=SafeT").ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                PickerAxis[] finalAxes =
+                {
+                    PickerAxis.PickerX,
+                    PickerAxis.PickerY,
+                    PickerAxis.PickerT0,
+                    PickerAxis.PickerT1,
+                    PickerAxis.PickerT2,
+                    PickerAxis.PickerT3,
+                    PickerAxis.PickerZ0,
+                    PickerAxis.PickerZ1,
+                    PickerAxis.PickerZ2,
+                    PickerAxis.PickerZ3
+                };
+
+                foreach (PickerAxis axis in finalAxes)
+                {
+                    double target = GetPickerTeachingPosition(axis, "AvoidPosition");
+                    if (!IsPickerAxisInPosition(axis, target))
+                    {
+                        return Fail("PICKER-AVOID-FINAL-POS", Name,
+                            description + " 최종 Avoid 위치 확인 실패. " +
+                            BuildPickerAxisState(axis, target));
+                    }
+                }
+
+                ct.ThrowIfCancellationRequested();
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-AVOID-EX", Name,
+                    description + " Avoid 이동 중 예외 발생: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
         protected async Task<int> MoveOppositePickerToAvoidAndVerifyAsync(string description, CancellationToken ct)
         {
             try

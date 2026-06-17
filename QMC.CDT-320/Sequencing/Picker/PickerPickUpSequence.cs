@@ -417,8 +417,7 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
-                int result = await MovePickerGroupAndVerifyAsync(
-                    "AvoidPosition",
+                int result = await MoveCurrentPickerToAvoidAndVerifyAsync(
                     "current picker avoid before InputVisionX move",
                     ct).ConfigureAwait(false);
                 if (result != 0)

@@ -1,7 +1,10 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Runtime.Serialization.Json;
 using System.Text;
 using System.Threading;
@@ -18,6 +21,9 @@ namespace QMC.CDT320.Materials
         public static string BackupPath => Path.Combine(Dir, "material_state.bak");
         public static string RecoveryPath => Path.Combine(Dir, "material_state.recovery.json");
         public static string LastLoadedPath { get; private set; } = "";
+
+        private static readonly DateTime SafeEmptyDateTime =
+            DateTime.SpecifyKind(new DateTime(1900, 1, 1, 0, 0, 0), DateTimeKind.Utc);
 
         public static bool Exists()
         {
@@ -332,42 +338,104 @@ namespace QMC.CDT320.Materials
                 return false;
             }
 
+            string tmp = null;
             try
             {
                 Directory.CreateDirectory(Dir);
-                snapshot.SavedAt = DateTime.Now;
-                NormalizeSnapshotDateTimes(snapshot);
+                MaterialSnapshot saveSnapshot = CloneSnapshotForSave(snapshot);
+                saveSnapshot.SavedAt = DateTime.Now;
+                NormalizeSnapshotDateTimes(saveSnapshot);
 
-                string tmp = Path.Combine(Dir,
+                tmp = Path.Combine(Dir,
                     "material_state.json." +
                     DateTime.Now.ToString("yyyyMMddHHmmssfff") + "." +
                     Guid.NewGuid().ToString("N") + ".tmp");
 
                 using (var fs = File.Create(tmp))
                 {
-                    JsonPrettySerializer.WriteObject(fs, typeof(MaterialSnapshot), snapshot);
+                    JsonPrettySerializer.WriteObject(fs, typeof(MaterialSnapshot), saveSnapshot);
                 }
 
-                if (!ValidateWrittenSnapshot(tmp, snapshot))
+                if (!ValidateWrittenSnapshot(tmp, saveSnapshot))
                 {
                     CopyFailedSnapshotForDiagnosis(tmp);
+                    DeleteTempFile(tmp);
                     return false;
                 }
 
                 bool committed = CommitSnapshot(tmp);
                 if (committed)
                     CleanupStaleTempFiles();
+                else
+                    DeleteTempFile(tmp);
 
                 return committed;
             }
             catch (Exception ex)
             {
                 Log.Write("Main", "SYSTEM", "MaterialSnapshotSave", "Material snapshot save failed: " + SnapshotPath + " / " + ex.Message + " - Failed");
+                if (!string.IsNullOrWhiteSpace(tmp))
+                {
+                    CopyFailedSnapshotForDiagnosis(tmp);
+                    DeleteTempFile(tmp);
+                }
                 return false;
             }
             finally
             {
             }
+        }
+
+        private static MaterialSnapshot CloneSnapshotForSave(MaterialSnapshot source)
+        {
+            try
+            {
+                MaterialSnapshot clone = CloneObject(source) as MaterialSnapshot;
+                return clone ?? source;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialSnapshotSave",
+                    "Material snapshot save clone failed: " + ex.Message +
+                    ". Runtime snapshot will be used. - Check");
+                return source;
+            }
+            finally
+            {
+            }
+        }
+
+        private static object CloneObject(object value)
+        {
+            if (value == null)
+                return null;
+
+            Type type = value.GetType();
+            if (type.IsPrimitive || type.IsEnum || type == typeof(string) || type == typeof(decimal) || type == typeof(DateTime))
+                return value;
+
+            IList sourceList = value as IList;
+            if (sourceList != null)
+            {
+                IList clonedList = (IList)Activator.CreateInstance(type);
+                foreach (object item in sourceList)
+                    clonedList.Add(CloneObject(item));
+                return clonedList;
+            }
+
+            object clone = Activator.CreateInstance(type);
+            foreach (var property in type.GetProperties())
+            {
+                if (!property.CanRead || !property.CanWrite)
+                    continue;
+                if (property.GetIndexParameters().Length > 0)
+                    continue;
+
+                object propertyValue = property.GetValue(value, null);
+                property.SetValue(clone, CloneObject(propertyValue), null);
+            }
+
+            return clone;
         }
 
         private static bool ValidateWrittenSnapshot(string path, MaterialSnapshot expected)
@@ -503,6 +571,24 @@ namespace QMC.CDT320.Materials
             }
         }
 
+        private static void DeleteTempFile(string path)
+        {
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(path) && File.Exists(path))
+                    File.Delete(path);
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialSnapshotSave",
+                    "Material snapshot temp delete failed. file=" + path +
+                    ", error=" + ex.Message + " - Check");
+            }
+            finally
+            {
+            }
+        }
+
         private static void NormalizeSnapshotDateTimes(MaterialSnapshot snapshot)
         {
             try
@@ -533,6 +619,7 @@ namespace QMC.CDT320.Materials
 
                         wafer.CreatedAt = NormalizeDateTime(wafer.CreatedAt, now);
                         wafer.UpdatedAt = NormalizeDateTime(wafer.UpdatedAt, now);
+                        NormalizeWaferNumbers(wafer);
                     }
                 }
 
@@ -545,6 +632,9 @@ namespace QMC.CDT320.Materials
 
                         die.CreatedAt = NormalizeDateTime(die.CreatedAt, now);
                         die.UpdatedAt = NormalizeDateTime(die.UpdatedAt, now);
+                        die.PickedAt = NormalizeNullableDateTime(die.PickedAt);
+                        NormalizeVisionOffset(die.WaferOffset);
+                        NormalizeVisionOffset(die.BinOffset);
 
                         if (die.Inspections == null)
                             continue;
@@ -556,8 +646,21 @@ namespace QMC.CDT320.Materials
 
                             inspection.CreatedAt = NormalizeDateTime(inspection.CreatedAt, now);
                             inspection.UpdatedAt = NormalizeDateTime(inspection.UpdatedAt, now);
+                            NormalizeVisionOffset(inspection.Offset);
+                            NormalizeInspectionMeasurements(inspection);
                         }
                     }
+                }
+
+                int normalizedCount = NormalizeSnapshotObjectGraphDateTimes(
+                    snapshot,
+                    now,
+                    new HashSet<object>(ReferenceEqualityComparer.Instance));
+                if (normalizedCount > 0)
+                {
+                    Log.Write("Main", "SYSTEM", "MaterialSnapshotDateTime",
+                        "Material snapshot DateTime values normalized before save. count=" +
+                        normalizedCount + " - Check");
                 }
             }
             catch (Exception ex)
@@ -569,11 +672,210 @@ namespace QMC.CDT320.Materials
             }
         }
 
-        private static DateTime NormalizeDateTime(DateTime value, DateTime fallback)
+        private static int NormalizeSnapshotObjectGraphDateTimes(
+            object value,
+            DateTime fallback,
+            HashSet<object> visited)
         {
             try
             {
-                if (value == default(DateTime) || value <= DateTime.MinValue.AddDays(1) || value >= DateTime.MaxValue.AddDays(-1))
+                if (value == null)
+                    return 0;
+
+                Type type = value.GetType();
+                if (IsSimpleSnapshotType(type))
+                    return 0;
+
+                if (!type.IsValueType)
+                {
+                    if (visited.Contains(value))
+                        return 0;
+
+                    visited.Add(value);
+                }
+
+                int count = 0;
+                IList list = value as IList;
+                if (list != null)
+                {
+                    foreach (object item in list)
+                        count += NormalizeSnapshotObjectGraphDateTimes(item, fallback, visited);
+
+                    return count;
+                }
+
+                foreach (PropertyInfo property in type.GetProperties(BindingFlags.Instance | BindingFlags.Public))
+                {
+                    if (!property.CanRead || !property.CanWrite)
+                        continue;
+                    if (property.GetIndexParameters().Length > 0)
+                        continue;
+
+                    Type propertyType = property.PropertyType;
+                    if (propertyType == typeof(DateTime))
+                    {
+                        DateTime before = (DateTime)property.GetValue(value, null);
+                        DateTime after = NormalizeDateTimeForJson(before, fallback);
+                        if (before != after || before.Kind != after.Kind)
+                        {
+                            property.SetValue(value, after, null);
+                            count++;
+                        }
+
+                        continue;
+                    }
+
+                    Type nullableType = Nullable.GetUnderlyingType(propertyType);
+                    if (nullableType == typeof(DateTime))
+                    {
+                        object beforeObject = property.GetValue(value, null);
+                        if (beforeObject == null)
+                            continue;
+
+                        DateTime before = (DateTime)beforeObject;
+                        DateTime after = NormalizeDateTimeForJson(before, fallback);
+                        if (before != after || before.Kind != after.Kind)
+                        {
+                            property.SetValue(value, after, null);
+                            count++;
+                        }
+
+                        continue;
+                    }
+
+                    if (IsSimpleSnapshotType(propertyType))
+                        continue;
+
+                    object child = property.GetValue(value, null);
+                    count += NormalizeSnapshotObjectGraphDateTimes(child, fallback, visited);
+                }
+
+                return count;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialSnapshotDateTime",
+                    "Material snapshot DateTime graph normalize failed. type=" +
+                    (value != null ? value.GetType().FullName : "-") +
+                    ", error=" + ex.Message + " - Check");
+                return 0;
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool IsSimpleSnapshotType(Type type)
+        {
+            if (type == null)
+                return true;
+            if (type.IsPrimitive || type.IsEnum)
+                return true;
+            if (type == typeof(string) || type == typeof(decimal) || type == typeof(DateTime))
+                return true;
+
+            Type nullableType = Nullable.GetUnderlyingType(type);
+            if (nullableType != null)
+                return IsSimpleSnapshotType(nullableType);
+
+            return false;
+        }
+
+        private static void NormalizeWaferNumbers(WaferMaterial wafer)
+        {
+            try
+            {
+                if (wafer == null)
+                    return;
+
+                wafer.SourceCassetteSlotPosition = NormalizeJsonDouble(wafer.SourceCassetteSlotPosition, -1.0);
+                wafer.CurrentCassetteSlotPosition = NormalizeJsonDouble(wafer.CurrentCassetteSlotPosition, -1.0);
+                wafer.InputStageAlignOriginX = NormalizeJsonDouble(wafer.InputStageAlignOriginX, 0.0);
+                wafer.InputStageAlignOriginY = NormalizeJsonDouble(wafer.InputStageAlignOriginY, 0.0);
+                wafer.InputStageAlignPitchX = NormalizeJsonDouble(wafer.InputStageAlignPitchX, 0.0);
+                wafer.InputStageAlignPitchY = NormalizeJsonDouble(wafer.InputStageAlignPitchY, 0.0);
+                wafer.InputStageAlignOffsetX = NormalizeJsonDouble(wafer.InputStageAlignOffsetX, 0.0);
+                wafer.InputStageAlignOffsetY = NormalizeJsonDouble(wafer.InputStageAlignOffsetY, 0.0);
+                wafer.InputStageDieMappingOffsetX = NormalizeJsonDouble(wafer.InputStageDieMappingOffsetX, 0.0);
+                wafer.InputStageDieMappingOffsetY = NormalizeJsonDouble(wafer.InputStageDieMappingOffsetY, 0.0);
+                wafer.OutputReceivePitchX = NormalizeJsonDouble(wafer.OutputReceivePitchX, 0.0);
+                wafer.OutputReceivePitchY = NormalizeJsonDouble(wafer.OutputReceivePitchY, 0.0);
+                wafer.OutputReceiveOriginX = NormalizeJsonDouble(wafer.OutputReceiveOriginX, 0.0);
+                wafer.OutputReceiveOriginY = NormalizeJsonDouble(wafer.OutputReceiveOriginY, 0.0);
+
+                if (wafer.OutputReceiveSlots == null)
+                    return;
+
+                foreach (var slot in wafer.OutputReceiveSlots)
+                {
+                    if (slot == null)
+                        continue;
+
+                    slot.PosX = NormalizeJsonDouble(slot.PosX, 0.0);
+                    slot.PosY = NormalizeJsonDouble(slot.PosY, 0.0);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialSnapshotSave",
+                    "Material snapshot wafer numeric normalize failed. wafer=" +
+                    (wafer != null ? wafer.WaferId : "-") +
+                    ", error=" + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        private static void NormalizeVisionOffset(VisionOffset offset)
+        {
+            try
+            {
+                if (offset == null)
+                    return;
+
+                offset.X = NormalizeJsonDouble(offset.X, 0.0);
+                offset.Y = NormalizeJsonDouble(offset.Y, 0.0);
+                offset.R = NormalizeJsonDouble(offset.R, 0.0);
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        private static void NormalizeInspectionMeasurements(DieInspectionRecord inspection)
+        {
+            try
+            {
+                if (inspection == null || inspection.Measurements == null)
+                    return;
+
+                foreach (var measurement in inspection.Measurements)
+                {
+                    if (measurement == null)
+                        continue;
+
+                    measurement.Value = NormalizeJsonDouble(measurement.Value, 0.0);
+                    measurement.LowerLimit = NormalizeJsonDouble(measurement.LowerLimit, 0.0);
+                    measurement.UpperLimit = NormalizeJsonDouble(measurement.UpperLimit, 0.0);
+                }
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        private static double NormalizeJsonDouble(double value, double fallback)
+        {
+            try
+            {
+                if (double.IsNaN(value) || double.IsInfinity(value))
                     return fallback;
 
                 return value;
@@ -584,6 +886,119 @@ namespace QMC.CDT320.Materials
             }
             finally
             {
+            }
+        }
+
+        private static DateTime NormalizeNullableDateTime(DateTime value)
+        {
+            try
+            {
+                return NormalizeOptionalDateTimeForJson(value);
+            }
+            catch
+            {
+                return SafeEmptyDateTime;
+            }
+            finally
+            {
+            }
+        }
+
+        private static DateTime NormalizeDateTime(DateTime value, DateTime fallback)
+        {
+            try
+            {
+                return NormalizeDateTimeForJson(value, fallback);
+            }
+            catch
+            {
+                return NormalizeDateTimeKind(fallback);
+            }
+            finally
+            {
+            }
+        }
+
+        private static DateTime NormalizeOptionalDateTimeForJson(DateTime value)
+        {
+            try
+            {
+                if (value == default(DateTime) || value <= DateTime.MinValue.AddYears(1))
+                    return SafeEmptyDateTime;
+
+                if (value >= DateTime.MaxValue.AddYears(-1))
+                    return NormalizeDateTimeKind(DateTime.Now);
+
+                return NormalizeDateTimeKind(value);
+            }
+            catch
+            {
+                return SafeEmptyDateTime;
+            }
+            finally
+            {
+            }
+        }
+
+        private static DateTime NormalizeDateTimeForJson(DateTime value, DateTime fallback)
+        {
+            try
+            {
+                if (value == default(DateTime) ||
+                    value <= DateTime.MinValue.AddYears(1) ||
+                    value >= DateTime.MaxValue.AddYears(-1))
+                    return NormalizeDateTimeKind(fallback);
+
+                return NormalizeDateTimeKind(value);
+            }
+            catch
+            {
+                return NormalizeDateTimeKind(fallback);
+            }
+            finally
+            {
+            }
+        }
+
+        private static DateTime NormalizeDateTimeKind(DateTime value)
+        {
+            try
+            {
+                if (value == default(DateTime) ||
+                    value <= DateTime.MinValue.AddYears(1) ||
+                    value >= DateTime.MaxValue.AddYears(-1))
+                    return DateTime.SpecifyKind(DateTime.Now, DateTimeKind.Local);
+
+                if (value.Kind == DateTimeKind.Unspecified)
+                    return DateTime.SpecifyKind(value, DateTimeKind.Local);
+
+                return value;
+            }
+            catch
+            {
+                return DateTime.SpecifyKind(DateTime.Now, DateTimeKind.Local);
+            }
+            finally
+            {
+            }
+        }
+
+        private sealed class ReferenceEqualityComparer : IEqualityComparer<object>
+        {
+            public static readonly ReferenceEqualityComparer Instance = new ReferenceEqualityComparer();
+
+            private ReferenceEqualityComparer()
+            {
+            }
+
+            public new bool Equals(object x, object y)
+            {
+                return ReferenceEquals(x, y);
+            }
+
+            public int GetHashCode(object obj)
+            {
+                return RuntimeHelpers.GetHashCode(obj);
             }
         }
     }

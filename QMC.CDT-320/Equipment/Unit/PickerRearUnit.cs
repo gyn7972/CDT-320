@@ -1274,10 +1274,94 @@ namespace QMC.CDT320
 
         private Task<int> MovePickerGroup(string positionName, bool bFine)
         {
+            if (string.Equals(positionName, "AvoidPosition", StringComparison.OrdinalIgnoreCase))
+                return MovePickerAvoidGroupSafely(bFine);
+
             Dictionary<PickerAxis, double> targets = new Dictionary<PickerAxis, double>();
             foreach (PickerAxis axis in axes.Keys)
                 targets[axis] = GetPickerTeachingPosition(axis, positionName);
             return MovePickerAxesNamed(targets, bFine, positionName);
+        }
+
+        private async Task<int> MovePickerAvoidGroupSafely(bool bFine)
+        {
+            try
+            {
+                Dictionary<PickerAxis, double> zTargets = new Dictionary<PickerAxis, double>();
+                AddAvoidTargetIfExists(zTargets, PickerAxis.PickerZ0);
+                AddAvoidTargetIfExists(zTargets, PickerAxis.PickerZ1);
+                AddAvoidTargetIfExists(zTargets, PickerAxis.PickerZ2);
+                AddAvoidTargetIfExists(zTargets, PickerAxis.PickerZ3);
+
+                int result = await MovePickerAxesNamed(
+                    zTargets,
+                    bFine,
+                    "AvoidPosition;PickerPhase=SafeZ").ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                if (axes.ContainsKey(PickerAxis.PickerY))
+                {
+                    result = await MovePickerAxisNamed(
+                        PickerAxis.PickerY,
+                        GetPickerTeachingPosition(PickerAxis.PickerY, "AvoidPosition"),
+                        bFine,
+                        "AvoidPosition;PickerPhase=SafeY").ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+                }
+
+                if (axes.ContainsKey(PickerAxis.PickerX))
+                {
+                    result = await MovePickerAxisNamed(
+                        PickerAxis.PickerX,
+                        GetPickerTeachingPosition(PickerAxis.PickerX, "AvoidPosition"),
+                        bFine,
+                        "AvoidPosition;PickerPhase=SafeX").ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+                }
+
+                Dictionary<PickerAxis, double> tTargets = new Dictionary<PickerAxis, double>();
+                AddAvoidTargetIfExists(tTargets, PickerAxis.PickerT0);
+                AddAvoidTargetIfExists(tTargets, PickerAxis.PickerT1);
+                AddAvoidTargetIfExists(tTargets, PickerAxis.PickerT2);
+                AddAvoidTargetIfExists(tTargets, PickerAxis.PickerT3);
+
+                result = await MovePickerAxesNamed(
+                    tTargets,
+                    bFine,
+                    "AvoidPosition;PickerPhase=SafeT").ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                foreach (PickerAxis axis in axes.Keys)
+                {
+                    if (!IsPickerAxisInTeachingPosition(axis, "AvoidPosition"))
+                    {
+                        return RaisePickerAlarm(
+                            "PK-AVOID-CHECK",
+                            axis + " Avoid 위치 최종 확인 실패.");
+                    }
+                }
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return RaisePickerAlarm("PK-AVOID-EX", "Picker Avoid 이동 중 예외 발생: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private void AddAvoidTargetIfExists(Dictionary<PickerAxis, double> targets, PickerAxis axis)
+        {
+            if (targets == null || !axes.ContainsKey(axis))
+                return;
+
+            targets[axis] = GetPickerTeachingPosition(axis, "AvoidPosition");
         }
 
         private async Task<int> MoveToDiePosition(int pickerNo, string positionArrayName, bool bFine)

@@ -106,6 +106,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private async Task RunSequenceAction(string actionName, Func<Form1, Task<bool>> action)
         {
             IDisposable manualScope = null;
+            bool showFailure = false;
+            string exceptionMessage = null;
             try
             {
                 var host = GetHost();
@@ -137,8 +139,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 if (!ok)
                 {
                     RaiseWarning("INPUT-STAGE-FAIL", actionName + " failed.");
-                    string message = SequenceFailureStore.BuildManualFailureMessage(actionName, actionName + " failed. Alarm/Event Log를 확인하세요.");
-                    QMC.Common.MessageDialog.Show(this, message, "Input Stage", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    showFailure = true;
                 }
             }
             catch (OperationCanceledException)
@@ -148,7 +149,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             catch (Exception ex)
             {
                 WriteAlarm("INPUT-STAGE-ACTION-EX", actionName + " failed: " + ex.Message);
-                QMC.Common.MessageDialog.Show(this, ex.Message, "Input Stage", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                exceptionMessage = ex.Message;
             }
             finally
             {
@@ -159,6 +160,17 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 RefreshFromMachine();
                 BeginRestoreSequenceButtons();
             }
+
+            if (showFailure)
+            {
+                string message = SequenceFailureStore.BuildManualFailureMessage(
+                    actionName,
+                    actionName + " 실패\r\nAlarm/Event Log를 확인하세요.");
+                QMC.Common.MessageDialog.Show(this, message, "Input Stage", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+
+            if (!string.IsNullOrWhiteSpace(exceptionMessage))
+                QMC.Common.MessageDialog.Show(this, exceptionMessage, "Input Stage", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
 
         private static Task WaitForCancellationAsync(CancellationToken ct)

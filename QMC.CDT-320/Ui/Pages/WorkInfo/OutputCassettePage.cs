@@ -61,6 +61,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private async Task RunSequenceAction(string actionName, Func<Form1, Task<bool>> action)
         {
             IDisposable manualScope = null;
+            bool showFailure = false;
+            string exceptionMessage = null;
             try
             {
                 var host = GetHost();
@@ -78,12 +80,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 bool ok = await action(host);
                 if (!ok)
                 {
-                    QMC.Common.MessageDialog.Show(
-                        this,
-                        SequenceFailureStore.BuildManualFailureMessage(actionName, actionName + " 실패\r\nAlarm/Event Log를 확인하세요."),
-                        "Output Cassette",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Warning);
+                    showFailure = true;
                 }
             }
             catch (OperationCanceledException)
@@ -91,7 +88,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             }
             catch (Exception ex)
             {
-                QMC.Common.MessageDialog.Show(this, "Output Cassette error:\r\n" + ex.Message, "Output Cassette", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                exceptionMessage = ex.Message;
             }
             finally
             {
@@ -101,11 +98,27 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 SetActionButtonsEnabled(true);
                 RefreshData();
             }
+
+            if (showFailure)
+            {
+                QMC.Common.MessageDialog.Show(
+                    this,
+                    SequenceFailureStore.BuildManualFailureMessage(actionName, actionName + " 실패\r\nAlarm/Event Log를 확인하세요."),
+                    "Output Cassette",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+            }
+
+            if (!string.IsNullOrWhiteSpace(exceptionMessage))
+                QMC.Common.MessageDialog.Show(this, "Output Cassette error:\r\n" + exceptionMessage, "Output Cassette", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
 
         private async Task RunMotionAction(string actionName, Func<Form1, Task<int>> action)
         {
             IDisposable manualScope = null;
+            bool showFailure = false;
+            string failureMessage = null;
+            string exceptionMessage = null;
             try
             {
                 var host = GetHost();
@@ -123,12 +136,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 int result = await action(host);
                 if (result != 0)
                 {
-                    QMC.Common.MessageDialog.Show(
-                        this,
-                        SequenceFailureStore.BuildManualFailureMessage(actionName, actionName + " failed. result=" + result + "\r\nAlarm/Event Log를 확인하세요."),
-                        "Output Cassette",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Warning);
+                    failureMessage = SequenceFailureStore.BuildManualFailureMessage(
+                        actionName,
+                        actionName + " failed. result=" + result + "\r\nAlarm/Event Log를 확인하세요.");
+                    showFailure = true;
                 }
             }
             catch (OperationCanceledException)
@@ -136,7 +147,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             }
             catch (Exception ex)
             {
-                QMC.Common.MessageDialog.Show(this, ex.Message, actionName, MessageBoxButtons.OK, MessageBoxIcon.Error);
+                exceptionMessage = ex.Message;
             }
             finally
             {
@@ -146,6 +157,12 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 SetActionButtonsEnabled(true);
                 RefreshData();
             }
+
+            if (showFailure)
+                QMC.Common.MessageDialog.Show(this, failureMessage, "Output Cassette", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+
+            if (!string.IsNullOrWhiteSpace(exceptionMessage))
+                QMC.Common.MessageDialog.Show(this, exceptionMessage, actionName, MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
 
         private bool ConfirmAction(string actionName)
