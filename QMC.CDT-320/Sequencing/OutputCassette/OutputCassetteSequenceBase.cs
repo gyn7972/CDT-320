@@ -48,6 +48,7 @@ namespace QMC.CDT320.Sequencing
 
         public async Task<int> RunAsync(CancellationToken ct, OutputCassetteSequenceOptions options)
         {
+            using (SequenceLog.Push(QMC.Common.Logging.EventKind.OutputSeq, Name, () => CurrentStep.ToString()))
             try
             {
                 Options = options ?? OutputCassetteSequenceOptions.Default();

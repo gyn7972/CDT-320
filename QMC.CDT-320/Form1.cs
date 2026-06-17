@@ -585,7 +585,15 @@ namespace QMC.CDT_320
                     Machine.OutputFeederUnit);
             }
             Controller.StatusChanged += OnEquipmentStatusChanged;
-            Controller.LogMessage    += s => QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, UserSession.Name, "CTRL", s);
+            Controller.LogMessage    += s =>
+            {
+                // 시퀀스 실행 중이면 그 종류(InputSeq/OutputSeq/FrontHeadSeq/RearHeadSeq)·유닛(SOURCE)·스텝(CODE)으로 분류한다.
+                var seq = QMC.CDT320.Sequencing.SequenceLog.Current;
+                if (seq != null)
+                    QMC.Common.Logging.EventLogger.Write(seq.Kind, UserSession.Name, seq.Step, seq.Unit, s);
+                else
+                    QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, UserSession.Name, "CTRL", s);
+            };
             if (Program.AutoCycleCount > 0)
                 Controller.LogMessage += s => Console.WriteLine("[CTRL] " + s);
 

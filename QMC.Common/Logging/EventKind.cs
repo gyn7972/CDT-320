@@ -6,6 +6,10 @@ namespace QMC.Common.Logging
         Warning,
         Alarm,
         Data,
-        Work
+        Work,
+        InputSeq,
+        OutputSeq,
+        FrontHeadSeq,
+        RearHeadSeq
     }
 }

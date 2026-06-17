@@ -45,11 +45,15 @@ namespace QMC.CDT_320.Ui.Pages.History
         {
             switch (kind)
             {
-                case EventKind.Warning: return "hist.warning";
-                case EventKind.Data:    return "hist.data";
-                case EventKind.Work:    return "hist.work";
-                case EventKind.Alarm:   return "hist.alarm";
-                default:                return "hist.event";
+                case EventKind.Warning:      return "hist.warning";
+                case EventKind.Data:         return "hist.data";
+                case EventKind.Work:         return "hist.work";
+                case EventKind.Alarm:        return "hist.alarm";
+                case EventKind.InputSeq:     return "hist.inputSeq";
+                case EventKind.OutputSeq:    return "hist.outputSeq";
+                case EventKind.FrontHeadSeq: return "hist.frontHeadSeq";
+                case EventKind.RearHeadSeq:  return "hist.rearHeadSeq";
+                default:                     return "hist.event";
             }
         }
 
@@ -188,6 +192,19 @@ namespace QMC.CDT_320.Ui.Pages.History
                 // 작업 로그 표시
                 case EventKind.Work:
                     row.DefaultCellStyle.ForeColor = Color.Teal;
+                    break;
+                // 시퀀스 로그 표시 (입력/출력/프론트헤드/리어헤드)
+                case EventKind.InputSeq:
+                    row.DefaultCellStyle.ForeColor = Color.MediumSeaGreen;
+                    break;
+                case EventKind.OutputSeq:
+                    row.DefaultCellStyle.ForeColor = Color.MediumVioletRed;
+                    break;
+                case EventKind.FrontHeadSeq:
+                    row.DefaultCellStyle.ForeColor = Color.RoyalBlue;
+                    break;
+                case EventKind.RearHeadSeq:
+                    row.DefaultCellStyle.ForeColor = Color.DarkSlateBlue;
                     break;
             }
 
