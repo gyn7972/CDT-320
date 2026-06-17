@@ -34,7 +34,7 @@ namespace QMC.CDT320.Ajin
             }
             catch (Exception ex)
             {
-                EventLogger.Write(EventKind.Alarm, "QMC", "CYL-MAP-INIT",
+                EventLogger.Write(EventKind.Alarm, "QMC", "CYL-MAP-INIT", "CylinderManager",
                     "Cylinder manager initialize failed: " + ex.Message);
                 throw;
             }
@@ -119,7 +119,7 @@ namespace QMC.CDT320.Ajin
             }
             catch (Exception ex)
             {
-                EventLogger.Write(EventKind.Alarm, "QMC", "CYL-MAP-APPLY",
+                EventLogger.Write(EventKind.Alarm, "QMC", "CYL-MAP-APPLY", "CylinderManager",
                     "Cylinder mapping apply failed: " + ex.Message);
                 throw;
             }

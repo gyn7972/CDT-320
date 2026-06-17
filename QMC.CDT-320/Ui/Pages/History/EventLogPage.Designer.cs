@@ -12,8 +12,10 @@ namespace QMC.CDT_320.Ui.Pages.History
         private TableLayoutPanel filterLayout;
         private Label lblDate;
         private DateTimePicker _dp;
+        private Label lblKind;
+        private ComboBox _cbKind;
         private Button btnRefresh;
-        private Button btnOpenFolder;
+        private Button btnOpenFile;
         private DataGridView _grid;
 
         private void InitializeComponent()
@@ -24,14 +26,17 @@ namespace QMC.CDT_320.Ui.Pages.History
             this.filterLayout = new System.Windows.Forms.TableLayoutPanel();
             this.lblDate = new System.Windows.Forms.Label();
             this._dp = new System.Windows.Forms.DateTimePicker();
+            this.lblKind = new System.Windows.Forms.Label();
+            this._cbKind = new System.Windows.Forms.ComboBox();
             this.btnRefresh = new System.Windows.Forms.Button();
-            this.btnOpenFolder = new System.Windows.Forms.Button();
+            this.btnOpenFile = new System.Windows.Forms.Button();
             this._grid = new System.Windows.Forms.DataGridView();
             this.dataGridViewTextBoxColumn1 = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.dataGridViewTextBoxColumn2 = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.dataGridViewTextBoxColumn3 = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.dataGridViewTextBoxColumn4 = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.dataGridViewTextBoxColumn5 = new System.Windows.Forms.DataGridViewTextBoxColumn();
+            this.dataGridViewTextBoxColumn6 = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.rootLayout.SuspendLayout();
             this.filterLayout.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this._grid)).BeginInit();
@@ -49,21 +54,21 @@ namespace QMC.CDT_320.Ui.Pages.History
             this.rootLayout.Name = "rootLayout";
             this.rootLayout.RowCount = 3;
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
-            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 44F));
+            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 50F));
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.rootLayout.Size = new System.Drawing.Size(1400, 900);
+            this.rootLayout.Size = new System.Drawing.Size(1678, 900);
             this.rootLayout.TabIndex = 0;
             // 
             // lblHeader
             // 
-            this.lblHeader.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(217)))), ((int)(((byte)(119)))), ((int)(((byte)(6)))));
+            this.lblHeader.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(52)))), ((int)(((byte)(73)))), ((int)(((byte)(94)))));
             this.lblHeader.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblHeader.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
             this.lblHeader.ForeColor = System.Drawing.Color.White;
             this.lblHeader.Location = new System.Drawing.Point(3, 0);
             this.lblHeader.Name = "lblHeader";
             this.lblHeader.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
-            this.lblHeader.Size = new System.Drawing.Size(1394, 30);
+            this.lblHeader.Size = new System.Drawing.Size(1672, 30);
             this.lblHeader.TabIndex = 0;
             this.lblHeader.Tag = "i18n:hist.event";
             this.lblHeader.Text = "이벤트";
@@ -72,23 +77,27 @@ namespace QMC.CDT_320.Ui.Pages.History
             // filterLayout
             // 
             this.filterLayout.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
-            this.filterLayout.ColumnCount = 5;
-            this.filterLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 48F));
+            this.filterLayout.ColumnCount = 7;
+            this.filterLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 58F));
             this.filterLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 170F));
+            this.filterLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 58F));
+            this.filterLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 120F));
             this.filterLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 110F));
             this.filterLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 140F));
             this.filterLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.filterLayout.Controls.Add(this.lblDate, 0, 0);
             this.filterLayout.Controls.Add(this._dp, 1, 0);
-            this.filterLayout.Controls.Add(this.btnRefresh, 2, 0);
-            this.filterLayout.Controls.Add(this.btnOpenFolder, 3, 0);
+            this.filterLayout.Controls.Add(this.lblKind, 2, 0);
+            this.filterLayout.Controls.Add(this._cbKind, 3, 0);
+            this.filterLayout.Controls.Add(this.btnRefresh, 4, 0);
+            this.filterLayout.Controls.Add(this.btnOpenFile, 5, 0);
             this.filterLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.filterLayout.Location = new System.Drawing.Point(3, 33);
             this.filterLayout.Name = "filterLayout";
             this.filterLayout.Padding = new System.Windows.Forms.Padding(8, 6, 8, 6);
             this.filterLayout.RowCount = 1;
             this.filterLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.filterLayout.Size = new System.Drawing.Size(1394, 38);
+            this.filterLayout.Size = new System.Drawing.Size(1672, 44);
             this.filterLayout.TabIndex = 1;
             // 
             // lblDate
@@ -97,7 +106,7 @@ namespace QMC.CDT_320.Ui.Pages.History
             this.lblDate.Font = new System.Drawing.Font("맑은 고딕", 11F);
             this.lblDate.Location = new System.Drawing.Point(11, 6);
             this.lblDate.Name = "lblDate";
-            this.lblDate.Size = new System.Drawing.Size(42, 26);
+            this.lblDate.Size = new System.Drawing.Size(52, 32);
             this.lblDate.TabIndex = 0;
             this.lblDate.Text = "DATE";
             this.lblDate.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -107,33 +116,68 @@ namespace QMC.CDT_320.Ui.Pages.History
             this._dp.Dock = System.Windows.Forms.DockStyle.Fill;
             this._dp.Font = new System.Drawing.Font("Consolas", 10F);
             this._dp.Format = System.Windows.Forms.DateTimePickerFormat.Short;
-            this._dp.Location = new System.Drawing.Point(59, 9);
+            this._dp.Location = new System.Drawing.Point(69, 9);
             this._dp.Name = "_dp";
-            this._dp.Size = new System.Drawing.Size(164, 27);
+            this._dp.Size = new System.Drawing.Size(164, 23);
             this._dp.TabIndex = 1;
             this._dp.Value = new System.DateTime(2026, 5, 28, 0, 0, 0, 0);
             // 
+            // lblKind
+            // 
+            this.lblKind.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblKind.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblKind.Location = new System.Drawing.Point(239, 6);
+            this.lblKind.Name = "lblKind";
+            this.lblKind.Size = new System.Drawing.Size(52, 32);
+            this.lblKind.TabIndex = 4;
+            this.lblKind.Text = "KIND";
+            this.lblKind.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // _cbKind
+            // 
+            this._cbKind.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._cbKind.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this._cbKind.Font = new System.Drawing.Font("Consolas", 10F);
+            this._cbKind.Location = new System.Drawing.Point(297, 9);
+            this._cbKind.Name = "_cbKind";
+            this._cbKind.Size = new System.Drawing.Size(114, 23);
+            this._cbKind.TabIndex = 5;
+            // 
             // btnRefresh
             // 
-            this.btnRefresh.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnRefresh.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right)));
+            this.btnRefresh.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(52)))), ((int)(((byte)(73)))), ((int)(((byte)(94)))));
+            this.btnRefresh.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnRefresh.FlatAppearance.BorderSize = 0;
+            this.btnRefresh.FlatAppearance.MouseDownBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(40)))), ((int)(((byte)(57)))), ((int)(((byte)(74)))));
+            this.btnRefresh.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(69)))), ((int)(((byte)(90)))), ((int)(((byte)(113)))));
             this.btnRefresh.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnRefresh.Font = new System.Drawing.Font("맑은 고딕", 11F);
-            this.btnRefresh.Location = new System.Drawing.Point(229, 9);
+            this.btnRefresh.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.btnRefresh.ForeColor = System.Drawing.Color.White;
+            this.btnRefresh.Location = new System.Drawing.Point(417, 9);
             this.btnRefresh.Name = "btnRefresh";
-            this.btnRefresh.Size = new System.Drawing.Size(104, 20);
+            this.btnRefresh.Size = new System.Drawing.Size(104, 26);
             this.btnRefresh.TabIndex = 2;
             this.btnRefresh.Text = "REFRESH";
+            this.btnRefresh.UseVisualStyleBackColor = false;
             // 
-            // btnOpenFolder
+            // btnOpenFile
             // 
-            this.btnOpenFolder.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnOpenFolder.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnOpenFolder.Font = new System.Drawing.Font("맑은 고딕", 11F);
-            this.btnOpenFolder.Location = new System.Drawing.Point(339, 9);
-            this.btnOpenFolder.Name = "btnOpenFolder";
-            this.btnOpenFolder.Size = new System.Drawing.Size(134, 20);
-            this.btnOpenFolder.TabIndex = 3;
-            this.btnOpenFolder.Text = "OPEN FOLDER";
+            this.btnOpenFile.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right)));
+            this.btnOpenFile.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(84)))), ((int)(((byte)(110)))), ((int)(((byte)(122)))));
+            this.btnOpenFile.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnOpenFile.FlatAppearance.BorderSize = 0;
+            this.btnOpenFile.FlatAppearance.MouseDownBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(66)))), ((int)(((byte)(90)))), ((int)(((byte)(101)))));
+            this.btnOpenFile.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(101)))), ((int)(((byte)(128)))), ((int)(((byte)(140)))));
+            this.btnOpenFile.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnOpenFile.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.btnOpenFile.ForeColor = System.Drawing.Color.White;
+            this.btnOpenFile.Location = new System.Drawing.Point(527, 9);
+            this.btnOpenFile.Name = "btnOpenFile";
+            this.btnOpenFile.Size = new System.Drawing.Size(134, 26);
+            this.btnOpenFile.TabIndex = 3;
+            this.btnOpenFile.Text = "OPEN FILE";
+            this.btnOpenFile.UseVisualStyleBackColor = false;
             // 
             // _grid
             // 
@@ -154,11 +198,12 @@ namespace QMC.CDT_320.Ui.Pages.History
             this.dataGridViewTextBoxColumn2,
             this.dataGridViewTextBoxColumn3,
             this.dataGridViewTextBoxColumn4,
+            this.dataGridViewTextBoxColumn6,
             this.dataGridViewTextBoxColumn5});
             this._grid.Dock = System.Windows.Forms.DockStyle.Fill;
             this._grid.EnableHeadersVisualStyles = false;
             this._grid.Font = new System.Drawing.Font("Consolas", 10F);
-            this._grid.Location = new System.Drawing.Point(3, 77);
+            this._grid.Location = new System.Drawing.Point(3, 83);
             this._grid.MultiSelect = false;
             this._grid.Name = "_grid";
             this._grid.ReadOnly = true;
@@ -166,44 +211,68 @@ namespace QMC.CDT_320.Ui.Pages.History
             this._grid.RowHeadersWidth = 51;
             this._grid.RowTemplate.Height = 26;
             this._grid.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
-            this._grid.Size = new System.Drawing.Size(1394, 820);
+            this._grid.Size = new System.Drawing.Size(1672, 814);
             this._grid.TabIndex = 2;
             // 
             // dataGridViewTextBoxColumn1
             // 
+            this.dataGridViewTextBoxColumn1.DefaultCellStyle.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
+            this.dataGridViewTextBoxColumn1.FillWeight = 175F;
             this.dataGridViewTextBoxColumn1.HeaderText = "DATE";
-            this.dataGridViewTextBoxColumn1.MinimumWidth = 6;
+            this.dataGridViewTextBoxColumn1.MinimumWidth = 200;
             this.dataGridViewTextBoxColumn1.Name = "dataGridViewTextBoxColumn1";
             this.dataGridViewTextBoxColumn1.ReadOnly = true;
+            this.dataGridViewTextBoxColumn1.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             // 
             // dataGridViewTextBoxColumn2
             // 
+            this.dataGridViewTextBoxColumn2.DefaultCellStyle.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
+            this.dataGridViewTextBoxColumn2.FillWeight = 75F;
             this.dataGridViewTextBoxColumn2.HeaderText = "KIND";
             this.dataGridViewTextBoxColumn2.MinimumWidth = 6;
             this.dataGridViewTextBoxColumn2.Name = "dataGridViewTextBoxColumn2";
             this.dataGridViewTextBoxColumn2.ReadOnly = true;
+            this.dataGridViewTextBoxColumn2.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             // 
             // dataGridViewTextBoxColumn3
             // 
+            this.dataGridViewTextBoxColumn3.DefaultCellStyle.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
+            this.dataGridViewTextBoxColumn3.FillWeight = 75F;
             this.dataGridViewTextBoxColumn3.HeaderText = "USER";
             this.dataGridViewTextBoxColumn3.MinimumWidth = 6;
             this.dataGridViewTextBoxColumn3.Name = "dataGridViewTextBoxColumn3";
             this.dataGridViewTextBoxColumn3.ReadOnly = true;
+            this.dataGridViewTextBoxColumn3.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             // 
             // dataGridViewTextBoxColumn4
             // 
+            this.dataGridViewTextBoxColumn4.DefaultCellStyle.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
+            this.dataGridViewTextBoxColumn4.FillWeight = 190F;
             this.dataGridViewTextBoxColumn4.HeaderText = "CODE";
             this.dataGridViewTextBoxColumn4.MinimumWidth = 6;
             this.dataGridViewTextBoxColumn4.Name = "dataGridViewTextBoxColumn4";
             this.dataGridViewTextBoxColumn4.ReadOnly = true;
+            this.dataGridViewTextBoxColumn4.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             // 
             // dataGridViewTextBoxColumn5
             // 
+            this.dataGridViewTextBoxColumn5.FillWeight = 460F;
             this.dataGridViewTextBoxColumn5.HeaderText = "DESCRIPTION";
             this.dataGridViewTextBoxColumn5.MinimumWidth = 6;
             this.dataGridViewTextBoxColumn5.Name = "dataGridViewTextBoxColumn5";
             this.dataGridViewTextBoxColumn5.ReadOnly = true;
-            // 
+            this.dataGridViewTextBoxColumn5.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            //
+            // dataGridViewTextBoxColumn6
+            //
+            this.dataGridViewTextBoxColumn6.DefaultCellStyle.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
+            this.dataGridViewTextBoxColumn6.FillWeight = 170F;
+            this.dataGridViewTextBoxColumn6.HeaderText = "SOURCE";
+            this.dataGridViewTextBoxColumn6.MinimumWidth = 6;
+            this.dataGridViewTextBoxColumn6.Name = "dataGridViewTextBoxColumn6";
+            this.dataGridViewTextBoxColumn6.ReadOnly = true;
+            this.dataGridViewTextBoxColumn6.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            //
             // EventLogPage
             // 
             this.Controls.Add(this.rootLayout);
@@ -221,6 +290,7 @@ namespace QMC.CDT_320.Ui.Pages.History
         private DataGridViewTextBoxColumn dataGridViewTextBoxColumn3;
         private DataGridViewTextBoxColumn dataGridViewTextBoxColumn4;
         private DataGridViewTextBoxColumn dataGridViewTextBoxColumn5;
+        private DataGridViewTextBoxColumn dataGridViewTextBoxColumn6;
     }
 }
 

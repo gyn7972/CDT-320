@@ -72,7 +72,13 @@ namespace QMC.Common.Logging
             }
         }
 
+        // 기존 호출부 호환용 (source 없음). 내부적으로 source="" 로 위임한다.
         public static void Write(EventKind kind, string user, string code, string description)
+        {
+            Write(kind, user, code, string.Empty, description);
+        }
+
+        public static void Write(EventKind kind, string user, string code, string source, string description)
         {
             EventRow row = new EventRow
             {
@@ -80,6 +86,7 @@ namespace QMC.Common.Logging
                 Kind = kind,
                 User = user ?? string.Empty,
                 Code = code ?? string.Empty,
+                Source = source ?? string.Empty,
                 Description = description ?? string.Empty
             };
 
@@ -110,15 +117,27 @@ namespace QMC.Common.Logging
 
         public static List<EventRow> Read(DateTime date)
         {
+            string path = Path.Combine(LogDir, date.ToString("yyyy-MM-dd") + ".csv");
+            return ReadFile(path);
+        }
+
+        // 임의 경로의 이벤트 로그 CSV 파일을 읽어 행 목록으로 반환한다(헤더/빈 줄 건너뜀).
+        public static List<EventRow> ReadFile(string path)
+        {
             try
             {
-                string path = Path.Combine(LogDir, date.ToString("yyyy-MM-dd") + ".csv");
                 List<EventRow> list = new List<EventRow>();
-                if (!File.Exists(path))
+                if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
                     return list;
 
                 foreach (string line in File.ReadAllLines(path, Encoding.UTF8))
                 {
+                    // 빈 줄과 CSV 헤더 줄("When,Kind,...")은 건너뛴다. 실제 데이터 행은 타임스탬프로 시작한다.
+                    if (string.IsNullOrWhiteSpace(line))
+                        continue;
+                    if (line.StartsWith("When,", StringComparison.OrdinalIgnoreCase))
+                        continue;
+
                     EventRow row = EventRow.FromCsv(line);
                     if (row != null)
                         list.Add(row);
@@ -147,7 +166,7 @@ namespace QMC.Common.Logging
                 _currentDate = today;
                 _currentPath = Path.Combine(LogDir, today + ".csv");
                 if (!File.Exists(_currentPath))
-                    File.WriteAllText(_currentPath, "When,Kind,User,Code,Description" + Environment.NewLine, Encoding.UTF8);
+                    File.WriteAllText(_currentPath, "When,Kind,User,Code,Source,Description" + Environment.NewLine, Encoding.UTF8);
             }
             catch
             {

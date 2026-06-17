@@ -208,9 +208,6 @@
     <Compile Include="Ui\Pages\History\EventLogPage.Designer.cs">
       <DependentUpon>EventLogPage.cs</DependentUpon>
     </Compile>
-    <Compile Include="Ui\Pages\History\FilterPages.Designer.cs">
-      <DependentUpon>FilterPages.cs</DependentUpon>
-    </Compile>
     <Compile Include="Ui\Pages\Material\DieMapPage.Designer.cs">
       <DependentUpon>DieMapPage.cs</DependentUpon>
     </Compile>
@@ -445,6 +442,24 @@
     <Compile Include="Ui\Dialogs\MaterialValueEditDialog.Designer.cs">
       <DependentUpon>MaterialValueEditDialog.cs</DependentUpon>
     </Compile>
+    <Compile Include="Ui\Dialogs\MessageEntryDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\MessageEntryDialog.Designer.cs">
+      <DependentUpon>MessageEntryDialog.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Dialogs\UserAccountDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\UserAccountDialog.Designer.cs">
+      <DependentUpon>UserAccountDialog.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Pages\User\UserAccountPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\User\UserAccountPage.Designer.cs">
+      <DependentUpon>UserAccountPage.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Pages\WorkInfo\ActiveLotPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
@@ -507,6 +522,8 @@
     <Compile Include="Ui\UiTheme.cs" />
     <Compile Include="Ui\Localization\Lang.cs" />
     <Compile Include="Ui\Security\AccessControl.cs" />
+    <Compile Include="Ui\Security\UserAccount.cs" />
+    <Compile Include="Ui\Security\UserStore.cs" />
     <Compile Include="Ui\Security\UserLevel.cs" />
     <Compile Include="Ui\Security\UserSession.cs" />
     <!-- UI / Controls -->
@@ -521,6 +538,12 @@
     </Compile>
     <Compile Include="Ui\Controls\IndicatorDot.cs">
       <SubType>Component</SubType>
+    </Compile>
+    <Compile Include="Ui\Controls\SessionControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Controls\SessionControl.Designer.cs">
+      <DependentUpon>SessionControl.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Controls\SidebarButton.cs">
       <SubType>Component</SubType>
@@ -769,9 +792,6 @@
     <Compile Include="Ui\Pages\History\EventLogPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="Ui\Pages\History\FilterPages.cs">
-      <SubType>UserControl</SubType>
-    </Compile>
     <Compile Include="Ui\Pages\History\MessageEditPage.Designer.cs">
       <DependentUpon>MessageEditPage.cs</DependentUpon>
     </Compile>
@@ -937,9 +957,6 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\History\EventLogPage.resx">
       <DependentUpon>EventLogPage.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Ui\Pages\History\FilterPages.resx">
-      <DependentUpon>FilterPages.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\Material\DieMapPage.resx">
       <DependentUpon>DieMapPage.cs</DependentUpon>

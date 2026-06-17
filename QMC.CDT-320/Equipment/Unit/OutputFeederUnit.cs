@@ -1443,7 +1443,7 @@ namespace QMC.CDT320
             }
             catch (Exception ex)
             {
-                EventLogger.Write(EventKind.Alarm, "QMC", "BF-STOP", "OutputFeeder stop failed: " + ex.Message);
+                EventLogger.Write(EventKind.Alarm, "QMC", "BF-STOP", Name, "OutputFeeder stop failed: " + ex.Message);
             }
         }
 
@@ -1541,7 +1541,7 @@ namespace QMC.CDT320
 
         private int RaiseFeederAlarm(string code, string message)
         {
-            EventLogger.Write(EventKind.Alarm, "QMC", code, message);
+            EventLogger.Write(EventKind.Alarm, "QMC", code, Name, message);
             AlarmManager.Raise(AlarmSeverity.Error, code, Name, message);
             Console.WriteLine("[ALARM] '" + Name + "' " + message);
             return -1;

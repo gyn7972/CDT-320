@@ -1695,7 +1695,7 @@ namespace QMC.CDT320
 
         private int RaisePickerAlarm(string code, string message)
         {
-            EventLogger.Write(EventKind.Alarm, "QMC", code, message);
+            EventLogger.Write(EventKind.Alarm, "QMC", code, Name, message);
             AlarmManager.Raise(AlarmSeverity.Error, code, Name, message);
             return -1;
         }

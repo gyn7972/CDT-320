@@ -118,6 +118,8 @@ namespace QMC.CDT_320.Ui.Localization
             A("tab.settings",         "설정",              "Settings");
             A("tab.user",             "사용자",            "User");
             A("tab.exit",             "종료",              "Exit");
+            A("user.session",         "세션",              "Session");
+            A("user.accounts",        "계정 관리",          "Accounts");
 
             // 상단 헤더/상태 바
             A("header.user",          "사용자",            "User");

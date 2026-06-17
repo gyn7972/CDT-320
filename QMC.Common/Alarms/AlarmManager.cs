@@ -76,7 +76,7 @@ namespace QMC.Common.Alarms
                 rec = new AlarmRecord(_seq, sev, code, source, message);
                 _all.Add(rec);
             }
-            try { QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Alarm, "QMC", rec.Code, "[" + rec.Severity + "] " + rec.Source + " - " + rec.Message); } catch { }
+            try { QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Alarm, "QMC", rec.Code, rec.Source, "[" + rec.Severity + "] " + rec.Message); } catch { }
             try { AlarmRaised?.Invoke(rec); } catch { }
             return rec;
         }
@@ -90,7 +90,7 @@ namespace QMC.Common.Alarms
                 if (rec == null || !rec.IsActive) return;
                 rec.Cleared = DateTime.Now;
             }
-            try { QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "QMC", rec.Code, "[CLEARED] " + rec.Source + " - " + rec.Message); } catch { }
+            try { QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "QMC", rec.Code, rec.Source, "[CLEARED] " + rec.Message); } catch { }
             try { AlarmCleared?.Invoke(rec); } catch { }
         }
 
@@ -105,7 +105,7 @@ namespace QMC.Common.Alarms
             }
             foreach (var a in cleared)
             {
-                try { QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "QMC", a.Code, "[CLEARED] " + a.Source + " - " + a.Message); } catch { }
+                try { QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "QMC", a.Code, a.Source, "[CLEARED] " + a.Message); } catch { }
                 try { AlarmCleared?.Invoke(a); } catch { }
             }
         }

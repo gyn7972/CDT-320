@@ -1881,7 +1881,7 @@ namespace QMC.CDT320
             }
             catch (Exception ex)
             {
-                EventLogger.Write(EventKind.Alarm, "QMC", "WF-STOP", "WaferFeeder stop failed: " + ex.Message);
+                EventLogger.Write(EventKind.Alarm, "QMC", "WF-STOP", Name, "WaferFeeder stop failed: " + ex.Message);
             }
             finally
             {
@@ -2128,7 +2128,7 @@ namespace QMC.CDT320
         {
             try
             {
-                EventLogger.Write(EventKind.Alarm, "QMC", code, message);
+                EventLogger.Write(EventKind.Alarm, "QMC", code, Name, message);
                 AlarmManager.Raise(AlarmSeverity.Error, code, Name, message);
             }
             catch

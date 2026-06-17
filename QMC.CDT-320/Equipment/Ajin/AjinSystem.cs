@@ -29,7 +29,7 @@ namespace QMC.CDT320.Ajin
                 {
                     LastErrorCode = r;
                     LastError     = "AxlOpen failed 0x" + r.ToString("X4");
-                    EventLogger.Write(EventKind.Alarm, "SYS", "AXL-OPEN", LastError);
+                    EventLogger.Write(EventKind.Alarm, "SYS", "AXL-OPEN", "AjinSystem", LastError);
                     AlarmManager.Raise(AlarmSeverity.Critical, "AXL-OPEN", "AjinSystem", LastError);
                     return false;
                 }
@@ -42,7 +42,7 @@ namespace QMC.CDT320.Ajin
                     {
                         LastErrorCode = r;
                         LastError = "AxmMotLoadParaAll failed. Code=" + r + " (" + DescribeAxlError(r) + "), Path=" + motPath;
-                        EventLogger.Write(EventKind.Alarm, "SYS", "AXM-MOT-LOAD", LastError);
+                        EventLogger.Write(EventKind.Alarm, "SYS", "AXM-MOT-LOAD", "AjinSystem", LastError);
                         AlarmManager.Raise(AlarmSeverity.Critical, "AXM-MOT-LOAD", "AjinSystem", LastError);
                         
                         //Test?좊븣???곗꽑 ?섏뼱媛?? I/O留??뺤씤?섎뒗嫄몃줈.
@@ -73,14 +73,14 @@ namespace QMC.CDT320.Ajin
             catch (DllNotFoundException ex)
             {
                 LastError = "AXL.dll not found: " + ex.Message;
-                EventLogger.Write(EventKind.Alarm, "SYS", "AXL-DLL", LastError);
+                EventLogger.Write(EventKind.Alarm, "SYS", "AXL-DLL", "AjinSystem", LastError);
                 AlarmManager.Raise(AlarmSeverity.Critical, "AXL-DLL", "AjinSystem", LastError);
                 return false;
             }
             catch (Exception ex)
             {
                 LastError = "AXL open exception: " + ex.Message;
-                EventLogger.Write(EventKind.Alarm, "SYS", "AXL-OPEN", LastError);
+                EventLogger.Write(EventKind.Alarm, "SYS", "AXL-OPEN", "AjinSystem", LastError);
                 AlarmManager.Raise(AlarmSeverity.Critical, "AXL-OPEN", "AjinSystem", LastError);
                 return false;
             }

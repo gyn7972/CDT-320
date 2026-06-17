@@ -805,7 +805,7 @@ namespace QMC.Common.Motion
             }
             finally
             {
-                try { EventLogger.Write(EventKind.Alarm, "MOTION", "AX-SOFT-LIMIT", Name + " - " + message); } catch { }
+                try { EventLogger.Write(EventKind.Alarm, "MOTION", "AX-SOFT-LIMIT", Name, message); } catch { }
             }
         }
 

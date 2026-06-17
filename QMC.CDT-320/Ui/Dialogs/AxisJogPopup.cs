@@ -47,7 +47,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
             catch (Exception ex)
             {
-                EventLogger.Write(EventKind.Alarm, "UI", "JOG-POPUP", "Axis jog popup initialize failed: " + ex.Message);
+                EventLogger.Write(EventKind.Alarm, "UI", "JOG-POPUP", "AxisJogPopup", "Axis jog popup initialize failed: " + ex.Message);
                 throw;
             }
             finally
@@ -105,7 +105,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
             catch (Exception ex)
             {
-                EventLogger.Write(EventKind.Alarm, "UI", "JOG-POPUP", "Axis list bind failed: " + ex.Message);
+                EventLogger.Write(EventKind.Alarm, "UI", "JOG-POPUP", "AxisJogPopup", "Axis list bind failed: " + ex.Message);
                 QMC.Common.MessageDialog.Show(this, ex.Message, "JOG", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
             finally
@@ -125,7 +125,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
             catch (Exception ex)
             {
-                EventLogger.Write(EventKind.Alarm, "UI", "JOG-POPUP", "Axis jog event bind failed: " + ex.Message);
+                EventLogger.Write(EventKind.Alarm, "UI", "JOG-POPUP", "AxisJogPopup", "Axis jog event bind failed: " + ex.Message);
                 throw;
             }
             finally
@@ -153,7 +153,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
             catch (Exception ex)
             {
-                EventLogger.Write(EventKind.Alarm, "UI", "JOG-POPUP", "Selected axis bind failed: " + ex.Message);
+                EventLogger.Write(EventKind.Alarm, "UI", "JOG-POPUP", "AxisJogPopup", "Selected axis bind failed: " + ex.Message);
                 QMC.Common.MessageDialog.Show(this, ex.Message, "JOG", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
             finally
@@ -206,7 +206,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
             catch (Exception ex)
             {
-                EventLogger.Write(EventKind.Alarm, "UI", "JOG-POPUP", "Step jog failed: " + ex.Message);
+                EventLogger.Write(EventKind.Alarm, "UI", "JOG-POPUP", "AxisJogPopup", "Step jog failed: " + ex.Message);
                 throw;
             }
             finally
@@ -234,7 +234,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
             catch (Exception ex)
             {
-                EventLogger.Write(EventKind.Alarm, "UI", "JOG-POPUP", "Continuous jog failed: " + ex.Message);
+                EventLogger.Write(EventKind.Alarm, "UI", "JOG-POPUP", "AxisJogPopup", "Continuous jog failed: " + ex.Message);
                 throw;
             }
             finally
@@ -261,7 +261,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             }
             catch (Exception ex)
             {
-                EventLogger.Write(EventKind.Alarm, "UI", "JOG-POPUP", "Jog stop failed: " + ex.Message);
+                EventLogger.Write(EventKind.Alarm, "UI", "JOG-POPUP", "AxisJogPopup", "Jog stop failed: " + ex.Message);
                 throw;
             }
             finally

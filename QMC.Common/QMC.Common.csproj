@@ -101,6 +101,8 @@
     <Compile Include="Logging\ILogger.cs" />
     <Compile Include="Logging\Log.cs" />
     <Compile Include="Logging\LogInfo.cs" />
+    <Compile Include="Logging\MessageDefinition.cs" />
+    <Compile Include="Logging\MessageCatalog.cs" />
     <Compile Include="Logging\LogManager.cs" />
     <Compile Include="Machine.cs" />
     <Compile Include="AjinE\MotionDefine.cs" />

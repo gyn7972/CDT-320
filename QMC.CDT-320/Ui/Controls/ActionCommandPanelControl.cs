@@ -78,7 +78,7 @@ namespace QMC.CDT_320.Ui.Controls
             catch (Exception ex)
             {
                 string message = "Action command bind failed: " + ex.Message;
-                EventLogger.Write(EventKind.Alarm, "UI", "ACTION-PANEL", message);
+                EventLogger.Write(EventKind.Alarm, "UI", "ACTION-PANEL", "ActionCommandPanel", message);
                 QMC.Common.MessageDialog.Show(this, message, "Action Command", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
@@ -279,7 +279,7 @@ namespace QMC.CDT_320.Ui.Controls
                 if (result != 0)
                 {
                     string message = key + " failed. Result=" + result;
-                    EventLogger.Write(EventKind.Alarm, "UI", "ACTION-PANEL", message);
+                    EventLogger.Write(EventKind.Alarm, "UI", "ACTION-PANEL", "ActionCommandPanel", message);
                     AlarmManager.Raise(AlarmSeverity.Warning, "ActionCommandFail", "ActionCommandPanel", message);
                     QMC.Common.MessageDialog.Show(this, message, "Action Command", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 }
@@ -358,7 +358,7 @@ namespace QMC.CDT_320.Ui.Controls
             try
             {
                 string message = title + ": " + ex.Message;
-                EventLogger.Write(EventKind.Alarm, "UI", "ACTION-PANEL", message);
+                EventLogger.Write(EventKind.Alarm, "UI", "ACTION-PANEL", "ActionCommandPanel", message);
                 AlarmManager.Raise(AlarmSeverity.Warning, "ActionCommandException", "ActionCommandPanel", message);
                 QMC.Common.MessageDialog.Show(this, message, "Action Command", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }

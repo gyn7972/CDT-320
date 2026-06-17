@@ -26,13 +26,10 @@ namespace QMC.CDT_320.Ui.Tabs
             //
             this.PnlContent.Size = new System.Drawing.Size(1678, 900);
             //
-            // PnlSidebarButtons
-            //
-            //
             // BtnUser
             //
             this.BtnUser.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.BtnUser.Font = new System.Drawing.Font("?? ??", 11F);
+            this.BtnUser.Font = new System.Drawing.Font("맑은 고딕", 11F);
             this.BtnUser.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
             this.BtnUser.Name = "BtnUser";
             this.BtnUser.Selected = false;
@@ -47,7 +44,6 @@ namespace QMC.CDT_320.Ui.Tabs
             this.PnlSidebarButtons.ResumeLayout(false);
             this.PnlSidebar.ResumeLayout(false);
             this.ResumeLayout(false);
-
         }
     }
 }

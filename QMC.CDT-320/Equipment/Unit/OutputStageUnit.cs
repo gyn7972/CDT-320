@@ -488,7 +488,7 @@ namespace QMC.CDT320
             }
             catch (Exception ex)
             {
-                EventLogger.Write(EventKind.Alarm, "QMC", "OS-CYL-IO",
+                EventLogger.Write(EventKind.Alarm, "QMC", "OS-CYL-IO", Name,
                     "OutputStage cylinder I/O mapping apply failed: " + ex.Message);
                 throw;
             }
@@ -1571,7 +1571,7 @@ namespace QMC.CDT320
 
         private int RaiseOutputStageAlarm(string code, string message)
         {
-            EventLogger.Write(EventKind.Alarm, "QMC", code, message);
+            EventLogger.Write(EventKind.Alarm, "QMC", code, Name, message);
             AlarmManager.Raise(AlarmSeverity.Error, code, Name, message);
             return -1;
         }

@@ -10,17 +10,20 @@ namespace QMC.Common.Logging
         public EventKind Kind { get; set; }
         public string User { get; set; }
         public string Code { get; set; }
+        public string Source { get; set; }
         public string Description { get; set; }
 
         public string ToCsv()
         {
             try
             {
+                // 저장 순서: When, Kind, User, Code, Source, Description
                 return string.Join(",",
                     When.ToString("yyyy-MM-dd HH:mm:ss.fff"),
                     Kind.ToString(),
                     Csv(User),
                     Csv(Code),
+                    Csv(Source),
                     Csv(Description));
             }
             catch
@@ -47,13 +50,29 @@ namespace QMC.Common.Logging
                 DateTime when;
                 DateTime.TryParse(parts[0], out when);
 
+                // 신버전: When,Kind,User,Code,Source,Description (6칸)
+                // 구버전: When,Kind,User,Code,Description (5칸) — Source 없음, 호환 처리
+                string source;
+                string description;
+                if (parts.Count >= 6)
+                {
+                    source = parts[4];
+                    description = parts[5];
+                }
+                else
+                {
+                    source = string.Empty;
+                    description = parts[4];
+                }
+
                 return new EventRow
                 {
                     When = when,
                     Kind = kind,
                     User = parts[2],
                     Code = parts[3],
-                    Description = parts[4]
+                    Source = source,
+                    Description = description
                 };
             }
             catch

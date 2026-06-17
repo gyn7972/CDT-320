@@ -54,21 +54,21 @@ namespace QMC.CDT_320.Ui.Pages.History
             this.rootLayout.Name = "rootLayout";
             this.rootLayout.RowCount = 3;
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
-            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 44F));
+            this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 50F));
             this.rootLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.rootLayout.Size = new System.Drawing.Size(1400, 900);
+            this.rootLayout.Size = new System.Drawing.Size(1678, 900);
             this.rootLayout.TabIndex = 0;
             // 
             // lblHeader
             // 
-            this.lblHeader.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(217)))), ((int)(((byte)(119)))), ((int)(((byte)(6)))));
+            this.lblHeader.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(52)))), ((int)(((byte)(73)))), ((int)(((byte)(94)))));
             this.lblHeader.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lblHeader.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
             this.lblHeader.ForeColor = System.Drawing.Color.White;
             this.lblHeader.Location = new System.Drawing.Point(3, 0);
             this.lblHeader.Name = "lblHeader";
             this.lblHeader.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
-            this.lblHeader.Size = new System.Drawing.Size(1394, 30);
+            this.lblHeader.Size = new System.Drawing.Size(1672, 30);
             this.lblHeader.TabIndex = 0;
             this.lblHeader.Tag = "i18n:hist.alarm";
             this.lblHeader.Text = "알람";
@@ -97,7 +97,7 @@ namespace QMC.CDT_320.Ui.Pages.History
             this.filterLayout.Padding = new System.Windows.Forms.Padding(8, 6, 8, 6);
             this.filterLayout.RowCount = 1;
             this.filterLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
-            this.filterLayout.Size = new System.Drawing.Size(1394, 38);
+            this.filterLayout.Size = new System.Drawing.Size(1672, 44);
             this.filterLayout.TabIndex = 1;
             // 
             // lblSeverity
@@ -106,7 +106,7 @@ namespace QMC.CDT_320.Ui.Pages.History
             this.lblSeverity.Font = new System.Drawing.Font("맑은 고딕", 11F);
             this.lblSeverity.Location = new System.Drawing.Point(11, 6);
             this.lblSeverity.Name = "lblSeverity";
-            this.lblSeverity.Size = new System.Drawing.Size(70, 26);
+            this.lblSeverity.Size = new System.Drawing.Size(70, 32);
             this.lblSeverity.TabIndex = 0;
             this.lblSeverity.Text = "Severity:";
             this.lblSeverity.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -118,7 +118,7 @@ namespace QMC.CDT_320.Ui.Pages.History
             this._cbSeverity.Font = new System.Drawing.Font("Consolas", 10F);
             this._cbSeverity.Location = new System.Drawing.Point(87, 9);
             this._cbSeverity.Name = "_cbSeverity";
-            this._cbSeverity.Size = new System.Drawing.Size(144, 28);
+            this._cbSeverity.Size = new System.Drawing.Size(144, 23);
             this._cbSeverity.TabIndex = 1;
             // 
             // lblSearch
@@ -127,7 +127,7 @@ namespace QMC.CDT_320.Ui.Pages.History
             this.lblSearch.Font = new System.Drawing.Font("맑은 고딕", 11F);
             this.lblSearch.Location = new System.Drawing.Point(237, 6);
             this.lblSearch.Name = "lblSearch";
-            this.lblSearch.Size = new System.Drawing.Size(60, 26);
+            this.lblSearch.Size = new System.Drawing.Size(60, 32);
             this.lblSearch.TabIndex = 2;
             this.lblSearch.Text = "Search:";
             this.lblSearch.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -138,7 +138,7 @@ namespace QMC.CDT_320.Ui.Pages.History
             this._tbFilter.Font = new System.Drawing.Font("Consolas", 10F);
             this._tbFilter.Location = new System.Drawing.Point(303, 9);
             this._tbFilter.Name = "_tbFilter";
-            this._tbFilter.Size = new System.Drawing.Size(284, 27);
+            this._tbFilter.Size = new System.Drawing.Size(284, 23);
             this._tbFilter.TabIndex = 3;
             // 
             // _lblCount
@@ -147,21 +147,25 @@ namespace QMC.CDT_320.Ui.Pages.History
             this._lblCount.Font = new System.Drawing.Font("Consolas", 10F);
             this._lblCount.Location = new System.Drawing.Point(593, 6);
             this._lblCount.Name = "_lblCount";
-            this._lblCount.Size = new System.Drawing.Size(94, 26);
+            this._lblCount.Size = new System.Drawing.Size(94, 32);
             this._lblCount.TabIndex = 4;
             this._lblCount.Text = "(0)";
             this._lblCount.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
             // btnClear
             // 
+            this.btnClear.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right)));
             this.btnClear.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(232)))), ((int)(((byte)(93)))), ((int)(((byte)(26)))));
-            this.btnClear.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.btnClear.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnClear.FlatAppearance.BorderSize = 0;
+            this.btnClear.FlatAppearance.MouseDownBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(76)))), ((int)(((byte)(18)))));
+            this.btnClear.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(247)))), ((int)(((byte)(120)))), ((int)(((byte)(55)))));
             this.btnClear.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
-            this.btnClear.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.btnClear.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnClear.ForeColor = System.Drawing.Color.White;
             this.btnClear.Location = new System.Drawing.Point(693, 9);
             this.btnClear.Name = "btnClear";
-            this.btnClear.Size = new System.Drawing.Size(154, 20);
+            this.btnClear.Size = new System.Drawing.Size(154, 28);
             this.btnClear.TabIndex = 5;
             this.btnClear.Text = "Clear active alarms";
             this.btnClear.UseVisualStyleBackColor = false;
@@ -190,63 +194,81 @@ namespace QMC.CDT_320.Ui.Pages.History
             this.dataGridViewTextBoxColumn7});
             this._grid.Dock = System.Windows.Forms.DockStyle.Fill;
             this._grid.EnableHeadersVisualStyles = false;
-            this._grid.Font = new System.Drawing.Font("Consolas", 10F);
-            this._grid.Location = new System.Drawing.Point(3, 77);
+            this._grid.Font = new System.Drawing.Font("Consolas", 10F, System.Drawing.FontStyle.Bold);
+            this._grid.Location = new System.Drawing.Point(3, 83);
             this._grid.Name = "_grid";
             this._grid.ReadOnly = true;
             this._grid.RowHeadersVisible = false;
             this._grid.RowHeadersWidth = 51;
-            this._grid.Size = new System.Drawing.Size(1394, 820);
+            this._grid.Size = new System.Drawing.Size(1672, 814);
             this._grid.TabIndex = 2;
             // 
             // dataGridViewTextBoxColumn1
             // 
+            this.dataGridViewTextBoxColumn1.DefaultCellStyle.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
+            this.dataGridViewTextBoxColumn1.FillWeight = 95F;
             this.dataGridViewTextBoxColumn1.HeaderText = "Time";
-            this.dataGridViewTextBoxColumn1.MinimumWidth = 6;
+            this.dataGridViewTextBoxColumn1.MinimumWidth = 110;
             this.dataGridViewTextBoxColumn1.Name = "dataGridViewTextBoxColumn1";
             this.dataGridViewTextBoxColumn1.ReadOnly = true;
-            // 
+            this.dataGridViewTextBoxColumn1.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            //
             // dataGridViewTextBoxColumn2
-            // 
+            //
+            this.dataGridViewTextBoxColumn2.DefaultCellStyle.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
+            this.dataGridViewTextBoxColumn2.FillWeight = 85F;
             this.dataGridViewTextBoxColumn2.HeaderText = "Severity";
-            this.dataGridViewTextBoxColumn2.MinimumWidth = 6;
+            this.dataGridViewTextBoxColumn2.MinimumWidth = 75;
             this.dataGridViewTextBoxColumn2.Name = "dataGridViewTextBoxColumn2";
             this.dataGridViewTextBoxColumn2.ReadOnly = true;
-            // 
+            this.dataGridViewTextBoxColumn2.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            //
             // dataGridViewTextBoxColumn3
-            // 
+            //
+            this.dataGridViewTextBoxColumn3.DefaultCellStyle.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
+            this.dataGridViewTextBoxColumn3.FillWeight = 150F;
             this.dataGridViewTextBoxColumn3.HeaderText = "Code";
-            this.dataGridViewTextBoxColumn3.MinimumWidth = 6;
+            this.dataGridViewTextBoxColumn3.MinimumWidth = 90;
             this.dataGridViewTextBoxColumn3.Name = "dataGridViewTextBoxColumn3";
             this.dataGridViewTextBoxColumn3.ReadOnly = true;
-            // 
+            this.dataGridViewTextBoxColumn3.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            //
             // dataGridViewTextBoxColumn4
-            // 
+            //
+            this.dataGridViewTextBoxColumn4.DefaultCellStyle.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
+            this.dataGridViewTextBoxColumn4.FillWeight = 150F;
             this.dataGridViewTextBoxColumn4.HeaderText = "Source";
-            this.dataGridViewTextBoxColumn4.MinimumWidth = 6;
+            this.dataGridViewTextBoxColumn4.MinimumWidth = 90;
             this.dataGridViewTextBoxColumn4.Name = "dataGridViewTextBoxColumn4";
             this.dataGridViewTextBoxColumn4.ReadOnly = true;
-            // 
+            this.dataGridViewTextBoxColumn4.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            //
             // dataGridViewTextBoxColumn5
-            // 
+            //
+            this.dataGridViewTextBoxColumn5.FillWeight = 280F;
             this.dataGridViewTextBoxColumn5.HeaderText = "Message";
             this.dataGridViewTextBoxColumn5.MinimumWidth = 6;
             this.dataGridViewTextBoxColumn5.Name = "dataGridViewTextBoxColumn5";
             this.dataGridViewTextBoxColumn5.ReadOnly = true;
-            // 
+            this.dataGridViewTextBoxColumn5.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            //
             // dataGridViewTextBoxColumn6
-            // 
+            //
+            this.dataGridViewTextBoxColumn6.FillWeight = 190F;
             this.dataGridViewTextBoxColumn6.HeaderText = "Cause";
             this.dataGridViewTextBoxColumn6.MinimumWidth = 6;
             this.dataGridViewTextBoxColumn6.Name = "dataGridViewTextBoxColumn6";
             this.dataGridViewTextBoxColumn6.ReadOnly = true;
-            // 
+            this.dataGridViewTextBoxColumn6.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
+            //
             // dataGridViewTextBoxColumn7
-            // 
+            //
+            this.dataGridViewTextBoxColumn7.FillWeight = 190F;
             this.dataGridViewTextBoxColumn7.HeaderText = "Action";
             this.dataGridViewTextBoxColumn7.MinimumWidth = 6;
             this.dataGridViewTextBoxColumn7.Name = "dataGridViewTextBoxColumn7";
             this.dataGridViewTextBoxColumn7.ReadOnly = true;
+            this.dataGridViewTextBoxColumn7.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             // 
             // AlarmHistoryPage
             // 

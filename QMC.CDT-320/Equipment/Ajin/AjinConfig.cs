@@ -210,7 +210,7 @@ namespace QMC.CDT320.Ajin
             }
             catch (Exception ex)
             {
-                EventLogger.Write(EventKind.Alarm, "QMC", "AJIN-MAP-LOAD",
+                EventLogger.Write(EventKind.Alarm, "QMC", "AJIN-MAP-LOAD", "AjinConfig",
                     "Ajin map load failed. Existing file was not overwritten. path=" + Path_ + ", error=" + ex.Message);
 
                 if (Current == null ||

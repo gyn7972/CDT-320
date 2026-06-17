@@ -2501,7 +2501,7 @@ namespace QMC.CDT320
             try
             {
                 Console.WriteLine($"[ALARM] '{Name}' ? {message}");
-                EventLogger.Write(EventKind.Alarm, "QMC", code, message);
+                EventLogger.Write(EventKind.Alarm, "QMC", code, source, message);
                 AlarmManager.Raise(severity, code, source: source, message: message);
             }
             catch
