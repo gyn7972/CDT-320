@@ -65,5 +65,20 @@ namespace QMC.Vision.Cameras.Mil
 
         public static string GetInstallHint()
             => "MIL/Matrox 보드 사용 불가 (" + (LastError ?? "MIL 미설치/보드 없음/라이선스 없음") + "). Sim 으로 대체됨.";
+
+        /// <summary>MIL System/Application 완전 해제 — 앱 종료 시 호출(그래버 점유 해제, 다음 MIL 앱/Intellicam 즉시 사용 가능).
+        /// 반드시 모든 digitizer/buffer(MilCamera) 를 먼저 Free 한 뒤 호출할 것.</summary>
+        public static void Shutdown()
+        {
+            lock (_lock)
+            {
+                try { if (!IsNull(_sys)) MIL.MsysFree(_sys); } catch { }
+                try { if (!IsNull(_app)) MIL.MappFree(_app); } catch { }
+                _sys = MIL.M_NULL;
+                _app = MIL.M_NULL;
+                IsAvailable = false;
+                _tried = false;   // 재기동 시 다시 EnsureInit 허용
+            }
+        }
     }
 }

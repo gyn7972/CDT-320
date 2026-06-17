@@ -25,42 +25,20 @@ namespace QMC.Vision.Modules
         protected virtual void SetDefaults() { IsSimulationMode = false; LightPages = new List<LightPageRef>(); }
     }
 
-    /// <summary>모듈 Config 공통 — 카메라/그랩 고정 사양.</summary>
+    /// <summary>모듈 Config 공통 — 카메라/그랩 고정 사양은 VisionCamera(Component) 로 이전됨.
+    /// (모듈 레벨 비카메라 Config 확장 지점)</summary>
     [DataContract]
     public abstract class VisionModuleConfigBase : IConfigData
     {
-        [DataMember] public string CameraId          { get; set; }
-        [DataMember] public double Gain              { get; set; }
-        [DataMember] public double FrameRate         { get; set; }
-        [DataMember] public string TriggerMode       { get; set; }
-        [DataMember] public string PixelFormat       { get; set; }
-        [DataMember] public int    DelayBeforeGrabMs { get; set; }
-        [DataMember] public int    RoiOffsetX        { get; set; }
-        [DataMember] public int    RoiOffsetY        { get; set; }
-        [DataMember] public int    RoiWidth          { get; set; }
-        [DataMember] public int    RoiHeight         { get; set; }
-
-        [OnDeserializing] private void OnDeserializing(StreamingContext ctx) => SetDefaults();
-        protected virtual void SetDefaults()
-        {
-            CameraId = string.Empty;
-            Gain = 1.0;
-            FrameRate = 30.0;
-            TriggerMode = string.Empty;
-            PixelFormat = string.Empty;
-            DelayBeforeGrabMs = 0;
-            RoiOffsetX = 0; RoiOffsetY = 0; RoiWidth = 0; RoiHeight = 0;
-        }
     }
 
-    /// <summary>모듈 Recipe 공통 — 제품/공정별 노출.</summary>
+    /// <summary>모듈 Recipe 공통 — 노출(Exposure)은 VisionCamera(Recipe) 로 이전됨.
+    /// 모듈별 공정 파라미터는 파생 타입에 둔다.</summary>
     [DataContract]
     public abstract class VisionModuleRecipeBase : IRecipeData
     {
-        [DataMember] public double Exposure { get; set; }
-
         [OnDeserializing] private void OnDeserializing(StreamingContext ctx) => SetDefaults();
-        protected virtual void SetDefaults() { Exposure = 5000; }
+        protected virtual void SetDefaults() { }
     }
 
     // ── WaferVision ───────────────────────────────────────────────
@@ -93,21 +71,21 @@ namespace QMC.Vision.Modules
         protected override void SetDefaults() { base.SetDefaults(); SurfaceThreshold = 0.7; }
     }
 
-    // ── FrontSideInspection ───────────────────────────────────────
-    [DataContract] public sealed class FrontSideInspectionSetup  : VisionModuleSetupBase { }
-    [DataContract] public sealed class FrontSideInspectionConfig : VisionModuleConfigBase { }
+    // ── TopSideVision ───────────────────────────────────────
+    [DataContract] public sealed class TopSideVisionSetup  : VisionModuleSetupBase { }
+    [DataContract] public sealed class TopSideVisionConfig : VisionModuleConfigBase { }
     [DataContract]
-    public sealed class FrontSideInspectionRecipe : VisionModuleRecipeBase
+    public sealed class TopSideVisionRecipe : VisionModuleRecipeBase
     {
         [DataMember] public double ChippingThreshold { get; set; }
         protected override void SetDefaults() { base.SetDefaults(); ChippingThreshold = 0.05; }
     }
 
-    // ── RearSideInspection ────────────────────────────────────────
-    [DataContract] public sealed class RearSideInspectionSetup  : VisionModuleSetupBase { }
-    [DataContract] public sealed class RearSideInspectionConfig : VisionModuleConfigBase { }
+    // ── BottomSideVision ────────────────────────────────────────
+    [DataContract] public sealed class BottomSideVisionSetup  : VisionModuleSetupBase { }
+    [DataContract] public sealed class BottomSideVisionConfig : VisionModuleConfigBase { }
     [DataContract]
-    public sealed class RearSideInspectionRecipe : VisionModuleRecipeBase
+    public sealed class BottomSideVisionRecipe : VisionModuleRecipeBase
     {
         [DataMember] public double ChippingThreshold { get; set; }
         protected override void SetDefaults() { base.SetDefaults(); ChippingThreshold = 0.05; }

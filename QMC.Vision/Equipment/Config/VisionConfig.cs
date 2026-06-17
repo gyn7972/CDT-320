@@ -23,13 +23,17 @@ namespace QMC.Vision.Config
         [DataMember] public int WaferVisionPort             { get; set; } = 5100;
         [DataMember] public int InspectionVisionPort        { get; set; } = 5101;
         [DataMember] public int BinVisionPort               { get; set; } = 5103;
-        // Stage 44 — 매뉴얼 호환 추가 채널 (Stage 63: TopSide/BottomSide → FrontSide/RearSide)
-        [DataMember] public int FrontSideInspectionPort     { get; set; } = 5105;
-        [DataMember] public int RearSideInspectionPort      { get; set; } = 5106;
+        // Stage 44 — 매뉴얼 호환 추가 채널. 핸들러 기준 모듈명 통일: TopSideVision(5105)/BottomSideVision(5106)
+        [DataMember] public int TopSideVisionPort           { get; set; } = 5105;
+        [DataMember] public int BottomSideVisionPort        { get; set; } = 5106;
+        // 전역 통신(MainComm) 포트 — 핸들러 VisionHub.Main(5104) 과 짝. 레시피/전역 명령 수신.
+        [DataMember] public int MainCommPort                { get; set; } = 5104;
 
-        // Stage 63 — 구버전 키 마이그레이션 (값 있으면 OnDeserialized 가 새 프로퍼티로 이전 후 0 으로 비움 → 다음 Save 시 사라짐)
+        // 구버전 키 마이그레이션 (값 있으면 OnDeserialized 가 새 프로퍼티로 이전 후 0 으로 비움 → 다음 Save 시 사라짐)
         [DataMember(Name = "TopSideInspectionPort",    EmitDefaultValue = false)] public int LegacyTopSideInspectionPort    { get; set; }
         [DataMember(Name = "BottomSideInspectionPort", EmitDefaultValue = false)] public int LegacyBottomSideInspectionPort { get; set; }
+        [DataMember(Name = "FrontSideInspectionPort",  EmitDefaultValue = false)] public int LegacyFrontSideInspectionPort  { get; set; }
+        [DataMember(Name = "RearSideInspectionPort",   EmitDefaultValue = false)] public int LegacyRearSideInspectionPort   { get; set; }
 
         // DataContractJsonSerializer 는 생성자/프로퍼티 이니셜라이저를 실행하지 않는다.
         // 따라서 구버전 json 에 없는 뷰어 키는 기본값 대신 0/null 로 남는다 → 역직렬화 전에 기본값을 심어
@@ -38,6 +42,8 @@ namespace QMC.Vision.Config
         internal void OnDeserializing(StreamingContext ctx)
         {
             // Stage 89 — LightUseSim 강제 true 제거: JSON 값 그대로 반영(없으면 default false). 사용자가 false 저장하면 유지.
+            // 신규 키(구 json 에 없음) 기본값 — DataContractJsonSerializer 는 이니셜라이저를 실행하지 않으므로 여기서 심는다.
+            MainCommPort         = 5104;
             RemoteViewerEnable   = true;
             RemoteViewerSource   = "GrabImage";
             RemoteViewerFps      = 10;
@@ -53,8 +59,10 @@ namespace QMC.Vision.Config
         [OnDeserialized]
         internal void OnDeserialized(StreamingContext ctx)
         {
-            if (LegacyTopSideInspectionPort != 0)    { FrontSideInspectionPort = LegacyTopSideInspectionPort;    LegacyTopSideInspectionPort = 0; }
-            if (LegacyBottomSideInspectionPort != 0) { RearSideInspectionPort  = LegacyBottomSideInspectionPort; LegacyBottomSideInspectionPort = 0; }
+            if (LegacyTopSideInspectionPort != 0)    { TopSideVisionPort    = LegacyTopSideInspectionPort;    LegacyTopSideInspectionPort    = 0; }
+            if (LegacyBottomSideInspectionPort != 0) { BottomSideVisionPort = LegacyBottomSideInspectionPort; LegacyBottomSideInspectionPort = 0; }
+            if (LegacyFrontSideInspectionPort != 0)  { TopSideVisionPort    = LegacyFrontSideInspectionPort;  LegacyFrontSideInspectionPort  = 0; }
+            if (LegacyRearSideInspectionPort != 0)   { BottomSideVisionPort = LegacyRearSideInspectionPort;   LegacyRearSideInspectionPort   = 0; }
 
             // 뷰어 블록이 통째로 비어있는(=내 interim 빌드가 0 으로 저장했거나 구버전) 경우 자가 치유.
             bool viewerUnconfigured = string.IsNullOrEmpty(RemoteViewerSource)

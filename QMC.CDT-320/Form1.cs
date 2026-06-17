@@ -203,6 +203,11 @@ namespace QMC.CDT_320
                 CurrentRecipeName = NormalizeRecipeName(recipeName);
                 Machine.LoadRecipe(recipeName);
                 _currentRecipe = QMC.CDT320.Recipes.RecipeStore.Load(CurrentRecipeName);
+
+                // Vision PC 레시피 자동 동기화 — 활성 레시피(번호+명칭)를 Main(5104) 채널로 통보.
+                // 비차단(fire-and-forget). Main 미연결/실패는 BroadcastRecipeAsync 가 내부 처리.
+                int recipeNo = ResolveVisionRecipeNo(CurrentRecipeName);
+                _ = QMC.CDT320.VisionComm.VisionHub.BroadcastRecipeAsync(recipeNo, CurrentRecipeName);
             }
             catch (Exception ex)
             {
@@ -215,6 +220,24 @@ namespace QMC.CDT_320
             finally
             {
             }
+        }
+
+        /// <summary>활성 레시피 명칭에 대한 1-based 레시피 번호(RecipeStore 목록 순서). 미발견 시 0.</summary>
+        private static int ResolveVisionRecipeNo(string recipeName)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(recipeName)) return 0;
+                var list = QMC.CDT320.Recipes.RecipeStore.List();   // "*.Project" 파일명 목록
+                for (int i = 0; i < list.Count; i++)
+                {
+                    string nm = System.IO.Path.GetFileNameWithoutExtension(list[i]);
+                    if (string.Equals(nm, recipeName, StringComparison.OrdinalIgnoreCase))
+                        return i + 1;
+                }
+            }
+            catch { }
+            return 0;
         }
 
         internal void SaveMachineRecipe(string recipeName)

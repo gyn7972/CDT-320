@@ -25,6 +25,7 @@ namespace QMC.Vision.Cameras.Mil
         private Thread _liveThread;
         private volatile bool _liveRun;
         private readonly string _tmpPath;
+        private byte[] _hostBuf;   // Mono 프레임 호스트 복사 버퍼(재사용 — GC 압박 감소)
 
         public MilCamera(CameraInfo info) : base(info)
         {
@@ -87,7 +88,20 @@ namespace QMC.Vision.Cameras.Mil
             }
 
             IsOpen = true;
+            // 열릴 때마다 현재(레시피/UI) 설정을 카메라에 재적용 — startup·Connect·재오픈 모두 동일 상태 보장.
+            ApplyCurrentSettings();
             RaiseConnectionChanged(CameraConnectionEvent.Opened);
+        }
+
+        /// <summary>현재 CameraBase 에 캐시된 설정값을 카메라(GenICam feature)에 재적용. Open 직후 호출.</summary>
+        private void ApplyCurrentSettings()
+        {
+            try { OnExposureChanged(ExposureUs); }              catch { }
+            try { OnGainChanged(Gain); }                        catch { }
+            try { OnFrameRateChanged(AcquisitionFrameRate); }   catch { }
+            try { OnPixelFormatChanged(PixelFormat); }          catch { }
+            try { OnTriggerModeChanged(TriggerMode); }          catch { }
+            try { if (Roi.Width > 0 && Roi.Height > 0) OnRoiChanged(Roi); } catch { }
         }
 
         public override void Close()
@@ -155,9 +169,49 @@ namespace QMC.Vision.Cameras.Mil
         }
 
         // ── 파라미터 (GenICam feature; CameraLink/미지원 카메라면 무시) ──
+        // DCF 는 링크/스트로브/포맷 baseline, 가변 파라미터는 GenICam feature 로 런타임 적용(일반적 구성).
         protected override void OnExposureChanged (double us)     => TryFeatureD("ExposureTime", us);
         protected override void OnGainChanged     (double gainDb) => TryFeatureD("Gain", gainDb);
         protected override void OnFrameRateChanged(double fps)    => TryFeatureD("AcquisitionFrameRate", fps);
+
+        /// <summary>Trigger Mode(On/Off) + Trigger Source 를 분리 적용 (MVS 노드와 동일).</summary>
+        protected override void OnTriggerModeChanged(CameraTriggerMode mode)
+        {
+            switch (mode)
+            {
+                case CameraTriggerMode.Continuous:
+                    TryFeatureS("TriggerMode", "Off");
+                    break;
+                case CameraTriggerMode.Software:
+                    TryFeatureS("TriggerMode", "On"); TryFeatureS("TriggerSource", "Software");
+                    break;
+                case CameraTriggerMode.Line0:
+                    TryFeatureS("TriggerMode", "On"); TryFeatureS("TriggerSource", "Line0");
+                    break;
+                case CameraTriggerMode.Line1:
+                    TryFeatureS("TriggerMode", "On"); TryFeatureS("TriggerSource", "Line1");
+                    break;
+                case CameraTriggerMode.Line2:
+                    TryFeatureS("TriggerMode", "On"); TryFeatureS("TriggerSource", "Line2");
+                    break;
+            }
+        }
+
+        protected override void OnPixelFormatChanged(CameraPixelFormat fmt)
+            => TryFeatureS("PixelFormat", fmt.ToString());
+
+        /// <summary>ROI 적용 — grab 정지 상태에서만 안전. 0 크기면 센서 풀(=DCF 기본) 유지.</summary>
+        protected override void OnRoiChanged(Rectangle roi)
+        {
+            if (IsNull(_dig) || roi.Width <= 0 || roi.Height <= 0) return;
+            // Offset 을 먼저 0 으로 내려 Width/Height 증가 시 범위 초과 방지.
+            TryFeatureI("OffsetX", 0);
+            TryFeatureI("OffsetY", 0);
+            TryFeatureI("Width",  roi.Width);
+            TryFeatureI("Height", roi.Height);
+            TryFeatureI("OffsetX", roi.X);
+            TryFeatureI("OffsetY", roi.Y);
+        }
 
         private void TryFeatureD(string feature, double val)
         {
@@ -165,15 +219,64 @@ namespace QMC.Vision.Cameras.Mil
             try { MIL.MdigControlFeature(_dig, MIL.M_FEATURE_VALUE, feature, MIL.M_TYPE_DOUBLE, ref val); } catch { }
         }
 
-        // ── Buffer → Bitmap (MbufExport 경유 — mono/color 모든 포맷 안전) ──
+        private void TryFeatureS(string feature, string val)
+        {
+            if (IsNull(_dig)) return;
+            try { MIL.MdigControlFeature(_dig, MIL.M_FEATURE_VALUE, feature, MIL.M_TYPE_STRING, val); } catch { }
+        }
+
+        private void TryFeatureI(string feature, long val)
+        {
+            if (IsNull(_dig)) return;
+            try { MIL_INT v = (MIL_INT)val; MIL.MdigControlFeature(_dig, MIL.M_FEATURE_VALUE, feature, MIL.M_TYPE_MIL_INT, ref v); } catch { }
+        }
+
+        // ── Buffer → Bitmap (메모리 직접 변환 — 디스크 미경유) ──
+        // 144MP Mono 를 매 프레임 디스크 BMP 로 export/read 하던 병목 제거(약 1fps → 대폭 향상).
         private Bitmap BufferToBitmap()
         {
+            int w = Resolution.Width, h = Resolution.Height;
+            if (w <= 0 || h <= 0 || IsNull(_buf)) return null;
+
+            // 1) 고속 경로 — Mono 8-bit 메모리 직접 변환(디스크 미경유). 실패 시 디스크 폴백.
+            if (_bands < 3)
+            {
+                try
+                {
+                    int need = w * h;
+                    if (_hostBuf == null || _hostBuf.Length < need) _hostBuf = new byte[need];
+                    MIL.MbufGet(_buf, _hostBuf);
+
+                    var bmp = new Bitmap(w, h, System.Drawing.Imaging.PixelFormat.Format8bppIndexed);
+                    var pal = bmp.Palette;
+                    for (int i = 0; i < 256; i++) pal.Entries[i] = Color.FromArgb(i, i, i);
+                    bmp.Palette = pal;
+
+                    var bd = bmp.LockBits(new Rectangle(0, 0, w, h),
+                        System.Drawing.Imaging.ImageLockMode.WriteOnly,
+                        System.Drawing.Imaging.PixelFormat.Format8bppIndexed);
+                    try
+                    {
+                        if (bd.Stride == w)
+                            System.Runtime.InteropServices.Marshal.Copy(_hostBuf, 0, bd.Scan0, need);
+                        else
+                            for (int y = 0; y < h; y++)
+                                System.Runtime.InteropServices.Marshal.Copy(
+                                    _hostBuf, y * w, System.IntPtr.Add(bd.Scan0, y * bd.Stride), w);
+                    }
+                    finally { bmp.UnlockBits(bd); }
+                    return bmp;
+                }
+                catch { /* 고속 경로 실패 → 아래 디스크 폴백으로 */ }
+            }
+
+            // 2) 폴백 — MbufExport(디스크). 느리지만 모든 포맷 안전(표시는 항상 보장).
             try
             {
                 MIL.MbufExport(_tmpPath, MIL.M_BMP, _buf);
                 using (var fs = new FileStream(_tmpPath, FileMode.Open, FileAccess.Read))
                 using (var tmp = new Bitmap(fs))
-                    return new Bitmap(tmp);   // 파일 핸들과 분리된 사본
+                    return new Bitmap(tmp);
             }
             catch { return null; }
         }
