@@ -40,24 +40,28 @@ namespace QMC.CDT320.Sequencing
         /// <summary>유닛 시퀀스를 현재 실행 모드에 따라 실행합니다.</summary>
         public async Task RunAsync(CancellationToken ct)
         {
-            if (Mode == SequenceRunMode.Auto)
+            // 이 유닛(및 하위 시퀀스)의 모든 공개 로그를 유닛 종류에 맞는 EventKind 로 분류한다.
+            using (SequenceLog.Push(SequenceLog.FromUnitKind(Kind), Name, null))
             {
-                await ExecuteAutoAsync(ct).ConfigureAwait(false);
-                return;
-            }
-
-            Context.LogPublic("[SEQ] " + Name + " manual/step gate 대기");
-            while (!ct.IsCancellationRequested)
-            {
-                await _stepGate.WaitAsync(ct).ConfigureAwait(false);
-                ct.ThrowIfCancellationRequested();
-                try
+                if (Mode == SequenceRunMode.Auto)
                 {
-                    await ExecuteStepAsync(ct).ConfigureAwait(false);
+                    await ExecuteAutoAsync(ct).ConfigureAwait(false);
+                    return;
                 }
-                finally
+
+                Context.LogPublic("[SEQ] " + Name + " manual/step gate 대기");
+                while (!ct.IsCancellationRequested)
                 {
-                    Interlocked.Exchange(ref _stepBusyOrQueued, 0);
+                    await _stepGate.WaitAsync(ct).ConfigureAwait(false);
+                    ct.ThrowIfCancellationRequested();
+                    try
+                    {
+                        await ExecuteStepAsync(ct).ConfigureAwait(false);
+                    }
+                    finally
+                    {
+                        Interlocked.Exchange(ref _stepBusyOrQueued, 0);
+                    }
                 }
             }
         }

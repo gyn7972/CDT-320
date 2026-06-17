@@ -53,6 +53,9 @@ namespace QMC.CDT320.Sequencing
             Options = options ?? PickerSequenceOptions.Default();
             Options.RunMode = Options.RunMode;
 
+            using (SequenceLog.Push(
+                Side == PickerSequenceSide.Front ? QMC.Common.Logging.EventKind.FrontHeadSeq : QMC.Common.Logging.EventKind.RearHeadSeq,
+                Name, () => CurrentStep.ToString()))
             try
             {
                 ct.ThrowIfCancellationRequested();

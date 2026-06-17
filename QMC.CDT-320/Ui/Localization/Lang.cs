@@ -342,6 +342,10 @@ namespace QMC.CDT_320.Ui.Localization
             A("hist.event",           "이벤트",             "Event");
             A("hist.data",            "데이터",             "Data");
             A("hist.work",            "작업",               "Work");
+            A("hist.inputSeq",        "입력 시퀀스",         "Input Seq");
+            A("hist.outputSeq",       "출력 시퀀스",         "Output Seq");
+            A("hist.frontHeadSeq",    "프론트 헤드 시퀀스",   "Front Head Seq");
+            A("hist.rearHeadSeq",     "리어 헤드 시퀀스",     "Rear Head Seq");
             A("hist.msgEdit",         "MESSAGE 편집",      "MESSAGE Edit");
             A("hist.col.index",       "INDEX",            "INDEX");
             A("hist.col.date",        "DATE",             "DATE");

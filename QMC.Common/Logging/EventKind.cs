@@ -9,7 +9,7 @@
         Work,
         InputSeq,
         OutputSeq,
-        FrontPickerSeq,
-        RearPickerSeq,
+        FrontHeadSeq,
+        RearHeadSeq
     }
 }
