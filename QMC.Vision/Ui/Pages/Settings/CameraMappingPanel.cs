@@ -8,6 +8,7 @@ using System.Windows.Forms;
 using QMC.Common.Recipes;
 using QMC.Vision.Config;
 using QMC.Vision.Core;
+using QMC.Vision.Ui.Controls;
 
 namespace QMC.Vision.Ui.Pages
 {
@@ -41,61 +42,71 @@ namespace QMC.Vision.Ui.Pages
             InitializeComponent();
             if (LicenseManager.UsageMode == LicenseUsageMode.Designtime) return;
             _uiCtx = SynchronizationContext.Current ?? new WindowsFormsSynchronizationContext();
-            BuildCombos();
+            _paramGrid.ParameterValueChanged += OnParamChanged;
             UpdateConnectButtons();
             WireLightGrid();
         }
 
-        /// <summary>콤보 Items(enum) 동적 채움 — 런타임.</summary>
-        private void BuildCombos()
+        /// <summary>카메라 파라미터 항목 목록 — Handler ParameterGridItem 팩토리 규칙대로 buffer 에 getter/setter 바인딩.
+        /// 항목 추가/삭제는 이 메소드에서 줄 단위로(고정 폼 재배치 불필요).</summary>
+        private List<ParameterGridItem> BuildParamItems(AlgorithmCameraMapping m)
         {
-            // Trigger Source — 소스 값만 (Continuous 는 Trigger Mode=Off 로 표현하므로 제외).
-            foreach (var v in Enum.GetNames(typeof(CameraTriggerMode)))
-                if (v != nameof(CameraTriggerMode.Continuous)) _cbTrigger.Items.Add(v);
-            // Trigger Mode — On/Off (MVS TriggerMode 노드와 동일).
-            _cbTriggerMode.Items.Add("Off");
-            _cbTriggerMode.Items.Add("On");
-            foreach (var v in Enum.GetNames(typeof(CameraPixelFormat))) _cbPixel.Items.Add(v);
+            // Trigger: 저장값 m.TriggerMode(CameraTriggerMode 이름) ↔ UI(Mode On/Off + Source) 분해/합성 — 기존 규칙 보존.
+            Func<bool>   isOff  = () => string.IsNullOrEmpty(m.TriggerMode)
+                                        || m.TriggerMode == nameof(CameraTriggerMode.Continuous);
+            Func<string> curSrc = () => isOff() ? nameof(CameraTriggerMode.Software) : m.TriggerMode;
+
+            var srcOptions = Enum.GetNames(typeof(CameraTriggerMode))
+                .Where(v => v != nameof(CameraTriggerMode.Continuous))
+                .Select(v => new ParameterGridOption(v, v));
+            var pixOptions = Enum.GetNames(typeof(CameraPixelFormat))
+                .Select(v => new ParameterGridOption(v, v));
+
+            return new List<ParameterGridItem>
+            {
+                WithRange(ParameterGridItem.Double("Exposure", "μs", ParameterGridScope.Recipe,
+                    () => m.ExposureUs, v => m.ExposureUs = v), 1, 1000000),
+                WithRange(ParameterGridItem.Double("Gain", "dB", ParameterGridScope.Recipe,
+                    () => m.Gain, v => m.Gain = v), 0, 48),
+                WithRange(ParameterGridItem.Double("Frame rate", "fps", ParameterGridScope.Recipe,
+                    () => m.FrameRate, v => m.FrameRate = v), 1, 1000),
+                ParameterGridItem.Selection("Trigger Mode", "", ParameterGridScope.Config,
+                    () => isOff() ? "Off" : "On",
+                    v => { if ((string)v == "On") m.TriggerMode = curSrc();
+                           else m.TriggerMode = nameof(CameraTriggerMode.Continuous); },
+                    new[] { new ParameterGridOption("Off", "Off"), new ParameterGridOption("On", "On") }),
+                ParameterGridItem.Selection("Trigger Source", "", ParameterGridScope.Config,
+                    () => curSrc(),
+                    v => { if (!isOff()) m.TriggerMode = (string)v; },
+                    srcOptions),
+                ParameterGridItem.Selection("Pixel format", "", ParameterGridScope.Config,
+                    () => m.PixelFormat ?? "Mono8",
+                    v => m.PixelFormat = (string)v,
+                    pixOptions),
+                WithRange(ParameterGridItem.Int("Delay before grab", "ms", ParameterGridScope.Recipe,
+                    () => m.DelayBeforeGrabMs, v => m.DelayBeforeGrabMs = v), 0, 60000),
+                WithRange(ParameterGridItem.Int("ROI Offset X", "px", ParameterGridScope.Recipe,
+                    () => m.RoiOffsetX, v => m.RoiOffsetX = v), 0, 8000),
+                WithRange(ParameterGridItem.Int("ROI Offset Y", "px", ParameterGridScope.Recipe,
+                    () => m.RoiOffsetY, v => m.RoiOffsetY = v), 0, 8000),
+                WithRange(ParameterGridItem.Int("ROI Width", "px", ParameterGridScope.Recipe,
+                    () => m.RoiWidth, v => m.RoiWidth = v), 0, 8000),
+                WithRange(ParameterGridItem.Int("ROI Height", "px", ParameterGridScope.Recipe,
+                    () => m.RoiHeight, v => m.RoiHeight = v), 0, 8000),
+            };
         }
 
-        /// <summary>저장된 TriggerMode 문자열(CameraTriggerMode 이름)을 UI(Mode On/Off + Source)로 분해.</summary>
-        private void ApplyTriggerToUi(string stored)
+        /// <summary>숫자 항목에 범위 Validator 부착(기존 NumericUpDown Min/Max 보존).</summary>
+        private static ParameterGridItem WithRange(ParameterGridItem item, double min, double max)
         {
-            bool isOff = string.IsNullOrEmpty(stored)
-                         || stored == nameof(CameraTriggerMode.Continuous);
-            _cbTriggerMode.SelectedItem = isOff ? "Off" : "On";
-            if (_cbTriggerMode.SelectedIndex < 0) _cbTriggerMode.SelectedIndex = 0; // Off
-
-            // Source: On 이면 저장값, Off 이면 기본 Software (Off 일 때 Source 는 무의미).
-            string src = (!isOff && stored != null) ? stored : nameof(CameraTriggerMode.Software);
-            _cbTrigger.SelectedItem = src;
-            if (_cbTrigger.SelectedIndex < 0) _cbTrigger.SelectedItem = nameof(CameraTriggerMode.Software);
-            if (_cbTrigger.SelectedIndex < 0 && _cbTrigger.Items.Count > 0) _cbTrigger.SelectedIndex = 0;
-
-            UpdateTriggerSourceEnabled();
+            item.Validator = o => { double d = Convert.ToDouble(o); return d >= min && d <= max; };
+            return item;
         }
 
-        /// <summary>UI(Mode On/Off + Source)를 저장용 CameraTriggerMode 이름으로 합성.</summary>
-        private string ComposeTriggerStored()
+        /// <summary>그리드 값 변경 — 상호의존(Trigger Mode/Source) 표시 동기화.</summary>
+        private void OnParamChanged(object sender, ParameterGridChangedEventArgs e)
         {
-            bool isOn = (string)_cbTriggerMode.SelectedItem == "On";
-            if (!isOn) return nameof(CameraTriggerMode.Continuous);
-            return (string)_cbTrigger.SelectedItem ?? nameof(CameraTriggerMode.Software);
-        }
-
-        /// <summary>Trigger Mode=Off 면 Source 선택을 비활성(MVS 와 동일 동작).</summary>
-        private void UpdateTriggerSourceEnabled()
-        {
-            bool isOn = (string)_cbTriggerMode.SelectedItem == "On";
-            if (_cbTrigger != null) _cbTrigger.Enabled = isOn;
-            if (_lblTrig   != null) _lblTrig.Enabled   = isOn;
-        }
-
-        /// <summary>Trigger Mode 콤보 변경 — Source 활성/비활성 갱신 + 필드 반영.</summary>
-        private void OnTriggerModeUiChanged(object sender, EventArgs e)
-        {
-            UpdateTriggerSourceEnabled();
-            OnFieldChanged();
+            try { _paramGrid.RefreshValues(); } catch { }
         }
 
         // ── 이벤트 핸들러 (Designer 에서 named 연결) ──
@@ -328,6 +339,7 @@ namespace QMC.Vision.Ui.Pages
             {
                 if (_body != null) _body.Enabled = false;
                 if (_lblStatus != null) { _lblStatus.ForeColor = Color.Firebrick; _lblStatus.Text = "설정 불러올 수 없음 — 운영 모듈 미해결"; }
+                try { _paramGrid.SetItems(new List<ParameterGridItem>()); } catch { }   // 스테일 행 제거
                 System.Diagnostics.Debug.WriteLine("[CameraMappingPanel] 모듈 미해결: " + _algorithm);
                 return;
             }
@@ -336,16 +348,7 @@ namespace QMC.Vision.Ui.Pages
             try
             {
                 SetSelectedById(_cbCameraId, m.CameraId);
-                _numExposure.Value = Clamp((decimal)m.ExposureUs, _numExposure.Minimum, _numExposure.Maximum);
-                _numGain    .Value = Clamp((decimal)m.Gain,       _numGain.Minimum,     _numGain.Maximum);
-                _numFps     .Value = Clamp((decimal)m.FrameRate,  _numFps.Minimum,      _numFps.Maximum);
-                ApplyTriggerToUi(m.TriggerMode);
-                _cbPixel    .SelectedItem = m.PixelFormat ?? "Mono8";    if (_cbPixel.SelectedIndex   < 0) _cbPixel.SelectedIndex   = (int)CameraPixelFormat.Mono8;
-                _numDelay   .Value = Clamp((decimal)m.DelayBeforeGrabMs, _numDelay.Minimum, _numDelay.Maximum);
-                _numRoiX    .Value = Clamp(m.RoiOffsetX, _numRoiX.Minimum, _numRoiX.Maximum);
-                _numRoiY    .Value = Clamp(m.RoiOffsetY, _numRoiY.Minimum, _numRoiY.Maximum);
-                _numRoiW    .Value = Clamp(m.RoiWidth,   _numRoiW.Minimum, _numRoiW.Maximum);
-                _numRoiH    .Value = Clamp(m.RoiHeight,  _numRoiH.Minimum, _numRoiH.Maximum);
+                _paramGrid.SetItems(BuildParamItems(m));   // 카메라 파라미터 = 리스트(항목 추가/삭제 용이)
 
                 var cfg = VisionConfigStore.Current;
                 if (_txtMilDcf != null) _txtMilDcf.Text = cfg?.MilDcfPath ?? "";
@@ -392,17 +395,8 @@ namespace QMC.Vision.Ui.Pages
             if (_suspendBinding) return;
             var m = CurrentMapping();
             if (m == null) return;
-            m.CameraId          = ItemToId(_cbCameraId.SelectedItem) ?? _cbCameraId.Text;
-            m.ExposureUs        = (double)_numExposure.Value;
-            m.Gain              = (double)_numGain.Value;
-            m.FrameRate         = (double)_numFps.Value;
-            m.TriggerMode       = ComposeTriggerStored();
-            m.PixelFormat       = (string)_cbPixel.SelectedItem   ?? "Mono8";
-            m.DelayBeforeGrabMs = (int)_numDelay.Value;
-            m.RoiOffsetX        = (int)_numRoiX.Value;
-            m.RoiOffsetY        = (int)_numRoiY.Value;
-            m.RoiWidth          = (int)_numRoiW.Value;
-            m.RoiHeight         = (int)_numRoiH.Value;
+            // 숫자/Pixel/Trigger 는 그리드 setter 가 buffer 에 즉시 반영. 여기선 CameraId 만 flush.
+            m.CameraId = ItemToId(_cbCameraId.SelectedItem) ?? _cbCameraId.Text;
             UpdateMilVisibility();
         }
 

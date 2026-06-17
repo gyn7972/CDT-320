@@ -10,10 +10,22 @@ namespace QMC.Vision.Ui.Pages
     {
         private System.ComponentModel.IContainer components = null;
 
-        private Label        _title;
-        private CameraView   _cam;
-        private JogBox       _jog;
-        private DataGridView _result;
+        private Label            _title;
+        private TableLayoutPanel _root;
+        private TableLayoutPanel _main;
+        // 좌 (카메라 + 하단 조그/조명)
+        private TableLayoutPanel _left;
+        private Label            _secCam;
+        private CameraView       _cam;
+        private TableLayoutPanel _bottomLeft;
+        private JogBox           _jog;
+        private Panel            _illumHost;   // 런타임 InspectionLightPanel 호스트(.cs BuildChildPanels)
+        // 우 (결과 + 액션)
+        private TableLayoutPanel _right;
+        private Label            _secResult;
+        private DataGridView     _result;
+        private Label            _secAction;
+        private TableLayoutPanel _actionPanel;
         private Button _btnGrab, _btnLoad, _btnSave, _btnTrain, _btnMatch, _btnEditSearch, _btnEditTrain;
         private Label  _lblStatus;
 
@@ -30,9 +42,19 @@ namespace QMC.Vision.Ui.Pages
         private void InitializeComponent()
         {
             this._title = new Label();
+            this._root = new TableLayoutPanel();
+            this._main = new TableLayoutPanel();
+            this._left = new TableLayoutPanel();
+            this._secCam = new Label();
             this._cam = new CameraView();
+            this._bottomLeft = new TableLayoutPanel();
             this._jog = new JogBox();
+            this._illumHost = new Panel();
+            this._right = new TableLayoutPanel();
+            this._secResult = new Label();
             this._result = new DataGridView();
+            this._secAction = new Label();
+            this._actionPanel = new TableLayoutPanel();
             this._btnGrab = new Button();
             this._btnLoad = new Button();
             this._btnSave = new Button();
@@ -41,10 +63,18 @@ namespace QMC.Vision.Ui.Pages
             this._btnEditSearch = new Button();
             this._btnEditTrain = new Button();
             this._lblStatus = new Label();
+            this._root.SuspendLayout();
+            this._main.SuspendLayout();
+            this._left.SuspendLayout();
+            this._bottomLeft.SuspendLayout();
+            this._right.SuspendLayout();
+            this._actionPanel.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)this._result).BeginInit();
             this.SuspendLayout();
 
-            // _title (Text 는 런타임 — 원본도 BuildLayout 시점 Text="" )
+            this.BackColor = UiTheme.MainBg;
+
+            // ── 상단 페이지 타이틀(주황, 런타임 Text) ──
             this._title.Dock = DockStyle.Top;
             this._title.Height = 26;
             this._title.BackColor = UiTheme.StatusBarBg;
@@ -53,18 +83,38 @@ namespace QMC.Vision.Ui.Pages
             this._title.TextAlign = ContentAlignment.MiddleLeft;
             this._title.Padding = new Padding(10, 0, 0, 0);
 
-            // _cam
-            this._cam.Location = new Point(6, 34);
-            this._cam.Size = new Size(700, 500);
+            // ── 섹션 라벨(공통 주황) ──
+            ConfigureSection(this._secCam, "CAMERA");
+            ConfigureSection(this._secResult, "MATCH RESULT");
+            ConfigureSection(this._secAction, "ACTION");
+
+            // ── 좌: 카메라 ──
+            this._cam.Dock = DockStyle.Fill; this._cam.BackColor = Color.Black;
             this._cam.RoiEdited += new Action<string, Roi>(this.OnCamRoiEdited);
 
-            // _jog
-            this._jog.Location = new Point(456, 544);
-            this._jog.Size = new Size(260, 280);
+            // ── 좌 하단: 조그 + 조명 호스트 ──
+            this._jog.Dock = DockStyle.Fill; this._jog.Margin = new Padding(0, 0, 6, 0);
+            this._illumHost.Dock = DockStyle.Fill; this._illumHost.BackColor = UiTheme.MainBg;
+            this._bottomLeft.Dock = DockStyle.Fill; this._bottomLeft.Margin = Padding.Empty;
+            this._bottomLeft.ColumnCount = 2; this._bottomLeft.RowCount = 1;
+            this._bottomLeft.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 270f));
+            this._bottomLeft.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+            this._bottomLeft.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+            this._bottomLeft.Controls.Add(this._jog, 0, 0);
+            this._bottomLeft.Controls.Add(this._illumHost, 1, 0);
 
-            // _result
-            this._result.Location = new Point(720, 34);
-            this._result.Size = new Size(540, 320);
+            this._left.Dock = DockStyle.Fill; this._left.Margin = Padding.Empty;
+            this._left.ColumnCount = 1; this._left.RowCount = 3;
+            this._left.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+            this._left.RowStyles.Add(new RowStyle(SizeType.Absolute, 24f));
+            this._left.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+            this._left.RowStyles.Add(new RowStyle(SizeType.Absolute, 290f));
+            this._left.Controls.Add(this._secCam, 0, 0);
+            this._left.Controls.Add(this._cam, 0, 1);
+            this._left.Controls.Add(this._bottomLeft, 0, 2);
+
+            // ── 우: 결과 그리드 ──
+            this._result.Dock = DockStyle.Fill;
             this._result.ReadOnly = true;
             this._result.AllowUserToAddRows = false;
             this._result.RowHeadersVisible = false;
@@ -82,56 +132,115 @@ namespace QMC.Vision.Ui.Pages
             this._result.Columns.Add("R", "R");
             this._result.Columns.Add("Score", "Score");
 
-            // 버튼들 (IC 직렬화 가능 — 헬퍼 호출 인라인)
-            this._btnGrab.Location = new Point(720, 364); this._btnGrab.Size = new Size(170, 44); this._btnGrab.Text = "GRAB";
-            this._btnGrab.FlatStyle = FlatStyle.Flat; this._btnGrab.Font = UiTheme.ButtonFont; this._btnGrab.BackColor = Color.White; this._btnGrab.ForeColor = Color.Black;
-            this._btnGrab.Click += new System.EventHandler(this.OnGrabClick);
-            this._btnLoad.Location = new Point(900, 364); this._btnLoad.Size = new Size(170, 44); this._btnLoad.Text = "LOAD";
-            this._btnLoad.FlatStyle = FlatStyle.Flat; this._btnLoad.Font = UiTheme.ButtonFont; this._btnLoad.BackColor = Color.White; this._btnLoad.ForeColor = Color.Black;
-            this._btnLoad.Click += new System.EventHandler(this.OnLoadClick);
-            this._btnSave.Location = new Point(1080, 364); this._btnSave.Size = new Size(180, 44); this._btnSave.Text = "SAVE";
-            this._btnSave.FlatStyle = FlatStyle.Flat; this._btnSave.Font = UiTheme.ButtonFont; this._btnSave.BackColor = Color.White; this._btnSave.ForeColor = Color.Black;
-            this._btnSave.Click += new System.EventHandler(this.OnSaveClick);
-            this._btnTrain.Location = new Point(720, 416); this._btnTrain.Size = new Size(265, 50); this._btnTrain.Text = "TRAIN";
-            this._btnTrain.FlatStyle = FlatStyle.Flat; this._btnTrain.Font = UiTheme.ButtonFont; this._btnTrain.BackColor = UiTheme.Accent; this._btnTrain.ForeColor = Color.White;
-            this._btnTrain.Click += new System.EventHandler(this.OnTrainClick);
-            this._btnMatch.Location = new Point(995, 416); this._btnMatch.Size = new Size(265, 50); this._btnMatch.Text = "MATCH";
-            this._btnMatch.FlatStyle = FlatStyle.Flat; this._btnMatch.Font = UiTheme.ButtonFont; this._btnMatch.BackColor = UiTheme.Accent; this._btnMatch.ForeColor = Color.White;
-            this._btnMatch.Click += new System.EventHandler(this.OnMatchClick);
-            this._btnEditSearch.Location = new Point(720, 478); this._btnEditSearch.Size = new Size(265, 36); this._btnEditSearch.Text = "Edit SEARCH ROI (drag)";
-            this._btnEditSearch.FlatStyle = FlatStyle.Flat; this._btnEditSearch.Font = UiTheme.ButtonFont; this._btnEditSearch.BackColor = Color.LightYellow; this._btnEditSearch.ForeColor = Color.Black;
-            this._btnEditSearch.Click += new System.EventHandler(this.OnEditSearchClick);
-            this._btnEditTrain.Location = new Point(995, 478); this._btnEditTrain.Size = new Size(265, 36); this._btnEditTrain.Text = "Edit TRAIN ROI (drag)";
-            this._btnEditTrain.FlatStyle = FlatStyle.Flat; this._btnEditTrain.Font = UiTheme.ButtonFont; this._btnEditTrain.BackColor = Color.LightYellow; this._btnEditTrain.ForeColor = Color.Black;
-            this._btnEditTrain.Click += new System.EventHandler(this.OnEditTrainClick);
+            // ── 우: 액션 버튼(균일 3×3) ──
+            ConfigureActionBtn(this._btnGrab, "GRAB", ActionKind.Neutral, this.OnGrabClick);
+            ConfigureActionBtn(this._btnLoad, "LOAD", ActionKind.Neutral, this.OnLoadClick);
+            ConfigureActionBtn(this._btnSave, "SAVE", ActionKind.Neutral, this.OnSaveClick);
+            ConfigureActionBtn(this._btnTrain, "TRAIN", ActionKind.Primary, this.OnTrainClick);
+            ConfigureActionBtn(this._btnMatch, "MATCH", ActionKind.Primary, this.OnMatchClick);
+            ConfigureActionBtn(this._btnEditSearch, "Edit SEARCH ROI", ActionKind.Edit, this.OnEditSearchClick);
+            ConfigureActionBtn(this._btnEditTrain, "Edit TRAIN ROI", ActionKind.Edit, this.OnEditTrainClick);
 
-            // _lblStatus
-            this._lblStatus.Location = new Point(720, 524);
-            this._lblStatus.Size = new Size(540, 30);
+            this._actionPanel.Dock = DockStyle.Fill; this._actionPanel.Margin = Padding.Empty;
+            this._actionPanel.ColumnCount = 3; this._actionPanel.RowCount = 3;
+            this._actionPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.34f));
+            this._actionPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33f));
+            this._actionPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33f));
+            this._actionPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 48f));
+            this._actionPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 48f));
+            this._actionPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 48f));
+            this._actionPanel.Controls.Add(this._btnGrab, 0, 0);
+            this._actionPanel.Controls.Add(this._btnLoad, 1, 0);
+            this._actionPanel.Controls.Add(this._btnSave, 2, 0);
+            this._actionPanel.Controls.Add(this._btnTrain, 0, 1);
+            this._actionPanel.Controls.Add(this._btnMatch, 1, 1);
+            this._actionPanel.Controls.Add(this._btnEditSearch, 0, 2);
+            this._actionPanel.Controls.Add(this._btnEditTrain, 1, 2);
+
+            this._right.Dock = DockStyle.Fill; this._right.Margin = Padding.Empty;
+            this._right.ColumnCount = 1; this._right.RowCount = 4;
+            this._right.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+            this._right.RowStyles.Add(new RowStyle(SizeType.Absolute, 24f));
+            this._right.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+            this._right.RowStyles.Add(new RowStyle(SizeType.Absolute, 24f));
+            this._right.RowStyles.Add(new RowStyle(SizeType.Absolute, 156f));
+            this._right.Controls.Add(this._secResult, 0, 0);
+            this._right.Controls.Add(this._result, 0, 1);
+            this._right.Controls.Add(this._secAction, 0, 2);
+            this._right.Controls.Add(this._actionPanel, 0, 3);
+
+            // ── _main (2열) ──
+            this._main.Dock = DockStyle.Fill; this._main.Margin = Padding.Empty;
+            this._main.ColumnCount = 2; this._main.RowCount = 1;
+            this._main.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 58f));
+            this._main.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 42f));
+            this._main.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+            this._main.Controls.Add(this._left, 0, 0);
+            this._main.Controls.Add(this._right, 1, 0);
+
+            // ── _lblStatus ──
+            this._lblStatus.Dock = DockStyle.Fill;
             this._lblStatus.Text = "Ready.";
             this._lblStatus.Font = UiTheme.ValueFont;
             this._lblStatus.ForeColor = Color.DarkSlateGray;
-            this._lblStatus.BorderStyle = BorderStyle.FixedSingle;
             this._lblStatus.BackColor = Color.WhiteSmoke;
             this._lblStatus.TextAlign = ContentAlignment.MiddleLeft;
             this._lblStatus.Padding = new Padding(8, 0, 0, 0);
 
-            // FinderPage (원본 추가순서: title→cam→[illum:Code]→jog→result→버튼→status→[liveTuning:Code])
+            // ── _root ──
+            this._root.Dock = DockStyle.Fill; this._root.Margin = Padding.Empty;
+            this._root.ColumnCount = 1; this._root.RowCount = 2;
+            this._root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
+            this._root.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
+            this._root.RowStyles.Add(new RowStyle(SizeType.Absolute, 24f));
+            this._root.Controls.Add(this._main, 0, 0);
+            this._root.Controls.Add(this._lblStatus, 0, 1);
+
+            // FinderPage — Fill root 가 먼저, Top title 이 나중(Dock 순서상 title 이 위)
+            this.Controls.Add(this._root);
             this.Controls.Add(this._title);
-            this.Controls.Add(this._cam);
-            this.Controls.Add(this._jog);
-            this.Controls.Add(this._result);
-            this.Controls.Add(this._btnGrab);
-            this.Controls.Add(this._btnLoad);
-            this.Controls.Add(this._btnSave);
-            this.Controls.Add(this._btnTrain);
-            this.Controls.Add(this._btnMatch);
-            this.Controls.Add(this._btnEditSearch);
-            this.Controls.Add(this._btnEditTrain);
-            this.Controls.Add(this._lblStatus);
             this.Name = "FinderPage";
             ((System.ComponentModel.ISupportInitialize)this._result).EndInit();
+            this._actionPanel.ResumeLayout(false);
+            this._right.ResumeLayout(false);
+            this._bottomLeft.ResumeLayout(false);
+            this._left.ResumeLayout(false);
+            this._main.ResumeLayout(false);
+            this._root.ResumeLayout(false);
             this.ResumeLayout(false);
+        }
+
+        // ── Designer 로컬 스타일 헬퍼(공통 룩 — 페이지 내 일관) ──
+        private enum ActionKind { Neutral, Primary, Edit }
+
+        private static void ConfigureSection(Label lbl, string text)
+        {
+            lbl.Dock = DockStyle.Fill;
+            lbl.Text = text;
+            lbl.BackColor = UiTheme.StatusBarBg;
+            lbl.ForeColor = Color.White;
+            lbl.Font = UiTheme.SectionFont;
+            lbl.TextAlign = ContentAlignment.MiddleLeft;
+            lbl.Padding = new Padding(8, 0, 0, 0);
+        }
+
+        private void ConfigureActionBtn(Button b, string text, ActionKind kind, EventHandler onClick)
+        {
+            b.Dock = DockStyle.Fill;
+            b.Margin = new Padding(3);
+            b.Text = text;
+            b.FlatStyle = FlatStyle.Flat;
+            b.Font = UiTheme.ButtonFont;
+            switch (kind)
+            {
+                case ActionKind.Primary:
+                    b.BackColor = UiTheme.Accent; b.ForeColor = Color.White; break;
+                case ActionKind.Edit:
+                    b.BackColor = Color.LightYellow; b.ForeColor = Color.Black; break;
+                default:
+                    b.BackColor = Color.White; b.ForeColor = Color.Black; break;
+            }
+            b.Click += onClick;
         }
     }
 }

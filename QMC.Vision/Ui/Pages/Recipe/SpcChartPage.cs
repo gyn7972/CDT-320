@@ -14,7 +14,7 @@ namespace QMC.Vision.Ui.Pages
     /// SPC X-bar 차트 페이지 — DataLogSaver CSV 의 다이별 검사 항목을 시계열 X-bar 로 표시.
     /// Stage 93 — Designer/Code 분리. 정적 shell(차트/필터바)은 .Designer.cs, CSV 로드·시리즈 생성은 Code.
     /// </summary>
-    public partial class SpcChartPage : UserControl
+    public partial class SpcChartPage : PageBase
     {
         // 310 DataLogSaver.InspectionItems 15종 (사용자 선택 가능)
         private static readonly string[] Items = {

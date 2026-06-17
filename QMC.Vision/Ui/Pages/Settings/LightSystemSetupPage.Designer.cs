@@ -9,8 +9,8 @@ namespace QMC.Vision.Ui.Pages
         private System.ComponentModel.IContainer components = null;
 
         // 헤더 / 툴바 / 상태
-        private Label  _hdr;
-        private Panel  _bar;
+        private Label           _hdr;
+        private FlowLayoutPanel _bar;
         private Button _btnSave, _btnReload, _btnAddCtrl, _btnDelCtrl, _btnMigrate, _btnRename, _btnConnect, _btnDisc;
         // _lblStatus 는 Code 측 partial 에 이미 선언됨
 
@@ -40,7 +40,7 @@ namespace QMC.Vision.Ui.Pages
         private void InitializeComponent()
         {
             this._hdr = new Label();
-            this._bar = new Panel();
+            this._bar = new FlowLayoutPanel();
             this._btnSave = new Button(); this._btnReload = new Button();
             this._btnAddCtrl = new Button(); this._btnDelCtrl = new Button();
             this._btnMigrate = new Button(); this._btnRename = new Button();
@@ -80,18 +80,22 @@ namespace QMC.Vision.Ui.Pages
             this._hdr.TextAlign = ContentAlignment.MiddleLeft;
             this._hdr.Padding = new Padding(10, 0, 0, 0);
 
-            // ── 툴바 ──
+            // ── 툴바 (FlowLayoutPanel — 좌→우 균일 간격, 절대좌표/겹침 제거) ──
             this._bar.Dock = DockStyle.Top;
             this._bar.Height = 40;
             this._bar.BackColor = Color.WhiteSmoke;
-            this._btnSave.Location = new Point(8, 4); this._btnSave.Size = new Size(100, 32); this._btnSave.Text = "저장"; this._btnSave.FlatStyle = FlatStyle.Flat; this._btnSave.Font = UiTheme.ButtonFont; this._btnSave.BackColor = UiTheme.Accent; this._btnSave.ForeColor = Color.White;
-            this._btnReload.Location = new Point(120, 4); this._btnReload.Size = new Size(100, 32); this._btnReload.Text = "취소"; this._btnReload.FlatStyle = FlatStyle.Flat; this._btnReload.Font = UiTheme.ButtonFont; this._btnReload.BackColor = Color.White; this._btnReload.ForeColor = Color.Black;
-            this._btnAddCtrl.Location = new Point(210, 4); this._btnAddCtrl.Size = new Size(120, 32); this._btnAddCtrl.Text = "컨트롤러 추가"; this._btnAddCtrl.FlatStyle = FlatStyle.Flat; this._btnAddCtrl.Font = UiTheme.ButtonFont; this._btnAddCtrl.BackColor = Color.White; this._btnAddCtrl.ForeColor = Color.Black;
-            this._btnDelCtrl.Location = new Point(340, 4); this._btnDelCtrl.Size = new Size(120, 32); this._btnDelCtrl.Text = "컨트롤러 삭제"; this._btnDelCtrl.FlatStyle = FlatStyle.Flat; this._btnDelCtrl.Font = UiTheme.ButtonFont; this._btnDelCtrl.BackColor = Color.White; this._btnDelCtrl.ForeColor = Color.Black;
-            this._btnMigrate.Location = new Point(470, 4); this._btnMigrate.Size = new Size(130, 32); this._btnMigrate.Text = "io_set 가져오기"; this._btnMigrate.FlatStyle = FlatStyle.Flat; this._btnMigrate.Font = UiTheme.ButtonFont; this._btnMigrate.BackColor = Color.White; this._btnMigrate.ForeColor = Color.Black;
-            this._btnRename.Location = new Point(610, 4); this._btnRename.Size = new Size(130, 32); this._btnRename.Text = "포트 일괄 변경"; this._btnRename.FlatStyle = FlatStyle.Flat; this._btnRename.Font = UiTheme.ButtonFont; this._btnRename.BackColor = Color.White; this._btnRename.ForeColor = Color.Black;
-            this._btnConnect.Location = new Point(750, 4); this._btnConnect.Size = new Size(110, 32); this._btnConnect.Text = "조명 연결"; this._btnConnect.FlatStyle = FlatStyle.Flat; this._btnConnect.Font = UiTheme.ButtonFont; this._btnConnect.BackColor = Color.FromArgb(0x2E, 0x7D, 0x32); this._btnConnect.ForeColor = Color.White;
-            this._btnDisc.Location = new Point(870, 4); this._btnDisc.Size = new Size(110, 32); this._btnDisc.Text = "조명 해제"; this._btnDisc.FlatStyle = FlatStyle.Flat; this._btnDisc.Font = UiTheme.ButtonFont; this._btnDisc.BackColor = Color.White; this._btnDisc.ForeColor = Color.Black;
+            this._bar.FlowDirection = FlowDirection.LeftToRight;
+            this._bar.WrapContents = false;
+            this._bar.Padding = new Padding(6, 4, 6, 0);
+            ConfigureBarBtn(this._btnSave, "저장", 100, true);
+            ConfigureBarBtn(this._btnReload, "취소", 100, false);
+            ConfigureBarBtn(this._btnAddCtrl, "컨트롤러 추가", 120, false);
+            ConfigureBarBtn(this._btnDelCtrl, "컨트롤러 삭제", 120, false);
+            ConfigureBarBtn(this._btnMigrate, "io_set 가져오기", 130, false);
+            ConfigureBarBtn(this._btnRename, "포트 일괄 변경", 130, false);
+            ConfigureBarBtn(this._btnConnect, "조명 연결", 110, false);
+            this._btnConnect.BackColor = Color.FromArgb(0x2E, 0x7D, 0x32); this._btnConnect.ForeColor = Color.White;
+            ConfigureBarBtn(this._btnDisc, "조명 해제", 110, false);
             this._btnSave.Click    += new System.EventHandler(this.OnSaveClick);
             this._btnReload.Click  += new System.EventHandler(this.OnReloadClick);
             this._btnAddCtrl.Click += new System.EventHandler(this.OnAddCtrlClick);
@@ -219,6 +223,18 @@ namespace QMC.Vision.Ui.Pages
             this._body.ResumeLayout(false);
             this._bar.ResumeLayout(false);
             this.ResumeLayout(false);
+        }
+
+        // ── 툴바 버튼 공통 스타일(페이지 내 일관) ──
+        private static void ConfigureBarBtn(Button b, string text, int width, bool primary)
+        {
+            b.Size = new Size(width, 32);
+            b.Margin = new Padding(0, 0, 6, 0);
+            b.Text = text;
+            b.FlatStyle = FlatStyle.Flat;
+            b.Font = UiTheme.ButtonFont;
+            b.BackColor = primary ? UiTheme.Accent : Color.White;
+            b.ForeColor = primary ? Color.White : Color.Black;
         }
     }
 }

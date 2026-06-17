@@ -16,6 +16,10 @@ namespace QMC.Vision.Modules
         public TopSideVisionModule    TopSideVision    { get; }
         public BottomSideVisionModule BottomSideVision { get; }
 
+        /// <summary>현재 활성 레시피 명칭(핸들러 수신 = Recipe.RecipeName). 미설정 시 "default".</summary>
+        public string CurrentRecipeName =>
+            string.IsNullOrWhiteSpace(Recipe?.RecipeName) ? "default" : Recipe.RecipeName;
+
         public VisionMachine(
             WaferVisionModule wafer,
             BinVisionModule bin,

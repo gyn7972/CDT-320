@@ -18,7 +18,7 @@ namespace QMC.Vision.Ui.Pages
     /// Inspector 공용 페이지 — 좌측 CameraView + JogBox + 검사별 조명, 우측 결과 테이블 + Inspect + PASS/FAIL.
     /// Stage 94 — Designer/Code 분리. 정적 shell 은 .Designer.cs, 그랩/검사/결과 로직·런타임 자식패널은 Code.
     /// </summary>
-    public partial class InspectorPage : UserControl
+    public partial class InspectorPage : PageBase
     {
         private readonly IVisionModule _module;
         private readonly IInspector   _inspector;
