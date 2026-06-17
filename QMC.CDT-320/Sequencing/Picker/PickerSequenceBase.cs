@@ -211,13 +211,14 @@ namespace QMC.CDT320.Sequencing
             PickerAxis axis,
             double target,
             string description,
-            CancellationToken ct)
+            CancellationToken ct,
+            string targetName = null)
         {
             try
             {
                 ct.ThrowIfCancellationRequested();
 
-                int result = await MovePickerAxisCommandAsync(axis, target).ConfigureAwait(false);
+                int result = await MovePickerAxisCommandAsync(axis, target, targetName).ConfigureAwait(false);
                 if (result != 0)
                     return Fail("PICKER-MOVE-CMD", Name, description + " move command failed. result=" + result + ", " + BuildPickerAxisState(axis, target));
 
@@ -246,7 +247,8 @@ namespace QMC.CDT320.Sequencing
         protected async Task<int> MovePickerAxesAndVerifyAsync(
             IDictionary<PickerAxis, double> targets,
             string description,
-            CancellationToken ct)
+            CancellationToken ct,
+            string targetName = null)
         {
             try
             {
@@ -257,7 +259,7 @@ namespace QMC.CDT320.Sequencing
 
                 var commandTasks = new List<Task<int>>();
                 foreach (KeyValuePair<PickerAxis, double> pair in targets)
-                    commandTasks.Add(MovePickerAxisCommandAsync(pair.Key, pair.Value));
+                    commandTasks.Add(MovePickerAxisCommandAsync(pair.Key, pair.Value, targetName));
 
                 int[] commandResults = await Task.WhenAll(commandTasks).ConfigureAwait(false);
                 int commandIndex = 0;
@@ -302,6 +304,8 @@ namespace QMC.CDT320.Sequencing
         protected async Task<int> MovePickerToDiePositionAndVerifyAsync(string positionArrayName, int pickerNo, string description, CancellationToken ct)
         {
             int index = pickerNo - 1;
+            string targetName = positionArrayName + "[" + index + "]";
+
             int result = await MoveAllPickerZToAvoidAndVerifyAsync(description + " pre Z avoid", ct).ConfigureAwait(false);
             if (result != 0)
                 return result;
@@ -311,7 +315,7 @@ namespace QMC.CDT320.Sequencing
             xyTargets[PickerAxis.PickerY] = ResolvePickerZoneY(positionArrayName, index);
             xyTargets[GetPickerTAxis(index)] = ResolveTPosition(positionArrayName) + ResolvePickerAlignOffsetT(index);
 
-            result = await MovePickerAxesAndVerifyAsync(xyTargets, description + " XYT", ct).ConfigureAwait(false);
+            result = await MovePickerAxesAndVerifyAsync(xyTargets, description + " XYT", ct, targetName).ConfigureAwait(false);
             if (result != 0)
                 return result;
 
@@ -319,7 +323,8 @@ namespace QMC.CDT320.Sequencing
                 GetPickerZAxis(index),
                 ResolveZPosition(positionArrayName),
                 description + " Z",
-                ct).ConfigureAwait(false);
+                ct,
+                targetName).ConfigureAwait(false);
         }
 
         protected Task<int> MoveAllPickerZToAvoidAndVerifyAsync(string description, CancellationToken ct)
@@ -329,7 +334,7 @@ namespace QMC.CDT320.Sequencing
             targets[PickerAxis.PickerZ1] = GetPickerTeachingPosition(PickerAxis.PickerZ1, "AvoidPosition");
             targets[PickerAxis.PickerZ2] = GetPickerTeachingPosition(PickerAxis.PickerZ2, "AvoidPosition");
             targets[PickerAxis.PickerZ3] = GetPickerTeachingPosition(PickerAxis.PickerZ3, "AvoidPosition");
-            return MovePickerAxesAndVerifyAsync(targets, description, ct);
+            return MovePickerAxesAndVerifyAsync(targets, description, ct, "AvoidPosition");
         }
 
         protected Task<int> MovePickerGroupAndVerifyAsync(string positionName, string description, CancellationToken ct)
@@ -345,7 +350,7 @@ namespace QMC.CDT320.Sequencing
             targets[PickerAxis.PickerZ1] = GetPickerTeachingPosition(PickerAxis.PickerZ1, positionName);
             targets[PickerAxis.PickerZ2] = GetPickerTeachingPosition(PickerAxis.PickerZ2, positionName);
             targets[PickerAxis.PickerZ3] = GetPickerTeachingPosition(PickerAxis.PickerZ3, positionName);
-            return MovePickerAxesAndVerifyAsync(targets, description, ct);
+            return MovePickerAxesAndVerifyAsync(targets, description, ct, positionName);
         }
 
         protected void SetPickerVacuum(int pickerNo, bool on)
@@ -372,12 +377,12 @@ namespace QMC.CDT320.Sequencing
             ct.ThrowIfCancellationRequested();
         }
 
-        protected Task<int> MovePickerAxisCommandAsync(PickerAxis axis, double target)
+        protected Task<int> MovePickerAxisCommandAsync(PickerAxis axis, double target, string targetName = null)
         {
             bool fine = Options != null && Options.FineMove;
             if (Side == PickerSequenceSide.Front)
-                return FrontPicker.MovePickerAxis(axis, target, fine);
-            return RearPicker.MovePickerAxis(axis, target, fine);
+                return FrontPicker.MovePickerAxis(axis, target, fine, targetName);
+            return RearPicker.MovePickerAxis(axis, target, fine, targetName);
         }
 
         protected async Task<AxisMoveWaitResult> WaitPickerAxisMoveDoneAsync(PickerAxis axis, double target, int timeoutMs, CancellationToken ct)

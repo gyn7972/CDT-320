@@ -1,4 +1,5 @@
 ﻿using QMC.CDT320.Ajin;
+using QMC.CDT320.Interlocks;
 using QMC.CDT320.Motion.SharedRailX;
 using QMC.Common;
 using QMC.Common.Alarms;
@@ -312,6 +313,8 @@ namespace QMC.CDT320
         private readonly Dictionary<PickerAxis, BaseAxis> axes = new Dictionary<PickerAxis, BaseAxis>();
         private readonly string side;
         private readonly IVisionTpuClient vision;
+        private readonly object continuousJogZoneLock = new object();
+        private IDisposable continuousJogZoneScope;
 
         public BaseAxis PickerX { get; private set; }
         public BaseAxis PickerY { get; private set; }
@@ -625,8 +628,35 @@ namespace QMC.CDT320
                 return Task.FromResult(-1);
 
             double speed = UnitJogVelocityResolver.Resolve(axis, speedType, customSpeed);
+            double guardTarget = ResolveContinuousJogGuardTarget(axis, direction);
+            string interlockReason;
+            if (!MotionGuardRuntime.VerifyAxisMove(axis, guardTarget, out interlockReason))
+            {
+                return Task.FromResult(RaisePickerAlarm(
+                    "PK-JOG-INTERLOCK",
+                    "Front picker continuous jog blocked. axis=" + axis.Name +
+                    ", direction=" + direction +
+                    ", guardTarget=" + guardTarget.ToString("0.###") +
+                    ", reason=" + interlockReason));
+            }
+
+            string zoneTargetName = BuildContinuousJogZoneTargetName(pickerAxis);
+            if (pickerAxis == PickerAxis.PickerY)
+                ClearContinuousJogZoneScope();
+
             ManualMovePickerAxisJog(pickerAxis, direction < 0 ? Direction.Minus : Direction.Plus, speed);
+            StartContinuousJogZoneScope(pickerAxis, zoneTargetName);
             return Task.FromResult(0);
+        }
+
+        private double ResolveContinuousJogGuardTarget(BaseAxis axis, int direction)
+        {
+            if (axis == null)
+                return 0.0;
+            if (axis.Setup == null)
+                return axis.ActualPosition;
+
+            return direction > 0 ? axis.Setup.SoftLimitPlus : axis.Setup.SoftLimitMinus;
         }
 
         public Task<int> StopJogAsync(BaseAxis axis)
@@ -637,6 +667,79 @@ namespace QMC.CDT320
 
             ManualStopPickerAxis(pickerAxis);
             return Task.FromResult(0);
+        }
+
+        private string BuildContinuousJogZoneTargetName(PickerAxis axis)
+        {
+            if (axis != PickerAxis.PickerY)
+                return string.Empty;
+
+            string zoneName = ResolveCurrentPickerXWorkZoneName();
+            if (string.Equals(zoneName, "Unknown", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(zoneName, "Avoid", StringComparison.OrdinalIgnoreCase))
+                return string.Empty;
+
+            return "JogContinuous;PickerZone=" + zoneName;
+        }
+
+        private string ResolveCurrentPickerXWorkZoneName()
+        {
+            if (IsPickerAxisInTeachingPosition(PickerAxis.PickerX, "PickPosition"))
+                return "Input";
+            if (IsPickerAxisInTeachingPosition(PickerAxis.PickerX, "BottomPosition"))
+                return "Bottom";
+            if (IsPickerAxisInTeachingPosition(PickerAxis.PickerX, "SidePosition"))
+                return "Side";
+            if (IsPickerAxisInTeachingPosition(PickerAxis.PickerX, "PlacePosition"))
+                return "Output";
+            if (IsPickerAxisInTeachingPosition(PickerAxis.PickerX, "AvoidPosition") ||
+                IsPickerAxisInTeachingPosition(PickerAxis.PickerX, "InputAvoidPosition") ||
+                IsPickerAxisInTeachingPosition(PickerAxis.PickerX, "OutputAvoidPosition"))
+                return "Avoid";
+
+            return "Unknown";
+        }
+
+        private void StartContinuousJogZoneScope(PickerAxis axis, string targetName)
+        {
+            if (axis != PickerAxis.PickerY || string.IsNullOrWhiteSpace(targetName))
+                return;
+
+            IDisposable scope = PickerZoneInterlockRules.BeginPickerZoneMove(side, axis, targetName);
+            lock (continuousJogZoneLock)
+            {
+                continuousJogZoneScope = scope;
+            }
+
+            Task.Run(async delegate
+            {
+                try
+                {
+                    BaseAxis jogAxis = GetAxis(axis);
+                    while (jogAxis != null && jogAxis.IsMoving)
+                        await Task.Delay(20).ConfigureAwait(false);
+                }
+                catch
+                {
+                }
+                finally
+                {
+                    ClearContinuousJogZoneScope();
+                }
+            });
+        }
+
+        private void ClearContinuousJogZoneScope()
+        {
+            IDisposable scope = null;
+            lock (continuousJogZoneLock)
+            {
+                scope = continuousJogZoneScope;
+                continuousJogZoneScope = null;
+            }
+
+            if (scope != null)
+                scope.Dispose();
         }
 
         private bool TryResolvePickerAxis(BaseAxis axis, out PickerAxis pickerAxis)
@@ -656,6 +759,16 @@ namespace QMC.CDT320
 
         public async Task<int> MovePickerAxis(PickerAxis axis, double targetPos, bool bFine = false)
         {
+            return await MovePickerAxisNamed(axis, targetPos, bFine, string.Empty).ConfigureAwait(false);
+        }
+
+        public async Task<int> MovePickerAxis(PickerAxis axis, double targetPos, bool bFine, string targetName)
+        {
+            return await MovePickerAxisNamed(axis, targetPos, bFine, targetName).ConfigureAwait(false);
+        }
+
+        private async Task<int> MovePickerAxisNamed(PickerAxis axis, double targetPos, bool bFine, string targetName)
+        {
             try
             {
                 BaseAxis item = GetAxis(axis);
@@ -663,19 +776,35 @@ namespace QMC.CDT320
                     return RaisePickerAlarm("PK-MOVE-READY", axis + " is not ready to move.");
 
                 EventLogger.Write(EventKind.Event, "QMC", "PK-MOVE", Name + " " + axis + " target=" + targetPos);
-                int result = await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, ResolveMoveVelocity(item, bFine));
-                if (result != 0 || item.IsAlarm)
-                    return RaisePickerAlarm("PK-MOVE", axis + " move failed. result=" + result + ", alarm=" + item.IsAlarm);
+                int result;
+                string guardTargetName = BuildPickerGuardTargetName(axis, targetName);
+                using (PickerZoneInterlockRules.BeginPickerZoneMove(side, axis, guardTargetName))
+                {
+                    if (!string.IsNullOrWhiteSpace(guardTargetName))
+                    {
+                        using (MotionGuardRuntime.BeginAxisTeachingMove(item, targetPos, guardTargetName))
+                        {
+                            result = await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, ResolveMoveVelocity(item, bFine)).ConfigureAwait(false);
+                        }
+                    }
+                    else
+                    {
+                        result = await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, ResolveMoveVelocity(item, bFine)).ConfigureAwait(false);
+                    }
 
-                AxisMoveWaitResult waitResult = await WaitPickerAxisMoveDoneInPosition(
-                    axis,
-                    targetPos,
-                    ResolvePickerAxisMoveTimeoutMs(axis)).ConfigureAwait(false);
-                if (!waitResult.Success)
-                    return RaisePickerAlarm(
-                        AxisMoveWaiter.ResolveAlarmCode("PK-MOVE", waitResult),
-                        axis + " move/in-position wait failed. target=" + targetPos + ". " +
-                        AxisMoveWaiter.FormatResult(waitResult, axis.ToString()));
+                    if (result != 0 || item.IsAlarm)
+                        return RaisePickerAlarm("PK-MOVE", axis + " move failed. result=" + result + ", alarm=" + item.IsAlarm);
+
+                    AxisMoveWaitResult waitResult = await WaitPickerAxisMoveDoneInPosition(
+                        axis,
+                        targetPos,
+                        ResolvePickerAxisMoveTimeoutMs(axis)).ConfigureAwait(false);
+                    if (!waitResult.Success)
+                        return RaisePickerAlarm(
+                            AxisMoveWaiter.ResolveAlarmCode("PK-MOVE", waitResult),
+                            axis + " move/in-position wait failed. target=" + targetPos + ". " +
+                            AxisMoveWaiter.FormatResult(waitResult, axis.ToString()));
+                }
 
                 return 0;
             }
@@ -687,19 +816,45 @@ namespace QMC.CDT320
 
         public async Task<int> MovePickerAxes(Dictionary<PickerAxis, double> targets, bool bFine = false)
         {
+            return await MovePickerAxesNamed(targets, bFine, string.Empty).ConfigureAwait(false);
+        }
+
+        public async Task<int> MovePickerAxes(Dictionary<PickerAxis, double> targets, bool bFine, string targetName)
+        {
+            return await MovePickerAxesNamed(targets, bFine, targetName).ConfigureAwait(false);
+        }
+
+        private async Task<int> MovePickerAxesNamed(Dictionary<PickerAxis, double> targets, bool bFine, string targetName)
+        {
             if (targets == null)
                 return RaisePickerAlarm("PK-MOVE-TARGET", "Picker move target collection is null.");
 
-            List<Task<int>> tasks = new List<Task<int>>();
-            MoveZAxesToSafeFirst(targets, bFine, tasks);
+            int safeResult = await MoveZAxesToSafeFirst(targets, bFine).ConfigureAwait(false);
+            if (safeResult != 0)
+                return safeResult;
 
+            List<Task<int>> tasks = new List<Task<int>>();
             foreach (KeyValuePair<PickerAxis, double> pair in targets)
             {
                 if (!IsZAxis(pair.Key))
-                    tasks.Add(MovePickerAxis(pair.Key, pair.Value, bFine));
+                    tasks.Add(MovePickerAxisNamed(pair.Key, pair.Value, bFine, targetName));
             }
 
-            int[] results = await Task.WhenAll(tasks);
+            int[] results = await Task.WhenAll(tasks).ConfigureAwait(false);
+            for (int i = 0; i < results.Length; i++)
+            {
+                if (results[i] != 0)
+                    return results[i];
+            }
+
+            tasks.Clear();
+            foreach (KeyValuePair<PickerAxis, double> pair in targets)
+            {
+                if (IsZAxis(pair.Key))
+                    tasks.Add(MovePickerAxisNamed(pair.Key, pair.Value, bFine, targetName));
+            }
+
+            results = await Task.WhenAll(tasks).ConfigureAwait(false);
             for (int i = 0; i < results.Length; i++)
             {
                 if (results[i] != 0)
@@ -724,7 +879,7 @@ namespace QMC.CDT320
 
         public Task<int> MovePickerAxisToTeachingPosition(PickerAxis axis, string positionName, bool bFine = false)
         {
-            return MovePickerAxis(axis, GetPickerTeachingPosition(axis, positionName), bFine);
+            return MovePickerAxisNamed(axis, GetPickerTeachingPosition(axis, positionName), bFine, positionName);
         }
 
         public Task<int> MoveToPickerAvoidPosition(bool bFine = false)
@@ -765,13 +920,13 @@ namespace QMC.CDT320
         public Task<int> MovePickerZToPickHeight(int pickerNo, bool bFine = false)
         {
             PickerAxis axis = GetPickerZAxis(pickerNo);
-            return MovePickerAxis(axis, GetPickerTeachingPosition(axis, "PickPosition"), bFine);
+            return MovePickerAxisNamed(axis, GetPickerTeachingPosition(axis, "PickPosition"), bFine, "PickPosition");
         }
 
         public Task<int> MovePickerZToSafeHeight(int pickerNo, bool bFine = false)
         {
             PickerAxis axis = GetPickerZAxis(pickerNo);
-            return MovePickerAxis(axis, GetPickerTeachingPosition(axis, "AvoidPosition"), bFine);
+            return MovePickerAxisNamed(axis, GetPickerTeachingPosition(axis, "AvoidPosition"), bFine, "AvoidPosition");
         }
 
         public Task<int> MovePickerTToOffset(int pickerNo, bool bFine = false)
@@ -779,7 +934,7 @@ namespace QMC.CDT320
             int index = NormalizePickerIndex(pickerNo, MaxPickerCount);
             PickerAxis axis = GetPickerTAxis(index);
             PickerAlignOffset offset = GetRuntimePickerOffset(index) ?? new PickerAlignOffset();
-            return MovePickerAxis(axis, GetPickerTeachingPosition(axis, "PickPosition") + offset.AlignOffsetT, bFine);
+            return MovePickerAxisNamed(axis, GetPickerTeachingPosition(axis, "PickPosition") + offset.AlignOffsetT, bFine, "PickPosition");
         }
 
         public bool IsPickerAxisInPosition(PickerAxis axis, double targetPos, double tolerance)
@@ -1058,6 +1213,8 @@ namespace QMC.CDT320
         public void ManualStopPickerAxis(PickerAxis axis)
         {
             GetAxis(axis).StopJog();
+            if (axis == PickerAxis.PickerY)
+                ClearContinuousJogZoneScope();
         }
 
         public async Task<bool> PickDie(int pickerNo, int timeoutMs, bool bFine = false)
@@ -1280,7 +1437,7 @@ namespace QMC.CDT320
             Dictionary<PickerAxis, double> targets = new Dictionary<PickerAxis, double>();
             foreach (PickerAxis axis in axes.Keys)
                 targets[axis] = GetPickerTeachingPosition(axis, positionName);
-            return MovePickerAxes(targets, bFine);
+            return MovePickerAxesNamed(targets, bFine, positionName);
         }
 
         private async Task<int> MoveToDiePosition(int pickerNo, string positionArrayName, bool bFine)
@@ -1293,7 +1450,7 @@ namespace QMC.CDT320
             targets[PickerAxis.PickerY] = ResolvePickerZoneY(positionArrayName, index);
             targets[GetPickerTAxis(index)] = ResolveTPosition(positionArrayName, index) + offset.AlignOffsetT;
             targets[GetPickerZAxis(index)] = ResolveZPosition(positionArrayName, index);
-            return await MovePickerAxes(targets, bFine);
+            return await MovePickerAxesNamed(targets, bFine, positionArrayName + "[" + index + "]").ConfigureAwait(false);
         }
 
         private double ResolvePickerZoneX(string positionArrayName, int index)
@@ -1466,13 +1623,74 @@ namespace QMC.CDT320
             return axis == PickerAxis.PickerZ0 || axis == PickerAxis.PickerZ1 || axis == PickerAxis.PickerZ2 || axis == PickerAxis.PickerZ3;
         }
 
-        private void MoveZAxesToSafeFirst(Dictionary<PickerAxis, double> targets, bool bFine, List<Task<int>> tasks)
+        private async Task<int> MoveZAxesToSafeFirst(Dictionary<PickerAxis, double> targets, bool bFine)
         {
+            List<Task<int>> tasks = new List<Task<int>>();
             foreach (KeyValuePair<PickerAxis, double> pair in targets)
             {
-                if (IsZAxis(pair.Key) && GetAxis(pair.Key).ActualPosition != pair.Value)
-                    tasks.Add(MovePickerAxis(pair.Key, GetPickerTeachingPosition(pair.Key, "AvoidPosition"), bFine));
+                if (IsZAxis(pair.Key) && !IsPickerAxisInTeachingPosition(pair.Key, "AvoidPosition"))
+                    tasks.Add(MovePickerAxisNamed(pair.Key, GetPickerTeachingPosition(pair.Key, "AvoidPosition"), bFine, "AvoidPosition;PickerPhase=SafeZ"));
             }
+
+            if (tasks.Count == 0)
+                return 0;
+
+            int[] results = await Task.WhenAll(tasks).ConfigureAwait(false);
+            for (int i = 0; i < results.Length; i++)
+            {
+                if (results[i] != 0)
+                    return results[i];
+            }
+
+            foreach (KeyValuePair<PickerAxis, double> pair in targets)
+            {
+                if (!IsZAxis(pair.Key))
+                    continue;
+
+                AxisMoveWaitResult waitResult = await WaitPickerAxisMoveDoneInPosition(
+                    pair.Key,
+                    GetPickerTeachingPosition(pair.Key, "AvoidPosition"),
+                    ResolvePickerAxisMoveTimeoutMs(pair.Key)).ConfigureAwait(false);
+                if (!waitResult.Success)
+                    return RaisePickerAlarm(
+                        AxisMoveWaiter.ResolveAlarmCode("PK-MOVE-SAFE-Z", waitResult),
+                        pair.Key + " safe Z move/in-position wait failed. " +
+                        AxisMoveWaiter.FormatResult(waitResult, pair.Key.ToString()));
+            }
+
+            return 0;
+        }
+
+        private string BuildPickerGuardTargetName(PickerAxis axis, string targetName)
+        {
+            if (string.IsNullOrWhiteSpace(targetName))
+                return string.Empty;
+
+            return side + "Picker;" + axis + ";" + targetName + ";PickerZone=" + ResolvePickerWorkZoneName(targetName);
+        }
+
+        private string ResolvePickerWorkZoneName(string targetName)
+        {
+            string name = targetName ?? string.Empty;
+            if (name.IndexOf("InputAvoidPosition", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                name.IndexOf("OutputAvoidPosition", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                name.IndexOf("AvoidPosition", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                name.IndexOf("SafeRetreat", StringComparison.OrdinalIgnoreCase) >= 0)
+                return "Avoid";
+            if (name.IndexOf("DiePick", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                name.IndexOf("PickPosition", StringComparison.OrdinalIgnoreCase) >= 0)
+                return "Input";
+            if (name.IndexOf("DieBottom", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                name.IndexOf("BottomPosition", StringComparison.OrdinalIgnoreCase) >= 0)
+                return "Bottom";
+            if (name.IndexOf("DieSide", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                name.IndexOf("SidePosition", StringComparison.OrdinalIgnoreCase) >= 0)
+                return "Side";
+            if (name.IndexOf("DiePlace", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                name.IndexOf("PlacePosition", StringComparison.OrdinalIgnoreCase) >= 0)
+                return "Output";
+
+            return "Unknown";
         }
 
         private int RaisePickerAlarm(string code, string message)
@@ -1487,9 +1705,19 @@ namespace QMC.CDT320
             return MovePickerAxis(axis, targetPos, bFine);
         }
 
+        public Task<int> MoveFrontPickerAxis(PickerAxis axis, double targetPos, bool bFine, string targetName)
+        {
+            return MovePickerAxis(axis, targetPos, bFine, targetName);
+        }
+
         public Task<int> MoveFrontPickerAxes(Dictionary<PickerAxis, double> targets, bool bFine = false)
         {
             return MovePickerAxes(targets, bFine);
+        }
+
+        public Task<int> MoveFrontPickerAxes(Dictionary<PickerAxis, double> targets, bool bFine, string targetName)
+        {
+            return MovePickerAxes(targets, bFine, targetName);
         }
 
         public Task<int> MoveFrontPickerAxisToTeachingPosition(PickerAxis axis, string positionName, bool bFine = false)
