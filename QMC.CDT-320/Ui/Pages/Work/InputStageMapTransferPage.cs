@@ -1176,7 +1176,16 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (result != 0)
                     return result;
 
-                Task<int> moveStageY = MoveInputStageYForPickerWorkPointAsync(stage, entry.PosX, targetStageY);
+                result = await MoveOppositePickerToAvoidForManualPickerMoveAsync(host, side).ConfigureAwait(true);
+                if (result != 0)
+                    return result;
+
+                Task<int> moveStageY = PickerInputStageMoveHelper.MoveStageYForPickerWorkPointCommandAsync(
+                    stage,
+                    entry.PosX,
+                    targetStageY,
+                    true,
+                    "InputStageMapTransferPickerMove");
                 string pickerTargetName = "DiePickPosition[" + (pickerNo - 1) + "];ManualInputDieMapMove";
                 Task<int> movePickerX = side == PickerSequenceSide.Front
                     ? host.Machine.PickerFrontUnit.MoveFrontPickerAxis(PickerAxis.PickerX, targetPickerX, true, pickerTargetName)
@@ -1235,16 +1244,57 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
         }
 
-        private static Task<int> MoveInputStageYForPickerWorkPointAsync(InputStageUnit stage, double workAreaVisionX, double targetStageY)
+        private async Task<int> MoveOppositePickerToAvoidForManualPickerMoveAsync(Form1 host, PickerSequenceSide movingSide)
         {
-            if (stage == null || stage.StageY == null)
-                return Task.FromResult(-1);
+            try
+            {
+                PickerSequenceSide oppositeSide = movingSide == PickerSequenceSide.Front
+                    ? PickerSequenceSide.Rear
+                    : PickerSequenceSide.Front;
 
-            string targetName = "InputStageMapTransferPickerMove;InputStageWorkAreaX=" +
-                workAreaVisionX.ToString("R", CultureInfo.InvariantCulture);
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                    ResolvePickerSideName(movingSide) + " picker manual move prepare. " +
+                    ResolvePickerSideName(oppositeSide) + " picker moves to Avoid first. - Start");
 
-            using (QMC.CDT320.Interlocks.MotionGuardRuntime.BeginAxisTeachingMove(stage.StageY, targetStageY, targetName))
-                return stage.MoveInputStageAxis(WaferStageAxis.WaferY, targetStageY, true);
+                int result = await MoveTargetPickerToAvoidAsync(host, oppositeSide).ConfigureAwait(true);
+                if (result != 0)
+                {
+                    string message = ResolvePickerSideName(movingSide) +
+                        " picker manual move blocked. " +
+                        ResolvePickerSideName(oppositeSide) +
+                        " picker Avoid move failed. result=" + result;
+                    QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage", message + " - Failed");
+                    RaiseManualMoveAlarm("IN-STAGE-MAP-OPPOSITE-PICKER-AVOID", message);
+                    return result;
+                }
+
+                if (!IsTargetPickerInAvoidPosition(host, oppositeSide))
+                {
+                    string message = ResolvePickerSideName(movingSide) +
+                        " picker manual move blocked. " +
+                        ResolvePickerSideName(oppositeSide) +
+                        " picker final Avoid position check failed.";
+                    QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage", message + " - Failed");
+                    RaiseManualMoveAlarm("IN-STAGE-MAP-OPPOSITE-PICKER-AVOID-CHECK", message);
+                    return -1;
+                }
+
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                    ResolvePickerSideName(oppositeSide) + " picker Avoid prepare complete for " +
+                    ResolvePickerSideName(movingSide) + " picker manual move. - Ok");
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                string message = ResolvePickerSideName(movingSide) +
+                    " picker manual move prepare failed: " + ex.Message;
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage", message + " - Failed");
+                RaiseManualMoveAlarm("IN-STAGE-MAP-OPPOSITE-PICKER-AVOID-EXCEPTION", message);
+                return -1;
+            }
+            finally
+            {
+            }
         }
 
         private async Task<int> MovePickersToAvoidForVisionMoveAsync(Form1 host)
@@ -1321,42 +1371,101 @@ namespace QMC.CDT_320.Ui.Pages.Work
             try
             {
                 if (host == null || host.Machine == null)
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                        ResolvePickerSideName(side) + " avoid move failed: host or machine is null. - Failed");
                     return -1;
+                }
 
                 if (side == PickerSequenceSide.Front)
                 {
                     PickerFrontUnit front = host.Machine.PickerFrontUnit;
                     if (front == null)
+                    {
+                        QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                            "FRONT avoid move failed: PickerFrontUnit is null. - Failed");
                         return -1;
+                    }
 
                     if (front.IsFrontPickerInAvoidPosition())
                         return 0;
 
                     int result = await front.MoveToFrontPickerAvoidPosition(true).ConfigureAwait(true);
                     if (result != 0)
+                    {
+                        QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                            "FRONT avoid move failed. result=" + result + " - Failed");
                         return result;
+                    }
 
-                    return front.IsFrontPickerInAvoidPosition() ? 0 : -1;
+                    if (!front.IsFrontPickerInAvoidPosition())
+                    {
+                        QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                            "FRONT avoid final check failed. - Failed");
+                        return -1;
+                    }
+
+                    return 0;
                 }
 
                 PickerRearUnit rear = host.Machine.PickerRearUnit;
                 if (rear == null)
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                        "REAR avoid move failed: PickerRearUnit is null. - Failed");
                     return -1;
+                }
 
                 if (rear.IsRearPickerInAvoidPosition())
                     return 0;
 
                 int rearResult = await rear.MoveToRearPickerAvoidPosition(true).ConfigureAwait(true);
                 if (rearResult != 0)
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                        "REAR avoid move failed. result=" + rearResult + " - Failed");
                     return rearResult;
+                }
 
-                return rear.IsRearPickerInAvoidPosition() ? 0 : -1;
+                if (!rear.IsRearPickerInAvoidPosition())
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                        "REAR avoid final check failed. - Failed");
+                    return -1;
+                }
+
+                return 0;
             }
             catch (Exception ex)
             {
                 QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
                     ResolvePickerSideName(side) + " avoid move failed: " + ex.Message + " - Failed");
                 return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool IsTargetPickerInAvoidPosition(Form1 host, PickerSequenceSide side)
+        {
+            try
+            {
+                if (host == null || host.Machine == null)
+                    return false;
+
+                if (side == PickerSequenceSide.Front)
+                {
+                    PickerFrontUnit front = host.Machine.PickerFrontUnit;
+                    return front != null && front.IsFrontPickerInAvoidPosition();
+                }
+
+                PickerRearUnit rear = host.Machine.PickerRearUnit;
+                return rear != null && rear.IsRearPickerInAvoidPosition();
+            }
+            catch
+            {
+                return false;
             }
             finally
             {
@@ -1574,32 +1683,32 @@ namespace QMC.CDT_320.Ui.Pages.Work
             try
             {
                 int index = pickerNo - 1;
-                if (host == null || host.Machine == null || index < 0 || index >= 4)
-                    return false;
+                string reason;
+                bool resolved = PickerCoordinateTransformHelper.TryResolveInputVisionToPickerOffsets(
+                    host != null ? host.Machine : null,
+                    side,
+                    index,
+                    out offsetX,
+                    out offsetY,
+                    out reason);
 
-                if (side == PickerSequenceSide.Front)
+                if (!resolved)
                 {
-                    PickerFrontUnit front = host.Machine.PickerFrontUnit;
-                    if (front == null || front.Setup == null)
-                        return false;
-
-                    front.Setup.EnsureGeometryData();
-                    offsetX = front.Setup.InputVisionToPicker.GetOffsetX(index, front.Setup.PickerPitchX);
-                    offsetY = front.Setup.InputVisionToPicker.GetOffsetY(index, front.Setup.PickerPitchY);
-                    return true;
+                    QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                        "Picker input offset resolve failed. side=" + side +
+                        ", pickerNo=" + pickerNo +
+                        ", pickerIndex=" + index +
+                        ", reason=" + reason + " - Failed");
                 }
 
-                PickerRearUnit rear = host.Machine.PickerRearUnit;
-                if (rear == null || rear.Setup == null)
-                    return false;
-
-                rear.Setup.EnsureGeometryData();
-                offsetX = rear.Setup.InputVisionToPicker.GetOffsetX(index, rear.Setup.PickerPitchX);
-                offsetY = rear.Setup.InputVisionToPicker.GetOffsetY(index, rear.Setup.PickerPitchY);
-                return true;
+                return resolved;
             }
-            catch
+            catch (Exception ex)
             {
+                QMC.Common.Log.Write("Main", "SYSTEM", "InputStageMapTransferPage",
+                    "Picker input offset resolve exception. side=" + side +
+                    ", pickerNo=" + pickerNo +
+                    ", error=" + ex.Message + " - Failed");
                 return false;
             }
             finally

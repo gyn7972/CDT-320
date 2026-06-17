@@ -668,6 +668,8 @@
     <Compile Include="Sequencing\Picker\PickerPlaceStep.cs" />
     <Compile Include="Sequencing\Picker\PickerProcessStep.cs" />
     <Compile Include="Sequencing\Picker\PickerSequenceBase.cs" />
+    <Compile Include="Sequencing\Picker\PickerCoordinateTransformHelper.cs" />
+    <Compile Include="Sequencing\Picker\PickerInputStageMoveHelper.cs" />
     <Compile Include="Sequencing\Picker\PickerPickUpSequence.cs" />
     <Compile Include="Sequencing\Picker\PickerBottomInspectionSequence.cs" />
     <Compile Include="Sequencing\Picker\PickerSideInspectionSequence.cs" />

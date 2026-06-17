@@ -1005,8 +1005,16 @@ namespace QMC.CDT320.Materials
                         if (die == null)
                             continue;
 
-                        if (die.Result == DieResult.NG)
+                        string candidateReason;
+                        if (!CanUseInputPickCandidate(entry, die, out candidateReason))
+                        {
+                            Log.Write("Main", "SYSTEM", "MaterialStateService",
+                                "Input pick target skipped. die=" + die.DieId +
+                                ", sequence=" + entry.SequenceNo +
+                                ", grid=(" + entry.DieMapX + "," + entry.DieMapY + ")" +
+                                ", reason=" + candidateReason + " - Check");
                             continue;
+                        }
 
                         if (IsDieReservedForPicker(die))
                             continue;
@@ -1082,7 +1090,8 @@ namespace QMC.CDT320.Materials
                         if (die == null)
                             continue;
 
-                        if (die.Result == DieResult.NG)
+                        string candidateReason;
+                        if (!CanUseInputPickCandidate(entry, die, out candidateReason))
                             continue;
 
                         if (IsDieReservedForPicker(die))
@@ -1129,7 +1138,7 @@ namespace QMC.CDT320.Materials
                         DieMaterial die = State.Dies.FirstOrDefault(d =>
                             d != null &&
                             string.Equals(d.DieId, dieId, StringComparison.OrdinalIgnoreCase));
-                        if (die == null || die.Result == DieResult.NG)
+                        if (die == null || !die.IsInputTarget || die.Result == DieResult.NG)
                             continue;
 
                         MaterialLocationKind kind = die.CurrentLocation != null
@@ -1197,6 +1206,78 @@ namespace QMC.CDT320.Materials
             {
                 Log.Write("Main", "SYSTEM", "MaterialStateService",
                     "Input pick target reservation release failed: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        public static bool ValidateInputStagePickTarget(
+            string dieId,
+            MaterialLocationKind pickerLocation,
+            int pickerNo,
+            out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                lock (_stateSync)
+                {
+                    if (string.IsNullOrWhiteSpace(dieId))
+                    {
+                        reason = "dieId is empty.";
+                        return false;
+                    }
+
+                    DieMaterial die = State.Dies.FirstOrDefault(d =>
+                        d != null &&
+                        string.Equals(d.DieId, dieId, StringComparison.OrdinalIgnoreCase));
+                    if (die == null)
+                    {
+                        reason = "die material not found. dieId=" + dieId;
+                        return false;
+                    }
+
+                    bool reservedByPicker =
+                        die.ReservedPickerLocation == pickerLocation &&
+                        die.ReservedPickerNo == pickerNo;
+                    if (!reservedByPicker)
+                    {
+                        reason = "die is not reserved by current picker. die=" + dieId +
+                                 ", reservedLocation=" + die.ReservedPickerLocation +
+                                 ", reservedPickerNo=" + die.ReservedPickerNo +
+                                 ", requestLocation=" + pickerLocation +
+                                 ", requestPickerNo=" + pickerNo;
+                        return false;
+                    }
+
+                    string candidateReason;
+                    if (!CanUseInputPickCandidate(null, die, out candidateReason))
+                    {
+                        reason = candidateReason;
+                        return false;
+                    }
+
+                    MaterialLocationKind kind = die.CurrentLocation != null
+                        ? die.CurrentLocation.Kind
+                        : MaterialLocationKind.Unknown;
+
+                    if (kind != MaterialLocationKind.Unknown && kind != MaterialLocationKind.InputStage)
+                    {
+                        reason = "die location is not InputStage. die=" + dieId + ", location=" + kind;
+                        return false;
+                    }
+
+                    return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                reason = "input pick target validate exception: " + ex.Message;
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "Input pick target validate failed: " + reason + " - Failed");
+                return false;
             }
             finally
             {
@@ -1544,6 +1625,54 @@ namespace QMC.CDT320.Materials
             return (die.ReservedPickerLocation == MaterialLocationKind.PickerFront ||
                     die.ReservedPickerLocation == MaterialLocationKind.PickerRear) &&
                    die.ReservedPickerNo > 0;
+        }
+
+        private static bool CanUseInputPickCandidate(DieMapEntry entry, DieMaterial die, out string reason)
+        {
+            reason = string.Empty;
+
+            if (die == null)
+            {
+                reason = "die material is null.";
+                return false;
+            }
+
+            if (entry != null)
+            {
+                if (!entry.IsTarget)
+                {
+                    reason = "die map target is disabled. die=" + entry.DieUid +
+                             ", sequence=" + entry.SequenceNo +
+                             ", grid=(" + entry.DieMapX + "," + entry.DieMapY + ")";
+                    return false;
+                }
+
+                if (entry.Result == DieResult.NG)
+                {
+                    reason = "die map result is NG. die=" + entry.DieUid +
+                             ", sequence=" + entry.SequenceNo +
+                             ", grid=(" + entry.DieMapX + "," + entry.DieMapY + ")";
+                    return false;
+                }
+            }
+
+            if (!die.IsInputTarget)
+            {
+                reason = "die input target is disabled. die=" + die.DieId +
+                         ", sequence=" + die.InputSequenceNo +
+                         ", grid=(" + die.Wafer_IndexX + "," + die.Wafer_IndexY + ")";
+                return false;
+            }
+
+            if (die.Result == DieResult.NG)
+            {
+                reason = "die result is NG. die=" + die.DieId +
+                         ", sequence=" + die.InputSequenceNo +
+                         ", grid=(" + die.Wafer_IndexX + "," + die.Wafer_IndexY + ")";
+                return false;
+            }
+
+            return true;
         }
 
         public static void UpsertInspection(string dieId, DieInspectionRecord record)

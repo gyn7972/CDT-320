@@ -19,6 +19,22 @@ namespace QMC.CDT320.Interlocks
         private static readonly object activeZoneLock = new object();
         private static PickerWorkZone frontPickerYActiveTargetZone = PickerWorkZone.Unknown;
         private static PickerWorkZone rearPickerYActiveTargetZone = PickerWorkZone.Unknown;
+        private static int frontInputPickAreaUseCount;
+        private static int rearInputPickAreaUseCount;
+        private static string frontInputPickAreaOwner = string.Empty;
+        private static string rearInputPickAreaOwner = string.Empty;
+        private static int frontBottomAreaUseCount;
+        private static int rearBottomAreaUseCount;
+        private static string frontBottomAreaOwner = string.Empty;
+        private static string rearBottomAreaOwner = string.Empty;
+        private static int frontSideAreaUseCount;
+        private static int rearSideAreaUseCount;
+        private static string frontSideAreaOwner = string.Empty;
+        private static string rearSideAreaOwner = string.Empty;
+        private static int frontOutputAreaUseCount;
+        private static int rearOutputAreaUseCount;
+        private static string frontOutputAreaOwner = string.Empty;
+        private static string rearOutputAreaOwner = string.Empty;
 
         public static IDisposable BeginPickerZoneMove(string side, PickerAxis axis, string targetName)
         {
@@ -38,6 +54,21 @@ namespace QMC.CDT320.Interlocks
 
                 return new ActiveZoneScope(isFront, previous, true);
             }
+        }
+
+        public static IDisposable BeginInputPickAreaUse(bool isFront, string owner)
+        {
+            return BeginPickerWorkAreaUse(isFront, PickerWorkZone.Input, owner);
+        }
+
+        public static IDisposable BeginPickerWorkAreaUse(bool isFront, PickerWorkZone zone, string owner)
+        {
+            lock (activeZoneLock)
+            {
+                AddPickerWorkAreaUse(isFront, zone, owner);
+            }
+
+            return new PickerWorkAreaScope(isFront, zone);
         }
 
         public static bool VerifyFrontPickerXMove(MotionGuardRuleContext request, out string reason)
@@ -93,6 +124,39 @@ namespace QMC.CDT320.Interlocks
                 BaseAxis ownY = GetPickerY(request.Machine, isFront);
                 PickerWorkZone currentZone = ResolveCurrentXZone(request.Machine, isFront);
                 PickerWorkZone targetZone = ResolveTargetXZone(request, isFront);
+
+                string occupiedOwner;
+                if (targetZone == PickerWorkZone.Input &&
+                    IsOtherPickerWorkAreaActive(isFront, targetZone, out occupiedOwner))
+                {
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        BuildXBlockedMessage(
+                            movingName,
+                            "Input pickup area is occupied by the opposite picker. owner=" + occupiedOwner,
+                            ownX,
+                            ownY,
+                            currentZone,
+                            targetZone),
+                        out reason);
+                }
+
+                if (targetZone != PickerWorkZone.Unknown &&
+                    targetZone != PickerWorkZone.Input &&
+                    !IsAvoidZone(targetZone) &&
+                    IsOtherPickerWorkAreaActive(isFront, targetZone, out occupiedOwner))
+                {
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        BuildXBlockedMessage(
+                            movingName,
+                            "Picker work area is occupied by the opposite picker. owner=" + occupiedOwner,
+                            ownX,
+                            ownY,
+                            currentZone,
+                            targetZone),
+                        out reason);
+                }
 
                 if (IsAvoidZone(targetZone))
                 {
@@ -162,6 +226,38 @@ namespace QMC.CDT320.Interlocks
                         movingName,
                         movingName + " Y move blocked. Target zone is unknown. Use a named picker zone move or move Y to Avoid first. target=" +
                         request.TargetValue.ToString("0.###") + ", targetName=" + request.TargetName,
+                        out reason);
+                }
+
+                string occupiedOwner;
+                if (targetZone == PickerWorkZone.Input &&
+                    IsOtherPickerWorkAreaActive(isFront, targetZone, out occupiedOwner))
+                {
+                    string otherActiveName = isFront ? "RearPicker" : "FrontPicker";
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        movingName + " Y forward move blocked. Input pickup area is occupied by " +
+                        otherActiveName + ". owner=" + occupiedOwner +
+                        ", targetZone=" + targetZone +
+                        ", target=" + request.TargetValue.ToString("0.###") +
+                        ", targetName=" + request.TargetName,
+                        out reason);
+                }
+
+                if (targetZone != PickerWorkZone.Unknown &&
+                    targetZone != PickerWorkZone.Input &&
+                    !IsAvoidZone(targetZone) &&
+                    IsOtherPickerWorkAreaActive(isFront, targetZone, out occupiedOwner))
+                {
+                    string otherActiveName = isFront ? "RearPicker" : "FrontPicker";
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        movingName + " Y forward move blocked. " + targetZone +
+                        " work area is occupied by " + otherActiveName +
+                        ". owner=" + occupiedOwner +
+                        ", targetZone=" + targetZone +
+                        ", target=" + request.TargetValue.ToString("0.###") +
+                        ", targetName=" + request.TargetName,
                         out reason);
                 }
 
@@ -455,6 +551,166 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
+        private static bool IsOtherPickerWorkAreaActive(bool isFront, PickerWorkZone zone, out string owner)
+        {
+            lock (activeZoneLock)
+            {
+                return IsPickerWorkAreaActive(!isFront, zone, out owner);
+            }
+        }
+
+        private static bool IsPickerWorkAreaActive(bool isFront, PickerWorkZone zone, out string owner)
+        {
+            owner = string.Empty;
+
+            switch (zone)
+            {
+                case PickerWorkZone.Input:
+                    owner = isFront ? frontInputPickAreaOwner : rearInputPickAreaOwner;
+                    return isFront ? frontInputPickAreaUseCount > 0 : rearInputPickAreaUseCount > 0;
+                case PickerWorkZone.Bottom:
+                    owner = isFront ? frontBottomAreaOwner : rearBottomAreaOwner;
+                    return isFront ? frontBottomAreaUseCount > 0 : rearBottomAreaUseCount > 0;
+                case PickerWorkZone.Side:
+                    owner = isFront ? frontSideAreaOwner : rearSideAreaOwner;
+                    return isFront ? frontSideAreaUseCount > 0 : rearSideAreaUseCount > 0;
+                case PickerWorkZone.Output:
+                    owner = isFront ? frontOutputAreaOwner : rearOutputAreaOwner;
+                    return isFront ? frontOutputAreaUseCount > 0 : rearOutputAreaUseCount > 0;
+                default:
+                    owner = string.Empty;
+                    return false;
+            }
+        }
+
+        private static void AddPickerWorkAreaUse(bool isFront, PickerWorkZone zone, string owner)
+        {
+            string safeOwner = owner ?? string.Empty;
+
+            switch (zone)
+            {
+                case PickerWorkZone.Input:
+                    if (isFront)
+                    {
+                        frontInputPickAreaUseCount++;
+                        frontInputPickAreaOwner = safeOwner;
+                    }
+                    else
+                    {
+                        rearInputPickAreaUseCount++;
+                        rearInputPickAreaOwner = safeOwner;
+                    }
+                    break;
+                case PickerWorkZone.Bottom:
+                    if (isFront)
+                    {
+                        frontBottomAreaUseCount++;
+                        frontBottomAreaOwner = safeOwner;
+                    }
+                    else
+                    {
+                        rearBottomAreaUseCount++;
+                        rearBottomAreaOwner = safeOwner;
+                    }
+                    break;
+                case PickerWorkZone.Side:
+                    if (isFront)
+                    {
+                        frontSideAreaUseCount++;
+                        frontSideAreaOwner = safeOwner;
+                    }
+                    else
+                    {
+                        rearSideAreaUseCount++;
+                        rearSideAreaOwner = safeOwner;
+                    }
+                    break;
+                case PickerWorkZone.Output:
+                    if (isFront)
+                    {
+                        frontOutputAreaUseCount++;
+                        frontOutputAreaOwner = safeOwner;
+                    }
+                    else
+                    {
+                        rearOutputAreaUseCount++;
+                        rearOutputAreaOwner = safeOwner;
+                    }
+                    break;
+            }
+        }
+
+        private static void RemovePickerWorkAreaUse(bool isFront, PickerWorkZone zone)
+        {
+            switch (zone)
+            {
+                case PickerWorkZone.Input:
+                    if (isFront)
+                    {
+                        if (frontInputPickAreaUseCount > 0)
+                            frontInputPickAreaUseCount--;
+                        if (frontInputPickAreaUseCount == 0)
+                            frontInputPickAreaOwner = string.Empty;
+                    }
+                    else
+                    {
+                        if (rearInputPickAreaUseCount > 0)
+                            rearInputPickAreaUseCount--;
+                        if (rearInputPickAreaUseCount == 0)
+                            rearInputPickAreaOwner = string.Empty;
+                    }
+                    break;
+                case PickerWorkZone.Bottom:
+                    if (isFront)
+                    {
+                        if (frontBottomAreaUseCount > 0)
+                            frontBottomAreaUseCount--;
+                        if (frontBottomAreaUseCount == 0)
+                            frontBottomAreaOwner = string.Empty;
+                    }
+                    else
+                    {
+                        if (rearBottomAreaUseCount > 0)
+                            rearBottomAreaUseCount--;
+                        if (rearBottomAreaUseCount == 0)
+                            rearBottomAreaOwner = string.Empty;
+                    }
+                    break;
+                case PickerWorkZone.Side:
+                    if (isFront)
+                    {
+                        if (frontSideAreaUseCount > 0)
+                            frontSideAreaUseCount--;
+                        if (frontSideAreaUseCount == 0)
+                            frontSideAreaOwner = string.Empty;
+                    }
+                    else
+                    {
+                        if (rearSideAreaUseCount > 0)
+                            rearSideAreaUseCount--;
+                        if (rearSideAreaUseCount == 0)
+                            rearSideAreaOwner = string.Empty;
+                    }
+                    break;
+                case PickerWorkZone.Output:
+                    if (isFront)
+                    {
+                        if (frontOutputAreaUseCount > 0)
+                            frontOutputAreaUseCount--;
+                        if (frontOutputAreaUseCount == 0)
+                            frontOutputAreaOwner = string.Empty;
+                    }
+                    else
+                    {
+                        if (rearOutputAreaUseCount > 0)
+                            rearOutputAreaUseCount--;
+                        if (rearOutputAreaUseCount == 0)
+                            rearOutputAreaOwner = string.Empty;
+                    }
+                    break;
+            }
+        }
+
         private static bool IsAvoidZone(PickerWorkZone zone)
         {
             return zone == PickerWorkZone.Avoid;
@@ -485,6 +741,32 @@ namespace QMC.CDT320.Interlocks
                         frontPickerYActiveTargetZone = previous;
                     else
                         rearPickerYActiveTargetZone = previous;
+                }
+
+                disposed = true;
+            }
+        }
+
+        private sealed class PickerWorkAreaScope : IDisposable
+        {
+            private readonly bool isFront;
+            private readonly PickerWorkZone zone;
+            private bool disposed;
+
+            public PickerWorkAreaScope(bool isFront, PickerWorkZone zone)
+            {
+                this.isFront = isFront;
+                this.zone = zone;
+            }
+
+            public void Dispose()
+            {
+                if (disposed)
+                    return;
+
+                lock (activeZoneLock)
+                {
+                    RemovePickerWorkAreaUse(isFront, zone);
                 }
 
                 disposed = true;

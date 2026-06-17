@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using QMC.Common;
 using QMC.Common.Alarms;
 using QMC.Common.Motion;
+using QMC.CDT320.Interlocks;
 using QMC.CDT320.Materials;
 
 namespace QMC.CDT320.Sequencing
@@ -29,6 +30,8 @@ namespace QMC.CDT320.Sequencing
         protected string Name { get; private set; }
         protected PickerSequenceOptions Options { get; private set; }
         protected TStep CurrentStep { get; set; }
+        private IDisposable pickerWorkAreaScope;
+        private PickerWorkZone pickerWorkAreaZone = PickerWorkZone.Unknown;
 
         protected PickerFrontUnit FrontPicker
         {
@@ -218,6 +221,14 @@ namespace QMC.CDT320.Sequencing
             {
                 ct.ThrowIfCancellationRequested();
 
+                if (IsPickerAxisAlreadyInPosition(axis, target))
+                {
+                    WriteLog("PickerMove",
+                        Name + " " + description + " move skipped. Axis already in position. " +
+                        BuildPickerAxisState(axis, target) + " - Ok");
+                    return 0;
+                }
+
                 int result = await MovePickerAxisCommandAsync(axis, target, targetName).ConfigureAwait(false);
                 if (result != 0)
                     return Fail("PICKER-MOVE-CMD", Name, description + " move command failed. result=" + result + ", " + BuildPickerAxisState(axis, target));
@@ -227,6 +238,13 @@ namespace QMC.CDT320.Sequencing
                     return Fail(ResolveAxisMoveWaitAlarmCode("PICKER-MOVE", waitResult), Name,
                         description + " move/in-position wait failed. " +
                         FormatAxisMoveWaitResult(waitResult, BuildPickerAxisState(axis, target)));
+
+                if (!IsPickerAxisInPosition(axis, target))
+                {
+                    return Fail("PICKER-MOVE-FINAL-POS", Name,
+                        description + " final position check failed after move. " +
+                        BuildPickerAxisState(axis, target));
+                }
 
                 ct.ThrowIfCancellationRequested();
                 return 0;
@@ -258,31 +276,54 @@ namespace QMC.CDT320.Sequencing
                 ct.ThrowIfCancellationRequested();
 
                 var commandTasks = new List<Task<int>>();
-                foreach (KeyValuePair<PickerAxis, double> pair in targets)
-                    commandTasks.Add(MovePickerAxisCommandAsync(pair.Key, pair.Value, targetName));
-
-                int[] commandResults = await Task.WhenAll(commandTasks).ConfigureAwait(false);
-                int commandIndex = 0;
+                var commandTargets = new List<KeyValuePair<PickerAxis, double>>();
                 foreach (KeyValuePair<PickerAxis, double> pair in targets)
                 {
-                    if (commandResults[commandIndex] != 0)
-                        return Fail("PICKER-MOVE-CMD", Name, description + " move command failed. result=" + commandResults[commandIndex] + ", " + BuildPickerAxisState(pair.Key, pair.Value));
-                    commandIndex++;
+                    if (IsPickerAxisAlreadyInPosition(pair.Key, pair.Value))
+                    {
+                        WriteLog("PickerMove",
+                            Name + " " + description + " move skipped. Axis already in position. " +
+                            BuildPickerAxisState(pair.Key, pair.Value) + " - Ok");
+                        continue;
+                    }
+
+                    commandTargets.Add(pair);
+                    commandTasks.Add(MovePickerAxisCommandAsync(pair.Key, pair.Value, targetName));
                 }
 
-                var waitTasks = new List<Task<AxisMoveWaitResult>>();
-                foreach (KeyValuePair<PickerAxis, double> pair in targets)
-                    waitTasks.Add(WaitPickerAxisMoveDoneAsync(pair.Key, pair.Value, ResolveTimeout(), ct));
+                if (commandTasks.Count > 0)
+                {
+                    int[] commandResults = await Task.WhenAll(commandTasks).ConfigureAwait(false);
+                    for (int commandIndex = 0; commandIndex < commandTargets.Count; commandIndex++)
+                    {
+                        KeyValuePair<PickerAxis, double> pair = commandTargets[commandIndex];
+                        if (commandResults[commandIndex] != 0)
+                            return Fail("PICKER-MOVE-CMD", Name, description + " move command failed. result=" + commandResults[commandIndex] + ", " + BuildPickerAxisState(pair.Key, pair.Value));
+                    }
 
-                AxisMoveWaitResult[] waitResults = await Task.WhenAll(waitTasks).ConfigureAwait(false);
-                int waitIndex = 0;
+                    var waitTasks = new List<Task<AxisMoveWaitResult>>();
+                    foreach (KeyValuePair<PickerAxis, double> pair in commandTargets)
+                        waitTasks.Add(WaitPickerAxisMoveDoneAsync(pair.Key, pair.Value, ResolveTimeout(), ct));
+
+                    AxisMoveWaitResult[] waitResults = await Task.WhenAll(waitTasks).ConfigureAwait(false);
+                    for (int waitIndex = 0; waitIndex < commandTargets.Count; waitIndex++)
+                    {
+                        KeyValuePair<PickerAxis, double> pair = commandTargets[waitIndex];
+                        if (waitResults[waitIndex] == null || !waitResults[waitIndex].Success)
+                            return Fail(ResolveAxisMoveWaitAlarmCode("PICKER-MOVE", waitResults[waitIndex]), Name,
+                                description + " move/in-position wait failed. " +
+                                FormatAxisMoveWaitResult(waitResults[waitIndex], BuildPickerAxisState(pair.Key, pair.Value)));
+                    }
+                }
+
                 foreach (KeyValuePair<PickerAxis, double> pair in targets)
                 {
-                    if (waitResults[waitIndex] == null || !waitResults[waitIndex].Success)
-                        return Fail(ResolveAxisMoveWaitAlarmCode("PICKER-MOVE", waitResults[waitIndex]), Name,
-                            description + " move/in-position wait failed. " +
-                            FormatAxisMoveWaitResult(waitResults[waitIndex], BuildPickerAxisState(pair.Key, pair.Value)));
-                    waitIndex++;
+                    if (!IsPickerAxisInPosition(pair.Key, pair.Value))
+                    {
+                        return Fail("PICKER-MOVE-FINAL-POS", Name,
+                            description + " final position check failed after parallel move. " +
+                            BuildPickerAxisState(pair.Key, pair.Value));
+                    }
                 }
 
                 ct.ThrowIfCancellationRequested();
@@ -353,6 +394,145 @@ namespace QMC.CDT320.Sequencing
             return MovePickerAxesAndVerifyAsync(targets, description, ct, positionName);
         }
 
+        protected async Task<int> MoveOppositePickerToAvoidAndVerifyAsync(string description, CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                bool fine = Options != null && Options.FineMove;
+
+                if (Side == PickerSequenceSide.Front)
+                {
+                    if (RearPicker == null)
+                    {
+                        WriteLog("PickerOppositeAvoid",
+                            Name + " opposite picker avoid skipped. RearPickerUnit is null. description=" + description + " - Check");
+                        return 0;
+                    }
+
+                    if (!RearPicker.IsRearPickerInAvoidPosition())
+                    {
+                        int result = await RearPicker.MoveToRearPickerAvoidPosition(fine).ConfigureAwait(false);
+                        if (result != 0)
+                        {
+                            return Fail("PICKER-OPPOSITE-AVOID", "RearPickerUnit",
+                                description + " failed. result=" + result);
+                        }
+                    }
+
+                    if (!RearPicker.IsRearPickerInAvoidPosition())
+                    {
+                        return Fail("PICKER-OPPOSITE-AVOID-CHECK", "RearPickerUnit",
+                            description + " final position check failed. RearPicker is not at AvoidPosition.");
+                    }
+
+                    return 0;
+                }
+
+                if (FrontPicker == null)
+                {
+                    WriteLog("PickerOppositeAvoid",
+                        Name + " opposite picker avoid skipped. FrontPickerUnit is null. description=" + description + " - Check");
+                    return 0;
+                }
+
+                if (!FrontPicker.IsFrontPickerInAvoidPosition())
+                {
+                    int result = await FrontPicker.MoveToFrontPickerAvoidPosition(fine).ConfigureAwait(false);
+                    if (result != 0)
+                    {
+                        return Fail("PICKER-OPPOSITE-AVOID", "FrontPickerUnit",
+                            description + " failed. result=" + result);
+                    }
+                }
+
+                if (!FrontPicker.IsFrontPickerInAvoidPosition())
+                {
+                    return Fail("PICKER-OPPOSITE-AVOID-CHECK", "FrontPickerUnit",
+                        description + " final position check failed. FrontPicker is not at AvoidPosition.");
+                }
+
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-OPPOSITE-AVOID-EX", Name,
+                    description + " exception: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        protected void EnsurePickerWorkAreaReserved(PickerWorkZone zone, string description)
+        {
+            try
+            {
+                if (zone == PickerWorkZone.Unknown || zone == PickerWorkZone.Avoid)
+                    return;
+
+                if (pickerWorkAreaScope != null && pickerWorkAreaZone == zone)
+                    return;
+
+                ReleasePickerWorkArea();
+
+                pickerWorkAreaScope = PickerZoneInterlockRules.BeginPickerWorkAreaUse(
+                    Side == PickerSequenceSide.Front,
+                    zone,
+                    Name + ":" + description);
+                pickerWorkAreaZone = zone;
+
+                WriteLog("PickerWorkArea",
+                    Name + " reserved picker work area. side=" + Side +
+                    ", zone=" + zone +
+                    ", description=" + description + " - Ok");
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PickerWorkArea",
+                    Name + " picker work area reservation failed. side=" + Side +
+                    ", zone=" + zone +
+                    ", description=" + description +
+                    ", error=" + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        protected void ReleasePickerWorkArea()
+        {
+            try
+            {
+                if (pickerWorkAreaScope == null)
+                    return;
+
+                PickerWorkZone releasedZone = pickerWorkAreaZone;
+                pickerWorkAreaScope.Dispose();
+                pickerWorkAreaScope = null;
+                pickerWorkAreaZone = PickerWorkZone.Unknown;
+
+                WriteLog("PickerWorkArea",
+                    Name + " released picker work area. side=" + Side +
+                    ", zone=" + releasedZone + " - Ok");
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PickerWorkArea",
+                    Name + " picker work area release failed. side=" + Side +
+                    ", zone=" + pickerWorkAreaZone +
+                    ", error=" + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
         protected void SetPickerVacuum(int pickerNo, bool on)
         {
             if (Side == PickerSequenceSide.Front)
@@ -415,6 +595,15 @@ namespace QMC.CDT320.Sequencing
             if (Side == PickerSequenceSide.Front)
                 return FrontPicker.IsPickerAxisInPosition(axis, target, tolerance);
             return RearPicker.IsPickerAxisInPosition(axis, target, tolerance);
+        }
+
+        protected bool IsPickerAxisAlreadyInPosition(PickerAxis axis, double target)
+        {
+            BaseAxis item = GetPickerAxis(axis);
+            if (item == null || item.IsMoving)
+                return false;
+
+            return IsPickerAxisInPosition(axis, target);
         }
 
         protected string BuildPickerAxisState(PickerAxis axis, double target)
@@ -567,70 +756,80 @@ namespace QMC.CDT320.Sequencing
 
         protected double ResolveInputVisionToPickerXOffset(int index)
         {
-            if (Side == PickerSequenceSide.Front && FrontPicker != null && FrontPicker.Setup != null)
-            {
-                FrontPicker.Setup.EnsureGeometryData();
-                return FrontPicker.Setup.InputVisionToPicker.GetOffsetX(index, FrontPicker.Setup.PickerPitchX);
-            }
+            double offsetX;
+            double offsetY;
+            string reason;
+            if (TryResolveInputVisionToPickerOffsets(index, out offsetX, out offsetY, out reason))
+                return offsetX;
 
-            if (Side == PickerSequenceSide.Rear && RearPicker != null && RearPicker.Setup != null)
-            {
-                RearPicker.Setup.EnsureGeometryData();
-                return RearPicker.Setup.InputVisionToPicker.GetOffsetX(index, RearPicker.Setup.PickerPitchX);
-            }
-
+            WriteLog("PickerCoordinate",
+                Name + " failed to resolve InputVisionToPicker X offset. pickerIndex=" +
+                index + ", reason=" + reason + " - Failed");
             return 0.0;
         }
 
         protected double ResolveInputVisionToPickerYOffset(int index)
         {
-            if (Side == PickerSequenceSide.Front && FrontPicker != null && FrontPicker.Setup != null)
-            {
-                FrontPicker.Setup.EnsureGeometryData();
-                return FrontPicker.Setup.InputVisionToPicker.GetOffsetY(index, FrontPicker.Setup.PickerPitchY);
-            }
+            double offsetX;
+            double offsetY;
+            string reason;
+            if (TryResolveInputVisionToPickerOffsets(index, out offsetX, out offsetY, out reason))
+                return offsetY;
 
-            if (Side == PickerSequenceSide.Rear && RearPicker != null && RearPicker.Setup != null)
-            {
-                RearPicker.Setup.EnsureGeometryData();
-                return RearPicker.Setup.InputVisionToPicker.GetOffsetY(index, RearPicker.Setup.PickerPitchY);
-            }
-
+            WriteLog("PickerCoordinate",
+                Name + " failed to resolve InputVisionToPicker Y offset. pickerIndex=" +
+                index + ", reason=" + reason + " - Failed");
             return 0.0;
         }
 
         protected double ResolveOutputVisionToPickerXOffset(int index)
         {
-            if (Side == PickerSequenceSide.Front && FrontPicker != null && FrontPicker.Setup != null)
-            {
-                FrontPicker.Setup.EnsureGeometryData();
-                return FrontPicker.Setup.OutputVisionToPicker.GetOffsetX(index, FrontPicker.Setup.PickerPitchX);
-            }
+            double offsetX;
+            double offsetY;
+            string reason;
+            if (TryResolveOutputVisionToPickerOffsets(index, out offsetX, out offsetY, out reason))
+                return offsetX;
 
-            if (Side == PickerSequenceSide.Rear && RearPicker != null && RearPicker.Setup != null)
-            {
-                RearPicker.Setup.EnsureGeometryData();
-                return RearPicker.Setup.OutputVisionToPicker.GetOffsetX(index, RearPicker.Setup.PickerPitchX);
-            }
-
+            WriteLog("PickerCoordinate",
+                Name + " failed to resolve OutputVisionToPicker X offset. pickerIndex=" +
+                index + ", reason=" + reason + " - Failed");
             return 0.0;
         }
 
         protected double ResolveOutputVisionToPickerYOffset(int index)
         {
-            if (Side == PickerSequenceSide.Front && FrontPicker != null && FrontPicker.Setup != null)
-            {
-                FrontPicker.Setup.EnsureGeometryData();
-                return FrontPicker.Setup.OutputVisionToPicker.GetOffsetY(index, FrontPicker.Setup.PickerPitchY);
-            }
+            double offsetX;
+            double offsetY;
+            string reason;
+            if (TryResolveOutputVisionToPickerOffsets(index, out offsetX, out offsetY, out reason))
+                return offsetY;
 
-            if (Side == PickerSequenceSide.Rear && RearPicker != null && RearPicker.Setup != null)
-            {
-                RearPicker.Setup.EnsureGeometryData();
-                return RearPicker.Setup.OutputVisionToPicker.GetOffsetY(index, RearPicker.Setup.PickerPitchY);
-            }
-
+            WriteLog("PickerCoordinate",
+                Name + " failed to resolve OutputVisionToPicker Y offset. pickerIndex=" +
+                index + ", reason=" + reason + " - Failed");
             return 0.0;
+        }
+
+        protected bool TryResolveInputVisionToPickerOffsets(int index, out double offsetX, out double offsetY, out string reason)
+        {
+            return PickerCoordinateTransformHelper.TryResolveInputVisionToPickerOffsets(
+                Context != null ? Context.Machine : null,
+                Side,
+                index,
+                out offsetX,
+                out offsetY,
+                out reason);
+        }
+
+        protected bool TryResolveOutputVisionToPickerOffsets(int index, out double offsetX, out double offsetY, out string reason)
+        {
+            return PickerCoordinateTransformHelper.TryResolveOutputVisionToPickerOffsets(
+                Context != null ? Context.Machine : null,
+                Side,
+                index,
+                out offsetX,
+                out offsetY,
+                out reason);
         }
 
         private PickerAlignOffset ResolvePickerAlignOffset(int index)

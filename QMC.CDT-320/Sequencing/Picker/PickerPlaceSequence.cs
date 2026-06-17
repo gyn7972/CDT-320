@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using QMC.CDT320.Materials;
+using QMC.CDT320.Interlocks;
 using QMC.Common.Motion;
 
 namespace QMC.CDT320.Sequencing
@@ -227,6 +228,8 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> MoveAllPickerZToAvoidAsync(CancellationToken ct)
         {
+            EnsurePickerWorkAreaReserved(PickerWorkZone.Output, "Place");
+
             int result = await MoveAllPickerZToAvoidAndVerifyAsync("place pre all picker Z avoid", ct).ConfigureAwait(false);
             if (result != 0)
                 return result;
@@ -631,6 +634,8 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
+                ReleasePickerWorkArea();
+
                 if (_outputPlaceLease == null)
                     return;
 

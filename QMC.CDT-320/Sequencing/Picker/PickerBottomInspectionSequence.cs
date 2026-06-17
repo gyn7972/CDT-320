@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using QMC.CDT320.Interlocks;
 using QMC.CDT320.Materials;
 
 namespace QMC.CDT320.Sequencing
@@ -204,6 +205,8 @@ namespace QMC.CDT320.Sequencing
                 if (_inspectionAreaLease == null)
                     return -1;
             }
+
+            EnsurePickerWorkAreaReserved(PickerWorkZone.Bottom, "BottomInspection");
 
             int result = await MoveAllPickerZToAvoidAndVerifyAsync("bottom inspection pre all picker Z avoid", ct).ConfigureAwait(false);
             if (result != 0)
@@ -491,6 +494,8 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
+                ReleasePickerWorkArea();
+
                 if (_inspectionAreaLease == null)
                     return;
 
