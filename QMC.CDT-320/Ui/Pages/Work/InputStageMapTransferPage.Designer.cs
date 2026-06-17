@@ -905,7 +905,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             // colTarget
             // 
             this.colTarget.FillWeight = 65F;
-            this.colTarget.HeaderText = "Target";
+            this.colTarget.HeaderText = "State";
             this.colTarget.Name = "colTarget";
             this.colTarget.ReadOnly = true;
             this.colTarget.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;

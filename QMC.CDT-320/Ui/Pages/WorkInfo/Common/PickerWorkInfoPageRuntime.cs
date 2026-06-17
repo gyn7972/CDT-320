@@ -405,6 +405,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private async Task RunSequenceAction(string actionName, SequenceRunMode mode, PickerManualSequenceKind kind)
         {
             IDisposable manualScope = null;
+            bool showFailure = false;
+            string exceptionMessage = null;
             try
             {
                 Form1 host = _getHost();
@@ -436,7 +438,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 bool ok = await actionTask.ConfigureAwait(true);
                 WriteEvent(actionName + " result=" + ok);
                 if (!ok)
-                    ShowFailure(actionName);
+                    showFailure = true;
             }
             catch (OperationCanceledException)
             {
@@ -445,7 +447,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             catch (Exception ex)
             {
                 WriteAlarm(actionName + " failed: " + ex.Message);
-                QMC.Common.MessageDialog.Show(_owner, ex.Message, SideName, MessageBoxButtons.OK, MessageBoxIcon.Error);
+                exceptionMessage = ex.Message;
             }
             finally
             {
@@ -455,6 +457,12 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 SetButtonsEnabled(true);
                 Refresh();
             }
+
+            if (showFailure)
+                ShowFailure(actionName);
+
+            if (!string.IsNullOrWhiteSpace(exceptionMessage))
+                QMC.Common.MessageDialog.Show(_owner, exceptionMessage, SideName, MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
 
         private bool ValidateManualSequenceHost(Form1 host, string actionName)

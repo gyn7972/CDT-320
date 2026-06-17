@@ -315,6 +315,7 @@
     <Compile Include="Sequencing\Common\SequenceStopException.cs" />
     <Compile Include="Sequencing\Common\SequenceFailureStore.cs" />
     <Compile Include="Sequencing\Common\MachineSequenceContext.cs" />
+    <Compile Include="Sequencing\Common\SequenceLog.cs" />
     <Compile Include="Sequencing\Common\UnitSequenceBase.cs" />
     <Compile Include="Sequencing\Common\AutoSequenceCoordinator.cs" />
     <Compile Include="Sequencing\InputCassette\InputCassetteSequenceKind.cs" />
@@ -698,9 +699,9 @@
     <Compile Include="Sequencing\Picker\PickerBottomInspectionSequence.cs" />
     <Compile Include="Sequencing\Picker\PickerSideInspectionSequence.cs" />
     <Compile Include="Sequencing\Picker\PickerPlaceSequence.cs" />
-    <Compile Include="Sequencing\PickerProcessSequence.cs" />
-    <Compile Include="Sequencing\Picker\FrontPickerSequence.cs" />
-    <Compile Include="Sequencing\Picker\RearPickerSequence.cs" />
+    <Compile Include="Sequencing\Picker\PickerProcessSequence.cs" />
+    <Compile Include="Sequencing\FrontPickerSequence.cs" />
+    <Compile Include="Sequencing\RearPickerSequence.cs" />
     <!-- UI / Pages / Work -->
     <Compile Include="Ui\Pages\Work\WorkMainPage.Designer.cs">
       <DependentUpon>WorkMainPage.cs</DependentUpon>

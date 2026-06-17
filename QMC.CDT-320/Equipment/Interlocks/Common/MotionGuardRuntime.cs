@@ -38,6 +38,9 @@ namespace QMC.CDT320.Interlocks
                 if (!Enabled || axis == null)
                     return true;
 
+                if (IsAxisAlreadyAtTarget(axis, targetPosition))
+                    return true;
+
                 MotionGuardService service = GetService();
                 MotionGuardContext context = ContextProvider != null ? ContextProvider() : null;
                 AxisMoveScope scope = CurrentAxisMoveScope.Value;
@@ -200,6 +203,28 @@ namespace QMC.CDT320.Interlocks
                 if (_service == null)
                     _service = new MotionGuardService(InterlockCheckMatrixStore.LoadOrDefault());
                 return _service;
+            }
+        }
+
+        private static bool IsAxisAlreadyAtTarget(BaseAxis axis, double targetPosition)
+        {
+            try
+            {
+                if (axis == null || axis.IsMoving || axis.IsAlarm)
+                    return false;
+
+                double tolerance = axis.Config != null && axis.Config.InPositionTolerance > 0.0
+                    ? axis.Config.InPositionTolerance
+                    : 0.01;
+
+                return Math.Abs(axis.ActualPosition - targetPosition) <= tolerance;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
             }
         }
 

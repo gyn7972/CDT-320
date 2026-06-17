@@ -124,13 +124,22 @@ namespace QMC.CDT320.Interlocks
         private static bool CanMoveWaferExpandingZ(MotionGuardRuleContext request, out string reason)
         {
             CDT320_Machine machine = request != null ? request.Machine : null;
+            InputStageUnit stage = machine != null ? machine.InputStageUnit : null;
+            bool positiveMove = IsExpanderZPositiveMove(request, stage);
+
             if (!VerifyInputFeederClear(machine, "ExpanderZ", out reason))
                 return false;
 
-            if (!VerifyInputStageWorkArea(request, WaferStageAxis.WaferExpandingZ, "ExpanderZ", out reason))
+            if (!VerifyInputVisionXClearForExpanderZ(machine, out reason))
                 return false;
 
-            return VerifyInputStageNotBusy(machine != null ? machine.InputStageUnit : null, "ExpanderZ", out reason);
+            if (!VerifyFrontPickerClearForExpanderZ(machine != null ? machine.PickerFrontUnit : null, positiveMove, out reason))
+                return false;
+
+            if (!VerifyRearPickerClearForExpanderZ(machine != null ? machine.PickerRearUnit : null, positiveMove, out reason))
+                return false;
+
+            return VerifyInputStageNotBusy(stage, "ExpanderZ", out reason);
         }
 
         private static bool VerifyWaferVisionX(MotionGuardRuleContext request, out string reason)
@@ -530,6 +539,262 @@ namespace QMC.CDT320.Interlocks
             //    return MotionGuardRuleHelpers.Block(movingName, "EjectPinZ is moving.", out reason);
 
             return true;
+        }
+
+        private static bool IsExpanderZPositiveMove(MotionGuardRuleContext request, InputStageUnit stage)
+        {
+            try
+            {
+                if (request == null || stage == null || stage.ExpanderZ == null)
+                    return false;
+
+                double tolerance = stage.ExpanderZ.Config != null && stage.ExpanderZ.Config.InPositionTolerance > 0.0
+                    ? stage.ExpanderZ.Config.InPositionTolerance
+                    : 0.05;
+
+                return request.TargetValue > stage.ExpanderZ.ActualPosition + tolerance;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool VerifyInputVisionXClearForExpanderZ(CDT320_Machine machine, out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                InputStageUnit stage = machine != null ? machine.InputStageUnit : null;
+                if (stage == null)
+                    return true;
+
+                if (MotionGuardRuleHelpers.IsAxisMoving(stage.CameraX))
+                    return MotionGuardRuleHelpers.Block(
+                        "ExpanderZ",
+                        "ExpanderZ move blocked. InputVisionX is moving.",
+                        out reason);
+
+                if (stage.IsVisionXInAvoidPosition())
+                    return true;
+
+                double actual = stage.CameraX != null ? stage.CameraX.ActualPosition : 0.0;
+                double avoid = stage.Recipe != null && stage.Recipe.VisionX != null ? stage.Recipe.VisionX.AvoidPosition : 0.0;
+                return MotionGuardRuleHelpers.Block(
+                    "ExpanderZ",
+                    "ExpanderZ move blocked. InputVisionX must be at Avoid position before StageZ moves. actual=" +
+                    actual.ToString("F3") + ", avoid=" + avoid.ToString("F3"),
+                    out reason);
+            }
+            catch (System.Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "ExpanderZ",
+                    "Exception occurred while verifying InputVisionX clear condition for ExpanderZ: " + ex.Message,
+                    out reason);
+            }
+            finally
+            {
+                LogBlockedReason(reason);
+            }
+        }
+
+        private static bool VerifyFrontPickerClearForExpanderZ(PickerFrontUnit picker, bool positiveMove, out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                if (picker == null)
+                    return true;
+
+                return VerifyPickerClearForExpanderZ(
+                    "FrontPicker",
+                    picker.PickerX,
+                    picker.PickerY,
+                    picker.IsPickerAxisInTeachingPosition(PickerAxis.PickerX, "PickPosition"),
+                    picker.IsPickerAxisInTeachingPosition(PickerAxis.PickerX, "BottomPosition"),
+                    picker.IsPickerAxisInTeachingPosition(PickerAxis.PickerX, "SidePosition"),
+                    picker.IsPickerAxisInTeachingPosition(PickerAxis.PickerX, "PlacePosition"),
+                    picker.IsPickerAxisInTeachingPosition(PickerAxis.PickerX, "InputAvoidPosition"),
+                    picker.IsPickerAxisInTeachingPosition(PickerAxis.PickerX, "AvoidPosition"),
+                    picker.IsPickerAxisInTeachingPosition(PickerAxis.PickerX, "OutputAvoidPosition"),
+                    positiveMove,
+                    out reason);
+            }
+            catch (System.Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "ExpanderZ",
+                    "Exception occurred while verifying FrontPicker clear condition for ExpanderZ: " + ex.Message,
+                    out reason);
+            }
+            finally
+            {
+                LogBlockedReason(reason);
+            }
+        }
+
+        private static bool VerifyRearPickerClearForExpanderZ(PickerRearUnit picker, bool positiveMove, out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                if (picker == null)
+                    return true;
+
+                return VerifyPickerClearForExpanderZ(
+                    "RearPicker",
+                    picker.PickerX,
+                    picker.PickerY,
+                    picker.IsPickerAxisInTeachingPosition(PickerAxis.PickerX, "PickPosition"),
+                    picker.IsPickerAxisInTeachingPosition(PickerAxis.PickerX, "BottomPosition"),
+                    picker.IsPickerAxisInTeachingPosition(PickerAxis.PickerX, "SidePosition"),
+                    picker.IsPickerAxisInTeachingPosition(PickerAxis.PickerX, "PlacePosition"),
+                    picker.IsPickerAxisInTeachingPosition(PickerAxis.PickerX, "InputAvoidPosition"),
+                    picker.IsPickerAxisInTeachingPosition(PickerAxis.PickerX, "AvoidPosition"),
+                    picker.IsPickerAxisInTeachingPosition(PickerAxis.PickerX, "OutputAvoidPosition"),
+                    positiveMove,
+                    out reason);
+            }
+            catch (System.Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "ExpanderZ",
+                    "Exception occurred while verifying RearPicker clear condition for ExpanderZ: " + ex.Message,
+                    out reason);
+            }
+            finally
+            {
+                LogBlockedReason(reason);
+            }
+        }
+
+        private static bool VerifyPickerClearForExpanderZ(
+            string pickerName,
+            BaseAxis pickerX,
+            BaseAxis pickerY,
+            bool pickerXAtInputZone,
+            bool pickerXAtBottomZone,
+            bool pickerXAtSideZone,
+            bool pickerXAtOutputZone,
+            bool pickerXAtInputAvoid,
+            bool pickerXAtMainAvoid,
+            bool pickerXAtOutputAvoid,
+            bool blockInputZone,
+            out string reason)
+        {
+            reason = string.Empty;
+
+            if (MotionGuardRuleHelpers.IsAxisMoving(pickerX))
+                return MotionGuardRuleHelpers.Block(
+                    "ExpanderZ",
+                    "ExpanderZ move blocked. " + pickerName + "X is moving.",
+                    out reason);
+
+            if (MotionGuardRuleHelpers.IsAxisMoving(pickerY))
+                return MotionGuardRuleHelpers.Block(
+                    "ExpanderZ",
+                    "ExpanderZ move blocked. " + pickerName + "Y is moving.",
+                    out reason);
+
+            bool pickerXAtSafeZone =
+                pickerXAtBottomZone ||
+                pickerXAtSideZone ||
+                pickerXAtOutputZone ||
+                pickerXAtInputAvoid ||
+                pickerXAtMainAvoid ||
+                pickerXAtOutputAvoid;
+
+            if (pickerXAtSafeZone)
+                return true;
+
+            if (!pickerXAtInputZone)
+                return MotionGuardRuleHelpers.Block(
+                    "ExpanderZ",
+                    "ExpanderZ move blocked. " + pickerName + " X zone is unknown. " +
+                    BuildPickerZoneState(
+                        pickerName,
+                        pickerX,
+                        pickerY,
+                        pickerXAtInputZone,
+                        pickerXAtBottomZone,
+                        pickerXAtSideZone,
+                        pickerXAtOutputZone,
+                        pickerXAtInputAvoid,
+                        pickerXAtMainAvoid,
+                        pickerXAtOutputAvoid),
+                    out reason);
+
+            if (!blockInputZone)
+                return true;
+
+            return MotionGuardRuleHelpers.Block(
+                "ExpanderZ",
+                "ExpanderZ positive move blocked. " + pickerName + " is in Input zone. " +
+                BuildPickerZoneState(
+                    pickerName,
+                    pickerX,
+                    pickerY,
+                    pickerXAtInputZone,
+                    pickerXAtBottomZone,
+                    pickerXAtSideZone,
+                    pickerXAtOutputZone,
+                    pickerXAtInputAvoid,
+                    pickerXAtMainAvoid,
+                    pickerXAtOutputAvoid) +
+                ", positiveMove=" + blockInputZone,
+                out reason);
+        }
+
+        private static string BuildPickerZoneState(
+            string pickerName,
+            BaseAxis pickerX,
+            BaseAxis pickerY,
+            bool pickerXAtInputZone,
+            bool pickerXAtBottomZone,
+            bool pickerXAtSideZone,
+            bool pickerXAtOutputZone,
+            bool pickerXAtInputAvoid,
+            bool pickerXAtMainAvoid,
+            bool pickerXAtOutputAvoid)
+        {
+            try
+            {
+                return pickerName +
+                       "X=" + FormatAxisPosition(pickerX) +
+                       ", " + pickerName + "Y=" + FormatAxisPosition(pickerY) +
+                       ", inputZone=" + pickerXAtInputZone +
+                       ", bottomZone=" + pickerXAtBottomZone +
+                       ", sideZone=" + pickerXAtSideZone +
+                       ", outputZone=" + pickerXAtOutputZone +
+                       ", inputAvoid=" + pickerXAtInputAvoid +
+                       ", avoid=" + pickerXAtMainAvoid +
+                       ", outputAvoid=" + pickerXAtOutputAvoid;
+            }
+            catch
+            {
+                return pickerName + " state unavailable.";
+            }
+            finally
+            {
+            }
+        }
+
+        private static string FormatAxisPosition(BaseAxis axis)
+        {
+            if (axis == null)
+                return "null";
+
+            return axis.ActualPosition.ToString("F3") +
+                   ", moving=" + axis.IsMoving +
+                   ", servo=" + axis.IsServoOn +
+                   ", alarm=" + axis.IsAlarm;
         }
 
         private static bool IsMovingExcept(BaseAxis axis, string movingName, params string[] names)

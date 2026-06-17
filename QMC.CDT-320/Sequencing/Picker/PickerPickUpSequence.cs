@@ -14,7 +14,9 @@ namespace QMC.CDT320.Sequencing
         private static readonly Random SimVisionRandom = new Random();
 
         private readonly List<int> _enabledPickerIndexes = new List<int>();
-        private int _pickerCursor;
+        private readonly List<PickUpBatchItem> _pickBatchItems = new List<PickUpBatchItem>();
+        private int _inspectionCursor;
+        private int _pickCursor;
         private int _currentPickerIndex = -1;
         private int _currentPickerNo;
         private string _currentDieId = "";
@@ -26,6 +28,21 @@ namespace QMC.CDT320.Sequencing
         private double _targetPickerZ;
         private bool _diePicked;
         private SequenceResourceLease _inputStageLease;
+        private PickUpBatchItem _currentBatchItem;
+
+        private sealed class PickUpBatchItem
+        {
+            public int PickerIndex;
+            public int PickerNo;
+            public string DieId;
+            public InputStagePickTarget PickTarget;
+            public VisionAlignResult VisionOffset;
+            public double TargetStageY;
+            public double TargetPickerX;
+            public double TargetPickerT;
+            public double TargetPickerZ;
+            public bool DiePicked;
+        }
 
         public PickerPickUpSequence(MachineSequenceContext context, PickerSequenceSide side)
             : base(context, side, PickerSequenceKind.PickUp, side == PickerSequenceSide.Front ? "FrontPickerPickUpSequence" : "RearPickerPickUpSequence")
@@ -125,13 +142,13 @@ namespace QMC.CDT320.Sequencing
                 case PickerPickUpStep.MoveAllPickerZToAvoid:
                     return MoveAllPickerZToAvoidAsync(ct);
 
-                // 다음 피커 선택
-                case PickerPickUpStep.SelectNextPicker:
-                    return Task.FromResult(SelectNextPicker());
+                // 이번 PickUp 사이클에서 사용할 다이 배치 예약
+                case PickerPickUpStep.BuildPickBatch:
+                    return Task.FromResult(BuildPickBatch());
 
-                // 다음 인풋 다이 예약
-                case PickerPickUpStep.ReserveNextInputDie:
-                    return Task.FromResult(ReserveNextInputDie());
+                // 다음 비전 검사 대상 선택
+                case PickerPickUpStep.SelectNextInspectionTarget:
+                    return Task.FromResult(SelectNextInspectionTarget());
 
                 // 예약한 다이 상태 재확인
                 case PickerPickUpStep.VerifyReservedInputDie:
@@ -153,13 +170,21 @@ namespace QMC.CDT320.Sequencing
                 case PickerPickUpStep.ApplyInputDieVisionOffset:
                     return Task.FromResult(ApplyInputDieVisionOffset());
 
+                // 다음 검사 대상 또는 픽업 이동 단계 선택
+                case PickerPickUpStep.SelectNextInspectionTargetOrPickerMove:
+                    return Task.FromResult(SelectNextInspectionTargetOrPickerMove());
+
                 // 피커 접근 전 InputVisionX 회피
                 case PickerPickUpStep.MoveInputVisionToAvoidForPickerMove:
                     return MoveInputVisionToAvoidForPickerMoveAsync(ct);
 
-                // 픽업 대상 계산
-                case PickerPickUpStep.CalculatePickTarget:
-                    return Task.FromResult(CalculatePickTarget());
+                // 검사 완료된 배치의 픽업 대상 계산
+                case PickerPickUpStep.CalculatePickTargets:
+                    return Task.FromResult(CalculatePickTargets());
+
+                // 다음 픽업 대상 선택
+                case PickerPickUpStep.SelectNextPickTarget:
+                    return Task.FromResult(SelectNextPickTarget());
 
                 // 피커 접근 전 반대 피커 회피
                 case PickerPickUpStep.MoveOppositePickerToAvoidForPickerMove:
@@ -193,9 +218,9 @@ namespace QMC.CDT320.Sequencing
                 case PickerPickUpStep.UpdateMaterialToPicker:
                     return Task.FromResult(UpdateMaterialToPicker());
 
-                // 다음 피커 또는 완료 선택
-                case PickerPickUpStep.SelectNextPickerOrComplete:
-                    return Task.FromResult(SelectNextPickerOrComplete());
+                // 다음 픽업 대상 또는 완료 선택
+                case PickerPickUpStep.SelectNextPickTargetOrComplete:
+                    return Task.FromResult(SelectNextPickTargetOrComplete());
 
                 default:
                     return Task.FromResult(Fail("PICKER-PICKUP-STEP", Name, "Unsupported picker pickup step. step=" + CurrentStep));
@@ -239,7 +264,6 @@ namespace QMC.CDT320.Sequencing
         {
             _enabledPickerIndexes.Clear();
             _enabledPickerIndexes.AddRange(BuildEnabledPickerIndexes());
-            _pickerCursor = 0;
 
             if (_enabledPickerIndexes.Count == 0)
                 return Fail("PICKER-PICKUP-NO-PICKER", Name, "No enabled picker was found. side=" + Side);
@@ -256,6 +280,11 @@ namespace QMC.CDT320.Sequencing
             WaferMaterial wafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
             if (wafer == null)
                 return Fail("PICKER-PICKUP-NO-WAFER", "Material", "InputStage wafer material is not available.");
+
+            string finishReason;
+            if (!MaterialStateService.IsInputStageFinishComplete(out finishReason))
+                return Fail("PICKER-PICKUP-STAGE-NOT-FINISH", "InputStage",
+                    "InputStage finish must be complete before picker pickup. " + finishReason);
 
             if (wafer.DieIds == null || wafer.DieIds.Count == 0)
                 return Fail("PICKER-PICKUP-NO-DIE", "Material", "InputStage wafer has no die data. waferId=" + wafer.WaferId);
@@ -286,46 +315,80 @@ namespace QMC.CDT320.Sequencing
             if (result != 0)
                 return result;
 
-            CurrentStep = PickerPickUpStep.SelectNextPicker;
+            CurrentStep = PickerPickUpStep.BuildPickBatch;
             return 0;
         }
 
-        private int SelectNextPicker()
+        private int BuildPickBatch()
         {
-            if (_pickerCursor >= _enabledPickerIndexes.Count)
+            _pickBatchItems.Clear();
+            _inspectionCursor = 0;
+            _pickCursor = 0;
+            ClearCurrentPickContext();
+
+            for (int i = 0; i < _enabledPickerIndexes.Count; i++)
             {
-                CurrentStep = PickerPickUpStep.Complete;
-                return 0;
+                int pickerIndex = _enabledPickerIndexes[i];
+                int pickerNo = ToPickerNo(pickerIndex);
+                InputStagePickTarget target = MaterialStateService.ReserveNextInputStagePickTarget(PickerLocationKind, pickerNo);
+                string dieId = target != null ? target.DieId : "";
+
+                if (string.IsNullOrWhiteSpace(dieId))
+                {
+                    WriteLog("PickerPickUpSequence",
+                        Name + " has no more ready input die for batch. pickerNo=" + pickerNo + " - Check");
+                    continue;
+                }
+
+                PickUpBatchItem item = new PickUpBatchItem
+                {
+                    PickerIndex = pickerIndex,
+                    PickerNo = pickerNo,
+                    DieId = dieId,
+                    PickTarget = target
+                };
+                _pickBatchItems.Add(item);
+
+                WriteLog("PickerPickUpSequence",
+                    Name + " reserved input die for batch. die=" + dieId +
+                    ", pickerNo=" + pickerNo +
+                    ", pickerIndex=" + pickerIndex +
+                    ", grid=(" + target.DieMapX + "," + target.DieMapY + ")" +
+                    ", inputVisionX=" + target.TargetX +
+                    ", inputStageY=" + target.TargetY + " - Ok");
             }
 
-            _currentPickerIndex = _enabledPickerIndexes[_pickerCursor];
-            _currentPickerNo = ToPickerNo(_currentPickerIndex);
-            _currentDieId = "";
-            _pickTarget = null;
-            _visionOffset = null;
-            _diePicked = false;
-
-            CurrentStep = PickerPickUpStep.ReserveNextInputDie;
-            return 0;
-        }
-
-        private int ReserveNextInputDie()
-        {
-            _pickTarget = MaterialStateService.ReserveNextInputStagePickTarget(PickerLocationKind, _currentPickerNo);
-            _currentDieId = _pickTarget != null ? _pickTarget.DieId : "";
-
-            if (string.IsNullOrWhiteSpace(_currentDieId))
+            if (_pickBatchItems.Count == 0)
             {
-                CurrentStep = PickerPickUpStep.SelectNextPickerOrComplete;
+                WriteLog("PickerPickUpSequence", Name + " has no input die batch target. side=" + Side + " - Check");
+                CurrentStep = PickerPickUpStep.Complete;
+                ReleaseInputStageArea();
                 return 0;
             }
 
             WriteLog("PickerPickUpSequence",
-                Name + " reserved input die. die=" + _currentDieId +
+                Name + " pick batch created. count=" + _pickBatchItems.Count +
+                ", enabledPickerCount=" + _enabledPickerIndexes.Count + " - Ok");
+
+            CurrentStep = PickerPickUpStep.SelectNextInspectionTarget;
+            return 0;
+        }
+
+        private int SelectNextInspectionTarget()
+        {
+            if (_inspectionCursor >= _pickBatchItems.Count)
+            {
+                CurrentStep = PickerPickUpStep.MoveInputVisionToAvoidForPickerMove;
+                return 0;
+            }
+
+            SetCurrentBatchItem(_pickBatchItems[_inspectionCursor]);
+
+            WriteLog("PickerPickUpSequence",
+                Name + " selected input die vision target. die=" + _currentDieId +
                 ", pickerNo=" + _currentPickerNo +
-                ", grid=(" + _pickTarget.DieMapX + "," + _pickTarget.DieMapY + ")" +
-                ", inputVisionX=" + _pickTarget.TargetX +
-                ", inputStageY=" + _pickTarget.TargetY + " - Ok");
+                ", inspectIndex=" + (_inspectionCursor + 1) +
+                "/" + _pickBatchItems.Count + " - Ok");
 
             CurrentStep = PickerPickUpStep.VerifyReservedInputDie;
             return 0;
@@ -392,6 +455,11 @@ namespace QMC.CDT320.Sequencing
                 if (stage == null)
                     return Fail("PICKER-PICKUP-STAGE-NO-UNIT", "InputStageUnit", "InputStageUnit is null.");
 
+                if (_pickTarget == null)
+                    return Fail("PICKER-PICKUP-DIE-TARGET", "Material",
+                        "Input die pick target is missing. die=" + _currentDieId +
+                        ", pickerNo=" + _currentPickerNo);
+
                 double targetY = _pickTarget.TargetY;
                 double targetX = _pickTarget.TargetX;
 
@@ -400,41 +468,14 @@ namespace QMC.CDT320.Sequencing
                     return Fail("PICKER-PICKUP-STAGE-WORK-AREA", stage.Name,
                         "Input die target is outside input stage work area. " + areaReason);
 
-                Task<int> moveY = MoveInputStageYForPickerWorkPointCommandAsync(
+                int result = await MoveInputStageVisionPointForPickerAsync(
                     stage,
                     targetX,
                     targetY,
-                    "input die StageY",
-                    ct);
-                Task<int> moveX = MoveInputStageAxisCommandAsync(
-                    stage,
-                    WaferStageAxis.VisionX,
-                    targetX,
-                    "input die VisionX",
-                    ct);
-                int[] moveResults = await Task.WhenAll(moveY, moveX).ConfigureAwait(false);
-
-                if (moveResults[0] != 0)
-                    return moveResults[0];
-                if (moveResults[1] != 0)
-                    return moveResults[1];
-
-                Task<int> waitY = WaitInputStageAxisInPositionResultAsync(stage, WaferStageAxis.WaferY, targetY, "input die StageY", ct);
-                Task<int> waitX = WaitInputStageAxisInPositionResultAsync(stage, WaferStageAxis.VisionX, targetX, "input die VisionX", ct);
-                int[] waitResults = await Task.WhenAll(waitY, waitX).ConfigureAwait(false);
-
-                if (waitResults[0] != 0)
-                    return waitResults[0];
-                if (waitResults[1] != 0)
-                    return waitResults[1];
-
-                int finalCheck = CheckInputStageAxisInPosition(stage, WaferStageAxis.WaferY, targetY, "input die StageY");
-                if (finalCheck != 0)
-                    return finalCheck;
-
-                finalCheck = CheckInputStageAxisInPosition(stage, WaferStageAxis.VisionX, targetX, "input die VisionX");
-                if (finalCheck != 0)
-                    return finalCheck;
+                    "input die",
+                    ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
 
                 CurrentStep = PickerPickUpStep.RequestInputDieVisionInspection;
                 return 0;
@@ -515,6 +556,24 @@ namespace QMC.CDT320.Sequencing
                 }
             });
 
+            SaveCurrentStateToBatchItem();
+            CurrentStep = PickerPickUpStep.SelectNextInspectionTargetOrPickerMove;
+            return 0;
+        }
+
+        private int SelectNextInspectionTargetOrPickerMove()
+        {
+            _inspectionCursor++;
+
+            if (_inspectionCursor < _pickBatchItems.Count)
+            {
+                CurrentStep = PickerPickUpStep.SelectNextInspectionTarget;
+                return 0;
+            }
+
+            WriteLog("PickerPickUpSequence",
+                Name + " input die vision batch completed. count=" + _pickBatchItems.Count + " - Ok");
+
             CurrentStep = PickerPickUpStep.MoveInputVisionToAvoidForPickerMove;
             return 0;
         }
@@ -562,7 +621,7 @@ namespace QMC.CDT320.Sequencing
                 if (checkResult != 0)
                     return checkResult;
 
-                CurrentStep = PickerPickUpStep.CalculatePickTarget;
+                CurrentStep = PickerPickUpStep.CalculatePickTargets;
                 return 0;
             }
             catch (OperationCanceledException)
@@ -579,10 +638,50 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private int CalculatePickTarget()
+        private int CalculatePickTargets()
         {
             try
             {
+                _pickCursor = 0;
+
+                for (int i = 0; i < _pickBatchItems.Count; i++)
+                {
+                    SetCurrentBatchItem(_pickBatchItems[i]);
+
+                    int result = CalculateCurrentPickTarget();
+                    if (result != 0)
+                        return result;
+
+                    SaveCurrentStateToBatchItem();
+                }
+
+                CurrentStep = PickerPickUpStep.SelectNextPickTarget;
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-PICKUP-TARGET-BATCH-EX", Name,
+                    "Pick target batch calculation failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private int CalculateCurrentPickTarget()
+        {
+            try
+            {
+                if (_pickTarget == null)
+                    return Fail("PICKER-PICKUP-DIE-TARGET", "Material",
+                        "Input die pick target is missing before target calculation. die=" + _currentDieId +
+                        ", pickerNo=" + _currentPickerNo);
+
+                if (_visionOffset == null)
+                    return Fail("PICKER-PICKUP-VISION-OFFSET", "Vision",
+                        "Input die vision offset is missing before target calculation. die=" + _currentDieId +
+                        ", pickerNo=" + _currentPickerNo);
+
                 double inputVisionToPickerX;
                 double inputVisionToPickerY;
                 string offsetReason;
@@ -628,7 +727,6 @@ namespace QMC.CDT320.Sequencing
                     ", visionOffsetY=" + _visionOffset.DeltaY +
                     ", visionOffsetT=" + _visionOffset.DeltaTheta + " - Ok");
 
-                CurrentStep = PickerPickUpStep.MoveOppositePickerToAvoidForPickerMove;
                 return 0;
             }
             catch (Exception ex)
@@ -638,6 +736,27 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        private int SelectNextPickTarget()
+        {
+            if (_pickCursor >= _pickBatchItems.Count)
+            {
+                CurrentStep = PickerPickUpStep.Complete;
+                ReleaseInputStageArea();
+                return 0;
+            }
+
+            SetCurrentBatchItem(_pickBatchItems[_pickCursor]);
+
+            WriteLog("PickerPickUpSequence",
+                Name + " selected pick target. die=" + _currentDieId +
+                ", pickerNo=" + _currentPickerNo +
+                ", pickIndex=" + (_pickCursor + 1) +
+                "/" + _pickBatchItems.Count + " - Ok");
+
+            CurrentStep = PickerPickUpStep.MoveOppositePickerToAvoidForPickerMove;
+            return 0;
         }
 
         private async Task<int> MoveOppositePickerToAvoidForPickerMoveAsync(CancellationToken ct)
@@ -675,46 +794,45 @@ namespace QMC.CDT320.Sequencing
                         ", reason=" + areaReason);
                 }
 
-                Task<int> moveStageY = MoveInputStageYForPickerWorkPointCommandAsync(
+                int result = await MoveInputStageYForPickerWorkPointCommandAsync(
                     stage,
                     _pickTarget.TargetX,
                     _targetStageY,
                     "pick corrected StageY",
-                    ct);
-                Task<int> movePickerX = MovePickerAxisCommandResultAsync(PickerAxis.PickerX, _targetPickerX, "pick corrected PickerX", ct, targetName);
-                Task<int> movePickerT = MovePickerAxisCommandResultAsync(tAxis, _targetPickerT, "pick corrected PickerT", ct, targetName);
-                int[] moveResults = await Task.WhenAll(moveStageY, movePickerX, movePickerT).ConfigureAwait(false);
+                    ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
 
-                if (moveResults[0] != 0)
-                    return moveResults[0];
-                if (moveResults[1] != 0)
-                    return moveResults[1];
-                if (moveResults[2] != 0)
-                    return moveResults[2];
-
-                Task<int> waitStageY = WaitInputStageAxisInPositionResultAsync(stage, WaferStageAxis.WaferY, _targetStageY, "pick corrected StageY", ct);
-                Task<int> waitPickerX = WaitPickerAxisInPositionResultAsync(PickerAxis.PickerX, _targetPickerX, "pick corrected PickerX", ct);
-                Task<int> waitPickerT = WaitPickerAxisInPositionResultAsync(tAxis, _targetPickerT, "pick corrected PickerT", ct);
-                int[] waitResults = await Task.WhenAll(waitStageY, waitPickerX, waitPickerT).ConfigureAwait(false);
-
-                if (waitResults[0] != 0)
-                    return waitResults[0];
-                if (waitResults[1] != 0)
-                    return waitResults[1];
-                if (waitResults[2] != 0)
-                    return waitResults[2];
+                result = await WaitInputStageAxisInPositionResultAsync(
+                    stage,
+                    WaferStageAxis.WaferY,
+                    _targetStageY,
+                    "pick corrected StageY",
+                    ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
 
                 int finalCheck = CheckInputStageAxisInPosition(stage, WaferStageAxis.WaferY, _targetStageY, "pick corrected StageY");
                 if (finalCheck != 0)
                     return finalCheck;
 
-                finalCheck = CheckPickerAxisInPosition(PickerAxis.PickerX, _targetPickerX, "pick corrected PickerX");
-                if (finalCheck != 0)
-                    return finalCheck;
+                result = await MovePickerAxisAndVerifyAsync(
+                    PickerAxis.PickerX,
+                    _targetPickerX,
+                    "pick corrected PickerX",
+                    ct,
+                    targetName).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
 
-                finalCheck = CheckPickerAxisInPosition(tAxis, _targetPickerT, "pick corrected PickerT");
-                if (finalCheck != 0)
-                    return finalCheck;
+                result = await MovePickerAxisAndVerifyAsync(
+                    tAxis,
+                    _targetPickerT,
+                    "pick corrected PickerT",
+                    ct,
+                    targetName).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
 
                 CurrentStep = PickerPickUpStep.VerifyPickTarget;
                 return 0;
@@ -809,6 +927,8 @@ namespace QMC.CDT320.Sequencing
         private int VerifyDiePicked()
         {
             _diePicked = true;
+            SaveCurrentStateToBatchItem();
+
             CurrentStep = PickerPickUpStep.MovePickerZToAvoid;
             return 0;
         }
@@ -827,31 +947,83 @@ namespace QMC.CDT320.Sequencing
 
         private int UpdateMaterialToPicker()
         {
-            MaterialStateService.MoveDie(_currentDieId, MaterialLocation.Picker(PickerLocationKind, _currentPickerNo));
+            bool materialUpdated = MaterialStateService.MarkDiePickedByPicker(_currentDieId, PickerLocationKind, _currentPickerNo);
+            if (!materialUpdated)
+                return Fail("PICKER-PICKUP-MATERIAL", Name, "Picked die material state update failed. die=" + _currentDieId + ", pickerNo=" + _currentPickerNo);
+
             RecordColletUse(_currentPickerNo);
             WriteLog("PickerPickUpSequence", Name + " picked die. die=" + _currentDieId + ", pickerNo=" + _currentPickerNo + " - Ok");
+
+            if (_currentBatchItem != null)
+                _currentBatchItem.DiePicked = true;
 
             _currentDieId = "";
             _pickTarget = null;
             _diePicked = false;
-            CurrentStep = PickerPickUpStep.SelectNextPickerOrComplete;
+            CurrentStep = PickerPickUpStep.SelectNextPickTargetOrComplete;
             return 0;
         }
 
-        private int SelectNextPickerOrComplete()
+        private int SelectNextPickTargetOrComplete()
         {
-            _pickerCursor++;
+            _pickCursor++;
 
-            if (_pickerCursor >= _enabledPickerIndexes.Count ||
-                !MaterialStateService.HasReadyInputStagePickTarget())
+            if (_pickCursor >= _pickBatchItems.Count)
             {
                 CurrentStep = PickerPickUpStep.Complete;
                 ReleaseInputStageArea();
                 return 0;
             }
 
-            CurrentStep = PickerPickUpStep.SelectNextPicker;
+            CurrentStep = PickerPickUpStep.SelectNextPickTarget;
             return 0;
+        }
+
+        private void SetCurrentBatchItem(PickUpBatchItem item)
+        {
+            _currentBatchItem = item;
+            _currentPickerIndex = item != null ? item.PickerIndex : -1;
+            _currentPickerNo = item != null ? item.PickerNo : 0;
+            _currentDieId = item != null ? item.DieId : "";
+            _pickTarget = item != null ? item.PickTarget : null;
+            _visionOffset = item != null ? item.VisionOffset : null;
+            _targetStageY = item != null ? item.TargetStageY : 0.0;
+            _targetPickerX = item != null ? item.TargetPickerX : 0.0;
+            _targetPickerT = item != null ? item.TargetPickerT : 0.0;
+            _targetPickerZ = item != null ? item.TargetPickerZ : 0.0;
+            _diePicked = item != null && item.DiePicked;
+        }
+
+        private void SaveCurrentStateToBatchItem()
+        {
+            if (_currentBatchItem == null)
+                return;
+
+            _currentBatchItem.PickerIndex = _currentPickerIndex;
+            _currentBatchItem.PickerNo = _currentPickerNo;
+            _currentBatchItem.DieId = _currentDieId;
+            _currentBatchItem.PickTarget = _pickTarget;
+            _currentBatchItem.VisionOffset = _visionOffset;
+            _currentBatchItem.TargetStageY = _targetStageY;
+            _currentBatchItem.TargetPickerX = _targetPickerX;
+            _currentBatchItem.TargetPickerT = _targetPickerT;
+            _currentBatchItem.TargetPickerZ = _targetPickerZ;
+            _currentBatchItem.DiePicked = _diePicked || _currentBatchItem.DiePicked;
+        }
+
+        private void ClearCurrentPickContext()
+        {
+            _currentBatchItem = null;
+            _currentPickerIndex = -1;
+            _currentPickerNo = 0;
+            _currentDieId = "";
+            _pickTarget = null;
+            _visionOffset = null;
+            _targetStageY = 0.0;
+            _targetPickerX = 0.0;
+            _targetPickerT = 0.0;
+            _targetPickerZ = 0.0;
+            _diePicked = false;
         }
 
         private async Task<VisionAlignResult> RequestInputVisionOffsetAsync(CancellationToken ct)
@@ -922,6 +1094,226 @@ namespace QMC.CDT320.Sequencing
             return Context != null && Context.Machine != null
                 ? Context.Machine.InputStageUnit
                 : null;
+        }
+
+        private async Task<int> MoveInputStageVisionPointForPickerAsync(
+            InputStageUnit stage,
+            double targetX,
+            double targetY,
+            string description,
+            CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (stage == null)
+                    return Fail("PICKER-PICKUP-STAGE-NO-UNIT", "InputStageUnit", "InputStageUnit is null.");
+
+                double currentX = stage.CameraX != null ? stage.CameraX.ActualPosition : targetX;
+                double currentY = stage.StageY != null ? stage.StageY.ActualPosition : targetY;
+
+                bool visionXInPosition = IsInputStageAxisAlreadyInPosition(stage, WaferStageAxis.VisionX, targetX);
+                bool stageYInPosition = IsInputStageAxisAlreadyInPosition(stage, WaferStageAxis.WaferY, targetY);
+                if (visionXInPosition && stageYInPosition)
+                    return CheckInputStageVisionPointFinalPosition(stage, targetX, targetY, description);
+
+                if (!visionXInPosition && stageYInPosition)
+                {
+                    int result = await MoveInputVisionXAndVerifyAsync(stage, targetX, description + " VisionX", ct).ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+
+                    return CheckInputStageVisionPointFinalPosition(stage, targetX, targetY, description);
+                }
+
+                if (visionXInPosition && !stageYInPosition)
+                {
+                    int result = await MoveInputStageYAndVerifyAsync(stage, targetX, targetY, description + " StageY", ct).ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+
+                    return CheckInputStageVisionPointFinalPosition(stage, targetX, targetY, description);
+                }
+
+                string xFirstReason;
+                bool canMoveXFirst = stage.IsInputStageWorkPointInArea(targetX, currentY, out xFirstReason);
+                if (canMoveXFirst)
+                {
+                    int result = await MoveInputVisionXAndVerifyAsync(stage, targetX, description + " VisionX", ct).ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+
+                    result = await MoveInputStageYAndVerifyAsync(stage, targetX, targetY, description + " StageY", ct).ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+
+                    return CheckInputStageVisionPointFinalPosition(stage, targetX, targetY, description);
+                }
+
+                string yFirstReason;
+                bool canMoveYFirst = stage.IsInputStageWorkPointInArea(currentX, targetY, out yFirstReason);
+                if (canMoveYFirst)
+                {
+                    int result = await MoveInputStageYAndVerifyAsync(stage, currentX, targetY, description + " StageY", ct).ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+
+                    result = await MoveInputVisionXAndVerifyAsync(stage, targetX, description + " VisionX", ct).ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+
+                    return CheckInputStageVisionPointFinalPosition(stage, targetX, targetY, description);
+                }
+
+                return Fail("PICKER-PICKUP-STAGE-PATH", stage.Name,
+                    description + " has no safe X/Y move order inside input stage work area. " +
+                    "currentX=" + currentX.ToString("F6") +
+                    ", currentY=" + currentY.ToString("F6") +
+                    ", targetX=" + targetX.ToString("F6") +
+                    ", targetY=" + targetY.ToString("F6") +
+                    ", xFirst=" + xFirstReason +
+                    ", yFirst=" + yFirstReason);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-PICKUP-STAGE-PATH-EX", stage != null ? stage.Name : "InputStageUnit",
+                    description + " X/Y move order exception: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> MoveInputVisionXAndVerifyAsync(
+            InputStageUnit stage,
+            double target,
+            string description,
+            CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (!IsInputStageAxisAlreadyInPosition(stage, WaferStageAxis.VisionX, target))
+                {
+                    int result = await MoveInputStageAxisCommandAsync(
+                        stage,
+                        WaferStageAxis.VisionX,
+                        target,
+                        description,
+                        ct).ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+
+                    result = await WaitInputStageAxisInPositionResultAsync(
+                        stage,
+                        WaferStageAxis.VisionX,
+                        target,
+                        description,
+                        ct).ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+                }
+
+                return CheckInputStageAxisInPosition(stage, WaferStageAxis.VisionX, target, description);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-PICKUP-VISIONX-MOVE-EX", stage != null ? stage.Name : "InputStageUnit",
+                    description + " move exception: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> MoveInputStageYAndVerifyAsync(
+            InputStageUnit stage,
+            double workAreaVisionX,
+            double target,
+            string description,
+            CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (!IsInputStageAxisAlreadyInPosition(stage, WaferStageAxis.WaferY, target))
+                {
+                    int result = await MoveInputStageYForPickerWorkPointCommandAsync(
+                        stage,
+                        workAreaVisionX,
+                        target,
+                        description,
+                        ct).ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+
+                    result = await WaitInputStageAxisInPositionResultAsync(
+                        stage,
+                        WaferStageAxis.WaferY,
+                        target,
+                        description,
+                        ct).ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+                }
+
+                return CheckInputStageAxisInPosition(stage, WaferStageAxis.WaferY, target, description);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-PICKUP-STAGEY-MOVE-EX", stage != null ? stage.Name : "InputStageUnit",
+                    description + " move exception: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private int CheckInputStageVisionPointFinalPosition(
+            InputStageUnit stage,
+            double targetX,
+            double targetY,
+            string description)
+        {
+            int result = CheckInputStageAxisInPosition(stage, WaferStageAxis.VisionX, targetX, description + " VisionX");
+            if (result != 0)
+                return result;
+
+            return CheckInputStageAxisInPosition(stage, WaferStageAxis.WaferY, targetY, description + " StageY");
+        }
+
+        private bool IsInputStageAxisAlreadyInPosition(InputStageUnit stage, WaferStageAxis axis, double target)
+        {
+            try
+            {
+                QMC.Common.Motion.BaseAxis item = ResolveInputStageAxis(stage, axis);
+                return item != null &&
+                       !item.IsMoving &&
+                       !item.IsAlarm &&
+                       IsAxisInPosition(item, target);
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
         }
 
         private async Task<int> MoveInputStageYForPickerWorkPointCommandAsync(
@@ -1184,15 +1576,34 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
-                if (_diePicked || string.IsNullOrWhiteSpace(_currentDieId))
-                    return;
+                bool released = false;
+                for (int i = 0; i < _pickBatchItems.Count; i++)
+                {
+                    PickUpBatchItem item = _pickBatchItems[i];
+                    if (item == null || item.DiePicked || string.IsNullOrWhiteSpace(item.DieId))
+                        continue;
 
-                MaterialStateService.ReleaseInputStagePickReservation(
-                    _currentDieId,
-                    PickerLocationKind,
-                    _currentPickerNo);
+                    MaterialStateService.ReleaseInputStagePickReservation(
+                        item.DieId,
+                        PickerLocationKind,
+                        item.PickerNo);
 
-                WriteLog("PickerPickUpSequence", Name + " released input die reservation. die=" + _currentDieId + " - Ok");
+                    released = true;
+                    WriteLog("PickerPickUpSequence",
+                        Name + " released input die batch reservation. die=" + item.DieId +
+                        ", pickerNo=" + item.PickerNo + " - Ok");
+                }
+
+                if (!released && !_diePicked && !string.IsNullOrWhiteSpace(_currentDieId))
+                {
+                    MaterialStateService.ReleaseInputStagePickReservation(
+                        _currentDieId,
+                        PickerLocationKind,
+                        _currentPickerNo);
+
+                    WriteLog("PickerPickUpSequence",
+                        Name + " released input die reservation. die=" + _currentDieId + " - Ok");
+                }
             }
             catch (Exception ex)
             {
@@ -1200,6 +1611,10 @@ namespace QMC.CDT320.Sequencing
             }
             finally
             {
+                _pickBatchItems.Clear();
+                _inspectionCursor = 0;
+                _pickCursor = 0;
+                ClearCurrentPickContext();
             }
         }
 

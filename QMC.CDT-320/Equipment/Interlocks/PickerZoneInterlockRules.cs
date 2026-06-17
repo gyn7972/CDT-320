@@ -125,6 +125,17 @@ namespace QMC.CDT320.Interlocks
                 PickerWorkZone currentZone = ResolveCurrentXZone(request.Machine, isFront);
                 PickerWorkZone targetZone = ResolveTargetXZone(request, isFront);
 
+                if (!VerifyInputStageZSafeForInputZone(
+                    request.Machine,
+                    movingName,
+                    "X",
+                    currentZone,
+                    targetZone,
+                    ownX,
+                    ownY,
+                    out reason))
+                    return false;
+
                 string occupiedOwner;
                 if (targetZone == PickerWorkZone.Input &&
                     IsOtherPickerWorkAreaActive(isFront, targetZone, out occupiedOwner))
@@ -214,6 +225,18 @@ namespace QMC.CDT320.Interlocks
                     return true;
 
                 PickerWorkZone targetZone = ResolveTargetYZone(request, isFront);
+                PickerWorkZone currentXZone = ResolveCurrentXZone(request.Machine, isFront);
+                if (!VerifyInputStageZSafeForInputZone(
+                    request.Machine,
+                    movingName,
+                    "Y",
+                    currentXZone,
+                    targetZone,
+                    GetPickerX(request.Machine, isFront),
+                    GetPickerY(request.Machine, isFront),
+                    out reason))
+                    return false;
+
                 if (IsAvoidZone(targetZone))
                     return true;
 
@@ -313,6 +336,70 @@ namespace QMC.CDT320.Interlocks
                 return true;
 
             return targetZone != otherZone;
+        }
+
+        private static bool VerifyInputStageZSafeForInputZone(
+            CDT320_Machine machine,
+            string movingName,
+            string moveAxisName,
+            PickerWorkZone currentZone,
+            PickerWorkZone targetZone,
+            BaseAxis ownX,
+            BaseAxis ownY,
+            out string reason)
+        {
+            reason = string.Empty;
+
+            if (currentZone != PickerWorkZone.Input && targetZone != PickerWorkZone.Input)
+                return true;
+
+            InputStageUnit stage = machine != null ? machine.InputStageUnit : null;
+            if (stage == null)
+                return true;
+
+            if (IsInputStageZAtAvoidOrProcess(stage))
+                return true;
+
+            return MotionGuardRuleHelpers.Block(
+                movingName,
+                movingName + " " + moveAxisName +
+                " move blocked. Picker is in or moving to Input zone while InputExpandingZ is not at Avoid/Process position. " +
+                "currentZone=" + currentZone +
+                ", targetZone=" + targetZone +
+                ", xActual=" + FormatAxis(ownX) +
+                ", yActual=" + FormatAxis(ownY) +
+                ", " + BuildInputStageZState(stage),
+                out reason);
+        }
+
+        private static bool IsInputStageZAtAvoidOrProcess(InputStageUnit stage)
+        {
+            if (stage == null || stage.ExpanderZ == null || stage.Recipe == null || stage.Recipe.WaferZ == null)
+                return false;
+
+            double tolerance = ResolveTolerance(stage.ExpanderZ);
+            double actual = stage.ExpanderZ.ActualPosition;
+            StageAxisPositions waferZ = stage.Recipe.WaferZ;
+
+            return Math.Abs(actual - waferZ.AvoidPosition) <= tolerance ||
+                   Math.Abs(actual - waferZ.ProcessPosition) <= tolerance;
+        }
+
+        private static string BuildInputStageZState(InputStageUnit stage)
+        {
+            if (stage == null)
+                return "InputStage=null";
+            if (stage.ExpanderZ == null)
+                return "InputExpandingZ=null";
+            if (stage.Recipe == null || stage.Recipe.WaferZ == null)
+                return "InputExpandingZ actual=" + stage.ExpanderZ.ActualPosition.ToString("0.###") +
+                       ", recipe.WaferZ=null";
+
+            StageAxisPositions waferZ = stage.Recipe.WaferZ;
+            return "InputExpandingZ actual=" + stage.ExpanderZ.ActualPosition.ToString("0.###") +
+                   ", avoid=" + waferZ.AvoidPosition.ToString("0.###") +
+                   ", process=" + waferZ.ProcessPosition.ToString("0.###") +
+                   ", tolerance=" + ResolveTolerance(stage.ExpanderZ).ToString("0.###");
         }
 
         private static string BuildXBlockedMessage(

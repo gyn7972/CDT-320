@@ -126,6 +126,10 @@ namespace QMC.CDT320.Sequencing
                 case PickerPlaceStep.ResolveOutputSide:
                     return Task.FromResult(ResolveOutputSide());
 
+                // 아웃풋 스테이지 수령 가능 확인
+                case PickerPlaceStep.VerifyOutputStageReady:
+                    return Task.FromResult(VerifyOutputStageReady());
+
                 // 아웃풋 스테이지 대상 예약
                 case PickerPlaceStep.ReserveOutputStageTarget:
                     return Task.FromResult(ReserveOutputStageTarget());
@@ -202,16 +206,7 @@ namespace QMC.CDT320.Sequencing
         private int BuildPickedPickerList()
         {
             _pickedPickerIndexes.Clear();
-
-            List<int> enabled = BuildEnabledPickerIndexes();
-            for (int i = 0; i < enabled.Count; i++)
-            {
-                int index = enabled[i];
-                int pickerNo = ToPickerNo(index);
-                DieMaterial die = MaterialStateService.GetDieAtPicker(PickerLocationKind, pickerNo);
-                if (die != null)
-                    _pickedPickerIndexes.Add(index);
-            }
+            _pickedPickerIndexes.AddRange(BuildLoadedPickerIndexesInRunOrder("PickerPlaceSequence"));
 
             _pickerCursor = 0;
 
@@ -266,19 +261,41 @@ namespace QMC.CDT320.Sequencing
             if (_currentDie.Result == DieResult.Good)
             {
                 _currentOutputSide = BinSide.Good;
-                CurrentStep = PickerPlaceStep.ReserveOutputStageTarget;
+                CurrentStep = PickerPlaceStep.VerifyOutputStageReady;
                 return 0;
             }
 
             if (_currentDie.Result == DieResult.NG)
             {
                 _currentOutputSide = BinSide.Ng;
-                CurrentStep = PickerPlaceStep.ReserveOutputStageTarget;
+                CurrentStep = PickerPlaceStep.VerifyOutputStageReady;
                 return 0;
             }
 
             return Fail("PICKER-PLACE-DIE-RESULT-UNKNOWN", "Material",
                 "Die result is unknown before place. die=" + _currentDie.DieId + ", pickerNo=" + _currentPickerNo);
+        }
+
+        private int VerifyOutputStageReady()
+        {
+            string reason;
+            if (!MaterialStateService.IsOutputStageReceiveAvailable(_currentOutputSide, out reason))
+            {
+                return Fail("PICKER-PLACE-OUTPUT-STAGE-NOT-READY", "Material",
+                    "Output stage is not ready to receive die. side=" + _currentOutputSide +
+                    ", die=" + (_currentDie != null ? _currentDie.DieId : "-") +
+                    ", pickerNo=" + _currentPickerNo +
+                    ", reason=" + reason);
+            }
+
+            WriteLog("PickerPlaceSequence",
+                Name + " output stage receive ready. side=" + _currentOutputSide +
+                ", die=" + (_currentDie != null ? _currentDie.DieId : "-") +
+                ", pickerNo=" + _currentPickerNo +
+                ", reason=" + reason + " - Ok");
+
+            CurrentStep = PickerPlaceStep.ReserveOutputStageTarget;
+            return 0;
         }
 
         private int ReserveOutputStageTarget()
@@ -479,7 +496,7 @@ namespace QMC.CDT320.Sequencing
 
         private int UpdateMaterialToOutputStage()
         {
-            if (!MaterialStateService.MoveDieToOutputStage(_currentDie.DieId, _currentOutputSide))
+            if (!MaterialStateService.MoveDieToOutputStage(_currentDie.DieId, _currentOutputSide, _receiveTarget))
             {
                 return Fail("PICKER-PLACE-MATERIAL", "Material",
                     "Move die to output stage failed. die=" + _currentDie.DieId +
@@ -497,7 +514,6 @@ namespace QMC.CDT320.Sequencing
             NotifySequenceProgressAfterPlace();
 
             CurrentStep = PickerPlaceStep.SelectNextPickerOrComplete;
-            ReleaseOutputPlaceArea();
             ReleaseOutputStageArea();
             return 0;
         }
@@ -575,6 +591,14 @@ namespace QMC.CDT320.Sequencing
                         FormatAxisMoveWaitResult(waitResult, OutputStage.BuildStageAxisState(axis, target)));
                 }
 
+                double tolerance = ResolveOutputStageAxisTolerance(axis);
+                if (!OutputStage.IsStageAxisInPosition(axis, target, tolerance))
+                {
+                    return Fail("PICKER-PLACE-STAGE-FINAL-POS", "OutputStage",
+                        description + " final position check failed after move. " +
+                        OutputStage.BuildStageAxisState(axis, target));
+                }
+
                 return 0;
             }
             catch (OperationCanceledException)
@@ -588,6 +612,41 @@ namespace QMC.CDT320.Sequencing
             finally
             {
             }
+        }
+
+        private double ResolveOutputStageAxisTolerance(BinStageAxis axis)
+        {
+            try
+            {
+                BaseAxis item = null;
+
+                switch (axis)
+                {
+                    case BinStageAxis.GoodBinY:
+                        item = OutputStage != null && OutputStage.GoodStage != null ? OutputStage.GoodStage.StageY : null;
+                        break;
+                    case BinStageAxis.GoodBinZ:
+                        item = OutputStage != null && OutputStage.GoodStage != null ? OutputStage.GoodStage.StageZ : null;
+                        break;
+                    case BinStageAxis.NgBinY:
+                        item = OutputStage != null && OutputStage.NgStage != null ? OutputStage.NgStage.StageY : null;
+                        break;
+                    case BinStageAxis.VisionX:
+                        item = OutputStage != null ? OutputStage.OutputCameraX : null;
+                        break;
+                }
+
+                if (item != null && item.Config != null && item.Config.InPositionTolerance > 0.0)
+                    return item.Config.InPositionTolerance;
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+
+            return 0.05;
         }
 
         private async Task<T> AwaitStepWithCancellationAsync<T>(Task<T> task, CancellationToken ct)

@@ -3,6 +3,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using QMC.CDT320.Materials;
 
+using QMC.CDT320.Interlocks;
+using QMC.Common.Motion;
+
 namespace QMC.CDT320.Sequencing
 {
     internal enum InputFeederLoadToStageStep
@@ -24,6 +27,7 @@ namespace QMC.CDT320.Sequencing
         MoveFeederAvoidPosition,
         PrepareFeederLiftDownAfterAvoid,
         VerifyInputStageData,
+        MoveInputStageProcessPosition,
         Complete,
         Error
     }
@@ -95,6 +99,9 @@ namespace QMC.CDT320.Sequencing
                     // 인풋 스테이지 데이터 검증
                     case InputFeederLoadToStageStep.VerifyInputStageData:
                         return Task.FromResult(VerifyInputStageData());
+                    // 인풋 스테이지 공정 위치 이동
+                    case InputFeederLoadToStageStep.MoveInputStageProcessPosition:
+                        return MoveInputStageProcessPositionAsync(ct);
                     default:
                         return Task.FromResult(FailUnsupportedStep());
                 }
@@ -394,7 +401,137 @@ namespace QMC.CDT320.Sequencing
             if (Feeder.CurrentWaferMaterial != null || MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputFeeder) != null)
                 return Fail("IN-FEEDER-DATA-CLEAR", "Material", "InputFeeder wafer data remained after feeder to stage transfer.");
 
-            CurrentStep = InputFeederLoadToStageStep.Complete;
+            CurrentStep = InputFeederLoadToStageStep.MoveInputStageProcessPosition;
+            return 0;
+        }
+
+        private async Task<int> MoveInputStageProcessPositionAsync(CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                InputStageUnit stage = ResolveStage();
+                if (stage == null || stage.Recipe == null)
+                    return Fail("IN-FEEDER-STAGE-MISSING", "InputStage", "Input stage unit or recipe is not available for process position move.");
+
+                stage.Recipe.EnsurePositionObjects();
+
+                int result = await MoveStageAxisAndVerifyAsync(
+                    stage,
+                    WaferStageAxis.WaferExpandingZ,
+                    stage.Recipe.WaferZ.ProcessPosition,
+                    "StageZ process",
+                    ct).ConfigureAwait(false);
+                if (result != 0) return result;
+
+                result = await MoveStageAxisAndVerifyAsync(
+                    stage,
+                    WaferStageAxis.WaferY,
+                    stage.Recipe.WaferY.ProcessPosition,
+                    "StageY process",
+                    ct).ConfigureAwait(false);
+                if (result != 0) return result;
+
+                result = await MoveStageAxisAndVerifyAsync(
+                    stage,
+                    WaferStageAxis.WaferT,
+                    stage.Recipe.WaferT.ProcessPosition,
+                    "StageT process",
+                    ct).ConfigureAwait(false);
+                if (result != 0) return result;
+
+                result = await MoveStageAxisAndVerifyAsync(
+                    stage,
+                    WaferStageAxis.NeedleX,
+                    stage.Recipe.NeedleX.ProcessPosition,
+                    "NeedleX process",
+                    ct).ConfigureAwait(false);
+                if (result != 0) return result;
+
+                result = await MoveStageAxisAndVerifyAsync(
+                    stage,
+                    WaferStageAxis.NeedleZ,
+                    stage.Recipe.NeedleZ.ProcessPosition,
+                    "NeedleZ process",
+                    ct).ConfigureAwait(false);
+                if (result != 0) return result;
+
+                result = await MoveStageAxisAndVerifyAsync(
+                    stage,
+                    WaferStageAxis.VisionX,
+                    stage.Recipe.VisionX.ProcessPosition,
+                    "VisionX process",
+                    ct).ConfigureAwait(false);
+                if (result != 0) return result;
+
+                CurrentStep = InputFeederLoadToStageStep.Complete;
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("IN-FEEDER-STAGE-PROCESS-EX", "InputStage",
+                    "InputStage process position move failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> MoveStageAxisAndVerifyAsync(InputStageUnit stage, WaferStageAxis axis, double target, string description, CancellationToken ct)
+        {
+            int result = await MoveStageAxisCommandAsync(stage, axis, target, description, ct).ConfigureAwait(false);
+            if (result != 0) return result;
+
+            result = await WaitStageAxisInPositionResultAsync(stage, axis, target, description, ct).ConfigureAwait(false);
+            if (result != 0) return result;
+
+            return CheckStageAxisInPosition(stage, axis, target, description);
+        }
+
+        private async Task<int> MoveStageAxisCommandAsync(InputStageUnit stage, WaferStageAxis axis, double target, string description, CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+
+            BaseAxis item = ResolveStageAxis(stage, axis);
+            if (item == null)
+                return Fail("IN-FEEDER-STAGE-AXIS", stage != null ? stage.Name : "InputStage",
+                    description + " axis is not available. " + BuildStageAxisState(stage, axis, target));
+
+            string interlockReason;
+            if (!MotionGuardRuntime.VerifyAxisMove(item, target, out interlockReason))
+                return Fail("IN-FEEDER-STAGE-PROCESS-INTERLOCK", stage != null ? stage.Name : "InputStage",
+                    description + " move blocked by interlock. " + interlockReason + ". " +
+                    BuildStageAxisState(stage, axis, target));
+
+            int result = await AwaitStepWithCancellationAsync(
+                stage.MoveInputStageAxis(axis, target, Options.FineMove),
+                ct).ConfigureAwait(false);
+            if (result != 0)
+                return Fail("IN-FEEDER-STAGE-PROCESS-MOVE", stage.Name,
+                    description + " move command failed. result=" + result + ". " +
+                    BuildStageAxisState(stage, axis, target));
+
+            ct.ThrowIfCancellationRequested();
+            return 0;
+        }
+
+        private async Task<int> WaitStageAxisInPositionResultAsync(InputStageUnit stage, WaferStageAxis axis, double target, string description, CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+
+            AxisMoveWaitResult waitResult = await AwaitStepWithCancellationAsync(
+                stage.WaitInputStageAxisInPositionResult(axis, target, ResolveTimeout()),
+                ct).ConfigureAwait(false);
+            if (waitResult == null || !waitResult.Success)
+                return Fail(ResolveAxisMoveWaitAlarmCode("IN-FEEDER-STAGE-PROCESS", waitResult), stage.Name,
+                    description + " move/in-position wait failed. " +
+                    FormatAxisMoveWaitResult(waitResult, BuildStageAxisState(stage, axis, target)));
+
             return 0;
         }
 
@@ -407,7 +544,7 @@ namespace QMC.CDT320.Sequencing
 
             if (item.IsMoving || item.IsAlarm || !IsStageAxisInPosition(item, target))
                 return Fail("IN-FEEDER-STAGE-POSITION", stage.Name,
-                    description + " position check failed. Stage axis is checked only; no stage move is commanded in LoadToStage. " +
+                    description + " final position check failed after stage move/check step. " +
                     BuildStageAxisState(stage, axis, target));
 
             return 0;

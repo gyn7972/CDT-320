@@ -1,4 +1,4 @@
-namespace QMC.Common.Logging
+﻿namespace QMC.Common.Logging
 {
     public enum EventKind
     {
@@ -6,6 +6,10 @@ namespace QMC.Common.Logging
         Warning,
         Alarm,
         Data,
-        Work
+        Work,
+        InputSeq,
+        OutputSeq,
+        FrontHeadSeq,
+        RearHeadSeq
     }
 }
