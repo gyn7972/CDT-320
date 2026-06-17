@@ -917,6 +917,20 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     return;
                 }
 
+                int stagePrepareResult = await AwaitManualMoveStepAsync(
+                    PrepareOutputStageYMoveAsync(unit, _selectedSide, timeoutMs),
+                    timeoutMs,
+                    "OutputStage Y 이동 준비",
+                    () => StopManualMapMove(host, "OutputStage Y 이동 준비 타임아웃")).ConfigureAwait(true);
+                if (stagePrepareResult != 0)
+                {
+                    QMC.Common.MessageDialog.Show(this,
+                        "OutputStage Y 이동 준비 실패\r\nresult=" + stagePrepareResult +
+                        "\r\nAlarm/Event Log를 확인하세요.",
+                        "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
                 // 2) 행(Y): 스테이지 Y축
                 BinStageAxis yAxis = _selectedSide == BinSide.Ng ? BinStageAxis.NgBinY : BinStageAxis.GoodBinY;
                 int rowResult = await AwaitManualMoveStepAsync(
@@ -1061,6 +1075,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (prepareResult != 0)
                     return prepareResult;
 
+                prepareResult = await PrepareOutputStageYMoveAsync(unit, _selectedSide, timeoutMs).ConfigureAwait(true);
+                if (prepareResult != 0)
+                    return prepareResult;
+
                 int loadResult = await unit.MoveToStageLoadPositionAndVerifyAsync(_selectedSide, timeoutMs, true).ConfigureAwait(true);
                 if (loadResult != 0)
                     return loadResult;
@@ -1162,6 +1180,71 @@ namespace QMC.CDT_320.Ui.Pages.Work
             finally
             {
             }
+        }
+
+        private async Task<int> PrepareOutputStageYMoveAsync(OutputStageUnit unit, BinSide side, int timeoutMs)
+        {
+            try
+            {
+                if (unit == null || unit.Recipe == null)
+                    return -1;
+
+                unit.Recipe.EnsurePositionObjects();
+
+                if (side == BinSide.Good)
+                {
+                    int ngClampLiftResult = await unit.EnsureBinGuideClampLiftUpAsync(BinSide.Ng, timeoutMs).ConfigureAwait(true);
+                    if (ngClampLiftResult != 0)
+                        return ngClampLiftResult;
+
+                    if (!unit.IsBinGuideClampLiftUp(BinSide.Ng))
+                        return -1;
+                }
+
+                if (unit.HasStageAxis(BinStageAxis.GoodBinZ))
+                {
+                    double targetZ = side == BinSide.Ng
+                        ? unit.Recipe.GoodStageZ.AvoidPosition
+                        : unit.Recipe.GoodStageZ.ProcessPosition;
+
+                    bool alreadyReady = side == BinSide.Ng
+                        ? unit.IsGoodStageZAtAvoid()
+                        : unit.IsGoodStageZInAvoidOrProcessPosition();
+                    if (side == BinSide.Good)
+                        alreadyReady = unit.IsStageAxisInPosition(BinStageAxis.GoodBinZ, targetZ, ResolveOutputStageAxisTolerance(unit, BinStageAxis.GoodBinZ));
+
+                    if (alreadyReady)
+                        return 0;
+
+                    int zResult = await unit.MoveStageAxis(BinStageAxis.GoodBinZ, targetZ, true).ConfigureAwait(true);
+                    if (zResult != 0)
+                        return zResult;
+
+                    AxisMoveWaitResult zWait = await unit.WaitStageAxisMoveDoneInPosition(
+                        BinStageAxis.GoodBinZ,
+                        targetZ,
+                        timeoutMs).ConfigureAwait(true);
+                    if (zWait == null || !zWait.Success ||
+                        !unit.IsStageAxisInPosition(BinStageAxis.GoodBinZ, targetZ, ResolveOutputStageAxisTolerance(unit, BinStageAxis.GoodBinZ)))
+                        return -1;
+                }
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
+                    "OutputStage Y 이동 준비 실패: " + ex.Message + " - Failed");
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        private static double ResolveOutputStageAxisTolerance(OutputStageUnit unit, BinStageAxis axis)
+        {
+            return 0.05;
         }
 
         private static bool TryResolveOutputPlaceManualTargets(

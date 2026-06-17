@@ -23,6 +23,7 @@ namespace QMC.Common.IO
 
         /// <summary>백그라운드 폴링 태스크 취소 토큰 소스.</summary>
         private readonly CancellationTokenSource _cts = new CancellationTokenSource();
+        private bool _isOn;
 
         protected virtual bool UseInternalStatusUpdate
         {
@@ -37,7 +38,15 @@ namespace QMC.Common.IO
         /// 논리적 ON 상태.<br/>
         /// <c>IsNormallyClosed</c> 설정에 따라 하드웨어 신호의 A/B 접점 치환이 적용된 값이다.
         /// </summary>
-        public bool IsOn  { get; protected set; }
+        public bool IsOn
+        {
+            get
+            {
+                RefreshLatestState();
+                return _isOn;
+            }
+            protected set { _isOn = value; }
+        }
 
         /// <summary>논리적 OFF 상태 (<see cref="IsOn"/>의 반전값).</summary>
         public bool IsOff => !IsOn;
@@ -99,7 +108,7 @@ namespace QMC.Common.IO
         public virtual void SimulateInput(bool state)
         {
             if (!Config.IsSimulationMode) return;
-            bool changed = IsOn != state;
+            bool changed = _isOn != state;
             IsOn = state;
             AjinIoScanService.SetSimulatedState(this, state);
             if (changed) RaiseStateChanged(state);
@@ -122,10 +131,26 @@ namespace QMC.Common.IO
 
         protected internal void ApplyScannedState(bool logical)
         {
-            if (IsOn != logical)
+            if (_isOn != logical)
             {
-                IsOn = logical;
+                _isOn = logical;
                 RaiseStateChanged(logical);
+            }
+        }
+
+        private void RefreshLatestState()
+        {
+            try
+            {
+                if (Config != null && Config.IgnoreWaits)
+                    return;
+
+                AjinIoScanService service = AjinIoScanService.Current;
+                if (service != null)
+                    service.TryApplyLatest(this);
+            }
+            catch
+            {
             }
         }
 

@@ -456,7 +456,8 @@ namespace QMC.CDT320
         public bool IsFeederDown()
         {
             if (ShouldReadCylinderStateForSimulation(FeederUpDownCyl))
-                return FeederUpDownCyl.IsBwd || IsCylinderStateUnknown(FeederUpDownCyl);
+                return FeederUpDownCyl.IsBwd ||
+                       (ShouldUseVirtualDryRunDefaults(FeederUpDownCyl) && IsCylinderStateUnknown(FeederUpDownCyl));
 
             return BinFeederDownSensor != null && BinFeederDownSensor.IsOn;
         }
@@ -464,14 +465,17 @@ namespace QMC.CDT320
         public bool IsFeederUnclamped()
         {
             if (ShouldReadCylinderStateForSimulation(FeederClampCyl))
-                return FeederClampCyl.IsBwd || (IsCylinderStateUnknown(FeederClampCyl) && IsFeederTransferDataEmpty());
+                return FeederClampCyl.IsBwd ||
+                       (ShouldUseVirtualDryRunDefaults(FeederClampCyl) &&
+                        IsCylinderStateUnknown(FeederClampCyl) &&
+                        IsFeederTransferDataEmpty());
 
             return BinFeederUnclampSensor != null && BinFeederUnclampSensor.IsOn;
         }
 
         public bool IsFeederOverload()
         {
-            if (IsOutputFeederSimulationOrDryRun())
+            if (ShouldUseVirtualDryRunDefaults(null))
                 return false;
 
             if (BinFeederOverloadSensor == null)
@@ -811,6 +815,14 @@ namespace QMC.CDT320
         {
             return IsOutputFeederSimulationOrDryRun() &&
                    (IsCylinderSimulation(cylinder) || IsCylinderInputWaitIgnored(cylinder));
+        }
+
+        private bool ShouldUseVirtualDryRunDefaults(BaseCylinder cylinder)
+        {
+            AppSettings settings = AppSettingsStore.Current;
+            bool appVirtual = settings != null && (settings.BypassHardware || settings.SimulationMode);
+            bool cylinderSimulation = cylinder != null && cylinder.Config != null && cylinder.Config.IsSimulationMode;
+            return appVirtual || cylinderSimulation || !AjinFactory.IsRealBoardReady;
         }
 
         private static bool CanSimulateInput(BaseDigitalInput input)

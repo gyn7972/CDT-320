@@ -67,17 +67,29 @@ namespace QMC.CDT320.Interlocks
 
         private static bool CanMoveOutputGoodStageY(CDT320_Machine machine, out string reason)
         {
-            if (!CanHomeOutputGoodStageY(machine, out reason))
+            reason = string.Empty;
+            OutputStageUnit stage = machine != null ? machine.OutputStageUnit : null;
+
+            if (stage != null &&
+                stage.GoodStage != null &&
+                !stage.IsGoodStageZInAvoidOrProcessPosition())
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "OutputGoodStageY",
+                    "OutputGoodStageY 이동 차단. OutputGoodStageZ는 Avoid 또는 Process 위치여야 합니다.",
+                    out reason);
+            }
+
+            if (!VerifyNgClampLiftUpForGoodStageMove(stage, "OutputGoodStageY", out reason))
                 return false;
 
-            OutputStageUnit stage = machine != null ? machine.OutputStageUnit : null;
             if (!VerifyOutputTransportClear(machine, "OutputGoodStageY", out reason))
                 return false;
 
             if (stage != null && stage.NgStage != null && !stage.NgStage.IsAtAvoidPosition())
                 return MotionGuardRuleHelpers.Block(
                     "OutputGoodStageY",
-                    "NgStage must be at Avoid position before GoodStage Y move.",
+                    "OutputGoodStageY 이동 차단. NgStage는 Avoid 위치여야 합니다.",
                     out reason);
 
             return VerifyOutputStageNotBusy(stage, "OutputGoodStageY", out reason);
@@ -520,7 +532,8 @@ namespace QMC.CDT320.Interlocks
 
         private static bool IsDryRunInput(BaseDigitalInput input)
         {
-            return input != null && input.Config != null && input.Config.IgnoreWaits;
+            return input != null && input.Config != null &&
+                   input.Config.IgnoreWaits && input.Config.IsSimulationMode;
         }
 
         private static bool RefreshRequiredHardwareInput(BaseDigitalInput input, string movingName, string signalName, out string reason)

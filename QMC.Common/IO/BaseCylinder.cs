@@ -249,8 +249,8 @@ namespace QMC.Common.IO
             {
                 await Task.Delay(SimulationDelayMs, ct);
                 ct.ThrowIfCancellationRequested();
-                InBwd.SimulateInput(false);
-                InFwd.SimulateInput(true);
+                ForceInputState(InBwd, false);
+                ForceInputState(InFwd, true);
             }
 
             // ── 전진 완료 센서 대기 ──────────────────────────────────────────
@@ -307,8 +307,8 @@ namespace QMC.Common.IO
             {
                 await Task.Delay(SimulationDelayMs, ct);
                 ct.ThrowIfCancellationRequested();
-                InFwd.SimulateInput(false);
-                InBwd.SimulateInput(true);
+                ForceInputState(InFwd, false);
+                ForceInputState(InBwd, true);
             }
 
             // ── 후진 완료 센서 대기 ──────────────────────────────────────────
@@ -334,6 +334,15 @@ namespace QMC.Common.IO
 
             string reason;
             return guard(this, moveFwd, out reason);
+        }
+
+        private static void ForceInputState(BaseDigitalInput input, bool state)
+        {
+            if (input == null)
+                return;
+
+            input.ApplyScannedState(state);
+            AjinIoScanService.SetSimulatedState(input, state);
         }
     }
 }

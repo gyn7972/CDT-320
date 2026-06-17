@@ -1,6 +1,7 @@
 ﻿using System;
 using QMC.Common.IO;
 using QMC.Common.Motion;
+using QMC.CDT320.Ajin;
 using QMC.CDT320.Materials;
 
 namespace QMC.CDT320.Interlocks
@@ -152,19 +153,21 @@ namespace QMC.CDT320.Interlocks
                         "InputFeederY HOME blocked. InputFeeder overload sensor is detected.",
                         out reason);
 
-                if (!feeder.IsWaferFeederSimulationOrDryRun())
+                if (!ShouldBypassHardwareMechanismChecks())
                 {
                     if (!IsFeederUnclamp(feeder))
                         return MotionGuardRuleHelpers.Block(
                             "InputFeederY",
                             "InputFeederY HOME blocked. InputFeeder must be unclamped.",
                             out reason);
+                }
 
-                    if (feeder.IsWaferFeederRingCheck())
-                        return MotionGuardRuleHelpers.Block(
-                            "InputFeederY",
-                            "InputFeederY HOME blocked. InputFeeder ring check is detected.",
-                            out reason);
+                if (!feeder.IsWaferFeederSimulationOrDryRun() && feeder.IsWaferFeederRingCheck())
+                {
+                    return MotionGuardRuleHelpers.Block(
+                        "InputFeederY",
+                        "InputFeederY HOME blocked. InputFeeder ring check is detected.",
+                        out reason);
                 }
 
                 return true;
@@ -536,6 +539,23 @@ namespace QMC.CDT320.Interlocks
                 return false;
 
             return Math.Abs(axis.ActualPosition - target) <= PositionTolerance;
+        }
+
+        private static bool ShouldBypassHardwareMechanismChecks()
+        {
+            try
+            {
+                AppSettings settings = AppSettingsStore.Current ?? AppSettingsStore.Load();
+                return settings == null ||
+                       settings.BypassHardware ||
+                       settings.SimulationMode ||
+                       !settings.UseAjin ||
+                       !AjinFactory.IsRealBoardReady;
+            }
+            catch
+            {
+                return true;
+            }
         }
 
         private static void LogBlockedReason(string reason)

@@ -556,7 +556,7 @@ namespace QMC.CDT320
 
         public bool IsWaferFeederOverload()
         {
-            if (IsWaferFeederSimulationOrDryRun())
+            if (ShouldUseVirtualDryRunDefaults(null))
                 return false;
 
             if (WaferFeederOverloadSensor == null)
@@ -925,7 +925,7 @@ namespace QMC.CDT320
 
         private bool IsWaferFeederLiftDryRunStateUnknown()
         {
-            return IsWaferFeederSimulationOrDryRun() &&
+            return ShouldUseVirtualDryRunDefaults(InputFeederLift) &&
                    InputFeederLift != null &&
                    InputFeederLift.Config != null &&
                    InputFeederLift.Config.IgnoreInputWaits &&
@@ -933,6 +933,14 @@ namespace QMC.CDT320
                    WaferFeederDownSensor != null &&
                    !WaferFeederUpSensor.IsOn &&
                    !WaferFeederDownSensor.IsOn;
+        }
+
+        private bool ShouldUseVirtualDryRunDefaults(BaseCylinder cylinder)
+        {
+            AppSettings settings = AppSettingsStore.Current;
+            bool appVirtual = settings != null && (settings.BypassHardware || settings.SimulationMode);
+            bool cylinderSimulation = cylinder != null && cylinder.Config != null && cylinder.Config.IsSimulationMode;
+            return appVirtual || cylinderSimulation || !AjinFactory.IsRealBoardReady;
         }
 
         private static void SimulateInputIfAllowed(BaseDigitalInput input, bool state)

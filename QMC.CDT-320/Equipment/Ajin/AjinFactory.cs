@@ -567,8 +567,52 @@ namespace QMC.CDT320.Ajin
         public static void ApplyInputDryRun(BaseDigitalInput input, bool dryRun)
         {
             if (input == null) return;
-            input.Config.IsSimulationMode = dryRun || !Ready || input is SimDigitalInput;
-            input.Config.IgnoreWaits = dryRun && Ready && !(input is SimDigitalInput);
+            input.Config.IsSimulationMode = !Ready || input is SimDigitalInput;
+            input.Config.IgnoreWaits = dryRun && Ready && !(input is SimDigitalInput) && ShouldBypassInputInDryRun(input);
+        }
+
+        private static bool ShouldBypassInputInDryRun(BaseDigitalInput input)
+        {
+            try
+            {
+                string name = input != null ? input.Name ?? string.Empty : string.Empty;
+                if (string.IsNullOrWhiteSpace(name))
+                    return false;
+
+                if (Contains(name, "Pressure") ||
+                    Contains(name, "Overload") ||
+                    Contains(name, "Guide") ||
+                    Contains(name, "Clamp") ||
+                    Contains(name, "Unclamp") ||
+                    Contains(name, "Lift") ||
+                    Contains(name, "Lock") ||
+                    Contains(name, "Bw") ||
+                    Contains(name, "Fw") ||
+                    Contains(name, "Up") ||
+                    Contains(name, "Down") ||
+                    Contains(name, "Reticle") ||
+                    Contains(name, "Cda"))
+                    return false;
+
+                return Contains(name, "CassetteCheck") ||
+                       Contains(name, "Ring") ||
+                       Contains(name, "Mapping") ||
+                       Contains(name, "Jut") ||
+                       Contains(name, "Flow") ||
+                       Contains(name, "Touch") ||
+                       Contains(name, "Vacuum") ||
+                       Contains(name, "Exist");
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static bool Contains(string value, string token)
+        {
+            return value != null && token != null &&
+                   value.IndexOf(token, StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         public static void ApplyInputPersistedSimulation(BaseDigitalInput input)
@@ -623,6 +667,13 @@ namespace QMC.CDT320.Ajin
             ApplyOutputSimulation(cylinder.OutBwd, false);
             ApplyInputDryRun(cylinder.InFwd, dryRun);
             ApplyInputDryRun(cylinder.InBwd, dryRun);
+            if (dryRun)
+            {
+                if (cylinder.InFwd != null && cylinder.InFwd.Config != null)
+                    cylinder.InFwd.Config.IgnoreWaits = true;
+                if (cylinder.InBwd != null && cylinder.InBwd.Config != null)
+                    cylinder.InBwd.Config.IgnoreWaits = true;
+            }
         }
 
         private static bool TryFindDio(string name, out DioMap m)
