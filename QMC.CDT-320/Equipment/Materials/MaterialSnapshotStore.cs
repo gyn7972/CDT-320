@@ -71,6 +71,7 @@ namespace QMC.CDT320.Materials
                         "Material snapshot recovered from alternate file. file=" + selected.Path +
                         ", wafers=" + CountList(selected.Snapshot.Wafers) +
                         ", dies=" + CountList(selected.Snapshot.Dies) +
+                        ", pickerDies=" + CountPickerRelatedDies(selected.Snapshot) +
                         ", savedAt=" + selected.Snapshot.SavedAt.ToString("yyyy-MM-dd HH:mm:ss") + " - Ok");
                 }
 
@@ -278,6 +279,8 @@ namespace QMC.CDT320.Materials
             int score = 0;
             score += CountList(snapshot.Wafers) * 100000;
             score += CountList(snapshot.Dies);
+            score += CountPickerRelatedDies(snapshot) * 10000;
+            score += CountLocatedWafers(snapshot) * 1000;
 
             if (snapshot.Cassettes != null)
             {
@@ -295,6 +298,70 @@ namespace QMC.CDT320.Materials
             }
 
             return score;
+        }
+
+        private static int CountPickerRelatedDies(MaterialSnapshot snapshot)
+        {
+            try
+            {
+                if (snapshot == null || snapshot.Dies == null)
+                    return 0;
+
+                int count = 0;
+                foreach (var die in snapshot.Dies)
+                {
+                    if (die == null)
+                        continue;
+
+                    MaterialLocation location = die.CurrentLocation;
+                    MaterialLocationKind kind = location != null ? location.Kind : MaterialLocationKind.Unknown;
+                    if (kind == MaterialLocationKind.PickerFront ||
+                        kind == MaterialLocationKind.PickerRear ||
+                        die.PickedPickerNo > 0 ||
+                        die.ReservedPickerNo > 0)
+                    {
+                        count++;
+                    }
+                }
+
+                return count;
+            }
+            catch
+            {
+                return 0;
+            }
+            finally
+            {
+            }
+        }
+
+        private static int CountLocatedWafers(MaterialSnapshot snapshot)
+        {
+            try
+            {
+                if (snapshot == null || snapshot.Wafers == null)
+                    return 0;
+
+                int count = 0;
+                foreach (var wafer in snapshot.Wafers)
+                {
+                    if (wafer == null || wafer.CurrentLocation == null)
+                        continue;
+
+                    MaterialLocationKind kind = wafer.CurrentLocation.Kind;
+                    if (kind != MaterialLocationKind.Unknown)
+                        count++;
+                }
+
+                return count;
+            }
+            catch
+            {
+                return 0;
+            }
+            finally
+            {
+            }
         }
 
         private static int CountList<T>(ICollection<T> list)

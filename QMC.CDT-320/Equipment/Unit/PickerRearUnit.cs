@@ -1207,6 +1207,33 @@ namespace QMC.CDT320
             PlaceFailCount = 0;
         }
 
+        public void RestoreWorkCounters(int[] colletUseCounts, int pickFailCount, int placeFailCount)
+        {
+            try
+            {
+                ColletUseCounts = new int[MaxPickerCount];
+
+                if (colletUseCounts != null)
+                {
+                    int count = Math.Min(MaxPickerCount, colletUseCounts.Length);
+                    for (int i = 0; i < count; i++)
+                        ColletUseCounts[i] = Math.Max(0, colletUseCounts[i]);
+                }
+
+                PickFailCount = Math.Max(0, pickFailCount);
+                PlaceFailCount = Math.Max(0, placeFailCount);
+            }
+            catch
+            {
+                ColletUseCounts = new int[MaxPickerCount];
+                PickFailCount = 0;
+                PlaceFailCount = 0;
+            }
+            finally
+            {
+            }
+        }
+
         protected BaseAxis GetAxis(PickerAxis axis)
         {
             BaseAxis item;

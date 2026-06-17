@@ -221,6 +221,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         {
             bool cdaOk = ReadInput(GetCdaPressure(machine));
             bool vacuumOk = ReadInput(GetVacuumPressure(machine));
+            bool simulationOrDryRun = IsSimulationOrDryRun(machine);
 
             for (int pickerNo = 1; pickerNo <= 4; pickerNo++)
             {
@@ -228,11 +229,15 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 bool flow = ReadInput(GetFlow(machine, pickerNo));
                 bool vacuum = ReadOutput(GetVacuum(machine, pickerNo));
                 bool blow = ReadOutput(GetBlow(machine, pickerNo));
+                DieMaterial pickedDie = GetPickedDieMaterial(pickerNo);
+                bool hasPickedMaterial = pickedDie != null;
+                bool vacuumDisplay = vacuum || flow || (simulationOrDryRun && hasPickedMaterial);
 
                 if (index < _headValueLabels.Length && _headValueLabels[index] != null)
                 {
-                    _headValueLabels[index].Text = ResolveHeadState(machine, pickerNo, flow);
-                    _headValueLabels[index].ForeColor = flow ? Color.Lime : Color.Black;
+                    string headState = ResolveHeadState(machine, pickerNo, flow, pickedDie);
+                    _headValueLabels[index].Text = headState;
+                    _headValueLabels[index].ForeColor = IsPickedHeadState(headState) ? Color.Lime : Color.Black;
                 }
 
                 bool usePicker = UsePicker(machine, pickerNo);
@@ -250,12 +255,12 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 }
 
                 if (index < _vacuumLabels.Length && _vacuumLabels[index] != null)
-                    _vacuumLabels[index].Text = "HEAD VACUUM #" + pickerNo + " : " + (vacuum || flow ? "ON" : "OFF");
+                    _vacuumLabels[index].Text = "HEAD VACUUM #" + pickerNo + " : " + (vacuumDisplay ? "ON" : "OFF");
                 if (index < _blowLabels.Length && _blowLabels[index] != null)
                     _blowLabels[index].Text = "HEAD BLOW #" + pickerNo + " : " + (blow ? "ON" : "OFF");
 
                 if (index < _vacuumDots.Length)
-                    SetDot(_vacuumDots[index], vacuum || flow);
+                    SetDot(_vacuumDots[index], vacuumDisplay);
                 if (index < _blowDots.Length)
                     SetDot(_blowDots[index], blow);
             }
@@ -291,6 +296,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     host.Machine.PickerFrontUnit.ResetWorkCounters();
                 if (_side == PickerSequenceSide.Rear && host.Machine.PickerRearUnit != null)
                     host.Machine.PickerRearUnit.ResetWorkCounters();
+
+                if (host.Controller != null)
+                    host.Controller.SaveMachineRuntimeState(SideName + "WorkCounterClear");
 
                 WriteEvent(SideName + " count clear.");
                 Refresh();
@@ -537,6 +545,29 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     return true;
 
                 CDT320_Machine machine = context != null ? context.Machine : null;
+                return IsSimulationOrDryRun(machine);
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private bool IsSimulationOrDryRun(CDT320_Machine machine)
+        {
+            try
+            {
+                if (AppSettingsStore.Current != null &&
+                    (AppSettingsStore.Current.SimulationMode || AppSettingsStore.Current.DryRunMode))
+                    return true;
+
+                Form1 host = _getHost != null ? _getHost() : null;
+                if (host != null && host.Controller != null && host.Controller.GlobalDryRun)
+                    return true;
+
                 if (machine == null)
                     return false;
 
@@ -953,9 +984,78 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
         private string ResolveHeadState(CDT320_Machine machine, int pickerNo, bool flow)
         {
+            return ResolveHeadState(machine, pickerNo, flow, null);
+        }
+
+        private string ResolveHeadState(CDT320_Machine machine, int pickerNo, bool flow, DieMaterial pickedDie)
+        {
             if (!UsePicker(machine, pickerNo))
                 return "DISABLE";
-            return flow ? "PICK" : "EMPTY";
+
+            DieMaterial die = pickedDie ?? GetPickedDieMaterial(pickerNo);
+            if (die != null)
+                return "PICK / " + FormatDieShortId(die.DieId);
+
+            return flow ? "PICK(SENSOR)" : "EMPTY";
+        }
+
+        private static bool IsPickedHeadState(string headState)
+        {
+            try
+            {
+                return !string.IsNullOrWhiteSpace(headState) &&
+                       headState.StartsWith("PICK", StringComparison.OrdinalIgnoreCase);
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private DieMaterial GetPickedDieMaterial(int pickerNo)
+        {
+            try
+            {
+                MaterialLocationKind location = _side == PickerSequenceSide.Front
+                    ? MaterialLocationKind.PickerFront
+                    : MaterialLocationKind.PickerRear;
+
+                return MaterialStateService.GetDieAtPicker(location, pickerNo);
+            }
+            catch (Exception ex)
+            {
+                WriteAlarm("픽커 Material 상태 조회 실패: pickerNo=" + pickerNo + ", error=" + ex.Message);
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
+        private static string FormatDieShortId(string dieId)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(dieId))
+                    return "-";
+
+                string value = dieId.Trim();
+                int dieMarker = value.LastIndexOf("-D", StringComparison.OrdinalIgnoreCase);
+                if (dieMarker >= 0 && dieMarker + 1 < value.Length)
+                    return value.Substring(dieMarker + 1);
+
+                return value.Length > 12 ? value.Substring(value.Length - 12) : value;
+            }
+            catch
+            {
+                return dieId ?? "-";
+            }
+            finally
+            {
+            }
         }
 
         private string ResolveHeadZone(CDT320_Machine machine)
