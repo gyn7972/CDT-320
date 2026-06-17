@@ -754,7 +754,11 @@ namespace QMC.CDT320
                 EventLogger.Write(EventKind.Event, "QMC", "OS-MOVE", axis + " target=" + targetPos);
                 int result = await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, velocity);
                 if (result != 0 || item.IsAlarm)
-                    return RaiseOutputStageAlarm("OS-MOVE", axis + " move failed. result=" + result + ", alarm=" + item.IsAlarm);
+                    return RaiseOutputStageAlarm(
+                        "OS-MOVE",
+                        axis + " 이동 실패. result=" + result +
+                        ", alarm=" + item.IsAlarm +
+                        FormatStageAxisLastMotionFailure(item));
 
                 AxisMoveWaitResult waitResult = await WaitStageAxisMoveDoneInPosition(
                     axis,
@@ -770,8 +774,18 @@ namespace QMC.CDT320
             }
             catch (Exception ex)
             {
-                return RaiseOutputStageAlarm("OS-MOVE-EX", axis + " move exception: " + ex.Message);
+                return RaiseOutputStageAlarm("OS-MOVE-EX", axis + " 이동 중 예외가 발생했습니다. " + ex.Message);
             }
+        }
+
+        private static string FormatStageAxisLastMotionFailure(BaseAxis axis)
+        {
+            if (axis == null ||
+                axis.LastMotionFailureCode == 0 ||
+                string.IsNullOrWhiteSpace(axis.LastMotionFailureMessage))
+                return string.Empty;
+
+            return ", 마지막 이동 실패 원인=" + axis.LastMotionFailureMessage;
         }
 
         public Task<int> MoveStageAxisToTeachingPosition(BinStageAxis axis, string positionName, bool bFine = false)
@@ -892,6 +906,19 @@ namespace QMC.CDT320
         {
             try
             {
+                if (side == BinSide.Good &&
+                    HasStageAxis(BinStageAxis.GoodBinZ) &&
+                    !IsGoodStageZInAvoidOrProcessPosition())
+                {
+                    int zSafeResult = await MoveStageAxisAndVerifyAsync(
+                        BinStageAxis.GoodBinZ,
+                        Recipe.GoodStageZ.ProcessPosition,
+                        timeoutMs,
+                        bFine).ConfigureAwait(false);
+                    if (zSafeResult != 0)
+                        return zSafeResult;
+                }
+
                 BinStageAxis yAxis = side == BinSide.Ng ? BinStageAxis.NgBinY : BinStageAxis.GoodBinY;
                 double yTarget = side == BinSide.Ng ? Recipe.NGStageY.LoadPosition : Recipe.GoodStageY.LoadPosition;
 
@@ -906,10 +933,35 @@ namespace QMC.CDT320
             }
             catch (Exception ex)
             {
-                return RaiseOutputStageAlarm("OS-STAGE-LOAD-EX", "Output stage load position exception. side=" + side + ", " + ex.Message);
+                return RaiseOutputStageAlarm("OS-STAGE-LOAD-EX", "Output stage Load 위치 이동 중 예외가 발생했습니다. side=" + side + ", " + ex.Message);
             }
             finally
             {
+            }
+        }
+
+        public string DescribeStageLoadMoveState(BinSide side)
+        {
+            try
+            {
+                Recipe.EnsurePositionObjects();
+                double yTarget = side == BinSide.Ng ? Recipe.NGStageY.LoadPosition : Recipe.GoodStageY.LoadPosition;
+                string text = DescribeOutputStageInterlockState(side) +
+                              ", yTarget=" + yTarget;
+
+                if (side == BinSide.Good)
+                    text += ", zLoadTarget=" + Recipe.GoodStageZ.LoadPosition +
+                            ", zProcessTarget=" + Recipe.GoodStageZ.ProcessPosition +
+                            FormatStageAxisLastMotionFailure(GoodStage != null ? GoodStage.StageY : null) +
+                            FormatStageAxisLastMotionFailure(GoodStage != null ? GoodStage.StageZ : null);
+                else
+                    text += FormatStageAxisLastMotionFailure(NgStage != null ? NgStage.StageY : null);
+
+                return text;
+            }
+            catch (Exception ex)
+            {
+                return "OutputStage Load 이동 상태 설명 실패: " + ex.Message;
             }
         }
 
@@ -1229,16 +1281,27 @@ namespace QMC.CDT320
 
         private bool ResolveCylinderState(BaseCylinder cylinder, BaseDigitalInput input, bool fwd, bool dryRunDefaultWhenUnknown)
         {
+            RefreshCylinderInputs(cylinder);
+
             if (input != null && input.IsOn)
                 return true;
 
             if (cylinder != null && (fwd ? cylinder.IsFwd : cylinder.IsBwd))
                 return true;
 
-            if (IsOutputStageSimulationOrDryRun() && IsCylinderStateUnknown(cylinder))
+            if (ShouldUseVirtualCylinderDefault(cylinder) && IsCylinderStateUnknown(cylinder))
                 return dryRunDefaultWhenUnknown;
 
             return false;
+        }
+
+        private bool ShouldUseVirtualCylinderDefault(BaseCylinder cylinder)
+        {
+            AppSettings settings = AppSettingsStore.Current;
+            bool appVirtual = settings != null && (settings.BypassHardware || settings.SimulationMode);
+            bool setupSimulation = Setup != null && Setup.IsSimulationMode;
+            bool cylinderSimulation = cylinder != null && cylinder.Config != null && cylinder.Config.IsSimulationMode;
+            return appVirtual || setupSimulation || cylinderSimulation || !AjinFactory.IsRealBoardReady;
         }
 
         private static bool IsCylinderStateUnknown(BaseCylinder cylinder)
@@ -1252,6 +1315,26 @@ namespace QMC.CDT320
                 ? MaterialLocationKind.OutputStageNg
                 : MaterialLocationKind.OutputStageGood;
             return MaterialStateService.GetWaferAtLocation(location) != null;
+        }
+
+        private bool RefreshCylinderInputs(BaseCylinder cylinder)
+        {
+            if (cylinder == null || cylinder.Setup == null ||
+                cylinder.Config == null || cylinder.Config.IsSimulationMode ||
+                cylinder.Config.IgnoreInputWaits ||
+                !AjinFactory.IsRealBoardReady)
+                return true;
+
+            bool ok = true;
+            int errorCode;
+
+            if (cylinder.Setup.UseFwdSensor && cylinder.InFwd != null)
+                ok = AjinIoScanService.TryReadHardwareInput(cylinder.InFwd, out errorCode) && ok;
+
+            if (cylinder.Setup.UseBwdSensor && cylinder.InBwd != null)
+                ok = AjinIoScanService.TryReadHardwareInput(cylinder.InBwd, out errorCode) && ok;
+
+            return ok;
         }
 
         public string DescribeOutputStageInterlockState(BinSide side)
@@ -1323,7 +1406,7 @@ namespace QMC.CDT320
             if (!waitResult.Success)
                 return RaiseOutputStageAlarm(
                     AxisMoveWaiter.ResolveAlarmCode("OS-MOVE", waitResult),
-                    axis + " move/in-position wait failed. target=" + targetPos + ". " +
+                    axis + " 이동 완료/위치 확인 실패. target=" + targetPos + ". " +
                     AxisMoveWaiter.FormatResult(waitResult, axis.ToString()));
 
             return 0;
@@ -1344,7 +1427,10 @@ namespace QMC.CDT320
             try
             {
                 if (cylinder == null)
-                    return RaiseOutputStageAlarm("OS-CYL-MISSING", description + " cylinder is null.");
+                    return RaiseOutputStageAlarm("OS-CYL-MISSING", description + " 실린더가 등록되어 있지 않습니다.");
+
+                if (!RefreshCylinderInputs(cylinder))
+                    return RaiseOutputStageAlarm("OS-CYL-INPUT", description + " 실린더 입력 갱신 실패.");
 
                 bool already = fwd ? cylinder.IsFwd : cylinder.IsBwd;
                 if (already)
@@ -1352,17 +1438,30 @@ namespace QMC.CDT320
 
                 bool ok = fwd ? await cylinder.MoveFwdAsync() : await cylinder.MoveBwdAsync();
                 if (!ok)
-                    return RaiseOutputStageAlarm("OS-CYL-MOVE", description + " cylinder move failed.");
+                    return RaiseOutputStageAlarm("OS-CYL-MOVE", description + " 실린더 구동 실패.");
 
-                bool arrived = await WaitUntilAsync(() => fwd ? cylinder.IsFwd : cylinder.IsBwd, timeoutMs);
+                bool refreshOk = true;
+                bool arrived = await WaitUntilAsync(() =>
+                {
+                    if (!RefreshCylinderInputs(cylinder))
+                    {
+                        refreshOk = false;
+                        return false;
+                    }
+
+                    return fwd ? cylinder.IsFwd : cylinder.IsBwd;
+                }, timeoutMs);
+                if (!refreshOk)
+                    return RaiseOutputStageAlarm("OS-CYL-INPUT", description + " 실린더 입력 갱신 실패.");
+
                 if (!arrived)
-                    return RaiseOutputStageAlarm("OS-CYL-TIMEOUT", description + " cylinder sensor timeout.");
+                    return RaiseOutputStageAlarm("OS-CYL-TIMEOUT", description + " 실린더 센서 대기 시간 초과.");
 
                 return 0;
             }
             catch (Exception ex)
             {
-                return RaiseOutputStageAlarm("OS-CYL-EX", description + " cylinder exception: " + ex.Message);
+                return RaiseOutputStageAlarm("OS-CYL-EX", description + " 실린더 예외: " + ex.Message);
             }
             finally
             {

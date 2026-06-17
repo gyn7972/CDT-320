@@ -2,6 +2,7 @@
 
 using System;
 using QMC.Common.Motion;
+using QMC.CDT320.Ajin;
 using QMC.CDT320.Materials;
 
 namespace QMC.CDT320.Interlocks
@@ -166,13 +167,13 @@ namespace QMC.CDT320.Interlocks
                         "OutputFeederY HOME blocked. OutputFeeder overload sensor is detected.",
                         out reason);
 
-                if (!feeder.IsOutputFeederSimulationOrDryRun() && !IsFeederUnclamp(feeder))
+                if (!ShouldBypassHardwareMechanismChecks() && !IsFeederUnclamp(feeder))
                     return MotionGuardRuleHelpers.Block(
                         "OutputFeederY",
                         "OutputFeederY HOME blocked. OutputFeeder must be unclamped.",
                         out reason);
 
-                if (!feeder.IsOutputFeederSimulationOrDryRun() && !IsFeederUp(feeder))
+                if (!ShouldBypassHardwareMechanismChecks() && !IsFeederUp(feeder))
                     return MotionGuardRuleHelpers.Block(
                         "OutputFeederY",
                         "OutputFeederY HOME blocked. OutputFeeder must be up.",
@@ -513,7 +514,25 @@ namespace QMC.CDT320.Interlocks
 
         private static bool IsDryRunInput(BaseDigitalInput input)
         {
-            return input != null && input.Config != null && input.Config.IgnoreWaits;
+            return input != null && input.Config != null &&
+                   input.Config.IgnoreWaits && input.Config.IsSimulationMode;
+        }
+
+        private static bool ShouldBypassHardwareMechanismChecks()
+        {
+            try
+            {
+                AppSettings settings = AppSettingsStore.Current ?? AppSettingsStore.Load();
+                return settings == null ||
+                       settings.BypassHardware ||
+                       settings.SimulationMode ||
+                       !settings.UseAjin ||
+                       !AjinFactory.IsRealBoardReady;
+            }
+            catch
+            {
+                return true;
+            }
         }
 
         private static void LogBlockedReason(string reason)

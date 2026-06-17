@@ -661,11 +661,13 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
         private static bool IsOn(QMC.Common.IO.BaseDigitalInput input)
         {
+            try { input?.UpdateStatus(); } catch { }
             return input != null && input.IsOn;
         }
 
         private static bool IsOn(QMC.Common.IO.BaseDigitalOutput output)
         {
+            try { output?.UpdateStatus(); } catch { }
             return output != null && output.IsOn;
         }
 

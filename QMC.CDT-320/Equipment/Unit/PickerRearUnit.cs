@@ -1023,12 +1023,12 @@ namespace QMC.CDT320
 
         public bool IsPickerCdaPressureOk()
         {
-            return CdaTankPressureCheck.IsOn || IsPickerSimulationOrDryRun();
+            return CdaTankPressureCheck.IsOn || ShouldBypassHardwareInputChecks();
         }
 
         public bool IsPickerVacuumPressureOk()
         {
-            return VacuumTankPressureCheck.IsOn || IsPickerSimulationOrDryRun();
+            return VacuumTankPressureCheck.IsOn || ShouldBypassHardwareInputChecks();
         }
 
         public Task<bool> WaitPickerFlowState(int pickerNo, bool expected, int timeoutMs)
@@ -1126,6 +1126,15 @@ namespace QMC.CDT320
             return (settings != null && (settings.BypassHardware || settings.DryRunMode)) ||
                    (Config != null && Config.IsSimulationMode) ||
                    (Setup != null && Setup.IsSimulationMode);
+        }
+
+        private bool ShouldBypassHardwareInputChecks()
+        {
+            AppSettings settings = AppSettingsStore.Current;
+            return (settings != null && (settings.BypassHardware || settings.SimulationMode)) ||
+                   (Config != null && Config.IsSimulationMode) ||
+                   (Setup != null && Setup.IsSimulationMode) ||
+                   !AjinFactory.IsRealBoardReady;
         }
 
         private BottomVisionOffset SimulateBottomInspectionResult(int pickerNo)

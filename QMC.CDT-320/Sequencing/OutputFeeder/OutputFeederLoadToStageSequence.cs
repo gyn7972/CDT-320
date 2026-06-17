@@ -266,10 +266,14 @@ namespace QMC.CDT320.Sequencing
         {
             int result = await AwaitStepWithCancellationAsync(Stage.MoveToStageLoadPositionAndVerifyAsync(Options.Side, ResolveTimeout(), Options.FineMove), ct).ConfigureAwait(false);
             if (result != 0)
-                return Fail("OUT-STAGE-LOAD-POS", Stage.Name, "Output stage load position move failed. side=" + Options.Side + ", result=" + result);
+                return Fail("OUT-STAGE-LOAD-POS", Stage.Name,
+                    "OutputStage Load 위치 이동 실패. side=" + Options.Side +
+                    ", result=" + result + ", " + Stage.DescribeStageLoadMoveState(Options.Side));
 
             if (!Stage.IsStageInLoadPosition(Options.Side))
-                return Fail("OUT-STAGE-LOAD-POS", Stage.Name, "Output stage is not in load position after move. side=" + Options.Side);
+                return Fail("OUT-STAGE-LOAD-POS", Stage.Name,
+                    "OutputStage가 Load 위치에 도착하지 않았습니다. side=" + Options.Side +
+                    ", " + Stage.DescribeStageLoadMoveState(Options.Side));
 
             CurrentStep = Options.Side == BinSide.Good
                 ? OutputFeederLoadToStageStep.VerifyOutputStageReceiveReady

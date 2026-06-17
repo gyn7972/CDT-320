@@ -338,7 +338,9 @@ namespace QMC.CDT320.Sequencing
                 ct).ConfigureAwait(false);
 
             if (result != 0)
-                return Fail("PICKER-PLACE-STAGE-LOAD", "OutputStage", "Output stage load position move failed. side=" + _currentOutputSide + ", result=" + result);
+                return Fail("PICKER-PLACE-STAGE-LOAD", "OutputStage",
+                    "OutputStage Load 위치 이동 실패. side=" + _currentOutputSide +
+                    ", result=" + result + ", " + OutputStage.DescribeStageLoadMoveState(_currentOutputSide));
 
             CurrentStep = PickerPlaceStep.MoveOutputStageReceivePosition;
             return 0;
