@@ -59,26 +59,26 @@ namespace QMC.CDT320.Interlocks
                 machine.OutputCassetteUnit.OutputLifterZ.IsMoving)
                 return MotionGuardRuleHelpers.Block(
                     "OutputFeederY",
-                    "OutputLifterZ is moving. OutputFeederY move is blocked.",
+                    "OutputLifterZ가 이동 중이라 OutputFeederY 이동이 차단되었습니다.",
                     out reason);
 
             OutputStageUnit outputStage = machine.OutputStageUnit;
             if (!IsOutputVisionXInAvoidPosition(outputStage))
                 return MotionGuardRuleHelpers.Block(
                     "OutputFeederY",
-                    "OutputFeederY move blocked. OutputVisionX must be at Avoid position.",
+                    "OutputVisionX가 Avoid 위치가 아니라 OutputFeederY 이동이 차단되었습니다.",
                     out reason);
 
-            if (!IsFrontPickerInAvoidPosition(machine.PickerFrontUnit))
+            if (IsFrontPickerInOutputZone(machine.PickerFrontUnit))
                 return MotionGuardRuleHelpers.Block(
                     "OutputFeederY",
-                    "OutputFeederY move blocked. FrontPicker must be at Avoid position.",
+                    "FrontPicker가 Output zone에 있어 OutputFeederY 이동이 차단되었습니다.",
                     out reason);
 
-            if (!IsRearPickerInAvoidPosition(machine.PickerRearUnit))
+            if (IsRearPickerInOutputZone(machine.PickerRearUnit))
                 return MotionGuardRuleHelpers.Block(
                     "OutputFeederY",
-                    "OutputFeederY move blocked. RearPicker must be at Avoid position.",
+                    "RearPicker가 Output zone에 있어 OutputFeederY 이동이 차단되었습니다.",
                     out reason);
 
             OutputFeederUnit feeder = machine.OutputFeederUnit;
@@ -88,7 +88,7 @@ namespace QMC.CDT320.Interlocks
             if (feeder.IsFeederOverload())
                 return MotionGuardRuleHelpers.Block(
                     "OutputFeederY",
-                    "OutputFeederY move blocked. OutputFeeder overload sensor is detected.",
+                    "OutputFeeder 과부하 센서가 감지되어 OutputFeederY 이동이 차단되었습니다.",
                     out reason);
 
             return true;
@@ -454,20 +454,32 @@ namespace QMC.CDT320.Interlocks
             return MotionGuardRuleHelpers.IsAt(stage.OutputCameraX, stage.Recipe.VisionX.AvoidPosition);
         }
 
-        private static bool IsFrontPickerInAvoidPosition(PickerFrontUnit picker)
+        private static bool IsFrontPickerInOutputZone(PickerFrontUnit picker)
         {
             if (picker == null)
-                return true;
+                return false;
 
-            return picker.IsFrontPickerInAvoidPosition();
+            for (int pickerNo = 1; pickerNo <= 4; pickerNo++)
+            {
+                if (picker.IsFrontPickerInDiePlacePosition(pickerNo))
+                    return true;
+            }
+
+            return false;
         }
 
-        private static bool IsRearPickerInAvoidPosition(PickerRearUnit picker)
+        private static bool IsRearPickerInOutputZone(PickerRearUnit picker)
         {
             if (picker == null)
-                return true;
+                return false;
 
-            return picker.IsRearPickerInAvoidPosition();
+            for (int pickerNo = 1; pickerNo <= 4; pickerNo++)
+            {
+                if (picker.IsRearPickerInDiePlacePosition(pickerNo))
+                    return true;
+            }
+
+            return false;
         }
 
         private static bool IsStageModuleAtAvoid(StageModule stage)

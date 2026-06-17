@@ -211,36 +211,41 @@ namespace QMC.CDT320
         {
             try
             {
-                if (!CheckBinFeederYMoveReady())
-                    return RaiseFeederAlarm("BF-Y-READY", "OutputFeederY is not ready to move.");
+                string readyReason;
+                if (!CheckBinFeederYMoveReady(out readyReason))
+                    return RaiseFeederAlarm("BF-Y-READY", "OutputFeederY 이동 준비 조건이 맞지 않습니다. " + readyReason);
 
                 if (!ValidateBinFeederYTargetPosition(targetPos))
-                    return RaiseFeederAlarm("BF-Y-SOFT-LIMIT", "OutputFeederY target is out of soft limit. target=" + targetPos);
+                    return RaiseFeederAlarm("BF-Y-SOFT-LIMIT", "OutputFeederY 목표 위치가 소프트 리미트를 벗어났습니다. target=" + targetPos);
 
                 if (IsBinFeederYInPosition(targetPos, ResolveBinFeederYInPositionTolerance()))
                 {
                     EventLogger.Write(EventKind.Event, "QMC", "BF-Y-MOVE",
-                        "OutputFeederY already in position. target=" + targetPos + ", " + DescribeBinFeederYMoveDoneState());
+                        "OutputFeederY가 이미 목표 위치에 있습니다. target=" + targetPos + ", " + DescribeBinFeederYMoveDoneState());
                     return 0;
                 }
 
-                EventLogger.Write(EventKind.Event, "QMC", "BF-Y-MOVE", "Move OutputFeederY target=" + targetPos);
+                EventLogger.Write(EventKind.Event, "QMC", "BF-Y-MOVE", "OutputFeederY 이동 시작. target=" + targetPos);
                 int result = await FeederY.MoveAbsoluteAsync(targetPos, ResolveBinFeederYMoveVelocity(bFine));
                 if (result != 0 || FeederY.IsAlarm)
-                    return RaiseFeederAlarm("BF-Y-MOVE", "OutputFeederY move failed. result=" + result + ", alarm=" + FeederY.IsAlarm);
+                    return RaiseFeederAlarm(
+                        "BF-Y-MOVE",
+                        "OutputFeederY 이동 명령이 실패했습니다. result=" + result +
+                        ", alarm=" + FeederY.IsAlarm +
+                        FormatAxisLastMotionFailure());
 
                 AxisMoveWaitResult waitResult = await WaitBinFeederYMoveDoneInPosition(targetPos, ResolveBinFeederYMoveTimeoutMs()).ConfigureAwait(false);
                 if (!waitResult.Success)
                     return RaiseFeederAlarm(
                         AxisMoveWaiter.ResolveAlarmCode("BF-Y-MOVE", waitResult),
-                        "OutputFeederY move/in-position wait failed. target=" + targetPos + ". " +
+                        "OutputFeederY 이동 완료 확인이 실패했습니다. target=" + targetPos + ". " +
                         AxisMoveWaiter.FormatResult(waitResult, DescribeBinFeederYMoveDoneState()));
 
                 return 0;
             }
             catch (Exception ex)
             {
-                return RaiseFeederAlarm("BF-Y-MOVE-EX", "OutputFeederY move exception: " + ex.Message);
+                return RaiseFeederAlarm("BF-Y-MOVE-EX", "OutputFeederY 이동 중 예외가 발생했습니다. " + ex.Message);
             }
         }
 
@@ -387,6 +392,21 @@ namespace QMC.CDT320
                    ", actual=" + actual +
                    ", command=" + command +
                    ", error=" + error;
+        }
+
+        public string DescribeBinFeederYLastMotionFailure()
+        {
+            return FormatAxisLastMotionFailure();
+        }
+
+        private string FormatAxisLastMotionFailure()
+        {
+            if (FeederY == null ||
+                FeederY.LastMotionFailureCode == 0 ||
+                string.IsNullOrWhiteSpace(FeederY.LastMotionFailureMessage))
+                return string.Empty;
+
+            return ", 마지막 이동 실패 원인=" + FeederY.LastMotionFailureMessage;
         }
 
         public string DescribeFeederCylinderState()
@@ -1113,7 +1133,7 @@ namespace QMC.CDT320
             if (!ready)
             {
                 EventLogger.Write(EventKind.Warning, "QMC", "BF-Y-READY",
-                    "OutputFeederY move ready check failed. " + reason);
+                    "OutputFeederY 이동 준비 확인이 실패했습니다. " + reason);
             }
 
             return ready;
@@ -1125,31 +1145,31 @@ namespace QMC.CDT320
 
             if (FeederY == null)
             {
-                reason = "FeederY is null.";
+                reason = "FeederY 객체가 없습니다.";
                 return false;
             }
 
             if (!FeederY.IsServoOn)
             {
-                reason = "FeederY servo is OFF.";
+                reason = "FeederY 서보가 OFF입니다.";
                 return false;
             }
 
             if (FeederY.IsAlarm)
             {
-                reason = "FeederY axis alarm is ON.";
+                reason = "FeederY 축 알람이 ON입니다.";
                 return false;
             }
 
             if (FeederY.IsMoving)
             {
-                reason = "FeederY is moving.";
+                reason = "FeederY가 이동 중입니다.";
                 return false;
             }
 
             if (IsFeederOverload())
             {
-                reason = "OutputFeeder overload is detected. " + FormatInputState("Overload", BinFeederOverloadSensor);
+                reason = "OutputFeeder 과부하 센서가 감지되었습니다. " + FormatInputState("Overload", BinFeederOverloadSensor);
                 return false;
             }
 

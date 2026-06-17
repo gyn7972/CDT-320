@@ -327,7 +327,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             this.gridDieList.AllowUserToResizeRows = false;
             this.gridDieList.AutoSizeColumnsMode = System.Windows.Forms.DataGridViewAutoSizeColumnsMode.Fill;
             this.gridDieList.BackgroundColor = System.Drawing.Color.White;
-            this.gridDieList.ColumnHeadersHeight = 25;
+            this.gridDieList.ColumnHeadersHeight = 32;
             this.gridDieList.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
             this.gridDieList.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
             this.colIndex,
@@ -881,7 +881,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             // colIndex
             // 
             this.colIndex.FillWeight = 45F;
-            this.colIndex.HeaderText = "No";
+            this.colIndex.HeaderText = "Index";
             this.colIndex.Name = "colIndex";
             this.colIndex.ReadOnly = true;
             this.colIndex.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
@@ -905,7 +905,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             // colTarget
             // 
             this.colTarget.FillWeight = 65F;
-            this.colTarget.HeaderText = "Target";
+            this.colTarget.HeaderText = "State";
             this.colTarget.Name = "colTarget";
             this.colTarget.ReadOnly = true;
             this.colTarget.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
