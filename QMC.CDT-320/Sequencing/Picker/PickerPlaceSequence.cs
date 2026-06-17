@@ -364,7 +364,11 @@ namespace QMC.CDT320.Sequencing
             targets[PickerAxis.PickerY] = _targetPickerY;
             targets[GetPickerTAxis(_currentPickerIndex)] = _targetPickerT;
 
-            int result = await MovePickerAxesAndVerifyAsync(targets, "place picker X/Y/T", ct).ConfigureAwait(false);
+            int result = await MovePickerAxesAndVerifyAsync(
+                targets,
+                "place picker X/Y/T",
+                ct,
+                "DiePlacePosition[" + _currentPickerIndex + "]").ConfigureAwait(false);
             if (result != 0)
                 return result;
 
@@ -402,7 +406,12 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> MovePickerZPlaceAsync(CancellationToken ct)
         {
-            int result = await MovePickerAxisAndVerifyAsync(GetPickerZAxis(_currentPickerIndex), _targetPickerZ, "place picker Z", ct).ConfigureAwait(false);
+            int result = await MovePickerAxisAndVerifyAsync(
+                GetPickerZAxis(_currentPickerIndex),
+                _targetPickerZ,
+                "place picker Z",
+                ct,
+                "DiePlacePosition[" + _currentPickerIndex + "]").ConfigureAwait(false);
             if (result != 0)
                 return result;
 
@@ -457,7 +466,7 @@ namespace QMC.CDT320.Sequencing
         {
             PickerAxis zAxis = GetPickerZAxis(_currentPickerIndex);
             double avoid = GetPickerTeachingPosition(zAxis, "AvoidPosition");
-            int result = await MovePickerAxisAndVerifyAsync(zAxis, avoid, "place picker Z avoid", ct).ConfigureAwait(false);
+            int result = await MovePickerAxisAndVerifyAsync(zAxis, avoid, "place picker Z avoid", ct, "AvoidPosition").ConfigureAwait(false);
             if (result != 0)
                 return result;
 

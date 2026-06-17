@@ -746,8 +746,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
             ct.ThrowIfCancellationRequested();
             int result = _side == PickerSequenceSide.Front
-                ? await machine.PickerFrontUnit.MovePickerAxes(targets, true).ConfigureAwait(false)
-                : await machine.PickerRearUnit.MovePickerAxes(targets, true).ConfigureAwait(false);
+                ? await machine.PickerFrontUnit.MovePickerAxes(targets, true, positionName).ConfigureAwait(false)
+                : await machine.PickerRearUnit.MovePickerAxes(targets, true, positionName).ConfigureAwait(false);
             if (result != 0)
                 return result;
 

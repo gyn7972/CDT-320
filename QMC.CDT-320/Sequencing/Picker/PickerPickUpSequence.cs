@@ -472,10 +472,11 @@ namespace QMC.CDT320.Sequencing
                     return Fail("PICKER-PICKUP-STAGE-NO-UNIT", "InputStageUnit", "InputStageUnit is null.");
 
                 PickerAxis tAxis = GetPickerTAxis(_currentPickerIndex);
+                string targetName = "DiePickPosition[" + _currentPickerIndex + "]";
 
                 Task<int> moveStageY = MoveInputStageAxisCommandAsync(stage, WaferStageAxis.WaferY, _targetStageY, "pick corrected StageY", ct);
-                Task<int> movePickerX = MovePickerAxisCommandResultAsync(PickerAxis.PickerX, _targetPickerX, "pick corrected PickerX", ct);
-                Task<int> movePickerT = MovePickerAxisCommandResultAsync(tAxis, _targetPickerT, "pick corrected PickerT", ct);
+                Task<int> movePickerX = MovePickerAxisCommandResultAsync(PickerAxis.PickerX, _targetPickerX, "pick corrected PickerX", ct, targetName);
+                Task<int> movePickerT = MovePickerAxisCommandResultAsync(tAxis, _targetPickerT, "pick corrected PickerT", ct, targetName);
                 int[] moveResults = await Task.WhenAll(moveStageY, movePickerX, movePickerT).ConfigureAwait(false);
 
                 if (moveResults[0] != 0)
@@ -538,7 +539,12 @@ namespace QMC.CDT320.Sequencing
         private async Task<int> MovePickerZPickAsync(CancellationToken ct)
         {
             PickerAxis zAxis = GetPickerZAxis(_currentPickerIndex);
-            int result = await MovePickerAxisAndVerifyAsync(zAxis, _targetPickerZ, "pick Z down", ct).ConfigureAwait(false);
+            int result = await MovePickerAxisAndVerifyAsync(
+                zAxis,
+                _targetPickerZ,
+                "pick Z down",
+                ct,
+                "DiePickPosition[" + _currentPickerIndex + "]").ConfigureAwait(false);
             if (result != 0)
                 return result;
 
@@ -580,7 +586,7 @@ namespace QMC.CDT320.Sequencing
         {
             PickerAxis zAxis = GetPickerZAxis(_currentPickerIndex);
             double avoid = GetPickerTeachingPosition(zAxis, "AvoidPosition");
-            int result = await MovePickerAxisAndVerifyAsync(zAxis, avoid, "pick Z avoid after pickup", ct).ConfigureAwait(false);
+            int result = await MovePickerAxisAndVerifyAsync(zAxis, avoid, "pick Z avoid after pickup", ct, "AvoidPosition").ConfigureAwait(false);
             if (result != 0)
                 return result;
 
@@ -779,13 +785,13 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private async Task<int> MovePickerAxisCommandResultAsync(PickerAxis axis, double target, string description, CancellationToken ct)
+        private async Task<int> MovePickerAxisCommandResultAsync(PickerAxis axis, double target, string description, CancellationToken ct, string targetName = null)
         {
             try
             {
                 ct.ThrowIfCancellationRequested();
 
-                int result = await MovePickerAxisCommandAsync(axis, target).ConfigureAwait(false);
+                int result = await MovePickerAxisCommandAsync(axis, target, targetName).ConfigureAwait(false);
                 if (result != 0)
                     return Fail("PICKER-PICKUP-MOVE-CMD", Name, description + " move command failed. result=" + result + ", " + BuildPickerAxisState(axis, target));
 

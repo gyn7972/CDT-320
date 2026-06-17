@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using QMC.CDT320;
 using QMC.CDT320.DieMaps;
@@ -13,10 +14,18 @@ namespace QMC.CDT_320.Ui.Pages.Work
 {
     public partial class OutputStageMapTransferPage : PageBase
     {
+        // Output_BinCode 임시 상수 규칙 (BinCodeMap 미구현 — 추후 교체).
+        private const int GoodBinCode = 1;
+        private const int NgBinCode = 2;
+
         private Timer _refresh;
         private string _i18nTitle;
         private DieMapEntry _selectedEntry;
         private BinSide _selectedSide = BinSide.Good;
+        private string _lastMapSignature;
+        private ContextMenuStrip _gridMenu;
+        private ToolStripMenuItem _gridMoveMenuItem;
+        private bool _manualMoveBusy;
 
         public OutputStageMapTransferPage() : this("work.page.outputMap")
         {
@@ -72,7 +81,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             lblWaferDiaCaption.Text = "Progress";
 
             btnReloadActiveMap.Text = "RELOAD OUTPUT DIE MAP";
-            btnPickStatusSave.Text = "SELECTED PLAN INIT";
+            btnPickStatusSave.Text = "SELECTED PLAN SAVE";
             btnManualAlignComplete.Text = "GOOD PLAN INIT";
             btnNeedleBlockDown.Text = "NG PLAN INIT";
             btnThetaMatchMove.Text = "SAVE MATERIAL STATE";
@@ -102,6 +111,9 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 SelectEntryByGridRow(e.RowIndex);
             };
 
+            gridDieList.CellMouseDown += OnGridDieListCellMouseDown;
+            BuildGridContextMenu();
+
             rbStandard.CheckedChanged += (s, e) =>
             {
                 if (!rbStandard.Checked)
@@ -119,7 +131,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             };
 
             btnReloadActiveMap.Click += (s, e) => ReloadOutputMap();
-            btnPickStatusSave.Click += (s, e) => InitializeSelectedReceivePlan();
+            btnPickStatusSave.Click += (s, e) => SaveReceivePlan(_selectedSide);
             btnManualAlignComplete.Click += (s, e) => InitializeReceivePlan(BinSide.Good);
             btnNeedleBlockDown.Click += (s, e) => InitializeReceivePlan(BinSide.Ng);
             btnThetaMatchMove.Click += (s, e) => SaveMaterialState();
@@ -151,20 +163,133 @@ namespace QMC.CDT_320.Ui.Pages.Work
             {
                 WaferMaterial outputWafer = GetSelectedOutputWafer();
                 WaferMaterial sourceWafer = ResolveSourceWafer(outputWafer);
-                DieMap sourceMap = MaterialStateService.BuildDieMapFromWafer(sourceWafer);
-                if (sourceMap == null)
+
+                // 빈 트레이 형상(레시피 BinTray + ProcessPosition 센터) 기준 맵 생성.
+                DieMap baseMap = BuildBinTrayMap(_selectedSide);
+                if (baseMap == null)
                 {
                     ApplyEmptyOutputMap(outputWafer, sourceWafer);
                     return;
                 }
 
-                DieMap displayMap = BuildDisplayMap(sourceMap, outputWafer);
+                DieMap displayMap = BuildDisplayMap(baseMap, outputWafer);
+
+                // 변경 없으면 재적용 생략(타이머가 선택/스크롤을 매번 리셋하지 않도록).
+                string signature = BuildMapSignature(displayMap, outputWafer);
+                if (string.Equals(signature, _lastMapSignature, StringComparison.Ordinal))
+                    return;
+                _lastMapSignature = signature;
+
                 ApplyMap(displayMap, outputWafer, sourceWafer);
             }
             catch (Exception ex)
             {
                 QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
                     "Output stage map reload failed: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        private string BuildMapSignature(DieMap map, WaferMaterial outputWafer)
+        {
+            if (map == null)
+                return _selectedSide + "|null";
+
+            int next = outputWafer != null ? outputWafer.OutputReceiveNextIndex : 0;
+            return string.Join("|",
+                _selectedSide.ToString(),
+                map.DieMapX.ToString(),
+                map.DieMapY.ToString(),
+                map.PitchX.ToString("F4"),
+                map.PitchY.ToString("F4"),
+                map.OriginX.ToString("F4"),
+                map.OriginY.ToString("F4"),
+                (map.Entries != null ? map.Entries.Count : 0).ToString(),
+                next.ToString());
+        }
+
+        private OutputStageUnit GetOutputStageUnit()
+        {
+            try
+            {
+                Form1 host = FindForm() as Form1;
+                return host != null && host.Machine != null ? host.Machine.OutputStageUnit : null;
+            }
+            catch
+            {
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
+        /// <summary>
+        /// 빈 트레이 형상(레시피) + ProcessPosition(센터) 기준으로 출력 수령 맵을 생성합니다.<br/>
+        /// 행=StageY, 열=VisionX 센터를 기준으로 부호 있는 상대 오프셋 좌표를 슬롯에 채웁니다.
+        /// </summary>
+        private DieMap BuildBinTrayMap(BinSide side)
+        {
+            try
+            {
+                OutputStageUnit unit = GetOutputStageUnit();
+                if (unit == null || unit.Recipe == null)
+                    return null;
+
+                unit.Recipe.EnsurePositionObjects();
+                BinTrayLayout tray = side == BinSide.Ng ? unit.Recipe.NgBinTray : unit.Recipe.GoodBinTray;
+                if (tray == null || tray.Columns <= 0 || tray.Rows <= 0)
+                    return null;
+
+                int cols = tray.Columns;
+                int rows = tray.Rows;
+                double pitchX = tray.PitchX;
+                double pitchY = tray.PitchY;
+                double centerX = unit.Recipe.VisionX.ProcessPosition;
+                double centerY = side == BinSide.Ng
+                    ? unit.Recipe.NGStageY.ProcessPosition
+                    : unit.Recipe.GoodStageY.ProcessPosition;
+
+                var map = new DieMap
+                {
+                    FrameObjId = (side == BinSide.Ng ? "NG" : "GOOD") + "_BIN_TRAY",
+                    DieMapX = cols,
+                    DieMapY = rows,
+                    PitchX = pitchX,
+                    PitchY = pitchY,
+                    OriginX = centerX,
+                    OriginY = centerY,
+                    CreatedAt = DateTime.Now
+                };
+
+                int index = 0;
+                for (int row = 0; row < rows; row++)
+                {
+                    for (int col = 0; col < cols; col++)
+                    {
+                        map.Entries.Add(new DieMapEntry
+                        {
+                            Index = index++,
+                            DieMapX = col,
+                            DieMapY = row,
+                            IsTarget = true,
+                            Result = DieResult.Unknown,
+                            BinCode = 0,
+                            PosX = centerX + pitchX * (col - (cols - 1) / 2.0),
+                            PosY = centerY + pitchY * (row - (rows - 1) / 2.0)
+                        });
+                    }
+                }
+
+                return DieMapGenerator.Normalize(map);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
+                    "Bin tray map build failed: " + ex.Message + " - Failed");
+                return null;
             }
             finally
             {
@@ -492,6 +617,379 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
         }
 
+        private void BuildGridContextMenu()
+        {
+            try
+            {
+                _gridMoveMenuItem = new ToolStripMenuItem("MOVE");
+                _gridMoveMenuItem.Click += async (s, e) => await MoveSelectedBinSlotAsync().ConfigureAwait(true);
+
+                _gridMenu = new ContextMenuStrip();
+                _gridMenu.Items.Add(_gridMoveMenuItem);
+                _gridMenu.Opening += (s, e) =>
+                {
+                    if (_gridMoveMenuItem != null)
+                        _gridMoveMenuItem.Enabled = _selectedEntry != null && !_manualMoveBusy;
+                };
+
+                gridDieList.ContextMenuStrip = _gridMenu;
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        private void OnGridDieListCellMouseDown(object sender, DataGridViewCellMouseEventArgs e)
+        {
+            try
+            {
+                if (e.RowIndex < 0 || e.Button != MouseButtons.Right)
+                    return;
+
+                gridDieList.ClearSelection();
+                DataGridViewRow row = gridDieList.Rows[e.RowIndex];
+                row.Selected = true;
+                if (row.Cells.Count > 0)
+                    gridDieList.CurrentCell = row.Cells[0];
+
+                SelectEntryByGridRow(e.RowIndex);
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        /// <summary>
+        /// 선택 빈 슬롯 좌표로 출력 스테이지를 이동합니다.<br/>
+        /// 인터락: VisionX(공유레일) 이동 전 Front/Rear PickerX를 Avoid로 선행 이동.<br/>
+        /// 축 구조 D3: 행(Y)=스테이지 {side}BinY, 열(X)=VisionX(카메라). 각 단계 타임아웃 가드 + 정지.
+        /// </summary>
+        private async Task MoveSelectedBinSlotAsync()
+        {
+            Form1 host = FindForm() as Form1;
+            try
+            {
+                DieMapEntry entry = _selectedEntry;
+                if (entry == null)
+                {
+                    QMC.Common.MessageDialog.Show(this, "이동할 빈 슬롯이 선택되지 않았습니다.",
+                        "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                if (host == null || host.Machine == null || host.Machine.OutputStageUnit == null)
+                {
+                    QMC.Common.MessageDialog.Show(this, "OutputStage 장비 정보를 찾을 수 없습니다.",
+                        "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                DialogResult confirm = QMC.Common.MessageDialog.Show(this,
+                    "빈 슬롯 [" + entry.DieMapX + "," + entry.DieMapY + "]의 좌표로 이동하시겠습니까?\r\n" +
+                    "X(VisionX)=" + entry.PosX.ToString("F3") + " mm, Y(StageY)=" + entry.PosY.ToString("F3") + " mm",
+                    "Output Stage Map", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                if (confirm != DialogResult.Yes)
+                    return;
+
+                OutputStageUnit unit = host.Machine.OutputStageUnit;
+                int timeoutMs = ResolveManualMoveTimeoutMs(host);
+                SetActionButtonsEnabled(false);
+                _manualMoveBusy = true;
+
+                // 1) VisionX(공유레일) 이동 전 Front/Rear PickerX를 Avoid로 선행 이동(간섭 차단).
+                int prepareResult = await AwaitManualMoveStepAsync(
+                    MovePickersToAvoidForOutputMoveAsync(host),
+                    timeoutMs,
+                    "출력 이동 전 Picker Avoid 준비",
+                    () => StopManualMapMove(host, "Output move prepare timeout")).ConfigureAwait(true);
+                if (prepareResult != 0)
+                {
+                    QMC.Common.MessageDialog.Show(this,
+                        "출력 이동 전 Picker Avoid 준비 실패\r\nresult=" + prepareResult +
+                        "\r\nAlarm/Event Log를 확인하세요.",
+                        "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                // 2) 행(Y): 스테이지 Y축
+                BinStageAxis yAxis = _selectedSide == BinSide.Ng ? BinStageAxis.NgBinY : BinStageAxis.GoodBinY;
+                int rowResult = await AwaitManualMoveStepAsync(
+                    unit.MoveStageAxis(yAxis, entry.PosY, true),
+                    timeoutMs,
+                    "빈 슬롯 행(Y) 이동",
+                    () => StopManualMapMove(host, "Output Y move timeout")).ConfigureAwait(true);
+                if (rowResult != 0)
+                {
+                    QMC.Common.MessageDialog.Show(this,
+                        "빈 슬롯 행(Y) 이동 실패\r\nresult=" + rowResult + "\r\nAlarm/Event Log를 확인하세요.",
+                        "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                // 3) 열(X): VisionX(카메라)
+                int colResult = await AwaitManualMoveStepAsync(
+                    unit.MoveStageAxis(BinStageAxis.VisionX, entry.PosX, true),
+                    timeoutMs,
+                    "빈 슬롯 열(VisionX) 이동",
+                    () => StopManualMapMove(host, "Output VisionX move timeout")).ConfigureAwait(true);
+                if (colResult != 0)
+                {
+                    QMC.Common.MessageDialog.Show(this,
+                        "빈 슬롯 열(VisionX) 이동 실패\r\nresult=" + colResult + "\r\nAlarm/Event Log를 확인하세요.",
+                        "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                lblAxisX.Text = entry.PosX.ToString("F3");
+                lblAxisY.Text = entry.PosY.ToString("F3");
+                QMC.Common.MessageDialog.Show(this, "선택 빈 슬롯 좌표 이동 완료.",
+                    "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
+                    "Output bin slot move failed: " + ex.Message + " - Failed");
+                QMC.Common.MessageDialog.Show(this, "선택 빈 슬롯 좌표 이동 실패:\r\n" + ex.Message,
+                    "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                _manualMoveBusy = false;
+                SetActionButtonsEnabled(true);
+            }
+        }
+
+        /// <summary>VisionX(공유레일) 이동 전 Front/Rear PickerX를 Avoid 위치로 선행 이동합니다.</summary>
+        private async Task<int> MovePickersToAvoidForOutputMoveAsync(Form1 host)
+        {
+            try
+            {
+                if (host == null || host.Machine == null)
+                    return -1;
+
+                PickerFrontUnit front = host.Machine.PickerFrontUnit;
+                if (front != null && !front.IsFrontPickerInAvoidPosition())
+                {
+                    int frontResult = await front.MoveToFrontPickerAvoidPosition(true).ConfigureAwait(true);
+                    if (frontResult != 0)
+                        return frontResult;
+                    if (!front.IsFrontPickerInAvoidPosition())
+                        return -1;
+                }
+
+                PickerRearUnit rear = host.Machine.PickerRearUnit;
+                if (rear != null && !rear.IsRearPickerInAvoidPosition())
+                {
+                    int rearResult = await rear.MoveToRearPickerAvoidPosition(true).ConfigureAwait(true);
+                    if (rearResult != 0)
+                        return rearResult;
+                    if (!rear.IsRearPickerInAvoidPosition())
+                        return -1;
+                }
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
+                    "Picker avoid prepare for output move failed: " + ex.Message + " - Failed");
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> AwaitManualMoveStepAsync(Task<int> operation, int timeoutMs, string description, Action onTimeoutStop)
+        {
+            try
+            {
+                if (operation == null)
+                    return -1;
+
+                int effectiveTimeoutMs = timeoutMs > 0 ? timeoutMs : 30000;
+                Task timeoutTask = Task.Delay(effectiveTimeoutMs);
+                Task completed = await Task.WhenAny(operation, timeoutTask).ConfigureAwait(true);
+                if (completed == operation)
+                    return await operation.ConfigureAwait(true);
+
+                QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
+                    description + " timeout. timeoutMs=" + effectiveTimeoutMs + " - Failed");
+                RaiseManualMoveAlarm("OUT-STAGE-MAP-MANUAL-TIMEOUT", description + " timeout. Manual move stopped.");
+
+                try
+                {
+                    if (onTimeoutStop != null)
+                        onTimeoutStop();
+                }
+                catch (Exception stopEx)
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
+                        description + " timeout stop failed: " + stopEx.Message + " - Failed");
+                }
+                finally
+                {
+                }
+
+                ObserveManualMoveTask(operation, description);
+                return -1;
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
+                    description + " failed: " + ex.Message + " - Failed");
+                RaiseManualMoveAlarm("OUT-STAGE-MAP-MANUAL-FAIL", description + " failed. " + ex.Message);
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        private static void ObserveManualMoveTask(Task<int> operation, string description)
+        {
+            try
+            {
+                if (operation == null)
+                    return;
+
+                operation.ContinueWith(t =>
+                {
+                    try
+                    {
+                        if (t.IsFaulted)
+                            QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
+                                description + " background task faulted: " +
+                                (t.Exception != null ? t.Exception.GetBaseException().Message : "unknown") + " - Failed");
+                        else
+                            QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
+                                description + " background task completed after timeout. result=" + t.Result + " - Check");
+                    }
+                    catch
+                    {
+                    }
+                });
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        private static int ResolveManualMoveTimeoutMs(Form1 host)
+        {
+            int timeoutMs = 30000;
+            try
+            {
+                if (host != null && host.Machine != null && host.Machine.PickerFrontUnit != null)
+                {
+                    int frontTimeoutMs = host.Machine.PickerFrontUnit.ResolvePickerAxisMoveTimeoutMs(PickerAxis.PickerX);
+                    if (frontTimeoutMs > timeoutMs)
+                        timeoutMs = frontTimeoutMs;
+                }
+
+                if (host != null && host.Machine != null && host.Machine.PickerRearUnit != null)
+                {
+                    int rearTimeoutMs = host.Machine.PickerRearUnit.ResolvePickerAxisMoveTimeoutMs(PickerAxis.PickerX);
+                    if (rearTimeoutMs > timeoutMs)
+                        timeoutMs = rearTimeoutMs;
+                }
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+
+            return timeoutMs;
+        }
+
+        private void StopManualMapMove(Form1 host, string reason)
+        {
+            try
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
+                    "Manual map move stop requested. reason=" + reason + " - Check");
+
+                if (host != null && host.Controller != null)
+                    host.Controller.CancelManualOperation();
+
+                if (host == null || host.Machine == null)
+                    return;
+
+                OutputStageUnit unit = host.Machine.OutputStageUnit;
+                if (unit != null)
+                {
+                    if (unit.GoodStage != null && unit.GoodStage.StageY != null)
+                        _ = unit.StopJogAsync(unit.GoodStage.StageY);
+                    if (unit.NgStage != null && unit.NgStage.StageY != null)
+                        _ = unit.StopJogAsync(unit.NgStage.StageY);
+                    if (unit.OutputCameraX != null)
+                        _ = unit.StopJogAsync(unit.OutputCameraX);
+                }
+
+                if (host.Machine.PickerFrontUnit != null)
+                    host.Machine.PickerFrontUnit.StopPickerMotionAndOutputs(reason);
+
+                if (host.Machine.PickerRearUnit != null)
+                    host.Machine.PickerRearUnit.StopPickerMotionAndOutputs(reason);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
+                    "Manual map move stop failed: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        private static void RaiseManualMoveAlarm(string code, string message)
+        {
+            try
+            {
+                QMC.Common.Alarms.AlarmManager.Raise(
+                    QMC.Common.Alarms.AlarmSeverity.Warning,
+                    code,
+                    "OutputStageMapTransferPage",
+                    message);
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        private void SetActionButtonsEnabled(bool enabled)
+        {
+            try
+            {
+                btnReloadActiveMap.Enabled = enabled;
+                btnPickStatusSave.Enabled = enabled;
+                btnManualAlignComplete.Enabled = enabled;
+                btnNeedleBlockDown.Enabled = enabled;
+                btnThetaMatchMove.Enabled = enabled;
+                btnXyMatchMove.Enabled = enabled;
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
         private void InitializeSelectedReceivePlan()
         {
             InitializeReceivePlan(_selectedSide);
@@ -527,6 +1025,92 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     "Output receive plan initialize failed: " + ex.Message + " - Failed");
                 QMC.Common.MessageDialog.Show(this, "Receive plan 초기화 실패:\r\n" + ex.Message,
                     "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
+        }
+
+        /// <summary>
+        /// 선택 side의 빈 트레이 수령 계획을 생성해 Material에 저장(persist)합니다.<br/>
+        /// die는 plan 메타만 기록(실제 die 배정은 플레이스 시 시퀀스에서 수행).
+        /// </summary>
+        private void SaveReceivePlan(BinSide side)
+        {
+            try
+            {
+                string sideText = side == BinSide.Ng ? "NG" : "GOOD";
+                DieMap map = BuildBinTrayMap(side);
+                if (map == null)
+                {
+                    QMC.Common.MessageDialog.Show(this,
+                        "Output " + sideText + " Bin Tray 레시피가 설정되지 않았습니다.\r\n(Columns/Rows/Pitch 확인)",
+                        "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                DialogResult confirm = QMC.Common.MessageDialog.Show(this,
+                    "Output " + sideText + " 빈 트레이 수령 계획(센터 기준 좌표)을 저장하시겠습니까?",
+                    "Output Stage Map", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                if (confirm != DialogResult.Yes)
+                    return;
+
+                PersistReceivePlanToMaterialState(side, map);
+                ReloadOutputMap();
+
+                QMC.Common.MessageDialog.Show(this, "수령 계획 저장 완료.",
+                    "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
+                    "Output receive plan save failed: " + ex.Message + " - Failed");
+                QMC.Common.MessageDialog.Show(this, "수령 계획 저장 실패:\r\n" + ex.Message,
+                    "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
+        }
+
+        /// <summary>
+        /// 빈 트레이 맵의 형상/센터 좌표를 출력 웨이퍼 Material(plan 메타)에 기록합니다.<br/>
+        /// 빈 슬롯은 die가 아직 없으므로 OutputReceive* 메타로만 저장합니다(Q2: plan 메타만).
+        /// </summary>
+        private void PersistReceivePlanToMaterialState(BinSide side, DieMap map)
+        {
+            try
+            {
+                if (map == null)
+                    return;
+
+                DieMapGenerator.Normalize(map);
+                WaferMaterial outWafer = MaterialStateService.GetWaferAtLocation(
+                    side == BinSide.Ng ? MaterialLocationKind.OutputStageNg : MaterialLocationKind.OutputStageGood);
+                if (outWafer == null)
+                {
+                    QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
+                        "Output receive plan persist skipped: no output wafer. side=" + side + " - Check");
+                    return;
+                }
+
+                List<DieMapEntry> ordered = BuildReceiveOrder(map);
+
+                outWafer.OutputReceiveDieMapX = map.DieMapX;     // = 빈 트레이 열(Columns)
+                outWafer.OutputReceiveDieMapY = map.DieMapY;     // = 빈 트레이 행(Rows)
+                outWafer.OutputReceivePitchX = map.PitchX;
+                outWafer.OutputReceivePitchY = map.PitchY;
+                outWafer.OutputReceiveOriginX = map.OriginX;     // ProcessPosition 센터값(추적용)
+                outWafer.OutputReceiveOriginY = map.OriginY;
+                outWafer.OutputReceiveTotalCount = ordered.Count;
+                outWafer.UpdatedAt = DateTime.Now;
+
+                MaterialStateService.NotifyAndSave("OutputMapTransferReceivePlanSave");
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
+                    "Output receive plan persist failed: " + ex.Message + " - Failed");
             }
             finally
             {
