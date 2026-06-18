@@ -1,5 +1,8 @@
 ﻿using System.Collections.Generic;
+using System;
+using System.Threading;
 using System.Threading.Tasks;
+using QMC.Common;
 using QMC.Common.Motion;
 
 namespace QMC.CDT320
@@ -42,46 +45,58 @@ namespace QMC.CDT320
         }
 
         /// <summary>BinStage 단일 축을 지정 좌표로 이동합니다.</summary>
-        public Task MoveStageAxis(BinStageAxis axis, double targetPos, bool bFine = false) => MoveAxisAsync(axis, targetPos, bFine);
+        public Task<int> MoveStageAxis(BinStageAxis axis, double targetPos, bool bFine = false) => MoveAxisAsync(axis, targetPos, bFine);
 
         /// <summary>BinStage 복수 축을 지정 좌표로 이동합니다.</summary>
-        public Task MoveStageAxes(Dictionary<BinStageAxis, double> targets, bool bFine = false) => MoveAxesAsync(targets, bFine);
+        public Task<int> MoveStageAxes(Dictionary<BinStageAxis, double> targets, bool bFine = false) => MoveAxesAsync(targets, bFine);
 
         /// <summary>BinStage 축을 티칭 위치로 이동합니다.</summary>
-        public Task MoveStageAxisToTeachingPosition(BinStageAxis axis, string positionName, bool bFine = false) => MoveAxisToTeachingPositionAsync(axis, positionName, bFine);
+        public Task<int> MoveStageAxisToTeachingPosition(BinStageAxis axis, string positionName, bool bFine = false) => MoveAxisToTeachingPositionAsync(axis, positionName, bFine);
 
         /// <summary>BinStage를 Avoid 위치로 이동합니다.</summary>
-        public Task MoveToStageAvoidPosition(bool bFine = false) => MoveStageGroup("AvoidPos", bFine);
+        public Task<int> MoveToStageAvoidPosition(bool bFine = false) => MoveStageGroup("AvoidPos", bFine);
 
         /// <summary>BinStage를 Load 위치로 이동합니다.</summary>
-        public Task MoveToStageLoadPosition(BinSide side, bool bFine = false) => MoveStageAxisToTeachingPosition(ResolveSideAxis(side), "LoadPos", bFine);
+        public Task<int> MoveToStageLoadPosition(BinSide side, bool bFine = false) => MoveStageAxisToTeachingPosition(ResolveSideAxis(side), "LoadPos", bFine);
 
         /// <summary>BinStage를 Unload 위치로 이동합니다.</summary>
-        public Task MoveToStageUnloadPosition(BinSide side, bool bFine = false) => MoveStageAxisToTeachingPosition(ResolveSideAxis(side), "UnloadPos", bFine);
+        public Task<int> MoveToStageUnloadPosition(BinSide side, bool bFine = false) => MoveStageAxisToTeachingPosition(ResolveSideAxis(side), "UnloadPos", bFine);
 
         /// <summary>BinStage를 Process 위치로 이동합니다.</summary>
-        public Task MoveToStageProcessPosition(BinSide side, bool bFine = false) => MoveStageAxisToTeachingPosition(ResolveSideAxis(side), "ProcessPos", bFine);
+        public Task<int> MoveToStageProcessPosition(BinSide side, bool bFine = false) => MoveStageAxisToTeachingPosition(ResolveSideAxis(side), "ProcessPos", bFine);
 
         /// <summary>BinStage를 Map 위치로 이동합니다.</summary>
-        public Task MoveToStageMapPosition(BinSide side, int binNo, bool bFine = false) => MoveStageAxisToTeachingPosition(ResolveSideAxis(side), "DiePos[" + binNo + "]", bFine);
+        public Task<int> MoveToStageMapPosition(BinSide side, int binNo, bool bFine = false) => MoveStageAxisToTeachingPosition(ResolveSideAxis(side), "DiePos[" + binNo + "]", bFine);
 
         /// <summary>BinStage 축 위치 도착 여부를 확인합니다.</summary>
         public bool IsStageAxisInPosition(BinStageAxis axis, double targetPos, double tolerance) => IsAxisInPosition(axis, targetPos, tolerance);
 
         /// <summary>BinStage 축 이동 완료를 대기합니다.</summary>
-        public Task<bool> WaitStageAxisMoveDone(BinStageAxis axis, int timeoutMs) => WaitAxisMoveDone(axis, timeoutMs);
+        public Task<bool> WaitStageAxisMoveDone(BinStageAxis axis, int timeoutMs) => WaitStageAxisMoveDone(axis, timeoutMs, CancellationToken.None);
+
+        /// <summary>BinStage 축 이동 완료를 취소 가능하게 대기합니다.</summary>
+        public Task<bool> WaitStageAxisMoveDone(BinStageAxis axis, int timeoutMs, CancellationToken ct) => WaitAxisMoveDone(axis, timeoutMs, ct);
 
         /// <summary>BinStage 축 이동 완료와 목표 위치 도착을 상세 결과로 대기합니다.</summary>
-        public Task<AxisMoveWaitResult> WaitStageAxisMoveDoneInPosition(BinStageAxis axis, int timeoutMs) => WaitAxisMoveDoneInPosition(axis, timeoutMs);
+        public Task<AxisMoveWaitResult> WaitStageAxisMoveDoneInPosition(BinStageAxis axis, int timeoutMs) => WaitStageAxisMoveDoneInPosition(axis, timeoutMs, CancellationToken.None);
+
+        /// <summary>BinStage 축 이동 완료와 목표 위치 도착을 취소 가능하게 상세 결과로 대기합니다.</summary>
+        public Task<AxisMoveWaitResult> WaitStageAxisMoveDoneInPosition(BinStageAxis axis, int timeoutMs, CancellationToken ct) => WaitAxisMoveDoneInPosition(axis, timeoutMs, ct);
 
         /// <summary>BinStage 축 이동 완료와 지정 목표 위치 도착을 상세 결과로 대기합니다.</summary>
-        public Task<AxisMoveWaitResult> WaitStageAxisMoveDoneInPosition(BinStageAxis axis, double targetPos, int timeoutMs) => WaitAxisMoveDoneInPosition(axis, targetPos, timeoutMs);
+        public Task<AxisMoveWaitResult> WaitStageAxisMoveDoneInPosition(BinStageAxis axis, double targetPos, int timeoutMs) => WaitStageAxisMoveDoneInPosition(axis, targetPos, timeoutMs, CancellationToken.None);
+
+        /// <summary>BinStage 축 이동 완료와 지정 목표 위치 도착을 취소 가능하게 상세 결과로 대기합니다.</summary>
+        public Task<AxisMoveWaitResult> WaitStageAxisMoveDoneInPosition(BinStageAxis axis, double targetPos, int timeoutMs, CancellationToken ct) => WaitAxisMoveDoneInPosition(axis, targetPos, timeoutMs, ct);
 
         /// <summary>BinStage 축 티칭 위치 도착 여부를 확인합니다.</summary>
         public bool IsStageAxisInTeachingPosition(BinStageAxis axis, string positionName) => IsAxisInTeachingPosition(axis, positionName);
 
         /// <summary>BinStage 축 티칭 위치 도착을 대기합니다.</summary>
-        public Task<bool> WaitStageAxisInTeachingPosition(BinStageAxis axis, string positionName, int timeoutMs) => WaitAxisInTeachingPosition(axis, positionName, timeoutMs);
+        public Task<bool> WaitStageAxisInTeachingPosition(BinStageAxis axis, string positionName, int timeoutMs) => WaitStageAxisInTeachingPosition(axis, positionName, timeoutMs, CancellationToken.None);
+
+        /// <summary>BinStage 축 티칭 위치 도착을 취소 가능하게 대기합니다.</summary>
+        public Task<bool> WaitStageAxisInTeachingPosition(BinStageAxis axis, string positionName, int timeoutMs, CancellationToken ct) => WaitAxisInTeachingPosition(axis, positionName, timeoutMs, ct);
 
         /// <summary>BinStage 축 티칭 위치를 저장합니다.</summary>
         public void TeachStageAxisPosition(BinStageAxis axis, string positionName) => TeachAxisPosition(axis, positionName);
@@ -126,22 +141,162 @@ namespace QMC.CDT320
         public void SetStageClampOpen(BinSide side, bool on) => SetOutput(Prefix(side) + "Unclamp", on);
 
         /// <summary>Stage Guide를 상승시킵니다.</summary>
-        public async Task<bool> StageGuideUp(BinSide side, int timeoutMs) { SetStageGuideUp(side, true); SetStageGuideDown(side, false); return await WaitInputState(Prefix(side) + "GuideUp", true, timeoutMs); }
+        public Task<bool> StageGuideUp(BinSide side, int timeoutMs) => StageGuideUp(side, timeoutMs, CancellationToken.None);
+
+        /// <summary>Stage Guide를 취소 가능하게 상승시킵니다.</summary>
+        public async Task<bool> StageGuideUp(BinSide side, int timeoutMs, CancellationToken ct)
+        {
+            try
+            {
+                SetStageGuideUp(side, true);
+                SetStageGuideDown(side, false);
+                return await WaitInputState(Prefix(side) + "GuideUp", true, timeoutMs, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "BinStageUnit", "Stage guide up failed. side=" + side + ", error=" + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
 
         /// <summary>Stage Guide를 하강시킵니다.</summary>
-        public async Task<bool> StageGuideDown(BinSide side, int timeoutMs) { SetStageGuideDown(side, true); SetStageGuideUp(side, false); return await WaitInputState(Prefix(side) + "GuideDown", true, timeoutMs); }
+        public Task<bool> StageGuideDown(BinSide side, int timeoutMs) => StageGuideDown(side, timeoutMs, CancellationToken.None);
+
+        /// <summary>Stage Guide를 취소 가능하게 하강시킵니다.</summary>
+        public async Task<bool> StageGuideDown(BinSide side, int timeoutMs, CancellationToken ct)
+        {
+            try
+            {
+                SetStageGuideDown(side, true);
+                SetStageGuideUp(side, false);
+                return await WaitInputState(Prefix(side) + "GuideDown", true, timeoutMs, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "BinStageUnit", "Stage guide down failed. side=" + side + ", error=" + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
 
         /// <summary>Stage Clamp Lift를 상승시킵니다.</summary>
-        public async Task<bool> StageClampLiftUp(BinSide side, int timeoutMs) { SetStageClampLiftUp(side, true); SetStageClampLiftDown(side, false); return await WaitInputState(Prefix(side) + "ClampUp", true, timeoutMs); }
+        public Task<bool> StageClampLiftUp(BinSide side, int timeoutMs) => StageClampLiftUp(side, timeoutMs, CancellationToken.None);
+
+        /// <summary>Stage Clamp Lift를 취소 가능하게 상승시킵니다.</summary>
+        public async Task<bool> StageClampLiftUp(BinSide side, int timeoutMs, CancellationToken ct)
+        {
+            try
+            {
+                SetStageClampLiftUp(side, true);
+                SetStageClampLiftDown(side, false);
+                return await WaitInputState(Prefix(side) + "ClampUp", true, timeoutMs, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "BinStageUnit", "Stage clamp lift up failed. side=" + side + ", error=" + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
 
         /// <summary>Stage Clamp Lift를 하강시킵니다.</summary>
-        public async Task<bool> StageClampLiftDown(BinSide side, int timeoutMs) { SetStageClampLiftDown(side, true); SetStageClampLiftUp(side, false); return await Task.FromResult(true); }
+        public Task<bool> StageClampLiftDown(BinSide side, int timeoutMs) => StageClampLiftDown(side, timeoutMs, CancellationToken.None);
+
+        /// <summary>Stage Clamp Lift를 취소 가능하게 하강시킵니다.</summary>
+        public async Task<bool> StageClampLiftDown(BinSide side, int timeoutMs, CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                SetStageClampLiftDown(side, true);
+                SetStageClampLiftUp(side, false);
+                return await Task.FromResult(true).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "BinStageUnit", "Stage clamp lift down failed. side=" + side + ", error=" + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
 
         /// <summary>Stage Clamp를 닫습니다.</summary>
-        public async Task<bool> StageClampClose(BinSide side, int timeoutMs) { SetStageClampClose(side, true); SetStageClampOpen(side, false); return await Task.FromResult(true); }
+        public Task<bool> StageClampClose(BinSide side, int timeoutMs) => StageClampClose(side, timeoutMs, CancellationToken.None);
+
+        /// <summary>Stage Clamp를 취소 가능하게 닫습니다.</summary>
+        public async Task<bool> StageClampClose(BinSide side, int timeoutMs, CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                SetStageClampClose(side, true);
+                SetStageClampOpen(side, false);
+                return await Task.FromResult(true).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "BinStageUnit", "Stage clamp close failed. side=" + side + ", error=" + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
 
         /// <summary>Stage Clamp를 엽니다.</summary>
-        public async Task<bool> StageClampOpen(BinSide side, int timeoutMs) { SetStageClampOpen(side, true); SetStageClampClose(side, false); return await WaitInputState(Prefix(side) + "Unclamp", true, timeoutMs); }
+        public Task<bool> StageClampOpen(BinSide side, int timeoutMs) => StageClampOpen(side, timeoutMs, CancellationToken.None);
+
+        /// <summary>Stage Clamp를 취소 가능하게 엽니다.</summary>
+        public async Task<bool> StageClampOpen(BinSide side, int timeoutMs, CancellationToken ct)
+        {
+            try
+            {
+                SetStageClampOpen(side, true);
+                SetStageClampClose(side, false);
+                return await WaitInputState(Prefix(side) + "Unclamp", true, timeoutMs, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "BinStageUnit", "Stage clamp open failed. side=" + side + ", error=" + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
 
         /// <summary>Bottom Vision Blow를 켭니다.</summary>
         public async Task BottomVisionBlowOn(int timeoutMs = 0) { SetOutput("BottomVisionBlow", true); if (timeoutMs > 0) await Task.Delay(timeoutMs); }
@@ -189,28 +344,152 @@ namespace QMC.CDT320
         public Task<bool> ManualStageClampOpen(BinSide side, int timeoutMs) => StageClampOpen(side, timeoutMs);
 
         /// <summary>Stage가 Feeder Load를 받을 준비를 합니다.</summary>
-        public async Task<bool> PrepareStageForFeederLoad(BinSide side, int timeoutMs, bool bFine = false) { await MoveToStageLoadPosition(side, bFine); return await StageClampOpen(side, timeoutMs); }
+        public async Task<int> PrepareStageForFeederLoad(BinSide side, int timeoutMs, bool bFine = false)
+        {
+            try
+            {
+                int result = await MoveToStageLoadPosition(side, bFine).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                bool clampOpen = await StageClampOpen(side, timeoutMs).ConfigureAwait(false);
+                return clampOpen ? 0 : -1;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "BinStageUnit",
+                    "Prepare stage for feeder load failed. side=" + side +
+                    ", error=" + ex.Message + " - Failed");
+                return -1;
+            }
+            finally
+            {
+            }
+        }
 
         /// <summary>Feeder에서 Stage로 로딩합니다.</summary>
-        public async Task<bool> LoadStageFromFeeder(BinSide side, int timeoutMs, bool bFine = false) { await PrepareStageForFeederLoad(side, timeoutMs, bFine); return await StageClampClose(side, timeoutMs); }
+        public async Task<int> LoadStageFromFeeder(BinSide side, int timeoutMs, bool bFine = false)
+        {
+            try
+            {
+                int result = await PrepareStageForFeederLoad(side, timeoutMs, bFine).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                bool clampClose = await StageClampClose(side, timeoutMs).ConfigureAwait(false);
+                return clampClose ? 0 : -1;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "BinStageUnit",
+                    "Load stage from feeder failed. side=" + side +
+                    ", error=" + ex.Message + " - Failed");
+                return -1;
+            }
+            finally
+            {
+            }
+        }
 
         /// <summary>Stage가 Feeder Unload 준비를 합니다.</summary>
-        public async Task<bool> PrepareStageForFeederUnload(BinSide side, int timeoutMs, bool bFine = false) { await MoveToStageUnloadPosition(side, bFine); return await StageClampOpen(side, timeoutMs); }
+        public async Task<int> PrepareStageForFeederUnload(BinSide side, int timeoutMs, bool bFine = false)
+        {
+            try
+            {
+                int result = await MoveToStageUnloadPosition(side, bFine).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                bool clampOpen = await StageClampOpen(side, timeoutMs).ConfigureAwait(false);
+                return clampOpen ? 0 : -1;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "BinStageUnit",
+                    "Prepare stage for feeder unload failed. side=" + side +
+                    ", error=" + ex.Message + " - Failed");
+                return -1;
+            }
+            finally
+            {
+            }
+        }
 
         /// <summary>Stage에서 Feeder로 언로딩합니다.</summary>
-        public Task<bool> UnloadStageToFeeder(BinSide side, int timeoutMs, bool bFine = false) => PrepareStageForFeederUnload(side, timeoutMs, bFine);
+        public Task<int> UnloadStageToFeeder(BinSide side, int timeoutMs, bool bFine = false) => PrepareStageForFeederUnload(side, timeoutMs, bFine);
 
         /// <summary>Bottom Vision 정렬을 수행합니다.</summary>
         public async Task<bool> AlignStageByBottomVision(BinSide side, int timeoutMs, bool useBlow = true) { if (useBlow) await BottomVisionBlowOn(Recipe.BlowTimeMs); return await Task.FromResult(true); }
 
         /// <summary>Map 위치 이동 후 Clamp합니다.</summary>
-        public async Task<bool> MoveToStageMapPositionAndClamp(BinSide side, int binNo, int timeoutMs, bool bFine = false) { await MoveToStageMapPosition(side, binNo, bFine); return await StageClampClose(side, timeoutMs); }
+        public async Task<int> MoveToStageMapPositionAndClamp(BinSide side, int binNo, int timeoutMs, bool bFine = false)
+        {
+            try
+            {
+                int result = await MoveToStageMapPosition(side, binNo, bFine).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                bool clampClose = await StageClampClose(side, timeoutMs).ConfigureAwait(false);
+                return clampClose ? 0 : -1;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "BinStageUnit",
+                    "Move to stage map position and clamp failed. side=" + side +
+                    ", binNo=" + binNo +
+                    ", error=" + ex.Message + " - Failed");
+                return -1;
+            }
+            finally
+            {
+            }
+        }
 
         /// <summary>Stage Ring 고정을 해제합니다.</summary>
         public Task<bool> ReleaseStageRing(BinSide side, int timeoutMs) => StageClampOpen(side, timeoutMs);
 
         /// <summary>Stage를 안전 상태로 복귀합니다.</summary>
-        public async Task<bool> RecoverStageToSafeState(BinSide side, int timeoutMs, bool moveAvoid = true) { if (moveAvoid) await MoveToStageAvoidPosition(); return true; }
+        public async Task<int> RecoverStageToSafeState(BinSide side, int timeoutMs, bool moveAvoid = true)
+        {
+            try
+            {
+                if (!moveAvoid)
+                    return 0;
+
+                return await MoveToStageAvoidPosition().ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "BinStageUnit",
+                    "Recover stage to safe state failed. side=" + side +
+                    ", error=" + ex.Message + " - Failed");
+                return -1;
+            }
+            finally
+            {
+            }
+        }
 
         /// <summary>Stage 축 이동 준비 상태를 확인합니다.</summary>
         public bool CheckStageAxisMoveReady(BinStageAxis axis) => !GetAxis(axis).IsAlarm;
@@ -265,7 +544,7 @@ namespace QMC.CDT320
         /// <summary>Stage 재료 상태를 비웁니다.</summary>
         public void ClearStageMaterialState(BinSide side) { }
 
-        private Task MoveStageGroup(string positionName, bool bFine)
+        private Task<int> MoveStageGroup(string positionName, bool bFine)
         {
             var targets = new Dictionary<BinStageAxis, double>();
             foreach (BinStageAxis axis in System.Enum.GetValues(typeof(BinStageAxis)))

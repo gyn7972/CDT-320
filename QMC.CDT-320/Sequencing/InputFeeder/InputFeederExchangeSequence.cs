@@ -188,22 +188,35 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> MoveCassetteZAndVerifyAsync(InputCassetteUnit cassette, double target, string description, CancellationToken ct)
         {
-            ct.ThrowIfCancellationRequested();
+            try
+            {
+                ct.ThrowIfCancellationRequested();
 
-            int result = await AwaitStepWithCancellationAsync(cassette.MoveWaferLifterZ(target, Options.FineMove), ct).ConfigureAwait(false);
-            if (result != 0)
-                return Fail("IN-FEEDER-EXCHANGE-CST-Z-MOVE", cassette.Name,
-                    description + " move failed. target=" + target + ", result=" + result + ". " + BuildCassetteZState(cassette, target));
+                int result = await AwaitStepWithCancellationAsync(cassette.MoveWaferLifterZ(target, Options.FineMove), ct).ConfigureAwait(false);
+                if (result != 0)
+                    return Fail("IN-FEEDER-EXCHANGE-CST-Z-MOVE", cassette.Name,
+                        description + " 이동 명령 실패. target=" + target + ", result=" + result + ". " + BuildCassetteZState(cassette, target));
 
-            AxisMoveWaitResult waitResult = await AwaitStepWithCancellationAsync(
-                cassette.WaitWaferLifterZMoveDoneInPosition(target, ResolveTimeout()),
-                ct).ConfigureAwait(false);
-            if (waitResult == null || !waitResult.Success)
-                return Fail(ResolveAxisMoveWaitAlarmCode("IN-FEEDER-EXCHANGE-CST-Z", waitResult), cassette.Name,
-                    description + " move/in-position wait failed. " +
-                    FormatAxisMoveWaitResult(waitResult, BuildCassetteZState(cassette, target)));
+                AxisMoveWaitResult waitResult = await cassette.WaitWaferLifterZMoveDoneInPosition(target, ResolveTimeout(), ct).ConfigureAwait(false);
+                if (waitResult == null || !waitResult.Success)
+                    return Fail(ResolveAxisMoveWaitAlarmCode("IN-FEEDER-EXCHANGE-CST-Z", waitResult), cassette.Name,
+                        description + " 이동 완료/위치 확인 실패. " +
+                        FormatAxisMoveWaitResult(waitResult, BuildCassetteZState(cassette, target)));
 
-            return 0;
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("IN-FEEDER-EXCHANGE-CST-Z-EX", cassette != null ? cassette.Name : "InputCassette",
+                    description + " 이동 처리 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
         }
 
         private string BuildCassetteZState(InputCassetteUnit cassette, double target)

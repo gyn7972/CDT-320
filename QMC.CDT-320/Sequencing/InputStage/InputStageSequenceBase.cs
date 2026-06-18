@@ -218,15 +218,36 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> WaitAxisInPositionResultAsync(QMC.CDT320.WaferStageAxis axis, double target, CancellationToken ct)
         {
-            AxisMoveWaitResult waitResult = await AwaitStepWithCancellationAsync(
-                Stage.WaitInputStageAxisInPositionResult(axis, target, ResolveTimeout()),
-                ct).ConfigureAwait(false);
-            if (waitResult == null || !waitResult.Success)
-                return Fail(ResolveAxisMoveWaitAlarmCode("IN-STAGE-MOVE", waitResult), Stage.Name,
-                    "Input stage axis move/in-position wait failed. axis=" + axis + ", target=" + target + ". " +
-                    FormatAxisMoveWaitResult(waitResult, BuildAxisState(axis, target)));
+            try
+            {
+                ct.ThrowIfCancellationRequested();
 
-            return 0;
+                AxisMoveWaitResult waitResult = await Stage.WaitInputStageAxisInPositionResult(
+                    axis,
+                    target,
+                    ResolveTimeout(),
+                    ct).ConfigureAwait(false);
+                if (waitResult == null || !waitResult.Success)
+                    return Fail(ResolveAxisMoveWaitAlarmCode("IN-STAGE-MOVE", waitResult), Stage.Name,
+                        "Input stage axis 이동 완료/위치 확인 실패. axis=" + axis + ", target=" + target + ". " +
+                        FormatAxisMoveWaitResult(waitResult, BuildAxisState(axis, target)));
+
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("IN-STAGE-MOVE-WAIT-EX", Stage != null ? Stage.Name : "InputStage",
+                    "Input stage axis 이동 완료 대기 중 예외가 발생했습니다. axis=" + axis +
+                    ", target=" + target +
+                    ", error=" + ex.Message);
+            }
+            finally
+            {
+            }
         }
 
         private QMC.Common.Motion.BaseAxis ResolveStageAxis(QMC.CDT320.WaferStageAxis axis)

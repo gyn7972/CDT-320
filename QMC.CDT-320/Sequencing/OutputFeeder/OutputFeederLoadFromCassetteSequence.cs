@@ -166,13 +166,14 @@ namespace QMC.CDT320.Sequencing
             if (Cassette == null)
                 return Fail("OUT-FEEDER-CST-MISSING", "OutputCassette", "Output cassette unit is not available.");
 
-            bool prepared = await AwaitStepWithCancellationAsync(
+            int result = await AwaitStepWithCancellationAsync(
                 Cassette.PrepareBinCassetteForFeederLoad(ResolveOutputTargetCassette(), Options.SlotIndex, ResolveTimeout(), Options.FineMove),
                 ct).ConfigureAwait(false);
-            if (!prepared)
+            if (result != 0)
                 return Fail("OUT-FEEDER-CST-SLOT-MOVE", Cassette.Name,
                     "Output cassette slot move failed before feeder load. role=" + ResolveOutputCassetteRole() +
-                    ", slot=" + Options.SlotIndex + ", target=" + ResolveOutputTargetCassette());
+                    ", slot=" + Options.SlotIndex + ", target=" + ResolveOutputTargetCassette() +
+                    ", result=" + result);
 
             CurrentStep = OutputFeederLoadFromCassetteStep.PrepareFeederUnclamp;
             return 0;

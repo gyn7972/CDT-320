@@ -893,8 +893,10 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 ct.ThrowIfCancellationRequested();
-                AxisMoveWaitResult waitResult = await AwaitStepWithCancellationAsync(
-                    Stage.WaitInputStageAxisInPositionResult(axis, target, ResolveTimeout()),
+                AxisMoveWaitResult waitResult = await Stage.WaitInputStageAxisInPositionResult(
+                    axis,
+                    target,
+                    ResolveTimeout(),
                     ct).ConfigureAwait(false);
                 if (waitResult == null || !waitResult.Success)
                     return Fail(ResolveAxisMoveWaitAlarmCode("IN-STAGE-DIEMAP-MOVE", waitResult), Stage.Name,

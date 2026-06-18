@@ -603,8 +603,10 @@ namespace QMC.CDT320.Sequencing
                         OutputStage.BuildStageAxisState(axis, target));
                 }
 
-                AxisMoveWaitResult waitResult = await AwaitStepWithCancellationAsync(
-                    OutputStage.WaitStageAxisMoveDoneInPosition(axis, target, ResolveTimeout()),
+                AxisMoveWaitResult waitResult = await OutputStage.WaitStageAxisMoveDoneInPosition(
+                    axis,
+                    target,
+                    ResolveTimeout(),
                     ct).ConfigureAwait(false);
                 if (waitResult == null || !waitResult.Success)
                 {

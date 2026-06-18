@@ -9,6 +9,7 @@ using QMC.Common.Motion;
 using System;
 using System.Collections.Generic;
 using System.Runtime.Serialization;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace QMC.CDT320
@@ -777,28 +778,102 @@ namespace QMC.CDT320
 
         public async Task<bool> WaitPickerAxisMoveDone(PickerAxis axis, int timeoutMs)
         {
-            AxisMoveWaitResult waitResult = await WaitPickerAxisMoveDoneInPosition(axis, timeoutMs).ConfigureAwait(false);
-            return waitResult.Success;
+            return await WaitPickerAxisMoveDone(axis, timeoutMs, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        public async Task<bool> WaitPickerAxisMoveDone(PickerAxis axis, int timeoutMs, CancellationToken ct)
+        {
+            try
+            {
+                AxisMoveWaitResult waitResult = await WaitPickerAxisMoveDoneInPosition(axis, timeoutMs, ct).ConfigureAwait(false);
+                return waitResult.Success;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "PickerRearWait",
+                    "Picker axis move wait failed. axis=" + axis +
+                    ", error=" + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
         }
 
         public async Task<AxisMoveWaitResult> WaitPickerAxisMoveDoneInPosition(PickerAxis axis, int timeoutMs)
         {
-            BaseAxis item = GetAxis(axis);
-            return await WaitPickerAxisMoveDoneInPosition(axis, item.CommandPosition, timeoutMs).ConfigureAwait(false);
+            return await WaitPickerAxisMoveDoneInPosition(axis, timeoutMs, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        public async Task<AxisMoveWaitResult> WaitPickerAxisMoveDoneInPosition(PickerAxis axis, int timeoutMs, CancellationToken ct)
+        {
+            try
+            {
+                BaseAxis item = GetAxis(axis);
+                return await WaitPickerAxisMoveDoneInPosition(axis, item.CommandPosition, timeoutMs, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "PickerRearWait",
+                    "Picker axis move wait/in-position failed. axis=" + axis +
+                    ", error=" + ex.Message + " - Failed");
+                return new AxisMoveWaitResult(
+                    AxisMoveWaitFailure.Timeout,
+                    "Picker axis move wait exception: " + ex.Message,
+                    "axis=" + axis);
+            }
+            finally
+            {
+            }
         }
 
         public async Task<AxisMoveWaitResult> WaitPickerAxisMoveDoneInPosition(PickerAxis axis, double targetPos, int timeoutMs)
         {
-            BaseAxis item = GetAxis(axis);
-            double tolerance = item.Config != null && item.Config.InPositionTolerance > 0.0
-                ? item.Config.InPositionTolerance
-                : 0.05;
-            return await AxisMoveWaiter.WaitMoveDoneInPositionAsync(
-                item,
-                targetPos,
-                tolerance,
-                timeoutMs,
-                0).ConfigureAwait(false);
+            return await WaitPickerAxisMoveDoneInPosition(axis, targetPos, timeoutMs, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        public async Task<AxisMoveWaitResult> WaitPickerAxisMoveDoneInPosition(PickerAxis axis, double targetPos, int timeoutMs, CancellationToken ct)
+        {
+            try
+            {
+                BaseAxis item = GetAxis(axis);
+                double tolerance = item.Config != null && item.Config.InPositionTolerance > 0.0
+                    ? item.Config.InPositionTolerance
+                    : 0.05;
+                return await AxisMoveWaiter.WaitMoveDoneInPositionAsync(
+                    item,
+                    targetPos,
+                    tolerance,
+                    timeoutMs,
+                    0,
+                    ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "PickerRearWait",
+                    "Picker axis move wait/in-position failed. axis=" + axis +
+                    ", target=" + targetPos +
+                    ", error=" + ex.Message + " - Failed");
+                return new AxisMoveWaitResult(
+                    AxisMoveWaitFailure.Timeout,
+                    "Picker axis move wait exception: " + ex.Message,
+                    "axis=" + axis + ", target=" + targetPos);
+            }
+            finally
+            {
+            }
         }
 
         public async Task<bool> WaitPickerAxesMoveDone(IEnumerable<PickerAxis> targetAxes, int timeoutMs)
@@ -831,6 +906,11 @@ namespace QMC.CDT320
         public Task<bool> WaitPickerAxisInTeachingPosition(PickerAxis axis, string positionName, int timeoutMs)
         {
             return WaitUntilAsync(() => IsPickerAxisInTeachingPosition(axis, positionName), timeoutMs);
+        }
+
+        public Task<bool> WaitPickerAxisInTeachingPosition(PickerAxis axis, string positionName, int timeoutMs, CancellationToken ct)
+        {
+            return WaitUntilAsync(() => IsPickerAxisInTeachingPosition(axis, positionName), timeoutMs, ct);
         }
 
         public bool IsPickerInAvoidPosition()
@@ -1865,14 +1945,35 @@ namespace QMC.CDT320
 
         private static async Task<bool> WaitUntilAsync(Func<bool> condition, int timeoutMs)
         {
-            DateTime start = DateTime.UtcNow;
-            while ((DateTime.UtcNow - start).TotalMilliseconds < timeoutMs)
+            return await WaitUntilAsync(condition, timeoutMs, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        private static async Task<bool> WaitUntilAsync(Func<bool> condition, int timeoutMs, CancellationToken ct)
+        {
+            try
             {
-                if (condition())
-                    return true;
-                await Task.Delay(10);
+                DateTime start = DateTime.UtcNow;
+                while ((DateTime.UtcNow - start).TotalMilliseconds < timeoutMs)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    if (condition())
+                        return true;
+                    await Task.Delay(10, ct).ConfigureAwait(false);
+                }
+                ct.ThrowIfCancellationRequested();
+                return condition();
             }
-            return condition();
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
         }
     }
 

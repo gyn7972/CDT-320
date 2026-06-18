@@ -1192,7 +1192,7 @@ namespace QMC.CDT320
         // ??????????????????????????????????????????
 
         /// <summary>?ㅼ씠 1媛??쎌뾽???꾪빐 StageY/CameraX 瑜??대룞.</summary>
-        public async Task<bool> MoveInputStageToDieAsync(int row, int col)
+        public async Task<int> MoveInputStageToDieAsync(int row, int col)
         {
             try
             {
@@ -1200,19 +1200,37 @@ namespace QMC.CDT320
                 // Stage 28 ??Origin + Pitch 媛 ?뺤젙?섏뿀?쇰㈃ ?뺥솗???대룞, ?꾨땲硫?異붿젙媛?
                 double targetX = stage.OriginX + col * (stage.PitchX > 0 ? stage.PitchX : 0.15);
                 double targetY = stage.OriginY + row * (stage.PitchY > 0 ? stage.PitchY : 0.15);
-                bool xOk = await MoveAxisAsync(stage.CameraX, targetX, 100.0);
-                bool yOk = await MoveAxisAsync(stage.StageY, targetY, 100.0);
-                if (!xOk || !yOk)
+
+                int xResult = await MoveAxisAsync(stage.CameraX, targetX, 100.0).ConfigureAwait(false);
+                if (xResult != 0)
                 {
-                    Log($"[INPUTSTAGE] Move to die [{row},{col}] blocked");
-                    return false;
+                    Log($"[INPUTSTAGE] Move to die [{row},{col}] CameraX failed. result={xResult}");
+                    return xResult;
                 }
-                return true;
+
+                int yResult = await MoveAxisAsync(stage.StageY, targetY, 100.0).ConfigureAwait(false);
+                if (yResult != 0)
+                {
+                    Log($"[INPUTSTAGE] Move to die [{row},{col}] StageY failed. result={yResult}");
+                    return yResult;
+                }
+
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
                 Log("[INPUTSTAGE] MoveToDie exception: " + ex.Message);
-                return false;
+                AlarmManager.Raise(AlarmSeverity.Warning, "INPUT-STAGE-MOVE", "InputStage",
+                    "다이 위치 이동 중 예외가 발생했습니다. row=" + row + ", col=" + col + ", error=" + ex.Message);
+                return -1;
+            }
+            finally
+            {
+                Log($"[INPUTSTAGE] MoveToDie finished. row={row}, col={col}");
             }
         }
 
@@ -1537,40 +1555,65 @@ namespace QMC.CDT320
         /// ?명꽣濡?寃利????덈? ?꾩튂 ?대룞. 李⑤떒?섎㈃ false 諛섑솚 + ?뚮엺.
         /// 310 ??MotionInterlock.OnVerifyToMove ? ?숇벑.
         /// </summary>
-        public async Task<bool> MoveAxisAsync(BaseAxis axis, double position, double velocity = 800.0)
+        public async Task<int> MoveAxisAsync(BaseAxis axis, double position, double velocity = 800.0)
         {
-            if (axis == null) return false;
-            if (!InterlockRegistry.VerifyMove(axis.Name, position, out string reason))
+            try
             {
-                AlarmManager.Raise(AlarmSeverity.Warning, "INTERLOCK", axis.Name,
-                    $"Move blocked: target={position:F1}, reason={reason}");
-                Log($"[INTERLOCK] {axis.Name} target={position:F1} blocked: {reason}");
-                return false;
-            }
-            if (DryRun)
-            {
-                Log($"[DRYRUN] skip move {axis.Name} target={position:F1} (vel={velocity:F0})");
-                return true;
-            }
-            int moveResult = await SharedRailXMotionRuntime.MoveAxisAsync(axis, position, velocity).ConfigureAwait(false);
-            if (moveResult != 0 || axis.IsAlarm)
-            {
-                string message = BuildAxisMotionFailureMessage(axis, "Move failed", moveResult);
-                AlarmManager.Raise(AlarmSeverity.Warning, "MOVE-AXIS", axis.Name, message);
-                Log("[MOVE] " + message);
-                return false;
-            }
+                if (axis == null)
+                    return -1;
 
-            AxisMoveWaitResult waitResult = await WaitAxisMoveDoneInPositionAsync(axis, position).ConfigureAwait(false);
-            if (!waitResult.Success)
-            {
-                string message = "Move wait/in-position failed. " + AxisMoveWaiter.FormatResult(waitResult, axis.Name);
-                AlarmManager.Raise(AlarmSeverity.Warning, AxisMoveWaiter.ResolveAlarmCode("MOVE-AXIS", waitResult), axis.Name, message);
-                Log("[MOVE] " + message);
-                return false;
-            }
+                if (!InterlockRegistry.VerifyMove(axis.Name, position, out string reason))
+                {
+                    AlarmManager.Raise(AlarmSeverity.Warning, "INTERLOCK", axis.Name,
+                        $"이동 인터락 차단. target={position:F1}, reason={reason}");
+                    Log($"[INTERLOCK] {axis.Name} target={position:F1} blocked: {reason}");
+                    return -1;
+                }
 
-            return true;
+                if (DryRun)
+                {
+                    Log($"[DRYRUN] skip move {axis.Name} target={position:F1} (vel={velocity:F0})");
+                    return 0;
+                }
+
+                int moveResult = await SharedRailXMotionRuntime.MoveAxisAsync(axis, position, velocity).ConfigureAwait(false);
+                if (moveResult != 0 || axis.IsAlarm)
+                {
+                    string message = BuildAxisMotionFailureMessage(axis, "Move failed", moveResult);
+                    AlarmManager.Raise(AlarmSeverity.Warning, "MOVE-AXIS", axis.Name, message);
+                    Log("[MOVE] " + message);
+                    return moveResult != 0 ? moveResult : -1;
+                }
+
+                AxisMoveWaitResult waitResult = await WaitAxisMoveDoneInPositionAsync(axis, position).ConfigureAwait(false);
+                if (!waitResult.Success)
+                {
+                    string message = "Move wait/in-position failed. " + AxisMoveWaiter.FormatResult(waitResult, axis.Name);
+                    AlarmManager.Raise(AlarmSeverity.Warning, AxisMoveWaiter.ResolveAlarmCode("MOVE-AXIS", waitResult), axis.Name, message);
+                    Log("[MOVE] " + message);
+                    return -1;
+                }
+
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                string axisName = axis != null ? axis.Name : "-";
+                string message = "축 이동 중 예외가 발생했습니다. axis=" + axisName +
+                    ", target=" + position + ", error=" + ex.Message;
+                AlarmManager.Raise(AlarmSeverity.Warning, "MOVE-AXIS-EXCEPTION", axisName, message);
+                Log("[MOVE] " + message);
+                return -1;
+            }
+            finally
+            {
+                Log("[MOVE] MoveAxisAsync finished. axis=" + (axis != null ? axis.Name : "-") +
+                    ", target=" + position);
+            }
         }
 
         // ??????????????????????????????????????????
@@ -4005,8 +4048,8 @@ namespace QMC.CDT320
 
             if (stage.GoodStage != null)
             {
-                bool ok = await stage.GoodStage.MoveToAvoidPositionAsync().ConfigureAwait(false);
-                if (!ok)
+                int result = await stage.GoodStage.MoveToAvoidPositionAsync().ConfigureAwait(false);
+                if (result != 0)
                     return FailInitializePreparation("GoodStage Z avoid move failed.");
             }
 
@@ -5883,34 +5926,149 @@ namespace QMC.CDT320
                 0);
         }
 
-        private async Task<bool> MoveAxisCommandAndWaitAsync(BaseAxis axis, double target, double velocity, bool useSharedRailX)
+        private async Task<int> MoveAxisCommandAndWaitAsync(BaseAxis axis, double target, double velocity, bool useSharedRailX)
         {
-            if (axis == null)
-                return false;
-
-            if (DryRun)
+            try
             {
-                Log($"[DRYRUN] skip move {axis.Name} target={target:F3} (vel={velocity:F0})");
-                return true;
-            }
+                if (axis == null)
+                    return -1;
 
-            int moveResult = useSharedRailX
-                ? await SharedRailXMotionRuntime.MoveAxisAsync(axis, target, velocity).ConfigureAwait(false)
-                : await axis.MoveAbsoluteAsync(target, velocity).ConfigureAwait(false);
-            if (moveResult != 0 || axis.IsAlarm)
+                if (DryRun)
+                {
+                    Log($"[DRYRUN] skip move {axis.Name} target={target:F3} (vel={velocity:F0})");
+                    return 0;
+                }
+
+                int moveResult = useSharedRailX
+                    ? await SharedRailXMotionRuntime.MoveAxisAsync(axis, target, velocity).ConfigureAwait(false)
+                    : await axis.MoveAbsoluteAsync(target, velocity).ConfigureAwait(false);
+                if (moveResult != 0 || axis.IsAlarm)
+                {
+                    Log("[MOVE] " + BuildAxisMotionFailureMessage(axis, "Move failed", moveResult));
+                    return moveResult != 0 ? moveResult : -1;
+                }
+
+                AxisMoveWaitResult waitResult = await WaitAxisMoveDoneInPositionAsync(axis, target).ConfigureAwait(false);
+                if (!waitResult.Success)
+                {
+                    Log("[MOVE] Move wait/in-position failed. " + AxisMoveWaiter.FormatResult(waitResult, axis.Name));
+                    return -1;
+                }
+
+                return 0;
+            }
+            catch (OperationCanceledException)
             {
-                Log("[MOVE] " + BuildAxisMotionFailureMessage(axis, "Move failed", moveResult));
-                return false;
+                throw;
             }
-
-            AxisMoveWaitResult waitResult = await WaitAxisMoveDoneInPositionAsync(axis, target).ConfigureAwait(false);
-            if (!waitResult.Success)
+            catch (Exception ex)
             {
-                Log("[MOVE] Move wait/in-position failed. " + AxisMoveWaiter.FormatResult(waitResult, axis.Name));
-                return false;
+                Log("[MOVE] 축 이동 명령/완료 대기 중 예외가 발생했습니다. axis=" +
+                    (axis != null ? axis.Name : "-") + ", target=" + target + ", error=" + ex.Message);
+                return -1;
             }
+            finally
+            {
+                Log("[MOVE] MoveAxisCommandAndWaitAsync finished. axis=" +
+                    (axis != null ? axis.Name : "-") + ", target=" + target);
+            }
+        }
 
-            return true;
+        private int CheckMoveResult(string description, int result)
+        {
+            try
+            {
+                if (result == 0)
+                    return 0;
+
+                string message = description + " 이동 실패. result=" + result;
+                Log("[MOVE] " + message);
+                AlarmManager.Raise(AlarmSeverity.Warning, "MOVE-RESULT", "MachineController", message);
+                return result != 0 ? result : -1;
+            }
+            catch (Exception ex)
+            {
+                Log("[MOVE] 이동 결과 확인 중 예외가 발생했습니다. description=" +
+                    description + ", error=" + ex.Message);
+                return -1;
+            }
+            finally
+            {
+                Log("[MOVE] CheckMoveResult finished. description=" + description);
+            }
+        }
+
+        private int CheckMoveResults(string description, int[] results)
+        {
+            try
+            {
+                if (results == null || results.Length == 0)
+                {
+                    string emptyMessage = description + " 이동 결과가 없습니다.";
+                    Log("[MOVE] " + emptyMessage);
+                    AlarmManager.Raise(AlarmSeverity.Warning, "MOVE-RESULT", "MachineController", emptyMessage);
+                    return -1;
+                }
+
+                for (int i = 0; i < results.Length; i++)
+                {
+                    if (results[i] == 0)
+                        continue;
+
+                    string message = description + " 이동 실패. index=" + i + ", result=" + results[i];
+                    Log("[MOVE] " + message);
+                    AlarmManager.Raise(AlarmSeverity.Warning, "MOVE-RESULT", "MachineController", message);
+                    return results[i] != 0 ? results[i] : -1;
+                }
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                Log("[MOVE] 병렬 이동 결과 확인 중 예외가 발생했습니다. description=" +
+                    description + ", error=" + ex.Message);
+                return -1;
+            }
+            finally
+            {
+                Log("[MOVE] CheckMoveResults finished. description=" + description);
+            }
+        }
+
+        private void ThrowIfMoveFailed(string description, int result)
+        {
+            try
+            {
+                int checkedResult = CheckMoveResult(description, result);
+                if (checkedResult != 0)
+                    throw new InvalidOperationException(description + " 이동 실패. result=" + checkedResult);
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+                Log("[MOVE] ThrowIfMoveFailed finished. description=" + description);
+            }
+        }
+
+        private void ThrowIfMoveFailed(string description, int[] results)
+        {
+            try
+            {
+                int checkedResult = CheckMoveResults(description, results);
+                if (checkedResult != 0)
+                    throw new InvalidOperationException(description + " 이동 실패. result=" + checkedResult);
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+                Log("[MOVE] ThrowIfMoveFailed finished. description=" + description);
+            }
         }
 
         private async Task<(double X, double Y)[]> CaptureWaferForCycleAsync(
@@ -5952,12 +6110,17 @@ namespace QMC.CDT320
                                     + d.PosY;
                 try
                 {
-                    await Task.WhenAll(
+                    int[] moveResults = await Task.WhenAll(
                         MoveAxisCommandAndWaitAsync(stage.CameraX, camXTarget, ResolveAxisDefaultVelocity(stage.CameraX), true),
                         MoveAxisCommandAndWaitAsync(stage.StageY, stageYTarget, ResolveAxisDefaultVelocity(stage.StageY), false)
                     );
+                    ThrowIfMoveFailed("Wafer capture CameraX/StageY", moveResults);
                 }
-                catch (Exception ex) { Log($"[CAPTURE-XY p{p}] ex: " + ex.Message); }
+                catch (Exception ex)
+                {
+                    Log($"[CAPTURE-XY p{p}] ex: " + ex.Message);
+                    throw;
+                }
 
                 Log($"[CAPTURE p{p}] Die seq#{seqIdx} grid({d.DieMapX},{d.DieMapY}) " +
                     $"wafer({d.PosX:F2},{d.PosY:F2}) ??CamX={camXTarget:F2}, StageY={stageYTarget:F2}");
@@ -6138,13 +6301,19 @@ namespace QMC.CDT320
             //   4) ArmY ??PickupPosition + ArmX ??ArmInputPositionX ?숈떆 吏꾩엯
             try
             {
-                await MoveAxisCommandAndWaitAsync(
+                int armYAvoidResult = await MoveAxisCommandAndWaitAsync(
                     front.ArmY,
                     front.GetPickerTeachingPosition(PickerAxis.PickerY, "AvoidPosition"),
                     ResolveAxisDefaultVelocity(front.ArmY),
                     false);
+                ThrowIfMoveFailed("FrontPickerY avoid before pickup", armYAvoidResult);
             }
-            catch (Exception ex) { Log("[ARM-Y avoid] ex: " + ex.Message); }
+            catch (Exception ex)
+            {
+                Log("[ARM-Y avoid] ex: " + ex.Message);
+                PickFailCount++;
+                return;
+            }
 
             (double X, double Y)[] capturedOffsets;
             if (_pendingCaptureTask != null && _pendingCaptureCycleIdx == cycleIdx)
@@ -6172,10 +6341,11 @@ namespace QMC.CDT320
             double pickY = front.GetPickerTeachingPosition(PickerAxis.PickerY, "PickPosition");
             try
             {
-                await Task.WhenAll(
+                int[] entryResults = await Task.WhenAll(
                     MoveAxisCommandAndWaitAsync(front.ArmX, pickX, ResolveAxisDefaultVelocity(front.ArmX), true),
                     MoveAxisCommandAndWaitAsync(front.ArmY, pickY, ResolveAxisDefaultVelocity(front.ArmY), false)
                 );
+                ThrowIfMoveFailed("FrontPicker X/Y pickup entry", entryResults);
             }
             catch (Exception ex)
             {
@@ -6218,36 +6388,40 @@ namespace QMC.CDT320
                         + d.X
                         + vo.X;
 
-                    await Task.WhenAll(
+                    int[] pickMoveResults = await Task.WhenAll(
                         MoveAxisCommandAndWaitAsync(front.ArmX, armXTarget, ResolveAxisDefaultVelocity(front.ArmX), true),
                         MoveAxisCommandAndWaitAsync(stage.StageY, stageYTarget, ResolveAxisDefaultVelocity(stage.StageY), false),
                         MoveAxisCommandAndWaitAsync(stage.NeedleBlockX, needleXTarget, ResolveAxisDefaultVelocity(stage.NeedleBlockX), false)
                     );
+                    ThrowIfMoveFailed("Pick position PickerX/StageY/NeedleX", pickMoveResults);
 
                     // ??Picker Z??(PickupPosition) / Needle Cap Vacuum ON / Picker Vacuum ON ?숈떆
                     var pickerZTask = MoveAxisCommandAndWaitAsync(
                         picker.PickerZ, picker.Setup.PickupPosition, picker.Recipe.ZVelocity, false);
                     stage.NeedleVacuum?.On();
                     picker.VacuumOn();
-                    await pickerZTask;
+                    int pickerZResult = await pickerZTask;
+                    ThrowIfMoveFailed("PickerZ pickup down", pickerZResult);
                     await Task.Delay(picker.Recipe.VacuumSettleMs, ct);
 
                     // ??Needle Up / Picker Up (+PickLiftPosition) ?숈떆
                     double needleUpPos = stage.Recipe.EjectPinZ.ReadyPosition + picker.Recipe.PickLiftPosition;
                     double pickerUpPos = picker.Setup.PickupPosition + picker.Recipe.PickLiftPosition;
-                    await Task.WhenAll(
+                    int[] liftResults = await Task.WhenAll(
                         MoveAxisCommandAndWaitAsync(ej, needleUpPos, ResolveAxisDefaultVelocity(ej), false),
                         MoveAxisCommandAndWaitAsync(picker.PickerZ, pickerUpPos, picker.Recipe.ZVelocity, false)
                     );
+                    ThrowIfMoveFailed("Needle/Eject and PickerZ lift after pickup", liftResults);
 
                     // ??PickLiftWaitMs ?湲?
                     await Task.Delay(picker.Recipe.PickLiftWaitMs, ct);
 
                     // ??Picker Wait (WaitPosition) / Needle Down (NeedleDownPosition) ?숈떆
-                    await Task.WhenAll(
+                    int[] waitResults = await Task.WhenAll(
                         MoveAxisCommandAndWaitAsync(picker.PickerZ, picker.Setup.WaitPosition, picker.Recipe.ZVelocity, false),
                         MoveAxisCommandAndWaitAsync(ej, stage.Recipe.EjectPinZ.ReadyPosition, ResolveAxisDefaultVelocity(ej), false)
                     );
+                    ThrowIfMoveFailed("PickerZ/Eject return after pickup", waitResults);
 
                     pickupOk[p] = !picker.PickerZ.IsAlarm && !ej.IsAlarm;
                 }
@@ -6351,7 +6525,7 @@ namespace QMC.CDT320
             double placeArmX = front.GetPickerTeachingPosition(PickerAxis.PickerX, "PlacePosition");
             try
             {
-                var move19 = new System.Collections.Generic.List<Task>();
+                var move19 = new System.Collections.Generic.List<Task<int>>();
                 move19.Add(MoveAxisCommandAndWaitAsync(front.ArmX, placeArmX,
                                                        ResolveAxisDefaultVelocity(front.ArmX),
                                                        true));
@@ -6361,9 +6535,15 @@ namespace QMC.CDT320
                         front.Pickers[p].Setup.WaitPosition,
                         front.Pickers[p].Recipe.ZVelocity,
                         false));
-                await Task.WhenAll(move19);
+                int[] placeReadyResults = await Task.WhenAll(move19);
+                ThrowIfMoveFailed("Place ready PickerX/Z", placeReadyResults);
             }
-            catch (Exception ex) { Log("[PLACE] 19) move ex: " + ex.Message); }
+            catch (Exception ex)
+            {
+                Log("[PLACE] 19) move ex: " + ex.Message);
+                PlaceFailCount += pickers;
+                return;
+            }
             ct.ThrowIfCancellationRequested();
 
             // ?�?� PlaceOnePickerAsync : picker p �?지??stage (Good/Ng) ??Place ?�?�
@@ -6376,7 +6556,7 @@ namespace QMC.CDT320
                 double offT = bo?.OffsetT ?? 0.0;
 
                 // ??ArmX (PlaceX + Bottom OffsetX) / Stage Y (HomeY + Bottom OffsetY) / PickerT (Bottom OffsetT) ?숈떆
-                await Task.WhenAll(
+                int[] placeMoveResults = await Task.WhenAll(
                     MoveAxisCommandAndWaitAsync(front.ArmX, placeArmX + offX,
                                                 ResolveAxisDefaultVelocity(front.ArmX),
                                                 true),
@@ -6385,13 +6565,15 @@ namespace QMC.CDT320
                                                 false),
                     MoveAxisCommandAndWaitAsync(picker.PickerT, offT, picker.Recipe.ThetaVelocity, false)
                 );
+                ThrowIfMoveFailed("Place PickerX/StageY/PickerT", placeMoveResults);
 
                 // ??Picker Z ?ㅼ슫 (PlacePosition)
-                await MoveAxisCommandAndWaitAsync(
+                int placeDownResult = await MoveAxisCommandAndWaitAsync(
                     picker.PickerZ,
                     picker.Setup.PlacePosition,
                     picker.Recipe.ZVelocity,
                     false);
+                ThrowIfMoveFailed("PickerZ place down", placeDownResult);
 
                 // ??Vacuum Off + Blow On
                 picker.VacuumOff();
@@ -6404,11 +6586,12 @@ namespace QMC.CDT320
                 picker.BlowOff();
 
                 // ??Picker Up (WaitPosition)
-                await MoveAxisCommandAndWaitAsync(
+                int placeUpResult = await MoveAxisCommandAndWaitAsync(
                     picker.PickerZ,
                     picker.Setup.WaitPosition,
                     picker.Recipe.ZVelocity,
                     false);
+                ThrowIfMoveFailed("PickerZ place up", placeUpResult);
             }
 
             // 20) Good ?ㅼ씠 癒쇱? Place (GoodStage)
@@ -6436,13 +6619,19 @@ namespace QMC.CDT320
                 try
                 {
                     // NG Stage has no Z axis. Only GoodStage Z must be moved to avoid before NG place.
-                    await MoveAxisCommandAndWaitAsync(
+                    int goodStageZAvoidResult = await MoveAxisCommandAndWaitAsync(
                         _machine.OutputStageUnit.GoodStage.StageZ,
                         _machine.OutputStageUnit.GoodStage.Recipe.AvoidPositionZ,
                         ResolveAxisDefaultVelocity(_machine.OutputStageUnit.GoodStage.StageZ),
                         false);
+                    ThrowIfMoveFailed("GoodStageZ avoid before NG place", goodStageZAvoidResult);
                 }
-                catch (Exception ex) { Log("[PLACE] Bin ?꾪솚 ex: " + ex.Message); }
+                catch (Exception ex)
+                {
+                    Log("[PLACE] Bin ?꾪솚 ex: " + ex.Message);
+                    PlaceFailCount++;
+                    return;
+                }
 
                 for (int p = 0; p < pickers; p++)
                 {
@@ -6464,14 +6653,20 @@ namespace QMC.CDT320
             // ?? Stage 61 ??Place 醫낅즺 ??ArmY ??AvoidPosition ?뚰뵾 (?ㅼ쓬 ?ъ씠??capture ?덉쟾 ?곸뿭) ??
             try
             {
-                await MoveAxisCommandAndWaitAsync(
+                int armYAvoidAfterPlaceResult = await MoveAxisCommandAndWaitAsync(
                     front.ArmY,
                     front.GetPickerTeachingPosition(PickerAxis.PickerY, "AvoidPosition"),
                     ResolveAxisDefaultVelocity(front.ArmY),
                     false);
+                ThrowIfMoveFailed("FrontPickerY avoid after place", armYAvoidAfterPlaceResult);
                 Log($"[ARM-Y] Cycle {cycleIdx + 1}: Place complete. Return to Avoid position.");
             }
-            catch (Exception ex) { Log("[ARM-Y avoid after PLACE] ex: " + ex.Message); }
+            catch (Exception ex)
+            {
+                Log("[ARM-Y avoid after PLACE] ex: " + ex.Message);
+                PlaceFailCount++;
+                return;
+            }
 
             // 寃곌낵 諛섏쁺 ??4 ?ㅼ씠 媛곴컖 inspPass[p] 湲곕컲?쇰줈 Good/NG 遺꾨━ 湲곕줉
             int goodInCycle = 0, ngInCycle = 0;

@@ -716,15 +716,33 @@ namespace QMC.CDT320.Sequencing
 
         protected async Task<AxisMoveWaitResult> WaitPickerAxisMoveDoneAsync(PickerAxis axis, double target, int timeoutMs, CancellationToken ct)
         {
-            Task<AxisMoveWaitResult> waitTask = Side == PickerSequenceSide.Front
-                ? FrontPicker.WaitPickerAxisMoveDoneInPosition(axis, target, timeoutMs)
-                : RearPicker.WaitPickerAxisMoveDoneInPosition(axis, target, timeoutMs);
-
-            Task cancelTask = Task.Delay(Timeout.Infinite, ct);
-            Task completed = await Task.WhenAny(waitTask, cancelTask).ConfigureAwait(false);
-            if (completed == cancelTask)
+            try
+            {
                 ct.ThrowIfCancellationRequested();
-            return await waitTask.ConfigureAwait(false);
+
+                if (Side == PickerSequenceSide.Front)
+                    return await FrontPicker.WaitPickerAxisMoveDoneInPosition(axis, target, timeoutMs, ct).ConfigureAwait(false);
+
+                return await RearPicker.WaitPickerAxisMoveDoneInPosition(axis, target, timeoutMs, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PickerMove",
+                    Name + " picker axis wait exception. axis=" + axis +
+                    ", target=" + target +
+                    ", error=" + ex.Message + " - Failed");
+                return new AxisMoveWaitResult(
+                    AxisMoveWaitFailure.Timeout,
+                    "Picker axis wait exception.",
+                    "axis=" + axis + ", target=" + target + ", error=" + ex.Message);
+            }
+            finally
+            {
+            }
         }
 
         protected static string ResolveAxisMoveWaitAlarmCode(string prefix, AxisMoveWaitResult waitResult)

@@ -475,11 +475,15 @@ namespace QMC.CDT320.Sequencing
                     return Fail("OUT-CST-MOVE-READY", cassette.Name, "Output cassette is not ready to move. " + readyReason);
 
                 ct.ThrowIfCancellationRequested();
-                await AwaitStepWithCancellationAsync(MoveLifterZCommandAsync(cassette, target), ct).ConfigureAwait(false);
+                int commandResult = await MoveLifterZCommandAsync(cassette, target, ct).ConfigureAwait(false);
+                if (commandResult != 0)
+                    return commandResult;
+
                 ct.ThrowIfCancellationRequested();
 
-                AxisMoveWaitResult waitResult = await AwaitStepWithCancellationAsync(
-                    cassette.WaitBinLifterZMoveDoneInPosition(target, ResolveMoveTimeout(cassette)),
+                AxisMoveWaitResult waitResult = await cassette.WaitBinLifterZMoveDoneInPosition(
+                    target,
+                    ResolveMoveTimeout(cassette),
                     ct).ConfigureAwait(false);
                 if (!waitResult.Success)
                     return Fail(ResolveAxisMoveWaitAlarmCode("OUT-CST-MOVE", waitResult.Failure), cassette.Name,
@@ -497,10 +501,27 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private async Task<int> MoveLifterZCommandAsync(OutputCassetteUnit cassette, double target)
+        private async Task<int> MoveLifterZCommandAsync(OutputCassetteUnit cassette, double target, CancellationToken ct)
         {
-            await cassette.MoveBinLifterZ(target, Options.FineMove).ConfigureAwait(false);
-            return 0;
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                await cassette.MoveBinLifterZ(target, Options.FineMove).ConfigureAwait(false);
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("OUT-CST-MOVE-CMD-EX", cassette != null ? cassette.Name : "OutputCassette",
+                    "Output cassette Z move command exception. target=" + target + ", error=" + ex.Message);
+            }
+            finally
+            {
+            }
         }
 
         private static string ResolveAxisMoveWaitAlarmCode(string prefix, AxisMoveWaitFailure failure)

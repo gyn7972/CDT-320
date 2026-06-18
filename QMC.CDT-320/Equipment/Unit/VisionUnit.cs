@@ -557,55 +557,191 @@ namespace QMC.CDT320
         public Task<bool> ManualTriggerFrontVisionCapture() { return TriggerFrontSideVisionCapture(); }
         public Task<bool> ManualTriggerRearVisionCapture() { return TriggerRearSideVisionCapture(); }
 
-        public async Task<bool> PrepareFrontSideVisionInspection(int timeoutMs, bool bFine = false)
+        public async Task<int> PrepareFrontSideVisionInspection(int timeoutMs, bool bFine = false)
         {
-            if (!CheckVisionInspectionReady(VisionSide.Front))
+            try
             {
-                RaiseVisionAlarm("VS-FRONT-READY", "Front vision inspection is not ready.");
-                return false;
-            }
-            if (await MoveToFrontSideVisionProcessPosition(bFine) != 0)
-                return false;
-            bool ok = await WaitVisionReticleSafeState(VisionSide.Front, timeoutMs);
-            if (!ok) RaiseVisionAlarm("VS-FRONT-RETICLE", "Front vision reticle safe state timeout.");
-            return ok;
-        }
+                if (!CheckVisionInspectionReady(VisionSide.Front))
+                {
+                    RaiseVisionAlarm("VS-FRONT-READY", "Front vision inspection is not ready.");
+                    return -1;
+                }
 
-        public async Task<bool> PrepareRearSideVisionInspection(int timeoutMs, bool bFine = false)
-        {
-            if (!CheckVisionInspectionReady(VisionSide.Rear))
+                int result = await MoveToFrontSideVisionProcessPosition(bFine).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                bool ok = await WaitVisionReticleSafeState(VisionSide.Front, timeoutMs).ConfigureAwait(false);
+                if (!ok)
+                {
+                    RaiseVisionAlarm("VS-FRONT-RETICLE", "Front vision reticle safe state timeout.");
+                    return -1;
+                }
+
+                return 0;
+            }
+            catch (OperationCanceledException)
             {
-                RaiseVisionAlarm("VS-REAR-READY", "Rear vision inspection is not ready.");
-                return false;
+                throw;
             }
-            if (await MoveToRearSideVisionProcessPosition(bFine) != 0)
-                return false;
-            bool ok = await WaitVisionReticleSafeState(VisionSide.Rear, timeoutMs);
-            if (!ok) RaiseVisionAlarm("VS-REAR-RETICLE", "Rear vision reticle safe state timeout.");
-            return ok;
+            catch (Exception ex)
+            {
+                RaiseVisionAlarm("VS-FRONT-EXCEPTION", "Front vision inspection preparation failed. error=" + ex.Message);
+                return -1;
+            }
+            finally
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "VisionUnit",
+                    "PrepareFrontSideVisionInspection finished.");
+            }
         }
 
-        public async Task<bool> InspectFrontSideVision(int timeoutMs, bool bFine = false)
+        public async Task<int> PrepareRearSideVisionInspection(int timeoutMs, bool bFine = false)
         {
-            return await PrepareFrontSideVisionInspection(timeoutMs, bFine) && await TriggerVisionCapture(VisionSide.Front, timeoutMs);
+            try
+            {
+                if (!CheckVisionInspectionReady(VisionSide.Rear))
+                {
+                    RaiseVisionAlarm("VS-REAR-READY", "Rear vision inspection is not ready.");
+                    return -1;
+                }
+
+                int result = await MoveToRearSideVisionProcessPosition(bFine).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                bool ok = await WaitVisionReticleSafeState(VisionSide.Rear, timeoutMs).ConfigureAwait(false);
+                if (!ok)
+                {
+                    RaiseVisionAlarm("VS-REAR-RETICLE", "Rear vision reticle safe state timeout.");
+                    return -1;
+                }
+
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                RaiseVisionAlarm("VS-REAR-EXCEPTION", "Rear vision inspection preparation failed. error=" + ex.Message);
+                return -1;
+            }
+            finally
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "VisionUnit",
+                    "PrepareRearSideVisionInspection finished.");
+            }
         }
 
-        public async Task<bool> InspectRearSideVision(int timeoutMs, bool bFine = false)
+        public async Task<int> InspectFrontSideVision(int timeoutMs, bool bFine = false)
         {
-            return await PrepareRearSideVisionInspection(timeoutMs, bFine) && await TriggerVisionCapture(VisionSide.Rear, timeoutMs);
+            try
+            {
+                int result = await PrepareFrontSideVisionInspection(timeoutMs, bFine).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                return await TriggerVisionCapture(VisionSide.Front, timeoutMs).ConfigureAwait(false) ? 0 : -1;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                RaiseVisionAlarm("VS-FRONT-INSPECT-EXCEPTION", "Front vision inspection failed. error=" + ex.Message);
+                return -1;
+            }
+            finally
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "VisionUnit",
+                    "InspectFrontSideVision finished.");
+            }
         }
 
-        public async Task<bool> InspectBothSideVision(int timeoutMs, bool bFine = false)
+        public async Task<int> InspectRearSideVision(int timeoutMs, bool bFine = false)
         {
-            return await InspectFrontSideVision(timeoutMs, bFine) && await InspectRearSideVision(timeoutMs, bFine);
+            try
+            {
+                int result = await PrepareRearSideVisionInspection(timeoutMs, bFine).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                return await TriggerVisionCapture(VisionSide.Rear, timeoutMs).ConfigureAwait(false) ? 0 : -1;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                RaiseVisionAlarm("VS-REAR-INSPECT-EXCEPTION", "Rear vision inspection failed. error=" + ex.Message);
+                return -1;
+            }
+            finally
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "VisionUnit",
+                    "InspectRearSideVision finished.");
+            }
         }
 
-        public async Task<bool> RecoverVisionToSafeState(int timeoutMs, bool moveAvoid = true)
+        public async Task<int> InspectBothSideVision(int timeoutMs, bool bFine = false)
         {
-            StopVisionMotion("Recover");
-            if (!moveAvoid)
-                return true;
-            return await MoveToVisionAvoidPosition() == 0 && await WaitVisionAxesMoveDone(new[] { VisionAxis.FrontSideVisionY, VisionAxis.RearSideVisionY }, timeoutMs);
+            try
+            {
+                int result = await InspectFrontSideVision(timeoutMs, bFine).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                return await InspectRearSideVision(timeoutMs, bFine).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                RaiseVisionAlarm("VS-BOTH-INSPECT-EXCEPTION", "Both side vision inspection failed. error=" + ex.Message);
+                return -1;
+            }
+            finally
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "VisionUnit",
+                    "InspectBothSideVision finished.");
+            }
+        }
+
+        public async Task<int> RecoverVisionToSafeState(int timeoutMs, bool moveAvoid = true)
+        {
+            try
+            {
+                StopVisionMotion("Recover");
+                if (!moveAvoid)
+                    return 0;
+
+                int result = await MoveToVisionAvoidPosition().ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                bool done = await WaitVisionAxesMoveDone(new[] { VisionAxis.FrontSideVisionY, VisionAxis.RearSideVisionY }, timeoutMs).ConfigureAwait(false);
+                return done ? 0 : -1;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                RaiseVisionAlarm("VS-RECOVER-EXCEPTION", "Vision recover failed. error=" + ex.Message);
+                return -1;
+            }
+            finally
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "VisionUnit",
+                    "RecoverVisionToSafeState finished. moveAvoid=" + moveAvoid);
+            }
         }
 
         public bool CheckVisionAxisMoveReady(VisionAxis axis)

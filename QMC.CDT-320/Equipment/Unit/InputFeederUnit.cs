@@ -389,25 +389,94 @@ namespace QMC.CDT320
 
         public async Task<bool> WaitWaferFeederYMoveDone(int timeoutMs)
         {
-            AxisMoveWaitResult waitResult = await WaitWaferFeederYMoveDoneInPosition(FeederY.CommandPosition, timeoutMs).ConfigureAwait(false);
-            return waitResult.Success;
+            return await WaitWaferFeederYMoveDone(timeoutMs, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        public async Task<bool> WaitWaferFeederYMoveDone(int timeoutMs, CancellationToken ct)
+        {
+            try
+            {
+                AxisMoveWaitResult waitResult = await WaitWaferFeederYMoveDoneInPosition(FeederY.CommandPosition, timeoutMs, ct).ConfigureAwait(false);
+                return waitResult.Success;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "InputFeederWait",
+                    "WaferFeederY move wait failed. error=" + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
         }
 
         public async Task<AxisMoveWaitResult> WaitWaferFeederYMoveDoneInPosition(double targetPos, int timeoutMs)
         {
-            return await AxisMoveWaiter.WaitMoveDoneInPositionAsync(
-                FeederY,
-                targetPos,
-                ResolveWaferFeederYInPositionTolerance(),
-                timeoutMs > 0 ? timeoutMs : ResolveWaferFeederYMoveTimeoutMs(),
-                0).ConfigureAwait(false);
+            return await WaitWaferFeederYMoveDoneInPosition(targetPos, timeoutMs, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        public async Task<AxisMoveWaitResult> WaitWaferFeederYMoveDoneInPosition(double targetPos, int timeoutMs, CancellationToken ct)
+        {
+            try
+            {
+                return await AxisMoveWaiter.WaitMoveDoneInPositionAsync(
+                    FeederY,
+                    targetPos,
+                    ResolveWaferFeederYInPositionTolerance(),
+                    timeoutMs > 0 ? timeoutMs : ResolveWaferFeederYMoveTimeoutMs(),
+                    0,
+                    ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "InputFeederWait",
+                    "WaferFeederY move/in-position wait failed. target=" + targetPos +
+                    ", error=" + ex.Message + " - Failed");
+                return new AxisMoveWaitResult(
+                    AxisMoveWaitFailure.Timeout,
+                    "WaferFeederY move wait exception: " + ex.Message,
+                    GetWaferFeederTransferState());
+            }
+            finally
+            {
+            }
         }
 
         public async Task<bool> WaitWaferFeederYInPosition(string positionName, int timeoutMs)
         {
-            double target = GetTeachingPosition(positionName);
-            AxisMoveWaitResult waitResult = await WaitWaferFeederYMoveDoneInPosition(target, timeoutMs).ConfigureAwait(false);
-            return waitResult.Success;
+            return await WaitWaferFeederYInPosition(positionName, timeoutMs, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        public async Task<bool> WaitWaferFeederYInPosition(string positionName, int timeoutMs, CancellationToken ct)
+        {
+            try
+            {
+                double target = GetTeachingPosition(positionName);
+                AxisMoveWaitResult waitResult = await WaitWaferFeederYMoveDoneInPosition(target, timeoutMs, ct).ConfigureAwait(false);
+                return waitResult.Success;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "InputFeederWait",
+                    "WaferFeederY teaching position wait failed. position=" + positionName +
+                    ", error=" + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
         }
 
         public bool IsWaferFeederYInPosition(double targetPos, double tolerance)

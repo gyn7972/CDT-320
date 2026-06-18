@@ -1498,8 +1498,10 @@ namespace QMC.CDT320.Sequencing
             {
                 ct.ThrowIfCancellationRequested();
 
-                AxisMoveWaitResult waitResult = await AwaitStepWithCancellationAsync(
-                    stage.WaitInputStageAxisInPositionResult(axis, target, ResolveTimeout()),
+                AxisMoveWaitResult waitResult = await stage.WaitInputStageAxisInPositionResult(
+                    axis,
+                    target,
+                    ResolveTimeout(),
                     ct).ConfigureAwait(false);
 
                 if (waitResult == null || !waitResult.Success)

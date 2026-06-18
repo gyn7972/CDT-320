@@ -264,22 +264,41 @@ namespace QMC.CDT320.Sequencing
 
         protected async Task<int> WaitFeederYDoneAsync(Func<bool> inPosition, string description, CancellationToken ct)
         {
-            AxisMoveWaitResult waitResult = await AwaitStepWithCancellationAsync(
-                Feeder.WaitWaferFeederYMoveDoneInPosition(Feeder.FeederY.CommandPosition, ResolveTimeout()),
-                ct).ConfigureAwait(false);
-            bool finalInPosition = inPosition == null || inPosition();
+            try
+            {
+                ct.ThrowIfCancellationRequested();
 
-            if (waitResult == null || !waitResult.Success || !finalInPosition)
+                AxisMoveWaitResult waitResult = await Feeder.WaitWaferFeederYMoveDoneInPosition(
+                    Feeder.FeederY.CommandPosition,
+                    ResolveTimeout(),
+                    ct).ConfigureAwait(false);
+                bool finalInPosition = inPosition == null || inPosition();
+
+                if (waitResult == null || !waitResult.Success || !finalInPosition)
+                {
+                    string state = Feeder != null ? Feeder.GetWaferFeederTransferState() : "Feeder=null";
+                    return Fail(ResolveAxisMoveWaitAlarmCode("IN-FEEDER-Y", waitResult), Feeder.Name,
+                        description + " 이동 완료/위치 확인 실패. " +
+                        FormatAxisMoveWaitResult(waitResult, state) +
+                        ", 최종위치확인=" + finalInPosition +
+                        ". " + state);
+                }
+
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
             {
                 string state = Feeder != null ? Feeder.GetWaferFeederTransferState() : "Feeder=null";
-                return Fail(ResolveAxisMoveWaitAlarmCode("IN-FEEDER-Y", waitResult), Feeder.Name,
-                    description + " move/in-position wait failed. " +
-                    FormatAxisMoveWaitResult(waitResult, state) +
-                    ", finalInPosition=" + finalInPosition +
-                    ". " + state);
+                return Fail("IN-FEEDER-Y-WAIT-EX", Feeder != null ? Feeder.Name : "InputFeeder",
+                    description + " 이동 완료 대기 중 예외가 발생했습니다. error=" + ex.Message + ". " + state);
             }
-
-            return 0;
+            finally
+            {
+            }
         }
 
         private TStep ResolveStartStep(TStep initialStep)

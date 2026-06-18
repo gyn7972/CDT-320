@@ -201,14 +201,15 @@ namespace QMC.CDT320.Sequencing
 
             try
             {
-                bool prepared = await AwaitStepWithCancellationAsync(
+                int result = await AwaitStepWithCancellationAsync(
                     Cassette.PrepareBinCassetteForFeederLoad(targetCassette, Options.SlotIndex, ResolveTimeout(), Options.FineMove),
                     ct).ConfigureAwait(false);
-                if (!prepared)
+                if (result != 0)
                     return Fail("OUT-FEEDER-CST-SLOT-MOVE", Cassette.Name,
                         "Output cassette slot move failed before feeder unload. role=" + ResolveOutputCassetteRole() +
                         ", slot=" + Options.SlotIndex + ", target=" + targetCassette +
-                        ", targetPosition=" + targetPosition + ". " + Cassette.DescribeOutputLifterZState(targetPosition));
+                        ", targetPosition=" + targetPosition + ", result=" + result +
+                        ". " + Cassette.DescribeOutputLifterZState(targetPosition));
             }
             catch (Exception ex)
             {

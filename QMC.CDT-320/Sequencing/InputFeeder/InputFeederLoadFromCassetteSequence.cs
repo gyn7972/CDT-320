@@ -407,41 +407,88 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> MoveStageAxisCommandAsync(InputStageUnit stage, WaferStageAxis axis, double target, string description, CancellationToken ct)
         {
-            ct.ThrowIfCancellationRequested();
+            try
+            {
+                ct.ThrowIfCancellationRequested();
 
-            QMC.Common.Motion.BaseAxis item = ResolveStageAxis(stage, axis);
-            string interlockReason;
-            if (!MotionGuardRuntime.VerifyAxisMove(item, target, out interlockReason))
-                return Fail("IN-FEEDER-STAGE-INTERLOCK", stage.Name,
-                    description + " move blocked by interlock. " + interlockReason + ". " +
-                    BuildStageAxisState(stage, axis, target));
+                QMC.Common.Motion.BaseAxis item = ResolveStageAxis(stage, axis);
+                string interlockReason;
+                if (!MotionGuardRuntime.VerifyAxisMove(item, target, out interlockReason))
+                    return Fail("IN-FEEDER-STAGE-INTERLOCK", stage.Name,
+                        description + " 이동 인터락 차단. " + interlockReason + ". " +
+                        BuildStageAxisState(stage, axis, target));
 
-            int result = await AwaitStepWithCancellationAsync(stage.MoveInputStageAxis(axis, target, Options.FineMove), ct).ConfigureAwait(false);
-            if (result != 0)
-                return Fail("IN-FEEDER-STAGE-MOVE", stage.Name, description + " move failed. result=" + result + ", " + BuildStageAxisState(stage, axis, target));
+                int result = await AwaitStepWithCancellationAsync(stage.MoveInputStageAxis(axis, target, Options.FineMove), ct).ConfigureAwait(false);
+                if (result != 0)
+                    return Fail("IN-FEEDER-STAGE-MOVE", stage.Name, description + " 이동 명령 실패. result=" + result + ", " + BuildStageAxisState(stage, axis, target));
 
-            ct.ThrowIfCancellationRequested();
-            return 0;
+                ct.ThrowIfCancellationRequested();
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("IN-FEEDER-STAGE-MOVE-EX", stage != null ? stage.Name : "InputStage",
+                    description + " 이동 명령 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
         }
 
         private async Task<int> MoveStageAxisAndVerifyAsync(InputStageUnit stage, WaferStageAxis axis, double target, string description, CancellationToken ct)
         {
-            int result = await MoveStageAxisCommandAsync(stage, axis, target, description, ct).ConfigureAwait(false);
-            if (result != 0)
-                return result;
+            try
+            {
+                int result = await MoveStageAxisCommandAsync(stage, axis, target, description, ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
 
-            return await WaitStageAxisInPositionResultAsync(stage, axis, target, description, ct).ConfigureAwait(false);
+                return await WaitStageAxisInPositionResultAsync(stage, axis, target, description, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("IN-FEEDER-STAGE-MOVE-VERIFY-EX", stage != null ? stage.Name : "InputStage",
+                    description + " 이동 확인 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
         }
 
         private async Task<int> WaitStageAxisInPositionResultAsync(InputStageUnit stage, WaferStageAxis axis, double target, string description, CancellationToken ct)
         {
-            AxisMoveWaitResult waitResult = await AwaitStepWithCancellationAsync(stage.WaitInputStageAxisInPositionResult(axis, target, ResolveTimeout()), ct).ConfigureAwait(false);
-            if (waitResult == null || !waitResult.Success)
-                return Fail(ResolveAxisMoveWaitAlarmCode("IN-FEEDER-STAGE-MOVE", waitResult), stage.Name,
-                    description + " move/in-position wait failed. " +
-                    FormatAxisMoveWaitResult(waitResult, BuildStageAxisState(stage, axis, target)));
+            try
+            {
+                ct.ThrowIfCancellationRequested();
 
-            return 0;
+                AxisMoveWaitResult waitResult = await stage.WaitInputStageAxisInPositionResult(axis, target, ResolveTimeout(), ct).ConfigureAwait(false);
+                if (waitResult == null || !waitResult.Success)
+                    return Fail(ResolveAxisMoveWaitAlarmCode("IN-FEEDER-STAGE-MOVE", waitResult), stage.Name,
+                        description + " 이동 완료/위치 확인 실패. " +
+                        FormatAxisMoveWaitResult(waitResult, BuildStageAxisState(stage, axis, target)));
+
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("IN-FEEDER-STAGE-WAIT-EX", stage != null ? stage.Name : "InputStage",
+                    description + " 이동 완료 대기 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
         }
 
         private int CheckStageAxisInPosition(InputStageUnit stage, WaferStageAxis axis, double target, string description)

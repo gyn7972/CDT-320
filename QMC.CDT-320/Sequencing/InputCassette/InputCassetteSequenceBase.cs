@@ -482,8 +482,9 @@ namespace QMC.CDT320.Sequencing
                 if (cassette == null)
                     return Fail(alarmPrefix + "-UNIT-MISSING", "InputCassette", description + " wait failed. Input cassette unit is null.");
 
-                AxisMoveWaitResult waitResult = await AwaitStepWithCancellationAsync(
-                    cassette.WaitWaferLifterZMoveDoneInPosition(target, ResolveMoveTimeout(cassette)),
+                AxisMoveWaitResult waitResult = await cassette.WaitWaferLifterZMoveDoneInPosition(
+                    target,
+                    ResolveMoveTimeout(cassette),
                     ct).ConfigureAwait(false);
                 if (waitResult.Success)
                     return 0;

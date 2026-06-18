@@ -354,10 +354,21 @@ namespace QMC.CDT320
 
         public async Task<int> WaitWaferLifterZMoveDone(int timeoutMs)
         {
+            return await WaitWaferLifterZMoveDone(timeoutMs, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        public async Task<int> WaitWaferLifterZMoveDone(int timeoutMs, CancellationToken ct)
+        {
             try
             {
-                AxisMoveWaitResult waitResult = await WaitWaferLifterZMoveDoneInPosition(InputLifterZ.CommandPosition, timeoutMs).ConfigureAwait(false);
+                ct.ThrowIfCancellationRequested();
+
+                AxisMoveWaitResult waitResult = await WaitWaferLifterZMoveDoneInPosition(InputLifterZ.CommandPosition, timeoutMs, ct).ConfigureAwait(false);
                 return waitResult.Code;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch
             {
@@ -370,14 +381,26 @@ namespace QMC.CDT320
 
         public async Task<AxisMoveWaitResult> WaitWaferLifterZMoveDoneInPosition(double targetPos, int timeoutMs)
         {
+            return await WaitWaferLifterZMoveDoneInPosition(targetPos, timeoutMs, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        public async Task<AxisMoveWaitResult> WaitWaferLifterZMoveDoneInPosition(double targetPos, int timeoutMs, CancellationToken ct)
+        {
             try
             {
+                ct.ThrowIfCancellationRequested();
+
                 return await AxisMoveWaiter.WaitMoveDoneInPositionAsync(
                     InputLifterZ,
                     targetPos,
                     ResolveWaferLifterZInPositionTolerance(),
                     timeoutMs,
-                    Config != null ? Config.ScanSettleTimeMs : 0).ConfigureAwait(false);
+                    Config != null ? Config.ScanSettleTimeMs : 0,
+                    ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch
             {
@@ -390,11 +413,22 @@ namespace QMC.CDT320
 
         public async Task<int> WaitWaferLifterZInPosition(string positionName, int timeoutMs)
         {
+            return await WaitWaferLifterZInPosition(positionName, timeoutMs, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        public async Task<int> WaitWaferLifterZInPosition(string positionName, int timeoutMs, CancellationToken ct)
+        {
             try
             {
+                ct.ThrowIfCancellationRequested();
+
                 double target = GetTeachingPosition(positionName);
-                AxisMoveWaitResult waitResult = await WaitWaferLifterZMoveDoneInPosition(target, timeoutMs).ConfigureAwait(false);
+                AxisMoveWaitResult waitResult = await WaitWaferLifterZMoveDoneInPosition(target, timeoutMs, ct).ConfigureAwait(false);
                 return waitResult.Success ? 0 : waitResult.Code;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch
             {
