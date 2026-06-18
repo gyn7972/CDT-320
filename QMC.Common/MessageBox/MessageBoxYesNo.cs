@@ -81,11 +81,34 @@ namespace QMC.Common
         {
             if (buttonText != null && 1 < buttonText.Length)
             {
-                this.button1.Text = buttonText[0];
-                this.button2.Text = buttonText[1];
+                ConfigureButtons(buttonText);
             }
 
             return base.ShowDialog(owner);
+        }
+
+        private void ConfigureButtons(string[] buttonText)
+        {
+            this.button1.Text = buttonText[0];
+            this.button2.Text = buttonText[1];
+
+            bool hasCancelButton = buttonText.Length > 2;
+            this.button3.Visible = hasCancelButton;
+
+            if (hasCancelButton)
+            {
+                this.button3.Text = buttonText[2];
+                this.tableLayoutPanel3.SetColumn(this.button1, 2);
+                this.tableLayoutPanel3.SetColumn(this.button2, 3);
+                this.tableLayoutPanel3.SetColumn(this.button3, 4);
+                this.CancelButton = this.button3;
+            }
+            else
+            {
+                this.tableLayoutPanel3.SetColumn(this.button1, 3);
+                this.tableLayoutPanel3.SetColumn(this.button2, 4);
+                this.CancelButton = this.button2;
+            }
         }
 
         /// <summary>

@@ -17,6 +17,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
     {
         private System.Windows.Forms.Timer _timer;
         private bool _manualSequenceRunning;
+        private SequenceStartMode _manualSequenceStartMode = SequenceStartMode.Resume;
         private BinSide _selectedMaterialSide = BinSide.Good;
 
         public OutputStagePage()
@@ -105,6 +106,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 if (_manualSequenceRunning)
                     return;
                 if (!ConfirmAction(actionName))
+                    return;
+                if (!TryAskManualSequenceStartMode(actionName, out _manualSequenceStartMode))
                     return;
 
                 _manualSequenceRunning = true;
@@ -343,7 +346,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         {
             OutputStageSequenceOptions options = OutputStageSequenceOptions.Default();
             options.RunMode = SequenceRunMode.Manual;
-            options.StartMode = SequenceStartMode.Resume;
+            options.StartMode = _manualSequenceStartMode;
             options.Side = side;
             options.Grade = grade;
             options.FineMove = false;

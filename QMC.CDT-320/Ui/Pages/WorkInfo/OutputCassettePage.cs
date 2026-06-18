@@ -16,6 +16,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
     {
         private Timer _timer;
         private bool _manualSequenceRunning;
+        private SequenceStartMode _manualSequenceStartMode = SequenceStartMode.Resume;
         private CassetteMaterialRole _selectedCassetteRole = CassetteMaterialRole.Good1;
         private int _selectedMaterialSlot = -1;
 
@@ -71,6 +72,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 if (_manualSequenceRunning)
                     return;
                 if (!ConfirmAction(actionName))
+                    return;
+                if (!TryAskManualSequenceStartMode(actionName, out _manualSequenceStartMode))
                     return;
 
                 _manualSequenceRunning = true;
@@ -257,19 +260,19 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private async Task<bool> MapAsync(Form1 host)
         {
             var sequence = CreateOutputCassetteSequence(host);
-            return await sequence.RunMappingAsync(host.Controller.ManualOperationToken, BuildCassetteOptions(host, SequenceStartMode.Resume)) == 0;
+            return await sequence.RunMappingAsync(host.Controller.ManualOperationToken, BuildCassetteOptions(host, _manualSequenceStartMode)) == 0;
         }
 
         private async Task<bool> LoadAsync(Form1 host)
         {
             var sequence = CreateOutputCassetteSequence(host);
-            return await sequence.RunLoadingAsync(host.Controller.ManualOperationToken, BuildCassetteOptions(host, SequenceStartMode.Resume)) == 0;
+            return await sequence.RunLoadingAsync(host.Controller.ManualOperationToken, BuildCassetteOptions(host, _manualSequenceStartMode)) == 0;
         }
 
         private async Task<bool> UnloadAsync(Form1 host)
         {
             var sequence = CreateOutputCassetteSequence(host);
-            return await sequence.RunUnloadingAsync(host.Controller.ManualOperationToken, BuildCassetteOptions(host, SequenceStartMode.Resume)) == 0;
+            return await sequence.RunUnloadingAsync(host.Controller.ManualOperationToken, BuildCassetteOptions(host, _manualSequenceStartMode)) == 0;
         }
 
         private OutputCassetteSequence CreateOutputCassetteSequence(Form1 host)

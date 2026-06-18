@@ -30,6 +30,7 @@
         {
             this.button1 = new System.Windows.Forms.Button();
             this.button2 = new System.Windows.Forms.Button();
+            this.button3 = new System.Windows.Forms.Button();
             this.lblMessage = new System.Windows.Forms.Label();
             this.panel1 = new System.Windows.Forms.Panel();
             this.lblTitle = new System.Windows.Forms.Label();
@@ -67,6 +68,18 @@
             this.button2.TabIndex = 1;
             this.button2.Text = "&No";
             this.button2.UseVisualStyleBackColor = true;
+            // 
+            // button3
+            // 
+            this.button3.DialogResult = System.Windows.Forms.DialogResult.Cancel;
+            this.button3.Font = new System.Drawing.Font("Tahoma", 10.2F, System.Drawing.FontStyle.Bold);
+            this.button3.Location = new System.Drawing.Point(355, 3);
+            this.button3.Name = "button3";
+            this.button3.Size = new System.Drawing.Size(86, 28);
+            this.button3.TabIndex = 2;
+            this.button3.Text = "&Cancel";
+            this.button3.UseVisualStyleBackColor = true;
+            this.button3.Visible = false;
             // 
             // lblMessage
             // 
@@ -167,6 +180,7 @@
             this.tableLayoutPanel3.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 20F));
             this.tableLayoutPanel3.Controls.Add(this.button1, 3, 0);
             this.tableLayoutPanel3.Controls.Add(this.button2, 4, 0);
+            this.tableLayoutPanel3.Controls.Add(this.button3, 4, 0);
             this.tableLayoutPanel3.Dock = System.Windows.Forms.DockStyle.Fill;
             this.tableLayoutPanel3.Location = new System.Drawing.Point(3, 163);
             this.tableLayoutPanel3.Name = "tableLayoutPanel3";
@@ -204,6 +218,7 @@
 
         private System.Windows.Forms.Button button1;
         private System.Windows.Forms.Button button2;
+        private System.Windows.Forms.Button button3;
         private System.Windows.Forms.Label lblMessage;
         private System.Windows.Forms.PictureBox pictureBox1;
         private System.Windows.Forms.Panel panel1;

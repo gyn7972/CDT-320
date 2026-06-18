@@ -19,6 +19,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
     {
         private System.Windows.Forms.Timer _refreshTimer;
         private bool _manualSequenceRunning;
+        private SequenceStartMode _manualSequenceStartMode = SequenceStartMode.Resume;
         private CassetteSlotView _cassetteSlotView;
         private CassetteSlotView _cassetteSlotViewLevel2;
         private CassetteMaterialRole _selectedCassetteRole = CassetteMaterialRole.Input1;
@@ -122,6 +123,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 if (_manualSequenceRunning)
                     return;
                 if (!ConfirmAction(actionName))
+                    return;
+                if (!TryAskManualSequenceStartMode(actionName, out _manualSequenceStartMode))
                     return;
 
                 _manualSequenceRunning = true;
@@ -380,7 +383,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     return false;
 
                 var sequence = CreateInputCassetteSequence(host);
-                return await sequence.RunMappingAsync(host.Controller.ManualOperationToken, BuildCassetteOptions(host, SequenceStartMode.Resume)) == 0;
+                return await sequence.RunMappingAsync(host.Controller.ManualOperationToken, BuildCassetteOptions(host, _manualSequenceStartMode)) == 0;
             }
             catch (Exception ex)
             {
@@ -400,7 +403,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     return false;
 
                 var sequence = CreateInputCassetteSequence(host);
-                return await sequence.RunLoadingAsync(host.Controller.ManualOperationToken, BuildCassetteOptions(host, SequenceStartMode.Resume)) == 0;
+                return await sequence.RunLoadingAsync(host.Controller.ManualOperationToken, BuildCassetteOptions(host, _manualSequenceStartMode)) == 0;
             }
             catch (Exception ex)
             {
@@ -420,7 +423,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     return false;
 
                 var sequence = CreateInputCassetteSequence(host);
-                return await sequence.RunUnloadingAsync(host.Controller.ManualOperationToken, BuildCassetteOptions(host, SequenceStartMode.Resume)) == 0;
+                return await sequence.RunUnloadingAsync(host.Controller.ManualOperationToken, BuildCassetteOptions(host, _manualSequenceStartMode)) == 0;
             }
             catch (Exception ex)
             {

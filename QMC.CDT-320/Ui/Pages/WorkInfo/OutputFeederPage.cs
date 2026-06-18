@@ -16,6 +16,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
     {
         private Timer _timer;
         private bool _manualSequenceRunning;
+        private SequenceStartMode _manualSequenceStartMode = SequenceStartMode.Resume;
         private string _lastMaterialDisplayKey = "";
 
         public OutputFeederPage()
@@ -62,6 +63,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 if (_manualSequenceRunning)
                     return;
                 if (!ConfirmAction(actionName))
+                    return;
+                if (!TryAskManualSequenceStartMode(actionName, out _manualSequenceStartMode))
                     return;
 
                 _manualSequenceRunning = true;
@@ -230,7 +233,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         {
             var options = OutputFeederSequenceOptions.Default();
             options.RunMode = SequenceRunMode.Manual;
-            options.StartMode = SequenceStartMode.Resume;
+            options.StartMode = _manualSequenceStartMode;
             options.Side = side;
             options.CassetteRole = role;
             options.SlotIndex = Math.Max(0, slotIndex);

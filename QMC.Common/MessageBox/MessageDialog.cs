@@ -105,6 +105,9 @@ namespace QMC.Common
                 if (buttons == MessageBoxButtons.OKCancel)
                     return ShowYesNo(owner, caption, text, "확인", "취소", DialogResult.OK, DialogResult.Cancel);
 
+                if (buttons == MessageBoxButtons.YesNoCancel)
+                    return ShowYesNoCancel(owner, caption, text, "예", "아니오", "취소");
+
                 return ShowOk(owner, caption, text);
             }
             catch
@@ -148,6 +151,24 @@ namespace QMC.Common
                 {
                     DialogResult result = dialog.ShowDialog(caption, text, owner, new[] { yesText, noText });
                     return result == DialogResult.Yes ? yesResult : noResult;
+                }
+            }
+            catch
+            {
+                return DialogResult.None;
+            }
+            finally
+            {
+            }
+        }
+
+        private static DialogResult ShowYesNoCancel(IWin32Window owner, string caption, string text, string yesText, string noText, string cancelText)
+        {
+            try
+            {
+                using (MessageBoxYesNo dialog = new MessageBoxYesNo())
+                {
+                    return dialog.ShowDialog(caption, text, owner, new[] { yesText, noText, cancelText });
                 }
             }
             catch

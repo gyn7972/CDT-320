@@ -1100,6 +1100,18 @@ namespace QMC.CDT320.Sequencing
                 out reason);
         }
 
+        protected bool TryResolveOutputVisionToPickerOffsets(BinSide outputSide, int index, out double offsetX, out double offsetY, out string reason)
+        {
+            return PickerCoordinateTransformHelper.TryResolveOutputVisionToPickerOffsets(
+                Context != null ? Context.Machine : null,
+                Side,
+                index,
+                outputSide,
+                out offsetX,
+                out offsetY,
+                out reason);
+        }
+
         private PickerAlignOffset ResolvePickerAlignOffset(int index)
         {
             if (index < 0)
