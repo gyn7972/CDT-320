@@ -337,17 +337,17 @@ namespace QMC.CDT_320.Ui.Localization
             A("wi.stageReady",        "STAGE READY",      "STAGE READY");
             A("stage.needleCylInfo",  "STAGE & NEEDLE 실린더 정보", "STAGE & NEEDLE Cyl Info");
 
-            // 이력
-            A("hist.alarm",           "알람",              "Alarm");
-            A("hist.warning",         "경고",              "Warning");
-            A("hist.event",           "이벤트",             "Event");
-            A("hist.data",            "데이터",             "Data");
-            A("hist.work",            "작업",               "Work");
-            A("hist.inputSeq",        "입력 시퀀스",         "Input Seq");
-            A("hist.outputSeq",       "출력 시퀀스",         "Output Seq");
-            A("hist.frontHeadSeq",    "프론트 헤드 시퀀스",   "Front Head Seq");
-            A("hist.rearHeadSeq",     "리어 헤드 시퀀스",     "Rear Head Seq");
-            A("hist.msgEdit",         "MESSAGE 편집",      "MESSAGE Edit");
+            // 이력 — 사이드바/헤더 라벨은 모두 대문자 영문으로 통일
+            A("hist.alarm",           "ALARM",            "ALARM");
+            A("hist.warning",         "WARNING",          "WARNING");
+            A("hist.event",           "EVENT",            "EVENT");
+            A("hist.data",            "DATA",             "DATA");
+            A("hist.work",            "WORK",             "WORK");
+            A("hist.inputSeq",        "INPUT SEQ",        "INPUT SEQ");
+            A("hist.outputSeq",       "OUTPUT SEQ",       "OUTPUT SEQ");
+            A("hist.frontHeadSeq",    "FRONTHEAD SEQ",    "FRONTHEAD SEQ");
+            A("hist.rearHeadSeq",     "REARHEAD SEQ",     "REARHEAD SEQ");
+            A("hist.msgEdit",         "MESSAGE EDIT",     "MESSAGE EDIT");
             A("hist.col.index",       "INDEX",            "INDEX");
             A("hist.col.date",        "DATE",             "DATE");
             A("hist.col.user",        "USER",             "USER");

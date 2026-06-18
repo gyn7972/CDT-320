@@ -443,12 +443,6 @@
     <Compile Include="Ui\Dialogs\MaterialValueEditDialog.Designer.cs">
       <DependentUpon>MaterialValueEditDialog.cs</DependentUpon>
     </Compile>
-    <Compile Include="Ui\Dialogs\MessageEntryDialog.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="Ui\Dialogs\MessageEntryDialog.Designer.cs">
-      <DependentUpon>MessageEntryDialog.cs</DependentUpon>
-    </Compile>
     <Compile Include="Ui\Dialogs\UserAccountDialog.cs">
       <SubType>Form</SubType>
     </Compile>

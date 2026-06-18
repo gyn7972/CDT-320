@@ -271,9 +271,8 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
                 // Recipe 위치 — 위치 종류별 접이식 그룹 (멤버 = FRONT Y / REAR Y)
                 AddKindGroup(items, "AVOID POSITION", "Avoid");
-                AddKindGroup(items, "PROCESS POSITION", "Process");
-                AddKindGroup(items, "SAFE RETREAT POSITION", "SafeRetreat");
-                AddKindGroup(items, "CALIBRATION POSITION", "Calibration");
+                AddKindGroup(items, "PROCESS POSITION (0°)", "Process0");
+                AddKindGroup(items, "PROCESS POSITION (90°)", "Process90");
 
                 items.Add(ParameterGridItem.Bool("SIMULATION MODE", ParameterGridScope.Setup, () => unit.Setup.IsSimulationMode, v => unit.Setup.IsSimulationMode = v));
                 items.Add(ParameterGridItem.Bool("DRY RUN", ParameterGridScope.Config, () => unit.Config.bDryRun, v => unit.Config.bDryRun = v));
@@ -319,15 +318,10 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             {
                 // Avoid 위치 레시피 연결
                 case "Avoid": getter = () => positions.AvoidPosition; setter = v => positions.AvoidPosition = v; break;
-                // Process 위치 레시피 연결 (Front/Rear 각 축의 Process 필드 사용)
-                case "Process":
-                    if (side == VisionSide.Front) { getter = () => positions.FrontProcessPosition; setter = v => positions.FrontProcessPosition = v; }
-                    else { getter = () => positions.RearProcessPosition; setter = v => positions.RearProcessPosition = v; }
-                    break;
-                // Safe Retreat 위치 레시피 연결
-                case "SafeRetreat": getter = () => positions.SafeRetreatPosition; setter = v => positions.SafeRetreatPosition = v; break;
-                // Calibration 위치 레시피 연결
-                case "Calibration": getter = () => positions.CalibrationPosition; setter = v => positions.CalibrationPosition = v; break;
+                // Process 위치(0도) 레시피 연결
+                case "Process0": getter = () => positions.Process0Position; setter = v => positions.Process0Position = v; break;
+                // Process 위치(90도) 레시피 연결
+                case "Process90": getter = () => positions.Process90Position; setter = v => positions.Process90Position = v; break;
                 default: getter = () => 0.0; setter = v => { }; break;
             }
 
@@ -343,52 +337,36 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             await ConfirmAndRunAsync("AVOID POSITION", () => _visionUnit.MoveToVisionAvoidPosition());
         }
 
-        private async void btnProcessPosition_Click(object sender, EventArgs e)
+        private async void btnProcessPosition0_Click(object sender, EventArgs e)
         {
-            await ConfirmAndRunAsync("PROCESS POSITION", MoveBothProcessAsync);
+            await ConfirmAndRunAsync("PROCESS POSITION (0°)", MoveBothProcess0Async);
         }
 
-        private async void btnSafeRetreatPosition_Click(object sender, EventArgs e)
+        private async void btnProcessPosition90_Click(object sender, EventArgs e)
         {
-            await ConfirmAndRunAsync("SAFE RETREAT POSITION", MoveBothSafeRetreatAsync);
+            await ConfirmAndRunAsync("PROCESS POSITION (90°)", MoveBothProcess90Async);
         }
 
-        private async void btnCalibrationPosition_Click(object sender, EventArgs e)
-        {
-            await ConfirmAndRunAsync("CALIBRATION POSITION", MoveBothCalibrationAsync);
-        }
-
-        // Front/Rear 양측을 각자 Process 위치로 이동
-        private async Task<int> MoveBothProcessAsync()
+        // Front/Rear 양측을 각자 Process 위치(0도)로 이동
+        private async Task<int> MoveBothProcess0Async()
         {
             if (_visionUnit == null)
                 return -1;
 
-            int r = await _visionUnit.MoveToFrontSideVisionProcessPosition();
+            int r = await _visionUnit.MoveToFrontSideVisionProcess0Position();
             if (r != 0) return r;
-            return await _visionUnit.MoveToRearSideVisionProcessPosition();
+            return await _visionUnit.MoveToRearSideVisionProcess0Position();
         }
 
-        // Front/Rear 양측을 각자 Safe Retreat 위치로 이동
-        private async Task<int> MoveBothSafeRetreatAsync()
+        // Front/Rear 양측을 각자 Process 위치(90도)로 이동
+        private async Task<int> MoveBothProcess90Async()
         {
             if (_visionUnit == null)
                 return -1;
 
-            int r = await _visionUnit.MoveFrontSideVisionToSafeRetreatPosition();
+            int r = await _visionUnit.MoveToFrontSideVisionProcess90Position();
             if (r != 0) return r;
-            return await _visionUnit.MoveRearSideVisionToSafeRetreatPosition();
-        }
-
-        // Front/Rear 양측을 각자 Calibration 위치로 이동
-        private async Task<int> MoveBothCalibrationAsync()
-        {
-            if (_visionUnit == null)
-                return -1;
-
-            int r = await _visionUnit.MoveToFrontSideVisionCalibrationPosition();
-            if (r != 0) return r;
-            return await _visionUnit.MoveToRearSideVisionCalibrationPosition();
+            return await _visionUnit.MoveToRearSideVisionProcess90Position();
         }
 
         private void BindParameterGridMenus()
@@ -433,29 +411,26 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             positionName = string.Empty;
 
             var item = optionParameterGrid.SelectedItem;
-            string key = item != null ? item.Key : string.Empty;
-            if (string.IsNullOrWhiteSpace(key) || !key.EndsWith(" POSITION", StringComparison.OrdinalIgnoreCase))
+            if (item == null || item.IsGroupHeader)
                 return false;
 
-            string name = key.Substring(0, key.Length - " POSITION".Length);
-
-            bool isFront = name.StartsWith("FRONT Y ", StringComparison.OrdinalIgnoreCase);
-            bool isRear = name.StartsWith("REAR Y ", StringComparison.OrdinalIgnoreCase);
+            string key = item.Key ?? string.Empty;
+            bool isFront = key.StartsWith("FRONT Y ", StringComparison.OrdinalIgnoreCase);
+            bool isRear = key.StartsWith("REAR Y ", StringComparison.OrdinalIgnoreCase);
             if (!isFront && !isRear)
                 return false;
 
             axis = isFront ? VisionAxis.FrontSideVisionY : VisionAxis.RearSideVisionY;
-            string kindLabel = name.Substring((isFront ? "FRONT Y " : "REAR Y ").Length);
-            positionName = ResolvePositionName(kindLabel, isFront);
+            // 위치 종류는 그룹 키(K_AVOID / K_PROCESS0 / K_PROCESS90)로 식별한다.
+            positionName = ResolvePositionName(item.GroupKey);
             return !string.IsNullOrEmpty(positionName);
         }
 
-        private static string ResolvePositionName(string kindLabel, bool isFront)
+        private static string ResolvePositionName(string groupKey)
         {
-            if (string.Equals(kindLabel, "AVOID", StringComparison.OrdinalIgnoreCase)) return "AvoidPosition";
-            if (string.Equals(kindLabel, "PROCESS", StringComparison.OrdinalIgnoreCase)) return isFront ? "FrontProcessPosition" : "RearProcessPosition";
-            if (string.Equals(kindLabel, "SAFE RETREAT", StringComparison.OrdinalIgnoreCase)) return "SafeRetreatPosition";
-            if (string.Equals(kindLabel, "CALIBRATION", StringComparison.OrdinalIgnoreCase)) return "CalibrationPosition";
+            if (string.Equals(groupKey, "K_AVOID", StringComparison.OrdinalIgnoreCase)) return "AvoidPosition";
+            if (string.Equals(groupKey, "K_PROCESS0", StringComparison.OrdinalIgnoreCase)) return "Process0Position";
+            if (string.Equals(groupKey, "K_PROCESS90", StringComparison.OrdinalIgnoreCase)) return "Process90Position";
             return string.Empty;
         }
 
@@ -469,28 +444,28 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 var unit = _visionUnit;
                 ioCylinderPanel.SetItems(new[]
                 {
-                    // ===== RETICLE LIFT (승강 실린더 + Up/Down 센서) =====
-                    IoCylinderItem.Cylinder("RETICLE LIFT", unit.ReticleLift),
+                    // ===== 단독(묶이지 않은) 체크 센서 — 최상단 =====
+                    IoCylinderItem.Input("WAFER STAGE TOUCH", () => IsOn(unit.WaferStageTouchSensor)),
+
+                    // ===== SET: RETICLE LIFT (Up/Down 체크 센서 + Up/Down 출력 통합 실린더) =====
                     IoCylinderItem.Input("RETICLE UP", () => IsOn(unit.ReticleUpSensor)),
                     IoCylinderItem.Input("RETICLE DOWN", () => IsOn(unit.ReticleDownSensor)),
+                    IoCylinderItem.Cylinder("RETICLE LIFT", unit.ReticleLift, "UP", "DOWN"),
 
-                    // ===== RETICLE FRONT SLIDE (사이드 슬라이드 실린더 + Fw/Bw 센서) =====
-                    IoCylinderItem.Cylinder("RETICLE FRONT SLIDE", unit.ReticleFrontSideSlide),
+                    // ===== SET: RETICLE FRONT SLIDE (Fw/Bw 체크 센서 + Fw/Bw 출력 통합 실린더) =====
                     IoCylinderItem.Input("RETICLE FRONT FW", () => IsOn(unit.ReticleFrontSideFwSensor)),
                     IoCylinderItem.Input("RETICLE FRONT BW", () => IsOn(unit.ReticleFrontSideBwSensor)),
+                    IoCylinderItem.Cylinder("RETICLE FRONT SLIDE", unit.ReticleFrontSideSlide, "FW", "BW"),
 
-                    // ===== RETICLE REAR SLIDE (사이드 슬라이드 실린더 + Fw/Bw 센서) =====
-                    IoCylinderItem.Cylinder("RETICLE REAR SLIDE", unit.ReticleRearSideSlide),
+                    // ===== SET: RETICLE REAR SLIDE (Fw/Bw 체크 센서 + Fw/Bw 출력 통합 실린더) =====
                     IoCylinderItem.Input("RETICLE REAR FW", () => IsOn(unit.ReticleRearSideFwSensor)),
                     IoCylinderItem.Input("RETICLE REAR BW", () => IsOn(unit.ReticleRearSideBwSensor)),
+                    IoCylinderItem.Cylinder("RETICLE REAR SLIDE", unit.ReticleRearSideSlide, "FW", "BW"),
 
-                    // ===== NEEDLE (진공 출력 + 진공 확인 센서) =====
-                    IoCylinderItem.Output("NEEDLE VACUUM", () => IsOn(unit.NeedleVacuumOutput),
-                        on => WriteOutAsync(unit.NeedleVacuumOutput, on), "ON", "OFF"),
+                    // ===== SET: NEEDLE VACUUM (진공 확인 센서 + 진공 출력) =====
                     IoCylinderItem.Input("NEEDLE VACUUM CHECK", () => IsOn(unit.NeedleVacuumSensor)),
-
-                    // ===== WAFER STAGE =====
-                    IoCylinderItem.Input("WAFER STAGE TOUCH", () => IsOn(unit.WaferStageTouchSensor))
+                    IoCylinderItem.Output("NEEDLE VACUUM", () => IsOn(unit.NeedleVacuumOutput),
+                        on => WriteOutAsync(unit.NeedleVacuumOutput, on), "ON", "OFF")
                 });
             }
             catch (Exception ex)

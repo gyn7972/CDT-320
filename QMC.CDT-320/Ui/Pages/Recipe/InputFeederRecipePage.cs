@@ -522,47 +522,25 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
                 ioCylinderPanel.SetItems(new[]
                 {
-                    // ===== INPUT (DI) — 5개 =====
-                    IoCylinderItem.Input("WAFER FEEDER UP", () => _inputFeederUnit.IsWaferFeederUp()),
-                    IoCylinderItem.Input("WAFER FEEDER DOWN", () => _inputFeederUnit.IsWaferFeederDown()),
-                    IoCylinderItem.Input("WAFER FEEDER UNCLAMP", () => _inputFeederUnit.IsWaferFeederUnclamp()),
+                    // ===== 단독 체크 센서 (세트 구성 아님) — 최상단 =====
                     IoCylinderItem.Input("WAFER FEEDER RING CHECK", () => _inputFeederUnit.IsWaferFeederRingDetected()),
                     IoCylinderItem.Input("WAFER FEEDER OVERLOAD", () => _inputFeederUnit.IsWaferFeederOverload()),
 
-                    // ===== OUTPUT (DO) — 4개 =====
-                    IoCylinderItem.Output("WAFER FEEDER LIFT UP", () => _inputFeederUnit.WaferFeederUpOut.IsOn, on => WriteOutAsync(_inputFeederUnit.WaferFeederUpOut, on), "ON", "OFF"),
-                    IoCylinderItem.Output("WAFER FEEDER LIFT DOWN", () => _inputFeederUnit.WaferFeederDownOut.IsOn, on => WriteOutAsync(_inputFeederUnit.WaferFeederDownOut, on), "ON", "OFF"),
-                    IoCylinderItem.Output("WAFER FEEDER CLAMP", () => _inputFeederUnit.WaferFeederClampOut.IsOn, on => WriteOutAsync(_inputFeederUnit.WaferFeederClampOut, on), "ON", "OFF"),
-                    IoCylinderItem.Output("WAFER FEEDER UNCLAMP", () => _inputFeederUnit.WaferFeederUnclampOut.IsOn, on => WriteOutAsync(_inputFeederUnit.WaferFeederUnclampOut, on), "ON", "OFF")
+                    // ===== SET 1: WAFER FEEDER LIFT (Up/Down 체크 센서 + Up/Down 출력 통합 실린더) =====
+                    IoCylinderItem.Input("WAFER FEEDER UP", () => _inputFeederUnit.IsWaferFeederUp()),
+                    IoCylinderItem.Input("WAFER FEEDER DOWN", () => _inputFeederUnit.IsWaferFeederDown()),
+                    IoCylinderItem.Cylinder("WAFER FEEDER LIFT", _inputFeederUnit.InputFeederLift, "UP", "DOWN"),
+
+                    // ===== SET 2: WAFER FEEDER CLAMP (Clamp/Unclamp 체크 센서 + Clamp/Unclamp 출력 통합 실린더) =====
+                    IoCylinderItem.Input("WAFER FEEDER CLAMP", () => _inputFeederUnit.IsWaferFeederClamp()),
+                    IoCylinderItem.Input("WAFER FEEDER UNCLAMP", () => _inputFeederUnit.IsWaferFeederUnclamp()),
+                    IoCylinderItem.Cylinder("WAFER FEEDER CLAMP", _inputFeederUnit.InputFeederClamp, "CLAMP", "UNCLAMP")
                 });
             }
             catch (Exception ex)
             {
                 EventLogger.Write(EventKind.Alarm, "UI", "INPUT-FEEDER", "BindIoPanel failed: " + ex.Message);
                 QMC.Common.MessageDialog.Show(this, ex.Message, "Input Feeder I/O", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-            }
-        }
-
-        private static Task<int> WriteOutAsync(QMC.Common.IO.BaseDigitalOutput output, bool on)
-        {
-            try
-            {
-                if (output != null)
-                {
-                    if (on)
-                        output.On();
-                    else
-                        output.Off();
-                }
-
-                return Task.FromResult(0);
-            }
-            catch
-            {
-                throw;
             }
             finally
             {
