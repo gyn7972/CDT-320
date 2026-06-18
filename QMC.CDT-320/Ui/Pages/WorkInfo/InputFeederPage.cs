@@ -18,6 +18,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private System.Windows.Forms.Timer _timer;
         private FlowLayoutPanel _sequenceActions;
         private bool _manualSequenceRunning;
+        private SequenceStartMode _manualSequenceStartMode = SequenceStartMode.Resume;
         private string _lastMaterialDisplayKey = "";
         private const string LogSource = "INPUT-FEEDER-PAGE";
 
@@ -90,6 +91,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 if (_manualSequenceRunning)
                     return;
                 if (!ConfirmAction(actionName))
+                    return;
+                if (!TryAskManualSequenceStartMode(actionName, out _manualSequenceStartMode))
                     return;
 
                 _manualSequenceRunning = true;
@@ -245,7 +248,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         {
             var options = InputFeederSequenceOptions.Default();
             options.RunMode = SequenceRunMode.Manual;
-            options.StartMode = SequenceStartMode.Resume;
+            options.StartMode = _manualSequenceStartMode;
             options.SlotIndex = ResolveInputSlot(host);
             options.NextSlotIndex = options.SlotIndex;
             options.WaferSize = ResolveInputWaferSize(host);

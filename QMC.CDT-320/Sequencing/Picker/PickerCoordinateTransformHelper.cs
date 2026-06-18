@@ -1,4 +1,5 @@
 using System;
+using QMC.CDT320.Motion.SharedRailX;
 
 namespace QMC.CDT320.Sequencing
 {
@@ -12,7 +13,7 @@ namespace QMC.CDT320.Sequencing
             out double offsetY,
             out string reason)
         {
-            return TryResolveVisionToPickerOffsets(machine, side, pickerIndex, true, out offsetX, out offsetY, out reason);
+            return TryResolveVisionToPickerOffsets(machine, side, pickerIndex, true, BinSide.Good, out offsetX, out offsetY, out reason);
         }
 
         public static bool TryResolveOutputVisionToPickerOffsets(
@@ -23,7 +24,19 @@ namespace QMC.CDT320.Sequencing
             out double offsetY,
             out string reason)
         {
-            return TryResolveVisionToPickerOffsets(machine, side, pickerIndex, false, out offsetX, out offsetY, out reason);
+            return TryResolveVisionToPickerOffsets(machine, side, pickerIndex, false, BinSide.Good, out offsetX, out offsetY, out reason);
+        }
+
+        public static bool TryResolveOutputVisionToPickerOffsets(
+            CDT320_Machine machine,
+            PickerSequenceSide side,
+            int pickerIndex,
+            BinSide outputSide,
+            out double offsetX,
+            out double offsetY,
+            out string reason)
+        {
+            return TryResolveVisionToPickerOffsets(machine, side, pickerIndex, false, outputSide, out offsetX, out offsetY, out reason);
         }
 
         private static bool TryResolveVisionToPickerOffsets(
@@ -31,6 +44,7 @@ namespace QMC.CDT320.Sequencing
             PickerSequenceSide side,
             int pickerIndex,
             bool inputVision,
+            BinSide outputSide,
             out double offsetX,
             out double offsetY,
             out string reason)
@@ -54,9 +68,9 @@ namespace QMC.CDT320.Sequencing
                 }
 
                 if (side == PickerSequenceSide.Front)
-                    return TryResolveFrontOffsets(machine, pickerIndex, inputVision, out offsetX, out offsetY, out reason);
+                    return TryResolveFrontOffsets(machine, pickerIndex, inputVision, outputSide, out offsetX, out offsetY, out reason);
 
-                return TryResolveRearOffsets(machine, pickerIndex, inputVision, out offsetX, out offsetY, out reason);
+                return TryResolveRearOffsets(machine, pickerIndex, inputVision, outputSide, out offsetX, out offsetY, out reason);
             }
             catch (Exception ex)
             {
@@ -75,6 +89,7 @@ namespace QMC.CDT320.Sequencing
             CDT320_Machine machine,
             int pickerIndex,
             bool inputVision,
+            BinSide outputSide,
             out double offsetX,
             out double offsetY,
             out string reason)
@@ -102,6 +117,10 @@ namespace QMC.CDT320.Sequencing
 
             offsetX = offsets.GetOffsetX(pickerIndex, front.Setup.PickerPitchX);
             offsetY = offsets.GetOffsetY(pickerIndex, front.Setup.PickerPitchY);
+            if (!inputVision)
+            {
+                offsetX += ResolveOutputHomeGap(PickerSequenceSide.Front);
+            }
             return true;
         }
 
@@ -109,6 +128,7 @@ namespace QMC.CDT320.Sequencing
             CDT320_Machine machine,
             int pickerIndex,
             bool inputVision,
+            BinSide outputSide,
             out double offsetX,
             out double offsetY,
             out string reason)
@@ -136,7 +156,37 @@ namespace QMC.CDT320.Sequencing
 
             offsetX = offsets.GetOffsetX(pickerIndex, rear.Setup.PickerPitchX);
             offsetY = offsets.GetOffsetY(pickerIndex, rear.Setup.PickerPitchY);
+            if (!inputVision)
+            {
+                offsetX += ResolveOutputHomeGap(PickerSequenceSide.Rear);
+            }
             return true;
+        }
+
+        private static double ResolveOutputHomeGap(PickerSequenceSide side)
+        {
+            try
+            {
+                SharedRailXConfig config = SharedRailXConfigStore.LoadOrCreateDefault();
+                if (config == null)
+                    return 0.0;
+
+                SharedRailXAxis pickerAxis = side == PickerSequenceSide.Front
+                    ? SharedRailXAxis.FrontPickerX
+                    : SharedRailXAxis.RearPickerX;
+
+                SharedRailXAxisPair pair;
+                if (config.TryGetCollisionPair(SharedRailXAxis.OutputVisionX, pickerAxis, out pair))
+                    return pair.HomeClearance;
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+
+            return 0.0;
         }
     }
 }

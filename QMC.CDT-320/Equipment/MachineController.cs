@@ -2945,10 +2945,19 @@ namespace QMC.CDT320
             if (step == null || !step.Enabled)
                 return progress;
 
-            if (string.Equals(progress.Status, AxisInitializeStepStatus.Complete, StringComparison.OrdinalIgnoreCase))
+            if (ShouldResolveInitializedStepStatus(progress.Status, _isMachineInitialized))
             {
                 string reason;
-                if (!CheckAxisInitializeStepStillValid(step, out reason))
+                if (CheckAxisInitializeStepStillValid(step, out reason))
+                {
+                    if (!string.Equals(progress.Status, AxisInitializeStepStatus.Complete, StringComparison.OrdinalIgnoreCase))
+                    {
+                        progress.Status = AxisInitializeStepStatus.Complete;
+                        progress.Message = "";
+                        SetAxisInitializeStepProgress(progress);
+                    }
+                }
+                else if (string.Equals(progress.Status, AxisInitializeStepStatus.Complete, StringComparison.OrdinalIgnoreCase))
                 {
                     progress.Status = AxisInitializeStepStatus.ReinitializeRequired;
                     progress.Message = reason;
@@ -2957,6 +2966,19 @@ namespace QMC.CDT320
             }
 
             return progress;
+        }
+
+        private static bool ShouldResolveInitializedStepStatus(string status, bool machineInitialized)
+        {
+            if (string.Equals(status, AxisInitializeStepStatus.Complete, StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            if (string.Equals(status, AxisInitializeStepStatus.ReinitializeRequired, StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            return machineInitialized &&
+                (string.IsNullOrWhiteSpace(status) ||
+                 string.Equals(status, AxisInitializeStepStatus.Waiting, StringComparison.OrdinalIgnoreCase));
         }
 
         private void SetAxisInitializeStepProgress(AxisInitializeStepProgress progress)
@@ -3224,6 +3246,8 @@ namespace QMC.CDT320
                 {
                     if (axis == null)
                         continue;
+
+                    try { axis.UpdateStatus(); } catch { }
 
                     if (axis.IsAlarm)
                     {

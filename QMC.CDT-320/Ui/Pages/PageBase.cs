@@ -5,6 +5,7 @@ using System.Windows.Forms;
 using QMC.CDT_320.Ui.Controls;
 using QMC.CDT_320.Ui.Localization;
 using QMC.CDT_320.Ui.Util;
+using QMC.CDT320.Sequencing;
 
 namespace QMC.CDT_320.Ui.Pages
 {
@@ -59,6 +60,31 @@ namespace QMC.CDT_320.Ui.Pages
         /// <summary>VS 디자이너 모드 체크.</summary>
         protected bool IsDesignerMode()
             => LicenseManager.UsageMode == LicenseUsageMode.Designtime;
+
+        protected bool TryAskManualSequenceStartMode(string actionName, out SequenceStartMode startMode)
+        {
+            startMode = SequenceStartMode.Resume;
+
+            DialogResult result = QMC.Common.MessageDialog.Show(
+                this,
+                (string.IsNullOrWhiteSpace(actionName) ? "Manual Sequence" : actionName) +
+                " 시퀀스를 어떻게 시작할까요?\r\n\r\n" +
+                "[예] 처음 Step부터 시작\r\n" +
+                "[아니오] 현재 저장된 Step부터 진행\r\n" +
+                "[취소] 시작 안 함",
+                "Manual Sequence Start",
+                MessageBoxButtons.YesNoCancel,
+                MessageBoxIcon.Question);
+
+            if (result == DialogResult.Cancel)
+                return false;
+
+            startMode = result == DialogResult.Yes
+                ? SequenceStartMode.Restart
+                : SequenceStartMode.Resume;
+            return true;
+        }
+
         protected static void ConfigureGroup(GroupBox group, string title, Control child)
         {
             group.BackColor = UiTheme.OptionPanelBg;

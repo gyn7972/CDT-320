@@ -1071,19 +1071,11 @@ namespace QMC.CDT_320.Ui.Pages.Work
             {
                 OutputStageUnit unit = host.Machine.OutputStageUnit;
 
-                int prepareResult = await MovePickersToAvoidForOutputMoveAsync(host).ConfigureAwait(true);
+                int prepareResult = await PrepareOutputStageYMoveAsync(unit, outputSide, timeoutMs).ConfigureAwait(true);
                 if (prepareResult != 0)
                     return prepareResult;
 
-                prepareResult = await PrepareOutputStageYMoveAsync(unit, _selectedSide, timeoutMs).ConfigureAwait(true);
-                if (prepareResult != 0)
-                    return prepareResult;
-
-                int loadResult = await unit.MoveToStageLoadPositionAndVerifyAsync(_selectedSide, timeoutMs, true).ConfigureAwait(true);
-                if (loadResult != 0)
-                    return loadResult;
-
-                BinStageAxis yAxis = _selectedSide == BinSide.Ng ? BinStageAxis.NgBinY : BinStageAxis.GoodBinY;
+                BinStageAxis yAxis = outputSide == BinSide.Ng ? BinStageAxis.NgBinY : BinStageAxis.GoodBinY;
                 int stageResult = await unit.MoveStageAxis(yAxis, targets.OutputStageY, true).ConfigureAwait(true);
                 if (stageResult != 0)
                     return stageResult;
@@ -1091,6 +1083,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 AxisMoveWaitResult stageWait = await unit.WaitStageAxisMoveDoneInPosition(yAxis, targets.OutputStageY, timeoutMs).ConfigureAwait(true);
                 if (stageWait == null || !stageWait.Success)
                     return -1;
+
+                int visionAvoidResult = await MoveOutputVisionXToAvoidForPickerMoveAsync(host, unit, timeoutMs).ConfigureAwait(true);
+                if (visionAvoidResult != 0)
+                    return visionAvoidResult;
 
                 int pickerIndex = pickerNo - 1;
                 PickerAxis tAxis = GetPickerTAxis(pickerIndex);
@@ -1141,7 +1137,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
         }
 
-        /// <summary>VisionX(공유레일) 이동 전 Front/Rear PickerX를 Avoid 위치로 선행 이동합니다.</summary>
+        /// <summary>VisionX(공유레일) 이동 전 Output Zone에 있는 Picker만 Avoid 위치로 이동합니다.</summary>
         private async Task<int> MovePickersToAvoidForOutputMoveAsync(Form1 host)
         {
             try
@@ -1150,7 +1146,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     return -1;
 
                 PickerFrontUnit front = host.Machine.PickerFrontUnit;
-                if (front != null && !front.IsFrontPickerInAvoidPosition())
+                if (IsFrontPickerInOutputZone(front) && !front.IsFrontPickerInAvoidPosition())
                 {
                     int frontResult = await front.MoveToFrontPickerAvoidPosition(true).ConfigureAwait(true);
                     if (frontResult != 0)
@@ -1160,7 +1156,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 }
 
                 PickerRearUnit rear = host.Machine.PickerRearUnit;
-                if (rear != null && !rear.IsRearPickerInAvoidPosition())
+                if (IsRearPickerInOutputZone(rear) && !rear.IsRearPickerInAvoidPosition())
                 {
                     int rearResult = await rear.MoveToRearPickerAvoidPosition(true).ConfigureAwait(true);
                     if (rearResult != 0)
@@ -1180,6 +1176,72 @@ namespace QMC.CDT_320.Ui.Pages.Work
             finally
             {
             }
+        }
+
+        private async Task<int> MoveOutputVisionXToAvoidForPickerMoveAsync(Form1 host, OutputStageUnit unit, int timeoutMs)
+        {
+            try
+            {
+                if (unit == null || unit.Recipe == null || unit.Recipe.VisionX == null)
+                    return -1;
+
+                if (unit.IsVisionXInAvoidPosition())
+                    return 0;
+
+                int pickerAvoidResult = await MovePickersToAvoidForOutputMoveAsync(host).ConfigureAwait(true);
+                if (pickerAvoidResult != 0)
+                    return pickerAvoidResult;
+
+                int result = await unit.MoveStageAxis(BinStageAxis.VisionX, unit.Recipe.VisionX.AvoidPosition, true).ConfigureAwait(true);
+                if (result != 0)
+                    return result;
+
+                AxisMoveWaitResult wait = await unit.WaitStageAxisMoveDoneInPosition(
+                    BinStageAxis.VisionX,
+                    unit.Recipe.VisionX.AvoidPosition,
+                    timeoutMs).ConfigureAwait(true);
+                if (wait == null || !wait.Success)
+                    return -1;
+
+                return unit.IsVisionXInAvoidPosition() ? 0 : -1;
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
+                    "Picker 이동 전 OutputVisionX Avoid 이동 실패: " + ex.Message + " - Failed");
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool IsFrontPickerInOutputZone(PickerFrontUnit picker)
+        {
+            if (picker == null)
+                return false;
+
+            for (int pickerNo = 1; pickerNo <= 4; pickerNo++)
+            {
+                if (picker.IsFrontPickerInDiePlacePosition(pickerNo))
+                    return true;
+            }
+
+            return false;
+        }
+
+        private static bool IsRearPickerInOutputZone(PickerRearUnit picker)
+        {
+            if (picker == null)
+                return false;
+
+            for (int pickerNo = 1; pickerNo <= 4; pickerNo++)
+            {
+                if (picker.IsRearPickerInDiePlacePosition(pickerNo))
+                    return true;
+            }
+
+            return false;
         }
 
         private async Task<int> PrepareOutputStageYMoveAsync(OutputStageUnit unit, BinSide side, int timeoutMs)
@@ -1287,6 +1349,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     host.Machine,
                     side,
                     pickerIndex,
+                    outputSide,
                     out offsetX,
                     out offsetY,
                     out offsetReason))

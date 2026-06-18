@@ -20,6 +20,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private ActionButton btnPrepareUnload;
         private ActionButton btnMoveAvoid;
         private bool _manualSequenceRunning;
+        private SequenceStartMode _manualSequenceStartMode = SequenceStartMode.Resume;
         private string _lastMaterialDisplayKey = "";
         private const string LogSource = "INPUT-STAGE-PAGE";
 
@@ -116,6 +117,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 if (_manualSequenceRunning)
                     return;
                 if (!ConfirmAction(actionName))
+                    return;
+                if (!TryAskManualSequenceStartMode(actionName, out _manualSequenceStartMode))
                     return;
 
                 _manualSequenceRunning = true;
@@ -369,7 +372,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         {
             var options = InputStageSequenceOptions.Default();
             options.RunMode = SequenceRunMode.Manual;
-            options.StartMode = SequenceStartMode.Resume;
+            options.StartMode = _manualSequenceStartMode;
             options.FineMove = false;
             options.RequireVisionAlign = false;
             options.RequireMapData = false;
