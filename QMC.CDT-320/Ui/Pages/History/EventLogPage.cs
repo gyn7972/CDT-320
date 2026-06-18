@@ -12,6 +12,9 @@ namespace QMC.CDT_320.Ui.Pages.History
         // 알람 행 강조용 폰트. 행마다 new Font 를 만들지 않도록 1회만 생성해 재사용한다.
         private static readonly Font AlarmFont = new Font("Consolas", 10F, FontStyle.Bold);
 
+        // 표시 상한(최신 N개). 최근 1시간 필터와 함께 로딩 부하를 제한한다.
+        private const int MaxRows = 500;
+
         // 사이드바 버튼(경고/데이터/작업)이 지정하는 초기 Kind 프리셋. null 이면 전체(이벤트).
         private readonly EventKind? _presetKind;
 
@@ -86,19 +89,21 @@ namespace QMC.CDT_320.Ui.Pages.History
 
         private void LoadRows(List<EventRow> source)
         {
-            // 1) 먼저 표시할 행들을 메모리에서 모두 만들어 둔다(파싱·필터·스타일).
+            // 로딩 부하를 줄이기 위해 (1) 최근 1시간 이내 + (2) 최신 MaxRows(500)개로 제한한다.
+            DateTime cutoff = DateTime.Now.AddHours(-1);
+
+            // CSV 는 과거→최신 순이므로 뒤(최신)부터 훑어 최신순으로 최대 500개만 만든다.
+            // (필요한 만큼만 BuildRow 하므로 거대 파일에서도 행 생성 비용이 500개로 제한됨)
             var rows = new List<DataGridViewRow>();
-            foreach (var r in source)
+            for (int i = source.Count - 1; i >= 0 && rows.Count < MaxRows; i--)
             {
+                var r = source[i];
+                if (r.When < cutoff) continue;          // 최근 1시간만
                 if (!PassesKindFilter(r.Kind)) continue;
-                rows.Add(BuildRow(r));
+                rows.Add(BuildRow(r));                  // 뒤에서부터 → 이미 최신순
             }
 
-            // CSV 는 과거→최신 순으로 쌓이므로 뒤집어 최신순(내림차순)으로 표시한다.
-            rows.Reverse();
-
-            // 2) 그리드 갱신은 레이아웃/오토사이즈를 멈춘 상태에서 AddRange 로 한 번에 처리한다.
-            //    (행마다 Rows.Add + Fill 재계산하던 것을 일괄 처리로 바꿔 로딩 시간을 줄임)
+            // 그리드 갱신은 레이아웃/오토사이즈를 멈춘 상태에서 AddRange 로 한 번에 처리한다.
             var prevAutoSize = _grid.AutoSizeColumnsMode;
             _grid.SuspendLayout();
             try
@@ -148,15 +153,9 @@ namespace QMC.CDT_320.Ui.Pages.History
             // 최신순 표시이므로 새 이벤트는 맨 위에 삽입한다.
             if (_overridePath == null && _dp != null && _dp.Value.Date == DateTime.Today && PassesKindFilter(r.Kind))
             {
-                try
-                {
-                    // 사용자가 컬럼 정렬을 적용한 상태에서는 Insert 가 불가하므로 끝에 추가한다.
-                    if (_grid.SortOrder != SortOrder.None)
-                        _grid.Rows.Add(BuildRow(r));
-                    else
-                        _grid.Rows.Insert(0, BuildRow(r));
-                }
-                catch { }
+                _grid.Rows.Insert(0, BuildRow(r));               // 최신이 맨 위
+                while (_grid.Rows.Count > MaxRows)               // 상한 유지
+                    _grid.Rows.RemoveAt(_grid.Rows.Count - 1);
             }
         }
 

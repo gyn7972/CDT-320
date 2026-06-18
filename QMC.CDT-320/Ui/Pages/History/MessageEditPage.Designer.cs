@@ -94,7 +94,7 @@ namespace QMC.CDT_320.Ui.Pages.History
             this.colCode.MinimumWidth = 150;
             this.colCode.DefaultCellStyle.BackColor = System.Drawing.Color.FromArgb(245, 247, 249);
             this.colCode.DefaultCellStyle.ForeColor = System.Drawing.Color.FromArgb(90, 90, 90);
-            this.colCode.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.Automatic;
+            this.colCode.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             //
             // colKind (읽기전용)
             //
@@ -106,7 +106,7 @@ namespace QMC.CDT_320.Ui.Pages.History
             this.colKind.DefaultCellStyle.Alignment = System.Windows.Forms.DataGridViewContentAlignment.MiddleCenter;
             this.colKind.DefaultCellStyle.BackColor = System.Drawing.Color.FromArgb(245, 247, 249);
             this.colKind.DefaultCellStyle.ForeColor = System.Drawing.Color.FromArgb(90, 90, 90);
-            this.colKind.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.Automatic;
+            this.colKind.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             //
             // colKo (편집)
             //
@@ -114,7 +114,7 @@ namespace QMC.CDT_320.Ui.Pages.History
             this.colKo.Name = "KO";
             this.colKo.ReadOnly = false;
             this.colKo.FillWeight = 400F;
-            this.colKo.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.Automatic;
+            this.colKo.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             //
             // colEn (편집)
             //
@@ -122,7 +122,7 @@ namespace QMC.CDT_320.Ui.Pages.History
             this.colEn.Name = "EN";
             this.colEn.ReadOnly = false;
             this.colEn.FillWeight = 400F;
-            this.colEn.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.Automatic;
+            this.colEn.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             //
             // actionLayout — [코드 동기화] [저장]
             //
