@@ -12,8 +12,6 @@ namespace QMC.CDT_320.Ui.Pages.History
         private TableLayoutPanel filterLayout;
         private Label lblDate;
         private DateTimePicker _dp;
-        private Label lblKind;
-        private ComboBox _cbKind;
         private Button btnRefresh;
         private Button btnOpenFile;
         private DataGridView _grid;
@@ -31,8 +29,6 @@ namespace QMC.CDT_320.Ui.Pages.History
             this.filterLayout = new System.Windows.Forms.TableLayoutPanel();
             this.lblDate = new System.Windows.Forms.Label();
             this._dp = new System.Windows.Forms.DateTimePicker();
-            this.lblKind = new System.Windows.Forms.Label();
-            this._cbKind = new System.Windows.Forms.ComboBox();
             this.btnRefresh = new System.Windows.Forms.Button();
             this.btnOpenFile = new System.Windows.Forms.Button();
             this._grid = new System.Windows.Forms.DataGridView();
@@ -82,20 +78,16 @@ namespace QMC.CDT_320.Ui.Pages.History
             // filterLayout
             // 
             this.filterLayout.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(240)))), ((int)(((byte)(240)))));
-            this.filterLayout.ColumnCount = 7;
+            this.filterLayout.ColumnCount = 5;
             this.filterLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 58F));
             this.filterLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 170F));
-            this.filterLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 58F));
-            this.filterLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 120F));
             this.filterLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 110F));
             this.filterLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 140F));
             this.filterLayout.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.filterLayout.Controls.Add(this.lblDate, 0, 0);
             this.filterLayout.Controls.Add(this._dp, 1, 0);
-            this.filterLayout.Controls.Add(this.lblKind, 2, 0);
-            this.filterLayout.Controls.Add(this._cbKind, 3, 0);
-            this.filterLayout.Controls.Add(this.btnRefresh, 4, 0);
-            this.filterLayout.Controls.Add(this.btnOpenFile, 5, 0);
+            this.filterLayout.Controls.Add(this.btnRefresh, 2, 0);
+            this.filterLayout.Controls.Add(this.btnOpenFile, 3, 0);
             this.filterLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.filterLayout.Location = new System.Drawing.Point(3, 33);
             this.filterLayout.Name = "filterLayout";
@@ -126,30 +118,9 @@ namespace QMC.CDT_320.Ui.Pages.History
             this._dp.Size = new System.Drawing.Size(164, 23);
             this._dp.TabIndex = 1;
             this._dp.Value = new System.DateTime(2026, 5, 28, 0, 0, 0, 0);
-            // 
-            // lblKind
-            // 
-            this.lblKind.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lblKind.Font = new System.Drawing.Font("맑은 고딕", 11F);
-            this.lblKind.Location = new System.Drawing.Point(239, 6);
-            this.lblKind.Name = "lblKind";
-            this.lblKind.Size = new System.Drawing.Size(52, 32);
-            this.lblKind.TabIndex = 4;
-            this.lblKind.Text = "KIND";
-            this.lblKind.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            // 
-            // _cbKind
-            // 
-            this._cbKind.Dock = System.Windows.Forms.DockStyle.Fill;
-            this._cbKind.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
-            this._cbKind.Font = new System.Drawing.Font("Consolas", 10F);
-            this._cbKind.Location = new System.Drawing.Point(297, 9);
-            this._cbKind.Name = "_cbKind";
-            this._cbKind.Size = new System.Drawing.Size(114, 23);
-            this._cbKind.TabIndex = 5;
-            // 
+            //
             // btnRefresh
-            // 
+            //
             this.btnRefresh.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Left | System.Windows.Forms.AnchorStyles.Right)));
             this.btnRefresh.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(52)))), ((int)(((byte)(73)))), ((int)(((byte)(94)))));
             this.btnRefresh.Cursor = System.Windows.Forms.Cursors.Hand;

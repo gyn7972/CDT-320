@@ -632,21 +632,45 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
                 var unit = _outputStageUnit;
                 ioCylinderPanel.SetItems(new[]
                 {
-                    // ===== GOOD BIN : 실린더 단위 ON/OFF 제어 =====
-                    IoCylinderItem.Output("GOOD BIN GUIDE", () => unit.IsBinGuideUp(BinSide.Good), on => SetBinGuideAsync(BinSide.Good, on), "ON", "OFF"),
-                    IoCylinderItem.Output("GOOD BIN CLAMP LIFT", () => unit.IsBinGuideClampLiftUp(BinSide.Good), on => SetBinClampLiftAsync(BinSide.Good, on), "ON", "OFF"),
-                    IoCylinderItem.Output("GOOD BIN CLAMP", () => unit.IsBinGuideClamped(BinSide.Good), on => SetBinClampAsync(BinSide.Good, on), "ON", "OFF"),
+                    // ===== 단독(묶이지 않은) 체크 센서 — 최상단 =====
                     IoCylinderItem.Input("GOOD BIN RING CHECK", () => IsOn(unit.GoodBinRingSensor)),
-
-                    // ===== NG BIN : 실린더 단위 ON/OFF 제어 =====
-                    IoCylinderItem.Output("NG BIN GUIDE", () => unit.IsBinGuideUp(BinSide.Ng), on => SetBinGuideAsync(BinSide.Ng, on), "ON", "OFF"),
-                    IoCylinderItem.Output("NG BIN CLAMP LIFT", () => unit.IsBinGuideClampLiftUp(BinSide.Ng), on => SetBinClampLiftAsync(BinSide.Ng, on), "ON", "OFF"),
-                    IoCylinderItem.Output("NG BIN CLAMP", () => unit.IsBinGuideClamped(BinSide.Ng), on => SetBinClampAsync(BinSide.Ng, on), "ON", "OFF"),
                     IoCylinderItem.Input("NG BIN RING CHECK", () => IsOn(unit.NgBinRingSensor)),
 
-                    // ===== BOTTOM VISION (출력) =====
-                    IoCylinderItem.Output("BOTTOM VISION BLOW ON", () => IsOn(unit.BottomVisionBlowOnOut), on => WriteOutAsync(unit.BottomVisionBlowOnOut, on), "ON", "OFF"),
-                    IoCylinderItem.Output("BOTTOM VISION BLOW OFF", () => IsOn(unit.BottomVisionBlowOffOut), on => WriteOutAsync(unit.BottomVisionBlowOffOut, on), "ON", "OFF")
+                    // ===== GOOD BIN : SET GUIDE (Up/Down 체크 센서 + Up/Down 출력 통합) =====
+                    IoCylinderItem.Input("GOOD BIN GUIDE UP", () => IsOn(unit.GoodBinGuideUpSensor)),
+                    IoCylinderItem.Input("GOOD BIN GUIDE DOWN", () => IsOn(unit.GoodBinGuideDownSensor)),
+                    IoCylinderItem.Output("GOOD BIN GUIDE", () => unit.IsBinGuideUp(BinSide.Good),
+                        on => WritePairOut(unit.GoodBinGuideUpOut, unit.GoodBinGuideDownOut, on), "UP", "DOWN"),
+
+                    // ===== GOOD BIN : SET CLAMP LIFT (Up 체크 센서 + Up/Down 출력 통합) =====
+                    IoCylinderItem.Input("GOOD BIN CLAMP LIFT UP", () => IsOn(unit.GoodBinClampUpSensor)),
+                    IoCylinderItem.Output("GOOD BIN CLAMP LIFT", () => unit.IsBinGuideClampLiftUp(BinSide.Good),
+                        on => WritePairOut(unit.GoodBinClampUpOut, unit.GoodBinClampDownOut, on), "UP", "DOWN"),
+
+                    // ===== GOOD BIN : SET CLAMP (Unclamp 체크 센서 + Clamp/Unclamp 출력 통합) =====
+                    IoCylinderItem.Input("GOOD BIN UNCLAMP", () => IsOn(unit.GoodBinUnclampSensor)),
+                    IoCylinderItem.Output("GOOD BIN CLAMP", () => IsOn(unit.GoodBinClampOut),
+                        on => WritePairOut(unit.GoodBinClampOut, unit.GoodBinUnclampOut, on), "CLAMP", "UNCLAMP"),
+
+                    // ===== NG BIN : SET GUIDE (Up/Down 체크 센서 + Up/Down 출력 통합) =====
+                    IoCylinderItem.Input("NG BIN GUIDE UP", () => IsOn(unit.NgBinGuideUpSensor)),
+                    IoCylinderItem.Input("NG BIN GUIDE DOWN", () => IsOn(unit.NgBinGuideDownSensor)),
+                    IoCylinderItem.Output("NG BIN GUIDE", () => unit.IsBinGuideUp(BinSide.Ng),
+                        on => WritePairOut(unit.NgBinGuideUpOut, unit.NgBinGuideDownOut, on), "UP", "DOWN"),
+
+                    // ===== NG BIN : SET CLAMP LIFT (Up 체크 센서 + Up/Down 출력 통합) =====
+                    IoCylinderItem.Input("NG BIN CLAMP LIFT UP", () => IsOn(unit.NgBinClampUpSensor)),
+                    IoCylinderItem.Output("NG BIN CLAMP LIFT", () => unit.IsBinGuideClampLiftUp(BinSide.Ng),
+                        on => WritePairOut(unit.NgBinClampUpOut, unit.NgBinClampDownOut, on), "UP", "DOWN"),
+
+                    // ===== NG BIN : SET CLAMP (Unclamp 체크 센서 + Clamp/Unclamp 출력 통합) =====
+                    IoCylinderItem.Input("NG BIN UNCLAMP", () => IsOn(unit.NgBinUnclampSensor)),
+                    IoCylinderItem.Output("NG BIN CLAMP", () => IsOn(unit.NgBinClampOut),
+                        on => WritePairOut(unit.NgBinClampOut, unit.NgBinUnclampOut, on), "CLAMP", "UNCLAMP"),
+
+                    // ===== BOTTOM VISION BLOW (On/Off 출력 통합) =====
+                    IoCylinderItem.Output("BOTTOM VISION BLOW", () => IsOn(unit.BottomVisionBlowOnOut),
+                        on => WritePairOut(unit.BottomVisionBlowOnOut, unit.BottomVisionBlowOffOut, on), "ON", "OFF")
                 });
             }
             catch (Exception ex)
@@ -661,11 +685,13 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
         private static bool IsOn(QMC.Common.IO.BaseDigitalInput input)
         {
+            try { input?.UpdateStatus(); } catch { }
             return input != null && input.IsOn;
         }
 
         private static bool IsOn(QMC.Common.IO.BaseDigitalOutput output)
         {
+            try { output?.UpdateStatus(); } catch { }
             return output != null && output.IsOn;
         }
 

@@ -108,6 +108,7 @@ namespace QMC.CDT320
         [DataMember] public bool IsSimulationMode { get; set; } // Front Picker 단위 동작을 시뮬레이션 기준으로 처리할지 여부입니다.
         [DataMember] public double InputSafetyOffset { get; set; } // Input 영역 접근 시 간섭을 피하기 위해 적용하는 안전 보정 거리입니다.
         [DataMember] public double OutputSafetyOffset { get; set; } // Output 영역 접근 시 간섭을 피하기 위해 적용하는 안전 보정 거리입니다.
+        [DataMember] public double PickerYFacingXClearance { get; set; } = 300.0; // Front/Rear PickerX가 마주보는 위치에서 PickerY 동시 전진을 막기 위한 X축 최소 안전거리입니다.
         [DataMember] public PickerVisionCoordinateOffsets InputVisionToPicker { get; set; } = new PickerVisionCoordinateOffsets(); // InputVisionX/StageY 좌표계를 Picker 좌표계로 변환할 때 사용하는 Picker1~4별 기구 옵셋입니다.
         [DataMember] public PickerVisionCoordinateOffsets OutputVisionToPicker { get; set; } = new PickerVisionCoordinateOffsets(); // OutputVisionX/OutputStageY 좌표계를 Picker 좌표계로 변환할 때 사용하는 Picker1~4별 기구 옵셋입니다.
         [DataMember] public double PickerPitchX { get; set; } // Picker1~4 사이 X축 기구 피치입니다.
@@ -125,6 +126,8 @@ namespace QMC.CDT320
                 InputVisionToPicker = new PickerVisionCoordinateOffsets();
             if (OutputVisionToPicker == null)
                 OutputVisionToPicker = new PickerVisionCoordinateOffsets();
+            if (PickerYFacingXClearance <= 0.0)
+                PickerYFacingXClearance = 150.0;
 
             InputVisionToPicker.EnsureArrays();
             OutputVisionToPicker.EnsureArrays();
@@ -1060,6 +1063,16 @@ namespace QMC.CDT320
             return IsPickerInDiePosition(pickerNo, "DieBottomPosition");
         }
 
+        public bool IsPickerInDieBottomZone(int pickerNo)
+        {
+            return IsPickerInDieZoneXY(pickerNo, "DieBottomPosition");
+        }
+
+        public bool IsPickerInDieSideZone(int pickerNo)
+        {
+            return IsPickerInDieZoneXY(pickerNo, "DieSidePosition");
+        }
+
         public bool IsPickerInDiePlacePosition(int pickerNo)
         {
             return IsPickerInDiePosition(pickerNo, "DiePlacePosition");
@@ -1192,12 +1205,12 @@ namespace QMC.CDT320
 
         public bool IsPickerCdaPressureOk()
         {
-            return CdaTankPressureCheck.IsOn || IsPickerSimulationOrDryRun();
+            return CdaTankPressureCheck.IsOn || ShouldBypassHardwareInputChecks();
         }
 
         public bool IsPickerVacuumPressureOk()
         {
-            return VacuumTankPressureCheck.IsOn || IsPickerSimulationOrDryRun();
+            return VacuumTankPressureCheck.IsOn || ShouldBypassHardwareInputChecks();
         }
 
         public Task<bool> WaitPickerFlowState(int pickerNo, bool expected, int timeoutMs)
@@ -1297,6 +1310,15 @@ namespace QMC.CDT320
                    (Setup != null && Setup.IsSimulationMode);
         }
 
+        private bool ShouldBypassHardwareInputChecks()
+        {
+            AppSettings settings = AppSettingsStore.Current;
+            return (settings != null && (settings.BypassHardware || settings.SimulationMode)) ||
+                   (Config != null && Config.IsSimulationMode) ||
+                   (Setup != null && Setup.IsSimulationMode) ||
+                   !AjinFactory.IsRealBoardReady;
+        }
+
         private BottomVisionOffset SimulateBottomInspectionResult(int pickerNo)
         {
             return new BottomVisionOffset
@@ -1367,6 +1389,33 @@ namespace QMC.CDT320
             PlaceFailCount = 0;
         }
 
+        public void RestoreWorkCounters(int[] colletUseCounts, int pickFailCount, int placeFailCount)
+        {
+            try
+            {
+                ColletUseCounts = new int[MaxPickerCount];
+
+                if (colletUseCounts != null)
+                {
+                    int count = Math.Min(MaxPickerCount, colletUseCounts.Length);
+                    for (int i = 0; i < count; i++)
+                        ColletUseCounts[i] = Math.Max(0, colletUseCounts[i]);
+                }
+
+                PickFailCount = Math.Max(0, pickFailCount);
+                PlaceFailCount = Math.Max(0, placeFailCount);
+            }
+            catch
+            {
+                ColletUseCounts = new int[MaxPickerCount];
+                PickFailCount = 0;
+                PlaceFailCount = 0;
+            }
+            finally
+            {
+            }
+        }
+
         protected BaseAxis GetAxis(PickerAxis axis)
         {
             BaseAxis item;
@@ -1434,10 +1483,94 @@ namespace QMC.CDT320
 
         private Task<int> MovePickerGroup(string positionName, bool bFine)
         {
+            if (string.Equals(positionName, "AvoidPosition", StringComparison.OrdinalIgnoreCase))
+                return MovePickerAvoidGroupSafely(bFine);
+
             Dictionary<PickerAxis, double> targets = new Dictionary<PickerAxis, double>();
             foreach (PickerAxis axis in axes.Keys)
                 targets[axis] = GetPickerTeachingPosition(axis, positionName);
             return MovePickerAxesNamed(targets, bFine, positionName);
+        }
+
+        private async Task<int> MovePickerAvoidGroupSafely(bool bFine)
+        {
+            try
+            {
+                Dictionary<PickerAxis, double> zTargets = new Dictionary<PickerAxis, double>();
+                AddAvoidTargetIfExists(zTargets, PickerAxis.PickerZ0);
+                AddAvoidTargetIfExists(zTargets, PickerAxis.PickerZ1);
+                AddAvoidTargetIfExists(zTargets, PickerAxis.PickerZ2);
+                AddAvoidTargetIfExists(zTargets, PickerAxis.PickerZ3);
+
+                int result = await MovePickerAxesNamed(
+                    zTargets,
+                    bFine,
+                    "AvoidPosition;PickerPhase=SafeZ").ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                if (axes.ContainsKey(PickerAxis.PickerY))
+                {
+                    result = await MovePickerAxisNamed(
+                        PickerAxis.PickerY,
+                        GetPickerTeachingPosition(PickerAxis.PickerY, "AvoidPosition"),
+                        bFine,
+                        "AvoidPosition;PickerPhase=SafeY").ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+                }
+
+                if (axes.ContainsKey(PickerAxis.PickerX))
+                {
+                    result = await MovePickerAxisNamed(
+                        PickerAxis.PickerX,
+                        GetPickerTeachingPosition(PickerAxis.PickerX, "AvoidPosition"),
+                        bFine,
+                        "AvoidPosition;PickerPhase=SafeX").ConfigureAwait(false);
+                    if (result != 0)
+                        return result;
+                }
+
+                Dictionary<PickerAxis, double> tTargets = new Dictionary<PickerAxis, double>();
+                AddAvoidTargetIfExists(tTargets, PickerAxis.PickerT0);
+                AddAvoidTargetIfExists(tTargets, PickerAxis.PickerT1);
+                AddAvoidTargetIfExists(tTargets, PickerAxis.PickerT2);
+                AddAvoidTargetIfExists(tTargets, PickerAxis.PickerT3);
+
+                result = await MovePickerAxesNamed(
+                    tTargets,
+                    bFine,
+                    "AvoidPosition;PickerPhase=SafeT").ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                foreach (PickerAxis axis in axes.Keys)
+                {
+                    if (!IsPickerAxisInTeachingPosition(axis, "AvoidPosition"))
+                    {
+                        return RaisePickerAlarm(
+                            "PK-AVOID-CHECK",
+                            axis + " Avoid 위치 최종 확인 실패.");
+                    }
+                }
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return RaisePickerAlarm("PK-AVOID-EX", "Picker Avoid 이동 중 예외 발생: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private void AddAvoidTargetIfExists(Dictionary<PickerAxis, double> targets, PickerAxis axis)
+        {
+            if (targets == null || !axes.ContainsKey(axis))
+                return;
+
+            targets[axis] = GetPickerTeachingPosition(axis, "AvoidPosition");
         }
 
         private async Task<int> MoveToDiePosition(int pickerNo, string positionArrayName, bool bFine)
@@ -1515,6 +1648,20 @@ namespace QMC.CDT320
                 && IsPickerAxisInPosition(PickerAxis.PickerY, ResolvePickerZoneY(positionArrayName, index), y.Config.InPositionTolerance)
                 && IsPickerAxisInPosition(GetPickerTAxis(index), ResolveTPosition(positionArrayName, index) + offset.AlignOffsetT, t.Config.InPositionTolerance)
                 && IsPickerAxisInPosition(GetPickerZAxis(index), ResolveZPosition(positionArrayName, index), z.Config.InPositionTolerance);
+        }
+
+        private bool IsPickerInDieZoneXY(int pickerNo, string positionArrayName)
+        {
+            int index = NormalizePickerIndex(pickerNo, MaxPickerCount);
+            BaseAxis x = GetAxis(PickerAxis.PickerX);
+            BaseAxis y = GetAxis(PickerAxis.PickerY);
+            if (x == null || y == null)
+                return false;
+
+            double xTolerance = x.Config != null ? x.Config.InPositionTolerance : 0.05;
+            double yTolerance = y.Config != null ? y.Config.InPositionTolerance : 0.05;
+            return IsPickerAxisInPosition(PickerAxis.PickerX, ResolvePickerZoneX(positionArrayName, index), xTolerance)
+                && IsPickerAxisInPosition(PickerAxis.PickerY, ResolvePickerZoneY(positionArrayName, index), yTolerance);
         }
 
         private void TeachPickerGroup(string positionName)

@@ -22,6 +22,8 @@ namespace QMC.CDT320.Sequencing
         private double _targetPickerT;
         private double _targetPickerZ;
         private double _targetOutputStageY;
+        private double _outputVisionToPickerX;
+        private double _outputVisionToPickerY;
         private SequenceResourceLease _outputPlaceLease;
         private SequenceResourceLease _outputStageLease;
 
@@ -338,7 +340,9 @@ namespace QMC.CDT320.Sequencing
                 ct).ConfigureAwait(false);
 
             if (result != 0)
-                return Fail("PICKER-PLACE-STAGE-LOAD", "OutputStage", "Output stage load position move failed. side=" + _currentOutputSide + ", result=" + result);
+                return Fail("PICKER-PLACE-STAGE-LOAD", "OutputStage",
+                    "OutputStage Load 위치 이동 실패. side=" + _currentOutputSide +
+                    ", result=" + result + ", " + OutputStage.DescribeStageLoadMoveState(_currentOutputSide));
 
             CurrentStep = PickerPlaceStep.MoveOutputStageReceivePosition;
             return 0;
@@ -348,12 +352,29 @@ namespace QMC.CDT320.Sequencing
         {
             BinStageAxis yAxis = _currentOutputSide == BinSide.Ng ? BinStageAxis.NgBinY : BinStageAxis.GoodBinY;
             double baseY = _currentOutputSide == BinSide.Ng
-                ? OutputStage.Recipe.NGStageY.LoadPosition
-                : OutputStage.Recipe.GoodStageY.LoadPosition;
+                ? OutputStage.Recipe.NGStageY.ProcessPosition
+                : OutputStage.Recipe.GoodStageY.ProcessPosition;
+
+            string offsetReason;
+            if (!TryResolveOutputVisionToPickerOffsets(
+                _currentOutputSide,
+                _currentPickerIndex,
+                out _outputVisionToPickerX,
+                out _outputVisionToPickerY,
+                out offsetReason))
+            {
+                return Fail("PICKER-PLACE-COORD-OFFSET", Name,
+                    "OutputVision 기준 Picker 좌표 보정값 계산 실패. " +
+                    "side=" + Side +
+                    ", outputSide=" + _currentOutputSide +
+                    ", pickerNo=" + _currentPickerNo +
+                    ", pickerIndex=" + _currentPickerIndex +
+                    ", reason=" + offsetReason);
+            }
 
             _targetOutputStageY = baseY +
                 _receiveTarget.TargetY +
-                ResolveOutputVisionToPickerYOffset(_currentPickerIndex);
+                _outputVisionToPickerY;
 
             int result = await MoveOutputStageAxisAndVerifyAsync(yAxis, _targetOutputStageY, "output stage receive Y", ct).ConfigureAwait(false);
             if (result != 0)
@@ -365,8 +386,9 @@ namespace QMC.CDT320.Sequencing
 
         private int CalculatePlaceTarget()
         {
-            _targetPickerX = _receiveTarget.TargetX +
-                ResolveOutputVisionToPickerXOffset(_currentPickerIndex) +
+            _targetPickerX = OutputStage.Recipe.VisionX.ProcessPosition +
+                _receiveTarget.TargetX +
+                _outputVisionToPickerX +
                 ResolvePickerAlignOffsetX(_currentPickerIndex);
             _targetPickerY = ResolvePickerZoneY("DiePlacePosition", _currentPickerIndex);
             _targetPickerT = GetPickerTeachingPosition(GetPickerTAxis(_currentPickerIndex), "PlacePosition") +

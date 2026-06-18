@@ -20,10 +20,8 @@ namespace QMC.CDT320
     public enum VisionPositionType
     {
         Avoid,
-        FrontProcess,
-        RearProcess,
-        SafeRetreat,
-        Calibration
+        Process0,
+        Process90
     }
 
     [DataContract]
@@ -48,10 +46,8 @@ namespace QMC.CDT320
     public sealed class VisionAxisPositions
     {
         [DataMember] public double AvoidPosition { get; set; }
-        [DataMember] public double FrontProcessPosition { get; set; }
-        [DataMember] public double RearProcessPosition { get; set; }
-        [DataMember] public double SafeRetreatPosition { get; set; }
-        [DataMember] public double CalibrationPosition { get; set; }
+        [DataMember] public double Process0Position { get; set; }
+        [DataMember] public double Process90Position { get; set; }
     }
 
     [DataContract]
@@ -274,7 +270,7 @@ namespace QMC.CDT320
 
         public Task<int> MoveToVisionProcessPosition(VisionSide side, bool bFine = false)
         {
-            return MoveVisionAxis(ResolveVisionAxisType(side), GetVisionTeachingPosition(ResolveVisionAxisType(side), ResolveVisionTeachingPositionName(side, VisionPositionType.FrontProcess)), bFine);
+            return MoveVisionAxis(ResolveVisionAxisType(side), GetVisionTeachingPosition(ResolveVisionAxisType(side), ResolveVisionTeachingPositionName(side, VisionPositionType.Process0)), bFine);
         }
 
         public Task<int> MoveFrontSideVisionToAvoidPosition(bool bFine = false) { return MoveToFrontSideVisionAvoidPosition(bFine); }
@@ -292,34 +288,35 @@ namespace QMC.CDT320
             return MoveVisionAxis(VisionAxis.RearSideVisionY, Recipe.RearSideVision.AvoidPosition, bFine);
         }
 
+        public Task<int> MoveToFrontSideVisionProcess0Position(bool bFine = false)
+        {
+            return MoveVisionAxis(VisionAxis.FrontSideVisionY, Recipe.FrontSideVision.Process0Position, bFine);
+        }
+
+        public Task<int> MoveToRearSideVisionProcess0Position(bool bFine = false)
+        {
+            return MoveVisionAxis(VisionAxis.RearSideVisionY, Recipe.RearSideVision.Process0Position, bFine);
+        }
+
+        public Task<int> MoveToFrontSideVisionProcess90Position(bool bFine = false)
+        {
+            return MoveVisionAxis(VisionAxis.FrontSideVisionY, Recipe.FrontSideVision.Process90Position, bFine);
+        }
+
+        public Task<int> MoveToRearSideVisionProcess90Position(bool bFine = false)
+        {
+            return MoveVisionAxis(VisionAxis.RearSideVisionY, Recipe.RearSideVision.Process90Position, bFine);
+        }
+
+        // 기존 단일 PROCESS 이동(검사 시퀀스 등)은 0도 PROCESS 위치를 기준으로 동작한다.
         public Task<int> MoveToFrontSideVisionProcessPosition(bool bFine = false)
         {
-            return MoveVisionAxis(VisionAxis.FrontSideVisionY, Recipe.FrontSideVision.FrontProcessPosition, bFine);
+            return MoveToFrontSideVisionProcess0Position(bFine);
         }
 
         public Task<int> MoveToRearSideVisionProcessPosition(bool bFine = false)
         {
-            return MoveVisionAxis(VisionAxis.RearSideVisionY, Recipe.RearSideVision.RearProcessPosition, bFine);
-        }
-
-        public Task<int> MoveFrontSideVisionToSafeRetreatPosition(bool bFine = false)
-        {
-            return MoveVisionAxis(VisionAxis.FrontSideVisionY, Recipe.FrontSideVision.SafeRetreatPosition, bFine);
-        }
-
-        public Task<int> MoveRearSideVisionToSafeRetreatPosition(bool bFine = false)
-        {
-            return MoveVisionAxis(VisionAxis.RearSideVisionY, Recipe.RearSideVision.SafeRetreatPosition, bFine);
-        }
-
-        public Task<int> MoveToFrontSideVisionCalibrationPosition(bool bFine = false)
-        {
-            return MoveVisionAxis(VisionAxis.FrontSideVisionY, Recipe.FrontSideVision.CalibrationPosition, bFine);
-        }
-
-        public Task<int> MoveToRearSideVisionCalibrationPosition(bool bFine = false)
-        {
-            return MoveVisionAxis(VisionAxis.RearSideVisionY, Recipe.RearSideVision.CalibrationPosition, bFine);
+            return MoveToRearSideVisionProcess0Position(bFine);
         }
 
         public bool IsVisionAxisInPosition(VisionAxis axis, double targetPos, double tolerance)
@@ -408,12 +405,12 @@ namespace QMC.CDT320
 
         public bool IsFrontSideVisionYInProcessPosition()
         {
-            return IsVisionAxisInPosition(VisionAxis.FrontSideVisionY, Recipe.FrontSideVision.FrontProcessPosition, FrontSideVisionY.Config.InPositionTolerance);
+            return IsVisionAxisInPosition(VisionAxis.FrontSideVisionY, Recipe.FrontSideVision.Process0Position, FrontSideVisionY.Config.InPositionTolerance);
         }
 
         public bool IsRearSideVisionYInProcessPosition()
         {
-            return IsVisionAxisInPosition(VisionAxis.RearSideVisionY, Recipe.RearSideVision.RearProcessPosition, RearSideVisionY.Config.InPositionTolerance);
+            return IsVisionAxisInPosition(VisionAxis.RearSideVisionY, Recipe.RearSideVision.Process0Position, RearSideVisionY.Config.InPositionTolerance);
         }
 
         public void TeachVisionAxisPosition(VisionAxis axis, string positionName)
@@ -423,9 +420,11 @@ namespace QMC.CDT320
         }
 
         public void TeachFrontSideVisionAvoidPosition() { Recipe.FrontSideVision.AvoidPosition = FrontSideVisionY.ActualPosition; EventLogger.Write(EventKind.Event, "QMC", "VS-TEACH", "FrontSideVision.AvoidPosition=" + FrontSideVisionY.ActualPosition); }
-        public void TeachFrontSideVisionProcessPosition() { Recipe.FrontSideVision.FrontProcessPosition = FrontSideVisionY.ActualPosition; EventLogger.Write(EventKind.Event, "QMC", "VS-TEACH", "FrontSideVision.FrontProcessPosition=" + FrontSideVisionY.ActualPosition); }
+        public void TeachFrontSideVisionProcess0Position() { Recipe.FrontSideVision.Process0Position = FrontSideVisionY.ActualPosition; EventLogger.Write(EventKind.Event, "QMC", "VS-TEACH", "FrontSideVision.Process0Position=" + FrontSideVisionY.ActualPosition); }
+        public void TeachFrontSideVisionProcess90Position() { Recipe.FrontSideVision.Process90Position = FrontSideVisionY.ActualPosition; EventLogger.Write(EventKind.Event, "QMC", "VS-TEACH", "FrontSideVision.Process90Position=" + FrontSideVisionY.ActualPosition); }
         public void TeachRearSideVisionAvoidPosition() { Recipe.RearSideVision.AvoidPosition = RearSideVisionY.ActualPosition; EventLogger.Write(EventKind.Event, "QMC", "VS-TEACH", "RearSideVision.AvoidPosition=" + RearSideVisionY.ActualPosition); }
-        public void TeachRearSideVisionProcessPosition() { Recipe.RearSideVision.RearProcessPosition = RearSideVisionY.ActualPosition; EventLogger.Write(EventKind.Event, "QMC", "VS-TEACH", "RearSideVision.RearProcessPosition=" + RearSideVisionY.ActualPosition); }
+        public void TeachRearSideVisionProcess0Position() { Recipe.RearSideVision.Process0Position = RearSideVisionY.ActualPosition; EventLogger.Write(EventKind.Event, "QMC", "VS-TEACH", "RearSideVision.Process0Position=" + RearSideVisionY.ActualPosition); }
+        public void TeachRearSideVisionProcess90Position() { Recipe.RearSideVision.Process90Position = RearSideVisionY.ActualPosition; EventLogger.Write(EventKind.Event, "QMC", "VS-TEACH", "RearSideVision.Process90Position=" + RearSideVisionY.ActualPosition); }
 
         public void TeachVisionAvoidPositions()
         {
@@ -433,32 +432,24 @@ namespace QMC.CDT320
             TeachRearSideVisionAvoidPosition();
         }
 
-        public void TeachVisionProcessPositions()
+        public void TeachVisionProcess0Positions()
         {
-            TeachFrontSideVisionProcessPosition();
-            TeachRearSideVisionProcessPosition();
+            TeachFrontSideVisionProcess0Position();
+            TeachRearSideVisionProcess0Position();
         }
 
-        public void TeachVisionSafeRetreatPositions()
+        public void TeachVisionProcess90Positions()
         {
-            Recipe.FrontSideVision.SafeRetreatPosition = FrontSideVisionY.ActualPosition;
-            Recipe.RearSideVision.SafeRetreatPosition = RearSideVisionY.ActualPosition;
-        }
-
-        public void TeachVisionCalibrationPositions()
-        {
-            Recipe.FrontSideVision.CalibrationPosition = FrontSideVisionY.ActualPosition;
-            Recipe.RearSideVision.CalibrationPosition = RearSideVisionY.ActualPosition;
+            TeachFrontSideVisionProcess90Position();
+            TeachRearSideVisionProcess90Position();
         }
 
         public double GetVisionTeachingPosition(VisionAxis axis, string positionName)
         {
             VisionAxisPositions positions = axis == VisionAxis.FrontSideVisionY ? Recipe.FrontSideVision : Recipe.RearSideVision;
             if (IsName(positionName, "AvoidPosition") || IsName(positionName, "AvoidPos")) return positions.AvoidPosition;
-            if (IsName(positionName, "FrontProcessPosition") || IsName(positionName, "ProcessPos")) return positions.FrontProcessPosition;
-            if (IsName(positionName, "RearProcessPosition")) return positions.RearProcessPosition;
-            if (IsName(positionName, "SafeRetreatPosition")) return positions.SafeRetreatPosition;
-            if (IsName(positionName, "CalibrationPosition") || IsName(positionName, "CalibrationPos")) return positions.CalibrationPosition;
+            if (IsName(positionName, "Process0Position") || IsName(positionName, "ProcessPos")) return positions.Process0Position;
+            if (IsName(positionName, "Process90Position")) return positions.Process90Position;
             return 0.0;
         }
 
@@ -466,16 +457,15 @@ namespace QMC.CDT320
         {
             return Recipe.FrontSideVision.AvoidPosition != 0.0 &&
                    Recipe.RearSideVision.AvoidPosition != 0.0 &&
-                   Recipe.FrontSideVision.FrontProcessPosition != 0.0 &&
-                   Recipe.RearSideVision.RearProcessPosition != 0.0;
+                   Recipe.FrontSideVision.Process0Position != 0.0 &&
+                   Recipe.RearSideVision.Process0Position != 0.0;
         }
 
         public string ResolveVisionTeachingPositionName(VisionSide side, VisionPositionType type)
         {
             if (type == VisionPositionType.Avoid) return "AvoidPosition";
-            if (type == VisionPositionType.SafeRetreat) return "SafeRetreatPosition";
-            if (type == VisionPositionType.Calibration) return "CalibrationPosition";
-            return side == VisionSide.Front ? "FrontProcessPosition" : "RearProcessPosition";
+            if (type == VisionPositionType.Process90) return "Process90Position";
+            return "Process0Position";
         }
 
         public async Task<int> MoveToTeachingPositionAndVerify(VisionAxis axis, string positionName, bool bFine = false)
@@ -731,10 +721,8 @@ namespace QMC.CDT320
         {
             VisionAxisPositions positions = axis == VisionAxis.FrontSideVisionY ? Recipe.FrontSideVision : Recipe.RearSideVision;
             if (IsName(positionName, "AvoidPosition") || IsName(positionName, "AvoidPos")) positions.AvoidPosition = position;
-            else if (IsName(positionName, "FrontProcessPosition") || IsName(positionName, "ProcessPos")) positions.FrontProcessPosition = position;
-            else if (IsName(positionName, "RearProcessPosition")) positions.RearProcessPosition = position;
-            else if (IsName(positionName, "SafeRetreatPosition")) positions.SafeRetreatPosition = position;
-            else if (IsName(positionName, "CalibrationPosition") || IsName(positionName, "CalibrationPos")) positions.CalibrationPosition = position;
+            else if (IsName(positionName, "Process0Position") || IsName(positionName, "ProcessPos")) positions.Process0Position = position;
+            else if (IsName(positionName, "Process90Position")) positions.Process90Position = position;
         }
 
         private int RaiseVisionAlarm(string code, string message)

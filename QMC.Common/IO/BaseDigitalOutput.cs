@@ -21,6 +21,7 @@ namespace QMC.Common.IO
 
         /// <summary>백그라운드 상태 읽기 태스크 취소 토큰 소스.</summary>
         private readonly CancellationTokenSource _cts = new CancellationTokenSource();
+        private bool _isOn;
 
         protected virtual bool UseInternalStatusUpdate
         {
@@ -36,7 +37,15 @@ namespace QMC.Common.IO
         /// <see cref="Write"/>로 명령된 논리 상태를 반영한다
         /// (<c>IsNormallyClosed</c>에 의한 물리 신호 반전과 무관하게 항상 논리값을 나타냄).
         /// </summary>
-        public bool IsOn { get; protected set; }
+        public bool IsOn
+        {
+            get
+            {
+                RefreshLatestState();
+                return _isOn;
+            }
+            protected set { _isOn = value; }
+        }
 
         // ──────────────────────────────────────────────────────────────────────
         //  생성자
@@ -67,7 +76,7 @@ namespace QMC.Common.IO
         /// <param name="state">명령할 논리 상태 (true = ON, false = OFF)</param>
         public virtual void Write(bool state)
         {
-            bool changed = IsOn != state;
+            bool changed = _isOn != state;
 
             // 논리 상태를 먼저 프로퍼티에 반영 (UI 바인딩 등 즉시 갱신)
             IsOn = state;
@@ -102,10 +111,23 @@ namespace QMC.Common.IO
 
         protected internal void ApplyScannedState(bool logical)
         {
-            if (IsOn != logical)
+            if (_isOn != logical)
             {
-                IsOn = logical;
+                _isOn = logical;
                 RaiseStateChanged(logical);
+            }
+        }
+
+        private void RefreshLatestState()
+        {
+            try
+            {
+                AjinIoScanService service = AjinIoScanService.Current;
+                if (service != null)
+                    service.TryApplyLatest(this);
+            }
+            catch
+            {
             }
         }
 

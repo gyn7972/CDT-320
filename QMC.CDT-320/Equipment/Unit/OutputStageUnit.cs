@@ -379,6 +379,15 @@ namespace QMC.CDT320
         public BaseDigitalOutput BottomVisionBlowOnOut { get; private set; }
         public BaseDigitalOutput BottomVisionBlowOffOut { get; private set; }
 
+        // Bin Guide/Clamp 실린더 — Settings > CYLINDER와 같은 CylinderManager 객체를 Unit에서 소유합니다.
+
+        public BaseCylinder NgBinGuideLiftCylinder { get; private set; }
+        public BaseCylinder NgBinGuideClampLiftCylinder { get; private set; }
+        public BaseCylinder NgBinGuideClampCylinder { get; private set; }
+        public BaseCylinder GoodBinGuideLiftCylinder { get; private set; }
+        public BaseCylinder GoodBinGuideClampLiftCylinder { get; private set; }
+        public BaseCylinder GoodBinGuideClampCylinder { get; private set; }
+
         // ----------------------------------------------------------------------
 
         /// <summary>TPU 연동 인터페이스입니다.</summary>
@@ -405,31 +414,38 @@ namespace QMC.CDT320
             NgStage    = new StageModule("NgStage", false);
             OutputCameraX = AjinFactory.CreateAxis("OutputVisionX");
 
+            GoodBinGuideLiftCylinder      = CylinderManager.Get("NGBinGuideLift");
+            GoodBinGuideClampLiftCylinder = CylinderManager.Get("NGBinGuideClampLift");
+            GoodBinGuideClampCylinder     = CylinderManager.Get("NGBinGuideClamp");
+            NgBinGuideLiftCylinder        = CylinderManager.Get("GoodBinGuideLift");
+            NgBinGuideClampLiftCylinder   = CylinderManager.Get("GoodBinGuideClampLift");
+            NgBinGuideClampCylinder       = CylinderManager.Get("GoodBinGuideClamp");
+
             // Bin Guide/Clamp 센서 (DI)
-            NgBinGuideUpSensor     = RegisterCylinderInput("NGBinGuideLift", true, "NgBinGuideUp");
-            NgBinGuideDownSensor   = RegisterCylinderInput("NGBinGuideLift", false, "NgBinGuideDown");
-            NgBinClampUpSensor     = RegisterCylinderInput("NGBinGuideClampLift", true, "NgBinClampUp");
-            NgBinUnclampSensor     = RegisterCylinderInput("NGBinGuideClamp", false, "NgBinUnclamp");
-            NgBinRingSensor        = RegisterInput("NgBinRing");
-            GoodBinGuideUpSensor   = RegisterCylinderInput("GoodBinGuideLift", true, "GoodBinGuideUp");
-            GoodBinGuideDownSensor = RegisterCylinderInput("GoodBinGuideLift", false, "GoodBinGuideDown");
-            GoodBinClampUpSensor   = RegisterCylinderInput("GoodBinGuideClampLift", true, "GoodBinClampUp");
-            GoodBinUnclampSensor   = RegisterCylinderInput("GoodBinGuideClamp", false, "GoodBinUnclamp");
-            GoodBinRingSensor      = RegisterInput("GoodBinRing");
+            NgBinGuideUpSensor     = RegisterCylinderInput("GoodBinGuideLift", true, "GoodBinGuideUp");
+            NgBinGuideDownSensor   = RegisterCylinderInput("GoodBinGuideLift", false, "GoodBinGuideDown");
+            NgBinClampUpSensor     = RegisterCylinderInput("GoodBinGuideClampLift", true, "GoodBinClampUp");
+            NgBinUnclampSensor     = RegisterCylinderInput("GoodBinGuideClamp", false, "GoodBinUnclamp");
+            NgBinRingSensor        = RegisterInput("GoodBinRing");
+            GoodBinGuideUpSensor   = RegisterCylinderInput("NGBinGuideLift", true, "NgBinGuideUp");
+            GoodBinGuideDownSensor = RegisterCylinderInput("NGBinGuideLift", false, "NgBinGuideDown");
+            GoodBinClampUpSensor   = RegisterCylinderInput("NGBinGuideClampLift", true, "NgBinClampUp");
+            GoodBinUnclampSensor   = RegisterCylinderInput("NGBinGuideClamp", false, "NgBinUnclamp");
+            GoodBinRingSensor      = RegisterInput("NgBinRing");
 
             // Bin Guide/Clamp 출력 (DO)
-            NgBinGuideUpOut     = RegisterCylinderOutput("NGBinGuideLift", true, "NgBinGuideUp");
-            NgBinGuideDownOut   = RegisterCylinderOutput("NGBinGuideLift", false, "NgBinGuideDown");
-            NgBinClampUpOut     = RegisterCylinderOutput("NGBinGuideClampLift", true, "NgBinClampUp");
-            NgBinClampDownOut   = RegisterCylinderOutput("NGBinGuideClampLift", false, "NgBinClampDown");
-            NgBinClampOut       = RegisterCylinderOutput("NGBinGuideClamp", true, "NgBinClamp");
-            NgBinUnclampOut     = RegisterCylinderOutput("NGBinGuideClamp", false, "NgBinUnclamp");
-            GoodBinGuideUpOut   = RegisterCylinderOutput("GoodBinGuideLift", true, "GoodBinGuideUp");
-            GoodBinGuideDownOut = RegisterCylinderOutput("GoodBinGuideLift", false, "GoodBinGuideDown");
-            GoodBinClampUpOut   = RegisterCylinderOutput("GoodBinGuideClampLift", true, "GoodBinClampUp");
-            GoodBinClampDownOut = RegisterCylinderOutput("GoodBinGuideClampLift", false, "GoodBinClampDown");
-            GoodBinClampOut     = RegisterCylinderOutput("GoodBinGuideClamp", true, "GoodBinClamp");
-            GoodBinUnclampOut   = RegisterCylinderOutput("GoodBinGuideClamp", false, "GoodBinUnclamp");
+            NgBinGuideUpOut     = RegisterCylinderOutput("GoodBinGuideLift", true, "GoodBinGuideUp");
+            NgBinGuideDownOut   = RegisterCylinderOutput("GoodBinGuideLift", false, "GoodBinGuideDown");
+            NgBinClampUpOut     = RegisterCylinderOutput("GoodBinGuideClampLift", true, "GoodBinClampUp");
+            NgBinClampDownOut   = RegisterCylinderOutput("GoodBinGuideClampLift", false, "GoodBinClampDown");
+            NgBinClampOut       = RegisterCylinderOutput("GoodBinGuideClamp", true, "GoodBinClamp");
+            NgBinUnclampOut     = RegisterCylinderOutput("GoodBinGuideClamp", false, "GoodBinUnclamp");
+            GoodBinGuideUpOut   = RegisterCylinderOutput("NGBinGuideLift", true, "NgBinGuideUp");
+            GoodBinGuideDownOut = RegisterCylinderOutput("NGBinGuideLift", false, "NgBinGuideDown");
+            GoodBinClampUpOut   = RegisterCylinderOutput("NGBinGuideClampLift", true, "NgBinClampUp");
+            GoodBinClampDownOut = RegisterCylinderOutput("NGBinGuideClampLift", false, "NgBinClampDown");
+            GoodBinClampOut     = RegisterCylinderOutput("NGBinGuideClamp", true, "NgBinClamp");
+            GoodBinUnclampOut   = RegisterCylinderOutput("NGBinGuideClamp", false, "NgBinUnclamp");
             BottomVisionBlowOnOut  = RegisterOutput("BottomVisionBlow");
             BottomVisionBlowOffOut = RegisterOutput("BottomVisionBlowOff");
 
@@ -464,27 +480,36 @@ namespace QMC.CDT320
         {
             try
             {
-                NgBinGuideUpSensor = RebindInput(NgBinGuideUpSensor, RegisterCylinderInput("NGBinGuideLift", true, "NgBinGuideUp"));
-                NgBinGuideDownSensor = RebindInput(NgBinGuideDownSensor, RegisterCylinderInput("NGBinGuideLift", false, "NgBinGuideDown"));
-                NgBinClampUpSensor = RebindInput(NgBinClampUpSensor, RegisterCylinderInput("NGBinGuideClampLift", true, "NgBinClampUp"));
-                NgBinUnclampSensor = RebindInput(NgBinUnclampSensor, RegisterCylinderInput("NGBinGuideClamp", false, "NgBinUnclamp"));
-                GoodBinGuideUpSensor = RebindInput(GoodBinGuideUpSensor, RegisterCylinderInput("GoodBinGuideLift", true, "GoodBinGuideUp"));
-                GoodBinGuideDownSensor = RebindInput(GoodBinGuideDownSensor, RegisterCylinderInput("GoodBinGuideLift", false, "GoodBinGuideDown"));
-                GoodBinClampUpSensor = RebindInput(GoodBinClampUpSensor, RegisterCylinderInput("GoodBinGuideClampLift", true, "GoodBinClampUp"));
-                GoodBinUnclampSensor = RebindInput(GoodBinUnclampSensor, RegisterCylinderInput("GoodBinGuideClamp", false, "GoodBinUnclamp"));
+                GoodBinGuideLiftCylinder = CylinderManager.Get("NGBinGuideLift");
+                GoodBinGuideClampLiftCylinder = CylinderManager.Get("NGBinGuideClampLift");
+                GoodBinGuideClampCylinder = CylinderManager.Get("NGBinGuideClamp");
+                NgBinGuideLiftCylinder = CylinderManager.Get("GoodBinGuideLift");
+                NgBinGuideClampLiftCylinder = CylinderManager.Get("GoodBinGuideClampLift");
+                NgBinGuideClampCylinder = CylinderManager.Get("GoodBinGuideClamp");
 
-                NgBinGuideUpOut = RebindOutput(NgBinGuideUpOut, RegisterCylinderOutput("NGBinGuideLift", true, "NgBinGuideUp"));
-                NgBinGuideDownOut = RebindOutput(NgBinGuideDownOut, RegisterCylinderOutput("NGBinGuideLift", false, "NgBinGuideDown"));
-                NgBinClampUpOut = RebindOutput(NgBinClampUpOut, RegisterCylinderOutput("NGBinGuideClampLift", true, "NgBinClampUp"));
-                NgBinClampDownOut = RebindOutput(NgBinClampDownOut, RegisterCylinderOutput("NGBinGuideClampLift", false, "NgBinClampDown"));
-                NgBinClampOut = RebindOutput(NgBinClampOut, RegisterCylinderOutput("NGBinGuideClamp", true, "NgBinClamp"));
-                NgBinUnclampOut = RebindOutput(NgBinUnclampOut, RegisterCylinderOutput("NGBinGuideClamp", false, "NgBinUnclamp"));
-                GoodBinGuideUpOut = RebindOutput(GoodBinGuideUpOut, RegisterCylinderOutput("GoodBinGuideLift", true, "GoodBinGuideUp"));
-                GoodBinGuideDownOut = RebindOutput(GoodBinGuideDownOut, RegisterCylinderOutput("GoodBinGuideLift", false, "GoodBinGuideDown"));
-                GoodBinClampUpOut = RebindOutput(GoodBinClampUpOut, RegisterCylinderOutput("GoodBinGuideClampLift", true, "GoodBinClampUp"));
-                GoodBinClampDownOut = RebindOutput(GoodBinClampDownOut, RegisterCylinderOutput("GoodBinGuideClampLift", false, "GoodBinClampDown"));
-                GoodBinClampOut = RebindOutput(GoodBinClampOut, RegisterCylinderOutput("GoodBinGuideClamp", true, "GoodBinClamp"));
-                GoodBinUnclampOut = RebindOutput(GoodBinUnclampOut, RegisterCylinderOutput("GoodBinGuideClamp", false, "GoodBinUnclamp"));
+                NgBinGuideUpSensor = RebindInput(NgBinGuideUpSensor, RegisterCylinderInput("GoodBinGuideLift", true, "GoodBinGuideUp"));
+                NgBinGuideDownSensor = RebindInput(NgBinGuideDownSensor, RegisterCylinderInput("GoodBinGuideLift", false, "GoodBinGuideDown"));
+                NgBinClampUpSensor = RebindInput(NgBinClampUpSensor, RegisterCylinderInput("GoodBinGuideClampLift", true, "GoodBinClampUp"));
+                NgBinUnclampSensor = RebindInput(NgBinUnclampSensor, RegisterCylinderInput("GoodBinGuideClamp", false, "GoodBinUnclamp"));
+                NgBinRingSensor = RebindInput(NgBinRingSensor, RegisterInput("GoodBinRing"));
+                GoodBinGuideUpSensor = RebindInput(GoodBinGuideUpSensor, RegisterCylinderInput("NGBinGuideLift", true, "NgBinGuideUp"));
+                GoodBinGuideDownSensor = RebindInput(GoodBinGuideDownSensor, RegisterCylinderInput("NGBinGuideLift", false, "NgBinGuideDown"));
+                GoodBinClampUpSensor = RebindInput(GoodBinClampUpSensor, RegisterCylinderInput("NGBinGuideClampLift", true, "NgBinClampUp"));
+                GoodBinUnclampSensor = RebindInput(GoodBinUnclampSensor, RegisterCylinderInput("NGBinGuideClamp", false, "NgBinUnclamp"));
+                GoodBinRingSensor = RebindInput(GoodBinRingSensor, RegisterInput("NgBinRing"));
+
+                NgBinGuideUpOut = RebindOutput(NgBinGuideUpOut, RegisterCylinderOutput("GoodBinGuideLift", true, "GoodBinGuideUp"));
+                NgBinGuideDownOut = RebindOutput(NgBinGuideDownOut, RegisterCylinderOutput("GoodBinGuideLift", false, "GoodBinGuideDown"));
+                NgBinClampUpOut = RebindOutput(NgBinClampUpOut, RegisterCylinderOutput("GoodBinGuideClampLift", true, "GoodBinClampUp"));
+                NgBinClampDownOut = RebindOutput(NgBinClampDownOut, RegisterCylinderOutput("GoodBinGuideClampLift", false, "GoodBinClampDown"));
+                NgBinClampOut = RebindOutput(NgBinClampOut, RegisterCylinderOutput("GoodBinGuideClamp", true, "GoodBinClamp"));
+                NgBinUnclampOut = RebindOutput(NgBinUnclampOut, RegisterCylinderOutput("GoodBinGuideClamp", false, "GoodBinUnclamp"));
+                GoodBinGuideUpOut = RebindOutput(GoodBinGuideUpOut, RegisterCylinderOutput("NGBinGuideLift", true, "NgBinGuideUp"));
+                GoodBinGuideDownOut = RebindOutput(GoodBinGuideDownOut, RegisterCylinderOutput("NGBinGuideLift", false, "NgBinGuideDown"));
+                GoodBinClampUpOut = RebindOutput(GoodBinClampUpOut, RegisterCylinderOutput("NGBinGuideClampLift", true, "NgBinClampUp"));
+                GoodBinClampDownOut = RebindOutput(GoodBinClampDownOut, RegisterCylinderOutput("NGBinGuideClampLift", false, "NgBinClampDown"));
+                GoodBinClampOut = RebindOutput(GoodBinClampOut, RegisterCylinderOutput("NGBinGuideClamp", true, "NgBinClamp"));
+                GoodBinUnclampOut = RebindOutput(GoodBinUnclampOut, RegisterCylinderOutput("NGBinGuideClamp", false, "NgBinUnclamp"));
             }
             catch (Exception ex)
             {
@@ -557,16 +582,16 @@ namespace QMC.CDT320
 
         private BaseDigitalOutput RegisterCylinderOutput(string cylinderName, bool fwd, string fallbackCatalogName)
         {
+            BaseDigitalOutput item = ResolveCylinderRuntimeOutput(cylinderName, fwd);
             DioMap map = ResolveCylinderOutputMap(cylinderName, fwd);
-            BaseDigitalOutput item;
-            if (map != null)
+            if (item == null && map != null)
             {
                 item = AjinFactory.CreateSharedDigitalOutput(
                     cylinderName + (fwd ? "_OutFwd" : "_OutBwd"),
                     map,
                     !AjinFactory.IsRealBoardReady);
             }
-            else
+            else if (item == null)
             {
                 DioDefault catalog = AjinIoCatalog.FindOutput(fallbackCatalogName);
                 item = catalog != null
@@ -628,6 +653,32 @@ namespace QMC.CDT320
                     return null;
 
                 return input;
+            }
+            catch
+            {
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
+        private static BaseDigitalOutput ResolveCylinderRuntimeOutput(string cylinderName, bool fwd)
+        {
+            try
+            {
+                BaseCylinder cylinder = CylinderManager.Get(cylinderName);
+                if (cylinder == null)
+                    return null;
+
+                BaseDigitalOutput output = fwd ? cylinder.OutFwd : cylinder.OutBwd;
+                if (output == null || output.Setup == null)
+                    return null;
+
+                if (output.Setup.ModuleNo < 0 || output.Setup.BitNo < 0)
+                    return null;
+
+                return output;
             }
             catch
             {
@@ -754,7 +805,11 @@ namespace QMC.CDT320
                 EventLogger.Write(EventKind.Event, "QMC", "OS-MOVE", axis + " target=" + targetPos);
                 int result = await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, velocity);
                 if (result != 0 || item.IsAlarm)
-                    return RaiseOutputStageAlarm("OS-MOVE", axis + " move failed. result=" + result + ", alarm=" + item.IsAlarm);
+                    return RaiseOutputStageAlarm(
+                        "OS-MOVE",
+                        axis + " 이동 실패. result=" + result +
+                        ", alarm=" + item.IsAlarm +
+                        FormatStageAxisLastMotionFailure(item));
 
                 AxisMoveWaitResult waitResult = await WaitStageAxisMoveDoneInPosition(
                     axis,
@@ -770,8 +825,18 @@ namespace QMC.CDT320
             }
             catch (Exception ex)
             {
-                return RaiseOutputStageAlarm("OS-MOVE-EX", axis + " move exception: " + ex.Message);
+                return RaiseOutputStageAlarm("OS-MOVE-EX", axis + " 이동 중 예외가 발생했습니다. " + ex.Message);
             }
+        }
+
+        private static string FormatStageAxisLastMotionFailure(BaseAxis axis)
+        {
+            if (axis == null ||
+                axis.LastMotionFailureCode == 0 ||
+                string.IsNullOrWhiteSpace(axis.LastMotionFailureMessage))
+                return string.Empty;
+
+            return ", 마지막 이동 실패 원인=" + axis.LastMotionFailureMessage;
         }
 
         public Task<int> MoveStageAxisToTeachingPosition(BinStageAxis axis, string positionName, bool bFine = false)
@@ -892,6 +957,19 @@ namespace QMC.CDT320
         {
             try
             {
+                if (side == BinSide.Good &&
+                    HasStageAxis(BinStageAxis.GoodBinZ) &&
+                    !IsGoodStageZInAvoidOrProcessPosition())
+                {
+                    int zSafeResult = await MoveStageAxisAndVerifyAsync(
+                        BinStageAxis.GoodBinZ,
+                        Recipe.GoodStageZ.ProcessPosition,
+                        timeoutMs,
+                        bFine).ConfigureAwait(false);
+                    if (zSafeResult != 0)
+                        return zSafeResult;
+                }
+
                 BinStageAxis yAxis = side == BinSide.Ng ? BinStageAxis.NgBinY : BinStageAxis.GoodBinY;
                 double yTarget = side == BinSide.Ng ? Recipe.NGStageY.LoadPosition : Recipe.GoodStageY.LoadPosition;
 
@@ -906,10 +984,35 @@ namespace QMC.CDT320
             }
             catch (Exception ex)
             {
-                return RaiseOutputStageAlarm("OS-STAGE-LOAD-EX", "Output stage load position exception. side=" + side + ", " + ex.Message);
+                return RaiseOutputStageAlarm("OS-STAGE-LOAD-EX", "Output stage Load 위치 이동 중 예외가 발생했습니다. side=" + side + ", " + ex.Message);
             }
             finally
             {
+            }
+        }
+
+        public string DescribeStageLoadMoveState(BinSide side)
+        {
+            try
+            {
+                Recipe.EnsurePositionObjects();
+                double yTarget = side == BinSide.Ng ? Recipe.NGStageY.LoadPosition : Recipe.GoodStageY.LoadPosition;
+                string text = DescribeOutputStageInterlockState(side) +
+                              ", yTarget=" + yTarget;
+
+                if (side == BinSide.Good)
+                    text += ", zLoadTarget=" + Recipe.GoodStageZ.LoadPosition +
+                            ", zProcessTarget=" + Recipe.GoodStageZ.ProcessPosition +
+                            FormatStageAxisLastMotionFailure(GoodStage != null ? GoodStage.StageY : null) +
+                            FormatStageAxisLastMotionFailure(GoodStage != null ? GoodStage.StageZ : null);
+                else
+                    text += FormatStageAxisLastMotionFailure(NgStage != null ? NgStage.StageY : null);
+
+                return text;
+            }
+            catch (Exception ex)
+            {
+                return "OutputStage Load 이동 상태 설명 실패: " + ex.Message;
             }
         }
 
@@ -1209,7 +1312,7 @@ namespace QMC.CDT320
         public bool IsBinGuideUnclamped(BinSide side)
         {
             BaseCylinder cylinder = ResolveBinGuideClampCylinder(side);
-            return ResolveCylinderState(cylinder, side == BinSide.Ng ? NgBinUnclampSensor : GoodBinUnclampSensor, false, !IsStageMaterialPresent(side));
+            return ResolveCylinderState(cylinder, null, false, !IsStageMaterialPresent(side));
         }
 
         public bool IsBinGuideClamped(BinSide side)
@@ -1229,16 +1332,28 @@ namespace QMC.CDT320
 
         private bool ResolveCylinderState(BaseCylinder cylinder, BaseDigitalInput input, bool fwd, bool dryRunDefaultWhenUnknown)
         {
+            ApplyOutputStageCylinderSettings(cylinder);
+            RefreshCylinderInputs(cylinder);
+
             if (input != null && input.IsOn)
                 return true;
 
             if (cylinder != null && (fwd ? cylinder.IsFwd : cylinder.IsBwd))
                 return true;
 
-            if (IsOutputStageSimulationOrDryRun() && IsCylinderStateUnknown(cylinder))
+            if (ShouldUseVirtualCylinderDefault(cylinder) && IsCylinderStateUnknown(cylinder))
                 return dryRunDefaultWhenUnknown;
 
             return false;
+        }
+
+        private bool ShouldUseVirtualCylinderDefault(BaseCylinder cylinder)
+        {
+            AppSettings settings = AppSettingsStore.Current;
+            bool appVirtual = settings != null && (settings.BypassHardware || settings.SimulationMode);
+            bool setupSimulation = Setup != null && Setup.IsSimulationMode;
+            bool cylinderSimulation = cylinder != null && cylinder.Config != null && cylinder.Config.IsSimulationMode;
+            return appVirtual || setupSimulation || cylinderSimulation || !AjinFactory.IsRealBoardReady;
         }
 
         private static bool IsCylinderStateUnknown(BaseCylinder cylinder)
@@ -1252,6 +1367,26 @@ namespace QMC.CDT320
                 ? MaterialLocationKind.OutputStageNg
                 : MaterialLocationKind.OutputStageGood;
             return MaterialStateService.GetWaferAtLocation(location) != null;
+        }
+
+        private bool RefreshCylinderInputs(BaseCylinder cylinder)
+        {
+            if (cylinder == null || cylinder.Setup == null ||
+                cylinder.Config == null || cylinder.Config.IsSimulationMode ||
+                cylinder.Config.IgnoreInputWaits ||
+                !AjinFactory.IsRealBoardReady)
+                return true;
+
+            bool ok = true;
+            int errorCode;
+
+            if (cylinder.Setup.UseFwdSensor && cylinder.InFwd != null)
+                ok = AjinIoScanService.TryReadHardwareInput(cylinder.InFwd, out errorCode) && ok;
+
+            if (cylinder.Setup.UseBwdSensor && cylinder.InBwd != null)
+                ok = AjinIoScanService.TryReadHardwareInput(cylinder.InBwd, out errorCode) && ok;
+
+            return ok;
         }
 
         public string DescribeOutputStageInterlockState(BinSide side)
@@ -1323,7 +1458,7 @@ namespace QMC.CDT320
             if (!waitResult.Success)
                 return RaiseOutputStageAlarm(
                     AxisMoveWaiter.ResolveAlarmCode("OS-MOVE", waitResult),
-                    axis + " move/in-position wait failed. target=" + targetPos + ". " +
+                    axis + " 이동 완료/위치 확인 실패. target=" + targetPos + ". " +
                     AxisMoveWaiter.FormatResult(waitResult, axis.ToString()));
 
             return 0;
@@ -1344,7 +1479,12 @@ namespace QMC.CDT320
             try
             {
                 if (cylinder == null)
-                    return RaiseOutputStageAlarm("OS-CYL-MISSING", description + " cylinder is null.");
+                    return RaiseOutputStageAlarm("OS-CYL-MISSING", description + " 실린더가 등록되어 있지 않습니다.");
+
+                ApplyOutputStageCylinderSettings(cylinder);
+
+                if (!RefreshCylinderInputs(cylinder))
+                    return RaiseOutputStageAlarm("OS-CYL-INPUT", description + " 실린더 입력 갱신 실패.");
 
                 bool already = fwd ? cylinder.IsFwd : cylinder.IsBwd;
                 if (already)
@@ -1352,36 +1492,57 @@ namespace QMC.CDT320
 
                 bool ok = fwd ? await cylinder.MoveFwdAsync() : await cylinder.MoveBwdAsync();
                 if (!ok)
-                    return RaiseOutputStageAlarm("OS-CYL-MOVE", description + " cylinder move failed.");
+                    return RaiseOutputStageAlarm("OS-CYL-MOVE", description + " 실린더 구동 실패.");
 
-                bool arrived = await WaitUntilAsync(() => fwd ? cylinder.IsFwd : cylinder.IsBwd, timeoutMs);
+                bool refreshOk = true;
+                bool arrived = await WaitUntilAsync(() =>
+                {
+                    if (!RefreshCylinderInputs(cylinder))
+                    {
+                        refreshOk = false;
+                        return false;
+                    }
+
+                    return fwd ? cylinder.IsFwd : cylinder.IsBwd;
+                }, timeoutMs);
+                if (!refreshOk)
+                    return RaiseOutputStageAlarm("OS-CYL-INPUT", description + " 실린더 입력 갱신 실패.");
+
                 if (!arrived)
-                    return RaiseOutputStageAlarm("OS-CYL-TIMEOUT", description + " cylinder sensor timeout.");
+                    return RaiseOutputStageAlarm("OS-CYL-TIMEOUT", description + " 실린더 센서 대기 시간 초과.");
 
                 return 0;
             }
             catch (Exception ex)
             {
-                return RaiseOutputStageAlarm("OS-CYL-EX", description + " cylinder exception: " + ex.Message);
+                return RaiseOutputStageAlarm("OS-CYL-EX", description + " 실린더 예외: " + ex.Message);
             }
             finally
             {
             }
         }
 
-        private static BaseCylinder ResolveBinGuideLiftCylinder(BinSide side)
+        private static void ApplyOutputStageCylinderSettings(BaseCylinder cylinder)
         {
-            return CylinderManager.Get(side == BinSide.Ng ? "NGBinGuideLift" : "GoodBinGuideLift");
+            if (cylinder == null)
+                return;
+
+            CylinderSettingsStore.Apply(cylinder);
         }
 
-        private static BaseCylinder ResolveBinGuideClampLiftCylinder(BinSide side)
+        private BaseCylinder ResolveBinGuideLiftCylinder(BinSide side)
         {
-            return CylinderManager.Get(side == BinSide.Ng ? "NGBinGuideClampLift" : "GoodBinGuideClampLift");
+            return side == BinSide.Ng ? NgBinGuideLiftCylinder : GoodBinGuideLiftCylinder;
         }
 
-        private static BaseCylinder ResolveBinGuideClampCylinder(BinSide side)
+        private BaseCylinder ResolveBinGuideClampLiftCylinder(BinSide side)
         {
-            return CylinderManager.Get(side == BinSide.Ng ? "NGBinGuideClamp" : "GoodBinGuideClamp");
+            return side == BinSide.Ng ? NgBinGuideClampLiftCylinder : GoodBinGuideClampLiftCylinder;
+        }
+
+        private BaseCylinder ResolveBinGuideClampCylinder(BinSide side)
+        {
+            return side == BinSide.Ng ? NgBinGuideClampCylinder : GoodBinGuideClampCylinder;
         }
 
         private static string ResolveSideName(BinSide side)

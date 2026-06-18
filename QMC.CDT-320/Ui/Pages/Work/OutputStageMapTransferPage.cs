@@ -4,11 +4,13 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using QMC.Common.Motion;
 using QMC.CDT320;
 using QMC.CDT320.DieMaps;
 using QMC.CDT320.Lots;
 using QMC.CDT320.Materials;
 using QMC.CDT320.Recipes;
+using QMC.CDT320.Sequencing;
 using QMC.CDT_320.Ui.Localization;
 
 namespace QMC.CDT_320.Ui.Pages.Work
@@ -22,7 +24,17 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private string _lastMapSignature;
         private ContextMenuStrip _gridMenu;
         private ToolStripMenuItem _gridMoveMenuItem;
+        private ToolStripMenuItem[] _gridMoveFrontPickerMenuItems;
+        private ToolStripMenuItem[] _gridMoveRearPickerMenuItems;
         private bool _manualMoveBusy;
+
+        private sealed class OutputPlaceManualTargets
+        {
+            public double OutputStageY { get; set; }
+            public double PickerX { get; set; }
+            public double PickerY { get; set; }
+            public double PickerT { get; set; }
+        }
 
         public OutputStageMapTransferPage() : this("work.page.outputMap")
         {
@@ -83,6 +95,13 @@ namespace QMC.CDT_320.Ui.Pages.Work
             btnNeedleBlockDown.Text = "NG PLAN INIT";
             btnThetaMatchMove.Text = "SAVE MATERIAL STATE";
             btnXyMatchMove.Text = "REFRESH DISPLAY";
+
+            if (gridDieList != null)
+                gridDieList.ColumnHeadersHeight = Math.Max(gridDieList.ColumnHeadersHeight, 32);
+            if (colIndex != null)
+                colIndex.HeaderText = "Index";
+            if (colTarget != null)
+                colTarget.HeaderText = "State";
         }
 
         private void ApplyTitle()
@@ -99,6 +118,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (entry == null)
                     return;
                 SelectEntry(entry);
+                SelectGridRow(entry);
             };
 
             gridDieList.CellClick += (s, e) =>
@@ -239,7 +259,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 RecipeMapKind kind = side == BinSide.Ng ? RecipeMapKind.NgBin : RecipeMapKind.GoodBin;
                 string path = RecipeMapPaths.ResolveConfigured(project, kind);
                 if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
-                    return null;
+                    return CreateOutputCircleMapFromRecipe(project, side);
 
                 return DieMapGenerator.Load(path);
             }
@@ -287,6 +307,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
         private DieMap BuildDisplayMap(DieMap sourceMap, WaferMaterial outputWafer)
         {
             DieMap display = CloneMap(sourceMap);
+            double processX = ResolveOutputVisionProcessX();
+            double processY = ResolveOutputStageProcessY(_selectedSide);
             List<DieMapEntry> ordered = BuildReceiveOrder(display);
             int nextIndex = outputWafer != null ? outputWafer.OutputReceiveNextIndex : 0;
             int total = ordered.Count;
@@ -318,7 +340,45 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 }
             }
 
+            foreach (DieMapEntry entry in display.Entries)
+            {
+                if (entry == null)
+                    continue;
+
+                entry.PosX = processX + entry.PosX;
+                entry.PosY = processY + entry.PosY;
+            }
+
             return display;
+        }
+
+        private double ResolveOutputVisionProcessX()
+        {
+            OutputStageUnit unit = GetOutputStageUnit();
+            return unit != null && unit.Recipe != null && unit.Recipe.VisionX != null
+                ? unit.Recipe.VisionX.ProcessPosition
+                : 0.0;
+        }
+
+        private double ResolveOutputStageProcessY(BinSide side)
+        {
+            OutputStageUnit unit = GetOutputStageUnit();
+            if (unit == null || unit.Recipe == null)
+                return 0.0;
+
+            return side == BinSide.Ng
+                ? unit.Recipe.NGStageY.ProcessPosition
+                : unit.Recipe.GoodStageY.ProcessPosition;
+        }
+
+        private double ToRelativeOutputX(double displayX)
+        {
+            return displayX - ResolveOutputVisionProcessX();
+        }
+
+        private double ToRelativeOutputY(double displayY)
+        {
+            return displayY - ResolveOutputStageProcessY(_selectedSide);
         }
 
         private static DieMap CloneMap(DieMap source)
@@ -486,7 +546,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     string status = entry.Result == DieResult.Good || entry.Result == DieResult.NG
                         ? "RECEIVED"
                         : (entry.BinCode != 0 && entry.IsTarget ? "NEXT" : "WAIT");
-                    gridDieList.Rows.Add(
+                    int rowIndex = gridDieList.Rows.Add(
                         i,
                         entry.DieMapX,
                         entry.DieMapY,
@@ -496,6 +556,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                         entry.PosX.ToString("F4"),
                         entry.PosY.ToString("F4"),
                         entry.DieUid ?? "");
+                    gridDieList.Rows[rowIndex].Tag = entry;
                 }
             }
             catch
@@ -544,6 +605,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 lblBinRank.Text = entry.BinCode.ToString();
                 lblDieNum.Text = string.Format("[{0},{1}] / {2}", entry.DieMapX, entry.DieMapY,
                     mapView.Map != null ? mapView.Map.TotalCells : 0);
+                SelectGridRow(entry);
             }
             catch
             {
@@ -561,11 +623,19 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (map == null || rowIndex < 0)
                     return;
 
-                List<DieMapEntry> ordered = BuildReceiveOrder(map);
-                if (rowIndex >= ordered.Count)
-                    return;
+                if (rowIndex >= 0 && rowIndex < gridDieList.Rows.Count)
+                {
+                    DieMapEntry rowEntry = gridDieList.Rows[rowIndex].Tag as DieMapEntry;
+                    if (rowEntry != null)
+                    {
+                        SelectEntry(rowEntry);
+                        return;
+                    }
+                }
 
-                SelectEntry(ordered[rowIndex]);
+                List<DieMapEntry> ordered = BuildReceiveOrder(map);
+                if (rowIndex < ordered.Count)
+                    SelectEntry(ordered[rowIndex]);
             }
             catch
             {
@@ -575,19 +645,151 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
         }
 
+        private void SelectGridRow(DieMapEntry entry)
+        {
+            try
+            {
+                if (entry == null || gridDieList == null)
+                    return;
+
+                foreach (DataGridViewRow row in gridDieList.Rows)
+                {
+                    DieMapEntry rowEntry = row.Tag as DieMapEntry;
+                    if (rowEntry != null &&
+                        rowEntry.DieMapX == entry.DieMapX &&
+                        rowEntry.DieMapY == entry.DieMapY &&
+                        string.Equals(rowEntry.DieUid ?? "", entry.DieUid ?? "", StringComparison.OrdinalIgnoreCase))
+                    {
+                        gridDieList.ClearSelection();
+                        row.Selected = true;
+                        if (row.Index >= 0 && row.Cells.Count > 0)
+                            gridDieList.CurrentCell = row.Cells[0];
+
+                        if (row.Index >= 0 && !row.Displayed)
+                            gridDieList.FirstDisplayedScrollingRowIndex = row.Index;
+                        break;
+                    }
+                }
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        private DieMap CreateOutputCircleMapFromRecipe(RecipeProject recipe, BinSide side)
+        {
+            if (recipe == null || recipe.Frame == null)
+                return null;
+
+            int gridX = Math.Max(1, recipe.Frame.DieMapX);
+            int gridY = Math.Max(1, recipe.Frame.DieMapY);
+            double pitchX = recipe.Frame.PitchX > 0.0 ? recipe.Frame.PitchX : 1.0;
+            double pitchY = recipe.Frame.PitchY > 0.0 ? recipe.Frame.PitchY : 1.0;
+            double originX = -((gridX - 1) * pitchX) / 2.0;
+            double originY = -((gridY - 1) * pitchY) / 2.0;
+            int sideEdgeSkip = Math.Max(0, recipe.Frame.SideEdgeSkip);
+            int topBottomEdgeSkip = Math.Max(0, recipe.Frame.TopBottomEdgeSkip);
+            double diameterMm = recipe.Frame.OuterDiameterMm > 0.0 ? recipe.Frame.OuterDiameterMm : 0.0;
+
+            var map = new DieMap
+            {
+                FrameObjId = (side == BinSide.Ng ? "NG" : "GOOD") + "_OUTPUT_CIRCLE",
+                DieMapX = gridX,
+                DieMapY = gridY,
+                PitchX = pitchX,
+                PitchY = pitchY,
+                OriginX = originX,
+                OriginY = originY,
+                CreatedAt = DateTime.Now
+            };
+
+            int index = 0;
+            int binCode = side == BinSide.Ng ? 255 : 1;
+            for (int row = 0; row < gridY; row++)
+            {
+                for (int col = 0; col < gridX; col++)
+                {
+                    double x = originX + col * pitchX;
+                    double y = originY + row * pitchY;
+                    bool target = IsInsideOutputCircle(col, row, gridX, gridY, sideEdgeSkip, topBottomEdgeSkip, x, y, pitchX, pitchY, diameterMm);
+                    map.Entries.Add(new DieMapEntry
+                    {
+                        Index = index++,
+                        DieMapX = col,
+                        DieMapY = row,
+                        IsTarget = target,
+                        Result = target ? DieResult.Unknown : DieResult.NG,
+                        BinCode = target ? binCode : 255,
+                        PosX = x,
+                        PosY = y,
+                        DieUid = (side == BinSide.Ng ? "NG" : "GOOD") + "-D" + row.ToString("000") + "-" + col.ToString("000")
+                    });
+                }
+            }
+
+            PickupSubset pickup = recipe.OutputPickup ?? recipe.Pickup ?? new PickupSubset();
+            return PickupSequenceGenerator.ApplySequenceNumbers(map, pickup);
+        }
+
+        private static bool IsInsideOutputCircle(
+            int col,
+            int row,
+            int gridX,
+            int gridY,
+            int sideEdgeSkip,
+            int topBottomEdgeSkip,
+            double x,
+            double y,
+            double pitchX,
+            double pitchY,
+            double diameterMm)
+        {
+            if (gridX <= 0 || gridY <= 0)
+                return false;
+            if (col < sideEdgeSkip || col >= gridX - sideEdgeSkip)
+                return false;
+            if (row < topBottomEdgeSkip || row >= gridY - topBottomEdgeSkip)
+                return false;
+
+            double centerX = (gridX - 1) / 2.0;
+            double centerY = (gridY - 1) / 2.0;
+            double radiusX = Math.Max(0.5, (gridX - 1 - (sideEdgeSkip * 2)) / 2.0);
+            double radiusY = Math.Max(0.5, (gridY - 1 - (topBottomEdgeSkip * 2)) / 2.0);
+            double nx = (col - centerX) / radiusX;
+            double ny = (row - centerY) / radiusY;
+            if ((nx * nx) + (ny * ny) > 1.0)
+                return false;
+
+            if (diameterMm <= 0.0)
+                return true;
+
+            double radiusMm = diameterMm / 2.0;
+            return (x * x) + (y * y) <= radiusMm * radiusMm;
+        }
+
         private void BuildGridContextMenu()
         {
             try
             {
-                _gridMoveMenuItem = new ToolStripMenuItem("MOVE");
+                _gridMoveMenuItem = new ToolStripMenuItem("MOVE VISION/STAGE");
                 _gridMoveMenuItem.Click += async (s, e) => await MoveSelectedBinSlotAsync().ConfigureAwait(true);
 
                 _gridMenu = new ContextMenuStrip();
                 _gridMenu.Items.Add(_gridMoveMenuItem);
+                _gridMenu.Items.Add(new ToolStripSeparator());
+                _gridMenu.Items.Add(BuildPickerMoveMenu("MOVE FRONT PICKER", PickerSequenceSide.Front, out _gridMoveFrontPickerMenuItems));
+                _gridMenu.Items.Add(BuildPickerMoveMenu("MOVE REAR PICKER", PickerSequenceSide.Rear, out _gridMoveRearPickerMenuItems));
                 _gridMenu.Opening += (s, e) =>
                 {
+                    bool enabled = _selectedEntry != null && !_manualMoveBusy;
                     if (_gridMoveMenuItem != null)
-                        _gridMoveMenuItem.Enabled = _selectedEntry != null && !_manualMoveBusy;
+                        _gridMoveMenuItem.Enabled = enabled;
+
+                    SetPickerMoveMenuEnabled(_gridMoveFrontPickerMenuItems, enabled);
+                    SetPickerMoveMenuEnabled(_gridMoveRearPickerMenuItems, enabled);
                 };
 
                 gridDieList.ContextMenuStrip = _gridMenu;
@@ -597,6 +799,35 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
             finally
             {
+            }
+        }
+
+        private ToolStripMenuItem BuildPickerMoveMenu(string title, PickerSequenceSide side, out ToolStripMenuItem[] items)
+        {
+            ToolStripMenuItem root = new ToolStripMenuItem(title);
+            items = new ToolStripMenuItem[4];
+
+            for (int i = 0; i < items.Length; i++)
+            {
+                int pickerNo = i + 1;
+                ToolStripMenuItem item = new ToolStripMenuItem("PICKER #" + pickerNo);
+                item.Click += async (s, e) => await MoveSelectedSlotByPickerAsync(side, pickerNo).ConfigureAwait(true);
+                items[i] = item;
+                root.DropDownItems.Add(item);
+            }
+
+            return root;
+        }
+
+        private static void SetPickerMoveMenuEnabled(ToolStripMenuItem[] items, bool enabled)
+        {
+            if (items == null)
+                return;
+
+            for (int i = 0; i < items.Length; i++)
+            {
+                if (items[i] != null)
+                    items[i].Enabled = enabled;
             }
         }
 
@@ -657,13 +888,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 }
                 unit.Recipe.EnsurePositionObjects();
 
-                // 원형 빈맵의 PosX/PosY는 ProcessPosition(센터) 기준 상대좌표 → 센터를 더해 절대 축 위치로 변환.
-                double baseX = unit.Recipe.VisionX.ProcessPosition;
-                double baseY = (_selectedSide == BinSide.Ng
-                    ? unit.Recipe.NGStageY
-                    : unit.Recipe.GoodStageY).ProcessPosition;
-                double absX = baseX + entry.PosX;
-                double absY = baseY + entry.PosY;
+                double absX = entry.PosX;
+                double absY = entry.PosY;
 
                 DialogResult confirm = QMC.Common.MessageDialog.Show(this,
                     "빈 슬롯 [" + entry.DieMapX + "," + entry.DieMapY + "]의 좌표로 이동하시겠습니까?\r\n" +
@@ -686,6 +912,20 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 {
                     QMC.Common.MessageDialog.Show(this,
                         "출력 이동 전 Picker Avoid 준비 실패\r\nresult=" + prepareResult +
+                        "\r\nAlarm/Event Log를 확인하세요.",
+                        "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                int stagePrepareResult = await AwaitManualMoveStepAsync(
+                    PrepareOutputStageYMoveAsync(unit, _selectedSide, timeoutMs),
+                    timeoutMs,
+                    "OutputStage Y 이동 준비",
+                    () => StopManualMapMove(host, "OutputStage Y 이동 준비 타임아웃")).ConfigureAwait(true);
+                if (stagePrepareResult != 0)
+                {
+                    QMC.Common.MessageDialog.Show(this,
+                        "OutputStage Y 이동 준비 실패\r\nresult=" + stagePrepareResult +
                         "\r\nAlarm/Event Log를 확인하세요.",
                         "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
@@ -739,7 +979,169 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
         }
 
-        /// <summary>VisionX(공유레일) 이동 전 Front/Rear PickerX를 Avoid 위치로 선행 이동합니다.</summary>
+        private async Task MoveSelectedSlotByPickerAsync(PickerSequenceSide side, int pickerNo)
+        {
+            Form1 host = FindForm() as Form1;
+            try
+            {
+                DieMapEntry entry = _selectedEntry;
+                if (entry == null)
+                {
+                    QMC.Common.MessageDialog.Show(this, "이동할 빈 슬롯이 선택되지 않았습니다.",
+                        "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                if (host == null || host.Machine == null || host.Machine.OutputStageUnit == null)
+                {
+                    QMC.Common.MessageDialog.Show(this, "OutputStage 장비 정보를 찾을 수 없습니다.",
+                        "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                OutputPlaceManualTargets targets;
+                string reason;
+                if (!TryResolveOutputPlaceManualTargets(host, _selectedSide, side, pickerNo, entry, out targets, out reason))
+                {
+                    QMC.Common.MessageDialog.Show(this, "Picker Place 좌표를 계산할 수 없습니다.\r\n" + reason,
+                        "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                DialogResult confirm = QMC.Common.MessageDialog.Show(this,
+                    ResolvePickerMoveTitle(side, pickerNo) + "를 선택 빈 슬롯 Place 위치로 이동하시겠습니까?\r\n" +
+                    "Slot=[" + entry.DieMapX + "," + entry.DieMapY + "]\r\n" +
+                    "StageY=" + targets.OutputStageY.ToString("F3") + " mm\r\n" +
+                    "PickerX=" + targets.PickerX.ToString("F3") + " mm\r\n" +
+                    "PickerY=" + targets.PickerY.ToString("F3") + " mm\r\n" +
+                    "PickerT=" + targets.PickerT.ToString("F3") + " deg\r\n" +
+                    "PickerZ는 이동하지 않습니다.",
+                    "Output Stage Map", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                if (confirm != DialogResult.Yes)
+                    return;
+
+                int timeoutMs = ResolveManualMoveTimeoutMs(host);
+                SetActionButtonsEnabled(false);
+                _manualMoveBusy = true;
+
+                int result = await AwaitManualMoveStepAsync(
+                    MoveSelectedSlotByPickerCoreAsync(host, _selectedSide, side, pickerNo, entry, targets, timeoutMs),
+                    timeoutMs,
+                    ResolvePickerMoveTitle(side, pickerNo) + " Place 보기 위치 이동",
+                    () => StopManualMapMove(host, ResolvePickerMoveTitle(side, pickerNo) + " output place view timeout")).ConfigureAwait(true);
+                if (result != 0)
+                {
+                    QMC.Common.MessageDialog.Show(this,
+                        ResolvePickerMoveTitle(side, pickerNo) + " Place 보기 위치 이동 실패\r\nresult=" + result +
+                        "\r\nAlarm/Event Log를 확인하세요.",
+                        "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                lblAxisX.Text = targets.PickerX.ToString("F3");
+                lblAxisY.Text = targets.OutputStageY.ToString("F3");
+                QMC.Common.MessageDialog.Show(this,
+                    ResolvePickerMoveTitle(side, pickerNo) + " Place 보기 위치 이동 완료.",
+                    "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
+                    "Output picker place view move failed: " + ex.Message + " - Failed");
+                QMC.Common.MessageDialog.Show(this, "Picker Place 보기 위치 이동 실패:\r\n" + ex.Message,
+                    "Output Stage Map", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                _manualMoveBusy = false;
+                SetActionButtonsEnabled(true);
+            }
+        }
+
+        private async Task<int> MoveSelectedSlotByPickerCoreAsync(
+            Form1 host,
+            BinSide outputSide,
+            PickerSequenceSide side,
+            int pickerNo,
+            DieMapEntry entry,
+            OutputPlaceManualTargets targets,
+            int timeoutMs)
+        {
+            try
+            {
+                OutputStageUnit unit = host.Machine.OutputStageUnit;
+
+                int prepareResult = await PrepareOutputStageYMoveAsync(unit, outputSide, timeoutMs).ConfigureAwait(true);
+                if (prepareResult != 0)
+                    return prepareResult;
+
+                BinStageAxis yAxis = outputSide == BinSide.Ng ? BinStageAxis.NgBinY : BinStageAxis.GoodBinY;
+                int stageResult = await unit.MoveStageAxis(yAxis, targets.OutputStageY, true).ConfigureAwait(true);
+                if (stageResult != 0)
+                    return stageResult;
+
+                AxisMoveWaitResult stageWait = await unit.WaitStageAxisMoveDoneInPosition(yAxis, targets.OutputStageY, timeoutMs).ConfigureAwait(true);
+                if (stageWait == null || !stageWait.Success)
+                    return -1;
+
+                int visionAvoidResult = await MoveOutputVisionXToAvoidForPickerMoveAsync(host, unit, timeoutMs).ConfigureAwait(true);
+                if (visionAvoidResult != 0)
+                    return visionAvoidResult;
+
+                int otherPickerAvoidResult = await MoveOtherPickerOutOfOutputZoneForPickerMoveAsync(host, side).ConfigureAwait(true);
+                if (otherPickerAvoidResult != 0)
+                    return otherPickerAvoidResult;
+
+                int pickerIndex = pickerNo - 1;
+                PickerAxis tAxis = GetPickerTAxis(pickerIndex);
+                string targetName = "DiePlacePosition[" + pickerIndex + "];ManualOutputDieMapMove";
+
+                Task<int> movePickerX = MovePickerAxisAsync(host, side, PickerAxis.PickerX, targets.PickerX, targetName);
+                Task<int> movePickerY = MovePickerAxisAsync(host, side, PickerAxis.PickerY, targets.PickerY, targetName);
+                Task<int> movePickerT = MovePickerAxisAsync(host, side, tAxis, targets.PickerT, targetName);
+                int[] moveResults = await Task.WhenAll(movePickerX, movePickerY, movePickerT).ConfigureAwait(true);
+                for (int i = 0; i < moveResults.Length; i++)
+                {
+                    if (moveResults[i] != 0)
+                        return moveResults[i];
+                }
+
+                Task<int> waitPickerX = WaitPickerAxisInPositionAsync(host, side, PickerAxis.PickerX, targets.PickerX, timeoutMs);
+                Task<int> waitPickerY = WaitPickerAxisInPositionAsync(host, side, PickerAxis.PickerY, targets.PickerY, timeoutMs);
+                Task<int> waitPickerT = WaitPickerAxisInPositionAsync(host, side, tAxis, targets.PickerT, timeoutMs);
+                int[] waitResults = await Task.WhenAll(waitPickerX, waitPickerY, waitPickerT).ConfigureAwait(true);
+                for (int i = 0; i < waitResults.Length; i++)
+                {
+                    if (waitResults[i] != 0)
+                        return waitResults[i];
+                }
+
+                if (!IsPickerAxisInPosition(host, side, PickerAxis.PickerX, targets.PickerX) ||
+                    !IsPickerAxisInPosition(host, side, PickerAxis.PickerY, targets.PickerY) ||
+                    !IsPickerAxisInPosition(host, side, tAxis, targets.PickerT))
+                    return -1;
+
+                QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
+                    ResolvePickerMoveTitle(side, pickerNo) +
+                    " output place view move complete. slot=[" + entry.DieMapX + "," + entry.DieMapY + "]" +
+                    ", stageY=" + targets.OutputStageY.ToString("F3") +
+                    ", pickerX=" + targets.PickerX.ToString("F3") +
+                    ", pickerY=" + targets.PickerY.ToString("F3") +
+                    ", pickerT=" + targets.PickerT.ToString("F3") + " - Ok");
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
+                    ResolvePickerMoveTitle(side, pickerNo) + " output place view move exception: " + ex.Message + " - Failed");
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        /// <summary>VisionX(공유레일) 이동 전 Output Zone에 있는 Picker만 Avoid 위치로 이동합니다.</summary>
         private async Task<int> MovePickersToAvoidForOutputMoveAsync(Form1 host)
         {
             try
@@ -748,7 +1150,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     return -1;
 
                 PickerFrontUnit front = host.Machine.PickerFrontUnit;
-                if (front != null && !front.IsFrontPickerInAvoidPosition())
+                if (IsFrontPickerInOutputZone(front) && !front.IsFrontPickerInAvoidPosition())
                 {
                     int frontResult = await front.MoveToFrontPickerAvoidPosition(true).ConfigureAwait(true);
                     if (frontResult != 0)
@@ -758,7 +1160,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 }
 
                 PickerRearUnit rear = host.Machine.PickerRearUnit;
-                if (rear != null && !rear.IsRearPickerInAvoidPosition())
+                if (IsRearPickerInOutputZone(rear) && !rear.IsRearPickerInAvoidPosition())
                 {
                     int rearResult = await rear.MoveToRearPickerAvoidPosition(true).ConfigureAwait(true);
                     if (rearResult != 0)
@@ -778,6 +1180,357 @@ namespace QMC.CDT_320.Ui.Pages.Work
             finally
             {
             }
+        }
+
+        private async Task<int> MoveOutputVisionXToAvoidForPickerMoveAsync(Form1 host, OutputStageUnit unit, int timeoutMs)
+        {
+            try
+            {
+                if (unit == null || unit.Recipe == null || unit.Recipe.VisionX == null)
+                    return -1;
+
+                if (unit.IsVisionXInAvoidPosition())
+                    return 0;
+
+                int pickerAvoidResult = await MovePickersToAvoidForOutputMoveAsync(host).ConfigureAwait(true);
+                if (pickerAvoidResult != 0)
+                    return pickerAvoidResult;
+
+                int result = await unit.MoveStageAxis(BinStageAxis.VisionX, unit.Recipe.VisionX.AvoidPosition, true).ConfigureAwait(true);
+                if (result != 0)
+                    return result;
+
+                AxisMoveWaitResult wait = await unit.WaitStageAxisMoveDoneInPosition(
+                    BinStageAxis.VisionX,
+                    unit.Recipe.VisionX.AvoidPosition,
+                    timeoutMs).ConfigureAwait(true);
+                if (wait == null || !wait.Success)
+                    return -1;
+
+                return unit.IsVisionXInAvoidPosition() ? 0 : -1;
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
+                    "Picker 이동 전 OutputVisionX Avoid 이동 실패: " + ex.Message + " - Failed");
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool IsFrontPickerInOutputZone(PickerFrontUnit picker)
+        {
+            if (picker == null)
+                return false;
+
+            for (int pickerNo = 1; pickerNo <= 4; pickerNo++)
+            {
+                if (picker.IsFrontPickerInDiePlacePosition(pickerNo))
+                    return true;
+            }
+
+            return false;
+        }
+
+        private static bool IsRearPickerInOutputZone(PickerRearUnit picker)
+        {
+            if (picker == null)
+                return false;
+
+            for (int pickerNo = 1; pickerNo <= 4; pickerNo++)
+            {
+                if (picker.IsRearPickerInDiePlacePosition(pickerNo))
+                    return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>선택 Picker가 Output Zone에 들어가기 전, 상대 Picker가 Output Zone에 있으면 Avoid로 이동합니다.</summary>
+        private async Task<int> MoveOtherPickerOutOfOutputZoneForPickerMoveAsync(Form1 host, PickerSequenceSide movingSide)
+        {
+            try
+            {
+                if (host == null || host.Machine == null)
+                    return -1;
+
+                if (movingSide == PickerSequenceSide.Front)
+                {
+                    PickerRearUnit rear = host.Machine.PickerRearUnit;
+                    if (!IsRearPickerInOutputZone(rear))
+                        return 0;
+
+                    int rearResult = await rear.MoveToRearPickerAvoidPosition(true).ConfigureAwait(true);
+                    if (rearResult != 0)
+                        return rearResult;
+
+                    return rear.IsRearPickerInAvoidPosition() ? 0 : -1;
+                }
+
+                PickerFrontUnit front = host.Machine.PickerFrontUnit;
+                if (!IsFrontPickerInOutputZone(front))
+                    return 0;
+
+                int frontResult = await front.MoveToFrontPickerAvoidPosition(true).ConfigureAwait(true);
+                if (frontResult != 0)
+                    return frontResult;
+
+                return front.IsFrontPickerInAvoidPosition() ? 0 : -1;
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
+                    "Picker 진입 전 상대 Picker Output Zone 회피 이동 실패: " + ex.Message + " - Failed");
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> PrepareOutputStageYMoveAsync(OutputStageUnit unit, BinSide side, int timeoutMs)
+        {
+            try
+            {
+                if (unit == null || unit.Recipe == null)
+                    return -1;
+
+                unit.Recipe.EnsurePositionObjects();
+
+                if (side == BinSide.Good)
+                {
+                    int ngClampLiftResult = await unit.EnsureBinGuideClampLiftUpAsync(BinSide.Ng, timeoutMs).ConfigureAwait(true);
+                    if (ngClampLiftResult != 0)
+                        return ngClampLiftResult;
+
+                    if (!unit.IsBinGuideClampLiftUp(BinSide.Ng))
+                        return -1;
+                }
+
+                if (unit.HasStageAxis(BinStageAxis.GoodBinZ))
+                {
+                    double targetZ = side == BinSide.Ng
+                        ? unit.Recipe.GoodStageZ.AvoidPosition
+                        : unit.Recipe.GoodStageZ.ProcessPosition;
+
+                    bool alreadyReady = side == BinSide.Ng
+                        ? unit.IsGoodStageZAtAvoid()
+                        : unit.IsGoodStageZInAvoidOrProcessPosition();
+                    if (side == BinSide.Good)
+                        alreadyReady = unit.IsStageAxisInPosition(BinStageAxis.GoodBinZ, targetZ, ResolveOutputStageAxisTolerance(unit, BinStageAxis.GoodBinZ));
+
+                    if (alreadyReady)
+                        return 0;
+
+                    int zResult = await unit.MoveStageAxis(BinStageAxis.GoodBinZ, targetZ, true).ConfigureAwait(true);
+                    if (zResult != 0)
+                        return zResult;
+
+                    AxisMoveWaitResult zWait = await unit.WaitStageAxisMoveDoneInPosition(
+                        BinStageAxis.GoodBinZ,
+                        targetZ,
+                        timeoutMs).ConfigureAwait(true);
+                    if (zWait == null || !zWait.Success ||
+                        !unit.IsStageAxisInPosition(BinStageAxis.GoodBinZ, targetZ, ResolveOutputStageAxisTolerance(unit, BinStageAxis.GoodBinZ)))
+                        return -1;
+                }
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
+                    "OutputStage Y 이동 준비 실패: " + ex.Message + " - Failed");
+                return -1;
+            }
+            finally
+            {
+            }
+        }
+
+        private static double ResolveOutputStageAxisTolerance(OutputStageUnit unit, BinStageAxis axis)
+        {
+            return 0.05;
+        }
+
+        private static bool TryResolveOutputPlaceManualTargets(
+            Form1 host,
+            BinSide outputSide,
+            PickerSequenceSide side,
+            int pickerNo,
+            DieMapEntry entry,
+            out OutputPlaceManualTargets targets,
+            out string reason)
+        {
+            targets = null;
+            reason = string.Empty;
+
+            try
+            {
+                if (host == null || host.Machine == null || host.Machine.OutputStageUnit == null)
+                {
+                    reason = "장비 정보를 찾을 수 없습니다.";
+                    return false;
+                }
+
+                if (entry == null)
+                {
+                    reason = "선택된 빈 슬롯이 없습니다.";
+                    return false;
+                }
+
+                int pickerIndex = pickerNo - 1;
+                if (pickerIndex < 0 || pickerIndex >= 4)
+                {
+                    reason = "Picker 번호가 범위를 벗어났습니다. pickerNo=" + pickerNo;
+                    return false;
+                }
+
+                double offsetX;
+                double offsetY;
+                string offsetReason;
+                if (!PickerCoordinateTransformHelper.TryResolveOutputVisionToPickerOffsets(
+                    host.Machine,
+                    side,
+                    pickerIndex,
+                    outputSide,
+                    out offsetX,
+                    out offsetY,
+                    out offsetReason))
+                {
+                    reason = offsetReason;
+                    return false;
+                }
+
+                PickerAlignOffset alignOffset = ResolveRuntimePickerOffset(host, side, pickerIndex);
+                double alignX = alignOffset != null ? alignOffset.AlignOffsetX : 0.0;
+                double alignY = alignOffset != null ? alignOffset.AlignOffsetY : 0.0;
+                double alignT = alignOffset != null ? alignOffset.AlignOffsetT : 0.0;
+
+                double pickerY = GetPickerTeachingPosition(host, side, PickerAxis.PickerY, "PlacePosition") + alignY;
+                PickerAxis tAxis = GetPickerTAxis(pickerIndex);
+                double pickerT = GetPickerTeachingPosition(host, side, tAxis, "PlacePosition") + alignT;
+
+                targets = new OutputPlaceManualTargets
+                {
+                    OutputStageY = entry.PosY + offsetY,
+                    PickerX = entry.PosX + offsetX + alignX,
+                    PickerY = pickerY,
+                    PickerT = pickerT
+                };
+                return true;
+            }
+            catch (Exception ex)
+            {
+                reason = ex.Message;
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private static PickerAlignOffset ResolveRuntimePickerOffset(Form1 host, PickerSequenceSide side, int pickerIndex)
+        {
+            if (host == null || host.Machine == null)
+                return null;
+
+            if (side == PickerSequenceSide.Front)
+                return host.Machine.PickerFrontUnit != null ? host.Machine.PickerFrontUnit.GetRuntimePickerOffset(pickerIndex) : null;
+
+            return host.Machine.PickerRearUnit != null ? host.Machine.PickerRearUnit.GetRuntimePickerOffset(pickerIndex) : null;
+        }
+
+        private static double GetPickerTeachingPosition(Form1 host, PickerSequenceSide side, PickerAxis axis, string positionName)
+        {
+            if (host == null || host.Machine == null)
+                return 0.0;
+
+            if (side == PickerSequenceSide.Front)
+                return host.Machine.PickerFrontUnit != null ? host.Machine.PickerFrontUnit.GetPickerTeachingPosition(axis, positionName) : 0.0;
+
+            return host.Machine.PickerRearUnit != null ? host.Machine.PickerRearUnit.GetPickerTeachingPosition(axis, positionName) : 0.0;
+        }
+
+        private static PickerAxis GetPickerTAxis(int index)
+        {
+            if (index <= 0) return PickerAxis.PickerT0;
+            if (index == 1) return PickerAxis.PickerT1;
+            if (index == 2) return PickerAxis.PickerT2;
+            return PickerAxis.PickerT3;
+        }
+
+        private static Task<int> MovePickerAxisAsync(Form1 host, PickerSequenceSide side, PickerAxis axis, double target, string targetName)
+        {
+            if (host == null || host.Machine == null)
+                return Task.FromResult(-1);
+
+            if (side == PickerSequenceSide.Front)
+            {
+                PickerFrontUnit front = host.Machine.PickerFrontUnit;
+                return front != null ? front.MoveFrontPickerAxis(axis, target, true, targetName) : Task.FromResult(-1);
+            }
+
+            PickerRearUnit rear = host.Machine.PickerRearUnit;
+            return rear != null ? rear.MoveRearPickerAxis(axis, target, true, targetName) : Task.FromResult(-1);
+        }
+
+        private static async Task<int> WaitPickerAxisInPositionAsync(Form1 host, PickerSequenceSide side, PickerAxis axis, double target, int timeoutMs)
+        {
+            if (host == null || host.Machine == null)
+                return -1;
+
+            AxisMoveWaitResult waitResult;
+            if (side == PickerSequenceSide.Front)
+            {
+                PickerFrontUnit front = host.Machine.PickerFrontUnit;
+                if (front == null)
+                    return -1;
+                waitResult = await front.WaitPickerAxisMoveDoneInPosition(axis, target, timeoutMs).ConfigureAwait(true);
+            }
+            else
+            {
+                PickerRearUnit rear = host.Machine.PickerRearUnit;
+                if (rear == null)
+                    return -1;
+                waitResult = await rear.WaitPickerAxisMoveDoneInPosition(axis, target, timeoutMs).ConfigureAwait(true);
+            }
+
+            return waitResult != null && waitResult.Success ? 0 : -1;
+        }
+
+        private static bool IsPickerAxisInPosition(Form1 host, PickerSequenceSide side, PickerAxis axis, double target)
+        {
+            if (host == null || host.Machine == null)
+                return false;
+
+            if (side == PickerSequenceSide.Front)
+            {
+                PickerFrontUnit front = host.Machine.PickerFrontUnit;
+                return front != null && front.IsFrontPickerAxisInPosition(axis, target, ResolvePickerAxisTolerance(front, axis));
+            }
+
+            PickerRearUnit rear = host.Machine.PickerRearUnit;
+            return rear != null && rear.IsRearPickerAxisInPosition(axis, target, ResolvePickerAxisTolerance(rear, axis));
+        }
+
+        private static double ResolvePickerAxisTolerance(PickerFrontUnit picker, PickerAxis axis)
+        {
+            BaseAxis item = picker != null && picker.Axes != null && picker.Axes.ContainsKey(axis) ? picker.Axes[axis] : null;
+            return item != null && item.Config != null && item.Config.InPositionTolerance > 0.0 ? item.Config.InPositionTolerance : 0.05;
+        }
+
+        private static double ResolvePickerAxisTolerance(PickerRearUnit picker, PickerAxis axis)
+        {
+            BaseAxis item = picker != null && picker.Axes != null && picker.Axes.ContainsKey(axis) ? picker.Axes[axis] : null;
+            return item != null && item.Config != null && item.Config.InPositionTolerance > 0.0 ? item.Config.InPositionTolerance : 0.05;
+        }
+
+        private static string ResolvePickerMoveTitle(PickerSequenceSide side, int pickerNo)
+        {
+            return (side == PickerSequenceSide.Front ? "FRONT" : "REAR") + " PICKER #" + pickerNo;
         }
 
         private async Task<int> AwaitManualMoveStepAsync(Task<int> operation, int timeoutMs, string description, Action onTimeoutStop)
@@ -1066,6 +1819,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                     if (entry == null)
                         continue;
 
+                    double relativeX = ToRelativeOutputX(entry.PosX);
+                    double relativeY = ToRelativeOutputY(entry.PosY);
                     wafer.OutputReceiveSlots.Add(new OutputReceiveSlotMaterial
                     {
                         OrderIndex = i,
@@ -1075,8 +1830,8 @@ namespace QMC.CDT_320.Ui.Pages.Work
                         IsTarget = entry.IsTarget,
                         Result = entry.Result,
                         BinCode = entry.BinCode,
-                        PosX = entry.PosX,
-                        PosY = entry.PosY,
+                        PosX = relativeX,
+                        PosY = relativeY,
                         DieUid = entry.DieUid ?? ""
                     });
                 }

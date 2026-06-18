@@ -16,6 +16,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
     {
         private Timer _timer;
         private bool _manualSequenceRunning;
+        private SequenceStartMode _manualSequenceStartMode = SequenceStartMode.Resume;
         private string _lastMaterialDisplayKey = "";
 
         public OutputFeederPage()
@@ -52,6 +53,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private async Task RunSequenceAction(string actionName, Func<Form1, Task<bool>> action)
         {
             IDisposable manualScope = null;
+            bool showFailure = false;
+            string exceptionMessage = null;
             try
             {
                 var host = GetHost();
@@ -60,6 +63,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 if (_manualSequenceRunning)
                     return;
                 if (!ConfirmAction(actionName))
+                    return;
+                if (!TryAskManualSequenceStartMode(actionName, out _manualSequenceStartMode))
                     return;
 
                 _manualSequenceRunning = true;
@@ -71,8 +76,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 EventLogger.Write(EventKind.Event, "QMC", "OUTPUT-FEEDER-ACTION", actionName + " result=" + ok);
                 if (!ok)
                 {
-                    string message = SequenceFailureStore.BuildManualFailureMessage(actionName, actionName + " 실패\r\nAlarm/Event Log를 확인하세요.");
-                    QMC.Common.MessageDialog.Show(this, message, "Output Feeder", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    showFailure = true;
                 }
             }
             catch (OperationCanceledException)
@@ -82,16 +86,38 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             catch (Exception ex)
             {
                 EventLogger.Write(EventKind.Alarm, "QMC", "OUTPUT-FEEDER-ACTION-EX", actionName + " failed: " + ex.Message);
-                QMC.Common.MessageDialog.Show(this, ex.Message, "Output Feeder", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                exceptionMessage = ex.Message;
             }
             finally
             {
-                if (manualScope != null)
-                    manualScope.Dispose();
-                _manualSequenceRunning = false;
-                SetSequenceButtonsEnabled(true);
-                RefreshData();
+                try
+                {
+                    if (manualScope != null)
+                        manualScope.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    EventLogger.Write(EventKind.Alarm, "QMC", "OUTPUT-FEEDER-MANUAL-CLEANUP",
+                        "Output Feeder 수동 시컨스 정리 중 오류: " + ex.Message);
+                }
+                finally
+                {
+                    _manualSequenceRunning = false;
+                    try { SetSequenceButtonsEnabled(true); } catch (Exception ex) { EventLogger.Write(EventKind.Alarm, "QMC", "OUTPUT-FEEDER-BUTTON-RESTORE", "Output Feeder 버튼 복구 실패: " + ex.Message); }
+                    try { RefreshData(); } catch (Exception ex) { EventLogger.Write(EventKind.Alarm, "QMC", "OUTPUT-FEEDER-REFRESH", "Output Feeder 화면 갱신 실패: " + ex.Message); }
+                }
             }
+
+            if (showFailure)
+            {
+                string message = SequenceFailureStore.BuildManualFailureMessage(
+                    actionName,
+                    actionName + " 실패\r\nAlarm/Event Log를 확인하세요.");
+                QMC.Common.MessageDialog.Show(this, message, "Output Feeder", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+
+            if (!string.IsNullOrWhiteSpace(exceptionMessage))
+                QMC.Common.MessageDialog.Show(this, exceptionMessage, "Output Feeder", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
 
         private bool ConfirmAction(string actionName)
@@ -218,7 +244,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         {
             var options = OutputFeederSequenceOptions.Default();
             options.RunMode = SequenceRunMode.Manual;
-            options.StartMode = SequenceStartMode.Resume;
+            options.StartMode = _manualSequenceStartMode;
             options.Side = side;
             options.CassetteRole = role;
             options.SlotIndex = Math.Max(0, slotIndex);

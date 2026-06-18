@@ -8,6 +8,7 @@ using QMC.CDT320;
 using QMC.CDT320.Materials;
 using QMC.CDT320.Sequencing;
 using QMC.CDT_320.Ui.Controls;
+using QMC.Common.Logging;
 using QMC.Common.Motion;
 
 namespace QMC.CDT_320.Ui.Pages.WorkInfo
@@ -16,6 +17,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
     {
         private Timer _timer;
         private bool _manualSequenceRunning;
+        private SequenceStartMode _manualSequenceStartMode = SequenceStartMode.Resume;
         private CassetteMaterialRole _selectedCassetteRole = CassetteMaterialRole.Good1;
         private int _selectedMaterialSlot = -1;
 
@@ -61,6 +63,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private async Task RunSequenceAction(string actionName, Func<Form1, Task<bool>> action)
         {
             IDisposable manualScope = null;
+            bool showFailure = false;
+            string exceptionMessage = null;
             try
             {
                 var host = GetHost();
@@ -70,6 +74,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     return;
                 if (!ConfirmAction(actionName))
                     return;
+                if (!TryAskManualSequenceStartMode(actionName, out _manualSequenceStartMode))
+                    return;
 
                 _manualSequenceRunning = true;
                 SetActionButtonsEnabled(false);
@@ -78,12 +84,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 bool ok = await action(host);
                 if (!ok)
                 {
-                    QMC.Common.MessageDialog.Show(
-                        this,
-                        SequenceFailureStore.BuildManualFailureMessage(actionName, actionName + " 실패\r\nAlarm/Event Log를 확인하세요."),
-                        "Output Cassette",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Warning);
+                    showFailure = true;
                 }
             }
             catch (OperationCanceledException)
@@ -91,21 +92,47 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             }
             catch (Exception ex)
             {
-                QMC.Common.MessageDialog.Show(this, "Output Cassette error:\r\n" + ex.Message, "Output Cassette", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                exceptionMessage = ex.Message;
             }
             finally
             {
-                if (manualScope != null)
-                    manualScope.Dispose();
-                _manualSequenceRunning = false;
-                SetActionButtonsEnabled(true);
-                RefreshData();
+                try
+                {
+                    if (manualScope != null)
+                        manualScope.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    WriteAlarm("OUTPUT-CST-MANUAL-CLEANUP", "Output Cassette 수동 시컨스 정리 중 오류: " + ex.Message);
+                }
+                finally
+                {
+                    _manualSequenceRunning = false;
+                    try { SetActionButtonsEnabled(true); } catch (Exception ex) { WriteAlarm("OUTPUT-CST-BUTTON-RESTORE", "Output Cassette 버튼 복구 실패: " + ex.Message); }
+                    try { RefreshData(); } catch (Exception ex) { WriteAlarm("OUTPUT-CST-REFRESH", "Output Cassette 화면 갱신 실패: " + ex.Message); }
+                }
             }
+
+            if (showFailure)
+            {
+                QMC.Common.MessageDialog.Show(
+                    this,
+                    SequenceFailureStore.BuildManualFailureMessage(actionName, actionName + " 실패\r\nAlarm/Event Log를 확인하세요."),
+                    "Output Cassette",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+            }
+
+            if (!string.IsNullOrWhiteSpace(exceptionMessage))
+                QMC.Common.MessageDialog.Show(this, "Output Cassette error:\r\n" + exceptionMessage, "Output Cassette", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
 
         private async Task RunMotionAction(string actionName, Func<Form1, Task<int>> action)
         {
             IDisposable manualScope = null;
+            bool showFailure = false;
+            string failureMessage = null;
+            string exceptionMessage = null;
             try
             {
                 var host = GetHost();
@@ -123,12 +150,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 int result = await action(host);
                 if (result != 0)
                 {
-                    QMC.Common.MessageDialog.Show(
-                        this,
-                        SequenceFailureStore.BuildManualFailureMessage(actionName, actionName + " failed. result=" + result + "\r\nAlarm/Event Log를 확인하세요."),
-                        "Output Cassette",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Warning);
+                    failureMessage = SequenceFailureStore.BuildManualFailureMessage(
+                        actionName,
+                        actionName + " failed. result=" + result + "\r\nAlarm/Event Log를 확인하세요.");
+                    showFailure = true;
                 }
             }
             catch (OperationCanceledException)
@@ -136,16 +161,32 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             }
             catch (Exception ex)
             {
-                QMC.Common.MessageDialog.Show(this, ex.Message, actionName, MessageBoxButtons.OK, MessageBoxIcon.Error);
+                exceptionMessage = ex.Message;
             }
             finally
             {
-                if (manualScope != null)
-                    manualScope.Dispose();
-                _manualSequenceRunning = false;
-                SetActionButtonsEnabled(true);
-                RefreshData();
+                try
+                {
+                    if (manualScope != null)
+                        manualScope.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    WriteAlarm("OUTPUT-CST-MOTION-CLEANUP", "Output Cassette 모션 정리 중 오류: " + ex.Message);
+                }
+                finally
+                {
+                    _manualSequenceRunning = false;
+                    try { SetActionButtonsEnabled(true); } catch (Exception ex) { WriteAlarm("OUTPUT-CST-MOTION-BUTTON-RESTORE", "Output Cassette 모션 버튼 복구 실패: " + ex.Message); }
+                    try { RefreshData(); } catch (Exception ex) { WriteAlarm("OUTPUT-CST-MOTION-REFRESH", "Output Cassette 모션 화면 갱신 실패: " + ex.Message); }
+                }
             }
+
+            if (showFailure)
+                QMC.Common.MessageDialog.Show(this, failureMessage, "Output Cassette", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+
+            if (!string.IsNullOrWhiteSpace(exceptionMessage))
+                QMC.Common.MessageDialog.Show(this, exceptionMessage, actionName, MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
 
         private bool ConfirmAction(string actionName)
@@ -240,19 +281,19 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private async Task<bool> MapAsync(Form1 host)
         {
             var sequence = CreateOutputCassetteSequence(host);
-            return await sequence.RunMappingAsync(host.Controller.ManualOperationToken, BuildCassetteOptions(host, SequenceStartMode.Resume)) == 0;
+            return await sequence.RunMappingAsync(host.Controller.ManualOperationToken, BuildCassetteOptions(host, _manualSequenceStartMode)) == 0;
         }
 
         private async Task<bool> LoadAsync(Form1 host)
         {
             var sequence = CreateOutputCassetteSequence(host);
-            return await sequence.RunLoadingAsync(host.Controller.ManualOperationToken, BuildCassetteOptions(host, SequenceStartMode.Resume)) == 0;
+            return await sequence.RunLoadingAsync(host.Controller.ManualOperationToken, BuildCassetteOptions(host, _manualSequenceStartMode)) == 0;
         }
 
         private async Task<bool> UnloadAsync(Form1 host)
         {
             var sequence = CreateOutputCassetteSequence(host);
-            return await sequence.RunUnloadingAsync(host.Controller.ManualOperationToken, BuildCassetteOptions(host, SequenceStartMode.Resume)) == 0;
+            return await sequence.RunUnloadingAsync(host.Controller.ManualOperationToken, BuildCassetteOptions(host, _manualSequenceStartMode)) == 0;
         }
 
         private OutputCassetteSequence CreateOutputCassetteSequence(Form1 host)
@@ -656,6 +697,20 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             var snapshot = MaterialStorage.State;
             var cassette = snapshot != null && snapshot.Cassettes != null ? snapshot.Cassettes.FirstOrDefault(c => c.Role == role) : null;
             return cassette != null ? cassette.CassetteLotId : "";
+        }
+
+        private static void WriteAlarm(string code, string message)
+        {
+            try
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", code, message);
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
         }
     }
 }

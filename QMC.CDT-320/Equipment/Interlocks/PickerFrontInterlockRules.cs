@@ -48,14 +48,51 @@ namespace QMC.CDT320.Interlocks
 
         private static bool CanMoveFrontPickerX(MotionGuardRuleContext request, out string reason)
         {
+            reason = string.Empty;
             CDT320_Machine machine = request != null ? request.Machine : null;
-            if (!CanHomeFrontPickerX(machine, out reason))
-                return false;
 
-            if (!PickerZoneInterlockRules.VerifyFrontPickerXMove(request, out reason))
-                return false;
+            try
+            {
+                PickerFrontUnit front = machine != null ? machine.PickerFrontUnit : null;
+                if (!VerifyFrontPickerZAxesAvoidForMove(front, "FrontPickerX", out reason))
+                    return false;
 
-            return VerifyFrontPickerNotBusy(machine != null ? machine.PickerFrontUnit : null, "FrontPickerX", out reason);
+                if (!PickerZoneInterlockRules.VerifyFrontPickerXMove(request, out reason))
+                    return false;
+
+                return VerifyFrontPickerNotBusy(front, "FrontPickerX", out reason);
+            }
+            catch (System.Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    "FrontPickerX",
+                    "FrontPickerX 이동 인터락 확인 중 예외가 발생했습니다. error=" + ex.Message,
+                    out reason);
+            }
+            finally
+            {
+                LogBlockedReason(reason);
+            }
+        }
+
+        private static bool VerifyFrontPickerZAxesAvoidForMove(PickerFrontUnit picker, string movingName, out string reason)
+        {
+            reason = string.Empty;
+            if (picker == null)
+                return true;
+
+            PickerAxis[] zAxes = { PickerAxis.PickerZ0, PickerAxis.PickerZ1, PickerAxis.PickerZ2, PickerAxis.PickerZ3 };
+            for (int i = 0; i < zAxes.Length; i++)
+            {
+                PickerAxis zAxis = zAxes[i];
+                if (!picker.IsPickerAxisInTeachingPosition(zAxis, "AvoidPosition"))
+                    return MotionGuardRuleHelpers.Block(
+                        movingName,
+                        movingName + " 이동 불가: Front" + zAxis + " 축이 Avoid 위치가 아닙니다.",
+                        out reason);
+            }
+
+            return true;
         }
 
         private static bool VerifyFrontPickerY(MotionGuardRuleContext request, out string reason)
@@ -113,10 +150,23 @@ namespace QMC.CDT320.Interlocks
 
         private static bool CanMoveFrontPickerT(CDT320_Machine machine, string movingName, out string reason)
         {
-            if (!CanHomeFrontPickerT(machine, movingName, out reason))
-                return false;
+            reason = string.Empty;
 
-            return VerifyFrontPickerNotBusy(machine != null ? machine.PickerFrontUnit : null, movingName, out reason);
+            try
+            {
+                return VerifyFrontPickerNotBusy(machine != null ? machine.PickerFrontUnit : null, movingName, out reason);
+            }
+            catch (System.Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    movingName + " T축 이동 인터락 확인 중 예외가 발생했습니다. error=" + ex.Message,
+                    out reason);
+            }
+            finally
+            {
+                LogBlockedReason(reason);
+            }
         }
 
         private static bool CanHomeFrontPickerX(CDT320_Machine machine, out string reason)

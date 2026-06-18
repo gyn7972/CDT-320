@@ -326,10 +326,25 @@ namespace QMC.CDT320.Sequencing
             _pickCursor = 0;
             ClearCurrentPickContext();
 
+            int occupiedPickerCount = 0;
             for (int i = 0; i < _enabledPickerIndexes.Count; i++)
             {
                 int pickerIndex = _enabledPickerIndexes[i];
                 int pickerNo = ToPickerNo(pickerIndex);
+
+                DieMaterial loadedDie = MaterialStateService.GetDieAtPicker(PickerLocationKind, pickerNo);
+                if (loadedDie != null)
+                {
+                    occupiedPickerCount++;
+                    WriteLog("PickerPickUpSequence",
+                        Name + " picker already has die, skip pickup reservation. " +
+                        "이미 Die를 가지고 있어 PickUp 예약에서 제외합니다. " +
+                        "pickerNo=" + pickerNo +
+                        ", pickerIndex=" + pickerIndex +
+                        ", loadedDie=" + loadedDie.DieId + " - Check");
+                    continue;
+                }
+
                 InputStagePickTarget target = MaterialStateService.ReserveNextInputStagePickTarget(PickerLocationKind, pickerNo);
                 string dieId = target != null ? target.DieId : "";
 
@@ -360,6 +375,16 @@ namespace QMC.CDT320.Sequencing
 
             if (_pickBatchItems.Count == 0)
             {
+                if (occupiedPickerCount > 0 && occupiedPickerCount >= _enabledPickerIndexes.Count)
+                {
+                    return Fail("PICKER-PICKUP-PICKER-OCCUPIED", "Material",
+                        "사용 설정된 모든 Picker가 이미 Die를 가지고 있어 PickUp을 시작할 수 없습니다. " +
+                        "먼저 검사/Place/Recover를 진행해 Picker를 비운 뒤 다시 시작하세요. " +
+                        "occupiedPickerCount=" + occupiedPickerCount +
+                        ", enabledPickerCount=" + _enabledPickerIndexes.Count +
+                        ", side=" + Side);
+                }
+
                 WriteLog("PickerPickUpSequence", Name + " has no input die batch target. side=" + Side + " - Check");
                 CurrentStep = PickerPickUpStep.Complete;
                 ReleaseInputStageArea();
@@ -396,6 +421,17 @@ namespace QMC.CDT320.Sequencing
 
         private int VerifyReservedInputDie()
         {
+            DieMaterial loadedDie = MaterialStateService.GetDieAtPicker(PickerLocationKind, _currentPickerNo);
+            if (loadedDie != null)
+            {
+                return Fail("PICKER-PICKUP-PICKER-OCCUPIED", "Material",
+                    "Picker가 이미 Die를 가지고 있어 예약된 Die를 PickUp할 수 없습니다. " +
+                    "pickerNo=" + _currentPickerNo +
+                    ", loadedDie=" + loadedDie.DieId +
+                    ", reservedDie=" + _currentDieId +
+                    ", side=" + Side);
+            }
+
             string reason;
             if (!MaterialStateService.ValidateInputStagePickTarget(
                 _currentDieId,
@@ -417,8 +453,7 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
-                int result = await MovePickerGroupAndVerifyAsync(
-                    "AvoidPosition",
+                int result = await MoveCurrentPickerToAvoidAndVerifyAsync(
                     "current picker avoid before InputVisionX move",
                     ct).ConfigureAwait(false);
                 if (result != 0)
@@ -543,16 +578,31 @@ namespace QMC.CDT320.Sequencing
             if (_visionOffset == null)
                 return Fail("PICKER-PICKUP-VISION-OFFSET", "Vision", "Input die vision offset is missing.");
 
+            VisionOffset offset = new VisionOffset
+            {
+                X = _visionOffset.DeltaX,
+                Y = _visionOffset.DeltaY,
+                R = _visionOffset.DeltaTheta,
+                IsValid = true
+            };
+
+            InputStageUnit stage = ResolveInputStage();
+
             MaterialStateService.UpsertInspection(_currentDieId, new DieInspectionRecord
             {
                 InspectionType = "InputPickVision",
                 Result = MaterialInspectionResult.Ok,
-                Offset = new VisionOffset
+                Offset = offset,
+                Alignments = new List<InspectionAlignmentSnapshot>
                 {
-                    X = _visionOffset.DeltaX,
-                    Y = _visionOffset.DeltaY,
-                    R = _visionOffset.DeltaTheta,
-                    IsValid = true
+                    BuildInputStageAlignmentSnapshot(stage, "Input", offset)
+                },
+                Measurements = new List<InspectionMeasurement>
+                {
+                    BuildMeasurement("InputAlignOffsetX", _visionOffset.DeltaX, "mm", MaterialInspectionResult.Ok),
+                    BuildMeasurement("InputAlignOffsetY", _visionOffset.DeltaY, "mm", MaterialInspectionResult.Ok),
+                    BuildMeasurement("InputAlignOffsetT", _visionOffset.DeltaTheta, "deg", MaterialInspectionResult.Ok),
+                    BuildBooleanMeasurement("InputVisionResult", true)
                 }
             });
 
@@ -856,6 +906,17 @@ namespace QMC.CDT320.Sequencing
             if (stage == null)
                 return Fail("PICKER-PICKUP-STAGE-NO-UNIT", "InputStageUnit", "InputStageUnit is null.");
 
+            DieMaterial loadedDie = MaterialStateService.GetDieAtPicker(PickerLocationKind, _currentPickerNo);
+            if (loadedDie != null)
+            {
+                return Fail("PICKER-PICKUP-PICKER-OCCUPIED", "Material",
+                    "Picker가 이미 Die를 가지고 있어 Z축 Pick 동작을 진행할 수 없습니다. " +
+                    "pickerNo=" + _currentPickerNo +
+                    ", loadedDie=" + loadedDie.DieId +
+                    ", reservedDie=" + _currentDieId +
+                    ", side=" + Side);
+            }
+
             string reason;
             if (!MaterialStateService.ValidateInputStagePickTarget(
                 _currentDieId,
@@ -929,6 +990,36 @@ namespace QMC.CDT320.Sequencing
             _diePicked = true;
             SaveCurrentStateToBatchItem();
 
+            MaterialStateService.UpsertInspection(_currentDieId, new DieInspectionRecord
+            {
+                InspectionType = "PickUp",
+                Result = MaterialInspectionResult.Ok,
+                Alignments = new List<InspectionAlignmentSnapshot>
+                {
+                    BuildPickerAlignmentSnapshot(
+                        "PickUp",
+                        _currentPickerIndex,
+                        _targetPickerX,
+                        _targetStageY,
+                        _targetPickerT,
+                        _targetPickerZ,
+                        _visionOffset != null
+                            ? new VisionOffset
+                            {
+                                X = _visionOffset.DeltaX,
+                                Y = _visionOffset.DeltaY,
+                                R = _visionOffset.DeltaTheta,
+                                IsValid = true
+                            }
+                            : new VisionOffset())
+                },
+                Measurements = new List<InspectionMeasurement>
+                {
+                    BuildBooleanMeasurement("VacuumOn", true),
+                    BuildMeasurement("PickerNo", _currentPickerNo, "no", MaterialInspectionResult.Ok)
+                }
+            });
+
             CurrentStep = PickerPickUpStep.MovePickerZToAvoid;
             return 0;
         }
@@ -952,6 +1043,7 @@ namespace QMC.CDT320.Sequencing
                 return Fail("PICKER-PICKUP-MATERIAL", Name, "Picked die material state update failed. die=" + _currentDieId + ", pickerNo=" + _currentPickerNo);
 
             RecordColletUse(_currentPickerNo);
+            SaveRuntimeState(Name + ":PickUp:ColletUse:" + _currentPickerNo);
             WriteLog("PickerPickUpSequence", Name + " picked die. die=" + _currentDieId + ", pickerNo=" + _currentPickerNo + " - Ok");
 
             if (_currentBatchItem != null)

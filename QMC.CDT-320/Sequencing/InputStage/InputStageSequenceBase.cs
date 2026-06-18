@@ -148,26 +148,29 @@ namespace QMC.CDT320.Sequencing
             return 0;
         }
 
-        protected async Task<int> MoveAvoidPositionAsync()
+        protected async Task<int> MoveAvoidPositionAsync(CancellationToken ct)
         {
             if (Options.EnableMotion)
             {
+                ct.ThrowIfCancellationRequested();
                 int result = await MoveAxisCommandAsync(QMC.CDT320.WaferStageAxis.NeedleZ, Stage.Recipe.NeedleZ.AvoidPosition).ConfigureAwait(false);
                 if (result != 0) return result;
 
-                result = await WaitAxisInPositionResultAsync(QMC.CDT320.WaferStageAxis.NeedleZ, Stage.Recipe.NeedleZ.AvoidPosition).ConfigureAwait(false);
+                result = await WaitAxisInPositionResultAsync(QMC.CDT320.WaferStageAxis.NeedleZ, Stage.Recipe.NeedleZ.AvoidPosition, ct).ConfigureAwait(false);
                 if (result != 0) return result;
 
+                ct.ThrowIfCancellationRequested();
                 result = await MoveAxisCommandAsync(QMC.CDT320.WaferStageAxis.WaferY, Stage.Recipe.WaferY.AvoidPosition).ConfigureAwait(false);
                 if (result != 0) return result;
 
-                result = await WaitAxisInPositionResultAsync(QMC.CDT320.WaferStageAxis.WaferY, Stage.Recipe.WaferY.AvoidPosition).ConfigureAwait(false);
+                result = await WaitAxisInPositionResultAsync(QMC.CDT320.WaferStageAxis.WaferY, Stage.Recipe.WaferY.AvoidPosition, ct).ConfigureAwait(false);
                 if (result != 0) return result;
 
+                ct.ThrowIfCancellationRequested();
                 result = await MoveAxisCommandAsync(QMC.CDT320.WaferStageAxis.VisionX, Stage.Recipe.VisionX.AvoidPosition).ConfigureAwait(false);
                 if (result != 0) return result;
 
-                result = await WaitAxisInPositionResultAsync(QMC.CDT320.WaferStageAxis.VisionX, Stage.Recipe.VisionX.AvoidPosition).ConfigureAwait(false);
+                result = await WaitAxisInPositionResultAsync(QMC.CDT320.WaferStageAxis.VisionX, Stage.Recipe.VisionX.AvoidPosition, ct).ConfigureAwait(false);
                 if (result != 0) return result;
             }
 
@@ -213,11 +216,11 @@ namespace QMC.CDT320.Sequencing
             return 0;
         }
 
-        private async Task<int> WaitAxisInPositionResultAsync(QMC.CDT320.WaferStageAxis axis, double target)
+        private async Task<int> WaitAxisInPositionResultAsync(QMC.CDT320.WaferStageAxis axis, double target, CancellationToken ct)
         {
             AxisMoveWaitResult waitResult = await AwaitStepWithCancellationAsync(
                 Stage.WaitInputStageAxisInPositionResult(axis, target, ResolveTimeout()),
-                CancellationToken.None).ConfigureAwait(false);
+                ct).ConfigureAwait(false);
             if (waitResult == null || !waitResult.Success)
                 return Fail(ResolveAxisMoveWaitAlarmCode("IN-STAGE-MOVE", waitResult), Stage.Name,
                     "Input stage axis move/in-position wait failed. axis=" + axis + ", target=" + target + ". " +

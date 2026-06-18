@@ -91,11 +91,15 @@ namespace QMC.CDT320.Materials
             {
                 lock (_stateSync)
                 {
-                    return State.Dies.FirstOrDefault(d =>
-                        d != null &&
-                        d.CurrentLocation != null &&
-                        d.CurrentLocation.Kind == pickerLocation &&
-                        d.CurrentLocation.PickerNo == pickerNo);
+                    return State.Dies
+                        .Where(d =>
+                            d != null &&
+                            d.CurrentLocation != null &&
+                            d.CurrentLocation.Kind == pickerLocation &&
+                            d.CurrentLocation.PickerNo == pickerNo)
+                        .OrderByDescending(GetPickerDieSortTime)
+                        .ThenByDescending(d => d.InputSequenceNo)
+                        .FirstOrDefault();
                 }
             }
             catch (Exception ex)
@@ -109,6 +113,16 @@ namespace QMC.CDT320.Materials
             finally
             {
             }
+        }
+
+        private static DateTime GetPickerDieSortTime(DieMaterial die)
+        {
+            if (die == null)
+                return DateTime.MinValue;
+
+            DateTime updated = die.UpdatedAt;
+            DateTime picked = die.PickedAt;
+            return updated >= picked ? updated : picked;
         }
 
         public static void ApplyDieInspectionResult(string dieId, DieResult result, string ngCode, string reason)
@@ -813,9 +827,6 @@ namespace QMC.CDT320.Materials
                         return null;
 
                     DieMapEntry entry = ordered[index];
-                    double pitchX = outputWafer.OutputReceivePitchX > 0.0 ? outputWafer.OutputReceivePitchX : binMap.PitchX;
-                    double pitchY = outputWafer.OutputReceivePitchY > 0.0 ? outputWafer.OutputReceivePitchY : binMap.PitchY;
-
                     var target = new OutputStageReceiveTarget
                     {
                         StageLocation = ResolveOutputStageLocation(side),
@@ -824,8 +835,8 @@ namespace QMC.CDT320.Materials
                         OrderIndex = index,
                         DieMapX = entry.DieMapX,
                         DieMapY = entry.DieMapY,
-                        OffsetX = outputWafer.OutputReceiveOriginX + pitchX * entry.DieMapX,
-                        OffsetY = outputWafer.OutputReceiveOriginY + pitchY * entry.DieMapY
+                        OffsetX = entry.PosX,
+                        OffsetY = entry.PosY
                     };
                     target.TargetX = target.OffsetX;
                     target.TargetY = target.OffsetY;
@@ -1978,6 +1989,24 @@ namespace QMC.CDT320.Materials
                         return false;
                     }
 
+                    DieMaterial occupiedDie = State.Dies.FirstOrDefault(d =>
+                        d != null &&
+                        !string.Equals(d.DieId, dieId, StringComparison.OrdinalIgnoreCase) &&
+                        d.CurrentLocation != null &&
+                        d.CurrentLocation.Kind == pickerLocation &&
+                        d.CurrentLocation.PickerNo == pickerNo);
+                    if (occupiedDie != null)
+                    {
+                        Log.Write("Main", "SYSTEM", "MaterialStateService",
+                            "Pick die state update blocked: picker already has die. " +
+                            "Picker가 이미 Die를 가지고 있어 상태를 덮어쓰지 않습니다. " +
+                            "pickerLocation=" + pickerLocation +
+                            ", pickerNo=" + pickerNo +
+                            ", loadedDie=" + occupiedDie.DieId +
+                            ", requestedDie=" + dieId + " - Blocked");
+                        return false;
+                    }
+
                     die.CurrentLocation = MaterialLocation.Picker(pickerLocation, pickerNo);
                     die.ReservedPickerLocation = MaterialLocationKind.Unknown;
                     die.ReservedPickerNo = -1;
@@ -2142,21 +2171,38 @@ namespace QMC.CDT320.Materials
 
         public static void NotifyAndSave(string reason)
         {
+            TryNotifyAndSave(reason);
+        }
+
+        public static bool TryNotifyAndSave(string reason)
+        {
+            bool saved = false;
             try
             {
                 State.SaveReason = reason ?? "";
                 State.SavedAt = DateTime.Now;
                 NormalizeSnapshotHeader(State);
-                if (!MaterialSnapshotStore.Save(State))
+                saved = MaterialSnapshotStore.Save(State);
+                if (!saved)
                 {
-                    Log.Write("Main", "SYSTEM", "MaterialStateSave", "Material state save failed. reason=" + State.SaveReason + ", file=" + MaterialSnapshotStore.SnapshotPath + " - Failed");
+                    int waferCount = State.Wafers != null ? State.Wafers.Count : 0;
+                    int dieCount = State.Dies != null ? State.Dies.Count : 0;
+                    int cassetteCount = State.Cassettes != null ? State.Cassettes.Count : 0;
+                    Log.Write("Main", "SYSTEM", "MaterialStateSave",
+                        "Material state save failed. reason=" + State.SaveReason +
+                        ", cassettes=" + cassetteCount +
+                        ", wafers=" + waferCount +
+                        ", dies=" + dieCount +
+                        ", file=" + MaterialSnapshotStore.SnapshotPath + " - Failed");
                 }
 
                 try { StateChanged?.Invoke(State); } catch { }
+                return saved;
             }
             catch (Exception ex)
             {
                 Log.Write("Main", "SYSTEM", "MaterialStateSave", "Material state save failed: " + ex.Message + " - Failed");
+                return false;
             }
             finally
             {

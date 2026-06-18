@@ -245,10 +245,11 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        protected async Task<int> MoveLoadingPositionAsync()
+        protected async Task<int> MoveLoadingPositionAsync(CancellationToken ct)
         {
             try
             {
+                ct.ThrowIfCancellationRequested();
                 var cassette = Cassette;
                 if (cassette == null)
                     return Fail("IN-CST-MISSING", "InputCassette", "Input cassette unit is not available.");
@@ -262,7 +263,7 @@ namespace QMC.CDT320.Sequencing
                     return Fail("IN-CST-LOAD-POS", cassette.Name,
                         "Move loading position failed. result=" + result + ". " + BuildCassetteZState(cassette, target));
 
-                result = await WaitCassetteZInPositionAsync(cassette, target, "IN-CST-LOAD", "Loading position").ConfigureAwait(false);
+                result = await WaitCassetteZInPositionAsync(cassette, target, "IN-CST-LOAD", "Loading position", ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
@@ -278,10 +279,11 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        protected async Task<int> MoveUnloadingPositionAsync()
+        protected async Task<int> MoveUnloadingPositionAsync(CancellationToken ct)
         {
             try
             {
+                ct.ThrowIfCancellationRequested();
                 var cassette = Cassette;
                 if (cassette == null)
                     return Fail("IN-CST-MISSING", "InputCassette", "Input cassette unit is not available.");
@@ -295,7 +297,7 @@ namespace QMC.CDT320.Sequencing
                     return Fail("IN-CST-UNLOAD-POS", cassette.Name,
                         "Move unloading position failed. result=" + result + ". " + BuildCassetteZState(cassette, target));
 
-                result = await WaitCassetteZInPositionAsync(cassette, target, "IN-CST-UNLOAD", "Unloading position").ConfigureAwait(false);
+                result = await WaitCassetteZInPositionAsync(cassette, target, "IN-CST-UNLOAD", "Unloading position", ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
@@ -311,10 +313,11 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        protected async Task<int> MoveMappingStartPositionAsync(TStep nextStep)
+        protected async Task<int> MoveMappingStartPositionAsync(TStep nextStep, CancellationToken ct)
         {
             try
             {
+                ct.ThrowIfCancellationRequested();
                 var cassette = Cassette;
                 if (cassette == null)
                     return Fail("IN-CST-MISSING", "InputCassette", "Input cassette unit is not available.");
@@ -328,7 +331,7 @@ namespace QMC.CDT320.Sequencing
                     return Fail("IN-CST-MAP-START", cassette.Name,
                         "Move mapping start position failed. result=" + result + ". " + BuildCassetteZState(cassette, target));
 
-                result = await WaitCassetteZInPositionAsync(cassette, target, "IN-CST-MAP-START", "Mapping start position").ConfigureAwait(false);
+                result = await WaitCassetteZInPositionAsync(cassette, target, "IN-CST-MAP-START", "Mapping start position", ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
@@ -344,10 +347,11 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        protected async Task<int> MoveMappingEndPositionAsync(TStep nextStep)
+        protected async Task<int> MoveMappingEndPositionAsync(TStep nextStep, CancellationToken ct)
         {
             try
             {
+                ct.ThrowIfCancellationRequested();
                 var cassette = Cassette;
                 if (cassette == null)
                     return Fail("IN-CST-MISSING", "InputCassette", "Input cassette unit is not available.");
@@ -358,7 +362,7 @@ namespace QMC.CDT320.Sequencing
                     return Fail("IN-CST-MAP-END", cassette.Name,
                         "Move mapping end position failed. result=" + result + ". " + BuildCassetteZState(cassette, target));
 
-                result = await WaitCassetteZInPositionAsync(cassette, target, "IN-CST-MAP-END", "Mapping end position").ConfigureAwait(false);
+                result = await WaitCassetteZInPositionAsync(cassette, target, "IN-CST-MAP-END", "Mapping end position", ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
@@ -426,10 +430,11 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        protected async Task<int> MoveFirstWaferSlotAsync()
+        protected async Task<int> MoveFirstWaferSlotAsync(CancellationToken ct)
         {
             try
             {
+                ct.ThrowIfCancellationRequested();
                 var cassette = Cassette;
                 if (cassette == null)
                     return Fail("IN-CST-MISSING", "InputCassette", "Input cassette unit is not available.");
@@ -443,7 +448,7 @@ namespace QMC.CDT320.Sequencing
                         return Fail("IN-CST-FIRST-SLOT", cassette.Name,
                             "Move slot 1 failed. result=" + result + ". " + BuildCassetteZState(cassette, target));
 
-                    result = await WaitCassetteZInPositionAsync(cassette, target, "IN-CST-FIRST-SLOT", "Slot 1 position").ConfigureAwait(false);
+                    result = await WaitCassetteZInPositionAsync(cassette, target, "IN-CST-FIRST-SLOT", "Slot 1 position", ct).ConfigureAwait(false);
                     if (result != 0)
                         return result;
                 }
@@ -469,16 +474,17 @@ namespace QMC.CDT320.Sequencing
             InputCassetteUnit cassette,
             double target,
             string alarmPrefix,
-            string description)
+            string description,
+            CancellationToken ct)
         {
             try
             {
                 if (cassette == null)
                     return Fail(alarmPrefix + "-UNIT-MISSING", "InputCassette", description + " wait failed. Input cassette unit is null.");
 
-                AxisMoveWaitResult waitResult = await cassette
-                    .WaitWaferLifterZMoveDoneInPosition(target, ResolveMoveTimeout(cassette))
-                    .ConfigureAwait(false);
+                AxisMoveWaitResult waitResult = await AwaitStepWithCancellationAsync(
+                    cassette.WaitWaferLifterZMoveDoneInPosition(target, ResolveMoveTimeout(cassette)),
+                    ct).ConfigureAwait(false);
                 if (waitResult.Success)
                     return 0;
 
@@ -603,7 +609,10 @@ namespace QMC.CDT320.Sequencing
         private bool IsHardwareBypassed()
         {
             var settings = AppSettingsStore.Current;
-            return settings != null && settings.BypassHardware;
+            return (settings != null && settings.BypassHardware) ||
+                   (Context.Controller != null && Context.Controller.GlobalDryRun) ||
+                   (Cassette != null && Cassette.Setup != null && Cassette.Setup.IsSimulationMode) ||
+                   (Cassette != null && Cassette.Config != null && Cassette.Config.bDryRun);
         }
 
         private int ResolveMoveTimeout(InputCassetteUnit cassette)
@@ -721,6 +730,22 @@ namespace QMC.CDT320.Sequencing
         {
             if (stepTask == null)
                 return -1;
+
+            if (stepTask.IsCompleted)
+                return await stepTask.ConfigureAwait(false);
+
+            Task cancelTask = Task.Delay(Timeout.Infinite, ct);
+            Task completed = await Task.WhenAny(stepTask, cancelTask).ConfigureAwait(false);
+            if (!ReferenceEquals(completed, stepTask))
+                ct.ThrowIfCancellationRequested();
+
+            return await stepTask.ConfigureAwait(false);
+        }
+
+        private static async Task<AxisMoveWaitResult> AwaitStepWithCancellationAsync(Task<AxisMoveWaitResult> stepTask, CancellationToken ct)
+        {
+            if (stepTask == null)
+                return new AxisMoveWaitResult(AxisMoveWaitFailure.AxisMissing, "Step task is null.", string.Empty);
 
             if (stepTask.IsCompleted)
                 return await stepTask.ConfigureAwait(false);

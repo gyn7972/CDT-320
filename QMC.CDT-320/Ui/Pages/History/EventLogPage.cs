@@ -9,10 +9,11 @@ namespace QMC.CDT_320.Ui.Pages.History
 {
     public partial class EventLogPage : PageBase
     {
-        private const string AllKinds = "(All)";
-
         // 알람 행 강조용 폰트. 행마다 new Font 를 만들지 않도록 1회만 생성해 재사용한다.
         private static readonly Font AlarmFont = new Font("Consolas", 10F, FontStyle.Bold);
+
+        // 표시 상한(최신 N개). 최근 1시간 필터와 함께 로딩 부하를 제한한다.
+        private const int MaxRows = 500;
 
         // 사이드바 버튼(경고/데이터/작업)이 지정하는 초기 Kind 프리셋. null 이면 전체(이벤트).
         private readonly EventKind? _presetKind;
@@ -59,12 +60,6 @@ namespace QMC.CDT_320.Ui.Pages.History
 
         private void WireEvents()
         {
-            _cbKind.Items.Add(AllKinds);
-            foreach (var k in Enum.GetNames(typeof(EventKind))) _cbKind.Items.Add(k);
-            _cbKind.SelectedItem = _presetKind?.ToString() ?? AllKinds;
-            if (_cbKind.SelectedIndex < 0) _cbKind.SelectedIndex = 0;
-            _cbKind.SelectedIndexChanged += (s, e) => ReloadCurrent();
-
             // 초기 날짜를 오늘로 지정한다. ValueChanged 구독 전에 설정해 중복 로드를 막는다.
             _dp.Value = DateTime.Today;
             // 날짜를 바꾸면 파일 열기 모드를 해제하고 날짜 기준으로 돌아간다.
@@ -76,11 +71,11 @@ namespace QMC.CDT_320.Ui.Pages.History
             Load += (s, e) => ReloadCurrent();
         }
 
-        // 현재 Kind 콤보 선택값에 따른 표시 여부.
+        // 페이지에 지정된 고정 Kind 만 표시한다(프리셋이 없으면 전체 표시).
+        // DATE 변경·OPEN FILE 모두 이 필터를 거치므로, 해당 kind 의 로그만 로드된다.
         private bool PassesKindFilter(EventKind kind)
         {
-            string sel = _cbKind?.SelectedItem?.ToString() ?? AllKinds;
-            return sel == AllKinds || kind.ToString() == sel;
+            return _presetKind == null || kind == _presetKind.Value;
         }
 
         // 현재 소스(직접 연 파일 또는 DATE 날짜)를 다시 읽어 그리드에 채운다.
@@ -94,19 +89,21 @@ namespace QMC.CDT_320.Ui.Pages.History
 
         private void LoadRows(List<EventRow> source)
         {
-            // 1) 먼저 표시할 행들을 메모리에서 모두 만들어 둔다(파싱·필터·스타일).
+            // 로딩 부하를 줄이기 위해 (1) 최근 1시간 이내 + (2) 최신 MaxRows(500)개로 제한한다.
+            DateTime cutoff = DateTime.Now.AddHours(-1);
+
+            // CSV 는 과거→최신 순이므로 뒤(최신)부터 훑어 최신순으로 최대 500개만 만든다.
+            // (필요한 만큼만 BuildRow 하므로 거대 파일에서도 행 생성 비용이 500개로 제한됨)
             var rows = new List<DataGridViewRow>();
-            foreach (var r in source)
+            for (int i = source.Count - 1; i >= 0 && rows.Count < MaxRows; i--)
             {
+                var r = source[i];
+                if (r.When < cutoff) continue;          // 최근 1시간만
                 if (!PassesKindFilter(r.Kind)) continue;
-                rows.Add(BuildRow(r));
+                rows.Add(BuildRow(r));                  // 뒤에서부터 → 이미 최신순
             }
 
-            // CSV 는 과거→최신 순으로 쌓이므로 뒤집어 최신순(내림차순)으로 표시한다.
-            rows.Reverse();
-
-            // 2) 그리드 갱신은 레이아웃/오토사이즈를 멈춘 상태에서 AddRange 로 한 번에 처리한다.
-            //    (행마다 Rows.Add + Fill 재계산하던 것을 일괄 처리로 바꿔 로딩 시간을 줄임)
+            // 그리드 갱신은 레이아웃/오토사이즈를 멈춘 상태에서 AddRange 로 한 번에 처리한다.
             var prevAutoSize = _grid.AutoSizeColumnsMode;
             _grid.SuspendLayout();
             try
@@ -155,7 +152,11 @@ namespace QMC.CDT_320.Ui.Pages.History
             // 직접 연 파일을 보는 중이면 실시간 이벤트로 덮지 않는다.
             // 최신순 표시이므로 새 이벤트는 맨 위에 삽입한다.
             if (_overridePath == null && _dp != null && _dp.Value.Date == DateTime.Today && PassesKindFilter(r.Kind))
-                _grid.Rows.Insert(0, BuildRow(r));
+            {
+                _grid.Rows.Insert(0, BuildRow(r));               // 최신이 맨 위
+                while (_grid.Rows.Count > MaxRows)               // 상한 유지
+                    _grid.Rows.RemoveAt(_grid.Rows.Count - 1);
+            }
         }
 
         // EventRow 하나를 그리드에 넣을 DataGridViewRow 로 변환한다(셀 값 + Kind별 강조 스타일).
@@ -174,37 +175,36 @@ namespace QMC.CDT_320.Ui.Pages.History
                 r.Source ?? "",
                 desc);
 
+            // Kind 별 글씨 색상 — 페이지마다 한 종류만 표시되므로 서로 뚜렷이 구분되는 색을 쓴다(흰 배경에서 가독성 확보).
             switch (r.Kind)
             {
-                // 알람 로그 강조 표시 (폰트 크기는 그리드 기본과 동일, 굵게만 적용)
-                case EventKind.Alarm:
-                    row.DefaultCellStyle.ForeColor = Color.IndianRed;
+                case EventKind.Event:        // 슬레이트 그레이
+                    row.DefaultCellStyle.ForeColor = Color.FromArgb(52, 73, 94);
+                    break;
+                case EventKind.Warning:      // 오렌지
+                    row.DefaultCellStyle.ForeColor = Color.FromArgb(211, 84, 0);
+                    break;
+                case EventKind.Alarm:        // 레드 + 굵게 강조
+                    row.DefaultCellStyle.ForeColor = Color.FromArgb(192, 57, 43);
                     row.DefaultCellStyle.Font = AlarmFont;
                     break;
-                // 경고 로그 표시
-                case EventKind.Warning:
-                    row.DefaultCellStyle.ForeColor = Color.DarkOrange;
+                case EventKind.Data:         // 블루
+                    row.DefaultCellStyle.ForeColor = Color.FromArgb(41, 128, 185);
                     break;
-                // 데이터 로그 표시
-                case EventKind.Data:
-                    row.DefaultCellStyle.ForeColor = Color.SteelBlue;
+                case EventKind.Work:         // 브라운
+                    row.DefaultCellStyle.ForeColor = Color.FromArgb(121, 85, 72);
                     break;
-                // 작업 로그 표시
-                case EventKind.Work:
-                    row.DefaultCellStyle.ForeColor = Color.Teal;
+                case EventKind.InputSeq:     // 그린
+                    row.DefaultCellStyle.ForeColor = Color.FromArgb(39, 174, 96);
                     break;
-                // 시퀀스 로그 표시 (입력/출력/프론트헤드/리어헤드)
-                case EventKind.InputSeq:
-                    row.DefaultCellStyle.ForeColor = Color.MediumSeaGreen;
+                case EventKind.FrontHeadSeq: // 퍼플
+                    row.DefaultCellStyle.ForeColor = Color.FromArgb(142, 68, 173);
                     break;
-                case EventKind.OutputSeq:
-                    row.DefaultCellStyle.ForeColor = Color.MediumVioletRed;
+                case EventKind.RearHeadSeq:  // 시안/틸
+                    row.DefaultCellStyle.ForeColor = Color.FromArgb(0, 131, 143);
                     break;
-                case EventKind.FrontHeadSeq:
-                    row.DefaultCellStyle.ForeColor = Color.RoyalBlue;
-                    break;
-                case EventKind.RearHeadSeq:
-                    row.DefaultCellStyle.ForeColor = Color.DarkSlateBlue;
+                case EventKind.OutputSeq:    // 마젠타
+                    row.DefaultCellStyle.ForeColor = Color.FromArgb(194, 24, 91);
                     break;
             }
 

@@ -70,6 +70,8 @@ namespace QMC.CDT_320.Ui.Pages.History
         private bool PassesFilter(AlarmRecord a)
         {
             if (a == null) return false;
+            // 로딩 부하를 줄이기 위해 현재시간 기준 최근 1시간 이내만 표시.
+            if (a.Raised < DateTime.Now.AddHours(-1)) return false;
             string sev = _cbSeverity?.SelectedItem?.ToString() ?? "(All)";
             if (sev != "(All)" && a.Severity.ToString() != sev) return false;
 

@@ -218,32 +218,15 @@ namespace QMC.CDT320.Sequencing
             return 0;
         }
 
-        private async Task<int> EnsurePickerAvoidPositionAsync(CancellationToken ct)
+        private Task<int> EnsurePickerAvoidPositionAsync(CancellationToken ct)
         {
-            if (FrontPicker != null && !FrontPicker.IsFrontPickerInAvoidPosition())
-            {
-                int result = await AwaitStepWithCancellationAsync(FrontPicker.MoveToFrontPickerAvoidPosition(Options.FineMove), ct).ConfigureAwait(false);
-                if (result != 0)
-                    return Fail("OUT-FEEDER-FRONT-PICKER-AVOID", FrontPicker.Name, "FrontPicker avoid move command failed before stage unload. result=" + result);
-
-                bool arrived = await WaitUntilAsync(() => FrontPicker.IsFrontPickerInAvoidPosition(), ResolveTimeout(), ct).ConfigureAwait(false);
-                if (!arrived)
-                    return Fail("OUT-FEEDER-FRONT-PICKER-AVOID", FrontPicker.Name, "FrontPicker avoid position timeout before stage unload.");
-            }
-
-            if (RearPicker != null && !RearPicker.IsRearPickerInAvoidPosition())
-            {
-                int result = await AwaitStepWithCancellationAsync(RearPicker.MoveToRearPickerAvoidPosition(Options.FineMove), ct).ConfigureAwait(false);
-                if (result != 0)
-                    return Fail("OUT-FEEDER-REAR-PICKER-AVOID", RearPicker.Name, "RearPicker avoid move command failed before stage unload. result=" + result);
-
-                bool arrived = await WaitUntilAsync(() => RearPicker.IsRearPickerInAvoidPosition(), ResolveTimeout(), ct).ConfigureAwait(false);
-                if (!arrived)
-                    return Fail("OUT-FEEDER-REAR-PICKER-AVOID", RearPicker.Name, "RearPicker avoid position timeout before stage unload.");
-            }
+            ct.ThrowIfCancellationRequested();
+            int pickerClear = CheckPickersNotInOutputZone("before stage unload");
+            if (pickerClear != 0)
+                return Task.FromResult(pickerClear);
 
             CurrentStep = OutputFeederUnloadFromStageStep.EnsureStageMutualInterlock;
-            return 0;
+            return Task.FromResult(0);
         }
 
         private async Task<int> EnsureStageMutualInterlockAsync(CancellationToken ct)

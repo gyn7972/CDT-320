@@ -19,6 +19,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         Process,
         PickUp,
         Inspect,
+        Bottom,
+        Side,
         Place,
         Recover
     }
@@ -45,12 +47,11 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private readonly Label[] _blowLabels;
         private readonly DataGridView _axisGrid;
         private readonly Button _btnCountClear;
-        private readonly ActionButton _btnProcess;
-        private readonly ActionButton _btnStep;
         private readonly ActionButton _btnInput;
         private readonly ActionButton _btnInspect;
+        private readonly ActionButton _btnBottom;
+        private readonly ActionButton _btnSide;
         private readonly ActionButton _btnOutput;
-        private readonly ActionButton _btnAvoid;
         private readonly ActionButton _btnStop;
         private readonly Control.ControlCollection _actionControls;
         private readonly System.Windows.Forms.Timer _timer;
@@ -87,12 +88,11 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             Label[] blowLabels,
             DataGridView axisGrid,
             Button btnCountClear,
-            ActionButton btnProcess,
-            ActionButton btnStep,
             ActionButton btnInput,
             ActionButton btnInspect,
+            ActionButton btnBottom,
+            ActionButton btnSide,
             ActionButton btnOutput,
-            ActionButton btnAvoid,
             ActionButton btnStop,
             Control.ControlCollection actionControls)
         {
@@ -116,12 +116,11 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             _blowLabels = blowLabels ?? new Label[0];
             _axisGrid = axisGrid;
             _btnCountClear = btnCountClear;
-            _btnProcess = btnProcess;
-            _btnStep = btnStep;
             _btnInput = btnInput;
             _btnInspect = btnInspect;
+            _btnBottom = btnBottom;
+            _btnSide = btnSide;
             _btnOutput = btnOutput;
-            _btnAvoid = btnAvoid;
             _btnStop = btnStop;
             _actionControls = actionControls;
 
@@ -149,12 +148,11 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
         private void WireEvents()
         {
-            _btnProcess.Click += async (s, e) => await RunSequenceAction(SideName + " PROCESS", SequenceRunMode.Auto);
-            _btnStep.Click += async (s, e) => await RunSequenceAction(SideName + " STEP", SequenceRunMode.Step);
             _btnInput.Click += async (s, e) => await RunSequenceAction(SideName + " PICK UP", SequenceRunMode.Auto, PickerManualSequenceKind.PickUp);
             _btnInspect.Click += async (s, e) => await RunSequenceAction(SideName + " INSPECT", SequenceRunMode.Auto, PickerManualSequenceKind.Inspect);
+            _btnBottom.Click += async (s, e) => await RunSequenceAction(SideName + " BOTTOM", SequenceRunMode.Auto, PickerManualSequenceKind.Bottom);
+            _btnSide.Click += async (s, e) => await RunSequenceAction(SideName + " SIDE", SequenceRunMode.Auto, PickerManualSequenceKind.Side);
             _btnOutput.Click += async (s, e) => await RunSequenceAction(SideName + " PLACE", SequenceRunMode.Auto, PickerManualSequenceKind.Place);
-            _btnAvoid.Click += async (s, e) => await RunSequenceAction(SideName + " RECOVER", SequenceRunMode.Auto, PickerManualSequenceKind.Recover);
             _btnStop.Click += async (s, e) => await StopManualActionAsync();
             if (_btnCountClear != null)
                 _btnCountClear.Click += (s, e) => ClearCounters();
@@ -221,6 +219,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         {
             bool cdaOk = ReadInput(GetCdaPressure(machine));
             bool vacuumOk = ReadInput(GetVacuumPressure(machine));
+            bool simulationOrDryRun = IsSimulationOrDryRun(machine);
 
             for (int pickerNo = 1; pickerNo <= 4; pickerNo++)
             {
@@ -228,11 +227,15 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 bool flow = ReadInput(GetFlow(machine, pickerNo));
                 bool vacuum = ReadOutput(GetVacuum(machine, pickerNo));
                 bool blow = ReadOutput(GetBlow(machine, pickerNo));
+                DieMaterial pickedDie = GetPickedDieMaterial(pickerNo);
+                bool hasPickedMaterial = pickedDie != null;
+                bool vacuumDisplay = vacuum || flow || (simulationOrDryRun && hasPickedMaterial);
 
                 if (index < _headValueLabels.Length && _headValueLabels[index] != null)
                 {
-                    _headValueLabels[index].Text = ResolveHeadState(machine, pickerNo, flow);
-                    _headValueLabels[index].ForeColor = flow ? Color.Lime : Color.Black;
+                    string headState = ResolveHeadState(machine, pickerNo, flow, pickedDie);
+                    _headValueLabels[index].Text = headState;
+                    _headValueLabels[index].ForeColor = IsPickedHeadState(headState) ? Color.Lime : Color.Black;
                 }
 
                 bool usePicker = UsePicker(machine, pickerNo);
@@ -250,12 +253,12 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 }
 
                 if (index < _vacuumLabels.Length && _vacuumLabels[index] != null)
-                    _vacuumLabels[index].Text = "HEAD VACUUM #" + pickerNo + " : " + (vacuum || flow ? "ON" : "OFF");
+                    _vacuumLabels[index].Text = "HEAD VACUUM #" + pickerNo + " : " + (vacuumDisplay ? "ON" : "OFF");
                 if (index < _blowLabels.Length && _blowLabels[index] != null)
                     _blowLabels[index].Text = "HEAD BLOW #" + pickerNo + " : " + (blow ? "ON" : "OFF");
 
                 if (index < _vacuumDots.Length)
-                    SetDot(_vacuumDots[index], vacuum || flow);
+                    SetDot(_vacuumDots[index], vacuumDisplay);
                 if (index < _blowDots.Length)
                     SetDot(_blowDots[index], blow);
             }
@@ -291,6 +294,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     host.Machine.PickerFrontUnit.ResetWorkCounters();
                 if (_side == PickerSequenceSide.Rear && host.Machine.PickerRearUnit != null)
                     host.Machine.PickerRearUnit.ResetWorkCounters();
+
+                if (host.Controller != null)
+                    host.Controller.SaveMachineRuntimeState(SideName + "WorkCounterClear");
 
                 WriteEvent(SideName + " count clear.");
                 Refresh();
@@ -415,7 +421,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
                 if (_manualSequenceRunning)
                     return;
-                if (!ConfirmAction(actionName))
+                SequenceStartMode startMode;
+                if (!SelectManualSequenceStartMode(actionName, out startMode))
                     return;
 
                 _manualSequenceRunning = true;
@@ -423,39 +430,57 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 manualScope = host.Controller.EnterManualOperation();
                 CancellationToken manualToken = host.Controller.ManualOperationToken;
                 SequenceFailureStore.Clear();
-                WriteEvent(actionName + " start");
+                if (startMode == SequenceStartMode.Restart)
+                    ResetStepSequence();
 
-                Task<bool> actionTask = RunPickerSequenceTask(CreateContext(host), mode, kind, manualToken);
+                WriteEvent(actionName + " 시작. 시작모드=" + FormatStartMode(startMode));
+
+                Task<bool> actionTask = RunPickerSequenceTask(CreateContext(host), mode, kind, startMode, manualToken);
                 Task cancelTask = WaitForCancellationAsync(manualToken);
                 Task completed = await Task.WhenAny(actionTask, cancelTask).ConfigureAwait(true);
                 if (completed == cancelTask)
                 {
                     ObserveManualActionTask(actionTask, actionName);
-                    WriteEvent(actionName + " canceled by stop.");
+                    WriteEvent(actionName + " 정지 요청으로 취소.");
                     return;
                 }
 
                 bool ok = await actionTask.ConfigureAwait(true);
-                WriteEvent(actionName + " result=" + ok);
+                WriteEvent(actionName + " 결과=" + ok);
                 if (!ok)
                     showFailure = true;
             }
             catch (OperationCanceledException)
             {
-                WriteEvent(actionName + " canceled.");
+                WriteEvent(actionName + " 취소.");
             }
             catch (Exception ex)
             {
-                WriteAlarm(actionName + " failed: " + ex.Message);
+                WriteAlarm(actionName + " 실패: " + ex.Message);
                 exceptionMessage = ex.Message;
             }
             finally
             {
-                if (manualScope != null)
-                    manualScope.Dispose();
-                _manualSequenceRunning = false;
-                SetButtonsEnabled(true);
-                Refresh();
+                try
+                {
+                    if (manualScope != null)
+                        manualScope.Dispose();
+
+                    if (showFailure || !string.IsNullOrWhiteSpace(exceptionMessage))
+                        ResetStepSequence();
+
+                    TrySaveMaterialStateAfterManualSequence(actionName);
+                }
+                catch (Exception ex)
+                {
+                    WriteAlarm(actionName + " 종료 처리 중 오류: " + ex.Message);
+                }
+                finally
+                {
+                    _manualSequenceRunning = false;
+                    SetButtonsEnabledSafe(true);
+                    RefreshSafe();
+                }
             }
 
             if (showFailure)
@@ -491,11 +516,12 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             MachineSequenceContext context,
             SequenceRunMode mode,
             PickerManualSequenceKind kind,
+            SequenceStartMode startMode,
             CancellationToken ct)
         {
             try
             {
-                PickerSequenceOptions options = BuildManualSequenceOptions(context, mode);
+                PickerSequenceOptions options = BuildManualSequenceOptions(context, mode, startMode);
 
                 int result = await RunManualPickerSequenceAsync(context, kind, options, ct).ConfigureAwait(false);
                 return result == 0;
@@ -514,10 +540,11 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             }
         }
 
-        private PickerSequenceOptions BuildManualSequenceOptions(MachineSequenceContext context, SequenceRunMode mode)
+        private PickerSequenceOptions BuildManualSequenceOptions(MachineSequenceContext context, SequenceRunMode mode, SequenceStartMode startMode)
         {
             PickerSequenceOptions options = PickerSequenceOptions.Default();
             options.RunMode = mode;
+            options.StartMode = startMode;
             options.SimulateVisionResult = IsSimulationOrDryRun(context);
             return options;
         }
@@ -534,6 +561,29 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     return true;
 
                 CDT320_Machine machine = context != null ? context.Machine : null;
+                return IsSimulationOrDryRun(machine);
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private bool IsSimulationOrDryRun(CDT320_Machine machine)
+        {
+            try
+            {
+                if (AppSettingsStore.Current != null &&
+                    (AppSettingsStore.Current.SimulationMode || AppSettingsStore.Current.DryRunMode))
+                    return true;
+
+                Form1 host = _getHost != null ? _getHost() : null;
+                if (host != null && host.Controller != null && host.Controller.GlobalDryRun)
+                    return true;
+
                 if (machine == null)
                     return false;
 
@@ -586,6 +636,14 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 case PickerManualSequenceKind.Inspect:
                     return await RunInspectionSequenceAsync(context, options, ct).ConfigureAwait(false);
 
+                // 수동 Bottom 검사 시퀀스 실행
+                case PickerManualSequenceKind.Bottom:
+                    return await RunBottomInspectionSequenceAsync(context, options, ct).ConfigureAwait(false);
+
+                // 수동 Side 검사 시퀀스 실행
+                case PickerManualSequenceKind.Side:
+                    return await RunSideInspectionSequenceAsync(context, options, ct).ConfigureAwait(false);
+
                 // 수동 플레이스 시퀀스 실행
                 case PickerManualSequenceKind.Place:
                     return await new PickerPlaceSequence(context, _side)
@@ -620,6 +678,18 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 // 검사 스텝 시퀀스 이어서 실행
                 case PickerManualSequenceKind.Inspect:
                     return await RunInspectionStepAsync(context, options, ct).ConfigureAwait(false);
+
+                // Bottom 검사 스텝 시퀀스 이어서 실행
+                case PickerManualSequenceKind.Bottom:
+                    if (_bottomInspectStepSequence == null || _bottomInspectStepSequence.IsComplete)
+                        _bottomInspectStepSequence = new PickerBottomInspectionSequence(context, _side);
+                    return await RunBottomInspectionStepAsync(options, ct).ConfigureAwait(false);
+
+                // Side 검사 스텝 시퀀스 이어서 실행
+                case PickerManualSequenceKind.Side:
+                    if (_sideInspectStepSequence == null || _sideInspectStepSequence.IsComplete)
+                        _sideInspectStepSequence = new PickerSideInspectionSequence(context, _side);
+                    return await RunSideInspectionStepAsync(options, ct).ConfigureAwait(false);
 
                 // 플레이스 스텝 시퀀스 이어서 실행
                 case PickerManualSequenceKind.Place:
@@ -677,6 +747,22 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             return sideResult;
         }
 
+        private async Task<int> RunBottomInspectionStepAsync(PickerSequenceOptions options, CancellationToken ct)
+        {
+            int result = await _bottomInspectStepSequence.RunAsync(ct, options).ConfigureAwait(false);
+            if (_bottomInspectStepSequence.IsComplete)
+                _bottomInspectStepSequence = null;
+            return result;
+        }
+
+        private async Task<int> RunSideInspectionStepAsync(PickerSequenceOptions options, CancellationToken ct)
+        {
+            int result = await _sideInspectStepSequence.RunAsync(ct, options).ConfigureAwait(false);
+            if (_sideInspectStepSequence.IsComplete)
+                _sideInspectStepSequence = null;
+            return result;
+        }
+
         private async Task<int> RunPlaceStepAsync(PickerSequenceOptions options, CancellationToken ct)
         {
             int result = await _placeStepSequence.RunAsync(ct, options).ConfigureAwait(false);
@@ -696,6 +782,26 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             if (bottomResult != 0)
                 return bottomResult;
 
+            return await new PickerSideInspectionSequence(context, _side)
+                .RunAsync(ct, options)
+                .ConfigureAwait(false);
+        }
+
+        private async Task<int> RunBottomInspectionSequenceAsync(
+            MachineSequenceContext context,
+            PickerSequenceOptions options,
+            CancellationToken ct)
+        {
+            return await new PickerBottomInspectionSequence(context, _side)
+                .RunAsync(ct, options)
+                .ConfigureAwait(false);
+        }
+
+        private async Task<int> RunSideInspectionSequenceAsync(
+            MachineSequenceContext context,
+            PickerSequenceOptions options,
+            CancellationToken ct)
+        {
             return await new PickerSideInspectionSequence(context, _side)
                 .RunAsync(ct, options)
                 .ConfigureAwait(false);
@@ -809,7 +915,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             finally
             {
                 await Task.Delay(50).ConfigureAwait(true);
-                SetButtonsEnabled(true);
+                _manualSequenceRunning = false;
+                SetButtonsEnabledSafe(true);
+                RefreshSafe();
             }
         }
 
@@ -869,6 +977,23 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             });
         }
 
+        private void TrySaveMaterialStateAfterManualSequence(string actionName)
+        {
+            try
+            {
+                bool saved = MaterialStateService.TryNotifyAndSave("PickerManualSequenceFinally:" + actionName);
+                if (!saved)
+                    WriteAlarm(actionName + " 종료 시 Material 상태 저장 실패. 저장 파일과 Alarm/Event Log를 확인하세요.");
+            }
+            catch (Exception ex)
+            {
+                WriteAlarm(actionName + " 종료 시 Material 상태 저장 예외: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
         private void ShowFailure(string actionName)
         {
             string message = SequenceFailureStore.BuildManualFailureMessage(
@@ -877,9 +1002,40 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             QMC.Common.MessageDialog.Show(_owner, message, SideName, MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
 
-        private bool ConfirmAction(string actionName)
+        private bool SelectManualSequenceStartMode(string actionName, out SequenceStartMode startMode)
         {
-            return QMC.Common.MessageDialog.Show(_owner, actionName + " 진행하시겠습니까?", SideName, MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes;
+            startMode = SequenceStartMode.Resume;
+
+            string message =
+                actionName + " 시작 방식을 선택하세요.\r\n\r\n" +
+                "[예] 처음부터 시작\r\n" +
+                "[아니오] 현재 스텝에서 진행";
+
+            DialogResult result = QMC.Common.MessageDialog.Show(
+                _owner,
+                message,
+                SideName,
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question);
+
+            if (result == DialogResult.Yes)
+            {
+                startMode = SequenceStartMode.Restart;
+                return true;
+            }
+
+            if (result == DialogResult.No)
+            {
+                startMode = SequenceStartMode.Resume;
+                return true;
+            }
+
+            return false;
+        }
+
+        private string FormatStartMode(SequenceStartMode startMode)
+        {
+            return startMode == SequenceStartMode.Restart ? "처음부터" : "현재스텝";
         }
 
         private void SetButtonsEnabled(bool enabled)
@@ -898,11 +1054,128 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             _btnStop.Enabled = !enabled || _manualSequenceRunning;
         }
 
+        private void SetButtonsEnabledSafe(bool enabled)
+        {
+            try
+            {
+                if (_owner == null || _owner.IsDisposed)
+                    return;
+
+                if (_owner.InvokeRequired)
+                {
+                    _owner.BeginInvoke(new Action(() => SetButtonsEnabled(enabled)));
+                    return;
+                }
+
+                SetButtonsEnabled(enabled);
+            }
+            catch (Exception ex)
+            {
+                WriteAlarm("메뉴얼 시퀀스 버튼 상태 복구 실패: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private void RefreshSafe()
+        {
+            try
+            {
+                if (_owner == null || _owner.IsDisposed)
+                    return;
+
+                if (_owner.InvokeRequired)
+                {
+                    _owner.BeginInvoke(new Action(Refresh));
+                    return;
+                }
+
+                Refresh();
+            }
+            catch (Exception ex)
+            {
+                WriteAlarm("메뉴얼 시퀀스 화면 갱신 실패: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
         private string ResolveHeadState(CDT320_Machine machine, int pickerNo, bool flow)
+        {
+            return ResolveHeadState(machine, pickerNo, flow, null);
+        }
+
+        private string ResolveHeadState(CDT320_Machine machine, int pickerNo, bool flow, DieMaterial pickedDie)
         {
             if (!UsePicker(machine, pickerNo))
                 return "DISABLE";
-            return flow ? "PICK" : "EMPTY";
+
+            DieMaterial die = pickedDie ?? GetPickedDieMaterial(pickerNo);
+            if (die != null)
+                return "PICK / " + FormatDieShortId(die.DieId);
+
+            return flow ? "PICK(SENSOR)" : "EMPTY";
+        }
+
+        private static bool IsPickedHeadState(string headState)
+        {
+            try
+            {
+                return !string.IsNullOrWhiteSpace(headState) &&
+                       headState.StartsWith("PICK", StringComparison.OrdinalIgnoreCase);
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private DieMaterial GetPickedDieMaterial(int pickerNo)
+        {
+            try
+            {
+                MaterialLocationKind location = _side == PickerSequenceSide.Front
+                    ? MaterialLocationKind.PickerFront
+                    : MaterialLocationKind.PickerRear;
+
+                return MaterialStateService.GetDieAtPicker(location, pickerNo);
+            }
+            catch (Exception ex)
+            {
+                WriteAlarm("픽커 Material 상태 조회 실패: pickerNo=" + pickerNo + ", error=" + ex.Message);
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
+        private static string FormatDieShortId(string dieId)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(dieId))
+                    return "-";
+
+                string value = dieId.Trim();
+                int dieMarker = value.LastIndexOf("-D", StringComparison.OrdinalIgnoreCase);
+                if (dieMarker >= 0 && dieMarker + 1 < value.Length)
+                    return value.Substring(dieMarker + 1);
+
+                return value.Length > 12 ? value.Substring(value.Length - 12) : value;
+            }
+            catch
+            {
+                return dieId ?? "-";
+            }
+            finally
+            {
+            }
         }
 
         private string ResolveHeadZone(CDT320_Machine machine)
@@ -924,8 +1197,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     return "INPUT";
                 if (IsAnyPickerInDiePickPosition(machine))
                     return "PICK";
-                if (IsAnyPickerInDieProcessPosition(machine))
-                    return "INSPECT";
+                if (IsAnyPickerInDieBottomZone(machine))
+                    return "INSPECT_B";
+                if (IsAnyPickerInDieSideZone(machine))
+                    return "INSPECT_S";
                 if (IsAnyPickerInDiePlacePosition(machine))
                     return "PLACE";
                 if (machine.PickerFrontUnit.IsPickerInUnloadPosition())
@@ -940,8 +1215,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     return "INPUT";
                 if (IsAnyPickerInDiePickPosition(machine))
                     return "PICK";
-                if (IsAnyPickerInDieProcessPosition(machine))
-                    return "INSPECT";
+                if (IsAnyPickerInDieBottomZone(machine))
+                    return "INSPECT_B";
+                if (IsAnyPickerInDieSideZone(machine))
+                    return "INSPECT_S";
                 if (IsAnyPickerInDiePlacePosition(machine))
                     return "PLACE";
                 if (machine.PickerRearUnit.IsPickerInUnloadPosition())
@@ -966,13 +1243,26 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             return false;
         }
 
-        private bool IsAnyPickerInDieProcessPosition(CDT320_Machine machine)
+        private bool IsAnyPickerInDieBottomZone(CDT320_Machine machine)
         {
             for (int pickerNo = 1; pickerNo <= 4; pickerNo++)
             {
-                if (_side == PickerSequenceSide.Front && machine.PickerFrontUnit != null && machine.PickerFrontUnit.IsPickerInDieProcessPosition(pickerNo))
+                if (_side == PickerSequenceSide.Front && machine.PickerFrontUnit != null && machine.PickerFrontUnit.IsPickerInDieBottomZone(pickerNo))
                     return true;
-                if (_side == PickerSequenceSide.Rear && machine.PickerRearUnit != null && machine.PickerRearUnit.IsPickerInDieProcessPosition(pickerNo))
+                if (_side == PickerSequenceSide.Rear && machine.PickerRearUnit != null && machine.PickerRearUnit.IsPickerInDieBottomZone(pickerNo))
+                    return true;
+            }
+
+            return false;
+        }
+
+        private bool IsAnyPickerInDieSideZone(CDT320_Machine machine)
+        {
+            for (int pickerNo = 1; pickerNo <= 4; pickerNo++)
+            {
+                if (_side == PickerSequenceSide.Front && machine.PickerFrontUnit != null && machine.PickerFrontUnit.IsPickerInDieSideZone(pickerNo))
+                    return true;
+                if (_side == PickerSequenceSide.Rear && machine.PickerRearUnit != null && machine.PickerRearUnit.IsPickerInDieSideZone(pickerNo))
                     return true;
             }
 
@@ -1008,7 +1298,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     break;
                 // 작업 영역 표시
                 case "PICK":
-                case "INSPECT":
+                case "INSPECT_B":
+                case "INSPECT_S":
                 case "PLACE":
                 case "OUTPUT":
                     _lblHeadZoneValue.BackColor = Color.FromArgb(217, 119, 6);

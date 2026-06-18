@@ -126,7 +126,7 @@ namespace QMC.CDT320.Sequencing
                 if (_receiveTarget == null)
                     return Fail("OUT-STAGE-RECEIVE-TARGET", "Material", "Output stage receive target was not found. side=" + _targetSide);
 
-                double baseY = ResolveSideTarget(_targetSide, "Load");
+                double baseY = ResolveSideTarget(_targetSide, "Process");
                 _targetY = baseY + _receiveTarget.OffsetY + Options.TpuOffsetY + Options.VisionOffsetY;
 
                 CurrentStep = OutputStageReceiveDieStep.MoveOppositeStageZToAvoid;

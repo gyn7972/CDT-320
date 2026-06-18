@@ -37,7 +37,7 @@ namespace QMC.CDT320.Sequencing
                         return Task.FromResult(CheckUnit(InputStageMoveAvoidStep.MoveAvoidPosition));
                     // 어보이드 위치 이동
                     case InputStageMoveAvoidStep.MoveAvoidPosition:
-                        return MoveAvoidPositionAsync();
+                        return MoveAvoidPositionAsync(ct);
                     default:
                         return Task.FromResult(FailUnsupportedStep());
                 }

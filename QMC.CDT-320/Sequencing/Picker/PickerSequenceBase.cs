@@ -91,6 +91,24 @@ namespace QMC.CDT320.Sequencing
             return Options != null && Options.ResourceTimeoutMs > 0 ? Options.ResourceTimeoutMs : 30000;
         }
 
+        protected void SaveRuntimeState(string reason)
+        {
+            try
+            {
+                if (Context == null || Context.Controller == null)
+                    return;
+
+                Context.Controller.SaveMachineRuntimeState(reason);
+            }
+            catch (Exception ex)
+            {
+                WriteLog("SaveRuntimeState", Name + " runtime state save failed. reason=" + reason + ", error=" + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
         protected int ResolvePickerNo()
         {
             int pickerNo = Options != null && Options.PickerNo > 0 ? Options.PickerNo : 1;
@@ -276,7 +294,7 @@ namespace QMC.CDT320.Sequencing
 
                 int result = await MovePickerAxisCommandAsync(axis, target, targetName).ConfigureAwait(false);
                 if (result != 0)
-                    return Fail("PICKER-MOVE-CMD", Name, description + " move command failed. result=" + result + ", " + BuildPickerAxisState(axis, target));
+                    return Fail("PICKER-MOVE-CMD", Name, BuildPickerMoveCommandFailureMessage(axis, target, description, result));
 
                 AxisMoveWaitResult waitResult = await WaitPickerAxisMoveDoneAsync(axis, target, ResolveTimeout(), ct).ConfigureAwait(false);
                 if (waitResult == null || !waitResult.Success)
@@ -343,7 +361,7 @@ namespace QMC.CDT320.Sequencing
                     {
                         KeyValuePair<PickerAxis, double> pair = commandTargets[commandIndex];
                         if (commandResults[commandIndex] != 0)
-                            return Fail("PICKER-MOVE-CMD", Name, description + " move command failed. result=" + commandResults[commandIndex] + ", " + BuildPickerAxisState(pair.Key, pair.Value));
+                            return Fail("PICKER-MOVE-CMD", Name, BuildPickerMoveCommandFailureMessage(pair.Key, pair.Value, description, commandResults[commandIndex]));
                     }
 
                     var waitTasks = new List<Task<AxisMoveWaitResult>>();
@@ -437,6 +455,92 @@ namespace QMC.CDT320.Sequencing
             targets[PickerAxis.PickerZ2] = GetPickerTeachingPosition(PickerAxis.PickerZ2, positionName);
             targets[PickerAxis.PickerZ3] = GetPickerTeachingPosition(PickerAxis.PickerZ3, positionName);
             return MovePickerAxesAndVerifyAsync(targets, description, ct, positionName);
+        }
+
+        protected async Task<int> MoveCurrentPickerToAvoidAndVerifyAsync(string description, CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                int result = await MoveAllPickerZToAvoidAndVerifyAsync(
+                    description + " Z축 Avoid",
+                    ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await MovePickerAxisAndVerifyAsync(
+                    PickerAxis.PickerY,
+                    GetPickerTeachingPosition(PickerAxis.PickerY, "AvoidPosition"),
+                    description + " Y축 Avoid",
+                    ct,
+                    "AvoidPosition;PickerPhase=SafeY").ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await MovePickerAxisAndVerifyAsync(
+                    PickerAxis.PickerX,
+                    GetPickerTeachingPosition(PickerAxis.PickerX, "AvoidPosition"),
+                    description + " X축 Avoid",
+                    ct,
+                    "AvoidPosition;PickerPhase=SafeX").ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                var tTargets = new Dictionary<PickerAxis, double>();
+                tTargets[PickerAxis.PickerT0] = GetPickerTeachingPosition(PickerAxis.PickerT0, "AvoidPosition");
+                tTargets[PickerAxis.PickerT1] = GetPickerTeachingPosition(PickerAxis.PickerT1, "AvoidPosition");
+                tTargets[PickerAxis.PickerT2] = GetPickerTeachingPosition(PickerAxis.PickerT2, "AvoidPosition");
+                tTargets[PickerAxis.PickerT3] = GetPickerTeachingPosition(PickerAxis.PickerT3, "AvoidPosition");
+
+                result = await MovePickerAxesAndVerifyAsync(
+                    tTargets,
+                    description + " T축 Avoid",
+                    ct,
+                    "AvoidPosition;PickerPhase=SafeT").ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                PickerAxis[] finalAxes =
+                {
+                    PickerAxis.PickerX,
+                    PickerAxis.PickerY,
+                    PickerAxis.PickerT0,
+                    PickerAxis.PickerT1,
+                    PickerAxis.PickerT2,
+                    PickerAxis.PickerT3,
+                    PickerAxis.PickerZ0,
+                    PickerAxis.PickerZ1,
+                    PickerAxis.PickerZ2,
+                    PickerAxis.PickerZ3
+                };
+
+                foreach (PickerAxis axis in finalAxes)
+                {
+                    double target = GetPickerTeachingPosition(axis, "AvoidPosition");
+                    if (!IsPickerAxisInPosition(axis, target))
+                    {
+                        return Fail("PICKER-AVOID-FINAL-POS", Name,
+                            description + " 최종 Avoid 위치 확인 실패. " +
+                            BuildPickerAxisState(axis, target));
+                    }
+                }
+
+                ct.ThrowIfCancellationRequested();
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-AVOID-EX", Name,
+                    description + " Avoid 이동 중 예외 발생: " + ex.Message);
+            }
+            finally
+            {
+            }
         }
 
         protected async Task<int> MoveOppositePickerToAvoidAndVerifyAsync(string description, CancellationToken ct)
@@ -671,6 +775,125 @@ namespace QMC.CDT320.Sequencing
                    ", tolerance=" + tolerance;
         }
 
+        protected string BuildPickerMoveCommandFailureMessage(
+            PickerAxis axis,
+            double target,
+            string description,
+            int result)
+        {
+            string message =
+                TranslatePickerMoveDescription(description) +
+                " 이동 명령 실패. 결과=" + result +
+                ". " + BuildPickerAxisStateKorean(axis, target);
+
+            string failureReason = BuildPickerLastMotionFailureReason(axis, result);
+            if (!string.IsNullOrWhiteSpace(failureReason))
+                message += ". " + failureReason;
+
+            return message;
+        }
+
+        private string BuildPickerAxisStateKorean(PickerAxis axis, double target)
+        {
+            BaseAxis item = GetPickerAxis(axis);
+            if (item == null)
+                return "축=" + axis + ", 목표위치=" + target + ", 상태=축을 찾을 수 없음";
+
+            double tolerance = item.Config != null && item.Config.InPositionTolerance > 0.0
+                ? item.Config.InPositionTolerance
+                : 0.001;
+
+            return "축=" + axis +
+                   ", 축이름=" + item.Name +
+                   ", 서보=" + (item.IsServoOn ? "ON" : "OFF") +
+                   ", 알람=" + (item.IsAlarm ? "ON" : "OFF") +
+                   ", 이동중=" + (item.IsMoving ? "Y" : "N") +
+                   ", 현재위치=" + item.ActualPosition +
+                   ", 목표위치=" + target +
+                   ", 허용오차=" + tolerance;
+        }
+
+        private string BuildPickerLastMotionFailureReason(PickerAxis axis, int result)
+        {
+            BaseAxis item = GetPickerAxis(axis);
+            string lastFailure = item != null ? item.LastMotionFailureMessage : string.Empty;
+
+            if (!string.IsNullOrWhiteSpace(lastFailure))
+                return TranslateMotionFailureReason(lastFailure);
+
+            if (result == -11)
+            {
+                if (axis == PickerAxis.PickerX)
+                {
+                    return "상세 원인=인터락 차단입니다. PickerX는 공유 X 레일 축이라 이동 목표 위치 또는 이동 경로에서 " +
+                           "InputVisionX, OutputVisionX, FrontPickerX, RearPickerX 중 다른 축과 안전거리가 부족하면 이동이 차단됩니다. " +
+                           "방해 축을 Avoid 위치로 이동하거나 Side/Bottom/Place 티칭 위치와 공유 레일 안전거리 설정을 확인하세요.";
+                }
+
+                return "상세 원인=인터락 차단입니다. 해당 축의 이동 조건, 상대 축 위치, 실린더 상태를 확인하세요.";
+            }
+
+            if (result == -2)
+                return "상세 원인=축 이동 준비 조건이 맞지 않습니다. 서보 ON, 알람 OFF, 이동중 여부를 확인하세요.";
+
+            return string.Empty;
+        }
+
+        private static string TranslateMotionFailureReason(string failure)
+        {
+            if (string.IsNullOrWhiteSpace(failure))
+                return string.Empty;
+
+            if (failure.IndexOf("SharedRailX pair clearance is too close", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return "상세 원인=공유 X 레일 안전거리 인터락입니다. 이동 목표 위치에서 다른 X축과 안전거리가 부족하거나 경로가 겹칩니다. " +
+                       "InputVisionX, OutputVisionX, FrontPickerX, RearPickerX 위치를 확인하세요. 원문=" + failure;
+            }
+
+            if (failure.IndexOf("Interlock blocked", StringComparison.OrdinalIgnoreCase) >= 0)
+                return "상세 원인=인터락 차단입니다. 원문=" + failure;
+
+            if (failure.IndexOf("Servo is OFF", StringComparison.OrdinalIgnoreCase) >= 0)
+                return "상세 원인=서보가 OFF 상태입니다. 원문=" + failure;
+
+            if (failure.IndexOf("Axis alarm is ON", StringComparison.OrdinalIgnoreCase) >= 0)
+                return "상세 원인=축 알람이 ON 상태입니다. 원문=" + failure;
+
+            if (failure.IndexOf("Axis is already moving", StringComparison.OrdinalIgnoreCase) >= 0)
+                return "상세 원인=축이 이미 이동 중입니다. 원문=" + failure;
+
+            return "상세 원인=" + failure;
+        }
+
+        private static string TranslatePickerMoveDescription(string description)
+        {
+            if (string.IsNullOrWhiteSpace(description))
+                return "Picker 축";
+
+            if (description.IndexOf("side inspection X", StringComparison.OrdinalIgnoreCase) >= 0)
+                return "사이드 검사 X축";
+            if (description.IndexOf("side inspection Y", StringComparison.OrdinalIgnoreCase) >= 0)
+                return "사이드 검사 Y축";
+            if (description.IndexOf("side inspection Z", StringComparison.OrdinalIgnoreCase) >= 0)
+                return "사이드 검사 Z축";
+            if (description.IndexOf("side inspection T", StringComparison.OrdinalIgnoreCase) >= 0)
+                return "사이드 검사 T축";
+            if (description.IndexOf("bottom inspection X", StringComparison.OrdinalIgnoreCase) >= 0)
+                return "바텀 검사 X축";
+            if (description.IndexOf("bottom inspection Y", StringComparison.OrdinalIgnoreCase) >= 0)
+                return "바텀 검사 Y축";
+            if (description.IndexOf("bottom inspection Z", StringComparison.OrdinalIgnoreCase) >= 0)
+                return "바텀 검사 Z축";
+            if (description.IndexOf("bottom inspection T", StringComparison.OrdinalIgnoreCase) >= 0)
+                return "바텀 검사 T축";
+            if (description.IndexOf("pick", StringComparison.OrdinalIgnoreCase) >= 0)
+                return "픽업 " + description;
+            if (description.IndexOf("place", StringComparison.OrdinalIgnoreCase) >= 0)
+                return "플레이스 " + description;
+
+            return description;
+        }
+
         protected string BuildRequiredPickerAxesReason()
         {
             PickerAxis[] axes =
@@ -877,6 +1100,18 @@ namespace QMC.CDT320.Sequencing
                 out reason);
         }
 
+        protected bool TryResolveOutputVisionToPickerOffsets(BinSide outputSide, int index, out double offsetX, out double offsetY, out string reason)
+        {
+            return PickerCoordinateTransformHelper.TryResolveOutputVisionToPickerOffsets(
+                Context != null ? Context.Machine : null,
+                Side,
+                index,
+                outputSide,
+                out offsetX,
+                out offsetY,
+                out reason);
+        }
+
         private PickerAlignOffset ResolvePickerAlignOffset(int index)
         {
             if (index < 0)
@@ -889,6 +1124,131 @@ namespace QMC.CDT320.Sequencing
                 return RearPicker.GetRuntimePickerOffset(index);
 
             return null;
+        }
+
+        protected InspectionAlignmentSnapshot BuildPickerAlignmentSnapshot(
+            string name,
+            int pickerIndex,
+            double targetX,
+            double targetY,
+            double targetT,
+            double targetZ,
+            VisionOffset offset)
+        {
+            try
+            {
+                BaseAxis xAxis = GetPickerAxis(PickerAxis.PickerX);
+                BaseAxis yAxis = GetPickerAxis(PickerAxis.PickerY);
+                BaseAxis tAxis = GetPickerAxis(GetPickerTAxis(pickerIndex));
+                BaseAxis zAxis = GetPickerAxis(GetPickerZAxis(pickerIndex));
+
+                return new InspectionAlignmentSnapshot
+                {
+                    Name = name ?? "",
+                    X = xAxis != null ? xAxis.ActualPosition : targetX,
+                    Y = yAxis != null ? yAxis.ActualPosition : targetY,
+                    T = tAxis != null ? tAxis.ActualPosition : targetT,
+                    Z = zAxis != null ? zAxis.ActualPosition : targetZ,
+                    XAxisName = xAxis != null ? xAxis.Name : "PickerX",
+                    YAxisName = yAxis != null ? yAxis.Name : "PickerY",
+                    TAxisName = tAxis != null ? tAxis.Name : GetPickerTAxis(pickerIndex).ToString(),
+                    ZAxisName = zAxis != null ? zAxis.Name : GetPickerZAxis(pickerIndex).ToString(),
+                    Offset = offset ?? new VisionOffset(),
+                    IsValid = true
+                };
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PickerInspectionData",
+                    Name + " picker alignment snapshot failed. snapshot=" +
+                    name + ", error=" + ex.Message + " - Failed");
+                return new InspectionAlignmentSnapshot
+                {
+                    Name = name ?? "",
+                    X = targetX,
+                    Y = targetY,
+                    T = targetT,
+                    Z = targetZ,
+                    Offset = offset ?? new VisionOffset(),
+                    IsValid = false
+                };
+            }
+            finally
+            {
+            }
+        }
+
+        protected InspectionAlignmentSnapshot BuildInputStageAlignmentSnapshot(
+            InputStageUnit stage,
+            string name,
+            VisionOffset offset)
+        {
+            try
+            {
+                BaseAxis xAxis = stage != null ? stage.CameraX : null;
+                BaseAxis yAxis = stage != null ? stage.StageY : null;
+                BaseAxis tAxis = stage != null ? stage.StageT : null;
+                BaseAxis zAxis = stage != null ? stage.ExpanderZ : null;
+
+                return new InspectionAlignmentSnapshot
+                {
+                    Name = name ?? "",
+                    X = xAxis != null ? xAxis.ActualPosition : 0.0,
+                    Y = yAxis != null ? yAxis.ActualPosition : 0.0,
+                    T = tAxis != null ? tAxis.ActualPosition : 0.0,
+                    Z = zAxis != null ? zAxis.ActualPosition : 0.0,
+                    XAxisName = xAxis != null ? xAxis.Name : "InputVisionX",
+                    YAxisName = yAxis != null ? yAxis.Name : "InputStageY",
+                    TAxisName = tAxis != null ? tAxis.Name : "InputStageT",
+                    ZAxisName = zAxis != null ? zAxis.Name : "InputExpandingZ",
+                    Offset = offset ?? new VisionOffset(),
+                    IsValid = stage != null
+                };
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PickerInspectionData",
+                    Name + " input alignment snapshot failed. snapshot=" +
+                    name + ", error=" + ex.Message + " - Failed");
+                return new InspectionAlignmentSnapshot
+                {
+                    Name = name ?? "",
+                    Offset = offset ?? new VisionOffset(),
+                    IsValid = false
+                };
+            }
+            finally
+            {
+            }
+        }
+
+        protected static InspectionMeasurement BuildMeasurement(
+            string name,
+            double value,
+            string unit,
+            MaterialInspectionResult result,
+            string rawValue = "")
+        {
+            return new InspectionMeasurement
+            {
+                Name = name ?? "",
+                Value = value,
+                Unit = unit ?? "",
+                RawValue = rawValue ?? "",
+                Result = result
+            };
+        }
+
+        protected static InspectionMeasurement BuildBooleanMeasurement(string name, bool ok)
+        {
+            return new InspectionMeasurement
+            {
+                Name = name ?? "",
+                Value = ok ? 1.0 : 0.0,
+                Unit = "bool",
+                RawValue = ok ? "OK" : "NG",
+                Result = ok ? MaterialInspectionResult.Ok : MaterialInspectionResult.Ng
+            };
         }
 
         protected async Task<SequenceResourceLease> AcquireResourceAsync(

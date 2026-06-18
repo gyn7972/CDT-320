@@ -24,6 +24,9 @@ namespace QMC.CDT320.Sequencing
         private double _targetPickerZ;
         private double _targetPickerT0;
         private double _targetPickerT90;
+        private double _targetPickerT180;
+        private bool _inspectionYPositionReady;
+        private bool _sideZoneEntryReady;
         private SequenceResourceLease _inspectionAreaLease;
 
         public PickerSideInspectionSequence(MachineSequenceContext context, PickerSequenceSide side)
@@ -114,9 +117,16 @@ namespace QMC.CDT320.Sequencing
                 case PickerSideInspectionStep.SelectNextPicker:
                     return Task.FromResult(SelectNextPicker());
 
+                // Bottom/다른 존에서 Side 존으로 들어가기 전 Y 어보이드 이동
+                case PickerSideInspectionStep.MoveSideEntryYToAvoid:
+                    return MoveSideEntryYToAvoidAsync(ct);
+
                 // 사이드 XY 이동
-                case PickerSideInspectionStep.MoveSideXY:
-                    return MoveSideXYAsync(ct);
+                case PickerSideInspectionStep.MoveSideXToInspection:
+                    return MoveSideXToInspectionAsync(ct);
+
+                case PickerSideInspectionStep.MoveSideYToInspection:
+                    return MoveSideYToInspectionAsync(ct);
 
                 // 사이드 Z 이동
                 case PickerSideInspectionStep.MoveSideZ:
@@ -138,6 +148,10 @@ namespace QMC.CDT320.Sequencing
                 case PickerSideInspectionStep.RequestSide90Inspection:
                     return RequestSide90InspectionAsync(ct);
 
+                // 사이드 T 180 이동
+                case PickerSideInspectionStep.MoveSideT180:
+                    return MoveSideT180Async(ct);
+
                 // 사이드 검사 결과 적용
                 case PickerSideInspectionStep.ApplySideInspectionResult:
                     return Task.FromResult(ApplySideInspectionResult());
@@ -151,8 +165,11 @@ namespace QMC.CDT320.Sequencing
                     return MoveSideTToSafeAsync(ct);
 
                 // 사이드 XY로 어보이드 이동
-                case PickerSideInspectionStep.MoveSideXYToAvoid:
-                    return MoveSideXYToAvoidAsync(ct);
+                case PickerSideInspectionStep.MoveSideYToAvoid:
+                    return MoveSideYToAvoidAsync(ct);
+
+                case PickerSideInspectionStep.MoveSideXToAvoid:
+                    return MoveSideXToAvoidAsync(ct);
 
                 // 다음 피커 또는 완료 선택
                 case PickerSideInspectionStep.SelectNextPickerOrComplete:
@@ -186,6 +203,8 @@ namespace QMC.CDT320.Sequencing
             _pickedPickerIndexes.AddRange(BuildLoadedPickerIndexesInRunOrder("PickerSideInspectionSequence"));
 
             _pickerCursor = 0;
+            _inspectionYPositionReady = false;
+            _sideZoneEntryReady = false;
 
             if (_pickedPickerIndexes.Count == 0)
             {
@@ -244,27 +263,96 @@ namespace QMC.CDT320.Sequencing
             _targetPickerT0 = GetPickerTeachingPosition(GetPickerTAxis(_currentPickerIndex), "SidePosition") +
                 ResolvePickerAlignOffsetT(_currentPickerIndex);
             _targetPickerT90 = _targetPickerT0 + 90.0;
+            _targetPickerT180 = _targetPickerT0 + 180.0;
 
-            CurrentStep = PickerSideInspectionStep.MoveSideXY;
+            bool xPositionReady = IsPickerAxisInPosition(PickerAxis.PickerX, _targetPickerX);
+            _inspectionYPositionReady = IsPickerAxisInPosition(PickerAxis.PickerY, _targetPickerY);
+
+            if (xPositionReady)
+            {
+                _sideZoneEntryReady = true;
+                CurrentStep = _inspectionYPositionReady
+                    ? PickerSideInspectionStep.MoveSideZ
+                    : PickerSideInspectionStep.MoveSideYToInspection;
+                return 0;
+            }
+
+            if (!_sideZoneEntryReady && !IsPickerYAtAvoidPosition())
+            {
+                CurrentStep = PickerSideInspectionStep.MoveSideEntryYToAvoid;
+                return 0;
+            }
+
+            CurrentStep = _inspectionYPositionReady
+                ? PickerSideInspectionStep.MoveSideXToInspection
+                : PickerSideInspectionStep.MoveSideYToInspection;
             return 0;
         }
 
-        private async Task<int> MoveSideXYAsync(CancellationToken ct)
+        private async Task<int> MoveSideEntryYToAvoidAsync(CancellationToken ct)
         {
-            var targets = new Dictionary<PickerAxis, double>();
-            targets[PickerAxis.PickerX] = _targetPickerX;
-            targets[PickerAxis.PickerY] = _targetPickerY;
+            double target = GetPickerTeachingPosition(PickerAxis.PickerY, "AvoidPosition");
+            int result = await MovePickerAxisAndVerifyAsync(
+                PickerAxis.PickerY,
+                target,
+                "사이드 진입 전 PickerY 어보이드",
+                ct,
+                "AvoidPosition").ConfigureAwait(false);
+            if (result != 0)
+                return result;
 
-            int result = await MovePickerAxesAndVerifyAsync(
-                targets,
-                "side inspection XY",
+            _inspectionYPositionReady = false;
+            CurrentStep = PickerSideInspectionStep.MoveSideXToInspection;
+            return 0;
+        }
+
+        private async Task<int> MoveSideXToInspectionAsync(CancellationToken ct)
+        {
+            int result = await MovePickerAxisAndVerifyAsync(
+                PickerAxis.PickerX,
+                _targetPickerX,
+                "side inspection X",
                 ct,
                 "DieSidePosition[" + _currentPickerIndex + "]").ConfigureAwait(false);
             if (result != 0)
                 return result;
 
-            CurrentStep = PickerSideInspectionStep.MoveSideZ;
+            _sideZoneEntryReady = true;
+
+            if (_inspectionYPositionReady && IsPickerAxisInPosition(PickerAxis.PickerY, _targetPickerY))
+            {
+                CurrentStep = PickerSideInspectionStep.MoveSideZ;
+                return 0;
+            }
+
+            // 피커 간 이동에서는 Y Avoid 복귀 없이 현재 피커의 AlignOffsetY가 반영된 Y 위치만 보정한다.
+            CurrentStep = PickerSideInspectionStep.MoveSideYToInspection;
             return 0;
+        }
+
+        private async Task<int> MoveSideYToInspectionAsync(CancellationToken ct)
+        {
+            int result = await MovePickerAxisAndVerifyAsync(
+                PickerAxis.PickerY,
+                _targetPickerY,
+                "side inspection Y",
+                ct,
+                "DieSidePosition[" + _currentPickerIndex + "]").ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            _inspectionYPositionReady = true;
+
+            CurrentStep = IsPickerAxisInPosition(PickerAxis.PickerX, _targetPickerX)
+                ? PickerSideInspectionStep.MoveSideZ
+                : PickerSideInspectionStep.MoveSideXToInspection;
+            return 0;
+        }
+
+        private bool IsPickerYAtAvoidPosition()
+        {
+            double target = GetPickerTeachingPosition(PickerAxis.PickerY, "AvoidPosition");
+            return IsPickerAxisInPosition(PickerAxis.PickerY, target);
         }
 
         private async Task<int> MoveSideZAsync(CancellationToken ct)
@@ -336,6 +424,21 @@ namespace QMC.CDT320.Sequencing
                     _currentDie.DieId + ", pickerNo=" + _currentPickerNo);
             }
 
+            CurrentStep = PickerSideInspectionStep.MoveSideT180;
+            return 0;
+        }
+
+        private async Task<int> MoveSideT180Async(CancellationToken ct)
+        {
+            int result = await MovePickerAxisAndVerifyAsync(
+                GetPickerTAxis(_currentPickerIndex),
+                _targetPickerT180,
+                "side inspection T 180deg",
+                ct,
+                "DieSidePosition[" + _currentPickerIndex + "]").ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
             CurrentStep = PickerSideInspectionStep.ApplySideInspectionResult;
             return 0;
         }
@@ -349,13 +452,39 @@ namespace QMC.CDT320.Sequencing
             MaterialStateService.UpsertInspection(_currentDie.DieId, new DieInspectionRecord
             {
                 InspectionType = "Side0",
-                Result = ok0 ? MaterialInspectionResult.Ok : MaterialInspectionResult.Ng
+                Result = ok0 ? MaterialInspectionResult.Ok : MaterialInspectionResult.Ng,
+                NgCodes = ok0 ? new List<string>() : new List<string> { "SIDE0_NG" },
+                Alignments = new List<InspectionAlignmentSnapshot>
+                {
+                    BuildPickerAlignmentSnapshot(
+                        "Side0",
+                        _currentPickerIndex,
+                        _targetPickerX,
+                        _targetPickerY,
+                        _targetPickerT0,
+                        _targetPickerZ,
+                        new VisionOffset())
+                },
+                Measurements = BuildSideMeasurements(_side0Result, "Side0")
             });
 
             MaterialStateService.UpsertInspection(_currentDie.DieId, new DieInspectionRecord
             {
                 InspectionType = "Side90",
-                Result = ok90 ? MaterialInspectionResult.Ok : MaterialInspectionResult.Ng
+                Result = ok90 ? MaterialInspectionResult.Ok : MaterialInspectionResult.Ng,
+                NgCodes = ok90 ? new List<string>() : new List<string> { "SIDE90_NG" },
+                Alignments = new List<InspectionAlignmentSnapshot>
+                {
+                    BuildPickerAlignmentSnapshot(
+                        "Side90",
+                        _currentPickerIndex,
+                        _targetPickerX,
+                        _targetPickerY,
+                        _targetPickerT90,
+                        _targetPickerZ,
+                        new VisionOffset())
+                },
+                Measurements = BuildSideMeasurements(_side90Result, "Side90")
             });
 
             MaterialStateService.ApplyDieInspectionResult(
@@ -374,6 +503,23 @@ namespace QMC.CDT320.Sequencing
             return 0;
         }
 
+        private List<InspectionMeasurement> BuildSideMeasurements(SideVisionResult result, string prefix)
+        {
+            bool side1Ok = result != null && result.Side1Ok;
+            bool side2Ok = result != null && result.Side2Ok;
+            bool side3Ok = result != null && result.Side3Ok;
+            bool side4Ok = result != null && result.Side4Ok;
+
+            return new List<InspectionMeasurement>
+            {
+                BuildBooleanMeasurement(prefix + "Side1", side1Ok),
+                BuildBooleanMeasurement(prefix + "Side2", side2Ok),
+                BuildBooleanMeasurement(prefix + "Side3", side3Ok),
+                BuildBooleanMeasurement(prefix + "Side4", side4Ok),
+                BuildBooleanMeasurement(prefix + "InspectionResult", result != null && result.IsAllOk)
+            };
+        }
+
         private async Task<int> MoveSideZToAvoidAsync(CancellationToken ct)
         {
             PickerAxis zAxis = GetPickerZAxis(_currentPickerIndex);
@@ -382,7 +528,7 @@ namespace QMC.CDT320.Sequencing
             if (result != 0)
                 return result;
 
-            CurrentStep = PickerSideInspectionStep.MoveSideTToSafe;
+            CurrentStep = PickerSideInspectionStep.SelectNextPickerOrComplete;
             return 0;
         }
 
@@ -394,17 +540,35 @@ namespace QMC.CDT320.Sequencing
             if (result != 0)
                 return result;
 
-            CurrentStep = PickerSideInspectionStep.MoveSideXYToAvoid;
+            CurrentStep = PickerSideInspectionStep.MoveSideYToAvoid;
             return 0;
         }
 
-        private async Task<int> MoveSideXYToAvoidAsync(CancellationToken ct)
+        private async Task<int> MoveSideYToAvoidAsync(CancellationToken ct)
         {
-            var targets = new Dictionary<PickerAxis, double>();
-            targets[PickerAxis.PickerX] = GetPickerTeachingPosition(PickerAxis.PickerX, "AvoidPosition");
-            targets[PickerAxis.PickerY] = GetPickerTeachingPosition(PickerAxis.PickerY, "AvoidPosition");
+            double target = GetPickerTeachingPosition(PickerAxis.PickerY, "AvoidPosition");
+            int result = await MovePickerAxisAndVerifyAsync(
+                PickerAxis.PickerY,
+                target,
+                "side inspection Y avoid",
+                ct,
+                "AvoidPosition").ConfigureAwait(false);
+            if (result != 0)
+                return result;
 
-            int result = await MovePickerAxesAndVerifyAsync(targets, "side inspection XY avoid", ct, "AvoidPosition").ConfigureAwait(false);
+            CurrentStep = PickerSideInspectionStep.MoveSideXToAvoid;
+            return 0;
+        }
+
+        private async Task<int> MoveSideXToAvoidAsync(CancellationToken ct)
+        {
+            double target = GetPickerTeachingPosition(PickerAxis.PickerX, "AvoidPosition");
+            int result = await MovePickerAxisAndVerifyAsync(
+                PickerAxis.PickerX,
+                target,
+                "side inspection X avoid",
+                ct,
+                "AvoidPosition").ConfigureAwait(false);
             if (result != 0)
                 return result;
 

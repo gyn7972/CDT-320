@@ -17,6 +17,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
     {
         private System.Windows.Forms.Timer _timer;
         private bool _manualSequenceRunning;
+        private SequenceStartMode _manualSequenceStartMode = SequenceStartMode.Resume;
         private BinSide _selectedMaterialSide = BinSide.Good;
 
         public OutputStagePage()
@@ -95,6 +96,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private async Task RunSequenceAction(string actionName, Func<Form1, Task<bool>> action)
         {
             IDisposable manualScope = null;
+            bool showFailure = false;
+            string exceptionMessage = null;
             try
             {
                 Form1 host = GetHost();
@@ -103,6 +106,8 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 if (_manualSequenceRunning)
                     return;
                 if (!ConfirmAction(actionName))
+                    return;
+                if (!TryAskManualSequenceStartMode(actionName, out _manualSequenceStartMode))
                     return;
 
                 _manualSequenceRunning = true;
@@ -126,10 +131,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 WriteEvent("OUTPUT-STAGE-ACTION", actionName + " result=" + ok);
                 if (!ok)
                 {
-                    string message = SequenceFailureStore.BuildManualFailureMessage(
-                        actionName,
-                        actionName + " 실패\r\nAlarm/Event Log를 확인하세요.");
-                    QMC.Common.MessageDialog.Show(this, message, "Output Stage", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    showFailure = true;
                 }
             }
             catch (OperationCanceledException)
@@ -139,18 +141,38 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             catch (Exception ex)
             {
                 WriteAlarm("OUTPUT-STAGE-ACTION-EX", actionName + " failed: " + ex.Message);
-                QMC.Common.MessageDialog.Show(this, ex.Message, "Output Stage", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                exceptionMessage = ex.Message;
             }
             finally
             {
-                if (manualScope != null)
-                    manualScope.Dispose();
-
-                _manualSequenceRunning = false;
-                SetSequenceButtonsEnabled(true);
-                RefreshData();
-                BeginRestoreSequenceButtons();
+                try
+                {
+                    if (manualScope != null)
+                        manualScope.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    WriteAlarm("OUTPUT-STAGE-MANUAL-CLEANUP", "Output Stage 수동 시컨스 정리 중 오류: " + ex.Message);
+                }
+                finally
+                {
+                    _manualSequenceRunning = false;
+                    try { SetSequenceButtonsEnabled(true); } catch (Exception ex) { WriteAlarm("OUTPUT-STAGE-BUTTON-RESTORE", "Output Stage 버튼 복구 실패: " + ex.Message); }
+                    try { RefreshData(); } catch (Exception ex) { WriteAlarm("OUTPUT-STAGE-REFRESH", "Output Stage 화면 갱신 실패: " + ex.Message); }
+                    try { BeginRestoreSequenceButtons(); } catch (Exception ex) { WriteAlarm("OUTPUT-STAGE-BUTTON-RESTORE-DELAY", "Output Stage 버튼 지연 복구 실패: " + ex.Message); }
+                }
             }
+
+            if (showFailure)
+            {
+                string message = SequenceFailureStore.BuildManualFailureMessage(
+                    actionName,
+                    actionName + " 실패\r\nAlarm/Event Log를 확인하세요.");
+                QMC.Common.MessageDialog.Show(this, message, "Output Stage", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+
+            if (!string.IsNullOrWhiteSpace(exceptionMessage))
+                QMC.Common.MessageDialog.Show(this, exceptionMessage, "Output Stage", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
 
         private static Task WaitForCancellationAsync(CancellationToken ct)
@@ -333,7 +355,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         {
             OutputStageSequenceOptions options = OutputStageSequenceOptions.Default();
             options.RunMode = SequenceRunMode.Manual;
-            options.StartMode = SequenceStartMode.Resume;
+            options.StartMode = _manualSequenceStartMode;
             options.Side = side;
             options.Grade = grade;
             options.FineMove = false;

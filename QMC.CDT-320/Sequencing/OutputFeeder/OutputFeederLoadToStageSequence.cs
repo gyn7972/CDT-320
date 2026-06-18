@@ -230,32 +230,15 @@ namespace QMC.CDT320.Sequencing
             return 0;
         }
 
-        private async Task<int> EnsurePickerAvoidPositionAsync(CancellationToken ct)
+        private Task<int> EnsurePickerAvoidPositionAsync(CancellationToken ct)
         {
-            if (FrontPicker != null && !FrontPicker.IsFrontPickerInAvoidPosition())
-            {
-                int result = await AwaitStepWithCancellationAsync(FrontPicker.MoveToFrontPickerAvoidPosition(Options.FineMove), ct).ConfigureAwait(false);
-                if (result != 0)
-                    return Fail("OUT-FEEDER-FRONT-PICKER-AVOID", FrontPicker.Name, "FrontPicker avoid move command failed. result=" + result + ", pickerX=" + FrontPicker.PickerX.ActualPosition);
-
-                bool arrived = await WaitUntilAsync(() => FrontPicker.IsFrontPickerInAvoidPosition(), ResolveTimeout(), ct).ConfigureAwait(false);
-                if (!arrived)
-                    return Fail("OUT-FEEDER-FRONT-PICKER-AVOID", FrontPicker.Name, "FrontPicker avoid position timeout before feeder to stage load.");
-            }
-
-            if (RearPicker != null && !RearPicker.IsRearPickerInAvoidPosition())
-            {
-                int result = await AwaitStepWithCancellationAsync(RearPicker.MoveToRearPickerAvoidPosition(Options.FineMove), ct).ConfigureAwait(false);
-                if (result != 0)
-                    return Fail("OUT-FEEDER-REAR-PICKER-AVOID", RearPicker.Name, "RearPicker avoid move command failed. result=" + result + ", pickerX=" + RearPicker.PickerX.ActualPosition);
-
-                bool arrived = await WaitUntilAsync(() => RearPicker.IsRearPickerInAvoidPosition(), ResolveTimeout(), ct).ConfigureAwait(false);
-                if (!arrived)
-                    return Fail("OUT-FEEDER-REAR-PICKER-AVOID", RearPicker.Name, "RearPicker avoid position timeout before feeder to stage load.");
-            }
+            ct.ThrowIfCancellationRequested();
+            int pickerClear = CheckPickersNotInOutputZone("before feeder to stage load");
+            if (pickerClear != 0)
+                return Task.FromResult(pickerClear);
 
             CurrentStep = OutputFeederLoadToStageStep.EnsureStageMutualInterlock;
-            return 0;
+            return Task.FromResult(0);
         }
 
         private async Task<int> EnsureStageMutualInterlockAsync(CancellationToken ct)
@@ -283,10 +266,14 @@ namespace QMC.CDT320.Sequencing
         {
             int result = await AwaitStepWithCancellationAsync(Stage.MoveToStageLoadPositionAndVerifyAsync(Options.Side, ResolveTimeout(), Options.FineMove), ct).ConfigureAwait(false);
             if (result != 0)
-                return Fail("OUT-STAGE-LOAD-POS", Stage.Name, "Output stage load position move failed. side=" + Options.Side + ", result=" + result);
+                return Fail("OUT-STAGE-LOAD-POS", Stage.Name,
+                    "OutputStage Load 위치 이동 실패. side=" + Options.Side +
+                    ", result=" + result + ", " + Stage.DescribeStageLoadMoveState(Options.Side));
 
             if (!Stage.IsStageInLoadPosition(Options.Side))
-                return Fail("OUT-STAGE-LOAD-POS", Stage.Name, "Output stage is not in load position after move. side=" + Options.Side);
+                return Fail("OUT-STAGE-LOAD-POS", Stage.Name,
+                    "OutputStage가 Load 위치에 도착하지 않았습니다. side=" + Options.Side +
+                    ", " + Stage.DescribeStageLoadMoveState(Options.Side));
 
             CurrentStep = Options.Side == BinSide.Good
                 ? OutputFeederLoadToStageStep.VerifyOutputStageReceiveReady

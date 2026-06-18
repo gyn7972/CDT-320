@@ -43,6 +43,7 @@ namespace QMC.CDT_320
         private readonly Dictionary<object, bool> _unitDryRunOverrides = new Dictionary<object, bool>();
         private bool _materialSnapshotRestored;
         private bool _applicationExitRequested;
+        private bool _materialStateSavedForExit;
         private bool _topDoorClosed = true;
 
         /// <summary>상단 프로젝트명을 현재 레시피 파일명으로 갱신합니다.</summary>
@@ -804,15 +805,23 @@ namespace QMC.CDT_320
                 string savedAt = snapshot != null ? snapshot.SavedAt.ToString("yyyy-MM-dd HH:mm:ss") : "unknown";
                 string lot = ResolveMaterialSnapshotLotId(snapshot);
                 string recipe = ResolveMaterialSnapshotRecipeName(snapshot);
-                string snapshotFileName = System.IO.Path.GetFileName(MaterialSnapshotStore.SnapshotPath);
+                string snapshotPath = string.IsNullOrWhiteSpace(MaterialSnapshotStore.LastLoadedPath)
+                    ? MaterialSnapshotStore.SnapshotPath
+                    : MaterialSnapshotStore.LastLoadedPath;
+                string snapshotFileName = System.IO.Path.GetFileName(snapshotPath);
+                int waferCount = CountMaterialSnapshotWafers(snapshot);
+                int dieCount = CountMaterialSnapshotDies(snapshot);
+                int pickerDieCount = CountMaterialSnapshotPickerDies(snapshot);
 
                 var message =
                     "이전에 저장된 Material 정보가 있습니다.\r\n\r\n" +
                     "저장 시간: " + savedAt + "\r\n" +
                     "Recipe: " + (string.IsNullOrEmpty(recipe) ? "-" : recipe) + "\r\n" +
                     "Lot: " + (string.IsNullOrEmpty(lot) ? "-" : lot) + "\r\n" +
+                    "Wafer: " + waferCount + " / Die: " + dieCount + "\r\n" +
+                    "Picker 보유/예약 Die: " + pickerDieCount + "\r\n" +
                     "File: " + (string.IsNullOrEmpty(snapshotFileName) ? "-" : snapshotFileName) + "\r\n" +
-                    "Path: " + MaterialSnapshotStore.SnapshotPath + "\r\n\r\n" +
+                    "Path: " + snapshotPath + "\r\n\r\n" +
                     "[예] 기존 Material 정보를 사용합니다.\r\n" +
                     "[아니오] 초기화 후 새 Material 상태로 시작합니다.";
 
@@ -832,7 +841,7 @@ namespace QMC.CDT_320
                         Log.Write("Main", UserSession.Name, "MaterialRecovery", "Material snapshot restore failed. New empty Material state will be created. - Failed");
                         QMC.Common.MessageDialog.Show(
                             this,
-                            "Material 정보 복구에 실패했습니다.\r\n새 Material 상태로 초기화합니다.\r\n\r\nFile: " + MaterialSnapshotStore.SnapshotPath,
+                            "Material 정보 복구에 실패했습니다.\r\n새 Material 상태로 초기화합니다.\r\n\r\nFile: " + snapshotPath,
                             "Material Recovery",
                             MessageBoxButtons.OK,
                             MessageBoxIcon.Warning);
@@ -917,6 +926,71 @@ namespace QMC.CDT_320
             }
 
             return "";
+        }
+
+        private static int CountMaterialSnapshotWafers(MaterialSnapshot snapshot)
+        {
+            try
+            {
+                return snapshot != null && snapshot.Wafers != null ? snapshot.Wafers.Count : 0;
+            }
+            catch
+            {
+                return 0;
+            }
+            finally
+            {
+            }
+        }
+
+        private static int CountMaterialSnapshotDies(MaterialSnapshot snapshot)
+        {
+            try
+            {
+                return snapshot != null && snapshot.Dies != null ? snapshot.Dies.Count : 0;
+            }
+            catch
+            {
+                return 0;
+            }
+            finally
+            {
+            }
+        }
+
+        private static int CountMaterialSnapshotPickerDies(MaterialSnapshot snapshot)
+        {
+            try
+            {
+                if (snapshot == null || snapshot.Dies == null)
+                    return 0;
+
+                int count = 0;
+                foreach (var die in snapshot.Dies)
+                {
+                    if (die == null)
+                        continue;
+
+                    MaterialLocation location = die.CurrentLocation;
+                    MaterialLocationKind kind = location != null ? location.Kind : MaterialLocationKind.Unknown;
+                    if (kind == MaterialLocationKind.PickerFront ||
+                        kind == MaterialLocationKind.PickerRear ||
+                        die.PickedPickerNo > 0 ||
+                        die.ReservedPickerNo > 0)
+                    {
+                        count++;
+                    }
+                }
+
+                return count;
+            }
+            catch
+            {
+                return 0;
+            }
+            finally
+            {
+            }
         }
 
         private void InitializeMaterialStateFromRecipe(QMC.CDT320.Recipes.RecipeProject recipe)
@@ -1612,6 +1686,13 @@ namespace QMC.CDT_320
                 return;
             }
 
+            if (!SaveMaterialStateBeforeApplicationExit())
+            {
+                e.Cancel = true;
+                _applicationExitRequested = false;
+                return;
+            }
+
             try
             {
                 AppSettingsStore.Current.Language = Lang.Current;
@@ -1633,6 +1714,115 @@ namespace QMC.CDT_320
             UserSession.UserChanged -= OnUserChanged;
             base.OnFormClosing(e);
         }
+
+        private bool SaveMaterialStateBeforeApplicationExit()
+        {
+            try
+            {
+                if (_materialStateSavedForExit)
+                    return true;
+
+                bool saved = MaterialStateService.TryNotifyAndSave("ApplicationExit");
+                if (saved)
+                {
+                    _materialStateSavedForExit = true;
+                    Log.Write("Main", UserSession.Name, "ApplicationExit",
+                        "Material state saved before application exit. file=" + MaterialSnapshotStore.SnapshotPath + " - Ok");
+                    QMC.Common.Logging.EventLogger.Write(
+                        QMC.Common.Logging.EventKind.Event,
+                        UserSession.Name,
+                        "APP-EXIT-SAVE",
+                        "Material state saved before application exit.");
+                    return true;
+                }
+
+                string message =
+                    "Material 상태 저장에 실패했습니다.\r\n" +
+                    "저장되지 않은 작업 정보가 손실될 수 있습니다.\r\n\r\n" +
+                    "그래도 프로그램을 종료하시겠습니까?\r\n\r\n" +
+                    "파일: " + MaterialSnapshotStore.SnapshotPath;
+
+                Log.Write("Main", UserSession.Name, "ApplicationExit",
+                    "Material state save failed before application exit. file=" +
+                    MaterialSnapshotStore.SnapshotPath + " - Failed");
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Alarm,
+                    UserSession.Name,
+                    "APP-EXIT-SAVE-FAIL",
+                    "Material state save failed before application exit. file=" +
+                    MaterialSnapshotStore.SnapshotPath);
+
+                DialogResult result = QMC.Common.MessageDialog.Show(
+                    this,
+                    message,
+                    "종료",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Warning);
+
+                if (result == DialogResult.Yes)
+                {
+                    Log.Write("Main", UserSession.Name, "ApplicationExit",
+                        "Application exit continued by user after material state save failure. file=" +
+                        MaterialSnapshotStore.SnapshotPath + " - Check");
+                    QMC.Common.Logging.EventLogger.Write(
+                        QMC.Common.Logging.EventKind.Warning,
+                        UserSession.Name,
+                        "APP-EXIT-SAVE-SKIP",
+                        "Application exit continued by user after material state save failure. file=" +
+                        MaterialSnapshotStore.SnapshotPath);
+                    return true;
+                }
+
+                Log.Write("Main", UserSession.Name, "ApplicationExit",
+                    "Application exit canceled by user after material state save failure. file=" +
+                    MaterialSnapshotStore.SnapshotPath + " - Canceled");
+                return false;
+            }
+            catch (Exception ex)
+            {
+                string message =
+                    "Material 상태 저장 중 예외가 발생했습니다.\r\n" +
+                    "저장되지 않은 작업 정보가 손실될 수 있습니다.\r\n\r\n" +
+                    "그래도 프로그램을 종료하시겠습니까?\r\n\r\n" +
+                    "원인: " + ex.Message;
+
+                Log.Write("Main", UserSession.Name, "ApplicationExit",
+                    "Material state save exception before application exit: " + ex.Message + " - Failed");
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Alarm,
+                    UserSession.Name,
+                    "APP-EXIT-SAVE-EXCEPTION",
+                    "Material state save exception before application exit: " + ex.Message);
+
+                DialogResult result = QMC.Common.MessageDialog.Show(
+                    this,
+                    message,
+                    "종료",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Warning);
+
+                if (result == DialogResult.Yes)
+                {
+                    Log.Write("Main", UserSession.Name, "ApplicationExit",
+                        "Application exit continued by user after material state save exception: " +
+                        ex.Message + " - Check");
+                    QMC.Common.Logging.EventLogger.Write(
+                        QMC.Common.Logging.EventKind.Warning,
+                        UserSession.Name,
+                        "APP-EXIT-SAVE-EXCEPTION-SKIP",
+                        "Application exit continued by user after material state save exception: " +
+                        ex.Message);
+                    return true;
+                }
+
+                Log.Write("Main", UserSession.Name, "ApplicationExit",
+                    "Application exit canceled by user after material state save exception: " +
+                    ex.Message + " - Canceled");
+                return false;
+            }
+            finally
+            {
+            }
+        }
     }
 }
-

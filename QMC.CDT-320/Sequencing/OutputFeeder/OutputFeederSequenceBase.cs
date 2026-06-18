@@ -215,8 +215,8 @@ namespace QMC.CDT320.Sequencing
             int result = await AwaitStepWithCancellationAsync(moveTask, ct).ConfigureAwait(false);
             if (result != 0)
                 return Fail("OUT-FEEDER-Y-MOVE", Feeder.Name,
-                    description + " move command failed. result=" + result + ", " +
-                    (Feeder != null ? Feeder.DescribeBinFeederYMoveDoneState() : "Feeder=null"));
+                    LocalizeFeederMoveDescription(description) + " 이동 명령이 실패했습니다. result=" + result + ", " +
+                    (Feeder != null ? Feeder.DescribeBinFeederYMoveDoneState() + Feeder.DescribeBinFeederYLastMotionFailure() : "Feeder=null"));
 
             return 0;
         }
@@ -309,6 +309,84 @@ namespace QMC.CDT320.Sequencing
                 return 0;
 
             return Fail(alarmCode, Feeder.Name, description + " sensor=" + (Feeder.IsFeederRingDetected(true) ? "ON" : "OFF") + ", expected=" + (expected ? "ON" : "OFF"));
+        }
+
+        protected int CheckPickersNotInOutputZone(string description)
+        {
+            if (IsAnyFrontPickerInOutputZone())
+                return Fail("OUT-FEEDER-FRONT-PICKER-OUTPUT-ZONE", FrontPicker != null ? FrontPicker.Name : "FrontPicker",
+                    "FrontPicker가 Output zone에 있습니다. " + LocalizeFeederMoveDescription(description) + " 전에는 OutputFeeder가 Picker를 자동 이동하지 않습니다.");
+
+            if (IsAnyRearPickerInOutputZone())
+                return Fail("OUT-FEEDER-REAR-PICKER-OUTPUT-ZONE", RearPicker != null ? RearPicker.Name : "RearPicker",
+                    "RearPicker가 Output zone에 있습니다. " + LocalizeFeederMoveDescription(description) + " 전에는 OutputFeeder가 Picker를 자동 이동하지 않습니다.");
+
+            return 0;
+        }
+
+        private static string LocalizeFeederMoveDescription(string description)
+        {
+            switch (description)
+            {
+                case "cassette load":
+                    return "카세트 로드 위치";
+                case "cassette load avoid":
+                    return "카세트 로드 회피 위치";
+                case "cassette unload":
+                    return "카세트 언로드 위치";
+                case "cassette unload avoid":
+                    return "카세트 언로드 회피 위치";
+                case "stage load":
+                    return "스테이지 로드 위치";
+                case "stage load avoid":
+                    return "스테이지 로드 회피 위치";
+                case "stage load feeder avoid":
+                    return "스테이지 로드 후 Feeder 회피 위치";
+                case "stage unload":
+                    return "스테이지 언로드 위치";
+                case "stage unload avoid":
+                    return "스테이지 언로드 회피 위치";
+                case "exchange":
+                    return "교환 위치";
+                case "avoid":
+                    return "회피 위치";
+                case "before cassette to feeder load":
+                    return "카세트에서 Feeder로 로드";
+                case "before feeder to stage load":
+                    return "Feeder에서 스테이지로 로드";
+                case "before stage unload":
+                    return "스테이지 언로드";
+                default:
+                    return string.IsNullOrWhiteSpace(description) ? "OutputFeederY" : description;
+            }
+        }
+
+        private bool IsAnyFrontPickerInOutputZone()
+        {
+            if (FrontPicker == null)
+                return false;
+
+            for (int pickerNo = 1; pickerNo <= 4; pickerNo++)
+            {
+                if (FrontPicker.IsFrontPickerInDiePlacePosition(pickerNo))
+                    return true;
+            }
+
+            return false;
+        }
+
+        private bool IsAnyRearPickerInOutputZone()
+        {
+            if (RearPicker == null)
+                return false;
+
+            for (int pickerNo = 1; pickerNo <= 4; pickerNo++)
+            {
+                if (RearPicker.IsRearPickerInDiePlacePosition(pickerNo))
+                    return true;
+            }
+
+            return false;
         }
 
         protected int FailUnsupportedStep()

@@ -308,7 +308,10 @@ namespace QMC.CDT320
                 _isDeveloperReadyRestored = false;
                 var state = MachineRuntimeStateStore.Load();
                 if (state != null)
+                {
                     RestorePickerOffsetRuntimeState(state);
+                    RestorePickerWorkCounterRuntimeState(state);
+                }
 
                 if (!settings.DeveloperMode)
                 {
@@ -558,6 +561,7 @@ namespace QMC.CDT320
                 Axes = new List<MachineAxisRuntimeState>(),
                 Cylinders = new List<MachineCylinderRuntimeState>(),
                 PickerOffsets = CapturePickerOffsetRuntimeStates(),
+                PickerWorkCounters = CapturePickerWorkCounterRuntimeStates(),
                 InitializeSteps = CaptureAxisInitializeStepRuntimeStates()
             };
 
@@ -710,6 +714,119 @@ namespace QMC.CDT320
             {
                 QMC.Common.Log.Write("Main", "SYSTEM", "MachineRuntimeRestore",
                     "Picker offset runtime state restore failed: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        private List<MachinePickerWorkCounterRuntimeState> CapturePickerWorkCounterRuntimeStates()
+        {
+            var items = new List<MachinePickerWorkCounterRuntimeState>();
+            try
+            {
+                CapturePickerWorkCounterRuntimeState(items, "Front", _machine != null ? _machine.PickerFrontUnit : null);
+                CapturePickerWorkCounterRuntimeState(items, "Rear", _machine != null ? _machine.PickerRearUnit : null);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "MachineRuntimeStateSave",
+                    "Picker work counter runtime state capture failed: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+
+            return items;
+        }
+
+        private static void CapturePickerWorkCounterRuntimeState(
+            List<MachinePickerWorkCounterRuntimeState> items,
+            string side,
+            PickerFrontUnit unit)
+        {
+            if (items == null || unit == null)
+                return;
+
+            items.Add(new MachinePickerWorkCounterRuntimeState
+            {
+                Side = side,
+                ColletUseCounts = CopyCounterArray(unit.ColletUseCounts, PickerFrontUnit.MaxPickerCount),
+                PickFailCount = unit.PickFailCount,
+                PlaceFailCount = unit.PlaceFailCount
+            });
+        }
+
+        private static void CapturePickerWorkCounterRuntimeState(
+            List<MachinePickerWorkCounterRuntimeState> items,
+            string side,
+            PickerRearUnit unit)
+        {
+            if (items == null || unit == null)
+                return;
+
+            items.Add(new MachinePickerWorkCounterRuntimeState
+            {
+                Side = side,
+                ColletUseCounts = CopyCounterArray(unit.ColletUseCounts, PickerRearUnit.MaxPickerCount),
+                PickFailCount = unit.PickFailCount,
+                PlaceFailCount = unit.PlaceFailCount
+            });
+        }
+
+        private static int[] CopyCounterArray(int[] source, int count)
+        {
+            int[] result = new int[count];
+            if (source == null)
+                return result;
+
+            int copyCount = Math.Min(count, source.Length);
+            for (int i = 0; i < copyCount; i++)
+                result[i] = Math.Max(0, source[i]);
+
+            return result;
+        }
+
+        private void RestorePickerWorkCounterRuntimeState(MachineRuntimeState state)
+        {
+            try
+            {
+                if (state == null || state.PickerWorkCounters == null || state.PickerWorkCounters.Count == 0)
+                    return;
+
+                int restored = 0;
+                foreach (MachinePickerWorkCounterRuntimeState saved in state.PickerWorkCounters)
+                {
+                    if (saved == null)
+                        continue;
+
+                    if (string.Equals(saved.Side, "Front", StringComparison.OrdinalIgnoreCase) &&
+                        _machine != null && _machine.PickerFrontUnit != null)
+                    {
+                        _machine.PickerFrontUnit.RestoreWorkCounters(
+                            saved.ColletUseCounts,
+                            saved.PickFailCount,
+                            saved.PlaceFailCount);
+                        restored++;
+                    }
+                    else if (string.Equals(saved.Side, "Rear", StringComparison.OrdinalIgnoreCase) &&
+                             _machine != null && _machine.PickerRearUnit != null)
+                    {
+                        _machine.PickerRearUnit.RestoreWorkCounters(
+                            saved.ColletUseCounts,
+                            saved.PickFailCount,
+                            saved.PlaceFailCount);
+                        restored++;
+                    }
+                }
+
+                QMC.Common.Log.Write("Main", "SYSTEM", "MachineRuntimeRestore",
+                    "Picker work counter runtime state restored. count=" + restored + " - Ok");
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "MachineRuntimeRestore",
+                    "Picker work counter runtime state restore failed: " + ex.Message + " - Failed");
             }
             finally
             {
@@ -2828,10 +2945,19 @@ namespace QMC.CDT320
             if (step == null || !step.Enabled)
                 return progress;
 
-            if (string.Equals(progress.Status, AxisInitializeStepStatus.Complete, StringComparison.OrdinalIgnoreCase))
+            if (ShouldResolveInitializedStepStatus(progress.Status, _isMachineInitialized))
             {
                 string reason;
-                if (!CheckAxisInitializeStepStillValid(step, out reason))
+                if (CheckAxisInitializeStepStillValid(step, out reason))
+                {
+                    if (!string.Equals(progress.Status, AxisInitializeStepStatus.Complete, StringComparison.OrdinalIgnoreCase))
+                    {
+                        progress.Status = AxisInitializeStepStatus.Complete;
+                        progress.Message = "";
+                        SetAxisInitializeStepProgress(progress);
+                    }
+                }
+                else if (string.Equals(progress.Status, AxisInitializeStepStatus.Complete, StringComparison.OrdinalIgnoreCase))
                 {
                     progress.Status = AxisInitializeStepStatus.ReinitializeRequired;
                     progress.Message = reason;
@@ -2840,6 +2966,19 @@ namespace QMC.CDT320
             }
 
             return progress;
+        }
+
+        private static bool ShouldResolveInitializedStepStatus(string status, bool machineInitialized)
+        {
+            if (string.Equals(status, AxisInitializeStepStatus.Complete, StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            if (string.Equals(status, AxisInitializeStepStatus.ReinitializeRequired, StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            return machineInitialized &&
+                (string.IsNullOrWhiteSpace(status) ||
+                 string.Equals(status, AxisInitializeStepStatus.Waiting, StringComparison.OrdinalIgnoreCase));
         }
 
         private void SetAxisInitializeStepProgress(AxisInitializeStepProgress progress)
@@ -3107,6 +3246,8 @@ namespace QMC.CDT320
                 {
                     if (axis == null)
                         continue;
+
+                    try { axis.UpdateStatus(); } catch { }
 
                     if (axis.IsAlarm)
                     {
@@ -4726,7 +4867,7 @@ namespace QMC.CDT320
 
         private static bool IsAutomaticStartTemporarilyDisabled()
         {
-            return true;
+            return false;
         }
 
         /// <summary>장비 START: Servo ON 후 현재 구성된 자동 시퀀스를 시작합니다.</summary>
