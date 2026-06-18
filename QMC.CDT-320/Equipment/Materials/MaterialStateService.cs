@@ -91,11 +91,15 @@ namespace QMC.CDT320.Materials
             {
                 lock (_stateSync)
                 {
-                    return State.Dies.FirstOrDefault(d =>
-                        d != null &&
-                        d.CurrentLocation != null &&
-                        d.CurrentLocation.Kind == pickerLocation &&
-                        d.CurrentLocation.PickerNo == pickerNo);
+                    return State.Dies
+                        .Where(d =>
+                            d != null &&
+                            d.CurrentLocation != null &&
+                            d.CurrentLocation.Kind == pickerLocation &&
+                            d.CurrentLocation.PickerNo == pickerNo)
+                        .OrderByDescending(GetPickerDieSortTime)
+                        .ThenByDescending(d => d.InputSequenceNo)
+                        .FirstOrDefault();
                 }
             }
             catch (Exception ex)
@@ -109,6 +113,16 @@ namespace QMC.CDT320.Materials
             finally
             {
             }
+        }
+
+        private static DateTime GetPickerDieSortTime(DieMaterial die)
+        {
+            if (die == null)
+                return DateTime.MinValue;
+
+            DateTime updated = die.UpdatedAt;
+            DateTime picked = die.PickedAt;
+            return updated >= picked ? updated : picked;
         }
 
         public static void ApplyDieInspectionResult(string dieId, DieResult result, string ngCode, string reason)

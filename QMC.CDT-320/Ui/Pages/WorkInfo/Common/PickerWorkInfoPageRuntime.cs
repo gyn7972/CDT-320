@@ -461,14 +461,26 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             }
             finally
             {
-                if (manualScope != null)
-                    manualScope.Dispose();
-                if (showFailure || !string.IsNullOrWhiteSpace(exceptionMessage))
-                    ResetStepSequence();
-                MaterialStateService.NotifyAndSave("PickerManualSequenceFinally:" + actionName);
-                _manualSequenceRunning = false;
-                SetButtonsEnabledSafe(true);
-                RefreshSafe();
+                try
+                {
+                    if (manualScope != null)
+                        manualScope.Dispose();
+
+                    if (showFailure || !string.IsNullOrWhiteSpace(exceptionMessage))
+                        ResetStepSequence();
+
+                    TrySaveMaterialStateAfterManualSequence(actionName);
+                }
+                catch (Exception ex)
+                {
+                    WriteAlarm(actionName + " 종료 처리 중 오류: " + ex.Message);
+                }
+                finally
+                {
+                    _manualSequenceRunning = false;
+                    SetButtonsEnabledSafe(true);
+                    RefreshSafe();
+                }
             }
 
             if (showFailure)
@@ -963,6 +975,23 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     WriteAlarm(actionName + " finished after stop: " + (ex != null ? ex.Message : "unknown"));
                 }
             });
+        }
+
+        private void TrySaveMaterialStateAfterManualSequence(string actionName)
+        {
+            try
+            {
+                bool saved = MaterialStateService.TryNotifyAndSave("PickerManualSequenceFinally:" + actionName);
+                if (!saved)
+                    WriteAlarm(actionName + " 종료 시 Material 상태 저장 실패. 저장 파일과 Alarm/Event Log를 확인하세요.");
+            }
+            catch (Exception ex)
+            {
+                WriteAlarm(actionName + " 종료 시 Material 상태 저장 예외: " + ex.Message);
+            }
+            finally
+            {
+            }
         }
 
         private void ShowFailure(string actionName)

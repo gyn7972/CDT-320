@@ -151,11 +151,21 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             }
             finally
             {
-                if (manualScope != null)
-                    manualScope.Dispose();
-                _manualSequenceRunning = false;
-                SetActionButtonsEnabled(true);
-                RefreshFromMachine();
+                try
+                {
+                    if (manualScope != null)
+                        manualScope.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    WriteAlarm("INPUT-CST-MANUAL-CLEANUP", "Input Cassette 수동 시컨스 정리 중 오류: " + ex.Message);
+                }
+                finally
+                {
+                    _manualSequenceRunning = false;
+                    try { SetActionButtonsEnabled(true); } catch (Exception ex) { WriteAlarm("INPUT-CST-BUTTON-RESTORE", "Input Cassette 버튼 복구 실패: " + ex.Message); }
+                    try { RefreshFromMachine(); } catch (Exception ex) { WriteAlarm("INPUT-CST-REFRESH", "Input Cassette 화면 갱신 실패: " + ex.Message); }
+                }
             }
 
             if (showFailure)
@@ -213,11 +223,21 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             }
             finally
             {
-                if (manualScope != null)
-                    manualScope.Dispose();
-                _manualSequenceRunning = false;
-                SetActionButtonsEnabled(true);
-                RefreshFromMachine();
+                try
+                {
+                    if (manualScope != null)
+                        manualScope.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    WriteAlarm("INPUT-CST-MOTION-CLEANUP", "Input Cassette 모션 정리 중 오류: " + ex.Message);
+                }
+                finally
+                {
+                    _manualSequenceRunning = false;
+                    try { SetActionButtonsEnabled(true); } catch (Exception ex) { WriteAlarm("INPUT-CST-MOTION-BUTTON-RESTORE", "Input Cassette 모션 버튼 복구 실패: " + ex.Message); }
+                    try { RefreshFromMachine(); } catch (Exception ex) { WriteAlarm("INPUT-CST-MOTION-REFRESH", "Input Cassette 모션 화면 갱신 실패: " + ex.Message); }
+                }
             }
 
             if (showFailure)

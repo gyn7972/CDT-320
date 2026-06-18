@@ -387,14 +387,93 @@ namespace QMC.CDT320.Materials
 
         private static void NormalizeSnapshotStates(MaterialSnapshot snapshot)
         {
-            if (snapshot == null || snapshot.Wafers == null)
+            if (snapshot == null)
                 return;
 
-            foreach (var wafer in snapshot.Wafers)
+            if (snapshot.Wafers != null)
             {
-                if (wafer != null)
-                    wafer.State = WaferMaterialStateText.Normalize(wafer.State);
+                foreach (var wafer in snapshot.Wafers)
+                {
+                    if (wafer != null)
+                        wafer.State = WaferMaterialStateText.Normalize(wafer.State);
+                }
             }
+
+            NormalizeDuplicatePickerDieLocations(snapshot);
+        }
+
+        private static void NormalizeDuplicatePickerDieLocations(MaterialSnapshot snapshot)
+        {
+            try
+            {
+                if (snapshot == null || snapshot.Dies == null)
+                    return;
+
+                var pickerDies = snapshot.Dies
+                    .Where(d =>
+                        d != null &&
+                        d.CurrentLocation != null &&
+                        IsPickerLocation(d.CurrentLocation.Kind) &&
+                        d.CurrentLocation.PickerNo > 0)
+                    .GroupBy(d => d.CurrentLocation.Kind.ToString() + ":" + d.CurrentLocation.PickerNo);
+
+                foreach (var group in pickerDies)
+                {
+                    List<DieMaterial> ordered = group
+                        .OrderByDescending(GetPickerDieSortTime)
+                        .ThenByDescending(d => d != null ? d.InputSequenceNo : 0)
+                        .ToList();
+
+                    if (ordered.Count <= 1)
+                        continue;
+
+                    DieMaterial keep = ordered[0];
+                    MaterialLocationKind location = keep.CurrentLocation.Kind;
+                    int pickerNo = keep.CurrentLocation.PickerNo;
+
+                    for (int i = 1; i < ordered.Count; i++)
+                    {
+                        DieMaterial duplicate = ordered[i];
+                        if (duplicate == null)
+                            continue;
+
+                        duplicate.CurrentLocation = MaterialLocation.Unknown();
+                        duplicate.ReservedPickerLocation = MaterialLocationKind.Unknown;
+                        duplicate.ReservedPickerNo = -1;
+                        duplicate.UpdatedAt = DateTime.Now;
+
+                        Log.Write("Main", "SYSTEM", "MaterialSnapshotNormalize",
+                            "피커 위치 중복 Material 정리. 위치=" + location +
+                            ", pickerNo=" + pickerNo +
+                            ", 유지Die=" + (keep != null ? keep.DieId : "-") +
+                            ", 정리Die=" + duplicate.DieId + " - Check");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialSnapshotNormalize",
+                    "피커 위치 중복 Material 정리 실패: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool IsPickerLocation(MaterialLocationKind kind)
+        {
+            return kind == MaterialLocationKind.PickerFront ||
+                   kind == MaterialLocationKind.PickerRear;
+        }
+
+        private static DateTime GetPickerDieSortTime(DieMaterial die)
+        {
+            if (die == null)
+                return DateTime.MinValue;
+
+            DateTime updated = die.UpdatedAt;
+            DateTime picked = die.PickedAt;
+            return updated >= picked ? updated : picked;
         }
 
         public static bool Save(MaterialSnapshot snapshot)
@@ -411,6 +490,7 @@ namespace QMC.CDT320.Materials
                 Directory.CreateDirectory(Dir);
                 MaterialSnapshot saveSnapshot = CloneSnapshotForSave(snapshot);
                 saveSnapshot.SavedAt = DateTime.Now;
+                NormalizeSnapshotStates(saveSnapshot);
                 NormalizeSnapshotDateTimes(saveSnapshot);
 
                 tmp = Path.Combine(Dir,
