@@ -1088,6 +1088,10 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (visionAvoidResult != 0)
                     return visionAvoidResult;
 
+                int otherPickerAvoidResult = await MoveOtherPickerOutOfOutputZoneForPickerMoveAsync(host, side).ConfigureAwait(true);
+                if (otherPickerAvoidResult != 0)
+                    return otherPickerAvoidResult;
+
                 int pickerIndex = pickerNo - 1;
                 PickerAxis tAxis = GetPickerTAxis(pickerIndex);
                 string targetName = "DiePlacePosition[" + pickerIndex + "];ManualOutputDieMapMove";
@@ -1242,6 +1246,48 @@ namespace QMC.CDT_320.Ui.Pages.Work
             }
 
             return false;
+        }
+
+        /// <summary>선택 Picker가 Output Zone에 들어가기 전, 상대 Picker가 Output Zone에 있으면 Avoid로 이동합니다.</summary>
+        private async Task<int> MoveOtherPickerOutOfOutputZoneForPickerMoveAsync(Form1 host, PickerSequenceSide movingSide)
+        {
+            try
+            {
+                if (host == null || host.Machine == null)
+                    return -1;
+
+                if (movingSide == PickerSequenceSide.Front)
+                {
+                    PickerRearUnit rear = host.Machine.PickerRearUnit;
+                    if (!IsRearPickerInOutputZone(rear))
+                        return 0;
+
+                    int rearResult = await rear.MoveToRearPickerAvoidPosition(true).ConfigureAwait(true);
+                    if (rearResult != 0)
+                        return rearResult;
+
+                    return rear.IsRearPickerInAvoidPosition() ? 0 : -1;
+                }
+
+                PickerFrontUnit front = host.Machine.PickerFrontUnit;
+                if (!IsFrontPickerInOutputZone(front))
+                    return 0;
+
+                int frontResult = await front.MoveToFrontPickerAvoidPosition(true).ConfigureAwait(true);
+                if (frontResult != 0)
+                    return frontResult;
+
+                return front.IsFrontPickerInAvoidPosition() ? 0 : -1;
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
+                    "Picker 진입 전 상대 Picker Output Zone 회피 이동 실패: " + ex.Message + " - Failed");
+                return -1;
+            }
+            finally
+            {
+            }
         }
 
         private async Task<int> PrepareOutputStageYMoveAsync(OutputStageUnit unit, BinSide side, int timeoutMs)

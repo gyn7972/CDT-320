@@ -45,7 +45,7 @@ namespace QMC.CDT320.Sequencing
                         return Task.FromResult(CheckFeederPosition(InputCassetteUnloadingStep.MoveUnloadingPosition));
                     // 언로딩 위치 이동
                     case InputCassetteUnloadingStep.MoveUnloadingPosition:
-                        return MoveUnloadingPositionAsync();
+                        return MoveUnloadingPositionAsync(ct);
                     default:
                         return Task.FromResult(FailUnsupportedStep());
                 }

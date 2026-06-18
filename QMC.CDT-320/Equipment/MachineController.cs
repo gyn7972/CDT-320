@@ -4867,7 +4867,7 @@ namespace QMC.CDT320
 
         private static bool IsAutomaticStartTemporarilyDisabled()
         {
-            return true;
+            return false;
         }
 
         /// <summary>장비 START: Servo ON 후 현재 구성된 자동 시퀀스를 시작합니다.</summary>
