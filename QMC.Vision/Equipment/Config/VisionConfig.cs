@@ -14,6 +14,37 @@ namespace QMC.Vision.Config
         [DataMember] public VisionProvider Provider         { get; set; } = VisionProvider.Sim;
         [DataMember] public string         Language         { get; set; } = "ko";
 
+        /// <summary>Cognex VisionPro DLL 폴더(직접 지정). 비우면 표준 설치 경로를 자동 탐색.
+        /// 설치 폴더가 비표준일 때 이 값을 채우면 최우선으로 검색한다. (예: C:\Program Files\Cognex\VisionPro\CogPlus)</summary>
+        [DataMember] public string         CognexBinPath    { get; set; } = "";
+
+        /// <summary>EmguCV(OpenCV) DLL 폴더. 용량이 큰 네이티브(cvextern.dll)를 bin 에 두지 않고 별도 폴더에서 로드.
+        /// 비우면 기본 <see cref="DefaultOpenCvBinPath"/>(D:\CDT-320\EmguCV)와 앱 폴더를 탐색.</summary>
+        [DataMember] public string         OpenCvBinPath    { get; set; } = "";
+
+        /// <summary>OpenCvBinPath 미지정 시 사용할 기본 EmguCV 폴더.</summary>
+        public const string DefaultOpenCvBinPath = @"D:\CDT-320\EmguCV";
+
+        /// <summary>Sim 모드에서 핸들러 TCP 없이 비전이 자체 시퀀스를 순차 실행(자동 실행). GENERAL 토글.</summary>
+        [DataMember] public bool           SimAutoSequence      { get; set; } = false;
+        /// <summary>Sim 자동 시퀀스 한 사이클 간격(ms).</summary>
+        [DataMember] public int            SimSequenceIntervalMs{ get; set; } = 500;
+        /// <summary>마지막으로 적용/저장한 레시피(품목)명 — 재시작 시 복원.</summary>
+        [DataMember] public string         LastRecipeName   { get; set; } = "";
+
+        /// <summary>레시피/설비데이터 저장 루트(절대경로). 비우면 기본 <see cref="DefaultDataRoot"/> 사용.
+        /// GENERAL 설정에서 변경하며, 변경은 재시작 후 반영(기동 시 DataPaths.Root 로 적용).</summary>
+        [DataMember] public string         DataRootPath     { get; set; } = "";
+
+        /// <summary>DataRootPath 미지정 시 사용할 고정 기본 루트.</summary>
+        public const string DefaultDataRoot = @"D:\CDT-320";
+
+        /// <summary>실제 적용할 데이터 루트(설정값 우선, 없으면 기본 고정 경로).</summary>
+        public string EffectiveDataRoot
+        {
+            get { return string.IsNullOrWhiteSpace(DataRootPath) ? DefaultDataRoot : DataRootPath; }
+        }
+
         // Stage 73 — 조명 컨트롤러 Sim 여부. 비전 백엔드(Provider)와 독립.
         // true(기본,안전) = 기동 시 SimLightController. 실제 점등 테스트는 조명 Setup 페이지의
         // '조명 연결' 버튼으로 실장비 재초기화 + 시리얼 Open. (Cognex 키 없이 Provider=Sim 이어도 조명은 실제 가능)
@@ -44,6 +75,7 @@ namespace QMC.Vision.Config
             // Stage 89 — LightUseSim 강제 true 제거: JSON 값 그대로 반영(없으면 default false). 사용자가 false 저장하면 유지.
             // 신규 키(구 json 에 없음) 기본값 — DataContractJsonSerializer 는 이니셜라이저를 실행하지 않으므로 여기서 심는다.
             MainCommPort         = 5104;
+            SimSequenceIntervalMs = 500;
             RemoteViewerEnable   = true;
             RemoteViewerSource   = "GrabImage";
             RemoteViewerFps      = 10;
@@ -133,6 +165,9 @@ namespace QMC.Vision.Config
         // ── 데이터 로그 ──
         [DataMember] public bool   DataLogEnable            { get; set; } = true;
         [DataMember] public string DataLogPath              { get; set; } = @".\Log\Data";
+
+        // ── 리소스(CPU/메모리) 모니터 로그 — PC 사양 산정용. 켜면 1초 간격 CSV 기록.
+        [DataMember] public bool   ResourceLogEnable        { get; set; } = false;
     }
 
     public static class VisionConfigStore

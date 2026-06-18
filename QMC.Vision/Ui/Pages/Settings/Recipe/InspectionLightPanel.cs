@@ -11,6 +11,7 @@ using QMC.Vision.Comm;
 using QMC.Vision.Config;
 using QMC.Vision.Modules;
 using QMC.Vision.Optics;
+using QMC.Vision.Ui.Localization; // Lang
 
 namespace QMC.Vision.Ui.Pages
 {
@@ -31,6 +32,7 @@ namespace QMC.Vision.Ui.Pages
 
         // R2e — 행 바인딩 중 변경 이벤트 억제 가드.
         private bool _suppressChange;
+        private bool _langHooked;   // LanguageChanged 중복 구독 방지
 
         /// <summary>R2e — 조명 값(Level/Page) 변경 알림. 타깃 페이지가 구독해 dirty 전파(상태점 점등).</summary>
         public event EventHandler LightChanged;
@@ -73,6 +75,46 @@ namespace QMC.Vision.Ui.Pages
             { if (_grid.IsCurrentCellDirty) _grid.CommitEdit(DataGridViewDataErrorContexts.Commit); };
             _grid.CellValueChanged += (s, e) =>
             { if (!_suppressChange) LightChanged?.Invoke(this, EventArgs.Empty); };
+
+            if (!_langHooked) { Lang.LanguageChanged += OnLanguageChanged; _langHooked = true; }
+            ApplyLanguage();
+        }
+
+        protected override void OnHandleDestroyed(EventArgs e)
+        {
+            if (_langHooked) { Lang.LanguageChanged -= OnLanguageChanged; _langHooked = false; }
+            base.OnHandleDestroyed(e);
+        }
+
+        /// <summary>언어 변경 — UI 스레드로 마샬링 후 표시 문구 재적용.</summary>
+        private void OnLanguageChanged()
+        {
+            if (IsDisposed) return;
+            if (InvokeRequired) { try { BeginInvoke((Action)ApplyLanguage); } catch { } return; }
+            ApplyLanguage();
+        }
+
+        /// <summary>현재 언어로 헤더/버튼/컬럼(한글 항목)을 적용. (Ch/Level/Page 영문 식별 컬럼은 유지)</summary>
+        private void ApplyLanguage()
+        {
+            if (_btnSave   != null) _btnSave.Text   = Lang.T("common.save");
+            if (_btnApply  != null) _btnApply.Text  = Lang.T("rec.applyRun");
+            if (_btnReset  != null) _btnReset.Text  = Lang.T("rec.reset");
+            if (_btnCancel != null) _btnCancel.Text = Lang.T("common.cancel");
+            if (Ctrl    != null) Ctrl.HeaderText    = Lang.T("rec.ctrl");
+            if (ColName != null) ColName.HeaderText = Lang.T("common.name");
+            UpdateHeaderText();
+        }
+
+        /// <summary>검사 선택 상태에 맞춰 헤더 문구를 현재 언어로 구성.</summary>
+        private void UpdateHeaderText()
+        {
+            if (_lblHeader == null) return;
+            if (!string.IsNullOrEmpty(_algorithm))
+                _lblHeader.Text = Lang.T("rec.inspLight") + " — " + Lang.Inspection(_algorithm, _inspectionId)
+                                + "  (" + Lang.Algo(_algorithm) + " / " + _inspectionId + ")";
+            else
+                _lblHeader.Text = Lang.T("rec.inspLight");
         }
 
         /// <summary>R2e — 통합 저장 진입점(타깃 상단바 저장이 호출). 독립 Save 와 동일.</summary>
@@ -82,8 +124,7 @@ namespace QMC.Vision.Ui.Pages
         {
             _algorithm = algorithm;
             _inspectionId = inspectionId;
-            _lblHeader.Text = "검사 조명 — " + InspectionLabel.Get(algorithm, inspectionId)
-                            + "  (" + VisionAlgorithm.Label(algorithm) + " / " + inspectionId + ")";
+            UpdateHeaderText();
             BindFields();
         }
 
@@ -144,7 +185,7 @@ namespace QMC.Vision.Ui.Pages
                 _grid.Enabled = false;
                 _btnApply.Enabled = _btnSave.Enabled = _btnReset.Enabled = false;
                 _lblWiring.Text = "";
-                SetStatus("설정 불러올 수 없음 — 검사 노드 미해결", true);
+                SetStatus(Lang.T("rec.lightLoadFail"), true);
                 System.Diagnostics.Debug.WriteLine("[InspectionLightPanel] 노드 미해결: " + _algorithm + "/" + _inspectionId);
                 return;
             }
@@ -162,14 +203,14 @@ namespace QMC.Vision.Ui.Pages
 
             // 지정 헤더
             if (!assigned)
-                _lblWiring.Text = "컨트롤러/페이지 미지정 — [설정 > 검사]에서 이 검사에 컨트롤러/페이지를 지정하세요.";
+                _lblWiring.Text = Lang.T("rec.lightUnassigned");
             else
-                _lblWiring.Text = "지정: " + string.Join("    ", pages.Select(pr =>
+                _lblWiring.Text = Lang.T("rec.lightAssignPrefix") + string.Join("    ", pages.Select(pr =>
                 {
                     var ce = LightSystemSetupStore.Current?.GetController(pr.ControllerPort);
                     string nm = (ce != null && !string.IsNullOrEmpty(ce.Name)) ? $" ({ce.Name})" : "";
                     return $"{pr.ControllerPort}{nm} p{pr.Page}";
-                })) + "   — 지정 변경은 [설정 > 검사]";
+                })) + Lang.T("rec.lightAssignSuffix");
 
             // 저장 레벨 (port,page,ch) → 설정 (노드 Recipe.LightSettings)
             var saved = new Dictionary<string, InspectionLightSetting>(StringComparer.OrdinalIgnoreCase);
@@ -213,7 +254,7 @@ namespace QMC.Vision.Ui.Pages
 
             _grid.Enabled = assigned;
             _btnApply.Enabled = _btnSave.Enabled = _btnReset.Enabled = assigned;
-            SetStatus(assigned ? "" : "컨트롤러/페이지 미지정 — [설정 > 검사]에서 지정 후 사용", !assigned);
+            SetStatus(assigned ? "" : Lang.T("rec.lightUnassignShort"), !assigned);
         }
 
         /// <summary>UI → 노드 Recipe 조명 리스트(List&lt;InspectionLightSetting&gt;). 행 = (Controller, Channel). On=Level&gt;0 파생, Strobe/Stab 보존.</summary>
@@ -243,14 +284,14 @@ namespace QMC.Vision.Ui.Pages
         {
             // C3b-3 — 레벨만 저장(노드 Recipe). 컨트롤러/페이지 지정(Setup.LightPages)은 [설정>검사]에서 별도 편집.
             var recipe = _node?.Recipe as AlgoRecipeBase;
-            if (recipe == null) { SetStatus("저장 불가 — 검사 노드 미해결", true); return; }
+            if (recipe == null) { SetStatus(Lang.T("rec.lightSaveNoNode"), true); return; }
 
             var settings = Collect();
             settings.RemoveAll(s => s.Level <= 0 && s.StrobeTimeUs <= 0 && s.StabilizeDelayMs <= 0);   // 미사용(0) 정리
             recipe.LightSettings = settings;
             try { _node.SaveRecipe("default"); }
-            catch (System.Exception ex) { SetStatus("저장 예외: " + ex.Message, true); return; }
-            SetStatus($"저장 완료 — 노드 [{_node.StorageKey}] 점등 {settings.Count(s => s.Level > 0)}채널", false);
+            catch (System.Exception ex) { SetStatus(Lang.T("rec.lightSaveExc") + ex.Message, true); return; }
+            SetStatus(string.Format(Lang.T("rec.lightSavedFmt"), _node.StorageKey, settings.Count(s => s.Level > 0)), false);
         }
 
         private async void Apply()
@@ -259,7 +300,7 @@ namespace QMC.Vision.Ui.Pages
             if (ActivePages().Count == 0)
             {
                 AlarmManager.Raise(AlarmSeverity.Warning, "LIGHT-PAGE-MISS", "Light/" + _algorithm, $"{_algorithm}/{_inspectionId} 컨트롤러/페이지 미지정");
-                SetStatus("적용 거부 — 컨트롤러/페이지 미지정", true); return;
+                SetStatus(Lang.T("rec.lightApplyReject"), true); return;
             }
             var settings = Collect();
             try
@@ -278,13 +319,13 @@ namespace QMC.Vision.Ui.Pages
                     ports.Add(grp.Key);
                     tasks.Add(ApplyControllerAsync(ctrl, grp.ToList()));
                 }
-                if (tasks.Count == 0) { SetStatus("적용 거부 — 등록된 컨트롤러 없음 (조명 연결 필요)", true); return; }
+                if (tasks.Count == 0) { SetStatus(Lang.T("rec.lightApplyNoCtrl"), true); return; }
 
                 var results = await Task.WhenAll(tasks);
                 int okCtrl = results.Count(r => r);
-                SetStatus($"적용 완료 — {okCtrl}/{tasks.Count} 컨트롤러 병렬 ({string.Join(", ", ports)})", okCtrl != tasks.Count);
+                SetStatus(string.Format(Lang.T("rec.lightAppliedFmt"), okCtrl, tasks.Count, string.Join(", ", ports)), okCtrl != tasks.Count);
             }
-            catch (Exception ex) { SetStatus("적용 예외: " + ex.Message, true); }
+            catch (Exception ex) { SetStatus(Lang.T("rec.lightApplyExc") + ex.Message, true); }
         }
 
         /// <summary>한 컨트롤러의 settings 를 Page 별 batch 로 적용 (Level 0 = OFF=미사용). 모두 성공 시 true.</summary>
@@ -314,7 +355,7 @@ namespace QMC.Vision.Ui.Pages
                 r.Cells["Level"].Value = 0;
                 if (!_grid.Columns["Page"].ReadOnly) r.Cells["Page"].Value = 0;
             }
-            SetStatus("초기화 — 모든 채널 Level 0 (저장 시 조명 미사용)", false);
+            SetStatus(Lang.T("rec.lightReset"), false);
         }
 
         private static int IntOf(DataGridViewRow r, string col, int def) => int.TryParse(r.Cells[col].Value?.ToString(), out var v) ? v : def;

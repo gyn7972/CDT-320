@@ -43,6 +43,9 @@ namespace QMC.Vision.Comm
     {
         public event Action<string> Log;
 
+        /// <summary>명령 수락 게이트 — null 이면 항상 허용. false 면 PING 외 명령을 거부(RUN 아닐 때).</summary>
+        public Func<bool> IsCommandAllowed { get; set; }
+
         private TcpListener _listener;
         private CancellationTokenSource _cts;
         private readonly List<TcpClient> _clients = new List<TcpClient>();
@@ -150,6 +153,12 @@ namespace QMC.Vision.Comm
                 Send(stream, $"ERR|{mod}|{cmd}|unknown module");
                 return;
             }
+            // RUN 게이트 — RUN 상태가 아니면 PING 외 명령 거부(핸들러 명령은 RUN 시에만 수락).
+            if (cmd != "PING" && IsCommandAllowed != null && !IsCommandAllowed())
+            {
+                Send(stream, $"ERR|{mod}|{cmd}|not running (press RUN)");
+                return;
+            }
             try
             {
                 string resp;
@@ -179,93 +188,27 @@ namespace QMC.Vision.Comm
 
         // ── 명령 핸들러 ────────────────────────────
 
-        private string DoExpose(IVisionModule m)
-        {
-            using (var g = m.Grab())
-                return g.IsSuccess ? $"w={g.Width};h={g.Height};frame={g.FrameNumber}" : "fail:" + g.ErrorMessage;
-        }
+        // 명령 실행은 공통 코어(VisionCommandCore)로 위임 — 자체 시퀀서(DirectVisionCommandDispatcher)와 동일 구현 공유.
+        private string DoExpose(IVisionModule m) => VisionCommandCore.Grab(m);
 
         private string DoMatch(IVisionModule m, string[] parts)
         {
-            if (parts.Length < 3) return "fail:no finder";
-            string finder = parts[2];
+            string finder  = parts.Length > 2 ? parts[2] : "";
             string chipUid = parts.Length > 3 ? parts[3] : "";
-            if (!m.Finders.TryGetValue(finder, out var f)) return "fail:finder not found";
-            using (var g = m.Grab())
-            {
-                if (!g.IsSuccess) return "fail:" + g.ErrorMessage;
-                var r = f.Match(g.Image);
-                if (!r.Success) return "fail:" + r.ErrorMessage;
-                var b = r.Best;
-                if (b == null) return "fail:no match";
-
-                double xOut = b.CenterX, yOut = b.CenterY;
-                if (_cfg.ReturnMmCoordinates)
-                {
-                    var scale = new VisionScale(_cfg.ScaleX, _cfg.ScaleY);
-                    var vec   = new CameraVector(_cfg.InvertedX, _cfg.InvertedY, _cfg.IsRotated);
-                    VisionScale.ConvertPosition(scale, vec, g.Width, g.Height, b.CenterX, b.CenterY, out xOut, out yOut);
-                }
-
-                // 이미지 로그 (chipUid != Manual 인 경우만)
-                if (!string.IsNullOrEmpty(chipUid) && chipUid != "Manual")
-                {
-                    try { ImageLogSaver.Save(_cfg, m.Name, finder, chipUid, g.Image); } catch { }
-                }
-
-                return $"OK;x={xOut:F3};y={yOut:F3};r={b.AngleDeg:F3};score={b.Score:F3}";
-            }
+            return VisionCommandCore.Match(m, _cfg, finder, chipUid);
         }
 
         private string DoInspect(IVisionModule m, string[] parts)
         {
-            if (parts.Length < 3) return "fail:no inspector";
-            string insp = parts[2];
+            string insp    = parts.Length > 2 ? parts[2] : "";
             string chipUid = parts.Length > 3 ? parts[3] : "";
-            if (!m.Inspectors.TryGetValue(insp, out var ins)) return "fail:inspector not found";
-            using (var g = m.Grab())
-            {
-                if (!g.IsSuccess) return "fail:" + g.ErrorMessage;
-                var r = ins.Inspect(g.Image);
-                var items = string.Join(",", r.Items.Select(i => $"{i.Name}={i.Value}"));
-
-                // MaterialTracker 누적 + DataLogSaver
-                if (!string.IsNullOrEmpty(chipUid) && chipUid != "Manual")
-                {
-                    try
-                    {
-                        // 모듈/inspector 이름으로 분류
-                        if (insp.IndexOf("Surface", StringComparison.OrdinalIgnoreCase) >= 0
-                            || insp.IndexOf("Bottom",  StringComparison.OrdinalIgnoreCase) >= 0)
-                            MaterialTracker.ApplyBottom(chipUid, r);
-                        else if (insp.IndexOf("Side", StringComparison.OrdinalIgnoreCase) >= 0)
-                            MaterialTracker.ApplySide(chipUid, r, _cfg.SideLocation);
-                        else if (insp.IndexOf("Placement", StringComparison.OrdinalIgnoreCase) >= 0
-                              || insp.IndexOf("DieGap",    StringComparison.OrdinalIgnoreCase) >= 0
-                              || insp.IndexOf("Bin",       StringComparison.OrdinalIgnoreCase) >= 0)
-                            MaterialTracker.ApplyDieGap(chipUid, r);
-
-                        ImageLogSaver.Save(_cfg, m.Name, insp, chipUid, g.Image);
-                        DataLogSaver.SaveIfDieGapComplete(_cfg, chipUid);
-                    }
-                    catch { }
-                }
-
-                return $"{(r.IsPass ? "PASS" : "FAIL")};{items}";
-            }
+            return VisionCommandCore.Inspect(m, _cfg, insp, chipUid);
         }
 
         private static string DoTrain(IVisionModule m, string[] parts)
         {
-            if (parts.Length < 3) return "fail:no finder";
-            string finder = parts[2];
-            if (!m.Finders.TryGetValue(finder, out var f)) return "fail:finder not found";
-            using (var g = m.Grab())
-            {
-                if (!g.IsSuccess) return "fail:" + g.ErrorMessage;
-                f.Train(g.Image);
-                return "OK";
-            }
+            string finder = parts.Length > 2 ? parts[2] : "";
+            return VisionCommandCore.Train(m, finder);
         }
 
         private string DoScale(IVisionModule m, string[] parts)
@@ -275,9 +218,11 @@ namespace QMC.Vision.Comm
             if (!double.TryParse(parts[3], out var hMm)) return "fail:bad height";
             if (!m.Calibrate(wMm, hMm, out var sx, out var sy, out var err))
                 return "fail:" + err;
-            // VisionConfig 자동 갱신
-            _cfg.ScaleX = sx; _cfg.ScaleY = sy;
-            try { VisionConfigStore.Save(); } catch { }
+            // 모듈별 CameraConfig 스케일 갱신 + 영속(SSOT=모듈)
+            var map = m.ExportCameraMapping();
+            map.ScaleX = sx; map.ScaleY = sy;
+            m.ImportCameraMapping(map);
+            try { m.SaveSettings(); } catch { }
             return $"OK;scaleX={sx:F6};scaleY={sy:F6}";
         }
 

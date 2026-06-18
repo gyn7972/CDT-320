@@ -14,7 +14,7 @@ namespace QMC.Vision
 {
     /// <summary>하단 탭 식별자 — 핸들러 정렬: 작업 · 레시피 · 이력 · 설정 · 사용자.
     /// (환경설정은 별도 탭이 아니라 설정 탭의 GENERAL 페이지로 흡수)</summary>
-    public enum Tab { Work, Recipe, History, Settings, User }
+    public enum Tab { Work, Sequencer, Recipe, History, Settings, User }
 
     public partial class Form1 : Form
     {
@@ -22,6 +22,7 @@ namespace QMC.Vision
 
         // 머신 루트 — 5개 모듈을 Components 로 소유(핸들러 CDT320Machine 정렬). Save/Recipe cascade 단일 진입점.
         internal VisionMachine Machine { get; private set; }
+        private QMC.Vision.Sequencing.VisionAutoSequenceHost _autoSeqHost;   // Sim 자동 시퀀스 호스트
 
         internal WaferVisionModule        WaferMod      { get; private set; }
         internal BinVisionModule          BinMod        { get; private set; }
@@ -38,7 +39,8 @@ namespace QMC.Vision
 
         // 페이지 클래스명(OperationPage/DataLogPage)은 구현 그대로 유지, 탭 의미만 핸들러 정렬.
         // 핸들러 정렬: Form1 → Tab(UserControl) → Page 3단. 각 탭이 자체 사이드바 + 콘텐츠 호스트.
-        private QMC.Vision.Ui.Tabs.WorkTab     _tabWork;
+        private QMC.Vision.Ui.Tabs.WorkTab      _tabWork;
+        private QMC.Vision.Ui.Tabs.SequencerTab _tabSequencer;
         private QMC.Vision.Ui.Tabs.RecipeTab   _tabRecipe;
         private QMC.Vision.Ui.Tabs.HistoryTab  _tabHistory;
         private QMC.Vision.Ui.Tabs.SettingsTab _tabSettings;
@@ -50,9 +52,14 @@ namespace QMC.Vision
         private void Form1_Load(object sender, EventArgs e)
         {
             var cfg = VisionConfigStore.Load();
+            // 데이터 저장 루트 적용 — 레시피/설비데이터 Store 사용 전에 반드시 먼저 설정.
+            QMC.Common.Data.Store.DataPaths.Root = cfg.EffectiveDataRoot;
+            QMC.Common.Data.Store.DataPaths.EnsureRoot();
             InitializeLighting(cfg);
             InitializeBackend(cfg);
             InitializeModulesAndMachine();
+            EnsureDataStores(cfg);             // 기본 데이터 폴더 + default 레시피 보장(없으면 생성)
+            RestoreLastRecipe(cfg);            // 마지막 적용 레시피 복원(+상단 Recipe 표시)
             InitializeServers(cfg);
             InitializeTabs();
             InitializeLocalization(cfg);
@@ -61,6 +68,8 @@ namespace QMC.Vision
             timerClock.Start();
             UpdateClock();
             ShowTab(Tab.Work);
+
+            // 부팅 시 자동 실행하지 않음 — STOP 이 기준. Sim 자체 실행은 작업 화면 RUN 버튼으로 사용자가 시작.
         }
 
         /// <summary>저장 언어 적용 + 헤더/하단 탭 i18n 태그 + 언어 변경 시 전체 재번역(핸들러 Form1 정렬).
@@ -116,10 +125,103 @@ namespace QMC.Vision
         private void InitializeBackend(VisionSettings cfg)
         {
             Backend = VisionFactory.Global;
-            // 상태바 좌측: 운전상태/레시피/Lot(프로토타입) + 기존 Backend/TCP 병합 표시.
-            // 레시피·Lot 는 머신/운행에서 갱신될 때 UpdateStatusBar 로 다시 채운다(현재 placeholder).
-            lblStatusL.Text = $"● READY   |   Recipe: -   |   Backend: {Backend.Name}   |   Lot: -   |   TCP: Wafer={cfg.WaferVisionPort}  Bin={cfg.BinVisionPort}  Bottom={cfg.InspectionVisionPort}";
             dotVision.IsOn  = Backend != null;
+            RefreshStatusBar();   // 초기 상태바(Recipe: -)
+        }
+
+        /// <summary>기본 데이터 폴더(Recipes/EquipmentData/Config/Log)와 'default' 레시피를 보장한다.
+        /// 새 PC·새 배포 폴더(D:\CDT-320 등)에서 데이터 폴더가 없으면 저장이 일어나기 전까지 폴더가
+        /// 만들어지지 않아 핸들러↔비전 레시피 연동이 비는 문제를 막는다(없을 때만 1회 생성).</summary>
+        private void EnsureDataStores(VisionSettings cfg)
+        {
+            try
+            {
+                string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+
+                // 1) 기본 데이터 폴더 생성(이미 있으면 무해).
+                System.IO.Directory.CreateDirectory(QMC.Common.Data.Store.RecipeDataStore.Root);
+                System.IO.Directory.CreateDirectory(QMC.Common.Data.Store.EquipmentDataStore.Root);
+                System.IO.Directory.CreateDirectory(System.IO.Path.Combine(baseDir, "Config"));
+                EnsureRelativeDir(baseDir, cfg?.ImageLogPath ?? @".\Log\Image");
+                EnsureRelativeDir(baseDir, cfg?.DataLogPath  ?? @".\Log\Data");
+
+                if (Machine == null) return;
+
+                // 2) 설비 고정 데이터(Setup/Config)가 없으면 현재값으로 최초 저장.
+                if (!System.IO.Directory.Exists(QMC.Common.Data.Store.EquipmentDataStore.Root)
+                    || System.IO.Directory.GetFiles(QMC.Common.Data.Store.EquipmentDataStore.Root, "*.json",
+                           System.IO.SearchOption.AllDirectories).Length == 0)
+                {
+                    try { Machine.SaveSettings(); } catch { }
+                }
+
+                // 3) 'default' 레시피 폴더가 없으면 현재(기본) 런타임으로 최초 저장 → 연동 기준 레시피 확보.
+                string defaultDir = QMC.Common.Data.Store.RecipeDataStore.DirOf("default");
+                if (!System.IO.Directory.Exists(defaultDir))
+                {
+                    Machine.SetRecipe("default");
+                    Machine.SaveRecipe("default");
+                }
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Warning, "SYSTEM", "DATA-INIT",
+                    "EnsureDataStores 실패: " + ex.Message);
+            }
+        }
+
+        /// <summary>상대경로(".\Log\Image" 등)를 baseDir 기준 절대경로로 만들어 폴더 생성.</summary>
+        private static void EnsureRelativeDir(string baseDir, string relativeOrAbsolute)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(relativeOrAbsolute)) return;
+                string full = System.IO.Path.IsPathRooted(relativeOrAbsolute)
+                    ? relativeOrAbsolute
+                    : System.IO.Path.Combine(baseDir, relativeOrAbsolute.TrimStart('.', '\\', '/'));
+                System.IO.Directory.CreateDirectory(full);
+            }
+            catch { }
+        }
+
+        /// <summary>마지막 적용 레시피(VisionSettings.LastRecipeName) 복원 — 전 모듈 로드 + 상단 표시.
+        /// 미설정 시 'default' 로 복원(EnsureDataStores 가 default 를 보장).</summary>
+        private void RestoreLastRecipe(VisionSettings cfg)
+        {
+            try
+            {
+                if (Machine == null) return;
+                string last = cfg?.LastRecipeName;
+                if (string.IsNullOrWhiteSpace(last)) last = "default";
+                Machine.SetRecipe(last);
+                SetRecipeStatus(last);
+            }
+            catch { }
+        }
+
+        // ── 상단 상태바 레시피 연동 ──
+        private string _statusRecipe = "-";
+
+        // ── 리소스(CPU/메모리) 모니터 — 사양 산정용. 1초마다 샘플링(TimerClock). ──
+        private readonly ResourceMonitor _resMon = new ResourceMonitor();
+        private readonly ToolTip _resTip = new ToolTip();   // 상태바 hover 시 상세(스레드/핸들/GC/가동)
+
+        /// <summary>레시피 적용/생성 시 상단 상태바 'Recipe:' 갱신 (RecipePage 가 호출).</summary>
+        internal void SetRecipeStatus(string name)
+        {
+            _statusRecipe = string.IsNullOrWhiteSpace(name) ? "-" : name;
+            RefreshStatusBar();
+        }
+
+        private void RefreshStatusBar()
+        {
+            try
+            {
+                var cfg = QMC.Vision.Config.VisionConfigStore.Current ?? QMC.Vision.Config.VisionConfigStore.Load();
+                lblStatusL.Text = $"● READY   |   Recipe: {_statusRecipe}   |   Backend: {Backend?.Name}   |   TCP: W={cfg.WaferVisionPort} B={cfg.BinVisionPort} Bot={cfg.InspectionVisionPort}   |   {_resMon.ShortText()}";
+            }
+            catch { }
         }
 
         /// <summary>5개 모듈 생성(카메라 SSOT=모듈 Config) → Config/Recipe 로드+카메라 생성/적용 → 머신 루트 조립.</summary>
@@ -139,6 +241,63 @@ namespace QMC.Vision
 
             // 머신 루트 — 5개 모듈을 Units 로 소유(핸들러 CDT320Machine 정렬). Save/Recipe cascade 단일 진입점.
             Machine = new VisionMachine(WaferMod, BinMod, BottomMod, TopSideVisionMod, BottomSideVisionMod);
+
+            // Sim 자동 시퀀스 호스트(핸들러 TCP 없이 자체 순차 실행). 시작/정지는 RUN 버튼·GENERAL 설정·종료 훅에서.
+            // 로그 싱크 연결 — 시퀀스 시작/정지/단계/실패가 이력(EventLogger "SEQ")에 남는다.
+            _autoSeqHost = new QMC.Vision.Sequencing.VisionAutoSequenceHost(Machine, SeqLog);
+        }
+
+        /// <summary>시퀀서 호스트 — 시퀀서 테스트 페이지가 모듈별 시작/정지/스텝 및 로그 구독에 사용.</summary>
+        internal QMC.Vision.Sequencing.VisionAutoSequenceHost AutoSeq => _autoSeqHost;
+
+        /// <summary>시퀀서 로그 싱크 — 이력(EventLogger "SEQ") + 디버그 출력.</summary>
+        private void SeqLog(string message)
+        {
+            try { QMC.Common.Logging.EventLogger.Write(QMC.Common.Logging.EventKind.Event, "SEQ", "SEQ", message); }
+            catch { }
+            System.Diagnostics.Debug.WriteLine(message);
+        }
+
+        /// <summary>GENERAL 의 Sim 자체 실행 토글 변경 시 호출 — OFF 면 진행 중 시퀀스 정지(자동 시작은 안 함, RUN 버튼으로 시작).</summary>
+        internal void ApplySimAutoSequence()
+        {
+            try { _autoSeqHost?.ApplyFromConfig(); }
+            catch { }
+        }
+
+        private bool _runArmed;   // 실제(비Sim) 모드 RUN 상태 — Phase 2 핸들러 명령 게이트용.
+
+        /// <summary>Sim 자체 실행 모드 여부 — GENERAL 의 'Sim 자동 실행'(핸들러 없이 자체 순차 실행) 설정.</summary>
+        internal bool IsSelfRunMode =>
+            QMC.Vision.Config.VisionConfigStore.Current.SimAutoSequence;
+
+        /// <summary>핸들러(MainComm 5104) 가 접속돼 있는가.</summary>
+        internal bool IsHandlerConnected => _svrMain != null && _svrMain.HasClient;
+
+        /// <summary>RUN 전환 가능 여부 — Sim 자체 실행이면 항상, 아니면 핸들러 접속 시.</summary>
+        internal bool CanRun => IsSelfRunMode || IsHandlerConnected;
+
+        /// <summary>현재 RUN 중인가 — Sim 자체 실행은 시퀀서 가동, 실제 모드는 RUN arming 상태.</summary>
+        internal bool IsRunActive => IsSelfRunMode ? (_autoSeqHost?.IsRunning ?? false) : _runArmed;
+
+        /// <summary>작업 탭 RUN/STOP 토글 — Sim 자체 실행은 시퀀서 시작/정지, 실제 모드는 RUN 상태 set(핸들러 접속 시).</summary>
+        internal void SetRun(bool on)
+        {
+            try
+            {
+                if (on) _resMon.ResetPeaks();   // RUN 시작 시 피크 초기화 — 이번 가동 기준 최대 부하 측정
+                if (IsSelfRunMode)
+                {
+                    if (on) _autoSeqHost?.Start(QMC.Vision.Config.VisionConfigStore.Current.SimSequenceIntervalMs);
+                    else    _autoSeqHost?.Stop();
+                }
+                else
+                {
+                    // 실제 모드: 핸들러 접속 시에만 RUN. Phase 2 에서 _runArmed 를 VisionTcpServer 명령 게이트에 연결.
+                    _runArmed = on && IsHandlerConnected;
+                }
+            }
+            catch { }
         }
 
         /// <summary>모듈별 TCP 서버 + 전역 MainComm(5104) 서버 + 원격 뷰어 생성·시작.</summary>
@@ -149,6 +308,9 @@ namespace QMC.Vision
             _svrBottom           = new VisionTcpServer(BottomMod,          cfg.InspectionVisionPort);
             _svrTopSideVision    = new VisionTcpServer(TopSideVisionMod,    cfg.TopSideVisionPort);
             _svrBottomSideVision = new VisionTcpServer(BottomSideVisionMod, cfg.BottomSideVisionPort);
+            // RUN 게이트 — RUN 상태에서만 핸들러 명령 수락(PING 제외).
+            foreach (var s in new[] { _svrWafer, _svrBin, _svrBottom, _svrTopSideVision, _svrBottomSideVision })
+                s.IsCommandAllowed = () => IsRunActive;
             try { _svrWafer            .Start(); } catch { }
             try { _svrBin              .Start(); } catch { }
             try { _svrBottom           .Start(); } catch { }
@@ -172,17 +334,20 @@ namespace QMC.Vision
         /// <summary>탭 UserControl 5개 생성 + 콘텐츠 호스트 등록 + Host(Form1) 연결.</summary>
         private void InitializeTabs()
         {
-            _tabWork     = new QMC.Vision.Ui.Tabs.WorkTab     { Dock = DockStyle.Fill, Visible = false };
-            _tabRecipe   = new QMC.Vision.Ui.Tabs.RecipeTab   { Dock = DockStyle.Fill, Visible = false };
-            _tabHistory  = new QMC.Vision.Ui.Tabs.HistoryTab  { Dock = DockStyle.Fill, Visible = false };
-            _tabSettings = new QMC.Vision.Ui.Tabs.SettingsTab { Dock = DockStyle.Fill, Visible = false };
-            _tabUser     = new QMC.Vision.Ui.Tabs.UserTab     { Dock = DockStyle.Fill, Visible = false };
+            _tabWork      = new QMC.Vision.Ui.Tabs.WorkTab      { Dock = DockStyle.Fill, Visible = false };
+            _tabSequencer = new QMC.Vision.Ui.Tabs.SequencerTab { Dock = DockStyle.Fill, Visible = false };
+            _tabRecipe    = new QMC.Vision.Ui.Tabs.RecipeTab    { Dock = DockStyle.Fill, Visible = false };
+            _tabHistory   = new QMC.Vision.Ui.Tabs.HistoryTab   { Dock = DockStyle.Fill, Visible = false };
+            _tabSettings  = new QMC.Vision.Ui.Tabs.SettingsTab  { Dock = DockStyle.Fill, Visible = false };
+            _tabUser      = new QMC.Vision.Ui.Tabs.UserTab      { Dock = DockStyle.Fill, Visible = false };
             pnlContent.Controls.Add(_tabWork);
+            pnlContent.Controls.Add(_tabSequencer);
             pnlContent.Controls.Add(_tabRecipe);
             pnlContent.Controls.Add(_tabHistory);
             pnlContent.Controls.Add(_tabSettings);
             pnlContent.Controls.Add(_tabUser);
             _tabWork.AttachHost(this);
+            _tabSequencer.AttachHost(this);
             _tabRecipe.AttachHost(this);
             _tabHistory.AttachHost(this);
             _tabSettings.AttachHost(this);
@@ -356,21 +521,24 @@ namespace QMC.Vision
 
         private void ShowTab(Tab t)
         {
-            _tabWork    .Visible = t == Tab.Work;
-            _tabRecipe  .Visible = t == Tab.Recipe;
-            _tabHistory .Visible = t == Tab.History;
-            _tabSettings.Visible = t == Tab.Settings;
-            _tabUser    .Visible = t == Tab.User;
+            _tabWork     .Visible = t == Tab.Work;
+            _tabSequencer.Visible = t == Tab.Sequencer;
+            _tabRecipe   .Visible = t == Tab.Recipe;
+            _tabHistory  .Visible = t == Tab.History;
+            _tabSettings .Visible = t == Tab.Settings;
+            _tabUser     .Visible = t == Tab.User;
 
-            btnWork    .Selected = t == Tab.Work;
-            btnRecipe  .Selected = t == Tab.Recipe;
-            btnHistory .Selected = t == Tab.History;
-            btnSettings.Selected = t == Tab.Settings;
-            btnUser    .Selected = t == Tab.User;
+            btnWork     .Selected = t == Tab.Work;
+            btnSequencer.Selected = t == Tab.Sequencer;
+            btnRecipe   .Selected = t == Tab.Recipe;
+            btnHistory  .Selected = t == Tab.History;
+            btnSettings .Selected = t == Tab.Settings;
+            btnUser     .Selected = t == Tab.User;
         }
 
         // ── 하단 메뉴 네비게이션 (Designer 명명 핸들러) ──
         private void btnWork_Click(object sender, EventArgs e)     => ShowTab(Tab.Work);
+        private void btnSequencer_Click(object sender, EventArgs e) => ShowTab(Tab.Sequencer);
         private void btnRecipe_Click(object sender, EventArgs e)   => ShowTab(Tab.Recipe);
         private void btnHistory_Click(object sender, EventArgs e)  => ShowTab(Tab.History);
         private void btnSettings_Click(object sender, EventArgs e) => ShowTab(Tab.Settings);
@@ -399,11 +567,41 @@ namespace QMC.Vision
             btnSettings.Location = new Point(x, y);
         }
 
-        private void TimerClock_Tick(object sender, EventArgs e) => UpdateClock();
+        private void TimerClock_Tick(object sender, EventArgs e)
+        {
+            UpdateClock();
+            try
+            {
+                _resMon.Sample();
+                RefreshStatusBar();   // 상태바에 CPU/MEM 갱신
+                try { _resTip.SetToolTip(lblStatusL, _resMon.DetailText()); } catch { }
+                if (QMC.Vision.Config.VisionConfigStore.Current?.ResourceLogEnable == true)
+                    AppendResourceCsv();
+            }
+            catch { }
+        }
         private void UpdateClock() => lblTimeValue.Text = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+
+        // ── 리소스 CSV 로깅 (DataRoot\Log\Resource\resource_yyyyMMdd.csv) ──
+        private bool _resCsvHeaderWritten;
+        private void AppendResourceCsv()
+        {
+            try
+            {
+                string dir = System.IO.Path.Combine(QMC.Common.Data.Store.DataPaths.Root, "Log", "Resource");
+                System.IO.Directory.CreateDirectory(dir);
+                string path = System.IO.Path.Combine(dir, "resource_" + DateTime.Now.ToString("yyyyMMdd") + ".csv");
+                if (!_resCsvHeaderWritten && !System.IO.File.Exists(path))
+                    System.IO.File.AppendAllText(path, ResourceMonitor.CsvHeader() + Environment.NewLine);
+                _resCsvHeaderWritten = true;
+                System.IO.File.AppendAllText(path, _resMon.CsvLine() + Environment.NewLine);
+            }
+            catch { }
+        }
 
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
+            try { _autoSeqHost?.Stop(); }      catch { }
             try { _viewWafer?.Dispose(); }     catch { }
             try { _viewBin?.Dispose(); }       catch { }
             try { _viewBottom?.Dispose(); }    catch { }

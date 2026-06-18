@@ -34,6 +34,9 @@ namespace QMC.Vision.Comm
         public int  Port      { get; }
         public bool IsRunning { get; private set; }
 
+        /// <summary>핸들러 등 클라이언트가 1개 이상 접속해 있으면 true(작업 탭 RUN 가능 판정용).</summary>
+        public bool HasClient { get { lock (_clients) { return _clients.Count > 0; } } }
+
         public MainCommServer(VisionMachine machine, int port = 5104)
         {
             _machine = machine ?? throw new ArgumentNullException(nameof(machine));

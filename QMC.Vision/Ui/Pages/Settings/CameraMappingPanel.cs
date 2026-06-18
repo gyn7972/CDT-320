@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
@@ -9,6 +9,7 @@ using QMC.Common.Recipes;
 using QMC.Vision.Config;
 using QMC.Vision.Core;
 using QMC.Vision.Ui.Controls;
+using QMC.Vision.Ui.Localization;
 
 namespace QMC.Vision.Ui.Pages
 {
@@ -43,8 +44,36 @@ namespace QMC.Vision.Ui.Pages
             if (LicenseManager.UsageMode == LicenseUsageMode.Designtime) return;
             _uiCtx = SynchronizationContext.Current ?? new WindowsFormsSynchronizationContext();
             _paramGrid.ParameterValueChanged += OnParamChanged;
+            _scaleGrid.ParameterValueChanged += OnScaleParamChanged;
+            _camPreview.ShowToolbar = true;   // 공용 CameraView 내장 툴바
             UpdateConnectButtons();
             WireLightGrid();
+            Lang.LanguageChanged += OnCamLangChanged;
+        }
+
+        protected override void OnHandleDestroyed(EventArgs e)
+        {
+            try { Lang.LanguageChanged -= OnCamLangChanged; } catch { }
+            base.OnHandleDestroyed(e);
+        }
+
+        /// <summary>언어 변경 — 그리드 항목명/헤더 재구성 + 태그 컨트롤 재번역(버퍼 유지, 조명지정 미변경).</summary>
+        private void OnCamLangChanged()
+        {
+            if (IsDisposed) return;
+            try
+            {
+                BeginInvoke((Action)(() =>
+                {
+                    if (!string.IsNullOrEmpty(_algorithm))
+                    {
+                        _lblAlgorithm.Text = Lang.T("set.cam.title") + " — " + Lang.Algo(_algorithm) + "  (" + _algorithm + ")";
+                        BindFields();
+                    }
+                    Lang.Apply(this);
+                }));
+            }
+            catch { }
         }
 
         /// <summary>카메라 파라미터 항목 목록 — Handler ParameterGridItem 팩토리 규칙대로 buffer 에 getter/setter 바인딩.
@@ -64,35 +93,61 @@ namespace QMC.Vision.Ui.Pages
 
             return new List<ParameterGridItem>
             {
-                WithRange(ParameterGridItem.Double("Exposure", "μs", ParameterGridScope.Recipe,
+                WithRange(ParameterGridItem.Double(Lang.T("set.cam.exposure"), "μs", ParameterGridScope.Recipe,
                     () => m.ExposureUs, v => m.ExposureUs = v), 1, 1000000),
-                WithRange(ParameterGridItem.Double("Gain", "dB", ParameterGridScope.Recipe,
+                WithRange(ParameterGridItem.Double(Lang.T("set.cam.gain"), "dB", ParameterGridScope.Recipe,
                     () => m.Gain, v => m.Gain = v), 0, 48),
-                WithRange(ParameterGridItem.Double("Frame rate", "fps", ParameterGridScope.Recipe,
+                WithRange(ParameterGridItem.Double(Lang.T("set.cam.frameRate"), "fps", ParameterGridScope.Recipe,
                     () => m.FrameRate, v => m.FrameRate = v), 1, 1000),
-                ParameterGridItem.Selection("Trigger Mode", "", ParameterGridScope.Config,
+                ParameterGridItem.Selection(Lang.T("set.cam.trigMode"), "", ParameterGridScope.Config,
                     () => isOff() ? "Off" : "On",
                     v => { if ((string)v == "On") m.TriggerMode = curSrc();
                            else m.TriggerMode = nameof(CameraTriggerMode.Continuous); },
                     new[] { new ParameterGridOption("Off", "Off"), new ParameterGridOption("On", "On") }),
-                ParameterGridItem.Selection("Trigger Source", "", ParameterGridScope.Config,
+                ParameterGridItem.Selection(Lang.T("set.cam.trigSrc"), "", ParameterGridScope.Config,
                     () => curSrc(),
                     v => { if (!isOff()) m.TriggerMode = (string)v; },
                     srcOptions),
-                ParameterGridItem.Selection("Pixel format", "", ParameterGridScope.Config,
+                ParameterGridItem.Selection(Lang.T("set.cam.pixFmt"), "", ParameterGridScope.Config,
                     () => m.PixelFormat ?? "Mono8",
                     v => m.PixelFormat = (string)v,
                     pixOptions),
-                WithRange(ParameterGridItem.Int("Delay before grab", "ms", ParameterGridScope.Recipe,
+                WithRange(ParameterGridItem.Int(Lang.T("set.cam.delayGrab"), "ms", ParameterGridScope.Recipe,
                     () => m.DelayBeforeGrabMs, v => m.DelayBeforeGrabMs = v), 0, 60000),
-                WithRange(ParameterGridItem.Int("ROI Offset X", "px", ParameterGridScope.Recipe,
+                WithRange(ParameterGridItem.Int(Lang.T("set.cam.roiOffX"), "px", ParameterGridScope.Recipe,
                     () => m.RoiOffsetX, v => m.RoiOffsetX = v), 0, 8000),
-                WithRange(ParameterGridItem.Int("ROI Offset Y", "px", ParameterGridScope.Recipe,
+                WithRange(ParameterGridItem.Int(Lang.T("set.cam.roiOffY"), "px", ParameterGridScope.Recipe,
                     () => m.RoiOffsetY, v => m.RoiOffsetY = v), 0, 8000),
-                WithRange(ParameterGridItem.Int("ROI Width", "px", ParameterGridScope.Recipe,
+                WithRange(ParameterGridItem.Int(Lang.T("set.cam.roiW"), "px", ParameterGridScope.Recipe,
                     () => m.RoiWidth, v => m.RoiWidth = v), 0, 8000),
-                WithRange(ParameterGridItem.Int("ROI Height", "px", ParameterGridScope.Recipe,
+                WithRange(ParameterGridItem.Int(Lang.T("set.cam.roiH"), "px", ParameterGridScope.Recipe,
                     () => m.RoiHeight, v => m.RoiHeight = v), 0, 8000),
+            };
+        }
+
+        /// <summary>스케일/좌표변환 항목 — 전용 그리드(_scaleGrid). 모듈별 Config 스코프.</summary>
+        private List<ParameterGridItem> BuildScaleItems(AlgorithmCameraMapping m)
+        {
+            return new List<ParameterGridItem>
+            {
+                WithRange(ParameterGridItem.Double(Lang.T("set.cam.scaleX"), "mm/px", ParameterGridScope.Config,
+                    () => m.ScaleX, v => m.ScaleX = v), 0.0000001, 1000),
+                WithRange(ParameterGridItem.Double(Lang.T("set.cam.scaleY"), "mm/px", ParameterGridScope.Config,
+                    () => m.ScaleY, v => m.ScaleY = v), 0.0000001, 1000),
+                ParameterGridItem.Bool(Lang.T("set.cam.invX"), ParameterGridScope.Config,
+                    () => m.InvertedX, v => m.InvertedX = v),
+                ParameterGridItem.Bool(Lang.T("set.cam.invY"), ParameterGridScope.Config,
+                    () => m.InvertedY, v => m.InvertedY = v),
+                ParameterGridItem.Bool(Lang.T("set.cam.rot90"), ParameterGridScope.Config,
+                    () => m.IsRotated, v => m.IsRotated = v),
+                ParameterGridItem.Bool(Lang.T("set.cam.returnMm"), ParameterGridScope.Config,
+                    () => m.ReturnMmCoordinates, v => m.ReturnMmCoordinates = v),
+
+                // 캘리브레이션 입력 — '스케일 계산' 버튼이 이 값으로 산출
+                WithRange(ParameterGridItem.Double(Lang.T("set.cam.chipW"), "mm", ParameterGridScope.Config,
+                    () => m.CalibChipWidthMm, v => m.CalibChipWidthMm = v), 0, 1000),
+                WithRange(ParameterGridItem.Double(Lang.T("set.cam.chipH"), "mm", ParameterGridScope.Config,
+                    () => m.CalibChipHeightMm, v => m.CalibChipHeightMm = v), 0, 1000),
             };
         }
 
@@ -107,6 +162,11 @@ namespace QMC.Vision.Ui.Pages
         private void OnParamChanged(object sender, ParameterGridChangedEventArgs e)
         {
             try { _paramGrid.RefreshValues(); } catch { }
+        }
+
+        private void OnScaleParamChanged(object sender, ParameterGridChangedEventArgs e)
+        {
+            try { _scaleGrid.RefreshValues(); } catch { }
         }
 
         // ── 이벤트 핸들러 (Designer 에서 named 연결) ──
@@ -136,14 +196,14 @@ namespace QMC.Vision.Ui.Pages
                     _txtMilDcf.Text = dlg.FileName;   // TextChanged → OnMilTextChanged → cfg.MilDcfPath 저장
             }
         }
+        private void OnScaleCalcClick(object sender, EventArgs e) => CalcScaleFromChip();
         private void OnSaveClick(object sender, EventArgs e) => SaveAll();
+        private void OnLoadClick(object sender, EventArgs e) => LoadFromDisk();
         private void OnCancelClick(object sender, EventArgs e) => CancelChanges();
         private void OnResetClick(object sender, EventArgs e) => ResetToDefaults();
         private void OnApplyClick(object sender, EventArgs e) => ApplyToRunningModule();
-        private void OnTestGrabClick(object sender, EventArgs e) => TestGrab();
         private void OnConnectClick(object sender, EventArgs e) => ToggleConnect();
-        private void OnLiveStartClick(object sender, EventArgs e) => LiveStart();
-        private void OnLiveStopClick(object sender, EventArgs e) => LiveStop();
+        // 테스트그랩/Live는 CameraView 내장 툴바로 통일(중복 버튼 제거). Connect 만 유지.
 
         // ── 조명 컨트롤러/페이지 지정 (모듈 Setup.LightPages) ──
         // 카메라=조명 1:1 하드웨어이므로 모듈 노드(이 패널)에서 지정. 채널 레벨은 검사별([레시피]).
@@ -208,22 +268,22 @@ namespace QMC.Vision.Ui.Pages
         /// <summary>컨트롤러 콤보 = 인벤토리 PortName, 페이지 콤보 = 0 ~ (전 컨트롤러 최대 PageCount-1) superset(string).</summary>
         private void RefreshLightCombos()
         {
-            _colLightCtrl.Items.Clear();
+            ControllerPort.Items.Clear();
             int maxPage = 1;
             var ctrls = LightSystemSetupStore.Current?.Controllers ?? new List<LightControllerEntry>();
             foreach (var c in ctrls)
             {
-                if (!string.IsNullOrEmpty(c.PortName)) _colLightCtrl.Items.Add(c.PortName);
+                if (!string.IsNullOrEmpty(c.PortName)) ControllerPort.Items.Add(c.PortName);
                 if (c.PageCount > maxPage) maxPage = c.PageCount;
             }
-            _colLightPage.Items.Clear();
-            for (int p = 0; p < maxPage; p++) _colLightPage.Items.Add(p.ToString());
+            Page.Items.Clear();
+            for (int p = 0; p < maxPage; p++) Page.Items.Add(p.ToString());
         }
 
         private void EnsureLightCtrlItem(string port)
         {
             if (string.IsNullOrEmpty(port)) return;
-            if (!_colLightCtrl.Items.Contains(port)) _colLightCtrl.Items.Add(port);
+            if (!ControllerPort.Items.Contains(port)) ControllerPort.Items.Add(port);
         }
 
         /// <summary>모듈 Setup.LightPages → 그리드 행 바인딩.</summary>
@@ -298,7 +358,7 @@ namespace QMC.Vision.Ui.Pages
         {
             _algorithm = algorithm;
             _buffer    = null;   // 모듈 Config/Recipe 에서 새로 로드
-            _lblAlgorithm.Text = "카메라 매핑 — " + VisionAlgorithm.Label(algorithm) + "  (" + algorithm + ")";
+            _lblAlgorithm.Text = Lang.T("set.cam.title") + " — " + Lang.Algo(algorithm) + "  (" + algorithm + ")";
             BindFields();
             BindLightAssign();
             ResetScrollAsync();
@@ -340,6 +400,8 @@ namespace QMC.Vision.Ui.Pages
                 if (_body != null) _body.Enabled = false;
                 if (_lblStatus != null) { _lblStatus.ForeColor = Color.Firebrick; _lblStatus.Text = "설정 불러올 수 없음 — 운영 모듈 미해결"; }
                 try { _paramGrid.SetItems(new List<ParameterGridItem>()); } catch { }   // 스테일 행 제거
+                try { _scaleGrid.SetItems(new List<ParameterGridItem>()); } catch { }
+                SizeLeftGrids();   // 빈 그리드도 헤더 높이로 축소(120F 빈 박스 방지 — GENERAL 동일)
                 System.Diagnostics.Debug.WriteLine("[CameraMappingPanel] 모듈 미해결: " + _algorithm);
                 return;
             }
@@ -349,6 +411,9 @@ namespace QMC.Vision.Ui.Pages
             {
                 SetSelectedById(_cbCameraId, m.CameraId);
                 _paramGrid.SetItems(BuildParamItems(m));   // 카메라 파라미터 = 리스트(항목 추가/삭제 용이)
+                _scaleGrid.SetItems(BuildScaleItems(m));   // 스케일/좌표변환 전용 그리드
+                SizeLeftGrids();                           // 그리드 행 높이를 내용에 맞춰 고정(GENERAL 동일 — 세로 늘어남 방지)
+                _camPreview.AttachModule(Module());        // 툴바 Grab/Live 대상 = 현재 모듈
 
                 var cfg = VisionConfigStore.Current;
                 if (_txtMilDcf != null) _txtMilDcf.Text = cfg?.MilDcfPath ?? "";
@@ -357,6 +422,18 @@ namespace QMC.Vision.Ui.Pages
             }
             finally { _suspendBinding = false; }
             UpdateMilVisibility();
+        }
+
+        /// <summary>좌측 파라미터/스케일 그리드 행 높이를 내용에 맞춰 고정(GENERAL SizeGrids 동일).
+        /// 행 2=_paramGrid, 행 4=_scaleGrid. 맨 아래 Percent 100 스페이서가 남는 공간 흡수.</summary>
+        private void SizeLeftGrids()
+        {
+            try
+            {
+                _left.RowStyles[2].Height = _paramGrid.PreferredGridHeight;
+                _left.RowStyles[4].Height = _scaleGrid.PreferredGridHeight;
+            }
+            catch { }
         }
 
         /// <summary>"Mil/..." 카메라가 선택됐을 때만 "DCF 직접 지정" 체크박스를 노출.</summary>
@@ -467,6 +544,22 @@ namespace QMC.Vision.Ui.Pages
             if (lightCount >= 0) SetLightStatus($"조명 지정 {lightCount}건 저장됨.", false);
         }
 
+        /// <summary>[불러오기] — 모듈 Config/Recipe 를 디스크에서 재로드 후 재바인딩(GENERAL 불러오기와 동일 개념).</summary>
+        private void LoadFromDisk()
+        {
+            var mod = Module();
+            if (mod == null)
+            {
+                if (_lblStatus != null) { _lblStatus.ForeColor = Color.Firebrick; _lblStatus.Text = "불러오기 불가 — 운영 모듈 미해결"; }
+                return;
+            }
+            try { mod.LoadSettings(); mod.LoadRecipe("default"); } catch { }
+            _buffer = null;       // 디스크에서 재로드된 모듈 Config/Recipe 로 버퍼 재생성
+            BindFields();
+            BindLightAssign();
+            if (_lblStatus != null) { _lblStatus.ForeColor = Color.DarkSlateGray; _lblStatus.Text = "불러옴 — 저장된 설정 적용"; }
+        }
+
         private void CancelChanges()
         {
             // 미저장 편집은 버퍼에만 존재 → 버퍼를 버리고 모듈 Config/Recipe 에서 재로드(라이브 카메라 무영향).
@@ -521,6 +614,82 @@ namespace QMC.Vision.Ui.Pages
             catch (Exception ex) { _lblStatus.Text = "적용 실패: " + ex.Message; _lblStatus.ForeColor = Color.Firebrick; }
         }
 
+        /// <summary>칩 이미지를 그랩해 측정 다이얼로그(두 점 측정)로 Scale X/Y(mm/px)를 산출 → 버퍼 반영(저장 필요).</summary>
+        private void CalcScaleFromChip()
+        {
+            var mod = Module();
+            var m = CurrentMapping();
+            if (mod == null || m == null)
+            {
+                _lblStatus.ForeColor = Color.Firebrick;
+                _lblStatus.Text = "스케일 계산 불가 — 운영 모듈 미해결";
+                return;
+            }
+            if (_isLive)
+            {
+                _lblStatus.ForeColor = Color.Firebrick;
+                _lblStatus.Text = "Live 중에는 스케일 계산 불가. Live Stop 후 시도하세요.";
+                return;
+            }
+
+            GrabResult grab = null;
+            ICamera tempCam = null;
+            try
+            {
+                // 이미 미리보기에 표시된 프레임(테스트그랩/Live)이 있으면 그걸 사용, 없으면 단발 그랩.
+                Bitmap src = _camPreview?.CurrentFrame;
+                if (src == null)
+                {
+                    _lblStatus.Text = "측정용 이미지 그랩 중..."; _lblStatus.Refresh();
+                    if (_activeCam != null)
+                    {
+                        grab = _activeCam.Grab(3000);
+                    }
+                    else
+                    {
+                        tempCam = AlgorithmCameraBinder.CreateAndApply(m);
+                        tempCam.TriggerMode = CameraTriggerMode.Software;
+                        grab = tempCam.Grab(3000);
+                    }
+                    if (grab == null || !grab.IsSuccess || grab.Image == null)
+                    {
+                        _lblStatus.ForeColor = Color.Firebrick;
+                        _lblStatus.Text = "그랩 실패 — 스케일 계산 불가";
+                        return;
+                    }
+                    _camPreview?.SetFrame(grab);   // 미리보기에도 표시
+                    src = grab.Image;
+                }
+
+                using (var dlg = new QMC.Vision.Ui.Dialogs.ScaleCalibrationDialog(src, m.CalibChipWidthMm, m.CalibChipHeightMm))
+                {
+                    if (dlg.ShowDialog(this) != DialogResult.OK)
+                    {
+                        _lblStatus.ForeColor = Color.DarkSlateGray;
+                        _lblStatus.Text = "스케일 계산 취소됨";
+                        return;
+                    }
+                    m.ScaleX = dlg.ResultScaleX;
+                    m.ScaleY = dlg.ResultScaleY;
+                    m.CalibChipWidthMm  = dlg.ResultChipWidthMm;   // 그리드 동기화
+                    m.CalibChipHeightMm = dlg.ResultChipHeightMm;
+                    try { _scaleGrid.RefreshValues(); } catch { }
+                    _lblStatus.ForeColor = Color.DarkSlateGray;
+                    _lblStatus.Text = $"스케일 계산됨 — X={m.ScaleX:F6}  Y={m.ScaleY:F6} mm/px  (저장 필요)";
+                }
+            }
+            catch (Exception ex)
+            {
+                _lblStatus.ForeColor = Color.Firebrick;
+                _lblStatus.Text = "스케일 계산 예외 — " + ex.Message;
+            }
+            finally
+            {
+                try { grab?.Dispose(); } catch { }
+                if (tempCam != null) { try { tempCam.Dispose(); } catch { } }
+            }
+        }
+
         private void TestGrab()
         {
             OnFieldChanged();
@@ -548,8 +717,7 @@ namespace QMC.Vision.Ui.Pages
                 {
                     if (g.IsSuccess && g.Image != null)
                     {
-                        _picPreview.Image?.Dispose();
-                        _picPreview.Image = new Bitmap(g.Image);
+                        _camPreview.SetFrame(g);   // 공용 CameraView (SetFrame 이 내부 복제)
                         _lblStatus.ForeColor = Color.DarkSlateGray;
                         _lblStatus.Text = $"그랩 OK — {g.Width}x{g.Height}  Exposure={m.ExposureUs}μs  Gain={m.Gain}dB";
                     }
@@ -693,10 +861,9 @@ namespace QMC.Vision.Ui.Pages
 
         private void ShowLiveFrame(Bitmap bmp)
         {
-            if (_picPreview == null) { bmp.Dispose(); return; }
-            var old = _picPreview.Image;
-            _picPreview.Image = bmp;
-            old?.Dispose();
+            if (_camPreview == null) { bmp.Dispose(); return; }
+            _camPreview.SetImage(bmp);   // 내부 복제 → 원본 dispose
+            bmp.Dispose();
             _fpsCount++;
             var dt = (DateTime.Now - _fpsT0).TotalSeconds;
             if (dt >= 1.0)
@@ -719,12 +886,8 @@ namespace QMC.Vision.Ui.Pages
         {
             if (_btnConnect == null) return;
             bool connected = _activeCam != null;
-            bool live = _isLive;
             _btnConnect.Text = connected ? "Disconnect" : "Connect";
             _btnConnect.BackColor = connected ? Color.IndianRed : UiTheme.Accent;
-            _btnLiveStart.Enabled = connected && !live;
-            _btnLiveStop.Enabled  = connected && live;
-            _btnTestGrab.Enabled  = !live;
             // 연결 중엔 카메라/매핑 변경 잠금
             _cbCameraId.Enabled  = !connected;
             if (_btnDiscover != null) _btnDiscover.Enabled = !connected;

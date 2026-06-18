@@ -29,6 +29,10 @@ namespace QMC.Vision.Core
         /// <summary>주어진 이미지의 TrainRoi 영역을 학습 패턴으로 저장.</summary>
         void Train(Bitmap image);
 
+        /// <summary>저장된(이미 잘린) 패턴 이미지를 직접 학습 패턴으로 복원.
+        /// 레시피와 함께 PNG 로 영속화한 패턴을 로드해 매칭에 재사용한다.</summary>
+        void LoadTrainImage(Bitmap pattern);
+
         /// <summary>주어진 이미지에서 패턴을 찾고 결과 반환.</summary>
         MatchResult Match(Bitmap image);
     }
