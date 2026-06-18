@@ -1,80 +1,96 @@
-﻿using System;
+﻿using QMC.CDT_320.Ui.Controls;
+using QMC.CDT_320.Ui.Localization;
+using QMC.CDT320;
+using QMC.Common.Logging;
+using QMC.Common.Motion;
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Drawing;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using QMC.Common.Alarms;
-using QMC.Common.Logging;
-using QMC.CDT320.VisionComm;
-using QMC.CDT_320.Ui.Controls;
-using QMC.CDT_320.Ui.Localization;
-using QMC.CDT_320.Ui.Security;
 
 namespace QMC.CDT_320.Ui.Pages.Recipe
 {
-    public partial class VisionRecipePage : QMC.CDT_320.Ui.Pages.PageBase
+    /// <summary>Vision 레시피에서 VisionUnit(Front/Rear Side Vision Y축 · 레티클/니들 I/O)을 조작하는 화면입니다.</summary>
+    public partial class VisionRecipePage : PageBase
     {
-        private string _titleI18n;
+        private readonly string _titleI18n;
+        private readonly Timer _refreshTimer = new Timer();
+        private VisionUnit _visionUnit;
 
-        public VisionRecipePage()
+        public VisionRecipePage() : this("recipe.inputVision")
         {
-            _titleI18n = "recipe.inputVision";
-            InitializeComponent();
-            ApplyTitle();
-            BindActionCommands();
         }
 
         public VisionRecipePage(string titleI18n)
         {
-            _titleI18n = titleI18n;
-            InitializeComponent();
-            ApplyTitle();
-            BindActionCommands();
-        }
-
-        private void ApplyTitle()
-        {
-            lblHeader.Tag = "i18n:" + _titleI18n;
-            lblHeader.Text = Lang.T(_titleI18n);
-            grpCamera.Text = Lang.T(_titleI18n);
-        }
-
-        private void BindActionCommands()
-        {
             try
             {
-                actionCommandPanel.SetItems(new[]
-                {
-                    CreateAction("GRAB", "GRAB", 0, 0),
-                    CreateAction("MATCH", "MATCH", 0, 1),
-                    CreateAction("FAST_SHUTTER", "FAST SHUTTER", 0, 2),
-                    CreateAction("SMALL_ROI", "SMALL ROI", 1, 0),
-                    CreateAction("MATCH_MOVE", "MATCH MOVE", 1, 1),
-                    CreateAction("IMAGE_SAVE", "IMAGE SAVE", 1, 2),
-                    CreateAction("THETA_MATCH_MOVE", "THETA MATCH MOVE", 2, 0)
-                }, 3, 3);
+                _titleI18n = titleI18n;
+                InitializeComponent();
+                if (LicenseManager.UsageMode == LicenseUsageMode.Designtime)
+                    return;
+
+                ApplyTitle();
+                ApplyRuntimeLayout();
+                ConfigureRuntimeBehavior();
             }
             catch (Exception ex)
             {
-                AlarmManager.Raise(AlarmSeverity.Warning, "VisionActionBindFail", "VisionRecipePage",
-                    "Bind action command exception: " + ex.GetType().Name + ": " + ex.Message);
-                QMC.Common.MessageDialog.Show(ex.Message, "Vision Action", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                QMC.Common.MessageDialog.Show(ex.Message, "Vision", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
             }
         }
 
-        private ActionCommandItem CreateAction(string key, string text, int row, int column)
+        protected override void OnLoad(EventArgs e)
         {
             try
             {
-                return new ActionCommandItem
-                {
-                    Key = key,
-                    Text = text,
-                    Row = row,
-                    Column = column,
-                    ExecuteAsync = async () => await ExecuteVisionActionAsync(text)
-                };
+                base.OnLoad(e);
+                if (LicenseManager.UsageMode == LicenseUsageMode.Designtime) return;
+
+                ResolveUnit();
+                BindParameterGrids();
+                BindIoPanel();
+                BindJogPanel();
+                RefreshView();
+                _refreshTimer.Start();
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Vision Load", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
+        }
+
+        protected override void OnHandleDestroyed(EventArgs e)
+        {
+            try
+            {
+                _refreshTimer.Stop();
+                if (jogAxisMoveControl != null)
+                    jogAxisMoveControl.StopAllAsync(true).GetAwaiter().GetResult();
+            }
+            catch
+            {
+            }
+            finally
+            {
+                base.OnHandleDestroyed(e);
+            }
+        }
+
+        private void ApplyTitle()
+        {
+            try
+            {
+                lblHeader.Tag = "i18n:" + _titleI18n;
+                lblHeader.Text = Lang.T(_titleI18n);
             }
             catch
             {
@@ -85,72 +101,633 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             }
         }
 
-        private async Task<int> ExecuteVisionActionAsync(string actionName)
+        private void ApplyRuntimeLayout()
         {
             try
             {
-                EventLogger.Write(EventKind.Event, UserSession.Name, "VISION-ACTION",
-                    "Click: " + actionName + " (titleI18n=" + _titleI18n + ")");
+                optionLayout.Visible = false;
+                waitLayout.Visible = false;
+                ioLayout.Visible = false;
+                jogLayout.Visible = false;
+                jogCommonLayout.Visible = true;
+                speedLayout.Visible = false;
 
-                var wafer = VisionHub.Wafer;
-                switch (actionName)
-                {
-                    // Wafer Vision GRAB 실행
-                    case "GRAB":
-                        if (wafer != null && wafer.IsConnected)
-                        {
-                            bool ok = await wafer.ExposeAsync(0, 3000);
-                            QMC.Common.MessageDialog.Show("GRAB " + (ok ? "OK" : "FAIL"), "Vision GRAB",
-                                MessageBoxButtons.OK, ok ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
-                            return ok ? 0 : -1;
-                        }
-                        else
-                        {
-                            QMC.Common.MessageDialog.Show("Wafer Vision is not connected. (TCP 5100)", "GRAB",
-                                MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                            return -1;
-                        }
+                optionParameterGrid.BringToFront();
+                waitParameterGrid.BringToFront();
+                ioCylinderPanel.BringToFront();
+                jogCommonLayout.BringToFront();
+                jogSpeedControl.BringToFront();
 
-                    // Wafer Vision MATCH 실행
-                    case "MATCH":
-                        if (wafer != null && wafer.IsConnected)
-                        {
-                            var result = await wafer.MatchAsync("ReticleFinder", 0, 5000);
-                            string msg = result == null
-                                ? "MATCH failed. Result is null."
-                                : "MATCH result: x=" + result.X.ToString("F2") +
-                                  ", y=" + result.Y.ToString("F2") +
-                                  ", angle=" + result.AngleDeg.ToString("F2") +
-                                  ", score=" + result.Score.ToString("F2");
-                            QMC.Common.MessageDialog.Show(msg, "Vision MATCH",
-                                MessageBoxButtons.OK,
-                                result != null ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
-                            return result != null ? 0 : -1;
-                        }
-                        else
-                        {
-                            QMC.Common.MessageDialog.Show("Wafer Vision is not connected. (TCP 5100)", "MATCH",
-                                MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                            return -1;
-                        }
-
-                    // 빠른 셔터 액션 안내
-                    case "FAST SHUTTER":
-                        QMC.Common.MessageDialog.Show("FAST SHUTTER will call the Vision PC exposure API in a later stage.",
-                            "FAST SHUTTER", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                        return 0;
-
-                    default:
-                        QMC.Common.MessageDialog.Show(actionName + " will be implemented in the next stage.",
-                            "Vision Action", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                        return 0;
-                }
+                BackColor = Color.FromArgb(207, 210, 214);
+                rootLayout.BackColor = BackColor;
+                contentLayout.BackColor = BackColor;
+                lblHeader.BackColor = Color.FromArgb(64, 64, 64);
+                lblHeader.ForeColor = Color.White;
+                lblHeader.Font = new Font("Malgun Gothic", 11F, FontStyle.Bold);
+                foreach (var group in new[] { grpOptions, grpWait, grpManual, grpIo, grpVision, grpJog, grpSpeed })
+                    group.Font = new Font("Malgun Gothic", 10F, FontStyle.Bold);
             }
             catch (Exception ex)
             {
-                AlarmManager.Raise(AlarmSeverity.Warning, "VisionMatchFail", "VisionRecipePage",
-                    actionName + " exception: " + ex.GetType().Name + ": " + ex.Message);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Vision Layout", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
+        }
+
+        private void ConfigureRuntimeBehavior()
+        {
+            try
+            {
+                _refreshTimer.Interval = 250;
+                _refreshTimer.Tick += RefreshTimer_Tick;
+                optionParameterGrid.ParameterValueChanged += ParameterGrid_ParameterValueChanged;
+                waitParameterGrid.ParameterValueChanged += ParameterGrid_ParameterValueChanged;
+                BindParameterGridMenus();
+
+                jogAxisMoveControl.SpeedControl = jogSpeedControl;
+                jogAxisMoveControl.LayoutMode = JogAxisMoveLayoutMode.AxisColumns;
+                // Front Y / Rear Y 두 축을 한 행에 좌우로 나란히(2열) 배치하고, 두 열 사이 간격을 넓게 둔다.
+                jogAxisMoveControl.AxisColumnsPerRow = 2;
+                jogAxisMoveControl.AxisColumnGap = 60;
+                jogAxisMoveControl.ShowCurrentSpeedMode = true;
+                jogAxisMoveControl.ButtonAreaMinHeight = 420;
+                jogAxisMoveControl.ButtonAreaMaxHeight = 460;
+                jogAxisMoveControl.ButtonAreaMinWidth = 170;
+                jogAxisMoveControl.ButtonAreaMaxWidth = 320;
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Vision Configure", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
+        }
+
+        private void RefreshTimer_Tick(object sender, EventArgs e)
+        {
+            try
+            {
+                RefreshView();
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        private void ResolveUnit()
+        {
+            try
+            {
+                var machine = FindMachine();
+                _visionUnit = machine != null ? machine.VisionUnit : null;
+                if (_visionUnit != null && _visionUnit.Recipe != null)
+                    _visionUnit.Recipe.EnsurePositionObjects();
+                SetEnabledState(_visionUnit != null);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Vision Resolve", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
+        }
+
+        private CDT320_Machine FindMachine()
+        {
+            try
+            {
+                foreach (Form form in Application.OpenForms)
+                {
+                    var host = form as Form1;
+                    if (host != null)
+                        return host.Machine;
+                }
+
+                return null;
+            }
+            catch
+            {
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
+        private Form1 FindHostForm()
+        {
+            try
+            {
+                foreach (Form form in Application.OpenForms)
+                {
+                    var host = form as Form1;
+                    if (host != null)
+                        return host;
+                }
+
+                return FindForm() as Form1;
+            }
+            catch
+            {
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
+        private void SetEnabledState(bool enabled)
+        {
+            try
+            {
+                foreach (Control control in new Control[] { grpOptions, grpWait, grpManual, grpIo, grpVision, grpJog, grpSpeed })
+                    control.Enabled = enabled;
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        private void BindParameterGrids()
+        {
+            try
+            {
+                if (_visionUnit == null)
+                    return;
+
+                _visionUnit.Recipe.EnsurePositionObjects();
+                var unit = _visionUnit;
+                var items = new List<ParameterGridItem>();
+
+                // Recipe 위치 — 위치 종류별 접이식 그룹 (멤버 = FRONT Y / REAR Y)
+                AddKindGroup(items, "AVOID POSITION", "Avoid");
+                AddKindGroup(items, "PROCESS POSITION", "Process");
+                AddKindGroup(items, "SAFE RETREAT POSITION", "SafeRetreat");
+                AddKindGroup(items, "CALIBRATION POSITION", "Calibration");
+
+                items.Add(ParameterGridItem.Bool("SIMULATION MODE", ParameterGridScope.Setup, () => unit.Setup.IsSimulationMode, v => unit.Setup.IsSimulationMode = v));
+                items.Add(ParameterGridItem.Bool("DRY RUN", ParameterGridScope.Config, () => unit.Config.bDryRun, v => unit.Config.bDryRun = v));
+
+                optionParameterGrid.SetItems(items);
+
+                // WAIT TIME — VisionRecipe 타임아웃 값
+                waitParameterGrid.SetItems(new[]
+                {
+                    ParameterGridItem.Int("MOVE TIMEOUT", "ms", ParameterGridScope.Recipe, () => unit.Recipe.MoveTimeoutMs, v => unit.Recipe.MoveTimeoutMs = v),
+                    ParameterGridItem.Int("I/O TIMEOUT", "ms", ParameterGridScope.Recipe, () => unit.Recipe.IoTimeoutMs, v => unit.Recipe.IoTimeoutMs = v),
+                    ParameterGridItem.Int("CAPTURE TIMEOUT", "ms", ParameterGridScope.Recipe, () => unit.Recipe.CaptureTimeoutMs, v => unit.Recipe.CaptureTimeoutMs = v)
+                });
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "VISION", "BindParameterGrids failed: " + ex.Message);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Vision Parameters", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
+        }
+
+        // 한 위치 종류(kind)를 헤더로 묶고, Front/Rear Side Vision Y축을 멤버로 추가
+        private void AddKindGroup(List<ParameterGridItem> items, string kindLabel, string kind)
+        {
+            string groupKey = "K_" + kind.ToUpperInvariant();
+            items.Add(ParameterGridItem.Header(kindLabel, groupKey));
+
+            items.Add(VisionMember("FRONT Y", groupKey, kindLabel, kind, VisionSide.Front));
+            items.Add(VisionMember("REAR Y", groupKey, kindLabel, kind, VisionSide.Rear));
+        }
+
+        private ParameterGridItem VisionMember(string axisLabel, string groupKey, string kindLabel, string kind, VisionSide side)
+        {
+            VisionAxisPositions positions = side == VisionSide.Front ? _visionUnit.Recipe.FrontSideVision : _visionUnit.Recipe.RearSideVision;
+            BaseAxis axis = side == VisionSide.Front ? _visionUnit.FrontSideVisionY : _visionUnit.RearSideVisionY;
+
+            Func<double> getter;
+            Action<double> setter;
+            switch (kind)
+            {
+                // Avoid 위치 레시피 연결
+                case "Avoid": getter = () => positions.AvoidPosition; setter = v => positions.AvoidPosition = v; break;
+                // Process 위치 레시피 연결 (Front/Rear 각 축의 Process 필드 사용)
+                case "Process":
+                    if (side == VisionSide.Front) { getter = () => positions.FrontProcessPosition; setter = v => positions.FrontProcessPosition = v; }
+                    else { getter = () => positions.RearProcessPosition; setter = v => positions.RearProcessPosition = v; }
+                    break;
+                // Safe Retreat 위치 레시피 연결
+                case "SafeRetreat": getter = () => positions.SafeRetreatPosition; setter = v => positions.SafeRetreatPosition = v; break;
+                // Calibration 위치 레시피 연결
+                case "Calibration": getter = () => positions.CalibrationPosition; setter = v => positions.CalibrationPosition = v; break;
+                default: getter = () => 0.0; setter = v => { }; break;
+            }
+
+            var item = AxisDouble(axisLabel, ParameterGridScope.Recipe, axis, getter, setter);
+            item.Key = axisLabel + " " + kindLabel;   // 이동/티칭 조회는 전체 이름(Key)으로 파싱
+            item.GroupKey = groupKey;
+            return item;
+        }
+
+        // ===================== 매뉴얼 액션 (Front/Rear 통합 단일 버튼) =====================
+        private async void btnAvoidPosition_Click(object sender, EventArgs e)
+        {
+            await ConfirmAndRunAsync("AVOID POSITION", () => _visionUnit.MoveToVisionAvoidPosition());
+        }
+
+        private async void btnProcessPosition_Click(object sender, EventArgs e)
+        {
+            await ConfirmAndRunAsync("PROCESS POSITION", MoveBothProcessAsync);
+        }
+
+        private async void btnSafeRetreatPosition_Click(object sender, EventArgs e)
+        {
+            await ConfirmAndRunAsync("SAFE RETREAT POSITION", MoveBothSafeRetreatAsync);
+        }
+
+        private async void btnCalibrationPosition_Click(object sender, EventArgs e)
+        {
+            await ConfirmAndRunAsync("CALIBRATION POSITION", MoveBothCalibrationAsync);
+        }
+
+        // Front/Rear 양측을 각자 Process 위치로 이동
+        private async Task<int> MoveBothProcessAsync()
+        {
+            if (_visionUnit == null)
                 return -1;
+
+            int r = await _visionUnit.MoveToFrontSideVisionProcessPosition();
+            if (r != 0) return r;
+            return await _visionUnit.MoveToRearSideVisionProcessPosition();
+        }
+
+        // Front/Rear 양측을 각자 Safe Retreat 위치로 이동
+        private async Task<int> MoveBothSafeRetreatAsync()
+        {
+            if (_visionUnit == null)
+                return -1;
+
+            int r = await _visionUnit.MoveFrontSideVisionToSafeRetreatPosition();
+            if (r != 0) return r;
+            return await _visionUnit.MoveRearSideVisionToSafeRetreatPosition();
+        }
+
+        // Front/Rear 양측을 각자 Calibration 위치로 이동
+        private async Task<int> MoveBothCalibrationAsync()
+        {
+            if (_visionUnit == null)
+                return -1;
+
+            int r = await _visionUnit.MoveToFrontSideVisionCalibrationPosition();
+            if (r != 0) return r;
+            return await _visionUnit.MoveToRearSideVisionCalibrationPosition();
+        }
+
+        private void BindParameterGridMenus()
+        {
+            try
+            {
+                var menu = new ContextMenuStrip();
+                menu.Items.Add("Move To Position", null, async (s, e) =>
+                {
+                    VisionAxis axis;
+                    string positionName;
+                    if (TryGetSelectedTeachingPosition(out axis, out positionName))
+                        await ConfirmAndRunAsync(optionParameterGrid.SelectedItem.Key, () => _visionUnit.MoveVisionAxisToTeachingPosition(axis, positionName));
+                });
+                menu.Items.Add("Teach Current Position", null, (s, e) =>
+                {
+                    VisionAxis axis;
+                    string positionName;
+                    if (!TryGetSelectedTeachingPosition(out axis, out positionName))
+                        return;
+
+                    _visionUnit.TeachVisionAxisPosition(axis, positionName);
+                    SaveCurrentRecipeData();
+                    RefreshView();
+                });
+
+                optionParameterGrid.ContextMenuStrip = menu;
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "VISION", "BindParameterGridMenus failed: " + ex.Message);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Vision Grid Menu", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
+        }
+
+        private bool TryGetSelectedTeachingPosition(out VisionAxis axis, out string positionName)
+        {
+            axis = VisionAxis.FrontSideVisionY;
+            positionName = string.Empty;
+
+            var item = optionParameterGrid.SelectedItem;
+            string key = item != null ? item.Key : string.Empty;
+            if (string.IsNullOrWhiteSpace(key) || !key.EndsWith(" POSITION", StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            string name = key.Substring(0, key.Length - " POSITION".Length);
+
+            bool isFront = name.StartsWith("FRONT Y ", StringComparison.OrdinalIgnoreCase);
+            bool isRear = name.StartsWith("REAR Y ", StringComparison.OrdinalIgnoreCase);
+            if (!isFront && !isRear)
+                return false;
+
+            axis = isFront ? VisionAxis.FrontSideVisionY : VisionAxis.RearSideVisionY;
+            string kindLabel = name.Substring((isFront ? "FRONT Y " : "REAR Y ").Length);
+            positionName = ResolvePositionName(kindLabel, isFront);
+            return !string.IsNullOrEmpty(positionName);
+        }
+
+        private static string ResolvePositionName(string kindLabel, bool isFront)
+        {
+            if (string.Equals(kindLabel, "AVOID", StringComparison.OrdinalIgnoreCase)) return "AvoidPosition";
+            if (string.Equals(kindLabel, "PROCESS", StringComparison.OrdinalIgnoreCase)) return isFront ? "FrontProcessPosition" : "RearProcessPosition";
+            if (string.Equals(kindLabel, "SAFE RETREAT", StringComparison.OrdinalIgnoreCase)) return "SafeRetreatPosition";
+            if (string.Equals(kindLabel, "CALIBRATION", StringComparison.OrdinalIgnoreCase)) return "CalibrationPosition";
+            return string.Empty;
+        }
+
+        private void BindIoPanel()
+        {
+            try
+            {
+                if (_visionUnit == null)
+                    return;
+
+                var unit = _visionUnit;
+                ioCylinderPanel.SetItems(new[]
+                {
+                    // ===== RETICLE LIFT (승강 실린더 + Up/Down 센서) =====
+                    IoCylinderItem.Cylinder("RETICLE LIFT", unit.ReticleLift),
+                    IoCylinderItem.Input("RETICLE UP", () => IsOn(unit.ReticleUpSensor)),
+                    IoCylinderItem.Input("RETICLE DOWN", () => IsOn(unit.ReticleDownSensor)),
+
+                    // ===== RETICLE FRONT SLIDE (사이드 슬라이드 실린더 + Fw/Bw 센서) =====
+                    IoCylinderItem.Cylinder("RETICLE FRONT SLIDE", unit.ReticleFrontSideSlide),
+                    IoCylinderItem.Input("RETICLE FRONT FW", () => IsOn(unit.ReticleFrontSideFwSensor)),
+                    IoCylinderItem.Input("RETICLE FRONT BW", () => IsOn(unit.ReticleFrontSideBwSensor)),
+
+                    // ===== RETICLE REAR SLIDE (사이드 슬라이드 실린더 + Fw/Bw 센서) =====
+                    IoCylinderItem.Cylinder("RETICLE REAR SLIDE", unit.ReticleRearSideSlide),
+                    IoCylinderItem.Input("RETICLE REAR FW", () => IsOn(unit.ReticleRearSideFwSensor)),
+                    IoCylinderItem.Input("RETICLE REAR BW", () => IsOn(unit.ReticleRearSideBwSensor)),
+
+                    // ===== NEEDLE (진공 출력 + 진공 확인 센서) =====
+                    IoCylinderItem.Output("NEEDLE VACUUM", () => IsOn(unit.NeedleVacuumOutput),
+                        on => WriteOutAsync(unit.NeedleVacuumOutput, on), "ON", "OFF"),
+                    IoCylinderItem.Input("NEEDLE VACUUM CHECK", () => IsOn(unit.NeedleVacuumSensor)),
+
+                    // ===== WAFER STAGE =====
+                    IoCylinderItem.Input("WAFER STAGE TOUCH", () => IsOn(unit.WaferStageTouchSensor))
+                });
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "VISION", "BindIoPanel failed: " + ex.Message);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Vision I/O", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool IsOn(QMC.Common.IO.BaseDigitalInput input)
+        {
+            try { input?.UpdateStatus(); } catch { }
+            return input != null && input.IsOn;
+        }
+
+        private static bool IsOn(QMC.Common.IO.BaseDigitalOutput output)
+        {
+            try { output?.UpdateStatus(); } catch { }
+            return output != null && output.IsOn;
+        }
+
+        private static void WriteOut(QMC.Common.IO.BaseDigitalOutput output, bool on)
+        {
+            if (output == null) return;
+            if (on) output.On(); else output.Off();
+        }
+
+        private static Task<int> WriteOutAsync(QMC.Common.IO.BaseDigitalOutput output, bool on)
+        {
+            try
+            {
+                WriteOut(output, on);
+                return Task.FromResult(0);
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        private void BindJogPanel()
+        {
+            try
+            {
+                if (_visionUnit == null)
+                    return;
+
+                var unit = _visionUnit;
+                // 축 순서: Front Y, Rear Y
+                var items = new List<JogAxisItem>
+                {
+                    BuildJogAxis("FRONT Y", unit.FrontSideVisionY, "Y+", "Y-", JogAxisControlKind.Vertical),
+                    BuildJogAxis("REAR Y", unit.RearSideVisionY, "Y+", "Y-", JogAxisControlKind.Vertical)
+                };
+
+                jogPositionListControl.SetItems(items);
+                jogAxisMoveControl.SetItems(items);
+            }
+            catch (Exception ex)
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", "VISION", "BindJogPanel failed: " + ex.Message);
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Vision Jog", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
+        }
+
+        private JogAxisItem BuildJogAxis(string name, BaseAxis axis, string plus, string minus, JogAxisControlKind kind)
+        {
+            JogAxisItem item = JogAxisItem.Single(name, axis, AxisUnitConverter.DisplayUnitFor(axis), 1.0, plus, minus).WithControlKind(kind);
+            item.StepMoveAsync = (it, direction, speedType, customSpeed, axisStepDistance) =>
+                _visionUnit.JogStepAsync(axis, direction, speedType, customSpeed, axisStepDistance);
+            item.ContinuousMoveAsync = (it, direction, speedType, customSpeed) =>
+                _visionUnit.JogContinuousAsync(axis, direction, speedType, customSpeed);
+            item.StopAsync = it => _visionUnit.StopJogAsync(axis);
+            return item;
+        }
+
+        private async Task ConfirmAndRunAsync(string actionName, Func<Task<int>> action)
+        {
+            try
+            {
+                if (_visionUnit == null || action == null)
+                    return;
+
+                if (ManualMoveGuard.BlockIfNotReady(this, "Vision"))
+                    return;
+
+                DialogResult confirm = QMC.Common.MessageDialog.Show(this, actionName + " 진행하시겠습니까?", "Vision", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                if (confirm != DialogResult.Yes)
+                    return;
+
+                Cursor = Cursors.WaitCursor;
+                int result = await action();
+                EventLogger.Write(EventKind.Event, "UI", "VISION", actionName + " result=" + result);
+                if (result != 0)
+                    QMC.Common.MessageDialog.Show(this, actionName + " 실패", "Vision", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.MessageDialog.Show(this, ex.Message, actionName, MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                Cursor = Cursors.Default;
+                RefreshView();
+            }
+        }
+
+        private void ParameterGrid_ParameterValueChanged(object sender, ParameterGridChangedEventArgs e)
+        {
+            try
+            {
+                if (e != null && e.Item != null && e.Item.Scope == ParameterGridScope.Recipe)
+                    SaveCurrentRecipeData();
+                else
+                    SaveCurrentSettingsData();
+
+                RefreshView();
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.MessageDialog.Show(this, ex.Message, "Vision Save", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+            }
+        }
+
+        private void SaveCurrentRecipeData()
+        {
+            try
+            {
+                var host = FindHostForm();
+                if (host == null || string.IsNullOrWhiteSpace(host.CurrentRecipeName))
+                    return;
+
+                host.SaveMachineRecipe(host.CurrentRecipeName);
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        private void SaveCurrentSettingsData()
+        {
+            try
+            {
+                var host = FindHostForm();
+                host?.SaveMachineSettings();
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
+        private void RefreshView()
+        {
+            try
+            {
+                if (_visionUnit == null)
+                    return;
+
+                var unit = _visionUnit;
+                optionParameterGrid.RefreshValues();
+                waitParameterGrid.RefreshValues();
+                ioCylinderPanel.RefreshStates();
+                jogPositionListControl.RefreshState();
+
+                lblVisionInfo.Text =
+                    "VISION" + Environment.NewLine +
+                    "FRONT Y : " + FormatAxis(unit.FrontSideVisionY.ActualPosition, unit.FrontSideVisionY) + Environment.NewLine +
+                    "REAR Y  : " + FormatAxis(unit.RearSideVisionY.ActualPosition, unit.RearSideVisionY) + Environment.NewLine +
+                    "F-AVOID : " + OnOff(unit.IsFrontSideVisionYInAvoidPosition()) + Environment.NewLine +
+                    "R-AVOID : " + OnOff(unit.IsRearSideVisionYInAvoidPosition()) + Environment.NewLine +
+                    "F-PROC  : " + OnOff(unit.IsFrontSideVisionYInProcessPosition()) + Environment.NewLine +
+                    "R-PROC  : " + OnOff(unit.IsRearSideVisionYInProcessPosition());
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        private ParameterGridItem AxisDouble(string displayName, ParameterGridScope scope, BaseAxis axis, Func<double> getter, Action<double> setter)
+        {
+            ParameterGridItem item = ParameterGridItem.Double(
+                displayName,
+                AxisUnitConverter.DisplayUnitFor(axis),
+                scope,
+                () => AxisUnitConverter.ToDisplay(getter(), axis),
+                v => setter(AxisUnitConverter.FromDisplay(v, axis)));
+            item.UnitGetter = () => AxisUnitConverter.DisplayUnitFor(axis);
+            return item;
+        }
+
+        private static string FormatAxis(double value, BaseAxis axis)
+        {
+            try
+            {
+                return AxisUnitConverter.FormatDisplay(value, axis, "0.###", true);
+            }
+            catch
+            {
+                return "0 " + AxisUnitConverter.DisplayUnitFor(axis);
+            }
+            finally
+            {
+            }
+        }
+
+        private static string OnOff(bool value)
+        {
+            try
+            {
+                return value ? "ON" : "OFF";
+            }
+            catch
+            {
+                return "OFF";
             }
             finally
             {
@@ -158,5 +735,3 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
         }
     }
 }
-
-

@@ -841,6 +841,12 @@
     <Compile Include="Ui\Pages\Recipe\VisionRecipePage.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="Ui\Pages\Recipe\VisionRecipePage_Old.Designer.cs">
+      <DependentUpon>VisionRecipePage_Old.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Pages\Recipe\VisionRecipePage_Old.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
     <!-- UI / Pages / Settings -->
     <Compile Include="Ui\Pages\Settings\DevicePages.Designer.cs">
       <DependentUpon>DevicePages.cs</DependentUpon>
@@ -1013,6 +1019,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\Recipe\UnloadTapeFrameSubsetPage.resx">
       <DependentUpon>UnloadTapeFrameSubsetPage.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\Recipe\VisionRecipePage.resx">
+      <DependentUpon>VisionRecipePage.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Ui\Pages\Settings\AlarmMasterPage.resx">
       <DependentUpon>AlarmMasterPage.cs</DependentUpon>
