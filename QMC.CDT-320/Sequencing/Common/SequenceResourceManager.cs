@@ -24,6 +24,16 @@ namespace QMC.CDT320.Sequencing
             int timeoutMs,
             CancellationToken ct)
         {
+            return await AcquireAsync(resource, holder, timeoutMs, ct, true).ConfigureAwait(false);
+        }
+
+        public async Task<SequenceResourceLease> AcquireAsync(
+            SequenceResourceKind resource,
+            string holder,
+            int timeoutMs,
+            CancellationToken ct,
+            bool raiseAlarmOnTimeout)
+        {
             ResourceSlot slot = _slots.GetOrAdd(resource, _ => new ResourceSlot());
             string safeHolder = string.IsNullOrWhiteSpace(holder) ? "Unknown" : holder;
 
@@ -44,8 +54,11 @@ namespace QMC.CDT320.Sequencing
                 {
                     string message = resource + " resource acquire timeout. holder=" + safeHolder +
                                      ", current=" + slot.Holder;
-                    Log.Write("Main", "INTERLOCK", "SequenceResource", message + " - Blocked");
-                    AlarmManager.Raise(AlarmSeverity.Warning, "SEQ-RESOURCE-TIMEOUT", safeHolder, message);
+                    if (raiseAlarmOnTimeout)
+                    {
+                        Log.Write("Main", "INTERLOCK", "SequenceResource", message + " - Blocked");
+                        AlarmManager.Raise(AlarmSeverity.Warning, "SEQ-RESOURCE-TIMEOUT", safeHolder, message);
+                    }
                     return null;
                 }
 
@@ -112,6 +125,8 @@ namespace QMC.CDT320.Sequencing
             }
             catch (SemaphoreFullException)
             {
+                Log.Write("Main", "SYSTEM", "SequenceResource",
+                    resource + " release ignored because semaphore is already full. holder=" + holder + " - Check");
             }
             catch (Exception ex)
             {

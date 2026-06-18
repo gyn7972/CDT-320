@@ -684,7 +684,9 @@ namespace QMC.CDT320.Sequencing
                 }
 
                 Context.Bus.Set("InputStageAligned");
-                Context.Bus.Set("InputStageReady");
+                Context.Bus.Reset("InputStageDieMapped");
+                Context.Bus.Reset("InputStageFinishComplete");
+                Context.Bus.Reset("InputStageReady");
                 CurrentStep = InputStageAlignStep.Complete;
                 return 0;
             }

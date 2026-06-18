@@ -86,6 +86,73 @@ namespace QMC.CDT320.Sequencing
         {
             return ExecuteAutoAsync(ct);
         }
+
+        protected async Task<SequenceResourceLease> AcquireResourceForRunAsync(
+            SequenceResourceKind resource,
+            string holder,
+            int manualTimeoutMs,
+            CancellationToken ct)
+        {
+            string safeHolder = string.IsNullOrWhiteSpace(holder) ? Name : holder;
+            try
+            {
+                if (Mode != SequenceRunMode.Auto)
+                {
+                    return await Context.Resources
+                        .AcquireAsync(resource, safeHolder, manualTimeoutMs, ct)
+                        .ConfigureAwait(false);
+                }
+
+                bool waitLogged = false;
+                while (true)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    Context.StopIfCycleStopRequested(Name + ".AcquireResource:" + resource);
+
+                    SequenceResourceLease lease = await Context.Resources
+                        .AcquireAsync(resource, safeHolder, 200, ct, false)
+                        .ConfigureAwait(false);
+                    if (lease != null)
+                    {
+                        if (waitLogged)
+                        {
+                            Context.LogPublic("[SEQ] " + Name + " 리소스 대기 완료. resource=" +
+                                resource + ", holder=" + safeHolder);
+                        }
+
+                        return lease;
+                    }
+
+                    if (!waitLogged)
+                    {
+                        string currentHolder = Context.Resources.GetHolder(resource);
+                        Context.LogPublic("[SEQ] " + Name + " 리소스 사용 대기 중입니다. resource=" +
+                            resource + ", holder=" + safeHolder + ", current=" +
+                            (string.IsNullOrWhiteSpace(currentHolder) ? "-" : currentHolder));
+                        waitLogged = true;
+                    }
+
+                    await Task.Delay(100, ct).ConfigureAwait(false);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Context.LogPublic("[SEQ] " + Name + " 리소스 점유 중 예외가 발생했습니다. resource=" +
+                    resource + ", holder=" + safeHolder + ", error=" + ex.Message);
+                throw;
+            }
+            finally
+            {
+            }
+        }
     }
 }
 

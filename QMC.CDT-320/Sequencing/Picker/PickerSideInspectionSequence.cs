@@ -26,7 +26,6 @@ namespace QMC.CDT320.Sequencing
         private double _targetPickerT90;
         private double _targetPickerT180;
         private bool _inspectionYPositionReady;
-        private bool _sideZoneEntryReady;
         private SequenceResourceLease _inspectionAreaLease;
 
         public PickerSideInspectionSequence(MachineSequenceContext context, PickerSequenceSide side)
@@ -204,7 +203,6 @@ namespace QMC.CDT320.Sequencing
 
             _pickerCursor = 0;
             _inspectionYPositionReady = false;
-            _sideZoneEntryReady = false;
 
             if (_pickedPickerIndexes.Count == 0)
             {
@@ -270,22 +268,19 @@ namespace QMC.CDT320.Sequencing
 
             if (xPositionReady)
             {
-                _sideZoneEntryReady = true;
                 CurrentStep = _inspectionYPositionReady
                     ? PickerSideInspectionStep.MoveSideZ
                     : PickerSideInspectionStep.MoveSideYToInspection;
                 return 0;
             }
 
-            if (!_sideZoneEntryReady && !IsPickerYAtAvoidPosition())
+            if (!IsPickerYAtAvoidPosition())
             {
                 CurrentStep = PickerSideInspectionStep.MoveSideEntryYToAvoid;
                 return 0;
             }
 
-            CurrentStep = _inspectionYPositionReady
-                ? PickerSideInspectionStep.MoveSideXToInspection
-                : PickerSideInspectionStep.MoveSideYToInspection;
+            CurrentStep = PickerSideInspectionStep.MoveSideXToInspection;
             return 0;
         }
 
@@ -317,8 +312,6 @@ namespace QMC.CDT320.Sequencing
             if (result != 0)
                 return result;
 
-            _sideZoneEntryReady = true;
-
             if (_inspectionYPositionReady && IsPickerAxisInPosition(PickerAxis.PickerY, _targetPickerY))
             {
                 CurrentStep = PickerSideInspectionStep.MoveSideZ;
@@ -343,9 +336,14 @@ namespace QMC.CDT320.Sequencing
 
             _inspectionYPositionReady = true;
 
-            CurrentStep = IsPickerAxisInPosition(PickerAxis.PickerX, _targetPickerX)
-                ? PickerSideInspectionStep.MoveSideZ
-                : PickerSideInspectionStep.MoveSideXToInspection;
+            if (IsPickerAxisInPosition(PickerAxis.PickerX, _targetPickerX))
+            {
+                CurrentStep = PickerSideInspectionStep.MoveSideZ;
+                return 0;
+            }
+
+            _inspectionYPositionReady = false;
+            CurrentStep = PickerSideInspectionStep.MoveSideEntryYToAvoid;
             return 0;
         }
 

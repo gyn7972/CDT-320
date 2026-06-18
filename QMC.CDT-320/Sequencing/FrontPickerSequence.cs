@@ -1,4 +1,5 @@
-﻿using System.Threading;
+﻿using System;
+using System.Threading;
 using System.Threading.Tasks;
 using QMC.CDT320.Materials;
 
@@ -15,32 +16,72 @@ namespace QMC.CDT320.Sequencing
 
         protected override async Task ExecuteAutoAsync(CancellationToken ct)
         {
-            while (!ct.IsCancellationRequested)
+            try
             {
-                await WaitForPickerWorkAsync(ct).ConfigureAwait(false);
+                while (!ct.IsCancellationRequested)
+                {
+                    await WaitForPickerWorkAsync(ct).ConfigureAwait(false);
 
-                PickerSequenceOptions options = BuildSequenceOptions();
-                int result = await new PickerProcessSequence(Context, PickerSequenceSide.Front)
-                    .RunAsync(ct, options)
-                    .ConfigureAwait(false);
-                if (result != 0)
-                    throw new System.InvalidOperationException(
-                        SequenceFailureStore.AppendRecentDetail(
-                            "FrontPicker sequence failed. result=" + result,
-                            "FrontPicker",
-                            "FRONT-PICKER-SEQUENCE"));
+                    PickerSequenceOptions options = BuildSequenceOptions();
+                    int result = await new PickerProcessSequence(Context, PickerSequenceSide.Front)
+                        .RunAsync(ct, options)
+                        .ConfigureAwait(false);
+                    if (result != 0)
+                        throw new System.InvalidOperationException(
+                            SequenceFailureStore.AppendRecentDetail(
+                                "FrontPicker 자동 시퀀스 실패. result=" + result,
+                                "FrontPicker",
+                                "FRONT-PICKER-SEQUENCE"));
 
-                Context.StopIfCycleStopRequested("FrontPickerSequence.ProcessComplete");
+                    Context.StopIfCycleStopRequested("FrontPickerSequence.ProcessComplete");
+                }
+            }
+            catch (System.OperationCanceledException)
+            {
+                WriteLog("ExecuteAutoAsync", "FrontPicker 자동 시퀀스가 취소되었습니다. - Failed");
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (System.Exception ex)
+            {
+                WriteLog("ExecuteAutoAsync", "FrontPicker 자동 시퀀스 예외 발생: " + ex.Message + " - Failed");
+                throw;
+            }
+            finally
+            {
             }
         }
 
-        protected override Task ExecuteStepAsync(CancellationToken ct)
+        protected override async Task ExecuteStepAsync(CancellationToken ct)
         {
-            if (_stepSequence == null || _stepSequence.IsComplete)
-                _stepSequence = new PickerProcessSequence(Context, PickerSequenceSide.Front);
+            try
+            {
+                if (_stepSequence == null || _stepSequence.IsComplete)
+                    _stepSequence = new PickerProcessSequence(Context, PickerSequenceSide.Front);
 
-            PickerSequenceOptions options = BuildSequenceOptions();
-            return RunStepSequenceAsync(ct, options);
+                PickerSequenceOptions options = BuildSequenceOptions();
+                await RunStepSequenceAsync(ct, options).ConfigureAwait(false);
+            }
+            catch (System.OperationCanceledException)
+            {
+                WriteLog("ExecuteStepAsync", "FrontPicker 수동/스텝 시퀀스가 취소되었습니다. - Failed");
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (System.Exception ex)
+            {
+                WriteLog("ExecuteStepAsync", "FrontPicker 수동/스텝 시퀀스 예외 발생: " + ex.Message + " - Failed");
+                throw;
+            }
+            finally
+            {
+            }
         }
 
         private PickerSequenceOptions BuildSequenceOptions()
@@ -78,8 +119,9 @@ namespace QMC.CDT320.Sequencing
 
                 return false;
             }
-            catch
+            catch (System.Exception ex)
             {
+                WriteLog("IsSimulationOrDryRun", "FrontPicker 시뮬레이션/드라이런 상태 확인 실패: " + ex.Message + " - Failed");
                 return false;
             }
             finally
@@ -89,41 +131,112 @@ namespace QMC.CDT320.Sequencing
 
         private async Task RunStepSequenceAsync(CancellationToken ct, PickerSequenceOptions options)
         {
-            int result = await _stepSequence.RunAsync(ct, options).ConfigureAwait(false);
-            if (result != 0)
-                throw new System.InvalidOperationException(
-                    SequenceFailureStore.AppendRecentDetail(
-                        "FrontPicker step sequence failed. result=" + result,
-                        "FrontPicker",
-                        "FRONT-PICKER-STEP"));
+            try
+            {
+                int result = await _stepSequence.RunAsync(ct, options).ConfigureAwait(false);
+                if (result != 0)
+                    throw new System.InvalidOperationException(
+                        SequenceFailureStore.AppendRecentDetail(
+                            "FrontPicker 수동/스텝 시퀀스 실패. result=" + result,
+                            "FrontPicker",
+                            "FRONT-PICKER-STEP"));
 
-            if (_stepSequence.IsComplete)
-                _stepSequence = null;
+                if (_stepSequence.IsComplete)
+                    _stepSequence = null;
+            }
+            catch (System.OperationCanceledException)
+            {
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            finally
+            {
+            }
         }
 
         private async Task WaitForPickerWorkAsync(CancellationToken ct)
         {
-            while (!HasPickerWork())
+            try
             {
-                ct.ThrowIfCancellationRequested();
-                Context.StopIfCycleStopRequested("FrontPickerSequence.WaitForWork");
+                while (!HasPickerWork())
+                {
+                    ct.ThrowIfCancellationRequested();
+                    Context.StopIfCycleStopRequested("FrontPickerSequence.WaitForWork");
 
-                await Task.Delay(200, ct).ConfigureAwait(false);
+                    await Task.Delay(200, ct).ConfigureAwait(false);
+                }
+            }
+            catch (System.OperationCanceledException)
+            {
+                WriteLog("WaitForPickerWorkAsync", "FrontPicker 작업 대기가 취소되었습니다. - Failed");
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (System.Exception ex)
+            {
+                WriteLog("WaitForPickerWorkAsync", "FrontPicker 작업 대기 중 예외 발생: " + ex.Message + " - Failed");
+                throw;
+            }
+            finally
+            {
             }
         }
 
-        private static bool HasPickerWork()
+        private bool HasPickerWork()
         {
-            if (MaterialStateService.HasReadyInputStagePickTarget())
-                return true;
+            try
+            {
+                if (HasLoadedDieOnPicker())
+                    return true;
 
+                bool inputStageReady = Context != null &&
+                                       Context.Bus != null &&
+                                       Context.Bus.IsSet("InputStageReady");
+
+                if (!inputStageReady)
+                    return false;
+
+                return MaterialStateService.HasReadyInputStagePickTarget();
+            }
+            catch (System.Exception ex)
+            {
+                WriteLog("HasPickerWork", "FrontPicker 작업 조건 확인 실패: " + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool HasLoadedDieOnPicker()
+        {
             for (int pickerNo = 1; pickerNo <= 4; pickerNo++)
             {
                 if (MaterialStateService.GetDieAtPicker(MaterialLocationKind.PickerFront, pickerNo) != null)
                     return true;
             }
-
             return false;
+        }
+
+        private static void WriteLog(string source, string message)
+        {
+            try
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", source, message);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("FrontPickerSequence log failed: " + ex.Message);
+            }
+            finally
+            {
+            }
         }
     }
 }

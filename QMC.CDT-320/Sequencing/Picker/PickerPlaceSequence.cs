@@ -130,7 +130,7 @@ namespace QMC.CDT320.Sequencing
 
                 // 아웃풋 스테이지 수령 가능 확인
                 case PickerPlaceStep.VerifyOutputStageReady:
-                    return Task.FromResult(VerifyOutputStageReady());
+                    return VerifyOutputStageReadyAsync(ct);
 
                 // 아웃풋 스테이지 대상 예약
                 case PickerPlaceStep.ReserveOutputStageTarget:
@@ -278,26 +278,101 @@ namespace QMC.CDT320.Sequencing
                 "Die result is unknown before place. die=" + _currentDie.DieId + ", pickerNo=" + _currentPickerNo);
         }
 
-        private int VerifyOutputStageReady()
+        private async Task<int> VerifyOutputStageReadyAsync(CancellationToken ct)
         {
-            string reason;
-            if (!MaterialStateService.IsOutputStageReceiveAvailable(_currentOutputSide, out reason))
+            try
             {
-                return Fail("PICKER-PLACE-OUTPUT-STAGE-NOT-READY", "Material",
-                    "Output stage is not ready to receive die. side=" + _currentOutputSide +
+                while (!ct.IsCancellationRequested)
+                {
+                    ct.ThrowIfCancellationRequested();
+
+                    string reason;
+                    bool materialReady = MaterialStateService.IsOutputStageReceiveAvailable(_currentOutputSide, out reason);
+                    bool signalReady = IsOutputStageSideReadySignalSet(_currentOutputSide);
+                    bool autoMode = Options != null && Options.RunMode == SequenceRunMode.Auto;
+
+                    if (materialReady && (!autoMode || signalReady))
+                    {
+                        WriteLog("PickerPlaceSequence",
+                            Name + " OutputStage 수령 준비 확인 완료. side=" + _currentOutputSide +
+                            ", die=" + (_currentDie != null ? _currentDie.DieId : "-") +
+                            ", pickerNo=" + _currentPickerNo +
+                            ", materialReady=" + materialReady +
+                            ", signalReady=" + signalReady +
+                            ", reason=" + reason + " - Ok");
+
+                        CurrentStep = PickerPlaceStep.ReserveOutputStageTarget;
+                        return 0;
+                    }
+
+                    string detail =
+                        "OutputStage가 Die를 받을 준비가 되지 않았습니다. side=" + _currentOutputSide +
+                        ", die=" + (_currentDie != null ? _currentDie.DieId : "-") +
+                        ", pickerNo=" + _currentPickerNo +
+                        ", materialReady=" + materialReady +
+                        ", signalReady=" + signalReady +
+                        ", reason=" + reason;
+
+                    if (!autoMode)
+                        return Fail("PICKER-PLACE-OUTPUT-STAGE-NOT-READY", "Material", detail);
+
+                    WriteLog("PickerPlaceSequence", Name + " Place 대기: " + detail + " - Wait");
+                    Context.StopIfCycleStopRequested("PickerPlaceSequence.WaitOutputStageReady");
+                    await Task.Delay(100, ct).ConfigureAwait(false);
+                }
+
+                ct.ThrowIfCancellationRequested();
+                return Fail("PICKER-PLACE-OUTPUT-STAGE-READY-CANCELED", "Material",
+                    "OutputStage 수령 준비 대기가 취소되었습니다. side=" + _currentOutputSide +
+                    ", die=" + (_currentDie != null ? _currentDie.DieId : "-") +
+                    ", pickerNo=" + _currentPickerNo);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-PLACE-OUTPUT-STAGE-READY-EX", "Material",
+                    "OutputStage 수령 준비 확인 중 예외가 발생했습니다. side=" + _currentOutputSide +
                     ", die=" + (_currentDie != null ? _currentDie.DieId : "-") +
                     ", pickerNo=" + _currentPickerNo +
-                    ", reason=" + reason);
+                    ", error=" + ex.Message);
             }
+            finally
+            {
+            }
+        }
 
-            WriteLog("PickerPlaceSequence",
-                Name + " output stage receive ready. side=" + _currentOutputSide +
-                ", die=" + (_currentDie != null ? _currentDie.DieId : "-") +
-                ", pickerNo=" + _currentPickerNo +
-                ", reason=" + reason + " - Ok");
+        private bool IsOutputStageSideReadySignalSet(BinSide side)
+        {
+            try
+            {
+                if (Context == null || Context.Bus == null)
+                    return false;
 
-            CurrentStep = PickerPlaceStep.ReserveOutputStageTarget;
-            return 0;
+                if (side == BinSide.Good)
+                    return Context.Bus.IsSet("OutputGoodStageReady");
+
+                if (side == BinSide.Ng)
+                    return Context.Bus.IsSet("OutputNgStageReady");
+
+                return false;
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PickerPlaceSequence",
+                    Name + " OutputStage 준비 신호 확인 실패. side=" + side +
+                    ", error=" + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
         }
 
         private int ReserveOutputStageTarget()

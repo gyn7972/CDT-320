@@ -1301,12 +1301,72 @@ namespace QMC.CDT320.Sequencing
             string holder,
             CancellationToken ct)
         {
-            SequenceResourceLease lease = await Context.Resources
-                .AcquireAsync(resource, holder, ResolveResourceTimeout(), ct)
-                .ConfigureAwait(false);
-            if (lease == null)
-                Fail("PICKER-RESOURCE", holder, "Resource acquire failed. resource=" + resource);
-            return lease;
+            string safeHolder = string.IsNullOrWhiteSpace(holder) ? Name : holder;
+            try
+            {
+                if (Options == null || Options.RunMode != SequenceRunMode.Auto)
+                {
+                    SequenceResourceLease manualLease = await Context.Resources
+                        .AcquireAsync(resource, safeHolder, ResolveResourceTimeout(), ct)
+                        .ConfigureAwait(false);
+                    if (manualLease == null)
+                    {
+                        Fail("PICKER-RESOURCE", safeHolder,
+                            "리소스 점유 실패. resource=" + resource);
+                    }
+
+                    return manualLease;
+                }
+
+                bool waitLogged = false;
+                while (true)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    Context.StopIfCycleStopRequested(Name + ".AcquireResource:" + resource);
+
+                    SequenceResourceLease autoLease = await Context.Resources
+                        .AcquireAsync(resource, safeHolder, 200, ct, false)
+                        .ConfigureAwait(false);
+                    if (autoLease != null)
+                    {
+                        if (waitLogged)
+                        {
+                            Context.LogPublic("[SEQ] " + Name + " 리소스 대기 완료. resource=" +
+                                resource + ", holder=" + safeHolder);
+                        }
+
+                        return autoLease;
+                    }
+
+                    if (!waitLogged)
+                    {
+                        string currentHolder = Context.Resources.GetHolder(resource);
+                        Context.LogPublic("[SEQ] " + Name + " 리소스 사용 대기 중입니다. resource=" +
+                            resource + ", holder=" + safeHolder + ", current=" +
+                            (string.IsNullOrWhiteSpace(currentHolder) ? "-" : currentHolder));
+                        waitLogged = true;
+                    }
+
+                    await Task.Delay(100, ct).ConfigureAwait(false);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Fail("PICKER-RESOURCE", safeHolder,
+                    "리소스 점유 중 예외가 발생했습니다. resource=" + resource + ", error=" + ex.Message);
+                return null;
+            }
+            finally
+            {
+            }
         }
 
         protected int Fail(string alarmCode, string source, string message)

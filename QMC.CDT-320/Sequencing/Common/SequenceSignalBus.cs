@@ -45,6 +45,19 @@ namespace QMC.CDT320.Sequencing
             _signals.TryRemove(signalName, out ignored);
         }
 
+        /// <summary>지정한 신호가 현재 Set 상태인지 확인합니다.</summary>
+        public bool IsSet(string signalName)
+        {
+            if (string.IsNullOrWhiteSpace(signalName))
+                throw new ArgumentException("신호 이름이 필요합니다.", nameof(signalName));
+
+            TaskCompletionSource<bool> signal;
+            if (!_signals.TryGetValue(signalName, out signal) || signal == null)
+                return false;
+
+            return signal.Task.IsCompleted;
+        }
+
         private TaskCompletionSource<bool> GetSignal(string signalName)
         {
             return _signals.GetOrAdd(signalName, _ =>

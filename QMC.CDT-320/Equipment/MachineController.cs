@@ -5143,8 +5143,8 @@ namespace QMC.CDT320
                     catch (Exception ex)
                     {
                         QMC.Common.Log.Write("Main", "SYSTEM", "StartSequenceAsync",
-                            "Sequence failed: " + ex.Message + " - Failed");
-                        AlarmManager.Raise(AlarmSeverity.Error, "SEQ-EX", "MachineController", "Sequence failed: " + ex.Message);
+                            "자동 시퀀스 실패: " + ex.Message + " - Failed");
+                        AlarmManager.Raise(AlarmSeverity.Error, "SEQ-EX", "MachineController", "자동 시퀀스 실패: " + ex.Message);
                         Log("[SEQ] failed: " + ex.Message);
                         SetStatus(EquipmentStatus.Alarm);
                     }
@@ -5163,8 +5163,8 @@ namespace QMC.CDT320
             catch (Exception ex)
             {
                 QMC.Common.Log.Write("Main", "SYSTEM", "StartSequenceAsync",
-                    "Sequence start failed: " + ex.Message + " - Failed");
-                AlarmManager.Raise(AlarmSeverity.Error, "SEQ-START-EX", "MachineController", "Sequence start failed: " + ex.Message);
+                    "자동 시퀀스 시작 실패: " + ex.Message + " - Failed");
+                AlarmManager.Raise(AlarmSeverity.Error, "SEQ-START-EX", "MachineController", "자동 시퀀스 시작 실패: " + ex.Message);
                 Log("[SEQ] start failed: " + ex.Message);
                 SetStatus(EquipmentStatus.Alarm);
                 throw;

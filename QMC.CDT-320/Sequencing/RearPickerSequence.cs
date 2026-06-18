@@ -1,4 +1,5 @@
-﻿using System.Threading;
+using System;
+using System.Threading;
 using System.Threading.Tasks;
 using QMC.CDT320.Materials;
 
@@ -15,32 +16,74 @@ namespace QMC.CDT320.Sequencing
 
         protected override async Task ExecuteAutoAsync(CancellationToken ct)
         {
-            while (!ct.IsCancellationRequested)
+            try
             {
-                await WaitForPickerWorkAsync(ct).ConfigureAwait(false);
+                while (!ct.IsCancellationRequested)
+                {
+                    await WaitForPickerWorkAsync(ct).ConfigureAwait(false);
+                    if (await YieldInputPickupPriorityToFrontAsync(ct).ConfigureAwait(false))
+                        continue;
 
-                PickerSequenceOptions options = BuildSequenceOptions();
-                int result = await new PickerProcessSequence(Context, PickerSequenceSide.Rear)
-                    .RunAsync(ct, options)
-                    .ConfigureAwait(false);
-                if (result != 0)
-                    throw new System.InvalidOperationException(
-                        SequenceFailureStore.AppendRecentDetail(
-                            "RearPicker sequence failed. result=" + result,
-                            "RearPicker",
-                            "REAR-PICKER-SEQUENCE"));
+                    PickerSequenceOptions options = BuildSequenceOptions();
+                    int result = await new PickerProcessSequence(Context, PickerSequenceSide.Rear)
+                        .RunAsync(ct, options)
+                        .ConfigureAwait(false);
+                    if (result != 0)
+                        throw new System.InvalidOperationException(
+                            SequenceFailureStore.AppendRecentDetail(
+                                "RearPicker 자동 시퀀스 실패. result=" + result,
+                                "RearPicker",
+                                "REAR-PICKER-SEQUENCE"));
 
-                Context.StopIfCycleStopRequested("RearPickerSequence.ProcessComplete");
+                    Context.StopIfCycleStopRequested("RearPickerSequence.ProcessComplete");
+                }
+            }
+            catch (System.OperationCanceledException)
+            {
+                WriteLog("ExecuteAutoAsync", "RearPicker 자동 시퀀스가 취소되었습니다. - Failed");
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (System.Exception ex)
+            {
+                WriteLog("ExecuteAutoAsync", "RearPicker 자동 시퀀스 예외 발생: " + ex.Message + " - Failed");
+                throw;
+            }
+            finally
+            {
             }
         }
 
-        protected override Task ExecuteStepAsync(CancellationToken ct)
+        protected override async Task ExecuteStepAsync(CancellationToken ct)
         {
-            if (_stepSequence == null || _stepSequence.IsComplete)
-                _stepSequence = new PickerProcessSequence(Context, PickerSequenceSide.Rear);
+            try
+            {
+                if (_stepSequence == null || _stepSequence.IsComplete)
+                    _stepSequence = new PickerProcessSequence(Context, PickerSequenceSide.Rear);
 
-            PickerSequenceOptions options = BuildSequenceOptions();
-            return RunStepSequenceAsync(ct, options);
+                PickerSequenceOptions options = BuildSequenceOptions();
+                await RunStepSequenceAsync(ct, options).ConfigureAwait(false);
+            }
+            catch (System.OperationCanceledException)
+            {
+                WriteLog("ExecuteStepAsync", "RearPicker 수동/스텝 시퀀스가 취소되었습니다. - Failed");
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (System.Exception ex)
+            {
+                WriteLog("ExecuteStepAsync", "RearPicker 수동/스텝 시퀀스 예외 발생: " + ex.Message + " - Failed");
+                throw;
+            }
+            finally
+            {
+            }
         }
 
         private PickerSequenceOptions BuildSequenceOptions()
@@ -78,8 +121,9 @@ namespace QMC.CDT320.Sequencing
 
                 return false;
             }
-            catch
+            catch (System.Exception ex)
             {
+                WriteLog("IsSimulationOrDryRun", "RearPicker 시뮬레이션/드라이런 상태 확인 실패: " + ex.Message + " - Failed");
                 return false;
             }
             finally
@@ -89,41 +133,201 @@ namespace QMC.CDT320.Sequencing
 
         private async Task RunStepSequenceAsync(CancellationToken ct, PickerSequenceOptions options)
         {
-            int result = await _stepSequence.RunAsync(ct, options).ConfigureAwait(false);
-            if (result != 0)
-                throw new System.InvalidOperationException(
-                    SequenceFailureStore.AppendRecentDetail(
-                        "RearPicker step sequence failed. result=" + result,
-                        "RearPicker",
-                        "REAR-PICKER-STEP"));
+            try
+            {
+                int result = await _stepSequence.RunAsync(ct, options).ConfigureAwait(false);
+                if (result != 0)
+                    throw new System.InvalidOperationException(
+                        SequenceFailureStore.AppendRecentDetail(
+                            "RearPicker 수동/스텝 시퀀스 실패. result=" + result,
+                            "RearPicker",
+                            "REAR-PICKER-STEP"));
 
-            if (_stepSequence.IsComplete)
-                _stepSequence = null;
+                if (_stepSequence.IsComplete)
+                    _stepSequence = null;
+            }
+            catch (System.OperationCanceledException)
+            {
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            finally
+            {
+            }
         }
 
         private async Task WaitForPickerWorkAsync(CancellationToken ct)
         {
-            while (!HasPickerWork())
+            try
             {
-                ct.ThrowIfCancellationRequested();
-                Context.StopIfCycleStopRequested("RearPickerSequence.WaitForWork");
+                while (!HasPickerWork())
+                {
+                    ct.ThrowIfCancellationRequested();
+                    Context.StopIfCycleStopRequested("RearPickerSequence.WaitForWork");
 
-                await Task.Delay(200, ct).ConfigureAwait(false);
+                    await Task.Delay(200, ct).ConfigureAwait(false);
+                }
+            }
+            catch (System.OperationCanceledException)
+            {
+                WriteLog("WaitForPickerWorkAsync", "RearPicker 작업 대기가 취소되었습니다. - Failed");
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (System.Exception ex)
+            {
+                WriteLog("WaitForPickerWorkAsync", "RearPicker 작업 대기 중 예외 발생: " + ex.Message + " - Failed");
+                throw;
+            }
+            finally
+            {
             }
         }
 
-        private static bool HasPickerWork()
+        private bool HasPickerWork()
         {
-            if (MaterialStateService.HasReadyInputStagePickTarget())
-                return true;
+            try
+            {
+                if (HasLoadedDieOnPicker())
+                    return true;
 
+                bool inputStageReady = Context != null &&
+                                       Context.Bus != null &&
+                                       Context.Bus.IsSet("InputStageReady");
+
+                if (!inputStageReady)
+                    return false;
+
+                return MaterialStateService.HasReadyInputStagePickTarget();
+            }
+            catch (System.Exception ex)
+            {
+                WriteLog("HasPickerWork", "RearPicker 작업 조건 확인 실패: " + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<bool> YieldInputPickupPriorityToFrontAsync(CancellationToken ct)
+        {
+            try
+            {
+                if (Mode != SequenceRunMode.Auto)
+                    return false;
+
+                if (HasLoadedDieOnPicker())
+                {
+                    return false;
+                }
+
+                if (!IsFrontPickerEnabled())
+                {
+                    return false;
+                }
+
+                if (HasLoadedDieOnFrontPicker())
+                {
+                    return false;
+                }
+
+                bool inputStageReady = Context != null &&
+                                       Context.Bus != null &&
+                                       Context.Bus.IsSet("InputStageReady");
+                if (!inputStageReady || !MaterialStateService.HasReadyInputStagePickTarget())
+                {
+                    return false;
+                }
+
+                WriteLog("YieldInputPickupPriorityToFrontAsync",
+                    "RearPicker가 FrontPicker PickUp 우선권을 위해 대기합니다. " +
+                    "FrontPicker가 비어 있고 InputStage에 Pick 대상이 남아 있습니다. - Wait");
+
+                await Task.Delay(300, ct).ConfigureAwait(false);
+                return true;
+            }
+            catch (System.OperationCanceledException)
+            {
+                WriteLog("YieldInputPickupPriorityToFrontAsync",
+                    "RearPicker Front 우선순위 양보 대기가 취소되었습니다. - Failed");
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (System.Exception ex)
+            {
+                WriteLog("YieldInputPickupPriorityToFrontAsync",
+                    "RearPicker Front 우선순위 양보 확인 중 예외 발생: " + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool HasLoadedDieOnPicker()
+        {
             for (int pickerNo = 1; pickerNo <= 4; pickerNo++)
             {
                 if (MaterialStateService.GetDieAtPicker(MaterialLocationKind.PickerRear, pickerNo) != null)
                     return true;
             }
-
             return false;
+        }
+
+        private bool IsFrontPickerEnabled()
+        {
+            try
+            {
+                return Context != null &&
+                       Context.Machine != null &&
+                       Context.Machine.PickerFrontUnit != null &&
+                       Context.Machine.PickerFrontUnit.Config != null &&
+                       Context.Machine.PickerFrontUnit.Config.UseUnit;
+            }
+            catch (System.Exception ex)
+            {
+                WriteLog("IsFrontPickerEnabled",
+                    "FrontPicker 사용 여부 확인 실패: " + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool HasLoadedDieOnFrontPicker()
+        {
+            for (int pickerNo = 1; pickerNo <= 4; pickerNo++)
+            {
+                if (MaterialStateService.GetDieAtPicker(MaterialLocationKind.PickerFront, pickerNo) != null)
+                    return true;
+            }
+            return false;
+        }
+
+        private static void WriteLog(string source, string message)
+        {
+            try
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", source, message);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("RearPickerSequence log failed: " + ex.Message);
+            }
+            finally
+            {
+            }
         }
     }
 }

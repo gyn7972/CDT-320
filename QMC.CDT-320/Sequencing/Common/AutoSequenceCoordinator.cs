@@ -13,7 +13,7 @@ namespace QMC.CDT320.Sequencing
             new Dictionary<SequenceUnitKind, Func<UnitSequenceBase>>();
         private readonly Dictionary<SequenceUnitKind, UnitSequenceBase> _active =
             new Dictionary<SequenceUnitKind, UnitSequenceBase>();
-        private const int AbortPendingWaitTimeoutMs = 3000;
+        private const int AbortPendingWaitLogIntervalMs = 3000;
         private CancellationTokenSource _childrenCts;
         private SequenceRunOptions _options = SequenceRunOptions.FullAuto();
 
@@ -64,27 +64,39 @@ namespace QMC.CDT320.Sequencing
                 return;
             }
 
-            _childrenCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            CancellationTokenSource childrenCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            _childrenCts = childrenCts;
+            CancellationToken childrenToken = childrenCts.Token;
             var tasks = new List<Task>();
             foreach (var sequence in _active.Values)
-                tasks.Add(Task.Run(() => sequence.RunAsync(_childrenCts.Token), _childrenCts.Token));
+                tasks.Add(Task.Run(() => sequence.RunAsync(childrenToken), childrenToken));
 
             _ctx.LogPublic("[SEQ] Run start (" + tasks.Count + " units)");
             try
             {
-                await WaitAllOrCancelOnFirstFailureAsync(tasks, _childrenCts.Token).ConfigureAwait(false);
+                await WaitAllOrCancelOnFirstFailureAsync(tasks, childrenToken).ConfigureAwait(false);
                 _ctx.LogPublic("[SEQ] Run complete");
             }
             catch (SequenceStopException)
             {
                 _ctx.LogPublic("[SEQ] Run stopped");
                 AbortChildren();
+                await AwaitPendingAfterAbortAsync(tasks).ConfigureAwait(false);
                 throw;
             }
             catch (OperationCanceledException)
             {
                 _ctx.LogPublic("[SEQ] Run canceled");
+                AbortChildren();
+                await AwaitPendingAfterAbortAsync(tasks).ConfigureAwait(false);
                 throw;
+            }
+            finally
+            {
+                if (_childrenCts == childrenCts)
+                    _childrenCts = null;
+
+                childrenCts.Dispose();
             }
         }
 
@@ -166,23 +178,32 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 Task allPending = Task.WhenAll(pending);
-                Task timeout = Task.Delay(AbortPendingWaitTimeoutMs);
-                Task completed = await Task.WhenAny(allPending, timeout).ConfigureAwait(false);
-                if (completed == allPending)
+                while (!allPending.IsCompleted)
                 {
-                    await allPending.ConfigureAwait(false);
-                    return;
+                    Task logDelay = Task.Delay(AbortPendingWaitLogIntervalMs);
+                    Task completed = await Task.WhenAny(allPending, logDelay).ConfigureAwait(false);
+                    if (completed == allPending)
+                        break;
+
+                    _ctx.LogPublic("[SEQ] Abort 이후 남은 시퀀스가 정리되는 중입니다. pending=" +
+                                   pending.Count);
+                    QMC.Common.Log.Write("Main", "SYSTEM", "SequenceAbort",
+                        "Sequence abort pending wait still running. pending=" + pending.Count +
+                        ", intervalMs=" + AbortPendingWaitLogIntervalMs + " - Wait");
                 }
 
-                _ctx.LogPublic("[SEQ] Abort 이후 남은 시퀀스 대기가 " +
-                               AbortPendingWaitTimeoutMs + "ms 안에 종료되지 않았습니다. pending=" +
-                               pending.Count);
-                QMC.Common.Log.Write("Main", "SYSTEM", "SequenceAbort",
-                    "Sequence abort pending wait timeout. pending=" + pending.Count +
-                    ", timeoutMs=" + AbortPendingWaitTimeoutMs + " - Timeout");
+                await allPending.ConfigureAwait(false);
+                _ctx.LogPublic("[SEQ] Abort 이후 남은 시퀀스가 모두 정리되었습니다.");
             }
-            catch
+            catch (OperationCanceledException)
             {
+                _ctx.LogPublic("[SEQ] Abort 이후 남은 시퀀스가 취소 상태로 정리되었습니다.");
+            }
+            catch (Exception ex)
+            {
+                _ctx.LogPublic("[SEQ] Abort 이후 남은 시퀀스 정리 중 예외가 발생했습니다. error=" + ex.Message);
+                QMC.Common.Log.Write("Main", "SYSTEM", "SequenceAbort",
+                    "Sequence abort pending wait failed. error=" + ex.Message + " - Failed");
             }
             finally
             {
@@ -193,10 +214,20 @@ namespace QMC.CDT320.Sequencing
         public void AbortChildren()
         {
             var cts = _childrenCts;
-            if (cts != null && !cts.IsCancellationRequested)
+            if (cts == null)
+                return;
+
+            try
             {
-                _ctx.LogPublic("[SEQ] AbortChildren");
-                cts.Cancel();
+                if (!cts.IsCancellationRequested)
+                {
+                    _ctx.LogPublic("[SEQ] AbortChildren");
+                    cts.Cancel();
+                }
+            }
+            catch (ObjectDisposedException)
+            {
+                _ctx.LogPublic("[SEQ] AbortChildren ignored: child cancellation source already disposed.");
             }
         }
     }

@@ -1215,9 +1215,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     return "INPUT";
                 if (IsAnyPickerInDiePickPosition(machine))
                     return "PICK";
-                if (IsAnyPickerInDieBottomZone(machine))
+                if (IsPickerXInZone(machine, "BottomPosition"))
                     return "INSPECT_B";
-                if (IsAnyPickerInDieSideZone(machine))
+                if (IsPickerXInZone(machine, "SidePosition"))
                     return "INSPECT_S";
                 if (IsAnyPickerInDiePlacePosition(machine))
                     return "PLACE";
@@ -1233,9 +1233,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     return "INPUT";
                 if (IsAnyPickerInDiePickPosition(machine))
                     return "PICK";
-                if (IsAnyPickerInDieBottomZone(machine))
+                if (IsPickerXInZone(machine, "BottomPosition"))
                     return "INSPECT_B";
-                if (IsAnyPickerInDieSideZone(machine))
+                if (IsPickerXInZone(machine, "SidePosition"))
                     return "INSPECT_S";
                 if (IsAnyPickerInDiePlacePosition(machine))
                     return "PLACE";
@@ -1248,6 +1248,30 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             return "UNKNOWN";
         }
 
+        private bool IsPickerXInZone(CDT320_Machine machine, string positionName)
+        {
+            try
+            {
+                BaseAxis pickerX = GetAxis(machine, PickerAxis.PickerX);
+                if (pickerX == null)
+                    return false;
+
+                double target = GetTeachingPosition(machine, PickerAxis.PickerX, positionName);
+                double tolerance = pickerX.Config != null ? pickerX.Config.InPositionTolerance : 0.05;
+                tolerance = Math.Max(tolerance, 0.05);
+
+                return Math.Abs(pickerX.ActualPosition - target) <= tolerance;
+            }
+            catch (Exception ex)
+            {
+                WriteAlarm("Picker Head Zone X축 위치 판정 실패: position=" + positionName + ", error=" + ex.Message);
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
         private bool IsAnyPickerInDiePickPosition(CDT320_Machine machine)
         {
             for (int pickerNo = 1; pickerNo <= 4; pickerNo++)
@@ -1255,32 +1279,6 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 if (_side == PickerSequenceSide.Front && machine.PickerFrontUnit != null && machine.PickerFrontUnit.IsPickerInDiePickPosition(pickerNo))
                     return true;
                 if (_side == PickerSequenceSide.Rear && machine.PickerRearUnit != null && machine.PickerRearUnit.IsPickerInDiePickPosition(pickerNo))
-                    return true;
-            }
-
-            return false;
-        }
-
-        private bool IsAnyPickerInDieBottomZone(CDT320_Machine machine)
-        {
-            for (int pickerNo = 1; pickerNo <= 4; pickerNo++)
-            {
-                if (_side == PickerSequenceSide.Front && machine.PickerFrontUnit != null && machine.PickerFrontUnit.IsPickerInDieBottomZone(pickerNo))
-                    return true;
-                if (_side == PickerSequenceSide.Rear && machine.PickerRearUnit != null && machine.PickerRearUnit.IsPickerInDieBottomZone(pickerNo))
-                    return true;
-            }
-
-            return false;
-        }
-
-        private bool IsAnyPickerInDieSideZone(CDT320_Machine machine)
-        {
-            for (int pickerNo = 1; pickerNo <= 4; pickerNo++)
-            {
-                if (_side == PickerSequenceSide.Front && machine.PickerFrontUnit != null && machine.PickerFrontUnit.IsPickerInDieSideZone(pickerNo))
-                    return true;
-                if (_side == PickerSequenceSide.Rear && machine.PickerRearUnit != null && machine.PickerRearUnit.IsPickerInDieSideZone(pickerNo))
                     return true;
             }
 

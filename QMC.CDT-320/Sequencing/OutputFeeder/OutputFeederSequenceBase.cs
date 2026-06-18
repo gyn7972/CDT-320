@@ -473,8 +473,10 @@ namespace QMC.CDT320.Sequencing
 
                 return initialStep;
             }
-            catch
+            catch (Exception ex)
             {
+                WriteLog(Name, "OutputFeeder 시작 스텝 복원 중 예외가 발생했습니다. state=" +
+                    SequenceStateName + ", error=" + ex.Message + " - Failed");
                 return initialStep;
             }
             finally
@@ -559,7 +561,17 @@ namespace QMC.CDT320.Sequencing
 
         protected static void WriteLog(string source, string message)
         {
-            try { Log.Write("Main", "SYSTEM", source, message); } catch { }
+            try
+            {
+                Log.Write("Main", "SYSTEM", source, message);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("OutputFeeder sequence log failed. source=" + source + ", error=" + ex.Message);
+            }
+            finally
+            {
+            }
         }
     }
 }
