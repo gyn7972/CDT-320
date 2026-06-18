@@ -199,6 +199,7 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
             optionItems.Add(ParameterGridItem.Bool("SIMULATION MODE", ParameterGridScope.Setup, () => unit.Setup.IsSimulationMode, v => unit.Setup.IsSimulationMode = v));
             optionItems.Add(AxisDouble("INPUT SAFETY OFFSET", PickerAxis.PickerX, AxisUnitConverter.Millimeter, ParameterGridScope.Setup, () => unit.Setup.InputSafetyOffset, v => unit.Setup.InputSafetyOffset = v));
             optionItems.Add(AxisDouble("OUTPUT SAFETY OFFSET", PickerAxis.PickerX, AxisUnitConverter.Millimeter, ParameterGridScope.Setup, () => unit.Setup.OutputSafetyOffset, v => unit.Setup.OutputSafetyOffset = v));
+            optionItems.Add(AxisDouble("PICKER Y FACING X CLEARANCE", PickerAxis.PickerX, AxisUnitConverter.Millimeter, ParameterGridScope.Setup, () => unit.Setup.PickerYFacingXClearance, v => unit.Setup.PickerYFacingXClearance = Math.Max(0.0, v)));
             optionItems.Add(AxisDouble("PICKER PITCH X", PickerAxis.PickerX, AxisUnitConverter.Millimeter, ParameterGridScope.Setup, () => unit.Setup.PickerPitchX, v => unit.Setup.PickerPitchX = v));
             optionItems.Add(AxisDouble("PICKER PITCH Y", PickerAxis.PickerY, AxisUnitConverter.Millimeter, ParameterGridScope.Setup, () => unit.Setup.PickerPitchY, v => unit.Setup.PickerPitchY = v));
             AddVisionPickerOffsetItems(optionItems, "INPUT VISION", unit.Setup.InputVisionToPicker, PickerAxis.PickerX, PickerAxis.PickerY);

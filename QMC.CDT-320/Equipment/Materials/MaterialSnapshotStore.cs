@@ -917,17 +917,35 @@ namespace QMC.CDT320.Materials
         {
             try
             {
-                if (inspection == null || inspection.Measurements == null)
+                if (inspection == null)
                     return;
 
-                foreach (var measurement in inspection.Measurements)
+                if (inspection.Measurements != null)
                 {
-                    if (measurement == null)
-                        continue;
+                    foreach (var measurement in inspection.Measurements)
+                    {
+                        if (measurement == null)
+                            continue;
 
-                    measurement.Value = NormalizeJsonDouble(measurement.Value, 0.0);
-                    measurement.LowerLimit = NormalizeJsonDouble(measurement.LowerLimit, 0.0);
-                    measurement.UpperLimit = NormalizeJsonDouble(measurement.UpperLimit, 0.0);
+                        measurement.Value = NormalizeJsonDouble(measurement.Value, 0.0);
+                        measurement.LowerLimit = NormalizeJsonDouble(measurement.LowerLimit, 0.0);
+                        measurement.UpperLimit = NormalizeJsonDouble(measurement.UpperLimit, 0.0);
+                    }
+                }
+
+                if (inspection.Alignments != null)
+                {
+                    foreach (var alignment in inspection.Alignments)
+                    {
+                        if (alignment == null)
+                            continue;
+
+                        alignment.X = NormalizeJsonDouble(alignment.X, 0.0);
+                        alignment.Y = NormalizeJsonDouble(alignment.Y, 0.0);
+                        alignment.T = NormalizeJsonDouble(alignment.T, 0.0);
+                        alignment.Z = NormalizeJsonDouble(alignment.Z, 0.0);
+                        NormalizeVisionOffset(alignment.Offset);
+                    }
                 }
             }
             catch

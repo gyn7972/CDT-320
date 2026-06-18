@@ -150,10 +150,23 @@ namespace QMC.CDT320.Interlocks
 
         private static bool CanMoveRearPickerT(CDT320_Machine machine, string movingName, out string reason)
         {
-            if (!CanHomeRearPickerT(machine, movingName, out reason))
-                return false;
+            reason = string.Empty;
 
-            return VerifyRearPickerNotBusy(machine != null ? machine.PickerRearUnit : null, movingName, out reason);
+            try
+            {
+                return VerifyRearPickerNotBusy(machine != null ? machine.PickerRearUnit : null, movingName, out reason);
+            }
+            catch (System.Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    movingName + " T축 이동 인터락 확인 중 예외가 발생했습니다. error=" + ex.Message,
+                    out reason);
+            }
+            finally
+            {
+                LogBlockedReason(reason);
+            }
         }
 
         private static bool CanHomeRearPickerX(CDT320_Machine machine, out string reason)

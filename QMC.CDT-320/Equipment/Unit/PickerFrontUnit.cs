@@ -108,6 +108,7 @@ namespace QMC.CDT320
         [DataMember] public bool IsSimulationMode { get; set; } // Front Picker 단위 동작을 시뮬레이션 기준으로 처리할지 여부입니다.
         [DataMember] public double InputSafetyOffset { get; set; } // Input 영역 접근 시 간섭을 피하기 위해 적용하는 안전 보정 거리입니다.
         [DataMember] public double OutputSafetyOffset { get; set; } // Output 영역 접근 시 간섭을 피하기 위해 적용하는 안전 보정 거리입니다.
+        [DataMember] public double PickerYFacingXClearance { get; set; } = 300.0; // Front/Rear PickerX가 마주보는 위치에서 PickerY 동시 전진을 막기 위한 X축 최소 안전거리입니다.
         [DataMember] public PickerVisionCoordinateOffsets InputVisionToPicker { get; set; } = new PickerVisionCoordinateOffsets(); // InputVisionX/StageY 좌표계를 Picker 좌표계로 변환할 때 사용하는 Picker1~4별 기구 옵셋입니다.
         [DataMember] public PickerVisionCoordinateOffsets OutputVisionToPicker { get; set; } = new PickerVisionCoordinateOffsets(); // OutputVisionX/OutputStageY 좌표계를 Picker 좌표계로 변환할 때 사용하는 Picker1~4별 기구 옵셋입니다.
         [DataMember] public double PickerPitchX { get; set; } // Picker1~4 사이 X축 기구 피치입니다.
@@ -125,6 +126,8 @@ namespace QMC.CDT320
                 InputVisionToPicker = new PickerVisionCoordinateOffsets();
             if (OutputVisionToPicker == null)
                 OutputVisionToPicker = new PickerVisionCoordinateOffsets();
+            if (PickerYFacingXClearance <= 0.0)
+                PickerYFacingXClearance = 150.0;
 
             InputVisionToPicker.EnsureArrays();
             OutputVisionToPicker.EnsureArrays();
@@ -1060,6 +1063,16 @@ namespace QMC.CDT320
             return IsPickerInDiePosition(pickerNo, "DieBottomPosition");
         }
 
+        public bool IsPickerInDieBottomZone(int pickerNo)
+        {
+            return IsPickerInDieZoneXY(pickerNo, "DieBottomPosition");
+        }
+
+        public bool IsPickerInDieSideZone(int pickerNo)
+        {
+            return IsPickerInDieZoneXY(pickerNo, "DieSidePosition");
+        }
+
         public bool IsPickerInDiePlacePosition(int pickerNo)
         {
             return IsPickerInDiePosition(pickerNo, "DiePlacePosition");
@@ -1635,6 +1648,20 @@ namespace QMC.CDT320
                 && IsPickerAxisInPosition(PickerAxis.PickerY, ResolvePickerZoneY(positionArrayName, index), y.Config.InPositionTolerance)
                 && IsPickerAxisInPosition(GetPickerTAxis(index), ResolveTPosition(positionArrayName, index) + offset.AlignOffsetT, t.Config.InPositionTolerance)
                 && IsPickerAxisInPosition(GetPickerZAxis(index), ResolveZPosition(positionArrayName, index), z.Config.InPositionTolerance);
+        }
+
+        private bool IsPickerInDieZoneXY(int pickerNo, string positionArrayName)
+        {
+            int index = NormalizePickerIndex(pickerNo, MaxPickerCount);
+            BaseAxis x = GetAxis(PickerAxis.PickerX);
+            BaseAxis y = GetAxis(PickerAxis.PickerY);
+            if (x == null || y == null)
+                return false;
+
+            double xTolerance = x.Config != null ? x.Config.InPositionTolerance : 0.05;
+            double yTolerance = y.Config != null ? y.Config.InPositionTolerance : 0.05;
+            return IsPickerAxisInPosition(PickerAxis.PickerX, ResolvePickerZoneX(positionArrayName, index), xTolerance)
+                && IsPickerAxisInPosition(PickerAxis.PickerY, ResolvePickerZoneY(positionArrayName, index), yTolerance);
         }
 
         private void TeachPickerGroup(string positionName)

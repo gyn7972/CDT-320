@@ -1975,6 +1975,24 @@ namespace QMC.CDT320.Materials
                         return false;
                     }
 
+                    DieMaterial occupiedDie = State.Dies.FirstOrDefault(d =>
+                        d != null &&
+                        !string.Equals(d.DieId, dieId, StringComparison.OrdinalIgnoreCase) &&
+                        d.CurrentLocation != null &&
+                        d.CurrentLocation.Kind == pickerLocation &&
+                        d.CurrentLocation.PickerNo == pickerNo);
+                    if (occupiedDie != null)
+                    {
+                        Log.Write("Main", "SYSTEM", "MaterialStateService",
+                            "Pick die state update blocked: picker already has die. " +
+                            "Picker가 이미 Die를 가지고 있어 상태를 덮어쓰지 않습니다. " +
+                            "pickerLocation=" + pickerLocation +
+                            ", pickerNo=" + pickerNo +
+                            ", loadedDie=" + occupiedDie.DieId +
+                            ", requestedDie=" + dieId + " - Blocked");
+                        return false;
+                    }
+
                     die.CurrentLocation = MaterialLocation.Picker(pickerLocation, pickerNo);
                     die.ReservedPickerLocation = MaterialLocationKind.Unknown;
                     die.ReservedPickerNo = -1;

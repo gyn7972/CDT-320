@@ -203,12 +203,29 @@ namespace QMC.CDT320.Materials
     }
 
     [DataContract]
+    public class InspectionAlignmentSnapshot
+    {
+        [DataMember] public string Name { get; set; } = "";
+        [DataMember] public double X { get; set; }
+        [DataMember] public double Y { get; set; }
+        [DataMember] public double T { get; set; }
+        [DataMember] public double Z { get; set; }
+        [DataMember] public string XAxisName { get; set; } = "";
+        [DataMember] public string YAxisName { get; set; } = "";
+        [DataMember] public string TAxisName { get; set; } = "";
+        [DataMember] public string ZAxisName { get; set; } = "";
+        [DataMember] public VisionOffset Offset { get; set; } = new VisionOffset();
+        [DataMember] public bool IsValid { get; set; }
+    }
+
+    [DataContract]
     public class DieInspectionRecord
     {
         [DataMember] public string InspectionType { get; set; } = "";
         [DataMember] public MaterialInspectionResult Result { get; set; } = MaterialInspectionResult.Unknown;
         [DataMember] public List<InspectionMeasurement> Measurements { get; set; } = new List<InspectionMeasurement>();
         [DataMember] public List<string> NgCodes { get; set; } = new List<string>();
+        [DataMember] public List<InspectionAlignmentSnapshot> Alignments { get; set; } = new List<InspectionAlignmentSnapshot>();
         [DataMember] public VisionOffset Offset { get; set; } = new VisionOffset();
         [DataMember] public DateTime CreatedAt { get; set; } = DateTime.Now;
         [DataMember] public DateTime UpdatedAt { get; set; } = DateTime.Now;
