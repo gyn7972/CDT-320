@@ -41,19 +41,60 @@ namespace QMC.Vision.Backends.OpenCv
             TrainImage = image.Clone(rect, image.PixelFormat);
         }
 
+        public void LoadTrainImage(Bitmap pattern)
+        {
+            TrainImage?.Dispose();
+            TrainImage = pattern != null ? (Bitmap)pattern.Clone() : null;   // null = 학습 패턴 제거
+        }
+
         public MatchResult Match(Bitmap image)
         {
             if (image == null || TrainImage == null)
                 return MatchResult.Fail(Id, "no image or train");
             try
             {
-                // EmguCV 설치 환경(_be.EmguLoaded)이면 추후 Cv2.MatchTemplate(회전 포함)로 교체 가능.
+                // EmguCV 로드 시 실제 CvInvoke.MatchTemplate 사용. 실패하면 순수 C# NCC 로 폴백.
+                if (_be != null && _be.EmguLoaded)
+                {
+                    var em = EmguMatch(image);
+                    if (em != null) return em;
+                }
                 return NccMatch(image);
             }
             catch (Exception ex)
             {
                 return MatchResult.Fail(Id, "match error: " + ex.Message);
             }
+        }
+
+        // ── EmguCV(CvInvoke.MatchTemplate) 매칭 — 전역 최고 1개. 실패 시 null 반환(폴백 유도). ──
+        private MatchResult EmguMatch(Bitmap src)
+        {
+            var io = OpenCvInterop.Instance;
+            if (!io.Ready) return null;
+
+            Rectangle sr = (SearchRoi != null) ? SearchRoi.BoundingBox : new Rectangle(0, 0, src.Width, src.Height);
+            sr.Intersect(new Rectangle(0, 0, src.Width, src.Height));
+            if (sr.Width <= 0 || sr.Height <= 0) return null;
+
+            int sw, sh, tw, th;
+            byte[] S = ToGray(src, sr, out sw, out sh);
+            byte[] T = ToGray(TrainImage, new Rectangle(0, 0, TrainImage.Width, TrainImage.Height), out tw, out th);
+            if (tw < 2 || th < 2 || sw < tw || sh < th) return null;
+
+            double score; int locX, locY;
+            if (!io.TryMatch(S, sw, sh, T, tw, th, out score, out locX, out locY)) return null;
+
+            var res = new MatchResult { RoiName = Id, Success = true };
+            res.Instances.Add(new MatchInstance
+            {
+                Index    = 0,
+                CenterX  = sr.X + locX + tw / 2.0,   // CDT-310: loc + tpl/2
+                CenterY  = sr.Y + locY + th / 2.0,
+                AngleDeg = 0,
+                Score    = Math.Max(0.0, Math.Min(1.0, score))
+            });
+            return res;
         }
 
         // ── 그레이스케일 NCC 매칭 ──

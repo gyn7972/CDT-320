@@ -82,6 +82,32 @@ namespace QMC.Vision.Backends.Cognex
             }
         }
 
+        public void LoadTrainImage(Bitmap pattern)
+        {
+            TrainImage?.Dispose();
+            TrainImage = pattern != null ? (Bitmap)pattern.Clone() : null;   // null = 학습 패턴 제거
+            _fallback.LoadTrainImage(pattern);   // OpenCV fallback 도 동기화
+            if (pattern == null) { _trainSucceeded = false; _pma = null; return; }
+
+            _trainSucceeded = false;
+            if (!_be.CognexLoaded) return;
+            try
+            {
+                var asms = _be.LoadedAssemblies;
+                var pmaType = CognexInterop.GetType("Cognex.VisionPro.PMAlign.CogPMAlignTool", asms);
+                if (pmaType == null) return;
+                _pma = Activator.CreateInstance(pmaType);
+                dynamic cogImage = CognexInterop.BitmapToICogImage(pattern, asms);
+                dynamic region   = CognexInterop.NewRectangle(0, 0, pattern.Width, pattern.Height, asms);
+                dynamic patt = _pma.Pattern;
+                patt.TrainImage  = cogImage;
+                patt.TrainRegion = region;   // 저장 패턴 전체 영역 학습
+                patt.Train();
+                _trainSucceeded = true;
+            }
+            catch { _trainSucceeded = false; _pma = null; }
+        }
+
         public MatchResult Match(Bitmap image)
         {
             // Cognex 학습 성공 시에만 Cognex 사용, 그 외엔 fallback

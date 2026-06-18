@@ -33,6 +33,12 @@ namespace QMC.Vision.Backends.Sim
             TrainImage = image.Clone(rect, image.PixelFormat);
         }
 
+        public void LoadTrainImage(Bitmap pattern)
+        {
+            TrainImage?.Dispose();
+            TrainImage = pattern != null ? (Bitmap)pattern.Clone() : null;   // null = 학습 패턴 제거
+        }
+
         public MatchResult Match(Bitmap image)
         {
             if (image == null) return MatchResult.Fail(Id, "null image");

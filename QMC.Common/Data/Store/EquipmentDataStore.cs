@@ -6,8 +6,11 @@ namespace QMC.Common.Data.Store
     /// <summary>장비 고정 데이터(Setup/Config) Store입니다.</summary>
     public static class EquipmentDataStore
     {
-        public static string Root { get; } =
-            Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "EquipmentData");
+        /// <summary>설비데이터 저장 루트 = DataPaths.Root\EquipmentData (동적 계산 — 기동 시 루트 변경 반영).</summary>
+        public static string Root
+        {
+            get { return Path.Combine(DataPaths.Root, "EquipmentData"); }
+        }
 
         public static DataStoreResult<T> Load<T>(string storageKey, string category) where T : new()
         {

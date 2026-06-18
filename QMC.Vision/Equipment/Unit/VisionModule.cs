@@ -83,6 +83,10 @@ namespace QMC.Vision.Modules
             m.DelayBeforeGrabMs = c.DelayBeforeGrabMs;
             m.RoiOffsetX = c.RoiOffsetX; m.RoiOffsetY = c.RoiOffsetY;
             m.RoiWidth = c.RoiWidth; m.RoiHeight = c.RoiHeight;
+            m.ScaleX = c.ScaleX; m.ScaleY = c.ScaleY;
+            m.IsRotated = c.IsRotated; m.InvertedX = c.InvertedX; m.InvertedY = c.InvertedY;
+            m.ReturnMmCoordinates = c.ReturnMmCoordinates;
+            m.CalibChipWidthMm = c.CalibChipWidthMm; m.CalibChipHeightMm = c.CalibChipHeightMm;
             m.ExposureUs = r.Exposure;
             return m;
         }
@@ -122,6 +126,10 @@ namespace QMC.Vision.Modules
             c.DelayBeforeGrabMs = m.DelayBeforeGrabMs;
             c.RoiOffsetX = m.RoiOffsetX; c.RoiOffsetY = m.RoiOffsetY;
             c.RoiWidth = m.RoiWidth; c.RoiHeight = m.RoiHeight;
+            c.ScaleX = m.ScaleX; c.ScaleY = m.ScaleY;
+            c.IsRotated = m.IsRotated; c.InvertedX = m.InvertedX; c.InvertedY = m.InvertedY;
+            c.ReturnMmCoordinates = m.ReturnMmCoordinates;
+            c.CalibChipWidthMm = m.CalibChipWidthMm; c.CalibChipHeightMm = m.CalibChipHeightMm;
             r.Exposure = m.ExposureUs;
         }
 

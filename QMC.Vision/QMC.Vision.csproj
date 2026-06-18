@@ -55,6 +55,20 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
+    <Compile Include="Sequencing\Common\SequenceRunMode.cs" />
+    <Compile Include="Sequencing\Common\SequenceModuleKind.cs" />
+    <Compile Include="Sequencing\Common\SequenceStopException.cs" />
+    <Compile Include="Sequencing\Common\IVisionCommandDispatcher.cs" />
+    <Compile Include="Sequencing\Common\DirectVisionCommandDispatcher.cs" />
+    <Compile Include="Sequencing\Common\VisionSequenceContext.cs" />
+    <Compile Include="Sequencing\Common\ModuleSequenceBase.cs" />
+    <Compile Include="Sequencing\Common\AutoSequenceCoordinator.cs" />
+    <Compile Include="Sequencing\Common\VisionAutoSequenceHost.cs" />
+    <Compile Include="Sequencing\WaferVision\WaferVisionSequence.cs" />
+    <Compile Include="Sequencing\BinVision\BinVisionSequence.cs" />
+    <Compile Include="Sequencing\BottomInspection\BottomInspectionSequence.cs" />
+    <Compile Include="Sequencing\TopSideVision\TopSideVisionSequence.cs" />
+    <Compile Include="Sequencing\BottomSideVision\BottomSideVisionSequence.cs" />
     <Compile Include="Form1.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -75,6 +89,9 @@
     <Compile Include="Equipment\Core\CameraFactory.cs" />
     <Compile Include="Equipment\Core\CameraVector.cs" />
     <Compile Include="Equipment\Core\VisionScale.cs" />
+    <Compile Include="Equipment\Core\VisionCommandCore.cs" />
+    <Compile Include="Equipment\Core\ResourceMonitor.cs" />
+    <Compile Include="Equipment\Core\ModuleResultStore.cs" />
     <Compile Include="Equipment\Core\MaterialTracker.cs" />
     <Compile Include="Equipment\Core\ImageLogSaver.cs" />
     <Compile Include="Equipment\Core\DataLogSaver.cs" />
@@ -87,6 +104,7 @@
     <Compile Include="Equipment\Backends\Sim\SimPatternFinder.cs" />
     <Compile Include="Equipment\Backends\Sim\SimInspector.cs" />
     <Compile Include="Equipment\Backends\OpenCv\OpenCvBackend.cs" />
+    <Compile Include="Equipment\Backends\OpenCv\OpenCvInterop.cs" />
     <Compile Include="Equipment\Backends\OpenCv\OpenCvPatternFinder.cs" />
     <Compile Include="Equipment\Backends\OpenCv\OpenCvInspector.cs" />
     <Compile Include="Equipment\Backends\Cognex\CognexBackend.cs" />
@@ -130,17 +148,17 @@
     <Compile Include="Equipment\Optics\Leesos\LeesosProtocol.cs" />
     <Compile Include="Equipment\Optics\Leesos\LeesosLightController.cs" />
     <Compile Include="Equipment\Comm\LightHub.cs" />
-    <Compile Include="Ui\Pages\Recipe\VisionTargetPage.cs">
+    <Compile Include="Ui\Pages\Settings\Recipe\VisionTargetPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="Ui\Pages\Recipe\VisionTargetPage.Designer.cs">
+    <Compile Include="Ui\Pages\Settings\Recipe\VisionTargetPage.Designer.cs">
       <DependentUpon>VisionTargetPage.cs</DependentUpon>
     </Compile>
-    <Compile Include="Ui\Pages\Recipe\ITargetPage.cs" />
-    <Compile Include="Ui\Pages\Recipe\InspectorTargetPage.cs">
+    <Compile Include="Ui\Pages\Settings\Recipe\ITargetPage.cs" />
+    <Compile Include="Ui\Pages\Settings\Recipe\InspectorTargetPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="Ui\Pages\Recipe\InspectorTargetPage.Designer.cs">
+    <Compile Include="Ui\Pages\Settings\Recipe\InspectorTargetPage.Designer.cs">
       <DependentUpon>InspectorTargetPage.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Pages\Settings\LightSystemSetupPage.cs">
@@ -149,10 +167,10 @@
     <Compile Include="Ui\Pages\Settings\LightSystemSetupPage.Designer.cs">
       <DependentUpon>LightSystemSetupPage.cs</DependentUpon>
     </Compile>
-    <Compile Include="Ui\Pages\Recipe\InspectionLightPanel.cs">
+    <Compile Include="Ui\Pages\Settings\Recipe\InspectionLightPanel.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="Ui\Pages\Recipe\InspectionLightPanel.Designer.cs">
+    <Compile Include="Ui\Pages\Settings\Recipe\InspectionLightPanel.Designer.cs">
       <DependentUpon>InspectionLightPanel.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\UiTheme.cs" />
@@ -174,6 +192,9 @@
     <Compile Include="Ui\Tabs\WorkTab.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="Ui\Tabs\SequencerTab.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
     <Compile Include="Ui\Tabs\RecipeTab.cs">
       <SubType>UserControl</SubType>
     </Compile>
@@ -193,8 +214,11 @@
     <Compile Include="Ui\Pages\PageBase.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="Ui\Pages\Recipe\Helper\RecipeLayout.cs" />
     <Compile Include="Ui\Controls\ParameterGridItem.cs" />
+    <Compile Include="Ui\Controls\SortableBindingList.cs" />
+    <Compile Include="Ui\Controls\PaginationBar.cs">
+      <SubType>Component</SubType>
+    </Compile>
     <Compile Include="Ui\Controls\ParameterGridChangedEventArgs.cs" />
     <Compile Include="Ui\Controls\ParameterGridControl.cs">
       <SubType>UserControl</SubType>
@@ -238,6 +262,12 @@
     <Compile Include="Ui\Pages\Work\OperationPage.Designer.cs">
       <DependentUpon>OperationPage.cs</DependentUpon>
     </Compile>
+    <Compile Include="Ui\Pages\Work\SequencerPage.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Ui\Pages\Work\SequencerPage.Designer.cs">
+      <DependentUpon>SequencerPage.cs</DependentUpon>
+    </Compile>
     <Compile Include="Ui\Pages\User\UserPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
@@ -250,10 +280,10 @@
     <Compile Include="Ui\Pages\Settings\ConfigurationPage.Designer.cs">
       <DependentUpon>ConfigurationPage.cs</DependentUpon>
     </Compile>
-    <Compile Include="Ui\Pages\Recipe\RecipePage.cs">
+    <Compile Include="Ui\Pages\Settings\Recipe\RecipePage.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="Ui\Pages\Recipe\RecipePage.Designer.cs">
+    <Compile Include="Ui\Pages\Settings\Recipe\RecipePage.Designer.cs">
       <DependentUpon>RecipePage.cs</DependentUpon>
     </Compile>
     <Compile Include="Ui\Pages\History\DataLogPage.cs">
@@ -274,30 +304,36 @@
     <Compile Include="Ui\Pages\Settings\CameraMappingPanel.Designer.cs">
       <DependentUpon>CameraMappingPanel.cs</DependentUpon>
     </Compile>
-    <Compile Include="Ui\Pages\Recipe\FinderPage.cs">
+    <Compile Include="Ui\Pages\Settings\Recipe\FinderPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="Ui\Pages\Recipe\FinderPage.Designer.cs">
+    <Compile Include="Ui\Pages\Settings\Recipe\FinderPage.Designer.cs">
       <DependentUpon>FinderPage.cs</DependentUpon>
     </Compile>
-    <Compile Include="Ui\Pages\Recipe\InspectorPage.cs">
+    <Compile Include="Ui\Pages\Settings\Recipe\InspectorPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="Ui\Pages\Recipe\InspectorPage.Designer.cs">
+    <Compile Include="Ui\Pages\Settings\Recipe\InspectorPage.Designer.cs">
       <DependentUpon>InspectorPage.cs</DependentUpon>
     </Compile>
     <!-- Stage 2 — SPC + ParameterEditors + ZoomDialog -->
-    <Compile Include="Ui\Pages\Recipe\SpcChartPage.cs">
+    <Compile Include="Ui\Pages\Settings\Recipe\SpcChartPage.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="Ui\Pages\Recipe\SpcChartPage.Designer.cs">
+    <Compile Include="Ui\Pages\Settings\Recipe\SpcChartPage.Designer.cs">
       <DependentUpon>SpcChartPage.cs</DependentUpon>
     </Compile>
-    <Compile Include="Ui\Dialogs\ZoomDialog.cs">
+    <Compile Include="Ui\Dialogs\ScaleCalibrationDialog.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="Ui\Dialogs\ZoomDialog.Designer.cs">
-      <DependentUpon>ZoomDialog.cs</DependentUpon>
+    <Compile Include="Ui\Dialogs\ScaleCalibrationDialog.Designer.cs">
+      <DependentUpon>ScaleCalibrationDialog.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Dialogs\LoadChartDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Ui\Dialogs\LoadChartDialog.Designer.cs">
+      <DependentUpon>LoadChartDialog.cs</DependentUpon>
     </Compile>
   </ItemGroup>
   <ItemGroup>
@@ -323,11 +359,11 @@
       <DependentUpon>DataLogPage.cs</DependentUpon>
       <LogicalName>QMC.Vision.Ui.Pages.DataLogPage.resources</LogicalName>
     </EmbeddedResource>
-    <EmbeddedResource Include="Ui\Pages\Recipe\InspectionLightPanel.resx">
+    <EmbeddedResource Include="Ui\Pages\Settings\Recipe\InspectionLightPanel.resx">
       <DependentUpon>InspectionLightPanel.cs</DependentUpon>
       <LogicalName>QMC.Vision.Ui.Pages.InspectionLightPanel.resources</LogicalName>
     </EmbeddedResource>
-    <EmbeddedResource Include="Ui\Pages\Recipe\InspectorPage.resx">
+    <EmbeddedResource Include="Ui\Pages\Settings\Recipe\InspectorPage.resx">
       <DependentUpon>InspectorPage.cs</DependentUpon>
       <LogicalName>QMC.Vision.Ui.Pages.InspectorPage.resources</LogicalName>
     </EmbeddedResource>
@@ -335,7 +371,7 @@
       <DependentUpon>LightSystemSetupPage.cs</DependentUpon>
       <LogicalName>QMC.Vision.Ui.Pages.LightSystemSetupPage.resources</LogicalName>
     </EmbeddedResource>
-    <EmbeddedResource Include="Ui\Pages\Recipe\RecipePage.resx">
+    <EmbeddedResource Include="Ui\Pages\Settings\Recipe\RecipePage.resx">
       <DependentUpon>RecipePage.cs</DependentUpon>
       <LogicalName>QMC.Vision.Ui.Pages.RecipePage.resources</LogicalName>
     </EmbeddedResource>
@@ -343,13 +379,16 @@
       <DependentUpon>SettingsPage.cs</DependentUpon>
       <LogicalName>QMC.Vision.Ui.Pages.SettingsPage.resources</LogicalName>
     </EmbeddedResource>
-    <EmbeddedResource Include="Ui\Pages\Recipe\SpcChartPage.resx">
+    <EmbeddedResource Include="Ui\Pages\Settings\Recipe\SpcChartPage.resx">
       <DependentUpon>SpcChartPage.cs</DependentUpon>
       <LogicalName>QMC.Vision.Ui.Pages.SpcChartPage.resources</LogicalName>
     </EmbeddedResource>
-    <EmbeddedResource Include="Ui\Pages\Recipe\VisionTargetPage.resx">
+    <EmbeddedResource Include="Ui\Pages\Settings\Recipe\VisionTargetPage.resx">
       <DependentUpon>VisionTargetPage.cs</DependentUpon>
       <LogicalName>QMC.Vision.Ui.Pages.VisionTargetPage.resources</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Ui\Pages\Work\OperationPage.resx">
+      <DependentUpon>OperationPage.cs</DependentUpon>
     </EmbeddedResource>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

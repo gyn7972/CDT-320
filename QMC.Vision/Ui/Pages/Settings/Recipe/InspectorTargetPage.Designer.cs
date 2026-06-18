@@ -19,7 +19,7 @@ namespace QMC.Vision.Ui.Pages
         private TableLayoutPanel _center;
         private Label _secAction;
         private TableLayoutPanel _actionPanel;
-        private Button _btnInspect, _btnGrab, _btnLoad, _btnSaveImg, _btnEditRoi;
+        private Button _btnInspect, _btnEditRoi;
         private Label _secResult;
         private DataGridView _result;
         private Label _lblVerdict;
@@ -47,7 +47,7 @@ namespace QMC.Vision.Ui.Pages
             this._center = new TableLayoutPanel();
             this._secAction = new Label();
             this._actionPanel = new TableLayoutPanel();
-            this._btnInspect = new Button(); this._btnGrab = new Button(); this._btnLoad = new Button(); this._btnSaveImg = new Button(); this._btnEditRoi = new Button();
+            this._btnInspect = new Button(); this._btnEditRoi = new Button();
             this._secResult = new Label();
             this._result = new DataGridView();
             this._lblVerdict = new Label();
@@ -85,29 +85,21 @@ namespace QMC.Vision.Ui.Pages
             this._left.Controls.Add(this._cam, 0, 1);
 
             // ── 중 ACTION (콤팩트: INSPECT span + GRAB/LOAD + 이미지저장/EDIT ROI) ──
+            // GRAB/LOAD/이미지저장은 CameraView 내장 툴바로 통일(중복 제거). 검사 전용 버튼만 유지.
             this._btnInspect.Dock = DockStyle.Fill; this._btnInspect.Text = "INSPECT"; this._btnInspect.FlatStyle = FlatStyle.Flat; this._btnInspect.Font = UiTheme.SectionFont; this._btnInspect.BackColor = UiTheme.Accent; this._btnInspect.ForeColor = Color.White;
             this._btnInspect.Click += new System.EventHandler(this.OnInspectClick);
-            this._btnGrab.Dock = DockStyle.Fill; this._btnGrab.Text = "GRAB"; this._btnGrab.FlatStyle = FlatStyle.Flat; this._btnGrab.Font = UiTheme.ButtonFont; this._btnGrab.BackColor = Color.White; this._btnGrab.ForeColor = Color.Black;
-            this._btnGrab.Click += new System.EventHandler(this.OnGrabClick);
-            this._btnLoad.Dock = DockStyle.Fill; this._btnLoad.Text = "LOAD"; this._btnLoad.FlatStyle = FlatStyle.Flat; this._btnLoad.Font = UiTheme.ButtonFont; this._btnLoad.BackColor = Color.White; this._btnLoad.ForeColor = Color.Black;
-            this._btnLoad.Click += new System.EventHandler(this.OnLoadClick);
-            this._btnSaveImg.Dock = DockStyle.Fill; this._btnSaveImg.Text = "이미지 저장"; this._btnSaveImg.FlatStyle = FlatStyle.Flat; this._btnSaveImg.Font = UiTheme.ButtonFont; this._btnSaveImg.BackColor = Color.White; this._btnSaveImg.ForeColor = Color.Black;
-            this._btnSaveImg.Click += new System.EventHandler(this.OnSaveImageClick);
             this._btnEditRoi.Dock = DockStyle.Fill; this._btnEditRoi.Text = "EDIT INSPECTION ROI"; this._btnEditRoi.FlatStyle = FlatStyle.Flat; this._btnEditRoi.Font = UiTheme.ButtonFont; this._btnEditRoi.BackColor = Color.LightYellow; this._btnEditRoi.ForeColor = Color.Black;
             this._btnEditRoi.Click += new System.EventHandler(this.OnEditRoiClick);
             this._actionPanel.Dock = DockStyle.Fill;
-            this._actionPanel.ColumnCount = 2; this._actionPanel.RowCount = 3; this._actionPanel.Margin = Padding.Empty;
+            this._actionPanel.ColumnCount = 2; this._actionPanel.RowCount = 2; this._actionPanel.Margin = Padding.Empty;
             this._actionPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
             this._actionPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
             this._actionPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 52f));
             this._actionPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 44f));
-            this._actionPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 44f));
             this._actionPanel.Controls.Add(this._btnInspect, 0, 0);
             this._actionPanel.SetColumnSpan(this._btnInspect, 2);
-            this._actionPanel.Controls.Add(this._btnGrab, 0, 1);
-            this._actionPanel.Controls.Add(this._btnLoad, 1, 1);
-            this._actionPanel.Controls.Add(this._btnSaveImg, 0, 2);
-            this._actionPanel.Controls.Add(this._btnEditRoi, 1, 2);
+            this._actionPanel.Controls.Add(this._btnEditRoi, 0, 1);
+            this._actionPanel.SetColumnSpan(this._btnEditRoi, 2);
 
             // ── 중 검사결과 + verdict ──
             this._result.Dock = DockStyle.Fill;

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
@@ -11,6 +11,7 @@ using QMC.Vision.Config;
 using QMC.Vision.Core;
 using QMC.Vision.Modules;
 using QMC.Vision.Ui.Controls;
+using QMC.Vision.Ui.Localization; // Lang
 
 namespace QMC.Vision.Ui.Pages
 {
@@ -27,6 +28,7 @@ namespace QMC.Vision.Ui.Pages
         private IAlgorithmNode _node;                // B — BaseUnit 알고리즘 노드
         private string RecipeName = "default";   // 핸들러 수신 레시피명(주입). 미주입 시 default
         private bool _dirty;
+        private bool _langHooked;                   // LanguageChanged 중복 구독 방지
         private InspectionLightPanel _lightPanel;   // R2e — 편입 조명패널(통합 저장 대상)
 
         /// <summary>세팅(inspector) 변경 미저장 여부.</summary>
@@ -55,12 +57,44 @@ namespace QMC.Vision.Ui.Pages
             LoadTarget();
             BuildChildPanels();
             if (_inspector != null) _cam.SetOverlay(_inspector.InspectionRoi, null);
+            if (!_langHooked) { Lang.LanguageChanged += OnLanguageChanged; _langHooked = true; }
+            ApplyLanguage();
             Status((module?.Name ?? "?") + " / " + (inspector?.Id ?? "?"));
         }
 
         private void WireCamera()
         {
             _cam.RoiEdited += OnCamRoiEdited;
+            // 공용 CameraView 내장 툴바 — 모듈 지정 한 줄.
+            _cam.AttachModule(_module);
+            _cam.ShowToolbar = true;
+        }
+
+        protected override void OnHandleDestroyed(EventArgs e)
+        {
+            if (_langHooked) { Lang.LanguageChanged -= OnLanguageChanged; _langHooked = false; }
+            base.OnHandleDestroyed(e);
+        }
+
+        /// <summary>언어 변경 — UI 스레드로 마샬링 후 표시 문구 재적용.</summary>
+        private void OnLanguageChanged()
+        {
+            if (IsDisposed) return;
+            if (InvokeRequired) { try { BeginInvoke((Action)ApplyLanguage); } catch { } return; }
+            ApplyLanguage();
+        }
+
+        /// <summary>현재 언어로 섹션 헤더/버튼/결과 컬럼(한글 항목)을 적용. (INSPECT/GRAB 등 영문 식별 라벨은 유지)</summary>
+        private void ApplyLanguage()
+        {
+            if (_secResult  != null) _secResult.Text  = Lang.T("rec.inspResult");
+            if (_secLight   != null) _secLight.Text   = Lang.T("rec.inspLight");
+            if (_result != null && _result.Columns.Count >= 3)
+            {
+                if (_result.Columns["Item"]  != null) _result.Columns["Item"].HeaderText  = Lang.T("col.item");
+                if (_result.Columns["Value"] != null) _result.Columns["Value"].HeaderText = Lang.T("col.value");
+                if (_result.Columns["Pass"]  != null) _result.Columns["Pass"].HeaderText  = Lang.T("col.result");
+            }
         }
 
         /// <summary>C3b-3 — 조명 지정(SettingsPage) 변경을 레벨 그리드에 반영. RecipePage 가 타깃 표시 시 호출(캐시 재바인딩).</summary>
@@ -104,7 +138,7 @@ namespace QMC.Vision.Ui.Pages
                 var r = _module.Grab();
                 if (r != null && r.IsSuccess) _cam.SetFrame(r);
             }
-            catch (Exception ex) { StopLive(); Status("LIVE 정지: " + ex.Message); }
+            catch (Exception ex) { StopLive(); Status(Lang.T("rec.liveStop") + ex.Message); }
         }
 
         private int ResolveDefaultLiveIntervalMs()
@@ -164,7 +198,7 @@ namespace QMC.Vision.Ui.Pages
         /// <summary>타깃 저장 — 노드 SaveSettings + SaveRecipe. Collect 가 런타임→POCO 수집.</summary>
         public void SaveTarget()
         {
-            if (_node == null) { Status("저장 대상 노드 없음"); return; }
+            if (_node == null) { Status(Lang.T("rec.noSaveNode")); return; }
             try
             {
                 _node.SaveSettings();
@@ -172,9 +206,9 @@ namespace QMC.Vision.Ui.Pages
                 _lightPanel?.PersistLight();   // R2e — 조명(별도 저장소) 유지
                 _dirty = false;
                 DirtyChanged?.Invoke(this, EventArgs.Empty);
-                Status("타깃 저장됨 — " + TargetPath());
+                Status(Lang.T("rec.targetSaved") + TargetPath());
             }
-            catch (Exception ex) { Status("타깃 저장 실패: " + ex.Message); }
+            catch (Exception ex) { Status(Lang.T("rec.targetSaveFail") + ex.Message); }
         }
 
         private void LoadTarget()
@@ -256,7 +290,7 @@ namespace QMC.Vision.Ui.Pages
         private void DoSaveImage()
         {
             var img = CurrentImage;
-            if (img == null) { Status("이미지저장: 이미지 없음 (GRAB/LOAD 먼저)"); return; }
+            if (img == null) { Status(Lang.T("rec.imgNone")); return; }
             using (var dlg = new SaveFileDialog
             {
                 Title = "Save current image",
@@ -272,9 +306,9 @@ namespace QMC.Vision.Ui.Pages
                     if (ext == ".bmp") fmt = ImageFormat.Bmp;
                     else if (ext == ".jpg" || ext == ".jpeg") fmt = ImageFormat.Jpeg;
                     img.Save(dlg.FileName, fmt);
-                    Status("이미지 저장 OK: " + dlg.FileName);
+                    Status(Lang.T("rec.imgSaveOk") + dlg.FileName);
                 }
-                catch (Exception ex) { Status("이미지 저장 실패: " + ex.Message); }
+                catch (Exception ex) { Status(Lang.T("rec.imgSaveFail") + ex.Message); }
             }
         }
 

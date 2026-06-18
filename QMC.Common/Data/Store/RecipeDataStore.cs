@@ -7,8 +7,11 @@ namespace QMC.Common.Data.Store
     /// <summary>프로젝트/제품별 Recipe 데이터 Store입니다.</summary>
     public static class RecipeDataStore
     {
-        public static string Root { get; } =
-            Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Recipes");
+        /// <summary>레시피 저장 루트 = DataPaths.Root\Recipes (동적 계산 — 기동 시 루트 변경 반영).</summary>
+        public static string Root
+        {
+            get { return Path.Combine(DataPaths.Root, "Recipes"); }
+        }
 
         public static DataStoreResult<T> Load<T>(string recipeName, string storageKey) where T : new()
         {

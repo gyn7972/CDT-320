@@ -22,6 +22,13 @@ namespace QMC.Vision.Ui.Dialogs
         private bool _dragging;
         private Point _lastDrag;
 
+        // ── 측정(Measure) ──
+        private bool _measuring, _haveA, _haveB;
+        private PointF _mA, _mB;   // 이미지 좌표
+        /// <summary>측정 mm/pixel. 0 이면 px 로 표시. 호출자가 ShowDialog 전에 설정.</summary>
+        public double MmPerPixelX { get; set; }
+        public double MmPerPixelY { get; set; }
+
         /// <summary>디자이너 전용 파라미터리스 생성자(이미지 없음). 런타임 호출자는 (Bitmap, title) 사용.</summary>
         public ZoomDialog() : this(null) { }
 
@@ -63,6 +70,46 @@ namespace QMC.Vision.Ui.Dialogs
                 g.DrawLine(p, _canvas.Width / 2f, 0, _canvas.Width / 2f, _canvas.Height);
                 g.DrawLine(p, 0, _canvas.Height / 2f, _canvas.Width, _canvas.Height / 2f);
             }
+            if (_measuring) DrawMeasure(g);
+        }
+
+        private void DrawMeasure(Graphics g)
+        {
+            if (_image == null || !_haveA) return;
+            PointF A = ImageToScreen(_mA);
+            using (var br = new SolidBrush(Color.Red)) g.FillEllipse(br, A.X - 4, A.Y - 4, 8, 8);
+
+            if (!_haveB)
+            {
+                using (var br = new SolidBrush(Color.Red))
+                using (var f = new Font("Consolas", 10F, FontStyle.Bold))
+                    g.DrawString("둘째 점 클릭", f, br, A.X + 6, A.Y + 6);
+                return;
+            }
+
+            PointF B = ImageToScreen(_mB);
+            using (var pen = new Pen(Color.Red, 2.5f)) g.DrawLine(pen, A, B);
+            using (var br = new SolidBrush(Color.Red)) g.FillEllipse(br, B.X - 4, B.Y - 4, 8, 8);
+
+            double dxpx = _mB.X - _mA.X, dypx = _mB.Y - _mA.Y;
+            string txt;
+            if (MmPerPixelX > 0 || MmPerPixelY > 0)
+            {
+                double mmx = MmPerPixelX > 0 ? MmPerPixelX : MmPerPixelY;
+                double mmy = MmPerPixelY > 0 ? MmPerPixelY : MmPerPixelX;
+                double dmm = Math.Sqrt(dxpx * mmx * dxpx * mmx + dypx * mmy * dypx * mmy);
+                txt = dmm.ToString("F3") + " mm";
+            }
+            else txt = Math.Sqrt(dxpx * dxpx + dypx * dypx).ToString("F1") + " px";
+
+            using (var f = new Font("Consolas", 12F, FontStyle.Bold))
+            {
+                var sz = g.MeasureString(txt, f);
+                using (var bg = new SolidBrush(Color.FromArgb(180, 0, 0, 0)))
+                    g.FillRectangle(bg, B.X + 8, B.Y - 10, sz.Width + 6, sz.Height + 2);
+                using (var br = new SolidBrush(Color.Red))
+                    g.DrawString(txt, f, br, B.X + 11, B.Y - 9);
+            }
         }
 
         private void OnWheel(object sender, MouseEventArgs e)
@@ -82,8 +129,51 @@ namespace QMC.Vision.Ui.Dialogs
         private void OnDown(object sender, MouseEventArgs e)
         {
             if (e.Button != MouseButtons.Left) return;
+            if (_measuring && _image != null)
+            {
+                var p = ScreenToImage(e.Location);
+                if (!_haveA || _haveB) { _mA = p; _haveA = true; _haveB = false; }
+                else { _mB = p; _haveB = true; }
+                _canvas.Invalidate();
+                return;   // 측정 중엔 팬 안 함
+            }
             _dragging = true; _lastDrag = e.Location;
             _canvas.Cursor = Cursors.Hand;
+        }
+
+        private void OnMeasureToggle(object sender, EventArgs e)
+        {
+            _measuring = !_measuring;
+            if (_measuring)
+            {
+                _haveA = false; _haveB = false;
+                _btnMeasure.BackColor = Color.MistyRose;
+                _canvas.Cursor = Cursors.Cross;
+                _statusBar.Text = "측정 모드: 첫 점, 둘째 점을 클릭 (다시 클릭하면 재시작) — '측정' 다시 누르면 해제";
+            }
+            else
+            {
+                _btnMeasure.BackColor = Color.White;
+                _canvas.Cursor = Cursors.Default;
+                UpdateStatus();
+            }
+            _canvas.Invalidate();
+        }
+
+        // 이미지↔화면 좌표 (현재 zoom/offset 기준)
+        private PointF ImageToScreen(PointF img)
+        {
+            float w = _image.Width * _zoom, h = _image.Height * _zoom;
+            float x = (_canvas.Width - w) / 2f + _offset.X;
+            float y = (_canvas.Height - h) / 2f + _offset.Y;
+            return new PointF(x + img.X * _zoom, y + img.Y * _zoom);
+        }
+        private PointF ScreenToImage(Point scr)
+        {
+            float w = _image.Width * _zoom, h = _image.Height * _zoom;
+            float x = (_canvas.Width - w) / 2f + _offset.X;
+            float y = (_canvas.Height - h) / 2f + _offset.Y;
+            return new PointF((scr.X - x) / _zoom, (scr.Y - y) / _zoom);
         }
         private void OnMove(object sender, MouseEventArgs e)
         {
