@@ -592,44 +592,25 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
                 ioCylinderPanel.SetItems(new[]
                 {
-                    // ===== 같은 기능의 입력(DI)/출력(DO)을 묶어서 =====
-                    IoCylinderItem.Input("FEEDER UP CHECK", () => unit.IsFeederUp()),
-                    IoCylinderItem.Output("BIN FEEDER UP", () => unit.BinFeederUpOut.IsOn, on => WriteOutAsync(unit.BinFeederUpOut, on), "ON", "OFF"),
-                    IoCylinderItem.Input("FEEDER DOWN CHECK", () => unit.IsFeederDown()),
-                    IoCylinderItem.Output("BIN FEEDER DOWN", () => unit.BinFeederDownOut.IsOn, on => WriteOutAsync(unit.BinFeederDownOut, on), "ON", "OFF"),
-                    IoCylinderItem.Input("FEEDER UNCLAMP CHECK", () => unit.IsFeederUnclamped()),
-                    IoCylinderItem.Output("BIN FEEDER UNCLAMP", () => unit.BinFeederUnclampOut.IsOn, on => WriteOutAsync(unit.BinFeederUnclampOut, on), "ON", "OFF"),
-                    IoCylinderItem.Output("BIN FEEDER CLAMP", () => unit.BinFeederClampOut.IsOn, on => WriteOutAsync(unit.BinFeederClampOut, on), "ON", "OFF"),
+                    // ===== 단독(묶이지 않은) 체크 센서 — 최상단 =====
                     IoCylinderItem.Input("FEEDER RING CHECK", () => unit.IsBinFeederRingCheck()),
-                    IoCylinderItem.Input("FEEDER OVERLOAD CHECK", () => unit.IsFeederOverload())
+                    IoCylinderItem.Input("FEEDER OVERLOAD CHECK", () => unit.IsFeederOverload()),
+
+                    // ===== SET: BIN FEEDER LIFT (Up/Down 체크 센서 + Up/Down 출력 통합 실린더) =====
+                    IoCylinderItem.Input("FEEDER UP CHECK", () => unit.IsFeederUp()),
+                    IoCylinderItem.Input("FEEDER DOWN CHECK", () => unit.IsFeederDown()),
+                    IoCylinderItem.Cylinder("BIN FEEDER LIFT", unit.FeederUpDownCyl, "UP", "DOWN"),
+
+                    // ===== SET: BIN FEEDER CLAMP (Clamp/Unclamp 체크 센서 + Clamp/Unclamp 출력 통합 실린더) =====
+                    IoCylinderItem.Input("FEEDER CLAMP CHECK", () => unit.IsBinFeederClamp()),
+                    IoCylinderItem.Input("FEEDER UNCLAMP CHECK", () => unit.IsFeederUnclamped()),
+                    IoCylinderItem.Cylinder("BIN FEEDER CLAMP", unit.FeederClampCyl, "CLAMP", "UNCLAMP")
                 });
             }
             catch (Exception ex)
             {
                 EventLogger.Write(EventKind.Alarm, "UI", "OUTPUT-FEEDER", "BindIoPanel failed: " + ex.Message);
                 QMC.Common.MessageDialog.Show(this, ex.Message, "Output Feeder I/O", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-            finally
-            {
-            }
-        }
-
-        private static void WriteOut(QMC.Common.IO.BaseDigitalOutput output, bool on)
-        {
-            if (output == null) return;
-            if (on) output.On(); else output.Off();
-        }
-
-        private static Task<int> WriteOutAsync(QMC.Common.IO.BaseDigitalOutput output, bool on)
-        {
-            try
-            {
-                WriteOut(output, on);
-                return Task.FromResult(0);
-            }
-            catch
-            {
-                throw;
             }
             finally
             {

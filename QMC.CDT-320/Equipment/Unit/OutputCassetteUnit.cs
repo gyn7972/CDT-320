@@ -558,8 +558,21 @@ namespace QMC.CDT320
             return IsAnyCassetteSensorOn(cassette);
         }
 
-        public bool IsNgBinBW() { return IsDryRunInput(NgBinCassetteBw) || NgBinCassetteBw.IsOn; }
-        public bool IsNgBinLock() { return IsDryRunInput(NgBinCassetteLock) || NgBinCassetteLock.IsOn; }
+        // 시뮬레이션/DryRun에서는 물리 센서 대신 Unlock 출력 상태를 반영한다(출력 누르면 센서 ON).
+        public bool IsNgBinBW()
+        {
+            if (IsOutputCassetteHardwareBypassed())
+                return NgBinCassetteUnlockOut != null && NgBinCassetteUnlockOut.IsOn;
+            return IsDryRunInput(NgBinCassetteBw) || NgBinCassetteBw.IsOn;
+        }
+
+        // 시뮬레이션/DryRun에서는 물리 센서 대신 Lock 출력 상태를 반영한다(출력 누르면 센서 ON).
+        public bool IsNgBinLock()
+        {
+            if (IsOutputCassetteHardwareBypassed())
+                return NgBinCassetteLockOut != null && NgBinCassetteLockOut.IsOn;
+            return IsDryRunInput(NgBinCassetteLock) || NgBinCassetteLock.IsOn;
+        }
         public bool IsBinProtrusionDetectionSensor() { return IsBinProtrusionDetected(); }
         public bool IsBinProtrusionDetected() { return !IsDryRunInput(BinRingJutCheck) && BinRingJutCheck.IsOn; }
         public bool IsBinMapping() { return !IsDryRunInput(BinMappingSensor) && BinMappingSensor.IsOn; }

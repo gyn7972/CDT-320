@@ -129,6 +129,24 @@ namespace QMC.CDT_320.Ui.Controls
             }
         }
 
+        public static IoCylinderItem Cylinder(string displayName, BaseCylinder cylinder, string onText, string offText)
+        {
+            try
+            {
+                var item = Cylinder(displayName, cylinder);
+                item.OnText = onText;
+                item.OffText = offText;
+                return item;
+            }
+            catch
+            {
+                throw;
+            }
+            finally
+            {
+            }
+        }
+
         public static IoCylinderItem Cylinder(string displayName, BaseCylinder cylinder)
         {
             try
