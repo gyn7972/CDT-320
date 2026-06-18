@@ -20,7 +20,8 @@ namespace QMC.Common.Logging
     {
         private static List<MessageDefinition> _items = new List<MessageDefinition>();
 
-        public static string Dir   => Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config", "Messages");
+        // 메시지 카탈로그는 로그 루트 아래 Messages 폴더에 저장한다 (예: D:\CDT-320\Log\Messages\message_catalog.csv).
+        public static string Dir   => Path.Combine(EventLogger.LogRoot, "Messages");
         public static string Path_ => Path.Combine(Dir, "message_catalog.csv");
 
         static MessageCatalog()
@@ -43,20 +44,37 @@ namespace QMC.Common.Logging
             return null;
         }
 
-        /// <summary>코드 문구를 언어에 맞게 해석. 카탈로그 → (알람이면)AlarmMaster → fallback 순.</summary>
+        /// <summary>
+        /// 코드 문구를 언어에 맞게 해석한다.
+        /// <para>
+        /// 카탈로그는 디스크립션 단위(코드 중복 허용)이므로, <b>코드 + 원문 디스크립션(fallback)</b> 이 정확히
+        /// 일치하는 항목만 그 항목의 번역으로 치환한다(같은 코드의 다른 문구에는 영향 없음).
+        /// 일치 항목이 없으면 (알람은) AlarmMaster, 그래도 없으면 원문(fallback)을 그대로 쓴다.
+        /// </para>
+        /// </summary>
         public static string Resolve(EventKind kind, string code, string lang, string fallback)
         {
             try
             {
-                // 카탈로그에 코드가 있고 문구가 채워져 있을 때만 그 문구를 쓴다.
-                // (코드만 등록하고 문구가 비어 있으면 원본 설명을 덮지 않도록 폴백)
-                var m = Get(code);
-                if (m != null)
+                string desc = (fallback ?? string.Empty).Trim();
+
+                // 1) 코드 + 디스크립션(KO 또는 EN 원문)이 정확히 일치하는 항목의 번역을 사용.
+                if (!string.IsNullOrEmpty(code) && desc.Length > 0)
                 {
-                    string t = m.Text(lang);
-                    if (!string.IsNullOrEmpty(t)) return t;
+                    foreach (var m in _items)
+                    {
+                        if (m == null) continue;
+                        if (!string.Equals(m.Code, code, StringComparison.OrdinalIgnoreCase)) continue;
+                        if (string.Equals((m.Ko ?? string.Empty).Trim(), desc, StringComparison.Ordinal)
+                         || string.Equals((m.En ?? string.Empty).Trim(), desc, StringComparison.Ordinal))
+                        {
+                            string t = m.Text(lang);
+                            if (!string.IsNullOrEmpty(t)) return t;
+                        }
+                    }
                 }
 
+                // 2) 알람은 AlarmMaster 의 코드 기준 제목으로 보조.
                 if (kind == EventKind.Alarm)
                 {
                     var d = QMC.Common.Alarms.AlarmMaster.Get(code);
@@ -150,19 +168,6 @@ namespace QMC.Common.Logging
             catch
             {
             }
-        }
-
-        /// <summary>코드 내장 기본 문구(샘플 이벤트 코드 일부).</summary>
-        public static List<MessageDefinition> CreateDefaults()
-        {
-            return new List<MessageDefinition>
-            {
-                new MessageDefinition { Code="AJIN-MAP-LOAD", Kind=EventKind.Event, Ko="Ajin 맵 로드됨",        En="AJIN MAP LOADED" },
-                new MessageDefinition { Code="CYL-MAP-APPLY", Kind=EventKind.Event, Ko="실린더 매핑 적용됨",     En="CYLINDER MAPPING APPLIED" },
-                new MessageDefinition { Code="OS-CYL-IO",     Kind=EventKind.Event, Ko="출력 실린더 IO 바인딩",  En="OUTPUT CYLINDER IO BOUND" },
-                new MessageDefinition { Code="RECIPE-LOAD",   Kind=EventKind.Event, Ko="레시피 로드됨",          En="RECIPE LOADED" },
-                new MessageDefinition { Code="SIM-CONNECT",   Kind=EventKind.Event, Ko="시뮬레이터 연결됨",      En="SIMULATOR CONNECTED" },
-            };
         }
 
         // --- CSV 헬퍼 (EventRow 와 동일한 따옴표 규칙) ---

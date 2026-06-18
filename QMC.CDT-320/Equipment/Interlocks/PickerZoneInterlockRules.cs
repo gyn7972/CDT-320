@@ -16,6 +16,7 @@ namespace QMC.CDT320.Interlocks
     internal static class PickerZoneInterlockRules
     {
         private const double DefaultTolerance = 0.05;
+        private const double DefaultPickerYFacingXClearance = 150.0;
         private static readonly object activeZoneLock = new object();
         private static PickerWorkZone frontPickerYActiveTargetZone = PickerWorkZone.Unknown;
         private static PickerWorkZone rearPickerYActiveTargetZone = PickerWorkZone.Unknown;
@@ -291,6 +292,9 @@ namespace QMC.CDT320.Interlocks
                 }
 
                 bool otherFront = !isFront;
+                if (!VerifyPickerYFacingXClearance(request, isFront, movingName, targetZone, out reason))
+                    return false;
+
                 PickerWorkZone otherActiveZone = GetActivePickerYTargetZone(otherFront);
                 if (otherActiveZone != PickerWorkZone.Unknown)
                 {
@@ -332,6 +336,97 @@ namespace QMC.CDT320.Interlocks
                     movingName + " 존 인터락 확인 중 예외가 발생했습니다. error=" + ex.Message,
                     out reason);
             }
+        }
+
+        private static bool VerifyPickerYFacingXClearance(
+            MotionGuardRuleContext request,
+            bool isFront,
+            string movingName,
+            PickerWorkZone targetZone,
+            out string reason)
+        {
+            reason = string.Empty;
+
+            try
+            {
+                if (request == null || request.Machine == null)
+                    return true;
+                if (IsAvoidZone(targetZone))
+                    return true;
+
+                bool otherFront = !isFront;
+                if (!IsPickerYForwardOrMovingForward(request.Machine, otherFront))
+                    return true;
+
+                BaseAxis ownX = GetPickerX(request.Machine, isFront);
+                BaseAxis ownY = GetPickerY(request.Machine, isFront);
+                BaseAxis otherX = GetPickerX(request.Machine, otherFront);
+                BaseAxis otherY = GetPickerY(request.Machine, otherFront);
+                if (ownX == null || otherX == null)
+                    return true;
+
+                double clearance = ResolvePickerYFacingXClearance(request.Machine);
+                if (clearance <= 0.0)
+                    return true;
+
+                double distance = Math.Abs(ownX.ActualPosition - otherX.ActualPosition);
+                if (distance > clearance)
+                    return true;
+
+                string otherName = isFront ? "RearPicker" : "FrontPicker";
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    movingName + " Y축 전진 이동 불가: " + otherName +
+                    "Y가 이미 전진 위치이거나 전진 이동 중이고, Front/Rear PickerX가 마주보는 위치입니다. " +
+                    "한쪽 PickerY를 Avoid 또는 0 위치로 이동한 뒤 진행해야 합니다. " +
+                    "targetZone=" + targetZone +
+                    ", xDistance=" + distance.ToString("0.###") +
+                    ", requiredClearance=" + clearance.ToString("0.###") +
+                    ", ownX=" + FormatAxis(ownX) +
+                    ", ownY=" + FormatAxis(ownY) +
+                    ", otherX=" + FormatAxis(otherX) +
+                    ", otherY=" + FormatAxis(otherY) +
+                    ", target=" + request.TargetValue.ToString("0.###") +
+                    ", targetName=" + request.TargetName,
+                    out reason);
+            }
+            catch (Exception ex)
+            {
+                return MotionGuardRuleHelpers.Block(
+                    movingName,
+                    movingName + " Y축 X거리 인터락 확인 중 예외가 발생했습니다. error=" + ex.Message,
+                    out reason);
+            }
+        }
+
+        private static bool IsPickerYForwardOrMovingForward(CDT320_Machine machine, bool isFront)
+        {
+            if (machine == null)
+                return false;
+
+            PickerWorkZone activeTargetZone = GetActivePickerYTargetZone(isFront);
+            if (activeTargetZone != PickerWorkZone.Unknown && !IsAvoidZone(activeTargetZone))
+                return true;
+
+            if (!IsPickerYAtAvoid(machine, isFront))
+                return true;
+
+            BaseAxis y = GetPickerY(machine, isFront);
+            return y != null && y.IsMoving;
+        }
+
+        private static double ResolvePickerYFacingXClearance(CDT320_Machine machine)
+        {
+            double front = 0.0;
+            double rear = 0.0;
+
+            if (machine != null && machine.PickerFrontUnit != null && machine.PickerFrontUnit.Setup != null)
+                front = machine.PickerFrontUnit.Setup.PickerYFacingXClearance;
+            if (machine != null && machine.PickerRearUnit != null && machine.PickerRearUnit.Setup != null)
+                rear = machine.PickerRearUnit.Setup.PickerYFacingXClearance;
+
+            double configured = Math.Max(front, rear);
+            return configured > 0.0 ? configured : DefaultPickerYFacingXClearance;
         }
 
         private static bool CanShareForwardY(PickerWorkZone targetZone, PickerWorkZone otherZone)

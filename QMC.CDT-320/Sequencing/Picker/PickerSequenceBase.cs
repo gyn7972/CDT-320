@@ -1126,6 +1126,131 @@ namespace QMC.CDT320.Sequencing
             return null;
         }
 
+        protected InspectionAlignmentSnapshot BuildPickerAlignmentSnapshot(
+            string name,
+            int pickerIndex,
+            double targetX,
+            double targetY,
+            double targetT,
+            double targetZ,
+            VisionOffset offset)
+        {
+            try
+            {
+                BaseAxis xAxis = GetPickerAxis(PickerAxis.PickerX);
+                BaseAxis yAxis = GetPickerAxis(PickerAxis.PickerY);
+                BaseAxis tAxis = GetPickerAxis(GetPickerTAxis(pickerIndex));
+                BaseAxis zAxis = GetPickerAxis(GetPickerZAxis(pickerIndex));
+
+                return new InspectionAlignmentSnapshot
+                {
+                    Name = name ?? "",
+                    X = xAxis != null ? xAxis.ActualPosition : targetX,
+                    Y = yAxis != null ? yAxis.ActualPosition : targetY,
+                    T = tAxis != null ? tAxis.ActualPosition : targetT,
+                    Z = zAxis != null ? zAxis.ActualPosition : targetZ,
+                    XAxisName = xAxis != null ? xAxis.Name : "PickerX",
+                    YAxisName = yAxis != null ? yAxis.Name : "PickerY",
+                    TAxisName = tAxis != null ? tAxis.Name : GetPickerTAxis(pickerIndex).ToString(),
+                    ZAxisName = zAxis != null ? zAxis.Name : GetPickerZAxis(pickerIndex).ToString(),
+                    Offset = offset ?? new VisionOffset(),
+                    IsValid = true
+                };
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PickerInspectionData",
+                    Name + " picker alignment snapshot failed. snapshot=" +
+                    name + ", error=" + ex.Message + " - Failed");
+                return new InspectionAlignmentSnapshot
+                {
+                    Name = name ?? "",
+                    X = targetX,
+                    Y = targetY,
+                    T = targetT,
+                    Z = targetZ,
+                    Offset = offset ?? new VisionOffset(),
+                    IsValid = false
+                };
+            }
+            finally
+            {
+            }
+        }
+
+        protected InspectionAlignmentSnapshot BuildInputStageAlignmentSnapshot(
+            InputStageUnit stage,
+            string name,
+            VisionOffset offset)
+        {
+            try
+            {
+                BaseAxis xAxis = stage != null ? stage.CameraX : null;
+                BaseAxis yAxis = stage != null ? stage.StageY : null;
+                BaseAxis tAxis = stage != null ? stage.StageT : null;
+                BaseAxis zAxis = stage != null ? stage.ExpanderZ : null;
+
+                return new InspectionAlignmentSnapshot
+                {
+                    Name = name ?? "",
+                    X = xAxis != null ? xAxis.ActualPosition : 0.0,
+                    Y = yAxis != null ? yAxis.ActualPosition : 0.0,
+                    T = tAxis != null ? tAxis.ActualPosition : 0.0,
+                    Z = zAxis != null ? zAxis.ActualPosition : 0.0,
+                    XAxisName = xAxis != null ? xAxis.Name : "InputVisionX",
+                    YAxisName = yAxis != null ? yAxis.Name : "InputStageY",
+                    TAxisName = tAxis != null ? tAxis.Name : "InputStageT",
+                    ZAxisName = zAxis != null ? zAxis.Name : "InputExpandingZ",
+                    Offset = offset ?? new VisionOffset(),
+                    IsValid = stage != null
+                };
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PickerInspectionData",
+                    Name + " input alignment snapshot failed. snapshot=" +
+                    name + ", error=" + ex.Message + " - Failed");
+                return new InspectionAlignmentSnapshot
+                {
+                    Name = name ?? "",
+                    Offset = offset ?? new VisionOffset(),
+                    IsValid = false
+                };
+            }
+            finally
+            {
+            }
+        }
+
+        protected static InspectionMeasurement BuildMeasurement(
+            string name,
+            double value,
+            string unit,
+            MaterialInspectionResult result,
+            string rawValue = "")
+        {
+            return new InspectionMeasurement
+            {
+                Name = name ?? "",
+                Value = value,
+                Unit = unit ?? "",
+                RawValue = rawValue ?? "",
+                Result = result
+            };
+        }
+
+        protected static InspectionMeasurement BuildBooleanMeasurement(string name, bool ok)
+        {
+            return new InspectionMeasurement
+            {
+                Name = name ?? "",
+                Value = ok ? 1.0 : 0.0,
+                Unit = "bool",
+                RawValue = ok ? "OK" : "NG",
+                Result = ok ? MaterialInspectionResult.Ok : MaterialInspectionResult.Ng
+            };
+        }
+
         protected async Task<SequenceResourceLease> AcquireResourceAsync(
             SequenceResourceKind resource,
             string holder,

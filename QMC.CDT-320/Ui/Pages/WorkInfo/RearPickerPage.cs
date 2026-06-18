@@ -32,12 +32,11 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 new Label[] { lblHeadBlow1, lblHeadBlow2, lblHeadBlow3, lblHeadBlow4 },
                 axisGrid,
                 btnCountClear,
-                btnProcess,
-                btnStep,
                 btnInput,
                 btnInspect,
+                btnBottom,
+                btnSide,
                 btnOutput,
-                btnAvoid,
                 btnStop,
                 actionPanel.Controls);
         }

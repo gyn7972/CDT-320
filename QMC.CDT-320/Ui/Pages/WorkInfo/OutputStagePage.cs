@@ -145,13 +145,22 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             }
             finally
             {
-                if (manualScope != null)
-                    manualScope.Dispose();
-
-                _manualSequenceRunning = false;
-                SetSequenceButtonsEnabled(true);
-                RefreshData();
-                BeginRestoreSequenceButtons();
+                try
+                {
+                    if (manualScope != null)
+                        manualScope.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    WriteAlarm("OUTPUT-STAGE-MANUAL-CLEANUP", "Output Stage 수동 시컨스 정리 중 오류: " + ex.Message);
+                }
+                finally
+                {
+                    _manualSequenceRunning = false;
+                    try { SetSequenceButtonsEnabled(true); } catch (Exception ex) { WriteAlarm("OUTPUT-STAGE-BUTTON-RESTORE", "Output Stage 버튼 복구 실패: " + ex.Message); }
+                    try { RefreshData(); } catch (Exception ex) { WriteAlarm("OUTPUT-STAGE-REFRESH", "Output Stage 화면 갱신 실패: " + ex.Message); }
+                    try { BeginRestoreSequenceButtons(); } catch (Exception ex) { WriteAlarm("OUTPUT-STAGE-BUTTON-RESTORE-DELAY", "Output Stage 버튼 지연 복구 실패: " + ex.Message); }
+                }
             }
 
             if (showFailure)

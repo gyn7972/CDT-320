@@ -7,6 +7,7 @@ namespace QMC.CDT320.Sequencing
         BuildPickedPickerList,
         MoveAllPickerZToAvoid,
         SelectNextPicker,
+        MoveBottomYToAvoidBeforeInspection,
         MoveBottomXToInspection,
         MoveBottomYToInspection,
         MoveBottomZ,

@@ -811,18 +811,28 @@ namespace QMC.CDT_320.Ui.Pages.Recipe
 
                 ioCylinderPanel.SetItems(new[]
                 {
+                    // ===== 단독(묶이지 않은) 체크 센서 — 최상단 =====
                     IoCylinderItem.Input("GOOD BIN 8 INCH CASSETTE", () => _OutCassetteUnit.IsGoodBin(8) && !_OutCassetteUnit.IsNgBin(8) && !_OutCassetteUnit.IsNgBin(12) && !_OutCassetteUnit.IsGoodBin(12)),
                     IoCylinderItem.Input("GOOD BIN 12 INCH CASSETTE", () => _OutCassetteUnit.IsGoodBin(12) && !_OutCassetteUnit.IsNgBin(12) && !_OutCassetteUnit.IsNgBin(8) && !_OutCassetteUnit.IsGoodBin(8)),
-                    IoCylinderItem.Input("NG BIN CASSETTE BW CASSETTE", () => _OutCassetteUnit.IsNgBinBW()),
-                    IoCylinderItem.Input("NG BIN CASSETTE LOCK CASSETTE", () => _OutCassetteUnit.IsNgBinLock()),
                     IoCylinderItem.Input("NG BIN 8 INCH CASSETTE", () => !_OutCassetteUnit.IsGoodBin(8) && _OutCassetteUnit.IsNgBin(8) && !_OutCassetteUnit.IsNgBin(12) && !_OutCassetteUnit.IsGoodBin(12)),
                     IoCylinderItem.Input("NG BIN 12 INCH CASSETTE", () => !_OutCassetteUnit.IsGoodBin(12) && _OutCassetteUnit.IsNgBin(12) && !_OutCassetteUnit.IsNgBin(8) && !_OutCassetteUnit.IsGoodBin(8)),
                     IoCylinderItem.Input("BIN RING JUT CHECK", () => _OutCassetteUnit.IsBinProtrusionDetectionSensor()),
                     IoCylinderItem.Input("BIN MAPPING", () => _OutCassetteUnit.IsBinMapping()),
 
-                    // ===== OUTPUT (DO) =====
-                    IoCylinderItem.Output("NG BIN CASSETTE LOCK", () => _OutCassetteUnit.NgBinCassetteLockOut != null && _OutCassetteUnit.NgBinCassetteLockOut.IsOn, on => _OutCassetteUnit.SetNgBinCassetteLock(on)),
-                    IoCylinderItem.Output("NG BIN CASSETTE UNLOCK", () => _OutCassetteUnit.NgBinCassetteUnlockOut != null && _OutCassetteUnit.NgBinCassetteUnlockOut.IsOn, on => _OutCassetteUnit.SetNgBinCassetteUnlock(on)),
+                    // ===== SET: NG BIN LOCK (Lock/Bw 체크 센서 + Lock/Unlock 출력 통합) =====
+                    IoCylinderItem.Input("NG BIN LOCK CHECK", () => _OutCassetteUnit.IsNgBinLock()),
+                    IoCylinderItem.Input("NG BIN UNLOCK CHECK", () => _OutCassetteUnit.IsNgBinBW()),
+                    IoCylinderItem.Output("NG BIN LOCK",
+                        () => _OutCassetteUnit.NgBinCassetteLockOut != null && _OutCassetteUnit.NgBinCassetteLockOut.IsOn,
+                        on =>
+                        {
+                            if (on)
+                                _OutCassetteUnit.SetNgBinCassetteLock(true);
+                            else
+                                _OutCassetteUnit.SetNgBinCassetteUnlock(true);
+                            return Task.FromResult(0);
+                        },
+                        "LOCK", "UNLOCK")
                 });
             }
             catch (Exception ex)

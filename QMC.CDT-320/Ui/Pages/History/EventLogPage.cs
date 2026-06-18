@@ -9,8 +9,6 @@ namespace QMC.CDT_320.Ui.Pages.History
 {
     public partial class EventLogPage : PageBase
     {
-        private const string AllKinds = "(All)";
-
         // 알람 행 강조용 폰트. 행마다 new Font 를 만들지 않도록 1회만 생성해 재사용한다.
         private static readonly Font AlarmFont = new Font("Consolas", 10F, FontStyle.Bold);
 
@@ -59,12 +57,6 @@ namespace QMC.CDT_320.Ui.Pages.History
 
         private void WireEvents()
         {
-            _cbKind.Items.Add(AllKinds);
-            foreach (var k in Enum.GetNames(typeof(EventKind))) _cbKind.Items.Add(k);
-            _cbKind.SelectedItem = _presetKind?.ToString() ?? AllKinds;
-            if (_cbKind.SelectedIndex < 0) _cbKind.SelectedIndex = 0;
-            _cbKind.SelectedIndexChanged += (s, e) => ReloadCurrent();
-
             // 초기 날짜를 오늘로 지정한다. ValueChanged 구독 전에 설정해 중복 로드를 막는다.
             _dp.Value = DateTime.Today;
             // 날짜를 바꾸면 파일 열기 모드를 해제하고 날짜 기준으로 돌아간다.
@@ -76,11 +68,11 @@ namespace QMC.CDT_320.Ui.Pages.History
             Load += (s, e) => ReloadCurrent();
         }
 
-        // 현재 Kind 콤보 선택값에 따른 표시 여부.
+        // 페이지에 지정된 고정 Kind 만 표시한다(프리셋이 없으면 전체 표시).
+        // DATE 변경·OPEN FILE 모두 이 필터를 거치므로, 해당 kind 의 로그만 로드된다.
         private bool PassesKindFilter(EventKind kind)
         {
-            string sel = _cbKind?.SelectedItem?.ToString() ?? AllKinds;
-            return sel == AllKinds || kind.ToString() == sel;
+            return _presetKind == null || kind == _presetKind.Value;
         }
 
         // 현재 소스(직접 연 파일 또는 DATE 날짜)를 다시 읽어 그리드에 채운다.
@@ -155,7 +147,17 @@ namespace QMC.CDT_320.Ui.Pages.History
             // 직접 연 파일을 보는 중이면 실시간 이벤트로 덮지 않는다.
             // 최신순 표시이므로 새 이벤트는 맨 위에 삽입한다.
             if (_overridePath == null && _dp != null && _dp.Value.Date == DateTime.Today && PassesKindFilter(r.Kind))
-                _grid.Rows.Insert(0, BuildRow(r));
+            {
+                try
+                {
+                    // 사용자가 컬럼 정렬을 적용한 상태에서는 Insert 가 불가하므로 끝에 추가한다.
+                    if (_grid.SortOrder != SortOrder.None)
+                        _grid.Rows.Add(BuildRow(r));
+                    else
+                        _grid.Rows.Insert(0, BuildRow(r));
+                }
+                catch { }
+            }
         }
 
         // EventRow 하나를 그리드에 넣을 DataGridViewRow 로 변환한다(셀 값 + Kind별 강조 스타일).
@@ -174,37 +176,36 @@ namespace QMC.CDT_320.Ui.Pages.History
                 r.Source ?? "",
                 desc);
 
+            // Kind 별 글씨 색상 — 페이지마다 한 종류만 표시되므로 서로 뚜렷이 구분되는 색을 쓴다(흰 배경에서 가독성 확보).
             switch (r.Kind)
             {
-                // 알람 로그 강조 표시 (폰트 크기는 그리드 기본과 동일, 굵게만 적용)
-                case EventKind.Alarm:
-                    row.DefaultCellStyle.ForeColor = Color.IndianRed;
+                case EventKind.Event:        // 슬레이트 그레이
+                    row.DefaultCellStyle.ForeColor = Color.FromArgb(52, 73, 94);
+                    break;
+                case EventKind.Warning:      // 오렌지
+                    row.DefaultCellStyle.ForeColor = Color.FromArgb(211, 84, 0);
+                    break;
+                case EventKind.Alarm:        // 레드 + 굵게 강조
+                    row.DefaultCellStyle.ForeColor = Color.FromArgb(192, 57, 43);
                     row.DefaultCellStyle.Font = AlarmFont;
                     break;
-                // 경고 로그 표시
-                case EventKind.Warning:
-                    row.DefaultCellStyle.ForeColor = Color.DarkOrange;
+                case EventKind.Data:         // 블루
+                    row.DefaultCellStyle.ForeColor = Color.FromArgb(41, 128, 185);
                     break;
-                // 데이터 로그 표시
-                case EventKind.Data:
-                    row.DefaultCellStyle.ForeColor = Color.SteelBlue;
+                case EventKind.Work:         // 브라운
+                    row.DefaultCellStyle.ForeColor = Color.FromArgb(121, 85, 72);
                     break;
-                // 작업 로그 표시
-                case EventKind.Work:
-                    row.DefaultCellStyle.ForeColor = Color.Teal;
+                case EventKind.InputSeq:     // 그린
+                    row.DefaultCellStyle.ForeColor = Color.FromArgb(39, 174, 96);
                     break;
-                // 시퀀스 로그 표시 (입력/출력/프론트헤드/리어헤드)
-                case EventKind.InputSeq:
-                    row.DefaultCellStyle.ForeColor = Color.MediumSeaGreen;
+                case EventKind.FrontHeadSeq: // 퍼플
+                    row.DefaultCellStyle.ForeColor = Color.FromArgb(142, 68, 173);
                     break;
-                case EventKind.OutputSeq:
-                    row.DefaultCellStyle.ForeColor = Color.MediumVioletRed;
+                case EventKind.RearHeadSeq:  // 시안/틸
+                    row.DefaultCellStyle.ForeColor = Color.FromArgb(0, 131, 143);
                     break;
-                case EventKind.FrontHeadSeq:
-                    row.DefaultCellStyle.ForeColor = Color.RoyalBlue;
-                    break;
-                case EventKind.RearHeadSeq:
-                    row.DefaultCellStyle.ForeColor = Color.DarkSlateBlue;
+                case EventKind.OutputSeq:    // 마젠타
+                    row.DefaultCellStyle.ForeColor = Color.FromArgb(194, 24, 91);
                     break;
             }
 

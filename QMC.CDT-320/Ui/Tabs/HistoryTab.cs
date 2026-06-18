@@ -15,12 +15,15 @@ namespace QMC.CDT_320.Ui.Tabs
             SetSidebarHeader("tab.history");
             const UserLevel op = UserLevel.Operator;
 
+            RegisterSidebarButton(BtnEvent,        "hist.event",        op, () => new EventLogPage(EventKind.Event));
+            RegisterSidebarButton(BtnWarning,      "hist.warning",      op, () => new EventLogPage(EventKind.Warning));
             RegisterSidebarButton(BtnAlarm,        "hist.alarm",        op, () => new AlarmHistoryPage());
-            RegisterSidebarButton(BtnEvent,        "hist.event",        op, () => new EventLogPage());
+            RegisterSidebarButton(BtnData,         "hist.data",         op, () => new EventLogPage(EventKind.Data));
+            RegisterSidebarButton(BtnWork,         "hist.work",         op, () => new EventLogPage(EventKind.Work));
             RegisterSidebarButton(BtnInputSeq,     "hist.inputSeq",     op, () => new EventLogPage(EventKind.InputSeq));
-            RegisterSidebarButton(BtnOutputSeq,    "hist.outputSeq",    op, () => new EventLogPage(EventKind.OutputSeq));
             RegisterSidebarButton(BtnFrontHeadSeq, "hist.frontHeadSeq", op, () => new EventLogPage(EventKind.FrontHeadSeq));
             RegisterSidebarButton(BtnRearHeadSeq,  "hist.rearHeadSeq",  op, () => new EventLogPage(EventKind.RearHeadSeq));
+            RegisterSidebarButton(BtnOutputSeq,    "hist.outputSeq",    op, () => new EventLogPage(EventKind.OutputSeq));
             RegisterSidebarButton(BtnMessageEdit,  "hist.msgEdit",      UserLevel.Maintenance, () => new MessageEditPage());
         }
     }

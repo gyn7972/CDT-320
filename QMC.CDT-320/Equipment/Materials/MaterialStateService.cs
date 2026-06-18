@@ -91,11 +91,15 @@ namespace QMC.CDT320.Materials
             {
                 lock (_stateSync)
                 {
-                    return State.Dies.FirstOrDefault(d =>
-                        d != null &&
-                        d.CurrentLocation != null &&
-                        d.CurrentLocation.Kind == pickerLocation &&
-                        d.CurrentLocation.PickerNo == pickerNo);
+                    return State.Dies
+                        .Where(d =>
+                            d != null &&
+                            d.CurrentLocation != null &&
+                            d.CurrentLocation.Kind == pickerLocation &&
+                            d.CurrentLocation.PickerNo == pickerNo)
+                        .OrderByDescending(GetPickerDieSortTime)
+                        .ThenByDescending(d => d.InputSequenceNo)
+                        .FirstOrDefault();
                 }
             }
             catch (Exception ex)
@@ -109,6 +113,16 @@ namespace QMC.CDT320.Materials
             finally
             {
             }
+        }
+
+        private static DateTime GetPickerDieSortTime(DieMaterial die)
+        {
+            if (die == null)
+                return DateTime.MinValue;
+
+            DateTime updated = die.UpdatedAt;
+            DateTime picked = die.PickedAt;
+            return updated >= picked ? updated : picked;
         }
 
         public static void ApplyDieInspectionResult(string dieId, DieResult result, string ngCode, string reason)
@@ -1972,6 +1986,24 @@ namespace QMC.CDT320.Materials
                     {
                         Log.Write("Main", "SYSTEM", "MaterialStateService",
                             "Pick die state update failed: die material not found. dieId=" + dieId + " - Failed");
+                        return false;
+                    }
+
+                    DieMaterial occupiedDie = State.Dies.FirstOrDefault(d =>
+                        d != null &&
+                        !string.Equals(d.DieId, dieId, StringComparison.OrdinalIgnoreCase) &&
+                        d.CurrentLocation != null &&
+                        d.CurrentLocation.Kind == pickerLocation &&
+                        d.CurrentLocation.PickerNo == pickerNo);
+                    if (occupiedDie != null)
+                    {
+                        Log.Write("Main", "SYSTEM", "MaterialStateService",
+                            "Pick die state update blocked: picker already has die. " +
+                            "Picker가 이미 Die를 가지고 있어 상태를 덮어쓰지 않습니다. " +
+                            "pickerLocation=" + pickerLocation +
+                            ", pickerNo=" + pickerNo +
+                            ", loadedDie=" + occupiedDie.DieId +
+                            ", requestedDie=" + dieId + " - Blocked");
                         return false;
                     }
 

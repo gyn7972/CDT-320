@@ -78,12 +78,11 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private IndicatorDot dotHeadBlow4;
         private Label lblHeadBlow4;
         private DataGridView axisGrid;
-        private ActionButton btnProcess;
-        private ActionButton btnStep;
         private ActionButton btnInput;
         private ActionButton btnInspect;
+        private ActionButton btnBottom;
+        private ActionButton btnSide;
         private ActionButton btnOutput;
-        private ActionButton btnAvoid;
         private ActionButton btnStop;
         private Panel actionSpacer;
 
@@ -168,12 +167,11 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.dotHeadBlow4 = new QMC.CDT_320.Ui.Controls.IndicatorDot();
             this.lblHeadBlow4 = new System.Windows.Forms.Label();
             this.actionPanel = new System.Windows.Forms.FlowLayoutPanel();
-            this.btnProcess = new QMC.CDT_320.Ui.Controls.ActionButton();
-            this.btnStep = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnInput = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnInspect = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.btnBottom = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.btnSide = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnOutput = new QMC.CDT_320.Ui.Controls.ActionButton();
-            this.btnAvoid = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.actionSpacer = new System.Windows.Forms.Panel();
             this.btnStop = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.rootLayout.SuspendLayout();
@@ -1276,12 +1274,11 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // actionPanel
             // 
             this.actionPanel.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(191)))), ((int)(((byte)(191)))), ((int)(((byte)(191)))));
-            this.actionPanel.Controls.Add(this.btnProcess);
-            this.actionPanel.Controls.Add(this.btnStep);
             this.actionPanel.Controls.Add(this.btnInput);
             this.actionPanel.Controls.Add(this.btnInspect);
+            this.actionPanel.Controls.Add(this.btnBottom);
+            this.actionPanel.Controls.Add(this.btnSide);
             this.actionPanel.Controls.Add(this.btnOutput);
-            this.actionPanel.Controls.Add(this.btnAvoid);
             this.actionPanel.Controls.Add(this.actionSpacer);
             this.actionPanel.Controls.Add(this.btnStop);
             this.actionPanel.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -1292,43 +1289,17 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.actionPanel.TabIndex = 2;
             this.actionPanel.WrapContents = false;
             // 
-            // btnProcess
-            // 
-            this.btnProcess.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnProcess.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnProcess.Font = new System.Drawing.Font("맑은 고딕", 11F);
-            this.btnProcess.ForeColor = System.Drawing.Color.White;
-            this.btnProcess.Location = new System.Drawing.Point(20, 16);
-            this.btnProcess.Margin = new System.Windows.Forms.Padding(6);
-            this.btnProcess.Name = "btnProcess";
-            this.btnProcess.Size = new System.Drawing.Size(160, 64);
-            this.btnProcess.TabIndex = 0;
-            this.btnProcess.Text = "PROCESS";
-            // 
-            // btnStep
-            // 
-            this.btnStep.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnStep.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnStep.Font = new System.Drawing.Font("맑은 고딕", 11F);
-            this.btnStep.ForeColor = System.Drawing.Color.White;
-            this.btnStep.Location = new System.Drawing.Point(192, 16);
-            this.btnStep.Margin = new System.Windows.Forms.Padding(6);
-            this.btnStep.Name = "btnStep";
-            this.btnStep.Size = new System.Drawing.Size(160, 64);
-            this.btnStep.TabIndex = 1;
-            this.btnStep.Text = "STEP";
-            // 
             // btnInput
             // 
             this.btnInput.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
             this.btnInput.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnInput.Font = new System.Drawing.Font("맑은 고딕", 11F);
             this.btnInput.ForeColor = System.Drawing.Color.White;
-            this.btnInput.Location = new System.Drawing.Point(364, 16);
+            this.btnInput.Location = new System.Drawing.Point(20, 16);
             this.btnInput.Margin = new System.Windows.Forms.Padding(6);
             this.btnInput.Name = "btnInput";
             this.btnInput.Size = new System.Drawing.Size(160, 64);
-            this.btnInput.TabIndex = 2;
+            this.btnInput.TabIndex = 0;
             this.btnInput.Text = "PICK UP";
             // 
             // btnInspect
@@ -1337,12 +1308,38 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.btnInspect.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnInspect.Font = new System.Drawing.Font("맑은 고딕", 11F);
             this.btnInspect.ForeColor = System.Drawing.Color.White;
-            this.btnInspect.Location = new System.Drawing.Point(536, 16);
+            this.btnInspect.Location = new System.Drawing.Point(192, 16);
             this.btnInspect.Margin = new System.Windows.Forms.Padding(6);
             this.btnInspect.Name = "btnInspect";
             this.btnInspect.Size = new System.Drawing.Size(160, 64);
-            this.btnInspect.TabIndex = 3;
+            this.btnInspect.TabIndex = 1;
             this.btnInspect.Text = "INSPECT";
+            // 
+            // btnBottom
+            // 
+            this.btnBottom.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnBottom.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnBottom.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.btnBottom.ForeColor = System.Drawing.Color.White;
+            this.btnBottom.Location = new System.Drawing.Point(364, 16);
+            this.btnBottom.Margin = new System.Windows.Forms.Padding(6);
+            this.btnBottom.Name = "btnBottom";
+            this.btnBottom.Size = new System.Drawing.Size(160, 64);
+            this.btnBottom.TabIndex = 2;
+            this.btnBottom.Text = "BOTTOM";
+            // 
+            // btnSide
+            // 
+            this.btnSide.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
+            this.btnSide.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnSide.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.btnSide.ForeColor = System.Drawing.Color.White;
+            this.btnSide.Location = new System.Drawing.Point(536, 16);
+            this.btnSide.Margin = new System.Windows.Forms.Padding(6);
+            this.btnSide.Name = "btnSide";
+            this.btnSide.Size = new System.Drawing.Size(160, 64);
+            this.btnSide.TabIndex = 3;
+            this.btnSide.Text = "SIDE";
             // 
             // btnOutput
             // 
@@ -1357,26 +1354,13 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.btnOutput.TabIndex = 4;
             this.btnOutput.Text = "PLACE";
             // 
-            // btnAvoid
-            // 
-            this.btnAvoid.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(128)))), ((int)(((byte)(128)))), ((int)(((byte)(128)))));
-            this.btnAvoid.Cursor = System.Windows.Forms.Cursors.Hand;
-            this.btnAvoid.Font = new System.Drawing.Font("맑은 고딕", 11F);
-            this.btnAvoid.ForeColor = System.Drawing.Color.White;
-            this.btnAvoid.Location = new System.Drawing.Point(880, 16);
-            this.btnAvoid.Margin = new System.Windows.Forms.Padding(6);
-            this.btnAvoid.Name = "btnAvoid";
-            this.btnAvoid.Size = new System.Drawing.Size(160, 64);
-            this.btnAvoid.TabIndex = 5;
-            this.btnAvoid.Text = "RECOVER";
-            // 
             // actionSpacer
             // 
-            this.actionSpacer.Location = new System.Drawing.Point(1046, 10);
+            this.actionSpacer.Location = new System.Drawing.Point(874, 10);
             this.actionSpacer.Margin = new System.Windows.Forms.Padding(0);
             this.actionSpacer.Name = "actionSpacer";
-            this.actionSpacer.Size = new System.Drawing.Size(260, 64);
-            this.actionSpacer.TabIndex = 6;
+            this.actionSpacer.Size = new System.Drawing.Size(612, 64);
+            this.actionSpacer.TabIndex = 5;
             // 
             // btnStop
             // 
@@ -1384,11 +1368,11 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.btnStop.Cursor = System.Windows.Forms.Cursors.Hand;
             this.btnStop.Font = new System.Drawing.Font("맑은 고딕", 11F);
             this.btnStop.ForeColor = System.Drawing.Color.White;
-            this.btnStop.Location = new System.Drawing.Point(1312, 16);
+            this.btnStop.Location = new System.Drawing.Point(1492, 16);
             this.btnStop.Margin = new System.Windows.Forms.Padding(6);
             this.btnStop.Name = "btnStop";
             this.btnStop.Size = new System.Drawing.Size(160, 64);
-            this.btnStop.TabIndex = 7;
+            this.btnStop.TabIndex = 6;
             this.btnStop.Text = "STOP";
             // 
             // RearPickerPage

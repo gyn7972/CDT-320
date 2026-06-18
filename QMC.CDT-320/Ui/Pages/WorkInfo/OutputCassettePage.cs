@@ -8,6 +8,7 @@ using QMC.CDT320;
 using QMC.CDT320.Materials;
 using QMC.CDT320.Sequencing;
 using QMC.CDT_320.Ui.Controls;
+using QMC.Common.Logging;
 using QMC.Common.Motion;
 
 namespace QMC.CDT_320.Ui.Pages.WorkInfo
@@ -95,11 +96,21 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             }
             finally
             {
-                if (manualScope != null)
-                    manualScope.Dispose();
-                _manualSequenceRunning = false;
-                SetActionButtonsEnabled(true);
-                RefreshData();
+                try
+                {
+                    if (manualScope != null)
+                        manualScope.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    WriteAlarm("OUTPUT-CST-MANUAL-CLEANUP", "Output Cassette 수동 시컨스 정리 중 오류: " + ex.Message);
+                }
+                finally
+                {
+                    _manualSequenceRunning = false;
+                    try { SetActionButtonsEnabled(true); } catch (Exception ex) { WriteAlarm("OUTPUT-CST-BUTTON-RESTORE", "Output Cassette 버튼 복구 실패: " + ex.Message); }
+                    try { RefreshData(); } catch (Exception ex) { WriteAlarm("OUTPUT-CST-REFRESH", "Output Cassette 화면 갱신 실패: " + ex.Message); }
+                }
             }
 
             if (showFailure)
@@ -154,11 +165,21 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             }
             finally
             {
-                if (manualScope != null)
-                    manualScope.Dispose();
-                _manualSequenceRunning = false;
-                SetActionButtonsEnabled(true);
-                RefreshData();
+                try
+                {
+                    if (manualScope != null)
+                        manualScope.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    WriteAlarm("OUTPUT-CST-MOTION-CLEANUP", "Output Cassette 모션 정리 중 오류: " + ex.Message);
+                }
+                finally
+                {
+                    _manualSequenceRunning = false;
+                    try { SetActionButtonsEnabled(true); } catch (Exception ex) { WriteAlarm("OUTPUT-CST-MOTION-BUTTON-RESTORE", "Output Cassette 모션 버튼 복구 실패: " + ex.Message); }
+                    try { RefreshData(); } catch (Exception ex) { WriteAlarm("OUTPUT-CST-MOTION-REFRESH", "Output Cassette 모션 화면 갱신 실패: " + ex.Message); }
+                }
             }
 
             if (showFailure)
@@ -676,6 +697,20 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             var snapshot = MaterialStorage.State;
             var cassette = snapshot != null && snapshot.Cassettes != null ? snapshot.Cassettes.FirstOrDefault(c => c.Role == role) : null;
             return cassette != null ? cassette.CassetteLotId : "";
+        }
+
+        private static void WriteAlarm(string code, string message)
+        {
+            try
+            {
+                EventLogger.Write(EventKind.Alarm, "UI", code, message);
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
         }
     }
 }
