@@ -80,6 +80,7 @@
     <Compile Include="BaseComponent.cs" />
     <Compile Include="BaseEquipmentNode.cs" />
     <Compile Include="BaseUnit.cs" />
+    <Compile Include="Data\Store\DataPaths.cs" />
     <Compile Include="Data\Store\DataStoreResult.cs" />
     <Compile Include="Data\Store\EquipmentDataStore.cs" />
     <Compile Include="Data\Store\JsonDataStore.cs" />

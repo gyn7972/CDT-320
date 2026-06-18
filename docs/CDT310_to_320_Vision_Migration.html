@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CDT-310 → CDT-320 Vision 이식 가이드</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#171a21; --panel2:#1d212b; --line:#2b313d;
+    --fg:#e7eaf0; --mut:#9aa3b2; --dim:#6b7385;
+    --c310:#4f8edd; --c310bg:#13233a;
+    --c320:#28b18a; --c320bg:#0f2a23;
+    --ok:#39b86a; --warn:#e0a022; --no:#d9534f;
+    --code:#0c0e13; --accent:#E85D1A;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+    font-family:"Malgun Gothic","맑은 고딕",Segoe UI,system-ui,sans-serif;line-height:1.6;font-size:14px}
+  .wrap{max-width:1180px;margin:0 auto;padding:28px 22px 80px}
+  header.top{border-bottom:1px solid var(--line);padding-bottom:18px;margin-bottom:26px}
+  header.top h1{font-size:24px;margin:0 0 6px;font-weight:700}
+  header.top .sub{color:var(--mut);font-size:13.5px}
+  header.top .meta{color:var(--dim);font-size:12px;margin-top:8px}
+  h2{font-size:18px;margin:38px 0 14px;padding-left:11px;border-left:4px solid var(--accent)}
+  h3{font-size:15px;margin:22px 0 10px;color:#cfd6e2}
+  p{margin:8px 0}
+  .lead{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin:0 0 8px}
+  .lead b{color:#fff}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:860px){.grid2{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px}
+  .card.c310{border-top:3px solid var(--c310)}
+  .card.c320{border-top:3px solid var(--c320)}
+  .tag{display:inline-block;font-size:11px;font-weight:700;border-radius:5px;padding:2px 8px;letter-spacing:.02em}
+  .t310{background:var(--c310bg);color:#8fbcf0;border:1px solid #25405f}
+  .t320{background:var(--c320bg);color:#5fd6b3;border:1px solid #1c5343}
+  .b-ok{background:#11321f;color:#5fd98a;border:1px solid #1f5c37}
+  .b-warn{background:#352a10;color:#f0c264;border:1px solid #6a531a}
+  .b-no{background:#371a19;color:#f0908c;border:1px solid #6e2d2a}
+  .badge{display:inline-block;font-size:10.5px;font-weight:700;border-radius:5px;padding:2px 7px;white-space:nowrap}
+  ul{margin:8px 0;padding-left:20px}
+  li{margin:4px 0}
+  code{background:var(--code);color:#cfe3ff;border:1px solid #1b2030;border-radius:4px;padding:1px 5px;font-family:Consolas,monospace;font-size:12.5px}
+  pre{background:var(--code);border:1px solid #1b2030;border-radius:8px;padding:12px 14px;overflow:auto;margin:8px 0}
+  pre code{background:none;border:none;padding:0;color:#d7e0ef;line-height:1.5}
+  .kw{color:#c792ea}.ty{color:#82aaff}.st{color:#c3e88d}.cm{color:#5f6b80}.fn{color:#ffcb6b}
+  table{width:100%;border-collapse:collapse;margin:10px 0;font-size:13px}
+  th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+  th{background:var(--panel2);color:#cfd6e2;font-size:12px;text-transform:uppercase;letter-spacing:.03em}
+  td.col310{background:#11192680}
+  td.col320{background:#0f211c80}
+  .arrow{color:var(--accent);font-weight:700}
+  .flow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0}
+  .flow .node{background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:7px 11px;font-size:12.5px}
+  .flow .node.hi{border-color:var(--c320);color:#9ce8cf}
+  .flow .sep{color:var(--accent);font-weight:700}
+  .note{font-size:12.5px;color:var(--mut)}
+  .pill-row{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 2px}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--mut);margin:6px 0 0}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:9px;height:9px;border-radius:50%;display:inline-block}
+  .src{font-family:Consolas,monospace;font-size:11px;color:var(--dim)}
+  .callout{border-radius:9px;padding:13px 16px;margin:12px 0;border:1px solid}
+  .callout.warn{background:#231b0a;border-color:#5b471a}
+  .callout.no{background:#241413;border-color:#5b2724}
+  .callout.ok{background:#0e2418;border-color:#1f5536}
+  .callout b{color:#fff}
+  .step{display:flex;gap:12px;margin:10px 0}
+  .step .n{flex:0 0 26px;height:26px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px}
+  .step .bd{flex:1}
+  footer{margin-top:50px;border-top:1px solid var(--line);padding-top:16px;color:var(--dim);font-size:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <h1>CDT-310 → CDT-320 Vision 이식 가이드</h1>
+  <div class="sub">실제 구동 장비(CDT-310)의 비전 구현 방식과 신규 장비(CDT-320) 적용 방법을 코드 분석 기반으로 비교</div>
+  <div class="meta">대상: QMC.Vision 레시피 재구성 · 작성 기준 실제 소스 코드(C:\Project\CDT-310, C:\Project\CDT-320) · 2026-06-18</div>
+  <div class="legend" style="margin-top:12px">
+    <span><span class="dot" style="background:var(--c310)"></span>CDT-310 (구현 방식)</span>
+    <span><span class="dot" style="background:var(--c320)"></span>CDT-320 (적용 방법)</span>
+    <span><span class="badge b-ok">이식 가능</span> 그대로/유사 재사용</span>
+    <span><span class="badge b-warn">구현 필요</span> 로직 별도 이식</span>
+    <span><span class="badge b-no">제거/핸들러</span> Vision 비포함</span>
+  </div>
+</header>
+
+<div class="lead">
+  <b>한눈 요약 —</b> CDT-310은 <b>상속 기반</b>(<code>VisionPart → PatternMatchingVisionPart → 각 기능</code>)으로 비전 기능마다 클래스를 두고 Cognex VisionPro를 직접 래핑했습니다.
+  CDT-320은 <b>인터페이스 + 노드 기반</b>(<code>IPatternFinder / IInspector</code> + <code>VisionModule</code>의 <code>AddFinder/AddInspector</code>)으로 바뀌어, 모든 알고리즘이 <b>모듈의 자식 노드</b>가 되고 데이터는 <b>레시피(JSON) 단위로 cascade 저장</b>됩니다.
+  핵심 이식 원칙은 <b>“Vision은 측정·계산만, 모션·구동은 핸들러”</b> 그리고 <b>“모든 레시피 데이터는 활성 Recipe를 따라간다”</b> 입니다.
+</div>
+
+<h2>1. 아키텍처 철학 비교</h2>
+<div class="grid2">
+  <div class="card c310">
+    <span class="tag t310">CDT-310</span>
+    <h3 style="margin-top:10px">상속 기반 VisionPart</h3>
+    <div class="flow">
+      <span class="node">VisionPart</span><span class="sep">→</span>
+      <span class="node">PatternMatchingVisionPart</span>
+    </div>
+    <div class="flow">
+      <span class="sep">└</span>
+      <span class="node">RealTimeScanner</span>
+      <span class="node">TwoPointAligner / Aligner</span>
+      <span class="node">VisionCalibrator</span>
+      <span class="node">VisionCompensator</span>
+    </div>
+    <ul>
+      <li>기능마다 <b>전용 클래스</b> + <code>OnTrain()/OnSearch()/OnWork()</code> 메서드</li>
+      <li>백엔드 = Cognex VisionPro를 <code>VisionProPatternMatchingVisionTool</code>로 직접 래핑</li>
+      <li>파라미터/결과는 각 Part의 <code>Recipe</code>/<code>Config</code> 클래스 (<code>[Serializable]</code> 바이너리)</li>
+      <li>검사(Inspector)는 별도 프로젝트 (<code>CDTInspector</code>, <code>SideChippingInspector</code>) — <code>byte[,]</code> 영상 기반, CUDA</li>
+    </ul>
+    <div class="src">QMC.Common/VisionPart/*, CDT-310_1/CDTInspector.cs</div>
+  </div>
+  <div class="card c320">
+    <span class="tag t320">CDT-320</span>
+    <h3 style="margin-top:10px">인터페이스 + 노드 기반</h3>
+    <div class="flow">
+      <span class="node hi">VisionModule&lt;Setup,Config,Recipe&gt;</span>
+    </div>
+    <div class="flow">
+      <span class="sep">└</span>
+      <span class="node">AddFinder() → FinderAlgorithm 노드</span>
+    </div>
+    <div class="flow">
+      <span class="sep">└</span>
+      <span class="node">AddInspector() → InspectorAlgorithm 노드</span>
+    </div>
+    <ul>
+      <li>알고리즘 = <code>IPatternFinder</code> / <code>IInspector</code> 인터페이스 구현체</li>
+      <li>백엔드 교체형: <b>Cognex → OpenCV → Sim</b> 자동 fallback (<code>IVisionBackend</code>)</li>
+      <li>데이터 = <code>FinderAlgo{Setup,Config,Recipe}</code> POCO, <b>DataContract JSON</b></li>
+      <li>저장 = 모듈 1회 호출로 자식 노드 전체 <b>cascade</b> (<code>Recipes/{명칭}/{키}.recipe.json</code>)</li>
+    </ul>
+    <div class="src">QMC.Vision/Equipment/Core, /Unit, /Backends</div>
+  </div>
+</div>
+
+<div class="callout ok">
+  <b>이식의 큰 그림:</b> 310의 <code>OnTrain/OnSearch</code> 패턴 매칭 “알맹이”는 320 <code>IPatternFinder.Train()/Match()</code>에 그대로 들어갑니다. 바뀌는 것은 <b>껍데기(상속 → 노드 등록)</b>와 <b>저장 방식(바이너리 → JSON 레시피)</b>, 그리고 <b>모션 분리</b>입니다.
+</div>
+
+<h2>2. 기능별 매핑 (핵심)</h2>
+<table>
+  <thead><tr><th style="width:15%">기능</th><th style="width:30%">CDT-310 구현</th><th style="width:33%">CDT-320 적용</th><th style="width:22%">상태 / 주의</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><b>패턴 학습/검색</b></td>
+      <td class="col310"><code>PatternMatchingVisionPart.OnTrain()/OnSearch()</code><br><span class="src">VisionPart.cs:55,86</span><br>CogPMAlign 래핑, <code>MinScore/AngleTolerance/ROI</code></td>
+      <td class="col320"><code>IPatternFinder.Train(bmp)/Match(bmp)</code> → <code>CognexPatternFinder</code><br>파라미터: <code>AcceptThreshold/MaxInstances/Search·TrainRoi</code></td>
+      <td><span class="badge b-ok">이식 가능</span><br><span class="note">CogPMAlign 로직 거의 그대로. 파라미터명만 매핑.</span></td>
+    </tr>
+    <tr>
+      <td><b>2점/4점 정렬 + θ</b></td>
+      <td class="col310"><code>Aligner.TwoPointAlign()/FourPointAlign()</code>, <code>TwoPointAligner.OnWork()</code> — <code>GetAngle()</code>로 상대각 계산<br><span class="src">Aligner.cs:757,936</span></td>
+      <td class="col320"><code>FirstReferenceFinder</code> + <code>SecondReferenceFinder</code>가 <b>두 점 위치만</b> 검출. θ·offset 계산은 별도 스텝</td>
+      <td><span class="badge b-warn">구현 필요</span><br><span class="note">310의 각도 계산(GetAngle/TwoPointAlign)이 320 Finder엔 없음 → 핸들러 또는 모듈 <code>MeasureRotationalCenter()</code>로 이식.</span></td>
+    </tr>
+    <tr>
+      <td><b>실시간 다이 추적</b></td>
+      <td class="col310"><code>RealTimeScanner.Scan()</code> — 로우 영역 계산 후 연속 매칭<br><span class="src">RealTimeScanner.cs:98</span></td>
+      <td class="col320"><code>DieFinder</code> (<code>IPatternFinder</code>)</td>
+      <td><span class="badge b-warn">구현 필요</span><br><span class="note">단발 Match는 동일하나 “실시간 스캔/방향 우선” 로직은 별도. 필요 시 노드 전용 로직 추가.</span></td>
+    </tr>
+    <tr>
+      <td><b>스케일 측정(mm/px)</b></td>
+      <td class="col310"><code>VisionCalibrator.OnWork()</code> — 4방향 이동 후 매칭, <code>scale=(MoveDistance*2)/pixelDist</code><br><span class="src">VisionCalibrator.cs:142,186</span></td>
+      <td class="col320"><code>ScaleFinder</code> + <code>IVisionModule.Calibrate(...)</code> / <code>VisionScale</code> 변환</td>
+      <td><span class="badge b-warn">구현 필요</span> <span class="badge b-no">이동=핸들러</span><br><span class="note">스케일 계산식은 이식. 단 <b>스테이지 이동은 핸들러</b>, Vision은 두 영상으로 mm/px만 반환.</span></td>
+    </tr>
+    <tr>
+      <td><b>스테이지 보정(오프셋)</b></td>
+      <td class="col310"><code>VisionCompensator.SearchGridXy()/SearchCrossLine()</code> — 그리드 오프셋 측정<br><span class="src">VisionCompensator.cs:425</span></td>
+      <td class="col320"><b>Vision UI 미포함.</b> 측정(패턴 중심)만 콜백 제공, 이동·offset 적용·테이블은 핸들러</td>
+      <td><span class="badge b-no">제거/핸들러</span><br><span class="note">모션 중심 기능이라 320 Vision 레시피에서 빠짐.</span></td>
+    </tr>
+    <tr>
+      <td><b>바닥면 검사(칩/이물)</b></td>
+      <td class="col310"><code>CDTInspector</code> — CUDA(Sobel/Blob) + <code>FindChippingNForeign</code><br><span class="src">CDT-310_1/CDTInspector.cs</span></td>
+      <td class="col320"><code>SurfaceInspector</code> (<code>IInspector.Inspect()</code>) → <code>CognexInspector</code>(Blob)</td>
+      <td><span class="badge b-warn">구현 필요</span><br><span class="note">320 CognexInspector는 단순 Blob 면적 기준 → 310의 정교한 chipping/foreign·임계 로직 이식 필요.</span></td>
+    </tr>
+    <tr>
+      <td><b>측면 칩핑 검사</b></td>
+      <td class="col310"><code>SideChippingInspector.InspectChipping()</code> — 에지선 탐색+회전+칩깊이<br><span class="src">SideChippingInspector.cs:27</span></td>
+      <td class="col320"><code>Top/BottomSide</code> 모듈의 Inspector(+<code>IEdgeFinder</code>)</td>
+      <td><span class="badge b-warn">구현 필요</span><br><span class="note">에지 기반 칩깊이 로직 → <code>IEdgeFinder</code>가 적합하나 <b>백엔드 미연결</b>(아래 §5).</span></td>
+    </tr>
+    <tr>
+      <td><b>이젝트 핀</b></td>
+      <td class="col310"><code>NeedleBlock</code> — <b>모션 전용</b>(X/Y/Cap/Needle 축), 비전 미사용<br><span class="src">NeedleBlock.cs:163</span></td>
+      <td class="col320"><code>EjectPinFinder</code> (<code>IPatternFinder</code>) — <b>핀 위치 검출(신규)</b></td>
+      <td><span class="badge b-no">모션=핸들러</span> <span class="badge b-warn">검출=신규</span><br><span class="note">310엔 핀 비전 Finder 없음. 320은 위치 검출만, 니들 구동은 핸들러.</span></td>
+    </tr>
+    <tr>
+      <td><b>px→mm 변환</b></td>
+      <td class="col310"><code>VisionScale.ConvertPosition&lt;T,U&gt;()</code> — 회전·스케일·반전<br><span class="src">VisionScale.cs:104</span></td>
+      <td class="col320"><code>MatchResult</code>는 px 단위 반환 → mm 변환 단계 필요</td>
+      <td><span class="badge b-warn">확인 필요</span><br><span class="note">변환 로직을 Vision 결과부 또는 핸들러 중 어디서 할지 정해야 함. 310 ConvertPosition 재사용 권장.</span></td>
+    </tr>
+    <tr>
+      <td><b>Jog / 스테이지 이동</b></td>
+      <td class="col310">각 Maint 화면 + NeedleBlock 모션</td>
+      <td class="col320">Vision UI에서 제거 (잔재는 <code>inert</code> 라벨만)</td>
+      <td><span class="badge b-no">제거/핸들러</span><br><span class="note">모션은 전부 핸들러. AutoFocus/AutoScale도 “구동=핸들러, 측정=Vision”.</span></td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>3. 모듈별 Finder / Inspector 매핑</h2>
+<p class="note">CDT-320은 5개 모듈로 고정되고, 각 모듈이 <code>AddFinder/AddInspector</code>로 노드를 등록합니다. 310의 어떤 기능이 어디로 들어가는지:</p>
+<table>
+  <thead><tr><th>320 모듈</th><th>Finder (패턴매칭)</th><th>Inspector (검사)</th><th>310 출처</th></tr></thead>
+  <tbody>
+    <tr><td><b>WaferVision</b></td><td>EjectPin · Reticle · AlignDie · <b>FirstReference · SecondReference</b> · Die · Scale</td><td>—</td><td class="col310">Aligner/TwoPointAligner(정렬), RealTimeScanner(Die), VisionCalibrator(Scale), NeedleBlock→EjectPin(신규)</td></tr>
+    <tr><td><b>BinVision</b></td><td>Reticle · Die · Scale</td><td>Placement</td><td class="col310">PatternMatching(Die), 배치 확인 로직</td></tr>
+    <tr><td><b>BottomInspection</b></td><td>Reticle · Collet · Die · Focus · Scale · DistortionComp</td><td>Surface</td><td class="col310">CDTInspector(Surface, CUDA), Distortion 보정</td></tr>
+    <tr><td><b>TopSide</b></td><td>DieEdge · Focus</td><td>Surface · Chipping</td><td class="col310">SideChippingInspector(앞면)</td></tr>
+    <tr><td><b>BottomSide</b></td><td>DieEdge · Focus</td><td>Surface · Chipping</td><td class="col310">SideChippingInspector(뒷면)</td></tr>
+  </tbody>
+</table>
+<div class="callout warn">
+  <b>주의 — Reference·EjectPin·Compensator:</b>
+  <code>FirstReference/SecondReference</code>는 310 <code>TwoPointAligner</code>의 <b>재구조화</b>(점만 검출, θ계산 별도). <code>EjectPinFinder</code>는 310에 없던 <b>신규 검출</b>. <code>VisionCompensator</code>는 모션이라 <b>Vision에서 제외</b>.
+</div>
+
+<h2>4. 데이터 / 레시피 저장 비교</h2>
+<div class="grid2">
+  <div class="card c310">
+    <span class="tag t310">CDT-310</span>
+    <ul>
+      <li>각 Part의 <code>Recipe</code>/<code>Config</code> 클래스 (<code>[Serializable]</code>)</li>
+      <li><b>바이너리 직렬화</b> — <code>Owner.SaveRecipeData()</code></li>
+      <li>파라미터: <code>PatternMatchingParameters</code>(MinScore, AngleTolerance, MaxInstance…)</li>
+      <li>스케일/오프셋은 Config(<code>VisionScale</code>, GridResults)에 저장</li>
+    </ul>
+  </div>
+  <div class="card c320">
+    <span class="tag t320">CDT-320</span>
+    <ul>
+      <li>POCO <code>FinderAlgo{Setup,Config,Recipe}</code> + <b>DataContract JSON</b></li>
+      <li>경로 <code>Recipes/{recipeName}/{StorageKey}.recipe.json</code> (예 <code>WaferVision.EjectPinFinder.recipe.json</code>)</li>
+      <li>모듈 1회 <code>SaveRecipe(명칭)</code> → 자식 노드 전체 <b>cascade</b></li>
+      <li><code>ApplyToRuntime()/CollectFromRuntime()</code>로 POCO ↔ 런타임 동기화</li>
+    </ul>
+  </div>
+</div>
+<div class="callout no">
+  <b>호환성 주의:</b> 직렬화 포맷이 <b>바이너리 → JSON</b>으로 바뀌므로 310 레시피 파일은 그대로 못 읽습니다. <b>재티칭 또는 1회 마이그레이션</b>이 필요합니다. 또한 에디터가 활성 레시피명을 따라가야 합니다(현재 <code>"default"</code> 고정 버그 — RECIPE_LOAD_POLICY 문서 참조).
+</div>
+
+<h2>5. 이식 시 핵심 주의점</h2>
+<div class="pill-row">
+  <span class="badge b-warn">θ/offset 계산</span>
+  <span class="badge b-warn">CUDA Inspector</span>
+  <span class="badge b-no">Compensator 제거</span>
+  <span class="badge b-warn">Edge/Histogram/Color 미연결</span>
+  <span class="badge b-no">모션 분리</span>
+  <span class="badge b-warn">직렬화 포맷</span>
+</div>
+<ul>
+  <li><b>2점 정렬 θ 계산 누락 금지</b> — 320 Finder는 점 위치만 찾음. 310 <code>Aligner.TwoPointAlign</code>의 각도/오프셋 계산을 <b>핸들러 또는 모듈</b> 단계로 반드시 이식.</li>
+  <li><b>Inspector 로직 깊이 차이</b> — 320 <code>CognexInspector</code>는 단순 Blob 면적 PASS 기준. 310 <code>CDTInspector</code>/<code>SideChippingInspector</code>의 chipping·foreign·임계 로직을 옮겨야 실제 검사가 됨.</li>
+  <li><b>Edge/Histogram/Color 백엔드 미연결</b> — 인터페이스만 정의됨. <code>IVisionBackend</code>는 <code>CreatePatternFinder/CreateInspector</code> 둘만 생성. 측면 칩핑을 EdgeFinder로 하려면 <b>백엔드 팩토리부터 추가</b> 필요.</li>
+  <li><b>모션은 전부 핸들러</b> — Jog/Stage move/Compensator 제거. AutoFocus(=Z), AutoScale(=이동)은 “구동=핸들러, 측정=Vision” 콜백으로.</li>
+  <li><b>레시피 SSOT</b> — 모든 레시피 화면 값은 활성 <code>Recipe</code>를 따라 read/write. 수동 편집 + 핸들러 수신값 양방향.</li>
+</ul>
+
+<h2>6. CDT-320에서 신규 Finder/Inspector 추가 절차</h2>
+<p class="note">310 기능을 320에 넣을 때의 표준 작업 순서 (코드 확인 기반):</p>
+
+<div class="step"><div class="n">1</div><div class="bd"><b>데이터 타입 결정</b> — 공용 <code>FinderAlgo{Setup,Config,Recipe}</code> 재사용. 전용 파라미터가 필요하면 파생 Recipe 정의.</div></div>
+<div class="step"><div class="n">2</div><div class="bd"><b>모듈에 등록</b> — 모듈 생성자에서 <code>AddFinder&lt;...&gt;("XxxFinder")</code> / <code>AddInspector&lt;...&gt;("XxxInspector")</code>. 자동으로 <code>Finders/Inspectors</code> + <code>Components</code>(cascade) 등록.</div></div>
+<div class="step"><div class="n">3</div><div class="bd"><b>백엔드 구현 확인</b> — <code>CognexPatternFinder/CognexInspector</code>가 <code>Train/Match/Inspect</code> 제공. 전용 로직은 <code>IAlgoParamSync</code>로 POCO↔런타임 동기화.</div></div>
+<div class="step"><div class="n">4</div><div class="bd"><b>UI 자동 반영</b> — <code>RecipePage</code>가 <code>module.Finders/Inspectors</code>를 열거 → 세팅선택기에 자동 노출. 라벨은 <code>InspectionLabel</code>에 추가.</div></div>
+<div class="step"><div class="n">5</div><div class="bd"><b>파라미터 그리드</b> — <code>VisionTargetPage</code>/<code>InspectorTargetPage</code>의 <code>AppendNodeParams()</code>에 전용 필드만 추가(공용은 자동).</div></div>
+<div class="step"><div class="n">6</div><div class="bd"><b>저장/로드 검증</b> — <code>LoadRecipe(명칭)</code>→<code>ApplyToRuntime</code>, <code>SaveRecipe(명칭)</code>→<code>CollectFromRuntime</code> cascade. <code>tools/verify_vision_features.pl</code> 회귀.</div></div>
+
+<pre><code><span class="cm">// 예: WaferVisionModule 생성자 — 노드 등록 한 줄이면 끝 (UI·저장 자동)</span>
+<span class="kw">public</span> WaferVisionModule(<span class="ty">ICamera</span> camera, <span class="ty">IVisionBackend</span> backend)
+    : <span class="kw">base</span>(<span class="st">"WaferVision"</span>, camera, backend)
+{
+    EjectPin        = <span class="fn">AddFinder</span>&lt;FinderAlgoSetup, FinderAlgoConfig, FinderAlgoRecipe&gt;(<span class="st">"EjectPinFinder"</span>);
+    Reticle         = <span class="fn">AddFinder</span>&lt;...&gt;(<span class="st">"ReticleFinder"</span>);
+    FirstReference  = <span class="fn">AddFinder</span>&lt;...&gt;(<span class="st">"FirstReferenceFinder"</span>);
+    <span class="cm">// ... 각 호출이 Finders 딕셔너리 + Components(cascade 저장) 자동 등록</span>
+}</code></pre>
+
+<pre><code><span class="cm">// 노드 ↔ 런타임 동기화 (AlgorithmNode) — 저장 포맷이 레시피 JSON으로 일원화</span>
+<span class="kw">protected override void</span> <span class="fn">ApplyToRuntime</span>() {   <span class="cm">// LoadRecipe 직후: POCO → 런타임</span>
+    <span class="kw">if</span> (Recipe <span class="kw">is</span> <span class="ty">FinderAlgoRecipe</span> r) {
+        _finder.SearchRoi = r.SearchRoi?.<span class="fn">Clone</span>();
+        _finder.TrainRoi  = r.TrainRoi?.<span class="fn">Clone</span>();
+        _finder.AcceptThreshold = r.AcceptThreshold;
+    }
+}
+<span class="kw">protected override void</span> <span class="fn">CollectFromRuntime</span>() { <span class="cm">// SaveRecipe 직전: 런타임 → POCO</span>
+    <span class="kw">if</span> (Recipe <span class="kw">is</span> <span class="ty">FinderAlgoRecipe</span> r) {
+        r.SearchRoi = _finder.SearchRoi?.<span class="fn">Clone</span>();
+        r.TrainRoi  = _finder.TrainRoi?.<span class="fn">Clone</span>();
+        r.AcceptThreshold = _finder.AcceptThreshold;
+    }
+}</code></pre>
+
+<div class="callout ok">
+  <b>결론:</b> 310의 <b>알고리즘 로직</b>(패턴 매칭, 칩핑 검사, 스케일 계산식)은 320의 <code>Train/Match/Inspect</code> 안으로 옮기고, <b>껍데기</b>(상속→노드 등록)와 <b>저장</b>(바이너리→레시피 JSON)은 320 프레임워크가 처리합니다. 단 <b>θ계산·정교한 Inspector·px→mm 변환</b>은 명시적으로 이식해야 하고, <b>모션·Compensator는 Vision에서 제외</b>합니다.
+</div>
+
+<footer>
+  근거: CDT-310 (QMC.Common/VisionPart, CDT-310_1 Inspector), CDT-320 (QMC.Vision/Equipment/Core·Unit·Backends, Ui/Pages/Recipe). 코드에서 직접 확인된 사실 기반이며, 일부 로직 위치(θ계산·px→mm)는 구현 팀과 최종 확인 권장.
+</footer>
+
+</div>
+</body>
+</html>

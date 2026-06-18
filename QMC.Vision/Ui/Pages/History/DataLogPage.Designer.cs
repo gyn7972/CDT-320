@@ -21,6 +21,7 @@ namespace QMC.Vision.Ui.Pages
         private DateTimePicker  _dtData;
         private Button          _btnDataReload;
         private Button          _btnDataExport;
+        private TextBox         _txtDataSearch;
         private DataGridView    _gridData;
 
         // Log (EventLogger)
@@ -28,12 +29,14 @@ namespace QMC.Vision.Ui.Pages
         private Label           _lblLogDate;
         private DateTimePicker  _dtLog;
         private Button          _btnLogReload;
+        private TextBox         _txtLogSearch;
         private DataGridView    _gridLog;
 
         // Alarm (AlarmManager)
         private FlowLayoutPanel _barAlarm;
         private CheckBox        _chkActiveOnly;
         private Button          _btnAlarmReload;
+        private TextBox         _txtAlarmSearch;
         private DataGridView    _gridAlarm;
 
         // 빈 상태 안내
@@ -69,17 +72,20 @@ namespace QMC.Vision.Ui.Pages
             this._dtData        = NewDatePicker();
             this._btnDataReload = NewBarButton("조회 / 새로고침");
             this._btnDataExport = NewBarButton("CSV 내보내기");
+            this._txtDataSearch = NewSearchBox();
             this._gridData      = NewGrid();
 
             this._barLog        = NewBar();
             this._lblLogDate    = NewBarLabel("일자");
             this._dtLog         = NewDatePicker();
             this._btnLogReload  = NewBarButton("조회 / 새로고침");
+            this._txtLogSearch  = NewSearchBox();
             this._gridLog       = NewGrid();
 
             this._barAlarm      = NewBar();
             this._chkActiveOnly = new CheckBox { Text = "활성 알람만", AutoSize = true, Margin = new Padding(6, 6, 12, 0) };
             this._btnAlarmReload= NewBarButton("새로고침");
+            this._txtAlarmSearch= NewSearchBox();
             this._gridAlarm     = NewGrid();
 
             this._emptyData  = NewEmptyLabel();
@@ -123,6 +129,8 @@ namespace QMC.Vision.Ui.Pages
             this._barData.Controls.Add(this._dtData);
             this._barData.Controls.Add(this._btnDataReload);
             this._barData.Controls.Add(this._btnDataExport);
+            this._barData.Controls.Add(this._txtDataSearch);
+            this._txtDataSearch.TextChanged += (s, e) => RenderDataGrid();
             this._tpData.Controls.Add(this._gridData);
             this._tpData.Controls.Add(this._emptyData);
             this._tpData.Controls.Add(this._barData);
@@ -134,6 +142,8 @@ namespace QMC.Vision.Ui.Pages
             this._barLog.Controls.Add(this._lblLogDate);
             this._barLog.Controls.Add(this._dtLog);
             this._barLog.Controls.Add(this._btnLogReload);
+            this._barLog.Controls.Add(this._txtLogSearch);
+            this._txtLogSearch.TextChanged += (s, e) => LoadEventLog();
             this._tpLog.Controls.Add(this._gridLog);
             this._tpLog.Controls.Add(this._emptyLog);
             this._tpLog.Controls.Add(this._barLog);
@@ -143,6 +153,8 @@ namespace QMC.Vision.Ui.Pages
             // Alarm 탭
             this._barAlarm.Controls.Add(this._chkActiveOnly);
             this._barAlarm.Controls.Add(this._btnAlarmReload);
+            this._barAlarm.Controls.Add(this._txtAlarmSearch);
+            this._txtAlarmSearch.TextChanged += (s, e) => LoadAlarms();
             this._tpAlarm.Controls.Add(this._gridAlarm);
             this._tpAlarm.Controls.Add(this._emptyAlarm);
             this._tpAlarm.Controls.Add(this._barAlarm);
@@ -194,6 +206,10 @@ namespace QMC.Vision.Ui.Pages
 
         private static DateTimePicker NewDatePicker()
             => new DateTimePicker { Format = DateTimePickerFormat.Short, Width = 130, Margin = new Padding(2, 3, 12, 3) };
+
+        /// <summary>검색 입력 박스(플레이스홀더 비슷한 안내는 PlaceholderText 미지원 .NET FW → 빈 칸).</summary>
+        private static TextBox NewSearchBox()
+            => new TextBox { Width = 180, Margin = new Padding(8, 3, 6, 3) };
 
         private static Button NewBarButton(string text)
             => new Button { Text = text, AutoSize = true, Height = 27, Margin = new Padding(2, 1, 6, 1), FlatStyle = FlatStyle.System };

@@ -212,33 +212,69 @@ namespace QMC.CDT320.Sequencing
 
         protected async Task<int> MoveFeederYCommandAsync(Task<int> moveTask, string description, CancellationToken ct)
         {
-            int result = await AwaitStepWithCancellationAsync(moveTask, ct).ConfigureAwait(false);
-            if (result != 0)
-                return Fail("OUT-FEEDER-Y-MOVE", Feeder.Name,
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                int result = await AwaitStepWithCancellationAsync(moveTask, ct).ConfigureAwait(false);
+                if (result != 0)
+                    return Fail("OUT-FEEDER-Y-MOVE", Feeder != null ? Feeder.Name : "OutputFeeder",
                     LocalizeFeederMoveDescription(description) + " 이동 명령이 실패했습니다. result=" + result + ", " +
                     (Feeder != null ? Feeder.DescribeBinFeederYMoveDoneState() + Feeder.DescribeBinFeederYLastMotionFailure() : "Feeder=null"));
 
-            return 0;
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("OUT-FEEDER-Y-MOVE-EX", Feeder != null ? Feeder.Name : "OutputFeeder",
+                    LocalizeFeederMoveDescription(description) + " 이동 명령 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
         }
 
         protected async Task<int> WaitFeederYDoneAsync(Func<bool> inPosition, string description, CancellationToken ct)
         {
-            AxisMoveWaitResult waitResult = await AwaitStepWithCancellationAsync(
-                Feeder.WaitBinFeederYMoveDoneInPosition(Feeder.FeederY.CommandPosition, ResolveTimeout()),
-                ct).ConfigureAwait(false);
-            bool finalInPosition = inPosition == null || inPosition();
+            try
+            {
+                ct.ThrowIfCancellationRequested();
 
-            if (waitResult == null || !waitResult.Success || !finalInPosition)
+                AxisMoveWaitResult waitResult = await Feeder.WaitBinFeederYMoveDoneInPosition(
+                    Feeder.FeederY.CommandPosition,
+                    ResolveTimeout(),
+                    ct).ConfigureAwait(false);
+                bool finalInPosition = inPosition == null || inPosition();
+
+                if (waitResult == null || !waitResult.Success || !finalInPosition)
+                {
+                    string state = Feeder != null ? Feeder.DescribeBinFeederYMoveDoneState() : "Feeder=null";
+                    return Fail(ResolveAxisMoveWaitAlarmCode("OUT-FEEDER-Y", waitResult), Feeder.Name,
+                        LocalizeFeederMoveDescription(description) + " 이동 완료/위치 확인 실패. " +
+                        FormatAxisMoveWaitResult(waitResult, state) +
+                        ", 최종위치확인=" + finalInPosition +
+                        ", " + state);
+                }
+
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
             {
                 string state = Feeder != null ? Feeder.DescribeBinFeederYMoveDoneState() : "Feeder=null";
-                return Fail(ResolveAxisMoveWaitAlarmCode("OUT-FEEDER-Y", waitResult), Feeder.Name,
-                    description + " move/in-position wait failed. " +
-                    FormatAxisMoveWaitResult(waitResult, state) +
-                    ", finalInPosition=" + finalInPosition +
-                    ", " + state);
+                return Fail("OUT-FEEDER-Y-WAIT-EX", Feeder != null ? Feeder.Name : "OutputFeeder",
+                    LocalizeFeederMoveDescription(description) + " 이동 완료 대기 중 예외가 발생했습니다. error=" + ex.Message + ", " + state);
             }
-
-            return 0;
+            finally
+            {
+            }
         }
 
         protected static string ResolveAxisMoveWaitAlarmCode(string prefix, AxisMoveWaitResult waitResult)
@@ -458,47 +494,47 @@ namespace QMC.CDT320.Sequencing
 
         protected static async Task<int> AwaitStepWithCancellationAsync(Task<int> stepTask, CancellationToken ct)
         {
-            if (stepTask == null)
-                return -1;
-            if (stepTask.IsCompleted)
-                return await stepTask.ConfigureAwait(false);
-
-            Task cancelTask = Task.Delay(Timeout.Infinite, ct);
-            Task completed = await Task.WhenAny(stepTask, cancelTask).ConfigureAwait(false);
-            if (!ReferenceEquals(completed, stepTask))
-                ct.ThrowIfCancellationRequested();
-
-            return await stepTask.ConfigureAwait(false);
+            try
+            {
+                return await SequenceAwaiter.AwaitIntAsync(stepTask, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            finally
+            {
+            }
         }
 
         protected static async Task<bool> AwaitStepWithCancellationAsync(Task<bool> stepTask, CancellationToken ct)
         {
-            if (stepTask == null)
-                return false;
-            if (stepTask.IsCompleted)
-                return await stepTask.ConfigureAwait(false);
-
-            Task cancelTask = Task.Delay(Timeout.Infinite, ct);
-            Task completed = await Task.WhenAny(stepTask, cancelTask).ConfigureAwait(false);
-            if (!ReferenceEquals(completed, stepTask))
-                ct.ThrowIfCancellationRequested();
-
-            return await stepTask.ConfigureAwait(false);
+            try
+            {
+                return await SequenceAwaiter.AwaitBoolAsync(stepTask, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            finally
+            {
+            }
         }
 
         protected static async Task<AxisMoveWaitResult> AwaitStepWithCancellationAsync(Task<AxisMoveWaitResult> stepTask, CancellationToken ct)
         {
-            if (stepTask == null)
-                return null;
-            if (stepTask.IsCompleted)
-                return await stepTask.ConfigureAwait(false);
-
-            Task cancelTask = Task.Delay(Timeout.Infinite, ct);
-            Task completed = await Task.WhenAny(stepTask, cancelTask).ConfigureAwait(false);
-            if (!ReferenceEquals(completed, stepTask))
-                ct.ThrowIfCancellationRequested();
-
-            return await stepTask.ConfigureAwait(false);
+            try
+            {
+                return await SequenceAwaiter.AwaitAxisWaitAsync(stepTask, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            finally
+            {
+            }
         }
 
         protected static async Task<bool> WaitUntilAsync(Func<bool> condition, int timeoutMs, CancellationToken ct)

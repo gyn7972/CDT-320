@@ -1,0 +1,243 @@
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Windows.Forms;
+using QMC.Vision.Core;       // ResourceMonitor
+using QMC.Vision.Modules;
+using QMC.Vision.Sequencing;
+using QMC.Vision.Ui.Dialogs; // LoadChartDialog
+
+namespace QMC.Vision.Ui.Pages
+{
+    /// <summary>
+    /// 시퀀서 개별 테스트 페이지 — 모듈 선택(전체/개별) + 모드(Auto/Step) + 시작/정지/한단계 + 실시간 로그.
+    /// 실행은 Form1.AutoSeq(VisionAutoSequenceHost) 에 위임. 로그는 Host.Message 구독.
+    /// </summary>
+    public partial class SequencerPage : PageBase
+    {
+        // 콤보 인덱스 ↔ 모듈 종류
+        private static readonly SequenceModuleKind[] _kinds =
+        {
+            SequenceModuleKind.All,
+            SequenceModuleKind.WaferVision,
+            SequenceModuleKind.BinVision,
+            SequenceModuleKind.BottomInspection,
+            SequenceModuleKind.TopSideVision,
+            SequenceModuleKind.BottomSideVision
+        };
+
+        private bool _subscribed;
+
+        // 그랩 FPS 계산용(ViewerFrameSeq 델타)
+        private readonly Dictionary<SequenceModuleKind, long>     _fpsPrev = new Dictionary<SequenceModuleKind, long>();
+        private readonly Dictionary<SequenceModuleKind, DateTime> _fpsTime = new Dictionary<SequenceModuleKind, DateTime>();
+        private Timer _metricTimer;
+
+        // CPU/GPU/메모리 부하 체크(누적) — [경과초, CPU%, MEM MB, GPU%]
+        private readonly ResourceMonitor _res = new ResourceMonitor();
+        private bool _profiling;
+        private DateTime _profStart;
+        private readonly List<double[]> _profSamples = new List<double[]>();
+
+        // 메트릭 그리드 행에 표시할 모듈(전체 제외)
+        private static readonly SequenceModuleKind[] _metricKinds =
+        {
+            SequenceModuleKind.WaferVision, SequenceModuleKind.BinVision,
+            SequenceModuleKind.BottomInspection, SequenceModuleKind.TopSideVision, SequenceModuleKind.BottomSideVision
+        };
+        private static readonly string[] _metricNames =
+        { "웨이퍼", "빈", "바텀", "앞측면", "뒤측면" };
+
+        public SequencerPage()
+        {
+            InitializeComponent();
+            if (IsDesignerMode()) return;
+
+            _cbModule.Items.AddRange(new object[]
+            { "전체", "웨이퍼 비전", "빈 비전", "바텀 검사", "앞쪽 측면", "뒤쪽 측면" });
+            _cbModule.SelectedIndex = 0;
+
+            _cbMode.Items.AddRange(new object[] { "Auto (연속)", "Step (수동)" });
+            _cbMode.SelectedIndex = 0;
+
+            BuildMetricsGrid();
+            _btnLoadStop.Enabled = false;   // 부하 체크 시작 전엔 완료 비활성
+        }
+
+        private void BuildMetricsGrid()
+        {
+            _metrics.Columns.Clear();
+            _metrics.Columns.Add("mod",   "모듈");
+            _metrics.Columns.Add("cycle", "사이클(ms)");
+            _metrics.Columns.Add("fps",   "그랩 FPS");
+            _metrics.Columns.Add("count", "사이클수");
+            for (int i = 0; i < _metricKinds.Length; i++)
+            {
+                int r = _metrics.Rows.Add(_metricNames[i], "-", "-", "0");
+                _metrics.Rows[r].Tag = _metricKinds[i];
+            }
+        }
+
+        private QMC.Vision.Form1 Host => FindForm() as QMC.Vision.Form1;
+
+        protected override void OnHandleCreated(EventArgs e)
+        {
+            base.OnHandleCreated(e);
+            var host = Host;
+            if (host?.AutoSeq != null && !_subscribed)
+            {
+                host.AutoSeq.Message += OnSeqMessage;
+                _subscribed = true;
+            }
+            if (_metricTimer == null)
+            {
+                _metricTimer = new Timer { Interval = 700 };
+                _metricTimer.Tick += (s, ev) => OnMetricTick();
+            }
+            _metricTimer.Start();
+        }
+
+        protected override void OnHandleDestroyed(EventArgs e)
+        {
+            try { _metricTimer?.Stop(); } catch { }
+            var host = Host;
+            if (host?.AutoSeq != null && _subscribed)
+            {
+                host.AutoSeq.Message -= OnSeqMessage;
+                _subscribed = false;
+            }
+            base.OnHandleDestroyed(e);
+        }
+
+        // ── 메트릭(사이클 ms / 그랩 FPS / 사이클수) 갱신 ──
+        private IVisionModule ModuleOf(SequenceModuleKind k)
+        {
+            var h = Host; if (h == null) return null;
+            switch (k)
+            {
+                case SequenceModuleKind.WaferVision:      return h.WaferMod;
+                case SequenceModuleKind.BinVision:        return h.BinMod;
+                case SequenceModuleKind.BottomInspection: return h.BottomMod;
+                case SequenceModuleKind.TopSideVision:    return h.TopSideVisionMod;
+                case SequenceModuleKind.BottomSideVision: return h.BottomSideVisionMod;
+                default: return null;
+            }
+        }
+
+        private void RefreshMetrics()
+        {
+            var h = Host; if (h?.AutoSeq == null) return;
+            var snap = h.AutoSeq.Metrics();
+            foreach (DataGridViewRow row in _metrics.Rows)
+            {
+                if (!(row.Tag is SequenceModuleKind kind)) continue;
+                double cycleMs = 0; long cycles = 0;
+                foreach (var m in snap) if (m.Kind == kind) { cycleMs = m.CycleMs; cycles = m.Cycles; break; }
+                row.Cells[1].Value = cycleMs > 0 ? cycleMs.ToString("F0") : "-";
+                row.Cells[2].Value = ComputeFps(kind).ToString("F1");
+                row.Cells[3].Value = cycles.ToString();
+            }
+        }
+
+        private double ComputeFps(SequenceModuleKind kind)
+        {
+            var mod = ModuleOf(kind);
+            if (mod == null) return 0;
+            long cur = mod.ViewerFrameSeq;
+            var now = DateTime.UtcNow;
+            double fps = 0;
+            if (_fpsPrev.TryGetValue(kind, out long prev) && _fpsTime.TryGetValue(kind, out DateTime pt))
+            {
+                double dt = (now - pt).TotalSeconds;
+                if (dt > 0.05) fps = (cur - prev) / dt;
+            }
+            _fpsPrev[kind] = cur; _fpsTime[kind] = now;
+            return fps < 0 ? 0 : fps;
+        }
+
+        private SequenceModuleKind SelectedKind()
+        {
+            int i = _cbModule.SelectedIndex;
+            return (i >= 0 && i < _kinds.Length) ? _kinds[i] : SequenceModuleKind.All;
+        }
+
+        private SequenceRunMode SelectedMode()
+            => _cbMode.SelectedIndex == 1 ? SequenceRunMode.Manual : SequenceRunMode.Auto;
+
+        private void OnStartClick(object sender, EventArgs e)
+        {
+            var host = Host; if (host?.AutoSeq == null) { Append("[UI] 호스트 없음"); return; }
+            int interval = QMC.Vision.Config.VisionConfigStore.Current?.SimSequenceIntervalMs ?? 500;
+            host.AutoSeq.StartModules(SelectedKind(), SelectedMode(), interval);
+        }
+
+        private void OnStopClick(object sender, EventArgs e)
+            => Host?.AutoSeq?.Stop();
+
+        private void OnStepClick(object sender, EventArgs e)
+        {
+            var host = Host; if (host?.AutoSeq == null) return;
+            // Step 은 Manual 모드에서 의미 — Auto 모드면 1단계 의미가 없어 안내만.
+            if (SelectedMode() != SequenceRunMode.Manual) { Append("[UI] '한 단계'는 Step(수동) 모드에서 사용하세요."); return; }
+            host.AutoSeq.StepModule(SelectedKind());
+        }
+
+        private void OnClearClick(object sender, EventArgs e) => _log.Clear();
+
+        // ── CPU/메모리 부하 체크(누적) ──
+        private void OnMetricTick()
+        {
+            RefreshMetrics();
+            _res.Sample();
+            if (_profiling)
+                _profSamples.Add(new[] { (DateTime.Now - _profStart).TotalSeconds, _res.CpuPercent, _res.WorkingSetMB, _res.GpuPercent });
+        }
+
+        private void OnLoadCheckStartClick(object sender, EventArgs e)
+        {
+            _profSamples.Clear();
+            _res.ResetPeaks();
+            _res.Sample();                 // 기준점
+            _profStart = DateTime.Now;
+            _profiling = true;
+            _btnLoadStart.Enabled = false;
+            _btnLoadStop.Enabled  = true;
+            Append("[부하] 체크 시작 — 시퀀서를 진행하세요. 완료 시 [체크 완료]로 차트 확인.");
+        }
+
+        private void OnLoadCheckStopClick(object sender, EventArgs e)
+        {
+            _profiling = false;
+            _btnLoadStart.Enabled = true;
+            _btnLoadStop.Enabled  = false;
+            Append($"[부하] 체크 완료 — 샘플 {_profSamples.Count}개.");
+            if (_profSamples.Count < 2)
+            {
+                MessageBox.Show(this, "수집된 데이터가 부족합니다. 시작 후 시퀀서를 잠시 진행한 뒤 완료하세요.",
+                    "부하 체크", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            using (var dlg = new LoadChartDialog(new List<double[]>(_profSamples)))
+                dlg.ShowDialog(this);
+        }
+
+        // ── 로그 ──
+        private void OnSeqMessage(string msg)
+        {
+            if (IsDisposed) return;
+            if (InvokeRequired) { try { BeginInvoke((Action<string>)Append, msg); } catch { } return; }
+            Append(msg);
+        }
+
+        private void Append(string msg)
+        {
+            try
+            {
+                string line = DateTime.Now.ToString("HH:mm:ss.fff") + "  " + msg + Environment.NewLine;
+                if (_log.TextLength > 60000) _log.Clear();   // 과대 방지
+                _log.AppendText(line);
+            }
+            catch { }
+        }
+    }
+}

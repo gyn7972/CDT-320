@@ -38,6 +38,7 @@ namespace QMC.Vision
         // 핸들러 정렬: 작업 · 이력 · 레시피 (좌) / 설정 · 사용자 · 종료 (우)
         private Panel pnlBottomBar;
         private BottomMenuButton btnWork;
+        private BottomMenuButton btnSequencer;
         private BottomMenuButton btnHistory;
         private BottomMenuButton btnRecipe;
         private BottomMenuButton btnSettings;
@@ -72,21 +73,22 @@ namespace QMC.Vision
             this.lblStateBig = new System.Windows.Forms.Label();
             this.pnlStatusBar = new System.Windows.Forms.Panel();
             this.lblStatusL = new System.Windows.Forms.Label();
+            this.dotCamera = new QMC.Vision.Ui.Controls.IndicatorDot();
             this.lblCamera = new System.Windows.Forms.Label();
+            this.dotLight = new QMC.Vision.Ui.Controls.IndicatorDot();
             this.lblLight = new System.Windows.Forms.Label();
+            this.dotVision = new QMC.Vision.Ui.Controls.IndicatorDot();
             this.lblVision = new System.Windows.Forms.Label();
             this.pnlBottomBar = new System.Windows.Forms.Panel();
-            this.pnlContent = new System.Windows.Forms.Panel();
-            this.timerClock = new System.Windows.Forms.Timer(this.components);
             this.btnRecipe = new QMC.Vision.Ui.Controls.BottomMenuButton();
             this.btnWork = new QMC.Vision.Ui.Controls.BottomMenuButton();
+            this.btnSequencer = new QMC.Vision.Ui.Controls.BottomMenuButton();
             this.btnHistory = new QMC.Vision.Ui.Controls.BottomMenuButton();
             this.btnSettings = new QMC.Vision.Ui.Controls.BottomMenuButton();
             this.btnUser = new QMC.Vision.Ui.Controls.BottomMenuButton();
             this.btnExit = new QMC.Vision.Ui.Controls.BottomMenuButton();
-            this.dotCamera = new QMC.Vision.Ui.Controls.IndicatorDot();
-            this.dotLight = new QMC.Vision.Ui.Controls.IndicatorDot();
-            this.dotVision = new QMC.Vision.Ui.Controls.IndicatorDot();
+            this.pnlContent = new System.Windows.Forms.Panel();
+            this.timerClock = new System.Windows.Forms.Timer(this.components);
             this.pnlHeader.SuspendLayout();
             this.pnlUserBox.SuspendLayout();
             this.pnlStatusBar.SuspendLayout();
@@ -229,8 +231,8 @@ namespace QMC.Vision
             this.lblStateBig.Size = new System.Drawing.Size(260, 70);
             this.lblStateBig.TabIndex = 4;
             this.lblStateBig.Text = "NONE";
-            this.lblStateBig.Visible = false;
             this.lblStateBig.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+            this.lblStateBig.Visible = false;
             // 
             // pnlStatusBar
             // 
@@ -257,10 +259,21 @@ namespace QMC.Vision
             this.lblStatusL.Location = new System.Drawing.Point(0, 0);
             this.lblStatusL.Name = "lblStatusL";
             this.lblStatusL.Padding = new System.Windows.Forms.Padding(14, 0, 0, 0);
-            this.lblStatusL.Size = new System.Drawing.Size(1400, 28);
+            this.lblStatusL.Size = new System.Drawing.Size(1480, 28);
             this.lblStatusL.TabIndex = 0;
             this.lblStatusL.Text = "Backend: Sim";
             this.lblStatusL.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // dotCamera
+            // 
+            this.dotCamera.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.dotCamera.BackColor = System.Drawing.Color.Transparent;
+            this.dotCamera.Location = new System.Drawing.Point(1500, 8);
+            this.dotCamera.Name = "dotCamera";
+            this.dotCamera.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
+            this.dotCamera.OnColor = System.Drawing.Color.FromArgb(((int)(((byte)(0)))), ((int)(((byte)(188)))), ((int)(((byte)(212)))));
+            this.dotCamera.Size = new System.Drawing.Size(12, 12);
+            this.dotCamera.TabIndex = 1;
             // 
             // lblCamera
             // 
@@ -275,6 +288,17 @@ namespace QMC.Vision
             this.lblCamera.Text = "CAMERA";
             this.lblCamera.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             // 
+            // dotLight
+            // 
+            this.dotLight.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.dotLight.BackColor = System.Drawing.Color.Transparent;
+            this.dotLight.Location = new System.Drawing.Point(1610, 8);
+            this.dotLight.Name = "dotLight";
+            this.dotLight.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
+            this.dotLight.OnColor = System.Drawing.Color.FromArgb(((int)(((byte)(0)))), ((int)(((byte)(188)))), ((int)(((byte)(212)))));
+            this.dotLight.Size = new System.Drawing.Size(12, 12);
+            this.dotLight.TabIndex = 3;
+            // 
             // lblLight
             // 
             this.lblLight.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
@@ -287,6 +311,17 @@ namespace QMC.Vision
             this.lblLight.TabIndex = 4;
             this.lblLight.Text = "LIGHT";
             this.lblLight.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // dotVision
+            // 
+            this.dotVision.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.dotVision.BackColor = System.Drawing.Color.Transparent;
+            this.dotVision.Location = new System.Drawing.Point(1700, 8);
+            this.dotVision.Name = "dotVision";
+            this.dotVision.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
+            this.dotVision.OnColor = System.Drawing.Color.FromArgb(((int)(((byte)(0)))), ((int)(((byte)(188)))), ((int)(((byte)(212)))));
+            this.dotVision.Size = new System.Drawing.Size(12, 12);
+            this.dotVision.TabIndex = 5;
             // 
             // lblVision
             // 
@@ -306,6 +341,7 @@ namespace QMC.Vision
             this.pnlBottomBar.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(45)))), ((int)(((byte)(48)))));
             this.pnlBottomBar.Controls.Add(this.btnRecipe);
             this.pnlBottomBar.Controls.Add(this.btnWork);
+            this.pnlBottomBar.Controls.Add(this.btnSequencer);
             this.pnlBottomBar.Controls.Add(this.btnHistory);
             this.pnlBottomBar.Controls.Add(this.btnSettings);
             this.pnlBottomBar.Controls.Add(this.btnUser);
@@ -317,20 +353,6 @@ namespace QMC.Vision
             this.pnlBottomBar.TabIndex = 1;
             this.pnlBottomBar.SizeChanged += new System.EventHandler(this.pnlBottomBar_SizeChanged);
             // 
-            // pnlContent
-            // 
-            this.pnlContent.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(191)))), ((int)(((byte)(191)))), ((int)(((byte)(191)))));
-            this.pnlContent.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.pnlContent.Location = new System.Drawing.Point(0, 98);
-            this.pnlContent.Name = "pnlContent";
-            this.pnlContent.Size = new System.Drawing.Size(1920, 902);
-            this.pnlContent.TabIndex = 0;
-            // 
-            // timerClock
-            // 
-            this.timerClock.Interval = 1000;
-            this.timerClock.Tick += new System.EventHandler(this.TimerClock_Tick);
-            // 
             // btnRecipe
             // 
             this.btnRecipe.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(45)))), ((int)(((byte)(48)))));
@@ -339,7 +361,7 @@ namespace QMC.Vision
             this.btnRecipe.ForeColor = System.Drawing.Color.White;
             this.btnRecipe.IconText = "R";
             this.btnRecipe.Label = "레시피";
-            this.btnRecipe.Location = new System.Drawing.Point(300, 5);
+            this.btnRecipe.Location = new System.Drawing.Point(420, 5);
             this.btnRecipe.Name = "btnRecipe";
             this.btnRecipe.Selected = false;
             this.btnRecipe.Size = new System.Drawing.Size(110, 70);
@@ -360,6 +382,21 @@ namespace QMC.Vision
             this.btnWork.Size = new System.Drawing.Size(110, 70);
             this.btnWork.TabIndex = 0;
             this.btnWork.Click += new System.EventHandler(this.btnWork_Click);
+            //
+            // btnSequencer
+            //
+            this.btnSequencer.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(45)))), ((int)(((byte)(48)))));
+            this.btnSequencer.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnSequencer.Font = new System.Drawing.Font("맑은 고딕", 10F);
+            this.btnSequencer.ForeColor = System.Drawing.Color.White;
+            this.btnSequencer.IconText = "Q";
+            this.btnSequencer.Label = "시퀀서";
+            this.btnSequencer.Location = new System.Drawing.Point(180, 5);
+            this.btnSequencer.Name = "btnSequencer";
+            this.btnSequencer.Selected = false;
+            this.btnSequencer.Size = new System.Drawing.Size(110, 70);
+            this.btnSequencer.TabIndex = 1;
+            this.btnSequencer.Click += new System.EventHandler(this.btnSequencer_Click);
             // 
             // btnHistory
             // 
@@ -369,7 +406,7 @@ namespace QMC.Vision
             this.btnHistory.ForeColor = System.Drawing.Color.White;
             this.btnHistory.IconText = "H";
             this.btnHistory.Label = "이력";
-            this.btnHistory.Location = new System.Drawing.Point(180, 5);
+            this.btnHistory.Location = new System.Drawing.Point(300, 5);
             this.btnHistory.Name = "btnHistory";
             this.btnHistory.Selected = false;
             this.btnHistory.Size = new System.Drawing.Size(110, 70);
@@ -421,38 +458,19 @@ namespace QMC.Vision
             this.btnExit.TabIndex = 5;
             this.btnExit.Click += new System.EventHandler(this.btnExit_Click);
             // 
-            // dotCamera
+            // pnlContent
             // 
-            this.dotCamera.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.dotCamera.BackColor = System.Drawing.Color.Transparent;
-            this.dotCamera.Location = new System.Drawing.Point(1500, 8);
-            this.dotCamera.Name = "dotCamera";
-            this.dotCamera.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
-            this.dotCamera.OnColor = System.Drawing.Color.FromArgb(((int)(((byte)(0)))), ((int)(((byte)(188)))), ((int)(((byte)(212)))));
-            this.dotCamera.Size = new System.Drawing.Size(12, 12);
-            this.dotCamera.TabIndex = 1;
+            this.pnlContent.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(191)))), ((int)(((byte)(191)))), ((int)(((byte)(191)))));
+            this.pnlContent.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.pnlContent.Location = new System.Drawing.Point(0, 98);
+            this.pnlContent.Name = "pnlContent";
+            this.pnlContent.Size = new System.Drawing.Size(1920, 902);
+            this.pnlContent.TabIndex = 0;
             // 
-            // dotLight
+            // timerClock
             // 
-            this.dotLight.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.dotLight.BackColor = System.Drawing.Color.Transparent;
-            this.dotLight.Location = new System.Drawing.Point(1610, 8);
-            this.dotLight.Name = "dotLight";
-            this.dotLight.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
-            this.dotLight.OnColor = System.Drawing.Color.FromArgb(((int)(((byte)(0)))), ((int)(((byte)(188)))), ((int)(((byte)(212)))));
-            this.dotLight.Size = new System.Drawing.Size(12, 12);
-            this.dotLight.TabIndex = 3;
-            // 
-            // dotVision
-            // 
-            this.dotVision.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.dotVision.BackColor = System.Drawing.Color.Transparent;
-            this.dotVision.Location = new System.Drawing.Point(1700, 8);
-            this.dotVision.Name = "dotVision";
-            this.dotVision.OffColor = System.Drawing.Color.FromArgb(((int)(((byte)(85)))), ((int)(((byte)(85)))), ((int)(((byte)(85)))));
-            this.dotVision.OnColor = System.Drawing.Color.FromArgb(((int)(((byte)(0)))), ((int)(((byte)(188)))), ((int)(((byte)(212)))));
-            this.dotVision.Size = new System.Drawing.Size(12, 12);
-            this.dotVision.TabIndex = 5;
+            this.timerClock.Interval = 1000;
+            this.timerClock.Tick += new System.EventHandler(this.TimerClock_Tick);
             // 
             // Form1
             // 

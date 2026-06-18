@@ -28,14 +28,14 @@ namespace QMC.CDT_320.Ui.Tabs
             RegisterSidebarButton(BtnMain, "work.page.main", op, () => new WorkMainPage());
 
             RegisterActionButton(BtnInit,       "work.init",       op, OpenInitializationMonitor);
-            RegisterActionButton(BtnStart,      "work.start",      op, () => RunSafe(async c => await c.StartAsync()));
+            RegisterActionButton(BtnStart,      "work.start",      op, () => RunSafe(async c => await c.StartAsync(), false));
             RegisterActionButton(BtnStop,       "work.stop",       op, () => RunSafe(async c =>
             {
                 await c.StopSequenceAsync();
                 await c.StopAsync();
-            }));
-            RegisterActionButton(BtnCycleRun,   "work.cycleRun",   op, () => RunSafe(async c => await c.RunProcessSequenceStepAsync()));
-            RegisterActionButton(BtnCycleStop,  "work.cycleStop",  op, () => RunSafe(async c => await c.StopSequenceAsync()));
+            }, false));
+            RegisterActionButton(BtnCycleRun,   "work.cycleRun",   op, () => RunSafe(async c => await c.RunProcessSequenceStepAsync(), false));
+            RegisterActionButton(BtnCycleStop,  "work.cycleStop",  op, () => RunSafe(async c => await c.CycleStopAsync(), false));
             RegisterActionButton(BtnResetAlarm, "work.resetAlarm", en, () => RunSafe(async c => await c.ResetAlarmAsync()));
             RegisterActionButton(BtnShutdown,   "work.shutdown",   mt, () => RunSafe(async c => await c.ShutdownAsync()));
             RegisterActionButton(BtnEStop,      "work.estop",      op, () => RunSafe(async c => await c.EmergencyStopAsync()));
@@ -93,14 +93,15 @@ namespace QMC.CDT_320.Ui.Tabs
             }
         }
 
-        private async void RunSafe(Func<MachineController, System.Threading.Tasks.Task> action)
+        private async void RunSafe(Func<MachineController, System.Threading.Tasks.Task> action, bool showFailureDialog = true)
         {
             try
             {
                 if (Host == null || Host.Controller == null)
                 {
                     QMC.Common.Log.Write("Main", "SYSTEM", "RunSafe", "Work action failed: Machine controller is not ready. - Failed");
-                    QMC.Common.MessageDialog.Show(FindForm(), "Machine Controller를 찾을 수 없습니다.", "Work", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    if (showFailureDialog)
+                        QMC.Common.MessageDialog.Show(FindForm(), "Machine Controller를 찾을 수 없습니다.", "Work", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -109,7 +110,8 @@ namespace QMC.CDT_320.Ui.Tabs
             catch (Exception ex)
             {
                 QMC.Common.Log.Write("Main", "SYSTEM", "RunSafe", "Work action failed: " + ex.Message + " - Failed");
-                QMC.Common.MessageDialog.Show(FindForm(), "Work action failed:\n" + ex.Message, "Work", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                if (showFailureDialog)
+                    QMC.Common.MessageDialog.Show(FindForm(), "Work action failed:\n" + ex.Message, "Work", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {
@@ -163,14 +165,15 @@ namespace QMC.CDT_320.Ui.Tabs
             }
         }
 
-        private async void RunSafe(Func<MachineController, System.Threading.Tasks.Task<int>> action)
+        private async void RunSafe(Func<MachineController, System.Threading.Tasks.Task<int>> action, bool showFailureDialog = true)
         {
             try
             {
                 if (Host == null || Host.Controller == null)
                 {
                     QMC.Common.Log.Write("Main", "SYSTEM", "RunSafe", "Work action failed: Machine controller is not ready. - Failed");
-                    QMC.Common.MessageDialog.Show(FindForm(), "Machine Controller를 찾을 수 없습니다.", "Work", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    if (showFailureDialog)
+                        QMC.Common.MessageDialog.Show(FindForm(), "Machine Controller를 찾을 수 없습니다.", "Work", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -181,14 +184,16 @@ namespace QMC.CDT_320.Ui.Tabs
                     string message = string.IsNullOrEmpty(Host.Controller.LastActionFailureMessage)
                         ? "작업 수행에 실패했습니다.\nAlarm/Event Log를 확인하세요."
                         : Host.Controller.LastActionFailureMessage;
-                    QMC.Common.MessageDialog.Show(FindForm(), message, "Work", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    if (showFailureDialog)
+                        QMC.Common.MessageDialog.Show(FindForm(), message, "Work", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
             }
             catch (Exception ex)
             {
                 QMC.Common.Log.Write("Main", "SYSTEM", "RunSafe", "Work action failed: " + ex.Message + " - Failed");
-                QMC.Common.MessageDialog.Show(FindForm(), "Work action failed:\n" + ex.Message, "Work", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                if (showFailureDialog)
+                    QMC.Common.MessageDialog.Show(FindForm(), "Work action failed:\n" + ex.Message, "Work", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
             {

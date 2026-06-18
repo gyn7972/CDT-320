@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading;
 
 namespace QMC.CDT320.Sequencing
 {
@@ -28,6 +29,39 @@ namespace QMC.CDT320.Sequencing
         public SequenceSignalBus Bus { get; private set; }
 
         public SequenceResourceManager Resources { get; private set; }
+        private int _cycleStopRequested;
+
+        /// <summary>현재 자동 시퀀스가 사이클 경계에서 정지해야 하는지 여부입니다.</summary>
+        public bool IsCycleStopRequested
+        {
+            get { return Volatile.Read(ref _cycleStopRequested) != 0; }
+        }
+
+        /// <summary>CYCLE STOP 요청을 초기화합니다.</summary>
+        public void ResetCycleStopRequest()
+        {
+            Interlocked.Exchange(ref _cycleStopRequested, 0);
+            Bus.Reset("CycleStopRequested");
+        }
+
+        /// <summary>현재 진행 중인 큰 작업이 끝나는 지점에서 자동 시퀀스를 정지하도록 요청합니다.</summary>
+        public void RequestCycleStop()
+        {
+            Interlocked.Exchange(ref _cycleStopRequested, 1);
+            Bus.Set("CycleStopRequested");
+        }
+
+        /// <summary>CYCLE STOP 요청이 있으면 지정한 경계에서 시퀀스를 정지합니다.</summary>
+        public void StopIfCycleStopRequested(string boundaryName)
+        {
+            if (!IsCycleStopRequested)
+                return;
+
+            string reason = "CYCLE STOP 요청으로 현재 작업 경계에서 정지합니다. boundary=" +
+                            (boundaryName ?? "-");
+            LogPublic("[SEQ] " + reason);
+            throw new SequenceStopException(reason);
+        }
 
         /// <summary>장비 컨트롤러의 공개 로그 브리지로 메시지를 출력합니다.</summary>
         public void LogPublic(string message)

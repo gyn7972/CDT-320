@@ -35,6 +35,17 @@ namespace QMC.Vision.Ui.Controls
             }
         }
 
+        /// <summary>현재 행을 모두 표시하는 데 필요한 높이(헤더 + 전체 행). 호스트가 행 높이 고정에 사용.</summary>
+        public int PreferredGridHeight
+        {
+            get
+            {
+                int h = grid.ColumnHeadersVisible ? grid.ColumnHeadersHeight : 0;
+                foreach (System.Windows.Forms.DataGridViewRow r in grid.Rows) h += r.Height;
+                return h + 6;
+            }
+        }
+
         public ParameterGridControl()
         {
             InitializeComponent();
@@ -88,6 +99,8 @@ namespace QMC.Vision.Ui.Controls
             try
             {
                 _isRefreshing = true;
+                // 편집(콤보 드롭다운 등) 중에 Rows.Clear() 시 예외 → 재빌드 중단. 먼저 편집모드 해제.
+                try { grid.EndEdit(); grid.CurrentCell = null; } catch { }
                 grid.Rows.Clear();
 
                 foreach (var item in _items)
@@ -145,7 +158,75 @@ namespace QMC.Vision.Ui.Controls
                 return cell;
             }
 
+            if (item != null && item.ValueType == ParameterGridValueType.Action)
+            {
+                var btn = new DataGridViewButtonCell();
+                btn.FlatStyle = FlatStyle.Flat;
+                btn.UseColumnTextForButtonValue = false;
+                return btn;
+            }
+
             return new DataGridViewTextBoxCell();
+        }
+
+        private void BrowseFolderRow(DataGridViewRow row)
+        {
+            try
+            {
+                var item = row != null ? row.Tag as ParameterGridItem : null;
+                if (item == null) return;
+                using (var d = new FolderBrowserDialog())
+                {
+                    string cur = item.Getter != null ? Convert.ToString(item.Getter()) : string.Empty;
+                    if (!string.IsNullOrWhiteSpace(cur) && System.IO.Directory.Exists(cur)) d.SelectedPath = cur;
+                    if (d.ShowDialog(this) == DialogResult.OK) CommitValue(row, d.SelectedPath);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine("[PARAM-GRID] BrowseFolder failed: " + ex.Message);
+            }
+        }
+
+        private void ShowSliderRow(DataGridViewRow row)
+        {
+            try
+            {
+                var item = row != null ? row.Tag as ParameterGridItem : null;
+                if (item == null) return;
+
+                int cur = 0;
+                try { cur = Convert.ToInt32(item.Getter()); } catch { }
+                int min = item.SliderMin;
+                int max = item.SliderMax < min ? min : item.SliderMax;
+                if (cur < min) cur = min;
+                if (cur > max) cur = max;
+
+                using (var dlg = new Form
+                {
+                    Text = item.DisplayName,
+                    FormBorderStyle = FormBorderStyle.FixedDialog,
+                    StartPosition = FormStartPosition.CenterParent,
+                    ClientSize = new Size(320, 120),
+                    MinimizeBox = false,
+                    MaximizeBox = false,
+                    ShowInTaskbar = false
+                })
+                {
+                    var bar = new TrackBar { Minimum = min, Maximum = max, Value = cur, TickStyle = TickStyle.None, Left = 10, Top = 14, Width = 300 };
+                    var lbl = new Label { Left = 10, Top = 56, Width = 300, TextAlign = ContentAlignment.MiddleCenter, Font = new Font("Consolas", 11F), Text = cur.ToString() };
+                    bar.ValueChanged += (s, ev) => lbl.Text = bar.Value.ToString();
+                    var ok = new Button { Text = "확인", DialogResult = DialogResult.OK, Left = 150, Top = 84, Width = 74 };
+                    var cancel = new Button { Text = "취소", DialogResult = DialogResult.Cancel, Left = 234, Top = 84, Width = 74 };
+                    dlg.Controls.Add(bar); dlg.Controls.Add(lbl); dlg.Controls.Add(ok); dlg.Controls.Add(cancel);
+                    dlg.AcceptButton = ok; dlg.CancelButton = cancel;
+                    if (dlg.ShowDialog(this) == DialogResult.OK) CommitValue(row, bar.Value);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine("[PARAM-GRID] Slider failed: " + ex.Message);
+            }
         }
 
         private void SetValueCellText(DataGridViewRow row, ParameterGridItem item, string text)
@@ -451,6 +532,12 @@ namespace QMC.Vision.Ui.Controls
                     ToggleBoolRow(grid.Rows[e.RowIndex]);
                 else if (item.ValueType == ParameterGridValueType.Selection)
                     ShowSelectionEditor(grid.Rows[e.RowIndex]);
+                else if (item.ValueType == ParameterGridValueType.Action)
+                    item.OnAction?.Invoke();
+                else if (item.ValueType == ParameterGridValueType.FolderPath)
+                    BrowseFolderRow(grid.Rows[e.RowIndex]);
+                else if (item.ValueType == ParameterGridValueType.Slider)
+                    ShowSliderRow(grid.Rows[e.RowIndex]);
             }
             catch (Exception ex)
             {

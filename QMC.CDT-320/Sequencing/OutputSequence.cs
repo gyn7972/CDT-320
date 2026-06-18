@@ -36,6 +36,8 @@ namespace QMC.CDT320.Sequencing
                             "Output auto sequence failed. result=" + result,
                             "OutputSequence",
                             "OUTPUT-AUTO"));
+
+                Context.StopIfCycleStopRequested("OutputSequence.AutoActionComplete");
             }
         }
 
@@ -241,9 +243,11 @@ namespace QMC.CDT320.Sequencing
             {
                 Task goodTask = Context.Bus.WaitAsync("OutputGoodStageReceiveComplete", linkedCts.Token);
                 Task ngTask = Context.Bus.WaitAsync("OutputNgStageReceiveComplete", linkedCts.Token);
-                Task completed = await Task.WhenAny(goodTask, ngTask).ConfigureAwait(false);
+                Task cycleStopTask = Context.Bus.WaitAsync("CycleStopRequested", linkedCts.Token);
+                Task completed = await Task.WhenAny(goodTask, ngTask, cycleStopTask).ConfigureAwait(false);
                 linkedCts.Cancel();
                 await completed.ConfigureAwait(false);
+                Context.StopIfCycleStopRequested("OutputSequence.WaitReceiveComplete");
             }
         }
 

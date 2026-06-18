@@ -6,6 +6,7 @@ using QMC.Common.Recipes;
 using QMC.Vision.Config;
 using QMC.Vision.Ui;
 using QMC.Vision.Ui.Controls;
+using QMC.Vision.Ui.Localization;
 
 namespace QMC.Vision.Ui.Pages
 {
@@ -29,6 +30,20 @@ namespace QMC.Vision.Ui.Pages
             if (LicenseManager.UsageMode == LicenseUsageMode.Designtime) return;
             BuildDetailPanels();
             BuildSidebar();
+            Lang.LanguageChanged += OnSettingsLangChanged;
+        }
+
+        protected override void OnHandleDestroyed(EventArgs e)
+        {
+            try { Lang.LanguageChanged -= OnSettingsLangChanged; } catch { }
+            base.OnHandleDestroyed(e);
+        }
+
+        /// <summary>언어 변경 — 사이드바 버튼(i18n 태그) 재번역. 디테일 패널은 각자 핸들러로 갱신.</summary>
+        private void OnSettingsLangChanged()
+        {
+            if (IsDisposed) return;
+            try { BeginInvoke((Action)(() => Lang.Apply(this))); } catch { }
         }
 
         /// <summary>우측 디테일 호스트에 들어가는 서브패널 인스턴스화 — 런타임.</summary>
@@ -54,18 +69,18 @@ namespace QMC.Vision.Ui.Pages
             _sideButtons.Clear();
 
             // GENERAL (환경설정)
-            AddSideButton("GENERAL", (s, e) => { SelectButton((SidebarButton)s); ShowGeneral(); });
+            AddSideButton(Lang.T("set.general"), "set.general", (s, e) => { SelectButton((SidebarButton)s); ShowGeneral(); });
 
             // 카메라 셋업 — 모듈별 (Vision 이 실제 사용하는 카메라만)
             foreach (var alg in VisionAlgorithm.All)
             {
                 string algKey = alg;
-                AddSideButton(VisionAlgorithm.Label(alg),
+                AddSideButton(Lang.Algo(alg), "algo." + alg,
                     (s, e) => { SelectButton((SidebarButton)s); ShowCameraMapping(algKey); });
             }
 
             // 조명 셋업
-            AddSideButton("조명 셋업", (s, e) => { SelectButton((SidebarButton)s); ShowLightSystemSetup(); });
+            AddSideButton(Lang.T("set.lightSetup"), "set.lightSetup", (s, e) => { SelectButton((SidebarButton)s); ShowLightSystemSetup(); });
 
             // 기본 선택 = GENERAL
             if (_sideButtons.Count > 0)
@@ -75,11 +90,12 @@ namespace QMC.Vision.Ui.Pages
             }
         }
 
-        private void AddSideButton(string text, EventHandler onClick)
+        private void AddSideButton(string text, string i18nKey, EventHandler onClick)
         {
             var btn = new SidebarButton
             {
                 Text          = text,
+                Tag           = string.IsNullOrEmpty(i18nKey) ? null : "i18n:" + i18nKey,
                 Width         = UiTheme.SidebarWidth - 8,
                 Height        = 46,
                 ShowStatusDot = false,

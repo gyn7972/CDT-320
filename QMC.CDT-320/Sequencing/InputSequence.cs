@@ -39,6 +39,7 @@ namespace QMC.CDT320.Sequencing
                 while (!ct.IsCancellationRequested)
                 {
                     await ExecuteInputAutoCycleAsync(ct).ConfigureAwait(false);
+                    Context.StopIfCycleStopRequested("InputSequence.AutoCycleComplete");
                 }
             }
             catch (OperationCanceledException)

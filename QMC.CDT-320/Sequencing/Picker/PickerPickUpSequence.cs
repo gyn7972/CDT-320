@@ -1498,8 +1498,10 @@ namespace QMC.CDT320.Sequencing
             {
                 ct.ThrowIfCancellationRequested();
 
-                AxisMoveWaitResult waitResult = await AwaitStepWithCancellationAsync(
-                    stage.WaitInputStageAxisInPositionResult(axis, target, ResolveTimeout()),
+                AxisMoveWaitResult waitResult = await stage.WaitInputStageAxisInPositionResult(
+                    axis,
+                    target,
+                    ResolveTimeout(),
                     ct).ConfigureAwait(false);
 
                 if (waitResult == null || !waitResult.Success)
@@ -1656,12 +1658,17 @@ namespace QMC.CDT320.Sequencing
 
         private static async Task<TResult> AwaitStepWithCancellationAsync<TResult>(Task<TResult> task, CancellationToken ct)
         {
-            Task cancelTask = Task.Delay(Timeout.Infinite, ct);
-            Task completed = await Task.WhenAny(task, cancelTask).ConfigureAwait(false);
-            if (completed == cancelTask)
-                ct.ThrowIfCancellationRequested();
-
-            return await task.ConfigureAwait(false);
+            try
+            {
+                return await SequenceAwaiter.AwaitAsync(task, default(TResult), ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            finally
+            {
+            }
         }
 
         private void ReleaseInputReservationIfNeeded()

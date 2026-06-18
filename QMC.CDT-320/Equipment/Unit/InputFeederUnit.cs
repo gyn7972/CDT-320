@@ -389,25 +389,94 @@ namespace QMC.CDT320
 
         public async Task<bool> WaitWaferFeederYMoveDone(int timeoutMs)
         {
-            AxisMoveWaitResult waitResult = await WaitWaferFeederYMoveDoneInPosition(FeederY.CommandPosition, timeoutMs).ConfigureAwait(false);
-            return waitResult.Success;
+            return await WaitWaferFeederYMoveDone(timeoutMs, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        public async Task<bool> WaitWaferFeederYMoveDone(int timeoutMs, CancellationToken ct)
+        {
+            try
+            {
+                AxisMoveWaitResult waitResult = await WaitWaferFeederYMoveDoneInPosition(FeederY.CommandPosition, timeoutMs, ct).ConfigureAwait(false);
+                return waitResult.Success;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "InputFeederWait",
+                    "WaferFeederY move wait failed. error=" + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
         }
 
         public async Task<AxisMoveWaitResult> WaitWaferFeederYMoveDoneInPosition(double targetPos, int timeoutMs)
         {
-            return await AxisMoveWaiter.WaitMoveDoneInPositionAsync(
-                FeederY,
-                targetPos,
-                ResolveWaferFeederYInPositionTolerance(),
-                timeoutMs > 0 ? timeoutMs : ResolveWaferFeederYMoveTimeoutMs(),
-                0).ConfigureAwait(false);
+            return await WaitWaferFeederYMoveDoneInPosition(targetPos, timeoutMs, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        public async Task<AxisMoveWaitResult> WaitWaferFeederYMoveDoneInPosition(double targetPos, int timeoutMs, CancellationToken ct)
+        {
+            try
+            {
+                return await AxisMoveWaiter.WaitMoveDoneInPositionAsync(
+                    FeederY,
+                    targetPos,
+                    ResolveWaferFeederYInPositionTolerance(),
+                    timeoutMs > 0 ? timeoutMs : ResolveWaferFeederYMoveTimeoutMs(),
+                    0,
+                    ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "InputFeederWait",
+                    "WaferFeederY move/in-position wait failed. target=" + targetPos +
+                    ", error=" + ex.Message + " - Failed");
+                return new AxisMoveWaitResult(
+                    AxisMoveWaitFailure.Timeout,
+                    "WaferFeederY move wait exception: " + ex.Message,
+                    GetWaferFeederTransferState());
+            }
+            finally
+            {
+            }
         }
 
         public async Task<bool> WaitWaferFeederYInPosition(string positionName, int timeoutMs)
         {
-            double target = GetTeachingPosition(positionName);
-            AxisMoveWaitResult waitResult = await WaitWaferFeederYMoveDoneInPosition(target, timeoutMs).ConfigureAwait(false);
-            return waitResult.Success;
+            return await WaitWaferFeederYInPosition(positionName, timeoutMs, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        public async Task<bool> WaitWaferFeederYInPosition(string positionName, int timeoutMs, CancellationToken ct)
+        {
+            try
+            {
+                double target = GetTeachingPosition(positionName);
+                AxisMoveWaitResult waitResult = await WaitWaferFeederYMoveDoneInPosition(target, timeoutMs, ct).ConfigureAwait(false);
+                return waitResult.Success;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "InputFeederWait",
+                    "WaferFeederY teaching position wait failed. position=" + positionName +
+                    ", error=" + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
         }
 
         public bool IsWaferFeederYInPosition(double targetPos, double tolerance)
@@ -753,16 +822,16 @@ namespace QMC.CDT320
                 if (up && !IsWaferFeederEmpty())
                     return RaiseFeederAlarm("WF-LIFT-UP-WAFER-DETECTED", "WaferFeeder wafer is already detected before lift up.");
 
-                bool ok = up
-                    ? await InputFeederLift.MoveFwdAsync(ct)
-                    : await InputFeederLift.MoveBwdAsync(ct);
+                bool ok = await MoveCylinderWithCommandTimeoutAsync(InputFeederLift, up, timeoutMs, ct).ConfigureAwait(false);
                 if (!ok)
-                    return RaiseFeederAlarm(up ? "WF-LIFT-UP" : "WF-LIFT-DOWN", "WaferFeeder lift cylinder move failed.");
+                    return RaiseFeederAlarm(
+                        up ? "WF-LIFT-UP" : "WF-LIFT-DOWN",
+                        "WaferFeeder lift cylinder move failed. " + FormatCylinderState(InputFeederLift));
 
                 ApplyWaferFeederLiftSensorSimulation(up);
                 bool sensorOk = up
-                    ? await AwaitWithCancellation(WaitWaferFeederUp(timeoutMs), ct)
-                    : await AwaitWithCancellation(WaitWaferFeederDown(timeoutMs), ct);
+                    ? await WaitWaferFeederUp(timeoutMs, ct)
+                    : await WaitWaferFeederDown(timeoutMs, ct);
                 if (!sensorOk)
                     return RaiseFeederAlarm(up ? "WF-LIFT-UP-TIMEOUT" : "WF-LIFT-DOWN-TIMEOUT", "WaferFeeder lift sensor timeout.");
 
@@ -808,19 +877,21 @@ namespace QMC.CDT320
             {
                 ct.ThrowIfCancellationRequested();
 
-                bool ok = clamp
-                    ? await InputFeederClamp.MoveFwdAsync(ct)
-                    : await InputFeederClamp.MoveBwdAsync(ct);
+                bool ok = await MoveCylinderWithCommandTimeoutAsync(InputFeederClamp, clamp, timeoutMs, ct).ConfigureAwait(false);
                 if (!ok)
-                    return RaiseFeederAlarm(clamp ? "WF-CLAMP" : "WF-UNCLAMP", "WaferFeeder clamp cylinder move failed.");
+                    return RaiseFeederAlarm(
+                        clamp ? "WF-CLAMP" : "WF-UNCLAMP",
+                        "WaferFeeder clamp cylinder move failed. " + FormatCylinderState(InputFeederClamp));
 
                 ApplyWaferFeederClampSensorSimulation(clamp);
 
                 bool sensorOk = clamp
-                    ? await AwaitWithCancellation(WaitWaferFeederClamp(timeoutMs), ct)
-                    : await AwaitWithCancellation(WaitWaferFeederUnclamp(timeoutMs), ct);
+                    ? await WaitWaferFeederClamp(timeoutMs, ct)
+                    : await WaitWaferFeederUnclamp(timeoutMs, ct);
                 if (!sensorOk)
-                    return RaiseFeederAlarm(clamp ? "WF-CLAMP-TIMEOUT" : "WF-UNCLAMP-TIMEOUT", "WaferFeeder clamp sensor timeout.");
+                    return RaiseFeederAlarm(
+                        clamp ? "WF-CLAMP-TIMEOUT" : "WF-UNCLAMP-TIMEOUT",
+                        "WaferFeeder clamp sensor timeout. " + FormatCylinderState(InputFeederClamp));
 
                 return 0;
             }
@@ -836,6 +907,78 @@ namespace QMC.CDT320
             finally
             {
             }
+        }
+
+        private static async Task<bool> MoveCylinderWithCommandTimeoutAsync(
+            BaseCylinder cylinder,
+            bool moveFwd,
+            int timeoutMs,
+            CancellationToken ct)
+        {
+            if (cylinder == null)
+                return false;
+
+            CylinderRecipe recipe = cylinder.Recipe;
+            int originalFwdTimeout = recipe != null ? recipe.FwdTimeoutMs : 0;
+            int originalBwdTimeout = recipe != null ? recipe.BwdTimeoutMs : 0;
+
+            try
+            {
+                if (recipe != null && timeoutMs > 0)
+                {
+                    if (moveFwd)
+                        recipe.FwdTimeoutMs = timeoutMs;
+                    else
+                        recipe.BwdTimeoutMs = timeoutMs;
+                }
+
+                return moveFwd
+                    ? await cylinder.MoveFwdAsync(ct).ConfigureAwait(false)
+                    : await cylinder.MoveBwdAsync(ct).ConfigureAwait(false);
+            }
+            finally
+            {
+                if (recipe != null)
+                {
+                    recipe.FwdTimeoutMs = originalFwdTimeout;
+                    recipe.BwdTimeoutMs = originalBwdTimeout;
+                }
+            }
+        }
+
+        private static string FormatCylinderState(BaseCylinder cylinder)
+        {
+            if (cylinder == null)
+                return "Cylinder=NULL.";
+
+            return "Cylinder=" + cylinder.Name +
+                   ", OutFwd=" + FormatOutputState(cylinder.OutFwd) +
+                   ", OutBwd=" + FormatOutputState(cylinder.OutBwd) +
+                   ", InFwd=" + FormatInputState(cylinder.InFwd) +
+                   ", InBwd=" + FormatInputState(cylinder.InBwd) +
+                   ", IsFwd=" + cylinder.IsFwd +
+                   ", IsBwd=" + cylinder.IsBwd +
+                   ", UseFwdSensor=" + (cylinder.Setup != null && cylinder.Setup.UseFwdSensor) +
+                   ", UseBwdSensor=" + (cylinder.Setup != null && cylinder.Setup.UseBwdSensor) +
+                   ", FwdTimeoutMs=" + (cylinder.Recipe != null ? cylinder.Recipe.FwdTimeoutMs : 0) +
+                   ", BwdTimeoutMs=" + (cylinder.Recipe != null ? cylinder.Recipe.BwdTimeoutMs : 0) +
+                   ".";
+        }
+
+        private static string FormatOutputState(BaseDigitalOutput output)
+        {
+            if (output == null)
+                return "NULL";
+
+            return output.Name + "=" + output.IsOn;
+        }
+
+        private static string FormatInputState(BaseDigitalInput input)
+        {
+            if (input == null)
+                return "NULL";
+
+            return input.Name + "=" + input.IsOn;
         }
 
         private static async Task<T> AwaitWithCancellation<T>(Task<T> task, CancellationToken ct)
@@ -971,30 +1114,50 @@ namespace QMC.CDT320
 
         public async Task<bool> WaitWaferFeederUp(int timeoutMs)
         {
+            return await WaitWaferFeederUp(timeoutMs, CancellationToken.None);
+        }
+
+        public async Task<bool> WaitWaferFeederUp(int timeoutMs, CancellationToken ct)
+        {
             if (ShouldBypassInputWaitInSimulation(WaferFeederUpSensor))
                 return true;
-            return await WaferFeederUpSensor.WaitUntilStateAsync(true, timeoutMs);
+            return await WaferFeederUpSensor.WaitUntilStateAsync(true, timeoutMs, ct);
         }
 
         public async Task<bool> WaitWaferFeederDown(int timeoutMs)
         {
+            return await WaitWaferFeederDown(timeoutMs, CancellationToken.None);
+        }
+
+        public async Task<bool> WaitWaferFeederDown(int timeoutMs, CancellationToken ct)
+        {
             if (ShouldBypassInputWaitInSimulation(WaferFeederDownSensor))
                 return true;
-            return await WaferFeederDownSensor.WaitUntilStateAsync(true, timeoutMs);
+            return await WaferFeederDownSensor.WaitUntilStateAsync(true, timeoutMs, ct);
         }
 
         public async Task<bool> WaitWaferFeederClamp(int timeoutMs)
         {
+            return await WaitWaferFeederClamp(timeoutMs, CancellationToken.None);
+        }
+
+        public async Task<bool> WaitWaferFeederClamp(int timeoutMs, CancellationToken ct)
+        {
             if (ShouldBypassInputWaitInSimulation(WaferFeederClampSensor))
                 return true;
-            return await WaferFeederClampSensor.WaitUntilStateAsync(false, timeoutMs);
+            return await WaferFeederClampSensor.WaitUntilStateAsync(false, timeoutMs, ct);
         }
 
         public async Task<bool> WaitWaferFeederUnclamp(int timeoutMs)
         {
+            return await WaitWaferFeederUnclamp(timeoutMs, CancellationToken.None);
+        }
+
+        public async Task<bool> WaitWaferFeederUnclamp(int timeoutMs, CancellationToken ct)
+        {
             if (ShouldBypassInputWaitInSimulation(WaferFeederClampSensor))
                 return true;
-            return await WaferFeederClampSensor.WaitUntilStateAsync(true, timeoutMs);
+            return await WaferFeederClampSensor.WaitUntilStateAsync(true, timeoutMs, ct);
         }
 
         public async Task<bool> WaitWaferFeederUnclamped(int timeoutMs)
@@ -1002,14 +1165,29 @@ namespace QMC.CDT320
             return await WaitWaferFeederUnclamp(timeoutMs);
         }
 
+        public async Task<bool> WaitWaferFeederUnclamped(int timeoutMs, CancellationToken ct)
+        {
+            return await WaitWaferFeederUnclamp(timeoutMs, ct);
+        }
+
         public async Task<bool> WaitWaferFeederRingClear(int timeoutMs)
         {
-            return await WaferFeederRingCheckSensor.WaitUntilStateAsync(false, timeoutMs);
+            return await WaitWaferFeederRingClear(timeoutMs, CancellationToken.None);
+        }
+
+        public async Task<bool> WaitWaferFeederRingClear(int timeoutMs, CancellationToken ct)
+        {
+            return await WaferFeederRingCheckSensor.WaitUntilStateAsync(false, timeoutMs, ct);
         }
 
         public async Task<bool> WaitWaferFeederRingState(bool expected, int timeoutMs)
         {
-            return await WaferFeederRingCheckSensor.WaitUntilStateAsync(expected, timeoutMs);
+            return await WaitWaferFeederRingState(expected, timeoutMs, CancellationToken.None);
+        }
+
+        public async Task<bool> WaitWaferFeederRingState(bool expected, int timeoutMs, CancellationToken ct)
+        {
+            return await WaferFeederRingCheckSensor.WaitUntilStateAsync(expected, timeoutMs, ct);
         }
 
         public bool CheckWaferFeederOverloadClear()
@@ -1148,7 +1326,7 @@ namespace QMC.CDT320
             result = await SetWaferFeederClampAsync(true, ResolveClampTimeoutMs(true), ct);
             if (result != 0) return result;
 
-            if (!await AwaitWithCancellation(WaitWaferFeederClamp(timeoutMs), ct))
+            if (!await WaitWaferFeederClamp(timeoutMs, ct))
                 return RaiseFeederAlarm("WF-LOAD-CLAMP-TIMEOUT", "WaferFeeder clamp sensor timeout.");
 
             if (!IsWaferFeederSimulationOrDryRun())
@@ -1230,7 +1408,7 @@ namespace QMC.CDT320
             if (result != 0)
                 return result;
 
-            if (!await AwaitWithCancellation(WaitWaferFeederRingState(false, timeoutMs), ct))
+            if (!await WaitWaferFeederRingState(false, timeoutMs, ct))
                 return RaiseFeederAlarm("WF-STAGE-LOAD-RING", "WaferFeeder ring remained after stage load.");
 
             WaferMaterial wafer = CurrentWaferMaterial;
@@ -1277,7 +1455,7 @@ namespace QMC.CDT320
             if (result != 0)
                 return result;
 
-            if (!await AwaitWithCancellation(WaitWaferFeederRingState(true, timeoutMs), ct))
+            if (!await WaitWaferFeederRingState(true, timeoutMs, ct))
                 return RaiseFeederAlarm("WF-STAGE-UNLOAD-RING", "WaferFeeder ring was not detected after stage unload.");
 
             SetCurrentWaferMaterial(wafer);
@@ -1316,10 +1494,10 @@ namespace QMC.CDT320
             result = await SetWaferFeederUpDownAsync(false, ResolveLiftTimeoutMs(false), ct);
             if (result != 0) return result;
 
-            if (!await AwaitWithCancellation(WaitWaferFeederUnclamp(timeoutMs), ct))
+            if (!await WaitWaferFeederUnclamp(timeoutMs, ct))
                 return RaiseFeederAlarm("WF-RETURN-UNCLAMP-TIMEOUT", "WaferFeeder unclamp sensor timeout.");
 
-            if (!await AwaitWithCancellation(WaitWaferFeederRingState(false, timeoutMs), ct))
+            if (!await WaitWaferFeederRingState(false, timeoutMs, ct))
                 return RaiseFeederAlarm("WF-RETURN-RING", "WaferFeeder ring remained after cassette unload.");
 
             WaferMaterial wafer = CurrentWaferMaterial;
@@ -2309,13 +2487,18 @@ namespace QMC.CDT320
 
         private static async Task<bool> WaitUntilAsync(Func<bool> condition, int timeoutMs)
         {
+            return await WaitUntilAsync(condition, timeoutMs, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        private static async Task<bool> WaitUntilAsync(Func<bool> condition, int timeoutMs, CancellationToken ct)
+        {
             int elapsed = 0;
             while (timeoutMs <= 0 || elapsed < timeoutMs)
             {
                 if (condition())
                     return true;
 
-                await Task.Delay(10).ContinueWith(_ => { });
+                await Task.Delay(10, ct).ConfigureAwait(false);
                 elapsed += 10;
             }
             return condition();

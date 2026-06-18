@@ -85,7 +85,7 @@ namespace QMC.Vision.Ui.Controls
             nameStyle.SelectionBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(221)))), ((int)(((byte)(235)))), ((int)(((byte)(255)))));
             nameStyle.SelectionForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(25)))), ((int)(((byte)(33)))), ((int)(((byte)(44)))));
             this.colName.DefaultCellStyle = nameStyle;
-            this.colName.FillWeight = 46F;
+            this.colName.FillWeight = 38F;
             this.colName.HeaderText = "PARAMETER";
             this.colName.Name = "colName";
             this.colName.ReadOnly = true;
@@ -100,7 +100,7 @@ namespace QMC.Vision.Ui.Controls
             valueStyle.SelectionBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(221)))), ((int)(((byte)(235)))), ((int)(((byte)(255)))));
             valueStyle.SelectionForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(25)))), ((int)(((byte)(29)))), ((int)(((byte)(34)))));
             this.colValue.DefaultCellStyle = valueStyle;
-            this.colValue.FillWeight = 29F;
+            this.colValue.FillWeight = 40F;
             this.colValue.HeaderText = "VALUE";
             this.colValue.Name = "colValue";
             this.colValue.ReadOnly = true;
@@ -115,7 +115,7 @@ namespace QMC.Vision.Ui.Controls
             unitStyle.SelectionBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(221)))), ((int)(((byte)(235)))), ((int)(((byte)(255)))));
             unitStyle.SelectionForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(86)))), ((int)(((byte)(91)))), ((int)(((byte)(99)))));
             this.colUnit.DefaultCellStyle = unitStyle;
-            this.colUnit.FillWeight = 10F;
+            this.colUnit.FillWeight = 9F;
             this.colUnit.HeaderText = "UNIT";
             this.colUnit.Name = "colUnit";
             this.colUnit.ReadOnly = true;
@@ -130,7 +130,7 @@ namespace QMC.Vision.Ui.Controls
             scopeStyle.SelectionBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(221)))), ((int)(((byte)(235)))), ((int)(((byte)(255)))));
             scopeStyle.SelectionForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(86)))), ((int)(((byte)(91)))), ((int)(((byte)(99)))));
             this.colScope.DefaultCellStyle = scopeStyle;
-            this.colScope.FillWeight = 15F;
+            this.colScope.FillWeight = 13F;
             this.colScope.HeaderText = "SCOPE";
             this.colScope.Name = "colScope";
             this.colScope.ReadOnly = true;

@@ -11,6 +11,7 @@ namespace QMC.Vision.Ui.Dialogs
         private Panel  _bar;
         private Button _btnReset;
         private Button _btnSave;
+        private Button _btnMeasure;
         private Button _btnClose;
         private Panel  _canvas;
 
@@ -26,6 +27,7 @@ namespace QMC.Vision.Ui.Dialogs
             this._bar = new Panel();
             this._btnReset = new Button();
             this._btnSave = new Button();
+            this._btnMeasure = new Button();
             this._btnClose = new Button();
             this._canvas = new Panel();
             this._bar.SuspendLayout();
@@ -63,8 +65,17 @@ namespace QMC.Vision.Ui.Dialogs
             this._btnSave.Font = new Font("맑은 고딕", 10F);
             this._btnSave.Click += new System.EventHandler(this.OnSaveClick);
 
+            // _btnMeasure (측정 토글)
+            this._btnMeasure.Location = new Point(222, 6);
+            this._btnMeasure.Size = new Size(100, 32);
+            this._btnMeasure.Text = "측정";
+            this._btnMeasure.FlatStyle = FlatStyle.Flat;
+            this._btnMeasure.BackColor = Color.White;
+            this._btnMeasure.Font = new Font("맑은 고딕", 10F);
+            this._btnMeasure.Click += new System.EventHandler(this.OnMeasureToggle);
+
             // _btnClose
-            this._btnClose.Location = new Point(222, 6);
+            this._btnClose.Location = new Point(328, 6);
             this._btnClose.Size = new Size(100, 32);
             this._btnClose.Text = "CLOSE";
             this._btnClose.FlatStyle = FlatStyle.Flat;
@@ -74,6 +85,7 @@ namespace QMC.Vision.Ui.Dialogs
 
             this._bar.Controls.Add(this._btnReset);
             this._bar.Controls.Add(this._btnSave);
+            this._bar.Controls.Add(this._btnMeasure);
             this._bar.Controls.Add(this._btnClose);
 
             // _canvas (Paint/Wheel/Mouse 이벤트 named 연결; SetStyle 더블버퍼는 Code.cs 생성자에서)

@@ -57,6 +57,12 @@ namespace QMC.CDT320
         /// <returns>처리 결과입니다.</returns>
         Task<bool> WaitPlaceDoneAsync(int timeoutMs = 3000);
 
+        /// <summary>TPU Place 완료를 취소 토큰과 함께 대기합니다.</summary>
+        /// <param name="timeoutMs">대기 시간입니다.</param>
+        /// <param name="ct">취소 토큰입니다.</param>
+        /// <returns>처리 결과입니다.</returns>
+        Task<bool> WaitPlaceDoneAsync(int timeoutMs, CancellationToken ct);
+
         /// <summary>다음 다이를 받을 준비가 되었음을 TPU에 알립니다.</summary>
         void NotifyReadyForNextDie();
 
@@ -191,113 +197,241 @@ namespace QMC.CDT320
 
         /// <summary>StageZ를 Avoid 위치로 이동합니다.</summary>
         /// <returns>처리 결과입니다.</returns>
-        public async Task<bool> MoveToAvoidPositionAsync()
+        public async Task<int> MoveToAvoidPositionAsync()
         {
-            if (!HasStageZ || StageZ == null)
-                return true;
-
-            if (IsAtAvoidPosition())
-                return true;
-
-            await StageZ.MoveAbsoluteAsync(Recipe.AvoidPositionZ, ResolveAxisVelocity(StageZ));
-
-            if (StageZ.IsAlarm)
+            try
             {
-                Console.WriteLine(
-                    "[ALARM] '" + Name + "' -> MoveToAvoidPosition: StageZ 하강 실패.");
-                return false;
-            }
+                if (!HasStageZ || StageZ == null)
+                    return 0;
 
-            AxisMoveWaitResult waitResult = await WaitAxisMoveDoneInPositionAsync(StageZ, Recipe.AvoidPositionZ).ConfigureAwait(false);
-            if (!waitResult.Success)
+                if (IsAtAvoidPosition())
+                    return 0;
+
+                int result = await StageZ.MoveAbsoluteAsync(Recipe.AvoidPositionZ, ResolveAxisVelocity(StageZ)).ConfigureAwait(false);
+                if (result != 0)
+                {
+                    AlarmManager.Raise(
+                        AlarmSeverity.Error,
+                        "OS-AVOIDZ-CMD",
+                        source: Name + ".MoveToAvoidPositionAsync",
+                        message: "StageZ 회피 위치 이동 명령 실패. result=" + result +
+                                 ", axis=" + StageZ.Name +
+                                 ", target=" + Recipe.AvoidPositionZ.ToString("F3"));
+                    return result;
+                }
+
+                if (StageZ.IsAlarm)
+                {
+                    Console.WriteLine(
+                        "[ALARM] '" + Name + "' -> MoveToAvoidPosition: StageZ 하강 실패.");
+                    AlarmManager.Raise(
+                        AlarmSeverity.Error,
+                        "OS-AVOIDZ-ALARM",
+                        source: Name + ".MoveToAvoidPositionAsync",
+                        message: "StageZ 회피 위치 이동 중 축 알람 발생. axis=" + StageZ.Name +
+                                 ", alarmCode=" + StageZ.AlarmCode);
+                    return -1;
+                }
+
+                AxisMoveWaitResult waitResult = await WaitAxisMoveDoneInPositionAsync(StageZ, Recipe.AvoidPositionZ).ConfigureAwait(false);
+                if (!waitResult.Success)
+                {
+                    AlarmManager.Raise(
+                        AlarmSeverity.Error,
+                        AxisMoveWaiter.ResolveAlarmCode("OS-AVOIDZ", waitResult),
+                        source: Name + ".MoveToAvoidPositionAsync",
+                        message: "StageZ 회피 위치 도착 확인 실패. " + AxisMoveWaiter.FormatResult(waitResult, StageZ.Name));
+                    return -1;
+                }
+
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
             {
                 AlarmManager.Raise(
                     AlarmSeverity.Error,
-                    AxisMoveWaiter.ResolveAlarmCode("OS-AVOIDZ", waitResult),
+                    "OS-AVOIDZ-EXCEPTION",
                     source: Name + ".MoveToAvoidPositionAsync",
-                    message: "StageZ avoid position wait failed. " + AxisMoveWaiter.FormatResult(waitResult, StageZ.Name));
-                return false;
+                    message: "StageZ 회피 위치 이동 처리 중 예외 발생. error=" + ex.Message);
+                return -1;
             }
-
-            return true;
+            finally
+            {
+            }
         }
 
         /// <summary>StageZ를 Work 위치로 이동합니다.</summary>
         /// <returns>처리 결과입니다.</returns>
-        public async Task<bool> MoveToWorkPositionAsync()
+        public async Task<int> MoveToWorkPositionAsync()
         {
-            if (!HasStageZ || StageZ == null)
-                return true;
-
-            await StageZ.MoveAbsoluteAsync(Recipe.WorkPositionZ, ResolveAxisVelocity(StageZ));
-
-            if (StageZ.IsAlarm)
+            try
             {
-                Console.WriteLine(
-                    "[ALARM] '" + Name + "' -> MoveToWorkPosition: StageZ 상승 실패.");
+                if (!HasStageZ || StageZ == null)
+                    return 0;
+
+                int result = await StageZ.MoveAbsoluteAsync(Recipe.WorkPositionZ, ResolveAxisVelocity(StageZ)).ConfigureAwait(false);
+                if (result != 0)
+                {
+                    AlarmManager.Raise(
+                        AlarmSeverity.Error,
+                        "OS-WORKZ-CMD",
+                        source: Name + ".MoveToWorkPositionAsync",
+                        message: "StageZ 작업 위치 이동 명령 실패. result=" + result +
+                                 ", axis=" + StageZ.Name +
+                                 ", target=" + Recipe.WorkPositionZ.ToString("F3"));
+                    return result;
+                }
+
+                if (StageZ.IsAlarm)
+                {
+                    Console.WriteLine(
+                        "[ALARM] '" + Name + "' -> MoveToWorkPosition: StageZ 상승 실패.");
+                    AlarmManager.Raise(
+                        AlarmSeverity.Error,
+                        "OS-WORKZ-ALARM",
+                        source: Name + ".MoveToWorkPositionAsync",
+                        message: "StageZ 작업 위치 이동 중 축 알람 발생. axis=" + StageZ.Name +
+                                 ", alarmCode=" + StageZ.AlarmCode);
+                    return -1;
+                }
+
+                AxisMoveWaitResult waitResult = await WaitAxisMoveDoneInPositionAsync(StageZ, Recipe.WorkPositionZ).ConfigureAwait(false);
+                if (!waitResult.Success)
+                {
+                    AlarmManager.Raise(
+                        AlarmSeverity.Error,
+                        AxisMoveWaiter.ResolveAlarmCode("OS-WORKZ", waitResult),
+                        source: Name + ".MoveToWorkPositionAsync",
+                        message: "StageZ 작업 위치 도착 확인 실패. " + AxisMoveWaiter.FormatResult(waitResult, StageZ.Name));
+                    return -1;
+                }
+
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
                 AlarmManager.Raise(
                     AlarmSeverity.Error,
-                    "OS-WORKZ",
+                    "OS-WORKZ-EXCEPTION",
                     source: Name + ".MoveToWorkPositionAsync",
-                    message: "StageZ 작업 위치 이동 실패 (axis code=" + StageZ.AlarmCode + ")");
-                return false;
+                    message: "StageZ 작업 위치 이동 처리 중 예외 발생. error=" + ex.Message);
+                return -1;
             }
-
-            AxisMoveWaitResult waitResult = await WaitAxisMoveDoneInPositionAsync(StageZ, Recipe.WorkPositionZ).ConfigureAwait(false);
-            if (!waitResult.Success)
+            finally
             {
-                AlarmManager.Raise(
-                    AlarmSeverity.Error,
-                    AxisMoveWaiter.ResolveAlarmCode("OS-WORKZ", waitResult),
-                    source: Name + ".MoveToWorkPositionAsync",
-                    message: "StageZ work position wait failed. " + AxisMoveWaiter.FormatResult(waitResult, StageZ.Name));
-                return false;
             }
-
-            return true;
         }
 
         /// <summary>StageY를 지정 위치로 이동합니다.</summary>
         /// <param name="targetY">목표 Y 위치입니다.</param>
         /// <returns>처리 결과입니다.</returns>
-        public async Task<bool> MoveYAsync(double targetY)
+        public async Task<int> MoveYAsync(double targetY)
         {
-            await StageY.MoveAbsoluteAsync(targetY, ResolveAxisVelocity(StageY));
-
-            if (StageY.IsAlarm)
+            try
             {
-                Console.WriteLine(
-                    "[ALARM] '" + Name + "' -> MoveY: StageY 이동 실패. " +
-                    "Target=" + targetY + "mm");
+                if (StageY == null)
+                {
+                    AlarmManager.Raise(
+                        AlarmSeverity.Error,
+                        "OS-MOVEY-NO-AXIS",
+                        source: Name + ".MoveYAsync",
+                        message: "StageY 축 객체가 없어 이동할 수 없습니다.");
+                    return -1;
+                }
+
+                int result = await StageY.MoveAbsoluteAsync(targetY, ResolveAxisVelocity(StageY)).ConfigureAwait(false);
+                if (result != 0)
+                {
+                    AlarmManager.Raise(
+                        AlarmSeverity.Error,
+                        "OS-MOVEY-CMD",
+                        source: Name + ".MoveYAsync",
+                        message: "StageY 이동 명령 실패. result=" + result +
+                                 ", axis=" + StageY.Name +
+                                 ", target=" + targetY.ToString("F3"));
+                    return result;
+                }
+
+                if (StageY.IsAlarm)
+                {
+                    Console.WriteLine(
+                        "[ALARM] '" + Name + "' -> MoveY: StageY 이동 실패. " +
+                        "Target=" + targetY + "mm");
+                    AlarmManager.Raise(
+                        AlarmSeverity.Error,
+                        "OS-MOVEY-ALARM",
+                        source: Name + ".MoveYAsync",
+                        message: "StageY 이동 중 축 알람 발생. target=" + targetY.ToString("F3") +
+                                 ", axis=" + StageY.Name +
+                                 ", alarmCode=" + StageY.AlarmCode);
+                    return -1;
+                }
+
+                AxisMoveWaitResult waitResult = await WaitAxisMoveDoneInPositionAsync(StageY, targetY).ConfigureAwait(false);
+                if (!waitResult.Success)
+                {
+                    AlarmManager.Raise(
+                        AlarmSeverity.Error,
+                        AxisMoveWaiter.ResolveAlarmCode("OS-MOVEY", waitResult),
+                        source: Name + ".MoveYAsync",
+                        message: "StageY 이동 완료/위치 확인 실패. target=" + targetY.ToString("F3") + ". " +
+                                 AxisMoveWaiter.FormatResult(waitResult, StageY.Name));
+                    return -1;
+                }
+
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
                 AlarmManager.Raise(
                     AlarmSeverity.Error,
-                    "OS-MOVEY",
+                    "OS-MOVEY-EXCEPTION",
                     source: Name + ".MoveYAsync",
-                    message: "StageY 이동 실패 (Target=" + targetY.ToString("F3") +
-                             "mm, axis code=" + StageY.AlarmCode + ")");
-                return false;
+                    message: "StageY 이동 처리 중 예외 발생. target=" + targetY.ToString("F3") +
+                             ", error=" + ex.Message);
+                return -1;
             }
-
-            AxisMoveWaitResult waitResult = await WaitAxisMoveDoneInPositionAsync(StageY, targetY).ConfigureAwait(false);
-            if (!waitResult.Success)
+            finally
             {
-                AlarmManager.Raise(
-                    AlarmSeverity.Error,
-                    AxisMoveWaiter.ResolveAlarmCode("OS-MOVEY", waitResult),
-                    source: Name + ".MoveYAsync",
-                    message: "StageY move wait failed. target=" + targetY.ToString("F3") + ". " +
-                             AxisMoveWaiter.FormatResult(waitResult, StageY.Name));
-                return false;
             }
-
-            return true;
         }
 
         /// <summary>StageY를 Home 위치로 이동합니다.</summary>
         /// <returns>처리 결과입니다.</returns>
-        public async Task<bool> MoveToHomeAsync()
+        public async Task<int> MoveToHomeAsync()
         {
-            return await MoveYAsync(Recipe.HomePositionY);
+            try
+            {
+                return await MoveYAsync(Recipe.HomePositionY).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                AlarmManager.Raise(
+                    AlarmSeverity.Error,
+                    "OS-HOMEY-EXCEPTION",
+                    source: Name + ".MoveToHomeAsync",
+                    message: "StageY Home 위치 이동 처리 중 예외 발생. error=" + ex.Message);
+                return -1;
+            }
+            finally
+            {
+            }
         }
 
         private double ResolveAxisVelocity(BaseAxis axis)
@@ -923,40 +1057,119 @@ namespace QMC.CDT320
 
         public async Task<bool> WaitStageAxisMoveDone(BinStageAxis axis, int timeoutMs)
         {
-            AxisMoveWaitResult waitResult = await WaitStageAxisMoveDoneInPosition(axis, timeoutMs).ConfigureAwait(false);
-            return waitResult.Success;
+            return await WaitStageAxisMoveDone(axis, timeoutMs, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        public async Task<bool> WaitStageAxisMoveDone(BinStageAxis axis, int timeoutMs, CancellationToken ct)
+        {
+            try
+            {
+                AxisMoveWaitResult waitResult = await WaitStageAxisMoveDoneInPosition(axis, timeoutMs, ct).ConfigureAwait(false);
+                return waitResult.Success;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "OutputStageUnit",
+                    "OutputStage axis move wait failed. axis=" + axis + ", error=" + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
         }
 
         public async Task<AxisMoveWaitResult> WaitStageAxisMoveDoneInPosition(BinStageAxis axis, int timeoutMs)
         {
-            if (!HasStageAxis(axis))
-                return new AxisMoveWaitResult(AxisMoveWaitFailure.None, axis + " axis does not exist.", string.Empty);
+            return await WaitStageAxisMoveDoneInPosition(axis, timeoutMs, CancellationToken.None).ConfigureAwait(false);
+        }
 
-            BaseAxis item = ResolveStageAxis(axis);
-            return await WaitStageAxisMoveDoneInPosition(axis, item.CommandPosition, timeoutMs).ConfigureAwait(false);
+        public async Task<AxisMoveWaitResult> WaitStageAxisMoveDoneInPosition(BinStageAxis axis, int timeoutMs, CancellationToken ct)
+        {
+            try
+            {
+                if (!HasStageAxis(axis))
+                    return new AxisMoveWaitResult(AxisMoveWaitFailure.None, axis + " axis does not exist.", string.Empty);
+
+                BaseAxis item = ResolveStageAxis(axis);
+                return await WaitStageAxisMoveDoneInPosition(axis, item.CommandPosition, timeoutMs, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "OutputStageUnit",
+                    "OutputStage axis move/in-position wait failed. axis=" + axis + ", error=" + ex.Message + " - Failed");
+                return new AxisMoveWaitResult(
+                    AxisMoveWaitFailure.Timeout,
+                    "OutputStage axis move wait exception.",
+                    "axis=" + axis + ", error=" + ex.Message);
+            }
+            finally
+            {
+            }
         }
 
         public async Task<AxisMoveWaitResult> WaitStageAxisMoveDoneInPosition(BinStageAxis axis, double targetPos, int timeoutMs)
         {
-            if (!HasStageAxis(axis))
-                return new AxisMoveWaitResult(AxisMoveWaitFailure.None, axis + " axis does not exist.", string.Empty);
+            return await WaitStageAxisMoveDoneInPosition(axis, targetPos, timeoutMs, CancellationToken.None).ConfigureAwait(false);
+        }
 
-            BaseAxis item = ResolveStageAxis(axis);
-            double tolerance = item.Config != null && item.Config.InPositionTolerance > 0.0
-                ? item.Config.InPositionTolerance
-                : 0.05;
-            return await AxisMoveWaiter.WaitMoveDoneInPositionAsync(
-                item,
-                targetPos,
-                tolerance,
-                timeoutMs,
-                0).ConfigureAwait(false);
+        public async Task<AxisMoveWaitResult> WaitStageAxisMoveDoneInPosition(BinStageAxis axis, double targetPos, int timeoutMs, CancellationToken ct)
+        {
+            try
+            {
+                if (!HasStageAxis(axis))
+                    return new AxisMoveWaitResult(AxisMoveWaitFailure.None, axis + " axis does not exist.", string.Empty);
+
+                BaseAxis item = ResolveStageAxis(axis);
+                double tolerance = item.Config != null && item.Config.InPositionTolerance > 0.0
+                    ? item.Config.InPositionTolerance
+                    : 0.05;
+                return await AxisMoveWaiter.WaitMoveDoneInPositionAsync(
+                    item,
+                    targetPos,
+                    tolerance,
+                    timeoutMs,
+                    0,
+                    ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "OutputStageUnit",
+                    "OutputStage axis move/in-position wait failed. axis=" + axis +
+                    ", target=" + targetPos +
+                    ", error=" + ex.Message + " - Failed");
+                return new AxisMoveWaitResult(
+                    AxisMoveWaitFailure.Timeout,
+                    "OutputStage axis move wait exception.",
+                    "axis=" + axis + ", target=" + targetPos + ", error=" + ex.Message);
+            }
+            finally
+            {
+            }
         }
 
         public async Task<int> MoveToStageLoadPositionAndVerifyAsync(BinSide side, int timeoutMs, bool bFine = false)
         {
+            return await MoveToStageLoadPositionAndVerifyAsync(side, timeoutMs, bFine, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        public async Task<int> MoveToStageLoadPositionAndVerifyAsync(BinSide side, int timeoutMs, bool bFine, CancellationToken ct)
+        {
             try
             {
+                ct.ThrowIfCancellationRequested();
+
                 if (side == BinSide.Good &&
                     HasStageAxis(BinStageAxis.GoodBinZ) &&
                     !IsGoodStageZInAvoidOrProcessPosition())
@@ -965,7 +1178,8 @@ namespace QMC.CDT320
                         BinStageAxis.GoodBinZ,
                         Recipe.GoodStageZ.ProcessPosition,
                         timeoutMs,
-                        bFine).ConfigureAwait(false);
+                        bFine,
+                        ct).ConfigureAwait(false);
                     if (zSafeResult != 0)
                         return zSafeResult;
                 }
@@ -973,14 +1187,18 @@ namespace QMC.CDT320
                 BinStageAxis yAxis = side == BinSide.Ng ? BinStageAxis.NgBinY : BinStageAxis.GoodBinY;
                 double yTarget = side == BinSide.Ng ? Recipe.NGStageY.LoadPosition : Recipe.GoodStageY.LoadPosition;
 
-                int result = await MoveStageAxisAndVerifyAsync(yAxis, yTarget, timeoutMs, bFine);
+                int result = await MoveStageAxisAndVerifyAsync(yAxis, yTarget, timeoutMs, bFine, ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
                 if (side == BinSide.Ng)
                     return 0;
 
-                return await MoveStageAxisAndVerifyAsync(BinStageAxis.GoodBinZ, Recipe.GoodStageZ.LoadPosition, timeoutMs, bFine);
+                return await MoveStageAxisAndVerifyAsync(BinStageAxis.GoodBinZ, Recipe.GoodStageZ.LoadPosition, timeoutMs, bFine, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
@@ -1042,17 +1260,28 @@ namespace QMC.CDT320
 
         public async Task<int> MoveToStageUnloadPositionAndVerifyAsync(BinSide side, int timeoutMs, bool bFine = false)
         {
+            return await MoveToStageUnloadPositionAndVerifyAsync(side, timeoutMs, bFine, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        public async Task<int> MoveToStageUnloadPositionAndVerifyAsync(BinSide side, int timeoutMs, bool bFine, CancellationToken ct)
+        {
             try
             {
+                ct.ThrowIfCancellationRequested();
+
                 Recipe.EnsurePositionObjects();
                 if (side == BinSide.Ng)
-                    return await MoveStageAxisAndVerifyAsync(BinStageAxis.NgBinY, Recipe.NGStageY.UnloadPosition, timeoutMs, bFine);
+                    return await MoveStageAxisAndVerifyAsync(BinStageAxis.NgBinY, Recipe.NGStageY.UnloadPosition, timeoutMs, bFine, ct).ConfigureAwait(false);
 
-                int result = await MoveStageAxisAndVerifyAsync(BinStageAxis.GoodBinY, Recipe.GoodStageY.UnloadPosition, timeoutMs, bFine);
+                int result = await MoveStageAxisAndVerifyAsync(BinStageAxis.GoodBinY, Recipe.GoodStageY.UnloadPosition, timeoutMs, bFine, ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
-                return await MoveStageAxisAndVerifyAsync(BinStageAxis.GoodBinZ, Recipe.GoodStageZ.UnloadPosition, timeoutMs, bFine);
+                return await MoveStageAxisAndVerifyAsync(BinStageAxis.GoodBinZ, Recipe.GoodStageZ.UnloadPosition, timeoutMs, bFine, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
@@ -1085,10 +1314,20 @@ namespace QMC.CDT320
 
         public async Task<int> MoveVisionXToAvoidAndVerifyAsync(int timeoutMs, bool bFine = false)
         {
+            return await MoveVisionXToAvoidAndVerifyAsync(timeoutMs, bFine, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        public async Task<int> MoveVisionXToAvoidAndVerifyAsync(int timeoutMs, bool bFine, CancellationToken ct)
+        {
             try
             {
+                ct.ThrowIfCancellationRequested();
                 Recipe.EnsurePositionObjects();
-                return await MoveStageAxisAndVerifyAsync(BinStageAxis.VisionX, Recipe.VisionX.AvoidPosition, timeoutMs, bFine);
+                return await MoveStageAxisAndVerifyAsync(BinStageAxis.VisionX, Recipe.VisionX.AvoidPosition, timeoutMs, bFine, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
@@ -1101,16 +1340,23 @@ namespace QMC.CDT320
 
         public async Task<int> EnsureStageMutualInterlockForLoadAsync(BinSide side, int timeoutMs, bool bFine = false)
         {
+            return await EnsureStageMutualInterlockForLoadAsync(side, timeoutMs, bFine, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        public async Task<int> EnsureStageMutualInterlockForLoadAsync(BinSide side, int timeoutMs, bool bFine, CancellationToken ct)
+        {
             try
             {
-                int result = await EnsureBinGuideClampLiftUpAsync(BinSide.Ng, timeoutMs);
+                ct.ThrowIfCancellationRequested();
+
+                int result = await EnsureBinGuideClampLiftUpAsync(BinSide.Ng, timeoutMs, ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
                 if (!IsBinGuideClampLiftUp(BinSide.Ng))
                     return RaiseOutputStageAlarm("OS-NG-CLAMP-UP", "NG Bin Clamp Lift must be up before output stage load movement.");
 
-                result = await EnsureBinGuideDownAsync(BinSide.Good, timeoutMs);
+                result = await EnsureBinGuideDownAsync(BinSide.Good, timeoutMs, ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
@@ -1127,19 +1373,23 @@ namespace QMC.CDT320
 
                 if (!IsGoodStageZInAvoidPosition())
                 {
-                    result = await MoveGoodStageZToAvoidAndVerifyAsync(timeoutMs, bFine);
+                    result = await MoveGoodStageZToAvoidAndVerifyAsync(timeoutMs, bFine, ct).ConfigureAwait(false);
                     if (result != 0)
                         return result;
                 }
 
                 if (side != BinSide.Ng && !IsNgStageInAvoidPosition())
                 {
-                    result = await MoveNgStageToAvoidAndVerifyAsync(timeoutMs, bFine);
+                    result = await MoveNgStageToAvoidAndVerifyAsync(timeoutMs, bFine, ct).ConfigureAwait(false);
                     if (result != 0)
                         return result;
                 }
 
                 return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
@@ -1225,10 +1475,20 @@ namespace QMC.CDT320
 
         public async Task<int> MoveGoodStageZToAvoidAndVerifyAsync(int timeoutMs, bool bFine = false)
         {
+            return await MoveGoodStageZToAvoidAndVerifyAsync(timeoutMs, bFine, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        public async Task<int> MoveGoodStageZToAvoidAndVerifyAsync(int timeoutMs, bool bFine, CancellationToken ct)
+        {
             try
             {
+                ct.ThrowIfCancellationRequested();
                 Recipe.EnsurePositionObjects();
-                return await MoveStageAxisAndVerifyAsync(BinStageAxis.GoodBinZ, Recipe.GoodStageZ.AvoidPosition, timeoutMs, bFine);
+                return await MoveStageAxisAndVerifyAsync(BinStageAxis.GoodBinZ, Recipe.GoodStageZ.AvoidPosition, timeoutMs, bFine, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
@@ -1241,10 +1501,20 @@ namespace QMC.CDT320
 
         public async Task<int> MoveNgStageToAvoidAndVerifyAsync(int timeoutMs, bool bFine = false)
         {
+            return await MoveNgStageToAvoidAndVerifyAsync(timeoutMs, bFine, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        public async Task<int> MoveNgStageToAvoidAndVerifyAsync(int timeoutMs, bool bFine, CancellationToken ct)
+        {
             try
             {
+                ct.ThrowIfCancellationRequested();
                 Recipe.EnsurePositionObjects();
-                return await MoveStageAxisAndVerifyAsync(BinStageAxis.NgBinY, Recipe.NGStageY.AvoidPosition, timeoutMs, bFine);
+                return await MoveStageAxisAndVerifyAsync(BinStageAxis.NgBinY, Recipe.NGStageY.AvoidPosition, timeoutMs, bFine, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
@@ -1257,32 +1527,62 @@ namespace QMC.CDT320
 
         public async Task<int> EnsureBinGuideUpAsync(BinSide side, int timeoutMs)
         {
-            return await EnsureCylinderStateAsync(ResolveBinGuideLiftCylinder(side), true, timeoutMs, ResolveSideName(side) + " Bin Guide Up");
+            return await EnsureBinGuideUpAsync(side, timeoutMs, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        public async Task<int> EnsureBinGuideUpAsync(BinSide side, int timeoutMs, CancellationToken ct)
+        {
+            return await EnsureCylinderStateAsync(ResolveBinGuideLiftCylinder(side), true, timeoutMs, ResolveSideName(side) + " Bin Guide Up", ct).ConfigureAwait(false);
         }
 
         public async Task<int> EnsureBinGuideDownAsync(BinSide side, int timeoutMs)
         {
-            return await EnsureCylinderStateAsync(ResolveBinGuideLiftCylinder(side), false, timeoutMs, ResolveSideName(side) + " Bin Guide Down");
+            return await EnsureBinGuideDownAsync(side, timeoutMs, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        public async Task<int> EnsureBinGuideDownAsync(BinSide side, int timeoutMs, CancellationToken ct)
+        {
+            return await EnsureCylinderStateAsync(ResolveBinGuideLiftCylinder(side), false, timeoutMs, ResolveSideName(side) + " Bin Guide Down", ct).ConfigureAwait(false);
         }
 
         public async Task<int> EnsureBinGuideClampLiftDownAsync(BinSide side, int timeoutMs)
         {
-            return await EnsureCylinderStateAsync(ResolveBinGuideClampLiftCylinder(side), false, timeoutMs, ResolveSideName(side) + " Bin Clamp Lift Down");
+            return await EnsureBinGuideClampLiftDownAsync(side, timeoutMs, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        public async Task<int> EnsureBinGuideClampLiftDownAsync(BinSide side, int timeoutMs, CancellationToken ct)
+        {
+            return await EnsureCylinderStateAsync(ResolveBinGuideClampLiftCylinder(side), false, timeoutMs, ResolveSideName(side) + " Bin Clamp Lift Down", ct).ConfigureAwait(false);
         }
 
         public async Task<int> EnsureBinGuideClampLiftUpAsync(BinSide side, int timeoutMs)
         {
-            return await EnsureCylinderStateAsync(ResolveBinGuideClampLiftCylinder(side), true, timeoutMs, ResolveSideName(side) + " Bin Clamp Lift Up");
+            return await EnsureBinGuideClampLiftUpAsync(side, timeoutMs, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        public async Task<int> EnsureBinGuideClampLiftUpAsync(BinSide side, int timeoutMs, CancellationToken ct)
+        {
+            return await EnsureCylinderStateAsync(ResolveBinGuideClampLiftCylinder(side), true, timeoutMs, ResolveSideName(side) + " Bin Clamp Lift Up", ct).ConfigureAwait(false);
         }
 
         public async Task<int> EnsureBinGuideUnclampedAsync(BinSide side, int timeoutMs)
         {
-            return await EnsureCylinderStateAsync(ResolveBinGuideClampCylinder(side), false, timeoutMs, ResolveSideName(side) + " Bin Guide Unclamp");
+            return await EnsureBinGuideUnclampedAsync(side, timeoutMs, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        public async Task<int> EnsureBinGuideUnclampedAsync(BinSide side, int timeoutMs, CancellationToken ct)
+        {
+            return await EnsureCylinderStateAsync(ResolveBinGuideClampCylinder(side), false, timeoutMs, ResolveSideName(side) + " Bin Guide Unclamp", ct).ConfigureAwait(false);
         }
 
         public async Task<int> EnsureBinGuideClampedAsync(BinSide side, int timeoutMs)
         {
-            return await EnsureCylinderStateAsync(ResolveBinGuideClampCylinder(side), true, timeoutMs, ResolveSideName(side) + " Bin Guide Clamp");
+            return await EnsureBinGuideClampedAsync(side, timeoutMs, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        public async Task<int> EnsureBinGuideClampedAsync(BinSide side, int timeoutMs, CancellationToken ct)
+        {
+            return await EnsureCylinderStateAsync(ResolveBinGuideClampCylinder(side), true, timeoutMs, ResolveSideName(side) + " Bin Guide Clamp", ct).ConfigureAwait(false);
         }
 
         public bool IsBinGuideUp(BinSide side)
@@ -1447,6 +1747,13 @@ namespace QMC.CDT320
 
         private async Task<int> MoveStageAxisAndVerifyAsync(BinStageAxis axis, double targetPos, int timeoutMs, bool bFine)
         {
+            return await MoveStageAxisAndVerifyAsync(axis, targetPos, timeoutMs, bFine, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        private async Task<int> MoveStageAxisAndVerifyAsync(BinStageAxis axis, double targetPos, int timeoutMs, bool bFine, CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+
             if (!HasStageAxis(axis))
                 return 0;
 
@@ -1454,7 +1761,7 @@ namespace QMC.CDT320
             if (result != 0)
                 return result;
 
-            AxisMoveWaitResult waitResult = await WaitStageAxisMoveDoneInPosition(axis, targetPos, timeoutMs).ConfigureAwait(false);
+            AxisMoveWaitResult waitResult = await WaitStageAxisMoveDoneInPosition(axis, targetPos, timeoutMs, ct).ConfigureAwait(false);
             if (!waitResult.Success)
                 return RaiseOutputStageAlarm(
                     AxisMoveWaiter.ResolveAlarmCode("OS-MOVE", waitResult),
@@ -1476,8 +1783,15 @@ namespace QMC.CDT320
 
         private async Task<int> EnsureCylinderStateAsync(BaseCylinder cylinder, bool fwd, int timeoutMs, string description)
         {
+            return await EnsureCylinderStateAsync(cylinder, fwd, timeoutMs, description, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        private async Task<int> EnsureCylinderStateAsync(BaseCylinder cylinder, bool fwd, int timeoutMs, string description, CancellationToken ct)
+        {
             try
             {
+                ct.ThrowIfCancellationRequested();
+
                 if (cylinder == null)
                     return RaiseOutputStageAlarm("OS-CYL-MISSING", description + " 실린더가 등록되어 있지 않습니다.");
 
@@ -1489,6 +1803,8 @@ namespace QMC.CDT320
                 bool already = fwd ? cylinder.IsFwd : cylinder.IsBwd;
                 if (already)
                     return 0;
+
+                ct.ThrowIfCancellationRequested();
 
                 bool ok = fwd ? await cylinder.MoveFwdAsync() : await cylinder.MoveBwdAsync();
                 if (!ok)
@@ -1504,7 +1820,7 @@ namespace QMC.CDT320
                     }
 
                     return fwd ? cylinder.IsFwd : cylinder.IsBwd;
-                }, timeoutMs);
+                }, timeoutMs, ct);
                 if (!refreshOk)
                     return RaiseOutputStageAlarm("OS-CYL-INPUT", description + " 실린더 입력 갱신 실패.");
 
@@ -1512,6 +1828,10 @@ namespace QMC.CDT320
                     return RaiseOutputStageAlarm("OS-CYL-TIMEOUT", description + " 실린더 센서 대기 시간 초과.");
 
                 return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
@@ -1739,13 +2059,18 @@ namespace QMC.CDT320
 
         private static async Task<bool> WaitUntilAsync(Func<bool> condition, int timeoutMs)
         {
+            return await WaitUntilAsync(condition, timeoutMs, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        private static async Task<bool> WaitUntilAsync(Func<bool> condition, int timeoutMs, CancellationToken ct)
+        {
             int elapsed = 0;
             while (timeoutMs <= 0 || elapsed < timeoutMs)
             {
                 if (condition())
                     return true;
 
-                await Task.Delay(10).ContinueWith(_ => { });
+                await Task.Delay(10, ct).ConfigureAwait(false);
                 elapsed += 10;
             }
             return condition();
@@ -1764,54 +2089,75 @@ namespace QMC.CDT320
         /// <summary>대상 StageY 이동 전 반대쪽 스테이지 Z가 Avoid 위치인지 보장합니다.</summary>
         /// <param name="targetStage">이동 대상 스테이지입니다.</param>
         /// <returns>처리 결과입니다.</returns>
-        private async Task<bool> EnsureOppositeStageAvoidedAsync(StageModule targetStage)
+        private async Task<int> EnsureOppositeStageAvoidedAsync(StageModule targetStage)
         {
-            StageModule opposite = GetOppositeStage(targetStage);
-
-            if (opposite == null)
-                return true;
-
-            if (!opposite.HasStageZ || opposite.StageZ == null)
+            try
             {
+                StageModule opposite = GetOppositeStage(targetStage);
+
+                if (opposite == null)
+                    return 0;
+
+                if (!opposite.HasStageZ || opposite.StageZ == null)
+                {
+                    Console.WriteLine(
+                        "[INFO]  '" + Name + "' -> Interlock: '" + opposite.Name +
+                        "' has no StageZ. Z avoid interlock skipped.");
+                    return 0;
+                }
+
+                if (opposite.IsAtAvoidPosition())
+                {
+                    Console.WriteLine(
+                        "[INFO]  '" + Name + "' -> Interlock: '" + opposite.Name +
+                        "' 이미 회피 위치입니다. 추가 동작 불필요.");
+                    return 0;
+                }
+
+                Console.WriteLine(
+                    "[WARN]  '" + Name + "' -> Interlock: '" + opposite.Name +
+                    "' Z=" + AxisUnitConverter.FormatDisplay(opposite.StageZ.ActualPosition, opposite.StageZ, "0.###", true) +
+                    ", 회피 위치 아님. 강제 하강 시작.");
+
+                int avoidResult = await opposite.MoveToAvoidPositionAsync().ConfigureAwait(false);
+
+                if (avoidResult != 0)
+                {
+                    Console.WriteLine(
+                        "[ALARM] '" + Name + "' -> Interlock: '" + opposite.Name +
+                        "' 회피 하강 실패. '" + targetStage.Name + "' StageY 이동 중단.");
+                    AlarmManager.Raise(
+                        AlarmSeverity.Error,
+                        "OS-AVOID",
+                        source: Name + ".EnsureOppositeStageAvoidedAsync",
+                        message: "반대쪽 스테이지(" + opposite.Name + ") 회피 하강 실패. '" +
+                                 targetStage.Name + "' StageY 이동 중단. result=" + avoidResult);
+                    return avoidResult;
+                }
+
                 Console.WriteLine(
                     "[INFO]  '" + Name + "' -> Interlock: '" + opposite.Name +
-                    "' has no StageZ. Z avoid interlock skipped.");
-                return true;
+                    "' 회피 완료. '" + targetStage.Name + "' StageY 이동 가능.");
+                return 0;
             }
-
-            if (opposite.IsAtAvoidPosition())
+            catch (OperationCanceledException)
             {
-                Console.WriteLine(
-                    "[INFO]  '" + Name + "' -> Interlock: '" + opposite.Name +
-                    "' 이미 회피 위치입니다. 추가 동작 불필요.");
-                return true;
+                throw;
             }
-
-            Console.WriteLine(
-                "[WARN]  '" + Name + "' -> Interlock: '" + opposite.Name +
-                "' Z=" + AxisUnitConverter.FormatDisplay(opposite.StageZ.ActualPosition, opposite.StageZ, "0.###", true) +
-                ", 회피 위치 아님. 강제 하강 시작.");
-
-            bool avoidOk = await opposite.MoveToAvoidPositionAsync();
-
-            if (!avoidOk)
+            catch (Exception ex)
             {
-                Console.WriteLine(
-                    "[ALARM] '" + Name + "' -> Interlock: '" + opposite.Name +
-                    "' 회피 하강 실패. '" + targetStage.Name + "' StageY 이동 중단.");
                 AlarmManager.Raise(
                     AlarmSeverity.Error,
-                    "OS-AVOID",
+                    "OS-AVOID-EXCEPTION",
                     source: Name + ".EnsureOppositeStageAvoidedAsync",
-                    message: "반대쪽 스테이지(" + opposite.Name + ") 회피 하강 실패. '" +
-                             targetStage.Name + "' StageY 이동 중단");
-                return false;
+                    message: "반대쪽 스테이지 회피 처리 중 예외 발생. target=" +
+                             (targetStage != null ? targetStage.Name : "-") +
+                             ", error=" + ex.Message);
+                return -1;
             }
-
-            Console.WriteLine(
-                "[INFO]  '" + Name + "' -> Interlock: '" + opposite.Name +
-                "' 회피 완료. '" + targetStage.Name + "' StageY 이동 가능.");
-            return true;
+            finally
+            {
+            }
         }
 
         // ======================================================================
@@ -1831,8 +2177,8 @@ namespace QMC.CDT320
                 ", TpuOffsetY=" + request.TpuOffsetY.ToString("F3") +
                 ", VisionOffsetY=" + request.VisionOffsetY.ToString("F3"));
 
-            bool interlockOk = await EnsureOppositeStageAvoidedAsync(target);
-            if (!interlockOk)
+            int interlockResult = await EnsureOppositeStageAvoidedAsync(target).ConfigureAwait(false);
+            if (interlockResult != 0)
                 return false;
 
             if (target.HasStageZ && target.StageZ != null)
@@ -1841,8 +2187,8 @@ namespace QMC.CDT320
                     "[INFO]  '" + Name + "' -> '" + target.Name +
                     "' StageZ 작업 위치로 상승 중...");
 
-                bool workZOk = await target.MoveToWorkPositionAsync();
-                if (!workZOk)
+                int workZResult = await target.MoveToWorkPositionAsync().ConfigureAwait(false);
+                if (workZResult != 0)
                     return false;
             }
             else
@@ -1865,8 +2211,8 @@ namespace QMC.CDT320
                 " + TpuY=" + request.TpuOffsetY.ToString("F3") +
                 " + VisionY=" + request.VisionOffsetY.ToString("F3") + ")");
 
-            bool moveYOk = await target.MoveYAsync(finalY);
-            if (!moveYOk)
+            int moveYResult = await target.MoveYAsync(finalY).ConfigureAwait(false);
+            if (moveYResult != 0)
                 return false;
 
             Tpu.NotifyPlaceReady();
@@ -1881,73 +2227,104 @@ namespace QMC.CDT320
 
         /// <summary>TPU Place 완료 후 BinCamera로 안착 상태를 검사합니다.</summary>
         /// <returns>처리 결과입니다.</returns>
-        public async Task<bool> InspectBinPositionAsync()
+        public async Task<int> InspectBinPositionAsync()
         {
-            Console.WriteLine("[INFO]  '" + Name + "' -> Bin 검사 시작. TPU Place 완료 대기 중...");
+            return await InspectBinPositionAsync(CancellationToken.None).ConfigureAwait(false);
+        }
 
-            bool placeDone = await Tpu.WaitPlaceDoneAsync();
-            if (!placeDone)
+        /// <summary>TPU Place 완료 후 BinCamera로 안착 상태를 검사합니다.</summary>
+        /// <returns>처리 결과입니다.</returns>
+        public async Task<int> InspectBinPositionAsync(CancellationToken ct)
+        {
+            try
             {
+                ct.ThrowIfCancellationRequested();
+
+                Console.WriteLine("[INFO]  '" + Name + "' -> Bin 검사 시작. TPU Place 완료 대기 중...");
+
+                bool placeDone = await Tpu.WaitPlaceDoneAsync(3000, ct).ConfigureAwait(false);
+                if (!placeDone)
+                {
+                    Console.WriteLine(
+                        "[ALARM] '" + Name + "' -> InspectBin: TPU Place 완료 대기 타임아웃");
+                    AlarmManager.Raise(
+                        AlarmSeverity.Warning,
+                        "OS-PLACEDONE",
+                        source: Name + ".InspectBinPositionAsync",
+                        message: "TPU Place 완료 대기 타임아웃");
+                    return -1;
+                }
+
+                Console.WriteLine("[INFO]  '" + Name + "' -> TPU 후퇴 확인. BinCamera 진입 중...");
+
+                int moveResult = await MoveStageAxisAndVerifyAsync(
+                    BinStageAxis.VisionX,
+                    Recipe.VisionX.ProcessPosition,
+                    OutputCameraX != null && OutputCameraX.Setup != null ? OutputCameraX.Setup.MoveTimeoutMs : 10000,
+                    false,
+                    ct).ConfigureAwait(false);
+
+                if (moveResult != 0)
+                {
+                    Console.WriteLine(
+                        "[ALARM] '" + Name + "' -> InspectBin: BinCameraX 진입 실패.");
+                    AlarmManager.Raise(
+                        AlarmSeverity.Error,
+                        "OS-BINCAM",
+                        source: Name + ".InspectBinPositionAsync",
+                        message: "BinCameraX 검사 위치 진입 실패 (axis code=" +
+                                 OutputCameraX.AlarmCode + ")");
+                    return moveResult;
+                }
+
+                Console.WriteLine("[INFO]  '" + Name + "' -> BinCamera 안착 검사 수행 중...");
+                SimulatorBridge.Instance?.CameraExposeFlash("BIN");
+                await Task.Delay(20, ct).ConfigureAwait(false); // 촬상 소요 시간 시뮬레이션
+                Console.WriteLine("[INFO]  '" + Name + "' -> BinCamera 검사 완료. 즉시 후퇴.");
+
+                moveResult = await MoveStageAxisAndVerifyAsync(
+                    BinStageAxis.VisionX,
+                    Recipe.VisionX.AvoidPosition,
+                    OutputCameraX != null && OutputCameraX.Setup != null ? OutputCameraX.Setup.MoveTimeoutMs : 10000,
+                    false,
+                    ct).ConfigureAwait(false);
+
+                if (moveResult != 0)
+                {
+                    Console.WriteLine(
+                        "[ALARM] '" + Name + "' -> InspectBin: BinCameraX 후퇴 실패.");
+                    AlarmManager.Raise(
+                        AlarmSeverity.Error,
+                        "OS-BINCAM",
+                        source: Name + ".InspectBinPositionAsync",
+                        message: "BinCameraX 대기 위치 후퇴 실패 (axis code=" +
+                                 OutputCameraX.AlarmCode + ")");
+                    return moveResult;
+                }
+
+                Tpu.NotifyReadyForNextDie();
                 Console.WriteLine(
-                    "[ALARM] '" + Name + "' -> InspectBin: TPU Place 완료 대기 타임아웃");
-                AlarmManager.Raise(
-                    AlarmSeverity.Warning,
-                    "OS-PLACEDONE",
-                    source: Name + ".InspectBinPositionAsync",
-                    message: "TPU Place 완료 대기 타임아웃");
-                return false;
+                    "[INFO]  '" + Name + "' -> TPU에 다음 다이 수신 가능 통보 완료.");
+
+                return 0;
             }
-
-            Console.WriteLine("[INFO]  '" + Name + "' -> TPU 후퇴 확인. BinCamera 진입 중...");
-
-            int moveResult = await MoveStageAxisAndVerifyAsync(
-                BinStageAxis.VisionX,
-                Recipe.VisionX.ProcessPosition,
-                OutputCameraX != null && OutputCameraX.Setup != null ? OutputCameraX.Setup.MoveTimeoutMs : 10000,
-                false).ConfigureAwait(false);
-
-            if (moveResult != 0)
+            catch (OperationCanceledException)
             {
-                Console.WriteLine(
-                    "[ALARM] '" + Name + "' -> InspectBin: BinCameraX 진입 실패.");
+                throw;
+            }
+            catch (Exception ex)
+            {
                 AlarmManager.Raise(
                     AlarmSeverity.Error,
-                    "OS-BINCAM",
+                    "OS-BINCAM-EXCEPTION",
                     source: Name + ".InspectBinPositionAsync",
-                    message: "BinCameraX 검사 위치 진입 실패 (axis code=" +
-                             OutputCameraX.AlarmCode + ")");
-                return false;
+                    message: "BinCamera 검사 중 예외가 발생했습니다. error=" + ex.Message);
+                return -1;
             }
-
-            Console.WriteLine("[INFO]  '" + Name + "' -> BinCamera 안착 검사 수행 중...");
-            SimulatorBridge.Instance?.CameraExposeFlash("BIN");
-            await Task.Delay(20).ContinueWith(_ => { }); // 촬상 소요 시간 시뮬레이션
-            Console.WriteLine("[INFO]  '" + Name + "' -> BinCamera 검사 완료. 즉시 후퇴.");
-
-            moveResult = await MoveStageAxisAndVerifyAsync(
-                BinStageAxis.VisionX,
-                Recipe.VisionX.AvoidPosition,
-                OutputCameraX != null && OutputCameraX.Setup != null ? OutputCameraX.Setup.MoveTimeoutMs : 10000,
-                false).ConfigureAwait(false);
-
-            if (moveResult != 0)
+            finally
             {
-                Console.WriteLine(
-                    "[ALARM] '" + Name + "' -> InspectBin: BinCameraX 후퇴 실패.");
-                AlarmManager.Raise(
-                    AlarmSeverity.Error,
-                    "OS-BINCAM",
-                    source: Name + ".InspectBinPositionAsync",
-                    message: "BinCameraX 대기 위치 후퇴 실패 (axis code=" +
-                             OutputCameraX.AlarmCode + ")");
-                return false;
+                Console.WriteLine("[INFO]  '" + Name + "' -> Bin 검사 종료.");
             }
-
-            Tpu.NotifyReadyForNextDie();
-            Console.WriteLine(
-                "[INFO]  '" + Name + "' -> TPU에 다음 다이 수신 가능 통보 완료.");
-
-            return true;
         }
 
         // ======================================================================
@@ -1964,8 +2341,8 @@ namespace QMC.CDT320
                 "[INFO]  '" + Name + "' -> WaferChange: Grade=" + grade +
                 " Bin Full. 교체 위치 이동 시작.");
 
-            bool interlockOk = await EnsureOppositeStageAvoidedAsync(target);
-            if (!interlockOk)
+            int interlockResult = await EnsureOppositeStageAvoidedAsync(target).ConfigureAwait(false);
+            if (interlockResult != 0)
                 return false;
 
             if (target.HasStageZ && target.StageZ != null)
@@ -1974,8 +2351,8 @@ namespace QMC.CDT320
                     "[INFO]  '" + Name + "' -> '" + target.Name +
                     "' StageZ 회피 위치 하강 중...");
 
-                bool avoidOk = await target.MoveToAvoidPositionAsync();
-                if (!avoidOk)
+                int avoidResult = await target.MoveToAvoidPositionAsync().ConfigureAwait(false);
+                if (avoidResult != 0)
                     return false;
             }
             else
@@ -1990,8 +2367,8 @@ namespace QMC.CDT320
                 "' 교체 위치(Y=" + target.Recipe.UnloadPositionY.ToString("F1") +
                 "mm)로 이동 중...");
 
-            bool moveOk = await target.MoveYAsync(target.Recipe.UnloadPositionY);
-            if (!moveOk)
+            int moveResult = await target.MoveYAsync(target.Recipe.UnloadPositionY).ConfigureAwait(false);
+            if (moveResult != 0)
                 return false;
 
             Console.WriteLine(
@@ -2021,16 +2398,16 @@ namespace QMC.CDT320
         {
             Console.WriteLine("[INFO]  '" + Name + "' -> 콜렛 클리닝 시작. NgStage 더미 영역으로 이동.");
 
-            bool interlockOk = await EnsureOppositeStageAvoidedAsync(NgStage);
-            if (!interlockOk)
+            int interlockResult = await EnsureOppositeStageAvoidedAsync(NgStage).ConfigureAwait(false);
+            if (interlockResult != 0)
                 return false;
 
             Console.WriteLine(
                 "[INFO]  '" + Name + "' -> NgStage StageY ??CleaningPositionY=" +
                 NgStage.Recipe.CleaningPositionY.ToString("F1") + "mm 이동 중...");
 
-            bool cleaningMoveOk = await NgStage.MoveYAsync(NgStage.Recipe.CleaningPositionY);
-            if (!cleaningMoveOk)
+            int cleaningMoveResult = await NgStage.MoveYAsync(NgStage.Recipe.CleaningPositionY).ConfigureAwait(false);
+            if (cleaningMoveResult != 0)
                 return false;
 
             Console.WriteLine(
@@ -2057,8 +2434,8 @@ namespace QMC.CDT320
             Console.WriteLine(
                 "[INFO]  '" + Name + "' -> NgStage StageY 원위치 복귀 중...");
 
-            bool homeOk = await NgStage.MoveToHomeAsync();
-            if (!homeOk)
+            int homeResult = await NgStage.MoveToHomeAsync().ConfigureAwait(false);
+            if (homeResult != 0)
             {
                 Console.WriteLine(
                     "[ALARM] '" + Name + "' -> ColletCleaning: NgStage 복귀 실패.");

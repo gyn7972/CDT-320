@@ -378,10 +378,11 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        protected async Task<int> ScanSlotsAsync(TStep nextStep)
+        protected async Task<int> ScanSlotsAsync(TStep nextStep, CancellationToken ct)
         {
             try
             {
+                ct.ThrowIfCancellationRequested();
                 var cassette = Cassette;
                 if (cassette == null)
                     return Fail("IN-CST-MISSING", "InputCassette", "Input cassette unit is not available.");
@@ -393,7 +394,7 @@ namespace QMC.CDT320.Sequencing
                 }
                 else
                 {
-                    int result = await cassette.WaferScanFromCurrentStart(ResolveMoveTimeout(cassette), Options.FineMove).ConfigureAwait(false);
+                    int result = await cassette.WaferScanFromCurrentStart(ResolveMoveTimeout(cassette), Options.FineMove, ct).ConfigureAwait(false);
                     if (result != 0) return Fail("IN-CST-SCAN", cassette.Name, "Wafer scan failed. result=" + result);
                 }
 
@@ -482,8 +483,9 @@ namespace QMC.CDT320.Sequencing
                 if (cassette == null)
                     return Fail(alarmPrefix + "-UNIT-MISSING", "InputCassette", description + " wait failed. Input cassette unit is null.");
 
-                AxisMoveWaitResult waitResult = await AwaitStepWithCancellationAsync(
-                    cassette.WaitWaferLifterZMoveDoneInPosition(target, ResolveMoveTimeout(cassette)),
+                AxisMoveWaitResult waitResult = await cassette.WaitWaferLifterZMoveDoneInPosition(
+                    target,
+                    ResolveMoveTimeout(cassette),
                     ct).ConfigureAwait(false);
                 if (waitResult.Success)
                     return 0;
@@ -728,34 +730,34 @@ namespace QMC.CDT320.Sequencing
 
         private static async Task<int> AwaitStepWithCancellationAsync(Task<int> stepTask, CancellationToken ct)
         {
-            if (stepTask == null)
-                return -1;
-
-            if (stepTask.IsCompleted)
-                return await stepTask.ConfigureAwait(false);
-
-            Task cancelTask = Task.Delay(Timeout.Infinite, ct);
-            Task completed = await Task.WhenAny(stepTask, cancelTask).ConfigureAwait(false);
-            if (!ReferenceEquals(completed, stepTask))
-                ct.ThrowIfCancellationRequested();
-
-            return await stepTask.ConfigureAwait(false);
+            try
+            {
+                return await SequenceAwaiter.AwaitIntAsync(stepTask, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            finally
+            {
+            }
         }
 
         private static async Task<AxisMoveWaitResult> AwaitStepWithCancellationAsync(Task<AxisMoveWaitResult> stepTask, CancellationToken ct)
         {
-            if (stepTask == null)
-                return new AxisMoveWaitResult(AxisMoveWaitFailure.AxisMissing, "Step task is null.", string.Empty);
-
-            if (stepTask.IsCompleted)
-                return await stepTask.ConfigureAwait(false);
-
-            Task cancelTask = Task.Delay(Timeout.Infinite, ct);
-            Task completed = await Task.WhenAny(stepTask, cancelTask).ConfigureAwait(false);
-            if (!ReferenceEquals(completed, stepTask))
-                ct.ThrowIfCancellationRequested();
-
-            return await stepTask.ConfigureAwait(false);
+            try
+            {
+                AxisMoveWaitResult defaultValue =
+                    new AxisMoveWaitResult(AxisMoveWaitFailure.AxisMissing, "Step task is null.", string.Empty);
+                return await SequenceAwaiter.AwaitAsync(stepTask, defaultValue, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            finally
+            {
+            }
         }
 
         private static bool IsStep(TStep left, TStep right)

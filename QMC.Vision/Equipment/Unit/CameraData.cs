@@ -28,6 +28,26 @@ namespace QMC.Vision.Modules
         [DataMember] public int    RoiWidth          { get; set; }
         [DataMember] public int    RoiHeight         { get; set; }
 
+        // ── 픽셀↔mm 스케일 / 좌표변환 (모듈별, 310 VisionScale 정렬) ──
+        /// <summary>X 스케일 mm/pixel.</summary>
+        [DataMember] public double ScaleX             { get; set; }
+        /// <summary>Y 스케일 mm/pixel.</summary>
+        [DataMember] public double ScaleY             { get; set; }
+        /// <summary>카메라 90° 회전 장착 — 결과 X↔Y 스왑.</summary>
+        [DataMember] public bool   IsRotated          { get; set; }
+        /// <summary>X 부호 반전.</summary>
+        [DataMember] public bool   InvertedX          { get; set; }
+        /// <summary>Y 부호 반전.</summary>
+        [DataMember] public bool   InvertedY          { get; set; }
+        /// <summary>MATCH 응답 좌표를 mm 로 변환해 반환.</summary>
+        [DataMember] public bool   ReturnMmCoordinates{ get; set; }
+
+        // ── 캘리브레이션 입력(칩 실제 치수) — '스케일 계산' 버튼이 이 값으로 산출 ──
+        /// <summary>칩 실제 가로(mm). 스케일 자동계산 입력.</summary>
+        [DataMember] public double CalibChipWidthMm  { get; set; }
+        /// <summary>칩 실제 세로(mm). 스케일 자동계산 입력.</summary>
+        [DataMember] public double CalibChipHeightMm { get; set; }
+
         [OnDeserializing] private void OnDeserializing(StreamingContext ctx) => SetDefaults();
         private void SetDefaults()
         {
@@ -38,6 +58,10 @@ namespace QMC.Vision.Modules
             PixelFormat = string.Empty;
             DelayBeforeGrabMs = 0;
             RoiOffsetX = 0; RoiOffsetY = 0; RoiWidth = 0; RoiHeight = 0;
+            ScaleX = 1.0; ScaleY = 1.0;
+            IsRotated = false; InvertedX = false; InvertedY = false;
+            ReturnMmCoordinates = false;
+            CalibChipWidthMm = 0; CalibChipHeightMm = 0;
         }
 
         public CameraConfig() { SetDefaults(); }

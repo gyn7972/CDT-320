@@ -1,4 +1,4 @@
-using System.Drawing;
+﻿using System.Drawing;
 using System.Windows.Forms;
 using QMC.Vision.Ui.Controls;   // CameraView
 
@@ -11,6 +11,7 @@ namespace QMC.Vision.Ui.Pages
         // 3행 레이아웃(헤더 / 모듈 상태카드 / 모니터링) — Dock 적층 모호성 제거용 루트 TLP.
         private TableLayoutPanel _root;
         private Label            _hdr;
+        private Button           _btnRun;        // RUN / STOP 토글
         private TableLayoutPanel _cardsHost;   // 5열 — 모듈 상태카드(런타임 채움, 비클릭)
 
         // 모니터링: 메인(Bottom) 1개 크게 + 나머지 4개 2×2
@@ -34,113 +35,216 @@ namespace QMC.Vision.Ui.Pages
 
         private void InitializeComponent()
         {
-            this._root      = new TableLayoutPanel();
-            this._hdr       = new Label();
-            this._cardsHost = new TableLayoutPanel();
-            this._monitor   = new TableLayoutPanel();
-            this._camBig    = new CameraView();
-            this._smallHost = new TableLayoutPanel();
-            this._camS1     = new CameraView();
-            this._camS2     = new CameraView();
-            this._camS3     = new CameraView();
-            this._camS4     = new CameraView();
-
+            this._root = new System.Windows.Forms.TableLayoutPanel();
+            this._hdr = new System.Windows.Forms.Label();
+            this._btnRun = new System.Windows.Forms.Button();
+            this._cardsHost = new System.Windows.Forms.TableLayoutPanel();
+            this._monitor = new System.Windows.Forms.TableLayoutPanel();
+            this._camBig = new QMC.Vision.Ui.Controls.CameraView();
+            this._smallHost = new System.Windows.Forms.TableLayoutPanel();
+            this._camS1 = new QMC.Vision.Ui.Controls.CameraView();
+            this._camS2 = new QMC.Vision.Ui.Controls.CameraView();
+            this._camS3 = new QMC.Vision.Ui.Controls.CameraView();
+            this._camS4 = new QMC.Vision.Ui.Controls.CameraView();
             this._root.SuspendLayout();
+            this._hdr.SuspendLayout();
             this._monitor.SuspendLayout();
             this._smallHost.SuspendLayout();
             this.SuspendLayout();
-
-            // _root — 3행(30 헤더 / 92 카드 / 나머지 모니터링)
-            this._root.Dock = DockStyle.Fill;
+            // 
+            // _root
+            // 
+            this._root.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(191)))), ((int)(((byte)(191)))), ((int)(((byte)(191)))));
             this._root.ColumnCount = 1;
-            this._root.RowCount = 3;
-            this._root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            this._root.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
-            this._root.RowStyles.Add(new RowStyle(SizeType.Absolute, 92F));
-            this._root.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-            this._root.BackColor = UiTheme.MainBg;
-            this._root.Controls.Add(this._hdr,       0, 0);
+            this._root.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this._root.Controls.Add(this._hdr, 0, 0);
             this._root.Controls.Add(this._cardsHost, 0, 1);
-            this._root.Controls.Add(this._monitor,   0, 2);
-
-            // _hdr — 주황 섹션 헤더
-            this._hdr.Dock = DockStyle.Fill;
+            this._root.Controls.Add(this._monitor, 0, 2);
+            this._root.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._root.Location = new System.Drawing.Point(0, 0);
+            this._root.Name = "_root";
+            this._root.RowCount = 3;
+            this._root.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 30F));
+            this._root.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 92F));
+            this._root.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this._root.Size = new System.Drawing.Size(1379, 865);
+            this._root.TabIndex = 0;
+            // 
+            // _hdr
+            // 
+            this._hdr.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(217)))), ((int)(((byte)(119)))), ((int)(((byte)(6)))));
+            this._hdr.Controls.Add(this._btnRun);
+            this._hdr.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._hdr.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
+            this._hdr.ForeColor = System.Drawing.Color.White;
+            this._hdr.Location = new System.Drawing.Point(0, 0);
+            this._hdr.Margin = new System.Windows.Forms.Padding(0);
+            this._hdr.Name = "_hdr";
+            this._hdr.Padding = new System.Windows.Forms.Padding(10, 0, 0, 0);
+            this._hdr.Size = new System.Drawing.Size(1379, 30);
+            this._hdr.TabIndex = 0;
             this._hdr.Text = "작업 — 모니터링";
-            this._hdr.BackColor = UiTheme.StatusBarBg;
-            this._hdr.ForeColor = UiTheme.StatusBarFg;
-            this._hdr.Font = UiTheme.SectionFont;
-            this._hdr.TextAlign = ContentAlignment.MiddleLeft;
-            this._hdr.Padding = new Padding(10, 0, 0, 0);
-            this._hdr.Margin = new Padding(0);
-
-            // _cardsHost — 5열 균등(카드는 런타임 생성, 비클릭)
-            this._cardsHost.Dock = DockStyle.Fill;
-            this._cardsHost.BackColor = UiTheme.MainBg;
+            this._hdr.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // _btnRun
+            // 
+            this._btnRun.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(31)))), ((int)(((byte)(157)))), ((int)(((byte)(77)))));
+            this._btnRun.Dock = System.Windows.Forms.DockStyle.Right;
+            this._btnRun.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this._btnRun.Font = new System.Drawing.Font("맑은 고딕", 9.5F, System.Drawing.FontStyle.Bold);
+            this._btnRun.ForeColor = System.Drawing.Color.White;
+            this._btnRun.Location = new System.Drawing.Point(1283, 0);
+            this._btnRun.Margin = new System.Windows.Forms.Padding(0);
+            this._btnRun.Name = "_btnRun";
+            this._btnRun.Size = new System.Drawing.Size(96, 30);
+            this._btnRun.TabIndex = 0;
+            this._btnRun.Text = "RUN";
+            this._btnRun.UseVisualStyleBackColor = false;
+            this._btnRun.Click += new System.EventHandler(this.OnRunToggleClick);
+            // 
+            // _cardsHost
+            // 
+            this._cardsHost.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(191)))), ((int)(((byte)(191)))), ((int)(((byte)(191)))));
             this._cardsHost.ColumnCount = 5;
+            this._cardsHost.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 20F));
+            this._cardsHost.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 20F));
+            this._cardsHost.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 20F));
+            this._cardsHost.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 20F));
+            this._cardsHost.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 20F));
+            this._cardsHost.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._cardsHost.Location = new System.Drawing.Point(0, 30);
+            this._cardsHost.Margin = new System.Windows.Forms.Padding(0);
+            this._cardsHost.Name = "_cardsHost";
+            this._cardsHost.Padding = new System.Windows.Forms.Padding(2);
             this._cardsHost.RowCount = 1;
-            this._cardsHost.Margin = new Padding(0);
-            this._cardsHost.Padding = new Padding(2);
-            for (int i = 0; i < 5; i++)
-                this._cardsHost.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 20F));
-            this._cardsHost.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-
-            // _monitor — 2열(메인 58% / 4분할 42%)
-            this._monitor.Dock = DockStyle.Fill;
-            this._monitor.BackColor = UiTheme.MainBg;
+            this._cardsHost.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this._cardsHost.Size = new System.Drawing.Size(1379, 92);
+            this._cardsHost.TabIndex = 1;
+            // 
+            // _monitor
+            // 
+            this._monitor.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(191)))), ((int)(((byte)(191)))), ((int)(((byte)(191)))));
             this._monitor.ColumnCount = 2;
-            this._monitor.RowCount = 1;
-            this._monitor.Margin = new Padding(0);
-            this._monitor.Padding = new Padding(4);
-            this._monitor.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 58F));
-            this._monitor.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 42F));
-            this._monitor.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-            this._monitor.Controls.Add(this._camBig,    0, 0);
+            this._monitor.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 58F));
+            this._monitor.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 42F));
+            this._monitor.Controls.Add(this._camBig, 0, 0);
             this._monitor.Controls.Add(this._smallHost, 1, 0);
-
-            // _camBig — 메인(Bottom Inspection)
-            this._camBig.Dock = DockStyle.Fill;
-            this._camBig.Margin = new Padding(3);
+            this._monitor.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._monitor.Location = new System.Drawing.Point(0, 122);
+            this._monitor.Margin = new System.Windows.Forms.Padding(0);
+            this._monitor.Name = "_monitor";
+            this._monitor.Padding = new System.Windows.Forms.Padding(4);
+            this._monitor.RowCount = 1;
+            this._monitor.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this._monitor.Size = new System.Drawing.Size(1379, 743);
+            this._monitor.TabIndex = 2;
+            // 
+            // _camBig
+            // 
+            this._camBig.BackColor = System.Drawing.Color.Black;
+            this._camBig.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._camBig.InfoText = "BOTTOM INSPECTION (MAIN)\r\nGrab 대기";
+            this._camBig.Location = new System.Drawing.Point(7, 7);
+            this._camBig.MmPerPixelX = 0D;
+            this._camBig.MmPerPixelY = 0D;
+            this._camBig.Name = "_camBig";
             this._camBig.ShowCrosshair = true;
             this._camBig.ShowLiveLabel = true;
-            this._camBig.InfoText = "BOTTOM INSPECTION (MAIN)\r\nGrab 대기";
-
-            // _smallHost — 2×2
-            this._smallHost.Dock = DockStyle.Fill;
-            this._smallHost.BackColor = UiTheme.MainBg;
+            this._camBig.ShowToolbar = false;
+            this._camBig.Size = new System.Drawing.Size(789, 729);
+            this._camBig.TabIndex = 0;
+            // 
+            // _smallHost
+            // 
+            this._smallHost.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(191)))), ((int)(((byte)(191)))), ((int)(((byte)(191)))));
             this._smallHost.ColumnCount = 2;
-            this._smallHost.RowCount = 2;
-            this._smallHost.Margin = new Padding(0);
-            this._smallHost.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
-            this._smallHost.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
-            this._smallHost.RowStyles.Add(new RowStyle(SizeType.Percent, 50F));
-            this._smallHost.RowStyles.Add(new RowStyle(SizeType.Percent, 50F));
+            this._smallHost.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this._smallHost.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 50F));
             this._smallHost.Controls.Add(this._camS1, 0, 0);
             this._smallHost.Controls.Add(this._camS2, 1, 0);
             this._smallHost.Controls.Add(this._camS3, 0, 1);
             this._smallHost.Controls.Add(this._camS4, 1, 1);
-
-            ConfigureSmallCam(this._camS1, "WAFER VISION");
-            ConfigureSmallCam(this._camS2, "BIN VISION");
-            ConfigureSmallCam(this._camS3, "TOP SIDE");
-            ConfigureSmallCam(this._camS4, "BOTTOM SIDE");
-
+            this._smallHost.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._smallHost.Location = new System.Drawing.Point(799, 4);
+            this._smallHost.Margin = new System.Windows.Forms.Padding(0);
+            this._smallHost.Name = "_smallHost";
+            this._smallHost.RowCount = 2;
+            this._smallHost.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this._smallHost.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 50F));
+            this._smallHost.Size = new System.Drawing.Size(576, 735);
+            this._smallHost.TabIndex = 1;
+            // 
+            // _camS1
+            // 
+            this._camS1.BackColor = System.Drawing.Color.Black;
+            this._camS1.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._camS1.InfoText = "WAFER VISION\r\nGrab 대기";
+            this._camS1.Location = new System.Drawing.Point(3, 3);
+            this._camS1.MmPerPixelX = 0D;
+            this._camS1.MmPerPixelY = 0D;
+            this._camS1.Name = "_camS1";
+            this._camS1.ShowCrosshair = false;
+            this._camS1.ShowLiveLabel = false;
+            this._camS1.ShowToolbar = false;
+            this._camS1.Size = new System.Drawing.Size(282, 361);
+            this._camS1.TabIndex = 0;
+            // 
+            // _camS2
+            // 
+            this._camS2.BackColor = System.Drawing.Color.Black;
+            this._camS2.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._camS2.InfoText = "BIN VISION\r\nGrab 대기";
+            this._camS2.Location = new System.Drawing.Point(291, 3);
+            this._camS2.MmPerPixelX = 0D;
+            this._camS2.MmPerPixelY = 0D;
+            this._camS2.Name = "_camS2";
+            this._camS2.ShowCrosshair = false;
+            this._camS2.ShowLiveLabel = false;
+            this._camS2.ShowToolbar = false;
+            this._camS2.Size = new System.Drawing.Size(282, 361);
+            this._camS2.TabIndex = 1;
+            // 
+            // _camS3
+            // 
+            this._camS3.BackColor = System.Drawing.Color.Black;
+            this._camS3.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._camS3.InfoText = "TOP SIDE\r\nGrab 대기";
+            this._camS3.Location = new System.Drawing.Point(3, 370);
+            this._camS3.MmPerPixelX = 0D;
+            this._camS3.MmPerPixelY = 0D;
+            this._camS3.Name = "_camS3";
+            this._camS3.ShowCrosshair = false;
+            this._camS3.ShowLiveLabel = false;
+            this._camS3.ShowToolbar = false;
+            this._camS3.Size = new System.Drawing.Size(282, 362);
+            this._camS3.TabIndex = 2;
+            // 
+            // _camS4
+            // 
+            this._camS4.BackColor = System.Drawing.Color.Black;
+            this._camS4.Dock = System.Windows.Forms.DockStyle.Fill;
+            this._camS4.InfoText = "BOTTOM SIDE\r\nGrab 대기";
+            this._camS4.Location = new System.Drawing.Point(291, 370);
+            this._camS4.MmPerPixelX = 0D;
+            this._camS4.MmPerPixelY = 0D;
+            this._camS4.Name = "_camS4";
+            this._camS4.ShowCrosshair = false;
+            this._camS4.ShowLiveLabel = false;
+            this._camS4.ShowToolbar = false;
+            this._camS4.Size = new System.Drawing.Size(282, 362);
+            this._camS4.TabIndex = 3;
+            // 
             // OperationPage
+            // 
             this.Controls.Add(this._root);
             this.Name = "OperationPage";
-
-            this._smallHost.ResumeLayout(false);
-            this._monitor.ResumeLayout(false);
+            this.Size = new System.Drawing.Size(1379, 865);
             this._root.ResumeLayout(false);
+            this._hdr.ResumeLayout(false);
+            this._monitor.ResumeLayout(false);
+            this._smallHost.ResumeLayout(false);
             this.ResumeLayout(false);
-        }
 
-        private static void ConfigureSmallCam(CameraView cam, string title)
-        {
-            cam.Dock = DockStyle.Fill;
-            cam.Margin = new Padding(3);
-            cam.ShowCrosshair = false;
-            cam.ShowLiveLabel = false;
-            cam.InfoText = title + "\r\nGrab 대기";
         }
     }
 }

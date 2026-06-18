@@ -57,6 +57,17 @@ namespace QMC.Common.Recipes
         [DataMember] public int RoiWidth   { get; set; } = 0;
         [DataMember] public int RoiHeight  { get; set; } = 0;
 
+        // 픽셀↔mm 스케일 / 좌표변환 (모듈별)
+        [DataMember] public double ScaleX             { get; set; } = 1.0;
+        [DataMember] public double ScaleY             { get; set; } = 1.0;
+        [DataMember] public bool   IsRotated          { get; set; } = false;
+        [DataMember] public bool   InvertedX          { get; set; } = false;
+        [DataMember] public bool   InvertedY          { get; set; } = false;
+        [DataMember] public bool   ReturnMmCoordinates{ get; set; } = false;
+        // 캘리브레이션 입력(칩 실제 치수)
+        [DataMember] public double CalibChipWidthMm   { get; set; } = 0;
+        [DataMember] public double CalibChipHeightMm  { get; set; } = 0;
+
         public bool IsRoiFull => RoiWidth <= 0 || RoiHeight <= 0;
         public System.Drawing.Rectangle ToRectangle()
             => new System.Drawing.Rectangle(RoiOffsetX, RoiOffsetY, RoiWidth, RoiHeight);
@@ -72,7 +83,11 @@ namespace QMC.Common.Recipes
                 TriggerMode = TriggerMode, PixelFormat = PixelFormat,
                 DelayBeforeGrabMs = DelayBeforeGrabMs,
                 RoiOffsetX = RoiOffsetX, RoiOffsetY = RoiOffsetY,
-                RoiWidth = RoiWidth, RoiHeight = RoiHeight
+                RoiWidth = RoiWidth, RoiHeight = RoiHeight,
+                ScaleX = ScaleX, ScaleY = ScaleY,
+                IsRotated = IsRotated, InvertedX = InvertedX, InvertedY = InvertedY,
+                ReturnMmCoordinates = ReturnMmCoordinates,
+                CalibChipWidthMm = CalibChipWidthMm, CalibChipHeightMm = CalibChipHeightMm
             };
     }
 

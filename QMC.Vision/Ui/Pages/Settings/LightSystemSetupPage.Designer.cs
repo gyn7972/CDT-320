@@ -9,14 +9,15 @@ namespace QMC.Vision.Ui.Pages
         private System.ComponentModel.IContainer components = null;
 
         // 헤더 / 툴바 / 상태
-        private Label           _hdr;
-        private FlowLayoutPanel _bar;
+        private Label _hdr;
+        private TableLayoutPanel _bar;   // 하단 버튼 툴바 (GENERAL 동일 프레임)
         private Button _btnSave, _btnReload, _btnAddCtrl, _btnDelCtrl, _btnMigrate, _btnRename, _btnConnect, _btnDisc;
         // _lblStatus 는 Code 측 partial 에 이미 선언됨
 
         // 레이아웃 컨테이너 (C3b-3: 결선 섹션 제거 — 컨트롤러 인벤토리만)
         private TableLayoutPanel _body;
         private Label _lblSecCtrl, _lblSecLabel;
+        private Panel _lnSec1, _lnSec2;   // 섹션 타이틀 주황 밑줄 (GENERAL _ln 스타일)
         // 그리드는 Code 측 partial 에 이미 선언됨 (_gridCtrl, _gridLabel)
 
         // LFine 하드웨어 모드(SM) — 런타임 송신 (LightControllerMode 잔재의 Mode 컬럼 대체)
@@ -40,7 +41,7 @@ namespace QMC.Vision.Ui.Pages
         private void InitializeComponent()
         {
             this._hdr = new Label();
-            this._bar = new FlowLayoutPanel();
+            this._bar = new TableLayoutPanel();
             this._btnSave = new Button(); this._btnReload = new Button();
             this._btnAddCtrl = new Button(); this._btnDelCtrl = new Button();
             this._btnMigrate = new Button(); this._btnRename = new Button();
@@ -48,6 +49,7 @@ namespace QMC.Vision.Ui.Pages
             this._lblStatus = new Label();
             this._body = new TableLayoutPanel();
             this._lblSecCtrl = new Label(); this._lblSecLabel = new Label();
+            this._lnSec1 = new Panel(); this._lnSec2 = new Panel();
             this._gridCtrl = new DataGridView();
             this._gridLabel = new DataGridView();
             this._colPort = new DataGridViewTextBoxColumn(); this._colName = new DataGridViewTextBoxColumn();
@@ -64,38 +66,110 @@ namespace QMC.Vision.Ui.Pages
 
             this._bar.SuspendLayout();
             this._body.SuspendLayout();
+            this._lblSecCtrl.SuspendLayout();
+            this._lblSecLabel.SuspendLayout();
             ((ISupportInitialize)this._gridCtrl).BeginInit();
             ((ISupportInitialize)this._gridLabel).BeginInit();
             this.SuspendLayout();
 
             this.BackColor = UiTheme.MainBg;
+            this.Padding = new Padding(12, 8, 12, 8);
 
-            // ── 헤더 ──
+            // ── 상단 주황 헤더 (GENERAL 동일) ──
             this._hdr.Dock = DockStyle.Top;
-            this._hdr.Height = 30;
-            this._hdr.Text = "조명 시스템 설정 — 컨트롤러 인벤토리 (한 번 설정 후 거의 변경 없음)   ※ 검사별 컨트롤러/페이지 지정은 [설정>검사], 밝기/On-Off 는 [레시피]";
-            this._hdr.BackColor = UiTheme.StatusBarBg;
+            this._hdr.Height = 38;
+            this._hdr.Text = "조명 셋업";
+            this._hdr.Tag = "i18n:set.lightSetup";
+            this._hdr.BackColor = Color.FromArgb(217, 119, 6);
             this._hdr.ForeColor = Color.White;
-            this._hdr.Font = UiTheme.SectionFont;
+            this._hdr.Font = new Font("맑은 고딕", 12F, FontStyle.Bold);
             this._hdr.TextAlign = ContentAlignment.MiddleLeft;
             this._hdr.Padding = new Padding(10, 0, 0, 0);
 
-            // ── 툴바 (FlowLayoutPanel — 좌→우 균일 간격, 절대좌표/겹침 제거) ──
-            this._bar.Dock = DockStyle.Top;
-            this._bar.Height = 40;
-            this._bar.BackColor = Color.WhiteSmoke;
-            this._bar.FlowDirection = FlowDirection.LeftToRight;
-            this._bar.WrapContents = false;
-            this._bar.Padding = new Padding(6, 4, 6, 0);
-            ConfigureBarBtn(this._btnSave, "저장", 100, true);
-            ConfigureBarBtn(this._btnReload, "취소", 100, false);
-            ConfigureBarBtn(this._btnAddCtrl, "컨트롤러 추가", 120, false);
-            ConfigureBarBtn(this._btnDelCtrl, "컨트롤러 삭제", 120, false);
-            ConfigureBarBtn(this._btnMigrate, "io_set 가져오기", 130, false);
-            ConfigureBarBtn(this._btnRename, "포트 일괄 변경", 130, false);
-            ConfigureBarBtn(this._btnConnect, "조명 연결", 110, false);
-            this._btnConnect.BackColor = Color.FromArgb(0x2E, 0x7D, 0x32); this._btnConnect.ForeColor = Color.White;
-            ConfigureBarBtn(this._btnDisc, "조명 해제", 110, false);
+            // ── 하단 버튼 툴바 (TableLayoutPanel — 좌측 액션 / 스페이서 / 우측 불러오기·저장) ──
+            this._bar.Dock = DockStyle.Bottom;
+            this._bar.Height = 46;
+            this._bar.ColumnCount = 9;
+            this._bar.RowCount = 1;
+            this._bar.Padding = new Padding(0, 0, 0, 0);
+            this._bar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120F)); // 컨트롤러 추가
+            this._bar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120F)); // 컨트롤러 삭제
+            this._bar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 130F)); // io_set 가져오기
+            this._bar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 130F)); // 포트 일괄 변경
+            this._bar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 110F)); // 조명 연결
+            this._bar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 110F)); // 조명 해제
+            this._bar.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));  // 스페이서
+            this._bar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 128F)); // 불러오기
+            this._bar.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 128F)); // 저장
+            this._bar.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+
+            // 컨트롤러 추가
+            this._btnAddCtrl.Dock = DockStyle.Fill;
+            this._btnAddCtrl.Text = "컨트롤러 추가";
+            this._btnAddCtrl.FlatStyle = FlatStyle.Flat;
+            this._btnAddCtrl.Font = new Font("맑은 고딕", 10.5F);
+            this._btnAddCtrl.BackColor = Color.White;
+            this._btnAddCtrl.ForeColor = Color.Black;
+            this._btnAddCtrl.UseVisualStyleBackColor = false;
+            // 컨트롤러 삭제
+            this._btnDelCtrl.Dock = DockStyle.Fill;
+            this._btnDelCtrl.Text = "컨트롤러 삭제";
+            this._btnDelCtrl.FlatStyle = FlatStyle.Flat;
+            this._btnDelCtrl.Font = new Font("맑은 고딕", 10.5F);
+            this._btnDelCtrl.BackColor = Color.White;
+            this._btnDelCtrl.ForeColor = Color.Black;
+            this._btnDelCtrl.UseVisualStyleBackColor = false;
+            // io_set 가져오기
+            this._btnMigrate.Dock = DockStyle.Fill;
+            this._btnMigrate.Text = "io_set 가져오기";
+            this._btnMigrate.FlatStyle = FlatStyle.Flat;
+            this._btnMigrate.Font = new Font("맑은 고딕", 10.5F);
+            this._btnMigrate.BackColor = Color.White;
+            this._btnMigrate.ForeColor = Color.Black;
+            this._btnMigrate.UseVisualStyleBackColor = false;
+            // 포트 일괄 변경
+            this._btnRename.Dock = DockStyle.Fill;
+            this._btnRename.Text = "포트 일괄 변경";
+            this._btnRename.FlatStyle = FlatStyle.Flat;
+            this._btnRename.Font = new Font("맑은 고딕", 10.5F);
+            this._btnRename.BackColor = Color.White;
+            this._btnRename.ForeColor = Color.Black;
+            this._btnRename.UseVisualStyleBackColor = false;
+            // 조명 연결 (녹색)
+            this._btnConnect.Dock = DockStyle.Fill;
+            this._btnConnect.Text = "조명 연결";
+            this._btnConnect.FlatStyle = FlatStyle.Flat;
+            this._btnConnect.Font = new Font("맑은 고딕", 10.5F);
+            this._btnConnect.BackColor = Color.FromArgb(0x2E, 0x7D, 0x32);
+            this._btnConnect.ForeColor = Color.White;
+            this._btnConnect.UseVisualStyleBackColor = false;
+            // 조명 해제 (흰색)
+            this._btnDisc.Dock = DockStyle.Fill;
+            this._btnDisc.Text = "조명 해제";
+            this._btnDisc.FlatStyle = FlatStyle.Flat;
+            this._btnDisc.Font = new Font("맑은 고딕", 10.5F);
+            this._btnDisc.BackColor = Color.White;
+            this._btnDisc.ForeColor = Color.Black;
+            this._btnDisc.UseVisualStyleBackColor = false;
+            // 불러오기 (흰색 — GENERAL 동일 개념)
+            this._btnReload.Dock = DockStyle.Fill;
+            this._btnReload.Text = "불러오기";
+            this._btnReload.Tag = "i18n:common.load";
+            this._btnReload.FlatStyle = FlatStyle.Flat;
+            this._btnReload.Font = new Font("맑은 고딕", 10.5F);
+            this._btnReload.BackColor = Color.White;
+            this._btnReload.ForeColor = Color.Black;
+            this._btnReload.UseVisualStyleBackColor = false;
+            // 저장 (주황 강조 — GENERAL 동일)
+            this._btnSave.Dock = DockStyle.Fill;
+            this._btnSave.Text = "저장";
+            this._btnSave.Tag = "i18n:common.save";
+            this._btnSave.FlatStyle = FlatStyle.Flat;
+            this._btnSave.Font = new Font("맑은 고딕", 10.5F, FontStyle.Bold);
+            this._btnSave.BackColor = Color.FromArgb(232, 93, 26);
+            this._btnSave.ForeColor = Color.White;
+            this._btnSave.UseVisualStyleBackColor = false;
+
             this._btnSave.Click    += new System.EventHandler(this.OnSaveClick);
             this._btnReload.Click  += new System.EventHandler(this.OnReloadClick);
             this._btnAddCtrl.Click += new System.EventHandler(this.OnAddCtrlClick);
@@ -104,14 +178,15 @@ namespace QMC.Vision.Ui.Pages
             this._btnRename.Click  += new System.EventHandler(this.OnRenameClick);
             this._btnConnect.Click += new System.EventHandler(this.OnConnectLightsClick);
             this._btnDisc.Click    += new System.EventHandler(this.OnDisconnectLightsClick);
-            this._bar.Controls.Add(this._btnSave);
-            this._bar.Controls.Add(this._btnReload);
-            this._bar.Controls.Add(this._btnAddCtrl);
-            this._bar.Controls.Add(this._btnDelCtrl);
-            this._bar.Controls.Add(this._btnMigrate);
-            this._bar.Controls.Add(this._btnRename);
-            this._bar.Controls.Add(this._btnConnect);
-            this._bar.Controls.Add(this._btnDisc);
+
+            this._bar.Controls.Add(this._btnAddCtrl, 0, 0);
+            this._bar.Controls.Add(this._btnDelCtrl, 1, 0);
+            this._bar.Controls.Add(this._btnMigrate, 2, 0);
+            this._bar.Controls.Add(this._btnRename,  3, 0);
+            this._bar.Controls.Add(this._btnConnect, 4, 0);
+            this._bar.Controls.Add(this._btnDisc,    5, 0);
+            this._bar.Controls.Add(this._btnReload,  7, 0);
+            this._bar.Controls.Add(this._btnSave,    8, 0);
 
             // ── 상태바 ──
             this._lblStatus.Dock = DockStyle.Bottom;
@@ -125,17 +200,54 @@ namespace QMC.Vision.Ui.Pages
             this._body.ColumnCount = 1;
             this._body.RowCount = 5;
             this._body.BackColor = UiTheme.MainBg;
-            this._body.RowStyles.Add(new RowStyle(SizeType.Absolute, 24f));
+            this._body.RowStyles.Add(new RowStyle(SizeType.Absolute, 28f));
             this._body.RowStyles.Add(new RowStyle(SizeType.Percent, 50f));
             this._body.RowStyles.Add(new RowStyle(SizeType.Absolute, 36f));
-            this._body.RowStyles.Add(new RowStyle(SizeType.Absolute, 24f));
+            this._body.RowStyles.Add(new RowStyle(SizeType.Absolute, 28f));
             this._body.RowStyles.Add(new RowStyle(SizeType.Percent, 50f));
 
-            this._lblSecCtrl.Dock = DockStyle.Fill; this._lblSecCtrl.Text = "  컨트롤러 인벤토리 (PortName 고유)"; this._lblSecCtrl.Font = UiTheme.ButtonFont; this._lblSecCtrl.ForeColor = Color.Black; this._lblSecCtrl.BackColor = UiTheme.SidebarHeaderBg; this._lblSecCtrl.TextAlign = ContentAlignment.MiddleLeft;
-            this._lblSecLabel.Dock = DockStyle.Fill; this._lblSecLabel.Text = "  선택 컨트롤러의 채널 라벨 — Ch 번호 직접 지정 (1~Ch수, 비연속/부분 사용 가능)"; this._lblSecLabel.Font = UiTheme.ButtonFont; this._lblSecLabel.ForeColor = Color.Black; this._lblSecLabel.BackColor = UiTheme.SidebarHeaderBg; this._lblSecLabel.TextAlign = ContentAlignment.MiddleLeft;
+            // 섹션 타이틀 1 — 컨트롤러 인벤토리 (주황 밑줄)
+            this._lblSecCtrl.Controls.Add(this._lnSec1);
+            this._lblSecCtrl.Dock = DockStyle.Fill;
+            this._lblSecCtrl.Text = "컨트롤러 인벤토리 (PortName 고유)";
+            this._lblSecCtrl.Font = new Font("맑은 고딕", 10.5F, FontStyle.Bold);
+            this._lblSecCtrl.ForeColor = Color.FromArgb(45, 45, 45);
+            this._lblSecCtrl.Padding = new Padding(2, 0, 0, 0);
+            this._lblSecCtrl.TextAlign = ContentAlignment.MiddleLeft;
+            // 밑줄 1
+            this._lnSec1.BackColor = Color.FromArgb(217, 119, 6);
+            this._lnSec1.Dock = DockStyle.Bottom;
+            this._lnSec1.Height = 2;
+
+            // 섹션 타이틀 2 — 채널 라벨 (주황 밑줄)
+            this._lblSecLabel.Controls.Add(this._lnSec2);
+            this._lblSecLabel.Dock = DockStyle.Fill;
+            this._lblSecLabel.Text = "선택 컨트롤러의 채널 라벨 — Ch 번호 직접 지정 (1~Ch수, 비연속/부분 사용 가능)";
+            this._lblSecLabel.Font = new Font("맑은 고딕", 10.5F, FontStyle.Bold);
+            this._lblSecLabel.ForeColor = Color.FromArgb(45, 45, 45);
+            this._lblSecLabel.Padding = new Padding(2, 0, 0, 0);
+            this._lblSecLabel.TextAlign = ContentAlignment.MiddleLeft;
+            // 밑줄 2
+            this._lnSec2.BackColor = Color.FromArgb(217, 119, 6);
+            this._lnSec2.Dock = DockStyle.Bottom;
+            this._lnSec2.Height = 2;
 
             // _gridCtrl + 컬럼
-            this._gridCtrl.Dock = DockStyle.Fill; this._gridCtrl.AllowUserToAddRows = true; this._gridCtrl.AllowUserToDeleteRows = true; this._gridCtrl.RowHeadersVisible = false; this._gridCtrl.Font = UiTheme.ValueFont; this._gridCtrl.BackgroundColor = Color.White; this._gridCtrl.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+            this._gridCtrl.Dock = DockStyle.Fill; this._gridCtrl.AllowUserToAddRows = true; this._gridCtrl.AllowUserToDeleteRows = true; this._gridCtrl.RowHeadersVisible = false; this._gridCtrl.Font = UiTheme.ValueFont; this._gridCtrl.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+            this._gridCtrl.BackgroundColor = Color.FromArgb(245, 246, 248);
+            this._gridCtrl.BorderStyle = BorderStyle.None;
+            this._gridCtrl.CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal;
+            this._gridCtrl.ColumnHeadersBorderStyle = DataGridViewHeaderBorderStyle.None;
+            this._gridCtrl.ColumnHeadersDefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleLeft;
+            this._gridCtrl.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(232, 234, 237);
+            this._gridCtrl.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 8.5F, FontStyle.Bold);
+            this._gridCtrl.ColumnHeadersDefaultCellStyle.ForeColor = Color.FromArgb(48, 52, 58);
+            this._gridCtrl.ColumnHeadersHeight = 28;
+            this._gridCtrl.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
+            this._gridCtrl.EnableHeadersVisualStyles = false;
+            this._gridCtrl.GridColor = Color.FromArgb(226, 228, 232);
+            this._gridCtrl.RowTemplate.Height = 30;
+            this._gridCtrl.AllowUserToResizeRows = false;
             this._colPort.Name = "PortName"; this._colPort.HeaderText = "PortName";
             this._colName.Name = "Name"; this._colName.HeaderText = "Name";
             this._colBaud.Name = "BaudRate"; this._colBaud.HeaderText = "Baud";
@@ -160,7 +272,21 @@ namespace QMC.Vision.Ui.Pages
             this._gridCtrl.CellBeginEdit   += new DataGridViewCellCancelEventHandler(this.OnGridCtrlCellBeginEdit);
 
             // _gridLabel + 컬럼
-            this._gridLabel.Dock = DockStyle.Fill; this._gridLabel.AllowUserToAddRows = true; this._gridLabel.AllowUserToDeleteRows = true; this._gridLabel.RowHeadersVisible = false; this._gridLabel.Font = UiTheme.ValueFont; this._gridLabel.BackgroundColor = Color.White; this._gridLabel.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+            this._gridLabel.Dock = DockStyle.Fill; this._gridLabel.AllowUserToAddRows = true; this._gridLabel.AllowUserToDeleteRows = true; this._gridLabel.RowHeadersVisible = false; this._gridLabel.Font = UiTheme.ValueFont; this._gridLabel.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+            this._gridLabel.BackgroundColor = Color.FromArgb(245, 246, 248);
+            this._gridLabel.BorderStyle = BorderStyle.None;
+            this._gridLabel.CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal;
+            this._gridLabel.ColumnHeadersBorderStyle = DataGridViewHeaderBorderStyle.None;
+            this._gridLabel.ColumnHeadersDefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleLeft;
+            this._gridLabel.ColumnHeadersDefaultCellStyle.BackColor = Color.FromArgb(232, 234, 237);
+            this._gridLabel.ColumnHeadersDefaultCellStyle.Font = new Font("Segoe UI", 8.5F, FontStyle.Bold);
+            this._gridLabel.ColumnHeadersDefaultCellStyle.ForeColor = Color.FromArgb(48, 52, 58);
+            this._gridLabel.ColumnHeadersHeight = 28;
+            this._gridLabel.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
+            this._gridLabel.EnableHeadersVisualStyles = false;
+            this._gridLabel.GridColor = Color.FromArgb(226, 228, 232);
+            this._gridLabel.RowTemplate.Height = 30;
+            this._gridLabel.AllowUserToResizeRows = false;
             this._colLblCh.Name = "Channel"; this._colLblCh.HeaderText = "Ch";
             this._colLblName.Name = "Name"; this._colLblName.HeaderText = "Name";
             this._colLblColor.Name = "Color"; this._colLblColor.HeaderText = "Color";
@@ -210,22 +336,23 @@ namespace QMC.Vision.Ui.Pages
             this._body.Controls.Add(this._lblSecLabel, 0, 3);
             this._body.Controls.Add(this._gridLabel, 0, 4);
 
-            // ── 최상위 컨트롤 추가 ──
-            this.Controls.Add(this._hdr);
-            this.Controls.Add(this._bar);
-            this.Controls.Add(this._lblStatus);
-            this.Controls.Add(this._body);
-            this.Controls.SetChildIndex(this._body, 0);
+            // ── 최상위 컨트롤 추가 (docked: 나중에 Add된 것이 먼저 도킹 → 본문 Fill 마지막) ──
+            this.Controls.Add(this._body);       // Fill (가장 먼저 Add → 나머지 docked 가 잠식 후 남는 공간)
+            this.Controls.Add(this._lblStatus);  // Bottom
+            this.Controls.Add(this._bar);        // Bottom (상태바 위)
+            this.Controls.Add(this._hdr);        // Top
             this.Name = "LightSystemSetupPage";
 
             ((ISupportInitialize)this._gridCtrl).EndInit();
             ((ISupportInitialize)this._gridLabel).EndInit();
+            this._lblSecCtrl.ResumeLayout(false);
+            this._lblSecLabel.ResumeLayout(false);
             this._body.ResumeLayout(false);
             this._bar.ResumeLayout(false);
             this.ResumeLayout(false);
         }
 
-        // ── 툴바 버튼 공통 스타일(페이지 내 일관) ──
+        // ── 툴바 버튼 공통 스타일(미사용 — 인라인 전환됨, 호환 위해 정의 유지) ──
         private static void ConfigureBarBtn(Button b, string text, int width, bool primary)
         {
             b.Size = new Size(width, 32);

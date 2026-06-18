@@ -84,7 +84,7 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> PrepareFeederUnclampAsync(CancellationToken ct)
         {
-            int result = await AwaitStepWithCancellationAsync(Feeder.SetFeederClampAsync(false, ResolveTimeout()), ct).ConfigureAwait(false);
+            int result = await Feeder.SetFeederClampAsync(false, ResolveTimeout(), ct).ConfigureAwait(false);
             if (result != 0)
                 return Fail("OUT-FEEDER-RECOVER-UNCLAMP", Feeder.Name,
                     "Output feeder recover unclamp command failed. result=" + result + ", " + Feeder.DescribeFeederCylinderState());
@@ -99,7 +99,7 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> PrepareFeederLiftDownAsync(CancellationToken ct)
         {
-            int result = await AwaitStepWithCancellationAsync(Feeder.SetFeederUpDownAsync(false, ResolveTimeout()), ct).ConfigureAwait(false);
+            int result = await Feeder.SetFeederUpDownAsync(false, ResolveTimeout(), ct).ConfigureAwait(false);
             if (result != 0)
                 return Fail("OUT-FEEDER-RECOVER-DOWN", Feeder.Name,
                     "Output feeder recover lift down command failed. result=" + result + ", " + Feeder.DescribeFeederCylinderState());

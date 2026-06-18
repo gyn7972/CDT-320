@@ -29,6 +29,8 @@ namespace QMC.CDT320.Sequencing
                             "RearPicker sequence failed. result=" + result,
                             "RearPicker",
                             "REAR-PICKER-SEQUENCE"));
+
+                Context.StopIfCycleStopRequested("RearPickerSequence.ProcessComplete");
             }
         }
 
@@ -104,6 +106,7 @@ namespace QMC.CDT320.Sequencing
             while (!HasPickerWork())
             {
                 ct.ThrowIfCancellationRequested();
+                Context.StopIfCycleStopRequested("RearPickerSequence.WaitForWork");
 
                 await Task.Delay(200, ct).ConfigureAwait(false);
             }

@@ -1,24 +1,25 @@
-ï»¿using System;
+using System;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace QMC.CDT320.VisionComm
 {
     /// <summary>
-    /// InputStageUnit ìš© <see cref="IVisionTcpClient"/> ì‹¤êµ¬í˜„ â€” Wafer vision ëª¨ë“ˆê³¼ í†µì‹ .
+    /// InputStageUnit ¿ë <see cref="IVisionTcpClient"/> ½Ç±¸Çö ? Wafer vision ¸ğµâ°ú Åë½Å.
     /// </summary>
     /// <remarks>
-    /// [indexâ†”chipUid] MATCH/INSPECTì˜ index ì¸ìëŠ” ë¹„ì „ ì„œë²„ê°€ chipUid(ì´ë¯¸ì§€ë¡œê·¸Â·MaterialTracker í‚¤)ë¡œ í•´ì„í•œë‹¤.
-    /// í˜„ì¬ëŠ” dieIndex/pickerNo/slotIndex ìˆ«ìë¥¼ ê·¸ëŒ€ë¡œ ì „ë‹¬í•œë‹¤. ì‹¤ì œ ì¹© UID ì¶”ì ì´ í•„ìš”í•˜ë©´
-    /// í˜¸ì¶œë¶€(Material ëª¨ë¸)ì—ì„œ UIDë¥¼ ì£¼ì…í•˜ë„ë¡ ì •ë¦¬ í•„ìš”. TODO: chipUid ì†ŒìŠ¤ ì—°ê²°.
+    /// [index¡êchipUid] MATCH/INSPECTÀÇ index ÀÎÀÚ´Â ºñÀü ¼­¹ö°¡ chipUid(ÀÌ¹ÌÁö·Î±×¡¤MaterialTracker Å°)·Î ÇØ¼®ÇÑ´Ù.
+    /// ÇöÀç´Â dieIndex/pickerNo/slotIndex ¼ıÀÚ¸¦ ±×´ë·Î Àü´ŞÇÑ´Ù. ½ÇÁ¦ Ä¨ UID ÃßÀûÀÌ ÇÊ¿äÇÏ¸é
+    /// È£ÃâºÎ(Material ¸ğµ¨)¿¡¼­ UID¸¦ ÁÖÀÔÇÏµµ·Ï Á¤¸® ÇÊ¿ä. TODO: chipUid ¼Ò½º ¿¬°á.
     /// </remarks>
     public class WaferVisionAdapter : IVisionTcpClient
     {
-        // â”€â”€ ì„ì‹œ ìº˜ë¦¬ë¸Œë ˆì´ì…˜ ìƒìˆ˜ (TODO: SCALE ë ˆì‹œí”¼/ì‹¤ì¸¡ê°’ìœ¼ë¡œ êµì²´) â”€â”€
-        private const double ImageCenterX        = 320.0;  // ì´ë¯¸ì§€ ì¤‘ì‹¬ X [px] (TODO: ì‹¤ì œ í•´ìƒë„ ê¸°ë°˜)
-        private const double ImageCenterY        = 240.0;  // ì´ë¯¸ì§€ ì¤‘ì‹¬ Y [px]
-        private const double PixelToMm           = 0.001;  // í”½ì…€â†’mm ì„ì‹œ ìŠ¤ì¼€ì¼ (TODO: SCALE ìº˜ë¦¬ë¸Œë ˆì´ì…˜ ê°’)
-        private const double DiePitchMm          = 0.15;   // ë‹¤ì´ í”¼ì¹˜ [mm] (TODO: ë ˆí¼ëŸ°ìŠ¤ ë§ˆí¬ ì‹¤ì¸¡ í”¼ì¹˜)
-        private const double MatchScoreThreshold = 0.7;    // ë§¤ì¹­ í•©ê²© ìŠ¤ì½”ì–´ ì„ê³„ê°’
+        // ¦¡¦¡ ÀÓ½Ã Ä¶¸®ºê·¹ÀÌ¼Ç »ó¼ö (TODO: SCALE ·¹½ÃÇÇ/½ÇÃø°ªÀ¸·Î ±³Ã¼) ¦¡¦¡
+        private const double ImageCenterX        = 320.0;  // ÀÌ¹ÌÁö Áß½É X [px] (TODO: ½ÇÁ¦ ÇØ»óµµ ±â¹İ)
+        private const double ImageCenterY        = 240.0;  // ÀÌ¹ÌÁö Áß½É Y [px]
+        private const double PixelToMm           = 0.001;  // ÇÈ¼¿¡æmm ÀÓ½Ã ½ºÄÉÀÏ (TODO: SCALE Ä¶¸®ºê·¹ÀÌ¼Ç °ª)
+        private const double DiePitchMm          = 0.15;   // ´ÙÀÌ ÇÇÄ¡ [mm] (TODO: ·¹ÆÛ·±½º ¸¶Å© ½ÇÃø ÇÇÄ¡)
+        private const double MatchScoreThreshold = 0.7;    // ¸ÅÄª ÇÕ°İ ½ºÄÚ¾î ÀÓ°è°ª
 
         public Task<bool> TriggerExposeAsync(int dieIndex)
         {
@@ -31,7 +32,7 @@ namespace QMC.CDT320.VisionComm
         {
             var c = VisionHub.Wafer;
             if (c == null || !c.IsConnected) return false;
-            // WaferVision DieFinder ë¡œ ë§¤ì¹­ â†’ score>=0.7 ì´ë©´ OK
+            // WaferVision DieFinder ·Î ¸ÅÄª ¡æ score>=0.7 ÀÌ¸é OK
             try
             {
                 var r = await c.MatchAsync("DieFinder", dieIndex, timeoutMs);
@@ -45,15 +46,15 @@ namespace QMC.CDT320.VisionComm
             var c = VisionHub.Wafer;
             if (c == null || !c.IsConnected) return null;
 
-            // íƒ€ê²Ÿë³„ ë§¤í•‘
+            // Å¸°Ùº° ¸ÅÇÎ
             string finder;
             switch (alignTargetId)
             {
-                // ì¤‘ì•™ ì •ë ¬ Finder ì„ íƒ
+                // Áß¾Ó Á¤·Ä Finder ¼±ÅÃ
                 case "Center": finder = "AlignDieFinder";        break;
-                // ì²« ë²ˆì§¸ Reference Finder ì„ íƒ
+                // Ã¹ ¹øÂ° Reference Finder ¼±ÅÃ
                 case "Ref1":   finder = "FirstReferenceFinder";  break;
-                // ë‘ ë²ˆì§¸ Reference Finder ì„ íƒ
+                // µÎ ¹øÂ° Reference Finder ¼±ÅÃ
                 case "Ref2":   finder = "SecondReferenceFinder"; break;
                 default:       finder = alignTargetId;           break;
             }
@@ -62,7 +63,7 @@ namespace QMC.CDT320.VisionComm
             {
                 var r = await c.MatchAsync(finder);
                 if (!r.Success) return null;
-                // ì´ë¯¸ì§€ ì¤‘ì‹¬ì„ 0ìœ¼ë¡œ í•˜ëŠ” Delta ë³€í™˜ (ì„ì‹œ ìŠ¤ì¼€ì¼ â€” TODO: SCALE ë ˆì‹œí”¼ ì ìš©)
+                // ÀÌ¹ÌÁö Áß½ÉÀ» 0À¸·Î ÇÏ´Â Delta º¯È¯ (ÀÓ½Ã ½ºÄÉÀÏ ? TODO: SCALE ·¹½ÃÇÇ Àû¿ë)
                 return new VisionAlignResult
                 {
                     DeltaX     = (r.X - ImageCenterX) * PixelToMm,
@@ -77,40 +78,51 @@ namespace QMC.CDT320.VisionComm
     }
 
     /// <summary>
-    /// TransferPickerUnit ìš© <see cref="IVisionTpuClient"/> ì‹¤êµ¬í˜„ â€”
-    /// Bottom(Inspection) / Side(TopSide/BottomSide) vision í˜¸ì¶œ.
-    /// í˜„ì¬ Side ëŠ” Bottom ê³¼ ê°™ì€ í¬íŠ¸(Inspection) ê³µìœ  â€” ë§¤ë‰´ì–¼ ê¸°ì¤€.
+    /// TransferPickerUnit ¿ë <see cref="IVisionTpuClient"/> ½Ç±¸Çö ?
+    /// Bottom(Inspection) / Side(TopSide/BottomSide) vision È£Ãâ.
+    /// ÇöÀç Side ´Â Bottom °ú °°Àº Æ÷Æ®(Inspection) °øÀ¯ ? ¸Å´º¾ó ±âÁØ.
     /// </summary>
     /// <remarks>
-    /// [indexâ†”chipUid] EXPOSE/MATCH/INSPECTì˜ index(=pickerNo, ë˜ëŠ” pickerNo*10+side)ëŠ”
-    /// ë¹„ì „ ì„œë²„ì—ì„œ chipUid(ì´ë¯¸ì§€ë¡œê·¸Â·ì¶”ì  í‚¤)ë¡œ í•´ì„ëœë‹¤. ì‹¤ì œ ì¹© UID ì¶”ì ì´ í•„ìš”í•˜ë©´ í˜¸ì¶œë¶€ì—ì„œ UID ì£¼ì… ì •ë¦¬ í•„ìš”. TODO.
+    /// [index¡êchipUid] EXPOSE/MATCH/INSPECTÀÇ index(=pickerNo, ¶Ç´Â pickerNo*10+side)´Â
+    /// ºñÀü ¼­¹ö¿¡¼­ chipUid(ÀÌ¹ÌÁö·Î±×¡¤ÃßÀû Å°)·Î ÇØ¼®µÈ´Ù. ½ÇÁ¦ Ä¨ UID ÃßÀûÀÌ ÇÊ¿äÇÏ¸é È£ÃâºÎ¿¡¼­ UID ÁÖÀÔ Á¤¸® ÇÊ¿ä. TODO.
     /// </remarks>
     public class TpuVisionAdapter : IVisionTpuClient
     {
-        // â”€â”€ ì„ì‹œ ìº˜ë¦¬ë¸Œë ˆì´ì…˜ ìƒìˆ˜ (TODO: ì‹¤ì¸¡ê°’ìœ¼ë¡œ êµì²´) â”€â”€
-        private const double ImageCenterX        = 320.0;  // ì´ë¯¸ì§€ ì¤‘ì‹¬ X [px]
-        private const double ImageCenterY        = 240.0;  // ì´ë¯¸ì§€ ì¤‘ì‹¬ Y [px]
-        private const double MatchScoreThreshold = 0.7;    // ë§¤ì¹­ í•©ê²© ìŠ¤ì½”ì–´ ì„ê³„ê°’
+        // ¦¡¦¡ ÀÓ½Ã Ä¶¸®ºê·¹ÀÌ¼Ç »ó¼ö (TODO: ½ÇÃø°ªÀ¸·Î ±³Ã¼) ¦¡¦¡
+        private const double ImageCenterX        = 320.0;  // ÀÌ¹ÌÁö Áß½É X [px]
+        private const double ImageCenterY        = 240.0;  // ÀÌ¹ÌÁö Áß½É Y [px]
+        private const double MatchScoreThreshold = 0.7;    // ¸ÅÄª ÇÕ°İ ½ºÄÚ¾î ÀÓ°è°ª
 
         public Task<bool> TriggerBottomExposeAsync(int pickerNo, int timeoutMs = 1000)
         {
+            return TriggerBottomExposeAsync(pickerNo, timeoutMs, CancellationToken.None);
+        }
+
+        public Task<bool> TriggerBottomExposeAsync(int pickerNo, int timeoutMs, CancellationToken ct)
+        {
             var c = VisionHub.Inspection;
             if (c == null || !c.IsConnected) return Task.FromResult(false);
-            return c.ExposeAsync(pickerNo, timeoutMs);
+            return c.ExposeAsync(pickerNo, timeoutMs, ct);
         }
 
         public async Task<BottomVisionOffset[]> GetBottomResultsAsync(int timeoutMs = 5000)
         {
+            return await GetBottomResultsAsync(timeoutMs, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        public async Task<BottomVisionOffset[]> GetBottomResultsAsync(int timeoutMs, CancellationToken ct)
+        {
             var c = VisionHub.Inspection;
             if (c == null || !c.IsConnected) return null;
 
-            // 4ê°œ Picker ê°ê°ì— ëŒ€í•´ DieFinder ë§¤ì¹­ â†’ OffsetX/Y/IsOk
+            // 4°³ Picker °¢°¢¿¡ ´ëÇØ DieFinder ¸ÅÄª ¡æ OffsetX/Y/IsOk
             var result = new BottomVisionOffset[4];
             for (int i = 0; i < 4; i++)
             {
                 try
                 {
-                    var r = await c.MatchAsync("DieFinder", i, timeoutMs);
+                    ct.ThrowIfCancellationRequested();
+                    var r = await c.MatchAsync("DieFinder", i, timeoutMs, ct);
                     result[i] = new BottomVisionOffset
                     {
                         PickerNo = i + 1,
@@ -118,6 +130,10 @@ namespace QMC.CDT320.VisionComm
                         OffsetY  = r.Success ? r.Y - ImageCenterY : 0,
                         IsOk     = r.Success && r.Score >= MatchScoreThreshold
                     };
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
                 }
                 catch
                 {
@@ -129,24 +145,35 @@ namespace QMC.CDT320.VisionComm
 
         public Task<bool> TriggerSideExposeAsync(int pickerNo, int sideNo, int timeoutMs = 1000)
         {
+            return TriggerSideExposeAsync(pickerNo, sideNo, timeoutMs, CancellationToken.None);
+        }
+
+        public Task<bool> TriggerSideExposeAsync(int pickerNo, int sideNo, int timeoutMs, CancellationToken ct)
+        {
             var c = VisionHub.Inspection;
             if (c == null || !c.IsConnected) return Task.FromResult(false);
-            // Side exposure ëŠ” Inspection í¬íŠ¸ë¡œ í†µí•© í˜¸ì¶œ (index ì— sideNo ì¸ì½”ë”©)
-            return c.ExposeAsync(pickerNo * 10 + sideNo, timeoutMs);
+            // Side exposure ´Â Inspection Æ÷Æ®·Î ÅëÇÕ È£Ãâ (index ¿¡ sideNo ÀÎÄÚµù)
+            return c.ExposeAsync(pickerNo * 10 + sideNo, timeoutMs, ct);
         }
 
         public async Task<SideVisionResult> GetSideResultAsync(int pickerNo, int timeoutMs = 5000)
         {
+            return await GetSideResultAsync(pickerNo, timeoutMs, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        public async Task<SideVisionResult> GetSideResultAsync(int pickerNo, int timeoutMs, CancellationToken ct)
+        {
             var c = VisionHub.Inspection;
             if (c == null || !c.IsConnected) return null;
 
-            // 4ë©´ ê°ê° SurfaceInspector í˜¸ì¶œ. index = pickerNo*10+side (TriggerSideExposeAsync ì¸ì½”ë”©ê³¼ ì¼ì¹˜)
+            // 4¸é °¢°¢ SurfaceInspector È£Ãâ. index = pickerNo*10+side (TriggerSideExposeAsync ÀÎÄÚµù°ú ÀÏÄ¡)
             try
             {
                 bool[] ok = new bool[4];
                 for (int side = 1; side <= 4; side++)
                 {
-                    var ins = await c.InspectAsync("SurfaceInspector", pickerNo * 10 + side, timeoutMs);
+                    ct.ThrowIfCancellationRequested();
+                    var ins = await c.InspectAsync("SurfaceInspector", pickerNo * 10 + side, timeoutMs, ct);
                     ok[side - 1] = ins.IsPass;
                 }
                 return new SideVisionResult
@@ -158,18 +185,22 @@ namespace QMC.CDT320.VisionComm
                     Side4Ok = ok[3]
                 };
             }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
             catch { return null; }
         }
     }
 
-    /// <summary>OutputStage ì˜ ITpuUnit â€” í˜„ì¬ëŠ” TransferPicker ì™€ ë‚´ë¶€ ì´ë²¤íŠ¸ë¡œë§Œ ë™ì‘, ë³€ê²½ ì—†ìŒ.</summary>
-    /// ì—¬ê¸°ì„œëŠ” VisionHub ì˜ Bin í´ë¼ì´ì–¸íŠ¸ë¥¼ í™œìš©í•œ "PlacementInspector" í˜¸ì¶œ í—¬í¼ë§Œ ì œê³µ.
+    /// <summary>OutputStage ÀÇ ITpuUnit ? ÇöÀç´Â TransferPicker ¿Í ³»ºÎ ÀÌº¥Æ®·Î¸¸ µ¿ÀÛ, º¯°æ ¾øÀ½.</summary>
+    /// ¿©±â¼­´Â VisionHub ÀÇ Bin Å¬¶óÀÌ¾ğÆ®¸¦ È°¿ëÇÑ "PlacementInspector" È£Ãâ ÇïÆÛ¸¸ Á¦°ø.
     public static class BinVisionHelper
     {
         public static async Task<bool> CheckPlacementAsync(int slotIndex, int timeoutMs = 3000)
         {
             var c = VisionHub.Bin;
-            if (c == null || !c.IsConnected) return true; // ì—°ê²° ì•ˆ ëœ ê²½ìš° skip
+            if (c == null || !c.IsConnected) return true; // ¿¬°á ¾È µÈ °æ¿ì skip
             try
             {
                 var r = await c.InspectAsync("PlacementInspector", slotIndex, timeoutMs);

@@ -12,7 +12,11 @@ namespace QMC.Vision.Ui.Controls
         Int,
         Bool,
         Text,
-        Selection
+        Selection,
+        Info,        // 읽기전용 표시(값만, 편집 불가)
+        Action,      // 버튼 셀(클릭 시 OnAction 실행)
+        FolderPath,  // 경로 텍스트 + 클릭 시 폴더 선택 다이얼로그
+        Slider       // 정수 슬라이더(클릭 시 트랙바 다이얼로그). SliderMin/SliderMax 범위.
     }
 
     public enum ParameterGridScope
@@ -34,6 +38,15 @@ namespace QMC.Vision.Ui.Controls
         public Action<object> Setter { get; set; }
         public Func<object, bool> Validator { get; set; }
         public List<ParameterGridOption> Options { get; private set; }
+
+        /// <summary>Action 타입 — 버튼 클릭 시 실행할 동작.</summary>
+        public System.Action OnAction { get; set; }
+        /// <summary>Action 타입 — 버튼에 표시할 문구.</summary>
+        public string ActionText { get; set; }
+
+        /// <summary>Slider 타입 — 최소/최대 범위(정수).</summary>
+        public int SliderMin { get; set; }
+        public int SliderMax { get; set; } = 100;
 
         public ParameterGridItem()
         {
@@ -102,6 +115,21 @@ namespace QMC.Vision.Ui.Controls
             };
         }
 
+        public static ParameterGridItem Text(string displayName, ParameterGridScope scope, Func<string> getter, Action<string> setter)
+        {
+            return new ParameterGridItem
+            {
+                Key = displayName,
+                DisplayName = displayName,
+                Unit = string.Empty,
+                Scope = scope,
+                ValueType = ParameterGridValueType.Text,
+                DisplayScale = 1.0,
+                Getter = () => getter() ?? string.Empty,
+                Setter = value => setter(Convert.ToString(value))
+            };
+        }
+
         public static ParameterGridItem Selection(string displayName, string unit, ParameterGridScope scope, Func<object> getter, Action<object> setter, IEnumerable<ParameterGridOption> options)
         {
             return new ParameterGridItem
@@ -115,6 +143,67 @@ namespace QMC.Vision.Ui.Controls
                 Getter = getter,
                 Setter = setter,
                 Options = (options ?? Enumerable.Empty<ParameterGridOption>()).ToList()
+            };
+        }
+
+        /// <summary>읽기전용 표시 행(백엔드 버전·진단 결과 등). 편집 불가.</summary>
+        public static ParameterGridItem Info(string displayName, ParameterGridScope scope, Func<string> getter)
+        {
+            return new ParameterGridItem
+            {
+                Key = displayName,
+                DisplayName = displayName,
+                Scope = scope,
+                ValueType = ParameterGridValueType.Info,
+                Getter = () => getter() ?? string.Empty,
+                Setter = null
+            };
+        }
+
+        /// <summary>버튼 행(클릭 시 동작 실행). 값 셀이 버튼으로 렌더된다.</summary>
+        public static ParameterGridItem Action(string displayName, string actionText, ParameterGridScope scope, System.Action onAction)
+        {
+            return new ParameterGridItem
+            {
+                Key = displayName,
+                DisplayName = displayName,
+                Scope = scope,
+                ValueType = ParameterGridValueType.Action,
+                ActionText = actionText ?? string.Empty,
+                OnAction = onAction,
+                Getter = () => actionText ?? string.Empty,
+                Setter = null
+            };
+        }
+
+        /// <summary>경로 행(텍스트 표시 + 클릭 시 폴더 선택 다이얼로그).</summary>
+        public static ParameterGridItem FolderPath(string displayName, ParameterGridScope scope, Func<string> getter, Action<string> setter)
+        {
+            return new ParameterGridItem
+            {
+                Key = displayName,
+                DisplayName = displayName,
+                Scope = scope,
+                ValueType = ParameterGridValueType.FolderPath,
+                Getter = () => getter() ?? string.Empty,
+                Setter = value => setter(Convert.ToString(value))
+            };
+        }
+
+        /// <summary>정수 슬라이더 행(클릭 시 트랙바 다이얼로그로 min~max 조절). 조명 채널 레벨 등.</summary>
+        public static ParameterGridItem Slider(string displayName, string unit, ParameterGridScope scope, int min, int max, Func<int> getter, Action<int> setter)
+        {
+            return new ParameterGridItem
+            {
+                Key = displayName,
+                DisplayName = displayName,
+                Unit = unit ?? string.Empty,
+                Scope = scope,
+                ValueType = ParameterGridValueType.Slider,
+                SliderMin = min,
+                SliderMax = max,
+                Getter = () => getter(),
+                Setter = value => setter(Convert.ToInt32(value))
             };
         }
 

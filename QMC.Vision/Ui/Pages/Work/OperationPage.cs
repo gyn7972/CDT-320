@@ -1,9 +1,10 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.Windows.Forms;
 using QMC.Vision.Core;          // GrabResult
 using QMC.Vision.Modules;       // IVisionModule
 using QMC.Vision.Ui.Controls;   // CameraView
+using QMC.Vision.Ui.Localization; // Lang
 
 namespace QMC.Vision.Ui.Pages
 {
@@ -21,6 +22,13 @@ namespace QMC.Vision.Ui.Pages
     {
         private const int LiveTimeoutMs = 1500;   // 최근 이 시간 내 새 프레임 → LIVE
 
+        // 카메라 패널 식별 타이틀(장비 모듈 식별자 — 영문 고정). 안내문은 Lang.T("work.grabWait") 와 조합.
+        private const string TitleBig    = "BOTTOM INSPECTION (MAIN)";
+        private const string TitleWafer  = "WAFER VISION";
+        private const string TitleBin    = "BIN VISION";
+        private const string TitleTop    = "TOP SIDE";
+        private const string TitleBottom = "BOTTOM SIDE";
+
         private static readonly Color CardBg   = Color.FromArgb(0x10, 0x14, 0x18);
         private static readonly Color CardName = Color.FromArgb(0x7d, 0xa0, 0xc4);
         private static readonly Color LiveOn   = Color.FromArgb(0x7e, 0xe0, 0xb8);
@@ -30,8 +38,11 @@ namespace QMC.Vision.Ui.Pages
         private IVisionModule[] _mods;
         private CameraView[]    _viewByMod;   // _mods[i] ↔ 표시 패널
         private Label[]         _cardStats;
+        private Label[]         _cardNames;   // 카드 이름 라벨(언어 변경 시 MAIN 접미사 갱신)
+        private bool[]          _cardLive;    // 카드별 최근 LIVE 여부(언어 변경 시 상태 텍스트 재적용)
         private long[]          _lastSeq;
         private int[]           _lastActiveTick;
+        private bool            _langHooked;  // LanguageChanged 중복 구독 방지
 
         private bool _initialized;
         private System.Windows.Forms.Timer _tapTimer;
@@ -84,8 +95,57 @@ namespace QMC.Vision.Ui.Pages
             for (int i = 0; i < _mods.Length; i++) { _lastSeq[i] = -1; _lastActiveTick[i] = int.MinValue / 2; }
 
             BuildCards();
+
+            // 언어 동기화 — 헤더/카메라 안내문/카드 텍스트를 현재 언어로 적용 + 변경 구독(1회).
+            if (!_langHooked) { Lang.LanguageChanged += OnLanguageChanged; _langHooked = true; }
+            ApplyLanguage();
+
             _initialized = true;
             StartTap();
+            UpdateRunButton();
+        }
+
+        /// <summary>언어 변경 이벤트 — UI 스레드로 마샬링 후 표시 문구 재적용.</summary>
+        private void OnLanguageChanged()
+        {
+            if (IsDisposed) return;
+            if (InvokeRequired) { try { BeginInvoke((Action)ApplyLanguage); } catch { } return; }
+            ApplyLanguage();
+        }
+
+        /// <summary>현재 언어로 헤더 + 5개 카메라 안내문 + 카드(MAIN/상태) 표시 문구를 적용.</summary>
+        private void ApplyLanguage()
+        {
+            _hdr.Text = Lang.T("work.monitorHeader");
+
+            string wait = Lang.T("work.grabWait");
+            if (_camBig != null) _camBig.InfoText = TitleBig    + "\r\n" + wait;
+            if (_camS1  != null) _camS1.InfoText  = TitleWafer  + "\r\n" + wait;
+            if (_camS2  != null) _camS2.InfoText  = TitleBin    + "\r\n" + wait;
+            if (_camS3  != null) _camS3.InfoText  = TitleTop    + "\r\n" + wait;
+            if (_camS4  != null) _camS4.InfoText  = TitleBottom + "\r\n" + wait;
+
+            RefreshCardTexts();
+            Invalidate(true);
+        }
+
+        /// <summary>카드 이름(모듈명 + MAIN)과 상태(READY/LIVE)를 현재 언어로 재적용.</summary>
+        private void RefreshCardTexts()
+        {
+            if (_cardNames == null || _mods == null) return;
+            for (int i = 0; i < _cardNames.Length; i++)
+            {
+                bool isMain = (i == 2);   // Bottom
+                string nm = (_mods[i] != null ? _mods[i].Name : "—")
+                            + (isMain ? "  · " + Lang.T("work.main") : "");
+                if (_cardNames[i] != null) _cardNames[i].Text = nm;
+
+                if (_cardStats != null && _cardStats[i] != null)
+                {
+                    bool live = _cardLive != null && _cardLive[i];
+                    _cardStats[i].Text = live ? Lang.T("common.live") : Lang.T("common.ready");
+                }
+            }
         }
 
         /// <summary>상단 5개 상태카드(비클릭). 카드[i] ↔ _mods[i].</summary>
@@ -93,6 +153,8 @@ namespace QMC.Vision.Ui.Pages
         {
             _cardsHost.Controls.Clear();
             _cardStats = new Label[_mods.Length];
+            _cardNames = new Label[_mods.Length];
+            _cardLive  = new bool[_mods.Length];
 
             for (int i = 0; i < _mods.Length; i++)
             {
@@ -110,7 +172,7 @@ namespace QMC.Vision.Ui.Pages
                 {
                     Dock      = DockStyle.Top,
                     Height    = 22,
-                    Text      = (m != null ? m.Name : "—") + (isMain ? "  · MAIN" : ""),
+                    Text      = (m != null ? m.Name : "—") + (isMain ? "  · " + Lang.T("work.main") : ""),
                     ForeColor = isMain ? UiTheme.Accent : CardName,
                     Font      = new Font("Segoe UI", 8.5F, isMain ? FontStyle.Bold : FontStyle.Regular),
                     TextAlign = ContentAlignment.MiddleLeft,
@@ -119,7 +181,7 @@ namespace QMC.Vision.Ui.Pages
                 var stat = new Label
                 {
                     Dock      = DockStyle.Fill,
-                    Text      = "READY",
+                    Text      = Lang.T("common.ready"),
                     ForeColor = LiveOff,
                     Font      = new Font("Segoe UI", 15F, FontStyle.Bold),
                     TextAlign = ContentAlignment.MiddleLeft,
@@ -130,6 +192,7 @@ namespace QMC.Vision.Ui.Pages
                 card.Controls.Add(name);
                 _cardsHost.Controls.Add(card, i, 0);
                 _cardStats[i] = stat;
+                _cardNames[i] = name;
             }
         }
 
@@ -146,7 +209,11 @@ namespace QMC.Vision.Ui.Pages
 
         private void ResumeTap() { if (_initialized) StartTap(); }
         private void PauseTap()  { _tapTimer?.Stop(); }
-        private void StopLive()  { _tapTimer?.Stop(); }   // Designer.Dispose 에서 호출
+        private void StopLive()                            // Designer.Dispose 에서 호출
+        {
+            _tapTimer?.Stop();
+            if (_langHooked) { Lang.LanguageChanged -= OnLanguageChanged; _langHooked = false; }
+        }
 
         private void _tapTimer_Tick(object sender, EventArgs e)
         {
@@ -176,8 +243,22 @@ namespace QMC.Vision.Ui.Pages
                     System.Diagnostics.Debug.WriteLine("[OperationPage] viewer tap 실패: " + ex.Message);
                 }
 
+                // 검사 결과 오버레이(판정 OK/NG + 결과 라인) — 시퀀서/핸들러 INSPECT 결과 반영.
+                try
+                {
+                    if (_viewByMod != null && i < _viewByMod.Length && _viewByMod[i] != null &&
+                        QMC.Vision.Core.ModuleResultStore.TryGet(m.Name, out bool pass, out string[] lines))
+                    {
+                        _viewByMod[i].SetVerdict(pass ? "OK" : "NG", pass);
+                        _viewByMod[i].SetResultLines(lines);
+                    }
+                }
+                catch { }
+
                 UpdateCardState(i, now);
             }
+
+            UpdateRunButton();
         }
 
         /// <summary>최근 Grab 활동(시퀀스 변화)이 있으면 LIVE, 없으면 READY.
@@ -186,12 +267,44 @@ namespace QMC.Vision.Ui.Pages
         {
             if (_cardStats == null || i >= _cardStats.Length) return;
             bool live = (now - _lastActiveTick[i]) <= LiveTimeoutMs;
-            string text = live ? "LIVE" : "READY";
+            if (_cardLive != null && i < _cardLive.Length) _cardLive[i] = live;
+            string text = live ? Lang.T("common.live") : Lang.T("common.ready");
             if (_cardStats[i].Text != text)
             {
                 _cardStats[i].Text      = text;
                 _cardStats[i].ForeColor = live ? LiveOn : LiveOff;
             }
+        }
+
+        // ── RUN/STOP 토글 — Sim 은 자체 시퀀서, 실제 모드는 핸들러 접속 시 RUN(CDI-300 방식). ──
+        private void OnRunToggleClick(object sender, EventArgs e)
+        {
+            try
+            {
+                var host = FindForm() as QMC.Vision.Form1;
+                if (host == null) return;
+                if (host.IsRunActive) host.SetRun(false);     // STOP
+                else if (host.CanRun) host.SetRun(true);       // RUN (Sim 항상 / 실제는 접속 시)
+                UpdateRunButton();
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine("[OperationPage] RUN 토글 실패: " + ex.Message); }
+        }
+
+        /// <summary>RUN 버튼 텍스트/색/활성 상태를 현재 모드·연결·가동 상태로 갱신(틱마다 호출).</summary>
+        private void UpdateRunButton()
+        {
+            if (_btnRun == null) return;
+            var host = FindForm() as QMC.Vision.Form1;
+            if (host == null) { _btnRun.Enabled = false; return; }
+
+            bool running = host.IsRunActive;
+            bool canRun  = host.CanRun;
+
+            _btnRun.Enabled   = running || canRun;   // 가동 중이면 STOP, 아니면 RUN 가능할 때만
+            _btnRun.Text      = running ? "STOP" : "RUN";
+            _btnRun.BackColor = running
+                ? Color.FromArgb(0x5a, 0x22, 0x22)
+                : (canRun ? Color.FromArgb(0x1f, 0x9d, 0x4d) : Color.FromArgb(0x55, 0x55, 0x55));
         }
     }
 }

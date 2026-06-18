@@ -537,11 +537,11 @@ namespace QMC.CDT320.Sequencing
             BottomVisionOffset result;
             if (Side == PickerSequenceSide.Front)
             {
-                result = await FrontPicker.RequestBottomInspectionAsync(_currentPickerNo, timeoutMs).ConfigureAwait(false);
+                result = await FrontPicker.RequestBottomInspectionAsync(_currentPickerNo, timeoutMs, ct).ConfigureAwait(false);
             }
             else
             {
-                result = await RearPicker.RequestBottomInspectionAsync(_currentPickerNo, timeoutMs).ConfigureAwait(false);
+                result = await RearPicker.RequestBottomInspectionAsync(_currentPickerNo, timeoutMs, ct).ConfigureAwait(false);
             }
 
             if (result == null)

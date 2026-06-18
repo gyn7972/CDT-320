@@ -44,17 +44,24 @@ namespace QMC.CDT320.VisionComm
 
         public async Task<bool> ConnectAsync(int timeoutMs = 3000)
         {
+            return await ConnectAsync(timeoutMs, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        public async Task<bool> ConnectAsync(int timeoutMs, CancellationToken ct)
+        {
             if (IsConnected) return true;
             try
             {
+                ct.ThrowIfCancellationRequested();
                 _client = new TcpClient();
                 var task = _client.ConnectAsync(Host, Port);
-                if (await Task.WhenAny(task, Task.Delay(timeoutMs)) != task)
+                if (await Task.WhenAny(task, Task.Delay(timeoutMs, ct)).ConfigureAwait(false) != task)
                 {
                     _client.Close(); _client = null;
                     LogMsg("connect timeout");
                     return false;
                 }
+                ct.ThrowIfCancellationRequested();
                 _stream = _client.GetStream();
                 _rxCts  = new CancellationTokenSource();
                 _ = Task.Run(() => ReceiveLoop(_rxCts.Token));
@@ -66,6 +73,9 @@ namespace QMC.CDT320.VisionComm
             {
                 LogMsg("connect error: " + ex.Message);
                 return false;
+            }
+            finally
+            {
             }
         }
 
@@ -86,7 +96,13 @@ namespace QMC.CDT320.VisionComm
         /// <summary>라인 1개 전송 후 라인 1개 응답 대기.</summary>
         public async Task<string> SendAsync(string line, int timeoutMs = 5000)
         {
+            return await SendAsync(line, timeoutMs, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        public async Task<string> SendAsync(string line, int timeoutMs, CancellationToken ct)
+        {
             if (!IsConnected) throw new InvalidOperationException("not connected");
+            ct.ThrowIfCancellationRequested();
             var tcs = new TaskCompletionSource<string>();
             lock (_pending) _pending.Enqueue(tcs);
 
@@ -102,12 +118,13 @@ namespace QMC.CDT320.VisionComm
                 Disconnect();
             }
 
-            if (await Task.WhenAny(tcs.Task, Task.Delay(timeoutMs)) != tcs.Task)
+            if (await Task.WhenAny(tcs.Task, Task.Delay(timeoutMs, ct)).ConfigureAwait(false) != tcs.Task)
             {
                 lock (_pending) if (_pending.Count > 0) _pending.Dequeue();
+                ct.ThrowIfCancellationRequested();
                 throw new TimeoutException("vision response timeout: " + line);
             }
-            return await tcs.Task;
+            return await tcs.Task.ConfigureAwait(false);
         }
 
         // ─── High-level helpers ──────────────────────
@@ -124,25 +141,45 @@ namespace QMC.CDT320.VisionComm
 
         public async Task<bool> ExposeAsync(int index = 0, int timeoutMs = 5000)
         {
-            var r = await SendAsync($"{ModuleName}|EXPOSE|{index}", timeoutMs);
+            return await ExposeAsync(index, timeoutMs, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        public async Task<bool> ExposeAsync(int index, int timeoutMs, CancellationToken ct)
+        {
+            var r = await SendAsync($"{ModuleName}|EXPOSE|{index}", timeoutMs, ct).ConfigureAwait(false);
             return r.StartsWith("ACK|");
         }
 
         public async Task<MatchResultDto> MatchAsync(string finder, int index = 0, int timeoutMs = 5000)
         {
-            var r = await SendAsync($"{ModuleName}|MATCH|{finder}|{index}", timeoutMs);
+            return await MatchAsync(finder, index, timeoutMs, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        public async Task<MatchResultDto> MatchAsync(string finder, int index, int timeoutMs, CancellationToken ct)
+        {
+            var r = await SendAsync($"{ModuleName}|MATCH|{finder}|{index}", timeoutMs, ct).ConfigureAwait(false);
             return MatchResultDto.Parse(r);
         }
 
         public async Task<InspectionResultDto> InspectAsync(string inspector, int index = 0, int timeoutMs = 5000)
         {
-            var r = await SendAsync($"{ModuleName}|INSPECT|{inspector}|{index}", timeoutMs);
+            return await InspectAsync(inspector, index, timeoutMs, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        public async Task<InspectionResultDto> InspectAsync(string inspector, int index, int timeoutMs, CancellationToken ct)
+        {
+            var r = await SendAsync($"{ModuleName}|INSPECT|{inspector}|{index}", timeoutMs, ct).ConfigureAwait(false);
             return InspectionResultDto.Parse(r);
         }
 
         public async Task<bool> TrainAsync(string finder, int timeoutMs = 5000)
         {
-            var r = await SendAsync($"{ModuleName}|TRAIN|{finder}|0", timeoutMs);
+            return await TrainAsync(finder, timeoutMs, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        public async Task<bool> TrainAsync(string finder, int timeoutMs, CancellationToken ct)
+        {
+            var r = await SendAsync($"{ModuleName}|TRAIN|{finder}|0", timeoutMs, ct).ConfigureAwait(false);
             return r.StartsWith("ACK|");
         }
 
@@ -153,10 +190,15 @@ namespace QMC.CDT320.VisionComm
         /// </summary>
         public async Task<bool> SendRecipeAsync(int recipeNo, string recipeName, int timeoutMs = 5000)
         {
+            return await SendRecipeAsync(recipeNo, recipeName, timeoutMs, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        public async Task<bool> SendRecipeAsync(int recipeNo, string recipeName, int timeoutMs, CancellationToken ct)
+        {
             if (string.IsNullOrWhiteSpace(recipeName))
                 throw new ArgumentException("recipeName is empty", nameof(recipeName));
 
-            var r = await SendAsync($"{ModuleName}|RECIPE|{recipeNo}|{recipeName}", timeoutMs);
+            var r = await SendAsync($"{ModuleName}|RECIPE|{recipeNo}|{recipeName}", timeoutMs, ct).ConfigureAwait(false);
             return r.StartsWith("ACK|");
         }
 
