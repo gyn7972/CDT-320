@@ -29,6 +29,8 @@ namespace QMC.CDT320.Sequencing
                             "FrontPicker sequence failed. result=" + result,
                             "FrontPicker",
                             "FRONT-PICKER-SEQUENCE"));
+
+                Context.StopIfCycleStopRequested("FrontPickerSequence.ProcessComplete");
             }
         }
 
@@ -104,6 +106,7 @@ namespace QMC.CDT320.Sequencing
             while (!HasPickerWork())
             {
                 ct.ThrowIfCancellationRequested();
+                Context.StopIfCycleStopRequested("FrontPickerSequence.WaitForWork");
 
                 await Task.Delay(200, ct).ConfigureAwait(false);
             }

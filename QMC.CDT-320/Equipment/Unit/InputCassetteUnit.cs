@@ -205,8 +205,14 @@ namespace QMC.CDT320
 
         public async Task<int> MoveWaferLifterZ(double targetPos, bool bFine = false)
         {
+            return await MoveWaferLifterZ(targetPos, bFine, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        public async Task<int> MoveWaferLifterZ(double targetPos, bool bFine, CancellationToken ct)
+        {
             try
             {
+                ct.ThrowIfCancellationRequested();
                 string targetReason;
                 if (!ValidateWaferLifterZTargetPosition(targetPos, out targetReason))
                 {
@@ -218,8 +224,13 @@ namespace QMC.CDT320
                 if (!CheckWaferLifterZInterlock(targetPos, MotionGuardMoveKind.AxisMove, out interlockReason))
                     return -11;
 
-                await MoveWithProtrusionWatch(targetPos, ResolveWaferLifterZMoveVelocity(bFine));
+                await MoveWithProtrusionWatch(targetPos, ResolveWaferLifterZMoveVelocity(bFine), ct).ConfigureAwait(false);
                 return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                try { InputLifterZ?.Stop(); } catch { }
+                throw;
             }
             catch
             {
@@ -605,9 +616,14 @@ namespace QMC.CDT320
 
         public async Task<int> WaitWaferJutClear(int timeoutMs)
         {
+            return await WaitWaferJutClear(timeoutMs, CancellationToken.None);
+        }
+
+        public async Task<int> WaitWaferJutClear(int timeoutMs, CancellationToken ct)
+        {
             try
             {
-                return await WaferRingJutCheck.WaitUntilStateAsync(false, timeoutMs) ? 0 : -1;
+                return await WaferRingJutCheck.WaitUntilStateAsync(false, timeoutMs, ct) ? 0 : -1;
             }
             catch
             {
@@ -620,9 +636,14 @@ namespace QMC.CDT320
 
         public async Task<int> WaitWaferMappingSensor(bool expected, int timeoutMs)
         {
+            return await WaitWaferMappingSensor(expected, timeoutMs, CancellationToken.None);
+        }
+
+        public async Task<int> WaitWaferMappingSensor(bool expected, int timeoutMs, CancellationToken ct)
+        {
             try
             {
-                return await WaferMappingSensor.WaitUntilStateAsync(expected, timeoutMs) ? 0 : -1;
+                return await WaferMappingSensor.WaitUntilStateAsync(expected, timeoutMs, ct) ? 0 : -1;
             }
             catch
             {
@@ -775,9 +796,15 @@ namespace QMC.CDT320
 
         public async Task<int> WaferScan(int timeoutMs = 0, bool bFine = false)
         {
+            return await WaferScan(timeoutMs, bFine, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        public async Task<int> WaferScan(int timeoutMs, bool bFine, CancellationToken ct)
+        {
             bool mappingStarted = false;
             try
             {
+                ct.ThrowIfCancellationRequested();
                 string readyReason;
                 if (!CheckWaferCassetteMappingReady(out readyReason))
                 {
@@ -787,7 +814,12 @@ namespace QMC.CDT320
 
                 BeginWaferMapping();
                 mappingStarted = true;
-                return await ScanCassetteAsync(ResolveMappingSlotCount(), Config.SlotPitch).ConfigureAwait(false);
+                return await ScanCassetteAsync(ResolveMappingSlotCount(), Config.SlotPitch, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                try { InputLifterZ?.Stop(); } catch { }
+                throw;
             }
             catch
             {
@@ -802,9 +834,15 @@ namespace QMC.CDT320
 
         public async Task<int> WaferScanFromCurrentStart(int timeoutMs = 0, bool bFine = false)
         {
+            return await WaferScanFromCurrentStart(timeoutMs, bFine, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        public async Task<int> WaferScanFromCurrentStart(int timeoutMs, bool bFine, CancellationToken ct)
+        {
             bool mappingStarted = false;
             try
             {
+                ct.ThrowIfCancellationRequested();
                 string readyReason;
                 if (!CheckWaferCassetteMappingReady(out readyReason))
                 {
@@ -814,7 +852,12 @@ namespace QMC.CDT320
 
                 BeginWaferMapping();
                 mappingStarted = true;
-                return await ScanCassetteFromCurrentStartAsync(ResolveMappingSlotCount(), Config.SlotPitch, timeoutMs).ConfigureAwait(false);
+                return await ScanCassetteFromCurrentStartAsync(ResolveMappingSlotCount(), Config.SlotPitch, timeoutMs, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                try { InputLifterZ?.Stop(); } catch { }
+                throw;
             }
             catch
             {
@@ -1268,8 +1311,14 @@ namespace QMC.CDT320
 
         public async Task<int> ScanCassetteAsync(int maxSlots, double slotPitch)
         {
+            return await ScanCassetteAsync(maxSlots, slotPitch, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        public async Task<int> ScanCassetteAsync(int maxSlots, double slotPitch, CancellationToken ct)
+        {
             try
             {
+                ct.ThrowIfCancellationRequested();
                 if (!IsAnyCassetteSensorOn())
                 {
                     return FailMappingScan("IN-CST-MAP-CST-MISSING", "Cassette is not detected.");
@@ -1285,11 +1334,16 @@ namespace QMC.CDT320
                     return FailMappingScan("IN-CST-MAP-PITCH", "Slot pitch is invalid.");
                 }
 
-                int startResult = await MoveToWaferCassetteMappingStartAndVerifyAsync();
+                int startResult = await MoveToWaferCassetteMappingStartAndVerifyAsync(ct);
                 if (startResult != 0)
                     return startResult;
 
-                return await ScanCassetteFromCurrentStartAsync(maxSlots, slotPitch);
+                return await ScanCassetteFromCurrentStartAsync(maxSlots, slotPitch, 0, ct);
+            }
+            catch (OperationCanceledException)
+            {
+                try { InputLifterZ?.Stop(); } catch { }
+                throw;
             }
             catch (Exception ex)
             {
@@ -1303,8 +1357,14 @@ namespace QMC.CDT320
 
         public async Task<int> ScanCassetteFromCurrentStartAsync(int maxSlots, double slotPitch, int timeoutMs = 0)
         {
+            return await ScanCassetteFromCurrentStartAsync(maxSlots, slotPitch, timeoutMs, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        public async Task<int> ScanCassetteFromCurrentStartAsync(int maxSlots, double slotPitch, int timeoutMs, CancellationToken ct)
+        {
             try
             {
+                ct.ThrowIfCancellationRequested();
                 if (!IsAnyCassetteSensorOn())
                 {
                     return FailMappingScan("IN-CST-MAP-CST-MISSING", "Cassette is not detected.");
@@ -1320,7 +1380,7 @@ namespace QMC.CDT320
                     return FailMappingScan("IN-CST-MAP-PITCH", "Slot pitch is invalid.");
                 }
 
-                var detectedPositions = await CollectMappingSensorPositionsAsync();
+                var detectedPositions = await CollectMappingSensorPositionsAsync(ct);
                 if (detectedPositions == null)
                     return -1;
 
@@ -1344,6 +1404,11 @@ namespace QMC.CDT320
                 Log.Write("Main", "SYSTEM", "InputCassetteMapping", "Mapping scan completed. detected=" + detectedPositions.Count + ", slots=" + map.Count(x => x) + " - Ok");
                 return 0;
             }
+            catch (OperationCanceledException)
+            {
+                try { InputLifterZ?.Stop(); } catch { }
+                throw;
+            }
             catch (Exception ex)
             {
                 FailMappingScan("IN-CST-MAP-EXCEPTION", "Mapping scan failed: " + ex.Message);
@@ -1354,15 +1419,16 @@ namespace QMC.CDT320
             }
         }
 
-        private async Task<int> MoveToWaferCassetteMappingStartAndVerifyAsync()
+        private async Task<int> MoveToWaferCassetteMappingStartAndVerifyAsync(CancellationToken ct)
         {
             try
             {
-                int startResult = await MoveToWaferCassetteMappingStartPosition();
+                ct.ThrowIfCancellationRequested();
+                int startResult = await MoveWaferLifterZ(Recipe.MappingStartPosition, false, ct).ConfigureAwait(false);
                 if (startResult != 0 || InputLifterZ.IsAlarm)
                     return FailMappingScan("IN-CST-MAP-START", "InputLifterZ move failed at mapping start.");
 
-                AxisMoveWaitResult waitResult = await WaitWaferLifterZMoveDoneInPosition(Recipe.MappingStartPosition, ResolveWaferLifterZMoveTimeoutMs()).ConfigureAwait(false);
+                AxisMoveWaitResult waitResult = await WaitWaferLifterZMoveDoneInPosition(Recipe.MappingStartPosition, ResolveWaferLifterZMoveTimeoutMs(), ct).ConfigureAwait(false);
                 if (!waitResult.Success)
                     return FailMappingScan(
                         ResolveWaferLifterZMoveWaitAlarmCode("IN-CST-MAP-START", waitResult.Failure),
@@ -1370,6 +1436,11 @@ namespace QMC.CDT320
                         ", reason=" + waitResult.Reason + ". " + waitResult.AxisState);
 
                 return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                try { InputLifterZ?.Stop(); } catch { }
+                throw;
             }
             catch (Exception ex)
             {
@@ -1380,13 +1451,14 @@ namespace QMC.CDT320
             }
         }
 
-        private async Task<List<double>> CollectMappingSensorPositionsAsync()
+        private async Task<List<double>> CollectMappingSensorPositionsAsync(CancellationToken ct)
         {
             double originalAcc = 0.0;
             double originalDec = 0.0;
             bool restoreScanProfile = false;
             try
             {
+                ct.ThrowIfCancellationRequested();
                 var detectedPositions = new List<double>();
                 bool virtualSensor = IsVirtualMappingSensorMode();
                 double scanStartPosition = InputLifterZ.ActualPosition;
@@ -1417,6 +1489,7 @@ namespace QMC.CDT320
                 Task<int> moveTask = InputLifterZ.MoveAbsoluteAsync(Recipe.MappingEndPosition, scanVelocity);
                 while (!moveTask.IsCompleted)
                 {
+                    ct.ThrowIfCancellationRequested();
                     if (IsWaferProtrusionDetected())
                     {
                         InputLifterZ.EStop();
@@ -1440,7 +1513,7 @@ namespace QMC.CDT320
 
                         previous = current;
                     }
-                    await Task.Delay(5).ContinueWith(_ => { });
+                    await Task.Delay(5, ct).ConfigureAwait(false);
                 }
 
                 int moveResult = await moveTask;
@@ -1455,7 +1528,7 @@ namespace QMC.CDT320
                         Recipe.MappingEndPosition,
                         Recipe.MappingEndPosition);
 
-                AxisMoveWaitResult waitResult = await WaitWaferLifterZMoveDoneInPosition(Recipe.MappingEndPosition, ResolveWaferLifterZMoveTimeoutMs()).ConfigureAwait(false);
+                AxisMoveWaitResult waitResult = await WaitWaferLifterZMoveDoneInPosition(Recipe.MappingEndPosition, ResolveWaferLifterZMoveTimeoutMs(), ct).ConfigureAwait(false);
                 if (!waitResult.Success)
                     return FailMappingScanList(
                         ResolveWaferLifterZMoveWaitAlarmCode("IN-CST-MAP-END", waitResult.Failure),
@@ -1463,6 +1536,11 @@ namespace QMC.CDT320
                         ", reason=" + waitResult.Reason + ". " + waitResult.AxisState);
 
                 return detectedPositions;
+            }
+            catch (OperationCanceledException)
+            {
+                try { InputLifterZ?.Stop(); } catch { }
+                throw;
             }
             catch (Exception ex)
             {
@@ -1857,54 +1935,48 @@ namespace QMC.CDT320
 
         private async Task<int> MoveWithProtrusionWatch(double targetPosition, double velocity)
         {
+            return await MoveWithProtrusionWatch(targetPosition, velocity, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        private async Task<int> MoveWithProtrusionWatch(double targetPosition, double velocity, CancellationToken ct)
+        {
             try
             {
+                ct.ThrowIfCancellationRequested();
                 if (IsWaferProtrusionDetected())
                 {
                     InputLifterZ.EStop();
                     throw new InvalidOperationException("'" + Name + "' Move: protrusion sensor is ON.");
                 }
 
-                int moveResult;
-                using (var cts = new CancellationTokenSource())
+                Task<int> moveTask = InputLifterZ.MoveAbsoluteAsync(targetPosition, velocity);
+                while (!moveTask.IsCompleted)
                 {
-                    Task<int> moveTask = InputLifterZ.MoveAbsoluteAsync(targetPosition, velocity);
-                    Task<bool> watchTask = Task.Run(async () =>
-                    {
-                        while (!cts.Token.IsCancellationRequested)
-                        {
-                            if (IsWaferProtrusionDetected())
-                                return true;
-                            await Task.Delay(10, cts.Token).ContinueWith(_ => { });
-                        }
-                        return false;
-                    }, cts.Token);
-
-                    Task first = await Task.WhenAny(moveTask, watchTask);
-                    if (first == moveTask)
-                    {
-                        cts.Cancel();
-                        await watchTask.ContinueWith(_ => { });
-                        moveResult = await moveTask;
-                    }
-                    else
+                    ct.ThrowIfCancellationRequested();
+                    if (IsWaferProtrusionDetected())
                     {
                         InputLifterZ.EStop();
-                        cts.Cancel();
-                        await moveTask.ContinueWith(_ => { });
                         throw new InvalidOperationException("'" + Name + "' Move: protrusion detected while moving.");
                     }
+
+                    await Task.Delay(10, ct).ConfigureAwait(false);
                 }
 
+                int moveResult = await moveTask.ConfigureAwait(false);
                 if (moveResult != 0 || InputLifterZ.IsAlarm)
                     throw new InvalidOperationException("'" + Name + "' Move: InputLifterZ alarm.");
 
-                AxisMoveWaitResult waitResult = await WaitWaferLifterZMoveDoneInPosition(targetPosition, ResolveWaferLifterZMoveTimeoutMs()).ConfigureAwait(false);
+                AxisMoveWaitResult waitResult = await WaitWaferLifterZMoveDoneInPosition(targetPosition, ResolveWaferLifterZMoveTimeoutMs(), ct).ConfigureAwait(false);
                 if (!waitResult.Success)
                     throw new InvalidOperationException("'" + Name + "' Move: InputLifterZ wait/in-position failed. " +
                         AxisMoveWaiter.FormatResult(waitResult, "InputLifterZ"));
 
                 return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                try { InputLifterZ?.Stop(); } catch { }
+                throw;
             }
             catch
             {
@@ -2043,6 +2115,11 @@ namespace QMC.CDT320
 
         private static async Task<int> WaitUntilAsync(Func<bool> condition, int timeoutMs)
         {
+            return await WaitUntilAsync(condition, timeoutMs, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        private static async Task<int> WaitUntilAsync(Func<bool> condition, int timeoutMs, CancellationToken ct)
+        {
             try
             {
                 int elapsed = 0;
@@ -2051,7 +2128,7 @@ namespace QMC.CDT320
                     if (condition())
                         return 0;
 
-                    await Task.Delay(10).ContinueWith(_ => { });
+                    await Task.Delay(10, ct).ConfigureAwait(false);
                     elapsed += 10;
                 }
 

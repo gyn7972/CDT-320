@@ -202,7 +202,7 @@ namespace QMC.CDT320.Sequencing
 
             if (!IsHardwareBypass())
             {
-                bool detected = await AwaitStepWithCancellationAsync(Feeder.WaitWaferFeederRingState(true, ResolveTimeout()), ct).ConfigureAwait(false);
+                bool detected = await Feeder.WaitWaferFeederRingState(true, ResolveTimeout(), ct).ConfigureAwait(false);
                 if (!detected)
                     return Fail("IN-FEEDER-CST-UNLOAD-WAFER-SENSOR", Feeder.Name, "Wafer sensor timeout or data/sensor mismatch before cassette unload. waferId=" + wafer.WaferId);
             }
@@ -255,7 +255,7 @@ namespace QMC.CDT320.Sequencing
 
             if (!IsHardwareBypass())
             {
-                bool cleared = await AwaitStepWithCancellationAsync(Feeder.WaitWaferFeederRingState(false, ResolveTimeout()), ct).ConfigureAwait(false);
+                bool cleared = await Feeder.WaitWaferFeederRingState(false, ResolveTimeout(), ct).ConfigureAwait(false);
                 if (!cleared)
                     return Fail("IN-FEEDER-CST-UNLOAD-RING", Feeder.Name, "WaferFeeder ring remained after cassette unload.");
             }

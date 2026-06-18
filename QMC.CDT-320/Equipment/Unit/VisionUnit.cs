@@ -7,6 +7,7 @@ using QMC.Common.Motion;
 using System;
 using System.Collections.Generic;
 using System.Runtime.Serialization;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace QMC.CDT320
@@ -380,7 +381,12 @@ namespace QMC.CDT320
 
         public Task<bool> WaitVisionAxisInTeachingPosition(VisionAxis axis, string positionName, int timeoutMs)
         {
-            return WaitUntilAsync(() => IsVisionAxisInTeachingPosition(axis, positionName), timeoutMs);
+            return WaitVisionAxisInTeachingPosition(axis, positionName, timeoutMs, CancellationToken.None);
+        }
+
+        public Task<bool> WaitVisionAxisInTeachingPosition(VisionAxis axis, string positionName, int timeoutMs, CancellationToken ct)
+        {
+            return WaitUntilAsync(() => IsVisionAxisInTeachingPosition(axis, positionName), timeoutMs, ct);
         }
 
         public bool IsVisionInAvoidPosition()
@@ -495,13 +501,18 @@ namespace QMC.CDT320
 
         public async Task<bool> TriggerVisionCapture(VisionSide side, int timeoutMs)
         {
+            return await TriggerVisionCapture(side, timeoutMs, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        public async Task<bool> TriggerVisionCapture(VisionSide side, int timeoutMs, CancellationToken ct)
+        {
             if (!CheckVisionInspectionReady(side))
             {
                 RaiseVisionAlarm("VS-CAPTURE-READY", side + " vision is not ready to capture.");
                 return false;
             }
             EventLogger.Write(EventKind.Event, "QMC", "VS-CAPTURE", side + " vision capture requested.");
-            await Task.Delay(timeoutMs > 0 ? Math.Min(timeoutMs, 10) : 1);
+            await Task.Delay(timeoutMs > 0 ? Math.Min(timeoutMs, 10) : 1, ct).ConfigureAwait(false);
             return true;
         }
 
@@ -516,7 +527,12 @@ namespace QMC.CDT320
 
         public Task<bool> WaitVisionReticleSafeState(VisionSide side, int timeoutMs)
         {
-            return WaitUntilAsync(() => side == VisionSide.Front ? CheckVisionReticleFrontSideState() : CheckVisionReticleRearSideState(), timeoutMs);
+            return WaitVisionReticleSafeState(side, timeoutMs, CancellationToken.None);
+        }
+
+        public Task<bool> WaitVisionReticleSafeState(VisionSide side, int timeoutMs, CancellationToken ct)
+        {
+            return WaitUntilAsync(() => side == VisionSide.Front ? CheckVisionReticleFrontSideState() : CheckVisionReticleRearSideState(), timeoutMs, ct);
         }
 
         public bool CheckVisionReticleFrontSideState()
@@ -885,12 +901,17 @@ namespace QMC.CDT320
 
         private static async Task<bool> WaitUntilAsync(Func<bool> condition, int timeoutMs)
         {
+            return await WaitUntilAsync(condition, timeoutMs, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        private static async Task<bool> WaitUntilAsync(Func<bool> condition, int timeoutMs, CancellationToken ct)
+        {
             DateTime start = DateTime.UtcNow;
-            while ((DateTime.UtcNow - start).TotalMilliseconds < timeoutMs)
+            while (timeoutMs <= 0 || (DateTime.UtcNow - start).TotalMilliseconds < timeoutMs)
             {
                 if (condition())
                     return true;
-                await Task.Delay(10);
+                await Task.Delay(10, ct).ConfigureAwait(false);
             }
             return condition();
         }

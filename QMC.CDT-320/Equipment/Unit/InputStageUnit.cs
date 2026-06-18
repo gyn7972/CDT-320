@@ -1347,27 +1347,47 @@ namespace QMC.CDT320
                 using (MotionGuardRuntime.BeginAxisTeachingMove(axis, target, ContinuousJogTargetName))
                     moveTask = SharedRailXMotionRuntime.MoveAxisAsync(axis, target, speed);
 
-                moveTask.ContinueWith(t =>
-                {
-                    try
-                    {
-                        if (t.IsFaulted && t.Exception != null)
-                        {
-                            AlarmManager.Raise(
-                                AlarmSeverity.Warning,
-                                "IN-STAGE-JOG-EX",
-                                Name,
-                                "InputStage bounded jog exception: " + t.Exception.GetBaseException().Message);
-                        }
-                    }
-                    catch
-                    {
-                    }
-                });
+                _ = ObserveBoundedJogMoveAsync(moveTask);
             }
             catch (Exception ex)
             {
                 AlarmManager.Raise(AlarmSeverity.Warning, "IN-STAGE-JOG-EX", Name, ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task ObserveBoundedJogMoveAsync(Task<int> moveTask)
+        {
+            try
+            {
+                if (moveTask == null)
+                    return;
+
+                int result = await moveTask.ConfigureAwait(false);
+                if (result != 0)
+                {
+                    AlarmManager.Raise(
+                        AlarmSeverity.Warning,
+                        "IN-STAGE-JOG-FAIL",
+                        Name,
+                        "InputStage 제한 조그 이동 실패. result=" + result);
+                }
+            }
+            catch (Exception ex)
+            {
+                try
+                {
+                    AlarmManager.Raise(
+                        AlarmSeverity.Warning,
+                        "IN-STAGE-JOG-EX",
+                        Name,
+                        "InputStage 제한 조그 이동 중 예외가 발생했습니다. error=" + ex.Message);
+                }
+                catch
+                {
+                }
             }
             finally
             {

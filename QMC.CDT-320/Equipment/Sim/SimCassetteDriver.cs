@@ -75,7 +75,7 @@ namespace QMC.CDT320.Sim
             _inputCassette.CassetteExistSensor.SimulateInput(InputCassettePresent);
             _inputCassette.ProtrusionSensor.SimulateInput(false);
             _inputCassette.WaferDetectSensor.SimulateInput(false);
-            _inputFeeder.WaferClampedSensor.SimulateInput(false);
+            _inputFeeder.WaferClampedSensor.SimulateInput(true);
             UpdateInputDetectFromPosition();
 
             // Stage 27 — Output 측 초기 센서 주입
@@ -95,10 +95,10 @@ namespace QMC.CDT320.Sim
             // LifterZ 이동 완료 → WaferDetectSensor 갱신
             _inputCassette.InputLifterZ.MoveCompleted += _ => UpdateInputDetectFromPosition();
 
-            // FeederClampCyl InFwd ON ↔ WaferClampedSensor 동기화
+            // Input feeder has only the UnClamp DI: true = unclamp, false = clamp.
             _inputFeeder.FeederClampCyl.InFwd.StateChanged += (sensor, on) =>
             {
-                _inputFeeder.WaferClampedSensor.SimulateInput(on);
+                _inputFeeder.WaferClampedSensor.SimulateInput(!on);
             };
         }
 

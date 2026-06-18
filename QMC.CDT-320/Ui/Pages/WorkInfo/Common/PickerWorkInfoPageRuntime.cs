@@ -950,16 +950,22 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             }
         }
 
-        private static Task WaitForCancellationAsync(CancellationToken ct)
+        private static async Task WaitForCancellationAsync(CancellationToken ct)
         {
             if (!ct.CanBeCanceled)
-                return Task.Delay(Timeout.Infinite);
-            if (ct.IsCancellationRequested)
-                return Task.FromResult(0);
+            {
+                await Task.Delay(Timeout.Infinite).ConfigureAwait(false);
+                return;
+            }
 
-            TaskCompletionSource<int> tcs = new TaskCompletionSource<int>();
-            ct.Register(() => tcs.TrySetResult(0));
-            return tcs.Task;
+            if (ct.IsCancellationRequested)
+                return;
+
+            TaskCompletionSource<int> tcs = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+            using (ct.Register(() => tcs.TrySetResult(0)))
+            {
+                await tcs.Task.ConfigureAwait(false);
+            }
         }
 
         private void ObserveManualActionTask(Task<bool> task, string actionName)
@@ -967,14 +973,26 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             if (task == null)
                 return;
 
-            task.ContinueWith(t =>
+            _ = ObserveManualActionTaskAsync(task, actionName);
+        }
+
+        private async Task ObserveManualActionTaskAsync(Task<bool> task, string actionName)
+        {
+            try
             {
-                if (t.IsFaulted)
-                {
-                    Exception ex = t.Exception != null ? t.Exception.GetBaseException() : null;
-                    WriteAlarm(actionName + " finished after stop: " + (ex != null ? ex.Message : "unknown"));
-                }
-            });
+                await task.ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                WriteEvent(actionName + " 정지 후 취소 완료.");
+            }
+            catch (Exception ex)
+            {
+                WriteAlarm(actionName + " 정지 후 종료 처리 중 오류: " + ex.Message);
+            }
+            finally
+            {
+            }
         }
 
         private void TrySaveMaterialStateAfterManualSequence(string actionName)
@@ -1063,7 +1081,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
                 if (_owner.InvokeRequired)
                 {
-                    _owner.BeginInvoke(new Action(() => SetButtonsEnabled(enabled)));
+                    _owner.Invoke(new Action(() => SetButtonsEnabled(enabled)));
                     return;
                 }
 

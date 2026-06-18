@@ -692,26 +692,38 @@ namespace QMC.CDT320.Sequencing
 
         protected async Task PickerBlowAsync(int pickerNo, CancellationToken ct)
         {
-            int waitMs = 100;
-            if (Side == PickerSequenceSide.Front && FrontPicker != null)
-                waitMs = FrontPicker.ResolvePickerBlowTimeMs(pickerNo);
-            if (Side == PickerSequenceSide.Rear && RearPicker != null)
-                waitMs = RearPicker.ResolvePickerBlowTimeMs(pickerNo);
+            try
+            {
+                ct.ThrowIfCancellationRequested();
 
-            if (Side == PickerSequenceSide.Front)
-                await FrontPicker.PickerBlowOn(pickerNo, waitMs).ConfigureAwait(false);
-            else
-                await RearPicker.PickerBlowOn(pickerNo, waitMs).ConfigureAwait(false);
+                int waitMs = 100;
+                if (Side == PickerSequenceSide.Front && FrontPicker != null)
+                    waitMs = FrontPicker.ResolvePickerBlowTimeMs(pickerNo);
+                if (Side == PickerSequenceSide.Rear && RearPicker != null)
+                    waitMs = RearPicker.ResolvePickerBlowTimeMs(pickerNo);
 
-            ct.ThrowIfCancellationRequested();
+                if (Side == PickerSequenceSide.Front)
+                    await FrontPicker.PickerBlowOn(pickerNo, waitMs, ct).ConfigureAwait(false);
+                else
+                    await RearPicker.PickerBlowOn(pickerNo, waitMs, ct).ConfigureAwait(false);
+
+                ct.ThrowIfCancellationRequested();
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            finally
+            {
+            }
         }
 
         protected Task<int> MovePickerAxisCommandAsync(PickerAxis axis, double target, string targetName = null)
         {
             bool fine = Options != null && Options.FineMove;
             if (Side == PickerSequenceSide.Front)
-                return FrontPicker.MovePickerAxis(axis, target, fine, targetName);
-            return RearPicker.MovePickerAxis(axis, target, fine, targetName);
+                return FrontPicker.MovePickerAxisCommand(axis, target, fine, targetName);
+            return RearPicker.MovePickerAxisCommand(axis, target, fine, targetName);
         }
 
         protected async Task<AxisMoveWaitResult> WaitPickerAxisMoveDoneAsync(PickerAxis axis, double target, int timeoutMs, CancellationToken ct)
@@ -964,6 +976,7 @@ namespace QMC.CDT320.Sequencing
         protected double ResolvePickerZoneX(string positionArrayName, int pickerIndex)
         {
             return GetPickerTeachingPosition(PickerAxis.PickerX, ResolveZonePositionName(positionArrayName)) +
+                   ResolvePickerPitchXOffset(pickerIndex) +
                    ResolvePickerAlignOffsetX(pickerIndex);
         }
 
@@ -1026,6 +1039,20 @@ namespace QMC.CDT320.Sequencing
         {
             PickerAlignOffset offset = ResolvePickerAlignOffset(index);
             return offset != null ? offset.AlignOffsetX : 0.0;
+        }
+
+        protected double ResolvePickerPitchXOffset(int index)
+        {
+            if (index <= 0)
+                return 0.0;
+
+            double pitch = 0.0;
+            if (Side == PickerSequenceSide.Front && FrontPicker != null && FrontPicker.Setup != null)
+                pitch = FrontPicker.Setup.PickerPitchX;
+            else if (Side == PickerSequenceSide.Rear && RearPicker != null && RearPicker.Setup != null)
+                pitch = RearPicker.Setup.PickerPitchX;
+
+            return Math.Abs(pitch) * index;
         }
 
         protected double ResolvePickerAlignOffsetY(int index)

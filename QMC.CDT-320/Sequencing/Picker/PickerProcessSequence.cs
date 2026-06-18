@@ -1,6 +1,8 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using QMC.CDT320.Materials;
 
 namespace QMC.CDT320.Sequencing
 {
@@ -149,10 +151,135 @@ namespace QMC.CDT320.Sequencing
 
             string axisReason = BuildRequiredPickerAxesReason();
             if (!string.IsNullOrWhiteSpace(axisReason))
-                return Fail("PICKER-AXIS-NOT-READY", Name, "Picker axis is not ready. side=" + Side + ", reason=" + axisReason);
+                return Fail("PICKER-AXIS-NOT-READY", Name, "Picker 축 준비 상태가 아닙니다. side=" + Side + ", reason=" + axisReason);
 
-            CurrentStep = PickerProcessStep.RunPickUp;
-            return 0;
+            return ResolveNextProcessStepFromMaterial();
+        }
+
+        private int ResolveNextProcessStepFromMaterial()
+        {
+            try
+            {
+                List<int> enabled = BuildEnabledPickerIndexes();
+                if (enabled == null || enabled.Count == 0)
+                {
+                    WriteLog("PickerProcessSequence",
+                        Name + " 사용 설정된 Picker가 없어 공정을 완료 처리합니다. side=" + Side + " - Check");
+                    CurrentStep = PickerProcessStep.Complete;
+                    return 0;
+                }
+
+                int occupiedCount = 0;
+                int bottomRequiredCount = 0;
+                int sideRequiredCount = 0;
+                int placeReadyCount = 0;
+
+                for (int i = 0; i < enabled.Count; i++)
+                {
+                    int pickerIndex = enabled[i];
+                    int pickerNo = ToPickerNo(pickerIndex);
+                    DieMaterial die = MaterialStateService.GetDieAtPicker(PickerLocationKind, pickerNo);
+                    if (die == null)
+                        continue;
+
+                    occupiedCount++;
+
+                    bool bottomDone = HasInspectionResult(die, "Bottom");
+                    bool side0Done = HasInspectionResult(die, "Side0");
+                    bool side90Done = HasInspectionResult(die, "Side90");
+
+                    if (!bottomDone)
+                    {
+                        bottomRequiredCount++;
+                        continue;
+                    }
+
+                    if (!side0Done || !side90Done)
+                    {
+                        sideRequiredCount++;
+                        continue;
+                    }
+
+                    placeReadyCount++;
+                }
+
+                if (occupiedCount == 0)
+                {
+                    CurrentStep = PickerProcessStep.RunPickUp;
+                    WriteLog("PickerProcessSequence",
+                        Name + " Picker에 Die가 없어 PickUp부터 시작합니다. side=" + Side +
+                        ", enabledPickerCount=" + enabled.Count + " - Check");
+                    return 0;
+                }
+
+                if (bottomRequiredCount > 0)
+                {
+                    CurrentStep = PickerProcessStep.RunBottomInspection;
+                    WriteLog("PickerProcessSequence",
+                        Name + " Picker가 Die를 가지고 있어 PickUp을 건너뛰고 Bottom 검사부터 재개합니다. side=" + Side +
+                        ", occupiedPickerCount=" + occupiedCount +
+                        ", bottomRequiredCount=" + bottomRequiredCount +
+                        ", sideRequiredCount=" + sideRequiredCount +
+                        ", placeReadyCount=" + placeReadyCount + " - Check");
+                    return 0;
+                }
+
+                if (sideRequiredCount > 0)
+                {
+                    CurrentStep = PickerProcessStep.RunSideInspection;
+                    WriteLog("PickerProcessSequence",
+                        Name + " Bottom 검사가 완료된 Die가 있어 Side 검사부터 재개합니다. side=" + Side +
+                        ", occupiedPickerCount=" + occupiedCount +
+                        ", sideRequiredCount=" + sideRequiredCount +
+                        ", placeReadyCount=" + placeReadyCount + " - Check");
+                    return 0;
+                }
+
+                CurrentStep = PickerProcessStep.RunPlace;
+                WriteLog("PickerProcessSequence",
+                    Name + " Picker Die 검사 상태가 Place 가능 상태라 Place부터 재개합니다. side=" + Side +
+                    ", occupiedPickerCount=" + occupiedCount +
+                    ", placeReadyCount=" + placeReadyCount + " - Check");
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-PROCESS-ROUTE", Name,
+                    "Picker 공정 시작 스텝 판단 중 예외가 발생했습니다. side=" + Side + ", error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool HasInspectionResult(DieMaterial die, string inspectionType)
+        {
+            try
+            {
+                if (die == null || die.Inspections == null || string.IsNullOrWhiteSpace(inspectionType))
+                    return false;
+
+                for (int i = 0; i < die.Inspections.Count; i++)
+                {
+                    DieInspectionRecord record = die.Inspections[i];
+                    if (record == null)
+                        continue;
+
+                    if (!string.Equals(record.InspectionType, inspectionType, StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    return record.Result != MaterialInspectionResult.Unknown;
+                }
+
+                return false;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
         }
 
         private async Task<int> RunPickUpAsync(CancellationToken ct)

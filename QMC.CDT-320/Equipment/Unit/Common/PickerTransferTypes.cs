@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using QMC.Common.Motion;
 
@@ -30,9 +31,13 @@ namespace QMC.CDT320
     public interface IVisionTpuClient
     {
         Task<bool> TriggerBottomExposeAsync(int pickerNo, int timeoutMs = 1000);
+        Task<bool> TriggerBottomExposeAsync(int pickerNo, int timeoutMs, CancellationToken ct);
         Task<BottomVisionOffset[]> GetBottomResultsAsync(int timeoutMs = 5000);
+        Task<BottomVisionOffset[]> GetBottomResultsAsync(int timeoutMs, CancellationToken ct);
         Task<bool> TriggerSideExposeAsync(int pickerNo, int sideNo, int timeoutMs = 1000);
+        Task<bool> TriggerSideExposeAsync(int pickerNo, int sideNo, int timeoutMs, CancellationToken ct);
         Task<SideVisionResult> GetSideResultAsync(int pickerNo, int timeoutMs = 5000);
+        Task<SideVisionResult> GetSideResultAsync(int pickerNo, int timeoutMs, CancellationToken ct);
     }
 
     public sealed class PickerRuntimeTool

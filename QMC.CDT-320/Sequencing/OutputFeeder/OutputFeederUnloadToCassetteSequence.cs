@@ -172,7 +172,7 @@ namespace QMC.CDT320.Sequencing
 
             if (!IsHardwareBypass())
             {
-                bool detected = await AwaitStepWithCancellationAsync(Feeder.WaitFeederRingState(true, ResolveTimeout()), ct).ConfigureAwait(false);
+                bool detected = await Feeder.WaitFeederRingState(true, ResolveTimeout(), ct).ConfigureAwait(false);
                 if (!detected)
                     return Fail("OUT-FEEDER-CST-UNLOAD-RING-DETECT", Feeder.Name, "Output feeder ring was not detected before cassette unload. waferId=" + wafer.WaferId);
             }
@@ -240,7 +240,7 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> PrepareFeederUnclampAsync(CancellationToken ct)
         {
-            int result = await AwaitStepWithCancellationAsync(Feeder.SetFeederClampAsync(false, ResolveTimeout()), ct).ConfigureAwait(false);
+            int result = await Feeder.SetFeederClampAsync(false, ResolveTimeout(), ct).ConfigureAwait(false);
             if (result != 0)
                 return Fail("OUT-FEEDER-UNCLAMP", Feeder.Name,
                     "Output feeder unclamp command failed. result=" + result + ", " + Feeder.DescribeFeederCylinderState());
@@ -275,7 +275,7 @@ namespace QMC.CDT320.Sequencing
 
             if (!IsHardwareBypass())
             {
-                bool cleared = await AwaitStepWithCancellationAsync(Feeder.WaitFeederRingState(false, ResolveTimeout()), ct).ConfigureAwait(false);
+                bool cleared = await Feeder.WaitFeederRingState(false, ResolveTimeout(), ct).ConfigureAwait(false);
                 if (!cleared)
                     return Fail("OUT-FEEDER-CST-RING", Feeder.Name, "Output feeder ring remained after cassette unload. waferId=" + wafer.WaferId);
             }

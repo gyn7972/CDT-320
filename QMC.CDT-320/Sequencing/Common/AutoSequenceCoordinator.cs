@@ -13,6 +13,7 @@ namespace QMC.CDT320.Sequencing
             new Dictionary<SequenceUnitKind, Func<UnitSequenceBase>>();
         private readonly Dictionary<SequenceUnitKind, UnitSequenceBase> _active =
             new Dictionary<SequenceUnitKind, UnitSequenceBase>();
+        private const int AbortPendingWaitTimeoutMs = 3000;
         private CancellationTokenSource _childrenCts;
         private SequenceRunOptions _options = SequenceRunOptions.FullAuto();
 
@@ -37,6 +38,7 @@ namespace QMC.CDT320.Sequencing
         public void Configure(SequenceRunOptions options)
         {
             _options = options ?? SequenceRunOptions.FullAuto();
+            _ctx.ResetCycleStopRequest();
             _active.Clear();
 
             foreach (var item in _factories)
@@ -116,6 +118,15 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
+        /// <summary>현재 진행 중인 작업 단위가 끝나는 지점에서 자동 시퀀스를 정지하도록 요청합니다.</summary>
+        public void RequestCycleStop()
+        {
+            _ctx.RequestCycleStop();
+            _ctx.LogPublic("[SEQ] CYCLE STOP 요청 접수. 현재 작업 경계에서 정지합니다.");
+            QMC.Common.Log.Write("Main", "SYSTEM", "SequenceCycleStop",
+                "Sequence cycle stop requested. - Requested");
+        }
+
         private async Task WaitAllOrCancelOnFirstFailureAsync(List<Task> tasks, CancellationToken ct)
         {
             var pending = new List<Task>(tasks);
@@ -147,14 +158,28 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private static async Task AwaitPendingAfterAbortAsync(List<Task> pending)
+        private async Task AwaitPendingAfterAbortAsync(List<Task> pending)
         {
             if (pending == null || pending.Count == 0)
                 return;
 
             try
             {
-                await Task.WhenAll(pending).ConfigureAwait(false);
+                Task allPending = Task.WhenAll(pending);
+                Task timeout = Task.Delay(AbortPendingWaitTimeoutMs);
+                Task completed = await Task.WhenAny(allPending, timeout).ConfigureAwait(false);
+                if (completed == allPending)
+                {
+                    await allPending.ConfigureAwait(false);
+                    return;
+                }
+
+                _ctx.LogPublic("[SEQ] Abort 이후 남은 시퀀스 대기가 " +
+                               AbortPendingWaitTimeoutMs + "ms 안에 종료되지 않았습니다. pending=" +
+                               pending.Count);
+                QMC.Common.Log.Write("Main", "SYSTEM", "SequenceAbort",
+                    "Sequence abort pending wait timeout. pending=" + pending.Count +
+                    ", timeoutMs=" + AbortPendingWaitTimeoutMs + " - Timeout");
             }
             catch
             {

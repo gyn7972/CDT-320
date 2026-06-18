@@ -647,11 +647,11 @@ namespace QMC.CDT320.Sequencing
             SideVisionResult result;
             if (Side == PickerSequenceSide.Front)
             {
-                result = await FrontPicker.RequestSideInspectionAsync(_currentPickerNo, angleDeg, timeoutMs).ConfigureAwait(false);
+                result = await FrontPicker.RequestSideInspectionAsync(_currentPickerNo, angleDeg, timeoutMs, ct).ConfigureAwait(false);
             }
             else
             {
-                result = await RearPicker.RequestSideInspectionAsync(_currentPickerNo, angleDeg, timeoutMs).ConfigureAwait(false);
+                result = await RearPicker.RequestSideInspectionAsync(_currentPickerNo, angleDeg, timeoutMs, ct).ConfigureAwait(false);
             }
 
             if (result == null)

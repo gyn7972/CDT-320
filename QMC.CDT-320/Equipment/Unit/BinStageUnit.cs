@@ -299,10 +299,32 @@ namespace QMC.CDT320
         }
 
         /// <summary>Bottom Vision Blow를 켭니다.</summary>
-        public async Task BottomVisionBlowOn(int timeoutMs = 0) { SetOutput("BottomVisionBlow", true); if (timeoutMs > 0) await Task.Delay(timeoutMs); }
+        public async Task BottomVisionBlowOn(int timeoutMs = 0)
+        {
+            await BottomVisionBlowOn(timeoutMs, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        /// <summary>Bottom Vision Blow를 켭니다.</summary>
+        public async Task BottomVisionBlowOn(int timeoutMs, CancellationToken ct)
+        {
+            SetOutput("BottomVisionBlow", true);
+            if (timeoutMs > 0)
+                await Task.Delay(timeoutMs, ct).ConfigureAwait(false);
+        }
 
         /// <summary>Bottom Vision Blow를 끕니다.</summary>
-        public async Task BottomVisionBlowOff(int timeoutMs = 0) { SetOutput("BottomVisionBlow", false); if (timeoutMs > 0) await Task.Delay(timeoutMs); }
+        public async Task BottomVisionBlowOff(int timeoutMs = 0)
+        {
+            await BottomVisionBlowOff(timeoutMs, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        /// <summary>Bottom Vision Blow를 끕니다.</summary>
+        public async Task BottomVisionBlowOff(int timeoutMs, CancellationToken ct)
+        {
+            SetOutput("BottomVisionBlow", false);
+            if (timeoutMs > 0)
+                await Task.Delay(timeoutMs, ct).ConfigureAwait(false);
+        }
 
         /// <summary>Stage Ring 감지 상태를 확인합니다.</summary>
         public bool IsStageRingDetected(BinSide side, bool expected = true) => IsInputOn(Prefix(side) + "RingCheck") == expected;
@@ -431,7 +453,18 @@ namespace QMC.CDT320
         public Task<int> UnloadStageToFeeder(BinSide side, int timeoutMs, bool bFine = false) => PrepareStageForFeederUnload(side, timeoutMs, bFine);
 
         /// <summary>Bottom Vision 정렬을 수행합니다.</summary>
-        public async Task<bool> AlignStageByBottomVision(BinSide side, int timeoutMs, bool useBlow = true) { if (useBlow) await BottomVisionBlowOn(Recipe.BlowTimeMs); return await Task.FromResult(true); }
+        public async Task<bool> AlignStageByBottomVision(BinSide side, int timeoutMs, bool useBlow = true)
+        {
+            return await AlignStageByBottomVision(side, timeoutMs, useBlow, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        public async Task<bool> AlignStageByBottomVision(BinSide side, int timeoutMs, bool useBlow, CancellationToken ct)
+        {
+            if (useBlow)
+                await BottomVisionBlowOn(Recipe.BlowTimeMs, ct).ConfigureAwait(false);
+
+            return true;
+        }
 
         /// <summary>Map 위치 이동 후 Clamp합니다.</summary>
         public async Task<int> MoveToStageMapPositionAndClamp(BinSide side, int binNo, int timeoutMs, bool bFine = false)

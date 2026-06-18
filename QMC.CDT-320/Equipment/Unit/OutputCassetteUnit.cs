@@ -263,13 +263,24 @@ namespace QMC.CDT320
 
         public async Task<int> MoveBinLifterZ(double targetPos, bool bFine = false)
         {
+            return await MoveBinLifterZ(targetPos, bFine, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        public async Task<int> MoveBinLifterZ(double targetPos, bool bFine, CancellationToken ct)
+        {
             try
             {
+                ct.ThrowIfCancellationRequested();
                 double velocity = bFine ? OutputLifterZ.Config.JogFineVelocity : OutputLifterZ.Config.DefaultVelocity;
                 if (velocity <= 0.0)
                     velocity = bFine ? Math.Max(1.0, Config.ScanVelocity * 0.5) : Config.ScanVelocity;
 
-                return await MoveWithProtrusionWatch(targetPos, velocity).ConfigureAwait(false);
+                return await MoveWithProtrusionWatch(targetPos, velocity, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                try { OutputLifterZ?.Stop(); } catch { }
+                throw;
             }
             catch (Exception ex)
             {
@@ -689,17 +700,32 @@ namespace QMC.CDT320
 
         public async Task<bool> WaitNgBinLock(int timeoutMs)
         {
-            return await NgBinCassetteLock.WaitUntilStateAsync(true, timeoutMs);
+            return await WaitNgBinLock(timeoutMs, CancellationToken.None);
+        }
+
+        public async Task<bool> WaitNgBinLock(int timeoutMs, CancellationToken ct)
+        {
+            return await NgBinCassetteLock.WaitUntilStateAsync(true, timeoutMs, ct);
         }
 
         public async Task<bool> WaitBinJutClear(int timeoutMs)
         {
-            return await BinRingJutCheck.WaitUntilStateAsync(false, timeoutMs);
+            return await WaitBinJutClear(timeoutMs, CancellationToken.None);
+        }
+
+        public async Task<bool> WaitBinJutClear(int timeoutMs, CancellationToken ct)
+        {
+            return await BinRingJutCheck.WaitUntilStateAsync(false, timeoutMs, ct);
         }
 
         public async Task<bool> WaitBinMappingSensor(bool expected, int timeoutMs)
         {
-            return await BinMappingSensor.WaitUntilStateAsync(expected, timeoutMs);
+            return await WaitBinMappingSensor(expected, timeoutMs, CancellationToken.None);
+        }
+
+        public async Task<bool> WaitBinMappingSensor(bool expected, int timeoutMs, CancellationToken ct)
+        {
+            return await BinMappingSensor.WaitUntilStateAsync(expected, timeoutMs, ct);
         }
 
         public void ManualMoveBinLifterZJog(Direction dir, double speed)
@@ -776,6 +802,12 @@ namespace QMC.CDT320
 
         public async Task<bool> ScanCassetteAsync(TargetCassette cassette, int maxSlots, double slotPitch)
         {
+            return await ScanCassetteAsync(cassette, maxSlots, slotPitch, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        public async Task<bool> ScanCassetteAsync(TargetCassette cassette, int maxSlots, double slotPitch, CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
             if (maxSlots <= 0 || slotPitch <= 0.0)
                 return false;
 
@@ -785,7 +817,7 @@ namespace QMC.CDT320
                 return true;
             }
 
-            List<double> detectedPositions = await CollectBinMappingSensorPositionsAsync(cassette, maxSlots, slotPitch, true);
+            List<double> detectedPositions = await CollectBinMappingSensorPositionsAsync(cassette, maxSlots, slotPitch, true, ct);
             if (detectedPositions == null)
                 return false;
 
@@ -800,9 +832,15 @@ namespace QMC.CDT320
 
         public async Task<bool> ScanAllCassettesAsync()
         {
+            return await ScanAllCassettesAsync(CancellationToken.None).ConfigureAwait(false);
+        }
+
+        public async Task<bool> ScanAllCassettesAsync(CancellationToken ct)
+        {
             BeginMapping();
             try
             {
+                ct.ThrowIfCancellationRequested();
                 int maxSlots = Config.SlotCount;
                 double slotPitch = Config.SlotPitch;
                 if (maxSlots <= 0 || slotPitch <= 0.0)
@@ -825,7 +863,7 @@ namespace QMC.CDT320
                 if (!IsAnyCassetteSensorOn(TargetCassette.Ng))
                     return FailMappingScanBool("OUT-CST-MAP-NG-MISSING", "NG cassette is not detected.");
 
-                List<double> detectedPositions = await CollectBinMappingSensorPositionsAsync(TargetCassette.Good1, maxSlots, slotPitch, true).ConfigureAwait(false);
+                List<double> detectedPositions = await CollectBinMappingSensorPositionsAsync(TargetCassette.Good1, maxSlots, slotPitch, true, ct).ConfigureAwait(false);
                 if (detectedPositions == null)
                     return false;
 
@@ -848,9 +886,15 @@ namespace QMC.CDT320
 
         public async Task<bool> ScanAllCassettesFromCurrentStartAsync()
         {
+            return await ScanAllCassettesFromCurrentStartAsync(CancellationToken.None).ConfigureAwait(false);
+        }
+
+        public async Task<bool> ScanAllCassettesFromCurrentStartAsync(CancellationToken ct)
+        {
             BeginMapping();
             try
             {
+                ct.ThrowIfCancellationRequested();
                 int maxSlots = Config.SlotCount;
                 double slotPitch = Config.SlotPitch;
                 if (maxSlots <= 0 || slotPitch <= 0.0)
@@ -864,7 +908,7 @@ namespace QMC.CDT320
                     BuildSimulatedBinMap(TargetCassette.Ng, maxSlots, slotPitch);
                     BuildSimulatedBinMap(TargetCassette.Good1, maxSlots, slotPitch);
                     BuildSimulatedBinMap(TargetCassette.Good2, maxSlots, slotPitch);
-                    int moved = await MoveToBinCassetteMappingEndAndVerifyAsync().ConfigureAwait(false);
+                    int moved = await MoveToBinCassetteMappingEndAndVerifyAsync(ct).ConfigureAwait(false);
                     if (moved != 0)
                         return false;
 
@@ -877,7 +921,7 @@ namespace QMC.CDT320
                 if (!IsAnyCassetteSensorOn(TargetCassette.Ng))
                     return FailMappingScanBool("OUT-CST-MAP-NG-MISSING", "NG cassette is not detected.");
 
-                List<double> detectedPositions = await CollectBinMappingSensorPositionsAsync(TargetCassette.Good1, maxSlots, slotPitch, false).ConfigureAwait(false);
+                List<double> detectedPositions = await CollectBinMappingSensorPositionsAsync(TargetCassette.Good1, maxSlots, slotPitch, false, ct).ConfigureAwait(false);
                 if (detectedPositions == null)
                     return false;
 
@@ -892,6 +936,11 @@ namespace QMC.CDT320
 
                 return true;
             }
+            catch (OperationCanceledException)
+            {
+                try { OutputLifterZ?.Stop(); } catch { }
+                throw;
+            }
             finally
             {
                 EndMapping();
@@ -904,18 +953,29 @@ namespace QMC.CDT320
             double slotPitch,
             bool moveToStart)
         {
+            return await CollectBinMappingSensorPositionsAsync(referenceCassette, maxSlots, slotPitch, moveToStart, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        private async Task<List<double>> CollectBinMappingSensorPositionsAsync(
+            TargetCassette referenceCassette,
+            int maxSlots,
+            double slotPitch,
+            bool moveToStart,
+            CancellationToken ct)
+        {
             double originalAcc = 0.0;
             double originalDec = 0.0;
             bool restoreScanProfile = false;
 
             try
             {
+                ct.ThrowIfCancellationRequested();
                 if (!IsAnyCassetteSensorOn(referenceCassette))
                     return FailMappingScanList("OUT-CST-MAP-CST-MISSING", "Output cassette is not detected. cassette=" + referenceCassette);
 
                 if (moveToStart)
                 {
-                    int startResult = await MoveToBinCassetteMappingStartAndVerifyAsync();
+                    int startResult = await MoveToBinCassetteMappingStartAndVerifyAsync(ct).ConfigureAwait(false);
                     if (startResult != 0)
                         return null;
                 }
@@ -943,6 +1003,7 @@ namespace QMC.CDT320
                 Task<int> moveTask = OutputLifterZ.MoveAbsoluteAsync(Recipe.MappingEndPosition, scanVelocity);
                 while (!moveTask.IsCompleted)
                 {
+                    ct.ThrowIfCancellationRequested();
                     if (IsBinProtrusionDetected())
                     {
                         OutputLifterZ.EStop();
@@ -954,14 +1015,14 @@ namespace QMC.CDT320
                         AddDetectedBinMappingPosition(detectedPositions, OutputLifterZ.ActualPosition, slotPitch);
 
                     previous = current;
-                    await Task.Delay(5).ContinueWith(_ => { });
+                    await Task.Delay(5, ct).ConfigureAwait(false);
                 }
 
-                int moveResult = await moveTask;
+                int moveResult = await moveTask.ConfigureAwait(false);
                 if (moveResult != 0 || OutputLifterZ.IsAlarm)
                     return FailMappingScanList("OUT-CST-MAP-END", "OutputLifterZ move failed during mapping scan.");
 
-                AxisMoveWaitResult waitResult = await WaitBinLifterZMoveDoneInPosition(Recipe.MappingEndPosition, OutputLifterZ.Setup.MoveTimeoutMs).ConfigureAwait(false);
+                AxisMoveWaitResult waitResult = await WaitBinLifterZMoveDoneInPosition(Recipe.MappingEndPosition, OutputLifterZ.Setup.MoveTimeoutMs, ct).ConfigureAwait(false);
                 if (!waitResult.Success)
                     return FailMappingScanList(
                         ResolveBinLifterZMoveWaitAlarmCode("OUT-CST-MAP-END", waitResult.Failure),
@@ -969,6 +1030,11 @@ namespace QMC.CDT320
                         ", reason=" + waitResult.Reason + ". " + waitResult.AxisState);
 
                 return detectedPositions;
+            }
+            catch (OperationCanceledException)
+            {
+                try { OutputLifterZ?.Stop(); } catch { }
+                throw;
             }
             catch (Exception ex)
             {
@@ -986,13 +1052,20 @@ namespace QMC.CDT320
 
         private async Task<int> MoveToBinCassetteMappingEndAndVerifyAsync()
         {
+            return await MoveToBinCassetteMappingEndAndVerifyAsync(CancellationToken.None).ConfigureAwait(false);
+        }
+
+        private async Task<int> MoveToBinCassetteMappingEndAndVerifyAsync(CancellationToken ct)
+        {
             try
             {
-                int result = await MoveToBinCassetteMappingEndPosition(true).ConfigureAwait(false);
+                ct.ThrowIfCancellationRequested();
+
+                int result = await MoveBinLifterZ(Recipe.MappingEndPosition, true, ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
-                AxisMoveWaitResult waitResult = await WaitBinLifterZMoveDoneInPosition(Recipe.MappingEndPosition, OutputLifterZ.Setup.MoveTimeoutMs).ConfigureAwait(false);
+                AxisMoveWaitResult waitResult = await WaitBinLifterZMoveDoneInPosition(Recipe.MappingEndPosition, OutputLifterZ.Setup.MoveTimeoutMs, ct).ConfigureAwait(false);
                 if (!waitResult.Success)
                     return FailMappingScan(
                         ResolveBinLifterZMoveWaitAlarmCode("OUT-CST-MAP-END", waitResult.Failure),
@@ -1016,13 +1089,20 @@ namespace QMC.CDT320
 
         private async Task<int> MoveToBinCassetteMappingStartAndVerifyAsync()
         {
+            return await MoveToBinCassetteMappingStartAndVerifyAsync(CancellationToken.None).ConfigureAwait(false);
+        }
+
+        private async Task<int> MoveToBinCassetteMappingStartAndVerifyAsync(CancellationToken ct)
+        {
             try
             {
-                int result = await MoveToBinCassetteMappingStartPosition(true).ConfigureAwait(false);
+                ct.ThrowIfCancellationRequested();
+
+                int result = await MoveBinLifterZ(Recipe.MappingStartPosition, true, ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
 
-                AxisMoveWaitResult waitResult = await WaitBinLifterZMoveDoneInPosition(Recipe.MappingStartPosition, OutputLifterZ.Setup.MoveTimeoutMs).ConfigureAwait(false);
+                AxisMoveWaitResult waitResult = await WaitBinLifterZMoveDoneInPosition(Recipe.MappingStartPosition, OutputLifterZ.Setup.MoveTimeoutMs, ct).ConfigureAwait(false);
                 if (!waitResult.Success)
                     return FailMappingScan(
                         ResolveBinLifterZMoveWaitAlarmCode("OUT-CST-MAP-START", waitResult.Failure),
@@ -1782,69 +1862,71 @@ namespace QMC.CDT320
             return MoveBinLifterZ(targetPosition);
         }
 
-        private async Task<int> MoveWithProtrusionWatch(double targetPosition, double velocity)
+        private async Task<int> MoveWithProtrusionWatch(double targetPosition, double velocity, CancellationToken ct)
         {
-            if (IsBinProtrusionDetected())
+            try
             {
-                OutputLifterZ.EStop();
-                QMC.Common.Log.Write("Main", "MOTION", Name,
-                    "Output cassette Z move blocked. Protrusion sensor is ON. target=" + targetPosition + " - Failed");
-                return -1;
-            }
+                ct.ThrowIfCancellationRequested();
 
-            int moveResult;
-            using (var cts = new CancellationTokenSource())
-            {
-                Task<int> moveTask = OutputLifterZ.MoveAbsoluteAsync(targetPosition, velocity);
-                Task<bool> watchTask = Task.Run(async () =>
-                {
-                    while (!cts.Token.IsCancellationRequested)
-                    {
-                        if (IsBinProtrusionDetected())
-                            return true;
-                        await Task.Delay(10, cts.Token).ContinueWith(_ => { });
-                    }
-                    return false;
-                }, cts.Token);
-
-                Task first = await Task.WhenAny(moveTask, watchTask);
-                if (first == moveTask)
-                {
-                    cts.Cancel();
-                    await watchTask.ContinueWith(_ => { });
-                    moveResult = await moveTask.ConfigureAwait(false);
-                }
-                else
+                if (IsBinProtrusionDetected())
                 {
                     OutputLifterZ.EStop();
-                    cts.Cancel();
-                    await moveTask.ContinueWith(_ => { });
                     QMC.Common.Log.Write("Main", "MOTION", Name,
-                        "Output cassette Z move stopped. Protrusion detected while moving. target=" + targetPosition + " - Failed");
+                        "Output cassette Z move blocked. Protrusion sensor is ON. target=" + targetPosition + " - Failed");
                     return -1;
                 }
-            }
 
-            if (moveResult != 0 || OutputLifterZ.IsAlarm)
+                Task<int> moveTask = OutputLifterZ.MoveAbsoluteAsync(targetPosition, velocity);
+                while (!moveTask.IsCompleted)
+                {
+                    ct.ThrowIfCancellationRequested();
+
+                    if (IsBinProtrusionDetected())
+                    {
+                        OutputLifterZ.EStop();
+                        QMC.Common.Log.Write("Main", "MOTION", Name,
+                            "Output cassette Z move stopped. Protrusion detected while moving. target=" + targetPosition + " - Failed");
+                        return -1;
+                    }
+
+                    await Task.Delay(10, ct).ConfigureAwait(false);
+                }
+
+                int moveResult = await moveTask.ConfigureAwait(false);
+                if (moveResult != 0 || OutputLifterZ.IsAlarm)
+                {
+                    QMC.Common.Log.Write("Main", "MOTION", Name,
+                        "Output cassette Z move command failed. result=" + moveResult +
+                        ", velocity=" + velocity + ". " + BuildOutputLifterZState(targetPosition) + " - Failed");
+                    return moveResult != 0 ? moveResult : -1;
+                }
+
+                AxisMoveWaitResult waitResult = await WaitBinLifterZMoveDoneInPosition(
+                    targetPosition,
+                    OutputLifterZ.Setup != null ? OutputLifterZ.Setup.MoveTimeoutMs : 10000,
+                    ct).ConfigureAwait(false);
+                if (!waitResult.Success)
+                {
+                    QMC.Common.Log.Write("Main", "MOTION", Name,
+                        "Output cassette Z move wait/in-position failed. " +
+                        AxisMoveWaiter.FormatResult(waitResult, "OutputLifterZ") + " - Failed");
+                    return -1;
+                }
+
+                return 0;
+            }
+            catch (OperationCanceledException)
             {
-                QMC.Common.Log.Write("Main", "MOTION", Name,
-                    "Output cassette Z move command failed. result=" + moveResult +
-                    ", velocity=" + velocity + ". " + BuildOutputLifterZState(targetPosition) + " - Failed");
-                return moveResult != 0 ? moveResult : -1;
+                try { OutputLifterZ?.Stop(); } catch { }
+                throw;
             }
-
-            AxisMoveWaitResult waitResult = await WaitBinLifterZMoveDoneInPosition(
-                targetPosition,
-                OutputLifterZ.Setup != null ? OutputLifterZ.Setup.MoveTimeoutMs : 10000).ConfigureAwait(false);
-            if (!waitResult.Success)
+            catch
             {
-                QMC.Common.Log.Write("Main", "MOTION", Name,
-                    "Output cassette Z move wait/in-position failed. " +
-                    AxisMoveWaiter.FormatResult(waitResult, "OutputLifterZ") + " - Failed");
-                return -1;
+                throw;
             }
-
-            return 0;
+            finally
+            {
+            }
         }
 
         private double GetTeachingPosition(string positionName)
@@ -2003,13 +2085,18 @@ namespace QMC.CDT320
 
         private static async Task<bool> WaitUntilAsync(Func<bool> condition, int timeoutMs)
         {
+            return await WaitUntilAsync(condition, timeoutMs, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        private static async Task<bool> WaitUntilAsync(Func<bool> condition, int timeoutMs, CancellationToken ct)
+        {
             int elapsed = 0;
             while (timeoutMs <= 0 || elapsed < timeoutMs)
             {
                 if (condition())
                     return true;
 
-                await Task.Delay(10).ContinueWith(_ => { });
+                await Task.Delay(10, ct).ConfigureAwait(false);
                 elapsed += 10;
             }
             return condition();

@@ -409,7 +409,7 @@ namespace QMC.CDT320.Sequencing
 
             if (!IsHardwareBypass())
             {
-                bool detected = await AwaitStepWithCancellationAsync(Feeder.WaitWaferFeederRingState(true, ResolveTimeout()), ct).ConfigureAwait(false);
+                bool detected = await Feeder.WaitWaferFeederRingState(true, ResolveTimeout(), ct).ConfigureAwait(false);
                 if (!detected)
                     return Fail("IN-FEEDER-STAGE-UNLOAD-RING", Feeder.Name, "WaferFeeder ring was not detected after stage unload. waferId=" + wafer.WaferId);
             }

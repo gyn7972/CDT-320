@@ -326,10 +326,17 @@ namespace QMC.CDT320
             return Tuple.Create(bottom, sideResults);
         }
 
-        public async Task<BottomVisionOffset> RequestBottomInspectionAsync(int pickerNo, int timeoutMs)
+        public Task<BottomVisionOffset> RequestBottomInspectionAsync(int pickerNo, int timeoutMs)
+        {
+            return RequestBottomInspectionAsync(pickerNo, timeoutMs, CancellationToken.None);
+        }
+
+        public async Task<BottomVisionOffset> RequestBottomInspectionAsync(int pickerNo, int timeoutMs, CancellationToken ct)
         {
             try
             {
+                ct.ThrowIfCancellationRequested();
+
                 if (IsPickerSimulationOrDryRun())
                     return SimulateBottomInspectionResult(pickerNo);
 
@@ -340,7 +347,7 @@ namespace QMC.CDT320
                     return null;
                 }
 
-                bool triggered = await vision.TriggerBottomExposeAsync(pickerNo, timeoutMs).ConfigureAwait(false);
+                bool triggered = await vision.TriggerBottomExposeAsync(pickerNo, timeoutMs, ct).ConfigureAwait(false);
                 if (!triggered)
                 {
                     Log.Write("Main", "VISION", "PickerBottomInspect",
@@ -348,7 +355,7 @@ namespace QMC.CDT320
                     return null;
                 }
 
-                BottomVisionOffset[] results = await vision.GetBottomResultsAsync(timeoutMs).ConfigureAwait(false);
+                BottomVisionOffset[] results = await vision.GetBottomResultsAsync(timeoutMs, ct).ConfigureAwait(false);
                 if (results == null)
                 {
                     Log.Write("Main", "VISION", "PickerBottomInspect",
@@ -366,6 +373,10 @@ namespace QMC.CDT320
                     Name + " bottom vision result missing picker. pickerNo=" + pickerNo + ", resultCount=" + results.Length + " - Failed");
                 return null;
             }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
                 Log.Write("Main", "VISION", "PickerBottomInspect",
@@ -377,10 +388,17 @@ namespace QMC.CDT320
             }
         }
 
-        public async Task<SideVisionResult> RequestSideInspectionAsync(int pickerNo, int angleDeg, int timeoutMs)
+        public Task<SideVisionResult> RequestSideInspectionAsync(int pickerNo, int angleDeg, int timeoutMs)
+        {
+            return RequestSideInspectionAsync(pickerNo, angleDeg, timeoutMs, CancellationToken.None);
+        }
+
+        public async Task<SideVisionResult> RequestSideInspectionAsync(int pickerNo, int angleDeg, int timeoutMs, CancellationToken ct)
         {
             try
             {
+                ct.ThrowIfCancellationRequested();
+
                 if (IsPickerSimulationOrDryRun())
                     return SimulateSideInspectionResult(pickerNo);
 
@@ -392,7 +410,7 @@ namespace QMC.CDT320
                 }
 
                 int sideNo = angleDeg == 90 ? 2 : 1;
-                bool triggered = await vision.TriggerSideExposeAsync(pickerNo, sideNo, timeoutMs).ConfigureAwait(false);
+                bool triggered = await vision.TriggerSideExposeAsync(pickerNo, sideNo, timeoutMs, ct).ConfigureAwait(false);
                 if (!triggered)
                 {
                     Log.Write("Main", "VISION", "PickerSideInspect",
@@ -402,7 +420,7 @@ namespace QMC.CDT320
                     return null;
                 }
 
-                SideVisionResult result = await vision.GetSideResultAsync(pickerNo, timeoutMs).ConfigureAwait(false);
+                SideVisionResult result = await vision.GetSideResultAsync(pickerNo, timeoutMs, ct).ConfigureAwait(false);
                 if (result == null)
                 {
                     Log.Write("Main", "VISION", "PickerSideInspect",
@@ -413,6 +431,10 @@ namespace QMC.CDT320
                 }
 
                 return result;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
@@ -598,6 +620,51 @@ namespace QMC.CDT320
         public async Task<int> MovePickerAxis(PickerAxis axis, double targetPos, bool bFine, string targetName)
         {
             return await MovePickerAxisNamed(axis, targetPos, bFine, targetName).ConfigureAwait(false);
+        }
+
+        public async Task<int> MovePickerAxisCommand(PickerAxis axis, double targetPos, bool bFine, string targetName)
+        {
+            return await MovePickerAxisCommandNamed(axis, targetPos, bFine, targetName).ConfigureAwait(false);
+        }
+
+        private async Task<int> MovePickerAxisCommandNamed(PickerAxis axis, double targetPos, bool bFine, string targetName)
+        {
+            try
+            {
+                BaseAxis item = GetAxis(axis);
+                if (!CheckPickerAxisMoveReady(axis))
+                    return RaisePickerAlarm("PK-MOVE-READY", axis + " 이동 준비 상태가 아닙니다.");
+
+                EventLogger.Write(EventKind.Event, "QMC", "PK-MOVE-CMD", Name + " " + axis + " target=" + targetPos);
+                int result;
+                string guardTargetName = BuildPickerGuardTargetName(axis, targetName);
+                using (PickerZoneInterlockRules.BeginPickerZoneMove(side, axis, guardTargetName))
+                {
+                    if (!string.IsNullOrWhiteSpace(guardTargetName))
+                    {
+                        using (MotionGuardRuntime.BeginAxisTeachingMove(item, targetPos, guardTargetName))
+                        {
+                            result = await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, ResolveMoveVelocity(item, bFine)).ConfigureAwait(false);
+                        }
+                    }
+                    else
+                    {
+                        result = await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, ResolveMoveVelocity(item, bFine)).ConfigureAwait(false);
+                    }
+
+                    if (result != 0 || item.IsAlarm)
+                        return RaisePickerAlarm("PK-MOVE", axis + " 이동 명령 실패. result=" + result + ", alarm=" + item.IsAlarm);
+                }
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return RaisePickerAlarm("PK-MOVE-EX", axis + " 이동 명령 예외: " + ex.Message);
+            }
+            finally
+            {
+            }
         }
 
         private async Task<int> MovePickerAxisNamed(PickerAxis axis, double targetPos, bool bFine, string targetName)
@@ -1099,9 +1166,25 @@ namespace QMC.CDT320
 
         public async Task PickerBlowOn(int pickerNo, int timeoutMs = 0)
         {
-            SetPickerBlow(pickerNo, true);
-            if (timeoutMs > 0)
-                await Task.Delay(timeoutMs);
+            await PickerBlowOn(pickerNo, timeoutMs, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        public async Task PickerBlowOn(int pickerNo, int timeoutMs, CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                SetPickerBlow(pickerNo, true);
+                if (timeoutMs > 0)
+                    await Task.Delay(timeoutMs, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            finally
+            {
+            }
         }
 
         public void PickerBlowOff(int pickerNo) { SetPickerBlow(pickerNo, false); }
@@ -1501,7 +1584,16 @@ namespace QMC.CDT320
         {
             PickerAlignOffset offset = GetRuntimePickerOffset(index) ?? new PickerAlignOffset();
             return GetPickerTeachingPosition(PickerAxis.PickerX, ResolveZonePositionName(positionArrayName)) +
+                   ResolvePickerPitchXOffset(index) +
                    offset.AlignOffsetX;
+        }
+
+        private double ResolvePickerPitchXOffset(int index)
+        {
+            if (index <= 0 || Setup == null)
+                return 0.0;
+
+            return Math.Abs(Setup.PickerPitchX) * index;
         }
 
         private double ResolvePickerZoneY(string positionArrayName, int index)

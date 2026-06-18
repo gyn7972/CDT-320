@@ -269,9 +269,7 @@ namespace QMC.CDT320.Sequencing
                     return 0;
                 }
 
-                int result = await AwaitStepWithCancellationAsync(
-                    Stage.EnsureBinGuideClampLiftUpAsync(BinSide.Ng, ResolveTimeout()),
-                    ct).ConfigureAwait(false);
+                int result = await Stage.EnsureBinGuideClampLiftUpAsync(BinSide.Ng, ResolveTimeout(), ct).ConfigureAwait(false);
 
                 if (result != 0)
                     return Fail("OUT-STAGE-NG-CLAMP-UP", Stage.Name,

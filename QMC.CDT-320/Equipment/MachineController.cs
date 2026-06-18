@@ -5121,7 +5121,20 @@ namespace QMC.CDT320
                             "Sequence stopped: " + ex.Message + " - Stopped");
                         Log("[SEQ] stopped: " + ex.Message);
                         if (_status != EquipmentStatus.Alarm)
-                            SetStatus(EquipmentStatus.Stopped);
+                        {
+                            if (_seqContext != null && _seqContext.IsCycleStopRequested)
+                            {
+                                QMC.CDT320.Sequencing.SequenceResumeStore.MarkCycleStopped(
+                                    "AutoSequence",
+                                    "",
+                                    ex.Message);
+                                SetStatus(EquipmentStatus.CycleStopped);
+                            }
+                            else
+                            {
+                                SetStatus(EquipmentStatus.Stopped);
+                            }
+                        }
                     }
                     catch (OperationCanceledException)
                     {
@@ -5199,6 +5212,43 @@ namespace QMC.CDT320
                 SetStatus(EquipmentStatus.Stopped);
         }
 
+        /// <summary>현재 자동 시퀀스를 즉시 취소하지 않고 작업 경계에서 CYCLE STOP 되도록 요청합니다.</summary>
+        public Task RequestCycleStopSequenceAsync()
+        {
+            try
+            {
+                LastActionFailureMessage = "";
+
+                var coordinator = _coordinator;
+                if (coordinator == null || _coordinatorTask == null || _coordinatorTask.IsCompleted)
+                {
+                    LastActionFailureMessage = "진행 중인 자동 시퀀스가 없어 CYCLE STOP 요청을 무시합니다.";
+                    QMC.Common.Log.Write("Main", "SYSTEM", "CycleStopSequence",
+                        LastActionFailureMessage + " - Ignored");
+                    Log("[SEQ] Cycle stop ignored: no active auto sequence");
+                    return Task.CompletedTask;
+                }
+
+                coordinator.RequestCycleStop();
+                QMC.Common.Log.Write("Main", "SYSTEM", "CycleStopSequence",
+                    "Cycle stop requested. The sequence will stop at the next safe boundary. - Requested");
+                Log("[SEQ] Cycle stop requested");
+                return Task.CompletedTask;
+            }
+            catch (Exception ex)
+            {
+                LastActionFailureMessage = "CYCLE STOP 요청 실패: " + ex.Message;
+                QMC.Common.Log.Write("Main", "SYSTEM", "CycleStopSequence",
+                    LastActionFailureMessage + " - Failed");
+                AlarmManager.Raise(AlarmSeverity.Warning, "SEQ-CYCLE-STOP-EX", "MachineController", LastActionFailureMessage);
+                Log("[SEQ] Cycle stop request failed: " + ex.Message);
+                return Task.CompletedTask;
+            }
+            finally
+            {
+            }
+        }
+
         public async Task<int> StopSequenceForAlarmAsync(string alarmCode)
         {
             try
@@ -5235,8 +5285,12 @@ namespace QMC.CDT320
                     _autoCts = null;
                 }
 
+                if (_status == EquipmentStatus.ManualRunning || _status == EquipmentStatus.AutoRunning)
+                    SetStatus(EquipmentStatus.Stopped);
+
                 QMC.Common.Log.Write("Main", "SYSTEM", "StopSequenceForAlarm",
-                    "Sequence stopped by alarm. code=" + alarmCode + " - Ok");
+                    "Alarm response stopped active sequence. code=" + alarmCode +
+                    ", status=" + _status + " - Ok");
                 return 0;
             }
             catch (Exception ex)
@@ -5760,6 +5814,9 @@ namespace QMC.CDT320
         /// <summary>CYCLE STOP: ?꾩옱 ?ъ씠?대쭔 以묐떒. 媛쒕퀎 異??뺤? ?놁쓬.</summary>
         public Task CycleStopAsync()
         {
+            if (_coordinator != null && _coordinatorTask != null && !_coordinatorTask.IsCompleted)
+                return RequestCycleStopSequenceAsync();
+
             if (_cycleCts != null)
             {
                 _cycleStopRequested = true;
@@ -6130,7 +6187,7 @@ namespace QMC.CDT320
                     offsets[p] = (0, 0);
                     // wafer 誘몄뿰寃곗씠?대룄 simulator ?뚮옒?쒕뒗 ?≪떊 (?쒓컖 ?뺤씤??
                     SimulatorBridge.Instance?.CameraExposeFlash("WAFER");
-                    await Task.Delay(200, ct).ContinueWith(_ => { });
+                    await Task.Delay(200, ct).ConfigureAwait(false);
                     continue;
                 }
 
@@ -6157,7 +6214,7 @@ namespace QMC.CDT320
                 }
 
                 // ?ㅼ쓬 ?ㅼ씠濡?媛湲???150ms ?湲????뚮옒?쒓? ?쒓컖?곸쑝濡?4踰?援щ텇?섎룄濡?
-                await Task.Delay(150, ct).ContinueWith(_ => { });
+                await Task.Delay(150, ct).ConfigureAwait(false);
             }
 
             Log($"[CAPTURE] Cycle {cycleIdx + 1}: capture complete.");

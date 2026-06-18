@@ -791,15 +791,7 @@ namespace QMC.CDT320.Sequencing
                 if (alignTask == null)
                     return null;
 
-                if (alignTask.IsCompleted)
-                    return await alignTask.ConfigureAwait(false);
-
-                Task cancelTask = Task.Delay(Timeout.Infinite, ct);
-                Task completed = await Task.WhenAny(alignTask, cancelTask).ConfigureAwait(false);
-                if (!ReferenceEquals(completed, alignTask))
-                    ct.ThrowIfCancellationRequested();
-
-                return await alignTask.ConfigureAwait(false);
+                return await SequenceAwaiter.AwaitAsync(alignTask, null, ct).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -1302,18 +1294,7 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
-                if (stepTask == null)
-                    return -1;
-
-                if (stepTask.IsCompleted)
-                    return await stepTask.ConfigureAwait(false);
-
-                Task cancelTask = Task.Delay(Timeout.Infinite, ct);
-                Task completed = await Task.WhenAny(stepTask, cancelTask).ConfigureAwait(false);
-                if (!ReferenceEquals(completed, stepTask))
-                    ct.ThrowIfCancellationRequested();
-
-                return await stepTask.ConfigureAwait(false);
+                return await SequenceAwaiter.AwaitIntAsync(stepTask, ct).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -1332,18 +1313,7 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
-                if (stepTask == null)
-                    return null;
-
-                if (stepTask.IsCompleted)
-                    return await stepTask.ConfigureAwait(false);
-
-                Task cancelTask = Task.Delay(Timeout.Infinite, ct);
-                Task completed = await Task.WhenAny(stepTask, cancelTask).ConfigureAwait(false);
-                if (!ReferenceEquals(completed, stepTask))
-                    ct.ThrowIfCancellationRequested();
-
-                return await stepTask.ConfigureAwait(false);
+                return await SequenceAwaiter.AwaitAxisWaitAsync(stepTask, ct).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
