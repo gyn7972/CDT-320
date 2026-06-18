@@ -39,6 +39,7 @@ namespace QMC.CDT_320.Ui.Controls
         private int _buttonAreaMaxWidth = 132;
         private int _buttonAreaMinWidth = 112;
         private int _axisColumnsPerRow = 0;
+        private int _axisColumnGap = StageAxisColumnGap;
         private bool _showCurrentSpeedMode = true;
         private bool _isJogging;
         private bool _isContinuousJogStarting;
@@ -268,6 +269,32 @@ namespace QMC.CDT_320.Ui.Controls
                 catch (Exception ex)
                 {
                     EventLogger.Write(EventKind.Warning, "UI", "JOG-AXIS", "AxisColumnsPerRow set failed: " + ex.Message);
+                }
+                finally
+                {
+                }
+            }
+        }
+
+        /// <summary>AxisColumns 모드에서 열(축) 사이 가로 간격(px). 기본값은 내부 표준 간격이며, 키우면 축 라벨/버튼 열이 좌우로 더 벌어집니다.</summary>
+        public int AxisColumnGap
+        {
+            get
+            {
+                try { return _axisColumnGap; }
+                catch { return StageAxisColumnGap; }
+                finally { }
+            }
+            set
+            {
+                try
+                {
+                    _axisColumnGap = Math.Max(0, value);
+                    RebuildAxisButtons();
+                }
+                catch (Exception ex)
+                {
+                    EventLogger.Write(EventKind.Warning, "UI", "JOG-AXIS", "AxisColumnGap set failed: " + ex.Message);
                 }
                 finally
                 {
@@ -520,7 +547,7 @@ namespace QMC.CDT_320.Ui.Controls
                 {
                     int cols = Math.Max(1, Math.Min(_axisColumnsPerRow, _items.Count));
                     int rows = (int)Math.Ceiling(_items.Count / (double)cols);
-                    requiredStageWidth = cols * StageAxisColumnWidth + Math.Max(0, cols - 1) * StageAxisColumnGap + StageAxisColumnGap;
+                    requiredStageWidth = cols * StageAxisColumnWidth + Math.Max(0, cols - 1) * _axisColumnGap + StageAxisColumnGap;
                     requiredStageHeight = rows * StageAxisColumnHeight + Math.Max(0, rows - 1) * StageAxisColumnGap + StageAxisColumnGap;
                 }
                 else if (_items.Count > 0)
@@ -1678,7 +1705,7 @@ namespace QMC.CDT_320.Ui.Controls
 
                 int columnCount = Math.Max(1, Math.Min(Math.Max(1, preferredColumns), axes.Count));
                 int rowCount = (int)Math.Ceiling(axes.Count / (double)columnCount);
-                int totalWidth = columnCount * StageAxisColumnWidth + Math.Max(0, columnCount - 1) * StageAxisColumnGap;
+                int totalWidth = columnCount * StageAxisColumnWidth + Math.Max(0, columnCount - 1) * _axisColumnGap;
                 int totalHeight = rowCount * StageAxisColumnHeight + Math.Max(0, rowCount - 1) * StageAxisColumnGap;
                 TableLayoutPanel outer = new TableLayoutPanel();
                 TableLayoutPanel grid = new TableLayoutPanel();
@@ -1702,7 +1729,7 @@ namespace QMC.CDT_320.Ui.Controls
                 grid.BackColor = Color.Transparent;
 
                 for (int column = 0; column < columnCount; column++)
-                    grid.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, StageAxisColumnWidth + (column == columnCount - 1 ? 0 : StageAxisColumnGap)));
+                    grid.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, StageAxisColumnWidth + (column == columnCount - 1 ? 0 : _axisColumnGap)));
                 for (int row = 0; row < rowCount; row++)
                     grid.RowStyles.Add(new RowStyle(SizeType.Absolute, StageAxisColumnHeight + (row == rowCount - 1 ? 0 : StageAxisColumnGap)));
 

@@ -18,6 +18,7 @@ namespace QMC.CDT_320.Ui.Tabs
         internal SidebarButton BtnLowerVision;
         internal SidebarButton BtnBottomVision;
         internal SidebarButton BtnSideVision;
+        internal SidebarButton BtnVisionStage;
         internal SidebarButton BtnInputMapCreate;
         internal SidebarButton BtnOutputMapCreate;
         internal SidebarButton BtnDieMapSetup;
@@ -51,6 +52,7 @@ namespace QMC.CDT_320.Ui.Tabs
             this.BtnLowerVision = new QMC.CDT_320.Ui.Controls.SidebarButton();
             this.BtnBottomVision = new QMC.CDT_320.Ui.Controls.SidebarButton();
             this.BtnSideVision = new QMC.CDT_320.Ui.Controls.SidebarButton();
+            this.BtnVisionStage = new QMC.CDT_320.Ui.Controls.SidebarButton();
             this.BtnInputMapCreate = new QMC.CDT_320.Ui.Controls.SidebarButton();
             this.BtnOutputMapCreate = new QMC.CDT_320.Ui.Controls.SidebarButton();
             this.BtnDieMapSetup = new QMC.CDT_320.Ui.Controls.SidebarButton();
@@ -251,6 +253,18 @@ namespace QMC.CDT_320.Ui.Tabs
             this.BtnSideVision.TabIndex = 14;
             this.BtnSideVision.Text = "SIDE VISION";
             //
+            // BtnVisionStage
+            //
+            this.BtnVisionStage.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.BtnVisionStage.Font = new System.Drawing.Font("Microsoft Sans Serif", 11F);
+            this.BtnVisionStage.Location = new System.Drawing.Point(4, 692);
+            this.BtnVisionStage.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
+            this.BtnVisionStage.Name = "BtnVisionStage";
+            this.BtnVisionStage.Selected = false;
+            this.BtnVisionStage.Size = new System.Drawing.Size(184, 46);
+            this.BtnVisionStage.TabIndex = 15;
+            this.BtnVisionStage.Text = "VISION STAGE";
+            //
             // BtnInputMapCreate
             //
             this.BtnInputMapCreate.Cursor = System.Windows.Forms.Cursors.Hand;
@@ -438,6 +452,7 @@ namespace QMC.CDT_320.Ui.Tabs
             this.PnlSidebarButtons.Controls.Add(this.BtnInputFeeder);
             this.PnlSidebarButtons.Controls.Add(this.BtnInputStage);
             this.PnlSidebarButtons.Controls.Add(this.BtnFrontHead);
+            this.PnlSidebarButtons.Controls.Add(this.BtnVisionStage);
             this.PnlSidebarButtons.Controls.Add(this.BtnRearHead);
             this.PnlSidebarButtons.Controls.Add(this.BtnOutputStage);
             this.PnlSidebarButtons.Controls.Add(this.BtnOutputFeeder);
