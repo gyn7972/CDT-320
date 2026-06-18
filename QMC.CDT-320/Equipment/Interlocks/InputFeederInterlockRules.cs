@@ -68,6 +68,9 @@ namespace QMC.CDT320.Interlocks
                 if (!IsInputStageYAtLoadOrUnload(stage))
                     return MotionGuardRuleHelpers.Block("InputFeederY", "InputStage StageY must be at Loading or Unloading position.", out reason);
 
+                if (!IsInputStageTAtLoadOrUnload(stage))
+                    return MotionGuardRuleHelpers.Block("InputFeederY", "InputStage StageT must be at Loading or Unloading position.", out reason);
+
                 if (!IsExpanderZAtLoadOrUnload(stage))
                     return MotionGuardRuleHelpers.Block("InputFeederY", "InputStage ExpanderZ must be at Loading or Unloading position.", out reason);
 
@@ -387,6 +390,17 @@ namespace QMC.CDT320.Interlocks
             return (waferY != null && IsAt(stage.StageY, waferY.ReadyPosition))
                    || (waferY != null && IsAt(stage.StageY, waferY.LoadPosition))
                    || (waferY != null && IsAt(stage.StageY, waferY.UnloadPosition));
+        }
+
+        private static bool IsInputStageTAtLoadOrUnload(InputStageUnit stage)
+        {
+            if (stage == null || stage.StageT == null)
+                return true;
+
+            StageAxisPositions waferT = stage.Recipe != null ? stage.Recipe.WaferT : null;
+            return (waferT != null && IsAt(stage.StageT, waferT.ReadyPosition))
+                   || (waferT != null && IsAt(stage.StageT, waferT.LoadPosition))
+                   || (waferT != null && IsAt(stage.StageT, waferT.UnloadPosition));
         }
 
         private static bool IsExpanderZAtLoadOrUnload(InputStageUnit stage)
