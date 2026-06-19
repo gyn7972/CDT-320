@@ -31,7 +31,7 @@ namespace QMC.CDT_320.Ui.Tabs
             RegisterActionButton(BtnReady,      "work.ready",      op, () =>
             {
                 if (ConfirmRun("Ready", "모션을 Ready(Avoid) 위치로 이동하시겠습니까?"))
-                    RunSafe(async c => await c.RunReadySequenceAsync(), false);
+                    RunSafe(async c => await RunReadySequenceWithMessageAsync(c), false);
             });
             RegisterActionButton(BtnStart,      "work.start",      op, () =>
             {
@@ -129,6 +129,32 @@ namespace QMC.CDT_320.Ui.Tabs
             finally
             {
             }
+        }
+
+        private async System.Threading.Tasks.Task RunReadySequenceWithMessageAsync(MachineController controller)
+        {
+            int result = await controller.RunReadySequenceAsync().ConfigureAwait(false);
+            if (result == 0)
+            {
+                QMC.Common.MessageDialog.Show(
+                    FindForm(),
+                    "Ready 완료.",
+                    "Ready",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+                return;
+            }
+
+            string reason = string.IsNullOrWhiteSpace(controller.LastActionFailureMessage)
+                ? "Ready 실패."
+                : controller.LastActionFailureMessage;
+
+            QMC.Common.MessageDialog.Show(
+                FindForm(),
+                reason,
+                "Ready 실패",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
         }
 
         private bool ConfirmRun(string actionLabel, string message)

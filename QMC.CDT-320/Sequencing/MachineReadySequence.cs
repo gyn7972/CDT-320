@@ -38,6 +38,14 @@ namespace QMC.CDT320.Sequencing
                 if (result != 0)
                     return result;
 
+                result = await MoveFrontRearPickerYAxesAvoidAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await MoveFrontRearPickerTAxesAvoidAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
                 result = await MoveFrontRearPickerXAxesAvoidAsync(ct).ConfigureAwait(false);
                 if (result != 0)
                     return result;
@@ -237,6 +245,114 @@ namespace QMC.CDT320.Sequencing
             catch (Exception ex)
             {
                 return Fail("READY-PICKER-X-EX", "MachineReadySequence", "Front/Rear PickerX 동시 Avoid 이동 예외: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> MoveFrontRearPickerYAxesAvoidAsync(CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                var frontUnit = _machine != null ? _machine.PickerFrontUnit : null;
+                var rearUnit = _machine != null ? _machine.PickerRearUnit : null;
+
+                LogStep("Front/Rear PickerY 동시 Avoid 이동 시작.");
+
+                Task<int> frontTask = frontUnit != null
+                    ? MoveFrontPickerAxisAvoidAsync(frontUnit, PickerAxis.PickerY, "PickerY", ct)
+                    : Task.FromResult(Skip("FrontPickerUnit"));
+
+                Task<int> rearTask = rearUnit != null
+                    ? MoveRearPickerAxisAvoidAsync(rearUnit, PickerAxis.PickerY, "PickerY", ct)
+                    : Task.FromResult(Skip("RearPickerUnit"));
+
+                int[] results = await Task.WhenAll(frontTask, rearTask).ConfigureAwait(false);
+                for (int i = 0; i < results.Length; i++)
+                {
+                    if (results[i] != 0)
+                        return results[i];
+                }
+
+                LogStep("Front/Rear PickerY 동시 Avoid 이동 완료.");
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("READY-PICKER-Y-EX", "MachineReadySequence", "Front/Rear PickerY 동시 Avoid 이동 예외: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> MoveFrontRearPickerTAxesAvoidAsync(CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                var frontUnit = _machine != null ? _machine.PickerFrontUnit : null;
+                var rearUnit = _machine != null ? _machine.PickerRearUnit : null;
+
+                LogStep("Front/Rear Picker T축 전체 Avoid 이동 시작.");
+
+                int result = 0;
+                if (frontUnit == null)
+                {
+                    result = Skip("FrontPickerUnit");
+                }
+                else
+                {
+                    result = await MoveFrontPickerAxisAvoidAsync(frontUnit, PickerAxis.PickerT0, "PickerT0", ct).ConfigureAwait(false);
+                    if (result != 0) return result;
+
+                    result = await MoveFrontPickerAxisAvoidAsync(frontUnit, PickerAxis.PickerT1, "PickerT1", ct).ConfigureAwait(false);
+                    if (result != 0) return result;
+
+                    result = await MoveFrontPickerAxisAvoidAsync(frontUnit, PickerAxis.PickerT2, "PickerT2", ct).ConfigureAwait(false);
+                    if (result != 0) return result;
+
+                    result = await MoveFrontPickerAxisAvoidAsync(frontUnit, PickerAxis.PickerT3, "PickerT3", ct).ConfigureAwait(false);
+                    if (result != 0) return result;
+                }
+
+                if (rearUnit == null)
+                {
+                    result = Skip("RearPickerUnit");
+                }
+                else
+                {
+                    result = await MoveRearPickerAxisAvoidAsync(rearUnit, PickerAxis.PickerT0, "PickerT0", ct).ConfigureAwait(false);
+                    if (result != 0) return result;
+
+                    result = await MoveRearPickerAxisAvoidAsync(rearUnit, PickerAxis.PickerT1, "PickerT1", ct).ConfigureAwait(false);
+                    if (result != 0) return result;
+
+                    result = await MoveRearPickerAxisAvoidAsync(rearUnit, PickerAxis.PickerT2, "PickerT2", ct).ConfigureAwait(false);
+                    if (result != 0) return result;
+
+                    result = await MoveRearPickerAxisAvoidAsync(rearUnit, PickerAxis.PickerT3, "PickerT3", ct).ConfigureAwait(false);
+                    if (result != 0) return result;
+                }
+
+                LogStep("Front/Rear Picker T축 전체 Avoid 이동 완료.");
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("READY-PICKER-T-EX", "MachineReadySequence", "Front/Rear Picker T축 전체 Avoid 이동 예외: " + ex.Message);
             }
             finally
             {

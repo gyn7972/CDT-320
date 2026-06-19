@@ -185,6 +185,8 @@ namespace QMC.CDT_320.Ui.Controls
                         h = h * 31 + (entry.IsTarget ? 1 : 0);
                         h = h * 31 + (int)entry.Result;
                         h = h * 31 + entry.BinCode;
+                        h = h * 31 + StringComparer.OrdinalIgnoreCase.GetHashCode(
+                            MaterialStateService.ResolveInputDieDisplayState(entry) ?? string.Empty);
                     }
                 }
                 else
@@ -315,6 +317,24 @@ namespace QMC.CDT_320.Ui.Controls
         {
             if (entry == null || !entry.IsTarget)
                 return Color.FromArgb(0x66, 0x66, 0x66);
+
+            string displayState = MaterialStateService.ResolveInputDieDisplayState(entry);
+            if (!string.IsNullOrWhiteSpace(displayState))
+            {
+                if (displayState.StartsWith("PICK", StringComparison.OrdinalIgnoreCase))
+                    return Color.FromArgb(0xF5, 0xC5, 0x18);
+
+                if (displayState.StartsWith("RESERVE", StringComparison.OrdinalIgnoreCase))
+                    return Color.FromArgb(0x00, 0xBC, 0xD4);
+
+                if (displayState.Equals("GOOD STAGE", StringComparison.OrdinalIgnoreCase) ||
+                    displayState.Equals("FINISH", StringComparison.OrdinalIgnoreCase))
+                    return BinCodeMap.ConvertToBinCodeColor(BinCodeMap.GoodBin);
+
+                if (displayState.Equals("NG STAGE", StringComparison.OrdinalIgnoreCase) ||
+                    displayState.Equals("REJECT", StringComparison.OrdinalIgnoreCase))
+                    return Color.IndianRed;
+            }
 
             if (entry.Result == DieResult.Good)
                 return BinCodeMap.ConvertToBinCodeColor(BinCodeMap.GoodBin);
