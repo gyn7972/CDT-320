@@ -28,6 +28,11 @@ namespace QMC.CDT_320.Ui.Tabs
             RegisterSidebarButton(BtnMain, "work.page.main", op, () => new WorkMainPage());
 
             RegisterActionButton(BtnInit,       "work.init",       op, OpenInitializationMonitor);
+            RegisterActionButton(BtnReady,      "work.ready",      op, () =>
+            {
+                if (ConfirmRun("Ready", "모션을 Ready(Avoid) 위치로 이동하시겠습니까?"))
+                    RunSafe(async c => await c.RunReadySequenceAsync(), false);
+            });
             RegisterActionButton(BtnStart,      "work.start",      op, () =>
             {
                 if (ConfirmRun("Start", "장비를 Start 하여 작업을 진행하시겠습니까?"))

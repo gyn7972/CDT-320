@@ -4962,6 +4962,88 @@ namespace QMC.CDT320
             return false;
         }
 
+        /// <summary>장비 READY: 초기화된 장비의 주요 모션을 안전한 Avoid 위치로 복귀합니다.</summary>
+        public async Task<int> RunReadySequenceAsync()
+        {
+            IDisposable manualScope = null;
+
+            try
+            {
+                LastActionFailureMessage = string.Empty;
+
+                if (_status == EquipmentStatus.Alarm)
+                {
+                    LastActionFailureMessage = "Alarm 상태에서는 READY 시퀀스를 수행할 수 없습니다. 알람을 해제한 뒤 다시 실행하세요.";
+                    QMC.Common.Log.Write("Main", "SYSTEM", "RunReadySequenceAsync",
+                        "Ready sequence failed: alarm status is active. - Failed");
+                    AlarmManager.Raise(AlarmSeverity.Warning, "READY-ALARM", "MachineController", LastActionFailureMessage);
+                    Log("[READY] failed: alarm status is active");
+                    return -1;
+                }
+
+                if (IsSequenceRunning)
+                {
+                    LastActionFailureMessage = "Sequence 실행 중에는 READY 시퀀스를 수행할 수 없습니다.";
+                    QMC.Common.Log.Write("Main", "SYSTEM", "RunReadySequenceAsync",
+                        "Ready sequence failed: sequence is already running. - Failed");
+                    AlarmManager.Raise(AlarmSeverity.Warning, "READY-RUNNING", "MachineController", LastActionFailureMessage);
+                    Log("[READY] failed: sequence is already running");
+                    return -1;
+                }
+
+                if (!EnsureMachineInitializedForRun("RunReadySequenceAsync"))
+                    return -1;
+
+                manualScope = EnterManualOperation();
+
+                Log("[READY] Ready sequence start.");
+                QMC.Common.Log.Write("Main", "SYSTEM", "RunReadySequenceAsync",
+                    "Ready sequence start. - Start");
+
+                var sequence = new QMC.CDT320.Sequencing.MachineReadySequence(_machine);
+                int result = await sequence.RunAsync(ManualOperationToken).ConfigureAwait(false);
+                if (result != 0)
+                {
+                    LastActionFailureMessage = string.IsNullOrEmpty(sequence.LastErrorMessage)
+                        ? "READY 시퀀스 실패."
+                        : sequence.LastErrorMessage;
+                    SetStatus(EquipmentStatus.Alarm);
+                    return result;
+                }
+
+                SaveMachineRuntimeState("ReadySequenceComplete");
+                SetStatus(EquipmentStatus.Ready);
+                Log("[READY] Ready sequence complete.");
+                QMC.Common.Log.Write("Main", "SYSTEM", "RunReadySequenceAsync",
+                    "Ready sequence complete. - Ok");
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                LastActionFailureMessage = "READY 시퀀스가 정지되었습니다.";
+                QMC.Common.Log.Write("Main", "SYSTEM", "RunReadySequenceAsync",
+                    "Ready sequence canceled. - Stopped");
+                Log("[READY] canceled");
+                SetStatus(EquipmentStatus.Stopped);
+                return -1;
+            }
+            catch (Exception ex)
+            {
+                LastActionFailureMessage = "READY 시퀀스 실패: " + ex.Message;
+                QMC.Common.Log.Write("Main", "SYSTEM", "RunReadySequenceAsync",
+                    "Ready sequence failed: " + ex.Message + " - Failed");
+                AlarmManager.Raise(AlarmSeverity.Error, "READY-EX", "MachineController", LastActionFailureMessage);
+                Log("[READY] failed: " + ex.Message);
+                SetStatus(EquipmentStatus.Alarm);
+                return -1;
+            }
+            finally
+            {
+                if (manualScope != null)
+                    manualScope.Dispose();
+            }
+        }
+
         /// <summary>장비 START: Servo ON 후 현재 구성된 자동 시퀀스를 시작합니다.</summary>
         public async Task<int> StartAsync()
         {

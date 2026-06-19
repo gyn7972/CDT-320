@@ -135,6 +135,7 @@ namespace QMC.CDT_320.Ui.Localization
 
             // 사이드바 (작업)
             A("work.init",            "초기화",            "Init");
+            A("work.ready",           "READY",             "READY");
             A("work.start",           "시작",              "Start");
             A("work.stop",            "정지",              "Stop");
             A("work.cycleRun",        "CYCLE RUN",        "CYCLE RUN");
@@ -426,6 +427,7 @@ namespace QMC.CDT_320.Ui.Localization
 
             // 작업 탭 액션
             Z("work.init",           "初始化");
+            Z("work.ready",          "READY");
             Z("work.start",          "开始");
             Z("work.stop",           "停止");
             Z("work.cycleRun",       "循环运行");
@@ -524,6 +526,7 @@ namespace QMC.CDT_320.Ui.Localization
 
             // 작업 탭 액션
             J("work.init",           "初期化");
+            J("work.ready",          "READY");
             J("work.start",          "開始");
             J("work.stop",           "停止");
             J("work.cycleRun",       "サイクル実行");

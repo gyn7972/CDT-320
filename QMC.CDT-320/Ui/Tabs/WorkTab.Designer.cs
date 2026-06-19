@@ -6,6 +6,7 @@ namespace QMC.CDT_320.Ui.Tabs
     {
         internal SidebarButton BtnMain;
         internal SidebarButton BtnInit;
+        internal SidebarButton BtnReady;
         internal SidebarButton BtnStart;
         internal SidebarButton BtnStop;
         internal SidebarButton BtnCycleRun;
@@ -36,6 +37,7 @@ namespace QMC.CDT_320.Ui.Tabs
         {
             this.BtnMain = new QMC.CDT_320.Ui.Controls.SidebarButton();
             this.BtnInit = new QMC.CDT_320.Ui.Controls.SidebarButton();
+            this.BtnReady = new QMC.CDT_320.Ui.Controls.SidebarButton();
             this.BtnStart = new QMC.CDT_320.Ui.Controls.SidebarButton();
             this.BtnStop = new QMC.CDT_320.Ui.Controls.SidebarButton();
             this.BtnCycleRun = new QMC.CDT_320.Ui.Controls.SidebarButton();
@@ -103,13 +105,24 @@ namespace QMC.CDT_320.Ui.Tabs
             this.BtnInit.TabIndex = 1;
             this.BtnInit.Text = "INIT";
             //
+            // BtnReady
+            //
+            this.BtnReady.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.BtnReady.Font = new System.Drawing.Font("?? ??", 11F);
+            this.BtnReady.Margin = new System.Windows.Forms.Padding(0, 0, 0, 2);
+            this.BtnReady.Name = "BtnReady";
+            this.BtnReady.Selected = false;
+            this.BtnReady.Size = new System.Drawing.Size(184, 46);
+            this.BtnReady.TabIndex = 2;
+            this.BtnReady.Text = "READY";
+            //
             // PnlActionSeparator
             //
             this.PnlActionSeparator.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(51)))), ((int)(((byte)(51)))), ((int)(((byte)(51)))));
             this.PnlActionSeparator.Margin = new System.Windows.Forms.Padding(0, 6, 0, 6);
             this.PnlActionSeparator.Name = "PnlActionSeparator";
             this.PnlActionSeparator.Size = new System.Drawing.Size(202, 2);
-            this.PnlActionSeparator.TabIndex = 2;
+            this.PnlActionSeparator.TabIndex = 3;
             //
             // BtnStart
             //
@@ -119,7 +132,7 @@ namespace QMC.CDT_320.Ui.Tabs
             this.BtnStart.Name = "BtnStart";
             this.BtnStart.Selected = false;
             this.BtnStart.Size = new System.Drawing.Size(184, 46);
-            this.BtnStart.TabIndex = 3;
+            this.BtnStart.TabIndex = 4;
             this.BtnStart.Text = "START";
             //
             // BtnStop
@@ -130,7 +143,7 @@ namespace QMC.CDT_320.Ui.Tabs
             this.BtnStop.Name = "BtnStop";
             this.BtnStop.Selected = false;
             this.BtnStop.Size = new System.Drawing.Size(184, 46);
-            this.BtnStop.TabIndex = 4;
+            this.BtnStop.TabIndex = 5;
             this.BtnStop.Text = "STOP";
             //
             // BtnCycleRun
@@ -141,7 +154,7 @@ namespace QMC.CDT_320.Ui.Tabs
             this.BtnCycleRun.Name = "BtnCycleRun";
             this.BtnCycleRun.Selected = false;
             this.BtnCycleRun.Size = new System.Drawing.Size(184, 46);
-            this.BtnCycleRun.TabIndex = 5;
+            this.BtnCycleRun.TabIndex = 6;
             this.BtnCycleRun.Text = "CYCLE RUN";
             //
             // BtnCycleStop
@@ -152,7 +165,7 @@ namespace QMC.CDT_320.Ui.Tabs
             this.BtnCycleStop.Name = "BtnCycleStop";
             this.BtnCycleStop.Selected = false;
             this.BtnCycleStop.Size = new System.Drawing.Size(184, 46);
-            this.BtnCycleStop.TabIndex = 6;
+            this.BtnCycleStop.TabIndex = 7;
             this.BtnCycleStop.Text = "CYCLE STOP";
             //
             // BtnResetAlarm
@@ -163,7 +176,7 @@ namespace QMC.CDT_320.Ui.Tabs
             this.BtnResetAlarm.Name = "BtnResetAlarm";
             this.BtnResetAlarm.Selected = false;
             this.BtnResetAlarm.Size = new System.Drawing.Size(184, 46);
-            this.BtnResetAlarm.TabIndex = 7;
+            this.BtnResetAlarm.TabIndex = 8;
             this.BtnResetAlarm.Text = "RESET ALARM";
             //
             // BtnShutdown
@@ -174,7 +187,7 @@ namespace QMC.CDT_320.Ui.Tabs
             this.BtnShutdown.Name = "BtnShutdown";
             this.BtnShutdown.Selected = false;
             this.BtnShutdown.Size = new System.Drawing.Size(184, 46);
-            this.BtnShutdown.TabIndex = 8;
+            this.BtnShutdown.TabIndex = 9;
             this.BtnShutdown.Text = "SHUTDOWN";
             //
             // BtnEStop
@@ -185,7 +198,7 @@ namespace QMC.CDT_320.Ui.Tabs
             this.BtnEStop.Name = "BtnEStop";
             this.BtnEStop.Selected = false;
             this.BtnEStop.Size = new System.Drawing.Size(184, 46);
-            this.BtnEStop.TabIndex = 9;
+            this.BtnEStop.TabIndex = 10;
             this.BtnEStop.Text = "E-STOP";
             //
             // BtnInputCst
@@ -374,6 +387,7 @@ namespace QMC.CDT_320.Ui.Tabs
             this.Name = "WorkTab";
             this.PnlSidebarButtons.Controls.Add(this.BtnMain);
             this.PnlSidebarButtons.Controls.Add(this.BtnInit);
+            this.PnlSidebarButtons.Controls.Add(this.BtnReady);
             this.PnlSidebarButtons.Controls.Add(this.PnlActionSeparator);
             this.PnlSidebarButtons.Controls.Add(this.BtnStart);
             this.PnlSidebarButtons.Controls.Add(this.BtnStop);

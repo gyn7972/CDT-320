@@ -346,6 +346,7 @@
     <Compile Include="Sequencing\InputStage\InputStageDieMappingSequence.cs" />
     <Compile Include="Sequencing\InputStage\InputStagePrepareUnloadSequence.cs" />
     <Compile Include="Sequencing\InputStage\InputStageMoveAvoidSequence.cs" />
+    <Compile Include="Sequencing\MachineReadySequence.cs" />
     <Compile Include="Sequencing\InputSequence.cs" />
     <Compile Include="Sequencing\OutputCassette\OutputSlotPlanner.cs" />
     <Compile Include="Sequencing\OutputCassette\OutputCassetteSequenceKind.cs" />

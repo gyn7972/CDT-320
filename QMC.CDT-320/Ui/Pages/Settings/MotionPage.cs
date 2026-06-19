@@ -297,8 +297,10 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             {
                 return FormatAxisValue(nativeValue, AxisUnitConverter.DisplayUnitFor(axis), format);
             }
-            catch
+            catch (Exception ex)
             {
+                Log.Write("Main", "SYSTEM", "MotionPageFormatAxisValue",
+                    "Axis display unit format failed: " + ex.Message + " - Failed");
                 return nativeValue.ToString(format, System.Globalization.CultureInfo.InvariantCulture);
             }
             finally
@@ -313,8 +315,10 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 double displayValue = AxisUnitConverter.ToDisplay(nativeValue, displayUnit);
                 return displayValue.ToString(format, System.Globalization.CultureInfo.InvariantCulture);
             }
-            catch
+            catch (Exception ex)
             {
+                Log.Write("Main", "SYSTEM", "MotionPageFormatAxisValue",
+                    "Axis display value format failed: " + ex.Message + " - Failed");
                 return nativeValue.ToString(format, System.Globalization.CultureInfo.InvariantCulture);
             }
             finally
