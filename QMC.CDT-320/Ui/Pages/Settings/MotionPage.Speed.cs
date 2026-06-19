@@ -23,6 +23,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             try
             {
                 speedGrid.ReadOnly = true;
+                speedGrid.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+                speedGrid.MultiSelect = false;
                 speedGrid.AllowUserToOrderColumns = false;
                 speedGrid.AllowUserToResizeColumns = true;
                 speedGrid.AllowUserToResizeRows = false;
@@ -74,7 +76,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                         updated++;
                 }
 
-                AjinFactory.AxisManager.Save(MotionAxisStore.DefaultPath);
+                SaveMotionAxisSettings();
                 LoadSpeedRows();
                 RefreshConfigForSelected();
 
@@ -374,15 +376,17 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                         boardWritten++;
                 }
 
-                QMC.CDT320.Ajin.AjinFactory.AxisManager.Save(MotionAxisStore.DefaultPath);
+                bool saved = SaveMotionAxisSettings();
                 _speedDirty = false;
 
                 QMC.Common.Logging.EventLogger.Write(
                     QMC.Common.Logging.EventKind.Event,
                     "QMC", "SPEED-SAVE",
-                    "axes=" + applied + ", board=" + boardWritten);
+                    "axes=" + applied + ", board=" + boardWritten + ", saved=" + saved);
 
-                QMC.Common.MessageDialog.Show("Saved speed parameters for " + applied + " axes.");
+                QMC.Common.MessageDialog.Show(saved
+                    ? "Saved speed parameters for " + applied + " axes."
+                    : "Speed parameters were applied, but some settings failed to save. Check Alarm/Event Log.");
             }
             catch (Exception ex)
             {

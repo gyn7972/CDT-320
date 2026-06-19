@@ -65,7 +65,7 @@ namespace QMC.CDT320.Sequencing
                         return Task.FromResult(CheckStageLoadPosition());
                     // 피더 보유 웨이퍼 검증
                     case InputFeederLoadToStageStep.VerifyFeederHoldingWafer:
-                        return Task.FromResult(VerifyFeederHoldingWafer());
+                        return VerifyFeederHoldingWaferAsync(ct);
                     // 피더 스테이지 로드 위치 이동
                     case InputFeederLoadToStageStep.MoveFeederStageLoadPosition:
                         return MoveFeederStageLoadPositionAsync(ct);
@@ -106,9 +106,13 @@ namespace QMC.CDT320.Sequencing
                         return Task.FromResult(FailUnsupportedStep());
                 }
             }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
-                return Task.FromResult(Fail("IN-FEEDER-STAGE-LOAD-STEP-EX", "InputFeederLoadToStageSequence", "Load to stage step failed: " + ex.Message));
+                return Task.FromResult(Fail("IN-FEEDER-STAGE-LOAD-STEP-EX", "InputFeederLoadToStageSequence", "InputFeeder -> InputStage 로딩 스텝 예외. error=" + ex.Message));
             }
             finally
             {
@@ -205,15 +209,41 @@ namespace QMC.CDT320.Sequencing
             return 0;
         }
 
-        private int VerifyFeederHoldingWafer()
+        private async Task<int> VerifyFeederHoldingWaferAsync(CancellationToken ct)
         {
+            ct.ThrowIfCancellationRequested();
+
             if (!Feeder.IsWaferFeederDown())
                 return Fail("IN-FEEDER-LIFT-DOWN-CHECK", Feeder.Name,
-                    "WaferFeeder must already be down before feeder to stage load. " + Feeder.GetWaferFeederTransferState());
+                    "InputFeeder -> InputStage 로딩 전 WaferFeeder Lift가 Down 상태여야 합니다. " + Feeder.GetWaferFeederTransferState());
 
             if (!Feeder.IsWaferFeederClamp())
-                return Fail("IN-FEEDER-CLAMP-CHECK", Feeder.Name,
-                    "WaferFeeder must already be clamped before feeder to stage load. " + Feeder.GetWaferFeederTransferState());
+            {
+                WaferMaterial wafer = ResolveFeederWafer();
+                if (wafer == null)
+                {
+                    return Fail("IN-FEEDER-CLAMP-CHECK", Feeder.Name,
+                        "InputFeeder -> InputStage 로딩 전 WaferFeeder가 Clamp 상태여야 하지만, Feeder 웨이퍼 데이터가 없습니다. " +
+                        Feeder.GetWaferFeederTransferState());
+                }
+
+                if (!IsHardwareBypass() && !Feeder.IsWaferFeederRingDetected(Options.WaferSize, true))
+                {
+                    return Fail("IN-FEEDER-CLAMP-CHECK", Feeder.Name,
+                        "InputFeeder -> InputStage 로딩 전 WaferFeeder가 Clamp 상태여야 하지만, 웨이퍼 감지 신호가 없습니다. waferId=" +
+                        wafer.WaferId + ". " + Feeder.GetWaferFeederTransferState());
+                }
+
+                int clampResult = await AwaitStepWithCancellationAsync(
+                    Feeder.SetWaferFeederClampAsync(true, ResolveTimeout(), ct),
+                    ct).ConfigureAwait(false);
+                if (clampResult != 0 || !Feeder.IsWaferFeederClamp())
+                {
+                    return Fail("IN-FEEDER-CLAMP-CHECK", Feeder.Name,
+                        "InputFeeder -> InputStage 로딩 전 WaferFeeder Clamp 복구 실패. result=" +
+                        clampResult + ". " + Feeder.GetWaferFeederTransferState());
+                }
+            }
 
             CurrentStep = InputFeederLoadToStageStep.MoveFeederStageLoadPosition;
             return 0;

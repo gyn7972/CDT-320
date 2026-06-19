@@ -11,6 +11,7 @@ namespace QMC.CDT320.Sequencing
     {
         private static readonly object SimVisionRandomLock = new object();
         private static readonly Random SimVisionRandom = new Random();
+        private const int SideInspectionTurnSettleDelayMs = 100;
 
         private readonly List<int> _pickedPickerIndexes = new List<int>();
         private int _pickerCursor;
@@ -499,6 +500,7 @@ namespace QMC.CDT320.Sequencing
                     _currentDie.DieId + ", pickerNo=" + _currentPickerNo);
             }
 
+            await Task.Delay(SideInspectionTurnSettleDelayMs, ct).ConfigureAwait(false);
             CurrentStep = PickerSideInspectionStep.MoveSideT90;
             return 0;
         }
@@ -528,6 +530,7 @@ namespace QMC.CDT320.Sequencing
                     _currentDie.DieId + ", pickerNo=" + _currentPickerNo);
             }
 
+            await Task.Delay(SideInspectionTurnSettleDelayMs, ct).ConfigureAwait(false);
             CurrentStep = PickerSideInspectionStep.MoveSideT180;
             return 0;
         }

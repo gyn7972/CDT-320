@@ -21,6 +21,7 @@ namespace QMC.CDT320.Sequencing
         MovePickerZToAvoid,
         VerifyFlowOff,
         UpdateMaterialToOutputStage,
+        RecoverOutputStageAfterPlace,
         SelectNextPickerOrComplete,
         MovePickerToAvoidAfterPlace,
         Complete,

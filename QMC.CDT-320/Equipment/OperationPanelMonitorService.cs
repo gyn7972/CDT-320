@@ -16,9 +16,23 @@ namespace QMC.CDT320
         private bool _prevStart;
         private bool _prevStop;
         private bool _prevReset;
+        private bool _rawStart;
+        private bool _rawStop;
+        private bool _rawReset;
+        private bool _stableStart;
+        private bool _stableStop;
+        private bool _stableReset;
+        private bool _buttonStatesInitialized;
+        private bool _startReleaseRequired;
+        private bool _stopReleaseRequired;
+        private bool _resetReleaseRequired;
+        private long _startChangedTick;
+        private long _stopChangedTick;
+        private long _resetChangedTick;
         private bool _prevEmgFront;
         private int _commandBusy;
         private int _buzzerMuted;
+        private const int ButtonDebounceMs = 250;
 
         public OperationPanelMonitorService(CDT320_Machine machine, MachineController controller)
         {
@@ -29,6 +43,8 @@ namespace QMC.CDT320
         public void Start()
         {
             Stop();
+            ResetButtonMonitorState();
+            ResetSimulatedCommandInputs();
             _cts = new CancellationTokenSource();
             _loopTask = Task.Run(() => LoopAsync(_cts.Token));
         }
@@ -80,22 +96,151 @@ namespace QMC.CDT320
                 HandleEmgFrontEdge(emgFront);
             _prevEmgFront = emgFront;
 
-            bool start = IsOn(op.StartButton);
-            bool stop = IsOn(op.StopButton);
-            bool reset = IsOn(op.ResetButton);
+            bool forceCommandInputsOff = ShouldForceCommandInputsOff();
+            bool rawStart = forceCommandInputsOff ? false : IsOn(op.StartButton);
+            bool rawStop = forceCommandInputsOff ? false : IsOn(op.StopButton);
+            bool rawReset = forceCommandInputsOff ? false : IsOn(op.ResetButton);
+            if (!_buttonStatesInitialized)
+            {
+                InitializeButtonStates(rawStart, rawStop, rawReset);
+                ApplyLampState(op, _stableStart, _stableReset);
+                return;
+            }
 
-            if (start && !_prevStart)
-                RunCommand(HandleStartAsync);
-            if (stop && !_prevStop)
+            bool start = ReadDebouncedButton(rawStart, ref _rawStart, ref _stableStart, ref _startChangedTick);
+            bool stop = ReadDebouncedButton(rawStop, ref _rawStop, ref _stableStop, ref _stopChangedTick);
+            bool reset = ReadDebouncedButton(rawReset, ref _rawReset, ref _stableReset, ref _resetChangedTick);
+
+            if (!start)
+                _startReleaseRequired = false;
+            if (!stop)
+                _stopReleaseRequired = false;
+            if (!reset)
+                _resetReleaseRequired = false;
+
+            if (start && !_prevStart && !_startReleaseRequired)
+            {
+                _startReleaseRequired = true;
+                if (CanAcceptStartCommand())
+                    RunCommand(HandleStartAsync);
+            }
+
+            if (stop && !_prevStop && !_stopReleaseRequired)
+            {
+                _stopReleaseRequired = true;
                 RunCommand(HandleStopAsync);
-            if (reset && !_prevReset)
+            }
+
+            if (reset && !_prevReset && !_resetReleaseRequired)
+            {
+                _resetReleaseRequired = true;
                 RunCommand(HandleResetAsync);
+            }
 
             _prevStart = start;
             _prevStop = stop;
             _prevReset = reset;
 
             ApplyLampState(op, start, reset);
+        }
+
+        private void ResetButtonMonitorState()
+        {
+            _prevStart = false;
+            _prevStop = false;
+            _prevReset = false;
+            _rawStart = false;
+            _rawStop = false;
+            _rawReset = false;
+            _stableStart = false;
+            _stableStop = false;
+            _stableReset = false;
+            _startReleaseRequired = false;
+            _stopReleaseRequired = false;
+            _resetReleaseRequired = false;
+            _startChangedTick = 0;
+            _stopChangedTick = 0;
+            _resetChangedTick = 0;
+            _buttonStatesInitialized = false;
+        }
+
+        private void ResetSimulatedCommandInputs()
+        {
+            try
+            {
+                var op = _machine != null ? _machine.OpPanelUnit : null;
+                if (op == null)
+                    return;
+
+                SimulateOffIfAllowed(op.StartButton);
+                SimulateOffIfAllowed(op.StopButton);
+                SimulateOffIfAllowed(op.ResetButton);
+            }
+            catch
+            {
+            }
+        }
+
+        private static void SimulateOffIfAllowed(BaseDigitalInput input)
+        {
+            try
+            {
+                if (input != null && input.Config != null && input.Config.IsSimulationMode)
+                    input.SimulateInput(false);
+            }
+            catch
+            {
+            }
+        }
+
+        private void InitializeButtonStates(bool start, bool stop, bool reset)
+        {
+            long now = Environment.TickCount;
+            _rawStart = _stableStart = _prevStart = start;
+            _rawStop = _stableStop = _prevStop = stop;
+            _rawReset = _stableReset = _prevReset = reset;
+            _startChangedTick = now;
+            _stopChangedTick = now;
+            _resetChangedTick = now;
+            _buttonStatesInitialized = true;
+        }
+
+        private static bool ReadDebouncedButton(
+            bool current,
+            ref bool raw,
+            ref bool stable,
+            ref long changedTick)
+        {
+            long now = Environment.TickCount;
+            if (current != raw)
+            {
+                raw = current;
+                changedTick = now;
+            }
+
+            if (stable != raw && ElapsedMs(changedTick, now) >= ButtonDebounceMs)
+                stable = raw;
+
+            return stable;
+        }
+
+        private static int ElapsedMs(long startTick, long nowTick)
+        {
+            return unchecked((int)(nowTick - startTick));
+        }
+
+        private bool CanAcceptStartCommand()
+        {
+            if (IsAlarmActive())
+                return false;
+
+            if (_controller.IsSequenceRunning ||
+                _controller.IsManualBusy ||
+                _controller.Status == EquipmentStatus.AutoRunning ||
+                _controller.Status == EquipmentStatus.ManualRunning)
+                return false;
+
+            return true;
         }
 
         /// <summary>
@@ -154,6 +299,15 @@ namespace QMC.CDT320
 
         private static void UpdateInputs(OperationPanelUnit op)
         {
+            if (ShouldForceCommandInputsOff())
+            {
+                TryUpdate(op.EmgFront);
+                TryUpdate(op.EmgLeft);
+                TryUpdate(op.EmgRear);
+                TryUpdate(op.OpEmgOn);
+                return;
+            }
+
             TryUpdate(op.StartButton);
             TryUpdate(op.StopButton);
             TryUpdate(op.ResetButton);
@@ -161,6 +315,12 @@ namespace QMC.CDT320
             TryUpdate(op.EmgLeft);
             TryUpdate(op.EmgRear);
             TryUpdate(op.OpEmgOn);
+        }
+
+        private static bool ShouldForceCommandInputsOff()
+        {
+            var settings = AppSettingsStore.Current;
+            return settings != null && (settings.DryRunMode || settings.BypassHardware || settings.SimulationMode);
         }
 
         private void ApplyLampState(OperationPanelUnit op, bool startPressed, bool resetPressed)
@@ -252,7 +412,7 @@ namespace QMC.CDT320
 
         private async Task HandleStartAsync()
         {
-            if (IsAlarmActive())
+            if (!CanAcceptStartCommand())
                 return;
 
             await _controller.StartAsync().ConfigureAwait(false);

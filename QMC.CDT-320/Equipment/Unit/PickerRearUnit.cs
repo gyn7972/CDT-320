@@ -487,18 +487,6 @@ namespace QMC.CDT320
                 return Task.FromResult(-1);
 
             double speed = UnitJogVelocityResolver.Resolve(axis, speedType, customSpeed);
-            double guardTarget = ResolveContinuousJogGuardTarget(axis, direction);
-            string interlockReason;
-            if (!MotionGuardRuntime.VerifyAxisMove(axis, guardTarget, out interlockReason))
-            {
-                return Task.FromResult(RaisePickerAlarm(
-                    "PK-JOG-INTERLOCK",
-                    "Rear picker continuous jog blocked. axis=" + axis.Name +
-                    ", direction=" + direction +
-                    ", guardTarget=" + guardTarget.ToString("0.###") +
-                    ", reason=" + interlockReason));
-            }
-
             string zoneTargetName = BuildContinuousJogZoneTargetName(pickerAxis);
             if (pickerAxis == PickerAxis.PickerY)
                 ClearContinuousJogZoneScope();
@@ -506,16 +494,6 @@ namespace QMC.CDT320
             ManualMovePickerAxisJog(pickerAxis, direction < 0 ? Direction.Minus : Direction.Plus, speed);
             StartContinuousJogZoneScope(pickerAxis, zoneTargetName);
             return Task.FromResult(0);
-        }
-
-        private double ResolveContinuousJogGuardTarget(BaseAxis axis, int direction)
-        {
-            if (axis == null)
-                return 0.0;
-            if (axis.Setup == null)
-                return axis.ActualPosition;
-
-            return direction > 0 ? axis.Setup.SoftLimitPlus : axis.Setup.SoftLimitMinus;
         }
 
         public Task<int> StopJogAsync(BaseAxis axis)
@@ -1591,16 +1569,29 @@ namespace QMC.CDT320
         {
             PickerAlignOffset offset = GetRuntimePickerOffset(index) ?? new PickerAlignOffset();
             return GetPickerTeachingPosition(PickerAxis.PickerX, ResolveZonePositionName(positionArrayName)) +
-                   ResolvePickerPitchXOffset(index) +
+                   ResolvePickerPitchXOffset(positionArrayName, index) +
                    offset.AlignOffsetX;
         }
 
-        private double ResolvePickerPitchXOffset(int index)
+        private double ResolvePickerPitchXOffset(string positionArrayName, int index)
         {
             if (index <= 0 || Setup == null)
-                return 0.0;
+            {
+                if (!IsReversePickerPitchZone(positionArrayName) || Setup == null)
+                    return 0.0;
+            }
 
-            return Math.Abs(Setup.PickerPitchX) * index;
+            int pitchIndex = IsReversePickerPitchZone(positionArrayName)
+                ? Math.Max(0, MaxPickerCount - 1 - index)
+                : index;
+
+            return Math.Abs(Setup.PickerPitchX) * pitchIndex;
+        }
+
+        private static bool IsReversePickerPitchZone(string positionArrayName)
+        {
+            return string.Equals(positionArrayName, "DieBottomPosition", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(positionArrayName, "DieSidePosition", StringComparison.OrdinalIgnoreCase);
         }
 
         private double ResolvePickerZoneY(string positionArrayName, int index)

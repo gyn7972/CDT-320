@@ -1474,8 +1474,8 @@ namespace QMC.CDT320
                 Log("[RESET-ALARM] Complete (axis=" + axisCount + ", fail=" + axisFail +
                     ", active alarms cleared=" + activeBefore + ")");
 
-                // ?뚮엺 ?곹깭??쇰㈃ Idle 濡?(?댁쁺 ?ш컻 ?꾪빐 INIT ?꾩슂)
-                if (_status == EquipmentStatus.Alarm) SetStatus(EquipmentStatus.Idle);
+                // 알람 해제 후에는 장비가 자동으로 대기/가동 상태가 된 것이 아니므로 Stopped로 둔다.
+                if (_status == EquipmentStatus.Alarm) SetStatus(EquipmentStatus.Stopped);
 
                 // Tower Lamp OFF (?뚮엺 ?댁젣)
                 try { _machine.OpPanelUnit?.TowerLampOff(); } catch { }

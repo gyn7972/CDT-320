@@ -180,6 +180,9 @@ namespace QMC.CDT320.Sequencing
                 case PickerPlaceStep.UpdateMaterialToOutputStage:
                     return Task.FromResult(UpdateMaterialToOutputStage());
 
+                case PickerPlaceStep.RecoverOutputStageAfterPlace:
+                    return RecoverOutputStageAfterPlaceAsync(ct);
+
                 // 다음 피커 또는 완료 선택
                 case PickerPlaceStep.SelectNextPickerOrComplete:
                     return Task.FromResult(SelectNextPickerOrComplete());
@@ -418,14 +421,10 @@ namespace QMC.CDT320.Sequencing
                     return -1;
             }
 
-            int result = await AwaitStepWithCancellationAsync(
-                OutputStage.EnsureStageMutualInterlockForLoadAsync(_currentOutputSide, ResolveTimeout(), Options.FineMove, ct),
-                ct).ConfigureAwait(false);
+            int result = await EnsureOutputStagePlaceEntryReadyAsync(ct).ConfigureAwait(false);
 
             if (result != 0)
-                return Fail("PICKER-PLACE-STAGE-AVOID-INTERLOCK", "OutputStage",
-                    "OutputStage 피커 진입용 Avoid 이동 전 인터락 준비 실패. side=" + _currentOutputSide +
-                    ", result=" + result + ", " + OutputStage.DescribeStageLoadMoveState(_currentOutputSide));
+                return result;
 
             result = await MoveOppositeOutputStageToAvoidForPlaceAsync(ct).ConfigureAwait(false);
             if (result != 0)
@@ -444,6 +443,31 @@ namespace QMC.CDT320.Sequencing
             return 0;
         }
 
+        private async Task<int> EnsureOutputStagePlaceEntryReadyAsync(CancellationToken ct)
+        {
+            int timeout = ResolveTimeout();
+
+            int result = await OutputStage.EnsureBinGuideClampLiftUpAsync(BinSide.Ng, timeout, ct).ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            if (!OutputStage.IsBinGuideClampLiftUp(BinSide.Ng))
+                return Fail("PICKER-PLACE-NG-CLAMP-UP", "OutputStage",
+                    "Place 진입 전 NG Bin Clamp Lift가 Up 상태가 아닙니다. " +
+                    OutputStage.DescribeOutputStageInterlockState(_currentOutputSide));
+
+            result = await OutputStage.EnsureBinGuideDownAsync(BinSide.Good, timeout, ct).ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            if (!OutputStage.IsBinGuideDown(BinSide.Good))
+                return Fail("PICKER-PLACE-GOOD-GUIDE-DOWN", "OutputStage",
+                    "Place 진입 전 Good Bin Guide가 Down 상태가 아닙니다. " +
+                    OutputStage.DescribeOutputStageInterlockState(_currentOutputSide));
+
+            return 0;
+        }
+
         private async Task<int> MoveOppositeOutputStageToAvoidForPlaceAsync(CancellationToken ct)
         {
             if (_currentOutputSide == BinSide.Good)
@@ -454,14 +478,6 @@ namespace QMC.CDT320.Sequencing
                 if (ngResult != 0)
                     return Fail("PICKER-PLACE-OPP-STAGE-AVOID", "OutputStage",
                         "Place 전 상대 NG Stage Avoid 이동 실패. result=" + ngResult +
-                        ", " + OutputStage.DescribeOutputStageInterlockState(_currentOutputSide));
-
-                int zResult = await AwaitStepWithCancellationAsync(
-                    OutputStage.MoveGoodStageZToAvoidAndVerifyAsync(ResolveTimeout(), Options.FineMove, ct),
-                    ct).ConfigureAwait(false);
-                if (zResult != 0)
-                    return Fail("PICKER-PLACE-TARGET-Z-AVOID", "OutputStage",
-                        "Place 전 Good Stage Z Avoid 이동 실패. result=" + zResult +
                         ", " + OutputStage.DescribeOutputStageInterlockState(_currentOutputSide));
 
                 return 0;
@@ -721,9 +737,62 @@ namespace QMC.CDT320.Sequencing
 
             NotifySequenceProgressAfterPlace();
 
-            CurrentStep = PickerPlaceStep.SelectNextPickerOrComplete;
-            ReleaseOutputStageArea();
+            CurrentStep = PickerPlaceStep.RecoverOutputStageAfterPlace;
             return 0;
+        }
+
+        private async Task<int> RecoverOutputStageAfterPlaceAsync(CancellationToken ct)
+        {
+            try
+            {
+                if (_currentOutputSide != BinSide.Ng)
+                {
+                    ReleaseOutputStageArea();
+                    CurrentStep = PickerPlaceStep.SelectNextPickerOrComplete;
+                    return 0;
+                }
+
+                int result = await AwaitStepWithCancellationAsync(
+                    OutputStage.MoveNgStageToAvoidAndVerifyAsync(ResolveTimeout(), Options.FineMove, ct),
+                    ct).ConfigureAwait(false);
+                if (result != 0)
+                    return Fail("PICKER-PLACE-NG-STAGE-AVOID-AFTER-PLACE", "OutputStage",
+                        "NG Place 완료 후 NG Stage Avoid 이동 실패. result=" + result +
+                        ", " + OutputStage.DescribeOutputStageInterlockState(_currentOutputSide));
+
+                result = await MoveOutputStageAxisAndVerifyAsync(
+                    BinStageAxis.GoodBinY,
+                    OutputStage.Recipe.GoodStageY.ProcessPosition,
+                    "NG Place 완료 후 Good Stage Y 다음 수령 기준 위치 복귀",
+                    ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await MoveOutputStageAxisAndVerifyAsync(
+                    BinStageAxis.GoodBinZ,
+                    OutputStage.Recipe.GoodStageZ.ProcessPosition,
+                    "NG Place 완료 후 Good Stage Z 다음 수령 높이 복귀",
+                    ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                ReleaseOutputStageArea();
+                CurrentStep = PickerPlaceStep.SelectNextPickerOrComplete;
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-PLACE-STAGE-RECOVER-EX", "OutputStage",
+                    "Place 완료 후 OutputStage 복귀 중 예외가 발생했습니다. side=" + _currentOutputSide +
+                    ", error=" + ex.Message);
+            }
+            finally
+            {
+            }
         }
 
         private void NotifySequenceProgressAfterPlace()

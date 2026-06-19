@@ -237,9 +237,13 @@ namespace QMC.CDT320.Sequencing
                 CurrentStep = OutputStagePrepareLoadStep.CheckTargetStageZLoad;
                 return 0;
             }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
-                return Fail("OUT-STAGE-Z-LOAD-EX", Name, "Target stage Z load move failed: " + ex.Message);
+                return Fail("OUT-STAGE-Z-LOAD-EX", Name, "OutputStage 대상 Z축 Load 위치 이동 중 예외가 발생했습니다. side=" + Options.Side + ", error=" + ex.Message);
             }
             finally
             {

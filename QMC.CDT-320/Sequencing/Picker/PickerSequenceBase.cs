@@ -1244,7 +1244,7 @@ namespace QMC.CDT320.Sequencing
         protected double ResolvePickerZoneX(string positionArrayName, int pickerIndex)
         {
             return GetPickerTeachingPosition(PickerAxis.PickerX, ResolveZonePositionName(positionArrayName)) +
-                   ResolvePickerPitchXOffset(pickerIndex) +
+                   ResolvePickerPitchXOffset(positionArrayName, pickerIndex) +
                    ResolvePickerAlignOffsetX(pickerIndex);
         }
 
@@ -1309,10 +1309,13 @@ namespace QMC.CDT320.Sequencing
             return offset != null ? offset.AlignOffsetX : 0.0;
         }
 
-        protected double ResolvePickerPitchXOffset(int index)
+        protected double ResolvePickerPitchXOffset(string positionArrayName, int index)
         {
             if (index <= 0)
-                return 0.0;
+            {
+                if (!IsReversePickerPitchZone(positionArrayName))
+                    return 0.0;
+            }
 
             double pitch = 0.0;
             if (Side == PickerSequenceSide.Front && FrontPicker != null && FrontPicker.Setup != null)
@@ -1320,7 +1323,17 @@ namespace QMC.CDT320.Sequencing
             else if (Side == PickerSequenceSide.Rear && RearPicker != null && RearPicker.Setup != null)
                 pitch = RearPicker.Setup.PickerPitchX;
 
-            return Math.Abs(pitch) * index;
+            int pitchIndex = IsReversePickerPitchZone(positionArrayName)
+                ? Math.Max(0, 3 - index)
+                : index;
+
+            return Math.Abs(pitch) * pitchIndex;
+        }
+
+        protected static bool IsReversePickerPitchZone(string positionArrayName)
+        {
+            return string.Equals(positionArrayName, "DieBottomPosition", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(positionArrayName, "DieSidePosition", StringComparison.OrdinalIgnoreCase);
         }
 
         protected double ResolvePickerAlignOffsetY(int index)

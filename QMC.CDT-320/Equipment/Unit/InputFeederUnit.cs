@@ -1063,7 +1063,7 @@ namespace QMC.CDT320
         private static bool ShouldReadCylinderStateForDryRun(BaseCylinder cylinder)
         {
             return cylinder != null && cylinder.Config != null &&
-                   cylinder.Config.IsSimulationMode;
+                   (cylinder.Config.IsSimulationMode || cylinder.Config.IgnoreInputWaits);
         }
 
         private bool IsWaferFeederLiftDryRunStateUnknown()
@@ -1081,9 +1081,10 @@ namespace QMC.CDT320
         private bool ShouldUseVirtualDryRunDefaults(BaseCylinder cylinder)
         {
             AppSettings settings = AppSettingsStore.Current;
-            bool appVirtual = settings != null && (settings.BypassHardware || settings.SimulationMode);
+            bool appVirtual = settings != null && (settings.BypassHardware || settings.SimulationMode || settings.DryRunMode);
             bool cylinderSimulation = cylinder != null && cylinder.Config != null && cylinder.Config.IsSimulationMode;
-            return appVirtual || cylinderSimulation || !AjinFactory.IsRealBoardReady;
+            bool inputWaitIgnored = cylinder != null && cylinder.Config != null && cylinder.Config.IgnoreInputWaits;
+            return appVirtual || cylinderSimulation || inputWaitIgnored || !AjinFactory.IsRealBoardReady;
         }
 
         private static void SimulateInputIfAllowed(BaseDigitalInput input, bool state)

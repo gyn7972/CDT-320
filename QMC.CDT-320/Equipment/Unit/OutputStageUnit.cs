@@ -1741,6 +1741,17 @@ namespace QMC.CDT320
             ApplyOutputStageCylinderSettings(cylinder);
             RefreshCylinderInputs(cylinder);
 
+            if (ShouldReadVirtualCylinderState(cylinder))
+            {
+                if (cylinder != null && (fwd ? cylinder.IsFwd : cylinder.IsBwd))
+                    return true;
+
+                if (ShouldUseVirtualCylinderDefault(cylinder) && IsCylinderStateUnknown(cylinder))
+                    return dryRunDefaultWhenUnknown;
+
+                return false;
+            }
+
             if (input != null && input.IsOn)
                 return true;
 
@@ -1756,10 +1767,19 @@ namespace QMC.CDT320
         private bool ShouldUseVirtualCylinderDefault(BaseCylinder cylinder)
         {
             AppSettings settings = AppSettingsStore.Current;
-            bool appVirtual = settings != null && (settings.BypassHardware || settings.SimulationMode);
+            bool appVirtual = settings != null && (settings.BypassHardware || settings.SimulationMode || settings.DryRunMode);
             bool setupSimulation = Setup != null && Setup.IsSimulationMode;
             bool cylinderSimulation = cylinder != null && cylinder.Config != null && cylinder.Config.IsSimulationMode;
-            return appVirtual || setupSimulation || cylinderSimulation || !AjinFactory.IsRealBoardReady;
+            bool inputWaitIgnored = cylinder != null && cylinder.Config != null && cylinder.Config.IgnoreInputWaits;
+            return appVirtual || setupSimulation || cylinderSimulation || inputWaitIgnored || !AjinFactory.IsRealBoardReady;
+        }
+
+        private bool ShouldReadVirtualCylinderState(BaseCylinder cylinder)
+        {
+            return IsOutputStageSimulationOrDryRun() &&
+                   cylinder != null &&
+                   cylinder.Config != null &&
+                   (cylinder.Config.IsSimulationMode || cylinder.Config.IgnoreInputWaits);
         }
 
         private static bool IsCylinderStateUnknown(BaseCylinder cylinder)
