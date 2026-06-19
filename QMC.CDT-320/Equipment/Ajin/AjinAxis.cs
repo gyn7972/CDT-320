@@ -21,6 +21,12 @@ namespace QMC.CDT320.Ajin
         private bool _isHomeSearching;
         private int _motionStopSerial;
 
+        // 저장된 모터 초기화(HomeDone) 신호 latch.
+        // 실장비는 프로그램 재실행 시 아진 보드가 HomeDone 을 off 로 보고하지만 실제로는 홈이 유지된다.
+        // latch 가 살아있으면 보드의 off 보고를 무시하고 저장된 완료 상태를 유지한다.
+        // 모터 알람 발생 또는 서보 OFF 시 latch 를 해제하여 재초기화가 필요하도록 한다.
+        private bool _homeDoneLatched;
+
         public int AxisNo { get; }
 
         // 보드 raw enum 값 캐시. ReadSetupFromBoard 시 채워지고,
@@ -116,6 +122,9 @@ namespace QMC.CDT320.Ajin
 
         public override void ServoOff()
         {
+            // 서보 OFF 는 저장된 초기화 신호를 무효화한다. (재초기화 필요)
+            _homeDoneLatched = false;
+
             if (UseSimulation)
             {
                 base.ServoOff();
@@ -186,7 +195,9 @@ namespace QMC.CDT320.Ajin
                 if (limitCheck != 0)
                     return limitCheck;
 
-                double vel = velocity > 0 ? velocity : Config.DefaultVelocity;
+                // 명시 velocity 가 있으면 그대로 사용한다.
+                // 명시 velocity 가 없으면 DefaultVelocity 에 전체 퍼센트 스케일을 적용한 값을 사용한다.
+                double vel = velocity > 0 ? velocity : MotionSpeedScale.ApplyDefaultVelocityScale(Config.DefaultVelocity);
                 double boardTargetPos = ToBoardPosition(targetPos);
                 double boardVelocity = ToBoardVelocity(vel);
                 double boardAcceleration = ToBoardAcceleration(Config.Acceleration);
@@ -285,8 +296,9 @@ namespace QMC.CDT320.Ajin
 
             base.Stop();
             if (!AjinSystem.IsOpen) return;
+            // 일반 정지는 Stop 전용 감속을 사용한다. (미설정 시 일반 감속으로 폴백)
             lock (_sync)
-                AXM.Stop(AxisNo, ToBoardAcceleration(Config.Deceleration));
+                AXM.Stop(AxisNo, ToBoardAcceleration(ResolveStopDeceleration()));
         }
 
         public override void EStop()
@@ -377,6 +389,8 @@ namespace QMC.CDT320.Ajin
                 IsInPosition = IsHomeDone;
                 if (IsHomeDone)
                 {
+                    // 홈 완료 신호를 latch 하여 재실행 후에도 유지한다.
+                    _homeDoneLatched = true;
                     RaiseMoveCompleted();
                     ClearMotionFailure();
                     return 0;
@@ -429,6 +443,35 @@ namespace QMC.CDT320.Ajin
             }
         }
 
+        public override void RestoreRuntimeState(
+            double actualPosition,
+            double commandPosition,
+            bool isServoOn,
+            bool isHomeDone,
+            bool isInPosition,
+            bool isAlarm,
+            uint alarmCode)
+        {
+            base.RestoreRuntimeState(actualPosition, commandPosition, isServoOn, isHomeDone, isInPosition, isAlarm, alarmCode);
+            // 저장된 정상 상태(알람 없음)일 때만 HomeDone 신호를 latch 한다.
+            _homeDoneLatched = isHomeDone && !isAlarm;
+        }
+
+        /// <summary>
+        /// 실장비 재실행 시 보드의 HomeDone=off 보고를 무시하고 저장된 모터 초기화 신호를 복원한다.<br/>
+        /// 위치/서보 상태는 보드 값을 따르고, 여기서는 HomeDone latch 만 복원한다.
+        /// 알람이 저장돼 있으면 복원하지 않는다(재초기화 필요).
+        /// </summary>
+        public void RestoreHomeDoneSignal(bool isHomeDone, bool isAlarm)
+        {
+            _homeDoneLatched = isHomeDone && !isAlarm;
+            if (_homeDoneLatched)
+            {
+                IsHomeDone = true;
+                Sensor_ORG = true;
+            }
+        }
+
         public override void MoveJogContinuous(int direction, JogSpeedType speedType, double customVel = 0)
         {
             try
@@ -467,8 +510,9 @@ namespace QMC.CDT320.Ajin
                 double vel = GetJogVelocity(speedType, customVel);
                 double signedVel = jogDirection * Math.Abs(vel);
                 double boardSignedVel = ToBoardVelocity(signedVel);
-                double boardAcceleration = ToBoardAcceleration(Config.Acceleration);
-                double boardDeceleration = ToBoardAcceleration(Config.Deceleration);
+                // Jog 구동은 Jog 가감속을 사용한다. (미설정 시 일반 가감속으로 폴백)
+                double boardAcceleration = ToBoardAcceleration(ResolveJogAcceleration());
+                double boardDeceleration = ToBoardAcceleration(ResolveJogDeceleration());
                 CurrentVelocity = signedVel;
                 IsMoving = true;
                 IsInPosition = false;
@@ -513,6 +557,38 @@ namespace QMC.CDT320.Ajin
         private double ResolveJogSpeed(JogSpeedType speedType, double customVel)
         {
             return GetJogVelocity(speedType, customVel);
+        }
+
+        /// <summary>Jog 구동 가속도. JogAcceleration 미설정(0 이하) 시 일반 Acceleration 으로 폴백한다.</summary>
+        private double ResolveJogAcceleration()
+        {
+            return Config != null && Config.JogAcceleration > 0.0
+                ? Config.JogAcceleration
+                : (Config != null ? Config.Acceleration : 0.0);
+        }
+
+        /// <summary>Jog 구동 감속도. JogDeceleration 미설정(0 이하) 시 일반 Deceleration 으로 폴백한다.</summary>
+        private double ResolveJogDeceleration()
+        {
+            return Config != null && Config.JogDeceleration > 0.0
+                ? Config.JogDeceleration
+                : (Config != null ? Config.Deceleration : 0.0);
+        }
+
+        /// <summary>Jog 정지(StopJog) 전용 감속도. 미설정(0 이하) 시 JogDeceleration→Deceleration 순으로 폴백한다.</summary>
+        private double ResolveJogStopDeceleration()
+        {
+            return Config != null && Config.JogStopDeceleration > 0.0
+                ? Config.JogStopDeceleration
+                : ResolveJogDeceleration();
+        }
+
+        /// <summary>일반 정지(Stop) 전용 감속도. 미설정(0 이하) 시 일반 Deceleration 으로 폴백한다.</summary>
+        private double ResolveStopDeceleration()
+        {
+            return Config != null && Config.StopDeceleration > 0.0
+                ? Config.StopDeceleration
+                : (Config != null ? Config.Deceleration : 0.0);
         }
 
         public override async Task<int> MoveJogStepAsync(int direction, JogSpeedType speedType,
@@ -576,8 +652,9 @@ namespace QMC.CDT320.Ajin
                 return;
             }
 
+            // Jog 정지는 Jog 정지 전용 감속을 사용한다. (미설정 시 JogDeceleration→Deceleration 폴백)
             lock (_sync)
-                AXM.Stop(AxisNo, ToBoardAcceleration(Config.Deceleration));
+                AXM.Stop(AxisNo, ToBoardAcceleration(ResolveJogStopDeceleration()));
             base.StopJog();
             UpdateStatus();
         }
@@ -730,9 +807,6 @@ namespace QMC.CDT320.Ajin
                 AlarmCode = 0;
             }
 
-            if (homeRet == 0)
-                IsHomeDone = homeResult == AXT_MOTION_HOME_RESULT.HOME_SUCCESS;
-
             bool wasPel = Sensor_PEL;
             bool wasMel = Sensor_MEL;
             Sensor_PEL = pel;
@@ -750,6 +824,17 @@ namespace QMC.CDT320.Ajin
 
             if (servoRet == 0)
                 IsServoOn = svOn;
+
+            // 저장된 초기화(HomeDone) 신호 무효화: 모터 알람 발생 또는 서보 OFF 시 latch 해제.
+            if (IsAlarm || !IsServoOn)
+                _homeDoneLatched = false;
+
+            // latch 가 살아있으면 보드의 재실행 후 HomeDone=off 보고를 무시하고 저장된 완료 상태를 유지한다.
+            // latch 가 없으면 보드의 HomeResult 를 그대로 반영한다.
+            if (_homeDoneLatched)
+                IsHomeDone = true;
+            else if (homeRet == 0)
+                IsHomeDone = homeResult == AXT_MOTION_HOME_RESULT.HOME_SUCCESS;
         }
 
         private int CheckSoftLimitTarget(double targetPos)

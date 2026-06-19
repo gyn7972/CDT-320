@@ -852,9 +852,10 @@ namespace QMC.CDT320
 
         private double ResolveMoveVelocity(BaseAxis axis, bool bFine)
         {
+            // Fine ABS 이동은 JogFineVelocity 를 그대로 쓰고, 일반 이동만 DefaultVelocity 퍼센트 스케일을 적용한다.
             if (bFine && axis.Config.JogFineVelocity > 0)
                 return axis.Config.JogFineVelocity;
-            return axis.Config.DefaultVelocity;
+            return MotionSpeedScale.ApplyDefaultVelocityScale(axis.Config.DefaultVelocity);
         }
 
         private bool ValidateVisionTargetPosition(BaseAxis axis, double targetPos)

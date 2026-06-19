@@ -271,6 +271,8 @@ namespace QMC.Common.Motion
             target.JogFineVelocity = source.JogFineVelocity;
             target.JogAcceleration = source.JogAcceleration;
             target.JogDeceleration = source.JogDeceleration;
+            target.JogStopDeceleration = source.JogStopDeceleration;
+            target.StopDeceleration = source.StopDeceleration;
             target.InPositionTolerance = source.InPositionTolerance;
         }
 

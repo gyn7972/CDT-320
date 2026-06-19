@@ -2243,7 +2243,8 @@ namespace QMC.CDT320
                 if (bFine && FeederY.Config.JogFineVelocity > 0.0)
                     return FeederY.Config.JogFineVelocity;
 
-                return FeederY.Config.DefaultVelocity;
+                // 일반 이동만 DefaultVelocity 퍼센트 스케일을 적용한다.
+                return MotionSpeedScale.ApplyDefaultVelocityScale(FeederY.Config.DefaultVelocity);
             }
             catch
             {

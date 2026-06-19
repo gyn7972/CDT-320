@@ -33,6 +33,8 @@
         private System.Windows.Forms.FlowLayoutPanel speedButtons;
         private QMC.CDT_320.Ui.Controls.ActionButton btnSpeedReload;
         private QMC.CDT_320.Ui.Controls.ActionButton btnSpeedSave;
+        private System.Windows.Forms.Label lblSpeedScaleCaption;
+        private QMC.CDT_320.Ui.Controls.ActionButton btnSpeedScale;
         private System.Windows.Forms.TableLayoutPanel actionsPanel;
         private QMC.CDT_320.Ui.Controls.ActionButton btnEnable;
         private QMC.CDT_320.Ui.Controls.ActionButton btnDisable;
@@ -87,6 +89,8 @@
             this.speedButtons = new System.Windows.Forms.FlowLayoutPanel();
             this.btnSpeedReload = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnSpeedSave = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.lblSpeedScaleCaption = new System.Windows.Forms.Label();
+            this.btnSpeedScale = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.actionsPanel = new System.Windows.Forms.TableLayoutPanel();
             this.btnEnable = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnDisable = new QMC.CDT_320.Ui.Controls.ActionButton();
@@ -320,6 +324,7 @@
             this.speedGrid.Columns.Add("DEFAULT_VEL", "DEFAULT VEL");
             this.speedGrid.Columns.Add("ACCEL", "ACCEL");
             this.speedGrid.Columns.Add("DECEL", "DECEL");
+            this.speedGrid.Columns.Add("STOP_DEC", "STOP DEC");
             this.speedGrid.Columns.Add("HOME_VEL_1", "HOME VEL 1");
             this.speedGrid.Columns.Add("HOME_VEL_2", "HOME VEL 2");
             this.speedGrid.Columns.Add("HOME_VEL_3", "HOME VEL 3");
@@ -332,6 +337,7 @@
             this.speedGrid.Columns.Add("JOG_FINE", "JOG FINE");
             this.speedGrid.Columns.Add("JOG_ACC", "JOG ACC");
             this.speedGrid.Columns.Add("JOG_DEC", "JOG DEC");
+            this.speedGrid.Columns.Add("JOG_STOP_DEC", "JOG STOP DEC");
             this.speedGrid.Columns.Add("INPOS_TOL", "IN-POS TOL");
             this.speedGrid.Columns[0].ReadOnly = true;
             // 
@@ -339,6 +345,8 @@
             // 
             this.speedButtons.Controls.Add(this.btnSpeedReload);
             this.speedButtons.Controls.Add(this.btnSpeedSave);
+            this.speedButtons.Controls.Add(this.btnSpeedScale);
+            this.speedButtons.Controls.Add(this.lblSpeedScaleCaption);
             this.speedButtons.Dock = System.Windows.Forms.DockStyle.Fill;
             this.speedButtons.FlowDirection = System.Windows.Forms.FlowDirection.RightToLeft;
             this.speedButtons.Location = new System.Drawing.Point(0, 432);
@@ -366,6 +374,27 @@
             this.btnSpeedReload.Size = new System.Drawing.Size(120, 38);
             this.btnSpeedReload.TabIndex = 1;
             this.btnSpeedReload.Text = "RELOAD";
+            //
+            // btnSpeedScale
+            //
+            this.btnSpeedScale.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnSpeedScale.Font = new System.Drawing.Font("Segoe UI", 10F, System.Drawing.FontStyle.Bold);
+            this.btnSpeedScale.Margin = new System.Windows.Forms.Padding(6, 6, 0, 6);
+            this.btnSpeedScale.Name = "btnSpeedScale";
+            this.btnSpeedScale.Size = new System.Drawing.Size(110, 38);
+            this.btnSpeedScale.TabIndex = 2;
+            this.btnSpeedScale.Text = "100 %";
+            //
+            // lblSpeedScaleCaption
+            //
+            this.lblSpeedScaleCaption.AutoSize = false;
+            this.lblSpeedScaleCaption.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
+            this.lblSpeedScaleCaption.Margin = new System.Windows.Forms.Padding(6, 6, 0, 6);
+            this.lblSpeedScaleCaption.Name = "lblSpeedScaleCaption";
+            this.lblSpeedScaleCaption.Size = new System.Drawing.Size(170, 38);
+            this.lblSpeedScaleCaption.TabIndex = 3;
+            this.lblSpeedScaleCaption.Text = "DEFAULT SPEED SCALE %";
+            this.lblSpeedScaleCaption.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
             // 
             // configLayout
             // 

@@ -51,6 +51,13 @@ namespace QMC.CDT320
         // ── Simulator link — auto connect ──
         [DataMember] public bool   SimulatorAutoConnect { get; set; } = false;
 
+        // ── Motion speed scale ──
+        /// <summary>
+        /// 전체 공통 DefaultVelocity 퍼센트 스케일 [%]. 100 = 설정값 그대로, 10 = 설정값의 10% 속도.
+        /// 자동 시퀀스 일반 이동(DefaultVelocity 기반)에만 적용된다. 안전 범위 1~100.
+        /// </summary>
+        [DataMember] public double DefaultVelocityScalePercent { get; set; } = 100.0;
+
         public bool BypassHardware => SimulationMode;
     }
 
@@ -71,7 +78,12 @@ namespace QMC.CDT320
 
         public static AppSettings Load()
         {
-            if (!File.Exists(Path_)) { Current = new AppSettings(); return Current; }
+            if (!File.Exists(Path_))
+            {
+                Current = new AppSettings();
+                QMC.Common.Motion.MotionSpeedScale.ScalePercent = Current.DefaultVelocityScalePercent;
+                return Current;
+            }
             try
             {
                 using (var fs = File.OpenRead(Path_))
@@ -84,6 +96,11 @@ namespace QMC.CDT320
                     Current.SimulationMode = true;
             }
             catch { Current = new AppSettings(); }
+
+            // 저장된 전체 DefaultVelocity 퍼센트를 안전 범위로 보정한 뒤 모션 레이어 공통 스케일에 동기화한다.
+            Current.DefaultVelocityScalePercent =
+                QMC.Common.Motion.MotionSpeedScale.ClampPercent(Current.DefaultVelocityScalePercent);
+            QMC.Common.Motion.MotionSpeedScale.ScalePercent = Current.DefaultVelocityScalePercent;
             return Current;
         }
 

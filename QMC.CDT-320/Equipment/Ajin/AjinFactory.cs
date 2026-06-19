@@ -137,6 +137,8 @@ namespace QMC.CDT320.Ajin
                         if (src.JogFineVelocity > 0) c.JogFineVelocity = src.JogFineVelocity;
                         if (src.JogAcceleration > 0) c.JogAcceleration = src.JogAcceleration;
                         if (src.JogDeceleration > 0) c.JogDeceleration = src.JogDeceleration;
+                        if (src.JogStopDeceleration > 0) c.JogStopDeceleration = src.JogStopDeceleration;
+                        if (src.StopDeceleration > 0) c.StopDeceleration = src.StopDeceleration;
                         if (src.InPositionTolerance >= 0) c.InPositionTolerance = src.InPositionTolerance;
                     }
                 }
@@ -269,6 +271,8 @@ namespace QMC.CDT320.Ajin
                 axis.Config.JogFineVelocity = definition.Config.JogFineVelocity;
                 axis.Config.JogAcceleration = definition.Config.JogAcceleration;
                 axis.Config.JogDeceleration = definition.Config.JogDeceleration;
+                axis.Config.JogStopDeceleration = definition.Config.JogStopDeceleration;
+                axis.Config.StopDeceleration = definition.Config.StopDeceleration;
             }
 
             if (definition.Recipe != null)

@@ -1792,7 +1792,8 @@ namespace QMC.CDT320
                 if (bFine && InputLifterZ.Config.JogFineVelocity > 0.0)
                     return InputLifterZ.Config.JogFineVelocity;
 
-                return InputLifterZ.Config.DefaultVelocity;
+                // 일반 이동만 DefaultVelocity 퍼센트 스케일을 적용한다. (Mapping ScanVelocity 경로는 별도)
+                return MotionSpeedScale.ApplyDefaultVelocityScale(InputLifterZ.Config.DefaultVelocity);
             }
             catch
             {
