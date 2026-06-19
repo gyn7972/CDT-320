@@ -16,6 +16,7 @@ namespace QMC.CDT320
         private bool _prevStart;
         private bool _prevStop;
         private bool _prevReset;
+        private bool _prevEmgFront;
         private int _commandBusy;
         private int _buzzerMuted;
 
@@ -72,6 +73,13 @@ namespace QMC.CDT320
 
             UpdateInputs(op);
 
+            // EMG FRONT 신호의 하강 엣지(ON→OFF)에서 등록된 전 서보 축을 ServoOff + MoveStop 한다.
+            // 안전 동작이므로 RunCommand의 busy 가드를 거치지 않고 즉시 동기 실행한다.
+            bool emgFront = IsOn(op.EmgFront);
+            if (_prevEmgFront && !emgFront)
+                HandleEmgFrontEdge(emgFront);
+            _prevEmgFront = emgFront;
+
             bool start = IsOn(op.StartButton);
             bool stop = IsOn(op.StopButton);
             bool reset = IsOn(op.ResetButton);
@@ -88,6 +96,52 @@ namespace QMC.CDT320
             _prevReset = reset;
 
             ApplyLampState(op, start, reset);
+        }
+
+        /// <summary>
+        /// EMG FRONT 신호의 상승/하강 엣지에서 등록된 전 서보 축을 검색해 ServoOff 한 뒤 MoveStop(정지)한다.
+        /// </summary>
+        private void HandleEmgFrontEdge(bool isOn)
+        {
+            try
+            {
+                var axes = QMC.CDT320.Ajin.AjinFactory.AxisManager.GetAll();
+                if (axes == null)
+                    return;
+
+                int count = 0;
+                foreach (var axis in axes)
+                {
+                    if (axis == null)
+                        continue;
+
+                    try
+                    {
+                      axis.Stop();
+                      Thread.Sleep(100);
+                      axis.ServoOff();
+                    }
+                    catch // 전축 move stop
+                    {
+                    }        
+
+                    count++;
+                }
+
+                QMC.Common.Log.Write("Main", "SAFETY", "OperationPanelMonitor",
+                    "EMG FRONT " + (isOn ? "ON" : "OFF") + " edge: servo off + move stop applied. axes=" + count + " - Ok");
+            }
+            catch (Exception ex)
+            {
+                try
+                {
+                    QMC.Common.Log.Write("Main", "SAFETY", "OperationPanelMonitor",
+                        "EMG FRONT edge handling failed: " + ex.Message + " - Failed");
+                }
+                catch
+                {
+                }
+            }
         }
 
         public void StopBuzzer()
