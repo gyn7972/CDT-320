@@ -7,13 +7,16 @@ using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
+using QMC.Common.Ui.Controls;
 
 namespace QMC.Vision.Comm
 {
     /// <summary>
     /// 모듈(검사 알고리즘 스테이션)별 그랩 영상을 TCP 로 송출하는 서버 (1:N).
-    /// 와이어 프로토콜: [4바이트 int32 LE 길이][JPEG 바이트]. SP_RemoteViewer 의 RemoteViewerControl 호환.
-    /// 프레임 소스는 frameProvider 로 주입 — 그랩 이미지(VisionModule.AcquireViewerFrame) 또는 화면영역 캡처.
+    /// 와이어 프로토콜: [4B metaLen LE][meta JSON][4B jpegLen LE][JPEG] (QMC.Common VisionFrameCodec).
+    /// meta 에 스케일(mm/px)·판정·결과를 동봉해 핸들러 카메라뷰가 측정·오버레이를 표시할 수 있다.
+    /// 프레임 소스는 frameProvider, 메타는 metaProvider 로 주입.
+    /// (구 [4B len][JPEG] SP_RemoteViewer 포맷에서 변경 — 외부 SP_RemoteViewer 샘플은 코덱 갱신 필요.)
     /// </summary>
     public sealed class GrabStreamServer : IDisposable
     {
@@ -31,6 +34,7 @@ namespace QMC.Vision.Comm
         private readonly string _name;
         private readonly int _port;
         private readonly Func<Bitmap> _frameProvider;
+        private readonly Func<VisionFrameMeta> _metaProvider;   // 프레임 동봉 메타(스케일/판정/결과). null 가능.
         private readonly int _fps;
         private readonly long _quality;
 
@@ -43,6 +47,7 @@ namespace QMC.Vision.Comm
         private readonly object _clientsLock = new object();
 
         private byte[] _latestFrame;
+        private VisionFrameMeta _latestMeta;
         private long _frameId;
         private readonly object _frameLock = new object();
 
@@ -57,11 +62,13 @@ namespace QMC.Vision.Comm
         }
 
         public GrabStreamServer(string name, int port, Func<Bitmap> frameProvider,
-                                int fps = 10, long jpegQuality = 60)
+                                int fps = 10, long jpegQuality = 60,
+                                Func<VisionFrameMeta> metaProvider = null)
         {
             _name = name ?? "Viewer";
             _port = port;
             _frameProvider = frameProvider ?? throw new ArgumentNullException(nameof(frameProvider));
+            _metaProvider = metaProvider;
             _fps = Math.Max(1, Math.Min(60, fps));
             _quality = Math.Max(1, Math.Min(100, jpegQuality));
         }
@@ -145,13 +152,20 @@ namespace QMC.Vision.Comm
                     try { bmp = _frameProvider(); } catch { bmp = null; }
                     if (bmp != null)
                     {
+                        // 프레임 동봉 메타 — 크기는 실제 비트맵 기준(권위), 스케일/판정/결과는 metaProvider.
+                        VisionFrameMeta meta = null;
+                        try { meta = _metaProvider?.Invoke(); } catch { meta = null; }
+                        if (meta == null) meta = new VisionFrameMeta();
+                        meta.Width = bmp.Width; meta.Height = bmp.Height;
+                        if (string.IsNullOrEmpty(meta.Module)) meta.Module = _name;
+
                         byte[] jpeg;
                         try { jpeg = CompressJpeg(bmp, _quality); }
                         finally { bmp.Dispose(); }
 
                         if (jpeg != null)
                         {
-                            lock (_frameLock) { _latestFrame = jpeg; _frameId++; }
+                            lock (_frameLock) { _latestFrame = jpeg; _latestMeta = meta; _frameId++; }
                             lock (_clientsLock)
                                 foreach (var c in _clients) if (c.Active) c.FrameReady.Set();
                         }
@@ -175,21 +189,21 @@ namespace QMC.Vision.Comm
                     c.FrameReady.Reset();
 
                     byte[] frame = null;
+                    VisionFrameMeta meta = null;
                     long id = 0;
                     lock (_frameLock)
                     {
                         id = _frameId;
                         if (id <= c.LastSentFrameId) continue;
                         frame = _latestFrame;
+                        meta  = _latestMeta;
                     }
                     if (frame == null) continue;
 
                     try
                     {
-                        byte[] sizeBytes = BitConverter.GetBytes(frame.Length); // int32 little-endian
-                        c.Stream.Write(sizeBytes, 0, 4);
-                        c.Stream.Write(frame, 0, frame.Length);
-                        c.Stream.Flush();
+                        // 와이어: [4B metaLen][meta JSON][4B jpegLen][JPEG] (VisionFrameCodec)
+                        VisionFrameCodec.WriteFrame(c.Stream, meta, frame);
                         c.LastSentFrameId = id;
                     }
                     catch { break; }   // client gone

@@ -50,18 +50,14 @@ namespace QMC.Vision.Sequencing
             StartModules(SequenceModuleKind.All, SequenceRunMode.Auto, cycleIntervalMs);
         }
 
-        /// <summary>선택 모듈을 지정 모드(Auto/Manual/Step)로 시작한다(시퀀서 테스트 페이지용).</summary>
+        /// <summary>선택 모듈 전체(그 안의 모든 도구)를 지정 모드로 시작한다(시퀀서 테스트 페이지용).</summary>
         public void StartModules(SequenceModuleKind kind, SequenceRunMode mode, int cycleIntervalMs)
         {
             try
             {
                 Stop();
                 if (kind == SequenceModuleKind.None) return;
-                var ctx = new VisionSequenceContext(_machine, null, LogSink)
-                {
-                    CycleIntervalMs = cycleIntervalMs > 0 ? cycleIntervalMs : 500
-                };
-                _coordinator = new AutoSequenceCoordinator(ctx);
+                EnsureCoordinator(cycleIntervalMs);
                 _coordinator.Start(kind, mode);
             }
             catch (Exception ex)
@@ -70,16 +66,50 @@ namespace QMC.Vision.Sequencing
             }
         }
 
-        /// <summary>Manual/Step 모드에서 특정 모듈을 1단계 진행한다.</summary>
-        public void StepModule(SequenceModuleKind kind)
+        /// <summary>모듈 안의 특정 도구 하나만 지정 모드로 시작한다.</summary>
+        public void StartTool(SequenceModuleKind kind, string toolId, SequenceRunMode mode, int cycleIntervalMs)
         {
-            try { _coordinator?.StepModule(kind); }
+            try
+            {
+                Stop();
+                if (kind == SequenceModuleKind.None || string.IsNullOrEmpty(toolId)) return;
+                EnsureCoordinator(cycleIntervalMs);
+                _coordinator.StartTool(kind, toolId, mode);
+            }
+            catch (Exception ex)
+            {
+                LogSink("[SEQ] 도구 시작 실패: " + ex.Message);
+            }
+        }
+
+        /// <summary>Step/Manual — 지정 도구를 1회 실행한다(코디네이터 없으면 생성).</summary>
+        public void StepTool(SequenceModuleKind kind, string toolId, int cycleIntervalMs)
+        {
+            try { EnsureCoordinator(cycleIntervalMs); _coordinator.StepTool(kind, toolId); }
             catch (Exception ex) { LogSink("[SEQ] step 실패: " + ex.Message); }
         }
 
-        /// <summary>모듈별 메트릭 스냅샷(사이클 ms / 사이클 수) — 미실행 시 빈 목록.</summary>
-        public System.Collections.Generic.List<AutoSequenceCoordinator.SeqMetric> Metrics()
-            => _coordinator?.Snapshot() ?? new System.Collections.Generic.List<AutoSequenceCoordinator.SeqMetric>();
+        /// <summary>Step/Manual — 모듈 순서상 '다음 도구'를 1회 실행한다(코디네이터 없으면 생성).</summary>
+        public void StepNextTool(SequenceModuleKind kind, int cycleIntervalMs)
+        {
+            try { EnsureCoordinator(cycleIntervalMs); _coordinator.StepNextTool(kind); }
+            catch (Exception ex) { LogSink("[SEQ] step 실패: " + ex.Message); }
+        }
+
+        /// <summary>코디네이터가 없으면 컨텍스트와 함께 생성한다(이미 있으면 유지).</summary>
+        private void EnsureCoordinator(int cycleIntervalMs)
+        {
+            if (_coordinator != null) return;
+            var ctx = new VisionSequenceContext(_machine, null, LogSink)
+            {
+                CycleIntervalMs = cycleIntervalMs > 0 ? cycleIntervalMs : 500
+            };
+            _coordinator = new AutoSequenceCoordinator(ctx);
+        }
+
+        /// <summary>도구별 메트릭 스냅샷(사이클 ms / 사이클 수 / 판정) — 미실행 시 빈 목록.</summary>
+        public System.Collections.Generic.List<AutoSequenceCoordinator.ToolMetric> Metrics()
+            => _coordinator?.Snapshot() ?? new System.Collections.Generic.List<AutoSequenceCoordinator.ToolMetric>();
 
         /// <summary>실행 중인 자동 시퀀스를 정지한다.</summary>
         public void Stop()

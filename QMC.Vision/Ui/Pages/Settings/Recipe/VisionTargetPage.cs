@@ -67,14 +67,23 @@ namespace QMC.Vision.Ui.Pages
         private void WireCamera()
         {
             _cam.RoiEdited += OnCamRoiEdited;
+            // 툴바 Grab/Live(=CameraView 자체 핸들러)로 프레임이 바뀌어도 STAGE/ROI 자동맞춤이 되도록 알림 수신.
+            _cam.FrameChanged += OnCamFrameChanged;
             // 공용 CameraView 내장 툴바(Grab/Live/Stop/Save/Load/측정/맞춤) 사용 — 모듈 지정 한 줄.
             _cam.AttachModule(_module);
             _cam.ShowToolbar = true;
         }
 
+        /// <summary>CameraView 프레임 크기 변경(툴바 Grab/Live 포함) → STAGE 갱신 + 미구성 ROI 자동맞춤.</summary>
+        private void OnCamFrameChanged()
+        {
+            try { OnImageReady(_cam?.CurrentFrame); } catch { }
+        }
+
         protected override void OnHandleDestroyed(EventArgs e)
         {
             if (_langHooked) { Lang.LanguageChanged -= OnLanguageChanged; _langHooked = false; }
+            try { if (_cam != null) _cam.FrameChanged -= OnCamFrameChanged; } catch { }
             base.OnHandleDestroyed(e);
         }
 
@@ -133,7 +142,16 @@ namespace QMC.Vision.Ui.Pages
             try
             {
                 var r = _module.Grab();
-                if (r != null && r.IsSuccess) _cam.SetFrame(r);
+                if (r != null && r.IsSuccess)
+                {
+                    // 라이브 프레임을 현재 이미지로 유지 — Train/Match/Full Size 가 라이브 중에도 동작.
+                    _lastGrab?.Dispose();
+                    _loadedImage?.Dispose(); _loadedImage = null;
+                    _lastGrab = r;
+                    _cam.SetFrame(r);
+                    OnImageReady(r.Image);
+                }
+                else r?.Dispose();
             }
             catch (Exception ex) { StopLive(); Status(Lang.T("rec.liveStop") + ex.Message); }
         }
@@ -172,9 +190,30 @@ namespace QMC.Vision.Ui.Pages
         /// 전용필드 추가 시 아래 패턴 1줄. (인프라: 현재 케이스 0 — 현 동작 불변.)</summary>
         private void AppendNodeParams(System.Collections.Generic.List<ParameterGridItem> items)
         {
-            // 예) if (_node?.Recipe is EjectPinFinderRecipe r)
-            //         items.Add(ParameterGridItem.Double("Pin Gap", "px", ParameterGridScope.Recipe,
-            //                   () => r.PinGap, v => { r.PinGap = v; MarkDirty(); }));
+            if (_node == null) return;
+
+            // 도구별 시뮬 저장이미지 — 웨이퍼 2점 정렬의 이미지1/이미지2처럼 Finder 마다 다른 이미지 지정.
+            // (지정 없으면 모듈 저장이미지/실제 카메라로 폴백. 경로는 입력/붙여넣기.)
+            // 로드 시 Setup/Recipe POCO 인스턴스가 교체될 수 있어 람다에서 매번 _node 로 최신 POCO 를 읽는다.
+            if (_node.Setup is QMC.Vision.Modules.AlgoSetupBase)
+            {
+                items.Add(ParameterGridItem.Bool("시뮬 저장이미지 사용", ParameterGridScope.Setup,
+                    () => (_node.Setup as QMC.Vision.Modules.AlgoSetupBase)?.SimUseSavedImage ?? false,
+                    v => { if (_node.Setup is QMC.Vision.Modules.AlgoSetupBase s) { s.SimUseSavedImage = v; MarkDirty(); } }));
+                items.Add(ParameterGridItem.FilePath("시뮬 이미지 경로", ParameterGridScope.Setup,
+                    () => (_node.Setup as QMC.Vision.Modules.AlgoSetupBase)?.SimSavedImagePath ?? "",
+                    v => { if (_node.Setup is QMC.Vision.Modules.AlgoSetupBase s) { s.SimSavedImagePath = v?.Trim() ?? ""; MarkDirty(); } },
+                    "이미지 파일 (*.bmp;*.png;*.jpg;*.jpeg;*.tif;*.tiff)|*.bmp;*.png;*.jpg;*.jpeg;*.tif;*.tiff|모든 파일 (*.*)|*.*"));
+            }
+
+            // AlignDie 등 각도 산출 모드 — Single(최근접) / AverageAll(격자 전체 평균).
+            if (_node.Recipe is QMC.Vision.Modules.FinderAlgoRecipe)
+            {
+                items.Add(ParameterGridItem.Selection<QMC.Vision.Modules.DieAngleMode>(
+                    "각도(θ) 모드", "", ParameterGridScope.Recipe,
+                    () => (_node.Recipe as QMC.Vision.Modules.FinderAlgoRecipe)?.AngleMode ?? QMC.Vision.Modules.DieAngleMode.Single,
+                    v => { if (_node.Recipe is QMC.Vision.Modules.FinderAlgoRecipe fr) { fr.AngleMode = v; MarkDirty(); } }));
+            }
         }
 
         private void RefreshOverlay()
@@ -214,7 +253,7 @@ namespace QMC.Vision.Ui.Pages
             catch (Exception ex) { Status(Lang.T("rec.targetSaveFail") + ex.Message); }
         }
 
-        private void LoadTarget()
+        public void LoadTarget()
         {
             if (_node == null) return;
             try
@@ -224,6 +263,9 @@ namespace QMC.Vision.Ui.Pages
                 LoadTrainImageFile();           // 저장된 학습 패턴 PNG 복원
                 _params.RefreshValues();
                 RefreshOverlay();
+                ShowTrainImage();               // 패턴 미리보기도 복원본으로 갱신
+                _dirty = false;                 // 저장본으로 되돌렸으므로 변경상태 해제
+                DirtyChanged?.Invoke(this, EventArgs.Empty);
             }
             catch { }
         }
@@ -258,7 +300,9 @@ namespace QMC.Vision.Ui.Pages
                 if (_finder == null) return;
                 string path = TrainImagePath();
                 if (!File.Exists(path)) return;
-                using (var src = (Bitmap)Image.FromFile(path))
+                // 고속 로드(컬러매니지먼트/검증 생략) — 학습 패턴 원본 픽셀 보존. Image.FromFile 최초 디코드 지연 회피.
+                using (var fs = new FileStream(path, FileMode.Open, FileAccess.Read))
+                using (var src = (Bitmap)System.Drawing.Image.FromStream(fs, false, false))
                     _finder.LoadTrainImage(src);   // 내부에서 clone
                 ShowTrainImage();
             }
@@ -268,7 +312,8 @@ namespace QMC.Vision.Ui.Pages
         // ── 액션(중앙 3×3) — FinderPage 동일 로직 ──
         private GrabResult _lastGrab;
         private Bitmap _loadedImage;
-        private Bitmap CurrentImage => _lastGrab?.Image ?? _loadedImage;
+        // 페이지 자체 Grab/Load 외에, 툴바 Grab/Live 로 CameraView 가 표시 중인 실제 프레임도 사용.
+        private Bitmap CurrentImage => _lastGrab?.Image ?? _loadedImage ?? _cam?.CurrentFrame;
 
         private void OnGrabClick(object sender, EventArgs e) => DoGrab();
         private void OnMatchClick(object sender, EventArgs e) => DoMatch();
@@ -298,7 +343,7 @@ namespace QMC.Vision.Ui.Pages
             if (_lastGrab.IsSuccess)
             {
                 _cam.SetFrame(_lastGrab);
-                _cam.SetOverlay(_finder?.SearchRoi, null);
+                OnImageReady(_lastGrab.Image);
                 Status($"GRAB OK — {_lastGrab.Width}x{_lastGrab.Height} frame={_lastGrab.FrameNumber}");
             }
             else Status("GRAB FAIL: " + _lastGrab.ErrorMessage);
@@ -317,13 +362,16 @@ namespace QMC.Vision.Ui.Pages
                 {
                     _lastGrab?.Dispose(); _lastGrab = null;
                     _loadedImage?.Dispose();
-                    using (var src = (Bitmap)Image.FromFile(dlg.FileName))
+                    // Image.FromFile 은 GDI+ 컬러매니지먼트/검증으로 대용량 최초 디코드가 매우 느리다.
+                    // 스트림 + (useEmbeddedColorManagement:false, validateImageData:false) 로 고속 로드(원본 픽셀 보존).
+                    using (var fs = new FileStream(dlg.FileName, FileMode.Open, FileAccess.Read))
+                    using (var src = System.Drawing.Image.FromStream(fs, false, false))
                         _loadedImage = new Bitmap(src);
 
                     var fake = GrabResult.Success(new Bitmap(_loadedImage), 0);
                     _cam.SetFrame(fake);
-                    _cam.SetOverlay(_finder?.SearchRoi, null);
                     fake.Dispose();
+                    OnImageReady(_loadedImage);
                     Status($"LOAD OK — {_loadedImage.Width}x{_loadedImage.Height}  ({Path.GetFileName(dlg.FileName)})");
                 }
                 catch (Exception ex) { Status("LOAD FAIL: " + ex.Message); }
@@ -369,7 +417,10 @@ namespace QMC.Vision.Ui.Pages
                 ShowTrainImage();
                 Status($"TRAIN OK — pattern from rect[{_finder.TrainRoi.CenterX:F0},{_finder.TrainRoi.CenterY:F0} {_finder.TrainRoi.Width:F0}x{_finder.TrainRoi.Height:F0}]");
             }
-            catch (Exception ex) { Status("TRAIN FAIL: " + ex.Message); }
+            catch (Exception ex) { Status("TRAIN FAIL: " + ex.Message); return; }
+
+            // 학습 직후 실제 이미지에서 패턴 검출을 한번 실행해 OK/NG 오버레이로 확인.
+            TryShowDetection(img, "TRAIN");
         }
 
         /// <summary>학습된 패턴 이미지를 미리보기 PictureBox 에 표시(복제본).</summary>
@@ -504,6 +555,52 @@ namespace QMC.Vision.Ui.Pages
             r.CenterX = w / 2.0; r.CenterY = h / 2.0; r.Width = w; r.Height = h;
             AfterRoiChange();
         }
+        /// <summary>그랩/로드된 이미지에 맞춰 STAGE 표시 갱신 + 미구성(640×480 가정) ROI 1회 자동 배치 + 오버레이/정보 갱신.</summary>
+        private void OnImageReady(Bitmap img)
+        {
+            if (img == null) return;
+            if (_cam != null) _cam.InfoText = "STAGE\r\nW:" + img.Width + " H:" + img.Height;
+            bool changed = FitDefaultRoisToImage(img);
+            if (_cam != null) _cam.SetOverlay(ActiveRoi(), null);
+            _params?.RefreshValues();   // 자동맞춤된 ROI 를 PARAM 그리드에 즉시 반영(표시 동기화)
+            UpdateRoiInfo();
+            if (changed) MarkDirty();
+        }
+
+        /// <summary>구성 전 기본 ROI(생성자값: 중심 320,240 또는 0,0)는 실제 이미지에 맞춘다 —
+        /// Search=전체, Train=중앙 1/4. 사용자가 이미 조정한 ROI 는 손대지 않는다(좌표가 기본값일 때만).
+        /// 중심이 이미지 밖이면 안전하게 중앙으로 재배치. 변경되면 true.</summary>
+        private bool FitDefaultRoisToImage(Bitmap img)
+        {
+            if (_finder == null) return false;
+            int iw = img.Width, ih = img.Height;
+            bool changed = false;
+            if (IsUnconfiguredRoi(_finder.SearchRoi, iw, ih))
+            {
+                _finder.SearchRoi.CenterX = iw / 2.0; _finder.SearchRoi.CenterY = ih / 2.0;
+                _finder.SearchRoi.Width   = iw;       _finder.SearchRoi.Height  = ih;
+                changed = true;
+            }
+            if (IsUnconfiguredRoi(_finder.TrainRoi, iw, ih))
+            {
+                _finder.TrainRoi.CenterX = iw / 2.0;  _finder.TrainRoi.CenterY = ih / 2.0;
+                _finder.TrainRoi.Width   = iw / 4.0;  _finder.TrainRoi.Height  = ih / 4.0;
+                changed = true;
+            }
+            return changed;
+        }
+
+        /// <summary>ROI 가 미구성(=생성자 기본 좌표)이거나 중심이 이미지 밖이면 true.</summary>
+        private static bool IsUnconfiguredRoi(Roi r, int iw, int ih)
+        {
+            if (r == null) return false;
+            bool defaultCenter = (System.Math.Abs(r.CenterX - 320) < 0.5 && System.Math.Abs(r.CenterY - 240) < 0.5)
+                              || (r.CenterX < 0.5 && r.CenterY < 0.5);
+            bool centerOutside = r.CenterX < 0 || r.CenterY < 0 || r.CenterX > iw || r.CenterY > ih;
+            // 실제 이미지가 기본 가정(640×480)보다 큰데 ROI 가 기본 좌표면 미구성으로 본다.
+            return (defaultCenter && (iw > 800 || ih > 600)) || centerOutside;
+        }
+
         private void AfterRoiChange()
         {
             if (_cam != null) _cam.SetOverlay(ActiveRoi(), null);
@@ -536,12 +633,39 @@ namespace QMC.Vision.Ui.Pages
                         _result.Rows.Insert(at++, 0, m.CenterX.ToString("F3"), m.CenterY.ToString("F3"),
                                             m.AngleDeg.ToString("F3"), m.Score.ToString("F3"));
                     RenumberResults();
-                    Status($"MATCH OK — {r.Instances.Count} instance(s), best score={r.Best?.Score:F3}");
                 }
-                else Status("MATCH FAIL: " + r.ErrorMessage);
-                _cam.SetOverlay(_finder.SearchRoi, r);
+                ShowDetectionResult(r, "MATCH");
             }
             catch (Exception ex) { Status("MATCH FAIL: " + ex.Message); }
+        }
+
+        /// <summary>현재 이미지에서 패턴 검출을 실행해 OK/NG 오버레이를 표시한다(학습 직후 검증용).</summary>
+        private void TryShowDetection(Bitmap img, string tag)
+        {
+            if (_finder == null || img == null) return;
+            try { ShowDetectionResult(_finder.Match(img), tag); }
+            catch (Exception ex) { Status(tag + " 검출 표시 실패: " + ex.Message); }
+        }
+
+        /// <summary>매칭 결과를 실제 이미지에 오버레이하고 AcceptThreshold 기준 OK/NG 를 표시한다.
+        /// AcceptThreshold 가 0 이하이면 게이트 없이 '검출되면 OK'로 본다.</summary>
+        private void ShowDetectionResult(MatchResult r, string tag)
+        {
+            if (_cam != null) _cam.SetOverlay(_finder?.SearchRoi, r);
+
+            bool   found = r != null && r.Success && r.Best != null;
+            double thr   = _finder?.AcceptThreshold ?? 0.0;
+            double score = found ? r.Best.Score : 0.0;
+            bool   ok    = found && (thr <= 0.0 || score >= thr);
+
+            string label = !found
+                ? "검출 NG (no match)"
+                : ok
+                    ? "검출 OK  score=" + score.ToString("F3") + (thr > 0 ? " (>= " + thr.ToString("F2") + ")" : " (threshold 0)")
+                    : "검출 NG  score=" + score.ToString("F3") + " (< " + thr.ToString("F2") + ")";
+
+            if (_cam != null) _cam.InfoText = (_finder?.Id ?? "") + "\r\n" + label;
+            Status("[" + tag + "] " + label);
         }
 
         /// <summary>결과 그리드 Idx 재번호 — 맨 위(최신)=0, 아래로 증가.</summary>
@@ -579,10 +703,8 @@ namespace QMC.Vision.Ui.Pages
         {
             try
             {
-                if (_cam == null || _module == null) return;
-                var map = _module.ExportCameraMapping();
-                _cam.MmPerPixelX = map.ScaleX;
-                _cam.MmPerPixelY = map.ScaleY;
+                if (_cam == null) return;
+                _cam.MmPerPixelX = 0; _cam.MmPerPixelY = 0;   // 측정 px 단위(스케일 무관). mm 필요시 ExportCameraMapping().ScaleX/Y 주입.
             }
             catch { }
         }
@@ -608,6 +730,10 @@ namespace QMC.Vision.Ui.Pages
             cms.Items.Add("x2", null, (s, e) => _cam?.SetZoom(2));
             cms.Items.Add("x4", null, (s, e) => _cam?.SetZoom(4));
             cms.Items.Add("x8", null, (s, e) => _cam?.SetZoom(8));
+            cms.Items.Add(new ToolStripSeparator());
+            var coordItem = new ToolStripMenuItem("좌표·밝기 표시 (PX / V)") { CheckOnClick = true, Checked = false };
+            coordItem.Click += (s, e) => { if (_cam != null) _cam.ShowCursorReadout = coordItem.Checked; };
+            cms.Items.Add(coordItem);
             _cam.ContextMenuStrip = cms;
         }
 

@@ -27,6 +27,8 @@ namespace QMC.Vision.Ui.Pages
         private TableLayoutPanel _right;
         private Label _secParam;
         private ParameterGridControl _params;
+        private Label _secRoi;
+        private Panel _roiHost;     // ROI 미세조정 컨트롤(런타임 채움) — 단일 Inspection ROI
         private Label _secLight;
         private Panel _lightHost;
 
@@ -54,6 +56,8 @@ namespace QMC.Vision.Ui.Pages
             this._right = new TableLayoutPanel();
             this._secParam = new Label();
             this._params = new ParameterGridControl();
+            this._secRoi = new Label();
+            this._roiHost = new Panel();
             this._secLight = new Label();
             this._lightHost = new Panel();
             this._root.SuspendLayout();
@@ -111,19 +115,27 @@ namespace QMC.Vision.Ui.Pages
             this._result.Columns.Add("Pass", "결과");
             this._lblVerdict.Dock = DockStyle.Fill; this._lblVerdict.Text = "-"; this._lblVerdict.Font = UiTheme.SectionFont; this._lblVerdict.ForeColor = Color.White; this._lblVerdict.BackColor = Color.Gray; this._lblVerdict.TextAlign = ContentAlignment.MiddleCenter;
 
+            // ROI 제어 섹션(주황 헤더 + 런타임 채움 호스트) — Finder 와 동일 위치(액션 아래·결과 위)·크기
+            this._secRoi.Dock = DockStyle.Fill; this._secRoi.Text = "ROI 제어"; this._secRoi.BackColor = UiTheme.StatusBarBg; this._secRoi.ForeColor = Color.White; this._secRoi.Font = UiTheme.SectionFont; this._secRoi.TextAlign = ContentAlignment.MiddleLeft; this._secRoi.Padding = new Padding(8, 0, 0, 0);
+            this._roiHost.Dock = DockStyle.Fill; this._roiHost.BackColor = Color.FromArgb(191, 191, 191); this._roiHost.AutoScroll = true;
             this._center.Dock = DockStyle.Fill;
-            this._center.ColumnCount = 1; this._center.RowCount = 5; this._center.Margin = Padding.Empty;
+            // Finder(_center)와 동일: 액션 24/100, ROI 제어 24/150, MATCH RESULT 24/50%, 하단 50%(Finder=트레인패턴 → 여기선 verdict)
+            this._center.ColumnCount = 1; this._center.RowCount = 7; this._center.Margin = Padding.Empty;
             this._center.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f));
-            this._center.RowStyles.Add(new RowStyle(SizeType.Absolute, 24f));
-            this._center.RowStyles.Add(new RowStyle(SizeType.Absolute, 150f));
-            this._center.RowStyles.Add(new RowStyle(SizeType.Absolute, 24f));
-            this._center.RowStyles.Add(new RowStyle(SizeType.Percent, 100f));
-            this._center.RowStyles.Add(new RowStyle(SizeType.Absolute, 40f));
+            this._center.RowStyles.Add(new RowStyle(SizeType.Absolute, 24f));    // secAction
+            this._center.RowStyles.Add(new RowStyle(SizeType.Absolute, 100f));   // actionPanel (Finder와 동일 100)
+            this._center.RowStyles.Add(new RowStyle(SizeType.Absolute, 24f));    // secRoi
+            this._center.RowStyles.Add(new RowStyle(SizeType.Absolute, 150f));   // roiHost
+            this._center.RowStyles.Add(new RowStyle(SizeType.Absolute, 24f));    // secResult
+            this._center.RowStyles.Add(new RowStyle(SizeType.Percent, 50f));     // result (Finder와 동일 50%)
+            this._center.RowStyles.Add(new RowStyle(SizeType.Percent, 50f));     // lblVerdict (Finder 트레인패턴 자리)
             this._center.Controls.Add(this._secAction, 0, 0);
             this._center.Controls.Add(this._actionPanel, 0, 1);
-            this._center.Controls.Add(this._secResult, 0, 2);
-            this._center.Controls.Add(this._result, 0, 3);
-            this._center.Controls.Add(this._lblVerdict, 0, 4);
+            this._center.Controls.Add(this._secRoi, 0, 2);
+            this._center.Controls.Add(this._roiHost, 0, 3);
+            this._center.Controls.Add(this._secResult, 0, 4);
+            this._center.Controls.Add(this._result, 0, 5);
+            this._center.Controls.Add(this._lblVerdict, 0, 6);
 
             // ── 우 (PARAMETERS + 조명) — 라이브튜닝 제거, 조명 240→440 확대 ──
             this._params.Dock = DockStyle.Fill;

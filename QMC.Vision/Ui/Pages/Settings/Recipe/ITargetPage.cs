@@ -11,6 +11,8 @@ namespace QMC.Vision.Ui.Pages
         bool IsDirty { get; }
         bool HasSavedData { get; }
         void SaveTarget();
+        /// <summary>저장된 레시피를 다시 불러와 편집 내용을 되돌린다(revert).</summary>
+        void LoadTarget();
         /// <summary>C3b-3 — 조명 지정(노드 Setup.LightPages) 변경을 레벨 그리드에 반영(재바인딩). RecipePage 가 타깃 표시 시 호출.</summary>
         void RefreshLightAssignment();
         event EventHandler DirtyChanged;

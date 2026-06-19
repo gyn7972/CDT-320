@@ -29,7 +29,7 @@ namespace QMC.Vision.Core
             if (m == null) return "fail:no module";
             if (string.IsNullOrEmpty(finderId)) return "fail:no finder";
             if (!m.Finders.TryGetValue(finderId, out var f)) return "fail:finder not found";
-            using (var g = m.Grab())
+            using (var g = m.GrabForTool(finderId))
             {
                 if (g == null || !g.IsSuccess) return "fail:" + (g?.ErrorMessage ?? "grab");
                 var r = f.Match(g.Image);
@@ -46,10 +46,19 @@ namespace QMC.Vision.Core
                     VisionScale.ConvertPosition(scale, vec, g.Width, g.Height, b.CenterX, b.CenterY, out xOut, out yOut);
                 }
 
+                // θ 산출 모드 — AverageAll 이면 격자 전체 평균각으로 r 대체(Single=최근접 매칭 각도 b.AngleDeg).
+                double rOut = b.AngleDeg;
+                var node = m.GetAlgorithm(finderId);
+                if (node?.Recipe is FinderAlgoRecipe fr && fr.AngleMode == DieAngleMode.AverageAll)
+                {
+                    if (AlignAngleEstimator.TryEstimate(g.Image, out double avgDeg))
+                        rOut = avgDeg;
+                }
+
                 if (HasChip(chipUid))
                     try { ImageLogSaver.Save(cfg, m.Name, finderId, chipUid, g.Image); } catch { }
 
-                return $"OK;x={xOut:F3};y={yOut:F3};r={b.AngleDeg:F3};score={b.Score:F3}";
+                return $"OK;x={xOut:F3};y={yOut:F3};r={rOut:F3};score={b.Score:F3}";
             }
         }
 
@@ -59,10 +68,11 @@ namespace QMC.Vision.Core
             if (m == null) return "fail:no module";
             if (string.IsNullOrEmpty(inspId)) return "fail:no inspector";
             if (!m.Inspectors.TryGetValue(inspId, out var ins)) return "fail:inspector not found";
-            using (var g = m.Grab())
+            using (var g = m.GrabForTool(inspId))
             {
                 if (g == null || !g.IsSuccess) return "fail:" + (g?.ErrorMessage ?? "grab");
                 var r = ins.Inspect(g.Image);
+                if (r == null || r.Items == null) return "fail:inspect returned null";
                 var items = string.Join(",", r.Items.Select(i => $"{i.Name}={i.Value}"));
 
                 // 모듈별 최근 결과 저장 — 작업 모니터링 뷰가 OK/NG + 결과 라인 오버레이로 표시.
@@ -98,7 +108,7 @@ namespace QMC.Vision.Core
             if (m == null) return "fail:no module";
             if (string.IsNullOrEmpty(finderId)) return "fail:no finder";
             if (!m.Finders.TryGetValue(finderId, out var f)) return "fail:finder not found";
-            using (var g = m.Grab())
+            using (var g = m.GrabForTool(finderId))
             {
                 if (g == null || !g.IsSuccess) return "fail:" + (g?.ErrorMessage ?? "grab");
                 f.Train(g.Image);

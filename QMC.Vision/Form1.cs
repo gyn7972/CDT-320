@@ -436,7 +436,26 @@ namespace QMC.Vision
                     return mod.AcquireViewerFrame();
                 };
             }
-            var srv = new GrabStreamServer(name, port, provider, cfg.RemoteViewerFps, cfg.RemoteViewerQuality);
+            // 프레임 동봉 메타(핸들러 측정·결과 오버레이용): 스케일(mm/px) + 최신 판정/결과.
+            Func<QMC.Common.Ui.Controls.VisionFrameMeta> metaProvider = () =>
+            {
+                var meta = new QMC.Common.Ui.Controls.VisionFrameMeta { Module = mod.Name };
+                try { var cm = mod.ExportCameraMapping(); meta.ScaleX = cm.ScaleX; meta.ScaleY = cm.ScaleY; } catch { }
+                try
+                {
+                    bool pass; string[] lines;
+                    if (QMC.Vision.Core.ModuleResultStore.TryGet(mod.Name, out pass, out lines))
+                    {
+                        meta.Verdict = pass ? "OK" : "NG";
+                        meta.VerdictPass = pass;
+                        meta.ResultLines = lines;
+                    }
+                }
+                catch { }
+                return meta;
+            };
+
+            var srv = new GrabStreamServer(name, port, provider, cfg.RemoteViewerFps, cfg.RemoteViewerQuality, metaProvider);
             try { srv.Start(); } catch { }
             return srv;
         }

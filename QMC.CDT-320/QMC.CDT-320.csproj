@@ -434,6 +434,9 @@
     <Compile Include="Ui\Dialogs\RemoteViewerDialog.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="Ui\Dialogs\VisionMonitorDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="Ui\Dialogs\RemoteViewerDialog.Designer.cs">
       <DependentUpon>RemoteViewerDialog.cs</DependentUpon>
     </Compile>
@@ -509,6 +512,8 @@
     <!-- Equipment / Vision (Vision ?�로?�스 ?�신) -->
     <Compile Include="Equipment\Vision\VisionAdapters.cs" />
     <Compile Include="Equipment\Vision\VisionHub.cs" />
+    <Compile Include="Equipment\Vision\VisionViewerSource.cs" />
+    <Compile Include="Equipment\Vision\VisionFrameClient.cs" />
     <Compile Include="Equipment\Vision\VisionTcpClient.cs" />
     <Compile Include="Ui\Pages\WorkInfo\PlateStatusPage.Designer.cs">
       <DependentUpon>PlateStatusPage.cs</DependentUpon>

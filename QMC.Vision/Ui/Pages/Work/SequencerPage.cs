@@ -56,25 +56,68 @@ namespace QMC.Vision.Ui.Pages
             _cbModule.Items.AddRange(new object[]
             { "전체", "웨이퍼 비전", "빈 비전", "바텀 검사", "앞쪽 측면", "뒤쪽 측면" });
             _cbModule.SelectedIndex = 0;
+            _cbModule.SelectedIndexChanged += (s, e) => { PopulateTools(); BuildMetricsGrid(); };
 
             _cbMode.Items.AddRange(new object[] { "Auto (연속)", "Step (수동)" });
             _cbMode.SelectedIndex = 0;
 
+            PopulateTools();
             BuildMetricsGrid();
             _btnLoadStop.Enabled = false;   // 부하 체크 시작 전엔 완료 비활성
         }
 
+        private const string AllToolsLabel = "(전체 도구)";
+
+        /// <summary>선택 모듈의 도구 목록을 도구 콤보에 채운다. '전체' 모듈은 (전체 도구)만.</summary>
+        private void PopulateTools()
+        {
+            _cbTool.Items.Clear();
+            _cbTool.Items.Add(AllToolsLabel);
+            var kind = SelectedKind();
+            if (kind != SequenceModuleKind.All && SequenceToolCatalog.Has(kind))
+                foreach (var t in SequenceToolCatalog.Tools(kind))
+                    _cbTool.Items.Add((t.Key == "MATCH" ? "[F] " : "[I] ") + t.Value);
+            _cbTool.SelectedIndex = 0;
+        }
+
+        /// <summary>선택된 도구 Id(접두사 제거). (전체 도구) 또는 미선택이면 null.</summary>
+        private string SelectedToolId()
+        {
+            int i = _cbTool.SelectedIndex;
+            if (i <= 0) return null;
+            string s = _cbTool.SelectedItem as string;
+            if (string.IsNullOrEmpty(s)) return null;
+            if (s.StartsWith("[F] ") || s.StartsWith("[I] ")) s = s.Substring(4);
+            return s;
+        }
+
+        // 메트릭 그리드 행 식별(모듈+도구).
+        private sealed class ToolKey { public SequenceModuleKind Kind; public string Id; }
+
+        // 선택 모듈에 따라 도구별 행을 구성한다('전체'면 전 모듈 도구).
         private void BuildMetricsGrid()
         {
             _metrics.Columns.Clear();
+            _metrics.Rows.Clear();
             _metrics.Columns.Add("mod",   "모듈");
+            _metrics.Columns.Add("tool",  "도구");
+            _metrics.Columns.Add("kind",  "종류");
+            _metrics.Columns.Add("res",   "판정");
             _metrics.Columns.Add("cycle", "사이클(ms)");
-            _metrics.Columns.Add("fps",   "그랩 FPS");
             _metrics.Columns.Add("count", "사이클수");
+
+            var sel = SelectedKind();
             for (int i = 0; i < _metricKinds.Length; i++)
             {
-                int r = _metrics.Rows.Add(_metricNames[i], "-", "-", "0");
-                _metrics.Rows[r].Tag = _metricKinds[i];
+                var kind = _metricKinds[i];
+                if (sel != SequenceModuleKind.All && sel != kind) continue;
+                if (!SequenceToolCatalog.Has(kind)) continue;
+                foreach (var t in SequenceToolCatalog.Tools(kind))
+                {
+                    int r = _metrics.Rows.Add(_metricNames[i], t.Value,
+                                              t.Key == "MATCH" ? "Finder" : "Inspector", "-", "-", "0");
+                    _metrics.Rows[r].Tag = new ToolKey { Kind = kind, Id = t.Value };
+                }
             }
         }
 
@@ -130,12 +173,19 @@ namespace QMC.Vision.Ui.Pages
             var snap = h.AutoSeq.Metrics();
             foreach (DataGridViewRow row in _metrics.Rows)
             {
-                if (!(row.Tag is SequenceModuleKind kind)) continue;
-                double cycleMs = 0; long cycles = 0;
-                foreach (var m in snap) if (m.Kind == kind) { cycleMs = m.CycleMs; cycles = m.Cycles; break; }
-                row.Cells[1].Value = cycleMs > 0 ? cycleMs.ToString("F0") : "-";
-                row.Cells[2].Value = ComputeFps(kind).ToString("F1");
-                row.Cells[3].Value = cycles.ToString();
+                if (!(row.Tag is ToolKey key)) continue;
+                double cycleMs = 0; long cycles = 0; string status = "-";
+                foreach (var m in snap)
+                    if (m.Kind == key.Kind && m.ToolId == key.Id)
+                    { cycleMs = m.CycleMs; cycles = m.Cycles; status = m.Status; break; }
+                row.Cells[3].Value = status;
+                row.Cells[4].Value = cycleMs > 0 ? cycleMs.ToString("F0") : "-";
+                row.Cells[5].Value = cycles.ToString();
+                // 판정 색
+                row.Cells[3].Style.ForeColor =
+                    status == "OK"  ? System.Drawing.Color.SeaGreen :
+                    status == "NG"  ? System.Drawing.Color.Firebrick :
+                                      System.Drawing.Color.DimGray;
             }
         }
 
@@ -164,11 +214,19 @@ namespace QMC.Vision.Ui.Pages
         private SequenceRunMode SelectedMode()
             => _cbMode.SelectedIndex == 1 ? SequenceRunMode.Manual : SequenceRunMode.Auto;
 
+        private static int Interval()
+            => QMC.Vision.Config.VisionConfigStore.Current?.SimSequenceIntervalMs ?? 500;
+
         private void OnStartClick(object sender, EventArgs e)
         {
             var host = Host; if (host?.AutoSeq == null) { Append("[UI] 호스트 없음"); return; }
-            int interval = QMC.Vision.Config.VisionConfigStore.Current?.SimSequenceIntervalMs ?? 500;
-            host.AutoSeq.StartModules(SelectedKind(), SelectedMode(), interval);
+            var kind = SelectedKind();
+            var mode = SelectedMode();
+            string toolId = SelectedToolId();
+            if (toolId == null)
+                host.AutoSeq.StartModules(kind, mode, Interval());           // 모듈 전체(모든 도구)
+            else
+                host.AutoSeq.StartTool(kind, toolId, mode, Interval());      // 도구 하나만
         }
 
         private void OnStopClick(object sender, EventArgs e)
@@ -177,9 +235,19 @@ namespace QMC.Vision.Ui.Pages
         private void OnStepClick(object sender, EventArgs e)
         {
             var host = Host; if (host?.AutoSeq == null) return;
-            // Step 은 Manual 모드에서 의미 — Auto 모드면 1단계 의미가 없어 안내만.
-            if (SelectedMode() != SequenceRunMode.Manual) { Append("[UI] '한 단계'는 Step(수동) 모드에서 사용하세요."); return; }
-            host.AutoSeq.StepModule(SelectedKind());
+            var kind = SelectedKind();
+            string toolId = SelectedToolId();
+            if (toolId == null)
+            {
+                // 도구 미선택 — 모듈 순서상 '다음 도구'를 한 단계.
+                if (kind == SequenceModuleKind.All)
+                { Append("[UI] '한 단계'는 특정 모듈을 선택하세요(전체는 도구 순서 진행 불가)."); return; }
+                host.AutoSeq.StepNextTool(kind, Interval());
+            }
+            else
+            {
+                host.AutoSeq.StepTool(kind, toolId, Interval());            // 선택 도구 1회
+            }
         }
 
         private void OnClearClick(object sender, EventArgs e) => _log.Clear();
