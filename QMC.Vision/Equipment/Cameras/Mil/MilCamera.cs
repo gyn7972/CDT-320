@@ -26,6 +26,7 @@ namespace QMC.Vision.Cameras.Mil
         private volatile bool _liveRun;
         private readonly string _tmpPath;
         private byte[] _hostBuf;   // Mono 프레임 호스트 복사 버퍼(재사용 — GC 압박 감소)
+        private int    _diskFallbackStreak;   // 디스크 폴백 연속 횟수 — 라이브에서 디스크 I/O 폭주 방지
 
         public MilCamera(CameraInfo info) : base(info)
         {
@@ -131,11 +132,17 @@ namespace QMC.Vision.Cameras.Mil
             catch (Exception ex) { return GrabResult.Fail("MdigGrab: " + ex.Message, Info.Id); }
         }
 
+        private volatile bool _continuousOn;
+
         public override void StartLive()
         {
             if (!IsOpen || IsGrabbing) return;
             IsGrabbing = true;
             _liveRun   = true;
+            // 연속 그랩(free-run) 시작 — 반복 MdigGrab(매 호출 arm)의 첫 프레임 지연·부하를 없앤다.
+            // 드라이버가 백그라운드로 _buf 를 갱신 → 표시 스레드는 미리보기 FPS 로 버퍼만 복사.
+            try { MIL.MdigGrabContinuous(_dig, _buf); _continuousOn = true; }
+            catch { _continuousOn = false; }   // 미지원 시 LiveLoop 가 단발 MdigGrab 폴백
             _liveThread = new Thread(LiveLoop) { IsBackground = true, Name = "MilLive/" + _digNum };
             _liveThread.Start();
         }
@@ -145,20 +152,41 @@ namespace QMC.Vision.Cameras.Mil
             _liveRun = false;
             try { _liveThread?.Join(1000); } catch { }
             _liveThread = null;
+            if (_continuousOn)
+            {
+                try { MIL.MdigHalt(_dig); } catch { }
+                _continuousOn = false;
+            }
             IsGrabbing = false;
         }
 
+        /// <summary>라이브 미리보기 최대 FPS(고해상도 센서 변환·표시 부하·버퍼 적체 방지). 0 이하면 무제한.</summary>
+        public int LivePreviewFps { get; set; } = 15;
+
         private void LiveLoop()
         {
+            var sw = System.Diagnostics.Stopwatch.StartNew();
             while (_liveRun && IsOpen)
             {
+                long t0 = sw.ElapsedMilliseconds;
                 try
                 {
-                    MIL.MdigGrab(_dig, _buf);
+                    // 연속 그랩 중이면 _buf 는 드라이버가 채우므로 복사만. 폴백 시에만 단발 grab.
+                    if (!_continuousOn) MIL.MdigGrab(_dig, _buf);
                     var bmp = BufferToBitmap();
                     if (bmp != null) RaiseFrame(new GrabResult(bmp, 0, Info.Id));
                 }
                 catch { Thread.Sleep(5); }
+
+                // 미리보기 FPS 캡 — 변환+표시에 쓴 시간을 빼고 남은 만큼 대기(고MP 센서 부하 완화).
+                int fps = LivePreviewFps;
+                if (fps > 0)
+                {
+                    int budget = 1000 / fps;
+                    int spent  = (int)(sw.ElapsedMilliseconds - t0);
+                    int wait   = budget - spent;
+                    if (wait > 0) Thread.Sleep(wait);
+                }
             }
         }
 
@@ -265,15 +293,19 @@ namespace QMC.Vision.Cameras.Mil
                                     _hostBuf, y * w, System.IntPtr.Add(bd.Scan0, y * bd.Stride), w);
                     }
                     finally { bmp.UnlockBits(bd); }
+                    _diskFallbackStreak = 0;   // 고속 경로 정상 → 폴백 연속 카운터 리셋
                     return bmp;
                 }
                 catch { /* 고속 경로 실패 → 아래 디스크 폴백으로 */ }
             }
 
-            // 2) 폴백 — MbufExport(디스크). 느리지만 모든 포맷 안전(표시는 항상 보장).
+            // 2) 폴백 — MbufExport(디스크). 느리지만 모든 포맷 안전.
+            // 단, Mono 고속 경로가 연속 실패하면 매 프레임 디스크 쓰기가 폭주하므로 N회 이후 폴백 중단(표시 생략).
+            if (_bands < 3 && _diskFallbackStreak >= 5) return null;
             try
             {
                 MIL.MbufExport(_tmpPath, MIL.M_BMP, _buf);
+                _diskFallbackStreak++;
                 using (var fs = new FileStream(_tmpPath, FileMode.Open, FileAccess.Read))
                 using (var tmp = new Bitmap(fs))
                     return new Bitmap(tmp);

@@ -271,7 +271,11 @@ namespace QMC.CDT320
             try
             {
                 ct.ThrowIfCancellationRequested();
-                double velocity = bFine ? OutputLifterZ.Config.JogFineVelocity : OutputLifterZ.Config.DefaultVelocity;
+                // Fine 이동은 JogFineVelocity, 일반 이동은 DefaultVelocity 퍼센트 스케일 적용.
+                // DefaultVelocity 가 없을 때의 ScanVelocity fallback 은 Mapping Scan 의도이므로 스케일하지 않는다.
+                double velocity = bFine
+                    ? OutputLifterZ.Config.JogFineVelocity
+                    : MotionSpeedScale.ApplyDefaultVelocityScale(OutputLifterZ.Config.DefaultVelocity);
                 if (velocity <= 0.0)
                     velocity = bFine ? Math.Max(1.0, Config.ScanVelocity * 0.5) : Config.ScanVelocity;
 

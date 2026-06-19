@@ -56,7 +56,10 @@ namespace QMC.Vision.Ui.Pages
             BuildParams();
             LoadTarget();
             BuildChildPanels();
+            BuildRoiControls();
+            BuildCamContextMenu();
             if (_inspector != null) _cam.SetOverlay(_inspector.InspectionRoi, null);
+            UpdateRoiInfo();
             if (!_langHooked) { Lang.LanguageChanged += OnLanguageChanged; _langHooked = true; }
             ApplyLanguage();
             Status((module?.Name ?? "?") + " / " + (inspector?.Id ?? "?"));
@@ -65,14 +68,160 @@ namespace QMC.Vision.Ui.Pages
         private void WireCamera()
         {
             _cam.RoiEdited += OnCamRoiEdited;
+            // 툴바 Grab/Live(=CameraView 자체 핸들러)로 프레임이 바뀌어도 STAGE/ROI 자동맞춤이 되도록 알림 수신.
+            _cam.FrameChanged += OnCamFrameChanged;
             // 공용 CameraView 내장 툴바 — 모듈 지정 한 줄.
             _cam.AttachModule(_module);
             _cam.ShowToolbar = true;
         }
 
+        /// <summary>CameraView 프레임 크기 변경(툴바 Grab/Live 포함) → STAGE 갱신 + 미구성 InspectionRoi 자동맞춤.</summary>
+        private void OnCamFrameChanged()
+        {
+            try { OnImageReady(_cam?.CurrentFrame); } catch { }
+        }
+
+        /// <summary>그랩/로드된 이미지에 맞춰 STAGE 표시 갱신 + 미구성(640×480 가정) InspectionRoi 1회 자동 배치 + 갱신.</summary>
+        private void OnImageReady(Bitmap img)
+        {
+            if (img == null) return;
+            if (_cam != null) _cam.InfoText = "STAGE\r\nW:" + img.Width + " H:" + img.Height;
+            bool changed = FitDefaultRoiToImage(img);
+            if (_cam != null) _cam.SetOverlay(_inspector?.InspectionRoi, null);
+            _params?.RefreshValues();
+            if (changed) MarkDirty();
+        }
+
+        /// <summary>미구성(생성자 기본 좌표: 중심 320,240 또는 0,0) InspectionRoi 를 실제 이미지 중앙 절반 영역으로 1회 배치.
+        /// 중심이 이미지 밖이면 중앙 재배치. 사용자가 이미 조정한 ROI 는 손대지 않는다.</summary>
+        private bool FitDefaultRoiToImage(Bitmap img)
+        {
+            var r = _inspector?.InspectionRoi;
+            if (r == null) return false;
+            int iw = img.Width, ih = img.Height;
+            bool defaultCenter = (System.Math.Abs(r.CenterX - 320) < 0.5 && System.Math.Abs(r.CenterY - 240) < 0.5)
+                              || (r.CenterX < 0.5 && r.CenterY < 0.5);
+            bool centerOutside = r.CenterX < 0 || r.CenterY < 0 || r.CenterX > iw || r.CenterY > ih;
+            if ((defaultCenter && (iw > 800 || ih > 600)) || centerOutside)
+            {
+                r.CenterX = iw / 2.0; r.CenterY = ih / 2.0;
+                r.Width   = iw / 2.0; r.Height  = ih / 2.0;
+                return true;
+            }
+            return false;
+        }
+
+        // ── ROI 제어(단일 Inspection ROI — Finder 와 동일 UX, Train 토글 없음) ───────────
+        private int  _moveStepPx = 10;
+        private int  _sizeStepPx = 10;
+        private TextBox _txtMoveStep, _txtSizeStep;
+        private Label  _roiInfo;
+
+        private Roi ActiveRoi() => _inspector?.InspectionRoi;
+
+        private void BuildRoiControls()
+        {
+            if (_roiHost == null) return;
+            _roiHost.Controls.Clear();
+
+            var flow = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.LeftToRight, WrapContents = false, Padding = new Padding(4) };
+
+            // 이동 패드(3×3)
+            var pad = new TableLayoutPanel { Width = 120, Height = 96, ColumnCount = 3, RowCount = 3, Margin = new Padding(2) };
+            for (int i = 0; i < 3; i++) { pad.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 33.33f)); pad.RowStyles.Add(new RowStyle(SizeType.Percent, 33.33f)); }
+            pad.Controls.Add(RoiCell("▲", (s, e) => Nudge(0, -1)), 1, 0);
+            pad.Controls.Add(RoiCell("◀", (s, e) => Nudge(-1, 0)), 0, 1);
+            pad.Controls.Add(RoiCell("●", (s, e) => Recenter()),   1, 1);
+            pad.Controls.Add(RoiCell("▶", (s, e) => Nudge(1, 0)),  2, 1);
+            pad.Controls.Add(RoiCell("▼", (s, e) => Nudge(0, 1)),  1, 2);
+
+            // 크기 조정 + Full Size
+            var rz = new TableLayoutPanel { Width = 140, Height = 96, ColumnCount = 2, RowCount = 3, Margin = new Padding(2) };
+            rz.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f)); rz.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50f));
+            rz.RowStyles.Add(new RowStyle(SizeType.Percent, 33.33f)); rz.RowStyles.Add(new RowStyle(SizeType.Percent, 33.33f)); rz.RowStyles.Add(new RowStyle(SizeType.Percent, 33.34f));
+            rz.Controls.Add(RoiCell("W +", (s, e) => Resize(1, 0)),  0, 0);
+            rz.Controls.Add(RoiCell("W -", (s, e) => Resize(-1, 0)), 1, 0);
+            rz.Controls.Add(RoiCell("H +", (s, e) => Resize(0, 1)),  0, 1);
+            rz.Controls.Add(RoiCell("H -", (s, e) => Resize(0, -1)), 1, 1);
+            var full = RoiCell("Full Size", (s, e) => FullSizeRoi()); rz.Controls.Add(full, 0, 2); rz.SetColumnSpan(full, 2);
+
+            // 우측: 라벨(단일 ROI) / 스텝 / 표시
+            var col = new FlowLayoutPanel { FlowDirection = FlowDirection.TopDown, WrapContents = false, Width = 210, Height = 120, Margin = new Padding(8, 0, 0, 0) };
+            col.Controls.Add(new Label { Text = "Inspection ROI", AutoSize = true, Font = UiTheme.ButtonFont, ForeColor = UiTheme.Accent, Margin = new Padding(0, 2, 0, 2) });
+
+            _txtMoveStep = new TextBox { Width = 44, Text = _moveStepPx.ToString() };
+            _txtSizeStep = new TextBox { Width = 44, Text = _sizeStepPx.ToString() };
+            _txtMoveStep.TextChanged += (s, e) => { int v; if (int.TryParse(_txtMoveStep.Text, out v) && v > 0) _moveStepPx = v; };
+            _txtSizeStep.TextChanged += (s, e) => { int v; if (int.TryParse(_txtSizeStep.Text, out v) && v > 0) _sizeStepPx = v; };
+            var steps = new FlowLayoutPanel { FlowDirection = FlowDirection.LeftToRight, WrapContents = false, AutoSize = true, Margin = new Padding(0, 4, 0, 0) };
+            steps.Controls.Add(new Label { Text = "Move", AutoSize = true, Margin = new Padding(0, 7, 2, 0) });
+            steps.Controls.Add(_txtMoveStep);
+            steps.Controls.Add(new Label { Text = "Size", AutoSize = true, Margin = new Padding(10, 7, 2, 0) });
+            steps.Controls.Add(_txtSizeStep);
+
+            _roiInfo = new Label { AutoSize = true, Margin = new Padding(0, 6, 0, 0), Font = UiTheme.ValueFont, ForeColor = Color.DarkSlateGray };
+            col.Controls.Add(steps); col.Controls.Add(_roiInfo);
+
+            flow.Controls.Add(pad); flow.Controls.Add(rz); flow.Controls.Add(col);
+            _roiHost.Controls.Add(flow);
+            UpdateRoiInfo();
+        }
+
+        private Button RoiCell(string text, EventHandler on)
+        {
+            var b = new Button { Text = text, Dock = DockStyle.Fill, Margin = new Padding(2), FlatStyle = FlatStyle.Flat, Font = UiTheme.ButtonFont };
+            b.Click += on; return b;
+        }
+
+        private void Nudge(int dx, int dy)
+        {
+            var r = ActiveRoi(); if (r == null) return;
+            r.CenterX += dx * _moveStepPx; r.CenterY += dy * _moveStepPx;
+            AfterRoiChange();
+        }
+        private void Resize(int dw, int dh)
+        {
+            var r = ActiveRoi(); if (r == null) return;
+            r.Width  = System.Math.Max(4.0, r.Width  + dw * _sizeStepPx);
+            r.Height = System.Math.Max(4.0, r.Height + dh * _sizeStepPx);
+            AfterRoiChange();
+        }
+        private void Recenter()
+        {
+            var r = ActiveRoi(); if (r == null) return;
+            var img = CurrentImage;
+            r.CenterX = (img?.Width  ?? 0) / 2.0;
+            r.CenterY = (img?.Height ?? 0) / 2.0;
+            AfterRoiChange();
+        }
+        private void FullSizeRoi()
+        {
+            var r = ActiveRoi(); if (r == null) return;
+            var img = CurrentImage;
+            double w = img?.Width  ?? r.Width;
+            double h = img?.Height ?? r.Height;
+            r.CenterX = w / 2.0; r.CenterY = h / 2.0; r.Width = w; r.Height = h;
+            AfterRoiChange();
+        }
+        private void AfterRoiChange()
+        {
+            if (_cam != null) _cam.SetOverlay(ActiveRoi(), null);
+            _params?.RefreshValues();
+            UpdateRoiInfo();
+            MarkDirty();
+        }
+        private void UpdateRoiInfo()
+        {
+            if (_roiInfo == null) return;
+            var r = ActiveRoi();
+            _roiInfo.Text = (r == null) ? "" :
+                $"[Inspection]  Center ({r.CenterX:F0}, {r.CenterY:F0})\r\nSize ({r.Width:F0} x {r.Height:F0})";
+        }
+
         protected override void OnHandleDestroyed(EventArgs e)
         {
             if (_langHooked) { Lang.LanguageChanged -= OnLanguageChanged; _langHooked = false; }
+            try { if (_cam != null) _cam.FrameChanged -= OnCamFrameChanged; } catch { }
             base.OnHandleDestroyed(e);
         }
 
@@ -136,7 +285,16 @@ namespace QMC.Vision.Ui.Pages
             try
             {
                 var r = _module.Grab();
-                if (r != null && r.IsSuccess) _cam.SetFrame(r);
+                if (r != null && r.IsSuccess)
+                {
+                    // 라이브 프레임을 현재 이미지로 유지 — Inspect/Full Size 가 라이브 중에도 동작.
+                    _lastGrab?.Dispose();
+                    _loadedImage?.Dispose(); _loadedImage = null;
+                    _lastGrab = r;
+                    _cam.SetFrame(r);
+                    OnImageReady(r.Image);
+                }
+                else r?.Dispose();
             }
             catch (Exception ex) { StopLive(); Status(Lang.T("rec.liveStop") + ex.Message); }
         }
@@ -161,7 +319,18 @@ namespace QMC.Vision.Ui.Pages
                 ParameterGridItem.Double("Inspect H", "px", ParameterGridScope.Recipe, () => _inspector.InspectionRoi.Height,  v => { _inspector.InspectionRoi.Height = v;  RefreshOverlay(); }),
             };
             if (_inspector is CognexInspector cog)
-                items.Add(ParameterGridItem.Int("Threshold", "", ParameterGridScope.Recipe, () => cog.Threshold, v => { cog.Threshold = v; }));
+                items.Add(ParameterGridItem.Double("Threshold", "", ParameterGridScope.Recipe, () => cog.Threshold, v => { cog.Threshold = v; }));
+            else if (_inspector is QMC.Vision.Core.PlacementGapInspector pg)
+            {
+                items.Add(ParameterGridItem.Double("Threshold", "", ParameterGridScope.Recipe, () => pg.Threshold,     v => { pg.Threshold = v; }));
+                items.Add(ParameterGridItem.Double("Gap Lower", "px", ParameterGridScope.Recipe, () => pg.GapLowerLimit, v => { pg.GapLowerLimit = v; }));
+                items.Add(ParameterGridItem.Double("Gap Upper", "px", ParameterGridScope.Recipe, () => pg.GapUpperLimit, v => { pg.GapUpperLimit = v; }));
+                items.Add(ParameterGridItem.Double("Gap Offset","px", ParameterGridScope.Recipe, () => pg.GapOffset,     v => { pg.GapOffset = v; }));
+                items.Add(ParameterGridItem.Bool("Dark Die", ParameterGridScope.Recipe, () => pg.DarkDie, v => { pg.DarkDie = v; }));
+                items.Add(ParameterGridItem.Int("Edge Step", "px", ParameterGridScope.Recipe, () => pg.EdgeStep, v => { pg.EdgeStep = v; }));
+                items.Add(ParameterGridItem.Double("Band Trim", "", ParameterGridScope.Recipe, () => pg.BandTrim, v => { pg.BandTrim = v; }));
+                items.Add(ParameterGridItem.Double("Outlier Sigma", "", ParameterGridScope.Recipe, () => pg.OutlierSigma, v => { pg.OutlierSigma = v; }));
+            }
             AppendNodeParams(items);   // ② 검사 전용 POCO 필드 칸(인프라 — 현재 케이스 0)
             _params.SetItems(items);
             _params.ParameterValueChanged += (s, e) => { RefreshOverlay(); MarkDirty(); };
@@ -211,7 +380,7 @@ namespace QMC.Vision.Ui.Pages
             catch (Exception ex) { Status(Lang.T("rec.targetSaveFail") + ex.Message); }
         }
 
-        private void LoadTarget()
+        public void LoadTarget()
         {
             if (_node == null) return;
             try
@@ -220,6 +389,8 @@ namespace QMC.Vision.Ui.Pages
                 _node.LoadRecipe(RecipeName);   // Apply 가 POCO→런타임 inspector 주입
                 _params.RefreshValues();
                 RefreshOverlay();
+                _dirty = false;                 // 저장본으로 되돌렸으므로 변경상태 해제
+                DirtyChanged?.Invoke(this, EventArgs.Empty);
             }
             catch { }
         }
@@ -227,12 +398,37 @@ namespace QMC.Vision.Ui.Pages
         // ── 액션(중앙) — InspectorPage 동일 로직 ──
         private GrabResult _lastGrab;
         private Bitmap _loadedImage;
-        private Bitmap CurrentImage => _lastGrab?.Image ?? _loadedImage;
+        // 페이지 자체 Grab/Load 외에, 툴바 Grab/Live 로 CameraView 가 표시 중인 실제 프레임도 사용.
+        private Bitmap CurrentImage => _lastGrab?.Image ?? _loadedImage ?? _cam?.CurrentFrame;
 
         private void OnGrabClick(object sender, EventArgs e) => DoGrab();
         private void OnInspectClick(object sender, EventArgs e) => DoInspect();
         private void OnLoadClick(object sender, EventArgs e) => DoLoad();
         private void OnSaveImageClick(object sender, EventArgs e) => DoSaveImage();
+
+        // ── 카메라 우클릭 컨텍스트 메뉴(좌표·밝기 토글 포함) ──
+        private void BuildCamContextMenu()
+        {
+            if (_cam == null) return;
+            var cms = new ContextMenuStrip();
+            cms.Items.Add("Live", null, (s, e) => StartLive());
+            cms.Items.Add("Stop", null, (s, e) => StopLive());
+            cms.Items.Add(new ToolStripSeparator());
+            cms.Items.Add("Image load", null, (s, e) => DoLoad());
+            cms.Items.Add("Image save", null, (s, e) => DoSaveImage());
+            cms.Items.Add(new ToolStripSeparator());
+            cms.Items.Add("Result overlay clear", null, (s, e) => { _cam.ClearDetectOverlay(); _cam.SetOverlay(_inspector?.InspectionRoi, null); });
+            cms.Items.Add(new ToolStripSeparator());
+            cms.Items.Add("Image auto fit", null, (s, e) => _cam?.ZoomFit());
+            cms.Items.Add("x2", null, (s, e) => _cam?.SetZoom(2));
+            cms.Items.Add("x4", null, (s, e) => _cam?.SetZoom(4));
+            cms.Items.Add("x8", null, (s, e) => _cam?.SetZoom(8));
+            cms.Items.Add(new ToolStripSeparator());
+            var coordItem = new ToolStripMenuItem("좌표·밝기 표시 (PX / V)") { CheckOnClick = true, Checked = false };
+            coordItem.Click += (s, e) => { if (_cam != null) _cam.ShowCursorReadout = coordItem.Checked; };
+            cms.Items.Add(coordItem);
+            _cam.ContextMenuStrip = cms;
+        }
         private void OnEditRoiClick(object sender, EventArgs e) => BeginEditRoi();
 
         private void OnCamRoiEdited(string which, Roi roi)
@@ -254,7 +450,7 @@ namespace QMC.Vision.Ui.Pages
             if (_lastGrab.IsSuccess)
             {
                 _cam.SetFrame(_lastGrab);
-                _cam.SetOverlay(_inspector?.InspectionRoi, null);
+                OnImageReady(_lastGrab.Image);
                 Status($"GRAB OK — {_lastGrab.Width}x{_lastGrab.Height} frame={_lastGrab.FrameNumber}");
             }
             else Status("GRAB FAIL: " + _lastGrab.ErrorMessage);
@@ -273,13 +469,15 @@ namespace QMC.Vision.Ui.Pages
                 {
                     _lastGrab?.Dispose(); _lastGrab = null;
                     _loadedImage?.Dispose();
-                    using (var src = (Bitmap)Image.FromFile(dlg.FileName))
+                    // Image.FromFile 은 대용량 최초 디코드가 매우 느리다 → 스트림 고속 로드(원본 픽셀 보존).
+                    using (var fs = new FileStream(dlg.FileName, FileMode.Open, FileAccess.Read))
+                    using (var src = System.Drawing.Image.FromStream(fs, false, false))
                         _loadedImage = new Bitmap(src);
 
                     var fake = GrabResult.Success(new Bitmap(_loadedImage), 0);
                     _cam.SetFrame(fake);
-                    _cam.SetOverlay(_inspector?.InspectionRoi, null);
                     fake.Dispose();
+                    OnImageReady(_loadedImage);
                     Status($"LOAD OK — {_loadedImage.Width}x{_loadedImage.Height}  ({Path.GetFileName(dlg.FileName)})");
                 }
                 catch (Exception ex) { Status("LOAD FAIL: " + ex.Message); }
@@ -332,7 +530,10 @@ namespace QMC.Vision.Ui.Pages
 
                 Status($"INSPECT {(r.IsPass ? "OK" : "FAIL")} — {r.Items?.Count ?? 0} item(s)" +
                        (string.IsNullOrEmpty(r.ErrorMessage) ? "" : " | " + r.ErrorMessage));
-                _cam.SetOverlay(_inspector.InspectionRoi, null);
+                if (_inspector is QMC.Vision.Core.PlacementGapInspector pgv && pgv.LastValid)
+                    _cam.SetDetectOverlay(_inspector.InspectionRoi, pgv.LastCorners, pgv.LastCenter, pgv.LastPass, pgv.LastGapText);
+                else
+                    _cam.SetOverlay(_inspector.InspectionRoi, null);
             }
             catch (Exception ex) { Status("INSPECT FAIL: " + ex.Message); }
         }

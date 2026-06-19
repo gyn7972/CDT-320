@@ -21,12 +21,30 @@ namespace QMC.Vision.Modules
     //  타입(typeof(T))으로 수행되므로 base [DataMember] 가 자연 포함된다([KnownType] 불요).
     //  구 JSON 에 키가 없으면 로드 시 null → [OnDeserializing] 으로 빈 리스트 초기화(비파괴).
 
+    /// <summary>다이/마크 각도(θ) 산출 모드.</summary>
+    public enum DieAngleMode
+    {
+        /// <summary>화면 내 가장 근접한(매칭된) 다이/마크 1개의 각도.</summary>
+        Single = 0,
+        /// <summary>화면 내 다이 격자를 모두 검출해 각도 평균.</summary>
+        AverageAll = 1,
+    }
+
     /// <summary>알고리즘 Setup 공통 base — 검사 노드 고정 설정. (조명 컨트롤러/페이지 지정은 모듈 Setup 으로 이전)</summary>
     [DataContract]
     public abstract class AlgoSetupBase : ISetupData
     {
         // 조명 컨트롤러/페이지 지정(LightPages)은 모듈 Setup(VisionModuleSetupBase)으로 이전 — 카메라=조명 1:1 하드웨어 계층.
         // 검사 노드는 조명 레벨(Recipe.LightSettings)만 보유. 구 노드 json 의 LightPages 키는 로드 시 무시(비파괴, 구 파일 보존).
+
+        /// <summary>true 면 이 도구(Finder/Inspector)의 GRAB 시 <see cref="SimSavedImagePath"/> 저장 이미지를 사용(모듈 설정보다 우선).</summary>
+        [DataMember] public bool SimUseSavedImage { get; set; }
+
+        /// <summary>이 도구 전용 시뮬 그랩 이미지 경로(웨이퍼 2점 정렬의 이미지1/이미지2처럼 도구별로 다른 이미지 지정).</summary>
+        [DataMember] public string SimSavedImagePath { get; set; }
+
+        [OnDeserializing] private void OnDeserializingAlgoSetup(StreamingContext ctx)
+        { SimUseSavedImage = false; SimSavedImagePath = string.Empty; }
     }
 
     /// <summary>알고리즘 Recipe 공통 base — 검사 조명 레벨(제품별 값). 키 = (ControllerPort, Channel).</summary>
@@ -79,8 +97,11 @@ namespace QMC.Vision.Modules
         /// <summary>학습된 패턴 모델 파일 경로(향후 백엔드 모델 직렬화 연동용, 현재 POCO-only). 비어있으면 미학습. 제품별이므로 Recipe.</summary>
         [DataMember] public string TrainModelPath { get; set; }
 
+        /// <summary>각도(θ) 산출 모드 — Single(최근접 1개) / AverageAll(격자 전체 평균). 주로 AlignDie 에 사용.</summary>
+        [DataMember] public DieAngleMode AngleMode { get; set; }
+
         [OnDeserializing] private void OnDeserializing(StreamingContext ctx) => SetDefaults();
-        private void SetDefaults() { AcceptThreshold = 0.7; TrainModelPath = string.Empty; }
+        private void SetDefaults() { AcceptThreshold = 0.7; TrainModelPath = string.Empty; AngleMode = DieAngleMode.Single; }
     }
 
     // ── Inspector ─────────────────────────────────────────────────
@@ -114,10 +135,28 @@ namespace QMC.Vision.Modules
         /// <summary>검사 ROI.</summary>
         [DataMember] public Roi InspectionRoi { get; set; }
 
-        /// <summary>합/불 판정 임계값(Blob HardFixedThreshold, 0~255 그레이). 소비자(CognexInspector.Threshold)가 int.</summary>
-        [DataMember] public int Threshold { get; set; }
+        /// <summary>합/불 판정 임계값(Blob HardFixedThreshold, 0~255 그레이, 소수 허용). 소비자=CognexInspector.Threshold(double).</summary>
+        [DataMember] public double Threshold { get; set; }
+        /// <summary>안착 갭 검사 하한(PlacementGapInspector).</summary>
+        [DataMember] public double GapLowerLimit { get; set; }
+        /// <summary>안착 갭 검사 상한(PlacementGapInspector).</summary>
+        [DataMember] public double GapUpperLimit { get; set; }
+        /// <summary>안착 갭 측정 보정 오프셋(기본 0, PixelSize 미설정 시 px).</summary>
+        [DataMember] public double GapOffset { get; set; }
+        /// <summary>가로 mm/pixel(0이면 px 단위로 측정·판정). 캘리브 시 주입.</summary>
+        [DataMember] public double PixelSizeXmm { get; set; }
+        /// <summary>세로 mm/pixel(0이면 px 단위).</summary>
+        [DataMember] public double PixelSizeYmm { get; set; }
+        /// <summary>다이가 배경보다 어두우면 true(기본 false=밝은 다이).</summary>
+        [DataMember] public bool DarkDie { get; set; }
+        /// <summary>에지 검출 스텝(px, 기본 3).</summary>
+        [DataMember] public int EdgeStep { get; set; }
+        /// <summary>변 양끝 무시 비율(기본 0.05).</summary>
+        [DataMember] public double BandTrim { get; set; }
+        /// <summary>gap 이상치 제거 σ배수(기본 2.0).</summary>
+        [DataMember] public double OutlierSigma { get; set; }
 
         [OnDeserializing] private void OnDeserializing(StreamingContext ctx) => SetDefaults();
-        private void SetDefaults() { Threshold = 128; }
+        private void SetDefaults() { Threshold = 128.0; GapLowerLimit = 0.0; GapUpperLimit = 50.0; GapOffset = 0.0; PixelSizeXmm = 0.0; PixelSizeYmm = 0.0; DarkDie = false; EdgeStep = 3; BandTrim = 0.05; OutlierSigma = 2.0; }
     }
 }

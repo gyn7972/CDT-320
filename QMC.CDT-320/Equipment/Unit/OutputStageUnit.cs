@@ -436,10 +436,11 @@ namespace QMC.CDT320
 
         private double ResolveAxisVelocity(BaseAxis axis)
         {
+            // DefaultVelocity 기반 일반 이동 속도. 전체 퍼센트 스케일을 적용한다.
             if (axis != null && axis.Config != null && axis.Config.DefaultVelocity > 0.0)
-                return axis.Config.DefaultVelocity;
+                return MotionSpeedScale.ApplyDefaultVelocityScale(axis.Config.DefaultVelocity);
 
-            return 100.0;
+            return MotionSpeedScale.ApplyDefaultVelocityScale(100.0);
         }
 
         private static int ResolveAxisMoveTimeout(BaseAxis axis)
@@ -2110,13 +2111,14 @@ namespace QMC.CDT320
 
         private double ResolveStageAxisVelocity(BaseAxis axis, bool bFine)
         {
+            // Fine 이동은 JogFineVelocity 를 그대로 쓰고, 일반 이동만 DefaultVelocity 퍼센트 스케일을 적용한다.
             if (bFine && axis.Config != null && axis.Config.JogFineVelocity > 0.0)
                 return axis.Config.JogFineVelocity;
 
             if (axis.Config != null && axis.Config.DefaultVelocity > 0.0)
-                return axis.Config.DefaultVelocity;
+                return MotionSpeedScale.ApplyDefaultVelocityScale(axis.Config.DefaultVelocity);
 
-            return 100.0;
+            return MotionSpeedScale.ApplyDefaultVelocityScale(100.0);
         }
 
         private StageAxisPositions ResolveRecipePositions(BinStageAxis axis)

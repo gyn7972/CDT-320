@@ -11,6 +11,7 @@ namespace QMC.Vision.Ui.Pages
         private Label            _hdr;
         private FlowLayoutPanel  _bar;
         private Label    _lblMod;  private ComboBox _cbModule;
+        private Label    _lblTool; private ComboBox _cbTool;
         private Label    _lblMode; private ComboBox _cbMode;
         private Button   _btnStart, _btnStop, _btnStep, _btnClear;
         private Button   _btnLoadStart, _btnLoadStop;   // CPU/메모리 부하 체크
@@ -29,6 +30,7 @@ namespace QMC.Vision.Ui.Pages
             this._hdr     = new Label();
             this._bar     = new FlowLayoutPanel();
             this._lblMod  = new Label();  this._cbModule = new ComboBox();
+            this._lblTool = new Label();  this._cbTool   = new ComboBox();
             this._lblMode = new Label();  this._cbMode   = new ComboBox();
             this._btnStart = new Button(); this._btnStop = new Button(); this._btnStep = new Button(); this._btnClear = new Button();
             this._btnLoadStart = new Button(); this._btnLoadStop = new Button();
@@ -74,6 +76,8 @@ namespace QMC.Vision.Ui.Pages
             this._bar.Name = "_bar";
             this._bar.Controls.Add(this._lblMod);
             this._bar.Controls.Add(this._cbModule);
+            this._bar.Controls.Add(this._lblTool);
+            this._bar.Controls.Add(this._cbTool);
             this._bar.Controls.Add(this._lblMode);
             this._bar.Controls.Add(this._cbMode);
             this._bar.Controls.Add(this._btnStart);
@@ -89,6 +93,10 @@ namespace QMC.Vision.Ui.Pages
             this._lblMod.TextAlign = ContentAlignment.MiddleRight; this._lblMod.Margin = new Padding(2, 6, 2, 2);
             this._cbModule.DropDownStyle = ComboBoxStyle.DropDownList; this._cbModule.Width = 160;
             this._cbModule.Font = new Font("맑은 고딕", 10F); this._cbModule.Margin = new Padding(2, 4, 12, 2);
+            this._lblTool.Text = "도구"; this._lblTool.AutoSize = false; this._lblTool.Size = new Size(40, 30);
+            this._lblTool.TextAlign = ContentAlignment.MiddleRight; this._lblTool.Margin = new Padding(2, 6, 2, 2);
+            this._cbTool.DropDownStyle = ComboBoxStyle.DropDownList; this._cbTool.Width = 200;
+            this._cbTool.Font = new Font("맑은 고딕", 10F); this._cbTool.Margin = new Padding(2, 4, 12, 2);
             this._lblMode.Text = "모드"; this._lblMode.AutoSize = false; this._lblMode.Size = new Size(40, 30);
             this._lblMode.TextAlign = ContentAlignment.MiddleRight; this._lblMode.Margin = new Padding(2, 6, 2, 2);
             this._cbMode.DropDownStyle = ComboBoxStyle.DropDownList; this._cbMode.Width = 130;

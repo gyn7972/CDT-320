@@ -20,7 +20,7 @@ namespace QMC.Vision.Ui.Pages
     public partial class CameraMappingPanel : UserControl
     {
         private string _algorithm;
-        private bool   _suspendBinding;
+        private bool _suspendBinding;
 
         // C1 — 카메라 설정 SSOT = 모듈(BaseUnit) Config/Recipe. 패널은 AlgorithmCameraMapping 을
         // 워킹 버퍼로만 쓰고, 로드는 module.ExportCameraMapping / 저장은 module.ImportCameraMapping+SaveSettings.
@@ -32,10 +32,11 @@ namespace QMC.Vision.Ui.Pages
 
         // ── 연결 상태 ──
         private ICamera _activeCam;
-        private bool    _activeCamOwned;
-        private bool    _isLive;
+        private bool _activeCamOwned;
+        private bool _isLive;
+        private int _uiPending;   // 라이브 프레임 UI 적체 방지(이전 프레임 처리 중이면 새 프레임 드롭)
         private DateTime _fpsT0 = DateTime.Now;
-        private int      _fpsCount;
+        private int _fpsCount;
         private SynchronizationContext _uiCtx;
 
         public CameraMappingPanel()
@@ -81,7 +82,7 @@ namespace QMC.Vision.Ui.Pages
         private List<ParameterGridItem> BuildParamItems(AlgorithmCameraMapping m)
         {
             // Trigger: 저장값 m.TriggerMode(CameraTriggerMode 이름) ↔ UI(Mode On/Off + Source) 분해/합성 — 기존 규칙 보존.
-            Func<bool>   isOff  = () => string.IsNullOrEmpty(m.TriggerMode)
+            Func<bool> isOff = () => string.IsNullOrEmpty(m.TriggerMode)
                                         || m.TriggerMode == nameof(CameraTriggerMode.Continuous);
             Func<string> curSrc = () => isOff() ? nameof(CameraTriggerMode.Software) : m.TriggerMode;
 
@@ -179,7 +180,7 @@ namespace QMC.Vision.Ui.Pages
             using (var dlg = new OpenFileDialog())
             {
                 dlg.Filter = "DCF 파일 (*.dcf)|*.dcf|모든 파일 (*.*)|*.*";
-                dlg.Title  = "MIL DCF 파일 선택";
+                dlg.Title = "MIL DCF 파일 선택";
                 try
                 {
                     string cur = _txtMilDcf?.Text;
@@ -236,6 +237,7 @@ namespace QMC.Vision.Ui.Pages
                 try
                 {
                     string port = _gridLightAssign.Rows[e.RowIndex].Cells["ControllerPort"].Value as string;
+                    _gridLightAssign.Rows[e.RowIndex].Cells["LightName"].Value = GetLightName(port);
                     int pc = SetLightPageCellItems(e.RowIndex, port);
                     int cur = 0; int.TryParse(_gridLightAssign.Rows[e.RowIndex].Cells["Page"].Value?.ToString(), out cur);
                     _gridLightAssign.Rows[e.RowIndex].Cells["Page"].Value = ((cur >= 0 && cur <= pc - 1) ? cur : 0).ToString();
@@ -249,6 +251,14 @@ namespace QMC.Vision.Ui.Pages
         {
             if (_suspendLight) return;
             SetLightStatus("지정 변경됨 — [저장] 클릭 시 모듈에 반영.", false);
+        }
+
+        /// <summary>포트로 컨트롤러의 사람용 이름(Name) 조회 — 인벤토리(LightSystemSetup)에서. 없으면 빈 문자열.</summary>
+        private static string GetLightName(string port)
+        {
+            if (string.IsNullOrEmpty(port)) return "";
+            var ce = LightSystemSetupStore.Current?.GetController(port);
+            return ce?.Name ?? "";
         }
 
         /// <summary>그 행 Page 셀(콤보) items = 컨트롤러 PageCount("0".."N-1", string). int items 는 FormattedValue 표시가 깨짐. PageCount 반환.</summary>
@@ -313,6 +323,7 @@ namespace QMC.Vision.Ui.Pages
                     EnsureLightCtrlItem(pr.ControllerPort);
                     int idx = _gridLightAssign.Rows.Add();
                     _gridLightAssign.Rows[idx].Cells["ControllerPort"].Value = pr.ControllerPort;
+                    _gridLightAssign.Rows[idx].Cells["LightName"].Value = GetLightName(pr.ControllerPort);
                     SetLightPageCellItems(idx, pr.ControllerPort);
                     _gridLightAssign.Rows[idx].Cells["Page"].Value = pr.Page.ToString();
                 }
@@ -357,7 +368,7 @@ namespace QMC.Vision.Ui.Pages
         public void SelectAlgorithm(string algorithm)
         {
             _algorithm = algorithm;
-            _buffer    = null;   // 모듈 Config/Recipe 에서 새로 로드
+            _buffer = null;   // 모듈 Config/Recipe 에서 새로 로드
             _lblAlgorithm.Text = Lang.T("set.cam.title") + " — " + Lang.Algo(algorithm) + "  (" + algorithm + ")";
             BindFields();
             BindLightAssign();
@@ -449,8 +460,8 @@ namespace QMC.Vision.Ui.Pages
         private void UpdateMilDcfVisibility()
         {
             bool show = _chkMilDcf != null && _chkMilDcf.Visible && _chkMilDcf.Checked;
-            if (_lblMil       != null) _lblMil.Visible       = show;
-            if (_txtMilDcf    != null) _txtMilDcf.Visible    = show;
+            if (_lblMil != null) _lblMil.Visible = show;
+            if (_txtMilDcf != null) _txtMilDcf.Visible = show;
             if (_btnMilBrowse != null) _btnMilBrowse.Visible = show;
         }
 
@@ -539,8 +550,24 @@ namespace QMC.Vision.Ui.Pages
             mod.SaveRecipe("default");
             OnMilFieldChanged();
             VisionConfigStore.Save();   // MIL DCF/System 등 전역 설정 영속
+
+            // 저장 = 영속 + (이미 열려있는 카메라면) 즉시 파라미터 적용. 닫힌 카메라는 건드리지 않음(예기치 않은 Open 방지).
+            string applyNote = "";
+            try
+            {
+                var cam = mod.Camera;
+                if (cam != null && cam.IsOpen)
+                {
+                    if (AlgorithmCameraBinder.TryApplyParameters(cam, _buffer, out var applyErr))
+                        applyNote = " · 카메라 적용됨";
+                    else
+                        applyNote = " · 적용 경고: " + applyErr;
+                }
+            }
+            catch (Exception ex) { applyNote = " · 적용 실패: " + ex.Message; }
+
             _lblStatus.ForeColor = Color.DarkSlateGray;
-            _lblStatus.Text = $"저장 완료 — 모듈 [{mod.StorageKey}] Config/Recipe";
+            _lblStatus.Text = $"저장 완료 — 모듈 [{mod.StorageKey}] Config/Recipe" + applyNote;
             if (lightCount >= 0) SetLightStatus($"조명 지정 {lightCount}건 저장됨.", false);
         }
 
@@ -671,7 +698,7 @@ namespace QMC.Vision.Ui.Pages
                     }
                     m.ScaleX = dlg.ResultScaleX;
                     m.ScaleY = dlg.ResultScaleY;
-                    m.CalibChipWidthMm  = dlg.ResultChipWidthMm;   // 그리드 동기화
+                    m.CalibChipWidthMm = dlg.ResultChipWidthMm;   // 그리드 동기화
                     m.CalibChipHeightMm = dlg.ResultChipHeightMm;
                     try { _scaleGrid.RefreshValues(); } catch { }
                     _lblStatus.ForeColor = Color.DarkSlateGray;
@@ -735,7 +762,7 @@ namespace QMC.Vision.Ui.Pages
         private void ToggleConnect()
         {
             if (_activeCam != null) Disconnect();
-            else                    Connect();
+            else Connect();
             UpdateConnectButtons();
         }
 
@@ -748,7 +775,7 @@ namespace QMC.Vision.Ui.Pages
             {
                 // 운영 모듈(Form1)이 같은 카메라 보유 중이면 borrow (exclusive 점유 충돌 회피).
                 var form = FindForm() as Form1;
-                var mod  = form?.ResolveModule(_algorithm);
+                var mod = form?.ResolveModule(_algorithm);
                 if (mod != null)
                 {
                     bool sameId = string.Equals(mod.Camera?.Info?.Id, m.CameraId, StringComparison.OrdinalIgnoreCase);
@@ -768,9 +795,9 @@ namespace QMC.Vision.Ui.Pages
                         _lblStatus.Text = "운영 모듈 카메라가 열려있지 않음 (CameraId=" + m.CameraId + ")";
                         return;
                     }
-                    borrowed.FrameReceived     += Cam_FrameReceived;
+                    borrowed.FrameReceived += Cam_FrameReceived;
                     borrowed.ConnectionChanged += Cam_ConnectionChanged;
-                    _activeCam      = borrowed;
+                    _activeCam = borrowed;
                     _activeCamOwned = false;
                     _lblStatus.ForeColor = Color.DarkSlateGray;
                     _lblStatus.Text = $"Connected (운영 모듈 공유) — {m.CameraId}";
@@ -786,9 +813,9 @@ namespace QMC.Vision.Ui.Pages
                     try { cam?.Dispose(); } catch { }
                     return;
                 }
-                cam.FrameReceived     += Cam_FrameReceived;
+                cam.FrameReceived += Cam_FrameReceived;
                 cam.ConnectionChanged += Cam_ConnectionChanged;
-                _activeCam      = cam;
+                _activeCam = cam;
                 _activeCamOwned = true;
                 _lblStatus.ForeColor = Color.DarkSlateGray;
                 _lblStatus.Text = string.IsNullOrEmpty(applyErr)
@@ -810,11 +837,11 @@ namespace QMC.Vision.Ui.Pages
             if (_activeCam == null) return;
             try { if (_isLive) _activeCam.StopLive(); } catch { }
             _isLive = false;
-            try { _activeCam.FrameReceived     -= Cam_FrameReceived; } catch { }
+            try { _activeCam.FrameReceived -= Cam_FrameReceived; } catch { }
             try { _activeCam.ConnectionChanged -= Cam_ConnectionChanged; } catch { }
             if (_activeCamOwned)
             {
-                try { _activeCam.Close();   } catch { }
+                try { _activeCam.Close(); } catch { }
                 try { _activeCam.Dispose(); } catch { }
             }
             _activeCam = null;
@@ -828,6 +855,7 @@ namespace QMC.Vision.Ui.Pages
             try
             {
                 _fpsT0 = DateTime.Now; _fpsCount = 0;
+                System.Threading.Interlocked.Exchange(ref _uiPending, 0);
                 _activeCam.TriggerMode = CameraTriggerMode.Continuous;
                 _activeCam.StartLive();
                 _isLive = true;
@@ -855,22 +883,33 @@ namespace QMC.Vision.Ui.Pages
         private void Cam_FrameReceived(GrabResult r)
         {
             if (r == null || !r.IsSuccess || r.Image == null) return;
-            var bmp = (Bitmap)r.Image.Clone();
+            // UI 스레드가 직전 프레임을 아직 처리 중이면 이번 프레임은 버린다(최신 프레임만 유지).
+            // 고FPS/고해상도(GigE·MIL)에서 Post 가 적체되어 버퍼·메모리가 밀리는 것을 방지.
+            if (System.Threading.Interlocked.CompareExchange(ref _uiPending, 1, 0) != 0) return;
+            Bitmap bmp;
+            try { bmp = (Bitmap)r.Image.Clone(); }
+            catch { System.Threading.Interlocked.Exchange(ref _uiPending, 0); return; }
             _uiCtx.Post(_ => ShowLiveFrame(bmp), null);
         }
 
         private void ShowLiveFrame(Bitmap bmp)
         {
-            if (_camPreview == null) { bmp.Dispose(); return; }
-            _camPreview.SetImage(bmp);   // 내부 복제 → 원본 dispose
-            bmp.Dispose();
-            _fpsCount++;
-            var dt = (DateTime.Now - _fpsT0).TotalSeconds;
-            if (dt >= 1.0)
+            try
             {
-                _lblStatus.Text = $"Live  {_fpsCount / dt:F1} FPS  ({bmp.Width}x{bmp.Height})";
-                _fpsCount = 0; _fpsT0 = DateTime.Now;
+                if (bmp == null) return;
+                if (_camPreview == null) { bmp.Dispose(); return; }
+                int w = bmp.Width, h = bmp.Height;   // dispose 전에 크기 캡처(해제 후 접근 시 ArgumentException)
+                _camPreview.SetImage(bmp);           // 내부 복제 → 원본 dispose 안전
+                bmp.Dispose();
+                _fpsCount++;
+                var dt = (DateTime.Now - _fpsT0).TotalSeconds;
+                if (dt >= 1.0)
+                {
+                    _lblStatus.Text = $"Live  {_fpsCount / dt:F1} FPS  ({w}x{h})";
+                    _fpsCount = 0; _fpsT0 = DateTime.Now;
+                }
             }
+            finally { System.Threading.Interlocked.Exchange(ref _uiPending, 0); }
         }
 
         private void Cam_ConnectionChanged(CameraConnectionEvent ev)
@@ -889,9 +928,9 @@ namespace QMC.Vision.Ui.Pages
             _btnConnect.Text = connected ? "Disconnect" : "Connect";
             _btnConnect.BackColor = connected ? Color.IndianRed : UiTheme.Accent;
             // 연결 중엔 카메라/매핑 변경 잠금
-            _cbCameraId.Enabled  = !connected;
+            _cbCameraId.Enabled = !connected;
             if (_btnDiscover != null) _btnDiscover.Enabled = !connected;
-            _btnApply.Enabled    = !connected;
+            _btnApply.Enabled = !connected;
         }
 
         // ──────────────────────────────────────────

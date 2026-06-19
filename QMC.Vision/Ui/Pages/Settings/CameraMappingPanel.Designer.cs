@@ -75,6 +75,7 @@ namespace QMC.Vision.Ui.Pages
             this._lnLight = new System.Windows.Forms.Panel();
             this._gridLightAssign = new System.Windows.Forms.DataGridView();
             this.ControllerPort = new System.Windows.Forms.DataGridViewComboBoxColumn();
+            this.LightName = new System.Windows.Forms.DataGridViewTextBoxColumn();
             this.Page = new System.Windows.Forms.DataGridViewComboBoxColumn();
             this._lblLightStatus = new System.Windows.Forms.Label();
             this._rightPanel = new System.Windows.Forms.Panel();
@@ -398,6 +399,7 @@ namespace QMC.Vision.Ui.Pages
             this._gridLightAssign.AllowUserToResizeRows = false;
             this._gridLightAssign.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
             this.ControllerPort,
+            this.LightName,
             this.Page});
             this._gridLightAssign.Dock = System.Windows.Forms.DockStyle.Fill;
             this._gridLightAssign.Font = new System.Drawing.Font("맑은 고딕", 10F);
@@ -414,13 +416,20 @@ namespace QMC.Vision.Ui.Pages
             // 
             // ControllerPort
             // 
-            this.ControllerPort.FillWeight = 60F;
+            this.ControllerPort.FillWeight = 42F;
             this.ControllerPort.HeaderText = "컨트롤러(Port)";
             this.ControllerPort.Name = "ControllerPort";
-            // 
+            //
+            // LightName
+            //
+            this.LightName.FillWeight = 33F;
+            this.LightName.HeaderText = "이름";
+            this.LightName.Name = "LightName";
+            this.LightName.ReadOnly = true;
+            //
             // Page
-            // 
-            this.Page.FillWeight = 40F;
+            //
+            this.Page.FillWeight = 25F;
             this.Page.HeaderText = "페이지";
             this.Page.Name = "Page";
             // 
@@ -649,6 +658,7 @@ namespace QMC.Vision.Ui.Pages
         }
 
         private DataGridViewComboBoxColumn ControllerPort;
+        private DataGridViewTextBoxColumn  LightName;
         private DataGridViewComboBoxColumn Page;
     }
 }

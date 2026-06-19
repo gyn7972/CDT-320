@@ -443,6 +443,13 @@ namespace QMC.Common.Motion
 
         /// <summary>Jog 감속도 [mm/s^2 또는 deg/s^2].</summary>
         public double JogDeceleration { get; set; } = 100.0;
+
+        /// <summary>Jog 정지(StopJog) 전용 감속도 [mm/s^2 또는 deg/s^2]. 0 이하이면 JogDeceleration→Deceleration 순으로 폴백.</summary>
+        public double JogStopDeceleration { get; set; } = 0.0;
+
+        /// <summary>일반 정지(Stop) 전용 감속도 [mm/s^2 또는 deg/s^2]. 0 이하이면 Deceleration 으로 폴백.</summary>
+        public double StopDeceleration { get; set; } = 0.0;
+
         /// <summary>인포지션 허용 오차 [mm 또는 deg].</summary>
         public double InPositionTolerance { get; set; } = 0.01;
     }

@@ -325,6 +325,8 @@ namespace QMC.CDT320
 
                 if (settings.BypassHardware && state != null)
                     RestoreBypassAxisRuntimeState(state);
+                else if (!settings.BypassHardware && state != null)
+                    RestoreRealAxisHomeDoneState(state);
                 if (state != null)
                     RestoreCylinderRuntimeState(state, settings);
                 if (state != null)
@@ -874,6 +876,53 @@ namespace QMC.CDT320
             {
                 QMC.Common.Log.Write("Main", "SYSTEM", "MachineRuntimeRestore",
                     "Bypass axis runtime state restore failed: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        private void RestoreRealAxisHomeDoneState(MachineRuntimeState state)
+        {
+            try
+            {
+                if (state == null || state.Axes == null)
+                    return;
+
+                int restored = 0;
+                foreach (var ax in EnumerateAxes())
+                {
+                    QMC.CDT320.Ajin.AjinAxis ajin = ax as QMC.CDT320.Ajin.AjinAxis;
+                    if (ajin == null)
+                        continue;
+
+                    MachineAxisRuntimeState saved = null;
+                    foreach (var s in state.Axes)
+                    {
+                        if (s != null && string.Equals(s.Name, ax.Name, StringComparison.OrdinalIgnoreCase))
+                        {
+                            saved = s;
+                            break;
+                        }
+                    }
+
+                    if (saved == null)
+                        continue;
+
+                    // 실장비: 보드 HomeDone=off 보고를 무시하도록 저장된 초기화 신호를 latch 복원한다.
+                    // 위치/서보는 보드 값을 그대로 따른다.
+                    ajin.RestoreHomeDoneSignal(saved.IsHomeDone, saved.IsAlarm);
+                    if (saved.IsHomeDone && !saved.IsAlarm)
+                        restored++;
+                }
+
+                QMC.Common.Log.Write("Main", "SYSTEM", "MachineRuntimeRestore",
+                    "Real axis HomeDone signal restored. count=" + restored + " - Ok");
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "MachineRuntimeRestore",
+                    "Real axis HomeDone signal restore failed: " + ex.Message + " - Failed");
             }
             finally
             {
@@ -5856,9 +5905,11 @@ namespace QMC.CDT320
         // ??????????????????????????????????????????
         private static double ResolveAxisDefaultVelocity(BaseAxis axis)
         {
-            return axis != null && axis.Config != null && axis.Config.DefaultVelocity > 0.0
-                ? axis.Config.DefaultVelocity
-                : 100.0;
+            // DefaultVelocity 기반 일반 이동 속도. 전체 퍼센트 스케일을 적용한다.
+            return MotionSpeedScale.ApplyDefaultVelocityScale(
+                axis != null && axis.Config != null && axis.Config.DefaultVelocity > 0.0
+                    ? axis.Config.DefaultVelocity
+                    : 100.0);
         }
 
         private static int ResolveAxisMoveTimeout(BaseAxis axis)

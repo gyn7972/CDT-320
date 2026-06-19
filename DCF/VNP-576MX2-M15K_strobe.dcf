@@ -1,0 +1,38 @@
+/
+/Device Version: M:2.8.0 F:2.2.1 m
+/Device Firmware Version: 
+/ Strobe lighting preset - Line1 = ExposureActive output
+/
+/
+[CAMERA_NAME]
+VIEWORKS VNP-576MX2-M15K
+[CONFIG_FILE]
+50CF
+RAPIXOCXP
+Tuesday, June 16, 2026 19:18:16
+[INFO_FILE_REV]
+10.60.0776.10123
+RAPIXOCXP
+[REG_DIGIT]
+INFO_TYPE                                                             2
+[STANDARD_FEATURES]
+ENUM_PixelFormat                                                      "Mono12"
+INT_Width                                                             "12000"
+INT_Height                                                            "12000"
+INT_OffsetX                                                           "0"
+INT_OffsetY                                                           "0"
+ENUM_AcquisitionMode                                                  "Continuous"
+FLOAT_AcquisitionFrameRate                                            "10"
+ENUM_TriggerSelector                                                  "ExposureStart"
+ENUM_TriggerMode                                                      "Off"
+ENUM_TriggerActivation                                                "RisingEdge"
+ENUM_ExposureMode                                                     "Timed"
+FLOAT_ExposureTime                                                    "5000"
+ENUM_GainSelector                                                     "DigitalAll"
+FLOAT_Gain                                                            "1"
+ENUM_LineSelector                                                     "Line1"
+ENUM_LineMode                                                         "Output"
+ENUM_LineSource                                                       "ExposureActive"
+BOOL_LineInverter                                                     "0"
+[STANDARD_FEATURES_DIGITIZER]
+[EOF]

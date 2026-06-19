@@ -55,22 +55,50 @@ namespace QMC.Vision.Cameras.Hik
             int r = InvokeFirst(new[] { "MV_CC_CreateDevice_NET", "MV_CC_CreateHandle" }, new[] { devInfo });
             EnsureSuccess(r, "MV_CC_CreateDevice");
 
-            // OpenDevice_NET() — 인자 없는 오버로드 우선
-            r = InvokeFirst(new[] { "MV_CC_OpenDevice_NET", "MV_CC_OpenDevice" }, Array.Empty<object>());
-            if (r != 0)
+            // OpenDevice — 인자 없는 오버로드 우선, 실패 시 (Exclusive=1, Key=0) 재시도.
+            int TryOpenOnce()
             {
-                // 인자 있는 시그니처로 재시도 (Exclusive=1, Key=0)
-                r = InvokeFirst(new[] { "MV_CC_OpenDevice_NET", "MV_CC_OpenDevice" }, new object[] { (uint)1, (ushort)0 });
+                int rr = InvokeFirst(new[] { "MV_CC_OpenDevice_NET", "MV_CC_OpenDevice" }, Array.Empty<object>());
+                if (rr != 0)
+                    rr = InvokeFirst(new[] { "MV_CC_OpenDevice_NET", "MV_CC_OpenDevice" }, new object[] { (uint)1, (ushort)0 });
+                return rr;
+            }
+
+            // 강제 종료(비정상 종료) 후 재시작 시, 카메라가 이전 제어 연결을 GVCP 하트비트 만료까지(보통 수 초)
+            // 붙들고 있어 OpenDevice 가 한동안 거부된다 → 만료를 기다리며 자동 재시도(최대 ~7.5초).
+            r = TryOpenOnce();
+            for (int attempt = 1; r != 0 && attempt <= 5; attempt++)
+            {
+                System.Threading.Thread.Sleep(1500);
+                r = TryOpenOnce();
             }
             EnsureSuccess(r, "MV_CC_OpenDevice");
 
-            // GigE 패킷 크기 최적화
-            TryOptimizePacketSize();
+            // 하트비트 타임아웃을 짧게(3초) — 다음에 비정상 종료돼도 카메라가 더 빨리 제어연결을 해제하도록.
+            // (기존 리플렉션 헬퍼 사용 — 미지원 카메라/노드면 조용히 무시)
+            TrySetInt("GevHeartbeatTimeout", 3000);
 
-            ApplyInitialParameters();
+            // OpenDevice 성공 후 초기화 단계에서 예외가 나면 장치가 SDK 레벨에서 열린 채 남아
+            // 핸들이 누수되고(다음 Open 이 0x80000203 access 오류), Close() 는 IsOpen=false 라 정리하지 못한다.
+            // → 실패 시 여기서 즉시 Close+Destroy 후 재던짐.
+            try
+            {
+                // GigE 패킷 크기 최적화
+                TryOptimizePacketSize();
 
-            // ExposureEnd HW 이벤트 등록 (강타입 — ref MV_EVENT_OUT_INFO delegate)
-            TryEnableExposureEndEvent();
+                ApplyInitialParameters();
+
+                // ExposureEnd HW 이벤트 등록 (강타입 — ref MV_EVENT_OUT_INFO delegate)
+                TryEnableExposureEndEvent();
+            }
+            catch
+            {
+                try { InvokeFirst(new[] { "MV_CC_CloseDevice_NET", "MV_CC_CloseDevice" }, Array.Empty<object>()); } catch { }
+                try { InvokeFirst(new[] { "MV_CC_DestroyDevice_NET", "MV_CC_DestroyHandle" }, Array.Empty<object>()); } catch { }
+                _camera = null;
+                IsOpen = false;
+                throw;
+            }
 
             IsOpen = true;
             RaiseConnectionChanged(CameraConnectionEvent.Opened);
@@ -101,7 +129,8 @@ namespace QMC.Vision.Cameras.Hik
         public override void Close()
         {
             StopLive();
-            if (!IsOpen) return;
+            // IsOpen 가 false 여도 _camera 핸들이 살아있으면(부분 오픈/누수) 반드시 SDK 정리한다.
+            if (!IsOpen && _camera == null) return;
             try { InvokeFirst(new[] { "MV_CC_CloseDevice_NET", "MV_CC_CloseDevice" }, Array.Empty<object>()); } catch { }
             try { InvokeFirst(new[] { "MV_CC_DestroyDevice_NET", "MV_CC_DestroyHandle" }, Array.Empty<object>()); } catch { }
             IsOpen = false;

@@ -323,6 +323,20 @@ namespace QMC.Vision.Ui.Pages
             catch { }
         }
 
+        // ── 불러오기 = 저장된 레시피로 되돌리기(revert) ──
+        private void OnLoadRecipeClick(object sender, EventArgs e)
+        {
+            if (_curSetKey == null || !_settings.TryGetValue(_curSetKey, out var s)) return;
+            try
+            {
+                if (_cache.TryGetValue(_curSetKey, out var pg) && pg is ITargetPage tp)
+                    tp.LoadTarget();   // 노드 LoadSettings/LoadRecipe + dirty clear (DirtyChanged→dot 갱신)
+                UpdateSettingDot(_curSetKey);
+                UpdateAlgoDot(s.Module);
+            }
+            catch { }
+        }
+
         // ── 좌측 레시피(품목) 리스트 — 핸들러 ProjectPage 미러(Vision Recipes\ 폴더 백업) ──
         private void ReloadRecipeList()
         {

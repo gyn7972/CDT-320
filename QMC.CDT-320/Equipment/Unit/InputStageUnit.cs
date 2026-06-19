@@ -188,9 +188,11 @@ namespace QMC.CDT320
 
         private static double ResolveAxisVelocity(BaseAxis axis)
         {
-            return axis != null && axis.Config != null && axis.Config.DefaultVelocity > 0.0
-                ? axis.Config.DefaultVelocity
-                : 100.0;
+            // DefaultVelocity 기반 일반 이동 속도. 전체 퍼센트 스케일을 적용한다.
+            return MotionSpeedScale.ApplyDefaultVelocityScale(
+                axis != null && axis.Config != null && axis.Config.DefaultVelocity > 0.0
+                    ? axis.Config.DefaultVelocity
+                    : 100.0);
         }
 
         private static double ResolveAxisFineVelocity(BaseAxis axis)

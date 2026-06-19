@@ -38,6 +38,8 @@ namespace QMC.CDT_320.Ui.Pages.Settings
 
                 btnSpeedReload.Click += (s, e) => LoadSpeedRows();
                 btnSpeedSave.Click += (s, e) => SaveSpeedRows();
+                btnSpeedScale.Click += OnSpeedScaleClick;
+                UpdateSpeedScaleButton();
             }
             catch (Exception ex)
             {
@@ -132,6 +134,97 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             }
         }
 
+        /// <summary>
+        /// 전체 DefaultVelocity 퍼센트 스케일 버튼 클릭. NumericKeypad 로 % 값을 입력받아
+        /// 안전 범위(1~100)로 보정한 뒤 모션 공통 스케일과 AppSettings 에 적용/저장한다.
+        /// </summary>
+        private void OnSpeedScaleClick(object sender, EventArgs e)
+        {
+            try
+            {
+                double current = MotionSpeedScale.ScalePercent;
+                string currentText = current.ToString("0.###", CultureInfo.InvariantCulture);
+
+                using (var dlg = new NumericKeypadDialog("DEFAULT SPEED SCALE %", currentText, "%"))
+                {
+                    if (dlg.ShowDialog(FindForm()) != DialogResult.OK) return;
+
+                    double value;
+                    if (!double.TryParse(dlg.ValueText, NumberStyles.Float, CultureInfo.InvariantCulture, out value) &&
+                        !double.TryParse(dlg.ValueText, NumberStyles.Float, CultureInfo.CurrentCulture, out value))
+                    {
+                        QMC.Common.MessageDialog.Show("Invalid speed scale value. Enter " +
+                            MotionSpeedScale.MinPercent + " ~ " + MotionSpeedScale.MaxPercent + " %.");
+                        return;
+                    }
+
+                    ApplySpeedScalePercent(value);
+                }
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Alarms.AlarmManager.Raise(
+                    QMC.Common.Alarms.AlarmSeverity.Warning,
+                    "UI-MOTION-SPD",
+                    "MotionPage",
+                    "OnSpeedScaleClick failed: " + ex.Message);
+                QMC.Common.MessageDialog.Show("Speed scale change failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        /// <summary>입력된 % 값을 보정/적용하고 AppSettings 에 저장한다.</summary>
+        private void ApplySpeedScalePercent(double percent)
+        {
+            try
+            {
+                double clamped = MotionSpeedScale.ClampPercent(percent);
+                MotionSpeedScale.ScalePercent = clamped;
+
+                if (QMC.CDT320.AppSettingsStore.Current != null)
+                {
+                    QMC.CDT320.AppSettingsStore.Current.DefaultVelocityScalePercent = clamped;
+                    QMC.CDT320.AppSettingsStore.Save();
+                }
+
+                UpdateSpeedScaleButton();
+
+                QMC.Common.Logging.EventLogger.Write(
+                    QMC.Common.Logging.EventKind.Event,
+                    "QMC", "SPEED-SCALE",
+                    "DefaultVelocity scale = " + clamped.ToString("0.###", CultureInfo.InvariantCulture) + " %");
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Alarms.AlarmManager.Raise(
+                    QMC.Common.Alarms.AlarmSeverity.Warning,
+                    "UI-MOTION-SPD",
+                    "MotionPage",
+                    "ApplySpeedScalePercent failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        /// <summary>스케일 버튼 표시 문구를 현재 적용 퍼센트로 갱신한다.</summary>
+        private void UpdateSpeedScaleButton()
+        {
+            try
+            {
+                if (btnSpeedScale == null) return;
+                btnSpeedScale.Text = MotionSpeedScale.ScalePercent.ToString("0.###", CultureInfo.InvariantCulture) + " %";
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
         /// <summary>현재 등록된 축 컬렉션을 SPEED 그리드에 채운다.</summary>
         private void LoadSpeedRows()
         {
@@ -150,6 +243,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                         FormatAxisValue(c.DefaultVelocity, row.Axis, "0.###"),
                         FormatAxisValue(c.Acceleration, row.Axis, "0.###"),
                         FormatAxisValue(c.Deceleration, row.Axis, "0.###"),
+                        FormatAxisValue(c.StopDeceleration, row.Axis, "0.###"),
                         FormatAxisValue(c.HomeFirstVelocity, row.Axis, "0.###"),
                         FormatAxisValue(c.HomeSecondVelocity, row.Axis, "0.###"),
                         FormatAxisValue(c.HomeThirdVelocity, row.Axis, "0.###"),
@@ -162,6 +256,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                         FormatAxisValue(c.JogFineVelocity, row.Axis, "0.###"),
                         FormatAxisValue(c.JogAcceleration, row.Axis, "0.###"),
                         FormatAxisValue(c.JogDeceleration, row.Axis, "0.###"),
+                        FormatAxisValue(c.JogStopDeceleration, row.Axis, "0.###"),
                         FormatAxisValue(c.InPositionTolerance, row.Axis, "0.######"));
 
                     speedGrid.Rows[idx].Tag = row.Axis;
@@ -250,6 +345,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                     c.DefaultVelocity = ReadDisplayCell(row, "DEFAULT_VEL", c.DefaultVelocity, axis);
                     c.Acceleration = ReadDisplayCell(row, "ACCEL", c.Acceleration, axis);
                     c.Deceleration = ReadDisplayCell(row, "DECEL", c.Deceleration, axis);
+                    c.StopDeceleration = ReadDisplayCell(row, "STOP_DEC", c.StopDeceleration, axis);
                     c.HomeFirstVelocity = ReadDisplayCell(row, "HOME_VEL_1", c.HomeFirstVelocity, axis);
                     c.HomeSecondVelocity = ReadDisplayCell(row, "HOME_VEL_2", c.HomeSecondVelocity, axis);
                     c.HomeThirdVelocity = ReadDisplayCell(row, "HOME_VEL_3", c.HomeThirdVelocity, axis);
@@ -262,6 +358,7 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                     c.JogFineVelocity = ReadDisplayCell(row, "JOG_FINE", c.JogFineVelocity, axis);
                     c.JogAcceleration = ReadDisplayCell(row, "JOG_ACC", c.JogAcceleration, axis);
                     c.JogDeceleration = ReadDisplayCell(row, "JOG_DEC", c.JogDeceleration, axis);
+                    c.JogStopDeceleration = ReadDisplayCell(row, "JOG_STOP_DEC", c.JogStopDeceleration, axis);
                     c.InPositionTolerance = ReadDisplayCell(row, "INPOS_TOL", c.InPositionTolerance, axis);
                     applied++;
                 }
