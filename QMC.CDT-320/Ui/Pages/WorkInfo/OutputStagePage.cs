@@ -29,7 +29,13 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             materialDetailView.ClearDataRequested += MaterialDetailView_ClearDataRequested;
 
             _timer = new System.Windows.Forms.Timer { Interval = 200 };
-            _timer.Tick += (s, e) => RefreshData();
+            _timer.Tick += (s, e) =>
+            {
+                if (!ShouldRefreshVisible(this))
+                    return;
+
+                RefreshData();
+            };
             HandleCreated += (s, e) => _timer.Start();
             HandleDestroyed += (s, e) => _timer.Stop();
         }
@@ -175,16 +181,22 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 QMC.Common.MessageDialog.Show(this, exceptionMessage, "Output Stage", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
 
-        private static Task WaitForCancellationAsync(CancellationToken ct)
+        private static async Task WaitForCancellationAsync(CancellationToken ct)
         {
             if (!ct.CanBeCanceled)
-                return Task.Delay(Timeout.Infinite);
-            if (ct.IsCancellationRequested)
-                return Task.FromResult(0);
+            {
+                await Task.Delay(Timeout.Infinite).ConfigureAwait(false);
+                return;
+            }
 
-            var tcs = new TaskCompletionSource<int>();
-            ct.Register(() => tcs.TrySetResult(0));
-            return tcs.Task;
+            if (ct.IsCancellationRequested)
+                return;
+
+            var tcs = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+            using (ct.Register(() => tcs.TrySetResult(0)))
+            {
+                await tcs.Task.ConfigureAwait(false);
+            }
         }
 
         private void ObserveManualActionTask(Task<bool> task, string actionName)
@@ -192,27 +204,26 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             if (task == null)
                 return;
 
-            task.ContinueWith(t =>
+            _ = ObserveManualActionTaskAsync(task, actionName);
+        }
+
+        private async Task ObserveManualActionTaskAsync(Task<bool> task, string actionName)
+        {
+            try
             {
-                try
-                {
-                    if (t.IsFaulted)
-                    {
-                        Exception ex = t.Exception != null ? t.Exception.GetBaseException() : null;
-                        WriteAlarm("OUTPUT-STAGE-ACTION-LATE-EX", actionName + " finished after stop: " + (ex != null ? ex.Message : "unknown"));
-                    }
-                    else if (t.IsCanceled)
-                    {
-                        WriteEvent("OUTPUT-STAGE-ACTION-LATE-CANCEL", actionName + " canceled after stop.");
-                    }
-                }
-                catch
-                {
-                }
-                finally
-                {
-                }
-            });
+                await task.ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                WriteEvent("OUTPUT-STAGE-ACTION-LATE-CANCEL", actionName + " 정지 후 취소 완료.");
+            }
+            catch (Exception ex)
+            {
+                WriteAlarm("OUTPUT-STAGE-ACTION-LATE-EX", actionName + " 정지 후 종료 처리 중 오류: " + ex.Message);
+            }
+            finally
+            {
+            }
         }
 
         private bool ConfirmAction(string actionName)

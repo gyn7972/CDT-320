@@ -342,28 +342,75 @@ namespace QMC.CDT320
 
         public async Task<bool> WaitBinFeederYMoveDone(int timeoutMs)
         {
-            AxisMoveWaitResult waitResult = await WaitBinFeederYMoveDoneInPosition(FeederY.CommandPosition, timeoutMs).ConfigureAwait(false);
-            return waitResult.Success;
+            return await WaitBinFeederYMoveDone(timeoutMs, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        public async Task<bool> WaitBinFeederYMoveDone(int timeoutMs, CancellationToken ct)
+        {
+            try
+            {
+                AxisMoveWaitResult waitResult = await WaitBinFeederYMoveDoneInPosition(FeederY.CommandPosition, timeoutMs, ct).ConfigureAwait(false);
+                return waitResult.Success;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "OutputFeederWait",
+                    "BinFeederY move wait failed. error=" + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
         }
 
         public async Task<AxisMoveWaitResult> WaitBinFeederYMoveDoneInPosition(double targetPos, int timeoutMs)
         {
-            AxisMoveWaitResult waitResult = await AxisMoveWaiter.WaitMoveDoneInPositionAsync(
-                FeederY,
-                targetPos,
-                ResolveBinFeederYInPositionTolerance(),
-                timeoutMs > 0 ? timeoutMs : ResolveBinFeederYMoveTimeoutMs(),
-                0).ConfigureAwait(false);
-            if (!waitResult.Success)
+            return await WaitBinFeederYMoveDoneInPosition(targetPos, timeoutMs, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        public async Task<AxisMoveWaitResult> WaitBinFeederYMoveDoneInPosition(double targetPos, int timeoutMs, CancellationToken ct)
+        {
+            try
+            {
+                AxisMoveWaitResult waitResult = await AxisMoveWaiter.WaitMoveDoneInPositionAsync(
+                    FeederY,
+                    targetPos,
+                    ResolveBinFeederYInPositionTolerance(),
+                    timeoutMs > 0 ? timeoutMs : ResolveBinFeederYMoveTimeoutMs(),
+                    0,
+                    ct).ConfigureAwait(false);
+                if (!waitResult.Success)
+                    return waitResult;
+
+                if (IsFeederOverload())
+                    return new AxisMoveWaitResult(
+                        AxisMoveWaitFailure.Alarm,
+                        "BinFeeder overload is detected.",
+                        waitResult.AxisState + ", overload=True");
+
                 return waitResult;
-
-            if (IsFeederOverload())
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "OutputFeederWait",
+                    "BinFeederY move/in-position wait failed. target=" + targetPos +
+                    ", error=" + ex.Message + " - Failed");
                 return new AxisMoveWaitResult(
-                    AxisMoveWaitFailure.Alarm,
-                    "BinFeeder overload is detected.",
-                    waitResult.AxisState + ", overload=True");
-
-            return waitResult;
+                    AxisMoveWaitFailure.Timeout,
+                    "BinFeederY move wait exception: " + ex.Message,
+                    DescribeBinFeederYMoveDoneState());
+            }
+            finally
+            {
+            }
         }
 
         public bool IsBinFeederYMoveDone()
@@ -678,22 +725,33 @@ namespace QMC.CDT320
 
         public async Task<int> SetFeederUpDownAsync(bool up, int timeoutMs)
         {
+            return await SetFeederUpDownAsync(up, timeoutMs, CancellationToken.None);
+        }
+
+        public async Task<int> SetFeederUpDownAsync(bool up, int timeoutMs, CancellationToken ct)
+        {
             try
             {
+                ct.ThrowIfCancellationRequested();
+
                 if (IsFeederOverload())
                     return RaiseFeederAlarm("BF-LIFT-OVERLOAD", "OutputFeeder overload is detected.");
 
-                bool ok = up ? await FeederUpDownCyl.MoveFwdAsync() : await FeederUpDownCyl.MoveBwdAsync();
+                bool ok = up ? await FeederUpDownCyl.MoveFwdAsync(ct) : await FeederUpDownCyl.MoveBwdAsync(ct);
                 if (!ok)
                     return RaiseFeederAlarm(up ? "BF-LIFT-UP" : "BF-LIFT-DOWN", "OutputFeeder lift cylinder move failed.");
 
                 ApplyOutputFeederLiftSensorSimulation(up);
 
-                bool sensorOk = up ? await WaitFeederUp(timeoutMs) : await WaitFeederDown(timeoutMs);
+                bool sensorOk = up ? await WaitFeederUp(timeoutMs, ct) : await WaitFeederDown(timeoutMs, ct);
                 if (!sensorOk)
                     return RaiseFeederAlarm(up ? "BF-LIFT-UP-TIMEOUT" : "BF-LIFT-DOWN-TIMEOUT", "OutputFeeder lift sensor timeout.");
 
                 return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
@@ -712,19 +770,30 @@ namespace QMC.CDT320
 
         public async Task<int> SetFeederClampAsync(bool clamp, int timeoutMs)
         {
+            return await SetFeederClampAsync(clamp, timeoutMs, CancellationToken.None);
+        }
+
+        public async Task<int> SetFeederClampAsync(bool clamp, int timeoutMs, CancellationToken ct)
+        {
             try
             {
-                bool ok = clamp ? await FeederClampCyl.MoveFwdAsync() : await FeederClampCyl.MoveBwdAsync();
+                ct.ThrowIfCancellationRequested();
+
+                bool ok = clamp ? await FeederClampCyl.MoveFwdAsync(ct) : await FeederClampCyl.MoveBwdAsync(ct);
                 if (!ok)
                     return RaiseFeederAlarm(clamp ? "BF-CLAMP" : "BF-UNCLAMP", "OutputFeeder clamp cylinder move failed.");
 
                 ApplyOutputFeederClampSensorSimulation(clamp);
 
-                bool sensorOk = clamp ? await WaitFeederClamped(timeoutMs) : await WaitFeederUnclamped(timeoutMs);
+                bool sensorOk = clamp ? await WaitFeederClamped(timeoutMs, ct) : await WaitFeederUnclamped(timeoutMs, ct);
                 if (!sensorOk)
                     return RaiseFeederAlarm(clamp ? "BF-CLAMP-TIMEOUT" : "BF-UNCLAMP-TIMEOUT", "OutputFeeder clamp sensor timeout.");
 
                 return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
@@ -737,43 +806,73 @@ namespace QMC.CDT320
 
         public async Task<bool> WaitFeederUp(int timeoutMs)
         {
+            return await WaitFeederUp(timeoutMs, CancellationToken.None);
+        }
+
+        public async Task<bool> WaitFeederUp(int timeoutMs, CancellationToken ct)
+        {
             if (ShouldBypassInputWaitInSimulation(BinFeederUpSensor))
                 return true;
-            return await BinFeederUpSensor.WaitUntilStateAsync(true, timeoutMs);
+            return await BinFeederUpSensor.WaitUntilStateAsync(true, timeoutMs, ct);
         }
 
         public async Task<bool> WaitFeederDown(int timeoutMs)
         {
+            return await WaitFeederDown(timeoutMs, CancellationToken.None);
+        }
+
+        public async Task<bool> WaitFeederDown(int timeoutMs, CancellationToken ct)
+        {
             if (ShouldBypassInputWaitInSimulation(BinFeederDownSensor))
                 return true;
-            return await BinFeederDownSensor.WaitUntilStateAsync(true, timeoutMs);
+            return await BinFeederDownSensor.WaitUntilStateAsync(true, timeoutMs, ct);
         }
 
         public async Task<bool> WaitFeederClamped(int timeoutMs)
         {
+            return await WaitFeederClamped(timeoutMs, CancellationToken.None);
+        }
+
+        public async Task<bool> WaitFeederClamped(int timeoutMs, CancellationToken ct)
+        {
             if (ShouldBypassInputWaitInSimulation(BinFeederUnclampSensor))
                 return true;
-            return await BinFeederUnclampSensor.WaitUntilStateAsync(false, timeoutMs);
+            return await BinFeederUnclampSensor.WaitUntilStateAsync(false, timeoutMs, ct);
         }
 
         public async Task<bool> WaitFeederUnclamped(int timeoutMs)
         {
+            return await WaitFeederUnclamped(timeoutMs, CancellationToken.None);
+        }
+
+        public async Task<bool> WaitFeederUnclamped(int timeoutMs, CancellationToken ct)
+        {
             if (ShouldBypassInputWaitInSimulation(BinFeederUnclampSensor))
                 return true;
-            return await BinFeederUnclampSensor.WaitUntilStateAsync(true, timeoutMs);
+            return await BinFeederUnclampSensor.WaitUntilStateAsync(true, timeoutMs, ct);
         }
 
         public async Task<bool> WaitFeederRingState(bool expected, int timeoutMs)
         {
+            return await WaitFeederRingState(expected, timeoutMs, CancellationToken.None);
+        }
+
+        public async Task<bool> WaitFeederRingState(bool expected, int timeoutMs, CancellationToken ct)
+        {
             if (ShouldBypassInputWaitInSimulation(BinFeederRingCheckSensor))
                 return IsFeederTransferDataOccupied() == expected;
-            return await BinFeederRingCheckSensor.WaitUntilStateAsync(expected, timeoutMs);
+            return await BinFeederRingCheckSensor.WaitUntilStateAsync(expected, timeoutMs, ct);
         }
         public async Task<bool> WaitBinFeederUp(int timeoutMs) { return await WaitFeederUp(timeoutMs); }
         public async Task<bool> WaitBinFeederDown(int timeoutMs) { return await WaitFeederDown(timeoutMs); }
         public async Task<bool> WaitBinFeederUnclamp(int timeoutMs) { return await WaitFeederUnclamped(timeoutMs); }
         public async Task<bool> WaitBinFeederClamp(int timeoutMs) { return await WaitFeederClamped(timeoutMs); }
         public async Task<bool> WaitBinFeederRingClear(int timeoutMs) { return await WaitFeederRingState(false, timeoutMs); }
+        public async Task<bool> WaitBinFeederUp(int timeoutMs, CancellationToken ct) { return await WaitFeederUp(timeoutMs, ct); }
+        public async Task<bool> WaitBinFeederDown(int timeoutMs, CancellationToken ct) { return await WaitFeederDown(timeoutMs, ct); }
+        public async Task<bool> WaitBinFeederUnclamp(int timeoutMs, CancellationToken ct) { return await WaitFeederUnclamped(timeoutMs, ct); }
+        public async Task<bool> WaitBinFeederClamp(int timeoutMs, CancellationToken ct) { return await WaitFeederClamped(timeoutMs, ct); }
+        public async Task<bool> WaitBinFeederRingClear(int timeoutMs, CancellationToken ct) { return await WaitFeederRingState(false, timeoutMs, ct); }
         private void ApplyOutputFeederLiftSensorSimulation(bool up)
         {
             if (!ShouldApplyInputSimulation(BinFeederUpSensor) &&
@@ -1084,19 +1183,36 @@ namespace QMC.CDT320
             return await UnloadFeederToCassette(BinSide.Good, slotIndex, timeoutMs, bFine) == 0;
         }
 
-        public async Task<bool> MoveBinFeederToStageExchangePosition(TargetCassette cassette, int timeoutMs, bool bFine = false)
+        public async Task<int> MoveBinFeederToStageExchangePosition(TargetCassette cassette, int timeoutMs, bool bFine = false)
         {
-            int result = await MoveToFeederStageLoadPosition(ToBinSide(cassette), bFine);
-            if (result != 0)
-                return false;
+            try
+            {
+                BinSide side = ToBinSide(cassette);
+                int result = await MoveToFeederStageLoadPosition(side, bFine).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
 
-            result = await WaitBinFeederYMoveDoneInPositionOrAlarm(
-                GetSidePosition(ToBinSide(cassette), FeederPositionType.StageLoad),
-                timeoutMs,
-                "BF-STAGE-EXCHANGE-Y",
-                "OutputFeeder stage exchange position",
-                CancellationToken.None).ConfigureAwait(false);
-            return result == 0;
+                return await WaitBinFeederYMoveDoneInPositionOrAlarm(
+                    GetSidePosition(side, FeederPositionType.StageLoad),
+                    timeoutMs,
+                    "BF-STAGE-EXCHANGE-Y",
+                    "OutputFeeder stage exchange position",
+                    CancellationToken.None).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return RaiseFeederAlarm(
+                    "BF-STAGE-EXCHANGE-EXCEPTION",
+                    "OutputFeeder stage exchange position move failed. cassette=" + cassette +
+                    ", error=" + ex.Message);
+            }
+            finally
+            {
+            }
         }
 
         public async Task<int> ExchangeFeederRingForNextSlot(BinSide side, int currentSlotIndex, int nextSlotIndex, int timeoutMs, bool bFine = false)
@@ -1133,9 +1249,26 @@ namespace QMC.CDT320
             return 0;
         }
 
-        public async Task<bool> RecoverBinFeederToSafeState(int timeoutMs, bool unclamp = true)
+        public async Task<int> RecoverBinFeederToSafeState(int timeoutMs, bool unclamp = true)
         {
-            return await RecoverFeederToSafeState(timeoutMs, true) == 0;
+            try
+            {
+                return await RecoverFeederToSafeState(timeoutMs, true).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return RaiseFeederAlarm("BF-RECOVER-EXCEPTION",
+                    "OutputFeeder recover failed. error=" + ex.Message);
+            }
+            finally
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "OutputFeeder",
+                    "RecoverBinFeederToSafeState finished. unclamp=" + unclamp);
+            }
         }
 
         public bool CheckBinFeederYMoveReady()
@@ -1750,13 +1883,18 @@ namespace QMC.CDT320
 
         private static async Task<bool> WaitUntilAsync(Func<bool> condition, int timeoutMs)
         {
+            return await WaitUntilAsync(condition, timeoutMs, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        private static async Task<bool> WaitUntilAsync(Func<bool> condition, int timeoutMs, CancellationToken ct)
+        {
             int elapsed = 0;
             while (timeoutMs <= 0 || elapsed < timeoutMs)
             {
                 if (condition())
                     return true;
 
-                await Task.Delay(10).ContinueWith(_ => { });
+                await Task.Delay(10, ct).ConfigureAwait(false);
                 elapsed += 10;
             }
             return condition();

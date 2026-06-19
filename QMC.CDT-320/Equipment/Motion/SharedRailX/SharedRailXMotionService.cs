@@ -560,8 +560,10 @@ namespace QMC.CDT320.Motion.SharedRailX
             private readonly IReadOnlyList<SharedRailXAxisSetting> _settings;
             private readonly IReadOnlyList<SharedRailXGuardPair> _pairs;
             private readonly CancellationTokenSource _cts;
+            private readonly CancellationToken _token;
             private readonly Task _task;
             private int _blocked;
+            private int _disposed;
 
             public SharedRailXAutoMoveGuard(
                 string planName,
@@ -572,7 +574,8 @@ namespace QMC.CDT320.Motion.SharedRailX
                 _settings = settings;
                 _pairs = pairs;
                 _cts = new CancellationTokenSource();
-                _task = Task.Run(() => MonitorAsync(_cts.Token), _cts.Token);
+                _token = _cts.Token;
+                _task = Task.Run(() => MonitorAsync(_token), _token);
             }
 
             public bool Blocked
@@ -582,8 +585,63 @@ namespace QMC.CDT320.Motion.SharedRailX
 
             public void Dispose()
             {
-                try { _cts.Cancel(); } catch { }
-                _cts.Dispose();
+                if (Interlocked.Exchange(ref _disposed, 1) != 0)
+                    return;
+
+                try
+                {
+                    _cts.Cancel();
+                }
+                catch (ObjectDisposedException)
+                {
+                }
+                catch (Exception ex)
+                {
+                    AlarmManager.Raise(
+                        AlarmSeverity.Warning,
+                        "SHARED-RAIL-X-MOVE-GUARD",
+                        "SharedRailX",
+                        "SharedRailX 실시간 감시 취소 중 예외가 발생했습니다. plan=" +
+                        _planName + ", message=" + ex.Message);
+                }
+
+                Task task = _task;
+                if (task == null)
+                {
+                    DisposeCancellationTokenSource();
+                    return;
+                }
+
+                task.ContinueWith(
+                    t =>
+                    {
+                        try
+                        {
+                            if (t.IsFaulted && t.Exception != null)
+                                t.Exception.Handle(_ => true);
+                        }
+                        catch
+                        {
+                        }
+                        finally
+                        {
+                            DisposeCancellationTokenSource();
+                        }
+                    },
+                    CancellationToken.None,
+                    TaskContinuationOptions.ExecuteSynchronously,
+                    TaskScheduler.Default);
+            }
+
+            private void DisposeCancellationTokenSource()
+            {
+                try
+                {
+                    _cts.Dispose();
+                }
+                catch
+                {
+                }
             }
 
             private async Task MonitorAsync(CancellationToken ct)

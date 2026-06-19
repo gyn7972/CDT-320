@@ -24,6 +24,7 @@ namespace QMC.CDT320.Sequencing
         private VisionAlignResult _visionOffset;
         private double _targetStageY;
         private double _targetPickerX;
+        private double _targetPickerY;
         private double _targetPickerT;
         private double _targetPickerZ;
         private bool _diePicked;
@@ -39,6 +40,7 @@ namespace QMC.CDT320.Sequencing
             public VisionAlignResult VisionOffset;
             public double TargetStageY;
             public double TargetPickerX;
+            public double TargetPickerY;
             public double TargetPickerT;
             public double TargetPickerZ;
             public bool DiePicked;
@@ -277,17 +279,27 @@ namespace QMC.CDT320.Sequencing
 
         private int CheckInputStageReady()
         {
+            bool inputStageReady = Context != null &&
+                                   Context.Bus != null &&
+                                   Context.Bus.IsSet("InputStageReady");
+            if (!inputStageReady)
+            {
+                return Fail("PICKER-PICKUP-STAGE-READY-SIGNAL", "InputStage",
+                    "InputStageReady 신호가 없어 PickUp을 시작할 수 없습니다. " +
+                    "InputSequence가 웨이퍼 Align/DieMapping/Finish 완료 후 InputStageReady 신호를 설정해야 합니다.");
+            }
+
             WaferMaterial wafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.InputStage);
             if (wafer == null)
-                return Fail("PICKER-PICKUP-NO-WAFER", "Material", "InputStage wafer material is not available.");
+                return Fail("PICKER-PICKUP-NO-WAFER", "Material", "InputStage 웨이퍼 Material 정보가 없습니다.");
 
             string finishReason;
             if (!MaterialStateService.IsInputStageFinishComplete(out finishReason))
                 return Fail("PICKER-PICKUP-STAGE-NOT-FINISH", "InputStage",
-                    "InputStage finish must be complete before picker pickup. " + finishReason);
+                    "Picker PickUp 전에 InputStage Finish 상태가 완료되어야 합니다. " + finishReason);
 
             if (wafer.DieIds == null || wafer.DieIds.Count == 0)
-                return Fail("PICKER-PICKUP-NO-DIE", "Material", "InputStage wafer has no die data. waferId=" + wafer.WaferId);
+                return Fail("PICKER-PICKUP-NO-DIE", "Material", "InputStage 웨이퍼에 Die 데이터가 없습니다. waferId=" + wafer.WaferId);
 
             if (!MaterialStateService.HasReadyInputStagePickTarget())
             {
@@ -302,12 +314,9 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> MoveAllPickerZToAvoidAsync(CancellationToken ct)
         {
-            if (_inputStageLease == null)
-            {
-                _inputStageLease = await AcquireResourceAsync(SequenceResourceKind.InputStageArea, Name + ":PickUp", ct).ConfigureAwait(false);
-                if (_inputStageLease == null)
-                    return -1;
-            }
+            int acquireResult = await AcquireInputStageAreaForPickUpAsync(ct).ConfigureAwait(false);
+            if (acquireResult != 0)
+                return acquireResult;
 
             EnsurePickerWorkAreaReserved(PickerWorkZone.Input, "PickUp");
 
@@ -317,6 +326,74 @@ namespace QMC.CDT320.Sequencing
 
             CurrentStep = PickerPickUpStep.BuildPickBatch;
             return 0;
+        }
+
+        private async Task<int> AcquireInputStageAreaForPickUpAsync(CancellationToken ct)
+        {
+            bool waitLogged = false;
+            string holder = Name + ":PickUp";
+
+            try
+            {
+                if (_inputStageLease != null)
+                    return 0;
+
+                if (Options == null || Options.RunMode != SequenceRunMode.Auto)
+                {
+                    _inputStageLease = await AcquireResourceAsync(SequenceResourceKind.InputStageArea, holder, ct).ConfigureAwait(false);
+                    return _inputStageLease != null ? 0 : -1;
+                }
+
+                while (_inputStageLease == null)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    if (Context != null)
+                        Context.StopIfCycleStopRequested(Name + ".AcquireInputStageArea");
+
+                    string currentHolder = Context != null && Context.Resources != null
+                        ? Context.Resources.GetHolder(SequenceResourceKind.InputStageArea)
+                        : "";
+
+                    if (!waitLogged && !string.IsNullOrWhiteSpace(currentHolder))
+                    {
+                        WriteLog("PickerPickUpSequence",
+                            Name + " PickUp이 InputStageArea 리소스를 기다립니다. " +
+                            "현재 점유=" + currentHolder + ", 요청=" + holder + " - Wait");
+                        waitLogged = true;
+                    }
+
+                    _inputStageLease = await Context.Resources
+                        .AcquireAsync(SequenceResourceKind.InputStageArea, holder, 200, ct, false)
+                        .ConfigureAwait(false);
+
+                    if (_inputStageLease == null)
+                        await Task.Delay(100, ct).ConfigureAwait(false);
+                }
+
+                if (waitLogged)
+                {
+                    WriteLog("PickerPickUpSequence",
+                        Name + " PickUp이 InputStageArea 리소스를 획득했습니다. 요청=" + holder + " - Ok");
+                }
+
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-RESOURCE", holder,
+                    "PickUp InputStageArea 리소스 획득 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
         }
 
         private int BuildPickBatch()
@@ -459,9 +536,8 @@ namespace QMC.CDT320.Sequencing
                 if (result != 0)
                     return result;
 
-                result = await MoveOppositePickerToAvoidAndVerifyAsync(
-                    "opposite picker avoid before InputVisionX move",
-                    ct).ConfigureAwait(false);
+                result = VerifyOppositePickerNotInInputPickArea(
+                    "InputVisionX 이동 전 상대 Picker Input 영역 확인");
                 if (result != 0)
                     return result;
 
@@ -757,6 +833,7 @@ namespace QMC.CDT320.Sequencing
                     inputVisionToPickerX +
                     ResolvePickerAlignOffsetX(_currentPickerIndex) +
                     _visionOffset.DeltaX;
+                _targetPickerY = GetPickerTeachingPosition(PickerAxis.PickerY, "PickPosition");
                 _targetPickerT = GetPickerTeachingPosition(GetPickerTAxis(_currentPickerIndex), "PickPosition") +
                     ResolvePickerAlignOffsetT(_currentPickerIndex) +
                     _visionOffset.DeltaTheta;
@@ -767,6 +844,7 @@ namespace QMC.CDT320.Sequencing
                     ", pickerNo=" + _currentPickerNo +
                     ", stageY=" + _targetStageY +
                     ", pickerX=" + _targetPickerX +
+                    ", pickerY=" + _targetPickerY +
                     ", pickerT=" + _targetPickerT +
                     ", pickerZ=" + _targetPickerZ +
                     ", inputVisionX=" + _pickTarget.TargetX +
@@ -811,14 +889,72 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> MoveOppositePickerToAvoidForPickerMoveAsync(CancellationToken ct)
         {
-            int result = await MoveOppositePickerToAvoidAndVerifyAsync(
-                "opposite picker avoid before selected picker move",
-                ct).ConfigureAwait(false);
+            int result = VerifyOppositePickerNotInInputPickArea(
+                "Pick 위치 이동 전 상대 Picker Input 영역 확인");
             if (result != 0)
                 return result;
 
             CurrentStep = PickerPickUpStep.MovePickerXStageYPickerT;
             return 0;
+        }
+
+        private int VerifyOppositePickerNotInInputPickArea(string description)
+        {
+            try
+            {
+                if (Side == PickerSequenceSide.Front)
+                {
+                    if (RearPicker == null)
+                    {
+                        WriteLog("PickerPickUpSequence",
+                            Name + " 상대 Picker Input 영역 확인 생략. RearPickerUnit 없음. description=" +
+                            description + " - Check");
+                        return 0;
+                    }
+
+                    for (int pickerNo = 1; pickerNo <= 4; pickerNo++)
+                    {
+                        if (!RearPicker.IsRearPickerInDiePickPosition(pickerNo))
+                            continue;
+
+                        return Fail("PICKER-OPPOSITE-INPUT-ZONE", "RearPickerUnit",
+                            description + " 실패. RearPicker가 Input Pick 영역에 있습니다. " +
+                            "RearPicker를 먼저 Input 영역 밖으로 이동해야 합니다. pickerNo=" + pickerNo);
+                    }
+                }
+                else
+                {
+                    if (FrontPicker == null)
+                    {
+                        WriteLog("PickerPickUpSequence",
+                            Name + " 상대 Picker Input 영역 확인 생략. FrontPickerUnit 없음. description=" +
+                            description + " - Check");
+                        return 0;
+                    }
+
+                    for (int pickerNo = 1; pickerNo <= 4; pickerNo++)
+                    {
+                        if (!FrontPicker.IsFrontPickerInDiePickPosition(pickerNo))
+                            continue;
+
+                        return Fail("PICKER-OPPOSITE-INPUT-ZONE", "FrontPickerUnit",
+                            description + " 실패. FrontPicker가 Input Pick 영역에 있습니다. " +
+                            "FrontPicker를 먼저 Input 영역 밖으로 이동해야 합니다. pickerNo=" + pickerNo);
+                    }
+                }
+
+                WriteLog("PickerPickUpSequence",
+                    Name + " 상대 Picker Input 영역 확인 완료. description=" + description + " - Ok");
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-OPPOSITE-INPUT-ZONE-EX", Name,
+                    description + " 중 예외 발생: " + ex.Message);
+            }
+            finally
+            {
+            }
         }
 
         private async Task<int> MovePickerXStageYPickerTAsync(CancellationToken ct)
@@ -866,10 +1002,23 @@ namespace QMC.CDT320.Sequencing
                 if (finalCheck != 0)
                     return finalCheck;
 
+                result = await EnsurePickerYAtAvoidBeforePickMoveAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
                 result = await MovePickerAxisAndVerifyAsync(
                     PickerAxis.PickerX,
                     _targetPickerX,
                     "pick corrected PickerX",
+                    ct,
+                    targetName).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await MovePickerAxisAndVerifyAsync(
+                    PickerAxis.PickerY,
+                    _targetPickerY,
+                    "pick PickerY teaching position",
                     ct,
                     targetName).ConfigureAwait(false);
                 if (result != 0)
@@ -894,6 +1043,39 @@ namespace QMC.CDT320.Sequencing
             catch (Exception ex)
             {
                 return Fail("PICKER-PICKUP-XYT-MOVE-EX", Name, "Pick XYT move failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> EnsurePickerYAtAvoidBeforePickMoveAsync(CancellationToken ct)
+        {
+            try
+            {
+                double avoid = GetPickerTeachingPosition(PickerAxis.PickerY, "AvoidPosition");
+                if (IsPickerAxisAlreadyInPosition(PickerAxis.PickerY, avoid))
+                    return 0;
+
+                int result = await MovePickerAxisAndVerifyAsync(
+                    PickerAxis.PickerY,
+                    avoid,
+                    "pick picker Y avoid before X/T",
+                    ct,
+                    "AvoidPosition;PickerPhase=SafeY").ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-PICKUP-Y-AVOID-EX", Name,
+                    "PickUp 전 PickerY Avoid 이동 중 예외 발생: " + ex.Message);
             }
             finally
             {
@@ -935,6 +1117,10 @@ namespace QMC.CDT320.Sequencing
                 return result;
 
             result = CheckPickerAxisInPosition(PickerAxis.PickerX, _targetPickerX, "pick corrected PickerX");
+            if (result != 0)
+                return result;
+
+            result = CheckPickerAxisInPosition(PickerAxis.PickerY, _targetPickerY, "pick PickerY teaching position");
             if (result != 0)
                 return result;
 
@@ -1081,6 +1267,7 @@ namespace QMC.CDT320.Sequencing
             _visionOffset = item != null ? item.VisionOffset : null;
             _targetStageY = item != null ? item.TargetStageY : 0.0;
             _targetPickerX = item != null ? item.TargetPickerX : 0.0;
+            _targetPickerY = item != null ? item.TargetPickerY : 0.0;
             _targetPickerT = item != null ? item.TargetPickerT : 0.0;
             _targetPickerZ = item != null ? item.TargetPickerZ : 0.0;
             _diePicked = item != null && item.DiePicked;
@@ -1098,6 +1285,7 @@ namespace QMC.CDT320.Sequencing
             _currentBatchItem.VisionOffset = _visionOffset;
             _currentBatchItem.TargetStageY = _targetStageY;
             _currentBatchItem.TargetPickerX = _targetPickerX;
+            _currentBatchItem.TargetPickerY = _targetPickerY;
             _currentBatchItem.TargetPickerT = _targetPickerT;
             _currentBatchItem.TargetPickerZ = _targetPickerZ;
             _currentBatchItem.DiePicked = _diePicked || _currentBatchItem.DiePicked;
@@ -1113,6 +1301,7 @@ namespace QMC.CDT320.Sequencing
             _visionOffset = null;
             _targetStageY = 0.0;
             _targetPickerX = 0.0;
+            _targetPickerY = 0.0;
             _targetPickerT = 0.0;
             _targetPickerZ = 0.0;
             _diePicked = false;
@@ -1498,8 +1687,10 @@ namespace QMC.CDT320.Sequencing
             {
                 ct.ThrowIfCancellationRequested();
 
-                AxisMoveWaitResult waitResult = await AwaitStepWithCancellationAsync(
-                    stage.WaitInputStageAxisInPositionResult(axis, target, ResolveTimeout()),
+                AxisMoveWaitResult waitResult = await stage.WaitInputStageAxisInPositionResult(
+                    axis,
+                    target,
+                    ResolveTimeout(),
                     ct).ConfigureAwait(false);
 
                 if (waitResult == null || !waitResult.Success)
@@ -1656,12 +1847,17 @@ namespace QMC.CDT320.Sequencing
 
         private static async Task<TResult> AwaitStepWithCancellationAsync<TResult>(Task<TResult> task, CancellationToken ct)
         {
-            Task cancelTask = Task.Delay(Timeout.Infinite, ct);
-            Task completed = await Task.WhenAny(task, cancelTask).ConfigureAwait(false);
-            if (completed == cancelTask)
-                ct.ThrowIfCancellationRequested();
-
-            return await task.ConfigureAwait(false);
+            try
+            {
+                return await SequenceAwaiter.AwaitAsync(task, default(TResult), ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            finally
+            {
+            }
         }
 
         private void ReleaseInputReservationIfNeeded()

@@ -63,7 +63,7 @@ namespace QMC.CDT320.Sequencing
                         return MoveMappingStartPositionAsync(InputCassetteMappingStep.ScanSlots, ct);
                     // 슬롯 스캔
                     case InputCassetteMappingStep.ScanSlots:
-                        return ScanSlotsAsync(InputCassetteMappingStep.BuildWaferInfo);
+                        return ScanSlotsAsync(InputCassetteMappingStep.BuildWaferInfo, ct);
                     // 웨이퍼 정보 생성
                     case InputCassetteMappingStep.BuildWaferInfo:
                         return Task.FromResult(BuildWaferInfo(InputCassetteMappingStep.MoveFirstWaferSlot));

@@ -68,6 +68,9 @@ namespace QMC.CDT320.Interlocks
                 if (!IsInputStageYAtLoadOrUnload(stage))
                     return MotionGuardRuleHelpers.Block("InputFeederY", "InputStage StageY must be at Loading or Unloading position.", out reason);
 
+                if (!IsInputStageTAtLoadOrUnload(stage))
+                    return MotionGuardRuleHelpers.Block("InputFeederY", "InputStage StageT must be at Loading or Unloading position.", out reason);
+
                 if (!IsExpanderZAtLoadOrUnload(stage))
                     return MotionGuardRuleHelpers.Block("InputFeederY", "InputStage ExpanderZ must be at Loading or Unloading position.", out reason);
 
@@ -122,23 +125,25 @@ namespace QMC.CDT320.Interlocks
                 }
 
                 string axisReason;
-                if (!IsInputVisionXHomeReadyForInputFeederHome(machine.InputStageUnit, out axisReason))
-                    return MotionGuardRuleHelpers.Block(
-                        "InputFeederY",
-                        "InputFeederY HOME blocked. InputVisionX must be not homed yet or at Home position. " + axisReason,
-                        out reason);
 
-                if (!IsFrontPickerXHomeReadyForInputFeederHome(machine.PickerFrontUnit, out axisReason))
-                    return MotionGuardRuleHelpers.Block(
-                        "InputFeederY",
-                        "InputFeederY HOME blocked. FrontPickerX must be not homed yet or at Home position. " + axisReason,
-                        out reason);
+                // 아래 조건이 어떻게 되지? 지금 Home Step에서 피더가 먼저 잡고 픽커가 홈 잡는데? 
+                //if (!IsInputVisionXHomeReadyForInputFeederHome(machine.InputStageUnit, out axisReason))
+                //    return MotionGuardRuleHelpers.Block(
+                //        "InputFeederY",
+                //        "InputFeederY HOME blocked. InputVisionX must be not homed yet or at Home position. " + axisReason,
+                //        out reason);
 
-                if (!IsRearPickerXHomeReadyForInputFeederHome(machine.PickerRearUnit, out axisReason))
-                    return MotionGuardRuleHelpers.Block(
-                        "InputFeederY",
-                        "InputFeederY HOME blocked. RearPickerX must be not homed yet or at Home position. " + axisReason,
-                        out reason);
+                //if (!IsFrontPickerXHomeReadyForInputFeederHome(machine.PickerFrontUnit, out axisReason))
+                //    return MotionGuardRuleHelpers.Block(
+                //        "InputFeederY",
+                //        "InputFeederY HOME blocked. FrontPickerX must be not homed yet or at Home position. " + axisReason,
+                //        out reason);
+
+                //if (!IsRearPickerXHomeReadyForInputFeederHome(machine.PickerRearUnit, out axisReason))
+                //    return MotionGuardRuleHelpers.Block(
+                //        "InputFeederY",
+                //        "InputFeederY HOME blocked. RearPickerX must be not homed yet or at Home position. " + axisReason,
+                //        out reason);
 
                 InputFeederUnit feeder = machine.InputFeederUnit;
                 if (feeder == null)
@@ -387,6 +392,17 @@ namespace QMC.CDT320.Interlocks
             return (waferY != null && IsAt(stage.StageY, waferY.ReadyPosition))
                    || (waferY != null && IsAt(stage.StageY, waferY.LoadPosition))
                    || (waferY != null && IsAt(stage.StageY, waferY.UnloadPosition));
+        }
+
+        private static bool IsInputStageTAtLoadOrUnload(InputStageUnit stage)
+        {
+            if (stage == null || stage.StageT == null)
+                return true;
+
+            StageAxisPositions waferT = stage.Recipe != null ? stage.Recipe.WaferT : null;
+            return (waferT != null && IsAt(stage.StageT, waferT.ReadyPosition))
+                   || (waferT != null && IsAt(stage.StageT, waferT.LoadPosition))
+                   || (waferT != null && IsAt(stage.StageT, waferT.UnloadPosition));
         }
 
         private static bool IsExpanderZAtLoadOrUnload(InputStageUnit stage)

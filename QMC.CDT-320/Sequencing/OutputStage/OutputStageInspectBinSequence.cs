@@ -91,9 +91,7 @@ namespace QMC.CDT320.Sequencing
                 if (Stage.Tpu == null)
                     return Fail("OUT-STAGE-TPU-MISSING", Stage.Name, "TPU interface is not available.");
 
-                bool done = await AwaitStepWithCancellationAsync(
-                    Stage.Tpu.WaitPlaceDoneAsync(ResolveTimeout()),
-                    ct).ConfigureAwait(false);
+                bool done = await Stage.Tpu.WaitPlaceDoneAsync(ResolveTimeout(), ct).ConfigureAwait(false);
                 if (!done)
                     return Fail("OUT-STAGE-TPU-PLACE-DONE", Stage.Name, "TPU place done timeout.");
 

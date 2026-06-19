@@ -166,13 +166,14 @@ namespace QMC.CDT320.Sequencing
             if (Cassette == null)
                 return Fail("OUT-FEEDER-CST-MISSING", "OutputCassette", "Output cassette unit is not available.");
 
-            bool prepared = await AwaitStepWithCancellationAsync(
+            int result = await AwaitStepWithCancellationAsync(
                 Cassette.PrepareBinCassetteForFeederLoad(ResolveOutputTargetCassette(), Options.SlotIndex, ResolveTimeout(), Options.FineMove),
                 ct).ConfigureAwait(false);
-            if (!prepared)
+            if (result != 0)
                 return Fail("OUT-FEEDER-CST-SLOT-MOVE", Cassette.Name,
                     "Output cassette slot move failed before feeder load. role=" + ResolveOutputCassetteRole() +
-                    ", slot=" + Options.SlotIndex + ", target=" + ResolveOutputTargetCassette());
+                    ", slot=" + Options.SlotIndex + ", target=" + ResolveOutputTargetCassette() +
+                    ", result=" + result);
 
             CurrentStep = OutputFeederLoadFromCassetteStep.PrepareFeederUnclamp;
             return 0;
@@ -184,7 +185,7 @@ namespace QMC.CDT320.Sequencing
 
             if (!Feeder.IsFeederUnclamped())
             {
-                int unclamp = await AwaitStepWithCancellationAsync(Feeder.SetFeederClampAsync(false, ResolveTimeout()), ct).ConfigureAwait(false);
+                int unclamp = await Feeder.SetFeederClampAsync(false, ResolveTimeout(), ct).ConfigureAwait(false);
                 if (unclamp != 0)
                     return Fail("OUT-FEEDER-PREP-UNCLAMP", Feeder.Name, "Output feeder unclamp preparation command failed. result=" + unclamp + ", " + Feeder.DescribeFeederCylinderState());
 
@@ -202,7 +203,7 @@ namespace QMC.CDT320.Sequencing
 
             if (!Feeder.IsFeederDown())
             {
-                int down = await AwaitStepWithCancellationAsync(Feeder.SetFeederUpDownAsync(false, ResolveTimeout()), ct).ConfigureAwait(false);
+                int down = await Feeder.SetFeederUpDownAsync(false, ResolveTimeout(), ct).ConfigureAwait(false);
                 if (down != 0)
                     return Fail("OUT-FEEDER-PREP-DOWN", Feeder.Name, "Output feeder lift down preparation command failed. result=" + down + ", " + Feeder.DescribeFeederCylinderState());
 
@@ -243,7 +244,7 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> ClampFeederBinAsync(CancellationToken ct)
         {
-            int result = await AwaitStepWithCancellationAsync(Feeder.SetFeederClampAsync(true, ResolveTimeout()), ct).ConfigureAwait(false);
+            int result = await Feeder.SetFeederClampAsync(true, ResolveTimeout(), ct).ConfigureAwait(false);
             if (result != 0)
                 return Fail("OUT-FEEDER-CLAMP", Feeder.Name, "Output feeder clamp failed. result=" + result + ", " + Feeder.DescribeFeederCylinderState());
 
@@ -276,7 +277,7 @@ namespace QMC.CDT320.Sequencing
 
             if (!IsHardwareBypass())
             {
-                bool detected = await AwaitStepWithCancellationAsync(Feeder.WaitFeederRingState(true, ResolveTimeout()), ct).ConfigureAwait(false);
+                bool detected = await Feeder.WaitFeederRingState(true, ResolveTimeout(), ct).ConfigureAwait(false);
                 if (!detected)
                     return Fail("OUT-FEEDER-RING", Feeder.Name, "Output feeder ring was not detected after cassette load. waferId=" + wafer.WaferId);
             }

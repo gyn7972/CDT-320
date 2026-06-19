@@ -19,10 +19,32 @@ namespace QMC.CDT_320.Ui.Security
             if (root == null) return;
             foreach (Control c in Enumerate(root))
             {
-                UserLevel? req = ExtractLevel(c.Tag as string);
+                string tag = c.Tag as string;
+                if (string.IsNullOrEmpty(tag)) continue;
+
+                // 1순위: i18n 키를 권한키로 사용해 매트릭스(AccessPolicy) 조회.
+                string permKey = ExtractI18n(tag);
+                if (permKey != null && AccessPolicy.IsKnown(permKey))
+                {
+                    c.Enabled = AccessPolicy.Can(permKey);
+                    continue;
+                }
+
+                // 2순위(폴백): "level:Xxx" 누적 기준.
+                UserLevel? req = ExtractLevel(tag);
                 if (req == null) continue;
                 c.Enabled = UserSession.Has(req.Value);
             }
+        }
+
+        private static string ExtractI18n(string tag)
+        {
+            foreach (var part in tag.Split(';'))
+            {
+                var p = part.Trim();
+                if (p.StartsWith("i18n:")) return p.Substring(5);
+            }
+            return null;
         }
 
         private static UserLevel? ExtractLevel(string tag)

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using QMC.Common;
 using QMC.CDT320.DieMaps;
 using QMC.CDT320.Recipes;
@@ -12,6 +13,16 @@ namespace QMC.CDT320.Materials
     {
         public static event Action<MaterialSnapshot> StateChanged;
         private static readonly object _stateSync = new object();
+        private static readonly object _saveRequestSync = new object();
+        private static readonly object _saveIoSync = new object();
+        private static readonly object _stateChangedSync = new object();
+        private const int MaterialSaveQuietMs = 300;
+        private const int MaterialStateChangedQuietMs = 200;
+        private static bool _saveWorkerRunning;
+        private static bool _saveRequested;
+        private static string _pendingSaveReason = "";
+        private static bool _stateChangedQueued;
+        private static DateTime _lastStateChangedAt = DateTime.MinValue;
 
         public static MaterialSnapshot State => MaterialStorage.State;
 
@@ -1200,6 +1211,7 @@ namespace QMC.CDT320.Materials
                     if (ordered == null || ordered.Count == 0)
                         return null;
 
+                    var skipSummary = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
                     for (int i = 0; i < ordered.Count; i++)
                     {
                         DieMapEntry entry = ordered[i];
@@ -1215,11 +1227,7 @@ namespace QMC.CDT320.Materials
                         string candidateReason;
                         if (!CanUseInputPickCandidate(entry, die, out candidateReason))
                         {
-                            Log.Write("Main", "SYSTEM", "MaterialStateService",
-                                "Input pick target skipped. die=" + die.DieId +
-                                ", sequence=" + entry.SequenceNo +
-                                ", grid=(" + entry.DieMapX + "," + entry.DieMapY + ")" +
-                                ", reason=" + candidateReason + " - Check");
+                            CountPickTargetSkip(skipSummary, candidateReason);
                             continue;
                         }
 
@@ -1254,6 +1262,7 @@ namespace QMC.CDT320.Materials
                         return target;
                     }
 
+                    LogInputPickTargetSkipSummary(skipSummary);
                     return null;
                 }
             }
@@ -1348,6 +1357,47 @@ namespace QMC.CDT320.Materials
                 Log.Write("Main", "SYSTEM", "MaterialStateService",
                     "Input pick target ready check failed: " + ex.Message + " - Failed");
                 return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private static void CountPickTargetSkip(Dictionary<string, int> summary, string reason)
+        {
+            try
+            {
+                if (summary == null)
+                    return;
+
+                string key = string.IsNullOrWhiteSpace(reason) ? "unknown" : reason;
+                int count;
+                summary.TryGetValue(key, out count);
+                summary[key] = count + 1;
+            }
+            catch
+            {
+            }
+            finally
+            {
+            }
+        }
+
+        private static void LogInputPickTargetSkipSummary(Dictionary<string, int> summary)
+        {
+            try
+            {
+                if (summary == null || summary.Count == 0)
+                    return;
+
+                string message = string.Join("; ", summary.Select(pair => pair.Key + "=" + pair.Value));
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "Input pick target reserve skipped. usable die was not found. summary=" + message + " - Check");
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateService",
+                    "Input pick target skip summary log failed: " + ex.Message + " - Failed");
             }
             finally
             {
@@ -2176,13 +2226,124 @@ namespace QMC.CDT320.Materials
 
         public static bool TryNotifyAndSave(string reason)
         {
+            try
+            {
+                RequestStateChanged();
+                RequestBackgroundSave(reason);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateSave", "Material state save request failed: " + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        public static bool TryFlushPendingSave(string reason)
+        {
+            try
+            {
+                lock (_saveRequestSync)
+                {
+                    _saveRequested = false;
+                    _pendingSaveReason = reason ?? "";
+                }
+
+                RequestStateChanged();
+                return SaveCurrentSnapshot(reason);
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateSave", "Material state flush failed: " + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private static void RequestBackgroundSave(string reason)
+        {
+            try
+            {
+                lock (_saveRequestSync)
+                {
+                    _pendingSaveReason = reason ?? "";
+                    _saveRequested = true;
+
+                    if (_saveWorkerRunning)
+                        return;
+
+                    _saveWorkerRunning = true;
+                    Task.Run(() => MaterialSaveWorkerAsync());
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateSave", "Material save worker start failed: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        private static async Task MaterialSaveWorkerAsync()
+        {
+            try
+            {
+                while (true)
+                {
+                    await Task.Delay(MaterialSaveQuietMs).ConfigureAwait(false);
+
+                    string reason;
+                    lock (_saveRequestSync)
+                    {
+                        if (!_saveRequested)
+                        {
+                            _saveWorkerRunning = false;
+                            return;
+                        }
+
+                        reason = _pendingSaveReason;
+                        _saveRequested = false;
+                    }
+
+                    SaveCurrentSnapshot(reason);
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateSave", "Material save worker failed: " + ex.Message + " - Failed");
+                lock (_saveRequestSync)
+                {
+                    _saveWorkerRunning = false;
+                }
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool SaveCurrentSnapshot(string reason)
+        {
             bool saved = false;
             try
             {
-                State.SaveReason = reason ?? "";
-                State.SavedAt = DateTime.Now;
-                NormalizeSnapshotHeader(State);
-                saved = MaterialSnapshotStore.Save(State);
+                lock (_stateSync)
+                {
+                    State.SaveReason = reason ?? "";
+                    State.SavedAt = DateTime.Now;
+                    NormalizeSnapshotHeader(State);
+                }
+
+                lock (_saveIoSync)
+                {
+                    saved = MaterialSnapshotStore.Save(State);
+                }
+
                 if (!saved)
                 {
                     int waferCount = State.Wafers != null ? State.Wafers.Count : 0;
@@ -2196,13 +2357,65 @@ namespace QMC.CDT320.Materials
                         ", file=" + MaterialSnapshotStore.SnapshotPath + " - Failed");
                 }
 
-                try { StateChanged?.Invoke(State); } catch { }
                 return saved;
             }
             catch (Exception ex)
             {
                 Log.Write("Main", "SYSTEM", "MaterialStateSave", "Material state save failed: " + ex.Message + " - Failed");
                 return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private static void RequestStateChanged()
+        {
+            try
+            {
+                int delayMs;
+                lock (_stateChangedSync)
+                {
+                    if (_stateChangedQueued)
+                        return;
+
+                    TimeSpan elapsed = DateTime.Now - _lastStateChangedAt;
+                    delayMs = elapsed.TotalMilliseconds >= MaterialStateChangedQuietMs
+                        ? 0
+                        : MaterialStateChangedQuietMs - (int)elapsed.TotalMilliseconds;
+                    _stateChangedQueued = true;
+                }
+
+                Task.Run(async () =>
+                {
+                    try
+                    {
+                        if (delayMs > 0)
+                            await Task.Delay(delayMs).ConfigureAwait(false);
+
+                        Action<MaterialSnapshot> handler = StateChanged;
+                        if (handler != null)
+                            handler(State);
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Write("Main", "SYSTEM", "MaterialStateChanged",
+                            "Material state changed event failed: " + ex.Message + " - Failed");
+                    }
+                    finally
+                    {
+                        lock (_stateChangedSync)
+                        {
+                            _lastStateChangedAt = DateTime.Now;
+                            _stateChangedQueued = false;
+                        }
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "MaterialStateChanged",
+                    "Material state changed event queue failed: " + ex.Message + " - Failed");
             }
             finally
             {

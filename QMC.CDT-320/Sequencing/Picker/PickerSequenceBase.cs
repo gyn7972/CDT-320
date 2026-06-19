@@ -549,6 +549,9 @@ namespace QMC.CDT320.Sequencing
             {
                 ct.ThrowIfCancellationRequested();
 
+                if (Options != null && Options.RunMode == SequenceRunMode.Auto)
+                    return await WaitOppositePickerReadyForAutoAsync(description, ct).ConfigureAwait(false);
+
                 bool fine = Options != null && Options.FineMove;
 
                 if (Side == PickerSequenceSide.Front)
@@ -566,14 +569,14 @@ namespace QMC.CDT320.Sequencing
                         if (result != 0)
                         {
                             return Fail("PICKER-OPPOSITE-AVOID", "RearPickerUnit",
-                                description + " failed. result=" + result);
+                                description + " 실패. RearPicker 어보이드 이동 명령 실패. result=" + result);
                         }
                     }
 
                     if (!RearPicker.IsRearPickerInAvoidPosition())
                     {
                         return Fail("PICKER-OPPOSITE-AVOID-CHECK", "RearPickerUnit",
-                            description + " final position check failed. RearPicker is not at AvoidPosition.");
+                            description + " 최종 위치 확인 실패. RearPicker가 Avoid 위치가 아닙니다.");
                     }
 
                     return 0;
@@ -592,14 +595,14 @@ namespace QMC.CDT320.Sequencing
                     if (result != 0)
                     {
                         return Fail("PICKER-OPPOSITE-AVOID", "FrontPickerUnit",
-                            description + " failed. result=" + result);
+                            description + " 실패. FrontPicker 어보이드 이동 명령 실패. result=" + result);
                     }
                 }
 
                 if (!FrontPicker.IsFrontPickerInAvoidPosition())
                 {
                     return Fail("PICKER-OPPOSITE-AVOID-CHECK", "FrontPickerUnit",
-                        description + " final position check failed. FrontPicker is not at AvoidPosition.");
+                        description + " 최종 위치 확인 실패. FrontPicker가 Avoid 위치가 아닙니다.");
                 }
 
                 return 0;
@@ -611,7 +614,119 @@ namespace QMC.CDT320.Sequencing
             catch (Exception ex)
             {
                 return Fail("PICKER-OPPOSITE-AVOID-EX", Name,
-                    description + " exception: " + ex.Message);
+                    description + " 예외 발생: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> WaitOppositePickerReadyForAutoAsync(string description, CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                string oppositeName = Side == PickerSequenceSide.Front ? "RearPicker" : "FrontPicker";
+                bool loggedWait = false;
+
+                while (true)
+                {
+                    ct.ThrowIfCancellationRequested();
+
+                    string movingAxes;
+                    if (IsOppositePickerMoving(out movingAxes))
+                    {
+                        if (!loggedWait)
+                        {
+                            WriteLog("PickerOppositeWait",
+                                Name + " auto wait. Opposite picker is moving. description=" + description +
+                                ", opposite=" + oppositeName +
+                                ", movingAxes=" + movingAxes + " - Check");
+                            loggedWait = true;
+                        }
+
+                        await Task.Delay(50, ct).ConfigureAwait(false);
+                        continue;
+                    }
+
+                    PickerWorkZone oppositeZone;
+                    string oppositeOwner;
+                    bool oppositeWorkActive = PickerZoneInterlockRules.TryGetPickerWorkArea(
+                        Side != PickerSequenceSide.Front,
+                        out oppositeZone,
+                        out oppositeOwner);
+
+                    if (oppositeWorkActive &&
+                        (oppositeZone == PickerWorkZone.Bottom || oppositeZone == PickerWorkZone.Side))
+                    {
+                        if (!loggedWait)
+                        {
+                            WriteLog("PickerOppositeWait",
+                                Name + " auto wait. Opposite picker is using inspection area. description=" + description +
+                                ", opposite=" + oppositeName +
+                                ", zone=" + oppositeZone +
+                                ", owner=" + oppositeOwner + " - Check");
+                            loggedWait = true;
+                        }
+
+                        await Task.Delay(50, ct).ConfigureAwait(false);
+                        continue;
+                    }
+
+                    if (loggedWait)
+                    {
+                        WriteLog("PickerOppositeWait",
+                            Name + " auto wait complete. Opposite picker is ready. description=" + description +
+                            ", opposite=" + oppositeName + " - Ok");
+                    }
+
+                    return 0;
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-OPPOSITE-WAIT-EX", Name,
+                    description + " 자동 대기 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private bool IsOppositePickerMoving(out string movingAxes)
+        {
+            movingAxes = string.Empty;
+
+            try
+            {
+                IReadOnlyDictionary<PickerAxis, BaseAxis> axes = null;
+                if (Side == PickerSequenceSide.Front)
+                    axes = RearPicker != null ? RearPicker.Axes : null;
+                else
+                    axes = FrontPicker != null ? FrontPicker.Axes : null;
+
+                if (axes == null)
+                    return false;
+
+                var moving = new List<string>();
+                foreach (KeyValuePair<PickerAxis, BaseAxis> pair in axes)
+                {
+                    if (pair.Value != null && pair.Value.IsMoving)
+                        moving.Add(pair.Value.Name);
+                }
+
+                movingAxes = moving.Count > 0 ? string.Join(",", moving.ToArray()) : string.Empty;
+                return moving.Count > 0;
+            }
+            catch (Exception ex)
+            {
+                movingAxes = "opposite picker moving check failed: " + ex.Message;
+                return true;
             }
             finally
             {
@@ -692,39 +807,69 @@ namespace QMC.CDT320.Sequencing
 
         protected async Task PickerBlowAsync(int pickerNo, CancellationToken ct)
         {
-            int waitMs = 100;
-            if (Side == PickerSequenceSide.Front && FrontPicker != null)
-                waitMs = FrontPicker.ResolvePickerBlowTimeMs(pickerNo);
-            if (Side == PickerSequenceSide.Rear && RearPicker != null)
-                waitMs = RearPicker.ResolvePickerBlowTimeMs(pickerNo);
+            try
+            {
+                ct.ThrowIfCancellationRequested();
 
-            if (Side == PickerSequenceSide.Front)
-                await FrontPicker.PickerBlowOn(pickerNo, waitMs).ConfigureAwait(false);
-            else
-                await RearPicker.PickerBlowOn(pickerNo, waitMs).ConfigureAwait(false);
+                int waitMs = 100;
+                if (Side == PickerSequenceSide.Front && FrontPicker != null)
+                    waitMs = FrontPicker.ResolvePickerBlowTimeMs(pickerNo);
+                if (Side == PickerSequenceSide.Rear && RearPicker != null)
+                    waitMs = RearPicker.ResolvePickerBlowTimeMs(pickerNo);
 
-            ct.ThrowIfCancellationRequested();
+                if (Side == PickerSequenceSide.Front)
+                    await FrontPicker.PickerBlowOn(pickerNo, waitMs, ct).ConfigureAwait(false);
+                else
+                    await RearPicker.PickerBlowOn(pickerNo, waitMs, ct).ConfigureAwait(false);
+
+                ct.ThrowIfCancellationRequested();
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            finally
+            {
+            }
         }
 
         protected Task<int> MovePickerAxisCommandAsync(PickerAxis axis, double target, string targetName = null)
         {
             bool fine = Options != null && Options.FineMove;
             if (Side == PickerSequenceSide.Front)
-                return FrontPicker.MovePickerAxis(axis, target, fine, targetName);
-            return RearPicker.MovePickerAxis(axis, target, fine, targetName);
+                return FrontPicker.MovePickerAxisCommand(axis, target, fine, targetName);
+            return RearPicker.MovePickerAxisCommand(axis, target, fine, targetName);
         }
 
         protected async Task<AxisMoveWaitResult> WaitPickerAxisMoveDoneAsync(PickerAxis axis, double target, int timeoutMs, CancellationToken ct)
         {
-            Task<AxisMoveWaitResult> waitTask = Side == PickerSequenceSide.Front
-                ? FrontPicker.WaitPickerAxisMoveDoneInPosition(axis, target, timeoutMs)
-                : RearPicker.WaitPickerAxisMoveDoneInPosition(axis, target, timeoutMs);
-
-            Task cancelTask = Task.Delay(Timeout.Infinite, ct);
-            Task completed = await Task.WhenAny(waitTask, cancelTask).ConfigureAwait(false);
-            if (completed == cancelTask)
+            try
+            {
                 ct.ThrowIfCancellationRequested();
-            return await waitTask.ConfigureAwait(false);
+
+                if (Side == PickerSequenceSide.Front)
+                    return await FrontPicker.WaitPickerAxisMoveDoneInPosition(axis, target, timeoutMs, ct).ConfigureAwait(false);
+
+                return await RearPicker.WaitPickerAxisMoveDoneInPosition(axis, target, timeoutMs, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PickerMove",
+                    Name + " picker axis wait exception. axis=" + axis +
+                    ", target=" + target +
+                    ", error=" + ex.Message + " - Failed");
+                return new AxisMoveWaitResult(
+                    AxisMoveWaitFailure.Timeout,
+                    "Picker axis wait exception.",
+                    "axis=" + axis + ", target=" + target + ", error=" + ex.Message);
+            }
+            finally
+            {
+            }
         }
 
         protected static string ResolveAxisMoveWaitAlarmCode(string prefix, AxisMoveWaitResult waitResult)
@@ -850,6 +995,12 @@ namespace QMC.CDT320.Sequencing
                        "InputVisionX, OutputVisionX, FrontPickerX, RearPickerX 위치를 확인하세요. 원문=" + failure;
             }
 
+            if (failure.IndexOf("SharedRailX real-time clearance guard stopped motion", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return "상세 원인=공유 X 레일 실시간 안전거리 인터락입니다. 이동 시작/목표 위치가 가능해 보여도 이동 중 다른 X축과 안전거리가 부족해 정지했습니다. " +
+                       "동시에 움직이는 OutputVisionX/InputVisionX 또는 반대 PickerX 시퀀스 점유 상태를 확인하세요. 원문=" + failure;
+            }
+
             if (failure.IndexOf("Interlock blocked", StringComparison.OrdinalIgnoreCase) >= 0)
                 return "상세 원인=인터락 차단입니다. 원문=" + failure;
 
@@ -946,6 +1097,7 @@ namespace QMC.CDT320.Sequencing
         protected double ResolvePickerZoneX(string positionArrayName, int pickerIndex)
         {
             return GetPickerTeachingPosition(PickerAxis.PickerX, ResolveZonePositionName(positionArrayName)) +
+                   ResolvePickerPitchXOffset(pickerIndex) +
                    ResolvePickerAlignOffsetX(pickerIndex);
         }
 
@@ -1008,6 +1160,20 @@ namespace QMC.CDT320.Sequencing
         {
             PickerAlignOffset offset = ResolvePickerAlignOffset(index);
             return offset != null ? offset.AlignOffsetX : 0.0;
+        }
+
+        protected double ResolvePickerPitchXOffset(int index)
+        {
+            if (index <= 0)
+                return 0.0;
+
+            double pitch = 0.0;
+            if (Side == PickerSequenceSide.Front && FrontPicker != null && FrontPicker.Setup != null)
+                pitch = FrontPicker.Setup.PickerPitchX;
+            else if (Side == PickerSequenceSide.Rear && RearPicker != null && RearPicker.Setup != null)
+                pitch = RearPicker.Setup.PickerPitchX;
+
+            return Math.Abs(pitch) * index;
         }
 
         protected double ResolvePickerAlignOffsetY(int index)
@@ -1256,12 +1422,72 @@ namespace QMC.CDT320.Sequencing
             string holder,
             CancellationToken ct)
         {
-            SequenceResourceLease lease = await Context.Resources
-                .AcquireAsync(resource, holder, ResolveResourceTimeout(), ct)
-                .ConfigureAwait(false);
-            if (lease == null)
-                Fail("PICKER-RESOURCE", holder, "Resource acquire failed. resource=" + resource);
-            return lease;
+            string safeHolder = string.IsNullOrWhiteSpace(holder) ? Name : holder;
+            try
+            {
+                if (Options == null || Options.RunMode != SequenceRunMode.Auto)
+                {
+                    SequenceResourceLease manualLease = await Context.Resources
+                        .AcquireAsync(resource, safeHolder, ResolveResourceTimeout(), ct)
+                        .ConfigureAwait(false);
+                    if (manualLease == null)
+                    {
+                        Fail("PICKER-RESOURCE", safeHolder,
+                            "리소스 점유 실패. resource=" + resource);
+                    }
+
+                    return manualLease;
+                }
+
+                bool waitLogged = false;
+                while (true)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    Context.StopIfCycleStopRequested(Name + ".AcquireResource:" + resource);
+
+                    SequenceResourceLease autoLease = await Context.Resources
+                        .AcquireAsync(resource, safeHolder, 200, ct, false)
+                        .ConfigureAwait(false);
+                    if (autoLease != null)
+                    {
+                        if (waitLogged)
+                        {
+                            Context.LogPublic("[SEQ] " + Name + " 리소스 대기 완료. resource=" +
+                                resource + ", holder=" + safeHolder);
+                        }
+
+                        return autoLease;
+                    }
+
+                    if (!waitLogged)
+                    {
+                        string currentHolder = Context.Resources.GetHolder(resource);
+                        Context.LogPublic("[SEQ] " + Name + " 리소스 사용 대기 중입니다. resource=" +
+                            resource + ", holder=" + safeHolder + ", current=" +
+                            (string.IsNullOrWhiteSpace(currentHolder) ? "-" : currentHolder));
+                        waitLogged = true;
+                    }
+
+                    await Task.Delay(100, ct).ConfigureAwait(false);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Fail("PICKER-RESOURCE", safeHolder,
+                    "리소스 점유 중 예외가 발생했습니다. resource=" + resource + ", error=" + ex.Message);
+                return null;
+            }
+            finally
+            {
+            }
         }
 
         protected int Fail(string alarmCode, string source, string message)

@@ -26,8 +26,8 @@ namespace QMC.CDT320.Sequencing
         private double _targetPickerT90;
         private double _targetPickerT180;
         private bool _inspectionYPositionReady;
-        private bool _sideZoneEntryReady;
         private SequenceResourceLease _inspectionAreaLease;
+        private SequenceResourceLease _outputPlaceAreaLease;
 
         public PickerSideInspectionSequence(MachineSequenceContext context, PickerSequenceSide side)
             : base(context, side, PickerSequenceKind.Inspect, side == PickerSequenceSide.Front ? "FrontPickerSideInspectionSequence" : "RearPickerSideInspectionSequence")
@@ -112,6 +112,10 @@ namespace QMC.CDT320.Sequencing
                 // 전체 피커 Z로 어보이드 이동
                 case PickerSideInspectionStep.MoveAllPickerZToAvoid:
                     return MoveAllPickerZToAvoidAsync(ct);
+
+                // Side 검사 진입 전 상대 피커 간섭 상태 확인
+                case PickerSideInspectionStep.MoveOppositePickerToAvoidBeforeInspection:
+                    return MoveOppositePickerToAvoidBeforeInspectionAsync(ct);
 
                 // 다음 피커 선택
                 case PickerSideInspectionStep.SelectNextPicker:
@@ -204,7 +208,6 @@ namespace QMC.CDT320.Sequencing
 
             _pickerCursor = 0;
             _inspectionYPositionReady = false;
-            _sideZoneEntryReady = false;
 
             if (_pickedPickerIndexes.Count == 0)
             {
@@ -219,18 +222,119 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<int> MoveAllPickerZToAvoidAsync(CancellationToken ct)
         {
-            if (_inspectionAreaLease == null)
+            try
             {
-                _inspectionAreaLease = await AcquireResourceAsync(SequenceResourceKind.InspectionArea, Name + ":Side", ct).ConfigureAwait(false);
-                if (_inspectionAreaLease == null)
-                    return -1;
+                ct.ThrowIfCancellationRequested();
+
+                int result = await AcquireInspectionResourcesAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                EnsurePickerWorkAreaReserved(PickerWorkZone.Side, "SideInspection");
+
+                result = await MoveAllPickerZToAvoidAndVerifyAsync("side inspection pre all picker Z avoid", ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                CurrentStep = PickerSideInspectionStep.MoveOppositePickerToAvoidBeforeInspection;
+                return 0;
             }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail(
+                    "PICKER-SIDE-RESOURCE-EX",
+                    Name,
+                    "사이드 검사 리소스 점유 또는 진입 준비 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
 
-            EnsurePickerWorkAreaReserved(PickerWorkZone.Side, "SideInspection");
+        private async Task<int> AcquireInspectionResourcesAsync(CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
 
-            int result = await MoveAllPickerZToAvoidAndVerifyAsync("side inspection pre all picker Z avoid", ct).ConfigureAwait(false);
-            if (result != 0)
-                return result;
+                if (_inspectionAreaLease == null)
+                {
+                    _inspectionAreaLease = await AcquireResourceAsync(
+                        SequenceResourceKind.InspectionArea,
+                        Name + ":Side",
+                        ct).ConfigureAwait(false);
+                    if (_inspectionAreaLease == null)
+                        return -1;
+                }
+
+                if (_outputPlaceAreaLease == null)
+                {
+                    _outputPlaceAreaLease = await AcquireResourceAsync(
+                        SequenceResourceKind.OutputPlaceArea,
+                        Name + ":SideSharedRailX",
+                        ct).ConfigureAwait(false);
+                    if (_outputPlaceAreaLease == null)
+                        return -1;
+                }
+
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail(
+                    "PICKER-SIDE-RESOURCE",
+                    Name,
+                    "사이드 검사 리소스 점유 실패. InspectionArea와 OutputPlaceArea를 확인하세요. error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> MoveOppositePickerToAvoidBeforeInspectionAsync(CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                int result = await MoveOppositePickerToAvoidAndVerifyAsync(
+                    "사이드 검사 진입 전 상대 Picker 상태 확인",
+                    ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                ct.ThrowIfCancellationRequested();
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail(
+                    "PICKER-SIDE-OPPOSITE-AVOID-EX",
+                    Name,
+                    "사이드 검사 진입 전 상대 Picker 상태 확인 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
 
             CurrentStep = PickerSideInspectionStep.SelectNextPicker;
             return 0;
@@ -270,22 +374,19 @@ namespace QMC.CDT320.Sequencing
 
             if (xPositionReady)
             {
-                _sideZoneEntryReady = true;
                 CurrentStep = _inspectionYPositionReady
                     ? PickerSideInspectionStep.MoveSideZ
                     : PickerSideInspectionStep.MoveSideYToInspection;
                 return 0;
             }
 
-            if (!_sideZoneEntryReady && !IsPickerYAtAvoidPosition())
+            if (!IsPickerYAtAvoidPosition())
             {
                 CurrentStep = PickerSideInspectionStep.MoveSideEntryYToAvoid;
                 return 0;
             }
 
-            CurrentStep = _inspectionYPositionReady
-                ? PickerSideInspectionStep.MoveSideXToInspection
-                : PickerSideInspectionStep.MoveSideYToInspection;
+            CurrentStep = PickerSideInspectionStep.MoveSideXToInspection;
             return 0;
         }
 
@@ -317,8 +418,6 @@ namespace QMC.CDT320.Sequencing
             if (result != 0)
                 return result;
 
-            _sideZoneEntryReady = true;
-
             if (_inspectionYPositionReady && IsPickerAxisInPosition(PickerAxis.PickerY, _targetPickerY))
             {
                 CurrentStep = PickerSideInspectionStep.MoveSideZ;
@@ -343,9 +442,14 @@ namespace QMC.CDT320.Sequencing
 
             _inspectionYPositionReady = true;
 
-            CurrentStep = IsPickerAxisInPosition(PickerAxis.PickerX, _targetPickerX)
-                ? PickerSideInspectionStep.MoveSideZ
-                : PickerSideInspectionStep.MoveSideXToInspection;
+            if (IsPickerAxisInPosition(PickerAxis.PickerX, _targetPickerX))
+            {
+                CurrentStep = PickerSideInspectionStep.MoveSideZ;
+                return 0;
+            }
+
+            _inspectionYPositionReady = false;
+            CurrentStep = PickerSideInspectionStep.MoveSideEntryYToAvoid;
             return 0;
         }
 
@@ -647,11 +751,11 @@ namespace QMC.CDT320.Sequencing
             SideVisionResult result;
             if (Side == PickerSequenceSide.Front)
             {
-                result = await FrontPicker.RequestSideInspectionAsync(_currentPickerNo, angleDeg, timeoutMs).ConfigureAwait(false);
+                result = await FrontPicker.RequestSideInspectionAsync(_currentPickerNo, angleDeg, timeoutMs, ct).ConfigureAwait(false);
             }
             else
             {
-                result = await RearPicker.RequestSideInspectionAsync(_currentPickerNo, angleDeg, timeoutMs).ConfigureAwait(false);
+                result = await RearPicker.RequestSideInspectionAsync(_currentPickerNo, angleDeg, timeoutMs, ct).ConfigureAwait(false);
             }
 
             if (result == null)
@@ -701,6 +805,12 @@ namespace QMC.CDT320.Sequencing
             try
             {
                 ReleasePickerWorkArea();
+
+                if (_outputPlaceAreaLease != null)
+                {
+                    _outputPlaceAreaLease.Dispose();
+                    _outputPlaceAreaLease = null;
+                }
 
                 if (_inspectionAreaLease == null)
                     return;

@@ -194,8 +194,10 @@ namespace QMC.CDT320.Sequencing
                 AlarmManager.Raise(AlarmSeverity.Warning, alarmCode, source, message);
                 Context.LogPublic("[OUTPUT-STAGE] FAIL " + alarmCode + " - " + message);
             }
-            catch
+            catch (Exception ex)
             {
+                WriteLog(source, "OutputStage 실패 처리 중 예외가 발생했습니다. alarmCode=" +
+                    alarmCode + ", message=" + ex.Message + " - Failed");
             }
             finally
             {
@@ -206,36 +208,55 @@ namespace QMC.CDT320.Sequencing
 
         protected async Task<int> MoveAxisAndVerifyAsync(BinStageAxis axis, double target, string description, CancellationToken ct)
         {
-            ct.ThrowIfCancellationRequested();
-            if (Stage != null && !Stage.HasStageAxis(axis))
+            try
             {
-                if (axis == BinStageAxis.NgBinZ)
+                ct.ThrowIfCancellationRequested();
+                if (Stage != null && !Stage.HasStageAxis(axis))
                 {
-                    WriteLog(Name, description + " skipped because NG stage has no Z axis. axis=" + axis + " - Ok");
-                    return 0;
+                    if (axis == BinStageAxis.NgBinZ)
+                    {
+                        WriteLog(Name, description + " skipped because NG stage has no Z axis. axis=" + axis + " - Ok");
+                        return 0;
+                    }
+
+                    return Fail("OUT-STAGE-AXIS-MISSING", Stage.Name,
+                        description + " axis does not exist. axis=" + axis);
                 }
 
-                return Fail("OUT-STAGE-AXIS-MISSING", Stage.Name,
-                    description + " axis does not exist. axis=" + axis);
+                int result = await AwaitStepWithCancellationAsync(Stage.MoveStageAxis(axis, target, Options.FineMove), ct).ConfigureAwait(false);
+                if (result != 0)
+                    return Fail("OUT-STAGE-MOVE", Stage.Name,
+                        description + " 이동 명령 실패. axis=" + axis + ", target=" + target +
+                        ", result=" + result + ". " + BuildAxisState(axis, target) + ". " +
+                        Stage.DescribeOutputStageInterlockState(Options.Side));
+
+                AxisMoveWaitResult waitResult = await Stage.WaitStageAxisMoveDoneInPosition(
+                    axis,
+                    target,
+                    ResolveTimeout(),
+                    ct).ConfigureAwait(false);
+                if (waitResult == null || !waitResult.Success)
+                    return Fail(ResolveAxisMoveWaitAlarmCode("OUT-STAGE-MOVE", waitResult), Stage.Name,
+                        description + " 이동 완료/위치 확인 실패. axis=" + axis + ", target=" + target +
+                        ". " + FormatAxisMoveWaitResult(waitResult, BuildAxisState(axis, target)));
+
+                ct.ThrowIfCancellationRequested();
+                return 0;
             }
-
-            int result = await AwaitStepWithCancellationAsync(Stage.MoveStageAxis(axis, target, Options.FineMove), ct).ConfigureAwait(false);
-            if (result != 0)
-                return Fail("OUT-STAGE-MOVE", Stage.Name,
-                    description + " move command failed. axis=" + axis + ", target=" + target +
-                    ", result=" + result + ". " + BuildAxisState(axis, target) + ". " +
-                    Stage.DescribeOutputStageInterlockState(Options.Side));
-
-            AxisMoveWaitResult waitResult = await AwaitStepWithCancellationAsync(
-                Stage.WaitStageAxisMoveDoneInPosition(axis, target, ResolveTimeout()),
-                ct).ConfigureAwait(false);
-            if (waitResult == null || !waitResult.Success)
-                return Fail(ResolveAxisMoveWaitAlarmCode("OUT-STAGE-MOVE", waitResult), Stage.Name,
-                    description + " move/in-position wait failed. axis=" + axis + ", target=" + target +
-                    ". " + FormatAxisMoveWaitResult(waitResult, BuildAxisState(axis, target)));
-
-            ct.ThrowIfCancellationRequested();
-            return 0;
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("OUT-STAGE-MOVE-EX", Stage != null ? Stage.Name : "OutputStage",
+                    description + " 이동 처리 중 예외가 발생했습니다. axis=" + axis +
+                    ", target=" + target +
+                    ", error=" + ex.Message);
+            }
+            finally
+            {
+            }
         }
 
         protected double ResolveTarget(BinStageAxis axis, string positionName)
@@ -398,8 +419,10 @@ namespace QMC.CDT320.Sequencing
 
                 return defaultStep;
             }
-            catch
+            catch (Exception ex)
             {
+                WriteLog(Name, "OutputStage 시작 스텝 복원 중 예외가 발생했습니다. state=" +
+                    SequenceStateName + ", error=" + ex.Message + " - Failed");
                 return defaultStep;
             }
             finally
@@ -414,32 +437,47 @@ namespace QMC.CDT320.Sequencing
 
         protected static async Task<int> AwaitStepWithCancellationAsync(Task<int> stepTask, CancellationToken ct)
         {
-            if (stepTask == null) return -1;
-            if (stepTask.IsCompleted) return await stepTask.ConfigureAwait(false);
-            Task cancelTask = Task.Delay(Timeout.Infinite, ct);
-            Task completed = await Task.WhenAny(stepTask, cancelTask).ConfigureAwait(false);
-            if (!ReferenceEquals(completed, stepTask)) ct.ThrowIfCancellationRequested();
-            return await stepTask.ConfigureAwait(false);
+            try
+            {
+                return await SequenceAwaiter.AwaitIntAsync(stepTask, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            finally
+            {
+            }
         }
 
         protected static async Task<bool> AwaitStepWithCancellationAsync(Task<bool> stepTask, CancellationToken ct)
         {
-            if (stepTask == null) return false;
-            if (stepTask.IsCompleted) return await stepTask.ConfigureAwait(false);
-            Task cancelTask = Task.Delay(Timeout.Infinite, ct);
-            Task completed = await Task.WhenAny(stepTask, cancelTask).ConfigureAwait(false);
-            if (!ReferenceEquals(completed, stepTask)) ct.ThrowIfCancellationRequested();
-            return await stepTask.ConfigureAwait(false);
+            try
+            {
+                return await SequenceAwaiter.AwaitBoolAsync(stepTask, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            finally
+            {
+            }
         }
 
         protected static async Task<AxisMoveWaitResult> AwaitStepWithCancellationAsync(Task<AxisMoveWaitResult> stepTask, CancellationToken ct)
         {
-            if (stepTask == null) return null;
-            if (stepTask.IsCompleted) return await stepTask.ConfigureAwait(false);
-            Task cancelTask = Task.Delay(Timeout.Infinite, ct);
-            Task completed = await Task.WhenAny(stepTask, cancelTask).ConfigureAwait(false);
-            if (!ReferenceEquals(completed, stepTask)) ct.ThrowIfCancellationRequested();
-            return await stepTask.ConfigureAwait(false);
+            try
+            {
+                return await SequenceAwaiter.AwaitAxisWaitAsync(stepTask, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            finally
+            {
+            }
         }
 
         private static bool IsStep(TStep left, TStep right)
@@ -500,7 +538,17 @@ namespace QMC.CDT320.Sequencing
 
         protected static void WriteLog(string source, string message)
         {
-            try { Log.Write("Main", "SYSTEM", source, message); } catch { }
+            try
+            {
+                Log.Write("Main", "SYSTEM", source, message);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("OutputStage sequence log failed. source=" + source + ", error=" + ex.Message);
+            }
+            finally
+            {
+            }
         }
     }
 }

@@ -35,7 +35,13 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 WireEvents();
 
                 _refreshTimer = new System.Windows.Forms.Timer { Interval = 200 };
-                _refreshTimer.Tick += (s, e) => RefreshFromMachine();
+                _refreshTimer.Tick += (s, e) =>
+                {
+                    if (!ShouldRefreshVisible(this))
+                        return;
+
+                    RefreshFromMachine();
+                };
                 HandleCreated += (s, e) => _refreshTimer.Start();
                 HandleDestroyed += (s, e) => _refreshTimer.Stop();
             }

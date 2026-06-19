@@ -27,7 +27,13 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             WireEvents();
 
             _timer = new Timer { Interval = 200 };
-            _timer.Tick += (s, e) => RefreshData();
+            _timer.Tick += (s, e) =>
+            {
+                if (!ShouldRefreshVisible(this))
+                    return;
+
+                RefreshData();
+            };
             HandleCreated += (s, e) => _timer.Start();
             HandleDestroyed += (s, e) => _timer.Stop();
         }

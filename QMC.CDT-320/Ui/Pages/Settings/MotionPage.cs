@@ -207,7 +207,13 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                 return;
 
             _refresh = new Timer { Interval = 250 };
-            _refresh.Tick += (s, e) => RefreshAllRows();
+            _refresh.Tick += (s, e) =>
+            {
+                if (!ShouldRefreshVisible(this))
+                    return;
+
+                RefreshAllRows();
+            };
             _refresh.Start();
         }
 

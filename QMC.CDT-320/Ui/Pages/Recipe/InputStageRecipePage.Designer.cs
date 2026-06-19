@@ -632,6 +632,7 @@
             // 
             // jogAxisMoveControl
             // 
+            this.jogAxisMoveControl.AxisColumnGap = 4;
             this.jogAxisMoveControl.AxisColumnsPerRow = 0;
             this.jogAxisMoveControl.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(245)))), ((int)(((byte)(246)))), ((int)(((byte)(248)))));
             this.jogAxisMoveControl.ButtonAreaMaxHeight = 620;

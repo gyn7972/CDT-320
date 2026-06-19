@@ -1,5 +1,8 @@
 ﻿using System.Collections.Generic;
+using System;
+using System.Threading;
 using System.Threading.Tasks;
+using QMC.Common;
 using QMC.Common.Motion;
 
 namespace QMC.CDT320
@@ -39,81 +42,136 @@ namespace QMC.CDT320
         }
 
         /// <summary>WaferStage 단일 축을 지정 좌표로 이동합니다.</summary>
-        public Task MoveWaferStageAxis(WaferStageAxis axis, double targetPos, bool bFine = false) => MoveAxisAsync(axis, targetPos, bFine);
+        public Task<int> MoveWaferStageAxis(WaferStageAxis axis, double targetPos, bool bFine = false) => MoveAxisAsync(axis, targetPos, bFine);
 
         /// <summary>WaferStage 복수 축을 지정 좌표로 이동합니다.</summary>
-        public Task MoveWaferStageAxes(Dictionary<WaferStageAxis, double> targets, bool bFine = false) => MoveAxesAsync(targets, bFine);
+        public Task<int> MoveWaferStageAxes(Dictionary<WaferStageAxis, double> targets, bool bFine = false) => MoveAxesAsync(targets, bFine);
 
         /// <summary>WaferStage 단일 축을 티칭 위치로 이동합니다.</summary>
-        public Task MoveWaferStageAxisToTeachingPosition(WaferStageAxis axis, string positionName, bool bFine = false) => MoveAxisToTeachingPositionAsync(axis, positionName, bFine);
+        public Task<int> MoveWaferStageAxisToTeachingPosition(WaferStageAxis axis, string positionName, bool bFine = false) => MoveAxisToTeachingPositionAsync(axis, positionName, bFine);
 
         /// <summary>WaferStage 전체 축을 Avoid 위치로 이동합니다.</summary>
-        public Task MoveToWaferStageAvoidPosition(bool bFine = false) => MoveStageGroup("AvoidPos", bFine);
+        public Task<int> MoveToWaferStageAvoidPosition(bool bFine = false) => MoveStageGroup("AvoidPos", bFine);
 
         /// <summary>WaferStage 전체 축을 Load 위치로 이동합니다.</summary>
-        public Task MoveToWaferStageLoadPosition(bool bFine = false) => MoveStageGroup("LoadPos", bFine);
+        public Task<int> MoveToWaferStageLoadPosition(bool bFine = false) => MoveStageGroup("LoadPos", bFine);
 
         /// <summary>WaferStage 전체 축을 Unload 위치로 이동합니다.</summary>
-        public Task MoveToWaferStageUnloadPosition(bool bFine = false) => MoveStageGroup("UnloadPos", bFine);
+        public Task<int> MoveToWaferStageUnloadPosition(bool bFine = false) => MoveStageGroup("UnloadPos", bFine);
 
         /// <summary>WaferStage 전체 축을 Process 위치로 이동합니다.</summary>
-        public Task MoveToWaferStageProcessPosition(bool bFine = false) => MoveStageGroup("ProcessPos", bFine);
+        public Task<int> MoveToWaferStageProcessPosition(bool bFine = false) => MoveStageGroup("ProcessPos", bFine);
 
         /// <summary>WaferStage 전체 축을 안전 후퇴 위치로 이동합니다.</summary>
-        public Task MoveToWaferStageSafeRetreatPosition(bool bFine = false) => MoveStageGroup("SafeRetreatPosition", bFine);
+        public Task<int> MoveToWaferStageSafeRetreatPosition(bool bFine = false) => MoveStageGroup("SafeRetreatPosition", bFine);
 
         /// <summary>WaferStage를 Die 위치로 이동합니다.</summary>
-        public Task MoveToWaferStageDiePosition(int dieIndex, bool bFine = false) => MoveWaferStageAxisToTeachingPosition(WaferStageAxis.WaferY, "DiePos[" + dieIndex + "]", bFine);
+        public Task<int> MoveToWaferStageDiePosition(int dieIndex, bool bFine = false) => MoveWaferStageAxisToTeachingPosition(WaferStageAxis.WaferY, "DiePos[" + dieIndex + "]", bFine);
 
         /// <summary>Map 좌표를 기준으로 WaferStage 위치로 이동합니다.</summary>
-        public Task MoveToWaferStageMapPosition(int row, int col, double theta, bool bFine = false) => MoveWaferStageAxis(WaferStageAxis.WaferY, CalculateWaferStageDieTarget(0, row, col, theta), bFine);
+        public Task<int> MoveToWaferStageMapPosition(int row, int col, double theta, bool bFine = false) => MoveWaferStageAxis(WaferStageAxis.WaferY, CalculateWaferStageDieTarget(0, row, col, theta), bFine);
 
         /// <summary>Needle을 Pick 위치로 이동합니다.</summary>
-        public Task MoveNeedleToPickPosition(bool bFine = false) => MoveWaferStageAxisToTeachingPosition(WaferStageAxis.NeedleZ, "ProcessPos", bFine);
+        public Task<int> MoveNeedleToPickPosition(bool bFine = false) => MoveWaferStageAxisToTeachingPosition(WaferStageAxis.NeedleZ, "ProcessPos", bFine);
 
         /// <summary>EjectPin을 공정 위치로 이동합니다.</summary>
-        public Task MoveEjectPinToProcessPosition(bool bFine = false) => MoveWaferStageAxisToTeachingPosition(WaferStageAxis.EjectPinZ, "ProcessPos", bFine);
+        public Task<int> MoveEjectPinToProcessPosition(bool bFine = false) => MoveWaferStageAxisToTeachingPosition(WaferStageAxis.EjectPinZ, "ProcessPos", bFine);
 
         /// <summary>WaferStage 축이 지정 좌표에 있는지 확인합니다.</summary>
         public bool IsWaferStageAxisInPosition(WaferStageAxis axis, double targetPos, double tolerance) => IsAxisInPosition(axis, targetPos, tolerance);
 
         /// <summary>WaferStage 축 이동 완료를 대기합니다.</summary>
-        public Task<bool> WaitWaferStageAxisMoveDone(WaferStageAxis axis, int timeoutMs) => WaitAxisMoveDone(axis, timeoutMs);
+        public Task<bool> WaitWaferStageAxisMoveDone(WaferStageAxis axis, int timeoutMs) => WaitWaferStageAxisMoveDone(axis, timeoutMs, CancellationToken.None);
+
+        /// <summary>WaferStage 축 이동 완료를 취소 가능하게 대기합니다.</summary>
+        public Task<bool> WaitWaferStageAxisMoveDone(WaferStageAxis axis, int timeoutMs, CancellationToken ct) => WaitAxisMoveDone(axis, timeoutMs, ct);
 
         /// <summary>WaferStage 축 이동 완료와 목표 위치 도착을 상세 결과로 대기합니다.</summary>
-        public Task<AxisMoveWaitResult> WaitWaferStageAxisMoveDoneInPosition(WaferStageAxis axis, int timeoutMs) => WaitAxisMoveDoneInPosition(axis, timeoutMs);
+        public Task<AxisMoveWaitResult> WaitWaferStageAxisMoveDoneInPosition(WaferStageAxis axis, int timeoutMs) => WaitWaferStageAxisMoveDoneInPosition(axis, timeoutMs, CancellationToken.None);
+
+        /// <summary>WaferStage 축 이동 완료와 목표 위치 도착을 취소 가능하게 상세 결과로 대기합니다.</summary>
+        public Task<AxisMoveWaitResult> WaitWaferStageAxisMoveDoneInPosition(WaferStageAxis axis, int timeoutMs, CancellationToken ct) => WaitAxisMoveDoneInPosition(axis, timeoutMs, ct);
 
         /// <summary>WaferStage 축 이동 완료와 지정 목표 위치 도착을 상세 결과로 대기합니다.</summary>
-        public Task<AxisMoveWaitResult> WaitWaferStageAxisMoveDoneInPosition(WaferStageAxis axis, double targetPos, int timeoutMs) => WaitAxisMoveDoneInPosition(axis, targetPos, timeoutMs);
+        public Task<AxisMoveWaitResult> WaitWaferStageAxisMoveDoneInPosition(WaferStageAxis axis, double targetPos, int timeoutMs) => WaitWaferStageAxisMoveDoneInPosition(axis, targetPos, timeoutMs, CancellationToken.None);
+
+        /// <summary>WaferStage 축 이동 완료와 지정 목표 위치 도착을 취소 가능하게 상세 결과로 대기합니다.</summary>
+        public Task<AxisMoveWaitResult> WaitWaferStageAxisMoveDoneInPosition(WaferStageAxis axis, double targetPos, int timeoutMs, CancellationToken ct) => WaitAxisMoveDoneInPosition(axis, targetPos, timeoutMs, ct);
 
         /// <summary>WaferStage 복수 축 이동 완료를 대기합니다.</summary>
         public async Task<bool> WaitWaferStageAxesMoveDone(IEnumerable<WaferStageAxis> axes, int timeoutMs)
         {
-            AxisMoveWaitResult waitResult = await WaitWaferStageAxesMoveDoneInPosition(axes, timeoutMs).ConfigureAwait(false);
-            return waitResult.Success;
+            return await WaitWaferStageAxesMoveDone(axes, timeoutMs, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        /// <summary>WaferStage 복수 축 이동 완료를 취소 가능하게 대기합니다.</summary>
+        public async Task<bool> WaitWaferStageAxesMoveDone(IEnumerable<WaferStageAxis> axes, int timeoutMs, CancellationToken ct)
+        {
+            try
+            {
+                AxisMoveWaitResult waitResult = await WaitWaferStageAxesMoveDoneInPosition(axes, timeoutMs, ct).ConfigureAwait(false);
+                return waitResult.Success;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "WaferStageUnit", "WaferStage axes move wait failed: " + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
         }
 
         /// <summary>WaferStage 복수 축 이동 완료와 목표 위치 도착을 상세 결과로 대기합니다.</summary>
         public async Task<AxisMoveWaitResult> WaitWaferStageAxesMoveDoneInPosition(IEnumerable<WaferStageAxis> axes, int timeoutMs)
         {
-            if (axes == null)
-                return new AxisMoveWaitResult(AxisMoveWaitFailure.AxisMissing, "WaferStage axis list is null.", "axes=null");
+            return await WaitWaferStageAxesMoveDoneInPosition(axes, timeoutMs, CancellationToken.None).ConfigureAwait(false);
+        }
 
-            foreach (var axis in axes)
+        /// <summary>WaferStage 복수 축 이동 완료와 목표 위치 도착을 취소 가능하게 상세 결과로 대기합니다.</summary>
+        public async Task<AxisMoveWaitResult> WaitWaferStageAxesMoveDoneInPosition(IEnumerable<WaferStageAxis> axes, int timeoutMs, CancellationToken ct)
+        {
+            try
             {
-                AxisMoveWaitResult waitResult = await WaitAxisMoveDoneInPosition(axis, timeoutMs).ConfigureAwait(false);
-                if (!waitResult.Success)
-                    return waitResult;
-            }
+                if (axes == null)
+                    return new AxisMoveWaitResult(AxisMoveWaitFailure.AxisMissing, "WaferStage axis list is null.", "axes=null");
 
-            return AxisMoveWaitResult.Ok();
+                foreach (var axis in axes)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    AxisMoveWaitResult waitResult = await WaitAxisMoveDoneInPosition(axis, timeoutMs, ct).ConfigureAwait(false);
+                    if (!waitResult.Success)
+                        return waitResult;
+                }
+
+                return AxisMoveWaitResult.Ok();
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "WaferStageUnit", "WaferStage axes in-position wait failed: " + ex.Message + " - Failed");
+                return new AxisMoveWaitResult(AxisMoveWaitFailure.Timeout, "WaferStage axes in-position wait exception.", ex.Message);
+            }
+            finally
+            {
+            }
         }
 
         /// <summary>WaferStage 축이 티칭 위치에 있는지 확인합니다.</summary>
         public bool IsWaferStageAxisInTeachingPosition(WaferStageAxis axis, string positionName) => IsAxisInTeachingPosition(axis, positionName);
 
         /// <summary>WaferStage 축이 티칭 위치에 도착할 때까지 대기합니다.</summary>
-        public Task<bool> WaitWaferStageAxisInTeachingPosition(WaferStageAxis axis, string positionName, int timeoutMs) => WaitAxisInTeachingPosition(axis, positionName, timeoutMs);
+        public Task<bool> WaitWaferStageAxisInTeachingPosition(WaferStageAxis axis, string positionName, int timeoutMs) => WaitWaferStageAxisInTeachingPosition(axis, positionName, timeoutMs, CancellationToken.None);
+
+        /// <summary>WaferStage 축이 티칭 위치에 도착할 때까지 취소 가능하게 대기합니다.</summary>
+        public Task<bool> WaitWaferStageAxisInTeachingPosition(WaferStageAxis axis, string positionName, int timeoutMs, CancellationToken ct) => WaitAxisInTeachingPosition(axis, positionName, timeoutMs, ct);
 
         /// <summary>WaferStage가 Avoid 위치인지 확인합니다.</summary>
         public bool IsWaferStageInAvoidPosition() => IsStageGroupInPosition("AvoidPos");
@@ -182,10 +240,56 @@ namespace QMC.CDT320
         public void SetReticleDownOutput(bool on) => SetOutput("ReticleDown", on);
 
         /// <summary>Reticle을 상승시킵니다.</summary>
-        public async Task<bool> ReticleUp(int timeoutMs) { SetOutput("ReticleUp", true); SetOutput("ReticleDown", false); return await WaitInputState("ReticleUp", true, timeoutMs); }
+        public Task<bool> ReticleUp(int timeoutMs) => ReticleUp(timeoutMs, CancellationToken.None);
+
+        /// <summary>Reticle을 취소 가능하게 상승시킵니다.</summary>
+        public async Task<bool> ReticleUp(int timeoutMs, CancellationToken ct)
+        {
+            try
+            {
+                SetOutput("ReticleUp", true);
+                SetOutput("ReticleDown", false);
+                return await WaitInputState("ReticleUp", true, timeoutMs, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "WaferStageUnit", "Reticle up failed: " + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
 
         /// <summary>Reticle을 하강시킵니다.</summary>
-        public async Task<bool> ReticleDown(int timeoutMs) { SetOutput("ReticleDown", true); SetOutput("ReticleUp", false); return await WaitInputState("ReticleDown", true, timeoutMs); }
+        public Task<bool> ReticleDown(int timeoutMs) => ReticleDown(timeoutMs, CancellationToken.None);
+
+        /// <summary>Reticle을 취소 가능하게 하강시킵니다.</summary>
+        public async Task<bool> ReticleDown(int timeoutMs, CancellationToken ct)
+        {
+            try
+            {
+                SetOutput("ReticleDown", true);
+                SetOutput("ReticleUp", false);
+                return await WaitInputState("ReticleDown", true, timeoutMs, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "WaferStageUnit", "Reticle down failed: " + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
 
         /// <summary>Needle Vacuum 출력을 제어합니다.</summary>
         public void SetNeedleVacuum(bool on) => SetOutput("NeedleVacuum", on);
@@ -211,7 +315,7 @@ namespace QMC.CDT320
         /// <summary>WaferStage 알람 메시지를 생성합니다.</summary>
         public string BuildWaferStageAlarmMessage(StageAlarmCode code) => "WaferStage alarm: " + code;
 
-        private Task MoveStageGroup(string positionName, bool bFine)
+        private Task<int> MoveStageGroup(string positionName, bool bFine)
         {
             var targets = new Dictionary<WaferStageAxis, double>();
             foreach (WaferStageAxis axis in System.Enum.GetValues(typeof(WaferStageAxis)))

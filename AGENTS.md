@@ -64,6 +64,31 @@ Log.Write("Main", UserSession.Name, "RequestApplicationExit", "Application exit 
   - `Load`: 파일/데이터 읽기
   - `Save`: 파일/데이터 저장
 
+## 작업 트리 보호 규칙
+
+- 이 프로젝트는 작업 트리가 dirty 상태인 경우가 많으므로, 작업 시작 시 `git status --short`로 변경 상태를 확인한다.
+- 사용자가 명시적으로 요청하지 않는 한 기존 변경을 되돌리지 않는다.
+- 현재 작업과 직접 관련된 파일만 수정한다.
+- 관련 파일에 이미 변경이 있으면 먼저 내용을 읽고 기존 변경과 충돌하지 않게 이어서 수정한다.
+- 빌드 산출물, 임시 검증 폴더, 실행 중 생성 파일은 사용자가 요청하지 않는 한 정리하거나 삭제하지 않는다.
+
+## 빌드 검증 규칙
+
+- 기본 출력 경로 빌드는 실행 중인 `QMC.CDT-320.exe` 또는 Visual Studio가 DLL을 잠근 경우 복사 단계에서 실패할 수 있다.
+- 컴파일 검증은 가능하면 별도 `OutDir`를 지정해서 수행한다.
+- 권장 빌드 명령:
+
+```powershell
+& 'C:\Program Files\Microsoft Visual Studio\2022\Professional\MSBuild\Current\Bin\MSBuild.exe' `
+  'D:\00.PROJECT\CDT-320\Source\CDT320Simulator\QMC.CDT-320\QMC.CDT-320.sln' `
+  /t:Build /p:Configuration=Debug /p:Platform="Any CPU" `
+  /p:OutDir="D:\00.PROJECT\CDT-320\Source\CDT320Simulator\QMC.CDT-320\_codex_verify\build\" `
+  /v:minimal
+```
+
+- 일반 빌드가 `MSB3021` 또는 `MSB3027`로 실패하고 메시지에 DLL 잠금이 표시되면, 코드 컴파일 실패가 아니라 실행 중인 프로세스의 파일 잠금일 수 있다.
+- 별도 `OutDir` 빌드가 성공하면 그 사실을 최종 보고에 명확히 적는다.
+
 ## `.cs` 파일 배치 순서
 
 일반 `*.cs` 파일은 아래 순서를 우선으로 정리한다.

@@ -15,7 +15,8 @@ namespace QMC.CDT320.Sequencing
         ResumeOccupiedFeeder,
         SupplyGoodCassetteToStage,
         SupplyNgCassetteToStage,
-        WaitOutputStageReceiveComplete
+        WaitOutputStageReceiveComplete,
+        StopNoOutputBinWork
     }
 
     public class OutputSequence : UnitSequenceBase
@@ -27,27 +28,69 @@ namespace QMC.CDT320.Sequencing
 
         protected override async Task ExecuteAutoAsync(CancellationToken ct)
         {
-            while (!ct.IsCancellationRequested)
+            try
             {
-                int result = await ExecuteNextOutputStepAsync(ct, false, 0, SequenceStartMode.Resume).ConfigureAwait(false);
-                if (result != 0)
-                    throw new InvalidOperationException(
-                        SequenceFailureStore.AppendRecentDetail(
-                            "Output auto sequence failed. result=" + result,
-                            "OutputSequence",
-                            "OUTPUT-AUTO"));
+                while (!ct.IsCancellationRequested)
+                {
+                    int result = await ExecuteNextOutputStepAsync(ct, false, 0, SequenceStartMode.Resume).ConfigureAwait(false);
+                    if (result != 0)
+                        throw new InvalidOperationException(
+                            SequenceFailureStore.AppendRecentDetail(
+                                "Output 자동 시퀀스 실패. result=" + result,
+                                "OutputSequence",
+                                "OUTPUT-AUTO"));
+
+                    Context.StopIfCycleStopRequested("OutputSequence.AutoActionComplete");
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                WriteLog("ExecuteAutoAsync", "Output 자동 시퀀스가 취소되었습니다. - Failed");
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Fail("OUTPUT-AUTO-EX", "OutputSequence", "Output 자동 시퀀스 예외 발생: " + ex.Message);
+                throw;
+            }
+            finally
+            {
             }
         }
 
         protected override async Task ExecuteStepAsync(CancellationToken ct)
         {
-            int result = await ExecuteNextOutputStepAsync(ct, false, 0, SequenceStartMode.Resume).ConfigureAwait(false);
-            if (result != 0)
-                throw new InvalidOperationException(
-                    SequenceFailureStore.AppendRecentDetail(
-                        "Output step sequence failed. result=" + result,
-                        "OutputSequence",
-                        "OUTPUT-STEP"));
+            try
+            {
+                int result = await ExecuteNextOutputStepAsync(ct, false, 0, SequenceStartMode.Resume).ConfigureAwait(false);
+                if (result != 0)
+                    throw new InvalidOperationException(
+                        SequenceFailureStore.AppendRecentDetail(
+                            "Output 수동/스텝 시퀀스 실패. result=" + result,
+                            "OutputSequence",
+                            "OUTPUT-STEP"));
+            }
+            catch (OperationCanceledException)
+            {
+                WriteLog("ExecuteStepAsync", "Output 수동/스텝 시퀀스가 취소되었습니다. - Failed");
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Fail("OUTPUT-STEP-EX", "OutputSequence", "Output 수동/스텝 시퀀스 예외 발생: " + ex.Message);
+                throw;
+            }
+            finally
+            {
+            }
         }
 
         public async Task<int> ExecuteNextOutputStepAsync(CancellationToken ct, bool bFine = false, int moveTimeoutMs = 0, SequenceStartMode startMode = SequenceStartMode.Resume)
@@ -113,8 +156,12 @@ namespace QMC.CDT320.Sequencing
                         await WaitAnyOutputReceiveCompleteAsync(ct).ConfigureAwait(false);
                         return 0;
 
+                    // 출력 카세트에 더 이상 진행 가능한 Bin이 없음
+                    case OutputSequenceAutoAction.StopNoOutputBinWork:
+                        return StopOutputAutoNoBinWork();
+
                     default:
-                        return StopAutoSequence("Output sequence could not resolve next action.");
+                        return StopAutoSequence("Output 시퀀스 다음 작업을 결정할 수 없습니다.");
                 }
             }
             catch (OperationCanceledException)
@@ -127,7 +174,7 @@ namespace QMC.CDT320.Sequencing
             }
             catch (Exception ex)
             {
-                return Fail("OUT-NEXT-EX", "OutputSequence", "Output next step exception: " + ex.Message);
+                return Fail("OUT-NEXT-EX", "OutputSequence", "Output 다음 작업 결정 중 예외가 발생했습니다: " + ex.Message);
             }
             finally
             {
@@ -156,6 +203,9 @@ namespace QMC.CDT320.Sequencing
 
             if (canSupplyNg)
                 return OutputSequenceAutoAction.SupplyNgCassetteToStage;
+
+            if (IsOutputAutoNoBinWorkComplete())
+                return OutputSequenceAutoAction.StopNoOutputBinWork;
 
             return OutputSequenceAutoAction.WaitOutputStageReceiveComplete;
         }
@@ -212,7 +262,7 @@ namespace QMC.CDT320.Sequencing
         {
             WaferMaterial feederWafer = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputFeeder);
             if (feederWafer == null)
-                return Fail("OUT-FEEDER-DATA-MISSING", "OutputSequence", "Output feeder data disappeared before occupied feeder action.");
+                return Fail("OUT-FEEDER-DATA-MISSING", "OutputSequence", "OutputFeeder 보유 Bin 처리 전에 자재 데이터가 사라졌습니다.");
 
             return await ExecuteOutputFeederOccupiedAsync(
                 feederWafer,
@@ -237,13 +287,178 @@ namespace QMC.CDT320.Sequencing
 
         private async Task WaitAnyOutputReceiveCompleteAsync(CancellationToken ct)
         {
-            using (var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct))
+            try
             {
-                Task goodTask = Context.Bus.WaitAsync("OutputGoodStageReceiveComplete", linkedCts.Token);
-                Task ngTask = Context.Bus.WaitAsync("OutputNgStageReceiveComplete", linkedCts.Token);
-                Task completed = await Task.WhenAny(goodTask, ngTask).ConfigureAwait(false);
-                linkedCts.Cancel();
-                await completed.ConfigureAwait(false);
+                while (!ct.IsCancellationRequested)
+                {
+                    SetOutputStageReadySignals();
+
+                    if (Context.Bus.IsSet("OutputGoodStageReceiveComplete") ||
+                        IsStageReceiveComplete(BinSide.Good))
+                    {
+                        Context.Bus.Set("OutputGoodStageReceiveComplete");
+                        WriteLog("WaitAnyOutputReceiveCompleteAsync", "GOOD OutputStage 수령 완료 신호를 확인했습니다. - Ok");
+                        return;
+                    }
+
+                    if (Context.Bus.IsSet("OutputNgStageReceiveComplete") ||
+                        IsStageReceiveComplete(BinSide.Ng))
+                    {
+                        Context.Bus.Set("OutputNgStageReceiveComplete");
+                        WriteLog("WaitAnyOutputReceiveCompleteAsync", "NG OutputStage 수령 완료 신호를 확인했습니다. - Ok");
+                        return;
+                    }
+
+                    if (IsOutputAutoNoBinWorkComplete())
+                    {
+                        StopOutputAutoNoBinWork();
+                    }
+
+                    Context.StopIfCycleStopRequested("OutputSequence.WaitReceiveComplete");
+                    await Task.Delay(100, ct).ConfigureAwait(false);
+                }
+
+                ct.ThrowIfCancellationRequested();
+            }
+            catch (OperationCanceledException)
+            {
+                WriteLog("WaitAnyOutputReceiveCompleteAsync", "OutputStage 수령 완료 대기가 취소되었습니다. - Failed");
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException("OutputStage 수령 완료 대기 중 예외가 발생했습니다: " + ex.Message, ex);
+            }
+            finally
+            {
+            }
+        }
+
+        private int StopOutputAutoNoBinWork()
+        {
+            try
+            {
+                ResetOutputStageReadySignals();
+
+                string reason = BuildOutputNoBinWorkReason();
+                AlarmManager.Raise(AlarmSeverity.Warning, "OUTPUT-BIN-COMPLETE", "OutputSequence", reason);
+                Log.Write("Main", "SYSTEM", "OutputSequence", reason + " - Stopped");
+
+                return StopAutoSequence(reason);
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail(
+                    "OUT-NO-BIN-WORK-CHECK",
+                    "OutputSequence",
+                    "출력 Bin 작업 완료 상태 확인 중 예외가 발생했습니다. error=" + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool IsOutputAutoNoBinWorkComplete()
+        {
+            try
+            {
+                if (HasOutputActiveMaterial())
+                    return false;
+
+                if (CanSupplyOutputStage(BinSide.Good))
+                    return false;
+
+                if (CanSupplyOutputStage(BinSide.Ng))
+                    return false;
+
+                if (MaterialStateService.IsOutputStageReceiveAvailable(BinSide.Good))
+                    return false;
+
+                if (MaterialStateService.IsOutputStageReceiveAvailable(BinSide.Ng))
+                    return false;
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "OutputSequence",
+                    "출력 자동 시퀀스 완료 상태 확인 중 예외가 발생했습니다. error=" + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool HasOutputActiveMaterial()
+        {
+            try
+            {
+                return MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputFeeder) != null ||
+                       MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputStageGood) != null ||
+                       MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputStageNg) != null;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "OutputSequence",
+                    "출력 자재 진행 상태 확인 중 예외가 발생했습니다. error=" + ex.Message + " - Failed");
+                return true;
+            }
+            finally
+            {
+            }
+        }
+
+        private static string BuildOutputNoBinWorkReason()
+        {
+            try
+            {
+                OutputSlotPlan goodPlan;
+                OutputSlotPlan ngPlan;
+                bool goodSupply = OutputSlotPlanner.TryResolveNextSupplySlot(BinSide.Good, out goodPlan);
+                bool ngSupply = OutputSlotPlanner.TryResolveNextSupplySlot(BinSide.Ng, out ngPlan);
+                bool goodReceive = MaterialStateService.IsOutputStageReceiveAvailable(BinSide.Good);
+                bool ngReceive = MaterialStateService.IsOutputStageReceiveAvailable(BinSide.Ng);
+
+                return "출력 카세트에 공급 가능한 Bin이 없고 OutputFeeder/OutputStage에 진행 중인 Bin도 없습니다. " +
+                       "출력 카세트를 교체하거나 매핑/자재 상태를 확인하세요. " +
+                       "goodSupply=" + goodSupply +
+                       ", ngSupply=" + ngSupply +
+                       ", goodReceiveAvailable=" + goodReceive +
+                       ", ngReceiveAvailable=" + ngReceive;
+            }
+            catch (Exception ex)
+            {
+                return "출력 카세트에 공급 가능한 Bin이 없고 OutputFeeder/OutputStage에 진행 중인 Bin도 없습니다. " +
+                       "출력 카세트를 교체하거나 매핑/자재 상태를 확인하세요. detail=" + ex.Message;
+            }
+            finally
+            {
+            }
+        }
+
+        private void ResetOutputStageReadySignals()
+        {
+            try
+            {
+                Context.Bus.Reset("OutputGoodStageReady");
+                Context.Bus.Reset("OutputNgStageReady");
+                Context.Bus.Reset("OutputStageReady");
+            }
+            catch (Exception ex)
+            {
+                WriteLog("OutputSequence", "OutputStage Ready 신호 초기화 중 예외가 발생했습니다: " + ex.Message + " - Failed");
+            }
+            finally
+            {
             }
         }
 
@@ -413,17 +628,17 @@ namespace QMC.CDT320.Sequencing
                 OutputSlotPlan plan;
                 string slotPlanReason;
                 if (!OutputSlotPlanner.TryResolveNextStoreSlot(grade, out plan, out slotPlanReason))
-                    return Fail("OUT-SLOT-UNAVAILABLE", "OutputSequence", "Output cassette same source slot is not available. grade=" + grade + ", reason=" + slotPlanReason);
+                    return Fail("OUT-SLOT-UNAVAILABLE", "OutputSequence", "Output 카세트의 동일 Source Slot을 사용할 수 없습니다. grade=" + grade + ", reason=" + slotPlanReason);
 
                 using (SequenceResourceLease placeLease = await AcquireOutputPlaceAreaAsync("OutputStore", ct).ConfigureAwait(false))
                 {
                     if (placeLease == null)
-                        return Fail("OUT-RESOURCE-PLACE", "OutputSequence", "Output place area resource acquire failed. side=" + plan.Side);
+                        return Fail("OUT-RESOURCE-PLACE", "OutputSequence", "Output Place 영역 리소스 점유에 실패했습니다. side=" + plan.Side);
 
                     using (SequenceResourceLease lease = await AcquireOutputStageAreaAsync(plan.Side, "OutputStore", ct).ConfigureAwait(false))
                     {
                         if (lease == null)
-                            return Fail("OUT-RESOURCE-STAGE", "OutputSequence", "Output stage area resource acquire failed. side=" + plan.Side);
+                            return Fail("OUT-RESOURCE-STAGE", "OutputSequence", "OutputStage 영역 리소스 점유에 실패했습니다. side=" + plan.Side);
 
                         int result = await ExecuteStagePrepareUnloadAsync(ct, plan.Side, bFine, moveTimeoutMs, startMode).ConfigureAwait(false);
                         if (result != 0) return result;
@@ -482,12 +697,12 @@ namespace QMC.CDT320.Sequencing
                 using (SequenceResourceLease placeLease = await AcquireOutputPlaceAreaAsync("OutputFeederResumeLoad", ct).ConfigureAwait(false))
                 {
                     if (placeLease == null)
-                        return Fail("OUT-RESOURCE-PLACE", "OutputSequence", "Output place area resource acquire failed. side=" + side);
+                        return Fail("OUT-RESOURCE-PLACE", "OutputSequence", "Output Place 영역 리소스 점유에 실패했습니다. side=" + side);
 
                     using (SequenceResourceLease lease = await AcquireOutputStageAreaAsync(side, "OutputFeederResumeLoad", ct).ConfigureAwait(false))
                     {
                         if (lease == null)
-                            return Fail("OUT-RESOURCE-STAGE", "OutputSequence", "Output stage area resource acquire failed. side=" + side);
+                            return Fail("OUT-RESOURCE-STAGE", "OutputSequence", "OutputStage 영역 리소스 점유에 실패했습니다. side=" + side);
 
                         int result = await ExecuteStagePrepareLoadAsync(ct, side, bFine, moveTimeoutMs, startMode).ConfigureAwait(false);
                         if (result != 0) return result;
@@ -558,12 +773,12 @@ namespace QMC.CDT320.Sequencing
                 using (SequenceResourceLease placeLease = await AcquireOutputPlaceAreaAsync("OutputSupply", ct).ConfigureAwait(false))
                 {
                     if (placeLease == null)
-                        return Fail("OUT-RESOURCE-PLACE", "OutputSequence", "Output place area resource acquire failed. side=" + plan.Side);
+                        return Fail("OUT-RESOURCE-PLACE", "OutputSequence", "Output Place 영역 리소스 점유에 실패했습니다. side=" + plan.Side);
 
                     using (SequenceResourceLease lease = await AcquireOutputStageAreaAsync(plan.Side, "OutputSupply", ct).ConfigureAwait(false))
                     {
                         if (lease == null)
-                            return Fail("OUT-RESOURCE-STAGE", "OutputSequence", "Output stage area resource acquire failed. side=" + plan.Side);
+                            return Fail("OUT-RESOURCE-STAGE", "OutputSequence", "OutputStage 영역 리소스 점유에 실패했습니다. side=" + plan.Side);
 
                         int result = await ExecuteStagePrepareLoadAsync(ct, plan.Side, bFine, moveTimeoutMs, startMode).ConfigureAwait(false);
                         if (result != 0) return result;
@@ -707,20 +922,64 @@ namespace QMC.CDT320.Sequencing
             }
         }
 
-        private Task<SequenceResourceLease> AcquireOutputStageAreaAsync(BinSide side, string holder, CancellationToken ct)
+        private async Task<SequenceResourceLease> AcquireOutputStageAreaAsync(BinSide side, string holder, CancellationToken ct)
         {
-            SequenceResourceKind resource = side == BinSide.Ng
-                ? SequenceResourceKind.OutputNgStageArea
-                : SequenceResourceKind.OutputGoodStageArea;
+            try
+            {
+                SequenceResourceKind resource = side == BinSide.Ng
+                    ? SequenceResourceKind.OutputNgStageArea
+                    : SequenceResourceKind.OutputGoodStageArea;
 
-            string safeHolder = string.IsNullOrWhiteSpace(holder) ? "OutputSequence" : holder;
-            return Context.Resources.AcquireAsync(resource, safeHolder + ":" + side, 30000, ct);
+                string safeHolder = string.IsNullOrWhiteSpace(holder) ? "OutputSequence" : holder;
+                return await AcquireResourceForRunAsync(
+                    resource,
+                    safeHolder + ":" + side,
+                    30000,
+                    ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (Exception)
+            {
+                throw;
+            }
+            finally
+            {
+            }
         }
 
-        private Task<SequenceResourceLease> AcquireOutputPlaceAreaAsync(string holder, CancellationToken ct)
+        private async Task<SequenceResourceLease> AcquireOutputPlaceAreaAsync(string holder, CancellationToken ct)
         {
-            string safeHolder = string.IsNullOrWhiteSpace(holder) ? "OutputSequence" : holder;
-            return Context.Resources.AcquireAsync(SequenceResourceKind.OutputPlaceArea, safeHolder, 30000, ct);
+            try
+            {
+                string safeHolder = string.IsNullOrWhiteSpace(holder) ? "OutputSequence" : holder;
+                return await AcquireResourceForRunAsync(
+                    SequenceResourceKind.OutputPlaceArea,
+                    safeHolder,
+                    30000,
+                    ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (SequenceStopException)
+            {
+                throw;
+            }
+            catch (Exception)
+            {
+                throw;
+            }
+            finally
+            {
+            }
         }
 
         private OutputCassetteSequenceOptions BuildCassetteOptions(TargetCassette target, bool bFine, int moveTimeoutMs, SequenceStartMode startMode)
@@ -759,7 +1018,11 @@ namespace QMC.CDT320.Sequencing
                 AlarmManager.Raise(AlarmSeverity.Warning, alarmCode, source, message);
                 Context.LogPublic("[UNIT-OUTPUT] FAIL " + alarmCode + " - " + message);
             }
-            catch
+            catch (Exception ex)
+            {
+                WriteLog(source, "Output 실패 처리 중 예외가 발생했습니다: " + ex.Message + " - Failed");
+            }
+            finally
             {
             }
 
@@ -770,17 +1033,33 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
-                Log.Write("Main", "SYSTEM", "OutputSequence", "Output sequence stopped: " + reason + " - Stopped");
+                Log.Write("Main", "SYSTEM", "OutputSequence", "Output 시퀀스 정지: " + reason + " - Stopped");
                 Context.LogPublic("[UNIT-OUTPUT] STOP " + reason);
             }
-            catch
+            catch (Exception ex)
             {
+                WriteLog("OutputSequence", "Output 시퀀스 정지 로그 기록 실패: " + ex.Message + " - Failed");
             }
             finally
             {
             }
 
             throw new SequenceStopException(reason);
+        }
+
+        private static void WriteLog(string source, string message)
+        {
+            try
+            {
+                Log.Write("Main", "SYSTEM", source, message);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("OutputSequence log failed: " + ex.Message);
+            }
+            finally
+            {
+            }
         }
     }
 }

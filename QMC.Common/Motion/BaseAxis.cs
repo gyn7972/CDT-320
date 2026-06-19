@@ -480,12 +480,19 @@ namespace QMC.Common.Motion
         /// <param name="ct">취소 토큰</param>
         protected async Task WaitUntilMoveDone(CancellationToken ct)
         {
+            bool detectedMotion = false;
             while (!ct.IsCancellationRequested)
             {
                 if (IsAlarm)               
                     break;
 
+                if (IsMoving)
+                    detectedMotion = true;
+
                 if (!IsMoving && IsInPosition) 
+                    break;
+
+                if (detectedMotion && !IsMoving)
                     break;
 
                 await Task.Delay(10, ct).ContinueWith(_ => { }); // 취소 예외 무시

@@ -53,6 +53,22 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private TableLayoutPanel headAxisTPanel;
         private Label lblHeadAxisTTitle;
         private Label lblHeadAxisTValue;
+        private TableLayoutPanel headProcessPanel;
+        private Label lblHeadProcessTitle;
+        private Label lblHeadProcessValue;
+        private TableLayoutPanel processFlowPanel;
+        private Label lblFlowAvoid;
+        private Label lblFlowArrow1;
+        private Label lblFlowPickup;
+        private Label lblFlowArrow2;
+        private Label lblFlowBottom;
+        private Label lblFlowArrow3;
+        private Label lblFlowSide;
+        private Label lblFlowArrow4;
+        private Label lblFlowPlace;
+        private TableLayoutPanel processDetailPanel;
+        private Label lblProcessDetailTitle;
+        private Label lblProcessDetailValue;
         private TableLayoutPanel headVacuum1Panel;
         private IndicatorDot dotHeadVacuum1;
         private Label lblHeadVacuum1;
@@ -142,6 +158,22 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.headAxisTPanel = new System.Windows.Forms.TableLayoutPanel();
             this.lblHeadAxisTTitle = new System.Windows.Forms.Label();
             this.lblHeadAxisTValue = new System.Windows.Forms.Label();
+            this.headProcessPanel = new System.Windows.Forms.TableLayoutPanel();
+            this.lblHeadProcessTitle = new System.Windows.Forms.Label();
+            this.lblHeadProcessValue = new System.Windows.Forms.Label();
+            this.processFlowPanel = new System.Windows.Forms.TableLayoutPanel();
+            this.lblFlowAvoid = new System.Windows.Forms.Label();
+            this.lblFlowArrow1 = new System.Windows.Forms.Label();
+            this.lblFlowPickup = new System.Windows.Forms.Label();
+            this.lblFlowArrow2 = new System.Windows.Forms.Label();
+            this.lblFlowBottom = new System.Windows.Forms.Label();
+            this.lblFlowArrow3 = new System.Windows.Forms.Label();
+            this.lblFlowSide = new System.Windows.Forms.Label();
+            this.lblFlowArrow4 = new System.Windows.Forms.Label();
+            this.lblFlowPlace = new System.Windows.Forms.Label();
+            this.processDetailPanel = new System.Windows.Forms.TableLayoutPanel();
+            this.lblProcessDetailTitle = new System.Windows.Forms.Label();
+            this.lblProcessDetailValue = new System.Windows.Forms.Label();
             this.headVacuum1Panel = new System.Windows.Forms.TableLayoutPanel();
             this.dotHeadVacuum1 = new QMC.CDT_320.Ui.Controls.IndicatorDot();
             this.lblHeadVacuum1 = new System.Windows.Forms.Label();
@@ -186,6 +218,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.grpInfo.SuspendLayout();
             this.infoLayout.SuspendLayout();
             this.headAxisTPanel.SuspendLayout();
+            this.headProcessPanel.SuspendLayout();
+            this.processFlowPanel.SuspendLayout();
+            this.processDetailPanel.SuspendLayout();
             this.headVacuum1Panel.SuspendLayout();
             this.headVacuum2Panel.SuspendLayout();
             this.headVacuum3Panel.SuspendLayout();
@@ -837,36 +872,43 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             // 
             this.dataGridViewTextBoxColumn1.HeaderText = "Axis";
             this.dataGridViewTextBoxColumn1.Name = "colAxis";
+            this.dataGridViewTextBoxColumn1.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             // 
             // dataGridViewTextBoxColumn2
             // 
             this.dataGridViewTextBoxColumn2.HeaderText = "Current";
             this.dataGridViewTextBoxColumn2.Name = "colCurrent";
+            this.dataGridViewTextBoxColumn2.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             // 
             // dataGridViewTextBoxColumn3
             // 
             this.dataGridViewTextBoxColumn3.HeaderText = "Command";
             this.dataGridViewTextBoxColumn3.Name = "colCommand";
+            this.dataGridViewTextBoxColumn3.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             // 
             // dataGridViewTextBoxColumn4
             // 
             this.dataGridViewTextBoxColumn4.HeaderText = "Servo";
             this.dataGridViewTextBoxColumn4.Name = "colServo";
+            this.dataGridViewTextBoxColumn4.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             // 
             // dataGridViewTextBoxColumn5
             // 
             this.dataGridViewTextBoxColumn5.HeaderText = "Home";
             this.dataGridViewTextBoxColumn5.Name = "colHome";
+            this.dataGridViewTextBoxColumn5.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             // 
             // dataGridViewTextBoxColumn6
             // 
             this.dataGridViewTextBoxColumn6.HeaderText = "Alarm";
             this.dataGridViewTextBoxColumn6.Name = "colAlarm";
+            this.dataGridViewTextBoxColumn6.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             // 
             // dataGridViewTextBoxColumn7
             // 
             this.dataGridViewTextBoxColumn7.HeaderText = "Moving";
             this.dataGridViewTextBoxColumn7.Name = "colMoving";
+            this.dataGridViewTextBoxColumn7.SortMode = System.Windows.Forms.DataGridViewColumnSortMode.NotSortable;
             // 
             // grpInfo
             // 
@@ -896,18 +938,25 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.infoLayout.Controls.Add(this.headBlow2Panel, 1, 1);
             this.infoLayout.Controls.Add(this.headBlow3Panel, 2, 1);
             this.infoLayout.Controls.Add(this.headBlow4Panel, 3, 1);
+            this.infoLayout.Controls.Add(this.headProcessPanel, 0, 2);
+            this.infoLayout.Controls.Add(this.processFlowPanel, 0, 3);
+            this.infoLayout.Controls.Add(this.processDetailPanel, 0, 4);
             this.infoLayout.Dock = System.Windows.Forms.DockStyle.Fill;
             this.infoLayout.Location = new System.Drawing.Point(3, 23);
             this.infoLayout.Name = "infoLayout";
             this.infoLayout.Padding = new System.Windows.Forms.Padding(12, 18, 12, 12);
-            this.infoLayout.RowCount = 5;
+            this.infoLayout.RowCount = 6;
             this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 38F));
             this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 38F));
             this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 38F));
+            this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 42F));
             this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Absolute, 38F));
             this.infoLayout.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
             this.infoLayout.Size = new System.Drawing.Size(882, 303);
             this.infoLayout.TabIndex = 0;
+            this.infoLayout.SetColumnSpan(this.headProcessPanel, 4);
+            this.infoLayout.SetColumnSpan(this.processFlowPanel, 4);
+            this.infoLayout.SetColumnSpan(this.processDetailPanel, 4);
             // 
             // headAxisTPanel
             // 
@@ -950,6 +999,233 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.lblHeadAxisTValue.TabIndex = 1;
             this.lblHeadAxisTValue.Text = "0 deg";
             this.lblHeadAxisTValue.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            // 
+            // headProcessPanel
+            // 
+            this.headProcessPanel.ColumnCount = 2;
+            this.headProcessPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 180F));
+            this.headProcessPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.headProcessPanel.Controls.Add(this.lblHeadProcessTitle, 0, 0);
+            this.headProcessPanel.Controls.Add(this.lblHeadProcessValue, 1, 0);
+            this.headProcessPanel.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.headProcessPanel.Location = new System.Drawing.Point(15, 97);
+            this.headProcessPanel.Name = "headProcessPanel";
+            this.headProcessPanel.RowCount = 1;
+            this.headProcessPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.headProcessPanel.Size = new System.Drawing.Size(852, 32);
+            this.headProcessPanel.TabIndex = 9;
+            // 
+            // lblHeadProcessTitle
+            // 
+            this.lblHeadProcessTitle.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
+            this.lblHeadProcessTitle.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.lblHeadProcessTitle.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblHeadProcessTitle.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblHeadProcessTitle.Location = new System.Drawing.Point(3, 0);
+            this.lblHeadProcessTitle.Name = "lblHeadProcessTitle";
+            this.lblHeadProcessTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
+            this.lblHeadProcessTitle.Size = new System.Drawing.Size(174, 32);
+            this.lblHeadProcessTitle.TabIndex = 0;
+            this.lblHeadProcessTitle.Text = "CURRENT STEP";
+            this.lblHeadProcessTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // lblHeadProcessValue
+            // 
+            this.lblHeadProcessValue.BackColor = System.Drawing.Color.White;
+            this.lblHeadProcessValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.lblHeadProcessValue.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblHeadProcessValue.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
+            this.lblHeadProcessValue.Location = new System.Drawing.Point(183, 0);
+            this.lblHeadProcessValue.Name = "lblHeadProcessValue";
+            this.lblHeadProcessValue.Size = new System.Drawing.Size(666, 32);
+            this.lblHeadProcessValue.TabIndex = 1;
+            this.lblHeadProcessValue.Text = "-";
+            this.lblHeadProcessValue.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            // 
+            // processFlowPanel
+            // 
+            this.processFlowPanel.ColumnCount = 9;
+            this.processFlowPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 20F));
+            this.processFlowPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 22F));
+            this.processFlowPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 20F));
+            this.processFlowPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 22F));
+            this.processFlowPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 20F));
+            this.processFlowPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 22F));
+            this.processFlowPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 20F));
+            this.processFlowPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 22F));
+            this.processFlowPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 20F));
+            this.processFlowPanel.Controls.Add(this.lblFlowAvoid, 0, 0);
+            this.processFlowPanel.Controls.Add(this.lblFlowArrow1, 1, 0);
+            this.processFlowPanel.Controls.Add(this.lblFlowPickup, 2, 0);
+            this.processFlowPanel.Controls.Add(this.lblFlowArrow2, 3, 0);
+            this.processFlowPanel.Controls.Add(this.lblFlowBottom, 4, 0);
+            this.processFlowPanel.Controls.Add(this.lblFlowArrow3, 5, 0);
+            this.processFlowPanel.Controls.Add(this.lblFlowSide, 6, 0);
+            this.processFlowPanel.Controls.Add(this.lblFlowArrow4, 7, 0);
+            this.processFlowPanel.Controls.Add(this.lblFlowPlace, 8, 0);
+            this.processFlowPanel.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.processFlowPanel.Location = new System.Drawing.Point(15, 135);
+            this.processFlowPanel.Name = "processFlowPanel";
+            this.processFlowPanel.RowCount = 1;
+            this.processFlowPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.processFlowPanel.Size = new System.Drawing.Size(852, 36);
+            this.processFlowPanel.TabIndex = 10;
+            // 
+            // lblFlowAvoid
+            // 
+            this.lblFlowAvoid.BackColor = System.Drawing.Color.DimGray;
+            this.lblFlowAvoid.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.lblFlowAvoid.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblFlowAvoid.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.lblFlowAvoid.ForeColor = System.Drawing.Color.White;
+            this.lblFlowAvoid.Location = new System.Drawing.Point(3, 0);
+            this.lblFlowAvoid.Name = "lblFlowAvoid";
+            this.lblFlowAvoid.Size = new System.Drawing.Size(146, 36);
+            this.lblFlowAvoid.TabIndex = 0;
+            this.lblFlowAvoid.Text = "AVOID";
+            this.lblFlowAvoid.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            // 
+            // lblFlowArrow1
+            // 
+            this.lblFlowArrow1.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblFlowArrow1.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
+            this.lblFlowArrow1.Location = new System.Drawing.Point(155, 0);
+            this.lblFlowArrow1.Name = "lblFlowArrow1";
+            this.lblFlowArrow1.Size = new System.Drawing.Size(16, 36);
+            this.lblFlowArrow1.TabIndex = 1;
+            this.lblFlowArrow1.Text = ">";
+            this.lblFlowArrow1.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            // 
+            // lblFlowPickup
+            // 
+            this.lblFlowPickup.BackColor = System.Drawing.Color.DimGray;
+            this.lblFlowPickup.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.lblFlowPickup.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblFlowPickup.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.lblFlowPickup.ForeColor = System.Drawing.Color.White;
+            this.lblFlowPickup.Location = new System.Drawing.Point(177, 0);
+            this.lblFlowPickup.Name = "lblFlowPickup";
+            this.lblFlowPickup.Size = new System.Drawing.Size(146, 36);
+            this.lblFlowPickup.TabIndex = 2;
+            this.lblFlowPickup.Text = "PICKUP";
+            this.lblFlowPickup.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            // 
+            // lblFlowArrow2
+            // 
+            this.lblFlowArrow2.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblFlowArrow2.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
+            this.lblFlowArrow2.Location = new System.Drawing.Point(329, 0);
+            this.lblFlowArrow2.Name = "lblFlowArrow2";
+            this.lblFlowArrow2.Size = new System.Drawing.Size(16, 36);
+            this.lblFlowArrow2.TabIndex = 3;
+            this.lblFlowArrow2.Text = ">";
+            this.lblFlowArrow2.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            // 
+            // lblFlowBottom
+            // 
+            this.lblFlowBottom.BackColor = System.Drawing.Color.DimGray;
+            this.lblFlowBottom.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.lblFlowBottom.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblFlowBottom.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.lblFlowBottom.ForeColor = System.Drawing.Color.White;
+            this.lblFlowBottom.Location = new System.Drawing.Point(351, 0);
+            this.lblFlowBottom.Name = "lblFlowBottom";
+            this.lblFlowBottom.Size = new System.Drawing.Size(146, 36);
+            this.lblFlowBottom.TabIndex = 4;
+            this.lblFlowBottom.Text = "BOTTOM";
+            this.lblFlowBottom.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            // 
+            // lblFlowArrow3
+            // 
+            this.lblFlowArrow3.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblFlowArrow3.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
+            this.lblFlowArrow3.Location = new System.Drawing.Point(503, 0);
+            this.lblFlowArrow3.Name = "lblFlowArrow3";
+            this.lblFlowArrow3.Size = new System.Drawing.Size(16, 36);
+            this.lblFlowArrow3.TabIndex = 5;
+            this.lblFlowArrow3.Text = ">";
+            this.lblFlowArrow3.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            // 
+            // lblFlowSide
+            // 
+            this.lblFlowSide.BackColor = System.Drawing.Color.DimGray;
+            this.lblFlowSide.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.lblFlowSide.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblFlowSide.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.lblFlowSide.ForeColor = System.Drawing.Color.White;
+            this.lblFlowSide.Location = new System.Drawing.Point(525, 0);
+            this.lblFlowSide.Name = "lblFlowSide";
+            this.lblFlowSide.Size = new System.Drawing.Size(146, 36);
+            this.lblFlowSide.TabIndex = 6;
+            this.lblFlowSide.Text = "SIDE";
+            this.lblFlowSide.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            // 
+            // lblFlowArrow4
+            // 
+            this.lblFlowArrow4.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblFlowArrow4.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
+            this.lblFlowArrow4.Location = new System.Drawing.Point(677, 0);
+            this.lblFlowArrow4.Name = "lblFlowArrow4";
+            this.lblFlowArrow4.Size = new System.Drawing.Size(16, 36);
+            this.lblFlowArrow4.TabIndex = 7;
+            this.lblFlowArrow4.Text = ">";
+            this.lblFlowArrow4.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            // 
+            // lblFlowPlace
+            // 
+            this.lblFlowPlace.BackColor = System.Drawing.Color.DimGray;
+            this.lblFlowPlace.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.lblFlowPlace.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblFlowPlace.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
+            this.lblFlowPlace.ForeColor = System.Drawing.Color.White;
+            this.lblFlowPlace.Location = new System.Drawing.Point(699, 0);
+            this.lblFlowPlace.Name = "lblFlowPlace";
+            this.lblFlowPlace.Size = new System.Drawing.Size(150, 36);
+            this.lblFlowPlace.TabIndex = 8;
+            this.lblFlowPlace.Text = "PLACE";
+            this.lblFlowPlace.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            // 
+            // processDetailPanel
+            // 
+            this.processDetailPanel.ColumnCount = 2;
+            this.processDetailPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Absolute, 180F));
+            this.processDetailPanel.ColumnStyles.Add(new System.Windows.Forms.ColumnStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.processDetailPanel.Controls.Add(this.lblProcessDetailTitle, 0, 0);
+            this.processDetailPanel.Controls.Add(this.lblProcessDetailValue, 1, 0);
+            this.processDetailPanel.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.processDetailPanel.Location = new System.Drawing.Point(15, 177);
+            this.processDetailPanel.Name = "processDetailPanel";
+            this.processDetailPanel.RowCount = 1;
+            this.processDetailPanel.RowStyles.Add(new System.Windows.Forms.RowStyle(System.Windows.Forms.SizeType.Percent, 100F));
+            this.processDetailPanel.Size = new System.Drawing.Size(852, 32);
+            this.processDetailPanel.TabIndex = 11;
+            // 
+            // lblProcessDetailTitle
+            // 
+            this.lblProcessDetailTitle.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(200)))), ((int)(((byte)(200)))), ((int)(((byte)(200)))));
+            this.lblProcessDetailTitle.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.lblProcessDetailTitle.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblProcessDetailTitle.Font = new System.Drawing.Font("맑은 고딕", 11F);
+            this.lblProcessDetailTitle.Location = new System.Drawing.Point(3, 0);
+            this.lblProcessDetailTitle.Name = "lblProcessDetailTitle";
+            this.lblProcessDetailTitle.Padding = new System.Windows.Forms.Padding(8, 0, 0, 0);
+            this.lblProcessDetailTitle.Size = new System.Drawing.Size(174, 32);
+            this.lblProcessDetailTitle.TabIndex = 0;
+            this.lblProcessDetailTitle.Text = "PROCESS DETAIL";
+            this.lblProcessDetailTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            // 
+            // lblProcessDetailValue
+            // 
+            this.lblProcessDetailValue.BackColor = System.Drawing.Color.White;
+            this.lblProcessDetailValue.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.lblProcessDetailValue.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lblProcessDetailValue.Font = new System.Drawing.Font("맑은 고딕", 11F, System.Drawing.FontStyle.Bold);
+            this.lblProcessDetailValue.Location = new System.Drawing.Point(183, 0);
+            this.lblProcessDetailValue.Name = "lblProcessDetailValue";
+            this.lblProcessDetailValue.Size = new System.Drawing.Size(666, 32);
+            this.lblProcessDetailValue.TabIndex = 1;
+            this.lblProcessDetailValue.Text = "-";
+            this.lblProcessDetailValue.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
             // headVacuum1Panel
             // 
@@ -1393,6 +1669,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             this.grpInfo.ResumeLayout(false);
             this.infoLayout.ResumeLayout(false);
             this.headAxisTPanel.ResumeLayout(false);
+            this.headProcessPanel.ResumeLayout(false);
+            this.processFlowPanel.ResumeLayout(false);
+            this.processDetailPanel.ResumeLayout(false);
             this.headVacuum1Panel.ResumeLayout(false);
             this.headVacuum2Panel.ResumeLayout(false);
             this.headVacuum3Panel.ResumeLayout(false);

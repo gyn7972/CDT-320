@@ -1231,9 +1231,14 @@ namespace QMC.CDT320
 
         public async Task<int> WaitInputStageAxisInPosition(WaferStageAxis axis, double targetPos, int timeoutMs)
         {
+            return await WaitInputStageAxisInPosition(axis, targetPos, timeoutMs, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        public async Task<int> WaitInputStageAxisInPosition(WaferStageAxis axis, double targetPos, int timeoutMs, CancellationToken ct)
+        {
             try
             {
-                AxisMoveWaitResult waitResult = await WaitInputStageAxisInPositionResult(axis, targetPos, timeoutMs).ConfigureAwait(false);
+                AxisMoveWaitResult waitResult = await WaitInputStageAxisInPositionResult(axis, targetPos, timeoutMs, ct).ConfigureAwait(false);
                 if (waitResult.Success)
                     return 0;
 
@@ -1264,6 +1269,11 @@ namespace QMC.CDT320
 
         public async Task<AxisMoveWaitResult> WaitInputStageAxisInPositionResult(WaferStageAxis axis, double targetPos, int timeoutMs)
         {
+            return await WaitInputStageAxisInPositionResult(axis, targetPos, timeoutMs, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        public async Task<AxisMoveWaitResult> WaitInputStageAxisInPositionResult(WaferStageAxis axis, double targetPos, int timeoutMs, CancellationToken ct)
+        {
             BaseAxis item = ResolveInputStageAxis(axis);
             double tolerance = item.Config != null && item.Config.InPositionTolerance > 0.0
                 ? item.Config.InPositionTolerance
@@ -1273,7 +1283,8 @@ namespace QMC.CDT320
                 targetPos,
                 tolerance,
                 timeoutMs > 0 ? timeoutMs : 10000,
-                0).ConfigureAwait(false);
+                0,
+                ct).ConfigureAwait(false);
         }
 
         public int ManualMoveInputStageAxisJog(WaferStageAxis axis, Direction dir, double speed)
@@ -1336,27 +1347,47 @@ namespace QMC.CDT320
                 using (MotionGuardRuntime.BeginAxisTeachingMove(axis, target, ContinuousJogTargetName))
                     moveTask = SharedRailXMotionRuntime.MoveAxisAsync(axis, target, speed);
 
-                moveTask.ContinueWith(t =>
-                {
-                    try
-                    {
-                        if (t.IsFaulted && t.Exception != null)
-                        {
-                            AlarmManager.Raise(
-                                AlarmSeverity.Warning,
-                                "IN-STAGE-JOG-EX",
-                                Name,
-                                "InputStage bounded jog exception: " + t.Exception.GetBaseException().Message);
-                        }
-                    }
-                    catch
-                    {
-                    }
-                });
+                _ = ObserveBoundedJogMoveAsync(moveTask);
             }
             catch (Exception ex)
             {
                 AlarmManager.Raise(AlarmSeverity.Warning, "IN-STAGE-JOG-EX", Name, ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task ObserveBoundedJogMoveAsync(Task<int> moveTask)
+        {
+            try
+            {
+                if (moveTask == null)
+                    return;
+
+                int result = await moveTask.ConfigureAwait(false);
+                if (result != 0)
+                {
+                    AlarmManager.Raise(
+                        AlarmSeverity.Warning,
+                        "IN-STAGE-JOG-FAIL",
+                        Name,
+                        "InputStage 제한 조그 이동 실패. result=" + result);
+                }
+            }
+            catch (Exception ex)
+            {
+                try
+                {
+                    AlarmManager.Raise(
+                        AlarmSeverity.Warning,
+                        "IN-STAGE-JOG-EX",
+                        Name,
+                        "InputStage 제한 조그 이동 중 예외가 발생했습니다. error=" + ex.Message);
+                }
+                catch
+                {
+                }
             }
             finally
             {

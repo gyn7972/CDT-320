@@ -22,7 +22,13 @@ namespace QMC.CDT_320.Ui.Pages.Work
             if (!IsDesignerMode())
             {
                 _refresh = new Timer { Interval = 1000 };
-                _refresh.Tick += (s, e) => RefreshAll();
+                _refresh.Tick += (s, e) =>
+                {
+                    if (!ShouldRefreshVisible(this))
+                        return;
+
+                    RefreshAll();
+                };
                 _refresh.Start();
                 RefreshAll();
             }

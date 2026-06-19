@@ -9,6 +9,7 @@ using QMC.Common.Motion;
 using System;
 using System.Collections.Generic;
 using System.Runtime.Serialization;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace QMC.CDT320
@@ -24,6 +25,7 @@ namespace QMC.CDT320
         [DataMember] public PickerVisionCoordinateOffsets OutputVisionToPicker { get; set; } = new PickerVisionCoordinateOffsets(); // OutputVisionX/OutputStageY 좌표계를 Picker 좌표계로 변환할 때 사용하는 Picker1~4별 기구 옵셋입니다.
         [DataMember] public double PickerPitchX { get; set; } // Picker1~4 사이 X축 기구 피치입니다.
         [DataMember] public double PickerPitchY { get; set; } // Picker1~4 사이 Y축 기구 피치입니다.
+        [DataMember] public PickerZoneXSetup ZoneX { get; set; } = new PickerZoneXSetup(); // PickerX 엔코더 위치 기준으로 현재 작업 존을 판정하는 범위 설정입니다.
 
         [OnDeserialized]
         private void OnDeserialized(StreamingContext context)
@@ -37,11 +39,14 @@ namespace QMC.CDT320
                 InputVisionToPicker = new PickerVisionCoordinateOffsets();
             if (OutputVisionToPicker == null)
                 OutputVisionToPicker = new PickerVisionCoordinateOffsets();
+            if (ZoneX == null)
+                ZoneX = new PickerZoneXSetup();
             if (PickerYFacingXClearance <= 0.0)
                 PickerYFacingXClearance = 150.0;
 
             InputVisionToPicker.EnsureArrays();
             OutputVisionToPicker.EnsureArrays();
+            ZoneX.Ensure();
         }
     }
 
@@ -325,10 +330,17 @@ namespace QMC.CDT320
             return Tuple.Create(bottom, sideResults);
         }
 
-        public async Task<BottomVisionOffset> RequestBottomInspectionAsync(int pickerNo, int timeoutMs)
+        public Task<BottomVisionOffset> RequestBottomInspectionAsync(int pickerNo, int timeoutMs)
+        {
+            return RequestBottomInspectionAsync(pickerNo, timeoutMs, CancellationToken.None);
+        }
+
+        public async Task<BottomVisionOffset> RequestBottomInspectionAsync(int pickerNo, int timeoutMs, CancellationToken ct)
         {
             try
             {
+                ct.ThrowIfCancellationRequested();
+
                 if (IsPickerSimulationOrDryRun())
                     return SimulateBottomInspectionResult(pickerNo);
 
@@ -339,7 +351,7 @@ namespace QMC.CDT320
                     return null;
                 }
 
-                bool triggered = await vision.TriggerBottomExposeAsync(pickerNo, timeoutMs).ConfigureAwait(false);
+                bool triggered = await vision.TriggerBottomExposeAsync(pickerNo, timeoutMs, ct).ConfigureAwait(false);
                 if (!triggered)
                 {
                     Log.Write("Main", "VISION", "PickerBottomInspect",
@@ -347,7 +359,7 @@ namespace QMC.CDT320
                     return null;
                 }
 
-                BottomVisionOffset[] results = await vision.GetBottomResultsAsync(timeoutMs).ConfigureAwait(false);
+                BottomVisionOffset[] results = await vision.GetBottomResultsAsync(timeoutMs, ct).ConfigureAwait(false);
                 if (results == null)
                 {
                     Log.Write("Main", "VISION", "PickerBottomInspect",
@@ -365,6 +377,10 @@ namespace QMC.CDT320
                     Name + " bottom vision result missing picker. pickerNo=" + pickerNo + ", resultCount=" + results.Length + " - Failed");
                 return null;
             }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
                 Log.Write("Main", "VISION", "PickerBottomInspect",
@@ -376,10 +392,17 @@ namespace QMC.CDT320
             }
         }
 
-        public async Task<SideVisionResult> RequestSideInspectionAsync(int pickerNo, int angleDeg, int timeoutMs)
+        public Task<SideVisionResult> RequestSideInspectionAsync(int pickerNo, int angleDeg, int timeoutMs)
+        {
+            return RequestSideInspectionAsync(pickerNo, angleDeg, timeoutMs, CancellationToken.None);
+        }
+
+        public async Task<SideVisionResult> RequestSideInspectionAsync(int pickerNo, int angleDeg, int timeoutMs, CancellationToken ct)
         {
             try
             {
+                ct.ThrowIfCancellationRequested();
+
                 if (IsPickerSimulationOrDryRun())
                     return SimulateSideInspectionResult(pickerNo);
 
@@ -391,7 +414,7 @@ namespace QMC.CDT320
                 }
 
                 int sideNo = angleDeg == 90 ? 2 : 1;
-                bool triggered = await vision.TriggerSideExposeAsync(pickerNo, sideNo, timeoutMs).ConfigureAwait(false);
+                bool triggered = await vision.TriggerSideExposeAsync(pickerNo, sideNo, timeoutMs, ct).ConfigureAwait(false);
                 if (!triggered)
                 {
                     Log.Write("Main", "VISION", "PickerSideInspect",
@@ -401,7 +424,7 @@ namespace QMC.CDT320
                     return null;
                 }
 
-                SideVisionResult result = await vision.GetSideResultAsync(pickerNo, timeoutMs).ConfigureAwait(false);
+                SideVisionResult result = await vision.GetSideResultAsync(pickerNo, timeoutMs, ct).ConfigureAwait(false);
                 if (result == null)
                 {
                     Log.Write("Main", "VISION", "PickerSideInspect",
@@ -412,6 +435,10 @@ namespace QMC.CDT320
                 }
 
                 return result;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
@@ -599,6 +626,51 @@ namespace QMC.CDT320
             return await MovePickerAxisNamed(axis, targetPos, bFine, targetName).ConfigureAwait(false);
         }
 
+        public async Task<int> MovePickerAxisCommand(PickerAxis axis, double targetPos, bool bFine, string targetName)
+        {
+            return await MovePickerAxisCommandNamed(axis, targetPos, bFine, targetName).ConfigureAwait(false);
+        }
+
+        private async Task<int> MovePickerAxisCommandNamed(PickerAxis axis, double targetPos, bool bFine, string targetName)
+        {
+            try
+            {
+                BaseAxis item = GetAxis(axis);
+                if (!CheckPickerAxisMoveReady(axis))
+                    return RaisePickerAlarm("PK-MOVE-READY", axis + " 이동 준비 상태가 아닙니다.");
+
+                EventLogger.Write(EventKind.Event, "QMC", "PK-MOVE-CMD", Name + " " + axis + " target=" + targetPos);
+                int result;
+                string guardTargetName = BuildPickerGuardTargetName(axis, targetName);
+                using (PickerZoneInterlockRules.BeginPickerZoneMove(side, axis, guardTargetName))
+                {
+                    if (!string.IsNullOrWhiteSpace(guardTargetName))
+                    {
+                        using (MotionGuardRuntime.BeginAxisTeachingMove(item, targetPos, guardTargetName))
+                        {
+                            result = await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, ResolveMoveVelocity(item, bFine)).ConfigureAwait(false);
+                        }
+                    }
+                    else
+                    {
+                        result = await SharedRailXMotionRuntime.MoveAxisAsync(item, targetPos, ResolveMoveVelocity(item, bFine)).ConfigureAwait(false);
+                    }
+
+                    if (result != 0 || item.IsAlarm)
+                        return RaisePickerAlarm("PK-MOVE", axis + " 이동 명령 실패. result=" + result + ", alarm=" + item.IsAlarm);
+                }
+
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                return RaisePickerAlarm("PK-MOVE-EX", axis + " 이동 명령 예외: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
         private async Task<int> MovePickerAxisNamed(PickerAxis axis, double targetPos, bool bFine, string targetName)
         {
             try
@@ -777,28 +849,102 @@ namespace QMC.CDT320
 
         public async Task<bool> WaitPickerAxisMoveDone(PickerAxis axis, int timeoutMs)
         {
-            AxisMoveWaitResult waitResult = await WaitPickerAxisMoveDoneInPosition(axis, timeoutMs).ConfigureAwait(false);
-            return waitResult.Success;
+            return await WaitPickerAxisMoveDone(axis, timeoutMs, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        public async Task<bool> WaitPickerAxisMoveDone(PickerAxis axis, int timeoutMs, CancellationToken ct)
+        {
+            try
+            {
+                AxisMoveWaitResult waitResult = await WaitPickerAxisMoveDoneInPosition(axis, timeoutMs, ct).ConfigureAwait(false);
+                return waitResult.Success;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "PickerRearWait",
+                    "Picker axis move wait failed. axis=" + axis +
+                    ", error=" + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
         }
 
         public async Task<AxisMoveWaitResult> WaitPickerAxisMoveDoneInPosition(PickerAxis axis, int timeoutMs)
         {
-            BaseAxis item = GetAxis(axis);
-            return await WaitPickerAxisMoveDoneInPosition(axis, item.CommandPosition, timeoutMs).ConfigureAwait(false);
+            return await WaitPickerAxisMoveDoneInPosition(axis, timeoutMs, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        public async Task<AxisMoveWaitResult> WaitPickerAxisMoveDoneInPosition(PickerAxis axis, int timeoutMs, CancellationToken ct)
+        {
+            try
+            {
+                BaseAxis item = GetAxis(axis);
+                return await WaitPickerAxisMoveDoneInPosition(axis, item.CommandPosition, timeoutMs, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "PickerRearWait",
+                    "Picker axis move wait/in-position failed. axis=" + axis +
+                    ", error=" + ex.Message + " - Failed");
+                return new AxisMoveWaitResult(
+                    AxisMoveWaitFailure.Timeout,
+                    "Picker axis move wait exception: " + ex.Message,
+                    "axis=" + axis);
+            }
+            finally
+            {
+            }
         }
 
         public async Task<AxisMoveWaitResult> WaitPickerAxisMoveDoneInPosition(PickerAxis axis, double targetPos, int timeoutMs)
         {
-            BaseAxis item = GetAxis(axis);
-            double tolerance = item.Config != null && item.Config.InPositionTolerance > 0.0
-                ? item.Config.InPositionTolerance
-                : 0.05;
-            return await AxisMoveWaiter.WaitMoveDoneInPositionAsync(
-                item,
-                targetPos,
-                tolerance,
-                timeoutMs,
-                0).ConfigureAwait(false);
+            return await WaitPickerAxisMoveDoneInPosition(axis, targetPos, timeoutMs, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        public async Task<AxisMoveWaitResult> WaitPickerAxisMoveDoneInPosition(PickerAxis axis, double targetPos, int timeoutMs, CancellationToken ct)
+        {
+            try
+            {
+                BaseAxis item = GetAxis(axis);
+                double tolerance = item.Config != null && item.Config.InPositionTolerance > 0.0
+                    ? item.Config.InPositionTolerance
+                    : 0.05;
+                return await AxisMoveWaiter.WaitMoveDoneInPositionAsync(
+                    item,
+                    targetPos,
+                    tolerance,
+                    timeoutMs,
+                    0,
+                    ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("Main", "SYSTEM", "PickerRearWait",
+                    "Picker axis move wait/in-position failed. axis=" + axis +
+                    ", target=" + targetPos +
+                    ", error=" + ex.Message + " - Failed");
+                return new AxisMoveWaitResult(
+                    AxisMoveWaitFailure.Timeout,
+                    "Picker axis move wait exception: " + ex.Message,
+                    "axis=" + axis + ", target=" + targetPos);
+            }
+            finally
+            {
+            }
         }
 
         public async Task<bool> WaitPickerAxesMoveDone(IEnumerable<PickerAxis> targetAxes, int timeoutMs)
@@ -831,6 +977,11 @@ namespace QMC.CDT320
         public Task<bool> WaitPickerAxisInTeachingPosition(PickerAxis axis, string positionName, int timeoutMs)
         {
             return WaitUntilAsync(() => IsPickerAxisInTeachingPosition(axis, positionName), timeoutMs);
+        }
+
+        public Task<bool> WaitPickerAxisInTeachingPosition(PickerAxis axis, string positionName, int timeoutMs, CancellationToken ct)
+        {
+            return WaitUntilAsync(() => IsPickerAxisInTeachingPosition(axis, positionName), timeoutMs, ct);
         }
 
         public bool IsPickerInAvoidPosition()
@@ -1019,9 +1170,25 @@ namespace QMC.CDT320
 
         public async Task PickerBlowOn(int pickerNo, int timeoutMs = 0)
         {
-            SetPickerBlow(pickerNo, true);
-            if (timeoutMs > 0)
-                await Task.Delay(timeoutMs);
+            await PickerBlowOn(pickerNo, timeoutMs, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        public async Task PickerBlowOn(int pickerNo, int timeoutMs, CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                SetPickerBlow(pickerNo, true);
+                if (timeoutMs > 0)
+                    await Task.Delay(timeoutMs, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            finally
+            {
+            }
         }
 
         public void PickerBlowOff(int pickerNo) { SetPickerBlow(pickerNo, false); }
@@ -1421,7 +1588,16 @@ namespace QMC.CDT320
         {
             PickerAlignOffset offset = GetRuntimePickerOffset(index) ?? new PickerAlignOffset();
             return GetPickerTeachingPosition(PickerAxis.PickerX, ResolveZonePositionName(positionArrayName)) +
+                   ResolvePickerPitchXOffset(index) +
                    offset.AlignOffsetX;
+        }
+
+        private double ResolvePickerPitchXOffset(int index)
+        {
+            if (index <= 0 || Setup == null)
+                return 0.0;
+
+            return Math.Abs(Setup.PickerPitchX) * index;
         }
 
         private double ResolvePickerZoneY(string positionArrayName, int index)
@@ -1865,14 +2041,35 @@ namespace QMC.CDT320
 
         private static async Task<bool> WaitUntilAsync(Func<bool> condition, int timeoutMs)
         {
-            DateTime start = DateTime.UtcNow;
-            while ((DateTime.UtcNow - start).TotalMilliseconds < timeoutMs)
+            return await WaitUntilAsync(condition, timeoutMs, CancellationToken.None).ConfigureAwait(false);
+        }
+
+        private static async Task<bool> WaitUntilAsync(Func<bool> condition, int timeoutMs, CancellationToken ct)
+        {
+            try
             {
-                if (condition())
-                    return true;
-                await Task.Delay(10);
+                DateTime start = DateTime.UtcNow;
+                while ((DateTime.UtcNow - start).TotalMilliseconds < timeoutMs)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    if (condition())
+                        return true;
+                    await Task.Delay(10, ct).ConfigureAwait(false);
+                }
+                ct.ThrowIfCancellationRequested();
+                return condition();
             }
-            return condition();
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
         }
     }
 

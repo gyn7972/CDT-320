@@ -19,6 +19,7 @@ namespace QMC.CDT320.Ajin
         private static int _sharedRailXHomeSearchCount;
         private int _motionDirection;
         private bool _isHomeSearching;
+        private int _motionStopSerial;
 
         public int AxisNo { get; }
 
@@ -195,6 +196,7 @@ namespace QMC.CDT320.Ajin
                 IsMoving = true;
                 IsInPosition = false;
                 _motionDirection = targetPos > ActualPosition ? 1 : targetPos < ActualPosition ? -1 : 0;
+                int motionStopSerial = Volatile.Read(ref _motionStopSerial);
 
                 int ret;
                 lock (_sync)
@@ -217,11 +219,13 @@ namespace QMC.CDT320.Ajin
                 }
 
                 RaiseMoveStarted();
-                int waitRet = await WaitUntilMoveDone();
+                int waitRet = await WaitUntilMoveDone(motionStopSerial);
                 if (waitRet == 0 && !IsAlarm)
                     _motionDirection = 0;
                 if (IsAlarm)
                     return FailMotion((int)AlarmCode, "ABS MOVE", "Axis alarm occurred during move.", targetPos, true);
+                if (waitRet == -4)
+                    return FailMotion(waitRet, "ABS MOVE", "축 정지 요청으로 이동 대기를 중단했습니다.", targetPos, true);
                 if (waitRet != 0)
                     return FailMotion(waitRet, "ABS MOVE", "Move wait failed.", targetPos, true);
                 ClearMotionFailure();
@@ -270,6 +274,7 @@ namespace QMC.CDT320.Ajin
 
         public override void Stop()
         {
+            Interlocked.Increment(ref _motionStopSerial);
             _motionDirection = 0;
 
             if (UseSimulation)
@@ -286,6 +291,7 @@ namespace QMC.CDT320.Ajin
 
         public override void EStop()
         {
+            Interlocked.Increment(ref _motionStopSerial);
             _motionDirection = 0;
 
             if (UseSimulation)
@@ -324,6 +330,7 @@ namespace QMC.CDT320.Ajin
                 _motionDirection = 0;
                 _isHomeSearching = true;
                 sharedRailXHomeLimitSuppress = BeginSharedRailXHomeLimitSuppress();
+                int motionStopSerial = Volatile.Read(ref _motionStopSerial);
 
                 int ret;
                 lock (_sync)
@@ -347,7 +354,13 @@ namespace QMC.CDT320.Ajin
                 while (!IsHomeDone && !IsAlarm)
                 {
                     UpdateStatus();
-                    await Task.Delay(20).ContinueWith(_ => { });
+                    if (Volatile.Read(ref _motionStopSerial) != motionStopSerial && !IsMoving)
+                    {
+                        IsMoving = false;
+                        return FailMotion(-4, "HOME", "축 정지 요청으로 HOME 대기를 중단했습니다.", AxisHomeTarget(), true);
+                    }
+
+                    await Task.Delay(20).ConfigureAwait(false);
                     if (++guard > 3000)
                     {
                         IsMoving = false;
@@ -1436,7 +1449,7 @@ namespace QMC.CDT320.Ajin
             return boardAcceleration;
         }
 
-        private async Task<int> WaitUntilMoveDone()
+        private async Task<int> WaitUntilMoveDone(int motionStopSerial)
         {
             int guard = 0;
             bool detectedMotion = false;
@@ -1452,7 +1465,10 @@ namespace QMC.CDT320.Ajin
                 if (!detectedMotion && guard > 20 && IsInPosition)
                     break;
 
-                await Task.Delay(10).ContinueWith(_ => { });
+                if (Volatile.Read(ref _motionStopSerial) != motionStopSerial && !IsMoving)
+                    return -4;
+
+                await Task.Delay(10).ConfigureAwait(false);
                 if (++guard > 6000)
                 {
                     AlarmManager.Raise(

@@ -133,10 +133,10 @@ namespace QMC.CDT320.Interlocks
             if (!VerifyInputVisionXClearForExpanderZ(machine, out reason))
                 return false;
 
-            if (!VerifyFrontPickerClearForExpanderZ(machine != null ? machine.PickerFrontUnit : null, positiveMove, out reason))
+            if (!VerifyFrontPickerClearForExpanderZ(machine, machine != null ? machine.PickerFrontUnit : null, positiveMove, out reason))
                 return false;
 
-            if (!VerifyRearPickerClearForExpanderZ(machine != null ? machine.PickerRearUnit : null, positiveMove, out reason))
+            if (!VerifyRearPickerClearForExpanderZ(machine, machine != null ? machine.PickerRearUnit : null, positiveMove, out reason))
                 return false;
 
             return VerifyInputStageNotBusy(stage, "ExpanderZ", out reason);
@@ -603,7 +603,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
-        private static bool VerifyFrontPickerClearForExpanderZ(PickerFrontUnit picker, bool positiveMove, out string reason)
+        private static bool VerifyFrontPickerClearForExpanderZ(CDT320_Machine machine, PickerFrontUnit picker, bool positiveMove, out string reason)
         {
             reason = string.Empty;
 
@@ -614,6 +614,7 @@ namespace QMC.CDT320.Interlocks
 
                 return VerifyPickerClearForExpanderZ(
                     "FrontPicker",
+                    ResolvePickerEncoderZone(machine, true),
                     picker.PickerX,
                     picker.PickerY,
                     picker.IsPickerAxisInTeachingPosition(PickerAxis.PickerX, "PickPosition"),
@@ -639,7 +640,7 @@ namespace QMC.CDT320.Interlocks
             }
         }
 
-        private static bool VerifyRearPickerClearForExpanderZ(PickerRearUnit picker, bool positiveMove, out string reason)
+        private static bool VerifyRearPickerClearForExpanderZ(CDT320_Machine machine, PickerRearUnit picker, bool positiveMove, out string reason)
         {
             reason = string.Empty;
 
@@ -650,6 +651,7 @@ namespace QMC.CDT320.Interlocks
 
                 return VerifyPickerClearForExpanderZ(
                     "RearPicker",
+                    ResolvePickerEncoderZone(machine, false),
                     picker.PickerX,
                     picker.PickerY,
                     picker.IsPickerAxisInTeachingPosition(PickerAxis.PickerX, "PickPosition"),
@@ -677,6 +679,7 @@ namespace QMC.CDT320.Interlocks
 
         private static bool VerifyPickerClearForExpanderZ(
             string pickerName,
+            string encoderZone,
             BaseAxis pickerX,
             BaseAxis pickerY,
             bool pickerXAtInputZone,
@@ -720,6 +723,7 @@ namespace QMC.CDT320.Interlocks
                     "ExpanderZ move blocked. " + pickerName + " X zone is unknown. " +
                     BuildPickerZoneState(
                         pickerName,
+                        encoderZone,
                         pickerX,
                         pickerY,
                         pickerXAtInputZone,
@@ -739,6 +743,7 @@ namespace QMC.CDT320.Interlocks
                 "ExpanderZ positive move blocked. " + pickerName + " is in Input zone. " +
                 BuildPickerZoneState(
                     pickerName,
+                    encoderZone,
                     pickerX,
                     pickerY,
                     pickerXAtInputZone,
@@ -754,6 +759,7 @@ namespace QMC.CDT320.Interlocks
 
         private static string BuildPickerZoneState(
             string pickerName,
+            string encoderZone,
             BaseAxis pickerX,
             BaseAxis pickerY,
             bool pickerXAtInputZone,
@@ -769,6 +775,7 @@ namespace QMC.CDT320.Interlocks
                 return pickerName +
                        "X=" + FormatAxisPosition(pickerX) +
                        ", " + pickerName + "Y=" + FormatAxisPosition(pickerY) +
+                       ", encoderZone=" + FormatEncoderZone(encoderZone) +
                        ", inputZone=" + pickerXAtInputZone +
                        ", bottomZone=" + pickerXAtBottomZone +
                        ", sideZone=" + pickerXAtSideZone +
@@ -784,6 +791,26 @@ namespace QMC.CDT320.Interlocks
             finally
             {
             }
+        }
+
+        private static string ResolvePickerEncoderZone(CDT320_Machine machine, bool isFront)
+        {
+            try
+            {
+                return PickerZoneInterlockRules.ResolvePickerPhysicalZoneName(machine, isFront);
+            }
+            catch
+            {
+                return "UNKNOWN";
+            }
+            finally
+            {
+            }
+        }
+
+        private static string FormatEncoderZone(string encoderZone)
+        {
+            return string.IsNullOrWhiteSpace(encoderZone) ? "UNKNOWN" : encoderZone;
         }
 
         private static string FormatAxisPosition(BaseAxis axis)

@@ -50,12 +50,16 @@ namespace QMC.CDT_320.Ui.Pages.Work
 
             if (!IsDesignerMode())
             {
+                SelectAvailableOutputSideFromMaterial();
                 ReloadOutputMap();
                 _refresh = new Timer { Interval = 1500 };
                 _refresh.Tick += (s, e) =>
                 {
                     try
                     {
+                        if (!ShouldRefreshVisible(this))
+                            return;
+
                         ReloadOutputMap();
                     }
                     catch
@@ -136,6 +140,7 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (!rbStandard.Checked)
                     return;
                 _selectedSide = BinSide.Good;
+                _lastMapSignature = null;
                 ReloadOutputMap();
             };
 
@@ -144,15 +149,81 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 if (!rbStartIndex.Checked)
                     return;
                 _selectedSide = BinSide.Ng;
+                _lastMapSignature = null;
                 ReloadOutputMap();
             };
 
-            btnReloadActiveMap.Click += (s, e) => ReloadOutputMap();
+            btnReloadActiveMap.Click += (s, e) =>
+            {
+                _lastMapSignature = null;
+                ReloadOutputMap();
+            };
             btnPickStatusSave.Click += async (s, e) => await MoveSelectedBinSlotAsync().ConfigureAwait(true);
             btnManualAlignComplete.Click += (s, e) => InitializeReceivePlan(BinSide.Good);
             btnNeedleBlockDown.Click += (s, e) => InitializeReceivePlan(BinSide.Ng);
             btnThetaMatchMove.Click += (s, e) => SaveMaterialState();
-            btnXyMatchMove.Click += (s, e) => ReloadOutputMap();
+            btnXyMatchMove.Click += (s, e) =>
+            {
+                _lastMapSignature = null;
+                ReloadOutputMap();
+            };
+        }
+
+        protected override void OnVisibleChanged(EventArgs e)
+        {
+            base.OnVisibleChanged(e);
+
+            try
+            {
+                if (IsDesignerMode() || !Visible)
+                    return;
+
+                SelectAvailableOutputSideFromMaterial();
+                _lastMapSignature = null;
+                ReloadOutputMap();
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
+                    "Output stage map visible refresh failed: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+        }
+
+        private void SelectAvailableOutputSideFromMaterial()
+        {
+            try
+            {
+                WaferMaterial good = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputStageGood);
+                WaferMaterial ng = MaterialStateService.GetWaferAtLocation(MaterialLocationKind.OutputStageNg);
+                BinSide nextSide = good != null ? BinSide.Good : (ng != null ? BinSide.Ng : _selectedSide);
+
+                if (nextSide == _selectedSide)
+                    return;
+
+                _selectedSide = nextSide;
+                _lastMapSignature = null;
+                if (nextSide == BinSide.Good)
+                {
+                    if (rbStandard != null && !rbStandard.Checked)
+                        rbStandard.Checked = true;
+                }
+                else
+                {
+                    if (rbStartIndex != null && !rbStartIndex.Checked)
+                        rbStartIndex.Checked = true;
+                }
+            }
+            catch (Exception ex)
+            {
+                QMC.Common.Log.Write("Main", "SYSTEM", "OutputStageMapTransferPage",
+                    "Output stage map side select failed: " + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
         }
 
         private string GetCurrentProjectName()
@@ -218,6 +289,12 @@ namespace QMC.CDT_320.Ui.Pages.Work
             int next = outputWafer != null ? outputWafer.OutputReceiveNextIndex : 0;
             return string.Join("|",
                 _selectedSide.ToString(),
+                outputWafer != null ? outputWafer.WaferId ?? "" : "",
+                outputWafer != null ? outputWafer.State.ToString() : "",
+                outputWafer != null ? outputWafer.OutputReceiveSourceWaferId ?? "" : "",
+                outputWafer != null ? outputWafer.OutputReceiveTotalCount.ToString() : "0",
+                outputWafer != null ? outputWafer.UpdatedAt.ToString("O") : "",
+                BuildOutputReceiveSlotHash(outputWafer).ToString(),
                 map.DieMapX.ToString(),
                 map.DieMapY.ToString(),
                 map.PitchX.ToString("F4"),
@@ -226,6 +303,44 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 map.OriginY.ToString("F4"),
                 (map.Entries != null ? map.Entries.Count : 0).ToString(),
                 next.ToString());
+        }
+
+        private static int BuildOutputReceiveSlotHash(WaferMaterial outputWafer)
+        {
+            try
+            {
+                unchecked
+                {
+                    int hash = 17;
+                    if (outputWafer == null || outputWafer.OutputReceiveSlots == null)
+                        return hash;
+
+                    foreach (OutputReceiveSlotMaterial slot in outputWafer.OutputReceiveSlots
+                        .Where(s => s != null)
+                        .OrderBy(s => s.OrderIndex))
+                    {
+                        hash = hash * 31 + slot.OrderIndex;
+                        hash = hash * 31 + slot.SequenceNo;
+                        hash = hash * 31 + slot.DieMapX;
+                        hash = hash * 31 + slot.DieMapY;
+                        hash = hash * 31 + (slot.IsTarget ? 1 : 0);
+                        hash = hash * 31 + (int)slot.Result;
+                        hash = hash * 31 + slot.BinCode;
+                        hash = hash * 31 + slot.PosX.GetHashCode();
+                        hash = hash * 31 + slot.PosY.GetHashCode();
+                        hash = hash * 31 + (slot.DieUid != null ? StringComparer.OrdinalIgnoreCase.GetHashCode(slot.DieUid) : 0);
+                    }
+
+                    return hash;
+                }
+            }
+            catch
+            {
+                return 0;
+            }
+            finally
+            {
+            }
         }
 
         private OutputStageUnit GetOutputStageUnit()

@@ -79,7 +79,13 @@ namespace QMC.CDT_320.Ui.Pages.Settings
             };
 
             _jogPosTimer = new System.Windows.Forms.Timer { Interval = 200 };
-            _jogPosTimer.Tick += (s, e) => RefreshJogPos();
+            _jogPosTimer.Tick += (s, e) =>
+            {
+                if (!ShouldRefreshVisible(this))
+                    return;
+
+                RefreshJogPos();
+            };
             _jogPosTimer.Start();
         }
 

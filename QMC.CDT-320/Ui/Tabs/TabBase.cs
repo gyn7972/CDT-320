@@ -58,6 +58,7 @@ namespace QMC.CDT_320.Ui.Tabs
             Func<UserControl> pageFactory = null,
             bool toBottomArea        = false)
         {
+            if (minLevel.HasValue) AccessPolicy.RegisterFeature(i18nKey, minLevel.Value);
             var btn = new SidebarButton
             {
                 Text   = Lang.T(i18nKey),
@@ -201,6 +202,7 @@ namespace QMC.CDT_320.Ui.Tabs
         {
             if (btn == null) return null;
 
+            if (minLevel.HasValue) AccessPolicy.RegisterFeature(i18nKey, minLevel.Value);
             btn.Tag  = minLevel.HasValue
                           ? ("i18n:" + i18nKey + ";level:" + minLevel.Value)
                           : ("i18n:" + i18nKey);
