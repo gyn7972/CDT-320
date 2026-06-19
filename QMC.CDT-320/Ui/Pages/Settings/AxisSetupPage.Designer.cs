@@ -12,6 +12,7 @@
         private QMC.CDT_320.Ui.Controls.ActionButton btnReset;
         private QMC.CDT_320.Ui.Controls.ActionButton btnApply;
         private QMC.CDT_320.Ui.Controls.ActionButton btnSharedRailX;
+        private QMC.CDT_320.Ui.Controls.ActionButton btnPickerZone;
 
         protected override void Dispose(bool disposing)
         {
@@ -46,6 +47,7 @@
             this.btnReset = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnApply = new QMC.CDT_320.Ui.Controls.ActionButton();
             this.btnSharedRailX = new QMC.CDT_320.Ui.Controls.ActionButton();
+            this.btnPickerZone = new QMC.CDT_320.Ui.Controls.ActionButton();
             ((System.ComponentModel.ISupportInitialize)(this.grid)).BeginInit();
             this.actionsPanel.SuspendLayout();
             this.SuspendLayout();
@@ -215,6 +217,7 @@
             this.actionsPanel.Controls.Add(this.btnReset);
             this.actionsPanel.Controls.Add(this.btnApply);
             this.actionsPanel.Controls.Add(this.btnSharedRailX);
+            this.actionsPanel.Controls.Add(this.btnPickerZone);
             this.actionsPanel.Dock = System.Windows.Forms.DockStyle.Bottom;
             this.actionsPanel.Location = new System.Drawing.Point(0, 840);
             this.actionsPanel.Name = "actionsPanel";
@@ -291,6 +294,20 @@
             this.btnSharedRailX.TabIndex = 4;
             this.btnSharedRailX.Text = "SHARED RAIL X";
             this.btnSharedRailX.Click += new System.EventHandler(this.OnSharedRailXClick);
+            // 
+            // btnPickerZone
+            // 
+            this.btnPickerZone.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(96)))), ((int)(((byte)(96)))), ((int)(((byte)(96)))));
+            this.btnPickerZone.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.btnPickerZone.Font = new System.Drawing.Font("맑은 고딕", 12F, System.Drawing.FontStyle.Bold);
+            this.btnPickerZone.ForeColor = System.Drawing.Color.White;
+            this.btnPickerZone.Location = new System.Drawing.Point(880, 12);
+            this.btnPickerZone.Margin = new System.Windows.Forms.Padding(4);
+            this.btnPickerZone.Name = "btnPickerZone";
+            this.btnPickerZone.Size = new System.Drawing.Size(160, 44);
+            this.btnPickerZone.TabIndex = 5;
+            this.btnPickerZone.Text = "PICKER ZONE";
+            this.btnPickerZone.Click += new System.EventHandler(this.OnPickerZoneClick);
             // 
             // AxisSetupPage
             // 

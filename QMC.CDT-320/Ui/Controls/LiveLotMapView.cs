@@ -6,6 +6,7 @@ using QMC.CDT320.DieMaps;
 using QMC.CDT320.Lots;
 using QMC.CDT320.Bin;
 using QMC.CDT320.Materials;
+using QMC.CDT_320.Ui.Pages;
 
 namespace QMC.CDT_320.Ui.Controls
 {
@@ -33,7 +34,13 @@ namespace QMC.CDT_320.Ui.Controls
             if (LicenseManager.UsageMode != LicenseUsageMode.Designtime)
             {
                 _refresh = new System.Windows.Forms.Timer { Interval = 1000 };
-                _refresh.Tick += (s, e) => Invalidate();
+                _refresh.Tick += (s, e) =>
+                {
+                    if (!PageBase.ShouldRefreshVisible(this))
+                        return;
+
+                    Invalidate();
+                };
                 _refresh.Start();
             }
         }

@@ -24,6 +24,7 @@ namespace QMC.CDT320.Sequencing
         private VisionAlignResult _visionOffset;
         private double _targetStageY;
         private double _targetPickerX;
+        private double _targetPickerY;
         private double _targetPickerT;
         private double _targetPickerZ;
         private bool _diePicked;
@@ -39,6 +40,7 @@ namespace QMC.CDT320.Sequencing
             public VisionAlignResult VisionOffset;
             public double TargetStageY;
             public double TargetPickerX;
+            public double TargetPickerY;
             public double TargetPickerT;
             public double TargetPickerZ;
             public bool DiePicked;
@@ -831,6 +833,7 @@ namespace QMC.CDT320.Sequencing
                     inputVisionToPickerX +
                     ResolvePickerAlignOffsetX(_currentPickerIndex) +
                     _visionOffset.DeltaX;
+                _targetPickerY = GetPickerTeachingPosition(PickerAxis.PickerY, "PickPosition");
                 _targetPickerT = GetPickerTeachingPosition(GetPickerTAxis(_currentPickerIndex), "PickPosition") +
                     ResolvePickerAlignOffsetT(_currentPickerIndex) +
                     _visionOffset.DeltaTheta;
@@ -841,6 +844,7 @@ namespace QMC.CDT320.Sequencing
                     ", pickerNo=" + _currentPickerNo +
                     ", stageY=" + _targetStageY +
                     ", pickerX=" + _targetPickerX +
+                    ", pickerY=" + _targetPickerY +
                     ", pickerT=" + _targetPickerT +
                     ", pickerZ=" + _targetPickerZ +
                     ", inputVisionX=" + _pickTarget.TargetX +
@@ -998,10 +1002,23 @@ namespace QMC.CDT320.Sequencing
                 if (finalCheck != 0)
                     return finalCheck;
 
+                result = await EnsurePickerYAtAvoidBeforePickMoveAsync(ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
                 result = await MovePickerAxisAndVerifyAsync(
                     PickerAxis.PickerX,
                     _targetPickerX,
                     "pick corrected PickerX",
+                    ct,
+                    targetName).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                result = await MovePickerAxisAndVerifyAsync(
+                    PickerAxis.PickerY,
+                    _targetPickerY,
+                    "pick PickerY teaching position",
                     ct,
                     targetName).ConfigureAwait(false);
                 if (result != 0)
@@ -1026,6 +1043,39 @@ namespace QMC.CDT320.Sequencing
             catch (Exception ex)
             {
                 return Fail("PICKER-PICKUP-XYT-MOVE-EX", Name, "Pick XYT move failed: " + ex.Message);
+            }
+            finally
+            {
+            }
+        }
+
+        private async Task<int> EnsurePickerYAtAvoidBeforePickMoveAsync(CancellationToken ct)
+        {
+            try
+            {
+                double avoid = GetPickerTeachingPosition(PickerAxis.PickerY, "AvoidPosition");
+                if (IsPickerAxisAlreadyInPosition(PickerAxis.PickerY, avoid))
+                    return 0;
+
+                int result = await MovePickerAxisAndVerifyAsync(
+                    PickerAxis.PickerY,
+                    avoid,
+                    "pick picker Y avoid before X/T",
+                    ct,
+                    "AvoidPosition;PickerPhase=SafeY").ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-PICKUP-Y-AVOID-EX", Name,
+                    "PickUp 전 PickerY Avoid 이동 중 예외 발생: " + ex.Message);
             }
             finally
             {
@@ -1067,6 +1117,10 @@ namespace QMC.CDT320.Sequencing
                 return result;
 
             result = CheckPickerAxisInPosition(PickerAxis.PickerX, _targetPickerX, "pick corrected PickerX");
+            if (result != 0)
+                return result;
+
+            result = CheckPickerAxisInPosition(PickerAxis.PickerY, _targetPickerY, "pick PickerY teaching position");
             if (result != 0)
                 return result;
 
@@ -1213,6 +1267,7 @@ namespace QMC.CDT320.Sequencing
             _visionOffset = item != null ? item.VisionOffset : null;
             _targetStageY = item != null ? item.TargetStageY : 0.0;
             _targetPickerX = item != null ? item.TargetPickerX : 0.0;
+            _targetPickerY = item != null ? item.TargetPickerY : 0.0;
             _targetPickerT = item != null ? item.TargetPickerT : 0.0;
             _targetPickerZ = item != null ? item.TargetPickerZ : 0.0;
             _diePicked = item != null && item.DiePicked;
@@ -1230,6 +1285,7 @@ namespace QMC.CDT320.Sequencing
             _currentBatchItem.VisionOffset = _visionOffset;
             _currentBatchItem.TargetStageY = _targetStageY;
             _currentBatchItem.TargetPickerX = _targetPickerX;
+            _currentBatchItem.TargetPickerY = _targetPickerY;
             _currentBatchItem.TargetPickerT = _targetPickerT;
             _currentBatchItem.TargetPickerZ = _targetPickerZ;
             _currentBatchItem.DiePicked = _diePicked || _currentBatchItem.DiePicked;
@@ -1245,6 +1301,7 @@ namespace QMC.CDT320.Sequencing
             _visionOffset = null;
             _targetStageY = 0.0;
             _targetPickerX = 0.0;
+            _targetPickerY = 0.0;
             _targetPickerT = 0.0;
             _targetPickerZ = 0.0;
             _diePicked = false;

@@ -13,7 +13,7 @@ namespace QMC.CDT320.Sequencing
         MoveOutputStageAvoidPosition,
         MoveOutputStageReceivePosition,
         CalculatePlaceTarget,
-        MovePickerXYPickT,
+        MovePickerXYAndTToPlace,
         VerifyPlaceTarget,
         MovePickerZPlace,
         VacuumOff,

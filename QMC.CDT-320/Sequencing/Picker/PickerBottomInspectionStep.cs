@@ -6,6 +6,7 @@ namespace QMC.CDT320.Sequencing
         CheckUnit,
         BuildPickedPickerList,
         MoveAllPickerZToAvoid,
+        MoveOppositePickerToAvoidBeforeInspection,
         SelectNextPicker,
         MoveBottomYToAvoidBeforeInspection,
         MoveBottomXToInspection,

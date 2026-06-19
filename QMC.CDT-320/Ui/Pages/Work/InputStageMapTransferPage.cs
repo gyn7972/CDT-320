@@ -48,6 +48,9 @@ namespace QMC.CDT_320.Ui.Pages.Work
                 {
                     try
                     {
+                        if (!ShouldRefreshVisible(this))
+                            return;
+
                         RefreshActiveInputMapIfChanged();
                         ApplyLotProgress();
                     }

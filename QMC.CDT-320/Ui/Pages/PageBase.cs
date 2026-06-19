@@ -61,6 +61,37 @@ namespace QMC.CDT_320.Ui.Pages
         protected bool IsDesignerMode()
             => LicenseManager.UsageMode == LicenseUsageMode.Designtime;
 
+        public static bool ShouldRefreshVisible(Control control)
+        {
+            try
+            {
+                if (control == null || control.IsDisposed || !control.IsHandleCreated)
+                    return false;
+
+                Control current = control;
+                while (current != null)
+                {
+                    if (!current.Visible)
+                        return false;
+
+                    current = current.Parent;
+                }
+
+                Form form = control.FindForm();
+                if (form != null && (!form.Visible || form.WindowState == FormWindowState.Minimized))
+                    return false;
+
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
         protected bool TryAskManualSequenceStartMode(string actionName, out SequenceStartMode startMode)
         {
             startMode = SequenceStartMode.Resume;

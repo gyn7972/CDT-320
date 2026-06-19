@@ -72,6 +72,68 @@ namespace QMC.CDT320.Interlocks
             return new PickerWorkAreaScope(isFront, zone);
         }
 
+        public static bool TryGetPickerWorkArea(bool isFront, out PickerWorkZone zone, out string owner)
+        {
+            zone = PickerWorkZone.Unknown;
+            owner = string.Empty;
+
+            try
+            {
+                lock (activeZoneLock)
+                {
+                    if (IsPickerWorkAreaActive(isFront, PickerWorkZone.Input, out owner))
+                    {
+                        zone = PickerWorkZone.Input;
+                        return true;
+                    }
+
+                    if (IsPickerWorkAreaActive(isFront, PickerWorkZone.Bottom, out owner))
+                    {
+                        zone = PickerWorkZone.Bottom;
+                        return true;
+                    }
+
+                    if (IsPickerWorkAreaActive(isFront, PickerWorkZone.Side, out owner))
+                    {
+                        zone = PickerWorkZone.Side;
+                        return true;
+                    }
+
+                    if (IsPickerWorkAreaActive(isFront, PickerWorkZone.Output, out owner))
+                    {
+                        zone = PickerWorkZone.Output;
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+            catch
+            {
+                zone = PickerWorkZone.Unknown;
+                owner = string.Empty;
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        public static string ResolvePickerPhysicalZoneName(CDT320_Machine machine, bool isFront)
+        {
+            try
+            {
+                return ToDisplayName(ResolveCurrentXZone(machine, isFront));
+            }
+            catch
+            {
+                return "UNKNOWN";
+            }
+            finally
+            {
+            }
+        }
+
         public static bool VerifyFrontPickerXMove(MotionGuardRuleContext request, out string reason)
         {
             return VerifyPickerXMove(
@@ -578,6 +640,13 @@ namespace QMC.CDT320.Interlocks
             if (machine == null)
                 return PickerWorkZone.Unknown;
 
+            bool encoderConfigured;
+            PickerWorkZone byEncoder;
+            if (TryResolveEncoderXZoneByPosition(machine, isFront, position, out byEncoder, out encoderConfigured))
+                return byEncoder;
+            if (encoderConfigured)
+                return PickerWorkZone.Unknown;
+
             if (IsAtPickerPosition(machine, isFront, PickerAxis.PickerX, "AvoidPosition", position) ||
                 IsAtPickerPosition(machine, isFront, PickerAxis.PickerX, "InputAvoidPosition", position) ||
                 IsAtPickerPosition(machine, isFront, PickerAxis.PickerX, "OutputAvoidPosition", position))
@@ -592,6 +661,125 @@ namespace QMC.CDT320.Interlocks
                 return PickerWorkZone.Output;
 
             return PickerWorkZone.Unknown;
+        }
+
+        private static bool TryResolveEncoderXZoneByPosition(
+            CDT320_Machine machine,
+            bool isFront,
+            double position,
+            out PickerWorkZone zone,
+            out bool configured)
+        {
+            zone = PickerWorkZone.Unknown;
+            configured = false;
+
+            try
+            {
+                PickerZoneXSetup setup = GetPickerZoneXSetup(machine, isFront);
+                if (setup == null || !setup.UseEncoderZone)
+                    return false;
+
+                setup.Ensure();
+                double tolerance = setup.ZoneTolerance > 0.0 ? setup.ZoneTolerance : DefaultTolerance;
+                int matchCount = 0;
+
+                if (IsInZone(setup.Avoid, position, tolerance))
+                    SetEncoderZoneMatch(PickerWorkZone.Avoid, ref zone, ref matchCount);
+                if (IsInZone(setup.Input, position, tolerance))
+                    SetEncoderZoneMatch(PickerWorkZone.Input, ref zone, ref matchCount);
+                if (IsInZone(setup.Bottom, position, tolerance))
+                    SetEncoderZoneMatch(PickerWorkZone.Bottom, ref zone, ref matchCount);
+                if (IsInZone(setup.Side, position, tolerance))
+                    SetEncoderZoneMatch(PickerWorkZone.Side, ref zone, ref matchCount);
+                if (IsInZone(setup.Output, position, tolerance))
+                    SetEncoderZoneMatch(PickerWorkZone.Output, ref zone, ref matchCount);
+
+                configured = IsZoneConfigured(setup);
+                return matchCount == 1;
+            }
+            catch
+            {
+                zone = PickerWorkZone.Unknown;
+                configured = false;
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private static void SetEncoderZoneMatch(PickerWorkZone matchedZone, ref PickerWorkZone zone, ref int matchCount)
+        {
+            matchCount++;
+            if (matchCount == 1)
+                zone = matchedZone;
+            else
+                zone = PickerWorkZone.Unknown;
+        }
+
+        private static bool IsZoneConfigured(PickerZoneXSetup setup)
+        {
+            return setup != null &&
+                   ((setup.Avoid != null && setup.Avoid.Enabled) ||
+                    (setup.Input != null && setup.Input.Enabled) ||
+                    (setup.Bottom != null && setup.Bottom.Enabled) ||
+                    (setup.Side != null && setup.Side.Enabled) ||
+                    (setup.Output != null && setup.Output.Enabled));
+        }
+
+        private static PickerZoneXSetup GetPickerZoneXSetup(CDT320_Machine machine, bool isFront)
+        {
+            try
+            {
+                if (machine == null)
+                    return null;
+
+                PickerZoneXSetup setup = null;
+                if (isFront)
+                    setup = machine.PickerFrontUnit != null && machine.PickerFrontUnit.Setup != null
+                        ? machine.PickerFrontUnit.Setup.ZoneX
+                        : null;
+                else
+                    setup = machine.PickerRearUnit != null && machine.PickerRearUnit.Setup != null
+                        ? machine.PickerRearUnit.Setup.ZoneX
+                        : null;
+
+                if (setup != null)
+                    setup.Ensure();
+
+                return setup;
+            }
+            catch
+            {
+                return null;
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool IsInZone(PickerZoneXRange range, double position, double tolerance)
+        {
+            return range != null && range.Enabled && range.Contains(position, tolerance);
+        }
+
+        private static string ToDisplayName(PickerWorkZone zone)
+        {
+            switch (zone)
+            {
+                case PickerWorkZone.Avoid:
+                    return "AVOID";
+                case PickerWorkZone.Input:
+                    return "PICKUP";
+                case PickerWorkZone.Bottom:
+                    return "INSPECT_B";
+                case PickerWorkZone.Side:
+                    return "INSPECT_S";
+                case PickerWorkZone.Output:
+                    return "PLACE";
+                default:
+                    return "UNKNOWN";
+            }
         }
 
         private static PickerWorkZone ResolveYZoneByPosition(CDT320_Machine machine, bool isFront, double position)

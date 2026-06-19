@@ -1,12 +1,14 @@
+﻿using QMC.CDT320.Lots;
+using QMC.CDT320.Materials;
+using QMC.Common;
+using QMC.Common.Alarms;
+using QMC.Common.Logging;
+using QMC.Common.Motion;
 using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using QMC.CDT320.Lots;
-using QMC.CDT320.Materials;
-using QMC.Common;
-using QMC.Common.Alarms;
-using QMC.Common.Motion;
+using System.Windows.Forms;
 
 namespace QMC.CDT320.Sequencing
 {
@@ -454,6 +456,7 @@ namespace QMC.CDT320.Sequencing
                         return result;
                 }
 
+                //EventLogger.Write(EventKind.InputSeq, "UI", "INPUT-STAGE", title + " 시퀀스 중단: " + message);
                 CurrentStep = CompleteStep;
                 return 0;
             }
