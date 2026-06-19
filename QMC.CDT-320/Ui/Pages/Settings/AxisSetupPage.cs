@@ -947,10 +947,12 @@ namespace QMC.CDT_320.Ui.Pages.Settings
 
                 axis.Config.IsSimulationMode = row.SimulationMode;
 
-                // 모델 → 보드 동기화: AjinAxis 인 경우 즉시 보드에 setup 을 기록한다.
-                QMC.CDT320.Ajin.AjinAxis ajin = axis as QMC.CDT320.Ajin.AjinAxis;
-                if (ajin != null)
-                    ajin.WriteSetupToBoard();
+                // 보드 Write는 현재 테스트 중 전면 금지한다.
+                // 축 Setup/Config 값은 메모리와 motion_axes.json에만 반영하고,
+                // Ajin 보드 파라미터 적용은 별도 검증 후 명시적으로 다시 열어야 한다.
+                // QMC.CDT320.Ajin.AjinAxis ajin = axis as QMC.CDT320.Ajin.AjinAxis;
+                // if (ajin != null)
+                //     ajin.WriteSetupToBoard();
             }
             catch (Exception ex)
             {

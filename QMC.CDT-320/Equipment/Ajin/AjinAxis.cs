@@ -12,7 +12,8 @@ namespace QMC.CDT320.Ajin
 {
     public class AjinAxis : BaseAxis
     {
-        private static readonly bool ForceTestBoard = true;
+        private static readonly bool ForceTestBoard = false;
+        private static readonly bool BlockSetupWriteToBoard = true;
         private const double ForcedTestBoardVelocity = 20.0;
 
         private readonly object _sync = new object();
@@ -195,13 +196,21 @@ namespace QMC.CDT320.Ajin
                 if (limitCheck != 0)
                     return limitCheck;
 
-                // 명시 velocity 가 있으면 그대로 사용한다.
-                // 명시 velocity 가 없으면 DefaultVelocity 에 전체 퍼센트 스케일을 적용한 값을 사용한다.
+                // 명시 velocity 가 없거나, 기존 시퀀스 헬퍼가 스케일된 DefaultVelocity 를 명시값으로 넘긴 경우에는
+                // DefaultVelocity 기반 일반 이동으로 보고 가속/감속도 동일한 비율로 스케일한다.
+                bool useDefaultMotionScale = velocity <= 0.0 ||
+                    MotionSpeedScale.MatchesDefaultVelocityScale(velocity, Config.DefaultVelocity);
                 double vel = velocity > 0 ? velocity : MotionSpeedScale.ApplyDefaultVelocityScale(Config.DefaultVelocity);
+                double acceleration = useDefaultMotionScale
+                    ? MotionSpeedScale.ApplyDefaultAccelerationScale(Config.Acceleration)
+                    : Config.Acceleration;
+                double deceleration = useDefaultMotionScale
+                    ? MotionSpeedScale.ApplyDefaultAccelerationScale(Config.Deceleration)
+                    : Config.Deceleration;
                 double boardTargetPos = ToBoardPosition(targetPos);
                 double boardVelocity = ToBoardVelocity(vel);
-                double boardAcceleration = ToBoardAcceleration(Config.Acceleration);
-                double boardDeceleration = ToBoardAcceleration(Config.Deceleration);
+                double boardAcceleration = ToBoardAcceleration(acceleration);
+                double boardDeceleration = ToBoardAcceleration(deceleration);
                 CommandPosition = targetPos;
                 CurrentVelocity = vel;
                 IsMoving = true;
@@ -1271,6 +1280,12 @@ namespace QMC.CDT320.Ajin
         /// <returns>적용 성공 여부.</returns>
         public bool WriteSetupToBoard()
         {
+            // 현재 장비 테스트 중에는 Ajin 보드 Setup/Config Write를 전면 금지한다.
+            // Speed/Axis 설정 저장은 메모리와 motion_axes.json까지만 반영해야 하며,
+            // 아래 AXM.Set* 호출들은 보드 파라미터 검증 절차를 마친 뒤에만 다시 열어야 한다.
+            if (BlockSetupWriteToBoard)
+                return false;
+
             if (Config == null || Config.IsSimulationMode || !AjinSystem.IsOpen)
                 return false;
 

@@ -50,6 +50,7 @@ namespace QMC.CDT_320.Ui.Pages
         {
             BackColor      = UiTheme.MainBg;
             DoubleBuffered = true;
+            UiDoubleBuffer.Enable(this);
             // Stage 60 — 일부 페이지(StageRecipePage/VisionRecipePage 등) 콘텐츠가 표시 영역을 넘쳐
             // 좌측 옵션 패널 / 트리·리스트 / 하단 액션 영역이 잘려 보이는 이슈가 있다.
             // 사용자 보고: "왼쪽에 트리 컨트롤 있는 페이지들 이게 가려서 안보이는것들 있어".

@@ -141,6 +141,22 @@ namespace QMC.Common.Motion
                 StartStatusUpdateTask();
         }
 
+        /// <summary>
+        /// Axis setup/config is persisted only through MotionAxisStore.
+        /// Machine/Unit settings must not create another EquipmentData axis config source.
+        /// </summary>
+        public override bool SaveSettings()
+        {
+            return true;
+        }
+
+        /// <summary>
+        /// Axis setup/config is loaded by the motion axis registry/store, not UnitDataStore.
+        /// </summary>
+        public override void LoadSettings()
+        {
+        }
+
         // ─────────────────────────────────────────────
         //  §1. 기본 제어 메서드
         // ─────────────────────────────────────────────

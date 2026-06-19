@@ -677,6 +677,7 @@
     </Compile>
     <!-- UI / Util -->
     <Compile Include="Ui\Util\UiClickAuditor.cs" />
+    <Compile Include="Ui\Util\UiDoubleBuffer.cs" />
     <!-- UI / Pages 공용 -->
     <Compile Include="Ui\Pages\PageBase.cs">
       <SubType>UserControl</SubType>

@@ -273,6 +273,7 @@ namespace QMC.CDT320.Ajin
                 axis.Config.JogDeceleration = definition.Config.JogDeceleration;
                 axis.Config.JogStopDeceleration = definition.Config.JogStopDeceleration;
                 axis.Config.StopDeceleration = definition.Config.StopDeceleration;
+                axis.Config.InPositionTolerance = definition.Config.InPositionTolerance;
             }
 
             if (definition.Recipe != null)

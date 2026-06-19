@@ -8,7 +8,7 @@ namespace QMC.Common.Motion
     /// <list type="bullet">
     ///   <item><description>전체 공통 퍼센트로만 적용한다. 축별 개별 퍼센트는 동작 균형/충돌 위험이 있어 금지한다.</description></item>
     ///   <item><description>명시 velocity(velocity &gt; 0), Jog 속도, Mapping ScanVelocity, HomeVelocity 에는 적용하지 않는다.</description></item>
-    ///   <item><description>100% = DefaultVelocity 그대로, 10% = DefaultVelocity 의 10% 속도로 구동.</description></item>
+    ///   <item><description>100% = DefaultVelocity/Acceleration/Deceleration 그대로, 10% = 각각 10%로 구동.</description></item>
     /// </list>
     /// 값은 <c>AppSettings</c> 의 설정으로 저장/로드되며, 로드 시 <see cref="ScalePercent"/> 로 동기화된다.
     /// </summary>
@@ -25,6 +25,9 @@ namespace QMC.Common.Motion
 
         /// <summary>스케일 적용 후 0 이하로 떨어지지 않도록 보장하는 최소 속도.</summary>
         private const double MinScaledVelocity = 0.001;
+
+        /// <summary>스케일 적용 후 0 이하로 떨어지지 않도록 보장하는 최소 가감속도.</summary>
+        private const double MinScaledAcceleration = 0.001;
 
         private static double _scalePercent = DefaultPercent;
 
@@ -70,6 +73,34 @@ namespace QMC.Common.Motion
 
             double scaled = velocity * ScaleFactor;
             return scaled < MinScaledVelocity ? MinScaledVelocity : scaled;
+        }
+
+        /// <summary>
+        /// DefaultVelocity 기반 일반 이동의 가속도/감속도에 전체 퍼센트 스케일을 적용한다.
+        /// </summary>
+        /// <param name="acceleration">AxisConfig.Acceleration 또는 Deceleration 값.</param>
+        /// <returns>퍼센트 스케일이 적용된 가감속도.</returns>
+        public static double ApplyDefaultAccelerationScale(double acceleration)
+        {
+            if (acceleration <= 0.0)
+                return acceleration;
+
+            double scaled = acceleration * ScaleFactor;
+            return scaled < MinScaledAcceleration ? MinScaledAcceleration : scaled;
+        }
+
+        /// <summary>
+        /// 이미 계산되어 전달된 속도가 현재 DefaultVelocity 스케일 결과와 같은지 확인한다.
+        /// 유닛 시퀀스가 스케일된 DefaultVelocity 를 명시 속도로 넘기는 기존 경로를 식별하기 위한 용도다.
+        /// </summary>
+        public static bool MatchesDefaultVelocityScale(double velocity, double defaultVelocity)
+        {
+            if (velocity <= 0.0 || defaultVelocity <= 0.0)
+                return false;
+
+            double scaled = ApplyDefaultVelocityScale(defaultVelocity);
+            double tolerance = Math.Max(0.000001, Math.Abs(scaled) * 0.000001);
+            return Math.Abs(velocity - scaled) <= tolerance;
         }
     }
 }

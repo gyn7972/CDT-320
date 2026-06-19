@@ -4,6 +4,7 @@ using System.Windows.Forms;
 using QMC.CDT_320.Ui.Controls;
 using QMC.CDT_320.Ui.Localization;
 using QMC.CDT_320.Ui.Security;
+using QMC.CDT_320.Ui.Util;
 
 namespace QMC.CDT_320.Ui.Tabs
 {
@@ -33,6 +34,7 @@ namespace QMC.CDT_320.Ui.Tabs
         public TabBase()
         {
             InitializeComponent();
+            UiDoubleBuffer.Enable(this);
         }
 
         public virtual void AttachHost(Form1 host)
@@ -158,14 +160,23 @@ namespace QMC.CDT_320.Ui.Tabs
         public void ShowPage(string key)
         {
             if (!SidebarButtons.ContainsKey(key)) return;
+            if (string.Equals(_currentKey, key, StringComparison.Ordinal))
+                return;
 
             // 버튼 선택 상태 갱신
             foreach (var kv in SidebarButtons)
-                kv.Value.Selected = (kv.Key == key);
+            {
+                bool selected = kv.Key == key;
+                if (kv.Value.Selected != selected)
+                    kv.Value.Selected = selected;
+            }
 
             // 이전 페이지 숨기기
             if (_currentKey != null && PageCache.TryGetValue(_currentKey, out var prev))
-                prev.Visible = false;
+            {
+                if (prev.Visible)
+                    prev.Visible = false;
+            }
 
             _currentKey = key;
 
@@ -179,6 +190,7 @@ namespace QMC.CDT_320.Ui.Tabs
                     {
                         page.Dock    = DockStyle.Fill;
                         page.Visible = false;
+                        UiDoubleBuffer.Enable(page);
                         PnlContent.Controls.Add(page);
                         PageCache[key] = page;
                         Lang.Apply(page);
@@ -187,7 +199,8 @@ namespace QMC.CDT_320.Ui.Tabs
             }
             if (page != null)
             {
-                page.Visible = true;
+                if (!page.Visible)
+                    page.Visible = true;
                 AccessControl.Apply(page);
             }
         }

@@ -12,6 +12,7 @@ namespace QMC.CDT320.Sequencing
         private static readonly object SimVisionRandomLock = new object();
         private static readonly Random SimVisionRandom = new Random();
         private const int SideInspectionTurnSettleDelayMs = 100;
+        private const int VisionInspectionSettleDelayMs = 100;
 
         private readonly List<int> _pickedPickerIndexes = new List<int>();
         private int _pickerCursor;
@@ -735,6 +736,8 @@ namespace QMC.CDT320.Sequencing
 
         private async Task<SideVisionResult> RequestSideResultCoreAsync(int angleDeg, CancellationToken ct)
         {
+            await Task.Delay(VisionInspectionSettleDelayMs, ct).ConfigureAwait(false);
+
             if (IsSimulationOrDryRun())
                 return SimulateSideResult();
 
@@ -783,14 +786,13 @@ namespace QMC.CDT320.Sequencing
         {
             lock (SimVisionRandomLock)
             {
-                bool ok = !Options.SimulateVisionResult || SimVisionRandom.Next(0, 20) != 0;
                 return new SideVisionResult
                 {
                     PickerNo = _currentPickerNo,
-                    Side1Ok = ok,
-                    Side2Ok = ok,
-                    Side3Ok = ok,
-                    Side4Ok = ok
+                    Side1Ok = true,
+                    Side2Ok = true,
+                    Side3Ok = true,
+                    Side4Ok = true
                 };
             }
         }

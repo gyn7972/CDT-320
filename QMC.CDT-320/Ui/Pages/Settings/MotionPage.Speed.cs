@@ -365,24 +365,13 @@ namespace QMC.CDT_320.Ui.Pages.Settings
                     applied++;
                 }
 
-                // 모델 변경 후 보드에도 동일 값을 기록한다 (모델 → 보드 동기화)
-                int boardWritten = 0;
-                foreach (DataGridViewRow row in speedGrid.Rows)
-                {
-                    AjinAxis ajin = row.Tag as AjinAxis;
-                    if (ajin == null)
-                        continue;
-                    if (ajin.WriteSetupToBoard())
-                        boardWritten++;
-                }
-
                 bool saved = SaveMotionAxisSettings();
                 _speedDirty = false;
 
                 QMC.Common.Logging.EventLogger.Write(
                     QMC.Common.Logging.EventKind.Event,
                     "QMC", "SPEED-SAVE",
-                    "axes=" + applied + ", board=" + boardWritten + ", saved=" + saved);
+                    "axes=" + applied + ", saved=" + saved);
 
                 QMC.Common.MessageDialog.Show(saved
                     ? "Saved speed parameters for " + applied + " axes."
