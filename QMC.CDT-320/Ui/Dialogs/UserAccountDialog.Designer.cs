@@ -42,7 +42,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             // txtId
             //
             this.txtId.Font = new System.Drawing.Font("Consolas", 11F);
-            this.txtId.Location = new System.Drawing.Point(150, 22);
+            this.txtId.Location = new System.Drawing.Point(175, 22);
             this.txtId.Name = "txtId";
             this.txtId.Size = new System.Drawing.Size(250, 30);
             //
@@ -56,7 +56,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             // txtPw
             //
             this.txtPw.Font = new System.Drawing.Font("Consolas", 11F);
-            this.txtPw.Location = new System.Drawing.Point(150, 64);
+            this.txtPw.Location = new System.Drawing.Point(175, 64);
             this.txtPw.Name = "txtPw";
             this.txtPw.Size = new System.Drawing.Size(250, 30);
             this.txtPw.UseSystemPasswordChar = true;
@@ -72,7 +72,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             //
             this.cmbLevel.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.cmbLevel.Font = new System.Drawing.Font("맑은 고딕", 11F);
-            this.cmbLevel.Location = new System.Drawing.Point(150, 106);
+            this.cmbLevel.Location = new System.Drawing.Point(175, 106);
             this.cmbLevel.Name = "cmbLevel";
             this.cmbLevel.Size = new System.Drawing.Size(200, 31);
             //
@@ -81,7 +81,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.chkEnabled.AutoSize = true;
             this.chkEnabled.Checked = true;
             this.chkEnabled.Font = new System.Drawing.Font("맑은 고딕", 10F);
-            this.chkEnabled.Location = new System.Drawing.Point(150, 150);
+            this.chkEnabled.Location = new System.Drawing.Point(175, 150);
             this.chkEnabled.Name = "chkEnabled";
             this.chkEnabled.Text = "사용(활성)";
             //
@@ -92,7 +92,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.btnOk.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnOk.Font = new System.Drawing.Font("맑은 고딕", 10F, System.Drawing.FontStyle.Bold);
             this.btnOk.ForeColor = System.Drawing.Color.White;
-            this.btnOk.Location = new System.Drawing.Point(150, 195);
+            this.btnOk.Location = new System.Drawing.Point(175, 195);
             this.btnOk.Name = "btnOk";
             this.btnOk.Size = new System.Drawing.Size(120, 36);
             this.btnOk.Text = "확인";
@@ -102,7 +102,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             //
             this.btnCancel.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnCancel.Font = new System.Drawing.Font("맑은 고딕", 10F);
-            this.btnCancel.Location = new System.Drawing.Point(280, 195);
+            this.btnCancel.Location = new System.Drawing.Point(305, 195);
             this.btnCancel.Name = "btnCancel";
             this.btnCancel.Size = new System.Drawing.Size(120, 36);
             this.btnCancel.Text = "취소";
@@ -114,7 +114,7 @@ namespace QMC.CDT_320.Ui.Dialogs
             this.CancelButton = this.btnCancel;
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.None;
             this.BackColor = System.Drawing.Color.White;
-            this.ClientSize = new System.Drawing.Size(430, 255);
+            this.ClientSize = new System.Drawing.Size(460, 255);
             this.Controls.Add(this.lblId);
             this.Controls.Add(this.txtId);
             this.Controls.Add(this.lblPw);

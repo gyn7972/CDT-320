@@ -519,6 +519,7 @@
     <Compile Include="Ui\UiTheme.cs" />
     <Compile Include="Ui\Localization\Lang.cs" />
     <Compile Include="Ui\Security\AccessControl.cs" />
+    <Compile Include="Ui\Security\AccessPolicy.cs" />
     <Compile Include="Ui\Security\UserAccount.cs" />
     <Compile Include="Ui\Security\UserStore.cs" />
     <Compile Include="Ui\Security\UserLevel.cs" />
