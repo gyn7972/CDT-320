@@ -738,6 +738,12 @@
       <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="Ui\Pages\WorkInfo\Common\PickerWorkInfoPageRuntime.cs" />
+    <Compile Include="Ui\Pages\WorkInfo\Common\PickerHeadDieDialog.Designer.cs">
+      <DependentUpon>PickerHeadDieDialog.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Ui\Pages\WorkInfo\Common\PickerHeadDieDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="Ui\Pages\WorkInfo\FrontPickerPage.Designer.cs">
       <DependentUpon>FrontPickerPage.cs</DependentUpon>
     </Compile>

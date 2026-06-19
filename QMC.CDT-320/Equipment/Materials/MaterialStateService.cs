@@ -174,6 +174,232 @@ namespace QMC.CDT320.Materials
             }
         }
 
+        public static bool UpdatePickerDieManualState(
+            MaterialLocationKind pickerLocation,
+            int pickerNo,
+            DieResult result,
+            bool isInputTarget,
+            string ngCode,
+            string reason,
+            out string message)
+        {
+            message = string.Empty;
+            string dieId = string.Empty;
+            try
+            {
+                if (!IsPickerLocation(pickerLocation))
+                {
+                    message = "Picker 위치가 올바르지 않습니다. location=" + pickerLocation;
+                    return false;
+                }
+
+                if (pickerNo < 1 || pickerNo > 4)
+                {
+                    message = "Picker 번호가 올바르지 않습니다. pickerNo=" + pickerNo;
+                    return false;
+                }
+
+                lock (_stateSync)
+                {
+                    DieMaterial die = FindDieAtPickerNoLock(pickerLocation, pickerNo);
+                    if (die == null)
+                    {
+                        message = "Picker에 Die 정보가 없습니다. location=" + pickerLocation + ", pickerNo=" + pickerNo;
+                        return false;
+                    }
+
+                    dieId = die.DieId;
+                    die.Result = result;
+                    die.IsInputTarget = isInputTarget;
+                    die.UpdatedAt = DateTime.Now;
+
+                    if (die.NgCodes == null)
+                        die.NgCodes = new List<string>();
+
+                    if (result == DieResult.NG)
+                    {
+                        string code = string.IsNullOrWhiteSpace(ngCode) ? "MANUAL-NG" : ngCode.Trim();
+                        if (!die.NgCodes.Contains(code))
+                            die.NgCodes.Add(code);
+                    }
+                    else
+                    {
+                        die.NgCodes.Clear();
+                    }
+
+                    UpsertManualPickerInspectionNoLock(die, result, ngCode, reason);
+                }
+
+                NotifyAndSave("ManualPickerDieStateUpdate:" + dieId);
+                Log.Write("Main", "MATERIAL", "ManualPickerDieStateUpdate",
+                    "Picker die state updated. location=" + pickerLocation +
+                    ", pickerNo=" + pickerNo +
+                    ", dieId=" + dieId +
+                    ", result=" + result +
+                    ", isInputTarget=" + isInputTarget +
+                    ", reason=" + (reason ?? "") + " - Ok");
+
+                message = "Die 상태를 변경했습니다. dieId=" + dieId;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                message = "Picker Die 상태 변경 실패: " + ex.Message;
+                Log.Write("Main", "MATERIAL", "ManualPickerDieStateUpdate",
+                    "Picker die state update failed. location=" + pickerLocation +
+                    ", pickerNo=" + pickerNo +
+                    ", dieId=" + dieId +
+                    ", error=" + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        public static bool ClearPickerDieMaterial(
+            MaterialLocationKind pickerLocation,
+            int pickerNo,
+            string reason,
+            out string message)
+        {
+            message = string.Empty;
+            string dieId = string.Empty;
+            try
+            {
+                if (!IsPickerLocation(pickerLocation))
+                {
+                    message = "Picker 위치가 올바르지 않습니다. location=" + pickerLocation;
+                    return false;
+                }
+
+                if (pickerNo < 1 || pickerNo > 4)
+                {
+                    message = "Picker 번호가 올바르지 않습니다. pickerNo=" + pickerNo;
+                    return false;
+                }
+
+                lock (_stateSync)
+                {
+                    DieMaterial die = FindDieAtPickerNoLock(pickerLocation, pickerNo);
+                    if (die == null)
+                    {
+                        message = "Picker에 제거할 Die 정보가 없습니다. location=" + pickerLocation + ", pickerNo=" + pickerNo;
+                        return false;
+                    }
+
+                    dieId = die.DieId;
+                    die.CurrentLocation = MaterialLocation.Unknown();
+                    die.ReservedPickerLocation = MaterialLocationKind.Unknown;
+                    die.ReservedPickerNo = -1;
+                    die.PickedPickerLocation = MaterialLocationKind.Unknown;
+                    die.PickedPickerNo = -1;
+                    die.PickedAt = DateTime.MinValue;
+                    die.UpdatedAt = DateTime.Now;
+                    UpsertManualPickerInspectionNoLock(die, die.Result, string.Empty, reason);
+                }
+
+                NotifyAndSave("ManualPickerDieClear:" + dieId);
+                Log.Write("Main", "MATERIAL", "ManualPickerDieClear",
+                    "Picker die cleared manually. location=" + pickerLocation +
+                    ", pickerNo=" + pickerNo +
+                    ", dieId=" + dieId +
+                    ", reason=" + (reason ?? "") + " - Ok");
+
+                message = "Picker Die 정보를 제거했습니다. dieId=" + dieId;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                message = "Picker Die 정보 제거 실패: " + ex.Message;
+                Log.Write("Main", "MATERIAL", "ManualPickerDieClear",
+                    "Picker die clear failed. location=" + pickerLocation +
+                    ", pickerNo=" + pickerNo +
+                    ", dieId=" + dieId +
+                    ", error=" + ex.Message + " - Failed");
+                return false;
+            }
+            finally
+            {
+            }
+        }
+
+        private static bool IsPickerLocation(MaterialLocationKind pickerLocation)
+        {
+            return pickerLocation == MaterialLocationKind.PickerFront ||
+                   pickerLocation == MaterialLocationKind.PickerRear;
+        }
+
+        private static DieMaterial FindDieAtPickerNoLock(MaterialLocationKind pickerLocation, int pickerNo)
+        {
+            return State.Dies
+                .Where(d =>
+                    d != null &&
+                    d.CurrentLocation != null &&
+                    d.CurrentLocation.Kind == pickerLocation &&
+                    d.CurrentLocation.PickerNo == pickerNo)
+                .OrderByDescending(GetPickerDieSortTime)
+                .ThenByDescending(d => d.InputSequenceNo)
+                .FirstOrDefault();
+        }
+
+        private static void UpsertManualPickerInspectionNoLock(
+            DieMaterial die,
+            DieResult result,
+            string ngCode,
+            string reason)
+        {
+            if (die == null)
+                return;
+
+            if (die.Inspections == null)
+                die.Inspections = new List<DieInspectionRecord>();
+
+            DieInspectionRecord old = die.Inspections.FirstOrDefault(x =>
+                x != null &&
+                string.Equals(x.InspectionType, "ManualPickerHeadEdit", StringComparison.OrdinalIgnoreCase));
+            if (old != null)
+                die.Inspections.Remove(old);
+
+            DieInspectionRecord record = new DieInspectionRecord();
+            record.InspectionType = "ManualPickerHeadEdit";
+            record.Result = ToMaterialInspectionResult(result);
+            record.CreatedAt = DateTime.Now;
+            record.UpdatedAt = DateTime.Now;
+            record.Measurements = new List<InspectionMeasurement>();
+            record.NgCodes = new List<string>();
+
+            if (result == DieResult.NG)
+                record.NgCodes.Add(string.IsNullOrWhiteSpace(ngCode) ? "MANUAL-NG" : ngCode.Trim());
+
+            if (!string.IsNullOrWhiteSpace(reason))
+            {
+                record.Measurements.Add(new InspectionMeasurement
+                {
+                    Name = "ManualEdit",
+                    Value = 1,
+                    Unit = "",
+                    RawValue = reason.Trim(),
+                    Result = record.Result
+                });
+            }
+
+            die.Inspections.Add(record);
+        }
+
+        private static MaterialInspectionResult ToMaterialInspectionResult(DieResult result)
+        {
+            switch (result)
+            {
+                case DieResult.Good:
+                    return MaterialInspectionResult.Ok;
+                case DieResult.NG:
+                    return MaterialInspectionResult.Ng;
+                default:
+                    return MaterialInspectionResult.Unknown;
+            }
+        }
+
         public static void UpdateInputCassetteMapping(
             int levelCount,
             int slotCount,

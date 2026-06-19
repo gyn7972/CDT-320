@@ -887,15 +887,32 @@ namespace QMC.CDT320.Sequencing
             return 0;
         }
 
-        private async Task<int> MoveOppositePickerToAvoidForPickerMoveAsync(CancellationToken ct)
+        private Task<int> MoveOppositePickerToAvoidForPickerMoveAsync(CancellationToken ct)
         {
-            int result = VerifyOppositePickerNotInInputPickArea(
-                "Pick 위치 이동 전 상대 Picker Input 영역 확인");
-            if (result != 0)
-                return result;
+            try
+            {
+                ct.ThrowIfCancellationRequested();
 
-            CurrentStep = PickerPickUpStep.MovePickerXStageYPickerT;
-            return 0;
+                int result = VerifyOppositePickerNotInInputPickArea(
+                    "Pick 위치 이동 전 상대 Picker Input 영역 확인");
+                if (result != 0)
+                    return Task.FromResult(result);
+
+                CurrentStep = PickerPickUpStep.MovePickerXStageYPickerT;
+                return Task.FromResult(0);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Task.FromResult(Fail("PICKER-PICKUP-OPPOSITE-CHECK-EX", Name,
+                    "Pick 위치 이동 전 상대 Picker Input 영역 확인 중 예외가 발생했습니다. error=" + ex.Message));
+            }
+            finally
+            {
+            }
         }
 
         private int VerifyOppositePickerNotInInputPickArea(string description)
@@ -1155,6 +1172,14 @@ namespace QMC.CDT320.Sequencing
                 SetPickerVacuum(_currentPickerNo, true);
                 await Task.Delay(ResolveVacuumSettleMs(), ct).ConfigureAwait(false);
 
+                int flowResult = await VerifyPickerFlowStateAsync(
+                    _currentPickerNo,
+                    true,
+                    "PickUp Vacuum ON 후 흡착 Flow 확인",
+                    ct).ConfigureAwait(false);
+                if (flowResult != 0)
+                    return flowResult;
+
                 CurrentStep = PickerPickUpStep.VerifyDiePicked;
                 return 0;
             }
@@ -1202,6 +1227,7 @@ namespace QMC.CDT320.Sequencing
                 Measurements = new List<InspectionMeasurement>
                 {
                     BuildBooleanMeasurement("VacuumOn", true),
+                    BuildBooleanMeasurement("FlowCheckOn", true),
                     BuildMeasurement("PickerNo", _currentPickerNo, "no", MaterialInspectionResult.Ok)
                 }
             });

@@ -172,6 +172,10 @@ namespace QMC.CDT320.Sequencing
                 case PickerPlaceStep.MovePickerZToAvoid:
                     return MovePickerZToAvoidAsync(ct);
 
+                // Flow OFF 최종 확인
+                case PickerPlaceStep.VerifyFlowOff:
+                    return VerifyFlowOffAsync(ct);
+
                 // 자재로 아웃풋 스테이지 갱신
                 case PickerPlaceStep.UpdateMaterialToOutputStage:
                     return Task.FromResult(UpdateMaterialToOutputStage());
@@ -179,6 +183,10 @@ namespace QMC.CDT320.Sequencing
                 // 다음 피커 또는 완료 선택
                 case PickerPlaceStep.SelectNextPickerOrComplete:
                     return Task.FromResult(SelectNextPickerOrComplete());
+
+                // Place 완료 후 피커 전체 어보이드 복귀
+                case PickerPlaceStep.MovePickerToAvoidAfterPlace:
+                    return MovePickerToAvoidAfterPlaceAsync(ct);
 
                 default:
                     return Task.FromResult(Fail("PICKER-PLACE-STEP", Name, "Unsupported picker place step. step=" + CurrentStep));
@@ -648,7 +656,10 @@ namespace QMC.CDT320.Sequencing
         {
             try
             {
-                await PickerBlowAsync(_currentPickerNo, ct).ConfigureAwait(false);
+                int result = await PickerBlowAsync(_currentPickerNo, ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
                 CurrentStep = PickerPlaceStep.MovePickerZToAvoid;
                 return 0;
             }
@@ -670,6 +681,20 @@ namespace QMC.CDT320.Sequencing
             PickerAxis zAxis = GetPickerZAxis(_currentPickerIndex);
             double avoid = GetPickerTeachingPosition(zAxis, "AvoidPosition");
             int result = await MovePickerAxisAndVerifyAsync(zAxis, avoid, "place picker Z avoid", ct, "AvoidPosition").ConfigureAwait(false);
+            if (result != 0)
+                return result;
+
+            CurrentStep = PickerPlaceStep.VerifyFlowOff;
+            return 0;
+        }
+
+        private async Task<int> VerifyFlowOffAsync(CancellationToken ct)
+        {
+            int result = await VerifyPickerFlowStateAsync(
+                _currentPickerNo,
+                false,
+                "Place 후 Vacuum OFF/Blow 완료 및 Picker Z Avoid 후 Flow OFF 확인",
+                ct).ConfigureAwait(false);
             if (result != 0)
                 return result;
 
@@ -740,14 +765,42 @@ namespace QMC.CDT320.Sequencing
 
             if (_pickerCursor >= _pickedPickerIndexes.Count)
             {
-                CurrentStep = PickerPlaceStep.Complete;
-                ReleaseOutputPlaceArea();
-                ReleaseOutputStageArea();
+                CurrentStep = PickerPlaceStep.MovePickerToAvoidAfterPlace;
                 return 0;
             }
 
             CurrentStep = PickerPlaceStep.SelectNextPicker;
             return 0;
+        }
+
+        private async Task<int> MovePickerToAvoidAfterPlaceAsync(CancellationToken ct)
+        {
+            try
+            {
+                int result = await MoveCurrentPickerToAvoidAndVerifyAsync(
+                    "Place 완료 후 Picker 전체 Avoid 복귀",
+                    ct).ConfigureAwait(false);
+                if (result != 0)
+                    return result;
+
+                ReleaseOutputPlaceArea();
+                ReleaseOutputStageArea();
+                CurrentStep = PickerPlaceStep.Complete;
+                return 0;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-PLACE-AVOID-EX", Name,
+                    "Place 완료 후 Picker Avoid 복귀 중 예외가 발생했습니다. side=" + Side +
+                    ", error=" + ex.Message);
+            }
+            finally
+            {
+            }
         }
 
         private async Task<int> MoveOutputStageAxisAndVerifyAsync(BinStageAxis axis, double target, string description, CancellationToken ct)

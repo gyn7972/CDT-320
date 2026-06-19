@@ -47,8 +47,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
         private readonly Label[] _colletUseValueLabels;
         private readonly IndicatorDot[] _vacuumDots;
         private readonly IndicatorDot[] _blowDots;
+        private readonly IndicatorDot[] _flowDots;
         private readonly Label[] _vacuumLabels;
         private readonly Label[] _blowLabels;
+        private readonly Label[] _flowLabels;
         private readonly DataGridView _axisGrid;
         private readonly Button _btnCountClear;
         private readonly ActionButton _btnInput;
@@ -92,8 +94,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             Label[] colletUseValueLabels,
             IndicatorDot[] vacuumDots,
             IndicatorDot[] blowDots,
+            IndicatorDot[] flowDots,
             Label[] vacuumLabels,
             Label[] blowLabels,
+            Label[] flowLabels,
             DataGridView axisGrid,
             Button btnCountClear,
             ActionButton btnInput,
@@ -123,8 +127,10 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             _colletUseValueLabels = colletUseValueLabels ?? new Label[0];
             _vacuumDots = vacuumDots ?? new IndicatorDot[0];
             _blowDots = blowDots ?? new IndicatorDot[0];
+            _flowDots = flowDots ?? new IndicatorDot[0];
             _vacuumLabels = vacuumLabels ?? new Label[0];
             _blowLabels = blowLabels ?? new Label[0];
+            _flowLabels = flowLabels ?? new Label[0];
             _axisGrid = axisGrid;
             _btnCountClear = btnCountClear;
             _btnInput = btnInput;
@@ -233,6 +239,13 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 SetDot(_vacuumDots[i], false);
             for (int i = 0; i < _blowDots.Length; i++)
                 SetDot(_blowDots[i], false);
+            for (int i = 0; i < _flowDots.Length; i++)
+                SetDot(_flowDots[i], false);
+            for (int i = 0; i < _flowLabels.Length; i++)
+            {
+                if (_flowLabels[i] != null)
+                    _flowLabels[i].Text = "HEAD FLOW #" + (i + 1) + " : OFF";
+            }
         }
 
         private void RefreshSummary(CDT320_Machine machine)
@@ -250,6 +263,7 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 DieMaterial pickedDie = GetPickedDieMaterial(pickerNo);
                 bool hasPickedMaterial = pickedDie != null;
                 bool vacuumDisplay = vacuum || flow || (simulationOrDryRun && hasPickedMaterial);
+                bool flowDisplay = flow || (simulationOrDryRun && hasPickedMaterial);
 
                 if (index < _headValueLabels.Length && _headValueLabels[index] != null)
                 {
@@ -276,11 +290,15 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                     _vacuumLabels[index].Text = "HEAD VACUUM #" + pickerNo + " : " + (vacuumDisplay ? "ON" : "OFF");
                 if (index < _blowLabels.Length && _blowLabels[index] != null)
                     _blowLabels[index].Text = "HEAD BLOW #" + pickerNo + " : " + (blow ? "ON" : "OFF");
+                if (index < _flowLabels.Length && _flowLabels[index] != null)
+                    _flowLabels[index].Text = "HEAD FLOW #" + pickerNo + " : " + (flowDisplay ? "ON" : "OFF");
 
                 if (index < _vacuumDots.Length)
                     SetDot(_vacuumDots[index], vacuumDisplay);
                 if (index < _blowDots.Length)
                     SetDot(_blowDots[index], blow);
+                if (index < _flowDots.Length)
+                    SetDot(_flowDots[index], flowDisplay);
             }
 
             _lblColletChangeValue.Text = cdaOk ? "READY" : "CHECK";
@@ -345,8 +363,11 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             if (_axisGrid.Columns.Count == 0)
                 return;
 
-            if (_axisGrid.Rows.Count == 0)
+            ConfigureAxisGridColumns();
+
+            if (_axisGrid.Rows.Count != 10)
             {
+                _axisGrid.Rows.Clear();
                 AddAxisRow("PICKER X", PickerAxis.PickerX);
                 AddAxisRow("PICKER Y", PickerAxis.PickerY);
                 AddAxisRow("PICKER T #1", PickerAxis.PickerT0);
@@ -357,10 +378,6 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 AddAxisRow("PICKER Z #3", PickerAxis.PickerZ2);
                 AddAxisRow("PICKER T #4", PickerAxis.PickerT3);
                 AddAxisRow("PICKER Z #4", PickerAxis.PickerZ3);
-                AddOffsetRow("PICKER #1 OFFSET", 0);
-                AddOffsetRow("PICKER #2 OFFSET", 1);
-                AddOffsetRow("PICKER #3 OFFSET", 2);
-                AddOffsetRow("PICKER #4 OFFSET", 3);
             }
 
             foreach (DataGridViewRow row in _axisGrid.Rows)
@@ -368,20 +385,42 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                 if (row.Tag == null)
                     continue;
 
-                RuntimeOffsetRowTag offsetTag = row.Tag as RuntimeOffsetRowTag;
-                if (offsetTag != null)
-                {
-                    RefreshOffsetRow(machine, row, offsetTag.PickerIndex);
-                    continue;
-                }
-
                 PickerAxis axisKey = (PickerAxis)row.Tag;
                 BaseAxis axis = GetAxis(machine, axisKey);
                 row.Cells["colCurrent"].Value = axis != null ? FormatAxisDisplay(axis.ActualPosition, axis) : "-";
-                row.Cells["colServo"].Value = axis != null && axis.IsServoOn ? "ON" : "OFF";
-                row.Cells["colHome"].Value = axis != null && axis.IsHomeDone ? "ON" : "OFF";
-                row.Cells["colAlarm"].Value = axis != null && axis.IsAlarm ? "ON" : "OFF";
-                row.Cells["colMoving"].Value = axis != null && axis.IsMoving ? "ON" : "OFF";
+            }
+        }
+
+        private void ConfigureAxisGridColumns()
+        {
+            try
+            {
+                foreach (DataGridViewColumn column in _axisGrid.Columns)
+                {
+                    column.SortMode = DataGridViewColumnSortMode.NotSortable;
+                    column.Visible = column.Name == "colAxis" || column.Name == "colCurrent";
+                    column.ReadOnly = true;
+                }
+
+                if (_axisGrid.Columns.Contains("colAxis"))
+                {
+                    _axisGrid.Columns["colAxis"].HeaderText = "Axis Name";
+                    _axisGrid.Columns["colAxis"].Width = 210;
+                }
+
+                if (_axisGrid.Columns.Contains("colCurrent"))
+                {
+                    _axisGrid.Columns["colCurrent"].HeaderText = "Position";
+                    _axisGrid.Columns["colCurrent"].Width = 180;
+                    _axisGrid.Columns["colCurrent"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+                }
+            }
+            catch (Exception ex)
+            {
+                WriteAlarm("Picker 축 그리드 컬럼 설정 실패: " + ex.Message);
+            }
+            finally
+            {
             }
         }
 
@@ -394,8 +433,9 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
 
                 return AxisUnitConverter.FormatDisplay(nativeValue, axis, "0.###", true);
             }
-            catch
+            catch (Exception ex)
             {
+                WriteAlarm("Picker 축 위치 단위 표시 실패: " + ex.Message);
                 return nativeValue.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
             }
             finally
@@ -426,10 +466,6 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
                   " / Y=" + FormatAxisDisplay(offset.AlignOffsetY, yAxis) +
                   " / T=" + offset.AlignOffsetT.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) + " deg"
                 : "-";
-            row.Cells["colServo"].Value = "-";
-            row.Cells["colHome"].Value = "-";
-            row.Cells["colAlarm"].Value = "-";
-            row.Cells["colMoving"].Value = "-";
         }
 
         private async Task RunSequenceAction(string actionName, SequenceRunMode mode)
@@ -563,6 +599,35 @@ namespace QMC.CDT_320.Ui.Pages.WorkInfo
             {
                 WriteAlarm("Picker sequence failed: " + ex.Message);
                 return false;
+            }
+            finally
+            {
+            }
+        }
+
+        public void ShowHeadDieDialog(int pickerNo)
+        {
+            try
+            {
+                using (PickerHeadDieDialog dialog = new PickerHeadDieDialog(_side, pickerNo))
+                {
+                    DialogResult result = dialog.ShowDialog(_owner);
+                    if (result == DialogResult.OK)
+                    {
+                        MaterialStateService.TryFlushPendingSave(SideName + "HeadDieDialogUpdate");
+                        Refresh();
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                WriteAlarm("Picker Head Die 정보 창 표시 실패: pickerNo=" + pickerNo + ", error=" + ex.Message);
+                QMC.Common.MessageDialog.Show(
+                    _owner,
+                    "Picker Head Die 정보 창 표시 실패:\r\n" + ex.Message,
+                    SideName,
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Error);
             }
             finally
             {

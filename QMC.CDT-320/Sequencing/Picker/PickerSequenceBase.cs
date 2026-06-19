@@ -805,7 +805,15 @@ namespace QMC.CDT320.Sequencing
                 RearPicker.SetPickerVacuum(pickerNo, on);
         }
 
-        protected async Task PickerBlowAsync(int pickerNo, CancellationToken ct)
+        protected void SetPickerBlow(int pickerNo, bool on)
+        {
+            if (Side == PickerSequenceSide.Front)
+                FrontPicker.SetPickerBlow(pickerNo, on);
+            else
+                RearPicker.SetPickerBlow(pickerNo, on);
+        }
+
+        protected async Task<int> PickerBlowAsync(int pickerNo, CancellationToken ct)
         {
             try
             {
@@ -817,20 +825,159 @@ namespace QMC.CDT320.Sequencing
                 if (Side == PickerSequenceSide.Rear && RearPicker != null)
                     waitMs = RearPicker.ResolvePickerBlowTimeMs(pickerNo);
 
-                if (Side == PickerSequenceSide.Front)
-                    await FrontPicker.PickerBlowOn(pickerNo, waitMs, ct).ConfigureAwait(false);
-                else
-                    await RearPicker.PickerBlowOn(pickerNo, waitMs, ct).ConfigureAwait(false);
+                SetPickerBlow(pickerNo, true);
+                if (waitMs > 0)
+                    await Task.Delay(waitMs, ct).ConfigureAwait(false);
 
                 ct.ThrowIfCancellationRequested();
+                return 0;
             }
             catch (OperationCanceledException)
             {
                 throw;
             }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-BLOW", Name,
+                    "Picker Blow 동작 중 예외가 발생했습니다. side=" + Side +
+                    ", pickerNo=" + pickerNo +
+                    ", error=" + ex.Message);
+            }
+            finally
+            {
+                try
+                {
+                    SetPickerBlow(pickerNo, false);
+                }
+                catch (Exception ex)
+                {
+                    WriteLog("PickerBlow",
+                        Name + " Picker Blow OFF 정리 실패. side=" + Side +
+                        ", pickerNo=" + pickerNo +
+                        ", error=" + ex.Message + " - Failed");
+                }
+            }
+        }
+
+        protected async Task<int> VerifyPickerFlowStateAsync(int pickerNo, bool expected, string description, CancellationToken ct)
+        {
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+
+                if (IsPickerSimulationOrDryRun())
+                {
+                    WriteLog("PickerFlowCheck",
+                        Name + " Flow Check 확인은 Simulation/DryRun 조건으로 통과합니다. " +
+                        "side=" + Side +
+                        ", pickerNo=" + pickerNo +
+                        ", expected=" + (expected ? "ON" : "OFF") +
+                        ", description=" + description + " - Bypass");
+                    return 0;
+                }
+
+                int timeoutMs = ResolvePickerIoTimeoutMs(pickerNo);
+                DateTime deadline = DateTime.Now.AddMilliseconds(timeoutMs);
+                bool actual = ReadPickerFlowState(pickerNo);
+
+                while (DateTime.Now <= deadline)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    actual = ReadPickerFlowState(pickerNo);
+                    if (actual == expected)
+                        return 0;
+
+                    await Task.Delay(50, ct).ConfigureAwait(false);
+                }
+
+                actual = ReadPickerFlowState(pickerNo);
+                return Fail("PICKER-FLOW-CHECK", Name,
+                    "Flow Check 확인 실패. side=" + Side +
+                    ", pickerNo=" + pickerNo +
+                    ", expected=" + (expected ? "ON" : "OFF") +
+                    ", actual=" + (actual ? "ON" : "OFF") +
+                    ", timeoutMs=" + timeoutMs +
+                    ", description=" + description);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                return Fail("PICKER-FLOW-CHECK-EX", Name,
+                    "Flow Check 확인 중 예외가 발생했습니다. side=" + Side +
+                    ", pickerNo=" + pickerNo +
+                    ", expected=" + (expected ? "ON" : "OFF") +
+                    ", description=" + description +
+                    ", error=" + ex.Message);
+            }
             finally
             {
             }
+        }
+
+        protected int ResolvePickerIoTimeoutMs(int pickerNo)
+        {
+            try
+            {
+                if (Side == PickerSequenceSide.Front && FrontPicker != null)
+                    return FrontPicker.ResolvePickerIoTimeoutMs(pickerNo);
+
+                if (Side == PickerSequenceSide.Rear && RearPicker != null)
+                    return RearPicker.ResolvePickerIoTimeoutMs(pickerNo);
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PickerFlowCheck",
+                    Name + " Picker I/O timeout 조회 실패. side=" + Side +
+                    ", pickerNo=" + pickerNo +
+                    ", error=" + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+
+            return 5000;
+        }
+
+        protected bool ReadPickerFlowState(int pickerNo)
+        {
+            try
+            {
+                int index = ToPickerIndex(pickerNo);
+                if (Side == PickerSequenceSide.Front &&
+                    FrontPicker != null &&
+                    FrontPicker.FlowChecks != null &&
+                    index >= 0 &&
+                    index < FrontPicker.FlowChecks.Length &&
+                    FrontPicker.FlowChecks[index] != null)
+                {
+                    return FrontPicker.FlowChecks[index].IsOn;
+                }
+
+                if (Side == PickerSequenceSide.Rear &&
+                    RearPicker != null &&
+                    RearPicker.FlowChecks != null &&
+                    index >= 0 &&
+                    index < RearPicker.FlowChecks.Length &&
+                    RearPicker.FlowChecks[index] != null)
+                {
+                    return RearPicker.FlowChecks[index].IsOn;
+                }
+            }
+            catch (Exception ex)
+            {
+                WriteLog("PickerFlowCheck",
+                    Name + " Picker Flow 신호 읽기 실패. side=" + Side +
+                    ", pickerNo=" + pickerNo +
+                    ", error=" + ex.Message + " - Failed");
+            }
+            finally
+            {
+            }
+
+            return false;
         }
 
         protected Task<int> MovePickerAxisCommandAsync(PickerAxis axis, double target, string targetName = null)
